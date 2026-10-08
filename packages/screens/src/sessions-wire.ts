@@ -155,6 +155,10 @@ export function attachmentsOfRecord(record: SessionRecord, beside: Pick<Beside, 
       case "studio":
         out.push({ kind: "studio", id: one.target, title: detail["title"] ?? "Studio" });
         break;
+      case "forked_to":
+      case "forked_from":
+        out.push(one.kind === "forked_to" ? { kind: "forked_to", id: one.target } : { kind: "forked_from", id: one.target });
+        break;
       case "subagent":
         out.push({
           kind: "subagent",
@@ -185,7 +189,12 @@ const tagOf = (tag: WireTag): SessionTag => ({
 });
 
 function askOf(ask: HelmCallInFlight): SessionAsk {
-  return { command: ask.detail === "" ? ask.tool : ask.detail, call: ask.call, offers: ask.offers };
+  return {
+    command: ask.detail === "" ? ask.tool : ask.detail,
+    call: ask.call,
+    offers: ask.offers,
+    ...(ask.questions === undefined || ask.questions.length === 0 ? {} : { questions: ask.questions }),
+  };
 }
 
 const SETTLED: Record<string, string> = {
@@ -286,14 +295,18 @@ export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] 
   const model = hosted?.model ?? terminal?.model;
   const effort = hosted?.effort ?? terminal?.effort;
   const mode = hosted?.mode ?? terminal?.mode;
+  const ended = record.state === "ended";
+  // A session that ended holds nothing, so it owns nothing: what it keeps is the link to its forks.
+  const attachments = attachmentsOfRecord(record, beside).filter((one) => !ended || one.kind === "forked_to" || one.kind === "forked_from");
+  const dead = ended ? ("ended" as const) : hosted === undefined && terminal?.listening !== true ? ("quiet" as const) : undefined;
   const title = cleanTitle(record.title);
-  const attachments = attachmentsOfRecord(record, beside);
   const thread = rows === undefined ? [] : rowsOfThread(record.id, rows, beside.picture);
   return {
     id: record.id,
     address: addressOf(record.id),
     ...(title === undefined ? {} : { title }),
     ...(hosted === undefined ? { terminal: true as const } : {}),
+    ...(dead === undefined ? {} : { dead }),
     // A thread nobody opened has no rows to say the session was ever spoken in: the title and a finished turn say it.
     blank: attachments.length === 0 && title === undefined && record.last_turn_at === undefined && thread.length === 0,
     attachments,
@@ -313,7 +326,23 @@ export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] 
   };
 }
 
-/** The sessions the window draws: the ones still open, the person's own first. A closed session holds nothing, so it owns nothing. */
-export function sessionsOfRecords(records: readonly SessionRecord[], threads: Readonly<Record<string, readonly WireRow[]>>, beside: (id: string) => Beside): Session[] {
-  return records.filter((one) => one.state === "live").map((one) => sessionOfRecord(one, threads[one.id], beside(one.id)));
+/** How long an ended session stays in the list after it was last seen. Older ones are found by search. */
+export const ENDED_LISTED_DAYS = 7;
+
+/**
+ * The sessions the window draws: the ones still open, and the ones that ended, which offer Fork and own
+ * nothing. An ended one last seen before `ENDED_LISTED_DAYS` ago is `older`: the list leaves it off and a
+ * search still finds it.
+ */
+export function sessionsOfRecords(
+  records: readonly SessionRecord[],
+  threads: Readonly<Record<string, readonly WireRow[]>>,
+  beside: (id: string) => Beside,
+  now: number = Date.now(),
+): Session[] {
+  const since = now - ENDED_LISTED_DAYS * 24 * 60 * 60 * 1000;
+  return records.map((one) => {
+    const session = sessionOfRecord(one, threads[one.id], beside(one.id));
+    return one.state === "ended" && Date.parse(one.last_seen_at) < since ? { ...session, older: true as const } : session;
+  });
 }

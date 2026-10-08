@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { Box, Check, CircleDot, Files, Globe, Hand, Megaphone, NotebookText, Search, Terminal, GitBranch, GitPullRequest, KeyRound, Presentation, PencilRuler, ShieldCheck, ShieldEllipsis, ShieldX, Split } from "lucide-react";
+import { Box, Check, CircleDot, Files, Globe, Hand, Megaphone, MoveRight, NotebookText, Search, Terminal, GitBranch, GitPullRequest, KeyRound, Presentation, PencilRuler, ShieldCheck, ShieldEllipsis, ShieldX, Split } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
@@ -17,7 +17,7 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
  * first asked for every section dim and then took it back: once some filled,
  * the empty ones only took room).
  */
-export type LedgerKind = "slot" | "branch" | "pull_request" | "job" | "studio" | "sketch" | "subagent" | "artifact";
+export type LedgerKind = "slot" | "branch" | "pull_request" | "job" | "studio" | "sketch" | "subagent" | "artifact" | "fork";
 
 /** What an artifact is: a page published, a file written outside the code, or a Doc. */
 export type ArtifactForm = "page" | "file" | "doc";
@@ -57,6 +57,7 @@ const SECTIONS: { kind: LedgerKind; label: string; Glyph: LucideIcon }[] = [
   { kind: "sketch", label: "Sketches", Glyph: PencilRuler },
   { kind: "subagent", label: "Subagents", Glyph: Split },
   { kind: "artifact", label: "Artifacts", Glyph: Files },
+  { kind: "fork", label: "Forks", Glyph: MoveRight },
 ];
 
 const ARTIFACT: Record<ArtifactForm, { Glyph: LucideIcon; said: string }> = {

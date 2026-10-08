@@ -21,10 +21,11 @@ use super::address_of;
 use super::process::{Heard, Start};
 use super::rows::{mention_line, new_id, safe_name, UserLine};
 use crate::daemon::Fleet;
+use crate::helm::NotAnswerable;
 use crate::repositories::Served;
 
 /// A session id that names nothing. A 422.
-const NO_SUCH_SESSION: &str = "fleet.no_such_session";
+pub(super) const NO_SUCH_SESSION: &str = "fleet.no_such_session";
 /// A message or a tune to a session that was closed. A 409.
 const SESSION_CLOSED: &str = "fleet.session_closed";
 /// A message with neither words nor a file. A 422.
@@ -36,6 +37,8 @@ const SESSION_UNSTARTED: &str = "fleet.session_unstarted";
 /// An answer naming no ask that is waiting. A 409.
 const SESSION_ASK_NOT_WAITING: &str = "fleet.session_ask_not_waiting";
 
+/// An answer to an ask with questions that leaves one unanswered. A 422.
+const SESSION_ANSWER_INCOMPLETE: &str = "fleet.session_answer_incomplete";
 /// How Fleet signs a word it sends a session: a named voice beside the sessions that write to
 /// one, so no new kind of row reaches Bridge.
 pub(crate) const FLEET_NAME: &str = "Fleet";
@@ -81,6 +84,9 @@ where
         if let Some(from) = start.pilot.take() {
             return self.start_piloted(start, from).await;
         }
+        if let Some(from) = start.fork.take() {
+            return self.start_forked(start, from).await;
+        }
         let served = self.served_named(Some(&start.manifest_id))?;
         let id = new_id();
         let now = self.now().as_str().to_string();
@@ -119,6 +125,7 @@ where
                     ran: false,
                     lease_slot: None,
                     lease_branch: None,
+                    fork_of: None,
                 })
                 .map_err(|why| self.ledger_fault(why))?;
         }
@@ -159,8 +166,16 @@ where
                 call: said.call,
                 answer: said.answer,
                 note: said.note,
+                answers: said.answers,
             })
-            .map_err(|_| self.ask_not_waiting())?;
+            .map_err(|why| match why {
+                NotAnswerable::Incomplete => Refusal::Unacceptable(WireError::raised(
+                    SESSION_ANSWER_INCOMPLETE,
+                    "that ask has questions, and each needs an answer",
+                    self.run_id(),
+                )),
+                _ => self.ask_not_waiting(),
+            })?;
         self.published_hosted(&id).await
     }
 
@@ -709,6 +724,7 @@ where
             directory: directory.clone(),
             session: id.to_string(),
             resuming: hosting.ran,
+            forking: hosting.fork_of.clone(),
             name: address_of(id),
             model: hosting.model.clone(),
             effort: hosting.effort.clone(),

@@ -3309,6 +3309,16 @@ Bridge's half is in `packages/protocol/src/hosted-sessions.ts`, written by hand 
 
 **`log_at` is an instant and not a line number.** The Job's log has no numbers, so the log line for a firing is stamped with the firing's own end, and `get_job_log` finds it by that `at` and its `trigger` field. Bridge's half is `packages/protocol/src/triggers.ts`, written by hand like the rest.
 
+## Protocol 23.69: a session forked from an ended one
+
+`docs/concepts/session.md`, *A forked session*; `docs/spikes/028-can-a-session-be-forked-from-a-dead-one.md`. **Additive only**: two optional fields, one migration and no operation. 23.54 is another branch's.
+
+| Where | Carries | Notes |
+| --- | --- | --- |
+| `start_session` | `StartSession.fork?`: `session_id` | Starts a session as a copy of an ended or dead one's conversation. 409 `fleet.session_fork_live` for a live one, 422 `fleet.no_such_session` for an unknown one. `manifest_id` is read as for any start |
+| `SessionRecord.terminal` | `listening?`: `true` while the session's mod has asked within ten seconds | Absent is not listening. A live terminal session that is not listening is dead for Fork. Published as `session.changed` when it flips, while a window has the thread open |
+| `SessionRecord.attachments` | kinds `forked_to` and `forked_from`, `target` the other session's id, `spent` | Open text as every kind is. **One migration**, `session_fork.hosted_fork_of`: `hosted_sessions.fork_of` |
+
 ## Protocol 23.62: a mod that is out of date
 
 `docs/concepts/session.md`, *A mod that is out of date*. **Additive only**: one optional field on two facts and one on the record.
@@ -3398,6 +3408,29 @@ Bridge's half is in `packages/protocol/src/hosted-sessions.ts`, written by hand 
 | `get_preferences`, `save_preferences` | `Preferences.draft_pull_requests?`, and the name `draft_pull_requests` for a save | This machine's default, off until set. Absent is `false` |
 
 **Bridge starts the draft choice on `pr_mode_default` where `landing` is absent.** A Job approved with no `landing.pr_mode` takes the same answer, so a Bridge that never learned the field still gets the default. **The default Fleet serves is for the workflow the Job was proposed on**: a person who picks another workflow in the proposal sees the first one's until the approval, and what is frozen is the picked workflow's. Bridge's half is in `packages/protocol/src/detail.ts` and `preferences.ts`, written by hand like the rest.
+
+## Protocol 23.70: the merge queue on the hub
+
+Additive only. The repository moved to the forge's merge queue, so `hub.pull_requests` entries say where the queue holds each one, rather than a second list beside them.
+
+| Field | Shape | Notes |
+|---|---|---|
+| `HubPullRequest.queue` | `HubQueue`: `state`, `position?` | Absent from a Fleet before 23.70, and where the pull request is not in the queue and no auto-merge is waiting on its checks |
+| `HubQueue.state` | `waiting_for_ci`, `in_queue` (a state Fleet does not know), `queued`, `awaiting_checks`, `mergeable`, `unmergeable` | **Strict**: Bridge picks a mark from it. `waiting_for_ci` is a pull request with auto-merge on whose own `ci` is still running, so it has no entry yet |
+| `HubQueue.position` | 1-based, 1 is next to merge | Absent for `waiting_for_ci` |
+
+**One more forge call a visit**, beside the open pull requests' listing. A forge that will not answer keeps the last reading. Bridge's half is `packages/protocol/src/merge-lines.ts`.
+
+## Protocol 23.71: a Session's question answered
+
+`docs/concepts/session.md`, *A session Fleet hosts*. **Additive only**: optional fields on two existing DTOs.
+
+| Where | Carries | Notes |
+| --- | --- | --- |
+| `HelmCallInFlight.questions` (`hosted.asked`, `session.row` ask) | `AskedQuestion`: `question`, `header`, `multi_select`, `options` (`label`, `description`) | Present where the call is the agent's `AskUserQuestion`; absent for every other call. `offers` is `allow_once`, `refuse` and nothing else |
+| `answer_session_ask` (`POST /sessions/ask/answer`) | `answers?`: `QuestionAnswer` `question`, `chosen[]` | One entry per question. `allow_once` without every question answered is a 422 `fleet.session_answer_incomplete`. Free text is an entry in `chosen` |
+
+Bridge's half is in `packages/protocol/src/helm-calls.ts` and `hosted-sessions.ts`, written by hand like the rest.
 
 ## Open questions
 

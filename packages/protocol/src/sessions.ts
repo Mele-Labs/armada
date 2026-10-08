@@ -85,6 +85,8 @@ export type TerminalFacts = {
   effort?: string;
   mode?: SessionMode;
   commands?: TerminalCommand[];
+  /** Whether its mod asked within the last ten seconds. Absent is not listening. Since 23.69. */
+  listening?: boolean;
 };
 
 /** `list_sessions`, the most recently seen first. */

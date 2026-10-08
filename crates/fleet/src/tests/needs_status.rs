@@ -25,6 +25,7 @@ fn pull(number: u64, branch: &str, head: &str) -> OpenPull {
         ci: None,
         head: Some(head.to_string()),
         failing: Vec::new(),
+        auto_merge: false,
     }
 }
 

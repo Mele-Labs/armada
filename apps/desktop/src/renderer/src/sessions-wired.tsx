@@ -26,6 +26,7 @@ import type {
   Session,
   SessionAnswer,
   SessionAttachment,
+  SessionQuestionAnswer,
   SessionsDraft,
   SessionTag,
 } from "@armada/screens/src/draft/sessions";
@@ -192,6 +193,15 @@ export class WiredStore {
     return done.value.id;
   }
 
+  /** One call: a new Session starts as a copy of a dead one's conversation. Resolves to it once the window holds it. */
+  private async forking(id: string): Promise<string | undefined> {
+    this.say(undefined);
+    const done = await this.api.forkSession(id);
+    if (!done.ok) return void this.say(done.outcome);
+    await this.held(done.value.id);
+    return done.value.id;
+  }
+
   private async exiting(jobId: string, exit: "submit" | "attest" | "supersede"): Promise<void> {
     this.say(undefined);
     const done = await this.api.exitPilot(jobId, exit);
@@ -237,6 +247,7 @@ export class WiredStore {
     subscribe: this.subscribe,
     start: (tag) => this.starting(tag),
     pilot: (jobId, outcome) => this.piloting(jobId, outcome),
+    fork: (id) => this.forking(id),
     exit: (jobId, exit) => void this.exiting(jobId, exit),
     watch: (id) => void this.api.watchSession(id),
     close: (id) => void this.plain(this.api.closeSession(id)),
@@ -282,10 +293,17 @@ export class WiredStore {
     get commands() {
       return store.commandsRead();
     },
-    answer: (id: string, answer?: SessionAnswer) => {
+    answer: (id: string, answer?: SessionAnswer, answers?: SessionQuestionAnswer[]) => {
       const call = this.lookup(id)?.asked?.call;
       if (call === undefined) return;
-      void this.plain(this.api.answerSessionAsk({ session_id: id, call, answer: answer ?? "allow_once" }));
+      void this.plain(
+        this.api.answerSessionAsk({
+          session_id: id,
+          call,
+          answer: answer ?? "allow_once",
+          ...(answers === undefined ? {} : { answers }),
+        }),
+      );
     },
     };
   }

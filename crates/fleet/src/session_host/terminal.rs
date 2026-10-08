@@ -74,6 +74,15 @@ impl Terminals {
         }
     }
 
+    /// Whether the session's mod has asked within [`LISTENING_FOR`].
+    pub(crate) fn listening(&self, session: &str) -> bool {
+        self.listening
+            .lock()
+            .expect("held across no panic")
+            .get(session)
+            .is_some_and(|one| one.asked_at.elapsed() <= LISTENING_FOR)
+    }
+
     /// What the session's mod said it runs on.
     pub(crate) fn facts_of(&self, session: &str) -> Option<TerminalFacts> {
         self.tuned
@@ -164,8 +173,17 @@ where
     }
 
     async fn watch_terminal(self: Arc<Self>, id: String, mut file: Option<PathBuf>, mut at: u64) {
+        let mut was = self.hosts().terminals().listening(&id);
         loop {
             tokio::time::sleep(LOOKS_EVERY).await;
+            // A mod that stops asking is not an event, so it is noticed here:
+            // the record says `listening`, and a window drawing it must be told
+            // when that changes.
+            let now = self.hosts().terminals().listening(&id);
+            if now != was {
+                was = now;
+                let _ = self.published_hosted(&id).await;
+            }
             if file.is_none() {
                 file = adapters::terminal_thread::find(&self.host().home, &id);
             }

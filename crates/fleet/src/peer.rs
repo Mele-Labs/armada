@@ -206,6 +206,32 @@ pub fn held_within(caller: &Caller, served_on: u16, roots: &[u32], peers: &dyn P
     false
 }
 
+/// Whether `pid` is one of `roots` or a process one of them started, however
+/// deep. **The same walk as [`held_within`]**, for a lease record's holder
+/// rather than a connection's.
+pub fn started_within(roots: &[u32], pid: u32, peers: &dyn PeerOf) -> bool {
+    let mut seen: Vec<u32> = Vec::new();
+    let mut level = roots.to_vec();
+    for _ in 0..DEEPEST {
+        let mut below = Vec::new();
+        for each in level {
+            if each == 0 || seen.contains(&each) || seen.len() >= MOST {
+                continue;
+            }
+            if each == pid {
+                return true;
+            }
+            seen.push(each);
+            below.extend(peers.children(each));
+        }
+        if below.is_empty() {
+            break;
+        }
+        level = below;
+    }
+    false
+}
+
 /// Which Job a call belongs to, over the Drones handed in.
 ///
 /// `None` where no Drone holds that connection — see [`NotACaller`], and see

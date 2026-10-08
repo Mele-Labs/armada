@@ -5,8 +5,8 @@ use std::collections::BTreeMap;
 use std::sync::Mutex;
 
 use adapter_traits::{
-    CiRun, CiRuns, CommitStatus, FromOutside, MergedPull, OpenPulls, RecentlyMergedPulls,
-    WatchedPulls,
+    CiRun, CiRuns, CommitStatus, FromOutside, MergeQueue, MergedPull, OpenPulls,
+    RecentlyMergedPulls, WatchedPulls,
 };
 
 #[derive(Debug, Default)]
@@ -16,6 +16,7 @@ struct Script {
     logs: BTreeMap<String, String>,
     merged: BTreeMap<String, MergedPull>,
     pulls: Option<OpenPulls>,
+    queue: Option<MergeQueue>,
     watched: Option<WatchedPulls>,
     recent: Option<RecentlyMergedPulls>,
     asked_recent: usize,
@@ -55,6 +56,11 @@ impl MainCiScript {
     /// The pull request the forge maps `commit` to.
     pub fn merged_by(&self, commit: &str, pull: MergedPull) {
         self.with(|it| it.merged.insert(commit.to_string(), pull));
+    }
+
+    /// The merge queue the forge reports; `None` is a forge that would not answer.
+    pub fn queue_is(&self, queue: Option<MergeQueue>) {
+        self.with(|it| it.queue = queue);
     }
 
     /// The open pull requests the forge lists; `None` is a forge that would not answer.
@@ -150,6 +156,10 @@ impl MainCiScript {
                 .clone()
                 .map(|list| list.into_iter().take(limit).collect())
         })
+    }
+
+    pub(super) fn merge_queue(&self) -> Option<MergeQueue> {
+        self.with(|it| it.queue.clone())
     }
 
     pub(super) fn watched(&self) -> Option<WatchedPulls> {

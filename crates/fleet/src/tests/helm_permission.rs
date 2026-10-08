@@ -83,6 +83,7 @@ async fn answer(fleet: &Arc<Hosted>, call: &str, answer: HelmCallAnswer, note: O
             call: String::from(call),
             answer,
             note: note.map(String::from),
+            answers: Vec::new(),
         })
         .await
         .expect("the answer lands");
@@ -235,6 +236,7 @@ async fn an_answer_naming_nothing_waiting_is_refused() {
             call: String::from("helm-404"),
             answer: HelmCallAnswer::AllowOnce,
             note: None,
+            answers: Vec::new(),
         })
         .await
     {

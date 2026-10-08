@@ -52,7 +52,10 @@ export type SessionAttachment =
    * the code, or a Doc. `id` is the address of a page or document, or the path of a file.
    * **A code edit is never one**; those are Branches and Pull requests.
    */
-  | { kind: "artifact"; form: SessionArtifactForm; id: string; title: string };
+  | { kind: "artifact"; form: SessionArtifactForm; id: string; title: string }
+  /** The Session this one was forked to, and the one it was forked from. `id` is the other Session's. */
+  | { kind: "forked_to"; id: string }
+  | { kind: "forked_from"; id: string };
 
 export type SessionArtifactForm = "page" | "file" | "doc";
 
@@ -147,6 +150,13 @@ export type Session = {
   id: string;
   /** What other sessions call it, `s-` and the first eight characters of the id. Drawn where the id would be. */
   address?: string;
+  /**
+   * Nothing more can be said to it: it `ended`, or it runs in a terminal whose mod has stopped asking
+   * (`quiet`). Such a Session offers Fork in place of a message box, and owns nothing.
+   */
+  dead?: "ended" | "quiet";
+  /** Ended more than a week ago: left off the list, found by search. */
+  older?: true;
   /** A session from a terminal: its thread is read from the terminal's transcript, and it is sent words and nothing else. */
   terminal?: true;
   /** Its mod is older than the repository's, or reported no version. */
@@ -207,7 +217,24 @@ export type SessionAnswer = "allow_once" | "allow_and_remember" | "refuse";
  * A permission a Session's agent is held on. `call` is Fleet's id for it and `offers` the answers it
  * will take, in the order to draw them. Absent on the mock's, which offers two.
  */
-export type SessionAsk = { command: string; call?: string; offers?: readonly SessionAnswer[] };
+export type SessionAsk = {
+  command: string;
+  call?: string;
+  offers?: readonly SessionAnswer[];
+  /** The agent's own questions, where the ask is it asking the person rather than for a permission. */
+  questions?: readonly SessionQuestion[];
+};
+
+/** One question the agent put to the person. */
+export type SessionQuestion = {
+  question: string;
+  header: string;
+  multi_select: boolean;
+  options: readonly { label: string; description: string }[];
+};
+
+/** What was chosen for one question: option labels, and the person's own words where they chose Other. */
+export type SessionQuestionAnswer = { question: string; chosen: string[] };
 
 /**
  * What the window holds of Sessions, and the acts on them. **The mock's seam**
@@ -224,6 +251,11 @@ export type SessionsDraft = {
    * `said`. Absent where nothing serves it, and the acts are left off rather than drawn dead.
    */
   pilot?: (jobId: string, outcome: "take_over" | "restart_step") => string | Promise<string | undefined>;
+  /**
+   * Starts a new Session as a copy of a dead one's conversation and returns its id, as `pilot` does.
+   * Absent where nothing serves it, and Fork is left off rather than drawn dead.
+   */
+  fork?: (id: string) => string | Promise<string | undefined>;
   /** One of the three ways out of a pilot. Absent with `pilot`. A refusal is said in `said`. */
   exit?: (jobId: string, exit: "submit" | "attest" | "supersede") => void;
   /**
@@ -261,7 +293,7 @@ export type SessionsDraft = {
   /** The skills and commands `/` offers. */
   commands: readonly SessionCommand[];
   /** Answers the permission a Session is held on. The mock offers two and names none. */
-  answer: (id: string, answer?: SessionAnswer) => void;
+  answer: (id: string, answer?: SessionAnswer, answers?: SessionQuestionAnswer[]) => void;
 };
 
 /** Anything a chip anywhere in Bridge can name. A chip asks who owns it. */

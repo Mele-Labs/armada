@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
-import { Check, CircleDashed, CircleDot, Eye, RotateCw, ShieldX, SquarePen, SquareTerminal } from "lucide-react";
+import { Check, CircleDashed, CircleDot, Eye, RotateCw, ShieldX, SquarePen, SquareTerminal, Unplug } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
@@ -12,11 +12,12 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
  * A Session open, in the glass panel a Job's detail and Overview's panels are
  * (`Card` on the canvas). **The state is one registry mark in the header with
  * its tooltip**, not a colour on the frame: blank is a step not yet started,
- * working is a Drone running, waiting is a Job at review, idle is a turn finished with nothing asked, and failing is a
- * pull request's Checks red. `[conventions.session_state_borrowing]` in
- * `packages/icons/icons/` lends them.
+ * working is a Drone running, waiting is a Job at review, idle is a turn finished with nothing asked, failing is a
+ * pull request's Checks red, and ended is nothing listening, whether it was ended
+ * or its terminal stopped asking. `[conventions.session_state_borrowing]` and
+ * `[conventions.session_fork_marks]` in `packages/icons/` lend them.
  */
-export type SessionState = "blank" | "working" | "waiting" | "failing" | "idle";
+export type SessionState = "blank" | "working" | "waiting" | "failing" | "idle" | "quiet" | "ended";
 
 const MARK: Record<SessionState, LucideIcon> = {
   blank: CircleDashed,
@@ -24,6 +25,8 @@ const MARK: Record<SessionState, LucideIcon> = {
   waiting: Eye,
   failing: ShieldX,
   idle: Check,
+  quiet: Unplug,
+  ended: Unplug,
 };
 
 /** The state's one mark, animated while a turn runs, named by its tooltip. */
@@ -132,8 +135,8 @@ export function SessionFrame({ state, said, id, address, title, onRename, modOut
         <span className="armada-session-frame__id">{address ?? id}</span>
         <SessionTitle {...(title === undefined ? {} : { title })} {...(onRename === undefined ? {} : { onRename })} />
         {actions}
-        {modOutOfDate ? <ModMark /> : null}
-        <SessionMark state={state} said={said} />
+        {modOutOfDate && state !== "quiet" ? <ModMark /> : null}
+        {state === "quiet" && modOutOfDate ? <ModMark /> : <SessionMark state={state} said={said} />}
       </header>
       <div className="armada-session-frame__body">{children}</div>
     </Card>

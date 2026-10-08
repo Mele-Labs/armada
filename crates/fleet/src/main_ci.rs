@@ -73,6 +73,7 @@ where
         };
         let root = served.root().to_string();
         self.notice_pulls(&served).await;
+        self.notice_queue(&served).await;
         self.notice_merged(&served).await;
         let Some(head) = self
             .forge_asked(&root, {

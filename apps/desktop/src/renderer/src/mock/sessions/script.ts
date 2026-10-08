@@ -474,12 +474,25 @@ export function sessionsStore(
     models: MODELS,
     efforts: EFFORTS,
     commands: COMMANDS,
-    answer: (id) =>
+    answer: (id, answer, answers) => {
+      const questioned = now.find((one) => one.id === id)?.asked?.questions !== undefined;
       edit(id, (one) => {
         const { asked, ...rest } = one;
         void asked;
-        return rest;
-      }),
+        return questioned ? { ...rest, turn: { state: "working" } } : rest;
+      });
+      if (!questioned) return;
+      // The agent carries on from what was chosen, or from having been told no.
+      after(900, () => {
+        addTo(id, [
+          answer === "refuse"
+            ? said("Skipped, so I will use the defaults.")
+            : said(`Going with ${(answers ?? []).map((one) => one.chosen.join(" and ")).join(", ")}.`),
+          tool("Edit lunch-order.md"),
+        ]);
+        finishOf(id, "14:31");
+      });
+    },
     later() {
       const next = turns[moment];
       moment += 1;

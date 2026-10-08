@@ -194,11 +194,11 @@ export function SessionList({ groups, query, onQuery, onOpen, onStart, now = Dat
                 <li key={row.id} className="armada-session-list__row" data-state={row.state} aria-label={row.title ?? row.address ?? row.id}>
                   <div className="armada-session-list__top">
                     <button type="button" className="armada-session-list__open" onClick={() => onOpen(row.id)}>
-                      <SessionMark state={row.state} said={row.said} />
+                      {row.state === "quiet" && row.modOutOfDate === true ? <ModMark size={12} /> : <SessionMark state={row.state} said={row.said} />}
                       <span className="armada-session-list__title">
                         {row.title ?? <span className="armada-session-list__id">{row.address ?? row.id}</span>}
                       </span>
-                      {row.modOutOfDate === true ? <ModMark size={12} /> : null}
+                      {row.modOutOfDate === true && row.state !== "quiet" ? <ModMark size={12} /> : null}
                     </button>
                     {row.lastTurn === undefined ? null : (
                       <Tooltip label={`Last turn ${row.lastTurn}`}>

@@ -222,6 +222,10 @@ impl Delivery for GitVcs {
         crate::main_ci::merged_by(in_repo, commit)
     }
 
+    fn merge_queue(&self, in_repo: &str, base: &str) -> Option<adapter_traits::MergeQueue> {
+        crate::merge_queue::read(in_repo, base)
+    }
+
     fn open_pull_requests(&self, in_repo: &str) -> Option<adapter_traits::OpenPulls> {
         crate::main_ci::open_pulls(in_repo)
     }

@@ -128,6 +128,7 @@ impl Rig {
                 effort: None,
                 mode: None,
                 pilot: None,
+                fork: None,
             })
             .await
             .expect("started")

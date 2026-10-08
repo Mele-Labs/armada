@@ -39,6 +39,11 @@ export type SessionsApi = {
    * nothing changed.
    */
   pilotJob: (jobId: string, outcome: PilotOutcome) => Promise<SessionActed>;
+  /**
+   * Starts a new Session as a copy of an ended or dead one's conversation. **Main names the repository
+   * from the Session**, so the renderer sends the Session and nothing else.
+   */
+  forkSession: (sessionId: string) => Promise<SessionActed>;
   /** One of the three ways out of a pilot. `note` is the person's words on an attestation or a supersede. */
   exitPilot: (jobId: string, exit: PilotExit, note?: string) => Promise<Outcome>;
   /** A message, with the pictures and files sent beside it and what it names with `@`. */
@@ -89,6 +94,7 @@ export const SESSIONS_NOTHING_YET: SessionsState = {
 export const SESSIONS_CHANNELS = {
   startSession: "bridge:start-session",
   pilotJob: "bridge:pilot-job",
+  forkSession: "bridge:fork-session",
   exitPilot: "bridge:exit-pilot",
   sendSessionMessage: "bridge:send-session-message",
   answerSessionAsk: "bridge:answer-session-ask",

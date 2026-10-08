@@ -187,6 +187,11 @@ pub struct TerminalFacts {
     pub mode: Option<crate::hosted_sessions::SessionMode>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub commands: Vec<TerminalCommand>,
+    /// Whether its mod asked within the last ten seconds, which is what a
+    /// message sent to it needs. A live session that is not listening is one
+    /// nothing can be said to. Since 23.69.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub listening: bool,
 }
 
 /// What a harness sends Fleet. `POST /sessions/report`.
