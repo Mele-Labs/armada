@@ -9,7 +9,7 @@
 // survives before it names what to do: a command that may or may not have been
 // carried out is the one place pressing again makes two Jobs.
 //
-// Five codes. Four are minted here, and the fifth is Fleet's own — the one
+// Six codes. Five are minted here, and the fifth is Fleet's own — the one
 // code on this surface Bridge did not mint, and does not parse.
 
 import type {
@@ -19,7 +19,7 @@ import type {
   FailureMachineValue,
 } from "@armada/components";
 
-import type { BridgeIdentity, PendingAsked } from "@armada/protocol";
+import type { BridgeIdentity, FleetRestart, PendingAsked } from "@armada/protocol";
 import type { Outcome, WireError } from "@armada/protocol";
 import { issueLink, pendingAt } from "@armada/protocol";
 import { elapsed } from "../fleet";
@@ -113,6 +113,68 @@ export function refusalFailure(error: WireError, bridge: BridgeIdentity): Failur
 
 /** Bridge sent a command and no answer came back inside the wait. */
 const COMMAND_TIMED_OUT: BridgeCode = "bridge.command.timed_out";
+
+/** Restart Fleet was pressed and launchd, or the wait after it, did not bring a Fleet back. */
+const FLEET_RESTART_FAILED: BridgeCode = "bridge.fleet.restart_failed";
+
+/**
+ * Restart Fleet, pressed, and no Fleet came of it.
+ *
+ * **A fault, and what survives is said first.** Nothing here touched a Drone
+ * or a Job: the request is one `launchctl` call, so a failure leaves Fleet
+ * where it was or, for `no_answer`, down with its Drones adopted when it
+ * returns. Minted by Bridge because the answer is launchd's, never Fleet's, so
+ * there is no run id to quote.
+ */
+export function fleetRestartFailure(
+  restart: Extract<FleetRestart, { ok: false }>,
+  bridge: BridgeIdentity,
+): Failure {
+  const said = {
+    not_started_by_armada: {
+      headline: "Fleet was not started by Armada's service",
+      next: "Stop it in the terminal it runs in, then start Fleet again.",
+      note: "No launchd job holds the pid in the runtime file. Restarting the job would start a second Fleet beside this one, so Bridge did not.",
+    },
+    not_running: {
+      headline: "Fleet is not running",
+      next: "Start Fleet. Bridge reconnects on its own.",
+      note: "The runtime file names no Fleet to restart.",
+    },
+    refused: {
+      headline: "launchd refused to restart Fleet",
+      next: "Fleet is as it was. Read the log, or restart it from a terminal.",
+      note: "The answer is launchctl's own. Nothing was changed.",
+    },
+    no_answer: {
+      headline: "Fleet did not come back inside 30 seconds",
+      next: "Read the Fleet log, then restart it again.",
+      note: "launchd took the request. Working Drones are adopted when Fleet is back.",
+    },
+  }[restart.why];
+  return {
+    kind: "fault",
+    headline: said.headline,
+    next: said.next,
+    detailsLabel: "What launchd answered",
+    details: [
+      { label: "Answer", value: restart.why },
+      { label: "Detail", value: restart.detail },
+    ],
+    values: machineLog(bridge),
+    note: said.note,
+    payload: {
+      code: FLEET_RESTART_FAILED,
+      message: said.headline,
+      fields: [
+        { key: "why", value: restart.why },
+        { key: "detail", value: restart.detail },
+        ...logField(bridge),
+      ],
+      ...versions(bridge),
+    },
+  };
+}
 
 /** The request itself failed, so whether Fleet read it is unknown. */
 const COMMAND_UNREACHABLE: BridgeCode = "bridge.command.unreachable";

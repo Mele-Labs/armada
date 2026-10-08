@@ -2345,7 +2345,8 @@ than one timeout message.
 **A protocol mismatch is a degraded notice, not a fourth dot.** Where Fleet and
 this Bridge carry different protocol IDs, Bridge opens no socket and the notice
 reads "Fleet and Bridge do not match", with the first eight digits of each ID in
-its detail row and the one thing to run. Fleet is alive and its Jobs keep
+its detail row and a Restart Fleet button (rotate-cw, spinning while it works;
+the tooltip names what a working Drone costs). Fleet is alive and its Jobs keep
 running, so the edge is the degraded one and the headline is not red. See
 `../practices/protocol.md`, What Bridge does with the ID it reads.
 

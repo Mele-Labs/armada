@@ -22,14 +22,19 @@
 
 import type { ReactNode } from "react";
 import { Alert, Button, ManifestNotice } from "@armada/components";
-import type { ManifestReading, WorktreeReclaimed } from "@armada/protocol";
+import type { BridgeIdentity, FleetRestart, ManifestReading, WorktreeReclaimed } from "@armada/protocol";
 import type { Failure } from "@armada/shell";
-import { FailureBlock } from "@armada/shell";
+import { FleetNotice } from "@armada/shell";
 import { reclaimed, TakenNotice } from "@armada/screens";
 
 export type StandingProps = {
   /** Fleet, where the one connection is not one. */
   fleet: Failure | null;
+  /** The pid the runtime file names, which a restart that did not take shows by moving. */
+  fleetPid: number | null;
+  bridge: BridgeIdentity;
+  /** Restart Fleet, offered where the connection is a protocol mismatch. */
+  onRestartFleet: () => Promise<FleetRestart>;
   /** What Fleet's last read of `armada.yml` came to. */
   manifestReading: ManifestReading | null;
   /** The reading already put away, by the instant Fleet read the file. */
@@ -57,6 +62,9 @@ export type StandingProps = {
 /** Everything true above the surface, in the order it is met. */
 export function Standing({
   fleet,
+  fleetPid,
+  bridge,
+  onRestartFleet,
   manifestReading,
   readingSeen,
   onReadingSeen,
@@ -74,7 +82,9 @@ export function Standing({
       {/* Fleet, when the one connection is not one. The status bar keeps the
           single line; this is the same reading with the four runtime-file
           answers and the log under it. */}
-      {fleet === null ? null : <FailureBlock failure={fleet} onCopied={onCopied} />}
+      {fleet === null ? null : (
+        <FleetNotice fleet={fleet} fleetPid={fleetPid} bridge={bridge} onCopied={onCopied} restart={onRestartFleet} />
+      )}
 
       {/* Fleet's own Manifest read. **Here and not in the status bar**, which
           the contract holds to three states and one colour and warns must not

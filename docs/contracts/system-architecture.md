@@ -300,7 +300,8 @@ guaranteed to work when nothing else does, which only holds if it stays
 small enough to never need modification. Bridge renders a recovery screen
 naming both protocol IDs and offering per-Job kill. Neither the routes nor
 the screen are built yet; until they are, a refused Bridge shows the
-mismatch notice alone.
+mismatch notice, whose Restart Fleet button is a `launchctl` call from
+Bridge and not part of the lifeboat.
 
 In plain HTTP the lifeboat is four routes under a `/v0/` prefix,
 hand-written and `curl`-testable. That is a second reason gRPC was dropped:

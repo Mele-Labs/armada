@@ -33,7 +33,7 @@ import type { StudioAnswer } from "@armada/screens/src/studio-reads";
 import type { AddTask, ApproveWave, DropTask, EditJob, EditTask, MovePlan } from "@armada/protocol";
 import type { ApproveDispatch, BranchesRead, ToProposer } from "@armada/protocol";
 import type { PlanEditAnswer } from "@armada/screens/src/plan-edits";
-import type { Artifact, Followed, LandCheckAt, Opened } from "@armada/protocol";
+import type { Artifact, Followed, FleetRestart, LandCheckAt, Opened } from "@armada/protocol";
 import type { RunListRead, RunOutputRead, StartRun } from "@armada/protocol";
 import type { CheckoutRunListRead, StartCheckoutRun } from "@armada/protocol";
 import type { EditManifest, SaveManifestFile } from "@armada/protocol";
@@ -523,6 +523,7 @@ const api: BridgeApi = {
   // A link in a model's text. The address crosses because nothing else could
   // name it; main opens `http(s):` only. `main/links.ts`.
   openLink: (address: string): Promise<Followed> => ipcRenderer.invoke(CHANNELS.openLink, address),
+  restartFleet: (): Promise<FleetRestart> => ipcRenderer.invoke(CHANNELS.restartFleet),
 
   // Ask Fleet to go and look now. **The rung below intervene**, and the one
   // entry here that is an act and changes nothing: what it leaves is a line in

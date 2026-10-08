@@ -9,6 +9,7 @@
 import { expect, test } from "vitest";
 import type { BridgeIdentity, Connection } from "@armada/protocol";
 import { refusedWith } from "@armada/protocol";
+import { fleetRestartFailure } from "@armada/shell";
 import { failingIn } from "./failing";
 
 const BRIDGE: BridgeIdentity = { auditPath: null, fleetProtocol: null };
@@ -63,4 +64,39 @@ test("a pending route's other status is not claimed as unbuilt: only the router'
   }).commandFailure;
 
   expect(failure?.payload.code).toBe("bridge.command.unanswerable");
+});
+
+const APART: Connection = {
+  state: "protocol_mismatch",
+  fleet: { ...CONNECTED.fleet, protocolId: "3fa9c1d20b7e4a15" },
+  speaks: "3fa9c1d20b7e4a15",
+  expected: "91bb07e4c25d8830",
+};
+
+function mismatch(connection: Connection) {
+  return failingIn({ connection, bridge: BRIDGE, readAt: 0, outcome: null, raised: [], now: 0 }).fleet;
+}
+
+test("a Fleet on another protocol is told as a mismatch, with the one thing to press", () => {
+  const failure = mismatch(APART);
+
+  expect(failure?.payload.code).toBe("bridge.fleet.protocol_mismatch");
+  expect(failure?.headline).toBe("Fleet and Bridge do not match");
+  expect(failure?.next).toBe("Restart Fleet onto the installed build.");
+  expect(failure?.kind).toBe("degraded");
+});
+
+test("a runtime file with no ID is the one mismatch that names the stale side", () => {
+  const failure = mismatch({ ...APART, speaks: "" });
+
+  expect(failure?.headline).toBe("Fleet is out of date");
+});
+
+test("a restart that failed is a fault with a code of its own, and says what was left alone", () => {
+  const failure = fleetRestartFailure({ ok: false, why: "not_started_by_armada", detail: "not loaded" }, BRIDGE);
+
+  expect(failure.payload.code).toBe("bridge.fleet.restart_failed");
+  expect(failure.kind).toBe("fault");
+  expect(failure.headline).toBe("Fleet was not started by Armada's service");
+  expect(failure.note).toContain("Bridge did not");
 });

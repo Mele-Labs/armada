@@ -30,6 +30,7 @@ import type {
   DropTask,
   FileReport,
   Followed,
+  FleetRestart,
   FrameRead,
   JudgeAnswer,
   Opened,
@@ -349,6 +350,7 @@ type OldBridgeApi = {
     stopServer: (serverId: string) => Promise<Outcome>;
     openServerLink: (serverId: string, url: string) => Promise<Followed>;
     openLink: (address: string) => Promise<Followed>;
+    restartFleet: () => Promise<FleetRestart>;
     examineJob: (jobId: string) => Promise<void>;
     readEvidence: (jobId: string | null) => Promise<void>;
     readDiff: (jobId: string | null) => Promise<void>;
@@ -601,6 +603,7 @@ const OLD_CHANNELS = {
     stopServer: "bridge:stop-server",
     openServerLink: "bridge:open-server-link",
     openLink: "bridge:open-link",
+    restartFleet: "bridge:restart-fleet",
     examineJob: "bridge:examine-job",
     readDiff: "bridge:read-diff",
     readRemarks: "bridge:read-remarks",

@@ -65,6 +65,7 @@ import {
   openServerLink,
   runSheetServers,
   openLink,
+  restartFleet,
   observeRun,
   observeCheckoutRun,
   pickRepository,
@@ -722,6 +723,9 @@ export function App({ draft }: AppProps = {}) {
           <div className="armada-screen__mounted">
             <Standing
               fleet={fleet}
+              fleetPid={"fleet" in state.connection ? state.connection.fleet.pid : null}
+              bridge={state.bridge}
+              onRestartFleet={restartFleet}
               // **Not while the file is on screen**, which draws the same
               // reading beside the text it is about. Twice at once is two places
               // to read one refusal and one to dismiss while the other stands.

@@ -29,6 +29,28 @@ export function spoken(id: ProtocolId): string {
   return id === "" ? "unknown" : id.slice(0, 8);
 }
 
+/**
+ * What pressing Restart Fleet came to. Bridge asks launchd to restart the job
+ * that runs Fleet, so the answer is launchd's and not Fleet's: a Fleet that
+ * predates the button answers it as well as any other.
+ *
+ * `ok` means launchd took the request, not that Fleet is back or that it now
+ * matches this Bridge. The next runtime file says which.
+ */
+export type FleetRestart =
+  | { ok: true }
+  | {
+      ok: false;
+      /**
+       * `not_started_by_armada`: no launchd job of ours holds the pid in the
+       * runtime file. `not_running`: the file names no live Fleet. `refused`:
+       * launchd answered an error. `no_answer`: it took the request and no new
+       * Fleet appeared in time (set by the window, never by main).
+       */
+      why: "not_started_by_armada" | "not_running" | "refused" | "no_answer";
+      detail: string;
+    };
+
 /** Fleet, as its runtime file names it. Loopback plus `port` is the address. */
 export type FleetIdentity = {
   protocolId: ProtocolId;

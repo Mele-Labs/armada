@@ -3,6 +3,7 @@
 
 import type {
   Followed,
+  FleetRestart,
   Outcome,
   BridgeIdentity,
   Connection,
@@ -39,6 +40,13 @@ export type CoreApi<S = CoreState> = {
    * entry that sends an address**: such a link has no id main could look it
    * up by. Main opens `http(s):` and refuses everything else by name. */
   openLink: (address: string) => Promise<Followed>;
+  /**
+   * Restart the job that runs Fleet, onto the `armada` that is installed. **The
+   * one capability that acts on Fleet's own process** and not through its
+   * wire: it is `launchctl` in main, which is why a Fleet too old for any route
+   * can still be restarted. `restart-fleet.ts` says what it promises.
+   */
+  restartFleet: () => Promise<FleetRestart>;
   /**
    * Where a pressed notification says to go.
    *
@@ -144,6 +152,7 @@ export const CORE_CHANNELS = {
   stopServer: "bridge:stop-server",
   openServerLink: "bridge:open-server-link",
   openLink: "bridge:open-link",
+  restartFleet: "bridge:restart-fleet",
   summoned: "bridge:summoned",
   // A swipe or a browser key, from the OS to the window. Sent by main, never invoked.
   history: "bridge:history",

@@ -15,8 +15,8 @@ import type { Connection } from "@armada/protocol";
 import { spoken } from "@armada/protocol";
 import type { FleetState } from "@armada/components";
 
-/** The one thing to do about a mismatch, whichever side is stale. */
-const MATCH_THEM = "Run /update-armada, then reopen Bridge.";
+/** The one thing to do about a mismatch, whichever side is stale. The button beside it does it. */
+const MATCH_THEM = "Restart Fleet onto the installed build.";
 
 /** Sentence, detail and hue. The detail is machine-derived and renders in mono. */
 export type Statement = {
