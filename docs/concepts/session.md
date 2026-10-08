@@ -165,6 +165,13 @@ there), a path built from a variable or a substitution, a `cd` into the
 checkout and then a relative write, and anything a script or a build writes by
 itself. [Spike 29](../spikes/029-why-a-sessions-auto-asked-and-how-a-question-is-answered.md).
 
+**In `auto` a session never waits on the person** (the owner, 8 Oct 2026).
+Inside its slot and `/tmp` it runs, rewrites its own branch, pushes and reaches
+off the machine unasked. A call that reaches into the owner's own files, or
+removes or overwrites something outside its slot and `/tmp`, is refused with a
+reason the agent reads and works around. Only a question (`AskUserQuestion`)
+is put to the person; `ask` and `acceptEdits` still put calls to him.
+
 **The slot is held by the session's id as a Job's is held by its id**, so a
 restart of the process or of Fleet is not the session ending. It is given back
 on close by parking: what is in it is committed to the session's own branch and

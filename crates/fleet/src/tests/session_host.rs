@@ -658,7 +658,24 @@ async fn an_ask_is_on_the_threads_own_row_and_the_answer_goes_back_in_the_call()
         .unwrap();
     assert!(matches!(ran, ipc::RunOrNot::Allow { .. }));
 
-    // A destructive one waits on the person.
+    // Auto never waits on the person: what it may not do is refused, with the reason.
+    let refused = rig
+        .fleet
+        .session_permission(id.as_str(), asking("rm -rf build"))
+        .await
+        .unwrap();
+    assert!(matches!(refused, ipc::RunOrNot::Deny { .. }));
+
+    // In `ask` mode a call waits on the person.
+    rig.fleet
+        .tune_session(TuneSession {
+            session_id: id.clone(),
+            model: None,
+            effort: None,
+            mode: SessionMode::Ask,
+        })
+        .await
+        .unwrap();
     let fleet = Arc::clone(&rig.fleet);
     let session = id.as_str().to_string();
     let waiting = tokio::spawn(async move {
