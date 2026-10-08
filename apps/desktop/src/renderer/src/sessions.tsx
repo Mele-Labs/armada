@@ -313,7 +313,7 @@ function threadRowsOf(session: Session): SessionThreadRow[] {
 
 function threadRowsFrom(rows: Session["rows"]): SessionThreadRow[] {
   return rows.map((row): SessionThreadRow => {
-    if (row.kind === "lease" || row.kind === "tool" || row.kind === "handoff" || row.kind === "command" || row.kind === "compaction") return row;
+    if (row.kind === "lease" || row.kind === "tool" || row.kind === "handoff" || row.kind === "command" || row.kind === "compaction" || row.kind === "window") return row;
     if (row.from.kind === "session") {
       return { id: row.id, at: row.at, kind: "message", from: "session", sender: { id: row.from.id, title: row.from.title }, text: row.text };
     }
@@ -529,7 +529,7 @@ function SketchSheet({ open, onClose, onAttach }: { open: boolean; onClose: () =
   );
 }
 
-const ARTIFACT_SAID = { page: "Published page", file: "File written", image: "Looked at", doc: "Doc" } as const;
+const ARTIFACT_SAID = { page: "Published page", file: "File written", image: "Looked at", doc: "Doc", window: "Shown in a window" } as const;
 
 function entriesOf(
   session: Session,
@@ -538,6 +538,7 @@ function entriesOf(
   slot: (n: number) => void,
   sessions: readonly Session[],
   open: (id: string) => void,
+  openWindow: (url: string) => void,
 ): LedgerEntry[] {
   return session.attachments.map((one): LedgerEntry => {
     switch (one.kind) {
@@ -614,7 +615,7 @@ function entriesOf(
           artifact: one.form,
           name: `${ARTIFACT_SAID[one.form]} ${one.title}`,
           text: one.title,
-          onOpen: () => read({ kind: "artifact", id: one.id }),
+          onOpen: () => (one.form === "window" ? openWindow(one.id) : read({ kind: "artifact", id: one.id })),
         };
       case "subagent":
         return {
@@ -704,6 +705,7 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
     narrow ? fold(setSlotOpen) : setSlotOpen,
     sessions,
     narrow ? fold(onOpen) : onOpen,
+    (url) => draft.openWindow?.(id, url),
   );
   return (
     <>
@@ -775,6 +777,7 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
           <SessionThread
             sessionId={session.id}
             rows={threadRowsOf(session)}
+            onOpenWindow={(url) => draft.openWindow?.(id, url)}
             working={session.turn.state === "working"}
             {...(session.asked === undefined
               ? {}

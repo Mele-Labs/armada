@@ -32,6 +32,16 @@ pub trait Sessions: Send + Sync + 'static {
         rename: RenameSession,
     ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
 
+    /// `show_window` — a session shows the person a page. `caller` is the connection the call
+    /// arrived on, where it came through the agent's door: it places a hosted session. Answers with
+    /// the row. [`Refusal::Unacceptable`] for an address that is not `http` or `https`, or a call
+    /// that places no session.
+    fn show_window(
+        &self,
+        caller: Option<crate::Caller>,
+        show: ipc::ShowWindow,
+    ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
+
     /// `list_sessions` — the most recently seen first. `manifest_id` absent is
     /// every session on the machine, `text` finds one by title, branch, pull
     /// request, Job or slot, and `state` absent is both.

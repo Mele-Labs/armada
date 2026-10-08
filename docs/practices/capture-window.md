@@ -36,11 +36,18 @@ around `nodeIntegration: false`.
 > Why: `apps/desktop/src/main/servers.ts` already holds that rule for opening a
 > link in the system browser, and loading one in a window is strictly more.
 
-> **Rule.** The host is `127.0.0.1`, `[::1]` or `localhost`, and the scheme is
+> **Rule.** A Run's window: the host is `127.0.0.1`, `[::1]` or `localhost`, and the scheme is
 > `http:` or `https:`. Any other address opens no window at all.
 > Why: a Manifest may declare a server behind a public host or a tunnel, and
 > this window is for a process on this machine. A port comes from the checkout's
 > own span, `crates/fleet/src/ports.rs`.
+
+> **Rule.** A Session's window (`show_window`) may load any `http` or `https`
+> address, not only a loopback one, and is pinned to that address's origin. Its
+> other protections hold: its own partition, no preload, navigation off the
+> origin refused.
+> Why: the Session chose the page to show the person, and there is no Run's
+> link to resolve it against.
 
 > **Rule.** One window per Run. Opening again raises the one that is open.
 
@@ -266,8 +273,9 @@ this window, and that is another security review. `#1294`.
 
 | Refused | Rather than |
 |---|---|
-| Any origin but the Run's | An allowlist, a setting, or a trusted-host list |
+| Any origin but the Run's, or the one a Session's window opened on | An allowlist, a setting, or a trusted-host list |
 | A non-loopback address a Manifest declares | Capture against staging or production |
+| A non-http(s) address a Session shows | `file:`, `javascript:` or any scheme but the web's |
 | Typing or pasting an address | A general browser inside Armada |
 | Capture once the Run is not serving | Trusting a port to still be the Run's |
 | Rewriting the page's CSP, or `webSecurity: false` | Making an awkward app render |

@@ -127,6 +127,44 @@ it("keeps a row that arrives while the thread is being read", async () => {
   expect(last("sessionThreads")).toEqual({ a: [said("r1", "first"), said("r2", "arrived mid-read")] });
 });
 
+it("opens a window when a Session shows a page, once, and never for a row a thread read brought", async () => {
+  const sent: Sent[] = [];
+  const shown = { kind: "window", id: "w1", at: AT, title: "Findings", url: "http://localhost:5173/" } as const;
+  const port = await fleet(sent, [record("a")], { a: [shown] });
+  const { sessions } = host(port);
+  const opened: string[][] = [];
+  sessions.onWindow((id, title, url) => opened.push([id, title, url]));
+  await sessions.again(port);
+  await sessions.watch("a");
+  sessions.row({ session_id: "a", row: shown });
+  expect(opened).toEqual([]);
+  sessions.row({ session_id: "a", row: { ...shown, id: "w2" } });
+  sessions.row({ session_id: "a", row: { ...shown, id: "w2" } });
+  expect(opened).toEqual([["a", "Findings", "http://localhost:5173/"]]);
+});
+
+it("reopens only an address the ledger shows as a window", async () => {
+  const sent: Sent[] = [];
+  const url = "http://localhost:5173/";
+  const port = await fleet(sent, [
+    record("a", {
+      attachments: [
+        { kind: "artifact", target: url, state: "standing", detail: { form: "window", title: "Findings" }, since: AT, changed_at: AT },
+        { kind: "artifact", target: "/repo/notes.md", state: "standing", detail: { form: "file" }, since: AT, changed_at: AT },
+      ],
+    }),
+  ]);
+  const { sessions } = host(port);
+  const opened: string[][] = [];
+  sessions.onWindow((id, title, address) => opened.push([id, title, address]));
+  await sessions.again(port);
+  expect(sessions.openWindow("a", url)).toEqual({ ok: true });
+  expect(sessions.openWindow("a", "http://evil.example/")).toMatchObject({ ok: false });
+  expect(sessions.openWindow("a", "/repo/notes.md")).toMatchObject({ ok: false });
+  expect(sessions.openWindow("nobody", url)).toMatchObject({ ok: false });
+  expect(opened).toEqual([["a", "Findings", url]]);
+});
+
 it("sends each act to its own route with the session named, and folds what Fleet answers", async () => {
   const sent: Sent[] = [];
   const port = await fleet(sent, [record("a", { title: "Fleet's answer" })]);

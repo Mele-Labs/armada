@@ -260,6 +260,7 @@ export class WiredStore {
     rename: (id, title) => void this.plain(this.api.renameSession({ session_id: id, title })),
     refresh: (id, number) => void this.api.pressPullRequest(id, number, "read"),
     openFile: (id, path) => void this.api.openSessionFile(id, path),
+    openWindow: (id, url) => void this.api.openSessionWindow(id, url),
     readArtifact: (id, path) => this.api.readSessionArtifact(id, path),
     page: {
       show: (id, address, bounds) => void this.api.showSessionPage(id, address, bounds),

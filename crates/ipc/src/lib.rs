@@ -402,7 +402,7 @@ pub use servers::{
 pub use sessions::{
     Attachment, AttachmentNamed, AttachmentReport, AttachmentState, Holder, HolderKind, Owners,
     Ownership, RenameSession, SessionFact, SessionId, SessionList, SessionOrigin, SessionRecord,
-    SessionReport, SessionState, SessionUsage, TerminalCommand, TerminalFacts,
+    SessionReport, SessionState, SessionUsage, ShowWindow, TerminalCommand, TerminalFacts,
 };
 pub use setup::{
     LeftOutWorkflow, ManifestSummary, ModelChoices, OverriddenWorkflow, SaveWorkflow, StepPhase,
