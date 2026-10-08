@@ -114,6 +114,15 @@ where
             .attachments_of(&Holder::session(&session.id))
             .map_err(|why| self.ledger_fault(why))?;
         let mut record = session_wire(session, &held);
+        // A subagent the mod never settles is done once its own transcript shows its turn ended.
+        let home = &self.host().home;
+        for one in record.attachments.iter_mut().filter(|one| {
+            one.kind == "subagent" && one.state == ipc::AttachmentState::Standing
+        }) {
+            if adapters::terminal_thread::subagent_ended(home, &session.id, &one.target) {
+                one.state = ipc::AttachmentState::Spent;
+            }
+        }
         if session.origin == "terminal" {
             let terminals = self.hosts().terminals();
             let listening =

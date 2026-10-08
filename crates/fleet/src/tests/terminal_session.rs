@@ -374,3 +374,45 @@ async fn a_subagent_of_a_session_reads_as_its_own_thread() {
 
     assert!(read("nope").await.is_err(), "a subagent that wrote nothing is refused");
 }
+
+/// The mod never settles a subagent, so Fleet does: a ledger row reads done once the subagent's own
+/// transcript shows its turn ended, and stays done after the panel has read it.
+#[tokio::test]
+async fn a_subagent_whose_transcript_ended_reads_as_done_on_the_ledger() {
+    let rig = rig();
+    rig.started().await;
+    rig.reports(SessionFact::Attached {
+        attachment: ipc::AttachmentReport {
+            kind: "subagent".into(),
+            target: "x1".into(),
+            detail: Default::default(),
+        },
+    })
+    .await;
+    let state = |rig: &Rig| {
+        let fleet = Arc::clone(&rig.fleet);
+        async move {
+            let record = fleet.get_session(SessionId::carried(ID)).await.unwrap().session;
+            record.attachments.iter().find(|one| one.kind == "subagent").map(|one| one.state)
+        }
+    };
+    assert_eq!(state(&rig).await, Some(ipc::AttachmentState::Standing));
+
+    let dir = rig.transcript.with_extension("").join("subagents");
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(&rig.transcript, "").unwrap();
+    let line = |reason: &str| {
+        format!(
+            r#"{{"type":"assistant","uuid":"s1","isSidechain":true,"timestamp":"2026-10-07T08:48:10.000Z","message":{{"role":"x","stop_reason":{reason},"content":[{{"type":"text","text":"Done."}}]}}}}"#
+        ) + "\n"
+    };
+    let file = dir.join("agent-x1.jsonl");
+    std::fs::write(&file, line("\"tool_use\"")).unwrap();
+    assert_eq!(state(&rig).await, Some(ipc::AttachmentState::Standing), "a turn still going is running");
+
+    std::fs::write(&file, line("\"end_turn\"")).unwrap();
+    assert_eq!(state(&rig).await, Some(ipc::AttachmentState::Spent), "read as done without a timer");
+    Arc::clone(&rig.fleet).get_session_subagent(SessionId::carried(ID), "x1".into()).await.unwrap();
+    std::fs::remove_file(&file).unwrap();
+    assert_eq!(state(&rig).await, Some(ipc::AttachmentState::Spent), "and settled for good once read");
+}

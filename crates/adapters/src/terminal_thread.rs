@@ -100,6 +100,13 @@ pub fn read_subagent(file: &Path) -> std::io::Result<Subagent> {
     Ok(Subagent { rows, finished: false, report: None })
 }
 
+/// Whether subagent `agent` of session `id` has ended its turn, by the file the CLI keeps for it.
+pub fn subagent_ended(home: &str, id: &str, agent: &str) -> bool {
+    find_subagent(home, id, agent)
+        .and_then(|file| read_subagent(&file).ok())
+        .is_some_and(|one| one.finished)
+}
+
 #[derive(Deserialize)]
 struct Ending {
     #[serde(default)]
