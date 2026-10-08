@@ -24,6 +24,25 @@ use crate::daemon::Fleet;
 /// A report that names nothing it can be kept against. A 422.
 const SESSION_UNNAMED: &str = "fleet.session_unnamed";
 
+/// Whether an address is one Bridge's window will load: `http` or `https` on this machine, which is
+/// what every capture window holds to (`docs/practices/capture-window.md`), and no blank in it.
+fn shows_a_page(url: &str) -> bool {
+    let Some(rest) = url
+        .strip_prefix("http://")
+        .or_else(|| url.strip_prefix("https://"))
+    else {
+        return false;
+    };
+    let authority = rest.split(['/', '?', '#']).next().unwrap_or_default();
+    let host = authority.rsplit('@').next().unwrap_or_default();
+    let name = match host.strip_prefix('[') {
+        Some(inner) => inner.split(']').next().unwrap_or_default(),
+        None => host.split(':').next().unwrap_or_default(),
+    };
+    ["localhost", "127.0.0.1", "::1"].contains(&name.to_ascii_lowercase().as_str())
+        && !url.contains(char::is_whitespace)
+}
+
 /// The two kinds a session holds one of at a time. Every other kind is kept as
 /// the open word it arrived as.
 const ONE_AT_A_TIME: [&str; 2] = ["branch", "slot"];
@@ -356,6 +375,65 @@ where
         if changed {
             self.publish(ipc::Event::SessionChanged(record.clone()));
         }
+        Ok(record)
+    }
+
+    async fn show_window(
+        &self,
+        caller: Option<api::Caller>,
+        show: ipc::ShowWindow,
+    ) -> Result<SessionRecord, Refusal> {
+        let url = show.url.trim().to_string();
+        if !shows_a_page(&url) {
+            return Err(self.ledger_unnamed("an `http` or `https` address on this machine to show"));
+        }
+        let hosted = caller.and_then(|caller| self.session_holding(&caller));
+        let id = hosted
+            .or_else(|| show.session_id.map(|named| named.as_str().trim().to_string()))
+            .filter(|id| !id.is_empty())
+            .ok_or_else(|| self.ledger_unnamed("a session to show it for"))?;
+        let harness = {
+            let store = self.store().lock().await;
+            store
+                .session(&id)
+                .map_err(|why| self.ledger_fault(why))?
+                .ok_or_else(|| self.ledger_unnamed("a session Fleet knows"))?
+                .harness
+        };
+        let title = show
+            .title
+            .as_deref()
+            .map(str::trim)
+            .filter(|title| !title.is_empty())
+            .unwrap_or(&url)
+            .to_string();
+        let record = self
+            .report_session(SessionReport {
+                harness,
+                session_id: ipc::SessionId::carried(&id),
+                fact: SessionFact::Attached {
+                    attachment: ipc::AttachmentReport {
+                        kind: String::from("artifact"),
+                        target: url.clone(),
+                        detail: [
+                            ("form".to_string(), "window".to_string()),
+                            ("title".to_string(), title.clone()),
+                        ]
+                        .into(),
+                    },
+                },
+            })
+            .await?;
+        self.row_put(
+            &id,
+            ipc::SessionRow::Window {
+                id: self.row_id(&id),
+                at: self.instant(),
+                title,
+                url,
+            },
+        )
+        .await;
         Ok(record)
     }
 

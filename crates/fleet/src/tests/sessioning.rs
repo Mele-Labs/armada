@@ -532,3 +532,87 @@ async fn the_artifacts_a_session_made_are_kept_with_their_form_and_one_of_each_a
         ]
     );
 }
+
+#[tokio::test]
+async fn a_page_a_session_shows_is_one_window_attachment_and_a_row_each_time() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home, FakeWorkProduct::changed(&[]));
+    let (_, root) = served(&fleet);
+    fleet
+        .report_session(report("s1", started(&root)))
+        .await
+        .unwrap();
+    let show = |url: &str| ipc::ShowWindow {
+        url: url.into(),
+        title: Some("Findings".into()),
+        session_id: Some(SessionId::carried("s1")),
+    };
+    let mut watching = fleet.events().subscribe();
+    fleet
+        .show_window(None, show("http://localhost:5173/"))
+        .await
+        .expect("shown");
+    let record = fleet
+        .show_window(None, show("http://localhost:5173/"))
+        .await
+        .expect("shown again");
+    let windows: Vec<_> = record
+        .attachments
+        .iter()
+        .filter(|one| one.detail.get("form").map(String::as_str) == Some("window"))
+        .collect();
+    assert_eq!(windows.len(), 1);
+    assert_eq!(windows[0].target, "http://localhost:5173/");
+    assert_eq!(windows[0].detail.get("title").map(String::as_str), Some("Findings"));
+    let mut rows = 0;
+    tokio::time::timeout(Duration::from_secs(5), async {
+        while rows < 2 {
+            match watching.next().await {
+                Some(Next::Send(delivered)) => {
+                    if matches!(
+                        delivered.event,
+                        Event::SessionRow(ipc::SessionRowChanged {
+                            row: ipc::SessionRow::Window { .. },
+                            ..
+                        })
+                    ) {
+                        rows += 1;
+                    }
+                }
+                other => panic!("the stream ended or dropped: {other:?}"),
+            }
+        }
+    })
+    .await
+    .expect("two window rows arrive");
+    assert_eq!(rows, 2, "a row each time, so a window opens each time");
+}
+
+#[tokio::test]
+async fn an_address_that_is_not_the_web_or_a_call_with_no_session_shows_nothing() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home, FakeWorkProduct::changed(&[]));
+    let (_, root) = served(&fleet);
+    fleet
+        .report_session(report("s1", started(&root)))
+        .await
+        .unwrap();
+    for (url, session) in [
+        ("file:///etc/passwd", Some("s1")),
+        ("javascript:alert(1)", Some("s1")),
+        ("http://", Some("s1")),
+        ("https://a b", Some("s1")),
+        ("https://example.com/", Some("s1")),
+        ("http://localhost.evil.com/", Some("s1")),
+        ("http://localhost@evil.com/", Some("s1")),
+        ("https://example.com", None),
+        ("https://example.com", Some("nobody")),
+    ] {
+        let show = ipc::ShowWindow {
+            url: url.into(),
+            title: None,
+            session_id: session.map(SessionId::carried),
+        };
+        assert!(fleet.show_window(None, show).await.is_err(), "{url} {session:?}");
+    }
+}
