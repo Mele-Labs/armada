@@ -6,6 +6,7 @@
 // Session would do next, applied when a walk's `later` step lets time pass or,
 // for the first, when the person sends a message.
 
+import { closeWalkWindow, mockPage, openWalkWindow } from "@armada/jobs/fake";
 import type { Session, SessionTag, SessionAttachment, SessionCommand, SessionRow, SessionSketch, SessionsDraft } from "@armada/screens/src/draft/sessions";
 
 /** The draft the window reads, and the two things only the mock does: take the next turn, and stop. */
@@ -90,6 +91,9 @@ function others(): Session[] {
 }
 
 export const MINE = "s7";
+/** The Session that shows a page in a window when it is next spoken to. */
+export const SHOWER = "s11";
+const SHOWN = "Store clock findings";
 
 /** A Job on the Board that a person can tag: where it stands, and how the Session would hold it. */
 export type TaggableJob = DispatchedJob & { state: "escalated" | "review" };
@@ -148,6 +152,28 @@ export function sessionsStore(
   const add = (rows: SessionRow[], attachments: SessionAttachment[] = []) => addTo(MINE, rows, attachments);
   const finishOf = (id: string, stamp: string) => edit(id, (one) => ({ ...one, turn: idle, lastTurn: stamp, lastTurnAt: new Date().toISOString() }));
   const finish = (stamp: string) => finishOf(MINE, stamp);
+
+  /** The window on a page a Session showed. **A note taken in it is a message to that Session**, which wakes it. */
+  const openWindow = (id: string, url: string) => {
+    const session = now.find((one) => one.id === id);
+    if (session === undefined) return;
+    openWalkWindow(session.title ?? id, url, {
+      job: session.title ?? id,
+      into: "Session",
+      onNote: (note, picked) => store.send(id, { text: `${note}\nOn ${picked.element}, ${picked.location}`, files: [], sketches: [], tags: [] }),
+    });
+  };
+  /** The Session shows a page: its window opens by itself, and the ledger and the thread keep it. */
+  const showWindow = (id: string, url: string, title: string) => {
+    addTo(
+      id,
+      [row((rid, stamp) => ({ id: rid, at: stamp, kind: "window", title, url }))],
+      now.find((one) => one.id === id)?.attachments.some((a) => a.kind === "artifact" && a.form === "window" && a.id === url) === true
+        ? []
+        : [{ kind: "artifact", form: "window", id: url, title }],
+    );
+    openWindow(id, url);
+  };
   const attach = (match: (one: SessionAttachment) => boolean, to: SessionAttachment) =>
     edit(MINE, (one) => ({ ...one, attachments: one.attachments.map((a) => (match(a) ? to : a)) }));
 
@@ -421,6 +447,18 @@ export function sessionsStore(
           addTo(id, [tool("Read crates/store/src/tests/ledger.rs:88"), said("Line 88. Waiting on the clock there instead of the sleep fixes it.")]);
           finishOf(id, "14:09");
         });
+      } else if (id === SHOWER) {
+        const had = asked.get(id) ?? 0;
+        asked.set(id, had + 1);
+        after(900, () => {
+          if (had === 0) {
+            addTo(id, [tool(`show_window ${SHOWN}`), said("The findings are in a window.")]);
+            showWindow(id, mockPage(), SHOWN);
+          } else {
+            addTo(id, [said("Noted. I will change that.")]);
+          }
+          finishOf(id, "14:40");
+        });
       } else if (id === MINE && !started) {
         started = true;
         after(600, firstTurn);
@@ -471,6 +509,7 @@ export function sessionsStore(
         ],
       }));
     },
+    openWindow,
     models: MODELS,
     efforts: EFFORTS,
     commands: COMMANDS,
@@ -498,7 +537,10 @@ export function sessionsStore(
       moment += 1;
       next?.();
     },
-    dispose: () => timers.forEach((one) => window.clearTimeout(one)),
+    dispose: () => {
+      timers.forEach((one) => window.clearTimeout(one));
+      closeWalkWindow();
+    },
   };
   return store;
 }
