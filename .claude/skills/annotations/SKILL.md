@@ -123,6 +123,13 @@ step where he saw the app.
 walk link went out under a "should this land?" prompt, and his answer was "I
 haven't walked anything. Please show me."
 
+**One mock per walk: stop the last one before serving the next.** A loaded tab
+keeps the code it loaded, and Replay reruns that copy. Confirmed 8 Oct 2026:
+the fixed `aDroneTrigger` was served on `:47321` while `:47320` still ran the
+broken build, he walked the old tab twice, and a dozen calls went on
+reproducing a failure that only existed in it. Kill the old port, and ask him
+to press ⌘R.
+
 **A walk shows the primitive its branch was cut from.** When a shared component
 and its callers are dispatched in parallel, land the component first and merge
 it into each caller before sending their walks. Confirmed 1 Oct 2026: four
