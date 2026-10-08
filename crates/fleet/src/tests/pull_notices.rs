@@ -157,6 +157,7 @@ impl Rig {
                         .to_string(),
                     title: None,
                     origin: SessionOrigin::Terminal,
+                    mod_version: None,
                 },
             })
             .await
