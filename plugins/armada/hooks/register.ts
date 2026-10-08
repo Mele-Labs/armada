@@ -246,6 +246,10 @@ async function look($: Dollar, id: string): Promise<void> {
   }
 }
 
+function idNote(id: string): string {
+  return `Your Armada session id is ${id}. Pass it as session_id to the armada show_window tool.`
+}
+
 async function begin($: Dollar, id: string, cwd?: string): Promise<void> {
   // A Drone, a Judge call or a scout loads this mod too, since it reads the operator's user
   // settings. Fleet marks those launches, and they are not sessions to list.
@@ -465,7 +469,15 @@ export const register: Register = on => {
     const out = await next(e)
     if (await $.env.get('ARMADA_DRONE')) return out
     const id = await $.session.id()
-    return { ...out, blocks: [...out.blocks, { name: 'armadaSession', text: `Your Armada session id is ${id}. Pass it as session_id to the armada show_window tool.` }] }
+    return { ...out, blocks: [...out.blocks, { name: 'armadaSession', text: idNote(id) }] }
+  })
+
+  // Again at every start (startup, resume, clear, compact), so the id is never out of view.
+  on('classic.SessionStart', async ($, e, next) => {
+    const out = await next(e)
+    if (await $.env.get('ARMADA_DRONE')) return out
+    const id = await $.session.id()
+    return { ...out, additionalContext: [...(out.additionalContext ?? []), idNote(id)] }
   })
 
   on('prompt.submit', async ($, e, next) => {
