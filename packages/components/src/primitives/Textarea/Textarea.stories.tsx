@@ -1,4 +1,6 @@
+import { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
+import { expect, userEvent } from "storybook/test";
 import { Textarea } from "./Textarea";
 
 const meta: Meta<typeof Textarea> = {
@@ -121,3 +123,43 @@ export const Light: Story = {
     </div>
   ),
 };
+
+function Held({ about, controlled }: { about: string; controlled: boolean }) {
+  const [value, setValue] = useState("");
+  return controlled ? (
+    <Textarea aria-label="Note" keep={about} value={value} onChange={(event) => setValue(event.target.value)} />
+  ) : (
+    <Textarea aria-label="Note" keep={about} />
+  );
+}
+
+/** A panel that is left and come back to: the field is unmounted and mounted again, on the same key and on another. */
+function Panels({ controlled }: { controlled: boolean }) {
+  const [shown, setShown] = useState(true);
+  const [about, setAbout] = useState("panel:a");
+  return (
+    <Card>
+      <button onClick={() => setShown((was) => !was)}>Toggle</button>
+      <button onClick={() => setAbout("panel:b")}>Other</button>
+      {shown ? <Held about={about} controlled={controlled} /> : null}
+    </Card>
+  );
+}
+
+const keepsWhatWasTyped: Story["play"] = async ({ canvas }) => {
+  await userEvent.type(canvas.getByRole("textbox", { name: "Note" }), "half a thought");
+  await userEvent.click(canvas.getByRole("button", { name: "Toggle" }));
+  await expect(canvas.queryByRole("textbox", { name: "Note" })).toBeNull();
+  await userEvent.click(canvas.getByRole("button", { name: "Toggle" }));
+  await expect(canvas.getByRole("textbox", { name: "Note" })).toHaveValue("half a thought");
+  await userEvent.click(canvas.getByRole("button", { name: "Other" }));
+  await userEvent.click(canvas.getByRole("button", { name: "Toggle" }));
+  await userEvent.click(canvas.getByRole("button", { name: "Toggle" }));
+  await expect(canvas.getByRole("textbox", { name: "Note" })).toHaveValue("");
+};
+
+/** Leave the panel and come back and the text is there; another key starts empty. */
+export const KeepsWhatWasTyped: Story = { render: () => <Panels controlled={false} />, play: keepsWhatWasTyped };
+
+/** The same, for a field whose host holds the value and lost it with the panel. */
+export const KeepsWhatAHostLost: Story = { render: () => <Panels controlled />, play: keepsWhatWasTyped };

@@ -11,6 +11,7 @@ import "tailwindcss/preflight.css";
 import "@armada/tokens/base.css";
 import "./preview.css";
 import "../src/index.css";
+import { forgetAllKept } from "../src/keep";
 import { motionFor } from "./motion";
 
 // Dark is primary. A light story is the secondary case, never the default.
@@ -30,7 +31,10 @@ const preview: Preview = {
   // rather than a class Storybook already owns the name of.
   // Motion back on for a story that says `motion: "on"`, under the test run's reduced motion.
   // `./motion.ts`; nothing, in `storybook dev`, where the preference is the machine's own.
-  beforeEach: ({ parameters }) => motionFor(parameters),
+  beforeEach: ({ parameters }) => {
+    forgetAllKept();
+    return motionFor(parameters);
+  },
   decorators: [
     (Story, context) => {
       const fullscreen = context.parameters.layout === "fullscreen";

@@ -1,5 +1,5 @@
 //! `merge_by: push` over a base that moved: Fleet brings the branch up, gates
-//! it again and pushes once more, the way `armada land` does.
+//! it again and pushes once more.
 //!
 //! The pushes and the merge are scripted, as in `merging_by_push`; what `git`
 //! does is asserted in `adapters`. The Checks are real commands, so a red is a

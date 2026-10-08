@@ -1,7 +1,7 @@
 // A step added to one Job from its workflow (7 Oct 2026): a `+` after the step the Job is on and
 // after each step to come, offering a Script, a Skill or a Drone step. The mock Fleet answers as
-// Fleet does: the row whole, `pending` until its moment, a Script run and passed, a Skill recorded
-// skipped. A step is filled in and added; Fleet has no edit for one, so what is still to do with it
+// Fleet does: the row whole, `pending` until its moment, a Script run and passed, a Skill run on a
+// Drone of its own. A step is filled in and added; Fleet has no edit for one, so what is still to do with it
 // is take it off before it fires, and keep it for every Job.
 
 import { button, card, dialog, inside, role, tab, text, walk } from "../walk";
@@ -31,8 +31,7 @@ export const addAStepToAJob = walk("proto/feature-running", [
   { type: "qa-notes", into: inside(dialog("Skill"), role("textbox", "Skill")), say: "Its name" },
   { press: inside(dialog("Skill"), button("Add", { exact: true })), say: "Add" },
   { later: role("button", /^qa-notes, Added to this Job only, pending/), say: "Its moment comes" },
-  { look: role("button", /^qa-notes, Added to this Job only, skipped/), say: "A Skill is recorded skipped" },
-  { hover: text("skipped"), say: "With Fleet's reason on its chip" },
+  { look: role("button", /^qa-notes, Added to this Job only, running/), say: "A Skill runs on a Drone of its own" },
   { press: tab("Canvas"), say: "Back to the canvas" },
   { press: card("fmt"), say: "Open the added step again" },
   { press: inside(ADDED, button("Keep for every Job")), say: "Keep it for every Job" },

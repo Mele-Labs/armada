@@ -179,8 +179,7 @@ pub(crate) fn enable_auto_merge(in_repo: &str, pull_request: &str) -> Result<(),
 const REMOTE: &str = "origin";
 
 /// Land a Job's branch with the merge commit made here and the base pushed,
-/// never forced. `merge_by: push`, through [`onto_base`], which `armada land`
-/// lands through too.
+/// never forced. `merge_by: push`, through [`onto_base`].
 ///
 /// **The base is fetched, not read locally**, unlike every catch-up in
 /// `crate::delivery`: the push is checked against the remote's base, so the

@@ -9,15 +9,18 @@
 // its own. A repair that found nothing ends red where it stands.
 
 import type { ReactNode } from "react";
-import { endsInPr, HoldNode, holdsOf, repairPhase, repairsOf, RepairNode, RepairPrMark } from "@armada/components";
-import type { Held, HoldVerb } from "@armada/components";
+import { additionBranches, endsInPr, fixOf, HoldNode, holdsOf, repairPhase, repairsOf, RepairNode, RepairPrMark } from "@armada/components";
+import type { Held, HoldVerb, SideBranch } from "@armada/components";
 import type { WorkflowCanvasEdge, WorkflowCanvasNode } from "@armada/components";
 import type { AddedStep, HoldAct, JobTrigger, TriggerFixChoice, TriggerMoment } from "@armada/protocol";
 
 import type { WorkflowRun } from "./workflow-canvas";
 
-/** Where a Trigger's choice goes: the Job, the Trigger's name and the answer, which says whether Fleet took it. */
-export type ChooseTriggerFixCall = (jobId: string, trigger: string, choice: TriggerFixChoice) => Promise<{ ok: boolean }>;
+/** What names a fix: the Trigger, or the step added to the Job. */
+export type FixOf = { trigger: string } | { addition: string };
+
+/** Where a choice goes: the Job, which fix and the answer, which says whether Fleet took it. */
+export type ChooseTriggerFixCall = (jobId: string, by: FixOf, choice: TriggerFixChoice) => Promise<{ ok: boolean }>;
 
 /** Rerun or Skip on a hold: the Job, which act, and the Trigger or the added step it is on. The answer says whether Fleet took it. */
 export type HoldActCall = (jobId: string, act: HoldVerb, by: HoldAct) => Promise<{ ok: boolean }>;
@@ -33,7 +36,7 @@ const PR_BELOW = 190;
 const dummy = { kind: "step", name: "", activity: "not_started", said: "" } as const;
 
 /** One firing's branch, told apart from another Trigger's and from another firing of the same one. */
-export const repairNodeId = (trigger: JobTrigger): string => `repair:${trigger.when}|${trigger.step}|${trigger.name}|${trigger.started_at ?? ""}`;
+export const repairNodeId = (trigger: SideBranch): string => `repair:${trigger.when}|${trigger.step}|${trigger.name}|${trigger.addition ?? ""}|${trigger.started_at ?? ""}`;
 
 export type Anchor = { id: string; x: number; y: number; width: number };
 
@@ -47,7 +50,7 @@ export type HoldsOn = { holds: readonly Held[]; spine: readonly WorkflowCanvasEd
  * one draws no branch. `rejoin` is the node a fix placed on this branch lands back in.
  */
 export function repairBranches(
-  triggers: readonly JobTrigger[],
+  triggers: readonly SideBranch[],
   jobId: string,
   anchorOf: (at: FiredAt) => Anchor | undefined,
   rejoin: (anchor: string) => string | undefined,
@@ -90,7 +93,7 @@ export function repairBranches(
       drawn: (
         <RepairNode
           trigger={trigger}
-          {...(choose === undefined ? {} : { onChoose: (one, choice) => choose(jobId, one.name, choice) })}
+          {...(choose === undefined ? {} : { onChoose: (one, choice) => choose(jobId, fixOf(one), choice) })}
         />
       ),
     });
@@ -100,7 +103,7 @@ export function repairBranches(
       target: id,
       kind: "leads",
       across: true,
-      flowing: phase === "working" || phase === "rerunning",
+      flowing: phase === "working" || phase === "running" || phase === "rerunning",
     });
     if (endsInPr(trigger)) {
       const pr = `${id}:pr`;
@@ -165,7 +168,7 @@ export function nextAfter(edges: readonly WorkflowCanvasEdge[], anchor: string):
  * Trigger's own**, which for `pr_opened` is the one that delivers.
  */
 export function withRepair(
-  triggers: readonly JobTrigger[] | undefined,
+  fired: readonly JobTrigger[] | undefined,
   jobId: string,
   nodeOf: (step: string) => string,
   run: WorkflowRun,
@@ -173,8 +176,10 @@ export function withRepair(
   additions: readonly AddedStep[] = [],
   hold?: HoldActCall,
 ): { run: WorkflowRun; asking: string | null } {
-  const holds = holdsOf(triggers ?? [], additions);
-  if (triggers === undefined || (repairsOf(triggers).length === 0 && holds.length === 0)) return { run, asking: null };
+  const holds = holdsOf(fired ?? [], additions);
+  // A step added to the Job grows the same branch as a Trigger, from the same repair record.
+  const triggers: SideBranch[] = [...(fired ?? []), ...additionBranches(additions)];
+  if (repairsOf(triggers).length === 0 && holds.length === 0) return { run, asking: null };
   const anchorOf = (at: FiredAt): Anchor | undefined => {
     const node = run.nodes.find((one) => one.id === nodeOf(at.step));
     return node === undefined ? undefined : { id: node.id, x: node.position.x, y: node.position.y, width: 260 };
@@ -194,7 +199,7 @@ export function withRepair(
           ))}
           {mine.map((one) => (
             <div key={repairNodeId(one)}>
-              <RepairNode trigger={one} {...(choose === undefined ? {} : { onChoose: (t: JobTrigger, choice: TriggerFixChoice) => choose(jobId, t.name, choice) })} />
+              <RepairNode trigger={one} {...(choose === undefined ? {} : { onChoose: (t: SideBranch, choice: TriggerFixChoice) => choose(jobId, fixOf(t), choice) })} />
               {endsInPr(one) ? <RepairPrMark trigger={one} /> : null}
             </div>
           ))}

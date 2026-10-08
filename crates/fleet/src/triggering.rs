@@ -15,6 +15,7 @@ use core_model::{
 use verification::Exit;
 
 use crate::daemon::Fleet;
+use crate::side_run::Side;
 use crate::trigger_repair::{Subject, Waiting};
 
 /// Every Trigger of `resolved` that applies to this workflow, bound to each
@@ -55,6 +56,8 @@ pub(crate) enum Comes {
     Run { command: String },
     Skip(TriggerSkipped),
     AskTheOwner,
+    /// A skill, which a side Drone runs on a branch of its own.
+    Side(Side),
 }
 
 /// One frozen Trigger, decided: to run, skipped, or held for the owner.
@@ -87,9 +90,7 @@ pub fn plan(
 pub(crate) fn decided(resolution: &TriggerResolution, manifest: &Manifest) -> Comes {
     match resolution {
         TriggerResolution::Skipped(why) => Comes::Skip(why.clone()),
-        TriggerResolution::Skill { name } => Comes::Skip(TriggerSkipped::SkillNotRun {
-            skill: name.clone(),
-        }),
+        TriggerResolution::Skill { name } => Comes::Side(Side::Skill(name.clone())),
         TriggerResolution::Command { name, asks_first } => match manifest.command(name) {
             None => Comes::Skip(TriggerSkipped::NotInThisRepo {
                 command: name.clone(),
@@ -118,14 +119,14 @@ impl Planned {
     pub fn to_run(&self) -> Option<&str> {
         match &self.comes {
             Comes::Run { command } => Some(command),
-            Comes::Skip(_) | Comes::AskTheOwner => None,
+            Comes::Skip(_) | Comes::AskTheOwner | Comes::Side(_) => None,
         }
     }
 
     /// The record as it opens: running, already skipped, or held for the owner.
     pub fn opened(&self, at: Timestamp) -> TriggerFiring {
         match &self.comes {
-            Comes::Run { .. } => TriggerFiring::running(&self.trigger, at),
+            Comes::Run { .. } | Comes::Side(_) => TriggerFiring::running(&self.trigger, at),
             Comes::Skip(why) => TriggerFiring::skipped(&self.trigger, why.clone(), at),
             Comes::AskTheOwner => TriggerFiring::awaiting_the_owner(&self.trigger, at),
         }
@@ -242,6 +243,16 @@ where
             }
         };
         self.trigger_moved(job, &opened);
+        if let Comes::Side(side) = &one.comes {
+            self.logged(job.id(), self.firing_line(job, &opened, None));
+            if let Some(firing) = firing {
+                let (name, step) = (opened.name.clone(), opened.step.clone());
+                let subject = Subject::Firing(firing);
+                self.side_queued(job, subject, name, opened.when, step, side)
+                    .await;
+            }
+            return;
+        }
         let Some(command) = one.to_run() else {
             self.logged(job.id(), self.firing_line(job, &opened, None));
             return;
@@ -275,6 +286,7 @@ where
                     stdout: attempt.output.stdout.clone(),
                     stderr: attempt.output.stderr.clone(),
                     record: core_model::RepairRecord::default(),
+                    side: None,
                 });
         }
     }

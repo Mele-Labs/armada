@@ -629,13 +629,11 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
             // A failed Trigger with `repair` on is worked by a Drone off the
             // Job's own path, so the Job carries on while it does.
             fleet::notice_loop::keep_repairing(Arc::clone(&fleet), PROVISIONAL_TURN_INTERVAL);
-            // Each served repository's merge line, read off disk and published when it
-            // moves: the process that wrote it tells Fleet nothing.
+            // Each served repository's merge line, published when its hub moves.
             fleet::merge_lines::keep_reading(
                 Arc::clone(&fleet),
                 events.clone(),
                 fleet::merge_lines::EVERY,
-                |unread| eprintln!("{unread}"),
             );
             // Stale build output, trimmed in every checkout of each served repository.
             fleet::sweeping::keep_sweeping(
