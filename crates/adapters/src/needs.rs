@@ -1,11 +1,11 @@
-//! What a branch says it needs on a path, as `armada land` still reads it: one
-//! file per need under `armada-needs/` in the git common directory, beside
-//! `armada-land/`. `.claude/decisions/2026-10-02-a-plan-leases-its-numbers.md`.
+//! What a branch says it needs on a path, as it was kept before the ledger: one
+//! file per need under `armada-needs/` in the git common directory.
+//! `.claude/decisions/2026-10-02-a-plan-leases-its-numbers.md`.
 //!
 //! **Fleet no longer writes these.** A need is a row on the session ledger
 //! (`docs/capabilities/needs.md`) and `armada need` asks Fleet. What is left is
-//! the merge line's own hold, which is being retired, and the one read Fleet makes
-//! of the files, at its first start, to carry them into the ledger.
+//! the one read Fleet makes of the files, at its first start, to carry them into
+//! the ledger.
 //!
 //! A need is a path and what is needed there, in the declarer's words, keyed by
 //! branch and path. First to declare goes first, and nothing expires by time.
@@ -16,8 +16,10 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
 
-use crate::land_state::codec;
-use crate::land_state::dir::{git_common_dir, key, StateDir};
+mod codec;
+mod keys;
+
+use keys::{git_common_dir, key};
 
 /// One branch's claim on a path.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -64,7 +66,7 @@ pub struct Needs {
 impl Needs {
     /// The needs of the repository `within` belongs to.
     pub fn of(within: &Path) -> Result<Needs, String> {
-        let common = git_common_dir(within).map_err(|why| why.to_string())?;
+        let common = git_common_dir(within)?;
         Ok(Needs::at_common(&common))
     }
 
@@ -73,11 +75,6 @@ impl Needs {
             dir: common.join("armada-needs"),
             repo: common.to_path_buf(),
         }
-    }
-
-    /// The needs beside the merge line's own state.
-    pub fn beside(state: &StateDir) -> Needs {
-        Needs::at_common(state.path().parent().unwrap_or(state.path()))
     }
 
     fn file(&self, branch: &str, path: &str) -> PathBuf {

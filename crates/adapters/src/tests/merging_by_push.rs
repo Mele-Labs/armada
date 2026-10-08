@@ -75,7 +75,7 @@ pub(super) fn in_bare(bare: &Path, args: &[&str]) -> String {
 }
 
 /// **What lands is the branch's own tree, as a `--no-ff` merge on the base the
-/// remote held**, named the way `armada land` names its own.
+/// remote held**, named the way the merge line names its own.
 #[test]
 fn the_merge_commit_is_pushed_onto_the_base_holding_the_branchs_tree() {
     let repo = TempRepo::with_a_commit();

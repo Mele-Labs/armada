@@ -1,7 +1,6 @@
-//! Reading and writing one state file. Every typed file under the state
-//! directory — a queue entry, an outcome, a preflight stamp — goes through
-//! these two functions and nothing else, so there is exactly one place that
-//! turns a state file's bytes into a value or back.
+//! Reading and writing one need's file. Every need goes through these two
+//! functions and nothing else, so there is one place that turns a need file's
+//! bytes into a value or back.
 
 use std::fs;
 use std::io;
@@ -10,12 +9,10 @@ use std::path::{Path, PathBuf};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 
-/// A state file that could not be answered.
+/// A need file that could not be answered.
 ///
 /// **Not found is not this.** A missing file is "nothing known yet", which
-/// [`read`] answers with `Ok(None)` — the same distinction
-/// `scripts/land`'s `read_json` draws by returning `None` on any `OSError`,
-/// narrowed here so a permission fault is still visible to the caller.
+/// [`read`] answers with `Ok(None)`; a permission fault is still visible.
 #[derive(Debug)]
 pub enum ReadStateError {
     Unreadable {
@@ -35,11 +32,7 @@ impl std::fmt::Display for ReadStateError {
                 write!(out, "{} could not be read", path.display())
             }
             ReadStateError::Undecodable { path, .. } => {
-                write!(
-                    out,
-                    "{} is not a state file armada land wrote",
-                    path.display()
-                )
+                write!(out, "{} is not a need file", path.display())
             }
         }
     }
@@ -54,7 +47,7 @@ impl std::error::Error for ReadStateError {
     }
 }
 
-/// A state file that could not be written.
+/// A need file that could not be written.
 #[derive(Debug)]
 pub enum WriteStateError {
     Unencodable(ipc::Unencodable),
@@ -81,7 +74,7 @@ impl std::error::Error for WriteStateError {
     }
 }
 
-/// Read one state file, or `None` where nothing is there yet.
+/// Read one need file, or `None` where nothing is there yet.
 pub fn read<T: DeserializeOwned>(
     expected: &'static str,
     path: &Path,
@@ -104,9 +97,8 @@ pub fn read<T: DeserializeOwned>(
         })
 }
 
-/// Write one state file whole. A sibling holds the bytes until they are
-/// complete, then a rename swaps it in — matching `scripts/land`'s
-/// `write_json`, so a reader never sees half a file.
+/// Write one need file whole. A sibling holds the bytes until they are
+/// complete, then a rename swaps it in, so a reader never sees half a file.
 pub fn write<T: Serialize>(path: &Path, value: &T) -> Result<(), WriteStateError> {
     let body = ipc::encode(value).map_err(WriteStateError::Unencodable)?;
     let staging = staging_path(path);
@@ -120,8 +112,7 @@ pub fn write<T: Serialize>(path: &Path, value: &T) -> Result<(), WriteStateError
     })
 }
 
-/// `{path}.{pid}.tmp`, a sibling of `path` so the rename stays on one
-/// filesystem — the same name `scripts/land`'s `write_json` gives it.
+/// `{path}.{pid}.tmp`, a sibling of `path` so the rename stays on one filesystem.
 fn staging_path(path: &Path) -> PathBuf {
     let mut name = path.file_name().unwrap_or_default().to_os_string();
     name.push(format!(".{}.tmp", std::process::id()));

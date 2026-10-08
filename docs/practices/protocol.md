@@ -2189,9 +2189,9 @@ rows with `state` a `LandState`. Additive. `docs/capabilities/merge-line.md`, *I
 the field-by-field table.
 
 **A fleet-wide fact that persists, so a route and an event**, `manifest.reread`'s rule. What is
-new is the writer: `armada land` is another process, so nothing tells Fleet a line moved. Fleet
-reads every served repository's `armada-land/` every two seconds and publishes only when the answer
-changed. Bridge reads the route once per connection and keeps no timer.
+new was the writer: `armada land` was another process, so nothing told Fleet a line moved. Fleet
+read every served repository's `armada-land/` every two seconds and published only when the answer
+changed. The files are no longer read; the loop folds the hub and publishes only when that moved. Bridge reads the route once per connection and keeps no timer.
 
 **`LandState` is a strict enum, not an open set.** Bridge branches on it: the two live states
 pulse and each end state draws its own facts. A new state is a major move.
@@ -2258,7 +2258,7 @@ and the step's one submission survive a Fleet restarting mid-step.
 Decided with the owner on 2 Oct 2026: the merge line's one list of what left it splits in two.
 `MergeLine` gains `landed`, the newest `landed` outcomes up to `LANDED`, and `sent_back`, every
 `red`, `conflict` or `stopped` outcome of a branch not in line written within `SENT_BACK_FOR`. Both
-bounds are in `adapters::land_state::line`. Both lists are `MergeLineEntry` rows, newest first, with
+bounds were in `adapters::land_state::line`, since removed. Both lists are `MergeLineEntry` rows, newest first, with
 the redaction `off` has. `docs/capabilities/merge-line.md`, *In Bridge*.
 
 **Additive, so the minor moves.** `off` is still served as it was, so a 23.1 Bridge connects behind
@@ -2415,9 +2415,10 @@ or not.
 **The three names are the request, and never a path.** Fleet holds the root against the roots it
 serves, reads the branch's outcome for its turn and the Checks that turn has started, and opens only
 `<turn>/<check>.log` where the turn resolves under this line's own `logs/` and the log is not a
-link. Everything else is one refusal. `adapters::land_state::line::check_log` is the rule;
-`crates/fleet/src/tests/land_logs.rs` holds it to a path, `..`, a waiting Check, an unserved root,
-a turn outside `logs/` and a link.
+link. Everything else is one refusal. `adapters::land_state::line::check_log` was the rule, held by
+`land_logs.rs` to a path, `..`, a waiting Check, an unserved root, a turn outside `logs/` and a
+link. Both are removed with the command; a branch's line has no log to open, and main's are served
+as before.
 
 **Additive, so the minor moves.** `LandOutputMessage` is a new message family, `OutputMessage`'s
 three with its own opening: `LandOutputOpened` names the root, the branch and the Check, and carries

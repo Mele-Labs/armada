@@ -7,8 +7,9 @@ milestone: Throughput
 # Merges take turns, and each one is checked against the main it lands on
 
 > Work goes through pull requests and the `ci` check. `armada land` and
-> `scripts/land` are retired; Fleet still reads the outcome files an earlier run
-> left under `.git/armada-land/`.
+> `scripts/land` are retired, and Fleet no longer reads the files an earlier run
+> left under `.git/armada-land/`: the queue and outcome lists below are always
+> empty on the wire.
 
 ## What replaces each part
 
@@ -266,10 +267,9 @@ second renumbered. (A migration no longer takes a number: it has a name,
 the number is chosen. **A need is a row on Fleet's session ledger** now
 (`docs/capabilities/needs.md`), with its holder, path, what was said, what was
 taken, and when; `armada need` asks Fleet and says so where Fleet is not running.
-**`armada land` still reads the old files** under `armada-needs/` in the git
-common directory, so a need declared through Fleet is not one its line holds a
-branch behind. That is left as it is: `armada land` is being retired for pull
-requests, and the pull request's status is Fleet's order (*Not built*, above).
+**The old files** under `armada-needs/` in the git common directory are read
+only by Fleet, once, to carry them into the ledger. `armada land`, their other
+reader, is gone, and the pull request's status is Fleet's order (*Not built*, above).
 
 - **First to declare goes first.** The declarer is told which needs are ahead and
   what each took, and picks the value after. A branch that already changes the
@@ -325,7 +325,7 @@ added to a plan's task.
 4. The reruns take places like any other Check run.
 5. A Manifest chooses, with `merge_by` ([Manifest](../concepts/manifest.md), *How work lands*). `forge`, the default, asks the forge to merge the pull request, as Fleet always has. `push` makes the merge commit and pushes the base through `adapters::onto_base`, the same code this line lands with, so the two cannot come to land work two ways. A base that moved past the branch is merged into it in the Job's own worktree and the Job's Checks run again, up to the same `ROUNDS` as this line, before the push is asked again ([Manifest](../concepts/manifest.md), *How work lands*). The push also names the tree the Job's Checks last passed on and refuses any other, so a head Fleet's own sweep merged the base into is gated where it stands first. This line has no such sweep: its candidate is always the tree it just gated.
 6. *Proving what merged*, in `docs/concepts/manifest.md`, holds for both: the forge names the base after a forge merge and the push names it after a push, and the main checkout is brought up to what the remote holds before the run. A push needs no first-parent reading to say whether an ungated combination landed: it is refused unless the base is still the one the branch holds.
-7. An outcome becomes a Job event and a log line. Until then Fleet reads this line's own files and serves them as `get_merge_lines` (*In Bridge*); the queue and outcome types already live in `adapters::land_state`, where Fleet can reach them.
+7. An outcome becomes a Job event and a log line. Fleet no longer reads this line's files: the types and the reader are removed with the command, and `get_merge_lines` (*In Bridge*) serves the hub alone.
 8. Same directory, same reason: a Job's Checks run inside the repository because that is where this project's tooling works. **Fleet's own lifecycle already answers the reuse half** — a base checkout belongs to a commit and every Job on that commit shares it, and `setup.seed` warms it when the base moves. What it does not do is drop the one it has superseded: two were found holding 16 GB after two merges, and `armada clean` is the only thing that takes them back.
 9. `docs/concepts/fleet.md`. Fleet runs one named test against a checkout of `main` on a Drone's word; the line asks the same question of a whole Check, without being asked.
 
@@ -380,13 +380,13 @@ added to a plan's task.
 | A line with nothing in any of the three | The panel, with a picture under its heading and no words: the owner's one exception to the empty-state rule, 2 Oct 2026 |
 | All, with lines in more than one repository | One panel per repository, its label beside *Merge line* |
 
-**Fleet serves the line since protocol 22.1**, `landed`, `sent_back` and `checks` since 23.2, and reads it rather than runs it:
+**Fleet served the line from protocol 22.1**, `landed`, `sent_back` and `checks` from 23.2, by reading the runner's files. The reader is removed with the command, so those lists are empty and the hub is the whole answer. What it did, for the record:
 
 ```
-armada land (another process) --writes--> <common git dir>/armada-land/{queue,outcomes}/
-                                                   |
-Fleet, every 2 s, per served repository --reads----+   adapters::land_state::line, no runner, no mkdir
-   |  moved?                                            git asked once per repository, not per read
+armada land (retired) --wrote--> <common git dir>/armada-land/{queue,outcomes}/   (no longer read)
+
+Fleet, every 2 s, per served repository --folds the hub
+   |  moved?
    +--> merge_lines.changed (MergeLines, whole) --> Bridge replaces state.mergeLines
 GET /merge_lines -------------------------------------> Bridge reads it once per connection
                                                         mergeLineViews(mergeLines, pick, repositories) -> one panel each
@@ -411,7 +411,7 @@ GET /merge_lines -------------------------------------> Bridge reads it once per
 - `off` is still served, the three newest of either, for a Bridge before 23.2. This one does not read it.
 - A `gating` outcome with no queue entry is a turn a killed runner left, and is not drawn.
 - **A picked repository draws its own line. All draws every repository Fleet serves a line for**, each named by its repository once there is more than one.
-- A repository nobody has run `armada land` in is in the answer only for its hub, with an empty line, and gains no `armada-land/` from being read.
+- A repository is in the answer only for its hub, with an empty line.
 - **A Check in the strip opens its log** in the log panel (owner, 2 Oct 2026), live while the runner writes it and whole once it has ended, over `observe_land_check` since protocol 23.7. The request is the root, the branch and the Check; Fleet finds the file from the branch's outcome and opens nothing else. A Check still `waiting` has no log and is no button.
 
 ### The hub
