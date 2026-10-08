@@ -42,16 +42,6 @@ still pushing the fix the owner was waiting for, and that fix needed #1883.
 branch merges into that branch. Queue it only after GitHub has retargeted it to
 `main`.
 
-**Two queued protocol bumps cannot both pass.** Each one rewrites the `minor`
-line in `protocol-version.toml`, so the later one is `UNMERGEABLE` behind the
-earlier one and drops out when it reaches the head. Before queueing a branch
-that moves the protocol, check the entries ahead with
-`gh api graphql -f query='{repository(owner:"Mele-Labs",name:"armada"){mergeQueue(branch:"main"){entries(first:20){nodes{pullRequest{number files(first:100){nodes{path}}}}}}}}'`.
-If one of them touches `protocol-version.toml`, wait for it to land, then
-merge `origin/main` in, keep this branch's number from `armada need`, and
-queue. Confirmed 7 Oct 2026: #1911 dropped out twice behind #1925 and #1937.
-It took three hours to land.
-
 **A change to `.github/` is green only when every job it touches is.** `ci`
 on a pull request can pass while a job beside it fails, and a filtered job may
 not run at all. Before queueing one, read `gh pr checks <n>` whole and require
