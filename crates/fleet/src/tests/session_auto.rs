@@ -148,8 +148,6 @@ fn removing_or_overwriting_a_file_in_the_sessions_own_slot_runs() {
     }
     for line in [
         "rm ../other/file",
-        "rm ~/notes.txt",
-        "rm $HOME/x",
         &format!("rm -rf {SLOT}"),
         "rm -rf /repo/.armada/slots/slot-4/x",
         "rm",
@@ -167,4 +165,33 @@ fn before_a_lease_the_repositorys_root_is_not_a_slot() {
         |line: &str| because_in_a_session(&call("Bash", Command { command: line }), "/repo");
     assert_eq!(at_root("rm notes.txt"), Some(Because::Destructive));
     assert_eq!(at_root("echo hi > notes.txt"), Some(Because::Destructive));
+}
+
+#[test]
+fn reaching_into_the_owners_files_asks_unless_it_names_armada() {
+    for line in [
+        "find / -name pnpm -maxdepth 6 -type f 2>/dev/null | head -3",
+        "ls ~/Documents",
+        "ls ~",
+        "grep -r foo $HOME/Music",
+        "cat /Users/someone/Desktop/notes.txt",
+        "ls /Volumes/Backup",
+    ] {
+        assert_eq!(bash(line), Some(Because::ReachesOutside), "{line} should ask");
+    }
+    for line in [
+        "ls ~/Library/Application\\ Support/Armada/mod",
+        "cat /Users/someone/Development/armada/README.md",
+        "ls ~/.claude/projects/-Users-someone-Development-armada/memory",
+        "ls /opt/homebrew/bin",
+        "cargo build 2>/dev/null",
+        "cd /tmp && ls",
+    ] {
+        assert_eq!(bash(line), None, "{line} should run");
+    }
+    let read = |path: &str| because_in_a_session(&call("Read", Path { file_path: path }), SLOT);
+    assert!(bash("rm ~/notes.txt").is_some(), "outside the slot still asks");
+    assert!(bash("rm $HOME/x").is_some(), "outside the slot still asks");
+    assert_eq!(read("/Users/someone/Desktop/shot.png"), Some(Because::ReachesOutside));
+    assert_eq!(read(&format!("{SLOT}/src/lib.rs")), None);
 }
