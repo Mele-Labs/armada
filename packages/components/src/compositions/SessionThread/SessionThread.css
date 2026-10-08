@@ -318,3 +318,10 @@
   line-height: var(--leading-sm);
   color: var(--fg-muted);
 }
+
+.armada-session-thread__working {
+  display: flex;
+  align-items: center;
+  padding: var(--space-1) 0;
+  color: var(--fg-muted);
+}
