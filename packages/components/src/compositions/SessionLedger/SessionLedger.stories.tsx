@@ -63,7 +63,11 @@ export const Some: Story = {
 export const Artifacts: Story = {
   args: { entries: ENTRIES.filter((one) => one.kind === "artifact") },
   play: async ({ canvas }) => {
+    localStorage.clear();
     await expect(canvas.getByRole("heading", { name: "Artifacts" })).toBeInTheDocument();
+    // Pictures start out of the list.
+    await expect(canvas.queryByRole("img", { name: "Looked at" })).toBeNull();
+    await userEvent.click(canvas.getByRole("button", { name: "Pictures" }));
     await expect(canvas.getByRole("img", { name: "Published page" })).toBeInTheDocument();
     await expect(canvas.getByRole("img", { name: "File written" })).toBeInTheDocument();
     await expect(canvas.getByRole("img", { name: "Doc" })).toBeInTheDocument();
@@ -77,6 +81,39 @@ export const Artifacts: Story = {
     const before = open.mock.calls.length;
     await userEvent.click(canvas.getByRole("button", { name: "Open Looked at clock-trace.png" }));
     await expect(open).toHaveBeenCalledTimes(before + 1);
+    localStorage.clear();
+  },
+};
+
+const MANY: LedgerEntry[] = [
+  ...Array.from({ length: 8 }, (_, i): LedgerEntry => ({ key: `f${i}`, kind: "artifact", artifact: i === 0 ? "window" : "file", name: `${i === 0 ? "Shown in a window" : "File written"} n${i}`, text: `n${i}`, onOpen: open })),
+  ...Array.from({ length: 3 }, (_, i): LedgerEntry => ({ key: `i${i}`, kind: "artifact", artifact: "image", name: `Looked at p${i}.png`, text: `p${i}.png`, onOpen: open })),
+];
+
+/** Pictures start hidden, a window and files show, only the newest five do until More, and Less folds back. */
+export const ArtifactsFiltered: Story = {
+  args: { entries: MANY },
+  play: async ({ canvas }) => {
+    localStorage.clear();
+    const artifacts = within(canvas.getByRole("region", { name: "Artifacts" }));
+    await expect(artifacts.getByRole("button", { name: "Pictures" })).toHaveAttribute("aria-pressed", "false");
+    await expect(artifacts.queryByRole("button", { name: /Looked at/ })).toBeNull();
+    await expect(artifacts.getByRole("button", { name: "Open Shown in a window n0" })).toBeInTheDocument();
+    await expect(artifacts.getAllByRole("listitem")).toHaveLength(5);
+    await userEvent.click(artifacts.getByRole("button", { name: "More" }));
+    await expect(artifacts.getAllByRole("listitem")).toHaveLength(8);
+    await userEvent.click(artifacts.getByRole("button", { name: "Less" }));
+    await expect(artifacts.getAllByRole("listitem")).toHaveLength(5);
+    await userEvent.click(artifacts.getByRole("button", { name: "Pictures" }));
+    await expect(artifacts.queryByRole("button", { name: "Open Looked at p0.png" })).toBeNull();
+    await userEvent.click(artifacts.getByRole("button", { name: "More" }));
+    await expect(artifacts.getByRole("button", { name: "Open Looked at p0.png" })).toBeInTheDocument();
+    // The filter hiding every row leaves the head and toggles.
+    for (const name of ["Windows", "Files", "Pictures"]) await userEvent.click(artifacts.getByRole("button", { name }));
+    await expect(artifacts.queryByRole("listitem")).toBeNull();
+    await expect(artifacts.getByRole("button", { name: "Files" })).toBeInTheDocument();
+    await expect(artifacts.queryByRole("button", { name: "Docs" })).toBeNull();
+    localStorage.clear();
   },
 };
 
