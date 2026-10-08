@@ -706,33 +706,73 @@ where
         state.queued = 0;
     }
 
-    /// Start the session's process if none is running.
+    /// Start the session's process if none is running. A keeper a Fleet before
+    /// this one started is reattached to rather than replaced.
     pub(crate) async fn ensure_process(
         self: &Arc<Self>,
         id: &str,
         hosting: &KeptHosting,
     ) -> Result<(), String> {
+        self.process_of(id, hosting, true).await.map(|_| ())
+    }
+
+    /// Reattach to every hosted session whose keeper still answers, at boot.
+    /// Nothing is started. How many were taken back.
+    pub async fn reattached_sessions(self: &Arc<Self>) -> usize {
+        let hostings = self.store().lock().await.hostings();
+        let Ok(hostings) = hostings else { return 0 };
+        let mut taken = 0;
+        for hosting in hostings {
+            if let Ok(true) = self.process_of(&hosting.session_id, &hosting, false).await {
+                taken += 1;
+                let _ = self.published_hosted(&hosting.session_id).await;
+            }
+        }
+        taken
+    }
+
+    /// The session's process, reattached or (where `may_start`) started.
+    /// Whether it has one.
+    async fn process_of(
+        self: &Arc<Self>,
+        id: &str,
+        hosting: &KeptHosting,
+        may_start: bool,
+    ) -> Result<bool, String> {
         let runtime = self.hosts().of(id);
         if runtime.state().process.is_some() {
-            return Ok(());
+            return Ok(true);
         }
-        let served = self
-            .served_named(Some(&ManifestId::carried(&hosting.manifest_id)))
-            .map_err(|_| format!("the repository {} is no longer served", hosting.manifest_id))?;
-        let directory = Self::directory_of(&served, hosting);
-        let start = Start {
-            directory: directory.clone(),
-            session: id.to_string(),
-            resuming: hosting.ran,
-            forking: hosting.fork_of.clone(),
-            name: address_of(id),
-            model: hosting.model.clone(),
-            effort: hosting.effort.clone(),
-            mode: mode_of(&hosting.mode),
-            readable: vec![self.uploads_of(id).to_string_lossy().into_owned()],
-        };
+        let served = self.served_named(Some(&ManifestId::carried(&hosting.manifest_id)));
         let (sink, heard) = tokio::sync::mpsc::unbounded_channel::<Heard>();
-        let process = self.hosts().processes().start(&start, sink)?;
+        let (process, directory) = match self.hosts().processes().reattach(id, sink.clone()) {
+            Some(process) => (
+                process,
+                served
+                    .as_ref()
+                    .map(|served| Self::directory_of(served, hosting))
+                    .unwrap_or_default(),
+            ),
+            None if !may_start => return Ok(false),
+            None => {
+                let served = served.map_err(|_| {
+                    format!("the repository {} is no longer served", hosting.manifest_id)
+                })?;
+                let directory = Self::directory_of(&served, hosting);
+                let start = Start {
+                    directory: directory.clone(),
+                    session: id.to_string(),
+                    resuming: hosting.ran,
+                    forking: hosting.fork_of.clone(),
+                    name: address_of(id),
+                    model: hosting.model.clone(),
+                    effort: hosting.effort.clone(),
+                    mode: mode_of(&hosting.mode),
+                    readable: vec![self.uploads_of(id).to_string_lossy().into_owned()],
+                };
+                (self.hosts().processes().start(&start, sink)?, directory)
+            }
+        };
         let generation = {
             let mut state = runtime.state();
             state.process = Some(process);
@@ -751,7 +791,7 @@ where
             generation,
             heard,
         ));
-        Ok(())
+        Ok(true)
     }
 
     /// Everything one process says, in order. **Boxed**, because hearing a

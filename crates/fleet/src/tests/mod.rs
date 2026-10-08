@@ -206,6 +206,7 @@ mod session_auto;
 mod session_fork;
 mod session_gate;
 mod session_host;
+mod session_keeper;
 mod session_piloting;
 mod session_question;
 mod sessioning;

@@ -72,9 +72,9 @@ A holder is `{ kind: session | job, id }` and points at neither table, so a Job 
 | `message` | `to:<who>` or `from:<who>`, with a count in `detail` | |
 | `studio` | the Studio's id | not reported by anything yet |
 | `forked_to`, `forked_from` | the other session's id | `spent` when written, so the old session ending does not give the link back |
-| `artifact` | a page's or document's address, or a file's absolute path; `detail.form` is `page`, `file` or `doc`, `detail.title` its name | nothing: it stays on the ledger after the session ends |
+| `artifact` | a page's or document's address, or a file's absolute path; `detail.form` is `page`, `file`, `image`, `doc` or `window`, `detail.title` its name | nothing: it stays on the ledger after the session ends |
 
-**An artifact is something a person would open, and a code edit is never one.** Edits are Branches and Pull requests. Four forms:
+**An artifact is something a person would open, and a code edit is never one.** Edits are Branches and Pull requests. Five forms:
 
 | Form | What counts | The press opens |
 |---|---|---|
@@ -82,8 +82,9 @@ A holder is `{ kind: session | job, id }` and points at neither table, so a Job 
 | `file` | A file the `Write` tool **created** with a document extension: `md`, `mdx`, `txt`, `pdf`, `png`, `jpg`, `jpeg`, `gif`, `webp`, `svg`, `csv`, `doc`, `docx`, `xls`, `xlsx`, `ppt`, `pptx`. Not under `node_modules`, `.git`, `.claude`, `.armada`, `target`, `dist`, `build` or a temporary directory. `html` is left out, because a page's source appears as the page once published; configuration (`json`, `yaml`, `toml`) is not a document | the file, on this machine |
 | `image` | A picture the session **looked at**: a `Read` of a `png`, `jpg`, `jpeg`, `gif` or `webp`, in any directory (a screenshot is usually in `/tmp`). The same path twice is one row, and a picture it wrote stays `file` | the file, on this machine |
 | `doc` | A Claude Docs document made or edited (`mcp__claude_ai_Claude_Docs__create`, `batch`, `update`), by the address its answer carries or the document's id | the address, in the browser |
+| `window` | A page the session showed with `show_window` | the address, in Bridge's own window |
 
-The terminal mod tells all four (`plugins/armada/hooks/facts.ts`, `artifactOf`). **A hosted session tells files and pictures looked at**, because its stream carries a `Write` call but not its result, so a published page's address and a Docs link are not seen; and it cannot tell a new file from a rewrite, so a rewritten document counts. The extension lists are the same rule written twice, in `facts.ts` and `adapters::written_document` / `adapters::viewed_image`. Files made by other tools, such as a screenshot a command saved, are not seen.
+The terminal mod tells all five (`plugins/armada/hooks/facts.ts`, `artifactOf`). **A hosted session tells files and pictures looked at**, because its stream carries a `Write` call but not its result, so a published page's address and a Docs link are not seen; and it cannot tell a new file from a rewrite, so a rewritten document counts. The extension lists are the same rule written twice, in `facts.ts` and `adapters::written_document` / `adapters::viewed_image`. Files made by other tools, such as a screenshot a command saved, are not seen.
 
 **A piloted Job's slot and branch are the Session's while it pilots.** `take_over` names the Session, writes a `slot` and a `branch` row held by it with `detail.handed` reading `job <id>`, and gives the Job's own rows back; an exit gives the Session's back and the Job holds them again. `who_owns` names one holder throughout. The Session is the piloted session of [Pilot](pilot.md), and a pilot's three exits are on its row for the Job as well as on Job detail.
 
@@ -204,6 +205,47 @@ keeps the person's words. A thread's rows are the person's messages, the agent's
 another session's, one line for each tool call, the lease, and each ask with
 where it stands. **An ask is the session's own**: it never appears in Helm's
 dock and `answer_helm_call` does not find it.
+
+### What a restart does to a session
+
+**A hosted session survives a Fleet restart, and so a Bridge restart.** Its agent
+runs under a *keeper*, `armada session-keep`, which Fleet starts detached and
+without Fleet's mark, so `crate::orphans` leaves it. The keeper owns the agent's
+pipes, appends every line the agent writes to a spool file beside its socket
+(`<support dir>/sessions/<id>.sock`), and serves that socket. Fleet holds a
+connection, not the pipes, so the agent and the background subagents it started
+keep running when Fleet stops.
+
+| | Before | Now |
+|---|---|---|
+| Fleet stops | pipes close, agent exits, subagents die | agent and subagents run on |
+| Fleet boots | next message resumes the conversation, in-flight work lost | Fleet reattaches, the thread continues from what the agent said while it was down |
+| The next message | `--resume` | a line on the same process's stdin |
+| A keeper that is gone | | a dead socket is removed; the next message resumes, as before |
+
+**The keeper holds the offset.** Fleet acknowledges each line it has taken; on
+attach the keeper replays from the last acknowledgement. A line taken but not
+acknowledged when Fleet died is sent again, so one row may repeat; none is lost.
+A Fleet that attaches mid-turn is told so, and the session shows as working.
+
+**The wire** is lines of text over the socket. Fleet sends `ATTACH`,
+`IN <line>`, `ACK <offset>` and `END`. The keeper sends `READY <pid> <busy>`,
+`OUT <offset> <line>` and `GONE`. One client at a time; the newest attach wins.
+
+**A keeper ends** when the agent exits and Fleet has been told (`GONE`), on
+`END` (closing a session, the quiet timeout, a tune), or when no Fleet has been
+attached for 30 minutes, which also ends the agent: a keeper no Fleet will
+return to must not run one for ever. The permission door (`armada mcp`) waits up
+to 90 seconds for a Fleet that is restarting before it fails a call. It reads
+Fleet's port once, so a Fleet that comes back on another port is not found; the
+port is claimed from the store and is normally the same.
+
+**Not covered**: a keeper's own death (the agent loses its pipes and exits), and
+an agent whose hooks name a Fleet port that changed.
+
+## Showing a window
+
+**A session shows the person a web page with `show_window`** (`url`, optional `title`), a tool on the agent's door, and Bridge opens it in a capture window by itself. Any `http` or `https` address; any other scheme is refused with its reason. Fleet places a hosted session by its connection, as for its asks, so the call names no session; a terminal session names its own id, which the mod puts in the model's first-message context. It writes one `window` artifact on the ledger however often the address is shown, and a quiet `window` row on the thread each time, which is what makes Bridge open (or raise) the window. Pressing the ledger row or the thread row opens it again, only for an address the ledger shows as a window. **A note taken in the window goes to the session as a message from the person**, with the element it pointed at, and wakes it. The window is pinned to the origin it opened on, as a server's is. `docs/practices/capture-window.md`.
 
 ## What Fleet tells a Session
 

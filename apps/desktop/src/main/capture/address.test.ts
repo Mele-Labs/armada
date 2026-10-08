@@ -8,7 +8,7 @@ import { describe, expect, it } from "vitest";
 
 import type { ServerState } from "@armada/protocol";
 import { NOTHING_YET, type BridgeState } from "../../shared/bridge";
-import { isPinned, loopbackOrigin, offerable, onOrigin, partitionFor, pinned } from "./address";
+import { isPinned, loopbackOrigin, webOrigin, offerable, onOrigin, partitionFor, pinned } from "./address";
 
 const SERVING: ServerState = {
   id: "01SERVER",
@@ -138,5 +138,18 @@ describe("the session partition", () => {
     expect(partitionFor("01MANIFEST")).toBe("persist:armada-capture-01MANIFEST");
     expect(partitionFor("01MANIFEST")).not.toBe(partitionFor("01OTHER"));
     expect(partitionFor(null)).toBe("persist:armada-capture-unnamed");
+  });
+});
+
+describe("a web origin", () => {
+  it.each([
+    ["https://example.com/a?b=1", "https://example.com"],
+    ["http://localhost:3000/x", "http://localhost:3000"],
+  ])("reads %s", (address, origin) => {
+    expect(webOrigin(address)).toBe(origin);
+  });
+
+  it.each(["file:///etc/passwd", "javascript:alert(1)", "ftp://example.com/", "not an address", "http://"])("refuses %s", (address) => {
+    expect(webOrigin(address)).toBeNull();
   });
 });

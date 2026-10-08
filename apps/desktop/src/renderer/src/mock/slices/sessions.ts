@@ -23,6 +23,7 @@ export const sessions: Slice<SessionsApi, SessionsState> = {
     watchSession: async () => undefined,
     readSessionFile: async () => ({ ok: false, outcome: unanswered("/sessions/file") }),
     openSessionFile: async () => ({ ok: true }),
+    openSessionWindow: async () => ({ ok: true }),
     readSessionArtifact: async () => ({ ok: false, why: "unreadable" }),
     showSessionPage: async () => ({ ok: true }),
     moveSessionPage: async () => undefined,

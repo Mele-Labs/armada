@@ -194,6 +194,15 @@ describe("the thread", () => {
     expect(drawn).toMatchObject([{ kind: "command", text: "/reload-plugins" }, { kind: "compaction", text: "This session is being continued" }]);
   });
 
+  it("keeps a window the Session showed as a row with its address, and its ledger entry as a window", () => {
+    const drawn = rowsOfThread("a", [{ kind: "window", id: "w", at: AT, title: "Findings", url: "http://localhost:5173/" }], () => undefined);
+    expect(drawn).toMatchObject([{ kind: "window", title: "Findings", url: "http://localhost:5173/" }]);
+    const shown = { ...held("artifact", "http://localhost:5173/"), detail: { form: "window", title: "Findings" } };
+    expect(attachmentsOfRecord(record("a", { attachments: [shown] }), beside())).toEqual([
+      { kind: "artifact", form: "window", id: "http://localhost:5173/", title: "Findings" },
+    ]);
+  });
+
   it("names another session's message by sender, and keeps the first write as a row", () => {
     const drawn = rowsOfThread("a", rows, () => undefined);
     expect(drawn[2]).toMatchObject({ kind: "lease", slot: 3, branch: "fix/x" });

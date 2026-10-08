@@ -45,6 +45,9 @@ pub enum Verb {
     /// The agent's door, spoken on stdin and stdout for an agent standing in
     /// this repository. Started by an agent's MCP client, never by a person.
     Mcp,
+    /// Hold one hosted session's agent so it outlives a Fleet restart. Started
+    /// by Fleet, with `fleet::session_host::keeper::run`'s arguments.
+    SessionKeep { args: Vec<String> },
     /// The pool of warm worktrees — `docs/concepts/fleet.md`, *Worktree slots*.
     Worktree(WorktreeAct),
     /// What a branch needs on a path — `docs/capabilities/merge-line.md`.
@@ -81,6 +84,10 @@ const VERBS: &[(&str, &str)] = &[
         "relay this repository's agent door on stdin and stdout — an agent's client runs it",
     ),
     (
+        SESSION_KEEP,
+        "hold a hosted session's agent across a Fleet restart — Fleet runs it",
+    ),
+    (
         WORKTREE,
         "lease a warm worktree, give it back, or list who holds each",
     ),
@@ -103,6 +110,8 @@ pub const COVERS: &str = "covers";
 /// `check`'s flag for a run over what the changed paths on stdin reach. CI
 /// names it.
 pub const CHANGED: &str = "--changed";
+/// The verb Fleet starts for each hosted session.
+pub const SESSION_KEEP: &str = "session-keep";
 /// The worktree pool.
 pub const WORKTREE: &str = "worktree";
 /// What a branch needs on a path.
@@ -177,6 +186,9 @@ pub fn read<I: IntoIterator<Item = String>>(args: I) -> Result<Verb, Misread> {
             }
             Some(Verb::Mcp)
         }
+        SESSION_KEEP => Some(Verb::SessionKeep {
+            args: rest.to_vec(),
+        }),
         "clean" => {
             let positional = positionals(rest, &["--all", "--force"], &mut faults);
             at_most_one("clean", &positional, &mut faults);

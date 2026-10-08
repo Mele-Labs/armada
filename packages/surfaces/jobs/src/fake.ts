@@ -28,4 +28,5 @@ export * from "./fake/plan-fleet";
 export * from "./fake/proposal-from-an-issue";
 export * from "./fake/proposer-fleet";
 export * from "./fake/prototype-fleet";
+export * from "./fake/walk-window";
 export * from "./fake/undecided-fleet";

@@ -432,6 +432,7 @@ type OldBridgeApi = {
     watchSession: (sessionId: string) => Promise<void>;
     readSessionFile: (sessionId: string, file: string) => Promise<FrameRead>;
     openSessionFile: (sessionId: string, path: string) => Promise<Followed>;
+    openSessionWindow: (sessionId: string, url: string) => Promise<Outcome>;
     readSessionArtifact: (sessionId: string, path: string) => Promise<ArtifactRead>;
     showSessionPage: (sessionId: string, address: string, bounds: PageBounds) => Promise<Followed>;
     moveSessionPage: (bounds: PageBounds) => Promise<void>;
@@ -687,6 +688,7 @@ const OLD_CHANNELS = {
     watchSession: "bridge:watch-session",
     readSessionFile: "bridge:read-session-file",
     openSessionFile: "bridge:open-session-file",
+    openSessionWindow: "bridge:open-session-window",
     readSessionArtifact: "bridge:read-session-artifact",
     showSessionPage: "bridge:show-session-page",
     moveSessionPage: "bridge:move-session-page",
