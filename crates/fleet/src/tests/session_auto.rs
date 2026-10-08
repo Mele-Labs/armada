@@ -195,3 +195,18 @@ fn reaching_into_the_owners_files_asks_unless_it_names_armada() {
     assert_eq!(read("/Users/someone/Desktop/shot.png"), Some(Because::ReachesOutside));
     assert_eq!(read(&format!("{SLOT}/src/lib.rs")), None);
 }
+
+#[test]
+fn quoted_text_is_an_argument_not_a_redirect_or_a_pipe() {
+    for line in [
+        "git add -A && git commit -qm \"WIP: roomier bar\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\"; git log --oneline -1",
+        "sed -i '' 's|<CallPane item={call} />|<CallPane item={call} onOpen={x} />|' apps/desktop/src/Dashboard.tsx",
+        "grep -n 'a > b' src/lib.rs",
+        "echo \"x; rm -rf build\"",
+    ] {
+        assert_eq!(bash(line), None, "{line} should run");
+    }
+    assert_eq!(bash("echo hi > /etc/hosts"), Some(Because::Destructive));
+    assert_eq!(bash("echo 'x' > /etc/hosts"), Some(Because::Destructive));
+    assert_eq!(bash("echo \"x\" | rm -rf /tmp/y"), Some(Because::Destructive));
+}

@@ -341,7 +341,8 @@ fn shell(line: &str, slot: Option<&str>) -> Option<Because> {
     // every `&` cuts `2>&1` in half and leaves a segment ending in a bare `>`,
     // which then reads as a truncating redirect — `cargo build 2>&1 | tail -5`
     // asked, as a destructive line, until a case caught it.
-    let chained = line.replace("&&", ";").replace("||", ";");
+    let quiet = unquoted(line);
+    let chained = quiet.replace("&&", ";").replace("||", ";");
     let segments: Vec<&str> = chained
         .split(|c| c == ';' || c == '|' || c == '\n')
         .map(str::trim)
@@ -361,6 +362,44 @@ fn shell(line: &str, slot: Option<&str>) -> Option<Because> {
         }),
     });
     segments.into_iter().find_map(|said| segment(said, slot))
+}
+
+/// `line` with every `;`, `|`, `&`, `<` and `>` inside quotes turned to a
+/// space. **Quoted text is an argument, not shell**: a commit message's
+/// `<noreply@...>` and a `sed 's|a|b|'` script asked, as an overwrite, on
+/// every commit a Session made (8 Oct 2026).
+fn unquoted(line: &str) -> String {
+    let mut quote: Option<char> = None;
+    let mut escaped = false;
+    line.chars()
+        .map(|c| {
+            if escaped {
+                escaped = false;
+                return c;
+            }
+            match quote {
+                Some(q) if c == q => {
+                    quote = None;
+                    c
+                }
+                Some('"') if c == '\\' => {
+                    escaped = true;
+                    c
+                }
+                Some(_) if matches!(c, ';' | '|' | '&' | '<' | '>' | '\n') => ' ',
+                Some(_) => c,
+                None if c == '\\' => {
+                    escaped = true;
+                    c
+                }
+                None if c == '\'' || c == '"' => {
+                    quote = Some(c);
+                    c
+                }
+                None => c,
+            }
+        })
+        .collect()
 }
 
 /// Whether `word` appears in `line` as a word rather than inside a longer one,
