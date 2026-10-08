@@ -12,7 +12,10 @@ function steps(): Step[] {
   const panel = (title: string) => dialog(title);
   return [
     { press: inside(sessions, button("Write up the store clock")), say: "A Session that wrote a file, looked at a screenshot and published a page" },
-    ...opened([{ look: inside(ledger, role("img", "Looked at")), say: "The screenshot it read" }]),
+    ...opened([
+      { press: inside(ledger, button("Pictures")), say: "Pictures start out of the list; press for them" },
+      { look: inside(ledger, role("img", "Looked at")), say: "The screenshot it read" },
+    ]),
     ...row("Looked at ledger-screenshot.png", "A picture opens in the panel"),
     { look: inside(panel("ledger-screenshot.png"), role("img", "ledger-screenshot.png")), say: "The picture, fit to the panel" },
     { press: close(panel("ledger-screenshot.png")), say: "Close" },

@@ -28,6 +28,8 @@ export function unmountAfterEach(): void {
 
 /** Mount `App` on a scenario, in a host the app's stylesheet sizes as its window. */
 export function mount(scenario: string | Scenario, options?: FakeOptions): Mounted {
+  // Each mount is a fresh viewer: the ledger's kind filter is remembered in the browser, so a test that pressed it must not leak.
+  localStorage.removeItem("armada.session-ledger.kinds.artifact");
   const host = document.createElement("div");
   host.id = "root";
   document.body.append(host);

@@ -20,6 +20,7 @@ const ledger = () => page.getByRole("region", { name: "Attachments" });
 
 test("Artifacts: a picture the Session looked at opens in the panel, fit to it", async () => {
   await onWriteUp();
+  await userEvent.click(ledger().getByRole("button", { name: "Pictures" }));
   await userEvent.click(ledger().getByRole("button", { name: "Looked at ledger-screenshot.png" }));
   const panel = page.getByRole("dialog", { name: "ledger-screenshot.png" });
   await expect.element(panel.getByRole("img", { name: "ledger-screenshot.png" })).toBeVisible();
