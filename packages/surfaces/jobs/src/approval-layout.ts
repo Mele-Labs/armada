@@ -37,6 +37,10 @@ const ZONE_FOOT = 56;
 /** The room above a lane's first card, so an edge crossing into it turns below the head. */
 const LANE_TOP = ZONE_HEAD + 24;
 
+/** A leaf stands a gap off the way back, at a step's own width, so a lane that has some is a leaf's column wider. */
+const LEAF_GAP = 56;
+const LEAF_COLUMN = LEAF_GAP + CARD.width;
+
 /** A fan's frame: its head and padding, and the room an edge's own words take. */
 const CLUSTER_HEAD = 28;
 const CLUSTER_PAD = 12;
@@ -57,6 +61,8 @@ export type Layout = {
   sizes: ReadonlyMap<string, { width: number; height: number }>;
   /** Each edge as drawn: one crossing between lanes turns in the gutter between them. */
   edges: readonly WorkflowCanvasEdge[];
+  /** Where the leaves of a node that has some start, inside its lane: the column the lane made room for. */
+  leaves: ReadonlyMap<string, Place>;
 };
 
 /** What a lane is called on its head. */
@@ -138,10 +144,13 @@ export function layoutOf(
   edges: readonly WorkflowCanvasEdge[],
   /** The workflow's name, which the Work lane's head carries. */
   workflowName?: string,
+  /** How tall the stack of leaves under each node is, by node id: the lane grows to hold them. */
+  leafRoom: ReadonlyMap<string, number> = new Map(),
 ): Layout {
   const places = new Map<string, Place>();
   const frames: Frame[] = [];
   const sizes = new Map<string, { width: number; height: number }>();
+  const leaves = new Map<string, Place>();
   const labelled = new Set(edges.filter((edge) => edge.label !== undefined).map((edge) => edge.target));
   const laneOfId = new Map(nodes.map((node) => [node.id, node.lane]));
   /** Where each lane's left edge is, for the gutters. */
@@ -164,7 +173,9 @@ export function layoutOf(
     const fanHalf = widestRow === 0 ? 0 : widestRow / 2 + CLUSTER_PAD;
     const half = (lane === "setup" ? CARD.narrow : CARD.width) / 2;
     const left = Math.max(half, fanHalf);
-    const right = Math.max(half, fanHalf) + (hasLoop ? LOOP_ROOM : 0);
+    // Leaves stand in a column of their own past the way back, inside the lane, so the Zone holds them.
+    const leafed = inLane.some((node) => leafRoom.has(node.id));
+    const right = Math.max(half, fanHalf) + (hasLoop ? LOOP_ROOM : 0) + (leafed ? LEAF_COLUMN : 0);
     const spine = x + ZONE_PAD + left;
     const spineCard = lane === "setup" ? CARD.narrow : CARD.width;
     laneLeft.set(lane, x);
@@ -177,7 +188,14 @@ export function layoutOf(
       if (labelled.has(node.id)) y += LABELLED;
       const gate = node.kind === "checks";
       places.set(node.id, { x: spine - (gate ? GATE.width : spineCard) / 2, y });
+      const top = y;
       y += gate ? GATE.height : CARD.height;
+      // A stack of leaves taller than its card pushes what is under it down.
+      const stack = leafRoom.get(node.id);
+      if (stack !== undefined) {
+        leaves.set(node.id, { x: spine + Math.max(half, fanHalf) + (hasLoop ? LOOP_ROOM : 0) + LEAF_GAP, y: top });
+        y += Math.max(0, stack - (gate ? GATE.height : CARD.height));
+      }
       const fan = fans.get(node.id);
       if (fan !== undefined) {
         const top = y + ROW_GAP;
@@ -247,5 +265,5 @@ export function layoutOf(
     const enters = laneLeft.get(into);
     return enters === undefined ? edge : { ...edge, via: enters - LANE_GAP / 2, intoSide: true };
   });
-  return { places, frames, sizes, edges: drawn };
+  return { places, frames, sizes, edges: drawn, leaves };
 }

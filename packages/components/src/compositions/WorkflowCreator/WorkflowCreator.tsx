@@ -34,7 +34,7 @@ import {
   type Step,
 } from "./def";
 import { writeDefinition } from "./json";
-import { TriggerRows, TriggerSheet, type TriggerTarget } from "../WorkflowTriggers/WorkflowTriggers";
+import { TriggerRows, TriggerSheet, type TriggerOpen, type TriggerTarget } from "../WorkflowTriggers/WorkflowTriggers";
 import { firingAt, identityKey, type TriggersBinding } from "../WorkflowTriggers/triggers";
 import type { TriggerLevel, TriggerMoment, TriggerSaved, TriggerSummary } from "@armada/protocol";
 
@@ -95,6 +95,8 @@ function copy<T>(value: T): T {
 /** A card's height with one row under its name, a band over it, and what each further row adds. `workflow-canvas.ts`'s numbers. */
 const STEP_APART = 112;
 const BAND = 28;
+/** A step card's width (`--w-workflow-node`), which a leaf stands clear of. */
+const WIDTH = 260;
 const ROW = 28;
 
 const canvasId = (at: number) => `step:${at}`;
@@ -133,30 +135,67 @@ export function detailsOf(step: Step, triggers: readonly TriggerSummary[] = []):
     if (g.you) rows.push({ icon: GATE.you.icon, label: GATE.you.said });
     if (!g.checks && !g.judge && !g.you) rows.push({ icon: GATE.auto.icon, label: GATE.auto.said });
   }
-  // Triggers fire at a moment, so each moment is a line of its own after how the step advances.
+  // Triggers fire at a moment, so each moment is a line of its own after how the step advances. One set for every workflow is a leaf off the step instead.
   const fires = (when: TriggerMoment, label: string) => {
-    const named = triggers.filter((one) => one.when === when).map((one) => one.name);
+    const named = triggers.filter((one) => one.when === when && one.workflow !== undefined).map((one) => one.name);
     if (named.length > 0) rows.push({ icon: Webhook, label, value: named.join(", ") });
   };
   fires("pr_opened", "PR opened");
-  fires("step_starts", "Triggers on start");
-  fires("step_passes", "Triggers on pass");
+  fires("step_starts", "On start");
+  fires("step_passes", "On pass");
   return rows;
 }
 
 /** The title a step reads as: its id without the underscores. */
 const titleOf = (id: string, at: number) => (id === "" ? `Step ${at + 1}` : id.charAt(0).toUpperCase() + id.slice(1).replaceAll("_", " "));
 
-/** The definition as the canvas draws it: a spine down, and a back edge wherever a step sends work back. */
-function graphOf(def: Definition, marked: ReadonlyMap<number, string[]>, panel: Panel, onOpen: (at: number) => void, triggersAt: (step: Step) => TriggerSummary[]) {
+/** What a Trigger leaf is drawn at: its width is a step's, its height a row and a row for each copy it replaced. */
+const LEAF_OFF = 56;
+const LEAF_ROW = 36;
+const LEAF_APART = 12;
+const leafDummy = { kind: "step", name: "", activity: "not_started", said: "" } as const;
+
+/** What the Triggers a step is open to draw beside it, for the editor: the open handler and what each save answered. */
+type Leaves = { saved: ReadonlyMap<string, TriggerSaved>; onOpen: TriggerOpen };
+
+/** The definition as the canvas draws it: a spine down, a back edge wherever a step sends work back, and a leaf off a step for each Trigger set for every workflow that fires there. */
+function graphOf(
+  def: Definition,
+  marked: ReadonlyMap<number, string[]>,
+  panel: Panel,
+  onOpen: (at: number) => void,
+  triggersAt: (step: Step) => TriggerSummary[],
+  leaves: Leaves | undefined,
+) {
   let y = 0;
+  const leafNodes: WorkflowCanvasNode[] = [];
+  const leafEdges: WorkflowCanvasEdge[] = [];
   const nodes: WorkflowCanvasNode[] = def.steps.map((step, at) => {
     const needs = (marked.get(at) ?? []).map((says) => ({ says, tone: "waiting" as const }));
     const back = step.returnsTo !== "" && def.steps.findIndex((one) => one.id === step.returnsTo) < at && def.steps.some((one) => one.id === step.returnsTo);
-    const details = detailsOf(step, triggersAt(step));
+    const firing = triggersAt(step);
+    const details = detailsOf(step, firing);
     const rows = details.length + needs.length + (back ? 1 : 0);
     const here = y;
-    y += STEP_APART + BAND + (rows - 1) * ROW + 8;
+    const height = STEP_APART + BAND + (rows - 1) * ROW + 8;
+    // A Trigger set for every workflow leaves the step beside it, in the step's own row; a tall stack makes the row taller.
+    let leafY = here;
+    for (const one of leaves === undefined ? [] : firing.filter((trigger) => trigger.workflow === undefined)) {
+      const id = `leaf:${at}:${one.level}|${identityKey(one)}`;
+      leafNodes.push({
+        id,
+        position: { x: WIDTH + LEAF_OFF, y: leafY },
+        card: leafDummy,
+        drawn: (
+          <div className="armada-leaf armada-leaf--every">
+            <TriggerRows triggers={[one]} label={`${one.name}, every workflow`} saved={leaves!.saved} onOpen={leaves!.onOpen} />
+          </div>
+        ),
+      });
+      leafEdges.push({ id: `${canvasId(at)}>${id}`, source: canvasId(at), target: id, kind: "leads", across: true });
+      leafY += LEAF_ROW + (one.overrides?.length ?? 0) * LEAF_ROW + LEAF_APART;
+    }
+    y += Math.max(height, leafY - here);
     return {
       id: canvasId(at),
       position: { x: 0, y: here },
@@ -189,7 +228,7 @@ function graphOf(def: Definition, marked: ReadonlyMap<number, string[]>, panel: 
       });
     }
   });
-  return { nodes, edges };
+  return { nodes: [...nodes, ...leafNodes], edges: [...edges, ...leafEdges] };
 }
 
 export function WorkflowCreator({ repository, manifests, entries, onRead, onSave, onDiscuss, triggers }: WorkflowCreatorProps) {
@@ -312,24 +351,6 @@ export function WorkflowCreator({ repository, manifests, entries, onRead, onSave
             <Row key={entry.key} entry={entry} def={definitions[entry.key]} on={picked?.key === entry.key} onOpen={() => void begin(entry)} />
           ))}
         </ul>
-        {triggers === undefined ? null : (
-          <section className="armada-triggers-card" aria-label="Triggers on every workflow">
-            <div className="armada-triggers-card__band">Every workflow</div>
-            <div className="armada-triggers-card__body">
-              <TriggerRows
-                triggers={triggers.triggers.filter((one) => one.workflow === undefined)}
-                label="Triggers on every workflow"
-                saved={answered}
-                onOpen={(summary, level) => openTrigger({ kind: "open", summary, ...(level === undefined ? {} : { level }) })}
-              />
-              <div>
-                <Button variant="secondary" onClick={() => openTrigger({ kind: "new", init: {} })}>
-                  Add trigger
-                </Button>
-              </div>
-            </div>
-          </section>
-        )}
       </section>
       {picked?.leftOut !== undefined ? (
         <section className="armada-wf-left" aria-label={`${picked.id}, left out`}>
@@ -499,7 +520,14 @@ function Stage({
     (step: Step) => (listed === undefined ? [] : firingAt(listed, def.id, step)),
     [listed, def.id],
   );
-  const { nodes, edges } = useMemo(() => graphOf(def, marked, panel, onPanel, triggersAt), [def, marked, panel, onPanel, triggersAt]);
+  const leaves = useMemo<Leaves | undefined>(
+    () =>
+      onTrigger === undefined || saved === undefined
+        ? undefined
+        : { saved, onOpen: (summary, level) => onTrigger({ kind: "open", summary, ...(level === undefined ? {} : { level }) }) },
+    [saved, onTrigger],
+  );
+  const { nodes, edges } = useMemo(() => graphOf(def, marked, panel, onPanel, triggersAt, leaves), [def, marked, panel, onPanel, triggersAt, leaves]);
   const replaces = entries
     .filter((one) => one.id === def.id && one.leftOut === undefined && SOURCE_RANK[one.source] < SOURCE_RANK[def.scope === KIT ? "kit" : "repository"])
     .map((one) => PLACE[one.source].said);

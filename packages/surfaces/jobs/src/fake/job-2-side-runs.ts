@@ -26,7 +26,7 @@ export const SIDE_STEP_FILES = ["CHANGELOG.md"];
 export const SIDE_PR_NUMBER = 1752;
 
 /** `tidy` fired when the pull request opened, and a Drone is on it. */
-const RUNNING_TRIGGER: JobTrigger = {
+export const RUNNING_TRIGGER: JobTrigger = {
   name: SIDE_TRIGGER,
   when: "pr_opened",
   step: "handoff",
@@ -38,7 +38,7 @@ const RUNNING_TRIGGER: JobTrigger = {
 };
 
 /** A Drone step added at approval, whose moment (`implement` passing) has come and whose Drone is at work. */
-const RUNNING_STEP: AddedStep = {
+export const RUNNING_STEP: AddedStep = {
   id: SIDE_STEP,
   runs: { kind: "drone", brief: "Add a changelog line" },
   when: "step_passes",

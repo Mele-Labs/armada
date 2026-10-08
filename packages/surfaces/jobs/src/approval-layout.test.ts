@@ -67,4 +67,21 @@ describe("layoutOf", () => {
     expect(into?.via).toBeLessThan(work.x);
     expect(edges.find((edge) => edge.source === "plan" && edge.target === "plan:judge")?.via).toBeUndefined();
   });
+
+  it("makes a lane wider by a leaf's column where a step has leaves, and stands them inside its Zone", () => {
+    const bare = run();
+    const { nodes } = bare;
+    const { edges } = approvalNodesOf({ title: "T", from: "main", steps: STEPS, gates: GATES, tuning: tuningOf([]), prMode: "ready", target: "main" });
+    const leafy = layoutOf(nodes, edges, undefined, new Map([["implement", 300]]));
+    const zone = (frames: readonly { id: string; x: number; width: number }[]) => frames.find((one) => one.id === "zone:work")!;
+    expect(zone(leafy.frames).width).toBe(zone(bare.frames).width + 56 + 260);
+    const leaf = leafy.leaves.get("implement")!;
+    expect(leaf.y).toBe(leafy.places.get("implement")!.y);
+    // The column's right edge is the Zone's, less its padding.
+    expect(leaf.x + 260).toBeLessThanOrEqual(zone(leafy.frames).x + zone(leafy.frames).width);
+    expect(leaf.x).toBeGreaterThan(leafy.places.get("implement")!.x + 260);
+    // The lane with none stays as wide as it was, and what is under a tall stack moves down.
+    expect(leafy.frames.find((one) => one.id === "zone:setup")!.width).toBe(bare.frames.find((one) => one.id === "zone:setup")!.width);
+    expect(leafy.places.get("group:G1")!.y).toBe(bare.places.get("group:G1")!.y + 300 - 112);
+  });
 });

@@ -1,6 +1,7 @@
 // Triggers on a workflow (7 Oct 2026): a Command or a skill that fires at a moment in a Job. Set
-// from the workflow editor on a step, or from the list every workflow takes, and kept in the
-// repository or on this machine alone. The mock Fleet answers as Fleet does: the machine's copy
+// from the workflow editor on a step, for this workflow or for every one, and kept in the
+// repository or on this machine alone. One set for every workflow is a leaf off the step on each
+// workflow's canvas, marked as such. The mock Fleet answers as Fleet does: the machine's copy
 // replaces the repository's, a repository's save waits for main, and a machine Trigger on a
 // Command the repository lacks is skipped.
 
@@ -12,7 +13,8 @@ const NEW = dialog("New trigger");
 
 export const aTriggerOnAWorkflow = walk("workflows", [
   { press: button("Workflows", { exact: true }), say: "Workflows, from the rail" },
-  { look: role("region", "Triggers on every workflow"), say: "Triggers on every workflow, each marked by where it is set" },
+  { press: button("feature, carried"), say: "The Feature workflow" },
+  { hover: role("img", "Every workflow"), say: "A Trigger set for every workflow is a leaf off the step it fires at" },
   { hover: role("img", "This machine"), say: "This machine: only the owner's" },
   { hover: role("img", "This repository"), say: "This repository: shared, in .armada/" },
   { hover: role("img", /not a Command this repository declares/), say: "Skipped here: the repository does not declare that Command" },
@@ -21,8 +23,7 @@ export const aTriggerOnAWorkflow = walk("workflows", [
   { look: TRIGGER, say: "When, what it applies to, where it is set, what it runs" },
   { look: inside(TRIGGER, role("group", "If it fails")), say: "If it fails: Block the Job and Self repair, each its own switch" },
   { press: inside(TRIGGER, button("Close")), say: "Close" },
-  { press: button("feature, carried"), say: "The Feature workflow" },
-  { look: inside(card("Implement"), text("Triggers on pass")), say: "A step carries the Triggers that fire at it, on a line each" },
+  { look: inside(card("Implement"), text("On pass")), say: "A step carries the Triggers set for this workflow that fire at it, on a line each" },
   { press: card("Handoff"), say: "A step opens in the panel" },
   { look: inside(DELIVER, role("switch", "Draft PR")), say: "The delivering step opens its PR as a draft" },
   { look: inside(DELIVER, role("list", "Triggers on handoff")), say: "Triggers on this step, each marked by where it is set" },

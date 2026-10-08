@@ -1,0 +1,7 @@
+[icons.infinity]
+  means = "A figure of eight on its side, a loop with no end — every one, with no exception"
+  group = "Trigger"
+  size = "12px"
+  status = "Proposed"
+  reserved = "A Trigger set for every workflow, not one: its mark on a leaf off a step in the Workflow editor, tooltip `Every workflow`. Never a count, a loop in a workflow (a step that sends work back is drawn as an edge) or a retry."
+  notes = "Proposed 8 Oct 2026 for the walk `triggersAsLeaves`, for the owner to rule on. The Workflows page's `Triggers on every workflow` panel went, and the Trigger it held is a leaf on each workflow's canvas, so a mark has to say it applies to all of them where `webhook` says it is a Trigger. Nothing in the registry says all: `layers` is blast radius, `globe` a published page, `workflow` the Workflows surface. Refused: `asterisk`, a wildcard, which reads as a footnote at 12px."

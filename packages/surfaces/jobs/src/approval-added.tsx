@@ -91,6 +91,11 @@ export function withAddedAtGate(
     if (place === undefined) continue;
     places.set(node.id, LANES_THAT_TAKE_ONE.includes(node.lane) ? { x: place.x, y: place.y + movedAt(node.lane, place.y) } : place);
   }
+  const leaves = new Map<string, Place>();
+  for (const [id, place] of layout.leaves) {
+    const lane = nodes.find((node) => node.id === id)?.lane;
+    leaves.set(id, lane !== undefined && LANES_THAT_TAKE_ONE.includes(lane) ? { x: place.x, y: place.y + movedAt(lane, place.y) } : place);
+  }
   const zones = layout.frames.filter((frame) => frame.kind === "zone");
   const laneOfFrame = (frame: { x: number }): Lane | undefined => {
     const zone = zones.find((one) => frame.x >= one.x && frame.x <= one.x + one.width);
@@ -157,5 +162,5 @@ export function withAddedAtGate(
       link(stub, true);
     }
   }
-  return { layout: { ...layout, places, frames, edges }, extra, edges };
+  return { layout: { ...layout, places, frames, edges, leaves }, extra, edges };
 }

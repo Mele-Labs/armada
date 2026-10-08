@@ -16,7 +16,6 @@ import {
   Button,
   DestinationCard,
   FigureList,
-  FiredTriggers,
   GroupShape,
   GUIDE_PLAN,
   GUIDE_PULSE,
@@ -28,8 +27,8 @@ import {
   Tooltip,
   WorkflowCanvas,
 } from "@armada/components";
-import type { Figure, HoldVerb, PlanGroupState, WorkflowCanvasEdge, WorkflowCanvasNode } from "@armada/components";
-import type { AddedStep, FromStudio, HoldAct, JobTrigger } from "@armada/protocol";
+import type { Figure, PlanGroupState, WorkflowCanvasEdge, WorkflowCanvasNode } from "@armada/components";
+import type { FromStudio } from "@armada/protocol";
 import type { ReactNode } from "react";
 
 import type { DetailTab } from "./detail-tabs";
@@ -98,12 +97,6 @@ export type OverviewBoardProps = {
    */
   run?: ReactNode;
   workflow?: OverviewWorkflow;
-  /** The Triggers frozen onto this Job and what each did. Absent or empty draws no card. */
-  triggers?: readonly JobTrigger[];
-  additions?: readonly AddedStep[];
-  onHoldAct?: (act: HoldVerb, by: HoldAct) => Promise<{ ok: boolean }> | void;
-  /** Go to a firing's line in the Job's log. */
-  onOpenTriggerLog?: (trigger: JobTrigger) => void;
   /** Why there is no run to draw, where there is none. */
   workflowAbsent?: string;
   plan?: OverviewPlan;
@@ -137,10 +130,6 @@ export function OverviewBoard({
   approving,
   run,
   workflow,
-  triggers,
-  additions,
-  onHoldAct,
-  onOpenTriggerLog,
   workflowAbsent,
   plan,
   planAbsent,
@@ -159,11 +148,6 @@ export function OverviewBoard({
       <JobLead {...lead} waiting={waiting} />
       {approving}
       {approving === undefined ? run : null}
-      {triggers === undefined || triggers.length === 0 ? null : (
-        <DestinationCard label="Triggers">
-          <FiredTriggers triggers={triggers} {...(additions === undefined ? {} : { additions })} {...(onHoldAct === undefined ? {} : { onHoldAct })} {...(onOpenTriggerLog === undefined ? {} : { onOpenLog: onOpenTriggerLog })} />
-        </DestinationCard>
-      )}
 
       {/* **No Brief while the panel holds the request** (the owner, 3 Oct
           2026). The panel's field is the request, editable; a second copy

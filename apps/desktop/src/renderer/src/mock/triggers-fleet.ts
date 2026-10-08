@@ -80,6 +80,7 @@ const SEEDED: Held[] = [
   held("machine", { name: "gate", when: "pr_opened", runs: { kind: "command", name: "gate" }, repair: true }),
   held("machine", { name: "deploy_qa", when: "pr_opened", runs: { kind: "command", name: "deploy_qa" } }),
   held("repository", { name: "qa-notes", when: "step_starts", step: "tests", workflow: "feature", runs: { kind: "skill", name: "qa-notes" } }),
+  held("repository", { name: "docs-check", when: "step_passes", step: "implement", workflow: "feature", runs: { kind: "skill", name: "docs-check" } }),
 ];
 
 /** Why a Trigger does not run in this repository, where it does not. A skill always runs, on a side Drone. */
