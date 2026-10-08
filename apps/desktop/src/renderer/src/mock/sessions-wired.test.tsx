@@ -183,8 +183,8 @@ test("Sessions wired: Open in a Session on a stopped Job starts one with the Job
   await onScreen();
   await userEvent.click(page.getByRole("button", { name: "More for The retry loop" }));
   await userEvent.click(page.getByRole("menuitem", { name: "Open in a Session" }));
-  await expect.element(page.getByRole("group", { name: "Attached" }).getByText("The retry loop")).toBeVisible();
-  await userEvent.fill(page.getByRole("textbox", { name: "Message" }), "What stopped it?");
+  await expect.element(page.getByRole("textbox", { name: "Message" }).getByText("The retry loop")).toBeVisible();
+  await userEvent.type(page.getByRole("textbox", { name: "Message" }), "What stopped it?");
   await userEvent.click(page.getByRole("button", { name: "Send" }));
   await expect.poll(() => fleet.calls.sent.length).toBe(1);
   expect(fleet.calls.sent[0]?.mentions).toMatchObject([{ kind: "job", id: "01JOBSTOPPED", title: "The retry loop" }]);
@@ -284,4 +284,20 @@ test("Sessions wired: a running subagent opens as its own thread, gains rows as 
   const done = page.getByRole("dialog", { name: "Subagent Find clocks" });
   await expect.element(done.getByText("Grep", { exact: true })).toBeVisible();
   await expect.element(done.getByText("None reads the clock.")).toBeVisible();
+});
+
+test("Sessions wired: a page on the ledger is shown in main's view over the panel and taken away when the panel closes", async () => {
+  const fleet = new FakeSessionsFleet([
+    hosted(ID, { title: "Write up the clock", attachments: [held("artifact", "https://example.com/artifact/findings", { form: "page", title: "Clock findings" })] }),
+  ]);
+  mount(served(fleet));
+  await onSessions();
+  await userEvent.click(sessions().getByRole("button", { name: "Write up the clock" }));
+  await userEvent.click(page.getByRole("region", { name: "Attachments" }).getByRole("button", { name: "Published page Clock findings" }));
+  await expect.poll(() => fleet.calls.pages).toEqual(["https://example.com/artifact/findings"]);
+  // Main's view lies over the body, so nothing is framed here.
+  await expect.element(page.getByTitle("Clock findings")).not.toBeInTheDocument();
+  // Esc pressed in main's view, which has the keyboard, closes the panel.
+  fleet.pageEscape();
+  await expect.poll(() => fleet.calls.pagesHidden).toBeGreaterThan(0);
 });

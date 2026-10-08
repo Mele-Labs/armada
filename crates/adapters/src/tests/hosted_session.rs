@@ -7,7 +7,7 @@ use ipc::SessionMode;
 use super::harness::value_after;
 use crate::harness::HeadlessAgent;
 use crate::hosted_session::{reads_only, HostedLaunch, HostedRefused};
-use crate::{init_commands, sent_message, written_document};
+use crate::{init_commands, sent_message, viewed_image, written_document};
 
 const ID: &str = "7b1f3c52-9a40-4d27-8c1e-3f0d5a6b9e11";
 
@@ -236,5 +236,23 @@ fn a_written_document_is_read_off_the_write_detail_and_code_and_scratch_are_not(
     assert_eq!(
         written_document("Edit", "/repo/docs/spike.md +4", "/Users/user"),
         None
+    );
+}
+
+#[test]
+fn a_picture_read_is_looked_at_and_code_and_a_written_picture_are_not() {
+    let read = |detail| viewed_image("Read", detail, "/Users/user");
+    assert_eq!(read("/tmp/shot.png"), Some("/tmp/shot.png".into()));
+    assert_eq!(
+        read("~/repo/shots/ledger.JPEG"),
+        Some("/Users/user/repo/shots/ledger.JPEG".into())
+    );
+    assert_eq!(read("/repo/a.webp"), Some("/repo/a.webp".into()));
+    assert_eq!(read("/repo/src/clock.rs"), None);
+    assert_eq!(read("/repo/docs/spike.md"), None);
+    assert_eq!(viewed_image("Write", "/repo/shot.png +1", "/Users/user"), None);
+    assert_eq!(
+        written_document("Write", "/repo/shot.png +1", "/Users/user"),
+        Some("/repo/shot.png".into())
     );
 }

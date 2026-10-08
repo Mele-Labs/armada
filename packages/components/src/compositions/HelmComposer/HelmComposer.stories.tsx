@@ -481,3 +481,34 @@ export const BlankDoesNotSend: Story = {
     await expect(canvas.getByRole("button", { name: "Send" })).toBeEnabled();
   },
 };
+
+function GrowingDock(): ReactElement {
+  const [value, setValue] = useState("");
+  return (
+    <div
+      className="armada-glass"
+      style={{ width: "var(--w-dock)", height: "calc(var(--space-12) * 8)", display: "flex", flexDirection: "column", justifyContent: "flex-end", boxSizing: "border-box", padding: "var(--space-4)" }}
+    >
+      <HelmComposer current={repositories[0]!.id} repositories={[repositories[0]!]} location="Job Board" value={value} onChange={setValue} onSend={fn()} />
+    </div>
+  );
+}
+
+/** The ask box grows with what is typed, stops at half the height of the dock it sits in, and scrolls past that. */
+export const GrowsToHalf: Story = {
+  render: () => <GrowingDock />,
+  play: async ({ canvasElement }) => {
+    const field = within(canvasElement).getByRole("textbox");
+    const panel = canvasElement.querySelector("form")!.parentElement!;
+    const rest = field.getBoundingClientRect().height;
+    await userEvent.type(field, "one{Enter}two{Enter}three{Enter}four{Enter}five");
+    const grown = field.getBoundingClientRect().height;
+    await expect(grown).toBeGreaterThan(rest);
+    await expect(grown).toBeLessThan(panel.clientHeight / 2);
+    await userEvent.type(field, "{Enter}m".repeat(14));
+    await expect(field.getBoundingClientRect().height).toBeLessThanOrEqual(panel.clientHeight / 2 + 1);
+    await expect(field.scrollHeight).toBeGreaterThan(field.clientHeight);
+    await userEvent.clear(field);
+    await expect(field.getBoundingClientRect().height).toBeCloseTo(rest, 0);
+  },
+};

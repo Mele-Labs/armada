@@ -128,6 +128,42 @@ path.armada-session-ledger__picture-later {
   min-height: 0;
 }
 
+/* What an Artifacts row opens: a picture fit to the panel, a file's text, or the body a page's view lies over. */
+.armada-session-artifact__picture {
+  display: block;
+  flex: 1;
+  min-height: 0;
+  max-width: 100%;
+  object-fit: contain;
+  padding: var(--space-4);
+}
+
+.armada-session-artifact__text {
+  margin: 0;
+  padding: var(--space-4);
+  font-size: var(--text-xs);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.armada-session-artifact__refused {
+  margin: 0;
+  padding: var(--space-4);
+  color: var(--fg-muted);
+}
+
+.armada-session-artifact__page {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+.armada-session-artifact__page > iframe {
+  flex: 1;
+  border: 0;
+  background: var(--surface-canvas);
+}
+
 /* Folded into a sheet below the breakpoint: the sheet gives the width. */
 .armada-session-ledger[data-folded] {
   width: auto;
