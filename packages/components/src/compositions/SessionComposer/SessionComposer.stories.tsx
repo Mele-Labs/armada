@@ -65,7 +65,7 @@ export const Slash: Story = {
     const field = canvas.getByRole("textbox", { name: "Message" });
     await userEvent.type(field, "/sim");
     await userEvent.click(await canvas.findByRole("option", { name: /\/simplify/ }));
-    await expect(field).toHaveValue("/simplify ");
+    await expect(field).toHaveTextContent("/simplify");
   },
 };
 
@@ -74,32 +74,58 @@ export const EnterSends: Story = {
   play: async ({ canvas, args }) => {
     const field = canvas.getByRole("textbox", { name: "Message" });
     await userEvent.type(field, "first{Shift>}{Enter}{/Shift}second");
-    await expect(field).toHaveValue("first\nsecond");
+    await expect(field).toHaveTextContent("first second");
     await expect(args.onSend).not.toHaveBeenCalled();
     await userEvent.keyboard("{Enter}");
     await expect(args.onSend).toHaveBeenCalledTimes(1);
     await expect(args.onSend).toHaveBeenCalledWith({ text: "first\nsecond", files: [], tags: [] });
-    await expect(field).toHaveValue("");
+    await expect(field).toHaveTextContent("");
   },
 };
 
-/** `@` opens Jobs, pull requests, branches and the other Sessions, grouped, and choosing one tags it. */
+/**
+ * `@` opens Jobs, pull requests, branches and the other Sessions, grouped. Choosing one writes it into the line
+ * at the caret, as a unit: it is not in the row of what waits, Backspace takes it whole, and a send
+ * carries it as `@title` in the text and in `tags`.
+ */
 export const At: Story = {
   play: async ({ canvas, args }) => {
-    await userEvent.type(canvas.getByRole("textbox", { name: "Message" }), "why did @retry");
+    const field = canvas.getByRole("textbox", { name: "Message" });
+    await userEvent.type(field, "why did @retry");
     await expect(await canvas.findByRole("group", { name: "Jobs" })).toBeInTheDocument();
     await userEvent.click(await canvas.findByRole("option", { name: "55 Cap the retry backoff" }));
-    await expect(args.onTags).toHaveBeenCalledWith([{ kind: "job", id: "j55", title: "55 Cap the retry backoff" }]);
+    const chip = field.querySelector("[data-tag-kind]");
+    await expect(chip).toHaveTextContent("55 Cap the retry backoff");
+    await expect(within(canvas.getByRole("group", { name: "Attached" })).queryByText("55 Cap the retry backoff")).toBeNull();
+    await userEvent.keyboard("stall");
+    await userEvent.keyboard("{Enter}");
+    await expect(args.onSend).toHaveBeenCalledWith({ text: "why did @55 Cap the retry backoff stall", files: [], tags: [{ kind: "job", id: "j55", title: "55 Cap the retry backoff" }] });
   },
 };
 
-/** A tag that waits is a chip, and Send takes it. */
+/**
+ * A tag in the line is one unit the caret cannot enter, which is what lets Backspace take it whole
+ * (the Backspace itself is pressed in `sessions-inline-tags.test.tsx`, with real keys).
+ */
+export const TagIsOneUnit: Story = {
+  play: async ({ canvas, args }) => {
+    const field = canvas.getByRole("textbox", { name: "Message" });
+    await userEvent.type(field, "see @retry");
+    await userEvent.click(await canvas.findByRole("option", { name: "55 Cap the retry backoff" }));
+    await expect(field.querySelector("[data-tag-kind]")).toHaveAttribute("contenteditable", "false");
+    await userEvent.keyboard("{Enter}");
+    await expect(args.onSend).toHaveBeenCalledWith({ text: "see @55 Cap the retry backoff", files: [], tags: [{ kind: "job", id: "j55", title: "55 Cap the retry backoff" }] });
+  },
+};
+
+/** A tag that arrives from outside the box is written in at the end of the line, and the host is told it was taken. */
 export const Tagged: Story = {
   args: { tags: [{ kind: "job", id: "j55", title: "55 Cap the retry backoff" }] },
   play: async ({ canvas, args }) => {
-    await expect(within(canvas.getByRole("group", { name: "Attached" })).getByText("55 Cap the retry backoff")).toBeInTheDocument();
+    await expect(canvas.getByRole("textbox", { name: "Message" }).querySelector("[data-tag-kind]")).toHaveTextContent("55 Cap the retry backoff");
+    await expect(args.onTags).toHaveBeenCalledWith([]);
     await userEvent.click(canvas.getByRole("button", { name: "Send" }));
-    await expect(args.onSend).toHaveBeenCalledWith(expect.objectContaining({ tags: [expect.objectContaining({ id: "j55" })] }));
+    await expect(args.onSend).toHaveBeenCalledWith(expect.objectContaining({ text: "@55 Cap the retry backoff", tags: [expect.objectContaining({ id: "j55" })] }));
   },
 };
 
@@ -211,7 +237,7 @@ export const SlashFiltered: Story = {
     await expect(rows[1]).toHaveAttribute("aria-selected", "true");
     const picked = rows[1]!.querySelector(".armada-session-composer__name")!.textContent;
     await userEvent.keyboard("{Enter}");
-    await expect(field).toHaveValue(`${picked} `);
+    await expect(field).toHaveTextContent(picked!);
   },
 };
 

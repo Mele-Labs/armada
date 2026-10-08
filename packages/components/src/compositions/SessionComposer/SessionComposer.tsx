@@ -1,14 +1,16 @@
-import { useId, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import type { ClipboardEvent, DragEvent, FormEvent, KeyboardEvent, ReactNode } from "react";
-import { Box, Cpu, GitBranch, GitPullRequest, Paperclip, PencilRuler, Send, Shield, SquareTerminal, Zap } from "lucide-react";
+import { Cpu, Paperclip, PencilRuler, Send, Shield, Zap } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { useKept } from "../../keep";
 import { AttachmentChip } from "../../primitives/AttachmentChip/AttachmentChip";
 import { Button } from "../../primitives/Button/Button";
 import { Select } from "../../primitives/Select/Select";
-import { Textarea } from "../../primitives/Textarea/Textarea";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
+import { TAG_GLYPH } from "./InlineTag";
+import type { ComposerTag } from "./InlineTag";
+import { beforeCaret, caretToEnd, CHIP, readDom, sentText, tagNode, writeDom } from "./message-dom";
 
 /**
  * A Session's message box, with what a terminal session's has, in **one box
@@ -18,7 +20,7 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
  * sideways, so nothing waiting ever takes room from the typing area.
  *
  * **`/` opens the skills and commands, and `@` opens the other Sessions**,
- * choosing one tags it with a chip so the agent knows to talk to it. **A
+ * choosing one writes it into the message as a chip, at the caret, so the agent knows to talk to it. **A
  * picture or file is pasted or dropped in**, or attached. **A sketch is drawn
  * on the pad Dispatch draws on**, which the host opens, and comes back as a
  * chip.
@@ -31,20 +33,12 @@ export type ComposerFile = {
   file?: File;
 };
 
-/** Something `@` tags: another Session, a Job, a pull request or a branch. */
-export type ComposerTag = { kind: "session" | "job" | "pull_request" | "branch"; id: string; title: string };
+export type { ComposerTag };
 
 export type SentFromComposer = {
   text: string;
   files: readonly ComposerFile[];
   tags: readonly ComposerTag[];
-};
-
-const TAG_GLYPH: Record<ComposerTag["kind"], LucideIcon> = {
-  session: SquareTerminal,
-  job: Box,
-  pull_request: GitPullRequest,
-  branch: GitBranch,
 };
 
 /** The kinds in the order `@` groups them, each named for the group's label. */
@@ -54,8 +48,6 @@ const TAG_KINDS: { kind: ComposerTag["kind"]; label: string }[] = [
   { kind: "branch", label: "Branches" },
   { kind: "session", label: "Sessions" },
 ];
-
-const TAG_NAME: Record<ComposerTag["kind"], string> = { session: "Session", job: "Job", pull_request: "Pull request", branch: "Branch" };
 
 /** The permission modes, as the terminal's: ask, auto, accept edits, plan. */
 export type ComposerMode = "ask" | "auto" | "accept_edits" | "plan";
@@ -81,7 +73,10 @@ export type SessionComposerProps = {
   commands: readonly { name: string; says: string }[];
   /** What `@` offers, grouped by kind: other Sessions, Jobs, pull requests and branches. */
   taggable: readonly ComposerTag[];
-  /** What has been tagged and waits to be sent. */
+  /**
+   * Tags that arrive from outside the box (a Job opened in a Session): each is written in at the
+   * end of the message, and `onTags([])` says it was taken.
+   */
   tags: readonly ComposerTag[];
   onTags: (tags: readonly ComposerTag[]) => void;
   /** Below the layout breakpoint: the selects are a glyph and a value, named on hover. */
@@ -97,15 +92,16 @@ export type SessionComposerProps = {
   /** A terminal's mode is not drawn until its mod has reported one. */
   modeHidden?: boolean;
   /**
-   * What the message is about, the Session's id. Its text and files are kept under it, so leaving
+   * What the message is about, the Session's id. Its text, its tags and its files are kept under it, so leaving
    * the Session and coming back, or reloading Bridge, finds them (the text; a file's bytes do not
    * survive a reload). Cleared by a send. Without it nothing is kept.
    */
   draftKey?: string;
 };
 
-type Draft = { text: string; files: ComposerFile[] };
-const BLANK: Draft = { text: "", files: [] };
+/** The message: its text holds a CHIP where each tag stands, and `tags` lists them in order. */
+type Draft = { text: string; tags: ComposerTag[]; files: ComposerFile[] };
+const BLANK: Draft = { text: "", tags: [], files: [] };
 
 /** The commands a `/` query keeps: names that start with it first, then names that hold it. */
 function matching<T extends { name: string }>(commands: readonly T[], query: string): T[] {
@@ -150,19 +146,22 @@ export function SessionComposer({
   draftKey,
 }: SessionComposerProps) {
   const [draft, setDraft, forget] = useKept<Draft>(draftKey === undefined ? undefined : `session:${draftKey}`, BLANK, {
-    stored: (one) => ({ text: one.text }),
-    revive: (raw) => ({ text: typeof (raw as Draft | null)?.text === "string" ? (raw as Draft).text : "", files: [] }),
+    stored: (one) => ({ text: one.text, tags: one.tags }),
+    revive: (raw) => {
+      const one = raw as Partial<Draft> | null;
+      return { text: typeof one?.text === "string" ? one.text : "", tags: Array.isArray(one?.tags) ? one.tags : [], files: [] };
+    },
   });
   const { text, files } = draft;
-  const setText = (next: string) => setDraft((was) => ({ ...was, text: next }));
   const setFiles = (next: (was: ComposerFile[]) => ComposerFile[]) => setDraft((was) => ({ ...was, files: next(was.files) }));
-  const [caret, setCaret] = useState(text.length);
+  const editor = useRef<HTMLDivElement>(null);
+  const [head, setHead] = useState("");
   const [active, setActive] = useState(0);
   const picker = useRef<HTMLInputElement>(null);
   const counter = useRef(0);
   const listId = useId();
 
-  const token = tokenAt(text, caret);
+  const token = tokenAt(head, head.length);
   const items: Item[] =
     token === undefined
       ? []
@@ -170,11 +169,64 @@ export function SessionComposer({
         ? matching(commands, token.query).map((one) => ({ id: one.name, name: `/${one.name}`, ...(one.says === "" ? {} : { says: one.says }) }))
         : TAG_KINDS.flatMap(({ kind }) =>
             taggable
-              .filter((one) => one.kind === kind && !tags.some((had) => had.kind === kind && had.id === one.id) && one.title.toLowerCase().includes(token.query.toLowerCase()))
+              .filter((one) => one.kind === kind && !draft.tags.some((had) => had.kind === kind && had.id === one.id) && one.title.toLowerCase().includes(token.query.toLowerCase()))
               .map((one) => ({ id: `${kind}${one.id}`, name: one.title, tag: one })),
           );
   const open = items.length > 0;
   const current = Math.min(active, Math.max(items.length - 1, 0));
+
+  // The box is drawn from the draft, and only when the box does not already say what the draft does:
+  // what is typed in it is read out, never written back over the caret.
+  useLayoutEffect(() => {
+    const box = editor.current;
+    if (box === null) return;
+    const now = readDom(box);
+    if (now.text === draft.text && now.tags.map((one) => one.id).join() === draft.tags.map((one) => one.id).join()) return;
+    writeDom(box, draft.text, draft.tags);
+    if (document.activeElement === box) caretToEnd(box);
+  }, [draft.text, draft.tags]);
+
+  // The box takes the most of half the panel it sits in, then scrolls.
+  useLayoutEffect(() => {
+    const box = editor.current;
+    if (box === null) return;
+    const bound = box.closest("form")?.parentElement;
+    box.style.maxHeight = bound ? `${bound.clientHeight / 2}px` : "";
+  }, [draft.text]);
+
+  // The caret moves by key, by press and by what is typed; the typeahead follows it.
+  useEffect(() => {
+    const follow = () => {
+      const box = editor.current;
+      if (box !== null && box.contains(window.getSelection()?.anchorNode ?? null)) setHead(beforeCaret(box)?.head ?? "");
+    };
+    document.addEventListener("selectionchange", follow);
+    return () => document.removeEventListener("selectionchange", follow);
+  }, []);
+
+  // Tags that arrive from outside are written in at the end.
+  useEffect(() => {
+    if (tags.length === 0) return;
+    setDraft((was) => {
+      const fresh = tags.filter((one) => !was.tags.some((had) => had.kind === one.kind && had.id === one.id));
+      return fresh.length === 0 ? was : { ...was, text: `${was.text}${was.text === "" || was.text.endsWith(" ") ? "" : " "}${fresh.map(() => CHIP).join(" ")} `, tags: [...was.tags, ...fresh] };
+    });
+    onTags([]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tags]);
+
+  const read = () => {
+    const box = editor.current;
+    if (box === null) return;
+    const now = readDom(box);
+    // The box carries a tag's kind, id and title; the rest of what the host gave it (a Job's number, its state) is looked up.
+    setDraft((was) => ({
+      ...was,
+      text: now.text,
+      tags: now.tags.map((one) => [...was.tags, ...taggable].find((known) => known.kind === one.kind && known.id === one.id) ?? one),
+    }));
+    setActive(0);
+  };
 
   const add = (picked: readonly File[]) => {
     if (picked.length === 0) return;
@@ -190,21 +242,39 @@ export function SessionComposer({
   };
 
   const choose = (item: Item) => {
-    if (token === undefined) return;
-    const after = text.slice(caret);
+    const box = editor.current;
+    const at = box === null ? undefined : beforeCaret(box);
+    if (token === undefined || box === null || at?.node == null) return;
+    const { node, offset } = at;
+    const selection = window.getSelection();
+    const place = (where: Text, to: number) => {
+      const range = document.createRange();
+      range.setStart(where, to);
+      range.collapse(true);
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+    };
     if (token.trigger === "/") {
-      setText(`/${item.id} ${after}`);
-      setCaret(item.id.length + 2);
-    } else {
-      setText(`${text.slice(0, token.from)}${after}`);
-      setCaret(token.from);
-      if (item.tag !== undefined) onTags([...tags, item.tag]);
+      node.data = `/${item.id} ${node.data.slice(offset)}`;
+      place(node, item.id.length + 2);
+    } else if (item.tag !== undefined) {
+      const from = offset - token.query.length - 1;
+      node.data = node.data.slice(0, from) + node.data.slice(offset);
+      const after = node.splitText(from);
+      node.parentNode!.insertBefore(tagNode(item.tag), after);
+      if (!after.data.startsWith(" ")) after.data = ` ${after.data}`;
+      place(after, 1);
     }
-    // The press was on a row that took no focus (mousedown is prevented), so the box still has it.
-    setActive(0);
+    read();
+    setHead("");
   };
 
-  const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === "Enter" && event.shiftKey && !event.nativeEvent.isComposing && !open) {
+      event.preventDefault();
+      document.execCommand("insertLineBreak");
+      return;
+    }
     if (!open) {
       // Enter sends and Shift+Enter breaks the line; a key that confirms an IME candidate is neither.
       if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
@@ -221,15 +291,15 @@ export function SessionComposer({
       choose(items[current]!);
     } else if (event.key === "Escape") {
       event.preventDefault();
-      setCaret(0);
+      setHead("");
     }
   };
 
   const onPaste = (event: ClipboardEvent) => {
-    const pasted = [...event.clipboardData.files];
-    if (pasted.length === 0) return;
     event.preventDefault();
-    add(pasted);
+    const pasted = [...event.clipboardData.files];
+    if (pasted.length > 0) add(pasted);
+    else document.execCommand("insertText", false, event.clipboardData.getData("text/plain"));
   };
 
   const onDrop = (event: DragEvent) => {
@@ -237,13 +307,13 @@ export function SessionComposer({
     add([...event.dataTransfer.files]);
   };
 
-  const held = files.length + drawn.length + tags.length > 0;
+  const held = files.length + drawn.length > 0;
 
   const send = () => {
     if (working || (text.trim() === "" && !held)) return;
-    onSend({ text: text.trim(), files, tags });
+    onSend({ text: sentText(text, draft.tags).trim(), files, tags: draft.tags });
     forget();
-    setCaret(0);
+    setHead("");
   };
 
   const submit = (event: FormEvent) => {
@@ -275,18 +345,16 @@ export function SessionComposer({
         </div>
       )}
       <div className="armada-session-composer__field">
-        <Textarea
+        <div
+          ref={editor}
+          role="textbox"
           aria-label="Message"
+          aria-multiline
           aria-controls={open ? listId : undefined}
-          rows={2}
-          grow
-          value={text}
-          onChange={(event) => {
-            setText(event.target.value);
-            setCaret(event.target.selectionStart);
-            setActive(0);
-          }}
-          onSelect={(event) => setCaret(event.currentTarget.selectionStart)}
+          contentEditable
+          suppressContentEditableWarning
+          className="armada-textarea armada-session-composer__editor"
+          onInput={read}
           onKeyDown={onKeyDown}
           onPaste={onPaste}
         />
@@ -350,9 +418,6 @@ export function SessionComposer({
           ))}
           {drawn.map((one) => (
             <AttachmentChip key={one.id} filename={one.title} from="Sketch" onRemove={() => onRemoveDrawn(one.id)} />
-          ))}
-          {tags.map((one) => (
-            <AttachmentChip key={`${one.kind}${one.id}`} filename={one.title} from={TAG_NAME[one.kind]} onRemove={() => onTags(tags.filter((had) => had !== one))} />
           ))}
         </div>
         <Button type="submit" variant="primary" size="sm" disabled={working || (text.trim() === "" && !held)}>

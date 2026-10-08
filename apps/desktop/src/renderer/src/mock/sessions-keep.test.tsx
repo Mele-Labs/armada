@@ -22,7 +22,7 @@ const open = async (title: string) => {
 
 const message = () => page.getByRole("textbox", { name: "Message" });
 
-test("Sessions keep: text, a file and a tag survive another surface and another Session, and a send clears them", async () => {
+test("Sessions keep: text, a file and an inline tag survive another surface and another Session, and a send clears them", async () => {
   const fleet = new FakeSessionsFleet([hosted("01SESSIONAAAAAAAAAAAAAAAAA", { title: "First one" }), hosted("01SESSIONBBBBBBBBBBBBBBBBB", { title: "Second one" })]);
   const stopped = job("escalated", { id: "01JOBSTOPPED", handle: "52-the-retry-loop", title: "The retry loop", branch: "fix/retry-loop", owner_manifest_id: "armada" });
   mount(fleet.scenario(onBoard([stopped], { repositories: [ARMADA], picked: ARMADA.root })));
@@ -36,21 +36,22 @@ test("Sessions keep: text, a file and a tag survive another surface and another 
 
   await userEvent.click(page.getByRole("button", { name: "Cleanup", exact: true }));
   await open("Second one");
-  await expect.element(message()).toHaveValue("");
+  await expect.element(message()).toHaveTextContent("");
   await userEvent.fill(message(), "Only for the second");
   await open("First one");
 
-  await expect.element(message()).toHaveValue("Look at  and then");
+  await expect.element(message()).toHaveTextContent("and then");
+  await expect.element(message().getByText("The retry loop")).toBeVisible();
   await expect.element(page.getByRole("group", { name: "Attached" }).getByText("notes.txt")).toBeVisible();
-  await expect.element(page.getByText("The retry loop").first()).toBeVisible();
   await open("Second one");
-  await expect.element(message()).toHaveValue("Only for the second");
+  await expect.element(message()).toHaveTextContent("Only for the second");
 
   await open("First one");
   await userEvent.click(page.getByRole("button", { name: "Send" }));
   await expect.poll(() => fleet.calls.sent.length).toBe(1);
   await open("Second one");
   await open("First one");
-  await expect.element(message()).toHaveValue("");
+  await expect.element(message()).toHaveTextContent("");
+  await expect.element(message().getByText("The retry loop")).not.toBeInTheDocument();
   await expect.element(page.getByLabelText("Attached").getByText("notes.txt")).not.toBeInTheDocument();
 });
