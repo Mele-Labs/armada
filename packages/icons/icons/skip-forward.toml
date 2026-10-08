@@ -1,7 +1,7 @@
 [icons.skip-forward]
   means = "A triangle against a bar - go past this one"
   group = "Trigger"
-  size = "12px"
+  size = "16px"
   status = "Proposed"
   reserved = "Skip on a held Trigger: let it go and carry on, which records the firing skipped by the owner. Never a Drone's step order or a redirect, which is `corner-up-right`."
-  notes = "Proposed 7 Oct 2026 for the walk `aTriggerHoldsTheJob`, for the owner to rule on. Its pair is `rotate-cw`, Rerun. Tooltip `Skip`."
+  notes = "Proposed 7 Oct 2026 for the walk `aTriggerHoldsTheJob`, for the owner to rule on. Its pair is `rotate-cw`, Rerun. Tooltip `Skip`. Draws at 16px in a small button, the size of the canvas's add-a-step act, 7 Oct 2026."

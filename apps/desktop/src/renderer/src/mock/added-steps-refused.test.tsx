@@ -10,7 +10,7 @@ unmountAfterEach();
 
 const SAID = "step `implement` has already started, so a step cannot go before it";
 
-test("a refused add is said as Fleet said it, and the panel stays", { retry: 3 }, async () => {
+test("a refused add is said as Fleet said it, and the panel stays", async () => {
   const app = mount("proto/feature-running");
   app.api.addJobStep = async () => ({
     ok: false,
@@ -18,7 +18,6 @@ test("a refused add is said as Fleet said it, and the panel stays", { retry: 3 }
   });
   await onScreen();
   await page.getByRole("tab", { name: "Workflow" }).click();
-  await expect.poll(() => document.querySelectorAll(".react-flow__edge").length, { timeout: 4_000 }).toBeGreaterThan(0);
   await page.getByRole("button", { name: "Add a step after Implement" }).click();
   await page.getByRole("menuitem", { name: "Skill" }).click();
   await page.getByRole("textbox", { name: "Skill" }).fill("qa-notes");

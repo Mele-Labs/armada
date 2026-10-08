@@ -775,14 +775,14 @@ function HoldActs({ held, onAct }: { held: Held; onAct?: (act: HoldVerb, by: Hol
   const live = onAct !== undefined && !sent;
   return (
     <span className="armada-hold__acts nodrag nopan">
-      <Tooltip label="Rerun" asChild>
-        <Button variant="ghost" iconOnly aria-label="Rerun" disabled={!live || held.state !== "held"} onClick={() => void act("rerun")}>
-          <RotateCw size={12} strokeWidth={2} aria-hidden />
+      <Tooltip label="Rerun">
+        <Button variant="ghost" size="sm" iconOnly aria-label="Rerun" disabled={!live || held.state !== "held"} onClick={() => void act("rerun")}>
+          <RotateCw size={16} strokeWidth={2} aria-hidden />
         </Button>
       </Tooltip>
-      <Tooltip label="Skip" asChild>
-        <Button variant="ghost" iconOnly aria-label="Skip" disabled={!live || (held.state !== "held" && held.state !== "fix_ready")} onClick={() => void act("skip")}>
-          <SkipForward size={12} strokeWidth={2} aria-hidden />
+      <Tooltip label="Skip">
+        <Button variant="ghost" size="sm" iconOnly aria-label="Skip" disabled={!live || (held.state !== "held" && held.state !== "fix_ready")} onClick={() => void act("skip")}>
+          <SkipForward size={16} strokeWidth={2} aria-hidden />
         </Button>
       </Tooltip>
     </span>
