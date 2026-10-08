@@ -197,6 +197,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(crate::sessions::rename_session::<D>),
         )
         .route(
+            "/sessions/window",
+            post(crate::sessions::show_window::<D>),
+        )
+        .route(
             "/sessions/start",
             post(crate::hosted_sessions::start_session::<D>),
         )

@@ -209,6 +209,20 @@ pub struct RenameSession {
     pub title: String,
 }
 
+/// `show_window`: a session shows the person a web page in a window of Bridge's own.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ShowWindow {
+    /// `http` or `https`; anything else is refused.
+    pub url: String,
+    /// What the ledger and the thread call it. Absent is the address.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    /// Which session shows it. **Read only where the connection places no hosted session**: a
+    /// hosted session is the one whose process holds the call, whatever this says.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<SessionId>,
+}
+
 /// One row of the ledger as the wire carries it.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Attachment {

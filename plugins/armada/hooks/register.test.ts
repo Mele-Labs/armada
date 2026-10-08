@@ -65,6 +65,8 @@ function world(
     return { text: e.text }
   })
   on('turn.complete', () => ({ text: '' }))
+  on('prompt.context', (_$, e) => ({ blocks: e.blocks }))
+  on('classic.SessionStart', () => ({}))
   return { posts, attempts, clock, submitted, asked, ran }
 }
 
@@ -404,4 +406,31 @@ test('a page, a new document and a Docs document are told as artifacts, and a co
       detail: { form: 'doc', title: 'Write-up' },
     },
   ])
+})
+
+test('the model is told its Armada session id, and a Drone is not', async ($, on) => {
+  world(on)
+  const out = await $.prompt.context({ blocks: [] })
+  expect(out.blocks.map(one => one.name)).toEqual(['armadaSession'])
+  expect(out.blocks[0].text).toContain('S1')
+})
+
+test('a Drone is told no session id', async ($, on) => {
+  world(on, { env: { ARMADA_DRONE: '1' } })
+  const out = await $.prompt.context({ blocks: [] })
+  expect(out.blocks).toEqual([])
+})
+
+test('the session id is told again at every session start, and not to a Drone', async ($, on) => {
+  world(on)
+  for (const source of ['startup', 'resume', 'clear', 'compact'] as const) {
+    const out = await $.classic.SessionStart({ source })
+    expect(out.additionalContext?.[0]).toContain('S1')
+  }
+})
+
+test('a Drone is told no session id at a start', async ($, on) => {
+  world(on, { env: { ARMADA_DRONE: '1' } })
+  const out = await $.classic.SessionStart({ source: 'startup' })
+  expect(out.additionalContext ?? []).toEqual([])
 })
