@@ -254,6 +254,7 @@ export class WiredStore {
     rename: (id, title) => void this.plain(this.api.renameSession({ session_id: id, title })),
     refresh: (id, number) => void this.api.pressPullRequest(id, number, "read"),
     openFile: (id, path) => void this.api.openSessionFile(id, path),
+    openWindow: (id, url) => void this.api.openSessionWindow(id, url),
     said: () => this.refusal,
     taggable: () => {
       const sessions = this.mapped;

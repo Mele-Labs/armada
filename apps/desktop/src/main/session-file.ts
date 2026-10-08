@@ -13,6 +13,14 @@ export function namesFile(record: SessionRecord | undefined, path: string): bool
   );
 }
 
+/** The title of the window a Session showed at `url`, or `null` where its ledger shows none there. */
+export function titleOfWindow(record: SessionRecord | undefined, url: string): string | null {
+  const shown = record?.attachments.find(
+    (one) => one.kind === "artifact" && one.target === url && one.detail?.["form"] === "window",
+  );
+  return shown === undefined ? null : (shown.detail?.["title"] ?? url);
+}
+
 export async function openSessionFile(
   record: SessionRecord | undefined,
   path: string,

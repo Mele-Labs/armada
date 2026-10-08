@@ -613,6 +613,8 @@ const api: BridgeApi = {
     ipcRenderer.invoke(CHANNELS.readSessionFile, sessionId, file),
   openSessionFile: (sessionId: string, path: string): Promise<Followed> =>
     ipcRenderer.invoke(CHANNELS.openSessionFile, sessionId, path),
+  openSessionWindow: (sessionId: string, url: string): Promise<Outcome> =>
+    ipcRenderer.invoke(CHANNELS.openSessionWindow, sessionId, url),
   pressPullRequest: (
     sessionId: string,
     number: number,

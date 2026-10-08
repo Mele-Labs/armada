@@ -170,7 +170,7 @@ export function attachmentsOfRecord(record: SessionRecord, beside: Pick<Beside, 
         break;
       case "artifact": {
         const form = detail["form"];
-        if (form !== "page" && form !== "file" && form !== "doc") break;
+        if (form !== "page" && form !== "file" && form !== "doc" && form !== "window") break;
         out.push({ kind: "artifact", form, id: one.target, title: detail["title"] ?? one.target.slice(one.target.lastIndexOf("/") + 1) });
         break;
       }
@@ -248,6 +248,9 @@ export function rowsOfThread(sessionId: string, rows: readonly WireRow[], pictur
         break;
       case "lease":
         out.push({ id: row.id, at, kind: "lease", slot: row.slot, branch: row.branch });
+        break;
+      case "window":
+        out.push({ id: row.id, at, kind: "window", title: row.title, url: row.url });
         break;
       case "handoff":
         out.push({

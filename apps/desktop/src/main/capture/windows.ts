@@ -7,7 +7,7 @@ import tokens from "@armada/tokens/tokens.json";
 
 import type { BridgeState } from "../../shared/bridge";
 import type { CaptureOpened } from "@armada/protocol";
-import { isPinned, pinned } from "./address";
+import { isPinned, loopbackOrigin, pinned } from "./address";
 import { CaptureWindow, type CaptureBoard, type LandsOn } from "./window";
 
 /**
@@ -22,6 +22,9 @@ function barHeight(): number {
   };
   return of("--space-8") + of("--space-2") + of("--space-1");
 }
+
+/** What a Session's window is keyed by, so it cannot be mistaken for a server Run's id. */
+const SESSION_KEY = "session:";
 
 export class CaptureWindows {
   private readonly board: CaptureBoard;
@@ -63,6 +66,31 @@ export class CaptureWindows {
   }
 
   /**
+   * Open the window on a page a Session showed, or raise the one it has open on that address.
+   *
+   * **One per Session**, keyed beside the server Runs'. A Session that shows another address
+   * replaces its window rather than opening a second. **Loopback `http` and `https` only**, the
+   * rule every capture window holds; the origin it is pinned to is the address's own, since the
+   * Session named it and there is no live holder to resolve it against as a server's link has.
+   */
+  openForSession(sessionId: string, title: string, url: string): CaptureOpened {
+    const origin = loopbackOrigin(url);
+    if (origin === null) return { ok: false, why: "no_address" };
+    const key = `${SESSION_KEY}${sessionId}`;
+    const standing = this.open.get(key);
+    if (standing !== undefined && standing.open) {
+      if (standing.address === url) {
+        standing.raise();
+        return { ok: true };
+      }
+      standing.close();
+    }
+    const pin = { run: key, name: title, origin, url, manifestId: null };
+    this.open.set(key, new CaptureWindow(pin, { session: { id: sessionId, title } }, this.board, barHeight()));
+    return { ok: true };
+  }
+
+  /**
    * Fold what main published: a Run that has stopped serving ends capture in
    * its window, and the bar says the run ended.
    */
@@ -72,6 +100,8 @@ export class CaptureWindows {
         this.open.delete(serverId);
         continue;
       }
+      // A Session's page is no Run, so nothing Fleet publishes about servers ends it.
+      if (serverId.startsWith(SESSION_KEY)) continue;
       const server = state.servers.servers.find((one) => one.id === serverId);
       if (server === undefined || server.phase === "exited") window.ended();
     }

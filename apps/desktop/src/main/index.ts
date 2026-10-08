@@ -23,6 +23,7 @@ import type {
 } from "@armada/protocol";
 import { ANNOTATE_FLAG } from "../shared/annotations";
 import { handleAnnotations } from "./annotations";
+import { sessionNoteText } from "./capture/session-note";
 import { CaptureWindows } from "./capture/windows";
 import { coalesce } from "./coalesce";
 import { stagePng } from "./staging";
@@ -150,6 +151,10 @@ const captureWindows = new CaptureWindows({
   walkNote: async (jobId, said, capture, frame) =>
     (await connection?.commands.captureWalkNote(jobId, { said, capture, ...(frame === null ? {} : { frame }) })) ??
     UNSENT,
+  sessionNote: async (sessionId, said, capture, address) => {
+    const sent = await connection?.sessions.send({ session_id: sessionId, text: sessionNoteText(said, capture, address) });
+    return sent === undefined ? UNSENT : sent.ok ? { ok: true } : sent.outcome;
+  },
   stage: stagePng,
   focused: (serverId, on) => {
     if (on) walkFocused.add(serverId);
@@ -454,6 +459,8 @@ void app.whenReady().then(() => {
     windowIds,
     now: () => Date.now(),
   });
+  // A Session showed a page: its window opens by itself, and opens again where it is already open.
+  connection.sessions.onWindow((sessionId, title, url) => void captureWindows.openForSession(sessionId, title, url));
   handleTaps({ ipc: ipcMain, app });
   if (!app.isPackaged) installSounds(join(app.getAppPath(), "sounds"), join(app.getPath("home"), "Library", "Sounds"));
 

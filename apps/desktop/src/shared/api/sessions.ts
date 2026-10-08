@@ -65,6 +65,8 @@ export type SessionsApi = {
   readSessionFile: (sessionId: string, file: string) => Promise<FrameRead>;
   /** Opens a file a Session wrote, in whatever the machine opens it with. Main opens only a path the Session's own ledger names. */
   openSessionFile: (sessionId: string, path: string) => Promise<Followed>;
+  /** Opens, or raises, the window on a page a Session showed. Main opens only an address the Session's own ledger shows as a window. */
+  openSessionWindow: (sessionId: string, url: string) => Promise<Outcome>;
   /** An act on one of a Session's pull requests. `read` brings its state current, `review` answers the Code Review Job it dispatched. */
   pressPullRequest: (
     sessionId: string,
@@ -104,5 +106,6 @@ export const SESSIONS_CHANNELS = {
   watchSession: "bridge:watch-session",
   readSessionFile: "bridge:read-session-file",
   openSessionFile: "bridge:open-session-file",
+  openSessionWindow: "bridge:open-session-window",
   pressPullRequest: "bridge:press-pull-request",
 } as const;
