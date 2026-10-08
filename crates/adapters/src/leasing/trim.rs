@@ -161,6 +161,10 @@ fn sweep(dir: &Path, cutoff: SystemTime, top: bool) -> u64 {
             continue;
         };
         if meta.is_dir() {
+            if is_build_script_output(&path) {
+                left += size_of(&path);
+                continue;
+            }
             left += sweep(&path, cutoff, false);
             continue;
         }
@@ -174,4 +178,32 @@ fn sweep(dir: &Path, cutoff: SystemTime, top: bool) -> u64 {
         let _ = fs::remove_dir(dir);
     }
     left
+}
+
+/// A build script's `out/` (`target/<profile>/build/<unit>/out`). **Never
+/// trimmed file by file**: cargo does not list what a build script wrote among
+/// a unit's outputs, so a missing `bindgen.rs` reads as built and the next
+/// compile fails on it. `libsqlite3-sys` broke restarts six times on 8 Oct
+/// 2026 this way.
+fn is_build_script_output(dir: &Path) -> bool {
+    dir.file_name().is_some_and(|name| name == "out")
+        && dir
+            .parent()
+            .and_then(Path::parent)
+            .and_then(Path::file_name)
+            .is_some_and(|name| name == "build")
+}
+
+/// The bytes under `dir`, counted toward the ceiling.
+fn size_of(dir: &Path) -> u64 {
+    let Ok(entries) = fs::read_dir(dir) else {
+        return 0;
+    };
+    entries
+        .flatten()
+        .filter_map(|entry| {
+            let meta = fs::symlink_metadata(entry.path()).ok()?;
+            Some(if meta.is_dir() { size_of(&entry.path()) } else { meta.len() })
+        })
+        .sum()
 }

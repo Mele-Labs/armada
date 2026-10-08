@@ -300,7 +300,7 @@ copy of the full debug info for the whole dependency graph.
 old dependency build, incremental session or test binary, and on 6 Oct 2026 24
 checkouts reached 50 GB each. A `release` (and `armada clean` giving back a
 Job's slot) drops every file under the slot's `target/` that no build has
-written in 14 days, and removes the whole `target/` if it is still over 20 GiB.
+written in 14 days (never a build script's `out/`, which cargo would not rebuild), and removes the whole `target/` if it is still over 20 GiB.
 Fleet also sweeps every checkout's `target/` once an hour: the main checkout,
 slots held or free, bases, land trees, preview, and the Job and agent worktrees.
 A `target/` with a cargo build running in it is skipped. Settings:
