@@ -183,8 +183,8 @@ test("Sessions wired: Open in a Session on a stopped Job starts one with the Job
   await onScreen();
   await userEvent.click(page.getByRole("button", { name: "More for The retry loop" }));
   await userEvent.click(page.getByRole("menuitem", { name: "Open in a Session" }));
-  await expect.element(page.getByRole("group", { name: "Attached" }).getByText("The retry loop")).toBeVisible();
-  await userEvent.fill(page.getByRole("textbox", { name: "Message" }), "What stopped it?");
+  await expect.element(page.getByRole("textbox", { name: "Message" }).getByText("The retry loop")).toBeVisible();
+  await userEvent.type(page.getByRole("textbox", { name: "Message" }), "What stopped it?");
   await userEvent.click(page.getByRole("button", { name: "Send" }));
   await expect.poll(() => fleet.calls.sent.length).toBe(1);
   expect(fleet.calls.sent[0]?.mentions).toMatchObject([{ kind: "job", id: "01JOBSTOPPED", title: "The retry loop" }]);

@@ -1,6 +1,7 @@
 // What a browser test needs to drive `App` on a scenario: mount it, take it
 // down after, and reach a surface the way a person does — by the rail.
 
+import { forgetAllKept } from "@armada/components";
 import { afterEach, expect, onTestFinished } from "vitest";
 import type { Mock } from "vitest";
 import { commands, page, userEvent } from "vitest/browser";
@@ -21,6 +22,7 @@ export function unmountAfterEach(): void {
       one.host.remove();
     }
     mounted = [];
+    forgetAllKept();
   });
 }
 

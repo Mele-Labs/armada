@@ -27,7 +27,7 @@ export function browserProject(name: string, include: string[]): TestProjectInli
     // The app's stylesheet imports Tailwind, so the plugin that compiles it is here too.
     plugins: [tailwindcss()],
     // Found only once a test renders JSX, and Vite reloads the test when it finds it.
-    optimizeDeps: { include: ["react/jsx-dev-runtime"] },
+    optimizeDeps: { include: ["react/jsx-dev-runtime", "react-dom/server"] },
     test: {
       name,
       include,
