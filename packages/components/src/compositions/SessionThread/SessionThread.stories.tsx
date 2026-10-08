@@ -278,3 +278,20 @@ export const NotWorkingNoMark: Story = {
     await expect(canvas.queryByRole("img", { name: "Working" })).toBeNull();
   },
 };
+
+const CHECKED: SessionThreadRow[] = [
+  { id: "k1", at: "14:21:40", kind: "check", name: "desktop:typecheck", run: 29, state: "passed" },
+  { id: "k2", at: "14:22:20", kind: "check", name: "components_test", run: 30, state: "failed" },
+  { id: "k3", at: "14:23:10", kind: "check", name: "app_smoke", run: 31, state: "running" },
+];
+
+/** Each `armada check` the agent ran is a row of its own, named by its key; a press opens that run. */
+export const ChecksTheAgentRan: Story = {
+  args: { rows: CHECKED, onOpenCheck: fn() },
+  play: async ({ canvas, args }) => {
+    await expect(canvas.getByRole("button", { name: "Check desktop:typecheck, passed" })).toBeInTheDocument();
+    await expect(canvas.getByRole("button", { name: "Check components_test, failed" })).toBeInTheDocument();
+    await userEvent.click(canvas.getByRole("button", { name: "Check app_smoke, running" }));
+    await expect(args.onOpenCheck).toHaveBeenCalledWith(31);
+  },
+};

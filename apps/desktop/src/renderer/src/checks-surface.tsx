@@ -29,6 +29,7 @@ import {
 export function useAsked(openJob: string | null, state: ChecksState, toMergeLine: () => void) {
   const [opening, setOpening] = useState<{ jobId: string; to: JobOpening } | null>(null);
   const [mergeFocus, setMergeFocus] = useState<string | undefined>(undefined);
+  const [checkFocus, setCheckFocus] = useState<string | undefined>(undefined);
   useEffect(() => {
     if (openJob === null) setOpening(null);
   }, [openJob]);
@@ -36,7 +37,7 @@ export function useAsked(openJob: string | null, state: ChecksState, toMergeLine
     toMergeLine();
     setMergeFocus(branch);
   });
-  return { opening, setOpening, mergeFocus, setMergeFocus, host };
+  return { opening, setOpening, mergeFocus, setMergeFocus, checkFocus, setCheckFocus, host };
 }
 
 type ChecksState = Pick<
@@ -80,7 +81,9 @@ export function ChecksSurface({
   onCopied,
   onOpenJob,
   onOpenMergeLine,
+  focus,
 }: {
+  focus?: string;
   state: ChecksState;
   bridge: BridgeState["bridge"];
   onCopied: (value: string) => void;
@@ -97,6 +100,7 @@ export function ChecksSurface({
         jobLabel={(jobId) => jobs.find((one) => one.id === jobId)?.handle ?? jobId}
         onOpenJob={onOpenJob}
         floor={floor}
+        {...(focus === undefined ? {} : { focus })}
       />
     </Boundary>
   );

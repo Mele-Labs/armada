@@ -16,6 +16,7 @@
  * | `drone_task` | A Drone asking on a plan task | `job_id`, `step`, `task_id`, `drone_id` |
  * | `drone_step` | A Drone asking on a step with no task | `job_id`, `step`, `drone_id` |
  * | `merge_line` | The merge line, for one branch | `branch`, and `job_id` with `handle` where a Job owns the branch. Since 23.64 |
+ * | `session` | A Session's agent, running `armada check` in its slot. Proposed, not on the wire | `session_id`, `slot` |
  * | `outside` | Nothing in Armada: a person's press, a bare `armada check` | none |
  *
  * **`outside` is a value, and an absent requester reads as it** — a Fleet
@@ -29,6 +30,9 @@ export type Requester = {
   task_id?: string;
   drone_id?: string;
   branch?: string;
+  /** The Session whose agent ran it, and the slot it ran in. Proposed, not on the wire. */
+  session_id?: string;
+  slot?: number;
   /**
    * What a person calls the Job, `1-a-job`. **A Drone's handle**: its transcript
    * is named under it and it has no other name than its id. Present on every kind
@@ -42,6 +46,7 @@ export const REQUESTER = {
   droneTask: "drone_task",
   droneStep: "drone_step",
   mergeLine: "merge_line",
+  session: "session",
   outside: "outside",
 } as const;
 

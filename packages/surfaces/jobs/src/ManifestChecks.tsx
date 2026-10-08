@@ -10,7 +10,7 @@
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
-import { Button, CheckDetails, CheckList, ConsoleOutput, Tabs, type ConsoleRow } from "@armada/components";
+import { Button, CheckDetails, CheckList, ConsoleOutput, SlotOwner, Tabs, type ConsoleRow } from "@armada/components";
 import type {
   CheckoutRunFollowed,
   CheckoutRunListRead,
@@ -72,6 +72,8 @@ export type ManifestChecksProps = {
   floor: boolean;
   /** Narrows the list to one Job's Checks, which is the Job detail's Checks tab. */
   job?: string;
+  /** A Check to have open on arriving: a Session's thread row names its run. */
+  focus?: string;
 };
 
 /** The filter row, a panel's filters as filled tabs. All on opening, no figure on any. */
@@ -111,11 +113,16 @@ export function ManifestChecks(props: ManifestChecksProps) {
     };
   }, [onListRuns, onReadChecks, runningId, verifyId, verifyEnded]);
 
-  const { job } = props;
+  const { job, focus } = props;
   const entries = useMemo(() => {
     const all = checkEntriesOf(data, runs, lines, reported);
     return job === undefined ? all : ofJob(all, job);
   }, [data, runs, lines, reported, job]);
+  useEffect(() => {
+    if (focus === undefined) return;
+    setFilter("all");
+    setOpenId(focus);
+  }, [focus]);
   const shown = useMemo(() => entries.filter((one) => heldBy(filter, one)), [entries, filter]);
   const open = shown.find((one) => one.id === openId);
   const bands = open === undefined ? undefined : <FactsOf entry={open} {...props} />;
@@ -129,7 +136,7 @@ export function ManifestChecks(props: ManifestChecksProps) {
           setOpenId(null);
         }}
       />
-      <CheckList rows={shown.map((one) => checkRowOf(one, jobLabel))} openRow={open?.id ?? null} onOpenRow={setOpenId} />
+      <CheckList rows={shown.map((one) => rowOf(one, jobLabel))} openRow={open?.id ?? null} onOpenRow={setOpenId} />
       {open === undefined ? null : open.land !== undefined ? (
         <LandCheckLogSheet
           key={open.id}
@@ -140,13 +147,19 @@ export function ManifestChecks(props: ManifestChecksProps) {
           floor={floor}
           onClose={() => setOpenId(null)}
         />
-      ) : open.job !== undefined && open.logs !== undefined ? (
-        <ReportedLogPanel key={open.id} entry={open} job={open.job.id} logs={open.logs} {...props} onClose={() => setOpenId(null)} />
+      ) : (open.job ?? open.session) !== undefined && open.logs !== undefined ? (
+        <ReportedLogPanel key={open.id} entry={open} job={(open.job ?? open.session)!.id} logs={open.logs} {...props} onClose={() => setOpenId(null)} />
       ) : (
         <CheckLogPanel key={open.id} entry={open} bands={bands} {...props} onClose={() => setOpenId(null)} />
       )}
     </div>
   );
+}
+
+/** A list row, with a Session's run asked by its owner chip where the line would say who. */
+function rowOf(entry: CheckEntry, jobLabel: (jobId: string) => string) {
+  const row = checkRowOf(entry, jobLabel);
+  return entry.session?.slot === undefined ? row : { ...row, by: <SlotOwner slot={entry.session.slot} /> };
 }
 
 /**

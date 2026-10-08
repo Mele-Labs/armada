@@ -128,7 +128,7 @@ const REPRO_DRONE = "01M1HHJ6XB001BZJZ4BE2RPR0A";
  * going, and a Drone's run of two Checks on a step. **A gate row has no start or duration**, only
  * when its ruling was written.
  */
-const REPORTED: ManifestCheckRow[] = [
+export const REPORTED: ManifestCheckRow[] = [
   {
     source: "asked_run",
     requester: { kind: "drone_task", job_id: ARC_JOB_ID, step: "implement", task_id: "T2", drone_id: ARC_DRONES.T2 ?? "T2", handle: ARC_HANDLE },
@@ -178,7 +178,7 @@ const REPORTED: ManifestCheckRow[] = [
 ];
 
 /** The Job's Check logs, by `kept`. */
-const JOB_LOGS: Record<string, string[]> = {
+export const JOB_LOGS: Record<string, string[]> = {
   "root_cause.2.components_test.log": ["$ vitest run", " ✓ src/Sheet.stories.tsx (14 tests) 211ms", " Test Files  182 passed (182)"],
   "repro.1.ask.hooks_test.log": ["$ python3 -m unittest", "Ran 6 tests in 0.04s", "OK"],
   "repro.1.ask.format.log": ["$ cargo fmt --all --check", "Diff in crates/fleet/src/lib.rs:12:"],
@@ -194,7 +194,7 @@ export function checkingWithoutRunSheet(): Scenario {
   return checkingOver({ state: "reading" }, "checks-without-run-sheet", "A repository whose run sheet has not been read, and the Checks Jobs and Drones reported anyway");
 }
 
-function checkingOver(read: CheckoutRunSheetRead, name: string, says: string, reported: ManifestCheckRow[] = REPORTED, jobLogs: Record<string, string[]> = JOB_LOGS): Scenario {
+export function checkingOver(read: CheckoutRunSheetRead, name: string, says: string, reported: ManifestCheckRow[] = REPORTED, jobLogs: Record<string, string[]> = JOB_LOGS): Scenario {
   const base = manifesting({ sheet: read, runs: { runs: [FMT, BUILD, TYPECHECK, STORYBOOK, BRIDGE_TEST, BOOTSTRAP], unreadable: [] } });
   // The Job the gate's and the Drones' requesters open, with its steps and Drones, and one with a plan, which a task's requester opens.
   const jobs = holding("checks", "", [everyDroneHad(), ...executingSequential().fixtures]);

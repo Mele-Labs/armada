@@ -143,6 +143,8 @@ export type SessionRow =
     }
   /** The agent's first write: the slot leased and the branch cut, drawn in the thread where it happened. */
   | { id: string; at: string; kind: "lease"; slot: number; branch: string }
+  /** An `armada check` the agent ran in its slot: the Check's key, its run on the Checks page, and where it stands. */
+  | { id: string; at: string; kind: "check"; name: string; run: number; state: "running" | "passed" | "failed" }
   /** The Session showed a page in a window: where in the thread it did, and the address to open again. */
   | { id: string; at: string; kind: "window"; title: string; url: string };
 

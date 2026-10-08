@@ -137,3 +137,21 @@
   line-height: var(--leading-2xs);
   color: var(--fg-subtle);
 }
+
+.armada-slot-owner {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+  max-width: 24ch;
+}
+
+.armada-slot-owner > svg {
+  flex: none;
+}
+
+.armada-slot-owner__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

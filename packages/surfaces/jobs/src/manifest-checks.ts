@@ -39,6 +39,8 @@ export type CheckEntry = {
   tookMs?: number;
   /** The Job a reported Check belongs to, which its logs are read under. */
   job?: { id: string; handle: string };
+  /** The Session whose agent ran it, and the slot it ran in. The page draws its owner chip. */
+  session?: { id: string; slot?: number };
   /** Each of a reported Check's logs, `get_check_output`'s `kept`. */
   logs?: readonly ManifestCheckLog[];
   /** Said on hover in place of the status's own word, where the wire has a finer one. */
@@ -244,6 +246,8 @@ export function askerOf(requester: Requester, jobLabel: (jobId: string) => strin
       };
     case "merge_line":
       return { label: said("Merge line", branch), opens: { to: "merge-line", ...(branch === undefined ? {} : { branch }) } };
+    case "session":
+      return { label: "Session" };
     case "outside":
       return { label: "Started outside a Job" };
     default:
@@ -280,13 +284,15 @@ export function entryOfReported(row: ManifestCheckRow): CheckEntry {
   const held: { status: CheckListStatus; says?: string; skipped?: true } =
     row.source === "asked_run" ? (ASKED_STATE[row.state] ?? { status: "waiting" as const }) : gateStatus(row.state);
   const key = row.asked_run_id !== undefined ? `run${row.asked_run_id}` : `${row.step}.${row.attempt}.${row.group ?? ""}.${row.name}`;
+  const { session_id: sessionId } = row;
   return {
-    id: `reported:${row.job_id}:${key}`,
+    id: sessionId !== undefined && row.asked_run_id !== undefined ? sessionCheckId(sessionId, row.asked_run_id) : `reported:${row.job_id}:${key}`,
     name: row.name,
     status: held.status,
     command: "",
     requester: row.requester,
-    job: { id: row.job_id, handle: row.job_handle },
+    ...(row.job_id === undefined ? {} : { job: { id: row.job_id, handle: row.job_handle ?? row.job_id } }),
+    ...(sessionId === undefined ? {} : { session: { id: sessionId, ...(row.requester.slot === undefined ? {} : { slot: row.requester.slot }) } }),
     ...(row.logs === undefined || row.logs.length === 0 ? {} : { logs: row.logs }),
     ...(held.says === undefined ? {} : { says: held.says }),
     ...(held.skipped === undefined ? {} : { skipped: true as const }),
@@ -295,6 +301,11 @@ export function entryOfReported(row: ManifestCheckRow): CheckEntry {
     ...(row.took_ms === undefined ? {} : { tookMs: row.took_ms }),
     attempt: row.attempt,
   };
+}
+
+/** The Checks page's id for a Session's run, which a thread row names to open it. */
+export function sessionCheckId(sessionId: string, run: number): string {
+  return `reported:session:${sessionId}:run${run}`;
 }
 
 /** One row of the list. */

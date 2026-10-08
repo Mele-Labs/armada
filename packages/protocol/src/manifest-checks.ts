@@ -28,11 +28,14 @@ export type ManifestCheckRow = {
   /** `gate` or `asked_run`. An opaque string. */
   source: string;
   requester: Requester;
-  job_id: string;
+  /** Absent on a Session's run, which belongs to no Job. Proposed, not on the wire. */
+  job_id?: string;
   /** What a person calls the Job. */
-  job_handle: string;
-  job_title: string;
-  step: string;
+  job_handle?: string;
+  job_title?: string;
+  step?: string;
+  /** The Session whose agent ran it, on a `session_run` row. Proposed, not on the wire. */
+  session_id?: string;
   /** Which run of the step. */
   attempt: number;
   /** The group whose gate it ran at, `G1` and on. Absent at a step's own gate. */
