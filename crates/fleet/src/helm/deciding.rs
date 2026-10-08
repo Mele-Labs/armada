@@ -59,7 +59,7 @@ pub fn because(asking: &AskingToRun) -> Option<Because> {
         return door(operation, asking);
     }
     if tool == "Bash" {
-        return shell(asking.detail().unwrap_or_default());
+        return shell(asking.detail().unwrap_or_default(), None);
     }
     if WRITES_A_FILE.contains(&tool) {
         return writing(asking);
@@ -86,9 +86,37 @@ pub fn because_in_a_session(asking: &AskingToRun, directory: &str) -> Option<Bec
         return because(asking);
     }
     if tool == "Bash" {
-        return shell(&flattened(asking.detail().unwrap_or_default()));
+        return shell(
+            &flattened(asking.detail().unwrap_or_default()),
+            slot_of(directory),
+        );
     }
     because(asking)
+}
+
+/// `directory` when it is a slot. Before its first lease a session runs in
+/// the repository's root, the owner's own checkout, and nothing is taken away
+/// there unasked.
+fn slot_of(directory: &str) -> Option<&str> {
+    directory.contains("/.armada/slots/").then_some(directory)
+}
+
+/// Whether `word`, a path a shell line removes or overwrites, is inside
+/// `slot`. **Removing a file in the slot it holds is the session's own work**
+/// (the owner, 8 Oct 2026); its root, a `..`, a `~` or a `$` is never read as
+/// inside, and a relative path only where the line has not moved with `cd`.
+fn in_the_slot(word: &str, slot: &str, relative: bool) -> bool {
+    let word = word.trim_matches(|c| c == '\'' || c == '"');
+    if word.is_empty() || word.contains('$') || word.starts_with('~') {
+        return false;
+    }
+    if word.starts_with('/') {
+        return inside_the_directory(word, slot)
+            && word.trim_end_matches('/') != slot.trim_end_matches('/');
+    }
+    relative
+        && !matches!(word.trim_end_matches('/'), "" | "." | "*")
+        && inside_the_directory(word, slot)
 }
 
 /// Whether `path` is under `directory`, a relative path being read against it.
@@ -264,7 +292,7 @@ fn writing(asking: &AskingToRun) -> Option<Because> {
 ///
 /// **Every segment, never the first word.** `cd crates && rm -rf target` has
 /// `cd` at the front of it, and a classifier reading one word would run it.
-fn shell(line: &str) -> Option<Because> {
+fn shell(line: &str, slot: Option<&str>) -> Option<Because> {
     let line = line.trim();
     if line.is_empty() {
         return Some(Because::Unreadable);
@@ -281,11 +309,25 @@ fn shell(line: &str) -> Option<Because> {
     // which then reads as a truncating redirect — `cargo build 2>&1 | tail -5`
     // asked, as a destructive line, until a case caught it.
     let chained = line.replace("&&", ";").replace("||", ";");
-    chained
+    let segments: Vec<&str> = chained
         .split(|c| c == ';' || c == '|' || c == '\n')
         .map(str::trim)
         .filter(|said| !said.is_empty())
-        .find_map(segment)
+        .collect();
+    // A `cd` into the slot keeps a relative path inside it; one anywhere else,
+    // or one that cannot be read, loses track of where the line is.
+    let slot = slot.map(|slot| Slot {
+        slot,
+        relative: segments.iter().all(|said| {
+            let mut words = said.split_whitespace();
+            match words.next() {
+                Some("cd" | "pushd") => words.next().is_some_and(|to| in_the_slot(to, slot, true)),
+                Some("popd") => false,
+                _ => true,
+            }
+        }),
+    });
+    segments.into_iter().find_map(|said| segment(said, slot))
 }
 
 /// Whether `word` appears in `line` as a word rather than inside a longer one,
@@ -295,9 +337,29 @@ fn word_in(line: &str, word: &str) -> bool {
         .any(|said| said == word)
 }
 
+/// The slot a session's line runs in, and whether a relative path in it is
+/// still read against the slot.
+#[derive(Clone, Copy)]
+struct Slot<'a> {
+    slot: &'a str,
+    relative: bool,
+}
+
+impl Slot<'_> {
+    fn holds(&self, word: &str) -> bool {
+        in_the_slot(word, self.slot, self.relative)
+    }
+}
+
 /// One segment of a shell line, already split from the rest.
-fn segment(said: &str) -> Option<Because> {
-    if truncating_redirect(said) {
+fn segment(said: &str, slot: Option<Slot>) -> Option<Because> {
+    if truncating_redirect(said)
+        && !slot.is_some_and(|slot| {
+            redirect_targets(said)
+                .iter()
+                .all(|target| slot.holds(target))
+        })
+    {
         return Some(Because::Destructive);
     }
     // The command is the first word that is not an assignment or a leading
@@ -342,7 +404,19 @@ fn segment(said: &str) -> Option<Because> {
     ];
     const SHARED: &[&str] = &["scp", "rsync", "ssh", "sftp"];
     const OFF_MACHINE: &[&str] = &["aws", "gcloud", "az", "kubectl", "terraform", "op"];
-    if GONE.contains(&program) {
+    const REMOVES: &[&str] = &["rm", "rmdir", "unlink"];
+    if REMOVES.contains(&program) {
+        let operands: Vec<&&str> = arguments
+            .iter()
+            .filter(|word| !word.starts_with('-'))
+            .collect();
+        let held = slot.is_some_and(|slot| {
+            !operands.is_empty() && operands.iter().all(|word| slot.holds(word))
+        });
+        if !held {
+            return Some(Because::Destructive);
+        }
+    } else if GONE.contains(&program) {
         return Some(Because::Destructive);
     }
     if SHARED.contains(&program) {
@@ -374,6 +448,24 @@ fn truncating_redirect(said: &str) -> bool {
             && written.get(at + 1) != Some(&'&')
             && !into_a_device(&written[at + 1..])
     })
+}
+
+/// The paths each truncating `>` in `said` writes to.
+fn redirect_targets(said: &str) -> Vec<&str> {
+    let written: Vec<char> = said.chars().collect();
+    let mut targets = Vec::new();
+    for (at, c) in said.char_indices() {
+        let index = said[..at].chars().count();
+        if c == '>'
+            && index.checked_sub(1).and_then(|back| written.get(back)) != Some(&'>')
+            && written.get(index + 1) != Some(&'>')
+            && written.get(index + 1) != Some(&'&')
+            && !into_a_device(&written[index + 1..])
+        {
+            targets.push(said[at + 1..].split_whitespace().next().unwrap_or(""));
+        }
+    }
+    targets
 }
 
 /// A redirect into `/dev/null`, `/dev/stderr` and the rest. **A device holds
