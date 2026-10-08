@@ -148,6 +148,11 @@ Fleet restarts its step at boot, once, unless one of the stops in
 `--dry-run` lists the Jobs it would adopt and says the refusal would be skipped.
 `scripts/preview --restart --adopt` passes it through; `--watch` refuses it.
 
+**Hosted sessions need no `--adopt`.** A hosted session's agent runs under a
+keeper that outlives Fleet (`docs/concepts/session.md`, *What a restart does to
+a session*), so a restart neither ends it nor its background subagents, and
+Fleet reattaches at boot. The restart does not refuse for a working session.
+
 **Only one restart runs at a time.** An exclusive lock is taken before the
 first Drone check, under the same support directory as the plist and
 runtime file. macOS has no `flock(1)`, so the lock is a symlink naming its

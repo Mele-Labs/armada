@@ -205,6 +205,43 @@ another session's, one line for each tool call, the lease, and each ask with
 where it stands. **An ask is the session's own**: it never appears in Helm's
 dock and `answer_helm_call` does not find it.
 
+### What a restart does to a session
+
+**A hosted session survives a Fleet restart, and so a Bridge restart.** Its agent
+runs under a *keeper*, `armada session-keep`, which Fleet starts detached and
+without Fleet's mark, so `crate::orphans` leaves it. The keeper owns the agent's
+pipes, appends every line the agent writes to a spool file beside its socket
+(`<support dir>/sessions/<id>.sock`), and serves that socket. Fleet holds a
+connection, not the pipes, so the agent and the background subagents it started
+keep running when Fleet stops.
+
+| | Before | Now |
+|---|---|---|
+| Fleet stops | pipes close, agent exits, subagents die | agent and subagents run on |
+| Fleet boots | next message resumes the conversation, in-flight work lost | Fleet reattaches, the thread continues from what the agent said while it was down |
+| The next message | `--resume` | a line on the same process's stdin |
+| A keeper that is gone | | a dead socket is removed; the next message resumes, as before |
+
+**The keeper holds the offset.** Fleet acknowledges each line it has taken; on
+attach the keeper replays from the last acknowledgement. A line taken but not
+acknowledged when Fleet died is sent again, so one row may repeat; none is lost.
+A Fleet that attaches mid-turn is told so, and the session shows as working.
+
+**The wire** is lines of text over the socket. Fleet sends `ATTACH`,
+`IN <line>`, `ACK <offset>` and `END`. The keeper sends `READY <pid> <busy>`,
+`OUT <offset> <line>` and `GONE`. One client at a time; the newest attach wins.
+
+**A keeper ends** when the agent exits and Fleet has been told (`GONE`), on
+`END` (closing a session, the quiet timeout, a tune), or when no Fleet has been
+attached for 30 minutes, which also ends the agent: a keeper no Fleet will
+return to must not run one for ever. The permission door (`armada mcp`) waits up
+to 90 seconds for a Fleet that is restarting before it fails a call. It reads
+Fleet's port once, so a Fleet that comes back on another port is not found; the
+port is claimed from the store and is normally the same.
+
+**Not covered**: a keeper's own death (the agent loses its pipes and exits), and
+an agent whose hooks name a Fleet port that changed.
+
 ## What Fleet tells a Session
 
 **A Session never has to be told to watch its pull request.** When a pull request a Session holds in the ledger fails its checks, conflicts with the base, leaves the merge queue, is marked unmergeable, or merges, Fleet sends that Session one message, once. It names the pull request, what happened and the branch. For failed checks it lists each failing check with its log address, and the last lines of the first two logs. A merge says the Session's slot and branch can be released. `docs/concepts/fleet.md`, *Telling the owner of a pull request*, has the triggers.
