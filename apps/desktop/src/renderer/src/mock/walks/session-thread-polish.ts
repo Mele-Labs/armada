@@ -3,7 +3,7 @@
 // and every message is left aligned on the panel with no fill. Helm's thread is told too. Told
 // wide, narrow, and Helm's own.
 
-import { NARROW, kit } from "../sessions/walk-kit";
+import { NARROW, kit, toSessions } from "../sessions/walk-kit";
 import { button, inside, region, role, text, walk } from "../walk";
 import type { Step } from "../walk";
 
@@ -28,8 +28,8 @@ const helm: Step[] = [
   { look: inside(role("complementary", "Helm"), text("why did 77 stop")), say: "Helm's thread: the person's words left aligned, on the panel's ground" },
 ];
 
-const wide = walk("session-thread-polish", steps(false));
-const narrow = walk("session-thread-polish", steps(true), NARROW);
+const wide = walk("session-thread-polish", [toSessions, ...steps(false)]);
+const narrow = walk("session-thread-polish", [toSessions, ...steps(true)], NARROW);
 const talking = walk("helm-talking", helm);
 
 export { wide as "session-thread-polish", narrow as "session-thread-polish-narrow", talking as "session-thread-polish-helm" };

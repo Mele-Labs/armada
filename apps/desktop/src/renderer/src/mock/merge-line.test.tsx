@@ -23,11 +23,12 @@ test("with no line, neither the rail row nor the Overview panel draws", async ()
   expect(page.getByRole("region", { name: "Merge line" }).query()).toBeNull();
 });
 
-test("on All, the rail row and one named panel for each repository with a line", async () => {
+test("on All, the rail row, and on its page one named panel for each repository with a line", async () => {
   mount("merge-line");
   await onScreen();
 
   await expect.element(row()).toBeVisible();
+  await row().click();
   await expect.element(panel("Merge line, armada").getByRole("list", { name: "Batch" })).toBeVisible();
   await expect.element(panel("Merge line, armada").getByRole("list", { name: "Sent back" })).toBeVisible();
   await expect.element(panel("Merge line, notes").getByRole("list", { name: "Recently landed" })).toBeVisible();
@@ -59,6 +60,7 @@ test("a landed pull request wears the Job's own badge for how it ended, and its 
   };
   mount(watching);
   await onScreen();
+  await row().click();
 
   const armada = panel("Merge line, armada");
   const landed = armada.getByRole("listitem", { name: "studio/read-in-lands-in-a-zone, landed" });

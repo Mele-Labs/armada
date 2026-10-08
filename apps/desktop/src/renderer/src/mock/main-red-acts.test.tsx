@@ -37,6 +37,8 @@ test("Dispatch a new Job sends the brief as edited, and no Job", async () => {
   const sent: FixMain[] = [];
   mount(standingAt(6, sent));
   await onScreen();
+  // The merge line has its own page; the Dashboard reads main's red as one of its calls.
+  await page.getByRole("button", { name: "Merge line", exact: true }).click();
 
   await band().getByRole("button", { name: "Dispatch a new Job" }).click();
   const dialog = page.getByRole("dialog", { name: "Dispatch a Job to fix main" });
@@ -50,6 +52,8 @@ test("Send back lists the Board's Jobs at their review or over, and sends the on
   const sent: FixMain[] = [];
   mount(standingAt(3, sent));
   await onScreen();
+  // The merge line has its own page; the Dashboard reads main's red as one of its calls.
+  await page.getByRole("button", { name: "Merge line", exact: true }).click();
 
   await band().getByRole("button", { name: "Send back to a Job" }).click();
   const dialog = page.getByRole("dialog", { name: "Send the work back to a Job" });

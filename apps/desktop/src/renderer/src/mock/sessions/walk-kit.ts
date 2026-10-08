@@ -9,6 +9,9 @@ import type { Step } from "../walk";
 
 export const NARROW = { width: 900, height: 900 } as const;
 
+/** Sessions' own page, from the left column: the Dashboard lists no Sessions apart from its tabs. */
+export const toSessions: Step = { press: role("button", "Sessions", { exact: true }), say: "Sessions" };
+
 export function kit(narrow: boolean) {
   const ledger = narrow ? role("dialog", "Attachments") : region("Attachments");
   /** The Close of a sheet, and not "Close as superseded" or the like. */

@@ -1,7 +1,7 @@
 // A tag is written into the message where it was typed, as a chip in the line, and the row of what
 // waits stays for files and sketches. Sent, the thread draws the same chip in the words.
 
-import { kit } from "../sessions/walk-kit";
+import { kit, toSessions } from "../sessions/walk-kit";
 import { button, inside, role, region, text, walk } from "../walk";
 import type { Step } from "../walk";
 
@@ -19,6 +19,6 @@ function steps(): Step[] {
   ];
 }
 
-const inline = walk("sessions", steps());
+const inline = walk("sessions", [toSessions, ...steps()]);
 
 export { inline as "session-inline-tags" };

@@ -4,7 +4,7 @@
 
 import { button, dialog, inside, region, role, walk } from "../walk";
 import type { Step } from "../walk";
-import { NARROW, kit } from "../sessions/walk-kit";
+import { NARROW, kit, toSessions } from "../sessions/walk-kit";
 
 function steps(narrow: boolean): Step[] {
   const { ledger, message, opened, row, thread } = kit(narrow);
@@ -22,7 +22,7 @@ function steps(narrow: boolean): Step[] {
   ];
 }
 
-const wide = walk("session-walk-window", steps(false));
-const narrow = walk("session-walk-window", steps(true), NARROW);
+const wide = walk("session-walk-window", [toSessions, ...steps(false)]);
+const narrow = walk("session-walk-window", [toSessions, ...steps(true)], NARROW);
 
 export { wide as "session-walk-window", narrow as "session-walk-window-narrow" };

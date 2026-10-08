@@ -4,7 +4,7 @@
 
 import { button, inside, region, role, text, walk } from "../walk";
 import type { Step } from "../walk";
-import { NARROW, kit } from "../sessions/walk-kit";
+import { NARROW, kit, toSessions } from "../sessions/walk-kit";
 
 function steps(narrow: boolean): Step[] {
   const { ledger, opened, row, sheet, close } = kit(narrow);
@@ -28,7 +28,7 @@ function steps(narrow: boolean): Step[] {
   ];
 }
 
-const wide = walk("session-subagent-live", steps(false));
-const narrow = walk("session-subagent-live", steps(true), NARROW);
+const wide = walk("session-subagent-live", [toSessions, ...steps(false)]);
+const narrow = walk("session-subagent-live", [toSessions, ...steps(true)], NARROW);
 
 export { wide as "session-subagent-live", narrow as "session-subagent-live-narrow" };
