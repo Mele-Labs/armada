@@ -3,8 +3,8 @@
 //
 // **A session is reported as it happens and never read back**, with one
 // exception: a message a person sent it from Bridge, which Fleet holds until
-// this mod asks (`submitHeld`). No hook changes what a session does or is told:
-// each answers with what `next` returned and lets its report go unawaited, so
+// this mod asks (`submitHeld`). One thing is told to the model: its own session id, so
+// `show_window` can name it. No hook changes what a session does: each answers with what `next` returned and lets its report go unawaited, so
 // Fleet being down costs the session nothing (`fleet.ts`). **No message text and no prompt leaves, apart from the first
 // line of the first prompt as a title.** A message is reported as who it went to
 // or came from, and how many.
@@ -458,6 +458,14 @@ export const register: Register = on => {
       .then(id => begin($, id, e.cwd))
       .catch(() => undefined)
     return started
+  })
+
+  // `show_window` places a terminal session by the id it names, which the model cannot learn otherwise.
+  on('prompt.context', async ($, e, next) => {
+    const out = await next(e)
+    if (await $.env.get('ARMADA_DRONE')) return out
+    const id = await $.session.id()
+    return { ...out, blocks: [...out.blocks, { name: 'armadaSession', text: `Your Armada session id is ${id}. Pass it as session_id to the armada show_window tool.` }] }
   })
 
   on('prompt.submit', async ($, e, next) => {
