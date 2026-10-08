@@ -20,6 +20,7 @@ export default meta;
 type Story = StoryObj<typeof SessionLedger>;
 
 const open = fn();
+const shown = fn();
 const ENTRIES: LedgerEntry[] = [
   { key: "s3", kind: "slot", name: "Worktree slot 3", text: "3", onOpen: open },
   { key: "b", kind: "branch", name: "Branch fix/flaky-store", text: "fix/flaky-store", onOpen: open },
@@ -32,6 +33,7 @@ const ENTRIES: LedgerEntry[] = [
   { key: "ar2", kind: "artifact", artifact: "file", name: "File written clock-trace.png", text: "clock-trace.png", onOpen: open },
   { key: "ar4", kind: "artifact", artifact: "image", name: "Looked at clock-trace.png", text: "clock-trace.png", onOpen: open },
   { key: "ar3", kind: "artifact", artifact: "doc", name: "Doc Flaky store write-up", text: "Flaky store write-up", onOpen: open },
+  { key: "ar4", kind: "artifact", artifact: "window", name: "Shown in a window Store clock findings", text: "Store clock findings", onOpen: shown },
 ];
 
 /** Nothing attached: no section is drawn, only the small picture, and no sentence. */
@@ -57,7 +59,7 @@ export const Some: Story = {
   },
 };
 
-/** A page, a file, a picture looked at and a Doc, each with its own glyph named by a tooltip. */
+/** A page, a file, a picture looked at, a Doc and a window, each with its own glyph named by a tooltip. */
 export const Artifacts: Story = {
   args: { entries: ENTRIES.filter((one) => one.kind === "artifact") },
   play: async ({ canvas }) => {
@@ -68,6 +70,10 @@ export const Artifacts: Story = {
     await expect(canvas.getByRole("img", { name: "Looked at" })).toBeInTheDocument();
     await userEvent.click(canvas.getByRole("button", { name: "Open File written clock-trace.png" }));
     await expect(open).toHaveBeenCalled();
+    // A page shown in a window: its glyph names it, and the press reopens the window.
+    await expect(canvas.getByRole("img", { name: "Shown in a window" })).toBeInTheDocument();
+    await userEvent.click(canvas.getByRole("button", { name: "Open Shown in a window Store clock findings" }));
+    await expect(shown).toHaveBeenCalledTimes(1);
     const before = open.mock.calls.length;
     await userEvent.click(canvas.getByRole("button", { name: "Open Looked at clock-trace.png" }));
     await expect(open).toHaveBeenCalledTimes(before + 1);

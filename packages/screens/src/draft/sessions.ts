@@ -57,7 +57,8 @@ export type SessionAttachment =
   | { kind: "forked_to"; id: string }
   | { kind: "forked_from"; id: string };
 
-export type SessionArtifactForm = "page" | "file" | "image" | "doc";
+/** A `window` is a page the Session showed in a window of Bridge's own; `id` is its address. */
+export type SessionArtifactForm = "page" | "file" | "image" | "doc" | "window";
 
 /**
  * A sketch as Dispatch and Studios hold one: boxes and the joins between them.
@@ -141,7 +142,9 @@ export type SessionRow =
       narrative?: { trying_to: string; blocked_by: string; tried: readonly string[] };
     }
   /** The agent's first write: the slot leased and the branch cut, drawn in the thread where it happened. */
-  | { id: string; at: string; kind: "lease"; slot: number; branch: string };
+  | { id: string; at: string; kind: "lease"; slot: number; branch: string }
+  /** The Session showed a page in a window: where in the thread it did, and the address to open again. */
+  | { id: string; at: string; kind: "window"; title: string; url: string };
 
 /** A turn running, or none. A message from another Session starts one, so `working` has no author. */
 export type SessionTurn = { state: "idle" } | { state: "working"; wokenBy?: { id: string; title: string } };
@@ -277,6 +280,11 @@ export type SessionsDraft = {
   close?: (id: string) => void;
   /** Names a Session, hosted or in a terminal. Absent where there is nothing to save it to. */
   rename?: (id: string, title: string) => void;
+  /**
+   * Opens, or opens again, a page a Session showed, in a window of Bridge's own. **A note captured in
+   * it goes to the Session** as a message that wakes it. Absent where nothing serves it.
+   */
+  openWindow?: (id: string, url: string) => void;
   /** Opens a file a Session wrote. Absent in the mock, whose files are not on this machine. */
   openFile?: (id: string, path: string) => void;
   /** Reads a file the Session's ledger names, for the panel an Artifacts row opens. */

@@ -6,14 +6,14 @@
 // mock has no second view and draws a frame of its own page in its place.
 
 import { useEffect, useRef, useState } from "react";
-import { Files, Globe, Image, NotebookText } from "lucide-react";
+import { AppWindow, Files, Globe, Image, NotebookText } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Prose } from "@armada/components";
 import type { ArtifactRead, PageBounds, SessionsDraft } from "@armada/screens/src/draft/sessions";
 
-type ArtifactForm = "page" | "file" | "image" | "doc";
+type ArtifactForm = "page" | "file" | "image" | "doc" | "window";
 
-export const ARTIFACT_GLYPH: Record<ArtifactForm, LucideIcon> = { page: Globe, file: Files, image: Image, doc: NotebookText };
+export const ARTIFACT_GLYPH: Record<ArtifactForm, LucideIcon> = { page: Globe, file: Files, image: Image, doc: NotebookText, window: AppWindow };
 
 /** Whether a form is shown in a web view and has an address to open in the browser. */
 export const isAddress = (form: ArtifactForm): boolean => form === "page" || form === "doc";

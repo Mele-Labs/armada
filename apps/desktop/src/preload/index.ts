@@ -609,6 +609,8 @@ const api: BridgeApi = {
     ipcRenderer.invoke(CHANNELS.readSessionFile, sessionId, file),
   openSessionFile: (sessionId: string, path: string): Promise<Followed> =>
     ipcRenderer.invoke(CHANNELS.openSessionFile, sessionId, path),
+  openSessionWindow: (sessionId: string, url: string): Promise<Outcome> =>
+    ipcRenderer.invoke(CHANNELS.openSessionWindow, sessionId, url),
   readSessionArtifact: (sessionId: string, path: string): Promise<ArtifactRead> =>
     ipcRenderer.invoke(CHANNELS.readSessionArtifact, sessionId, path),
   showSessionPage: (sessionId: string, address: string, bounds: PageBounds): Promise<Followed> =>

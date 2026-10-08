@@ -42,6 +42,27 @@ pub(crate) async fn rename_session<D: Sessions>(
     }
 }
 
+/// A session shows the person a page. 200 with the row; 422 for an address that is not `http` or
+/// `https`, or a call that places no session. **The session is placed by the connection** where the
+/// call arrived through the agent's door.
+pub(crate) async fn show_window<D: Sessions>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let show: ipc::ShowWindow = match ipc::decode("a window to show", &body) {
+        Ok(show) => show,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served
+        .daemon()
+        .show_window(crate::acting::asking(), show)
+        .await
+    {
+        Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// `?manifest_id=`, `?q=` and `?state=` on `list_sessions`.
 #[derive(Deserialize)]
 pub(crate) struct Listing {

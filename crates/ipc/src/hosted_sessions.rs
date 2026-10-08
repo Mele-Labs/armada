@@ -311,6 +311,13 @@ pub enum SessionRow {
         slot: u32,
         branch: String,
     },
+    /// The session showed the person a page in a window.
+    Window {
+        id: String,
+        at: Instant,
+        title: String,
+        url: String,
+    },
     /// A call put to the person. **The row is replaced by id** as the ask is
     /// answered, so a client holds one row per ask.
     Ask {
@@ -352,6 +359,7 @@ impl SessionRow {
             | SessionRow::Command { id, .. }
             | SessionRow::Compaction { id, .. }
             | SessionRow::Lease { id, .. }
+            | SessionRow::Window { id, .. }
             | SessionRow::Ask { id, .. } => id,
         }
     }

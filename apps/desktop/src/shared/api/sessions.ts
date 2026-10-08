@@ -66,6 +66,8 @@ export type SessionsApi = {
   readSessionFile: (sessionId: string, file: string) => Promise<FrameRead>;
   /** Opens a file a Session wrote, in whatever the machine opens it with. Main opens only a path the Session's own ledger names. */
   openSessionFile: (sessionId: string, path: string) => Promise<Followed>;
+  /** Opens, or raises, the window on a page a Session showed. Main opens only an address the Session's own ledger shows as a window. */
+  openSessionWindow: (sessionId: string, url: string) => Promise<Outcome>;
   /** A file the Session's ledger names, read for the panel: its bytes and kind, or why it was not read. */
   readSessionArtifact: (sessionId: string, path: string) => Promise<ArtifactRead>;
   /** Shows a page or doc the Session's ledger names in a web view main owns, over `bounds` of this window. */
@@ -115,6 +117,7 @@ export const SESSIONS_CHANNELS = {
   watchSession: "bridge:watch-session",
   readSessionFile: "bridge:read-session-file",
   openSessionFile: "bridge:open-session-file",
+  openSessionWindow: "bridge:open-session-window",
   readSessionArtifact: "bridge:read-session-artifact",
   showSessionPage: "bridge:show-session-page",
   moveSessionPage: "bridge:move-session-page",

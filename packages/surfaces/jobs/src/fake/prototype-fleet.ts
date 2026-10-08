@@ -8,16 +8,8 @@ import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
 
 import type { JobsApi, JobsState } from "../api";
 import type { ArcDraft } from "../fixtures/build/arc";
-import { openWalkWindow } from "./walk-window";
+import { mockPage as itself, openWalkWindow } from "./walk-window";
 
-/** The mock itself on another scenario: the one address a browser page can serve as a Job's mock. */
-function itself(): string {
-  // The roster is also read in node, by `scenario.test.ts`, where there is no page.
-  if (typeof window === "undefined") return "http://localhost:41311/?scenario=every-state&walked";
-  const url = new URL(window.location.href);
-  url.search = "?scenario=every-state&walked";
-  return url.toString();
-}
 
 /** `base` — the Prototype Job open — over a Fleet that started its `mock` for review at the stop. */
 /**
