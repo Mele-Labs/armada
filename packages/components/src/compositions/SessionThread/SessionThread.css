@@ -272,6 +272,13 @@
   color: var(--fg-muted);
 }
 
+.armada-session-fold__head--press {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+}
+
 .armada-session-fold__head::-webkit-details-marker {
   display: none;
 }

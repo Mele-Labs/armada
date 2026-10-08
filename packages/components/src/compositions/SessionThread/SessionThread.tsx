@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef, useState } from "react";
-import { Box, ChevronRight, GitBranch, KeyRound, Layers, SquareTerminal, Wrench } from "lucide-react";
+import { AppWindow, Box, ChevronRight, GitBranch, KeyRound, Layers, SquareTerminal, Wrench } from "lucide-react";
 
 import { AttachmentChip } from "../../primitives/AttachmentChip/AttachmentChip";
 import { Button } from "../../primitives/Button/Button";
@@ -43,6 +43,8 @@ export type SessionThreadRow =
   /** The summary the CLI wrote where it compacted the conversation. Not the person's words: a quiet row that opens to its text. */
   | { id: string; at: string; kind: "compaction"; text: string }
   | { id: string; at: string; kind: "lease"; slot: number; branch: string }
+  /** The Session showed a page in a window: a quiet row, a press that opens the window again. */
+  | { id: string; at: string; kind: "window"; title: string; url: string }
   | {
       id: string;
       at: string;
@@ -84,6 +86,8 @@ export type SessionThreadProps = {
   onAnswer: (answer?: string, answers?: QuestionAnswer[]) => void;
   /** Opens the Session a message came from. */
   onOpenSession: (sessionId: string) => void;
+  /** Opens a window the Session showed, again. Absent where windows are not served, and its row is not a press. */
+  onOpenWindow?: (url: string) => void;
   /** Which Session this is. A change of it opens the thread at its newest row again. */
   sessionId?: string;
 };
@@ -248,7 +252,25 @@ function Calls({ rows }: { rows: readonly { id: string; text: string }[] }) {
   );
 }
 
-function Row({ row, onOpenSession }: { row: Exclude<SessionThreadRow, { kind: "tool" }>; onOpenSession: (id: string) => void }) {
+function Row({
+  row,
+  onOpenSession,
+  onOpenWindow,
+}: {
+  row: Exclude<SessionThreadRow, { kind: "tool" }>;
+  onOpenSession: (id: string) => void;
+  onOpenWindow?: (url: string) => void;
+}) {
+  if (row.kind === "window") {
+    return (
+      <li className="armada-session-fold">
+        <button type="button" className="armada-session-fold__head armada-session-fold__head--press" aria-label={`Open window ${row.title}`} onClick={() => onOpenWindow?.(row.url)}>
+          <AppWindow size={12} strokeWidth={2} aria-hidden />
+          {row.title}
+        </button>
+      </li>
+    );
+  }
   if (row.kind === "handoff") return <Handoff row={row} />;
   if (row.kind === "lease") {
     return (
@@ -440,7 +462,7 @@ function Questions({
 /** How far from the end still counts as being at it, so a rounding or a half row does not unpin. */
 const NEAR_END = 24;
 
-export function SessionThread({ rows, asked, onAnswer, onOpenSession, sessionId }: SessionThreadProps) {
+export function SessionThread({ rows, asked, onAnswer, onOpenSession, onOpenWindow, sessionId }: SessionThreadProps) {
   const scroller = useRef<HTMLDivElement>(null);
   const pinned = useRef(true);
   // **Opens at the newest row, with no animation, and stays there while the person is at the end.**
@@ -469,7 +491,7 @@ export function SessionThread({ rows, asked, onAnswer, onOpenSession, sessionId 
             item.kind === "calls" ? (
               <Calls key={item.id} rows={item.rows} />
             ) : (
-              <Row key={item.row.id} row={item.row} onOpenSession={onOpenSession} />
+              <Row key={item.row.id} row={item.row} onOpenSession={onOpenSession} onOpenWindow={onOpenWindow} />
             ),
           )}
         </ol>

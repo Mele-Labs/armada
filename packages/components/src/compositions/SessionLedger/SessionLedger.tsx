@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { Box, Check, CircleDot, Files, Globe, Hand, Megaphone, MoveRight, NotebookText, Search, Terminal, GitBranch, GitPullRequest, KeyRound, Presentation, PencilRuler, ShieldCheck, ShieldEllipsis, ShieldX, Split } from "lucide-react";
+import { AppWindow, Box, Check, CircleDot, Files, Globe, Hand, Megaphone, MoveRight, NotebookText, Search, Terminal, GitBranch, GitPullRequest, KeyRound, Presentation, PencilRuler, ShieldCheck, ShieldEllipsis, ShieldX, Split } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
@@ -19,8 +19,8 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
  */
 export type LedgerKind = "slot" | "branch" | "pull_request" | "job" | "studio" | "sketch" | "subagent" | "artifact" | "fork";
 
-/** What an artifact is: a page published, a file written outside the code, or a Doc. */
-export type ArtifactForm = "page" | "file" | "doc";
+/** What an artifact is: a page published, a file written outside the code, a Doc, or a page shown in a window. */
+export type ArtifactForm = "page" | "file" | "doc" | "window";
 
 export type LedgerEntry = {
   key: string;
@@ -30,7 +30,7 @@ export type LedgerEntry = {
   text: ReactNode;
   /** A pull request's Checks, or a subagent's turn, as the one mark at the row's end. */
   mark?: { glyph: "pending" | "passed" | "failed" | "running" | "done" | "escalated" | "piloted"; said: string };
-  /** Which of the three an `artifact` row is, and so its glyph and what its tooltip names. */
+  /** Which of the four an `artifact` row is, and so its glyph and what its tooltip names. */
   artifact?: ArtifactForm;
   /** A Job the person tagged, which the Session is looking at and did not dispatch. */
   looking?: boolean;
@@ -64,6 +64,7 @@ const ARTIFACT: Record<ArtifactForm, { Glyph: LucideIcon; said: string }> = {
   page: { Glyph: Globe, said: "Published page" },
   file: { Glyph: Files, said: "File written" },
   doc: { Glyph: NotebookText, said: "Doc" },
+  window: { Glyph: AppWindow, said: "Shown in a window" },
 };
 
 const MARK: Record<NonNullable<LedgerEntry["mark"]>["glyph"], LucideIcon> = {
