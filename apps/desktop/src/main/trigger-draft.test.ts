@@ -5,7 +5,7 @@
 import { describe, expect, it } from "vitest";
 import type { TriggerDefinition, TriggerSummary } from "@armada/protocol";
 
-import { definitionOf, draftOf, firingAt, whenSaid } from "@armada/components/src/compositions/WorkflowTriggers/triggers";
+import { blankDraft, definitionOf, draftOf, firingAt, freeNameOf, whenSaid } from "@armada/components/src/compositions/WorkflowTriggers/triggers";
 
 const read = (definition: object, level: TriggerDefinition["level"] = "repository"): TriggerDefinition => ({
   name: String((definition as { name: string }).name),
@@ -67,4 +67,26 @@ describe("which Triggers fire at a step", () => {
     expect(whenSaid("step_starts", "tests")).toBe("tests starts");
     expect(whenSaid("step_passes")).toBe("a step passes");
   });
+});
+
+const heldDrone = (name: string, level: TriggerSummary["level"]): TriggerSummary => ({
+  name,
+  when: "pr_opened",
+  runs: { kind: "drone", brief: "x" },
+  block: false,
+  repair: false,
+  level,
+  file: `${name}.yml`,
+});
+
+it("two prompts sharing their first four words take the next free name, and a named draft keeps its own", () => {
+  const draft = blankDraft({ runs: "drone", with: "Add a changelog line for this Job", scope: "repository" });
+  expect(freeNameOf(draft, [])).toBe("add-a-changelog-line");
+  const one = heldDrone("add-a-changelog-line", "repository");
+  expect(freeNameOf(draft, [one])).toBe("add-a-changelog-line-2");
+  expect(freeNameOf(draft, [one, heldDrone("add-a-changelog-line-2", "repository")])).toBe("add-a-changelog-line-3");
+  // Another level's copy is a different Trigger.
+  expect(freeNameOf(draft, [heldDrone("add-a-changelog-line", "machine")])).toBe("add-a-changelog-line");
+  // Editing the same Trigger is a Replace and keeps its name.
+  expect(freeNameOf({ ...draft, name: "add-a-changelog-line" }, [one])).toBe("add-a-changelog-line");
 });

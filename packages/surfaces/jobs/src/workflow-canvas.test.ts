@@ -33,8 +33,6 @@ describe("every shipped workflow draws", () => {
       const steps = whole.steps.map((step) => stepNodeId(step.step_id));
       // Every step is a node, in the workflow's own order, and nothing else is.
       expect(run.nodes.filter((node) => node.id.startsWith("step:")).map((node) => node.id)).toEqual(steps);
-      // The same run, stacked, holds the same nodes in the same order.
-      expect(run.rows.map((row) => row.id)).toEqual(expect.arrayContaining(steps));
     });
 
     it(`places ${fixture.job.handle}'s steps top to bottom, with even air between them and in order`, () => {
@@ -78,10 +76,9 @@ describe("every shipped workflow draws", () => {
       const whole = wholeOf(fixture);
       const run = workflowRunOf({ whole, groups: taskGroupsOf(whole) });
       // The step that makes or works the plan links to it from its own panel
-      // (owner, 29 Sep 2026, `nm0h`), so the canvas and the stacked run are
-      // the steps alone.
+      // (owner, 29 Sep 2026, `nm0h`), so the canvas is the steps
+      // alone.
       expect(run.nodes.every((node) => node.id.startsWith("step:"))).toBe(true);
-      expect(run.rows.every((row) => row.id.startsWith("step:"))).toBe(true);
     });
   }
 });
@@ -253,7 +250,5 @@ describe("a step that loops draws a returning edge", () => {
     expect(returning).toHaveLength(1);
     expect(returning[0]?.target).toBe(stepNodeId(whole.steps[0]!.step_id));
     expect(returning[0]?.label).toBe("up to 5 passes");
-    // Stacked has nothing to arc over, so the row says where it goes back to.
-    expect(run.rows[1]?.returns?.toName).toBe(whole.steps[0]!.label);
   });
 });

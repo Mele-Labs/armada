@@ -26,7 +26,7 @@ export const SIDE_STEP_FILES = ["CHANGELOG.md"];
 export const SIDE_PR_NUMBER = 1752;
 
 /** `tidy` fired when the pull request opened, and a Drone is on it. */
-const RUNNING_TRIGGER: JobTrigger = {
+export const RUNNING_TRIGGER: JobTrigger = {
   name: SIDE_TRIGGER,
   when: "pr_opened",
   step: "handoff",
@@ -38,7 +38,7 @@ const RUNNING_TRIGGER: JobTrigger = {
 };
 
 /** A Drone step added at approval, whose moment (`implement` passing) has come and whose Drone is at work. */
-const RUNNING_STEP: AddedStep = {
+export const RUNNING_STEP: AddedStep = {
   id: SIDE_STEP,
   runs: { kind: "drone", brief: "Add a changelog line" },
   when: "step_passes",
@@ -61,6 +61,15 @@ export function job2SideRuns(): JobFixture {
   const named = { ...fixture, name: "Job 2, at its review gate, a Skill and a Drone step running" };
   if (named.watched.state !== "read") return named;
   return { ...named, watched: { ...named.watched, detail: { ...named.watched.detail, additions: [RUNNING_STEP] } } };
+}
+
+/** The saved Trigger the `aDroneTrigger` walk makes: a prompt, named for its first words. */
+export const DRONE_TRIGGER = "add-a-changelog-line";
+
+/** Job 2 at its review gate with that Trigger fired when the pull request opened, its Drone at work. */
+export function job2DroneTrigger(): JobFixture {
+  const triggers = JOB_2_TRIGGERS.map((one) => (one.name === "deploy_qa" ? { ...RUNNING_TRIGGER, name: DRONE_TRIGGER } : one));
+  return { ...job2AtReviewWith(triggers), name: "Job 2, at its review gate, a saved Drone Trigger running" };
 }
 
 /** The Drone committed: the Trigger's fix waits on the owner. */

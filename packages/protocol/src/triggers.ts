@@ -11,8 +11,8 @@ export type TriggerLevel = "armada" | "repository" | "machine";
 /** Where a saved Trigger goes. */
 export type TriggerScope = "repository" | "machine";
 
-/** A skill runs on a side Drone, on a branch cut from the Job's (23.73). */
-export type TriggerRuns = { kind: "command"; name: string } | { kind: "skill"; name: string };
+/** A skill runs on a side Drone, on a branch cut from the Job's (23.73). A `drone` is sent with its prompt, `brief`, and runs the same way. */
+export type TriggerRuns = { kind: "command"; name: string } | { kind: "skill"; name: string } | { kind: "drone"; brief: string };
 
 /** `by_owner`: it failed and held the Job, and the owner skipped it. Since 23.68. `skill_not_run` is no longer produced since 23.73, and still reads. */
 export type TriggerSkipReason = "not_in_this_repo" | "skill_not_run" | "by_owner";
@@ -155,7 +155,7 @@ export type JobTrigger = {
   repair?: TriggerRepair;
   /** The Trigger blocks, so a failure holds the Job. Absent where it does not. Since 23.68. */
   blocks?: boolean;
-  /** A side Drone runs it, because it names a skill: it has a branch of its own while it works and a fix to place. Absent for a Command. Since 23.73. */
+  /** A side Drone runs it, because it names a skill or a prompt: it has a branch of its own while it works and a fix to place. Absent for a Command. Since 23.73. */
   drone?: boolean;
 };
 

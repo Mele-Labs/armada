@@ -20,7 +20,6 @@ const REMEMBERED = [
   "armada.bridge.plan-view",
   "armada.bridge.sessions-view",
   "armada.bridge.sheet-width",
-  "armada.bridge.workflow-view",
 ];
 
 /** Forget how the window was last read: its widths, its arrangements, what was open. */

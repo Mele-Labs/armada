@@ -16,6 +16,9 @@ fn runs(one: &ResolvedTrigger) -> ipc::TriggerRuns {
     match one.trigger().runs() {
         TriggerRuns::Command(name) => ipc::TriggerRuns::Command { name: name.clone() },
         TriggerRuns::Skill(name) => ipc::TriggerRuns::Skill { name: name.clone() },
+        TriggerRuns::Drone(brief) => ipc::TriggerRuns::Drone {
+            brief: brief.clone(),
+        },
     }
 }
 
@@ -33,7 +36,9 @@ fn summary(one: &ResolvedTrigger) -> ipc::TriggerSummary {
         file: file(one.path()),
         skipped: match one.resolution() {
             TriggerResolution::Skipped(why) => Some(why.into()),
-            TriggerResolution::Command { .. } | TriggerResolution::Skill { .. } => None,
+            TriggerResolution::Command { .. }
+            | TriggerResolution::Skill { .. }
+            | TriggerResolution::Drone { .. } => None,
         },
         overrides: one
             .replaced()
@@ -110,7 +115,10 @@ pub fn job_triggers(frozen: &[FrozenTrigger], firings: &[TriggerFiring]) -> Vec<
                 && firing.source == one.source
         });
         let before = out.len();
-        let drone = matches!(one.resolution, TriggerResolution::Skill { .. });
+        let drone = matches!(
+            one.resolution,
+            TriggerResolution::Skill { .. } | TriggerResolution::Drone { .. }
+        );
         out.extend(mine.map(|firing| ipc::JobTrigger {
             drone,
             ..ipc::JobTrigger::from(firing)

@@ -15,7 +15,7 @@
 //! | A Trigger that blocks and fails is `held` and holds the Job, through a repair and until a rerun passes, the owner skips it or a repair ends passed. A failure that does not block holds nothing, and neither does the last step's `step_passes` | Where each moment holds, the rerun, the skip and the refusals: `fleet::tests::trigger_hold` drives a Job through each, and the walk `aTriggerHoldsTheJob` is Bridge's |
 //! | A step added to one Job that fails with `repair` on is `repairing` and not ended, as a Trigger is, and holds the Job through it when it blocks. The branch a repair wrote on is done with once its fix is on the Job's branch or the repair failed, and never when it is a pull request's head | The repair itself, the owner's choice and the branch's deletion for an added step: `fleet::tests::addition_repair` drives them, and `adapters` deletes against a real repository |
 //! | A Trigger on a Command this repository does not declare is recorded skipped, and a destructive one waits on the owner and is not run | That the owner is asked. Nothing asks him yet |
-//! | A Skill Trigger or Skill or Drone step opens `running`, never skipped, runs no Command, ignores `repair` and holds the Job where it blocks. Its branch is given back when it changed nothing | The side Drone, the slot, `fix_ready`, `passed`, `failed`, Rerun and the restart: `fleet::tests::side_run` drives them with a fake Drone, and the walk `aSkillStepRuns` is Bridge's |
+//! | A Skill or Drone Trigger (a `brief:` prompt) or Skill or Drone step opens `running`, never skipped, runs no Command, ignores `repair` and holds the Job where it blocks. Its branch is given back when it changed nothing | The side Drone, the slot, `fix_ready`, `passed`, `failed`, Rerun and the restart: `fleet::tests::side_run` drives them with a fake Drone, and the walk `aSkillStepRuns` is Bridge's |
 //! | A pull request opens as a draft by the most specific default there is: the Job's own choice, the delivering step's `draft_pr`, the repository's `pr_mode`, this machine's, then ready. `draft_pr` is refused on a step that does not deliver | That Fleet opens the pull request as a draft once approved. `crates/fleet/src/tests/choosing_delivery.rs` drives the fake VCS |
 
 use std::path::{Path, PathBuf};
@@ -398,7 +398,10 @@ async fn a_destructive_command_waits_on_the_owner_and_a_skill_is_a_side_drones_t
     assert_eq!(state("lint").state, TriggerState::Running);
     assert_eq!(state("lint").skipped, None);
     // Block stands; repair is ignored, since a Drone already fixes its own failures.
-    let lint = frozen.iter().find(|one| one.name == "lint").expect("frozen");
+    let lint = frozen
+        .iter()
+        .find(|one| one.name == "lint")
+        .expect("frozen");
     assert!(lint.on_failure.block && !lint.on_failure.repair);
     assert!(!state("lint").on_failure.repair);
 
@@ -411,12 +414,22 @@ async fn a_destructive_command_waits_on_the_owner_and_a_skill_is_a_side_drones_t
     };
     assert!(record.side_run_in_flight(TriggerState::Running));
     assert!(!core_model::RepairRecord::default().side_run_in_flight(TriggerState::Running));
-    assert!(trigger_repair::branch_is_done_with(TriggerState::Passed, None));
+    assert!(trigger_repair::branch_is_done_with(
+        TriggerState::Passed,
+        None
+    ));
     assert!(!trigger_repair::branch_is_done_with(
         TriggerState::FixReady,
         None
     ));
-    let first = run.job.workflow().steps().first().expect("a step").id().clone();
+    let first = run
+        .job
+        .workflow()
+        .steps()
+        .first()
+        .expect("a step")
+        .id()
+        .clone();
     let step = core_model::AddedStep {
         id: "a1".to_string(),
         kind: core_model::AddedKind::Drone {
@@ -435,6 +448,42 @@ async fn a_destructive_command_waits_on_the_owner_and_a_skill_is_a_side_drones_t
         repair: record,
     };
     assert!(step.holds_the_job(run.job.workflow()));
+}
+
+#[tokio::test]
+async fn a_saved_drone_trigger_carries_its_prompt_and_is_a_side_drones_to_run() {
+    let run = a_job_entering_its_delivering_step().await;
+    let delivering = run.job.workflow().delivering_step().expect("one delivers");
+    let commands = Commands::exiting(Exit::Code(0));
+
+    let drone = "name: notes\nwhen: pr_opened\nbrief: Add a changelog line.\n\
+                 on_failure:\n  block: true\n  repair: true\n";
+    let files = vec![machine("notes.yml", drone)];
+    let resolved = TriggerCatalogue::of(files.clone()).resolve(&manifest_text(DECLARING_DEPLOY));
+    let frozen = triggering::freeze(&resolved, run.job.workflow_id(), run.job.workflow());
+    let notes = frozen
+        .iter()
+        .find(|one| one.name == "notes")
+        .expect("frozen");
+    assert_eq!(
+        notes.resolution,
+        core_model::TriggerResolution::Drone {
+            brief: "Add a changelog line.".to_string()
+        }
+    );
+    assert!(notes.on_failure.block && !notes.on_failure.repair);
+
+    let firings = fired(
+        &run.job,
+        files,
+        &manifest_text(DECLARING_DEPLOY),
+        TriggerWhen::PrOpened,
+        delivering.id(),
+        &commands,
+    );
+    assert!(commands.asked.borrow().is_empty(), "no Command ran");
+    assert_eq!(firings[0].state, TriggerState::Running, "a Drone is sent");
+    assert_eq!(firings[0].skipped, None);
 }
 
 // ------------------------------------------------------ the draft default

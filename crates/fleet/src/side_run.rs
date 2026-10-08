@@ -19,9 +19,7 @@
 //! restart finds it again. **Self repair does not apply**: a Drone already
 //! fixes its own failures.
 
-use adapter_traits::{
-    AgentHarness, Delivery, Prompt, SlotPool, Vcs, WorkProduct, Worktree,
-};
+use adapter_traits::{AgentHarness, Delivery, Prompt, SlotPool, Vcs, WorkProduct, Worktree};
 use core_model::{
     AddedKind, DroneId, Job, Level, RepairRecord, StepId, TriggerResolution, TriggerState,
     TriggerWhen,
@@ -101,10 +99,13 @@ where
                 frozen
                     .into_iter()
                     .find(|one| {
-                        one.name == firing.name && one.when == firing.when && one.step == firing.step
+                        one.name == firing.name
+                            && one.when == firing.when
+                            && one.step == firing.step
                     })
                     .and_then(|one| match one.resolution {
                         TriggerResolution::Skill { name } => Some(Side::Skill(name)),
+                        TriggerResolution::Drone { brief } => Some(Side::Brief(brief)),
                         _ => None,
                     })
             }
@@ -267,7 +268,9 @@ mod tests {
             &StepId::new("implement"),
         );
         assert!(told.starts_with("RUN THE SKILL `simplify`\n"));
-        assert!(told.contains("\"Fix the reader\" on `armada/fix-the-reader`, after step `implement` passes"));
+        assert!(told.contains(
+            "\"Fix the reader\" on `armada/fix-the-reader`, after step `implement` passes"
+        ));
         assert!(told.contains("Do not commit, push or open a pull request"));
     }
 

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Bell, Briefcase, Check, CircleDashed, CircleDot, Construction, Eye, FolderGit2, GitBranch, GitPullRequest, Minus, Package, RotateCw, SkipForward, SquarePlus, Trash2, Webhook, X } from "lucide-react";
+import { Bell, Briefcase, Check, CircleDashed, CircleDot, Construction, Eye, FolderGit2, GitBranch, GitPullRequest, Infinity as EveryGlyph, Minus, Package, RotateCw, SkipForward, SquarePlus, Trash2, Webhook, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type {
   AddedRuns,
@@ -35,7 +35,9 @@ import {
   definitionOf,
   draftOf,
   EVERY,
+  freeNameOf,
   identityKey,
+  nameOf,
   whenSaid,
   type TriggerDraft,
   type TriggerIdentity,
@@ -45,7 +47,7 @@ import {
 /**
  * Triggers: a Command or a skill that fires at a moment in a Job. The rows are the list the
  * Workflow editor draws twice, beside the workflows and on a step, and each opens the same
- * fields; `FiredTriggers` is what Job detail draws once they have fired. Fleet keeps them, and
+ * fields; `TriggerLeaf` is what a Job's canvas draws once they have fired. Fleet keeps them, and
  * the editor's `TriggersBinding` is the only way here to it.
  */
 
@@ -65,6 +67,11 @@ function Mark({ icon: Glyph, label, hue, pulsing = false }: { icon: LucideIcon; 
       </span>
     </Tooltip>
   );
+}
+
+/** A Trigger set for every workflow, not this one alone. */
+export function EveryMark() {
+  return <Mark icon={EveryGlyph} label="Every workflow" />;
 }
 
 export function LevelMark({ level }: { level: TriggerLevel }) {
@@ -108,6 +115,7 @@ export function TriggerRows({
           <li key={`${one.level}|${identityKey(one)}|${one.workflow ?? ""}`}>
             <div className="armada-triggers__row">
               <button type="button" aria-label={`${one.name}, ${whenSaid(one.when, one.step)}, ${LEVEL[one.level].said.toLowerCase()}`} onClick={() => onOpen(one)}>
+                {one.workflow === undefined ? <EveryMark /> : null}
                 <LevelMark level={one.level} />
                 <span className="armada-triggers__name">{one.name}</span>
                 {one.skipped === undefined ? null : <SkippedMark skipped={one.skipped} />}
@@ -208,9 +216,10 @@ function TriggerFields({
         <option value="repository">Repository</option>
         <option value="machine">This machine</option>
       </Select>
-      <Select label="Runs" value={draft.runs} onChange={(event) => onChange({ runs: event.target.value as TriggerDraft["runs"], with: "", ...(event.target.value === "skill" ? { repair: false } : {}) })}>
+      <Select label="Runs" value={draft.runs} onChange={(event) => onChange({ runs: event.target.value as TriggerDraft["runs"], with: "", ...(event.target.value === "command" ? {} : { repair: false }) })}>
         <option value="command">Command</option>
         <option value="skill">Skill</option>
+        <option value="drone">Drone</option>
       </Select>
       {draft.runs === "command" ? (
         <Select label="Command" value={draft.with} onChange={(event) => onChange({ with: event.target.value })}>
@@ -221,6 +230,8 @@ function TriggerFields({
             </option>
           ))}
         </Select>
+      ) : draft.runs === "drone" ? (
+        <Textarea label="Prompt" rows={5} value={draft.with} onChange={(event) => onChange({ with: event.target.value })} />
       ) : (
         <Input label="Skill" mono value={draft.with} onChange={(event) => onChange({ with: event.target.value })} />
       )}
@@ -298,8 +309,9 @@ export function TriggerSheet({
 
   async function save() {
     if (draft === null) return;
-    const identity: TriggerIdentity = { when: draft.when, ...(draft.step === "" || draft.when === "pr_opened" ? {} : { step: draft.step }), name: draft.name === "" ? draft.with : draft.name };
-    const result = await binding.onSave(draft.scope, definitionOf(draft), replaces || (was !== null && target.kind === "open" && !moved(was, draft)), keeping);
+    const named = { ...draft, name: freeNameOf(draft, binding.triggers) };
+    const identity: TriggerIdentity = { when: draft.when, ...(draft.step === "" || draft.when === "pr_opened" ? {} : { step: draft.step }), name: nameOf(named) };
+    const result = await binding.onSave(draft.scope, definitionOf(named), replaces || (was !== null && target.kind === "open" && !moved(was, draft)), keeping);
     if (!result.ok) {
       setStanding("refused");
       setSaid(result.said);
@@ -405,54 +417,31 @@ export function FiringMark({ trigger }: { trigger: { state: TriggerFiringState; 
   return <Mark icon={Glyph} label={label} {...(hue === undefined ? {} : { hue })} pulsing={WORKING.includes(trigger.state)} />;
 }
 
-/**
- * What a Job holds of its Triggers, a row each: the state as a mark, the name, the moment, and
- * the level that sets it. **A firing with a log line is a button on its name**, which goes to the line.
- */
-export function FiredTriggers({
-  triggers,
-  additions = [],
-  onOpenLog,
-  onHoldAct,
-}: {
-  triggers: readonly JobTrigger[];
-  additions?: readonly AddedStep[];
-  onOpenLog?: (trigger: JobTrigger) => void;
-  onHoldAct?: (act: HoldVerb, by: HoldAct) => Promise<{ ok: boolean }> | void;
-}) {
-  const holds = holdsOf(triggers, additions);
+/** A name that goes to its line in the Job's log where it has one, and is plain where it has none. */
+function NameLink({ trigger, onOpenLog }: { trigger: JobTrigger; onOpenLog: ((trigger: JobTrigger) => void) | undefined }) {
+  if (trigger.log_at === undefined || onOpenLog === undefined) return <span className="armada-triggers__name">{trigger.name}</span>;
   return (
-    <ul className="armada-triggers" aria-label="Triggers">
-      {triggers.map((one) => (
-        <li key={`${one.when}|${one.step}|${one.name}`} className="armada-triggers__row armada-triggers__row--fired">
-          <FiringMark trigger={one} />
-          {one.log_at !== undefined && onOpenLog !== undefined ? (
-            <Tooltip asChild label="Job log">
-              <button type="button" className="armada-triggers__name armada-triggers__link" onClick={() => onOpenLog(one)}>
-                {one.name}
-              </button>
-            </Tooltip>
-          ) : (
-            <span className="armada-triggers__name">{one.name}</span>
-          )}
-          <span className="armada-triggers__when">{whenSaid(one.when, one.step)}</span>
-          <LevelMark level={one.level} />
-          {holds.some((held) => held.key === `${one.when}|${one.step}|${one.name}`) ? (
-            <HoldActs held={holds.find((held) => held.key === `${one.when}|${one.step}|${one.name}`)!} {...(onHoldAct === undefined ? {} : { onAct: onHoldAct })} />
-          ) : null}
-        </li>
-      ))}
-      {holds
-        .filter((held) => held.by.addition !== undefined)
-        .map((held) => (
-          <li key={held.key} className="armada-triggers__row armada-triggers__row--fired">
-            <Mark icon={Construction} label="Held" hue="waiting" />
-            <span className="armada-triggers__name">{held.name}</span>
-            <span className="armada-triggers__when">{momentOf(held.when, held.step)}</span>
-            <HoldActs held={held} {...(onHoldAct === undefined ? {} : { onAct: onHoldAct })} />
-          </li>
-        ))}
-    </ul>
+    <Tooltip asChild label="Job log">
+      <button type="button" className="armada-triggers__name armada-triggers__link nodrag nopan" onClick={() => onOpenLog(trigger)}>
+        {trigger.name}
+      </button>
+    </Tooltip>
+  );
+}
+
+/**
+ * One Trigger a Job holds, as a leaf off the step it fired at: the state as a mark, the name, the
+ * moment, and the level that sets it. **A firing with a log line is a button on its name**, which goes to the line.
+ */
+export function TriggerLeaf({ trigger, onOpenLog }: { trigger: JobTrigger; onOpenLog?: (trigger: JobTrigger) => void }) {
+  const moment = whenSaid(trigger.when, trigger.step);
+  return (
+    <div className="armada-leaf" role="group" aria-label={`${trigger.name}, ${moment}`}>
+      <FiringMark trigger={trigger} />
+      <NameLink trigger={trigger} onOpenLog={onOpenLog} />
+      <span className="armada-triggers__when">{moment}</span>
+      <LevelMark level={trigger.level} />
+    </div>
   );
 }
 
@@ -582,7 +571,7 @@ export function AddedFields({
       <Fails block={one.block} repair={one.repair} repairable={runs.kind === "script"} disabled={!editable} onChange={change} />
       {onKeep === undefined && onRemove === undefined ? null : (
         <div className="armada-triggers__acts">
-          {onKeep === undefined || runs.kind === "drone" || one.kept !== undefined ? null : (
+          {onKeep === undefined || one.kept !== undefined ? null : (
             <Button variant="secondary" onClick={onKeep}>
               Keep for every Job
             </Button>
@@ -662,11 +651,19 @@ const REPAIR_MARK: Record<RepairPhase, { Glyph: LucideIcon; said: string; hue?: 
 
 /**
  * The branch a failed Trigger with Self repair grows off the workflow: the repair Drone at work,
- * then the fix and the choice of where it goes, then what came of it. Drawn on the Job's canvases
- * and in its stacked run, from the Trigger's row. **A choice is sent once**: the buttons wait for
+ * then the fix and the choice of where it goes, then what came of it. Drawn on the Job's canvases,
+ * from the Trigger's row. **A choice is sent once**: the buttons wait for
  * the answer, and come back where Fleet refused it.
  */
-export function RepairNode({ trigger, onChoose }: { trigger: SideBranch; onChoose?: (trigger: SideBranch, choice: TriggerFixChoice) => Promise<{ ok: boolean }> | void }) {
+export function RepairNode({
+  trigger,
+  onChoose,
+  onOpenLog,
+}: {
+  trigger: SideBranch;
+  onChoose?: (trigger: SideBranch, choice: TriggerFixChoice) => Promise<{ ok: boolean }> | void;
+  onOpenLog?: (trigger: JobTrigger) => void;
+}) {
   const [sent, setSent] = useState(false);
   const phase = repairPhase(trigger);
   const mark = REPAIR_MARK[phase];
@@ -681,7 +678,7 @@ export function RepairNode({ trigger, onChoose }: { trigger: SideBranch; onChoos
     <div className="armada-repair" data-phase={phase}>
       <div className="armada-repair__head">
         <Mark icon={GitBranch} label={trigger.drone === true ? "Drone branch" : "Repair branch"} />
-        <span className="armada-triggers__name">{trigger.name}</span>
+        <NameLink trigger={trigger} onOpenLog={onOpenLog} />
         <span className="armada-repair__state">
           {mark === undefined ? null : <Mark icon={mark.Glyph} label={mark.said} {...(mark.hue === undefined ? {} : { hue: mark.hue })} pulsing={mark.pulsing === true} />}
         </span>
@@ -745,7 +742,7 @@ export function JobAlertMark({ alert }: { alert: JobAlert }) {
 }
 
 /** What a Trigger or an added step that holds its Job is, and the body that names it to Fleet. */
-export type Held = { key: string; name: string; when: TriggerMoment; step: string; by: HoldAct; state: TriggerFiringState };
+export type Held = { key: string; name: string; when: TriggerMoment; step: string; by: HoldAct; state: TriggerFiringState; log?: JobTrigger };
 
 /** `rerun` runs the Command again; `skip` lets it go. */
 export type HoldVerb = "rerun" | "skip";
@@ -763,7 +760,7 @@ export function holdsOf(triggers: readonly JobTrigger[], additions: readonly Add
   const held: Held[] = [];
   for (const [key, one] of latest) {
     if (one.state === "held" || (one.blocks === true && (HOLDING.includes(one.state) || droneRunning(one.state, one.repair)))) {
-      held.push({ key, name: one.name, when: one.when, step: one.step, by: { trigger: one.name }, state: one.state });
+      held.push({ key, name: one.name, when: one.when, step: one.step, by: { trigger: one.name }, state: one.state, log: one });
     }
   }
   for (const one of additions) {
@@ -803,10 +800,17 @@ function HoldActs({ held, onAct }: { held: Held; onAct?: (act: HoldVerb, by: Hol
 
 /**
  * A Trigger that holds the Job, as one frame: a filled band with the barrier, the Trigger's name,
- * and the two things the owner does about it. Drawn on the line it holds, beside a node, and under
- * a step in the stacked run.
+ * and the two things the owner does about it. Drawn on the line it holds, and beside a node.
  */
-export function HoldNode({ held, onAct }: { held: Held; onAct?: (act: HoldVerb, by: HoldAct) => Promise<{ ok: boolean }> | void }) {
+export function HoldNode({
+  held,
+  onAct,
+  onOpenLog,
+}: {
+  held: Held;
+  onAct?: (act: HoldVerb, by: HoldAct) => Promise<{ ok: boolean }> | void;
+  onOpenLog?: (trigger: JobTrigger) => void;
+}) {
   const moment = momentOf(held.when, held.step);
   return (
     <div className="armada-hold" role="group" aria-label={`${held.name}, ${moment}`}>
@@ -815,7 +819,7 @@ export function HoldNode({ held, onAct }: { held: Held; onAct?: (act: HoldVerb, 
           <Construction size={12} strokeWidth={2} aria-hidden />
         </span>
       </Tooltip>
-      <span className="armada-triggers__name">{held.name}</span>
+      {held.log === undefined ? <span className="armada-triggers__name">{held.name}</span> : <NameLink trigger={held.log} onOpenLog={onOpenLog} />}
       <HoldActs held={held} {...(onAct === undefined ? {} : { onAct })} />
     </div>
   );

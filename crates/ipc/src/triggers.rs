@@ -53,6 +53,8 @@ pub enum TriggerRuns {
     Command { name: String },
     /// A skill a side Drone runs, on a branch of its own.
     Skill { name: String },
+    /// A Drone sent with this prompt, on a branch of its own. 
+    Drone { brief: String },
 }
 
 /// Why a Trigger is not run.
@@ -169,7 +171,7 @@ pub struct SaveTrigger {
     pub overwrite: bool,
     /// **Keep a Job's added step for every Job**: the addition this save came
     /// from. Fleet writes the Trigger the definition says and records on the
-    /// addition where it was kept. A Script or a Skill only. Since 23.68.
+    /// addition where it was kept. Since 23.68; a Drone step too.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub kept_from: Option<crate::added_steps::KeptFrom>,
 }
@@ -528,7 +530,11 @@ impl From<&core_model::FrozenTrigger> for JobTrigger {
             log_at: None,
             repair: None,
             blocks: frozen.on_failure.block,
-            drone: matches!(frozen.resolution, core_model::TriggerResolution::Skill { .. }),
+            drone: matches!(
+                frozen.resolution,
+                core_model::TriggerResolution::Skill { .. }
+                    | core_model::TriggerResolution::Drone { .. }
+            ),
         }
     }
 }

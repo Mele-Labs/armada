@@ -1,5 +1,4 @@
-/* One node of a Job's workflow — the same card on the canvas and in the
-   stacked run. A card on the canvas rather than a `Card`: the canvas is not a
+/* One node of a Job's workflow — the same card on every canvas. A card on the canvas rather than a `Card`: the canvas is not a
    surface `glass.css` can read an ancestry through, and a step node has to
    stay one fixed width so an edge lands where the placement says it will. */
 .armada-wf-card {

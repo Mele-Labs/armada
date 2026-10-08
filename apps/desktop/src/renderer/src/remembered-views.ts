@@ -1,6 +1,5 @@
 // Which arrangement a Job's two graph destinations open in, remembered across
-// a restart — Workflow's canvas or stacked run (`#1539`), and Plan's graph or
-// list (owner, 25 Sep 2026).
+// a restart — Plan's graph or list (owner, 25 Sep 2026).
 //
 // **One module, because it is one mechanism.** Plan's toggle was asked for
 // after Workflow already had one, and a second way of remembering a way of
@@ -12,9 +11,8 @@
 // five crates. These are ways of reading, not facts about the Job.
 
 import { useState } from "react";
-import { lessonsTabNamed, planViewNamed, workflowViewNamed, type LessonsTab, type PlanView, type WorkflowView } from "@armada/jobs";
+import { lessonsTabNamed, planViewNamed, type LessonsTab, type PlanView } from "@armada/jobs";
 
-const WORKFLOW_KEY = "armada.bridge.workflow-view";
 const PLAN_KEY = "armada.bridge.plan-view";
 const LESSONS_KEY = "armada.bridge.lessons-tab";
 
@@ -46,11 +44,6 @@ function remembered<T extends string>(key: string, named: (value: string | null)
   }
 
   return [view, press];
-}
-
-/** Canvas or stacked on Workflow. Canvas where nothing is stored. */
-export function useWorkflowView(): [WorkflowView, (view: WorkflowView) => void] {
-  return remembered(WORKFLOW_KEY, workflowViewNamed);
 }
 
 /** Graph or list on Plan. Graph where nothing is stored. */

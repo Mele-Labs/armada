@@ -50,7 +50,7 @@ Open Bridge → Active Jobs → lightweight heartbeat per active Drone: status, 
 
 **Nothing of the plan is drawn on the canvas.** Why: the owner, 25 and 29 September 2026. Until 25 September the canvas drew the entire plan — a node per group, a node per task — and then one Plan node in its place; on 29 September that went too (`nm0h`). **The cost is the second edge**, which said *and this step worked it*: it was his own decision two days earlier, and he reversed it knowingly. The step that makes or works the plan says so in its own panel, with a card of the plan's groups that opens Plan.
 
-**A toggle chooses between the canvas and the stacked run, canvas by default, at every width.** It is remembered per viewer rather than per Job, because it is a way of reading. The stacked run draws the same cards in a column: a toggle that changed what a step said about itself would be two screens rather than two arrangements.
+**The Workflow tab is the canvas, at every width.** It once toggled to a stacked run; that went on 8 October 2026, the owner's word, and every act the run offered is on the canvas.
 
 **A pan holds until the frame changes size.** Why: the owner, 28 September 2026 — *I can only temporarily pan until I release the mouse*. A fit is the one thing on this surface that throws away where a person put the viewport, so it happens when the frame is resized and when what it is fitting changes, and never because something rendered.
 

@@ -290,7 +290,6 @@
    alternative, the card both draw and the panel a step opens into. #1539. */
 @import "./compositions/WorkflowStepCard/WorkflowStepCard.css";
 @import "./compositions/WorkflowCanvas/WorkflowCanvas.css";
-@import "./compositions/WorkflowStacked/WorkflowStacked.css";
 @import "./compositions/WorkflowInspector/WorkflowInspector.css";
 
 /* Activity and Footprint, the two instruments on a Job page. #1268. */

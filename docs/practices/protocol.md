@@ -3350,6 +3350,18 @@ Bridge's half is in `packages/protocol/src/hosted-sessions.ts`, written by hand 
 
 **Bridge starts the draft choice on `pr_mode_default` where `landing` is absent.** A Job approved with no `landing.pr_mode` takes the same answer, so a Bridge that never learned the field still gets the default. **The default Fleet serves is for the workflow the Job was proposed on**: a person who picks another workflow in the proposal sees the first one's until the approval, and what is frozen is the picked workflow's. Bridge's half is in `packages/protocol/src/detail.ts` and `preferences.ts`, written by hand like the rest.
 
+## A saved Trigger runs a Drone
+
+`docs/concepts/trigger.md`, *A Skill or a Drone step*. **Additive only**: one variant of `TriggerRuns` and no new operation, state or error. A saved Trigger can name a prompt, and a Drone is sent with it on a side Drone as a Skill is.
+
+| Where | Carries | Notes |
+| --- | --- | --- |
+| `TriggerRuns` | `{ kind: "drone", brief }` | The prompt, named as an added Drone step's is. A Trigger file spells it `brief:`, and an empty one is refused naming `brief`. `TriggerSummary.runs` serves it |
+| `JobTrigger.drone` | `true` | Now also where the Trigger names a prompt |
+| `save_trigger` `kept_from` | | A Drone step can be kept for every Job. 422 `fleet.unacceptable_addition` is no longer raised for one |
+
+**`repair` is ignored**, as for a Skill: a file with `brief:` and `repair: true` loads with it off.
+
 ## Protocol 23.73: Skill and Drone steps run
 
 `docs/concepts/trigger.md`, *A Skill or a Drone step*. **Additive only**: one optional field on `JobTrigger`. A Skill Trigger, a Skill added step and a Drone added step now run on a side Drone, on a branch cut from the Job's, and no state, operation or error is new.

@@ -55,16 +55,16 @@ const RANK: Record<TriggerLevel, number> = { armada: 0, repository: 1, machine: 
 const identity = (one: { when: TriggerMoment; step?: string | undefined; name: string }) => `${one.when}|${one.step ?? ""}|${one.name}`;
 
 function held(scope: TriggerScope, file: Omit<Held, "scope" | "file" | "text" | "block" | "repair"> & { block?: boolean; repair?: boolean }): Held {
-  // A skill runs on a side Drone, which already fixes its own failures: `repair` reads off.
+  // A skill or a Drone runs on a side Drone, which already fixes its own failures: `repair` reads off.
   const { block = false, repair: asked = false, ...rest } = file;
-  const repair = rest.runs.kind === "skill" ? false : asked;
+  const repair = rest.runs.kind === "command" ? asked : false;
   const text = JSON.stringify(
     {
       name: rest.name,
       when: rest.when,
       ...(rest.workflow === undefined ? {} : { workflow: rest.workflow }),
       ...(rest.step === undefined ? {} : { step: rest.step }),
-      [rest.runs.kind]: rest.runs.name,
+      ...(rest.runs.kind === "drone" ? { brief: rest.runs.brief } : { [rest.runs.kind]: rest.runs.name }),
       ...(block || repair ? { on_failure: { ...(block ? { block } : {}), ...(repair ? { repair } : {}) } } : {}),
     },
     null,
@@ -80,11 +80,12 @@ const SEEDED: Held[] = [
   held("machine", { name: "gate", when: "pr_opened", runs: { kind: "command", name: "gate" }, repair: true }),
   held("machine", { name: "deploy_qa", when: "pr_opened", runs: { kind: "command", name: "deploy_qa" } }),
   held("repository", { name: "qa-notes", when: "step_starts", step: "tests", workflow: "feature", runs: { kind: "skill", name: "qa-notes" } }),
+  held("repository", { name: "docs-check", when: "step_passes", step: "implement", workflow: "feature", runs: { kind: "skill", name: "docs-check" } }),
 ];
 
-/** Why a Trigger does not run in this repository, where it does not. A skill always runs, on a side Drone. */
+/** Why a Trigger does not run in this repository, where it does not. A skill or a Drone always runs, on a side Drone. */
 function skippedOf(runs: TriggerRuns): TriggerSkip | undefined {
-  if (runs.kind === "skill") return undefined;
+  if (runs.kind !== "command") return undefined;
   return DECLARED_COMMANDS.includes(runs.name)
     ? undefined
     : { reason: "not_in_this_repo", name: runs.name, said: `\`${runs.name}\` is not a Command this repository declares` };
@@ -146,7 +147,11 @@ export function triggersServed(): Served {
       }
       const step = typeof parsed.step === "string" ? parsed.step : undefined;
       const runs: TriggerRuns =
-        typeof parsed.command === "string" ? { kind: "command", name: parsed.command } : { kind: "skill", name: String(parsed.skill) };
+        typeof parsed.command === "string"
+          ? { kind: "command", name: parsed.command }
+          : typeof parsed.brief === "string"
+            ? { kind: "drone", brief: parsed.brief }
+            : { kind: "skill", name: String(parsed.skill) };
       const failure = (parsed.on_failure ?? {}) as { block?: boolean; repair?: boolean };
       const next = held(body.scope, {
         name,

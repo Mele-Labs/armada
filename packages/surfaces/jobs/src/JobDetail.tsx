@@ -67,7 +67,6 @@ import { WavePlan } from "./wave-plan";
 import { whyNoSteps } from "./run";
 import { whileReading } from "./while-reading";
 import { FIRST_PLAN_VIEW } from "./plan-view";
-import { FIRST_WORKFLOW_VIEW } from "./workflow-view";
 import { ledgerOf } from "./draft/ledger";
 import { useTrail, type TrailProps } from "./trail";
 import { JobRetroSheet } from "./Lessons";
@@ -466,7 +465,6 @@ function OneJob(props: JobDetailProps) {
             setTab("record");
           }}
           onOpenCheckLog={setCheckLog}
-          onOpenTriggerLog={setTriggerLog}
           {...(props.onOpenMainLog === undefined ? {} : { onOpenMainLog: props.onOpenMainLog })}
           // The lead's approval act: the header's own control, drawn twice.
           headerActs={heading.actions}
@@ -489,7 +487,8 @@ function OneJob(props: JobDetailProps) {
                     {...(props.added === undefined ? {} : { added: props.added })}
                     {...(props.onOpenStudio === undefined ? {} : { onOpenStudio: props.onOpenStudio })}
                     {...(props.onChooseTriggerFix === undefined ? {} : { onChooseTriggerFix: props.onChooseTriggerFix })}
-          {...(props.onHoldAct === undefined ? {} : { onHoldAct: props.onHoldAct })}
+                    {...(props.onHoldAct === undefined ? {} : { onHoldAct: props.onHoldAct })}
+                    onOpenTriggerLog={setTriggerLog}
                   />
                 ),
               }
@@ -507,6 +506,7 @@ function OneJob(props: JobDetailProps) {
                       {...(props.onOpenStudio === undefined ? {} : { onOpenStudio: props.onOpenStudio })}
                       {...(props.onChooseTriggerFix === undefined ? {} : { onChooseTriggerFix: props.onChooseTriggerFix })}
                       {...(props.onHoldAct === undefined ? {} : { onHoldAct: props.onHoldAct })}
+                      onOpenTriggerLog={setTriggerLog}
                       onOpenJob={openJob}
                       {...(props.onSetLandingTarget === undefined
                         ? {}
@@ -561,8 +561,6 @@ function OneJob(props: JobDetailProps) {
           {...(absent === undefined ? {} : { absent })}
           {...(unread === undefined ? {} : { reading: unread.run })}
           narrow={narrow}
-          view={props.workflowView ?? FIRST_WORKFLOW_VIEW}
-          onView={(view) => props.onWorkflowView?.(view)}
           stale={props.stale}
           acting={props.acting}
           {...(props.actingAct === undefined ? {} : { actingAct: props.actingAct })}
@@ -585,6 +583,7 @@ function OneJob(props: JobDetailProps) {
           onRerunChecks={props.onRerunChecks}
           {...(props.onChooseTriggerFix === undefined ? {} : { onChooseTriggerFix: props.onChooseTriggerFix })}
           {...(props.onHoldAct === undefined ? {} : { onHoldAct: props.onHoldAct })}
+          onOpenTriggerLog={setTriggerLog}
           // Where a step panel's plan card goes. The strip is this screen's,
           // so the run asks for the destination rather than moving one itself,
           // and the jump leaves a way back to the step (`trail.ts`).

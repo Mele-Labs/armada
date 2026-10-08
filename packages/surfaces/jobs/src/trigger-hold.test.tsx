@@ -6,11 +6,12 @@ import { afterEach, expect, test, vi } from "vitest";
 import { page } from "vitest/browser";
 
 import type { AddedStep, JobAlert, JobTrigger } from "@armada/protocol";
-import { FiredTriggers, HoldNode, holdsOf, JobAlertMark, triggerAlert } from "@armada/components";
+import { HoldNode, holdsOf, JobAlertMark, triggerAlert } from "@armada/components";
 import type { WorkflowCanvasEdge } from "@armada/components";
 import { mount, unmount } from "@armada/screens/src/mounted";
 
-import { repairBranches, withHolds } from "./repair-branch";
+import type { WorkflowRun } from "./workflow-canvas";
+import { repairBranches, withHolds, withRepair } from "./repair-branch";
 
 afterEach(() => unmount());
 
@@ -85,7 +86,7 @@ test("a hold before a step is on the line into it, and after a step on the line 
 test("a hold at the pull request hangs beside the delivering step, and a repair under way stands under it", () => {
   const { nodes, edges, onLine } = drawn([fired("repairing", { repair: { attempt: 1, branch: "armada/repair-deploy_qa-1" } })]);
   expect(onLine.size).toBe(0);
-  expect(nodes.map((one) => one.position.y)).toEqual([100, 260]);
+  expect(nodes.map((one) => one.position.y)).toEqual([100, 156]);
   expect(edges).toMatchObject([{ source: "handoff", across: true }, { source: "handoff", across: true }]);
 });
 
@@ -131,16 +132,25 @@ test("a hold under repair takes neither act, and a fix waiting on its choice can
   await expect.element(page.getByRole("button", { name: "Skip" })).toBeEnabled();
 });
 
-test("the Triggers list offers a hold the same two acts, and a held added step too", async () => {
+test("the canvas offers a hold its two acts, and a held added step too", async () => {
   const act = vi.fn().mockResolvedValue({ ok: true });
-  mount(<FiredTriggers triggers={[fired("held"), fired("passed", { name: "fmt", blocks: false })]} additions={[ADDED]} onHoldAct={act} />);
-  const rows = page.getByRole("list", { name: "Triggers" });
-  await expect.element(rows.getByRole("button", { name: "Rerun" }).first()).toBeVisible();
-  expect(rows.getByRole("button", { name: "Rerun" }).elements()).toHaveLength(2);
-  await rows.getByRole("button", { name: "Rerun" }).first().click();
-  expect(act).toHaveBeenCalledWith("rerun", { trigger: "deploy_qa" });
-  await rows.getByRole("button", { name: "Skip" }).last().click();
-  expect(act).toHaveBeenLastCalledWith("skip", { addition: "a1" });
+  const run = {
+    nodes: [{ id: "step:handoff", position: { x: 0, y: 0 }, card: { kind: "step", name: "handoff", activity: "not_started", said: "" } }],
+    edges: [],
+    running: null,
+    opensOn: [],
+  } as unknown as WorkflowRun;
+  const withAdded = { ...ADDED, step: "handoff" };
+  const { nodes } = withRepair([fired("held"), fired("passed", { name: "fmt", blocks: false })], "job-1", (step) => `step:${step}`, run, undefined, [withAdded], act).run;
+  mount(<>{nodes.filter((node) => node.id !== "step:handoff").map((node) => node.drawn)}</>);
+  await expect.element(page.getByRole("button", { name: "Rerun" }).first()).toBeVisible();
+  expect(page.getByRole("button", { name: "Rerun" }).elements()).toHaveLength(2);
+  await page.getByRole("button", { name: "Rerun" }).first().click();
+  expect(act).toHaveBeenCalledWith("job-1", "rerun", { trigger: "deploy_qa" });
+  await page.getByRole("button", { name: "Skip" }).last().click();
+  expect(act).toHaveBeenLastCalledWith("job-1", "skip", { addition: "a1" });
+  // The Trigger that passed is a leaf of its own.
+  await expect.element(page.getByRole("group", { name: "fmt, PR opened" })).toBeVisible();
 });
 
 test("a Board row's bell for a hold says the Trigger, the moment and the step, and draws no count", async () => {

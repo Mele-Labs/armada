@@ -1,44 +1,8 @@
 /* Triggers: the rows of a Command or a skill that fires at a moment in a Job, drawn in the
-   Workflow editor and on Job detail. A card under a filled band, as the editor's stage is; rows
-   read like the workflow rows beside them.
+   Workflow editor and on Job detail; rows read like the workflow rows beside them.
 
-   Contrast, worked from the tokens: --fg-inverse on the band (--accent) 6.35:1, as the stage's;
-   --fg-muted on a row over --bg-raised clears 4.5:1, and --fg-subtle on a replaced row 4.58:1 at
-   the lightest ground. */
-
-.armada-triggers-card {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  border: var(--border-width) solid var(--accent);
-  border-radius: var(--radius-md);
-  overflow: hidden;
-  background: var(--bg-raised);
-  font-size: var(--text-xs);
-  line-height: var(--leading-xs);
-  color: var(--fg-default);
-}
-
-.armada-triggers-card__band {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-1) var(--space-3);
-  background: var(--accent);
-  color: var(--fg-inverse);
-  font-size: var(--text-2xs);
-  line-height: var(--leading-2xs);
-  font-weight: var(--weight-heading);
-  letter-spacing: var(--tracking-caps);
-  text-transform: uppercase;
-}
-
-.armada-triggers-card__body {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  padding: var(--space-2);
-}
+   Contrast, worked from the tokens: --fg-muted on a row over --bg-raised clears 4.5:1, and
+   --fg-subtle on a replaced row 4.58:1 at the lightest ground. */
 
 .armada-triggers {
   display: flex;
@@ -335,4 +299,29 @@
   translate: -50% 0;
   margin: 0;
   width: max-content;
+}
+
+/* A Trigger as a leaf off the step it fires at: a frame at a step's own width, so a lane holds a column of them. */
+.armada-leaf {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: var(--w-workflow-node);
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-raised);
+  color: var(--fg-default);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+
+/* A Trigger set for every workflow, in the editor: the frame wears the accent so it reads apart from this workflow's own. */
+.armada-leaf--every {
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  border-color: var(--accent);
 }

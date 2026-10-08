@@ -9,7 +9,7 @@ import type { JobTrigger } from "@armada/protocol";
 import { additionBranches, fixOf, RepairNode, triggerAlert } from "@armada/components";
 import { mount, unmount } from "@armada/screens/src/mounted";
 
-import { repairBranches, repairNodeId } from "./repair-branch";
+import { leavesOf, leafRoom, repairBranches, repairNodeId } from "./repair-branch";
 
 afterEach(() => unmount());
 
@@ -60,8 +60,10 @@ test("a repair that found no fix ends where it stands: no pull request, and no w
   expect(edges).toHaveLength(1);
 });
 
-test("a Trigger no repair Drone was put on draws no branch", () => {
-  expect(branches([deploy("failed", undefined)]).nodes).toEqual([]);
+test("a Trigger no repair Drone was put on is a mark off its step, with no branch under it", () => {
+  const { nodes, edges } = branches([deploy("failed", undefined)]);
+  expect(nodes.map((one) => one.id)).toEqual(["leaf:pr_opened|handoff|deploy_qa"]);
+  expect(edges).toMatchObject([{ source: "pr", kind: "leads", across: true }]);
 });
 
 test("a fix held for the owner asks, and the Job has an alert until he chooses", () => {
@@ -90,19 +92,20 @@ test("the choice is sent once, and the buttons come back where Fleet refused it"
   expect(choose).toHaveBeenCalledTimes(2);
 });
 
-test("a Skill's run draws a branch while its Drone works, named for a Drone, and a Command that is running draws none", async () => {
+test("a Skill's run draws a branch while its Drone works, named for a Drone", async () => {
   const running = { ...deploy("running", { attempt: 1, branch: FIX.branch }), drone: true };
   const { nodes, edges } = branches([running]);
   expect(nodes).toHaveLength(1);
   expect(edges).toMatchObject([{ flowing: true }]);
-  expect(branches([deploy("running", undefined)]).nodes).toEqual([]);
+  // A Command that is running has no branch: it is a mark.
+  expect(branches([deploy("running", undefined)]).nodes.map((one) => one.id)).toEqual(["leaf:pr_opened|handoff|deploy_qa"]);
   mount(<RepairNode trigger={running} />);
   await expect.element(page.getByRole("img", { name: "Drone branch" })).toBeVisible();
   await expect.element(page.getByRole("img", { name: "Running" })).toBeVisible();
 });
 
 test("a Drone that changed nothing leaves no branch, and an added step's fix is chosen by its id", () => {
-  expect(branches([deploy("passed", { attempt: 1, branch: FIX.branch })]).nodes).toEqual([]);
+  expect(branches([deploy("passed", { attempt: 1, branch: FIX.branch })]).nodes.map((one) => one.id)).toEqual(["leaf:pr_opened|handoff|deploy_qa"]);
   const step = additionBranches([
     {
       id: "a1",
@@ -119,4 +122,19 @@ test("a Drone that changed nothing leaves no branch, and an added step's fix is 
   ]);
   expect(step.map((one) => [one.drone, fixOf(one)])).toEqual([[true, { addition: "a1" }]]);
   expect(branches(step).asking).toBe(repairNodeId(step[0]!));
+});
+
+test("a leaf stands in the column its lane made, and a second stands under the first with room for its files", () => {
+  const first = deploy("fix_ready", FIX);
+  const second = { ...deploy("passed", undefined), name: "fmt" };
+  const { nodes } = repairBranches([first, second], "job-1", () => ({ ...ANCHOR, leafX: 400 }), () => undefined, undefined);
+  expect(nodes.map((one) => one.position.x)).toEqual([400, 400]);
+  // The repair's head, its two files and its choice, then the gap.
+  expect(nodes[1]!.position.y - nodes[0]!.position.y).toBe(64 + 2 * 22 + 52 + 12);
+});
+
+test("the room a step's leaves ask of its lane is the stack they make, and a step with none asks nothing", () => {
+  const leaves = leavesOf([deploy("fix_ready", FIX), { ...deploy("passed", undefined), name: "fmt" }], "job-1", (at) => (at.step === "handoff" ? "pr" : undefined), undefined);
+  expect([...leafRoom(leaves)]).toEqual([["pr", 64 + 2 * 22 + 52 + 12 + 44]]);
+  expect(leafRoom(leavesOf([deploy("passed", undefined)], "job-1", () => undefined, undefined)).size).toBe(0);
 });

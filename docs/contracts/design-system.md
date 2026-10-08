@@ -126,9 +126,9 @@ is allowed only as that light, and never where a person reads a state.
    [Iconography](iconography.md), *The canvas rail*, binds every glyph on
    it. The rail is a column of the frame and not a layer over the graph,
    so nothing a fit draws can end up under it.
-   **The workflow canvas carries a toggle to a stacked run**, canvas by
-   default, because a narrow window reads a list better than a graph and
-   the graph is still what the surface is for.
+   **A Job's Workflow tab is the canvas alone**: the stacked run it once
+   toggled to went on 8 Oct 2026, the owner's word, and every act it offered
+   is on the canvas.
    **Freehand is the sketch pad's alone, and it is still no second
    library.** A line a person draws by hand is an SVG path in React
    Flow's own viewport, so it pans and zooms with the boxes; it takes no

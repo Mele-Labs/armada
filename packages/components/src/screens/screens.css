@@ -1396,9 +1396,9 @@
   display: flex;
   flex-direction: column;
   /* **The destination scrolls, not the panes.** The canvas is a fixed frame a
-     person pans inside and the stacked run under the toggle is a page; a pane
+     person pans inside; a pane
      that scrolled put the run under a fold nobody had a reason to reach for,
-     with the inspector drawn above it. Stacked's own rule since #1539. */
+     with the inspector drawn above it. #1539. */
   flex: none;
   min-width: 0;
   min-height: 0;
@@ -1426,20 +1426,8 @@
    itself, on the Plan tab. */
 
 /* No board under the run any more (owner, 28 Sep 2026: *I dont think we need
-   the groups/plan info on the workflow view*). The tab is the run, the toggle
-   above it and the inspector over it; the groups are the Plan tab's. */
-
-/* The canvas/stacked toggle. Above the run rather than over it: drawn inside
-   the canvas as a React Flow panel it sat on top of the last step's card at
-   every width. #1539. */
-.armada-workflow-tab__modes {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
-  justify-content: flex-start;
-  flex: none;
-  padding-block-end: var(--space-2);
-}
+   the groups/plan info on the workflow view*). The tab is the run and the
+   inspector over it; the groups are the Plan tab's. */
 
 /* The wave a Job dispatched — its waves, the Jobs that need you, and the graph
    or the list. Appended, per the rule at the head of `index.css`. #1544. */
@@ -1988,16 +1976,16 @@
 
    **The canvas takes the height the destination has left**, and never less
    than --h-workflow-canvas: the board's frame runs to the foot of the window,
-   and the inspector over it needs the room. The stacked run stays a page. */
-.armada-workflow-tab[data-view="canvas"] {
+   and the inspector over it needs the room. */
+.armada-workflow-tab {
   flex: 1 0 auto;
 }
 
-.armada-workflow-tab[data-view="canvas"] .armada-workflow-tab__surface {
+.armada-workflow-tab .armada-workflow-tab__surface {
   flex: 1 0 auto;
 }
 
-.armada-workflow-tab[data-view="canvas"] .armada-workflow-tab__stage {
+.armada-workflow-tab .armada-workflow-tab__stage {
   flex: 1 0 auto;
   display: flex;
   flex-direction: column;
@@ -2005,7 +1993,7 @@
   min-height: var(--h-workflow-canvas);
 }
 
-.armada-workflow-tab[data-view="canvas"] .armada-workflow-tab__canvas {
+.armada-workflow-tab .armada-workflow-tab__canvas {
   flex: 1 0 auto;
 }
 

@@ -61,8 +61,8 @@ import { additionBranches, holdsOf } from "@armada/components";
 import { withAddedAtGate } from "./approval-added";
 import { addedNodeId, AddedSheets, useAddedSteps } from "./added-steps";
 import type { AddedBinding } from "./added-steps";
-import { nextAfter, repairBranches, withHolds, type ChooseTriggerFixCall, type HoldActCall } from "./repair-branch";
-import type { Outcome, ToProposer } from "@armada/protocol";
+import { drawLeaves, holdsOnLine, leafRoom, leavesOf, nextAfter, withHolds, type ChooseTriggerFixCall, type HoldActCall, type OpenTriggerLog } from "./repair-branch";
+import type { Outcome, ToProposer, TriggerMoment } from "@armada/protocol";
 import { landingChoiceOf, tuningChoicesOf } from "./tab-proposal-read";
 import type { ApprovingProps } from "./approving";
 import { studioName } from "@armada/screens/src/studio";
@@ -188,6 +188,8 @@ export type ApprovalCanvasProps = ApprovingProps & {
   onChooseTriggerFix?: ChooseTriggerFixCall;
   /** Rerun or skip a Trigger that holds the Job. */
   onHoldAct?: HoldActCall;
+  /** Go to a firing's line in the Job's log. */
+  onOpenTriggerLog?: OpenTriggerLog;
 };
 
 export function ApprovalCanvas({
@@ -203,6 +205,7 @@ export function ApprovalCanvas({
   added: addedBinding,
   onChooseTriggerFix,
   onHoldAct,
+  onOpenTriggerLog,
   whole,
   edits,
   onEdits,
@@ -274,7 +277,14 @@ export function ApprovalCanvas({
   const about = openedStep?.about;
 
   const workflowName = workflow?.name ?? proposal.workflow_id;
-  const plain = layoutOf(nodes, edges, workflowName);
+  // Everything that stands off a step — a repair or a Drone's branch, a hold with no line, a Trigger's mark —
+  // is a leaf in its step's lane: the pull request for `pr_opened`, whose delivering step is that node's own,
+  // and the step for any other moment. The lane is laid out knowing how tall each stack is.
+  const anchorId = (trigger: { when: TriggerMoment; step: string }): string | undefined =>
+    nodes.find((node) => node.id === (trigger.when === "pr_opened" ? "pr" : trigger.step))?.id ?? nodes.find((node) => node.id === trigger.step)?.id;
+  const on = { holds: holdsOf(whole.triggers ?? [], whole.additions ?? []), spine: edges, act: onHoldAct };
+  const leaves = leavesOf([...(whole.triggers ?? []), ...additionBranches(whole.additions ?? [])], whole.job.id, anchorId, onChooseTriggerFix, onOpenTriggerLog, on);
+  const plain = layoutOf(nodes, edges, workflowName, leafRoom(leaves));
   // At the gate the workflow is the one picked, which may not be the one the Job opened on.
   const { layout, extra } = withAddedAtGate(added, whole, nodes, plain, steps.find((one) => one.delivers)?.id);
   // At the gate the Work lane's head is the workflow picker: another workflow
@@ -321,21 +331,16 @@ export function ApprovalCanvas({
       : frame.name === "Groups"
         ? headWith(<span className="armada-studio-frame__kind">{frame.name}</span>, GUIDE_PLAN)
         : undefined;
-  // A failed Trigger with Self repair grows a branch off where it fired: the pull request for
-  // `pr_opened`, whose delivering step is that node's own, and the step for any other moment.
-  const branch = repairBranches(
-    [...(whole.triggers ?? []), ...additionBranches(whole.additions ?? [])],
-    whole.job.id,
-    (trigger) => {
-      const at = nodes.find((node) => node.id === (trigger.when === "pr_opened" ? "pr" : trigger.step));
-      const place = at === undefined ? undefined : layout.places.get(at.id);
-      return at === undefined || place === undefined ? undefined : { id: at.id, x: place.x, y: place.y, width: CARD.width };
+  const branch = drawLeaves(
+    leaves,
+    (id) => {
+      const at = layout.leaves.get(id);
+      return at === undefined ? undefined : { id, x: at.x, y: at.y, width: CARD.width, leafX: at.x };
     },
     (anchor) => nextAfter(layout.edges, anchor),
-    onChooseTriggerFix,
-    { holds: holdsOf(whole.triggers ?? [], whole.additions ?? []), spine: layout.edges, act: onHoldAct },
   );
-  const drawnEdges = [...withHolds(flowingOf(nodes, layout.edges, steps), branch.onLine), ...branch.edges];
+  const onLine = holdsOnLine({ ...on, spine: layout.edges }, whole.job.id, anchorId, onOpenTriggerLog);
+  const drawnEdges = [...withHolds(flowingOf(nodes, layout.edges, steps), onLine), ...branch.edges];
   // The lanes' Zones and the fans' Clusters, behind the nodes: Studio's own frames.
   const backdrops: WorkflowCanvasNode[] = layout.frames.map((frame) => ({
     id: frame.id,

@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import type { JobTrigger, TriggerSummary } from "@armada/protocol";
 import { expect, fn, userEvent, within } from "storybook/test";
 
-import { FiredTriggers, HoldNode, holdsOf, JobAlertMark, RepairNode, RepairPrMark, TriggerAlertMark, TriggerRows } from "./WorkflowTriggers";
+import { HoldNode, holdsOf, JobAlertMark, RepairNode, RepairPrMark, TriggerAlertMark, TriggerLeaf, TriggerRows } from "./WorkflowTriggers";
 
 /** What `list_triggers` answers: the machine's copy of `gate` over the repository's, and one the repository cannot run. */
 const LISTED: TriggerSummary[] = [
@@ -70,9 +70,23 @@ const FIRED: JobTrigger[] = [
   { name: "lint_docs", when: "step_passes", step: "handoff", level: "repository", state: "pending" },
 ];
 
-/** A Job's Triggers: the state is a mark with a tooltip, never a phrase, and a firing with a log line goes to it. */
+/** Each Trigger set for every workflow wears the same mark, which says so in its tooltip. */
+export const EveryWorkflow: Story = {
+  play: async ({ canvasElement }) => {
+    const rows = within(canvasElement);
+    await expect(rows.getAllByRole("img", { name: "Every workflow" })).toHaveLength(LISTED.length);
+  },
+};
+
+/** A Job's Triggers, a leaf each off its step: the state is a mark with a tooltip, never a phrase, and a firing with a log line goes to it. */
 export const Fired: Story = {
-  render: () => <FiredTriggers triggers={FIRED} onOpenLog={fn()} />,
+  render: () => (
+    <>
+      {FIRED.map((one) => (
+        <TriggerLeaf key={one.name} trigger={one} onOpenLog={fn()} />
+      ))}
+    </>
+  ),
   play: async ({ canvasElement }) => {
     const rows = within(canvasElement);
     for (const name of ["Passed", "Failed, exit 1", "Waiting on you", "Running", "Pending"]) {
