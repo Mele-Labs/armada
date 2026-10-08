@@ -12,10 +12,15 @@ id: armada-desktop
 #
 # `crates/core-model/domain/**`: codegen emits TypeScript from it, so a
 # change there is a change to compiled code.
+#
+# `crates/ipc/**` and `crates/api/src/routes/**`: the build hashes them into
+# the protocol ID Bridge compares with Fleet's (`codegen/protocol-id.mjs`).
 depends_on:
   - ".github/**"
   - "packages/**"
   - "crates/core-model/domain/**"
+  - "crates/ipc/**"
+  - "crates/api/src/routes/**"
   - "package.json"
   - "pnpm-lock.yaml"
   - "pnpm-workspace.yaml"
