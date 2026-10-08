@@ -122,6 +122,12 @@ path.armada-session-ledger__picture-later {
   padding: var(--space-4);
 }
 
+/* A subagent's thread fills the sheet; the thread scrolls inside it. */
+.armada-session-reading[data-thread] {
+  flex: 1;
+  min-height: 0;
+}
+
 /* What an Artifacts row opens: a picture fit to the panel, a file's text, or the body a page's view lies over. */
 .armada-session-artifact__picture {
   display: block;

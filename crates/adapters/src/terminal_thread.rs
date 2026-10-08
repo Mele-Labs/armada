@@ -51,11 +51,81 @@ pub fn read_from(file: &Path, offset: u64) -> std::io::Result<Thread> {
     open.read_to_end(&mut bytes)?;
     let whole = bytes.iter().rposition(|byte| *byte == b'\n').map_or(0, |at| at + 1);
     let text = String::from_utf8_lossy(&bytes[..whole]);
-    let rows = text.lines().flat_map(drawn).collect();
+    let rows = text.lines().flat_map(|line| drawn(line, false)).collect();
     Ok(Thread {
         rows,
         next: from + whole as u64,
     })
+}
+
+/// A subagent's own transcript, drawn as a thread is.
+pub struct Subagent {
+    pub rows: Vec<SessionRow>,
+    /// Its last turn ended and asked for nothing more.
+    pub finished: bool,
+    /// What it said last, once it has finished.
+    pub report: Option<String>,
+}
+
+/// Subagent `agent` of session `id`: the file the CLI keeps beside the session's own, at
+/// `<project>/<id>/subagents/agent-<agent>.jsonl`. **Only that path is ever read**; both names are
+/// checked as `find` checks one.
+pub fn find_subagent(home: &str, id: &str, agent: &str) -> Option<PathBuf> {
+    if agent.is_empty() || !agent.chars().all(|c| c.is_ascii_alphanumeric() || c == '-') {
+        return None;
+    }
+    let file = find(home, id)?.with_extension("").join("subagents").join(format!("agent-{agent}.jsonl"));
+    file.is_file().then_some(file)
+}
+
+/// The whole of a subagent's transcript. It is small beside a session's, and a read from the start
+/// keeps the answer one value.
+pub fn read_subagent(file: &Path) -> std::io::Result<Subagent> {
+    let bytes = std::fs::read(file)?;
+    let whole = bytes.iter().rposition(|byte| *byte == b'\n').map_or(0, |at| at + 1);
+    let text = String::from_utf8_lossy(&bytes[..whole]);
+    let mut rows = Vec::new();
+    for line in text.lines() {
+        let drew = drawn(line, true);
+        if ended(line) {
+            let report = drew.iter().rev().find_map(|row| match row {
+                SessionRow::Message { from: SessionVoice::Agent, text, .. } => Some(text.clone()),
+                _ => None,
+            });
+            rows.extend(drew);
+            return Ok(Subagent { rows, finished: true, report });
+        }
+        rows.extend(drew);
+    }
+    Ok(Subagent { rows, finished: false, report: None })
+}
+
+/// Whether subagent `agent` of session `id` has ended its turn, by the file the CLI keeps for it.
+pub fn subagent_ended(home: &str, id: &str, agent: &str) -> bool {
+    find_subagent(home, id, agent)
+        .and_then(|file| read_subagent(&file).ok())
+        .is_some_and(|one| one.finished)
+}
+
+#[derive(Deserialize)]
+struct Ending {
+    #[serde(default)]
+    message: Option<EndingMessage>,
+}
+
+#[derive(Deserialize)]
+struct EndingMessage {
+    #[serde(default)]
+    stop_reason: Option<String>,
+}
+
+/// An assistant line that ends the turn without a tool to run.
+fn ended(line: &str) -> bool {
+    ipc::decode::<Ending>("a transcript line", line.as_bytes())
+        .ok()
+        .and_then(|one| one.message)
+        .and_then(|message| message.stop_reason)
+        .is_some_and(|reason| reason == "end_turn")
 }
 
 #[derive(Deserialize)]
@@ -94,11 +164,11 @@ impl Origin {
 }
 
 /// The rows one line draws, none for a line that is not the conversation.
-fn drawn(line: &str) -> Vec<SessionRow> {
+fn drawn(line: &str, inside_agent: bool) -> Vec<SessionRow> {
     let Ok(envelope) = ipc::decode::<Envelope>("a transcript line", line.as_bytes()) else {
         return Vec::new();
     };
-    if envelope.sidechain || envelope.meta {
+    if (envelope.sidechain && !inside_agent) || envelope.meta {
         return Vec::new();
     }
     let Some(uuid) = envelope.uuid.as_deref() else {

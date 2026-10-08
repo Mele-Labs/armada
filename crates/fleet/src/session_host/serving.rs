@@ -8,12 +8,12 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
-use api::{HostedSessions, Refusal, StoredFile};
+use api::{HostedSessions, Refusal, Sessions, StoredFile};
 use base64::Engine as _;
 use ipc::{
     AnswerHelmCall, AnswerSessionAsk, CloseSession, GateAnswer, HostedFacts, ManifestId,
     SendSessionMessage, SentFile, SessionGate, SessionId, SessionMode, SessionRecord, SessionRow,
-    SessionThread, SessionTurn, SessionVoice, StartSession, TuneSession, WireError,
+    SessionSubagent, SessionThread, SessionTurn, SessionVoice, StartSession, TuneSession, WireError,
 };
 use store::{AttachmentState, Holder, KeptAttachment, KeptHosting, KeptSession, Store};
 
@@ -280,6 +280,52 @@ where
             session: record,
             rows: self.rows_of(id.as_str()).await?,
         })
+    }
+
+    async fn get_session_subagent(
+        &self,
+        id: SessionId,
+        subagent: String,
+    ) -> Result<SessionSubagent, Refusal> {
+        let home = self.host().home.clone();
+        let session = id.as_str().to_string();
+        let subagent_id = subagent.clone();
+        let read = tokio::task::spawn_blocking(move || {
+            adapters::terminal_thread::find_subagent(&home, &session, &subagent)
+                .map(|file| adapters::terminal_thread::read_subagent(&file))
+        })
+        .await
+        .map_err(|why| self.hosted_fault(ATTACHMENT_REFUSED, &why.to_string()))?;
+        match read {
+            Some(Ok(thread)) if thread.finished => {
+                // Settled where it was read, so the ledger moves it under All without a timer.
+                let _ = self
+                    .report_session(ipc::SessionReport {
+                        harness: String::from(adapters::HOSTED_HARNESS),
+                        session_id: id.clone(),
+                        fact: ipc::SessionFact::Settled {
+                            attachment: ipc::AttachmentNamed {
+                                kind: String::from("subagent"),
+                                target: subagent_id,
+                            },
+                            state: ipc::AttachmentState::Spent,
+                        },
+                    })
+                    .await;
+                Ok(SessionSubagent {
+                    rows: thread.rows,
+                    finished: true,
+                    report: thread.report,
+                })
+            }
+            Some(Ok(thread)) => Ok(SessionSubagent {
+                rows: thread.rows,
+                finished: thread.finished,
+                report: thread.report,
+            }),
+            Some(Err(why)) => Err(self.hosted_fault(ATTACHMENT_REFUSED, &why.to_string())),
+            None => Err(self.hosted_refusal(ATTACHMENT_REFUSED, "that session has no such subagent")),
+        }
     }
 
     async fn get_session_file(&self, id: SessionId, file: String) -> Result<StoredFile, Refusal> {

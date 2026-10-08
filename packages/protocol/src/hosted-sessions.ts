@@ -186,5 +186,8 @@ export type SessionRow =
 /** `get_session`: the row and its thread, oldest first. */
 export type SessionThread = { session: SessionRecord; rows: SessionRow[] };
 
+/** `get_session_subagent`: one subagent's own thread. A client reads it again while the subagent runs. */
+export type SessionSubagent = { rows: SessionRow[]; finished: boolean; report?: string };
+
 /** `session.row`: one row appended, or replaced where `row.id` is held. */
 export type SessionRowChanged = { session_id: string; row: SessionRow };

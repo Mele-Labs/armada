@@ -225,6 +225,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             get(crate::hosted_sessions::get_session::<D>),
         )
         .route(
+            "/sessions/subagent",
+            get(crate::hosted_sessions::get_session_subagent::<D>),
+        )
+        .route(
             "/sessions/file",
             get(crate::hosted_sessions::get_session_file::<D>),
         )

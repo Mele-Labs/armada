@@ -23,6 +23,7 @@ import type {
   SessionRecord,
   SessionRow,
   SessionRowChanged,
+  SessionSubagent,
   SessionThread,
   StartSession,
   TuneSession,
@@ -197,6 +198,14 @@ export class SessionsHost {
     const port = this.port();
     if (port === null) return { ok: false, outcome: NOT_CONNECTED };
     return await sessionFileOf(port, sessionId, file);
+  }
+
+  /** A subagent's own thread, read whole each time it is asked: the window asks again while it runs. */
+  async subagent(sessionId: string, subagentId: string): Promise<SessionActed<SessionSubagent>> {
+    const port = this.port();
+    if (port === null) return { ok: false, outcome: NOT_CONNECTED };
+    const answer = await ask(port, "GET", `/sessions/subagent?session_id=${encodeURIComponent(sessionId)}&subagent_id=${encodeURIComponent(subagentId)}`);
+    return answer.ok === true ? { ok: true, value: answer.body as SessionSubagent } : { ok: false, outcome: answer.outcome };
   }
 
   /** A file the session wrote, opened where the machine opens it. Only a path the session's ledger names. */

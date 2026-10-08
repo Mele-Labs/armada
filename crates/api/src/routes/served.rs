@@ -573,6 +573,11 @@ const ROUTES: &[Route] = &[
         path: "/sessions/one",
     },
     Route {
+        operation: "get_session_subagent",
+        method: "GET",
+        path: "/sessions/subagent",
+    },
+    Route {
         operation: "get_session_file",
         method: "GET",
         path: "/sessions/file",

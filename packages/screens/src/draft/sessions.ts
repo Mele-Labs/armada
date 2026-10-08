@@ -239,6 +239,9 @@ export type SessionQuestion = {
 /** What was chosen for one question: option labels, and the person's own words where they chose Other. */
 export type SessionQuestionAnswer = { question: string; chosen: string[] };
 
+/** A subagent's thread, drawn as a Session's is. */
+export type SubagentThread = { rows: SessionRow[]; finished: boolean; report?: string };
+
 /** A file the panel read: its bytes and kind, or why it could not be shown. */
 export type ArtifactRead =
   | { ok: true; bytes: Uint8Array; type: string }
@@ -276,6 +279,11 @@ export type SessionsDraft = {
   start: (tag?: SessionTag) => string | Promise<string | undefined>;
   /** Opens a Session's thread for reading. Absent where the thread is already held. */
   watch?: (id: string) => void;
+  /**
+   * A subagent's own thread as it stands, once read: the rows, whether it has finished, and its report.
+   * Read again while it runs. Absent where nothing serves it, and the panel then shows the report alone.
+   */
+  subagent?: (id: string, subagentId: string) => Promise<SubagentThread | undefined>;
   /** Ends a Session: the slot is parked and the row ends. Absent in the mock, which has no end. */
   close?: (id: string) => void;
   /** Names a Session, hosted or in a terminal. Absent where there is nothing to save it to. */

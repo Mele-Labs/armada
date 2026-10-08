@@ -3190,6 +3190,7 @@ Additive. `hub.main.checking` (`MainChecking {commit, pull_request?}`, newest fi
 | `tune_session` (`POST /sessions/tune`) | `TuneSession`: `model`, `effort`, `mode` | A model or effort left out is the machine's own |
 | `close_session` (`POST /sessions/close`) | `CloseSession` | Parks the slot, ends the row |
 | `get_session` (`GET /sessions/one?session_id=`) | `SessionThread`: the record and its `rows` | |
+| `get_session_subagent` (`GET /sessions/subagent?session_id=&subagent_id=`) | `SessionSubagent`: the subagent's own `rows`, `finished`, and its `report` once it has | Read again while it runs; 422 where the session has no such subagent transcript |
 | `get_session_file` (`GET /sessions/file?session_id=&file=`) | The bytes, under the media type they were sent as | `file` is a `SentFile.id` |
 | `gate_session_call` (`POST /sessions/gate`) | `SessionGate`, answered in the harness's own hook shape | **Reached by the harness, never by a client** |
 | `take_held_messages` (`POST /sessions/held`) | `TakeHeld`, answered with `MessagesHeld`: what a person sent a terminal session, once | **Reached by the session's mod, never by a client.** Since 23.53 |

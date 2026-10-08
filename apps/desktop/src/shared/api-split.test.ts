@@ -171,7 +171,7 @@ import type {
 import type {
   Outstanding,
 } from "@armada/screens/src/outstanding";
-import type { AnswerSessionAsk, PilotOutcome, PullRequestState, RenameSession, ReviewDispatched, SendSessionMessage, SessionRow, TuneSession } from "@armada/protocol";
+import type { AnswerSessionAsk, PilotOutcome, PullRequestState, RenameSession, ReviewDispatched, SendSessionMessage, SessionRow, SessionSubagent, TuneSession } from "@armada/protocol";
 import type { PilotExit, PullRequestPress, SessionActed, SessionsRead } from "./api/sessions";
 import type { BridgeApi } from "./api";
 import { CHANNELS, NOTHING_YET } from "./bridge";
@@ -430,6 +430,7 @@ type OldBridgeApi = {
     closeSession: (sessionId: string) => Promise<SessionActed>;
     watchSession: (sessionId: string) => Promise<void>;
     readSessionFile: (sessionId: string, file: string) => Promise<FrameRead>;
+    readSessionSubagent: (sessionId: string, subagentId: string) => Promise<SessionActed<SessionSubagent>>;
     openSessionFile: (sessionId: string, path: string) => Promise<Followed>;
     openSessionWindow: (sessionId: string, url: string) => Promise<Outcome>;
     readSessionArtifact: (sessionId: string, path: string) => Promise<ArtifactRead>;
@@ -685,6 +686,7 @@ const OLD_CHANNELS = {
     closeSession: "bridge:close-session",
     watchSession: "bridge:watch-session",
     readSessionFile: "bridge:read-session-file",
+    readSessionSubagent: "bridge:read-session-subagent",
     openSessionFile: "bridge:open-session-file",
     openSessionWindow: "bridge:open-session-window",
     readSessionArtifact: "bridge:read-session-artifact",

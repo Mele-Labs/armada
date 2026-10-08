@@ -20,7 +20,7 @@ import type { SessionTag as WireTag } from "@armada/protocol";
 import type { SessionCommand } from "@armada/screens/src/draft/sessions";
 import { refusalWords } from "@armada/screens/src/refusal-words";
 import { askToTell, NOT_REACHABLE } from "./tell";
-import { sessionsOfRecords } from "@armada/screens/src/sessions-wire";
+import { rowsOfThread, sessionsOfRecords } from "@armada/screens/src/sessions-wire";
 import type { Beside } from "@armada/screens/src/sessions-wire";
 import type {
   Session,
@@ -250,6 +250,12 @@ export class WiredStore {
     fork: (id) => this.forking(id),
     exit: (jobId, exit) => void this.exiting(jobId, exit),
     watch: (id) => void this.api.watchSession(id),
+    subagent: async (id, subagentId) => {
+      const read = await this.api.readSessionSubagent(id, subagentId);
+      if (!read.ok) return undefined;
+      const { rows, finished, report } = read.value;
+      return { rows: rowsOfThread(id, rows, () => undefined), finished, ...(report === undefined ? {} : { report }) };
+    },
     close: (id) => void this.plain(this.api.closeSession(id)),
     rename: (id, title) => void this.plain(this.api.renameSession({ session_id: id, title })),
     refresh: (id, number) => void this.api.pressPullRequest(id, number, "read"),

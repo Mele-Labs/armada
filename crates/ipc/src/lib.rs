@@ -295,7 +295,7 @@ pub use hosted_sessions::{
     AnswerSessionAsk, CloseSession, ForkFrom, GateAnswer, GateHold, HandoffPlan, HandoffStep,
     HeldCommand, HostedFacts, MessagesHeld, PilotFrom, SendSessionMessage, SentFile,
     SessionAskState, SessionGate, SessionMode, SessionRow, SessionRowChanged, SessionTag,
-    SessionThread, SessionTurn, SessionUpload, SessionVoice, SessionVoiceNamed, StartSession,
+    SessionSubagent, SessionThread, SessionTurn, SessionUpload, SessionVoice, SessionVoiceNamed, StartSession,
     TagKind, TaggedJob, TakeHeld, TuneSession,
 };
 pub use ids::{

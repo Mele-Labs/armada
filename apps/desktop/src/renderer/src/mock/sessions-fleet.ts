@@ -17,6 +17,7 @@ import type {
   SessionRecord,
   SessionRow,
   RenameSession,
+  SessionSubagent,
   TuneSession,
 } from "@armada/protocol";
 
@@ -118,6 +119,8 @@ export class FakeSessionsFleet {
   refuses: { code: string; message: string } | undefined;
   /** Set to have the next message refused, the way Fleet refuses one: the error says why and nothing is sent. */
   refusesSend: { code: string; message: string } | undefined;
+  /** Each subagent's thread as its transcript stands, by subagent id. A test changes it to let one run on. */
+  subagents: Record<string, SessionSubagent> = {};
   private minted = 0;
   private rowed = 0;
 
@@ -245,6 +248,10 @@ export class FakeSessionsFleet {
             this.calls.watched.push(sessionId);
             this.threads = { ...this.threads, [sessionId]: this.threads[sessionId] ?? [] };
             this.publishThreads();
+          },
+          readSessionSubagent: async (_sessionId, subagentId) => {
+            const thread = this.subagents[subagentId];
+            return thread === undefined ? { ok: false, outcome: { ok: false, why: "not_connected" } } : { ok: true, value: thread };
           },
           readSessionFile: async () => ({ ok: true, bytes: new Uint8Array([137, 80, 78, 71]), type: "image/png" }),
           openSessionFile: async () => ({ ok: true }),

@@ -102,6 +102,27 @@ pub(crate) async fn get_session<D: HostedSessions>(
     }
 }
 
+/// `?session_id=` and `?subagent_id=` on `get_session_subagent`.
+#[derive(Deserialize)]
+pub(crate) struct WhichSubagent {
+    session_id: String,
+    subagent_id: String,
+}
+
+pub(crate) async fn get_session_subagent<D: HostedSessions>(
+    State(served): State<Served<D>>,
+    Query(which): Query<WhichSubagent>,
+) -> Response {
+    match served
+        .daemon()
+        .get_session_subagent(ipc::SessionId::carried(which.session_id), which.subagent_id)
+        .await
+    {
+        Ok(thread) => answer(StatusCode::OK, &thread, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// `?session_id=` and `?file=` on `get_session_file`.
 #[derive(Deserialize)]
 pub(crate) struct WhichFile {

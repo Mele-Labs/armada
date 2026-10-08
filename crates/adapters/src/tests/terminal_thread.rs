@@ -245,3 +245,51 @@ fn an_agent_to_agent_hand_back_is_not_drawn() {
     ]);
     assert!(read_from(&file, 0).expect("readable").rows.is_empty());
 }
+
+fn in_agent(kind: &str, uuid: &str, reason: &str, content: &str) -> String {
+    format!(
+        r#"{{"type":"{kind}","uuid":"{uuid}","isSidechain":true,"agentId":"x1","timestamp":"2026-10-07T08:48:10.000Z","message":{{"role":"x","stop_reason":{reason},"content":{content}}}}}"#
+    )
+}
+
+fn agent_written(lines: &[String]) -> (crate::tests::repo::TempRepo, String) {
+    let (home, file) = written(&[]);
+    let dir = file.with_extension("").join("subagents");
+    std::fs::create_dir_all(&dir).expect("a subagents directory");
+    std::fs::write(dir.join("agent-x1.jsonl"), lines.join("\n") + "\n").expect("a transcript");
+    let root = home.root().to_string_lossy().to_string();
+    (home, root)
+}
+
+/// A subagent's own lines are all `isSidechain`, and they are the whole of its thread: its
+/// messages and its calls are drawn, and it is not finished until a turn ends.
+#[test]
+fn a_running_subagent_draws_its_own_calls_and_a_finished_one_its_report() {
+    let running = vec![
+        in_agent("user", "s1", "null", r#""Read the CI history""#),
+        in_agent("assistant", "s2", "\"tool_use\"", r#"[{"type":"tool_use","id":"t1","name":"Read","input":{"file_path":"/a/b.rs"}}]"#),
+    ];
+    let (home, root) = agent_written(&running);
+    let file = crate::terminal_thread::find_subagent(&root, "abc-123", "x1").expect("its file");
+    let seen = crate::terminal_thread::read_subagent(&file).expect("readable");
+    assert!(!seen.finished);
+    assert_eq!(seen.report, None);
+    assert!(matches!(seen.rows.as_slice(), [SessionRow::Message { .. }, SessionRow::Tool { text, .. }] if text.starts_with("Read")));
+
+    let mut done = running.clone();
+    done.push(in_agent("assistant", "s3", "\"end_turn\"", r#"[{"type":"text","text":"Nothing flaky."}]"#));
+    std::fs::write(&file, done.join("\n") + "\n").unwrap();
+    let seen = crate::terminal_thread::read_subagent(&file).expect("readable");
+    assert!(seen.finished);
+    assert_eq!(seen.report.as_deref(), Some("Nothing flaky."));
+    assert_eq!(seen.rows.len(), 3);
+    drop(home);
+}
+
+/// Only the one path is read: a name that could leave the directory finds nothing.
+#[test]
+fn a_subagent_name_cannot_leave_its_directory() {
+    let (_home, root) = agent_written(&[]);
+    assert!(crate::terminal_thread::find_subagent(&root, "abc-123", "../abc-123").is_none());
+    assert!(crate::terminal_thread::find_subagent(&root, "abc-123", "nope").is_none());
+}
