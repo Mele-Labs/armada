@@ -22,6 +22,6 @@
   [[icons.rotate-cw.usage]]
     means = "Rerun on a held Trigger: run its Command again, with no Drone"
     group = "Trigger"
-    size = "12px"
+    size = "16px"
     status = "Proposed"
-    notes = "Proposed 7 Oct 2026 for the walk `aTriggerHoldsTheJob`. A rerun is the same Command asked again, which is redispatch's one-arrow claim one level down. Tooltip `Rerun`. `refresh-cw` stays churning's."
+    notes = "Proposed 7 Oct 2026 for the walk `aTriggerHoldsTheJob`. A rerun is the same Command asked again, which is redispatch's one-arrow claim one level down. Tooltip `Rerun`. `refresh-cw` stays churning's. Draws at 16px in a small button, the size of the canvas's add-a-step act, 7 Oct 2026."
