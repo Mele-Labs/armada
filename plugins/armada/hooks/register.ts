@@ -23,6 +23,7 @@ import {
   mayMoveBranch,
   needAct,
   micros,
+  pagesOpenedIn,
   pullRequestsIn,
   senderOf,
   titleOf,
@@ -246,8 +247,31 @@ async function look($: Dollar, id: string): Promise<void> {
   }
 }
 
+const SHOWN_INSTEAD =
+  "Shown in Bridge's window instead. Use the armada show_window tool to show the owner a page; never `open` it."
+
+async function showPages($: Dollar, urls: string[]): Promise<void> {
+  try {
+    const port = await portOf($)
+    if (port === undefined) return
+    const session_id = await $.session.id()
+    for (const url of urls) {
+      await Promise.race([
+        $.http.fetch(`http://127.0.0.1:${port}/sessions/window`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ url, session_id }),
+        }),
+        $.clock.sleep(WAIT_MS),
+      ])
+    }
+  } catch {
+    // Fleet out of reach: the line is still not run.
+  }
+}
+
 function idNote(id: string): string {
-  return `Your Armada session id is ${id}. Pass it as session_id to the armada show_window tool.`
+  return `Your Armada session id is ${id}. Pass it as session_id to the armada show_window tool. To show the owner a web page (a walk, a mock, a dev server), call show_window. Never run \`open\`.`
 }
 
 async function begin($: Dollar, id: string, cwd?: string): Promise<void> {
@@ -492,7 +516,13 @@ export const register: Register = on => {
     return out
   })
 
+  // A page is shown in Bridge's window and lands on the ledger; `open` would go to the owner's browser.
   on('tool.call', { tool: 'Bash' }, async ($, e, next) => {
+    const pages = pagesOpenedIn(e.command)
+    if (pages.length > 0 && !(await $.env.get('ARMADA_DRONE'))) {
+      await showPages($, pages)
+      return { deny: SHOWN_INSTEAD }
+    }
     const ran = await next(e)
     if (ran.deny === undefined && ran.isError !== true) {
       void afterBash($, e.command, ran.text ?? '').catch(() => undefined)

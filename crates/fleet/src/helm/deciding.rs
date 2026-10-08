@@ -107,6 +107,36 @@ pub fn because_in_a_session(asking: &AskingToRun, directory: &str) -> Option<Bec
     because(asking)
 }
 
+/// The web pages a shell line opens in the owner's own browser: `open`,
+/// `xdg-open` or `python -m webbrowser` with an `http(s)` address. A file or a
+/// folder is not a page, and neither is a word that merely contains one.
+pub fn pages_opened(line: &str) -> Vec<String> {
+    let chained = flattened(line).replace("&&", ";").replace("||", ";");
+    let mut pages = Vec::new();
+    for segment in chained.split(|c| c == ';' || c == '|' || c == '\n') {
+        let words: Vec<&str> = segment
+            .split_whitespace()
+            .map(|word| word.trim_matches(|c| c == '\'' || c == '"'))
+            .collect();
+        let opens = match words.first().copied() {
+            Some("open" | "xdg-open") => true,
+            Some(python) if python.starts_with("python") => {
+                words.windows(2).any(|pair| pair == ["-m", "webbrowser"])
+            }
+            _ => false,
+        };
+        if opens {
+            pages.extend(
+                words
+                    .iter()
+                    .filter(|word| word.starts_with("http://") || word.starts_with("https://"))
+                    .map(|word| word.to_string()),
+            );
+        }
+    }
+    pages
+}
+
 /// Whether a path a session names reaches into the owner's home, another
 /// volume or the whole disk. **A path that names Armada is let through**: it
 /// is most likely looking for something of Armada's (the owner, 8 Oct 2026).
@@ -342,7 +372,8 @@ fn shell(line: &str, slot: Option<&str>) -> Option<Because> {
     // every `&` cuts `2>&1` in half and leaves a segment ending in a bare `>`,
     // which then reads as a truncating redirect — `cargo build 2>&1 | tail -5`
     // asked, as a destructive line, until a case caught it.
-    let chained = line.replace("&&", ";").replace("||", ";");
+    let quiet = unquoted(line);
+    let chained = quiet.replace("&&", ";").replace("||", ";");
     let segments: Vec<&str> = chained
         .split(|c| c == ';' || c == '|' || c == '\n')
         .map(str::trim)
@@ -362,6 +393,44 @@ fn shell(line: &str, slot: Option<&str>) -> Option<Because> {
         }),
     });
     segments.into_iter().find_map(|said| segment(said, slot))
+}
+
+/// `line` with every `;`, `|`, `&`, `<` and `>` inside quotes turned to a
+/// space. **Quoted text is an argument, not shell**: a commit message's
+/// `<noreply@...>` and a `sed 's|a|b|'` script asked, as an overwrite, on
+/// every commit a Session made (8 Oct 2026).
+fn unquoted(line: &str) -> String {
+    let mut quote: Option<char> = None;
+    let mut escaped = false;
+    line.chars()
+        .map(|c| {
+            if escaped {
+                escaped = false;
+                return c;
+            }
+            match quote {
+                Some(q) if c == q => {
+                    quote = None;
+                    c
+                }
+                Some('"') if c == '\\' => {
+                    escaped = true;
+                    c
+                }
+                Some(_) if matches!(c, ';' | '|' | '&' | '<' | '>' | '\n') => ' ',
+                Some(_) => c,
+                None if c == '\\' => {
+                    escaped = true;
+                    c
+                }
+                None if c == '\'' || c == '"' => {
+                    quote = Some(c);
+                    c
+                }
+                None => c,
+            }
+        })
+        .collect()
 }
 
 /// Whether `word` appears in `line` as a word rather than inside a longer one,
