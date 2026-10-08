@@ -163,6 +163,8 @@ export type ApprovalCanvasProps = ApprovingProps & {
    * Absent is the gate itself. Drawn with no `onEdits`, so every card reads.
    */
   life?: LifeRead;
+  /** The steps the Now panel's rows belong to: every other step stands back. Absent dims nothing. */
+  lit?: ReadonlySet<string>;
   /** Past the gate, a Job frozen with no landing target is given one, once: `set_landing_target` (23.22). */
   onSetLandingTarget?: (target: string) => Promise<Outcome>;
   /** The harnesses a Drone may run under, `ModelChoices.harnesses`. The first is the default. Absent draws none. */
@@ -194,6 +196,7 @@ export type ApprovalCanvasProps = ApprovingProps & {
 
 export function ApprovalCanvas({
   life,
+  lit,
   onOpenJob,
   onSetLandingTarget,
   harnesses = [],
@@ -516,7 +519,14 @@ export function ApprovalCanvas({
       aria-label={life === undefined ? "What you are approving" : "This Job's run"}
     >
       <WorkflowCanvas
-        nodes={[...backdrops, ...placed, ...extra, ...branch.nodes]}
+        nodes={[...backdrops, ...placed, ...extra, ...branch.nodes].map((node) => {
+          // A step's own node, and what hangs on it (`implement:checks`), stands back unless a Now row belongs to it.
+          const step = node.id.split(":")[0] ?? node.id;
+          if (lit === undefined || lit.size === 0 || lit.has(step) || node.backdrop === true || !steps.some((one) => one.id === step)) return node;
+          return node.drawn === undefined
+            ? { ...node, card: { ...node.card, dimmed: true } }
+            : { ...node, drawn: <div className="armada-now-dimmed">{node.drawn}</div> };
+        })}
         edges={drawnEdges}
         label="Run"
         runsDown

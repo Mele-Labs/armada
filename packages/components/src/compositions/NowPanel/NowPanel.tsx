@@ -1,5 +1,5 @@
-import { useState, type ReactNode } from "react";
-import { Bot, ChevronDown, ChevronRight, CircleDot, Megaphone, OctagonAlert, PanelRightClose, Scale, ShieldCheck, ShieldX, Workflow } from "lucide-react";
+import { Fragment, useState, type ReactNode } from "react";
+import { Bot, Box, ChevronDown, ChevronRight, CircleDot, CornerUpRight, Cpu, Megaphone, OctagonAlert, PanelRightClose, RotateCw, Scale, ShieldCheck, ShieldOff, ShieldX, SkipForward, Waypoints, Workflow } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
@@ -45,6 +45,48 @@ export type NowOpenAsk = {
 
 export type NowAsk = NowPlanAsk | NowOpenAsk;
 
+/**
+ * A quick act on a row, as an icon with a tooltip: retry a Check, skip it, redirect a stuck Drone,
+ * retry a step. The host decides what each does.
+ */
+export type NowAct = {
+  key: string;
+  glyph: "retry" | "skip" | "skip_all" | "redirect" | "retry_step";
+  /** The tooltip, and the button's name. */
+  said: string;
+  onAct: () => void;
+};
+
+const ACT: Record<NowAct["glyph"], LucideIcon> = {
+  retry: RotateCw,
+  skip: SkipForward,
+  skip_all: ShieldOff,
+  redirect: CornerUpRight,
+  retry_step: RotateCw,
+};
+
+/**
+ * Why nothing is running, as a row: a resource it waits on, another Job it waits on, steps in
+ * transition, or a one-off step it runs. A Job is never idle without one of these.
+ */
+export type NowWaiting = {
+  key: string;
+  kind: "resource" | "job" | "transition" | "step";
+  /** The resource, the Job, the steps or the step, named. */
+  text: string;
+  /** The canvas step it is about, which stays lit there. */
+  step?: { id: string; name: string };
+  /** Present on a row that opens something: a Job, a step. */
+  onOpen?: () => void;
+};
+
+const WAITING: Record<NowWaiting["kind"], { Glyph: LucideIcon; said: string }> = {
+  resource: { Glyph: Cpu, said: "Resource" },
+  job: { Glyph: Box, said: "Job" },
+  transition: { Glyph: Waypoints, said: "Transition" },
+  step: { Glyph: Workflow, said: "Step" },
+};
+
 export type NowIssue = {
   key: string;
   /** Which one it is about, and so which surface the press opens. */
@@ -53,6 +95,10 @@ export type NowIssue = {
   text: string;
   /** The mark's tooltip: `Check failed`, `Drone stuck`. */
   said: string;
+  /** The canvas step it is about, which stays lit there. */
+  step?: { id: string; name: string };
+  /** What fixes it, one icon each. */
+  acts?: readonly NowAct[];
   onOpen: () => void;
 };
 
@@ -68,6 +114,8 @@ export type NowRunning = {
   tail?: readonly string[];
   /** A Check lands as `passed` or `failed`; the rest are `running` until they leave the list. */
   state: "running" | "passed" | "failed";
+  /** Quick acts: a Check's retry and skip. */
+  acts?: readonly NowAct[];
   onOpen: () => void;
 };
 
@@ -75,6 +123,10 @@ export type NowPanelProps = {
   asks?: readonly NowAsk[];
   issues?: readonly NowIssue[];
   running?: readonly NowRunning[];
+  /** Why nothing is running, where nothing is. */
+  waiting?: readonly NowWaiting[];
+  /** Skip every Check of the run. Drawn in the Running band, over Check rows only. */
+  onSkipAll?: () => void;
   /** The head's hide button. Absent draws none. */
   onHide?: () => void;
   /** A running row's step was pressed. Absent draws the step as plain text. */
@@ -95,7 +147,17 @@ const STATE: Record<NowRunning["state"], { Glyph: LucideIcon; said: string }> = 
   failed: { Glyph: ShieldX, said: "Failed" },
 };
 
-export function NowPanel({ asks = [], issues = [], running = [], onHide, onStep, focusedStep }: NowPanelProps) {
+const ASK_ORDER = ["plan", "judge", "drone"] as const;
+const ASK_HEAD = { plan: "Plan question", judge: "Judge question", drone: "Drone question" } as const;
+const RUN_ORDER = ["drone", "check", "judge"] as const;
+const RUN_HEAD = { drone: "Drones", check: "Checks", judge: "Judges" } as const;
+
+export function NowPanel({ asks = [], issues = [], running = [], waiting = [], onSkipAll, onHide, onStep, focusedStep }: NowPanelProps) {
+  const drones = running.filter((one) => one.of === "drone");
+  const checks = running.some((one) => one.of === "check");
+  // **One Drone at work shows its live view**, its output tail open (owner, 6 Oct 2026).
+  const alone = drones.length === 1 ? drones[0]?.key : undefined;
+  const nothing = asks.length + issues.length + running.length + waiting.length === 0;
   return (
     <aside className="armada-now" role="region" aria-label="Now">
       <header className="armada-now__head">
@@ -108,15 +170,31 @@ export function NowPanel({ asks = [], issues = [], running = [], onHide, onStep,
           </Tooltip>
         )}
       </header>
+      {/* **A Job is never idle without a reason.** This sentence is a defect made visible: the
+          owner reads it as a bug in whatever left the Job with nothing to say (8 Oct 2026). */}
+      {!nothing ? null : <p className="armada-now__nothing">Nothing is actively running on this job</p>}
       {asks.length === 0 ? null : (
         <Section tone="asks" label="Asks you">
-          {asks.map((ask) => (ask.kind === "plan" ? <PlanAsk key={ask.key} ask={ask} /> : <AskRow key={ask.key} ask={ask} />))}
+          {ASK_ORDER.map((kind) => {
+            const of = asks.filter((ask) => ask.kind === kind);
+            return of.length === 0 ? null : (
+              <Fragment key={kind}>
+                <SubHead label={ASK_HEAD[kind]} />
+                {of.map((ask) => (ask.kind === "plan" ? <PlanAsk key={ask.key} ask={ask} /> : <AskRow key={ask.key} ask={ask} />))}
+              </Fragment>
+            );
+          })}
         </Section>
       )}
       {issues.length === 0 ? null : (
         <Section tone="issues" label="Issues">
           {issues.map((issue) => (
-            <Row key={issue.key} name={`${issue.name}, ${issue.said}`} onOpen={issue.onOpen}>
+            <Row
+              key={issue.key}
+              name={`${issue.name}, ${issue.said}`}
+              onOpen={issue.onOpen}
+              below={<Acts step={issue.step} acts={issue.acts} />}
+            >
               <Kind of={issue.of} />
               <span className="armada-now__text">{issue.text}</span>
               <Tooltip label={issue.said}>
@@ -129,20 +207,101 @@ export function NowPanel({ asks = [], issues = [], running = [], onHide, onStep,
         </Section>
       )}
       {running.length === 0 ? null : (
-        <Section tone="running" label="Running">
-          {running.map((one) => (
-            <RunningRow key={one.key} one={one} {...(onStep === undefined ? {} : { onStep })} focused={one.step !== undefined && one.step.id === focusedStep} />
-          ))}
+        <Section
+          tone="running"
+          label="Running"
+          {...(onSkipAll === undefined || !checks
+            ? {}
+            : {
+                trailing: (
+                  <Tooltip label="Skip all checks">
+                    <button type="button" className="armada-now__band-act" aria-label="Skip all checks" onClick={onSkipAll}>
+                      <ShieldOff size={12} strokeWidth={2} aria-hidden />
+                    </button>
+                  </Tooltip>
+                ),
+              })}
+        >
+          {RUN_ORDER.map((kind) => {
+            const of = running.filter((one) => one.of === kind);
+            return of.length === 0 ? null : (
+              <Fragment key={kind}>
+                <SubHead label={RUN_HEAD[kind]} />
+                {of.map((one) => (
+                  <RunningRow
+                    key={one.key}
+                    one={one}
+                    {...(onStep === undefined ? {} : { onStep })}
+                    focused={one.step !== undefined && one.step.id === focusedStep}
+                    open={one.key === alone}
+                  />
+                ))}
+              </Fragment>
+            );
+          })}
+        </Section>
+      )}
+      {waiting.length === 0 ? null : (
+        <Section tone="waiting" label="Waiting">
+          {waiting.map((one) => {
+            const kind = WAITING[one.kind];
+            return (
+              <Row
+                key={one.key}
+                name={`${kind.said} ${one.text}`}
+                {...(one.onOpen === undefined ? {} : { onOpen: one.onOpen })}
+              >
+                <Tooltip label={kind.said}>
+                  <span className="armada-now__mark" role="img" aria-label={kind.said}>
+                    <kind.Glyph size={12} strokeWidth={2} aria-hidden />
+                  </span>
+                </Tooltip>
+                <span className="armada-now__text">{one.text}</span>
+              </Row>
+            );
+          })}
         </Section>
       )}
     </aside>
   );
 }
 
-function Section({ tone, label, children }: { tone: "asks" | "issues" | "running"; label: string; children: ReactNode }) {
+/** A small header inside a section, so a row's kind reads before the row does. */
+function SubHead({ label }: { label: string }) {
+  return (
+    <li className="armada-now__sub-head">
+      {label}
+    </li>
+  );
+}
+
+/** The icons that fix a row. A step in the row is a label here, unless the host asked to hear presses. */
+function Acts({ step, acts }: { step?: { id: string; name: string } | undefined; acts?: readonly NowAct[] | undefined }) {
+  if ((acts === undefined || acts.length === 0) && step === undefined) return null;
+  return (
+    <div className="armada-now__sub">
+      {step === undefined ? null : <span className="armada-now__step">{step.name}</span>}
+      {(acts ?? []).map((act) => {
+        const Glyph = ACT[act.glyph];
+        return (
+          <Tooltip key={act.key} label={act.said}>
+            <button type="button" className="armada-now__act" aria-label={act.said} onClick={act.onAct}>
+              <Glyph size={12} strokeWidth={2} aria-hidden />
+            </button>
+          </Tooltip>
+        );
+      })}
+    </div>
+  );
+}
+
+function Section({ tone, label, trailing, children }: { tone: "asks" | "issues" | "running" | "waiting"; label: string; trailing?: ReactNode; children: ReactNode }) {
   return (
     <section className="armada-now__group" data-tone={tone} aria-label={label}>
-      <h4 className="armada-now__band">{label}</h4>
+      <div className="armada-now__band">
+        <h4 className="armada-now__band-title">{label}</h4>
+        {trailing}
+      </div>
       <ul className="armada-now__rows">{children}</ul>
     </section>
   );
@@ -159,20 +318,26 @@ function Kind({ of }: { of: NowKind }) {
   );
 }
 
-function Row({ name, onOpen, children, below }: { name: string; onOpen: () => void; children: ReactNode; below?: ReactNode }) {
+function Row({ name, onOpen, children, below }: { name: string; onOpen?: () => void; children: ReactNode; below?: ReactNode }) {
   return (
     <li className="armada-now__row">
-      <button type="button" className="armada-now__open" aria-label={`Open ${name}`} onClick={onOpen}>
-        {children}
-      </button>
+      {onOpen === undefined ? (
+        <div className="armada-now__open" data-static role="group" aria-label={name}>
+          {children}
+        </div>
+      ) : (
+        <button type="button" className="armada-now__open" aria-label={`Open ${name}`} onClick={onOpen}>
+          {children}
+        </button>
+      )}
       {below}
     </li>
   );
 }
 
 /** A Drone, Check or Judge at work: its live mark, the step it belongs to, and its output tail folded under it. */
-function RunningRow({ one, onStep, focused }: { one: NowRunning; onStep?: (stepId: string) => void; focused: boolean }) {
-  const [shown, setShown] = useState(false);
+function RunningRow({ one, onStep, focused, open }: { one: NowRunning; onStep?: (stepId: string) => void; focused: boolean; open: boolean }) {
+  const [shown, setShown] = useState(open);
   const state = STATE[one.state];
   const tail = one.tail === undefined || one.tail.length === 0 ? undefined : one.tail;
   const step = one.step;
@@ -181,7 +346,7 @@ function RunningRow({ one, onStep, focused }: { one: NowRunning; onStep?: (stepI
       name={`${one.name}${one.line === undefined ? "" : `, ${one.line}`}, ${state.said.toLowerCase()}`}
       onOpen={one.onOpen}
       below={
-        step === undefined && tail === undefined ? null : (
+        step === undefined && tail === undefined && one.acts === undefined ? null : (
           <>
             <div className="armada-now__sub">
               {step === undefined ? null : onStep === undefined ? (
@@ -200,6 +365,16 @@ function RunningRow({ one, onStep, focused }: { one: NowRunning; onStep?: (stepI
                   </button>
                 </Tooltip>
               )}
+              {(one.acts ?? []).map((act) => {
+                const Glyph = ACT[act.glyph];
+                return (
+                  <Tooltip key={act.key} label={act.said}>
+                    <button type="button" className="armada-now__act" aria-label={act.said} onClick={act.onAct}>
+                      <Glyph size={12} strokeWidth={2} aria-hidden />
+                    </button>
+                  </Tooltip>
+                );
+              })}
               {tail === undefined ? null : (
                 <Tooltip label={shown ? "Hide output" : "Show output"}>
                   <button
