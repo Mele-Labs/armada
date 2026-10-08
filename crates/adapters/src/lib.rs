@@ -125,6 +125,6 @@ pub use scouting::{
     checkout_as_it_stands, denied_to_a_scout, files_a_search_showed, no_servers, CheckoutRead,
     Looked, ScoutRefused, Scouting, Shown,
 };
-pub use transcript::{init_commands, sent_message, written_document};
+pub use transcript::{init_commands, sent_message, viewed_image, written_document};
 pub use trigger_files::triggers_on_base;
 pub use worktree::GitVcs;

@@ -101,6 +101,10 @@ export type BoardControl = {
   add: (rows: readonly unknown[]) => void;
 };
 
+const PICTURE = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 200"><rect width="320" height="200" fill="#2a3340"/><rect x="24" y="24" width="272" height="28" rx="4" fill="#4b5a6e"/><rect x="24" y="68" width="120" height="108" rx="4" fill="#4b5a6e"/><rect x="160" y="68" width="136" height="48" rx="4" fill="#6b7f99"/><rect x="160" y="128" width="136" height="48" rx="4" fill="#4b5a6e"/></svg>`;
+
+const NOTE = "# Store clock\n\nThe store reads the clock once per write.\n\n- Pinned in tests\n- Read through `Clock::now`\n";
+
 export function sessionsStore(
   jobs: readonly [DispatchedJob, DispatchedJob],
   review: DispatchedJob,
@@ -471,6 +475,11 @@ export function sessionsStore(
         ],
       }));
     },
+    // What the mock's files hold, since none is on this machine: a picture for an image, text for the rest.
+    readArtifact: async (_id, path) =>
+      /\.(png|jpe?g|gif|webp)$/i.test(path)
+        ? { ok: true, bytes: new TextEncoder().encode(PICTURE), type: "image/svg+xml" }
+        : { ok: true, bytes: new TextEncoder().encode(NOTE), type: path.endsWith(".md") ? "text/markdown" : "text/plain" },
     models: MODELS,
     efforts: EFFORTS,
     commands: COMMANDS,
