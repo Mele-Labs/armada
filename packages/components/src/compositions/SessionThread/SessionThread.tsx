@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { AppWindow, Box, ChevronRight, GitBranch, KeyRound, Layers, SquareTerminal, Wrench } from "lucide-react";
 
 import { AttachmentChip } from "../../primitives/AttachmentChip/AttachmentChip";
@@ -9,6 +10,8 @@ import { Input } from "../../primitives/Input/Input";
 import { Prose } from "../../primitives/Prose/Prose";
 import { Radio, RadioGroup } from "../../primitives/Radio/Radio";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
+import { InlineTag } from "../SessionComposer/InlineTag";
+import type { ComposerTag } from "../SessionComposer/InlineTag";
 
 /**
  * A Session's conversation, drawn on Helm's own thread rows
@@ -94,10 +97,32 @@ export type SessionThreadProps = {
 
 const TAG_KIND = { session: "Session", job: "Job", pull_request: "Pull request", branch: "Branch" } as const;
 
-function Sent({ row }: { row: Extract<SessionThreadRow, { from: "you" | "agent" }> }) {
+/**
+ * A sent message's words with each tag drawn as the chip it was written as, at its `@title`. `parts`
+ * is `null` where no tag is found in the words, and `loose` holds the tags that were not.
+ */
+function placeTags(text: string, tags: readonly ComposerTag[]): { parts: ReactNode[] | null; loose: readonly ComposerTag[] } {
+  const parts: ReactNode[] = [];
+  const loose: ComposerTag[] = [];
+  let from = 0;
+  for (const tag of tags) {
+    const at = text.indexOf(`@${tag.title}`, from);
+    if (at < 0) {
+      loose.push(tag);
+      continue;
+    }
+    if (at > from) parts.push(text.slice(from, at));
+    parts.push(<InlineTag key={`${from}${tag.kind}${tag.id}`} tag={tag} />);
+    from = at + tag.title.length + 1;
+  }
+  if (parts.length === 0) return { parts: null, loose };
+  if (from < text.length) parts.push(text.slice(from));
+  return { parts, loose };
+}
+
+function Sent({ row, tags }: { row: Extract<SessionThreadRow, { from: "you" | "agent" }>; tags: readonly ComposerTag[] }) {
   const files = row.files ?? [];
   const sketches = row.sketches ?? [];
-  const tags = row.tags ?? [];
   if (files.length + sketches.length + tags.length === 0) return null;
   return (
     <div className="armada-session-sent">
@@ -329,16 +354,15 @@ function Row({
       </li>
     );
   }
+  const placed = placeTags(row.text, row.tags ?? []);
   return (
     <li className="armada-helm-thread__row" data-actor={row.from === "you" ? "you" : "helm"} data-from={row.from}>
       <div className="armada-helm-thread__head">
         <span className="armada-helm-thread__who">{row.from === "you" ? "You" : "Agent"}</span>
         <span className="armada-helm-thread__at">{row.at}</span>
       </div>
-      <div className="armada-helm-thread__message">
-        <Prose text={row.text} />
-      </div>
-      <Sent row={row} />
+      <div className="armada-helm-thread__message">{placed.parts === null ? <Prose text={row.text} /> : <p className="armada-session-said">{placed.parts}</p>}</div>
+      <Sent row={row} tags={placed.loose} />
     </li>
   );
 }

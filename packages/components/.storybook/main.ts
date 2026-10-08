@@ -29,6 +29,8 @@ const config: StorybookConfig = {
   async viteFinal(viteConfig) {
     viteConfig.plugins ??= [];
     viteConfig.plugins.push(notesPlugin());
+    // The message box draws a tag's glyph through it; found late, it makes Vite reload a running test.
+    viteConfig.optimizeDeps = { ...viteConfig.optimizeDeps, include: [...(viteConfig.optimizeDeps?.include ?? []), "react-dom/server"] };
     return viteConfig;
   },
 };

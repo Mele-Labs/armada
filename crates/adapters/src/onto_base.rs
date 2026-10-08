@@ -1,17 +1,15 @@
 //! The step onto a base: one `--no-ff` merge commit over a gated candidate,
 //! pushed by whoever gated it and never forced.
 //!
-//! **One copy for both lines.** `armada land` lands this repository through
-//! it, and `Delivery::merge_by_push` lands a Job's work through it where a
-//! Manifest says `merge_by: push`. `docs/capabilities/merge-line.md`, *The
-//! merge*.
+//! `Delivery::merge_by_push` lands a Job's work through it where a Manifest
+//! says `merge_by: push`. `docs/capabilities/merge-line.md`, *The merge*.
 
 use std::fmt;
 use std::path::Path;
 use std::process::{Command, Output};
 
 /// How many times a base may move under a gate before the landing gives up:
-/// `armada land`'s turn, and Fleet's `merge_by: push`.
+/// Fleet's `merge_by: push`.
 pub const ROUNDS: u32 = 5;
 
 /// The message of the merge commit a branch lands as.

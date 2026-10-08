@@ -534,6 +534,45 @@ async fn the_merge_line_carries_the_hub_where_nobody_has_run_the_runner() {
 }
 
 #[tokio::test]
+async fn a_hub_that_moves_is_published_as_the_merge_lines_whole() {
+    let home = TempDir::new();
+    let fleet = std::sync::Arc::new(a_fleet_reading_main(&home));
+    let forge = &fleet.vcs().main_ci;
+    forge.head_is(Some(ONE));
+    forge.runs_on(ONE, vec![run("ci", "11", CiState::Passed)]);
+    forge.pulls_are(Some(Vec::new()));
+    fleet.turn().await.unwrap();
+    let mut events = fleet.events().subscribe();
+    let reading = crate::merge_lines::keep_reading(
+        std::sync::Arc::clone(&fleet),
+        fleet.events(),
+        Duration::from_millis(50),
+    );
+
+    // Past the first read, which is the baseline and publishes nothing.
+    tokio::time::sleep(Duration::from_millis(200)).await;
+    forge.pulls_are(Some(vec![pull(7, Some(CiState::Passed), &[])]));
+    fleet.turn().await.unwrap();
+
+    let moved = tokio::time::timeout(Duration::from_secs(5), async {
+        loop {
+            if let Some(api::Next::Send(delivered)) = events.next().await {
+                if let ipc::Event::MergeLinesChanged(lines) = delivered.event {
+                    return lines;
+                }
+            }
+        }
+    })
+    .await
+    .expect("published once the hub moved");
+    reading.abort();
+    assert_eq!(
+        moved.lines[0].hub.as_ref().unwrap().pull_requests[0].number,
+        7
+    );
+}
+
+#[tokio::test]
 async fn a_failed_job_on_mains_log_is_served_by_its_check_or_its_name_while_main_is_red() {
     let home = TempDir::new();
     let fleet = a_fleet_reading_main(&home);

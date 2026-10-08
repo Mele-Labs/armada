@@ -237,7 +237,7 @@ async fn a_step_added_after_the_current_one_fires_when_the_job_gets_there() {
 }
 
 #[tokio::test]
-async fn a_skill_and_a_drone_step_are_recorded_skipped_and_say_so() {
+async fn a_skill_and_a_drone_step_start_running_and_a_missing_command_is_still_skipped() {
     let home = TempDir::new();
     let files = Arc::new(Files::default());
     let fleet = a_fleet(&home, &files, manifest(None), Delivering::default());
@@ -275,12 +275,12 @@ async fn a_skill_and_a_drone_step_are_recorded_skipped_and_say_so() {
         .iter()
         .map(|one| (one.state, one.skipped.as_ref().map(|skip| skip.reason)))
         .collect();
-    use ipc::AddedSkipReason::{DroneStepNotRun, NotInThisRepo, SkillNotRun};
+    use ipc::AddedSkipReason::NotInThisRepo;
     assert_eq!(
         why,
         [
-            (TriggerFiringState::Skipped, Some(SkillNotRun)),
-            (TriggerFiringState::Skipped, Some(DroneStepNotRun)),
+            (TriggerFiringState::Running, None),
+            (TriggerFiringState::Running, None),
             (TriggerFiringState::Skipped, Some(NotInThisRepo)),
         ]
     );

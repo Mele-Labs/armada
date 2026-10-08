@@ -57,7 +57,7 @@ import { NOT_STARTED, approvalNodesOf, checksOf, flowingOf, gateKindsOf, perTask
 import { LANES } from "./approval-canvas";
 import type { ApprovalNode, LifeRead, StepRead } from "./approval-canvas";
 import { CARD, layoutOf, narrowOf } from "./approval-layout";
-import { holdsOf } from "@armada/components";
+import { additionBranches, holdsOf } from "@armada/components";
 import { withAddedAtGate } from "./approval-added";
 import { addedNodeId, AddedSheets, useAddedSteps } from "./added-steps";
 import type { AddedBinding } from "./added-steps";
@@ -324,7 +324,7 @@ export function ApprovalCanvas({
   // A failed Trigger with Self repair grows a branch off where it fired: the pull request for
   // `pr_opened`, whose delivering step is that node's own, and the step for any other moment.
   const branch = repairBranches(
-    whole.triggers ?? [],
+    [...(whole.triggers ?? []), ...additionBranches(whole.additions ?? [])],
     whole.job.id,
     (trigger) => {
       const at = nodes.find((node) => node.id === (trigger.when === "pr_opened" ? "pr" : trigger.step));

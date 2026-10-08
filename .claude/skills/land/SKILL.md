@@ -52,6 +52,13 @@ merge `origin/main` in, keep this branch's number from `armada need`, and
 queue. Confirmed 7 Oct 2026: #1911 dropped out twice behind #1925 and #1937.
 It took three hours to land.
 
+**A change to `.github/` is green only when every job it touches is.** `ci`
+on a pull request can pass while a job beside it fails, and a filtered job may
+not run at all. Before queueing one, read `gh pr checks <n>` whole and require
+each job that runs the changed step, `desktop_unit` for `node-setup`, to pass.
+Confirmed 8 Oct 2026: #1963's `desktop_unit` failed in setup, `ci` passed, it
+merged, and every Linux browser job on `main` failed until #1964.
+
 **Then watch it until `gh pr view <n> --json state` says `MERGED`.** A queue run
 can take well over 30 minutes. Leaving the queue unmerged (`OPEN`,
 `isInMergeQueue` false) is the failure. Read the queue run with

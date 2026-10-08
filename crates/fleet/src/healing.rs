@@ -212,6 +212,16 @@ where
         &self,
         config: &adapter_traits::DroneSpawnConfig,
     ) -> Result<Option<String>, String> {
+        self.repair_run_spending(config).await.map(|(said, _)| said)
+    }
+
+    /// [`repair_run`](Fleet::repair_run) with what the Drone spent, for a run
+    /// that counts against its Job: a side Drone's.
+    pub(crate) async fn repair_run_spending(
+        &self,
+        config: &adapter_traits::DroneSpawnConfig,
+    ) -> Result<(Option<String>, store::DroneSpend), String> {
+        let started = std::time::Instant::now();
         let Started {
             session,
             transcript,
@@ -225,7 +235,7 @@ where
         });
         let harness = Arc::clone(self.harness());
         let reading = async move {
-            let mut said = None;
+            let (mut said, mut ended) = (None, Vec::new());
             let mut lines = BufReader::new(transcript).lines();
             while let Ok(Some(line)) = lines.next_line().await {
                 for event in harness.read(&line) {
@@ -234,17 +244,22 @@ where
                             text,
                             by: Speaker::Drone,
                         } => said = Some(text),
-                        DroneEvent::Ended { .. } => return said,
+                        DroneEvent::Ended { .. } => {
+                            ended.push(event);
+                            return (said, ended);
+                        }
                         _ => {}
                     }
                 }
             }
-            said
+            (said, ended)
         };
         let budget = self.budget().duration();
         let outcome = tokio::time::timeout(budget, reading).await;
         let _ = session.terminate().await;
-        outcome.map_err(|_| format!("the repair Drone ran past {}s", budget.as_secs()))
+        let (said, ended) =
+            outcome.map_err(|_| format!("the repair Drone ran past {}s", budget.as_secs()))?;
+        Ok((said, crate::allowance::spent(&ended, started.elapsed())))
     }
 
     fn noted_healing(

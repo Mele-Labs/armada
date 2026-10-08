@@ -377,7 +377,7 @@ async fn a_job_and_a_session_stand_in_one_order() {
         .expect("nothing is ahead");
 }
 
-/// The same rule `armada land` holds a session to: a Job whose branch moves the
+/// The rule a session is held to: a Job whose branch moves the
 /// protocol minor with no need declared is refused at its merge, naming what to
 /// run, and lands once it has declared. Asked of the ledger.
 #[tokio::test]

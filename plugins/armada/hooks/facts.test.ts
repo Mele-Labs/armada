@@ -136,6 +136,15 @@ test('a published page is an artifact at the address it answered with, and a rea
   expect(artifactOf('Artifact', { file_path: '/w/a.html' }, 'refused', false)).toBeUndefined()
 })
 
+test('a picture a session reads is an image artifact, and code and a written picture are not', () => {
+  const looked = (path: string) => artifactOf('Read', { file_path: path }, 'ok', false)
+  expect(looked('/tmp/shot.PNG')).toEqual({ form: 'image', target: '/tmp/shot.PNG', title: 'shot.PNG' })
+  expect(looked('/repo/a.jpeg')?.form).toBe('image')
+  expect(looked('/repo/src/clock.ts')).toBeUndefined()
+  expect(looked('/repo/docs/clock.md')).toBeUndefined()
+  expect(artifactOf('Write', { file_path: '/repo/shot.png' }, 'ok', true)?.form).toBe('file')
+})
+
 test('a new document, picture or pdf is an artifact, and code, an edit and scratch are not', () => {
   const made = (path: string, created = true) => artifactOf('Write', { file_path: path }, 'ok', created)
   expect(made('/repo/docs/spikes/clock.md')).toEqual({ form: 'file', target: '/repo/docs/spikes/clock.md', title: 'clock.md' })

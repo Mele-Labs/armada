@@ -15,6 +15,7 @@ import type {
   SessionRow,
   TuneSession,
 } from "@armada/protocol";
+import type { ArtifactRead, PageBounds } from "@armada/screens/src/draft/sessions";
 
 /** What a session act came to: the thing Fleet answered with, or the refusal to word. */
 export type SessionActed<T = SessionRecord> = { ok: true; value: T } | { ok: false; outcome: Outcome };
@@ -67,6 +68,16 @@ export type SessionsApi = {
   openSessionFile: (sessionId: string, path: string) => Promise<Followed>;
   /** Opens, or raises, the window on a page a Session showed. Main opens only an address the Session's own ledger shows as a window. */
   openSessionWindow: (sessionId: string, url: string) => Promise<Outcome>;
+  /** A file the Session's ledger names, read for the panel: its bytes and kind, or why it was not read. */
+  readSessionArtifact: (sessionId: string, path: string) => Promise<ArtifactRead>;
+  /** Shows a page or doc the Session's ledger names in a web view main owns, over `bounds` of this window. */
+  showSessionPage: (sessionId: string, address: string, bounds: PageBounds) => Promise<Followed>;
+  /** Moves the page's view to where the panel's body now is. */
+  moveSessionPage: (bounds: PageBounds) => Promise<void>;
+  /** Removes the page's view. */
+  hideSessionPage: () => Promise<void>;
+  /** Esc pressed while the page's view has focus, which the renderer never hears itself. Returns its remover. */
+  onSessionPageEscape: (on: () => void) => () => void;
   /** An act on one of a Session's pull requests. `read` brings its state current, `review` answers the Code Review Job it dispatched. */
   pressPullRequest: (
     sessionId: string,
@@ -107,5 +118,10 @@ export const SESSIONS_CHANNELS = {
   readSessionFile: "bridge:read-session-file",
   openSessionFile: "bridge:open-session-file",
   openSessionWindow: "bridge:open-session-window",
+  readSessionArtifact: "bridge:read-session-artifact",
+  showSessionPage: "bridge:show-session-page",
+  moveSessionPage: "bridge:move-session-page",
+  hideSessionPage: "bridge:hide-session-page",
+  sessionPageEscape: "bridge:session-page-escape",
   pressPullRequest: "bridge:press-pull-request",
 } as const;

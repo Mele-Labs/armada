@@ -170,7 +170,7 @@ export function attachmentsOfRecord(record: SessionRecord, beside: Pick<Beside, 
         break;
       case "artifact": {
         const form = detail["form"];
-        if (form !== "page" && form !== "file" && form !== "doc" && form !== "window") break;
+        if (form !== "page" && form !== "file" && form !== "image" && form !== "doc" && form !== "window") break;
         out.push({ kind: "artifact", form, id: one.target, title: detail["title"] ?? one.target.slice(one.target.lastIndexOf("/") + 1) });
         break;
       }

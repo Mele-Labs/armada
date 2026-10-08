@@ -9,11 +9,13 @@ import type { AnswerSessionAsk, RenameSession, SendSessionMessage, TuneSession }
 import { CHANNELS } from "../shared/bridge";
 import type { PilotExit, PullRequestPress } from "../shared/api/sessions";
 import type { FleetConnection } from "./connection";
+import type { SessionPages } from "./session-page";
 
 type Hosts = {
   ipc: IpcMain;
   connection: () => FleetConnection | null;
   windowIdOf: (event: Electron.IpcMainInvokeEvent) => number;
+  pages: SessionPages;
 };
 
 const PRESSES: readonly PullRequestPress[] = ["read", "ready", "merge", "auto_merge", "review"];
@@ -25,7 +27,7 @@ const EXITS: readonly PilotExit[] = ["submit", "attest", "supersede"];
 const text = (value: unknown): value is string => typeof value === "string" && value !== "";
 const unsent = { ok: false, outcome: { ok: false, why: "not_connected" } } as const;
 
-export function handleSessions({ ipc, connection, windowIdOf }: Hosts): void {
+export function handleSessions({ ipc, connection, windowIdOf, pages }: Hosts): void {
   ipc.handle(CHANNELS.startSession, (event, title?: string, root?: string) => {
     const fleet = connection();
     if (fleet === null) return unsent;
@@ -71,6 +73,16 @@ export function handleSessions({ ipc, connection, windowIdOf }: Hosts): void {
   ipc.handle(CHANNELS.readSessionFile, (_event, sessionId: string, file: string) =>
     text(sessionId) && text(file) ? (connection()?.sessions.file(sessionId, file) ?? { ok: false, outcome: unsent.outcome }) : { ok: false, outcome: unsent.outcome },
   );
+  ipc.handle(CHANNELS.readSessionArtifact, (_event, sessionId: string, path: string) =>
+    text(sessionId) && text(path) ? (connection()?.sessions.readArtifact(sessionId, path) ?? { ok: false, why: "not_addressable" }) : { ok: false, why: "not_addressable" },
+  );
+  ipc.handle(CHANNELS.showSessionPage, (event, sessionId: string, address: string, bounds: unknown) =>
+    text(sessionId) && text(address)
+      ? pages.show(event.sender, connection()?.sessions.recordOf(sessionId), address, bounds)
+      : { ok: false, why: "not_addressable", address: "" },
+  );
+  ipc.handle(CHANNELS.moveSessionPage, (event, bounds: unknown) => pages.move(event.sender, bounds));
+  ipc.handle(CHANNELS.hideSessionPage, (event) => pages.hide(event.sender));
   ipc.handle(CHANNELS.pressPullRequest, (_event, sessionId: string, number: number, press: PullRequestPress) =>
     text(sessionId) && Number.isInteger(number) && PRESSES.includes(press) ? (connection()?.sessions.press(sessionId, number, press) ?? unsent) : unsent,
   );

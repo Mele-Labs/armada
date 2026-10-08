@@ -114,7 +114,10 @@ where
                 }
                 let home = std::env::var("HOME").unwrap_or_default();
                 if let Some(path) = adapters::written_document(&tool, &shown, &home) {
-                    self.artifact_written(id, path).await;
+                    self.artifact_made(id, path, "file").await;
+                }
+                if let Some(path) = adapters::viewed_image(&tool, &shown, &home) {
+                    self.artifact_made(id, path, "image").await;
                 }
                 let text = if shown.is_empty() {
                     tool

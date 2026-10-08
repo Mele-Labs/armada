@@ -388,6 +388,7 @@ async function made(
   const [id, one] = await current($)
   const detail: Record<string, string> = { form: artifact.form }
   if (artifact.title !== undefined) detail.title = artifact.title
+  if (artifact.form === 'image' && one.artifacts.has(artifact.target)) return
   one.artifacts.set(artifact.target, detail)
   say($, id, { kind: 'attached', attachment: { kind: 'artifact', target: artifact.target, detail } })
 }
@@ -489,7 +490,7 @@ export const register: Register = on => {
     })
   }
 
-  for (const tool of ['Artifact', 'Write', ...DOCS_ACTS.map(act => `mcp__claude_ai_Claude_Docs__${act}`)]) {
+  for (const tool of ['Artifact', 'Write', 'Read', ...DOCS_ACTS.map(act => `mcp__claude_ai_Claude_Docs__${act}`)]) {
     on('tool.call', { tool }, async ($, e, next) => {
       const ran = await next(e)
       if (ran.deny === undefined && ran.isError !== true) {

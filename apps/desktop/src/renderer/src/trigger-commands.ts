@@ -19,8 +19,8 @@ export function triggerActs(setOutcome: (outcome: Outcome) => void) {
    * beat later as `job.trigger_changed` re-reads the Job. The answer tells the branch whether to
    * ask again.
    */
-  async function chooseTriggerFix(jobId: string, trigger: string, choice: TriggerFixChoice): Promise<{ ok: boolean }> {
-    const answer = await window.armada.chooseTriggerFix(jobId, { trigger, choice });
+  async function chooseTriggerFix(jobId: string, by: { trigger: string } | { addition: string }, choice: TriggerFixChoice): Promise<{ ok: boolean }> {
+    const answer = await window.armada.chooseTriggerFix(jobId, { ...by, choice });
     if (!answer.ok) setOutcome(answer);
     return { ok: answer.ok };
   }

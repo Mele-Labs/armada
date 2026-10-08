@@ -912,8 +912,7 @@ pub trait Delivery {
     fn mark_ready(&self, in_repo: &str, pull_request: &str) -> Result<(), String>;
 
     /// Land a Job's branch by making the `--no-ff` merge commit here and
-    /// pushing the base, never forced — `merge_by: push`, and the same code
-    /// `armada land` lands through.
+    /// pushing the base, never forced — `merge_by: push`.
     ///
     /// **Only a branch that already holds the base lands.** One that does not,
     /// or a base that moves before the push, is [`NotMerged::BaseMoved`]:

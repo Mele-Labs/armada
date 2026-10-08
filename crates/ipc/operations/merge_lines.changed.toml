@@ -2,13 +2,11 @@
 kind = "event"
 transport = "WebSocket"
 agent_access = "Bridge only"
-description = "A merge line moved on disk, and this is every line now"
+description = "A merge line moved, and this is every line now"
 notes = """
 Carries `MergeLines` itself, the answer to `get_merge_lines`, for `repositories.changed`' reason: the route and the event are the same fact, and a client replaces what it holds.
 
-**Fleet reads the lines every two seconds and publishes only when one moved.** Nothing tells Fleet that `armada land` wrote a file — the runner is another process — so the reading is Fleet's, and Bridge does not poll. A turn moves a line a handful of times a minute, so this costs the shared backlog little.
-
-**The hub moves it too**: the same loop folds `hub` onto every line before comparing, so main going red or green, or a pull request opening, publishes within two seconds with no second publisher to disagree with this one. Fleet reads the forge once a sweep interval for one repository at a time, and this loop only reads what that kept.
+**Fleet folds the lines every two seconds and publishes only when one moved**, so Bridge does not poll. The only thing that moves one is the `hub`: main going red or green, or a pull request opening, publishes within two seconds. Fleet reads the forge once a sweep interval for one repository at a time, and this loop only reads what that kept.
 
 Names no Job, no Drone and no step. A resync does not carry it; a client that reconnects asks `get_merge_lines` again.
 """
