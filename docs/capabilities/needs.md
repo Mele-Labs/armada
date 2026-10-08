@@ -96,8 +96,6 @@ know about reads success, since no needs are known for it.
   ended, a branch deleted.
 - **A late declarer is told to search for the number it already used**, when its
   branch already changes the path.
-- **A minor taken with no need is refused**, as `adapters::undeclared` does now;
-  it becomes a required check on the pull request.
 
 ## What moves
 
