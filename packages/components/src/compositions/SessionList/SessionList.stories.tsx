@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
+import { useState } from "react";
 import { expect, fn, userEvent } from "storybook/test";
 
 import { SessionList, type SessionRowView } from "./SessionList";
@@ -159,5 +160,35 @@ export const ModOutOfDate: Story = {
   args: { groups: [{ label: "Running", rows: [{ ...LIVE, modOutOfDate: true }, NOTES] }] },
   play: async ({ canvas }) => {
     await expect(canvas.getAllByRole("img", { name: "Mod out of date: run /reload-plugins" })).toHaveLength(1);
+  },
+};
+
+const VIEWS = [
+  { id: "active", label: "Active" },
+  { id: "quiet", label: "Quiet" },
+  { id: "ended", label: "Ended" },
+  { id: "all", label: "All" },
+];
+const BY_VIEW: Record<string, readonly string[]> = { active: ["Running"], quiet: ["Quiet"], ended: ["Ended"], all: ["Running", "Quiet", "Ended"] };
+const ALL = [
+  { label: "Running", rows: [LIVE] },
+  { label: "Quiet", rows: [{ ...LIVE, id: "s5", title: "Why the reader drops lines", state: "quiet" as const }] },
+  { label: "Ended", rows: [{ ...LIVE, id: "s6", title: "Trim the retry loop", state: "ended" as const }] },
+];
+
+/** Active on opening; Ended shows the ended rows and nothing else. */
+export const Views: Story = {
+  args: { groups: ALL },
+  render: (args) => {
+    const [view, setView] = useState("active");
+    return <SessionList {...args} groups={ALL.filter((group) => BY_VIEW[view]!.includes(group.label))} views={VIEWS} view={view} onView={setView} />;
+  },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("tab", { name: "Active", selected: true })).toBeInTheDocument();
+    await expect(canvas.getByText("Docs pass")).toBeInTheDocument();
+    await expect(canvas.queryByText("Trim the retry loop")).toBeNull();
+    await userEvent.click(canvas.getByRole("tab", { name: "Ended" }));
+    await expect(canvas.getByText("Trim the retry loop")).toBeInTheDocument();
+    await expect(canvas.queryByText("Docs pass")).toBeNull();
   },
 };
