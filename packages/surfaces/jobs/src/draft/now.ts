@@ -9,7 +9,7 @@
 export type NowKindView = "drone" | "check" | "judge";
 
 export type NowAskView =
-  | { key: string; kind: "plan"; question: string; options: readonly { id: string; label: string }[] }
+  | { key: string; kind: "plan"; decisions: readonly { id: string; question: string; options: readonly { id: string; label: string }[] }[] }
   | { key: string; kind: "judge" | "drone"; name: string; text: string; target?: string };
 
 export type NowIssueView = { key: string; of: NowKindView; name: string; text: string; said: string; target?: string };
@@ -19,6 +19,10 @@ export type NowRunningView = {
   of: NowKindView;
   name: string;
   line?: string;
+  /** The canvas step it belongs to. */
+  step?: { id: string; name: string };
+  /** The last few lines of its output, oldest first. */
+  tail?: readonly string[];
   state: "running" | "passed" | "failed";
   target?: string;
 };

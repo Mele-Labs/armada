@@ -25,11 +25,23 @@ const answer = fn();
 const PLAN: NowAsk = {
   key: "plan",
   kind: "plan",
-  question: "Split the store clock out of the writer, or wrap it?",
-  options: [
-    { id: "split", label: "Split it out" },
-    { id: "wrap", label: "Wrap it in place" },
-    { id: "defer", label: "Leave it for a later Job" },
+  decisions: [
+    {
+      id: "shape",
+      question: "Split the store clock out of the writer, or wrap it?",
+      options: [
+        { id: "split", label: "Split it out" },
+        { id: "wrap", label: "Wrap it in place" },
+      ],
+    },
+    {
+      id: "tests",
+      question: "Pin the clock in the fixtures, or add a fake?",
+      options: [
+        { id: "pin", label: "Pin it in the fixtures" },
+        { id: "fake", label: "Add a fake clock" },
+      ],
+    },
   ],
   onAnswer: answer,
 };
@@ -40,7 +52,16 @@ const ISSUES: NowIssue[] = [
   { key: "i2", of: "drone", name: "Drone on Implement", text: "No output for 14m", said: "Drone stuck", onOpen: open },
 ];
 const RUNNING: NowRunning[] = [
-  { key: "r1", of: "drone", name: "Drone on Implement", line: "Edit crates/store/src/clock.rs", state: "running", onOpen: open },
+  {
+    key: "r1",
+    of: "drone",
+    name: "Drone on Implement",
+    line: "Edit crates/store/src/clock.rs",
+    step: { id: "implement", name: "Implement" },
+    tail: ["Read crates/store/src/clock.rs", "Edit crates/store/src/clock.rs"],
+    state: "running",
+    onOpen: open,
+  },
   { key: "r2", of: "check", name: "typecheck", state: "passed", onOpen: open },
   { key: "r3", of: "check", name: "store", state: "failed", onOpen: open },
   { key: "r4", of: "check", name: "lint", state: "running", onOpen: open },
@@ -74,20 +95,46 @@ export const Running: Story = {
   },
 };
 
-/** A Plan decision: nothing preselected, and the answer waits for a pick. */
+/** Decisions one at a time: nothing preselected, Next waits for a pick, and the last carries Answer. */
 export const PlanQuestion: Story = {
   args: { asks: [PLAN, JUDGE_ASK, DRONE_ASK] },
   play: async ({ canvas }) => {
+    await expect(canvas.queryByRole("button", { name: "Answer" })).toBeNull();
+    const next = canvas.getByRole("button", { name: "Next" });
+    await expect(next).toBeDisabled();
+    await expect(canvas.getByRole("radio", { name: "Wrap it in place" })).not.toBeChecked();
+    await expect(canvas.queryByRole("radio", { name: "Add a fake clock" })).toBeNull();
+    await expect(canvas.getByRole("img", { name: "Split the store clock out of the writer, or wrap it?" })).toHaveAttribute("aria-current", "step");
+    await userEvent.click(canvas.getByRole("radio", { name: "Wrap it in place" }));
+    await userEvent.click(next);
+    await expect(canvas.queryByRole("radio", { name: "Wrap it in place" })).toBeNull();
+    await expect(canvas.getByRole("radio", { name: "Add a fake clock" })).not.toBeChecked();
+    await expect(canvas.queryByRole("button", { name: "Next" })).toBeNull();
     const send = canvas.getByRole("button", { name: "Answer" });
     await expect(send).toBeDisabled();
-    await expect(canvas.getByRole("radio", { name: "Wrap it in place" })).not.toBeChecked();
-    await userEvent.click(canvas.getByRole("radio", { name: "Wrap it in place" }));
-    await expect(send).toBeEnabled();
+    await userEvent.click(canvas.getByRole("radio", { name: "Add a fake clock" }));
     await userEvent.click(send);
-    await expect(answer).toHaveBeenCalledWith("wrap");
-    await expect(canvas.getByRole("radio", { name: "Split it out" })).toBeDisabled();
+    await expect(answer).toHaveBeenCalledWith({ shape: "wrap", tests: "fake" });
+    await expect(canvas.getByRole("radio", { name: "Add a fake clock" })).toBeDisabled();
     await userEvent.click(canvas.getByRole("button", { name: "Open Judge on Review the change, asks you" }));
     await expect(open).toHaveBeenCalled();
+  },
+};
+
+/** A running row's step presses through to the host, and its output tail opens on a press. */
+export const RunningStepAndOutput: Story = {
+  args: { running: RUNNING, onStep: fn(), focusedStep: "implement" },
+  play: async ({ canvas, args }) => {
+    await expect(canvas.queryByText("Read crates/store/src/clock.rs")).toBeNull();
+    const step = canvas.getByRole("button", { name: "Show Implement on the canvas" });
+    await expect(step).toHaveAttribute("aria-pressed", "true");
+    await userEvent.click(step);
+    await expect(args.onStep).toHaveBeenCalledWith("implement");
+    const fold = canvas.getByRole("button", { name: "Output of Drone on Implement" });
+    await expect(fold).toHaveAttribute("aria-expanded", "false");
+    await userEvent.click(fold);
+    await expect(fold).toHaveAttribute("aria-expanded", "true");
+    await expect(canvas.getByText(/Read crates\/store\/src\/clock.rs/)).toBeInTheDocument();
   },
 };
 
