@@ -7,7 +7,7 @@ import tokens from "@armada/tokens/tokens.json";
 
 import type { BridgeState } from "../../shared/bridge";
 import type { CaptureOpened } from "@armada/protocol";
-import { isPinned, loopbackOrigin, pinned } from "./address";
+import { isPinned, pinned, webOrigin } from "./address";
 import { CaptureWindow, type CaptureBoard, type LandsOn } from "./window";
 
 /**
@@ -69,12 +69,12 @@ export class CaptureWindows {
    * Open the window on a page a Session showed, or raise the one it has open on that address.
    *
    * **One per Session**, keyed beside the server Runs'. A Session that shows another address
-   * replaces its window rather than opening a second. **Loopback `http` and `https` only**, the
-   * rule every capture window holds; the origin it is pinned to is the address's own, since the
+   * replaces its window rather than opening a second. **Any `http` or `https` address**, unlike a
+   * server's window; the origin it is pinned to is the address's own, since the
    * Session named it and there is no live holder to resolve it against as a server's link has.
    */
   openForSession(sessionId: string, title: string, url: string): CaptureOpened {
-    const origin = loopbackOrigin(url);
+    const origin = webOrigin(url);
     if (origin === null) return { ok: false, why: "no_address" };
     const key = `${SESSION_KEY}${sessionId}`;
     const standing = this.open.get(key);

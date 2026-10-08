@@ -589,7 +589,7 @@ async fn a_page_a_session_shows_is_one_window_attachment_and_a_row_each_time() {
 }
 
 #[tokio::test]
-async fn an_address_that_is_not_the_web_or_a_call_with_no_session_shows_nothing() {
+async fn an_address_that_is_not_http_or_a_call_with_no_session_shows_nothing() {
     let home = TempDir::new();
     let fleet = a_fleet(&home, FakeWorkProduct::changed(&[]));
     let (_, root) = served(&fleet);
@@ -602,9 +602,8 @@ async fn an_address_that_is_not_the_web_or_a_call_with_no_session_shows_nothing(
         ("javascript:alert(1)", Some("s1")),
         ("http://", Some("s1")),
         ("https://a b", Some("s1")),
-        ("https://example.com/", Some("s1")),
-        ("http://localhost.evil.com/", Some("s1")),
-        ("http://localhost@evil.com/", Some("s1")),
+        ("ftp://example.com/", Some("s1")),
+        ("http://:8080/", Some("s1")),
         ("https://example.com", None),
         ("https://example.com", Some("nobody")),
     ] {

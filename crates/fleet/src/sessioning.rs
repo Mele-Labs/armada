@@ -24,8 +24,8 @@ use crate::daemon::Fleet;
 /// A report that names nothing it can be kept against. A 422.
 const SESSION_UNNAMED: &str = "fleet.session_unnamed";
 
-/// Whether an address is one Bridge's window will load: `http` or `https` on this machine, which is
-/// what every capture window holds to (`docs/practices/capture-window.md`), and no blank in it.
+/// Whether an address is one Bridge's window will load: any `http` or `https` address with a host
+/// and no blank in it (`docs/practices/capture-window.md`).
 fn shows_a_page(url: &str) -> bool {
     let Some(rest) = url
         .strip_prefix("http://")
@@ -39,8 +39,7 @@ fn shows_a_page(url: &str) -> bool {
         Some(inner) => inner.split(']').next().unwrap_or_default(),
         None => host.split(':').next().unwrap_or_default(),
     };
-    ["localhost", "127.0.0.1", "::1"].contains(&name.to_ascii_lowercase().as_str())
-        && !url.contains(char::is_whitespace)
+    !name.is_empty() && !url.contains(char::is_whitespace)
 }
 
 /// The two kinds a session holds one of at a time. Every other kind is kept as
@@ -385,7 +384,7 @@ where
     ) -> Result<SessionRecord, Refusal> {
         let url = show.url.trim().to_string();
         if !shows_a_page(&url) {
-            return Err(self.ledger_unnamed("an `http` or `https` address on this machine to show"));
+            return Err(self.ledger_unnamed("an `http` or `https` address to show"));
         }
         let hosted = caller.and_then(|caller| self.session_holding(&caller));
         let id = hosted
