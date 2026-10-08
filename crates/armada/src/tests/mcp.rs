@@ -336,8 +336,16 @@ fn a_call_made_while_fleet_is_down_waits_for_it_and_is_answered() {
         std::thread::sleep(std::time::Duration::from_millis(1500));
         let listener = std::net::TcpListener::bind(("127.0.0.1", port)).expect("the port again");
         let (mut socket, _) = listener.accept().expect("a call");
-        let mut head = [0u8; 1024];
-        let _ = socket.read(&mut head);
+        // Read the whole request, body included: Linux resets a socket closed
+        // with bytes unread, and the client then sees no answer at all.
+        let mut request = Vec::new();
+        let mut chunk = [0u8; 1024];
+        while !request.ends_with(b"{}") {
+            match socket.read(&mut chunk) {
+                Ok(0) | Err(_) => break,
+                Ok(read) => request.extend_from_slice(&chunk[..read]),
+            }
+        }
         let _ = socket.write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok");
     });
     let answer = posted_patiently(&crate::loopback::Loopback::at(port), "/door", b"{}")
