@@ -43,6 +43,7 @@ mod landable;
 mod link_lookup;
 mod main_ci;
 mod pull_request;
+mod pull_watch;
 mod secret;
 mod setup;
 mod slots;
@@ -75,6 +76,7 @@ pub use main_ci::{
     QueueState, RecentlyMerged, RecentlyMergedPulls, StatusState,
 };
 pub use pull_request::{PullRequestFacts, PullRequestStanding};
+pub use pull_watch::{PullQueue, WatchedCheck, WatchedPull, WatchedPulls};
 pub use secret::Secret;
 pub use setup::{
     HarnessSetup, Inventory, KindRead, SetupFiles, SetupItem, SetupKind, Unreadable, WhatWasRead,

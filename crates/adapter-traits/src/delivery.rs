@@ -823,6 +823,11 @@ pub trait Delivery {
     /// The merge queue of `base`, one forge call. `None` is the forge's silence.
     fn merge_queue(&self, in_repo: &str, base: &str) -> Option<crate::MergeQueue>;
 
+    /// The same pull requests as a watcher reads them: every check on the newest commit with its
+    /// log address, whether it conflicts with the base, and where the merge queue holds it. **One
+    /// forge call for all of them.** `None` is the forge's silence.
+    fn pull_watch(&self, in_repo: &str) -> Option<crate::WatchedPulls>;
+
     /// Put a commit status under `context` on `commit`, replacing the one
     /// there. **A write to the forge, and the one Fleet makes unprompted**: it
     /// says whether a pull request's turn has come, `needs`. `Err` is the
