@@ -14,7 +14,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::ids::{Instant, JobId, StepId};
-use crate::triggers::{TriggerFiringState, TriggerMoment, TriggerScope};
+use crate::triggers::{TriggerFiringState, TriggerMoment, TriggerRepair, TriggerScope};
 
 /// What an added step runs.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -128,6 +128,11 @@ pub struct AddedStep {
     /// Where it was kept for every Job, once it was. Absent until then.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub kept: Option<TriggerScope>,
+    /// What its repair has come to, as `JobTrigger.repair` carries a Trigger's.
+    /// Present from the first repair Drone, and absent where `repair` is off or
+    /// the step never failed. Since 23.72.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub repair_record: Option<TriggerRepair>,
 }
 
 /// `save_trigger`'s `kept_from`: the addition this save keeps for every Job.
@@ -251,6 +256,7 @@ impl From<&core_model::AddedStep> for AddedStep {
                 _ => Some(Instant::from(ended.unwrap_or(&fired.started_at))),
             }),
             kept: added.kept.map(TriggerScope::from),
+            repair_record: (added.repair.tries > 0).then(|| TriggerRepair::from(&added.repair)),
         }
     }
 }

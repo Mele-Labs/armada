@@ -2,8 +2,8 @@
 //! removable only until their moment has come.
 
 use core_model::{
-    AddedKind, Fired, Kept, NotRun, OnTriggerFailure, Placed, StepId, Timestamp, TriggerState,
-    TriggerWhen,
+    AddedKind, Fired, FixChoice, Kept, NotRun, OnTriggerFailure, Placed, RepairRecord, StepId,
+    Timestamp, TriggerState, TriggerWhen,
 };
 
 use crate::tests::{job_id, open, top_level, TempDir};
@@ -62,7 +62,11 @@ fn an_addition_reads_back_whole_after_a_reopen_and_its_firing_is_kept() {
         .set_addition_fired(&id, "a1", &running)
         .expect("opened");
     store
-        .set_addition_fired(&id, "a1", &running.clone().ended(Some(0), false, at("03")))
+        .set_addition_fired(
+            &id,
+            "a1",
+            &running.clone().ended(Some(0), false, false, at("03")),
+        )
         .expect("settled");
     store
         .set_addition_kept(&id, "a1", Kept::Machine)
@@ -179,4 +183,90 @@ fn only_an_addition_that_has_not_fired_can_be_removed_and_its_row_stays() {
         .add_job_step(&id, &one, Placed::WhileRunning, &at("06"))
         .expect("added");
     assert_eq!(next.id, "a3", "a removed one still holds its number");
+}
+
+#[test]
+fn a_repair_in_flight_reads_over_running_and_survives_a_reopen() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    store
+        .insert_job(&top_level("01REPAIR"), &crate::tests::created_at())
+        .expect("stored");
+    let id = job_id("01REPAIR");
+    store
+        .add_job_step(
+            &id,
+            &script("fmt", TriggerWhen::StepPasses, "implement"),
+            Placed::WhileRunning,
+            &at("01"),
+        )
+        .expect("added");
+    let failed = Fired::running(at("02")).ended(Some(1), false, true, at("03"));
+    assert_eq!(failed.state, TriggerState::Repairing);
+    assert_eq!(failed.ended_at, None, "the repair is what ends it");
+    store
+        .set_addition_fired(&id, "a1", &failed)
+        .expect("failed");
+    let record = RepairRecord {
+        tries: 1,
+        branch: Some("armada/repair-1".to_string()),
+        files: vec!["src/log.rs".to_string()],
+        settled_at: Some(at("04")),
+        ..RepairRecord::default()
+    };
+    let ready = Fired {
+        state: TriggerState::FixReady,
+        ..failed
+    };
+    store
+        .settle_addition_repair(&id, "a1", &ready, &record)
+        .expect("held");
+    drop(store);
+
+    let mut store = open(&dir);
+    let added = store.job_additions(&id).expect("read").remove(0);
+    assert_eq!(
+        added.fired.as_ref().map(|fired| fired.state),
+        Some(TriggerState::FixReady)
+    );
+    assert_eq!(added.repair, record);
+    let waiting = store.additions_waiting_on_a_person().expect("waiting");
+    assert_eq!(waiting.len(), 1, "a fix with no choice waits on a person");
+    assert!(store
+        .unfinished_addition_repairs()
+        .expect("none")
+        .is_empty());
+    assert!(store.chosen_addition_fixes().expect("none").is_empty());
+
+    // Chosen, then placed: the fix no longer waits, and its branch is left to give back.
+    let chosen = RepairRecord {
+        choice: Some(FixChoice::ThisBranch),
+        ..record
+    };
+    store
+        .settle_addition_repair(&id, "a1", &ready, &chosen)
+        .expect("chosen");
+    assert_eq!(store.chosen_addition_fixes().expect("chosen").len(), 1);
+    assert!(store
+        .addition_repair_branches_left()
+        .expect("none yet")
+        .is_empty());
+    let passed = Fired {
+        state: TriggerState::Passed,
+        ended_at: Some(at("05")),
+        ..ready
+    };
+    store
+        .settle_addition_repair(&id, "a1", &passed, &chosen)
+        .expect("placed");
+    assert!(store.chosen_addition_fixes().expect("none").is_empty());
+    assert_eq!(
+        store.addition_repair_branches_left().expect("left").len(),
+        1
+    );
+    let back = store.job_additions(&id).expect("read").remove(0);
+    assert_eq!(
+        back.fired.map(|fired| fired.state),
+        Some(TriggerState::Passed)
+    );
 }

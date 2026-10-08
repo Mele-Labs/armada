@@ -119,7 +119,7 @@ pub use reading_in::{
     FORGE_HOST, MOST_ISSUES, SESSIONS,
 };
 pub use reclaim::{
-    delete_branch, reclaim, standing, BranchGone, BranchRefused, BranchStanding, Reclaimed,
+    delete_branch, delete_repair_branch, reclaim, standing, BranchGone, BranchRefused, BranchStanding, Reclaimed,
     RepoUnreadable, Standing, UnmergedWork, WorktreeGone, WorktreeStanding,
 };
 pub use remembering::{personal_settings, remember_the_rule, Remembered, PERSONAL_SETTINGS};

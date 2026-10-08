@@ -66,7 +66,10 @@ impl Authoring for FakeDaemon {
         }
         Err(Refusal::IllegalMove(ipc::WireError::raised(
             "fleet.no_fix_waiting",
-            format!("no fix for `{}` is waiting on a choice", choose.trigger),
+            format!(
+                "no fix for `{}` is waiting on a choice",
+                choose.trigger.or(choose.addition).unwrap_or_default()
+            ),
             crate::tests::shapes::run_id(),
         )))
     }
@@ -110,6 +113,7 @@ impl Authoring for FakeDaemon {
             ended_at: None,
             log_at: None,
             kept: None,
+            repair_record: None,
         })
     }
 

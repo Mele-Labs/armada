@@ -128,6 +128,8 @@ pub struct FakeVcs {
     dropped_bases: Mutex<Vec<String>>,
     /// The branch each lease that took a slot was cut from, in order.
     cut_from: Mutex<Vec<String>>,
+    /// Every repair branch this fake was asked to delete, in order.
+    deleted_branches: Mutex<Vec<String>>,
 }
 
 /// What the fake's version control looks like from the delivery side.
@@ -226,6 +228,11 @@ impl FakeVcs {
     /// pool's base as the lease was asked. Spike 022, slice 4.
     pub fn cut_from(&self) -> Vec<String> {
         self.cut_from.lock().expect("not poisoned").clone()
+    }
+
+    /// Every repair branch this fake was asked to delete, in order.
+    pub fn deleted_branches(&self) -> Vec<String> {
+        self.deleted_branches.lock().expect("not poisoned").clone()
     }
 
     /// Put a ref at a commit, so a base can be resolved without a repository.
@@ -1041,6 +1048,17 @@ impl Vcs for FakeVcs {
         job_id: &str,
     ) -> Result<adapter_traits::SlotParked, adapter_traits::SlotParkRefused> {
         self.slots.park(pool, slot, job_id)
+    }
+
+    fn delete_repair_branch(
+        &self,
+        spec: &WorktreeSpec,
+    ) -> Result<bool, adapter_traits::BranchKept> {
+        self.deleted_branches
+            .lock()
+            .expect("not poisoned")
+            .push(spec.branch());
+        Ok(true)
     }
 
     fn park_hosted_slot(

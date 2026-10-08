@@ -293,12 +293,20 @@ pub struct TriggerRepair {
     pub pull_request: Option<TriggerPullRequest>,
 }
 
-/// `choose_trigger_fix`'s body: which of a Job's Triggers holds a fix, and
-/// where it goes.
+/// `choose_trigger_fix`'s body: which of a Job's Triggers or added steps holds
+/// a fix, and where it goes. **Exactly one** of `trigger` and `addition` is
+/// set, as `HoldAct`'s.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ChooseTriggerFix {
     /// The Trigger's name. The latest firing of it that holds a fix is the one.
-    pub trigger: String,
+    /// Always sent before 23.72, and still the only name a Bridge before it
+    /// knows.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub trigger: Option<String>,
+    /// An added step's id, where it is an added step whose fix waits. Since
+    /// 23.72.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub addition: Option<String>,
     pub choice: TriggerFixChoice,
 }
 

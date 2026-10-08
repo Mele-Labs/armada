@@ -7,8 +7,8 @@
 //! removing keeps the row.
 
 use core_model::{
-    AddedKind, AddedStep, Fired, JobId, Kept, NotRun, OnTriggerFailure, Placed, StepId, Timestamp,
-    TriggerState, TriggerWhen,
+    AddedKind, AddedStep, Fired, FixChoice, JobId, Kept, NotRun, OnTriggerFailure, Placed,
+    RepairRecord, StepId, Timestamp, TriggerState, TriggerWhen,
 };
 
 use crate::error::{fault, LoadJobError, RowError, WriteError};
@@ -90,11 +90,13 @@ fn insert(
         added_at: at.clone(),
         fired: None,
         kept: None,
+        repair: RepairRecord::default(),
     })
 }
 
 /// One row as SQLite hands it back, before its words become types.
 struct Row {
+    job: String,
     id: String,
     kind: String,
     text: String,
@@ -111,6 +113,13 @@ struct Row {
     began: Option<String>,
     ended: Option<String>,
     kept: Option<String>,
+    repair_state: Option<String>,
+    tries: u32,
+    branch: Option<String>,
+    choice: Option<String>,
+    pull_request: Option<String>,
+    settled: Option<String>,
+    files: String,
 }
 
 impl Row {
@@ -132,6 +141,14 @@ impl Row {
             began: row.get(13)?,
             ended: row.get(14)?,
             kept: row.get(15)?,
+            repair_state: row.get(16)?,
+            tries: row.get(17)?,
+            branch: row.get(18)?,
+            choice: row.get(19)?,
+            pull_request: row.get(20)?,
+            settled: row.get(21)?,
+            files: row.get(22)?,
+            job: row.get(23)?,
         })
     }
 
@@ -149,6 +166,9 @@ impl Row {
                     (Some("by_owner"), _) => Some(NotRun::ByOwner),
                     (Some(other), _) => return Err(unknown("not_run_why", other.to_string())),
                 };
+                // A repair in flight reads over `running`, which is all the
+                // state column can hold of it.
+                let state = self.repair_state.unwrap_or(state);
                 Some(Fired {
                     state: TriggerState::from_wire(&state)
                         .ok_or_else(|| unknown("state", state))?,
@@ -162,6 +182,20 @@ impl Row {
         let kept = match self.kept {
             None => None,
             Some(kept) => Some(Kept::from_wire(&kept).ok_or_else(|| unknown("kept", kept))?),
+        };
+        let choice = match self.choice {
+            None => None,
+            Some(choice) => {
+                Some(FixChoice::from_wire(&choice).ok_or_else(|| unknown("fix_choice", choice))?)
+            }
+        };
+        let repair = RepairRecord {
+            tries: self.tries,
+            branch: self.branch,
+            choice,
+            pull_request: self.pull_request,
+            settled_at: self.settled.map(Timestamp::from_rfc3339),
+            files: self.files.lines().map(str::to_string).collect(),
         };
         Ok(AddedStep {
             id: self.id,
@@ -179,6 +213,7 @@ impl Row {
             added_at: Timestamp::from_rfc3339(self.added),
             fired,
             kept,
+            repair,
         })
     }
 }
@@ -237,18 +272,74 @@ impl Store {
     /// Every addition this Job holds, in the order they were added. A removed
     /// one is not here.
     pub fn job_additions(&self, job_id: &JobId) -> Result<Vec<AddedStep>, LoadJobError> {
+        Ok(self
+            .additions_where("job_id = ?1 AND removed_at IS NULL", &[&job_id.as_str()])?
+            .into_iter()
+            .map(|(_, added)| added)
+            .collect())
+    }
+
+    /// Additions whose repair has not finished: `repairing`, or `rerunning` on
+    /// either branch. What a restarted Fleet takes up again.
+    pub fn unfinished_addition_repairs(&self) -> Result<Vec<(JobId, AddedStep)>, LoadJobError> {
+        self.additions_where(
+            "removed_at IS NULL AND repair_state IN ('repairing', 'rerunning')",
+            &[],
+        )
+    }
+
+    /// Fixes the owner chose a place for that have not been placed yet.
+    pub fn chosen_addition_fixes(&self) -> Result<Vec<(JobId, AddedStep)>, LoadJobError> {
+        self.additions_where(
+            "removed_at IS NULL AND repair_state = 'fix_ready' AND fix_choice IS NOT NULL",
+            &[],
+        )
+    }
+
+    /// What waits on a person among added steps, by the rule
+    /// [`repairs_waiting_on_a_person`](Store::repairs_waiting_on_a_person) has
+    /// for Triggers: a fix with no choice, and a step that failed or holds its
+    /// Job after a repair was tried. A Job whose disk was given back has none.
+    pub fn additions_waiting_on_a_person(&self) -> Result<Vec<(JobId, AddedStep)>, LoadJobError> {
+        self.additions_where(
+            "removed_at IS NULL
+             AND job_id IN (SELECT job_id FROM jobs WHERE reclaimed_at IS NULL)
+             AND ((state IN ('failed', 'held') AND repair_tries > 0)
+                  OR (repair_state = 'fix_ready' AND fix_choice IS NULL))",
+            &[],
+        )
+    }
+
+    /// Additions whose repair ended and left its branch behind: placed on the
+    /// Job's, or failed. **Never a `new_pr` one**, whose branch is the pull
+    /// request's head.
+    pub fn addition_repair_branches_left(&self) -> Result<Vec<(JobId, AddedStep)>, LoadJobError> {
+        self.additions_where(
+            "repair_branch IS NOT NULL AND repair_state IS NULL
+             AND state IN ('passed', 'failed', 'held')
+             AND (fix_choice IS NULL OR fix_choice = 'this_branch')",
+            &[],
+        )
+    }
+
+    fn additions_where(
+        &self,
+        clause: &str,
+        params: &[&dyn rusqlite::ToSql],
+    ) -> Result<Vec<(JobId, AddedStep)>, LoadJobError> {
         let mut statement = self
             .conn
-            .prepare(
+            .prepare(&format!(
                 "SELECT addition_id, kind, runs_text, moment, step_id, block_on_fail,
                      repair_on_fail, placed, added_at, state, not_run_why, not_run_name,
-                     exit_code, started_at, ended_at, kept
-                 FROM job_additions WHERE job_id = ?1 AND removed_at IS NULL ORDER BY ordinal",
-            )
+                     exit_code, started_at, ended_at, kept, repair_state, repair_tries,
+                     repair_branch, fix_choice, fix_pr, repair_settled_at, fix_files, job_id
+                 FROM job_additions WHERE {clause} ORDER BY job_id, ordinal"
+            ))
             .map_err(fault("reading a job's added steps"))
             .map_err(LoadJobError::Database)?;
         let rows = statement
-            .query_map((job_id.as_str(),), Row::of)
+            .query_map(params, Row::of)
             .map_err(fault("reading a job's added steps"))
             .map_err(LoadJobError::Database)?;
         let mut out = Vec::new();
@@ -256,7 +347,8 @@ impl Store {
             let row = row
                 .map_err(fault("reading a job's added steps"))
                 .map_err(LoadJobError::Database)?;
-            out.push(row.typed()?);
+            let job = JobId::carried(core_model::Ulid::carried(row.job.clone()));
+            out.push((job, row.typed()?));
         }
         Ok(out)
     }
@@ -278,24 +370,82 @@ impl Store {
             Some(NotRun::ByOwner) => (Some("by_owner"), None),
             None => (None, None),
         };
+        // A repair in flight is `repair_state` over a `running` row, which is
+        // all the CHECK on `state` allows; anything else ends it.
+        let (state, in_flight) = match fired.state {
+            TriggerState::Repairing | TriggerState::Rerunning | TriggerState::FixReady => {
+                (TriggerState::Running, Some(fired.state.as_wire()))
+            }
+            other => (other, None),
+        };
         self.conn
             .execute(
                 "UPDATE job_additions
                  SET state = ?3, not_run_why = ?4, not_run_name = ?5, exit_code = ?6,
-                     started_at = ?7, ended_at = ?8
+                     started_at = ?7, ended_at = ?8, repair_state = ?9
                  WHERE job_id = ?1 AND addition_id = ?2",
                 rusqlite::params![
                     job_id.as_str(),
                     addition_id,
-                    fired.state.as_wire(),
+                    state.as_wire(),
                     why,
                     named,
                     fired.exit_code,
                     fired.started_at.as_str(),
                     fired.ended_at.as_ref().map(Timestamp::as_str),
+                    in_flight,
                 ],
             )
             .map_err(fault("recording how an added step went"))
+            .map_err(WriteError::Database)?;
+        Ok(())
+    }
+
+    /// Write what an addition's repair has come to: its state, the repair's own
+    /// record, and when it ended where it has.
+    pub fn settle_addition_repair(
+        &mut self,
+        job_id: &JobId,
+        addition_id: &str,
+        fired: &Fired,
+        repair: &RepairRecord,
+    ) -> Result<(), WriteError> {
+        self.set_addition_fired(job_id, addition_id, fired)?;
+        self.conn
+            .execute(
+                "UPDATE job_additions SET repair_tries = ?3, repair_branch = ?4, fix_choice = ?5,
+                     fix_pr = ?6, repair_settled_at = ?7, fix_files = ?8
+                 WHERE job_id = ?1 AND addition_id = ?2",
+                rusqlite::params![
+                    job_id.as_str(),
+                    addition_id,
+                    repair.tries,
+                    repair.branch,
+                    repair.choice.map(FixChoice::as_wire),
+                    repair.pull_request,
+                    repair.settled_at.as_ref().map(Timestamp::as_str),
+                    repair.files.join("\n"),
+                ],
+            )
+            .map_err(fault("recording an added step's repair"))
+            .map_err(WriteError::Database)?;
+        Ok(())
+    }
+
+    /// Set the `released` mark on an addition a repair let go, for the next
+    /// entry to a `step_starts` moment to pass it by.
+    pub fn mark_addition_hold_released(
+        &mut self,
+        job_id: &JobId,
+        addition_id: &str,
+    ) -> Result<(), WriteError> {
+        self.conn
+            .execute(
+                "UPDATE job_additions SET released = 1
+                 WHERE job_id = ?1 AND addition_id = ?2 AND moment = 'step_starts'",
+                (job_id.as_str(), addition_id),
+            )
+            .map_err(fault("recording that a repair let a hold go"))
             .map_err(WriteError::Database)?;
         Ok(())
     }

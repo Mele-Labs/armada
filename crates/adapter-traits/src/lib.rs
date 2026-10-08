@@ -82,7 +82,7 @@ pub use setup::{
     HarnessSetup, Inventory, KindRead, SetupFiles, SetupItem, SetupKind, Unreadable, WhatWasRead,
 };
 pub use slots::{
-    CommitHome, RescueRefused, SlotChange, SlotCommit, SlotHeld, SlotKept, SlotLeased,
+    BranchKept, CommitHome, RescueRefused, SlotChange, SlotCommit, SlotHeld, SlotKept, SlotLeased,
     SlotParkRefused, SlotParked, SlotPool, SlotReading, SlotRefused, SlotRescue, SlotRescued,
     SlotStanding, StrandedWork,
 };
@@ -424,6 +424,14 @@ pub trait Vcs {
     /// the tree holds anything uncommitted, or commits its branch, the remote
     /// and the base all lack. Refused, the slot stays held and says why.
     fn release_slot(&self, pool: &SlotPool, slot: u32, job_id: &str) -> Result<(), SlotKept>;
+
+    /// Delete the local branch a repair Drone wrote on, once its fix is merged
+    /// onto the Job's branch or the repair ended failed. **Handed the spec the
+    /// branch was cut from and never a name**, so it can delete one repair's
+    /// branch and no other; a branch already gone is not an error. Refused while a
+    /// slot still has it checked out, and the branch stays. `true` where it was
+    /// deleted now and `false` where it was gone already.
+    fn delete_repair_branch(&self, spec: &WorktreeSpec) -> Result<bool, BranchKept>;
 
     /// Write on the slot this Job holds that the Job completed, so
     /// `armada worktree --status` reads it as held until a person clears the

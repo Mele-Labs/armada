@@ -13,7 +13,7 @@ use alloc::string::String;
 
 use crate::envelope::Timestamp;
 use crate::job::{FrozenWorkflow, Job, JobStatus, StepId, StepState};
-use crate::trigger::{OnTriggerFailure, TriggerState, TriggerWhen};
+use crate::trigger::{can_hold, OnTriggerFailure, RepairRecord, TriggerState, TriggerWhen};
 
 /// What an added step runs.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -173,17 +173,26 @@ impl Fired {
         }
     }
 
-    /// Ended. **Zero is the only pass**, as for a Trigger. A failure of one that
-    /// `blocks` is [`TriggerState::Held`].
-    pub fn ended(self, exit_code: Option<i32>, blocks: bool, at: Timestamp) -> Fired {
+    /// Ended. **Zero is the only pass**, as for a Trigger. A failure of one with
+    /// `repairs` on is [`TriggerState::Repairing`] and has no end, since the
+    /// repair is what settles it. One that `blocks` is [`TriggerState::Held`].
+    pub fn ended(
+        self,
+        exit_code: Option<i32>,
+        blocks: bool,
+        repairs: bool,
+        at: Timestamp,
+    ) -> Fired {
+        let (state, ended_at) = match exit_code {
+            Some(0) => (TriggerState::Passed, Some(at)),
+            _ if repairs => (TriggerState::Repairing, None),
+            _ if blocks => (TriggerState::Held, Some(at)),
+            _ => (TriggerState::Failed, Some(at)),
+        };
         Fired {
-            state: match exit_code {
-                Some(0) => TriggerState::Passed,
-                _ if blocks => TriggerState::Held,
-                _ => TriggerState::Failed,
-            },
+            state,
             exit_code,
-            ended_at: Some(at),
+            ended_at,
             ..self
         }
     }
@@ -198,25 +207,29 @@ pub struct AddedStep {
     pub when: TriggerWhen,
     /// The step it hangs from. For [`TriggerWhen::PrOpened`], the delivering one.
     pub step: StepId,
-    /// `block` is acted on. `repair` is carried and **not acted on yet**: an
-    /// added step that fails and blocks holds at once.
+    /// `block` and `repair` are both acted on, a Script's as a Trigger's are.
     pub on_failure: OnTriggerFailure,
     pub placed: Placed,
     pub added_at: Timestamp,
     /// The latest firing. A step run again fires it again.
     pub fired: Option<Fired>,
     pub kept: Option<Kept>,
+    /// What its repair has come to. Empty for a step that never failed or has
+    /// `repair` off.
+    pub repair: RepairRecord,
 }
 
 impl AddedStep {
-    /// Whether this step holds its Job: it blocks and its latest firing failed
-    /// and was not settled.
-    pub fn holds_the_job(&self) -> bool {
+    /// Whether this step holds its Job: it blocks, a hold can stand where it
+    /// is, and its latest firing failed and was not settled. A repair under way
+    /// is still a failure nobody has settled.
+    pub fn holds_the_job(&self, workflow: &FrozenWorkflow) -> bool {
         self.on_failure.block
+            && can_hold(workflow, self.when, &self.step)
             && self
                 .fired
                 .as_ref()
-                .is_some_and(|fired| fired.state == TriggerState::Held)
+                .is_some_and(|fired| fired.state.holds_a_blocking_job())
     }
 }
 

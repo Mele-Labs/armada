@@ -72,6 +72,18 @@ impl Delivery {
     }
 }
 
+/// Whether the branch the repair Drone wrote on has done its work: its fix is
+/// merged onto the Job's branch, or the repair did not fix it. **A new pull
+/// request's branch is that pull request's head**, so it is never done with
+/// here, and a fix still waiting on a choice is not placed.
+pub fn branch_is_done_with(state: TriggerState, choice: Option<FixChoice>) -> bool {
+    match state {
+        TriggerState::Failed | TriggerState::Held => choice != Some(FixChoice::NewPr),
+        TriggerState::Passed => choice == Some(FixChoice::ThisBranch),
+        _ => false,
+    }
+}
+
 /// The repair Drone's one turn. The first line is what a Drone harness and a
 /// fake both key on, as the worktree repair's is.
 pub fn brief(
@@ -120,12 +132,44 @@ pub fn fix_waiting(trigger: &str) -> String {
     format!("`{trigger}` has a fix waiting on your choice")
 }
 
+/// What is being repaired: a firing of a Trigger, or a step added to one Job.
+/// **Both go through the same repair**, so everything that asks "which" asks
+/// this.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum Subject {
+    Firing(i64),
+    /// The addition's id, `a1` and so on.
+    Addition(String),
+}
+
+impl Subject {
+    /// What a log line calls it.
+    pub(crate) fn label(&self) -> &'static str {
+        match self {
+            Subject::Firing(_) => "Trigger",
+            Subject::Addition(_) => "Added step",
+        }
+    }
+}
+
+/// The part of a repair's names that tells one subject from another: the
+/// firing's number, or the addition's id.
+impl std::fmt::Display for Subject {
+    fn fmt(&self, out: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Subject::Firing(id) => write!(out, "{id}"),
+            Subject::Addition(id) => write!(out, "{id}"),
+        }
+    }
+}
+
 /// A failed firing waiting for a repair Drone. Held in memory: a Fleet that
 /// restarts forgets, and the firing stays `repairing` with nothing working it.
 #[derive(Debug, Clone)]
 pub(crate) struct Waiting {
     pub job: JobId,
-    pub firing: i64,
+    pub subject: Subject,
+    /// The Trigger's name, or the added step's command.
     pub trigger: String,
     pub step: StepId,
     pub command: String,

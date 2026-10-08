@@ -289,7 +289,7 @@ where
 
     /// The Command a hold would run again: the Trigger's as it now reads, or the
     /// added Script's. A skill and a Drone step have none.
-    async fn hold_command(&self, job: &Job, hold: &Hold) -> Option<String> {
+    pub(crate) async fn hold_command(&self, job: &Job, hold: &Hold) -> Option<String> {
         match hold {
             Hold::Firing { firing, .. } => self.command_of(job, firing).await,
             Hold::Addition(added) => {

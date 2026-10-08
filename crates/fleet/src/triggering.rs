@@ -15,7 +15,7 @@ use core_model::{
 use verification::Exit;
 
 use crate::daemon::Fleet;
-use crate::trigger_repair::Waiting;
+use crate::trigger_repair::{Subject, Waiting};
 
 /// Every Trigger of `resolved` that applies to this workflow, bound to each
 /// step it fires on. A `pr_opened` one is bound to the delivering step, and a
@@ -267,7 +267,7 @@ where
                 .expect("not poisoned")
                 .push(Waiting {
                     job: job.id().clone(),
-                    firing,
+                    subject: Subject::Firing(firing),
                     trigger: ended.name.clone(),
                     step: ended.step.clone(),
                     command: command.to_string(),
@@ -286,18 +286,6 @@ where
             trigger: firing.into(),
             at: (&self.now()).into(),
         }));
-    }
-
-    /// [`trigger_moved`](Fleet::trigger_moved) for a firing a repair has just
-    /// written, read back from its row so the event carries what the row holds.
-    pub(crate) async fn repair_moved(&self, job: &Job, firing_id: i64) {
-        let held = self.store().lock().await.firings_with_ids(job.id());
-        if let Some((_, firing)) = held
-            .ok()
-            .and_then(|all| all.into_iter().find(|(id, _)| *id == firing_id))
-        {
-            self.trigger_moved(job, &firing);
-        }
     }
 
     pub(crate) fn trigger_line(&self, job: &Job, level: Level, said: &str) -> Envelope {

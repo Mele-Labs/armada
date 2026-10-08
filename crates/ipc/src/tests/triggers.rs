@@ -4,8 +4,9 @@
 use crate::tests::{detail_of, job};
 use crate::{
     decode, encode, ChooseTriggerFix, Event, HoldAct, HoldSettled, Instant, JobAlert, JobAlertKind,
-    JobTrigger, JobTriggerChanged, SaveTrigger, StepId, TriggerFiringState, TriggerFixChoice, TriggerFixChosen, TriggerLevel, TriggerMoment,
-    TriggerPullRequest, TriggerRepair, TriggerSkip, TriggerSkipReason,
+    JobTrigger, JobTriggerChanged, SaveTrigger, StepId, TriggerFiringState, TriggerFixChoice,
+    TriggerFixChosen, TriggerLevel, TriggerMoment, TriggerPullRequest, TriggerRepair, TriggerSkip,
+    TriggerSkipReason,
 };
 
 fn a_failed_firing() -> JobTrigger {
@@ -82,6 +83,8 @@ fn the_choice_is_a_body_and_the_answer_says_where_the_firing_stands() {
     let body: ChooseTriggerFix =
         decode("a choice", br#"{"trigger":"tidy","choice":"this_branch"}"#).expect("decodes");
     assert_eq!(body.choice, TriggerFixChoice::ThisBranch);
+    assert_eq!(body.trigger.as_deref(), Some("tidy"));
+    assert_eq!(body.addition, None);
     let said = encode(&TriggerFixChosen {
         state: TriggerFiringState::Rerunning,
         pull_request: None,
@@ -197,7 +200,9 @@ fn a_held_trigger_says_it_blocks_and_one_that_does_not_leaves_it_out() {
     assert_eq!(encode(&a_held_firing()).expect("encodes"), HELD);
     let back: JobTrigger = decode("a trigger", HELD.as_bytes()).expect("decodes");
     assert_eq!(back, a_held_firing());
-    assert!(!encode(&a_failed_firing()).expect("encodes").contains("blocks"));
+    assert!(!encode(&a_failed_firing())
+        .expect("encodes")
+        .contains("blocks"));
     let before: JobTrigger = decode("a trigger", FIRED.as_bytes()).expect("decodes");
     assert!(!before.blocks, "a Fleet before 23.68 sends none");
 }
@@ -231,7 +236,10 @@ fn the_bell_on_a_row_names_the_trigger_and_where_it_fired() {
 #[test]
 fn the_two_acts_name_a_trigger_or_an_added_step_and_the_answer_says_where_it_stands() {
     let body: HoldAct = decode("a hold", br#"{"trigger":"deploy"}"#).expect("decodes");
-    assert_eq!((body.trigger.as_deref(), body.addition), (Some("deploy"), None));
+    assert_eq!(
+        (body.trigger.as_deref(), body.addition),
+        (Some("deploy"), None)
+    );
     let body: HoldAct = decode("a hold", br#"{"addition":"a1"}"#).expect("decodes");
     assert_eq!(body.addition.as_deref(), Some("a1"));
     let said = encode(&HoldSettled {
@@ -240,7 +248,24 @@ fn the_two_acts_name_a_trigger_or_an_added_step_and_the_answer_says_where_it_sta
     })
     .expect("encodes");
     assert_eq!(said, r#"{"state":"skipped","released":true}"#);
-    let back: TriggerSkip = decode("a skip", br#"{"reason":"by_owner","name":"","said":"skipped by you while it held the Job"}"#)
-        .expect("decodes");
+    let back: TriggerSkip = decode(
+        "a skip",
+        br#"{"reason":"by_owner","name":"","said":"skipped by you while it held the Job"}"#,
+    )
+    .expect("decodes");
     assert_eq!(back.reason, TriggerSkipReason::ByOwner);
+}
+
+#[test]
+fn a_fix_is_named_by_a_trigger_or_by_an_added_step_and_the_old_body_is_still_read() {
+    let step: ChooseTriggerFix =
+        decode("a choice", br#"{"addition":"a1","choice":"new_pr"}"#).expect("decodes");
+    assert_eq!((step.trigger, step.addition.as_deref()), (None, Some("a1")));
+    let sent = encode(&ChooseTriggerFix {
+        trigger: None,
+        addition: Some("a1".into()),
+        choice: TriggerFixChoice::NewPr,
+    })
+    .expect("encodes");
+    assert_eq!(sent, r#"{"addition":"a1","choice":"new_pr"}"#);
 }

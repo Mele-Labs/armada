@@ -4,7 +4,7 @@
 // An addition sits beside the Job's frozen workflow and never in it, so it is on `JobDetail.additions`
 // and not in the workflow's steps.
 
-import type { TriggerFiringState, TriggerMoment, TriggerScope } from "./triggers";
+import type { TriggerFiringState, TriggerMoment, TriggerRepair, TriggerScope } from "./triggers";
 
 /**
  * What an added step runs. A Skill is recorded `skipped`, as a skill Trigger is, and so is a Drone
@@ -61,6 +61,11 @@ export type AddedStep = {
   log_at?: string;
   /** Where it was kept for every Job, once it was. */
   kept?: TriggerScope;
+  /**
+   * What its repair has come to, as `JobTrigger.repair` carries a Trigger's. Present from the first
+   * repair Drone. Since 23.72. (`repair` above is whether the step asks for one.)
+   */
+  repair_record?: TriggerRepair;
 };
 
 /** `save_trigger`'s `kept_from`: the addition the save keeps for every Job. A Script or a Skill only. */

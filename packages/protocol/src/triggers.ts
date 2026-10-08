@@ -127,8 +127,11 @@ export type TriggerRepair = {
   pull_request?: TriggerPullRequest;
 };
 
-/** `choose_trigger_fix`'s body: the Trigger's name, and where its held fix goes. */
-export type ChooseTriggerFix = { trigger: string; choice: TriggerFixChoice };
+/**
+ * `choose_trigger_fix`'s body: which fix, and where it goes. Exactly one of `trigger` (a Trigger's
+ * name) and `addition` (an added step's id, since 23.72) is set, as `HoldAct`'s are.
+ */
+export type ChooseTriggerFix = { trigger?: string; addition?: string; choice: TriggerFixChoice };
 
 /** What the act came to: where the firing stands now. `fix_ready` is a choice kept until it can be placed. */
 export type TriggerFixChosen = { state: TriggerFiringState; pull_request?: TriggerPullRequest };

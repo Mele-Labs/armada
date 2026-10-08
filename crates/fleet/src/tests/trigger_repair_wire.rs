@@ -99,7 +99,8 @@ async fn the_act_is_refused_for_a_trigger_that_is_not_fix_ready() {
     let id = to_the_delivering_step(&fleet, &home).await;
     let job = ipc::JobId::from(&id);
     let ask = || ipc::ChooseTriggerFix {
-        trigger: "deploy".into(),
+        trigger: Some("deploy".into()),
+        addition: None,
         choice: ipc::TriggerFixChoice::NewPr,
     };
 
@@ -113,7 +114,7 @@ async fn the_act_is_refused_for_a_trigger_that_is_not_fix_ready() {
 
     // A Trigger the Job does not have is the same answer.
     let other = ipc::ChooseTriggerFix {
-        trigger: "nothing".into(),
+        trigger: Some("nothing".into()),
         ..ask()
     };
     let refused = Arc::clone(&fleet)

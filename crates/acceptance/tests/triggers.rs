@@ -13,6 +13,7 @@
 //! | A machine `pr_opened` Trigger is frozen onto the delivering step of any workflow, runs its Command once and is recorded passed | That the frozen set is written at the approval and survives a restart. `store`'s own tests and `fleet::tests::triggering` |
 //! | A Command that exits non-zero is recorded failed, or `repairing` with `repair` on, and the Job stays where it was. A repair is told what failed, is bound at two tries, holds a passing fix for the owner, and each choice is a different delivery | A Drone on a branch, a push, a merge and the alert: `fleet::tests::trigger_repair` drives those with a fake Drone and `FakeVcs` |
 //! | A Trigger that blocks and fails is `held` and holds the Job, through a repair and until a rerun passes, the owner skips it or a repair ends passed. A failure that does not block holds nothing, and neither does the last step's `step_passes` | Where each moment holds, the rerun, the skip and the refusals: `fleet::tests::trigger_hold` drives a Job through each, and the walk `aTriggerHoldsTheJob` is Bridge's |
+//! | A step added to one Job that fails with `repair` on is `repairing` and not ended, as a Trigger is, and holds the Job through it when it blocks. The branch a repair wrote on is done with once its fix is on the Job's branch or the repair failed, and never when it is a pull request's head | The repair itself, the owner's choice and the branch's deletion for an added step: `fleet::tests::addition_repair` drives them, and `adapters` deletes against a real repository |
 //! | A Trigger on a Command this repository does not declare is recorded skipped, and a destructive one waits on the owner and is not run | That the owner is asked. Nothing asks him yet |
 //! | A pull request opens as a draft by the most specific default there is: the Job's own choice, the delivering step's `draft_pr`, the repository's `pr_mode`, this machine's, then ready. `draft_pr` is refused on a step that does not deliver | That Fleet opens the pull request as a draft once approved. `crates/fleet/src/tests/choosing_delivery.rs` drives the fake VCS |
 
@@ -37,8 +38,8 @@ use verification::{Exit, NeverRan};
 mod bench;
 
 use bench::board::on_its_branch;
-use bench::plan::Planned as PlannedJob;
 use bench::landing::sends_it_out;
+use bench::plan::Planned as PlannedJob;
 use bench::{a_fix_diff, a_root_cause_note, Bench, Run};
 
 const MANIFEST: &str = "version: 1\nid: armada\ncommands:\n  fmt:\n    run: cargo fmt\n  \
@@ -636,7 +637,10 @@ async fn a_blocking_trigger_that_fails_holds_the_job_until_it_is_let_go() {
 
     let held = one(BLOCKING_DEPLOY);
     assert_eq!(held.state, TriggerState::Held);
-    assert!(held.ended_at.is_some(), "the failure ended; the hold did not");
+    assert!(
+        held.ended_at.is_some(),
+        "the failure ended; the hold did not"
+    );
     assert!(held.holds_the_job());
     // The Job a person sees is where it was: the hold stands in front of the gate.
     assert_eq!(run.job.status(), JobStatus::Running);
@@ -653,9 +657,15 @@ async fn a_blocking_trigger_that_fails_holds_the_job_until_it_is_let_go() {
     );
     assert_eq!(repairing.state, TriggerState::Repairing);
     assert!(repairing.holds_the_job());
-    assert_eq!(repairing.settled_as(TriggerState::Failed), TriggerState::Held);
+    assert_eq!(
+        repairing.settled_as(TriggerState::Failed),
+        TriggerState::Held
+    );
     assert_eq!(plain.settled_as(TriggerState::Failed), TriggerState::Failed);
-    assert_eq!(repairing.settled_as(TriggerState::Passed), TriggerState::Passed);
+    assert_eq!(
+        repairing.settled_as(TriggerState::Passed),
+        TriggerState::Passed
+    );
 
     // The owner's skip is a record of who, and it holds nothing.
     let skipped = held.skipped_by_the_owner(at(9));
@@ -666,8 +676,117 @@ async fn a_blocking_trigger_that_fails_holds_the_job_until_it_is_let_go() {
     // Nothing stands in front of the end of a Job's last step.
     let last = run.job.workflow().steps().last().expect("a step");
     let first = run.job.workflow().steps().first().expect("a step");
-    assert!(core_model::can_hold(run.job.workflow(), TriggerWhen::StepStarts, first.id()));
-    assert!(core_model::can_hold(run.job.workflow(), TriggerWhen::StepPasses, first.id()));
-    assert!(core_model::can_hold(run.job.workflow(), TriggerWhen::PrOpened, delivering.id()));
-    assert!(!core_model::can_hold(run.job.workflow(), TriggerWhen::StepPasses, last.id()));
+    assert!(core_model::can_hold(
+        run.job.workflow(),
+        TriggerWhen::StepStarts,
+        first.id()
+    ));
+    assert!(core_model::can_hold(
+        run.job.workflow(),
+        TriggerWhen::StepPasses,
+        first.id()
+    ));
+    assert!(core_model::can_hold(
+        run.job.workflow(),
+        TriggerWhen::PrOpened,
+        delivering.id()
+    ));
+    assert!(!core_model::can_hold(
+        run.job.workflow(),
+        TriggerWhen::StepPasses,
+        last.id()
+    ));
+}
+
+/// An added step is repaired as a Trigger is: the same state, the same hold, the
+/// same rule for what becomes of the branch.
+#[tokio::test]
+async fn an_added_step_that_fails_with_repair_on_goes_through_the_triggers_repair() {
+    use core_model::{AddedKind, AddedStep, Fired, OnTriggerFailure, Placed, RepairRecord};
+
+    let run = a_job_entering_its_delivering_step().await;
+    let workflow = run.job.workflow();
+    let first = workflow.steps().first().expect("a step").id().clone();
+    let last = workflow.steps().last().expect("a step").id().clone();
+    let added = |block: bool, repair: bool, when: TriggerWhen, step: &StepId| AddedStep {
+        id: "a1".to_string(),
+        kind: AddedKind::Script {
+            command: "deploy_qa".to_string(),
+        },
+        when,
+        step: step.clone(),
+        on_failure: OnTriggerFailure { block, repair },
+        placed: Placed::WhileRunning,
+        added_at: at(0),
+        fired: None,
+        kept: None,
+        repair: RepairRecord::default(),
+    };
+    let failing = |one: AddedStep| AddedStep {
+        fired: Some(Fired::running(at(1)).ended(
+            Some(1),
+            one.on_failure.block,
+            one.on_failure.repair,
+            at(2),
+        )),
+        ..one
+    };
+
+    // With `repair` on the failure is `repairing` and has no end, as a Trigger's.
+    let repairing = failing(added(false, true, TriggerWhen::StepPasses, &first));
+    let fired = repairing.fired.as_ref().expect("fired");
+    assert_eq!(
+        (fired.state, fired.ended_at.clone()),
+        (TriggerState::Repairing, None)
+    );
+    assert!(!repairing.holds_the_job(workflow), "it does not block");
+
+    // Without it, a failure that blocks is held at once, and one that does not is failed.
+    let held = failing(added(true, false, TriggerWhen::StepPasses, &first));
+    assert_eq!(
+        held.fired.as_ref().map(|f| f.state),
+        Some(TriggerState::Held)
+    );
+    assert!(held.holds_the_job(workflow));
+    let plain = failing(added(false, false, TriggerWhen::StepPasses, &first));
+    assert_eq!(
+        plain.fired.as_ref().map(|f| f.state),
+        Some(TriggerState::Failed)
+    );
+
+    // A step that blocks holds the Job through every state of the repair.
+    let mut blocking = failing(added(true, true, TriggerWhen::StepPasses, &first));
+    for state in [
+        TriggerState::Repairing,
+        TriggerState::Rerunning,
+        TriggerState::FixReady,
+        TriggerState::Held,
+    ] {
+        blocking.fired = blocking.fired.map(|fired| Fired { state, ..fired });
+        assert!(blocking.holds_the_job(workflow), "{state:?}");
+    }
+    blocking.fired = blocking.fired.map(|fired| Fired {
+        state: TriggerState::Passed,
+        ..fired
+    });
+    assert!(
+        !blocking.holds_the_job(workflow),
+        "a repair that passed lets it go"
+    );
+
+    // Nothing stands in front of the end of the last step, here as for a Trigger.
+    let at_the_end = failing(added(true, true, TriggerWhen::StepPasses, &last));
+    assert!(!at_the_end.holds_the_job(workflow));
+
+    // The branch a repair wrote on is done with once its fix is on the Job's
+    // branch or the repair failed, and a new pull request's is that pull
+    // request's head.
+    let done = trigger_repair::branch_is_done_with;
+    assert!(done(TriggerState::Passed, Some(FixChoice::ThisBranch)));
+    assert!(done(TriggerState::Failed, None));
+    assert!(done(TriggerState::Held, None));
+    assert!(done(TriggerState::Failed, Some(FixChoice::ThisBranch)));
+    assert!(!done(TriggerState::Passed, Some(FixChoice::NewPr)));
+    assert!(!done(TriggerState::FixReady, None));
+    assert!(!done(TriggerState::Repairing, None));
 }

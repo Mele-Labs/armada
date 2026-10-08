@@ -6,23 +6,26 @@
 //! `rerunning` is queued again and its interrupted attempt is redone. One
 //! found `rerunning` after the owner chose goes back to `fix_ready`, with the
 //! choice kept, and is placed again. A slot still held by a repair that no
-//! firing is working is given back.
+//! firing is working is given back, and so is the branch of a repair that ended
+//! before its branch was deleted. An added step's repair is taken up the same way.
 
 use std::collections::BTreeSet;
 
 use adapter_traits::{AgentHarness, Delivery, SlotHeld, Vcs, WorkProduct};
-use core_model::{RepairRecord, TriggerState};
+use core_model::{JobId, RepairRecord, TriggerState};
 
 use crate::daemon::Fleet;
 use crate::repairing::holder_of;
+use crate::trigger_hold::Hold;
 use crate::trigger_repair::Waiting;
 
 /// The Job a repair's slot holder names, where it is one. `holder_of` writes
-/// `<job id>-repair-<firing>`.
+/// `<job id>-repair-<firing or added step>`.
 pub(crate) fn job_of_holder(holder: &str) -> Option<&str> {
     let holder = holder.strip_suffix("-onto").unwrap_or(holder);
-    let (job, firing) = holder.rsplit_once("-repair-")?;
-    firing.parse::<i64>().ok().map(|_| job)
+    let (job, subject) = holder.rsplit_once("-repair-")?;
+    // A firing's number, or an added step's `a1`.
+    (!subject.is_empty() && subject.chars().all(|c| c.is_ascii_alphanumeric())).then_some(job)
 }
 
 impl<H, V, W> Fleet<H, V, W>
@@ -38,52 +41,59 @@ where
     /// Queue every unfinished repair again, and give back the slots of repairs
     /// nothing is working. **Once, at start**, before the loop's first turn.
     pub async fn repairs_recovered(&self) {
-        let unfinished = self
-            .store()
-            .lock()
-            .await
-            .unfinished_repairs()
-            .unwrap_or_default();
+        let unfinished: Vec<(JobId, Hold)> = {
+            let store = self.store().lock().await;
+            let firings = store.unfinished_repairs().unwrap_or_default();
+            let additions = store.unfinished_addition_repairs().unwrap_or_default();
+            firings
+                .into_iter()
+                .map(|(job, id, firing)| (job, Hold::Firing { id, firing }))
+                .chain(
+                    additions
+                        .into_iter()
+                        .map(|(job, added)| (job, Hold::Addition(added))),
+                )
+                .collect()
+        };
         let mut working = BTreeSet::new();
-        for (job_id, firing_id, firing) in unfinished {
+        for (job_id, hold) in unfinished {
             let Ok(job) = self.load(&job_id).await else {
                 continue;
             };
-            if firing.repair.choice.is_some() {
+            let subject = hold.subject();
+            if hold.record().choice.is_some() {
                 // Chosen, and the rerun on the Job's branch was cut short.
                 let kept = RepairRecord {
                     settled_at: Some(self.now()),
-                    ..firing.repair.clone()
+                    ..hold.record().clone()
                 };
-                let _ = self.store().lock().await.settle_repair(
-                    firing_id,
-                    TriggerState::FixReady,
-                    &kept,
-                    None,
-                );
-                self.repair_moved(&job, firing_id).await;
+                let _ = self
+                    .repair_settled(&job, &subject, TriggerState::FixReady, &kept, false)
+                    .await;
+                self.repair_moved(&job, &subject).await;
                 continue;
             }
-            let Some(command) = self.command_of(&job, &firing).await else {
+            let Some(command) = self.hold_command(&job, &hold).await else {
                 continue;
             };
-            working.insert(holder_of(&job_id, firing_id));
+            working.insert(holder_of(&job_id, &subject));
             self.trigger_repairs()
                 .lock()
                 .expect("not poisoned")
                 .push(Waiting {
                     job: job_id,
-                    firing: firing_id,
-                    trigger: firing.name,
-                    step: firing.step,
+                    subject,
+                    trigger: hold.name(),
+                    step: hold.step().clone(),
                     command,
-                    exit: firing.exit_code,
+                    exit: hold.exit_code(),
                     stdout: String::new(),
                     stderr: String::new(),
-                    record: firing.repair,
+                    record: hold.record().clone(),
                 });
         }
         self.repair_slots_swept(&working);
+        self.repair_branches_swept().await;
     }
 
     /// Give back a slot held by a repair no firing is working: its Job was

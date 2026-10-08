@@ -14,13 +14,13 @@ use std::path::Path;
 
 use adapter_traits::{
     AgentHarness, CommitTime, Delivery, Grant, Prompt, SlotLeased, Toolbelt, Vcs, WorkProduct,
-    Worktree, WorktreeSpec,
+    Worktree,
 };
-use core_model::{Job, JobId, Level, RepairRecord, Timestamp, TriggerState};
+use core_model::{Job, JobId, Level, RepairRecord, TriggerState};
 use verification::Exit;
 
 use crate::daemon::Fleet;
-use crate::trigger_repair::{self, AfterRerun, Waiting};
+use crate::trigger_repair::{self, AfterRerun, Subject, Waiting};
 
 /// Why no slot was leased for a repair.
 enum Leasing {
@@ -37,8 +37,10 @@ fn code_of(exit: &Exit) -> Option<i32> {
     }
 }
 
-pub(crate) fn holder_of(job: &JobId, firing: i64) -> String {
-    format!("{}-repair-{firing}", job.as_str())
+/// Who holds a repair's slot: the Job, and which of its firings or added
+/// steps it is for.
+pub(crate) fn holder_of(job: &JobId, subject: &Subject) -> String {
+    format!("{}-repair-{subject}", job.as_str())
 }
 
 impl<H, V, W> Fleet<H, V, W>
@@ -102,7 +104,7 @@ where
         // Committed before this, so parking keeps the branch and gives the bay back.
         let _ = self
             .vcs()
-            .park_slot(&pool, slot, &holder_of(job.id(), waiting.firing));
+            .park_slot(&pool, slot, &holder_of(job.id(), &waiting.subject));
         match came_to {
             Ok(AfterRerun::HoldTheFix) => {
                 self.repair_ended(
@@ -143,12 +145,12 @@ where
         let from = job.branch().ok_or_else(|| {
             Leasing::Not(String::from("the Job has no branch to cut a repair from"))
         })?;
-        let handle = format!("repair-{}-{}", job.handle(), waiting.firing);
-        let spec = WorktreeSpec::for_job(served.root(), &handle)
+        let spec = self
+            .repair_spec(&served, job, &waiting.subject)
             .map_err(|why| Leasing::Not(format!("{why:?}")))?;
         self.cut_from().learn(&spec.branch(), from.as_str());
         let pool = crate::leasing::pool_cut_from(&served, Some(from));
-        let holder = holder_of(job.id(), waiting.firing);
+        let holder = holder_of(job.id(), &waiting.subject);
         // A repair a restart interrupted has its branch already.
         let leased = match record.branch.clone() {
             Some(branch) => self.vcs().lease_existing_slot(&pool, &branch, &holder),
@@ -269,18 +271,15 @@ where
         record: &RepairRecord,
         ended: bool,
     ) {
-        let at: Option<Timestamp> = ended.then(|| self.now());
         let record = RepairRecord {
             settled_at: Some(self.now()),
             ..record.clone()
         };
-        let kept =
-            self.store()
-                .lock()
-                .await
-                .settle_repair(waiting.firing, state, &record, at.as_ref());
-        match kept {
-            Ok(()) => self.repair_moved(job, waiting.firing).await,
+        match self
+            .repair_settled(job, &waiting.subject, state, &record, ended)
+            .await
+        {
+            Ok(()) => self.repair_moved(job, &waiting.subject).await,
             Err(why) => {
                 let said = format!("a Trigger's repair could not be recorded: {why}");
                 self.logged(job.id(), self.trigger_line(job, Level::Warn, &said));
@@ -297,31 +296,33 @@ where
         said: &str,
     ) {
         // A failure that was not fixed still holds the Job where the Trigger blocks.
-        let state = self.held_where_it_blocks(job, waiting.firing, state).await;
+        let state = self
+            .held_where_it_blocks(job, &waiting.subject, state)
+            .await;
         let over = matches!(state, TriggerState::Failed | TriggerState::Held);
         self.repair_kept(job, waiting, state, record, over).await;
         let level = match state {
             TriggerState::Failed | TriggerState::Held => Level::Warn,
             _ => Level::Info,
         };
-        let said = format!("Trigger `{}` {}: {said}", waiting.trigger, state.as_wire());
+        let said = format!(
+            "{} `{}` {}: {said}",
+            waiting.subject.label(),
+            waiting.trigger,
+            state.as_wire()
+        );
         self.logged(job.id(), self.trigger_line(job, level, &said));
         // A repair that ends passed lets the hold go by itself.
         if state == TriggerState::Passed {
-            let _ = self.store().lock().await.mark_hold_released(waiting.firing);
+            self.hold_released_by_repair(job.id(), &waiting.subject)
+                .await;
             self.hold_let_go(job.id(), core_model::Actor::Fleet).await;
         }
-    }
-
-    async fn held_where_it_blocks(
-        &self,
-        job: &Job,
-        firing: i64,
-        state: TriggerState,
-    ) -> TriggerState {
-        let held = self.store().lock().await.firings_with_ids(job.id());
-        held.ok()
-            .and_then(|all| all.into_iter().find(|(id, _)| *id == firing))
-            .map_or(state, |(_, firing)| firing.settled_as(state))
+        // The fix is on the Job's branch, or it did not fix anything: either
+        // way the branch the repair Drone wrote on has done its work.
+        if trigger_repair::branch_is_done_with(state, record.choice) {
+            self.repair_branch_given_back(job, &waiting.subject, record)
+                .await;
+        }
     }
 }
