@@ -177,6 +177,16 @@ another session's, one line for each tool call, the lease, and each ask with
 where it stands. **An ask is the session's own**: it never appears in Helm's
 dock and `answer_helm_call` does not find it.
 
+## What Fleet tells a Session
+
+**A Session never has to be told to watch its pull request.** When a pull request a Session holds in the ledger fails its checks, conflicts with the base, leaves the merge queue, is marked unmergeable, or merges, Fleet sends that Session one message, once. It names the pull request, what happened and the branch. For failed checks it lists each failing check with its log address, and the last lines of the first two logs. A merge says the Session's slot and branch can be released. `docs/concepts/fleet.md`, *Telling the owner of a pull request*, has the triggers.
+
+| Session | What happens |
+|---|---|
+| Hosted | The message is a turn: it wakes the Session and starts its process if it was ended for being quiet. The thread draws it as a message from **Fleet**, the voice another Session's message has, named `Fleet`, so it is never the person's |
+| Terminal | Fleet cannot push into one. The message is held for its mod, prefixed `Fleet:`, and handed over when the mod next asks. A mod that is not asking leaves it unsent and Fleet tries again at the next reading |
+| Ended | Nothing is sent |
+
 ## Acts on a pull request
 
 A pull request a session holds is a `pr` row, and a person can act on it without leaving the session. The pull request is named by its repository and number, and is nobody's Job.

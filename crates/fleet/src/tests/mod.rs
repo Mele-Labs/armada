@@ -169,6 +169,7 @@ mod process;
 mod promoting;
 mod proposing;
 mod proving;
+mod pull_notices;
 mod pull_request_card;
 mod pull_requesting;
 mod pushing_onto_base;

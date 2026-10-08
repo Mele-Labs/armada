@@ -6,7 +6,7 @@ use std::sync::Mutex;
 
 use adapter_traits::{
     CiRun, CiRuns, CommitStatus, FromOutside, MergeQueue, MergedPull, OpenPulls,
-    RecentlyMergedPulls,
+    RecentlyMergedPulls, WatchedPulls,
 };
 
 #[derive(Debug, Default)]
@@ -17,6 +17,7 @@ struct Script {
     merged: BTreeMap<String, MergedPull>,
     pulls: Option<OpenPulls>,
     queue: Option<MergeQueue>,
+    watched: Option<WatchedPulls>,
     recent: Option<RecentlyMergedPulls>,
     asked_recent: usize,
     asked_head: usize,
@@ -65,6 +66,11 @@ impl MainCiScript {
     /// The open pull requests the forge lists; `None` is a forge that would not answer.
     pub fn pulls_are(&self, pulls: Option<OpenPulls>) {
         self.with(|it| it.pulls = pulls);
+    }
+
+    /// The open pull requests as a watcher reads them; `None` is a forge that would not answer.
+    pub fn watched_are(&self, watched: Option<WatchedPulls>) {
+        self.with(|it| it.watched = watched);
     }
 
     /// The recently merged pull requests the forge lists, newest first.
@@ -154,6 +160,10 @@ impl MainCiScript {
 
     pub(super) fn merge_queue(&self) -> Option<MergeQueue> {
         self.with(|it| it.queue.clone())
+    }
+
+    pub(super) fn watched(&self) -> Option<WatchedPulls> {
+        self.with(|it| it.watched.clone())
     }
 
     pub(super) fn open_pulls(&self) -> Option<OpenPulls> {
