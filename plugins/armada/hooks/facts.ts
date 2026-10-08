@@ -8,7 +8,7 @@ const TITLE_MOST = 80
  * repository's. **Bump it with `version` in `.claude-plugin/plugin.json`**: the mod cannot read that
  * file while it runs, and a Fleet test (`terminal_session.rs`) holds the two equal.
  */
-export const MOD_VERSION = '0.2.0'
+export const MOD_VERSION = '0.3.0'
 
 // A harness wraps what it adds to a prompt in hyphenated tags. A command's and a reminder's
 // contents are the harness's words, so the whole block goes; any other wrapper, such as
