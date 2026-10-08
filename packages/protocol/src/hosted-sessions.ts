@@ -147,7 +147,7 @@ export type SessionRow =
   | { kind: "compaction"; id: string; at: string; text: string }
   /** The first write: the slot leased and the branch cut. */
   | { kind: "lease"; id: string; at: string; slot: number; branch: string }
-  /** The session showed the person a page in a window. Since 23.77. */
+  /** The session showed the person a page in a window. */
   | { kind: "window"; id: string; at: string; title: string; url: string }
   /**
    * What a piloted session starts with, first in its thread: the Job's worktree handed over and what

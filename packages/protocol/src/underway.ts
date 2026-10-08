@@ -13,7 +13,7 @@
 import type { Requester } from "./requester";
 
 import type { CheckRun } from "./protocol";
-import type { ProtocolVersion } from "./version";
+import type { ProtocolId } from "./connection";
 
 /**
  * A step's Checks, from the moment the gate starts them until its ruling is
@@ -76,7 +76,7 @@ export type OutputMessage =
   | ({ message: "closed" } & { because: string });
 
 export type OutputOpened = {
-  protocol_version: ProtocolVersion;
+  protocol_id: ProtocolId;
   job_id: string;
   /** Whose log this is, off the answer rather than off the row pressed. */
   name: string;

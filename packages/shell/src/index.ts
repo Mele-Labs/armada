@@ -14,6 +14,7 @@ export * from "./Sweeps";
 export * from "./CopiedToast";
 export * from "./failures";
 export * from "./FailureSurface";
+export * from "./FleetNotice";
 export * from "./fleet";
 export * from "./floor";
 export * from "./Palette";

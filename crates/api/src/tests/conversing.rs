@@ -77,7 +77,7 @@ async fn one_connection_carries_the_thread_and_then_what_is_asked() {
     let HelmMessage::Opened(opened) = read(&mut socket).await else {
         panic!("the first message says what this connection is");
     };
-    assert_eq!(opened.protocol_version, ipc::PROTOCOL_VERSION);
+    assert_eq!(opened.protocol_id, ipc::ProtocolId::current());
     assert_eq!(opened.manifest_id.as_str(), SERVED_MANIFEST);
     assert!(!opened.replying);
     let HelmMessage::Asked(before) = read(&mut socket).await else {
@@ -169,7 +169,7 @@ async fn the_record_is_served_whole_and_a_repository_nobody_serves_is_refused() 
         .to_vec();
     let record: ipc::HelmDebugInfo = ipc::decode("a record", &body).expect("the record comes back");
     assert_eq!(record.manifest_id.as_str(), SERVED_MANIFEST);
-    assert_eq!(record.protocol_version, ipc::PROTOCOL_VERSION);
+    assert_eq!(record.protocol_id, ipc::ProtocolId::current());
     assert!(!record.brief.is_empty(), "the brief as it was sent");
 
     let refused = app

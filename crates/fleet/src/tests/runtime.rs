@@ -8,13 +8,15 @@
 use std::net::{Ipv4Addr, SocketAddr, TcpListener};
 use std::path::Path;
 
-use ipc::ProtocolVersion;
+use ipc::ProtocolId;
 
 use crate::process::{holder_of, Holder, StartedAt};
 use crate::runtime::{self, listener_address, Presence, RuntimeFile, Staleness};
 use crate::tests::tmp::TempDir;
 
-const VERSION: ProtocolVersion = ProtocolVersion::new(1, 0);
+fn id() -> ProtocolId {
+    ProtocolId::current()
+}
 
 /// Our own start time, as the OS reports it.
 fn our_start() -> StartedAt {
@@ -27,7 +29,7 @@ fn our_start() -> StartedAt {
 /// Put a runtime file at `path` with fields chosen by the test.
 fn plant(path: &Path, pid: u32, started_at: StartedAt, port: u16) {
     let body = ipc::encode(&RuntimeFile {
-        protocol_version: VERSION,
+        protocol_id: id(),
         pid,
         port,
         started_at,
@@ -50,7 +52,7 @@ fn the_runtime_file_round_trips() {
     let dir = TempDir::new();
     let path = dir.runtime_file();
 
-    let published = RuntimeFile::publish(vacancy_at(&path), 12345, VERSION).expect("it publishes");
+    let published = RuntimeFile::publish(vacancy_at(&path), 12345, id()).expect("it publishes");
 
     let Presence::Running(read_back) = runtime::read(&path).expect("it reads") else {
         panic!("the process that wrote it is still alive, so it is running");
@@ -58,7 +60,7 @@ fn the_runtime_file_round_trips() {
     assert_eq!(read_back, *published.file());
     assert_eq!(read_back.pid, std::process::id());
     assert_eq!(read_back.port, 12345);
-    assert_eq!(read_back.protocol_version, VERSION);
+    assert_eq!(read_back.protocol_id, id());
 }
 
 #[test]
@@ -76,7 +78,7 @@ fn the_file_carries_the_port_that_was_actually_bound() {
         .expect("a bound listener has an address");
 
     let published =
-        RuntimeFile::publish(vacancy_at(&path), bound.port(), VERSION).expect("it publishes");
+        RuntimeFile::publish(vacancy_at(&path), bound.port(), id()).expect("it publishes");
 
     assert_eq!(published.file().port, bound.port());
     assert_ne!(published.file().port, 0);
@@ -99,7 +101,7 @@ fn the_listener_address_is_loopback_at_whatever_port_it_is_given() {
 fn nothing_in_the_file_names_a_host() {
     let dir = TempDir::new();
     let path = dir.runtime_file();
-    let _published = RuntimeFile::publish(vacancy_at(&path), 12345, VERSION).expect("it publishes");
+    let _published = RuntimeFile::publish(vacancy_at(&path), 12345, id()).expect("it publishes");
 
     let text = std::fs::read_to_string(&path).expect("it was written");
     // The host is a constant in the crate, so there is no field an edited file
@@ -116,7 +118,7 @@ fn a_clean_exit_removes_the_file() {
     let dir = TempDir::new();
     let path = dir.runtime_file();
 
-    let published = RuntimeFile::publish(vacancy_at(&path), 12345, VERSION).expect("it publishes");
+    let published = RuntimeFile::publish(vacancy_at(&path), 12345, id()).expect("it publishes");
     assert!(path.exists());
 
     drop(published);
@@ -212,7 +214,7 @@ fn a_stale_file_is_replaced_by_the_next_start() {
         Some(Staleness::PidHeldByAnother { .. })
     ));
 
-    let _published = RuntimeFile::publish(vacancy, 12345, VERSION).expect("it publishes over it");
+    let _published = RuntimeFile::publish(vacancy, 12345, id()).expect("it publishes over it");
 
     let Presence::Running(now) = runtime::read(&path).expect("it reads") else {
         panic!("the replacement names this live process");
@@ -227,7 +229,7 @@ fn a_stale_file_is_replaced_by_the_next_start() {
 fn a_live_runtime_file_yields_no_vacancy() {
     let dir = TempDir::new();
     let path = dir.runtime_file();
-    let _published = RuntimeFile::publish(vacancy_at(&path), 12345, VERSION).expect("it publishes");
+    let _published = RuntimeFile::publish(vacancy_at(&path), 12345, id()).expect("it publishes");
 
     let presence = runtime::read(&path).expect("it reads");
     assert!(
@@ -259,7 +261,7 @@ fn a_field_a_reader_has_never_heard_of_is_ignored() {
     std::fs::write(
         &path,
         format!(
-            r#"{{"protocol_version":{{"major":1,"minor":0}},"pid":{},"port":12345,"started_at":"{}","measured_at":"later"}}"#,
+            r#"{{"protocol_id":"0123456789abcdef","pid":{},"port":12345,"started_at":"{}","measured_at":"later"}}"#,
             std::process::id(),
             our_start()
         ),
@@ -274,18 +276,16 @@ fn a_field_a_reader_has_never_heard_of_is_ignored() {
     ));
 }
 
-/// The runtime file is the first thing a new Bridge reads, and a Fleet from
-/// before the version was a pair wrote one integer. It names that major at
-/// minor zero, so an old Fleet reaches the skew screen rather than reading as a
-/// file nothing wrote.
+/// A Fleet from before IDs wrote a version pair. It reads, as an ID nothing
+/// equals, so the mismatch screen names it rather than a file nothing wrote.
 #[test]
-fn a_runtime_file_carrying_one_integer_reads_as_that_major_at_minor_zero() {
+fn a_runtime_file_from_before_ids_reads_as_an_id_nothing_equals() {
     let dir = TempDir::new();
     let path = dir.runtime_file();
     std::fs::write(
         &path,
         format!(
-            r#"{{"protocol_version":4,"pid":{},"port":12345,"started_at":"{}"}}"#,
+            r#"{{"protocol_version":{{"major":23,"minor":71}},"pid":{},"port":12345,"started_at":"{}"}}"#,
             std::process::id(),
             our_start()
         ),
@@ -295,5 +295,5 @@ fn a_runtime_file_carrying_one_integer_reads_as_that_major_at_minor_zero() {
     let Presence::Running(found) = runtime::read(&path).expect("it reads") else {
         panic!("our own pid is held by us");
     };
-    assert_eq!(found.protocol_version, ProtocolVersion::new(4, 0));
+    assert_eq!(found.protocol_id, ProtocolId::default());
 }

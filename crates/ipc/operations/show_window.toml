@@ -4,7 +4,7 @@ transport = "HTTP"
 agent_access = "Yes"
 description = "Show the person a web page in a window of Bridge's own, which opens by itself and which a note taken in is answered by a message to this session"
 notes = """
-`POST /sessions/window`, body `ShowWindow`: `url`, an optional `title` and an optional `session_id`. Since 23.77. Answered with the `SessionRecord`.
+`POST /sessions/window`, body `ShowWindow`: `url`, an optional `title` and an optional `session_id`. Answered with the `SessionRecord`.
 
 **Any `http` or `https` address**; any other scheme is refused with 422 and nothing written. **The session is the one whose process holds the connection** when Fleet hosts it, whatever the body says; `session_id` is read only for a session in a terminal, whose connection Fleet cannot place; the mod tells the model its own id at the start of the conversation (`prompt.context`), and the model passes it. A call that places no session and names none is refused.
 

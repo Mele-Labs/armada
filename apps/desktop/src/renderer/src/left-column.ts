@@ -7,7 +7,7 @@
 import type { Figure, StatRow, FleetPanelProps } from "@armada/components";
 import type { Connection, FleetCapacity, JobSummary, RepositorySummary } from "@armada/protocol";
 import { spoken } from "@armada/protocol";
-import { fleetStateOf, shortLabelOf, silenceOf, versionsOf, type Statement } from "@armada/shell";
+import { fleetStateOf, shortLabelOf, silenceOf, type Statement } from "@armada/shell";
 import { doctorReading, driftReading, dronesReading } from "@armada/overview";
 import type { DriftsRead, HealthRead } from "@armada/screens/src/overview-reads";
 // `instant` and `lasting` are the Job elapsed-time figure's own parse-and-format
@@ -134,7 +134,7 @@ function rowsOf(connection: Connection, now: number): Figure[] | undefined {
     { label: "port", value: String(connection.fleet.port) },
   ];
   if (connection.state !== "connected") return rows;
-  rows.push({ label: "protocol", value: spoken(connection.fleet.protocolVersion) });
+  rows.push({ label: "protocol", value: spoken(connection.fleet.protocolId) });
   const startedMs = instant(connection.fleet.startedAt);
   if (startedMs !== null) rows.push({ label: "up", value: lasting(now - startedMs) });
   return rows;
@@ -147,9 +147,8 @@ function rowsOf(connection: Connection, now: number): Figure[] | undefined {
  */
 function sentenceOf(connection: Connection, statement: Statement, now: number, readAt: number | null) {
   switch (connection.state) {
-    case "connected":
-      return connection.skew === "fleet_ahead" ? versionsOf(connection) : undefined;
     case "connecting":
+    case "connected":
     case "starting":
       return undefined;
     case "unreachable":

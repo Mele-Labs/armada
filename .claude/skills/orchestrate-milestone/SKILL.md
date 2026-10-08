@@ -126,34 +126,26 @@ replays them against their merged copies. Confirmed 14 Sep 2026: #1071, stacked
 on #1070, conflicted in `checking.rs` on one of #1070's own commits; `git rebase
 --onto origin/main <the base's old head>` replayed #1071's three with none.
 
-**Brief every child to declare a need before it picks a protocol minor**
-(`armada need <path> "<what>"`, `work-issue` step 3), and to use the number the
-answer gives. A store migration needs none: it is a file in
-`crates/store/migrations/`. The line then lands them in the order they declared,
-so nothing is renumbered; a branch that took a number undeclared is refused at
-preflight and at Fleet's merge. A child that stalls holds the ones behind it: give its
+**A wire change is no number to take.** The protocol ID is a hash of the wire
+files, so two children changing the wire change different files and conflict on
+nothing. A store migration is a file in `crates/store/migrations/` with a name.
+Where two children both mean to change one path, `armada need <path> "<what>"`
+still orders them, and a child that stalls holds the ones behind it: give its
 need back with `armada need --release <path>` from its branch, or delete the
 branch. Nothing expires on its own.
-
-**Re-read `main`'s protocol minor after every rebase.** Two branches bumping to
-the same number merge without a conflict. Confirmed 13 Sep 2026: #993 took 13.36
-while the agent door's branch also bumped to 13.36, and the rebase dropped the
-door's bump as already applied. Only re-reading `protocol-version.toml` caught
-two wire changes about to share one version; the door took 13.37.
 
 **What broke a merge run in the Overview milestone, 13–14 Sep 2026**, each one a stop that cost a rerun:
 
 - **`armada check` refusing `armada.yml`** because another session added a key the CLI did not know yet. Running the Check's command by hand is not a substitute: a nested `pnpm -C` picked pnpm 11.25 against the `packageManager` pin of 11.6.0 and refused. Build a current `armada` once in a warm worktree and rerun the Check with it.
-- **A protocol bump that merges identical to main's** is two changes claiming one version, and nothing catches it. #1041's branch took 13.43 while another session's commit held it; it was caught only by reading both files before the merge. Where the branch has commits touching `protocol-version.toml` but the file ends up equal to main's after the rebase, stop.
 - **The heavy-run hook reads command text anywhere in a Bash call**, fixture strings included: a sample Job history saying `pnpm -C apps/desktop test` was refused as a test run. So was a story title with `#801`, which `verify-foundations` read as a colour literal. Keep command text and `#` plus hex digits out of fixtures.
 - **A screen change merged on green checks still looked wrong to the owner** three times: panels jammed to the edge, rows that did not align, a header that wrapped a handle across four lines. A screen change lands only after the owner has looked at it through a walk, served from the agent's worktree, at his widths (about 2000px, and 1284×930 with the dock open). `annotations`, step 4, has the rule.
 
 **Then give the worktree back** — `armada worktree release <path>` for a
 leased slot; see `agent-worktrees`. At the merge, not later.
 
-**Restart Fleet when the protocol moves**, and after a store migration. A running
-Fleet is a stale binary the moment you merge, and a major bump means Bridge
-refuses to connect until it is rebuilt.
+**Restart Fleet when the wire moves**, and after a store migration. A running
+Fleet is a stale binary the moment you merge, and a Bridge built from the merge
+refuses to connect to it, because their protocol IDs differ.
 
 **Before landing a change that moves Checks between manifests or renames a Check key, ask what each gate reads.** `armada covers` on the *installed* binary, and `.github/ci/plan.py`, must both name the new keys, or the change gates nothing and says nothing. Confirmed 6 Oct 2026: the Bridge Checks moved into workspace manifests (B3) while the installed `armada` read only the root file, so it printed `test` for an `App.tsx` change and no Bridge Check; the branch was withdrawn from the line and Fleet restarted first. CI then skipped every Bridge Check on three pull requests because `checks.yml` filtered `armada covers` against a list of bare names; it was found by reading one PR's job list. Run `printf 'apps/desktop/src/renderer/src/App.tsx\n' | armada covers` and read the job list of one PR before the next move.
 

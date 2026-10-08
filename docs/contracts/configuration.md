@@ -64,7 +64,7 @@ A central schema would also have broken the adapter promise outright: a new Secr
 
 **A Job persists a flat resolved record, not a typed snapshot.** Fleet writes one map of `key → (value, source)` per Job at spawn — source being `kit`, `machine`, `manifest` or `default` — stamped with the schema version. **The stamp is for interpretation and is never used to deserialize.** A flat record has no schema to break, so there is no migration path and no version handshake.
 
-`CONFIG_VERSION`, proposed as an analogue of `PROTOCOL_VERSION`, was rejected as the wrong shape. `PROTOCOL_VERSION` is a handshake: two live parties must agree or refuse to talk. A config snapshot has no second party. At a gated checkpoint Fleet re-reads the live half against the current schema and uses the frozen half for display only, so an old blob is never type-deserialized and the failure the version tag was invented to prevent cannot occur.
+`CONFIG_VERSION`, proposed as an analogue of the protocol version (since replaced by a protocol ID), was rejected as the wrong shape. The protocol check is a handshake: two live parties must agree or refuse to talk. A config snapshot has no second party. At a gated checkpoint Fleet re-reads the live half against the current schema and uses the frozen half for display only, so an old blob is never type-deserialized and the failure the version tag was invented to prevent cannot occur.
 
 This is also what makes *"why did this Job behave that way"* answerable after the fact — the question v1 could not answer — and it is the resolved-config-plus-source-tag surface the merge-strategy decision already promised at Job-detail level.
 

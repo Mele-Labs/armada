@@ -3,8 +3,7 @@
 // The verb, the glyph and the status token each variant renders as, from
 // `crates/core-model/domain/enum-verbs.toml`; whether a status is terminal,
 // what it is doing and who it waits on, from `job-statuses.toml`; whether a
-// Check outcome advances a step, from `check-outcomes.toml`; and the
-// protocol version from `protocol-version.toml`. Nothing here is written by
+// Check outcome advances a step, from `check-outcomes.toml`. Nothing here is written by
 // hand, which is the point: a status label typed into a component is a
 // second vocabulary.
 //

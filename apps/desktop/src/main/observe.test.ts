@@ -30,7 +30,7 @@ const A_ROW = {
 
 const OPENED = {
   message: "opened",
-  protocol_version: { major: 4, minor: 12 },
+  protocol_id: "0000000000000000",
   job_id: A_JOB,
   live: true,
   skipped: 0,

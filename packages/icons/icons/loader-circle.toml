@@ -4,3 +4,10 @@
   size = "12px"
   status = "Specified"
   reserved = "A worktree slot being taken or given back. The one animated mark in the group; held still under reduced motion."
+
+  [[icons.loader-circle.usage]]
+    means = "Fleet is restarting: the Restart Fleet button, from the press until a Fleet is back"
+    group = "Action"
+    size = "16px"
+    status = "Proposed"
+    notes = "Proposed 8 Oct 2026 for the walk `fleetProtocolMismatch`. Spins, and holds still under reduced motion, as the slot mark above does. An open ring spinning is an act under way, which is what both uses say."

@@ -27,7 +27,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::checks::CheckRun;
 use crate::ids::{Instant, JobId};
-use crate::version::ProtocolVersion;
+use crate::protocol_id::ProtocolId;
 
 /// A step's Checks, while the gate is running them.
 ///
@@ -113,7 +113,7 @@ pub enum OutputMessage {
 /// The first message: whose log this is, and what the first read left out.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OutputOpened {
-    pub protocol_version: ProtocolVersion,
+    pub protocol_id: ProtocolId,
     pub job_id: JobId,
     /// The Check whose log this is, spelled as [`CheckUnderway::name`] spells
     /// it. **Off the answer rather than off the row that was pressed**, for

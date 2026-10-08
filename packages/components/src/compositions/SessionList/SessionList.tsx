@@ -4,6 +4,7 @@ import { Search } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
 import { Input } from "../../primitives/Input/Input";
+import { Tabs, type TabsItem } from "../../primitives/Tabs/Tabs";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { Chip, type OwnerChipRef } from "../OwnerChip/OwnerChip";
 import { ModMark, SessionMark, type SessionState } from "../SessionFrame/SessionFrame";
@@ -49,6 +50,10 @@ export type SessionListProps = {
   onQuery: (query: string) => void;
   onOpen: (id: string) => void;
   onStart: () => void;
+  /** The views of the list as filled tabs, no figure on any. The host holds which headings each one has. */
+  views?: readonly TabsItem[];
+  view?: string;
+  onView?: (view: string) => void;
   /** The moment times are counted from; the clock, unless a story fixes it. */
   now?: number;
 };
@@ -167,7 +172,7 @@ function itemsOf(row: SessionRowView): Item[] {
   return items;
 }
 
-export function SessionList({ groups, query, onQuery, onOpen, onStart, now = Date.now() }: SessionListProps) {
+export function SessionList({ groups, query, onQuery, onOpen, onStart, views, view, onView, now = Date.now() }: SessionListProps) {
   return (
     <section className="armada-session-list" aria-label="Sessions">
       <div className="armada-session-list__head">
@@ -184,6 +189,7 @@ export function SessionList({ groups, query, onQuery, onOpen, onStart, now = Dat
         onChange={(event) => onQuery(event.target.value)}
         trailing={<Search size={12} strokeWidth={2} aria-hidden />}
       />
+      {views === undefined || view === undefined || onView === undefined ? null : <Tabs items={[...views]} value={view} onChange={onView} />}
       {groups.map((group) => (
         <div className="armada-session-list__group" key={group.label}>
           <h3 className="armada-session-list__eyebrow">{group.label}</h3>

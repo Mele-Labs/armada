@@ -401,9 +401,8 @@ pub enum NotMerged {
     /// was pushed. Only `merge_by: push` says this; the answer is to run them.
     Unchecked { said: String },
     /// A need stands in this Job's way, so Fleet did not ask for the merge:
-    /// one ahead of it on the same file has not landed, or the Job changes a
-    /// watched file (`adapters::undeclared`) with no need declared. The
-    /// sentence says which. Under `merge_by: forge` as under `push`: it is
+    /// one ahead of it on the same file has not landed. The sentence says
+    /// which. Under `merge_by: forge` as under `push`: it is
     /// Fleet that presses, and the forge's own button is not held. #1059.
     WaitingBehind { said: String },
     /// The forge refused and said something this vocabulary has no name for.

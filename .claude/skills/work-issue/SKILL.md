@@ -84,28 +84,11 @@ a test refuses an additive one that drops, renames or rewrites. A breaking one i
 with a breaking migration `main` lacks is refused by `scripts/restart --from`.
 `docs/practices/store-migrations.md`.
 
-**A protocol minor is still a number. Declare a need before choosing one, and
-use the number the answer gives.** Never take "the next one" from `main`:
-another branch takes the same one, and whichever lands second renumbers,
-rewrites every mention and runs the Checks again (#1059).
-
-```sh
-armada need protocol-version.toml "a minor"
-armada need --took protocol-version.toml "23.41"               # once chosen, after theirs
-```
-
-A need is a path and what is needed there, in your words, and the first to
-declare goes first. If something is ahead of you, pick the value after what it
-took. Fleet keeps the needs, so `armada need` asks the running Fleet and says so
-where there is none. Its merge holds a Job behind every need ahead of its own, so
-you land in order and nothing is renumbered; a required status on the pull request
-is not built. Declaring is a no-op the
-second time. **If you had already written a number when you declared**, it says
-so: search comments and docs for the old number and change every mention.
-**Fleet's merge refuses a branch that changes the
-protocol minor with no need declared**, so declare first. `armada need --release <path>` gives one back; a branch deleted locally gives its
-needs back by itself, and a need that stalls is given back by a person, since
-nothing expires. `armada need --status` lists every need by path.
+**A wire change carries no number.** The protocol ID is a hash of the wire
+files, so changing `crates/ipc`, `crates/ipc/operations/`, the route table or
+`packages/protocol` moves it and nothing is bumped, declared or renumbered.
+`docs/practices/protocol.md` says what it covers. `armada need` is still there
+for a path two branches both mean to change.
 
 ### 4. Test
 
@@ -331,14 +314,13 @@ is most of what it costs. Confirmed 2 Oct 2026: four Studio agents briefed with
 five skills each and file names without lines used 61k–551k tokens apiece, and
 the session's own `/context` put reads at 55% of everything it took in.
 
-**Put the numbers and the Checks in the brief, because an agent never loads this
-skill.** Step 3's `armada need` reaches nobody who is dispatched: the brief must
-say *"before choosing a protocol minor, run `armada need`; a store migration is
-a file in `crates/store/migrations/` and needs none"*, or each agent takes the
-next minor from `main`. Confirmed 4 to 5 Oct
-2026: five agents in one session took 23.23, 23.24, 23.33 and store V104 and
-V109 that another branch had taken, and the merge line sent each back to be
-renumbered by hand, five full requeues. The brief must also name what the line
+**Put the Checks in the brief, because an agent never loads this skill.**
+Confirmed 4 to 5 Oct 2026: five agents in one session took protocol minors
+23.23, 23.24 and 23.33 and store V104 and V109 that another branch had taken,
+and the merge line sent each back to be renumbered by hand, five full requeues.
+Protocol minors are gone and a store migration is a file in
+`crates/store/migrations/` with a name, so neither is a number to take. The
+brief must name what the line
 will run on the files the agent touched: *"run every test module that references
 what you changed, then `armada check typecheck` and
 `cargo xtask verify-foundations`; a new operation needs `tests::served`."* The

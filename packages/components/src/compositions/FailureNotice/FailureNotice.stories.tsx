@@ -355,18 +355,18 @@ export const FleetRefusedTheCommand: Story = {
 export const FleetSpeaksAnotherProtocol: Story = {
   args: {
     kind: "degraded",
-    headline: "Fleet speaks a protocol Bridge cannot read",
-    code: "bridge.fleet.version_skew",
-    next: "Jobs keep running. Restart Fleet on the matching build to see the board again.",
+    headline: "Fleet and Bridge do not match",
+    code: "bridge.fleet.protocol_mismatch",
+    next: "Run /update-armada, then reopen Bridge.",
     detailsLabel: "What each side speaks",
     details: [
-      { label: "Fleet", value: "6.0" },
-      { label: "Bridge", value: "5.2" },
+      { label: "Fleet", value: "3fa9c1d2" },
+      { label: "Bridge", value: "91bb07e4" },
       { label: "Pid", value: "48221" },
       { label: "Port", value: "7773" },
     ],
     values: [{ icon: File, iconLabel: "Log", value: AUDIT, copyValue: AUDIT }],
-    note: "Bridge did not open a socket. A message from a Fleet on another protocol is not one Bridge can read.",
+    note: "Bridge did not connect. Jobs keep running.",
     actions: <Acts />,
   },
 };

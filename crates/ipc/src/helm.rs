@@ -17,8 +17,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::event::Missed;
 use crate::ids::{Instant, JobId, ManifestId, StudioId, StudioNodeId};
+use crate::protocol_id::ProtocolId;
 use crate::turn::Shown;
-use crate::version::ProtocolVersion;
 
 /// `POST /helm/ask` — what a person says to Helm.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -157,7 +157,7 @@ pub enum HelmMessage {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct HelmOpened {
-    pub protocol_version: ProtocolVersion,
+    pub protocol_id: ProtocolId,
     pub manifest_id: ManifestId,
     /// Whether a reply was being written when this opened.
     pub replying: bool,

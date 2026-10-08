@@ -88,7 +88,6 @@ mod transcript;
 /// The repository's Trigger files as `main` holds them.
 mod trigger_files;
 /// A branch that changes a watched path with no need declared is refused. `#1059`.
-pub mod undeclared;
 mod under_review;
 mod watching;
 mod work_product;

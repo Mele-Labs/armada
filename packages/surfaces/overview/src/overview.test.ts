@@ -5,12 +5,12 @@
 import { describe, expect, it } from "vitest";
 
 import type { Connection, FleetHealth, ManifestDriftRead, RepositorySummary } from "@armada/protocol";
-import { connectedTo, PROTOCOL_VERSION } from "@armada/protocol";
+import { connectedTo, PROTOCOL_ID } from "@armada/protocol";
 import { doctorReading, driftReading, dronesReading, fleetReading } from "./overview";
 import type { RepositoryDrift } from "@armada/screens/src/overview-reads";
 
 const NOW = Date.parse("2026-09-13T12:00:00Z");
-const FLEET = { protocolVersion: PROTOCOL_VERSION, pid: 4242, port: 7878, startedAt: "2026-09-13T11:00:00Z" };
+const FLEET = { protocolId: PROTOCOL_ID, pid: 4242, port: 7878, startedAt: "2026-09-13T11:00:00Z" };
 const CONNECTED: Connection = connectedTo(FLEET, 1);
 
 const manifest = (id: string, root: string) => ({ id, repository: id, path: `${root}/armada.yml`, records_root: `/records/${id}`, version: 1, checks: [] });

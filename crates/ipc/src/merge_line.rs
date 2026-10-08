@@ -152,7 +152,7 @@ pub enum LandOutputMessage {
 /// the reader asked by are what it is told.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct LandOutputOpened {
-    pub protocol_version: crate::ProtocolVersion,
+    pub protocol_id: crate::ProtocolId,
     /// The repository's root, as `list_repositories` names it.
     pub root: String,
     pub branch: String,

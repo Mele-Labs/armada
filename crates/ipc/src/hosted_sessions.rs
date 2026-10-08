@@ -311,7 +311,7 @@ pub enum SessionRow {
         slot: u32,
         branch: String,
     },
-    /// The session showed the person a page in a window. Since 23.77.
+    /// The session showed the person a page in a window.
     Window {
         id: String,
         at: Instant,

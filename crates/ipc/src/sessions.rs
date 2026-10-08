@@ -209,7 +209,7 @@ pub struct RenameSession {
     pub title: String,
 }
 
-/// `show_window`: a session shows the person a web page in a window of Bridge's own. Since 23.77.
+/// `show_window`: a session shows the person a web page in a window of Bridge's own.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ShowWindow {
     /// `http` or `https`; anything else is refused.

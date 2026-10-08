@@ -19,8 +19,7 @@
 
 import WebSocket from "ws";
 
-import { PROTOCOL_VERSION } from "@armada/protocol";
-import { connects, skew } from "@armada/protocol";
+import { PROTOCOL_ID, speaksOurProtocol } from "@armada/protocol";
 import type { Connection } from "@armada/protocol";
 import { HOST, machinePath, read } from "./runtime-file";
 
@@ -146,13 +145,15 @@ export class FleetSocket {
     }
 
     const fleet = presence.fleet;
-    // Read before connecting, so a version Bridge will not speak is a refusal
-    // rather than a bad first message. A minor gap one way round is not one.
-    const reading = skew({ fleet: fleet.protocolVersion, bridge: PROTOCOL_VERSION });
-    if (!connects(reading)) {
-      const speaks = fleet.protocolVersion;
-      const expected = PROTOCOL_VERSION;
-      this.wiring.settle({ state: "version_skew", fleet, why: reading, speaks, expected });
+    // Read before connecting, so a protocol Bridge will not speak is a refusal
+    // rather than a bad first message.
+    if (!speaksOurProtocol(fleet.protocolId)) {
+      this.wiring.settle({
+        state: "protocol_mismatch",
+        fleet,
+        speaks: fleet.protocolId,
+        expected: PROTOCOL_ID,
+      });
       return this.later();
     }
 

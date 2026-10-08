@@ -5,7 +5,7 @@ import { MOD_VERSION } from './facts'
 
 // Fleet as the mod meets it: a runtime file naming a port, and whatever answers
 // there. The engine's own `$` calls are what the test answers.
-const RUNNING = '{"protocol_version":{"major":23,"minor":43},"pid":1,"port":4242,"started_at":"x"}'
+const RUNNING = '{"protocol_id":"0000000000000000","pid":1,"port":4242,"started_at":"x"}'
 const URL = 'https://github.com/Mele-Labs/armada/pull/1853'
 
 type Posted = { url: string; body: any }

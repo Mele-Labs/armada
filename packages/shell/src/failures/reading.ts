@@ -64,7 +64,7 @@ const FLEET_UNREACHABLE: BridgeCode = "bridge.fleet.unreachable";
  * **Standing rather than self-clearing, which does not make it a fault.** The
  * class is about whether the work is still happening, not about recovery.
  */
-const FLEET_VERSION_SKEW: BridgeCode = "bridge.fleet.version_skew";
+const FLEET_PROTOCOL_MISMATCH: BridgeCode = "bridge.fleet.protocol_mismatch";
 
 /**
  * Fleet, when the one connection is not a connection.
@@ -78,7 +78,7 @@ const FLEET_VERSION_SKEW: BridgeCode = "bridge.fleet.version_skew";
  * worth waiting on, and the other three need somebody to start Fleet.
  *
  * **This is the builder where both classes appear**, and the line falls exactly
- * where the pid check falls: `unreachable` and `version_skew` are the two where
+ * where the pid check falls: `unreachable` and `protocol_mismatch` are the two where
  * Bridge verified the pid, so Fleet is known alive and only the reading has
  * stopped. The other two draw red because Fleet is either absent or unproven.
  */
@@ -209,12 +209,11 @@ export function fleetFailure(
         note: "Bridge is retrying every 2 seconds. Jobs keep progressing either way.",
       };
 
-    case "version_skew":
+    case "protocol_mismatch":
       return {
         ...base,
         kind: "degraded",
-        payload: facts(FLEET_VERSION_SKEW, [
-          { key: "why", value: connection.why },
+        payload: facts(FLEET_PROTOCOL_MISMATCH, [
           // Not the tail's `fleet protocol`, and not always equal to it: the
           // tail carries what the runtime file said, and this is what the
           // socket said. A Fleet restarted under a live connection is not the
@@ -231,21 +230,10 @@ export function fleetFailure(
           { label: "Pid", value: String(connection.fleet.pid) },
           { label: "Port", value: String(connection.fleet.port) },
         ],
-        // Two refusals, and naming which one is the whole use of this fold: a
-        // major gap is two binaries from different commits, and a Fleet behind
-        // by a minor is the right binaries with the daemon left running.
-        note:
-          connection.why === "incompatible"
-            ? "Bridge did not open a socket. A message from a Fleet on another protocol is not one Bridge can read."
-            : "Bridge did not open a socket. This Fleet speaks the same protocol without the additions Bridge now reads, and a field arriving absent mid-Job is worse than not connecting.",
+        note: "Bridge did not connect. Jobs keep running.",
       };
 
-    // None of the three is a fault, so none takes a notice. **`connected` is
-    // the one that can carry a `next` anyway** — a Fleet ahead by a minor puts
-    // its banner in the status bar, and drawing it here as well would say
-    // something is broken when the connection is working.
-    //
-    // Listed rather than defaulted, so a new connection state is a compile
+    // None of the three is a fault, so none takes a notice. Listed rather than defaulted, so a new connection state is a compile
     // error instead of a silent fall-through to a generic message.
     case "reading":
     case "connecting":

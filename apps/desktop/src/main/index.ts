@@ -35,6 +35,7 @@ import { openFindingIssue, openPullRequest, openRemarkLink, openStudioNode } fro
 import { RemarksPoll } from "./remarks-poll";
 import { ResourcesPoll } from "./resources-poll";
 import { openLink } from "./links";
+import { restartFleet } from "./restart-fleet";
 import { openServerLink } from "./servers";
 import { frameStream, FRAME_SCHEME } from "./streaming";
 import { Attention, soundOf } from "./telling";
@@ -841,6 +842,8 @@ void app.whenReady().then(() => {
   );
   // A link in a model's text: the one opener whose address the renderer sends. `links.ts`.
   ipcMain.handle(CHANNELS.openLink, (_event, address: string) => openLink(address));
+  // Asks launchd, not Fleet: `restart-fleet.ts`. Read from what main last published.
+  ipcMain.handle(CHANNELS.restartFleet, () => restartFleet(published.connection));
   // The act above that read. It moves nothing, costs no model call, and the
   // answer it publishes is also written into the Job's own log.
   ipcMain.handle(CHANNELS.examineJob, (_event, jobId: string) =>
