@@ -30,7 +30,7 @@ import type { AddressInfo, Socket } from "node:net";
 import { afterEach, expect, it } from "vitest";
 import { WebSocketServer, type WebSocket } from "ws";
 
-import { PROTOCOL_VERSION } from "@armada/protocol";
+import { PROTOCOL_ID } from "@armada/protocol";
 import type { BridgeState, PickedView } from "../shared/bridge";
 import { FleetConnection } from "./connection";
 import { holderOf } from "./runtime-file";
@@ -212,7 +212,7 @@ async function serving(preferencesUnavailable = false): Promise<{
 function resyncing(cursor: number): string {
   return JSON.stringify({
     message: "resync",
-    protocol_version: PROTOCOL_VERSION,
+    protocol_id: PROTOCOL_ID,
     cursor,
     jobs: { jobs: [A_ROW], unreadable: [] },
   });
@@ -258,7 +258,7 @@ async function runtimeFile(port: number): Promise<string> {
   await writeFile(
     join(dir, "fleet.json"),
     JSON.stringify({
-      protocol_version: PROTOCOL_VERSION,
+      protocol_id: PROTOCOL_ID,
       pid: process.pid,
       port,
       started_at: held.held === true ? held.startedAt : "",
@@ -294,7 +294,7 @@ it("reopens a Job's transcript on the event that says its next step is running",
   plan.send(
     JSON.stringify({
       message: "opened",
-      protocol_version: PROTOCOL_VERSION,
+      protocol_id: PROTOCOL_ID,
       job_id: A_JOB,
       live: true,
       skipped: 0,
@@ -326,7 +326,7 @@ it("reopens a Job's transcript on the event that says its next step is running",
   implement.send(
     JSON.stringify({
       message: "opened",
-      protocol_version: PROTOCOL_VERSION,
+      protocol_id: PROTOCOL_ID,
       job_id: A_JOB,
       live: true,
       skipped: 0,

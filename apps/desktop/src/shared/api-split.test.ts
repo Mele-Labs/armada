@@ -35,7 +35,6 @@ import type {
   Opened,
   Outcome,
   Proposed,
-  ProtocolVersion,
   ReclaimOutcome,
   RunListRead,
   RunOutputRead,
@@ -229,7 +228,6 @@ type OldBridgeState = {
 };
 
 type OldBridgeApi = {
-    protocolVersion: () => ProtocolVersion;
     state: () => Promise<OldBridgeState>;
     subscribe: (onState: (state: OldBridgeState) => void) => () => void;
     onWalkFocus: (onFocus: (focused: boolean) => void) => () => void;

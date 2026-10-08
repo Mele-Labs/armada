@@ -1,6 +1,5 @@
 // Core's members: the connection, the rail's pick, servers, and the acts no surface owns.
 
-import { PROTOCOL_VERSION } from "@armada/protocol";
 import type { Outcome } from "@armada/protocol";
 
 import type { CoreApi, CoreState } from "../../../../shared/api/core";
@@ -17,7 +16,6 @@ export const core: Slice<CoreApi<BridgeState>, CoreState> = {
     const summoners = new Set<(to: { jobId: string | null }) => void>();
     let summoned = false;
     return {
-      protocolVersion: () => PROTOCOL_VERSION,
       state: async () => fleet.state(),
       subscribe: fleet.listen,
       // The stand-in walk window sets the dim itself — `walk-window.tsx`.

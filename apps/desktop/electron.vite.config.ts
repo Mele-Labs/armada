@@ -6,8 +6,13 @@ import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { protocolId } from './codegen/protocol-id.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
+
+// The wire surface's hash, read where Bridge's code reads `PROTOCOL_ID`. Not a
+// checked-in file: see `codegen/protocol-id.mjs`.
+const PROTOCOL_ID = { __PROTOCOL_ID__: JSON.stringify(protocolId()) }
 
 // The app tile, emitted beside the main bundle — twice, in two formats, for
 // two different readers.
@@ -75,6 +80,7 @@ export default defineConfig({
   // exception — it is data this build reads, and inlining it means no runtime
   // resolution of a JSON file through a workspace symlink.
   main: {
+    define: PROTOCOL_ID,
     // **`no-external` is what keeps `lucide-react` out of a Node bundle.** Main
     // reads the Board's needs-you rule so it can notify about a job that has
     // started waiting, and that rule reads the generated vocabulary — one module
@@ -102,6 +108,7 @@ export default defineConfig({
   // the same reason: it imports the wire's channel names, and a `require` for
   // a workspace package fails in the preload exactly as it does in main.
   preload: {
+    define: PROTOCOL_ID,
     plugins: [externalizeDepsPlugin({ exclude: WORKSPACE })],
     build: { lib: { entry: 'src/preload/index.ts' } },
   },
@@ -113,6 +120,7 @@ export default defineConfig({
   // (#1294). Each carries its own `default-src 'self'`, and neither loads the
   // other's script.
   renderer: {
+    define: PROTOCOL_ID,
     root: 'src/renderer',
     // **CSS that does not parse fails the build.** Tailwind's optimize pass
     // runs Lightning CSS with `errorRecovery` on, which turns a parse error

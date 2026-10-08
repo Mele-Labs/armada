@@ -209,7 +209,7 @@ Bridge reads that file to find where to connect.
 
 **[`docs/practices/running-locally.md`](docs/practices/running-locally.md) is
 the rest** — what a healthy start prints, what Fleet refuses before it binds a
-port, how the two halves handle version skew, what a finished Job leaves behind,
+port, how the two halves handle a protocol mismatch, what a finished Job leaves behind,
 and what `armada clean` will and will not delete.
 
 ## Roadmap

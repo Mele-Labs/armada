@@ -33,7 +33,7 @@ Each ends with the questions it found and did not answer.
   what it may load, what the injected layer may touch, what the page can reach
   back into, and what is refused outright.
 - [`practices/protocol.md`](practices/protocol.md) — the one seam between Rust
-  and TypeScript: version skew, DTOs, and what survives when the two disagree.
+  and TypeScript: the protocol ID, DTOs, and what survives when the two disagree.
 - [`practices/writing-an-issue.md`](practices/writing-an-issue.md) — an issue has
   two readers who need opposite things. Where the consequence goes, where the
   detail goes, and why the answer was in third position

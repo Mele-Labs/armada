@@ -16,7 +16,7 @@ use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
 use axum::extract::{Query, State};
 use axum::http::StatusCode;
 use axum::response::Response;
-use ipc::{AskHelm, AskingToRun, HelmMessage, HelmOpened, ManifestId, Missed, PROTOCOL_VERSION};
+use ipc::{AskHelm, AskingToRun, HelmMessage, HelmOpened, ManifestId, Missed, ProtocolId};
 use tokio::sync::broadcast;
 
 use crate::answers::{answer, refused, undecodable};
@@ -110,7 +110,7 @@ pub(crate) async fn relay(mut socket: WebSocket, observed: ObservedHelm) {
         skipped,
     } = observed;
     let opened = HelmMessage::Opened(HelmOpened {
-        protocol_version: PROTOCOL_VERSION,
+        protocol_id: ProtocolId::current(),
         manifest_id,
         replying,
         skipped,

@@ -119,7 +119,7 @@ impl Conversations for FakeDaemon {
             cut: 0,
             polled: self.helm_polled.lock().expect("not poisoned").clone(),
             run_id: run_id().as_str().to_string(),
-            protocol_version: ipc::PROTOCOL_VERSION,
+            protocol_id: ipc::ProtocolId::current(),
             at: Instant::carried("2026-09-17T09:00:00.000Z"),
         })
     }

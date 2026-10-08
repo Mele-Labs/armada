@@ -12,16 +12,14 @@ id: armada-components
 # below, since none declares a `when`: a workspace's `when` reads this
 # directory and cannot match these paths.
 #
-# `crates/core-model/domain/**` and `protocol-version.toml` are what the root's
-# `components_test` named: codegen emits TypeScript from them, and
-# `src/generated/` is in this package.
+# `crates/core-model/domain/**` is what the root's `components_test` named:
+# codegen emits TypeScript from it, and `src/generated/` is in this package.
 depends_on:
   - "packages/tokens/**"
   - "packages/brand/**"
   - "packages/protocol/**"
   - "packages/icons/**"
   - "crates/core-model/domain/**"
-  - "protocol-version.toml"
   - "package.json"
   - "pnpm-lock.yaml"
   - "pnpm-workspace.yaml"

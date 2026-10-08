@@ -1,19 +1,37 @@
 // Where Fleet is, and why it is not answering.
 //
 // **Not about Electron.** A runtime file at a path, a pid, a port and a
-// protocol version are what any client of Fleet reads to find it, so they sit
+// protocol ID are what any client of Fleet reads to find it, so they sit
 // with the wire rather than with the process that happens to read them here.
 // How the answer reaches a renderer is `apps/desktop`'s business and is not
 // described here.
 
-import { connects, skew } from "./version";
-import type { ProtocolVersion, Skew } from "./version";
-import { PROTOCOL_VERSION } from "./generated/protocol-version";
+/** Injected at build from the wire surface (`apps/desktop/codegen/protocol-id.mjs`); absent under a test runner. */
+declare const __PROTOCOL_ID__: string | undefined;
+
+/** The protocol this Bridge was built with. `unbuilt` where nothing injected one, which no Fleet speaks. */
+export const PROTOCOL_ID: string = typeof __PROTOCOL_ID__ === "string" ? __PROTOCOL_ID__ : "unbuilt";
+
+/**
+ * Which wire a build speaks, as `crates/ipc` hashes it. Compared whole: two
+ * IDs are equal or the sides do not talk, and there is no order between them.
+ * `""` is a runtime file written before IDs, which equals no real one.
+ */
+export type ProtocolId = string;
+
+/** Whether Fleet speaks the protocol this Bridge was built with. */
+export function speaksOurProtocol(fleet: ProtocolId): boolean {
+  return fleet === PROTOCOL_ID;
+}
+
+/** How an ID is written on screen: its first eight digits, or `unknown` where there is none. */
+export function spoken(id: ProtocolId): string {
+  return id === "" ? "unknown" : id.slice(0, 8);
+}
 
 /** Fleet, as its runtime file names it. Loopback plus `port` is the address. */
 export type FleetIdentity = {
-  /** Both numbers. Which one differs from Bridge's decides what happens. */
-  protocolVersion: ProtocolVersion;
+  protocolId: ProtocolId;
   pid: number;
   port: number;
   /** `ps -o lstart=` as it read when Fleet published the file. */
@@ -61,42 +79,17 @@ export type Connection =
   /** The pid checks out and the socket does not answer. A different thing to do. */
   | { state: "unreachable"; fleet: FleetIdentity; detail: string; sinceMs: number }
   /**
-   * Fleet speaks a protocol Bridge will not connect over. Two readings, and
-   * they need different sentences: `incompatible` is a different protocol,
-   * `fleet_behind` is the same protocol missing additions Bridge now expects.
+   * Fleet speaks another protocol than this Bridge, so Bridge opens no socket.
+   * Either side may be the stale one and the IDs do not say which, except that
+   * a `speaks` of `""` is a Fleet from before IDs.
    */
-  | {
-      state: "version_skew";
-      fleet: FleetIdentity;
-      why: Extract<Skew, "fleet_behind" | "incompatible">;
-      speaks: ProtocolVersion;
-      expected: ProtocolVersion;
-    }
-  /**
-   * Connected, and `skew` says whether there is a caveat on it.
-   *
-   * `fleet_ahead` is **not a failure** and must not render as one: everything
-   * Bridge draws is current and correct, and the only fact is that Fleet knows
-   * things this Bridge was built too early to ask about. Decided here, once, so
-   * no surface re-derives it.
-   */
-  | {
-      state: "connected";
-      fleet: FleetIdentity;
-      cursor: number;
-      skew: Extract<Skew, "same" | "fleet_ahead">;
-    };
+  | { state: "protocol_mismatch"; fleet: FleetIdentity; speaks: ProtocolId; expected: ProtocolId }
+  /** Connected, and both sides speak the same protocol. */
+  | { state: "connected"; fleet: FleetIdentity; cursor: number };
 
-/**
- * A live connection, saying which of the two readings it is.
- *
- * Here rather than at the call site so nothing can publish `connected` without
- * deciding whether Fleet is ahead — and narrowed rather than cast, because the
- * two readings that refuse never reach a socket.
- */
+/** A live connection. Here so every surface builds `connected` one way. */
 export function connectedTo(fleet: FleetIdentity, cursor: number): Connection {
-  const reading = skew({ fleet: fleet.protocolVersion, bridge: PROTOCOL_VERSION });
-  return { state: "connected", fleet, cursor, skew: connects(reading) ? reading : "same" };
+  return { state: "connected", fleet, cursor };
 }
 
 /* What the side holding the connection knows about its own session, which the
@@ -126,11 +119,11 @@ export type BridgeIdentity = {
   /** The machine log. `null` where HOME is not set and no path resolves. */
   auditPath: string | null;
   /**
-   * The protocol Fleet speaks, written `5.2`, as the runtime file said it.
+   * The protocol Fleet speaks, as `spoken` writes it, as the runtime file said it.
    *
    * **Here rather than at each failure, because four of the five failures are
    * handed no connection.** A refusal is the case that made it worth fixing:
-   * Fleet answered it, so Fleet's version is the first thing a reader of the
+   * Fleet answered it, so Fleet's ID is the first thing a reader of the
    * payload wants, and it was the one payload guaranteed to omit it. Derived
    * where the connection is published, so nothing re-derives it per failure.
    *

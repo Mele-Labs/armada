@@ -57,7 +57,7 @@ Fleet, listed under *Where each part goes in Fleet*.
 | A branch needs no push and no pull request | The runner reads the branch from this clone |
 | An agent previews green work, then lands it without asking the owner | The agent's own brief, `work-issue` step 6; the owner reads what landed afterwards |
 | A branch with a need lands after every need ahead of it on that path | `armada need`; the runner leaves a held branch queued, saying what it waits behind |
-| A branch that changes the protocol minor with no need declared is refused | `armada land preflight` and Fleet's merge act, one function: `adapters::undeclared` |
+| ~~A branch that changes the protocol minor with no need declared is refused~~ | Retired: there is no protocol minor. `adapters::undeclared` still watches `protocol-version.toml`, which is gone, so it never fires |
 
 ## One turn
 
@@ -285,7 +285,7 @@ reader, is gone, and the pull request's status is Fleet's order (*Not built*, ab
   gives it back with `armada need --release <path>`, and a stalled one holds the
   branches behind it until then. This is the cost the owner took.
 
-- **A number taken with no need is refused** (6 Oct 2026: a branch took 23.34 and
+- **Retired: a number taken with no need is refused.** The protocol minor it watched no longer exists (the protocol ID is a hash), so `WATCHED` below names a path nothing has and the rule never fires. It stays for another repository's watched path until somebody deletes it. (6 Oct 2026: a branch took 23.34 and
   23.35 undeclared and the branch that held them renumbered). `armada land
   preflight`, and Fleet's press to merge, refuse a branch whose diff from the
   base changes `minor` in `protocol-version.toml` while no need stands for that

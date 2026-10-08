@@ -34,7 +34,7 @@ import type { AddTask, ApproveWave, DropTask, EditJob, EditTask, MovePlan } from
 import type { ApproveDispatch, BranchesRead, ToProposer } from "@armada/protocol";
 import type { PlanEditAnswer } from "@armada/screens/src/plan-edits";
 import type { Artifact, Followed, LandCheckAt, Opened } from "@armada/protocol";
-import type { ProtocolVersion, RunListRead, RunOutputRead, StartRun } from "@armada/protocol";
+import type { RunListRead, RunOutputRead, StartRun } from "@armada/protocol";
 import type { CheckoutRunListRead, StartCheckoutRun } from "@armada/protocol";
 import type { EditManifest, SaveManifestFile } from "@armada/protocol";
 import type {
@@ -77,7 +77,6 @@ import type {
   WhenBlocked,
   WhenRefused,
 } from "@armada/protocol";
-import { PROTOCOL_VERSION } from "@armada/protocol";
 
 // The whole surface the renderer is allowed to see.
 //
@@ -89,12 +88,7 @@ import { PROTOCOL_VERSION } from "@armada/protocol";
 //
 // The two kills are two entries on purpose. One capability taking "which kill"
 // as an argument would be a surface that reads as one act and performs two.
-//
-// The protocol version is no longer a literal here: it is generated from
-// `protocol-version.toml`, which both sides read.
 const api: BridgeApi = {
-  protocolVersion: (): ProtocolVersion => PROTOCOL_VERSION,
-
   state: (): Promise<BridgeState> => ipcRenderer.invoke(CHANNELS.state),
 
   subscribe: (onState: (state: BridgeState) => void): (() => void) => {

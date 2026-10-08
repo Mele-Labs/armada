@@ -583,7 +583,7 @@ fn pretend_a_fleet_is_running(machine: &Path) {
         panic!("a running process holds its own pid");
     };
     let file = fleet::runtime::RuntimeFile {
-        protocol_version: ipc::PROTOCOL_VERSION,
+        protocol_id: ipc::ProtocolId::current(),
         pid,
         port: 12345,
         started_at,

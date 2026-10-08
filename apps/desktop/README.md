@@ -14,7 +14,7 @@ app draws rather than an error.
 
 | Command | What it does |
 |---|---|
-| `pnpm --filter @armada/desktop codegen` | Rewrites `src/shared/generated/` from the registries. Run it after changing `crates/core-model/domain/` or `protocol-version.toml` |
+| `pnpm --filter @armada/desktop codegen` | Rewrites `src/shared/generated/` from the registries. Run it after changing `crates/core-model/domain/` |
 | `pnpm --filter @armada/desktop tones` | Rewrites the two notification tones in `sounds/` from their shape in the design system's Sound section. Run it only after changing that shape; `tones -- --check` writes nothing and fails naming a file that is not what a fresh run would write |
 | `pnpm --filter @armada/desktop typecheck` | `tsc -b --force` across all three processes. Silence is success |
 | `pnpm --filter @armada/desktop build` | Bundles the three processes into `out/`. Does not build an app bundle |
@@ -30,9 +30,8 @@ name, and `electron-builder.yml` says the rest.
 ## What `codegen` emits, and what its output means
 
 It reads `crates/core-model/domain/enum-verbs.toml`, `job-statuses.toml`,
-`job-fields.toml` and `protocol-version.toml`, and writes two checked-in
-TypeScript modules: the verb, glyph and status token each enum variant renders
-as, and the two numbers of the protocol version both sides read. **It does not
+`job-fields.toml` and `actions.toml`, and writes checked-in TypeScript modules:
+the verb, glyph and status token each enum variant renders as, and every act. **It does not
 emit the DTO types** — nothing generates those from `crates/ipc` yet, so a shape change is
 still hand-mirrored in `src/shared/protocol.ts`.
 
@@ -51,7 +50,7 @@ which statuses exist.
 
 - `docs/practices/bridge.md` — the three-process split, the security posture,
   and the v1 failures this app exists to escape.
-- `docs/practices/protocol.md` — the seam to Rust: version skew, the DTOs, and
+- `docs/practices/protocol.md` — the seam to Rust: the protocol ID, the DTOs, and
   the second socket that carries one Job's turns.
 - `docs/contracts/design-system.md` — nothing invented. A surface builds from
   `@armada/tokens` and `@armada/components` alone.

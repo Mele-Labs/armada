@@ -12,7 +12,7 @@ Fleet-wide, and the answer no per-Job field could give. `get_job`'s `queued_reas
 
 `held_by` carries **one** answer, not a set. `fleet::admitting::Room` asks the bound before it reads the machine so a Fleet at its cap never pays three processes for a reading it would not have acted on, which makes the bound and the machine exclusive: "the cap is spent *and* the disk is full" is not a state this can report. What crosses is what is stopping admission now; the next thing crosses once that clears. Absent means nothing is holding it — not unknown, and not "Fleet did not look", because an unreadable machine admits rather than refuses.
 
-Its spelling is the one open set on this seam. Bridge reads it through the generated vocabulary rather than matching on it, which is the row `docs/practices/protocol.md` calls minor: a fifth reason a Job sits at `queued` is a variant in `core-model` and a row in `enum-verbs.toml`, and moves neither number in `protocol-version.toml`.
+Its spelling is the one open set on this seam. Bridge reads it through the generated vocabulary rather than matching on it, which `docs/practices/protocol.md` covers under what the ID cannot see: a fifth reason a Job sits at `queued` is a variant in `core-model` and a row in `enum-verbs.toml`, and moves no protocol ID.
 
 A route of its own rather than a field on `list_jobs`, which is read on every Board refresh and is a list of Jobs. This is one small answer about Fleet, asked by the surface that draws Fleet's own state.
 

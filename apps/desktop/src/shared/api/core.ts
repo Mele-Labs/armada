@@ -4,7 +4,6 @@
 import type {
   Followed,
   Outcome,
-  ProtocolVersion,
   BridgeIdentity,
   Connection,
   Holdings,
@@ -17,7 +16,6 @@ import type { Pattern } from "../haptics";
 
 /** `S` is the whole app's state, which `state` and `subscribe` hand over; Core cannot name it. */
 export type CoreApi<S = CoreState> = {
-  protocolVersion: () => ProtocolVersion;
   state: () => Promise<S>;
   subscribe: (onState: (state: S) => void) => () => void;
   /** Whether a walk window has focus, as it changes — Bridge dims behind it. */

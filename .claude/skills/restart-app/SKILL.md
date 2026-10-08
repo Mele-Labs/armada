@@ -26,8 +26,8 @@ this" into a prompt he sees before it happens.
 **It builds the latest `main`.** A plain `scripts/restart` on `main`
 fast-forwards to `origin/main` first, and refuses if it cannot. On 17 Sep 2026
 the checkout was four merges behind, so the restart rebuilt the old code and
-Fleet came back on the protocol version it started on. Read the version it
-prints at the end.
+Fleet came back on the protocol ID it started on. Read the ID it prints at
+the end.
 
 **While the preview runs, a plain restart refreshes the preview.** It runs
 `scripts/preview --restart` instead, so the owner stays on the preview, merged
@@ -43,8 +43,9 @@ of unlanded work*.
 
 **Read what the dry run says Bridge will run.** It prints the `out/` of the tree
 it builds, and a real run reads launchd's loaded working directory back and
-fails if that is another tree. At the end, compare the protocol printed with the
-tree's `protocol-version.toml`; the script fails if they differ.
+fails if that is another tree. At the end, compare the protocol ID printed with
+what the tree's wire files hash to (`node apps/desktop/codegen/protocol-id.mjs`);
+the script fails if they differ.
 
 **Say what it will do before you call it.** Not "restarting Fleet" — whether
 a Drone is working right now (it refuses if one is, naming the Job, unless

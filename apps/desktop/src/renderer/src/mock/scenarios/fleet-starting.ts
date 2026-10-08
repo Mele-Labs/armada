@@ -13,7 +13,7 @@ export const s080FleetStarting: Scenario = {
     connection: {
       state: "starting",
       fleet: {
-        protocolVersion: { major: 13, minor: 50 },
+        protocolId: "0000000000000000",
         pid: 61372,
         port: 40000,
         startedAt: new Date(Date.now() - 4_000).toString(),

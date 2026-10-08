@@ -36,7 +36,7 @@ use crate::{files_with_ext, Report};
 
 /// The generated modules whose exports must reach a surface.
 ///
-/// The same three files the `REQUIRED` list beside this one compares against
+/// The same two files the `REQUIRED` list beside this one compares against
 /// their registries, and deliberately spelled again rather than shared: that
 /// list exists so an output that stops being *emitted* is caught, and this one
 /// so an output that stops being *read* is. A file could legitimately leave one
@@ -45,7 +45,6 @@ use crate::{files_with_ext, Report};
 const GENERATED: &[&str] = &[
     "packages/components/src/generated/vocabulary.ts",
     "packages/components/src/generated/actions.ts",
-    "packages/protocol/src/generated/protocol-version.ts",
 ];
 
 /// The word for a directory whose files are output rather than surface. A

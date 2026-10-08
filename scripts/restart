@@ -483,23 +483,19 @@ if [[ -n "$from" ]]; then
   esac
 fi
 
-# The protocol the tree's file names, and the one the last `ipc` build compiled
-# in. They differ when cargo called the build script fresh although the file
-# changed (an older mtime, or a target directory carried from another tree), and
-# Fleet then reports the previous minor. Compared here so the install below can
-# be made to rebuild `ipc`; compared again against what Fleet reports.
+# The protocol ID the tree's wire files hash to, and the one the last `ipc`
+# build compiled in. They differ when cargo did not run the build script
+# although the files changed (a target directory carried from another tree), and
+# Fleet then reports the previous ID. Compared here so the install below can be
+# made to rebuild `ipc`; compared again against what Fleet reports.
 tree_protocol() {
-  python3 - "$src/protocol-version.toml" <<'PY'
-import re, sys
-t = open(sys.argv[1]).read()
-print(".".join(re.search(rf"^{k}\s*=\s*(\d+)", t, re.M).group(1) for k in ("major", "minor")))
-PY
+  node "$src/apps/desktop/codegen/protocol-id.mjs"
 }
 ipc_built_protocol() {
   local out
-  out=$(ls -t "${CARGO_TARGET_DIR:-$src/target}"/debug/build/ipc-*/out/protocol_version.rs 2>/dev/null | head -n 1 || true)
+  out=$(ls -t "${CARGO_TARGET_DIR:-$src/target}"/debug/build/ipc-*/out/protocol_id.rs 2>/dev/null | head -n 1 || true)
   [[ -n "$out" ]] || return 0
-  sed -n 's/^const PROTOCOL_M[A-Z]*: u32 = \([0-9]*\);$/\1/p' "$out" | paste -sd. -
+  sed -n 's/^const PROTOCOL_ID_HASH: &str = "\([0-9a-f]*\)";$/\1/p' "$out"
 }
 
 if $dry_run; then
@@ -528,7 +524,7 @@ if $dry_run; then
   [[ -x "$src/apps/desktop/node_modules/.bin/electron-vite" ]] \
     || echo "WARNING: $src/apps/desktop/node_modules/.bin/electron-vite is missing, so the restart would refuse"
   if [[ "$(ipc_built_protocol)" != "" && "$(ipc_built_protocol)" != "$(tree_protocol)" ]]; then
-    echo "would touch $src/protocol-version.toml — ipc was last built at protocol $(ipc_built_protocol) and the file says $(tree_protocol)"
+    echo "would touch $src/crates/ipc/build.rs — ipc was last built at protocol $(ipc_built_protocol) and the wire files hash to $(tree_protocol)"
   fi
   echo "would copy $src/plugins to $support/mod (scripts/sync-mod)"
   echo "would write $support/restart-source: $src"
@@ -557,8 +553,8 @@ refuse_if_drone_working
 # Rebuild.
 built_protocol=$(ipc_built_protocol)
 if [[ -n "$built_protocol" && "$built_protocol" != "$(tree_protocol)" ]]; then
-  say "ipc was last built at protocol $built_protocol and $src/protocol-version.toml says $(tree_protocol) — touching it so cargo rebuilds ipc"
-  touch "$src/protocol-version.toml"
+  say "ipc was last built at protocol $built_protocol and the wire files in $src hash to $(tree_protocol) — touching its build script so cargo rebuilds ipc"
+  touch "$src/crates/ipc/build.rs"
 fi
 say "Installing armada from $src"
 (cd "$src" && cargo install --path crates/armada --debug --locked)
@@ -748,15 +744,15 @@ done
 [[ -n "$new_pid" ]] || fail "no fresh Fleet came up — read $home/Library/Logs/Armada/$label.log"
 
 new_port=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["port"])' "$runtime")
-protocol=$(python3 -c 'import json,sys; v=json.load(open(sys.argv[1]))["protocol_version"]; print(str(v["major"]) + "." + str(v["minor"]))' "$runtime")
+protocol=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("protocol_id", ""))' "$runtime")
 
-# The binary just installed must speak the protocol this tree's file names. A
-# Fleet reporting an older minor is a build that kept a stale `ipc`, and Bridge
-# reads that as skew against its own build.
+# The binary just installed must speak the protocol this tree's wire files hash
+# to. A Fleet reporting another ID is a build that kept a stale `ipc`, and
+# Bridge refuses to connect to it.
 want_protocol=$(tree_protocol)
 if [[ "$protocol" != "$want_protocol" ]]; then
-  echo "restart: !!! PROTOCOL MISMATCH: the new Fleet reports $protocol and $src/protocol-version.toml says $want_protocol." >&2
-  echo "restart: !!! ipc was built from an older file. Run \`cargo clean -p ipc\` in $src and restart again." >&2
+  echo "restart: !!! PROTOCOL MISMATCH: the new Fleet reports $protocol and the wire files in $src hash to $want_protocol." >&2
+  echo "restart: !!! ipc was built from older files. Run \`cargo clean -p ipc\` in $src and restart again." >&2
   fail "Fleet is up on protocol $protocol, not $want_protocol; Bridge was not reopened"
 fi
 

@@ -16,7 +16,6 @@ depends_on:
   - "packages/brand/**"
   - "packages/protocol/**"
   - "crates/core-model/domain/**"
-  - "protocol-version.toml"
   - "package.json"
   - "pnpm-lock.yaml"
   - "pnpm-workspace.yaml"

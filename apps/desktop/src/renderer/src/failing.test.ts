@@ -16,13 +16,12 @@ const BRIDGE: BridgeIdentity = { auditPath: null, fleetProtocol: null };
 const CONNECTED: Connection = {
   state: "connected",
   fleet: {
-    protocolVersion: { major: 13, minor: 49 },
+    protocolId: "0000000000000000",
     pid: 61372,
     port: 40000,
     startedAt: "Mon Sep 14 14:22:06 2026",
   },
   cursor: 0,
-  skew: "same",
 };
 
 /** What the window shows for a command that met a bare 404 on `path`. */

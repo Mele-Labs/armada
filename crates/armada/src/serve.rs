@@ -47,7 +47,7 @@ use fleet::{
     Mint, Noticing, Polling, PortRange, Reclaiming, Spare, StepNorms, SystemClock, TheMachine,
     TheVolume, UlidMint,
 };
-use ipc::PROTOCOL_VERSION;
+use ipc::ProtocolId;
 use store::Store;
 
 use crate::{
@@ -498,12 +498,12 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
     let listener = tokio::net::TcpListener::bind(runtime::listener_address(claimed)).await?;
     let bound = listener.local_addr()?;
 
-    let published = RuntimeFile::publish(vacancy, bound.port(), PROTOCOL_VERSION)?;
+    let published = RuntimeFile::publish(vacancy, bound.port(), ProtocolId::current())?;
     println!(
         "Fleet running: pid {}, port {}, protocol {} — {}",
         published.file().pid,
         published.file().port,
-        published.file().protocol_version,
+        published.file().protocol_id,
         published.path().display()
     );
 

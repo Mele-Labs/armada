@@ -1,21 +1,25 @@
-//! Emit the protocol version's two numbers from `protocol-version.toml`, and
-//! the operations an agent may reach from `operations/`.
+//! Emit the protocol ID, and the operations an agent may reach from `operations/`.
 //!
-//! Fleet and Bridge ship as a pair and version together, so the Rust constant
-//! and the TypeScript one are read from the same file rather than kept in step
-//! by hand — which is the drift this arrangement exists to make impossible.
+//! The ID is a hash of the wire surface, so two branches that each change the
+//! wire cannot conflict on a number: they change different files and the ID
+//! follows. `docs/practices/protocol.md` says what the surface is and what the
+//! hash does not see. `apps/desktop/codegen/protocol-id.mjs` computes the same
+//! hash for Bridge, and a rule in `xtask` holds the two together.
 //!
-//! The agent's tool set is emitted here for the same reason. A list of tool
+//! The agent's tool set is emitted here for a second reason. A list of tool
 //! names written in `api` would be a second copy of the `agent_access` column,
 //! and a second copy is how a tool gets added to the inventory and stays
 //! unreachable.
 //!
-//! No dependencies, and no TOML parser. Both files have one shape and adding a
-//! parser to read them would put a build-time dependency underneath the whole
-//! workspace.
+//! No dependencies, and no TOML parser. Adding either would put a build-time
+//! dependency underneath the whole workspace.
 
 use std::fs;
 use std::path::{Path, PathBuf};
+
+// `protocol_id` and its helper, in a file of their own so `xtask` can run the
+// same code and compare it with the Node copy Bridge is built with.
+include!("wire_hash.rs");
 
 fn main() {
     // Read at run time, never `env!`: that bakes the path of whichever tree
@@ -27,34 +31,26 @@ fn main() {
         .and_then(|p| p.parent())
         .expect("crates/ipc sits two levels below the repo root")
         .to_path_buf();
-    let source = root.join("protocol-version.toml");
 
-    // Relative to the package, so the fingerprint a target directory keeps names
-    // the file of the tree it is used in. An absolute path pinned it to the tree
-    // that built it: a preview with minor 45 kept reporting 41.
-    println!("cargo:rerun-if-changed=../../protocol-version.toml");
+    // Each directory is named relative to the package, so the fingerprint a
+    // target directory keeps names the tree it is used in. An absolute path
+    // pinned it to the tree that built it.
+    println!("cargo:rerun-if-changed=src");
+    println!("cargo:rerun-if-changed=operations");
+    println!("cargo:rerun-if-changed=../../packages/protocol/src");
+    println!("cargo:rerun-if-changed=../api/src/routes");
 
-    let text = fs::read_to_string(&source).unwrap_or_else(|e| {
-        panic!(
-            "{} is the source of truth for the protocol version and could not be read: {e}",
-            source.display()
-        )
-    });
-
-    let major = number(&text, "major", &source);
-    let minor = number(&text, "minor", &source);
-
+    let id = protocol_id(&root);
     let out = PathBuf::from(std::env::var_os("OUT_DIR").expect("cargo sets OUT_DIR"));
     fs::write(
-        out.join("protocol_version.rs"),
-        format!("const PROTOCOL_MAJOR: u32 = {major};\nconst PROTOCOL_MINOR: u32 = {minor};\n"),
+        out.join("protocol_id.rs"),
+        format!("const PROTOCOL_ID_HASH: &str = \"{id}\";\n"),
     )
     .expect("OUT_DIR is writable");
 
     // One file an operation, so two branches adding two operations touch two
     // files: a pull request is merged by the forge, which ignores `.gitattributes`.
     let inventory = manifest.join("operations");
-    println!("cargo:rerun-if-changed=operations");
     let named = read_operations(&inventory);
     fs::write(out.join("reachable.rs"), reachable(&named, &inventory))
         .expect("OUT_DIR is writable");
@@ -85,16 +81,6 @@ fn read_operations(dir: &Path) -> String {
         text.push_str("\n\n");
     }
     text
-}
-
-fn number(text: &str, key: &str, source: &Path) -> u32 {
-    text.lines()
-        .map(str::trim)
-        .filter(|line| !line.starts_with('#'))
-        .find_map(|line| line.strip_prefix(key))
-        .and_then(|rest| rest.trim().strip_prefix('='))
-        .and_then(|rest| rest.trim().parse::<u32>().ok())
-        .unwrap_or_else(|| panic!("{} has no `{key} = <integer>` line", source.display()))
 }
 
 /// Every row whose `agent_access` is `Yes`, as a table, every row reading

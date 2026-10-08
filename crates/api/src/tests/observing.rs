@@ -109,7 +109,7 @@ async fn one_connection_answers_with_the_history_and_then_the_live_rows() {
     let TurnMessage::Opened(opened) = read(&mut socket).await else {
         panic!("the first message says what this connection is");
     };
-    assert_eq!(opened.protocol_version, ipc::PROTOCOL_VERSION);
+    assert_eq!(opened.protocol_id, ipc::ProtocolId::current());
     assert_eq!(opened.job_id, job);
     assert!(opened.live, "a Drone is writing");
     assert_eq!(opened.skipped, 0);
