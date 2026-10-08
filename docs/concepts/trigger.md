@@ -74,7 +74,7 @@ A Command runs in the Job's worktree under the Check budget, with no shell. What
 | `rerunning` | The Command is running again, on the repair branch or on the Job's |
 | `fix_ready` | The Command passes on the repair branch. **The owner chooses where the fix goes**, and Fleet never does |
 
-`this_branch` merges the fix onto the Job's branch and pushes it, so it lands on the Job's open pull request, and the Command runs again there. `new_pr` pushes the repair branch and opens a pull request of its own against the Job's target. Either ends `passed`, and `this_branch` ends `failed` if the Command still fails, or `held` where the Trigger blocks.
+`this_branch` merges the fix onto the Job's branch and pushes it, so it lands on the Job's open pull request, and the Command runs again there. `new_pr` pushes the repair branch and opens a pull request of its own against the Job's target. Either ends `passed`, and `this_branch` ends `failed` if the Command still fails, or `held` where the Trigger blocks. **The repair branch is deleted once it has done its work**: after `this_branch` has merged it, and when the repair ends `failed` or `held`. A `new_pr` branch is the pull request's head and stays.
 
 > **Rule.** A repair is bounded at 2 tries. A Trigger that fails after both is `failed` for good, or `held` where it blocks, and the Job gets an alert.
 > Why: a third repair is one that does not hold, as the worktree's is. The alert is the existing `list_alerts`, and the Job's status is where it was.
@@ -94,7 +94,7 @@ A failure holds the Job at the place its moment stands in front of, and the firi
 > **Rule.** A hold is not `awaiting_repair`.
 > Why: `awaiting_repair` is a spent Check budget, and a Trigger is not a Check. A hold is a state of the firing, and a status of the Job only as the existing `escalated` with its own reason.
 
-With `repair` also on the hold waits through the repair, and each state of it still holds: `repairing`, `rerunning` and `fix_ready` on a Trigger that blocks. A repair that ends `passed` lets it go by itself, and two failed tries leave it `held`. **Jobs heal themselves first; the owner is the last resort.** An added step that blocks holds the same way, and its `repair` is still carried and not acted on, so it holds at once.
+With `repair` also on the hold waits through the repair, and each state of it still holds: `repairing`, `rerunning` and `fix_ready` on a Trigger that blocks. A repair that ends `passed` lets it go by itself, and two failed tries leave it `held`. **Jobs heal themselves first; the owner is the last resort.** An added step that blocks holds the same way, and its `repair` is acted on as a Trigger's is (*Steps added to one Job*).
 
 | Owner's act | Does | Refused with |
 |---|---|---|
@@ -110,7 +110,7 @@ The frozen set is `job_frozen_triggers`, one row per step a Trigger fires on. Th
 
 ## On the wire
 
-Protocol 23.58, the four operations and one event, 23.68, steps added to one Job, 23.68, a failed Trigger's repair, and 23.68, a Trigger that blocks. `docs/practices/protocol.md`.
+Protocol 23.58, the four operations and one event, 23.68, steps added to one Job, 23.68, a failed Trigger's repair, 23.68, a Trigger that blocks, and 23.72, repair on an added step. `docs/practices/protocol.md`.
 
 | Operation | What it does |
 |---|---|
@@ -154,7 +154,7 @@ A person can add a step to one Job without writing a workflow. It lives in the J
 | Skill | A skill, by a Drone | Recorded `skipped`, as a skill Trigger is |
 | Drone step | A short brief, by a Drone | Recorded `skipped`, and says so |
 
-**A place is a moment and a step**, a Trigger's. Before a step is its `step_starts`, after it is its `step_passes`, the gap before the pull request opens is the delivering step's `step_starts`, and the gap after is `pr_opened`. After merge is deferred. Each carries `block` and `repair`, off unless set, carried and not acted on yet.
+**A place is a moment and a step**, a Trigger's. Before a step is its `step_starts`, after it is its `step_passes`, the gap before the pull request opens is the delivering step's `step_starts`, and the gap after is `pr_opened`. After merge is deferred. Each carries `block` and `repair`, off unless set, and both are acted on for a Script. A Script that fails with `repair` on goes through the repair above, whole: `repairing`, `rerunning`, `fix_ready`, two tries, then `failed` or `held` and an alert. The owner places the fix with `choose_trigger_fix` naming the step's id as `addition`, and its record is `AddedStep.repair_record`. A Skill and a Drone step fail nothing, so they repair nothing.
 
 | When it is added | Which gaps |
 |---|---|

@@ -27,6 +27,7 @@ use store::{NewAddition, Removal};
 
 use crate::adrift::Adrift;
 use crate::daemon::Fleet;
+use crate::trigger_repair::{Subject, Waiting};
 use crate::triggering::Comes;
 
 /// Nothing to run, or a place the workflow does not have. A 422.
@@ -322,12 +323,30 @@ where
         };
         let holds =
             added.on_failure.block && core_model::can_hold(job.workflow(), added.when, &added.step);
-        let ended = opened.ended(code, holds, self.now());
+        let ended = opened.ended(code, holds, added.on_failure.repair, self.now());
         self.addition_recorded(job, added, &ended).await;
         self.logged(
             job.id(),
             self.firing_of_addition(job, added, &ended, Some(&attempt)),
         );
+        // **Queued and not waited for**, as a Trigger's is: the Job's step and
+        // status are where they were, and `repair_next` puts a Drone on it.
+        if ended.state == TriggerState::Repairing {
+            self.trigger_repairs()
+                .lock()
+                .expect("not poisoned")
+                .push(Waiting {
+                    job: job.id().clone(),
+                    subject: Subject::Addition(added.id.clone()),
+                    trigger: added.kind.text().to_string(),
+                    step: added.step.clone(),
+                    command,
+                    exit: code,
+                    stdout: attempt.output.stdout.clone(),
+                    stderr: attempt.output.stderr.clone(),
+                    record: core_model::RepairRecord::default(),
+                });
+        }
     }
 
     /// Keep one firing's state and tell whoever is watching.
@@ -478,7 +497,7 @@ where
         attempt: Option<&checks_runner::Attempt>,
     ) -> Envelope {
         let level = match fired.state {
-            TriggerState::Failed | TriggerState::Held => Level::Warn,
+            TriggerState::Failed | TriggerState::Repairing | TriggerState::Held => Level::Warn,
             _ => Level::Info,
         };
         let name = added.kind.text();

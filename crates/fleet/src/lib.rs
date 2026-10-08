@@ -274,6 +274,7 @@ mod releasing;
 pub mod remarks;
 /// A Fleet that starts takes its Trigger repairs up again.
 mod repair_recovery;
+mod repair_subject;
 /// A failed Trigger's repair Drone, on a branch of its own.
 mod repairing;
 pub mod reporting;

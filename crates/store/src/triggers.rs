@@ -64,7 +64,9 @@ impl Store {
                 }
                 // Never a resolution: only the owner's skip of a held firing
                 // writes it, and that is a firing's.
-                TriggerResolution::Skipped(TriggerSkipped::ByOwner) => ("skill", &String::new(), false),
+                TriggerResolution::Skipped(TriggerSkipped::ByOwner) => {
+                    ("skill", &String::new(), false)
+                }
             };
             tx.execute(
                 "INSERT INTO job_frozen_triggers (job_id, ordinal, name, moment, step_id, source,
@@ -356,6 +358,17 @@ impl Store {
     /// either branch. What a restarted Fleet takes up again.
     pub fn unfinished_repairs(&self) -> Result<Vec<(JobId, i64, TriggerFiring)>, LoadJobError> {
         self.firings_where("state IN ('repairing', 'rerunning')", &[])
+    }
+
+    /// Firings whose repair ended and left its branch behind: placed on the
+    /// Job's, or failed. **Never a `new_pr` one**, whose branch is the pull
+    /// request's head.
+    pub fn repair_branches_left(&self) -> Result<Vec<(JobId, i64, TriggerFiring)>, LoadJobError> {
+        self.firings_where(
+            "repair_branch IS NOT NULL AND state IN ('passed', 'failed', 'held')
+             AND (fix_choice IS NULL OR fix_choice = 'this_branch')",
+            &[],
+        )
     }
 
     /// Fixes the owner chose a place for that have not been placed yet.

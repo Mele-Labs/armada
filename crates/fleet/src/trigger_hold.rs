@@ -3,14 +3,15 @@
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use core_model::{
-    Actor, AddedStep, EscalationTrigger, Job, JobId, JobStatus, Level, ResolvedStep, StepId,
-    Target, TransitionReason, TriggerFiring, TriggerState, TriggerWhen,
+    Actor, AddedStep, EscalationTrigger, Job, JobId, JobStatus, Level, RepairRecord, ResolvedStep,
+    StepId, Target, Timestamp, TransitionReason, TriggerFiring, TriggerState, TriggerWhen,
 };
 
 use crate::adrift::Adrift;
 use crate::daemon::Fleet;
 use crate::policy::HeldBecause;
 use crate::ruling::Ruling;
+use crate::trigger_repair::Subject;
 
 /// One thing holding a Job: a firing of a Trigger, or an added step.
 #[derive(Debug, Clone)]
@@ -39,6 +40,39 @@ impl Hold {
             Hold::Firing { firing, .. } => &firing.step,
             Hold::Addition(added) => &added.step,
         }
+    }
+
+    pub(crate) fn subject(&self) -> Subject {
+        match self {
+            Hold::Firing { id, .. } => Subject::Firing(*id),
+            Hold::Addition(added) => Subject::Addition(added.id.clone()),
+        }
+    }
+
+    pub(crate) fn exit_code(&self) -> Option<i32> {
+        match self {
+            Hold::Firing { firing, .. } => firing.exit_code,
+            Hold::Addition(added) => added.fired.as_ref().and_then(|fired| fired.exit_code),
+        }
+    }
+
+    pub(crate) fn record(&self) -> &RepairRecord {
+        match self {
+            Hold::Firing { firing, .. } => &firing.repair,
+            Hold::Addition(added) => &added.repair,
+        }
+    }
+
+    /// When it last settled, which is how long it has waited on a person.
+    pub(crate) fn since(&self) -> Option<&Timestamp> {
+        let ended = match self {
+            Hold::Firing { firing, .. } => firing.ended_at.as_ref(),
+            Hold::Addition(added) => added
+                .fired
+                .as_ref()
+                .and_then(|fired| fired.ended_at.as_ref()),
+        };
+        self.record().settled_at.as_ref().or(ended)
     }
 
     pub(crate) fn state(&self) -> TriggerState {
@@ -70,6 +104,7 @@ where
     /// The latest firing of each blocking Trigger whose failure is unsettled,
     /// and each added step that is held.
     pub(crate) async fn holds_on(&self, job_id: &JobId) -> Result<Vec<Hold>, Adrift> {
+        let job = self.load(job_id).await?;
         let store = self.store().lock().await;
         let mut out: Vec<Hold> = store
             .holding_firings(job_id)
@@ -82,7 +117,7 @@ where
                 .job_additions(job_id)
                 .map_err(Adrift::Reading)?
                 .into_iter()
-                .filter(AddedStep::holds_the_job)
+                .filter(|added| added.holds_the_job(job.workflow()))
                 .map(Hold::Addition),
         );
         Ok(out)
@@ -231,19 +266,23 @@ where
             };
             slot.get_or_insert((firing.name.clone(), firing.when, firing.step.clone()));
         }
-        if held.is_none() && !over {
-            held = store
-                .job_additions(job.id())
-                .unwrap_or_default()
-                .iter()
-                .find(|added| added.holds_the_job())
-                .map(|added| {
-                    (
-                        added.kind.text().to_string(),
-                        added.when,
-                        added.step.clone(),
-                    )
-                });
+        // An added step is read by the same rule: a hold, a fix with no
+        // choice, a failure after a repair was tried.
+        for added in store.job_additions(job.id()).unwrap_or_default() {
+            let Some(fired) = &added.fired else {
+                continue;
+            };
+            let slot = match fired.state {
+                TriggerState::Held if !over && added.holds_the_job(job.workflow()) => &mut held,
+                TriggerState::FixReady if added.repair.choice.is_none() => &mut fix,
+                TriggerState::Failed if added.repair.tries > 0 => &mut failed,
+                _ => continue,
+            };
+            slot.get_or_insert((
+                added.kind.text().to_string(),
+                added.when,
+                added.step.clone(),
+            ));
         }
         let (kind, (trigger, when, step)) = match (held, fix, failed) {
             (Some(one), _, _) => (ipc::JobAlertKind::Held, one),

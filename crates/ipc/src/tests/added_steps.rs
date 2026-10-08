@@ -27,6 +27,7 @@ fn a_passed_script() -> AddedStep {
         ended_at: Some(Instant::carried("2026-10-07T10:00:02.000Z")),
         log_at: Some(Instant::carried("2026-10-07T10:00:02.000Z")),
         kept: Some(TriggerScope::Machine),
+        repair_record: None,
     }
 }
 

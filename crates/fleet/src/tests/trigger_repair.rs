@@ -22,7 +22,7 @@ const REPAIRING_DEPLOY: &str =
     "name: deploy\nwhen: pr_opened\ncommand: deploy_qa\non_failure:\n  repair: true\n";
 
 /// A Drone told to repair runs `drone`; any other is a step's and waits.
-fn harness_that_repairs_by(drone: &str) -> FakeHarness {
+pub(crate) fn harness_that_repairs_by(drone: &str) -> FakeHarness {
     FakeHarness::running(
         "/bin/sh",
         &[
@@ -132,6 +132,10 @@ async fn choosing_a_new_pr_opens_one_from_the_repair_branch_and_passes_the_trigg
     assert_eq!(held.repair.pull_request.as_deref(), Some(url.as_str()));
     let delivered = fleet.vcs().delivered();
     assert!(delivered.contains(&Delivered::Pushed { branch: repair_branch }));
+    assert!(
+        fleet.vcs().deleted_branches().is_empty(),
+        "the branch is the pull request's head"
+    );
     let opened: Vec<&Review> = delivered
         .iter()
         .filter_map(|one| match one {
@@ -195,6 +199,11 @@ async fn choosing_this_branch_waits_for_the_step_then_merges_pushes_and_runs_it_
         into: job_branch.clone(),
     }));
     assert!(delivered.contains(&Delivered::Pushed { branch: job_branch }));
+    assert_eq!(
+        fleet.vcs().deleted_branches(),
+        [firing(&fleet, &id).await.repair.branch.unwrap()],
+        "the fix is on the Job's branch, so the repair branch is given back"
+    );
     let opened = delivered
         .iter()
         .filter(|one| matches!(one, Delivered::OpenedForReview { .. }))
@@ -375,7 +384,7 @@ async fn a_slot_held_by_a_repair_nothing_is_working_is_given_back_at_start_and_n
     let job = fleet.load(&id).await.unwrap();
     let served = fleet.served_by(&job).unwrap();
     let pool = crate::leasing::pool_of(&served);
-    let holder = crate::repairing::holder_of(&id, 99);
+    let holder = crate::repairing::holder_of(&id, &crate::trigger_repair::Subject::Firing(99));
     let spec = adapter_traits::WorktreeSpec::for_job(served.root(), "repair-left").unwrap();
     let adapter_traits::SlotLeased::Took { slot, .. } = fleet.vcs().lease_slot(&pool, &spec, &holder).unwrap() else {
         panic!("a slot")
@@ -403,6 +412,11 @@ async fn two_repairs_that_do_not_fix_it_fail_the_trigger_and_alert_the_job() {
     assert_eq!(held.state, TriggerState::Failed);
     assert_eq!(held.repair.tries, core_model::REPAIR_TRIES);
     assert!(held.ended_at.is_some());
+    assert_eq!(
+        fleet.vcs().deleted_branches(),
+        [held.repair.branch.clone().unwrap()],
+        "a repair that failed leaves no branch behind"
+    );
     assert_eq!(
         fleet.harness().configured().len(),
         2 + core_model::REPAIR_TRIES as usize,
