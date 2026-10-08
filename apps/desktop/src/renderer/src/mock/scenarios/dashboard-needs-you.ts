@@ -51,7 +51,7 @@ const now: Record<string, CallView> = {
           { kind: "added", text: "+}" },
         ] },
       ] }],
-      ["From", { kind: "issue", number: 1742, title: "Bridge says Fleet is unreachable during a slow write", url: "https://github.com/Mele-Labs/armada/issues/1742" }],
+      ["From", { kind: "issue", number: 1742, title: "Bridge says Fleet is unreachable during a slow write", url: "https://git.example/armada/issues/1742" }],
       ["Branch", "armada/73-dash-plan"],
     ],
     running: [{ key: "r", of: "drone", name: "Drone on Plan", line: "Weighing the split against the wrap", state: "running" }],

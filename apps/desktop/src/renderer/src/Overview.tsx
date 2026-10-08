@@ -19,6 +19,7 @@ import { useListKeydown } from "@armada/screens/src/list-keyboard";
 import type { BridgeState } from "../../shared/bridge";
 import { Dashboard, useNeedsYou } from "./Dashboard";
 import { CommandCentral } from "./CommandCentral";
+import { proposeRequest } from "./dispatch";
 import { FleetBoard } from "./FleetBoard";
 import { QuickDispatch } from "./QuickDispatch";
 import { usePanelOpen } from "./panel-open";
@@ -48,7 +49,6 @@ export function Overview({
   onFix,
   nowViews,
   onQuickCompose,
-  onPropose,
 }: {
   state: BridgeState;
   now: number;
@@ -90,8 +90,6 @@ export function Overview({
   nowViews?: Readonly<Record<string, CallView>>;
   /** Words typed into the quick dispatch box, handed to the composer. */
   onQuickCompose: (words: string) => void;
-  /** Puts a request on the approval gate: a Drone sent at a failing pull request. */
-  onPropose?: (request: string) => void;
 }) {
   const guarded = { bridge: state.bridge, onCopied };
 
@@ -158,6 +156,9 @@ export function Overview({
     onCompose();
   });
 
+  // A Drone sent at a failing pull request is a request on the approval gate, as the composer's.
+  const propose = (request: string) => void proposeRequest(request, [], state.repository);
+
   const pickedRepository = repositories.find((one) => one.root === state.repository) ?? null;
   const needsYou = useNeedsYou(state, pickedRepository, nowViews);
   // Fleet unreachable, still starting, or nothing served: the lists say so, as they always did.
@@ -200,7 +201,7 @@ export function Overview({
             onOpenSession={onOpenSession}
             onOpenLink={onOpenLink}
             onFix={onFix}
-            onPropose={onPropose}
+            onPropose={propose}
             onKill={onKill}
             onRedispatch={onRedispatch}
             onClear={onClear}
@@ -218,7 +219,7 @@ export function Overview({
             onOpenSession={onOpenSession}
             onOpenLink={onOpenLink}
             onFix={onFix}
-            onPropose={onPropose}
+            onPropose={propose}
             onKill={onKill}
             onRedispatch={onRedispatch}
             onClear={onClear}
@@ -236,7 +237,7 @@ export function Overview({
             onOpenSession={onOpenSession}
             onOpenLink={onOpenLink}
             onFix={onFix}
-            onPropose={onPropose}
+            onPropose={propose}
             onKill={onKill}
             onRedispatch={onRedispatch}
             onClear={onClear}
