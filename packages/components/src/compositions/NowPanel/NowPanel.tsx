@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { Bot, CircleDot, Megaphone, OctagonAlert, PanelRightClose, Scale, ShieldCheck, ShieldX } from "lucide-react";
+import { Bot, ChevronDown, ChevronRight, CircleDot, Megaphone, OctagonAlert, PanelRightClose, Scale, ShieldCheck, ShieldX, Workflow } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
@@ -20,12 +20,18 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 export type NowKind = "drone" | "check" | "judge";
 
 /** A Plan decision the Drone needs made, with the answers it takes. Mock data until Fleet has a plan interview. */
+export type NowDecision = {
+  id: string;
+  question: string;
+  options: readonly { id: string; label: string }[];
+};
+
+/** Decisions are asked one at a time. The answer goes once, at the last, as an option id per decision. */
 export type NowPlanAsk = {
   key: string;
   kind: "plan";
-  question: string;
-  options: readonly { id: string; label: string }[];
-  onAnswer: (optionId: string) => void;
+  decisions: readonly NowDecision[];
+  onAnswer: (answers: Readonly<Record<string, string>>) => void;
 };
 
 /** A Judge's or a Drone's question, opened where it is answered. */
@@ -56,6 +62,10 @@ export type NowRunning = {
   name: string;
   /** A Drone's last action, live. Absent draws nothing. */
   line?: string;
+  /** The canvas step this belongs to. Pressing it asks the host to highlight that step. */
+  step?: { id: string; name: string };
+  /** The last few lines of its output, oldest first. Folded until pressed. Absent draws no toggle. */
+  tail?: readonly string[];
   /** A Check lands as `passed` or `failed`; the rest are `running` until they leave the list. */
   state: "running" | "passed" | "failed";
   onOpen: () => void;
@@ -67,6 +77,10 @@ export type NowPanelProps = {
   running?: readonly NowRunning[];
   /** The head's hide button. Absent draws none. */
   onHide?: () => void;
+  /** A running row's step was pressed. Absent draws the step as plain text. */
+  onStep?: (stepId: string) => void;
+  /** The step highlighted on the canvas now. */
+  focusedStep?: string;
 };
 
 const KIND: Record<NowKind, { Glyph: LucideIcon; said: string }> = {
@@ -81,7 +95,7 @@ const STATE: Record<NowRunning["state"], { Glyph: LucideIcon; said: string }> = 
   failed: { Glyph: ShieldX, said: "Failed" },
 };
 
-export function NowPanel({ asks = [], issues = [], running = [], onHide }: NowPanelProps) {
+export function NowPanel({ asks = [], issues = [], running = [], onHide, onStep, focusedStep }: NowPanelProps) {
   return (
     <aside className="armada-now" role="region" aria-label="Now">
       <header className="armada-now__head">
@@ -116,29 +130,9 @@ export function NowPanel({ asks = [], issues = [], running = [], onHide }: NowPa
       )}
       {running.length === 0 ? null : (
         <Section tone="running" label="Running">
-          {running.map((one) => {
-            const state = STATE[one.state];
-            return (
-              <Row key={one.key} name={`${one.name}${one.line === undefined ? "" : `, ${one.line}`}, ${state.said.toLowerCase()}`} onOpen={one.onOpen}>
-                <Kind of={one.of} />
-                <span className="armada-now__text">
-                  {one.name}
-                  {one.line === undefined ? null : <span className="armada-now__line">{one.line}</span>}
-                </span>
-                <Tooltip label={state.said}>
-                  <span
-                    className="armada-now__mark"
-                    data-state={one.state}
-                    data-pulsing={one.state === "running" || undefined}
-                    role="img"
-                    aria-label={state.said}
-                  >
-                    <state.Glyph size={12} strokeWidth={2} aria-hidden />
-                  </span>
-                </Tooltip>
-              </Row>
-            );
-          })}
+          {running.map((one) => (
+            <RunningRow key={one.key} one={one} {...(onStep === undefined ? {} : { onStep })} focused={one.step !== undefined && one.step.id === focusedStep} />
+          ))}
         </Section>
       )}
     </aside>
@@ -165,13 +159,77 @@ function Kind({ of }: { of: NowKind }) {
   );
 }
 
-function Row({ name, onOpen, children }: { name: string; onOpen: () => void; children: ReactNode }) {
+function Row({ name, onOpen, children, below }: { name: string; onOpen: () => void; children: ReactNode; below?: ReactNode }) {
   return (
     <li className="armada-now__row">
       <button type="button" className="armada-now__open" aria-label={`Open ${name}`} onClick={onOpen}>
         {children}
       </button>
+      {below}
     </li>
+  );
+}
+
+/** A Drone, Check or Judge at work: its live mark, the step it belongs to, and its output tail folded under it. */
+function RunningRow({ one, onStep, focused }: { one: NowRunning; onStep?: (stepId: string) => void; focused: boolean }) {
+  const [shown, setShown] = useState(false);
+  const state = STATE[one.state];
+  const tail = one.tail === undefined || one.tail.length === 0 ? undefined : one.tail;
+  const step = one.step;
+  return (
+    <Row
+      name={`${one.name}${one.line === undefined ? "" : `, ${one.line}`}, ${state.said.toLowerCase()}`}
+      onOpen={one.onOpen}
+      below={
+        step === undefined && tail === undefined ? null : (
+          <>
+            <div className="armada-now__sub">
+              {step === undefined ? null : onStep === undefined ? (
+                <span className="armada-now__step">{step.name}</span>
+              ) : (
+                <Tooltip label="Show on the canvas">
+                  <button
+                    type="button"
+                    className="armada-now__step"
+                    aria-label={`Show ${step.name} on the canvas`}
+                    aria-pressed={focused}
+                    onClick={() => onStep(step.id)}
+                  >
+                    <Workflow size={12} strokeWidth={2} aria-hidden />
+                    {step.name}
+                  </button>
+                </Tooltip>
+              )}
+              {tail === undefined ? null : (
+                <Tooltip label={shown ? "Hide output" : "Show output"}>
+                  <button
+                    type="button"
+                    className="armada-now__fold"
+                    aria-label={`Output of ${one.name}`}
+                    aria-expanded={shown}
+                    onClick={() => setShown(!shown)}
+                  >
+                    {shown ? <ChevronDown size={12} strokeWidth={2} aria-hidden /> : <ChevronRight size={12} strokeWidth={2} aria-hidden />}
+                  </button>
+                </Tooltip>
+              )}
+            </div>
+            {tail === undefined || !shown ? null : <pre className="armada-now__tail">{tail.join("\n")}</pre>}
+          </>
+        )
+      }
+    >
+      <Kind of={one.of} />
+      <span className="armada-now__text">
+        {one.name}
+        {one.line === undefined ? null : <span className="armada-now__line">{one.line}</span>}
+      </span>
+      <Tooltip label={state.said}>
+        <span className="armada-now__mark" data-state={one.state} data-pulsing={one.state === "running" || undefined} role="img" aria-label={state.said}>
+          <state.Glyph size={12} strokeWidth={2} aria-hidden />
+        </span>
+      </Tooltip>
+    </Row>
   );
 }
 
@@ -189,37 +247,71 @@ function AskRow({ ask }: { ask: NowOpenAsk }) {
   );
 }
 
-/** Nothing is preselected: an answer commits the Drone to a branch of the plan. */
+/**
+ * One decision at a time, nothing preselected. Next goes to the next one still open;
+ * the last decision carries Answer instead, which sends every pick together.
+ */
 function PlanAsk({ ask }: { ask: NowPlanAsk }) {
-  const [picked, setPicked] = useState<string | undefined>();
+  const [at, setAt] = useState(0);
+  const [picks, setPicks] = useState<Record<string, string>>({});
   const [sent, setSent] = useState(false);
+  const decision = ask.decisions[at];
+  if (decision === undefined) return null;
+  const last = at === ask.decisions.length - 1;
+  const picked = picks[decision.id];
+  const next = () => {
+    const open = ask.decisions.findIndex((one, index) => index > at && picks[one.id] === undefined);
+    setAt(open === -1 ? at + 1 : open);
+  };
   return (
     <li className="armada-now__ask">
-      <RadioGroup label={ask.question}>
-        {ask.options.map((option) => (
+      {ask.decisions.length < 2 ? null : (
+        <ol className="armada-now__dots" aria-label="Decisions">
+          {ask.decisions.map((one, index) => (
+            <li key={one.id}>
+              <Tooltip label={one.question}>
+                <span
+                  className="armada-now__dot"
+                  role="img"
+                  aria-label={one.question}
+                  aria-current={index === at ? "step" : undefined}
+                  data-state={index === at ? "current" : picks[one.id] === undefined ? "open" : "answered"}
+                />
+              </Tooltip>
+            </li>
+          ))}
+        </ol>
+      )}
+      <RadioGroup label={decision.question} key={decision.id}>
+        {decision.options.map((option) => (
           <Radio
             key={option.id}
-            name={ask.key}
+            name={`${ask.key}-${decision.id}`}
             value={option.id}
             checked={picked === option.id}
             disabled={sent}
-            onChange={() => setPicked(option.id)}
+            onChange={() => setPicks({ ...picks, [decision.id]: option.id })}
           >
             {option.label}
           </Radio>
         ))}
       </RadioGroup>
-      <Button
-        size="sm"
-        disabled={picked === undefined || sent}
-        onClick={() => {
-          if (picked === undefined) return;
-          setSent(true);
-          ask.onAnswer(picked);
-        }}
-      >
-        Answer
-      </Button>
+      {last ? (
+        <Button
+          size="sm"
+          disabled={picked === undefined || sent}
+          onClick={() => {
+            setSent(true);
+            ask.onAnswer(picks);
+          }}
+        >
+          Answer
+        </Button>
+      ) : (
+        <Button size="sm" disabled={picked === undefined} onClick={next}>
+          Next
+        </Button>
+      )}
     </li>
   );
 }

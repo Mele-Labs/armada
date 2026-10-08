@@ -31,7 +31,17 @@ function uncleared(fixture: JobFixture): JobFixture {
 const fixtures = ROWS.map((row) => uncleared(asRow(featureRunning(), row.at, row.slug, row.title)));
 const [idle, drone, checks, plan, judge, issue] = fixtures.map((one) => one.job.id) as [string, string, string, string, string, string];
 
-const DRONE = { key: "d", of: "drone", name: "Drone on Implement", line: "Edit crates/store/src/clock.rs", state: "running" } as const;
+const IMPLEMENT = { id: "implement", name: "Implement" } as const;
+
+const DRONE = {
+  key: "d",
+  of: "drone",
+  name: "Drone on Implement",
+  line: "Edit crates/store/src/clock.rs",
+  step: IMPLEMENT,
+  tail: ["Read crates/store/src/clock.rs", "Read crates/store/src/writer.rs", "Edit crates/store/src/clock.rs"],
+  state: "running",
+} as const;
 
 const now: Record<string, NowView> = {
   [idle]: {},
@@ -39,10 +49,10 @@ const now: Record<string, NowView> = {
   [checks]: {
     running: [
       DRONE,
-      { key: "c1", of: "check", name: "typecheck", state: "passed" },
-      { key: "c2", of: "check", name: "lint", state: "failed" },
-      { key: "c3", of: "check", name: "store", state: "running" },
-      { key: "c4", of: "check", name: "desktop_test", state: "running" },
+      { key: "c1", of: "check", name: "typecheck", step: IMPLEMENT, state: "passed" },
+      { key: "c2", of: "check", name: "lint", step: IMPLEMENT, tail: ["clock.rs:41 clippy::needless_return", "clock.rs:58 clippy::let_and_return"], state: "failed" },
+      { key: "c3", of: "check", name: "store", step: IMPLEMENT, tail: ["running 212 tests", "test clock::pins_the_hour ... ok", "test writer::flushes_on_close ..."], state: "running" },
+      { key: "c4", of: "check", name: "desktop_test", step: IMPLEMENT, state: "running" },
     ],
   },
   [plan]: {
@@ -50,21 +60,42 @@ const now: Record<string, NowView> = {
       {
         key: "p",
         kind: "plan",
-        question: "Split the clock out of the writer, or wrap it in place?",
-        options: [
-          { id: "split", label: "Split it out" },
-          { id: "wrap", label: "Wrap it in place" },
-          { id: "defer", label: "Leave it for a later Job" },
+        decisions: [
+          {
+            id: "shape",
+            question: "Split the clock out of the writer, or wrap it in place?",
+            options: [
+              { id: "split", label: "Split it out" },
+              { id: "wrap", label: "Wrap it in place" },
+              { id: "defer", label: "Leave it for a later Job" },
+            ],
+          },
+          {
+            id: "tests",
+            question: "Pin the clock in the existing fixtures, or add a fake?",
+            options: [
+              { id: "pin", label: "Pin it in the fixtures" },
+              { id: "fake", label: "Add a fake clock" },
+            ],
+          },
+          {
+            id: "scope",
+            question: "Take the retry cap in this Job?",
+            options: [
+              { id: "in", label: "Take it here" },
+              { id: "out", label: "Keep it out" },
+            ],
+          },
         ],
       },
-      { key: "j", kind: "judge", name: "Judge on Review the change", text: "Is the retry cap in scope?" },
+      { key: "j", kind: "judge", name: "Judge on Implement", text: "Is the retry cap in scope?" },
       { key: "d", kind: "drone", name: "Drone on Implement", text: "Which clock does the fixture pin?" },
     ],
     running: [DRONE],
   },
   [judge]: {
     running: [
-      { key: "j", of: "judge", name: "Judge on Review the change", state: "running" },
+      { key: "j", of: "judge", name: "Judge on Implement", step: IMPLEMENT, tail: ["Reading the diff against the criteria", "Criterion 2: met"], state: "running" },
       { key: "c", of: "check", name: "typecheck", state: "passed" },
     ],
   },

@@ -34,6 +34,7 @@ import { PanelRightOpen } from "lucide-react";
 import { useState, type ReactNode } from "react";
 
 import type { DetailTab } from "./detail-tabs";
+import { stepNodeId } from "./workflow-canvas";
 import { JobLead, type JobLeadProps } from "./JobLead";
 import { studioName } from "@armada/screens/src/studio";
 import type { OpenStudioFrom } from "@armada/screens/src/open-studio";
@@ -175,6 +176,8 @@ export function OverviewBoard({
   now,
 }: OverviewBoardProps) {
   const [hidden, hide] = useNowHidden();
+  // The step a Now row asked to see on the canvas. A second press lets it go.
+  const [focused, focus] = useState<string | undefined>();
   const main = (
     <>
       {approving}
@@ -251,7 +254,11 @@ export function OverviewBoard({
           ) : (
             <div className="armada-overview-board__canvas">
               <WorkflowCanvas
-                nodes={workflow.nodes}
+                nodes={
+                  focused === undefined
+                    ? workflow.nodes
+                    : workflow.nodes.map((node) => (node.id === stepNodeId(focused) ? { ...node, card: { ...node.card, selected: true } } : node))
+                }
                 edges={workflow.edges}
                 label={workflow.label}
                 {...(workflow.opensOn === undefined ? {} : { opensOn: workflow.opensOn })}
@@ -358,7 +365,7 @@ export function OverviewBoard({
               </Button>
             </Tooltip>
           ) : (
-            <NowPanel {...now} onHide={() => hide(true)} />
+            <NowPanel {...now} onHide={() => hide(true)} onStep={(id) => focus(focused === id ? undefined : id)} {...(focused === undefined ? {} : { focusedStep: focused })} />
           )}
         </div>
       )}
