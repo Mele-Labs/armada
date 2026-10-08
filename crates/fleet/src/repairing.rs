@@ -16,7 +16,7 @@ use adapter_traits::{
     AgentHarness, CommitTime, Delivery, Grant, Prompt, SlotLeased, Toolbelt, Vcs, WorkProduct,
     Worktree,
 };
-use core_model::{Job, JobId, Level, RepairRecord, TriggerState};
+use core_model::{DroneId, Job, JobId, Level, RepairRecord, TriggerState};
 use verification::Exit;
 
 use crate::daemon::Fleet;
@@ -200,7 +200,14 @@ where
                 .spawn_config_with(job, &waiting.step, worktree, prompt, None, belt)
                 .await
                 .map_err(|why| format!("the repair Drone would not configure: {why:?}"))?;
-            let said = self.repair_run(&config).await?;
+            let drone = DroneId::carried(self.mint().ulid());
+            let ran = self.repair_run_spending(&config).await;
+            // Counted against the Job whether or not it came right, as a side
+            // Drone's is.
+            if let Ok((_, spend)) = &ran {
+                let _ = self.record_spend(job.id(), &drone, spend).await;
+            }
+            let (said, _) = ran?;
             if let Some(said) = said {
                 self.logged(
                     job.id(),

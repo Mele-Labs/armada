@@ -237,7 +237,7 @@ pub enum TriggerFiringState {
     Running,
     Passed,
     Failed,
-    /// A destructive Command, held for the owner. **Nothing asks him yet.**
+    /// A destructive Command, held for the owner, who answers Run (`rerun_trigger`) or Skip (`skip_trigger`).
     AwaitingOwner,
     /// Failed with `repair` on, and a repair Drone is working on a branch of
     /// its own. Since 23.68.

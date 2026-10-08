@@ -3,8 +3,8 @@
 
 import type { TriggerFiringState, TriggerMoment } from "./triggers";
 
-/** The most pressing of the three, in this order: a hold, a fix waiting on a choice, a failure nobody could repair. */
-export type JobAlertKind = "held" | "fix_ready" | "failed";
+/** The most pressing of the four, in this order: a hold, a destructive Command asking to run, a fix waiting on a choice, a failure nobody could repair. */
+export type JobAlertKind = "held" | "asks" | "fix_ready" | "failed";
 
 /** What a Board row's bell is about. A row draws a mark and a tooltip from it and composes no sentence. */
 export type JobAlert = {

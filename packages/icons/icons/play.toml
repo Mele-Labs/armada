@@ -5,3 +5,10 @@
   status = "Specified"
   reserved = "Resume on a paused Job, in a menu, a header and a confirm. Never a Drone running, which is `circle-dot`, and never starting a run or a server."
   notes = "Minted 6 Oct 2026 for Pause and Resume, with `circle-pause`, on the owner's decision. The ordinary counterpart of a pause bar, and the only one: Resume lifts the pause and starts nothing itself, since admission starts the Drone."
+
+  [[icons.play.usage]]
+    means = "Run on a Trigger that asks first: run its destructive Command once, now"
+    group = "Trigger"
+    size = "16px"
+    status = "Proposed"
+    notes = "Proposed 8 Oct 2026 for the walk `aDestructiveTriggerAsks`. A Trigger on a destructive Command waits on the owner, and Run is his yes for this one firing, with `skip-forward` as the no. The triangle keeps its one claim, go, one level down from a paused Job's Resume. Tooltip `Run`. Draws at 16px in a small button on the Trigger's leaf, the size of the Rerun and Skip acts."

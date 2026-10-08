@@ -294,7 +294,7 @@ where
         let comes = crate::triggering::decided(&asked, manifest);
         let opened = match &comes {
             Comes::Run { .. } => Fired::running(self.now()),
-            Comes::AskTheOwner => Fired::awaiting_the_owner(self.now()),
+            Comes::AskTheOwner { .. } => Fired::awaiting_the_owner(self.now()),
             Comes::Skip(TriggerSkipped::NotInThisRepo { command }) => Fired::skipped(
                 NotRun::NotInThisRepo {
                     command: command.clone(),

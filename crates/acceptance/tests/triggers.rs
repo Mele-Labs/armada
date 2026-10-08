@@ -14,7 +14,7 @@
 //! | A Command that exits non-zero is recorded failed, or `repairing` with `repair` on, and the Job stays where it was. A repair is told what failed, is bound at two tries, holds a passing fix for the owner, and each choice is a different delivery | A Drone on a branch, a push, a merge and the alert: `fleet::tests::trigger_repair` drives those with a fake Drone and `FakeVcs` |
 //! | A Trigger that blocks and fails is `held` and holds the Job, through a repair and until a rerun passes, the owner skips it or a repair ends passed. A failure that does not block holds nothing, and neither does the last step's `step_passes` | Where each moment holds, the rerun, the skip and the refusals: `fleet::tests::trigger_hold` drives a Job through each, and the walk `aTriggerHoldsTheJob` is Bridge's |
 //! | A step added to one Job that fails with `repair` on is `repairing` and not ended, as a Trigger is, and holds the Job through it when it blocks. The branch a repair wrote on is done with once its fix is on the Job's branch or the repair failed, and never when it is a pull request's head | The repair itself, the owner's choice and the branch's deletion for an added step: `fleet::tests::addition_repair` drives them, and `adapters` deletes against a real repository |
-//! | A Trigger on a Command this repository does not declare is recorded skipped, and a destructive one waits on the owner and is not run | That the owner is asked. Nothing asks him yet |
+//! | A Trigger on a Command this repository does not declare is recorded skipped, and a destructive one waits on the owner and is not run. With `block` it holds the Job until he answers, without it holds nothing, his Run ends as any firing does and his Skip records him | The act, the bell and the restart: `fleet::tests::trigger_asks` drives them, and the walk `aDestructiveTriggerAsks` is Bridge's |
 //! | A Skill or Drone Trigger (a `brief:` prompt) or Skill or Drone step opens `running`, never skipped, runs no Command, ignores `repair` and holds the Job where it blocks. Its branch is given back when it changed nothing | The side Drone, the slot, `fix_ready`, `passed`, `failed`, Rerun and the restart: `fleet::tests::side_run` drives them with a fake Drone, and the walk `aSkillStepRuns` is Bridge's |
 //! | A pull request opens as a draft by the most specific default there is: the Job's own choice, the delivering step's `draft_pr`, the repository's `pr_mode`, this machine's, then ready. `draft_pr` is refused on a step that does not deliver | That Fleet opens the pull request as a draft once approved. `crates/fleet/src/tests/choosing_delivery.rs` drives the fake VCS |
 
@@ -698,6 +698,65 @@ async fn a_failed_repairing_trigger_is_repaired_twice_at_most_and_the_fix_waits_
         before
     );
     assert_eq!(run.job.status(), JobStatus::Running);
+}
+
+/// A Trigger on a destructive Command asks the owner: with `block` on it holds
+/// the Job until he answers, without it waits and holds nothing. His Run ends as
+/// any firing does, and his Skip records who.
+#[tokio::test]
+async fn a_destructive_command_that_blocks_holds_the_job_until_he_runs_or_skips_it() {
+    let run = a_job_entering_its_delivering_step().await;
+    let delivering = run.job.workflow().delivering_step().expect("one delivers");
+    let commands = Commands::exiting(Exit::Code(0));
+    let asking = |on_failure: &str| {
+        fired(
+            &run.job,
+            vec![machine(
+                "wipe.yml",
+                &format!("name: wipe\nwhen: pr_opened\ncommand: wipe_qa\n{on_failure}"),
+            )],
+            &manifest_text(DECLARING_DEPLOY),
+            TriggerWhen::PrOpened,
+            delivering.id(),
+            &commands,
+        )
+        .remove(0)
+    };
+
+    let blocking = asking("on_failure:\n  block: true\n");
+    assert_eq!(blocking.state, TriggerState::AwaitingOwner);
+    assert!(blocking.holds_the_job());
+    let plain = asking("");
+    assert_eq!(plain.state, TriggerState::AwaitingOwner);
+    assert!(
+        !plain.holds_the_job(),
+        "without block it waits and holds nothing"
+    );
+    assert!(commands.asked.borrow().is_empty(), "nothing ran unasked");
+
+    // His Run is a firing like any other: it passes, or it fails as the Trigger says.
+    assert_eq!(
+        blocking.clone().ended(Some(0), at(9)).state,
+        TriggerState::Passed
+    );
+    assert_eq!(
+        blocking.clone().ended(Some(1), at(9)).state,
+        TriggerState::Held
+    );
+    assert_eq!(
+        plain.clone().ended(Some(1), at(9)).state,
+        TriggerState::Failed
+    );
+    let repairing = asking("on_failure:\n  block: true\n  repair: true\n");
+    assert_eq!(
+        repairing.ended(Some(1), at(9)).state,
+        TriggerState::Repairing
+    );
+
+    // His Skip is a record of who, and it holds nothing.
+    let skipped = blocking.skipped_by_the_owner(at(9));
+    assert_eq!(skipped.skipped, Some(TriggerSkipped::ByOwner));
+    assert!(!skipped.holds_the_job());
 }
 
 const BLOCKING_DEPLOY: &str =

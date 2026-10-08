@@ -75,6 +75,15 @@ impl Hold {
         self.record().settled_at.as_ref().or(ended)
     }
 
+    /// Whether the Job waits on it: a firing that blocks holds it while it is
+    /// held, and an ask holds it only where it blocks.
+    pub(crate) fn blocks(&self) -> bool {
+        match self {
+            Hold::Firing { firing, .. } => firing.on_failure.block,
+            Hold::Addition(_) => true,
+        }
+    }
+
     pub(crate) fn state(&self) -> TriggerState {
         match self {
             Hold::Firing { firing, .. } => firing.state,
@@ -84,6 +93,11 @@ impl Hold {
                 .map_or(TriggerState::Held, |fired| fired.state),
         }
     }
+}
+
+/// Why a Job is on the alerts for a destructive Command that asks to run.
+pub fn asks_said(trigger: &str) -> String {
+    format!("`{trigger}` is on a destructive Command and waits on you")
 }
 
 /// Why a Job is on the alerts for a hold.
@@ -120,6 +134,27 @@ where
                 .filter(|added| added.holds_the_job(job.workflow()))
                 .map(Hold::Addition),
         );
+        Ok(out)
+    }
+
+    /// The holds, and the destructive Commands that ask without holding: what
+    /// the owner's Run and Skip are answered against.
+    pub(crate) async fn holds_and_asks_on(&self, job_id: &JobId) -> Result<Vec<Hold>, Adrift> {
+        let mut out = self.holds_on(job_id).await?;
+        let asking = self
+            .store()
+            .lock()
+            .await
+            .asking_firings(job_id)
+            .map_err(Adrift::Reading)?;
+        for (id, firing) in asking {
+            let held = out
+                .iter()
+                .any(|hold| matches!(hold, Hold::Firing { id: other, .. } if *other == id));
+            if !held {
+                out.push(Hold::Firing { id, firing });
+            }
+        }
         Ok(out)
     }
 
@@ -254,13 +289,19 @@ where
     /// waiting on a choice, a failure nobody could repair. Nothing once it is over.
     pub(crate) fn alert_on_row(&self, store: &store::Store, job: &Job) -> Option<ipc::JobAlert> {
         let over = job.status().is_terminal();
-        let (mut held, mut fix, mut failed) = (None, None, None);
+        let (mut held, mut asks, mut fix, mut failed) = (None, None, None, None);
         for (_, firing) in store.alerting_firings(job.id()).unwrap_or_default() {
-            if over && firing.state == TriggerState::Held {
+            if over
+                && matches!(
+                    firing.state,
+                    TriggerState::Held | TriggerState::AwaitingOwner
+                )
+            {
                 continue;
             }
             let slot = match firing.state {
                 TriggerState::Held => &mut held,
+                TriggerState::AwaitingOwner => &mut asks,
                 TriggerState::FixReady => &mut fix,
                 _ => &mut failed,
             };
@@ -284,11 +325,12 @@ where
                 added.step.clone(),
             ));
         }
-        let (kind, (trigger, when, step)) = match (held, fix, failed) {
-            (Some(one), _, _) => (ipc::JobAlertKind::Held, one),
-            (None, Some(one), _) => (ipc::JobAlertKind::FixReady, one),
-            (None, None, Some(one)) => (ipc::JobAlertKind::Failed, one),
-            (None, None, None) => return None,
+        let (kind, (trigger, when, step)) = match (held, asks, fix, failed) {
+            (Some(one), ..) => (ipc::JobAlertKind::Held, one),
+            (None, Some(one), ..) => (ipc::JobAlertKind::Asks, one),
+            (None, None, Some(one), _) => (ipc::JobAlertKind::FixReady, one),
+            (None, None, None, Some(one)) => (ipc::JobAlertKind::Failed, one),
+            (None, None, None, None) => return None,
         };
         Some(ipc::JobAlert {
             kind,

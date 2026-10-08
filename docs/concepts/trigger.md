@@ -6,7 +6,7 @@
 
 **Kind:** Concept.
 
-**Built:** the model, the loader, the freeze at approval, Fleet firing a Command Trigger, `repair`, the wire to Bridge, Bridge's saved Triggers, step cards and Job card, steps added to one Job in Fleet and on the wire, the `+` that adds one on Bridge's approval canvas and a running Job's Workflow tab, the repair branch on a Job's canvases, and `block`, which holds the Job, with the owner's Rerun and Skip, a bell on a Board row, and the hold on Bridge's canvas and list. Skill Triggers, Skill steps and Drone steps run on a side Drone (23.73), and a saved Trigger can run a Drone with a prompt. Asking the owner about a destructive Command is not built.
+**Built:** the model, the loader, the freeze at approval, Fleet firing a Command Trigger, `repair`, the wire to Bridge, Bridge's saved Triggers, step cards and Job card, steps added to one Job in Fleet and on the wire, the `+` that adds one on Bridge's approval canvas and a running Job's Workflow tab, the repair branch on a Job's canvases, and `block`, which holds the Job, with the owner's Rerun and Skip, a bell on a Board row, and the hold on Bridge's canvas and list. Skill Triggers, Skill steps and Drone steps run on a side Drone (23.73), and a saved Trigger can run a Drone with a prompt. A destructive Command asks the owner first: Run or Skip on its leaf, and a bell on the Board row.
 
 ## What a Trigger is
 
@@ -43,7 +43,7 @@
 |---|---|
 | Names a Command the repository declares | Runs |
 | Names a Command it does not declare | Skipped, marked on the Job |
-| The Command is `destructive` | Not run. Recorded `awaiting_owner`, and nothing asks him yet |
+| The Command is `destructive` | Not run. Recorded `awaiting_owner`, and he is asked (*A destructive Command asks first*) |
 | The file does not parse | Left out with its reason, the others stand |
 | Two files in one place share an identity | Both left out, named together |
 
@@ -104,9 +104,26 @@ With `repair` also on the hold waits through the repair, and each state of it st
 
 A hold let go with nothing else holding the Job puts an `escalated` Job back in the queue, and admission starts the step it stopped before. **A hold let go before a step starts is not fired again when the Job gets there**: that would undo a skip, and rerun a pass.
 
-A held Job is an alert, and so is a repair fix waiting on his choice and a Trigger that failed after its repair tries. `JobSummary.alert` names the Trigger, so a Board row draws the bell, and `list_alerts` says why.
+A held Job is an alert, and so is a destructive Command asking, a repair fix waiting on his choice and a Trigger that failed after its repair tries. `JobSummary.alert` names the Trigger, so a Board row draws the bell, and `list_alerts` says why.
 
 The frozen set is `job_frozen_triggers`, one row per step a Trigger fires on. The repository's files are read from the base branch by `adapters::triggers_on_base`, and this machine's by `armada::Locator`.
+
+## A destructive Command asks first
+
+A Trigger on a `destructive` Command is not run when its moment comes. The firing is `awaiting_owner` and waits on him. It is the hold machinery again, with two acts of its own wording.
+
+| Owner's act | Does | Refused with |
+|---|---|---|
+| Run | Runs the Command once, now, in the Job's worktree, and the firing ends as any firing does: `passed`, or on a failure `repairing` with `repair` on, `held` with `block` on, `failed` otherwise | `fleet.no_hold`, `fleet.hold_already_running`, `fleet.hold_nothing_to_run`, `fleet.hold_no_worktree`, `fleet.hold_job_working` |
+| Skip | Records the firing `skipped`, reason `by_owner` | `fleet.no_hold` |
+
+Run is `rerun_trigger` and Skip is `skip_trigger`; the wire has no act of its own for it.
+
+- **With `block` on the Job holds until he answers**, at the place the moment stands in front of, exactly as a failure holds it (*A failed Trigger with `block` on*). Without it the firing waits and holds nothing, so the Job goes on.
+- **The Board row rings** with `JobAlert.kind` `asks`, after a hold and before a fix waiting on his choice, and `list_alerts` names the Trigger. A Job that is over has no bell: its worktree is no longer there to run in.
+- **Restart-safe.** The firing stays `awaiting_owner` in the store while the Command runs. A Fleet that stops halfway asks him again and never runs it unasked; a second Run meanwhile is refused with `fleet.hold_already_running`.
+- **A repair that follows his Run reruns the Command on the repair branch without asking again.** He said yes to the Trigger, and the repair is its failure path.
+- An added Script on a destructive Command is recorded `awaiting_owner` as before, and nothing asks him yet.
 
 ## On the wire
 
@@ -139,8 +156,8 @@ Nothing is held, so a save is on the next `list_triggers`. A Job's log line for 
 | A workflow's canvas | A Trigger that applies to every workflow is a leaf off the step it fires at, on each workflow's canvas, marked with the every-workflow glyph. It opens the editor: When, Step, Applies to, Set in, Runs, and the two switches under If it fails |
 | A workflow's step | The Triggers set for this workflow that fire at it, one line a moment (On start, On pass, PR opened). The delivering step also carries the Draft PR switch, which is its `draft_pr` |
 | Settings, This machine | The Draft pull requests switch, which is `draft_pull_requests` |
-| A Job's canvas | Each Trigger a leaf off the step it fired at, inside that step's lane, which grows to hold its leaves: the state as a mark and the level that sets it. A firing's name opens its line in the Job's log through `log_at`. A repair's or a Drone's branch is a leaf too, with its choice on it. A hold is drawn on the line it holds, or as a leaf where it has none, with Rerun and Skip beside it |
-| A Board row | The bell, with a tooltip naming the Trigger, for a hold, a fix waiting on his choice, and a Trigger that failed after its repair tries |
+| A Job's canvas | Each Trigger a leaf off the step it fired at, inside that step's lane, which grows to hold its leaves: the state as a mark and the level that sets it. A firing's name opens its line in the Job's log through `log_at`. A repair's or a Drone's branch is a leaf too, with its choice on it. A hold is drawn on the line it holds, or as a leaf where it has none, with Rerun and Skip beside it. A Trigger asking first stays a leaf, with Run and Skip at the end of its row |
+| A Board row | The bell, with a tooltip naming the Trigger, for a hold, a destructive Command asking, a fix waiting on his choice, and a Trigger that failed after its repair tries |
 
 A copy a more specific level replaced is drawn struck through under the one that runs. A repository's save is marked as waiting for `main`, and a machine Trigger on a Command the repository lacks is marked skipped. The repository's own `pr_mode` is edited with `set_pr_mode` in `edit_manifest`, and `ManifestDeclared.pr_mode` carries it back, so Bridge can offer the repository's Draft default beside the machine's and the step's.
 

@@ -57,7 +57,11 @@ pub(crate) enum Comes {
         command: String,
     },
     Skip(TriggerSkipped),
-    AskTheOwner,
+    /// A destructive Command, or one the Trigger asks first about. It carries
+    /// the line the owner's Run would execute.
+    AskTheOwner {
+        command: String,
+    },
     /// A skill, which a side Drone runs on a branch of its own.
     Side(Side),
 }
@@ -98,7 +102,9 @@ pub(crate) fn decided(resolution: &TriggerResolution, manifest: &Manifest) -> Co
             None => Comes::Skip(TriggerSkipped::NotInThisRepo {
                 command: name.clone(),
             }),
-            Some(command) if *asks_first || command.is_destructive() => Comes::AskTheOwner,
+            Some(command) if *asks_first || command.is_destructive() => Comes::AskTheOwner {
+                command: command.run().to_string(),
+            },
             Some(command) => Comes::Run {
                 command: command.run().to_string(),
             },
@@ -122,7 +128,16 @@ impl Planned {
     pub fn to_run(&self) -> Option<&str> {
         match &self.comes {
             Comes::Run { command } => Some(command),
-            Comes::Skip(_) | Comes::AskTheOwner | Comes::Side(_) => None,
+            Comes::Skip(_) | Comes::AskTheOwner { .. } | Comes::Side(_) => None,
+        }
+    }
+
+    /// The command line the owner's Run executes: a destructive one, which
+    /// [`to_run`](Planned::to_run) never gives.
+    pub(crate) fn to_run_when_asked(&self) -> Option<&str> {
+        match &self.comes {
+            Comes::AskTheOwner { command } => Some(command),
+            _ => None,
         }
     }
 
@@ -131,7 +146,7 @@ impl Planned {
         match &self.comes {
             Comes::Run { .. } | Comes::Side(_) => TriggerFiring::running(&self.trigger, at),
             Comes::Skip(why) => TriggerFiring::skipped(&self.trigger, why.clone(), at),
-            Comes::AskTheOwner => TriggerFiring::awaiting_the_owner(&self.trigger, at),
+            Comes::AskTheOwner { .. } => TriggerFiring::awaiting_the_owner(&self.trigger, at),
         }
     }
 
