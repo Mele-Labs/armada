@@ -14,6 +14,7 @@
 // fields, `ProposalTiers` the tiers and cap, `ProposalDoneWhen` the criteria.
 
 import { useState } from "react";
+import { stepThatWorksTheGroups } from "./workflow-canvas";
 import type { ReactNode } from "react";
 import { useAtFloor } from "@armada/shell";
 
@@ -219,6 +220,7 @@ export function ApprovalCanvas({
   machineCap,
 }: ApprovalCanvasProps) {
   const [open, setOpen] = useState<string | null>(null);
+  const groupsAt = stepThatWorksTheGroups(whole);
   const floor = useAtFloor();
   // At the gate a step is held in the edits until the press; past it, Fleet's.
   const added = useAddedSteps(
@@ -520,9 +522,13 @@ export function ApprovalCanvas({
     >
       <WorkflowCanvas
         nodes={[...backdrops, ...placed, ...extra, ...branch.nodes].map((node) => {
-          // A step's own node, and what hangs on it (`implement:checks`), stands back unless a Now row belongs to it.
-          const step = node.id.split(":")[0] ?? node.id;
-          if (lit === undefined || lit.size === 0 || lit.has(step) || node.backdrop === true || !steps.some((one) => one.id === step)) return node;
+          if (lit === undefined || lit.size === 0 || node.backdrop === true) return node;
+          // **A node stays lit when a Now row belongs to its step**, and so do the pills hanging on it
+          // (`implement:checks`) and the plan's groups and tasks under the step that works them.
+          // Every other node stands back, whatever it is (owner, 8 Oct 2026).
+          const head = node.id.split(":")[0] ?? node.id;
+          const owner = head === "group" || head === "task" ? groupsAt : head;
+          if (owner !== undefined && lit.has(owner)) return node;
           return node.drawn === undefined
             ? { ...node, card: { ...node.card, dimmed: true } }
             : { ...node, drawn: <div className="armada-now-dimmed">{node.drawn}</div> };

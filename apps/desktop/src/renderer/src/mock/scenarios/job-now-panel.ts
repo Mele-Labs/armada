@@ -2,7 +2,7 @@
 // a Plan decision open, a Judge reading, an issue, and each reason a Job runs nothing (a resource,
 // other Jobs, a transition, a one-off step), then a Job with no reason at all, which is a defect. Mock data only: Fleet
 // serves no plan interview, so the asks, issues and live rows ride on the draft, by Job id.
-// The walk `job-now-panel` plays it.
+// The walks `job-now-*` play them, one per scenario.
 
 import type { NowView } from "@armada/jobs/draft/now";
 import { featureRunning } from "@armada/jobs/fake";
@@ -144,6 +144,20 @@ const now: Record<string, NowView> = {
   [oneoff]: { waiting: [{ key: "o", kind: "step", text: "Handoff, a one-off step", step: HANDOFF }] },
 };
 
-const base = holding("job-now-panel", "The Now panel on Overview: a Drone, Checks landing, a Plan question, a Judge, an issue, and why a Job runs nothing", fixtures);
+const FLEET_SAYS = "The Now panel on Overview";
 
-export const s204JobNowPanel: Scenario = { ...base, draft: { now } };
+/** One scenario per Job, opened on it, so a walk starts on its state and not on the Board. */
+function opening(name: string, says: string, job: string): Scenario {
+  return { ...holding(`job-now-${name}`, `${FLEET_SAYS}: ${says}`, fixtures, { opens: job }), draft: { now } };
+}
+
+export const s204JobNowIdle = opening("idle", "a Job with nothing to say, which reads as a defect", none);
+export const s204JobNowDrone = opening("drone", "one Drone at work, its output open", drone);
+export const s204JobNowChecks = opening("checks", "Checks landing, with quick acts", checks);
+export const s204JobNowPlan = opening("plan", "a Plan decision asked one at a time", plan);
+export const s204JobNowJudge = opening("judge", "a Judge reading", judge);
+export const s204JobNowIssue = opening("issue", "a failed Check and a stuck Drone, with their fixes", issue);
+export const s204JobNowResource = opening("resource", "waiting on a resource", resource);
+export const s204JobNowJobs = opening("jobs", "waiting on other Jobs", jobs);
+export const s204JobNowTransition = opening("transition", "between two steps", transition);
+export const s204JobNowOneOff = opening("one-off", "running a one-off step", oneoff);
