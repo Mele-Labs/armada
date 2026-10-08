@@ -3,7 +3,7 @@
 // Session with the same title and the old conversation, which opens at once with a row linking back,
 // and the old one now links forward. Told twice, wide and below the breakpoint.
 
-import { kit, NARROW } from "../sessions/walk-kit";
+import { kit, NARROW, toSessions } from "../sessions/walk-kit";
 import { button, inside, region, role, text, walk } from "../walk";
 import type { Step } from "../walk";
 
@@ -36,7 +36,7 @@ function steps(narrow: boolean): Step[] {
   ];
 }
 
-const wide = walk("session-fork", steps(false));
-const narrow = walk("session-fork", steps(true), NARROW);
+const wide = walk("session-fork", [toSessions, ...steps(false)]);
+const narrow = walk("session-fork", [toSessions, ...steps(true)], NARROW);
 
 export { wide as "session-fork", narrow as "session-fork-narrow" };

@@ -179,6 +179,8 @@ export function Row({
   // it was on screen — settled 2026-08-31, and `a` left the keyboard map with
   // it. See `docs/concepts/job-board.md`, Dispatch flow.
   const verb = verbOf(job, isTerminal(job));
+  // Recently ended's Redispatch face carries no keycap; `JobActs` says why it is offered.
+  const canRedispatch = sectionOf(job) === "recently-ended" && job.status !== "rejected";
   const workflow = workflows.find((held) => held.id === job.workflow_id);
   const steps = workflow?.steps ?? [];
   // Matched on `step_id`, because a workflow's steps are objects carrying their
@@ -201,21 +203,6 @@ export function Row({
   const workflowValue =
     workflow === undefined ? job.workflow_id : `${workflow.name}, ${steps.length} steps`;
   const freeze = rowFreezeOf(job);
-  const paused = pausedSaid(job, now);
-  const fixes = fixesMainOf(job);
-  const pausing: PauseAct | null = canResume(job) ? "resume_job" : canPause(job) ? "pause_job" : null;
-  // A Job that has gone wrong can be talked through in a Session, where the window serves them.
-  const session = useOpenInSession();
-  // Pilot leads an escalated Job: the recourse acts step down into the menu (issue 257).
-  const pilot = usePilot();
-  const pilotLeads = pilot !== null && job.status === "escalated" && pilotable(job.status);
-  const talk =
-    session === null || (job.status !== "escalated" && job.status !== "completed_failed")
-      ? []
-      : [
-          { label: "Open in a Session", onSelect: () => session.open(job.id) },
-          ...session.targets.map((one) => ({ label: `Add to ${one.title}`, onSelect: () => session.open(job.id, one.id) })),
-        ];
   // **A dispatched request has nothing for three of the four columns.**
   // `job-statuses.toml` says `proposing` is the one status with no frozen
   // workflow at all, so there is no workflow to name, no step machine to place
@@ -251,14 +238,6 @@ export function Row({
   // row from before the field existed, which is why `createdAt` still backs
   // it up rather than leaving the slot blank.
   const endedAt = (job.ended_at === undefined ? null : absoluteOf(job.ended_at)) ?? createdAt;
-  // Recently ended's own two rows: `killed` and `completed_failed` both
-  // redispatch cleanly, and `rejected` never ran — `crates/fleet/src/
-  // redispatch.rs` refuses it by name, `Adrift::NeverRan`, so a row offering
-  // the act there would be a button that always fails. `sectionOf` is read
-  // rather than restated: it already excludes a cleared Job, on the same
-  // `reclaimed_at` check `tabOf` makes first.
-  const recentlyEnded = sectionOf(job) === "recently-ended";
-  const canRedispatch = recentlyEnded && job.status !== "rejected";
 
   // **The row's facts, in the order `BOARD_COLUMNS` names them, and both views
   // read them.** Three, then Repository and Tasks only where `columnsFor` names
@@ -363,19 +342,7 @@ export function Row({
       status={reading.status}
       statusIcon={reading.icon}
       statusLabel={reading.verb}
-      {...(paused === undefined && fixes === undefined && job.alert === undefined && job.status !== "piloted" && job.piloted?.exit !== "attested"
-        ? {}
-        : {
-            mark: (
-              <>
-                {fixes === undefined ? null : <FixingMainMark state={fixesMainMark(fixes)} said={fixesMainSaid(fixes)} />}
-                {job.alert === undefined ? null : <JobAlertMark alert={job.alert} />}
-                {paused === undefined ? null : <PausedMark said={paused} />}
-                {job.status === "piloted" ? <PilotedBy jobId={job.id} compact /> : null}
-                {job.piloted?.exit === "attested" ? <AttestedMark note={job.piloted.note} compact /> : null}
-              </>
-            ),
-          })}
+      {...(hasMarks(job, now) ? { mark: <JobMarks job={job} now={now} /> } : {})}
       headline={headline}
       jobId={job.id}
       handle={job.handle}
@@ -392,69 +359,7 @@ export function Row({
           ? undefined
           : { note: `${leading(reading.verb)} · ${lasting(recent.age)} ago`, remaining: recent.remaining }
       }
-      action={
-        // **One control, and it is secondary.** A list row never takes a
-        // primary action — fourteen rows offering a decision would be fourteen
-        // accent blocks. Kill is in the menu rather than beside it, because two
-        // buttons on a row is two controls whatever they are called, and the
-        // menu is where the drawing already put it.
-        //
-        // **Recently ended is the one section where the row leads with
-        // something other than Open.** Overview 28 (#1092): a Job sitting
-        // there is one somebody still owes a decision, same as a Job Kill
-        // waits beside — so it gets the same shape, Clear standing in for
-        // Kill in the caret. `rejected` keeps the plain verb: it never ran,
-        // Fleet refuses to redispatch it by name, and a button that always
-        // fails is worse than the section's usual act.
-        canRedispatch ? (
-          <SplitButton
-            ground="card"
-            disabled={stale}
-            onAction={() => onRedispatch(job.id)}
-            menuLabel={`More for ${titleOf(job)}`}
-            items={[...talk, { label: "Clear", onSelect: () => onClear(job.id) }]}
-          >
-            {ACT_LABEL.redispatch}
-          </SplitButton>
-        ) : recentlyEnded ? (
-          <SplitButton
-            ground="card"
-            disabled={stale}
-            onAction={() => onOpen(job.id)}
-            menuLabel={`More for ${titleOf(job)}`}
-            items={[{ label: "Clear", onSelect: () => onClear(job.id) }]}
-          >
-            {ROW_VERBS[verb].label}
-          </SplitButton>
-        ) : isTerminal(job) ? (
-          // Every other job that is over: there is nothing to kill and
-          // nothing recently ended offers, so `Split button` would draw a
-          // caret over an empty menu — a control that does not respond.
-          <Button size="sm" onClick={() => onOpen(job.id)} disabled={stale}>
-            {ROW_VERBS[verb].label}
-          </Button>
-        ) : (
-          <SplitButton
-            ground="card"
-            disabled={stale}
-            onAction={() => (pilotLeads ? pilot.ask(job.id) : onOpen(job.id))}
-            menuLabel={`More for ${titleOf(job)}`}
-            // The binding is displayed here and bound in `keys.ts`, which is
-            // the only way a person finds `x` without reading a contract.
-            items={[
-              ...(pilotLeads ? [{ label: ROW_VERBS[verb].label, onSelect: () => onOpen(job.id) }] : []),
-              ...(pilot !== null && job.status === "running" ? [{ label: "Pilot", onSelect: () => pilot.ask(job.id) }] : []),
-              ...talk,
-              ...(pausing === null || onPausing === undefined
-                ? []
-                : [{ label: ACT_LABEL[pausing], onSelect: () => onPausing(pausing, job.id) }]),
-              { label: "Kill", shortcut: "x", danger: true, onSelect: () => onKill(job.id) },
-            ]}
-          >
-            {pilotLeads ? "Pilot" : ROW_VERBS[verb].label}
-          </SplitButton>
-        )
-      }
+      action={<JobActs job={job} stale={stale} onOpen={onOpen} onKill={onKill} onRedispatch={onRedispatch} onClear={onClear} {...(onPausing === undefined ? {} : { onPausing })} />}
       // The key that fires the verb, drawn on the cursor's row only. **Absent
       // where the face is Redispatch**: `actions.toml` binds it to `e` on
       // "list and detail", but nothing on the Board reads that key yet — a
@@ -463,6 +368,135 @@ export function Row({
       // which key, or that there is none.
       actionKey={canRedispatch ? undefined : ROW_VERBS[verb].key}
     />
+  );
+}
+
+/** Whether a Job carries any mark beside its badge: paused, fixing main, an alert, piloted, attested. */
+export function hasMarks(job: JobSummary, now: number): boolean {
+  return pausedSaid(job, now) !== undefined || fixesMainOf(job) !== undefined || job.alert !== undefined || job.status === "piloted" || job.piloted?.exit === "attested";
+}
+
+/** The marks beside a Job's badge, as its Board row draws them. Out of `Row` for the Dashboard's pane. */
+export function JobMarks({ job, now }: { job: JobSummary; now: number }) {
+  const paused = pausedSaid(job, now);
+  const fixes = fixesMainOf(job);
+  return (
+    <>
+      {fixes === undefined ? null : <FixingMainMark state={fixesMainMark(fixes)} said={fixesMainSaid(fixes)} />}
+      {job.alert === undefined ? null : <JobAlertMark alert={job.alert} />}
+      {paused === undefined ? null : <PausedMark said={paused} />}
+      {job.status === "piloted" ? <PilotedBy jobId={job.id} compact /> : null}
+      {job.piloted?.exit === "attested" ? <AttestedMark note={job.piloted.note} compact /> : null}
+    </>
+  );
+}
+
+/**
+ * A Job's one control and the menu beside it, as its Board row draws them. Out of `Row` so the
+ * Dashboard's pane offers the same acts on the same Job: Pilot, Open in a Session, Pause, Kill,
+ * Redispatch and Clear, each asking as the row does.
+ */
+export function JobActs({
+  job,
+  stale,
+  onOpen,
+  onKill,
+  onRedispatch,
+  onClear,
+  onPausing,
+}: {
+  job: JobSummary;
+  stale: boolean;
+  onOpen: (jobId: string) => void;
+  onKill: (jobId: string) => void;
+  onRedispatch: (jobId: string) => void;
+  onClear: (jobId: string) => void;
+  onPausing?: (act: PauseAct, jobId: string) => void;
+}) {
+  const verb = verbOf(job, isTerminal(job));
+  const pausing: PauseAct | null = canResume(job) ? "resume_job" : canPause(job) ? "pause_job" : null;
+  // A Job that has gone wrong can be talked through in a Session, where the window serves them.
+  const session = useOpenInSession();
+  // Pilot leads an escalated Job: the recourse acts step down into the menu (issue 257).
+  const pilot = usePilot();
+  const pilotLeads = pilot !== null && job.status === "escalated" && pilotable(job.status);
+  const talk =
+    session === null || (job.status !== "escalated" && job.status !== "completed_failed")
+      ? []
+      : [
+          { label: "Open in a Session", onSelect: () => session.open(job.id) },
+          ...session.targets.map((one) => ({ label: `Add to ${one.title}`, onSelect: () => session.open(job.id, one.id) })),
+        ];
+  // Recently ended's own two rows: `killed` and `completed_failed` both
+  // redispatch cleanly, and `rejected` never ran — `crates/fleet/src/
+  // redispatch.rs` refuses it by name, `Adrift::NeverRan`, so a row offering
+  // the act there would be a button that always fails. `sectionOf` is read
+  // rather than restated: it already excludes a cleared Job, on the same
+  // `reclaimed_at` check `tabOf` makes first.
+  const recentlyEnded = sectionOf(job) === "recently-ended";
+  const canRedispatch = recentlyEnded && job.status !== "rejected";
+  return (
+    // **One control, and it is secondary.** A list row never takes a
+    // primary action — fourteen rows offering a decision would be fourteen
+    // accent blocks. Kill is in the menu rather than beside it, because two
+    // buttons on a row is two controls whatever they are called, and the
+    // menu is where the drawing already put it.
+    //
+    // **Recently ended is the one section where the row leads with
+    // something other than Open.** Overview 28 (#1092): a Job sitting
+    // there is one somebody still owes a decision, same as a Job Kill
+    // waits beside — so it gets the same shape, Clear standing in for
+    // Kill in the caret. `rejected` keeps the plain verb: it never ran,
+    // Fleet refuses to redispatch it by name, and a button that always
+    // fails is worse than the section's usual act.
+    canRedispatch ? (
+      <SplitButton
+        ground="card"
+        disabled={stale}
+        onAction={() => onRedispatch(job.id)}
+        menuLabel={`More for ${titleOf(job)}`}
+        items={[...talk, { label: "Clear", onSelect: () => onClear(job.id) }]}
+      >
+        {ACT_LABEL.redispatch}
+      </SplitButton>
+    ) : recentlyEnded ? (
+      <SplitButton
+        ground="card"
+        disabled={stale}
+        onAction={() => onOpen(job.id)}
+        menuLabel={`More for ${titleOf(job)}`}
+        items={[{ label: "Clear", onSelect: () => onClear(job.id) }]}
+      >
+        {ROW_VERBS[verb].label}
+      </SplitButton>
+    ) : isTerminal(job) ? (
+      // Every other job that is over: there is nothing to kill and
+      // nothing recently ended offers, so `Split button` would draw a
+      // caret over an empty menu — a control that does not respond.
+      <Button size="sm" onClick={() => onOpen(job.id)} disabled={stale}>
+        {ROW_VERBS[verb].label}
+      </Button>
+    ) : (
+      <SplitButton
+        ground="card"
+        disabled={stale}
+        onAction={() => (pilotLeads ? pilot.ask(job.id) : onOpen(job.id))}
+        menuLabel={`More for ${titleOf(job)}`}
+        // The binding is displayed here and bound in `keys.ts`, which is
+        // the only way a person finds `x` without reading a contract.
+        items={[
+          ...(pilotLeads ? [{ label: ROW_VERBS[verb].label, onSelect: () => onOpen(job.id) }] : []),
+          ...(pilot !== null && job.status === "running" ? [{ label: "Pilot", onSelect: () => pilot.ask(job.id) }] : []),
+          ...talk,
+          ...(pausing === null || onPausing === undefined
+            ? []
+            : [{ label: ACT_LABEL[pausing], onSelect: () => onPausing(pausing, job.id) }]),
+          { label: "Kill", shortcut: "x", danger: true, onSelect: () => onKill(job.id) },
+        ]}
+      >
+        {pilotLeads ? "Pilot" : ROW_VERBS[verb].label}
+      </SplitButton>
+    )
   );
 }
 

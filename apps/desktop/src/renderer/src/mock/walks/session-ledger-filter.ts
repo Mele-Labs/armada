@@ -4,7 +4,7 @@
 
 import { button, inside, region, role, walk } from "../walk";
 import type { Step } from "../walk";
-import { kit } from "../sessions/walk-kit";
+import { kit, toSessions } from "../sessions/walk-kit";
 
 function steps(): Step[] {
   const { ledger, opened } = kit(false);
@@ -25,6 +25,6 @@ function steps(): Step[] {
   ];
 }
 
-const filter = walk("session-ledger", steps());
+const filter = walk("session-ledger", [toSessions, ...steps()]);
 
 export { filter as "session-ledger-filter" };

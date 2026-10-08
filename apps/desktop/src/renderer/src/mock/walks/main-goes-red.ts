@@ -5,7 +5,7 @@
 // Pull requests whose `ci` is red only because main is read as waiting on the fix. Each `later` is
 // time passing: the scenario publishes its next moment.
 
-import { button, dialog, inside, region, role, text, walk } from "../walk";
+import { button, dialog, inside, region, role, tab, text, walk } from "../walk";
 
 const MERGE = region("Merge line");
 const RED = inside(MERGE, role("status", "Main is red"));
@@ -21,6 +21,7 @@ const FIX = "Fix components_test on main";
 const ROW = (title: string) => role("option", new RegExp(title));
 
 export const mainGoesRed = walk("main-red-hub", [
+  { press: role("button", "Merge line", { exact: true }), say: "The merge line" },
   // Main is green.
   { hover: inside(MERGE, role("img", "Main is green")), say: "Main is green: a mark beside the heading, its tooltip the only words" },
   { look: PULLS, say: "Every open pull request in the repository, with how its ci stands" },
@@ -41,25 +42,30 @@ export const mainGoesRed = walk("main-red-hub", [
   { look: inside(PULLS, role("listitem", /^studio\/zone-proposal, ci red because main is/)), say: "These ci runs are red because main is: waiting on the fix" },
   { hover: inside(PULLS, role("img", /waiting on the fix: Cache the manifest read between dispatches/)), say: "Hover names the fix it waits on" },
   { look: inside(PULLS, role("listitem", "fleet/pause-markers, ci failed")), say: "A branch's own failure stays a failure" },
-  { hover: role("img", /^Fixing main: screens_test failed after #1812/), say: "On the Board the Job's row carries a hammer beside its badge, pulsing" },
-  { press: ROW(CACHE), say: "Open the Job" },
+  { press: role("button", "Overview", { exact: true }), say: "The Job taking it, on the Dashboard" },
+  { press: tab("Running"), say: "Running" },
+  { press: ROW(CACHE), say: "Picked" },
+  { hover: role("img", /^Fixing main: screens_test failed after #1812/), say: "Its title carries a hammer beside it, pulsing" },
+  { press: button(/^(Open|Review|Redirect|Attest)$/), say: "Open the Job" },
   { look: role("heading", "Fixing main"), say: "Its lead: what it took" },
   { look: text("manifest-read.test.ts > reads the file again once it changes · #1812"), say: "The failing test and the pull request that turned main red" },
   { hover: role("img", /^Fixing main/), say: "The same mark beside the header's badge" },
   { press: button("Read the log"), say: "The log is attached: the same one the head opens" },
   { look: inside(LOG, text("AssertionError: expected 'cached' to be 'changed'")), say: "Main's run, from the Job too" },
   { press: inside(LOG, button("Close")), say: "Put it away" },
-  { press: button("Overview", { exact: true }), say: "Back to the Board" },
+  { press: role("button", "Merge line", { exact: true }), say: "Back to the merge line" },
 
   // Its fix lands.
-  { later: role("img", /^Fixing main/), say: "Its fix reaches main" },
+  { later: inside(RED, button(CACHE)), say: "Its fix reaches main" },
   { look: inside(MERGE, role("img", "Main is green")), say: "Main is green again: the head is a mark once more" },
   { look: inside(PULLS, role("listitem", "studio/zone-proposal, ci passed")), say: "What waited on the fix has its own ci back" },
-  { press: button("Expand Done"), say: "A Job that finished is under Done" },
-  { hover: role("img", "Fixed main in #1821"), say: "The Job that fixed it says so beside its badge" },
-  { press: ROW(CACHE), say: "Open it" },
+  { press: role("button", "Overview", { exact: true }), say: "The Dashboard" },
+  { press: tab("Done"), say: "A Job that finished is on Done" },
+  { press: ROW(CACHE), say: "Picked" },
+  { hover: role("img", "Fixed main in #1821"), say: "The Job that fixed it says so beside its title" },
+  { press: button(/^(Open|Review|Redirect|Attest)$/), say: "Open it" },
   { hover: role("img", "Fixed main in #1821"), say: "Its header says the same: the pull request that fixed it" },
-  { press: button("Overview", { exact: true }), say: "Back to the Board" },
+  { press: role("button", "Merge line", { exact: true }), say: "Back to the merge line" },
 
   // A person merged the Job's pull request on the forge: nothing was watching it.
   { later: inside(MERGE, role("img", "Main is green")), say: "A person merges this Job's pull request on the forge" },
@@ -78,10 +84,14 @@ export const mainGoesRed = walk("main-red-hub", [
   { press: inside(RED, button(DEBOUNCE)), say: "Open the Job" },
   { look: role("heading", "Fixing main"), say: "Its lead is the same as when it took the red itself" },
   { look: text("resources-poll.test.ts > a reading that stops polls nothing · #1816"), say: "The test and the pull request, attached" },
-  { press: button("Overview", { exact: true }), say: "Back to the Board" },
+  { press: role("button", "Merge line", { exact: true }), say: "Back to the merge line" },
   { later: inside(RED, button(DEBOUNCE)), say: "Its fix reaches main" },
   { look: inside(MERGE, role("img", "Main is green")), say: "Green again" },
+  { press: role("button", "Overview", { exact: true }), say: "The Dashboard" },
+  { press: tab("Done"), say: "Done" },
+  { press: ROW(DEBOUNCE), say: "The Job that fixed it" },
   { look: role("img", "Fixed main in #1822"), say: "The Job says it fixed it" },
+  { press: role("button", "Merge line", { exact: true }), say: "Back to the merge line" },
 
   // A person's own pull request turned it red: no Job to send it to first, and the owner dispatches one.
   { later: inside(MERGE, role("img", "Main is green")), say: "A person merges their own pull request" },
@@ -94,10 +104,14 @@ export const mainGoesRed = walk("main-red-hub", [
   { look: inside(RED, button(FIX)), say: "The new Job has it" },
   { press: inside(RED, button(FIX)), say: "Open the Job" },
   { look: role("heading", "Fixing main"), say: "Running, with the test and the log attached" },
-  { press: button("Overview", { exact: true }), say: "Back to the Board" },
+  { press: role("button", "Merge line", { exact: true }), say: "Back to the merge line" },
   { later: inside(RED, button(FIX)), say: "Its fix reaches main" },
   { look: inside(MERGE, role("img", "Main is green")), say: "Green" },
+  { press: role("button", "Overview", { exact: true }), say: "The Dashboard" },
+  { press: tab("Done"), say: "Done" },
+  { press: ROW(FIX), say: "The Job that fixed it" },
   { later: role("img", "Fixed main in #1823"), say: "The Job that fixed it says so" },
+  { press: role("button", "Merge line", { exact: true }), say: "Back to the merge line" },
 
   // CI outside Armada: the failing job maps to no Manifest Check. Armada goes on what the forge reports.
   { look: RED, say: "Main is red again, from CI that Armada has no Check for" },
@@ -109,7 +123,10 @@ export const mainGoesRed = walk("main-red-hub", [
   { look: inside(RED, button("Name the zone a read-in lands in")), say: "Fixing: the Job behind it took it as before, with the CI job and its log attached" },
   { press: inside(RED, button("Name the zone a read-in lands in")), say: "Open the Job" },
   { look: role("heading", "Fixing main"), say: "Its lead names the CI job and the pull request" },
-  { press: button("Overview", { exact: true }), say: "Back to the Board" },
+  { press: role("button", "Merge line", { exact: true }), say: "Back to the merge line" },
   { later: inside(RED, button("Name the zone a read-in lands in")), say: "Its fix reaches main" },
+  { press: role("button", "Overview", { exact: true }), say: "The Dashboard" },
+  { press: tab("Done"), say: "Done" },
+  { press: ROW("Name the zone a read-in lands in"), say: "The Job that fixed it" },
   { look: role("img", "Fixed main in #1824"), say: "The Job that fixed it says so" },
 ]);

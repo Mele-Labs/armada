@@ -3,10 +3,12 @@
 // owner's note of 1 Oct 2026 on the Brief card; `markdownFromAReviewer` is the
 // other half, on a Job a reviewer has commented on.
 
-import { card, dialog, inside, text, walk } from "../walk";
+import { button, card, dialog, inside, role, tab, text, walk } from "../walk";
 
 export const markdownFromTheProposer = walk("arc/proposing-done-when-landed", [
-  { press: text("Say which of the two a clear gave back"), say: "A Job the Proposer is still writing" },
+  { press: tab("Running"), say: "A Job the Proposer is still writing" },
+  { press: role("option", /Say which of the two a clear gave back/), say: "Picked" },
+  { press: button(/^(Open|Review|Redirect|Attest)$/), say: "Open the Job" },
   {
     look: text("does not say it twice"),
     say: "A done-when line the model wrote, with branch drawn as code",

@@ -16,6 +16,16 @@ The owner: *"Overview now supersedes the job board. We should delete this page."
 
 **What was dropped rather than moved**, as the owner chose: the search field, the state tabs, the sort control and the card/table toggle. They are conveniences over a single list, and Overview's sections answer the question the tabs answered. They come back when he asks for one.
 
+## Overview became the Dashboard on 8 Oct 2026
+
+The owner asked for a live view of what needs him now, with quick dispatch when nothing does. Overview's panels became three tabs, Command Central, Running and Done, and Jobs, Sessions and merge line items each sort into one of them. A tab carries no count.
+
+**Command Central** is a queue of what needs him, with the item picked opened beside it and answered there. **Running** is every live Job as a lane of its workflow's steps, with Sessions beside them and the merge line as a strip under them. **Done** is what is over. A slim dispatch bar sits over every tab and takes the cursor when nothing needs him.
+
+**The row's acts and marks moved into the pane beside the list.** Pilot, Open in a Session, Pause, Kill, Redispatch and Clear are the same control a Board row drew (`JobActs`), and the paused, fixing-main, alert and piloted marks sit beside the title (`JobMarks`). The Board's keys work on whichever list is in front: j and k move, Enter or the row's verb key opens, and x asks to kill. n composes.
+
+**Sessions and the merge line have their own pages for the whole list.** The Dashboard shows only what each tab is about.
+
 **Everything below still binds.** Which Jobs are in scope, what a row draws, what a status means on it, origin tagging and the dispatch flow are the same rules wherever the list is drawn. Read *the Board* below as *the list of Jobs*, and Overview as where a person reads it.
 
 ## What it's for
@@ -62,7 +72,7 @@ Approving such a Job is refused at that moment, naming the missing Manifest — 
 
 ## Layout
 
-Overview draws one panel per section — what needs you, what is running, what is queued, what recently ended, what is done, and what no section claims. **The sections are the reading**; the flat list with a state filter over it was the Board's own arrangement and went with that page.
+The sections are still the reading, folded into three tabs: what needs you is Command Central; what is running, queued or claimed by no section is Running; what recently ended or is done is Done. The flat list with a state filter over it was the Board's own arrangement and went with that page. Where Fleet cannot be reached, Overview draws the held rows under their old section panels, which say so.
 
 The graph view was an opt-in toggle beside the flat list and is unscheduled: the graph a person asked for is a Job's own workflow, which is drawn on job detail — see [Monitor Active Work](../journeys/monitor-active-work.md). Its open question stands below.
 

@@ -1,6 +1,7 @@
-// Overview, as the window mounts it: the summary strip over the panels, out of `App.tsx`, which is
-// at the length the gate refuses. #921 mounted the tile band here first; Overview 27 (#1091)
-// replaced it with the strip and gave every panel below it a fold.
+// The Dashboard, as the window mounts it, out of `App.tsx`, which is at the length the gate refuses.
+// Three tabs over the panels: Command Central (what needs the owner, or a quick dispatch box when
+// nothing does), Running, and Done. Each reads Jobs, Sessions and the merge line alike. #921 mounted
+// the tile band here first; Overview 27 (#1091) gave every panel a fold, and the tabs replaced the strip.
 //
 // `.armada-screen__overview` is the one child `.armada-screen__mounted` gets — the surface's own
 // padding and gap, so neither the strip nor a panel sits against the window's edge. `Boundary`
@@ -8,14 +9,20 @@
 
 import { useEffect, useState } from "react";
 import type { FixMain, RepositorySummary } from "@armada/protocol";
+import type { CallView } from "@armada/jobs/draft/calls";
 import type { BoardSection, PauseAct } from "@armada/screens";
-import { OverviewLists, OverviewSummary, overviewPanelId } from "@armada/overview";
+import { DashboardTabs, OverviewLists, overviewListsOf, dashboardTabOf, overviewPanelId } from "@armada/overview";
 import { Boundary } from "@armada/shell";
+import { boardPressOf } from "@armada/screens/src/keys";
+import { useListKeydown } from "@armada/screens/src/list-keyboard";
 
 import type { BridgeState } from "../../shared/bridge";
-import { MergeLinePanel } from "./merge-line";
-import { SessionsListing } from "./sessions";
+import { Dashboard, useNeedsYou } from "./Dashboard";
+import { CommandCentral } from "./CommandCentral";
+import { FleetBoard } from "./FleetBoard";
+import { QuickDispatch } from "./QuickDispatch";
 import { usePanelOpen } from "./panel-open";
+import { useDashboardTab } from "./remembered-views";
 
 type StripSection = "needs-you" | "running" | "queued" | "recently-ended";
 
@@ -39,6 +46,9 @@ export function Overview({
   onOpenLink,
   onOpenSession,
   onFix,
+  nowViews,
+  onQuickCompose,
+  onPropose,
 }: {
   state: BridgeState;
   now: number;
@@ -76,6 +86,12 @@ export function Overview({
   onOpenSession: (sessionId: string) => void;
   /** Hands main's red to a Job, from the merge line's band. */
   onFix?: (fix: FixMain) => void;
+  /** What each Job asks and has gone wrong in, by Job id. Mock only: Fleet serves none, and then only Jobs flagged as asking are listed. */
+  nowViews?: Readonly<Record<string, CallView>>;
+  /** Words typed into the quick dispatch box, handed to the composer. */
+  onQuickCompose: (words: string) => void;
+  /** Puts a request on the approval gate: a Drone sent at a failing pull request. */
+  onPropose?: (request: string) => void;
 }) {
   const guarded = { bridge: state.bridge, onCopied };
 
@@ -112,8 +128,10 @@ export function Overview({
   // A press names a section; opening it (if folded) and scrolling to it happen once that open
   // state has committed, which is what the effect below waits for.
   const [jump, setJump] = useState<{ section: StripSection; at: number } | null>(null);
+  const [tab, setTab] = useDashboardTab();
   const onJump = (section: StripSection) => {
     setters[section](true);
+    setTab(dashboardTabOf(section));
     setJump({ section, at: Date.now() });
   };
   // A notification's own landing, taken once Overview is on screen.
@@ -132,33 +150,100 @@ export function Overview({
     panel.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "start" });
   }, [jump]);
 
+  // n composes from anywhere on the Dashboard, as it did from the Board's lists.
+  // Where Fleet cannot be reached the Board's own lists draw, and bind n themselves.
+  useListKeydown((event) => {
+    if (fault || boardPressOf(event)?.act !== "compose") return;
+    event.preventDefault();
+    onCompose();
+  });
+
+  const pickedRepository = repositories.find((one) => one.root === state.repository) ?? null;
+  const needsYou = useNeedsYou(state, pickedRepository, nowViews);
+  // Fleet unreachable, still starting, or nothing served: the lists say so, as they always did.
+  const fault = disconnected !== null || state.connection.state === "starting" || repositories.length === 0;
+
   return (
     <Boundary region="the overview" {...guarded}>
       <div className="armada-screen__overview">
-        <OverviewSummary jobs={state.jobs} repositories={repositories} picked={state.repository} onJump={onJump} />
-        <OverviewLists
-          jobs={state.jobs}
-          stale={!live}
-          now={now}
-          workflows={state.holds.workflows}
-          repositories={repositories}
-          picked={state.repository}
-          disconnected={disconnected}
-          starting={state.connection.state === "starting"}
-          selected={selected}
-          openSections={openSections}
-          onSectionOpenChange={onSectionOpenChange}
-          onOpen={onOpen}
-          onKill={onKill}
-          onRedispatch={onRedispatch}
-          onClear={onClear}
-          {...(onPausing === undefined ? {} : { onPausing })}
-          onCompose={onCompose}
-          onCopied={onCopied}
-          onCursor={onCursor}
-        />
-        <SessionsListing onOpen={onOpenSession} />
-        <MergeLinePanel state={state} onOpenLink={onOpenLink} onOpenJob={onOpen} {...(onFix === undefined ? {} : { onFix })} />
+        {fault ? null : <QuickDispatch onType={onQuickCompose} focused={!needsYou} />}
+        <DashboardTabs tab={tab} onTab={setTab} asking={needsYou} running={overviewListsOf(state.jobs, pickedRepository).sections.some((one) => one.id === "running" && one.jobs.length > 0)} />
+        {fault ? (
+          <OverviewLists
+            jobs={state.jobs}
+            stale={!live}
+            now={now}
+            workflows={state.holds.workflows}
+            repositories={repositories}
+            picked={state.repository}
+            disconnected={disconnected}
+            starting={state.connection.state === "starting"}
+            selected={selected}
+            openSections={openSections}
+            onSectionOpenChange={onSectionOpenChange}
+            onOpen={onOpen}
+            onKill={onKill}
+            onRedispatch={onRedispatch}
+            onClear={onClear}
+            {...(onPausing === undefined ? {} : { onPausing })}
+            onCompose={onCompose}
+            onCopied={onCopied}
+            onCursor={onCursor}
+          />
+        ) : tab === "command-central" ? (
+          <CommandCentral
+            state={state}
+            now={now}
+            picked={pickedRepository}
+            nowViews={nowViews}
+            onOpen={onOpen}
+            onOpenSession={onOpenSession}
+            onOpenLink={onOpenLink}
+            onFix={onFix}
+            onPropose={onPropose}
+            onKill={onKill}
+            onRedispatch={onRedispatch}
+            onClear={onClear}
+            onPausing={onPausing}
+            onCursor={onCursor}
+          />
+        ) : tab === "running" ? (
+          <FleetBoard
+            state={state}
+            now={now}
+            picked={pickedRepository}
+            nowViews={nowViews}
+            pane
+            onOpen={onOpen}
+            onOpenSession={onOpenSession}
+            onOpenLink={onOpenLink}
+            onFix={onFix}
+            onPropose={onPropose}
+            onKill={onKill}
+            onRedispatch={onRedispatch}
+            onClear={onClear}
+            onPausing={onPausing}
+            onCursor={onCursor}
+          />
+        ) : (
+          <Dashboard
+            tab={tab}
+            state={state}
+            now={now}
+            picked={pickedRepository}
+            nowViews={nowViews}
+            onOpen={onOpen}
+            onOpenSession={onOpenSession}
+            onOpenLink={onOpenLink}
+            onFix={onFix}
+            onPropose={onPropose}
+            onKill={onKill}
+            onRedispatch={onRedispatch}
+            onClear={onClear}
+            onPausing={onPausing}
+            onCursor={onCursor}
+          />
+        )}
       </div>
     </Boundary>
   );

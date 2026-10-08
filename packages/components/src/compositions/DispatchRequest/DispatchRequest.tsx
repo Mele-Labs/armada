@@ -1,4 +1,4 @@
-import type { ChangeEvent, ClipboardEvent, ReactNode } from "react";
+import type { ChangeEvent, ClipboardEvent, FocusEvent, ReactNode } from "react";
 import { useRef, useState } from "react";
 
 import { AttachmentChip } from "../../primitives/AttachmentChip/AttachmentChip";
@@ -142,6 +142,8 @@ export type DispatchRequestProps = {
   disabled?: boolean;
   /** Why the controls are off, where they are. A dead control with no reason reads as broken. */
   disabledNote?: ReactNode;
+  /** The Request field takes focus on mount, the caret after what it opens holding. */
+  focused?: boolean;
 };
 
 /**
@@ -165,7 +167,8 @@ const MODES = [
 ];
 
 /** What the field asks for, and the two things it takes. */
-const PLACEHOLDER = "Describe the work, or paste a link to a ticket.";
+export const REQUEST_PLACEHOLDER = "Describe the work, or paste a link to a ticket.";
+const PLACEHOLDER = REQUEST_PLACEHOLDER;
 
 export function DispatchRequest({
   request,
@@ -192,6 +195,7 @@ export function DispatchRequest({
   close,
   disabled = false,
   disabledNote,
+  focused = false,
 }: DispatchRequestProps) {
   const empty = request.trim() === "";
   // The hidden file input the "Attach" button clicks through. A ref rather
@@ -268,6 +272,9 @@ export function DispatchRequest({
                   value={request}
                   placeholder={PLACEHOLDER}
                   disabled={disabled}
+                  {...(focused
+                    ? { autoFocus: true, onFocus: (event: FocusEvent<HTMLTextAreaElement>) => event.target.setSelectionRange(event.target.value.length, event.target.value.length) }
+                    : {})}
                   {...mention.fieldAria}
                   onChange={mention.onFieldChange}
                   onKeyDown={mention.onFieldKeyDown}

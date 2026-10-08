@@ -39,6 +39,7 @@ import { BridgeSettings } from "@armada/settings";
 import { Kit } from "@armada/manifest";
 import { Reports } from "@armada/screens";
 import { Composing } from "./Composing";
+import { proposeRequest } from "./dispatch";
 import { aJobAct, ConfirmAct, type Confirming } from "./ConfirmAct";
 import { PaletteMount } from "./PaletteMount";
 import { FLEET_DOWN } from "./palette";
@@ -204,7 +205,8 @@ export function App({ draft }: AppProps = {}) {
   // before anybody has pressed anything. `drafted.tsx`.
   const [composing, setComposing] = useState(useDrafted().prompt !== undefined);
   const [composedFrom, setComposedFrom] = useState<SketchOpening>(); // A Sketch dispatched from a Studio.
-  useEffect(() => void (composing || setComposedFrom(undefined)), [composing]);
+  const [seed, setSeed] = useState<string>(); // Words typed into the Dashboard's quick box.
+  useEffect(() => void (composing || (setComposedFrom(undefined), setSeed(undefined))), [composing]);
   // What has been reported against the Judge. Its own view: a report is filed
   // about one Job and the rate is read across all of them.
   const [auditing, setAuditing] = useState(false);
@@ -1026,6 +1028,7 @@ export function App({ draft }: AppProps = {}) {
                 onSaid={setTelling}
                 onCopied={setCopied}
                 sketch={composedFrom}
+                seed={seed}
               />
             ) : studying ? (
               <StudiosSurface
@@ -1134,6 +1137,9 @@ export function App({ draft }: AppProps = {}) {
                   onLanded={() => setLanding(null)}
                   onOpenLink={openProseLink} onFix={(fix) => void commands.fixMain(fix)}
                   onOpenSession={openSession}
+                  nowViews={draft?.calls}
+                  onQuickCompose={(words) => (setSeed(words), setComposing(true))}
+                  onPropose={(request) => void proposeRequest(request, [], state.repository)}
                 />
 
                 {/* Never merged into the lists as a placeholder: a surface that

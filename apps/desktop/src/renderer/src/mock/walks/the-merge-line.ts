@@ -10,6 +10,7 @@ const NOTES = region("Merge line, notes");
 const SCRATCH = region("Merge line, scratch");
 
 export const theMergeLine = walk("merge-line", [
+  { press: role("button", "Merge line", { exact: true }), say: "The merge line" },
   { look: ARMADA, say: "On All, one panel for each repository with a line" },
   { look: inside(ARMADA, text("armada")), say: "Named by its repository" },
   { look: inside(ARMADA, role("img", "waiting")), say: "Waiting: its order, the mark, the branch" },
