@@ -283,7 +283,8 @@ impl Store {
     /// either branch. What a restarted Fleet takes up again.
     pub fn unfinished_addition_repairs(&self) -> Result<Vec<(JobId, AddedStep)>, LoadJobError> {
         self.additions_where(
-            "removed_at IS NULL AND repair_state IN ('repairing', 'rerunning')",
+            "removed_at IS NULL AND (repair_state IN ('repairing', 'rerunning')
+                 OR (repair_state IS NULL AND state = 'running' AND repair_tries > 0))",
             &[],
         )
     }

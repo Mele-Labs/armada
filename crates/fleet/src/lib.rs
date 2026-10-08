@@ -277,6 +277,7 @@ mod repair_recovery;
 mod repair_subject;
 /// A failed Trigger's repair Drone, on a branch of its own.
 mod repairing;
+mod side_run;
 pub mod reporting;
 /// The repositories one Fleet serves, and adding one by folder.
 pub mod repositories;

@@ -54,7 +54,8 @@ pub enum TriggerRuns {
     /// A Command named in the repository's `armada.yml`. Fleet runs it with
     /// no Drone.
     Command(String),
-    /// A skill a Drone runs. **Modelled and not executed yet.**
+    /// A skill a side Drone runs, on a branch of its own. Its `repair` is
+    /// ignored: a Drone already fixes its own failures.
     Skill(String),
 }
 
@@ -65,6 +66,18 @@ pub struct OnTriggerFailure {
     pub block: bool,
     /// A repair Drone is sent to find the fix.
     pub repair: bool,
+}
+
+impl OnTriggerFailure {
+    /// What a failure does for a Skill or a Drone step, which a side Drone runs:
+    /// `repair` is **ignored and read as off**, since the Drone already fixes
+    /// what it was sent to fix. `block` stands.
+    pub fn for_a_drone(self) -> OnTriggerFailure {
+        OnTriggerFailure {
+            repair: false,
+            ..self
+        }
+    }
 }
 
 /// The three places a Trigger is set, **least specific first, and the order is
@@ -156,6 +169,10 @@ impl Trigger {
     }
 
     pub fn with_failure(self, on_failure: OnTriggerFailure) -> Trigger {
+        let on_failure = match self.runs {
+            TriggerRuns::Skill(_) => on_failure.for_a_drone(),
+            TriggerRuns::Command(_) => on_failure,
+        };
         Trigger { on_failure, ..self }
     }
 
@@ -207,7 +224,7 @@ pub enum TriggerResolution {
     /// flag**, carried so the owner is asked before it runs; nothing enforces
     /// that yet.
     Command { name: String, asks_first: bool },
-    /// A Drone runs the skill. Not executed yet.
+    /// A side Drone runs the skill, on a branch cut from the Job's.
     Skill { name: String },
     /// Marked on the Job and not run. Never a refusal.
     Skipped(TriggerSkipped),
@@ -218,9 +235,8 @@ pub enum TriggerResolution {
 pub enum TriggerSkipped {
     /// It names a Command this repository's `armada.yml` does not declare.
     NotInThisRepo { command: String },
-    /// It names a skill, which a Drone runs and Fleet does not yet. **Never a
-    /// resolution**: a skill resolves to [`TriggerResolution::Skill`], and it
-    /// is firing that finds nothing to run it with.
+    /// **No longer produced** (23.73): a skill runs on a side Drone. Kept so a
+    /// row an earlier build wrote still reads.
     SkillNotRun { skill: String },
     /// **The owner skipped it** while it held the Job. It failed, and the
     /// hold was let go without the Command passing.
@@ -375,6 +391,15 @@ pub struct RepairRecord {
     /// When the repair last settled: the failure's time for `failed`, and the
     /// fix's for `fix_ready`.
     pub settled_at: Option<Timestamp>,
+}
+
+impl RepairRecord {
+    /// Whether a Skill or Drone run is working: `running` with a Drone already
+    /// put on it. A Command that is running has had none, so the two read
+    /// apart on `tries`.
+    pub fn side_run_in_flight(&self, state: TriggerState) -> bool {
+        state == TriggerState::Running && self.tries > 0
+    }
 }
 
 /// Repair Drones one failed Trigger gets. Two, as the worktree's repair has,

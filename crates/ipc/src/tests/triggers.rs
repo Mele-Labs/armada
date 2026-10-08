@@ -23,6 +23,7 @@ fn a_failed_firing() -> JobTrigger {
         log_at: Some(Instant::carried("2026-10-07T10:00:02.000Z")),
         repair: None,
         blocks: false,
+        drone: false,
     }
 }
 
@@ -121,6 +122,7 @@ fn a_pending_one_has_no_times_and_a_skipped_one_says_why() {
         log_at: None,
         repair: None,
         blocks: false,
+        drone: false,
         ..a_failed_firing()
     };
     let text = encode(&pending).expect("encodes");
@@ -191,6 +193,7 @@ fn a_held_firing() -> JobTrigger {
         step: StepId::carried("summarise"),
         state: TriggerFiringState::Held,
         blocks: true,
+        drone: false,
         ..a_failed_firing()
     }
 }
@@ -268,4 +271,17 @@ fn a_fix_is_named_by_a_trigger_or_by_an_added_step_and_the_old_body_is_still_rea
     })
     .expect("encodes");
     assert_eq!(sent, r#"{"addition":"a1","choice":"new_pr"}"#);
+}
+
+#[test]
+fn a_skills_firing_says_a_drone_runs_it_and_a_commands_says_nothing() {
+    let skill = JobTrigger {
+        drone: true,
+        ..a_failed_firing()
+    };
+    let text = encode(&skill).expect("encodes");
+    assert!(text.contains(r#""drone":true"#), "{text}");
+    let back: JobTrigger = decode("a trigger", text.as_bytes()).expect("decodes");
+    assert_eq!(back, skill);
+    assert!(!encode(&a_failed_firing()).expect("encodes").contains("drone"));
 }
