@@ -26,6 +26,7 @@ import type {
 } from "@armada/protocol";
 import type { FileReport } from "@armada/protocol";
 import type { AnswerSessionAsk, PilotOutcome, PullRequestState, RenameSession, ReviewDispatched, SendSessionMessage, TuneSession } from "@armada/protocol";
+import type { ArtifactRead, PageBounds } from "@armada/screens/src/draft/sessions";
 import type { PilotExit, PullRequestPress, SessionActed } from "../shared/api/sessions";
 import type { HelmContext, HelmDebugRead } from "@armada/protocol";
 import type { StudioCapture, StudioNodeByHand, StudioPosition, StudioPromotion } from "@armada/protocol";
@@ -613,6 +614,19 @@ const api: BridgeApi = {
     ipcRenderer.invoke(CHANNELS.readSessionFile, sessionId, file),
   openSessionFile: (sessionId: string, path: string): Promise<Followed> =>
     ipcRenderer.invoke(CHANNELS.openSessionFile, sessionId, path),
+  readSessionArtifact: (sessionId: string, path: string): Promise<ArtifactRead> =>
+    ipcRenderer.invoke(CHANNELS.readSessionArtifact, sessionId, path),
+  showSessionPage: (sessionId: string, address: string, bounds: PageBounds): Promise<Followed> =>
+    ipcRenderer.invoke(CHANNELS.showSessionPage, sessionId, address, bounds),
+  moveSessionPage: (bounds: PageBounds): Promise<void> => ipcRenderer.invoke(CHANNELS.moveSessionPage, bounds),
+  hideSessionPage: (): Promise<void> => ipcRenderer.invoke(CHANNELS.hideSessionPage),
+  onSessionPageEscape: (on: () => void): (() => void) => {
+    const handler = (): void => on();
+    ipcRenderer.on(CHANNELS.sessionPageEscape, handler);
+    return () => {
+      ipcRenderer.removeListener(CHANNELS.sessionPageEscape, handler);
+    };
+  },
   pressPullRequest: (
     sessionId: string,
     number: number,

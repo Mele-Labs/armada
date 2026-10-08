@@ -25,6 +25,10 @@ pub enum Because {
     PushesToShared,
     /// It writes to something that is not this machine.
     WritesOffMachine,
+    /// A session reaches past its slot into the owner's own files or the
+    /// whole disk. **macOS asks him about those folders on Fleet's behalf**,
+    /// so the card comes first (the owner, 8 Oct 2026, after a `find /`).
+    ReachesOutside,
     /// Its shape could not be read. **The one reason about this module rather
     /// than about the call**: `eval`, a backtick and a command substitution can
     /// each carry anything, and those are the lines worth getting right.
@@ -38,6 +42,7 @@ impl Because {
             Because::Destructive => "it removes or overwrites something",
             Because::PushesToShared => "it sends code where other people read it",
             Because::WritesOffMachine => "it writes to something off this machine",
+            Because::ReachesOutside => "it reaches into your files outside its slot",
             Because::Unreadable => "what this line does cannot be read from it",
         }
     }
@@ -86,12 +91,40 @@ pub fn because_in_a_session(asking: &AskingToRun, directory: &str) -> Option<Bec
         return because(asking);
     }
     if tool == "Bash" {
-        return shell(
-            &flattened(asking.detail().unwrap_or_default()),
-            slot_of(directory),
-        );
+        let line = flattened(asking.detail().unwrap_or_default());
+        // An escaped space is part of the path, as in `Application\ Support`.
+        if line.replace("\\ ", "\u{0}").split_whitespace().any(reaches_outside) {
+            return Some(Because::ReachesOutside);
+        }
+        return shell(&line, slot_of(directory));
+    }
+    let named = ["file_path", "path"]
+        .iter()
+        .filter_map(|key| asking.input.get(*key)?.as_str());
+    if named.into_iter().any(reaches_outside) {
+        return Some(Because::ReachesOutside);
     }
     because(asking)
+}
+
+/// Whether a path a session names reaches into the owner's home, another
+/// volume or the whole disk. **A path that names Armada is let through**: it
+/// is most likely looking for something of Armada's (the owner, 8 Oct 2026).
+/// The system's own folders (`/opt`, `/usr`, `/tmp`) are no one's files.
+fn reaches_outside(word: &str) -> bool {
+    let word = word.rsplit('=').next().unwrap_or(word);
+    let word = word.trim_matches(|c| c == '\'' || c == '"');
+    if word.to_lowercase().contains("armada") {
+        return false;
+    }
+    let root = word.trim_end_matches('/');
+    (root.is_empty() && word.starts_with('/'))
+        || matches!(root, "/Users" | "/Volumes")
+        || word.starts_with('~')
+        || word.contains("$HOME")
+        || word.contains("${HOME}")
+        || word.starts_with("/Users/")
+        || word.starts_with("/Volumes/")
 }
 
 /// `directory` when it is a slot. Before its first lease a session runs in

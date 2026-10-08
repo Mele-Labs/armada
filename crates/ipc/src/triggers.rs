@@ -51,7 +51,7 @@ pub enum TriggerScope {
 pub enum TriggerRuns {
     /// A Command the repository's `armada.yml` declares.
     Command { name: String },
-    /// A skill a Drone runs. Modelled and not run yet.
+    /// A skill a side Drone runs, on a branch of its own.
     Skill { name: String },
 }
 
@@ -61,7 +61,8 @@ pub enum TriggerRuns {
 pub enum TriggerSkipReason {
     /// It names a Command this repository does not declare.
     NotInThisRepo,
-    /// It names a skill, which is not run yet.
+    /// **No longer produced** (23.73): a skill runs on a side Drone. Kept so
+    /// an older row still reads.
     SkillNotRun,
     /// It failed and held the Job, and the owner skipped it. Since 23.68.
     ByOwner,
@@ -358,6 +359,11 @@ pub struct JobTrigger {
     /// one that does not. Since 23.68.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub blocks: bool,
+    /// A side Drone runs it, because it names a skill, so it has a branch of
+    /// its own while it works and a fix to place when it commits. Left out for
+    /// a Command. Since 23.73.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub drone: bool,
 }
 
 /// `job.trigger_changed`: one of a Job's Triggers moved, carried whole so a
@@ -501,6 +507,7 @@ impl From<&core_model::TriggerFiring> for JobTrigger {
             },
             repair: (firing.repair.tries > 0).then(|| TriggerRepair::from(&firing.repair)),
             blocks: firing.on_failure.block,
+            drone: false,
         }
     }
 }
@@ -521,6 +528,7 @@ impl From<&core_model::FrozenTrigger> for JobTrigger {
             log_at: None,
             repair: None,
             blocks: frozen.on_failure.block,
+            drone: matches!(frozen.resolution, core_model::TriggerResolution::Skill { .. }),
         }
     }
 }

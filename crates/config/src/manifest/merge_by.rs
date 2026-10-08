@@ -18,7 +18,7 @@ pub enum MergeBy {
     #[default]
     Forge,
     /// Fleet makes the `--no-ff` merge commit itself and pushes the base,
-    /// never forced — what `armada land` does for this repository.
+    /// never forced.
     Push,
 }
 

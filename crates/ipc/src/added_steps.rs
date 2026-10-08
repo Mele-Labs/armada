@@ -78,9 +78,10 @@ pub enum AddedPlaced {
 pub enum AddedSkipReason {
     /// It names a Command this repository does not declare.
     NotInThisRepo,
-    /// A skill, which is not run yet.
+    /// **No longer produced** (23.73): a skill runs on a side Drone. Kept so
+    /// an older row still reads.
     SkillNotRun,
-    /// A Drone step, which is not run yet.
+    /// **No longer produced** (23.73), as `SkillNotRun`.
     DroneStepNotRun,
     /// It failed and held the Job, and the owner skipped it. Since 23.68.
     ByOwner,

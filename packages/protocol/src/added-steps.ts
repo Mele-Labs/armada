@@ -36,6 +36,7 @@ export type AddedStepRemoved = { id: string };
 
 export type AddedPlaced = "approval" | "running";
 
+/** `skill_not_run` and `drone_step_not_run` are no longer produced since 23.73, and still read. */
 export type AddedSkipReason = "not_in_this_repo" | "skill_not_run" | "drone_step_not_run" | "by_owner";
 
 /** `said` is rendered and never matched on. */

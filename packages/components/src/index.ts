@@ -177,6 +177,7 @@ export * from "./shortcut-reveal";
 // `⌘Enter` sends, in every box a message is typed into. The registry holds the
 // binding; this is the keystroke test and the badge the two composers share.
 export * from "./send-message";
+export * from "./keep";
 
 // The trackpad's answer to a press, a no-op until Bridge's renderer provides one.
 export * from "./haptics";
@@ -202,6 +203,8 @@ export * from "./compositions/WorkflowCreator/WorkflowCreator";
 export * from "./compositions/WorkflowCreator/exports";
 export { AddedFields, AddStep, addedCard, addedName, endsInPr, FiredTriggers, FiringMark, HoldNode, holdsOf, JobAlertMark, LevelMark, RepairNode, RepairPrMark, repairPhase, repairsOf, TriggerAlertMark, triggerAlert, TriggerRows, TriggerSheet } from "./compositions/WorkflowTriggers/WorkflowTriggers";
 export type { AddedKind, Held, HoldVerb, RepairPhase, TriggerOpen, TriggerTarget } from "./compositions/WorkflowTriggers/WorkflowTriggers";
+export { additionBranches, fixOf } from "./compositions/WorkflowTriggers/side-branches";
+export type { SideBranch } from "./compositions/WorkflowTriggers/side-branches";
 export { blankDraft, definitionOf, draftOf, firingAt, identityKey, whenSaid } from "./compositions/WorkflowTriggers/triggers";
 export type {
   TriggerDraft,

@@ -57,7 +57,7 @@ export type SessionAttachment =
   | { kind: "forked_to"; id: string }
   | { kind: "forked_from"; id: string };
 
-export type SessionArtifactForm = "page" | "file" | "doc";
+export type SessionArtifactForm = "page" | "file" | "image" | "doc";
 
 /**
  * A sketch as Dispatch and Studios hold one: boxes and the joins between them.
@@ -236,6 +236,14 @@ export type SessionQuestion = {
 /** What was chosen for one question: option labels, and the person's own words where they chose Other. */
 export type SessionQuestionAnswer = { question: string; chosen: string[] };
 
+/** A file the panel read: its bytes and kind, or why it could not be shown. */
+export type ArtifactRead =
+  | { ok: true; bytes: Uint8Array; type: string }
+  | { ok: false; why: "not_addressable" | "too_big" | "unreadable" | "binary"; limit?: number };
+
+/** A rect in the window's content, in CSS pixels. */
+export type PageBounds = { x: number; y: number; width: number; height: number };
+
 /**
  * What the window holds of Sessions, and the acts on them. **The mock's seam**
  * (`apps/desktop/src/renderer/src/sessions-draft.tsx`): a real Fleet gives none,
@@ -271,6 +279,19 @@ export type SessionsDraft = {
   rename?: (id: string, title: string) => void;
   /** Opens a file a Session wrote. Absent in the mock, whose files are not on this machine. */
   openFile?: (id: string, path: string) => void;
+  /** Reads a file the Session's ledger names, for the panel an Artifacts row opens. */
+  readArtifact?: (id: string, path: string) => Promise<ArtifactRead>;
+  /**
+   * The web view a page or doc is shown in, over the panel's body. **Absent in the mock**, which
+   * has no second view and draws a frame of its own page in its place.
+   */
+  page?: {
+    show: (id: string, address: string, bounds: PageBounds) => void;
+    move: (bounds: PageBounds) => void;
+    hide: () => void;
+    /** Esc pressed in the view, which has the keyboard while it is shown. Returns its remover. */
+    onEscape: (on: () => void) => () => void;
+  };
   /** Reads a pull request again, so its Checks are what the forge says now. Absent in the mock. */
   refresh?: (id: string, number: number) => void;
   /** What Fleet refused, in words, until the next act. Absent in the mock. */

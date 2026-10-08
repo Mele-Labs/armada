@@ -110,7 +110,11 @@ pub fn job_triggers(frozen: &[FrozenTrigger], firings: &[TriggerFiring]) -> Vec<
                 && firing.source == one.source
         });
         let before = out.len();
-        out.extend(mine.map(ipc::JobTrigger::from));
+        let drone = matches!(one.resolution, TriggerResolution::Skill { .. });
+        out.extend(mine.map(|firing| ipc::JobTrigger {
+            drone,
+            ..ipc::JobTrigger::from(firing)
+        }));
         if out.len() == before {
             out.push(ipc::JobTrigger::from(one));
         }
