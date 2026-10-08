@@ -88,7 +88,6 @@ mod transcript;
 /// The repository's Trigger files as `main` holds them.
 mod trigger_files;
 /// A branch that changes a watched path with no need declared is refused. `#1059`.
-pub mod undeclared;
 mod under_review;
 mod watching;
 mod work_product;
@@ -125,6 +124,6 @@ pub use scouting::{
     checkout_as_it_stands, denied_to_a_scout, files_a_search_showed, no_servers, CheckoutRead,
     Looked, ScoutRefused, Scouting, Shown,
 };
-pub use transcript::{init_commands, sent_message, written_document};
+pub use transcript::{init_commands, sent_message, viewed_image, written_document};
 pub use trigger_files::triggers_on_base;
 pub use worktree::GitVcs;

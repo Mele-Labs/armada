@@ -64,7 +64,7 @@ import {
   openRemarkLink,
   openServerLink,
   runSheetServers,
-  openLink,
+  openLink, restartFleet,
   observeRun,
   observeCheckoutRun,
   pickRepository,
@@ -721,7 +721,7 @@ export function App({ draft }: AppProps = {}) {
               story can check it. `.armada-screen__mounted` says why. */}
           <div className="armada-screen__mounted">
             <Standing
-              fleet={fleet}
+              fleet={fleet} connection={state.connection} bridge={state.bridge} onRestartFleet={restartFleet}
               // **Not while the file is on screen**, which draws the same
               // reading beside the text it is about. Twice at once is two places
               // to read one refusal and one to dismiss while the other stands.

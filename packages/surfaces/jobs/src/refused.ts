@@ -51,8 +51,8 @@ export type Refusals = {
  * were refused no call, and a section with a heading over an empty list on
  * every one of them would say a policy was involved where none was.
  *
- * **A Fleet behind this Bridge cannot reach here**, since `connects()` admits
- * `same` and `fleet_ahead` and nothing else — so an absent `refused` is a Job
+ * **A Fleet on another protocol cannot reach here**, since Bridge opens no
+ * socket to one — so an absent `refused` is a Job
  * Fleet classified before the field existed, and it reads as nothing refused
  * rather than as a gap.
  */

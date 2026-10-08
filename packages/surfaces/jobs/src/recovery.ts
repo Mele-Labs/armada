@@ -597,9 +597,9 @@ const READING =
 /**
  * What the screen says where Fleet served no classification at all.
  *
- * **Never a Fleet that predates the field**: one behind this Bridge is refused
- * at the socket, since `connects()` in `@armada/protocol` admits `same`
- * and `fleet_ahead` and nothing else. What is left is a Job Fleet classifies
+ * **Never a Fleet that predates the field**: one on another protocol is refused
+ * at the socket, since Bridge opens none to a Fleet whose protocol ID is not
+ * its own. What is left is a Job Fleet classifies
  * none of — `superseded` is the one it serves, where the work landed elsewhere.
  */
 const UNCLASSIFIED =

@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { Box, Check, CircleDot, Files, Globe, Hand, Megaphone, MoveRight, NotebookText, Search, Terminal, GitBranch, GitPullRequest, KeyRound, Presentation, PencilRuler, ShieldCheck, ShieldEllipsis, ShieldX, Split } from "lucide-react";
+import { Box, Check, CircleDot, Files, Globe, Hand, Image, Megaphone, MoveRight, NotebookText, Search, Terminal, GitBranch, GitPullRequest, KeyRound, Presentation, PencilRuler, ShieldCheck, ShieldEllipsis, ShieldX, Split } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
@@ -20,7 +20,7 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 export type LedgerKind = "slot" | "branch" | "pull_request" | "job" | "studio" | "sketch" | "subagent" | "artifact" | "fork";
 
 /** What an artifact is: a page published, a file written outside the code, or a Doc. */
-export type ArtifactForm = "page" | "file" | "doc";
+export type ArtifactForm = "page" | "file" | "image" | "doc";
 
 export type LedgerEntry = {
   key: string;
@@ -63,6 +63,7 @@ const SECTIONS: { kind: LedgerKind; label: string; Glyph: LucideIcon }[] = [
 const ARTIFACT: Record<ArtifactForm, { Glyph: LucideIcon; said: string }> = {
   page: { Glyph: Globe, said: "Published page" },
   file: { Glyph: Files, said: "File written" },
+  image: { Glyph: Image, said: "Looked at" },
   doc: { Glyph: NotebookText, said: "Doc" },
 };
 

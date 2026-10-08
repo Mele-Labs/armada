@@ -50,9 +50,10 @@ where
         }));
     }
 
-    /// A document the session wrote goes on its ledger as an artifact. The
-    /// terminal mod tells the same fact from its own side; see `session.md`.
-    pub(crate) async fn artifact_written(&self, session: &str, path: String) {
+    /// A document the session wrote (`file`) or a picture it looked at
+    /// (`image`) goes on its ledger as an artifact. The terminal mod tells the
+    /// same fact from its own side; see `session.md`.
+    pub(crate) async fn artifact_made(&self, session: &str, path: String, form: &str) {
         let title = path.rsplit('/').next().unwrap_or(&path).to_string();
         let _ = self
             .report_session(SessionReport {
@@ -62,7 +63,7 @@ where
                     attachment: AttachmentReport {
                         kind: String::from("artifact"),
                         target: path,
-                        detail: [("form".into(), "file".into()), ("title".into(), title)].into(),
+                        detail: [("form".into(), form.into()), ("title".into(), title)].into(),
                     },
                 },
             })

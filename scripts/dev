@@ -8,7 +8,7 @@
 # **Reinstalling is not optional and is the reason this exists.** `cargo
 # install` copies rather than links, so an edit does not reach the installed
 # command until it is run again — and a stale `armada` published protocol 2 to
-# a Bridge built from a tree that had gone to 3, which reads as a version-skew
+# a Bridge built from a tree that had gone to 3, which reads as a protocol-mismatch
 # screen rather than as a stale binary. Rebuilding one side and not the other
 # is the mistake this script exists to make impossible.
 #

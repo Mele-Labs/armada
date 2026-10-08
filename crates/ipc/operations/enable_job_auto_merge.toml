@@ -4,7 +4,7 @@ transport = "HTTP"
 agent_access = "Helm only"
 description = "A person presses Merge on a Job's pull request while its checks run, and the forge is asked to merge it when they pass"
 notes = """
-`POST /jobs/:job_id/auto_merge`, no body. Since 23.74. Answers the `PullRequestState` the forge shows afterwards. **`merge_pull_request` for a pull request whose checks have not finished**: the press at the gate is Merge when they have passed and this when they are still running, and the Job stays at `awaiting_review` either way until the pull request has merged.
+`POST /jobs/:job_id/auto_merge`, no body. Answers the `PullRequestState` the forge shows afterwards. **`merge_pull_request` for a pull request whose checks have not finished**: the press at the gate is Merge when they have passed and this when they are still running, and the Job stays at `awaiting_review` either way until the pull request has merged.
 
 **The ask is recorded on the Job.** When Fleet's sweep next sees that pull request merged, it takes the work off the gate as `approve_review` does, with `fleet` as the actor on the record. A pull request merged on the forge by hand, or one this was never pressed for, is left for a person to take as before. Pressed twice, the second answers as it stands.
 

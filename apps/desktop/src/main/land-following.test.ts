@@ -49,7 +49,7 @@ describe("a merge line Check's log", () => {
     expect(asked.pathname).toBe("/merge_lines/checks/observe");
     expect(Object.fromEntries(asked.searchParams)).toEqual(AT);
 
-    const opening = { message: "opened", protocol_version: { major: 23, minor: 4 }, ...AT, skipped: 0 };
+    const opening = { message: "opened", protocol_id: "0000000000000000", ...AT, skipped: 0 };
     socket.send(JSON.stringify({ ...opening, name: AT.check }));
     socket.send(JSON.stringify({ message: "lines", lines: ["RUN  v3.2.4"] }));
     socket.send(JSON.stringify({ message: "lines", lines: [" ok src/merge-line.test.ts"] }));

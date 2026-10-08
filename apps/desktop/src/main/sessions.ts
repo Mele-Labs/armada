@@ -28,8 +28,9 @@ import type {
   TuneSession,
 } from "@armada/protocol";
 import type { BridgeState } from "../shared/bridge";
+import type { ArtifactRead } from "@armada/screens/src/draft/sessions";
 import type { PullRequestPress, SessionActed } from "../shared/api/sessions";
-import { openSessionFile } from "./session-file";
+import { openSessionFile, readSessionArtifact } from "./session-file";
 import { ask, sessionFileOf } from "./request";
 
 type Publish = (change: Partial<BridgeState>) => void;
@@ -174,6 +175,16 @@ export class SessionsHost {
   /** A file the session wrote, opened where the machine opens it. Only a path the session's ledger names. */
   async openFile(sessionId: string, path: string): Promise<Followed> {
     return await openSessionFile(this.sessions?.find((one) => one.id === sessionId), path);
+  }
+
+  /** The record main holds for a session, which is what a path or an address has to be named by. */
+  recordOf(sessionId: string): SessionRecord | undefined {
+    return this.sessions?.find((one) => one.id === sessionId);
+  }
+
+  /** A file the session's ledger names, read for the panel. */
+  async readArtifact(sessionId: string, path: string): Promise<ArtifactRead> {
+    return await readSessionArtifact(this.recordOf(sessionId), path);
   }
 
   /**

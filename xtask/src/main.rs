@@ -147,7 +147,7 @@ const FOUNDATIONS: &[fn(&Path) -> Report] = &[
     rules_transcripts::no_bare_transcript_read_in_a_test,
     rules_protocol::the_router_serves_what_the_inventory_names,
     rules_protocol::unserved::every_operation_the_inventory_names_is_served,
-    rules_protocol::version::the_version_and_its_generated_constant_agree,
+    rules_protocol::id::bridge_hashes_the_wire_the_way_fleet_does,
     rules_protocol::nulls::no_optional_field_is_sent_as_null,
     rules_errors::one_code_names_one_failure,
     rules_enums::every_registry_key_is_a_variant,

@@ -6,7 +6,7 @@
 // `merge_lines.changed`. The header rules in `events.ts` hold: hand-written,
 // and every closed set left as `string`.
 
-import type { ProtocolVersion } from "./version";
+import type { ProtocolId } from "./connection";
 import type { Requester } from "./requester";
 
 /** Every served repository that has a line. One nobody has run `armada land` in is not here. */
@@ -213,7 +213,7 @@ export type LandOutputMessage =
 
 /** Whose log this is, by the line's own names. No path: the runner's logs stay off the wire. */
 export type LandOutputOpened = {
-  protocol_version: ProtocolVersion;
+  protocol_id: ProtocolId;
   root: string;
   branch: string;
   name: string;

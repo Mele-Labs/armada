@@ -10,7 +10,7 @@ notes = """
 
 **It is `approve_review` with a write to the forge in front of it.** What it adds is the merge, the record of it and the Checks over what merged; what it does to the two machines is that route's, called rather than restated — the step advances beneath the gate and the Job is `queued` at the next step, or `completed_success` where the step that passed was the workflow's last.
 
-**Pressed while the forge's checks still run, the gate sends `enable_job_auto_merge` instead** (since 23.74): the forge merges when they pass, and the sweep then takes the work off the gate, so this route is the press for a pull request whose checks have passed or that has none.
+**Pressed while the forge's checks still run, the gate sends `enable_job_auto_merge` instead**: the forge merges when they pass, and the sweep then takes the work off the gate, so this route is the press for a pull request whose checks have passed or that has none.
 
 **Not a `recourse`.** `core_model::Stuck` classifies a Job that *stopped*, and `awaiting_review` is not one of the five statuses it is asked of: nothing went wrong, and what the Job needs is in the status itself. A surface draws this where it draws the other three answers, off `status`.
 

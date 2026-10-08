@@ -30,6 +30,7 @@ const ENTRIES: LedgerEntry[] = [
   { key: "a", kind: "subagent", name: "Subagent Read the CI history, running", text: "Read the CI history", mark: { glyph: "running", said: "Running" }, onOpen: open },
   { key: "ar1", kind: "artifact", artifact: "page", name: "Published page Store clock findings", text: "Store clock findings", onOpen: open },
   { key: "ar2", kind: "artifact", artifact: "file", name: "File written clock-trace.png", text: "clock-trace.png", onOpen: open },
+  { key: "ar4", kind: "artifact", artifact: "image", name: "Looked at clock-trace.png", text: "clock-trace.png", onOpen: open },
   { key: "ar3", kind: "artifact", artifact: "doc", name: "Doc Flaky store write-up", text: "Flaky store write-up", onOpen: open },
 ];
 
@@ -56,7 +57,7 @@ export const Some: Story = {
   },
 };
 
-/** A page, a file and a Doc, each with its own glyph named by a tooltip. */
+/** A page, a file, a picture looked at and a Doc, each with its own glyph named by a tooltip. */
 export const Artifacts: Story = {
   args: { entries: ENTRIES.filter((one) => one.kind === "artifact") },
   play: async ({ canvas }) => {
@@ -64,8 +65,12 @@ export const Artifacts: Story = {
     await expect(canvas.getByRole("img", { name: "Published page" })).toBeInTheDocument();
     await expect(canvas.getByRole("img", { name: "File written" })).toBeInTheDocument();
     await expect(canvas.getByRole("img", { name: "Doc" })).toBeInTheDocument();
+    await expect(canvas.getByRole("img", { name: "Looked at" })).toBeInTheDocument();
     await userEvent.click(canvas.getByRole("button", { name: "Open File written clock-trace.png" }));
     await expect(open).toHaveBeenCalled();
+    const before = open.mock.calls.length;
+    await userEvent.click(canvas.getByRole("button", { name: "Open Looked at clock-trace.png" }));
+    await expect(open).toHaveBeenCalledTimes(before + 1);
   },
 };
 

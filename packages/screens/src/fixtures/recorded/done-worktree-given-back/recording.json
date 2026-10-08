@@ -1503,10 +1503,7 @@
   "messages": [
    {
     "message": "opened",
-    "protocol_version": {
-     "major": 9,
-     "minor": 6
-    },
+    "protocol_id": "0000000000000000",
     "job_id": "01M22TYSAE0023MADDP5ZQEYGW",
     "live": false,
     "skipped": 148
@@ -20145,10 +20142,7 @@
   "messages": [
    {
     "message": "opened",
-    "protocol_version": {
-     "major": 9,
-     "minor": 6
-    },
+    "protocol_id": "0000000000000000",
     "job_id": "01M22TYSAE0023MADDP5ZQEYGW",
     "skipped": 0
    },

@@ -30,12 +30,12 @@ import type {
   DropTask,
   FileReport,
   Followed,
+  FleetRestart,
   FrameRead,
   JudgeAnswer,
   Opened,
   Outcome,
   Proposed,
-  ProtocolVersion,
   ReclaimOutcome,
   RunListRead,
   RunOutputRead,
@@ -123,6 +123,7 @@ import type {
   ManifestSaveAnswer,
   ManifestSpendRead,
 } from "@armada/screens/src/editing";
+import type { ArtifactRead, PageBounds } from "@armada/screens/src/draft/sessions";
 import type {
   RepositoryAllowedCommandsRead,
 } from "@armada/screens/src/manifest-allows";
@@ -229,7 +230,6 @@ type OldBridgeState = {
 };
 
 type OldBridgeApi = {
-    protocolVersion: () => ProtocolVersion;
     state: () => Promise<OldBridgeState>;
     subscribe: (onState: (state: OldBridgeState) => void) => () => void;
     onWalkFocus: (onFocus: (focused: boolean) => void) => () => void;
@@ -351,6 +351,7 @@ type OldBridgeApi = {
     stopServer: (serverId: string) => Promise<Outcome>;
     openServerLink: (serverId: string, url: string) => Promise<Followed>;
     openLink: (address: string) => Promise<Followed>;
+    restartFleet: () => Promise<FleetRestart>;
     examineJob: (jobId: string) => Promise<void>;
     readEvidence: (jobId: string | null) => Promise<void>;
     readDiff: (jobId: string | null) => Promise<void>;
@@ -431,6 +432,11 @@ type OldBridgeApi = {
     watchSession: (sessionId: string) => Promise<void>;
     readSessionFile: (sessionId: string, file: string) => Promise<FrameRead>;
     openSessionFile: (sessionId: string, path: string) => Promise<Followed>;
+    readSessionArtifact: (sessionId: string, path: string) => Promise<ArtifactRead>;
+    showSessionPage: (sessionId: string, address: string, bounds: PageBounds) => Promise<Followed>;
+    moveSessionPage: (bounds: PageBounds) => Promise<void>;
+    hideSessionPage: () => Promise<void>;
+    onSessionPageEscape: (on: () => void) => () => void;
     pressPullRequest: (sessionId: string, number: number, press: PullRequestPress) => Promise<SessionActed<PullRequestState | ReviewDispatched>>;
 };
 
@@ -604,6 +610,7 @@ const OLD_CHANNELS = {
     stopServer: "bridge:stop-server",
     openServerLink: "bridge:open-server-link",
     openLink: "bridge:open-link",
+    restartFleet: "bridge:restart-fleet",
     examineJob: "bridge:examine-job",
     readDiff: "bridge:read-diff",
     readRemarks: "bridge:read-remarks",
@@ -680,6 +687,11 @@ const OLD_CHANNELS = {
     watchSession: "bridge:watch-session",
     readSessionFile: "bridge:read-session-file",
     openSessionFile: "bridge:open-session-file",
+    readSessionArtifact: "bridge:read-session-artifact",
+    showSessionPage: "bridge:show-session-page",
+    moveSessionPage: "bridge:move-session-page",
+    hideSessionPage: "bridge:hide-session-page",
+    sessionPageEscape: "bridge:session-page-escape",
     pressPullRequest: "bridge:press-pull-request",
 } as const;
 

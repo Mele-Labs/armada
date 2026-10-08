@@ -39,7 +39,6 @@ actually allowed to initiate:
 ```ts
 // src/preload/index.ts
 contextBridge.exposeInMainWorld('armada', {
-  protocolVersion: (): ProtocolVersion => PROTOCOL_VERSION,
   jobs: {
     list: (): Promise<JobSummary[]> => ipcRenderer.invoke('jobs:list'),
     subscribe: (onEvent: (e: JobEvent) => void): (() => void) => {
@@ -87,6 +86,13 @@ a specific hole:
   in a review or an event has somewhere to exfiltrate to or fetch a payload
   from. **Bridge talks to Fleet and nothing else; the CSP is that promise
   enforced by the browser engine, not just stated in a doc.**
+
+A page a Session published is the one place a web page is shown inside the app, and
+the renderer is still not what loads it: main owns a `WebContentsView` in a
+partition of its own, no preload and every permission refused, placed over the
+panel body's rect the renderer reports, and only for an address the Session's own
+ledger names (`src/main/session-page.ts`). A file the panel reads is held to the
+same rule and to a size cap (`session-file.ts`).
 
 These four are load-bearing together. Loosening any one of them to make a
 feature easier is a security review, not a local decision — say so explicitly
@@ -332,7 +338,7 @@ Bridge and Fleet have independent lifetimes. Jobs keep progressing with the
 window closed — Fleet is a daemon, not a subprocess of the window — and
 reopening Bridge should reconnect to whatever Fleet is already running rather
 than spawn a second one. Bridge finds that daemon through a runtime file
-carrying its port, its pid, and the protocol version it speaks, and **it
+carrying its port, its pid, and the protocol ID it speaks, and **it
 verifies the pid before it trusts the file** — a stale runtime file left by a
 crashed Fleet points at a port nothing is listening on, or worse, a port
 something *else* now owns. Skipping the pid check turns "Fleet isn't running"
@@ -362,9 +368,8 @@ What the UI shows has to name the actual state, not paper over it with a spinner
 | Runtime file present, pid dead | Fleet crashed or was killed without cleanup | "Fleet is not running" (not "unreachable" — the pid check already told you which one this is) |
 | Runtime file present, pid alive, process under five minutes old, socket open and unanswered | Fleet binds its port and publishes the file before it reconciles and serves, so the kernel accepts a connection nothing answers yet | "Fleet is starting" — the mark, no next step. Past five minutes of the process's age it reads as the row below |
 | Runtime file present, pid alive, socket refuses or times out | Fleet is running but something between Bridge and it is broken | "Fleet is running and unreachable" — distinct copy, distinct next step, because restarting Fleet is the wrong fix here |
-| Connected, protocol versions match | Normal | Full UI |
-| Connected, minor version skew | Fleet is **ahead** by an additive-only bump | Full UI plus a persistent banner. Safe only in this direction: Fleet sends fields Bridge does not read. A Fleet **behind** is refused, because Bridge would read a field it never sends |
-| Connected, major version skew | Wire-incompatible | The v0 lifeboat: a frozen, hand-written recovery screen — list Jobs with status, kill a Job, stop Fleet, report Fleet's version, nothing else. It has no dependency to break because breaking is the one case it exists to survive |
+| Connected, protocol IDs equal | Normal | Full UI |
+| Protocol IDs differ | The two were built from different wire files, and the IDs have no order | No socket. A notice that Fleet and Bridge do not match, and the one thing to run. The v0 lifeboat is the intended fallback: a frozen, hand-written recovery screen — list Jobs with status, kill a Job, stop Fleet, report Fleet's version, nothing else. It is not built yet |
 
 The lifeboat is deliberately minimal and Bridge-side code should not try to
 make it richer — its entire value is being the one path guaranteed to still
@@ -497,9 +502,9 @@ renderer code from main or vice versa, that want is a sign the code belongs in
 
 **Bridge never retypes a registry — it runs the codegen.** `pnpm --filter
 @armada/desktop codegen` reads the registries under
-`crates/core-model/domain/` and `protocol-version.toml` and writes the
-TypeScript Bridge imports: the vocabulary each domain variant renders as, the
-protocol version, and every act with its verb, its glyph and its binding. It
+`crates/core-model/domain/` and writes the TypeScript Bridge imports: the
+vocabulary each domain variant renders as, and every act with its verb, its
+glyph and its binding. It
 needs nothing built and nothing installed — the script imports only from
 `node:` — and it prints one line per output plus the gaps it found, which is a
 report rather than a failure: a variant with no word and an act with no glyph
@@ -518,14 +523,12 @@ rely on, the unknown-code fallback, and the rule that where a message appears is
 chosen by blast radius rather than severity all live in
 `docs/contracts/error-contract.md`.
 
-**`protocol-version.toml` at the repo root is what both sides read**, Rust and
-TypeScript alike (`crates/ipc/build.rs` on Fleet's side, a generated TS constant
-on Bridge's). Bridge should read the generated constant, never a hardcoded
-literal — a hand-typed number in Bridge code is a second source of truth the day
-the file changes. It carries a major and a minor, and Bridge compares them
-through `skew` in `src/shared/version.ts` rather than with `!==`: a major
-mismatch refuses, a minor one connects with a banner in the one direction that
-is safe. `docs/practices/protocol.md` is the specification.
+**The protocol ID is a hash both sides take of the wire files**
+(`crates/ipc/build.rs` on Fleet's side, `apps/desktop/codegen/protocol-id.mjs`
+injected as `PROTOCOL_ID` on Bridge's). Bridge reads `PROTOCOL_ID` and never a
+hardcoded literal, and compares it with `speaksOurProtocol` in
+`packages/protocol/src/connection.ts`: equal connects, anything else refuses.
+`docs/practices/protocol.md` is the specification.
 
 **`packages/` stays empty until something is actually shared** — the generated
 IPC types will be its first real occupant once the protocol crate exists.

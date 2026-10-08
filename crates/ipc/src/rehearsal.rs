@@ -9,8 +9,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::event::{ChangedFile, Missed};
 use crate::ids::{Instant, JobId};
+use crate::protocol_id::ProtocolId;
 use crate::underway::{OutputClosed, OutputLines};
-use crate::version::ProtocolVersion;
 
 /// `get_run_sheet`: what can be run in this Job's worktree, and the facts the
 /// sheet's header and notices draw from.
@@ -211,7 +211,7 @@ pub enum RunMessage {
 /// The first message: whose run this is, and what the opening read left out.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RunOpened {
-    pub protocol_version: ProtocolVersion,
+    pub protocol_id: ProtocolId,
     pub job_id: JobId,
     pub id: String,
     pub name: String,
@@ -427,7 +427,7 @@ pub enum CheckoutRunMessage {
 /// The first message: which run, and what the opening read left out.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CheckoutRunOpened {
-    pub protocol_version: ProtocolVersion,
+    pub protocol_id: ProtocolId,
     pub id: String,
     pub name: String,
     /// The log, relative to `ManifestSummary::records_root`.

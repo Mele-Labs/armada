@@ -318,3 +318,17 @@
   line-height: var(--leading-sm);
   color: var(--fg-muted);
 }
+
+.armada-session-thread__working {
+  display: flex;
+  align-items: center;
+  padding: var(--space-1) 0;
+  color: var(--fg-muted);
+}
+
+/* A sent message with its tags in the line: plain words, as typed, with each tag a chip where it stood. */
+.armada-session-said {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

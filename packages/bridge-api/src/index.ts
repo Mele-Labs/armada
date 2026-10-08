@@ -2,7 +2,7 @@
 // can build scenarios without naming desktop's types. Desktop supplies the concrete ones
 // (`mock/moment.ts`). `D` is the draft a scenario carries, which only the app that draws it names.
 
-import { connectedTo, PROTOCOL_VERSION } from "@armada/protocol";
+import { connectedTo, PROTOCOL_ID } from "@armada/protocol";
 import type {
   Connection,
   Holdings,
@@ -101,7 +101,7 @@ export function unanswered(path: string): Outcome {
 
 /** A Fleet that answered. Invented: no process has this pid or this port. */
 const CONNECTED: Connection = connectedTo(
-  { protocolVersion: PROTOCOL_VERSION, pid: 4242, port: 7878, startedAt: "2026-09-10T14:00:00Z" },
+  { protocolId: PROTOCOL_ID, pid: 4242, port: 7878, startedAt: "2026-09-10T14:00:00Z" },
   1,
 );
 

@@ -15,7 +15,7 @@
 
 import { connected } from "@armada/bridge-api";
 import type { PublishedCore, Scenario } from "@armada/bridge-api";
-import { PROTOCOL_VERSION } from "@armada/protocol";
+import { PROTOCOL_ID } from "@armada/protocol";
 import type { HelmDebugInfo, HelmThreadItem } from "@armada/protocol";
 import { escalatedGateFailure } from "@armada/screens/src/fixtures/build/escalated";
 import { MANIFEST_ID, repository } from "@armada/screens/src/fixtures/build/base";
@@ -156,7 +156,7 @@ const RECORD: HelmDebugInfo = {
     ],
   },
   run_id: "01M2C1TJ8G00FLEETRUN0001",
-  protocol_version: PROTOCOL_VERSION,
+  protocol_id: PROTOCOL_ID,
   at: "2026-09-10T14:34:11.402Z",
 };
 

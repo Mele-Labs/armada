@@ -5,7 +5,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import { GitMerge, PanelRightClose, PanelRightOpen } from "lucide-react";
+import { ExternalLink, GitMerge, PanelRightClose, PanelRightOpen } from "lucide-react";
 import {
   Alert,
   Button,
@@ -28,6 +28,7 @@ import {
   SketchPad,
   SketchPreview,
   TileSheet,
+  useKept,
 } from "@armada/components";
 import type {
   ChipOwnershipValue,
@@ -45,9 +46,10 @@ import type {
   SessionState,
   SessionThreadRow,
 } from "@armada/components";
+import { ArtifactBody, ARTIFACT_GLYPH, isAddress } from "./session-artifact";
 import { helmOfferedOf } from "@armada/screens/src/copy";
 import { attachmentsOf, isBlank, ownerOf, sessionsMatching } from "@armada/screens/src/draft/sessions";
-import type { ChipRef, DrawnSketch, PullRequestAct, Session, SessionAnswer, SessionAttachment, SessionMode, SessionTag } from "@armada/screens/src/draft/sessions";
+import type { ChipRef, DrawnSketch, SessionsDraft, PullRequestAct, Session, SessionAnswer, SessionAttachment, SessionMode, SessionTag } from "@armada/screens/src/draft/sessions";
 import {
   isDrawn,
   nextPictureId,
@@ -231,6 +233,40 @@ const HEADINGS: { label: string; has: (state: SessionState) => boolean }[] = [
   { label: "Ended", has: (state) => state === "ended" },
 ];
 
+/** The views of the list, and the headings each holds. Active on opening. */
+const VIEWS = [
+  { id: "active", label: "Active", headings: ["Needs you", "Running", "Idle", "Not started"] },
+  { id: "quiet", label: "Quiet", headings: ["Quiet"] },
+  { id: "ended", label: "Ended", headings: ["Ended"] },
+  { id: "all", label: "All", headings: HEADINGS.map((one) => one.label) },
+] as const;
+
+type ViewId = (typeof VIEWS)[number]["id"];
+
+const VIEW_KEY = "armada.bridge.sessions-view";
+
+/** Which view the viewer chose. A viewer's convenience, so a blocked store only forgets it. */
+function useView(): [ViewId, (next: ViewId) => void] {
+  const [view, set] = useState<ViewId>(() => {
+    try {
+      return VIEWS.find((one) => one.id === localStorage.getItem(VIEW_KEY))?.id ?? "active";
+    } catch {
+      return "active";
+    }
+  });
+  return [
+    view,
+    (next) => {
+      set(next);
+      try {
+        localStorage.setItem(VIEW_KEY, next);
+      } catch {
+        // Not kept: the view is as it was left until the window closes.
+      }
+    },
+  ];
+}
+
 /** What Fleet refused the last act on a Session, in the words it gave. */
 function Refused() {
   const said = useSessionsSaid();
@@ -242,6 +278,7 @@ export function SessionsListing({ onOpen }: { onOpen: (id: string) => void }) {
   const draft = useSessionsDraft();
   const sessions = useSessions();
   const [query, setQuery] = useState("");
+  const [view, setView] = useView();
   if (draft === undefined) return null;
   const views: SessionRowView[] = sessionsMatching(sessions, query).filter(({ session }) => session.older !== true || query.trim() !== "").map(({ session, matched }) => {
     const { state, said } = stateOf(session);
@@ -260,11 +297,12 @@ export function SessionsListing({ onOpen }: { onOpen: (id: string) => void }) {
       ...(session.modOutOfDate === true ? { modOutOfDate: true } : {}),
     };
   });
-  const groups: SessionGroup[] = HEADINGS.map((one) => ({ label: one.label, rows: views.filter((row) => one.has(row.state)) })).filter((one) => one.rows.length > 0);
+  const shown: readonly string[] = VIEWS.find((one) => one.id === view)!.headings;
+  const groups: SessionGroup[] = HEADINGS.filter((one) => shown.includes(one.label)).map((one) => ({ label: one.label, rows: views.filter((row) => one.has(row.state)) })).filter((one) => one.rows.length > 0);
   return (
     <>
       <Refused />
-      <SessionList groups={groups} query={query} onQuery={setQuery} onOpen={onOpen} onStart={() => opening(draft.start(), onOpen)} />
+      <SessionList groups={groups} query={query} onQuery={setQuery} views={VIEWS} view={view} onView={(next) => setView(next as ViewId)} onOpen={onOpen} onStart={() => opening(draft.start(), onOpen)} />
     </>
   );
 }
@@ -295,8 +333,8 @@ export type LedgerGoes = {
   onOpenLink: (address: string) => void;
 };
 
-/** What the ledger opens beside it, where no surface of Bridge's draws the thing: a pull request, a sketch, a subagent. */
-type Reading = { kind: "pull_request"; number: number } | { kind: "sketch"; id: string } | { kind: "subagent"; id: string };
+/** What the ledger opens beside it, where no surface of Bridge's draws the thing: a pull request, a sketch, a subagent, an artifact. */
+type Reading = { kind: "pull_request"; number: number } | { kind: "sketch"; id: string } | { kind: "subagent"; id: string } | { kind: "artifact"; id: string };
 
 const readingOf = (session: Session, open: Reading | undefined): SessionAttachment | undefined =>
   open === undefined
@@ -315,11 +353,15 @@ const factsOf = (one: Extract<SessionAttachment, { kind: "pull_request" }>): str
 
 function ReadingSheet({
   one,
+  sessionId,
+  draft,
   onClose,
   onOpenLink,
   onAct,
 }: {
   one: SessionAttachment | undefined;
+  sessionId: string;
+  draft: SessionsDraft | undefined;
   onClose: () => void;
   onOpenLink: (address: string) => void;
   onAct: (number: number, act: PullRequestAct) => void;
@@ -334,9 +376,35 @@ function ReadingSheet({
           ? `Sketch ${one.title}`
           : one.kind === "subagent"
             ? `Subagent ${one.task}`
-            : "";
+            : one.kind === "artifact"
+              ? one.title
+              : "";
+  const artifact = one?.kind === "artifact" ? one : undefined;
+  const Glyph = artifact === undefined ? undefined : ARTIFACT_GLYPH[artifact.form];
   return (
-    <Sheet kind="session-reading" open={one !== undefined && title !== ""} floating floor={floor} title={title} closeLabel="Close" closeBinding="Esc" onClose={onClose}>
+    <Sheet
+      kind="session-reading"
+      open={one !== undefined && title !== ""}
+      floating
+      floor={floor}
+      title={title}
+      bleed={artifact !== undefined}
+      {...(Glyph === undefined ? {} : { leading: <Glyph size={16} strokeWidth={2} aria-hidden /> })}
+      {...(artifact !== undefined && isAddress(artifact.form)
+        ? {
+            controls: (
+              <Tooltip label="Open in browser">
+                <Button variant="ghost" size="sm" aria-label="Open in browser" onClick={() => onOpenLink(artifact.id)}>
+                  <ExternalLink size={16} strokeWidth={2} aria-hidden />
+                </Button>
+              </Tooltip>
+            ),
+          }
+        : {})}
+      closeLabel="Close"
+      closeBinding="Esc"
+      onClose={onClose}
+    >
       {one?.kind === "pull_request" ? (
         <div className="armada-session-reading">
           <PullRequestCard
@@ -358,6 +426,8 @@ function ReadingSheet({
         <SketchPreview label={one.title} boxes={one.drawing.boxes} lines={one.drawing.lines} strokes={one.drawing.strokes ?? []} pictures={[]} />
       ) : one?.kind === "subagent" ? (
         one.report === undefined ? null : <Prose text={one.report} />
+      ) : one?.kind === "artifact" ? (
+        <ArtifactBody draft={draft} sessionId={sessionId} form={one.form} id={one.id} title={one.title} onClose={onClose} />
       ) : null}
     </Sheet>
   );
@@ -408,7 +478,7 @@ function SketchSheet({ open, onClose, onAttach }: { open: boolean; onClose: () =
   );
 }
 
-const ARTIFACT_SAID = { page: "Published page", file: "File written", doc: "Doc" } as const;
+const ARTIFACT_SAID = { page: "Published page", file: "File written", image: "Looked at", doc: "Doc" } as const;
 
 function entriesOf(
   session: Session,
@@ -417,7 +487,6 @@ function entriesOf(
   slot: (n: number) => void,
   sessions: readonly Session[],
   open: (id: string) => void,
-  openFile: (path: string) => void,
 ): LedgerEntry[] {
   return session.attachments.map((one): LedgerEntry => {
     switch (one.kind) {
@@ -494,7 +563,7 @@ function entriesOf(
           artifact: one.form,
           name: `${ARTIFACT_SAID[one.form]} ${one.title}`,
           text: one.title,
-          onOpen: () => (one.form === "file" ? openFile(one.id) : goes.onOpenLink(one.id)),
+          onOpen: () => read({ kind: "artifact", id: one.id }),
         };
       case "subagent":
         return {
@@ -536,6 +605,8 @@ function useMinimized(): [boolean, (minimized: boolean) => void] {
   ];
 }
 
+const NO_SKETCHES: DrawnSketch[] = [];
+
 function SessionView({ session, goes, onOpen, held }: { session: Session; goes: LedgerGoes; onOpen: (id: string) => void; held: HeldReads }) {
   const draft = useSessionsDraft();
   const sessions = useSessions();
@@ -543,7 +614,7 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
   const [reading, setReading] = useState<Reading | undefined>();
   const [slotOpen, setSlotOpen] = useState<number | undefined>();
   const [padOpen, setPadOpen] = useState(false);
-  const [drawn, setDrawn] = useState<DrawnSketch[]>([]);
+  const [drawn, setDrawn] = useKept<DrawnSketch[]>(`session:${session.id}:drawn`, NO_SKETCHES);
   const narrow = useNarrow();
   const [ledgerOpen, setLedgerOpen] = useState(false);
   const [minimized, minimize] = useMinimized();
@@ -582,7 +653,6 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
     narrow ? fold(setSlotOpen) : setSlotOpen,
     sessions,
     narrow ? fold(onOpen) : onOpen,
-    (path) => draft.openFile?.(id, path),
   );
   return (
     <>
@@ -654,6 +724,7 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
           <SessionThread
             sessionId={session.id}
             rows={threadRowsOf(session)}
+            working={session.turn.state === "working"}
             {...(session.asked === undefined
               ? {}
               : {
@@ -687,13 +758,14 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
                 ...draft.taggable(),
               ]}
               tags={session.pendingTags ?? []}
+              draftKey={session.id}
               onTags={(tags) => draft.setTags(session.id, tags)}
               drawn={drawn.map(({ id, title }) => ({ id, title }))}
               onDraw={() => setPadOpen(true)}
               onRemoveDrawn={(id) => setDrawn((was) => was.filter((one) => one.id !== id))}
               onSend={(sent) => {
                 draft.send(session.id, { text: sent.text, files: sent.files, sketches: drawn, tags: sent.tags as readonly SessionTag[] });
-                setDrawn([]);
+                setDrawn(NO_SKETCHES);
               }}
             />
           )}
@@ -706,6 +778,8 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
       ) : null}
       <ReadingSheet
         one={readingOf(session, reading)}
+        sessionId={session.id}
+        draft={draft}
         onClose={() => setReading(undefined)}
         onOpenLink={goes.onOpenLink}
         onAct={(number, act) => {

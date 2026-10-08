@@ -29,7 +29,7 @@ version that did not change is not a failure: say so in the report.
 
 | | |
 |---|---|
-| Protocol | the version the restart printed |
+| Protocol | the ID the restart printed |
 | Adopted | the Jobs it named, or none |
 | Mod | old → new version, from `claude plugin list` before and after |
 

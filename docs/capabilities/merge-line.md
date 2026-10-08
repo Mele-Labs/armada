@@ -57,7 +57,6 @@ Fleet, listed under *Where each part goes in Fleet*.
 | A branch needs no push and no pull request | The runner reads the branch from this clone |
 | An agent previews green work, then lands it without asking the owner | The agent's own brief, `work-issue` step 6; the owner reads what landed afterwards |
 | A branch with a need lands after every need ahead of it on that path | `armada need`; the runner leaves a held branch queued, saying what it waits behind |
-| A branch that changes the protocol minor with no need declared is refused | `armada land preflight` and Fleet's merge act, one function: `adapters::undeclared` |
 
 ## One turn
 
@@ -284,18 +283,6 @@ reader, is gone, and the pull request's status is Fleet's order (*Not built*, ab
 - **Nothing expires by time.** Whether a stalled need should is open, so a person
   gives it back with `armada need --release <path>`, and a stalled one holds the
   branches behind it until then. This is the cost the owner took.
-
-- **A number taken with no need is refused** (6 Oct 2026: a branch took 23.34 and
-  23.35 undeclared and the branch that held them renumbered). `armada land
-  preflight`, and Fleet's press to merge, refuse a branch whose diff from the
-  base changes `minor` in `protocol-version.toml` while no need stands for that
-  branch on that path. The
-  answer names `armada need <path> "<what>"` and both paths, and the branch keeps
-  its place: declare, then land again. A minor change is the two parsed values
-  differing, and a `major` change passes, being hand-made and outside needs. The
-  watched paths are `WATCHED` in `crates/adapters/src/undeclared.rs`, the one
-  place another repository would name its own. Fleet answers with
-  `fleet.merge_waiting_behind`; the sentence says which.
 
 This is the half for agents outside Fleet, and Fleet's half is the same table.
 A Drone declares through `declare_scope` or a plan's task and Fleet writes the

@@ -20,7 +20,7 @@ import { join } from "node:path";
 import { afterEach, expect, it } from "vitest";
 import { WebSocketServer } from "ws";
 
-import { PROTOCOL_VERSION } from "@armada/protocol";
+import { PROTOCOL_ID } from "@armada/protocol";
 import type { BridgeState, PickedView } from "../shared/bridge";
 import { FleetConnection } from "./connection";
 import { holderOf } from "./runtime-file";
@@ -58,7 +58,7 @@ async function binding(how: "holds" | "refuses" | "answers" = "holds"): Promise<
       client.send(
         JSON.stringify({
           message: "resync",
-          protocol_version: PROTOCOL_VERSION,
+          protocol_id: PROTOCOL_ID,
           cursor: 1,
           jobs: { jobs: [], unreadable: [] },
         }),
@@ -103,7 +103,7 @@ async function runtimeFile(port: number): Promise<string> {
   await writeFile(
     join(dir, "fleet.json"),
     JSON.stringify({
-      protocol_version: PROTOCOL_VERSION,
+      protocol_id: PROTOCOL_ID,
       pid: process.pid,
       port,
       started_at: born().text,

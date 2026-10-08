@@ -666,6 +666,25 @@ pub fn written_document(tool: &str, detail: &str, home: &str) -> Option<String> 
     (document && !scratch).then_some(path)
 }
 
+/// The picture a `Read` call looked at, with the elided home put back as
+/// `home`. **Scratch is kept**: a screenshot an agent looks at is usually in
+/// `/tmp`, and that is the one a person wants on the ledger. The same rule
+/// `plugins/armada/hooks/facts.ts` applies to a terminal session's `Read`.
+pub fn viewed_image(tool: &str, detail: &str, home: &str) -> Option<String> {
+    if tool != "Read" {
+        return None;
+    }
+    let path = match detail.strip_prefix("~/") {
+        Some(rest) => format!("{}/{rest}", home.trim_end_matches('/')),
+        None => detail.to_string(),
+    };
+    let lower = path.to_lowercase();
+    [".png", ".jpg", ".jpeg", ".gif", ".webp"]
+        .iter()
+        .any(|extension| lower.ends_with(extension))
+        .then_some(path)
+}
+
 #[derive(Deserialize)]
 struct InitLine {
     #[serde(rename = "type", default)]

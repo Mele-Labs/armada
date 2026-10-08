@@ -585,7 +585,7 @@ export type JobsApi = {
   /**
    * Merge pressed while the forge's checks run: the forge is asked to merge when they pass, and
    * the Job stays at its gate until it has. The pull request as the forge shows it afterwards is
-   * `pullRequest` on the outcome. Since protocol 23.74.
+   * `pullRequest` on the outcome.
    */
   autoMergePullRequest: (jobId: string) => Promise<Outcome>;
   /** Start the pull request's failed CI runs again. A forge write, only from a press. #905. */

@@ -32,7 +32,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use axum::extract::ws::{Message, WebSocket};
-use ipc::{JournalClosed, JournalMessage, JournalOpened, LogNote, Quiet, PROTOCOL_VERSION};
+use ipc::{JournalClosed, JournalMessage, JournalOpened, LogNote, ProtocolId, Quiet};
 
 use crate::reference::Resolved;
 
@@ -146,7 +146,7 @@ pub(crate) async fn relay(mut socket: WebSocket, job: Resolved, journal: Arc<dyn
     let job_id = job.id();
     let first = pass(&journal, &job_id, job.handle(), 0).await;
     let opened = JournalOpened {
-        protocol_version: PROTOCOL_VERSION,
+        protocol_id: ProtocolId::current(),
         job_id: job_id.clone(),
         skipped: first.skipped,
     };

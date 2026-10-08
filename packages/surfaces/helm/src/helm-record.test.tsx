@@ -34,7 +34,7 @@ const RECORD: HelmDebugInfo = {
   ],
   cut: 0,
   run_id: "01K5RJ0F5H7TZ8QK6M9R1V2WXY",
-  protocol_version: { major: 15, minor: 1 },
+  protocol_id: "0000000000000000",
   at: "2026-09-17T14:31:02.117Z",
 };
 

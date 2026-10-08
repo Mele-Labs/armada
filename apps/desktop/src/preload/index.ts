@@ -26,6 +26,7 @@ import type {
 } from "@armada/protocol";
 import type { FileReport } from "@armada/protocol";
 import type { AnswerSessionAsk, PilotOutcome, PullRequestState, RenameSession, ReviewDispatched, SendSessionMessage, TuneSession } from "@armada/protocol";
+import type { ArtifactRead, PageBounds } from "@armada/screens/src/draft/sessions";
 import type { PilotExit, PullRequestPress, SessionActed } from "../shared/api/sessions";
 import type { HelmContext, HelmDebugRead } from "@armada/protocol";
 import type { StudioCapture, StudioNodeByHand, StudioPosition, StudioPromotion } from "@armada/protocol";
@@ -33,8 +34,8 @@ import type { StudioAnswer } from "@armada/screens/src/studio-reads";
 import type { AddTask, ApproveWave, DropTask, EditJob, EditTask, MovePlan } from "@armada/protocol";
 import type { ApproveDispatch, BranchesRead, ToProposer } from "@armada/protocol";
 import type { PlanEditAnswer } from "@armada/screens/src/plan-edits";
-import type { Artifact, Followed, LandCheckAt, Opened } from "@armada/protocol";
-import type { ProtocolVersion, RunListRead, RunOutputRead, StartRun } from "@armada/protocol";
+import type { Artifact, Followed, FleetRestart, LandCheckAt, Opened } from "@armada/protocol";
+import type { RunListRead, RunOutputRead, StartRun } from "@armada/protocol";
 import type { CheckoutRunListRead, StartCheckoutRun } from "@armada/protocol";
 import type { EditManifest, SaveManifestFile } from "@armada/protocol";
 import type {
@@ -77,7 +78,6 @@ import type {
   WhenBlocked,
   WhenRefused,
 } from "@armada/protocol";
-import { PROTOCOL_VERSION } from "@armada/protocol";
 
 // The whole surface the renderer is allowed to see.
 //
@@ -89,12 +89,7 @@ import { PROTOCOL_VERSION } from "@armada/protocol";
 //
 // The two kills are two entries on purpose. One capability taking "which kill"
 // as an argument would be a surface that reads as one act and performs two.
-//
-// The protocol version is no longer a literal here: it is generated from
-// `protocol-version.toml`, which both sides read.
 const api: BridgeApi = {
-  protocolVersion: (): ProtocolVersion => PROTOCOL_VERSION,
-
   state: (): Promise<BridgeState> => ipcRenderer.invoke(CHANNELS.state),
 
   subscribe: (onState: (state: BridgeState) => void): (() => void) => {
@@ -529,6 +524,7 @@ const api: BridgeApi = {
   // A link in a model's text. The address crosses because nothing else could
   // name it; main opens `http(s):` only. `main/links.ts`.
   openLink: (address: string): Promise<Followed> => ipcRenderer.invoke(CHANNELS.openLink, address),
+  restartFleet: (): Promise<FleetRestart> => ipcRenderer.invoke(CHANNELS.restartFleet),
 
   // Ask Fleet to go and look now. **The rung below intervene**, and the one
   // entry here that is an act and changes nothing: what it leaves is a line in
@@ -613,6 +609,19 @@ const api: BridgeApi = {
     ipcRenderer.invoke(CHANNELS.readSessionFile, sessionId, file),
   openSessionFile: (sessionId: string, path: string): Promise<Followed> =>
     ipcRenderer.invoke(CHANNELS.openSessionFile, sessionId, path),
+  readSessionArtifact: (sessionId: string, path: string): Promise<ArtifactRead> =>
+    ipcRenderer.invoke(CHANNELS.readSessionArtifact, sessionId, path),
+  showSessionPage: (sessionId: string, address: string, bounds: PageBounds): Promise<Followed> =>
+    ipcRenderer.invoke(CHANNELS.showSessionPage, sessionId, address, bounds),
+  moveSessionPage: (bounds: PageBounds): Promise<void> => ipcRenderer.invoke(CHANNELS.moveSessionPage, bounds),
+  hideSessionPage: (): Promise<void> => ipcRenderer.invoke(CHANNELS.hideSessionPage),
+  onSessionPageEscape: (on: () => void): (() => void) => {
+    const handler = (): void => on();
+    ipcRenderer.on(CHANNELS.sessionPageEscape, handler);
+    return () => {
+      ipcRenderer.removeListener(CHANNELS.sessionPageEscape, handler);
+    };
+  },
   pressPullRequest: (
     sessionId: string,
     number: number,

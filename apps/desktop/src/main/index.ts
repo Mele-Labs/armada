@@ -34,12 +34,14 @@ import { openFindingIssue, openPullRequest, openRemarkLink, openStudioNode } fro
 import { RemarksPoll } from "./remarks-poll";
 import { ResourcesPoll } from "./resources-poll";
 import { openLink } from "./links";
+import { restartFleet } from "./restart-fleet";
 import { openServerLink } from "./servers";
 import { frameStream, FRAME_SCHEME } from "./streaming";
 import { Attention, soundOf } from "./telling";
 import { handleRehearsal } from "./rehearsal-channels";
 import { handleRepositories } from "./repository-channels";
 import { handleSessions } from "./session-channels";
+import { SessionPages } from "./session-page";
 import { handleStudios } from "./studio-channels";
 
 // Bridge's window, and the one connection under it.
@@ -833,6 +835,8 @@ void app.whenReady().then(() => {
   );
   // A link in a model's text: the one opener whose address the renderer sends. `links.ts`.
   ipcMain.handle(CHANNELS.openLink, (_event, address: string) => openLink(address));
+  // Asks launchd, not Fleet: `restart-fleet.ts`. Read from what main last published.
+  ipcMain.handle(CHANNELS.restartFleet, () => restartFleet(published.connection));
   // The act above that read. It moves nothing, costs no model call, and the
   // answer it publishes is also written into the Job's own log.
   ipcMain.handle(CHANNELS.examineJob, (_event, jobId: string) =>
@@ -885,7 +889,7 @@ void app.whenReady().then(() => {
   ipcMain.handle(CHANNELS.readHeld, (_event, want: boolean) =>
     connection?.readHeld(want),
   );
-  handleSessions({ ipc: ipcMain, connection: () => connection, windowIdOf });
+  handleSessions({ ipc: ipcMain, connection: () => connection, windowIdOf, pages: new SessionPages() });
   handleStudios({ ipc: ipcMain, connection: () => connection, published: () => published, captureWindows });
   // The four decisions on the work, and they stay four channels. Merging lands
   // the branch and then takes the work, approving takes it and leaves the pull
