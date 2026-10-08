@@ -11,7 +11,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use api::{Broadcaster, Queries};
-use ipc::{Event, MergeLine, MergeLineHub, MergeLines};
+use ipc::{Event, LandCheckState, LandState, MergeLine, MergeLineCheck, MergeLineHub, MergeLines};
 use tokio::task::JoinHandle;
 
 /// How often the hubs are folded and compared.
@@ -52,6 +52,73 @@ pub fn with_hubs(
     MergeLines { lines: folded }
 }
 
+/// A Job's branch, id and handle: what names the Job a branch on the line is.
+pub(crate) type JobBranch = (String, ipc::JobId, String);
+
+/// Every Job's branch, for [`naming_jobs`]. A Job with no worktree has none.
+pub(crate) async fn job_branches<D: Queries>(daemon: &D) -> Vec<JobBranch> {
+    daemon
+        .list_jobs(None)
+        .await
+        .map(|list| {
+            list.jobs
+                .into_iter()
+                .filter_map(|job| Some((job.branch?, job.id, job.handle)))
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// Each Check's requester on a branch some Job owns, carrying that Job's id and
+/// handle, so a surface can narrow the line's Checks to the Job whose they are.
+/// A branch no Job owns stays as it was.
+///
+/// **A branch queued and not yet gating lists the repository's declared Checks as
+/// waiting**, since the line writes none until it gates the branch, and a Job's
+/// Waiting filter would otherwise show nothing while the Jobs ahead land. Once
+/// the line gates it, its own rows replace these.
+pub(crate) fn naming_jobs(
+    mut lines: MergeLines,
+    jobs: &[JobBranch],
+    declared: &[(String, Vec<String>)],
+) -> MergeLines {
+    for line in &mut lines.lines {
+        let queued = declared
+            .iter()
+            .find(|(root, _)| *root == line.root)
+            .map(|(_, names)| names.as_slice())
+            .unwrap_or_default();
+        for row in line
+            .line
+            .iter_mut()
+            .chain(&mut line.sent_back)
+            .chain(&mut line.landed)
+            .chain(&mut line.off)
+        {
+            let Some((_, id, handle)) = jobs.iter().find(|(branch, ..)| *branch == row.branch)
+            else {
+                continue;
+            };
+            if row.state == LandState::Waiting && row.checks.is_empty() {
+                row.checks = queued
+                    .iter()
+                    .map(|name| MergeLineCheck {
+                        name: name.clone(),
+                        requester: ipc::Requester::merge_line(&row.branch),
+                        started_at: None,
+                        state: LandCheckState::Waiting,
+                    })
+                    .collect();
+            }
+            for check in &mut row.checks {
+                check.requester.job_id = Some(id.clone());
+                check.requester.handle = Some(handle.clone());
+            }
+        }
+    }
+    lines
+}
+
 /// The served roots, Manifest or none, in the order they were added.
 pub(crate) async fn roots<D: Queries>(daemon: &D) -> Vec<String> {
     daemon
@@ -65,7 +132,9 @@ pub(crate) async fn roots<D: Queries>(daemon: &D) -> Vec<String> {
 pub async fn answer<D: Queries>(daemon: &D) -> MergeLines {
     let roots = roots(daemon).await;
     let hubs = daemon.merge_hubs().await;
-    with_hubs(MergeLines::default(), &roots, hubs)
+    let jobs = job_branches(daemon).await;
+    let declared = daemon.land_checks().await;
+    naming_jobs(with_hubs(MergeLines::default(), &roots, hubs), &jobs, &declared)
 }
 
 /// Fold the hubs every [`EVERY`] and publish `merge_lines.changed` when they moved.

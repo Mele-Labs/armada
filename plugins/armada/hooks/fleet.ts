@@ -19,7 +19,7 @@ export type Usage = {
 }
 
 export type Fact =
-  | { kind: 'started'; cwd: string; title?: string; origin: 'terminal' }
+  | { kind: 'started'; cwd: string; title?: string; origin: 'terminal'; mod_version?: string }
   | { kind: 'titled'; title: string; named?: boolean }
   | { kind: 'moved'; cwd: string }
   | {
@@ -38,6 +38,7 @@ export type Fact =
       effort?: string
       mode?: 'ask' | 'auto' | 'accept_edits' | 'plan'
       commands?: { name: string; says: string }[]
+      mod_version?: string
     }
   | { kind: 'turn_completed' }
   | { kind: 'ended'; reason: string }

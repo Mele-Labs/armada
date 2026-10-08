@@ -934,6 +934,10 @@ where
         Fleet::merge_hubs(self).await
     }
 
+    async fn land_checks(&self) -> Vec<(String, Vec<String>)> {
+        Fleet::land_checks(self)
+    }
+
     /// One Check's log on main or a commit of it; a branch's line has none to open.
     async fn observe_land_check(
         &self,

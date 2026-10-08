@@ -68,6 +68,8 @@ pub struct KeptSession {
     pub ended_at: Option<String>,
     pub end_reason: Option<String>,
     pub figures: SessionFigures,
+    /// The version of the `armada` mod a terminal session last reported. Absent from an older mod.
+    pub mod_version: Option<String>,
 }
 
 /// What a row of the ledger is held by. Closed, because a holder is something
@@ -174,7 +176,7 @@ pub struct SessionSearch<'a> {
 }
 
 const SESSION_COLUMNS: &str = "id, harness, origin, manifest_id, cwd, title, state, started_at, \
-     last_seen_at, last_turn_at, ended_at, end_reason, usage";
+     last_seen_at, last_turn_at, ended_at, end_reason, usage, mod_version";
 
 const ATTACHMENT_COLUMNS: &str =
     "holder_kind, holder_id, kind, manifest_id, target, state, detail, since, changed_at";
@@ -203,6 +205,7 @@ fn kept_session(row: &Row<'_>) -> rusqlite::Result<KeptSession> {
             context_window: figure("context_window"),
             cost_micros: figure("cost_micros"),
         },
+        mod_version: row.get(13)?,
     })
 }
 
@@ -254,8 +257,8 @@ impl Store {
         self.conn
             .execute(
                 "INSERT OR REPLACE INTO sessions (id, harness, origin, manifest_id, cwd, title, \
-                 state, started_at, last_seen_at, last_turn_at, ended_at, end_reason, usage)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
+                 state, started_at, last_seen_at, last_turn_at, ended_at, end_reason, usage, mod_version)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
                 params![
                     session.id,
                     session.harness,
@@ -270,6 +273,7 @@ impl Store {
                     session.ended_at,
                     session.end_reason,
                     figures_text(&session.figures),
+                    session.mod_version,
                 ],
             )
             .map(|_| ())

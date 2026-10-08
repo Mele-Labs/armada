@@ -8,9 +8,11 @@
 //! permission door and `rows` writes the thread.
 
 mod asking;
+mod forking;
 mod gate;
 mod hearing;
 mod piloting;
+mod places;
 mod process;
 mod rows;
 mod serving;

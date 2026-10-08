@@ -57,6 +57,10 @@ export type Step = {
   returnsTo: string;
   /** How many passes the back edge may make. Read only where `returnsTo` is set. */
   iterationCap: number;
+  /** The step opens the pull request. Only such a step may say `draft_pr`. */
+  delivers?: boolean;
+  /** `draft_pr`: `true` offers the pull request as a draft, `false` as ready, absent says nothing. */
+  draftPr?: boolean;
   /** The step as its file wrote it. A key the editor does not own goes back out unchanged. */
   carried?: Record<string, unknown>;
 };

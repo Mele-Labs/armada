@@ -385,6 +385,24 @@ Fleet asks about **one** pull request per sweep and rotates, because the turn in
 
 **It is served as the merge line's `hub`**, protocol 23.41, 23.42 and 23.44, with the open pull requests: a pull request is `waiting_on_main` when every check that failed on it also fails on main, and its own failure otherwise. `docs/capabilities/merge-line.md`, *The hub*, has the shape and what Bridge draws. The open pull requests are held in memory, listed again on a repository's next visit after a restart. A failed job's log is not kept: it is asked of the forge when a person presses the job, through the merge line's Check log.
 
+### Telling the owner of a pull request
+
+**Nobody watches a pull request for failures. Fleet reads each open one once an interval and tells its owner when any of these happens.** One call a repository returns, for each open pull request, its checks on the newest commit with their log addresses, whether it conflicts with the base, and where the merge queue holds it. The merged pull requests are the listing already read for the hub.
+
+| Happened | Fires when |
+|---|---|
+| Checks failed | The check that gates the pull request (`ci` where there is one, else every check) failed on the newest commit |
+| Conflicts | The forge says it cannot merge into the base |
+| Left the queue | It was in the merge queue at the last reading and is not now |
+| Unmergeable | The merge queue marks its entry unmergeable |
+| Merged | It merged in the last six hours |
+
+**A job that hung is not a failure.** One that ended cancelled after about the whole 45 minutes a job is given is started again once for that commit, through the forge adapter, and nothing is said. Hung again, it is told like any failure.
+
+**Each notice is told once, and a restart does not repeat it.** The store keeps (pull request, commit, cause, recipient) and the merge queue's last reading. A new commit that fails is news; the same one read again is not. **A recipient that cannot be told now is asked again at the next reading** and nothing is kept for it: a terminal Session whose mod is not asking, a Job still working.
+
+**An owner is the Session the ledger says holds the pull request, else its branch, and every Job whose pull request or branch it is.** If both own it, both are told. `docs/concepts/session.md`, *What Fleet tells a Session*, and `docs/concepts/job.md`, *When its pull request fails*, say what each receives.
+
 ### Restarting Fleet
 
 **Restarting Fleet is a `launchctl` call from Bridge, not an API command.** `restart_fleet` cannot be served by the process being restarted. Bridge already owns bootstrapping the launchd job, so it owns restarting it, and the operation is a `child_process` call rather than a protocol operation.
@@ -407,6 +425,38 @@ Fleet asks about **one** pull request per sweep and rotates, because the turn in
 **Bounded at two repairs of one kind per Job**, counted in memory. A repair that fails, or a fault that comes back, goes to a person: before a Drone, the Job escalates as `no_worktree`; at the gate, the ruling is `gate_undecided` on the index; for an install, the Check's failure stands and goes back to the step's Drone as it would have. Each says what was found and what was tried in the Job's log.
 
 **Not yet covered.** A broken install is found only where a Check's output names one, and the signature list is one phrase. There is no check after preparing a reused slot, because no general cheap test of one exists. A rebase left half done, and a worktree on the wrong branch, are not found.
+
+### A failed Trigger's repair
+
+**A Trigger with `repair` on that fails gets a repair Drone on a branch of its own, and the fix waits for the owner to place it.** This is not the worktree repair above: that one is read-only, holds no slot and runs inside the turn that found the fault. This one writes, builds and holds a slot, and the Job does not wait for it. `docs/concepts/trigger.md` has the Trigger side.
+
+```
+deploy fails ──> repairing ──> Drone on a branch cut from the Job's ──> rerunning on that branch
+                                                                          |
+                    passes: fix_ready, a slot given back, the owner chooses
+                    fails, try 1: another Drone on the same branch
+                    fails, try 2: failed, and an alert on the Job
+```
+
+| Choice | What Fleet does | Then |
+|---|---|---|
+| `this_branch` | Merges the repair branch into the Job's branch and pushes it, so the fix lands on the Job's open pull request | Runs the Command on the Job's branch: `passed`, or `failed` with an alert, or `held` where the Trigger blocks |
+| `new_pr` | Pushes the repair branch and opens a pull request from it against the Job's target | `passed`, with the pull request recorded on the firing |
+
+- **The brief** is the Trigger's name and command, the exit code and the output, and the instruction to make the command pass. The Drone writes, builds and runs the Manifest's non-destructive Commands. It does not commit, push or open anything: Fleet commits what it wrote and delivers.
+- **It holds a pool slot**, leased as a Job's is, on a branch cut from the Job's own. It writes and builds, and a build wants a slot's warm `target/`. The slot goes back when the fix is held or the repair ends, so a fix waiting on the owner holds no bay. Choosing leases a slot onto the repair branch again.
+- **Fleet never chooses.** `choose_trigger_fix(job, trigger, this_branch | new_pr)` is a Fleet method and an act on the wire, and a choice that cannot be carried out (the pool is full, the Job's branch moved and the fix conflicts) leaves the firing `fix_ready`.
+- **Bounded at two tries**, and a try is a Drone and a rerun. The second Drone goes on the same branch and is told the rerun's output.
+- **Non-blocking, unless the Trigger blocks.** The Job's status and step do not change, and Fleet works one repair at a time, off the Job's path. Where the Trigger blocks, the Job is held while the repair works and a repair that ends `passed` lets it go (`trigger.md`, *A failed Trigger with `block` on*).
+- **It waits for a slot.** With every slot held the repair stays `repairing`, goes to the back of the queue and is asked again on the next turn, as a Job waits on one. It is not failed for it.
+- **A restart resumes it.** At start Fleet queues every firing found `repairing` or `rerunning` again and redoes the interrupted attempt without counting it twice, and gives back a slot held under a repair holder that no firing is working. A `rerunning` firing the owner had already chosen for goes back to `fix_ready` with its choice and is placed again. Nothing stays `repairing` for good.
+- **A choice that has to wait, waits.** `this_branch` while a Drone is working on the Job's branch is kept on the firing and placed when that Drone's step settles. A full pool waits the same way. A merge that conflicts clears the choice and the fix is the owner's again, with the reason in the Job's log.
+- **The alerts are `list_alerts`.** A Job is listed in `waiting`, at the status it has, for a `fix_ready` fix with no choice yet, and for a Trigger that failed after a repair was tried, and for a hold. `since` is when the repair settled. The alert is about the Trigger's latest firing, so it leaves when he chooses, when a later firing passes, and when the Job's disk is given back.
+- **The branch goes when it has done its work.** After `this_branch` has merged it, and when the repair ends `failed` or `held`, Fleet deletes the local repair branch (`Vcs::delete_repair_branch`, handed the spec the branch was cut from and never a name; the slot was parked first, so nothing has it checked out). A `new_pr` branch is the pull request's head and is kept. A start-up pass deletes the branch of any repair that ended before its delete, so a restart between the two leaves nothing behind.
+- **An added Script step is repaired by the same code.** The row is the addition's own (`job_additions`, with its repair columns) and the holder is `<job id>-repair-<addition id>`, such as `a1`; `Subject` in `crate::trigger_repair` is the one place that tells the two apart.
+- **The slot holder is `<job id>-repair-<firing>`.** `adapters` holds it as a Job's id, so it is never taken back for a dead process, and the pool read names it under its Job. Nothing else sweeps by holder: `armada clean` and the reclaim are keyed on Jobs and their own slots. The start-up sweep above is what gives back one a forgotten Job left.
+
+**Not yet covered.** The repair Drone has one Check's budget. A `this_branch` merge into a Job's branch that holds uncommitted work and has no Drone on it is refused by git as a conflict and goes back to the owner.
 
 ## Worktree slots
 

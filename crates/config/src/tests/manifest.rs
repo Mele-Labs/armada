@@ -7,6 +7,7 @@
 
 mod auto_release;
 mod merge_by;
+mod pr_mode;
 mod ports;
 mod seed;
 mod servers;
@@ -124,6 +125,7 @@ fn a_section_m1_does_not_read_hard_fails_and_names_what_it_does_read() {
             "auto_merge",
             "review_gate",
             "merge_by",
+            "pr_mode",
             "freeze",
             "standing_rules",
             "depends_on"

@@ -69,6 +69,20 @@ export const Slash: Story = {
   },
 };
 
+/** Enter sends and clears the box; Shift+Enter breaks the line and sends nothing. */
+export const EnterSends: Story = {
+  play: async ({ canvas, args }) => {
+    const field = canvas.getByRole("textbox", { name: "Message" });
+    await userEvent.type(field, "first{Shift>}{Enter}{/Shift}second");
+    await expect(field).toHaveValue("first\nsecond");
+    await expect(args.onSend).not.toHaveBeenCalled();
+    await userEvent.keyboard("{Enter}");
+    await expect(args.onSend).toHaveBeenCalledTimes(1);
+    await expect(args.onSend).toHaveBeenCalledWith({ text: "first\nsecond", files: [], tags: [] });
+    await expect(field).toHaveValue("");
+  },
+};
+
 /** `@` opens Jobs, pull requests, branches and the other Sessions, grouped, and choosing one tags it. */
 export const At: Story = {
   play: async ({ canvas, args }) => {
@@ -174,5 +188,29 @@ export const Tuned: Story = {
     await expect(args.onTune).toHaveBeenCalledWith({ model: "opus", effort: null });
     await userEvent.selectOptions(canvas.getByRole("combobox", { name: "Permission mode" }), "plan");
     await expect(args.onMode).toHaveBeenCalledWith("plan");
+  },
+};
+
+const MANY = Array.from({ length: 126 }, (_, index) => ({ name: index % 9 === 0 ? `re-${index}` : index % 7 === 0 ? `pre-${index}` : `cmd-${index}`, says: `What command ${index} does, said at some length so the line has to be cut short` }));
+
+/** A terminal Session offers 126 commands: `/re` keeps the ones starting with it, then the ones holding it, one row each in a column that scrolls. */
+export const SlashFiltered: Story = {
+  args: { commands: MANY },
+  play: async ({ canvas }) => {
+    const field = canvas.getByRole("textbox", { name: "Message" });
+    await userEvent.type(field, "/re");
+    const rows = within(await canvas.findByRole("listbox", { name: "Skills and commands" })).getAllByRole("option");
+    await expect(rows.length).toBeLessThan(MANY.length);
+    for (const row of rows) await expect(row.textContent).toContain("re");
+    await expect(rows[0]!.textContent).toContain("/re-");
+    const shown = rows.filter((row) => row.getBoundingClientRect().height > 0);
+    for (let at = 1; at < shown.length; at += 1) {
+      await expect(shown[at]!.getBoundingClientRect().top).toBeGreaterThan(shown[at - 1]!.getBoundingClientRect().bottom - 1);
+    }
+    await userEvent.keyboard("{ArrowDown}");
+    await expect(rows[1]).toHaveAttribute("aria-selected", "true");
+    const picked = rows[1]!.querySelector(".armada-session-composer__name")!.textContent;
+    await userEvent.keyboard("{Enter}");
+    await expect(field).toHaveValue(`${picked} `);
   },
 };

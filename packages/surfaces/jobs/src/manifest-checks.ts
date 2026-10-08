@@ -253,6 +253,7 @@ export function askerOf(requester: Requester, jobLabel: (jobId: string) => strin
 
 /** An asked run's own states, which the gate's outcomes do not share. */
 const ASKED_STATE: Record<string, { status: CheckListStatus; says?: string }> = {
+  waiting: { status: "waiting" },
   running: { status: "running" },
   passed: { status: "passed" },
   failed: { status: "failed" },
@@ -264,6 +265,9 @@ const ASKED_STATE: Record<string, { status: CheckListStatus; says?: string }> = 
 function gateStatus(outcome: string): { status: CheckListStatus; says?: string; skipped?: true } {
   if (outcome === "passed") return { status: "passed" };
   if (outcome === "failed") return { status: "failed" };
+  // A Check the gate has asked for and not finished, which is not an outcome.
+  if (outcome === "waiting" || outcome === "running") return { status: outcome };
+  // A Check the gate has asked for and not finished, which is not an outcome.
   const verb = CHECK_OUTCOME[outcome]?.verb ?? outcome;
   // Never started and not run are a Check that was not measured: neither a pass nor a failure.
   return outcome === "never_ran" || outcome === "skipped"

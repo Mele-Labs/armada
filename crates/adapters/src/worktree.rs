@@ -215,6 +215,13 @@ impl Vcs for GitVcs {
         crate::leasing::jobs::release(pool, slot, job_id)
     }
 
+    fn delete_repair_branch(
+        &self,
+        spec: &WorktreeSpec,
+    ) -> Result<bool, adapter_traits::BranchKept> {
+        crate::reclaim::delete_repair_branch(spec).map_err(adapter_traits::BranchKept)
+    }
+
     fn mark_slot_completed(&self, pool: &SlotPool, slot: u32, job_id: &str) {
         crate::leasing::jobs::completed(pool, slot, job_id)
     }

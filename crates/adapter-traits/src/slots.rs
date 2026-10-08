@@ -131,6 +131,10 @@ pub enum SlotHeld {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SlotKept(pub String);
 
+/// Why a repair's branch was not deleted, in a sentence. It stays where it is.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct BranchKept(pub String);
+
 /// What parking a Job's slot kept and freed.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SlotParked {

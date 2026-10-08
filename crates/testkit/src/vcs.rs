@@ -25,15 +25,13 @@
 //! worktree wants the real one.
 
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
-use std::error::Error;
-use std::fmt;
 use std::sync::Mutex;
 
 use adapter_traits::{
-    Base, BaseCheckout, BaseMergedIn, BaseOnTheRemote, BaseSpec, BroughtUpToDate, Change,
-    CommitStatus, CommitTime, Committed, Delivery, FromOutside, KeptCurrent, Landable, Landing,
-    Mergeable, Merged, NotCloned, NotDelivered, NotMerged, Opened, Pushed, PushedOntoBase, Remark,
-    RepositoryStanding, Review, SlotKept, SlotLeased, SlotPool, SlotReading, SlotStanding,
+    Base, BaseCheckout, BaseMergedIn, BaseOnTheRemote, BaseSpec, BranchMerged, BroughtUpToDate,
+    Change, CommitStatus, CommitTime, Committed, Delivery, FromOutside, KeptCurrent, Landable,
+    Landing, Mergeable, Merged, NotCloned, NotDelivered, NotMerged, Opened, Pushed, PushedOntoBase,
+    Remark, RepositoryStanding, Review, SlotKept, SlotLeased, SlotPool, SlotReading, SlotStanding,
     Standing, UncheckedHead, UnderReview, Vcs, WhatBecameOfIt, Worktree, WorktreeSpec,
 };
 
@@ -41,6 +39,8 @@ use crate::work_product::Holding;
 
 mod commit;
 mod delivered;
+mod delivering;
+mod failed;
 mod main_ci;
 mod merging;
 mod pull_requests;
@@ -49,53 +49,11 @@ mod slots;
 use commit::Willing;
 pub use commit::{CommitScope, FakeCommit};
 pub use delivered::Delivered;
+pub use failed::FakeVcsError;
 use main_ci::MainCiScript;
 pub use merging::Merging;
 use merging::Trees;
 use slots::FakeSlots;
-
-/// Why the fake refused.
-///
-/// One variant per split the real error draws: a name already taken, the
-/// machine not cooperating, and a commit git would not make. A caller that
-/// handles them handles the real implementation's whole surface as far as its
-/// own logic is concerned.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum FakeVcsError {
-    /// A branch of that name is already there and was refused, never reused.
-    BranchExists { branch: String },
-    /// A scripted failure standing in for a disk, a permission or a repository
-    /// that would not answer.
-    Refused { standing_in_for: &'static str },
-    /// A scripted failure of the commit, which is its own case: it happens
-    /// after a Job's Checks have passed, and the caller must not lose the work
-    /// over it.
-    NotCommitted { standing_in_for: &'static str },
-    /// No ref of that name, which is what the real one raises when `base:`
-    /// names a branch the repository does not have.
-    NoSuchRef { r#ref: String },
-}
-
-impl fmt::Display for FakeVcsError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            FakeVcsError::BranchExists { branch } => {
-                write!(f, "the branch `{branch}` is already there")
-            }
-            FakeVcsError::Refused { standing_in_for } => {
-                write!(f, "refused, standing in for {standing_in_for}")
-            }
-            FakeVcsError::NotCommitted { standing_in_for } => {
-                write!(f, "not committed, standing in for {standing_in_for}")
-            }
-            FakeVcsError::NoSuchRef { r#ref } => {
-                write!(f, "there is no ref `{name}`", name = r#ref)
-            }
-        }
-    }
-}
-
-impl Error for FakeVcsError {}
 
 /// Version control that remembers what it was asked for and creates nothing.
 ///
@@ -170,6 +128,8 @@ pub struct FakeVcs {
     dropped_bases: Mutex<Vec<String>>,
     /// The branch each lease that took a slot was cut from, in order.
     cut_from: Mutex<Vec<String>>,
+    /// Every repair branch this fake was asked to delete, in order.
+    deleted_branches: Mutex<Vec<String>>,
 }
 
 /// What the fake's version control looks like from the delivery side.
@@ -230,52 +190,8 @@ pub struct Delivering {
     pub kept_current: KeptCurrent,
     /// What catching the repository up comes to.
     pub repository: RepositoryStanding,
-}
-
-impl Default for Delivering {
-    /// A repository on `main`, up to date, with a remote and a forge — the
-    /// shape a Job that goes the whole way runs against.
-    fn default() -> Delivering {
-        Delivering {
-            base: Some(Base::Inferred(String::from("main"))),
-            standing: Standing::UpToDate,
-            rebase: None,
-            push: Pushed::ToTheRemote {
-                remote: String::from("origin"),
-                branch: String::from("armada/a-job"),
-            },
-            review: Opened::PullRequest {
-                url: String::from("https://forge.invalid/armada/pull/1"),
-            },
-            auto_merge: Ok(()),
-            // Nobody has merged it. A default that said `Merged` would have
-            // every existing test's Job land the moment anything asked.
-            landed: Landing::Unknown,
-            base_on_the_forge: Some(String::from("main")),
-            number: Some(1),
-            title: Some(String::from("a job's pull request")),
-            mergeable: Mergeable::Yes,
-            merged_at: None,
-            under_review: UnderReview::unreadable(),
-            inline_remarks: Some(Vec::new()),
-            pull_request_diff: None,
-            rerun: Ok(adapter_traits::Rerun { runs: 1 }),
-            filed: Ok(adapter_traits::FiledIssue {
-                url: String::from("https://forge.invalid/armada/issues/1"),
-            }),
-            kept_current: KeptCurrent::Rebased {
-                onto: String::from("5b4ec82700000000000000000000000000000000"),
-                commits: 1,
-            },
-            repository: RepositoryStanding::AlreadyHadIt {
-                base: String::from("main"),
-                // A commit-shaped string, because `#474` keys a proof by it and
-                // a fixture that handed back an empty one would key every
-                // fake's proof the same way.
-                head: String::from("0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f"),
-            },
-        }
-    }
+    /// What merging one local branch into another comes to.
+    pub branch_merge: BranchMerged,
 }
 
 impl FakeVcs {
@@ -312,6 +228,11 @@ impl FakeVcs {
     /// pool's base as the lease was asked. Spike 022, slice 4.
     pub fn cut_from(&self) -> Vec<String> {
         self.cut_from.lock().expect("not poisoned").clone()
+    }
+
+    /// Every repair branch this fake was asked to delete, in order.
+    pub fn deleted_branches(&self) -> Vec<String> {
+        self.deleted_branches.lock().expect("not poisoned").clone()
     }
 
     /// Put a ref at a commit, so a base can be resolved without a repository.
@@ -570,6 +491,26 @@ impl Delivery for FakeVcs {
         Ok(brought)
     }
 
+    fn merge_branch(
+        &self,
+        worktree: &Worktree,
+        branch: &str,
+    ) -> Result<BranchMerged, NotDelivered> {
+        self.delivered
+            .lock()
+            .expect("not poisoned")
+            .push(Delivered::MergedBranch {
+                branch: branch.to_string(),
+                into: worktree.branch().to_string(),
+            });
+        Ok(self
+            .delivery
+            .lock()
+            .expect("not poisoned")
+            .branch_merge
+            .clone())
+    }
+
     fn push(&self, worktree: &Worktree) -> Result<Pushed, NotDelivered> {
         let pushed = self.delivery.lock().expect("not poisoned").push.clone();
         if pushed != Pushed::NoRemote {
@@ -674,8 +615,16 @@ impl Delivery for FakeVcs {
         self.main_ci.merged(commit)
     }
 
+    fn merge_queue(&self, _in_repo: &str, _base: &str) -> Option<adapter_traits::MergeQueue> {
+        self.main_ci.merge_queue()
+    }
+
     fn open_pull_requests(&self, _in_repo: &str) -> Option<adapter_traits::OpenPulls> {
         self.main_ci.open_pulls()
+    }
+
+    fn pull_watch(&self, _in_repo: &str) -> Option<adapter_traits::WatchedPulls> {
+        self.main_ci.watched()
     }
 
     fn publish_status(&self, _: &str, status: &CommitStatus) -> Result<(), String> {
@@ -1099,6 +1048,17 @@ impl Vcs for FakeVcs {
         job_id: &str,
     ) -> Result<adapter_traits::SlotParked, adapter_traits::SlotParkRefused> {
         self.slots.park(pool, slot, job_id)
+    }
+
+    fn delete_repair_branch(
+        &self,
+        spec: &WorktreeSpec,
+    ) -> Result<bool, adapter_traits::BranchKept> {
+        self.deleted_branches
+            .lock()
+            .expect("not poisoned")
+            .push(spec.branch());
+        Ok(true)
     }
 
     fn park_hosted_slot(

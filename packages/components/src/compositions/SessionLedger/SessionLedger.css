@@ -138,3 +138,42 @@ path.armada-session-ledger__picture-later {
   flex-basis: 100%;
   padding: 0 var(--space-3) var(--space-2);
 }
+
+/* A section's head: its eyebrow, and where there is one the Open | All toggle at the far end. */
+.armada-session-ledger__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.armada-session-ledger__show {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.armada-session-ledger__show-option {
+  padding: 0 var(--space-2);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--fg-muted);
+  font: inherit;
+  font-size: var(--text-2xs);
+  line-height: var(--leading-xs);
+  cursor: pointer;
+}
+
+.armada-session-ledger__show-option:hover {
+  color: var(--fg-default);
+}
+
+.armada-session-ledger__show-option[aria-checked="true"] {
+  background: var(--accent-muted);
+  color: var(--fg-default);
+}
+
+.armada-session-ledger__show-option:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}

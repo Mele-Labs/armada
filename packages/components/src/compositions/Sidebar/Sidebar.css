@@ -1,7 +1,6 @@
-/* Sidebar — Navigation, the left column's first panel. Bridge/1088 moved it
-   off the frameless rail and into the same rounded-panel recipe as Stats and
-   Fleet beneath it: bordered on every side, radius-lg, held off its
-   neighbours by the column's own gap.
+/* Sidebar — Navigation, the left column's first panel. The same flat recipe
+   as Stats and Fleet beneath it: --bg-raised, --border-subtle on every side,
+   radius-lg, held off its neighbours by the column's own gap.
 
    Widths are all tokens: --sidebar-default, --sidebar-min, --sidebar-max and
    --sidebar-rail. Persistence of the resting width and the collapsed state is
@@ -22,7 +21,9 @@
   min-width: var(--sidebar-rail);
   max-width: var(--sidebar-max);
   padding: var(--space-2);
+  border: var(--border-width) solid var(--border-subtle);
   border-radius: var(--radius-lg);
+  background: var(--bg-raised);
 }
 
 /* The drag region. Frameless `hiddenInset` chrome insets the macOS traffic

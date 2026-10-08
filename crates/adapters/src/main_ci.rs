@@ -209,7 +209,7 @@ const OPEN_PULLS: &str = "\
     (.author.login // \"\"), \
     ([.statusCheckRollup[]? | [(.name // .context // \"\"), (.status // \"\"), \
     (.conclusion // .state // \"\")] | join(\"\\u001f\")] | join(\"\\u001e\")), \
-    (.headRefOid // \"\")] | @tsv";
+    (.headRefOid // \"\"), (if .autoMergeRequest then \"1\" else \"0\" end)] | @tsv";
 
 /// The check whose result is a pull request's `ci`, where it has one.
 const GATE: &str = "ci";
@@ -226,7 +226,7 @@ pub(crate) fn open_pulls(in_repo: &str) -> Option<OpenPulls> {
             "--limit",
             "100",
             "--json",
-            "number,title,headRefName,url,author,statusCheckRollup,headRefOid",
+            "number,title,headRefName,url,author,statusCheckRollup,headRefOid,autoMergeRequest",
             "--jq",
             OPEN_PULLS,
         ],
@@ -339,6 +339,7 @@ fn open_pull_of_line(line: &str) -> Option<OpenPull> {
     let author = field.next().unwrap_or_default();
     let rollup = field.next().unwrap_or_default();
     let head = field.next().unwrap_or_default();
+    let auto_merge = field.next() == Some("1");
     let checks: Vec<(String, CiState)> = rollup
         .split('\u{1e}')
         .filter(|one| !one.is_empty())
@@ -365,6 +366,7 @@ fn open_pull_of_line(line: &str) -> Option<OpenPull> {
         author: (!author.is_empty()).then(|| FromOutside::verbatim(as_written(author))),
         ci,
         head: is_a_commit(head).then(|| head.to_string()),
+        auto_merge,
         failing: checks
             .iter()
             .filter(|(_, state)| *state == CiState::Failed)
@@ -390,7 +392,7 @@ fn is_a_commit(text: &str) -> bool {
     matches!(text.len(), 40 | 64) && text.chars().all(|c| c.is_ascii_hexdigit())
 }
 
-fn asked(in_repo: &str, args: &[&str]) -> Option<String> {
+pub(crate) fn asked(in_repo: &str, args: &[&str]) -> Option<String> {
     let run = run_in(in_repo, FORGE, args).ok()?;
     run.status
         .success()
@@ -400,6 +402,21 @@ fn asked(in_repo: &str, args: &[&str]) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn auto_merge_is_the_last_field_and_absent_means_off() {
+        assert!(
+            open_pull_of_line("12\tt\tb\tu\tnick\t\t\t1")
+                .unwrap()
+                .auto_merge
+        );
+        assert!(
+            !open_pull_of_line("12\tt\tb\tu\tnick\t\t\t0")
+                .unwrap()
+                .auto_merge
+        );
+        assert!(!open_pull_of_line("12\tt\tb\tu\tnick\t").unwrap().auto_merge);
+    }
 
     #[test]
     fn runs_come_back_named_as_the_forge_names_them() {

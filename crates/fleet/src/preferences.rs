@@ -16,6 +16,7 @@ use crate::daemon::Fleet;
 fn as_wire(preferences: store::Preferences) -> Preferences {
     Preferences {
         where_things_are_open: preferences.where_things_are_open,
+        draft_pull_requests: preferences.draft_pull_requests,
     }
 }
 

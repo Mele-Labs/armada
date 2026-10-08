@@ -334,7 +334,7 @@ where
                 return Err(Refused::BlankModel);
             }
         }
-        crate::approving::landing_of(body.landing.as_ref()).map(|_| ())
+        crate::approving::landing_of(body.landing.as_ref(), core_model::PrMode::Ready).map(|_| ())
     }
 
     /// Put the proposals back as they were, after a call that could not be

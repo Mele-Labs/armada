@@ -483,6 +483,18 @@ Step-level: it is measured against a step's turn count and a step's wall-clock, 
 Judge owns the routing.
 """
 
+[triggers.trigger_held]
+kind = "Trigger"
+level = "Job"
+meaning = "A Trigger or an added step that blocks failed, and the Job waits for the owner to rerun its Command or skip it. Nothing is wrong with the Drone and nothing was weighed."
+in_code = ""
+notes = """
+Fires at `step_starts` and `step_passes`, both from `running`, **before a Drone is put on**: the hold is `put_a_drone_on`'s, the one funnel every spawn goes through. A hold at `pr_opened` is not this row. The pull request is already out and the Job is working or at its review gate, so nothing escalates: the gate is held for a person instead, and `approve_review` and the merge are refused until the hold is let go.
+
+Job-level, for `no_worktree`'s reason. The Trigger is a fact about a moment and no step's work is why the Job stopped, so there is no `last_verdict` to hold. Not `gate_failure`: a Trigger is not a Check and its exit code never reaches a gate. Not `awaiting_repair`, which is a spent Check budget. A person's Rerun or Skip lets it go and the Job takes `escalated -> queued`; with `repair` on, a repair that ends passed lets it go by itself.
+"""
+why = "A failing Trigger that blocks needs somewhere to stop the Job that is neither a Check's budget nor a Drone's trouble. A status of its own was weighed and refused: every status owes a verb, an icon, a column in the step machine and a row in the edge table, and what this adds over `escalated` is a reason, which is what this row is."
+
 [triggers.unheard]
 kind = "Trigger"
 level = "Job"

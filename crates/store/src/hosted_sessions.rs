@@ -23,9 +23,12 @@ pub struct KeptHosting {
     pub ran: bool,
     pub lease_slot: Option<u32>,
     pub lease_branch: Option<String>,
+    /// The session whose conversation this one began as a copy of. Read until
+    /// the process has run, after which the session resumes its own.
+    pub fork_of: Option<String>,
 }
 
-const COLUMNS: &str = "session_id, manifest_id, model, effort, mode, ran, lease_slot, lease_branch";
+const COLUMNS: &str = "session_id, manifest_id, model, effort, mode, ran, lease_slot, lease_branch, fork_of";
 
 fn kept(row: &rusqlite::Row<'_>) -> rusqlite::Result<KeptHosting> {
     Ok(KeptHosting {
@@ -37,6 +40,7 @@ fn kept(row: &rusqlite::Row<'_>) -> rusqlite::Result<KeptHosting> {
         ran: row.get::<_, i64>(5)? != 0,
         lease_slot: row.get::<_, Option<i64>>(6)?.map(|slot| slot as u32),
         lease_branch: row.get(7)?,
+        fork_of: row.get(8)?,
     })
 }
 
@@ -46,7 +50,7 @@ impl Store {
             .execute(
                 &format!(
                     "INSERT OR REPLACE INTO hosted_sessions ({COLUMNS})
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)"
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)"
                 ),
                 params![
                     hosting.session_id,
@@ -57,6 +61,7 @@ impl Store {
                     i64::from(hosting.ran),
                     hosting.lease_slot.map(i64::from),
                     hosting.lease_branch,
+                    hosting.fork_of,
                 ],
             )
             .map(|_| ())

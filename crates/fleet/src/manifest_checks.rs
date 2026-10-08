@@ -4,6 +4,10 @@
 //! **A read, never a record**: the gate's rows (`job_step_checks`) and a Drone's
 //! asked runs (`asked_runs`) stay where they are, and this folds them into rows a
 //! Checks page draws. Merge-line Checks and checkout runs are not here.
+//!
+//! **What has not finished is read off [`Underway`](crate::underway::Underway)**: a
+//! gate's Check not yet started is a `waiting` row, and a Drone's run still queued
+//! for a place reads `waiting` where its stored row says `running`.
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
@@ -13,6 +17,7 @@ use store::{AskedRun, Attempted};
 
 use crate::adrift::Adrift;
 use crate::daemon::Fleet;
+use crate::underway::Live;
 
 /// A log's own file name, which is what `get_check_output` takes.
 fn kept(path: &str) -> String {
@@ -24,6 +29,7 @@ pub(crate) fn rows_of(
     job: &Job,
     ran: &[Attempted<Vec<StepCheck>>],
     asked: &[AskedRun],
+    live: &Live,
 ) -> Vec<ManifestCheckRow> {
     let (job_id, handle) = (ipc::JobId::from(job.id()), job.handle());
     let mut rows = Vec::new();
@@ -72,7 +78,14 @@ pub(crate) fn rows_of(
             attempt: run.attempt,
             group: None,
             name: run.checks.join(", "),
-            state: asked_state(run.state).to_string(),
+            state: match (
+                run.state,
+                queued(live.asked_run.as_ref(), run.step.as_str()),
+            ) {
+                (store::AskedState::Running, true) => WAITING,
+                (state, _) => asked_state(state),
+            }
+            .to_string(),
             started_at: Some(ipc::Instant::from(&run.started_at)),
             ended_at: wired.finished_at,
             took_ms,
@@ -80,7 +93,62 @@ pub(crate) fn rows_of(
             asked_run_id: Some(run.id),
         });
     }
+    rows.extend(waiting_rows(&job_id, &handle, job.title().as_str(), live));
     rows
+}
+
+/// A row's `state` before its Check has started.
+const WAITING: &str = "waiting";
+/// A row's `state` while it runs.
+const RUNNING: &str = "running";
+
+/// Whether a Drone's run on `step` has started none of its Checks: it is queued.
+pub(crate) fn queued(run: Option<&(ipc::StepId, ipc::ChecksUnderway)>, step: &str) -> bool {
+    run.is_some_and(|(at, run)| {
+        at.as_str() == step
+            && run.checks.iter().all(|check| {
+                check.started_at.is_none() && check.ran.is_none() && check.took_ms.is_none()
+            })
+    })
+}
+
+/// The gate's Checks that have not finished, as the gate says them: `waiting`
+/// until each starts, whatever it waits for, then `running`. Finished ones are
+/// the ruling's, which is written to the store and read above.
+pub(crate) fn waiting_rows(
+    job_id: &ipc::JobId,
+    handle: &str,
+    title: &str,
+    live: &Live,
+) -> Vec<ManifestCheckRow> {
+    let Some((step, gate)) = &live.gate else {
+        return Vec::new();
+    };
+    gate.checks
+        .iter()
+        .filter(|check| check.ran.is_none() && check.took_ms.is_none())
+        .map(|check| ManifestCheckRow {
+            source: ipc::SOURCE_GATE.to_string(),
+            requester: gate.requester.clone(),
+            job_id: job_id.clone(),
+            job_handle: handle.to_string(),
+            job_title: title.to_string(),
+            step: step.clone(),
+            attempt: gate.attempt,
+            group: None,
+            name: check.name.clone(),
+            state: match check.started_at {
+                Some(_) => RUNNING,
+                None => WAITING,
+            }
+            .to_string(),
+            started_at: check.started_at.clone(),
+            ended_at: None,
+            took_ms: None,
+            logs: Vec::new(),
+            asked_run_id: None,
+        })
+        .collect()
 }
 
 fn asked_state(state: store::AskedState) -> &'static str {
@@ -150,7 +218,8 @@ where
                 .asked_runs(job.id(), self.run())
                 .map_err(|why| self.refusal(Adrift::Reading(why)))?;
             drop(store);
-            rows.extend(rows_of(job, &ran, &asked));
+            let live = self.underway().live(&ipc::JobId::from(job.id()));
+            rows.extend(rows_of(job, &ran, &asked, &live));
         }
         Ok(newest(rows, ManifestChecks::MOST))
     }

@@ -6,7 +6,7 @@
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
-use core_model::{Job, JobStatus};
+use core_model::{Job, JobId, JobStatus};
 use ipc::{Alert, AlertList, JobList, JobSummary, ManifestId};
 use store::Moved;
 
@@ -100,6 +100,58 @@ where
                 true => blocked.push(self.alerted(job, &summary).await?),
                 false => waiting.push(self.alerted(job, &summary).await?),
             }
+        }
+        // **A Trigger's repair that waits on a person is an alert and not a
+        // status**: the Job's status and step are where the Trigger found
+        // them. A fix with no choice, and a Trigger that failed after a repair
+        // was tried, join `waiting` and leave it when the firing does.
+        let repairs: Vec<(JobId, crate::trigger_hold::Hold)> = {
+            let store = self.store().lock().await;
+            let firings = store
+                .repairs_waiting_on_a_person()
+                .map_err(|why| self.refusal(Adrift::Reading(why)))?;
+            let additions = store
+                .additions_waiting_on_a_person()
+                .map_err(|why| self.refusal(Adrift::Reading(why)))?;
+            firings
+                .into_iter()
+                .map(|(job, id, firing)| (job, crate::trigger_hold::Hold::Firing { id, firing }))
+                .chain(
+                    additions
+                        .into_iter()
+                        .map(|(job, added)| (job, crate::trigger_hold::Hold::Addition(added))),
+                )
+                .collect()
+        };
+        for (job_id, hold) in repairs {
+            let Some(job) = loaded.jobs.iter().find(|job| job.id() == &job_id) else {
+                continue;
+            };
+            // A hold on a Job that is over holds nothing.
+            let over = hold.state() == core_model::TriggerState::Held && job.status().is_terminal();
+            if !owned(job) || over {
+                continue;
+            }
+            let why = match hold.state() {
+                core_model::TriggerState::Held => crate::trigger_hold::held_said(&hold.name()),
+                core_model::TriggerState::FixReady => {
+                    crate::trigger_repair::fix_waiting(&hold.name())
+                }
+                _ => crate::trigger_repair::alert(&hold.name()),
+            };
+            // A Job a hold stopped is already blocked: it says which Trigger.
+            if let Some(stopped) = blocked
+                .iter_mut()
+                .find(|one| one.job_id == ipc::JobId::from(&job_id))
+            {
+                stopped.why = Some(why);
+                continue;
+            }
+            let summary = self.summarised(job).await?;
+            let mut alert = self.alerted(job, &summary).await?;
+            alert.why = Some(why);
+            alert.since = hold.since().map(Into::into);
+            waiting.push(alert);
         }
         Ok(AlertList { blocked, waiting })
     }

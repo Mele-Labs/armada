@@ -9,7 +9,9 @@ use adapter_traits::WorktreeSpec;
 use git2::{BranchType, Repository};
 
 use super::UnmergedWork;
-use super::{delete_the_branch, on_disk, remove_the_worktree, BranchGone, RepoUnreadable};
+use super::{
+    delete_the_branch, on_disk, remove_the_worktree, BranchGone, RepoUnreadable, WorktreeGone,
+};
 
 /// Why a delete was not attempted. Nothing was touched on any of these.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -77,4 +79,21 @@ fn the_tip(repo: &Repository, branch: &str) -> Option<String> {
             .map(|oid| oid.to_string())
             .unwrap_or_else(|| String::from("an unresolved ref")),
     )
+}
+
+/// Delete the branch a repair Drone wrote on, whatever it holds: its fix is on
+/// the Job's branch, or it failed and nobody will take it. **Fleet's act, and
+/// only ever on a branch derived from a repair's own spec.** `false` is a branch
+/// that was gone already; a slot with it checked out refuses and it stays.
+pub fn delete_repair_branch(spec: &WorktreeSpec) -> Result<bool, String> {
+    let repo = Repository::open(spec.repo_root()).map_err(|cause| cause.message().to_string())?;
+    let held_by = WorktreeGone::Pooled {
+        path: spec.worktree_path(),
+    };
+    match delete_the_branch(&repo, &spec.branch(), None, &held_by, UnmergedWork::Delete) {
+        BranchGone::Deleted { .. } => Ok(true),
+        BranchGone::Absent { .. } => Ok(false),
+        BranchGone::NotDeleted { why, .. } | BranchGone::KeptUnanswered { why, .. } => Err(why),
+        BranchGone::Kept { branch, .. } => Err(format!("{branch} was kept")),
+    }
 }

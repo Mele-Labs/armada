@@ -369,6 +369,7 @@ fn pull(number: u64, ci: Option<CiState>, failing: &[&str]) -> OpenPull {
             .iter()
             .map(|name| FromOutside::verbatim(*name))
             .collect(),
+        auto_merge: false,
     }
 }
 
@@ -642,4 +643,64 @@ async fn main_is_read_while_a_turn_cannot_run() {
     drop(held);
     turn.await.unwrap().unwrap();
     assert_eq!(read.expect("read without a turn").state, MainState::Green);
+}
+
+#[tokio::test]
+async fn the_merge_queue_marks_the_open_pull_requests_it_holds() {
+    use adapter_traits::{QueueEntry, QueueState};
+    use ipc::{HubQueue, HubQueueState};
+    let home = TempDir::new();
+    let fleet = a_fleet_reading_main(&home);
+    let forge = &fleet.vcs().main_ci;
+    forge.head_is(Some(ONE));
+    forge.runs_on(ONE, vec![run("ci", "11", CiState::Passed)]);
+    let waiting = OpenPull {
+        auto_merge: true,
+        ..pull(7, Some(CiState::Pending), &[])
+    };
+    let not_auto = pull(11, Some(CiState::Pending), &[]);
+    forge.pulls_are(Some(vec![
+        waiting,
+        pull(8, Some(CiState::Passed), &[]),
+        pull(9, Some(CiState::Passed), &[]),
+        pull(10, Some(CiState::Passed), &[]),
+        not_auto,
+        pull(12, None, &[]),
+    ]));
+    let entry = |number, position, state| QueueEntry {
+        number,
+        position,
+        state,
+    };
+    forge.queue_is(Some(vec![
+        entry(8, 2, QueueState::Queued),
+        entry(9, 1, QueueState::AwaitingChecks),
+        entry(10, 3, QueueState::Unmergeable),
+    ]));
+
+    fleet.turn().await.unwrap();
+    let queued = |hub: &ipc::MergeLineHub| -> Vec<(u64, Option<HubQueue>)> {
+        hub.pull_requests
+            .iter()
+            .map(|one| (one.number, one.queue))
+            .collect()
+    };
+    let mark = |state, position| Some(HubQueue { state, position });
+    let expected = vec![
+        (7, mark(HubQueueState::WaitingForCi, None)),
+        (8, mark(HubQueueState::Queued, Some(2))),
+        (9, mark(HubQueueState::AwaitingChecks, Some(1))),
+        (10, mark(HubQueueState::Unmergeable, Some(3))),
+        (11, None),
+        (12, None),
+    ];
+    assert_eq!(queued(&the_hub(&fleet).await), expected);
+
+    forge.queue_is(None);
+    fleet.turn().await.unwrap();
+    assert_eq!(
+        queued(&the_hub(&fleet).await),
+        expected,
+        "a forge that will not answer keeps the last reading"
+    );
 }

@@ -189,6 +189,8 @@ mod studio_added;
 mod studio_sketch;
 /// The Triggers a repository runs, saving one, and what a Job did with each.
 /// Since 23.58.
+mod added_steps;
+mod trigger_holds;
 mod triggers;
 mod turn;
 /// A step's Checks while the gate is running them, and the socket a running
@@ -279,8 +281,9 @@ pub use helm::{
     HelmUnanswered,
 };
 pub use helm_call::{
-    AnswerHelmCall, AskingToRun, HelmAskingToRun, HelmCallAnswer, HelmCallAnswered,
-    HelmCallInFlight, HelmCallSettled, HelmCallsWaiting, RunOrNot,
+    AnswerHelmCall, AskedChoice, AskedQuestion, AskingToRun, HelmAskingToRun, HelmCallAnswer,
+    HelmCallAnswered, HelmCallInFlight, HelmCallSettled, HelmCallsWaiting, QuestionAnswer,
+    RunOrNot, ASKS_A_QUESTION,
 };
 pub use helm_debug::{HelmDebugInfo, HelmDebugLine, HelmDebugSaid, HelmDebugText};
 pub use history::{DroneMoved, JobHistory, Movement, Recorded, StatusMoved, StepMoved};
@@ -290,11 +293,11 @@ pub use holding::{
     SlotStranded, SlotVerdict, WorktreeHeld, WorktreeSlot, WorktreesHeld,
 };
 pub use hosted_sessions::{
-    AnswerSessionAsk, CloseSession, GateAnswer, GateHold, HandoffPlan, HandoffStep, HeldCommand,
-    HostedFacts, MessagesHeld, PilotFrom, SendSessionMessage, SentFile, SessionAskState,
-    SessionGate, SessionMode, SessionRow, SessionRowChanged, SessionTag, SessionThread,
-    SessionTurn, SessionUpload, SessionVoice, SessionVoiceNamed, StartSession, TagKind, TaggedJob,
-    TakeHeld, TuneSession,
+    AnswerSessionAsk, CloseSession, ForkFrom, GateAnswer, GateHold, HandoffPlan, HandoffStep,
+    HeldCommand, HostedFacts, MessagesHeld, PilotFrom, SendSessionMessage, SentFile,
+    SessionAskState, SessionGate, SessionMode, SessionRow, SessionRowChanged, SessionTag,
+    SessionThread, SessionTurn, SessionUpload, SessionVoice, SessionVoiceNamed, StartSession,
+    TagKind, TaggedJob, TakeHeld, TuneSession,
 };
 pub use ids::{
     CriterionId, DroneId, Instant, JobId, ManifestId, ProposalId, QuestionId, StepId, StudioEdgeId,
@@ -328,8 +331,9 @@ pub use manifest_proposal::{
     ProposedSetup, Provenance, StatedCaps, WriteManifestProposal,
 };
 pub use merge_hub::{
-    FixMain, FixesMain, FixesMainState, HubJob, HubMerged, HubPullCi, HubPullRequest, MainChecking,
-    MainCiState, MainFailedJob, MainMerge, MainRun, MainRunState, MainStanding, MergeLineHub,
+    FixMain, FixesMain, FixesMainState, HubJob, HubMerged, HubPullCi, HubPullRequest, HubQueue,
+    HubQueueState, MainChecking, MainCiState, MainFailedJob, MainMerge, MainRun, MainRunState,
+    MainStanding, MergeLineHub,
 };
 pub use merge_line::{
     LandCheckState, LandOutputMessage, LandOutputOpened, LandState, MergeLine, MergeLineCheck,
@@ -422,10 +426,16 @@ pub use studio_sketch::{
     EditStudioSketch, SketchBox, SketchDrawing, SketchDrawn, SketchJoin, SketchPicture,
     SketchPictureDrawn, SketchPoint, SketchStroke,
 };
+pub use added_steps::{
+    AddStep, AddedPlaced, AddedRuns, AddedSkip, AddedSkipReason, AddedStep, AddedStepRemoved,
+    JobAdditionChanged, KeptFrom, RemoveAddedStep,
+};
+pub use trigger_holds::{HoldAct, HoldSettled, JobAlert, JobAlertKind};
 pub use triggers::{
-    JobTrigger, JobTriggerChanged, LeftOutTrigger, OverriddenTrigger, RemoveTrigger, SaveTrigger,
-    TriggerDefinition, TriggerFiringState, TriggerLevel, TriggerList, TriggerMoment,
-    TriggerRemoved, TriggerRuns, TriggerSaved, TriggerScope, TriggerSkip, TriggerSkipReason,
+    ChooseTriggerFix, JobTrigger, JobTriggerChanged, LeftOutTrigger, OverriddenTrigger,
+    RemoveTrigger, SaveTrigger, TriggerDefinition, TriggerFiringState, TriggerFixChoice,
+    TriggerFixChosen, TriggerLevel, TriggerList, TriggerMoment, TriggerPullRequest, TriggerRemoved,
+    TriggerRepair, TriggerRuns, TriggerSaved, TriggerScope, TriggerSkip, TriggerSkipReason,
     TriggerSummary,
 };
 pub use turn::{

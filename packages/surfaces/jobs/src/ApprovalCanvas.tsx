@@ -56,7 +56,12 @@ import type {
 import { NOT_STARTED, approvalNodesOf, checksOf, flowingOf, gateKindsOf, perTask, stepsReadOf } from "./approval-canvas";
 import { LANES } from "./approval-canvas";
 import type { ApprovalNode, LifeRead, StepRead } from "./approval-canvas";
-import { layoutOf, narrowOf } from "./approval-layout";
+import { CARD, layoutOf, narrowOf } from "./approval-layout";
+import { holdsOf } from "@armada/components";
+import { withAddedAtGate } from "./approval-added";
+import { addedNodeId, AddedSheets, useAddedSteps } from "./added-steps";
+import type { AddedBinding } from "./added-steps";
+import { nextAfter, repairBranches, withHolds, type ChooseTriggerFixCall, type HoldActCall } from "./repair-branch";
 import type { Outcome, ToProposer } from "@armada/protocol";
 import { landingChoiceOf, tuningChoicesOf } from "./tab-proposal-read";
 import type { ApprovingProps } from "./approving";
@@ -177,6 +182,12 @@ export type ApprovalCanvasProps = ApprovingProps & {
   onOpenTask?: (taskId: string) => void;
   /** Open the Studio the Job came from, its node picked (#1674). Absent draws no Studio node. */
   onOpenStudio?: OpenStudioFrom;
+  /** What adding a step to this Job asks of the window. Absent draws no `+`. */
+  added?: AddedBinding;
+  /** Past the gate, where a failed Trigger's held fix goes: the branch the repair grows asks. */
+  onChooseTriggerFix?: ChooseTriggerFixCall;
+  /** Rerun or skip a Trigger that holds the Job. */
+  onHoldAct?: HoldActCall;
 };
 
 export function ApprovalCanvas({
@@ -189,6 +200,9 @@ export function ApprovalCanvas({
   onOpenGroup,
   onOpenTask,
   onOpenStudio,
+  added: addedBinding,
+  onChooseTriggerFix,
+  onHoldAct,
   whole,
   edits,
   onEdits,
@@ -200,6 +214,13 @@ export function ApprovalCanvas({
 }: ApprovalCanvasProps) {
   const [open, setOpen] = useState<string | null>(null);
   const floor = useAtFloor();
+  // At the gate a step is held in the edits until the press; past it, Fleet's.
+  const added = useAddedSteps(
+    whole.job,
+    whole,
+    addedBinding,
+    onEdits === undefined ? undefined : { additions: edits.additions ?? [], onAdditions: (next) => onEdits({ ...edits, additions: next }) },
+  );
   const { proposal, landing } = edits;
   const declared = stepsDeclaredOf(workflows, proposal.workflow_id);
   const steps = stepsReadOf(proposal.gates, whole, declared, life !== undefined);
@@ -253,7 +274,9 @@ export function ApprovalCanvas({
   const about = openedStep?.about;
 
   const workflowName = workflow?.name ?? proposal.workflow_id;
-  const layout = layoutOf(nodes, edges, workflowName);
+  const plain = layoutOf(nodes, edges, workflowName);
+  // At the gate the workflow is the one picked, which may not be the one the Job opened on.
+  const { layout, extra } = withAddedAtGate(added, whole, nodes, plain, steps.find((one) => one.delivers)?.id);
   // At the gate the Work lane's head is the workflow picker: another workflow
   // rebuilds every gate and every step in the lane, and a step's tuning goes
   // with its step. Past the gate it is the name, read.
@@ -265,6 +288,8 @@ export function ApprovalCanvas({
           moved({
             proposal: proposalOnWorkflow(proposal, workflows, workflowId),
             tuning: { ...tuning, steps: tuningOf(picked).steps },
+            // A step added after a step the other workflow has not goes with it.
+            ...(added.rows.length === 0 ? {} : { additions: added.rows.filter((one) => picked.some((step) => step.step_id === one.step)) }),
           });
         };
   const choices = workflowChoicesOf(workflows, whole.job.owner_manifest_id);
@@ -296,7 +321,21 @@ export function ApprovalCanvas({
       : frame.name === "Groups"
         ? headWith(<span className="armada-studio-frame__kind">{frame.name}</span>, GUIDE_PLAN)
         : undefined;
-  const drawnEdges = flowingOf(nodes, layout.edges, steps);
+  // A failed Trigger with Self repair grows a branch off where it fired: the pull request for
+  // `pr_opened`, whose delivering step is that node's own, and the step for any other moment.
+  const branch = repairBranches(
+    whole.triggers ?? [],
+    whole.job.id,
+    (trigger) => {
+      const at = nodes.find((node) => node.id === (trigger.when === "pr_opened" ? "pr" : trigger.step));
+      const place = at === undefined ? undefined : layout.places.get(at.id);
+      return at === undefined || place === undefined ? undefined : { id: at.id, x: place.x, y: place.y, width: CARD.width };
+    },
+    (anchor) => nextAfter(layout.edges, anchor),
+    onChooseTriggerFix,
+    { holds: holdsOf(whole.triggers ?? [], whole.additions ?? []), spine: layout.edges, act: onHoldAct },
+  );
+  const drawnEdges = [...withHolds(flowingOf(nodes, layout.edges, steps), branch.onLine), ...branch.edges];
   // The lanes' Zones and the fans' Clusters, behind the nodes: Studio's own frames.
   const backdrops: WorkflowCanvasNode[] = layout.frames.map((frame) => ({
     id: frame.id,
@@ -472,16 +511,18 @@ export function ApprovalCanvas({
       aria-label={life === undefined ? "What you are approving" : "This Job's run"}
     >
       <WorkflowCanvas
-        nodes={[...backdrops, ...placed]}
+        nodes={[...backdrops, ...placed, ...extra, ...branch.nodes]}
         edges={drawnEdges}
         label="Run"
         runsDown
         downOnly
         centred
         opensOn={[opensOnOf(nodes, layout.places)]}
+        reveals={added.reveal === null ? branch.asking : addedNodeId(added.reveal)}
       />
     </section>
     {panel}
+    <AddedSheets added={added} />
     </>
   );
 }

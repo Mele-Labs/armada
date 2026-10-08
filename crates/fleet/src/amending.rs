@@ -188,6 +188,7 @@ fn edit(wire: ManifestEdit) -> Result<Vec<Edit>, Unknown> {
             expect_exit_code,
         } => check(name, CheckEdit::ExpectExitCode(expect_exit_code)),
         ManifestEdit::SetBase { base } => Edit::Base(base),
+        ManifestEdit::SetPrMode { pr_mode } => Edit::PrMode(pr_mode.map(|mode| mode.domain())),
         ManifestEdit::AddEvidence { evidence } => Edit::Evidence(EvidenceEdit::Add(NewEvidence {
             serve: evidence.serve,
             ready: evidence.ready,
@@ -436,5 +437,6 @@ pub(crate) fn declared_in(manifest: &config::Manifest) -> ManifestDeclared {
             .iter()
             .map(|path| path.as_str().to_string())
             .collect(),
+        pr_mode: manifest.pr_mode().map(Into::into),
     }
 }

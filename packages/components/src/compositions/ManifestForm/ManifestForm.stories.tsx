@@ -63,6 +63,7 @@ const DRAFT: ManifestFormDraft = {
   quietAfter: "300",
   pokeLimit: "",
   excludePaths: "",
+  draftPr: false,
 };
 
 const BASE = {

@@ -1,0 +1,16 @@
+[operations.rerun_trigger]
+kind = "command"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Run a held Trigger's Command again, with no Drone, and let the Job go if it passes"
+notes = """
+`POST /jobs/:job_id/rerun_trigger`, protocol 23.68. The body is `HoldAct`: `trigger` (the Trigger's name; the latest firing of it that holds the Job is the one) or `addition` (an added step's id), exactly one. The answer is a `HoldSettled`: `state`, where the firing stands now, and `released`, whether the Job holds nothing any more.
+
+**No Drone.** The Command runs in the Job's worktree under the Check budget, as the firing did. It passes: the firing is `passed` and, if nothing else holds the Job, the hold is let go (`released`), and a Job held before a step takes `escalated -> queued` and goes on to that step. It fails: the firing is `held` again with the new exit code, and nothing else changes. Every state it passes through is a `job.trigger_changed` (or `job.addition_changed`).
+
+**Refused, each a 409 leaving the firing as it was:** `fleet.no_hold` where nothing by that name holds the Job; `fleet.hold_repairing` while a repair is under way, which lets the hold go by itself; `fleet.hold_has_a_fix` where a repair's fix waits on `choose_trigger_fix`, which is the way to settle it, or `skip_trigger`; `fleet.hold_nothing_to_run` where the Trigger no longer names a Command this repository declares, or it is a skill or a Drone step, which Fleet does not run; `fleet.hold_no_worktree` where the Job's branch could not be reached, in the words of why. A Job Fleet does not hold is the usual 404, and naming both `trigger` and `addition` or neither is a 422.
+
+**It may take as long as the Command takes**, and the daemon runs it as a task of its own, so a client that stops waiting does not stop it halfway. Bridge sends `NO_WAIT`.
+
+`agent_access` is `Bridge only`: whether a failed Trigger the owner asked to stop the Job may be let past is his to say, and no Drone is given the call.
+"""

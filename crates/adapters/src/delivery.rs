@@ -13,9 +13,9 @@
 use std::process::{Command, Output};
 
 use adapter_traits::{
-    Base, BaseOnTheRemote, BroughtUpToDate, Delivery, KeptCurrent, Landable, Merged, NotDelivered,
-    NotMerged, Opened, Pushed, PushedOntoBase, RepositoryStanding, Review, UncheckedHead,
-    UnderReview, WhatBecameOfIt,
+    Base, BaseOnTheRemote, BranchMerged, BroughtUpToDate, Delivery, KeptCurrent, Landable, Merged,
+    NotDelivered, NotMerged, Opened, Pushed, PushedOntoBase, RepositoryStanding, Review,
+    UncheckedHead, UnderReview, WhatBecameOfIt,
 };
 use adapter_traits::{Standing, Worktree, WorktreeSpec};
 use git2::{BranchType, Repository};
@@ -120,6 +120,21 @@ impl Delivery for GitVcs {
         })
     }
 
+    fn merge_branch(
+        &self,
+        worktree: &Worktree,
+        branch: &str,
+    ) -> Result<BranchMerged, NotDelivered> {
+        Ok(
+            match merging_in::merged_in(worktree, branch, OnConflict::PutItBack)? {
+                MergedIn::Clean { .. } => BranchMerged::Merged,
+                MergedIn::Conflicted { files } | MergedIn::PutBack { files } => {
+                    BranchMerged::PutBack { files }
+                }
+            },
+        )
+    }
+
     fn push(&self, worktree: &Worktree) -> Result<Pushed, NotDelivered> {
         pushed(worktree)
     }
@@ -207,8 +222,16 @@ impl Delivery for GitVcs {
         crate::main_ci::merged_by(in_repo, commit)
     }
 
+    fn merge_queue(&self, in_repo: &str, base: &str) -> Option<adapter_traits::MergeQueue> {
+        crate::merge_queue::read(in_repo, base)
+    }
+
     fn open_pull_requests(&self, in_repo: &str) -> Option<adapter_traits::OpenPulls> {
         crate::main_ci::open_pulls(in_repo)
+    }
+
+    fn pull_watch(&self, in_repo: &str) -> Option<adapter_traits::WatchedPulls> {
+        crate::pull_watch::read(in_repo)
     }
 
     fn publish_status(

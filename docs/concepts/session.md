@@ -36,13 +36,13 @@ The harness sends Fleet facts in Armada's own shape and nothing past the adapter
 
 | `fact` | Carries | Fleet does |
 |---|---|---|
-| `started` | `cwd`, `title?`, `origin?` | Creates the row or starts a resumed one again; resolves the directory to a repository and a pool slot |
+| `started` | `cwd`, `title?`, `origin?`, `mod_version?` | Creates the row or starts a resumed one again; resolves the directory to a repository and a pool slot |
 | `titled` | `title`, `named?` | `named` is a person's `/rename` in the terminal and replaces the title; without it, the first prompt's line, kept only where there is no title |
 | `moved` | `cwd` | Re-resolves; a slot the session left is given back |
 | `attached` | `attachment`: `kind`, `target`, `detail?` | Takes it; `branch` and `slot` replace the one held |
 | `settled` | `attachment`: `kind`, `target`, `state` | Moves it to `spent` or `given_back` |
 | `measured` | `usage`: `context_tokens?`, `context_window?`, `cost_micros?` | Keeps what was reported |
-| `tuned` | `model?`, `effort?`, `mode?`, `commands?` | Held in memory as the terminal's `terminal` facts: model, effort, mode and the commands it lists |
+| `tuned` | `model?`, `effort?`, `mode?`, `commands?`, `mod_version?` | Held in memory as the terminal's `terminal` facts: model, effort, mode and the commands it lists |
 | `turn_completed` | nothing | Stamps the last turn |
 | `ended` | `reason` | Ends it and gives back everything it still holds |
 
@@ -71,6 +71,7 @@ A holder is `{ kind: session | job, id }` and points at neither table, so a Job 
 | `subagent` | the agent's id | |
 | `message` | `to:<who>` or `from:<who>`, with a count in `detail` | |
 | `studio` | the Studio's id | not reported by anything yet |
+| `forked_to`, `forked_from` | the other session's id | `spent` when written, so the old session ending does not give the link back |
 | `artifact` | a page's or document's address, or a file's absolute path; `detail.form` is `page`, `file` or `doc`, `detail.title` its name | nothing: it stays on the ledger after the session ends |
 
 **An artifact is something a person would open, and a code edit is never one.** Edits are Branches and Pull requests. Three forms:
@@ -144,6 +145,24 @@ refused with the slot's path. A shell line is read by its words, so one Fleet
 does not recognise as a read leases first.
 [Spike 24](../spikes/024-how-does-a-session-move-into-a-slot-at-its-first-write.md).
 
+**What the write gate covers.** A slot lives under the main checkout's path, so
+the gate tells three places apart: the main checkout, a slot, and anywhere
+else. A file tool is let through in **any slot whose lease is held by this
+session's process or by a process it started**, which is how `armada worktree
+lease` records its caller (the first process above it that is not a shell), so
+a slot the session's own subagent leased is writable. A slot held by anything
+else, or by a holder that has gone, is refused with a sentence saying so. The
+main checkout stays refused, and a `..` is resolved by reading before the path
+is placed. A shell line is also held when it **obviously names a path in the
+main checkout or in a slot the session does not hold**: a redirect (`>`, `>>`,
+`2>`), `tee`, `cp`, `mv`, `install`, `ln`, `rsync`, `touch`, `mkdir`, `rm`,
+`chmod`, `truncate`, `dd`, `sed -i` and `perl -i` with an absolute path
+argument, and `git -C <path>` with any subcommand that is not a read. **Not
+covered**: a relative path (the session's directory is the slot, so it lands
+there), a path built from a variable or a substitution, a `cd` into the
+checkout and then a relative write, and anything a script or a build writes by
+itself. [Spike 29](../spikes/029-why-a-sessions-auto-asked-and-how-a-question-is-answered.md).
+
 **The slot is held by the session's id as a Job's is held by its id**, so a
 restart of the process or of Fleet is not the session ending. It is given back
 on close by parking: what is in it is committed to the session's own branch and
@@ -154,17 +173,26 @@ is the default and means what it means for Helm: everything runs except what is
 destructive, pushes code to a shared space or writes off this machine, which
 Fleet puts to the person on the session's own thread. The CLI's own auto mode is
 not reachable for a spawned session, so `auto` is `default` with that door.
-`ask` and `acceptEdits` put every call the person's settings do not cover.
+Inside the session's own slot, what it writes is its work and does not ask, and a
+redirect into `/dev/null` is not a truncation; `rm`, `git reset --hard`, `git push` and the like
+still do. `ask` and `acceptEdits` put every call the person's settings do not cover.
 [Spike 25](../spikes/025-is-auto-mode-reachable-in-a-spawned-session-now.md).
 A change applies from the next process: an idle one is ended at once, a running
 one when its turn is over.
+
+**A question is an ask too.** The agent's `AskUserQuestion` reaches the same door as any call, and
+in a hosted session nobody could answer it. Fleet now holds it whatever the mode and the thread
+draws it as a form: each question with its options, a multi-select where the agent said so, and
+*Other* for the person's own words. *Answer* hands back one entry per question, *Skip* tells the
+agent so. Fleet returns the tool's input with its `answers` map filled in, keyed by question text,
+a multi-select's labels joined with `, `. [Spike 29](../spikes/029-why-a-sessions-auto-asked-and-how-a-question-is-answered.md).
 
 | Operation | Does |
 |---|---|
 | `start_session` | A row for one repository, with optional title, model, effort and mode |
 | `rename_session` | A person's name for a Session, hosted or in a terminal; stands until the next terminal `/rename` |
 | `send_session_message` | Text, pictures and files stored by Fleet, and the sessions, Jobs, pull requests and branches it names; takes a turn |
-| `answer_session_ask` | One of the offers on the ask the agent is held on |
+| `answer_session_ask` | One of the offers on the ask the agent is held on, with an answer for each question where it asked some |
 | `tune_session` | Model, effort and mode |
 | `close_session` | Ends the process, parks the slot, ends the row |
 | `get_session`, `get_session_file` | The row with its thread, and what a message carried |
@@ -175,6 +203,16 @@ keeps the person's words. A thread's rows are the person's messages, the agent's
 another session's, one line for each tool call, the lease, and each ask with
 where it stands. **An ask is the session's own**: it never appears in Helm's
 dock and `answer_helm_call` does not find it.
+
+## What Fleet tells a Session
+
+**A Session never has to be told to watch its pull request.** When a pull request a Session holds in the ledger fails its checks, conflicts with the base, leaves the merge queue, is marked unmergeable, or merges, Fleet sends that Session one message, once. It names the pull request, what happened and the branch. For failed checks it lists each failing check with its log address, and the last lines of the first two logs. A merge says the Session's slot and branch can be released. `docs/concepts/fleet.md`, *Telling the owner of a pull request*, has the triggers.
+
+| Session | What happens |
+|---|---|
+| Hosted | The message is a turn: it wakes the Session and starts its process if it was ended for being quiet. The thread draws it as a message from **Fleet**, the voice another Session's message has, named `Fleet`, so it is never the person's |
+| Terminal | Fleet cannot push into one. The message is held for its mod, prefixed `Fleet:`, and handed over when the mod next asks. A mod that is not asking leaves it unsent and Fleet tries again at the next reading |
+| Ended | Nothing is sent |
 
 ## Acts on a pull request
 
@@ -213,6 +251,25 @@ A pull request a session holds is a `pr` row, and a person can act on it without
 `start_session` takes an optional `pilot` (`job_id`, `outcome`), and that one call is the whole of taking a Job over from a Session: Fleet runs `take_over` first, which is the only thing that can refuse, then writes the Session already holding the Job's slot and branch (`detail.handed`), with the Job as its own `job` row. **It runs in the Job's worktree from its first message and takes no lease on a first write**; its thread opens with a `handoff` row, the bundle's structured fields. The bundle as the agent reads it goes ahead of the person's first message and starts no turn of its own, so a piloted Session nobody has spoken in has spent nothing.
 
 **Ending the pilot, or closing the Session while the Job is still piloted, hands the worktree back to the Job.** The Session's lease is cleared, so its next process starts in the repository and its next write leases a slot of its own. A close parks nothing in that case: the checkout is the Job's, not the Session's to commit.
+
+## A forked session
+
+A session that is **ended or dead** offers Fork, in place of its message box. `start_session` takes `fork { session_id }` (23.69) and starts a new session hosted by Bridge as a copy of that conversation. Spike 28 measured the agent side.
+
+| | |
+|---|---|
+| Dead | The ledger says `ended`, or it is a terminal session whose mod has not asked for ten seconds (`terminal.listening` is absent). A hosted session is dead only once it is closed |
+| Refused | A live session, 409 `fleet.session_fork_live`. An unknown id, 422 `fleet.no_such_session`. Nothing is written |
+| The fork | Its own id, ledger and slot. It takes the old title unless one is given, starts in the repository's main checkout, and leases a slot at its first write like any other session. It holds none of the old session's slot, branch or pull requests |
+| First process | Resumes the old id as a fork under the new one, so the conversation is copied and the new id is Fleet's. Once it has run, the session resumes by its own id |
+| Ledger | A `forked_from` row on the fork and a `forked_to` row on the old session, both `spent` |
+
+> **Rule.** Only an ended or dead session is forked.
+> Why: two live processes writing copies of one conversation is the thing Fork is not for, and a session that can still be spoken to needs no copy.
+
+**Bridge** keeps every session that ended in the last seven days (by when it was last seen) beside the live ones, under an Ended heading (a terminal session that has not ended but whose mod is not asking is Quiet, its own heading above it, and still offers Fork), and finds an older one by search, and draws a dead session without a message box and with Fork in its head. It owns nothing: its slots, branches and pull requests are not offered to a chip, and it is not offered to `@`. A press on Fork asks Fleet, and Bridge opens the new session once it holds it. The ledger draws a Forks section only where a session has a row for it.
+
+**A terminal that comes back is live again.** The mod asking again flips `listening`, which Fleet publishes as `session.changed` while a window has the thread open. Fork on a session whose terminal woke between the press and Fleet is refused as live. After a Fleet restart every terminal session reads dead until its mod's next ask, about two seconds.
 
 ## In Bridge
 
@@ -258,6 +315,10 @@ Not measured.
 
 **A message names where it went and not which session**, because the harness does not say: a delivery says whether it came from a peer or a teammate, and never a session id.
 
+## A mod that is out of date
+
+A mod loaded before the plugin was updated keeps running the old code until the person runs `/reload-plugins` in that session. **The mod reports its version** in `started` and in the first `tuned` (`MOD_VERSION` in `plugins/armada/hooks/facts.ts`, held equal to `version` in `plugins/armada/.claude-plugin/plugin.json` by a Fleet test, so bump both together), and Fleet keeps it on the session's row. `SessionRecord.mod_out_of_date` is true for a terminal session whose reported version is older than the `version` in the same file in the repository it stands in, or that reported none. Bridge marks it on the row and in the header with "Mod out of date: run /reload-plugins". Fleet reads the repository's file when it builds the record, so the mark moves with the next fact the session reports and not when the file changes.
+
 ## Installing the Claude Code mod
 
 ```
@@ -274,4 +335,4 @@ A tree with no `plugins/` leaves the old copy and warns. Whatever compares a
 session's reported mod version with the installed one reads
 `Armada/mod/armada/.claude-plugin/plugin.json`.
 
-It loads in the person's own sessions only. A Drone, a Judge call and a scout are started with `--setting-sources project,local`, so a mod installed in a person's user settings never loads in one ([spike 23](../spikes/023-does-a-user-installed-mod-load-in-a-drone.md)).
+It loads in a Drone, a Judge call and a scout too, since they read the person's user settings. Fleet starts each with `ARMADA_DRONE=1`; the mod reads it and reports nothing, so only the person's own sessions reach the ledger ([spike 23](../spikes/023-does-a-user-installed-mod-load-in-a-drone.md)).

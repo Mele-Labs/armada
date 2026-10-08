@@ -1,0 +1,338 @@
+/* Triggers: the rows of a Command or a skill that fires at a moment in a Job, drawn in the
+   Workflow editor and on Job detail. A card under a filled band, as the editor's stage is; rows
+   read like the workflow rows beside them.
+
+   Contrast, worked from the tokens: --fg-inverse on the band (--accent) 6.35:1, as the stage's;
+   --fg-muted on a row over --bg-raised clears 4.5:1, and --fg-subtle on a replaced row 4.58:1 at
+   the lightest ground. */
+
+.armada-triggers-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border: var(--border-width) solid var(--accent);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--bg-raised);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-default);
+}
+
+.armada-triggers-card__band {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  background: var(--accent);
+  color: var(--fg-inverse);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  font-weight: var(--weight-heading);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+
+.armada-triggers-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2);
+}
+
+.armada-triggers {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.armada-triggers__row > button:not(.armada-triggers__link),
+.armada-triggers__row--fired {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  min-width: 0;
+  padding: var(--space-1) var(--space-3);
+  border: var(--border-width) solid transparent;
+  border-radius: var(--radius-md);
+  background: none;
+  color: var(--fg-default);
+  font: inherit;
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  text-align: start;
+}
+
+.armada-triggers__row > button:not(.armada-triggers__link) {
+  cursor: pointer;
+}
+
+.armada-triggers__row > button:not(.armada-triggers__link):hover {
+  background: var(--bg-hover);
+}
+
+.armada-triggers__row > button:focus-visible,
+.armada-triggers__link:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.armada-triggers__mark {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  color: var(--fg-muted);
+}
+
+.armada-triggers__mark[data-hue="passed"] {
+  color: var(--run-passed);
+}
+
+.armada-triggers__mark[data-hue="failed"] {
+  color: var(--run-failed);
+}
+
+.armada-triggers__mark[data-hue="running"] {
+  color: var(--run-running);
+}
+
+.armada-triggers__mark[data-hue="waiting"] {
+  color: var(--step-waiting);
+}
+
+.armada-triggers__fired {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.armada-triggers__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+}
+
+/* A name that goes to the log line: a plain control until it is hovered. */
+.armada-triggers__link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font-size: inherit;
+  cursor: pointer;
+}
+
+.armada-triggers__link:hover {
+  text-decoration: underline;
+}
+
+.armada-triggers__when {
+  margin-left: auto;
+  flex: none;
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+}
+
+/* A copy a more specific level replaced: quiet and struck through, the way a shadowed workflow is. */
+.armada-triggers__row[data-state="overridden"] > button,
+.armada-triggers__row[data-state="overridden"] .armada-triggers__mark,
+.armada-triggers__row[data-state="overridden"] .armada-triggers__when {
+  color: var(--fg-subtle);
+}
+
+.armada-triggers__row[data-state="overridden"] .armada-triggers__name {
+  text-decoration: line-through;
+}
+
+.armada-triggers__fails {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.armada-triggers__eyebrow {
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  font-weight: var(--weight-heading);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+
+/* The running firing: circle-dot's inner dot, opacity and scale only, as the running badge does.
+   The ring holds still, so no row shifts. */
+.armada-triggers__mark[data-pulsing] > svg > circle + circle {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: armada-triggers-pulse var(--duration-pulse) var(--ease) infinite;
+}
+
+@keyframes armada-triggers-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.45;
+    transform: scale(0.7);
+  }
+}
+
+/* A step's Triggers, and the acts that add one. */
+.armada-triggers__section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.armada-triggers__acts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .armada-triggers__mark[data-pulsing] > svg > circle + circle {
+    animation: none;
+  }
+}
+
+/* The `+` between steps. As a node, at the head of a run or the end of one, it is a step's width so it sits on the spine. */
+.armada-triggers__add {
+  display: inline-flex;
+  align-items: center;
+}
+
+/* The bubble is drawn inside a trigger one icon wide, so it sizes to its words and not to the icon. */
+.armada-triggers__add .armada-tooltip__bubble {
+  width: max-content;
+}
+
+.armada-triggers__plus {
+  display: flex;
+  width: var(--w-workflow-node);
+  justify-content: center;
+  padding: var(--space-1) 0;
+}
+
+/* The branch a failed Trigger grows off the workflow, at a step's own width. */
+.armada-repair {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: var(--w-workflow-node);
+  padding: var(--space-3);
+  border: var(--border-width) dashed var(--accent);
+  border-radius: var(--radius-md);
+  background: var(--bg-raised);
+  color: var(--fg-default);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+
+.armada-repair[data-phase="failed"] {
+  border-color: var(--run-failed);
+}
+
+.armada-repair--pr {
+  flex-direction: row;
+  align-items: center;
+  width: auto;
+  border-style: solid;
+}
+
+.armada-repair__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.armada-repair__state {
+  display: inline-flex;
+  margin-left: auto;
+}
+
+.armada-repair__fix {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.armada-repair__fix li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.armada-repair__choice {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+/* A Trigger that holds its Job: one frame in the waiting hue, the barrier on a filled band, the
+   name in mono, and Rerun and Skip. Drawn on the connector it holds, so it takes presses. */
+.armada-hold {
+  display: inline-flex;
+  align-items: stretch;
+  min-width: 0;
+  border: var(--border-width) solid var(--step-waiting);
+  border-radius: var(--radius-md);
+  background: var(--bg-raised);
+  color: var(--fg-default);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+
+/* No `overflow: hidden` on the frame: a tooltip is drawn inside its trigger, so a clip here cut the
+   bubble to the node. The band takes the frame's corners itself. */
+.armada-hold__band {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 var(--space-2);
+  border-radius: calc(var(--radius-md) - var(--border-width)) 0 0 calc(var(--radius-md) - var(--border-width));
+  background: var(--step-waiting);
+  color: var(--fg-inverse);
+}
+
+.armada-hold > .armada-triggers__name {
+  align-self: center;
+  padding: 0 var(--space-2);
+}
+
+.armada-hold__acts {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0 var(--space-1);
+}
+
+/* The bubbles hang under their own button or band, in a wrapper beside it: a Button clips what is
+   drawn inside it, which is what cut the bubble to the button. Anchor positioning measures against
+   the node's transformed box, which has nothing below the button, so the bubble landed on the node;
+   plain absolute placement under the trigger needs no room from the node. */
+.armada-hold .armada-tooltip__bubble {
+  position: absolute;
+  position-area: none;
+  position-try-fallbacks: none;
+  inset: auto;
+  top: calc(100% + var(--space-1));
+  left: 50%;
+  translate: -50% 0;
+  margin: 0;
+  width: max-content;
+}

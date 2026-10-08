@@ -25,7 +25,8 @@ fn a_save_survives_a_reopen() {
     assert_eq!(
         store.preferences().expect("reads"),
         Preferences {
-            where_things_are_open: true
+            where_things_are_open: true,
+            ..Default::default()
         }
     );
 }
@@ -45,7 +46,8 @@ fn a_second_save_replaces_the_first() {
     assert_eq!(
         store.preferences().expect("reads"),
         Preferences {
-            where_things_are_open: false
+            where_things_are_open: false,
+            ..Default::default()
         }
     );
 }
@@ -61,4 +63,28 @@ fn a_name_outside_the_closed_set_is_refused_by_name_and_nothing_is_stored() {
         matches!(refused, WriteError::UnknownPreference { name } if name == "where_things_are_purple")
     );
     assert_eq!(store.preferences().expect("reads"), Preferences::default());
+}
+
+/// The draft default is a preference of its own, kept across a reopen, and
+/// saving it moves nothing else.
+#[test]
+fn the_draft_default_is_saved_beside_the_other_preference() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    store
+        .save_preference("where_things_are_open", true)
+        .expect("first");
+    store
+        .save_preference("draft_pull_requests", true)
+        .expect("second");
+    drop(store);
+
+    let store = open(&dir);
+    assert_eq!(
+        store.preferences().expect("reads"),
+        Preferences {
+            where_things_are_open: true,
+            draft_pull_requests: true,
+        }
+    );
 }

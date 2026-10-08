@@ -3292,6 +3292,7 @@ Additive. `hub.main.checking` (`MainChecking {commit, pull_request?}`, newest fi
 
 Bridge's half is in `packages/protocol/src/hosted-sessions.ts`, written by hand like the rest.
 
+
 ## Protocol 23.58: Triggers on the wire
 
 `docs/concepts/trigger.md`. **Additive only**: four operations, one event, the DTOs of `ipc::triggers` and one optional field on `JobDetail`. 23.52 is a session's name.
@@ -3308,6 +3309,144 @@ Bridge's half is in `packages/protocol/src/hosted-sessions.ts`, written by hand 
 **The event stream: slightly worse, and bounded.** At most two messages a firing, to open and to end, on the one drop-oldest channel. A Bridge that missed some re-reads `get_job`. The rate is `[broadcast-capacity]`'s to measure.
 
 **`log_at` is an instant and not a line number.** The Job's log has no numbers, so the log line for a firing is stamped with the firing's own end, and `get_job_log` finds it by that `at` and its `trigger` field. Bridge's half is `packages/protocol/src/triggers.ts`, written by hand like the rest.
+
+## Protocol 23.69: a session forked from an ended one
+
+`docs/concepts/session.md`, *A forked session*; `docs/spikes/028-can-a-session-be-forked-from-a-dead-one.md`. **Additive only**: two optional fields, one migration and no operation. 23.54 is another branch's.
+
+| Where | Carries | Notes |
+| --- | --- | --- |
+| `start_session` | `StartSession.fork?`: `session_id` | Starts a session as a copy of an ended or dead one's conversation. 409 `fleet.session_fork_live` for a live one, 422 `fleet.no_such_session` for an unknown one. `manifest_id` is read as for any start |
+| `SessionRecord.terminal` | `listening?`: `true` while the session's mod has asked within ten seconds | Absent is not listening. A live terminal session that is not listening is dead for Fork. Published as `session.changed` when it flips, while a window has the thread open |
+| `SessionRecord.attachments` | kinds `forked_to` and `forked_from`, `target` the other session's id, `spent` | Open text as every kind is. **One migration**, `session_fork.hosted_fork_of`: `hosted_sessions.fork_of` |
+
+## Protocol 23.62: a mod that is out of date
+
+`docs/concepts/session.md`, *A mod that is out of date*. **Additive only**: one optional field on two facts and one on the record.
+
+| Where | Carries | Notes |
+| --- | --- | --- |
+| `report_session` | `SessionFact` `started.mod_version?`, `tuned.mod_version?` | The version of the `armada` mod reporting. Kept on the session's row, and a fact without one leaves it |
+| `session.changed`, `list_sessions`, `get_session` | `SessionRecord.mod_out_of_date?` | `true` for a terminal session whose mod is older than its repository's `plugins/armada/.claude-plugin/plugin.json`, or reported none. Absent otherwise |
+
+**An older Bridge ignores the field, and an older mod sends none**, so a session running one is marked as soon as Fleet and the repository carry a version.
+
+## Protocol 23.64: Checks reported while they wait
+
+`docs/concepts/manifest.md`, *How many Checks run at once*. **Additive only**: no field and no operation, two new values and one id that was absent.
+
+| Where | Carries | Notes |
+| --- | --- | --- |
+| `list_manifest_checks` | A `gate` row with `state` `waiting` or `running` | One per Check of a running gate that has not finished, with no `ended_at` and, while waiting, no `started_at`. **Waiting covers every wait**: an earlier Check at the one-at-a-time gate, a prerequisite, a place, a machine slot. A finished Check is the stored ruling's row, as before |
+| `list_manifest_checks` | An `asked_run` row with `state` `waiting` | A Drone's run that has started none of its Checks. Reads `running` once one starts |
+| `get_merge_lines` | `MergeLineCheck.requester.job_id` and `handle` | On a branch some Job owns. Absent on one none does. A Bridge from before 23.64 ignores them |
+| `get_merge_lines` | `MergeLineEntry.checks` on a queued branch | A branch in `line` with state `waiting` that a Job owns lists the Manifest's declared Checks, each `waiting` and naming the Job, until the line gates it and writes its own. Absent on a branch no Job owns |
+
+**A known cost of calling this minor.** A Bridge from before 23.64 has no `waiting` in its gate vocabulary and draws such a row failed, so a Fleet ahead shows a waiting Check on that Bridge's Checks page as red. The banner for a Fleet ahead does not say so. Bridge's half is `packages/surfaces/jobs/src/manifest-checks.ts`.
+## Protocol 23.68: steps added to one Job, and the repository's Draft default
+
+`docs/concepts/trigger.md`, *Steps added to one Job*. **Additive only**: two operations, one event, the DTOs of `ipc::added_steps`, one optional field each on `ApproveDispatch`, `JobDetail`, `SaveTrigger` and `ManifestDeclared`, and one edit. The repair, the hold and the Draft default below are the same minor, landed together; `armada need` gave the number after the branches ahead of it.
+
+| Where | Carries | Notes |
+| --- | --- | --- |
+| `add_job_step` (`POST /jobs/:job_id/add_job_step`) | `AddStep`: `runs` (`script` and `command`, `skill` and `skill`, or `drone` and `brief`), `when`, `step`, `block?`, `repair?` | `AddedStep`. 409 `fleet.added_step_behind` (`reason`: `started`, `passed` or `ended`), 409 `fleet.added_step_before_approval`, 422 `fleet.unacceptable_addition`. `Bridge only` |
+| `remove_job_step` (`POST /jobs/:job_id/remove_job_step`) | `RemoveAddedStep`: `id` | `AddedStepRemoved`. 409 `fleet.added_step_fired`, 422 `fleet.no_such_addition`. `Bridge only` |
+| `approve_dispatch` | `additions?`: a list of `AddStep` | Placed at the press. Left out keeps what was placed, `[]` clears it. 422 `fleet.unacceptable_proposal` |
+| `save_trigger` | `kept_from?`: `{ job_id, addition_id }` | **Keeps an addition for every Job** with no new operation: the definition is the Trigger the editor drew, and Fleet records where it went. A Script or a Skill only |
+| `job.addition_changed` (event) | `JobAdditionChanged`: `job_id`, `addition`, `removed?`, `at` | The row whole, on each add, removal, keep and state a firing reaches |
+| `JobDetail.additions` | `AddedStep`: `id`, `runs`, `when`, `step`, `block`, `repair`, `placed`, `added_at`, `state`, `skipped?`, `exit_code?`, `started_at?`, `ended_at?`, `log_at?`, `kept?` | `state` reuses `TriggerFiringState`: `pending` until the moment has come. Absent from a Fleet before 23.68 and where empty |
+| `edit_manifest` | the edit `set_pr_mode`: `{ "edit": "set_pr_mode", "pr_mode": "draft" \| "ready" \| null }` | `null` removes the key |
+| `ManifestDeclared` | `pr_mode?` | Absent where the file defers to this machine's default |
+
+**A place is a moment and a step**, a Trigger's. Before a step is its `step_starts`, after it is its `step_passes`, the gap before the pull request opens is the delivering step's `step_starts` and the gap after is `pr_opened`. A gap behind the Job's current step is refused, which is what stops a step landing where it can never fire.
+
+**A Drone step is recorded `skipped`, and says so.** A step a Drone works needs a gate and Fleet has the frozen workflow's step rows only. A Skill is skipped as a skill Trigger is.
+
+**The event stream: slightly worse, and bounded.** At most two messages a firing and one per act a person makes, on the one drop-oldest channel, with nothing a Drone produces on it. A Bridge that missed some re-reads `get_job`. The rate is `[broadcast-capacity]`'s to measure.
+
+**Skew.** A Fleet before 23.68 sends no `additions` and no `pr_mode`, which Bridge reads as none. A Bridge before it sends no `additions` and no `kept_from`, which Fleet reads as every call before. Nothing a 23.58 peer reads changes. Bridge's half is `packages/protocol/src/added-steps.ts`, written by hand like the rest.
+
+## Protocol 23.68: a failed Trigger's repair on the wire
+
+`docs/concepts/trigger.md`, *A failed Trigger with `repair` on*. **Additive only**: one operation, three states and one optional field.
+
+| Where | Carries | Notes |
+| --- | --- | --- |
+| `JobTrigger.state`, `JobTriggerChanged.trigger.state` | `repairing`, `rerunning`, `fix_ready` | A failure with `repair` on stops at `repairing`, not `failed`. A Bridge that does not know them draws an unknown state |
+| `JobTrigger.repair?` | `TriggerRepair`: `attempt`, `branch?`, `files`, `choice?`, `pull_request?` (`url`, `number?`) | Present from the first repair Drone. `attempt` is 1 or 2 and no client draws it as a count. `files` is what the fix changes, set when it is held |
+| `choose_trigger_fix` (`POST /jobs/:job_id/choose_trigger_fix`) | `ChooseTriggerFix`: `trigger`, `choice` (`this_branch` or `new_pr`) | `TriggerFixChosen`: `state`, `pull_request?`. 409 `fleet.no_fix_waiting`, `fleet.fix_not_placed`, `fleet.fix_conflicts`, `fleet.fix_waiting`. `Bridge only` |
+
+**A fix waiting on the owner is an alert already**: `list_alerts` carries it, and a Trigger that failed after both tries. Nothing new is read for it. Bridge's half is `packages/protocol/src/triggers.ts`, written by hand like the rest.
+
+## Protocol 23.68: a Trigger that blocks holds the Job
+
+`docs/concepts/trigger.md`, *A failed Trigger with `block` on*. **Additive only**: two operations, one state, one skip reason, one escalation reason and two optional fields.
+
+| Where | Carries | Notes |
+| --- | --- | --- |
+| `JobTrigger.state`, `AddedStep.state` | `held` | A failure with `block` on and no repair, or a repair that did not fix it. A Bridge that does not know it draws an unknown state, and the Job's own status says it is waiting |
+| `JobTrigger.blocks?` | `true` where the Trigger blocks | Left out where it does not. It tells `repairing`, `rerunning` and `fix_ready` on a Trigger that holds the Job from one that does not |
+| `TriggerSkipReason`, `AddedSkipReason` | `by_owner` | The owner skipped it while it held the Job |
+| `escalation_reason` (`JobSummary.reason`) | `trigger_held` | A Job stopped before a Drone by a hold at `step_starts` or `step_passes`. Job-level, so no step is named |
+| `rerun_trigger` (`POST /jobs/:job_id/rerun_trigger`) | `HoldAct`: `trigger` or `addition`, one | `HoldSettled`: `state`, `released`. 409 `fleet.no_hold`, `fleet.hold_repairing`, `fleet.hold_has_a_fix`, `fleet.hold_nothing_to_run`, `fleet.hold_no_worktree`, `fleet.hold_job_working`, 422 `fleet.no_hold_named`. `Bridge only`. It may take as long as the Command |
+| `skip_trigger` (`POST /jobs/:job_id/skip_trigger`) | `HoldAct` | `HoldSettled`. 409 `fleet.no_hold`, `fleet.hold_repairing`. `Bridge only` |
+| `approve_review`, `merge_pull_request` | | **A new 409**, `fleet.trigger_holds`, at a gate a `pr_opened` hold stands in front of. Nothing moves |
+| `JobSummary.alert?` | `JobAlert`: `kind` (`held`, `fix_ready`, `failed`), `trigger`, `when`, `step` | **The Board row's bell**: a hold, a repair fix waiting on the owner's choice, a Trigger that failed after its repair tries. Today the bell shows only on the open Job. Absent is none |
+
+**`list_alerts` says which Trigger**: a Job a hold stopped is already in `blocked`, and its `why` names the Trigger. A `pr_opened` hold on a Job at its gate is in `waiting` with the same words.
+
+**The event stream: no change.** Every state a hold passes through is a `job.trigger_changed` or `job.addition_changed` that already existed, and a rerun adds one transient `rerunning` that is not stored.
+
+**Skew.** A Fleet before 23.68 holds nothing and sends no `blocks`, no `alert` and no `held`, which Bridge reads as every row before. A Bridge before it draws `held` as an unknown state and has no Rerun or Skip, and the Job it cannot answer is `escalated`, whose acts it already offers. Bridge's half is `packages/protocol/src/trigger-holds.ts`, written by hand like the rest.
+
+## Protocol 23.68: a draft default for pull requests
+
+`docs/concepts/landing.md`, *What the landing rule carries*. **Additive only**: two optional fields and no operation.
+
+| Where | Carries | Notes |
+| --- | --- | --- |
+| `get_job` | `JobDetail.pr_mode_default?`: `ready` or `draft` | What a Job still at its approval gate opens as when its approval says nothing: the workflow's delivering step, the repository, this machine, then ready. Absent once `landing` is there, and from a Fleet before 23.68 |
+| `get_preferences`, `save_preferences` | `Preferences.draft_pull_requests?`, and the name `draft_pull_requests` for a save | This machine's default, off until set. Absent is `false` |
+
+**Bridge starts the draft choice on `pr_mode_default` where `landing` is absent.** A Job approved with no `landing.pr_mode` takes the same answer, so a Bridge that never learned the field still gets the default. **The default Fleet serves is for the workflow the Job was proposed on**: a person who picks another workflow in the proposal sees the first one's until the approval, and what is frozen is the picked workflow's. Bridge's half is in `packages/protocol/src/detail.ts` and `preferences.ts`, written by hand like the rest.
+
+## Protocol 23.72: repair on an added step
+
+`docs/concepts/trigger.md`, *Steps added to one Job*. **Additive only**: one optional field on `AddedStep`, one on `ChooseTriggerFix`, one 422 and no new operation. A failed added Script with `repair` on is repaired as a Trigger is, and the repair branch is deleted once its fix is placed.
+
+| Where | Carries | Notes |
+| --- | --- | --- |
+| `AddedStep.repair_record?` | `TriggerRepair`, as `JobTrigger.repair` | Present from the first repair Drone. Named apart from `AddedStep.repair`, which is whether the step asks for one. `AddedStep.block` already tells a hold from a plain repair |
+| `AddedStep.state` | `repairing`, `rerunning`, `fix_ready` | The states 23.68 added to `JobTrigger.state`, now reached by an added step too. A step that blocks holds the Job through each |
+| `choose_trigger_fix` | `ChooseTriggerFix`: `trigger?`, `addition?`, `choice` | **Exactly one of `trigger` and `addition`**, as `HoldAct`. `trigger` was required and is now optional, which only relaxes what Fleet reads: a Bridge before 23.72 still sends it and Fleet still takes it. 422 `fleet.no_fix_named` where both or neither is sent; 409 `fleet.no_fix_waiting` where the step holds no fix |
+| `list_alerts`, `JobSummary.alert` | | An added step's fix waiting on a choice, and one that failed after its repair tries, are alerts as a Trigger's are. Nothing new is read |
+
+**A repair branch is deleted** after `this_branch` has merged it and when the repair ends `failed` or `held`, for a Trigger as for an added step. It is a Fleet act with no wire: `branch` on `TriggerRepair` names a branch that may no longer exist once the state is `passed` with `this_branch`, `failed` or `held`. A `new_pr` branch is the pull request's head and stays.
+
+**Skew.** A Fleet before 23.72 sends no `repair_record` and acts on no added step's `repair`, which Bridge reads as every row before. A Bridge before it never sends `addition`, so a fix it cannot see is one it cannot place. Bridge's half is `packages/protocol/src/added-steps.ts` and `triggers.ts`, written by hand like the rest.
+
+## Protocol 23.70: the merge queue on the hub
+
+Additive only. The repository moved to the forge's merge queue, so `hub.pull_requests` entries say where the queue holds each one, rather than a second list beside them.
+
+| Field | Shape | Notes |
+|---|---|---|
+| `HubPullRequest.queue` | `HubQueue`: `state`, `position?` | Absent from a Fleet before 23.70, and where the pull request is not in the queue and no auto-merge is waiting on its checks |
+| `HubQueue.state` | `waiting_for_ci`, `in_queue` (a state Fleet does not know), `queued`, `awaiting_checks`, `mergeable`, `unmergeable` | **Strict**: Bridge picks a mark from it. `waiting_for_ci` is a pull request with auto-merge on whose own `ci` is still running, so it has no entry yet |
+| `HubQueue.position` | 1-based, 1 is next to merge | Absent for `waiting_for_ci` |
+
+**One more forge call a visit**, beside the open pull requests' listing. A forge that will not answer keeps the last reading. Bridge's half is `packages/protocol/src/merge-lines.ts`.
+
+## Protocol 23.71: a Session's question answered
+
+`docs/concepts/session.md`, *A session Fleet hosts*. **Additive only**: optional fields on two existing DTOs.
+
+| Where | Carries | Notes |
+| --- | --- | --- |
+| `HelmCallInFlight.questions` (`hosted.asked`, `session.row` ask) | `AskedQuestion`: `question`, `header`, `multi_select`, `options` (`label`, `description`) | Present where the call is the agent's `AskUserQuestion`; absent for every other call. `offers` is `allow_once`, `refuse` and nothing else |
+| `answer_session_ask` (`POST /sessions/ask/answer`) | `answers?`: `QuestionAnswer` `question`, `chosen[]` | One entry per question. `allow_once` without every question answered is a 422 `fleet.session_answer_incomplete`. Free text is an entry in `chosen` |
+
+Bridge's half is in `packages/protocol/src/helm-calls.ts` and `hosted-sessions.ts`, written by hand like the rest.
 
 ## Open questions
 

@@ -295,6 +295,7 @@ fn session_started(cwd: &str) -> ipc::SessionReport {
             cwd: cwd.into(),
             title: Some("the session".into()),
             origin: ipc::SessionOrigin::Terminal,
+            mod_version: None,
         },
     }
 }
