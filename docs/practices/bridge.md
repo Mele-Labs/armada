@@ -87,6 +87,13 @@ a specific hole:
   from. **Bridge talks to Fleet and nothing else; the CSP is that promise
   enforced by the browser engine, not just stated in a doc.**
 
+A page a Session published is the one place a web page is shown inside the app, and
+the renderer is still not what loads it: main owns a `WebContentsView` in a
+partition of its own, no preload and every permission refused, placed over the
+panel body's rect the renderer reports, and only for an address the Session's own
+ledger names (`src/main/session-page.ts`). A file the panel reads is held to the
+same rule and to a size cap (`session-file.ts`).
+
 These four are load-bearing together. Loosening any one of them to make a
 feature easier is a security review, not a local decision — say so explicitly
 in review rather than quietly relaxing a flag to unblock yourself.
