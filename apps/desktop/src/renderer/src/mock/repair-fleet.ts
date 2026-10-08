@@ -48,6 +48,15 @@ export function repairServed(fleet: Fleet): Pick<BridgeApi, "chooseTriggerFix"> 
       triggers: (whole.triggers ?? []).map((one) => (one.name === name ? moved(one) : one)),
     }));
   const later = (ms: number, then: () => void) => void window.setTimeout(then, ms);
+  // **The Drone answers to whoever is looking.** A timer that fires while the Job is not the one open
+  // (a walk on the Workflows page, a person on the Board) would move nothing and never come again, so
+  // the answer waits for the Job to be open.
+  const laterOn = (jobId: string, ms: number, then: () => void) =>
+    later(ms, function arrive() {
+      const watched = fleet.state().watched;
+      if (watched.state === "read" && watched.jobId === jobId) then();
+      else later(250, arrive);
+    });
   const moveStep = (jobId: string, id: string, moved: (one: AddedStep) => AddedStep) =>
     fleet.stepping(jobId, (whole) => ({ ...whole, additions: (whole.additions ?? []).map((one) => (one.id === id ? moved(one) : one)) }));
 
@@ -60,14 +69,14 @@ export function repairServed(fleet: Fleet): Pick<BridgeApi, "chooseTriggerFix"> 
       const key = `${jobId}|${one.id}`;
       if (one.state === "running" && one.repair_record !== undefined && !begun.has(key)) {
         begun.add(key);
-        later(5000, () => moveStep(jobId, one.id, sideStepFixHeld));
+        laterOn(jobId, 5000, () => moveStep(jobId, one.id, sideStepFixHeld));
       }
     }
     for (const one of watched.detail.triggers ?? []) {
       const key = `${jobId}|${one.name}`;
       if (one.state === "running" && one.repair !== undefined && !begun.has(key)) {
         begun.add(key);
-        later(3500, () => fleet.stepping(jobId, (whole) => ({ ...whole, triggers: (whole.triggers ?? []).map((row) => (row.name === one.name ? sideFixHeld(row) : row)) })));
+        laterOn(jobId, 3500, () => fleet.stepping(jobId, (whole) => ({ ...whole, triggers: (whole.triggers ?? []).map((row) => (row.name === one.name ? sideFixHeld(row) : row)) })));
       }
     }
     const plan = PLANS()[jobId];
@@ -75,10 +84,10 @@ export function repairServed(fleet: Fleet): Pick<BridgeApi, "chooseTriggerFix"> 
     if (plan === undefined || !repairing || begun.has(jobId)) return;
     begun.add(jobId);
     if (plan === "finds_a_fix") {
-      later(3500, () => move(jobId, fixHeld));
+      laterOn(jobId, 3500, () => move(jobId, fixHeld));
     } else {
-      later(2000, () => move(jobId, secondTry));
-      later(4000, () => move(jobId, (one) => noFix(one, SECOND.none)));
+      laterOn(jobId, 2000, () => move(jobId, secondTry));
+      laterOn(jobId, 4000, () => move(jobId, (one) => noFix(one, SECOND.none)));
     }
   });
 

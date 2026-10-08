@@ -67,7 +67,6 @@ import { WavePlan } from "./wave-plan";
 import { whyNoSteps } from "./run";
 import { whileReading } from "./while-reading";
 import { FIRST_PLAN_VIEW } from "./plan-view";
-import { FIRST_WORKFLOW_VIEW } from "./workflow-view";
 import { ledgerOf } from "./draft/ledger";
 import { useTrail, type TrailProps } from "./trail";
 import { JobRetroSheet } from "./Lessons";
@@ -562,8 +561,6 @@ function OneJob(props: JobDetailProps) {
           {...(absent === undefined ? {} : { absent })}
           {...(unread === undefined ? {} : { reading: unread.run })}
           narrow={narrow}
-          view={props.workflowView ?? FIRST_WORKFLOW_VIEW}
-          onView={(view) => props.onWorkflowView?.(view)}
           stale={props.stale}
           acting={props.acting}
           {...(props.actingAct === undefined ? {} : { actingAct: props.actingAct })}

@@ -55,10 +55,3 @@ test("the canvas draws one card per step of a real Job, and a render after it hi
   expect([...seen]).toEqual([]);
   expect(hidden()).toEqual([]);
 });
-
-test("Stacked draws the same three steps", async () => {
-  mount(onJob(refactorAtItsPlan()), SLICES);
-  await page.getByRole("tab", { name: /^Workflow/ }).last().click();
-  await page.getByRole("tab", { name: "Stacked" }).last().click();
-  for (const label of STEPS) await expect.element(card(label)).toBeVisible();
-});

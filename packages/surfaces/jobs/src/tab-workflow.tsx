@@ -9,20 +9,16 @@
 // opened from Plan; `docs/journeys/monitor-active-work.md` carries what the
 // retired implement board still owes.
 //
-// **Canvas by default, stacked available, at every width** (#1530). Narrow
-// opens on where you are: a whole plan fitted into 768px is cards nobody can
-// read, so the canvas narrows onto the step a person is on rather than
-// shrinking the run. The toggle is remembered per viewer, and where it is kept
-// is the caller's: this package holds no storage.
+// **The canvas, at every width** (#1530; the stacked run went on 8 Oct 2026,
+// the owner's word). Narrow opens on where you are: a whole plan fitted into
+// 768px is cards nobody can read, so the canvas narrows onto the step a person
+// is on rather than shrinking the run.
 
 import {
   DRONE_ACTIVITY,
-  RunTreeSkeleton,
-  Tabs,
   Tooltip,
   WorkflowCanvas,
   WorkflowInspector,
-  WorkflowStacked,
   type RunTreeSkeletonProps,
 } from "@armada/components";
 import { useEffect, useState } from "react";
@@ -54,7 +50,6 @@ import type { Opens } from "./phases";
 import { addedNodeId, AddedSheets, useAddedSteps, withAddedSteps } from "./added-steps";
 import type { AddedBinding } from "./added-steps";
 import { withRepair, type ChooseTriggerFixCall, type HoldActCall, type OpenTriggerLog } from "./repair-branch";
-import { WORKFLOW_VIEWS, WORKFLOW_VIEW_LABEL, type WorkflowView } from "./workflow-view";
 import { pulseViewOf } from "./draft/pulse";
 import { holdingOf, lookOf } from "./mine";
 import { pulseCard } from "./tab-overview";
@@ -85,8 +80,6 @@ export type WorkflowTabProps = {
    * of the canvas. `useNarrow`'s answer.
    */
   narrow: boolean;
-  view: WorkflowView;
-  onView: (view: WorkflowView) => void;
   /**
    * The plan's groups, for what the working step counts and for what the
    * inspector says about the step that works them (`#1532`'s draft, on
@@ -171,8 +164,6 @@ export function WorkflowTab({
   absent,
   reading: unread,
   narrow,
-  view,
-  onView,
   groups: given,
   drones,
   heldCommand,
@@ -262,37 +253,22 @@ export function WorkflowTab({
   // over the canvas now and sticks to the top of the destination
   // (`screens.css`), so review and reply stay one loop with no scrolling at all.
 
-  const toggle = (
-    <Tabs
-      items={WORKFLOW_VIEWS.map((one) => ({ id: one, label: WORKFLOW_VIEW_LABEL[one] }))}
-      value={view}
-      onChange={(id) => onView(id as WorkflowView)}
-    />
-  );
-
-  // **The frame the run lands in, before it has.** The toggle and the
-  // workflow's name are already in hand; the canvas is drawn empty at its own
-  // height, and the stacked run names its steps with a bar where each will say
-  // where it stands.
+  // **The frame the run lands in, before it has.** The workflow's name is
+  // already in hand; the canvas is drawn empty at its own height.
   if (whole === null && unread !== undefined) {
     return (
       <div className="armada-detail-tab" role="tabpanel" aria-label={TAB_LABEL.workflow}>
-        <div className="armada-workflow-tab" data-view={view} data-narrow={narrow || undefined}>
+        <div className="armada-workflow-tab" data-narrow={narrow || undefined}>
           <div className="armada-workflow-tab__surface">
-            <div className="armada-workflow-tab__modes">{toggle}</div>
-            {view === "canvas" ? (
-              <div className="armada-workflow-tab__stage">
-                <div className="armada-workflow-tab__canvas" role="status" aria-label="Reading the run" aria-busy>
-                  <div className="armada-workflow-tab__where">
-                    <Tooltip label="The workflow this Job froze">
-                      <span className="armada-workflow-tab__workflow mono">{job.workflow_id}</span>
-                    </Tooltip>
-                  </div>
+            <div className="armada-workflow-tab__stage">
+              <div className="armada-workflow-tab__canvas" role="status" aria-label="Reading the run" aria-busy>
+                <div className="armada-workflow-tab__where">
+                  <Tooltip label="The workflow this Job froze">
+                    <span className="armada-workflow-tab__workflow mono">{job.workflow_id}</span>
+                  </Tooltip>
                 </div>
               </div>
-            ) : (
-              <RunTreeSkeleton {...unread} />
-            )}
+            </div>
           </div>
         </div>
       </div>
@@ -477,46 +453,38 @@ export function WorkflowTab({
       {/* The run is a spine and nothing under it. The canvas takes the height
           the destination has left, as the board draws it, and never less than
           `--h-workflow-canvas`. */}
-      <div className="armada-workflow-tab" data-view={view} data-narrow={narrow || undefined}>
+      <div className="armada-workflow-tab" data-narrow={narrow || undefined}>
         <div className="armada-workflow-tab__surface">
-          {/* Above the run rather than over it: drawn inside the canvas the
-              toggle sat on top of the last step's card at every width.
-
-              No `?` here any more. Guide 11 explained how a group gets its
+          {/* No `?` here any more. Guide 11 explained how a group gets its
               second edge; the plan's graph moved to the Plan tab on 25
               September 2026, so the guide was retired and its number with it. */}
-          <div className="armada-workflow-tab__modes">{toggle}</div>
-          {view === "canvas" ? (
-            <div className="armada-workflow-tab__stage">
-              <div className="armada-workflow-tab__canvas">
-                <div className="armada-workflow-tab__where">
-                  <Tooltip label="The workflow this Job froze">
-                    <span className="armada-workflow-tab__workflow mono">{job.workflow_id}</span>
-                  </Tooltip>
-                  {on === undefined ? null : (
-                    <>
-                      <span className="armada-workflow-tab__rule" aria-hidden="true" />
-                      <span className="armada-workflow-tab__on">step {placeOf(on)}</span>
-                    </>
-                  )}
-                </div>
-                <WorkflowCanvas
-                  nodes={run.nodes}
-                  edges={run.edges}
-                  label={label}
-                  running={run.running}
-                  following={following}
-                  onFollowing={setFollowing}
-                  opensOn={run.opensOn}
-                  hangsFromTop
-                  runsDown
-                  reveals={added.reveal === null ? asking : addedNodeId(added.reveal)}
-                />
+          <div className="armada-workflow-tab__stage">
+            <div className="armada-workflow-tab__canvas">
+              <div className="armada-workflow-tab__where">
+                <Tooltip label="The workflow this Job froze">
+                  <span className="armada-workflow-tab__workflow mono">{job.workflow_id}</span>
+                </Tooltip>
+                {on === undefined ? null : (
+                  <>
+                    <span className="armada-workflow-tab__rule" aria-hidden="true" />
+                    <span className="armada-workflow-tab__on">step {placeOf(on)}</span>
+                  </>
+                )}
               </div>
+              <WorkflowCanvas
+                nodes={run.nodes}
+                edges={run.edges}
+                label={label}
+                running={run.running}
+                following={following}
+                onFollowing={setFollowing}
+                opensOn={run.opensOn}
+                hangsFromTop
+                runsDown
+                reveals={added.reveal === null ? asking : addedNodeId(added.reveal)}
+              />
             </div>
-          ) : (
-            <WorkflowStacked label={label} rows={run.rows} />
-          )}
+          </div>
         </div>
 
         {layer}

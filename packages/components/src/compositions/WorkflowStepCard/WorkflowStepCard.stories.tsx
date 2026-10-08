@@ -262,8 +262,8 @@ export const Open: Story = {
 /**
  * A card with nowhere to open is not a control.
  *
- * **A `play`, because a still cannot tell a button from a span** — and the
- * stacked run draws cards a caller has given no inspector to, where a focus
+ * **A `play`, because a still cannot tell a button from a span** — and a
+ * canvas can draw cards a caller has given no inspector to, where a focus
  * stop that does nothing is worse than no focus stop.
  */
 export const NotAControl: Story = {

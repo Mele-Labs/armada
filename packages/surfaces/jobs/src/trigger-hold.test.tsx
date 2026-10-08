@@ -132,25 +132,24 @@ test("a hold under repair takes neither act, and a fix waiting on its choice can
   await expect.element(page.getByRole("button", { name: "Skip" })).toBeEnabled();
 });
 
-test("the list offers a hold the same two acts the canvas does, and a held added step too", async () => {
+test("the canvas offers a hold its two acts, and a held added step too", async () => {
   const act = vi.fn().mockResolvedValue({ ok: true });
   const run = {
     nodes: [{ id: "step:handoff", position: { x: 0, y: 0 }, card: { kind: "step", name: "handoff", activity: "not_started", said: "" } }],
     edges: [],
-    rows: [{ id: "step:handoff", trailing: null }],
     running: null,
     opensOn: [],
   } as unknown as WorkflowRun;
   const withAdded = { ...ADDED, step: "handoff" };
-  const { rows } = withRepair([fired("held"), fired("passed", { name: "fmt", blocks: false })], "job-1", (step) => `step:${step}`, run, undefined, [withAdded], act).run;
-  mount(<>{rows[0]!.trailing}</>);
+  const { nodes } = withRepair([fired("held"), fired("passed", { name: "fmt", blocks: false })], "job-1", (step) => `step:${step}`, run, undefined, [withAdded], act).run;
+  mount(<>{nodes.filter((node) => node.id !== "step:handoff").map((node) => node.drawn)}</>);
   await expect.element(page.getByRole("button", { name: "Rerun" }).first()).toBeVisible();
   expect(page.getByRole("button", { name: "Rerun" }).elements()).toHaveLength(2);
   await page.getByRole("button", { name: "Rerun" }).first().click();
   expect(act).toHaveBeenCalledWith("job-1", "rerun", { trigger: "deploy_qa" });
   await page.getByRole("button", { name: "Skip" }).last().click();
   expect(act).toHaveBeenLastCalledWith("job-1", "skip", { addition: "a1" });
-  // The Trigger that passed is a leaf of its own, in the list as on the canvas.
+  // The Trigger that passed is a leaf of its own.
   await expect.element(page.getByRole("group", { name: "fmt, PR opened" })).toBeVisible();
 });
 

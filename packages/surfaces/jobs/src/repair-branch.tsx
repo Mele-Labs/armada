@@ -1,8 +1,8 @@
 // What stands off a Job's workflow: a leaf at the node each Trigger fired at, inside that node's lane,
 // and for a failed Trigger with Self repair the branch with the repair Drone at work, then the fix and
 // the choice of where it goes, then what came of it. **Drawn from `JobDetail.triggers`**, so a repair is the rows Fleet
-// serves and `job.trigger_changed` moves, and the Overview canvas, the Workflow tab's canvas and its
-// stacked run draw the same branch from the same rows.
+// serves and `job.trigger_changed` moves, and the Overview canvas and the Workflow tab's canvas draw
+// the same branch from the same rows.
 //
 // **Where it joins back.** A fix placed on `this_branch` is on the Job's own branch, so the lane
 // returns into the node after the one it left. A fix that became a pull request ends in a mark of
@@ -284,7 +284,7 @@ function roomFor(nodes: readonly WorkflowCanvasNode[], room: ReadonlyMap<string,
 
 /**
  * A Workflow tab's run with the leaves off the step each Trigger fired at, the holds on the lines
- * they hold, and the same under that step in the stacked run. **The step is the Trigger's own**,
+ * they hold. **The step is the Trigger's own**,
  * which for `pr_opened` is the one that delivers.
  */
 export function withRepair(
@@ -317,35 +317,8 @@ export function withRepair(
     (anchor) => nextAfter(run.edges, anchor),
   );
   const onLine = holdsOnLine(on, jobId, anchorId, openLog);
-  const rows = run.rows.map((row) => {
-    const mineHeld = holds.filter((one) => anchorId(one) === row.id);
-    const mine = leaves.filter((one) => one.anchor === row.id && !one.id.startsWith("hold:"));
-    if (mine.length === 0 && mineHeld.length === 0) return row;
-    return {
-      ...row,
-      trailing: (
-        <>
-          {row.trailing}
-          {mineHeld.map((one) => (
-            <HoldNode
-              key={one.key}
-              held={one}
-              {...(hold === undefined ? {} : { onAct: (act: HoldVerb, by: HoldAct) => hold(jobId, act, by) })}
-              {...(openLog === undefined ? {} : { onOpenLog: openLog })}
-            />
-          ))}
-          {mine.map((one) => (
-            <div key={one.id}>
-              {one.drawn}
-              {one.tail?.drawn}
-            </div>
-          ))}
-        </>
-      ),
-    };
-  });
   return {
-    run: { ...run, nodes: [...placed, ...branch.nodes], edges: [...withHolds(run.edges, onLine), ...branch.edges], rows },
+    run: { ...run, nodes: [...placed, ...branch.nodes], edges: [...withHolds(run.edges, onLine), ...branch.edges] },
     asking: branch.asking,
   };
 }

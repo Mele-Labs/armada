@@ -7,7 +7,7 @@
 // offered nothing but Hold to stop. Plan and the step panel now draw
 // Overview's own block, with the same handler.
 
-import { afterEach, beforeEach, expect, test, vi } from "vitest";
+import { afterEach, expect, test, vi } from "vitest";
 import { page } from "vitest/browser";
 
 import { featureAtAPlanRefusal } from "./fake";
@@ -18,7 +18,6 @@ unmountAfterEach();
 // Core and Jobs only: the surface's own members, and the scenario answers the rest.
 const SLICES = { slices: ["core", "jobs"] } as const;
 
-beforeEach(() => window.localStorage.removeItem("armada.bridge.workflow-view"));
 afterEach(async () => {
   await page.viewport(1440, 900);
 });

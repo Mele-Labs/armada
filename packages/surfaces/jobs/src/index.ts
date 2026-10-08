@@ -37,12 +37,11 @@ export * from "./StepActs";
 export * from "./steering";
 export * from "./story";
 export * from "./work";
-// Workflow — the Job's run drawn as the workflow it froze, on the canvas or
-// stacked, with the inspector beside it. #1539.
+// Workflow — the Job's run drawn as the workflow it froze, on its canvas,
+// with the inspector beside it. #1539.
 export * from "./tab-workflow";
 export * from "./workflow-canvas";
 export * from "./workflow-inspector";
-export * from "./workflow-view";
 // Plan — the same plan as a graph or as a list, the graph taken off Workflow.
 export * from "./plan-canvas";
 export * from "./plan-view";

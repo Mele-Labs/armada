@@ -348,7 +348,6 @@ export * from "./compositions/StudioWhiteboard/StudioWhiteboard";
 export * from "./compositions/WorkflowStepCard/WorkflowStepCard";
 export * from "./compositions/WorkflowCanvas/WorkflowCanvas";
 export * from "./compositions/RunNode/RunNode";
-export * from "./compositions/WorkflowStacked/WorkflowStacked";
 export * from "./compositions/WorkflowInspector/WorkflowInspector";
 // A label and its figure in one aligned column — Pulse and the Fleet panel.
 export * from "./compositions/FigureList/FigureList";

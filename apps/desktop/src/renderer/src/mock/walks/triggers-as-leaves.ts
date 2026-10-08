@@ -1,6 +1,6 @@
 // Triggers as leaves (8 Oct 2026): every Trigger a Job holds is a leaf off the step it fired at, inside
 // that step's lane, and the lane grows to hold them. A passed one, a repair's branch and a Drone's
-// branch stand the same way, the stacked run offers the same acts, and the Workflow editor draws a
+// branch stand the same way, the Workflow tab's canvas offers the same acts, and the Workflow editor draws a
 // Trigger set for every workflow as a leaf on each workflow's canvas.
 
 import { button, card, inside, region, role, tab, text, walk } from "../walk";
@@ -14,8 +14,7 @@ export const triggersAsLeaves = walk("real/job-2-leaves", [
   { look: inside(RUN, role("group", "Where the fix goes")), say: "Its choice, on the leaf" },
   { hover: inside(RUN, role("img", "Drone branch")), say: "A Skill's Drone and an added step's Drone stand the same way" },
   { press: tab("Workflow"), say: "The Workflow tab" },
-  { press: tab("Stacked"), say: "The list" },
-  { look: role("group", "Where the fix goes"), say: "The list offers the same choice" },
+  { look: role("group", "Where the fix goes"), say: "The Workflow tab's canvas offers the same choice" },
   { look: button("This branch"), say: "This branch" },
   { look: button("New PR"), say: "New PR" },
   { look: button("Rerun"), say: "And Rerun and Skip on a hold" },

@@ -1,6 +1,6 @@
 // Steps added to one Job, drawn: a `+` on the connector after the step the Job is on and after
-// each step still to come, offering a Script, a Skill or a Drone step. The canvas and the stacked
-// run draw the same steps and the same `+`, and so does the approval canvas (`approval-added.tsx`).
+// each step still to come, offering a Script, a Skill or a Drone step. The Workflow tab's canvas
+// and the approval canvas (`approval-added.tsx`) draw the same steps and the same `+`.
 //
 // **The row is Fleet's.** A running Job's steps are `JobDetail.additions` and each add and removal
 // is a call that answers with the row. At the gate they are held in the approval's edits until the
@@ -13,7 +13,6 @@
 
 import { AddedFields, addedCard, AddStep, addedName, Button, Sheet, TriggerSheet } from "@armada/components";
 import type { AddedKind, WorkflowCanvasEdge, WorkflowCanvasNode } from "@armada/components";
-import type { WorkflowStackedRow } from "@armada/components";
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 
@@ -281,7 +280,7 @@ export function drawRegion(
   return used;
 }
 
-/** The run with its added steps and the `+` on each connector, on the canvas and stacked. */
+/** The run with its added steps and the `+` on each connector. */
 export function withAddedSteps(added: AddedSteps, whole: JobWhole, run: WorkflowRun): WorkflowRun {
   const steps = ordered(whole);
   const names = new Map(steps.map((step) => [step.step_id, step.label]));
@@ -314,40 +313,7 @@ export function withAddedSteps(added: AddedSteps, whole: JobWhole, run: Workflow
     shift += drawRegion(added, region, { x, y }, node.id, target, out);
   });
 
-  const rows: WorkflowStackedRow[] = [];
-  const itemRows = (region: Region) => {
-    const stop = plusAfter(region);
-    return region.chain.map(
-      (one, index): WorkflowStackedRow => ({
-        id: addedNodeId(one.id),
-        card: cardOf(added, one),
-        ...(region.gap !== undefined && index === stop ? { trailing: plusFor(added, region.gap, addedName(one.runs)) } : {}),
-      }),
-    );
-  };
-  run.rows.forEach((row) => {
-    const at = steps.findIndex((step) => stepNodeId(step.step_id) === row.id);
-    if (at === -1 || row.under !== undefined) {
-      rows.push(row);
-      return;
-    }
-    const head = at === 0 ? regions[0]! : undefined;
-    const ahead = head?.gap !== undefined && plusAfter(head) === -1 ? plusFor(added, head.gap, head.name, "before") : undefined;
-    const before = head === undefined ? [] : itemRows(head);
-    if (ahead !== undefined) {
-      if (before[0] !== undefined) before[0] = { ...before[0], leading: ahead };
-    }
-    rows.push(...before);
-    const region = regions[at + 1]!;
-    const bare = region.gap !== undefined && plusAfter(region) === -1 ? plusFor(added, region.gap, region.name) : undefined;
-    rows.push({
-      ...row,
-      ...(ahead !== undefined && before.length === 0 ? { leading: ahead } : {}),
-      ...(bare === undefined ? {} : { trailing: bare }),
-    });
-    rows.push(...itemRows(region));
-  });
-  return { ...run, nodes: out.nodes, edges: out.edges, rows };
+  return { ...run, nodes: out.nodes, edges: out.edges };
 }
 
 /** The panels for an added step: one being filled in, one open, and keeping one for every Job. */

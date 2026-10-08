@@ -1,5 +1,4 @@
-// The run, as the workflow the Job froze — placed for the canvas and ordered
-// for the stacked column. `#1539`.
+// The run, as the workflow the Job froze — placed for the canvas. `#1539`.
 //
 // **Placement is computed here, from step order.** The canvas holds none, so
 // the numbers below are the layout and they are unit-tested in this package.
@@ -17,7 +16,6 @@ import type {
   TaskBarSegment,
   WorkflowCanvasEdge,
   WorkflowCanvasNode,
-  WorkflowStackedRow,
   WorkflowStepCardProps,
   WorkflowStepNeed,
 } from "@armada/components";
@@ -81,10 +79,9 @@ export const stepNodeId = (stepId: string): string => `step:${stepId}`;
  */
 export const placeOf = (step: StepDetail): number => step.ordinal + 1;
 
-/** The run, in both arrangements, off one reading. */
+/** The run off one reading. */
 export type WorkflowRun = {
   nodes: WorkflowCanvasNode[];
-  rows: WorkflowStackedRow[];
   edges: WorkflowCanvasEdge[];
   /** The node the Job is on, for *Stay on the running step*. */
   running: string | null;
@@ -269,7 +266,6 @@ export function workflowRunOf({
     id === selected ? { ...card, selected: true } : card;
 
   const nodes: WorkflowCanvasNode[] = [];
-  const rows: WorkflowStackedRow[] = [];
   const edges: WorkflowCanvasEdge[] = [];
 
   steps.forEach((step, at) => {
@@ -286,13 +282,6 @@ export function workflowRunOf({
         ? undefined
         : { to: step.verdict_routing_target, label: `up to ${step.pass.of} passes` };
     const back = loop === undefined ? undefined : steps.find((one) => one.step_id === loop.to);
-    rows.push({
-      id,
-      card,
-      ...(back === undefined || loop === undefined
-        ? {}
-        : { returns: { toName: back.label, label: loop.label } }),
-    });
     if (loop !== undefined && back !== undefined) {
       edges.push({
         id: `${step.step_id}>${loop.to}`,
@@ -322,7 +311,6 @@ export function workflowRunOf({
   // The held step and its card, so a fit that cannot show the run opens on the prompt.
   return {
     nodes: asked.nodes,
-    rows,
     edges: asked.edges,
     running,
     opensOn: hosted === undefined ? reading : [...reading.map((ids) => [...ids, askNodeId(hosted)]), [hosted, askNodeId(hosted)]],

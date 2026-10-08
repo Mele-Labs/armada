@@ -5,7 +5,7 @@
 // its own after reading it as a list, and the graph is the one that came off
 // Workflow — landing on the list would leave it where nobody would find it.
 //
-// **Remembered per viewer, not per Job**, on `workflow-view.ts`'s terms: it is
+// **Remembered per viewer, not per Job**, as the Workflow tab's canvas view was: it is
 // a way of reading, so it does not reset when the next Job opens, and where it
 // is kept is the caller's — `packages/screens` holds no storage.
 //

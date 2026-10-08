@@ -23,7 +23,6 @@ import type { DetailTab } from "./detail-tabs";
 import type { ChooseTriggerFixCall, HoldActCall } from "./repair-branch";
 import type { ActAnswer, ActingAct, DecidingAct } from "./pending";
 import type { PlanView } from "./plan-view";
-import type { WorkflowView } from "./workflow-view";
 
 import type {
   AlwaysAllowScope,
@@ -265,7 +264,7 @@ export type JobDetailProps = {
    * branch with no choice on it.
    */
   onChooseTriggerFix?: ChooseTriggerFixCall;
-  /** Rerun or skip a Trigger that holds the Job. The canvas, the stacked run and the Triggers list ask it. */
+  /** Rerun or skip a Trigger that holds the Job. The canvas and the Triggers list ask it. */
   onHoldAct?: HoldActCall;
   /**
    * Which Job's diff the host should hold open, or `null` for none.
@@ -505,17 +504,10 @@ export type JobDetailProps = {
   whereOpen: boolean;
   onOpenWhere: (open: boolean) => void;
   /**
-   * Which arrangement the Workflow tab is in — canvas or stacked, canvas by
-   * default (#1530, 21 Sep). **Remembered per viewer and not per Job**, so it
-   * is the caller's to keep, the way `whereOpen` is; this package stays free
-   * of Electron and of storage.
-   */
-  workflowView?: WorkflowView;
-  onWorkflowView?: (view: WorkflowView) => void;
-  /**
    * Which arrangement the Plan tab is in — graph or list, graph by default
-   * (owner, 25 Sep 2026). Kept by the caller for `workflowView`'s reason, and
-   * held apart from it: they are two readings of two different things.
+   * (owner, 25 Sep 2026). Remembered per viewer and not per Job, so it is
+   * the caller's to keep, the way `whereOpen` is; this package stays free of
+   * Electron and of storage.
    */
   planView?: PlanView;
   onPlanView?: (view: PlanView) => void;

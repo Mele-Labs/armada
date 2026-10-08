@@ -5,7 +5,7 @@
 // revised Narrow board drops the toggle; the toggle stays, so the narrow claim
 // below is the one that would have been lost.
 
-import { afterEach, beforeEach, expect, test } from "vitest";
+import { afterEach, expect, test } from "vitest";
 import { page } from "vitest/browser";
 import { executingSequential } from "./fixtures/build/arc";
 import { GUIDES, RETIRED_GUIDE_NUMBERS } from "@armada/components";
@@ -21,10 +21,6 @@ const RESTING = { width: 1440, height: 900 };
 afterEach(async () => {
   await page.viewport(RESTING.width, RESTING.height);
 });
-
-// The arrangement is remembered per viewer, so one test's press would otherwise
-// be the next test's default.
-beforeEach(() => window.localStorage.removeItem("armada.bridge.workflow-view"));
 
 /**
  * The feature Job mid-implement, with its Workflow tab open.
@@ -43,30 +39,17 @@ const STEPS = executingSequential().fixtures[0]!.workflows[0]!.steps.map((step) 
 
 const card = (label: string) => page.getByRole("button", { name: new RegExp(`^${label}, `) }).last();
 
-test("the Workflow tab opens on the canvas, with every step of the frozen workflow", async () => {
+test("the Workflow tab is the canvas, with every step of the frozen workflow and no switch to a list", async () => {
   await workflow();
-  await expect.element(page.getByRole("tab", { name: "Canvas", selected: true }).last()).toBeVisible();
   for (const label of STEPS) await expect.element(card(label)).toBeVisible();
+  expect(page.getByRole("tab", { name: "Stacked" }).elements()).toHaveLength(0);
+  expect(page.getByRole("tab", { name: "Canvas" }).elements()).toHaveLength(0);
 });
 
 test("the canvas is still what opens at the narrowest window Bridge lays out for", async () => {
   await page.viewport(768, 900);
   await workflow();
-  await expect.element(page.getByRole("tab", { name: "Canvas", selected: true }).last()).toBeVisible();
-  await expect.element(page.getByRole("tab", { name: "Stacked" }).last()).toBeVisible();
-});
-
-test("Stacked draws the same steps as a list, and the choice survives a relaunch", async () => {
-  await workflow();
-  await page.getByRole("tab", { name: "Stacked" }).last().click();
-  const run = page.getByRole("list", { name: /as its workflow's run$/ }).last();
-  await expect.element(run).toBeVisible();
-  for (const label of STEPS) await expect.element(card(label)).toBeVisible();
-
-  // A second window, as a relaunch is: the arrangement is this viewer's and
-  // not this Job's, so it is what opens.
-  await workflow();
-  await expect.element(page.getByRole("tab", { name: "Stacked", selected: true }).first()).toBeVisible();
+  await expect.element(card("Implement")).toBeVisible();
 });
 
 // # The step opens in the app's own panel, and nothing is open until a press
@@ -212,12 +195,11 @@ test("the plan card in a step's panel lands on the Plan tab", async () => {
   await expect.element(page.getByRole("tabpanel", { name: "Plan" }).last()).toBeVisible();
 });
 
-test("Stacked says what the graph says, in words", async () => {
+test("the canvas draws the steps and no Plan or group card", async () => {
   await failed();
-  await page.getByRole("tab", { name: "Stacked" }).last().click();
   await expect.element(card("Plan the change")).toBeVisible();
   await expect.element(card("Implement")).toBeVisible();
-  // No Plan row, as the canvas draws no Plan node.
+  // No Plan card, as the canvas draws no Plan node.
   expect(await page.getByRole("button", { name: /^Plan, / }).elements()).toHaveLength(0);
   expect(await page.getByRole("button", { name: /^Group \d, / }).elements()).toHaveLength(0);
 });
@@ -243,9 +225,6 @@ test("the canvas head carries no mark, because the guide that hung there is reti
   expect(RETIRED_GUIDE_NUMBERS).toContain(11);
   expect(GUIDES.map((guide) => guide.number)).not.toContain(11);
   expect(page.getByRole("button", { name: /^Open guide 11,/ }).elements()).toHaveLength(0);
-
-  await page.getByRole("tab", { name: "Stacked" }).last().click();
-  await expect.element(page.getByRole("list", { name: /as its workflow's run$/ }).last()).toBeVisible();
 });
 
 // # A Drone opens where Drones are read, with a way back to the step

@@ -9,9 +9,8 @@ import { StepPhaseTrack, type StepPhasePart } from "../StepPhaseTrack/StepPhaseT
 
 /**
  * One node of a Job's graphs — a step, a group inside a plan, or a task
- * inside a group. **The same card on the canvas and
- * in the stacked run**, so a toggle between the two changes the arrangement
- * and never what a node says about itself.
+ * inside a group. **The same card on every canvas that
+ * draws a step**, so what a node says about itself is one thing.
  *
  * **Status colour is not chosen here.** The mark is `StepActivityMark`, whose
  * hue maps onto the step machine, and a chip takes a verdict's hue only where

@@ -143,7 +143,7 @@ import { useOpenSessionAsked } from "./open-session";
 import { useTellAsked } from "./tell";
 import { openingOf, useHistory, useJobTab } from "./history"; import { showingOf } from "./showing"; import { WorkflowCreatorSurface, workflowsWarned } from "./workflow-creator";
 import { useWhereOpen } from "./where-open";
-import { usePlanView, useWorkflowView } from "./remembered-views";
+import { usePlanView } from "./remembered-views";
 import { usePanelOpen } from "./panel-open";
 import { useGuideListWidth } from "./guide-list-width";
 import { statsOf, fleetPanelOf } from "./left-column";
@@ -292,8 +292,7 @@ export function App({ draft }: AppProps = {}) {
   // Where things are' own open choice — held locally so a press moves it at
   // once, `#927`'s round trip off the critical path of a toggle.
   const [whereOpen, pressWhereOpen] = useWhereOpen(state.preferences.where_things_are_open);
-  // Canvas or stacked on Workflow, graph or list on Plan. Both this window's.
-  const [workflowView, pressWorkflowView] = useWorkflowView();
+  // Graph or list on Plan, this window's.
   const [planView, pressPlanView] = usePlanView();
   // The left column's own fold, remembered across a restart — Bridge/1088.
   const [statsOpen, setStatsOpen] = usePanelOpen("stats");
@@ -888,8 +887,6 @@ export function App({ draft }: AppProps = {}) {
                   onSaid={setTelling}
                   whereOpen={whereOpen}
                   onOpenWhere={pressWhereOpen}
-                  workflowView={workflowView}
-                  onWorkflowView={pressWorkflowView}
                   planView={planView}
                   onPlanView={pressPlanView}
                   // `n` — the same composer every contextual surface opens.

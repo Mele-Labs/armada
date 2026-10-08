@@ -38,7 +38,7 @@
   pointer-events: none;
 }
 
-/* The toggle to the stacked run, at a step's own width so it reads as chrome
+/* The canvas's own controls, at a step's own width so they read as chrome
    over the canvas rather than a card on it. */
 .armada-workflow-canvas .armada-graph-canvas__aside {
   align-items: flex-end;

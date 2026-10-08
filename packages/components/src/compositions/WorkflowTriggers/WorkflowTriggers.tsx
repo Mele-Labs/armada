@@ -651,8 +651,8 @@ const REPAIR_MARK: Record<RepairPhase, { Glyph: LucideIcon; said: string; hue?: 
 
 /**
  * The branch a failed Trigger with Self repair grows off the workflow: the repair Drone at work,
- * then the fix and the choice of where it goes, then what came of it. Drawn on the Job's canvases
- * and in its stacked run, from the Trigger's row. **A choice is sent once**: the buttons wait for
+ * then the fix and the choice of where it goes, then what came of it. Drawn on the Job's canvases,
+ * from the Trigger's row. **A choice is sent once**: the buttons wait for
  * the answer, and come back where Fleet refused it.
  */
 export function RepairNode({
@@ -800,8 +800,7 @@ function HoldActs({ held, onAct }: { held: Held; onAct?: (act: HoldVerb, by: Hol
 
 /**
  * A Trigger that holds the Job, as one frame: a filled band with the barrier, the Trigger's name,
- * and the two things the owner does about it. Drawn on the line it holds, beside a node, and under
- * a step in the stacked run.
+ * and the two things the owner does about it. Drawn on the line it holds, and beside a node.
  */
 export function HoldNode({
   held,

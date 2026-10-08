@@ -28,15 +28,12 @@ async function pressed(name: string): Promise<void> {
   expect(itemsAreOnTop()).toBe(true);
 }
 
-for (const view of ["Canvas", "Stacked"] as const) {
-  test(`the menu on a running Job's ${view.toLowerCase()} is over the next step`, async () => {
-    mount("proto/feature-running");
-    await onScreen();
-    await page.getByRole("tab", { name: "Workflow" }).click();
-    await page.getByRole("tab", { name: view }).click();
-    await pressed("Add a step after Implement");
-  });
-}
+test("the menu on a running Job's canvas is over the next step", async () => {
+  mount("proto/feature-running");
+  await onScreen();
+  await page.getByRole("tab", { name: "Workflow" }).click();
+  await pressed("Add a step after Implement");
+});
 
 // Every gap at the gate: ahead of the first step, between steps, the end of the Work lane, and the
 // Delivery lane before the pull request opens, after it opens, and after the step that delivers.
