@@ -10,7 +10,7 @@ const BAY = (n: number) => role("listitem", `slot-${n}`, { exact: true });
 const JOB = inside(BAY(1), role("button", /^(?!slot-1$)/));
 
 export const aPoolOfWorktreeSlots = walk("cleanup/slots", [
-  { press: button("Cleanup", { exact: true }), say: "Cleanup, from the rail" },
+  { press: button("Worktree Slots", { exact: true }), say: "Cleanup, from the rail" },
   { look: role("list", "Worktree slots"), say: "The pool, a bay per slot" },
   { look: BAY(1), say: "Held by a Job: a filled card under the leased band" },
   { hover: JOB, say: "The Job: its mark, and a link that opens it" },

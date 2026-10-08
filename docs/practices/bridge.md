@@ -147,7 +147,7 @@ tiny helpers a surface and the app share, with no React: today the generic
 `mock/moment.ts` fixes to desktop's `BridgeState` and `BridgeApi`. The mock
 fleet and `BridgeApi` itself still live in `apps/desktop` while the API split
 moves each surface's slice and fleet into its own package, step by step. Studios,
-Cleanup, Overview, Helm, Setup, Manifest and Jobs have moved both, and Settings its slice
+Worktree Slots, Overview, Helm, Setup, Manifest and Jobs have moved both, and Settings its slice
 (it has no fleet). What stays in desktop is the composition: `scenario.ts`, the scenario rows,
 `holding.ts` and the Workflows and reports slices.
 
@@ -203,13 +203,13 @@ What it settled for the next surface:
   `mock/<x>-fake.ts`, `mock/slices/core.ts`, `mock/slices/<x>.ts` and `shared/**`; never another surface's
   `*-fleet.ts`. `armada covers` proves it. **A whole-app test mounts with a slice list**
   (`mount(..., { slices: ["core", "<x>"] })`), and a surface whose tests all do names only
-  `mock/slices/core.ts` and `mock/slices/<x>.ts` instead of `slices/**`. Studios, Cleanup, Overview, Settings, Helm, Setup, Manifest and Jobs do.
+  `mock/slices/core.ts` and `mock/slices/<x>.ts` instead of `slices/**`. Studios, Worktree Slots, Overview, Settings, Helm, Setup, Manifest and Jobs do.
   A surface with no fleet of its own (Settings) has no `mock/<x>-fake.ts`, and its `/fake` is
   the slice's route stubs. The module graph is wider than the list, since `slices.ts` imports
   every slice and the harness re-exports other surfaces' fakes; their own Checks and desktop's
   catch those.
 - **A fake that needs more than state and `publish` takes a handle type of its
-  own.** Cleanup's `cleanupApi` names `move`, the held pool, `unread` and
+  own.** Worktree Slots' `cleanupApi` names `move`, the held pool, `unread` and
   `proposingRow` in a `CleanupFleet` type that desktop's `Fleet` satisfies, so the
   package never imports `fake-context`. A type main or preload read (`RescueOutcome`)
   moves with the slice and is read from `@armada/<x>/api`.
@@ -236,7 +236,7 @@ What it settled for the next surface:
   `SettingUpApi` and `SettingUpState`. Sibling surfaces never import each other, so Manifest
   moving does not change that.
 - **A surface whose tests mount a screen, not the app, depends on none of the app.**
-  Cleanup's `Worktrees*.test.tsx` use `@armada/screens/src/mounted`, so its
+  Worktree Slots' `Worktrees*.test.tsx` use `@armada/screens/src/mounted`, so its
   `depends_on` stops at screens, the shared packages and the three desktop files the
   browser project loads, and a change to another surface's fake names it no more.
 - **A rule that scans `packages/screens` must scan the surfaces.**

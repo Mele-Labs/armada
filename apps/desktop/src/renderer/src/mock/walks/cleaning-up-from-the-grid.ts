@@ -25,7 +25,7 @@ const REJECTED = /-rejected$/;
 const FAILED = /-completedFailed$/;
 
 export const cleaningUpFromTheGrid = walk("cleanup/grid", [
-  { press: role("button", "Cleanup", { exact: true }), say: "Cleanup, from the rail" },
+  { press: role("button", "Worktree Slots", { exact: true }), say: "Cleanup, from the rail" },
   { look: role("list", "Worktree slots"), say: "One grid: the pool's bays, a tile to add one, and the Jobs' worktrees outside it" },
   { press: TILE(1), say: "A finished Job's bay opens its panel" },
   { look: inside(PANEL(1), role("region", "What it holds", { exact: true })), say: "What it holds: uncommitted changes, and commits not on main" },
@@ -33,7 +33,7 @@ export const cleaningUpFromTheGrid = walk("cleanup/grid", [
   { press: role("button", "Reclaim worktree"), say: "The Job's own Clear, on the same worktree" },
   { look: dialog("Give this job's worktree back?"), say: "It says the same: the uncommitted files committed to the branch, the slot released, the branch kept" },
   { press: inside(dialog("Give this job's worktree back?"), role("button", "Cancel", { exact: true })), say: "Cancel sends nothing" },
-  { press: role("button", "Cleanup", { exact: true }), say: "Back to Cleanup" },
+  { press: role("button", "Worktree Slots", { exact: true }), say: "Back to Cleanup" },
   { press: TILE(1), say: "The bay again" },
   { hover: IN_PANEL(1, "button", "Clear"), say: "Clear says which worktree it acts on and what happens to the branch" },
   { press: IN_PANEL(1, "button", "Clear"), say: "Clear asks first" },

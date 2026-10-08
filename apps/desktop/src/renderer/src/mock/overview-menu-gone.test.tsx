@@ -24,7 +24,7 @@ async function palette() {
 
 /** Cleanup, by its rail row. */
 async function cleanup(): Promise<void> {
-  await page.getByRole("navigation", { name: "Work" }).getByText("Cleanup", { exact: true }).click();
+  await page.getByRole("navigation", { name: "Work" }).getByText("Worktree Slots", { exact: true }).click();
   await expect.element(page.getByRole("button", { name: "Back to the list" })).toBeVisible();
 }
 

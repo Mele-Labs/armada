@@ -214,7 +214,7 @@ test("Sessions wired: a chip on Cleanup's tile names the session that holds its 
     },
   });
   await onScreen();
-  await userEvent.click(page.getByRole("button", { name: "Cleanup", exact: true }));
+  await userEvent.click(page.getByRole("button", { name: "Worktree Slots", exact: true }));
   await userEvent.click(page.getByRole("button", { name: "Branch fix/flaky-store" }));
   const card = page.getByRole("group", { name: "Owned by Fix the flaky store test" });
   await expect.element(card).toBeVisible();

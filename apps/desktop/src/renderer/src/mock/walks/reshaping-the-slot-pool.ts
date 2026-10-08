@@ -11,7 +11,7 @@ const ACT = (n: number, said: string) => inside(PANEL(n), role("button", said, {
 const SHUT = (n: number) => inside(PANEL(n), role("button", "Close panel Esc", { exact: true }));
 
 export const reshapingTheSlotPool = walk("cleanup/slots", [
-  { press: role("button", "Cleanup", { exact: true }), say: "Cleanup, from the rail" },
+  { press: role("button", "Worktree Slots", { exact: true }), say: "Cleanup, from the rail" },
   { look: role("list", "Worktree slots"), say: "The pool, a bay per slot, and a tile to add one" },
   { press: TILE(3), say: "A press on a bay opens its panel" },
   { hover: ACT(3, "Close slot"), say: "Close: no lease takes this slot until it is reopened" },

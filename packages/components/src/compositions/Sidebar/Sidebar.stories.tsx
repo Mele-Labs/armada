@@ -44,7 +44,7 @@ const surfaces: SidebarItem[] = [
   { id: "alerts", label: "Alerts", icon: Bell, shortcut: "⌘2" },
   { id: "doctor", label: "Doctor", icon: Stethoscope, shortcut: "⌘3" },
   { id: "manifest", label: "Manifest", icon: FileCog, shortcut: "⌘4" },
-  { id: "worktrees", label: "Cleanup", icon: HardDrive, shortcut: "⌘5" },
+  { id: "worktrees", label: "Worktree Slots", icon: HardDrive, shortcut: "⌘5" },
 ];
 
 /**
@@ -141,7 +141,7 @@ export const WhatIsBuilt: Story = {
   args: {
     surfaces: [
       { id: "board", label: "Job Board", icon: ClipboardList, count: 6 },
-      { id: "worktrees", label: "Cleanup", icon: HardDrive },
+      { id: "worktrees", label: "Worktree Slots", icon: HardDrive },
     ],
     activeId: "board",
     appName: "Armada",

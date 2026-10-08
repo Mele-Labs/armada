@@ -197,7 +197,7 @@ a tooltip or menu inside a card is never clipped by it. It
 replaces `--bg-raised` and `--border-subtle` on every panel that sits directly
 on the canvas: Overview's cards, Helm's dock,
 and every `Card` a surface draws on the canvas — Dispatch, Studios, Reports,
-Cleanup and Settings — each at `--radius-lg`. A `Card` inside a sheet, a
+Worktree Slots and Settings — each at `--radius-lg`. A `Card` inside a sheet, a
 dialog, a well or another card is not on the canvas: it stays flat, at
 `--radius-md`. A row, a well or an input inside a card stays flat on its
 Ground token.
@@ -384,7 +384,7 @@ new one. The mapping is declared, so it is read rather than inferred.
 --slot-closed-bg   var(--status-rejected-bg)
 ```
 
-**A worktree slot's bay takes its slot's hue.** On Cleanup a held bay is a
+**A worktree slot's bay takes its slot's hue.** On Worktree Slots a held bay is a
 filled card under a `--slot-held` band, a free one an open dashed outline in
 `--slot-free`, a stranded one hatched from `--slot-stranded-bg`, and the build
 mark `--slot-warm` or `--slot-cold`. A slot not made, or not a checkout, takes
@@ -1534,8 +1534,8 @@ the rail's Run menu rather than starting anything, as a press on Run does.
 See [Studio](../concepts/studio.md).
 
 **`⌘1`–`⌘9` follow the rail** — Overview, Studios, Alerts,
-Doctor, Manifest, Cleanup, Kit, Settings, Guides, and no digit for Workflows or Checks — since Active Jobs, Reviews and the
-Activity Feed folded into the Board and Cleanup joined at the end of it.
+Doctor, Manifest, Worktree Slots, Kit, Settings, Guides, and no digit for Workflows or Checks — since Active Jobs, Reviews and the
+Activity Feed folded into the Board and Worktree Slots joined at the end of it.
 The digits shift if the rail does; the rule is rail order, not the
 numbers.
 
@@ -1549,7 +1549,7 @@ picker (#1595) and the order it sits in is unchanged.
 **Helm moved from `⌘6` to `⌘J` on 2026-09-13**, when it left the rail
 for a dock on every Bridge surface (#948). A digit is a place in the rail,
 and Helm no longer has one; `⌘J` toggles the dock instead. It had moved
-once before, from `⌘5` on 2026-09-03, when Held worktrees, now Cleanup, took that
+once before, from `⌘5` on 2026-09-03, when Held worktrees, now Worktree Slots, took that
 digit. The palette displays the binding beside every entry — which is
 where a person finds out. A learned key does not move quietly, and this
 paragraph is the noise.
@@ -1571,7 +1571,7 @@ bar used to hold before #1088 removed the bar.
 arrival to move digits other than its own, after Overview's. The owner placed
 it straight after the Job Board, because where a stretch of work is read
 belongs beside the work it becomes rather than after the settings; Alerts,
-Doctor, Manifest, Cleanup and Settings each moved down one, Settings from `⌘7`
+Doctor, Manifest, Worktree Slots and Settings each moved down one, Settings from `⌘7`
 to `⌘8`. The rule is still rail order — only the arrival was the exception.
 
 **Kit joined before Settings, on 2026-09-18 (#1275), taking `⌘8`** — the third
