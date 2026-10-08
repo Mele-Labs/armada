@@ -16,7 +16,7 @@ use ipc::{
 
 use super::serving::mode_of;
 use crate::daemon::Fleet;
-use crate::helm::{answering, because_in_a_session, pages_opened, unanswered};
+use crate::helm::{answering, because_in_a_session, pages_opened, unanswered, Because};
 
 impl<H, V, W> Fleet<H, V, W>
 where
@@ -68,11 +68,33 @@ where
         let mode = mode_of(&hosting.mode);
         // A question is for the person whatever the mode: nothing else can
         // answer it, and the agent is told what they chose.
+        // **In `auto` a session never waits on the person** (the owner, 8 Oct
+        // 2026: "JUST LET IT DO WHAT IT NEEDS", after it sat blocked while he
+        // was away). A call runs, or, where it would reach into his own files
+        // or take away something outside the slot and `/tmp`, is refused with
+        // the reason, which the agent reads and works around. Only a question
+        // is put to him.
         let put_to_a_person = asking.tool_name == ipc::ASKS_A_QUESTION
             || match mode {
                 SessionMode::Ask | SessionMode::AcceptEdits => true,
                 SessionMode::Auto | SessionMode::Plan => {
-                    because_in_a_session(&asking, &Self::directory_of(&served, &hosting)).is_some()
+                    match because_in_a_session(&asking, &Self::directory_of(&served, &hosting)) {
+                        Some(Because::ReachesOutside) => {
+                            return Ok(RunOrNot::Deny {
+                                message: String::from(
+                                    "Refused: that reaches into the owner's own files outside your slot. Work inside your slot, /tmp, or a path under Armada's own folders.",
+                                ),
+                            });
+                        }
+                        Some(Because::Destructive) => {
+                            return Ok(RunOrNot::Deny {
+                                message: String::from(
+                                    "Refused: that removes or overwrites something outside your slot and /tmp. Do it inside your slot, or say in your reply what you need and why.",
+                                ),
+                            });
+                        }
+                        _ => false,
+                    }
                 }
             };
         if !put_to_a_person {
