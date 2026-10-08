@@ -364,6 +364,17 @@ pub struct SessionThread {
     pub rows: Vec<SessionRow>,
 }
 
+/// `get_session_subagent`: one subagent's own thread, as it stands.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SessionSubagent {
+    pub rows: Vec<SessionRow>,
+    /// Its last turn ended and asked for nothing more.
+    pub finished: bool,
+    /// What it said last, once it has finished.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub report: Option<String>,
+}
+
 /// `session.row`: one row appended or replaced, by `row.id()`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SessionRowChanged {

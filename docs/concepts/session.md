@@ -292,6 +292,8 @@ Bridge reads every live session from `list_sessions` once per connection and kee
 
 Open a session a person runs in a terminal and Bridge draws its conversation and a message box. `get_session` reads the transcript file the agent CLI keeps for it (`adapters::terminal_thread`, found by session id under the person's home) and answers rows in the shape a hosted thread has: what the person typed, what the agent said, and one line per tool call. Fleet then watches the file for as long as the session is live and publishes each new line as `session.row`, so the thread follows the terminal. A row's id is the transcript line's own, so a line read twice replaces itself.
 
+A subagent has a thread of its own. `get_session_subagent` reads `<project>/<session id>/subagents/agent-<subagent id>.jsonl`, the file the CLI keeps beside the session's, and answers it in the same rows with whether the subagent `finished` (a turn ended with nothing more to run) and its `report`, the last thing it said. It reads that one path and no other, for hosted and terminal sessions alike. Bridge reads it again while the subagent runs.
+
 > **Rule.** The thread is drawn and never read as a claim. Nothing Fleet knows about a terminal session, its title, its Job or its state, comes from its rows.
 
 A slash command the person ran is one `command` row, as typed, and the summary the CLI writes where it compacted a long conversation is one `compaction` row, so neither reads as the person's words. What is not drawn: the agent's reasoning, a tool's answer, a command's output, a subagent's own turns, the CLI's bookkeeping (a caveat, a reminder, a task notification) and a message from another session. No wrapper tag the CLI writes for itself reaches a row.

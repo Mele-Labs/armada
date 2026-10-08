@@ -341,3 +341,36 @@ async fn a_session_that_is_not_a_terminal_one_is_handed_nothing() {
     let rig = rig();
     assert!(rig.mod_asks().await.is_empty(), "no such session is not an error");
 }
+
+/// A subagent of a terminal session: its transcript beside the session's, read as it stands.
+#[tokio::test]
+async fn a_subagent_of_a_session_reads_as_its_own_thread() {
+    let rig = rig();
+    let dir = rig.transcript.with_extension("").join("subagents");
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(rig.transcript.clone(), "").unwrap();
+    let line = |uuid: &str, reason: &str, content: &str| {
+        format!(
+            r#"{{"type":"assistant","uuid":"{uuid}","isSidechain":true,"timestamp":"2026-10-07T08:48:10.000Z","message":{{"role":"x","stop_reason":{reason},"content":{content}}}}}"#
+        )
+    };
+    let file = dir.join("agent-x1.jsonl");
+    std::fs::write(&file, line("s1", "\"tool_use\"", r#"[{"type":"tool_use","id":"t1","name":"Bash","input":{"command":"ls"}}]"#) + "\n").unwrap();
+    let read = |agent: &str| {
+        let fleet = Arc::clone(&rig.fleet);
+        let agent = agent.to_string();
+        async move { fleet.get_session_subagent(SessionId::carried(ID), agent).await }
+    };
+    let running = read("x1").await.expect("it reads");
+    assert!(!running.finished);
+    assert_eq!(running.rows.len(), 1);
+
+    let mut open = std::fs::OpenOptions::new().append(true).open(&file).unwrap();
+    writeln!(open, "{}", line("s2", "\"end_turn\"", r#"[{"type":"text","text":"Done."}]"#)).unwrap();
+    let done = read("x1").await.expect("it reads");
+    assert!(done.finished);
+    assert_eq!(done.report.as_deref(), Some("Done."));
+    assert_eq!(done.rows.len(), 2);
+
+    assert!(read("nope").await.is_err(), "a subagent that wrote nothing is refused");
+}
