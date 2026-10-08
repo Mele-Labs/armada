@@ -29,9 +29,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex, Weak};
 
 use axum::extract::ws::{Message, WebSocket};
-use ipc::{
-    Closed, JobId, Missed, Opened, Shown, Silence, TranscriptRow, TurnMessage, PROTOCOL_VERSION,
-};
+use ipc::{Closed, JobId, Missed, Opened, ProtocolId, Shown, Silence, TranscriptRow, TurnMessage};
 use tokio::sync::broadcast;
 
 /// How many rows a Job's channel holds for a viewer that is not keeping up.
@@ -198,7 +196,7 @@ pub(crate) async fn relay(mut socket: WebSocket, observed: Observed) {
         skipped,
     } = observed;
     let opened = Opened {
-        protocol_version: PROTOCOL_VERSION,
+        protocol_id: ProtocolId::current(),
         job_id,
         live: live.is_some(),
         skipped,

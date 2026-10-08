@@ -9,14 +9,14 @@ use std::path::Path;
 
 use fleet::process::StartedAt;
 use fleet::runtime::{Presence, RuntimeFile, Staleness};
-use ipc::{ManifestId, ManifestSummary, ProtocolVersion, PROTOCOL_VERSION};
+use ipc::{ManifestId, ManifestSummary, ProtocolId};
 
 use crate::mcp::{found_in, posted_patiently, listening, noting, publish, refused, standing_in, stands_in};
 use crate::tests::{repository, TempDir};
 
-fn file(version: ProtocolVersion) -> RuntimeFile {
+fn file(id: ProtocolId) -> RuntimeFile {
     RuntimeFile {
-        protocol_version: version,
+        protocol_id: id,
         pid: 4242,
         port: 51888,
         started_at: StartedAt::carried("Tue Sep  1 09:00:00 2026"),
@@ -147,7 +147,10 @@ fn a_manifest_that_will_not_parse_is_a_refusal_and_not_a_guess() {
 #[test]
 fn a_running_fleet_is_the_port_in_the_file() {
     assert_eq!(
-        listening(Ok(Presence::Running(file(PROTOCOL_VERSION))), machine()),
+        listening(
+            Ok(Presence::Running(file(ProtocolId::current()))),
+            machine()
+        ),
         Ok(51888)
     );
 }
@@ -159,7 +162,7 @@ fn a_running_fleet_is_the_port_in_the_file() {
 fn a_pid_held_by_another_is_refused_rather_than_guessed_at() {
     let said = listening(
         Ok(Presence::Stale {
-            found: file(PROTOCOL_VERSION),
+            found: file(ProtocolId::current()),
             why: Staleness::PidHeldByAnother {
                 holder: StartedAt::carried("Wed Sep  2 11:00:00 2026"),
             },
@@ -177,7 +180,7 @@ fn the_two_not_running_answers_stay_two_answers() {
     let absent = listening(Ok(Presence::NotRunning), machine()).expect_err("nothing running");
     let dead = listening(
         Ok(Presence::Stale {
-            found: file(PROTOCOL_VERSION),
+            found: file(ProtocolId::current()),
             why: Staleness::PidDead,
         }),
         machine(),
@@ -189,17 +192,13 @@ fn the_two_not_running_answers_stay_two_answers() {
     assert_ne!(absent, dead, "two events, two sentences");
 }
 
-/// A Fleet older than this binary is refused for Bridge's reason: additive-only
-/// promises nothing about what a newer reader needs.
+/// Any other ID is refused, and so is a file written before IDs existed.
 #[test]
-fn a_fleet_behind_this_binary_is_not_connected_to() {
-    let behind = ProtocolVersion::new(PROTOCOL_VERSION.major, PROTOCOL_VERSION.minor + 1);
-    let ahead = listening(Ok(Presence::Running(file(behind))), machine());
-    let older = ProtocolVersion::new(PROTOCOL_VERSION.major + 1, 0);
-    let said = listening(Ok(Presence::Running(file(older))), machine())
-        .expect_err("a major gap is not bridged");
+fn a_fleet_on_another_protocol_is_not_connected_to() {
+    let other = ProtocolId::default();
+    let said = listening(Ok(Presence::Running(file(other))), machine())
+        .expect_err("a different ID is not bridged");
 
-    assert_eq!(ahead, Ok(51888), "a Fleet ahead is connected to");
     assert!(said.contains("out of date"), "{said}");
 }
 

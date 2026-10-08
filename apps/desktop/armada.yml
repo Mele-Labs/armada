@@ -10,13 +10,12 @@ id: armada-desktop
 # is the manifest's and not a Check's, so the tests that read no surface are in
 # `unit/armada.yml`, which lists only what they read.
 #
-# `crates/core-model/domain/**` and `protocol-version.toml`: codegen emits
-# TypeScript from them, so a change there is a change to compiled code.
+# `crates/core-model/domain/**`: codegen emits TypeScript from it, so a
+# change there is a change to compiled code.
 depends_on:
   - ".github/**"
   - "packages/**"
   - "crates/core-model/domain/**"
-  - "protocol-version.toml"
   - "package.json"
   - "pnpm-lock.yaml"
   - "pnpm-workspace.yaml"

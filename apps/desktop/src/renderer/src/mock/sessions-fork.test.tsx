@@ -34,7 +34,14 @@ const records = () => [
   hosted(ENDED, { title: "One that ended", state: "ended", last_seen_at: new Date().toISOString() }),
 ];
 
-const open = (title: string) => userEvent.click(page.getByRole("region", { name: "Sessions" }).getByRole("button", { name: title }));
+/** The dead ones are in the list's Quiet and Ended views, off the Active one it opens on. */
+const VIEW: Record<string, string> = { "One that ended": "Ended", "A terminal gone quiet": "Quiet" };
+
+async function open(title: string) {
+  const list = page.getByRole("region", { name: "Sessions" });
+  await userEvent.click(list.getByRole("tab", { name: VIEW[title] ?? "Active" }));
+  await userEvent.click(list.getByRole("button", { name: title }));
+}
 const fork = () => page.getByRole("button", { name: "Fork", exact: true });
 const message = () => page.getByRole("textbox", { name: "Message" });
 

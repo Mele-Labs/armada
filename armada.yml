@@ -98,10 +98,11 @@ checks:
     #
     # `crates/**` and `xtask/**` are the workspace's members. `Cargo.toml` and
     # `Cargo.lock` are what `--workspace --locked` resolves, and `.cargo/**`
-    # carries the flags and aliases a build runs under. `protocol-version.toml`
-    # is read by `crates/ipc/build.rs`, and the shipped workflow definitions are
-    # compiled into `config` by `include_str!`. `armada.yml` is here because a
-    # change to this file is a change to the command itself.
+    # carries the flags and aliases a build runs under. `packages/protocol/**`
+    # is read by `crates/ipc/build.rs`, which hashes it into the protocol ID,
+    # and the shipped workflow definitions are compiled into `config` by
+    # `include_str!`. `armada.yml` is here because a change to this file is a
+    # change to the command itself.
     #
     # `apps/**` and `packages/**` are deliberately absent: nothing outside a
     # test compiles them in, and `test` below says why it needs them.
@@ -112,7 +113,7 @@ checks:
       - "Cargo.toml"
       - "Cargo.lock"
       - ".cargo/**"
-      - "protocol-version.toml"
+      - "packages/protocol/**"
       - ".armada/workflows/**"
       - "armada.yml"
 
@@ -187,7 +188,7 @@ checks:
       - "Cargo.toml"
       - "Cargo.lock"
       - ".cargo/**"
-      - "protocol-version.toml"
+      - "packages/protocol/**"
       - ".armada/workflows/**"
       - "armada.yml"
       # Where a hung test is ended. docs/practices/rust.md, section 8.
@@ -211,14 +212,14 @@ checks:
     # line: `verify-foundations` checks each test exists and leaves passing
     # here, so a path missing from this list is a change nothing tests.
     # `config` embeds `.armada/workflows/`, and `ipc`'s build reads
-    # `protocol-version.toml`.
+    # `packages/protocol/`.
     when:
       - ".github/**"
       - "crates/**"
       - "Cargo.toml"
       - "Cargo.lock"
       - ".cargo/**"
-      - "protocol-version.toml"
+      - "packages/protocol/**"
       - ".armada/workflows/**"
       - ".config/nextest.toml"
 
@@ -246,14 +247,13 @@ checks:
     # tsconfig references whatever is handed to it, so there is nothing
     # narrower to run.
     #
-    # `domain/**` and `protocol-version.toml`: codegen emits TypeScript from
-    # them into `packages/protocol`, so a change there is a change to compiled
-    # code. A path under `apps/` is a workspace's, so none is named.
+    # `domain/**`: codegen emits TypeScript from it into `packages/protocol`,
+    # so a change there is a change to compiled code. A path under `apps/` is a
+    # workspace's, so none is named.
     when:
       - ".github/**"
       - "packages/**"
       - "crates/core-model/domain/**"
-      - "protocol-version.toml"
       - "package.json"
       - "pnpm-lock.yaml"
       - "pnpm-workspace.yaml"
@@ -323,10 +323,10 @@ commands:
   fmt:
     run: cargo fmt --all
 
-  # **A Drone regenerating the wire's TypeScript after a protocol bump.** Not a
-  # Check — it writes, and what it writes lands in the diff — but a Drone that
-  # changes `crates/ipc` and `protocol-version.toml` cannot make `typecheck`
-  # pass without it, so it has to be reachable.
+  # **A Drone regenerating the generated TypeScript after a registry change.**
+  # Not a Check — it writes, and what it writes lands in the diff — but a Drone
+  # that changes `crates/core-model/domain` cannot make `typecheck` pass
+  # without it, so it has to be reachable.
   #
   # **Declared because #1174 withholds the program.** Every Bash call naming a
   # program one of the Checks runs is now refused whatever `when_blocked` says,

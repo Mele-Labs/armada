@@ -23,7 +23,7 @@
 // the same reason: the codegen that would emit both does not exist yet.
 
 import type { Voice } from "./turn";
-import type { ProtocolVersion } from "./version";
+import type { ProtocolId } from "./connection";
 
 /** One message on a Job's log socket. `crates/ipc/src/journal.rs`. */
 export type JournalMessage =
@@ -38,7 +38,7 @@ export type JournalMessage =
  * `turn.ts` has an `Opening`, and this package is imported whole.
  */
 export type JournalOpening = {
-  protocol_version: ProtocolVersion;
+  protocol_id: ProtocolId;
   job_id: string;
   /** Older notes the bounded first read left out. Never a silent truncation. */
   skipped: number;

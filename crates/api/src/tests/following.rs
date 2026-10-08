@@ -133,7 +133,7 @@ async fn a_running_checks_log_arrives_as_it_is_written_and_says_when_the_check_e
     let OutputMessage::Opened(opened) = read(&mut socket).await else {
         panic!("the first message says whose log this is");
     };
-    assert_eq!(opened.protocol_version, ipc::PROTOCOL_VERSION);
+    assert_eq!(opened.protocol_id, ipc::ProtocolId::current());
     assert_eq!(opened.job_id, job);
     assert_eq!(
         (opened.name.as_str(), opened.attempt),
@@ -211,7 +211,7 @@ async fn a_merge_line_checks_log_arrives_as_it_is_written_and_says_when_it_ends(
     let LandOutputMessage::Opened(opened) = read_land(&mut socket).await else {
         panic!("the first message says whose log this is");
     };
-    assert_eq!(opened.protocol_version, ipc::PROTOCOL_VERSION);
+    assert_eq!(opened.protocol_id, ipc::ProtocolId::current());
     assert_eq!(
         (
             opened.root.as_str(),

@@ -12,9 +12,11 @@
 // the drawing to `Compositions/FleetPanel`; what is left here is the reading.
 
 import type { Connection } from "@armada/protocol";
-import { PROTOCOL_VERSION } from "@armada/protocol";
 import { spoken } from "@armada/protocol";
 import type { FleetState } from "@armada/components";
+
+/** The one thing to do about a mismatch, whichever side is stale. The button beside it does it. */
+const MATCH_THEM = "Restart Fleet onto the installed build.";
 
 /** Sentence, detail and hue. The detail is machine-derived and renders in mono. */
 export type Statement = {
@@ -86,23 +88,13 @@ export function statementOf(connection: Connection, now: number, readAt: number 
         next: "Fleet is up and not answering. What is shown below is not live.",
       };
 
-    case "version_skew": {
-      const versions = `Fleet ${spoken(connection.speaks)} · Bridge ${spoken(connection.expected)}`;
-      // Two refusals, two sentences. A different protocol needs both sides
-      // moved; a Fleet merely behind needs only the daemon restarted, and
-      // telling somebody to rebuild both would be telling them to do more than
-      // the situation asks.
-      return connection.why === "incompatible"
-        ? {
-            headline: "Fleet speaks a protocol Bridge does not",
-            detail: versions,
-            next: "Fleet and Bridge ship as a pair. Update both to the same commit.",
-          }
-        : {
-            headline: "Fleet is older than Bridge",
-            detail: versions,
-            next: "Bridge reads fields this Fleet is too old to send. Restart Fleet when no Job is running.",
-          };
+    case "protocol_mismatch": {
+      const sides = `Fleet ${spoken(connection.speaks)} · Bridge ${spoken(connection.expected)}`;
+      // The IDs carry no order, so which side is stale is known only for a Fleet
+      // whose runtime file has no ID: that one is from before them.
+      return connection.speaks === ""
+        ? { headline: "Fleet is out of date", detail: sides, next: MATCH_THEM }
+        : { headline: "Fleet and Bridge do not match", detail: sides, next: MATCH_THEM };
     }
 
     case "connected":
@@ -113,22 +105,8 @@ export function statementOf(connection: Connection, now: number, readAt: number 
       // which is the state where how old the reading is is the whole fact.
       return {
         headline: "Fleet running",
-        detail:
-          `pid ${connection.fleet.pid} · port ${connection.fleet.port}` +
-          (connection.skew === "fleet_ahead"
-            ? ` · ${versionsOf(connection)}`
-            : ""),
-        // **The one `next` on a healthy connection, and it is not a fault.** A
-        // minor bump is additive only, so everything drawn here is current and
-        // correct and the only fact is that Fleet knows more than this Bridge
-        // can ask about. Said out loud because the alternative is a person
-        // meeting a feature that exists and not knowing why they cannot see it
-        // — and said in the status bar rather than as a failure notice, which
-        // would tell them something is broken when nothing is.
-        next:
-          connection.skew === "fleet_ahead"
-            ? "Fleet is newer than Bridge. Nothing here is stale; update Bridge to reach what it adds."
-            : null,
+        detail: `pid ${connection.fleet.pid} · port ${connection.fleet.port}`,
+        next: null,
       };
   }
 }
@@ -146,11 +124,6 @@ export function silenceOf(
 ): string {
   const staleness = readAt === null ? "nothing read yet" : `last read ${elapsed(now - readAt)} ago`;
   return `no answer for ${elapsed(now - connection.sinceMs)} · ${staleness}`;
-}
-
-/** Both protocol versions, Fleet's first — `Fleet 13.50, Bridge 13.49`. */
-export function versionsOf(connection: Extract<Connection, { state: "connected" }>): string {
-  return `Fleet ${spoken(connection.fleet.protocolVersion)}, Bridge ${spoken(PROTOCOL_VERSION)}`;
 }
 
 /** The three ways a runtime file says Fleet is not running. */
@@ -207,7 +180,7 @@ export const SHORT_LABEL: Record<Connection["state"], string> = {
   connecting: "Connecting",
   starting: "Starting",
   unreachable: "Unreachable",
-  version_skew: "Version mismatch",
+  protocol_mismatch: "Mismatch",
   connected: "Running",
 };
 

@@ -30,7 +30,7 @@ pub struct Route {
 
 /// The operations M1 serves — a deliberate subset of the inventory, not all of it.
 ///
-/// The rest of the inventory, the `/v0` lifeboat and version-skew handling are
+/// The rest of the inventory, the `/v0` lifeboat and protocol-mismatch handling are
 /// the Ship milestone's. Nothing here stubs them: a route that answers with a
 /// placeholder is worse than one that 404s, because a client cannot tell the
 /// difference between not built and not working.

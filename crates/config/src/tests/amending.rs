@@ -65,7 +65,6 @@ const WHEN: &[&str] = &[
     concat!(".git", "hub/**"),
     "packages/**",
     "crates/core-model/domain/**",
-    "protocol-version.toml",
     "package.json",
     "pnpm-lock.yaml",
     "pnpm-workspace.yaml",

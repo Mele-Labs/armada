@@ -20,7 +20,7 @@ use std::sync::Arc;
 use axum::extract::ws::{Message, WebSocket};
 use ipc::{
     JobId, LandOutputMessage, LandOutputOpened, OutputClosed, OutputEnded, OutputLines,
-    OutputMessage, OutputOpened, PROTOCOL_VERSION,
+    OutputMessage, OutputOpened, ProtocolId,
 };
 use serde::Serialize;
 
@@ -104,7 +104,7 @@ pub(crate) async fn relay(socket: WebSocket, job_id: JobId, live: LiveOutput) {
     } = live;
     let opened = move |skipped| {
         OutputMessage::Opened(OutputOpened {
-            protocol_version: PROTOCOL_VERSION,
+            protocol_id: ProtocolId::current(),
             job_id,
             name,
             attempt,
@@ -132,7 +132,7 @@ pub(crate) async fn relay_land(socket: WebSocket, land: LandOutput) {
     } = land;
     let opened = move |skipped| {
         LandOutputMessage::Opened(LandOutputOpened {
-            protocol_version: PROTOCOL_VERSION,
+            protocol_id: ProtocolId::current(),
             root,
             branch,
             name,

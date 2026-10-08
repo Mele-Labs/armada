@@ -8,7 +8,7 @@
 // for the same reason: the codegen that would emit both does not exist yet.
 
 import type { ChangedFile, CheckRun, Missed } from "./protocol";
-import type { ProtocolVersion } from "./version";
+import type { ProtocolId } from "./connection";
 
 /** One message on a Job's Observe socket. `crates/ipc/src/turn.rs`. */
 export type TurnMessage =
@@ -26,7 +26,7 @@ export type TurnMessage =
  * call site.
  */
 export type Opening = {
-  protocol_version: ProtocolVersion;
+  protocol_id: ProtocolId;
   job_id: string;
   /** Whether a Drone was writing when this opened. `false` is ordinary. */
   live: boolean;

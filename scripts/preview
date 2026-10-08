@@ -31,8 +31,6 @@ NEVER = ("main", "preview")
 # What `git clean` keeps: the build directories, the Bridge build stamp
 # `scripts/restart` compares sources against, and the notes the owner pins from
 # the Bridge he runs here, which the annotation layer writes under the checkout.
-# Every branch that moves the wire bumps these two, so any two conflict on them.
-PROTOCOL_FILES = ("protocol-version.toml", "packages/protocol/src/generated/protocol-version.ts")
 KEEP = ("/target", "node_modules", "/apps/desktop/out", "/.armada/annotations")
 
 
@@ -197,38 +195,6 @@ def migrations_in(cwd, rev):
     return found
 
 
-def protocol_at(cwd, rev):
-    """(major, minor) of `protocol-version.toml` at `rev`."""
-    text = git(cwd, "show", f"{rev}:{PROTOCOL_FILES[0]}").stdout
-    return tuple(int(re.search(rf"^{k}\s*=\s*(\d+)", text, re.M).group(1)) for k in ("major", "minor"))
-
-
-def own_protocol(wt, branch):
-    """Settle a merge that conflicts only in the protocol version files with a
-    number above both sides, so it is no branch's and no release's. Fleet and
-    Bridge in a preview are built from this one tree, so any consistent number
-    serves. Returns it, committed, or None where the conflict is not only that.
-    The mirror is written directly: `codegen` needs a `pnpm install` a preview
-    does not have."""
-    files = out(wt, "diff", "--name-only", "--diff-filter=U").splitlines()
-    if not files or not set(files) <= set(PROTOCOL_FILES):
-        return None
-    major, minor = max(protocol_at(wt, "HEAD"), protocol_at(wt, branch))
-    minor += 1
-    toml = git(wt, "show", f"HEAD:{PROTOCOL_FILES[0]}").stdout
-    mirror = git(wt, "show", f"HEAD:{PROTOCOL_FILES[1]}").stdout
-    toml = re.sub(r"^major\s*=\s*\d+", f"major = {major}", toml, flags=re.M)
-    toml = re.sub(r"^minor\s*=\s*\d+", f"minor = {minor}", toml, flags=re.M)
-    mirror = re.sub(r"PROTOCOL_VERSION = \{[^}]*\}",
-                    f"PROTOCOL_VERSION = {{ major: {major}, minor: {minor} }}", mirror)
-    for path, text in zip(PROTOCOL_FILES, (toml, mirror)):
-        with open(os.path.join(wt, path), "w") as f:
-            f.write(text)
-        git(wt, "add", path)
-    git(wt, "commit", "-q", "--no-edit")
-    return f"{major}.{minor}"
-
-
 def prepare(root, wt, base):
     git(root, "worktree", "prune")
     if not os.path.isdir(os.path.join(wt, ".git")) and not os.path.isfile(os.path.join(wt, ".git")):
@@ -262,8 +228,7 @@ def merge_pass(root, only, skip):
             continue
         pre = out(wt, "rev-parse", "HEAD")
         done = git(wt, "merge", "--no-ff", "--no-edit", "-q", branch, check=False)
-        own = own_protocol(wt, branch) if done.returncode != 0 else None
-        if done.returncode != 0 and own is None:
+        if done.returncode != 0:
             files = out(wt, "diff", "--name-only", "--diff-filter=U").splitlines()
             git(wt, "merge", "--abort", check=False)
             rows.append((branch, "skipped (conflict: " + ", ".join(files or ["unknown"]) + ")", ""))
@@ -274,7 +239,7 @@ def merge_pass(root, only, skip):
             continue
         for v in added:
             taken[v] = branch
-        rows.append((branch, "merged", head + (f" (protocol: preview's own {own})" if own else "")))
+        rows.append((branch, "merged", head))
 
     head = out(wt, "rev-parse", "--short", "HEAD")
     warnings = []

@@ -244,3 +244,25 @@ export const HandedOverWithNoAccount: Story = {
     await expect(within(handoff).queryByText("Trying to")).toBeNull();
   },
 };
+
+/** A running turn marks the thread's end: on the last tool group's row when that is last, else a row of its own. Ended, no mark. */
+export const WorkingMark: Story = {
+  args: { rows: WORKED.slice(0, 4), working: true },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("img", { name: "Working" })).toBeInTheDocument();
+  },
+};
+
+export const WorkingMarkAfterAMessage: Story = {
+  args: { rows: [WORKED[0]!, WORKED[4]!], working: true },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("img", { name: "Working" })).toBeInTheDocument();
+  },
+};
+
+export const NotWorkingNoMark: Story = {
+  args: { rows: WORKED.slice(0, 4), working: false },
+  play: async ({ canvas }) => {
+    await expect(canvas.queryByRole("img", { name: "Working" })).toBeNull();
+  },
+};

@@ -13,7 +13,7 @@ const BACKFILL = 2048;
 
 const OPENED: TurnMessage & { message: "opened" } = {
   message: "opened",
-  protocol_version: { major: 4, minor: 12 },
+  protocol_id: "0000000000000000",
   job_id: "01M1HQZAKN001AJ5MT3PT09KKY",
   live: true,
   skipped: 3,
@@ -117,7 +117,7 @@ describe("a transcript backfill, folded", () => {
 describe("a log backfill, folded", () => {
   const OPENED_LOG: JournalMessage = {
     message: "opened",
-    protocol_version: { major: 4, minor: 12 },
+    protocol_id: "0000000000000000",
     job_id: "01M1HQZAKN001AJ5MT3PT09KKY",
     skipped: 2,
   };

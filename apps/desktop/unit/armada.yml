@@ -39,7 +39,6 @@ depends_on:
   - "packages/surfaces/*/package.json"
   - "packages/surfaces/*/src/api.ts"
   - "crates/core-model/domain/**"
-  - "protocol-version.toml"
   - "package.json"
   - "pnpm-lock.yaml"
   - "pnpm-workspace.yaml"

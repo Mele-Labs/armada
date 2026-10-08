@@ -8,7 +8,7 @@
 //! no networking at all.
 
 use futures_util::StreamExt;
-use ipc::{StreamMessage, PROTOCOL_VERSION};
+use ipc::{ProtocolId, StreamMessage};
 use std::time::Duration;
 use tokio::io::DuplexStream;
 use tokio_tungstenite::tungstenite::Message;
@@ -42,7 +42,7 @@ async fn a_connection_opens_with_a_resync_and_then_carries_events() {
     let StreamMessage::Resync(resync) = read(&mut socket).await else {
         panic!("the first message is the resync — a reconnecting client must not have to ask");
     };
-    assert_eq!(resync.protocol_version, PROTOCOL_VERSION);
+    assert_eq!(resync.protocol_id, ProtocolId::current());
     assert_eq!(resync.cursor.position(), 0);
     assert!(resync.jobs.jobs.is_empty());
 

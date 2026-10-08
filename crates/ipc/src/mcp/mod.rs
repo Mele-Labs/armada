@@ -1,10 +1,10 @@
 //! The Evidence tool's transport: JSON-RPC in, JSON-RPC out.
 //!
 //! **A different seam from the rest of this crate.** Everything else here is
-//! the Fleet/Bridge wire, versioned by `protocol-version.toml`. This is the
+//! the Fleet/Bridge wire, identified by its protocol ID. This is the
 //! Fleet/Drone wire, versioned by the MCP revision the client names. So no type
 //! below is in `operations/` or in `api`'s `SERVED` table, and none is
-//! subject to the minor/major rules — a Drone is spawned by the Fleet it
+//! subject to the protocol ID — a Drone is spawned by the Fleet it
 //! reports to and cannot be skewed against it.
 //!
 //! # Four methods, hand-written, and no library
