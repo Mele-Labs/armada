@@ -52,3 +52,4 @@ export * from "./tab-wave";
 export * from "./wave";
 export * from "./wave-plan";
 export * from "./open-job";
+export type { AddedBinding } from "./added-steps";

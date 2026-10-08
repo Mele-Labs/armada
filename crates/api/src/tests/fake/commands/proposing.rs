@@ -105,6 +105,7 @@ impl FakeDaemon {
             paused: None,
             fixes_main: None,
             piloted: None,
+            alert: None,
         };
         self.jobs.lock().expect("not poisoned").push(job.clone());
         self.proposed_by.lock().expect("not poisoned").push(by);

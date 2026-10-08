@@ -154,6 +154,70 @@ export const HeldWithFleetsOffers: Story = {
   },
 };
 
+/** The agent asking the person: options and Other, a multi-select, and Answer held until each has something. */
+export const Questions: Story = {
+  args: {
+    rows: ROWS,
+    asked: {
+      command: "Which toppings?",
+      offers: [
+        { id: "allow_once", label: "Allow once", means: "" },
+        { id: "refuse", label: "Refuse", means: "" },
+      ],
+      questions: [
+        {
+          question: "Which toppings?",
+          header: "Toppings",
+          multi_select: true,
+          options: [
+            { label: "cheese", description: "Melted" },
+            { label: "ham", description: "Cured" },
+          ],
+        },
+        {
+          question: "Which size?",
+          header: "Size",
+          multi_select: false,
+          options: [
+            { label: "S", description: "Small" },
+            { label: "L", description: "Large" },
+          ],
+        },
+      ],
+    },
+  },
+  play: async ({ canvas, args }) => {
+    const answer = canvas.getByRole("button", { name: "Answer" });
+    await expect(answer).toBeDisabled();
+    await userEvent.click(canvas.getByRole("checkbox", { name: "cheese" }));
+    await userEvent.click(canvas.getByRole("checkbox", { name: "ham" }));
+    await expect(answer).toBeDisabled();
+    await userEvent.click(canvas.getByRole("radio", { name: "Other" }));
+    await userEvent.type(canvas.getByRole("textbox", { name: "Other" }), "Medium, if you have it");
+    await expect(answer).toBeEnabled();
+    await userEvent.click(answer);
+    await expect(args.onAnswer).toHaveBeenCalledWith("allow_once", [
+      { question: "Which toppings?", chosen: ["cheese", "ham"] },
+      { question: "Which size?", chosen: ["Medium, if you have it"] },
+    ]);
+  },
+};
+
+/** A question can be skipped, which the agent is told. */
+export const QuestionsSkipped: Story = {
+  args: {
+    rows: ROWS,
+    asked: {
+      command: "Which size?",
+      questions: [{ question: "Which size?", header: "", multi_select: false, options: [{ label: "S", description: "" }, { label: "L", description: "" }] }],
+    },
+  },
+  play: async ({ canvas, args }) => {
+    await userEvent.click(canvas.getByRole("button", { name: "Skip" }));
+    await expect(args.onAnswer).toHaveBeenCalledWith("refuse");
+  },
+};
+
 /** A Job taken over from a gate or an escalation: no Drone said what it was stuck on, so the Drone's account is not drawn, and neither is any other group with nothing in it. */
 export const HandedOverWithNoAccount: Story = {
   args: {

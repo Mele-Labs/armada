@@ -237,6 +237,13 @@ approximations.
 - [`spikes/027-how-does-fleet-deliver-text-to-a-live-terminal-session.md`](spikes/027-how-does-fleet-deliver-text-to-a-live-terminal-session.md)
   — the mod in a terminal session submits held text as the person's own prompt;
   Fleet holds it until the mod polls.
+- [`spikes/028-can-a-session-be-forked-from-a-dead-one.md`](spikes/028-can-a-session-be-forked-from-a-dead-one.md)
+  — `--resume <old> --fork-session --session-id <new>` copies a conversation under
+  an id Fleet chooses, from any directory.
+- [`spikes/029-why-a-sessions-auto-asked-and-how-a-question-is-answered.md`](spikes/029-why-a-sessions-auto-asked-and-how-a-question-is-answered.md)
+  — what a Session's `auto` asked that it should not have, the permission tool
+  answering `AskUserQuestion` with an `answers` map, and the write gate placing a
+  slot the agent leased.
 
 Raw transcripts sit beside each record. A negative result is a result and stays.
 
@@ -283,6 +290,7 @@ can find them.
 | Running a whole milestone from one approval, wave by wave | `epic-as-one-job` |
 | Moving the owner's Fleet and Bridge onto a merged fix | `restart-app` |
 | Merging in-flight branches into a preview, and moving the owner onto it | `preview-app` |
+| Moving the owner onto latest main and the newest mod, when he types /update-armada | `update-armada` |
 | Merging this session's pull request once `ci` is green, when the owner types /land | `land` |
 | Walking the owner through what this session left waiting on him, one question at a time | `review-open-items` |
 | Asking the code graph how something works | `gitnexus-exploring` |

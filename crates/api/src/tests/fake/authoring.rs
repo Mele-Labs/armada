@@ -52,4 +52,91 @@ impl Authoring for FakeDaemon {
             waits_for_main: false,
         })
     }
+
+    /// Refuses as Fleet does where nothing waits, which is all a daemon that
+    /// runs no Trigger can honestly say.
+    async fn choose_trigger_fix(
+        self: std::sync::Arc<Self>,
+        job_id: ipc::JobId,
+        choose: ipc::ChooseTriggerFix,
+    ) -> Result<ipc::TriggerFixChosen, Refusal> {
+        let held = self.jobs.lock().expect("not poisoned");
+        if !held.iter().any(|job| job.id == job_id) {
+            return Err(self.no_such_job(&job_id));
+        }
+        Err(Refusal::IllegalMove(ipc::WireError::raised(
+            "fleet.no_fix_waiting",
+            format!(
+                "no fix for `{}` is waiting on a choice",
+                choose.trigger.or(choose.addition).unwrap_or_default()
+            ),
+            crate::tests::shapes::run_id(),
+        )))
+    }
+
+    /// Refuses as Fleet does where nothing holds the Job, which is all a daemon
+    /// that runs no Trigger can honestly say.
+    async fn rerun_trigger(
+        self: std::sync::Arc<Self>,
+        job_id: ipc::JobId,
+        act: ipc::HoldAct,
+    ) -> Result<ipc::HoldSettled, Refusal> {
+        self.no_hold(job_id, act)
+    }
+
+    async fn skip_trigger(
+        &self,
+        job_id: ipc::JobId,
+        act: ipc::HoldAct,
+    ) -> Result<ipc::HoldSettled, Refusal> {
+        self.no_hold(job_id, act)
+    }
+
+    async fn add_job_step(
+        &self,
+        _job_id: ipc::JobId,
+        add: ipc::AddStep,
+    ) -> Result<ipc::AddedStep, Refusal> {
+        Ok(ipc::AddedStep {
+            id: String::from("a1"),
+            runs: add.runs,
+            when: add.when,
+            step: add.step,
+            block: add.block,
+            repair: add.repair,
+            placed: ipc::AddedPlaced::Running,
+            added_at: ipc::Instant::carried("2026-10-07T10:00:00.000Z"),
+            state: ipc::TriggerFiringState::Pending,
+            skipped: None,
+            exit_code: None,
+            started_at: None,
+            ended_at: None,
+            log_at: None,
+            kept: None,
+            repair_record: None,
+        })
+    }
+
+    async fn remove_job_step(
+        &self,
+        _job_id: ipc::JobId,
+        remove: ipc::RemoveAddedStep,
+    ) -> Result<ipc::AddedStepRemoved, Refusal> {
+        Ok(ipc::AddedStepRemoved { id: remove.id })
+    }
+}
+
+impl FakeDaemon {
+    fn no_hold(&self, job_id: ipc::JobId, act: ipc::HoldAct) -> Result<ipc::HoldSettled, Refusal> {
+        let held = self.jobs.lock().expect("not poisoned");
+        if !held.iter().any(|job| job.id == job_id) {
+            return Err(self.no_such_job(&job_id));
+        }
+        let named = act.trigger.or(act.addition).unwrap_or_default();
+        Err(Refusal::IllegalMove(ipc::WireError::raised(
+            "fleet.no_hold",
+            format!("nothing named `{named}` holds this Job"),
+            crate::tests::shapes::run_id(),
+        )))
+    }
 }

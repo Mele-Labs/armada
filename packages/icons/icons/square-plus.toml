@@ -5,3 +5,11 @@
   status = "Specified"
   reserved = "Adding one node to a canvas: the sketch pad's box, and the Studio rail's own kinds where a kind has no glyph of its own. Never composing a Job, which is `plus`, and never a generic add anywhere off a canvas."
   notes = "Added 2026-09-28 with the canvas rail (#1626's annotation run). `plus` alone was refused by its own reservation, which is the title row's Dispatch segment and nothing else: a bare cross means *open the composer*, and a canvas rail carrying it would say a box and a Job are the same act. Enclosing the cross is what makes the claim specific — the square is the thing being added, which is literally what a box on the sketch pad is. Against the rail it joins it collides with nothing: `pencil` is a held instrument on a diagonal, `undo-2` an arrow bending back, `link` a chain, `sticky-note` a square with one corner peeled, `shapes` three overlapping figures. The objection to expect is `sticky-note`, also a square: they differ inside rather than on the outline, which rule 3 normally refuses — admitted because the rail draws at 16px where a peeled corner survives, and because the two never appear in the same rail. Refused: `plus-circle`, since `circle-*` is reserved to Judge criterion verdicts outright; `square-dashed`, which reads as a placeholder or a selection region rather than an act."
+
+  [[icons.square-plus.usage]]
+    means = "The + that adds a step to one Job: between steps on a Job's canvas, in its stacked run and on the approval canvas"
+    group = "Trigger"
+    size = "16px"
+    status = "Specified"
+    reserved = "Adding a step to one Job from its workflow. Never composing a Job, which is `plus`."
+    notes = "Ruled by the owner 7 Oct 2026 on the walk `addAStepToAJob`, stacked view included, which is not a canvas."

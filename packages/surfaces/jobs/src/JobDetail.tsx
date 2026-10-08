@@ -10,7 +10,7 @@
 // `tab-workflow.tsx`, `tab-plan.tsx`, `tab-record.tsx`, `tab-drones.tsx`,
 // `tab-pulse.tsx`, `tab-settings.tsx`.
 
-import { JobDetailHeaderActions, type JobResourcesProps } from "@armada/components";
+import { JobDetailHeaderActions, TriggerAlertMark, triggerAlert, type JobResourcesProps } from "@armada/components";
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { useAtFloor, useNarrow } from "@armada/shell";
 
@@ -32,7 +32,7 @@ import {
 } from "./resources";
 import { pulseViewOf } from "./draft/pulse";
 import { NO_SHEET, sheetMoved } from "./Sheets";
-import type { FollowedLog, JobDetail as JobWhole, ToProposer } from "@armada/protocol";
+import type { FollowedLog, JobDetail as JobWhole, JobTrigger, ToProposer } from "@armada/protocol";
 import { openArtifact } from "@armada/screens/src/opening";
 import { ManifestChecks } from "./ManifestChecks";
 import { OverviewTab } from "./tab-overview";
@@ -54,6 +54,7 @@ import { PlanTab } from "./tab-plan";
 import { PulseTab } from "./tab-pulse";
 import { checkRowOf, RecordTab, type CheckAt } from "./tab-record";
 import { JobCheckLogSheet, type JobCheckLog } from "./check-log-sheet";
+import { TriggerLogSheet } from "./trigger-log-sheet";
 import { useCheckOutputs, useFollowing } from "./outputs";
 
 /** What `followed` reads as where the caller hands none in. `tab-overview.tsx`'s own. */
@@ -257,6 +258,8 @@ function OneJob(props: JobDetailProps) {
   // them is under**, so one press opens one panel whichever drew the strip,
   // and another Job opens with none.
   const [checkLog, setCheckLog] = useState<JobCheckLog | null>(null);
+  // The Trigger whose line in the Job's log is open.
+  const [triggerLog, setTriggerLog] = useState<JobTrigger | null>(null);
   // Whether this Job's retro is open over the Record. `docs/concepts/retro.md`.
   const [retroOpen, setRetroOpen] = useState(false);
   useEffect(() => setCheckLog(null), [job.id]);
@@ -396,7 +399,12 @@ function OneJob(props: JobDetailProps) {
 
   return (
     <div className="armada-screen__detail" ref={screen} {...{ [OPEN_JOB_ATTRIBUTE]: job.id }}>
-      <JobDetailHeaderActions {...heading} onCopied={props.onCopied} />
+      <JobDetailHeaderActions
+        {...heading}
+        // A fix held for him, or a repair that found none, is the Job's alert.
+        {...(whole === null || !(whole.job.alert !== undefined || triggerAlert(whole.triggers ?? [], whole.additions ?? [])) ? {} : { mark: <>{heading.mark}<TriggerAlertMark /></> })}
+        onCopied={props.onCopied}
+      />
       {/* Under the header and above the strip, because a job that was replaced
           is where a person lands and no one destination can say so. #1439. */}
       {replacedCallout(whole?.replaced_by, props.onOpenJob)}
@@ -458,6 +466,7 @@ function OneJob(props: JobDetailProps) {
             setTab("record");
           }}
           onOpenCheckLog={setCheckLog}
+          onOpenTriggerLog={setTriggerLog}
           {...(props.onOpenMainLog === undefined ? {} : { onOpenMainLog: props.onOpenMainLog })}
           // The lead's approval act: the header's own control, drawn twice.
           headerActs={heading.actions}
@@ -477,7 +486,10 @@ function OneJob(props: JobDetailProps) {
                       ? {}
                       : { onToProposer: (body: ToProposer) => props.onToProposer!(whole.job.id, body) })}
                     machineCap={props.machineCap ?? null}
+                    {...(props.added === undefined ? {} : { added: props.added })}
                     {...(props.onOpenStudio === undefined ? {} : { onOpenStudio: props.onOpenStudio })}
+                    {...(props.onChooseTriggerFix === undefined ? {} : { onChooseTriggerFix: props.onChooseTriggerFix })}
+          {...(props.onHoldAct === undefined ? {} : { onHoldAct: props.onHoldAct })}
                   />
                 ),
               }
@@ -491,7 +503,10 @@ function OneJob(props: JobDetailProps) {
                       whole={whole}
                       edits={held.frozen ?? proposalEditsOfWhole(whole, props.machineCap ?? null)}
                       life={lifeOf(whole, waveReadingOf(whole, props.draft, props.board ?? []), stepLinesOf(whole, drones))}
+                      {...(props.added === undefined ? {} : { added: props.added })}
                       {...(props.onOpenStudio === undefined ? {} : { onOpenStudio: props.onOpenStudio })}
+                      {...(props.onChooseTriggerFix === undefined ? {} : { onChooseTriggerFix: props.onChooseTriggerFix })}
+                      {...(props.onHoldAct === undefined ? {} : { onHoldAct: props.onHoldAct })}
                       onOpenJob={openJob}
                       {...(props.onSetLandingTarget === undefined
                         ? {}
@@ -539,6 +554,7 @@ function OneJob(props: JobDetailProps) {
       ) : tab === "workflow" ? (
         <WorkflowTab
           key={landed}
+          {...(props.added === undefined ? {} : { added: props.added })}
           pulse={{ resources: props.resources, examination: props.examination, onNeedPulse: props.onNeedPulse }}
           job={job}
           whole={whole}
@@ -567,6 +583,8 @@ function OneJob(props: JobDetailProps) {
           answered={props.answered}
           onRerun={props.onRerun}
           onRerunChecks={props.onRerunChecks}
+          {...(props.onChooseTriggerFix === undefined ? {} : { onChooseTriggerFix: props.onChooseTriggerFix })}
+          {...(props.onHoldAct === undefined ? {} : { onHoldAct: props.onHoldAct })}
           // Where a step panel's plan card goes. The strip is this screen's,
           // so the run asks for the destination rather than moving one itself,
           // and the jump leaves a way back to the step (`trail.ts`).
@@ -769,6 +787,9 @@ function OneJob(props: JobDetailProps) {
           floor={floor}
           onClose={() => setCheckLog(null)}
         />
+      )}
+      {triggerLog === null ? null : (
+        <TriggerLogSheet trigger={triggerLog} jobId={job.id} journalled={props.journalled} floor={floor} onClose={() => setTriggerLog(null)} />
       )}
       {retroOpen ? (
         <JobRetroSheet

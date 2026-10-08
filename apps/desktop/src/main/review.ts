@@ -263,7 +263,7 @@ export function decide(
 }
 
 /**
- * Merge pressed while the forge's checks run (`enable_job_auto_merge`, since protocol 23.67): the
+ * Merge pressed while the forge's checks run (`enable_job_auto_merge`, since protocol 23.74): the
  * forge merges when they pass and the Job stays at its gate. **Sent under the caller's one-in-flight
  * guard, as `merge` is.** The pull request as the forge shows it afterwards rides on the outcome.
  */

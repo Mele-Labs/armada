@@ -360,3 +360,43 @@ fn a_session_held_slot_is_released_with_its_files_committed_for_the_holder_shown
         adapter_traits::SlotParkRefused::HolderChanged(_)
     ));
 }
+
+/// A repair's branch goes once its fix is placed or the repair failed, and
+/// only after the slot that wrote it has been given back.
+#[test]
+fn a_repair_branch_is_deleted_once_its_slot_is_parked_and_not_before() {
+    let repo = a_repository();
+    let pool = slots(&repo, 1);
+    let (slot, _) = leased(&repo, &pool, "repair-1-a-job-3", "01JOB-repair-3");
+    let repair = spec(&repo, "repair-1-a-job-3");
+
+    let refused = GitVcs
+        .delete_repair_branch(&repair)
+        .expect_err("checked out");
+    assert!(!refused.0.is_empty(), "{refused:?}");
+    assert!(branch_exists(&repo, &repair.branch()));
+
+    GitVcs
+        .park_slot(&pool, slot, "01JOB-repair-3")
+        .expect("parked");
+    assert_eq!(GitVcs.delete_repair_branch(&repair), Ok(true));
+    assert!(
+        !branch_exists(&repo, &repair.branch()),
+        "the branch is deleted"
+    );
+    assert_eq!(
+        GitVcs.delete_repair_branch(&repair),
+        Ok(false),
+        "already gone is not a failure"
+    );
+}
+
+fn branch_exists(repo: &TempRepo, branch: &str) -> bool {
+    std::process::Command::new("git")
+        .arg("-C")
+        .arg(repo.root())
+        .args(["rev-parse", "--verify", "--quiet", branch])
+        .status()
+        .expect("git on PATH")
+        .success()
+}

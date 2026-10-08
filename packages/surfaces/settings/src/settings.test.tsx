@@ -28,3 +28,13 @@ test("Settings draws Fleet's limits and this machine's settings under Helm's doc
   // over the content rather than out of it.
   await openHelm();
 });
+
+test("Settings offers a draft pull request as this machine's default, and keeps it once Fleet has it", async () => {
+  const scenario = onBoard([]);
+  mount({ ...scenario, state: { ...scenario.state, limits: LIMITS } }, { slices: ["core", "settings"] });
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  const draft = page.getByRole("switch", { name: "Draft pull requests" });
+  await expect.element(draft).not.toBeChecked();
+  await page.getByText("Draft pull requests").click();
+  await expect.element(draft).toBeChecked();
+});

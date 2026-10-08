@@ -69,6 +69,7 @@ impl Rig {
                     job_id: ipc::JobId::from(job),
                     outcome: PilotOutcome::TakeOver,
                 }),
+                fork: None,
             })
             .await
     }
@@ -414,6 +415,7 @@ async fn the_commands_an_agent_names_reach_the_session_and_every_other() {
             effort: None,
             mode: None,
             pilot: None,
+            fork: None,
         })
         .await
         .unwrap();

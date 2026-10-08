@@ -11,7 +11,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::helm_call::{HelmCallAnswer, HelmCallInFlight};
+use crate::helm_call::{HelmCallAnswer, HelmCallInFlight, QuestionAnswer};
 use crate::ids::{Instant, JobId, ManifestId};
 use crate::piloting::{DroneNarrative, PilotOutcome};
 use crate::sessions::{SessionId, SessionRecord};
@@ -53,6 +53,19 @@ pub struct StartSession {
     /// so `manifest_id` is not read.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pilot: Option<PilotFrom>,
+    /// Start as a copy of an ended or dead session's conversation. Since 23.69.
+    ///
+    /// The new session has its own id, ledger and slot, and holds none of the
+    /// old one's. Refused where that session is live or unknown. `manifest_id`
+    /// is read as for any start.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fork: Option<ForkFrom>,
+}
+
+/// The session a new one is forked from. Since 23.69.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ForkFrom {
+    pub session_id: SessionId,
 }
 
 /// The Job a session starts by taking over. Since 23.51.
@@ -125,6 +138,9 @@ pub struct AnswerSessionAsk {
     pub answer: HelmCallAnswer,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub note: Option<String>,
+    /// One entry per question, for an ask that carries some. Since 23.71.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub answers: Vec<QuestionAnswer>,
 }
 
 /// `tune_session`: what the next turn runs on. An absent model or effort is the

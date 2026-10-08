@@ -19,7 +19,8 @@ use std::time::Duration;
 use adapter_traits::CallDetail;
 use core_model::Timestamp;
 use ipc::{
-    AnswerHelmCall, AskingToRun, HelmCallAnswer, HelmCallInFlight, Instant, ManifestId, RunOrNot,
+    AnswerHelmCall, AskingToRun, HelmCallAnswer, HelmCallInFlight, Instant, ManifestId,
+    QuestionAnswer, RunOrNot,
 };
 use tokio::sync::oneshot;
 
@@ -49,6 +50,8 @@ pub struct Said {
     pub answer: HelmCallAnswer,
     /// Their words, on a refusal. Trimmed away where they typed nothing.
     pub note: Option<String>,
+    /// What was chosen, for a call that asked questions.
+    pub answers: Vec<QuestionAnswer>,
 }
 
 /// Why an answer did not land.
@@ -59,6 +62,9 @@ pub enum NotAnswerable {
     NothingWaiting,
     /// An answer outside what that call offered.
     NotOffered,
+    /// A question with no answer, or an answer to one that was not asked. The
+    /// ask stays on the table.
+    Incomplete,
 }
 
 /// One ask, and the half of the channel its answer goes down.
@@ -107,7 +113,12 @@ impl Asks {
         asking: &AskingToRun,
         at: &Timestamp,
     ) -> (HelmCallInFlight, oneshot::Receiver<Said>) {
-        let detail = CallDetail::of(asking.detail().unwrap_or_default().trim());
+        let questions = asking.questions();
+        let wording = asking
+            .detail()
+            .or_else(|| questions.first().map(|first| first.question.as_str()))
+            .unwrap_or_default();
+        let detail = CallDetail::of(wording.trim());
         let call = format!(
             "helm-{}",
             self.minted.fetch_add(1, Ordering::SeqCst).wrapping_add(1)
@@ -123,6 +134,7 @@ impl Asks {
             rule: rule_for(&asking.tool_name, detail.whole().unwrap_or(detail.shown())),
             offers: offers_for(&asking.tool_name),
             holding_for_seconds: self.hold().as_secs(),
+            questions,
         };
         let (sender, receiver) = oneshot::channel();
         if let Ok(mut waiting) = self.waiting.lock() {
@@ -151,6 +163,11 @@ impl Asks {
         if !held.in_flight.offers.contains(&said.answer) {
             return Err(NotAnswerable::NotOffered);
         }
+        if said.answer == HelmCallAnswer::AllowOnce
+            && !answers_every(&held.in_flight, &said.answers)
+        {
+            return Err(NotAnswerable::Incomplete);
+        }
         let held = waiting
             .remove(&said.call)
             .ok_or(NotAnswerable::NothingWaiting)?;
@@ -165,6 +182,7 @@ impl Asks {
                 .map(str::trim)
                 .filter(|note| !note.is_empty())
                 .map(str::to_string),
+            answers: said.answers.clone(),
         });
         Ok(in_flight)
     }
@@ -196,12 +214,28 @@ impl Asks {
 /// writes a settings rule, and a tool whose rule would be its bare name is
 /// still a rule the CLI honours — so every tool offers all three, and the
 /// narrowing that a Drone's `offers` does by policy has no equivalent here.
-fn offers_for(_tool: &str) -> Vec<HelmCallAnswer> {
+fn offers_for(tool: &str) -> Vec<HelmCallAnswer> {
+    // A question is answered or skipped. There is no rule to remember.
+    if tool == ipc::ASKS_A_QUESTION {
+        return vec![HelmCallAnswer::AllowOnce, HelmCallAnswer::Refuse];
+    }
     vec![
         HelmCallAnswer::AllowOnce,
         HelmCallAnswer::AllowAndRemember,
         HelmCallAnswer::Refuse,
     ]
+}
+
+/// Whether `answers` has an entry, with something chosen, for each question the
+/// call asked and for no other. A call with no questions takes none.
+fn answers_every(asked: &HelmCallInFlight, answers: &[QuestionAnswer]) -> bool {
+    answers.len() == asked.questions.len()
+        && asked.questions.iter().all(|question| {
+            answers.iter().any(|one| {
+                one.question == question.question
+                    && one.chosen.iter().any(|chosen| !chosen.trim().is_empty())
+            })
+        })
 }
 
 /// The rule that would have to allow this call, in the CLI's own settings
@@ -233,6 +267,9 @@ pub fn rule_for(tool: &str, detail: &str) -> String {
 /// why.
 pub fn answering(asking: &AskingToRun, said: &Said) -> RunOrNot {
     match said.answer {
+        HelmCallAnswer::AllowOnce if asking.tool_name == ipc::ASKS_A_QUESTION => RunOrNot::Allow {
+            updated_input: asking.answered(&said.answers),
+        },
         HelmCallAnswer::AllowOnce | HelmCallAnswer::AllowAndRemember => RunOrNot::Allow {
             updated_input: asking.input.clone(),
         },

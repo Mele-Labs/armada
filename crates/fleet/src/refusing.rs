@@ -228,6 +228,7 @@ const NO_STEP_TO_REDO: &str = "fleet.no_step_to_redo";
 /// never asked, and what a person does next is resolve the conflict rather
 /// than retry the approval. `#691`.
 const UNPUSHED_DELIVERY: &str = "fleet.unpushed_delivery";
+const TRIGGER_HOLDS: &str = "fleet.trigger_holds";
 /// The base branch is protected. **Its own code, and the whole reason the
 /// refusal kinds are not one**: what answers this is an administrator or a
 /// rule, and nothing a person does to the Job changes it.
@@ -829,6 +830,11 @@ where
             Adrift::UnpushedDelivery { job, .. } => Refusal::IllegalMove(
                 WireError::raised(UNPUSHED_DELIVERY, said, self.run_id())
                     .about_job(ipc::JobId::from(job)),
+            ),
+            Adrift::TriggerHolds { job, trigger } => Refusal::IllegalMove(
+                WireError::raised(TRIGGER_HOLDS, said, self.run_id())
+                    .about_job(ipc::JobId::from(job))
+                    .with_field("trigger", WireValue::Str(trigger.clone())),
             ),
             // **One code per kind, decided from the typed kind and never from
             // the sentence.** This is the arm the decision "a refused merge

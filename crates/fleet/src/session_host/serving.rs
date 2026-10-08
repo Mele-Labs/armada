@@ -21,10 +21,11 @@ use super::address_of;
 use super::process::{Heard, Start};
 use super::rows::{mention_line, new_id, safe_name, UserLine};
 use crate::daemon::Fleet;
+use crate::helm::NotAnswerable;
 use crate::repositories::Served;
 
 /// A session id that names nothing. A 422.
-const NO_SUCH_SESSION: &str = "fleet.no_such_session";
+pub(super) const NO_SUCH_SESSION: &str = "fleet.no_such_session";
 /// A message or a tune to a session that was closed. A 409.
 const SESSION_CLOSED: &str = "fleet.session_closed";
 /// A message with neither words nor a file. A 422.
@@ -35,6 +36,12 @@ const ATTACHMENT_REFUSED: &str = "fleet.session_attachment_refused";
 const SESSION_UNSTARTED: &str = "fleet.session_unstarted";
 /// An answer naming no ask that is waiting. A 409.
 const SESSION_ASK_NOT_WAITING: &str = "fleet.session_ask_not_waiting";
+
+/// An answer to an ask with questions that leaves one unanswered. A 422.
+const SESSION_ANSWER_INCOMPLETE: &str = "fleet.session_answer_incomplete";
+/// How Fleet signs a word it sends a session: a named voice beside the sessions that write to
+/// one, so no new kind of row reaches Bridge.
+pub(crate) const FLEET_NAME: &str = "Fleet";
 
 /// The most one attachment may be, decoded.
 const MOST_AN_ATTACHMENT: usize = 25 * 1024 * 1024;
@@ -77,6 +84,9 @@ where
         if let Some(from) = start.pilot.take() {
             return self.start_piloted(start, from).await;
         }
+        if let Some(from) = start.fork.take() {
+            return self.start_forked(start, from).await;
+        }
         let served = self.served_named(Some(&start.manifest_id))?;
         let id = new_id();
         let now = self.now().as_str().to_string();
@@ -102,6 +112,7 @@ where
                     ended_at: None,
                     end_reason: None,
                     figures: Default::default(),
+                    mod_version: None,
                 })
                 .map_err(|why| self.ledger_fault(why))?;
             store
@@ -114,6 +125,7 @@ where
                     ran: false,
                     lease_slot: None,
                     lease_branch: None,
+                    fork_of: None,
                 })
                 .map_err(|why| self.ledger_fault(why))?;
         }
@@ -132,78 +144,7 @@ where
             paths.extend(kept.picture_paths);
             return self.send_to_terminal(&session, sent, addressed, paths).await;
         }
-        let (session, hosting) = self.session_and_hosting(&id).await?;
-        if session.state == store::SessionState::Ended {
-            return Err(self.closed(&id));
-        }
-        let text = sent.text.trim().to_string();
-        if text.is_empty() && sent.attachments.is_empty() {
-            return Err(self.hosted_refusal(
-                MESSAGE_EMPTY,
-                "a message needs words or something sent with it",
-            ));
-        }
-        let kept = self.keep_uploads(&id, &sent.attachments)?;
-        let addressed = self.addressed(&sent.mentions).await?;
-        let now = self.instant();
-        self.row_put(
-            &id,
-            SessionRow::Message {
-                id: self.row_id(&id),
-                at: now,
-                from: SessionVoice::You,
-                text: text.clone(),
-                files: kept.files.clone(),
-                tags: sent.mentions.clone(),
-            },
-        )
-        .await;
-        self.noted_on_the_ledger(&session, &sent.mentions, &text)
-            .await?;
-
-        let mut turn = String::new();
-        if !hosting.ran {
-            if let Some(preface) = self.handoff_preface(&id).await {
-                turn.push_str(&preface);
-                turn.push_str("\n\nThe person's first message:\n\n");
-            }
-        }
-        if let Some(line) = mention_line(&addressed) {
-            turn.push_str(&line);
-            turn.push_str("\n\n");
-        }
-        turn.push_str(&text);
-        for path in &kept.paths {
-            turn.push_str(&format!("\n\nAttached file: {path}"));
-        }
-        let line = ipc::encode(&UserLine::of(turn, kept.pictures))
-            .map_err(|why| self.hosted_refusal(SESSION_UNSTARTED, &why.to_string()))?;
-
-        let runtime = self.hosts().of(&id);
-        self.ensure_process(&id, &hosting)
-            .await
-            .map_err(|why| self.hosted_fault(SESSION_UNSTARTED, &why))?;
-        {
-            let mut state = runtime.state();
-            state.queued += 1;
-            state.turn = SessionTurn::Working { woken_by: None };
-            state.last_active = std::time::Instant::now();
-            if let Some(process) = &state.process {
-                process.send(line);
-            }
-        }
-        if self.hosts().start_sweeping() {
-            let fleet = Arc::clone(&self);
-            let every =
-                (self.hosts().quiet() / 4).clamp(Duration::from_secs(1), Duration::from_secs(30));
-            tokio::spawn(async move {
-                loop {
-                    tokio::time::sleep(every).await;
-                    fleet.sweep_quiet().await;
-                }
-            });
-        }
-        self.published_hosted(&id).await
+        self.send_hosted(sent, SessionVoice::You).await
     }
 
     async fn answer_session_ask(&self, said: AnswerSessionAsk) -> Result<SessionRecord, Refusal> {
@@ -225,8 +166,16 @@ where
                 call: said.call,
                 answer: said.answer,
                 note: said.note,
+                answers: said.answers,
             })
-            .map_err(|_| self.ask_not_waiting())?;
+            .map_err(|why| match why {
+                NotAnswerable::Incomplete => Refusal::Unacceptable(WireError::raised(
+                    SESSION_ANSWER_INCOMPLETE,
+                    "that ask has questions, and each needs an answer",
+                    self.run_id(),
+                )),
+                _ => self.ask_not_waiting(),
+            })?;
         self.published_hosted(&id).await
     }
 
@@ -520,6 +469,123 @@ where
         Ok(kept)
     }
 
+    /// Fleet's own word to a session, started as a turn that wakes it. **Drawn as Fleet's** in a
+    /// hosted thread, and held for the mod to submit in a terminal one, whose thread Fleet cannot
+    /// write to. `Ok(false)` where there is nobody to tell: the session ended, or a terminal one
+    /// that is not listening, and a caller asks again later.
+    pub(crate) async fn told_by_fleet(
+        self: &Arc<Self>,
+        session: &str,
+        text: &str,
+    ) -> Result<bool, Refusal> {
+        if let Some(terminal) = self.terminal_session(session).await? {
+            if terminal.state == store::SessionState::Ended {
+                return Ok(false);
+            }
+            let said = format!("{FLEET_NAME}: {text}");
+            return Ok(self.hosts().terminals().hold(session, said, super::terminal::LISTENING_FOR));
+        }
+        let (kept, _) = self.session_and_hosting(session).await?;
+        if kept.state == store::SessionState::Ended {
+            return Ok(false);
+        }
+        let sent = SendSessionMessage {
+            session_id: SessionId::carried(session),
+            text: text.to_string(),
+            attachments: Vec::new(),
+            mentions: Vec::new(),
+        };
+        let from = SessionVoice::Session {
+            id: FLEET_NAME.to_lowercase(),
+            title: FLEET_NAME.to_string(),
+        };
+        Arc::clone(self).send_hosted(sent, from).await.map(|_| true)
+    }
+
+    /// A message to a session Fleet hosts, written to its thread as `from` and started as a turn.
+    /// **`You` is a person's; Fleet's own notices come through [`Self::told_by_fleet`].**
+    async fn send_hosted(
+        self: Arc<Self>,
+        sent: SendSessionMessage,
+        from: SessionVoice,
+    ) -> Result<SessionRecord, Refusal> {
+        let id = sent.session_id.as_str().to_string();
+        let (session, hosting) = self.session_and_hosting(&id).await?;
+        if session.state == store::SessionState::Ended {
+            return Err(self.closed(&id));
+        }
+        let text = sent.text.trim().to_string();
+        if text.is_empty() && sent.attachments.is_empty() {
+            return Err(self.hosted_refusal(
+                MESSAGE_EMPTY,
+                "a message needs words or something sent with it",
+            ));
+        }
+        let kept = self.keep_uploads(&id, &sent.attachments)?;
+        let addressed = self.addressed(&sent.mentions).await?;
+        let now = self.instant();
+        self.row_put(
+            &id,
+            SessionRow::Message {
+                id: self.row_id(&id),
+                at: now,
+                from: from.clone(),
+                text: text.clone(),
+                files: kept.files.clone(),
+                tags: sent.mentions.clone(),
+            },
+        )
+        .await;
+        if from == SessionVoice::You {
+            self.noted_on_the_ledger(&session, &sent.mentions, &text)
+                .await?;
+        }
+
+        let mut turn = String::new();
+        if !hosting.ran {
+            if let Some(preface) = self.handoff_preface(&id).await {
+                turn.push_str(&preface);
+                turn.push_str("\n\nThe person's first message:\n\n");
+            }
+        }
+        if let Some(line) = mention_line(&addressed) {
+            turn.push_str(&line);
+            turn.push_str("\n\n");
+        }
+        turn.push_str(&text);
+        for path in &kept.paths {
+            turn.push_str(&format!("\n\nAttached file: {path}"));
+        }
+        let line = ipc::encode(&UserLine::of(turn, kept.pictures))
+            .map_err(|why| self.hosted_refusal(SESSION_UNSTARTED, &why.to_string()))?;
+
+        let runtime = self.hosts().of(&id);
+        self.ensure_process(&id, &hosting)
+            .await
+            .map_err(|why| self.hosted_fault(SESSION_UNSTARTED, &why))?;
+        {
+            let mut state = runtime.state();
+            state.queued += 1;
+            state.turn = SessionTurn::Working { woken_by: None };
+            state.last_active = std::time::Instant::now();
+            if let Some(process) = &state.process {
+                process.send(line);
+            }
+        }
+        if self.hosts().start_sweeping() {
+            let fleet = Arc::clone(&self);
+            let every =
+                (self.hosts().quiet() / 4).clamp(Duration::from_secs(1), Duration::from_secs(30));
+            tokio::spawn(async move {
+                loop {
+                    tokio::time::sleep(every).await;
+                    fleet.sweep_quiet().await;
+                }
+            });
+        }
+        self.published_hosted(&id).await
+    }
+
     /// Each session a message names, with the address another session writes
     /// to where Fleet hosts it.
     pub(crate) async fn addressed(
@@ -658,6 +724,7 @@ where
             directory: directory.clone(),
             session: id.to_string(),
             resuming: hosting.ran,
+            forking: hosting.fork_of.clone(),
             name: address_of(id),
             model: hosting.model.clone(),
             effort: hosting.effort.clone(),

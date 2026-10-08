@@ -33,6 +33,7 @@ import { useEffect, useState } from "react";
 import type { BridgeState } from "../../shared/bridge";
 import type { SavingWorkflow } from "../../shared/workflows";
 import type { EditManifest, SaveManifestFile } from "@armada/protocol";
+import { triggerActs } from "./trigger-commands";
 import type { AddKitServer, ManifestReach, ReachesDrones } from "@armada/protocol";
 import type {
   AddTask,
@@ -255,6 +256,7 @@ export const readWorkflows = () => window.armada.readWorkflows();
 export const readWorkflowDefinition = (workflowId: string, source: string) =>
   window.armada.readWorkflowDefinition(workflowId, source);
 export const saveWorkflow = (saving: SavingWorkflow) => window.armada.saveWorkflow(saving);
+export { readTriggers, readTrigger, saveTrigger, removeTrigger } from "./trigger-commands";
 export const addKitServer = (adding: AddKitServer) => window.armada.addKitServer(adding);
 export const forgetKitServer = (name: string) => window.armada.forgetKitServer(name);
 export const setKitServerReach = (name: string, drones: ReachesDrones) =>
@@ -312,6 +314,7 @@ export type Sending = {
  */
 export function useCommands(sending: Sending) {
   const [outcome, setOutcome] = useState<Outcome | null>(null);
+  const triggers = triggerActs(setOutcome);
   // The trackpad, for the finger that pressed. Every act on a Job answers through `heard`.
   const tap = useHaptics();
   // A press a freeze took and holds. Its own state: `outcome` draws refusals, and this is not one.
@@ -1050,12 +1053,17 @@ export function useCommands(sending: Sending) {
     deciding,
     decidingAct,
     /** The answer the open Job's pressed control shows, where the last one was on it. */
-    forgeReadingOn: (jobId: string): PullRequestState | undefined =>
-      forgeReading?.jobId === jobId ? forgeReading.state : undefined,
+    /** Merge at the review gate: the press, the auto-merge press while checks run, and what the forge showed after it. */
+    mergeProps: (jobId: string) => ({
+      onMergePullRequest: (id: string) => void decide(id, "merge"),
+      onAutoMergePullRequest: (id: string) => void decide(id, "merge", "", false, true),
+      forgeReading: forgeReading?.jobId === jobId ? forgeReading.state : undefined,
+    }),
     answeredOn: (jobId: string): ActAnswer | undefined =>
       lastAnswer?.jobId === jobId ? lastAnswer.answered : undefined,
     takeUpRemarks,
     fixMain,
+    ...triggers,
     dismissFinding,
     rerunFailedChecks,
     investigateFailedChecks,

@@ -234,6 +234,13 @@ pub enum Adrift {
     /// person would be approving, and there is no call that takes it there
     /// regardless.
     UnpushedDelivery { job: JobId, why: String },
+    /// A Trigger or an added step that blocks failed, and the Job waits on it.
+    /// **Raised for an approval or a merge at the gate it holds**, and by
+    /// [`put_a_drone_on`](crate::daemon::Fleet::put_a_drone_on) once it has
+    /// stopped the Job before a Drone, as `NoWorktree` is. Nothing moves for the
+    /// first; the Job is `escalated` on `trigger_held` for the second. The
+    /// owner's Rerun or Skip lets it go.
+    TriggerHolds { job: JobId, trigger: String },
     /// The forge would not merge the pull request, and which kind of would-not
     /// it was.
     ///

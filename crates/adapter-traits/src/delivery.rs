@@ -105,6 +105,16 @@ pub enum BroughtUpToDate {
     PutBack { base: String, files: Vec<String> },
 }
 
+/// What merging one local branch into the worktree's own came to.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum BranchMerged {
+    /// The worktree's branch holds the other, by fast-forward or a merge commit.
+    Merged,
+    /// It would conflict in these files, so the worktree is **put back exactly
+    /// as it was** and nothing is left half-merged.
+    PutBack { files: Vec<String> },
+}
+
 /// What became of the push.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Pushed {
@@ -695,6 +705,13 @@ pub trait Delivery {
         base: &Base,
     ) -> Result<BroughtUpToDate, NotDelivered>;
 
+    /// Merge the local branch `branch` into the one this worktree has checked
+    /// out. **A conflict is put back and never left in the files**, because
+    /// the caller is Fleet bringing a repair's fix onto a Job's branch and no
+    /// Drone follows to clear markers.
+    fn merge_branch(&self, worktree: &Worktree, branch: &str)
+        -> Result<BranchMerged, NotDelivered>;
+
     /// Put the branch on the remote, under its own name.
     fn push(&self, worktree: &Worktree) -> Result<Pushed, NotDelivered>;
 
@@ -802,6 +819,14 @@ pub trait Delivery {
     /// `None` is the forge's silence; an empty list is a repository with none
     /// open.
     fn open_pull_requests(&self, in_repo: &str) -> Option<crate::OpenPulls>;
+
+    /// The merge queue of `base`, one forge call. `None` is the forge's silence.
+    fn merge_queue(&self, in_repo: &str, base: &str) -> Option<crate::MergeQueue>;
+
+    /// The same pull requests as a watcher reads them: every check on the newest commit with its
+    /// log address, whether it conflicts with the base, and where the merge queue holds it. **One
+    /// forge call for all of them.** `None` is the forge's silence.
+    fn pull_watch(&self, in_repo: &str) -> Option<crate::WatchedPulls>;
 
     /// Put a commit status under `context` on `commit`, replacing the one
     /// there. **A write to the forge, and the one Fleet makes unprompted**: it

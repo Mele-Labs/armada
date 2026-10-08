@@ -21,7 +21,7 @@ pub(crate) mod unanswered;
 pub use asking::{answering, unanswered, Asks, HelmAskHold, NotAnswerable, Said};
 pub use brief::{brief, Brief, Voice};
 pub use conversation::{ConversationKey, Conversations};
-pub use deciding::{because, Because};
+pub use deciding::{because, because_in_a_session, Because};
 #[cfg(test)]
 pub(crate) use hosting::REPLY_BUDGET;
 pub use hosting::{Carried, Carry, Carrying, Heard, Hosting, ProcessHost};

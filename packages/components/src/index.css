@@ -387,12 +387,14 @@
 @import "./compositions/PausedMark/PausedMark.css";
 @import "./compositions/PauseConfirm/PauseConfirm.css";
 @import "./compositions/WorkflowCreator/WorkflowCreator.css";
+@import "./compositions/WorkflowTriggers/WorkflowTriggers.css";
 @import "./compositions/OwnerChip/OwnerChip.css";
 @import "./compositions/SessionFrame/SessionFrame.css";
 @import "./compositions/SessionThread/SessionThread.css";
 @import "./compositions/SessionComposer/SessionComposer.css";
 @import "./compositions/Pilot/Pilot.css";
 @import "./compositions/PullRequestActs/PullRequestActs.css";
+@import "./compositions/ForkedFrom/ForkedFrom.css";
 @import "./compositions/SessionLedger/SessionLedger.css";
 @import "./compositions/SessionList/SessionList.css";
 

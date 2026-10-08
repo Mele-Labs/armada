@@ -29,6 +29,13 @@ use crate::harness::HeadlessAgent;
 /// mod in a terminal session reports under, so the two are one harness.
 pub const HOSTED_HARNESS: &str = "claude_code";
 
+/// The same manifest as it lies in the installed copy of the mod, under its folder.
+pub const MOD_INSTALLED_MANIFEST: &str = "armada/.claude-plugin/plugin.json";
+
+/// Where a repository keeps the manifest of the `armada` mod its sessions load, which says the
+/// version the mod should be at.
+pub const MOD_MANIFEST: &str = "plugins/armada/.claude-plugin/plugin.json";
+
 /// The tools a hosted session's first write is held on. **`Bash` is among
 /// them** and a line is told read from write by [`reads_only`].
 const GATED_TOOLS: &str = "Write|Edit|NotebookEdit|Bash";
@@ -39,6 +46,8 @@ pub struct HostedLaunch {
     directory: String,
     session: String,
     resuming: bool,
+    /// The session whose conversation this one begins as a copy of.
+    fork_of: Option<String>,
     name: String,
     model: Option<Model>,
     effort: Option<String>,
@@ -96,6 +105,7 @@ impl HostedLaunch {
             directory: directory.to_string(),
             session: session.to_string(),
             resuming,
+            fork_of: None,
             name: name.to_string(),
             model,
             effort: effort.map(str::to_string),
@@ -105,6 +115,21 @@ impl HostedLaunch {
             gate: gate.to_string(),
             readable,
         })
+    }
+}
+
+impl HostedLaunch {
+    /// Begin as a copy of `old`'s conversation, under this launch's own id.
+    /// **Only the first process forks**: once `resuming`, the session has a
+    /// conversation of its own and resumes that.
+    pub fn forking(mut self, old: &str) -> Result<HostedLaunch, HostedRefused> {
+        if !portable(old) {
+            return Err(HostedRefused::SessionNotPortable {
+                given: old.to_string(),
+            });
+        }
+        self.fork_of = Some(old.to_string());
+        Ok(self)
     }
 }
 
@@ -208,12 +233,19 @@ impl HeadlessAgent {
             args.push("--add-dir".into());
             args.push(directory.clone());
         }
-        args.push(if hosted.resuming {
-            "--resume".into()
-        } else {
-            "--session-id".into()
-        });
-        args.push(hosted.session.clone());
+        match (&hosted.fork_of, hosted.resuming) {
+            (Some(old), false) => {
+                args.push("--resume".into());
+                args.push(old.clone());
+                args.push("--fork-session".into());
+                args.push("--session-id".into());
+                args.push(hosted.session.clone());
+            }
+            (_, resuming) => {
+                args.push(if resuming { "--resume" } else { "--session-id" }.into());
+                args.push(hosted.session.clone());
+            }
+        }
         let borrowed = DroneSpawnConfig::spawn_in(
             &Worktree::at(hosted.directory.clone(), ""),
             hosted

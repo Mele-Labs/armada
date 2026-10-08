@@ -140,7 +140,7 @@ where
             async move {
                 match left {
                     Some(left) => fleet.approve_as_left(&job_id.to_domain(), &left).await,
-                    None => fleet.approve(&job_id.to_domain()).await,
+                    None => fleet.approve_as_proposed(&job_id.to_domain()).await,
                 }
             }
         })

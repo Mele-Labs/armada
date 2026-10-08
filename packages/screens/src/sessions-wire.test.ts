@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { Attachment, JobSummary, SessionRecord, SessionRow } from "@armada/protocol";
 import { job } from "./fixtures/build/base";
-import { attachmentsOfRecord, cleanTitle, jobStateOf, numberOf, rowsOfThread, sessionOfRecord, sessionsOfRecords } from "./sessions-wire";
+import { ENDED_LISTED_DAYS, attachmentsOfRecord, cleanTitle, jobStateOf, numberOf, rowsOfThread, sessionOfRecord, sessionsOfRecords } from "./sessions-wire";
 import type { Beside } from "./sessions-wire";
 import { ownerOf, sessionsMatching } from "./draft/sessions";
 
@@ -287,6 +287,23 @@ describe("a session", () => {
     expect(session.lastTurn).toMatch(/^\d\d:\d\d$/);
   });
 
+  it("carries the agent's questions on its ask", () => {
+    const questions = [{ question: "Which size?", header: "Size", multi_select: false, options: [{ label: "S", description: "Small" }] }];
+    const session = sessionOfRecord(
+      record("01ABCDEFGHJKMNPQRSTVWXYZ01", {
+        hosted: {
+          turn: { state: "working" },
+          mode: "auto",
+          running: true,
+          asked: { call: "c", manifest_id: "armada", asked_at: AT, tool: "AskUserQuestion", detail: "Which size?", truncated: false, rule: "AskUserQuestion", offers: ["allow_once", "refuse"], holding_for_seconds: 60, questions },
+        },
+      }),
+      undefined,
+      beside(),
+    );
+    expect(session.asked).toMatchObject({ command: "Which size?", call: "c", questions });
+  });
+
   it("is a blank one until it has been written to, titled or finished a turn, even before its thread is opened", () => {
     expect(sessionOfRecord(record("a"), undefined, beside()).blank).toBe(true);
     expect(sessionOfRecord(record("a", { title: "Named" }), undefined, beside()).blank).toBe(false);
@@ -298,7 +315,7 @@ describe("a session", () => {
     expect(sessionOfRecord(rest, undefined, beside())).toMatchObject({ terminal: true });
   });
 
-  it("lists only the sessions still open, and who owns a branch is the one holding it across repositories", () => {
+  it("lists the sessions still open and the ones that ended, and who owns a branch is the one holding it across repositories", () => {
     const sessions = sessionsOfRecords(
       [
         record("a", { title: "Mine", attachments: [held("branch", "fix/x"), held("slot", "3")] }),
@@ -308,9 +325,62 @@ describe("a session", () => {
       {},
       () => beside(),
     );
-    expect(sessions.map((one) => one.id)).toEqual(["a", "b"]);
+    expect(sessions.map((one) => one.id)).toEqual(["a", "b", "c"]);
+    expect(sessions[2]).toMatchObject({ dead: "ended", attachments: [] });
     expect(ownerOf(sessions, { kind: "branch", name: "feat/y" })?.id).toBe("b");
     expect(ownerOf(sessions, { kind: "branch", name: "old" })).toBeUndefined();
     expect(sessionsMatching(sessions, "feat/y").map((hit) => hit.session.id)).toEqual(["b"]);
+  });
+
+  it("marks a session that ended more than a week ago, and leaves open ones and recent ones unmarked", () => {
+    const now = Date.parse(AT);
+    const day = 24 * 60 * 60 * 1000;
+    const ago = (days: number) => new Date(now - days * day).toISOString();
+    const sessions = sessionsOfRecords(
+      [
+        record("open", { last_seen_at: ago(30) }),
+        record("recent", { state: "ended", last_seen_at: ago(ENDED_LISTED_DAYS - 1) }),
+        record("old", { state: "ended", last_seen_at: ago(ENDED_LISTED_DAYS + 1) }),
+      ],
+      {},
+      () => beside(),
+      now,
+    );
+    expect(sessions.filter((one) => one.older === true).map((one) => one.id)).toEqual(["old"]);
+  });
+});
+
+describe("a session nothing can be said to", () => {
+  const { hosted: _hosted, ...asTerminal } = record("t", { origin: "terminal" });
+
+  it("is a terminal session whose mod has not asked lately, and not one whose mod has", () => {
+    expect(sessionOfRecord(asTerminal, undefined, beside()).dead).toBe("quiet");
+    expect(sessionOfRecord({ ...asTerminal, terminal: { listening: true } }, undefined, beside()).dead).toBeUndefined();
+  });
+
+  it("stays quiet however long ago it was seen, and is not marked older, which only an ended session is", () => {
+    const old = "2026-01-01T00:00:00Z";
+    const [session] = sessionsOfRecords([{ ...asTerminal, last_seen_at: old }], {}, () => beside(), Date.parse(AT));
+    expect(session).toMatchObject({ dead: "quiet" });
+    expect(session?.older).toBeUndefined();
+  });
+
+  it("is never a hosted session that is open, whatever its process is doing", () => {
+    expect(sessionOfRecord(record("h"), undefined, beside()).dead).toBeUndefined();
+  });
+
+  it("is any session that ended, and one that ended with a terminal still listening is ended", () => {
+    expect(sessionOfRecord(record("h", { state: "ended" }), undefined, beside()).dead).toBe("ended");
+    expect(sessionOfRecord({ ...asTerminal, state: "ended", terminal: { listening: true } }, undefined, beside()).dead).toBe("ended");
+  });
+
+  it("keeps the link to its forks and nothing else it held", () => {
+    const ended = record("old", {
+      state: "ended",
+      attachments: [held("branch", "fix/x"), held("slot", "3"), held("forked_to", "new", {}, "spent")],
+    });
+    expect(sessionOfRecord(ended, undefined, beside()).attachments).toEqual([{ kind: "forked_to", id: "new" }]);
+    const fork = record("new", { attachments: [held("forked_from", "old", {}, "spent")] });
+    expect(sessionOfRecord(fork, undefined, beside()).attachments).toEqual([{ kind: "forked_from", id: "old" }]);
   });
 });

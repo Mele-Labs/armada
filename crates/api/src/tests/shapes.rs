@@ -195,6 +195,7 @@ pub fn job_at(id: &str, spelling: &str) -> JobSummary {
         paused: None,
         fixes_main: None,
         piloted: None,
+        alert: None,
     }
 }
 
@@ -293,6 +294,7 @@ pub fn manifest_declared() -> ipc::ManifestDeclared {
         quiet_after_seconds: None,
         poke_limit: None,
         exclude_paths: Vec::new(),
+        pr_mode: None,
     }
 }
 
@@ -354,6 +356,7 @@ pub fn detail(job: JobSummary) -> JobDetail {
         tiers: ipc::TierModels::default(),
         drone_cap: None,
         landing: None,
+        pr_mode_default: None,
         policy_overrides: None,
         approved_at: None,
         review_step: None,
@@ -388,6 +391,7 @@ pub fn detail(job: JobSummary) -> JobDetail {
         // The fake keeps no walk notes.
         walk_notes: Vec::new(),
         triggers: Vec::new(),
+        additions: Vec::new(),
     }
 }
 

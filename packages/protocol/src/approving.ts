@@ -4,6 +4,7 @@
 // The header rules in `protocol.ts` hold: hand-written, and every closed set
 // left as `string`.
 
+import type { AddStep } from "./added-steps";
 import type { TierModels } from "./work-plan";
 
 /**
@@ -28,6 +29,8 @@ export type ApproveDispatch = {
   landing?: LandingChoice;
   /** One per step a person tuned, `gates`' shape; a step left out runs as declared. Since 23.20. */
   tuning?: StepTuning[];
+  /** Steps for this Job only, placed at the press. Left out keeps what was placed; `[]` clears it. Since 23.68. */
+  additions?: AddStep[];
 };
 
 /**

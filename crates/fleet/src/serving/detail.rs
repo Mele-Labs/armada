@@ -380,6 +380,10 @@ where
                 .map_err(|why| self.refusal(Adrift::Reading(why)))?;
             crate::job_triggers(&frozen, &firings)
         };
+        detail.additions = self
+            .additions_served(job.id())
+            .await
+            .map_err(|why| self.refusal(why))?;
         let reviewed = self
             .store()
             .lock()

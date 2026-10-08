@@ -75,3 +75,38 @@ test("a landed pull request wears the Job's own badge for how it ended, and its 
   await expect.element(notes.getByText("Closed without merging", { exact: true })).toBeVisible();
 });
 
+
+test("each entry names who it came from: a Session by its title, a Job by its title, nobody by nothing", async () => {
+  mount("merge-line-owners");
+  await onScreen();
+
+  await row().click();
+  const line = panel("Merge line");
+  const entry = (branch: string) => line.getByRole("listitem", { name: new RegExp(`^${branch}`) });
+  await expect.element(entry("fix/pin-store-clock").getByRole("button", { name: "Pull request #1861" })).toHaveTextContent("Pin the store clock");
+  await expect.element(entry("fix/61-order-store-migrations").getByText("Order the store migrations")).toBeVisible();
+  const bare = entry("docs/typo-in-the-readme").element();
+  expect(bare.querySelector(".armada-merge-line__owner")).toBeNull();
+  expect(bare.querySelector(".armada-owner-chip")).toBeNull();
+
+  await entry("fix/pin-store-clock").getByRole("button", { name: "Pull request #1861" }).click();
+  await expect.element(page.getByRole("group", { name: "Owned by Pin the store clock" })).toBeVisible();
+});
+
+test("an open pull request wears its merge queue mark and place, and its owner", async () => {
+  mount("merge-queue");
+  await onScreen();
+
+  await row().click();
+  const line = panel("Merge line");
+  const entry = (branch: string) => line.getByRole("listitem", { name: new RegExp(`^${branch}`) });
+  await expect.element(entry("fix/61-order-store-migrations").getByRole("img", { name: "In the merge queue, running its checks" })).toBeVisible();
+  await expect.element(entry("fix/61-order-store-migrations")).toHaveTextContent("#1");
+  await expect.element(entry("fix/pin-store-clock").getByRole("img", { name: "In the merge queue, waiting its turn" })).toBeVisible();
+  await expect.element(entry("docs/typo-in-the-readme").getByRole("img", { name: "Waiting for ci to join the merge queue" })).toBeVisible();
+  await expect.element(entry("chore/bump-the-lockfile").getByRole("img", { name: "In the merge queue, cannot merge" })).toBeVisible();
+  await expect.element(entry("fix/pin-store-clock").getByRole("button", { name: "Pull request #1861" })).toBeVisible();
+  const order = [...line.element().querySelectorAll('ul[aria-label="Open pull requests"] > li')].map((li) => li.getAttribute("aria-label")?.split(",")[0]);
+  expect(order).toEqual(["fix/61-order-store-migrations", "fix/pin-store-clock", "chore/bump-the-lockfile", "docs/typo-in-the-readme", "wip/not-in-the-queue"]);
+  expect(entry("wip/not-in-the-queue").element().querySelector(".armada-merge-line__place")?.textContent).toBe("");
+});

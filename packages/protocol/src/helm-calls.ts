@@ -54,7 +54,23 @@ export type HelmCallInFlight = {
   offers: HelmCallAnswer[];
   /** How long fleet holds the call open, from `asked_at`. Fleet's bound, said rather than derived. */
   holding_for_seconds: number;
+  /** The agent's questions, where the call is it asking the person. Absent for every other call. Since protocol 23.71. */
+  questions?: AskedQuestion[];
 };
+
+/** One question the agent put to the person. Since protocol 23.71. */
+export type AskedQuestion = {
+  /** Also the key its answer goes under. */
+  question: string;
+  header: string;
+  multi_select: boolean;
+  options: AskedChoice[];
+};
+
+export type AskedChoice = { label: string; description: string };
+
+/** What a person chose for one question: option labels, and their own words where they chose Other. Since protocol 23.71. */
+export type QuestionAnswer = { question: string; chosen: string[] };
 
 /** The request half of `answer_helm_call`. Since protocol 14.18. */
 export type AnswerHelmCall = {
@@ -62,6 +78,8 @@ export type AnswerHelmCall = {
   answer: HelmCallAnswer;
   /** Why, in the person's own words. **Only a refusal reads it.** */
   note?: string;
+  /** One entry per question, for a call that asked some. Since protocol 23.71. */
+  answers?: QuestionAnswer[];
 };
 
 /** What `list_helm_calls` and `answer_helm_call` answer. Since protocol 14.18. */

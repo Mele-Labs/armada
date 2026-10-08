@@ -62,6 +62,79 @@ impl AskingToRun {
     }
 }
 
+/// The tool whose call is a question for the person rather than a thing to
+/// run. Since 23.71.
+pub const ASKS_A_QUESTION: &str = "AskUserQuestion";
+
+/// One question the agent put to the person, as its tool sent it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AskedQuestion {
+    /// The question's text, which is also the key its answer goes under.
+    pub question: String,
+    #[serde(default)]
+    pub header: String,
+    /// The tool spells it `multiSelect`; the wire spells it `multi_select`.
+    #[serde(default, alias = "multiSelect")]
+    pub multi_select: bool,
+    #[serde(default)]
+    pub options: Vec<AskedChoice>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AskedChoice {
+    pub label: String,
+    #[serde(default)]
+    pub description: String,
+}
+
+/// What a person chose for one question: the labels of the options, and where
+/// they typed their own words (*Other*), those words as an entry. Since 23.71.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct QuestionAnswer {
+    pub question: String,
+    pub chosen: Vec<String>,
+}
+
+#[derive(Deserialize)]
+struct Questioned {
+    #[serde(default)]
+    questions: Vec<AskedQuestion>,
+}
+
+impl AskingToRun {
+    /// The questions of an [`ASKS_A_QUESTION`] call; empty for any other tool
+    /// and for input that carries none.
+    pub fn questions(&self) -> Vec<AskedQuestion> {
+        if self.tool_name != ASKS_A_QUESTION {
+            return Vec::new();
+        }
+        serde_json::from_value::<Questioned>(self.input.clone())
+            .map(|read| read.questions)
+            .unwrap_or_default()
+    }
+
+    /// The call's input with the person's answers filled in: the tool's
+    /// `answers` map, keyed by question text. **A multi-select answer is its
+    /// labels joined with `, `**, which is the form the agent CLI reads
+    /// (spike 29). Everything else in the input is carried as it came.
+    pub fn answered(&self, answers: &[QuestionAnswer]) -> serde_json::Value {
+        let mut input = self.input.clone();
+        let filled: serde_json::Map<String, serde_json::Value> = answers
+            .iter()
+            .map(|one| {
+                (
+                    one.question.clone(),
+                    serde_json::Value::String(one.chosen.join(", ")),
+                )
+            })
+            .collect();
+        if let Some(object) = input.as_object_mut() {
+            object.insert("answers".to_string(), serde_json::Value::Object(filled));
+        }
+        input
+    }
+}
+
 /// What the door answers the CLI with. **The whole vocabulary is two words**,
 /// and it is the harness's rather than Armada's.
 #[derive(Clone, Debug, PartialEq, Serialize)]
@@ -140,6 +213,10 @@ pub struct HelmCallInFlight {
     /// How long Fleet will hold the call open, in seconds, from `asked_at`. A
     /// surface says it rather than deriving it: the bound is Fleet's.
     pub holding_for_seconds: u64,
+    /// The questions, where the call is the agent asking the person
+    /// ([`ASKS_A_QUESTION`]). **Empty for every other call.** Since 23.71.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub questions: Vec<AskedQuestion>,
 }
 
 /// A person's answer to one Helm call. The request half of `answer_helm_call`.
@@ -154,6 +231,9 @@ pub struct AnswerHelmCall {
     /// its reason: the reason is in mind at the moment of refusing.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub note: Option<String>,
+    /// One entry per question, for a call that asked some. Since 23.71.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub answers: Vec<QuestionAnswer>,
 }
 
 /// `helm.asking_to_run`: a call is waiting on a person. **Absent from

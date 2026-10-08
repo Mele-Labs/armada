@@ -3,6 +3,13 @@
 
 const TITLE_MOST = 80
 
+/**
+ * The version this mod reports to Fleet, so Bridge can mark a session whose mod is older than the
+ * repository's. **Bump it with `version` in `.claude-plugin/plugin.json`**: the mod cannot read that
+ * file while it runs, and a Fleet test (`terminal_session.rs`) holds the two equal.
+ */
+export const MOD_VERSION = '0.3.0'
+
 // A harness wraps what it adds to a prompt in hyphenated tags. A command's and a reminder's
 // contents are the harness's words, so the whole block goes; any other wrapper, such as
 // `<agent-message from="…">`, only loses its tag and the words inside are the person's.

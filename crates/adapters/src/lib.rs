@@ -65,6 +65,7 @@ mod landing;
 pub mod leasing;
 mod main_ci;
 mod mcp;
+mod merge_queue;
 mod merging_in;
 mod merging_the_base_in;
 /// What a branch needs on a path, shared by `armada need` and Fleet's Jobs. `#1059`.
@@ -73,6 +74,7 @@ pub mod needs;
 pub mod onto_base;
 mod pull_request_diff;
 mod pull_request_facts;
+mod pull_watch;
 /// What a Link's address names, and the call that fetches it. `#1293`.
 mod reading_in;
 mod reclaim;
@@ -108,7 +110,7 @@ pub use harness::{
     ask_tool, checks_tool, dispatch_tool, evidence_server, evidence_tool, fix_tool, note_tool,
     permission_tool, scope_tool, server_tool, widen_tool, HarnessRefused, HeadlessAgent,
 };
-pub use hosted_session::{reads_only, HostedLaunch, HostedRefused, HOSTED_HARNESS};
+pub use hosted_session::{reads_only, HostedLaunch, HostedRefused, HOSTED_HARNESS, MOD_INSTALLED_MANIFEST, MOD_MANIFEST};
 pub use issue_lookup::IssueLookup;
 pub use mcp::{publish_the_agents_door, the_drones_servers, Published, REPOSITORY_CONFIG};
 pub use reading_in::{
@@ -117,7 +119,7 @@ pub use reading_in::{
     FORGE_HOST, MOST_ISSUES, SESSIONS,
 };
 pub use reclaim::{
-    delete_branch, reclaim, standing, BranchGone, BranchRefused, BranchStanding, Reclaimed,
+    delete_branch, delete_repair_branch, reclaim, standing, BranchGone, BranchRefused, BranchStanding, Reclaimed,
     RepoUnreadable, Standing, UnmergedWork, WorktreeGone, WorktreeStanding,
 };
 pub use remembering::{personal_settings, remember_the_rule, Remembered, PERSONAL_SETTINGS};

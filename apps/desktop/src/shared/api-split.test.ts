@@ -20,6 +20,8 @@ import type {
   LessonAnswer,
   LessonsRead,
   RetroRead,
+  ChooseTriggerFix,
+  HoldAct,
   ClearOutcome,
   AlwaysAllowScope,
   CommandAnswer,
@@ -135,6 +137,7 @@ import type {
   WorkflowSaveAnswer,
   WorkflowsRead,
 } from "./workflows";
+import type { AddingStep, AddStepAnswer, RemovingStep, RemoveStepAnswer } from "./added-steps";
 import type {
   ReadingTrigger,
   RemovingTrigger,
@@ -334,6 +337,11 @@ type OldBridgeApi = {
     readTrigger: (reading: ReadingTrigger) => Promise<TriggerDefinitionRead>;
     saveTrigger: (saving: SavingTrigger) => Promise<TriggerSaveAnswer>;
     removeTrigger: (removing: RemovingTrigger) => Promise<TriggerRemoveAnswer>;
+    chooseTriggerFix: (jobId: string, body: ChooseTriggerFix) => Promise<Outcome>;
+    rerunTrigger: (jobId: string, body: HoldAct) => Promise<Outcome>;
+    skipTrigger: (jobId: string, body: HoldAct) => Promise<Outcome>;
+    addJobStep: (adding: AddingStep) => Promise<AddStepAnswer>;
+    removeJobStep: (removing: RemovingStep) => Promise<RemoveStepAnswer>;
     pickRepository: (root: string | null) => Promise<void>;
     chooseFolder: () => Promise<string | null>;
     resolveFolder: (path: string) => Promise<string | null>;
@@ -418,6 +426,7 @@ type OldBridgeApi = {
     answerSessionAsk: (answer: AnswerSessionAsk) => Promise<SessionActed>;
     tuneSession: (tune: TuneSession) => Promise<SessionActed>;
     renameSession: (rename: RenameSession) => Promise<SessionActed>;
+    forkSession: (sessionId: string) => Promise<SessionActed>;
     closeSession: (sessionId: string) => Promise<SessionActed>;
     watchSession: (sessionId: string) => Promise<void>;
     readSessionFile: (sessionId: string, file: string) => Promise<FrameRead>;
@@ -581,6 +590,11 @@ const OLD_CHANNELS = {
     readTrigger: "bridge:read-trigger",
     saveTrigger: "bridge:save-trigger",
     removeTrigger: "bridge:remove-trigger",
+    chooseTriggerFix: "bridge:choose-trigger-fix",
+    rerunTrigger: "bridge:rerun-trigger",
+    skipTrigger: "bridge:skip-trigger",
+    addJobStep: "bridge:add-job-step",
+    removeJobStep: "bridge:remove-job-step",
     pickRepository: "bridge:pick-repository",
     chooseFolder: "bridge:choose-folder",
     resolveFolder: "bridge:resolve-folder",
@@ -656,6 +670,7 @@ const OLD_CHANNELS = {
     tap: "bridge:tap",
     startSession: "bridge:start-session",
     pilotJob: "bridge:pilot-job",
+    forkSession: "bridge:fork-session",
     exitPilot: "bridge:exit-pilot",
     sendSessionMessage: "bridge:send-session-message",
     answerSessionAsk: "bridge:answer-session-ask",

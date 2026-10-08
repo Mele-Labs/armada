@@ -57,6 +57,9 @@ export function appliedTo(declared: ManifestDeclared, edits: readonly ManifestEd
       case "set_freeze":
         next = { ...next, freeze: edit.freeze };
         break;
+      case "set_pr_mode":
+        next = keyed(next, "pr_mode", edit.pr_mode);
+        break;
       case "set_base":
         next = keyed(next, "base", edit.base);
         break;

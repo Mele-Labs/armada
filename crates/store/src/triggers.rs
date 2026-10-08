@@ -7,8 +7,8 @@
 //! column of the frozen one.
 
 use core_model::{
-    FrozenTrigger, JobId, OnTriggerFailure, StepId, Timestamp, TriggerFiring, TriggerResolution,
-    TriggerSkipped, TriggerSource, TriggerState, TriggerWhen,
+    FixChoice, FrozenTrigger, JobId, OnTriggerFailure, RepairRecord, StepId, Timestamp,
+    TriggerFiring, TriggerResolution, TriggerSkipped, TriggerSource, TriggerState, TriggerWhen,
 };
 
 use crate::error::{fault, LoadJobError, RowError, WriteError};
@@ -61,6 +61,11 @@ impl Store {
                 }
                 TriggerResolution::Skipped(TriggerSkipped::SkillNotRun { skill }) => {
                     ("skill", skill, false)
+                }
+                // Never a resolution: only the owner's skip of a held firing
+                // writes it, and that is a firing's.
+                TriggerResolution::Skipped(TriggerSkipped::ByOwner) => {
+                    ("skill", &String::new(), false)
                 }
             };
             tx.execute(
@@ -163,6 +168,7 @@ impl Store {
             Some(TriggerSkipped::SkillNotRun { skill }) => {
                 (Some("skill_not_run"), Some(skill.as_str()))
             }
+            Some(TriggerSkipped::ByOwner) => (Some("by_owner"), None),
             None => (None, None),
         };
         self.conn
@@ -210,19 +216,238 @@ impl Store {
         Ok(())
     }
 
+    /// Write what a firing's repair has come to: its state, the repair's own
+    /// record, and when it ended where it has.
+    pub fn settle_repair(
+        &mut self,
+        id: i64,
+        state: TriggerState,
+        repair: &RepairRecord,
+        ended_at: Option<&Timestamp>,
+    ) -> Result<(), WriteError> {
+        self.conn
+            .execute(
+                "UPDATE job_triggers SET state = ?2, repair_tries = ?3, repair_branch = ?4,
+                     fix_choice = ?5, fix_pr = ?6, ended_at = ?7, repair_settled_at = ?8,
+                     fix_files = ?9
+                 WHERE firing_id = ?1",
+                rusqlite::params![
+                    id,
+                    state.as_wire(),
+                    repair.tries,
+                    repair.branch,
+                    repair.choice.map(FixChoice::as_wire),
+                    repair.pull_request,
+                    ended_at.map(Timestamp::as_str),
+                    repair.settled_at.as_ref().map(Timestamp::as_str),
+                    repair.files.join("\n"),
+                ],
+            )
+            .map_err(fault("recording a trigger's repair"))
+            .map_err(WriteError::Database)?;
+        Ok(())
+    }
+
     /// Every firing for this Job, in the order they opened.
     pub fn trigger_firings(&self, job_id: &JobId) -> Result<Vec<TriggerFiring>, LoadJobError> {
+        Ok(self
+            .firings_with_ids(job_id)?
+            .into_iter()
+            .map(|(_, firing)| firing)
+            .collect())
+    }
+
+    /// [`trigger_firings`](Store::trigger_firings) with each firing's id, which
+    /// is what [`settle_repair`](Store::settle_repair) is asked by.
+    pub fn firings_with_ids(
+        &self,
+        job_id: &JobId,
+    ) -> Result<Vec<(i64, TriggerFiring)>, LoadJobError> {
+        Ok(self
+            .firings_where("job_id = ?1", &[&job_id.as_str()])?
+            .into_iter()
+            .map(|(_, id, firing)| (id, firing))
+            .collect())
+    }
+
+    /// Let go of, or take up again, a firing that held its Job: its state, the
+    /// way it ended, and whether the next entry to its moment must pass it by.
+    /// **`released` is set for `step_starts` only**: that is the one moment a
+    /// Job enters again after the hold, and re-firing it would undo the skip.
+    pub fn settle_hold(
+        &mut self,
+        id: i64,
+        after: &TriggerFiring,
+        released: bool,
+    ) -> Result<(), WriteError> {
+        let why = match &after.skipped {
+            Some(TriggerSkipped::ByOwner) => Some("by_owner"),
+            _ => None,
+        };
+        self.conn
+            .execute(
+                "UPDATE job_triggers SET state = ?2, exit_code = ?3, ended_at = ?4,
+                     skipped_why = COALESCE(?5, skipped_why), released = ?6
+                 WHERE firing_id = ?1",
+                rusqlite::params![
+                    id,
+                    after.state.as_wire(),
+                    after.exit_code,
+                    after.ended_at.as_ref().map(Timestamp::as_str),
+                    why,
+                    released,
+                ],
+            )
+            .map_err(fault("recording how a held trigger was settled"))
+            .map_err(WriteError::Database)?;
+        Ok(())
+    }
+
+    /// Whether a hold at `(when, step)` was let go since the Job last entered
+    /// it, and **forget that**: the entry that asks is the one that passes it.
+    /// Triggers and added steps both.
+    pub fn take_released_hold(
+        &mut self,
+        job_id: &JobId,
+        when: TriggerWhen,
+        step: &StepId,
+    ) -> Result<bool, WriteError> {
+        let writing = fault("passing a released hold");
+        let args = (job_id.as_str(), when.as_wire(), step.as_str());
+        let triggers = self
+            .conn
+            .execute(
+                "UPDATE job_triggers SET released = 0
+                 WHERE job_id = ?1 AND moment = ?2 AND step_id = ?3 AND released = 1",
+                args,
+            )
+            .map_err(writing)
+            .map_err(WriteError::Database)?;
+        let additions = self
+            .conn
+            .execute(
+                "UPDATE job_additions SET released = 0
+                 WHERE job_id = ?1 AND moment = ?2 AND step_id = ?3 AND released = 1",
+                args,
+            )
+            .map_err(fault("passing a released hold"))
+            .map_err(WriteError::Database)?;
+        Ok(triggers + additions > 0)
+    }
+
+    /// The firings that hold this Job: the latest of each Trigger at its
+    /// moment, blocking, with its failure not settled.
+    pub fn holding_firings(
+        &self,
+        job_id: &JobId,
+    ) -> Result<Vec<(i64, TriggerFiring)>, LoadJobError> {
+        Ok(self
+            .firings_where(
+                "job_id = ?1 AND block_on_fail = 1
+                 AND state IN ('held', 'repairing', 'rerunning', 'fix_ready')
+                 AND firing_id IN (SELECT MAX(firing_id) FROM job_triggers
+                                   GROUP BY job_id, name, moment, step_id)",
+                &[&job_id.as_str()],
+            )?
+            .into_iter()
+            .map(|(_, id, firing)| (id, firing))
+            .collect())
+    }
+
+    /// Firings whose repair has not finished: `repairing`, or `rerunning` on
+    /// either branch. What a restarted Fleet takes up again.
+    pub fn unfinished_repairs(&self) -> Result<Vec<(JobId, i64, TriggerFiring)>, LoadJobError> {
+        self.firings_where("state IN ('repairing', 'rerunning')", &[])
+    }
+
+    /// Firings whose repair ended and left its branch behind: placed on the
+    /// Job's, or failed. **Never a `new_pr` one**, whose branch is the pull
+    /// request's head.
+    pub fn repair_branches_left(&self) -> Result<Vec<(JobId, i64, TriggerFiring)>, LoadJobError> {
+        self.firings_where(
+            "repair_branch IS NOT NULL AND state IN ('passed', 'failed', 'held')
+             AND (fix_choice IS NULL OR fix_choice = 'this_branch')",
+            &[],
+        )
+    }
+
+    /// Fixes the owner chose a place for that have not been placed yet.
+    pub fn chosen_fixes(&self) -> Result<Vec<(JobId, i64, TriggerFiring)>, LoadJobError> {
+        self.firings_where("state = 'fix_ready' AND fix_choice IS NOT NULL", &[])
+    }
+
+    /// What is waiting on a person: a fix with no choice, a Trigger that
+    /// failed after a repair was tried, and one that holds its Job. **Only the latest firing of a Trigger
+    /// counts**, so a later pass clears it, and a Job whose disk was given back
+    /// has none.
+    pub fn repairs_waiting_on_a_person(
+        &self,
+    ) -> Result<Vec<(JobId, i64, TriggerFiring)>, LoadJobError> {
+        self.firings_where(
+            "firing_id IN (SELECT MAX(firing_id) FROM job_triggers
+                            GROUP BY job_id, name, moment, step_id)
+             AND job_id IN (SELECT job_id FROM jobs WHERE reclaimed_at IS NULL)
+             AND ((state = 'failed' AND repair_tries > 0)
+                  OR (state = 'fix_ready' AND fix_choice IS NULL)
+                  OR state = 'held')",
+            &[],
+        )
+    }
+
+    /// What on this Job waits on a person, by the rule
+    /// [`repairs_waiting_on_a_person`](Store::repairs_waiting_on_a_person) has
+    /// for the whole board: a hold, a fix with no choice, a failure after a
+    /// repair was tried.
+    pub fn alerting_firings(
+        &self,
+        job_id: &JobId,
+    ) -> Result<Vec<(i64, TriggerFiring)>, LoadJobError> {
+        Ok(self
+            .firings_where(
+                "job_id = ?1
+                 AND firing_id IN (SELECT MAX(firing_id) FROM job_triggers
+                                   GROUP BY job_id, name, moment, step_id)
+                 AND ((state = 'failed' AND repair_tries > 0)
+                      OR (state = 'fix_ready' AND fix_choice IS NULL)
+                      OR state = 'held')",
+                &[&job_id.as_str()],
+            )?
+            .into_iter()
+            .map(|(_, id, firing)| (id, firing))
+            .collect())
+    }
+
+    /// Set the `released` mark on a firing a repair let go, for the next
+    /// entry to a `step_starts` moment to pass it by.
+    pub fn mark_hold_released(&mut self, id: i64) -> Result<(), WriteError> {
+        self.conn
+            .execute(
+                "UPDATE job_triggers SET released = 1 WHERE firing_id = ?1 AND moment = 'step_starts'",
+                (id,),
+            )
+            .map_err(fault("recording that a repair let a hold go"))
+            .map_err(WriteError::Database)?;
+        Ok(())
+    }
+
+    fn firings_where(
+        &self,
+        clause: &str,
+        params: &[&dyn rusqlite::ToSql],
+    ) -> Result<Vec<(JobId, i64, TriggerFiring)>, LoadJobError> {
         let mut statement = self
             .conn
-            .prepare(
+            .prepare(&format!(
                 "SELECT name, moment, step_id, source, state, skipped_why, skipped_name,
-                     exit_code, block_on_fail, repair_on_fail, started_at, ended_at
-                 FROM job_triggers WHERE job_id = ?1 ORDER BY firing_id",
-            )
+                     exit_code, block_on_fail, repair_on_fail, started_at, ended_at,
+                     firing_id, repair_tries, repair_branch, fix_choice, fix_pr,
+                     repair_settled_at, job_id, fix_files
+                 FROM job_triggers WHERE {clause} ORDER BY firing_id"
+            ))
             .map_err(fault("reading a job's trigger firings"))
             .map_err(LoadJobError::Database)?;
         let rows = statement
-            .query_map((job_id.as_str(),), |row| {
+            .query_map(params, |row| {
                 Ok((
                     row.get::<_, String>(0)?,
                     row.get::<_, String>(1)?,
@@ -236,6 +461,14 @@ impl Store {
                     row.get::<_, bool>(9)?,
                     row.get::<_, String>(10)?,
                     row.get::<_, Option<String>>(11)?,
+                    row.get::<_, i64>(12)?,
+                    row.get::<_, u32>(13)?,
+                    row.get::<_, Option<String>>(14)?,
+                    row.get::<_, Option<String>>(15)?,
+                    row.get::<_, Option<String>>(16)?,
+                    row.get::<_, Option<String>>(17)?,
+                    row.get::<_, String>(18)?,
+                    row.get::<_, String>(19)?,
                 ))
             })
             .map_err(fault("reading a job's trigger firings"))
@@ -243,31 +476,72 @@ impl Store {
         let table = "job_triggers";
         let mut out = Vec::new();
         for row in rows {
-            let (name, moment, step, source, state, why, named, code, block, repair, began, ended) =
-                row.map_err(fault("reading a job's trigger firings"))
-                    .map_err(LoadJobError::Database)?;
+            let (
+                name,
+                moment,
+                step,
+                source,
+                state,
+                why,
+                named,
+                code,
+                block,
+                repair,
+                began,
+                ended,
+                id,
+                tries,
+                branch,
+                choice,
+                pull_request,
+                settled,
+                job,
+                files,
+            ) = row
+                .map_err(fault("reading a job's trigger firings"))
+                .map_err(LoadJobError::Database)?;
             let skipped = match (why.as_deref(), named) {
                 (None, _) => None,
                 (Some("not_in_this_repo"), Some(command)) => {
                     Some(TriggerSkipped::NotInThisRepo { command })
                 }
                 (Some("skill_not_run"), Some(skill)) => Some(TriggerSkipped::SkillNotRun { skill }),
+                (Some("by_owner"), _) => Some(TriggerSkipped::ByOwner),
                 (Some(other), _) => return Err(unknown(table, "skipped_why", other.to_string())),
             };
-            out.push(TriggerFiring {
-                name,
-                when: TriggerWhen::from_wire(&moment)
-                    .ok_or_else(|| unknown(table, "moment", moment))?,
-                step: StepId::new(step),
-                source: source_of(&source).ok_or_else(|| unknown(table, "source", source))?,
-                on_failure: OnTriggerFailure { block, repair },
-                state: TriggerState::from_wire(&state)
-                    .ok_or_else(|| unknown(table, "state", state))?,
-                skipped,
-                exit_code: code,
-                started_at: Timestamp::from_rfc3339(began),
-                ended_at: ended.map(Timestamp::from_rfc3339),
-            });
+            let choice = match choice {
+                None => None,
+                Some(text) => Some(
+                    FixChoice::from_wire(&text)
+                        .ok_or_else(|| unknown(table, "fix_choice", text))?,
+                ),
+            };
+            out.push((
+                JobId::carried(core_model::Ulid::carried(job)),
+                id,
+                TriggerFiring {
+                    name,
+                    when: TriggerWhen::from_wire(&moment)
+                        .ok_or_else(|| unknown(table, "moment", moment))?,
+                    step: StepId::new(step),
+                    source: source_of(&source).ok_or_else(|| unknown(table, "source", source))?,
+                    on_failure: OnTriggerFailure { block, repair },
+                    state: TriggerState::from_wire(&state)
+                        .ok_or_else(|| unknown(table, "state", state))?,
+                    skipped,
+                    exit_code: code,
+                    started_at: Timestamp::from_rfc3339(began),
+                    ended_at: ended.map(Timestamp::from_rfc3339),
+                    repair: RepairRecord {
+                        tries,
+                        branch,
+                        choice,
+                        pull_request,
+                        settled_at: settled.map(Timestamp::from_rfc3339),
+                        files: files.lines().map(str::to_string).collect(),
+                    },
+                },
+            ));
         }
         Ok(out)
     }

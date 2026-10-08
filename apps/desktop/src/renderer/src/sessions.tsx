@@ -10,6 +10,7 @@ import {
   Alert,
   Button,
   ChipOwnership,
+  ForkedFrom,
   OpenInSession,
   PilotAct,
   PilotConfirm,
@@ -73,6 +74,8 @@ export function sessionsHidden(served: boolean): readonly string[] {
 }
 
 function stateOf(session: Session): { state: SessionState; said: string } {
+  if (session.dead === "ended") return { state: "ended", said: "Ended" };
+  if (session.dead === "quiet") return { state: "quiet", said: "Not reachable" };
   if (session.turn.state === "working") {
     const by = session.turn.wokenBy;
     return { state: "working", said: by === undefined ? "Working" : `Woken by ${by.title}` };
@@ -128,7 +131,7 @@ export function SessionsOwnership({ onOpen, children }: { onOpen: (sessionId: st
   const talk = useMemo<OpenInSessionValue | null>(() => {
     if (draft === undefined) return null;
     return {
-      targets: sessions.filter((one) => one.title !== undefined && one.terminal !== true).map((one) => ({ id: one.id, title: one.title! })),
+      targets: sessions.filter((one) => one.title !== undefined && one.terminal !== true && one.dead === undefined).map((one) => ({ id: one.id, title: one.title! })),
       open: (jobId, sessionId) => {
         const tag = draft.taggable().find((one) => one.kind === "job" && one.id === jobId);
         if (tag === undefined) return;
@@ -224,6 +227,8 @@ const HEADINGS: { label: string; has: (state: SessionState) => boolean }[] = [
   { label: "Running", has: (state) => state === "working" },
   { label: "Idle", has: (state) => state === "idle" },
   { label: "Not started", has: (state) => state === "blank" },
+  { label: "Quiet", has: (state) => state === "quiet" },
+  { label: "Ended", has: (state) => state === "ended" },
 ];
 
 /** What Fleet refused the last act on a Session, in the words it gave. */
@@ -238,7 +243,7 @@ export function SessionsListing({ onOpen }: { onOpen: (id: string) => void }) {
   const sessions = useSessions();
   const [query, setQuery] = useState("");
   if (draft === undefined) return null;
-  const views: SessionRowView[] = sessionsMatching(sessions, query).map(({ session, matched }) => {
+  const views: SessionRowView[] = sessionsMatching(sessions, query).filter(({ session }) => session.older !== true || query.trim() !== "").map(({ session, matched }) => {
     const { state, said } = stateOf(session);
     const chip = matched === "title" || matched === "id" ? undefined : chipOf(matched);
     return {
@@ -252,6 +257,7 @@ export function SessionsListing({ onOpen }: { onOpen: (id: string) => void }) {
       ...(chip === undefined ? {} : { matched: chip }),
       ...(session.lastTurn === undefined ? {} : { lastTurn: session.lastTurn }),
       ...(session.lastTurnAt === undefined ? {} : { lastTurnAt: session.lastTurnAt }),
+      ...(session.modOutOfDate === true ? { modOutOfDate: true } : {}),
     };
   });
   const groups: SessionGroup[] = HEADINGS.map((one) => ({ label: one.label, rows: views.filter((row) => one.has(row.state)) })).filter((one) => one.rows.length > 0);
@@ -409,10 +415,18 @@ function entriesOf(
   goes: LedgerGoes,
   read: (one: Reading) => void,
   slot: (n: number) => void,
+  sessions: readonly Session[],
+  open: (id: string) => void,
   openFile: (path: string) => void,
 ): LedgerEntry[] {
   return session.attachments.map((one): LedgerEntry => {
     switch (one.kind) {
+      case "forked_to":
+      case "forked_from": {
+        const title = sessions.find((other) => other.id === one.id)?.title ?? one.id;
+        const way = one.kind === "forked_to" ? "Forked to" : "Forked from";
+        return { key: `${one.kind}${one.id}`, kind: "fork", name: `${way} ${title}`, text: `${way} ${title}`, onOpen: () => open(one.id) };
+      }
       case "slot":
         return {
           key: `slot${one.slot}`,
@@ -442,6 +456,7 @@ function entriesOf(
             </>
           ),
           mark: { glyph: one.state === "merged" ? "passed" : one.checks.state, said: one.state === "merged" ? "Merged" : checksSaid(one.checks) },
+          ...(one.state === "merged" ? { finished: true } : {}),
           onOpen: () => read({ kind: "pull_request", number: one.number }),
         };
       case "job":
@@ -465,6 +480,7 @@ function entriesOf(
                   : {}),
           ...(one.looking === true ? { looking: true } : {}),
           ...(one.slot === undefined ? {} : { slot: one.slot }),
+          ...(one.state === "landed" || one.state === "superseded" ? { finished: true } : {}),
           onOpen: () => goes.onOpenJob(one.id),
         };
       case "studio":
@@ -487,6 +503,7 @@ function entriesOf(
           name: `Subagent ${one.task}, ${one.state}`,
           text: one.task,
           mark: { glyph: one.state, said: one.state === "running" ? "Running" : "Done" },
+          ...(one.state === "running" ? {} : { finished: true }),
           onOpen: () => read({ kind: "subagent", id: one.id }),
         };
     }
@@ -547,6 +564,9 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
     return () => onWant(false);
   }, [onWant]);
   const { state, said } = stateOf(session);
+  // The conversation a fork began as a copy of, which is the other Session's own rows.
+  const forkedFrom = session.attachments.find((one): one is Extract<SessionAttachment, { kind: "forked_from" }> => one.kind === "forked_from");
+  const origin = forkedFrom === undefined ? undefined : sessions.find((one) => one.id === forkedFrom.id);
   if (draft === undefined) return null;
   const slot = held.held.state === "read" ? (held.held.held.slots ?? []).find((one) => one.slot === slotOpen) : undefined;
   const mode: SessionMode = session.mode ?? (session.terminal === true ? "ask" : "auto");
@@ -560,6 +580,8 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
     narrow ? { ...goes, onOpenJob: fold(goes.onOpenJob), onGoTo: fold(goes.onGoTo) } : goes,
     narrow ? fold(setReading) : setReading,
     narrow ? fold(setSlotOpen) : setSlotOpen,
+    sessions,
+    narrow ? fold(onOpen) : onOpen,
     (path) => draft.openFile?.(id, path),
   );
   return (
@@ -571,10 +593,18 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
         {...(session.address === undefined ? {} : { address: session.address })}
         {...(session.title === undefined ? {} : { title: session.title })}
         {...(draft.rename === undefined ? {} : { onRename: (title: string) => draft.rename?.(session.id, title) })}
+        {...(session.modOutOfDate === true ? { modOutOfDate: true } : {})}
         {...{
               actions: (
                 <>
-                  {draft.close === undefined || session.terminal === true ? null : (
+                  {draft.fork === undefined || session.dead === undefined ? null : (
+                    <Tooltip label="Start a new Session with this one's conversation">
+                      <Button variant="ghost" size="sm" onClick={() => opening(draft.fork!(session.id), onOpen)}>
+                        Fork
+                      </Button>
+                    </Tooltip>
+                  )}
+                  {draft.close === undefined || session.terminal === true || session.dead !== undefined ? null : (
                     <Tooltip label="End this Session and park its slot">
                       <Button variant="ghost" size="sm" onClick={() => draft.close?.(session.id)}>
                         Close
@@ -616,7 +646,11 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
             })}
       >
         <div className="armada-session-frame__centre">
-          <Refused />
+          {origin === undefined ? null : (
+            <ForkedFrom title={origin.title ?? origin.id} onOpen={() => draft.watch?.(origin.id)}>
+              <SessionThread sessionId={origin.id} rows={threadRowsOf(origin)} onAnswer={() => undefined} onOpenSession={onOpen} />
+            </ForkedFrom>
+          )}
           <SessionThread
             sessionId={session.id}
             rows={threadRowsOf(session)}
@@ -625,41 +659,44 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
               : {
                   asked: {
                     command: session.asked.command,
+                    ...(session.asked.questions === undefined ? {} : { questions: session.asked.questions }),
                     ...(session.asked.offers === undefined
                       ? {}
                       : { offers: helmOfferedOf(session.asked.offers).map((one) => ({ id: one.offer, label: one.label, means: one.means })) }),
                   },
                 })}
-            onAnswer={(answer) => draft.answer(session.id, answer as SessionAnswer | undefined)}
+            onAnswer={(answer, answers) => draft.answer(session.id, answer as SessionAnswer | undefined, answers)}
             onOpenSession={onOpen}
           />
-          <SessionComposer
-            modeLocked={session.terminal === true}
-            modeHidden={session.terminal === true && session.mode === undefined}
-            working={session.turn.state === "working"}
-            mode={mode}
-            onMode={(next) => draft.tune(session.id, { model: session.model ?? null, effort: session.effort ?? null, mode: next })}
-            model={session.model ?? null}
-            effort={session.effort ?? null}
-            models={draft.models}
-            efforts={draft.efforts}
-            onTune={(tuning) => draft.tune(session.id, { ...tuning, mode })}
-            commands={session.terminal === true ? (session.commands ?? []) : draft.commands}
-            compact={narrow}
-            taggable={[
-              ...sessions.filter((one) => one.id !== session.id && one.title !== undefined).map((one): SessionTag => ({ kind: "session", id: one.id, title: one.title! })),
-              ...draft.taggable(),
-            ]}
-            tags={session.pendingTags ?? []}
-            onTags={(tags) => draft.setTags(session.id, tags)}
-            drawn={drawn.map(({ id, title }) => ({ id, title }))}
-            onDraw={() => setPadOpen(true)}
-            onRemoveDrawn={(id) => setDrawn((was) => was.filter((one) => one.id !== id))}
-            onSend={(sent) => {
-              draft.send(session.id, { text: sent.text, files: sent.files, sketches: drawn, tags: sent.tags as readonly SessionTag[] });
-              setDrawn([]);
-            }}
-          />
+          {session.dead !== undefined ? null : (
+            <SessionComposer
+              modeLocked={session.terminal === true}
+              modeHidden={session.terminal === true && session.mode === undefined}
+              working={session.turn.state === "working"}
+              mode={mode}
+              onMode={(next) => draft.tune(session.id, { model: session.model ?? null, effort: session.effort ?? null, mode: next })}
+              model={session.model ?? null}
+              effort={session.effort ?? null}
+              models={draft.models}
+              efforts={draft.efforts}
+              onTune={(tuning) => draft.tune(session.id, { ...tuning, mode })}
+              commands={session.terminal === true ? (session.commands ?? []) : draft.commands}
+              compact={narrow}
+              taggable={[
+                ...sessions.filter((one) => one.id !== session.id && one.dead === undefined && one.title !== undefined).map((one): SessionTag => ({ kind: "session", id: one.id, title: one.title! })),
+                ...draft.taggable(),
+              ]}
+              tags={session.pendingTags ?? []}
+              onTags={(tags) => draft.setTags(session.id, tags)}
+              drawn={drawn.map(({ id, title }) => ({ id, title }))}
+              onDraw={() => setPadOpen(true)}
+              onRemoveDrawn={(id) => setDrawn((was) => was.filter((one) => one.id !== id))}
+              onSend={(sent) => {
+                draft.send(session.id, { text: sent.text, files: sent.files, sketches: drawn, tags: sent.tags as readonly SessionTag[] });
+                setDrawn([]);
+              }}
+            />
+          )}
         </div>
       </SessionFrame>
       {narrow ? (
@@ -695,7 +732,7 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
 /** The rail surface: the list, or the Session open on it. */
 /** Sessions in the order the list draws them: under each heading in turn. */
 export function listed(sessions: readonly Session[]): string[] {
-  return HEADINGS.flatMap((heading) => sessions.filter((one) => heading.has(stateOf(one).state)).map((one) => one.id));
+  return HEADINGS.flatMap((heading) => sessions.filter((one) => heading.has(stateOf(one).state) && one.older !== true).map((one) => one.id));
 }
 
 /** Whether a key press belongs to a field, which j and k must leave alone. */

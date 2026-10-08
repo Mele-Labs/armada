@@ -67,6 +67,74 @@ pub fn because(asking: &AskingToRun) -> Option<Because> {
     named(tool)
 }
 
+/// [`because`] for a call a hosted session made in `directory`, which is the
+/// slot it leased. **The same three classes, read for a session**: what it
+/// writes inside its own slot is its work, and a line is read through the
+/// substitutions and heredocs it carries, since `git commit -m "$(cat <<'EOF'`
+/// is the ordinary way to commit and is none of the three.
+pub fn because_in_a_session(asking: &AskingToRun, directory: &str) -> Option<Because> {
+    let tool = asking.tool_name.as_str();
+    if WRITES_A_FILE.contains(&tool) {
+        let path = asking
+            .input
+            .get("file_path")
+            .or_else(|| asking.input.get("notebook_path"))
+            .and_then(|named| named.as_str());
+        if path.is_some_and(|path| inside_the_directory(path, directory)) {
+            return None;
+        }
+        return because(asking);
+    }
+    if tool == "Bash" {
+        return shell(&flattened(asking.detail().unwrap_or_default()));
+    }
+    because(asking)
+}
+
+/// Whether `path` is under `directory`, a relative path being read against it.
+/// A `..` anywhere makes it unreadable as inside.
+fn inside_the_directory(path: &str, directory: &str) -> bool {
+    if path.split('/').any(|part| part == "..") {
+        return false;
+    }
+    let directory = directory.trim_end_matches('/');
+    !path.starts_with('/') || path == directory || path.starts_with(&format!("{directory}/"))
+}
+
+/// A shell line with its heredoc bodies cut out and its substitutions turned
+/// into segments, so the commands inside them are read like any other.
+/// `eval` and `exec` are still read where they stand.
+fn flattened(line: &str) -> String {
+    let mut kept: Vec<&str> = Vec::new();
+    let mut ending: Option<String> = None;
+    for each in line.lines() {
+        if let Some(tag) = &ending {
+            if each.trim() == tag {
+                ending = None;
+            }
+            continue;
+        }
+        kept.push(each);
+        if let Some((_, after)) = each.split_once("<<") {
+            let tag: String = after
+                .trim_start_matches('-')
+                .trim()
+                .trim_matches(|c| c == '\'' || c == '"')
+                .chars()
+                .take_while(|c| c.is_ascii_alphanumeric() || *c == '_')
+                .collect();
+            if !tag.is_empty() {
+                ending = Some(tag);
+            }
+        }
+    }
+    let kept = kept.join("\n");
+    if kept.contains("$(") || kept.contains('`') {
+        return kept.replace("$(", ";").replace(['`', ')'], ";");
+    }
+    kept
+}
+
 /// One of Armada's own operations.
 ///
 /// **A query never asks**, since a read changes nothing anywhere. A command
@@ -305,7 +373,15 @@ fn truncating_redirect(said: &str) -> bool {
             && at.checked_sub(1).and_then(|back| written.get(back)) != Some(&'>')
             && written.get(at + 1) != Some(&'>')
             && written.get(at + 1) != Some(&'&')
+            && !into_a_device(&written[at + 1..])
     })
+}
+
+/// A redirect into `/dev/null`, `/dev/stderr` and the rest. **A device holds
+/// nothing to destroy**, and `2>/dev/null` is on most lines a session runs.
+fn into_a_device(after: &[char]) -> bool {
+    let target: String = after.iter().collect();
+    target.trim_start().starts_with("/dev/")
 }
 
 /// `git`, by its subcommand. **Reading history is not writing it**: `log`,
@@ -324,8 +400,12 @@ fn git(arguments: &[&str]) -> Option<Because> {
         "prune",
         "am",
     ];
+    let said = |word: &str| arguments.iter().any(|argument| *argument == word);
     match *subcommand {
         "push" => Some(Because::PushesToShared),
+        // Cutting a branch takes nothing away, and listing a stash reads it.
+        "checkout" if said("-b") || said("-B") || said("--orphan") => None,
+        "stash" if said("list") || said("show") => None,
         // Each of these takes a ref or a tree away, and the working copy does
         // not bring one back.
         "branch" | "tag" | "worktree" | "remote" | "submodule"

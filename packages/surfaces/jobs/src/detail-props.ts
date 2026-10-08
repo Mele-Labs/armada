@@ -18,7 +18,9 @@
 // which is why that file already re-exports `ConfirmableAct`, `FoldedReads`
 // and `Render` from their own modules.
 
+import type { AddedBinding } from "./added-steps";
 import type { DetailTab } from "./detail-tabs";
+import type { ChooseTriggerFixCall, HoldActCall } from "./repair-branch";
 import type { ActAnswer, ActingAct, DecidingAct } from "./pending";
 import type { PlanView } from "./plan-view";
 import type { WorkflowView } from "./workflow-view";
@@ -167,6 +169,8 @@ export type JobDetailProps = {
   /** Send the proposal back to the proposer with a note — `to_proposer`, since 23.25. */
   onToProposer?: (jobId: string, body: ToProposer) => Promise<Outcome>;
   onSetLandingTarget?: (jobId: string, target: string) => Promise<Outcome>;
+  /** Adding a step to this Job, removing one before it fires, and keeping one for every Job. Absent draws no `+`. */
+  added?: AddedBinding;
   /**
    * Answer the question this Job's drone asked, by the label picked.
    *
@@ -256,6 +260,14 @@ export type JobDetailProps = {
    * the step's Shown chapter drew its control, and went with the story.
    */
   onShowAgain?: ShowAgainCall;
+  /**
+   * Say where a failed Trigger's held fix goes: onto the Job's branch, or into a pull request of its
+   * own. Fleet never chooses, so the branch the repair grows off the workflow asks. Absent draws the
+   * branch with no choice on it.
+   */
+  onChooseTriggerFix?: ChooseTriggerFixCall;
+  /** Rerun or skip a Trigger that holds the Job. The canvas, the stacked run and the Triggers list ask it. */
+  onHoldAct?: HoldActCall;
   /**
    * Which Job's diff the host should hold open, or `null` for none.
    *

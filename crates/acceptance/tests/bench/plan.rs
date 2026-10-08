@@ -21,15 +21,15 @@ use core_model::{
     StepId, StepSeed, Timestamp, Title, TopLevelOrigin, Ulid, Urgency, WhenRefused, WorkPlan,
 };
 use fleet::{
-    rule_on, Asked, AtStep, CheckBudget, JudgeBudget, Judging, Keeping, Marking, Policies, Ruling,
+    Asked, AtStep, CheckBudget, JudgeBudget, Judging, Keeping, Marking, Policies, Ruling, rule_on,
 };
-use ipc::mcp::{answer, read, Answered, Incoming, NotAnArgument, NotRecorded, PlanCall};
+use ipc::mcp::{Answered, Incoming, NotAnArgument, NotRecorded, PlanCall, answer, read};
 use ipc::{Event, JobDetail, JobSummary};
 use testkit::{FakeJudge, FakeVcs, FakeWorkProduct};
 use verification::{Claimed, Lifted, NotClaimed, Request, ShownBy, Submission};
 
 use super::board::detail;
-use super::{criteria, REPO_ROOT};
+use super::{REPO_ROOT, criteria};
 
 pub const PLAN: &str = "plan";
 pub const IMPLEMENT: &str = "implement";

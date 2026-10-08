@@ -90,7 +90,7 @@ A Job is created before the [Job proposer](job-proposer.md) has answered, at the
 
 **It is the third entry status and nothing arrives at it.** A Job created here has no frozen workflow, so it has no `job_steps` rows at all — the one status beneath which no step state is ever seen — and the step machine is initialised on the way out, where the proposer's answer freezes a `WorkflowDef`. Its `who_is_acting` is `None` with `mode` `Working`, which is the furthest apart those two questions come: something is happening and it is neither a person nor a Drone.
 
-**What the reading proposes is loose until a person approves it.** The workflow, the title, the brief, the gate on each step and how the work lands are all editable at `awaiting_approval`, and all of them freeze on the approval that dispatches the Job, with the [Triggers](trigger.md) that apply to it. Creation freezes nothing, which is the change: the resolved `WorkflowDef` is frozen into the Job at creation today (`crates/core-model/domain/job-fields.toml`), so a proposal that picked the wrong workflow cannot be corrected without a new Job.
+**What the reading proposes is loose until a person approves it.** The workflow, the title, the brief, the gate on each step and how the work lands are all editable at `awaiting_approval`, and all of them freeze on the approval that dispatches the Job, with the [Triggers](trigger.md) that apply to it. **Steps added to this Job only** are placed at that press too, and live beside the frozen workflow and never in it; a person can add more while the Job runs, at or after the step it is on. Creation freezes nothing, which is the change: the resolved `WorkflowDef` is frozen into the Job at creation today (`crates/core-model/domain/job-fields.toml`), so a proposal that picked the wrong workflow cannot be corrected without a new Job.
 
 **What freezes is still the yardstick the work is judged against.** Moving the freeze from creation to approval moves when it is settled, never whether — see [Workflow](workflow.md).
 
@@ -129,6 +129,7 @@ flowchart LR
   AR -->|interrupted| ESC
   ESC -->|redirect| R
   ESC -->|"restart / override"| Q
+  ESC -->|"a Trigger's hold let go"| Q
 
   R -->|escape_hatch| P["piloted"]
   AR -->|escape_hatch| P
@@ -210,6 +211,8 @@ decision is waiting to be overruled — neither is true when nothing is in
 dispute. It says what is owed rather than what went wrong, and it joins the
 three `awaiting_*` statuses because it carries their axis: waited on, by a
 person.
+
+**A Trigger's hold is not this.** `awaiting_repair` is a spent Check budget, and a Trigger is not a Check. A Trigger that blocks and failed is `escalated` on `trigger_held`, or the gate is held where it fired at `pr_opened`, and neither touches this status or the retry budget.
 
 **The Drone is stood down and the worktree is kept**, which is the bargain
 `awaiting_review` makes: a person's answer costs no fleet time. The Drone was
@@ -384,6 +387,8 @@ be told anything, and the restart stops the step it is on rather than looking
 for one already stopped. Neither reads the trigger to decide: what Fleet reads
 is what is standing in the slot.
 
+**`trigger_held` is a third, and it holds before a Drone.** A [Trigger](trigger.md) or added step that blocks failed at `step_starts` or `step_passes`, so no Drone is put on and the Job is `escalated` with that reason. It is Job-level: no step stopped and nothing was weighed. The way out is the owner's Rerun or Skip, or a repair that ends passed, and the Job takes `escalated -> queued` and admission starts the step it stopped before. A hold at `pr_opened` escalates nothing: the pull request is out, the Job works on to its gate, and the gate is held for a person, so an approval or a merge is refused with `fleet.trigger_holds` until it is let go.
+
 **Redirect is the exception, and `stalled` is why.** A redirect operates on the
 Job rather than on a step, so it does not need a stopped step to act on. `stalled` is the one trigger that
 escalates a Job whose Drone is still up and holding its session, and killing it
@@ -486,6 +491,19 @@ flowchart LR
 `killed` is drawn as one rule rather than an edge from each status. **No terminal has an outbound edge**, so nothing leaves the right-hand column.
 
 The full transition table — every legal edge, its trigger and its guard — is in `crates/core-model/domain/job-transitions.toml`.
+
+## When its pull request fails
+
+**A Job whose pull request or branch fails is sent back by Fleet, the way a red main is.** The triggers are `docs/concepts/fleet.md`, *Telling the owner of a pull request*. The notice carries the pull request, the failing checks with log addresses and a log's last lines.
+
+| The Job is | Fleet does |
+|---|---|
+| At its review gate | Sends the notice as a requested change, so the next Drone opens with it |
+| Ended (`completed_success`, `completed_failed`, `killed`) | Redispatches it as a new Job cut from the pull request's own branch, its pull request aimed there so the fix lands in the same one, `redispatched_from` naming the first, carrying the notice as Facts. A branch the repository no longer holds leaves it on a fresh branch from the base, as a red main does |
+| Working, or waiting on approval | Nothing yet. It is asked again at the next reading |
+| Rejected | Nothing |
+
+**Once for each pull request, commit and cause**, so one failure never sends a Job back twice. **A merge is only a note in the Job's log**, and no Drone is sent.
 
 ## Pausing a Job
 

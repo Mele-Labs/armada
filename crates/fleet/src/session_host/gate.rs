@@ -12,16 +12,18 @@ use adapter_traits::{AgentHarness, Delivery, SlotLeased, Vcs, WorkProduct, Workt
 use ipc::{GateAnswer, ManifestId, SessionGate, SessionMode, SessionRow};
 use store::{AttachmentState, Holder, KeptAttachment};
 
+use super::places::{place_of, written_by, Place};
 use super::serving::mode_of;
 use super::Move;
 use crate::daemon::Fleet;
+use crate::peer::started_within;
 use crate::repositories::Served;
 
 /// What a call does to the checkout, as far as its name and input say.
 enum Touch {
     Nothing,
     File(String),
-    Shell,
+    Shell(String),
 }
 
 fn touch(gate: &SessionGate) -> Touch {
@@ -33,15 +35,11 @@ fn touch(gate: &SessionGate) -> Touch {
         },
         "Bash" => match text("command") {
             Some(command) if adapters::reads_only(command) => Touch::Nothing,
-            _ => Touch::Shell,
+            Some(command) => Touch::Shell(command.to_string()),
+            None => Touch::Shell(String::new()),
         },
         _ => Touch::Nothing,
     }
-}
-
-fn inside(path: &str, directory: &str) -> bool {
-    let directory = directory.trim_end_matches('/');
-    path == directory || path.starts_with(&format!("{directory}/"))
 }
 
 impl<H, V, W> Fleet<H, V, W>
@@ -68,31 +66,78 @@ where
             return GateAnswer::pass();
         };
         let root = served.root().trim_end_matches('/').to_string();
+        let own = hosting.lease_slot;
+        let directory = Self::directory_of(&served, &hosting);
+        let held = |slot: u32| own == Some(slot) || self.slot_held_by_the_tree(&id, &root, slot);
+        // Where the call lands, against the main checkout and the pool.
+        let lands = |path: &str| match path.starts_with('/') {
+            true => place_of(path, &root),
+            false => Place::Main,
+        };
         let touching = touch(&gate);
-        let in_the_repository = |path: &str| !path.starts_with('/') || inside(path, &root);
-        match (&touching, hosting.lease_slot) {
-            (Touch::Nothing, _) => GateAnswer::pass(),
-            (Touch::File(path), None) if !in_the_repository(path) => GateAnswer::pass(),
-            (_, None) => self.leased(&id, &served).await,
-            (touching, Some(slot)) => {
-                let directory = Self::directory_of(&served, &hosting);
-                if self.hosts().of(&id).state().moving.is_some() {
-                    return GateAnswer::deny(waiting_to_move(slot, &directory));
+        if matches!(touching, Touch::Nothing) {
+            return GateAnswer::pass();
+        }
+        if let (Some(slot), true) = (own, self.hosts().of(&id).state().moving.is_some()) {
+            return GateAnswer::deny(waiting_to_move(slot, &directory));
+        }
+        match touching {
+            Touch::Nothing => GateAnswer::pass(),
+            Touch::File(path) => match (lands(&path), own) {
+                (Place::Elsewhere, _) => GateAnswer::pass(),
+                (Place::Slot(slot), _) if held(slot) => GateAnswer::pass(),
+                (Place::Slot(slot), _) => GateAnswer::deny(not_held(&path, slot)),
+                (Place::Main, None) => self.leased(&id, &served).await,
+                (Place::Main, Some(_)) if path.starts_with('/') => GateAnswer::deny(format!(
+                    "{path} is in the main checkout. This session writes in its own slot at \
+                     {directory}: use the same path under it."
+                )),
+                // A relative path is read against the session's own directory.
+                (Place::Main, Some(_)) => GateAnswer::pass(),
+            },
+            Touch::Shell(command) => {
+                if own.is_none() {
+                    return self.leased(&id, &served).await;
                 }
-                match touching {
-                    Touch::File(path) if path.starts_with('/') && inside(path, &root) => {
-                        if inside(path, &directory) {
-                            GateAnswer::pass()
-                        } else {
-                            GateAnswer::deny(format!(
-                                "{path} is in the main checkout. This session writes in its own \
-                                 slot at {directory}: use the same path under it."
-                            ))
-                        }
-                    }
-                    _ => GateAnswer::pass(),
+                let hit = written_by(&command)
+                    .into_iter()
+                    .find_map(|path| match lands(&path) {
+                        Place::Main => Some(format!(
+                            "That command writes {path} in the main checkout. This session writes \
+                             in its own slot at {directory}: use the same path under it."
+                        )),
+                        Place::Slot(slot) if !held(slot) => Some(not_held(&path, slot)),
+                        _ => None,
+                    });
+                match hit {
+                    Some(why) => GateAnswer::deny(why),
+                    None => GateAnswer::pass(),
                 }
             }
+        }
+    }
+
+    /// Whether the lease on `slot` is held by this session's process or one
+    /// it started, which is how `armada worktree lease` records its caller: the
+    /// first process above it that is not a shell. **That is how a session's
+    /// own subagent leases a slot the session may then write in.**
+    fn slot_held_by_the_tree(&self, id: &str, root: &str, slot: u32) -> bool {
+        let Some(session) = self
+            .hosts()
+            .of(id)
+            .state()
+            .process
+            .as_ref()
+            .and_then(|process| process.pid())
+        else {
+            return false;
+        };
+        let at = adapter_traits::slot_path(root, slot);
+        match adapters::leasing::holder_of(std::path::Path::new(&at)) {
+            Some(holder) if holder.alive() => holder
+                .pid()
+                .is_some_and(|pid| started_within(&[session], pid, self.peers().as_ref())),
+            _ => false,
         }
     }
 
@@ -180,6 +225,14 @@ where
              write there."
         ))
     }
+}
+
+fn not_held(path: &str, slot: u32) -> String {
+    format!(
+        "{path} is in slot {slot}, which is not leased by this session or by anything it \
+         started. Lease a slot for it with `armada worktree lease <branch>`, or write in the \
+         slot this session already holds."
+    )
 }
 
 fn waiting_to_move(slot: u32, directory: &str) -> String {

@@ -6,7 +6,7 @@
 // `SessionRecord` with `origin: "bridge"` and `hosted` set; its thread is not on
 // the row. Read `get_session` once and follow `session.row`.
 
-import type { HelmCallAnswer, HelmCallInFlight } from "./helm-calls";
+import type { HelmCallAnswer, HelmCallInFlight, QuestionAnswer } from "./helm-calls";
 import type { DroneNarrative, PilotOutcome } from "./piloting";
 import type { SessionRecord } from "./sessions";
 
@@ -28,6 +28,11 @@ export type StartSession = {
    * no session is made.
    */
   pilot?: { job_id: string; outcome: PilotOutcome };
+  /**
+   * Start as a copy of an ended or dead session's conversation. Since 23.69. A new session with its own
+   * id and ledger, holding none of the old one's. Refused 409 `fleet.session_fork_live` for a live one.
+   */
+  fork?: { session_id: string };
 };
 
 export type TagKind = "session" | "job" | "pull_request" | "branch";
@@ -58,6 +63,8 @@ export type AnswerSessionAsk = {
   call: string;
   answer: HelmCallAnswer;
   note?: string;
+  /** One entry per question, for an ask that carries some. Since protocol 23.71. */
+  answers?: QuestionAnswer[];
 };
 
 /** `POST /sessions/tune`. A model or effort left out is the machine's own. */

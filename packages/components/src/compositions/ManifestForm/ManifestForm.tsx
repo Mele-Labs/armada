@@ -73,6 +73,8 @@ export type ManifestFormDraft = {
   freeze: boolean;
   autoMerge: string;
   reviewGate: string;
+  /** `pr_mode: draft`. Off is the file saying nothing or `ready`, and this machine's default holds. */
+  draftPr: boolean;
   /** Dollars. Empty defers to what Fleet runs with. */
   costCap: string;
   turnCap: string;

@@ -14,12 +14,15 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 use std::time::Duration;
 
-use adapter_traits::{AgentHarness, CiState, Delivery, OpenPull, RecentlyMerged, Vcs, WorkProduct};
+use adapter_traits::{
+    AgentHarness, CiState, Delivery, OpenPull, QueueEntry, QueueState, RecentlyMerged, Vcs,
+    WorkProduct,
+};
 use core_model::JobId;
 use core_model::Timestamp;
 use ipc::{
-    HubJob, HubMerged, HubPullCi, HubPullRequest, MainChecking, MainCiState, MainFailedJob,
-    MainMerge, MainRun, MainRunState, MainStanding, MergeLineHub,
+    HubJob, HubMerged, HubPullCi, HubPullRequest, HubQueue, HubQueueState, MainChecking,
+    MainCiState, MainFailedJob, MainMerge, MainRun, MainRunState, MainStanding, MergeLineHub,
 };
 use store::{MainCi, MainState};
 
@@ -140,6 +143,26 @@ where
             .pulls
             .insert(served.root().to_string(), read);
         self.needs_status_published(served).await;
+    }
+
+    /// The base branch's merge queue, **a forge call on the same visit** as
+    /// the open pull requests, which it marks. A forge that will not answer
+    /// keeps the last reading.
+    pub(crate) async fn notice_queue(&self, served: &Served) {
+        let Some(base) = served.manifest().base().map(str::to_string) else {
+            return;
+        };
+        let listed = self
+            .forge_asked(served.root(), move |vcs: &V, root: &str| {
+                vcs.merge_queue(root, &base)
+            })
+            .await;
+        let Some(listed) = listed else { return };
+        self.sweeping()
+            .lock()
+            .await
+            .queues
+            .insert(served.root().to_string(), listed);
     }
 
     /// The newest merged pull requests, **a second forge call on the same
@@ -368,6 +391,20 @@ where
             })
     }
 
+    /// The Checks each served repository's Manifest declares, by root.
+    pub(crate) fn land_checks(&self) -> Vec<(String, Vec<String>)> {
+        self.repositories()
+            .served()
+            .iter()
+            .map(|served| {
+                (
+                    served.root().to_string(),
+                    served.manifest().checks_as_written().to_vec(),
+                )
+            })
+            .collect()
+    }
+
     /// Each served repository's hub, by root. A repository Fleet has read
     /// nothing for is left out.
     pub(crate) async fn merge_hubs(&self) -> Vec<(String, MergeLineHub)> {
@@ -377,12 +414,13 @@ where
             .iter()
             .map(|served| served.root().to_string())
             .collect();
-        let (pulls, merged, runs) = {
+        let (pulls, merged, runs, queues) = {
             let sweep = self.sweeping().lock().await;
             (
                 sweep.pulls.clone(),
                 sweep.merged.clone(),
                 sweep.main_runs.clone(),
+                sweep.queues.clone(),
             )
         };
         let store = self.store().lock().await;
@@ -401,6 +439,7 @@ where
                     pulls.get(&root),
                     merged.get(&root),
                     runs.get(&root),
+                    queues.get(&root),
                     &titled,
                 )?;
                 hub.fixing = main
@@ -419,6 +458,7 @@ pub(crate) fn hub_of(
     pulls: Option<&Vec<OpenPulled>>,
     merged: Option<&Vec<MergedPulled>>,
     runs: Option<&BTreeMap<String, MergedRun>>,
+    queue: Option<&Vec<QueueEntry>>,
     titled: &dyn Fn(&JobId) -> Option<HubJob>,
 ) -> Option<MergeLineHub> {
     let no_runs = BTreeMap::new();
@@ -437,7 +477,14 @@ pub(crate) fn hub_of(
         pull_requests: pulls
             .map(|read| {
                 read.iter()
-                    .map(|one| request(one, &failing_on_main, titled))
+                    .map(|one| {
+                        request(
+                            one,
+                            &failing_on_main,
+                            queue.map_or(&[][..], Vec::as_slice),
+                            titled,
+                        )
+                    })
                     .collect()
             })
             .unwrap_or_default(),
@@ -548,6 +595,7 @@ fn checking(
 fn request(
     one: &OpenPulled,
     failing_on_main: &[&str],
+    queue: &[QueueEntry],
     titled: &dyn Fn(&JobId) -> Option<HubJob>,
 ) -> HubPullRequest {
     let pull = &one.pull;
@@ -568,7 +616,29 @@ fn request(
             CiState::Failed => HubPullCi::Failed,
         }),
         job: one.job.as_ref().and_then(titled),
+        queue: queue_of(pull, queue),
     }
+}
+
+/// Where the queue holds a pull request. **One with auto-merge on and its `ci`
+/// still running has no entry yet**, and is said to be waiting for it.
+fn queue_of(pull: &OpenPull, queue: &[QueueEntry]) -> Option<HubQueue> {
+    if let Some(entry) = queue.iter().find(|entry| entry.number == pull.number) {
+        return Some(HubQueue {
+            state: match entry.state {
+                QueueState::InQueue => HubQueueState::InQueue,
+                QueueState::Queued => HubQueueState::Queued,
+                QueueState::AwaitingChecks => HubQueueState::AwaitingChecks,
+                QueueState::Mergeable => HubQueueState::Mergeable,
+                QueueState::Unmergeable => HubQueueState::Unmergeable,
+            },
+            position: Some(entry.position),
+        });
+    }
+    (pull.auto_merge && pull.ci == Some(CiState::Pending)).then_some(HubQueue {
+        state: HubQueueState::WaitingForCi,
+        position: None,
+    })
 }
 
 fn merged_of(

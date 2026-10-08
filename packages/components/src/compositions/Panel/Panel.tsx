@@ -73,7 +73,7 @@ export function Panel({
 }: PanelProps) {
   if (narrow) {
     return (
-      <section className="armada-panel armada-glass" data-narrow aria-label={typeof label === "string" ? label : undefined}>
+      <section className="armada-panel" data-narrow aria-label={typeof label === "string" ? label : undefined}>
         {/* The head carries the name, and the dot keeps its `aria-hidden`: a
             6px `title` target is one a person misses, and the region's own
             name has to stay put rather than follow a status. */}
@@ -92,7 +92,7 @@ export function Panel({
   if (children === undefined) {
     return (
       <section
-        className="armada-panel armada-glass"
+        className="armada-panel"
         data-bodyless
         aria-label={typeof label === "string" ? label : undefined}
       >
@@ -108,7 +108,7 @@ export function Panel({
   }
 
   return (
-    <section className="armada-panel armada-glass" data-open={open || undefined}>
+    <section className="armada-panel" data-open={open || undefined}>
       <button
         type="button"
         className="armada-panel__head"

@@ -69,6 +69,8 @@ export * from "./resources";
 export * from "./setup";
 export * from "./showing";
 export * from "./studio";
+export * from "./added-steps";
+export * from "./trigger-holds";
 export * from "./triggers";
 export * from "./walk-notes";
 export * from "./turn";

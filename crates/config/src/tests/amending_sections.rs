@@ -85,6 +85,10 @@ fn pairs() -> Vec<(Edit, Edit)> {
             Edit::ExcludePaths(Vec::new()),
         ),
         (exit_code("build", 101), exit_code("build", 0)),
+        (
+            Edit::PrMode(Some(core_model::PrMode::Draft)),
+            Edit::PrMode(None),
+        ),
     ]
 }
 
@@ -118,6 +122,7 @@ fn every_section_edit_keeps_every_comment_loads_and_round_trips_byte_for_byte() 
     assert_eq!(loaded.poke_limit(), Some(0));
     assert_eq!(loaded.exclude_paths().len(), 2);
     assert_eq!(loaded.prepared_by().len(), 1);
+    assert_eq!(loaded.pr_mode(), Some(core_model::PrMode::Draft));
     assert_eq!(
         loaded.check("build").map(|c| c.expect_exit_code()),
         Some(101)

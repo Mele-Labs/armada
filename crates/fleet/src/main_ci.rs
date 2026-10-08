@@ -73,6 +73,7 @@ where
         };
         let root = served.root().to_string();
         self.notice_pulls(&served).await;
+        self.notice_queue(&served).await;
         self.notice_merged(&served).await;
         let Some(head) = self
             .forge_asked(&root, {
@@ -270,9 +271,10 @@ where
     }
 
     /// Read main and act on what changed, outside any turn.
-    pub(crate) async fn read_main(&self) -> Result<(), Adrift> {
+    pub(crate) async fn read_main(self: &Arc<Self>) -> Result<(), Adrift> {
         let changed = self.notice_main().await?;
         self.main_acted_on(&changed).await;
+        self.pulls_told_when_due().await;
         Ok(())
     }
 

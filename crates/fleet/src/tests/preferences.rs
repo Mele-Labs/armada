@@ -41,7 +41,8 @@ async fn a_saved_preference_survives_a_restart() {
     assert_eq!(
         fleet.get_preferences().await.expect("reads"),
         Preferences {
-            where_things_are_open: true
+            where_things_are_open: true,
+            ..Default::default()
         }
     );
 }

@@ -20,7 +20,7 @@ use std::fmt;
 use core_model::{
     AcceptanceCriterion, AdvanceGate, AutoMerge, CriterionId, CriterionOrigin, CriterionSource,
     Facts, FrozenWorkflow, Job, JobStatus, Landing, ModelName, PolicyOverrides, PrMode,
-    ProposalEdit, ReviewGate, StepSeed, TierModels, Title,
+    PrModeTiers, ProposalEdit, ReviewGate, StepSeed, TierModels, Title,
 };
 
 /// Why a proposal was refused, **and nothing was kept**.
@@ -103,6 +103,9 @@ pub enum Refused {
     NothingToAutoMerge,
     /// A step's tuning nothing could honour.
     Untuned(crate::tuned::Untunable),
+    /// A step added to this Job only, naming nothing to run or a place the
+    /// workflow does not have.
+    Unplaceable(String),
 }
 
 impl fmt::Display for Refused {
@@ -192,6 +195,7 @@ impl fmt::Display for Refused {
                  nothing to auto-merge"
             ),
             Refused::Untuned(why) => write!(out, "{why}"),
+            Refused::Unplaceable(why) => write!(out, "an added step: {why}"),
         }
     }
 }
@@ -207,6 +211,9 @@ pub struct Decided {
     pub drone_cap: Option<u32>,
     pub landing: Landing,
     pub overrides: PolicyOverrides,
+    /// `None` keeps what was placed, `Some` replaces it. **Beside the
+    /// workflow**, so the edit above never carries it.
+    pub additions: Option<Vec<store::NewAddition>>,
 }
 
 /// Approve's body, read against the Job. `held` is the workflow the body
@@ -215,6 +222,38 @@ pub fn decided(
     job: &Job,
     body: &ipc::ApproveDispatch,
     held: Option<&FrozenWorkflow>,
+) -> Result<Decided, Refused> {
+    decided_under(job, body, held, None, None)
+}
+
+/// The pull request mode a Job approved with nothing said opens as: the
+/// workflow's delivering step, then the repository, then this machine, then
+/// ready. **What approval serves Bridge to start on**, and what [`decided_under`]
+/// freezes where the body names none, so the two cannot disagree.
+pub fn pr_mode_default(
+    workflow: &FrozenWorkflow,
+    repository: Option<PrMode>,
+    machine: Option<PrMode>,
+) -> PrMode {
+    PrModeTiers {
+        job: None,
+        step: workflow.delivering_step().and_then(|step| step.draft_pr()),
+        repository,
+        machine,
+    }
+    .resolve()
+}
+
+/// [`decided`], with the repository's and this machine's pull request mode
+/// beneath whatever the workflow's delivering step and the body say. **The
+/// most specific wins**: the body's own, the step's `draft_pr`, the
+/// repository's `pr_mode`, the machine's, then ready.
+pub fn decided_under(
+    job: &Job,
+    body: &ipc::ApproveDispatch,
+    held: Option<&FrozenWorkflow>,
+    repository: Option<PrMode>,
+    machine: Option<PrMode>,
 ) -> Result<Decided, Refused> {
     at_the_gate(job)?;
     let (title, facts, acceptance_criteria) = words(
@@ -239,9 +278,30 @@ pub fn decided(
         Some(map) => Some(tiers_named(map)?),
         None => None,
     };
+    let additions = match &body.additions {
+        Some(added) => Some(
+            added
+                .iter()
+                .map(|one| crate::added_steps::new_addition(one, &workflow))
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(Refused::Unplaceable)?,
+        ),
+        None => None,
+    };
     if body.drone_cap == Some(0) {
         return Err(Refused::NoCap);
     }
+    let pr_mode = PrModeTiers {
+        job: body
+            .landing
+            .as_ref()
+            .and_then(|landing| landing.pr_mode)
+            .map(|mode| mode.domain()),
+        step: workflow.delivering_step().and_then(|step| step.draft_pr()),
+        repository,
+        machine,
+    }
+    .resolve();
     Ok(Decided {
         edit: ProposalEdit {
             title,
@@ -252,8 +312,9 @@ pub fn decided(
         },
         tiers,
         drone_cap: body.drone_cap,
-        landing: landing_of(body.landing.as_ref())?,
+        landing: landing_of(body.landing.as_ref(), pr_mode)?,
         overrides,
+        additions,
     })
 }
 
@@ -494,9 +555,17 @@ fn agree<P: PartialEq + Copy>(
 
 /// The landing a person set. **Only what Fleet runs is kept** (`landing.ts`'s
 /// `COMPLETE_WHEN_SERVED`): one branch per Job, done delivered or landed.
-pub(crate) fn landing_of(choice: Option<&ipc::LandingChoice>) -> Result<Landing, Refused> {
+/// `pr_mode` is the answer the tiers came to, which the choice's own already
+/// went into.
+pub(crate) fn landing_of(
+    choice: Option<&ipc::LandingChoice>,
+    pr_mode: PrMode,
+) -> Result<Landing, Refused> {
     let Some(choice) = choice else {
-        return Ok(Landing::as_ever());
+        return Ok(Landing {
+            pr_mode,
+            ..Landing::as_ever()
+        });
     };
     if choice.branching == ipc::LandingUnit::Group {
         return Err(Refused::NotHonoured {
@@ -528,10 +597,7 @@ pub(crate) fn landing_of(choice: Option<&ipc::LandingChoice>) -> Result<Landing,
         // Ignored while `local` holds: one answer, not two.
         pr_mode: match choice.local {
             true => PrMode::Ready,
-            false => choice
-                .pr_mode
-                .map(|mode| mode.domain())
-                .unwrap_or(PrMode::Ready),
+            false => pr_mode,
         },
     })
 }
