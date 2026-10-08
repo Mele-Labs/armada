@@ -435,6 +435,7 @@ type OldBridgeApi = {
     showSessionPage: (sessionId: string, address: string, bounds: PageBounds) => Promise<Followed>;
     moveSessionPage: (bounds: PageBounds) => Promise<void>;
     hideSessionPage: () => Promise<void>;
+    onSessionPageEscape: (on: () => void) => () => void;
     pressPullRequest: (sessionId: string, number: number, press: PullRequestPress) => Promise<SessionActed<PullRequestState | ReviewDispatched>>;
 };
 
@@ -687,6 +688,7 @@ const OLD_CHANNELS = {
     showSessionPage: "bridge:show-session-page",
     moveSessionPage: "bridge:move-session-page",
     hideSessionPage: "bridge:hide-session-page",
+    sessionPageEscape: "bridge:session-page-escape",
     pressPullRequest: "bridge:press-pull-request",
 } as const;
 

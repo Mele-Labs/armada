@@ -74,6 +74,8 @@ export type SessionsApi = {
   moveSessionPage: (bounds: PageBounds) => Promise<void>;
   /** Removes the page's view. */
   hideSessionPage: () => Promise<void>;
+  /** Esc pressed while the page's view has focus, which the renderer never hears itself. Returns its remover. */
+  onSessionPageEscape: (on: () => void) => () => void;
   /** An act on one of a Session's pull requests. `read` brings its state current, `review` answers the Code Review Job it dispatched. */
   pressPullRequest: (
     sessionId: string,
@@ -117,5 +119,6 @@ export const SESSIONS_CHANNELS = {
   showSessionPage: "bridge:show-session-page",
   moveSessionPage: "bridge:move-session-page",
   hideSessionPage: "bridge:hide-session-page",
+  sessionPageEscape: "bridge:session-page-escape",
   pressPullRequest: "bridge:press-pull-request",
 } as const;

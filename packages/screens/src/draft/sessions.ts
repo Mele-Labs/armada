@@ -289,6 +289,8 @@ export type SessionsDraft = {
     show: (id: string, address: string, bounds: PageBounds) => void;
     move: (bounds: PageBounds) => void;
     hide: () => void;
+    /** Esc pressed in the view, which has the keyboard while it is shown. Returns its remover. */
+    onEscape: (on: () => void) => () => void;
   };
   /** Reads a pull request again, so its Checks are what the forge says now. Absent in the mock. */
   refresh?: (id: string, number: number) => void;

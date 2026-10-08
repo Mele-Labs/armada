@@ -78,7 +78,7 @@ function mockPage(): string {
  * The body a page's view lies over. **Reported on every frame it moves**, since the panel travels
  * in and is dragged wider and no resize event says so; main is only told when the rect changed.
  */
-function PageFrame({ draft, sessionId, address, label }: { draft: SessionsDraft | undefined; sessionId: string; address: string; label: string }) {
+function PageFrame({ draft, sessionId, address, label, onClose }: { draft: SessionsDraft | undefined; sessionId: string; address: string; label: string; onClose: () => void }) {
   const body = useRef<HTMLDivElement>(null);
   const page = draft?.page;
   useEffect(() => {
@@ -103,6 +103,8 @@ function PageFrame({ draft, sessionId, address, label }: { draft: SessionsDraft 
       page.hide();
     };
   }, [page, sessionId, address]);
+  // Esc in the view, which holds the keyboard where the panel's own binding cannot hear it.
+  useEffect(() => page?.onEscape(onClose), [page, onClose]);
   const testing = (import.meta as { env?: { MODE?: string } }).env?.MODE === "test";
   return (
     <div ref={body} className="armada-session-artifact__page" role="region" aria-label="Page">
@@ -118,14 +120,16 @@ export function ArtifactBody({
   form,
   id,
   title,
+  onClose,
 }: {
   draft: SessionsDraft | undefined;
   sessionId: string;
   form: ArtifactForm;
   id: string;
   title: string;
+  onClose: () => void;
 }) {
-  if (isAddress(form)) return <PageFrame draft={draft} sessionId={sessionId} address={id} label={title} />;
+  if (isAddress(form)) return <PageFrame draft={draft} sessionId={sessionId} address={id} label={title} onClose={onClose} />;
   return <FileBody draft={draft} sessionId={sessionId} id={id} title={title} />;
 }
 

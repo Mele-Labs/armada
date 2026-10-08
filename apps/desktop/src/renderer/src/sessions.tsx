@@ -390,7 +390,7 @@ function ReadingSheet({
       ) : one?.kind === "subagent" ? (
         one.report === undefined ? null : <Prose text={one.report} />
       ) : one?.kind === "artifact" ? (
-        <ArtifactBody draft={draft} sessionId={sessionId} form={one.form} id={one.id} title={one.title} />
+        <ArtifactBody draft={draft} sessionId={sessionId} form={one.form} id={one.id} title={one.title} onClose={onClose} />
       ) : null}
     </Sheet>
   );

@@ -255,6 +255,7 @@ test("Sessions wired: a page on the ledger is shown in main's view over the pane
   await expect.poll(() => fleet.calls.pages).toEqual(["https://example.com/artifact/findings"]);
   // Main's view lies over the body, so nothing is framed here.
   await expect.element(page.getByTitle("Clock findings")).not.toBeInTheDocument();
-  await userEvent.keyboard("{Escape}");
+  // Esc pressed in main's view, which has the keyboard, closes the panel.
+  fleet.pageEscape();
   await expect.poll(() => fleet.calls.pagesHidden).toBeGreaterThan(0);
 });

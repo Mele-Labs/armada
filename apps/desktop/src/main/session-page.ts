@@ -7,7 +7,8 @@
 
 import { session, shell, WebContentsView, BrowserWindow } from "electron";
 import type { Followed, SessionRecord } from "@armada/protocol";
-import { boundsOf } from "./session-page-bounds";
+import { SESSIONS_CHANNELS } from "../shared/api/sessions";
+import { boundsOf, isEscape } from "./session-page-bounds";
 import { namesPage } from "./session-file";
 
 const PARTITION = "persist:armada-session-pages";
@@ -46,6 +47,12 @@ export class SessionPages {
     view.webContents.setWindowOpenHandler(({ url }) => {
       if (/^https?:\/\//i.test(url)) void shell.openExternal(url);
       return { action: "deny" };
+    });
+    // The view has the keyboard while it is shown, so Esc never reaches the renderer's own binding.
+    view.webContents.on("before-input-event", (event, input) => {
+      if (!isEscape(input)) return;
+      event.preventDefault();
+      if (!sender.isDestroyed()) sender.send(SESSIONS_CHANNELS.sessionPageEscape);
     });
     window.contentView.addChildView(view);
     view.setBounds(rect);

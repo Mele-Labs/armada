@@ -259,6 +259,7 @@ export class WiredStore {
       show: (id, address, bounds) => void this.api.showSessionPage(id, address, bounds),
       move: (bounds) => void this.api.moveSessionPage(bounds),
       hide: () => void this.api.hideSessionPage(),
+      onEscape: (on) => this.api.onSessionPageEscape(on),
     },
     said: () => this.refusal,
     taggable: () => {

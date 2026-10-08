@@ -27,6 +27,7 @@ export const sessions: Slice<SessionsApi, SessionsState> = {
     showSessionPage: async () => ({ ok: true }),
     moveSessionPage: async () => undefined,
     hideSessionPage: async () => undefined,
+    onSessionPageEscape: () => () => undefined,
     pressPullRequest: async () => ({ ok: false, outcome: unanswered("/pull_requests") }),
   }),
 };

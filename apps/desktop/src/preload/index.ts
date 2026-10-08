@@ -620,6 +620,13 @@ const api: BridgeApi = {
     ipcRenderer.invoke(CHANNELS.showSessionPage, sessionId, address, bounds),
   moveSessionPage: (bounds: PageBounds): Promise<void> => ipcRenderer.invoke(CHANNELS.moveSessionPage, bounds),
   hideSessionPage: (): Promise<void> => ipcRenderer.invoke(CHANNELS.hideSessionPage),
+  onSessionPageEscape: (on: () => void): (() => void) => {
+    const handler = (): void => on();
+    ipcRenderer.on(CHANNELS.sessionPageEscape, handler);
+    return () => {
+      ipcRenderer.removeListener(CHANNELS.sessionPageEscape, handler);
+    };
+  },
   pressPullRequest: (
     sessionId: string,
     number: number,

@@ -2,7 +2,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { boundsOf } from "./session-page-bounds";
+import { boundsOf, isEscape } from "./session-page-bounds";
 
 const window = { width: 1280, height: 800 };
 
@@ -19,5 +19,13 @@ describe("the page view's bounds", () => {
     expect(boundsOf({ x: -5, y: Infinity, width: NaN, height: -1 }, window)).toEqual({ x: 0, y: 0, width: 0, height: 0 });
     expect(boundsOf(undefined, window)).toEqual({ x: 0, y: 0, width: 0, height: 0 });
     expect(boundsOf("everything", window)).toEqual({ x: 0, y: 0, width: 0, height: 0 });
+  });
+});
+
+describe("Esc in the page view", () => {
+  it("is Esc going down, and nothing else", () => {
+    expect(isEscape({ type: "keyDown", key: "Escape" })).toBe(true);
+    expect(isEscape({ type: "keyUp", key: "Escape" })).toBe(false);
+    expect(isEscape({ type: "keyDown", key: "a" })).toBe(false);
   });
 });

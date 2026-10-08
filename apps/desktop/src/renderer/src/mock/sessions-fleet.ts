@@ -102,6 +102,12 @@ export type Calls = {
 };
 
 export class FakeSessionsFleet {
+  /** Who hears Esc pressed in the page's view. */
+  private readonly escape = new Set<() => void>();
+  /** Esc, pressed while the page's view has focus. */
+  pageEscape(): void {
+    this.escape.forEach((on) => on());
+  }
   readonly calls: Calls = { started: 0, piloted: [], exited: [], sent: [], answered: [], tuned: [], renamed: [], closed: [], forked: [], pressed: [], watched: [], pages: [], pagesHidden: 0 };
   private records: SessionRecord[];
   private threads: Record<string, SessionRow[]>;
@@ -248,6 +254,10 @@ export class FakeSessionsFleet {
             return { ok: true };
           },
           moveSessionPage: async () => undefined,
+          onSessionPageEscape: (on) => {
+            this.escape.add(on);
+            return () => void this.escape.delete(on);
+          },
           hideSessionPage: async () => {
             this.calls.pagesHidden += 1;
           },
