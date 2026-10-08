@@ -86,3 +86,20 @@ export const Closed: Story = {
     state: { status: "not-started", icon: GitPullRequestClosed, label: "Closed without merging" },
   },
 };
+
+/** The forge's checks as a mark, its tooltip naming it, and auto-merge asked for beside it. */
+export const ForgeMarks: Story = {
+  args: { ...JOB_2, title: "Retire guides 8 and 20", forge: { checks: "running", autoMerge: true } },
+  play: async ({ canvasElement }) => {
+    const card = within(canvasElement);
+    await expect(card.getByRole("img", { name: "Checks running" })).toBeVisible();
+    await expect(card.getByRole("img", { name: "Auto-merge on" })).toBeVisible();
+  },
+};
+
+export const ForgeChecksFailed: Story = {
+  args: { ...JOB_2, forge: { checks: "failed", failing: ["ci / test", "ci / lint"] } },
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).getByRole("img", { name: "Checks failed: ci / test, ci / lint" })).toBeVisible();
+  },
+};

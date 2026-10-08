@@ -33,17 +33,19 @@ export function mergeFaceOf(
   return { how: "merge" };
 }
 
-/** The checks as the card says them, in the forge's terms. `undefined` draws nothing. */
-export function checksFactOf(checks: PullRequestChecks | undefined): string | undefined {
+/** The forge's checks as the card's marks take them. Nothing ran, unreadable and unread draw no mark. */
+export function forgeChecksOf(
+  checks: PullRequestChecks | undefined,
+): { checks?: "passed" | "running" | "failed"; failing?: string[] } {
   switch (checks?.kind) {
     case "all_passed":
-      return "Checks passed";
+      return { checks: "passed" };
     case "still_waiting":
-      return "Checks running";
+      return { checks: "running" };
     case "some_failed":
-      return `Checks failed: ${(checks.failed ?? []).join(", ")}`.replace(/: $/, "");
+      return { checks: "failed", failing: checks.failed ?? [] };
     default:
-      return undefined;
+      return {};
   }
 }
 

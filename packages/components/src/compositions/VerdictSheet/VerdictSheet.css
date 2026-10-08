@@ -96,24 +96,21 @@
   margin: 0;
 }
 
-/* The Settings board's own flow (`JobSettings.css`): columns rather than a
-   grid so the two balance, each card unbreakable, the gap down a column a
-   margin. **The margin is the block end only**, so the first card at the top
-   of each column starts on the same line. */
+/* One column, the pull request leading it (owner, 8 Oct 2026: *"Lets get rid of the two column
+   grid"*). The cards stack on the sheet's own gap. */
 .armada-verdict__cards {
-  columns: var(--w-proposal-settings);
-  column-gap: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
   min-width: 0;
 }
 
-.armada-verdict__cards > * {
-  break-inside: avoid;
-  margin-block-end: var(--space-4);
-}
-
-/* The flex gap already spaces what follows the columns. */
-.armada-verdict__cards > :last-child {
-  margin-block-end: 0;
+/* The pull request and its Merge, ahead of every card. */
+.armada-verdict__lead {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
 }
 
 /* The figures, read and never edited: a name and its value on one row, no box

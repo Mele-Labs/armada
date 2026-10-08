@@ -5,8 +5,8 @@ import { DestinationCard } from "../DestinationCard/DestinationCard";
 
 /**
  * Verdict sheet — the record of a Job at the one place it stops for a person,
- * and again once it is over: a card per section in the Settings board's
- * balanced columns, then the buttons. **The owner's pick of three on 2 Oct
+ * and again once it is over: the pull request first with its Merge,
+ * then a card per section in one column, then the other answers. **The owner's pick of three on 2 Oct
  * 2026** (#1680), and not folded: his note on the pick took the fold away.
  *
  * **The buttons decide nothing here.** `actions` is `Decide`'s own region;
@@ -45,6 +45,11 @@ export type VerdictSheetProps = {
    * or one whose Drone has not pushed yet.
    */
   pullRequest?: ReactNode;
+  /**
+   * Merge, with its note, drawn under the pull request it acts on: the first thing the gate
+   * presents (owner, 8 Oct 2026). **Only beside a pull request**; the other answers stay in `actions`.
+   */
+  mergeAct?: ReactNode;
   /** What proves it — the Job's Check lists, or the sentence that stands in for them. */
   provesIt: ReactNode;
   /** The line under the lists, where one is owed. */
@@ -71,6 +76,7 @@ export function VerdictSheet({
   cameBack,
   deliverable,
   pullRequest,
+  mergeAct,
   provesIt,
   provesItNote,
   risks,
@@ -88,6 +94,12 @@ export function VerdictSheet({
           <span className="armada-verdict__when">{header.when}</span>
         </div>
       )}
+      {pullRequest === undefined ? null : (
+        <div className="armada-verdict__lead">
+          {pullRequest}
+          {mergeAct}
+        </div>
+      )}
       <div className="armada-verdict__cards">
         <DestinationCard label="What you asked for">
           <p className="armada-verdict__lede">{title}</p>
@@ -102,9 +114,8 @@ export function VerdictSheet({
           )}
         </DestinationCard>
 
-        <DestinationCard label="The work">
-          {pullRequest}
-          {figures.length === 0 ? null : (
+        {figures.length === 0 ? null : (
+          <DestinationCard label="The work">
             <dl className="armada-verdict__figures">
               {figures.map((figure) => (
                 <div className="armada-verdict__figure" key={figure.label}>
@@ -115,8 +126,8 @@ export function VerdictSheet({
                 </div>
               ))}
             </dl>
-          )}
-        </DestinationCard>
+          </DestinationCard>
+        )}
 
         {risks === undefined ? null : (
           <DestinationCard label="What was not checked">
@@ -134,8 +145,7 @@ export function VerdictSheet({
         </DestinationCard>
       </div>
 
-      {/* Under the two columns, at full width: one row per step, each opening
-          to its Checks (owner, 3 Oct 2026 — it was one long column). */}
+      {/* One row per step, each opening to its Checks. */}
       <DestinationCard label="What proves it">
         {provesIt}
         {provesItNote === undefined ? null : <p className="armada-verdict__said">{provesItNote}</p>}

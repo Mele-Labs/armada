@@ -44,10 +44,11 @@
 // still the only one on this surface that reaches outside a worktree Fleet
 // made. The dialog is what stands between the press and the write. #533.
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   Dialog,
   ReviewComments,
+  MergeAct,
   ReviewDecision,
   UnifiedDiff,
   type DecisionChange,
@@ -131,6 +132,12 @@ export type DecideProps = {
   /** The pull request as the forge showed it after the last press here. */
   forgeReading?: PullRequestState | undefined;
   /**
+   * Where Merge goes: given the Merge control, and the other answers, it returns the whole. **The
+   * caller puts Merge beside the pull request** (owner, 8 Oct 2026). Absent draws both in one
+   * block, Merge first, as the gate was before.
+   */
+  render?: (merge: ReactNode, decision: ReactNode) => ReactNode;
+  /**
    * The branch conflicts with main. `#663`, `#1131`. **Merge stays drawn and
    * is disabled**, not hidden — a person who has not read the pull request
    * block above should not wonder where the button went, and the reason
@@ -194,6 +201,7 @@ export function Decide({
   checks,
   onAutoMerge,
   forgeReading,
+  render,
   conflicted = false,
   onApprove,
   onRequestChanges,
@@ -263,21 +271,36 @@ export function Decide({
   const merge = auto ? confirmAutoMerge(host ?? "the forge") : confirmMerge(pullRequest ?? "");
   const frozen = frozenBy(job);
 
-  return (
-    <>
+  const mergeNote =
+    frozen.length > 0
+      ? `${named(frozen)} is frozen, so the merge is taken now and carried out when the freeze lifts.`
+      : `Merges the pull request on ${host}. Armada runs the ` +
+        `repository's after-merge checks against what landed; merging it on ${host} ` +
+        "yourself skips them.";
+  const apart = render !== undefined && pullRequest !== undefined;
+  const mergeBlocked = conflicted
+    ? "This branch conflicts with main. Fleet sends it back for a Drone to clear the conflicts."
+    : face.blocked;
+  const merging = apart ? (
+    <MergeAct
+      onMerge={() => setAsking("merge")}
+      mergeNote={mergeNote}
+      {...(face.label === undefined ? {} : { mergeLabel: face.label })}
+      {...(mergeBlocked === undefined ? {} : { mergeBlockedReason: mergeBlocked })}
+      {...(waiting === undefined ? { disabled: off, ...(why === undefined ? {} : { disabledNote: why }) } : { pending: waiting })}
+      {...(decision === undefined ? {} : { answered: decision as ReviewDecisionAnswered })}
+    />
+  ) : null;
+  const decisions = (
       <ReviewDecision
+        {...(apart ? { mergeAbove: true } : {})}
         note={note}
         onNote={setNote}
         {...(pullRequest === undefined
           ? {}
           : {
               onMerge: () => setAsking("merge"),
-              mergeNote:
-                frozen.length > 0
-                  ? `${named(frozen)} is frozen, so the merge is taken now and carried out when the freeze lifts.`
-                  : `Merges the pull request on ${host}. Armada runs the ` +
-                    `repository's after-merge checks against what landed; merging it on ${host} ` +
-                    "yourself skips them.",
+              mergeNote,
               approveNote: "Takes the work without merging — the pull request stays open.",
               ...(face.label === undefined ? {} : { mergeLabel: face.label }),
               ...(conflicted
@@ -309,6 +332,11 @@ export function Decide({
           : { pending: waiting })}
         {...(decision === undefined ? {} : { answered: decision as ReviewDecisionAnswered })}
       />
+  );
+
+  return (
+    <>
+      {render === undefined ? decisions : render(merging, decisions)}
 
       <Dialog
         open={asking === "approve"}

@@ -91,3 +91,11 @@
   color: var(--fg-default);
   overflow-wrap: anywhere;
 }
+
+/* Merge beside its pull request: the button, then the reason it is off. */
+.armada-review-decision__merge {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+}

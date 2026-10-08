@@ -29,7 +29,7 @@ import {
 } from "@armada/components";
 import { ReviewedGate, type PendingChanges } from "./confidence";
 import { ciOf, ciShown } from "./ci";
-import { checksFactOf } from "./merge-face";
+import { forgeChecksOf } from "./merge-face";
 import { NO_FRAMES, type Frames } from "./frames";
 import { capturedOf, groundsOf } from "./grounds";
 import type {
@@ -404,10 +404,12 @@ export function pullRequestBlockOf(
       {...(state === undefined ? {} : { state })}
       {...(facts.checks === undefined ? {} : { checks: facts.checks })}
       {...(facts.comments === undefined ? {} : { comments: facts.comments })}
+      forge={{
+        ...forgeChecksOf(detail?.checks),
+        ...(facts.autoMerge === true && facts.landed === undefined ? { autoMerge: true } : {}),
+      }}
       {...(onOpen === undefined ? {} : { onOpen })}
     >
-      {checksFactOf(detail?.checks) === undefined ? null : <span>{checksFactOf(detail?.checks)}</span>}
-      {facts.autoMerge === true && facts.landed === undefined ? <span>Auto-merge on</span> : null}
       {currency === undefined ? null : (
         <p className={currency.conflicted ? "text-xs text-fg-default" : "text-2xs text-fg-subtle"}>
           {currency.said}
@@ -698,55 +700,57 @@ export function verdictSlotAtGate({
         ? "The run tree on the left is where each step's own evidence is. This reads the Job."
         : undefined;
   const sheetWith = (pending?: PendingChanges) => (
-    <VerdictSheet
-      {...verdictOf({
-        job,
-        whole,
-        step: open,
-        render,
-        diff: recorded.diff,
-        opens: opensRecords,
-        now,
-        claim: claimed,
-        pullRequest: {
-          address,
-          detail,
-          onOpen: () =>
-            void openPullRequest(onOpenPullRequest, job.id).then((because) => {
-              if (because !== null) onSaid(because);
-            }),
-          unpushed,
-          reading: forgeReading,
-        },
-        undecided,
-      })}
-      note={note}
-      actions={
-        <Decide
-          job={job}
-          onNeedMaterial={onNeedMaterial}
-          onNeedRemarks={onNeedRemarks}
-          evidence={recorded.evidence}
-          remarks={recorded.remarks}
-          stale={stale}
-          deciding={deciding}
-          decidingAct={decidingAct}
-          answered={answered}
-          {...(address === undefined ? {} : { pullRequest: address, conflicted })}
-          onMerge={onMergePullRequest}
-          checks={detail?.checks}
-          onAutoMerge={onAutoMergePullRequest}
-          forgeReading={forgeReading}
-          onApprove={onApproveReview}
-          onRequestChanges={onRequestChanges}
-          walkNotes={whole?.walk_notes ?? []}
-          {...(onRemoveWalkNote === undefined ? {} : { onRemoveWalkNote })}
-          onReject={onReject}
-          onTakeUpRemarks={onTakeUpRemarks}
-          onOpenRemarkLink={onOpenRemarkLink}
-          {...(pending ?? {})}
+    <Decide
+      job={job}
+      onNeedMaterial={onNeedMaterial}
+      onNeedRemarks={onNeedRemarks}
+      evidence={recorded.evidence}
+      remarks={recorded.remarks}
+      stale={stale}
+      deciding={deciding}
+      decidingAct={decidingAct}
+      answered={answered}
+      {...(address === undefined ? {} : { pullRequest: address, conflicted })}
+      onMerge={onMergePullRequest}
+      checks={detail?.checks}
+      onAutoMerge={onAutoMergePullRequest}
+      forgeReading={forgeReading}
+      onApprove={onApproveReview}
+      onRequestChanges={onRequestChanges}
+      walkNotes={whole?.walk_notes ?? []}
+      {...(onRemoveWalkNote === undefined ? {} : { onRemoveWalkNote })}
+      onReject={onReject}
+      onTakeUpRemarks={onTakeUpRemarks}
+      onOpenRemarkLink={onOpenRemarkLink}
+      {...(pending ?? {})}
+      render={(merge, decision) => (
+        <VerdictSheet
+          {...verdictOf({
+            job,
+            whole,
+            step: open,
+            render,
+            diff: recorded.diff,
+            opens: opensRecords,
+            now,
+            claim: claimed,
+            pullRequest: {
+              address,
+              detail,
+              onOpen: () =>
+                void openPullRequest(onOpenPullRequest, job.id).then((because) => {
+                  if (because !== null) onSaid(because);
+                }),
+              unpushed,
+              reading: forgeReading,
+            },
+            undecided,
+          })}
+          note={note}
+          {...(merge === null || merge === undefined ? {} : { mergeAct: merge })}
+          actions={decision}
         />
-      }
+      )}
     />
   );
   // Armada's review comes first, above the record it is about. #903.

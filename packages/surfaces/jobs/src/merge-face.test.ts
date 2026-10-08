@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
 
-import { checksFactOf, mergeFaceOf } from "./merge-face";
+import { forgeChecksOf, mergeFaceOf } from "./merge-face";
 
 test("nothing ran, unreadable and unread are plain Merge", () => {
   expect(mergeFaceOf(undefined, undefined)).toEqual({ how: "merge" });
@@ -13,11 +13,11 @@ test("a failed run blocks and names what failed", () => {
     how: "merge",
     blocked: "a, b failed",
   });
-  expect(checksFactOf({ kind: "some_failed", checks: 2, failed: ["a", "b"] })).toBe("Checks failed: a, b");
+  expect(forgeChecksOf({ kind: "some_failed", checks: 2, failed: ["a", "b"] })).toEqual({ checks: "failed", failing: ["a", "b"] });
 });
 
-test("the checks as the card says them", () => {
-  expect(checksFactOf({ kind: "all_passed", checks: 2 })).toBe("Checks passed");
-  expect(checksFactOf({ kind: "still_waiting", checks: 2 })).toBe("Checks running");
-  expect(checksFactOf({ kind: "nothing_ran", checks: 0 })).toBeUndefined();
+test("the checks as the card's marks take them", () => {
+  expect(forgeChecksOf({ kind: "all_passed", checks: 2 })).toEqual({ checks: "passed" });
+  expect(forgeChecksOf({ kind: "still_waiting", checks: 2 })).toEqual({ checks: "running" });
+  expect(forgeChecksOf({ kind: "nothing_ran", checks: 0 })).toEqual({});
 });

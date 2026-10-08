@@ -120,3 +120,46 @@
   padding-inline: var(--space-2);
   color: var(--fg-subtle);
 }
+
+/* The forge's checks and auto-merge, one mark each. The colour is the Job state the mark means. */
+.armada-pr-card__forge {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.armada-pr-card__check {
+  display: inline-flex;
+  color: var(--fg-muted);
+}
+
+.armada-pr-card__check[data-checks="passed"] {
+  color: var(--status-completed-success);
+}
+
+.armada-pr-card__check[data-checks="failed"] {
+  color: var(--status-completed-failed);
+}
+
+.armada-pr-card__check[data-checks="running"] {
+  color: var(--status-running);
+}
+
+.armada-pr-card__check[data-checks="auto"] {
+  color: var(--status-awaiting-review);
+}
+
+/* Running is the one mark in motion. */
+.armada-pr-card__check[data-checks="running"] > svg {
+  animation: armada-pr-card-spin var(--duration-pulse) linear infinite;
+}
+
+@keyframes armada-pr-card-spin {
+  to { transform: rotate(1turn); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .armada-pr-card__check[data-checks="running"] > svg {
+    animation: none;
+  }
+}
