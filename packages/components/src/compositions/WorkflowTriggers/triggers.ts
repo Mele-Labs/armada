@@ -83,6 +83,20 @@ export function nameOf(draft: Pick<TriggerDraft, "name" | "runs" | "with">): str
   return draft.with.toLowerCase().match(/[a-z0-9]+/g)?.slice(0, 4).join("-") ?? "";
 }
 
+/** A new Drone Trigger's slug where another Trigger at its level already has it: `-2`, `-3`, and so on. A named draft is the same Trigger being edited and keeps its name. */
+export function freeNameOf(draft: TriggerDraft, held: readonly TriggerSummary[]): string {
+  const base = nameOf(draft);
+  if (draft.name !== "" || draft.runs !== "drone") return base;
+  const taken = new Set(
+    held
+      .filter((one) => one.level === draft.scope && one.when === draft.when && (one.step ?? "") === (draft.when === "pr_opened" ? "" : draft.step))
+      .map((one) => one.name),
+  );
+  let name = base;
+  for (let n = 2; taken.has(name); n += 1) name = `${base}-${n}`;
+  return name;
+}
+
 /** The text `save_trigger` takes. JSON, which the loader's YAML reads the same. */
 export function definitionOf(draft: TriggerDraft): string {
   const failure = { ...(draft.block ? { block: true } : {}), ...(draft.repair ? { repair: true } : {}) };

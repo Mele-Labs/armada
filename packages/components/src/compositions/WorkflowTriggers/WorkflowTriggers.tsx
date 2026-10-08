@@ -35,6 +35,7 @@ import {
   definitionOf,
   draftOf,
   EVERY,
+  freeNameOf,
   identityKey,
   nameOf,
   whenSaid,
@@ -302,8 +303,9 @@ export function TriggerSheet({
 
   async function save() {
     if (draft === null) return;
-    const identity: TriggerIdentity = { when: draft.when, ...(draft.step === "" || draft.when === "pr_opened" ? {} : { step: draft.step }), name: nameOf(draft) };
-    const result = await binding.onSave(draft.scope, definitionOf(draft), replaces || (was !== null && target.kind === "open" && !moved(was, draft)), keeping);
+    const named = { ...draft, name: freeNameOf(draft, binding.triggers) };
+    const identity: TriggerIdentity = { when: draft.when, ...(draft.step === "" || draft.when === "pr_opened" ? {} : { step: draft.step }), name: nameOf(named) };
+    const result = await binding.onSave(draft.scope, definitionOf(named), replaces || (was !== null && target.kind === "open" && !moved(was, draft)), keeping);
     if (!result.ok) {
       setStanding("refused");
       setSaid(result.said);
