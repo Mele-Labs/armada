@@ -568,6 +568,13 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
                     admitted => format!(", admitted {}", admitted.len()),
                 }
             );
+            // **Sessions taken back, not restarted.** A hosted session's agent
+            // runs under a keeper that outlives Fleet; reattaching replays what
+            // it said while Fleet was down.
+            let kept = fleet.reattached_sessions().await;
+            if kept > 0 {
+                println!("  {kept} hosted session(s) reattached to a keeper that outlived the last Fleet");
+            }
             // Said only where it happened: every boot after the one that converted
             // them prints nought, and a line saying so every time would be noise.
             if reconciled.recognised > 0 {
@@ -813,6 +820,8 @@ fn assemble(
     // copies from here into the worktree a Drone can see.
     let attachments_dir = machine.join("attachments");
     std::fs::create_dir_all(&attachments_dir)?;
+    let keepers_dir = machine.join("sessions");
+    std::fs::create_dir_all(&keepers_dir)?;
 
     // A Studio's frames, beside the Studio's records rather than inside the
     // database — a screenshot in a row is read on every graph read. `#1290`.
@@ -862,6 +871,7 @@ fn assemble(
             user,
             mcp_config: mcp_config.to_string_lossy().to_string(),
             attachments_dir: attachments_dir.to_string_lossy().to_string(),
+            keepers_dir: keepers_dir.to_string_lossy().to_string(),
             studio_frames_dir: studio_frames_dir.to_string_lossy().to_string(),
             walk_frames_dir: walk_frames_dir.to_string_lossy().to_string(),
             kit_home,

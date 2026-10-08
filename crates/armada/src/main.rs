@@ -79,6 +79,13 @@ async fn main() -> ExitCode {
         // verb is a pipe with one message in flight; nothing else is running
         // to be starved. `armada::mcp` holds the argument.
         Verb::Mcp => armada::mcp::speak(),
+        Verb::SessionKeep { args } => match fleet::session_host::keeper::run(args).await {
+            Ok(()) => ExitCode::SUCCESS,
+            Err(why) => {
+                eprintln!("{why}");
+                ExitCode::FAILURE
+            }
+        },
         Verb::Worktree(act) => worktree_verb(act),
         Verb::Need(act) => need_verb(act),
     }

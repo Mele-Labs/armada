@@ -11,7 +11,7 @@ use fleet::process::StartedAt;
 use fleet::runtime::{Presence, RuntimeFile, Staleness};
 use ipc::{ManifestId, ManifestSummary, ProtocolId};
 
-use crate::mcp::{found_in, listening, noting, publish, refused, standing_in, stands_in};
+use crate::mcp::{found_in, posted_patiently, listening, noting, publish, refused, standing_in, stands_in};
 use crate::tests::{repository, TempDir};
 
 fn file(id: ProtocolId) -> RuntimeFile {
@@ -322,4 +322,27 @@ fn the_note_is_added_to_the_handshake_and_to_nothing_else() {
         handshake.to_vec(),
         "and so is a handshake where nothing was adopted"
     );
+}
+
+/// **A tool call made while Fleet restarts waits for it.** The port is bound
+/// only after the first poll has failed, as a restarting Fleet binds late.
+#[test]
+fn a_call_made_while_fleet_is_down_waits_for_it_and_is_answered() {
+    use std::io::{Read, Write};
+    let probe = std::net::TcpListener::bind("127.0.0.1:0").expect("a port");
+    let port = probe.local_addr().expect("an address").port();
+    drop(probe);
+    let fleet = std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_millis(1500));
+        let listener = std::net::TcpListener::bind(("127.0.0.1", port)).expect("the port again");
+        let (mut socket, _) = listener.accept().expect("a call");
+        let mut head = [0u8; 1024];
+        let _ = socket.read(&mut head);
+        let _ = socket.write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok");
+    });
+    let answer = posted_patiently(&crate::loopback::Loopback::at(port), "/door", b"{}")
+        .expect("answered once Fleet is back");
+    assert_eq!(answer.status, 200);
+    assert_eq!(answer.body, b"ok");
+    fleet.join().expect("the stand-in Fleet");
 }

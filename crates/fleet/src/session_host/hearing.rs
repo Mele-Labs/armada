@@ -56,12 +56,23 @@ where
                 }
                 let _ = self.published_hosted(id).await;
             }
+            Heard::Attached { busy } => {
+                {
+                    let mut state = runtime.state();
+                    state.last_active = std::time::Instant::now();
+                    if busy {
+                        state.turn = SessionTurn::Working { woken_by: None };
+                    }
+                }
+                let _ = self.published_hosted(id).await;
+            }
             Heard::Commands(names) => {
                 self.hosts().heard_commands(names.clone());
                 runtime.state().commands = names;
                 let _ = self.published_hosted(id).await;
             }
             Heard::Events(events) => {
+                runtime.state().last_active = std::time::Instant::now();
                 for event in events {
                     self.hear(id, &runtime, event).await;
                 }

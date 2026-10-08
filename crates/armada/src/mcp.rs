@@ -344,7 +344,7 @@ const PING: &str = r#"{"jsonrpc":"2.0","id":0,"method":"ping"}"#;
 /// upward from a subdirectory says so at its handshake, and nowhere else.
 fn carried(fleet: &Loopback, door: &str, adopted: Option<&str>) -> ExitCode {
     each_message(|message| {
-        match fleet.post(door, message) {
+        match posted_patiently(fleet, door, message) {
             // A notification: acknowledged with 202 and no body, because
             // answering one is what JSON-RPC forbids.
             Ok(answer) if answer.status == 202 => None,
@@ -368,6 +368,32 @@ fn carried(fleet: &Loopback, door: &str, adopted: Option<&str>) -> ExitCode {
             Err(why) => refused(message, &format!("Armada stopped answering: {why}")),
         }
     })
+}
+
+/// How long a call waits for a Fleet that is restarting, and how often it asks.
+const RESTART_PATIENCE: std::time::Duration = std::time::Duration::from_secs(90);
+const RESTART_POLL: std::time::Duration = std::time::Duration::from_secs(1);
+
+/// One message to Fleet. **A port nothing listens on is waited out**, because a
+/// session's agent now outlives a Fleet restart and its permission asks must
+/// reach the Fleet that comes back. A cut mid-answer is not retried: the call
+/// may have run.
+pub(crate) fn posted_patiently(
+    fleet: &Loopback,
+    door: &str,
+    message: &[u8],
+) -> Result<crate::loopback::Answer, crate::loopback::Unreachable> {
+    let began = std::time::Instant::now();
+    loop {
+        match fleet.post(door, message) {
+            Err(crate::loopback::Unreachable::NotListening { .. })
+                if began.elapsed() < RESTART_PATIENCE =>
+            {
+                std::thread::sleep(RESTART_POLL);
+            }
+            answered => return answered,
+        }
+    }
 }
 
 /// The disclosure, added to the one answer that carries instructions.
