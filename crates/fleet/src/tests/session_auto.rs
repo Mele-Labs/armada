@@ -108,14 +108,13 @@ fn an_edit_in_the_sessions_own_slot_runs_and_one_outside_it_still_asks() {
 
 #[test]
 fn the_three_classes_still_ask() {
-    assert_eq!(bash("rm -rf /tmp/build"), Some(Because::Destructive));
+    assert_eq!(bash("rm -rf /opt/build"), Some(Because::Destructive));
     assert_eq!(bash("rm -rf ."), Some(Because::Destructive));
     assert_eq!(bash("cd /tmp && rm -rf target"), Some(Because::Destructive));
-    assert_eq!(bash("git reset --hard HEAD~1"), Some(Because::Destructive));
-    assert_eq!(
-        bash("git checkout -- src/lib.rs"),
-        Some(Because::Destructive)
-    );
+    assert_eq!(bash("git -C /elsewhere reset --hard HEAD~1"), Some(Because::Destructive));
+    assert_eq!(bash("git stash pop"), Some(Because::Destructive));
+    assert_eq!(bash("git branch -D other"), Some(Because::Destructive));
+    assert_eq!(bash("git tag -d v1"), Some(Because::Destructive));
     assert_eq!(bash("echo hi > /etc/hosts"), Some(Because::Destructive));
     assert_eq!(bash("git push origin main"), Some(Because::PushesToShared));
     assert_eq!(bash("echo $(git push)"), Some(Because::PushesToShared));
@@ -208,7 +207,7 @@ fn quoted_text_is_an_argument_not_a_redirect_or_a_pipe() {
     }
     assert_eq!(bash("echo hi > /etc/hosts"), Some(Because::Destructive));
     assert_eq!(bash("echo 'x' > /etc/hosts"), Some(Because::Destructive));
-    assert_eq!(bash("echo \"x\" | rm -rf /tmp/y"), Some(Because::Destructive));
+    assert_eq!(bash("echo \"x\" | rm -rf /opt/y"), Some(Because::Destructive));
 }
 
 #[test]
@@ -235,4 +234,18 @@ fn a_page_opened_in_the_browser_is_found_in_every_segment() {
     for line in ["open file.txt", "open .", "echo http://a.test/", "curl http://a.test/"] {
         assert!(pages_opened(line).is_empty(), "{line}");
     }
+}
+
+#[test]
+fn a_session_rewrites_its_own_branch_and_writes_scratch_unasked() {
+    for line in [
+        "git tag -f dashboard-mock-backup HEAD && git diff 1340ee498 HEAD -- . > /tmp/dashboard.patch",
+        "git reset -q --hard origin/main && git apply --3way /tmp/dashboard.patch 2>&1 | tail -8; git status --short | head -40",
+        "git checkout -- src/lib.rs",
+        "git rebase origin/main",
+        "rm /tmp/dashboard.patch",
+    ] {
+        assert_eq!(bash(line), None, "{line} should run");
+    }
+    assert!(bash("rm /tmp/../etc/hosts").is_some());
 }

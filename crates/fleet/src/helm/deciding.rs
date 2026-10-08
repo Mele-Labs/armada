@@ -173,6 +173,11 @@ fn in_the_slot(word: &str, slot: &str, relative: bool) -> bool {
     if word.is_empty() || word.contains('$') || word.starts_with('~') {
         return false;
     }
+    // Scratch space is no one's work: a patch kept in `/tmp` between two
+    // steps asked, on every try (8 Oct 2026).
+    if SCRATCH.iter().any(|scratch| word.starts_with(scratch)) && !word.contains("..") {
+        return true;
+    }
     if word.starts_with('/') {
         return inside_the_directory(word, slot)
             && word.trim_end_matches('/') != slot.trim_end_matches('/');
@@ -181,6 +186,9 @@ fn in_the_slot(word: &str, slot: &str, relative: bool) -> bool {
         && !matches!(word.trim_end_matches('/'), "" | "." | "*")
         && inside_the_directory(word, slot)
 }
+
+/// Where a session may write and remove besides its slot.
+const SCRATCH: &[&str] = &["/tmp/", "/private/tmp/", "/var/folders/", "/private/var/folders/"];
 
 /// Whether `path` is under `directory`, a relative path being read against it.
 /// A `..` anywhere makes it unreadable as inside.
@@ -482,7 +490,7 @@ fn segment(said: &str, slot: Option<Slot>) -> Option<Because> {
     }
     let arguments: Vec<&str> = rest.collect();
     match program {
-        "git" => return git(&arguments),
+        "git" => return git(&arguments, slot.is_some()),
         "gh" => return forge(&arguments),
         "curl" | "wget" | "http" => return fetching(&arguments),
         _ => {}
@@ -580,8 +588,27 @@ fn into_a_device(after: &[char]) -> bool {
 
 /// `git`, by its subcommand. **Reading history is not writing it**: `log`,
 /// `status`, `diff`, `show` and `worktree list` run.
-fn git(arguments: &[&str]) -> Option<Because> {
-    let subcommand = arguments.iter().find(|word| !word.starts_with('-'))?;
+fn git(arguments: &[&str], own_slot: bool) -> Option<Because> {
+    // `-C <path>` and `-c <key=value>` carry a value, which is not the verb.
+    let mut words = arguments.iter();
+    let subcommand = loop {
+        let word = words.next()?;
+        if matches!(*word, "-C" | "-c") {
+            words.next();
+        } else if !word.starts_with('-') {
+            break word;
+        }
+    };
+    // **A session in its own slot rewrites its own branch unasked**: a reset, a
+    // checkout, a rebase or a forced tag there touches nothing but the work it
+    // made (the owner, 8 Oct 2026). Pointed elsewhere with `-C`, it is read as
+    // before; the stash is every worktree's, and a push, a deleted branch and
+    // a pruned repository are everyone's.
+    const OWN_BRANCH: &[&str] = &["reset", "clean", "checkout", "restore", "rebase", "am", "cherry-pick", "revert", "merge", "tag"];
+    let elsewhere = arguments.iter().any(|word| *word == "-C" || word.starts_with("--git-dir") || word.starts_with("--work-tree"));
+    if own_slot && !elsewhere && OWN_BRANCH.contains(subcommand) && !(*subcommand == "tag" && arguments.iter().any(|w| matches!(*w, "-d" | "--delete"))) {
+        return None;
+    }
     const GONE: &[&str] = &[
         "reset",
         "clean",
