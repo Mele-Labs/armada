@@ -264,6 +264,7 @@ export function SessionComposer({
           aria-label="Message"
           aria-controls={open ? listId : undefined}
           rows={2}
+          grow
           value={text}
           onChange={(event) => {
             setText(event.target.value);

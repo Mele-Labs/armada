@@ -1,4 +1,4 @@
-import { useId } from "react";
+import { useId, useLayoutEffect, useRef } from "react";
 import type { TextareaHTMLAttributes } from "react";
 
 /**
@@ -31,12 +31,18 @@ export type TextareaProps = TextareaHTMLAttributes<HTMLTextAreaElement> & {
   invalid?: boolean;
   /** What is wrong, and what to do about it. Rendered only when `invalid`. */
   message?: string;
+  /**
+   * Grows with its text, from `rows` up to half the height of the container
+   * its form sits in, and scrolls past that. Shrinks as text is removed.
+   */
+  grow?: boolean;
 };
 
 export function Textarea({
   label,
   invalid = false,
   message,
+  grow = false,
   rows = 3,
   id,
   ...rest
@@ -45,6 +51,17 @@ export function Textarea({
   const textareaId = id ?? generated;
   const messageId = `${textareaId}-message`;
   const showMessage = invalid && message !== undefined;
+  const field = useRef<HTMLTextAreaElement>(null);
+
+  useLayoutEffect(() => {
+    const box = field.current;
+    if (!grow || box === null) return;
+    const bound = box.closest("form")?.parentElement;
+    box.style.height = "auto";
+    const natural = box.scrollHeight + box.offsetHeight - box.clientHeight;
+    const cap = bound ? bound.clientHeight / 2 : Infinity;
+    box.style.height = `${Math.max(Math.min(natural, cap), box.offsetHeight)}px`;
+  }, [grow, rest.value]);
 
   return (
     <div className="armada-textarea-field">
@@ -55,6 +72,7 @@ export function Textarea({
       )}
       <textarea
         {...rest}
+        ref={field}
         rows={rows}
         id={textareaId}
         className="armada-textarea"

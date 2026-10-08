@@ -214,3 +214,26 @@ export const SlashFiltered: Story = {
     await expect(field).toHaveValue(`${picked} `);
   },
 };
+
+/** The message box grows with what is typed, stops at half the height of the area it sits in, and scrolls past that. */
+export const GrowsToHalf: Story = {
+  render: (args) => (
+    <div style={{ height: "calc(var(--space-12) * 8)", display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
+      <SessionComposer {...args} />
+    </div>
+  ),
+  play: async ({ canvas, canvasElement }) => {
+    const field = canvas.getByRole("textbox", { name: "Message" });
+    const panel = canvasElement.querySelector("form")!.parentElement!;
+    const rest = field.getBoundingClientRect().height;
+    await userEvent.type(field, "one{Shift>}{Enter}{/Shift}two{Shift>}{Enter}{/Shift}three{Shift>}{Enter}{/Shift}four");
+    const grown = field.getBoundingClientRect().height;
+    await expect(grown).toBeGreaterThan(rest);
+    await expect(grown).toBeLessThan(panel.clientHeight / 2);
+    await userEvent.type(field, "{Shift>}{Enter}{/Shift}m".repeat(14));
+    await expect(field.getBoundingClientRect().height).toBeLessThanOrEqual(panel.clientHeight / 2 + 1);
+    await expect(field.scrollHeight).toBeGreaterThan(field.clientHeight);
+    await userEvent.clear(field);
+    await expect(field.getBoundingClientRect().height).toBeCloseTo(rest, 0);
+  },
+};

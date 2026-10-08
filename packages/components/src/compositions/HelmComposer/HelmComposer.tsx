@@ -200,6 +200,7 @@ export function HelmComposer({
           // Three rows, as the drone message box takes: an ask is a sentence
           // or two, and in a dock this narrow one of them wraps.
           rows={3}
+          grow
           value={value}
           onChange={(event) => onChange(event.target.value)}
           onKeyDown={keyed}
