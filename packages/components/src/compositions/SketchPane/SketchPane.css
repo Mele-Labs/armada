@@ -1,39 +1,23 @@
+/* The canvas's own height, so swapping a sketch for the canvas moves nothing. */
 .armada-sketch {
   display: flex;
   align-items: center;
   justify-content: center;
+  box-sizing: border-box;
+  block-size: var(--h-workflow-run-canvas);
   margin: 0;
   padding: var(--space-4);
   border: var(--border-width) solid var(--border-subtle);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   background: var(--bg-sunken);
+  min-width: 0;
 }
 
-.armada-sketch svg {
-  max-width: 100%;
-  height: auto;
-}
-
-/* The drawing's parts, styled here so one SVG reads in both themes. */
-.armada-sketch .sk-node {
-  fill: var(--bg-raised);
-  stroke: var(--border-default);
-  stroke-width: 1;
-}
-
-.armada-sketch .sk-edge {
-  fill: none;
-  stroke: var(--fg-muted);
-  stroke-width: 1.5;
-}
-
-.armada-sketch .sk-head {
-  fill: var(--fg-muted);
-}
-
-.armada-sketch .sk-text {
-  fill: var(--fg-default);
-  font-size: var(--text-sm);
-  text-anchor: middle;
-  dominant-baseline: central;
+.armada-sketch__drawing {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 100%;
+  block-size: 100%;
+  min-height: 0;
 }

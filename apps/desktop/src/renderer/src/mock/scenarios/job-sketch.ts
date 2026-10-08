@@ -1,7 +1,7 @@
 // A Drone's sketch beside the Now panel, in place of the canvas while its ask is open: a Plan
 // decision with a sketch of its own and one without, a Judge question with a sketch, and a Drone
-// question with none. Mock data only: the sketches are mermaid source with a pre-drawn SVG, and ride
-// on the draft by Job id. The walks `job-sketch-*` play them, one per scenario.
+// question with none. Mock data only: the sketches are mermaid source, and ride on the draft by Job id.
+// A Plan decision carries the current state, and each of its options how the result looks if taken. The walks `job-sketch-*` play them, one per scenario.
 
 import type { NowView } from "@armada/jobs/draft/now";
 import { featureRunning } from "@armada/jobs/fake";
@@ -10,7 +10,6 @@ import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
 
 import { asRow, holding } from "../holding";
 import type { Scenario } from "../moment";
-import { sketchSvg } from "../sketch-svg";
 
 const ROWS = [
   { at: 81, slug: "sketch-plan", title: "Split the writer from the clock" },
@@ -30,42 +29,20 @@ const [plan, judge, none] = fixtures.map((one) => one.job.id) as [string, string
 
 const DRONE_ID = "01M3WJ6FGZ003DCX123T7W6YP1";
 
-const SPLIT = {
-  source: "flowchart LR\n  Writer --> Store\n  Clock --> Store",
-  svg: sketchSvg(
-    [
-      { id: "w", x: 0, y: 0, label: "Writer" },
-      { id: "c", x: 0, y: 90, label: "Clock" },
-      { id: "s", x: 230, y: 45, label: "Store" },
-    ],
-    [["w", "s"], ["c", "s"]],
-  ),
-};
+const sketch = (source: string) => ({ source });
 
-const PINNED = {
-  source: "flowchart LR\n  Fixture --> Pinned[Pinned clock]\n  Fixture -.-> Fake[Fake clock]",
-  svg: sketchSvg(
-    [
-      { id: "f", x: 0, y: 45, label: "Fixture" },
-      { id: "p", x: 230, y: 0, label: "Pinned clock" },
-      { id: "k", x: 230, y: 90, label: "Fake clock" },
-    ],
-    [["f", "p"], ["f", "k"]],
-  ),
-};
+const NOW_SHAPE = sketch("flowchart LR\n  Writer[Writer and clock, one file] --> Store");
+const SPLIT = sketch("flowchart LR\n  Writer --> Store\n  Clock --> Store");
+const WRAP = sketch("flowchart LR\n  Writer --> Wrapper\n  Wrapper --> Clock\n  Wrapper --> Store");
+const LATER = sketch("flowchart LR\n  Writer[Writer and clock, one file] --> Store\n  Later[A later Job] -.-> Writer");
 
-const BACKOFF = {
-  source: "stateDiagram-v2\n  Waiting --> Retrying\n  Retrying --> Waiting: backoff doubles\n  Retrying --> Capped\n  Capped --> Failed",
-  svg: sketchSvg(
-    [
-      { id: "w", x: 0, y: 0, label: "Waiting" },
-      { id: "r", x: 230, y: 0, label: "Retrying" },
-      { id: "c", x: 230, y: 90, label: "Capped" },
-      { id: "f", x: 0, y: 90, label: "Failed" },
-    ],
-    [["w", "r"], ["r", "c"], ["c", "f"]],
-  ),
-};
+const NOW_CLOCK = sketch("flowchart LR\n  Fixture --> Wall[Wall clock]\n  Wall --> Store");
+const PINNED = sketch("flowchart LR\n  Fixture --> Pinned[Pinned hour]\n  Pinned --> Store");
+const FAKE = sketch("flowchart LR\n  Fixture --> Fake[Fake clock]\n  Fake -->|ticks on demand| Store");
+
+const BACKOFF = sketch(
+  "stateDiagram-v2\n  [*] --> Waiting\n  Waiting --> Retrying\n  Retrying --> Waiting: backoff doubles\n  Retrying --> Capped\n  Capped --> Failed",
+);
 
 const now: Record<string, NowView> = {
   [plan]: {
@@ -77,14 +54,21 @@ const now: Record<string, NowView> = {
           {
             id: "shape",
             question: "Split the clock out of the writer, or wrap it in place?",
-            options: [{ id: "split", label: "Split it out" }, { id: "wrap", label: "Wrap it in place" }],
-            sketch: SPLIT,
+            options: [
+              { id: "split", label: "Split it out", sketch: SPLIT },
+              { id: "wrap", label: "Wrap it in place", sketch: WRAP },
+              { id: "defer", label: "Leave it for a later Job", sketch: LATER },
+            ],
+            sketch: NOW_SHAPE,
           },
           {
             id: "tests",
             question: "Pin the clock in the existing fixtures, or add a fake?",
-            options: [{ id: "pin", label: "Pin it in the fixtures" }, { id: "fake", label: "Add a fake clock" }],
-            sketch: PINNED,
+            options: [
+              { id: "pin", label: "Pin it in the fixtures", sketch: PINNED },
+              { id: "fake", label: "Add a fake clock", sketch: FAKE },
+            ],
+            sketch: NOW_CLOCK,
           },
           {
             id: "scope",

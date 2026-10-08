@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, fn, userEvent } from "storybook/test";
+import { expect, fn, userEvent, waitFor } from "storybook/test";
 
 import { NowPanel, type NowAct, type NowAsk, type NowSketch, type NowIssue, type NowRunning, type NowWaiting } from "./NowPanel";
 
@@ -226,33 +226,71 @@ export const Everything: Story = {
   args: { asks: [PLAN, JUDGE_ASK], issues: ISSUES, running: RUNNING, onHide: fn() },
 };
 
-const SKETCH: NowSketch = {
-  source: "flowchart LR\n  Writer --> Store\n  Clock --> Store",
-  svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 40" width="120" height="40"><rect class="sk-node" x="0" y="0" width="120" height="40"/></svg>',
-};
-const OTHER: NowSketch = { source: "flowchart LR\n  Fixture --> Clock", svg: SKETCH.svg };
+const NOW: NowSketch = { source: "flowchart LR\n  Writer --> Store" };
+const SPLIT: NowSketch = { source: "flowchart LR\n  Writer --> Store\n  Clock --> Store" };
+const WRAP: NowSketch = { source: "flowchart LR\n  Writer --> Wrapper\n  Wrapper --> Clock" };
+const OTHER: NowSketch = { source: "flowchart LR\n  Fixture --> Clock" };
 
-/** Each decision can carry its own sketch; the panel reports the one asked now, and none once a decision has none. */
-export const PlanWithSketches: Story = {
-  args: {
-    asks: [
-      {
-        ...(PLAN as Extract<NowAsk, { kind: "plan" }>),
-        decisions: [
-          { ...(PLAN as Extract<NowAsk, { kind: "plan" }>).decisions[0]!, sketch: SKETCH },
-          { ...(PLAN as Extract<NowAsk, { kind: "plan" }>).decisions[1]!, sketch: OTHER },
-          { id: "scope", question: "Take the retry cap in this Job?", options: [{ id: "in", label: "Take it here" }] },
-        ],
-      },
-    ],
-    onSketch: fn(),
-  },
+const SKETCHED: NowAsk = {
+  key: "plan",
+  kind: "plan",
+  decisions: [
+    {
+      id: "shape",
+      question: "Split the store clock out of the writer, or wrap it?",
+      sketch: NOW,
+      options: [
+        { id: "split", label: "Split it out", sketch: SPLIT },
+        { id: "wrap", label: "Wrap it in place", sketch: WRAP },
+      ],
+    },
+    { id: "tests", question: "Pin the clock in the fixtures, or add a fake?", sketch: OTHER, options: [{ id: "pin", label: "Pin it in the fixtures" }] },
+    { id: "scope", question: "Take the retry cap in this Job?", options: [{ id: "in", label: "Take it here" }] },
+  ],
+  onAnswer: answer,
+};
+
+/**
+ * An option previews its own sketch while hovered or focused and keeps it once picked; with none of
+ * those the decision's own sketch stands, and a decision with no sketch reports none.
+ */
+export const OptionPreviewsItsSketch: Story = {
+  args: { asks: [SKETCHED], onSketch: fn() },
   play: async ({ canvas, args }) => {
-    await expect(args.onSketch).toHaveBeenLastCalledWith(SKETCH);
-    await userEvent.click(canvas.getByRole("radio", { name: "Split it out" }));
+    await expect(args.onSketch).toHaveBeenLastCalledWith(NOW);
+    const split = canvas.getByText("Split it out");
+    const wrap = canvas.getByText("Wrap it in place");
+    await userEvent.hover(split);
+    await expect(args.onSketch).toHaveBeenLastCalledWith(SPLIT);
+    await userEvent.hover(wrap);
+    await expect(args.onSketch).toHaveBeenLastCalledWith(WRAP);
+    await userEvent.unhover(wrap);
+    await expect(args.onSketch).toHaveBeenLastCalledWith(NOW);
+    await userEvent.click(split);
+    await userEvent.unhover(split);
+    await expect(args.onSketch).toHaveBeenLastCalledWith(SPLIT);
+  },
+};
+
+/** Keyboard focus previews as hover does. */
+export const FocusPreviewsItsSketch: Story = {
+  args: { asks: [SKETCHED], onSketch: fn() },
+  play: async ({ canvas, args }) => {
+    canvas.getByRole("radio", { name: "Wrap it in place" }).focus();
+    await waitFor(() => expect(args.onSketch).toHaveBeenLastCalledWith(WRAP));
+    canvas.getByRole("radio", { name: "Wrap it in place" }).blur();
+    await waitFor(() => expect(args.onSketch).toHaveBeenLastCalledWith(NOW));
+  },
+};
+
+/** Next moves to the next decision's sketch, and a decision with none reports none. */
+export const PlanWithSketches: Story = {
+  args: { asks: [SKETCHED], onSketch: fn() },
+  play: async ({ canvas, args }) => {
+    await userEvent.click(canvas.getByText("Split it out"));
     await userEvent.click(canvas.getByRole("button", { name: "Next" }));
     await expect(args.onSketch).toHaveBeenLastCalledWith(OTHER);
-    await userEvent.click(canvas.getByRole("radio", { name: "Add a fake clock" }));
+    await userEvent.click(canvas.getByText("Pin it in the fixtures"));
     await userEvent.click(canvas.getByRole("button", { name: "Next" }));
     await expect(args.onSketch).toHaveBeenLastCalledWith(undefined);
   },
@@ -260,9 +298,9 @@ export const PlanWithSketches: Story = {
 
 /** A Judge's question with a sketch draws the Sketch and Canvas switch; an ask without one draws none. */
 export const JudgeWithSketch: Story = {
-  args: { asks: [{ key: "ja", kind: "judge", name: "Judge on Review the change", text: "Is the retry cap in scope?", onOpen: open, sketch: SKETCH }], onSketch: fn(), onSketchView: fn(), sketchView: "sketch" },
+  args: { asks: [{ key: "ja", kind: "judge", name: "Judge on Review the change", text: "Is the retry cap in scope?", onOpen: open, sketch: NOW }], onSketch: fn(), onSketchView: fn(), sketchView: "sketch" },
   play: async ({ canvas, args }) => {
-    await expect(args.onSketch).toHaveBeenLastCalledWith(SKETCH);
+    await expect(args.onSketch).toHaveBeenLastCalledWith(NOW);
     await expect(canvas.getByRole("button", { name: "Sketch" })).toHaveAttribute("aria-pressed", "true");
     await userEvent.click(canvas.getByRole("button", { name: "Canvas" }));
     await expect(args.onSketchView).toHaveBeenCalledWith("canvas");

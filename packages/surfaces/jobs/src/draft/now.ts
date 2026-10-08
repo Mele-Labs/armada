@@ -8,11 +8,11 @@
 
 export type NowKindView = "drone" | "check" | "judge";
 
-/** A diagram the asking Drone drew: its mermaid source, and the SVG that source draws (pre-drawn on the mock). */
-export type NowSketchDraft = { source: string; svg: string };
+/** A diagram the asking Drone drew: the mermaid source it wrote. */
+export type NowSketchDraft = { source: string };
 
 export type NowAskView =
-  | { key: string; kind: "plan"; decisions: readonly { id: string; question: string; options: readonly { id: string; label: string }[]; sketch?: NowSketchDraft }[] }
+  | { key: string; kind: "plan"; decisions: readonly { id: string; question: string; options: readonly { id: string; label: string; sketch?: NowSketchDraft }[]; sketch?: NowSketchDraft }[] }
   | { key: string; kind: "judge" | "drone"; name: string; text: string; target?: string; sketch?: NowSketchDraft };
 
 /** A quick act on a row. The host's handler is a stub on the mock. */

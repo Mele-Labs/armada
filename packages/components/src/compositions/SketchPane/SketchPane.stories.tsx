@@ -1,9 +1,10 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect } from "storybook/test";
+import { expect, waitFor } from "storybook/test";
 
 import { SketchPane } from "./SketchPane";
+import { cleaned, safeCss } from "./sketch-render";
 
-/** A Drone's diagram, drawn where the canvas would be. */
+/** A Drone's diagram, drawn from its mermaid source where the canvas would be. */
 const meta: Meta<typeof SketchPane> = {
   title: "Compositions/Sketch pane",
   component: SketchPane,
@@ -12,19 +13,49 @@ export default meta;
 
 type Story = StoryObj<typeof SketchPane>;
 
+const drawing = (canvas: HTMLElement) => canvas.querySelector(".armada-sketch__drawing")?.shadowRoot ?? null;
+
 export const Flowchart: Story = {
-  args: {
-    sketch: {
-      source: "flowchart LR\n  Writer --> Store\n  Clock --> Store",
-      svg:
-        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 130" width="400" height="130">' +
-        '<line class="sk-edge" x1="150" y1="22" x2="230" y2="67"/><line class="sk-edge" x1="150" y1="112" x2="230" y2="67"/>' +
-        '<rect class="sk-node" x="0" y="0" width="150" height="44" rx="6"/><text class="sk-text" x="75" y="22">Writer</text>' +
-        '<rect class="sk-node" x="0" y="90" width="150" height="44" rx="6"/><text class="sk-text" x="75" y="112">Clock</text>' +
-        '<rect class="sk-node" x="230" y="45" width="150" height="44" rx="6"/><text class="sk-text" x="305" y="67">Store</text></svg>',
-    },
+  args: { sketch: { source: "flowchart LR\n  Writer --> Store\n  Clock --> Store" } },
+  play: async ({ canvasElement }) => {
+    await waitFor(() => expect(drawing(canvasElement)?.textContent).toContain("Writer"));
   },
-  play: async ({ canvas }) => {
-    await expect(canvas.getByRole("img", { name: "Sketch" })).toHaveTextContent("Writer");
+};
+
+export const StateDiagram: Story = {
+  args: { sketch: { source: "stateDiagram-v2\n  [*] --> Waiting\n  Waiting --> Retrying\n  Retrying --> Capped" } },
+  play: async ({ canvasElement }) => {
+    await waitFor(() => expect(drawing(canvasElement)?.textContent).toContain("Retrying"));
+  },
+};
+
+/** A source that does not parse leaves the frame empty. */
+export const NotMermaid: Story = {
+  args: { sketch: { source: "this is not a diagram ->" } },
+  play: async ({ canvasElement }) => {
+    await new Promise((done) => setTimeout(done, 300));
+    await expect(drawing(canvasElement)?.textContent ?? "").toBe("");
+  },
+};
+
+const hostile =
+  '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 10 10" onload="x()">' +
+  "<style>.a{fill:red}@import url(https://e.test/x.css);.b{background:url(https://e.test/p.png)}</style>" +
+  '<script>alert(1)</script><foreignObject><div>h</div></foreignObject>' +
+  '<a xlink:href="https://e.test"><rect class="a" style="fill:blue" onclick="x()" width="1" height="1"/></a>' +
+  '<use href="#k"/><text>Writer</text></svg>';
+
+
+/** Mermaid's output is stripped again before it is inserted: no script, event or style attribute, outward link or fetching rule. */
+export const HostileSvgIsCleaned: Story = {
+  args: { sketch: { source: "flowchart LR\n  A --> B" } },
+  play: async () => {
+    const out = cleaned(hostile)!;
+    await expect(out.svg).not.toMatch(/script|foreignObject|onload|onclick|style=|e\.test|<use/);
+    await expect(out.svg).toContain("Writer");
+    await expect(out.css).toContain(".a{fill:red}");
+    await expect(out.css).not.toMatch(/@import|e\.test/);
+    await expect(safeCss(".m{marker-end:url(#arrow)}")).toBe(".m{marker-end:url(#arrow)}");
+    await expect(cleaned("<div>no</div>")).toBeUndefined();
   },
 };

@@ -19,12 +19,8 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
  */
 export type NowKind = "drone" | "check" | "judge";
 
-/**
- * A diagram the asking Drone drew to go with its question. `source` is the mermaid text the Drone
- * wrote; `svg` is that source drawn. **Mock only until a renderer is chosen**: the mock carries a
- * pre-drawn `svg` and nothing here parses `source`.
- */
-export type NowSketch = { source: string; svg: string };
+/** A diagram the asking Drone drew to go with its question: the mermaid text it wrote. */
+export type NowSketch = { source: string };
 
 /** What the Overview shows to the left of the panel while a sketch is open. */
 export type NowSketchView = "sketch" | "canvas";
@@ -33,8 +29,9 @@ export type NowSketchView = "sketch" | "canvas";
 export type NowDecision = {
   id: string;
   question: string;
-  options: readonly { id: string; label: string }[];
-  /** Shown beside the canvas while this decision is the one asked. */
+  /** An option's `sketch` is how the end result looks if it is taken. */
+  options: readonly { id: string; label: string; sketch?: NowSketch }[];
+  /** The current state, shown while no option is hovered, focused or picked. */
   sketch?: NowSketch;
 };
 
@@ -458,8 +455,15 @@ function PlanAsk({ ask, onSketch }: { ask: NowPlanAsk; onSketch: (sketch: NowSke
   const [at, setAt] = useState(0);
   const [picks, setPicks] = useState<Record<string, string>>({});
   const [sent, setSent] = useState(false);
+  // **An option previews its own sketch** while hovered or focused, and keeps it once picked; with
+  // none of those the decision's own sketch stands, which is how things are now.
+  const [hovered, setHovered] = useState<string | undefined>(undefined);
+  const [focused, setFocused] = useState<string | undefined>(undefined);
   const decision = ask.decisions[at];
-  const drawn = sent ? undefined : decision?.sketch;
+  const optionSketch = (id: string | undefined) => decision?.options.find((one) => one.id === id)?.sketch;
+  const drawn = sent
+    ? undefined
+    : (optionSketch(hovered) ?? optionSketch(focused) ?? optionSketch(decision === undefined ? undefined : picks[decision.id]) ?? decision?.sketch);
   useEffect(() => {
     onSketch(drawn);
     return () => onSketch(undefined);
@@ -469,6 +473,8 @@ function PlanAsk({ ask, onSketch }: { ask: NowPlanAsk; onSketch: (sketch: NowSke
   const picked = picks[decision.id];
   const next = () => {
     const open = ask.decisions.findIndex((one, index) => index > at && picks[one.id] === undefined);
+    setHovered(undefined);
+    setFocused(undefined);
     setAt(open === -1 ? at + 1 : open);
   };
   return (
@@ -492,16 +498,19 @@ function PlanAsk({ ask, onSketch }: { ask: NowPlanAsk; onSketch: (sketch: NowSke
       )}
       <RadioGroup label={decision.question} key={decision.id}>
         {decision.options.map((option) => (
-          <Radio
-            key={option.id}
-            name={`${ask.key}-${decision.id}`}
-            value={option.id}
-            checked={picked === option.id}
-            disabled={sent}
-            onChange={() => setPicks({ ...picks, [decision.id]: option.id })}
-          >
-            {option.label}
-          </Radio>
+          <div key={option.id} onMouseEnter={() => setHovered(option.id)} onMouseLeave={() => setHovered(undefined)}>
+            <Radio
+              name={`${ask.key}-${decision.id}`}
+              value={option.id}
+              checked={picked === option.id}
+              disabled={sent}
+              onChange={() => setPicks({ ...picks, [decision.id]: option.id })}
+              onFocus={() => setFocused(option.id)}
+              onBlur={() => setFocused(undefined)}
+            >
+              {option.label}
+            </Radio>
+          </div>
         ))}
       </RadioGroup>
       {last ? (
