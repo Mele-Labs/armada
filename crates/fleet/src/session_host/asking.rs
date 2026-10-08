@@ -9,14 +9,14 @@
 //! ask about everything the person's own settings do not cover.
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
-use api::{Caller, Refusal};
+use api::{Caller, Refusal, Sessions};
 use ipc::{
     AskingToRun, HelmCallAnswer, ManifestId, RunOrNot, SessionAskState, SessionMode, SessionRow,
 };
 
 use super::serving::mode_of;
 use crate::daemon::Fleet;
-use crate::helm::{answering, because_in_a_session, unanswered};
+use crate::helm::{answering, because_in_a_session, pages_opened, unanswered};
 
 impl<H, V, W> Fleet<H, V, W>
 where
@@ -43,6 +43,26 @@ where
         id: &str,
         asking: AskingToRun,
     ) -> Result<RunOrNot, Refusal> {
+        // The owner's browser is never opened by a session: the page goes to
+        // Bridge's window, and the session is told so.
+        if asking.tool_name == "Bash" {
+            let pages = pages_opened(asking.detail().unwrap_or_default());
+            if !pages.is_empty() {
+                for url in pages {
+                    let show = ipc::ShowWindow {
+                        url,
+                        title: None,
+                        session_id: Some(ipc::SessionId::carried(id)),
+                    };
+                    let _ = self.show_window(None, show).await;
+                }
+                return Ok(RunOrNot::Deny {
+                    message: String::from(
+                        "Shown in Bridge's window instead. Use the armada show_window tool to show the owner a page; never `open` it.",
+                    ),
+                });
+            }
+        }
         let (session, hosting) = self.session_and_hosting(id).await?;
         let served = self.served_named(Some(&ManifestId::carried(&hosting.manifest_id)))?;
         let mode = mode_of(&hosting.mode);

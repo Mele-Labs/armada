@@ -10,6 +10,28 @@ const TITLE_MOST = 80
  */
 export const MOD_VERSION = '0.3.2'
 
+/**
+ * The web pages a shell line opens in the owner's browser: `open`, `xdg-open` or
+ * `python -m webbrowser` with an `http(s)` address. Fleet reads hosted sessions' lines the same way
+ * (`pages_opened`, `crates/fleet/src/helm/deciding.rs`).
+ */
+export function pagesOpenedIn(command: string): string[] {
+  const pages: string[] = []
+  for (const segment of command.replace(/&&|\|\|/g, ';').split(/[;|\n]/)) {
+    const words = segment
+      .split(/\s+/)
+      .filter(word => word !== '')
+      .map(word => word.replace(/^['"]+|['"]+$/g, ''))
+    const first = words[0] ?? ''
+    const opens =
+      first === 'open' ||
+      first === 'xdg-open' ||
+      (first.startsWith('python') && words.some((word, i) => word === '-m' && words[i + 1] === 'webbrowser'))
+    if (opens) pages.push(...words.filter(word => /^https?:\/\//.test(word)))
+  }
+  return pages
+}
+
 // A harness wraps what it adds to a prompt in hyphenated tags. A command's and a reminder's
 // contents are the harness's words, so the whole block goes; any other wrapper, such as
 // `<agent-message from="…">`, only loses its tag and the words inside are the person's.

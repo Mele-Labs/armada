@@ -210,3 +210,29 @@ fn quoted_text_is_an_argument_not_a_redirect_or_a_pipe() {
     assert_eq!(bash("echo 'x' > /etc/hosts"), Some(Because::Destructive));
     assert_eq!(bash("echo \"x\" | rm -rf /tmp/y"), Some(Because::Destructive));
 }
+
+#[test]
+fn a_page_opened_in_the_browser_is_found_in_every_segment() {
+    use crate::helm::pages_opened;
+    assert_eq!(
+        pages_opened(
+            r#"open "http://localhost:5191/?walk=a"; open "http://localhost:5191/?walk=b""#
+        ),
+        ["http://localhost:5191/?walk=a", "http://localhost:5191/?walk=b"]
+    );
+    assert_eq!(
+        pages_opened("open -a Safari https://example.com/x && echo done"),
+        ["https://example.com/x"]
+    );
+    assert_eq!(
+        pages_opened("xdg-open http://a.test/ | cat"),
+        ["http://a.test/"]
+    );
+    assert_eq!(
+        pages_opened("python3 -m webbrowser http://a.test/"),
+        ["http://a.test/"]
+    );
+    for line in ["open file.txt", "open .", "echo http://a.test/", "curl http://a.test/"] {
+        assert!(pages_opened(line).is_empty(), "{line}");
+    }
+}
