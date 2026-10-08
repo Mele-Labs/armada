@@ -53,7 +53,9 @@ pub fn freeze(
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum Comes {
-    Run { command: String },
+    Run {
+        command: String,
+    },
     Skip(TriggerSkipped),
     AskTheOwner,
     /// A skill, which a side Drone runs on a branch of its own.
@@ -91,6 +93,7 @@ pub(crate) fn decided(resolution: &TriggerResolution, manifest: &Manifest) -> Co
     match resolution {
         TriggerResolution::Skipped(why) => Comes::Skip(why.clone()),
         TriggerResolution::Skill { name } => Comes::Side(Side::Skill(name.clone())),
+        TriggerResolution::Drone { brief } => Comes::Side(Side::Brief(brief.clone())),
         TriggerResolution::Command { name, asks_first } => match manifest.command(name) {
             None => Comes::Skip(TriggerSkipped::NotInThisRepo {
                 command: name.clone(),

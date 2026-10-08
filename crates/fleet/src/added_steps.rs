@@ -165,7 +165,7 @@ where
     }
 
     /// What a `save_trigger` that keeps an addition must find: the Job holds it
-    /// and it is a Script or a Skill. **Asked before the file is written**, so a
+    /// and it is one. **Asked before the file is written**, so a
     /// refusal leaves nothing behind.
     pub(crate) async fn addition_to_keep(
         &self,
@@ -183,15 +183,7 @@ where
             .into_iter()
             .find(|one| one.id == from.addition_id)
             .ok_or_else(|| self.no_such_addition(&job_id, &from.addition_id))?;
-        match added.kind {
-            AddedKind::Drone { .. } => Err(self.addition_unacceptable(
-                &job_id,
-                String::from(
-                    "a Drone step cannot be kept for every Job: only a Script or a Skill is a Trigger",
-                ),
-            )),
-            _ => Ok((job, added)),
-        }
+        Ok((job, added))
     }
 
     /// Say where an addition was kept, once the Trigger it became is written.

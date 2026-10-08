@@ -6,7 +6,7 @@
 
 **Kind:** Concept.
 
-**Built:** the model, the loader, the freeze at approval, Fleet firing a Command Trigger, `repair`, the wire to Bridge, Bridge's saved Triggers, step cards and Job card, steps added to one Job in Fleet and on the wire, the `+` that adds one on Bridge's approval canvas and a running Job's Workflow tab, the repair branch on a Job's canvases, and `block`, which holds the Job, with the owner's Rerun and Skip, a bell on a Board row, and the hold on Bridge's canvas and list. Skill Triggers, Skill steps and Drone steps run on a side Drone (23.73). Asking the owner about a destructive Command is not built.
+**Built:** the model, the loader, the freeze at approval, Fleet firing a Command Trigger, `repair`, the wire to Bridge, Bridge's saved Triggers, step cards and Job card, steps added to one Job in Fleet and on the wire, the `+` that adds one on Bridge's approval canvas and a running Job's Workflow tab, the repair branch on a Job's canvases, and `block`, which holds the Job, with the owner's Rerun and Skip, a bell on a Board row, and the hold on Bridge's canvas and list. Skill Triggers, Skill steps and Drone steps run on a side Drone (23.73), and a saved Trigger can run a Drone with a prompt (23.75). Asking the owner about a destructive Command is not built.
 
 ## What a Trigger is
 
@@ -16,10 +16,10 @@
 | `when` | `step_starts`, `step_passes`, `pr_opened` | `pr_opened` is the delivering step's entry |
 | `workflow` | a `workflow_id` | Absent is every workflow |
 | `step` | a step id | Absent is every step. Not allowed with `pr_opened` |
-| `command` or `skill` | a name | One of the two |
+| `command`, `skill` or `brief` | a name, a name, a prompt | One of the three. `brief` is a Drone sent with that prompt, and is refused naming the key when empty |
 | `on_failure` | `block`, `repair` | Both default to false |
 
-**A Command is run by Fleet with no Drone, and a skill by a Drone.** A skill runs as a side Drone, below, and never skips.
+**A Command is run by Fleet with no Drone, and a skill or a `brief` by a Drone.** Each runs as a side Drone, below, and never skips. A `brief` Trigger has no name of its own to take from what it runs, so Bridge names it for the first four words of the prompt.
 
 ## Where one is set
 
@@ -169,7 +169,7 @@ A person can add a step to one Job without writing a workflow. It lives in the J
 
 ## A Skill or a Drone step
 
-**Chosen 8 Oct 2026.** A Skill Trigger, a Skill added step and a Drone added step run on a **side Drone**: a branch cut from the Job's at the moment it fires, its own slot, through the repair's queue, so it waits for a slot as a repair does and its spend counts against the Job. It gates the Job only where `block` is on.
+**Chosen 8 Oct 2026.** A Skill Trigger, a Drone Trigger (a saved prompt, 23.75), a Skill added step and a Drone added step run on a **side Drone**: a branch cut from the Job's at the moment it fires, its own slot, through the repair's queue, so it waits for a slot as a repair does and its spend counts against the Job. It gates the Job only where `block` is on.
 
 | The Drone | Becomes |
 |---|---|
@@ -178,10 +178,10 @@ A person can add a step to one Job without writing a workflow. It lives in the J
 | Would not start, ran past its budget, or stopped before its turn ended | `failed`, or `held` with `block`. Rerun puts the Drone on again and Skip lets it go |
 
 - **In flight it is `running` with a repair record** (`tries` 1), which tells it from a Command that is running. A restart finds it by that and works it again. With `block` on, that holds the Job.
-- **`repair` is ignored.** A Trigger file naming a skill loads with it off, an addition stores it off, and Bridge draws no switch. A file is not refused for it.
+- **`repair` is ignored.** A Trigger file naming a skill or a `brief` loads with it off, an addition stores it off, and Bridge draws no switch. A file is not refused for it.
 - **The Drone is told** `RUN THE SKILL` and the skill, or the step's brief, with the Job's title, branch and the moment. Fleet commits what it wrote; it is told not to commit or push.
 - `skill_not_run` and `drone_step_not_run` stay on the wire so older rows read, and are no longer produced.
 
-**Fleet has no edit for an addition**, so its switches are set before it is added: at the gate it is held in the approval until the press, and on a running Job it is filled in and then added. An addition can be removed until its moment has come. **Keeping it for every Job** is `save_trigger` with `kept_from`: the editor draws the Trigger, Fleet writes it at This machine or Repository, and the addition says where it went. A Script or a Skill can be kept and a Drone step cannot. A kept one applies from the next Job, as every saved Trigger does.
+**Fleet has no edit for an addition**, so its switches are set before it is added: at the gate it is held in the approval until the press, and on a running Job it is filled in and then added. An addition can be removed until its moment has come. **Keeping it for every Job** is `save_trigger` with `kept_from`: the editor draws the Trigger, Fleet writes it at This machine or Repository, and the addition says where it went. Any of the three can be kept: a Drone step becomes a Trigger with a `brief`, which is how a saved Trigger runs a Drone. A kept one applies from the next Job, as every saved Trigger does.
 
 The loader is `config::TriggerCatalogue`, the type is `core_model::Trigger`, and the decision is `.claude/decisions/2026-10-07-a-trigger-runs-at-a-moment-in-a-job.md`.

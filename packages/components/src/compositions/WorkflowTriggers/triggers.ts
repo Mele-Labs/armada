@@ -26,8 +26,8 @@ export type TriggerDraft = {
   step: string;
   /** Empty is every workflow. */
   workflow: string;
-  runs: "command" | "skill";
-  /** The Command or the skill. */
+  runs: "command" | "skill" | "drone";
+  /** The Command, the skill, or the Drone's prompt. */
   with: string;
   block: boolean;
   repair: boolean;
@@ -62,17 +62,39 @@ export function draftOf(read: TriggerDefinition): TriggerDraft {
   const file = table(parse(read.definition));
   const failure = table(file.on_failure);
   const command = text(file.command);
+  const brief = text(file.brief);
   return {
     name: text(file.name) ?? read.name,
     when: read.when,
     step: text(file.step) ?? "",
     workflow: text(file.workflow) ?? EVERY,
-    runs: command === undefined ? "skill" : "command",
-    with: command ?? text(file.skill) ?? "",
+    runs: command !== undefined ? "command" : brief !== undefined ? "drone" : "skill",
+    with: command ?? brief ?? text(file.skill) ?? "",
     block: failure.block === true,
     repair: failure.repair === true,
     scope: read.level === "machine" ? "machine" : "repository",
   };
+}
+
+/** What a draft is called: the name it was given, else what it runs, and a Drone's prompt as a slug of its first words. */
+export function nameOf(draft: Pick<TriggerDraft, "name" | "runs" | "with">): string {
+  if (draft.name !== "") return draft.name;
+  if (draft.runs !== "drone") return draft.with;
+  return draft.with.toLowerCase().match(/[a-z0-9]+/g)?.slice(0, 4).join("-") ?? "";
+}
+
+/** A new Drone Trigger's slug where another Trigger at its level already has it: `-2`, `-3`, and so on. A named draft is the same Trigger being edited and keeps its name. */
+export function freeNameOf(draft: TriggerDraft, held: readonly TriggerSummary[]): string {
+  const base = nameOf(draft);
+  if (draft.name !== "" || draft.runs !== "drone") return base;
+  const taken = new Set(
+    held
+      .filter((one) => one.level === draft.scope && one.when === draft.when && (one.step ?? "") === (draft.when === "pr_opened" ? "" : draft.step))
+      .map((one) => one.name),
+  );
+  let name = base;
+  for (let n = 2; taken.has(name); n += 1) name = `${base}-${n}`;
+  return name;
 }
 
 /** The text `save_trigger` takes. JSON, which the loader's YAML reads the same. */
@@ -80,11 +102,11 @@ export function definitionOf(draft: TriggerDraft): string {
   const failure = { ...(draft.block ? { block: true } : {}), ...(draft.repair ? { repair: true } : {}) };
   return JSON.stringify(
     {
-      name: draft.name === "" ? draft.with : draft.name,
+      name: nameOf(draft),
       when: draft.when,
       ...(draft.workflow === EVERY ? {} : { workflow: draft.workflow }),
       ...(draft.when === "pr_opened" || draft.step === "" ? {} : { step: draft.step }),
-      [draft.runs]: draft.with,
+      [draft.runs === "drone" ? "brief" : draft.runs]: draft.with,
       ...(Object.keys(failure).length === 0 ? {} : { on_failure: failure }),
     },
     null,

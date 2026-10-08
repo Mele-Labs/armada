@@ -35,7 +35,9 @@ import {
   definitionOf,
   draftOf,
   EVERY,
+  freeNameOf,
   identityKey,
+  nameOf,
   whenSaid,
   type TriggerDraft,
   type TriggerIdentity,
@@ -214,9 +216,10 @@ function TriggerFields({
         <option value="repository">Repository</option>
         <option value="machine">This machine</option>
       </Select>
-      <Select label="Runs" value={draft.runs} onChange={(event) => onChange({ runs: event.target.value as TriggerDraft["runs"], with: "", ...(event.target.value === "skill" ? { repair: false } : {}) })}>
+      <Select label="Runs" value={draft.runs} onChange={(event) => onChange({ runs: event.target.value as TriggerDraft["runs"], with: "", ...(event.target.value === "command" ? {} : { repair: false }) })}>
         <option value="command">Command</option>
         <option value="skill">Skill</option>
+        <option value="drone">Drone</option>
       </Select>
       {draft.runs === "command" ? (
         <Select label="Command" value={draft.with} onChange={(event) => onChange({ with: event.target.value })}>
@@ -227,6 +230,8 @@ function TriggerFields({
             </option>
           ))}
         </Select>
+      ) : draft.runs === "drone" ? (
+        <Textarea label="Prompt" rows={5} value={draft.with} onChange={(event) => onChange({ with: event.target.value })} />
       ) : (
         <Input label="Skill" mono value={draft.with} onChange={(event) => onChange({ with: event.target.value })} />
       )}
@@ -304,8 +309,9 @@ export function TriggerSheet({
 
   async function save() {
     if (draft === null) return;
-    const identity: TriggerIdentity = { when: draft.when, ...(draft.step === "" || draft.when === "pr_opened" ? {} : { step: draft.step }), name: draft.name === "" ? draft.with : draft.name };
-    const result = await binding.onSave(draft.scope, definitionOf(draft), replaces || (was !== null && target.kind === "open" && !moved(was, draft)), keeping);
+    const named = { ...draft, name: freeNameOf(draft, binding.triggers) };
+    const identity: TriggerIdentity = { when: draft.when, ...(draft.step === "" || draft.when === "pr_opened" ? {} : { step: draft.step }), name: nameOf(named) };
+    const result = await binding.onSave(draft.scope, definitionOf(named), replaces || (was !== null && target.kind === "open" && !moved(was, draft)), keeping);
     if (!result.ok) {
       setStanding("refused");
       setSaid(result.said);
@@ -565,7 +571,7 @@ export function AddedFields({
       <Fails block={one.block} repair={one.repair} repairable={runs.kind === "script"} disabled={!editable} onChange={change} />
       {onKeep === undefined && onRemove === undefined ? null : (
         <div className="armada-triggers__acts">
-          {onKeep === undefined || runs.kind === "drone" || one.kept !== undefined ? null : (
+          {onKeep === undefined || one.kept !== undefined ? null : (
             <Button variant="secondary" onClick={onKeep}>
               Keep for every Job
             </Button>
