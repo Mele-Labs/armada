@@ -85,6 +85,17 @@ export function loopbackOrigin(address: string): string | null {
   return parsed.origin;
 }
 
+/** The origin of any `http` or `https` address, or `null` for another scheme or an address that does not parse. */
+export function webOrigin(address: string): string | null {
+  let parsed: URL;
+  try {
+    parsed = new URL(address);
+  } catch {
+    return null;
+  }
+  return SCHEMES.some((scheme) => scheme === parsed.protocol) && parsed.hostname !== "" ? parsed.origin : null;
+}
+
 /**
  * Whether an address is on the origin this window opened on.
  *

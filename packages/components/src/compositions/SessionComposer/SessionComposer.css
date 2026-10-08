@@ -165,3 +165,34 @@
   flex: 1 1 0;
   min-width: 0;
 }
+
+/* The typing area is a text box that holds tags in its lines. It is the Textarea's own well, two
+   lines tall at rest, and it grows with its words to the cap the component sets, then scrolls. */
+.armada-session-composer__editor {
+  min-height: calc(var(--leading-sm) * 2 + var(--space-2) * 2);
+  overflow-y: auto;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+/* A tag in a line: its kind's glyph and its title, one unit. */
+.armada-inline-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding-inline: var(--space-1);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-raised);
+  color: var(--fg-default);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  white-space: nowrap;
+  vertical-align: baseline;
+  user-select: all;
+}
+
+.armada-inline-tag > svg {
+  flex: none;
+  color: var(--fg-muted);
+}

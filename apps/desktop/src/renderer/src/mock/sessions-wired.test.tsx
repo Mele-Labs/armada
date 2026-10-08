@@ -183,8 +183,8 @@ test("Sessions wired: Open in a Session on a stopped Job starts one with the Job
   await onScreen();
   await userEvent.click(page.getByRole("button", { name: "More for The retry loop" }));
   await userEvent.click(page.getByRole("menuitem", { name: "Open in a Session" }));
-  await expect.element(page.getByRole("group", { name: "Attached" }).getByText("The retry loop")).toBeVisible();
-  await userEvent.fill(page.getByRole("textbox", { name: "Message" }), "What stopped it?");
+  await expect.element(page.getByRole("textbox", { name: "Message" }).getByText("The retry loop")).toBeVisible();
+  await userEvent.type(page.getByRole("textbox", { name: "Message" }), "What stopped it?");
   await userEvent.click(page.getByRole("button", { name: "Send" }));
   await expect.poll(() => fleet.calls.sent.length).toBe(1);
   expect(fleet.calls.sent[0]?.mentions).toMatchObject([{ kind: "job", id: "01JOBSTOPPED", title: "The retry loop" }]);
@@ -242,4 +242,62 @@ test("Sessions wired: a picked file goes as base64 and a drawn sketch goes as th
   expect(atob(sketch!.data).startsWith("\x89PNG")).toBe(true);
   // What was drawn stays on the ledger, since the wire holds only the picture.
   await expect.element(page.getByRole("region", { name: "Attachments" }).getByRole("button", { name: "Sketch pin the clock" })).toBeVisible();
+});
+
+const agent = (id: string, text: string) => ({ kind: "message" as const, id, at: "2026-10-07T13:49:00.000Z", from: { kind: "agent" as const }, text });
+const call = (id: string, text: string) => ({ kind: "tool" as const, id, at: "2026-10-07T13:49:00.000Z", text });
+
+test("Sessions wired: a running subagent opens as its own thread, gains rows as Fleet reads it again, and a finished one ends on its report", async () => {
+  const fleet = new FakeSessionsFleet([
+    terminal(ID, {
+      title: "Read the CI history",
+      attachments: [
+        held("subagent", "live1", { description: "Read the CI history" }),
+        held("subagent", "done1", { description: "Find clocks" }, "spent"),
+      ],
+    }),
+  ]);
+  fleet.subagents["live1"] = { rows: [agent("a1", "Reading the runs."), call("a2", "gh run list --limit 30")], finished: false };
+  fleet.subagents["done1"] = { rows: [call("b1", "Grep Instant::now"), agent("b2", "None reads the clock.")], finished: true, report: "None reads the clock." };
+  mount(served(fleet));
+  await onSessions();
+  await userEvent.click(page.getByRole("button", { name: "Read the CI history" }));
+  await userEvent.click(page.getByRole("button", { name: /Open Subagent Read the CI history, running/ }));
+  const panel = page.getByRole("dialog", { name: "Subagent Read the CI history" });
+  await expect.element(panel.getByText("Reading the runs.")).toBeVisible();
+  // The calls are one folded group, as in the Session's own thread.
+  await userEvent.click(panel.getByText("gh", { exact: true }));
+  await expect.element(panel.getByText("gh run list --limit 30")).toBeVisible();
+
+  // The transcript moves on: the next read the sheet makes draws the new call and the report.
+  fleet.subagents["live1"] = {
+    rows: [...fleet.subagents["live1"]!.rows, call("a3", "Read crates/store/tests/flaky.rs"), agent("a4", "Four of thirty failed.")],
+    finished: true,
+    report: "Four of thirty failed.",
+  };
+  await expect.element(panel.getByText("Four of thirty failed.")).toBeVisible();
+  await expect.element(panel.getByText("gh, Read", { exact: true })).toBeVisible();
+
+  await userEvent.click(panel.getByRole("button", { name: /^Close/ }));
+  await userEvent.click(page.getByRole("region", { name: "Subagents" }).getByRole("radio", { name: "All", exact: true }));
+  await userEvent.click(page.getByRole("button", { name: /Open Subagent Find clocks, done/ }));
+  const done = page.getByRole("dialog", { name: "Subagent Find clocks" });
+  await expect.element(done.getByText("Grep", { exact: true })).toBeVisible();
+  await expect.element(done.getByText("None reads the clock.")).toBeVisible();
+});
+
+test("Sessions wired: a page on the ledger is shown in main's view over the panel and taken away when the panel closes", async () => {
+  const fleet = new FakeSessionsFleet([
+    hosted(ID, { title: "Write up the clock", attachments: [held("artifact", "https://example.com/artifact/findings", { form: "page", title: "Clock findings" })] }),
+  ]);
+  mount(served(fleet));
+  await onSessions();
+  await userEvent.click(sessions().getByRole("button", { name: "Write up the clock" }));
+  await userEvent.click(page.getByRole("region", { name: "Attachments" }).getByRole("button", { name: "Published page Clock findings" }));
+  await expect.poll(() => fleet.calls.pages).toEqual(["https://example.com/artifact/findings"]);
+  // Main's view lies over the body, so nothing is framed here.
+  await expect.element(page.getByTitle("Clock findings")).not.toBeInTheDocument();
+  // Esc pressed in main's view, which has the keyboard, closes the panel.
+  fleet.pageEscape();
+  await expect.poll(() => fleet.calls.pagesHidden).toBeGreaterThan(0);
 });

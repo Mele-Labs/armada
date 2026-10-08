@@ -8,122 +8,102 @@ independent lifetimes, and everything in this document exists because that
 combination has already gone wrong once, in v1, and cost real debugging time
 figuring out which side was lying.
 
-If your change touches `protocol-version.toml`, the (forthcoming) `ipc` crate,
-anything under `apps/desktop/src/preload`, or the WebSocket event stream, read
-this first.
+If your change touches `crates/ipc`, `packages/protocol`, the route table in
+`crates/api/src/routes/`, anything under `apps/desktop/src/preload`, or the
+WebSocket event stream, read this first.
 
-## The single source of truth
+## The protocol ID
 
-`protocol-version.toml`, at the repo root, holds a major and a minor:
+**There is no version number to bump.** Every build carries a protocol ID, a
+16-digit hash of the wire surface, taken at build time. Two branches that each
+change the wire change different files, so they never conflict on a number, and
+the ID follows whichever files they touched.
 
-```toml
-major = 4
-minor = 0
-```
+**Equal IDs connect. Anything else is refused.** Bridge opens no socket, and the
+`/v0` lifeboat is the fallback. There is no order between two IDs: a mismatch
+says the sides differ, not which one is older.
 
-**Which of the two moves decides what a mismatch does**, and the table further
-down is what the code implements. `major` moves when a message an older peer
-already parses stops parsing the same way. `minor` moves when the change is
-additive only, and resets to zero whenever `major` moves.
+### What it hashes
 
-The pair crosses the wire as **one field carrying both numbers** —
-`"protocol_version": {"major": 4, "minor": 0}` — rather than as two fields. Two
-would let either side compare the majors and forget the minors, which is the
-defect this shape replaced: the version was one integer, `connection.ts`
-compared it with `!==`, and every bump was a full refusal. A bare integer is
-still read, as that major at minor zero, because version 4 shipped as one and a
-Fleet from before the pair should reach the skew screen rather than read as a
-runtime file nothing wrote.
+| Source | Why it is wire |
+|---|---|
+| `crates/ipc/src/**/*.rs`, except `tests/` | The DTOs, and every other type Fleet serializes |
+| `crates/ipc/operations/*.toml`, except `_header.toml` | Which operations and event kinds exist |
+| `crates/api/src/routes/**/*.rs` | The method and path each operation is served on |
+| `packages/protocol/src/**/*.ts`, except `*.test.ts` and `connection.ts` | Bridge's hand-written mirror of the DTOs |
 
-That file is read on both sides, but not the same way:
+Files are taken in path order. Within one, a line that is only a comment is
+dropped and trailing whitespace is trimmed, so editing prose moves nothing. The
+bytes then go through FNV-1a with 64 bits. The hash is the same on every
+machine and every checkout, because it reads paths relative to the repository
+root and never a commit hash.
 
-- **Rust** reads it at compile time. `crates/ipc/build.rs` parses it and emits
-  the two numbers, which `crates/ipc/src/version.rs` assembles into the
-  `PROTOCOL_VERSION` constant the rest of the Rust workspace compiles against.
-  This half is self-correcting by construction — `build.rs` runs on every
-  `cargo build`, so the embedded constant cannot go stale relative to the file.
-  There is no step to forget here.
-- **TypeScript** cannot read a `build.rs`. The plan is a codegen step, driven
-  off the same `ipc` crate that defines the DTOs, that emits the matching
-  TypeScript types and the version number into `packages/` (see
-  `packages/README.md`: "the generated IPC types" is named as the reason that
-  directory exists). **Both generated outputs — the Rust constant's TS mirror
-  and the DTO types — are checked into the repo, not generated at build time
-  on the TS side.** A generated file that's `.gitignore`d looks fine locally
-  and is wrong on every machine that didn't just run codegen.
+### What it cannot see
 
-Because the TypeScript half is generated-then-committed, it can drift from its
-source the same way any generated-then-committed file can: someone edits the
-`ipc` crate and doesn't rerun codegen, or edits the generated `.ts` file by
-hand because it was faster. That drift has shipped once. The major moved to 6,
-the constant stayed at 5.7, and a Fleet and a Bridge built from the same commit
-refused each other into the lifeboat with every check green.
+The hash is over source text, not over meaning, so it is wrong in two
+directions and both are chosen.
 
-**`cargo xtask verify-foundations` holds the two numbers together now.** It
-reads `protocol-version.toml` and the generated constant, refuses a pair that
-disagrees, and names both files, both versions and the command that writes the
-file. `xtask/src/rules_protocol/version.rs` is the rule.
+- **It moves on changes that are not wire.** A code line edited in `ipc`
+  that changes no JSON, or a trailing `// comment` after code, moves the ID. A
+  false mismatch is a refusal and a restart; the other way round is a silent
+  hole, which is why it is built to err this way.
+- **It does not see a value set that lives elsewhere.** `JobSummary.queued_reason`
+  and `FleetCapacity.held_by` are strings on the wire whose spellings come from
+  `core-model`'s registries and the generated vocabulary. A new spelling there
+  moves no ID. That is safe only while Bridge renders such a value instead of
+  branching on it. `crates/ipc/src/capacity.rs` is where `held_by` argues it,
+  and a set Bridge matches on belongs in a `wire_enum!`, which is `ipc` source
+  and moves the ID.
+- **It cannot tell that Bridge's mirror was updated.** The DTO types in
+  `packages/protocol` are written by hand. Changing a Rust DTO moves the ID
+  whether or not its mirror was touched, so equal IDs prove two builds read the
+  same wire files, not that the mirror is right. That gap is `[protocol-codegen]`
+  below.
 
-**It refuses; it does not rewrite.** A gate that ran the codegen itself would
-leave nobody knowing the step exists, which is the same defect one release
-later — and the next registry to grow a generated half would ship it again.
+### Where each side gets it
 
-Two things about the generated half are still checked by nothing, and
-`[verify-protocol-task]` below is where they are named:
+- **Rust.** `crates/ipc/build.rs` hashes the files on every build that touched
+  them and embeds `ProtocolId::current()`. The hashing is
+  `crates/ipc/wire_hash.rs`, a file `build.rs` includes.
+- **TypeScript.** `apps/desktop/codegen/protocol-id.mjs` takes the same hash and
+  `apps/desktop/electron.vite.config.ts` injects it into the main process, the
+  preload and the renderer as `__PROTOCOL_ID__`. `PROTOCOL_ID` in
+  `packages/protocol/src/connection.ts` reads it. **It is not a checked-in
+  file**: a literal in git is a line every branch that touches the wire edits,
+  and two of them conflict, which is the problem the ID exists to end. Under a
+  test runner nothing injects it and `PROTOCOL_ID` reads `unbuilt`, which no Fleet
+  speaks.
+- **They are two implementations of one hash**, written twice because the build
+  script and the Vite config cannot share code. `cargo xtask verify-foundations`
+  runs both on the working tree and fails when they disagree
+  (`xtask/src/rules_protocol/id.rs`), and the Rust half it runs is the file
+  `build.rs` includes.
 
-1. The checked-in generated TypeScript matches what codegen would produce from
-   the current `ipc` source, right now.
-2. Nothing outside the generated file hard-codes the protocol version as a
-   literal.
+### The ID on the wire
 
-That second check would answer a violation this document was written
-against: `apps/desktop/src/preload/index.ts` returned a hand-typed `1`, with no
-mechanism forcing it to move when the source file did. It reads the generated
-constant now, and nothing in Bridge restates either number — but the check is
-what keeps it that way, because the literal is a one-line shortcut that looks
-harmless in review.
+It crosses as one string field, `protocol_id`, on the runtime file and on each
+socket's opening message. The runtime file from a Fleet that predates IDs has no
+such field and reads as an ID nothing equals, so an old Fleet reaches the
+mismatch screen instead of reading as a file nothing wrote.
 
-**Contributor workflow, in order:**
+### Contributor workflow
 
-1. Change the DTOs in `crates/ipc` (add a field, add a variant, whatever the
-   change is).
-2. Decide which number moves, from the table below. **Declare a need before
-   choosing the value, never "the next minor" off `main`:**
-   `armada need protocol-version.toml "a minor"` says which branch is ahead and
-   what it took, and you take the minor after it
-   (`armada need --took protocol-version.toml "23.5"`). The merge line holds the
-   branch until those ahead have landed, so the numbers arrive in order and none
-   is renumbered. Pull requests have no such hold yet: a required check Fleet
-   will publish is owed (`docs/practices/ci.md`). Then move it in `protocol-version.toml`. Additive-only moves `minor`; anything else moves
-   `major` and resets `minor` to zero. **The table is the decision, not a
-   guideline** — a minor bump that removes or retypes a field makes Bridge's
-   banner a lie and breaks it while a Job runs.
-3. Regenerate the TypeScript with `pnpm --filter @armada/desktop codegen`. It
-   needs `pnpm install` to have run and nothing else; it rewrites
-   `packages/protocol/src/generated/` and `packages/components/src/generated/`
-   from `protocol-version.toml` and
-   `crates/core-model/domain/`, and prints one line per generated file plus any
-   registry row it could not render. **It emits the version mirror and the
-   enum vocabulary, not the DTO types** — nothing generates those from the
-   `ipc` source yet, so a shape change is still hand-mirrored on the TS side
-   and that is the gap `[protocol-codegen]` names.
-4. **Run `cargo xtask verify-foundations`.** It refuses a generated constant
-   that disagrees with `protocol-version.toml` and names both versions, which
-   is the whole of step 3 for the version. It needs nothing built, and it
-   reports on rules that have nothing to do with the protocol, so read the line
-   naming the version rather than the exit code. That nothing outside the
-   generated file hard-codes the version is still verified by reading —
-   `[verify-protocol-task]` below.
-5. Commit the `ipc` source change and the regenerated files in the same
-   change. A generated-file diff with no corresponding source diff, or vice
-   versa, is the thing review should bounce.
+1. Change the DTOs in `crates/ipc`, and mirror them in `packages/protocol` by
+   hand.
+2. Add or change the operation in `crates/ipc/operations/` and the route in
+   `crates/api/src/routes/served/`.
+3. Nothing else. There is no number to choose, no need to declare and no
+   generated file to commit, so a branch that changes the wire never conflicts
+   with another on account of it.
+4. Run `cargo xtask verify-foundations` and read the line naming the protocol.
+   The rest of its output is about other rules.
 
 ## DTOs, not domain types
 
 `WireError` is a DTO like any other, and `docs/contracts/error-contract.md` is
 what specifies it —
 which fields are guaranteed, why `level` and `component` are not among them,
-and why removing an error code is a minor bump. The v0 lifeboat below is
+and why removing an error code moves the protocol ID like any wire change. The v0 lifeboat below is
 deliberately outside that contract.
 
 `ipc` speaks its own vocabulary. It does not re-export `core_model::Job` and
@@ -170,27 +150,13 @@ This cuts the other way too: `ipc` types have no business back in
 that's an argument for a thin builder function, not for teaching `core-model`
 about the wire's shape.
 
-## Minor vs. major
+## Changes that read like they break nothing
 
-A minor bump means: **every message an older peer already knows how to parse
-still parses the same way.** That is the entire mechanism behind Bridge
-running against a newer Fleet with nothing worse than a banner — Bridge parses
-fields it recognizes and ignores fields it doesn't, so an additive change is
-invisible to it. The moment a bump changes the meaning or presence of a field
-an old client already reads, "ignore what you don't recognize" stops being a
-safe strategy, and that's a major bump — the lifeboat, not a banner.
-
-| Change | Minor or major | Why |
-|---|---|---|
-| Add a new DTO / new route / new event type | Minor | Old peer never looks for it, never sees it |
-| Add an optional field to an existing DTO | Minor | Old peer ignores unknown fields; new peer treats absence as valid |
-| Add a new enum variant, where the enum is only ever *written* by this side and *read as opaque* by the other | Minor, with a caveat — see below | Depends entirely on how the other side matches |
-| Add a new enum variant the other side is expected to `match` on | **Major** | An exhaustive `match` on the old side has no arm for it — compile error in Rust, silent `undefined` branch in TS |
-| Make a required field optional | **Major** | Anything already relying on its presence (including old Bridge's own type assumptions) now sees a value that used to be guaranteed |
-| Make an optional field required | **Major** | Old messages that omitted it become invalid under the new contract |
-| Rename a field or a variant | **Major** | Identical to removing the old name and adding a new one — the old name silently stops arriving |
-| Change a field's type (including widening, e.g. `u32` → `u64`) | **Major** | "Widening" is a Rust-only intuition; on the wire it's a different JSON shape and a different TS type, and the old side's deserializer doesn't know it's "compatible" |
-| Remove anything | **Major** | The obvious case, included for completeness |
+A refusal on any ID mismatch means the question "is this change safe for an
+older peer" no longer decides anything: every wire change is refused by a peer
+built before it. The mistakes below still matter, because they are the ones
+that break a peer *after* the IDs agree, in a Bridge whose mirror was edited
+by hand.
 
 **An optional field is left out when it is empty, never sent as `null`.**
 Bridge types it `field?: T` and compares against `undefined`, which `null`
@@ -202,113 +168,94 @@ The three people get wrong most often: widening an enum "because it's just
 adding cases," making a field `Option<T>` "to be safe," and renaming a variant
 "for clarity." All three feel non-breaking from inside the change and are not.
 If you catch yourself writing "this shouldn't break anything, it's just
-adding/loosening X" — that sentence is the tell. Stop and check whether the
-other side's code has an exhaustive match, a presence assumption, or a name
-lookup anywhere near the thing you're touching.
+adding/loosening X" — that sentence is the tell. Check whether the mirror in
+`packages/protocol` has an exhaustive match, a presence assumption, or a name
+lookup anywhere near the thing you are touching.
 
-**The caveat row has exactly two instances, and both are deliberate.**
-`FleetCapacity.held_by` — which one of the concurrency bound, memory or disk
-is stopping the next Drone — is a `String` on the wire rather than a
-`wire_enum!`, and `crates/ipc/src/capacity.rs` is where that is argued. Fleet is
-the only writer, Bridge looks the value up in the generated vocabulary rather
-than matching on it, and that map already answers `undefined` for a key it does
-not hold. So a fifth reason is a `core-model` variant, a row in
-`enum-verbs.toml` and a codegen run, and it moves neither number here.
-
-**`JobSummary.queued_reason` is the second**, since `frozen` joined it. Bridge
-types it `string` and reads it through the same generated vocabulary, and the
-only Rust readers of a `JobSummary` are this repository's own tests, built at
-the same version — so a new reason is minor while nothing branches on it.
-
-**The condition is what makes it minor, not the type.** The moment something on
-either side branches on this value rather than rendering it, the row above it
-applies instead and widening the set is a major bump. Every other closed set on
-this seam is the strict kind and refuses a spelling the registry does not have,
-which is right for `JobStatus` — Bridge picks a screen from it.
-
-**And the test is where the set's growth comes from, not how it is read.**
-`JobSummary.resumption` — which act a person took to put a `queued` Job back —
-is rendered exactly as opaquely as `held_by` and is still a strict
+**A closed set Bridge matches on is a `wire_enum!`, and one it only renders is
+a string.** `JobSummary.resumption` — which act a person took to put a `queued`
+Job back — is rendered exactly as opaquely as `held_by` and is still a strict
 `wire_enum!`, because its three values are the shapes the inner step machine
 can be in. A fourth would mean that machine grew a state, which is a change
 every reader has to be told about. `held_by`'s set grows every time Fleet
 learns to read another resource, which is a change no reader needs to be told
 about at all. Ask which of those two a new set is before making it open.
 
-## What Bridge does with the version it reads
+## What Bridge does with the ID it reads
 
-Bridge is the side that decides. It reads Fleet's version out of the runtime
-file **before it opens a socket**, so a refusal is a screen naming both versions
-rather than a malformed first message, and it checks the same fact again on the
-resync — a client that reached the socket without reading the file has had no
-check at all, and a Fleet restarted under a live socket is not the Fleet the
-file described.
+Bridge is the side that decides. It reads Fleet's ID out of the runtime file
+**before it opens a socket**, so a refusal is a screen rather than a malformed
+first message, and it checks the same fact again on the resync — a client that
+reached the socket without reading the file has had no check at all, and a Fleet
+restarted under a live socket is not the Fleet the file described.
 
-Four readings, and only the first two connect.
+| Reading | What Bridge does |
+|---|---|
+| The IDs are equal | Connects. Nothing is said about protocols |
+| The IDs differ | **Refuses.** Opens no socket. The notice says Fleet and Bridge do not match and offers Restart Fleet |
+| The runtime file has no ID | **Refuses.** The same, and the notice says Fleet is out of date, since that is the one case where the side is known |
 
-| Reading | What is true | What Bridge does |
-|---|---|---|
-| Same | The majors and the minors agree | Connects. The Fleet panel says nothing about versions |
-| Fleet ahead | Same major, Fleet's minor is higher | **Connects, and carries a banner.** Everything drawn is current; Fleet has additions this Bridge cannot ask for |
-| Fleet behind | Same major, Fleet's minor is lower | **Refuses.** The screen names both versions and says to restart Fleet when no Job is running |
-| Incompatible | The majors differ, either way round | **Refuses.** The screen names both versions and says to update both to the same commit. This is what the v0 lifeboat is for |
+**The one action is Restart Fleet, on the notice.** It is `launchctl kickstart
+-k` run by Bridge's main process (`apps/desktop/src/main/restart-fleet.ts`), not
+a route, so a Fleet too old to have one is restarted as well as any other. What
+it can and cannot do:
 
-**The middle two rows are the same gap in opposite directions and they are not
-the same situation.** Additive-only says the newer side's additions are things
-the older side never asks for and never reads. A newer *writer* is therefore
-safe: Fleet sends a field, Bridge ignores it, and nothing Bridge draws is
-wrong. A newer *reader* is not: Bridge reads a field an older Fleet was built
-before sending, and additive-only promises nothing about that. The hole would
-arrive mid-Job rather than at startup, on a Job Board that gives no sign it is
-missing anything — which is worse than not connecting.
+- It restarts the job onto the `armada` that is **installed**. Bridge cannot
+  build or install one. If that binary is not this Bridge's build, Fleet comes
+  back still apart and the window says so ("Still not matching"), and the one
+  thing left is to update Armada and reopen Bridge.
+- Working Drones are adopted at boot, as with `scripts/restart --adopt`: they
+  cannot be redirected until they finish. The tooltip says so, and pressing is
+  the person's say-so.
+- It refuses a Fleet whose pid launchd does not hold (one started by hand), since
+  restarting the job would start a second Fleet beside it.
+- A failure is `bridge.fleet.restart_failed`, a fault with its own notice and the
+  usual copy-debug-info acts. A restart that takes but shows no new Fleet in 30
+  seconds is the same code with `no_answer`.
 
-The banner therefore says the connection is fine and names what it cannot
-reach. It goes in the Fleet panel beside the running dot, as advice on a
-healthy connection, and **not** as a failure notice: a minor gap Bridge can
-survive is not a fault, and drawing it as one tells somebody something is broken when it is
-working. `packages/shell/src/fleet.ts` carries the sentences and
-`packages/protocol/src/version.ts` carries the rule; `crates/ipc/src/version.rs`
-is the same rule in Rust, where the four readings are tested.
+Bridge cannot say which side is stale from the IDs alone, so the sentence does
+not guess. `packages/shell/src/fleet.ts` carries the sentences, and the detail
+row names the first eight digits of each ID so a person can read them to
+someone else.
 
-**The rule is spelled twice, and that is a known cost.** Bridge decides, so the
-rule has to exist in TypeScript; the desktop app has no test runner, so the only
-place the four readings can be proved is Rust. Two spellings of one rule is
-exactly what this repository calls a second vocabulary, and it is written down
-here rather than left to be discovered.
+**The refusal is not a fault of the Jobs.** Fleet is alive and dispatching, and
+the screen says so. Bridge declined to read it rather than failed to, which is
+why it draws as degraded and not red.
 
-## Why skew is dangerous here specifically
+## Why a mismatch is dangerous here specifically
 
-Version skew is usually a deploy-time annoyance: you restart the old thing,
-it's fine. That's not what happens here, because **Fleet outlives Bridge by
-design.** Fleet is a daemon; Bridge is a window someone closes to go to lunch.
-A Job runs unattended, with Drones spending real tokens against real API
-budgets, for however long it takes — hours, sometimes. Fleet gets upgraded
-during that window because that's when upgrades happen: nobody's watching.
+Skew is usually a deploy-time annoyance: you restart the old thing, it's fine.
+That's not what happens here, because **Fleet outlives Bridge by design.** Fleet
+is a daemon; Bridge is a window someone closes to go to lunch. A Job runs
+unattended, with Drones spending real tokens against real API budgets, for
+however long it takes — hours, sometimes. Fleet gets upgraded during that window
+because that's when upgrades happen: nobody's watching.
 
-So the skew window isn't "between deploys," it's "for the entire duration of
-whatever Job happens to be running when someone updates Fleet." A major-bump
-skew discovered mid-Job doesn't get a graceful restart — the connection that
-was streaming Drone events goes bad while a Drone is mid-tool-call, burning
-budget, with nobody able to see what it's doing until Bridge reconnects
-through the lifeboat and can offer nothing better than "kill it." That's the
-cost minor-bump-additive-only is bought against: a minor bump has to be safe
-to hit *mid-Job*, unattended, with money on the line, not just safe to hit at
-startup.
+So the window isn't "between deploys," it's "for the entire duration of
+whatever Job happens to be running when someone updates one side." A mismatch
+met mid-Job does not get a graceful restart: the connection that was streaming
+Drone events goes bad while a Drone is mid-tool-call, burning budget, with
+nobody able to see what it is doing.
 
-**And the same lifetimes make the refusing direction the likely one.** A
-running Fleet's version does not change when someone updates the app — the
-daemon that was started last week is still speaking last week's protocol, and
-the Bridge relaunched after the update is the newer of the two. So "Fleet
-behind" is what an ordinary update produces and "Fleet ahead" is the rarer
-case, reached by restarting Fleet without relaunching Bridge. The banner is not
-the common path. The refusal is, and its screen has to say plainly that the
-daemon is the thing to restart.
+**Strict equality makes that more frequent, and it is accepted.** Before IDs, an
+additive change was a banner and nothing else, and only a breaking one refused.
+Now any change to the wire files refuses a Bridge relaunched after it until
+Fleet is restarted, including a change that would have been additive. `scripts/restart --adopt` carries
+working Drones across the restart, so the cost is a restart rather than a lost
+Job. What is gained is that no change is judged
+"additive enough" by the person making it, which was the judgement a banner was
+trusting.
+
+**And the same lifetimes make one direction the likely one.** A running Fleet's
+ID does not change when someone updates the app: the daemon started last week is
+still speaking last week's protocol, and the Bridge relaunched after the update
+is the newer of the two. The other direction is rarer, reached by restarting
+Fleet without relaunching Bridge.
 
 ## The v0 lifeboat
 
-When the version check refuses — either of the bottom two rows above — Bridge
-doesn't get nothing. It gets four routes that don't depend on version
-agreement:
+When the ID check refuses, Bridge doesn't get nothing. It gets four routes that
+don't depend on the IDs agreeing:
 
 | Operation | Route |
 |---|---|
@@ -318,15 +265,19 @@ agreement:
 | Report Fleet's version | `GET /v0/version` |
 
 That's the whole surface. Bridge's recovery screen is built on exactly these
-four: show what's running, name both versions so the human can tell what's
+four: show what's running, name both IDs so the human can tell what's
 mismatched, and offer per-Job kill so nothing is left burning tokens
 unsupervised while someone goes and fixes the mismatch.
 
+**None of it is built yet.** `crates/api/src/routes/served.rs` says the lifeboat
+belongs to the Ship milestone, and nothing in Bridge calls `/v0`. Until it lands,
+a refused Bridge shows the mismatch notice and nothing else. The paragraphs
+below are the contract it will be built to.
+
 The lifeboat's entire value proposition is being the one thing guaranteed to
-work when everything else — the ipc types, the codegen, the version
-negotiation — has already failed or gone stale. That guarantee has exactly one
-precondition: **the lifeboat itself never needs to change.** Concretely, that
-means:
+work when everything else — the ipc types, the codegen, the ID check — has
+already failed or gone stale. That guarantee has exactly one precondition:
+**the lifeboat itself never needs to change.** Concretely, that means:
 
 - **Hand-written, not derived.** No `ipc` types, no shared serialization
   helper, no codegen. If the machinery that generates the rest of the
@@ -625,6 +576,14 @@ conversation, drop-oldest, `missed` with the count, and the thread's file keeps
 what a slow viewer lost.
 
 **It is deliberately not `/events`**, for the second socket's reason.
+
+## Changes before IDs
+
+The sections headed `Protocol N.M` below were written when the wire carried a
+version number, and they keep it. Each records what a change put on the wire
+and why, which is still true. Nothing reads the numbers any more, and a bump
+rule or a major/minor classification in one of them is history, not an
+instruction.
 
 ## Protocol 10.11: the review Fleet composed
 
@@ -2189,9 +2148,9 @@ rows with `state` a `LandState`. Additive. `docs/capabilities/merge-line.md`, *I
 the field-by-field table.
 
 **A fleet-wide fact that persists, so a route and an event**, `manifest.reread`'s rule. What is
-new is the writer: `armada land` is another process, so nothing tells Fleet a line moved. Fleet
-reads every served repository's `armada-land/` every two seconds and publishes only when the answer
-changed. Bridge reads the route once per connection and keeps no timer.
+new was the writer: `armada land` was another process, so nothing told Fleet a line moved. Fleet
+read every served repository's `armada-land/` every two seconds and published only when the answer
+changed. The files are no longer read; the loop folds the hub and publishes only when that moved. Bridge reads the route once per connection and keeps no timer.
 
 **`LandState` is a strict enum, not an open set.** Bridge branches on it: the two live states
 pulse and each end state draws its own facts. A new state is a major move.
@@ -2258,7 +2217,7 @@ and the step's one submission survive a Fleet restarting mid-step.
 Decided with the owner on 2 Oct 2026: the merge line's one list of what left it splits in two.
 `MergeLine` gains `landed`, the newest `landed` outcomes up to `LANDED`, and `sent_back`, every
 `red`, `conflict` or `stopped` outcome of a branch not in line written within `SENT_BACK_FOR`. Both
-bounds are in `adapters::land_state::line`. Both lists are `MergeLineEntry` rows, newest first, with
+bounds were in `adapters::land_state::line`, since removed. Both lists are `MergeLineEntry` rows, newest first, with
 the redaction `off` has. `docs/capabilities/merge-line.md`, *In Bridge*.
 
 **Additive, so the minor moves.** `off` is still served as it was, so a 23.1 Bridge connects behind
@@ -2415,9 +2374,10 @@ or not.
 **The three names are the request, and never a path.** Fleet holds the root against the roots it
 serves, reads the branch's outcome for its turn and the Checks that turn has started, and opens only
 `<turn>/<check>.log` where the turn resolves under this line's own `logs/` and the log is not a
-link. Everything else is one refusal. `adapters::land_state::line::check_log` is the rule;
-`crates/fleet/src/tests/land_logs.rs` holds it to a path, `..`, a waiting Check, an unserved root,
-a turn outside `logs/` and a link.
+link. Everything else is one refusal. `adapters::land_state::line::check_log` was the rule, held by
+`land_logs.rs` to a path, `..`, a waiting Check, an unserved root, a turn outside `logs/` and a
+link. Both are removed with the command; a branch's line has no log to open, and main's are served
+as before.
 
 **Additive, so the minor moves.** `LandOutputMessage` is a new message family, `OutputMessage`'s
 three with its own opening: `LandOutputOpened` names the root, the branch and the Check, and carries
@@ -3230,6 +3190,7 @@ Additive. `hub.main.checking` (`MainChecking {commit, pull_request?}`, newest fi
 | `tune_session` (`POST /sessions/tune`) | `TuneSession`: `model`, `effort`, `mode` | A model or effort left out is the machine's own |
 | `close_session` (`POST /sessions/close`) | `CloseSession` | Parks the slot, ends the row |
 | `get_session` (`GET /sessions/one?session_id=`) | `SessionThread`: the record and its `rows` | |
+| `get_session_subagent` (`GET /sessions/subagent?session_id=&subagent_id=`) | `SessionSubagent`: the subagent's own `rows`, `finished`, and its `report` once it has | Read again while it runs; 422 where the session has no such subagent transcript |
 | `get_session_file` (`GET /sessions/file?session_id=&file=`) | The bytes, under the media type they were sent as | `file` is a `SentFile.id` |
 | `gate_session_call` (`POST /sessions/gate`) | `SessionGate`, answered in the harness's own hook shape | **Reached by the harness, never by a client** |
 | `take_held_messages` (`POST /sessions/held`) | `TakeHeld`, answered with `MessagesHeld`: what a person sent a terminal session, once | **Reached by the session's mod, never by a client.** Since 23.53 |
@@ -3409,7 +3370,7 @@ Bridge's half is in `packages/protocol/src/hosted-sessions.ts`, written by hand 
 
 **Bridge starts the draft choice on `pr_mode_default` where `landing` is absent.** A Job approved with no `landing.pr_mode` takes the same answer, so a Bridge that never learned the field still gets the default. **The default Fleet serves is for the workflow the Job was proposed on**: a person who picks another workflow in the proposal sees the first one's until the approval, and what is frozen is the picked workflow's. Bridge's half is in `packages/protocol/src/detail.ts` and `preferences.ts`, written by hand like the rest.
 
-## Protocol 23.75: a saved Trigger runs a Drone
+## A saved Trigger runs a Drone
 
 `docs/concepts/trigger.md`, *A Skill or a Drone step*. **Additive only**: one variant of `TriggerRuns` and no new operation, state or error. A saved Trigger can name a prompt, and a Drone is sent with it on a side Drone as a Skill is.
 
@@ -3420,8 +3381,6 @@ Bridge's half is in `packages/protocol/src/hosted-sessions.ts`, written by hand 
 | `save_trigger` `kept_from` | | A Drone step can be kept for every Job. 422 `fleet.unacceptable_addition` is no longer raised for one |
 
 **`repair` is ignored**, as for a Skill: a file with `brief:` and `repair: true` loads with it off.
-
-**Skew.** A Fleet before 23.75 refuses a file with `brief:` as an unknown key and leaves it out, with its reason. A Bridge before it, handed a `drone` run, has no name for it to draw.
 
 ## Protocol 23.73: Skill and Drone steps run
 
@@ -3475,6 +3434,17 @@ Additive only. The repository moved to the forge's merge queue, so `hub.pull_req
 | `answer_session_ask` (`POST /sessions/ask/answer`) | `answers?`: `QuestionAnswer` `question`, `chosen[]` | One entry per question. `allow_once` without every question answered is a 422 `fleet.session_answer_incomplete`. Free text is an entry in `chosen` |
 
 Bridge's half is in `packages/protocol/src/helm-calls.ts` and `hosted-sessions.ts`, written by hand like the rest.
+
+## Merge pressed while the forge's checks run
+
+`docs/concepts/fleet.md`, *A person presses to merge*. **Additive only**: one operation, one optional field on Bridge's `Outcome`, and a store column.
+
+| Where | Carries | Notes |
+| --- | --- | --- |
+| `enable_job_auto_merge` (`POST /jobs/:job_id/auto_merge`) | no body | Answers the `PullRequestState` the forge shows afterwards. Records the ask on the Job; the Job stays at `awaiting_review`. 409 off the gate, once the checks have passed (`fleet.pull_request_checks_passed`) or failed (`fleet.merge_checks_not_passed`), and with the forge's words where it refused. `Helm only` |
+| the sweep | nothing on the wire | A Job at its gate whose pull request is found merged, and whose ask is recorded, is taken as `approve_review` takes it, actor `fleet`. Any other merge is recorded and left |
+
+`Outcome.pullRequest` is Bridge's own and not on the wire: the `PullRequestState` main carries back from `enable_job_auto_merge`, which the gate draws as Auto-merge on.
 
 ## Open questions
 

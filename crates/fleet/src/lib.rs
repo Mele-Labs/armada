@@ -40,6 +40,8 @@ mod amending;
 /// serves it. Spike 022, slice 4.
 mod approved;
 pub mod approving;
+/// Merge pressed while the forge's checks run: auto-merge asked for, and the Job taken when it lands.
+mod auto_merging;
 pub mod asked;
 pub mod asked_run;
 pub mod asking;
@@ -173,7 +175,7 @@ pub mod listener;
 pub mod main_ci;
 mod main_fix;
 pub(crate) mod main_hub;
-/// The merge line `armada land` keeps in each served repository, read and published.
+/// The merge line of each served repository: its hub, read off the forge and published.
 mod manifest_checks;
 /// A possible `armada.yml` per workspace, from Scan, and the Write that ends it.
 pub mod manifest_proposal;

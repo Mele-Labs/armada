@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef, useState } from "react";
-import { Box, ChevronRight, GitBranch, KeyRound, Layers, SquareTerminal, Wrench } from "lucide-react";
+import type { ReactNode } from "react";
+import { AppWindow, Box, ChevronRight, GitBranch, KeyRound, Layers, SquareTerminal, Wrench } from "lucide-react";
 
 import { AttachmentChip } from "../../primitives/AttachmentChip/AttachmentChip";
 import { Button } from "../../primitives/Button/Button";
@@ -9,6 +10,9 @@ import { Input } from "../../primitives/Input/Input";
 import { Prose } from "../../primitives/Prose/Prose";
 import { Radio, RadioGroup } from "../../primitives/Radio/Radio";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
+import { SessionMark } from "../SessionFrame/SessionFrame";
+import { InlineTag } from "../SessionComposer/InlineTag";
+import type { ComposerTag } from "../SessionComposer/InlineTag";
 
 /**
  * A Session's conversation, drawn on Helm's own thread rows
@@ -43,6 +47,8 @@ export type SessionThreadRow =
   /** The summary the CLI wrote where it compacted the conversation. Not the person's words: a quiet row that opens to its text. */
   | { id: string; at: string; kind: "compaction"; text: string }
   | { id: string; at: string; kind: "lease"; slot: number; branch: string }
+  /** The Session showed a page in a window: a quiet row, a press that opens the window again. */
+  | { id: string; at: string; kind: "window"; title: string; url: string }
   | {
       id: string;
       at: string;
@@ -84,16 +90,42 @@ export type SessionThreadProps = {
   onAnswer: (answer?: string, answers?: QuestionAnswer[]) => void;
   /** Opens the Session a message came from. */
   onOpenSession: (sessionId: string) => void;
+  /** Opens a window the Session showed, again. Absent where windows are not served, and its row is not a press. */
+  onOpenWindow?: (url: string) => void;
   /** Which Session this is. A change of it opens the thread at its newest row again. */
   sessionId?: string;
+  /** The turn is running: a live mark sits at the end, on the last tool group's row if that is the last row. */
+  working?: boolean;
 };
 
 const TAG_KIND = { session: "Session", job: "Job", pull_request: "Pull request", branch: "Branch" } as const;
 
-function Sent({ row }: { row: Extract<SessionThreadRow, { from: "you" | "agent" }> }) {
+/**
+ * A sent message's words with each tag drawn as the chip it was written as, at its `@title`. `parts`
+ * is `null` where no tag is found in the words, and `loose` holds the tags that were not.
+ */
+function placeTags(text: string, tags: readonly ComposerTag[]): { parts: ReactNode[] | null; loose: readonly ComposerTag[] } {
+  const parts: ReactNode[] = [];
+  const loose: ComposerTag[] = [];
+  let from = 0;
+  for (const tag of tags) {
+    const at = text.indexOf(`@${tag.title}`, from);
+    if (at < 0) {
+      loose.push(tag);
+      continue;
+    }
+    if (at > from) parts.push(text.slice(from, at));
+    parts.push(<InlineTag key={`${from}${tag.kind}${tag.id}`} tag={tag} />);
+    from = at + tag.title.length + 1;
+  }
+  if (parts.length === 0) return { parts: null, loose };
+  if (from < text.length) parts.push(text.slice(from));
+  return { parts, loose };
+}
+
+function Sent({ row, tags }: { row: Extract<SessionThreadRow, { from: "you" | "agent" }>; tags: readonly ComposerTag[] }) {
   const files = row.files ?? [];
   const sketches = row.sketches ?? [];
-  const tags = row.tags ?? [];
   if (files.length + sketches.length + tags.length === 0) return null;
   return (
     <div className="armada-session-sent">
@@ -226,14 +258,14 @@ function namesOf(rows: readonly { text: string }[]): string[] {
  * **Calls that ran one after another are one row, closed.** It names the tools it holds and draws no
  * count; pressing it shows each call. A lone call is a group of one.
  */
-function Calls({ rows }: { rows: readonly { id: string; text: string }[] }) {
+function Calls({ rows, working }: { rows: readonly { id: string; text: string }[]; working?: boolean }) {
   const names = namesOf(rows);
   return (
     <li className="armada-session-fold armada-session-fold--calls">
       <details>
         <summary className="armada-session-fold__head" aria-label={`Tool calls: ${names.join(", ")}`}>
           <ChevronRight size={12} strokeWidth={2} aria-hidden className="armada-session-fold__chevron" />
-          <Wrench size={12} strokeWidth={2} aria-hidden />
+          {working === true ? <SessionMark state="working" said="Working" /> : <Wrench size={12} strokeWidth={2} aria-hidden />}
           <span className="armada-session-fold__names">{names.join(", ")}</span>
         </summary>
         <ol className="armada-session-fold__calls">
@@ -248,7 +280,25 @@ function Calls({ rows }: { rows: readonly { id: string; text: string }[] }) {
   );
 }
 
-function Row({ row, onOpenSession }: { row: Exclude<SessionThreadRow, { kind: "tool" }>; onOpenSession: (id: string) => void }) {
+function Row({
+  row,
+  onOpenSession,
+  onOpenWindow,
+}: {
+  row: Exclude<SessionThreadRow, { kind: "tool" }>;
+  onOpenSession: (id: string) => void;
+  onOpenWindow?: (url: string) => void;
+}) {
+  if (row.kind === "window") {
+    return (
+      <li className="armada-session-fold">
+        <button type="button" className="armada-session-fold__head armada-session-fold__head--press" aria-label={`Open window ${row.title}`} onClick={() => onOpenWindow?.(row.url)}>
+          <AppWindow size={12} strokeWidth={2} aria-hidden />
+          {row.title}
+        </button>
+      </li>
+    );
+  }
   if (row.kind === "handoff") return <Handoff row={row} />;
   if (row.kind === "lease") {
     return (
@@ -307,16 +357,15 @@ function Row({ row, onOpenSession }: { row: Exclude<SessionThreadRow, { kind: "t
       </li>
     );
   }
+  const placed = placeTags(row.text, row.tags ?? []);
   return (
     <li className="armada-helm-thread__row" data-actor={row.from === "you" ? "you" : "helm"} data-from={row.from}>
       <div className="armada-helm-thread__head">
         <span className="armada-helm-thread__who">{row.from === "you" ? "You" : "Agent"}</span>
         <span className="armada-helm-thread__at">{row.at}</span>
       </div>
-      <div className="armada-helm-thread__message">
-        <Prose text={row.text} />
-      </div>
-      <Sent row={row} />
+      <div className="armada-helm-thread__message">{placed.parts === null ? <Prose text={row.text} /> : <p className="armada-session-said">{placed.parts}</p>}</div>
+      <Sent row={row} tags={placed.loose} />
     </li>
   );
 }
@@ -440,7 +489,7 @@ function Questions({
 /** How far from the end still counts as being at it, so a rounding or a half row does not unpin. */
 const NEAR_END = 24;
 
-export function SessionThread({ rows, asked, onAnswer, onOpenSession, sessionId }: SessionThreadProps) {
+export function SessionThread({ rows, asked, onAnswer, onOpenSession, onOpenWindow, sessionId, working }: SessionThreadProps) {
   const scroller = useRef<HTMLDivElement>(null);
   const pinned = useRef(true);
   // **Opens at the newest row, with no animation, and stays there while the person is at the end.**
@@ -451,7 +500,9 @@ export function SessionThread({ rows, asked, onAnswer, onOpenSession, sessionId 
   useLayoutEffect(() => {
     const one = scroller.current;
     if (one !== null && pinned.current) one.scrollTop = one.scrollHeight;
-  }, [rows, sessionId]);
+  }, [rows, sessionId, working]);
+  const items = itemsOf(rows);
+  const endsInCalls = items[items.length - 1]?.kind === "calls";
   return (
     <div className="armada-session-thread">
       <div
@@ -465,13 +516,18 @@ export function SessionThread({ rows, asked, onAnswer, onOpenSession, sessionId 
         }}
       >
         <ol className="armada-helm-thread__rows">
-          {itemsOf(rows).map((item) =>
+          {items.map((item, at) =>
             item.kind === "calls" ? (
-              <Calls key={item.id} rows={item.rows} />
+              <Calls key={item.id} rows={item.rows} working={working === true && at === items.length - 1} />
             ) : (
-              <Row key={item.row.id} row={item.row} onOpenSession={onOpenSession} />
+              <Row key={item.row.id} row={item.row} onOpenSession={onOpenSession} onOpenWindow={onOpenWindow} />
             ),
           )}
+          {working === true && !endsInCalls ? (
+            <li className="armada-session-thread__working">
+              <SessionMark state="working" said="Working" />
+            </li>
+          ) : null}
         </ol>
       </div>
       {asked === undefined ? null : (

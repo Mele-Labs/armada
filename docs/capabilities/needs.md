@@ -53,7 +53,7 @@ or a pull request. The kind column is open text, so a need adds no migration.
 | `holder_kind`, `holder_id` | `session` or `job`, and its id. A Job holds a need as a Job does a slot |
 | `kind` | `need` |
 | `manifest_id` | The repository the path belongs to |
-| `target` | The file or resource, repository-relative: `protocol-version.toml` |
+| `target` | The file or resource, repository-relative: `Cargo.lock` |
 | `detail` | `{what, took}`: the declarer's words (*a minor*), and what it chose (`23.41`), absent until chosen. Fleet adds `branch` where it declares for a branch, so the line that names who is ahead can say it |
 | `state` | `standing`, `spent` (the holder's work merged), or `given_back` (released, or the holder is gone) |
 | `since`, `changed_at` | When declared, and when the state last changed |
@@ -96,8 +96,6 @@ know about reads success, since no needs are known for it.
   ended, a branch deleted.
 - **A late declarer is told to search for the number it already used**, when its
   branch already changes the path.
-- **A minor taken with no need is refused**, as `adapters::undeclared` does now;
-  it becomes a required check on the pull request.
 
 ## What moves
 

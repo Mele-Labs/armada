@@ -23,13 +23,15 @@ import type {
   SessionRecord,
   SessionRow,
   SessionRowChanged,
+  SessionSubagent,
   SessionThread,
   StartSession,
   TuneSession,
 } from "@armada/protocol";
 import type { BridgeState } from "../shared/bridge";
+import type { ArtifactRead } from "@armada/screens/src/draft/sessions";
 import type { PullRequestPress, SessionActed } from "../shared/api/sessions";
-import { openSessionFile } from "./session-file";
+import { openSessionFile, readSessionArtifact, titleOfWindow } from "./session-file";
 import { ask, sessionFileOf } from "./request";
 
 type Publish = (change: Partial<BridgeState>) => void;
@@ -60,6 +62,10 @@ export class SessionsHost {
   private readonly port: () => number | null;
   private sessions: SessionRecord[] | null = null;
   private threads: Record<string, SessionRow[]> = {};
+  /** Opens a window on a page a Session showed. Set once by main, which owns windows. */
+  private shown: (sessionId: string, title: string, url: string) => void = () => {};
+  /** The window rows already acted on, so a row met again opens nothing. */
+  private readonly opened = new Set<string>();
   /** Threads whose read has not answered, with the rows that arrived meanwhile. */
   private reading = new Map<string, SessionRow[]>();
 
@@ -86,8 +92,30 @@ export class SessionsHost {
     this.fold(record);
   }
 
+  /** Say what opens a window: main's, since a window is not a thing this host holds. */
+  onWindow(shown: (sessionId: string, title: string, url: string) => void): void {
+    this.shown = shown;
+  }
+
+  /**
+   * A press on a window the Session showed, or on its row. **Only an address the Session's ledger shows
+   * as a window**, so the renderer names a session and an address and main loads nothing else.
+   */
+  openWindow(sessionId: string, url: string): Outcome {
+    const title = titleOfWindow(this.sessions?.find((one) => one.id === sessionId), url);
+    if (title === null) return { ok: false, why: "no_manifest" };
+    this.shown(sessionId, title, url);
+    return { ok: true };
+  }
+
   /** `session.row`: one row of a thread, appended or replaced by its id. */
   row(change: SessionRowChanged): void {
+    // **Opens when the Session shows it, and only then**: a thread read brings the rows already
+    // there, and none of those opens a window.
+    if (change.row.kind === "window" && !this.opened.has(change.row.id)) {
+      this.opened.add(change.row.id);
+      this.shown(change.session_id, change.row.title, change.row.url);
+    }
     const waiting = this.reading.get(change.session_id);
     if (waiting !== undefined) {
       this.reading.set(change.session_id, withRow(waiting, change.row));
@@ -113,6 +141,7 @@ export class SessionsHost {
     this.reading.delete(sessionId);
     if (answer.ok !== true) return;
     const thread = answer.body as SessionThread;
+    for (const row of thread.rows) if (row.kind === "window") this.opened.add(row.id);
     this.threads = { ...this.threads, [sessionId]: meanwhile.reduce(withRow, thread.rows) };
     this.fold(thread.session);
     this.publish({ sessionThreads: this.threads });
@@ -171,9 +200,27 @@ export class SessionsHost {
     return await sessionFileOf(port, sessionId, file);
   }
 
+  /** A subagent's own thread, read whole each time it is asked: the window asks again while it runs. */
+  async subagent(sessionId: string, subagentId: string): Promise<SessionActed<SessionSubagent>> {
+    const port = this.port();
+    if (port === null) return { ok: false, outcome: NOT_CONNECTED };
+    const answer = await ask(port, "GET", `/sessions/subagent?session_id=${encodeURIComponent(sessionId)}&subagent_id=${encodeURIComponent(subagentId)}`);
+    return answer.ok === true ? { ok: true, value: answer.body as SessionSubagent } : { ok: false, outcome: answer.outcome };
+  }
+
   /** A file the session wrote, opened where the machine opens it. Only a path the session's ledger names. */
   async openFile(sessionId: string, path: string): Promise<Followed> {
     return await openSessionFile(this.sessions?.find((one) => one.id === sessionId), path);
+  }
+
+  /** The record main holds for a session, which is what a path or an address has to be named by. */
+  recordOf(sessionId: string): SessionRecord | undefined {
+    return this.sessions?.find((one) => one.id === sessionId);
+  }
+
+  /** A file the session's ledger names, read for the panel. */
+  async readArtifact(sessionId: string, path: string): Promise<ArtifactRead> {
+    return await readSessionArtifact(this.recordOf(sessionId), path);
   }
 
   /**

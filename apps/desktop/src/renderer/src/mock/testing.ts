@@ -1,6 +1,7 @@
 // What a browser test needs to drive `App` on a scenario: mount it, take it
 // down after, and reach a surface the way a person does — by the rail.
 
+import { forgetAllKept } from "@armada/components";
 import { afterEach, expect, onTestFinished } from "vitest";
 import type { Mock } from "vitest";
 import { commands, page, userEvent } from "vitest/browser";
@@ -21,11 +22,14 @@ export function unmountAfterEach(): void {
       one.host.remove();
     }
     mounted = [];
+    forgetAllKept();
   });
 }
 
 /** Mount `App` on a scenario, in a host the app's stylesheet sizes as its window. */
 export function mount(scenario: string | Scenario, options?: FakeOptions): Mounted {
+  // Each mount is a fresh viewer: the ledger's kind filter is remembered in the browser, so a test that pressed it must not leak.
+  localStorage.removeItem("armada.session-ledger.kinds.artifact");
   const host = document.createElement("div");
   host.id = "root";
   document.body.append(host);

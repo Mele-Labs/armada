@@ -64,7 +64,7 @@ import {
   openRemarkLink,
   openServerLink,
   runSheetServers,
-  openLink,
+  openLink, restartFleet,
   observeRun,
   observeCheckoutRun,
   pickRepository,
@@ -720,7 +720,7 @@ export function App({ draft }: AppProps = {}) {
               story can check it. `.armada-screen__mounted` says why. */}
           <div className="armada-screen__mounted">
             <Standing
-              fleet={fleet}
+              fleet={fleet} connection={state.connection} bridge={state.bridge} onRestartFleet={restartFleet}
               // **Not while the file is on screen**, which draws the same
               // reading beside the text it is about. Twice at once is two places
               // to read one refusal and one to dismiss while the other stands.
@@ -869,7 +869,7 @@ export function App({ draft }: AppProps = {}) {
                   onShowAgain={showAgain} onChooseTriggerFix={commands.chooseTriggerFix}
                   onHoldAct={(jobId, act, by) => (act === "rerun" ? commands.rerunTrigger(jobId, by) : commands.skipTrigger(jobId, by))}
                   onApprove={commands.approve} onListBranches={commands.listBranches}
-                  onMergePullRequest={(jobId) => void commands.decide(jobId, "merge")}
+                  {...commands.mergeProps(reading.id)}
                   onRerunFailedChecks={(jobId) => void commands.rerunFailedChecks(jobId)}
                   onInvestigateFailedChecks={(jobId) => void commands.investigateFailedChecks(jobId)}
                   onQueueAfterFinding={(jobId, finding) => void commands.queueAfterFinding(jobId, finding)}

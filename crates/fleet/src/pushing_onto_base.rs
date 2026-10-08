@@ -1,7 +1,6 @@
 //! `merge_by: push` over a base that moved: the base merged into the Job's
 //! branch in its own worktree, the Job's Checks run again over the merge, and
-//! the push asked again, up to [`ROUNDS`] times — `armada land`'s loop, in
-//! Fleet. `docs/concepts/manifest.md`, *How work lands*.
+//! the push asked again, up to [`ROUNDS`] times. `docs/concepts/manifest.md`, *How work lands*.
 //!
 //! **The Checks are every Manifest Check the Job's workflow gated on**, from
 //! every step: the step a Job holds at before merging is usually a hand-off

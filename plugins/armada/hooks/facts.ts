@@ -8,7 +8,29 @@ const TITLE_MOST = 80
  * repository's. **Bump it with `version` in `.claude-plugin/plugin.json`**: the mod cannot read that
  * file while it runs, and a Fleet test (`terminal_session.rs`) holds the two equal.
  */
-export const MOD_VERSION = '0.3.0'
+export const MOD_VERSION = '0.3.2'
+
+/**
+ * The web pages a shell line opens in the owner's browser: `open`, `xdg-open` or
+ * `python -m webbrowser` with an `http(s)` address. Fleet reads hosted sessions' lines the same way
+ * (`pages_opened`, `crates/fleet/src/helm/deciding.rs`).
+ */
+export function pagesOpenedIn(command: string): string[] {
+  const pages: string[] = []
+  for (const segment of command.replace(/&&|\|\|/g, ';').split(/[;|\n]/)) {
+    const words = segment
+      .split(/\s+/)
+      .filter(word => word !== '')
+      .map(word => word.replace(/^['"]+|['"]+$/g, ''))
+    const first = words[0] ?? ''
+    const opens =
+      first === 'open' ||
+      first === 'xdg-open' ||
+      (first.startsWith('python') && words.some((word, i) => word === '-m' && words[i + 1] === 'webbrowser'))
+    if (opens) pages.push(...words.filter(word => /^https?:\/\//.test(word)))
+  }
+  return pages
+}
 
 // A harness wraps what it adds to a prompt in hyphenated tags. A command's and a reminder's
 // contents are the harness's words, so the whole block goes; any other wrapper, such as
@@ -131,8 +153,8 @@ export function micros(usd: number | undefined): number | undefined {
 }
 
 export type Artifact = {
-  /** A published page, a file written outside the code, or a Claude Docs document. */
-  form: 'page' | 'file' | 'doc'
+  /** A published page, a file written outside the code, a picture looked at, or a Claude Docs document. */
+  form: 'page' | 'file' | 'image' | 'doc'
   /** The address a page or doc opens at, or the file's path. */
   target: string
   title?: string
@@ -149,13 +171,16 @@ export function isDocument(path: string): boolean {
   return DOCUMENT.test(path) && !SCRATCH.test(path)
 }
 
+// A picture a session looked at. Scratch is kept: a screenshot is usually read from `/tmp`.
+const PICTURE = /\.(png|jpe?g|gif|webp)$/i
+
 const CLAUDE_ADDRESS = /https:\/\/claude\.ai\/[^\s)"'<>\]]*artifact[^\s)"'<>\]]*/
 const DOCS = /^mcp__claude_ai_Claude_Docs__(create|batch|update)$/
 
 const nameOf = (path: string) => path.slice(path.lastIndexOf('/') + 1).replace(/\.[^.]+$/, '')
 
 /**
- * What a tool call made that a person would open. **A code edit is never one**: only a page
+ * What a tool call made, or looked at, that a person would open. **A code edit is never one**: only a page
  * published, a new document written, and a Claude Docs document created or edited.
  * `created` is whether a Write made a file that was not there.
  */
@@ -177,6 +202,11 @@ export function artifactOf(
     const path = input.file_path
     if (!created || typeof path !== 'string' || !isDocument(path)) return undefined
     return { form: 'file', target: path, title: path.slice(path.lastIndexOf('/') + 1) }
+  }
+  if (tool === 'Read') {
+    const path = input.file_path
+    if (typeof path !== 'string' || !PICTURE.test(path)) return undefined
+    return { form: 'image', target: path, title: path.slice(path.lastIndexOf('/') + 1) }
   }
   if (DOCS.test(tool)) {
     const container = input.container as { id?: unknown; create?: { name?: unknown } } | undefined

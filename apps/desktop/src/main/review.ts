@@ -29,7 +29,7 @@
 // under it — and `diff` below takes the reading rather than answering out of
 // what was read when the Job was opened. Still no event on this side.
 
-import type { CaptureWalkNote, Diff, Evidence, Remarks, RemoveWalkNote } from "@armada/protocol";
+import type { CaptureWalkNote, Diff, Evidence, Outcome, PullRequestState, Remarks, RemoveWalkNote } from "@armada/protocol";
 import type { JobDiff, JobEvidence, JobRemarks, Submitted, Work } from "@armada/protocol";
 import { JobReader } from "./reader";
 import { ask, type Answer } from "./request";
@@ -260,6 +260,24 @@ export function decide(
   const path = `/jobs/${encodeURIComponent(jobId)}/${decision}`;
   if (note === undefined) return ask(port, "POST", path);
   return ask(port, "POST", path, withWalkNotes ? { note, with_walk_notes: true } : { note });
+}
+
+/**
+ * Merge pressed while the forge's checks run (`enable_job_auto_merge`): the
+ * forge merges when they pass and the Job stays at its gate. **Sent under the caller's one-in-flight
+ * guard, as `merge` is.** The pull request as the forge shows it afterwards rides on the outcome.
+ */
+export async function autoMerge(
+  jobId: string,
+  guarded: (send: (port: number) => Promise<Answer>) => Promise<Outcome>,
+): Promise<Outcome> {
+  let pullRequest: PullRequestState | undefined;
+  const outcome = await guarded(async (port) => {
+    const answer = await ask(port, "POST", `/jobs/${encodeURIComponent(jobId)}/auto_merge`);
+    if (answer.ok === true) pullRequest = answer.body as PullRequestState;
+    return answer;
+  });
+  return outcome.ok && pullRequest !== undefined ? { ...outcome, pullRequest } : outcome;
 }
 
 /** Keep what a person pointed at walking a Job's work, on the Job. Since protocol 23.18. */

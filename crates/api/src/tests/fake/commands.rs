@@ -122,6 +122,19 @@ impl Commands for FakeDaemon {
     async fn merge_pull_request(&self, job_id: JobId) -> Result<JobSummary, Refusal> {
         self.fake_merge_pull_request(job_id).await
     }
+    async fn enable_job_auto_merge(&self, job_id: JobId) -> Result<ipc::PullRequestState, Refusal> {
+        self.unmoved(&job_id)?;
+        Ok(ipc::PullRequestState {
+            manifest_id: ipc::ManifestId::carried("fake".to_string()),
+            number: 1,
+            state: ipc::PullRequestStanding::Open,
+            auto_merge: true,
+            checks: ipc::ForgeChecks::Pending,
+            title: "A pull request".to_string(),
+            branch: "fake/branch".to_string(),
+            address: "https://forge.invalid/armada/pull/1".to_string(),
+        })
+    }
     async fn rerun_failed_checks(&self, job_id: JobId) -> Result<JobSummary, Refusal> {
         self.unmoved(&job_id)
     }

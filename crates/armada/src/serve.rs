@@ -47,7 +47,7 @@ use fleet::{
     Mint, Noticing, Polling, PortRange, Reclaiming, Spare, StepNorms, SystemClock, TheMachine,
     TheVolume, UlidMint,
 };
-use ipc::PROTOCOL_VERSION;
+use ipc::ProtocolId;
 use store::Store;
 
 use crate::{
@@ -498,12 +498,12 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
     let listener = tokio::net::TcpListener::bind(runtime::listener_address(claimed)).await?;
     let bound = listener.local_addr()?;
 
-    let published = RuntimeFile::publish(vacancy, bound.port(), PROTOCOL_VERSION)?;
+    let published = RuntimeFile::publish(vacancy, bound.port(), ProtocolId::current())?;
     println!(
         "Fleet running: pid {}, port {}, protocol {} — {}",
         published.file().pid,
         published.file().port,
-        published.file().protocol_version,
+        published.file().protocol_id,
         published.path().display()
     );
 
@@ -568,6 +568,13 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
                     admitted => format!(", admitted {}", admitted.len()),
                 }
             );
+            // **Sessions taken back, not restarted.** A hosted session's agent
+            // runs under a keeper that outlives Fleet; reattaching replays what
+            // it said while Fleet was down.
+            let kept = fleet.reattached_sessions().await;
+            if kept > 0 {
+                println!("  {kept} hosted session(s) reattached to a keeper that outlived the last Fleet");
+            }
             // Said only where it happened: every boot after the one that converted
             // them prints nought, and a line saying so every time would be noise.
             if reconciled.recognised > 0 {
@@ -629,13 +636,11 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
             // A failed Trigger with `repair` on is worked by a Drone off the
             // Job's own path, so the Job carries on while it does.
             fleet::notice_loop::keep_repairing(Arc::clone(&fleet), PROVISIONAL_TURN_INTERVAL);
-            // Each served repository's merge line, read off disk and published when it
-            // moves: the process that wrote it tells Fleet nothing.
+            // Each served repository's merge line, published when its hub moves.
             fleet::merge_lines::keep_reading(
                 Arc::clone(&fleet),
                 events.clone(),
                 fleet::merge_lines::EVERY,
-                |unread| eprintln!("{unread}"),
             );
             // Stale build output, trimmed in every checkout of each served repository.
             fleet::sweeping::keep_sweeping(
@@ -815,6 +820,8 @@ fn assemble(
     // copies from here into the worktree a Drone can see.
     let attachments_dir = machine.join("attachments");
     std::fs::create_dir_all(&attachments_dir)?;
+    let keepers_dir = machine.join("sessions");
+    std::fs::create_dir_all(&keepers_dir)?;
 
     // A Studio's frames, beside the Studio's records rather than inside the
     // database — a screenshot in a row is read on every graph read. `#1290`.
@@ -864,6 +871,7 @@ fn assemble(
             user,
             mcp_config: mcp_config.to_string_lossy().to_string(),
             attachments_dir: attachments_dir.to_string_lossy().to_string(),
+            keepers_dir: keepers_dir.to_string_lossy().to_string(),
             studio_frames_dir: studio_frames_dir.to_string_lossy().to_string(),
             walk_frames_dir: walk_frames_dir.to_string_lossy().to_string(),
             kit_home,

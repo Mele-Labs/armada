@@ -270,7 +270,14 @@ where
             Landing::Unknown => return Ok(None),
             Landing::Merged { .. } | Landing::ClosedUnmerged { .. } => {}
         }
-        self.settled_landing(&asking.job_id, read).await
+        let noticed = self.settled_landing(&asking.job_id, read).await?;
+        // A merge the Job's own press asked the forge for: take the work now.
+        if let Some(noticed) = &noticed {
+            if matches!(noticed.landed, Landing::Merged { .. }) {
+                self.completed_by_auto_merge(&noticed.job).await;
+            }
+        }
+        Ok(noticed)
     }
 
     /// What a settled pull request comes to: the record, the repository every

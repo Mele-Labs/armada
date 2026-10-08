@@ -6,6 +6,7 @@
 // Session would do next, applied when a walk's `later` step lets time pass or,
 // for the first, when the person sends a message.
 
+import { closeWalkWindow, mockPage, openWalkWindow } from "@armada/jobs/fake";
 import type { Session, SessionTag, SessionAttachment, SessionCommand, SessionRow, SessionSketch, SessionsDraft } from "@armada/screens/src/draft/sessions";
 
 /** The draft the window reads, and the two things only the mock does: take the next turn, and stop. */
@@ -89,7 +90,22 @@ function others(): Session[] {
   ];
 }
 
+/** What every subagent the mock holds does, in order: the brief, its calls, and the report it ends on. */
+const SUBAGENT_SCRIPT: readonly (readonly ["message" | "tool", string])[] = [
+  ["message", "Read the CI history of store_flaky and say when it fails."],
+  ["tool", "gh run list --workflow ci --limit 30"],
+  ["tool", "Read crates/store/tests/flaky.rs"],
+  ["message", "Thirty runs listed. Reading the four that failed."],
+  ["tool", "gh run view 1043 --log-failed"],
+  ["tool", "gh run view 1051 --log-failed"],
+  ["tool", "gh run view 1060 --log-failed"],
+  ["message", "store_flaky failed 4 of the last 30 runs, each when the test crossed a second boundary."],
+];
+
 export const MINE = "s7";
+/** The Session that shows a page in a window when it is next spoken to. */
+export const SHOWER = "s11";
+const SHOWN = "Store clock findings";
 
 /** A Job on the Board that a person can tag: where it stands, and how the Session would hold it. */
 export type TaggableJob = DispatchedJob & { state: "escalated" | "review" };
@@ -100,6 +116,10 @@ export type BoardControl = {
   /** Rows that reach the Board, added to what it holds and never replacing a row already there. */
   add: (rows: readonly unknown[]) => void;
 };
+
+const PICTURE = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 200"><rect width="320" height="200" fill="#2a3340"/><rect x="24" y="24" width="272" height="28" rx="4" fill="#4b5a6e"/><rect x="24" y="68" width="120" height="108" rx="4" fill="#4b5a6e"/><rect x="160" y="68" width="136" height="48" rx="4" fill="#6b7f99"/><rect x="160" y="128" width="136" height="48" rx="4" fill="#4b5a6e"/></svg>`;
+
+const NOTE = "# Store clock\n\nThe store reads the clock once per write.\n\n- Pinned in tests\n- Read through `Clock::now`\n";
 
 export function sessionsStore(
   jobs: readonly [DispatchedJob, DispatchedJob],
@@ -121,6 +141,8 @@ export function sessionsStore(
   const asked = new Map<string, number>();
   const listeners = new Set<() => void>();
   const timers = new Set<number>();
+  /** How many times each subagent's thread has been read, which is how far a running one has got. */
+  const reads = new Map<string, number>();
 
   const set = (next: readonly Session[]) => {
     now = next;
@@ -148,6 +170,28 @@ export function sessionsStore(
   const add = (rows: SessionRow[], attachments: SessionAttachment[] = []) => addTo(MINE, rows, attachments);
   const finishOf = (id: string, stamp: string) => edit(id, (one) => ({ ...one, turn: idle, lastTurn: stamp, lastTurnAt: new Date().toISOString() }));
   const finish = (stamp: string) => finishOf(MINE, stamp);
+
+  /** The window on a page a Session showed. **A note taken in it is a message to that Session**, which wakes it. */
+  const openWindow = (id: string, url: string) => {
+    const session = now.find((one) => one.id === id);
+    if (session === undefined) return;
+    openWalkWindow(session.title ?? id, url, {
+      job: session.title ?? id,
+      into: "Session",
+      onNote: (note, picked) => store.send(id, { text: `${note}\nOn ${picked.element}, ${picked.location}`, files: [], sketches: [], tags: [] }),
+    });
+  };
+  /** The Session shows a page: its window opens by itself, and the ledger and the thread keep it. */
+  const showWindow = (id: string, url: string, title: string) => {
+    addTo(
+      id,
+      [row((rid, stamp) => ({ id: rid, at: stamp, kind: "window", title, url }))],
+      now.find((one) => one.id === id)?.attachments.some((a) => a.kind === "artifact" && a.form === "window" && a.id === url) === true
+        ? []
+        : [{ kind: "artifact", form: "window", id: url, title }],
+    );
+    openWindow(id, url);
+  };
   const attach = (match: (one: SessionAttachment) => boolean, to: SessionAttachment) =>
     edit(MINE, (one) => ({ ...one, attachments: one.attachments.map((a) => (match(a) ? to : a)) }));
 
@@ -421,6 +465,18 @@ export function sessionsStore(
           addTo(id, [tool("Read crates/store/src/tests/ledger.rs:88"), said("Line 88. Waiting on the clock there instead of the sleep fixes it.")]);
           finishOf(id, "14:09");
         });
+      } else if (id === SHOWER) {
+        const had = asked.get(id) ?? 0;
+        asked.set(id, had + 1);
+        after(900, () => {
+          if (had === 0) {
+            addTo(id, [tool(`show_window ${SHOWN}`), said("The findings are in a window.")]);
+            showWindow(id, mockPage(), SHOWN);
+          } else {
+            addTo(id, [said("Noted. I will change that.")]);
+          }
+          finishOf(id, "14:40");
+        });
       } else if (id === MINE && !started) {
         started = true;
         after(600, firstTurn);
@@ -471,6 +527,12 @@ export function sessionsStore(
         ],
       }));
     },
+    openWindow,
+    // What the mock's files hold, since none is on this machine: a picture for an image, text for the rest.
+    readArtifact: async (_id, path) =>
+      /\.(png|jpe?g|gif|webp)$/i.test(path)
+        ? { ok: true, bytes: new TextEncoder().encode(PICTURE), type: "image/svg+xml" }
+        : { ok: true, bytes: new TextEncoder().encode(NOTE), type: path.endsWith(".md") ? "text/markdown" : "text/plain" },
     models: MODELS,
     efforts: EFFORTS,
     commands: COMMANDS,
@@ -493,12 +555,32 @@ export function sessionsStore(
         finishOf(id, "14:31");
       });
     },
+    subagent: async (_id, subagentId) => {
+      const held = now.flatMap((one) => one.attachments).find((one) => one.kind === "subagent" && one.id === subagentId);
+      if (held?.kind !== "subagent") return undefined;
+      const script = SUBAGENT_SCRIPT;
+      // A running subagent shows four rows and then two more each time it is read, until it has said its last; a done one shows all.
+      const seen = held.state === "done" ? script.length : Math.min(script.length, 4 + 2 * (reads.get(subagentId) ?? 0));
+      reads.set(subagentId, (reads.get(subagentId) ?? 0) + 1);
+      const rows = script.slice(0, seen).map(([kind, text], index): SessionRow => {
+        const id = `${subagentId}-${index}`;
+        const stamp = `14:${String(10 + index).padStart(2, "0")}:00`;
+        return kind === "tool"
+          ? { id, at: stamp, kind: "tool", text }
+          : { id, at: stamp, kind: "message", from: { kind: index === 0 ? "you" : "agent" }, text };
+      });
+      const finished = seen === script.length;
+      return { rows, finished, ...(finished ? { report: script[script.length - 1]![1] } : {}) };
+    },
     later() {
       const next = turns[moment];
       moment += 1;
       next?.();
     },
-    dispose: () => timers.forEach((one) => window.clearTimeout(one)),
+    dispose: () => {
+      timers.forEach((one) => window.clearTimeout(one));
+      closeWalkWindow();
+    },
   };
   return store;
 }

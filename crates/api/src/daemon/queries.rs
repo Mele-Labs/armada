@@ -870,10 +870,8 @@ pub trait Queries: Send + Sync + 'static {
         &self,
     ) -> impl Future<Output = Result<ipc::RepositoryList, Refusal>> + Send;
 
-    /// `get_merge_lines` — the line `armada land` keeps in each served
-    /// repository that has one, read off disk. **It reads and starts nothing**:
-    /// no runner, and no state directory where there is none. It never refuses;
-    /// a line that will not read is left out, `get_capacity`'s reasoning.
+    /// `get_merge_lines` — each served repository's merge line: the hub
+    /// Fleet read off the forge, with the queue lists empty. It never refuses.
     fn get_merge_lines(&self) -> impl Future<Output = Result<ipc::MergeLines, Refusal>> + Send;
 
     /// What Fleet read off the forge for each served repository, by root: main's

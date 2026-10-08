@@ -19,7 +19,7 @@ use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
 use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::Response;
-use ipc::{Missed, Resync, StreamMessage, WireError, PROTOCOL_VERSION};
+use ipc::{Missed, ProtocolId, Resync, StreamMessage, WireError};
 
 use crate::answers::{problem, refused};
 use crate::daemon::Queries;
@@ -178,7 +178,7 @@ async fn resync<D: Queries>(socket: &mut WebSocket, served: &Served<D>) -> bool 
     send(
         socket,
         &StreamMessage::Resync(Resync {
-            protocol_version: PROTOCOL_VERSION,
+            protocol_id: ProtocolId::current(),
             cursor,
             jobs,
         }),

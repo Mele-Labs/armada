@@ -84,6 +84,18 @@ export const CommandAndCompaction: Story = {
   },
 };
 
+/** A page the Session showed is a quiet row with its title, and pressing it opens the window again. */
+export const ShownWindowRow: Story = {
+  args: {
+    rows: [{ id: "x1", at: "14:04:00", kind: "window", title: "Store clock findings", url: "https://example.com/findings" }],
+    onOpenWindow: fn(),
+  },
+  play: async ({ canvas, args }) => {
+    await userEvent.click(canvas.getByRole("button", { name: "Open window Store clock findings" }));
+    await expect(args.onOpenWindow).toHaveBeenCalledWith("https://example.com/findings");
+  },
+};
+
 /** Every message is left aligned, yours too, and sits on the panel with no fill of its own. */
 export const MessagesAreLeftAlignedWithNoFill: Story = {
   args: { rows: WORKED },
@@ -242,5 +254,27 @@ export const HandedOverWithNoAccount: Story = {
     await expect(within(handoff).getByText("written, not declared")).toBeInTheDocument();
     await expect(within(handoff).queryByText("Judge refused")).toBeNull();
     await expect(within(handoff).queryByText("Trying to")).toBeNull();
+  },
+};
+
+/** A running turn marks the thread's end: on the last tool group's row when that is last, else a row of its own. Ended, no mark. */
+export const WorkingMark: Story = {
+  args: { rows: WORKED.slice(0, 4), working: true },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("img", { name: "Working" })).toBeInTheDocument();
+  },
+};
+
+export const WorkingMarkAfterAMessage: Story = {
+  args: { rows: [WORKED[0]!, WORKED[4]!], working: true },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("img", { name: "Working" })).toBeInTheDocument();
+  },
+};
+
+export const NotWorkingNoMark: Story = {
+  args: { rows: WORKED.slice(0, 4), working: false },
+  play: async ({ canvas }) => {
+    await expect(canvas.queryByRole("img", { name: "Working" })).toBeNull();
   },
 };

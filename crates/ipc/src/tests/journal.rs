@@ -8,7 +8,7 @@ use core_model::Level;
 
 use crate::{
     decode, encode, JobId, JournalClosed, JournalMessage, JournalOpened, LogNote, NoteLevel,
-    NotedField, Quiet, StepId, Voice, PROTOCOL_VERSION,
+    NotedField, ProtocolId, Quiet, StepId, Voice,
 };
 
 fn note() -> LogNote {
@@ -78,7 +78,7 @@ fn a_note_message_is_flat() {
 fn the_three_messages_round_trip() {
     let each = [
         JournalMessage::Opened(JournalOpened {
-            protocol_version: PROTOCOL_VERSION,
+            protocol_id: ProtocolId::current(),
             job_id: JobId::carried("01JOB"),
             skipped: 3,
         }),

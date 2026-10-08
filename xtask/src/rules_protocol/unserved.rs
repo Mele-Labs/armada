@@ -38,9 +38,9 @@ const NOT_BUILT: &[(&str, &str)] = &[
     ),
     (
         "restart_fleet",
-        "It cannot serve the case it is named for: a dead Fleet cannot restart itself, and \
-         that path is Bridge calling `launchctl kickstart -k` directly. The reachable case — \
-         a Fleet alive and answering, asked for a clean restart — has no caller",
+        "Restarting Fleet is Bridge's own `launchctl kickstart -k` (`apps/desktop/src/main/\
+         restart-fleet.ts`), not a route: the process being restarted cannot serve it, and a \
+         Fleet too old for any route is the one it is most needed against",
     ),
     (
         "resume_interrupted_job",

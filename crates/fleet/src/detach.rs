@@ -40,6 +40,8 @@ use tokio::process::{Child, Command};
 /// hatch, for the same reason `DroneSpawnConfig` has none.
 pub struct Detached {
     command: Command,
+    /// Leave `crate::orphans`' mark off: see [`Detached::outliving_fleet`].
+    unmarked: bool,
     /// Where a test's child runs, so the test's own directory can end it.
     /// `crate::tests::tmp` holds the reason; a build that ships has no field.
     #[cfg(test)]
@@ -64,6 +66,7 @@ impl Detached {
         command.stdin(Stdio::null());
         Detached {
             command,
+            unmarked: false,
             #[cfg(test)]
             directory: None,
             #[cfg(test)]
@@ -147,6 +150,24 @@ impl Detached {
         self
     }
 
+    /// Carry no mark of this Fleet, so `crate::orphans` does not end the child
+    /// when this Fleet is gone. **Only a session's keeper**
+    /// (`crate::session_host::keeper`), whose whole job is to outlive Fleet and
+    /// be found again by the next one. It ends itself when it has no Fleet for
+    /// too long. What it starts is marked with *its* pid, so the agent beneath
+    /// it is swept if the keeper dies.
+    pub fn outliving_fleet(mut self) -> Detached {
+        self.unmarked = true;
+        self
+    }
+
+    /// Stdout and stderr go nowhere, so a caller waiting for Fleet's output
+    /// pipe to close (a launcher script capturing it) is not held by the child.
+    pub fn ignoring_output(mut self) -> Detached {
+        self.command.stdout(Stdio::null()).stderr(Stdio::null());
+        self
+    }
+
     pub fn capturing_output(mut self) -> Detached {
         self.command.stdout(Stdio::piped()).stderr(Stdio::piped());
         self
@@ -166,7 +187,7 @@ impl Detached {
         let mark = self.marked_by.take().or_else(crate::orphans::own_mark);
         #[cfg(not(test))]
         let mark = crate::orphans::own_mark();
-        if let Some(mark) = mark {
+        if let (false, Some(mark)) = (self.unmarked, mark) {
             self.command.env(crate::orphans::MARK, mark);
         }
         let child = self.command.spawn()?;

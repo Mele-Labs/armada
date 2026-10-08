@@ -311,6 +311,13 @@ pub enum SessionRow {
         slot: u32,
         branch: String,
     },
+    /// The session showed the person a page in a window.
+    Window {
+        id: String,
+        at: Instant,
+        title: String,
+        url: String,
+    },
     /// A call put to the person. **The row is replaced by id** as the ask is
     /// answered, so a client holds one row per ask.
     Ask {
@@ -352,6 +359,7 @@ impl SessionRow {
             | SessionRow::Command { id, .. }
             | SessionRow::Compaction { id, .. }
             | SessionRow::Lease { id, .. }
+            | SessionRow::Window { id, .. }
             | SessionRow::Ask { id, .. } => id,
         }
     }
@@ -362,6 +370,17 @@ impl SessionRow {
 pub struct SessionThread {
     pub session: SessionRecord,
     pub rows: Vec<SessionRow>,
+}
+
+/// `get_session_subagent`: one subagent's own thread, as it stands.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SessionSubagent {
+    pub rows: Vec<SessionRow>,
+    /// Its last turn ended and asked for nothing more.
+    pub finished: bool,
+    /// What it said last, once it has finished.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub report: Option<String>,
 }
 
 /// `session.row`: one row appended or replaced, by `row.id()`.

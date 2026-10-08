@@ -17,6 +17,7 @@ import type {
   WorkPlan,
   WorktreesHeld,
 } from "@armada/protocol";
+import { autoMergeRefusal, pullRequestStateOf } from "./pull-request-fleet";
 import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
 import type { PlanEditAnswer } from "@armada/screens/src/plan-edits";
 
@@ -395,7 +396,34 @@ export const jobsApi = (scenario: JobsScenario, fleet: JobsFleet): JobsApi => {
       // The app's own spelling, which a browser has no handler for — `props.ts`' reason.
       frameStreamUrl: (jobId, kept) => `armada-frame://frame/${jobId}/${kept}`,
       approveReview: async (jobId) => whilePaused(jobId) ?? OK,
-      mergePullRequest: async () => OK,
+      // The forge merged it and Fleet took the work: the row completes and the pull request reads merged.
+      mergePullRequest: async (jobId) => {
+        // A frozen repository takes the press and carries it out when the freeze lifts.
+        if ((state().jobs.find((job) => job.id === jobId)?.frozen_by ?? []).length > 0) return OK;
+        const watched = state().watched;
+        const done = { status: "completed_success", landed: "merged" } as const;
+        publish({
+          jobs: state().jobs.map((job) => (job.id === jobId ? { ...job, ...done } : job)),
+          ...(watched.state === "read" && watched.jobId === jobId
+            ? { watched: { ...watched, detail: { ...watched.detail, job: { ...watched.detail.job, ...done }, delivery: { ...watched.detail.delivery, landed: "merged" } } } }
+            : {}),
+        });
+        return OK;
+      },
+      autoMergePullRequest: async (jobId) => {
+        const watched = state().watched;
+        if (watched.state !== "read" || watched.jobId !== jobId) return OK;
+        const reading = pullRequestStateOf(watched.detail, true);
+        if (reading === undefined) return unanswered(path(jobId));
+        const why = autoMergeRefusal(reading);
+        if (why !== undefined) {
+          return refusedWith(409, JSON.stringify({ code: "fleet.merge_checks_not_passed", message: why }), {
+            method: "POST",
+            path: path(jobId, "auto_merge"),
+          });
+        }
+        return { ok: true, pullRequest: reading };
+      },
       rerunFailedChecks: async () => OK,
       investigateFailedChecks: async () => OK,
       queueAfterFinding: async () => OK,

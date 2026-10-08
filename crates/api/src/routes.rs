@@ -197,6 +197,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(crate::sessions::rename_session::<D>),
         )
         .route(
+            "/sessions/window",
+            post(crate::sessions::show_window::<D>),
+        )
+        .route(
             "/sessions/start",
             post(crate::hosted_sessions::start_session::<D>),
         )
@@ -219,6 +223,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route(
             "/sessions/one",
             get(crate::hosted_sessions::get_session::<D>),
+        )
+        .route(
+            "/sessions/subagent",
+            get(crate::hosted_sessions::get_session_subagent::<D>),
         )
         .route(
             "/sessions/file",
@@ -351,6 +359,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/jobs/:job_id/briefs/:name", get(get_brief::<D>))
         .route("/jobs/:job_id/approve_review", post(approve_review::<D>))
         .route("/jobs/:job_id/merge", post(merge_pull_request::<D>))
+        .route(
+            "/jobs/:job_id/auto_merge",
+            post(crate::commands::enable_job_auto_merge::<D>),
+        )
         .route(
             "/jobs/:job_id/rerun_failed_checks",
             post(crate::commands::rerun_failed_checks::<D>),

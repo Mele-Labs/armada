@@ -5,7 +5,7 @@ import { MOD_VERSION } from './facts'
 
 // Fleet as the mod meets it: a runtime file naming a port, and whatever answers
 // there. The engine's own `$` calls are what the test answers.
-const RUNNING = '{"protocol_version":{"major":23,"minor":43},"pid":1,"port":4242,"started_at":"x"}'
+const RUNNING = '{"protocol_id":"0000000000000000","pid":1,"port":4242,"started_at":"x"}'
 const URL = 'https://github.com/Mele-Labs/armada/pull/1853'
 
 type Posted = { url: string; body: any }
@@ -65,6 +65,8 @@ function world(
     return { text: e.text }
   })
   on('turn.complete', () => ({ text: '' }))
+  on('prompt.context', (_$, e) => ({ blocks: e.blocks }))
+  on('classic.SessionStart', () => ({}))
   return { posts, attempts, clock, submitted, asked, ran }
 }
 
@@ -404,4 +406,87 @@ test('a page, a new document and a Docs document are told as artifacts, and a co
       detail: { form: 'doc', title: 'Write-up' },
     },
   ])
+})
+
+test('the model is told its Armada session id, and a Drone is not', async ($, on) => {
+  world(on)
+  const out = await $.prompt.context({ blocks: [] })
+  expect(out.blocks.map(one => one.name)).toEqual(['armadaSession'])
+  expect(out.blocks[0].text).toContain('S1')
+})
+
+test('a Drone is told no session id', async ($, on) => {
+  world(on, { env: { ARMADA_DRONE: '1' } })
+  const out = await $.prompt.context({ blocks: [] })
+  expect(out.blocks).toEqual([])
+})
+
+test('the session id is told again at every session start, and not to a Drone', async ($, on) => {
+  world(on)
+  for (const source of ['startup', 'resume', 'clear', 'compact'] as const) {
+    const out = await $.classic.SessionStart({ source })
+    expect(out.additionalContext?.[0]).toContain('S1')
+  }
+})
+
+test('a Drone is told no session id at a start', async ($, on) => {
+  world(on, { env: { ARMADA_DRONE: '1' } })
+  const out = await $.classic.SessionStart({ source: 'startup' })
+  expect(out.additionalContext ?? []).toEqual([])
+})
+
+test('an open of web pages is shown through Fleet and denied, not run', async ($, on) => {
+  const { posts, clock } = world(on)
+  let ranIt = false
+  on('tool.call', { tool: 'Bash' }, () => {
+    ranIt = true
+    return { result: { stdout: '', stderr: '', interrupted: false }, text: '' }
+  })
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await clock.settle()
+  const before = posts.length
+  const out = await $.tool.call({
+    tool: 'Bash',
+    command: 'open "http://localhost:5191/?walk=a"; open -a Safari https://example.com/b',
+  })
+  await clock.settle()
+
+  expect(ranIt).toBe(false)
+  expect(JSON.stringify(out)).toContain('show_window')
+  const shown = posts.slice(before).filter(one => one.url.endsWith('/sessions/window'))
+  expect(shown.map(one => one.body)).toEqual([
+    { url: 'http://localhost:5191/?walk=a', session_id: 'S1' },
+    { url: 'https://example.com/b', session_id: 'S1' },
+  ])
+})
+
+test('opening a file or a folder runs as usual', async ($, on) => {
+  const { posts, clock } = world(on)
+  let ranIt = 0
+  on('tool.call', { tool: 'Bash' }, () => {
+    ranIt += 1
+    return { result: { stdout: '', stderr: '', interrupted: false }, text: '' }
+  })
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await $.tool.call({ tool: 'Bash', command: 'open file.txt' })
+  await $.tool.call({ tool: 'Bash', command: 'open .' })
+  await clock.settle()
+
+  expect(ranIt).toBe(2)
+  expect(posts.some(one => one.url.endsWith('/sessions/window'))).toBe(false)
+})
+
+test('a Drone may open what it likes', async ($, on) => {
+  const { posts, clock } = world(on, { env: { ARMADA_DRONE: '1' } })
+  let ranIt = false
+  on('tool.call', { tool: 'Bash' }, () => {
+    ranIt = true
+    return { result: { stdout: '', stderr: '', interrupted: false }, text: '' }
+  })
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await $.tool.call({ tool: 'Bash', command: 'open http://localhost:5191/' })
+  await clock.settle()
+
+  expect(ranIt).toBe(true)
+  expect(posts).toEqual([])
 })

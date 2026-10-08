@@ -1,4 +1,4 @@
-// The merge line: what `armada land --status` prints, drawn as a panel under Overview's lists and
+// The merge line's queue and outcome lists, drawn as a panel under Overview's lists and
 // again on a rail surface of its own. The batch a turn gates is one group, each state is a mark
 // with its word on hover, and what landed and what was sent back read below it in two lists. On
 // All, each repository Fleet serves a line for has its own panel, named by its repository.

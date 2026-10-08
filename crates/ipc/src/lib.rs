@@ -3,10 +3,10 @@
 //! redaction becomes an explicit, visible step. **A domain type on the wire is
 //! a redaction decision nobody made.**
 //!
-//! `PROTOCOL_VERSION` is emitted by `build.rs` from `protocol-version.toml`, and
-//! codegen emits matching TypeScript from these types. Both outputs are checked
-//! in, so a cross-language breaking change is a build failure rather than a
-//! runtime surprise. This is one of two crates permitted to deserialize.
+//! `ProtocolId` is a hash `build.rs` takes of these types, the operation
+//! inventory and Bridge's mirror of them, and codegen emits the same hash for
+//! Bridge. Both outputs are checked in, so a cross-language change is a build
+//! failure rather than a runtime surprise. This is one of two crates permitted to deserialize.
 //!
 //! **The conversion lives here rather than in Fleet.** The *decision* is
 //! Fleet's, since Fleet is the only caller, but the `impl` cannot be: neither
@@ -109,7 +109,7 @@ mod judged;
 mod kit;
 /// Fleet's three changeable limits. **A value out of range does not decode.**
 mod limits;
-/// The merge line `armada land` keeps in each served repository, as Fleet reads it.
+/// The merge line of each served repository, as Fleet serves it.
 /// Every Check run one repository's Jobs asked for or ran. Since 23.40.
 mod manifest_checks;
 /// A possible `armada.yml` per workspace, and the edits and Write that finish it.
@@ -132,6 +132,8 @@ mod piloting;
 /// out of the closed set does not save**, `limits`' reason one field over.
 mod preferences;
 mod proposing;
+/// Which wire a build speaks: a hash `build.rs` takes of the wire surface.
+mod protocol_id;
 /// A pull request, by repository and number, and the acts a Session takes on one.
 /// Since 23.48.
 mod pull_requests;
@@ -198,9 +200,6 @@ mod turn;
 mod underway;
 /// What the fleet has spent, against the ceilings that refuse the next Drone.
 mod usage;
-/// The two numbers both sides read, and what a mismatch between them means.
-/// `build.rs` embeds them from `protocol-version.toml`.
-mod version;
 /// What is outstanding on a live Drone, and what a person sends it back.
 mod waiting;
 /// What a person said while walking a Prototype's mock, kept on the Job.
@@ -296,7 +295,7 @@ pub use hosted_sessions::{
     AnswerSessionAsk, CloseSession, ForkFrom, GateAnswer, GateHold, HandoffPlan, HandoffStep,
     HeldCommand, HostedFacts, MessagesHeld, PilotFrom, SendSessionMessage, SentFile,
     SessionAskState, SessionGate, SessionMode, SessionRow, SessionRowChanged, SessionTag,
-    SessionThread, SessionTurn, SessionUpload, SessionVoice, SessionVoiceNamed, StartSession,
+    SessionSubagent, SessionThread, SessionTurn, SessionUpload, SessionVoice, SessionVoiceNamed, StartSession,
     TagKind, TaggedJob, TakeHeld, TuneSession,
 };
 pub use ids::{
@@ -403,7 +402,7 @@ pub use servers::{
 pub use sessions::{
     Attachment, AttachmentNamed, AttachmentReport, AttachmentState, Holder, HolderKind, Owners,
     Ownership, RenameSession, SessionFact, SessionId, SessionList, SessionOrigin, SessionRecord,
-    SessionReport, SessionState, SessionUsage, TerminalCommand, TerminalFacts,
+    SessionReport, SessionState, SessionUsage, ShowWindow, TerminalCommand, TerminalFacts,
 };
 pub use setup::{
     LeftOutWorkflow, ManifestSummary, ModelChoices, OverriddenWorkflow, SaveWorkflow, StepPhase,
@@ -447,7 +446,7 @@ pub use underway::{
     OutputOpened,
 };
 pub use usage::{FleetUsage, ManifestSpend, Overspending};
-pub use version::{ProtocolVersion, Skew, PROTOCOL_VERSION};
+pub use protocol_id::ProtocolId;
 pub use waiting::{AskedOption, ChosenAnswer, QuestionInFlight, RedirectInFlight, RedirectWaiting};
 pub use walk_notes::{CaptureWalkNote, RemoveWalkNote, WalkNote, WalkNotes};
 pub use work::{

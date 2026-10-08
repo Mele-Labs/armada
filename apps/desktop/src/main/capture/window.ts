@@ -33,6 +33,8 @@ export type CaptureBoard = {
   capture: (studioId: string, said: string, capture: StudioCapture, frame: StagedFrame | null) => Promise<Outcome>;
   /** A note kept on the Job whose server this window walks — protocol 23.18. */
   walkNote: (jobId: string, said: string, capture: StudioCapture, frame: StagedFrame | null) => Promise<Outcome>;
+  /** A note taken on a page a Session showed: a message from the person, which wakes the Session. */
+  sessionNote: (sessionId: string, said: string, capture: StudioCapture, address: string) => Promise<Outcome>;
   stage: (png: Buffer, width: number, height: number) => Promise<StagedFrame | null>;
   /** This window took or gave up focus, by the server it is on. Bridge dims behind a focused one. */
   focused: (serverId: string, on: boolean) => void;
@@ -47,8 +49,11 @@ function isCaptureBinding(input: Electron.Input): boolean {
   return input.type === "keyDown" && chord && input.meta && input.alt && !input.control && !input.shift;
 }
 
-/** Where a note made in this window lands: the Run's Studio, or the Job whose server it walks. */
-export type LandsOn = { studio: { id: string; name: string | null } } | { job: { id: string; handle: string } };
+/** Where a note made in this window lands: the Run's Studio, the Job whose server it walks, or the Session that showed the page. */
+export type LandsOn =
+  | { studio: { id: string; name: string | null } }
+  | { job: { id: string; handle: string } }
+  | { session: { id: string; title: string } };
 
 /**
  * Every partition already given its handlers. **Kept because a partition is
@@ -161,6 +166,11 @@ export class CaptureWindow {
     return !this.window.isDestroyed();
   }
 
+  /** The address the window was opened on. */
+  get address(): string {
+    return this.pin.url;
+  }
+
   get runId(): string {
     return this.pin.run;
   }
@@ -197,7 +207,9 @@ export class CaptureWindow {
     return {
       served: { run: this.pin.run, name: this.pin.name, address: this.pin.origin },
       studio: "studio" in this.landsOn ? this.landsOn.studio : null,
+      // A Session's title stands where a Job's handle does: the bar says "Notes go to" either.
       ...("job" in this.landsOn ? { job: this.landsOn.job } : {}),
+      ...("session" in this.landsOn ? { job: { id: this.landsOn.session.id, handle: this.landsOn.session.title } } : {}),
       serving: this.serving,
       armed: this.armed,
       framesRefused: this.framesRefused,
@@ -253,7 +265,9 @@ export class CaptureWindow {
     const outcome =
       "studio" in this.landsOn
         ? await this.board.capture(this.landsOn.studio.id, said, capture, frame)
-        : await this.board.walkNote(this.landsOn.job.id, said, capture, frame);
+        : "session" in this.landsOn
+          ? await this.board.sessionNote(this.landsOn.session.id, said, capture, this.pin.url)
+          : await this.board.walkNote(this.landsOn.job.id, said, capture, frame);
     if (outcome.ok) {
       this.holding = null;
       this.armed = false;

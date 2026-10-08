@@ -30,12 +30,12 @@ import type {
   DropTask,
   FileReport,
   Followed,
+  FleetRestart,
   FrameRead,
   JudgeAnswer,
   Opened,
   Outcome,
   Proposed,
-  ProtocolVersion,
   ReclaimOutcome,
   RunListRead,
   RunOutputRead,
@@ -123,6 +123,7 @@ import type {
   ManifestSaveAnswer,
   ManifestSpendRead,
 } from "@armada/screens/src/editing";
+import type { ArtifactRead, PageBounds } from "@armada/screens/src/draft/sessions";
 import type {
   RepositoryAllowedCommandsRead,
 } from "@armada/screens/src/manifest-allows";
@@ -170,7 +171,7 @@ import type {
 import type {
   Outstanding,
 } from "@armada/screens/src/outstanding";
-import type { AnswerSessionAsk, PilotOutcome, PullRequestState, RenameSession, ReviewDispatched, SendSessionMessage, SessionRow, TuneSession } from "@armada/protocol";
+import type { AnswerSessionAsk, PilotOutcome, PullRequestState, RenameSession, ReviewDispatched, SendSessionMessage, SessionRow, SessionSubagent, TuneSession } from "@armada/protocol";
 import type { PilotExit, PullRequestPress, SessionActed, SessionsRead } from "./api/sessions";
 import type { BridgeApi } from "./api";
 import { CHANNELS, NOTHING_YET } from "./bridge";
@@ -229,7 +230,6 @@ type OldBridgeState = {
 };
 
 type OldBridgeApi = {
-    protocolVersion: () => ProtocolVersion;
     state: () => Promise<OldBridgeState>;
     subscribe: (onState: (state: OldBridgeState) => void) => () => void;
     onWalkFocus: (onFocus: (focused: boolean) => void) => () => void;
@@ -351,6 +351,7 @@ type OldBridgeApi = {
     stopServer: (serverId: string) => Promise<Outcome>;
     openServerLink: (serverId: string, url: string) => Promise<Followed>;
     openLink: (address: string) => Promise<Followed>;
+    restartFleet: () => Promise<FleetRestart>;
     examineJob: (jobId: string) => Promise<void>;
     readEvidence: (jobId: string | null) => Promise<void>;
     readDiff: (jobId: string | null) => Promise<void>;
@@ -397,6 +398,7 @@ type OldBridgeApi = {
     };
     approveReview: (jobId: string) => Promise<Outcome>;
     mergePullRequest: (jobId: string) => Promise<Outcome>;
+    autoMergePullRequest: (jobId: string) => Promise<Outcome>;
     rerunFailedChecks: (jobId: string) => Promise<Outcome>;
     investigateFailedChecks: (jobId: string) => Promise<Outcome>;
     queueAfterFinding: (jobId: string, finding: string) => Promise<Outcome>;
@@ -429,7 +431,14 @@ type OldBridgeApi = {
     closeSession: (sessionId: string) => Promise<SessionActed>;
     watchSession: (sessionId: string) => Promise<void>;
     readSessionFile: (sessionId: string, file: string) => Promise<FrameRead>;
+    readSessionSubagent: (sessionId: string, subagentId: string) => Promise<SessionActed<SessionSubagent>>;
     openSessionFile: (sessionId: string, path: string) => Promise<Followed>;
+    openSessionWindow: (sessionId: string, url: string) => Promise<Outcome>;
+    readSessionArtifact: (sessionId: string, path: string) => Promise<ArtifactRead>;
+    showSessionPage: (sessionId: string, address: string, bounds: PageBounds) => Promise<Followed>;
+    moveSessionPage: (bounds: PageBounds) => Promise<void>;
+    hideSessionPage: () => Promise<void>;
+    onSessionPageEscape: (on: () => void) => () => void;
     pressPullRequest: (sessionId: string, number: number, press: PullRequestPress) => Promise<SessionActed<PullRequestState | ReviewDispatched>>;
 };
 
@@ -603,6 +612,7 @@ const OLD_CHANNELS = {
     stopServer: "bridge:stop-server",
     openServerLink: "bridge:open-server-link",
     openLink: "bridge:open-link",
+    restartFleet: "bridge:restart-fleet",
     examineJob: "bridge:examine-job",
     readDiff: "bridge:read-diff",
     readRemarks: "bridge:read-remarks",
@@ -617,6 +627,7 @@ const OLD_CHANNELS = {
     readHeld: "bridge:read-held",
     approveReview: "bridge:approve-review",
     mergePullRequest: "bridge:merge-pull-request",
+    autoMergePullRequest: "bridge:auto-merge-pull-request",
     rerunFailedChecks: "bridge:rerun-failed-checks",
     investigateFailedChecks: "bridge:investigate-failed-checks",
     queueAfterFinding: "bridge:queue-after-finding",
@@ -677,7 +688,14 @@ const OLD_CHANNELS = {
     closeSession: "bridge:close-session",
     watchSession: "bridge:watch-session",
     readSessionFile: "bridge:read-session-file",
+    readSessionSubagent: "bridge:read-session-subagent",
     openSessionFile: "bridge:open-session-file",
+    openSessionWindow: "bridge:open-session-window",
+    readSessionArtifact: "bridge:read-session-artifact",
+    showSessionPage: "bridge:show-session-page",
+    moveSessionPage: "bridge:move-session-page",
+    hideSessionPage: "bridge:hide-session-page",
+    sessionPageEscape: "bridge:session-page-escape",
     pressPullRequest: "bridge:press-pull-request",
 } as const;
 

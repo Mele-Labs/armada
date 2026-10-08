@@ -447,6 +447,16 @@ pub trait Commands: Send + Sync + 'static {
         job_id: JobId,
     ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
 
+    /// `enable_job_auto_merge` — Merge pressed while the forge's checks run: the forge is asked to
+    /// merge when they pass, the ask is recorded on the Job, and the Job stays at its gate until
+    /// the forge has merged it. Answers the pull request as the forge shows it afterwards.
+    /// Refused as `merge_pull_request` is off the gate, and by the forge's own rule once the
+    /// checks have passed or failed.
+    fn enable_job_auto_merge(
+        &self,
+        job_id: JobId,
+    ) -> impl Future<Output = Result<ipc::PullRequestState, Refusal>> + Send;
+
     /// `rerun_failed_checks` — ask the forge to start the pull request's failed CI runs again.
     /// #905. A write to the forge, only from a press; nothing is posted and the Job does not move.
     fn rerun_failed_checks(

@@ -177,6 +177,7 @@ export * from "./shortcut-reveal";
 // `⌘Enter` sends, in every box a message is typed into. The registry holds the
 // binding; this is the keystroke test and the badge the two composers share.
 export * from "./send-message";
+export * from "./keep";
 
 // The trackpad's answer to a press, a no-op until Bridge's renderer provides one.
 export * from "./haptics";

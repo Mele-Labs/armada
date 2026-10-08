@@ -40,6 +40,7 @@ import type {
   WireError,
   WorktreeReclaimed,
   WorktreesHeld,
+  PullRequestState,
 } from "./index";
 
 /**
@@ -411,6 +412,8 @@ export type Outcome =
        * and kept no set.
        */
       shown?: ShownAgain;
+      /** The pull request as the forge showed it after a press at a Job's gate, or when it was read. */
+      pullRequest?: PullRequestState;
     }
   | { ok: false; why: "not_connected" }
   | { ok: false; why: "empty_brief" }

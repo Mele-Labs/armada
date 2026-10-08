@@ -11,7 +11,7 @@ export type TriggerLevel = "armada" | "repository" | "machine";
 /** Where a saved Trigger goes. */
 export type TriggerScope = "repository" | "machine";
 
-/** A skill runs on a side Drone, on a branch cut from the Job's (23.73). A `drone` is sent with its prompt, `brief`, and runs the same way (23.75). */
+/** A skill runs on a side Drone, on a branch cut from the Job's (23.73). A `drone` is sent with its prompt, `brief`, and runs the same way. */
 export type TriggerRuns = { kind: "command"; name: string } | { kind: "skill"; name: string } | { kind: "drone"; brief: string };
 
 /** `by_owner`: it failed and held the Job, and the owner skipped it. Since 23.68. `skill_not_run` is no longer produced since 23.73, and still reads. */

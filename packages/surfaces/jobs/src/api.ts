@@ -582,6 +582,12 @@ export type JobsApi = {
    * entry taking which would read as one act and perform four.
    */
   mergePullRequest: (jobId: string) => Promise<Outcome>;
+  /**
+   * Merge pressed while the forge's checks run: the forge is asked to merge when they pass, and
+   * the Job stays at its gate until it has. The pull request as the forge shows it afterwards is
+   * `pullRequest` on the outcome.
+   */
+  autoMergePullRequest: (jobId: string) => Promise<Outcome>;
   /** Start the pull request's failed CI runs again. A forge write, only from a press. #905. */
   rerunFailedChecks: (jobId: string) => Promise<Outcome>;
   /** Send the branch back for a Drone to find out why CI failed. #905. */
@@ -914,6 +920,7 @@ export const JOBS_CHANNELS = {
   readFrame: "bridge:read-frame",
   approveReview: "bridge:approve-review",
   mergePullRequest: "bridge:merge-pull-request",
+  autoMergePullRequest: "bridge:auto-merge-pull-request",
   rerunFailedChecks: "bridge:rerun-failed-checks",
   investigateFailedChecks: "bridge:investigate-failed-checks",
   queueAfterFinding: "bridge:queue-after-finding",

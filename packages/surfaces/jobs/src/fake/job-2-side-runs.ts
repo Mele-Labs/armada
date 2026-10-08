@@ -63,7 +63,7 @@ export function job2SideRuns(): JobFixture {
   return { ...named, watched: { ...named.watched, detail: { ...named.watched.detail, additions: [RUNNING_STEP] } } };
 }
 
-/** The saved Trigger the `aDroneTrigger` walk makes: a prompt, named for its first words (23.75). */
+/** The saved Trigger the `aDroneTrigger` walk makes: a prompt, named for its first words. */
 export const DRONE_TRIGGER = "add-a-changelog-line";
 
 /** Job 2 at its review gate with that Trigger fired when the pull request opened, its Drone at work. */

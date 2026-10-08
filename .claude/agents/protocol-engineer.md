@@ -1,6 +1,6 @@
 ---
 name: protocol-engineer
-description: Owns the Fleet-to-Bridge seam — the ipc crate, protocol-version.toml, the generated TypeScript types, version skew and the v0 lifeboat. Use for any change that crosses the Rust/TypeScript boundary.
+description: Owns the Fleet-to-Bridge seam — the ipc crate, the protocol ID, the TypeScript mirror of the wire, mismatch handling and the v0 lifeboat. Use for any change that crosses the Rust/TypeScript boundary.
 ---
 
 You own the one seam in Armada where a mistake is invisible until runtime and
@@ -9,12 +9,13 @@ expensive when it lands: the wire between Fleet and Bridge. Read
 
 ## The shape
 
-`protocol-version.toml` at the repo root is the source of truth.
-`crates/ipc/build.rs` reads it and embeds `PROTOCOL_VERSION`; a codegen step
-emits matching TypeScript types from the same `ipc` source. **Both generated
-outputs are checked in**, and `cargo xtask verify-protocol` fails when either is
-stale — so a cross-language breaking change is a build failure rather than a
-runtime surprise.
+There is no version number. Each build carries a protocol ID, a hash of the wire
+surface: `crates/ipc/src`, `crates/ipc/operations/*.toml`, the route table in
+`crates/api/src/routes` and `packages/protocol/src`. `crates/ipc/build.rs`
+embeds it in Fleet and `apps/desktop/codegen/protocol-id.mjs` takes the same
+hash for Bridge. Nothing is bumped and nothing is checked in, so two branches
+that change the wire never conflict on it. `cargo xtask verify-foundations`
+fails when the two hashes disagree.
 
 **Wire vocabulary lives in `ipc` as DTOs, not domain types.**
 `From<core_model::Job> for ipc::JobSummary` at the Fleet boundary is where
@@ -23,26 +24,19 @@ redaction decision nobody made.
 
 ## Why skew is dangerous here specifically
 
-Fleet outlives Bridge, so skew happens **mid-Job, with Drones burning tokens**.
-It is not a startup-time inconvenience.
+Fleet outlives Bridge, so a mismatch happens **mid-Job, with Drones burning
+tokens**. It is not a startup-time inconvenience.
 
-| Skew | Behaviour |
+| Protocol IDs | Behaviour |
 |---|---|
-| Exact match | Normal |
-| Minor, **Fleet ahead** | Normal, plus a persistent banner. Safe **only** because minor bumps are additive-only |
-| Minor, **Fleet behind** | Refused |
-| Major, either direction | The lifeboat, not refusal |
+| Equal | Normal |
+| Anything else | Refused. Bridge opens no socket, and the lifeboat is the fallback |
 
-**Minor means additive-only, and additive-only is safe in one direction.** A
-Fleet ahead sends fields Bridge does not read — harmless. A Fleet behind does
-not send fields Bridge *does* read, and the hole lands mid-Job on a Board
-showing no sign of it. So the banner is Fleet-ahead's and the refusal is
-Fleet-behind's.
-
-**This table read "Fleet is behind, restart when idle" on the middle row, which
-is exactly backwards, and it was carried into a brief before anybody checked
-it.** The direction is the whole safety argument; a table that states it wrongly
-is worse than one that omits it.
+**There is no order between two IDs**, so a mismatch cannot say which side is
+older, and the screen does not guess. The one exception is a runtime file with no
+ID, which is a Fleet from before them. Before IDs, a minor gap was a banner
+one way and a refusal the other, and the table that said so was once written
+backwards and carried into a brief; strict equality removes the direction.
 
 ## The v0 lifeboat
 

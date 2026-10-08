@@ -53,7 +53,7 @@ pub enum TriggerRuns {
     Command { name: String },
     /// A skill a side Drone runs, on a branch of its own.
     Skill { name: String },
-    /// A Drone sent with this prompt, on a branch of its own. Since 23.75.
+    /// A Drone sent with this prompt, on a branch of its own. 
     Drone { brief: String },
 }
 
@@ -171,7 +171,7 @@ pub struct SaveTrigger {
     pub overwrite: bool,
     /// **Keep a Job's added step for every Job**: the addition this save came
     /// from. Fleet writes the Trigger the definition says and records on the
-    /// addition where it was kept. Since 23.68; a Drone step too since 23.75.
+    /// addition where it was kept. Since 23.68; a Drone step too.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub kept_from: Option<crate::added_steps::KeptFrom>,
 }

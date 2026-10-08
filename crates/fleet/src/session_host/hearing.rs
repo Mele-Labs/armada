@@ -56,12 +56,23 @@ where
                 }
                 let _ = self.published_hosted(id).await;
             }
+            Heard::Attached { busy } => {
+                {
+                    let mut state = runtime.state();
+                    state.last_active = std::time::Instant::now();
+                    if busy {
+                        state.turn = SessionTurn::Working { woken_by: None };
+                    }
+                }
+                let _ = self.published_hosted(id).await;
+            }
             Heard::Commands(names) => {
                 self.hosts().heard_commands(names.clone());
                 runtime.state().commands = names;
                 let _ = self.published_hosted(id).await;
             }
             Heard::Events(events) => {
+                runtime.state().last_active = std::time::Instant::now();
                 for event in events {
                     self.hear(id, &runtime, event).await;
                 }
@@ -114,7 +125,10 @@ where
                 }
                 let home = std::env::var("HOME").unwrap_or_default();
                 if let Some(path) = adapters::written_document(&tool, &shown, &home) {
-                    self.artifact_written(id, path).await;
+                    self.artifact_made(id, path, "file").await;
+                }
+                if let Some(path) = adapters::viewed_image(&tool, &shown, &home) {
+                    self.artifact_made(id, path, "image").await;
                 }
                 let text = if shown.is_empty() {
                     tool

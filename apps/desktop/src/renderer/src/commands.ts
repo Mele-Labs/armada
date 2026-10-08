@@ -56,7 +56,7 @@ import type {
   WhenBlocked,
   WhenRefused,
 } from "@armada/protocol";
-import type { HelmContext, JobSummary } from "@armada/protocol";
+import type { HelmContext, JobSummary, PullRequestState } from "@armada/protocol";
 import type { StudioCapture, StudioNodeByHand } from "@armada/protocol";
 import type { Confirming } from "./ConfirmAct";
 import type { PauseAct, Taken, TakenAct } from "@armada/screens";
@@ -269,6 +269,7 @@ export const openServerLink = (serverId: string, url: string) =>
   window.armada.openServerLink(serverId, url);
 /** A link in a model's text. Main opens `http(s):` only — `main/links.ts`. */
 export const openLink = (address: string) => window.armada.openLink(address);
+export const restartFleet = () => window.armada.restartFleet();
 
 // The capture window on a server Run — #1294. One entry, and everything the
 // window then does is its own bar's.
@@ -364,6 +365,8 @@ export function useCommands(sending: Sending) {
   // What Fleet said to the last act on a Job, named, so only the control that
   // sent it answers on its edge. Cleared as the next act goes out, and once the
   // line's own hold is over — a stale answer would replay on the next mount.
+  // The pull request as the forge showed it after Merge was pressed with its checks running.
+  const [forgeReading, setForgeReading] = useState<{ jobId: string; state: PullRequestState } | null>(null);
   const [lastAnswer, setLastAnswer] = useState<{ jobId: string; answered: ActAnswer } | null>(null);
   useEffect(() => {
     const hold = lastAnswer === null ? null : answerHoldMs();
@@ -910,18 +913,23 @@ export function useCommands(sending: Sending) {
     what: "approve" | "changes" | "reject" | "merge",
     note = "",
     withWalkNotes = false,
+    auto = false,
   ): Promise<void> {
     return decided(jobId, what, async () => {
       const answer =
         what === "merge"
-          ? await window.armada.mergePullRequest(jobId)
+          ? auto
+            ? await window.armada.autoMergePullRequest(jobId)
+            : await window.armada.mergePullRequest(jobId)
           : what === "approve"
             ? await window.armada.approveReview(jobId)
             : what === "changes"
               ? await window.armada.requestChanges(jobId, note, withWalkNotes)
               : await window.armada.rejectWork(jobId);
       heard(jobId, what, answer);
-      if (what === "merge" || what === "approve") took(jobId, what, answer);
+      if (auto && answer.ok && answer.pullRequest !== undefined) {
+        setForgeReading({ jobId, state: answer.pullRequest });
+      } else if (what === "merge" || what === "approve") took(jobId, what, answer);
     });
   }
 
@@ -1046,6 +1054,12 @@ export function useCommands(sending: Sending) {
     deciding,
     decidingAct,
     /** The answer the open Job's pressed control shows, where the last one was on it. */
+    /** Merge at the review gate: the press, the auto-merge press while checks run, and what the forge showed after it. */
+    mergeProps: (jobId: string) => ({
+      onMergePullRequest: (id: string) => void decide(id, "merge"),
+      onAutoMergePullRequest: (id: string) => void decide(id, "merge", "", false, true),
+      forgeReading: forgeReading?.jobId === jobId ? forgeReading.state : undefined,
+    }),
     answeredOn: (jobId: string): ActAnswer | undefined =>
       lastAnswer?.jobId === jobId ? lastAnswer.answered : undefined,
     takeUpRemarks,

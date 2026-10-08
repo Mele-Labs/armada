@@ -6,7 +6,7 @@
 
 **Kind:** Concept.
 
-**Built:** the model, the loader, the freeze at approval, Fleet firing a Command Trigger, `repair`, the wire to Bridge, Bridge's saved Triggers, step cards and Job card, steps added to one Job in Fleet and on the wire, the `+` that adds one on Bridge's approval canvas and a running Job's Workflow tab, the repair branch on a Job's canvases, and `block`, which holds the Job, with the owner's Rerun and Skip, a bell on a Board row, and the hold on Bridge's canvas and list. Skill Triggers, Skill steps and Drone steps run on a side Drone (23.73), and a saved Trigger can run a Drone with a prompt (23.75). Asking the owner about a destructive Command is not built.
+**Built:** the model, the loader, the freeze at approval, Fleet firing a Command Trigger, `repair`, the wire to Bridge, Bridge's saved Triggers, step cards and Job card, steps added to one Job in Fleet and on the wire, the `+` that adds one on Bridge's approval canvas and a running Job's Workflow tab, the repair branch on a Job's canvases, and `block`, which holds the Job, with the owner's Rerun and Skip, a bell on a Board row, and the hold on Bridge's canvas and list. Skill Triggers, Skill steps and Drone steps run on a side Drone (23.73), and a saved Trigger can run a Drone with a prompt. Asking the owner about a destructive Command is not built.
 
 ## What a Trigger is
 
@@ -169,7 +169,7 @@ A person can add a step to one Job without writing a workflow. It lives in the J
 
 ## A Skill or a Drone step
 
-**Chosen 8 Oct 2026.** A Skill Trigger, a Drone Trigger (a saved prompt, 23.75), a Skill added step and a Drone added step run on a **side Drone**: a branch cut from the Job's at the moment it fires, its own slot, through the repair's queue, so it waits for a slot as a repair does and its spend counts against the Job. It gates the Job only where `block` is on.
+**Chosen 8 Oct 2026.** A Skill Trigger, a Drone Trigger (a saved prompt), a Skill added step and a Drone added step run on a **side Drone**: a branch cut from the Job's at the moment it fires, its own slot, through the repair's queue, so it waits for a slot as a repair does and its spend counts against the Job. It gates the Job only where `block` is on.
 
 | The Drone | Becomes |
 |---|---|

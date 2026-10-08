@@ -16,13 +16,12 @@ const NO_HEALTH: HealthRead = { state: "none" };
 const CONNECTED: Connection = {
   state: "connected",
   fleet: {
-    protocolVersion: { major: 13, minor: 49 },
+    protocolId: "0000000000000000",
     pid: 61372,
     port: 40000,
     startedAt: "Mon Sep 14 14:22:06 2026",
   },
   cursor: 0,
-  skew: "same",
 };
 
 function pairs(panel: ReturnType<typeof fleetPanelOf>): [string, string][] | undefined {
@@ -36,7 +35,7 @@ test("a connected Fleet reads four rows: pid, port, protocol and a live uptime",
   expect(pairs(panel)).toEqual([
     ["pid", "61372"],
     ["port", "40000"],
-    ["protocol", "13.49"],
+    ["protocol", "00000000"],
     ["up", "2h 14m"],
   ]);
   expect(panel.detail).toBeUndefined();
@@ -59,10 +58,16 @@ test("a startedAt that will not parse drops the up row rather than drawing it bl
   expect(panel.rows?.map((row) => row.label)).toEqual(["pid", "port", "protocol"]);
 });
 
-test("a Fleet ahead of Bridge keeps its rows and names both versions under them", () => {
-  const ahead: Connection = { ...CONNECTED, skew: "fleet_ahead" };
-  const panel = fleetPanelOf(ahead, STATEMENT, NO_HEALTH, Date.now(), null);
-  expect(panel.detail).toMatch(/^Fleet 13\.49, Bridge /);
+test("a Fleet on another protocol has no rows, only what the statement says", () => {
+  const mismatch: Connection = {
+    state: "protocol_mismatch",
+    fleet: CONNECTED.fleet,
+    speaks: "3fa9c1d200000000",
+    expected: "91bb07e400000000",
+  };
+  const panel = fleetPanelOf(mismatch, { ...STATEMENT, detail: "Fleet 3fa9c1d2 · Bridge 91bb07e4" }, NO_HEALTH, Date.now(), null);
+  expect(panel.rows).toBeUndefined();
+  expect(panel.detail).toBe("Fleet 3fa9c1d2 · Bridge 91bb07e4");
 });
 
 test("an unreachable Fleet reads pid and port, and how long it has been silent", () => {

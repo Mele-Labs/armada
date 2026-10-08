@@ -147,6 +147,8 @@ export type SessionRow =
   | { kind: "compaction"; id: string; at: string; text: string }
   /** The first write: the slot leased and the branch cut. */
   | { kind: "lease"; id: string; at: string; slot: number; branch: string }
+  /** The session showed the person a page in a window. */
+  | { kind: "window"; id: string; at: string; title: string; url: string }
   /**
    * What a piloted session starts with, first in its thread: the Job's worktree handed over and what
    * Fleet knew when its Drone stopped, as the bundle's structured fields. Since 23.51.
@@ -183,6 +185,9 @@ export type SessionRow =
 
 /** `get_session`: the row and its thread, oldest first. */
 export type SessionThread = { session: SessionRecord; rows: SessionRow[] };
+
+/** `get_session_subagent`: one subagent's own thread. A client reads it again while the subagent runs. */
+export type SessionSubagent = { rows: SessionRow[]; finished: boolean; report?: string };
 
 /** `session.row`: one row appended, or replaced where `row.id` is held. */
 export type SessionRowChanged = { session_id: string; row: SessionRow };

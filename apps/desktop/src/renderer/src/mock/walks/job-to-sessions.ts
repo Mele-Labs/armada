@@ -16,7 +16,7 @@ function steps(narrow: boolean): Step[] {
     { press: button("More for Cap the retry backoff"), say: "Its menu has an act for talking it through" },
     { look: role("menuitem", "Open in a Session"), say: "Open in a Session leaves the Drone as it is. Pilot stops it" },
     { press: role("menuitem", "Open in a Session"), say: "It starts a Session with the Job tagged" },
-    { look: inside(role("group", "Attached"), text("Cap the retry backoff")), say: "The Job is a chip in the message box" },
+    { look: inside(message, text("Cap the retry backoff")), say: "The Job is a chip in the message box, in the line" },
     { type: "@", into: message, say: "An at sign lists Jobs too, grouped, each with its glyph" },
     { look: role("group", "Jobs"), say: "Jobs" },
     { look: role("group", "Pull requests"), say: "Pull requests, and branches and Sessions below them" },

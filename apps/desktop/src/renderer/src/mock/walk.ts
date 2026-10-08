@@ -252,6 +252,20 @@ function fill(element: HTMLElement, words: string): void {
     element.dispatchEvent(new Event("change", { bubbles: true }));
     return;
   }
+  // A box that holds tags in its lines is not a field: its words are its text, and it says so with `input`.
+  if (element.isContentEditable) {
+    element.focus();
+    // The words are put in, and the tags already standing in the line stay: they are not words.
+    [...element.childNodes].filter((one) => !(one instanceof HTMLElement && one.dataset.tagKind !== undefined)).forEach((one) => one.remove());
+    element.append(document.createTextNode(words));
+    const range = document.createRange();
+    range.selectNodeContents(element);
+    range.collapse(false);
+    window.getSelection()?.removeAllRanges();
+    window.getSelection()?.addRange(range);
+    element.dispatchEvent(new Event("input", { bubbles: true }));
+    return;
+  }
   // Anything else is typed at as keys: each character goes to the element as a key press, for a page that listens for them.
   if (!(element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement)) {
     for (const key of words) element.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true }));

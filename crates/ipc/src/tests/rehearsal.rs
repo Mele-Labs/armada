@@ -4,8 +4,8 @@ use core_model::Timestamp;
 
 use crate::{
     decode, encode, ChangeKind, ChangedFile, CheckoutRunDiff, Cursor, Delivered, DiffAgainst,
-    Event, Instant, JobId, Missed, OutputClosed, OutputEnded, OutputLines, RunDiffReading,
-    RunMessage, RunOpened, RunRecord, StreamMessage, PROTOCOL_VERSION,
+    Event, Instant, JobId, Missed, OutputClosed, OutputEnded, OutputLines, ProtocolId,
+    RunDiffReading, RunMessage, RunOpened, RunRecord, StreamMessage,
 };
 
 fn at(text: &str) -> Instant {
@@ -92,7 +92,7 @@ fn delivered(event: Event) -> String {
 fn a_runs_socket_speaks_the_four_messages_the_other_sockets_do() {
     let spelled = |message: RunMessage| encode(&message).expect("plain data");
     let opened = spelled(RunMessage::Opened(RunOpened {
-        protocol_version: PROTOCOL_VERSION,
+        protocol_id: ProtocolId::current(),
         job_id: JobId::carried("01JOB"),
         id: "01RUN".to_string(),
         name: "test".to_string(),

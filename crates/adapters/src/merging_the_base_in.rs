@@ -44,8 +44,7 @@ pub(crate) fn merge_the_moved_base_in(
     let head = rev_parsed(worktree, "HEAD")
         .ok_or_else(|| refused(String::from("the Job's branch points at no commit")))?;
     let tree = tree_of(worktree, &head)?;
-    // Either side, `armada land`'s rule: what the base brought, and what the
-    // branch carries over it.
+    // Either side: what the base brought, and what the branch carries over it.
     let mut touched = BTreeSet::new();
     for from in [&was, &gated] {
         touched.extend(changed(worktree, from, &head).map_err(|why| refused(why.said()))?);

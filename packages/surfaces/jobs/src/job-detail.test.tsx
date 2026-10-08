@@ -41,11 +41,10 @@ test("Merge asks first, with Cancel holding focus", async () => {
 // The owner's arrangement of 30 Sep 2026: two split buttons, Approve and
 // Reject each behind a caret. A story proves the control; only the screen
 // proves the act reaches Fleet from the caret it was chosen in.
-test("Approve, chosen behind Merge's caret, is what reaches Fleet", async () => {
+test("Approve, a button of its own under the pull request's Merge, is what reaches Fleet", async () => {
   const api = await opened(reviewAtDelivery());
   const approveReview = vi.spyOn(api, "approveReview");
-  await page.getByRole("button", { name: "The other way to take this work" }).click();
-  await page.getByRole("menuitem", { name: "Approve the work" }).click();
+  await page.getByRole("button", { name: "Approve the work" }).click();
   expect(approveReview).toHaveBeenCalledWith(JOB_ID);
 });
 

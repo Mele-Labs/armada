@@ -438,7 +438,7 @@ peer_polarity = "n/a — single layer"
 owner = "Manifest"
 read_by = "config, fleet"
 notes = """
-The top-level `merge_by:` key. `forge` merges the pull request through the forge, so branch protection and the forge's own checks stay in the path. `push` makes the `--no-ff` merge commit in Fleet and pushes the base, never forced, the way `armada land` lands this repository; a base that moved past what the branch holds is refused rather than merged. `auto_merge` decides whether work lands and this decides how, so it is not folded across Manifests: one Job lands in one repository. `docs/capabilities/merge-line.md`, *The merge*.
+The top-level `merge_by:` key. `forge` merges the pull request through the forge, so branch protection and the forge's own checks stay in the path. `push` makes the `--no-ff` merge commit in Fleet and pushes the base, never forced; a base that moved past what the branch holds is refused rather than merged. `auto_merge` decides whether work lands and this decides how, so it is not folded across Manifests: one Job lands in one repository. `docs/capabilities/merge-line.md`, *The merge*.
 """
 
 [settings.pull-request-mode-ready-draft]

@@ -21,7 +21,7 @@ use std::process::ExitCode;
 use config::Manifest;
 use fleet::runtime::{self, Presence, ReadError, Staleness};
 use ipc::door::{Answered, Asked};
-use ipc::{ManifestSummary, Skew, PROTOCOL_VERSION};
+use ipc::{ManifestSummary, ProtocolId};
 
 use crate::loopback::Loopback;
 use crate::setup::MANIFEST;
@@ -250,15 +250,17 @@ pub fn listening(read: Result<Presence, ReadError>, at: &Path) -> Result<u16, St
             ))
         }
     };
-    // Both numbers are in the file so a refusal is a sentence rather than a
+    // The ID is in the file so a refusal is a sentence rather than a
     // malformed first message. Bridge reads it the same way.
-    match PROTOCOL_VERSION.reading(found.protocol_version) {
-        Skew::Same | Skew::FleetAhead => Ok(found.port),
-        Skew::FleetBehind | Skew::Incompatible => Err(format!(
-            "the Fleet running speaks protocol {} and this `armada` speaks {}, which is a gap \
-             this session cannot bridge. One of the two is out of date.",
-            found.protocol_version, PROTOCOL_VERSION
-        )),
+    if found.protocol_id == ProtocolId::current() {
+        Ok(found.port)
+    } else {
+        Err(format!(
+            "the Fleet running speaks protocol {} and this `armada` speaks {}, so they cannot \
+             talk. One of the two is out of date.",
+            found.protocol_id,
+            ProtocolId::current()
+        ))
     }
 }
 
@@ -312,8 +314,8 @@ fn listed(served: &[ManifestSummary]) -> String {
 /// Whether the door is there at all.
 ///
 /// **One ping before the session opens.** A Fleet older than this binary is
-/// serving the HTTP surface and not the agent's door, and every skew rule above
-/// passes it: the protocol version says nothing about which routes exist. Found
+/// serving the HTTP surface and not the agent's door, and the protocol ID check
+/// above passes it: the door is not in the route table the ID hashes. Found
 /// here, it is a sentence; found later, it is a 404 for every tool call.
 fn answering(fleet: &Loopback) -> Result<(), String> {
     let answer = fleet
@@ -342,7 +344,7 @@ const PING: &str = r#"{"jsonrpc":"2.0","id":0,"method":"ping"}"#;
 /// upward from a subdirectory says so at its handshake, and nowhere else.
 fn carried(fleet: &Loopback, door: &str, adopted: Option<&str>) -> ExitCode {
     each_message(|message| {
-        match fleet.post(door, message) {
+        match posted_patiently(fleet, door, message) {
             // A notification: acknowledged with 202 and no body, because
             // answering one is what JSON-RPC forbids.
             Ok(answer) if answer.status == 202 => None,
@@ -366,6 +368,32 @@ fn carried(fleet: &Loopback, door: &str, adopted: Option<&str>) -> ExitCode {
             Err(why) => refused(message, &format!("Armada stopped answering: {why}")),
         }
     })
+}
+
+/// How long a call waits for a Fleet that is restarting, and how often it asks.
+const RESTART_PATIENCE: std::time::Duration = std::time::Duration::from_secs(90);
+const RESTART_POLL: std::time::Duration = std::time::Duration::from_secs(1);
+
+/// One message to Fleet. **A port nothing listens on is waited out**, because a
+/// session's agent now outlives a Fleet restart and its permission asks must
+/// reach the Fleet that comes back. A cut mid-answer is not retried: the call
+/// may have run.
+pub(crate) fn posted_patiently(
+    fleet: &Loopback,
+    door: &str,
+    message: &[u8],
+) -> Result<crate::loopback::Answer, crate::loopback::Unreachable> {
+    let began = std::time::Instant::now();
+    loop {
+        match fleet.post(door, message) {
+            Err(crate::loopback::Unreachable::NotListening { .. })
+                if began.elapsed() < RESTART_PATIENCE =>
+            {
+                std::thread::sleep(RESTART_POLL);
+            }
+            answered => return answered,
+        }
+    }
 }
 
 /// The disclosure, added to the one answer that carries instructions.

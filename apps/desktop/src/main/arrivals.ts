@@ -15,7 +15,7 @@
 // arm's own read-and-publish, used nowhere else the switch is not.
 
 import { connectedTo } from "@armada/protocol";
-import { connects, PROTOCOL_VERSION, skew } from "@armada/protocol";
+import { PROTOCOL_ID, speaksOurProtocol } from "@armada/protocol";
 import type { Connection, JobSummary, ProposalMoved, ServerState, StreamMessage } from "@armada/protocol";
 import { movedOnto } from "@armada/screens/src/filling";
 import type { BridgeState } from "../shared/bridge";
@@ -139,12 +139,14 @@ export function applyArrival(host: ArrivalHost, text: string, fleet: BridgeState
   if (message.message === "resync") {
     // Again, because a Fleet restarted under a live socket is not the one
     // the runtime file described.
-    const reading = skew({ fleet: message.protocol_version, bridge: PROTOCOL_VERSION });
-    if (!connects(reading)) {
+    if (!speaksOurProtocol(message.protocol_id)) {
       host.socket.close();
-      const speaks = message.protocol_version;
-      const expected = PROTOCOL_VERSION;
-      host.settle({ state: "version_skew", fleet, why: reading, speaks, expected });
+      host.settle({
+        state: "protocol_mismatch",
+        fleet,
+        speaks: message.protocol_id,
+        expected: PROTOCOL_ID,
+      });
       return;
     }
     host.socket.resetUnreachable();

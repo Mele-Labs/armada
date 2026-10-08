@@ -11,7 +11,7 @@
  */
 
 import type { HelmDebugInfo, HelmDebugLine, HelmDebugText } from "@armada/protocol";
-import { PROTOCOL_VERSION, spoken } from "@armada/protocol";
+import { PROTOCOL_ID, spoken } from "@armada/protocol";
 
 import { aligned, COPIED } from "../../errors/ErrorNotice/payload";
 
@@ -142,8 +142,8 @@ export function helmRecord(record: HelmDebugInfo): string {
   // three as a table, and this is neither.
   blocks.push([
     [
-      `bridge protocol ${spoken(PROTOCOL_VERSION)}`,
-      `fleet protocol ${spoken(record.protocol_version)}`,
+      `bridge protocol ${spoken(PROTOCOL_ID)}`,
+      `fleet protocol ${spoken(record.protocol_id)}`,
       `fleet run ${record.run_id}`,
       `taken ${record.at}`,
     ].join("  "),

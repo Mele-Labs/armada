@@ -6,8 +6,7 @@
 //! the intake and a terminal's `armada need` (`served`) hold rows of the same
 //! table, so all three stand in ONE order, and the peer turn, the merge refusal
 //! and `armada need`'s answer read it. `declare_scope`, `record_plan` and
-//! `add_task` declare; a merge is refused while a need ahead stands or a watched
-//! path changed undeclared; `record` spends or gives back at a terminal status.
+//! `add_task` declare; a merge is refused while a need ahead stands; `record` spends or gives back at a terminal status.
 //! **Under `forge` it is still Fleet that holds**, since Fleet asks the forge to
 //! merge. **Nothing expires by time**: a person gives a stalled need back.
 
@@ -16,10 +15,7 @@ pub(crate) mod ledger;
 mod served;
 pub(crate) mod status;
 
-use std::path::Path;
-
 use adapter_traits::{AgentHarness, Delivery, NotMerged, Vcs, WorkProduct};
-use adapters::undeclared::undeclared;
 use core_model::{Component, Envelope, FieldValue, Job, JobId, JobStatus, Level};
 use ipc::mcp::NeedClaim;
 use store::{AttachmentState, Holder};
@@ -104,16 +100,10 @@ where
     /// Refuse the merge while a need ahead of this Job's stands, naming what it
     /// waits behind. **Read at the press, never frozen**, so a need given back
     /// frees the Job on its next press without anything being told.
-    ///
-    /// **And refused outright where the Job changes a watched path it never
-    /// declared a need on**, `adapters::undeclared`: the rule `armada land`
-    /// holds a session to, so a Job is held to the same one. A diff git cannot
-    /// read is a line in the log and not a refusal, as a ledger that cannot be
-    /// read is: neither says anything about the Job.
     pub(crate) async fn held_behind_needs(&self, job: &Job) -> Result<(), Adrift> {
-        let Some(branch) = job.branch().map(|branch| branch.as_str().to_string()) else {
+        if job.branch().is_none() {
             return Ok(());
-        };
+        }
         let Ok(served) = self.served_by(job) else {
             return Ok(());
         };
@@ -135,20 +125,6 @@ where
                 }
             }
         };
-        let declared: Vec<String> = all
-            .iter()
-            .filter(|need| need.holder == holder || need.held_by == branch)
-            .map(|need| need.path.clone())
-            .collect();
-        if let Some(said) = self
-            .took_an_undeclared_number(job, &branch, &declared)
-            .await
-        {
-            return Err(Adrift::NotMerged {
-                job: job.id().clone(),
-                why: NotMerged::WaitingBehind { said },
-            });
-        }
         let behind = behind(&all, &holder);
         if behind.is_empty() {
             return Ok(());
@@ -159,40 +135,6 @@ where
                 said: waiting_text(&behind),
             },
         })
-    }
-
-    /// What to run, where this Job's branch changes a watched path with no need
-    /// declared for it.
-    async fn took_an_undeclared_number(
-        &self,
-        job: &Job,
-        branch: &str,
-        declared: &[String],
-    ) -> Option<String> {
-        let served = self.served_by(job).ok()?;
-        let root = served.root().to_string();
-        let base = self
-            .vcs()
-            .base_commit(&root, served.manifest().base())
-            .ok()??;
-        let (branch, declared) = (branch.to_string(), declared.to_vec());
-        let read = tokio::task::spawn_blocking(move || {
-            undeclared(Path::new(&root), &base, &branch, &declared)
-        })
-        .await
-        .unwrap_or(Ok(None));
-        match read {
-            Ok(said) => said,
-            Err(why) => {
-                self.said_about_the_ledger(
-                    job.id(),
-                    Level::Warn,
-                    "the diff could not be read for a number taken without a need",
-                    Some(&why),
-                );
-                None
-            }
-        }
     }
 
     /// The Job reached a terminal status: every need it held is spent, where it

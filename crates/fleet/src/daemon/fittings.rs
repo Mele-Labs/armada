@@ -81,6 +81,9 @@ pub struct Host {
     /// worktree. `drafted()` writes under `<attachments_dir>/<job_id>/`, and
     /// `dispatch` reads from there to seed the worktree a Drone actually sees.
     pub attachments_dir: String,
+    /// Where each hosted session's keeper socket and spool are: short, because
+    /// a unix socket's path may not be long.
+    pub keepers_dir: String,
     /// Where Fleet keeps a Studio's frames, beside the Studio's own records
     /// rather than in the database — `#1290`. One directory per Studio under
     /// this, and a Note names the file inside it.

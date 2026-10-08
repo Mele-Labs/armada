@@ -1,7 +1,8 @@
 import { useState, type ReactNode } from "react";
-import { Box, Check, CircleDot, Files, Globe, Hand, Megaphone, MoveRight, NotebookText, Search, Terminal, GitBranch, GitPullRequest, KeyRound, Presentation, PencilRuler, ShieldCheck, ShieldEllipsis, ShieldX, Split } from "lucide-react";
+import { AppWindow, Box, Check, CircleDot, Files, Globe, Hand, Image, Megaphone, MoveRight, NotebookText, Search, Terminal, GitBranch, GitPullRequest, KeyRound, Presentation, PencilRuler, ShieldCheck, ShieldEllipsis, ShieldX, Split } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
+import { Button } from "../../primitives/Button/Button";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 
 /**
@@ -19,8 +20,8 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
  */
 export type LedgerKind = "slot" | "branch" | "pull_request" | "job" | "studio" | "sketch" | "subagent" | "artifact" | "fork";
 
-/** What an artifact is: a page published, a file written outside the code, or a Doc. */
-export type ArtifactForm = "page" | "file" | "doc";
+/** What an artifact is: a page published, a file written outside the code, a picture looked at, a Doc, or a page shown in a window. */
+export type ArtifactForm = "page" | "file" | "image" | "doc" | "window";
 
 export type LedgerEntry = {
   key: string;
@@ -30,7 +31,7 @@ export type LedgerEntry = {
   text: ReactNode;
   /** A pull request's Checks, or a subagent's turn, as the one mark at the row's end. */
   mark?: { glyph: "pending" | "passed" | "failed" | "running" | "done" | "escalated" | "piloted"; said: string };
-  /** Which of the three an `artifact` row is, and so its glyph and what its tooltip names. */
+  /** Which of the four an `artifact` row is, and so its glyph and what its tooltip names. */
   artifact?: ArtifactForm;
   /** A Job the person tagged, which the Session is looking at and did not dispatch. */
   looking?: boolean;
@@ -63,7 +64,9 @@ const SECTIONS: { kind: LedgerKind; label: string; Glyph: LucideIcon }[] = [
 const ARTIFACT: Record<ArtifactForm, { Glyph: LucideIcon; said: string }> = {
   page: { Glyph: Globe, said: "Published page" },
   file: { Glyph: Files, said: "File written" },
+  image: { Glyph: Image, said: "Looked at" },
   doc: { Glyph: NotebookText, said: "Doc" },
+  window: { Glyph: AppWindow, said: "Shown in a window" },
 };
 
 const MARK: Record<NonNullable<LedgerEntry["mark"]>["glyph"], LucideIcon> = {
@@ -113,6 +116,43 @@ function ShowToggle({ label, show, onShow }: { label: string; show: Show; onShow
   );
 }
 
+/** The kinds the Artifacts head offers a toggle for, and what each toggle is called. */
+const KINDS: { form: ArtifactForm; label: string }[] = [
+  { form: "window", label: "Windows" },
+  { form: "page", label: "Pages" },
+  { form: "file", label: "Files" },
+  { form: "image", label: "Pictures" },
+  { form: "doc", label: "Docs" },
+];
+
+/** How many Artifacts rows show before More. */
+const NEWEST = 5;
+
+/** Which artifact kinds the viewer lets through, everything but Pictures to begin with. A viewer's convenience, so a blocked store only forgets it. */
+function useKinds(): [readonly ArtifactForm[], (next: readonly ArtifactForm[]) => void] {
+  const key = "armada.session-ledger.kinds.artifact";
+  const fallback: ArtifactForm[] = ["window", "page", "file", "doc"];
+  const [on, set] = useState<readonly ArtifactForm[]>(() => {
+    try {
+      const kept: unknown = JSON.parse(localStorage.getItem(key) ?? "null");
+      return Array.isArray(kept) ? KINDS.map((one) => one.form).filter((form) => kept.includes(form)) : fallback;
+    } catch {
+      return fallback;
+    }
+  });
+  return [
+    on,
+    (next) => {
+      set(next);
+      try {
+        localStorage.setItem(key, JSON.stringify(next));
+      } catch {
+        // Not kept: the filter is as it was left until the window closes.
+      }
+    },
+  ];
+}
+
 export function SessionLedger({ entries, folded = false }: { entries: readonly LedgerEntry[]; folded?: boolean }) {
   return (
     <aside className="armada-session-ledger" role="region" aria-label="Attachments" data-folded={folded || undefined}>
@@ -126,14 +166,43 @@ export function SessionLedger({ entries, folded = false }: { entries: readonly L
 
 function LedgerSection({ kind, label, Glyph, all }: { kind: LedgerKind; label: string; Glyph: LucideIcon; all: readonly LedgerEntry[] }) {
   const [show, setShow] = useShow(kind);
+  const [kinds, setKinds] = useKinds();
+  const [more, setMore] = useState(false);
   if (all.length === 0) return null;
   const toggles = all.some((one) => one.finished === true);
-  const rows = toggles && show === "open" ? all.filter((one) => one.finished !== true) : all;
+  const filtered = kind === "artifact";
+  const present = KINDS.filter((one) => all.some((row) => row.artifact === one.form));
+  const letThrough = toggles && show === "open" ? all.filter((one) => one.finished !== true) : all;
+  const passed = filtered ? letThrough.filter((one) => one.artifact !== undefined && kinds.includes(one.artifact)) : letThrough;
+  // The host gives rows newest first and an entry carries no time of its own, so its order stands.
+  const rows = filtered && !more ? passed.slice(0, NEWEST) : passed;
   return (
     <section className="armada-session-ledger__group" aria-label={label}>
       <div className="armada-session-ledger__head">
         <h3 className="armada-session-ledger__eyebrow">{label}</h3>
         {toggles ? <ShowToggle label={label} show={show} onShow={setShow} /> : null}
+        {filtered ? (
+          <div className="armada-session-ledger__kinds" role="group" aria-label={`${label} shown`}>
+            {present.map(({ form, label: said }) => {
+              const Kind = ARTIFACT[form].Glyph;
+              const pressed = kinds.includes(form);
+              return (
+                <Tooltip key={form} label={said} asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    iconOnly
+                    aria-label={said}
+                    aria-pressed={pressed}
+                    onClick={() => setKinds(pressed ? kinds.filter((one) => one !== form) : [...kinds, form])}
+                  >
+                    <Kind size={12} strokeWidth={2} aria-hidden />
+                  </Button>
+                </Tooltip>
+              );
+            })}
+          </div>
+        ) : null}
       </div>
       {rows.length === 0 ? null : (
             <ul className="armada-session-ledger__rows">
@@ -192,6 +261,11 @@ function LedgerSection({ kind, label, Glyph, all }: { kind: LedgerKind; label: s
               })}
             </ul>
       )}
+      {filtered && passed.length > NEWEST ? (
+        <button type="button" className="armada-session-ledger__more" onClick={() => setMore(!more)}>
+          {more ? "Less" : "More"}
+        </button>
+      ) : null}
     </section>
   );
 }

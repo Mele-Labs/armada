@@ -19,12 +19,23 @@ import { Button, CaptureBar } from "@armada/components";
 export type Picked = { element: string; selector: string; location: string };
 
 export type WalkWindowOptions = {
-  /** The Job a note goes to, as the bar names it. */
+  /** What a note goes to, as the bar names it: a Job's handle, or a Session's title. */
   job: string;
+  /** Which of the two it is, as the note's Send says. Absent is a Job. */
+  into?: "Job" | "Session";
   onNote: (said: string, picked: Picked) => void;
 };
 
 let held: { root: Root; host: HTMLElement } | null = null;
+
+/** The mock itself on another scenario: the one address a browser page can serve as a page to show. */
+export function mockPage(): string {
+  // The roster is also read in node, by `scenario.test.ts`, where there is no page.
+  if (typeof window === "undefined") return "http://localhost:41311/?scenario=every-state&walked";
+  const url = new URL(window.location.href);
+  url.search = "?scenario=every-state&walked";
+  return url.toString();
+}
 
 /** Close what is open. */
 export function closeWalkWindow(): void {
@@ -79,7 +90,7 @@ if (typeof window !== "undefined") {
   );
 }
 
-function WalkWindow({ run, url, host, job, onNote }: { run: string; url: string; host: HTMLElement } & WalkWindowOptions) {
+function WalkWindow({ run, url, host, job, into = "Job", onNote }: { run: string; url: string; host: HTMLElement } & WalkWindowOptions) {
   const testing = (import.meta as { env?: { MODE?: string } }).env?.MODE === "test";
   const frame = useRef<HTMLIFrameElement>(null);
   const [armed, setArmed] = useState(false);
@@ -215,7 +226,7 @@ function WalkWindow({ run, url, host, job, onNote }: { run: string; url: string;
               Cancel
             </Button>
             <Button size="sm" type="submit" disabled={said.trim() === ""}>
-              Send to the Job
+              Send to the {into}
             </Button>
           </div>
         </form>

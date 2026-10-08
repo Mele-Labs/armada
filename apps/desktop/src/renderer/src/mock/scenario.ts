@@ -94,7 +94,7 @@ const LISTED: Scenario[] = Object.entries(Object.assign({}, ...Object.values(ROW
   .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
   .map(([, scenario]) => scenario);
 
-/** The same scenario with Fleet serving three lines: `armada land --status`, a quiet one, an empty one. */
+/** The same scenario with Fleet serving three lines: one with a queue and outcomes, a quiet one, an empty one. */
 function lined(scenario: Scenario): Scenario {
   const lines = [...mergeLines().lines, emptiedLine(NOTES.root), neverLanded(SCRATCH.root)];
   return { ...scenario, state: { ...scenario.state, mergeLines: { lines } } };

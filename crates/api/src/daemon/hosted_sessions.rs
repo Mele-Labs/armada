@@ -11,7 +11,7 @@ use std::sync::Arc;
 
 use ipc::{
     AnswerSessionAsk, CloseSession, GateAnswer, MessagesHeld, SendSessionMessage, SessionGate, SessionId, TakeHeld,
-    SessionRecord, SessionThread, StartSession, TuneSession,
+    SessionRecord, SessionSubagent, SessionThread, StartSession, TuneSession,
 };
 
 use crate::daemon::Refusal;
@@ -61,6 +61,13 @@ pub trait HostedSessions: Send + Sync + 'static {
         self: Arc<Self>,
         id: SessionId,
     ) -> impl Future<Output = Result<SessionThread, Refusal>> + Send;
+
+    /// `get_session_subagent`: a subagent's own thread.
+    fn get_session_subagent(
+        &self,
+        id: SessionId,
+        subagent: String,
+    ) -> impl Future<Output = Result<SessionSubagent, Refusal>> + Send;
 
     /// `get_session_file`: what a message carried.
     fn get_session_file(

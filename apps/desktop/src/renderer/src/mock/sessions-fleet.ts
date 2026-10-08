@@ -17,6 +17,7 @@ import type {
   SessionRecord,
   SessionRow,
   RenameSession,
+  SessionSubagent,
   TuneSession,
 } from "@armada/protocol";
 
@@ -96,10 +97,19 @@ export type Calls = {
   forked: string[];
   pressed: { sessionId: string; number: number; press: string }[];
   watched: string[];
+  /** The addresses a page view was shown on, and how many times it was taken away. */
+  pages: string[];
+  pagesHidden: number;
 };
 
 export class FakeSessionsFleet {
-  readonly calls: Calls = { started: 0, piloted: [], exited: [], sent: [], answered: [], tuned: [], renamed: [], closed: [], forked: [], pressed: [], watched: [] };
+  /** Who hears Esc pressed in the page's view. */
+  private readonly escape = new Set<() => void>();
+  /** Esc, pressed while the page's view has focus. */
+  pageEscape(): void {
+    this.escape.forEach((on) => on());
+  }
+  readonly calls: Calls = { started: 0, piloted: [], exited: [], sent: [], answered: [], tuned: [], renamed: [], closed: [], forked: [], pressed: [], watched: [], pages: [], pagesHidden: 0 };
   private records: SessionRecord[];
   private threads: Record<string, SessionRow[]>;
   private fleet: FleetHandle | undefined;
@@ -109,6 +119,8 @@ export class FakeSessionsFleet {
   refuses: { code: string; message: string } | undefined;
   /** Set to have the next message refused, the way Fleet refuses one: the error says why and nothing is sent. */
   refusesSend: { code: string; message: string } | undefined;
+  /** Each subagent's thread as its transcript stands, by subagent id. A test changes it to let one run on. */
+  subagents: Record<string, SessionSubagent> = {};
   private minted = 0;
   private rowed = 0;
 
@@ -237,8 +249,25 @@ export class FakeSessionsFleet {
             this.threads = { ...this.threads, [sessionId]: this.threads[sessionId] ?? [] };
             this.publishThreads();
           },
+          readSessionSubagent: async (_sessionId, subagentId) => {
+            const thread = this.subagents[subagentId];
+            return thread === undefined ? { ok: false, outcome: { ok: false, why: "not_connected" } } : { ok: true, value: thread };
+          },
           readSessionFile: async () => ({ ok: true, bytes: new Uint8Array([137, 80, 78, 71]), type: "image/png" }),
           openSessionFile: async () => ({ ok: true }),
+          readSessionArtifact: async () => ({ ok: true, bytes: new TextEncoder().encode("# Store clock"), type: "text/markdown" }),
+          showSessionPage: async (_sessionId, address) => {
+            this.calls.pages.push(address);
+            return { ok: true };
+          },
+          moveSessionPage: async () => undefined,
+          onSessionPageEscape: (on) => {
+            this.escape.add(on);
+            return () => void this.escape.delete(on);
+          },
+          hideSessionPage: async () => {
+            this.calls.pagesHidden += 1;
+          },
           pressPullRequest: async (sessionId, number, press) => {
             this.calls.pressed.push({ sessionId, number, press });
             if (press === "review") return { ok: true, value: { job_id: "01REVIEWJOB", address: `https://forge.example/pull/${number}`, session_id: sessionId } };

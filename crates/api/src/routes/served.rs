@@ -30,7 +30,7 @@ pub struct Route {
 
 /// The operations M1 serves — a deliberate subset of the inventory, not all of it.
 ///
-/// The rest of the inventory, the `/v0` lifeboat and version-skew handling are
+/// The rest of the inventory, the `/v0` lifeboat and protocol-mismatch handling are
 /// the Ship milestone's. Nothing here stubs them: a route that answers with a
 /// placeholder is worse than one that 404s, because a client cannot tell the
 /// difference between not built and not working.
@@ -536,6 +536,11 @@ const ROUTES: &[Route] = &[
         method: "POST",
         path: "/sessions/rename",
     },
+    Route {
+        operation: "show_window",
+        method: "POST",
+        path: "/sessions/window",
+    },
     // A session Fleet hosts for Bridge. Since 23.49.
     Route {
         operation: "start_session",
@@ -566,6 +571,11 @@ const ROUTES: &[Route] = &[
         operation: "get_session",
         method: "GET",
         path: "/sessions/one",
+    },
+    Route {
+        operation: "get_session_subagent",
+        method: "GET",
+        path: "/sessions/subagent",
     },
     Route {
         operation: "get_session_file",
@@ -719,6 +729,11 @@ const ROUTES: &[Route] = &[
         operation: "merge_pull_request",
         method: "POST",
         path: "/jobs/:job_id/merge",
+    },
+    Route {
+        operation: "enable_job_auto_merge",
+        method: "POST",
+        path: "/jobs/:job_id/auto_merge",
     },
     Route {
         operation: "rerun_failed_checks",

@@ -2,7 +2,7 @@
 //! found is the one the file names.
 //!
 //! Written once the listener is bound, removed on a clean exit, left behind on
-//! an unclean one. Four fields — protocol version, pid, port, and the start
+//! an unclean one. Four fields — protocol ID, pid, port, and the start
 //! time that makes the pid mean something. [`Presence`] is what a reader gets
 //! back, and it never collapses two answers Bridge draws differently.
 //!
@@ -30,7 +30,7 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
-use ipc::ProtocolVersion;
+use ipc::ProtocolId;
 
 use crate::process::{holder_of, Holder, ProbeFailed, StartedAt};
 
@@ -64,10 +64,11 @@ pub const FILE_NAME: &str = "fleet.json";
 /// breaking one. The same discipline the wire DTOs are held to.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RuntimeFile {
-    /// What Fleet speaks, both numbers. Read before connecting, so a refusal
-    /// is a screen naming two versions rather than a malformed first message —
-    /// and so a minor gap Bridge can survive is a banner instead of one.
-    pub protocol_version: ProtocolVersion,
+    /// What Fleet speaks. Read before connecting, so a refusal is a screen
+    /// rather than a malformed first message. Absent in a file written before
+    /// IDs, which reads as an ID nothing equals.
+    #[serde(default)]
+    pub protocol_id: ProtocolId,
     pub pid: u32,
     /// On `127.0.0.1`, always. See the module comment.
     pub port: u16,
@@ -216,7 +217,7 @@ impl RuntimeFile {
     pub fn publish(
         vacancy: Vacancy,
         port: u16,
-        protocol_version: ProtocolVersion,
+        protocol_id: ProtocolId,
     ) -> Result<Published, PublishError> {
         let path = vacancy.path;
         let pid = std::process::id();
@@ -227,7 +228,7 @@ impl RuntimeFile {
         };
 
         let file = RuntimeFile {
-            protocol_version,
+            protocol_id,
             pid,
             port,
             started_at,

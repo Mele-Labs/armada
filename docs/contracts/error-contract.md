@@ -210,10 +210,10 @@ What changed the answer is that a command outside the gate is a command
 nobody runs. **A check that names its own failure is worth more than a
 shorter list of checks; a check nothing invokes is worth nothing at all.**
 
-### Version skew
+### Adding and removing a code
 
-Adding a code is **minor**. Removing one is **also minor** — a deliberate
-departure from the general rule that removing anything is major.
+Neither is a protocol event: codes are declared outside the files the protocol
+ID hashes, so adding one or removing one moves no ID.
 
 Bridge never matches codes exhaustively; it looks one up or falls back. A
 code it has never heard of and a code that has been withdrawn are the same
@@ -298,7 +298,7 @@ exist. This is what separates a runtime file Bridge could not read from a
 socket that has gone silent: they look alike and only the second one
 established that Fleet is alive.
 
-**Whether it clears on its own decides nothing.** Version skew never
+**Whether it clears on its own decides nothing.** A protocol mismatch never
 resolves without somebody acting and is degraded, because Jobs progress
 throughout it. A command that timed out may well have been carried out and
 is a fault, because what failed was an act.

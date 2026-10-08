@@ -1,4 +1,4 @@
-// Job 2 at its review gate with a saved Drone Trigger fired when the pull request opened (23.75), its
+// Job 2 at its review gate with a saved Drone Trigger fired when the pull request opened, its
 // Drone at work. The mock Fleet moves it as Fleet does (`repair-fleet.ts`): the Drone commits, the fix
 // is held for the owner, and the choice places it with no Command to run again. The repository is picked
 // and the Workflows page served, so the Trigger can be made in the editor first.

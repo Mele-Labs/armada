@@ -69,7 +69,7 @@ export type AddedStep = {
   repair_record?: TriggerRepair;
 };
 
-/** `save_trigger`'s `kept_from`: the addition the save keeps for every Job. A Script, a Skill, or since 23.75 a Drone step. */
+/** `save_trigger`'s `kept_from`: the addition the save keeps for every Job. A Script, a Skill, or a Drone step. */
 export type KeptFrom = { job_id: string; addition_id: string };
 
 /** `job.addition_changed`: one row, whole. `removed` is true for the row as it was when it was taken off. */

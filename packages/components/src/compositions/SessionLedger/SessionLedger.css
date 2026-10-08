@@ -122,6 +122,48 @@ path.armada-session-ledger__picture-later {
   padding: var(--space-4);
 }
 
+/* A subagent's thread fills the sheet; the thread scrolls inside it. */
+.armada-session-reading[data-thread] {
+  flex: 1;
+  min-height: 0;
+}
+
+/* What an Artifacts row opens: a picture fit to the panel, a file's text, or the body a page's view lies over. */
+.armada-session-artifact__picture {
+  display: block;
+  flex: 1;
+  min-height: 0;
+  max-width: 100%;
+  object-fit: contain;
+  padding: var(--space-4);
+}
+
+.armada-session-artifact__text {
+  margin: 0;
+  padding: var(--space-4);
+  font-size: var(--text-xs);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.armada-session-artifact__refused {
+  margin: 0;
+  padding: var(--space-4);
+  color: var(--fg-muted);
+}
+
+.armada-session-artifact__page {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+.armada-session-artifact__page > iframe {
+  flex: 1;
+  border: 0;
+  background: var(--surface-canvas);
+}
+
 /* Folded into a sheet below the breakpoint: the sheet gives the width. */
 .armada-session-ledger[data-folded] {
   width: auto;
@@ -174,6 +216,45 @@ path.armada-session-ledger__picture-later {
 }
 
 .armada-session-ledger__show-option:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+/* The Artifacts head's kind toggles: one glyph per kind present, held down while that kind shows. */
+.armada-session-ledger__kinds {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.armada-session-ledger__kinds [aria-pressed="false"] {
+  color: var(--fg-muted);
+  opacity: 0.6;
+}
+
+.armada-session-ledger__kinds [aria-pressed="true"] {
+  background: var(--accent-muted);
+  color: var(--fg-default);
+}
+
+/* A quiet press under the newest rows that reveals the rest. */
+.armada-session-ledger__more {
+  align-self: flex-start;
+  padding: 0 var(--space-2);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--fg-muted);
+  font: inherit;
+  font-size: var(--text-2xs);
+  line-height: var(--leading-xs);
+  cursor: pointer;
+}
+
+.armada-session-ledger__more:hover {
+  color: var(--fg-default);
+}
+
+.armada-session-ledger__more:focus-visible {
   outline: var(--focus-ring);
   outline-offset: var(--focus-ring-offset);
 }

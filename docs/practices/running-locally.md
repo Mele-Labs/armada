@@ -35,17 +35,9 @@ it in place.
 runtime file; Bridge reads that file to find where to connect, so a Bridge
 started first has nothing to read.
 
-**They ship as a pair and version together.** A major and a minor in
-`protocol-version.toml` govern both.
-
-| Skew | What happens |
-|---|---|
-| Major mismatch | The connection is refused in either direction |
-| Fleet ahead of Bridge | Connects, and Bridge shows a banner |
-| Fleet behind Bridge | Refused — Bridge would read fields Fleet cannot send |
-
-Minor versions are additive-only, which is why the two directions differ.
-`docs/practices/protocol.md` says which number moves when.
+**They ship as a pair.** Each carries a protocol ID, a hash of the wire files.
+Equal IDs connect. Any other pair is refused in either direction, and Bridge
+shows what to run. `docs/practices/protocol.md` says what the hash covers.
 
 ## The development loop
 
@@ -54,8 +46,8 @@ than links, so an edit does not reach the installed command until it is run
 again.
 
 **Rebuilding one side and not the other is the mistake the script prevents.** A
-stale `armada` publishing an older protocol to a current Bridge reads as
-version skew rather than as the stale binary it is. It installs `--debug` for
+stale `armada` publishing another protocol ID to a current Bridge reads as
+a mismatch rather than as the stale binary it is. It installs `--debug` for
 the same reason: a release build is a minute every time and the same program.
 
 **Ctrl-C stops both, which the script does and Armada does not.** Closing
@@ -84,7 +76,7 @@ goes in it.
 ## Starting Fleet
 
 **A healthy start prints, then goes quiet.** The repository, each workflow and
-where it came from, the pid, port and protocol version, what reconciliation
+where it came from, the pid, port and protocol ID, what reconciliation
 found, the turn interval, and how many operations are being served. Quiet is a Fleet with
 nothing to do, not a wedge.
 
@@ -147,6 +139,11 @@ Fleet restarts its step at boot, once, unless one of the stops in
 `--adopt` the refusal is as above. It combines with `--from`, and
 `--dry-run` lists the Jobs it would adopt and says the refusal would be skipped.
 `scripts/preview --restart --adopt` passes it through; `--watch` refuses it.
+
+**Hosted sessions need no `--adopt`.** A hosted session's agent runs under a
+keeper that outlives Fleet (`docs/concepts/session.md`, *What a restart does to
+a session*), so a restart neither ends it nor its background subagents, and
+Fleet reattaches at boot. The restart does not refuse for a working session.
 
 **Only one restart runs at a time.** An exclusive lock is taken before the
 first Drone check, under the same support directory as the plist and
@@ -232,11 +229,11 @@ ignores the new plist. The script reads the loaded working directory back,
 refuses if it is not that tree, and prints which `out/` Bridge runs; `--dry-run`
 prints it too.
 
-**It checks the protocol it built.** `cargo` can call `ipc`'s build script fresh
-when `protocol-version.toml` changed (an older mtime, or a `target/` carried from
-another tree), and Fleet then reports the previous minor. The script touches the
-file when the last `ipc` build differs from it, and fails after Fleet is up if
-the version Fleet reports is not the file's.
+**It checks the protocol it built.** `cargo` can skip `ipc`'s build script when
+the wire files changed (a `target/` carried from another tree), and Fleet then
+reports the previous ID. The script touches `crates/ipc/build.rs` when the last
+`ipc` build's ID differs from what the wire files hash to, and fails after Fleet
+is up if the ID Fleet reports is not that one.
 
 **It guards the database by migration name, never by a count.**
 `docs/practices/store-migrations.md` has the rules. The build's names are read
@@ -314,7 +311,6 @@ leaves its slot, whether it merged or was abandoned. Use it, and land from the b
 | Orders the branches | Oldest commit first, so a branch's place does not move when another is added |
 | Merges one | `git merge --no-ff --no-edit` |
 | A conflict | The merge is aborted and the branch is reported with the files. It is never resolved, with one exception below |
-| A conflict only in `protocol-version.toml` and its generated mirror | Every branch that moves the wire bumps both, so any two conflict. The preview writes one number of its own, the higher of the two sides' `major.minor` with the minor plus one, so it is no branch's and no release's. It writes both files directly (codegen needs an install a preview lacks), commits the merge, and the table says `protocol: preview's own 23.N`. Fleet and Bridge are built from this one tree, so they agree |
 | A migration name taken twice | The later branch is skipped, though git merged it cleanly, and the table says which name and whose it was. Different names merge |
 | Writes | The table to stdout and `.armada/preview/PREVIEW.txt`, untracked |
 
@@ -879,7 +875,7 @@ unchanged.
 
 **A branch that declared a need waits behind the ones ahead of it.**
 `armada need <path> "<what>"` records what the branch needs on a path
-(`protocol-version.toml`, "a minor"; a migration needs none, it has a name), says which branches are ahead and what they took, and the first to
+(a file two branches both mean to change; a migration needs none, it has a name), says which branches are ahead and what they took, and the first to
 declare goes first. `armada need --took <path> "<value>"` records the value
 chosen, `--status` lists the needs by path, `--release <path>` gives one back.
 A need is spent when its branch lands and given back when the branch no
@@ -890,9 +886,9 @@ branch, or deletes the branch. **The needs are Fleet's** (`docs/capabilities/nee
 
 ### What is left of the merge line
 
-`armada land` and `scripts/land` are gone. Fleet still reads the outcome files an
-earlier `armada land` left under `.git/armada-land/`, for the merge line Bridge
-draws.
+`armada land` and `scripts/land` are gone, and Fleet no longer reads the files
+an earlier `armada land` left under `.git/armada-land/`. The merge line Bridge
+draws is the forge's: main's CI and the open pull requests.
 
 **What gates the hook that keeps a merge on that path:** `armada check
 hooks_test` runs `.claude/hooks/test_guard_merge.py` against it. It is a Check

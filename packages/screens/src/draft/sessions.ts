@@ -57,7 +57,8 @@ export type SessionAttachment =
   | { kind: "forked_to"; id: string }
   | { kind: "forked_from"; id: string };
 
-export type SessionArtifactForm = "page" | "file" | "doc";
+/** A `window` is a page the Session showed in a window of Bridge's own; `id` is its address. */
+export type SessionArtifactForm = "page" | "file" | "image" | "doc" | "window";
 
 /**
  * A sketch as Dispatch and Studios hold one: boxes and the joins between them.
@@ -141,7 +142,9 @@ export type SessionRow =
       narrative?: { trying_to: string; blocked_by: string; tried: readonly string[] };
     }
   /** The agent's first write: the slot leased and the branch cut, drawn in the thread where it happened. */
-  | { id: string; at: string; kind: "lease"; slot: number; branch: string };
+  | { id: string; at: string; kind: "lease"; slot: number; branch: string }
+  /** The Session showed a page in a window: where in the thread it did, and the address to open again. */
+  | { id: string; at: string; kind: "window"; title: string; url: string };
 
 /** A turn running, or none. A message from another Session starts one, so `working` has no author. */
 export type SessionTurn = { state: "idle" } | { state: "working"; wokenBy?: { id: string; title: string } };
@@ -236,6 +239,17 @@ export type SessionQuestion = {
 /** What was chosen for one question: option labels, and the person's own words where they chose Other. */
 export type SessionQuestionAnswer = { question: string; chosen: string[] };
 
+/** A subagent's thread, drawn as a Session's is. */
+export type SubagentThread = { rows: SessionRow[]; finished: boolean; report?: string };
+
+/** A file the panel read: its bytes and kind, or why it could not be shown. */
+export type ArtifactRead =
+  | { ok: true; bytes: Uint8Array; type: string }
+  | { ok: false; why: "not_addressable" | "too_big" | "unreadable" | "binary"; limit?: number };
+
+/** A rect in the window's content, in CSS pixels. */
+export type PageBounds = { x: number; y: number; width: number; height: number };
+
 /**
  * What the window holds of Sessions, and the acts on them. **The mock's seam**
  * (`apps/desktop/src/renderer/src/sessions-draft.tsx`): a real Fleet gives none,
@@ -265,12 +279,35 @@ export type SessionsDraft = {
   start: (tag?: SessionTag) => string | Promise<string | undefined>;
   /** Opens a Session's thread for reading. Absent where the thread is already held. */
   watch?: (id: string) => void;
+  /**
+   * A subagent's own thread as it stands, once read: the rows, whether it has finished, and its report.
+   * Read again while it runs. Absent where nothing serves it, and the panel then shows the report alone.
+   */
+  subagent?: (id: string, subagentId: string) => Promise<SubagentThread | undefined>;
   /** Ends a Session: the slot is parked and the row ends. Absent in the mock, which has no end. */
   close?: (id: string) => void;
   /** Names a Session, hosted or in a terminal. Absent where there is nothing to save it to. */
   rename?: (id: string, title: string) => void;
+  /**
+   * Opens, or opens again, a page a Session showed, in a window of Bridge's own. **A note captured in
+   * it goes to the Session** as a message that wakes it. Absent where nothing serves it.
+   */
+  openWindow?: (id: string, url: string) => void;
   /** Opens a file a Session wrote. Absent in the mock, whose files are not on this machine. */
   openFile?: (id: string, path: string) => void;
+  /** Reads a file the Session's ledger names, for the panel an Artifacts row opens. */
+  readArtifact?: (id: string, path: string) => Promise<ArtifactRead>;
+  /**
+   * The web view a page or doc is shown in, over the panel's body. **Absent in the mock**, which
+   * has no second view and draws a frame of its own page in its place.
+   */
+  page?: {
+    show: (id: string, address: string, bounds: PageBounds) => void;
+    move: (bounds: PageBounds) => void;
+    hide: () => void;
+    /** Esc pressed in the view, which has the keyboard while it is shown. Returns its remover. */
+    onEscape: (on: () => void) => () => void;
+  };
   /** Reads a pull request again, so its Checks are what the forge says now. Absent in the mock. */
   refresh?: (id: string, number: number) => void;
   /** What Fleet refused, in words, until the next act. Absent in the mock. */

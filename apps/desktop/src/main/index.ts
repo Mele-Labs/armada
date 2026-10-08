@@ -23,6 +23,7 @@ import type {
 } from "@armada/protocol";
 import { ANNOTATE_FLAG } from "../shared/annotations";
 import { handleAnnotations } from "./annotations";
+import { sessionNoteText } from "./capture/session-note";
 import { CaptureWindows } from "./capture/windows";
 import { coalesce } from "./coalesce";
 import { stagePng } from "./staging";
@@ -34,12 +35,14 @@ import { openFindingIssue, openPullRequest, openRemarkLink, openStudioNode } fro
 import { RemarksPoll } from "./remarks-poll";
 import { ResourcesPoll } from "./resources-poll";
 import { openLink } from "./links";
+import { restartFleet } from "./restart-fleet";
 import { openServerLink } from "./servers";
 import { frameStream, FRAME_SCHEME } from "./streaming";
 import { Attention, soundOf } from "./telling";
 import { handleRehearsal } from "./rehearsal-channels";
 import { handleRepositories } from "./repository-channels";
 import { handleSessions } from "./session-channels";
+import { SessionPages } from "./session-page";
 import { handleStudios } from "./studio-channels";
 
 // Bridge's window, and the one connection under it.
@@ -150,6 +153,10 @@ const captureWindows = new CaptureWindows({
   walkNote: async (jobId, said, capture, frame) =>
     (await connection?.commands.captureWalkNote(jobId, { said, capture, ...(frame === null ? {} : { frame }) })) ??
     UNSENT,
+  sessionNote: async (sessionId, said, capture, address) => {
+    const sent = await connection?.sessions.send({ session_id: sessionId, text: sessionNoteText(said, capture, address) });
+    return sent === undefined ? UNSENT : sent.ok ? { ok: true } : sent.outcome;
+  },
   stage: stagePng,
   focused: (serverId, on) => {
     if (on) walkFocused.add(serverId);
@@ -454,6 +461,8 @@ void app.whenReady().then(() => {
     windowIds,
     now: () => Date.now(),
   });
+  // A Session showed a page: its window opens by itself, and opens again where it is already open.
+  connection.sessions.onWindow((sessionId, title, url) => void captureWindows.openForSession(sessionId, title, url));
   handleTaps({ ipc: ipcMain, app });
   if (!app.isPackaged) installSounds(join(app.getAppPath(), "sounds"), join(app.getPath("home"), "Library", "Sounds"));
 
@@ -833,6 +842,8 @@ void app.whenReady().then(() => {
   );
   // A link in a model's text: the one opener whose address the renderer sends. `links.ts`.
   ipcMain.handle(CHANNELS.openLink, (_event, address: string) => openLink(address));
+  // Asks launchd, not Fleet: `restart-fleet.ts`. Read from what main last published.
+  ipcMain.handle(CHANNELS.restartFleet, () => restartFleet(published.connection));
   // The act above that read. It moves nothing, costs no model call, and the
   // answer it publishes is also written into the Job's own log.
   ipcMain.handle(CHANNELS.examineJob, (_event, jobId: string) =>
@@ -885,7 +896,7 @@ void app.whenReady().then(() => {
   ipcMain.handle(CHANNELS.readHeld, (_event, want: boolean) =>
     connection?.readHeld(want),
   );
-  handleSessions({ ipc: ipcMain, connection: () => connection, windowIdOf });
+  handleSessions({ ipc: ipcMain, connection: () => connection, windowIdOf, pages: new SessionPages() });
   handleStudios({ ipc: ipcMain, connection: () => connection, published: () => published, captureWindows });
   // The four decisions on the work, and they stay four channels. Merging lands
   // the branch and then takes the work, approving takes it and leaves the pull
@@ -897,6 +908,9 @@ void app.whenReady().then(() => {
   );
   ipcMain.handle(CHANNELS.mergePullRequest, (_event, jobId: string) =>
     connection?.commands.mergePullRequest(jobId),
+  );
+  ipcMain.handle(CHANNELS.autoMergePullRequest, (_event, jobId: string) =>
+    connection?.commands.autoMergePullRequest(jobId),
   );
   ipcMain.handle(CHANNELS.rerunFailedChecks, (_event, jobId: string) =>
     connection?.commands.rerunFailedChecks(jobId),

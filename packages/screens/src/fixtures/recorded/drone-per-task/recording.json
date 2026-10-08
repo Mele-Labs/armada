@@ -1344,10 +1344,7 @@
   "messages": [
    {
     "message": "opened",
-    "protocol_version": {
-     "major": 23,
-     "minor": 1
-    },
+    "protocol_id": "0000000000000000",
     "job_id": "01M3YH62V40012RJWKMGBKX3Q4",
     "live": false,
     "skipped": 0
@@ -1662,10 +1659,7 @@
   "messages": [
    {
     "message": "opened",
-    "protocol_version": {
-     "major": 23,
-     "minor": 1
-    },
+    "protocol_id": "0000000000000000",
     "job_id": "01M3YH62V40012RJWKMGBKX3Q4",
     "skipped": 0
    },
