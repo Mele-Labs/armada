@@ -688,6 +688,7 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
           <SessionThread
             sessionId={session.id}
             rows={threadRowsOf(session)}
+            working={session.turn.state === "working"}
             {...(session.asked === undefined
               ? {}
               : {
