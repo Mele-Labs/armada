@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState } from "react";
-import { Bell, Briefcase, Check, CircleDashed, CircleDot, Construction, Eye, FolderGit2, GitBranch, GitPullRequest, Infinity as EveryGlyph, Minus, Package, RotateCw, SkipForward, SquarePlus, Trash2, Webhook, X } from "lucide-react";
+import { Bell, Briefcase, Check, CircleDashed, CircleDot, Construction, Eye, FolderGit2, GitBranch, GitPullRequest, Infinity as EveryGlyph, Minus, Package, Play, RotateCw, SkipForward, SquarePlus, Trash2, Webhook, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type {
   AddedRuns,
@@ -433,7 +433,16 @@ function NameLink({ trigger, onOpenLog }: { trigger: JobTrigger; onOpenLog: ((tr
  * One Trigger a Job holds, as a leaf off the step it fired at: the state as a mark, the name, the
  * moment, and the level that sets it. **A firing with a log line is a button on its name**, which goes to the line.
  */
-export function TriggerLeaf({ trigger, onOpenLog }: { trigger: JobTrigger; onOpenLog?: (trigger: JobTrigger) => void }) {
+export function TriggerLeaf({
+  trigger,
+  onOpenLog,
+  onAct,
+}: {
+  trigger: JobTrigger;
+  onOpenLog?: (trigger: JobTrigger) => void;
+  /** Where the leaf asks him: Run and Skip, on a firing that waits on his answer. */
+  onAct?: (act: HoldVerb, by: HoldAct) => Promise<{ ok: boolean }> | void;
+}) {
   const moment = whenSaid(trigger.when, trigger.step);
   return (
     <div className="armada-leaf" role="group" aria-label={`${trigger.name}, ${moment}`}>
@@ -441,6 +450,9 @@ export function TriggerLeaf({ trigger, onOpenLog }: { trigger: JobTrigger; onOpe
       <NameLink trigger={trigger} onOpenLog={onOpenLog} />
       <span className="armada-triggers__when">{moment}</span>
       <LevelMark level={trigger.level} />
+      {trigger.state === "awaiting_owner" && onAct !== undefined ? (
+        <HoldActs held={{ key: "", name: trigger.name, when: trigger.when, step: trigger.step, by: { trigger: trigger.name }, state: trigger.state }} onAct={onAct} />
+      ) : null}
     </div>
   );
 }
@@ -642,7 +654,9 @@ export function triggerAlert(triggers: readonly JobTrigger[], additions: readonl
     [...latest.values()].some((one) => {
       const phase = repairPhase(one);
       return phase === "asking" || phase === "failed";
-    }) || holdsOf(triggers, additions).length > 0
+    }) ||
+    [...latest.values()].some((one) => one.state === "awaiting_owner") ||
+    holdsOf(triggers, additions).length > 0
   );
 }
 
@@ -750,6 +764,7 @@ export function TriggerAlertMark() {
 /** What each kind of a Board row's alert is called in its tooltip. */
 const ALERT: Record<JobAlert["kind"], { said: string; hue: string }> = {
   held: { said: "Held", hue: "waiting" },
+  asks: { said: "Waiting on you", hue: "waiting" },
   fix_ready: { said: "Fix ready", hue: "waiting" },
   failed: { said: "Failed", hue: "failed" },
 };
@@ -766,7 +781,7 @@ export function JobAlertMark({ alert }: { alert: JobAlert }) {
 /** What a Trigger or an added step that holds its Job is, and the body that names it to Fleet. */
 export type Held = { key: string; name: string; when: TriggerMoment; step: string; by: HoldAct; state: TriggerFiringState; log?: JobTrigger };
 
-/** `rerun` runs the Command again; `skip` lets it go. */
+/** `rerun` runs the Command again, or once where it asks first; `skip` lets it go. */
 export type HoldVerb = "rerun" | "skip";
 
 /** The states in which a blocking firing still holds the Job: held, and the repair that works on it. */
@@ -793,7 +808,7 @@ export function holdsOf(triggers: readonly JobTrigger[], additions: readonly Add
   return held;
 }
 
-/** Rerun and Skip on a hold. **Rerun is live only while it is `held`**, Skip also with a fix waiting; a repair under way has its own branch and Fleet refuses both. A press is sent once and comes back where Fleet refused it. */
+/** Rerun and Skip on a hold, Run and Skip on a destructive Command that asks first. **Rerun is live only while it is `held`**, Skip also with a fix waiting; a repair under way has its own branch and Fleet refuses both. A press is sent once and comes back where Fleet refused it. */
 function HoldActs({ held, onAct }: { held: Held; onAct?: (act: HoldVerb, by: HoldAct) => Promise<{ ok: boolean }> | void }) {
   const [sent, setSent] = useState(false);
   const act = async (verb: HoldVerb) => {
@@ -804,15 +819,17 @@ function HoldActs({ held, onAct }: { held: Held; onAct?: (act: HoldVerb, by: Hol
   };
   // A fix waiting on its choice is skipped like a hold, and rerun only through that choice.
   const live = onAct !== undefined && !sent;
+  const asking = held.state === "awaiting_owner";
+  const first = asking ? "Run" : "Rerun";
   return (
     <span className="armada-hold__acts nodrag nopan">
-      <Tooltip label="Rerun">
-        <Button variant="ghost" size="sm" iconOnly aria-label="Rerun" disabled={!live || held.state !== "held"} onClick={() => void act("rerun")}>
-          <RotateCw size={16} strokeWidth={2} aria-hidden />
+      <Tooltip label={first}>
+        <Button variant="ghost" size="sm" iconOnly aria-label={first} disabled={!live || (held.state !== "held" && !asking)} onClick={() => void act("rerun")}>
+          {asking ? <Play size={16} strokeWidth={2} aria-hidden /> : <RotateCw size={16} strokeWidth={2} aria-hidden />}
         </Button>
       </Tooltip>
       <Tooltip label="Skip">
-        <Button variant="ghost" size="sm" iconOnly aria-label="Skip" disabled={!live || (held.state !== "held" && held.state !== "fix_ready")} onClick={() => void act("skip")}>
+        <Button variant="ghost" size="sm" iconOnly aria-label="Skip" disabled={!live || (held.state !== "held" && held.state !== "fix_ready" && !asking)} onClick={() => void act("skip")}>
           <SkipForward size={16} strokeWidth={2} aria-hidden />
         </Button>
       </Tooltip>

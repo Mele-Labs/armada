@@ -162,3 +162,30 @@ test("a Board row's bell for a hold says the Trigger, the moment and the step, a
   expect(tipped()).toBe("Held, deploy_qa, PR opened, handoff");
   expect(document.body.textContent).not.toMatch(/\d/);
 });
+
+test("a Trigger that asks first is a leaf with Run and Skip, no hold on a line, and the Job has an alert", async () => {
+  const act = vi.fn().mockResolvedValue({ ok: true });
+  const asking = fired("awaiting_owner", { name: "wipe_qa", exit_code: undefined });
+  expect(holdsOf([asking])).toEqual([]);
+  expect(triggerAlert([asking])).toBe(true);
+  expect(triggerAlert([fired("passed", { name: "wipe_qa" })])).toBe(false);
+  const run = {
+    nodes: [{ id: "step:handoff", position: { x: 0, y: 0 }, card: { kind: "step", name: "handoff", activity: "not_started", said: "" } }],
+    edges: [],
+    running: null,
+    opensOn: [],
+  } as unknown as WorkflowRun;
+  const { nodes } = withRepair([asking], "job-1", (step) => `step:${step}`, run, undefined, [], act).run;
+  mount(<>{nodes.filter((node) => node.id !== "step:handoff").map((node) => node.drawn)}</>);
+  await expect.element(page.getByRole("group", { name: "wipe_qa, PR opened" })).toBeVisible();
+  expect(page.getByRole("button", { name: "Rerun" }).elements()).toHaveLength(0);
+  await page.getByRole("button", { name: "Run" }).click();
+  expect(act).toHaveBeenCalledWith("job-1", "rerun", { trigger: "wipe_qa" });
+  await expect.element(page.getByRole("button", { name: "Skip" })).toBeDisabled();
+});
+
+test("a Board row's bell for a destructive Command asking says it waits on him", async () => {
+  const alert: JobAlert = { kind: "asks", trigger: "wipe_qa", when: "pr_opened", step: "handoff" };
+  mount(<JobAlertMark alert={alert} />);
+  await expect.element(page.getByRole("img", { name: "Waiting on you, wipe_qa, PR opened, handoff" })).toBeVisible();
+});

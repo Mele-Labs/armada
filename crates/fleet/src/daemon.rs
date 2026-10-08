@@ -204,6 +204,10 @@ pub struct Fleet<H, V, W> {
     /// Failed Triggers waiting for a repair Drone. Never written down, for
     /// `heals`' reason — `crate::trigger_repair`.
     trigger_repairs: std::sync::Mutex<crate::trigger_repair::Queue>,
+    /// The firings whose destructive Command the owner's Run is executing, by
+    /// firing id, so a second Run is refused and not a second run. Never
+    /// written down: a restart leaves the firing asking, and he answers again.
+    owner_runs: std::sync::Mutex<std::collections::BTreeSet<i64>>,
     /// Which seed is warming and which warm-up failed. Never written down, for
     /// `proving`'s reason; an `Arc` because the warm-up is spawned — `crate::seeding`.
     seeds: Arc<std::sync::Mutex<crate::seeding::Seeds>>,

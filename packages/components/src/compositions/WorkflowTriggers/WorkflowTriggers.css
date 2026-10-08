@@ -289,7 +289,8 @@
    drawn inside it, which is what cut the bubble to the button. Anchor positioning measures against
    the node's transformed box, which has nothing below the button, so the bubble landed on the node;
    plain absolute placement under the trigger needs no room from the node. */
-.armada-hold .armada-tooltip__bubble {
+.armada-hold .armada-tooltip__bubble,
+.armada-leaf .armada-hold__acts .armada-tooltip__bubble {
   position: absolute;
   position-area: none;
   position-try-fallbacks: none;
@@ -315,6 +316,12 @@
   color: var(--fg-default);
   font-size: var(--text-xs);
   line-height: var(--leading-xs);
+}
+
+/* Run and Skip on a leaf that asks him, at the end of its row. */
+.armada-leaf .armada-hold__acts {
+  margin-inline-start: auto;
+  padding: 0;
 }
 
 /* A Trigger set for every workflow, in the editor: the frame wears the accent so it reads apart from this workflow's own. */

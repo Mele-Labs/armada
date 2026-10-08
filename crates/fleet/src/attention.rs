@@ -128,12 +128,18 @@ where
                 continue;
             };
             // A hold on a Job that is over holds nothing.
-            let over = hold.state() == core_model::TriggerState::Held && job.status().is_terminal();
+            let over = matches!(
+                hold.state(),
+                core_model::TriggerState::Held | core_model::TriggerState::AwaitingOwner
+            ) && job.status().is_terminal();
             if !owned(job) || over {
                 continue;
             }
             let why = match hold.state() {
                 core_model::TriggerState::Held => crate::trigger_hold::held_said(&hold.name()),
+                core_model::TriggerState::AwaitingOwner => {
+                    crate::trigger_hold::asks_said(&hold.name())
+                }
                 core_model::TriggerState::FixReady => {
                     crate::trigger_repair::fix_waiting(&hold.name())
                 }
