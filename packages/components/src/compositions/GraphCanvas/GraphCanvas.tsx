@@ -10,8 +10,10 @@ import {
   type Node,
   type NodeTypes,
   type OnNodesChange,
+  useStore,
+  useUpdateNodeInternals,
 } from "@xyflow/react";
-import { useCallback, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 
 import { Maximize } from "lucide-react";
 
@@ -204,6 +206,30 @@ function ViewGroup() {
   return <GraphCanvasRailGroup label={VIEW_LABEL} acts={acts} />;
 }
 
+/**
+ * Ask React Flow to measure again any node it has no handle positions for.
+ *
+ * **A measured node can lose its handles, and nothing draws an edge to a node without them.** The
+ * Job's run is rebuilt on every render, and React Flow adopts the nodes a render handed it from an
+ * effect. One built before the first measurement can be adopted after it, which replaces the
+ * measured node with the unmeasured one and drops its handle positions along with its size. The
+ * resize observer only reports a change in size, so nothing measures again, and the steps draw with
+ * no connectors (#1940, about three mounts in eight). `Surface` keeps the sizes; this keeps the
+ * handles by asking for the measurement the adoption threw away.
+ */
+function MeasuresHandles() {
+  const lacking = useStore((state) => {
+    const ids: string[] = [];
+    for (const node of state.nodeLookup.values()) if (node.internals.handleBounds === undefined && !node.hidden) ids.push(node.id);
+    return ids.join("\n");
+  });
+  const updateNodeInternals = useUpdateNodeInternals();
+  useEffect(() => {
+    if (lacking !== "") updateNodeInternals(lacking.split("\n"));
+  }, [lacking, updateNodeInternals]);
+  return null;
+}
+
 function Surface<N extends Node, E extends Edge>({
   surface,
   label,
@@ -317,6 +343,7 @@ function Surface<N extends Node, E extends Edge>({
           {aside}
         </Panel>
       )}
+      <MeasuresHandles />
       {children}
     </ReactFlow>
   );
