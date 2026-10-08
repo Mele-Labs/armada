@@ -243,3 +243,18 @@ test("Sessions wired: a picked file goes as base64 and a drawn sketch goes as th
   // What was drawn stays on the ledger, since the wire holds only the picture.
   await expect.element(page.getByRole("region", { name: "Attachments" }).getByRole("button", { name: "Sketch pin the clock" })).toBeVisible();
 });
+
+test("Sessions wired: a page on the ledger is shown in main's view over the panel and taken away when the panel closes", async () => {
+  const fleet = new FakeSessionsFleet([
+    hosted(ID, { title: "Write up the clock", attachments: [held("artifact", "https://example.com/artifact/findings", { form: "page", title: "Clock findings" })] }),
+  ]);
+  mount(served(fleet));
+  await onSessions();
+  await userEvent.click(sessions().getByRole("button", { name: "Write up the clock" }));
+  await userEvent.click(page.getByRole("region", { name: "Attachments" }).getByRole("button", { name: "Published page Clock findings" }));
+  await expect.poll(() => fleet.calls.pages).toEqual(["https://example.com/artifact/findings"]);
+  // Main's view lies over the body, so nothing is framed here.
+  await expect.element(page.getByTitle("Clock findings")).not.toBeInTheDocument();
+  await userEvent.keyboard("{Escape}");
+  await expect.poll(() => fleet.calls.pagesHidden).toBeGreaterThan(0);
+});

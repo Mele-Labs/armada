@@ -254,6 +254,12 @@ export class WiredStore {
     rename: (id, title) => void this.plain(this.api.renameSession({ session_id: id, title })),
     refresh: (id, number) => void this.api.pressPullRequest(id, number, "read"),
     openFile: (id, path) => void this.api.openSessionFile(id, path),
+    readArtifact: (id, path) => this.api.readSessionArtifact(id, path),
+    page: {
+      show: (id, address, bounds) => void this.api.showSessionPage(id, address, bounds),
+      move: (bounds) => void this.api.moveSessionPage(bounds),
+      hide: () => void this.api.hideSessionPage(),
+    },
     said: () => this.refusal,
     taggable: () => {
       const sessions = this.mapped;

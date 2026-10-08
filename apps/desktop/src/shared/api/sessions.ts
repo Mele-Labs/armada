@@ -15,6 +15,7 @@ import type {
   SessionRow,
   TuneSession,
 } from "@armada/protocol";
+import type { ArtifactRead, PageBounds } from "@armada/screens/src/draft/sessions";
 
 /** What a session act came to: the thing Fleet answered with, or the refusal to word. */
 export type SessionActed<T = SessionRecord> = { ok: true; value: T } | { ok: false; outcome: Outcome };
@@ -65,6 +66,14 @@ export type SessionsApi = {
   readSessionFile: (sessionId: string, file: string) => Promise<FrameRead>;
   /** Opens a file a Session wrote, in whatever the machine opens it with. Main opens only a path the Session's own ledger names. */
   openSessionFile: (sessionId: string, path: string) => Promise<Followed>;
+  /** A file the Session's ledger names, read for the panel: its bytes and kind, or why it was not read. */
+  readSessionArtifact: (sessionId: string, path: string) => Promise<ArtifactRead>;
+  /** Shows a page or doc the Session's ledger names in a web view main owns, over `bounds` of this window. */
+  showSessionPage: (sessionId: string, address: string, bounds: PageBounds) => Promise<Followed>;
+  /** Moves the page's view to where the panel's body now is. */
+  moveSessionPage: (bounds: PageBounds) => Promise<void>;
+  /** Removes the page's view. */
+  hideSessionPage: () => Promise<void>;
   /** An act on one of a Session's pull requests. `read` brings its state current, `review` answers the Code Review Job it dispatched. */
   pressPullRequest: (
     sessionId: string,
@@ -104,5 +113,9 @@ export const SESSIONS_CHANNELS = {
   watchSession: "bridge:watch-session",
   readSessionFile: "bridge:read-session-file",
   openSessionFile: "bridge:open-session-file",
+  readSessionArtifact: "bridge:read-session-artifact",
+  showSessionPage: "bridge:show-session-page",
+  moveSessionPage: "bridge:move-session-page",
+  hideSessionPage: "bridge:hide-session-page",
   pressPullRequest: "bridge:press-pull-request",
 } as const;
