@@ -3,10 +3,15 @@
    in the failure hue, running in the running hue. A section is drawn only once
    it holds a row, so an idle Job is the head alone. */
 
+/* One frame holds the head and every section, divided by rules: the head is the panel's own top
+   band and not a card of its own. */
 .armada-now {
   display: flex;
   flex-direction: column;
-  gap: var(--space-6);
+  border: var(--border-width) solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--bg-raised);
+  overflow: hidden;
   width: var(--w-dock);
   min-width: 0;
   min-height: 0;
@@ -19,8 +24,6 @@
   justify-content: space-between;
   gap: var(--space-2);
   padding: var(--space-1) var(--space-3);
-  border: var(--border-width) solid var(--border-strong);
-  border-radius: var(--radius-md);
   background: var(--bg-raised);
 }
 
@@ -38,10 +41,8 @@
   display: flex;
   flex-direction: column;
   min-width: 0;
-  border: var(--border-width) solid var(--now-hue);
-  border-radius: var(--radius-md);
+  border-top: var(--border-width) solid var(--border-strong);
   background: color-mix(in srgb, var(--now-hue) var(--row-tint), var(--bg-raised));
-  overflow: hidden;
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   line-height: var(--leading-xs);
@@ -334,8 +335,7 @@ button.armada-now__step[aria-pressed="true"] {
 .armada-now__nothing {
   margin: 0;
   padding: var(--space-3);
-  border: var(--border-width) dashed var(--border-strong);
-  border-radius: var(--radius-md);
+  border-top: var(--border-width) solid var(--border-strong);
   color: var(--fg-muted);
   font-family: var(--font-mono);
   font-size: var(--text-xs);
