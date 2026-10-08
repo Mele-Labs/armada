@@ -3,8 +3,11 @@
 
 import type { Outcome } from "./reads";
 
-/** Whom one retro item got in the way of. */
-export type Whose = "drone" | "owner" | "fleet";
+/**
+ * Whom one retro item got in the way of. `agent` is a Session's agent, where
+ * a Job's retro says `drone`. **Mock only until Fleet writes a Session's retro.**
+ */
+export type Whose = "drone" | "agent" | "owner" | "fleet";
 
 /**
  * Where the fix for one retro item lands: Armada itself, the Kit a person
@@ -158,7 +161,20 @@ export type RetroRecord = {
   waited?: RecordWaited[];
   acts?: RecordAct[];
   notes?: RecordSaid[];
+  /**
+   * A Session's record, beside the Job's rows. **Mock only until Fleet writes a Session's
+   * retro.** Its asks, the owner's messages that redirect or reject, tool results that
+   * errored (`tried` is the call, `because` the error), and each subagent's own trouble.
+   * Its gate denials are `refusals` and its resumes and reattaches are `restarts`.
+   */
+  asks?: RecordAsked[];
+  corrections?: RecordSaid[];
+  failed_tools?: RecordRefusal[];
+  subagents?: RecordSaid[];
 };
+
+/** The Session a retro or an item was written for. Mock only until Fleet writes one. */
+export type RetroSession = { id: string; title?: string };
 
 /** A note the owner left in Bridge while the Job's detail was open. */
 export type LinkedAnnotation = {
@@ -178,6 +194,8 @@ export type JobRetro = {
   why?: string;
   items?: RetroItem[];
   record: RetroRecord;
+  /** Present on a Session's retro, whose `job_id` then holds the Session's id. */
+  session?: RetroSession;
   annotations?: LinkedAnnotation[];
 };
 
@@ -201,6 +219,8 @@ export type Lesson = {
   lands_in?: LandsIn;
   state: LessonState;
   job_proposed?: string;
+  /** Present on an item of a Session's retro, whose `job_id` then holds the Session's id. */
+  session?: RetroSession;
   /** As on `RetroItem`. Since 23.35. */
   change?: RetroChange;
   /** As on `RetroItem`. Since 23.35. */

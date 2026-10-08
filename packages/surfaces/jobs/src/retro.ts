@@ -34,6 +34,7 @@ import type { LessonAnswers, LessonRow, LessonSettled, RetroCite, RetroNote, Ret
 
 import { refusalWords } from "@armada/screens/src/refusal-words";
 import { absoluteOf, lasting } from "@armada/screens/src/duration";
+import { addressOf } from "@armada/screens/src/sessions-wire";
 
 /** Ask main for one Job's retro. */
 export type ReadRetro = (jobId: string) => Promise<RetroRead>;
@@ -121,6 +122,10 @@ function rowsOf(record: RetroRecord): Map<string, RetroCite> {
     ...(record.waited ?? []).map(waited),
     ...(record.acts ?? []).map(act),
     ...(record.notes ?? []).map(said),
+    ...(record.asks ?? []).map(asked),
+    ...(record.corrections ?? []).map(said),
+    ...(record.failed_tools ?? []).map(refusal),
+    ...(record.subagents ?? []).map(said),
   ];
   return new Map(rows.map((row) => [row.id, row]));
 }
@@ -214,6 +219,12 @@ function changed(item: { change?: RetroChange; applied?: RetroChange }): { chang
   return { ...(change === undefined ? {} : { change }), ...(applied === undefined ? {} : { applied }) };
 }
 
+/** A Session as a person reads it: its title and its address, `Fix the flaky test · s-01J8ZQ4M`. */
+export function sessionOf(session: { id: string; title?: string }): string {
+  const address = addressOf(session.id);
+  return session.title === undefined ? address : `${session.title} · ${address}`;
+}
+
 /** The Lessons list's rows, in Fleet's order: newest retro first. */
 export function lessonRowsOf(lessons: readonly Lesson[]): ListedRow[] {
   return lessons.map((lesson) => {
@@ -227,8 +238,8 @@ export function lessonRowsOf(lessons: readonly Lesson[]): ListedRow[] {
       ...(lesson.what === undefined ? {} : { what: lesson.what }),
       ...(lesson.fix === undefined ? {} : { fix: lesson.fix }),
       ...changed(lesson),
-      job: jobOf(lesson.handle),
-      jobExact: lesson.handle,
+      job: lesson.session === undefined ? jobOf(lesson.handle) : sessionOf(lesson.session),
+      jobExact: lesson.session === undefined ? lesson.handle : lesson.session.id,
       when: absoluteOf(lesson.at) ?? lesson.at,
       whenExact: lesson.at,
     };

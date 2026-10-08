@@ -58,6 +58,8 @@ export type LessonsProps = {
    */
   tab?: LessonsTab;
   onTab?: (tab: LessonsTab) => void;
+  /** A retro to open over the list as the page opens: the one a Session's Retro press asked for. */
+  opening?: { id: string; label: string };
 };
 
 export function Lessons({
@@ -70,13 +72,14 @@ export function Lessons({
   floor,
   tab,
   onTab,
+  opening,
 }: LessonsProps) {
   const [held, setHeld] = useState<LessonsTab>("all");
   const [view, setView] = useState<LessonsView>("open");
   const showing = tab ?? held;
   // Keyed by the pick and the list, so another of either is another read.
   const read = useReadOnFocus(() => onReadLessons(view), `${repository ?? ""}:${view}`);
-  const [open, setOpen] = useState<{ jobId: string; job: string } | null>(null);
+  const [open, setOpen] = useState<{ jobId: string; job: string } | null>(opening === undefined ? null : { jobId: opening.id, job: opening.label });
   const answered = useAnswers(onAgreeLesson, onDisagreeLesson, onOpenJob);
   const retros = useJobRetros(onReadRetro);
   // The items whose Evidence was pressed, so a read shared by a Job's cards speaks on the one that asked.

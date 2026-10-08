@@ -95,6 +95,8 @@ export type Calls = {
   renamed: RenameSession[];
   closed: string[];
   forked: string[];
+  /** The Sessions the Retro press was pressed on. */
+  retroed: string[];
   pressed: { sessionId: string; number: number; press: string }[];
   watched: string[];
   /** The addresses a page view was shown on, and how many times it was taken away. */
@@ -109,7 +111,7 @@ export class FakeSessionsFleet {
   pageEscape(): void {
     this.escape.forEach((on) => on());
   }
-  readonly calls: Calls = { started: 0, piloted: [], exited: [], sent: [], answered: [], tuned: [], renamed: [], closed: [], forked: [], pressed: [], watched: [], pages: [], pagesHidden: 0 };
+  readonly calls: Calls = { started: 0, piloted: [], exited: [], sent: [], answered: [], tuned: [], renamed: [], closed: [], forked: [], retroed: [], pressed: [], watched: [], pages: [], pagesHidden: 0 };
   private records: SessionRecord[];
   private threads: Record<string, SessionRow[]>;
   private fleet: FleetHandle | undefined;
@@ -119,6 +121,10 @@ export class FakeSessionsFleet {
   refuses: { code: string; message: string } | undefined;
   /** Set to have the next message refused, the way Fleet refuses one: the error says why and nothing is sent. */
   refusesSend: { code: string; message: string } | undefined;
+  /** How long a retro takes to write, so a walk can see it being written. */
+  retroTakes = 1500;
+  /** Hears a retro being written, to put it where the Retros page reads from. */
+  onRetro: ((sessionId: string, title: string | undefined) => void) | undefined;
   /** Each subagent's thread as its transcript stands, by subagent id. A test changes it to let one run on. */
   subagents: Record<string, SessionSubagent> = {};
   private minted = 0;
@@ -240,6 +246,17 @@ export class FakeSessionsFleet {
             this.set([record, ...this.records.map((one) => (one.id === sessionId ? { ...one, attachments: [...one.attachments, held("forked_to", id, {}, "spent")] } : one))]);
             return { ok: true, value: record };
           },
+          // **Served only where the scenario hears retros**, so no other Sessions scenario grows a press.
+          ...(this.onRetro === undefined
+            ? {}
+            : {
+                retroSession: async (sessionId: string) => {
+                  this.calls.retroed.push(sessionId);
+                  await new Promise((done) => setTimeout(done, this.retroTakes));
+                  this.onRetro?.(sessionId, this.records.find((one) => one.id === sessionId)?.title);
+                  return { ok: true as const };
+                },
+              }),
           closeSession: async (sessionId) => {
             this.calls.closed.push(sessionId);
             return this.change(sessionId, (one) => ({ ...one, state: "ended" }));

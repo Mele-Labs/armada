@@ -56,6 +56,12 @@ export type SessionsApi = {
   tuneSession: (tune: TuneSession) => Promise<SessionActed>;
   /** A name the person gave a session, hosted or in a terminal. It stands until the next `/rename` in a terminal. */
   renameSession: (rename: RenameSession) => Promise<SessionActed>;
+  /**
+   * Writes a retro of what happened in a Session since its last one, once Fleet has asked a live
+   * agent what got in its way. **Mock only**: the preload and main do not serve it yet, and the
+   * Retro press is left off where it is absent.
+   */
+  retroSession?: (sessionId: string) => Promise<Outcome>;
   /** Ends the process, parks the slot and ends the row. */
   closeSession: (sessionId: string) => Promise<SessionActed>;
   /**

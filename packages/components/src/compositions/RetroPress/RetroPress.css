@@ -1,0 +1,23 @@
+/* The mark plays back while the retro is written, and holds still otherwise. */
+.armada-retro-press[data-writing] > svg {
+  animation: armada-retro-press-rewind var(--duration-pulse) var(--ease) infinite;
+}
+
+@keyframes armada-retro-press-rewind {
+  0%,
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  50% {
+    opacity: 0.5;
+    transform: translateX(calc(var(--space-1) * -1));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .armada-retro-press[data-writing] > svg {
+    animation: none;
+    opacity: 0.5;
+  }
+}

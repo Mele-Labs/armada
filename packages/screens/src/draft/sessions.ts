@@ -284,6 +284,11 @@ export type SessionsDraft = {
    * Read again while it runs. Absent where nothing serves it, and the panel then shows the report alone.
    */
   subagent?: (id: string, subagentId: string) => Promise<SubagentThread | undefined>;
+  /**
+   * Writes a Session's retro and resolves when it is written, to whether it was. Absent where
+   * nothing serves it, and the Retro press is left off rather than drawn dead.
+   */
+  retro?: (id: string) => Promise<boolean>;
   /** Ends a Session: the slot is parked and the row ends. Absent in the mock, which has no end. */
   close?: (id: string) => void;
   /** Names a Session, hosted or in a terminal. Absent where there is nothing to save it to. */
