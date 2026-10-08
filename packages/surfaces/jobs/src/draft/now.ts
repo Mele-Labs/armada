@@ -12,7 +12,28 @@ export type NowAskView =
   | { key: string; kind: "plan"; decisions: readonly { id: string; question: string; options: readonly { id: string; label: string }[] }[] }
   | { key: string; kind: "judge" | "drone"; name: string; text: string; target?: string };
 
-export type NowIssueView = { key: string; of: NowKindView; name: string; text: string; said: string; target?: string };
+/** A quick act on a row. The host's handler is a stub on the mock. */
+export type NowActView = { key: string; glyph: "retry" | "skip" | "skip_all" | "redirect" | "retry_step"; said: string };
+
+export type NowWaitingView = {
+  key: string;
+  kind: "resource" | "job" | "transition" | "step";
+  text: string;
+  step?: { id: string; name: string };
+  /** The Job a `job` row opens. */
+  target?: string;
+};
+
+export type NowIssueView = {
+  key: string;
+  of: NowKindView;
+  name: string;
+  text: string;
+  said: string;
+  step?: { id: string; name: string };
+  acts?: readonly NowActView[];
+  target?: string;
+};
 
 export type NowRunningView = {
   key: string;
@@ -24,6 +45,8 @@ export type NowRunningView = {
   /** The last few lines of its output, oldest first. */
   tail?: readonly string[];
   state: "running" | "passed" | "failed";
+  acts?: readonly NowActView[];
+  /** A Drone's id, or a Check's file. */
   target?: string;
 };
 
@@ -31,4 +54,15 @@ export type NowView = {
   asks?: readonly NowAskView[];
   issues?: readonly NowIssueView[];
   running?: readonly NowRunningView[];
+  waiting?: readonly NowWaitingView[];
 };
+
+type Placed = readonly { step?: { id: string } | undefined }[] | undefined;
+
+/**
+ * Every step the panel's rows belong to. **The canvas keeps these lit and stands the rest back**
+ * (owner, 8 Oct 2026); none named, nothing stands back.
+ */
+export function litSteps(view: { running?: Placed; issues?: Placed; waiting?: Placed } | undefined): ReadonlySet<string> {
+  return new Set([...(view?.running ?? []), ...(view?.issues ?? []), ...(view?.waiting ?? [])].flatMap((one) => (one.step === undefined ? [] : [one.step.id])));
+}

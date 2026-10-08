@@ -6,7 +6,7 @@
 .armada-now {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--space-6);
   width: var(--w-dock);
   min-width: 0;
   min-height: 0;
@@ -55,7 +55,15 @@
   --now-hue: var(--status-completed-failed);
 }
 
+.armada-now__group[data-tone="waiting"] {
+  --now-hue: var(--status-not-started);
+}
+
 .armada-now__band {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
   margin: 0;
   padding: var(--space-1) var(--space-3);
   background: var(--now-hue);
@@ -258,4 +266,78 @@ button.armada-now__step[aria-pressed="true"] {
 .armada-now__dot[data-state="current"] {
   border-color: var(--status-escalated);
   background: var(--status-escalated);
+}
+
+.armada-now__band-title {
+  margin: 0;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+}
+
+.armada-now__band-act {
+  display: inline-flex;
+  align-items: center;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+.armada-now__band-act:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+/* A header inside a section: which kind the rows under it are. */
+.armada-now__sub-head {
+  padding: var(--space-1) var(--space-3);
+  border-top: var(--border-width) solid var(--border-subtle);
+  background: var(--bg-sunken);
+  color: var(--fg-muted);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  font-weight: var(--weight-heading);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+
+.armada-now__rows > :first-child.armada-now__sub-head {
+  border-top: none;
+}
+
+/* A quick act: one icon, named by its tooltip. */
+.armada-now__act {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-1);
+  border: var(--border-width) solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--fg-muted);
+  cursor: pointer;
+}
+
+.armada-now__act:hover {
+  border-color: var(--border-strong);
+  background: var(--bg-hover);
+  color: var(--fg-default);
+}
+
+.armada-now__act:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+/* A Job with nothing to say: the owner reads this as a defect. */
+.armada-now__nothing {
+  margin: 0;
+  padding: var(--space-3);
+  border: var(--border-width) dashed var(--border-strong);
+  border-radius: var(--radius-md);
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
 }

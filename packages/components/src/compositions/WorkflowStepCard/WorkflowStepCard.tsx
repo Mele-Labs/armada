@@ -99,6 +99,8 @@ export type WorkflowStepCardProps = {
   current?: boolean;
   /** Open in the inspector. */
   selected?: boolean;
+  /** Stands back while the canvas focuses on other steps: the scrim over it. */
+  dimmed?: boolean;
   /** The gate's own word, where the step waits for a person. Absent on `auto`. */
   gate?: string;
   /** Opens it in the inspector. Absent draws a card that is not a control. */
@@ -144,6 +146,7 @@ export function WorkflowStepCard({
   line,
   current = false,
   selected = false,
+  dimmed = false,
   gate,
   onOpen,
   needs = [],
@@ -279,6 +282,7 @@ export function WorkflowStepCard({
     className: "armada-wf-card",
     "data-kind": kind,
     "data-current": current || undefined,
+    "data-dimmed": dimmed || undefined,
     "data-working": working || undefined,
     "data-added": added || undefined,
     ...(band === undefined

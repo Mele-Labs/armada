@@ -31,10 +31,11 @@ import {
 import type { Figure, NowPanelProps, PlanGroupState, WorkflowCanvasEdge, WorkflowCanvasNode } from "@armada/components";
 import type { FromStudio } from "@armada/protocol";
 import { PanelRightOpen } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 
 import type { DetailTab } from "./detail-tabs";
-import { stepNodeId } from "./workflow-canvas";
+import { litSteps } from "./draft/now";
+import { useNowHidden } from "./now-hidden";
 import { JobLead, type JobLeadProps } from "./JobLead";
 import { studioName } from "@armada/screens/src/studio";
 import type { OpenStudioFrom } from "@armada/screens/src/open-studio";
@@ -133,28 +134,6 @@ export type OverviewBoardProps = {
   now?: Omit<NowPanelProps, "onHide">;
 };
 
-/** Whether the Now panel is hidden, kept for the window. A viewer's convenience, so a blocked store only forgets it. */
-function useNowHidden(): [boolean, (hidden: boolean) => void] {
-  const [hidden, set] = useState(() => {
-    try {
-      return localStorage.getItem("armada.job-now.hidden") === "1";
-    } catch {
-      return false;
-    }
-  });
-  return [
-    hidden,
-    (next) => {
-      set(next);
-      try {
-        localStorage.setItem("armada.job-now.hidden", next ? "1" : "0");
-      } catch {
-        // Not kept: the panel is as it was left until the window closes.
-      }
-    },
-  ];
-}
-
 export function OverviewBoard({
   lead,
   waiting,
@@ -176,8 +155,9 @@ export function OverviewBoard({
   now,
 }: OverviewBoardProps) {
   const [hidden, hide] = useNowHidden();
-  // The step a Now row asked to see on the canvas. A second press lets it go.
-  const [focused, focus] = useState<string | undefined>();
+  // **Every step a Now row belongs to stays lit and the rest stand back**, for as long as the
+  // panel has rows (owner, 8 Oct 2026). No step named, no dimming.
+  const lit = hidden ? new Set<string>() : litSteps(now);
   const main = (
     <>
       {approving}
@@ -255,9 +235,11 @@ export function OverviewBoard({
             <div className="armada-overview-board__canvas">
               <WorkflowCanvas
                 nodes={
-                  focused === undefined
+                  lit.size === 0
                     ? workflow.nodes
-                    : workflow.nodes.map((node) => (node.id === stepNodeId(focused) ? { ...node, card: { ...node.card, selected: true } } : node))
+                    : workflow.nodes.map((node) =>
+                        node.backdrop === true || node.card.kind !== "step" || lit.has(node.id.split(":")[0] ?? node.id) ? node : { ...node, card: { ...node.card, dimmed: true } },
+                      )
                 }
                 edges={workflow.edges}
                 label={workflow.label}
@@ -365,7 +347,7 @@ export function OverviewBoard({
               </Button>
             </Tooltip>
           ) : (
-            <NowPanel {...now} onHide={() => hide(true)} onStep={(id) => focus(focused === id ? undefined : id)} {...(focused === undefined ? {} : { focusedStep: focused })} />
+            <NowPanel {...now} onHide={() => hide(true)} />
           )}
         </div>
       )}

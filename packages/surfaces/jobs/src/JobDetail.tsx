@@ -69,6 +69,8 @@ import { whyNoSteps } from "./run";
 import { whileReading } from "./while-reading";
 import { FIRST_PLAN_VIEW } from "./plan-view";
 import { ledgerOf } from "./draft/ledger";
+import { litSteps } from "./draft/now";
+import { useNowHidden } from "./now-hidden";
 import { useTrail, type TrailProps } from "./trail";
 import { JobRetroSheet } from "./Lessons";
 import { jobOf } from "./retro";
@@ -125,6 +127,7 @@ function OneJob(props: JobDetailProps) {
   const [opensGroup, setOpensGroup] = useState<string | undefined>(undefined);
   // The Check whose Record row opens, where the Plan's boundary sent a person
   // there. Cleared by the strip in the same way.
+  const [nowHidden] = useNowHidden();
   const [opensCheck, setOpensCheck] = useState<CheckAt | undefined>(undefined);
   const [opensDrone, setOpensDrone] = useState<string | undefined>(opened?.task === undefined ? opened?.drone : undefined);
   const [opensRow, setOpensRow] = useState<string | undefined>(opened?.row);
@@ -510,6 +513,7 @@ function OneJob(props: JobDetailProps) {
                     <ApprovalCanvas
                       whole={whole}
                       edits={held.frozen ?? proposalEditsOfWhole(whole, props.machineCap ?? null)}
+                      lit={nowHidden ? undefined : litSteps(props.draft?.now?.[job.id])}
                       life={lifeOf(whole, waveReadingOf(whole, props.draft, props.board ?? []), stepLinesOf(whole, drones))}
                       {...(props.added === undefined ? {} : { added: props.added })}
                       {...(props.onOpenStudio === undefined ? {} : { onOpenStudio: props.onOpenStudio })}
