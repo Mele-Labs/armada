@@ -108,17 +108,15 @@ fn an_edit_in_the_sessions_own_slot_runs_and_one_outside_it_still_asks() {
 
 #[test]
 fn the_three_classes_still_ask() {
-    assert_eq!(bash("rm -rf build"), Some(Because::Destructive));
-    assert_eq!(
-        bash("cargo build && rm -rf target"),
-        Some(Because::Destructive)
-    );
+    assert_eq!(bash("rm -rf /tmp/build"), Some(Because::Destructive));
+    assert_eq!(bash("rm -rf ."), Some(Because::Destructive));
+    assert_eq!(bash("cd /tmp && rm -rf target"), Some(Because::Destructive));
     assert_eq!(bash("git reset --hard HEAD~1"), Some(Because::Destructive));
     assert_eq!(
         bash("git checkout -- src/lib.rs"),
         Some(Because::Destructive)
     );
-    assert_eq!(bash("echo hi > notes.txt"), Some(Because::Destructive));
+    assert_eq!(bash("echo hi > /etc/hosts"), Some(Because::Destructive));
     assert_eq!(bash("git push origin main"), Some(Because::PushesToShared));
     assert_eq!(bash("echo $(git push)"), Some(Because::PushesToShared));
     assert_eq!(bash("gh pr merge 12"), Some(Because::PushesToShared));
@@ -129,4 +127,44 @@ fn the_three_classes_still_ask() {
     );
     assert_eq!(bash("gh issue create"), Some(Because::WritesOffMachine));
     assert_eq!(bash("eval \"$X\""), Some(Because::Unreadable));
+}
+
+#[test]
+fn removing_or_overwriting_a_file_in_the_sessions_own_slot_runs() {
+    for line in [
+        "rm packages/overview/src/Summary.tsx && echo ok",
+        "rm -rf build",
+        "cargo build && rm -rf target",
+        "rmdir empty/",
+        &format!("rm {SLOT}/notes.txt"),
+        "echo hi > notes.txt",
+        "cargo test 2>/dev/null > out.log",
+        "git rm -q src/old.rs && cat > src/new.rs <<'EOF'\nfn main() {}\nEOF",
+        &format!("cd {SLOT}/apps/mock && cat > scenarios/x.ts <<'EOF'\nconst a = () => 1;\nEOF"),
+        &format!("cd {SLOT}/apps && sed -i 's/a/b/' x.ts && cat > y.ts <<'EOF'\nb\nEOF"),
+        "cd packages && rm old.ts",
+    ] {
+        assert_eq!(bash(line), None, "{line} should run");
+    }
+    for line in [
+        "rm ../other/file",
+        "rm ~/notes.txt",
+        "rm $HOME/x",
+        &format!("rm -rf {SLOT}"),
+        "rm -rf /repo/.armada/slots/slot-4/x",
+        "rm",
+        "cd /tmp && rm x",
+        "cd .. && rm x",
+        "cd && rm x",
+    ] {
+        assert_eq!(bash(line), Some(Because::Destructive), "{line} should ask");
+    }
+}
+
+#[test]
+fn before_a_lease_the_repositorys_root_is_not_a_slot() {
+    let at_root =
+        |line: &str| because_in_a_session(&call("Bash", Command { command: line }), "/repo");
+    assert_eq!(at_root("rm notes.txt"), Some(Because::Destructive));
+    assert_eq!(at_root("echo hi > notes.txt"), Some(Because::Destructive));
 }
