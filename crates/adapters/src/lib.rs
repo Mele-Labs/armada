@@ -73,6 +73,7 @@ pub mod needs;
 pub mod onto_base;
 mod pull_request_diff;
 mod pull_request_facts;
+mod pull_watch;
 /// What a Link's address names, and the call that fetches it. `#1293`.
 mod reading_in;
 mod reclaim;
