@@ -446,7 +446,7 @@ async fn keeping_a_script_saves_a_trigger_that_applies_to_the_next_job() {
 }
 
 #[tokio::test]
-async fn a_drone_step_cannot_be_kept_for_every_job() {
+async fn a_drone_step_is_kept_for_every_job_as_a_trigger_carrying_its_prompt() {
     let home = TempDir::new();
     let files = Arc::new(Files::default());
     let fleet = a_fleet(&home, &files, manifest(None), Delivering::default());
@@ -470,21 +470,23 @@ async fn a_drone_step_cannot_be_kept_for_every_job() {
         )
         .await
         .unwrap();
-    let refused = fleet
+    let saved = fleet
         .save_trigger(
             ipc::SaveTrigger {
                 scope: ipc::TriggerScope::Machine,
-                definition: "name: read\nwhen: step_passes\ncommand: fmt\n".into(),
+                definition: "name: read\nwhen: step_passes\nbrief: read it twice\n".into(),
                 overwrite: false,
                 kept_from: Some(ipc::KeptFrom {
-                    job_id: wire,
+                    job_id: wire.clone(),
                     addition_id: "a1".into(),
                 }),
             },
             None,
         )
         .await
-        .expect_err("a Drone step is not a Trigger");
-    assert_eq!(code(&refused), "fleet.unacceptable_addition");
-    assert!(files.0.lock().unwrap().is_empty());
+        .expect("a Drone step is a Trigger now");
+    assert_eq!(saved.scope, ipc::TriggerScope::Machine);
+    assert_eq!(files.0.lock().unwrap().len(), 1, "the file was written");
+    let detail = fleet.job_detail(wire).await.unwrap();
+    assert_eq!(detail.additions[0].kept, Some(ipc::TriggerScope::Machine));
 }

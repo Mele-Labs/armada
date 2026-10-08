@@ -56,6 +56,7 @@ impl Store {
             let (resolution, name, asks_first) = match &one.resolution {
                 TriggerResolution::Command { name, asks_first } => ("command", name, *asks_first),
                 TriggerResolution::Skill { name } => ("skill", name, false),
+                TriggerResolution::Drone { brief } => ("drone", brief, false),
                 TriggerResolution::Skipped(TriggerSkipped::NotInThisRepo { command }) => {
                     ("not_in_this_repo", command, false)
                 }
@@ -135,6 +136,7 @@ impl Store {
                     asks_first,
                 },
                 "skill" => TriggerResolution::Skill { name: runs },
+                "drone" => TriggerResolution::Drone { brief: runs },
                 "not_in_this_repo" => {
                     TriggerResolution::Skipped(TriggerSkipped::NotInThisRepo { command: runs })
                 }

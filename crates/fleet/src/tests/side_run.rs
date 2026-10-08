@@ -21,6 +21,8 @@ use crate::tests::triggering::{machine, manifest, to_the_delivering_step, Files}
 type Fixture = Fleet<FakeHarness, FakeVcs, FakeWorkProduct>;
 
 const SKILL_TRIGGER: &str = "name: tidy\nwhen: pr_opened\nskill: simplify\n";
+const DRONE_TRIGGER: &str =
+    "name: notes\nwhen: pr_opened\nbrief: Add a changelog line.\non_failure:\n  repair: true\n";
 const BLOCKING_SKILL_TRIGGER: &str =
     "name: tidy\nwhen: pr_opened\nskill: simplify\non_failure:\n  block: true\n  repair: true\n";
 
@@ -122,7 +124,49 @@ async fn a_skill_trigger_runs_on_a_side_drone_and_what_it_commits_waits_for_a_ch
     let shown = wire.triggers.iter().find(|one| one.name == "tidy").unwrap();
     assert_eq!(shown.state, Wire::FixReady);
     assert!(shown.drone, "a skill's firing says a Drone runs it");
-    assert_eq!(shown.repair.as_ref().and_then(|r| r.branch.clone()), Some(branch));
+    assert_eq!(
+        shown.repair.as_ref().and_then(|r| r.branch.clone()),
+        Some(branch)
+    );
+}
+
+#[tokio::test]
+async fn a_saved_drone_trigger_runs_its_prompt_and_what_it_commits_waits_for_a_choice() {
+    let home = TempDir::new();
+    let fleet = a_fleet(
+        &home,
+        "touch noted",
+        true,
+        &["CHANGELOG.md"],
+        vec![machine("notes.yml", DRONE_TRIGGER)],
+    );
+    let id = to_the_delivering_step(&fleet, &home).await;
+
+    let waiting = only_firing(&fleet, &id).await;
+    assert_eq!(waiting.state, TriggerState::Running);
+    assert_eq!(waiting.repair.tries, 1, "a Drone is on it");
+    assert!(!waiting.on_failure.repair, "repair is ignored for a Drone");
+
+    assert!(fleet.repair_next().await);
+    let held = only_firing(&fleet, &id).await;
+    assert_eq!(held.state, TriggerState::FixReady);
+    assert_eq!(held.repair.files, ["CHANGELOG.md"]);
+
+    // The Trigger's own prompt rode in the Drone's first turn.
+    let shown = fleet
+        .harness()
+        .configured()
+        .iter()
+        .any(|config| config.prompt().as_str().contains("Add a changelog line."));
+    assert!(shown);
+    let wire = fleet.job_detail(ipc::JobId::from(&id)).await.unwrap();
+    let shown = wire
+        .triggers
+        .iter()
+        .find(|one| one.name == "notes")
+        .unwrap();
+    assert_eq!(shown.state, Wire::FixReady);
+    assert!(shown.drone);
 }
 
 #[tokio::test]
@@ -175,7 +219,10 @@ async fn a_blocking_skill_holds_the_job_while_it_runs_and_lets_go_when_it_change
         vec![machine("tidy.yml", BLOCKING_SKILL_TRIGGER)],
     );
     let id = to_the_delivering_step(&fleet, &home).await;
-    assert!(fleet.is_held(&id).await, "it holds the review while it runs");
+    assert!(
+        fleet.is_held(&id).await,
+        "it holds the review while it runs"
+    );
     fleet.work().forgot(&["src/log.rs"]);
 
     assert!(fleet.repair_next().await);
@@ -243,7 +290,12 @@ async fn choosing_this_branch_places_a_skills_fix_with_no_command_to_run_again()
 }
 
 /// `with` added after `implement`, on a Job whose first step's Drone is working.
-async fn with_an_added_step(fleet: &Fixture, home: &TempDir, runs: AddedRuns, block: bool) -> JobId {
+async fn with_an_added_step(
+    fleet: &Fixture,
+    home: &TempDir,
+    runs: AddedRuns,
+    block: bool,
+) -> JobId {
     let job = fleet.propose(a_proposal("fix the reader")).await.unwrap();
     worktree_directory(home, &job);
     let added = ipc::AddStep {
@@ -292,7 +344,10 @@ async fn a_drone_step_runs_its_brief_and_what_it_commits_waits_for_a_choice() {
 
     let queued = the_addition(&fleet, &id).await;
     assert_eq!(queued.fired.as_ref().unwrap().state, TriggerState::Running);
-    assert!(!queued.on_failure.repair, "repair is ignored for a Drone step");
+    assert!(
+        !queued.on_failure.repair,
+        "repair is ignored for a Drone step"
+    );
     assert_eq!(fleet.load(&id).await.unwrap().status(), JobStatus::Running);
 
     assert!(fleet.repair_next().await);

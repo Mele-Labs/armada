@@ -25,9 +25,29 @@ fn a_skill_is_modelled_and_failure_defaults_to_neither_flag() {
 }
 
 #[test]
+fn a_drone_with_a_prompt_loads_and_an_empty_prompt_is_refused_naming_the_key() {
+    let one = parse(
+        Path::new("t.yml"),
+        "name: notes\nwhen: pr_opened\nbrief: |\n  Add a changelog line.\n  Keep it short.\non_failure:\n  block: true\n  repair: true\n",
+    )
+    .unwrap();
+    assert_eq!(
+        one.runs(),
+        &TriggerRuns::Drone("Add a changelog line.\nKeep it short.\n".to_string())
+    );
+    assert!(one.on_failure().block);
+    assert!(!one.on_failure().repair, "a Drone fixes its own failures");
+    for empty in ["brief: ''", "brief: '  '", "brief:"] {
+        let why = refused(&format!("name: notes\nwhen: pr_opened\n{empty}\n"));
+        assert!(why.contains("`brief`"), "{empty}: {why}");
+    }
+}
+
+#[test]
 fn it_runs_one_thing_and_pr_opened_names_no_step() {
-    assert!(refused("name: r\nwhen: step_starts\ncommand: a\nskill: b\n").contains("not both"));
-    assert!(refused("name: r\nwhen: step_starts\n").contains("neither"));
+    assert!(refused("name: r\nwhen: step_starts\ncommand: a\nskill: b\n").contains("one of"));
+    assert!(refused("name: r\nwhen: step_starts\ncommand: a\nbrief: b\n").contains("one of"));
+    assert!(refused("name: r\nwhen: step_starts\n").contains("a `command`, a `skill` or a `brief`"));
     assert!(refused("name: r\nwhen: pr_opened\nstep: x\ncommand: a\n").contains("`step`"));
 }
 

@@ -57,6 +57,9 @@ pub enum TriggerRuns {
     /// A skill a side Drone runs, on a branch of its own. Its `repair` is
     /// ignored: a Drone already fixes its own failures.
     Skill(String),
+    /// A Drone sent with this prompt, on a branch of its own, as a Drone step
+    /// added to one Job is. Its `repair` is ignored too.
+    Drone(String),
 }
 
 /// What a failure does. **Both off unless the file says otherwise.**
@@ -170,7 +173,7 @@ impl Trigger {
 
     pub fn with_failure(self, on_failure: OnTriggerFailure) -> Trigger {
         let on_failure = match self.runs {
-            TriggerRuns::Skill(_) => on_failure.for_a_drone(),
+            TriggerRuns::Skill(_) | TriggerRuns::Drone(_) => on_failure.for_a_drone(),
             TriggerRuns::Command(_) => on_failure,
         };
         Trigger { on_failure, ..self }
@@ -226,6 +229,8 @@ pub enum TriggerResolution {
     Command { name: String, asks_first: bool },
     /// A side Drone runs the skill, on a branch cut from the Job's.
     Skill { name: String },
+    /// A side Drone does what the prompt says, on a branch cut from the Job's.
+    Drone { brief: String },
     /// Marked on the Job and not run. Never a refusal.
     Skipped(TriggerSkipped),
 }

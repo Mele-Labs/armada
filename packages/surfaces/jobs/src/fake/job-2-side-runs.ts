@@ -63,6 +63,15 @@ export function job2SideRuns(): JobFixture {
   return { ...named, watched: { ...named.watched, detail: { ...named.watched.detail, additions: [RUNNING_STEP] } } };
 }
 
+/** The saved Trigger the `aDroneTrigger` walk makes: a prompt, named for its first words (23.75). */
+export const DRONE_TRIGGER = "add-a-changelog-line";
+
+/** Job 2 at its review gate with that Trigger fired when the pull request opened, its Drone at work. */
+export function job2DroneTrigger(): JobFixture {
+  const triggers = JOB_2_TRIGGERS.map((one) => (one.name === "deploy_qa" ? { ...RUNNING_TRIGGER, name: DRONE_TRIGGER } : one));
+  return { ...job2AtReviewWith(triggers), name: "Job 2, at its review gate, a saved Drone Trigger running" };
+}
+
 /** The Drone committed: the Trigger's fix waits on the owner. */
 export const sideFixHeld = (one: JobTrigger): JobTrigger => ({ ...one, state: "fix_ready", repair: { ...one.repair!, files: SIDE_TRIGGER_FILES } });
 

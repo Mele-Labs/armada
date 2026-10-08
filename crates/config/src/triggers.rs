@@ -28,6 +28,7 @@ const KEYS: &[&str] = &[
     "step",
     "command",
     "skill",
+    "brief",
     "on_failure",
 ];
 const FAILURE_KEYS: &[&str] = &["block", "repair"];
@@ -132,28 +133,36 @@ fn read(root: &Value, out: &mut Vec<Refusal>) -> Option<Trigger> {
     let skill = table
         .optional("skill")
         .and_then(|v| yaml::text("skill", v, out));
-    let runs = match (table.present("command"), table.present("skill")) {
-        (true, true) => {
-            let wanted = "a `command` or a `skill`, not both";
+    let brief = table
+        .optional("brief")
+        .and_then(|v| yaml::text("brief", v, out));
+    let given = ["command", "skill", "brief"]
+        .into_iter()
+        .filter(|key| table.present(key))
+        .count();
+    let runs = match given {
+        1 => command
+            .map(TriggerRuns::Command)
+            .or_else(|| skill.map(TriggerRuns::Skill))
+            .or_else(|| brief.map(TriggerRuns::Drone)),
+        0 => {
+            let wanted = "a `command`, a `skill` or a `brief`";
             let fault = Fault::WrongType {
                 wanted,
-                found: "both",
-            };
-            out.push(Refusal::new("skill", fault));
-            None
-        }
-        (false, false) => {
-            let wanted = "a `command` or a `skill`";
-            let fault = Fault::WrongType {
-                wanted,
-                found: "neither",
+                found: "none",
             };
             out.push(Refusal::new("command", fault));
             None
         }
-        _ => command
-            .map(TriggerRuns::Command)
-            .or_else(|| skill.map(TriggerRuns::Skill)),
+        _ => {
+            let wanted = "one of `command`, `skill` or `brief`";
+            let fault = Fault::WrongType {
+                wanted,
+                found: "more than one",
+            };
+            out.push(Refusal::new("skill", fault));
+            None
+        }
     };
     let failure = match table.optional("on_failure") {
         Some(value) => failure(value, out),
@@ -360,6 +369,9 @@ impl Catalogue {
 fn resolution(trigger: &Trigger, manifest: &Manifest) -> TriggerResolution {
     match trigger.runs() {
         TriggerRuns::Skill(name) => TriggerResolution::Skill { name: name.clone() },
+        TriggerRuns::Drone(brief) => TriggerResolution::Drone {
+            brief: brief.clone(),
+        },
         TriggerRuns::Command(name) => match manifest.command(name) {
             Some(command) => TriggerResolution::Command {
                 name: name.clone(),
