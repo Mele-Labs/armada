@@ -79,7 +79,8 @@ impl Delivery {
 pub fn branch_is_done_with(state: TriggerState, choice: Option<FixChoice>) -> bool {
     match state {
         TriggerState::Failed | TriggerState::Held => choice != Some(FixChoice::NewPr),
-        TriggerState::Passed => choice == Some(FixChoice::ThisBranch),
+        // Passed with no choice is a side run that changed nothing.
+        TriggerState::Passed => choice != Some(FixChoice::NewPr),
         _ => false,
     }
 }
@@ -178,6 +179,10 @@ pub(crate) struct Waiting {
     pub stderr: String,
     /// What the repair had come to, for one a restart took up again.
     pub record: RepairRecord,
+    /// The whole brief of a Skill or Drone run, where this is one and not a
+    /// repair: `command` and the output are then empty, there is no Command
+    /// to run again, and no second try.
+    pub side: Option<String>,
 }
 
 #[derive(Default)]

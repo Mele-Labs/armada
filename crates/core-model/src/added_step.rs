@@ -21,11 +21,11 @@ pub enum AddedKind {
     /// A Command named in the repository's `armada.yml`. Fleet runs it with no
     /// Drone, as it runs a command Trigger.
     Script { command: String },
-    /// A skill a Drone runs. Recorded `skipped`, as a skill Trigger is.
+    /// A skill a side Drone runs, on a branch cut from the Job's.
     Skill { skill: String },
-    /// A short brief for a Drone. **Recorded `skipped` and not run**: a step a
-    /// Drone works needs a gate, and the frozen workflow's step rows are the
-    /// only gate Fleet has.
+    /// A short brief for a side Drone, on a branch cut from the Job's. **It
+    /// gates nothing**: the frozen workflow's step rows are the only gate, and
+    /// the Drone's work is held as a fix for the owner to place.
     Drone { brief: String },
 }
 
@@ -108,9 +108,10 @@ impl Kept {
 pub enum NotRun {
     /// It names a Command this repository's `armada.yml` does not declare.
     NotInThisRepo { command: String },
-    /// A skill, which a Drone runs and Fleet does not yet.
+    /// **No longer produced** (23.73): a skill runs on a side Drone. Kept so a
+    /// row an earlier build wrote still reads.
     SkillNotRun { skill: String },
-    /// A Drone step, which needs a gate Fleet does not have for it.
+    /// **No longer produced** (23.73), as [`NotRun::SkillNotRun`].
     DroneStepNotRun,
     /// The owner skipped it while it held the Job.
     ByOwner,
@@ -208,6 +209,7 @@ pub struct AddedStep {
     /// The step it hangs from. For [`TriggerWhen::PrOpened`], the delivering one.
     pub step: StepId,
     /// `block` and `repair` are both acted on, a Script's as a Trigger's are.
+    /// A Skill's and a Drone's `repair` is always off.
     pub on_failure: OnTriggerFailure,
     pub placed: Placed,
     pub added_at: Timestamp,
@@ -226,10 +228,10 @@ impl AddedStep {
     pub fn holds_the_job(&self, workflow: &FrozenWorkflow) -> bool {
         self.on_failure.block
             && can_hold(workflow, self.when, &self.step)
-            && self
-                .fired
-                .as_ref()
-                .is_some_and(|fired| fired.state.holds_a_blocking_job())
+            && self.fired.as_ref().is_some_and(|fired| {
+                fired.state.holds_a_blocking_job()
+                    || self.repair.side_run_in_flight(fired.state)
+            })
     }
 }
 

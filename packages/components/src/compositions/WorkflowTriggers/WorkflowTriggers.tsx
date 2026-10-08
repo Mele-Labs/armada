@@ -28,6 +28,8 @@ import { Switch } from "../../primitives/Switch/Switch";
 import { Textarea } from "../../primitives/Textarea/Textarea";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import type { WorkflowStepCardProps } from "../WorkflowStepCard/WorkflowStepCard";
+import { additionName } from "./side-branches";
+import type { SideBranch } from "./side-branches";
 import {
   blankDraft,
   definitionOf,
@@ -133,11 +135,14 @@ export function TriggerRows({
 function Fails({
   block,
   repair,
+  repairable = true,
   onChange,
   disabled = false,
 }: {
   block: boolean;
   repair: boolean;
+  /** A Skill or a Drone step has no Self repair: a Drone already fixes its own failures, so the switch is not drawn. */
+  repairable?: boolean;
   onChange: (next: { block?: boolean; repair?: boolean }) => void;
   /** An added step already on a Job is read: Fleet has no edit for one, so the switches are set before it is added. */
   disabled?: boolean;
@@ -148,9 +153,11 @@ function Fails({
       <Switch checked={block} disabled={disabled} onChange={(event) => onChange({ block: event.target.checked })}>
         Block the Job
       </Switch>
-      <Switch checked={repair} disabled={disabled} onChange={(event) => onChange({ repair: event.target.checked })}>
-        Self repair
-      </Switch>
+      {repairable ? (
+        <Switch checked={repair} disabled={disabled} onChange={(event) => onChange({ repair: event.target.checked })}>
+          Self repair
+        </Switch>
+      ) : null}
     </div>
   );
 }
@@ -201,7 +208,7 @@ function TriggerFields({
         <option value="repository">Repository</option>
         <option value="machine">This machine</option>
       </Select>
-      <Select label="Runs" value={draft.runs} onChange={(event) => onChange({ runs: event.target.value as TriggerDraft["runs"], with: "" })}>
+      <Select label="Runs" value={draft.runs} onChange={(event) => onChange({ runs: event.target.value as TriggerDraft["runs"], with: "", ...(event.target.value === "skill" ? { repair: false } : {}) })}>
         <option value="command">Command</option>
         <option value="skill">Skill</option>
       </Select>
@@ -217,7 +224,7 @@ function TriggerFields({
       ) : (
         <Input label="Skill" mono value={draft.with} onChange={(event) => onChange({ with: event.target.value })} />
       )}
-      <Fails block={draft.block} repair={draft.repair} onChange={onChange} />
+      <Fails block={draft.block} repair={draft.repair} repairable={draft.runs === "command"} onChange={onChange} />
     </>
   );
 }
@@ -572,7 +579,7 @@ export function AddedFields({
       ) : (
         <Input label="Skill" mono value={runs.skill} onChange={(event) => change({ runs: { kind: "skill", skill: event.target.value } })} />
       )}
-      <Fails block={one.block} repair={one.repair} disabled={!editable} onChange={change} />
+      <Fails block={one.block} repair={one.repair} repairable={runs.kind === "script"} disabled={!editable} onChange={change} />
       {onKeep === undefined && onRemove === undefined ? null : (
         <div className="armada-triggers__acts">
           {onKeep === undefined || runs.kind === "drone" || one.kept !== undefined ? null : (
@@ -596,19 +603,23 @@ export function AddedFields({
  * made; `placing` is one chosen and kept until it can be placed. `none` is a Trigger no repair
  * Drone has been put on.
  */
-export type RepairPhase = "none" | "working" | "rerunning" | "asking" | "placing" | "done" | "failed";
+export type RepairPhase = "none" | "working" | "running" | "rerunning" | "asking" | "placing" | "done" | "failed";
 
 export function repairPhase(trigger: JobTrigger): RepairPhase {
   if (trigger.repair === undefined) return "none";
   switch (trigger.state) {
     case "repairing":
       return "working";
+    // A Skill or Drone step with a Drone on it: a Command that is running has no repair record.
+    case "running":
+      return "running";
     case "rerunning":
       return "rerunning";
     case "fix_ready":
       return trigger.repair.choice === undefined ? "asking" : "placing";
+    // A Skill or Drone step that changed nothing leaves no branch and no choice.
     case "passed":
-      return "done";
+      return trigger.repair.choice === undefined ? "none" : "done";
     case "failed":
     case "held":
       return "failed";
@@ -618,7 +629,7 @@ export function repairPhase(trigger: JobTrigger): RepairPhase {
 }
 
 /** A Job's Triggers that have a repair under way, held or ended, in the order they fired. */
-export function repairsOf(triggers: readonly JobTrigger[]): JobTrigger[] {
+export function repairsOf<T extends JobTrigger>(triggers: readonly T[]): T[] {
   return triggers.filter((one) => repairPhase(one) !== "none");
 }
 
@@ -641,6 +652,7 @@ export function triggerAlert(triggers: readonly JobTrigger[], additions: readonl
 const REPAIR_MARK: Record<RepairPhase, { Glyph: LucideIcon; said: string; hue?: string; pulsing?: true } | undefined> = {
   none: undefined,
   working: { Glyph: CircleDot, said: "Repair Drone working", hue: "running", pulsing: true },
+  running: { Glyph: CircleDot, said: "Running", hue: "running", pulsing: true },
   rerunning: { Glyph: CircleDot, said: "Trigger running again", hue: "running", pulsing: true },
   asking: undefined,
   placing: { Glyph: CircleDashed, said: "Pending" },
@@ -654,7 +666,7 @@ const REPAIR_MARK: Record<RepairPhase, { Glyph: LucideIcon; said: string; hue?: 
  * and in its stacked run, from the Trigger's row. **A choice is sent once**: the buttons wait for
  * the answer, and come back where Fleet refused it.
  */
-export function RepairNode({ trigger, onChoose }: { trigger: JobTrigger; onChoose?: (trigger: JobTrigger, choice: TriggerFixChoice) => Promise<{ ok: boolean }> | void }) {
+export function RepairNode({ trigger, onChoose }: { trigger: SideBranch; onChoose?: (trigger: SideBranch, choice: TriggerFixChoice) => Promise<{ ok: boolean }> | void }) {
   const [sent, setSent] = useState(false);
   const phase = repairPhase(trigger);
   const mark = REPAIR_MARK[phase];
@@ -668,13 +680,13 @@ export function RepairNode({ trigger, onChoose }: { trigger: JobTrigger; onChoos
   return (
     <div className="armada-repair" data-phase={phase}>
       <div className="armada-repair__head">
-        <Mark icon={GitBranch} label="Repair branch" />
+        <Mark icon={GitBranch} label={trigger.drone === true ? "Drone branch" : "Repair branch"} />
         <span className="armada-triggers__name">{trigger.name}</span>
         <span className="armada-repair__state">
           {mark === undefined ? null : <Mark icon={mark.Glyph} label={mark.said} {...(mark.hue === undefined ? {} : { hue: mark.hue })} pulsing={mark.pulsing === true} />}
         </span>
       </div>
-      {files.length === 0 || phase === "working" ? null : (
+      {files.length === 0 || phase === "working" || phase === "running" ? null : (
         <ul className="armada-repair__fix" aria-label="The fix">
           {files.map((path) => (
             <li key={path}>
@@ -741,8 +753,8 @@ export type HoldVerb = "rerun" | "skip";
 /** The states in which a blocking firing still holds the Job: held, and the repair that works on it. */
 const HOLDING: readonly TriggerFiringState[] = ["held", "repairing", "rerunning", "fix_ready"];
 
-const additionName = (one: AddedStep): string =>
-  one.runs.kind === "script" ? one.runs.command : one.runs.kind === "skill" ? one.runs.skill : one.runs.brief;
+/** A Skill or Drone step with a Drone on it holds the Job where it blocks: `running` with a repair record. */
+const droneRunning = (state: TriggerFiringState, repair: unknown): boolean => state === "running" && repair !== undefined;
 
 /** What holds the Job now, from the latest firing of each Trigger and each added step. */
 export function holdsOf(triggers: readonly JobTrigger[], additions: readonly AddedStep[] = []): Held[] {
@@ -750,12 +762,12 @@ export function holdsOf(triggers: readonly JobTrigger[], additions: readonly Add
   for (const one of triggers) latest.set(`${one.when}|${one.step}|${one.name}`, one);
   const held: Held[] = [];
   for (const [key, one] of latest) {
-    if (one.state === "held" || (one.blocks === true && HOLDING.includes(one.state))) {
+    if (one.state === "held" || (one.blocks === true && (HOLDING.includes(one.state) || droneRunning(one.state, one.repair)))) {
       held.push({ key, name: one.name, when: one.when, step: one.step, by: { trigger: one.name }, state: one.state });
     }
   }
   for (const one of additions) {
-    if (one.state === "held" || (one.block && HOLDING.includes(one.state))) {
+    if (one.state === "held" || (one.block && (HOLDING.includes(one.state) || droneRunning(one.state, one.repair_record)))) {
       held.push({ key: `addition|${one.id}`, name: additionName(one), when: one.when, step: one.step, by: { addition: one.id }, state: one.state });
     }
   }

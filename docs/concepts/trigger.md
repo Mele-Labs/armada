@@ -6,7 +6,7 @@
 
 **Kind:** Concept.
 
-**Built:** the model, the loader, the freeze at approval, Fleet firing a Command Trigger, `repair`, the wire to Bridge, Bridge's saved Triggers, step cards and Job card, steps added to one Job in Fleet and on the wire, the `+` that adds one on Bridge's approval canvas and a running Job's Workflow tab, the repair branch on a Job's canvases, and `block`, which holds the Job, with the owner's Rerun and Skip, a bell on a Board row, and the hold on Bridge's canvas and list. Skills, Drone steps and asking the owner about a destructive Command are not.
+**Built:** the model, the loader, the freeze at approval, Fleet firing a Command Trigger, `repair`, the wire to Bridge, Bridge's saved Triggers, step cards and Job card, steps added to one Job in Fleet and on the wire, the `+` that adds one on Bridge's approval canvas and a running Job's Workflow tab, the repair branch on a Job's canvases, and `block`, which holds the Job, with the owner's Rerun and Skip, a bell on a Board row, and the hold on Bridge's canvas and list. Skill Triggers, Skill steps and Drone steps run on a side Drone (23.73). Asking the owner about a destructive Command is not built.
 
 ## What a Trigger is
 
@@ -19,7 +19,7 @@
 | `command` or `skill` | a name | One of the two |
 | `on_failure` | `block`, `repair` | Both default to false |
 
-**A Command is run by Fleet with no Drone, and a skill by a Drone.** Skills are modelled and not executed: one is recorded `skipped`.
+**A Command is run by Fleet with no Drone, and a skill by a Drone.** A skill runs as a side Drone, below, and never skips.
 
 ## Where one is set
 
@@ -151,10 +151,10 @@ A person can add a step to one Job without writing a workflow. It lives in the J
 | Kind | Runs | Becomes |
 |---|---|---|
 | Script | A Command named in `armada.yml`, by Fleet with no Drone | Fires as a command Trigger does |
-| Skill | A skill, by a Drone | Recorded `skipped`, as a skill Trigger is |
-| Drone step | A short brief, by a Drone | Recorded `skipped`, and says so |
+| Skill | A skill, by a side Drone | Runs as a Skill Trigger does |
+| Drone step | A short brief, by a side Drone | Runs the brief with the Job's context |
 
-**A place is a moment and a step**, a Trigger's. Before a step is its `step_starts`, after it is its `step_passes`, the gap before the pull request opens is the delivering step's `step_starts`, and the gap after is `pr_opened`. After merge is deferred. Each carries `block` and `repair`, off unless set, and both are acted on for a Script. A Script that fails with `repair` on goes through the repair above, whole: `repairing`, `rerunning`, `fix_ready`, two tries, then `failed` or `held` and an alert. The owner places the fix with `choose_trigger_fix` naming the step's id as `addition`, and its record is `AddedStep.repair_record`. A Skill and a Drone step fail nothing, so they repair nothing.
+**A place is a moment and a step**, a Trigger's. Before a step is its `step_starts`, after it is its `step_passes`, the gap before the pull request opens is the delivering step's `step_starts`, and the gap after is `pr_opened`. After merge is deferred. Each carries `block` and `repair`, off unless set, and both are acted on for a Script. A Script that fails with `repair` on goes through the repair above, whole: `repairing`, `rerunning`, `fix_ready`, two tries, then `failed` or `held` and an alert. The owner places the fix with `choose_trigger_fix` naming the step's id as `addition`, and its record is `AddedStep.repair_record`. A Skill and a Drone step ignore `repair`: a Drone already fixes its own failures.
 
 | When it is added | Which gaps |
 |---|---|
@@ -164,8 +164,23 @@ A person can add a step to one Job without writing a workflow. It lives in the J
 > **Rule.** A step added to a Job fires through the Trigger path and records on its own row.
 > Why: it has no level, so `job_triggers` would need a fourth one. The latest state is kept on the addition, and each firing is a line in the Job's log.
 
-> **Rule.** A Drone step is recorded `skipped` and not run.
-> Why: a step a Drone works needs a gate, and the frozen workflow's step rows are the only one Fleet has. A second gate model for one Job is not a step.
+> **Rule.** A Drone step gates nothing. It runs on a side Drone and its work is held as a fix.
+> Why: a step a Drone works as a gate needs the frozen workflow's step rows, and a second gate model for one Job is not a step. A side Drone leaves the Job's own steps alone.
+
+## A Skill or a Drone step
+
+**Chosen 8 Oct 2026.** A Skill Trigger, a Skill added step and a Drone added step run on a **side Drone**: a branch cut from the Job's at the moment it fires, its own slot, through the repair's queue, so it waits for a slot as a repair does and its spend counts against the Job. It gates the Job only where `block` is on.
+
+| The Drone | Becomes |
+|---|---|
+| Committed changes | `fix_ready`: the owner chooses This branch or New PR, as for a repair. This branch ends `passed` once merged, with no Command to run again |
+| Changed nothing and ended | `passed`, and the branch is given back |
+| Would not start, ran past its budget, or stopped before its turn ended | `failed`, or `held` with `block`. Rerun puts the Drone on again and Skip lets it go |
+
+- **In flight it is `running` with a repair record** (`tries` 1), which tells it from a Command that is running. A restart finds it by that and works it again. With `block` on, that holds the Job.
+- **`repair` is ignored.** A Trigger file naming a skill loads with it off, an addition stores it off, and Bridge draws no switch. A file is not refused for it.
+- **The Drone is told** `RUN THE SKILL` and the skill, or the step's brief, with the Job's title, branch and the moment. Fleet commits what it wrote; it is told not to commit or push.
+- `skill_not_run` and `drone_step_not_run` stay on the wire so older rows read, and are no longer produced.
 
 **Fleet has no edit for an addition**, so its switches are set before it is added: at the gate it is held in the approval until the press, and on a running Job it is filled in and then added. An addition can be removed until its moment has come. **Keeping it for every Job** is `save_trigger` with `kept_from`: the editor draws the Trigger, Fleet writes it at This machine or Repository, and the addition says where it went. A Script or a Skill can be kept and a Drone step cannot. A kept one applies from the next Job, as every saved Trigger does.
 
