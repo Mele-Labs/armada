@@ -63,7 +63,7 @@ export type { HistoryStep, Summons } from "./api/core";
  */
 export function identifying(state: BridgeState): BridgeState {
   const fleetProtocol =
-    "fleet" in state.connection ? spoken(state.connection.fleet.protocolVersion) : null;
+    "fleet" in state.connection ? spoken(state.connection.fleet.protocolId) : null;
   if (fleetProtocol === state.bridge.fleetProtocol) return state;
   return { ...state, bridge: { ...state.bridge, fleetProtocol } };
 }

@@ -27,8 +27,8 @@
 use serde::{Deserialize, Serialize};
 
 use crate::ids::{DroneId, Instant, JobId, StepId};
+use crate::protocol_id::ProtocolId;
 use crate::turn::Voice;
-use crate::version::ProtocolVersion;
 
 /// How bad a note is, in the envelope's own five.
 ///
@@ -163,7 +163,7 @@ pub struct JobLog {
 /// handed, and what it left behind.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct JournalOpened {
-    pub protocol_version: ProtocolVersion,
+    pub protocol_id: ProtocolId,
     pub job_id: JobId,
     /// Older notes the first read left out, because the window is bounded.
     ///

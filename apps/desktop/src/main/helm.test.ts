@@ -15,7 +15,7 @@ import type { HelmContext, HelmThread, RepositorySummary } from "@armada/protoco
 import { HelmConnection, HelmSocket } from "./helm";
 
 const MANIFEST = "01M2ARMADA0000000000000000";
-const OPENED = { message: "opened", protocol_version: { major: 13, minor: 38 }, manifest_id: MANIFEST, replying: false, skipped: 0 };
+const OPENED = { message: "opened", protocol_id: "0000000000000000", manifest_id: MANIFEST, replying: false, skipped: 0 };
 const A_REPLY = { message: "row", ts: "2026-09-13T10:00:00.000Z", event: "said", text: "Job 12 is waiting on a command." };
 const ENDED = { message: "row", ts: "2026-09-13T10:00:01.000Z", event: "ended", turns: 3, cost_micros: 12_000, refusals: 0 };
 

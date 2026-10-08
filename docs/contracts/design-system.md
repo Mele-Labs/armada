@@ -2339,17 +2339,19 @@ and up only; the running count is Overview's own arithmetic, read once and
 shared by both panels.
 
 The two failure states differ on the runtime file, which is the fact
-that separates them: Fleet writes port, pid and protocol version on
+that separates them: Fleet writes port, pid and protocol ID on
 startup and removes them on a clean exit, so a missing file is a Fleet
 that is not there and a live pid with no answer is a Fleet that is
 wedged. Two different things to do about it, so two sentences rather
 than one timeout message.
 
-**A version gap rides the running state, not a fourth dot.** Where Fleet is
-newer than this Bridge — additive only, so nothing drawn is wrong — a
-detail line under the rows names both versions, as advice on a healthy
-connection rather than a failure notice. See `../practices/protocol.md`,
-What Bridge does with the version it reads.
+**A protocol mismatch is a degraded notice, not a fourth dot.** Where Fleet and
+this Bridge carry different protocol IDs, Bridge opens no socket and the notice
+reads "Fleet and Bridge do not match", with the first eight digits of each ID in
+its detail row and a Restart Fleet button (rotate-cw, spinning while it works;
+the tooltip names what a working Drone costs). Fleet is alive and its Jobs keep
+running, so the edge is the degraded one and the headline is not red. See
+`../practices/protocol.md`, What Bridge does with the ID it reads.
 
 ### Closed
 

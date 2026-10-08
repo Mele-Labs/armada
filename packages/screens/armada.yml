@@ -10,8 +10,7 @@ id: armada-screens
 #
 # Not `packages/icons`: nothing here imports it, and the registry reaches this
 # package through `components`. `crates/core-model/domain/**` carries the Studio
-# kinds the screens fold over, and `protocol-version.toml` is the root's own
-# line for the generated wire types.
+# kinds the screens fold over.
 depends_on:
   - "packages/components/**"
   - "packages/shell/**"
@@ -19,7 +18,6 @@ depends_on:
   - "packages/brand/**"
   - "packages/protocol/**"
   - "crates/core-model/domain/**"
-  - "protocol-version.toml"
   - "package.json"
   - "pnpm-lock.yaml"
   - "pnpm-workspace.yaml"

@@ -465,7 +465,7 @@ fn what_the_narrowed_checks_read_still_selects_them() {
         "Cargo.toml",
         "Cargo.lock",
         ".cargo/config.toml",
-        "protocol-version.toml",
+        "packages/protocol/src/connection.ts",
         ".armada/workflows/bug.json",
         "armada.yml",
     ] {

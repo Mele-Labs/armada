@@ -19,7 +19,7 @@ import {
 import type { Filing } from "@armada/components";
 
 import type { BridgeIdentity } from "@armada/protocol";
-import type { KeyboardEvent } from "react";
+import type { KeyboardEvent, ReactNode } from "react";
 import { CopiedToast, ToastRegion, useCopied } from "./CopiedToast";
 import type { Caught, Failure } from "./failures";
 import { rendererFailure } from "./failures";
@@ -81,6 +81,8 @@ export type FailureBlockProps = {
   reloadable?: boolean;
   /** Where the failure is a standing answer a person clears rather than fixes. */
   onDismiss?: () => void;
+  /** What a person can do about this one failure, ahead of the acts every failure has. */
+  acts?: ReactNode;
 };
 
 /**
@@ -107,6 +109,7 @@ export function FailureBlock({
   onCopied,
   reloadable = true,
   onDismiss,
+  acts,
 }: FailureBlockProps) {
   return (
     <FailureNotice
@@ -129,6 +132,7 @@ export function FailureBlock({
       onCopied={onCopied}
       actions={
         <>
+          {acts}
           {reloadable ? (
             <Button
               variant="ghost"

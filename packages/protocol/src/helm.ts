@@ -12,7 +12,7 @@
 
 import type { Missed } from "./events";
 import type { Saw, Voice } from "./turn";
-import type { ProtocolVersion } from "./version";
+import type { ProtocolId } from "./connection";
 
 /** `POST /helm/ask` — what a person says to Helm. Blank is refused before this is sent. */
 export type AskHelm = {
@@ -83,7 +83,7 @@ export type HelmMessage =
 
 /** The first message on every connection. */
 export type HelmOpened = {
-  protocol_version: ProtocolVersion;
+  protocol_id: ProtocolId;
   manifest_id: string;
   /** Whether a reply was being written when this opened. */
   replying: boolean;

@@ -10,9 +10,8 @@
 //! `packages/components/.../vocabulary.ts` are one generator writing one string
 //! twice, so they cannot disagree and proving they agree proves nothing.
 //!
-//! **The rule refuses; it does not rewrite** — the argument
-//! [`crate::rules_protocol::version`] makes for the same codegen. A gate that
-//! silently runs the generator means nobody learns the step exists.
+//! **The rule refuses; it does not rewrite.** A gate that silently runs the
+//! generator means nobody learns the step exists.
 
 // Why this one runs the generator and rule eleven does not.
 //
@@ -58,7 +57,6 @@ const WRITE: &str = "pnpm --filter @armada/desktop codegen";
 const REQUIRED: &[&str] = &[
     "packages/components/src/generated/vocabulary.ts",
     "packages/components/src/generated/actions.ts",
-    "packages/protocol/src/generated/protocol-version.ts",
 ];
 
 /// Rule: the generated vocabulary says what the registries say.

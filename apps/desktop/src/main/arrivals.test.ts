@@ -9,7 +9,7 @@
 
 import { describe, expect, it, vi } from "vitest";
 
-import { PROTOCOL_VERSION } from "@armada/protocol";
+import { PROTOCOL_ID } from "@armada/protocol";
 import type {
   CommandInFlight,
   JobSummary,
@@ -25,7 +25,7 @@ import { Questions } from "./questions";
 import type { ReviewMaterial } from "./review";
 
 const JOB_ID = "01M1HQZAKN001AJ5MT3PT09KKY";
-const FLEET = { protocolVersion: PROTOCOL_VERSION, pid: 1, port: 1, startedAt: "" };
+const FLEET = { protocolId: PROTOCOL_ID, pid: 1, port: 1, startedAt: "" };
 
 function job(over: Partial<JobSummary> = {}): JobSummary {
   return {

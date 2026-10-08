@@ -18,7 +18,6 @@ import { join } from "node:path";
 
 import type { BridgeIdentity } from "@armada/protocol";
 import type { Absence, FleetIdentity, RuntimeFault } from "@armada/protocol";
-import { versionOf } from "@armada/protocol";
 
 /** Not `fleet.pid`: it carries four fields, and something would eventually `cat` it. */
 const FILE_NAME = "fleet.json";
@@ -111,14 +110,14 @@ export function holderOf(pid: number): Holder {
 function identity(parsed: unknown): FleetIdentity | null {
   if (typeof parsed !== "object" || parsed === null) return null;
   const record = parsed as Record<string, unknown>;
-  const { protocol_version: version, pid, port, started_at: startedAt } = record;
-  // A pair, or the bare integer a Fleet from before the pair wrote. Refusing
-  // the old form would tell a person their runtime file is corrupt when it is
-  // only old — and skew is the reading that belongs on that screen.
-  const speaks = versionOf(version);
-  if (speaks === null || typeof pid !== "number") return null;
+  const { protocol_id: id, pid, port, started_at: startedAt } = record;
+  // A file from a Fleet before IDs has none. Refusing it would tell a person
+  // their runtime file is corrupt when it is only old, so it reads as an ID
+  // nothing equals and the mismatch screen names it.
+  const speaks = typeof id === "string" ? id : "";
+  if (typeof pid !== "number") return null;
   if (typeof port !== "number" || typeof startedAt !== "string") return null;
-  return { protocolVersion: speaks, pid, port, startedAt };
+  return { protocolId: speaks, pid, port, startedAt };
 }
 
 /**

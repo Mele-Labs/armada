@@ -15,6 +15,7 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::added_steps::JobAdditionChanged;
 use crate::commanding::CommandInFlight;
 use crate::detail::{JudgeInFlight, Settled};
 use crate::enums::{Actor, EvidenceType, JobStatus, StepState};
@@ -26,16 +27,15 @@ use crate::ids::{CriterionId, DroneId, Instant, JobId, StepId};
 use crate::job::{JobForgotten, JobList, JobSummary};
 use crate::merge_line::MergeLines;
 use crate::proposing::ProposalInFlight;
+use crate::protocol_id::ProtocolId;
 use crate::reading::ManifestReading;
 use crate::rehearsal::{CheckoutRunRecord, RunRecord};
 use crate::repositories::RepositoryList;
 use crate::servers::ServerState;
 use crate::sessions::SessionRecord;
 use crate::studio::{Studio, StudioDeleted, StudioHelmActed};
-use crate::added_steps::JobAdditionChanged;
 use crate::triggers::JobTriggerChanged;
 use crate::underway::ChecksUnderway;
-use crate::version::ProtocolVersion;
 use crate::waiting::QuestionInFlight;
 use crate::work::LineCount;
 use crate::work_plan::JobPlanChanged;
@@ -77,7 +77,7 @@ pub enum StreamMessage {
 pub struct Resync {
     /// Restated on the stream so a client that reached the socket without
     /// reading the runtime file still learns what it is talking to.
-    pub protocol_version: ProtocolVersion,
+    pub protocol_id: ProtocolId,
     /// The position this state is current as of. The next `Event` carries a
     /// later one.
     pub cursor: Cursor,

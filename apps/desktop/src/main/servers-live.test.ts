@@ -12,7 +12,7 @@ import type { AddressInfo, Socket } from "node:net";
 import { afterEach, expect, it } from "vitest";
 import { WebSocketServer, type WebSocket } from "ws";
 
-import { PROTOCOL_VERSION, type ServerState } from "@armada/protocol";
+import { PROTOCOL_ID, type ServerState } from "@armada/protocol";
 import type { BridgeState, PickedView } from "../shared/bridge";
 import { FleetConnection } from "./connection";
 import { holderOf } from "./runtime-file";
@@ -76,7 +76,7 @@ async function bridgeOn(port: number) {
   await mkdir(dir, { recursive: true });
   const holder = holderOf(process.pid);
   const startedAt = holder.held === true ? holder.startedAt : "";
-  await writeFile(join(dir, "fleet.json"), JSON.stringify({ protocol_version: PROTOCOL_VERSION, pid: process.pid, port, started_at: startedAt }));
+  await writeFile(join(dir, "fleet.json"), JSON.stringify({ protocol_id: PROTOCOL_ID, pid: process.pid, port, started_at: startedAt }));
   let latest: BridgeState | null = null;
   const views = new Map<number, PickedView>();
   const waits: { holds: (state: BridgeState) => boolean; keep: () => void }[] = [];
@@ -134,7 +134,7 @@ it("draws a main-checkout server as it moves, on the Manifest surface's sheet", 
   const { port, held, client } = await fleet();
   const { connection, until, untilView } = await bridgeOn(port);
   const socket = await client;
-  socket.send(JSON.stringify({ message: "resync", protocol_version: PROTOCOL_VERSION, cursor: 1, jobs: { jobs: [] } }));
+  socket.send(JSON.stringify({ message: "resync", protocol_id: PROTOCOL_ID, cursor: 1, jobs: { jobs: [] } }));
   await until("connected", (state) => state.connection.state === "connected");
 
   await connection.rehearsal.watchCheckoutRunSheet(WINDOW, true);
@@ -155,7 +155,7 @@ it("draws a Job's server as it moves, on that Job's run sheet and no other", asy
   const { port, held, client } = await fleet();
   const { connection, until, latest } = await bridgeOn(port);
   const socket = await client;
-  socket.send(JSON.stringify({ message: "resync", protocol_version: PROTOCOL_VERSION, cursor: 1, jobs: { jobs: [] } }));
+  socket.send(JSON.stringify({ message: "resync", protocol_id: PROTOCOL_ID, cursor: 1, jobs: { jobs: [] } }));
   await until("connected", (state) => state.connection.state === "connected");
 
   await connection.rehearsal.watchRunSheet(A_JOB);

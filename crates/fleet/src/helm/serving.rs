@@ -118,7 +118,7 @@ where
             cut,
             polled: conversation.last_poll(),
             run_id: self.run_id().as_str().to_string(),
-            protocol_version: ipc::PROTOCOL_VERSION,
+            protocol_id: ipc::ProtocolId::current(),
             at: Instant::from(&self.now()),
         })
     }
