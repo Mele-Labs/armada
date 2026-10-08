@@ -164,3 +164,16 @@ fn a_sweep_leaves_the_target_of_a_checkout_it_was_told_a_person_holds() {
     );
     assert!(!other.join("target/debug/deps/old-1.rlib").exists());
 }
+
+#[test]
+fn a_build_scripts_output_is_kept_however_old_it_is() {
+    let repo = TempRepo::with_a_commit();
+    let target = repo.root().join("target");
+    let generated = target.join("debug/build/libsqlite3-sys-f64d4d36/out/bindgen.rs");
+    let stale_lib = target.join("debug/deps/libold.rlib");
+    built(&generated, 10, 30);
+    built(&stale_lib, 10, 30);
+    crate::leasing::trim_target(&target, trim(), SystemTime::now());
+    assert!(generated.exists(), "cargo does not rebuild what a build script wrote");
+    assert!(!stale_lib.exists(), "a stale library still goes");
+}
