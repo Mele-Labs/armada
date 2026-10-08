@@ -68,6 +68,9 @@ export function handleSessions({ ipc, connection, windowIdOf }: Hosts): void {
   ipc.handle(CHANNELS.readSessionFile, (_event, sessionId: string, file: string) =>
     text(sessionId) && text(file) ? (connection()?.sessions.file(sessionId, file) ?? { ok: false, outcome: unsent.outcome }) : { ok: false, outcome: unsent.outcome },
   );
+  ipc.handle(CHANNELS.readSessionSubagent, (_event, sessionId: string, subagentId: string) =>
+    text(sessionId) && text(subagentId) ? (connection()?.sessions.subagent(sessionId, subagentId) ?? unsent) : unsent,
+  );
   ipc.handle(CHANNELS.pressPullRequest, (_event, sessionId: string, number: number, press: PullRequestPress) =>
     text(sessionId) && Number.isInteger(number) && PRESSES.includes(press) ? (connection()?.sessions.press(sessionId, number, press) ?? unsent) : unsent,
   );

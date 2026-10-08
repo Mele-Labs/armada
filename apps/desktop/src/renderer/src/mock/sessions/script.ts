@@ -89,6 +89,18 @@ function others(): Session[] {
   ];
 }
 
+/** What every subagent the mock holds does, in order: the brief, its calls, and the report it ends on. */
+const SUBAGENT_SCRIPT: readonly (readonly ["message" | "tool", string])[] = [
+  ["message", "Read the CI history of store_flaky and say when it fails."],
+  ["tool", "gh run list --workflow ci --limit 30"],
+  ["tool", "Read crates/store/tests/flaky.rs"],
+  ["message", "Thirty runs listed. Reading the four that failed."],
+  ["tool", "gh run view 1043 --log-failed"],
+  ["tool", "gh run view 1051 --log-failed"],
+  ["tool", "gh run view 1060 --log-failed"],
+  ["message", "store_flaky failed 4 of the last 30 runs, each when the test crossed a second boundary."],
+];
+
 export const MINE = "s7";
 
 /** A Job on the Board that a person can tag: where it stands, and how the Session would hold it. */
@@ -121,6 +133,8 @@ export function sessionsStore(
   const asked = new Map<string, number>();
   const listeners = new Set<() => void>();
   const timers = new Set<number>();
+  /** How many times each subagent's thread has been read, which is how far a running one has got. */
+  const reads = new Map<string, number>();
 
   const set = (next: readonly Session[]) => {
     now = next;
@@ -492,6 +506,23 @@ export function sessionsStore(
         ]);
         finishOf(id, "14:31");
       });
+    },
+    subagent: async (_id, subagentId) => {
+      const held = now.flatMap((one) => one.attachments).find((one) => one.kind === "subagent" && one.id === subagentId);
+      if (held?.kind !== "subagent") return undefined;
+      const script = SUBAGENT_SCRIPT;
+      // A running subagent shows four rows and then two more each time it is read, until it has said its last; a done one shows all.
+      const seen = held.state === "done" ? script.length : Math.min(script.length, 4 + 2 * (reads.get(subagentId) ?? 0));
+      reads.set(subagentId, (reads.get(subagentId) ?? 0) + 1);
+      const rows = script.slice(0, seen).map(([kind, text], index): SessionRow => {
+        const id = `${subagentId}-${index}`;
+        const stamp = `14:${String(10 + index).padStart(2, "0")}:00`;
+        return kind === "tool"
+          ? { id, at: stamp, kind: "tool", text }
+          : { id, at: stamp, kind: "message", from: { kind: index === 0 ? "you" : "agent" }, text };
+      });
+      const finished = seen === script.length;
+      return { rows, finished, ...(finished ? { report: script[script.length - 1]![1] } : {}) };
     },
     later() {
       const next = turns[moment];

@@ -243,3 +243,45 @@ test("Sessions wired: a picked file goes as base64 and a drawn sketch goes as th
   // What was drawn stays on the ledger, since the wire holds only the picture.
   await expect.element(page.getByRole("region", { name: "Attachments" }).getByRole("button", { name: "Sketch pin the clock" })).toBeVisible();
 });
+
+const agent = (id: string, text: string) => ({ kind: "message" as const, id, at: "2026-10-07T13:49:00.000Z", from: { kind: "agent" as const }, text });
+const call = (id: string, text: string) => ({ kind: "tool" as const, id, at: "2026-10-07T13:49:00.000Z", text });
+
+test("Sessions wired: a running subagent opens as its own thread, gains rows as Fleet reads it again, and a finished one ends on its report", async () => {
+  const fleet = new FakeSessionsFleet([
+    terminal(ID, {
+      title: "Read the CI history",
+      attachments: [
+        held("subagent", "live1", { description: "Read the CI history" }),
+        held("subagent", "done1", { description: "Find clocks" }, "spent"),
+      ],
+    }),
+  ]);
+  fleet.subagents["live1"] = { rows: [agent("a1", "Reading the runs."), call("a2", "gh run list --limit 30")], finished: false };
+  fleet.subagents["done1"] = { rows: [call("b1", "Grep Instant::now"), agent("b2", "None reads the clock.")], finished: true, report: "None reads the clock." };
+  mount(served(fleet));
+  await onSessions();
+  await userEvent.click(page.getByRole("button", { name: "Read the CI history" }));
+  await userEvent.click(page.getByRole("button", { name: /Open Subagent Read the CI history, running/ }));
+  const panel = page.getByRole("dialog", { name: "Subagent Read the CI history" });
+  await expect.element(panel.getByText("Reading the runs.")).toBeVisible();
+  // The calls are one folded group, as in the Session's own thread.
+  await userEvent.click(panel.getByText("gh", { exact: true }));
+  await expect.element(panel.getByText("gh run list --limit 30")).toBeVisible();
+
+  // The transcript moves on: the next read the sheet makes draws the new call and the report.
+  fleet.subagents["live1"] = {
+    rows: [...fleet.subagents["live1"]!.rows, call("a3", "Read crates/store/tests/flaky.rs"), agent("a4", "Four of thirty failed.")],
+    finished: true,
+    report: "Four of thirty failed.",
+  };
+  await expect.element(panel.getByText("Four of thirty failed.")).toBeVisible();
+  await expect.element(panel.getByText("gh, Read", { exact: true })).toBeVisible();
+
+  await userEvent.click(panel.getByRole("button", { name: /^Close/ }));
+  await userEvent.click(page.getByRole("region", { name: "Subagents" }).getByRole("radio", { name: "All", exact: true }));
+  await userEvent.click(page.getByRole("button", { name: /Open Subagent Find clocks, done/ }));
+  const done = page.getByRole("dialog", { name: "Subagent Find clocks" });
+  await expect.element(done.getByText("Grep", { exact: true })).toBeVisible();
+  await expect.element(done.getByText("None reads the clock.")).toBeVisible();
+});

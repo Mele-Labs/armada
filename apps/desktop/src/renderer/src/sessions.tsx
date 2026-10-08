@@ -47,7 +47,7 @@ import type {
 } from "@armada/components";
 import { helmOfferedOf } from "@armada/screens/src/copy";
 import { attachmentsOf, isBlank, ownerOf, sessionsMatching } from "@armada/screens/src/draft/sessions";
-import type { ChipRef, DrawnSketch, PullRequestAct, Session, SessionAnswer, SessionAttachment, SessionMode, SessionTag } from "@armada/screens/src/draft/sessions";
+import type { ChipRef, DrawnSketch, PullRequestAct, Session, SessionAnswer, SessionAttachment, SessionMode, SessionsDraft, SessionTag, SubagentThread as Subagent } from "@armada/screens/src/draft/sessions";
 import {
   isDrawn,
   nextPictureId,
@@ -270,7 +270,11 @@ export function SessionsListing({ onOpen }: { onOpen: (id: string) => void }) {
 }
 
 function threadRowsOf(session: Session): SessionThreadRow[] {
-  return session.rows.map((row): SessionThreadRow => {
+  return threadRowsFrom(session.rows);
+}
+
+function threadRowsFrom(rows: Session["rows"]): SessionThreadRow[] {
+  return rows.map((row): SessionThreadRow => {
     if (row.kind === "lease" || row.kind === "tool" || row.kind === "handoff" || row.kind === "command" || row.kind === "compaction") return row;
     if (row.from.kind === "session") {
       return { id: row.id, at: row.at, kind: "message", from: "session", sender: { id: row.from.id, title: row.from.title }, text: row.text };
@@ -313,12 +317,61 @@ const factsOf = (one: Extract<SessionAttachment, { kind: "pull_request" }>): str
     (fact): fact is string => fact !== undefined,
   );
 
+/** How often a running subagent's transcript is read again. */
+const SUBAGENT_EVERY_MS = 1500;
+
+/**
+ * A subagent's own thread, drawn as the Session's is. Read again while it runs; the report it ends
+ * on is the last message of the thread, and stands alone only where the thread could not be read.
+ */
+function SubagentThread({
+  sessionId,
+  one,
+  read,
+}: {
+  sessionId: string;
+  one: Extract<SessionAttachment, { kind: "subagent" }>;
+  read: SessionsDraft["subagent"];
+}) {
+  const [thread, setThread] = useState<Subagent | undefined>(undefined);
+  const running = one.state === "running";
+  useEffect(() => {
+    setThread(undefined);
+    if (read === undefined) return;
+    let live = true;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const look = async () => {
+      const got = await read(sessionId, one.id);
+      if (!live) return;
+      if (got !== undefined) setThread(got);
+      if (running && got?.finished !== true) timer = setTimeout(() => void look(), SUBAGENT_EVERY_MS);
+    };
+    void look();
+    return () => {
+      live = false;
+      if (timer !== undefined) clearTimeout(timer);
+    };
+  }, [read, sessionId, one.id, running]);
+  const rows = thread === undefined ? [] : threadRowsFrom(thread.rows);
+  const report = one.report ?? thread?.report;
+  if (rows.length === 0) return report === undefined ? null : <Prose text={report} />;
+  return (
+    <div className="armada-session-reading" data-thread>
+      <SessionThread sessionId={`${sessionId}/${one.id}`} rows={rows} onAnswer={() => undefined} onOpenSession={() => undefined} />
+    </div>
+  );
+}
+
 function ReadingSheet({
+  sessionId,
+  readSubagent,
   one,
   onClose,
   onOpenLink,
   onAct,
 }: {
+  sessionId: string;
+  readSubagent: SessionsDraft["subagent"];
   one: SessionAttachment | undefined;
   onClose: () => void;
   onOpenLink: (address: string) => void;
@@ -336,7 +389,7 @@ function ReadingSheet({
             ? `Subagent ${one.task}`
             : "";
   return (
-    <Sheet kind="session-reading" open={one !== undefined && title !== ""} floating floor={floor} title={title} closeLabel="Close" closeBinding="Esc" onClose={onClose}>
+    <Sheet kind="session-reading" open={one !== undefined && title !== ""} bleed={one?.kind === "subagent"} floating floor={floor} title={title} closeLabel="Close" closeBinding="Esc" onClose={onClose}>
       {one?.kind === "pull_request" ? (
         <div className="armada-session-reading">
           <PullRequestCard
@@ -357,7 +410,7 @@ function ReadingSheet({
       ) : one?.kind === "sketch" ? (
         <SketchPreview label={one.title} boxes={one.drawing.boxes} lines={one.drawing.lines} strokes={one.drawing.strokes ?? []} pictures={[]} />
       ) : one?.kind === "subagent" ? (
-        one.report === undefined ? null : <Prose text={one.report} />
+        <SubagentThread sessionId={sessionId} one={one} read={readSubagent} />
       ) : null}
     </Sheet>
   );
@@ -705,6 +758,8 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
         </Sheet>
       ) : null}
       <ReadingSheet
+        sessionId={session.id}
+        readSubagent={draft.subagent}
         one={readingOf(session, reading)}
         onClose={() => setReading(undefined)}
         onOpenLink={goes.onOpenLink}

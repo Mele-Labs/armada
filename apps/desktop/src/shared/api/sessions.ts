@@ -13,6 +13,7 @@ import type {
   SendSessionMessage,
   SessionRecord,
   SessionRow,
+  SessionSubagent,
   TuneSession,
 } from "@armada/protocol";
 
@@ -63,6 +64,8 @@ export type SessionsApi = {
   watchSession: (sessionId: string) => Promise<void>;
   /** A picture or file a message carried, by the id its row gave. */
   readSessionFile: (sessionId: string, file: string) => Promise<FrameRead>;
+  /** A subagent's own thread as its transcript stands. Read again while it runs. */
+  readSessionSubagent: (sessionId: string, subagentId: string) => Promise<SessionActed<SessionSubagent>>;
   /** Opens a file a Session wrote, in whatever the machine opens it with. Main opens only a path the Session's own ledger names. */
   openSessionFile: (sessionId: string, path: string) => Promise<Followed>;
   /** An act on one of a Session's pull requests. `read` brings its state current, `review` answers the Code Review Job it dispatched. */
@@ -103,6 +106,7 @@ export const SESSIONS_CHANNELS = {
   closeSession: "bridge:close-session",
   watchSession: "bridge:watch-session",
   readSessionFile: "bridge:read-session-file",
+  readSessionSubagent: "bridge:read-session-subagent",
   openSessionFile: "bridge:open-session-file",
   pressPullRequest: "bridge:press-pull-request",
 } as const;
