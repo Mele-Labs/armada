@@ -435,6 +435,7 @@ export * from "./compositions/RetroSheet/RetroSheet";
 export * from "./compositions/PausedMark/PausedMark";
 export * from "./compositions/PauseConfirm/PauseConfirm";
 export * from "./compositions/NowPanel/NowPanel";
+export * from "./compositions/SketchPane/SketchPane";
 export * from "./compositions/OwnerChip/OwnerChip";
 export * from "./compositions/SessionFrame/SessionFrame";
 export * from "./compositions/SessionThread/SessionThread";

@@ -24,14 +24,15 @@ import {
   NowPanel,
   PlanGroupStateMark,
   Prose,
+  SketchPane,
   SkeletonText,
   Tooltip,
   WorkflowCanvas,
 } from "@armada/components";
-import type { Figure, NowPanelProps, PlanGroupState, WorkflowCanvasEdge, WorkflowCanvasNode } from "@armada/components";
+import type { Figure, NowPanelProps, NowSketch, NowSketchView, PlanGroupState, WorkflowCanvasEdge, WorkflowCanvasNode } from "@armada/components";
 import type { FromStudio } from "@armada/protocol";
 import { PanelRightOpen } from "lucide-react";
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import type { DetailTab } from "./detail-tabs";
 import { litSteps } from "./draft/now";
@@ -155,13 +156,27 @@ export function OverviewBoard({
   now,
 }: OverviewBoardProps) {
   const [hidden, hide] = useNowHidden();
+  // **An open ask's sketch stands in for the canvas** until the owner switches back, the panel is
+  // hidden or the ask is answered. The panel reports the sketch; this keeps only which is shown.
+  const [sketch, setSketch] = useState<NowSketch | undefined>(undefined);
+  const [sketchView, setSketchView] = useState<NowSketchView>("sketch");
+  useEffect(() => {
+    if (sketch === undefined) setSketchView("sketch");
+  }, [sketch]);
+  const sketching = !hidden && sketch !== undefined && sketchView === "sketch";
   // **Every step a Now row belongs to stays lit and the rest stand back**, for as long as the
   // panel has rows (owner, 8 Oct 2026). No step named, no dimming.
   const lit = hidden ? new Set<string>() : litSteps(now);
   const main = (
     <>
-      {approving}
-      {approving === undefined ? run : null}
+      {sketching ? (
+        <SketchPane sketch={sketch} />
+      ) : (
+        <>
+          {approving}
+          {approving === undefined ? run : null}
+        </>
+      )}
 
       {/* **No Brief while the panel holds the request** (the owner, 3 Oct
           2026). The panel's field is the request, editable; a second copy
@@ -347,7 +362,13 @@ export function OverviewBoard({
               </Button>
             </Tooltip>
           ) : (
-            <NowPanel {...now} onHide={() => hide(true)} />
+            <NowPanel
+              {...now}
+              onHide={() => hide(true)}
+              onSketch={setSketch}
+              sketchView={sketchView}
+              onSketchView={setSketchView}
+            />
           )}
         </div>
       )}

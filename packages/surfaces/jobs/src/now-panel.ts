@@ -26,7 +26,7 @@ export function nowPanelOf(view: NowView | undefined, host: NowHost): Omit<NowPa
   const asks: NowAsk[] = (view.asks ?? []).map((ask) =>
     ask.kind === "plan"
       ? { ...ask, onAnswer: () => {} }
-      : { key: ask.key, kind: ask.kind, name: ask.name, text: ask.text, onOpen: opens(ask.kind, ask.target) },
+      : { key: ask.key, kind: ask.kind, name: ask.name, text: ask.text, ...(ask.sketch === undefined ? {} : { sketch: ask.sketch }), onOpen: opens(ask.kind, ask.target) },
   );
   const issues: NowIssue[] = (view.issues ?? []).map(({ target, acts: given, ...one }) => ({
     ...one,

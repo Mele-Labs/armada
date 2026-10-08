@@ -1,5 +1,5 @@
-import { Fragment, useState, type ReactNode } from "react";
-import { Bot, Box, ChevronDown, ChevronRight, CircleDot, CornerUpRight, Cpu, Megaphone, OctagonAlert, PanelRightClose, RotateCw, Scale, ShieldCheck, ShieldOff, ShieldX, SkipForward, Waypoints, Workflow } from "lucide-react";
+import { Fragment, useEffect, useState, type ReactNode } from "react";
+import { Bot, Box, ChevronDown, ChevronRight, CircleDot, CornerUpRight, Cpu, Megaphone, OctagonAlert, PanelRightClose, PencilRuler, RotateCw, Scale, ShieldCheck, ShieldOff, ShieldX, SkipForward, Waypoints, Workflow } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
@@ -19,11 +19,23 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
  */
 export type NowKind = "drone" | "check" | "judge";
 
+/**
+ * A diagram the asking Drone drew to go with its question. `source` is the mermaid text the Drone
+ * wrote; `svg` is that source drawn. **Mock only until a renderer is chosen**: the mock carries a
+ * pre-drawn `svg` and nothing here parses `source`.
+ */
+export type NowSketch = { source: string; svg: string };
+
+/** What the Overview shows to the left of the panel while a sketch is open. */
+export type NowSketchView = "sketch" | "canvas";
+
 /** A Plan decision the Drone needs made, with the answers it takes. Mock data until Fleet has a plan interview. */
 export type NowDecision = {
   id: string;
   question: string;
   options: readonly { id: string; label: string }[];
+  /** Shown beside the canvas while this decision is the one asked. */
+  sketch?: NowSketch;
 };
 
 /** Decisions are asked one at a time. The answer goes once, at the last, as an option id per decision. */
@@ -40,6 +52,8 @@ export type NowOpenAsk = {
   kind: "judge" | "drone";
   name: string;
   text: string;
+  /** Shown beside the canvas while the question is open. */
+  sketch?: NowSketch;
   onOpen: () => void;
 };
 
@@ -133,6 +147,12 @@ export type NowPanelProps = {
   onStep?: (stepId: string) => void;
   /** The step highlighted on the canvas now. */
   focusedStep?: string;
+  /** Told the sketch of the ask now open, and `undefined` once none is. Absent leaves sketches undrawn. */
+  onSketch?: (sketch: NowSketch | undefined) => void;
+  /** Which the Overview shows while a sketch is open. Absent reads as the sketch. */
+  sketchView?: NowSketchView;
+  /** The head's Sketch and Canvas switch, drawn only while a sketch is open. Absent draws none. */
+  onSketchView?: (view: NowSketchView) => void;
 };
 
 const KIND: Record<NowKind, { Glyph: LucideIcon; said: string }> = {
@@ -150,7 +170,14 @@ const STATE: Record<NowRunning["state"], { Glyph: LucideIcon; said: string }> = 
 const ASK_ORDER = ["plan", "judge", "drone"] as const;
 const RUN_ORDER = ["drone", "check", "judge"] as const;
 
-export function NowPanel({ asks = [], issues = [], running = [], waiting = [], onSkipAll, onHide, onStep, focusedStep }: NowPanelProps) {
+export function NowPanel({ asks = [], issues = [], running = [], waiting = [], onSkipAll, onHide, onStep, focusedStep, onSketch, sketchView = "sketch", onSketchView }: NowPanelProps) {
+  // The plan decision asked now reports its own sketch; a Judge's or Drone's is read off the asks.
+  const [planSketch, setPlanSketch] = useState<NowSketch | undefined>(undefined);
+  const asked = planSketch ?? asks.flatMap((ask) => (ask.kind === "plan" || ask.sketch === undefined ? [] : [ask.sketch]))[0];
+  useEffect(() => {
+    onSketch?.(asked);
+    return () => onSketch?.(undefined);
+  }, [asked, onSketch]);
   const drones = running.filter((one) => one.of === "drone");
   const checks = running.some((one) => one.of === "check");
   // **One Drone at work shows its live view**, its output tail open (owner, 6 Oct 2026).
@@ -160,6 +187,20 @@ export function NowPanel({ asks = [], issues = [], running = [], waiting = [], o
     <aside className="armada-now" role="region" aria-label="Now">
       <header className="armada-now__head">
         <h3 className="armada-now__title">Now</h3>
+        {asked === undefined || onSketchView === undefined ? null : (
+          <div className="armada-now__switch" role="group" aria-label="Show on the left">
+            <Tooltip label="Sketch">
+              <button type="button" className="armada-now__switch-act" aria-label="Sketch" aria-pressed={sketchView === "sketch"} onClick={() => onSketchView("sketch")}>
+                <PencilRuler size={16} strokeWidth={2} aria-hidden />
+              </button>
+            </Tooltip>
+            <Tooltip label="Canvas">
+              <button type="button" className="armada-now__switch-act" aria-label="Canvas" aria-pressed={sketchView === "canvas"} onClick={() => onSketchView("canvas")}>
+                <Workflow size={16} strokeWidth={2} aria-hidden />
+              </button>
+            </Tooltip>
+          </div>
+        )}
         {onHide === undefined ? null : (
           <Tooltip label="Hide">
             <Button variant="ghost" size="sm" aria-label="Hide now" onClick={onHide}>
@@ -177,7 +218,7 @@ export function NowPanel({ asks = [], issues = [], running = [], waiting = [], o
             const of = asks.filter((ask) => ask.kind === kind);
             return of.length === 0 ? null : (
               <Fragment key={kind}>
-                {of.map((ask) => (ask.kind === "plan" ? <PlanAsk key={ask.key} ask={ask} /> : <AskRow key={ask.key} ask={ask} />))}
+                {of.map((ask) => (ask.kind === "plan" ? <PlanAsk key={ask.key} ask={ask} onSketch={setPlanSketch} /> : <AskRow key={ask.key} ask={ask} />))}
               </Fragment>
             );
           })}
@@ -413,11 +454,16 @@ function AskRow({ ask }: { ask: NowOpenAsk }) {
  * One decision at a time, nothing preselected. Next goes to the next one still open;
  * the last decision carries Answer instead, which sends every pick together.
  */
-function PlanAsk({ ask }: { ask: NowPlanAsk }) {
+function PlanAsk({ ask, onSketch }: { ask: NowPlanAsk; onSketch: (sketch: NowSketch | undefined) => void }) {
   const [at, setAt] = useState(0);
   const [picks, setPicks] = useState<Record<string, string>>({});
   const [sent, setSent] = useState(false);
   const decision = ask.decisions[at];
+  const drawn = sent ? undefined : decision?.sketch;
+  useEffect(() => {
+    onSketch(drawn);
+    return () => onSketch(undefined);
+  }, [drawn, onSketch]);
   if (decision === undefined) return null;
   const last = at === ask.decisions.length - 1;
   const picked = picks[decision.id];
