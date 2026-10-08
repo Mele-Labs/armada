@@ -11,7 +11,8 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from "react";
-import { Button, KbdChord, SplitButton, Textarea } from "@armada/components";
+import { Button, KbdChord, SplitButton, Textarea, Tooltip } from "@armada/components";
+import { PanelRightClose, PanelRightOpen } from "lucide-react";
 
 import { openJobIn } from "@armada/jobs";
 
@@ -92,6 +93,9 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSession, tell
   const [draft, setDraft] = useState<Draft | null>(null);
   const [opened, setOpened] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [listing, setListing] = useState(false);
+  // The row whose Delete is armed, apart from the card's own.
+  const [deletingRow, setDeletingRow] = useState<string | null>(null);
   // A view over the notes, never written to a file. It starts off every time the
   // layer comes on: the moment this exists for is turning the layer on after a
   // batch has been fixed and reading only what is still open. Showing the done
@@ -131,6 +135,7 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSession, tell
       setDraft(null);
       setOpened(null);
       setShowingDone(false);
+      setListing(false);
       return;
     }
     sink.list().then((read) => setNotes([...read].sort(byCreation)), (cause) => fail("Reading notes", cause));
@@ -274,18 +279,17 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSession, tell
     setSending(null);
   }
 
-  /** Every open, unsent note on this screen as one message: to a Session started for them, or to `target`. */
-  async function sendHereToSession(target: SessionTarget | null): Promise<void> {
-    const here = notes.filter((n) => n.status === "open" && n.sent === undefined && frames[n.id] != null);
-    if (fleet === undefined) return;
-    setSending("here");
+  /** These notes as one message: to a Session started for them, or to `target`. `key` names the send that is out. */
+  async function sendToSessionAs(key: string, list: readonly Annotation[], target: SessionTarget | null): Promise<void> {
+    if (fleet === undefined || list.length === 0) return;
+    setSending(key);
     try {
-      const answer = await sendToSession(here.map((note) => ({ note, box: frames[note.id] ?? note.box })), target, sink, fleet, new Date());
+      const answer = await sendToSession(list.map((note) => ({ note, box: frames[note.id] ?? note.box })), target, sink, fleet, new Date());
       if (!answer.ok) {
         tell(answer.saying);
         return;
       }
-      const sentNotes = here.map((note) => ({ ...note, sent: answer.sent, updatedAt: answer.sent.at }));
+      const sentNotes = list.map((note) => ({ ...note, sent: answer.sent, updatedAt: answer.sent.at }));
       for (const next of sentNotes) await sink.save(next);
       setNotes((was) => was.map((n) => sentNotes.find((next) => next.id === n.id) ?? n));
       if ("sessionId" in answer.sent) openSession(answer.sent.sessionId);
@@ -296,11 +300,15 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSession, tell
     }
   }
 
+  const sendHereToSession = (target: SessionTarget | null): Promise<void> =>
+    sendToSessionAs("here", notes.filter((n) => n.status === "open" && n.sent === undefined && frames[n.id] != null), target);
+
   async function remove(note: Annotation): Promise<void> {
     try {
       await sink.remove(note.id);
       setNotes((was) => was.filter((n) => n.id !== note.id));
       setOpened(null);
+      setDeletingRow(null);
     } catch (cause) {
       fail("Deleting", cause);
     }
@@ -335,6 +343,7 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSession, tell
   const offScreen = drawn.filter((n) => frames[n.id] == null).length;
   const open = numbers.size;
   const done = notes.length - open;
+  const panelBottom = frames["bar"] == null ? 0 : size.height - frames["bar"].y;
   const sendableHere = notes.filter((n) => n.status === "open" && n.sent === undefined && frames[n.id] != null).length;
 
   return (
@@ -440,8 +449,88 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSession, tell
         </Card>
       )}
 
+      {listing && (
+        <aside
+          className="armada-annotate__panel"
+          aria-label="All notes"
+          style={{ "--annotate-panel-bottom": `${panelBottom}px` } as CSSProperties}
+        >
+          {groupsOf(notes, showingDone).map(({ screen, list }) => (
+            <section key={screen ?? ""} className="armada-annotate__group">
+              <h2 className="armada-annotate__screen">{screen ?? "No screen"}</h2>
+              <ul className="armada-annotate__rows">
+                {list.map((note) => {
+                  const here = frames[note.id] != null;
+                  const dispatchable = note.status === "open" && note.sent === undefined;
+                  return (
+                    <li key={note.id} className="armada-annotate__row" data-status={note.status} data-here={here ? "" : undefined}>
+                      <Tooltip label={here ? "Show on this screen" : "On another screen"} asChild>
+                        <button
+                          type="button"
+                          className="armada-annotate__row-main"
+                          aria-disabled={!here}
+                          onClick={() => {
+                            if (!here) return;
+                            setDraft(null);
+                            setDeleting(false);
+                            setOpened(note.id);
+                          }}
+                        >
+                          <span className="armada-annotate__row-text">{note.text}</span>
+                          <span className="armada-annotate__row-meta">
+                            <span>{note.component ?? note.element.tag}</span>
+                            {note.sent !== undefined && <span className="armada-annotate__sent">{sentAs(note.sent)}</span>}
+                          </span>
+                        </button>
+                      </Tooltip>
+                      <div className="armada-annotate__actions">
+                        {dispatchable && (
+                          <>
+                            <Tooltip label={cannotSend ?? "Send this note as a Job"} asChild>
+                              <Button variant="secondary" size="sm" disabled={cannotSend !== null || sending !== null} onClick={() => void sendOne(note)}>
+                                {sending === note.id ? "Sending…" : "Dispatch job"}
+                              </Button>
+                            </Tooltip>
+                            {cannotSend === null && (
+                              <SplitButton
+                                size="sm"
+                                menuLabel="Send to a Session"
+                                disabled={sending !== null}
+                                onAction={() => void sendToSessionAs(note.id, [note], null)}
+                                items={live.map((one) => ({ label: one.title, onSelect: () => void sendToSessionAs(note.id, [note], one) }))}
+                              >
+                                Start session
+                              </SplitButton>
+                            )}
+                          </>
+                        )}
+                        <Button variant="ghost" size="sm" onClick={() => void setStatus(note, note.status === "open" ? "done" : "open")}>
+                          {note.status === "open" ? "Mark done" : "Reopen"}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => (deletingRow === note.id ? void remove(note) : setDeletingRow(note.id))}
+                        >
+                          {deletingRow === note.id ? "Press again to delete" : "Delete"}
+                        </Button>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          ))}
+        </aside>
+      )}
+
       <div ref={barRef} className="armada-annotate__bar" role="status">
         <span>Annotating</span>
+        <Tooltip label={listing ? "Hide all notes" : "All notes"}>
+          <Button variant="ghost" size="sm" iconOnly aria-label={listing ? "Hide all notes" : "All notes"} aria-expanded={listing} onClick={() => setListing(!listing)}>
+            {listing ? <PanelRightClose size={16} strokeWidth={2} aria-hidden /> : <PanelRightOpen size={16} strokeWidth={2} aria-hidden />}
+          </Button>
+        </Tooltip>
         <span>
           {open} open, {done} done
           {offScreen > 0 ? `, ${offScreen} not on this screen` : ""}
@@ -530,6 +619,16 @@ function Card({
       {children}
     </div>
   );
+}
+
+/** Every screen's notes, open first, a screen named by its notes and "no screen" last; done ones only where asked for. */
+function groupsOf(notes: readonly Annotation[], showingDone: boolean): { screen: string | null; list: Annotation[] }[] {
+  const shown = notes.filter((n) => showingDone || n.status === "open");
+  const screens = [...new Set(shown.map((n) => n.screen))].sort((a, b) => (a === null ? 1 : b === null ? -1 : a.localeCompare(b)));
+  return screens.map((screen) => ({
+    screen,
+    list: shown.filter((n) => n.screen === screen).sort((a, b) => Number(a.status === "done") - Number(b.status === "done")),
+  }));
 }
 
 /** The file and line the element's JSX is on, so it can be seen to have been captured. #1584. */

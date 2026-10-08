@@ -11,7 +11,7 @@ import type { Sink } from "../annotate/sink";
 
 const AT = "2026-10-07T13:48:02.000Z";
 
-const note = (id: string, text: string, selector: string, tag: string, label: string, source: string, box: Annotation["box"]): Annotation => ({
+const note = (id: string, text: string, selector: string, tag: string, label: string, source: string, box: Annotation["box"], screen: string | null = "Job Board", extra: Partial<Annotation> = {}): Annotation => ({
   id,
   status: "open",
   text,
@@ -21,7 +21,7 @@ const note = (id: string, text: string, selector: string, tag: string, label: st
   ownersFrom: "parent",
   selector,
   element: { tag, text: "", label: null },
-  screen: "Job Board",
+  screen,
   layer: null,
   location: "/",
   scenario: null,
@@ -29,12 +29,20 @@ const note = (id: string, text: string, selector: string, tag: string, label: st
   window: { width: 1440, height: 900 },
   createdAt: AT,
   updatedAt: AT,
+  ...extra,
 });
 
 const NOTES: Record<string, () => Annotation[]> = {
   "annotate-to-session": () => [
     note("20261007-134802-aaaa", "The title is cut off in the row", ".armada-dtabs", "div", "DashboardTabs", "packages/surfaces/overview/src/DashboardTabs.tsx", { x: 300, y: 120, width: 900, height: 200 }),
     note("20261007-134905-bbbb", "The rail has no room for a third group", 'nav[aria-label="Work"]', "nav", "Rail", "packages/shell/src/Rail.tsx", { x: 0, y: 0, width: 220, height: 800 }),
+    // The later ones are on other screens, whose elements this Board does not draw.
+    note("20261007-135100-cccc", "The ledger header wraps under the title", "#session-ledger-head", "header", "LedgerHead", "packages/surfaces/sessions/src/LedgerHead.tsx", { x: 900, y: 40, width: 400, height: 60 }, "Sessions"),
+    note("20261007-135230-dddd", "The thread jumps when a message lands", "#session-thread", "div", "Thread", "packages/surfaces/sessions/src/Thread.tsx", { x: 300, y: 100, width: 600, height: 500 }, "Sessions", { status: "done" }),
+    note("20261007-135400-eeee", "The repository path is cut off", "#settings-repo", "input", "RepositoryField", "packages/surfaces/settings/src/RepositoryField.tsx", { x: 300, y: 200, width: 500, height: 40 }, "Settings", {
+      sent: { jobId: "01JOBSENTEARLIER", handle: "49-the-repo-field", at: AT },
+    }),
+    note("20261007-135500-ffff", "The window title is blank before the first Job", "#title", "h1", "TitleBar", "packages/shell/src/TitleBar.tsx", { x: 0, y: 0, width: 400, height: 30 }, null),
   ],
 };
 
