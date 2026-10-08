@@ -28,6 +28,7 @@ import {
   SketchPad,
   SketchPreview,
   TileSheet,
+  useKept,
 } from "@armada/components";
 import type {
   ChipOwnershipValue,
@@ -536,6 +537,8 @@ function useMinimized(): [boolean, (minimized: boolean) => void] {
   ];
 }
 
+const NO_SKETCHES: DrawnSketch[] = [];
+
 function SessionView({ session, goes, onOpen, held }: { session: Session; goes: LedgerGoes; onOpen: (id: string) => void; held: HeldReads }) {
   const draft = useSessionsDraft();
   const sessions = useSessions();
@@ -543,7 +546,7 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
   const [reading, setReading] = useState<Reading | undefined>();
   const [slotOpen, setSlotOpen] = useState<number | undefined>();
   const [padOpen, setPadOpen] = useState(false);
-  const [drawn, setDrawn] = useState<DrawnSketch[]>([]);
+  const [drawn, setDrawn] = useKept<DrawnSketch[]>(`session:${session.id}:drawn`, NO_SKETCHES);
   const narrow = useNarrow();
   const [ledgerOpen, setLedgerOpen] = useState(false);
   const [minimized, minimize] = useMinimized();
@@ -687,13 +690,14 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
                 ...draft.taggable(),
               ]}
               tags={session.pendingTags ?? []}
+              draftKey={session.id}
               onTags={(tags) => draft.setTags(session.id, tags)}
               drawn={drawn.map(({ id, title }) => ({ id, title }))}
               onDraw={() => setPadOpen(true)}
               onRemoveDrawn={(id) => setDrawn((was) => was.filter((one) => one.id !== id))}
               onSend={(sent) => {
                 draft.send(session.id, { text: sent.text, files: sent.files, sketches: drawn, tags: sent.tags as readonly SessionTag[] });
-                setDrawn([]);
+                setDrawn(NO_SKETCHES);
               }}
             />
           )}

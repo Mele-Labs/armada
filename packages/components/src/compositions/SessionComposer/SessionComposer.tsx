@@ -3,6 +3,7 @@ import type { ClipboardEvent, DragEvent, FormEvent, KeyboardEvent, ReactNode } f
 import { Box, Cpu, GitBranch, GitPullRequest, Paperclip, PencilRuler, Send, Shield, SquareTerminal, Zap } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
+import { useKept } from "../../keep";
 import { AttachmentChip } from "../../primitives/AttachmentChip/AttachmentChip";
 import { Button } from "../../primitives/Button/Button";
 import { Select } from "../../primitives/Select/Select";
@@ -95,7 +96,16 @@ export type SessionComposerProps = {
   modeLocked?: boolean;
   /** A terminal's mode is not drawn until its mod has reported one. */
   modeHidden?: boolean;
+  /**
+   * What the message is about, the Session's id. Its text and files are kept under it, so leaving
+   * the Session and coming back, or reloading Bridge, finds them (the text; a file's bytes do not
+   * survive a reload). Cleared by a send. Without it nothing is kept.
+   */
+  draftKey?: string;
 };
+
+type Draft = { text: string; files: ComposerFile[] };
+const BLANK: Draft = { text: "", files: [] };
 
 /** The commands a `/` query keeps: names that start with it first, then names that hold it. */
 function matching<T extends { name: string }>(commands: readonly T[], query: string): T[] {
@@ -137,10 +147,16 @@ export function SessionComposer({
   onSend,
   modeLocked = false,
   modeHidden = false,
+  draftKey,
 }: SessionComposerProps) {
-  const [text, setText] = useState("");
-  const [caret, setCaret] = useState(0);
-  const [files, setFiles] = useState<ComposerFile[]>([]);
+  const [draft, setDraft, forget] = useKept<Draft>(draftKey === undefined ? undefined : `session:${draftKey}`, BLANK, {
+    stored: (one) => ({ text: one.text }),
+    revive: (raw) => ({ text: typeof (raw as Draft | null)?.text === "string" ? (raw as Draft).text : "", files: [] }),
+  });
+  const { text, files } = draft;
+  const setText = (next: string) => setDraft((was) => ({ ...was, text: next }));
+  const setFiles = (next: (was: ComposerFile[]) => ComposerFile[]) => setDraft((was) => ({ ...was, files: next(was.files) }));
+  const [caret, setCaret] = useState(text.length);
   const [active, setActive] = useState(0);
   const picker = useRef<HTMLInputElement>(null);
   const counter = useRef(0);
@@ -226,9 +242,8 @@ export function SessionComposer({
   const send = () => {
     if (working || (text.trim() === "" && !held)) return;
     onSend({ text: text.trim(), files, tags });
-    setText("");
+    forget();
     setCaret(0);
-    setFiles([]);
   };
 
   const submit = (event: FormEvent) => {

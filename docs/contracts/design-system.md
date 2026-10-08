@@ -73,6 +73,9 @@ is allowed only as that light, and never where a person reads a state.
    **command**. Compose from these; do not invent new base components.
    `textarea` is sanctioned because a Job's brief is prose a person writes at
    length, and a single-line input for it is a control that fights its content.
+   **A text box someone types into keeps what was typed** across leaving its
+   panel and coming back, keyed by what it is about; `keep={false}` is only for a
+   field that edits a stored value.
    `command` (cmdk) backs the command palette. A `kbd` element and an `a`
    element are the two non-shadcn primitives — `kbd` is specified under Keyboard
    and command palette, and `a` is what a fact that names something outside

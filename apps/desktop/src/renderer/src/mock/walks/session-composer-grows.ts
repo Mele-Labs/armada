@@ -24,7 +24,18 @@ const helm: Step[] = [
   { type: lines(40), into: role("textbox", "Ask Helm"), say: "Forty lines: it stops at half the dock and scrolls" },
 ];
 
+const keeping: Step[] = [
+  { press: inside(region("Sessions"), button("CI timeout hunt")), say: "A Session" },
+  { type: "Half a thought before I leave", into: kit(false).message, say: "Something typed and not sent" },
+  { press: button("Overview", { exact: true }), say: "Off to Overview" },
+  { press: button("Sessions", { exact: true }), say: "And back to the Sessions" },
+  { press: inside(region("Sessions"), button("CI timeout hunt")), say: "The same Session" },
+  { look: kit(false).message, say: "The message box has what was typed, with the caret at its end" },
+];
+
 const session = walk("session-thread-polish", steps());
 const talking = walk("session-thread-polish", helm);
 
-export { session as "session-composer-grows", talking as "session-composer-grows-helm" };
+const kept = walk("session-thread-polish", keeping);
+
+export { kept as "session-composer-keeps", session as "session-composer-grows", talking as "session-composer-grows-helm" };

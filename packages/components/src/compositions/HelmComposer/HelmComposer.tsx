@@ -201,6 +201,7 @@ export function HelmComposer({
           // or two, and in a dock this narrow one of them wraps.
           rows={3}
           grow
+          keep={`helm:${current}`}
           value={value}
           onChange={(event) => onChange(event.target.value)}
           onKeyDown={keyed}
