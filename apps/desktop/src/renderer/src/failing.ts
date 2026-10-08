@@ -39,7 +39,7 @@ import { said, servesNothing } from "@armada/screens";
 /** What the window has been published, as far as a failure is concerned. */
 export type Published = {
   connection: Connection;
-  /** Both protocol versions and Bridge's log, quoted on every payload. */
+  /** Both protocol IDs and Bridge's log, quoted on every payload. */
   bridge: BridgeIdentity;
   /** When Fleet was last read, for the staleness the status bar says. */
   readAt: number | null;

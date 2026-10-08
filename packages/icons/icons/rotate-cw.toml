@@ -25,3 +25,10 @@
     size = "16px"
     status = "Proposed"
     notes = "Proposed 7 Oct 2026 for the walk `aTriggerHoldsTheJob`. A rerun is the same Command asked again, which is redispatch's one-arrow claim one level down. Tooltip `Rerun`. `refresh-cw` stays churning's. Draws at 16px in a small button, the size of the canvas's add-a-step act, 7 Oct 2026."
+
+  [[icons.rotate-cw.usage]]
+    means = "Restart Fleet: ask launchd to restart the job that runs it, from the notice that says Fleet and Bridge do not match"
+    group = "Action"
+    size = "16px"
+    status = "Proposed"
+    notes = "Proposed 8 Oct 2026 for the walk `fleetProtocolMismatch`. A restart is the same act a reload is, which the entry above already gives this glyph; `refresh-cw` stays churning's and `power` stays the stop. Tooltip `Restart Fleet. Working Drones are adopted and cannot be redirected until they finish.`"

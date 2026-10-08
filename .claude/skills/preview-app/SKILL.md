@@ -40,8 +40,8 @@ a watch never restarts Fleet.
 
 **What runs after `--restart` is the preview's.** Bridge is launched from
 `.armada/preview/apps/desktop` with its own `electron-vite`, and the run fails
-if launchd loaded any other tree or Fleet reports a protocol other than the
-preview's `protocol-version.toml`. Read the `Bridge runs ...` line in the output.
+if launchd loaded any other tree or Fleet reports a protocol ID other than the
+one the preview's wire files hash to. Read the `Bridge runs ...` line in the output.
 
 **A `libsqlite3-sys` compile error in the preview is a stale build script, not
 the code.** Run `cargo clean -p libsqlite3-sys` in `.armada/preview` and run the

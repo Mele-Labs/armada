@@ -154,7 +154,7 @@ async fn a_job_with_no_drone_gets_what_fleet_did_and_then_what_it_does_next() {
     let JournalMessage::Opened(opened) = read(&mut socket).await else {
         panic!("the first message says what this connection is");
     };
-    assert_eq!(opened.protocol_version, ipc::PROTOCOL_VERSION);
+    assert_eq!(opened.protocol_id, ipc::ProtocolId::current());
     assert_eq!(opened.job_id, job);
     assert_eq!(opened.skipped, 0);
 

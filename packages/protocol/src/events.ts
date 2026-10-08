@@ -25,7 +25,7 @@ import type { HelmAskingToRun, HelmCallAnswered } from "./helm-calls";
 import type { ChecksUnderway } from "./underway";
 import type { QuestionInFlight } from "./waiting";
 import type { CommandInFlight } from "./commanding";
-import type { ProtocolVersion } from "./version";
+import type { ProtocolId } from "./connection";
 import type { JobAdditionChanged } from "./added-steps";
 import type { JobTriggerChanged } from "./triggers";
 import type { JobPlanChanged } from "./work-plan";
@@ -37,7 +37,7 @@ export type StreamMessage =
   | ({ message: "missed" } & Missed);
 
 export type Resync = {
-  protocol_version: ProtocolVersion;
+  protocol_id: ProtocolId;
   cursor: number;
   jobs: JobList;
 };

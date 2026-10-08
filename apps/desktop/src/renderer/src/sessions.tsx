@@ -233,6 +233,40 @@ const HEADINGS: { label: string; has: (state: SessionState) => boolean }[] = [
   { label: "Ended", has: (state) => state === "ended" },
 ];
 
+/** The views of the list, and the headings each holds. Active on opening. */
+const VIEWS = [
+  { id: "active", label: "Active", headings: ["Needs you", "Running", "Idle", "Not started"] },
+  { id: "quiet", label: "Quiet", headings: ["Quiet"] },
+  { id: "ended", label: "Ended", headings: ["Ended"] },
+  { id: "all", label: "All", headings: HEADINGS.map((one) => one.label) },
+] as const;
+
+type ViewId = (typeof VIEWS)[number]["id"];
+
+const VIEW_KEY = "armada.bridge.sessions-view";
+
+/** Which view the viewer chose. A viewer's convenience, so a blocked store only forgets it. */
+function useView(): [ViewId, (next: ViewId) => void] {
+  const [view, set] = useState<ViewId>(() => {
+    try {
+      return VIEWS.find((one) => one.id === localStorage.getItem(VIEW_KEY))?.id ?? "active";
+    } catch {
+      return "active";
+    }
+  });
+  return [
+    view,
+    (next) => {
+      set(next);
+      try {
+        localStorage.setItem(VIEW_KEY, next);
+      } catch {
+        // Not kept: the view is as it was left until the window closes.
+      }
+    },
+  ];
+}
+
 /** What Fleet refused the last act on a Session, in the words it gave. */
 function Refused() {
   const said = useSessionsSaid();
@@ -244,6 +278,7 @@ export function SessionsListing({ onOpen }: { onOpen: (id: string) => void }) {
   const draft = useSessionsDraft();
   const sessions = useSessions();
   const [query, setQuery] = useState("");
+  const [view, setView] = useView();
   if (draft === undefined) return null;
   const views: SessionRowView[] = sessionsMatching(sessions, query).filter(({ session }) => session.older !== true || query.trim() !== "").map(({ session, matched }) => {
     const { state, said } = stateOf(session);
@@ -262,11 +297,12 @@ export function SessionsListing({ onOpen }: { onOpen: (id: string) => void }) {
       ...(session.modOutOfDate === true ? { modOutOfDate: true } : {}),
     };
   });
-  const groups: SessionGroup[] = HEADINGS.map((one) => ({ label: one.label, rows: views.filter((row) => one.has(row.state)) })).filter((one) => one.rows.length > 0);
+  const shown: readonly string[] = VIEWS.find((one) => one.id === view)!.headings;
+  const groups: SessionGroup[] = HEADINGS.filter((one) => shown.includes(one.label)).map((one) => ({ label: one.label, rows: views.filter((row) => one.has(row.state)) })).filter((one) => one.rows.length > 0);
   return (
     <>
       <Refused />
-      <SessionList groups={groups} query={query} onQuery={setQuery} onOpen={onOpen} onStart={() => opening(draft.start(), onOpen)} />
+      <SessionList groups={groups} query={query} onQuery={setQuery} views={VIEWS} view={view} onView={(next) => setView(next as ViewId)} onOpen={onOpen} onStart={() => opening(draft.start(), onOpen)} />
     </>
   );
 }
@@ -739,6 +775,7 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
           <SessionThread
             sessionId={session.id}
             rows={threadRowsOf(session)}
+            working={session.turn.state === "working"}
             {...(session.asked === undefined
               ? {}
               : {

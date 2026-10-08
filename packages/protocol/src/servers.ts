@@ -5,7 +5,7 @@
 // reason one subject over. The header rules in `events.ts` hold: hand-written,
 // and every closed set left as `string`.
 
-import type { ProtocolVersion } from "./version";
+import type { ProtocolId } from "./connection";
 
 /** An address a server offers, resolved against the span it runs under. */
 export type ServerLink = {
@@ -125,7 +125,7 @@ export type ServerMessage =
   | ({ message: "closed" } & { because: string });
 
 export type ServerOpened = {
-  protocol_version: ProtocolVersion;
+  protocol_id: ProtocolId;
   id: string;
   name: string;
   job_id?: string;

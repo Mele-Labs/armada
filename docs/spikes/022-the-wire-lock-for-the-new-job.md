@@ -632,7 +632,7 @@ to run several — and both add commands to `crates/fleet/src/commanding.rs`.
 | Path | Why |
 |---|---|
 | `protocol-version.toml` | The bump |
-| `packages/protocol/src/`, `packages/protocol/src/generated/protocol-version.ts` included | The hand-mirrored types, and the regenerated version |
+| `packages/protocol/src/`, and the generated version constant it then held | The hand-mirrored types, and the regenerated version |
 | `docs/practices/protocol.md` | The version's own section |
 | `crates/ipc/operations/` | A new operation or event kind |
 | `crates/api/src/routes/served.rs`, `crates/api/src/daemon/commands.rs`, `crates/api/src/tests/fake/commands.rs` | A route, its `Commands` method, and the test fake |

@@ -47,6 +47,7 @@ mod planning;
 mod preferences;
 /// The one DTO on this seam a peer *writes*, and what it refuses.
 mod proposals;
+mod protocol_id;
 mod pull_request_card;
 /// A given-back worktree, and the absent halves Bridge reads as absent.
 mod reclaimed;
@@ -70,7 +71,6 @@ mod summaries;
 mod added_steps;
 mod triggers;
 mod turns;
-mod version;
 /// Walk notes: absent where empty, so a 23.17 peer sees nothing new.
 mod walk_notes;
 /// An Epic's wave: each pass's line, and each member's waits-on edges.

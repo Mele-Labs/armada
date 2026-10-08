@@ -10,6 +10,7 @@ import { Input } from "../../primitives/Input/Input";
 import { Prose } from "../../primitives/Prose/Prose";
 import { Radio, RadioGroup } from "../../primitives/Radio/Radio";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
+import { SessionMark } from "../SessionFrame/SessionFrame";
 import { InlineTag } from "../SessionComposer/InlineTag";
 import type { ComposerTag } from "../SessionComposer/InlineTag";
 
@@ -89,6 +90,8 @@ export type SessionThreadProps = {
   onOpenSession: (sessionId: string) => void;
   /** Which Session this is. A change of it opens the thread at its newest row again. */
   sessionId?: string;
+  /** The turn is running: a live mark sits at the end, on the last tool group's row if that is the last row. */
+  working?: boolean;
 };
 
 const TAG_KIND = { session: "Session", job: "Job", pull_request: "Pull request", branch: "Branch" } as const;
@@ -251,14 +254,14 @@ function namesOf(rows: readonly { text: string }[]): string[] {
  * **Calls that ran one after another are one row, closed.** It names the tools it holds and draws no
  * count; pressing it shows each call. A lone call is a group of one.
  */
-function Calls({ rows }: { rows: readonly { id: string; text: string }[] }) {
+function Calls({ rows, working }: { rows: readonly { id: string; text: string }[]; working?: boolean }) {
   const names = namesOf(rows);
   return (
     <li className="armada-session-fold armada-session-fold--calls">
       <details>
         <summary className="armada-session-fold__head" aria-label={`Tool calls: ${names.join(", ")}`}>
           <ChevronRight size={12} strokeWidth={2} aria-hidden className="armada-session-fold__chevron" />
-          <Wrench size={12} strokeWidth={2} aria-hidden />
+          {working === true ? <SessionMark state="working" said="Working" /> : <Wrench size={12} strokeWidth={2} aria-hidden />}
           <span className="armada-session-fold__names">{names.join(", ")}</span>
         </summary>
         <ol className="armada-session-fold__calls">
@@ -464,7 +467,7 @@ function Questions({
 /** How far from the end still counts as being at it, so a rounding or a half row does not unpin. */
 const NEAR_END = 24;
 
-export function SessionThread({ rows, asked, onAnswer, onOpenSession, sessionId }: SessionThreadProps) {
+export function SessionThread({ rows, asked, onAnswer, onOpenSession, sessionId, working }: SessionThreadProps) {
   const scroller = useRef<HTMLDivElement>(null);
   const pinned = useRef(true);
   // **Opens at the newest row, with no animation, and stays there while the person is at the end.**
@@ -475,7 +478,9 @@ export function SessionThread({ rows, asked, onAnswer, onOpenSession, sessionId 
   useLayoutEffect(() => {
     const one = scroller.current;
     if (one !== null && pinned.current) one.scrollTop = one.scrollHeight;
-  }, [rows, sessionId]);
+  }, [rows, sessionId, working]);
+  const items = itemsOf(rows);
+  const endsInCalls = items[items.length - 1]?.kind === "calls";
   return (
     <div className="armada-session-thread">
       <div
@@ -489,13 +494,18 @@ export function SessionThread({ rows, asked, onAnswer, onOpenSession, sessionId 
         }}
       >
         <ol className="armada-helm-thread__rows">
-          {itemsOf(rows).map((item) =>
+          {items.map((item, at) =>
             item.kind === "calls" ? (
-              <Calls key={item.id} rows={item.rows} />
+              <Calls key={item.id} rows={item.rows} working={working === true && at === items.length - 1} />
             ) : (
               <Row key={item.row.id} row={item.row} onOpenSession={onOpenSession} />
             ),
           )}
+          {working === true && !endsInCalls ? (
+            <li className="armada-session-thread__working">
+              <SessionMark state="working" said="Working" />
+            </li>
+          ) : null}
         </ol>
       </div>
       {asked === undefined ? null : (

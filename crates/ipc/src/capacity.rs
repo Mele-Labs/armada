@@ -77,8 +77,7 @@ impl FleetCapacity {
 ///
 /// **That is the whole point of carrying a spelling.** A fifth reason a Job
 /// sits at `queued` — `#51`'s budget cap next — is a variant in `core-model`, a
-/// row in `enum-verbs.toml` and a codegen run, and moves neither number in
-/// `protocol-version.toml`.
+/// row in `enum-verbs.toml` and a codegen run, and moves no protocol ID.
 ///
 /// **Nothing mints a spelling.** Both ways in go through `core-model`, and
 /// [`AdmissionHold::from_wire`] answers `None` for a word the registry does not

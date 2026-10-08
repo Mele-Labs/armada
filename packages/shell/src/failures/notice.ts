@@ -21,7 +21,7 @@ import type {
 } from "@armada/components";
 
 import type { BridgeIdentity } from "@armada/protocol";
-import { PROTOCOL_VERSION } from "@armada/protocol";
+import { PROTOCOL_ID } from "@armada/protocol";
 import { spoken } from "@armada/protocol";
 
 /**
@@ -86,15 +86,15 @@ export type Failure = {
 };
 
 /**
- * What Bridge knows about versions, which is protocol versions and nothing
+ * What Bridge knows about versions, which is its protocol ID and nothing
  * else. **Bridge holds no application version anywhere** — nothing publishes
- * one to the renderer — so the payload says "bridge protocol 5.2" rather than
- * inventing a number a reader would take for a release.
+ * one to the renderer — so the payload says "bridge protocol 75358f6c" rather
+ * than inventing a number a reader would take for a release.
  */
-const BRIDGE_PROTOCOL = spoken(PROTOCOL_VERSION);
+const BRIDGE_PROTOCOL = spoken(PROTOCOL_ID);
 
 /**
- * Both protocol versions, on every failure.
+ * Both protocol IDs, on every failure.
  *
  * Fleet's used to reach only the one builder that is handed a `Connection`, so
  * four of the five payloads ended on a half tail — wrong for a refusal above

@@ -10,8 +10,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::event::Missed;
 use crate::ids::{Instant, JobId, ManifestId};
+use crate::protocol_id::ProtocolId;
 use crate::underway::{OutputClosed, OutputLines};
-use crate::version::ProtocolVersion;
 
 /// Where a server is. **Only `serving` carries a usable address**: a link
 /// pressed while `starting` opens a port nothing answers on yet.
@@ -202,7 +202,7 @@ pub enum ServerMessage {
 /// The first message: whose server, and what the opening read left out.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ServerOpened {
-    pub protocol_version: ProtocolVersion,
+    pub protocol_id: ProtocolId,
     pub id: String,
     pub name: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]

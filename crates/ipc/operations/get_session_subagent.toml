@@ -4,5 +4,5 @@ transport = "HTTP"
 agent_access = "No"
 description = "One subagent of a session and its own thread, oldest row first"
 notes = """
-`GET /sessions/subagent?session_id=&subagent_id=`. Since 23.76. `SessionSubagent`: the `rows` of the subagent's own transcript, drawn as `get_session` draws a session's, whether it has `finished`, and its `report` once it has. A client reads it again while the subagent runs. Refused where the session has no such subagent transcript.
+`GET /sessions/subagent?session_id=&subagent_id=`. `SessionSubagent`: the `rows` of the subagent's own transcript, drawn as `get_session` draws a session's, whether it has `finished`, and its `report` once it has. A client reads it again while the subagent runs. Refused where the session has no such subagent transcript.
 """

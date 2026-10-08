@@ -11,7 +11,7 @@ import type { AddressInfo, Socket } from "node:net";
 import { afterEach, expect, it } from "vitest";
 import { WebSocketServer, type WebSocket } from "ws";
 
-import { PROTOCOL_VERSION, type RepositorySummary } from "@armada/protocol";
+import { PROTOCOL_ID, type RepositorySummary } from "@armada/protocol";
 import type { BridgeState, PickedView } from "../shared/bridge";
 import { FleetConnection } from "./connection";
 import { holderOf } from "./runtime-file";
@@ -92,7 +92,7 @@ async function bridgeOn(port: number) {
   await mkdir(dir, { recursive: true });
   const held = holderOf(process.pid);
   const startedAt = held.held === true ? held.startedAt : "";
-  await writeFile(join(dir, "fleet.json"), JSON.stringify({ protocol_version: PROTOCOL_VERSION, pid: process.pid, port, started_at: startedAt }));
+  await writeFile(join(dir, "fleet.json"), JSON.stringify({ protocol_id: PROTOCOL_ID, pid: process.pid, port, started_at: startedAt }));
   let latest: BridgeState | null = null;
   const waits: { holds: (state: BridgeState) => boolean; keep: () => void }[] = [];
   const windows = new Set<number>([1]);
@@ -136,7 +136,7 @@ async function bridgeOn(port: number) {
   };
 }
 
-const resync = JSON.stringify({ message: "resync", protocol_version: PROTOCOL_VERSION, cursor: 1, jobs: { jobs: [], unreadable: [] } });
+const resync = JSON.stringify({ message: "resync", protocol_id: PROTOCOL_ID, cursor: 1, jobs: { jobs: [], unreadable: [] } });
 const changed = (repositories: RepositorySummary[]) =>
   JSON.stringify({ message: "event", cursor: 2, event: { kind: "repositories.changed", repositories } });
 const rootsOf = (state: BridgeState) => (state.holds.repositories ?? []).map((one) => one.root);

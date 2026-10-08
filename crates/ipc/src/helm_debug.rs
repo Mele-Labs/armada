@@ -17,8 +17,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::health::HelmActionAuthority;
 use crate::ids::{Instant, ManifestId};
+use crate::protocol_id::ProtocolId;
 use crate::since::EventsSince;
-use crate::version::ProtocolVersion;
 
 /// Everything a person can carry to whoever could fix a bad Helm answer.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -71,7 +71,7 @@ pub struct HelmDebugInfo {
     /// that names what produced the answer.
     pub run_id: String,
     /// The protocol Fleet speaks.
-    pub protocol_version: ProtocolVersion,
+    pub protocol_id: ProtocolId,
     /// When the record was taken, on Fleet's clock. **Taken, not raised**, for
     /// the debug payload's reason: nothing here happened at this instant.
     pub at: Instant,

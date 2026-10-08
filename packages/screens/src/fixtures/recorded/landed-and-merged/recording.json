@@ -3112,10 +3112,7 @@
   "messages": [
    {
     "message": "opened",
-    "protocol_version": {
-     "major": 21,
-     "minor": 3
-    },
+    "protocol_id": "0000000000000000",
     "job_id": "01M3WJ4CVF0021ZQB9G8PQMAHM",
     "live": false,
     "skipped": 0
@@ -7461,10 +7458,7 @@
   "messages": [
    {
     "message": "opened",
-    "protocol_version": {
-     "major": 21,
-     "minor": 3
-    },
+    "protocol_id": "0000000000000000",
     "job_id": "01M3WJ4CVF0021ZQB9G8PQMAHM",
     "skipped": 0
    },

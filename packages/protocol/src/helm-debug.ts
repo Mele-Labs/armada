@@ -11,7 +11,7 @@
 
 import type { Outcome } from "./reads";
 import type { HelmActionAuthority } from "./health";
-import type { ProtocolVersion } from "./version";
+import type { ProtocolId } from "./connection";
 
 /** Everything a person can carry to whoever could fix a bad Helm answer. */
 export type HelmDebugInfo = {
@@ -40,7 +40,7 @@ export type HelmDebugInfo = {
   polled?: HelmDebugPolled;
   /** Which Fleet process answered. Fleet holds no application version, the way Bridge holds none. */
   run_id: string;
-  protocol_version: ProtocolVersion;
+  protocol_id: ProtocolId;
   /** When the record was taken, on Fleet's clock. Taken, not raised. */
   at: string;
 };

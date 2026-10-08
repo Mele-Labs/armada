@@ -8,7 +8,7 @@
 import type { ChangedFile } from "./events";
 import type { AskedRun, Requester } from "./requester";
 import type { JobRead, Outcome } from "./reads";
-import type { ProtocolVersion } from "./version";
+import type { ProtocolId } from "./connection";
 import type { ServerEntry } from "./servers";
 
 /** `GET /jobs/:job_id/run_sheet` — what can be run in this Job's worktree. */
@@ -177,7 +177,7 @@ export type RunMessage =
   | ({ message: "closed" } & { because: string });
 
 export type RunOpened = {
-  protocol_version: ProtocolVersion;
+  protocol_id: ProtocolId;
   job_id: string;
   id: string;
   name: string;
@@ -350,7 +350,7 @@ export type CheckoutRunMessage =
   | ({ message: "closed" } & { because: string });
 
 export type CheckoutRunOpened = {
-  protocol_version: ProtocolVersion;
+  protocol_id: ProtocolId;
   id: string;
   name: string;
   path: string;
