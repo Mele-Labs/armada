@@ -12,6 +12,8 @@ export type MergeFace = {
   label?: string;
   /** Present when the control is drawn and off. */
   blocked?: string;
+  /** The control is drawn and off with nothing more to say: the pull request card carries the checks. */
+  off?: boolean;
 };
 
 export function mergeFaceOf(
@@ -19,7 +21,7 @@ export function mergeFaceOf(
   reading: PullRequestState | undefined,
 ): MergeFace {
   if (reading?.auto_merge === true && reading.state !== "merged") {
-    return { how: "auto_merge", label: "Auto-merge on", blocked: "Merges when every check passes" };
+    return { how: "auto_merge", label: "Auto-merge on", blocked: "Merges when every check passes", off: true };
   }
   const kind = checks?.kind;
   if (kind === "still_waiting") return { how: "auto_merge", label: "Enable auto-merge" };
@@ -28,6 +30,7 @@ export function mergeFaceOf(
     return {
       how: "merge",
       blocked: failed.length === 0 ? "Checks failed" : `${failed.join(", ")} failed`,
+      off: true,
     };
   }
   return { how: "merge" };

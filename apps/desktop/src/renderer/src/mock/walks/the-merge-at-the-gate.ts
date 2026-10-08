@@ -21,6 +21,7 @@ export const theMergeAtTheGateRunning = walk("gate/checks-running", [
 ]);
 
 export const theMergeAtTheGateFailed = walk("gate/checks-failed", [
-  { look: role("img", "Checks failed: ci / test, ci / lint"), say: "A failed mark on the card; hover names the failing checks" },
-  { look: text("ci / test, ci / lint failed"), say: "Merge is off under the pull request, with the same names" },
+  { look: role("img", "Checks failed: ci / test, ci / lint"), say: "A failed mark at the right of the card, the failing checks beside it; hover says it too" },
+  { look: text("ci / test, ci / lint"), say: "Bare names, in the same group as the mark" },
+  { look: button("Merge pull request"), say: "Merge is off under the pull request, with nothing more to say" },
 ]);

@@ -125,7 +125,21 @@
 .armada-pr-card__forge {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: var(--space-2);
+  min-width: 0;
+  margin-inline-start: auto;
+}
+
+/* The failing checks, bare, beside the mark that says they failed. */
+.armada-pr-card__failing {
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-default);
+  overflow-wrap: anywhere;
 }
 
 .armada-pr-card__check {

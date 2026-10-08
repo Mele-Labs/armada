@@ -79,10 +79,9 @@ test("running checks make it Enable auto-merge, which sends the auto-merge press
   expect(sent.merged).toEqual([]);
 });
 
-test("failed checks turn Merge off and name the failing ones", async () => {
+test("failed checks turn Merge off; the names are the pull request card's", async () => {
   gate({ kind: "some_failed", checks: 4, finished: 4, failed: ["ci / test", "ci / lint"] });
   await expect.element(page.getByRole("button", { name: "Merge pull request" })).toBeDisabled();
-  await expect.element(page.getByText("ci / test, ci / lint failed")).toBeVisible();
 });
 
 test("auto-merge already asked for reads Auto-merge on and cannot be pressed again", async () => {

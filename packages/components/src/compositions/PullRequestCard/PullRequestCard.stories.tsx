@@ -100,6 +100,11 @@ export const ForgeMarks: Story = {
 export const ForgeChecksFailed: Story = {
   args: { ...JOB_2, forge: { checks: "failed", failing: ["ci / test", "ci / lint"] } },
   play: async ({ canvasElement }) => {
-    await expect(within(canvasElement).getByRole("img", { name: "Checks failed: ci / test, ci / lint" })).toBeVisible();
+    const card = within(canvasElement);
+    const mark = card.getByRole("img", { name: "Checks failed: ci / test, ci / lint" });
+    const names = card.getByText("ci / test, ci / lint");
+    await expect(mark).toBeVisible();
+    // One group: the names sit on the mark's own row, not under it.
+    expect(Math.abs(names.getBoundingClientRect().top - mark.getBoundingClientRect().top)).toBeLessThan(mark.getBoundingClientRect().height);
   },
 };

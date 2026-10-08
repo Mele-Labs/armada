@@ -99,6 +99,27 @@ export function PullRequestCard({
       <span className="armada-pr-card__head">
         <span className="armada-pr-card__number">{number}</span>
         {title === undefined ? null : <span className="armada-pr-card__title">{title}</span>}
+        {mark === undefined && forge?.autoMerge !== true ? null : (
+          <span className="armada-pr-card__forge">
+            {mark === undefined ? null : (
+              <Tooltip label={checksSaid}>
+                <span className="armada-pr-card__check" data-checks={forge?.checks} role="img" aria-label={checksSaid}>
+                  <mark.Glyph size={16} strokeWidth={2} aria-hidden />
+                </span>
+              </Tooltip>
+            )}
+            {failing.length === 0 || forge?.checks !== "failed" ? null : (
+              <span className="armada-pr-card__failing">{failing.join(", ")}</span>
+            )}
+            {forge?.autoMerge !== true ? null : (
+              <Tooltip label="Auto-merge on">
+                <span className="armada-pr-card__check" data-checks="auto" role="img" aria-label="Auto-merge on">
+                  <GitMerge size={16} strokeWidth={2} aria-hidden />
+                </span>
+              </Tooltip>
+            )}
+          </span>
+        )}
       </span>
       {branch === undefined ? null : <span className="armada-pr-card__branch">{branch}</span>}
       {facts.length === 0 ? null : (
@@ -113,24 +134,6 @@ export function PullRequestCard({
               {fact}
             </span>
           ))}
-        </span>
-      )}
-      {mark === undefined && forge?.autoMerge !== true ? null : (
-        <span className="armada-pr-card__forge">
-          {mark === undefined ? null : (
-            <Tooltip label={checksSaid}>
-              <span className="armada-pr-card__check" data-checks={forge?.checks} role="img" aria-label={checksSaid}>
-                <mark.Glyph size={16} strokeWidth={2} aria-hidden />
-              </span>
-            </Tooltip>
-          )}
-          {forge?.autoMerge !== true ? null : (
-            <Tooltip label="Auto-merge on">
-              <span className="armada-pr-card__check" data-checks="auto" role="img" aria-label="Auto-merge on">
-                <GitMerge size={16} strokeWidth={2} aria-hidden />
-              </span>
-            </Tooltip>
-          )}
         </span>
       )}
       {children}

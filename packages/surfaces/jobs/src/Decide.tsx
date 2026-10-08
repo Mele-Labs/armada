@@ -278,16 +278,16 @@ export function Decide({
         `repository's after-merge checks against what landed; merging it on ${host} ` +
         "yourself skips them.";
   const apart = render !== undefined && pullRequest !== undefined;
-  const mergeBlocked = conflicted
-    ? "This branch conflicts with main. Fleet sends it back for a Drone to clear the conflicts."
-    : face.blocked;
+  const conflictSaid = "This branch conflicts with main. Fleet sends it back for a Drone to clear the conflicts.";
   const merging = apart ? (
     <MergeAct
       onMerge={() => setAsking("merge")}
       mergeNote={mergeNote}
       {...(face.label === undefined ? {} : { mergeLabel: face.label })}
-      {...(mergeBlocked === undefined ? {} : { mergeBlockedReason: mergeBlocked })}
-      {...(waiting === undefined ? { disabled: off, ...(why === undefined ? {} : { disabledNote: why }) } : { pending: waiting })}
+      {...(conflicted ? { mergeBlockedReason: conflictSaid } : {})}
+      {...(waiting === undefined
+        ? { disabled: off || face.off === true, ...(why === undefined ? {} : { disabledNote: why }) }
+        : { pending: waiting })}
       {...(decision === undefined ? {} : { answered: decision as ReviewDecisionAnswered })}
     />
   ) : null;
@@ -304,10 +304,7 @@ export function Decide({
               approveNote: "Takes the work without merging — the pull request stays open.",
               ...(face.label === undefined ? {} : { mergeLabel: face.label }),
               ...(conflicted
-                ? {
-                    mergeBlockedReason:
-                      "This branch conflicts with main. Fleet sends it back for a Drone to clear the conflicts.",
-                  }
+                ? { mergeBlockedReason: conflictSaid }
                 : face.blocked === undefined
                   ? {}
                   : { mergeBlockedReason: face.blocked }),
