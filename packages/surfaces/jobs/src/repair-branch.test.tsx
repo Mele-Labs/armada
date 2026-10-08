@@ -6,7 +6,7 @@ import { afterEach, expect, test, vi } from "vitest";
 import { page } from "vitest/browser";
 
 import type { JobTrigger } from "@armada/protocol";
-import { RepairNode, triggerAlert } from "@armada/components";
+import { additionBranches, fixOf, RepairNode, triggerAlert } from "@armada/components";
 import { mount, unmount } from "@armada/screens/src/mounted";
 
 import { repairBranches, repairNodeId } from "./repair-branch";
@@ -88,4 +88,35 @@ test("the choice is sent once, and the buttons come back where Fleet refused it"
   // Taken: the buttons stay down until the row moves.
   await expect.element(page.getByRole("button", { name: "This branch" })).toBeDisabled();
   expect(choose).toHaveBeenCalledTimes(2);
+});
+
+test("a Skill's run draws a branch while its Drone works, named for a Drone, and a Command that is running draws none", async () => {
+  const running = { ...deploy("running", { attempt: 1, branch: FIX.branch }), drone: true };
+  const { nodes, edges } = branches([running]);
+  expect(nodes).toHaveLength(1);
+  expect(edges).toMatchObject([{ flowing: true }]);
+  expect(branches([deploy("running", undefined)]).nodes).toEqual([]);
+  mount(<RepairNode trigger={running} />);
+  await expect.element(page.getByRole("img", { name: "Drone branch" })).toBeVisible();
+  await expect.element(page.getByRole("img", { name: "Running" })).toBeVisible();
+});
+
+test("a Drone that changed nothing leaves no branch, and an added step's fix is chosen by its id", () => {
+  expect(branches([deploy("passed", { attempt: 1, branch: FIX.branch })]).nodes).toEqual([]);
+  const step = additionBranches([
+    {
+      id: "a1",
+      runs: { kind: "drone", brief: "Add a line" },
+      when: "step_passes",
+      step: "implement",
+      block: false,
+      repair: false,
+      placed: "approval",
+      added_at: AT,
+      state: "fix_ready",
+      repair_record: FIX,
+    },
+  ]);
+  expect(step.map((one) => [one.drone, fixOf(one)])).toEqual([[true, { addition: "a1" }]]);
+  expect(branches(step).asking).toBe(repairNodeId(step[0]!));
 });
