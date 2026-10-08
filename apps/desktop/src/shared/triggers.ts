@@ -2,6 +2,7 @@
 // `main/triggers.ts` builds these from Fleet's four routes; nothing else does.
 
 import type {
+  AlertList,
   Outcome,
   RemoveTrigger,
   SaveTrigger,
@@ -12,6 +13,9 @@ import type {
   TriggerRemoved,
   TriggerSaved,
 } from "@armada/protocol";
+
+/** `GET /alerts`: what is waiting on a person, for the picked repository or every one on All. */
+export type AlertsRead = ({ ok: true } & AlertList) | { ok: false; outcome: Outcome };
 
 /** `GET /triggers`, for the picked repository: what runs, what each replaced, and what was left out. */
 export type TriggersRead = ({ ok: true } & TriggerList) | { ok: false; outcome: Outcome };

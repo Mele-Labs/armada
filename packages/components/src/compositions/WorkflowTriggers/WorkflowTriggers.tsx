@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import { Bell, Briefcase, Check, CircleDashed, CircleDot, Construction, Eye, FolderGit2, GitBranch, GitPullRequest, Infinity as EveryGlyph, Minus, Package, RotateCw, SkipForward, SquarePlus, Trash2, Webhook, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type {
@@ -152,7 +152,7 @@ function Fails({
   /** A Skill or a Drone step has no Self repair: a Drone already fixes its own failures, so the switch is not drawn. */
   repairable?: boolean;
   onChange: (next: { block?: boolean; repair?: boolean }) => void;
-  /** An added step already on a Job is read: Fleet has no edit for one, so the switches are set before it is added. */
+  /** A step added to a Job that has fired is read: its switches are live only until then. */
   disabled?: boolean;
 }) {
   return (
@@ -517,14 +517,15 @@ export function addedCard(one: AddedStep, selected: boolean, onOpen: () => void)
 
 /**
  * The fields of a step added to one Job. **Editable until it is added**, at the gate or in the
- * panel that adds it; after that it is read, because Fleet has no edit for one: what a person can
- * still do is take it off before it fires, and keep it for every Job.
+ * panel that adds it; after that it is read. **Its two switches stay live until it fires**, through
+ * `onSwitch`; what else a person can do is take it off before it fires, and keep it for every Job.
  */
 export function AddedFields({
   one,
   commands,
   editable,
   onChange,
+  onSwitch,
   onKeep,
   onRemove,
 }: {
@@ -532,6 +533,8 @@ export function AddedFields({
   commands: readonly string[];
   editable: boolean;
   onChange?: (next: Partial<Pick<AddedStep, "runs" | "block" | "repair">>) => void;
+  /** Change a switch on a step that is added and has not fired. Absent leaves them read. */
+  onSwitch?: (next: Partial<Pick<AddedStep, "block" | "repair">>) => void;
   onKeep?: () => void;
   onRemove?: () => void;
 }) {
@@ -568,7 +571,13 @@ export function AddedFields({
       ) : (
         <Input label="Skill" mono value={runs.skill} onChange={(event) => change({ runs: { kind: "skill", skill: event.target.value } })} />
       )}
-      <Fails block={one.block} repair={one.repair} repairable={runs.kind === "script"} disabled={!editable} onChange={change} />
+      <Fails
+        block={one.block}
+        repair={one.repair}
+        repairable={runs.kind === "script"}
+        disabled={!editable && onSwitch === undefined}
+        onChange={editable ? change : (onSwitch ?? change)}
+      />
       {onKeep === undefined && onRemove === undefined ? null : (
         <div className="armada-triggers__acts">
           {onKeep === undefined || one.kept !== undefined ? null : (
@@ -650,6 +659,12 @@ const REPAIR_MARK: Record<RepairPhase, { Glyph: LucideIcon; said: string; hue?: 
 };
 
 /**
+ * Opens one file of a fix in its diff. **Provided by the Job's surface**, which reads the repair
+ * branch's patch against the Job's branch; absent, the files are read as names.
+ */
+export const RepairFileContext = createContext<((trigger: SideBranch, path: string) => void) | undefined>(undefined);
+
+/**
  * The branch a failed Trigger with Self repair grows off the workflow: the repair Drone at work,
  * then the fix and the choice of where it goes, then what came of it. Drawn on the Job's canvases,
  * from the Trigger's row. **A choice is sent once**: the buttons wait for
@@ -668,6 +683,7 @@ export function RepairNode({
   const phase = repairPhase(trigger);
   const mark = REPAIR_MARK[phase];
   const files = trigger.repair?.files ?? [];
+  const openFile = useContext(RepairFileContext);
   const choose = async (choice: TriggerFixChoice) => {
     if (onChoose === undefined) return;
     setSent(true);
@@ -687,7 +703,13 @@ export function RepairNode({
         <ul className="armada-repair__fix" aria-label="The fix">
           {files.map((path) => (
             <li key={path}>
-              <span className="armada-triggers__name">{path}</span>
+              {openFile === undefined ? (
+                <span className="armada-triggers__name">{path}</span>
+              ) : (
+                <button type="button" className="armada-triggers__name armada-triggers__link nodrag nopan" onClick={() => openFile(trigger, path)}>
+                  {path}
+                </button>
+              )}
             </li>
           ))}
         </ul>

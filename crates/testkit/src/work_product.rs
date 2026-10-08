@@ -25,8 +25,8 @@ use std::fmt;
 use std::sync::{Arc, Mutex};
 
 use adapter_traits::{
-    Change, Changed, ChangedFile, Counted, CountedFile, Footprint, LineCount, Patch, WorkProduct,
-    Worktree,
+    BranchWork, Change, Changed, ChangedFile, Counted, CountedFile, Footprint, LineCount, Patch,
+    WorkProduct, Worktree,
 };
 
 /// Why the fake would not read the worktree.
@@ -408,5 +408,24 @@ impl WorkProduct for FakeWorkProduct {
     fn patch(&self, worktree: &Worktree) -> Result<Patch, Self::Error> {
         self.read(worktree)?;
         Ok(Patch::of(self.patch.lock().expect("not poisoned").clone()))
+    }
+
+    /// The scripted files and patch, whichever branches are named.
+    fn branch_work(
+        &self,
+        repository: &str,
+        _base: &str,
+        _branch: &str,
+    ) -> Result<BranchWork, Self::Error> {
+        let wrote = self.read(&Worktree::at(repository, ""))?;
+        Ok(BranchWork {
+            changed: Changed::of(
+                wrote
+                    .into_iter()
+                    .map(|was| ChangedFile::new(was.path, was.change))
+                    .collect(),
+            ),
+            patch: Patch::of(self.patch.lock().expect("not poisoned").clone()),
+        })
     }
 }

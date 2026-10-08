@@ -95,6 +95,15 @@ export function removedFrom(detail: JobDetail, id: string): { detail: JobDetail 
   return { detail: { ...detail, additions: (detail.additions ?? []).filter((one) => one.id !== id) } };
 }
 
+/** `edit_job_step`, only before the step fires; a switch left out is left as it is. */
+export function editedIn(detail: JobDetail, id: string, next: { block?: boolean; repair?: boolean }): { detail: JobDetail; edited: AddedStep } | Outcome {
+  const row = (detail.additions ?? []).find((one) => one.id === id);
+  if (row === undefined) return refusedAs("fleet.no_such_addition", `this Job holds no addition \`${id}\``, { id });
+  if (row.state !== "pending") return refusedAs("fleet.added_step_fired", `\`${id}\` has fired, so it is part of what this Job did and stays as it was`, { id });
+  const edited = { ...row, block: next.block ?? row.block, repair: next.repair ?? row.repair };
+  return { detail: { ...detail, additions: (detail.additions ?? []).map((one) => (one.id === id ? edited : one)) }, edited };
+}
+
 /** Where an addition was kept, once the Trigger it became is written. */
 export function keptAs(detail: JobDetail, id: string, scope: TriggerScope): JobDetail {
   return { ...detail, additions: (detail.additions ?? []).map((one) => (one.id === id ? { ...one, kept: scope } : one)) };

@@ -1,7 +1,7 @@
 // Steps added to one Job.
 // A slice imports protocol and screens, never another slice; `../api.ts` and `../bridge.ts` compose them.
 
-import type { AddingStep, AddStepAnswer, RemovingStep, RemoveStepAnswer } from "../added-steps";
+import type { AddingStep, AddStepAnswer, EditingStep, EditStepAnswer, ReadingRepairDiff, RemovingStep, RemoveStepAnswer, RepairDiffAnswer } from "../added-steps";
 
 export type AddedStepsApi = {
   /**
@@ -11,6 +11,10 @@ export type AddedStepsApi = {
    */
   addJobStep: (adding: AddingStep) => Promise<AddStepAnswer>;
   removeJobStep: (removing: RemovingStep) => Promise<RemoveStepAnswer>;
+  /** Change an added step's switches, refused once it has fired. */
+  editJobStep: (editing: EditingStep) => Promise<EditStepAnswer>;
+  /** What a repair or side-run fix changes, against the Job's branch. */
+  readRepairDiff: (reading: ReadingRepairDiff) => Promise<RepairDiffAnswer>;
 };
 
 export type AddedStepsState = Record<never, never>;
@@ -20,4 +24,6 @@ export const ADDED_STEPS_NOTHING_YET: AddedStepsState = {};
 export const ADDED_STEPS_CHANNELS = {
   addJobStep: "bridge:add-job-step",
   removeJobStep: "bridge:remove-job-step",
+  editJobStep: "bridge:edit-job-step",
+  readRepairDiff: "bridge:read-repair-diff",
 } as const;

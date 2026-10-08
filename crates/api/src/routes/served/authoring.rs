@@ -75,4 +75,14 @@ pub(super) const ROUTES: &[Route] = &[
         method: "POST",
         path: "/jobs/:job_id/remove_job_step",
     },
+    Route {
+        operation: "edit_job_step",
+        method: "POST",
+        path: "/jobs/:job_id/edit_job_step",
+    },
+    Route {
+        operation: "get_repair_diff",
+        method: "GET",
+        path: "/jobs/:job_id/repair_diff",
+    },
 ];

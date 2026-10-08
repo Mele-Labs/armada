@@ -281,3 +281,39 @@ fn a_footprint_names_each_file_by_its_blob_id() {
         )]
     );
 }
+
+/// A repair branch is read from the repository with nothing checked out, and
+/// what it shows is its own fix and not the Job's work it was cut from.
+#[test]
+fn a_branch_is_read_against_the_one_it_was_cut_from_with_no_worktree() {
+    let repo = TempRepo::with_a_commit();
+    let worktree = worktree_for(&repo);
+    std::fs::write(format!("{}/job.txt", worktree.path()), "the job\n").expect("the file");
+    commit_in(worktree.path(), "the job's work");
+    let fix = repo.root().with_extension("fix");
+    let fix = fix.to_string_lossy();
+    repo.git(&[
+        "worktree",
+        "add",
+        "-b",
+        "armada/fix",
+        &fix,
+        worktree.branch(),
+    ]);
+    std::fs::write(format!("{fix}/fix.txt"), "the fix\n").expect("the file");
+    commit_in(&fix, "the fix");
+    repo.git(&["worktree", "remove", "--force", &fix]);
+
+    let read = GitVcs::new()
+        .branch_work(&repo.root_str(), worktree.branch(), "armada/fix")
+        .expect("a reading");
+    assert_eq!(read.changed.paths(), ["fix.txt"]);
+    assert!(read.patch.as_str().contains("+the fix"));
+    assert!(!read.patch.as_str().contains("the job"));
+
+    let gone = GitVcs::new().branch_work(&repo.root_str(), worktree.branch(), "armada/nope");
+    assert!(
+        gone.is_err(),
+        "a branch that is not there is not an empty fix"
+    );
+}

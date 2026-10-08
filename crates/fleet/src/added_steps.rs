@@ -23,7 +23,7 @@ use core_model::{
     TriggerState, TriggerWhen,
 };
 use ipc::{WireError, WireValue};
-use store::{NewAddition, Removal};
+use store::{Edited, NewAddition, Removal};
 
 use crate::adrift::Adrift;
 use crate::daemon::Fleet;
@@ -116,6 +116,68 @@ where
         );
         self.addition_moved(&job, &added, false);
         Ok(ipc::AddedStep::from(&added))
+    }
+
+    /// `edit_job_step`, **only before the step fires.** The answer is the row
+    /// as it now stands.
+    pub(crate) async fn step_edited(
+        &self,
+        job_id: &JobId,
+        edit: &ipc::EditAddedStep,
+    ) -> Result<ipc::AddedStep, Refusal> {
+        let job = self.load(job_id).await.map_err(|why| self.refusal(why))?;
+        let edited = self
+            .store()
+            .lock()
+            .await
+            .edit_job_step(job_id, &edit.id, edit.block, edit.repair)
+            .map_err(|why| self.refusal(Adrift::Writing(why)))?;
+        match edited {
+            Edited::Changed => {}
+            Edited::Fired => return Err(Refusal::IllegalMove(
+                WireError::raised(
+                    ADDED_STEP_FIRED,
+                    format!(
+                        "`{}` has fired, so it is part of what this Job did and stays as it was",
+                        edit.id
+                    ),
+                    self.run_id(),
+                )
+                .about_job(ipc::JobId::from(job_id))
+                .with_field("id", WireValue::Str(edit.id.clone())),
+            )),
+            Edited::NoSuch => return Err(self.no_such_addition(job_id, &edit.id)),
+        }
+        let held = self
+            .store()
+            .lock()
+            .await
+            .job_additions(job_id)
+            .map_err(|why| self.refusal(Adrift::Reading(why)))?;
+        let added = held
+            .iter()
+            .find(|one| one.id == edit.id)
+            .ok_or_else(|| self.no_such_addition(job_id, &edit.id))?;
+        let said = format!(
+            "Step `{}` now {} the Job on a failure and {} repair",
+            added.kind.text(),
+            if added.on_failure.block {
+                "holds"
+            } else {
+                "does not hold"
+            },
+            if added.on_failure.repair {
+                "gets a"
+            } else {
+                "gets no"
+            },
+        );
+        self.logged(
+            job_id,
+            self.addition_line(&job, self.now(), Level::Info, &said, added),
+        );
+        self.addition_moved(&job, added, false);
+        Ok(ipc::AddedStep::from(added))
     }
 
     /// `remove_job_step`, **only before the step fires.** The row stays.

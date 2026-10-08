@@ -11,6 +11,7 @@ export * from "./fake/held-fleet";
 export * from "./fake/job-2-at-review";
 export * from "./fake/job-2-hold";
 export * from "./fake/job-2-landed";
+export * from "./fake/job-2-fix-alert";
 export * from "./fake/job-2-repair";
 export * from "./fake/job-2-side-runs";
 export * from "./fake/job-2-leaves";

@@ -5,7 +5,8 @@
 // that says why: a sentence spelled twice came back wrong the first time one
 // of the two was fixed.
 
-import { Prose, SkeletonText } from "@armada/components";
+import { JobAlertMark, Prose, SkeletonText } from "@armada/components";
+import type { JobAlert } from "@armada/protocol";
 import { useId, type ReactNode } from "react";
 
 export type JobLeadProps = {
@@ -27,6 +28,11 @@ export type JobLeadProps = {
    * press where the shell can open it. #1673.
    */
   parked?: { job: string; title: string; onOpen?: () => void }[];
+  /**
+   * The Jobs Fleet lists as waiting on a person for a Trigger, one row each: the Job, the Trigger
+   * with its mark, and a press that opens the Job at the step the Trigger fired at.
+   */
+  alerts?: { job: string; name: string; alert: JobAlert; onOpen?: () => void }[];
   /** Colours the edge — the thing outstanding is found before a word is read. */
   tone?: "awaiting-review" | "completed-failed";
   /** How long the thing under it has waited, already rendered. Top right. */
@@ -56,6 +62,7 @@ export function JobLead({
   asked,
   fix,
   parked,
+  alerts,
   tone,
   elapsed,
   act,
@@ -98,6 +105,24 @@ export function JobLead({
                   )}
                   {because}
                 </p>
+              )}
+              {alerts === undefined || alerts.length === 0 ? null : (
+                <div className="armada-lead__parked">
+                  <ul aria-label="Alerts">
+                    {alerts.map((one) => (
+                      <li key={one.job}>
+                        <JobAlertMark alert={one.alert} />
+                        {one.onOpen === undefined ? (
+                          `${one.name}, ${one.alert.trigger}`
+                        ) : (
+                          <button type="button" className="armada-lead__opens" onClick={one.onOpen}>
+                            {`${one.name}, ${one.alert.trigger}`}
+                          </button>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               )}
               {parked === undefined || parked.length === 0 ? null : (
                 <div className="armada-lead__parked">

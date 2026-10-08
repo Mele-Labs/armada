@@ -427,12 +427,12 @@ pub use studio_sketch::{
 };
 pub use added_steps::{
     AddStep, AddedPlaced, AddedRuns, AddedSkip, AddedSkipReason, AddedStep, AddedStepRemoved,
-    JobAdditionChanged, KeptFrom, RemoveAddedStep,
+    EditAddedStep, JobAdditionChanged, KeptFrom, RemoveAddedStep,
 };
 pub use trigger_holds::{HoldAct, HoldSettled, JobAlert, JobAlertKind};
 pub use triggers::{
     ChooseTriggerFix, JobTrigger, JobTriggerChanged, LeftOutTrigger, OverriddenTrigger,
-    RemoveTrigger, SaveTrigger, TriggerDefinition, TriggerFiringState, TriggerFixChoice,
+    RemoveTrigger, RepairOf, SaveTrigger, TriggerDefinition, TriggerFiringState, TriggerFixChoice,
     TriggerFixChosen, TriggerLevel, TriggerList, TriggerMoment, TriggerPullRequest, TriggerRemoved,
     TriggerRepair, TriggerRuns, TriggerSaved, TriggerScope, TriggerSkip, TriggerSkipReason,
     TriggerSummary,

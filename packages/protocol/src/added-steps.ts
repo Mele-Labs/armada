@@ -30,6 +30,12 @@ export type AddStep = {
   repair?: boolean;
 };
 
+/** `edit_job_step`'s body: a switch left out is left as it is. */
+export type EditAddedStep = { id: string; block?: boolean; repair?: boolean };
+
+/** `get_repair_diff`'s query: exactly one of the two. */
+export type RepairOf = { trigger?: string; addition?: string };
+
 export type RemoveAddedStep = { id: string };
 
 export type AddedStepRemoved = { id: string };

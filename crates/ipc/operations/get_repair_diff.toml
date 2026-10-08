@@ -1,0 +1,14 @@
+[operations.get_repair_diff]
+kind = "query"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "What a repair or side-run fix changes, as a patch against the Job's branch"
+notes = """
+`GET /jobs/:job_id/repair_diff?trigger=<name>` or `?addition=<id>`, exactly one. The answer is a `JobDiff`, `get_diff`'s shape, so a fix opens in the diff a Job's own files open in: `work.files` are what the repair branch changes since it was cut from the Job's branch, and `work.patch` is the unified diff. `measured_from` is the Job's branch.
+
+**Read from the repository with no worktree**, so it answers after the repair Drone is done and the branch is parked, and until the fix is placed and the branch given back. A branch that is gone is a 500 and never an empty patch.
+
+422 `fleet.no_repair_branch` where the Trigger or added step has no repair branch recorded, because no Drone has been put on it yet or the Job holds none by that name.
+
+`agent_access` is `Bridge only`: it is the patch a person reads to choose where the fix goes, and `choose_trigger_fix` is Bridge's.
+"""

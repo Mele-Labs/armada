@@ -133,7 +133,7 @@ import {
   watchManifestDrift,
   watchOverview,
 } from "./commands";
-import { useAddedBinding } from "./added-steps";
+import { useAddedBinding, useAlerts } from "./added-steps";
 import { useDrafted } from "./drafted";
 import { hiddenSurfaces, MergeLineSurface } from "./merge-line";
 import { LessonsSurface } from "./lessons";
@@ -304,7 +304,7 @@ export function App({ draft }: AppProps = {}) {
   // leaves the list — superseded, or gone from a resync — closes its own detail
   // rather than leaving a row on screen that Fleet no longer has.
   const reading = openJob === null ? null : (state.jobs.find((job) => job.id === openJob) ?? null);
-  const added = useAddedBinding(commands, reading?.id ?? null);
+  const added = useAddedBinding(commands, reading?.id ?? null); const alerting = useAlerts(state, (jobId, to) => { asked.setOpening({ jobId, to }); setOpenJob(jobId); });
   // Main's log, opened from a Job that took main's red: the merge line head's own log, held here
   // because the Job's detail is not where that panel lives.
   const [mainLog, setMainLog] = useState<LandCheckAt | null>(null);
@@ -866,7 +866,7 @@ export function App({ draft }: AppProps = {}) {
                   onDropTask={commands.dropTask}
                   onMovePlan={commands.movePlan}
                   onEditJob={commands.editJob} onSetLandingTarget={commands.setLandingTarget} onToProposer={commands.toProposer}
-                  onShowAgain={showAgain} onChooseTriggerFix={commands.chooseTriggerFix}
+                  onShowAgain={showAgain} onChooseTriggerFix={commands.chooseTriggerFix} onReadRepairDiff={commands.readRepairDiff} {...alerting}
                   onHoldAct={(jobId, act, by) => (act === "rerun" ? commands.rerunTrigger(jobId, by) : commands.skipTrigger(jobId, by))}
                   onApprove={commands.approve} onListBranches={commands.listBranches}
                   {...commands.mergeProps(reading.id)}

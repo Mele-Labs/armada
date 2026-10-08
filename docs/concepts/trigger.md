@@ -104,7 +104,9 @@ With `repair` also on the hold waits through the repair, and each state of it st
 
 A hold let go with nothing else holding the Job puts an `escalated` Job back in the queue, and admission starts the step it stopped before. **A hold let go before a step starts is not fired again when the Job gets there**: that would undo a skip, and rerun a pass.
 
-A held Job is an alert, and so is a repair fix waiting on his choice and a Trigger that failed after its repair tries. `JobSummary.alert` names the Trigger, so a Board row draws the bell, and `list_alerts` says why.
+A held Job is an alert, and so is a repair fix waiting on his choice and a Trigger that failed after its repair tries. `JobSummary.alert` names the Trigger, so a Board row draws the bell, and `list_alerts` says why. **The Overview's lead lists them**, a row for each naming the Job and the Trigger, with the bell's mark and its tooltip, opening the Job at the step the Trigger fired at; with none it draws nothing.
+
+**A fix opens its diff.** On the canvas leaf each file of a repair or side-run fix is a button that opens the Job's diff sheet on the repair branch against the Job's branch, `get_repair_diff` (`?trigger=` or `?addition=`), read from the repository with no worktree, so it answers until the fix is placed and the branch given back.
 
 The frozen set is `job_frozen_triggers`, one row per step a Trigger fires on. The repository's files are read from the base branch by `adapters::triggers_on_base`, and this machine's by `armada::Locator`.
 
@@ -118,7 +120,7 @@ Protocol 23.58, the four operations and one event, 23.68, steps added to one Job
 | `get_trigger` | One Trigger as YAML text, from any level that holds a copy |
 | `save_trigger`, `remove_trigger` | Write or delete a file in the repository's folder or this machine's |
 | `job.trigger_changed` | One of a Job's Triggers moved. `JobDetail.triggers` is the rows, with the pending ones |
-| `add_job_step`, `remove_job_step` | Add a step to a running Job, or take one off before it fires. An `approve_dispatch` carries the ones placed at the press |
+| `add_job_step`, `edit_job_step`, `remove_job_step` | Add a step to a running Job, change its Block the Job and Self repair switches, or take it off, the last two only before it fires. An `approve_dispatch` carries the ones placed at the press |
 | `job.addition_changed` | One of a Job's added steps moved. `JobDetail.additions` is the rows, with the pending ones |
 | `rerun_trigger`, `skip_trigger` | The owner's two acts on a hold. The body names a Trigger or an added step, and the answer says where the firing stands and whether the Job holds nothing now |
 
@@ -182,6 +184,6 @@ A person can add a step to one Job without writing a workflow. It lives in the J
 - **The Drone is told** `RUN THE SKILL` and the skill, or the step's brief, with the Job's title, branch and the moment. Fleet commits what it wrote; it is told not to commit or push.
 - `skill_not_run` and `drone_step_not_run` stay on the wire so older rows read, and are no longer produced.
 
-**Fleet has no edit for an addition**, so its switches are set before it is added: at the gate it is held in the approval until the press, and on a running Job it is filled in and then added. An addition can be removed until its moment has come. **Keeping it for every Job** is `save_trigger` with `kept_from`: the editor draws the Trigger, Fleet writes it at This machine or Repository, and the addition says where it went. Any of the three can be kept: a Drone step becomes a Trigger with a `brief`, which is how a saved Trigger runs a Drone. A kept one applies from the next Job, as every saved Trigger does.
+**What an addition runs is set before it is added**: at the gate it is held in the approval until the press, and on a running Job it is filled in and then added. Its two switches stay live after that, with `edit_job_step` (`id`, `block?`, `repair?`), and it can be removed, both only until its moment has come; once it has fired, 409 `fleet.added_step_fired`. Bridge hides Self repair for a Skill or Drone step. **Keeping it for every Job** is `save_trigger` with `kept_from`: the editor draws the Trigger, Fleet writes it at This machine or Repository, and the addition says where it went. Any of the three can be kept: a Drone step becomes a Trigger with a `brief`, which is how a saved Trigger runs a Drone. A kept one applies from the next Job, as every saved Trigger does. **A Drone step takes the next free name**, as the Trigger editor's save does (`format-the-changelog-2`): the sheet reads the saved Triggers and offers Replace only where the save says the same Trigger is there.
 
 The loader is `config::TriggerCatalogue`, the type is `core_model::Trigger`, and the decision is `.claude/decisions/2026-10-07-a-trigger-runs-at-a-moment-in-a-job.md`.

@@ -1878,6 +1878,12 @@
   list-style: none;
 }
 
+.armada-lead__parked > ul > li {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
 /* The Drone's question, as the markdown it wrote: the second line's size and
    tone, with Prose's blocks left as blocks. The lead holds no clamp, so a list
    or a code block under the headline reads as the structure it is. */
