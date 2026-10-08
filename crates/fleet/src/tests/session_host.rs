@@ -757,3 +757,30 @@ async fn a_call_on_a_hosted_sessions_connection_is_its_own_ask_and_its_door_offe
     assert!(matches!(decided, ipc::RunOrNot::Allow { .. }));
     assert!(rig.fleet.helm().asks().waiting().is_empty());
 }
+
+#[tokio::test]
+async fn opening_pages_in_the_browser_shows_each_in_the_window_and_is_denied() {
+    let rig = rig();
+    let id = rig.start().await;
+    let body = r#"{"tool_name":"Bash","input":{"command":"open \"http://localhost:5191/?walk=a\"; open \"http://localhost:5191/?walk=b\""}}"#;
+    let asking: ipc::AskingToRun = ipc::decode("an ask", body.as_bytes()).expect("an ask");
+    let ran = rig
+        .fleet
+        .session_permission(id.as_str(), asking)
+        .await
+        .unwrap();
+    match ran {
+        ipc::RunOrNot::Deny { message } => assert!(message.contains("show_window"), "{message}"),
+        other => panic!("{other:?}"),
+    }
+    let shown = Arc::clone(&rig.fleet)
+        .get_session(id.clone())
+        .await
+        .unwrap()
+        .session
+        .attachments
+        .iter()
+        .filter(|one| one.kind == "artifact" && one.target.contains("walk="))
+        .count();
+    assert_eq!(shown, 2);
+}
