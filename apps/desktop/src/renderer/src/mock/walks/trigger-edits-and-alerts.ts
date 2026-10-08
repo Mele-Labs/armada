@@ -1,6 +1,6 @@
 // What a person can still do about a Trigger's work (8 Oct 2026). A step added to a Job keeps its two
 // switches live until it fires. A Drone step kept for every Job takes the next free name, and is
-// never offered Replace on a clash. The Overview's lead lists the alerts, and one opens its Job at the
+// never offered Replace on a clash. Job 2's own lead lists its alert, which opens the
 // Trigger, where a file of the held fix opens its diff against the Job's branch.
 
 import { button, card, dialog, inside, role, tab, walk } from "../walk";
@@ -46,10 +46,11 @@ export const triggerEditsAndAlerts = walk("real/job-2-edits-and-alerts", [
   { press: inside(DRONE, button("Keep for every Job")), say: "Keep it for every Job, the name already taken" },
   { press: inside(KEEP, button("Keep", { exact: true })), say: "Kept under the next free name, never asked to Replace" },
   { press: inside(KEEP, button("Close")), say: "Close" },
-  { press: tab("Overview"), say: "The Overview" },
-  { look: ALERTS, say: "An alert in the lead, naming the Job and the Trigger" },
+  { press: role("button", "Overview", { exact: true }), say: "Back to the Board" },
+  { press: button("Review", { exact: true }), say: "Job 2, which holds an alert" },
+  { look: ALERTS, say: "The alert in this Job's lead, naming the Trigger" },
   { hover: inside(ALERTS, role("img", /Fix ready, deploy_qa/)), say: "Its state, and where it fired" },
-  { press: inside(ALERTS, button(/deploy_qa/)), say: "Open the Job at its Trigger" },
+  { press: inside(ALERTS, button(/deploy_qa/)), say: "Open the Trigger's leaf on this Job's canvas" },
   { look: role("list", "The fix"), say: "The fix held on its branch, and the files it changes" },
   { press: button("deploy/qa.sh"), say: "Open a file of the fix" },
   { look: FIX, say: "Its diff against the Job's branch, in the Job's diff sheet" },

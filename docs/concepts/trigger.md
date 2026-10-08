@@ -104,7 +104,7 @@ With `repair` also on the hold waits through the repair, and each state of it st
 
 A hold let go with nothing else holding the Job puts an `escalated` Job back in the queue, and admission starts the step it stopped before. **A hold let go before a step starts is not fired again when the Job gets there**: that would undo a skip, and rerun a pass.
 
-A held Job is an alert, and so is a repair fix waiting on his choice and a Trigger that failed after its repair tries. `JobSummary.alert` names the Trigger, so a Board row draws the bell, and `list_alerts` says why. **The Overview's lead lists them**, a row for each naming the Job and the Trigger, with the bell's mark and its tooltip, opening the Job at the step the Trigger fired at; with none it draws nothing.
+A held Job is an alert, and so is a repair fix waiting on his choice and a Trigger that failed after its repair tries. `JobSummary.alert` names the Trigger, so a Board row draws the bell, and `list_alerts` says why. **A Job's Overview lead lists its own**, a row for each naming the Job and the Trigger, with the bell's mark and its tooltip, opening the Trigger's leaf on the Job's canvas (Workflow tab, the step it fired at). Other Jobs' alerts are their Board rows' bells. With none the lead says what it said before.
 
 **A fix opens its diff.** On the canvas leaf each file of a repair or side-run fix is a button that opens the Job's diff sheet on the repair branch against the Job's branch, `get_repair_diff` (`?trigger=` or `?addition=`), read from the repository with no worktree, so it answers until the fix is placed and the branch given back.
 

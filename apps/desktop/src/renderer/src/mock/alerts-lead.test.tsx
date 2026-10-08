@@ -30,3 +30,9 @@ test("mock alerts: a Job with no Trigger alert has no list", async () => {
   await onScreen();
   expect(page.getByRole("list", { name: "Alerts" }).elements()).toHaveLength(0);
 });
+
+test("mock alerts: another Job's alert is its Board bell and not a row in this Job's lead", async () => {
+  mount("real/job-2-edits-and-alerts");
+  await onScreen();
+  expect(page.getByRole("list", { name: "Alerts" }).elements()).toHaveLength(0);
+});
