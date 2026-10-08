@@ -408,7 +408,7 @@ function SketchSheet({ open, onClose, onAttach }: { open: boolean; onClose: () =
   );
 }
 
-const ARTIFACT_SAID = { page: "Published page", file: "File written", doc: "Doc" } as const;
+const ARTIFACT_SAID = { page: "Published page", file: "File written", image: "Looked at", doc: "Doc" } as const;
 
 function entriesOf(
   session: Session,
@@ -494,7 +494,7 @@ function entriesOf(
           artifact: one.form,
           name: `${ARTIFACT_SAID[one.form]} ${one.title}`,
           text: one.title,
-          onOpen: () => (one.form === "file" ? openFile(one.id) : goes.onOpenLink(one.id)),
+          onOpen: () => (one.form === "file" || one.form === "image" ? openFile(one.id) : goes.onOpenLink(one.id)),
         };
       case "subagent":
         return {

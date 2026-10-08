@@ -12,6 +12,7 @@ const record = {
   id: "S1",
   attachments: [
     { kind: "artifact", target: "/repo/docs/spike.md", state: "standing", detail: { form: "file" } },
+    { kind: "artifact", target: "/tmp/shot.png", state: "standing", detail: { form: "image" } },
     { kind: "artifact", target: "https://example.com/artifact/p1", state: "standing", detail: { form: "page" } },
   ],
 } as unknown as SessionRecord;
@@ -21,6 +22,11 @@ describe("opening a file a Session wrote", () => {
     const open = vi.fn(async (_path: string) => "");
     expect(await openSessionFile(record, "/repo/docs/spike.md", open)).toEqual({ ok: true });
     expect(open).toHaveBeenCalledWith("/repo/docs/spike.md");
+  });
+
+  it("opens a picture the ledger names as looked at", async () => {
+    const open = vi.fn(async (_path: string) => "");
+    expect(await openSessionFile(record, "/tmp/shot.png", open)).toEqual({ ok: true });
   });
 
   it("refuses a path the ledger does not name, a page's address, and a session Bridge does not hold", async () => {

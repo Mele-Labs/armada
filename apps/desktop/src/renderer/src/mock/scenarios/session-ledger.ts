@@ -43,6 +43,7 @@ const more: Session[] = [
     attachments: [
       { kind: "artifact", form: "page", id: "https://example.com/artifact/clock-findings", title: "Store clock findings" },
       { kind: "artifact", form: "file", id: "/Users/user/armada/docs/spikes/store-clock.md", title: "store-clock.md" },
+      { kind: "artifact", form: "image", id: "/tmp/ledger-screenshot.png", title: "ledger-screenshot.png" },
       { kind: "artifact", form: "doc", id: "https://example.com/artifact/clock-writeup", title: "Store clock write-up" },
     ],
   },

@@ -57,7 +57,7 @@ export type SessionAttachment =
   | { kind: "forked_to"; id: string }
   | { kind: "forked_from"; id: string };
 
-export type SessionArtifactForm = "page" | "file" | "doc";
+export type SessionArtifactForm = "page" | "file" | "image" | "doc";
 
 /**
  * A sketch as Dispatch and Studios hold one: boxes and the joins between them.
