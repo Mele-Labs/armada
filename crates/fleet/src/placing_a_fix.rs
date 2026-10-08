@@ -181,10 +181,17 @@ where
             .branch
             .clone()
             .ok_or_else(|| refused(String::from("the repair branch was not recorded")))?;
-        let command = self
-            .hold_command(&job, &hold)
-            .await
-            .ok_or_else(|| refused(format!("`{trigger}` no longer names a Command to run")))?;
+        // A Skill or Drone run has no Command to run again: its fix is the answer.
+        let side = self.side_of(&job, &hold).await.is_some();
+        let command = match self.hold_command(&job, &hold).await {
+            Some(command) => Some(command),
+            None if side => None,
+            None => {
+                return Err(refused(format!(
+                    "`{trigger}` no longer names a Command to run"
+                )))
+            }
+        };
         let pool = crate::leasing::pool_of(&served);
         let holder = holder_of(job_id, &subject);
         let (repair_slot, repair_tree) =
@@ -227,14 +234,14 @@ where
         }
         let chosen = match Placing::of(choice) {
             Placing::AsAPullRequest => {
-                self.fix_opened_as_a_pull_request(&job, &trigger, &repair_tree, &mut record)
+                self.fix_opened_as_a_pull_request(&job, &trigger, side, &repair_tree, &mut record)
                     .await
             }
             Placing::OntoTheJobsBranch => {
                 self.fix_merged_onto_the_job(
                     &job,
                     &hold,
-                    &command,
+                    command.as_deref(),
                     &repair_tree,
                     &pool,
                     &mut record,
@@ -251,11 +258,12 @@ where
             subject,
             trigger,
             step: hold.step().clone(),
-            command,
+            command: command.unwrap_or_default(),
             exit: hold.exit_code(),
             stdout: String::new(),
             stderr: String::new(),
             record: record.clone(),
+            side: None,
         };
         self.repair_ended(&job, &waiting, state, &record, "the fix is placed")
             .await;
@@ -345,6 +353,7 @@ where
         &self,
         job: &Job,
         trigger: &str,
+        side: bool,
         repair_tree: &Worktree,
         record: &mut RepairRecord,
     ) -> Result<TriggerState, FixNotChosen> {
@@ -358,10 +367,16 @@ where
         self.vcs()
             .push(repair_tree)
             .map_err(|why| format!("the repair branch did not go out: {}", why.said))?;
-        let review = Review::assembled(
-            format!("Repair `{trigger}` on {}", job.title().as_str()),
-            format!("`{trigger}` failed on this Job's branch, and this makes its Command pass."),
-        );
+        let review = match side {
+            true => Review::assembled(
+                format!("`{trigger}` on {}", job.title().as_str()),
+                format!("What `{trigger}` changed on a branch cut from this Job's."),
+            ),
+            false => Review::assembled(
+                format!("Repair `{trigger}` on {}", job.title().as_str()),
+                format!("`{trigger}` failed on this Job's branch, and this makes its Command pass."),
+            ),
+        };
         match self
             .vcs()
             .open_for_review(repair_tree, &base, &review)
@@ -387,7 +402,7 @@ where
         &self,
         job: &Job,
         hold: &Hold,
-        command: &str,
+        command: Option<&str>,
         repair_tree: &Worktree,
         pool: &adapter_traits::SlotPool,
         record: &mut RepairRecord,
@@ -428,7 +443,7 @@ where
         &self,
         job: &Job,
         hold: &Hold,
-        command: &str,
+        command: Option<&str>,
         repair_tree: &Worktree,
         job_tree: &Worktree,
         record: &mut RepairRecord,
@@ -454,6 +469,10 @@ where
             .push(job_tree)
             .map_err(|why| format!("the Job's branch did not go out: {}", why.said))?;
         let _ = repair_tree;
+        // Merged and pushed is all a Skill or Drone run has to settle.
+        let Some(command) = command else {
+            return Ok(TriggerState::Passed);
+        };
         let waiting = Waiting {
             job: job.id().clone(),
             subject: hold.subject(),
@@ -464,6 +483,7 @@ where
             stdout: String::new(),
             stderr: String::new(),
             record: record.clone(),
+            side: None,
         };
         self.repair_kept(job, &waiting, TriggerState::Rerunning, record, false)
             .await;

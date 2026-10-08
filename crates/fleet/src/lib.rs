@@ -175,7 +175,7 @@ pub mod listener;
 pub mod main_ci;
 mod main_fix;
 pub(crate) mod main_hub;
-/// The merge line `armada land` keeps in each served repository, read and published.
+/// The merge line of each served repository: its hub, read off the forge and published.
 mod manifest_checks;
 /// A possible `armada.yml` per workspace, from Scan, and the Write that ends it.
 pub mod manifest_proposal;
@@ -279,6 +279,7 @@ mod repair_recovery;
 mod repair_subject;
 /// A failed Trigger's repair Drone, on a branch of its own.
 mod repairing;
+mod side_run;
 pub mod reporting;
 /// The repositories one Fleet serves, and adding one by folder.
 pub mod repositories;

@@ -55,7 +55,9 @@ const RANK: Record<TriggerLevel, number> = { armada: 0, repository: 1, machine: 
 const identity = (one: { when: TriggerMoment; step?: string | undefined; name: string }) => `${one.when}|${one.step ?? ""}|${one.name}`;
 
 function held(scope: TriggerScope, file: Omit<Held, "scope" | "file" | "text" | "block" | "repair"> & { block?: boolean; repair?: boolean }): Held {
-  const { block = false, repair = false, ...rest } = file;
+  // A skill runs on a side Drone, which already fixes its own failures: `repair` reads off.
+  const { block = false, repair: asked = false, ...rest } = file;
+  const repair = rest.runs.kind === "skill" ? false : asked;
   const text = JSON.stringify(
     {
       name: rest.name,
@@ -80,9 +82,9 @@ const SEEDED: Held[] = [
   held("repository", { name: "qa-notes", when: "step_starts", step: "tests", workflow: "feature", runs: { kind: "skill", name: "qa-notes" } }),
 ];
 
-/** Why a Trigger does not run in this repository, where it does not. */
+/** Why a Trigger does not run in this repository, where it does not. A skill always runs, on a side Drone. */
 function skippedOf(runs: TriggerRuns): TriggerSkip | undefined {
-  if (runs.kind === "skill") return { reason: "skill_not_run", name: runs.name, said: "A skill is not run yet" };
+  if (runs.kind === "skill") return undefined;
   return DECLARED_COMMANDS.includes(runs.name)
     ? undefined
     : { reason: "not_in_this_repo", name: runs.name, said: `\`${runs.name}\` is not a Command this repository declares` };

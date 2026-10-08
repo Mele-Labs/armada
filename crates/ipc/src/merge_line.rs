@@ -1,19 +1,18 @@
-//! The merge line `armada land` keeps in each repository Fleet serves —
+//! The merge line of each repository Fleet serves —
 //! `get_merge_lines` and `merge_lines.changed` in `crates/ipc/operations/`.
 //!
-//! **The queue is a reading of files another process writes**: the runner is
-//! `armada land`, and Fleet reads its `armada-land/` directory and starts
-//! nothing. The `hub` beside it is Fleet's own reading of the forge
-//! (`merge_hub.rs`). `docs/capabilities/merge-line.md`, *In Bridge*.
+//! **The queue lists are empty now**: they held what the retired local runner,
+//! `armada land`, kept, and Fleet no longer reads it. The `hub` beside them is
+//! Fleet's own reading of the forge (`merge_hub.rs`). `docs/capabilities/merge-line.md`,
+//! *In Bridge*.
 
 use serde::{Deserialize, Serialize};
 
 /// Every served repository that has a line, the one Fleet was started in first.
 ///
 /// **A repository with no line and no hub is not here**, rather than here with
-/// nothing in it: there is nothing to draw and no rail row to offer. One nobody
-/// has run `armada land` in is here from 23.41 where Fleet has read its forge,
-/// with an empty line and a `hub`.
+/// nothing in it: there is nothing to draw and no rail row to offer. One with
+/// only a forge reading is here from 23.41, with an empty line and a `hub`.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MergeLines {
     pub lines: Vec<MergeLine>,

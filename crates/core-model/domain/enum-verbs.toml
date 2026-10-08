@@ -45,12 +45,10 @@
 #                                down, which
 #                                `[conventions.step_activity_borrowing]` in
 #                                `packages/icons/icons/` sanctions
-#   land_state                 - where one branch is on the merge line
-#                                `armada land` keeps. Keys are the words
-#                                `OutcomeState::word` prints in
-#                                `crates/adapters/src/land_state/outcome.rs`. Not
-#                                paired: that enum spells through `word`, not
-#                                `as_wire`, and carries no `ALL`
+#   land_state                 - where one branch is on the merge line.
+#                                Keys are the words `ipc::LandState` carries on
+#                                the wire. Not paired: that enum is `crates/ipc`'s
+#                                and carries a serde derive, not `as_wire` and `ALL`
 #   advance_gate               - what it takes to advance past one step. No
 #                                registry file of its own: the set is the
 #                                WorkflowDef schema's four forms, of which
@@ -1299,7 +1297,7 @@ icon = "git-merge"
 status_token = "--status-running"
 vocabulary = "Land state"
 in_code = ""
-notes = "Bridge's own, not a word `OutcomeState::word` prints: a `gating` branch whose turn has run no Check yet, so main merged in, the generators or `verify-foundations`. Bridge reads it off the Check list Fleet serves (`packages/screens/src/merge-line.ts`). The owner asked for it on 2 Oct 2026. `git-merge` (the owner chose it over `hammer`), pulsing in the running hue as `gating` does; see its row in `packages/icons/icons/`."
+notes = "Bridge's own, not a word the retired runner printed: a `gating` branch whose turn has run no Check yet, so main merged in, the generators or `verify-foundations`. Bridge reads it off the Check list Fleet serves (`packages/screens/src/merge-line.ts`). The owner asked for it on 2 Oct 2026. `git-merge` (the owner chose it over `hammer`), pulsing in the running hue as `gating` does; see its row in `packages/icons/icons/`."
 
 [verbs.land_state.held]
 verb = "Held, red on main"
@@ -1307,7 +1305,7 @@ icon = "pause"
 status_token = "--status-not-started"
 vocabulary = "Land state"
 in_code = ""
-notes = "Bridge's own, as `preparing` is, and not a word `OutcomeState::word` prints: a turn whose failed Check is red on main too, so the turn holds and nobody is to blame. Bridge reads it off the line's `notice` (kind `main`) and draws it on the rows of the running turn (`packages/screens/src/merge-line.ts`). `pause` and the neutral hue, the pair the panel's Alert draws for the same state, so row and alert read as one condition. It is stationary: a held turn is doing nothing, and a pulse would say it was working. The owner asked for the mark on 5 Oct 2026."
+notes = "Bridge's own, as `preparing` is, and not a word the retired runner printed: a turn whose failed Check is red on main too, so the turn holds and nobody is to blame. Bridge reads it off the line's `notice` (kind `main`) and draws it on the rows of the running turn (`packages/screens/src/merge-line.ts`). `pause` and the neutral hue, the pair the panel's Alert draws for the same state, so row and alert read as one condition. It is stationary: a held turn is doing nothing, and a pulse would say it was working. The owner asked for the mark on 5 Oct 2026."
 
 [verbs.land_state.merging]
 verb = "Pushing onto main"

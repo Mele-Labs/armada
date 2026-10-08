@@ -344,7 +344,8 @@ impl Store {
         Ok(self
             .firings_where(
                 "job_id = ?1 AND block_on_fail = 1
-                 AND state IN ('held', 'repairing', 'rerunning', 'fix_ready')
+                 AND (state IN ('held', 'repairing', 'rerunning', 'fix_ready')
+                      OR (state = 'running' AND repair_tries > 0))
                  AND firing_id IN (SELECT MAX(firing_id) FROM job_triggers
                                    GROUP BY job_id, name, moment, step_id)",
                 &[&job_id.as_str()],
@@ -355,9 +356,13 @@ impl Store {
     }
 
     /// Firings whose repair has not finished: `repairing`, or `rerunning` on
-    /// either branch. What a restarted Fleet takes up again.
+    /// either branch, and a Skill's run with a Drone on it, which reads
+    /// `running` with a try spent. What a restarted Fleet takes up again.
     pub fn unfinished_repairs(&self) -> Result<Vec<(JobId, i64, TriggerFiring)>, LoadJobError> {
-        self.firings_where("state IN ('repairing', 'rerunning')", &[])
+        self.firings_where(
+            "state IN ('repairing', 'rerunning') OR (state = 'running' AND repair_tries > 0)",
+            &[],
+        )
     }
 
     /// Firings whose repair ended and left its branch behind: placed on the

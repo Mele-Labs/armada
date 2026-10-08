@@ -130,6 +130,16 @@ where
                 )
             })?;
         let state = hold.state();
+        if hold.record().side_run_in_flight(state) {
+            return Err(self.not_held(
+                job_id,
+                HOLD_REPAIRING,
+                format!(
+                    "`{}` is still running, and the hold goes by itself when it ends well",
+                    hold.name()
+                ),
+            ));
+        }
         if matches!(state, TriggerState::Repairing | TriggerState::Rerunning) {
             return Err(self.not_held(
                 job_id,
@@ -195,6 +205,13 @@ where
 
     async fn hold_rerun_now(&self, job: &Job, hold: Hold) -> Result<ipc::HoldSettled, Refusal> {
         let job_id = job.id();
+        if let Some(side) = self.side_of(job, &hold).await {
+            self.side_rerun(job, &hold, &side).await;
+            return Ok(ipc::HoldSettled {
+                state: TriggerState::Running.into(),
+                released: false,
+            });
+        }
         if self.job_is_working(job_id).await {
             return Err(self.not_held(
                 job_id,

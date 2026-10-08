@@ -27,6 +27,7 @@ use store::{NewAddition, Removal};
 
 use crate::adrift::Adrift;
 use crate::daemon::Fleet;
+use crate::side_run::Side;
 use crate::trigger_repair::{Subject, Waiting};
 use crate::triggering::Comes;
 
@@ -55,14 +56,22 @@ pub fn new_addition(
     let when: TriggerWhen = add.when.into();
     let step = StepId::new(add.step.as_str());
     core_model::placeable(workflow, when, &step).map_err(|why| why.to_string())?;
+    let on_failure = match kind {
+        // A Drone already fixes its own failures.
+        AddedKind::Skill { .. } | AddedKind::Drone { .. } => OnTriggerFailure {
+            block: add.block,
+            repair: false,
+        },
+        AddedKind::Script { .. } => OnTriggerFailure {
+            block: add.block,
+            repair: add.repair,
+        },
+    };
     Ok(NewAddition {
         kind,
         when,
         step,
-        on_failure: OnTriggerFailure {
-            block: add.block,
-            repair: add.repair,
-        },
+        on_failure,
     })
 }
 
@@ -272,27 +281,25 @@ where
         manifest: &config::Manifest,
         worktree: &Worktree,
     ) {
-        let comes = match &added.kind {
-            AddedKind::Script { command } => {
-                let asked = TriggerResolution::Command {
-                    name: command.clone(),
-                    asks_first: false,
-                };
-                crate::triggering::decided(&asked, manifest)
-            }
-            AddedKind::Skill { skill } => Comes::Skip(TriggerSkipped::SkillNotRun {
-                skill: skill.clone(),
-            }),
-            AddedKind::Drone { .. } => {
-                let skipped = Fired::skipped(NotRun::DroneStepNotRun, self.now());
-                self.addition_recorded(job, added, &skipped).await;
-                self.logged(
-                    job.id(),
-                    self.firing_of_addition(job, added, &skipped, None),
-                );
-                return;
-            }
+        // A Skill and a Drone step run on a side Drone, as a repair does.
+        if let Some(side) = Side::of_addition(&added.kind) {
+            let opened = Fired::running(self.now());
+            self.addition_recorded(job, added, &opened).await;
+            self.logged(job.id(), self.firing_of_addition(job, added, &opened, None));
+            let subject = Subject::Addition(added.id.clone());
+            let name = added.kind.text().to_string();
+            self.side_queued(job, subject, name, added.when, added.step.clone(), &side)
+                .await;
+            return;
+        }
+        let AddedKind::Script { command } = &added.kind else {
+            return;
         };
+        let asked = TriggerResolution::Command {
+            name: command.clone(),
+            asks_first: false,
+        };
+        let comes = crate::triggering::decided(&asked, manifest);
         let opened = match &comes {
             Comes::Run { .. } => Fired::running(self.now()),
             Comes::AskTheOwner => Fired::awaiting_the_owner(self.now()),
@@ -302,13 +309,9 @@ where
                 },
                 self.now(),
             ),
-            Comes::Skip(TriggerSkipped::SkillNotRun { skill }) => Fired::skipped(
-                NotRun::SkillNotRun {
-                    skill: skill.clone(),
-                },
-                self.now(),
-            ),
             Comes::Skip(TriggerSkipped::ByOwner) => Fired::skipped(NotRun::ByOwner, self.now()),
+            // A Command resolves to none of these.
+            Comes::Skip(TriggerSkipped::SkillNotRun { .. }) | Comes::Side(_) => return,
         };
         self.addition_recorded(job, added, &opened).await;
         let Comes::Run { command } = comes else {
@@ -345,6 +348,7 @@ where
                     stdout: attempt.output.stdout.clone(),
                     stderr: attempt.output.stderr.clone(),
                     record: core_model::RepairRecord::default(),
+                    side: None,
                 });
         }
     }

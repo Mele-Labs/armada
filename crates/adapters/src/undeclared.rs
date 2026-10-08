@@ -3,12 +3,11 @@
 //! without declaring, took the number another branch held, and that branch
 //! renumbered. The owner's answer: the checks refuse it.
 //!
-//! **One function, called by `armada land` and by Fleet's merge act**, so a
-//! session and a Fleet Job are held to the same rule. [`undeclared`] reads the
+//! **One function, called by Fleet's merge act**, so a session and a Fleet Job
+//! are held to the same rule. [`undeclared`] reads the
 //! two ends of the branch from git, and says what to run where a watched path
 //! changed and the paths the branch has declared a need on do not include it.
-//! **Where those paths come from is the caller's**: Fleet asks its ledger, and
-//! `armada land`, which is being retired, still asks the files.
+//! **Where those paths come from is the caller's**: Fleet asks its ledger.
 //!
 //! **Which paths, and what counts as a change, is [`WATCHED`] and nothing
 //! else.** Another repository names its own by editing that list; there is no

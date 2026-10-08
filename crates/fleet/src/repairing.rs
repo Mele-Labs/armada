@@ -88,6 +88,10 @@ where
                 return true;
             }
         };
+        if let Some(told) = waiting.side.as_deref() {
+            self.side_run_over(&job, &waiting, told, held, record).await;
+            return true;
+        }
         let (pool, slot, worktree) = held;
         let came_to = self
             .tries_made(&job, &waiting, &worktree, &mut record)
@@ -207,7 +211,7 @@ where
                     ),
                 );
             }
-            self.the_fix_committed(worktree, &waiting.trigger)?;
+            self.the_fix_committed(worktree, &format!("Repair Trigger `{}`", waiting.trigger))?;
             self.repair_kept(job, waiting, TriggerState::Rerunning, record, false)
                 .await;
             let attempt = checks_runner::run(
@@ -228,7 +232,7 @@ where
 
     /// What the Drone wrote, committed by Fleet. **Nothing to commit is fine**:
     /// the Command is run either way and says whether it is fixed.
-    fn the_fix_committed(&self, worktree: &Worktree, trigger: &str) -> Result<(), String> {
+    pub(crate) fn the_fix_committed(&self, worktree: &Worktree, message: &str) -> Result<(), String> {
         let at = CommitTime::seconds_since_epoch(
             self.now()
                 .epoch_millis()
@@ -236,7 +240,7 @@ where
                 .div_euclid(1_000),
         );
         self.vcs()
-            .commit_all(worktree, &format!("Repair Trigger `{trigger}`"), at)
+            .commit_all(worktree, message, at)
             .map(|_| ())
             .map_err(|why| format!("the repair could not be committed: {why}"))
     }
@@ -244,7 +248,7 @@ where
     /// Writes and builds, and runs what the Manifest declares and does not
     /// call destructive. **No dispatch, plan or repair grants**, and nothing
     /// that pushes: Fleet delivers.
-    async fn repair_belt(&self, job: &Job) -> Toolbelt {
+    pub(crate) async fn repair_belt(&self, job: &Job) -> Toolbelt {
         let mut belt = Toolbelt::evidence_only()
             .and(Grant::ReadTheWorktree)
             .and(Grant::ReadTheRepository)
@@ -299,7 +303,10 @@ where
         let state = self
             .held_where_it_blocks(job, &waiting.subject, state)
             .await;
-        let over = matches!(state, TriggerState::Failed | TriggerState::Held);
+        let over = matches!(
+            state,
+            TriggerState::Failed | TriggerState::Held | TriggerState::Passed
+        );
         self.repair_kept(job, waiting, state, record, over).await;
         let level = match state {
             TriggerState::Failed | TriggerState::Held => Level::Warn,

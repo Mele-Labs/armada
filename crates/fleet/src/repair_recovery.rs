@@ -73,9 +73,21 @@ where
                 self.repair_moved(&job, &subject).await;
                 continue;
             }
-            let Some(command) = self.hold_command(&job, &hold).await else {
-                continue;
+            let side = self.side_of(&job, &hold).await;
+            let command = match (&side, self.hold_command(&job, &hold).await) {
+                (Some(_), _) => String::new(),
+                (None, Some(command)) => command,
+                (None, None) => continue,
             };
+            let told = side.map(|side| {
+                crate::side_run::brief(
+                    &side,
+                    job.title().as_str(),
+                    job.branch().map(|branch| branch.as_str()),
+                    hold.when(),
+                    hold.step(),
+                )
+            });
             working.insert(holder_of(&job_id, &subject));
             self.trigger_repairs()
                 .lock()
@@ -90,6 +102,7 @@ where
                     stdout: String::new(),
                     stderr: String::new(),
                     record: hold.record().clone(),
+                    side: told,
                 });
         }
         self.repair_slots_swept(&working);
