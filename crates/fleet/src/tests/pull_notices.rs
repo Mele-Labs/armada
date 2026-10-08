@@ -464,6 +464,41 @@ async fn a_merge_is_told_to_the_session_that_held_it_and_noted_on_the_job() {
 }
 
 #[tokio::test]
+async fn the_watch_settles_the_row_of_a_merged_pull_request_a_terminal_session_holds() {
+    let rig = a_rig();
+    rig.a_terminal_session_on("t1", 1).await;
+    rig.holds(Holder::session("t1"), "pr", "1", AttachmentState::Standing)
+        .await;
+    rig.fleet.vcs().main_ci.watched_are(Some(Vec::new()));
+    rig.fleet
+        .vcs()
+        .now_pull_request(Some(adapter_traits::PullRequestFacts {
+            standing: adapter_traits::PullRequestStanding::Merged,
+            branch: "armada/1".into(),
+            auto_merge: false,
+            title: "Fix the reader".into(),
+            url: "https://forge.invalid/armada/pull/1".into(),
+        }));
+    rig.fleet.vcs().now_under_review(adapter_traits::UnderReview {
+        checks: adapter_traits::WhatTheForgeRan::AllPassed { checks: 1 },
+        ..adapter_traits::UnderReview::unreadable()
+    });
+
+    rig.reads().await;
+
+    let held = rig
+        .fleet
+        .store()
+        .lock()
+        .await
+        .attachments_of(&Holder::session("t1"))
+        .unwrap();
+    let row = held.iter().find(|one| one.kind == "pr").expect("the row");
+    assert_eq!(row.state, AttachmentState::Spent);
+    assert_eq!(row.detail.get("state").map(String::as_str), Some("merged"));
+}
+
+#[tokio::test]
 async fn a_job_at_its_review_gate_is_sent_back_with_the_failure_and_a_session_is_told_too() {
     let (rig, home) = a_rig_at_a_gate();
     let job_id = at_the_gate(&rig.fleet, &home).await;

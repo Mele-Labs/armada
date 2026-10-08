@@ -47,6 +47,15 @@ export const AutoMergeOn: Story = {
   },
 };
 
+/** In the forge's merge queue: the fact, and nothing asks for it again. */
+export const InMergeQueue: Story = {
+  args: { state: "open", checks: "passed", auto: true, queued: true },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("button", { name: "In merge queue" })).toBeDisabled();
+    await expect(canvas.queryByRole("button", { name: "Merge" })).toBeNull();
+  },
+};
+
 /** Every Check passed: merge. */
 export const Passing: Story = {
   args: { state: "open", checks: "passed" },
