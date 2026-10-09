@@ -435,6 +435,7 @@ export * from "./compositions/RetroSheet/RetroSheet";
 // A Job's pause: the mark beside its badge, and the two confirms around it.
 export * from "./compositions/PausedMark/PausedMark";
 export * from "./compositions/PauseConfirm/PauseConfirm";
+export * from "./compositions/NowPanel/NowPanel";
 export * from "./compositions/OwnerChip/OwnerChip";
 export * from "./compositions/SessionFrame/SessionFrame";
 export * from "./compositions/SessionThread/SessionThread";

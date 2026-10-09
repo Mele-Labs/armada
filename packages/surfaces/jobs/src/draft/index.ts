@@ -36,6 +36,7 @@ export * from "./held";
 export * from "./landing";
 export * from "./ledger";
 export * from "./members";
+export * from "./now";
 export * from "./peers";
 export * from "./proposal";
 export * from "./pulse";
