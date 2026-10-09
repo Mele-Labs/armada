@@ -270,6 +270,9 @@ pub struct Fleet<H, V, W> {
     /// Whether a Job's retro is being written. Never written down, for
     /// `proving`'s reason — `crate::retro`.
     reflecting: crate::retro::Reflecting,
+    /// When `origin main` was last fetched, for `get_fleet_build`. Nothing else
+    /// of the build is held: the files `scripts/restart` leaves are the record.
+    building: crate::building::Building,
     /// The mod list as last published. Never written down: a rescan after a
     /// restart sets it again from the folder, and says nothing for doing so.
     mods: crate::mods::Told,

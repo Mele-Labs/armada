@@ -430,6 +430,9 @@ where
     pub(crate) fn helm(&self) -> &crate::helm::Conversations {
         &self.helm
     }
+    pub(crate) fn building(&self) -> &crate::building::Building {
+        &self.building
+    }
     pub(crate) fn spared(&self) -> &crate::releasing::Spared {
         &self.spared
     }

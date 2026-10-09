@@ -85,6 +85,8 @@ import type {
   Remarks,
   Reports,
   Watched,
+  BuildSource,
+  FleetBuildReport,
   FleetCapacity,
   FleetLimits,
   JobSummary,
@@ -186,6 +188,7 @@ type OldBridgeState = {
     jobs: JobSummary[];
     unreadable: UnreadableJob[];
     capacity: FleetCapacity | null;
+    fleetBuild: FleetBuildReport | null;
     limits: FleetLimits | null;
     preferences: Preferences;
     mods: ModList | null;
@@ -362,6 +365,7 @@ type OldBridgeApi = {
     openServerLink: (serverId: string, url: string) => Promise<Followed>;
     openLink: (address: string) => Promise<Followed>;
     restartFleet: () => Promise<FleetRestart>;
+    changeFleetBuild: (build: BuildSource, adopt: boolean) => Promise<Outcome>;
     examineJob: (jobId: string) => Promise<void>;
     readEvidence: (jobId: string | null) => Promise<void>;
     readDiff: (jobId: string | null) => Promise<void>;
@@ -458,6 +462,7 @@ const OLD_NOTHING_YET: OldBridgeState = {
     jobs: [],
     unreadable: [],
     capacity: null,
+    fleetBuild: null,
     limits: null,
     preferences: { where_things_are_open: false },
     mods: null,
@@ -630,6 +635,7 @@ const OLD_CHANNELS = {
     openServerLink: "bridge:open-server-link",
     openLink: "bridge:open-link",
     restartFleet: "bridge:restart-fleet",
+    changeFleetBuild: "bridge:change-fleet-build",
     examineJob: "bridge:examine-job",
     readDiff: "bridge:read-diff",
     readRemarks: "bridge:read-remarks",
