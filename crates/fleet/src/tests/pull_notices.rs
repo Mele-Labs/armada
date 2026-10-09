@@ -861,6 +861,7 @@ impl Rig {
                 ipc::ClaimPullRequest {
                     number,
                     session_id: Some(SessionId::carried(id)),
+                    job_id: None,
                 },
             )
             .await
@@ -932,4 +933,56 @@ async fn a_pull_request_that_is_not_open_is_not_claimed() {
     rig.a_session_that_worked("s-claims", "armada/0", AttachmentState::GivenBack).await;
     rig.fleet.vcs().main_ci.watched_are(Some(vec![]));
     assert!(rig.claims("s-claims", 33).await.is_err());
+}
+
+#[tokio::test]
+async fn a_person_attaches_an_open_pull_request_to_a_job_they_picked() {
+    let rig = a_rig_holding(None);
+    let job = a_finished_job(&rig.fleet, &rig._home, "fold the routes").await;
+    rig.fleet.vcs().main_ci.watched_are(Some(vec![pull(40, vec![])]));
+
+    let claimed = rig
+        .fleet
+        .claim_pull_request(
+            None,
+            ipc::ClaimPullRequest {
+                number: 40,
+                session_id: None,
+                job_id: Some(ipc::JobId::from(job.id())),
+            },
+        )
+        .await
+        .expect("attached");
+
+    assert_eq!(
+        (claimed.holder_kind.as_str(), claimed.holder_id.as_str()),
+        ("job", job.id().as_str())
+    );
+    assert_eq!(
+        rig.standing_holders_of_pull(40).await,
+        vec![job.id().as_str().to_string()]
+    );
+}
+
+#[tokio::test]
+async fn a_claim_naming_both_a_session_and_a_job_is_refused() {
+    let rig = a_rig_holding(None);
+    let job = a_finished_job(&rig.fleet, &rig._home, "fold the routes").await;
+    rig.a_session_that_worked("s-both", "armada/0", AttachmentState::GivenBack).await;
+    rig.fleet.vcs().main_ci.watched_are(Some(vec![pull(41, vec![])]));
+
+    let refused = rig
+        .fleet
+        .claim_pull_request(
+            None,
+            ipc::ClaimPullRequest {
+                number: 41,
+                session_id: Some(SessionId::carried("s-both")),
+                job_id: Some(ipc::JobId::from(job.id())),
+            },
+        )
+        .await;
+
+    assert!(refused.is_err());
+    assert!(rig.standing_holders_of_pull(41).await.is_empty());
 }
