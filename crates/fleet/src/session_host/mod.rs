@@ -182,12 +182,16 @@ pub(crate) struct State {
     pub unstarted: Vec<String>,
     /// Those lines have been sent to a replacement once already.
     pub retried: bool,
+    /// The keeper said busy on reattach and nothing has been heard since, so
+    /// a long silence is a turn end that was missed.
+    pub reattached_busy: bool,
 }
 
 impl State {
     /// Write one line to the process as a turn of its own.
     pub fn send_turn(&mut self, line: String) {
         self.queued += 1;
+        self.reattached_busy = false;
         self.unstarted.push(line.clone());
         if let Some(process) = &self.process {
             process.send(line);
@@ -209,6 +213,7 @@ impl State {
             commands: Vec::new(),
             unstarted: Vec::new(),
             retried: false,
+            reattached_busy: false,
         }
     }
 }
