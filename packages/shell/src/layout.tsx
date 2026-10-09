@@ -1,4 +1,4 @@
-// Layout: which Dashboard tabs and panels, Job detail tabs and rail rows Bridge draws, and in what
+// Layout: which Cockpit filters and panels, Job detail tabs and rail rows Bridge draws, and in what
 // order. `docs/concepts/layout-mods.md`.
 //
 // The registry is the one list of what can be arranged. A mod's `layout.json` and the owner's own

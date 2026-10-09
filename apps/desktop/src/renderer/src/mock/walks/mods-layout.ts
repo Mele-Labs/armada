@@ -13,14 +13,14 @@ const ask = (words: string) => ({ type: words, into: message, say: "The request"
 const tabsOf = (words: string) => ({ look: jobTabs, say: words });
 
 export const modsLayout = walk("mods-layout", [
-  { look: tab("Command Central"), say: "The Dashboard as shipped: the fleet, then the merge line" },
+  { look: tab("Your move"), say: "The Cockpit as shipped" },
   { look: rail("Retros"), say: "Retros is on the rail" },
   toSessions,
   { press: inside(region("Sessions"), button(/A layout/)), say: "A Session Bridge hosts" },
   ask("Move Merge line to the top of my Dashboard and hide the Lessons tab.\n"),
   { look: inside(thread, text(/layout\.json/)), say: "layout.json written into the mod folder" },
-  { press: rail("Overview"), say: "The Dashboard" },
-  { look: tab("Command Central"), say: "The merge line is above the fleet" },
+  { press: rail("Cockpit"), say: "The Cockpit" },
+  { look: tab("Your move"), say: "The Cockpit after the mod" },
   { press: rail("Mods"), say: "Mods, under Machine" },
   { look: role("img", "Layout"), say: "Each row names its kind" },
   { look: group("Tidy"), say: "Tidy" },
@@ -37,7 +37,7 @@ export const modsLayout = walk("mods-layout", [
   { look: inside(group("Job tabs"), group("Pulse")), say: "Pulse is off, and a mod did it" },
   { look: inside(group("Job tabs"), role("img", "Hidden by Tidy")), say: "The mod's name on hover" },
   { hover: inside(group("Job tabs"), text("Overview")), say: "A tab a decision lives on has no switch" },
-  { press: inside(group("Dashboard tabs"), button("Move Done up")), say: "A move here is the owner's own" },
+  { press: inside(group("Cockpit filters"), button("Move Done up")), say: "A move here is the owner's own" },
   { look: inside(group("Rail"), group("Retros")), say: "Retros is off the rail" },
   { press: button("Reset to defaults"), say: "Reset to defaults" },
   { look: inside(group("Rail"), group("Retros")), say: "Everything is back, and Tidy is switched off" },
