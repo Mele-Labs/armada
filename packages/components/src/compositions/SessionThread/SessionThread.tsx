@@ -416,7 +416,7 @@ export function SessionThread({ rows, asked, askRef, onAnswer, onOpenSession, on
       </div>
       {asked === undefined ? null : (
         <Card flat ref={askRef} className="armada-session-thread__ask" role="article" aria-label="Waiting on you">
-          <span className="armada-session-thread__eyebrow">{(asked.questions?.length ?? 0) > 0 ? "Question" : "Permission"}</span>
+          {(asked.questions?.length ?? 0) > 0 ? null : <span className="armada-session-thread__eyebrow">Permission</span>}
           {(asked.questions?.length ?? 0) > 0 ? null : <p className="armada-session-thread__command">{asked.command}</p>}
           {asked.questions !== undefined && asked.questions.length > 0 ? (
             <QuestionDeck

@@ -1,13 +1,13 @@
-// The agent's questions as a deck: one in front, the rest standing behind it as strips, the way the
-// Cockpit stacks its calls. A single choice moves on as it is picked; the last one sends.
+// The agent's questions as a deck, drawn as the Cockpit draws a call: one card in front with its
+// band and its answers as tiles, the rest standing behind it as strips. A single choice moves on as
+// it is picked; the last one sends.
 
 import { useState } from "react";
+import type { KeyboardEvent } from "react";
+import { MessageCircleQuestion } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
-import { Checkbox } from "../../primitives/Checkbox/Checkbox";
 import { Input } from "../../primitives/Input/Input";
-import { Radio, RadioGroup } from "../../primitives/Radio/Radio";
-import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import type { AskedQuestion, QuestionAnswer } from "./SessionThread";
 
 const BEHIND = 3;
@@ -26,19 +26,39 @@ export function QuestionDeck({
   const [using, setUsing] = useState<readonly boolean[]>(() => questions.map(() => false));
   const [words, setWords] = useState<readonly string[]>(() => questions.map(() => ""));
   const at = <T,>(list: readonly T[], index: number, value: T): T[] => list.map((one, i) => (i === index ? value : one));
-  const chosenFor = (index: number, from = picked): string[] => {
+  const chosenFor = (index: number): string[] => {
     const typed = words[index]?.trim() ?? "";
-    return [...(from[index] ?? []), ...(using[index] === true && typed !== "" ? [typed] : [])];
+    return [...(picked[index] ?? []), ...(using[index] === true && typed !== "" ? [typed] : [])];
   };
   const last = front === questions.length - 1;
   const complete = questions.every((_, index) => chosenFor(index).length > 0);
   const one = questions[front]!;
   const behind = questions.slice(front + 1, front + 1 + BEHIND);
-  const send = (from = picked) =>
-    onAnswer(
-      "allow_once",
-      questions.map((q, index) => ({ question: q.question, chosen: chosenFor(index, from) })),
-    );
+
+  const choose = (label: string) => {
+    const mine = picked[front] ?? [];
+    if (one.multi_select) {
+      setPicked(at(picked, front, mine.includes(label) ? mine.filter((x) => x !== label) : [...mine, label]));
+      return;
+    }
+    setPicked(at(picked, front, [label]));
+    setUsing(at(using, front, false));
+    if (!last) setFront(front + 1);
+  };
+  const other = () => {
+    setUsing(at(using, front, one.multi_select ? using[front] !== true : true));
+    if (!one.multi_select) setPicked(at(picked, front, []));
+  };
+  // A number picks the tile it is drawn on, as in the Cockpit.
+  const key = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.target instanceof HTMLInputElement) return;
+    const n = Number(event.key);
+    if (!Number.isInteger(n) || n < 1) return;
+    if (n <= one.options.length) choose(one.options[n - 1]!.label);
+    else if (n === one.options.length + 1) other();
+    else return;
+    event.preventDefault();
+  };
 
   return (
     <div className="armada-question-deck">
@@ -53,91 +73,84 @@ export function QuestionDeck({
       )}
       <div className="armada-question-deck__stack" style={{ ["--behind" as string]: behind.length }}>
         {behind.map((q, index) => (
-          <div
-            key={q.question}
-            className="armada-question-deck__behind"
-            style={{ ["--i" as string]: index }}
-            aria-hidden
-          >
-            {q.question}
+          <div key={q.question} className="armada-question-deck__behind" style={{ ["--i" as string]: index }} aria-hidden>
+            <MessageCircleQuestion size={14} aria-hidden />
+            <span>{q.question}</span>
           </div>
         ))}
-        <div key={one.question} className="armada-question-deck__card" role="group" aria-label={one.question}>
-          <div className="armada-session-questions__text">
-            {one.header === "" ? null : <span className="armada-session-questions__header">{one.header}</span>}
-            {one.question}
-          </div>
-          <RadioGroup>
-            {one.options.map((option) => {
-              const on = (picked[front] ?? []).includes(option.label);
-              const control = one.multi_select ? (
-                <Checkbox
-                  checked={on}
-                  onChange={() =>
-                    setPicked(
-                      at(picked, front, on ? (picked[front] ?? []).filter((x) => x !== option.label) : [...(picked[front] ?? []), option.label]),
-                    )
-                  }
-                >
-                  {option.label}
-                </Checkbox>
-              ) : (
-                <Radio
-                  name={`question-${front}`}
-                  checked={on}
-                  onChange={() => {
-                    const next = at(picked, front, [option.label]);
-                    setPicked(next);
-                    setUsing(at(using, front, false));
-                    if (!last) setFront(front + 1);
-                  }}
-                >
-                  {option.label}
-                </Radio>
-              );
-              return option.description === "" ? (
-                <div key={option.label}>{control}</div>
-              ) : (
-                <Tooltip key={option.label} label={option.description}>
-                  <div>{control}</div>
-                </Tooltip>
-              );
-            })}
-            {one.multi_select ? (
-              <Checkbox checked={using[front] === true} onChange={() => setUsing(at(using, front, using[front] !== true))}>
-                Other
-              </Checkbox>
-            ) : (
-              <Radio
-                name={`question-${front}`}
-                checked={using[front] === true}
-                onChange={() => {
-                  setUsing(at(using, front, true));
-                  setPicked(at(picked, front, []));
-                }}
+        <div key={one.question} className="armada-question-deck__card" role="group" aria-label={one.question} onKeyDown={key}>
+          <header className="armada-question-deck__band">
+            <MessageCircleQuestion size={16} aria-hidden />
+            <span>{one.header === "" ? "Question" : one.header}</span>
+            {questions.length === 1 ? null : (
+              <span className="armada-question-deck__pips" title={`${front + 1} of ${questions.length}`}>
+                {questions.map((q, index) => (
+                  <span key={q.question} className="armada-question-deck__pip" data-here={index === front || undefined} data-done={index < front || undefined} />
+                ))}
+              </span>
+            )}
+          </header>
+          <div className="armada-question-deck__body">
+            <p className="armada-question-deck__ask">{one.question}</p>
+            <div className="armada-question-deck__answers" role={one.multi_select ? "group" : "radiogroup"} aria-label="Options">
+              {one.options.map((option, index) => {
+                const on = (picked[front] ?? []).includes(option.label);
+                return (
+                  <button
+                    key={option.label}
+                    type="button"
+                    role={one.multi_select ? "checkbox" : "radio"}
+                    aria-checked={on}
+                    className="armada-question-deck__answer"
+                    data-on={on || undefined}
+                    onClick={() => choose(option.label)}
+                  >
+                    <kbd>{index + 1}</kbd>
+                    <span className="armada-question-deck__option">
+                      <span>{option.label}</span>
+                      {option.description === "" ? null : <span className="armada-question-deck__description">{option.description}</span>}
+                    </span>
+                  </button>
+                );
+              })}
+              <button
+                type="button"
+                role={one.multi_select ? "checkbox" : "radio"}
+                aria-checked={using[front] === true}
+                className="armada-question-deck__answer"
+                data-on={using[front] === true || undefined}
+                onClick={other}
               >
-                Other
-              </Radio>
-            )}
-          </RadioGroup>
-          {using[front] === true ? (
-            <Input aria-label="Other" value={words[front] ?? ""} onChange={(event) => setWords(at(words, front, event.target.value))} />
-          ) : null}
-          <div className="armada-session-thread__answers" role="group" aria-label="Answers">
-            {last ? (
-              <Button size="sm" variant="secondary" disabled={!complete} onClick={() => send()}>
-                Answer
-              </Button>
-            ) : (
-              <Button size="sm" variant="secondary" disabled={chosenFor(front).length === 0} onClick={() => setFront(front + 1)}>
-                Next
-              </Button>
-            )}
-            {canSkip ? (
-              <Button size="sm" variant="ghost" onClick={() => onAnswer("refuse")}>
-                Skip
-              </Button>
+                <kbd>{one.options.length + 1}</kbd>
+                <span className="armada-question-deck__option">
+                  <span>Other</span>
+                </span>
+              </button>
+            </div>
+            {using[front] === true ? (
+              <Input aria-label="Other" autoFocus value={words[front] ?? ""} onChange={(event) => setWords(at(words, front, event.target.value))} />
             ) : null}
+            <div className="armada-session-thread__answers" role="group" aria-label="Answers">
+              {last ? (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={!complete}
+                  onClick={() => onAnswer("allow_once", questions.map((q, index) => ({ question: q.question, chosen: chosenFor(index) })))}
+                >
+                  Answer
+                </Button>
+              ) : (
+                <Button size="sm" variant="secondary" disabled={chosenFor(front).length === 0} onClick={() => setFront(front + 1)}>
+                  Next
+                </Button>
+              )}
+              {canSkip ? (
+                <Button size="sm" variant="ghost" onClick={() => onAnswer("refuse")}>
+                  Skip
+                </Button>
+              ) : null}
+            </div>
           </div>
         </div>
       </div>
