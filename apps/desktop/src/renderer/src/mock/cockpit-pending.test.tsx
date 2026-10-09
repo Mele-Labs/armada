@@ -9,7 +9,7 @@ import { page, userEvent } from "vitest/browser";
 import { holdFor } from "../cockpit/Cockpit";
 import { forgetDismissals } from "../cockpit/dismissed";
 import { SLOW_FLEET } from "./cockpit-routes";
-import { motion, mount, onScreen, unmountAfterEach } from "./testing";
+import { entered, motion, mount, onScreen, unmountAfterEach } from "./testing";
 import { timePasses } from "./time-passes";
 
 unmountAfterEach();
@@ -61,6 +61,11 @@ test("the answer pressed carries the loop, the rest of the card is held, and a s
   await motion();
   const app = await asking();
   const answer = vi.spyOn(app.api, "answerWaiting");
+  // Every control on the card, measured at rest: none of them may change size while the answer is out.
+  const controls = () => [radio(FIRST), radio(/The real one, stopped/), radio(/Make the best decision/), radio(/Just get it done/), page.getByRole("button", { name: /^Send/ }), page.getByRole("button", { name: /^Later/ }), page.getByRole("button", { name: /^Dismiss/ })];
+  const size = (box: DOMRect) => [box.width, box.height];
+  await entered(question());
+  const resting = controls().map((one) => size(one.element().getBoundingClientRect()));
   await userEvent.keyboard("1");
   await userEvent.keyboard("{Enter}");
 
@@ -72,6 +77,8 @@ test("the answer pressed carries the loop, the rest of the card is held, and a s
   await expect.element(radio(/Make the best decision/)).toBeDisabled();
   await expect.element(page.getByRole("button", { name: /^Send/ })).toBeDisabled();
   await expect.element(page.getByRole("button", { name: /^Later/ })).toBeDisabled();
+  const during = controls().map((one) => size(one.element().getBoundingClientRect()));
+  expect(during).toEqual(resting);
 
   await userEvent.keyboard("{Enter}");
   await userEvent.keyboard("2");
