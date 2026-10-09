@@ -16,6 +16,7 @@ use crate::pairing_tests::{call, paired, rig_with, signed, Rig};
 use crate::vapid::Vapid;
 use crate::watch::Watch;
 use crate::Push;
+use store::PushSubscription;
 
 pub(crate) fn test_push() -> Push {
     let mut push = Push::new(Vapid::from_secret(&[5u8; 32]).unwrap(), "mailto:test@example.invalid").unwrap();
@@ -130,6 +131,7 @@ async fn a_stalled_job_pushes_once_however_many_events_repeat_it() {
     let stalled = changed("j2", "escalated", &because("stalled"));
     for _ in 0..3 {
         watch.observe(&stalled).await;
+        watch.settle().await;
     }
     let got = service.got.lock().unwrap();
     assert_eq!(got.len(), 1);
@@ -146,8 +148,11 @@ async fn a_job_that_leaves_the_condition_and_stops_again_pushes_again() {
     let service = service().await;
     let (mut watch, _rig, _) = watching(&service.url).await;
     watch.observe(&changed("j2", "escalated", &because("stalled"))).await;
+    watch.settle().await;
     watch.observe(&changed("j2", "running", "")).await;
+    watch.settle().await;
     watch.observe(&changed("j2", "escalated", &because("stalled"))).await;
+    watch.settle().await;
     assert_eq!(service.got.lock().unwrap().len(), 2);
 }
 
@@ -156,12 +161,17 @@ async fn approvals_reviews_and_other_escalations_never_push() {
     let service = service().await;
     let (mut watch, _rig, _) = watching(&service.url).await;
     watch.observe(&changed("j1", "awaiting_approval", "")).await;
+    watch.settle().await;
     watch.observe(&changed("j1", "awaiting_review", "")).await;
+    watch.settle().await;
     watch.observe(&changed("j2", "escalated", &because("gate_failure"))).await;
+    watch.settle().await;
     watch.observe(&changed("j2", "escalated", &because("evidence_suspect"))).await;
+    watch.settle().await;
     assert_eq!(service.got.lock().unwrap().len(), 0);
     for name in ["thrashing", "fan_out", "interrupted", "silent", "hatch_unbidden"] {
         watch.observe(&changed("j2", "escalated", &because(name))).await;
+        watch.settle().await;
     }
     // silent and hatch_unbidden read "stalled", the same condition: one push between them.
     assert_eq!(service.got.lock().unwrap().len(), 4);
@@ -174,6 +184,7 @@ async fn a_410_deletes_the_subscription() {
     let (mut watch, rig, _) = watching(&service.url).await;
     assert_eq!(rig.gateway.pairing.store.lock().unwrap().push_subscriptions().unwrap().len(), 1);
     watch.observe(&changed("j2", "escalated", &because("stalled"))).await;
+    watch.settle().await;
     assert_eq!(service.got.lock().unwrap().len(), 1);
     assert!(rig.gateway.pairing.store.lock().unwrap().push_subscriptions().unwrap().is_empty());
 }
@@ -186,7 +197,9 @@ async fn a_failed_push_is_retried_and_delivered_once() {
     watch.retries = vec![std::time::Duration::from_millis(10); 3];
     let stalled = changed("j2", "escalated", &because("stalled"));
     watch.observe(&stalled).await;
+    watch.settle().await;
     watch.observe(&stalled).await;
+    watch.settle().await;
     // One refused, one delivered, and nothing after.
     assert_eq!(service.got.lock().unwrap().len(), 2);
 }
@@ -199,6 +212,40 @@ async fn a_push_that_keeps_failing_stops_after_three_retries() {
     watch.retries = vec![std::time::Duration::from_millis(10); 3];
     let stalled = changed("j2", "escalated", &because("stalled"));
     watch.observe(&stalled).await;
+    watch.settle().await;
     watch.observe(&stalled).await;
+    watch.settle().await;
     assert_eq!(service.got.lock().unwrap().len(), 4);
+}
+
+/// Two phones, one Job. The first phone's endpoint keeps failing and its retries
+/// are an hour apart, so it is still retrying when the second is delivered. No
+/// clock is advanced: the second delivery has to arrive without waiting on the first.
+#[tokio::test]
+async fn a_phone_that_keeps_failing_does_not_hold_up_another() {
+    let (failing, working) = (service().await, service().await);
+    failing.status.store(500, Ordering::SeqCst);
+    let (mut watch, rig, _) = watching(&failing.url).await;
+    watch.retries = vec![std::time::Duration::from_secs(3600); 3];
+    let other = subscription(&working.url);
+    let other = PushSubscription {
+        device_id: "other-phone".into(),
+        endpoint: working.url.clone(),
+        p256dh: other.split("\"p256dh\":\"").nth(1).unwrap().split('"').next().unwrap().to_string(),
+        auth: "BTBZMqHH6r4Tts7J_aSIgg".into(),
+    };
+    rig.gateway.pairing.store.lock().unwrap().set_push_subscription(&other).unwrap();
+    watch.observe(&changed("j2", "escalated", &because("stalled"))).await;
+    tokio::time::timeout(std::time::Duration::from_secs(10), async {
+        while working.got.lock().unwrap().is_empty() {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .expect("the working phone was never pushed");
+    assert_eq!(working.got.lock().unwrap().len(), 1);
+    assert!(!failing.got.lock().unwrap().is_empty());
+    // The same stall again, while the first is still retrying, sends nothing more.
+    watch.observe(&changed("j2", "escalated", &because("stalled"))).await;
+    assert_eq!(working.got.lock().unwrap().len(), 1);
 }

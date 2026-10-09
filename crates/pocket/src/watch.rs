@@ -54,6 +54,7 @@ pub struct Watch {
     sent: HashMap<String, &'static str>,
     /// How long to wait before each retry of a push that failed.
     pub(crate) retries: Vec<Duration>,
+    pushes: tokio::task::JoinSet<()>,
 }
 
 impl Watch {
@@ -61,6 +62,7 @@ impl Watch {
         Watch {
             gateway,
             sent: HashMap::new(),
+            pushes: tokio::task::JoinSet::new(),
             retries: vec![Duration::from_secs(5), Duration::from_secs(30), Duration::from_secs(120)],
         }
     }
@@ -79,9 +81,10 @@ impl Watch {
                     .and_then(|name| verb(&name));
                 match held {
                     Some(reason) if self.sent.get(&id) != Some(&reason) => {
-                        // Marked once delivered, or once the retries are spent.
-                        self.push(&id, reason).await;
+                        // Marked in flight now, so a repeat of this event sends nothing
+                        // while the push retries on its own task.
                         self.sent.insert(id.clone(), reason);
+                        self.pushes.spawn(push(self.gateway.clone(), self.retries.clone(), id, reason));
                     }
                     Some(_) => {}
                     None => {
@@ -99,55 +102,64 @@ impl Watch {
         }
     }
 
-    async fn alert(&self, id: &str, reason: &'static str) -> Alert {
-        let read = async {
-            let port = (self.gateway.fleet)().ok()?;
-            let answer = fleet_client::send(port, "GET", &format!("/jobs/{id}"), None).await.ok()?;
-            ipc::decode::<JobDetail>("a job", &answer.body).ok()
-        };
-        let phone = read.await.map(|detail| PhoneJob::of_detail(&detail, None));
-        Alert {
-            job_id: id.to_string(),
-            title: phone.as_ref().map_or_else(|| id.to_string(), |job| job.title.clone()),
-            reason,
-            step: phone.and_then(|job| job.step).map(|step| At { at: step.at, of: step.of }),
-        }
+    /// Wait for every push started so far, retries included. Only tests need it:
+    /// `follow` never waits on a push.
+    #[cfg(test)]
+    pub(crate) async fn settle(&mut self) {
+        while self.pushes.join_next().await.is_some() {}
     }
+}
 
-    async fn push(&self, id: &str, reason: &'static str) {
-        let Ok(payload) = ipc::encode(&self.alert(id, reason).await) else {
-            return;
-        };
-        let subs = self.gateway.pairing.store.lock().unwrap().push_subscriptions().unwrap_or_default();
-        let push = &self.gateway.push;
-        for sub in subs {
-            if !push.plain && !sub.endpoint.starts_with("https://") {
-                continue;
+async fn alert(gateway: &Gateway, id: &str, reason: &'static str) -> Alert {
+    let read = async {
+        let port = (gateway.fleet)().ok()?;
+        let answer = fleet_client::send(port, "GET", &format!("/jobs/{id}"), None).await.ok()?;
+        ipc::decode::<JobDetail>("a job", &answer.body).ok()
+    };
+    let phone = read.await.map(|detail| PhoneJob::of_detail(&detail, None));
+    Alert {
+        job_id: id.to_string(),
+        title: phone.as_ref().map_or_else(|| id.to_string(), |job| job.title.clone()),
+        reason,
+        step: phone.and_then(|job| job.step).map(|step| At { at: step.at, of: step.of }),
+    }
+}
+
+/// One Job's push to every subscription, each on its own task so a phone that
+/// is failing does not hold up another.
+async fn push(gateway: Gateway, retries: Vec<Duration>, id: String, reason: &'static str) {
+    let Ok(payload) = ipc::encode(&alert(&gateway, &id, reason).await) else {
+        return;
+    };
+    let subs = gateway.pairing.store.lock().unwrap().push_subscriptions().unwrap_or_default();
+    let mut each = tokio::task::JoinSet::new();
+    for sub in subs {
+        if !gateway.push.plain && !sub.endpoint.starts_with("https://") {
+            continue;
+        }
+        each.spawn(send(gateway.clone(), retries.clone(), sub, payload.clone()));
+    }
+    while each.join_next().await.is_some() {}
+}
+
+async fn send(gateway: Gateway, retries: Vec<Duration>, sub: store::PushSubscription, payload: String) {
+    let push = &gateway.push;
+    // The Gateway's own tailnet address says who is sending; with no
+    // Tailscale there is no phone to reach, so the fallback is rarely used.
+    let subject = gateway.pairing.address().unwrap_or_else(|_| push.subject.clone());
+    let mut waits = retries.iter();
+    loop {
+        let now = (gateway.pairing.clock)();
+        match deliver(&push.client, &push.vapid, &subject, &sub, payload.as_bytes(), now).await {
+            Delivery::Sent => break,
+            Delivery::Gone => {
+                let _ = gateway.pairing.store.lock().unwrap().remove_push_subscription(&sub.device_id, &sub.endpoint);
+                break;
             }
-            // The Gateway's own tailnet address says who is sending; with no
-            // Tailscale there is no phone to reach, so the fallback is rarely used.
-            let subject = self.gateway.pairing.address().unwrap_or_else(|_| push.subject.clone());
-            let mut waits = self.retries.iter();
-            loop {
-                let now = (self.gateway.pairing.clock)();
-                match deliver(&push.client, &push.vapid, &subject, &sub, payload.as_bytes(), now).await {
-                    Delivery::Sent => break,
-                    Delivery::Gone => {
-                        let _ = self
-                            .gateway
-                            .pairing
-                            .store
-                            .lock()
-                            .unwrap()
-                            .remove_push_subscription(&sub.device_id, &sub.endpoint);
-                        break;
-                    }
-                    Delivery::Failed => match waits.next() {
-                        Some(wait) => tokio::time::sleep(*wait).await,
-                        None => break,
-                    },
-                }
-            }
+            Delivery::Failed => match waits.next() {
+                Some(wait) => tokio::time::sleep(*wait).await,
+                None => break,
+            },
         }
     }
 }
