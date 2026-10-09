@@ -199,10 +199,14 @@ export const Questions: Story = {
     },
   },
   play: async ({ canvas, args }) => {
-    const answer = canvas.getByRole("button", { name: "Answer" });
-    await expect(answer).toBeDisabled();
+    // One at a time: a multi-select moves on with Next, the last one sends.
+    const next = canvas.getByRole("button", { name: "Next" });
+    await expect(next).toBeDisabled();
     await userEvent.click(canvas.getByRole("checkbox", { name: "cheese" }));
     await userEvent.click(canvas.getByRole("checkbox", { name: "ham" }));
+    await userEvent.click(next);
+    await expect(canvas.getByRole("button", { name: /Toppings: cheese, ham/ })).toBeVisible();
+    const answer = canvas.getByRole("button", { name: "Answer" });
     await expect(answer).toBeDisabled();
     await userEvent.click(canvas.getByRole("radio", { name: "Other" }));
     await userEvent.type(canvas.getByRole("textbox", { name: "Other" }), "Medium, if you have it");

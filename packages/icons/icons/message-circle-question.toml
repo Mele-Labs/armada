@@ -1,0 +1,7 @@
+[icons.message-circle-question]
+  means = "A speech bubble with a question mark"
+  group = "Sessions"
+  size = "16px"
+  status = "Specified"
+  reserved = "An agent's question to the person, on its card and the strips behind it."
+  notes = "Approved 9 Oct 2026 with the question deck."
