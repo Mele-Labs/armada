@@ -1,7 +1,7 @@
 // The Cockpit while answers go to Fleet. A Session asks two questions: Fleet takes the first, slowly,
 // and drops it from the Session a moment after it answered; Fleet refuses the second. Beside them a
-// Job whose workflow is still being settled, which lands a moment later. The walk `cockpit-pending`
-// plays it; `cockpit-routes.ts` is what makes Fleet slow.
+// Job whose workflow is still being settled, which lands later. The walk `cockpit-pending` plays it,
+// and each wait stands until one of its steps lets Fleet go (`cockpit-routes.ts`).
 
 import { featureRunning } from "@armada/jobs/fake";
 import { proposing, running } from "@armada/jobs/fixtures/build/index";
@@ -9,7 +9,7 @@ import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
 import type { Session } from "@armada/screens/src/draft/sessions";
 import { repository } from "@armada/screens/src/fixtures/build/base";
 
-import { REFUSES, SLOW_FLEET } from "../cockpit-routes";
+import { REFUSES, SLOW_FLEET, gate } from "../cockpit-routes";
 import { asRow, holding } from "../holding";
 import type { Scenario } from "../moment";
 import { sessionsStore } from "../sessions/script";
@@ -59,9 +59,23 @@ function build(): Scenario {
   return {
     ...base,
     state: { ...base.state, repository: null, jobs },
-    // The proposer settles the workflow: the tile's steps come onto it.
-    later: [{ jobs: [cache.job, mainChecks.job, landed] }],
-    draft: { sessions: (control) => ({ ...sessionsStore([none, none], none, [], control, [], [SESSION]), pace: SLOW_FLEET }) },
+    // Each moment is a step of the walk. The first three only let Fleet go (the answer, then the item
+    // dropping, then the refusal); the fourth is the proposer settling the workflow, which brings the
+    // tile's steps onto it.
+    later: [{}, {}, {}, { jobs: [cache.job, mainChecks.job, landed] }],
+    draft: {
+      sessions: (control) => {
+        const store = sessionsStore([none, none], none, [], control, [], [SESSION]);
+        const { held, ...clocks } = SLOW_FLEET;
+        // Fleet answers when the walk lets it, so the waiting state stands as long as a person wants to look at it.
+        const hold = held ? gate() : undefined;
+        return {
+          ...store,
+          pace: { ...clocks, ...(hold === undefined ? {} : { held: hold }) },
+          later: () => (store.later(), hold?.release()),
+        };
+      },
+    },
   };
 }
 

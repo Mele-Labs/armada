@@ -16,8 +16,14 @@ export type SessionsStore = SessionsDraft & {
   attach: (id: string, attachment: SessionAttachment) => void;
   drop: (id: string, itemId: string) => void;
   /** How slow Fleet is to answer the Cockpit's routes, and then to stop carrying what it answered: at once where absent. */
-  pace?: { answerMs: number; settleMs: number };
+  pace?: Pace;
 };
+
+/** Something a route waits on until it is let go: a walk's step, not a timer, so a person can sit on the wait. */
+export type Gate = { wait: () => Promise<void>; release: () => void };
+
+/** How long Fleet takes to answer, and then to stop carrying what it answered. Where `held` is set it waits on that instead of on the clocks. */
+export type Pace = { answerMs: number; settleMs: number; held?: Gate };
 
 /** A Job the walk's Session dispatches. The real Board holds it, so its id is the Board's. */
 export type DispatchedJob = { id: string; number: number; title: string; branch: string; slot: number };

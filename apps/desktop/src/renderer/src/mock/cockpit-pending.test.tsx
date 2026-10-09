@@ -20,6 +20,8 @@ const SLOW = { ...SLOW_FLEET };
 beforeEach(() => {
   forgetDismissals();
   localStorage.removeItem("armada.bridge.dashboard-tab");
+  // The walk lets Fleet go by a step; these run it on the clocks.
+  SLOW_FLEET.held = false;
   SLOW_FLEET.answerMs = ANSWERED;
   SLOW_FLEET.settleMs = SETTLED;
 });
@@ -142,7 +144,8 @@ test("a Job whose workflow is still being settled holds the steps' place with th
   expect(cue()).not.toBeNull();
   expect(tile().element().querySelector('ol[aria-label="Steps"]')).toBeNull();
 
-  timePasses();
+  // The proposer settles it at the walk's fourth moment.
+  for (let moment = 0; moment < 4; moment += 1) timePasses();
   await expect.poll(() => tile().element().querySelector('ol[aria-label="Steps"]') !== null).toBe(true);
   expect(cue()).toBeNull();
 });
