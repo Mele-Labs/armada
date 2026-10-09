@@ -695,3 +695,78 @@ async fn a_forge_that_will_not_answer_changes_nothing() {
     rig.reads().await;
     assert!(rig.runs_sent_to_the_session().is_empty());
 }
+
+impl Rig {
+    async fn a_session_that_worked(&self, id: &str, branch: &str, state: AttachmentState) {
+        let root = self.fleet.repositories().first().unwrap().root().to_string();
+        self.fleet
+            .report_session(SessionReport {
+                harness: adapters::HOSTED_HARNESS.into(),
+                session_id: SessionId::carried(id),
+                fact: SessionFact::Started {
+                    cwd: root,
+                    title: None,
+                    origin: SessionOrigin::Terminal,
+                    mod_version: None,
+                },
+            })
+            .await
+            .unwrap();
+        self.holds(Holder::session(id), "branch", branch, state).await;
+    }
+
+    async fn holders_of_pull(&self, number: u64) -> Vec<String> {
+        let manifest = self.manifest();
+        self.fleet
+            .store()
+            .lock()
+            .await
+            .attachments_at("pr", &number.to_string(), Some(&manifest))
+            .unwrap()
+            .into_iter()
+            .map(|row| row.holder.id)
+            .collect()
+    }
+}
+
+#[tokio::test]
+async fn an_open_pull_request_nobody_reported_is_attached_to_the_session_that_worked_its_branch() {
+    let rig = a_rig_holding(None);
+    rig.a_session_that_worked("s-made-it", "armada/12", AttachmentState::Standing)
+        .await;
+    rig.a_session_that_worked("s-elsewhere", "armada/99", AttachmentState::Standing)
+        .await;
+    rig.fleet.vcs().main_ci.watched_are(Some(vec![pull(12, vec![])]));
+
+    rig.reads().await;
+    rig.reads().await;
+
+    assert_eq!(rig.holders_of_pull(12).await, vec!["s-made-it".to_string()]);
+}
+
+#[tokio::test]
+async fn a_pull_request_a_session_already_holds_is_not_attached_to_a_second() {
+    let rig = a_rig_holding(None);
+    rig.a_terminal_session_on("s-reported", 12).await;
+    rig.a_session_that_worked("s-branch", "armada/12", AttachmentState::Standing)
+        .await;
+    rig.fleet.vcs().main_ci.watched_are(Some(vec![pull(12, vec![])]));
+
+    rig.reads().await;
+
+    assert_eq!(rig.holders_of_pull(12).await, vec!["s-reported".to_string()]);
+}
+
+#[tokio::test]
+async fn a_branch_two_sessions_worked_gives_its_pull_request_to_the_one_still_on_it() {
+    let rig = a_rig_holding(None);
+    rig.a_session_that_worked("s-gone", "armada/12", AttachmentState::GivenBack)
+        .await;
+    rig.a_session_that_worked("s-here", "armada/12", AttachmentState::Standing)
+        .await;
+    rig.fleet.vcs().main_ci.watched_are(Some(vec![pull(12, vec![])]));
+
+    rig.reads().await;
+
+    assert_eq!(rig.holders_of_pull(12).await, vec!["s-here".to_string()]);
+}
