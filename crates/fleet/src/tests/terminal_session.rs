@@ -9,12 +9,12 @@ use std::time::Duration;
 
 use api::{HostedSessions, Next, Sessions};
 use ipc::{
-    SendSessionMessage, SessionFact, SessionId, SessionOrigin, SessionReport, SessionRow,
+    AnswerSessionAsk, HelmCallAnswer, QuestionAnswer, SendSessionMessage, SessionFact, SessionId, SessionOrigin, SessionReport, SessionRow,
     SessionVoice, TakeHeld,
 };
 use testkit::{FakeVcs, FakeHarness, FakeWorkProduct};
 
-use super::session_host::{Shared, StandIn};
+use super::session_host::{eventually, Shared, StandIn};
 use crate::daemon::Fleet;
 use crate::tests::daemon::a_fleet;
 use crate::tests::tmp::TempDir;
@@ -415,4 +415,97 @@ async fn a_subagent_whose_transcript_ended_reads_as_done_on_the_ledger() {
     Arc::clone(&rig.fleet).get_session_subagent(SessionId::carried(ID), "x1".into()).await.unwrap();
     std::fs::remove_file(&file).unwrap();
     assert_eq!(state(&rig).await, Some(ipc::AttachmentState::Spent), "and settled for good once read");
+}
+
+const QUESTION: &str = r#"{"questions":[{"question":"Which size?","header":"Size","multiSelect":false,
+  "options":[{"label":"S","description":"Small"},{"label":"L","description":"Large"}]}]}"#;
+
+impl Rig {
+    /// The mod putting a terminal question to Fleet, held in a task.
+    fn mod_asks_a_question(
+        &self,
+    ) -> tokio::task::JoinHandle<Result<ipc::TerminalAsked, api::Refusal>> {
+        let fleet = Arc::clone(&self.fleet);
+        let ask = format!(r#"{{"kind":"asks","session_id":"{ID}","input":{QUESTION}}}"#);
+        let ask: ipc::TerminalAsk = ipc::decode("a question", ask.as_bytes()).unwrap();
+        tokio::spawn(async move { fleet.ask_from_terminal(ask).await })
+    }
+
+    async fn waiting_ask(&self) -> ipc::HelmCallInFlight {
+        let found = std::sync::Mutex::new(None);
+        eventually(|| async {
+            let asked = Arc::clone(&self.fleet)
+                .get_session(SessionId::carried(ID))
+                .await
+                .unwrap()
+                .session
+                .terminal
+                .and_then(|facts| facts.asked);
+            *found.lock().unwrap() = asked.clone();
+            asked.is_some()
+        })
+        .await;
+        let asked = found.lock().unwrap().take();
+        asked.expect("a question is waiting")
+    }
+}
+
+/// **A terminal's question is a card in its thread**, answered from Bridge, and
+/// the answers go back to the mod in the tool's own shape.
+#[tokio::test]
+async fn a_terminal_question_is_an_ask_row_and_a_bridge_answer_reaches_the_waiting_call() {
+    let rig = rig();
+    rig.started().await;
+    let held = rig.mod_asks_a_question();
+
+    let ask = rig.waiting_ask().await;
+    assert_eq!(ask.tool, "AskUserQuestion");
+    assert_eq!(ask.questions[0].options[1].label, "L");
+    let rows = rig.opened().await;
+    assert!(matches!(
+        &rows[..],
+        [SessionRow::Ask { state: ipc::SessionAskState::Waiting, .. }]
+    ));
+
+    Arc::clone(&rig.fleet)
+        .answer_session_ask(AnswerSessionAsk {
+            session_id: SessionId::carried(ID),
+            call: ask.call,
+            answer: HelmCallAnswer::AllowOnce,
+            note: None,
+            answers: vec![QuestionAnswer {
+                question: "Which size?".into(),
+                chosen: vec!["L".into()],
+            }],
+        })
+        .await
+        .expect("a terminal session's ask is answerable");
+    let ipc::TerminalAsked::Answered { updated_input } = held.await.unwrap().unwrap() else {
+        panic!("an answered question comes back answered");
+    };
+    assert_eq!(updated_input.pointer("/answers/Which size?").unwrap(), "L");
+    assert!(rig.opened().await.is_empty(), "no waiting card is left");
+}
+
+/// The terminal's own prompt answered first: the mod says so, the card closes
+/// and the held request ends.
+#[tokio::test]
+async fn a_terminal_answer_settles_the_ask_and_ends_the_held_request() {
+    let rig = rig();
+    rig.started().await;
+    let held = rig.mod_asks_a_question();
+    rig.waiting_ask().await;
+
+    rig.fleet
+        .ask_from_terminal(ipc::TerminalAsk::Settled {
+            session_id: ID.into(),
+            answered: true,
+        })
+        .await
+        .unwrap();
+    assert!(matches!(
+        held.await.unwrap().unwrap(),
+        ipc::TerminalAsked::Gone {}
+    ));
+    assert!(rig.opened().await.is_empty(), "the card is closed");
 }

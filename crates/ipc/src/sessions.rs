@@ -192,6 +192,10 @@ pub struct TerminalFacts {
     /// nothing can be said to. Since 23.69.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub listening: bool,
+    /// The question the session put in its terminal and Bridge may answer
+    /// first, while it waits.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub asked: Option<crate::helm_call::HelmCallInFlight>,
 }
 
 /// What a harness sends Fleet. `POST /sessions/report`.
