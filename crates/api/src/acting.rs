@@ -28,6 +28,9 @@ pub const CALLER_HEADER: &str = "x-armada-caller";
 /// What Bridge says in [`CALLER_HEADER`].
 pub const BRIDGE: &str = "bridge";
 
+/// What the phone's Gateway says in [`CALLER_HEADER`].
+pub const PHONE: &str = "phone";
+
 tokio::task_local! {
     static VIA: Via;
 }
@@ -89,9 +92,15 @@ fn door_of(request: &Request) -> Via {
         .is_some_and(|said| said.as_bytes() == BRIDGE.as_bytes())
     {
         "bridge"
+    } else if request
+        .headers()
+        .get(CALLER_HEADER)
+        .is_some_and(|said| said.as_bytes() == PHONE.as_bytes())
+    {
+        "phone"
     } else {
         "http"
     };
-    // Total: the four spellings are the domain's own.
+    // Total: the five spellings are the domain's own.
     Via::from_wire(spelled).unwrap_or_else(|| unreachable!("`{spelled}` is a door"))
 }
