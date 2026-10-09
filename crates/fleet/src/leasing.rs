@@ -12,7 +12,7 @@ use std::sync::Arc;
 
 use adapter_traits::{
     AgentHarness, Delivery, SlotChange, SlotHeld, SlotKept, SlotPool, SlotReading, SlotRefused,
-    SlotStanding, StrandedWork, Vcs, WorkProduct, WorktreeSpec, WorktreeSpecRefused,
+    SlotStanding, Vcs, WorkProduct, WorktreeSpec, WorktreeSpecRefused,
 };
 use api::Refusal;
 use core_model::{Component, Envelope, FieldValue, Job, JobStatus, Level};
@@ -232,7 +232,8 @@ where
         for served in self.repositories().served() {
             let manifest = served.manifest().id().as_str().to_string();
             let pool = pool_of(&served);
-            for (reading, stranded) in self.pool_read(pool.clone()).await {
+            for mut reading in self.pool_read(pool.clone()).await {
+                let stranded = reading.work.take();
                 let job = match &reading.held {
                     // A repair's slot is held under its own id and shown under its Job.
                     SlotHeld::Job(id) => job_of(id)
@@ -265,34 +266,14 @@ where
         slots
     }
 
-    /// Each slot of one pool, and what it holds where it holds work to show.
-    ///
-    /// **Off the runtime and side by side.** Every slot is its own checkout
-    /// and a handful of git processes, and none depends on another, so the
-    /// read costs the slowest slot rather than the sum.
-    async fn pool_read(&self, pool: SlotPool) -> Vec<(SlotReading, Option<StrandedWork>)> {
+    /// Each slot of one pool, off the runtime. The pool reads its slots side
+    /// by side and each reading carries what its slot holds, where it shows
+    /// work: `SlotReading::with_work` is the rule.
+    async fn pool_read(&self, pool: SlotPool) -> Vec<SlotReading> {
         let vcs = Arc::clone(self.vcs());
-        tokio::task::spawn_blocking(move || {
-            let readings = vcs.slot_pool(&pool);
-            let held = adapters::concurrently(&readings, |reading| {
-                // A Job's slot is rescued as a stranded one where its release
-                // was refused, so what it holds is read the same way.
-                match (&reading.held, &reading.kept) {
-                    (SlotHeld::Stranded(_), _) | (SlotHeld::Job(_), Some(_)) => {
-                        vcs.stranded_work(&pool, reading.slot).ok()
-                    }
-                    // A session's slot, read for the files a release commits.
-                    (SlotHeld::Session(_), _) => vcs
-                        .session_work(&pool, reading.slot)
-                        .ok()
-                        .filter(|work| !work.uncommitted.is_empty()),
-                    _ => None,
-                }
-            });
-            readings.into_iter().zip(held).collect()
-        })
-        .await
-        .expect("git panicked reading the pool")
+        tokio::task::spawn_blocking(move || vcs.slot_pool(&pool))
+            .await
+            .expect("git panicked reading the pool")
     }
 
     /// A person's change to a repository's pool, from Cleanup's bay grid. The

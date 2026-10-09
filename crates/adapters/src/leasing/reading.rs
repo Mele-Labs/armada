@@ -19,19 +19,26 @@ impl Pool {
         let shape = self.shape();
         let base = self.base_ref();
         concurrently(&self.bays(), |&number| {
+            let (state, status) = self.probe_of(number);
             self.reading(
                 Slot {
                     number,
                     path: self.path_of(number),
-                    state: self.state_of(number),
+                    state,
                     closed: shape.closed.contains(&number),
                 },
                 &base,
+                status,
             )
         })
     }
 
-    fn reading(&self, slot: Slot, base: &str) -> SlotReading {
+    fn reading(
+        &self,
+        slot: Slot,
+        base: &str,
+        status: Option<Result<Vec<String>, String>>,
+    ) -> SlotReading {
         let made = !matches!(slot.state, SlotState::Unmade | SlotState::NotACheckout);
         let (kept, completed) = match &slot.state {
             SlotState::Held {
@@ -74,7 +81,10 @@ impl Pool {
             since: (since > 0).then_some(since),
             kept,
             completed,
+            work: None,
         }
+        // What the slot holds, from the state and the `git status` already read.
+        .with_work(|_| self.work_at(&slot.path, status).ok())
     }
 
     fn warm(&self, at: &Path) -> bool {
@@ -83,7 +93,7 @@ impl Pool {
 
     fn behind(&self, at: &Path, base: &str) -> Option<u32> {
         let range = format!("HEAD..{base}");
-        git::git(at, &["rev-list", "--count", &range])
+        git::read(at, &["rev-list", "--count", &range])
             .ok()?
             .parse()
             .ok()

@@ -308,6 +308,7 @@ impl FakeSlots {
                             .and(slot.stranded.as_ref())
                             .map(|(work, _)| format!("{} uncommitted", work.uncommitted.len())),
                         completed: false,
+                        work: None,
                     }
                 })
                 .collect()

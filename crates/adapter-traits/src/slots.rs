@@ -106,6 +106,41 @@ pub struct SlotReading {
     pub kept: Option<String>,
     /// The Job holding it completed, and holds it until a person clears it.
     pub completed: bool,
+    /// What it holds, for the slots that show work: [`SlotReading::with_work`]
+    /// says which. Read with the slot's state, so asking for it costs no
+    /// second look at the checkout.
+    pub work: Option<StrandedWork>,
+}
+
+/// Which reading of a slot's work its holder asks for.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum WorkShown {
+    /// A stranded slot, or a Job's whose release was refused.
+    Stranded,
+    /// An agent session's, read for the files a release commits.
+    Session,
+}
+
+impl SlotReading {
+    /// This reading with the work of the slots that show any, `read` asked
+    /// only for those: a stranded slot, a Job's slot whose release was
+    /// refused, and a session's slot where it has uncommitted files. A read
+    /// that fails shows none. **One rule for the real pool and the fake.**
+    pub fn with_work(
+        self,
+        read: impl FnOnce(WorkShown) -> Option<StrandedWork>,
+    ) -> SlotReading {
+        let work = match (&self.held, &self.kept) {
+            (SlotHeld::Stranded(_), _) | (SlotHeld::Job(_), Some(_)) => {
+                read(WorkShown::Stranded)
+            }
+            (SlotHeld::Session(_), _) => {
+                read(WorkShown::Session).filter(|work| !work.uncommitted.is_empty())
+            }
+            _ => None,
+        };
+        SlotReading { work, ..self }
+    }
 }
 
 /// Who holds a slot, or why nothing can.

@@ -84,7 +84,7 @@ pub use setup::{
 pub use slots::{
     BranchKept, CommitHome, RescueRefused, SlotChange, SlotCommit, SlotHeld, SlotKept, SlotLeased,
     SlotParkRefused, SlotParked, SlotPool, SlotReading, SlotRefused, SlotRescue, SlotRescued,
-    SlotStanding, StrandedWork,
+    SlotStanding, StrandedWork, WorkShown,
 };
 pub use under_review::{
     FromOutside, InlineContext, PullRequestDiff, Remark, ReviewVerdict, ReviewedBy, UnderReview,
