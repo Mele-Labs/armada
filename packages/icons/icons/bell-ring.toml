@@ -1,0 +1,7 @@
+[icons.bell-ring]
+  means = "A ringing bell - something is calling for the owner"
+  group = "Session"
+  size = "12px"
+  status = "Specified"
+  reserved = "Not an alert from a Trigger (that is `bell`) and not a stalled Job."
+  notes = "Chosen by the owner 8 Oct 2026 for a Session that is waiting on him: the mark on its list row and the head of the Waiting on you section in its ledger. Tooltip lists the items. One mark, no count."

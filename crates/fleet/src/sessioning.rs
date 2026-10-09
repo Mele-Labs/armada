@@ -161,6 +161,9 @@ where
                 .hosted_facts(store, &session.id)
                 .map_err(|why| self.ledger_fault(why))?;
         }
+        record.waiting_for = self
+            .waiting_items(store, session, &record.attachments)
+            .map_err(|why| self.ledger_fault(why))?;
         Ok(record)
     }
 
@@ -454,6 +457,14 @@ where
         Ok(record)
     }
 
+    async fn waiting_for(
+        &self,
+        caller: Option<api::Caller>,
+        set: ipc::SetWaitingFor,
+    ) -> Result<SessionRecord, Refusal> {
+        self.set_waiting(caller, set).await
+    }
+
     async fn rename_session(&self, rename: ipc::RenameSession) -> Result<SessionRecord, Refusal> {
         let title = rename
             .title
@@ -672,5 +683,6 @@ fn session_wire(session: &KeptSession, held: &[KeptAttachment]) -> SessionRecord
         hosted: None,
         terminal: None,
         mod_out_of_date: false,
+        waiting_for: Vec::new(),
     }
 }

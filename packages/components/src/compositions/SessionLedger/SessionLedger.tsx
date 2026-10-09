@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { AppWindow, Box, Check, CircleDot, Files, Globe, Hand, Image, Megaphone, MoveRight, NotebookText, Search, Terminal, GitBranch, GitPullRequest, KeyRound, Presentation, PencilRuler, ShieldCheck, ShieldEllipsis, ShieldX, Split } from "lucide-react";
+import { AppWindow, BellRing, Box, GitPullRequestArrow, MessageSquare, Check, CircleDot, Files, Globe, Hand, Image, Megaphone, MoveRight, NotebookText, Search, Terminal, GitBranch, GitPullRequest, KeyRound, Presentation, PencilRuler, ShieldCheck, ShieldEllipsis, ShieldX, Split } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
@@ -18,7 +18,7 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
  * first asked for every section dim and then took it back: once some filled,
  * the empty ones only took room).
  */
-export type LedgerKind = "slot" | "branch" | "pull_request" | "job" | "studio" | "sketch" | "subagent" | "artifact" | "fork";
+export type LedgerKind = "waiting" | "slot" | "branch" | "pull_request" | "job" | "studio" | "sketch" | "subagent" | "artifact" | "fork";
 
 /** What an artifact is: a page published, a file written outside the code, a picture looked at, a Doc, or a page shown in a window. */
 export type ArtifactForm = "page" | "file" | "image" | "doc" | "window";
@@ -46,10 +46,25 @@ export type LedgerEntry = {
    * under **All**, and a section that holds one gets the `Open | All` toggle.
    */
   finished?: boolean;
+  /** A `waiting` row: what its press does, which is its glyph and what the glyph's tooltip names. */
+  act?: WaitingActKind;
+  /** A `waiting` row for a question with choices: each a numbered press under the row. */
+  options?: readonly { label: string; onPick: () => void }[];
   onOpen: () => void;
 };
 
+export type WaitingActKind = "walk" | "answer" | "approve_pr" | "run";
+
+const WAITING_ACT: Record<WaitingActKind | "none", { Glyph: LucideIcon; said: string }> = {
+  walk: { Glyph: AppWindow, said: "Opens the walk" },
+  answer: { Glyph: MessageSquare, said: "Goes to the question" },
+  approve_pr: { Glyph: GitPullRequestArrow, said: "Opens the pull request" },
+  run: { Glyph: Terminal, said: "Copies the command" },
+  none: { Glyph: BellRing, said: "Waiting on you" },
+};
+
 const SECTIONS: { kind: LedgerKind; label: string; Glyph: LucideIcon }[] = [
+  { kind: "waiting", label: "Waiting on you", Glyph: BellRing },
   { kind: "slot", label: "Worktree Slot", Glyph: KeyRound },
   { kind: "branch", label: "Branches", Glyph: GitBranch },
   { kind: "pull_request", label: "Pull requests", Glyph: GitPullRequest },
@@ -208,11 +223,18 @@ function LedgerSection({ kind, label, Glyph, all }: { kind: LedgerKind; label: s
             <ul className="armada-session-ledger__rows">
               {rows.map((row) => {
                 const Mark = row.mark === undefined ? undefined : MARK[row.mark.glyph];
+                const waiting = kind === "waiting" ? WAITING_ACT[row.act ?? "none"] : undefined;
                 const form = row.artifact === undefined ? undefined : ARTIFACT[row.artifact];
                 return (
                   <li key={row.key} className="armada-session-ledger__row" aria-label={row.name}>
                     <button type="button" className="armada-session-ledger__open" aria-label={`Open ${row.name}`} onClick={row.onOpen}>
-                      {form === undefined ? (
+                      {waiting !== undefined ? (
+                        <Tooltip label={waiting.said}>
+                          <span className="armada-session-mark" role="img" aria-label={waiting.said}>
+                            <waiting.Glyph size={12} strokeWidth={2} aria-hidden />
+                          </span>
+                        </Tooltip>
+                      ) : form === undefined ? (
                         <Glyph size={12} strokeWidth={2} aria-hidden />
                       ) : (
                         <Tooltip label={form.said}>
@@ -256,6 +278,15 @@ function LedgerSection({ kind, label, Glyph, all }: { kind: LedgerKind; label: s
                       )}
                     </button>
                     {row.exits}
+                    {row.options === undefined ? null : (
+                      <div className="armada-session-ledger__options" role="group" aria-label={`Choices for ${row.name}`}>
+                        {row.options.map((one, at) => (
+                          <Button key={one.label} variant="secondary" size="sm" aria-label={`Choice ${at + 1} ${one.label}`} onClick={one.onPick}>
+                            {at + 1} {one.label}
+                          </Button>
+                        ))}
+                      </div>
+                    )}
                   </li>
                 );
               })}
