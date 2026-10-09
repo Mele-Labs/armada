@@ -51,6 +51,9 @@ pub struct PullRequestState {
     pub state: PullRequestStanding,
     /// The forge will merge it when its required checks pass.
     pub auto_merge: bool,
+    /// It is in the base branch's merge queue now.
+    #[serde(default)]
+    pub queued: bool,
     pub checks: ForgeChecks,
     pub title: String,
     /// The branch it is opened from.
