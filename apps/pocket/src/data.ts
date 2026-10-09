@@ -1,5 +1,5 @@
 // The one module the screens read their Jobs from: the Phone Gateway's lists, kept live
-// from /api/live. Sessions and dispatch still read fixtures (#2004, #2006).
+// from /api/live.
 
 import { useEffect, useSyncExternalStore } from "react";
 
@@ -7,7 +7,6 @@ import { Refused, getJson, call } from "./client";
 import type { JobsBody, LiveChange, NeedsBody, PhoneJob } from "./gateway";
 import { events } from "./sse";
 
-export * from "./fixtures";
 
 /** What the screens draw of a Job. Ages are text, counted at `now`. */
 export type PocketJob = {
