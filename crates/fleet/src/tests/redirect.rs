@@ -27,6 +27,7 @@
 mod admitting;
 mod by_helm;
 mod rousing;
+mod sleeping_jobs;
 mod unfreezing;
 mod waiting;
 

@@ -203,3 +203,46 @@ fn what_counts_as_destructive_reads_the_text_and_the_options() {
     assert!(!crate::sleeping::destructive(&one("Which size?", &["Large", "Small"])));
     assert!(!crate::sleeping::destructive(&one("Name the form field", &[])));
 }
+
+#[tokio::test]
+async fn chose_fills_from_the_first_line_of_the_agents_next_message() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    on(&rig).await;
+    keep(&rig, &id, &[item("a", "Which clock?", &["Fake", "Frozen"], OLD)]).await;
+    pass(&rig).await;
+    assert_eq!(night(&rig).await.decided[0].chose, "", "nothing has been said yet");
+    rig.stand_in.init(0);
+    rig.stand_in.finishes(0, &format!("\n  Going with the frozen clock.\nIt keeps the test steady. {}", "x".repeat(200)));
+    eventually(|| async {
+        rig.rows(&id).await.iter().any(|row| matches!(row, SessionRow::Message { from: SessionVoice::Agent, .. }))
+    })
+    .await;
+    pass(&rig).await;
+    assert_eq!(night(&rig).await.decided[0].chose, "Going with the frozen clock.");
+}
+
+#[tokio::test]
+async fn a_long_first_line_is_cut() {
+    let rows = vec![
+        SessionRow::Message {
+            id: "1".into(),
+            at: ipc::Instant::from(&core_model::Timestamp::from_rfc3339(OLD)),
+            from: SessionVoice::You,
+            text: "Re: x\nDecide this yourself. Think it through and go with the best option.".into(),
+            files: Vec::new(),
+            tags: Vec::new(),
+        },
+        SessionRow::Message {
+            id: "2".into(),
+            at: ipc::Instant::from(&core_model::Timestamp::from_rfc3339(OLD)),
+            from: SessionVoice::Agent,
+            text: "y".repeat(300),
+            files: Vec::new(),
+            tags: Vec::new(),
+        },
+    ];
+    let chose = crate::sleeping::next_words(&rows).unwrap();
+    assert_eq!(chose.chars().count(), 121);
+    assert!(chose.ends_with('…'));
+}
