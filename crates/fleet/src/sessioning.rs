@@ -413,6 +413,14 @@ where
         Ok(record)
     }
 
+    async fn claim_pull_request(
+        &self,
+        caller: Option<api::Caller>,
+        claim: ipc::ClaimPullRequest,
+    ) -> Result<ipc::PullRequestClaimed, Refusal> {
+        self.pull_request_claimed(caller, claim).await
+    }
+
     async fn show_window(
         &self,
         caller: Option<api::Caller>,

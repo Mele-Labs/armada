@@ -410,8 +410,8 @@ pub use servers::{
     ServerPhase, ServerPort, ServerState, StartServer, StartedBy,
 };
 pub use sessions::{
-    Attachment, AttachmentNamed, AttachmentReport, AttachmentState, Holder, HolderKind, Owners,
-    Ownership, RenameSession, SessionFact, SessionId, SessionList, SessionOrigin, SessionRecord,
+    Attachment, AttachmentNamed, AttachmentReport, AttachmentState, ClaimPullRequest, Holder,
+    HolderKind, Owners, Ownership, PullRequestClaimed, RenameSession, SessionFact, SessionId, SessionList, SessionOrigin, SessionRecord,
     SessionReport, SessionState, SessionUsage, ShowWindow, TerminalCommand, TerminalFacts,
 };
 pub use setup::{

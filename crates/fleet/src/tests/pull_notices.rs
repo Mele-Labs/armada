@@ -852,3 +852,84 @@ async fn a_pull_request_from_the_branch_a_sessions_slot_is_leased_on_is_attached
 
     assert_eq!(rig.holders_of_pull(21).await, vec!["s-in-slot".to_string()]);
 }
+
+impl Rig {
+    async fn claims(&self, id: &str, number: u64) -> Result<ipc::PullRequestClaimed, api::Refusal> {
+        self.fleet
+            .claim_pull_request(
+                None,
+                ipc::ClaimPullRequest {
+                    number,
+                    session_id: Some(SessionId::carried(id)),
+                },
+            )
+            .await
+    }
+
+    async fn standing_holders_of_pull(&self, number: u64) -> Vec<String> {
+        let manifest = self.manifest();
+        self.fleet
+            .store()
+            .lock()
+            .await
+            .attachments_at("pr", &number.to_string(), Some(&manifest))
+            .unwrap()
+            .into_iter()
+            .filter(|row| row.state == AttachmentState::Standing)
+            .map(|row| row.holder.id)
+            .collect()
+    }
+}
+
+#[tokio::test]
+async fn a_session_claims_an_open_pull_request_nobody_holds() {
+    let rig = a_rig_holding(None);
+    rig.a_session_that_worked("s-claims", "armada/0", AttachmentState::GivenBack).await;
+    rig.fleet.vcs().main_ci.watched_are(Some(vec![pull(30, vec![])]));
+
+    let claimed = rig.claims("s-claims", 30).await.expect("claimed");
+
+    assert_eq!((claimed.number, claimed.holder_id.as_str()), (30, "s-claims"));
+    assert_eq!(rig.standing_holders_of_pull(30).await, vec!["s-claims".to_string()]);
+}
+
+#[tokio::test]
+async fn a_pull_request_a_live_session_holds_is_refused_with_the_reason() {
+    let rig = a_rig_holding(None);
+    rig.a_session_that_worked("s-live", "armada/31", AttachmentState::Standing).await;
+    rig.a_session_that_worked("s-other", "armada/0", AttachmentState::GivenBack).await;
+    rig.fleet.vcs().main_ci.watched_are(Some(vec![pull(31, vec![])]));
+
+    let refused = rig.claims("s-other", 31).await.expect_err("held live");
+
+    assert!(format!("{refused:?}").contains("still working"), "{refused:?}");
+    assert!(rig.standing_holders_of_pull(31).await.is_empty());
+}
+
+#[tokio::test]
+async fn a_pull_request_whose_holder_has_ended_is_claimed_and_the_holder_gives_it_back() {
+    let rig = a_rig_holding(None);
+    rig.a_terminal_session_on("s-old", 32).await;
+    rig.fleet
+        .report_session(SessionReport {
+            harness: adapters::HOSTED_HARNESS.into(),
+            session_id: SessionId::carried("s-old"),
+            fact: SessionFact::Ended { reason: "closed".into() },
+        })
+        .await
+        .unwrap();
+    rig.a_session_that_worked("s-new", "armada/0", AttachmentState::GivenBack).await;
+    rig.fleet.vcs().main_ci.watched_are(Some(vec![pull(32, vec![])]));
+
+    rig.claims("s-new", 32).await.expect("claimed");
+
+    assert_eq!(rig.standing_holders_of_pull(32).await, vec!["s-new".to_string()]);
+}
+
+#[tokio::test]
+async fn a_pull_request_that_is_not_open_is_not_claimed() {
+    let rig = a_rig_holding(None);
+    rig.a_session_that_worked("s-claims", "armada/0", AttachmentState::GivenBack).await;
+    rig.fleet.vcs().main_ci.watched_are(Some(vec![]));
+    assert!(rig.claims("s-claims", 33).await.is_err());
+}

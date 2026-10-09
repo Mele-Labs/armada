@@ -554,6 +554,11 @@ const ROUTES: &[Route] = &[
         method: "POST",
         path: "/sessions/window",
     },
+    Route {
+        operation: "claim_pull_request",
+        method: "POST",
+        path: "/sessions/claim_pull_request",
+    },
     // A session Fleet hosts for Bridge. Since 23.49.
     Route {
         operation: "start_session",
