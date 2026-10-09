@@ -63,21 +63,22 @@ pub(crate) async fn show_window<D: Sessions>(
     }
 }
 
-/// A session or Job takes an orphaned pull request. 200 with the claim; 422 with the reason.
-pub(crate) async fn claim_pull_request<D: Sessions>(
+/// The agent sets what it is waiting on the person for. 200 with the row; 422 for a call that
+/// places no session. **The session is placed by the connection**, as `show_window`'s is.
+pub(crate) async fn waiting_for<D: Sessions>(
     State(served): State<Served<D>>,
     body: Bytes,
 ) -> Response {
-    let claim: ipc::ClaimPullRequest = match ipc::decode("a pull request to claim", &body) {
-        Ok(claim) => claim,
+    let set: ipc::SetWaitingFor = match ipc::decode("what a session waits on", &body) {
+        Ok(set) => set,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
     match served
         .daemon()
-        .claim_pull_request(crate::acting::asking(), claim)
+        .waiting_for(crate::acting::asking(), set)
         .await
     {
-        Ok(claimed) => answer(StatusCode::OK, &claimed, served.run_id()),
+        Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }
@@ -128,6 +129,25 @@ pub(crate) async fn who_owns<D: Sessions>(
         .await
     {
         Ok(owners) => answer(StatusCode::OK, &owners, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// A session or Job takes an orphaned pull request. 200 with the claim; 422 with the reason.
+pub(crate) async fn claim_pull_request<D: Sessions>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let claim: ipc::ClaimPullRequest = match ipc::decode("a pull request to claim", &body) {
+        Ok(claim) => claim,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served
+        .daemon()
+        .claim_pull_request(crate::acting::asking(), claim)
+        .await
+    {
+        Ok(claimed) => answer(StatusCode::OK, &claimed, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }

@@ -214,6 +214,11 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             "/sessions/window",
             post(crate::sessions::show_window::<D>),
         )
+        .route("/sessions/waiting", post(crate::sessions::waiting_for::<D>))
+        .route(
+            "/sessions/waiting/answer",
+            post(crate::hosted_sessions::answer_waiting::<D>),
+        )
         .route(
             "/sessions/claim_pull_request",
             post(crate::sessions::claim_pull_request::<D>),

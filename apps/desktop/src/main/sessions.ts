@@ -12,6 +12,7 @@
 
 import type {
   AnswerSessionAsk,
+  AnswerWaiting,
   Followed,
   FrameRead,
   Outcome,
@@ -173,6 +174,10 @@ export class SessionsHost {
 
   async answer(answer: AnswerSessionAsk): Promise<SessionActed> {
     return await this.act("POST", "/sessions/ask/answer", answer);
+  }
+
+  async answerWaiting(answer: AnswerWaiting): Promise<SessionActed> {
+    return await this.act("POST", "/sessions/waiting/answer", answer);
   }
 
   async tune(tune: TuneSession): Promise<SessionActed> {

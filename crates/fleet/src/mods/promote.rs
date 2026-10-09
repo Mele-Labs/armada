@@ -16,7 +16,7 @@ use api::Refusal;
 use ipc::{ModPromoted, PromoteMod, WireError};
 
 use super::serving::MOD_NOT_PROMOTABLE;
-use super::{examine, Files, MANIFEST, THEME};
+use super::{examine, Files, Payload, MANIFEST};
 use crate::daemon::Fleet;
 
 /// Where a promoted mod lives in the repository.
@@ -136,17 +136,21 @@ where
     let inside = Path::new(worktree.path()).join(&relative);
     std::fs::create_dir_all(&inside)
         .map_err(|why| Refused::Failed(format!("{relative} could not be made: {why}")))?;
-    for (file, text) in [(MANIFEST, &files.manifest), (THEME, &files.css)] {
+    let file = files.payload.file();
+    for (file, text) in [(MANIFEST, files.manifest.as_str()), (file, files.payload.text())] {
         std::fs::write(inside.join(file), text)
             .map_err(|why| Refused::Failed(format!("{relative}/{file} could not be written: {why}")))?;
     }
-    let paths = [format!("{relative}/{MANIFEST}"), format!("{relative}/{THEME}")];
+    let paths = [format!("{relative}/{MANIFEST}"), format!("{relative}/{file}")];
     fleet
         .vcs()
         .commit_paths(
             worktree,
             &[paths[0].as_str(), paths[1].as_str()],
-            &format!("Add the {name} theme mod"),
+            &format!("Add the {name} {} mod", match files.payload {
+                Payload::Css(_) => "theme",
+                Payload::Layout(_) => "layout",
+            }),
             at,
         )
         .map_err(|why| Refused::Failed(format!("the mod could not be committed: {why}")))

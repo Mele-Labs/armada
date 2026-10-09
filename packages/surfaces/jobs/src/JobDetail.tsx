@@ -12,9 +12,9 @@
 
 import { JobDetailHeaderActions, RepairFileContext, TriggerAlertMark, triggerAlert, type JobResourcesProps } from "@armada/components";
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
-import { useAtFloor, useNarrow } from "@armada/shell";
+import { useAtFloor, useLayout, useNarrow } from "@armada/shell";
 
-import { countsOf, FIRST_TAB, JobTabs, type DetailTab } from "./detail-tabs";
+import { countsOf, JobTabs, type DetailTab } from "./detail-tabs";
 import { headingOf, Unrenderable } from "./heading";
 import { detailOf, turnsOf } from "./mine";
 import { renderFor } from "./render";
@@ -69,6 +69,8 @@ import { whyNoSteps } from "./run";
 import { whileReading } from "./while-reading";
 import { FIRST_PLAN_VIEW } from "./plan-view";
 import { ledgerOf } from "./draft/ledger";
+import { litSteps } from "./draft/now";
+import { useNowHidden } from "./now-hidden";
 import { useTrail, type TrailProps } from "./trail";
 import { JobRetroSheet } from "./Lessons";
 import { jobOf } from "./retro";
@@ -112,8 +114,10 @@ function OneJob(props: JobDetailProps) {
   // Pulse on a wedged Job is not asking for Pulse on the next one, and the key
   // above resets it with everything else.
   const opened = props.opening;
+  // Where a layout says a Job opens; Overview where none does.
+  const first = useLayout("job.tabs").first as DetailTab;
   const [tab, setTab] = useState<DetailTab>(
-    opened?.tab !== undefined ? opened.tab : opened?.task !== undefined ? "plan" : opened?.drone !== undefined ? "drones" : opened?.step !== undefined ? "workflow" : FIRST_TAB,
+    opened?.tab !== undefined ? opened.tab : opened?.task !== undefined ? "plan" : opened?.drone !== undefined ? "drones" : opened?.step !== undefined ? "workflow" : first,
   );
   // The step Workflow opens on, where the Record's or the Drones' reading sent
   // a person there. Cleared by the strip, so the next visit opens on nothing.
@@ -125,6 +129,7 @@ function OneJob(props: JobDetailProps) {
   const [opensGroup, setOpensGroup] = useState<string | undefined>(undefined);
   // The Check whose Record row opens, where the Plan's boundary sent a person
   // there. Cleared by the strip in the same way.
+  const [nowHidden] = useNowHidden();
   const [opensCheck, setOpensCheck] = useState<CheckAt | undefined>(undefined);
   const [opensDrone, setOpensDrone] = useState<string | undefined>(opened?.task === undefined ? opened?.drone : undefined);
   const [opensRow, setOpensRow] = useState<string | undefined>(opened?.row);
@@ -510,6 +515,7 @@ function OneJob(props: JobDetailProps) {
                     <ApprovalCanvas
                       whole={whole}
                       edits={held.frozen ?? proposalEditsOfWhole(whole, props.machineCap ?? null)}
+                      lit={nowHidden ? undefined : litSteps(props.draft?.now?.[job.id])}
                       life={lifeOf(whole, waveReadingOf(whole, props.draft, props.board ?? []), stepLinesOf(whole, drones))}
                       {...(props.added === undefined ? {} : { added: props.added })}
                       {...(props.onOpenStudio === undefined ? {} : { onOpenStudio: props.onOpenStudio })}

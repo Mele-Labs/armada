@@ -1,4 +1,4 @@
-// Paths without a library: `/`, `/pair`, `/jobs/:id`, `/sessions/:id`, `/dispatch`.
+// Paths without a library: `/`, `/pair`, `/jobs/:id`.
 
 import { useSyncExternalStore } from "react";
 import type { ReactNode } from "react";

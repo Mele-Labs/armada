@@ -41,3 +41,11 @@ export type LiveChange = {
   status?: string;
   reason?: string;
 };
+
+/** POST /api/jobs/:id/approve | restart_step | kill | redispatch | approve_review.
+ *  Every one answers 204, or Fleet's status with its sentence as text. */
+export type ActBody = Record<string, never>;
+/** POST /api/jobs/:id/redirect */
+export type RedirectBody = { text: string };
+/** POST /api/jobs/:id/request_changes */
+export type RequestChangesBody = { reason: string };

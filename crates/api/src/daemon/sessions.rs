@@ -50,6 +50,14 @@ pub trait Sessions: Send + Sync + 'static {
         caller: Option<crate::Caller>,
         claim: ipc::ClaimPullRequest,
     ) -> impl Future<Output = Result<ipc::PullRequestClaimed, Refusal>> + Send;
+    /// `waiting_for` — the agent sets the whole list of what it needs from the person. `caller`
+    /// places a hosted session as `show_window`'s does. Answers with the row.
+    /// [`Refusal::Unacceptable`] for a call that places no session or an item with no id or text.
+    fn waiting_for(
+        &self,
+        caller: Option<crate::Caller>,
+        set: ipc::SetWaitingFor,
+    ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
 
     /// `list_sessions` — the most recently seen first. `manifest_id` absent is
     /// every session on the machine, `text` finds one by title, branch, pull

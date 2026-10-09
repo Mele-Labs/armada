@@ -18,11 +18,14 @@ fn as_wire(preferences: store::Preferences) -> Preferences {
         where_things_are_open: preferences.where_things_are_open,
         draft_pull_requests: preferences.draft_pull_requests,
         theme: preferences.theme,
+        layout_choices: preferences.layout_choices,
     }
 }
 
 /// A `save_preferences` for `theme` carrying nothing a theme can be called. A 422.
 const UNACCEPTABLE_THEME: &str = "fleet.unacceptable_theme";
+/// A `save_preferences` for `layout_choices` carrying text `layout.json` would refuse. A 422.
+const UNACCEPTABLE_LAYOUT: &str = "fleet.unacceptable_layout";
 
 impl<H, V, W> Fleet<H, V, W>
 where
@@ -66,10 +69,23 @@ where
                 ));
             }
         }
+        let saving_layout = save.name == "layout_choices";
+        if saving_layout {
+            let text = save.text.as_deref().unwrap_or_default();
+            // Empty takes the choices back; anything else is a layout.json or it is refused.
+            if let Some(first) = ipc::layout::problems(text).first().filter(|_| !text.is_empty()) {
+                return Err(Refusal::Unacceptable(ipc::WireError::raised(
+                    UNACCEPTABLE_LAYOUT,
+                    format!("the layout choices are not a layout.json: {first}"),
+                    self.run_id(),
+                )));
+            }
+        }
         let mut store = self.store().lock().await;
-        let saved = match saving_theme {
-            true => store.save_theme(save.text.as_deref().unwrap_or_default()),
-            false => store.save_preference(&save.name, save.value),
+        let saved = match (saving_theme, saving_layout) {
+            (true, _) => store.save_theme(save.text.as_deref().unwrap_or_default()),
+            (_, true) => store.save_layout_choices(save.text.as_deref().unwrap_or_default()),
+            _ => store.save_preference(&save.name, save.value),
         };
         saved
             .map(as_wire)

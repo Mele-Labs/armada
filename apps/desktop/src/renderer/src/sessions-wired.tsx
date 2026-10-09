@@ -321,6 +321,9 @@ export class WiredStore {
     get commands() {
       return store.commandsRead();
     },
+    answerWaiting: (id: string, itemId: string, given: { choice?: number; text?: string; mode?: "best" | "quick" }) => {
+      void this.plain(this.api.answerWaiting({ session_id: id, item_id: itemId, ...given }));
+    },
     answer: (id: string, answer?: SessionAnswer, answers?: SessionQuestionAnswer[]) => {
       const call = this.lookup(id)?.asked?.call;
       if (call === undefined) return;

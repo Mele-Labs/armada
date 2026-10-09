@@ -8,7 +8,7 @@ use std::path::Path;
 use std::time::Duration;
 
 use api::{Mods, Refusal};
-use ipc::{ModList, ModSummary, SavePreference};
+use ipc::{ModKind, ModList, ModSummary, SavePreference};
 use testkit::FakeWorkProduct;
 
 use crate::mods::manifest;
@@ -203,7 +203,7 @@ fn a_mod_nobody_switched_is_on_and_a_switch_holds() {
 fn a_scaffold_is_valid_from_the_first_moment_and_has_one_commit() {
     let home = TempDir::new();
     let mods = home.path().join("mods");
-    let made = scaffold::make(&mods, "calm", Some("Softer \"greys\"")).expect("made");
+    let made = scaffold::make(&mods, "calm", Some("Softer \"greys\""), ModKind::Theme).expect("made");
     assert_eq!(made, mods.join("calm"));
 
     let found = examine(&mods, "calm");
@@ -231,19 +231,19 @@ fn a_scaffold_refuses_a_name_that_climbs_or_exists_and_leaves_nothing() {
     let home = TempDir::new();
     let mods = home.path().join("mods");
     for bad in ["../escape", "a/b", "..", ".", "", "Calm", "dark", "x y"] {
-        let refused = scaffold::make(&mods, bad, None).expect_err(bad);
+        let refused = scaffold::make(&mods, bad, None, ModKind::Theme).expect_err(bad);
         assert!(matches!(refused, scaffold::Refused::Unacceptable(_)), "{bad:?}: {refused:?}");
     }
     assert!(!home.path().join("escape").exists(), "nothing was made outside the folder");
 
-    scaffold::make(&mods, "calm", None).expect("first");
+    scaffold::make(&mods, "calm", None, ModKind::Theme).expect("first");
     std::fs::write(mods.join("calm/theme.css"), "kept").expect("an edit");
-    let again = scaffold::make(&mods, "calm", None).expect_err("exists");
+    let again = scaffold::make(&mods, "calm", None, ModKind::Theme).expect_err("exists");
     assert!(matches!(&again, scaffold::Refused::Unacceptable(why) if why.contains("already exists")), "{again:?}");
     assert_eq!(std::fs::read_to_string(mods.join("calm/theme.css")).expect("read"), "kept", "the existing mod is untouched");
 
     let long = "x".repeat(300);
-    let refused = scaffold::make(&mods, "fine", Some(&long)).expect_err("too long");
+    let refused = scaffold::make(&mods, "fine", Some(&long), ModKind::Theme).expect_err("too long");
     assert!(matches!(refused, scaffold::Refused::Unacceptable(_)));
     assert!(!mods.join("fine").exists());
 }
@@ -259,7 +259,7 @@ async fn scaffold_switch_and_validate_go_through_fleet_and_say_so_on_the_stream(
     let mut events = fleet.events().subscribe();
 
     let made = fleet
-        .scaffold_mod(ipc::ScaffoldMod { name: "calm".into(), description: None })
+        .scaffold_mod(ipc::ScaffoldMod { name: "calm".into(), description: None, kind: None })
         .await
         .expect("scaffolded");
     assert!(made.path.ends_with("/mods/calm"), "{}", made.path);
@@ -293,7 +293,7 @@ async fn scaffold_switch_and_validate_go_through_fleet_and_say_so_on_the_stream(
     let climbing = fleet.validate_mod("../armada.db".into()).await.expect_err("not a slug");
     assert_eq!(api_refusal(climbing), (422, "fleet.unacceptable_mod".to_string()));
     let again = fleet
-        .scaffold_mod(ipc::ScaffoldMod { name: "calm".into(), description: None })
+        .scaffold_mod(ipc::ScaffoldMod { name: "calm".into(), description: None, kind: None })
         .await
         .expect_err("exists");
     assert_eq!(api_refusal(again), (422, "fleet.unacceptable_mod".to_string()));

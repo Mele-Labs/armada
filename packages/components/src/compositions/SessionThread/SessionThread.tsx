@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef, useState } from "react";
-import type { ReactNode } from "react";
+import type { ReactNode, Ref } from "react";
 import { AppWindow, Box, ChevronRight, GitBranch, KeyRound, Layers, SquareTerminal, Wrench } from "lucide-react";
 
 import { AttachmentChip } from "../../primitives/AttachmentChip/AttachmentChip";
@@ -88,6 +88,8 @@ export type SessionThreadProps = {
    */
   asked?: { command: string; offers?: readonly AskOffer[]; questions?: readonly AskedQuestion[] };
   onAnswer: (answer?: string, answers?: QuestionAnswer[]) => void;
+  /** The ask's card, so a host can scroll to it. */
+  askRef?: Ref<HTMLDivElement>;
   /** Opens the Session a message came from. */
   onOpenSession: (sessionId: string) => void;
   /** Opens a window the Session showed, again. Absent where windows are not served, and its row is not a press. */
@@ -489,7 +491,7 @@ function Questions({
 /** How far from the end still counts as being at it, so a rounding or a half row does not unpin. */
 const NEAR_END = 24;
 
-export function SessionThread({ rows, asked, onAnswer, onOpenSession, onOpenWindow, sessionId, working }: SessionThreadProps) {
+export function SessionThread({ rows, asked, askRef, onAnswer, onOpenSession, onOpenWindow, sessionId, working }: SessionThreadProps) {
   const scroller = useRef<HTMLDivElement>(null);
   const pinned = useRef(true);
   // **Opens at the newest row, with no animation, and stays there while the person is at the end.**
@@ -531,7 +533,7 @@ export function SessionThread({ rows, asked, onAnswer, onOpenSession, onOpenWind
         </ol>
       </div>
       {asked === undefined ? null : (
-        <Card flat className="armada-session-thread__ask" role="article" aria-label="Waiting on you">
+        <Card flat ref={askRef} className="armada-session-thread__ask" role="article" aria-label="Waiting on you">
           <span className="armada-session-thread__eyebrow">{(asked.questions?.length ?? 0) > 0 ? "Question" : "Permission"}</span>
           {(asked.questions?.length ?? 0) > 0 ? null : <p className="armada-session-thread__command">{asked.command}</p>}
           {asked.questions !== undefined && asked.questions.length > 0 ? (

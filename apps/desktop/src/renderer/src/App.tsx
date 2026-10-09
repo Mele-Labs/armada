@@ -351,9 +351,9 @@ export function App({ draft }: AppProps = {}) {
     watchManifestDrift(manifesting);
   }, [manifesting]);
 
-  // Fleet's health and every repository's drift in scope. Held for the life
-  // of the window rather than only while Overview is showing — Bridge/1088's
-  // Fleet panel draws its Doctor read on every surface now.
+  // Fleet's health. Held for the life of the window rather than only while
+  // Overview is showing — Bridge/1088's Fleet panel draws its Doctor read on
+  // every surface now.
   useEffect(() => {
     watchOverview(true);
     return () => watchOverview(false);
@@ -1063,6 +1063,7 @@ export function App({ draft }: AppProps = {}) {
                   onSave={commands.saveLimits}
                   preferences={state.preferences} onSavePreference={(save) => window.armada.savePreference(save)}
                   onReadGuides={() => goTo(SURFACE.guides)}
+                  onCopied={setCopied}
                 />
               </Boundary>
             ) : (

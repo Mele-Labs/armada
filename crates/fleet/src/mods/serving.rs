@@ -8,13 +8,13 @@ use std::time::Duration;
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Mods, Refusal};
 use ipc::{
-    Event, ModChecked, ModList, ModPromoted, ModScaffolded, ModSummary, PromoteMod, ScaffoldMod,
+    Event, ModChecked, ModKind, ModList, ModPromoted, ModScaffolded, ModSummary, PromoteMod, ScaffoldMod,
     SetModEnabled, WireError,
 };
 use store::LoadJobError;
 use tokio::task::JoinHandle;
 
-use super::{examine, scaffold, scan, slug_problem};
+use super::{examine, scaffold, scan, slug_problem, Payload};
 use crate::adrift::Adrift;
 use crate::daemon::Fleet;
 
@@ -105,7 +105,7 @@ where
         let dir = self.mods_dir();
         let name = asked.name.clone();
         let made = tokio::task::spawn_blocking(move || {
-            scaffold::make(&dir, &name, asked.description.as_deref())
+            scaffold::make(&dir, &name, asked.description.as_deref(), asked.kind.unwrap_or(ModKind::Theme))
         })
         .await
         .map_err(|why| self.mod_fault(format!("the mod could not be made: {why}")))?;
@@ -144,10 +144,18 @@ where
         let found = tokio::task::spawn_blocking(move || examine(&dir, &asked))
             .await
             .map_err(|why| self.mod_fault(format!("the mod could not be read: {why}")))?;
+        let valid = found.valid();
+        let (mut css, mut layout) = (None, None);
+        match found.files.map(|files| files.payload) {
+            Some(Payload::Css(text)) => css = Some(text),
+            Some(Payload::Layout(text)) => layout = Some(text),
+            None => {}
+        }
         Ok(ModChecked {
             name,
-            valid: found.valid(),
-            css: found.files.map(|files| files.css),
+            valid,
+            css,
+            layout,
             problems: found.problems,
         })
     }

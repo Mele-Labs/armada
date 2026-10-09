@@ -81,6 +81,7 @@ import { useDockWidth } from "./dock-width";
 // folds to a sheet at the same bound. One reader, in `floor.ts`, so the two
 // cannot answer a resize a pixel apart.
 import { useNarrow } from "./floor";
+import { useLayout } from "./layout";
 import { useLeftCollapsed } from "./left-collapsed";
 import { useLeftWidth } from "./left-width";
 import { ALL_REPOSITORIES } from "./RepositoryOptions";
@@ -186,6 +187,8 @@ export function Shell({
   useToggleSidebar(narrow, () => chooseCollapsed(!chosen));
   const [dockWidth, resizeDock] = useDockWidth();
   const [leftWidth, resizeLeft] = useLeftWidth();
+  // What a layout takes off the rail. The palette still reaches it by name.
+  const railOff = useLayout("rail").all.filter((one) => !one.visible).map((one) => one.id);
   const live = connection.state === "connected";
   // One list, drawn twice: the picker's dropdown, and the narrow menu's rows.
   const pickerEntries = repositoryEntries(repositories, listed, onAddRepository !== undefined, scope);
@@ -219,7 +222,7 @@ export function Shell({
         id: panel.id,
         label: panel.label,
         surfaces: panelSurfaces(panel)
-          .filter((surface) => !hidden.includes(surface.id))
+          .filter((surface) => !hidden.includes(surface.id) && !railOff.includes(surface.id))
           .map((surface) => ({
             id: surface.id,
             label: surface.label,

@@ -3,6 +3,7 @@
 
 import type {
   AnswerSessionAsk,
+  AnswerWaiting,
   Followed,
   FrameRead,
   Outcome,
@@ -52,6 +53,8 @@ export type SessionsApi = {
   sendSessionMessage: (send: SendSessionMessage) => Promise<SessionActed>;
   /** One of the offers on the ask the agent is held on. */
   answerSessionAsk: (answer: AnswerSessionAsk) => Promise<SessionActed>;
+  /** Settles one thing a session waits on: a numbered choice, the person's words, or a mode that leaves it to the agent. */
+  answerWaiting: (answer: AnswerWaiting) => Promise<SessionActed>;
   /** The model, effort and permission mode the next turn runs on. */
   tuneSession: (tune: TuneSession) => Promise<SessionActed>;
   /** A name the person gave a session, hosted or in a terminal. It stands until the next `/rename` in a terminal. */
@@ -119,6 +122,7 @@ export const SESSIONS_CHANNELS = {
   exitPilot: "bridge:exit-pilot",
   sendSessionMessage: "bridge:send-session-message",
   answerSessionAsk: "bridge:answer-session-ask",
+  answerWaiting: "bridge:answer-waiting",
   tuneSession: "bridge:tune-session",
   renameSession: "bridge:rename-session",
   retroSession: "bridge:retro-session",

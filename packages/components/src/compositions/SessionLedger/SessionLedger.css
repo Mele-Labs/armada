@@ -258,3 +258,17 @@ path.armada-session-ledger__picture-later {
   outline: var(--focus-ring);
   outline-offset: var(--focus-ring-offset);
 }
+
+/* A waiting question's choices, numbered, wrapped under its row. */
+.armada-session-ledger__options {
+  display: flex;
+  flex-basis: 100%;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding: 0 var(--space-3) var(--space-2);
+}
+
+/* The section that needs the person carries the awaiting-review edge the list's rows do. */
+.armada-session-ledger__group[aria-label="Waiting on you"] .armada-session-ledger__row {
+  border-inline-start: var(--space-1) solid var(--status-awaiting-review);
+}

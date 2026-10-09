@@ -2,8 +2,8 @@
 //! empty field is left out and never `null`, and the event carries the list whole.
 
 use crate::{
-    decode, encode, Delivered, Event, Instant, ModKind, ModList, ModSummary, Preferences,
-    SavePreference, StreamMessage,
+    decode, encode, Delivered, Event, Instant, ModChecked, ModKind, ModList, ModSummary, Preferences,
+    SavePreference, ScaffoldMod, StreamMessage,
 };
 
 fn a_mod(name: &str) -> ModSummary {
@@ -80,4 +80,26 @@ fn the_theme_is_left_out_while_dark_and_a_save_carries_it_as_text() {
     assert_eq!(save.text.as_deref(), Some("calm"));
     let without = encode(&SavePreference { name: "x".into(), value: true, text: None }).expect("plain data");
     assert!(!without.contains("text"), "{without}");
+}
+
+#[test]
+fn a_layout_mod_and_the_owners_choices_are_left_out_when_empty_and_never_null() {
+    let layout = ModSummary { kind: Some(ModKind::Layout), ..a_mod("tidy") };
+    let json = encode(&layout).expect("plain data");
+    assert!(json.contains(r#""kind":"layout""#), "{json}");
+    assert_eq!(decode::<ModSummary>("a mod", json.as_bytes()).expect("round-trips"), layout);
+
+    let scaffold = |kind| encode(&ScaffoldMod { name: "tidy".into(), description: None, kind }).expect("plain data");
+    assert_eq!(scaffold(None), r#"{"name":"tidy"}"#, "a theme scaffold is the body it always was");
+    assert_eq!(scaffold(Some(ModKind::Layout)), r#"{"name":"tidy","kind":"layout"}"#);
+
+    let checked = ModChecked { name: "tidy".into(), valid: true, problems: vec![], css: None, layout: Some("{}".into()) };
+    assert_eq!(encode(&checked).expect("plain data"), r#"{"name":"tidy","valid":true,"problems":[],"layout":"{}"}"#);
+
+    assert!(!encode(&Preferences::default()).expect("plain data").contains("layout_choices"));
+    let chosen = Preferences { layout_choices: r#"{"version":1}"#.into(), ..Preferences::default() };
+    let json = encode(&chosen).expect("plain data");
+    assert_eq!(decode::<Preferences>("preferences", json.as_bytes()).expect("round-trips"), chosen);
+    let before_it: Preferences = decode("preferences", br#"{"where_things_are_open":true}"#).expect("an older Fleet's");
+    assert_eq!(before_it.layout_choices, "");
 }

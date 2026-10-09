@@ -1,0 +1,14 @@
+[operations.waiting_for]
+kind = "command"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Set the whole list of what this session is waiting on the person for, so Bridge shows it without being asked"
+notes = """
+`POST /sessions/waiting`, body `SetWaitingFor`: `items` (each `id`, `text`, an optional `act` of `walk`, `answer`, `approve_pr` or `run` with a `target`, and optional `options`) and an optional `session_id`. Answered with the `SessionRecord`.
+
+**Replace-all.** Every call states the whole list; an empty list clears it. An item keeps the `since` Fleet first stamped for its `id`. Fleet adds its own items to what is read back (`SessionRecord.waiting_for`): `ask:<call>` for an open question, `perm:<call>` for an open permission, `walk:<url>` for a walk window not yet approved. **Where an agent item names the same target as one of those, Fleet's wins** and the agent's is left off.
+
+**The session is the one whose process holds the connection** when Fleet hosts it, whatever the body says; `session_id` is read only for a session in a terminal, as `show_window`'s is. An ended session holds nothing.
+
+`agent_access` is `Yes`: the agent is the one that knows what it needs from the person.
+"""

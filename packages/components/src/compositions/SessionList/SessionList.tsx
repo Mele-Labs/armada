@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { Search } from "lucide-react";
+import { BellRing, Search } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
 import { Input } from "../../primitives/Input/Input";
@@ -41,6 +41,8 @@ export type SessionRowView = {
   lastTurnAt?: string;
   /** Its mod is older than the repository's. */
   modOutOfDate?: boolean;
+  /** What it waits on the person for, in words. A bell with these in its tooltip; no figure beside it. */
+  waiting?: readonly string[];
   /** Its retro is being written. */
   retroWriting?: boolean;
 };
@@ -210,6 +212,13 @@ export function SessionList({ groups, query, onQuery, onOpen, onStart, onRetro, 
                         {row.title ?? <span className="armada-session-list__id">{row.address ?? row.id}</span>}
                       </span>
                       {row.modOutOfDate === true && row.state !== "quiet" ? <ModMark size={12} /> : null}
+                      {row.waiting === undefined || row.waiting.length === 0 ? null : (
+                        <Tooltip label={row.waiting.join("; ")}>
+                          <span className="armada-session-mark" role="img" aria-label={`Waiting on you: ${row.waiting.join("; ")}`}>
+                            <BellRing size={12} strokeWidth={2} aria-hidden />
+                          </span>
+                        </Tooltip>
+                      )}
                     </button>
                     {row.lastTurn === undefined ? null : (
                       <Tooltip label={`Last turn ${row.lastTurn}`}>

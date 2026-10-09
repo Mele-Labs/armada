@@ -398,6 +398,7 @@
 @import "./compositions/PullRequestActs/PullRequestActs.css";
 @import "./compositions/ForkedFrom/ForkedFrom.css";
 @import "./compositions/SessionLedger/SessionLedger.css";
+@import "./compositions/NowPanel/NowPanel.css";
 @import "./compositions/SessionList/SessionList.css";
 
 /* The thread and the composer, stacked — Bridge's own wrapper, `TheShell`'s
@@ -411,4 +412,6 @@
 @import "./compositions/RunNode/RunNode.css";
 @import "./compositions/MainHead/MainHead.css";
 @import "./compositions/ModRow/ModRow.css";
+@import "./compositions/LayoutRow/LayoutRow.css";
+@import "./screens/layout.css";
 @import "./compositions/PhonePairing/PhonePairing.css";

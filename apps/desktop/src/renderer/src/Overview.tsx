@@ -11,8 +11,8 @@ import { useEffect, useState } from "react";
 import type { FixMain, RepositorySummary } from "@armada/protocol";
 import type { CallView } from "@armada/jobs/draft/calls";
 import type { BoardSection, PauseAct } from "@armada/screens";
-import { DashboardTabs, OverviewLists, overviewListsOf, dashboardTabOf, overviewPanelId } from "@armada/overview";
-import { Boundary } from "@armada/shell";
+import { DashboardTabs, OverviewLists, overviewListsOf, dashboardTabOf, overviewPanelId, type DashboardTab } from "@armada/overview";
+import { Boundary, useLayout } from "@armada/shell";
 import { boardPressOf } from "@armada/screens/src/keys";
 import { useListKeydown } from "@armada/screens/src/list-keyboard";
 
@@ -126,7 +126,8 @@ export function Overview({
   // A press names a section; opening it (if folded) and scrolling to it happen once that open
   // state has committed, which is what the effect below waits for.
   const [jump, setJump] = useState<{ section: StripSection; at: number } | null>(null);
-  const [tab, setTab] = useDashboardTab();
+  const panels = useLayout("dashboard.panels").shown;
+  const [tab, setTab] = useDashboardTab(useLayout("dashboard.tabs").first as DashboardTab);
   const onJump = (section: StripSection) => {
     setters[section](true);
     setTab(dashboardTabOf(section));
@@ -167,7 +168,7 @@ export function Overview({
   return (
     <Boundary region="the overview" {...guarded}>
       <div className="armada-screen__overview">
-        {fault ? null : <QuickDispatch onType={onQuickCompose} focused={!needsYou} />}
+        {fault || !panels.some((one) => one.id === "quick-dispatch") ? null : <QuickDispatch onType={onQuickCompose} focused={!needsYou} />}
         <DashboardTabs tab={tab} onTab={setTab} asking={needsYou} running={overviewListsOf(state.jobs, pickedRepository).sections.some((one) => one.id === "running" && one.jobs.length > 0)} />
         {fault ? (
           <OverviewLists

@@ -25,6 +25,7 @@ assuming it is restated here.
 | [judge.md](judge.md) | The semantic, veto-only tier of evidence verification |
 | [kit.md](kit.md) | The tool set you bring — Skills, MCP, sub agents, Commands, the allowlist |
 | [landing.md](landing.md) | How a Job's work reaches its target — one pull request, or members landing in order |
+| [layout-mods.md](layout-mods.md) | A mod whose `layout.json` reorders, hides and sets the opening choice of Bridge's Dashboard, Job tabs and rail, by id |
 | [log-envelope.md](log-envelope.md) | The field contract every log line carries across Fleet, Bridge and Drone |
 | [machine.md](machine.md) | How this installation behaves — resources, timing, budget, notification routing |
 | [manifest.md](manifest.md) | Per-project config, backed by `armada.yml` |
@@ -32,6 +33,7 @@ assuming it is restated here.
 | [observe.md](observe.md) | Watching a Drone work while it keeps working — read-only, taking nothing over |
 | [pilot.md](pilot.md) | The escape hatch from a running Job into a human-driven Claude Code session |
 | [plan.md](plan.md) | A Job's own record of what it means to do the work — an approach and its tasks |
+| [pocket.md](pocket.md) | The owner's phone app and the Phone Gateway in front of Fleet: what it shows, what it pushes, what keeps it closed |
 | [retro.md](retro.md) | What got in the way while one Job ran, and whose way, written once it ends |
 | [runner-adapter.md](runner-adapter.md) | A declarative description of one test runner, letting `draft_fix` reach a runner nobody has hand-configured |
 | [scout.md](scout.md) | A read-only agent a person starts from a Studio, which comes back as a Finding |

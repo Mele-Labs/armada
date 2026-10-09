@@ -36,6 +36,7 @@ import { leadOf } from "./lead";
 import { heldByAFlag } from "./gaming";
 import { GamingHeld } from "./gaming-held";
 import { StepActs } from "./StepActs";
+import { nowPanelOf } from "./now-panel";
 import { OverviewBoard } from "./OverviewBoard";
 import { walkAct } from "./walked";
 import type { DetailTab } from "./detail-tabs";
@@ -787,6 +788,7 @@ export function OverviewTab(props: OverviewTabProps) {
             }),
       }}
       waiting={waiting}
+      now={nowPanelOf(props.draft?.now?.[job.id], { onOpenDrone: props.onOpenDrone, onOpenCheckLog: props.onOpenCheckLog, onOpenJob: openJob, onSaid })}
       // **What the approval approves, only while the lead offers it.** The
       // owner approved Job 1 on 1 Oct 2026 without seeing what counted as
       // done or how its steps gate, and the Judge refused the plan for it.

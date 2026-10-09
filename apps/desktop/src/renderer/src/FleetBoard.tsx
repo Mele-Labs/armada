@@ -9,6 +9,7 @@ import { SettlingMark, Tooltip } from "@armada/components";
 import type { JobSummary, RepositorySummary } from "@armada/protocol";
 import type { CallView } from "@armada/jobs/draft/calls";
 import { overviewListsOf } from "@armada/overview";
+import { useLayout } from "@armada/shell";
 
 import type { BridgeState } from "../../shared/bridge";
 import { CallPane } from "./CallPane";
@@ -166,6 +167,7 @@ export function FleetBoard({
   const calls = useItems("command-central", state, picked, nowViews, hosts, answered);
   const running = useItems("running", state, picked, nowViews, hosts, answered);
   const sessions = useSessions();
+  const board = useLayout("dashboard.panels").shown.filter((one) => one.slot === "board");
   const [selected, setSelected] = useState<string>();
 
   const lanes = useMemo(() => {
@@ -187,12 +189,18 @@ export function FleetBoard({
   return (
     <div className="armada-board" data-pane={pane || undefined}>
       <section className="armada-deck__fleet" aria-label="Fleet">
-        <ul className="armada-deck__lanes" role={pane ? "listbox" : undefined} aria-label={pane ? "Lanes" : undefined} tabIndex={pane ? 0 : undefined} onKeyDown={pane ? move : undefined}>
-          {lanes.map((lane) => (
-            <LaneRow key={lane.key} lane={lane} selected={pane && lane.key === current?.key} onPick={pane ? setSelected : undefined} />
-          ))}
-        </ul>
-        <Conveyor state={state} />
+        {/* The panels a layout orders and hides: Fleet, then the merge line, until one says otherwise. */}
+        {board.map((one) =>
+          one.id === "merge-line" ? (
+            <Conveyor key={one.id} state={state} />
+          ) : (
+            <ul key={one.id} className="armada-deck__lanes" role={pane ? "listbox" : undefined} aria-label={pane ? "Lanes" : undefined} tabIndex={pane ? 0 : undefined} onKeyDown={pane ? move : undefined}>
+              {lanes.map((lane) => (
+                <LaneRow key={lane.key} lane={lane} selected={pane && lane.key === current?.key} onPick={pane ? setSelected : undefined} />
+              ))}
+            </ul>
+          ),
+        )}
       </section>
       {pane && item !== undefined ? (
         <CallPane item={item} now={now} workflows={state.holds.workflows} onDone={() => setAnswered(new Set([...answered, item.key]))} onOpenSession={hosts.onOpenSession} onOpenJob={hosts.onOpen} onOpenLink={hosts.onOpenLink} />

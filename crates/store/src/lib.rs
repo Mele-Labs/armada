@@ -66,6 +66,7 @@ mod groups;
 mod helm_sessions;
 /// What a session Fleet hosts keeps beside its ledger row, and its thread.
 mod hosted_sessions;
+mod session_waiting;
 /// Where a verdict's own question was kept, and the column that points at it.
 mod judged;
 /// Kit's MCP servers, and each Manifest's word over one. `#1275`.
@@ -201,7 +202,7 @@ pub use attempt::Attempted;
 pub use check_runs::{CheckOutcome, CheckRun};
 pub use crew::{ExtraEnded, TaskEdit};
 pub use delivery::{Currency, Delivery, Unsettled};
-pub use devices::Device;
+pub use devices::{Device, PushSubscription};
 pub use drift::ScopeDrift;
 pub use error::{DatabaseFault, LoadAllError, LoadJobError, OpenError, RowError, WriteError};
 pub use fold::{Moved, RecordedEvent};
@@ -209,6 +210,7 @@ pub use footprint::Footprinted;
 pub use forget::Forgotten;
 pub use groups::GroupCoord;
 pub use hosted_sessions::{KeptHosting, KeptTerminalAsk};
+pub use session_waiting::KeptWaiting;
 pub use limits::SavedLimits;
 pub use lineage::{ReplacedBy, Replaces};
 pub use main_ci::{MainCi, MainFailedJob, MainMerge, MainState};
