@@ -10,6 +10,7 @@ use axum::response::{IntoResponse, Response};
 use axum::routing::{delete, get, post};
 use axum::Router;
 
+use crate::actions::{self, Act};
 use crate::{admin, fleet_client, pair_routes, push, reads, signing, stat};
 
 /// Where Fleet is now: its port out of the runtime file, read afresh each time
@@ -70,13 +71,13 @@ pub fn router(gateway: Gateway) -> Router {
         .route("/api/live", get(reads::live))
         .route("/api/push/subscribe", post(push::subscribe))
         .route("/api/push/key", get(push::key))
-        .route("/api/jobs/:id/approve", post(later))
-        .route("/api/jobs/:id/redirect", post(later))
-        .route("/api/jobs/:id/restart_step", post(later))
-        .route("/api/jobs/:id/kill", post(later))
-        .route("/api/jobs/:id/redispatch", post(later))
-        .route("/api/jobs/:id/approve_review", post(later))
-        .route("/api/jobs/:id/request_changes", post(later))
+        .route("/api/jobs/:id/approve", actions::route(Act::Approve))
+        .route("/api/jobs/:id/redirect", actions::route(Act::Redirect))
+        .route("/api/jobs/:id/restart_step", actions::route(Act::RestartStep))
+        .route("/api/jobs/:id/kill", actions::route(Act::Kill))
+        .route("/api/jobs/:id/redispatch", actions::route(Act::Redispatch))
+        .route("/api/jobs/:id/approve_review", actions::route(Act::ApproveReview))
+        .route("/api/jobs/:id/request_changes", actions::route(Act::RequestChanges))
         .route("/api/sessions", get(later))
         .route("/api/sessions/answer", post(later))
         .layer(from_fn_with_state(gateway.pairing.clone(), signing::signed))
