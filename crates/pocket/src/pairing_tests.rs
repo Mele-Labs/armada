@@ -83,10 +83,14 @@ async fn start(rig: &Rig) -> String {
     field(&body, "code")
 }
 
-async fn claim(rig: &Rig, code: &str) -> StatusCode {
+async fn claimed(rig: &Rig, code: &str) -> (StatusCode, String) {
     let spki = to_hex(key().verifying_key().to_public_key_der().unwrap().as_bytes());
     let body = format!("{{\"code\":\"{code}\",\"name\":\"Phone\",\"spki_hex\":\"{spki}\"}}");
-    call(&rig.app, Method::POST, "/pair", &[("content-type", "application/json".into())], &body).await.0
+    call(&rig.app, Method::POST, "/pair", &[("content-type", "application/json".into())], &body).await
+}
+
+async fn claim(rig: &Rig, code: &str) -> StatusCode {
+    claimed(rig, code).await.0
 }
 
 async fn confirm(rig: &Rig, code: &str) -> (StatusCode, String) {
@@ -94,11 +98,15 @@ async fn confirm(rig: &Rig, code: &str) -> (StatusCode, String) {
     call(&rig.app, Method::POST, "/admin/pair/confirm", &[("content-type", "application/json".into())], &body).await
 }
 
+/// The id the phone is told at claim is the one it is stored under at Confirm,
+/// so it can sign before anyone tells it anything else.
 pub(crate) async fn paired(rig: &Rig) -> String {
     let code = start(rig).await;
-    assert_eq!(claim(rig, &code).await, StatusCode::ACCEPTED);
+    let (status, told) = claimed(rig, &code).await;
+    assert_eq!(status, StatusCode::ACCEPTED, "{told}");
     let (status, body) = confirm(rig, &code).await;
     assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(field(&told, "device_id"), field(&body, "id"));
     field(&body, "id")
 }
 
