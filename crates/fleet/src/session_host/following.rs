@@ -100,6 +100,11 @@ where
         let path = |slot: u32| adapter_traits::slot_path(&root, slot);
         let manifest = hosting.manifest_id.clone();
         let now = self.now().as_str().to_string();
+        // A piloted Session holds the Job's own worktree, leased by the Job: the pilot
+        // hands it over and takes it back, so the pool is not this one's to read.
+        if self.piloted_job_of(id).await.is_some() {
+            return hosting;
+        }
         if let Some(slot) = hosting.lease_slot {
             if self.held_by_the_tree(id, &path(slot)) == Standing::Ours {
                 return hosting;
