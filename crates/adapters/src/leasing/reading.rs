@@ -5,18 +5,33 @@ use std::path::Path;
 
 use adapter_traits::{SlotHeld, SlotReading};
 
+use crate::concurrently::concurrently;
+
 use super::{git, Holder, Pool, Slot, SlotState};
 
 impl Pool {
     /// Every slot, read the way [`Pool::status`] reads it.
+    ///
+    /// **Slot by slot, side by side**: each is its own checkout and its own
+    /// handful of git processes, and the base is asked for once rather than by
+    /// each.
     pub fn readings(&self) -> Vec<SlotReading> {
-        self.status()
-            .into_iter()
-            .map(|slot| self.reading(slot))
-            .collect()
+        let shape = self.shape();
+        let base = self.base_ref();
+        concurrently(&self.bays(), |&number| {
+            self.reading(
+                Slot {
+                    number,
+                    path: self.path_of(number),
+                    state: self.state_of(number),
+                    closed: shape.closed.contains(&number),
+                },
+                &base,
+            )
+        })
     }
 
-    fn reading(&self, slot: Slot) -> SlotReading {
+    fn reading(&self, slot: Slot, base: &str) -> SlotReading {
         let made = !matches!(slot.state, SlotState::Unmade | SlotState::NotACheckout);
         let (kept, completed) = match &slot.state {
             SlotState::Held {
@@ -52,7 +67,7 @@ impl Pool {
             closed: slot.closed,
             slot: slot.number as u32,
             warm: made && self.warm(&slot.path),
-            behind: made.then(|| self.behind(&slot.path)).flatten(),
+            behind: made.then(|| self.behind(&slot.path, base)).flatten(),
             path: slot.path.to_string_lossy().into_owned(),
             held,
             branch,
@@ -66,8 +81,8 @@ impl Pool {
         !self.seeds.is_empty() && self.seeds.iter().all(|path| at.join(path).is_dir())
     }
 
-    fn behind(&self, at: &Path) -> Option<u32> {
-        let range = format!("HEAD..{}", self.base_ref());
+    fn behind(&self, at: &Path, base: &str) -> Option<u32> {
+        let range = format!("HEAD..{base}");
         git::git(at, &["rev-list", "--count", &range])
             .ok()?
             .parse()

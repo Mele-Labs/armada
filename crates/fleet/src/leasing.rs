@@ -8,9 +8,11 @@
 //! beside the slot says whether it still is. A Job cut before the pool has no
 //! slot recorded and keeps the path its handle derives.
 
+use std::sync::Arc;
+
 use adapter_traits::{
     AgentHarness, Delivery, SlotChange, SlotHeld, SlotKept, SlotPool, SlotReading, SlotRefused,
-    SlotStanding, Vcs, WorkProduct, WorktreeSpec, WorktreeSpecRefused,
+    SlotStanding, StrandedWork, Vcs, WorkProduct, WorktreeSpec, WorktreeSpecRefused,
 };
 use api::Refusal;
 use core_model::{Component, Envelope, FieldValue, Job, JobStatus, Level};
@@ -129,6 +131,49 @@ impl JobTree {
     }
 }
 
+/// [`Fleet::job_tree`] with the Vcs passed in, so a blocking thread can ask it
+/// without holding Fleet.
+pub(crate) fn job_tree_in<V: Vcs>(
+    vcs: &V,
+    served: &Served,
+    job: &Job,
+) -> Result<JobTree, WorktreeSpecRefused> {
+    // Before the path is derived: a parked Job's derived path is where
+    // nothing is, and reading it as `Here` would be a worktree that is gone.
+    if job.is_parked() {
+        return Ok(JobTree::Parked);
+    }
+    let spec = spec_of(served.root(), job)?;
+    let Some(slot) = spec.slot() else {
+        return Ok(JobTree::Here(spec));
+    };
+    let why = match vcs.slot_standing(&pool_of(served), slot, job.id().as_str()) {
+        SlotStanding::Held => return Ok(JobTree::Here(spec)),
+        SlotStanding::HeldBy(who) => format!("{who} holds it now"),
+        SlotStanding::Free => String::from("it was given back to the pool"),
+        SlotStanding::Gone => String::from("it is not on disk"),
+    };
+    Ok(JobTree::Lost { slot, why })
+}
+
+/// [`Fleet::reclaimed_spec`] with the Vcs passed in.
+pub(crate) fn reclaimed_spec_in<V: Vcs>(
+    vcs: &V,
+    served: &Served,
+    job: &Job,
+) -> Result<WorktreeSpec, Adrift> {
+    let unworkable = |cause| Adrift::Unworkable {
+        job: job.id().clone(),
+        cause,
+    };
+    match job_tree_in(vcs, served, job).map_err(unworkable)? {
+        JobTree::Here(spec) => Ok(spec),
+        JobTree::Lost { .. } | JobTree::Parked => {
+            WorktreeSpec::for_job(served.root(), &job.handle()).map_err(unworkable)
+        }
+    }
+}
+
 impl<H, V, W> Fleet<H, V, W>
 where
     H: AgentHarness + Send + Sync + 'static,
@@ -146,25 +191,7 @@ where
         served: &Served,
         job: &Job,
     ) -> Result<JobTree, WorktreeSpecRefused> {
-        // Before the path is derived: a parked Job's derived path is where
-        // nothing is, and reading it as `Here` would be a worktree that is gone.
-        if job.is_parked() {
-            return Ok(JobTree::Parked);
-        }
-        let spec = spec_of(served.root(), job)?;
-        let Some(slot) = spec.slot() else {
-            return Ok(JobTree::Here(spec));
-        };
-        let why = match self
-            .vcs()
-            .slot_standing(&pool_of(served), slot, job.id().as_str())
-        {
-            SlotStanding::Held => return Ok(JobTree::Here(spec)),
-            SlotStanding::HeldBy(who) => format!("{who} holds it now"),
-            SlotStanding::Free => String::from("it was given back to the pool"),
-            SlotStanding::Gone => String::from("it is not on disk"),
-        };
-        Ok(JobTree::Lost { slot, why })
+        job_tree_in(self.vcs().as_ref(), served, job)
     }
 
     /// [`job_tree`](Fleet::job_tree) for a reader that only wants a worktree
@@ -182,29 +209,30 @@ where
         served: &Served,
         job: &Job,
     ) -> Result<WorktreeSpec, Adrift> {
-        let unworkable = |cause| Adrift::Unworkable {
-            job: job.id().clone(),
-            cause,
-        };
-        match self.job_tree(served, job).map_err(unworkable)? {
-            JobTree::Here(spec) => Ok(spec),
-            JobTree::Lost { .. } | JobTree::Parked => {
-                WorktreeSpec::for_job(served.root(), &job.handle()).map_err(unworkable)
-            }
-        }
+        reclaimed_spec_in(self.vcs().as_ref(), served, job)
     }
 
     /// Every served repository's pool, slot by slot: what Bridge's Cleanup
     /// draws, read the way `armada worktree --status` reads it.
+    ///
+    /// Tests read it whole; `list_worktrees` loads the Jobs once for both of
+    /// its halves and asks [`pool_slots_among`](Fleet::pool_slots_among).
+    #[cfg(test)]
     pub(crate) async fn pool_slots(&self) -> Result<Vec<PoolSlot>, Adrift> {
         let (loaded, _) = self.every_job().await?;
-        let job_of = |id: &str| loaded.jobs.iter().find(|job| job.id().as_str() == id);
+        Ok(self.pool_slots_among(&loaded.jobs).await)
+    }
+
+    /// [`pool_slots`](Fleet::pool_slots) over Jobs the caller already loaded,
+    /// so a caller asking for more than the pool reads the store once.
+    pub(crate) async fn pool_slots_among(&self, jobs: &[Job]) -> Vec<PoolSlot> {
+        let job_of = |id: &str| jobs.iter().find(|job| job.id().as_str() == id);
         let mut kept = self.store().lock().await.rescues().unwrap_or_default();
         let mut slots = Vec::new();
         for served in self.repositories().served() {
             let manifest = served.manifest().id().as_str().to_string();
             let pool = pool_of(&served);
-            for reading in self.vcs().slot_pool(&pool) {
+            for (reading, stranded) in self.pool_read(pool.clone()).await {
                 let job = match &reading.held {
                     // A repair's slot is held under its own id and shown under its Job.
                     SlotHeld::Job(id) => job_of(id)
@@ -213,20 +241,6 @@ where
                 };
                 let job_title = job.map(|job| job.title().as_str().to_string());
                 let job_status = job.map(|job| job.status());
-                // A Job's slot is rescued as a stranded one where its release
-                // was refused, so what it holds is read the same way.
-                let stranded = match (&reading.held, &reading.kept) {
-                    (SlotHeld::Stranded(_), _) | (SlotHeld::Job(_), Some(_)) => {
-                        self.vcs().stranded_work(&pool, reading.slot).ok()
-                    }
-                    // A session's slot, read for the files a release commits.
-                    (SlotHeld::Session(_), _) => self
-                        .vcs()
-                        .session_work(&pool, reading.slot)
-                        .ok()
-                        .filter(|work| !work.uncommitted.is_empty()),
-                    _ => None,
-                };
                 // **A Finding is of the commit it read.** One whose slot has
                 // moved on, or is no longer stranded, is not shown.
                 let at = kept.iter().position(|one| {
@@ -248,7 +262,37 @@ where
                 });
             }
         }
-        Ok(slots)
+        slots
+    }
+
+    /// Each slot of one pool, and what it holds where it holds work to show.
+    ///
+    /// **Off the runtime and side by side.** Every slot is its own checkout
+    /// and a handful of git processes, and none depends on another, so the
+    /// read costs the slowest slot rather than the sum.
+    async fn pool_read(&self, pool: SlotPool) -> Vec<(SlotReading, Option<StrandedWork>)> {
+        let vcs = Arc::clone(self.vcs());
+        tokio::task::spawn_blocking(move || {
+            let readings = vcs.slot_pool(&pool);
+            let held = adapters::concurrently(&readings, |reading| {
+                // A Job's slot is rescued as a stranded one where its release
+                // was refused, so what it holds is read the same way.
+                match (&reading.held, &reading.kept) {
+                    (SlotHeld::Stranded(_), _) | (SlotHeld::Job(_), Some(_)) => {
+                        vcs.stranded_work(&pool, reading.slot).ok()
+                    }
+                    // A session's slot, read for the files a release commits.
+                    (SlotHeld::Session(_), _) => vcs
+                        .session_work(&pool, reading.slot)
+                        .ok()
+                        .filter(|work| !work.uncommitted.is_empty()),
+                    _ => None,
+                }
+            });
+            readings.into_iter().zip(held).collect()
+        })
+        .await
+        .expect("git panicked reading the pool")
     }
 
     /// A person's change to a repository's pool, from Cleanup's bay grid. The

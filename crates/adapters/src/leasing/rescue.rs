@@ -5,6 +5,7 @@
 //! **Under the slot's own lock**, as a take or a release is, and the slot is
 //! asked again under it whether it is still stranded.
 
+use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
 use adapter_traits::{
@@ -49,13 +50,14 @@ impl Pool {
         let listed = COMMITS_LISTED.to_string();
         let log =
             git(&path, &["log", "--format=%H%x1f%s", "-n", &listed, &range]).unwrap_or_default();
+        let (not_on_remote, not_on_main) = self.homes_of(&path, &range);
         let commits = log
             .lines()
             .filter_map(|line| line.split_once('\u{1f}'))
             .map(|(sha, subject)| SlotCommit {
                 sha: sha.to_string(),
                 subject: subject.to_string(),
-                home: self.home_of(&path, sha),
+                home: home_of(sha, &not_on_remote, &not_on_main),
             })
             .collect();
         Ok(StrandedWork {
@@ -67,19 +69,21 @@ impl Pool {
         })
     }
 
-    /// Where else `sha` exists, asked the way `unlanded` counts: a remote
-    /// branch first, then the local base. A question git cannot answer reads
-    /// as only here, because unknown is not landed.
-    fn home_of(&self, at: &Path, sha: &str) -> CommitHome {
-        if git(at, &["branch", "--remotes", "--contains", sha]).is_ok_and(|named| !named.is_empty())
-        {
-            return CommitHome::OnRemote;
-        }
+    /// The commits of `range` that no remote branch holds, and that the local
+    /// base does not, each from one question rather than one per commit. A
+    /// question git cannot answer is `None`, which [`home_of`] reads as only
+    /// here, because unknown is not landed.
+    fn homes_of(&self, at: &Path, range: &str) -> (Option<HashSet<String>>, Option<HashSet<String>>) {
+        let shas = |args: &[&str]| {
+            git(at, args)
+                .ok()
+                .map(|said| said.lines().map(str::to_string).collect::<HashSet<_>>())
+        };
         let local = format!("refs/heads/{}", self.base);
-        if git_ok(at, &["merge-base", "--is-ancestor", sha, &local]) {
-            return CommitHome::OnMain;
-        }
-        CommitHome::OnlyHere
+        (
+            shas(&["rev-list", range, "--not", "--remotes"]),
+            shas(&["rev-list", range, "--not", &local]),
+        )
     }
 
     /// Stranded slot `number`'s change against where it left the base,
@@ -205,6 +209,22 @@ impl Pool {
         }
         count(&self.root, &args) == 0
     }
+}
+
+/// Where else `sha` exists: a remote branch first, then the local base.
+fn home_of(
+    sha: &str,
+    not_on_remote: &Option<HashSet<String>>,
+    not_on_main: &Option<HashSet<String>>,
+) -> CommitHome {
+    let held_by = |missing: &Option<HashSet<String>>| missing.as_ref().is_some_and(|m| !m.contains(sha));
+    if held_by(not_on_remote) {
+        return CommitHome::OnRemote;
+    }
+    if held_by(not_on_main) {
+        return CommitHome::OnMain;
+    }
+    CommitHome::OnlyHere
 }
 
 /// The branch checked out, or `None` for a detached checkout.
