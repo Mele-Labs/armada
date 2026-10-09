@@ -352,3 +352,21 @@ button.armada-now__step[aria-pressed="true"] {
   outline: var(--focus-ring);
   outline-offset: var(--focus-ring-offset);
 }
+
+/* What was asked about a part of a sketch, under the ask it was asked of. */
+.armada-now__remark {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  border-top: var(--border-width) solid var(--border-subtle);
+}
+
+.armada-now__remark-about {
+  color: var(--fg-muted);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  font-weight: var(--weight-heading);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}

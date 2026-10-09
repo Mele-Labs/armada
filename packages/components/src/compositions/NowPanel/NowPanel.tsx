@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useMemo, useState, type ReactNode } from "react";
 import { Bot, Box, ChevronDown, ChevronRight, CircleDot, CornerUpRight, Cpu, Megaphone, OctagonAlert, PanelRightClose, PencilRuler, RotateCw, Scale, ShieldCheck, ShieldOff, ShieldX, SkipForward, Waypoints, Workflow } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -19,8 +19,17 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
  */
 export type NowKind = "drone" | "check" | "judge";
 
-/** A diagram the asking Drone drew to go with its question: the mermaid text it wrote. */
-export type NowSketch = { source: string };
+/**
+ * A sketch the asking Drone drew to go with its question: a scene, which the Overview validates
+ * and draws (`SketchScene`). It is handed over as it arrived, so a bad one draws nothing.
+ */
+export type NowSketch = { scene: unknown };
+
+/** What the Overview is asked to draw: the sketch, and the current-state one it changes, where there is one. */
+export type NowSketchShow = { sketch: NowSketch; against?: NowSketch };
+
+/** Something the owner asked about a part of a sketch, kept under the ask it was asked of. */
+export type NowRemark = { key: string; about: string; said: string };
 
 /** What the Overview shows to the left of the panel while a sketch is open. */
 export type NowSketchView = "sketch" | "canvas";
@@ -145,7 +154,9 @@ export type NowPanelProps = {
   /** The step highlighted on the canvas now. */
   focusedStep?: string;
   /** Told the sketch of the ask now open, and `undefined` once none is. Absent leaves sketches undrawn. */
-  onSketch?: (sketch: NowSketch | undefined) => void;
+  onSketch?: (show: NowSketchShow | undefined) => void;
+  /** What was asked about the sketch's parts, drawn under the asks. Absent draws none. */
+  thread?: readonly NowRemark[];
   /** Which the Overview shows while a sketch is open. Absent reads as the sketch. */
   sketchView?: NowSketchView;
   /** The head's Sketch and Canvas switch, drawn only while a sketch is open. Absent draws none. */
@@ -167,10 +178,12 @@ const STATE: Record<NowRunning["state"], { Glyph: LucideIcon; said: string }> = 
 const ASK_ORDER = ["plan", "judge", "drone"] as const;
 const RUN_ORDER = ["drone", "check", "judge"] as const;
 
-export function NowPanel({ asks = [], issues = [], running = [], waiting = [], onSkipAll, onHide, onStep, focusedStep, onSketch, sketchView = "sketch", onSketchView }: NowPanelProps) {
+export function NowPanel({ asks = [], issues = [], running = [], waiting = [], onSkipAll, onHide, onStep, focusedStep, onSketch, sketchView = "sketch", onSketchView, thread = [] }: NowPanelProps) {
   // The plan decision asked now reports its own sketch; a Judge's or Drone's is read off the asks.
-  const [planSketch, setPlanSketch] = useState<NowSketch | undefined>(undefined);
-  const asked = planSketch ?? asks.flatMap((ask) => (ask.kind === "plan" || ask.sketch === undefined ? [] : [ask.sketch]))[0];
+  const [planSketch, setPlanSketch] = useState<NowSketchShow | undefined>(undefined);
+  const openSketch = asks.flatMap((ask) => (ask.kind === "plan" || ask.sketch === undefined ? [] : [ask.sketch]))[0];
+  const openShow = useMemo<NowSketchShow | undefined>(() => (openSketch === undefined ? undefined : { sketch: openSketch }), [openSketch]);
+  const asked = planSketch ?? openShow;
   useEffect(() => {
     onSketch?.(asked);
     return () => onSketch?.(undefined);
@@ -219,6 +232,12 @@ export function NowPanel({ asks = [], issues = [], running = [], waiting = [], o
               </Fragment>
             );
           })}
+          {thread.map((one) => (
+            <li key={one.key} className="armada-now__remark">
+              <span className="armada-now__remark-about">{one.about}</span>
+              <span className="armada-now__text">{one.said}</span>
+            </li>
+          ))}
         </Section>
       )}
       {issues.length === 0 ? null : (
@@ -451,7 +470,7 @@ function AskRow({ ask }: { ask: NowOpenAsk }) {
  * One decision at a time, nothing preselected. Next goes to the next one still open;
  * the last decision carries Answer instead, which sends every pick together.
  */
-function PlanAsk({ ask, onSketch }: { ask: NowPlanAsk; onSketch: (sketch: NowSketch | undefined) => void }) {
+function PlanAsk({ ask, onSketch }: { ask: NowPlanAsk; onSketch: (show: NowSketchShow | undefined) => void }) {
   const [at, setAt] = useState(0);
   const [picks, setPicks] = useState<Record<string, string>>({});
   const [sent, setSent] = useState(false);
@@ -461,9 +480,13 @@ function PlanAsk({ ask, onSketch }: { ask: NowPlanAsk; onSketch: (sketch: NowSke
   const [focused, setFocused] = useState<string | undefined>(undefined);
   const decision = ask.decisions[at];
   const optionSketch = (id: string | undefined) => decision?.options.find((one) => one.id === id)?.sketch;
-  const drawn = sent
-    ? undefined
-    : (optionSketch(hovered) ?? optionSketch(focused) ?? optionSketch(decision === undefined ? undefined : picks[decision.id]) ?? decision?.sketch);
+  const previewed = optionSketch(hovered) ?? optionSketch(focused) ?? optionSketch(decision === undefined ? undefined : picks[decision.id]);
+  // **An option's sketch is read against the decision's own**, which is how things are now.
+  const own = decision?.sketch;
+  const drawn = useMemo<NowSketchShow | undefined>(
+    () => (sent ? undefined : previewed !== undefined ? { sketch: previewed, ...(own === undefined ? {} : { against: own }) } : own === undefined ? undefined : { sketch: own }),
+    [sent, previewed, own],
+  );
   useEffect(() => {
     onSketch(drawn);
     return () => onSketch(undefined);

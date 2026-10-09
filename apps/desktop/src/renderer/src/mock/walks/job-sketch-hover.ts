@@ -5,7 +5,7 @@ import { inside, region, role, walk } from "../walk";
 const now = region("Now");
 
 const w = walk("job-sketch-plan", [
-  { look: role("img", "Sketch"), say: "With nothing hovered, the decision's own sketch: how it is now" },
+  { look: role("group", "Sketch", { exact: true }), say: "With nothing hovered, the decision's own sketch: how it is now" },
   { hover: inside(now, role("radio", "Split it out")), say: "Hover an option and its sketch stands in" },
   { hover: inside(now, role("radio", "Wrap it in place")), say: "Another option, another sketch" },
 ]);

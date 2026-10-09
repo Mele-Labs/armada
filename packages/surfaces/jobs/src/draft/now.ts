@@ -8,8 +8,8 @@
 
 export type NowKindView = "drone" | "check" | "judge";
 
-/** A diagram the asking Drone drew: the mermaid source it wrote. */
-export type NowSketchDraft = { source: string };
+/** A diagram the asking Drone drew: the scene it drew, validated where it is drawn. */
+export type NowSketchDraft = { scene: unknown };
 
 export type NowAskView =
   | { key: string; kind: "plan"; decisions: readonly { id: string; question: string; options: readonly { id: string; label: string; sketch?: NowSketchDraft }[]; sketch?: NowSketchDraft }[] }

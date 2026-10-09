@@ -24,12 +24,12 @@ import {
   NowPanel,
   PlanGroupStateMark,
   Prose,
-  SketchPane,
+  SketchScene,
   SkeletonText,
   Tooltip,
   WorkflowCanvas,
 } from "@armada/components";
-import type { Figure, NowPanelProps, NowSketch, NowSketchView, PlanGroupState, WorkflowCanvasEdge, WorkflowCanvasNode } from "@armada/components";
+import type { Figure, NowPanelProps, NowRemark, NowSketchShow, NowSketchView, PlanGroupState, WorkflowCanvasEdge, WorkflowCanvasNode } from "@armada/components";
 import type { FromStudio } from "@armada/protocol";
 import { PanelRightOpen } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
@@ -37,6 +37,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import type { DetailTab } from "./detail-tabs";
 import { litSteps } from "./draft/now";
 import { useNowHidden } from "./now-hidden";
+import { inkKey, useInk } from "./sketch-ink";
 import { JobLead, type JobLeadProps } from "./JobLead";
 import { studioName } from "@armada/screens/src/studio";
 import type { OpenStudioFrom } from "@armada/screens/src/open-studio";
@@ -158,7 +159,9 @@ export function OverviewBoard({
   const [hidden, hide] = useNowHidden();
   // **An open ask's sketch stands in for the canvas** until the owner switches back, the panel is
   // hidden or the ask is answered. The panel reports the sketch; this keeps only which is shown.
-  const [sketch, setSketch] = useState<NowSketch | undefined>(undefined);
+  const [sketch, setSketch] = useState<NowSketchShow | undefined>(undefined);
+  const [thread, setThread] = useState<readonly NowRemark[]>([]);
+  const [ink, setInk] = useInk(sketch === undefined ? undefined : inkKey(sketch.sketch.scene));
   const [sketchView, setSketchView] = useState<NowSketchView>("sketch");
   useEffect(() => {
     if (sketch === undefined) setSketchView("sketch");
@@ -170,7 +173,13 @@ export function OverviewBoard({
   const main = (
     <>
       {sketching ? (
-        <SketchPane sketch={sketch} />
+        <SketchScene
+          scene={sketch.sketch.scene}
+          {...(sketch.against === undefined ? {} : { against: sketch.against.scene })}
+          ink={ink}
+          onInk={setInk}
+          onAsk={(about, said) => setThread((was) => [...was, { key: `r${String(was.length + 1)}`, about: about.label, said }])}
+        />
       ) : (
         <>
           {approving}
@@ -368,6 +377,7 @@ export function OverviewBoard({
               onSketch={setSketch}
               sketchView={sketchView}
               onSketchView={setSketchView}
+              thread={thread}
             />
           )}
         </div>
