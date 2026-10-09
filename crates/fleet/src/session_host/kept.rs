@@ -1,7 +1,7 @@
 //! Fleet's end of a keeper's socket: a [`Process`] that is a connection.
 //! `keeper.rs` holds the other end and the reasons.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
@@ -22,6 +22,8 @@ struct Kept {
     pid: Arc<AtomicU32>,
     out: mpsc::UnboundedSender<String>,
     reading: tokio::task::AbortHandle,
+    socket: PathBuf,
+    spool: PathBuf,
 }
 
 impl Drop for Kept {
@@ -41,10 +43,35 @@ impl Process for Kept {
         let _ = self.out.send(format!("IN {line}"));
     }
 
+    /// **The keeper's paths go first, here and not in the keeper.** The next
+    /// message may start this session's next keeper before this one has read
+    /// `END`, and it must not find this one at the socket, or reattach to an
+    /// agent that is about to be gone.
     fn end(&self) {
+        let _ = std::fs::remove_file(&self.socket);
+        let _ = std::fs::remove_file(&self.spool);
         let _ = self.out.send(String::from("END"));
     }
+
+    fn complaint(&self) -> String {
+        tail_of(&self.spool.with_extension("log"))
+    }
 }
+
+/// The last lines of a keeper's log, each on a line of its own after a newline,
+/// or nothing where the log is empty or unreadable.
+pub(crate) fn tail_of(log: &Path) -> String {
+    let text = std::fs::read_to_string(log).unwrap_or_default();
+    let lines: Vec<&str> = text.lines().filter(|line| !line.trim().is_empty()).collect();
+    let from = lines.len().saturating_sub(TAIL_LINES);
+    match lines[from..].join("\n") {
+        tail if tail.is_empty() => tail,
+        tail => format!("\n{tail}"),
+    }
+}
+
+/// How much of a log a row carries.
+const TAIL_LINES: usize = 8;
 
 /// Whether a keeper answers at `socket`. A socket nobody answers on is a
 /// keeper that is gone, and is removed so the next start can bind there.
@@ -66,6 +93,8 @@ pub(crate) fn attached(
     stream: std::os::unix::net::UnixStream,
     agent: HeadlessAgent,
     sink: Sink,
+    socket: &Path,
+    spool: &Path,
 ) -> Result<Arc<dyn Process>, String> {
     stream
         .set_nonblocking(true)
@@ -117,6 +146,8 @@ pub(crate) fn attached(
         pid,
         out,
         reading: reading.abort_handle(),
+        socket: socket.to_path_buf(),
+        spool: spool.to_path_buf(),
     }))
 }
 
