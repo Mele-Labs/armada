@@ -126,3 +126,27 @@ async fn a_redirect_onto_a_stopped_step_starts_the_step_clock_again() {
         "the step's work begins again, so what it spent begins again: {after:?} >= {before:?}"
     );
 }
+
+/// A redirect that hands an escalated Job back keeps the door it came through,
+/// so the Record can draw a phone one with the phone's glyph.
+#[tokio::test]
+async fn a_redirect_from_the_phone_keeps_the_phone_against_the_move() {
+    let home = TempDir::new();
+    let fleet = a_fleet_with(&home, a_drone_that_answers());
+    let job = refused(&fleet, &home).await;
+
+    let phone = ipc::Via::from_wire("phone");
+    api::carrying(phone, async {
+        fleet
+            .redirect(&job, &advice(), api::Redirector::Person)
+            .await
+            .unwrap()
+    })
+    .await;
+
+    let vias = fleet.store().lock().await.vias_for(&job).unwrap();
+    assert!(
+        vias.iter().any(|(_, via)| *via == core_model::Via::Phone),
+        "{vias:?}"
+    );
+}
