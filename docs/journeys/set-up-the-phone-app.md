@@ -12,15 +12,16 @@
 
 | | On | Do |
 |---|---|---|
-| 1 | Mac | `pnpm -C apps/pocket build`. Writes `apps/pocket/dist`, which the Gateway serves |
-| 2 | Mac | `armada pocket`. Prints `Phone Gateway on 127.0.0.1:8443` and stays in the foreground |
-| 3 | Mac | `tailscale serve --bg --https=443 http://127.0.0.1:8443`. Puts the Gateway on your tailnet over https |
-| 4 | Bridge | Settings, Phone, Pair a phone. Bridge shows a QR code of the Gateway's address and a one-time code |
-| 5 | iPhone | Scan the QR with the Camera. It opens `/pair?code=<code>` in Safari, where the phone makes its key and names itself |
-| 6 | Bridge | Confirm the phone. Until then it signs nothing |
-| 7 | iPhone | Share, Add to Home Screen. Open Armada **from the Home Screen**, then allow notifications |
+| 1 | Mac | `armada pocket`, once, then stop it. That opts this Mac in. Then restart Armada (`scripts/restart`, or the Fleet panel in Bridge): from then on every restart builds the app and keeps the Gateway running under launchd as `com.armada.pocket` |
+| 2 | Mac | `tailscale serve --bg --https=443 http://127.0.0.1:8443`. Puts the Gateway on your tailnet over https, and survives reboots |
+| 3 | iPhone | Open the Gateway's address in Safari, then Share, Add to Home Screen. Open Armada **from the Home Screen** |
+| 4 | Bridge | Settings, Phone, Pair a phone, then **Copy link** |
+| 5 | iPhone | Paste the link into Pairing link and press Pair. The phone makes its key and names itself |
+| 6 | Bridge | Confirm the phone. Until then it signs nothing. Then allow notifications on the phone |
 
-Step 7 is not optional for push: iOS grants it only to a Home Screen app.
+Pair from the Home Screen app, not from Safari: on iOS the two keep separate storage, so a phone paired in Safari opens the Home Screen app unpaired. Scanning the QR opens Safari, which pairs Safari alone.
+
+Push works only in the Home Screen app: iOS grants it to nothing else.
 
 ## `armada pocket`
 
@@ -35,7 +36,7 @@ armada pocket [--port <n>] [--assets <dir>]
 | `--port` | `8443` | The loopback port. If you change it, give `tailscale serve` the same one |
 | `--assets` | `apps/pocket/dist`, from the directory you run it in | The built app. A missing directory serves nothing, and the phone gets 404 |
 
-**Needs:** the Armada store in the machine directory, and `tailscale` on the path for pairing and for the push sender address. Fleet may be down: `GET /admin/status` on the Gateway answers 503, or 502 when Fleet is found and does not answer.
+**Needs:** the Armada store in the machine directory, and Tailscale (on the path, or inside the Mac app) for pairing and for the push sender address. Fleet may be down: `GET /admin/status` on the Gateway answers 503, or 502 when Fleet is found and does not answer.
 
 **It fails when** the port is taken, the store cannot be opened, or the VAPID key file is unreadable. Each says which.
 
