@@ -479,6 +479,23 @@ where
         }
     }
 
+    /// Whether there is a conversation to resume: the agent CLI kept one, or the agent has
+    /// said something or leased a slot in the thread. A process that ended before its first turn
+    /// left none of these.
+    async fn has_a_conversation(&self, id: &str) -> bool {
+        if adapters::terminal_thread::find(&self.host().home, id).is_some() {
+            return true;
+        }
+        self.rows_of(id).await.is_ok_and(|rows| {
+            rows.iter().any(|row| {
+                matches!(
+                    row,
+                    SessionRow::Message { from: ipc::SessionVoice::Agent, .. } | SessionRow::Lease { .. }
+                )
+            })
+        })
+    }
+
     pub(crate) fn uploads_of(&self, id: &str) -> std::path::PathBuf {
         std::path::Path::new(&self.host().attachments_dir)
             .join("sessions")
@@ -831,7 +848,11 @@ where
                 let start = Start {
                     directory: directory.clone(),
                     session: id.to_string(),
-                    resuming: hosting.ran,
+                    // **Resumed only where there is a conversation to resume.** A process that
+                    // started and ended before its first turn wrote none, and `--resume` on it
+                    // exits at once ("No conversation found"), so every later message was lost
+                    // (s-c271bfe5, 8 Oct 2026). Started fresh under the same id instead.
+                    resuming: hosting.ran && self.has_a_conversation(id).await,
                     forking: hosting.fork_of.clone(),
                     name: address_of(id),
                     model: hosting.model.clone(),

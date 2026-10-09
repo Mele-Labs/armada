@@ -801,3 +801,20 @@ async fn opening_pages_in_the_browser_shows_each_in_the_window_and_is_denied() {
         .count();
     assert_eq!(shown, 2);
 }
+
+/// A process that ended before its first turn left no conversation, so the next message starts a
+/// fresh one under the same id rather than `--resume`, which the agent CLI refuses with "No
+/// conversation found" (s-c271bfe5 never ran, 8 Oct 2026).
+#[tokio::test]
+async fn a_session_whose_first_process_ended_before_a_turn_starts_fresh() {
+    let rig = rig();
+    let id = rig.start().await;
+    rig.send(&id, "first").await;
+    eventually(|| async { rig.stand_in.starts().len() == 1 }).await;
+    // The process goes before it said anything.
+    rig.stand_in.hears(0, Heard::Gone);
+    eventually(|| async { !matches!(rig.turn(&id).await, SessionTurn::Working { .. }) }).await;
+    rig.send(&id, "second").await;
+    eventually(|| async { rig.stand_in.starts().len() == 2 }).await;
+    assert!(!rig.stand_in.starts()[1].resuming, "nothing to resume");
+}
