@@ -17,8 +17,8 @@ use store::PushSubscription;
 use crate::vapid::Vapid;
 use crate::{signing::DeviceId, Gateway};
 
-/// Stands in for the address push services may write to if the sender misbehaves.
-/// RFC 8292 wants a `mailto:` or https URL; which one is the owner's to pick.
+/// The VAPID `sub` when Tailscale is not up. Normally `sub` is the Gateway's
+/// own tailnet address, so no personal address leaves the Mac.
 pub const PLACEHOLDER_SUBJECT: &str = "mailto:armada@example.invalid";
 
 #[derive(Clone)]

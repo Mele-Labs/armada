@@ -17,8 +17,11 @@ use crate::{fleet_client, Gateway};
 
 /// The escalation reasons that mean work stopped, each with the words
 /// `enum-verbs.toml` gives it. Nothing else pushes.
-const BLOCKED: [(&str, &str); 4] = [
+const BLOCKED: [(&str, &str); 6] = [
     ("stalled", "stalled"),
+    // Rendered "stalled" in the registry too, so a Job the owner sees as stalled buzzes.
+    ("silent", "stalled"),
+    ("hatch_unbidden", "stalled"),
     ("thrashing", "churning"),
     ("fan_out", "hit the sub-dispatch cap"),
     ("interrupted", "interrupted"),
@@ -49,11 +52,17 @@ pub struct Watch {
     /// The reason each Job is held for and has already been pushed for. A Job
     /// leaves when it moves on, so the next time it stops it pushes again.
     sent: HashMap<String, &'static str>,
+    /// How long to wait before each retry of a push that failed.
+    pub(crate) retries: Vec<Duration>,
 }
 
 impl Watch {
     pub fn new(gateway: Gateway) -> Watch {
-        Watch { gateway, sent: HashMap::new() }
+        Watch {
+            gateway,
+            sent: HashMap::new(),
+            retries: vec![Duration::from_secs(5), Duration::from_secs(30), Duration::from_secs(120)],
+        }
     }
 
     /// One text message from Fleet's `/events`.
@@ -70,8 +79,9 @@ impl Watch {
                     .and_then(|name| verb(&name));
                 match held {
                     Some(reason) if self.sent.get(&id) != Some(&reason) => {
-                        self.sent.insert(id.clone(), reason);
+                        // Marked once delivered, or once the retries are spent.
                         self.push(&id, reason).await;
+                        self.sent.insert(id.clone(), reason);
                     }
                     Some(_) => {}
                     None => {
@@ -114,20 +124,29 @@ impl Watch {
             if !push.plain && !sub.endpoint.starts_with("https://") {
                 continue;
             }
-            let now = (self.gateway.pairing.clock)();
-            match deliver(&push.client, &push.vapid, &push.subject, &sub, payload.as_bytes(), now).await {
-                Delivery::Sent => {}
-                Delivery::Gone => {
-                    let _ = self
-                        .gateway
-                        .pairing
-                        .store
-                        .lock()
-                        .unwrap()
-                        .remove_push_subscription(&sub.device_id, &sub.endpoint);
+            // The Gateway's own tailnet address says who is sending; with no
+            // Tailscale there is no phone to reach, so the fallback is rarely used.
+            let subject = self.gateway.pairing.address().unwrap_or_else(|_| push.subject.clone());
+            let mut waits = self.retries.iter();
+            loop {
+                let now = (self.gateway.pairing.clock)();
+                match deliver(&push.client, &push.vapid, &subject, &sub, payload.as_bytes(), now).await {
+                    Delivery::Sent => break,
+                    Delivery::Gone => {
+                        let _ = self
+                            .gateway
+                            .pairing
+                            .store
+                            .lock()
+                            .unwrap()
+                            .remove_push_subscription(&sub.device_id, &sub.endpoint);
+                        break;
+                    }
+                    Delivery::Failed => match waits.next() {
+                        Some(wait) => tokio::time::sleep(*wait).await,
+                        None => break,
+                    },
                 }
-                // The Gateway has no log to write to yet; the condition stays marked sent.
-                Delivery::Failed(_) => {}
             }
         }
     }

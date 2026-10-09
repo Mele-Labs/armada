@@ -32,25 +32,29 @@ struct Service {
     url: String,
     got: Arc<Mutex<Vec<Received>>>,
     status: Arc<AtomicU16>,
+    /// Statuses to answer first, one per request, before `status`.
+    first: Arc<Mutex<Vec<u16>>>,
 }
 
 async fn service() -> Service {
     let got = Arc::new(Mutex::new(Vec::new()));
     let status = Arc::new(AtomicU16::new(201));
+    let first = Arc::new(Mutex::new(Vec::<u16>::new()));
     let app = Router::new().route(
         "/push/abc",
         post({
-            let (got, status) = (got.clone(), status.clone());
+            let (got, status, first) = (got.clone(), status.clone(), first.clone());
             move |headers: HeaderMap, body: Bytes| async move {
                 got.lock().unwrap().push(Received { headers, body: body.len() });
-                StatusCode::from_u16(status.load(Ordering::SeqCst)).unwrap()
+                let queued = { let mut first = first.lock().unwrap(); (!first.is_empty()).then(|| first.remove(0)) };
+                StatusCode::from_u16(queued.unwrap_or_else(|| status.load(Ordering::SeqCst))).unwrap()
             }
         }),
     );
     let listener = crate::bind(0).await.unwrap();
     let port = listener.local_addr().unwrap().port();
     tokio::spawn(async move { axum::serve(listener, app).await });
-    Service { url: format!("http://127.0.0.1:{port}/push/abc"), got, status }
+    Service { url: format!("http://127.0.0.1:{port}/push/abc"), got, status, first }
 }
 
 fn subscription(endpoint: &str) -> String {
@@ -156,10 +160,11 @@ async fn approvals_reviews_and_other_escalations_never_push() {
     watch.observe(&changed("j2", "escalated", &because("gate_failure"))).await;
     watch.observe(&changed("j2", "escalated", &because("evidence_suspect"))).await;
     assert_eq!(service.got.lock().unwrap().len(), 0);
-    for name in ["thrashing", "fan_out", "interrupted"] {
+    for name in ["thrashing", "fan_out", "interrupted", "silent", "hatch_unbidden"] {
         watch.observe(&changed("j2", "escalated", &because(name))).await;
     }
-    assert_eq!(service.got.lock().unwrap().len(), 3);
+    // silent and hatch_unbidden read "stalled", the same condition: one push between them.
+    assert_eq!(service.got.lock().unwrap().len(), 4);
 }
 
 #[tokio::test]
@@ -171,4 +176,29 @@ async fn a_410_deletes_the_subscription() {
     watch.observe(&changed("j2", "escalated", &because("stalled"))).await;
     assert_eq!(service.got.lock().unwrap().len(), 1);
     assert!(rig.gateway.pairing.store.lock().unwrap().push_subscriptions().unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn a_failed_push_is_retried_and_delivered_once() {
+    let service = service().await;
+    *service.first.lock().unwrap() = vec![500];
+    let (mut watch, _rig, _) = watching(&service.url).await;
+    watch.retries = vec![std::time::Duration::from_millis(10); 3];
+    let stalled = changed("j2", "escalated", &because("stalled"));
+    watch.observe(&stalled).await;
+    watch.observe(&stalled).await;
+    // One refused, one delivered, and nothing after.
+    assert_eq!(service.got.lock().unwrap().len(), 2);
+}
+
+#[tokio::test]
+async fn a_push_that_keeps_failing_stops_after_three_retries() {
+    let service = service().await;
+    service.status.store(500, Ordering::SeqCst);
+    let (mut watch, _rig, _) = watching(&service.url).await;
+    watch.retries = vec![std::time::Duration::from_millis(10); 3];
+    let stalled = changed("j2", "escalated", &because("stalled"));
+    watch.observe(&stalled).await;
+    watch.observe(&stalled).await;
+    assert_eq!(service.got.lock().unwrap().len(), 4);
 }

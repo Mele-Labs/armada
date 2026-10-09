@@ -72,6 +72,11 @@ impl Pairing {
         }
     }
 
+    /// The Gateway's address on the tailnet, or the sentence saying why not.
+    pub(crate) fn address(&self) -> Result<String, String> {
+        (self.address)()
+    }
+
     /// A new single-use code and the address the phone reaches the Gateway at.
     pub fn start(&self) -> Result<(String, String, i64), String> {
         let address = (self.address)()?;

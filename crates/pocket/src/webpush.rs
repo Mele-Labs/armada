@@ -82,7 +82,8 @@ pub enum Delivery {
     Sent,
     /// The push service answered 404 or 410: the subscription is dead.
     Gone,
-    Failed(String),
+    /// Anything else: the send is tried again, then given up.
+    Failed,
 }
 
 /// Origin of an endpoint URL: `https://host[:port]`.
@@ -100,11 +101,11 @@ pub async fn deliver(
     now: i64,
 ) -> Delivery {
     let Some(audience) = origin(&sub.endpoint) else {
-        return Delivery::Failed("The subscription's endpoint is not a URL.".into());
+        return Delivery::Failed;
     };
     let body = match encrypt(payload, sub) {
         Ok(body) => body,
-        Err(why) => return Delivery::Failed(why),
+        Err(_) => return Delivery::Failed,
     };
     let authorization = vapid.authorization(&audience, subject, now);
     let sent = client
@@ -121,8 +122,7 @@ pub async fn deliver(
     match sent {
         Ok(answer) if answer.status().is_success() => Delivery::Sent,
         Ok(answer) if matches!(answer.status().as_u16(), 404 | 410) => Delivery::Gone,
-        Ok(answer) => Delivery::Failed(format!("The push service answered {}.", answer.status())),
-        Err(why) => Delivery::Failed(format!("The push service could not be reached: {why}")),
+        Ok(_) | Err(_) => Delivery::Failed,
     }
 }
 
