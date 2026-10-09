@@ -34,11 +34,14 @@ pub async fn run(port: u16, assets: Option<PathBuf>) -> Result<(), String> {
             .map_or(0, |d| d.as_secs() as i64)
     });
     let address: pocket::Address = Arc::new(pocket::tailscale_address);
+    let push = pocket::Push::open(machine, pocket::PLACEHOLDER_SUBJECT)?;
     let gateway = Gateway {
         pairing: pocket::Pairing::new(store, clock, address),
         fleet: Arc::new(move || fleet_port(&file)),
         assets: Some(assets.unwrap_or_else(|| PathBuf::from(BUILT))),
+        push,
     };
+    tokio::spawn(pocket::follow(gateway.clone()));
     println!("Phone Gateway on 127.0.0.1:{port}");
     axum::serve(listener, pocket::router(gateway))
         .await

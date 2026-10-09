@@ -72,6 +72,11 @@ impl Pairing {
         }
     }
 
+    /// The Gateway's address on the tailnet, or the sentence saying why not.
+    pub(crate) fn address(&self) -> Result<String, String> {
+        (self.address)()
+    }
+
     /// A new single-use code and the address the phone reaches the Gateway at.
     pub fn start(&self) -> Result<(String, String, i64), String> {
         let address = (self.address)()?;
@@ -205,11 +210,15 @@ pub fn address_from_status(output: &str) -> Result<String, String> {
     Ok(format!("https://{name}"))
 }
 
+/// The Mac app keeps its command line inside the bundle and puts it on `PATH`
+/// only if asked to, so the bundle's copy is tried when `tailscale` is not found.
+const TAILSCALE: [&str; 2] = ["tailscale", "/Applications/Tailscale.app/Contents/MacOS/Tailscale"];
+
 /// Asks the installed Tailscale. Blocking: callers run it off the async threads.
 pub fn tailscale_address() -> Result<String, String> {
-    let output = std::process::Command::new("tailscale")
-        .args(["status", "--json"])
-        .output()
-        .map_err(|_| "Tailscale is not installed on this Mac. Install it and sign in, then start pairing again.".to_string())?;
+    let output = TAILSCALE
+        .iter()
+        .find_map(|program| std::process::Command::new(program).args(["status", "--json"]).output().ok())
+        .ok_or_else(|| "Tailscale is not installed on this Mac. Install it and sign in, then start pairing again.".to_string())?;
     address_from_status(&String::from_utf8_lossy(&output.stdout))
 }
