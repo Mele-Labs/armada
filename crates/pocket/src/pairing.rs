@@ -63,6 +63,11 @@ pub struct Pairing {
 }
 
 impl Pairing {
+    /// Unix seconds, by the injected clock.
+    pub fn now(&self) -> i64 {
+        (self.clock)()
+    }
+
     pub fn new(store: Store, clock: Clock, address: Address) -> Pairing {
         Pairing {
             store: Arc::new(Mutex::new(store)),
