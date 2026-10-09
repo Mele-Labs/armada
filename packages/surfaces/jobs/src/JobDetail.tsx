@@ -12,9 +12,9 @@
 
 import { JobDetailHeaderActions, RepairFileContext, TriggerAlertMark, triggerAlert, type JobResourcesProps } from "@armada/components";
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
-import { useAtFloor, useNarrow } from "@armada/shell";
+import { useAtFloor, useLayout, useNarrow } from "@armada/shell";
 
-import { countsOf, FIRST_TAB, JobTabs, type DetailTab } from "./detail-tabs";
+import { countsOf, JobTabs, type DetailTab } from "./detail-tabs";
 import { headingOf, Unrenderable } from "./heading";
 import { detailOf, turnsOf } from "./mine";
 import { renderFor } from "./render";
@@ -112,8 +112,10 @@ function OneJob(props: JobDetailProps) {
   // Pulse on a wedged Job is not asking for Pulse on the next one, and the key
   // above resets it with everything else.
   const opened = props.opening;
+  // Where a layout says a Job opens; Overview where none does.
+  const first = useLayout("job.tabs").first as DetailTab;
   const [tab, setTab] = useState<DetailTab>(
-    opened?.tab !== undefined ? opened.tab : opened?.task !== undefined ? "plan" : opened?.drone !== undefined ? "drones" : opened?.step !== undefined ? "workflow" : FIRST_TAB,
+    opened?.tab !== undefined ? opened.tab : opened?.task !== undefined ? "plan" : opened?.drone !== undefined ? "drones" : opened?.step !== undefined ? "workflow" : first,
   );
   // The step Workflow opens on, where the Record's or the Drones' reading sent
   // a person there. Cleared by the strip, so the next visit opens on nothing.

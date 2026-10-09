@@ -58,7 +58,7 @@ export function useLessonsTab(): [LessonsTab, (tab: LessonsTab) => void] {
   return remembered(LESSONS_KEY, lessonsTabNamed);
 }
 
-/** Which tab the Dashboard reads. Command Central where nothing is stored. */
-export function useDashboardTab(): [DashboardTab, (tab: DashboardTab) => void] {
-  return remembered(DASHBOARD_KEY, dashboardTabNamed);
+/** Which tab the Dashboard reads. `first` where nothing is stored: Command Central, or the one a layout names. */
+export function useDashboardTab(first: DashboardTab = "command-central"): [DashboardTab, (tab: DashboardTab) => void] {
+  return remembered(DASHBOARD_KEY, (value) => (value === null ? first : dashboardTabNamed(value)));
 }

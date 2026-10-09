@@ -7,7 +7,7 @@
 import { StrictMode, useEffect, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 import { createRoot } from "react-dom/client";
-import { Boundary } from "@armada/shell";
+import { Boundary, LayoutSourceProvider } from "@armada/shell";
 import { HapticsProvider } from "@armada/components";
 
 import "../styles/index.css";
@@ -21,6 +21,7 @@ import { mountAnnotating } from "./annotating";
 import { fakeBridge, heldSessions, liveDraft } from "./fake";
 import type { FakeOptions, LiveDraft } from "./fake";
 import { scenarioNamed } from "./scenario";
+import { mockLayout } from "./layout";
 import { mockThemes } from "./themes";
 import type { Scenario } from "./scenario";
 
@@ -93,6 +94,7 @@ export function mountApp(
   const api = shared ?? fakeBridge(chosen, options);
   // A window starts on Dark with the mods a machine starts with; a second window on the same main shares them.
   if (shared === undefined) mockThemes.reset();
+  if (shared === undefined) mockLayout.reset();
   window.armada = api;
   const root = createRoot(host);
   let say = (): void => undefined;
@@ -109,9 +111,11 @@ export function mountApp(
               is what a composer reads before a Job exists; the prop is what a
               Job's own boards read. */}
           <Themed source={mockThemes}>
-            <SessionsHere held={heldSessions(api)}>
-              <Drafted draft={liveDraft(api) ?? HELD(chosen.draft)} />
-            </SessionsHere>
+            <LayoutSourceProvider value={mockLayout}>
+              <SessionsHere held={heldSessions(api)}>
+                <Drafted draft={liveDraft(api) ?? HELD(chosen.draft)} />
+              </SessionsHere>
+            </LayoutSourceProvider>
           </Themed>
           <OnScreen say={say} />
         </HapticsProvider>

@@ -1,0 +1,37 @@
+/* One arranged entry: its glyph, a switch that takes the width, who hid it, and the two moves. */
+.armada-layout-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.armada-layout-row__mark,
+.armada-layout-row__from {
+  display: inline-flex;
+  color: var(--fg-muted);
+}
+
+.armada-layout-row__switch {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Settings → Layout: a caption over each region's rows. */
+.armada-layout-settings {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.armada-layout-settings__region {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.armada-layout-settings__caption {
+  margin: 0;
+  color: var(--fg-muted);
+  font-size: var(--text-xs);
+}
