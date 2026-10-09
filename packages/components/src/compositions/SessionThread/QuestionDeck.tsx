@@ -98,6 +98,8 @@ export function QuestionDeck({
                     type="button"
                     role={one.multi_select ? "checkbox" : "radio"}
                     aria-checked={on}
+                    aria-label={option.label}
+                    aria-description={option.description === "" ? undefined : option.description}
                     className="armada-question-deck__answer"
                     data-on={on || undefined}
                     onClick={() => choose(option.label)}
@@ -114,6 +116,7 @@ export function QuestionDeck({
                 type="button"
                 role={one.multi_select ? "checkbox" : "radio"}
                 aria-checked={using[front] === true}
+                aria-label="Other"
                 className="armada-question-deck__answer"
                 data-on={using[front] === true || undefined}
                 onClick={other}
