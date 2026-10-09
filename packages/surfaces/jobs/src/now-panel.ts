@@ -33,10 +33,10 @@ export function nowPanelOf(view: NowView | undefined, host: NowHost): Omit<NowPa
     ...(given === undefined ? {} : { acts: acts(one.name, given) }),
     onOpen: opens(one.of, target),
   }));
-  const running: NowRunning[] = (view.running ?? []).map(({ target, acts: given, ...one }) => ({
+  const running: NowRunning[] = (view.running ?? []).map(({ target, log, acts: given, ...one }) => ({
     ...one,
     ...(given === undefined ? {} : { acts: acts(one.name, given) }),
-    onOpen: opens(one.of, target, one.state),
+    onOpen: log === undefined ? opens(one.of, target, one.state) : () => host.onOpenCheckLog?.(log),
   }));
   const waiting: NowWaiting[] = (view.waiting ?? []).map(({ target, ...one }) => ({
     ...one,
