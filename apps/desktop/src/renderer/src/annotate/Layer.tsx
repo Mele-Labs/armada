@@ -245,7 +245,8 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSession, tell
 
   /** One note to Fleet. Written back with its Job only once Fleet took it. */
   async function send(note: Annotation): Promise<boolean> {
-    const box = frames[note.id] ?? note.box;
+    // Null where the note's element is not on this screen, so no screenshot is taken of the wrong one.
+    const box = frames[note.id] ?? null;
     if (fleet === undefined) return false;
     try {
       const answer = await sendToFleet(note, box, sink, fleet, new Date());
@@ -283,7 +284,7 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSession, tell
     if (fleet === undefined || list.length === 0) return;
     setSending(key);
     try {
-      const answer = await sendToSession(list.map((note) => ({ note, box: frames[note.id] ?? note.box })), target, sink, fleet, new Date());
+      const answer = await sendToSession(list.map((note) => ({ note, box: frames[note.id] ?? null })), target, sink, fleet, new Date());
       if (!answer.ok) {
         tell(answer.saying);
         return;
