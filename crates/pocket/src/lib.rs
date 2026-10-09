@@ -10,7 +10,10 @@
 
 mod admin;
 mod fleet_client;
+mod pair_routes;
+mod pairing;
 mod routes;
+mod signing;
 mod stat;
 
 use std::io;
@@ -19,6 +22,7 @@ use std::net::{Ipv4Addr, SocketAddr};
 use tokio::net::TcpListener;
 
 pub use fleet_client::{Answer, Unreachable};
+pub use pairing::{address_from_status, tailscale_address, Address, Clock, Pairing};
 pub use routes::{router, Fleet, Gateway};
 
 /// Bind the Gateway's listener. **There is no host parameter**: the address is
@@ -27,5 +31,7 @@ pub async fn bind(port: u16) -> io::Result<TcpListener> {
     TcpListener::bind(SocketAddr::from((Ipv4Addr::LOCALHOST, port))).await
 }
 
+#[cfg(test)]
+mod pairing_tests;
 #[cfg(test)]
 mod tests;

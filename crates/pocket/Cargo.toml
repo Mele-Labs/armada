@@ -15,6 +15,12 @@ workspace = true
 # is written by hand in `fleet_client`, as `armada::loopback` does, so that no
 # header is ever added that a caller did not write.
 axum = "0.7"
+store = { path = "../store" }
+serde = { version = "1", features = ["derive"] }
+# Request signing and the pairing key. `p256` reads the SPKI WebCrypto exports and
+# verifies its raw r||s signature; `sha2` hashes the body. Approved 8 Oct 2026.
+p256 = { version = "0.13", features = ["ecdsa"] }
+sha2 = "0.10"
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "io-util", "fs"] }
 
 [dev-dependencies]

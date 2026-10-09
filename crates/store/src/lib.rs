@@ -53,6 +53,7 @@ mod crew;
 /// The Drone pointer, where it now lives: one column per step.
 mod delivery;
 mod drift;
+mod devices;
 mod drone;
 mod error;
 mod fold;
@@ -199,6 +200,7 @@ pub use attempt::Attempted;
 pub use check_runs::{CheckOutcome, CheckRun};
 pub use crew::{ExtraEnded, TaskEdit};
 pub use delivery::{Currency, Delivery, Unsettled};
+pub use devices::Device;
 pub use drift::ScopeDrift;
 pub use error::{DatabaseFault, LoadAllError, LoadJobError, OpenError, RowError, WriteError};
 pub use fold::{Moved, RecordedEvent};
