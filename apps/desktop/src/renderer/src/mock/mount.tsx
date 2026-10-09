@@ -24,6 +24,8 @@ import type { FakeOptions, LiveDraft } from "./fake";
 import { scenarioNamed } from "./scenario";
 import { PhoneSourceProvider } from "@armada/settings";
 import { mockPhone } from "./phone";
+import { SleepSourceProvider } from "../sleep";
+import { mockSleep } from "./sleep";
 import { mockThemes } from "./themes";
 import type { Scenario } from "./scenario";
 
@@ -96,6 +98,7 @@ export function mountApp(
   const api = shared ?? fakeBridge(chosen, options);
   // A window starts on Dark with the mods a machine starts with; a second window on the same main shares them.
   if (shared === undefined) mockThemes.reset();
+  mockSleep.reset();
   mockPhone.reset(chosen.name === "phone/gateway-down" ? "not_running" : chosen.name === "phone/tailscale" ? "tailscale" : "paired");
   window.armada = api;
   const root = createRoot(host);
@@ -115,9 +118,11 @@ export function mountApp(
           <Themed source={mockThemes}>
             <MockFleetBuild scenario={chosen.name}>
               <PhoneSourceProvider value={mockPhone}>
+              <SleepSourceProvider value={mockSleep}>
                 <SessionsHere held={heldSessions(api)}>
                   <Drafted draft={liveDraft(api) ?? HELD(chosen.draft)} />
                 </SessionsHere>
+              </SleepSourceProvider>
               </PhoneSourceProvider>
             </MockFleetBuild>
           </Themed>

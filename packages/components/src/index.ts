@@ -431,6 +431,7 @@ export * from "./compositions/LandsMark/LandsMark";
 export * from "./compositions/LessonCard/LessonCard";
 export * from "./compositions/LessonList/LessonList";
 export * from "./compositions/RetroSheet/RetroSheet";
+export * from "./compositions/MorningReview/MorningReview";
 
 // A Job's pause: the mark beside its badge, and the two confirms around it.
 export * from "./compositions/PausedMark/PausedMark";
