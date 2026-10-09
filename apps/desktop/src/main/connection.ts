@@ -383,7 +383,6 @@ export class FleetConnection {
         triggers: new TriggerCommands(port, picked),
         overview: new OverviewReads({
           publish: (change) => this.wiring.publishToWindow(windowId, change),
-          picked,
           port,
         }),
       };
