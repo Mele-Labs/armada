@@ -56,7 +56,7 @@ it("reads the list once and publishes it; a failed read keeps what was held", as
 });
 
 it("asks Fleet to check a mod by name and hands back exactly what it said", async () => {
-  const checked = { name: "calm", valid: true, problems: [], css: ":root { --bg-base: #111111; }" };
+  const checked = { name: "calm", valid: true, problems: [], css: ":root { --bg-base: navy; }" };
   const served = await fleet({
     "GET /mods/validate?name=calm": () => [200, checked],
     "GET /mods/validate?name=gone": () => [404, { code: "fleet.no_such_mod", message: "no such mod" }],

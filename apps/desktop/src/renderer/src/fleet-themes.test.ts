@@ -31,7 +31,7 @@ function fake(start: Facts, over: Partial<FleetThemes> = {}) {
   const fleet: FleetThemes = {
     state: async () => start,
     subscribe: (on) => ((hear = on), () => undefined),
-    validateMod: async (name) => (checked.push(name), { name, valid: true, problems: [], css: `:root { --bg-base: #123456; } /* ${name} */` }),
+    validateMod: async (name) => (checked.push(name), { name, valid: true, problems: [], css: `:root { --bg-base: navy; } /* ${name} */` }),
     setModEnabled: async (name, enabled) => (asked.push(`${enabled ? "on" : "off"} ${name}`), { ok: true }),
     promoteMod: async (name) => ({ ok: true, modPromoted: { name, branch: `armada/mod-${name}-1`, commit: "abc" } }),
     savePreference: async (save) => (saved.push(save), { ok: true }),
@@ -82,7 +82,7 @@ describe("a mod's CSS", () => {
     await settled();
     expect(checked).toEqual([]);
     const css = await source.get().mods[0]!.load();
-    expect(css).toBe(":root { --bg-base: #123456; } /* calm */");
+    expect(css).toBe(":root { --bg-base: navy; } /* calm */");
     expect(checked).toEqual(["calm"]);
   });
 
