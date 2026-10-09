@@ -47,6 +47,7 @@ pub mod loopback;
 pub mod manifests;
 pub mod mcp;
 pub mod need;
+pub mod pocketing;
 pub mod reaching;
 pub mod say;
 pub mod serve;
