@@ -25,7 +25,7 @@ fn ask(call: &str, tool: &str, detail: &str, questions: &str) -> String {
 
 fn record(id: &str, origin: &str, state: &str, tail: &str) -> String {
     format!(
-        r#"{{"id":"{id}","harness":"claude","origin":"{origin}","manifest_id":"m1","cwd":"/{SECRET}","title":"Title {id}","state":"{state}","started_at":"2026-10-08T01:00:00.000Z","last_seen_at":"2026-10-08T01:00:00.000Z","end_reason":"{SECRET}","usage":{{}},"attachments":[]{tail}}}"#
+        r#"{{"id":"{id}","harness":"term","origin":"{origin}","manifest_id":"m1","cwd":"/{SECRET}","title":"Title {id}","state":"{state}","started_at":"2026-10-08T01:00:00.000Z","last_seen_at":"2026-10-08T01:00:00.000Z","end_reason":"{SECRET}","usage":{{}},"attachments":[]{tail}}}"#
     )
 }
 
