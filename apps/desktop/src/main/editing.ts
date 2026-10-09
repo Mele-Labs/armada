@@ -142,7 +142,7 @@ export class ManifestFileCommands {
   async readChecks(): Promise<ManifestChecksRead> {
     const port = this.port();
     if (port === null) return { ok: false, outcome: { ok: false, why: "not_connected" } };
-    const path = this.picked.manifest("/manifest/checks");
+    const path = this.picked.narrowed("/manifest/checks");
     if (path === null) return { ok: false, outcome: NOT_SET_UP };
     const answer = await ask(port, "GET", path);
     if (answer.ok !== true) return { ok: false, outcome: answer.outcome };

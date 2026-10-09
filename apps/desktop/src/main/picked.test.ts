@@ -301,7 +301,8 @@ describe("every per-repository call", () => {
     const socket = new CheckoutRunSocket(() => {}, picked);
     socket.open(port, "run-1");
     socket.close();
-    expect(asked.filter((url) => !FLEETWIDE.has(url))).toEqual([]);
+    // The Checks page reads across every repository on All, bare, as Fleet answers it.
+    expect(asked.filter((url) => !FLEETWIDE.has(url))).toEqual(["/manifest/checks"]);
   });
 
   it("names New job's answered repository for `left_out` and `manifest/reading`, with the pick on All", async () => {
@@ -378,6 +379,7 @@ describe("every per-repository call", () => {
                 "picked.scan(",
                 "picked.checkout(",
                 "picked.each(",
+                "picked.narrowed(",
               ].some(
                 (built) => line.includes(built),
               ),

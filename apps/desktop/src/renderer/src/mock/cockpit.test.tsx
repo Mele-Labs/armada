@@ -8,7 +8,7 @@ import { page, userEvent } from "vitest/browser";
 import { forgetDismissals } from "../cockpit/dismissed";
 import { s205DashboardNeedsYou } from "./scenarios/dashboard-needs-you";
 import type { Scenario } from "./moment";
-import { mount, onScreen, unmountAfterEach } from "./testing";
+import { motion, mount, onScreen, unmountAfterEach } from "./testing";
 import { timePasses } from "./time-passes";
 
 unmountAfterEach();
@@ -59,6 +59,45 @@ test("[ and ] step the filters round, Option and a digit jumps, and the filter i
   for (const name of ["Your move", "Active", "Done"]) {
     expect(page.getByRole("tab", { name }).element().textContent).not.toMatch(/\d/);
   }
+});
+
+test("the merge line is a footer of dots, Fleet's landings nearest main, then the queue, then the open pull requests", async () => {
+  await motion();
+  await dashboard();
+  const dots = [...document.querySelectorAll<HTMLElement>("footer.armada-view__horizon .armada-view__dot")];
+  const names = dots.map((one) => one.getAttribute("aria-label")!);
+  // Nearest main first in the document, which the belt draws from the right.
+  expect(names.slice(-5).map((one) => one.split(" ")[0])).toEqual(["#1890", "#1891", "#1893", "#1894", "#1895"]);
+  expect(names[0]).toBe("docs/wire-lock-signed · Preparing to land");
+  expect(names.slice(0, -5).every((one) => !one.startsWith("#"))).toBe(true);
+  expect(dots.slice(-5).map((one) => one.hasAttribute("data-queued"))).toEqual([true, true, false, false, false]);
+  expect(names.at(-5)).toContain("Job: Debounce the Job Board's resize handler");
+  // No text on the band, and nothing of it in the top bar.
+  expect(dots.every((one) => one.textContent === "" || one.querySelector(".armada-tooltip__bubble") !== null)).toBe(true);
+  expect(document.querySelector(".armada-view__band .armada-view__dot")).toBeNull();
+  expect(document.querySelector(".armada-view__chip")).toBeNull();
+  const foot = document.querySelector<HTMLElement>("footer.armada-view__horizon")!;
+  expect(foot.compareDocumentPosition(document.querySelector(".armada-view__stage")!) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
+  // The card is on the dot: number and title, branch, state, place and owner.
+  const card = dots.at(-5)!.querySelector(".armada-horizon-card")!;
+  expect(card.textContent).toContain("#1890");
+  expect(card.textContent).toContain("Gate policy on every run");
+  expect(card.textContent).toContain("fleet/gate-policy-every-run");
+  expect(card.textContent).toContain("Place 1");
+  expect(card.textContent).toContain("Debounce the Job Board's resize handler");
+  // The loop is on the dot's own face and never on the trigger the card opens inside, or the card would pulse with it.
+  const running = dots.find((one) => one.getAttribute("data-state") === "running")!;
+  expect(getComputedStyle(running).animationName).toBe("none");
+  expect(getComputedStyle(running, "::before").animationName).toBe("armada-dot-breathe");
+  expect(getComputedStyle(running.querySelector(".armada-horizon-card")!).opacity).toBe("1");
+  // A pull request's checks failing turns its dot red.
+  const state = () => document.querySelector('.armada-view__dot[aria-label^="#1894"]')?.getAttribute("data-state");
+  expect(state()).toBe("running");
+  timePasses();
+  timePasses();
+  timePasses();
+  timePasses();
+  await expect.poll(state).toBe("failing");
 });
 
 test("n brings the cursor back to the dispatch bar from the panel", async () => {
