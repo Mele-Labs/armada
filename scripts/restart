@@ -551,14 +551,14 @@ tree_protocol() {
 }
 ipc_built_protocol() {
   local out
-  out=$(ls -t "${CARGO_TARGET_DIR:-$src/target}"/debug/build/ipc-*/out/protocol_id.rs 2>/dev/null | head -n 1 || true)
+  out=$(ls -t "${CARGO_TARGET_DIR:-$src/target}"/installed/build/ipc-*/out/protocol_id.rs 2>/dev/null | head -n 1 || true)
   [[ -n "$out" ]] || return 0
   sed -n 's/^const PROTOCOL_ID_HASH: &str = "\([0-9a-f]*\)";$/\1/p' "$out"
 }
 
 if $dry_run; then
   say "Dry run — nothing below happens"
-  echo "would install armada from $src (cargo install --path crates/armada --debug --locked) to $armada_bin"
+  echo "would install armada from $src (cargo install --path crates/armada --profile installed --locked) to $armada_bin"
   if [[ ! -f "$src/apps/desktop/out/.armada-restart-stamp" ]]; then
     echo "would build Bridge from $src — no build stamp there"
   elif [[ -n "$(find "$src/apps" "$src/packages" -type f -not -path '*/node_modules/*' -not -path "$src/apps/desktop/out/*" \
@@ -624,7 +624,7 @@ if [[ -n "$built_protocol" && "$built_protocol" != "$(tree_protocol)" ]]; then
   touch "$src/crates/ipc/build.rs"
 fi
 say "Installing armada from $src"
-(cd "$src" && cargo install --path crates/armada --debug --locked)
+(cd "$src" && cargo install --path crates/armada --profile installed --locked)
 
 # The Claude Code mod rides with the build: Fleet's own copy, which the
 # owner's plugin install points at, is refreshed from the tree just built.

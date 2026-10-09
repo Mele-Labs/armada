@@ -105,9 +105,21 @@ pub fn find_subagent(home: &str, id: &str, agent: &str) -> Option<PathBuf> {
     if agent.is_empty() || !agent.chars().all(|c| c.is_ascii_alphanumeric() || c == '-') {
         return None;
     }
+    let key = (home.to_string(), id.to_string(), agent.to_string());
+    let kept = FOUND.lock().ok().and_then(|seen| seen.get(&key).cloned());
+    if let Some(file) = kept.filter(|file| file.is_file()) {
+        return Some(file);
+    }
     let file = find(home, id)?.with_extension("").join("subagents").join(format!("agent-{agent}.jsonl"));
-    file.is_file().then_some(file)
+    let found = file.is_file().then_some(file)?;
+    if let Ok(mut seen) = FOUND.lock() {
+        seen.insert(key, found.clone());
+    }
+    Some(found)
 }
+
+/// Where a subagent's file was found, so a repeat is a `stat` and not a listing of every project.
+static FOUND: Mutex<BTreeMap<(String, String, String), PathBuf>> = Mutex::new(BTreeMap::new());
 
 /// The whole of a subagent's transcript. It is small beside a session's, and a read from the start
 /// keeps the answer one value.

@@ -47,11 +47,12 @@ again.
 
 **Rebuilding one side and not the other is the mistake the script prevents.** A
 stale `armada` publishing another protocol ID to a current Bridge reads as
-a mismatch rather than as the stale binary it is. It installs `--debug` for
-the same reason: a release build is a minute every time and the same program.
+a mismatch rather than as the stale binary it is. It installs `--profile installed`
+for the same reason: a release build is a minute every time and the same program.
 
-Dependencies are built optimised in a dev profile (`[profile.dev.package."*"]` in `Cargo.toml`) and
-our own crates are not: serde_json, SQLite and tokio set Fleet's request latency, and they are built once.
+**`installed` is `dev` with the dependencies optimised** (`[profile.installed]` in `Cargo.toml`), and
+ours are not: serde_json, SQLite and tokio set Fleet's request latency. It lives apart from `dev` so an
+agent's first build in a slot does not compile them at `opt-level = 3`. Its build is in `target/installed/`.
 
 **Ctrl-C stops both, which the script does and Armada does not.** Closing
 Bridge in earnest leaves Fleet running.
