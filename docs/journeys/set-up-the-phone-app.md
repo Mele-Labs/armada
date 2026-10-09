@@ -12,11 +12,11 @@
 
 | | On | Do |
 |---|---|---|
-| 1 | Mac | `pnpm -C apps/pocket exec vite build`. Writes `apps/pocket/dist`, which the Gateway serves. `apps/pocket` has no `build` script |
+| 1 | Mac | `pnpm -C apps/pocket build`. Writes `apps/pocket/dist`, which the Gateway serves |
 | 2 | Mac | `armada pocket`. Prints `Phone Gateway on 127.0.0.1:8443` and stays in the foreground |
 | 3 | Mac | `tailscale serve --bg --https=443 http://127.0.0.1:8443`. Puts the Gateway on your tailnet over https |
-| 4 | Bridge | Settings, Phone, Pair a phone. Bridge shows a code and the Gateway's address |
-| 5 | iPhone | Open the Gateway's address with the code, `/pair?code=<code>`, in Safari. The phone makes its key and names itself |
+| 4 | Bridge | Settings, Phone, Pair a phone. Bridge shows a QR code of the Gateway's address and a one-time code |
+| 5 | iPhone | Scan the QR with the Camera. It opens `/pair?code=<code>` in Safari, where the phone makes its key and names itself |
 | 6 | Bridge | Confirm the phone. Until then it signs nothing |
 | 7 | iPhone | Share, Add to Home Screen. Open Armada **from the Home Screen**, then allow notifications |
 
