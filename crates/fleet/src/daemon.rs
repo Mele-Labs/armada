@@ -29,7 +29,6 @@ use std::sync::Arc;
 
 use adapter_traits::{CiConfiguration, LinkLookup, Model, ModelClient};
 use core_model::{JobId, Ulid};
-use store::Store;
 use tokio::sync::Mutex;
 
 use crate::admitting::Polled;
@@ -62,7 +61,7 @@ pub use fittings::{Fittings, Host, StartingIn};
 
 /// The daemon core: **the only writer of Job state.**
 pub struct Fleet<H, V, W> {
-    store: Mutex<Store>,
+    store: crate::store_lock::StoreLock,
     harness: Arc<H>,
     vcs: Arc<V>,
     work: W,

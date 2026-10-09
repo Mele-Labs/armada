@@ -16,7 +16,6 @@ use adapter_traits::{
     AgentHarness, CiConfiguration, Delivery, LinkLookup, SpawnConfigRefused, Vcs, WorkProduct,
 };
 use core_model::{Job, JobId, ManifestId, Timestamp, Ulid};
-use store::Store;
 use tokio::sync::Mutex;
 
 use super::{Fleet, Local};
@@ -57,7 +56,7 @@ where
     pub(crate) fn names(&self) -> &Arc<crate::naming::Names> {
         &self.names
     }
-    pub(crate) fn store(&self) -> &Mutex<Store> {
+    pub(crate) fn store(&self) -> &crate::store_lock::StoreLock {
         &self.store
     }
     /// Whether a retro is being written — `crate::retro`.

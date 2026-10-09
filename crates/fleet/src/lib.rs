@@ -340,6 +340,8 @@ mod snapshotting;
 pub mod spawning;
 /// What the fleet has spent, and which Jobs a ceiling is holding.
 mod spending;
+/// The lock on the store, which names a holder past a quarter second.
+mod store_lock;
 mod stuck;
 /// A Picture a person pastes onto a Studio, kept as a Note's frame is.
 mod studio_pictures;

@@ -31,3 +31,13 @@ unsafe_code = "forbid"
 # by removing a worktree when its branch merges rather than by shrinking each.
 [profile.dev]
 debug = "line-tables-only"
+
+# What `cargo install` builds for the installed Fleet (`scripts/dev`, `scripts/restart`): the dev
+# profile with dependencies optimised, because serde_json, SQLite, tokio and hyper run on every
+# request and cost Fleet several times over at opt-level 0. Kept off `dev` so an agent's first
+# build in a slot does not pay for it.
+[profile.installed]
+inherits = "dev"
+
+[profile.installed.package."*"]
+opt-level = 3
