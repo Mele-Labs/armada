@@ -19,6 +19,7 @@ import { useListKeydown } from "@armada/screens/src/list-keyboard";
 import type { BridgeState } from "../../shared/bridge";
 import { Dashboard, useNeedsYou } from "./Dashboard";
 import { CommandCentral } from "./CommandCentral";
+import { KeySheet, useDashboardKeys } from "./cockpit/keys";
 import { proposeRequest } from "./dispatch";
 import { FleetBoard } from "./FleetBoard";
 import { QuickDispatch } from "./QuickDispatch";
@@ -164,6 +165,9 @@ export function Overview({
   // Fleet unreachable, still starting, or nothing served: the lists say so, as they always did.
   const fault = disconnected !== null || state.connection.state === "starting" || repositories.length === 0;
 
+  // `[` `]` and Option with a digit switch tabs, `?` lists the keys. Where Fleet cannot be reached the lists draw instead.
+  const keys = useDashboardKeys(tab, setTab, !fault);
+
   return (
     <Boundary region="the overview" {...guarded}>
       <div className="armada-screen__overview">
@@ -245,6 +249,7 @@ export function Overview({
             onCursor={onCursor}
           />
         )}
+        <KeySheet open={keys.sheet} onClose={keys.closeSheet} />
       </div>
     </Boundary>
   );

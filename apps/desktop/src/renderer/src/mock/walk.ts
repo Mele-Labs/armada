@@ -38,6 +38,8 @@ export type Step =
   | { type: string; into: Target; say: string }
   /** A screenshot pasted into a field, as a browser hands one over: a paste event carrying a PNG. */
   | { paste: Target; say: string }
+  /** A key pressed with nothing typed into: `1`, `Enter`, `Escape`, `Alt+1`. It reaches the window through `on`, which is waited for. */
+  | { key: string; on: Target; say: string }
   /** Picked up by its middle and put down `by` this far away, in screen pixels — a node on a canvas. */
   | { drag: Target; by: { x: number; y: number }; say: string };
 
@@ -92,6 +94,7 @@ export function targetOf(step: Step): Target {
   if ("hover" in step) return step.hover;
   if ("later" in step) return step.later;
   if ("paste" in step) return step.paste;
+  if ("key" in step) return step.on;
   return "press" in step ? step.press : "look" in step ? step.look : "drag" in step ? step.drag : step.into;
 }
 
@@ -100,6 +103,7 @@ function verb(step: Step): string {
   if ("hover" in step) return "hover over";
   if ("later" in step) return "look at";
   if ("paste" in step) return "paste into";
+  if ("key" in step) return "press a key at";
   return "press" in step ? "press" : "look" in step ? "look at" : "drag" in step ? "drag" : "type into";
 }
 
@@ -195,6 +199,13 @@ export async function arrive(step: Step, patience = PATIENCE_MS): Promise<HTMLEl
   if (!found.isConnected) {
     const left = until - Date.now();
     return left <= 0 ? null : arrive(step, left);
+  }
+  // A surface that plays an arrival or a departure says so with `data-settles`: its picture is taken
+  // once every animation that ends has ended, and one that loops is not waited for.
+  const settling = found.closest("[data-settles]");
+  if (settling !== null) {
+    const ending = settling.getAnimations({ subtree: true }).filter((one) => one.effect?.getComputedTiming().iterations !== Infinity);
+    await Promise.all(ending.map((one) => one.finished.catch(() => undefined)));
   }
   if ("hover" in step) await pointAt(found);
   return found;
@@ -346,6 +357,17 @@ function pasteScreenshot(element: HTMLElement): void {
   }, "image/png");
 }
 
+/** A key as the keyboard sends it: `Alt+1` is the 1 key with Alt down, and a key on its own is itself. */
+function pressKey(element: HTMLElement, spec: string): void {
+  const parts = spec.split("+");
+  const key = parts[parts.length - 1] === "" ? "+" : parts[parts.length - 1]!;
+  const held = new Set(parts.slice(0, -1));
+  const code = /^[0-9]$/.test(key) ? `Digit${key}` : /^[a-z]$/i.test(key) ? `Key${key.toUpperCase()}` : key;
+  element.dispatchEvent(
+    new KeyboardEvent("keydown", { key, code, altKey: held.has("Alt"), shiftKey: held.has("Shift"), metaKey: held.has("Meta"), ctrlKey: held.has("Control"), bubbles: true, cancelable: true }),
+  );
+}
+
 /** What the step does to its target when the walk moves past it. A look does nothing; a hover lets go. */
 export function act(step: Step, element: HTMLElement): void {
   if ("hover" in step) pointerOver(element, false);
@@ -358,6 +380,7 @@ export function act(step: Step, element: HTMLElement): void {
     // A beat later, so the field has drawn what was typed before the key reaches it.
     if (step.type.endsWith("\n")) window.setTimeout(() => element.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true })), 50);
   } else if ("paste" in step) pasteScreenshot(element);
+  else if ("key" in step) pressKey(element, step.key);
 }
 
 /** Every step, in order, on the app already mounted. Throws on the first one whose target never came. */
