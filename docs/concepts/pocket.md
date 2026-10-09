@@ -19,7 +19,7 @@ Bridge (Settings → Phone) ──loopback /admin/*──▶ Phone Gateway
 
 | Part | Where | Does |
 |---|---|---|
-| Phone app | `apps/pocket`, built to `apps/pocket/dist` | Shows what needs the owner, signs each call, receives pushes |
+| Phone app | `apps/pocket`, built to its `dist` folder | Shows what needs the owner, signs each call, receives pushes |
 | Phone Gateway | `crates/pocket`, run by `armada pocket` | Serves the app, checks signatures, trims what it reads from Fleet, sends pushes |
 | Fleet | unchanged | Listens on loopback, takes no auth, refuses any request carrying `Origin`. The Gateway calls it with none |
 
