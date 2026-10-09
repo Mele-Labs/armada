@@ -2,6 +2,6 @@
   means = "A crescent moon"
   group = "Sleep mode"
   size = "16px"
-  status = "Proposed"
+  status = "Specified"
   reserved = "Sleep mode, the toggle in the title row, and nothing else. Never a dark theme."
-  notes = "Proposed 9 Oct 2026 with the mock of sleep mode, for the owner to confirm in the morning."
+  notes = "Approved 9 Oct 2026 with sleep mode."
