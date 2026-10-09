@@ -723,6 +723,7 @@ const api: BridgeApi = {
     save: (said: string): Promise<Outcome> => ipcRenderer.invoke(CHANNELS.captureWindowSave, said),
     reload: (): Promise<void> => ipcRenderer.invoke(CHANNELS.captureWindowReload),
     followRefused: (): Promise<void> => ipcRenderer.invoke(CHANNELS.captureWindowFollowRefused),
+    approve: (): Promise<Outcome> => ipcRenderer.invoke(CHANNELS.captureWindowApprove),
     scroll: (wheel: CaptureWheel): void => ipcRenderer.send(CHANNELS.captureWindowScroll, wheel),
   },
 

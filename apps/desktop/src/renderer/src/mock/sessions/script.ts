@@ -179,6 +179,11 @@ export function sessionsStore(
       job: session.title ?? id,
       into: "Session",
       onNote: (note, picked) => store.send(id, { text: `${note}\nOn ${picked.element}, ${picked.location}`, files: [], sketches: [], tags: [] }),
+      // Approve is a message from the person too, and wakes the Session the same way.
+      onApprove: async (address) => {
+        await store.send(id, { text: `Approved: ${address}`, files: [], sketches: [], tags: [] });
+        return { ok: true };
+      },
     });
   };
   /** The Session shows a page: its window opens by itself, and the ledger and the thread keep it. */

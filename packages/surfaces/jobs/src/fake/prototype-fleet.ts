@@ -100,6 +100,8 @@ export function walkedPrototype<S extends WalkedPrototypeState, A extends Walked
                 ...was,
                 { id: `01WALKNOTE${String(was.length + 1).padStart(16, "0")}`, said, at: new Date().toISOString(), ...picked },
               ]),
+            // The press JobDetail's Approve makes: the work is taken.
+            onApprove: async () => ({ ok: true }),
           });
           return { ok: true };
         },
