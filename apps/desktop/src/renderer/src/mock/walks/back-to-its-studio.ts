@@ -13,7 +13,7 @@ const studio = role("button", /^Studio, /);
 const picked = text("Studios · Every kind of node and edge · Job Cache the manifest read between dispatches selected");
 
 export const backToItsStudio = walk("every-state", [
-  { press: tab("Running"), say: "Running" },
+  { press: tab("Active"), say: "Running" },
   { press: option, say: "A Job dispatched off a Studio" },
   { press: open, say: "Open it" },
   { look: sentence, say: "Where it came from is a link now; its tooltip names the Studio" },

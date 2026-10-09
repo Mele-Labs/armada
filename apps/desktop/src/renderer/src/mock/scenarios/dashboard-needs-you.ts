@@ -166,6 +166,16 @@ const SESSIONS: Session[] = [
     asked: { command: "git push --force-with-lease origin fix/flaky-store" },
   },
   { id: "s10", title: "Migration notes", turn: { state: "working" }, lastTurn: "14:05", lastTurnAt: ago(1), rows: [...said("s10-0", "Listing the migrations since 0042."), ...said("s10-1", "Reading the migrations.")], attachments: [] },
+  // A Session that holds a failing pull request: the call about it sends him to the Session.
+  {
+    id: "s13",
+    title: "Armada Pocket",
+    turn: quiet,
+    lastTurn: "13:40",
+    lastTurnAt: ago(25),
+    rows: said("s13-0", "The pairing screen is up and the PWA shell caches offline."),
+    attachments: [{ kind: "pull_request", number: 1822, title: "Pair a phone with Fleet", branch: "pocket/1998-pwa", address: "https://git.example/armada/pull/1822", checks: { state: "failed", failing: "desktop_test" }, state: "open", auto: false }],
+  },
   { id: "s11", title: "Release script", dead: "ended", turn: quiet, lastTurn: "11:40", lastTurnAt: ago(150), rows: said("s11-1", "Done."), attachments: [] },
 ];
 
@@ -175,7 +185,13 @@ function build(): Scenario {
   // line is the recorded one beside it, so a turn is in flight and three branches have landed.
   const moment = mainRed(repository().root).later[2]!;
   const red = (moment.mergeLines?.lines ?? [])[0]!;
-  const lines = { lines: [{ ...mergeLines().lines[0]!, hub: red.hub }] };
+  // Two more failing pull requests: #1822 is held by a Session, #1823 is a person's with nobody on it.
+  const pulls = [
+    ...(red.hub?.pull_requests ?? []),
+    { number: 1822, title: "Pair a phone with Fleet", branch: "pocket/1998-pwa", url: "https://git.example/armada/pull/1822", ci: "failed" },
+    { number: 1823, title: "Bump the lockfile", branch: "chore/bump-lockfile", url: "https://git.example/armada/pull/1823", ci: "failed" },
+  ];
+  const lines = { lines: [{ ...mergeLines().lines[0]!, hub: { ...red.hub!, pull_requests: pulls } }] };
   const none = { id: "x", number: 0, title: "", branch: "", slot: 0 };
   return {
     ...base,

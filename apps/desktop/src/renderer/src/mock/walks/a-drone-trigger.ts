@@ -19,7 +19,7 @@ export const aDroneTrigger = walk("real/job-2-drone-trigger", [
   { look: inside(NEW, role("group", "If it fails")), say: "If it fails: Block the Job, with no Self repair" },
   { press: inside(NEW, button("Save", { exact: true })), say: "Save" },
   { press: button("Overview", { exact: true }), say: "Back to the Board" },
-  { press: button("Review", { exact: true }), say: "A Job it fired for" },
+  { press: button(/^Open Job/), say: "A Job it fired for" },
   { look: inside(RUN, role("img", "Drone branch")), say: "On a Job it fired for, a branch of its own" },
   { look: inside(RUN, role("group", "Where the fix goes")), say: "The Drone committed: its branch holds and asks" },
   { press: inside(RUN, button("New PR")), say: "New PR" },

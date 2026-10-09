@@ -86,6 +86,10 @@ const CONTEXTS_FOR: Readonly<Record<ActionScope, readonly ActionContext[]>> = {
   "dispatch card": ["detail"],
   "piloted job": ["detail"],
   "open studio": ["studio"],
+  // Keys on the Dashboard's panel and on a call in front: found from its own `?` sheet, not drawn as
+  // palette rows, which would each need a handler the panel owns.
+  dashboard: [],
+  call: [],
 };
 
 /**

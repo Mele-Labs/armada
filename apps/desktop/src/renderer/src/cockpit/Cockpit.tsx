@@ -4,7 +4,7 @@
 // keyboard, the calls behind it stacked like a deck; `l` puts the one in front at the back. Mock only.
 
 import { useContext, useEffect, useMemo, useRef, useState } from "react";
-import { CircleDashed, GitMerge, LayoutDashboard, Waypoints } from "lucide-react";
+import { CircleDashed, GitMerge, LayoutGrid, Orbit } from "lucide-react";
 import { Button, Kbd, Tabs, Tooltip, actionOf, keyFor } from "@armada/components";
 import type { RepositorySummary } from "@armada/protocol";
 import type { CallView } from "@armada/jobs/draft/calls";
@@ -79,7 +79,7 @@ function Behind({ edge, put, recall }: { edge: readonly Item[]; put: readonly st
           >
             <Icon size={12} aria-hidden="true" />
             <span>{one.title}</span>
-            {index === 0 ? <Kbd>w</Kbd> : null}
+            {index === 0 ? <Kbd>{keyFor("call_recall")}</Kbd> : null}
           </button>
         );
       })}
@@ -243,7 +243,7 @@ export function Cockpit({
       if (/^[1-9]$/.test(event.key)) return claim(), card.pickNumber(Number(event.key));
       if (card.pickKey(event.key)) return claim();
       switch (event.key) {
-        case "e":
+        case keyFor("call_expand"):
           return card.expand === undefined ? undefined : (claim(), card.expand());
         case "ArrowDown":
         case "j":
@@ -252,10 +252,10 @@ export function Cockpit({
         case "k":
           return claim(), card.step(-1);
         case "Enter":
-          // A focused button fires itself on Enter.
-          if ((event.target as HTMLElement).tagName === "BUTTON") return;
+          // A button on the card fires itself on Enter; one elsewhere (the filter just pressed) is not the answer.
+          if ((event.target as HTMLElement).tagName === "BUTTON" && document.querySelector(".armada-callcard")?.contains(event.target as Node) === true) return;
           return card.canSend ? (claim(), card.send()) : undefined;
-        case "l":
+        case keyFor("call_later"):
         case "Escape":
           return claim(), later();
         case "o":
@@ -264,7 +264,7 @@ export function Cockpit({
       return;
     }
 
-    if (event.key === "m") return claim(), setView(view === "map" ? "grid" : "map");
+    if (event.key === keyFor("dashboard_view")) return claim(), setView(view === "map" ? "grid" : "map");
     if (view === "map" && ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) {
       const next = nearest(sky.stars, current?.key ?? "", event.key as "ArrowLeft");
       return next === undefined ? undefined : (claim(), setSelected(next));
@@ -283,7 +283,7 @@ export function Cockpit({
         return claim(), to(cols);
       case "ArrowUp":
         return claim(), to(-cols);
-      case "w":
+      case keyFor("call_recall"):
         return edge[0] === undefined ? undefined : (claim(), recall(edge[0].key));
     }
   });
@@ -319,16 +319,16 @@ export function Cockpit({
             <span className="armada-view__toggle" role="group" aria-label="View">
               <Tooltip label="Grid">
                 <Button variant="ghost" size="sm" iconOnly aria-label="Grid" aria-pressed={view === "grid"} onClick={() => setView("grid")}>
-                  <LayoutDashboard size={16} aria-hidden="true" />
+                  <LayoutGrid size={16} aria-hidden="true" />
                 </Button>
               </Tooltip>
               <Tooltip label="Map">
                 <Button variant="ghost" size="sm" iconOnly aria-label="Map" aria-pressed={view === "map"} onClick={() => setView("map")}>
-                  <Waypoints size={16} aria-hidden="true" />
+                  <Orbit size={16} aria-hidden="true" />
                 </Button>
               </Tooltip>
-              <Tooltip label="Switch between grid and map">
-                <Kbd>m</Kbd>
+              <Tooltip label={actionOf("dashboard_view").verb}>
+                <Kbd>{keyFor("dashboard_view")}</Kbd>
               </Tooltip>
             </span>
             <Tooltip label={actionOf("move_focus").verb}>
@@ -336,8 +336,8 @@ export function Cockpit({
                 <Kbd>j</Kbd> <Kbd>k</Kbd>
               </span>
             </Tooltip>
-            <Tooltip label="Keys">
-              <Kbd>?</Kbd>
+            <Tooltip label={actionOf("key_sheet").verb}>
+              <Kbd>{keyFor("key_sheet")}</Kbd>
             </Tooltip>
           </span>
         </header>

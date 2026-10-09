@@ -4,6 +4,7 @@
 // it opens the Resume confirm instead of a refusal; Resume sends nothing but
 // itself. From Cleanup, a Job parked at its gate is paused from its tile's panel.
 
+import { putOff } from "../walk-steps";
 import { button, dialog, inside, role, tab, text, walk } from "../walk";
 
 const RUNNING = "Debounce the Job Board";
@@ -18,7 +19,8 @@ const TILE = (n: number) => inside(role("listitem", `slot-${n}`, { exact: true }
 const PANEL = (n: number) => dialog(`slot-${n}`);
 
 export const pausingAJob = walk("pausing/jobs", [
-  { press: tab("Running"), say: "A running Job, on Running" },
+  ...putOff(1),
+  { press: tab("Active"), say: "A running Job, on Active" },
   { press: role("option", new RegExp(RUNNING)), say: "Picked, its acts beside it" },
   { press: MORE(RUNNING), say: "Pause is in the caret beside the verb" },
   { press: role("menuitem", "Pause", { exact: true }), say: "Pause asks first" },
@@ -31,7 +33,7 @@ export const pausingAJob = walk("pausing/jobs", [
   { press: role("button", "Worktree Slots", { exact: true }), say: "Its slot is back in the pool" },
   { look: inside(role("listitem", "slot-1", { exact: true }), role("img", "Free", { exact: true })), say: "slot-1 is free, and the Job's work is on its branch" },
   { press: role("button", "Overview", { exact: true }), say: "Back to the Dashboard" },
-  { press: tab("Command Central"), say: "A Job at its review gate needs you" },
+  { press: tab("Active"), say: "A Job at its review gate, on Active" },
   { press: role("option", new RegExp(GATE)), say: "Picked" },
   { press: MORE(GATE), say: "A Job at its gate: the same caret" },
   { press: role("menuitem", "Pause", { exact: true }), say: "Pause asks first" },

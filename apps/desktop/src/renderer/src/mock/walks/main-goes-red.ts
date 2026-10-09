@@ -43,7 +43,7 @@ export const mainGoesRed = walk("main-red-hub", [
   { hover: inside(PULLS, role("img", /waiting on the fix: Cache the manifest read between dispatches/)), say: "Hover names the fix it waits on" },
   { look: inside(PULLS, role("listitem", "fleet/pause-markers, ci failed")), say: "A branch's own failure stays a failure" },
   { press: role("button", "Overview", { exact: true }), say: "The Job taking it, on the Dashboard" },
-  { press: tab("Running"), say: "Running" },
+  { press: tab("Active"), say: "Running" },
   { press: ROW(CACHE), say: "Picked" },
   { hover: role("img", /^Fixing main: screens_test failed after #1812/), say: "Its title carries a hammer beside it, pulsing" },
   { press: button(/^(Open|Review|Redirect|Attest)$/), say: "Open the Job" },

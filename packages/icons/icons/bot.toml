@@ -12,3 +12,10 @@
     size = "12px"
     status = "Specified"
     notes = "Added 3 Oct 2026 with the Lessons page and a Job's retro sheet (`docs/concepts/retro.md`). The same drawing of a Drone the Record's kind column uses, for the same reason: it is the literal agent. It names whose way an item got in, never a Drone's state, so the reservation above holds. --fg-muted; tooltip: Drone."
+
+  [[icons.bot.usage]]
+    means = "A Drone at work, on a Job's Now line and on a Dashboard tile"
+    group = "Now"
+    size = "12px"
+    status = "Proposed"
+    notes = "Proposed 9 Oct 2026 with the Dashboard's call card and tiles, which draw what a Job runs now with the Now panel's own marks. It sits beside the reservation above rather than inside it, and the owner may rule it out."

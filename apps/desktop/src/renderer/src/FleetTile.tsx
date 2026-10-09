@@ -4,7 +4,7 @@
 // is lit. A Session never draws pips, and a Job draws them only from two steps. Props are plain so
 // any grid can lay tiles out.
 
-import { useEffect, useRef, type KeyboardEvent, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { LoaderCircle, SquareTerminal, Workflow } from "lucide-react";
 import { Tooltip } from "@armada/components";
 
@@ -93,14 +93,4 @@ export function FleetTile({
       {selected && extra !== undefined ? <div className="armada-tile__extra">{extra}</div> : null}
     </li>
   );
-}
-
-/** The arrows over a grid of tiles: left and right step by one, up and down by a row as drawn. */
-export function onTilesKey(event: KeyboardEvent, rows: readonly { key: string }[], at: number, pick: (key: string) => void): void {
-  const columns = Math.max(1, getComputedStyle(event.currentTarget).gridTemplateColumns.split(" ").length);
-  const step = event.key === "ArrowRight" ? 1 : event.key === "ArrowLeft" ? -1 : event.key === "ArrowDown" ? columns : event.key === "ArrowUp" ? -columns : 0;
-  if (step === 0) return;
-  event.preventDefault();
-  const next = rows[Math.min(rows.length - 1, Math.max(0, at + step))];
-  if (next !== undefined) pick(next.key);
 }

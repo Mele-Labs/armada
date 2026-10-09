@@ -8,8 +8,8 @@ import { button, inside, region, role, walk } from "../walk";
 const RUN = region("This Job's run");
 
 export const aDestructiveTriggerAsks = walk("real/job-2-trigger-asks", [
-  { hover: role("img", /Waiting on you, wipe_qa/), say: "The Board row rings: a Trigger waits on him" },
-  { press: button("Review", { exact: true }), say: "The Job" },
+  { look: region(/^Job:/), say: "A call comes forward over the Dashboard: a Trigger waits on him" },
+  { press: button(/^Open Job/), say: "The Job" },
   { look: inside(RUN, role("group", /wipe_qa, PR opened/)), say: "The Trigger, as a leaf off the step it fired at" },
   { hover: inside(RUN, role("img", "Waiting on you")), say: "A destructive Command is not run until he says so" },
   { look: inside(RUN, button("Skip")), say: "Skip lets it go and records it skipped by him" },

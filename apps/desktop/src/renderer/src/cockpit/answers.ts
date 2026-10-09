@@ -4,9 +4,13 @@
 // is about. Mock only: each answer does what its button did on the Dashboard, and clears the call.
 
 import { useEffect, useState } from "react";
+import { actionOf, keyFor } from "@armada/components";
 
 import type { BridgeState } from "../../../shared/bridge";
 import { viewsOf } from "../merge-line";
+import { useSessions } from "../sessions-draft";
+import { mainOwner, pullOwner, type Owner } from "./owner";
+import { asksAnAgent } from "./standing";
 import type { Hosts, Item } from "../Dashboard";
 
 /** `key` is a standing answer's own key; the others are picked by their number. `says` is what it tells the agent. */
@@ -32,6 +36,8 @@ export type Answering = {
   decision?: { at: number; of: number };
   /** Opens what the call is about, where it has somewhere to open. */
   open: (() => void) | undefined;
+  /** Whoever already owns what the call is about, where it is a pull request or main's red. */
+  owner?: Owner;
 };
 
 /** Where `o` goes: the Job, the Session, or the pull request the call is about. */
@@ -43,13 +49,23 @@ function opener(item: Item, hosts: Hosts, state: BridgeState): (() => void) | un
     const pull = viewsOf(state).flatMap((view) => view.hub?.pulls ?? []).find((one) => one.number === number);
     return pull === undefined ? undefined : () => hosts.onOpenLink(pull.url);
   }
+  if (item.key.startsWith("main:")) {
+    const merge = viewsOf(state).find((view) => view.root === item.key.slice("main:".length))?.hub?.main;
+    const url = merge?.state === "red" ? merge.red.merge?.url : undefined;
+    return url === undefined ? undefined : () => hosts.onOpenLink(url);
+  }
   return undefined;
 }
 
 /** The answers a call that is not a Plan question offers. */
-function actsOf(item: Item, hosts: Hosts, finish: () => void): Answer[] {
+function actsOf(item: Item, hosts: Hosts, finish: () => void, owner: Owner | undefined): Answer[] {
   const answer = (label: string, run: () => void = finish): Answer => ({ id: label, label, run });
   if (item.key.startsWith("session:")) return [answer("Allow"), answer("Deny")];
+  // Somebody is already on it: the answer is to go and see that they are addressing it, which opens
+  // them and leaves the call standing, and no new Drone is offered.
+  if (owner !== undefined && (item.key.startsWith("main:") || item.key.startsWith("pull:"))) {
+    return [answer(owner.kind === "session" ? "Open the Session" : "Open the Job", () => (owner.kind === "session" ? hosts.onOpenSession(owner.id) : hosts.onOpen(owner.id)))];
+  }
   if (item.key.startsWith("main:")) {
     return [answer("Hand to a Job", () => (hosts.onFix?.({ root: item.key.slice("main:".length) }), finish()))];
   }
@@ -73,15 +89,15 @@ function standingOf(finish: () => void, permission: boolean): Answer[] {
   return [
     {
       id: "best",
-      key: "b",
-      label: "Make the best decision",
+      key: keyFor("call_best"),
+      label: actionOf("call_best").verb,
       says: permission ? "Tells the agent to weigh the command carefully and decide for itself whether to run it" : "Tells the agent to weigh the options and choose the best solution itself",
       run: finish,
     },
     {
       id: "quick",
-      key: "g",
-      label: "Just get it done",
+      key: keyFor("call_quick"),
+      label: actionOf("call_quick").verb,
       says: permission ? "Tells the agent to run the command if it is reasonable and keep moving" : "Tells the agent to take the quickest reasonable path and keep moving",
       run: finish,
     },
@@ -97,6 +113,13 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
   const decisions = item.decisions;
   const decision = decisions?.[at];
   const open = opener(item, hosts, state);
+  const sessions = useSessions();
+  const views = viewsOf(state);
+  const owner = item.key.startsWith("pull:")
+    ? pullOwner(views, sessions, Number(item.key.slice("pull:".length)))
+    : item.key.startsWith("main:")
+      ? mainOwner(views, sessions, item.key.slice("main:".length))
+      : undefined;
 
   const numbered: Answer[] =
     decision !== undefined
@@ -105,12 +128,8 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
           label: option.label,
           run: () => (at + 1 < decisions!.length ? (setAt(at + 1), setPicked(undefined)) : finish()),
         }))
-      : actsOf(item, hosts, finish);
-  // The standing two answer a question an agent asked and could have answered itself: a Plan question,
-  // a Drone's or a Judge's, a Session's ask. A call Fleet raises about a state (a failing pull request,
-  // main red, a failed Check, a stuck Drone) keeps only its own acts (owner, 9 Oct 2026).
-  const askedByAgent = decisions !== undefined || item.kind === "Drone question" || item.kind === "Judge question" || item.key.startsWith("session:");
-  const answers = askedByAgent ? [...numbered, ...standingOf(finish, item.key.startsWith("session:"))] : numbered;
+      : actsOf(item, hosts, finish, owner);
+  const answers = asksAnAgent(item) ? [...numbered, ...standingOf(finish, item.key.startsWith("session:"))] : numbered;
 
   // One answer is the answer: Enter sends it without a number first.
   const chosen = picked ?? (answers.length === 1 ? 0 : undefined);
@@ -141,5 +160,6 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
     send,
     ...(decisions === undefined || decisions.length < 2 ? {} : { decision: { at, of: decisions.length } }),
     open,
+    ...(owner === undefined ? {} : { owner }),
   };
 }

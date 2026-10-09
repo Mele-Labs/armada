@@ -480,99 +480,15 @@
   min-width: 0;
 }
 
-/* The Dashboard: one list of rows beside the row picked, opened. Every kind of item — a Job's
-   question, a failed Check, a Session waiting, main red — is the same row; its hue is in the frame
-   (the row's left edge, the detail's band), never in a phrase. */
-.armada-dashboard {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: var(--space-4);
-  align-items: start;
-}
-
+/* The Dashboard's turning mark, and a Plan question answered in place. Every kind of item has its hue
+   in the frame (the tile's edge, the card's band), never in a phrase. */
 @keyframes armada-dashboard-spin { to { transform: rotate(360deg); } }
-
-.armada-dashboard__detail {
-  position: sticky;
-  top: 0;
-  border: var(--border-width) solid var(--hue);
-  border-radius: var(--radius-md);
-  overflow: hidden;
-  background: color-mix(in srgb, var(--hue) var(--row-tint), var(--bg-raised));
-}
-
-.armada-dashboard__band {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-1) var(--space-3);
-  background: var(--hue);
-  color: var(--fg-inverse);
-}
-
-/* The one legal ALL CAPS, an eyebrow. */
-.armada-dashboard__eyebrow {
-  flex: 1 1 auto;
-  font-size: var(--text-2xs);
-  font-weight: var(--weight-heading);
-  letter-spacing: var(--tracking-caps);
-  text-transform: uppercase;
-}
-
-.armada-dashboard__where {
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-}
-
-.armada-dashboard__body {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  padding: var(--space-4);
-}
-
-.armada-dashboard__heading {
-  margin: 0;
-  font-size: var(--text-lg);
-  font-weight: var(--weight-heading);
-  color: var(--fg-default);
-}
-
-.armada-dashboard__facts {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: var(--space-1) var(--space-4);
-  margin: 0;
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
-}
-
-.armada-dashboard__facts > div { display: contents; }
-.armada-dashboard__facts dt { color: var(--fg-subtle); }
-.armada-dashboard__facts dd { margin: 0; color: var(--fg-default); overflow-wrap: anywhere; }
-
-.armada-dashboard__said {
-  margin: 0;
-  padding: var(--space-3);
-  border-radius: var(--radius-sm);
-  background: var(--bg-sunken);
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  color: var(--fg-muted);
-  white-space: pre-wrap;
-}
 
 .armada-dashboard__answer {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: var(--space-3);
-}
-
-.armada-dashboard__acts {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
 }
 
 /* The hues every Dashboard part reads its frame from. */
@@ -652,70 +568,6 @@
 
 /* ---- Command Central: the queue beside the call -------------------------- */
 
-.armada-deck {
-  display: grid;
-  grid-template-columns: minmax(0, 4fr) minmax(0, 8fr);
-  gap: var(--space-4);
-  align-items: start;
-}
-
-.armada-queue {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  outline: none;
-}
-
-.armada-queue__row {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  column-gap: var(--space-3);
-  padding: var(--space-2) var(--space-3);
-  border: var(--border-width) solid var(--border-subtle);
-  border-left: calc(var(--border-width) * 3) solid var(--hue);
-  border-radius: var(--radius-sm);
-  background: var(--bg-raised);
-  cursor: pointer;
-}
-
-.armada-queue__row:hover { background: color-mix(in srgb, var(--hue) 6%, var(--bg-raised)); }
-
-.armada-queue__row[aria-selected="true"] {
-  border-color: var(--hue);
-  background: color-mix(in srgb, var(--hue) var(--row-tint), var(--bg-raised));
-  box-shadow: 0 0 var(--space-4) color-mix(in srgb, var(--hue) 22%, transparent);
-}
-
-.armada-queue:focus-visible .armada-queue__row[aria-selected="true"] { outline: var(--border-width) solid var(--accent); }
-
-.armada-queue__mark { grid-row: span 2; display: inline-flex; padding-top: var(--space-1); color: var(--hue); }
-
-.armada-queue__title {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: var(--text-sm);
-  font-weight: var(--weight-medium);
-  color: var(--fg-default);
-}
-
-.armada-queue__age { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--fg-subtle); }
-
-.armada-queue__fact {
-  grid-column: 2 / span 2;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  color: var(--fg-muted);
-}
-
 /* ---- The call pane --------------------------------------------------------------------------- */
 
 .armada-call {
@@ -733,9 +585,6 @@
 @keyframes armada-call-in {
   from { opacity: 0; transform: translateY(var(--space-2)); }
 }
-
-.armada-deck > .armada-call,
-.armada-board[data-pane] > .armada-call { position: sticky; top: var(--space-2); }
 
 .armada-call__band {
   display: flex;
@@ -889,16 +738,7 @@
 
 /* ---- The fleet board ---------------------------------------------------------------------------- */
 
-.armada-board { display: grid; grid-template-columns: 1fr; gap: var(--space-4); align-items: start; }
-.armada-board[data-pane] { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
-
 /* Each live Job a lane of its steps, on a quiet ground: the lanes carry the board, not the frame. */
-.armada-deck__fleet {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-}
-
 /* ---- Tiles: every Job and Session in one grid ----------------------------------------------------- */
 
 .armada-tiles {
@@ -1000,62 +840,8 @@
   opacity: 0.8;
 }
 
-/* The merge line as a conveyor: blocks marching toward main's light. */
-.armada-conveyor {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-2) var(--space-3);
-  border-top: var(--border-width) dashed var(--border-subtle);
-  color: var(--fg-muted);
-}
-
-.armada-conveyor__belt {
-  display: flex;
-  flex: 1 1 auto;
-  justify-content: flex-end;
-  gap: var(--space-2);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  background: repeating-linear-gradient(90deg, var(--border-subtle) 0 var(--space-1), transparent var(--space-1) var(--space-3)) center / 100% var(--border-width) no-repeat;
-}
-
-.armada-conveyor__block {
-  width: var(--space-4);
-  height: var(--space-3);
-  border-radius: var(--radius-sm);
-  background: var(--status-not-started);
-}
-
-.armada-conveyor__block[data-state="gating"],
-.armada-conveyor__block[data-state="merging"],
-.armada-conveyor__block[data-state="preparing"] {
-  background: var(--status-running);
-  animation: armada-conveyor 1.4s ease-in-out infinite;
-}
-
-@keyframes armada-conveyor { 50% { transform: translateX(calc(var(--space-1) * -1)); } }
-
-.armada-conveyor__main {
-  padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-sm);
-  background: var(--status-completed-success);
-  color: var(--fg-inverse);
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-}
-
-.armada-conveyor__main[data-red] { background: var(--status-completed-failed); box-shadow: 0 0 var(--space-3) var(--status-completed-failed); }
-
 @media (prefers-reduced-motion: reduce) {
-  .armada-call,
-  .armada-conveyor__block { animation: none; }
-}
-
-@media (max-width: 960px) {
-  .armada-deck,
-  .armada-board[data-pane] { grid-template-columns: 1fr; }
+  .armada-call { animation: none; }
 }
 
 @keyframes armada-compose-grow {

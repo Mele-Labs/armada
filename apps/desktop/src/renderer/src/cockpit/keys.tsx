@@ -12,8 +12,9 @@ import { DASHBOARD_TABS, type DashboardTab } from "@armada/overview";
 import { holdsText } from "@armada/screens/src/keys";
 import { useListKeydown } from "@armada/screens/src/list-keyboard";
 
-/** Previous and next filter, and the filter by number with Option held. */
-export const TAB_KEYS = { previous: "[", next: "]", numbered: "⌥1–3" } as const;
+/** Previous and next filter, and the filter by number with Option held: the registry's own spellings. */
+const [PREVIOUS, NEXT] = keyFor("dashboard_filters").split(" ") as [string, string];
+export const TAB_KEYS = { previous: PREVIOUS, next: NEXT, numbered: keyFor("dashboard_filter_number") } as const;
 
 type Group = { head: string; rows: readonly { keys: readonly string[]; does: string }[] };
 
@@ -22,11 +23,13 @@ const GROUPS: readonly Group[] = [
   {
     head: "A call in front",
     rows: [
-      { keys: ["1–9"], does: "Pick an answer" },
+      { keys: [keyFor("call_pick")], does: actionOf("call_pick").verb },
       { keys: ["j", "k"], does: "Move between answers" },
-      { keys: ["↵"], does: "Send it" },
-      { keys: ["l", "Esc"], does: "Later" },
-      { keys: ["o"], does: "Open what it is about" },
+      { keys: [keyFor("call_best"), keyFor("call_quick")], does: `${actionOf("call_best").verb}, ${actionOf("call_quick").verb.toLowerCase()}` },
+      { keys: ["↵"], does: actionOf("call_send").verb },
+      { keys: [keyFor("call_later"), "Esc"], does: actionOf("call_later").verb },
+      { keys: [keyFor("open")], does: "Open what it is about" },
+      { keys: [keyFor("call_expand")], does: actionOf("call_expand").verb },
     ],
   },
   {
@@ -35,18 +38,18 @@ const GROUPS: readonly Group[] = [
       { keys: ["j", "k", "←", "→", "↑", "↓"], does: actionOf("move_focus").verb },
       { keys: ["↵", keyFor("open")], does: actionOf("open").verb },
       { keys: [keyFor("kill")], does: actionOf("kill").verb },
-      { keys: ["w"], does: "Bring a waiting call back" },
+      { keys: [keyFor("call_recall")], does: actionOf("call_recall").verb },
       { keys: ["Esc", "↓"], does: "Leave the request field" },
     ],
   },
   {
     head: "Dashboard",
     rows: [
-      { keys: [TAB_KEYS.previous, TAB_KEYS.next], does: "Previous and next filter" },
-      { keys: [TAB_KEYS.numbered], does: "A filter by number" },
-      { keys: ["m"], does: "Switch between grid and map" },
+      { keys: [TAB_KEYS.previous, TAB_KEYS.next], does: actionOf("dashboard_filters").verb },
+      { keys: [TAB_KEYS.numbered], does: actionOf("dashboard_filter_number").verb },
+      { keys: [keyFor("dashboard_view")], does: actionOf("dashboard_view").verb },
       { keys: [keyFor("new_job")], does: actionOf("new_job").verb },
-      { keys: ["?"], does: "This sheet" },
+      { keys: [keyFor("key_sheet")], does: actionOf("key_sheet").verb },
     ],
   },
 ];
@@ -70,10 +73,10 @@ export function useDashboardKeys(tab: DashboardTab, onTab: (tab: DashboardTab) =
       return;
     }
     if (event.repeat) return;
-    if (event.key === "[" || event.key === "]") {
+    if (event.key === PREVIOUS || event.key === NEXT) {
       event.preventDefault();
-      onTab(DASHBOARD_TABS[(at + (event.key === "]" ? 1 : -1) + DASHBOARD_TABS.length) % DASHBOARD_TABS.length]!.id);
-    } else if (event.key === "?") {
+      onTab(DASHBOARD_TABS[(at + (event.key === NEXT ? 1 : -1) + DASHBOARD_TABS.length) % DASHBOARD_TABS.length]!.id);
+    } else if (event.key === keyFor("key_sheet")) {
       event.preventDefault();
       setSheet(true);
     }

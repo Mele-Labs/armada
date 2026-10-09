@@ -137,6 +137,8 @@
   padding: var(--space-6);
   overflow-y: auto;
   background: color-mix(in srgb, var(--bg-base) 55%, transparent);
+  /* What is behind the card stays pressable: the card is in front, not a dialog. */
+  pointer-events: none;
 }
 
 /* The deck: the card in flow, and the calls behind it as strips standing up above it. */
@@ -145,6 +147,7 @@
   position: relative;
   width: min(100%, calc(var(--space-12) * 14));
   padding-top: calc(var(--lift) * var(--behind, 0));
+  pointer-events: auto;
 }
 
 /* Each strip: higher, narrower and dimmer than the one in front of it, its title readable. */

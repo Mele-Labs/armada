@@ -27,6 +27,6 @@ test("Navigation (Work and Machine) and Fleet are flat, and the Dashboard's call
     expect(layer(panel).backdropFilter).toBe("none");
   }
 
-  await expect.poll(() => document.querySelector(".armada-call")).not.toBeNull();
-  expect(surface(document.querySelector(".armada-call")!).boxShadow).not.toBe("none");
+  await expect.poll(() => document.querySelector(".armada-callcard")).not.toBeNull();
+  expect(surface(document.querySelector(".armada-callcard")!).boxShadow).not.toBe("none");
 });

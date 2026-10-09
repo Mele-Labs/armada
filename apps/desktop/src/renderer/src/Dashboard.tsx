@@ -1,9 +1,9 @@
-// The Dashboard's one surface: every Job, Session and merge-line item read as the same row in one
-// list, and the row picked opened beside it. Each tab is the same list over a different cut —
-// what needs the owner, what is under way, what is over. Mock only: what a Job asks comes from the
-// draft's Now views, which Fleet does not serve.
+// What the Dashboard's panel reads: every Job, Session and merge-line item as one `Item`, cut three
+// ways — what needs the owner, what is under way, what is over — with the keys the Board's lists
+// answer. `cockpit/` draws them. Mock only: what a Job asks comes from the draft's Now views, which
+// Fleet does not serve.
 
-import { createContext, useContext, useEffect, useMemo, useState, type KeyboardEvent, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   Bot,
   Box,
@@ -35,13 +35,12 @@ import type { AboutFiles, AboutLink, CallAskView, CallView } from "@armada/jobs/
 import type { NowView } from "@armada/jobs/draft/now";
 import type { Session } from "@armada/screens/src/draft/sessions";
 import { overviewListsOf, type DashboardTab } from "@armada/overview";
-import { JobActs, JobMarks, hasMarks, isTerminal, titleOf, type PauseAct } from "@armada/screens";
+import { JobActs, isTerminal, titleOf, type PauseAct } from "@armada/screens";
 import { boardPressOf } from "@armada/screens/src/keys";
 import { useListKeydown } from "@armada/screens/src/list-keyboard";
 
 import type { BridgeState } from "../../shared/bridge";
 import { viewsOf } from "./merge-line";
-import { FleetTile, onTilesKey } from "./FleetTile";
 import { useSessions } from "./sessions-draft";
 
 /** The frame's hue: what the row wants of the owner, or how it stands. */
@@ -213,20 +212,6 @@ function StuckDrone({ onDone, onOpen }: { onDone: () => void; onOpen: () => void
       </div>
     </div>
   );
-}
-
-/** The arrows, on a list that has focus: the Board's j and k are the window's, `useBoardKeys`. */
-export function onListKey(
-  event: KeyboardEvent,
-  rows: readonly { key: string }[],
-  at: number,
-  pick: (key: string) => void,
-): void {
-  const step = event.key === "ArrowDown" ? 1 : event.key === "ArrowUp" ? -1 : 0;
-  if (step === 0) return;
-  event.preventDefault();
-  const next = rows[Math.min(rows.length - 1, Math.max(0, at + step))];
-  if (next !== undefined) pick(next.key);
 }
 
 /**
@@ -587,73 +572,4 @@ export function useItems(
     });
     return drawn.filter((item) => !answered.has(item.key));
   }, [tab, state, picked, nowViews, nows, sessions, answered]);
-}
-
-export function Dashboard({
-  tab,
-  state,
-  now,
-  picked,
-  nowViews,
-  ...hosts
-}: Hosts & {
-  tab: DashboardTab;
-  state: BridgeState;
-  now: number;
-  picked: RepositorySummary | null;
-  nowViews?: Readonly<Record<string, CallView>> | undefined;
-}) {
-  const [answered, setAnswered] = useState<ReadonlySet<string>>(new Set());
-  const items = useItems(tab, state, picked, nowViews, hosts, answered);
-  const [selected, setSelected] = useState<string>();
-  const current = items.find((item) => item.key === selected) ?? items[0];
-  useEffect(() => setSelected(undefined), [tab]);
-  useCursor(current?.job, hosts.onCursor);
-
-  const at = items.findIndex((item) => item.key === current?.key);
-  useBoardKeys(items, at, setSelected, hosts);
-  const move = (event: KeyboardEvent) => onTilesKey(event, items, at, setSelected);
-
-  if (current === undefined) return null;
-  const Icon = current.icon;
-  return (
-    <div className="armada-dashboard">
-      <ul className="armada-tiles" role="listbox" aria-label="Items" tabIndex={0} onKeyDown={move}>
-        {items.map((item) => (
-          <FleetTile key={item.key} item={item} selected={item.key === current.key} onSelect={setSelected} now={now} />
-        ))}
-      </ul>
-      <section className="armada-dashboard__detail" data-hue={current.hue} aria-label={current.title}>
-        <header className="armada-dashboard__band">
-          <Icon size={14} aria-hidden="true" />
-          <span className="armada-dashboard__eyebrow">{current.kind}</span>
-          <span className="armada-dashboard__where">{current.where}</span>
-        </header>
-        <div className="armada-dashboard__body">
-          <h2 className="armada-dashboard__heading">
-            {current.title}
-            {current.job === undefined || !hasMarks(current.job, now) ? null : (
-              <span className="armada-call__marks">
-                <JobMarks job={current.job} now={now} />
-              </span>
-            )}
-          </h2>
-          {current.body.length === 0 ? null : (
-            <dl className="armada-dashboard__facts">
-              {current.body.map(([term, value]) => (
-                <div key={term}>
-                  <dt>{term}</dt>
-                  <dd>{value}</dd>
-                </div>
-              ))}
-            </dl>
-          )}
-          {(current.said ?? []).length === 0 ? null : (
-            <pre className="armada-dashboard__said">{current.said!.join("\n")}</pre>
-          )}
-          <div className="armada-dashboard__acts">{current.acts(() => setAnswered(new Set([...answered, current.key])))}</div>
-        </div>
-      </section>
-    </div>
-  );
 }

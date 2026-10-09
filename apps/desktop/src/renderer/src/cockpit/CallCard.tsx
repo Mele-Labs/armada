@@ -6,8 +6,8 @@
 // `Cockpit`'s, on the window; this draws them and takes the press. Mock only, as the Dashboard is.
 
 import { useLayoutEffect, useRef, useState, type MutableRefObject } from "react";
-import { Bot, Box, ChevronDown, ChevronUp, Cpu, Scale, ShieldCheck, Waypoints, Workflow, type LucideIcon } from "lucide-react";
-import { Button, Kbd, SessionThread, Tooltip, type NowPanelProps } from "@armada/components";
+import { Bot, Box, ChevronDown, ChevronUp, Cpu, Scale, ShieldCheck, SquareTerminal, Waypoints, Workflow, type LucideIcon } from "lucide-react";
+import { Button, Kbd, SessionThread, Tooltip, actionOf, keyFor, type NowPanelProps } from "@armada/components";
 
 import type { BridgeState } from "../../../shared/bridge";
 import { age, type Hosts, type Item } from "../Dashboard";
@@ -101,6 +101,7 @@ export function CallCard({
   const step = steps.find((one) => one.step_id === item.job?.current_step_id)?.label;
   const asker = item.body.find(([term]) => term === "From" || term === "On")?.[1] ?? active?.name;
   const origin = [asker, step].filter((one) => one !== undefined && one !== "").join(" · ");
+  const OwnerGlyph = answer.owner?.kind === "session" ? SquareTerminal : Workflow;
 
   return (
     <section className="armada-callcard" data-hue={item.hue} data-leaving={leaving} data-from={from} aria-label={`${item.kind}: ${item.title}`}>
@@ -127,10 +128,20 @@ export function CallCard({
                   <Button variant="ghost" size="sm" onClick={() => setWhole(!whole)}>
                     {whole ? <ChevronUp size={12} aria-hidden="true" /> : <ChevronDown size={12} aria-hidden="true" />}
                     {whole ? "Less" : "All of it"}
-                    <Kbd>e</Kbd>
+                    <Kbd>{keyFor("call_expand")}</Kbd>
                   </Button>
                 )}
               </div>
+            )}
+            {answer.owner === undefined ? null : (
+              <p className="armada-callcard__origin" data-owner role="group" aria-label="Owner">
+                <Tooltip label={answer.owner.kind === "session" ? "Session" : "Job"}>
+                  <span role="img" aria-label={answer.owner.kind === "session" ? "Session" : "Job"}>
+                    <OwnerGlyph size={12} aria-hidden="true" />
+                  </span>
+                </Tooltip>
+                {answer.owner.kind === "session" ? "Session" : "Job"} · {answer.owner.title}
+              </p>
             )}
             {origin === "" ? null : <p className="armada-callcard__origin">{origin}</p>}
             {marked === undefined || doing === undefined ? null : (
@@ -184,12 +195,12 @@ export function CallCard({
           {lone || answer.open === undefined ? null : (
             <Button variant="ghost" onClick={answer.open}>
               {OPENS(item)}
-              <Kbd>o</Kbd>
+              <Kbd>{keyFor("open")}</Kbd>
             </Button>
           )}
           <Button variant="ghost" onClick={later}>
-            Later
-            <Kbd>l</Kbd>
+            {actionOf("call_later").verb}
+            <Kbd>{keyFor("call_later")}</Kbd>
           </Button>
         </div>
       </div>

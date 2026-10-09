@@ -31,7 +31,7 @@ export const theFailedCheckMidTurn = walk("merge-line-failed-check", [
   { look: inside(NOTES_ALERT, text("notes/reading-list-tags")), say: "A single branch is named too, batched or not" },
   { look: inside(SCRATCH, role("status")), say: "Another branch, told the same way" },
   { press: role("button", "Overview", { exact: true }), say: "A Job in the batch, on the Dashboard" },
-  { press: tab("Running"), say: "It is running" },
+  { press: tab("Active"), say: "It is running" },
   { press: role("option", /Cache the manifest read between dispatches, Job/), say: "Picked" },
   { press: button(/^(Open|Review|Redirect|Attest)$/), say: "Open it" },
   { press: tab("Pulse"), say: "Its Pulse" },
