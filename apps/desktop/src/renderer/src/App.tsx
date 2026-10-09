@@ -35,7 +35,7 @@ import { jobFailure } from "@armada/shell";
 import { SweepButtons, SweepDialogs, sweepsOf, useRefreshKey, type Sweep } from "@armada/shell";
 import { repositoryLabel } from "@armada/shell";
 import { AskRepository } from "@armada/screens";
-import { BridgeSettings } from "@armada/settings";
+import { BridgeSettings, ModsSurface } from "@armada/settings";
 import { Kit } from "@armada/manifest";
 import { Reports } from "@armada/screens";
 import { Composing } from "./Composing";
@@ -218,7 +218,7 @@ export function App({ draft }: AppProps = {}) {
   const [sweep, setSweep] = useState<Sweep | null>(null);
   // Whether Settings is open — a rail surface since #1089, the sheet it
   // replaced having lost its own opener when the status bar went (#1088).
-  const [settingsShowing, setSettingsShowing] = useState(false);
+  const [settingsShowing, setSettingsShowing] = useState(false); const [modding, setModding] = useState(false);
   // Whether Kit is open — a rail surface since #1275, at `⌘8`. Machine-wide,
   // and the rail's pick is what names its second tier.
   const [kitting, setKitting] = useState(false);
@@ -472,7 +472,7 @@ export function App({ draft }: AppProps = {}) {
     setAuditing(false);
     setClearing(surfaceId === SURFACE.worktrees);
     setManifesting(surfaceId === SURFACE.manifest);
-    setSettingsShowing(surfaceId === SURFACE.settings);
+    setSettingsShowing(surfaceId === SURFACE.settings); setModding(surfaceId === SURFACE.mods);
     setKitting(surfaceId === SURFACE.kit);
     setGuiding(surfaceId === SURFACE.guides);
     setLining(surfaceId === SURFACE.mergeLine);
@@ -568,7 +568,7 @@ export function App({ draft }: AppProps = {}) {
   // Back and forward are keys and nothing on screen — `history.ts`.
   const [jobAt, onJobWhere] = useJobTab(openJob);
   useHistory(
-    { surface: showingOf({ clearing, manifesting, settingsShowing, kitting, guiding, studying, lining, learning, workflowing, checking, sessioning }), job: openJob, ...jobAt, session: sessionOpen, studio: openStudio, studioNode },
+    { surface: showingOf({ clearing, manifesting, settingsShowing, modding, kitting, guiding, studying, lining, learning, workflowing, checking, sessioning }), job: openJob, ...jobAt, session: sessionOpen, studio: openStudio, studioNode },
     (place) => { goTo(place.surface); setOpenJob(place.job); if (place.job !== null) asked.setOpening({ jobId: place.job, to: openingOf(place) }); setSessionOpen(place.session); setOpenStudio(place.studio); setStudioNode(place.studioNode); },
     (place) => place.job === null || state.jobs.some((job) => job.id === place.job),
   );
@@ -666,7 +666,7 @@ export function App({ draft }: AppProps = {}) {
           }}
           // Which row the rail marks — `showing.ts`.
           showing={showingOf({
-            clearing, manifesting, settingsShowing, kitting, guiding, studying, lining, learning, workflowing, checking, sessioning,
+            clearing, manifesting, settingsShowing, modding, kitting, guiding, studying, lining, learning, workflowing, checking, sessioning,
           })}
           onSurface={goTo}
         >
@@ -1056,7 +1056,7 @@ export function App({ draft }: AppProps = {}) {
               <Boundary region="Guides" {...guarded}>
                 <GuideCatalogue narrow={narrow} floor={floor} listWidth={guideList} onResizeList={resizeGuideList} />
               </Boundary>
-            ) : settingsShowing ? (
+            ) : modding ? (<Boundary region="Mods" {...guarded}><ModsSurface /></Boundary>) : settingsShowing ? (
               <Boundary region="Settings" {...guarded}>
                 <BridgeSettings
                   limits={state.limits}
