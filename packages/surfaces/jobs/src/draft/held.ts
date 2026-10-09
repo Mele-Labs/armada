@@ -92,8 +92,8 @@ export type JobDraft = {
   calls?: Readonly<Record<string, CallView>>;
   /**
    * What the Now panel beside the Overview canvas draws, by Job id. **A Job
-   * absent here draws no panel**, which is every real Job until Fleet publishes
-   * the reads behind it.
+   * absent here draws what Fleet serves** (`now-real.ts`), so an entry only
+   * adds what the wire cannot: the Plan interview, issues and sketches.
    */
   now?: Readonly<Record<string, NowView>>;
 };

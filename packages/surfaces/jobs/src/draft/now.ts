@@ -1,10 +1,11 @@
-// What the Now panel beside the Overview canvas draws, as data. **Mock only**:
-// Fleet publishes no plan interview, and its asks, issues and live rows are not
-// one read yet, so the real Fleet puts nothing here and the panel is absent.
+// What the Now panel beside the Overview canvas draws, as data. **The draft fills all of it**;
+// a real Fleet fills what it serves (`now-real.ts`) and has no plan interview, issues or sketches.
 //
 // The panel's `onOpen` and `onAnswer` are the host's. `target` names what a row
 // opens (a Drone id, a Check's name, a Judge's step); a press with no host to
 // open it is a stub.
+
+import type { JobCheckLog } from "../check-log-sheet";
 
 export type NowKindView = "drone" | "check" | "judge";
 
@@ -64,6 +65,8 @@ export type NowRunningView = {
   acts?: readonly NowActView[];
   /** A Drone's id, or a Check's file. */
   target?: string;
+  /** Where a real Check keeps its log. Wins over `target`, which a mock Check names by file. */
+  log?: JobCheckLog;
 };
 
 export type NowView = {

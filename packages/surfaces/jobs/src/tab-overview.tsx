@@ -36,6 +36,7 @@ import { leadOf } from "./lead";
 import { heldByAFlag } from "./gaming";
 import { GamingHeld } from "./gaming-held";
 import { StepActs } from "./StepActs";
+import type { NowView } from "./draft/now";
 import { nowPanelOf } from "./now-panel";
 import { OverviewBoard } from "./OverviewBoard";
 import { walkAct } from "./walked";
@@ -97,6 +98,8 @@ import { FIRST_PLAN_VIEW } from "./plan-view";
  */
 export type OverviewTabProps = JobDetailProps & {
   whole: JobWhole | null;
+  /** The Now panel's rows, the draft's or `nowViewOf`'s. Absent draws no panel. */
+  nowView: NowView | undefined;
   render: Render;
   /** Whether the window is under `--layout-breakpoint`, so the inspector folds. */
   narrow: boolean;
@@ -788,7 +791,7 @@ export function OverviewTab(props: OverviewTabProps) {
             }),
       }}
       waiting={waiting}
-      now={nowPanelOf(props.draft?.now?.[job.id], { onOpenDrone: props.onOpenDrone, onOpenCheckLog: props.onOpenCheckLog, onOpenJob: openJob, onSaid })}
+      now={nowPanelOf(props.nowView, { onOpenDrone: props.onOpenDrone, onOpenCheckLog: props.onOpenCheckLog, onOpenJob: openJob, onSaid })}
       // **What the approval approves, only while the lead offers it.** The
       // owner approved Job 1 on 1 Oct 2026 without seeing what counted as
       // done or how its steps gate, and the Judge refused the plan for it.

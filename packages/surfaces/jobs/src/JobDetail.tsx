@@ -70,6 +70,7 @@ import { whileReading } from "./while-reading";
 import { FIRST_PLAN_VIEW } from "./plan-view";
 import { ledgerOf } from "./draft/ledger";
 import { litSteps } from "./draft/now";
+import { nowViewOf } from "./now-real";
 import { useNowHidden } from "./now-hidden";
 import { useTrail, type TrailProps } from "./trail";
 import { JobRetroSheet } from "./Lessons";
@@ -313,6 +314,11 @@ function OneJob(props: JobDetailProps) {
     () => props.draft?.drones ?? droneViewsOf(listed, whole ?? undefined, turns),
     [props.draft?.drones, listed, whole, turns],
   );
+  // The Now panel's rows: the draft's where the mock has one for this Job, else what Fleet serves.
+  const nowView = useMemo(
+    () => props.draft?.now?.[job.id] ?? nowViewOf({ whole, drones, ...(props.board === undefined ? {} : { board: props.board }) }),
+    [props.draft?.now, job.id, whole, drones, props.board],
+  );
 
   // The command a Drone is held on, drawn on that Drone wherever it is read.
   const holding = heldCommandOf(
@@ -462,6 +468,7 @@ function OneJob(props: JobDetailProps) {
           {...props}
           job={job}
           whole={whole}
+          nowView={nowView}
           render={render}
           narrow={narrow}
           floor={floor}
@@ -515,7 +522,7 @@ function OneJob(props: JobDetailProps) {
                     <ApprovalCanvas
                       whole={whole}
                       edits={held.frozen ?? proposalEditsOfWhole(whole, props.machineCap ?? null)}
-                      lit={nowHidden ? undefined : litSteps(props.draft?.now?.[job.id])}
+                      lit={nowHidden ? undefined : litSteps(nowView)}
                       life={lifeOf(whole, waveReadingOf(whole, props.draft, props.board ?? []), stepLinesOf(whole, drones))}
                       {...(props.added === undefined ? {} : { added: props.added })}
                       {...(props.onOpenStudio === undefined ? {} : { onOpenStudio: props.onOpenStudio })}
