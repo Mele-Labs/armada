@@ -1,6 +1,6 @@
 // Sleep mode: the title row's moon and the Morning review sheet. The state lives behind a source, the
-// way Phone's does, so a Bridge with no source draws neither. Only the mock has one so far: the wire
-// that would carry it is proposed, not built.
+// way Phone's does, so a Bridge with no source draws neither. The real one is `fleet-sleep.ts`, over
+// Fleet's `/sleep` routes; the mock's is `mock/sleep.ts`.
 
 import { createContext, useContext, useState, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";

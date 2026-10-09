@@ -380,6 +380,24 @@ Not measured.
 
 **A message names where it went and not which session**, because the harness does not say: a delivery says whether it came from a peer or a teammate, and never a session id.
 
+## Sleep mode
+
+The owner turns on the moon in Bridge's title row before bed (`set_sleep`), and sessions and Jobs keep going until only he can unblock them. `get_sleep` reads the switch and the night's rows; turning it on starts a new night and clears the last one's rows.
+
+While it is on, a pass over every live session's waiting items (`crates/fleet/src/sleeping.rs`, riding the pull-request notice tick) works like this:
+
+| Item | What the night does |
+|---|---|
+| `ask:` or agent item waiting under two minutes | Nothing. The agent carries on by itself first. |
+| `ask:` or agent item past two minutes | Answers with the option labelled "(Recommended)", else `mode: best`. Recorded under decided. |
+| Destructive or irreversible (delete, drop, remove, force, reset, rm, overwrite, discard, close PR and the like, read from the text and the options; unsure holds) | Never answered. Recorded under blocked. |
+| `perm:` permission | Never allowed. Recorded under blocked. |
+| `walk:` | Recorded under walks. |
+| A pull request the pull watch sees merge | Recorded under landed. |
+| A Job that escalates | Recorded under blocked. No route answers an escalation in words, so the night has nothing to decide it with. |
+
+`override_sleep` sends the session `Re: <asked>` and the owner's words, and marks the row corrected. Every change publishes `sleep.changed` with the night whole.
+
 ## A mod that is out of date
 
 A mod loaded before the plugin was updated keeps running the old code until the person runs `/reload-plugins` in that session. **The mod reports its version** in `started` and in the first `tuned` (`MOD_VERSION` in `plugins/armada/hooks/facts.ts`, held equal to `version` in `plugins/armada/.claude-plugin/plugin.json` by a Fleet test, so bump both together), and Fleet keeps it on the session's row. `SessionRecord.mod_out_of_date` is true for a terminal session whose reported version is older than the `version` in the same file in the repository it stands in, or that reported none. Bridge marks it on the row and in the header with "Mod out of date: run /reload-plugins". Fleet reads the repository's file when it builds the record, so the mark moves with the next fact the session reports and not when the file changes.
