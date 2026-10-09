@@ -53,7 +53,8 @@ export function useDispatchBarKeys(toDashboard: () => void): void {
   go.current = toDashboard;
   useEffect(() => {
     function press(event: KeyboardEvent | globalThis.KeyboardEvent): void {
-      if (event.key.toLowerCase() !== "n" || event.repeat || event.defaultPrevented || event.altKey || event.ctrlKey || event.shiftKey) return;
+      // A capital N is a Studio's Note, so a bare press must be the lowercase n.
+      if ((event.metaKey ? event.key.toLowerCase() : event.key) !== "n" || event.repeat || event.defaultPrevented || event.altKey || event.ctrlKey || event.shiftKey) return;
       const chord = event.metaKey;
       if (!drawn || (!chord && holdsText(event.target)) || document.querySelector('[role="dialog"]') !== null) return;
       event.preventDefault();
