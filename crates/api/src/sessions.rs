@@ -132,3 +132,22 @@ pub(crate) async fn who_owns<D: Sessions>(
         Err(refusal) => refused(refusal),
     }
 }
+
+/// A session or Job takes an orphaned pull request. 200 with the claim; 422 with the reason.
+pub(crate) async fn claim_pull_request<D: Sessions>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let claim: ipc::ClaimPullRequest = match ipc::decode("a pull request to claim", &body) {
+        Ok(claim) => claim,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served
+        .daemon()
+        .claim_pull_request(crate::acting::asking(), claim)
+        .await
+    {
+        Ok(claimed) => answer(StatusCode::OK, &claimed, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}

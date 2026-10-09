@@ -407,3 +407,24 @@ pub struct Ownership {
 pub struct Owners {
     pub holders: Vec<Ownership>,
 }
+
+/// `claim_pull_request`: a Session or Job takes an open pull request nobody holds.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ClaimPullRequest {
+    pub number: u64,
+    /// Which session claims it. **Read only where the connection places no hosted session and no
+    /// Drone**, as `ShowWindow::session_id` is.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<SessionId>,
+}
+
+/// What `claim_pull_request` answers: the pull request now held, and by whom.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PullRequestClaimed {
+    pub number: u64,
+    pub branch: String,
+    pub url: String,
+    /// `session` or `job`, and its id.
+    pub holder_kind: String,
+    pub holder_id: String,
+}

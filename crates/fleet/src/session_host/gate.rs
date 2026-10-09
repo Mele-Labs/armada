@@ -12,11 +12,11 @@ use adapter_traits::{AgentHarness, Delivery, SlotLeased, Vcs, WorkProduct, Workt
 use ipc::{GateAnswer, ManifestId, SessionGate, SessionMode, SessionRow};
 use store::{AttachmentState, Holder, KeptAttachment};
 
+use super::following::Standing;
 use super::places::{place_of, written_by, Place};
 use super::serving::mode_of;
 use super::Move;
 use crate::daemon::Fleet;
-use crate::peer::started_within;
 use crate::repositories::Served;
 
 /// What a call does to the checkout, as far as its name and input say.
@@ -66,9 +66,15 @@ where
             return GateAnswer::pass();
         };
         let root = served.root().trim_end_matches('/').to_string();
+        // The pool is read here, so the ledger's slot is the pool's before it decides.
+        let hosting = self.follow_the_pool(&id, &served, hosting).await;
         let own = hosting.lease_slot;
         let directory = Self::directory_of(&served, &hosting);
-        let held = |slot: u32| own == Some(slot) || self.slot_held_by_the_tree(&id, &root, slot);
+        let held = |slot: u32| {
+            own == Some(slot)
+                || self.held_by_the_tree(&id, &adapter_traits::slot_path(&root, slot))
+                    == Standing::Ours
+        };
         // Where the call lands, against the main checkout and the pool.
         let lands = |path: &str| match path.starts_with('/') {
             true => place_of(path, &root),
@@ -114,30 +120,6 @@ where
                     None => GateAnswer::pass(),
                 }
             }
-        }
-    }
-
-    /// Whether the lease on `slot` is held by this session's process or one
-    /// it started, which is how `armada worktree lease` records its caller: the
-    /// first process above it that is not a shell. **That is how a session's
-    /// own subagent leases a slot the session may then write in.**
-    fn slot_held_by_the_tree(&self, id: &str, root: &str, slot: u32) -> bool {
-        let Some(session) = self
-            .hosts()
-            .of(id)
-            .state()
-            .process
-            .as_ref()
-            .and_then(|process| process.pid())
-        else {
-            return false;
-        };
-        let at = adapter_traits::slot_path(root, slot);
-        match adapters::leasing::holder_of(std::path::Path::new(&at)) {
-            Some(holder) if holder.alive() => holder
-                .pid()
-                .is_some_and(|pid| started_within(&[session], pid, self.peers().as_ref())),
-            _ => false,
         }
     }
 

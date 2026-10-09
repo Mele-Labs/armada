@@ -42,6 +42,14 @@ pub trait Sessions: Send + Sync + 'static {
         show: ipc::ShowWindow,
     ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
 
+    /// `claim_pull_request` — the caller takes an open pull request no live Session or Job holds,
+    /// or whose holder has ended. [`Refusal::Unacceptable`] with the reason for a pull request
+    /// that is not open, a live holder, or a call that places no holder.
+    fn claim_pull_request(
+        &self,
+        caller: Option<crate::Caller>,
+        claim: ipc::ClaimPullRequest,
+    ) -> impl Future<Output = Result<ipc::PullRequestClaimed, Refusal>> + Send;
     /// `waiting_for` — the agent sets the whole list of what it needs from the person. `caller`
     /// places a hosted session as `show_window`'s does. Answers with the row.
     /// [`Refusal::Unacceptable`] for a call that places no session or an item with no id or text.
