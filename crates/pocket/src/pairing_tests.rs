@@ -20,6 +20,7 @@ static DIRS: AtomicU32 = AtomicU32::new(0);
 pub(crate) struct Rig {
     pub app: Router,
     pub now: Arc<AtomicI64>,
+    pub gateway: Gateway,
 }
 
 pub(crate) fn pairing(now: Arc<AtomicI64>, address: Result<String, String>) -> Pairing {
@@ -51,8 +52,9 @@ pub(crate) fn rig_with(fleet: crate::Fleet) -> Rig {
         fleet,
         assets: None,
         pairing: pairing(now.clone(), Ok("https://mac.tail.ts.net".into())),
+        push: crate::push_tests::test_push(),
     };
-    Rig { app: router(gateway), now }
+    Rig { app: router(gateway.clone()), now, gateway }
 }
 
 fn key() -> SigningKey {
@@ -131,6 +133,7 @@ async fn start_without_tailscale_says_what_to_do() {
         fleet: Arc::new(|| Err(String::new())),
         assets: None,
         pairing: pairing(now, Err("Tailscale is not installed on this Mac.".into())),
+        push: crate::push_tests::test_push(),
     };
     let (status, body) = call(&router(gateway), Method::POST, "/admin/pair/start", &[], "").await;
     assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);

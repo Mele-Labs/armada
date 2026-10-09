@@ -12,6 +12,7 @@ fn gateway() -> Gateway {
         fleet: Arc::new(|| Err("Fleet is not running".to_string())),
         assets: None,
         pairing: crate::pairing_tests::rig_pairing(),
+        push: crate::push_tests::test_push(),
     }
 }
 

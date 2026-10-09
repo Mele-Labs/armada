@@ -200,7 +200,7 @@ pub use attempt::Attempted;
 pub use check_runs::{CheckOutcome, CheckRun};
 pub use crew::{ExtraEnded, TaskEdit};
 pub use delivery::{Currency, Delivery, Unsettled};
-pub use devices::Device;
+pub use devices::{Device, PushSubscription};
 pub use drift::ScopeDrift;
 pub use error::{DatabaseFault, LoadAllError, LoadJobError, OpenError, RowError, WriteError};
 pub use fold::{Moved, RecordedEvent};

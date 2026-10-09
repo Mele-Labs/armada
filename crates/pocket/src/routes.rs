@@ -10,7 +10,7 @@ use axum::response::{IntoResponse, Response};
 use axum::routing::{delete, get, post};
 use axum::Router;
 
-use crate::{admin, fleet_client, pair_routes, reads, signing, stat};
+use crate::{admin, fleet_client, pair_routes, push, reads, signing, stat};
 
 /// Where Fleet is now: its port out of the runtime file, read afresh each time
 /// so a Fleet that restarted is found, or the sentence saying why it is not.
@@ -22,6 +22,7 @@ pub struct Gateway {
     /// The built PWA. `None`, or a directory that is not there, serves nothing.
     pub assets: Option<PathBuf>,
     pub pairing: crate::Pairing,
+    pub push: push::Push,
 }
 
 /// A route whose issue has not landed.
@@ -66,7 +67,8 @@ pub fn router(gateway: Gateway) -> Router {
         .route("/api/jobs", get(reads::jobs).post(later))
         .route("/api/jobs/:id", get(reads::job))
         .route("/api/live", get(reads::live))
-        .route("/api/push/subscribe", post(later))
+        .route("/api/push/subscribe", post(push::subscribe))
+        .route("/api/push/key", get(push::key))
         .route("/api/jobs/:id/approve", post(later))
         .route("/api/jobs/:id/redirect", post(later))
         .route("/api/jobs/:id/restart_step", post(later))

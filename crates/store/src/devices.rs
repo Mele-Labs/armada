@@ -14,6 +14,17 @@ pub struct Device {
     pub last_seen_at: Option<i64>,
 }
 
+/// A phone's Web Push subscription, as the browser's `PushSubscription` gives it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PushSubscription {
+    pub device_id: String,
+    pub endpoint: String,
+    /// The phone's P-256 key, base64url.
+    pub p256dh: String,
+    /// The phone's 16-byte authentication secret, base64url.
+    pub auth: String,
+}
+
 const COLUMNS: &str = "device_id, name, public_key, created_at, last_seen_at";
 
 fn device(row: &rusqlite::Row<'_>) -> rusqlite::Result<Device> {
@@ -91,5 +102,49 @@ impl Store {
             .map_err(fault(doing))?;
         tx.commit().map_err(fault(doing))?;
         Ok(gone == 1)
+    }
+
+    /// Keep this subscription for the device in place of any it had before.
+    pub fn set_push_subscription(&mut self, sub: &PushSubscription) -> Result<(), DatabaseFault> {
+        let doing = "saving a phone's push subscription";
+        let tx = self.conn.transaction().map_err(fault(doing))?;
+        tx.execute("DELETE FROM pocket_push_subscriptions WHERE device_id = ?1", (&sub.device_id,))
+            .map_err(fault(doing))?;
+        tx.execute(
+            "INSERT INTO pocket_push_subscriptions (device_id, endpoint, p256dh, auth) VALUES (?1, ?2, ?3, ?4)",
+            (&sub.device_id, &sub.endpoint, &sub.p256dh, &sub.auth),
+        )
+        .map_err(fault(doing))?;
+        tx.commit().map_err(fault(doing))
+    }
+
+    pub fn push_subscriptions(&self) -> Result<Vec<PushSubscription>, DatabaseFault> {
+        let doing = "reading the push subscriptions";
+        let mut asking = self
+            .conn
+            .prepare("SELECT device_id, endpoint, p256dh, auth FROM pocket_push_subscriptions ORDER BY device_id")
+            .map_err(fault(doing))?;
+        let rows = asking
+            .query_map([], |row| {
+                Ok(PushSubscription {
+                    device_id: row.get(0)?,
+                    endpoint: row.get(1)?,
+                    p256dh: row.get(2)?,
+                    auth: row.get(3)?,
+                })
+            })
+            .map_err(fault(doing))?;
+        rows.collect::<Result<_, _>>().map_err(fault(doing))
+    }
+
+    /// Drop a subscription the push service said is gone.
+    pub fn remove_push_subscription(&mut self, device_id: &str, endpoint: &str) -> Result<(), DatabaseFault> {
+        self.conn
+            .execute(
+                "DELETE FROM pocket_push_subscriptions WHERE device_id = ?1 AND endpoint = ?2",
+                (device_id, endpoint),
+            )
+            .map_err(fault("dropping a push subscription"))?;
+        Ok(())
     }
 }
