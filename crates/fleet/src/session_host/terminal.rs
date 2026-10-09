@@ -20,6 +20,7 @@ use store::{KeptSession, SessionState};
 
 use super::rows::{mention_line, SESSION_THREAD_UNREADABLE as THREAD_UNREADABLE};
 use super::serving::MESSAGE_EMPTY;
+use super::thread_cache::ThreadCache;
 use crate::daemon::Fleet;
 
 /// A send to a session whose mod has not asked lately. A 409.
@@ -49,6 +50,8 @@ pub struct Terminals {
     polled: Mutex<HashMap<String, Instant>>,
     /// Rung when a question is answered or closed, for the polls holding on it.
     pub(crate) rung: tokio::sync::Notify,
+    /// The threads Bridge has opened, kept drawn.
+    threads: Arc<ThreadCache>,
 }
 
 impl Terminals {
@@ -159,6 +162,11 @@ impl Terminals {
             .lock()
             .expect("held across no panic")
             .remove(session);
+        self.threads.forget(session);
+    }
+
+    pub(super) fn threads(&self) -> Arc<ThreadCache> {
+        Arc::clone(&self.threads)
     }
 }
 
@@ -180,18 +188,10 @@ where
     ) -> Result<Vec<SessionRow>, Refusal> {
         let home = self.host().home.clone();
         let id = session.id.clone();
-        let (file, rows, next) = tokio::task::spawn_blocking(move || {
-            let file = adapters::terminal_thread::find(&home, &id);
-            match file {
-                Some(file) => match adapters::terminal_thread::read_from(&file, 0) {
-                    Ok(thread) => (Some(file), thread.rows, thread.next),
-                    Err(_) => (Some(file), Vec::new(), 0),
-                },
-                None => (None, Vec::new(), 0),
-            }
-        })
-        .await
-        .map_err(|why| self.hosted_fault(THREAD_UNREADABLE, &why.to_string()))?;
+        let threads = self.hosts().terminals().threads();
+        let (file, rows, next) = tokio::task::spawn_blocking(move || threads.thread(&home, &id))
+            .await
+            .map_err(|why| self.hosted_fault(THREAD_UNREADABLE, &why.to_string()))?;
         if self.hosts().terminals().begin_watching(&session.id) {
             let fleet = Arc::clone(self);
             let id = session.id.clone();

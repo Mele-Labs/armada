@@ -19,6 +19,7 @@ mod places;
 mod process;
 mod rows;
 mod serving;
+mod thread_cache;
 pub(crate) use serving::NO_SUCH_SESSION;
 mod terminal;
 pub(crate) mod waiting;

@@ -335,9 +335,10 @@ where
         let home = self.host().home.clone();
         let session = id.as_str().to_string();
         let subagent_id = subagent.clone();
+        let threads = self.hosts().terminals().threads();
         let read = tokio::task::spawn_blocking(move || {
             adapters::terminal_thread::find_subagent(&home, &session, &subagent)
-                .map(|file| adapters::terminal_thread::read_subagent(&file))
+                .map(|file| threads.subagent(&file, &session, &subagent))
         })
         .await
         .map_err(|why| self.hosted_fault(ATTACHMENT_REFUSED, &why.to_string()))?;
