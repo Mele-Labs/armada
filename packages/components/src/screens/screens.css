@@ -3191,3 +3191,37 @@
 
 /* A Job's marks beside its title in the pane: paused, fixing main, an alert, piloted. */
 .armada-call__marks { display: inline-flex; align-items: center; gap: var(--space-2); margin-left: var(--space-3); vertical-align: middle; }
+
+/* The Overview with its Now panel: the cards (or the run) in one column, the
+   panel beside them. The panel is as tall as what it holds, from the top. */
+.armada-overview-board__with-now {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.armada-overview-board__main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+/* A canvas node standing back while the Now panel's rows belong to other steps: the ground's own
+   scrim, twice, since a node is already close to the ground it sits on. */
+.armada-now-dimmed {
+  position: relative;
+}
+
+.armada-now-dimmed::before,
+.armada-now-dimmed::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: var(--radius-md);
+  background: var(--scrim);
+  pointer-events: none;
+}
