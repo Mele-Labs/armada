@@ -6,7 +6,7 @@ self.addEventListener("activate", (event) => event.waitUntil(self.clients.claim(
 
 self.addEventListener("push", (event) => {
   const push = event.data ? event.data.json() : {};
-  const body = [push.reason, push.step ? `${push.step.at}/${push.step.of}` : undefined].filter(Boolean).join("  ");
+  const body = [push.reason, push.step ? `${push.step.at} of ${push.step.of}` : undefined].filter(Boolean).join(" · ");
   event.waitUntil(
     self.registration.showNotification(push.title ?? "Armada", {
       body,

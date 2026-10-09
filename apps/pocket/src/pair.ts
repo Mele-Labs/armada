@@ -23,11 +23,7 @@ export function codeFromUrl(search: string): string {
   return code;
 }
 
-/**
- * TODO(open question): the Gateway's `POST /pair` answers 202 with no body and picks the
- * device id when Bridge confirms (`pairing.rs`, `confirm`), so the phone has no way to learn
- * it. This reads `device_id` from the claim's answer; the Gateway has to send it there.
- */
+/** `POST /pair` answers 202 with `{device_id}`, chosen at claim. */
 export const deviceIdOf = (answer: unknown): string | undefined =>
   typeof answer === "object" && answer !== null && typeof (answer as { device_id?: unknown }).device_id === "string"
     ? (answer as { device_id: string }).device_id
