@@ -14,7 +14,15 @@ import { Input } from "../../primitives/Input/Input";
  * **Grouped, and a group with no match is not drawn.** Dark, Light and From mods are how a person
  * thinks of a theme before they think of its name.
  */
-export type ThemeChoice = { id: string; title: string };
+export type ThemeChoice = {
+  id: string;
+  title: string;
+  /**
+   * The colours the theme is previewed by, ground first, as the theme's own tokens give them. Absent
+   * draws a neutral strip of the same size, so a row never shifts when a theme's colours arrive.
+   */
+  swatch?: readonly string[];
+};
 export type ThemeGroup = { label: string; choices: readonly ThemeChoice[] };
 
 export type ThemePickerProps = {
@@ -25,6 +33,20 @@ export type ThemePickerProps = {
   groups: readonly ThemeGroup[];
   onValue: (id: string) => void;
 };
+
+const PLACEHOLDER_CELLS = 8;
+
+/** The theme's colours as one compact strip. Decoration: the name beside it says which theme. */
+function Swatch({ colours }: { colours: readonly string[] | undefined }) {
+  const cells = colours ?? Array.from({ length: PLACEHOLDER_CELLS }, () => null);
+  return (
+    <span className="armada-themepick__swatch" data-placeholder={colours === undefined || undefined} aria-hidden>
+      {cells.map((colour, at) => (
+        <span key={at} className="armada-themepick__cell" {...(colour === null ? {} : { style: { background: colour } })} />
+      ))}
+    </span>
+  );
+}
 
 export function ThemePicker({ label, value, groups, onValue }: ThemePickerProps) {
   const listId = useId();
@@ -96,7 +118,12 @@ export function ThemePicker({ label, value, groups, onValue }: ThemePickerProps)
         aria-activedescendant={open && flat.length > 0 ? optionId(active) : undefined}
         aria-autocomplete="list"
         autoComplete="off"
-        trailing={<ChevronDown className="armada-themepick__caret" size={16} strokeWidth={2} aria-hidden />}
+        trailing={
+          <span className="armada-themepick__trailing">
+            {chosen === undefined || query !== null ? null : <Swatch colours={chosen.swatch} />}
+            <ChevronDown className="armada-themepick__caret" size={16} strokeWidth={2} aria-hidden />
+          </span>
+        }
         onChange={(event) => {
           setQuery(event.target.value);
           setOpen(true);
@@ -135,7 +162,8 @@ export function ThemePicker({ label, value, groups, onValue }: ThemePickerProps)
                       choose(index);
                     }}
                   >
-                    {choice.title}
+                    <span className="armada-themepick__title">{choice.title}</span>
+                    <Swatch colours={choice.swatch} />
                   </div>
                 );
               })}

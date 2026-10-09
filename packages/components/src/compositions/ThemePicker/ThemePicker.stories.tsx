@@ -3,6 +3,7 @@ import type { ComponentProps } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, userEvent, within } from "storybook/test";
 
+import SHIPPED from "@armada/tokens/themes/index.json";
 import { ThemePicker } from "./ThemePicker";
 import type { ThemeGroup } from "./ThemePicker";
 
@@ -12,9 +13,15 @@ import type { ThemeGroup } from "./ThemePicker";
  * **Every state here is one a person meets.** The chosen theme, the list open on it, and the list
  * narrowed to what was typed with the groups that no longer match gone.
  */
+/** A shipped theme's own strip, as `index.json` carries it. */
+const swatchOf = (id: string): string[] => SHIPPED.find((one) => one.id === id)?.swatch ?? [];
+/** The tokens in force on the page, which is how Dark is previewed: its tokens are the page's own. */
+const DARK_NOW = ["--bg-base", "--bg-raised", "--fg-default", "--accent", "--status-completed-success", "--status-completed-failed", "--status-awaiting-review", "--status-running"].map((name) => `var(${name})`);
+
 const GROUPS: ThemeGroup[] = [
-  { label: "Dark", choices: [{ id: "dark", title: "Dark" }, { id: "catalogue:nord", title: "Nord" }, { id: "catalogue:dracula", title: "Dracula" }] },
-  { label: "Light", choices: [{ id: "light", title: "Light" }, { id: "catalogue:nord-light", title: "Nord Light" }] },
+  { label: "Dark", choices: [{ id: "dark", title: "Dark", swatch: DARK_NOW }, { id: "catalogue:nord", title: "Nord", swatch: swatchOf("catalogue:nord") }, { id: "catalogue:dracula", title: "Dracula", swatch: swatchOf("catalogue:dracula") }] },
+  { label: "Light", choices: [{ id: "light", title: "Light" }, { id: "catalogue:nord-light", title: "Nord Light", swatch: swatchOf("catalogue:nord-light") }] },
+  // A mod whose colours have not been checked yet has none to show.
   { label: "From mods", choices: [{ id: "dusk", title: "Dusk" }] },
 ];
 
@@ -42,12 +49,33 @@ function Picking(props: ComponentProps<typeof ThemePicker>) {
   );
 }
 
-/** Shut: the field says the chosen theme and nothing else. */
+/** Shut: the field says the chosen theme, with its strip, and nothing else. */
 export const Chosen: Story = {
-  render: (args) => <Picking {...args} />,
+  render: (args) => <Picking {...args} value="catalogue:nord" />,
   play: async ({ canvasElement }) => {
-    await expect(within(canvasElement).getByRole("combobox", { name: "Theme" })).toHaveValue("Dark");
+    await expect(within(canvasElement).getByRole("combobox", { name: "Theme" })).toHaveValue("Nord");
     await expect(within(canvasElement).queryByRole("listbox")).toBeNull();
+    await expect(strip(canvasElement)).toEqual(swatchOf("catalogue:nord").map(rgb));
+  },
+};
+
+/** The colours a strip paints, in order, as the browser resolves them. */
+const strip = (root: Element, at = 0): string[] =>
+  Array.from(root.querySelectorAll(".armada-themepick__swatch")[at]?.children ?? []).map((cell) => getComputedStyle(cell).backgroundColor);
+/** A hex colour as `getComputedStyle` spells it. */
+const rgb = (hex: string): string => {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgb(${n >> 16}, ${(n >> 8) & 255}, ${n & 255})`;
+};
+
+/** A theme whose colours are not known draws the same strip in neutral, so no row moves when they arrive. */
+export const Unknown: Story = {
+  render: (args) => <Picking {...args} value="dusk" />,
+  play: async ({ canvasElement }) => {
+    await userEvent.click(within(canvasElement).getByRole("combobox", { name: "Theme" }));
+    const cells = strip(canvasElement);
+    await expect(cells).toHaveLength(8);
+    await expect(new Set(cells).size).toBe(1);
   },
 };
 
@@ -61,6 +89,10 @@ export const Open: Story = {
     await expect(canvas.getByRole("group", { name: "Light" })).toBeVisible();
     await expect(canvas.getByRole("group", { name: "From mods" })).toBeVisible();
     await expect(canvas.getByRole("option", { name: "Dark" })).toHaveAttribute("aria-selected", "true");
+    // Each row carries its own theme's colours, not a neighbour's: the second strip is Nord's.
+    const options = canvasElement.querySelectorAll('[role="option"]');
+    const nord = Array.from(options[1]?.querySelectorAll(".armada-themepick__cell") ?? []).map((cell) => getComputedStyle(cell).backgroundColor);
+    await expect(nord).toEqual(swatchOf("catalogue:nord").map(rgb));
   },
 };
 

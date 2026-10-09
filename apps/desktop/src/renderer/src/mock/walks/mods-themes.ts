@@ -10,7 +10,8 @@ const theme = role("combobox", "Theme");
 
 export const modsThemes = walk("mods-themes", [
   { press: rail("Settings"), say: "Settings" },
-  { look: theme, say: "Dark is in force" },
+  { look: theme, say: "Dark is in force, with its colours beside it" },
+  { press: theme, say: "Every theme is previewed by its own colours" },
   { type: "light", into: theme, say: "Typing narrows the list" },
   { press: role("option", "Light", { exact: true }), say: "Light re-skins the window" },
   { type: "nord", into: theme, say: "A theme Bridge ships" },
@@ -29,5 +30,5 @@ export const modsThemes = walk("mods-themes", [
   { look: role("img", "Theme"), say: "Each row names its kind" },
   { look: role("group", "Dusk"), say: "Dusk" },
   { press: button("Promote Dusk"), say: "Promote" },
-  { look: text("Branch mods/dusk pushed. Pull request open."), say: "The outcome is a fact" },
+  { look: text(/^armada\/mod-dusk-\d+$/), say: "The branch it is on" },
 ]);

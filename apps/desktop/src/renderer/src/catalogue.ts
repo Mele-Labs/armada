@@ -5,7 +5,7 @@
 
 import type { CatalogueTheme } from "@armada/settings";
 
-type Entry = { id: string; title: string; tone: "dark" | "light"; source: string };
+type Entry = { id: string; title: string; tone: "dark" | "light"; source: string; swatch?: string[] };
 
 // Typed by hand, as `mock/scenario.ts` does: Vite's client types are not loaded here.
 type Globbing = ImportMeta & {
@@ -23,5 +23,5 @@ export const CATALOGUE: readonly CatalogueTheme[] = Object.values(INDEXES)
   .filter((one, at, all) => all.findIndex((other) => other.id === one.id) === at)
   .flatMap((one) => {
     const file = fileOf(one.id);
-    return file === undefined ? [] : [{ id: one.id, title: one.title, tone: one.tone, load: file }];
+    return file === undefined ? [] : [{ id: one.id, title: one.title, tone: one.tone, ...(one.swatch === undefined ? {} : { swatch: one.swatch }), load: file }];
   });

@@ -15,6 +15,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { derive, idOf, parseScheme, slugOf, titleOf } from "./derive.mjs";
+import { swatchOf } from "./swatch.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const SOURCE = "mbadolato/iTerm2-Color-Schemes";
@@ -28,11 +29,22 @@ export function build(schemes) {
     const made = derive(idOf(name), titleOf(name), parseScheme(text));
     if (made.flags.length > 0) problems.push(`${name}: ${made.flags.join("; ")}`);
     files.set(`css/${slugOf(name)}.css`, made.css);
-    index.push({ id: idOf(name), title: titleOf(name), tone: made.tone, source: name, flags: made.flags });
+    index.push({ id: idOf(name), title: titleOf(name), tone: made.tone, source: name, flags: made.flags, swatch: swatchOf(made.css) });
   }
   index.sort((a, b) => a.title.localeCompare(b.title));
   files.set("index.json", JSON.stringify(index, null, 2) + "\n");
   return { files, problems };
+}
+
+/**
+ * Dark's and Light's strips: Dark from the token set's own values (`tokens.json`), Light from the file
+ * that defines it over Dark. Written down here so that Bridge reads two lists, as it reads the
+ * catalogue's, and parses no stylesheet to draw the Theme field.
+ */
+export function builtIn() {
+  const dark = Object.fromEntries(JSON.parse(readFileSync(join(here, "../tokens.json"), "utf8")).tokens.map((t) => [t.name, t.value]));
+  const strips = { dark: swatchOf("", dark), light: swatchOf(readFileSync(join(here, "../src/light.css"), "utf8"), dark) };
+  return JSON.stringify(strips, null, 2) + "\n";
 }
 
 export function popular() {
@@ -55,6 +67,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     console.log(`wrote ${files.size - 1} themes to more/, ${problems.length} flagged (unreadable, shipped with their flags)`);
   } else {
     const { files, problems } = build(popular());
+    files.set("built-in.json", builtIn());
     if (problems.length > 0) {
       console.error("not shipped, fix the scheme or drop it from popular.txt:\n" + problems.map((p) => "  " + p).join("\n"));
       process.exit(1);
@@ -66,14 +79,14 @@ if (import.meta.url === `file://${process.argv[1]}`) {
         console.error("themes are stale; run generate.mjs:\n" + [...stale, ...extra.map((n) => `css/${n} (no longer in popular.txt)`)].map((p) => "  " + p).join("\n"));
         process.exit(1);
       }
-      console.log(`themes: ${files.size - 1} current`);
+      console.log(`themes: ${files.size - 2} current`);
     } else {
       rmSync(join(here, "css"), { recursive: true, force: true });
       for (const [path, text] of files) {
         mkdirSync(dirname(join(here, path)), { recursive: true });
         writeFileSync(join(here, path), text);
       }
-      console.log(`wrote ${files.size - 1} themes`);
+      console.log(`wrote ${files.size - 2} themes`);
     }
   }
 }

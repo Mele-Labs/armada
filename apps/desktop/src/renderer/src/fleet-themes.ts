@@ -34,7 +34,14 @@ export type FleetThemes = {
 
 const isBuiltIn = (id: string) => (BUILT_IN_THEMES as readonly string[]).includes(id);
 
-export function createFleetThemes(fleet: FleetThemes, catalogue: readonly CatalogueTheme[], tell: (sentence: string) => void = askToTell): ModsSource {
+/** How a theme is previewed: Dark and Light by id, and a mod from the stylesheet Fleet checked. */
+export type Colours = {
+  builtIn: Readonly<Record<string, readonly string[]>>;
+  /** Throws where the sheet gives no colour for a token. */
+  ofMod: (css: string) => readonly string[];
+};
+
+export function createFleetThemes(fleet: FleetThemes, catalogue: readonly CatalogueTheme[], colours: Colours, tell: (sentence: string) => void = askToTell): ModsSource {
   let facts: Facts["mods"] = null;
   let chosen = DARK;
   // The id the loader could not draw: shown as Dark until the list changes, and never forgotten.
@@ -42,6 +49,22 @@ export function createFleetThemes(fleet: FleetThemes, catalogue: readonly Catalo
   let saving = 0;
   let seen = "";
   const branches = new Map<string, string>();
+  // A mod's strip, kept with the `changed_at` it was read at, so an edited mod is read again.
+  const strips = new Map<string, { at: string; swatch: readonly string[] }>();
+  const reading = new Set<string>();
+  const stamp = (name: string) => facts?.mods.find((row) => row.name === name)?.changed_at ?? "";
+
+  /** Keep the strip a checked stylesheet gives, if it gives one. Returns whether anything moved. */
+  const keep = (name: string, css: string): boolean => {
+    try {
+      const swatch = colours.ofMod(css);
+      const before = strips.get(name);
+      strips.set(name, { at: stamp(name), swatch });
+      return before === undefined || before.at !== stamp(name) || before.swatch.join() !== swatch.join();
+    } catch {
+      return false;
+    }
+  };
   const listeners = new Set<() => void>();
 
   /** The stylesheet Fleet checked, or a rejection saying why there is none. */
@@ -49,6 +72,7 @@ export function createFleetThemes(fleet: FleetThemes, catalogue: readonly Catalo
     const checked = await fleet.validateMod(name);
     if (checked === null) throw new Error(`${name} could not be checked`);
     if (!checked.valid || checked.css === undefined) throw new Error(checked.problems[0] ?? `${name} did not pass its checks`);
+    if (keep(name, checked.css)) refresh();
     return checked.css;
   };
 
@@ -59,19 +83,36 @@ export function createFleetThemes(fleet: FleetThemes, catalogue: readonly Catalo
       enabled: row.enabled,
       ...(row.valid ? {} : { problem: row.reason ?? "Did not pass its checks" }),
       ...(branches.has(row.name) ? { branch: branches.get(row.name)! } : {}),
+      ...(strips.get(row.name)?.at === (row.changed_at ?? "") ? { swatch: strips.get(row.name)!.swatch } : {}),
       load: loadOf(row.name),
     }));
 
   const stateNow = (): ThemeState => {
     const mods = modsNow();
     const drawable = isBuiltIn(chosen) || catalogue.some((one) => one.id === chosen) || mods.some((mod) => mod.name === chosen && offered(mod));
-    return { mods, catalogue, active: drawable && declined !== chosen ? chosen : DARK };
+    return { mods, catalogue, active: drawable && declined !== chosen ? chosen : DARK, swatches: colours.builtIn };
   };
 
   let held = stateNow();
-  const refresh = () => {
+  function refresh() {
     held = stateNow();
     listeners.forEach((on) => on());
+  }
+
+  /** The strip of each mod the picker will offer, read ahead of its being chosen: a check, and nothing is applied. */
+  const preview = () => {
+    for (const row of facts?.mods ?? []) {
+      const key = `${row.name}@${row.changed_at ?? ""}`;
+      if (!row.valid || !row.enabled || strips.get(row.name)?.at === (row.changed_at ?? "") || reading.has(key)) continue;
+      reading.add(key);
+      fleet.validateMod(row.name).then(
+        (checked) => {
+          reading.delete(key);
+          if (checked?.valid === true && checked.css !== undefined && keep(row.name, checked.css)) refresh();
+        },
+        () => void reading.delete(key),
+      );
+    }
   };
 
   /** Save the theme word. A refusal puts the old word back and, for the owner's own press, says why. */
@@ -100,6 +141,7 @@ export function createFleetThemes(fleet: FleetThemes, catalogue: readonly Catalo
     declined = null;
     if (saving === 0) chosen = theme;
     refresh();
+    preview();
     // A mod the owner chose that is no longer there, or no longer on, is not chosen any more.
     const gone = !isBuiltIn(chosen) && !chosen.startsWith(CATALOGUE) && facts !== null && !facts.mods.some((row) => row.name === chosen && row.enabled);
     if (gone && saving === 0) void save(DARK, true);

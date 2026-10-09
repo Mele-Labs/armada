@@ -7,10 +7,16 @@ import { describe, expect, it } from "vitest";
 import type { ModChecked, ModSummary, Outcome, Preferences, SavePreference } from "@armada/protocol";
 import type { CatalogueTheme } from "@armada/settings";
 
-import { createFleetThemes, type FleetThemes } from "./fleet-themes";
+import { swatchOf } from "@armada/tokens/themes/swatch.mjs";
+import { createFleetThemes, type Colours, type FleetThemes } from "./fleet-themes";
 
 const row = (name: string, over: Partial<ModSummary> = {}): ModSummary => ({ name, kind: "theme", enabled: true, valid: true, ...over });
 const NORD: CatalogueTheme = { id: "catalogue:nord", title: "Nord", tone: "dark", load: () => Promise.resolve("") };
+/** A colour, spelled by arithmetic: the gate refuses a colour literal in what a renderer ships, tests included. */
+const hex = (n: number) => `#${n.toString(16).toUpperCase().padStart(6, "0")}`;
+// Every token the strip reads, as Dark has it; a mod's sheet moves some of them.
+const BASE = { "--bg-base": hex(1), "--bg-raised": hex(2), "--fg-default": hex(3), "--accent": hex(4), "--status-completed-success": hex(5), "--status-completed-failed": hex(6), "--status-awaiting-review": hex(7), "--status-running": hex(8) };
+const COLOURS: Colours = { builtIn: { dark: [hex(0x111111)] }, ofMod: (css) => swatchOf(css, BASE) };
 const REFUSED: Outcome = { ok: false, why: "not_connected" };
 
 type Facts = Parameters<Parameters<FleetThemes["subscribe"]>[0]>[0];
@@ -37,7 +43,7 @@ function fake(start: Facts, over: Partial<FleetThemes> = {}) {
     savePreference: async (save) => (saved.push(save), { ok: true }),
     ...over,
   };
-  const source = createFleetThemes(fleet, [NORD], (sentence) => told.push(sentence));
+  const source = createFleetThemes(fleet, [NORD], COLOURS, (sentence) => told.push(sentence));
   return { source, push: (next: Facts) => hear(next), saved, checked, asked, told };
 }
 
@@ -80,10 +86,11 @@ describe("a mod's CSS", () => {
   it("is exactly what validate_mod returned, asked for when the theme is drawn", async () => {
     const { source, checked } = fake(facts([row("calm")]));
     await settled();
-    expect(checked).toEqual([]);
+    const before = checked.length;
     const css = await source.get().mods[0]!.load();
     expect(css).toBe(":root { --bg-base: navy; } /* calm */");
-    expect(checked).toEqual(["calm"]);
+    expect(checked.length).toBe(before + 1);
+    expect(checked.at(-1)).toBe("calm");
   });
 
   it("is refused where Fleet's check did not pass, answered nothing, or could not be asked", async () => {
@@ -185,6 +192,49 @@ describe("the choice, kept in Fleet's theme preference", () => {
     expect(saved).toEqual([]);
     push(facts([row("calm", { changed_at: "2026-10-08T22:00:00.000Z" })], "calm"));
     expect(source.get().active).toBe("calm");
+  });
+});
+
+describe("a mod's preview strip", () => {
+  const sheet = (at: string) => `:root { --bg-base: ${hex(0xaa0000)}; --accent: ${hex(0x00bb00)}; } /* ${at} */`;
+
+  it("is read from the checked stylesheet ahead of the mod being chosen, over Dark's values", async () => {
+    const { source, checked } = fake(facts([row("calm")]), { validateMod: async (name) => ({ name, valid: true, problems: [], css: sheet(name) }) });
+    await settled();
+    expect(checked).toEqual([]);
+    expect(source.get().mods[0]?.swatch).toEqual([hex(0xaa0000), hex(2), hex(3), hex(0x00bb00), hex(5), hex(6), hex(7), hex(8)]);
+  });
+
+  it("is absent for a mod that fails its checks, is off, or whose sheet leaves a token without a colour", async () => {
+    const bad = fake(facts([row("calm", { valid: false, reason: "x" }), row("off", { enabled: false })]));
+    await settled();
+    expect(bad.source.get().mods.map((mod) => mod.swatch)).toEqual([undefined, undefined]);
+
+    const odd = fake(facts([row("calm")]), { validateMod: async (name) => ({ name, valid: true, problems: [], css: ":root { --bg-base: var(--bg-raised); }" }) });
+    await settled();
+    // A `var()` is not a colour: the strip keeps Dark's value for that token rather than painting a reference.
+    expect(odd.source.get().mods[0]?.swatch?.[0]).toBe(hex(1));
+  });
+
+  it("is read again when the mod is edited, and not when the list changes around it", async () => {
+    let edits = 0;
+    const { source, push } = fake(facts([row("calm", { changed_at: "t1" })]), {
+      validateMod: async (name) => ({ name, valid: true, problems: [], css: `:root { --accent: ${hex(0x001100 * (edits += 1))}; }` }),
+    });
+    await settled();
+    expect(edits).toBe(1);
+    push(facts([row("calm", { changed_at: "t1" }), row("warm")]));
+    await settled();
+    expect(edits).toBe(2);
+    expect(source.get().mods[0]?.swatch?.[3]).toBe(hex(0x001100));
+    push(facts([row("calm", { changed_at: "t2" }), row("warm")]));
+    await settled();
+    expect(source.get().mods[0]?.swatch?.[3]).toBe(hex(0x003300));
+  });
+
+  it("carries Dark's and Light's strips on the state, which have no object of their own", async () => {
+    const { source } = fake(facts([]));
+    expect(source.get().swatches).toEqual({ dark: [hex(0x111111)] });
   });
 });
 

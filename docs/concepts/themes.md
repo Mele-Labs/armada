@@ -22,6 +22,18 @@
 
 **Bridge reads a `ThemeSource`** (`packages/surfaces/settings/src/theme-source.tsx`): the mods, the catalogue and the active id, with `setActive`. Settings, the Mods surface and the renderer's loader (`apps/desktop/src/renderer/src/theme.tsx`) read the same source. The mock runs on an in-memory one. Bridge runs on `fleet-themes.ts`, which takes the mod list from `list_mods` and `mods.changed` and keeps the choice in Fleet's `theme` preference, so it is the same on every window and survives a relaunch. A mod's CSS is not held: the loader asks for it when the theme is drawn and adopts the `css` that `validate_mod` returned. `docs/concepts/mods.md` says what each answer of the list comes to.
 
+## The preview strip
+
+**Each theme in the Theme field is drawn with a strip of eight colours** after its name, and the closed field shows the chosen theme's. They are the theme's ground (`--bg-base`), a surface (`--bg-raised`), its text (`--fg-default`), its accent and four status hues (`--status-completed-success`, `-completed-failed`, `-awaiting-review`, `-running`), read from the theme's own tokens. `packages/tokens/themes/swatch.mjs` names the eight, and that is the one place that does.
+
+| Theme | Where its strip comes from |
+|---|---|
+| Catalogue | `swatch` on its entry in `index.json`, written by `generate.mjs`, so the list is drawn without reading any theme's CSS |
+| Dark, Light | `built-in.json`, written by `generate.mjs` from `tokens.json` and `light.css` |
+| A mod | The `css` of `validate_mod`, over Dark's values for any token the sheet does not declare; the same strip, in neutral, until Fleet has checked it |
+
+A value that is not a plain colour, such as a `var()`, is not painted: that token keeps Dark's. `generate.mjs --check` fails on a stale `index.json` or `built-in.json`.
+
 ## What the loader refuses
 
 | Input | Result |

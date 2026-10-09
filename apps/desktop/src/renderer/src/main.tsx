@@ -15,6 +15,7 @@ import { WiredSessions } from "./sessions-wired";
 import { CATALOGUE } from "./catalogue";
 import { Themed } from "./theme";
 import { createFleetThemes } from "./fleet-themes";
+import { BUILT_IN_SWATCHES, modSwatch } from "./swatches";
 
 // Bridge's renderer entry point. No Node, no `require`, no socket — everything
 // it draws arrives through the preload from the one connection in the main
@@ -27,7 +28,7 @@ import { createFleetThemes } from "./fleet-themes";
 // when everything under it has gone.
 
 /** The themes this window offers: Fleet's mods and the saved preference, and the catalogue Bridge ships. */
-const THEMES = createFleetThemes(window.armada, CATALOGUE);
+const THEMES = createFleetThemes(window.armada, CATALOGUE, { builtIn: BUILT_IN_SWATCHES, ofMod: modSwatch });
 
 /**
  * Who Bridge is, read once. The only state above the boundary, and the least

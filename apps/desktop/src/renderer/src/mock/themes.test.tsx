@@ -4,6 +4,9 @@
 import { afterEach, expect, test } from "vitest";
 import { page } from "vitest/browser";
 
+import BUILT_IN from "@armada/tokens/themes/built-in.json";
+import INDEX from "@armada/tokens/themes/index.json";
+
 import { mount, onScreen, unmountAfterEach } from "./testing";
 import { DUSK_MOD, mockThemes } from "./themes";
 
@@ -78,6 +81,28 @@ test("the field groups themes by tone and narrows as it is typed in", async () =
   await page.getByRole("combobox", { name: "Theme" }).fill("latte");
   await expect.element(page.getByRole("option", { name: "Catppuccin Latte" })).toBeVisible();
   await expect.element(page.getByRole("option", { name: "Catppuccin Mocha" })).not.toBeInTheDocument();
+});
+
+/** The colours of the strip on the row named `name`, as the browser paints them. */
+const stripOf = (name: string) =>
+  Array.from(page.getByRole("option", { name, exact: true }).element().querySelectorAll(".armada-themepick__cell")).map((cell) => getComputedStyle(cell).backgroundColor);
+const rgb = (hex: string) => {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgb(${n >> 16}, ${(n >> 8) & 255}, ${n & 255})`;
+};
+
+test("each row carries its own theme's strip, from the index and the built-in list, and the field the chosen one's", async () => {
+  mount("mods-themes");
+  await onScreen();
+  mockThemes.install(DUSK_MOD);
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByRole("combobox", { name: "Theme" }).click();
+  expect(stripOf("Nord")).toEqual(INDEX.find((one) => one.id === "catalogue:nord")!.swatch.map(rgb));
+  expect(stripOf("Dark")).toEqual(BUILT_IN.dark.map(rgb));
+  expect(stripOf("Light")).toEqual(BUILT_IN.light.map(rgb));
+  // A mod's comes from its checked CSS: Dusk moves the ground off Dark's.
+  expect(stripOf("Dusk")[0]).toBe(rgb(authored("theme.css", "--bg-base")));
+  expect(stripOf("Dusk")[0]).not.toBe(rgb(BUILT_IN.dark[0]!));
 });
 
 test("a mod's theme is applied from its CSS, and Dark returns when it is switched off", async () => {

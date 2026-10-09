@@ -22,6 +22,8 @@ export type ThemeMod = {
   problem?: string;
   /** The branch of the repository it was put on, once it has been. */
   branch?: string;
+  /** Its preview colours, from the CSS Fleet checked. Absent until that CSS has been read. */
+  swatch?: readonly string[];
   load(): Promise<string>;
 };
 
@@ -30,9 +32,22 @@ export type ThemeMod = {
  * `[data-theme="<id>"]` block like a mod's `theme.css`, fetched when it is chosen so that none of
  * it is in the initial stylesheet. Its id carries a `catalogue:` prefix, which no mod's name has.
  */
-export type CatalogueTheme = { id: string; title: string; tone: "dark" | "light"; load(): Promise<string> };
+export type CatalogueTheme = {
+  id: string;
+  title: string;
+  tone: "dark" | "light";
+  /** Its preview colours, carried by the index so that the list is drawn without reading any theme's CSS. */
+  swatch?: readonly string[];
+  load(): Promise<string>;
+};
 
-export type ThemeState = { mods: readonly ThemeMod[]; catalogue: readonly CatalogueTheme[]; active: string };
+export type ThemeState = {
+  mods: readonly ThemeMod[];
+  catalogue: readonly CatalogueTheme[];
+  active: string;
+  /** Preview colours by id for the themes that are no object of their own: Dark and Light. */
+  swatches?: Readonly<Record<string, readonly string[]>>;
+};
 
 export interface ThemeSource {
   get(): ThemeState;

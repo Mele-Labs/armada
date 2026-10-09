@@ -6,6 +6,7 @@ import { createThemeSource } from "@armada/settings";
 import type { ThemeMod } from "@armada/settings";
 
 import { CATALOGUE } from "../catalogue";
+import { BUILT_IN_SWATCHES, modSwatch } from "../swatches";
 
 // Typed by hand, as `catalogue.ts` does: Vite's client types are not loaded here.
 const FILES = (
@@ -15,7 +16,8 @@ const FILES = (
 ).glob("../../../../../../packages/tokens/themes/example-mod/dusk/theme.css", { eager: true, query: "?raw", import: "default" });
 
 /** The theme a Session writes into the mod folder in the `mods-themes` scenario. */
-export const DUSK_MOD: ThemeMod = { name: "dusk", title: "Dusk", enabled: true, load: () => Promise.resolve(Object.values(FILES)[0] ?? "") };
+const DUSK_CSS = Object.values(FILES)[0] ?? "";
+export const DUSK_MOD: ThemeMod = { name: "dusk", title: "Dusk", enabled: true, swatch: modSwatch(DUSK_CSS), load: () => Promise.resolve(DUSK_CSS) };
 
 /** The catalogue and no mods, Dark in force: where every mock window starts. */
-export const mockThemes = createThemeSource(() => ({ mods: [], catalogue: CATALOGUE, active: "dark" }));
+export const mockThemes = createThemeSource(() => ({ mods: [], catalogue: CATALOGUE, active: "dark", swatches: BUILT_IN_SWATCHES }));
