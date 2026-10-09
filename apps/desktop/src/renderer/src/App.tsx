@@ -676,7 +676,6 @@ export function App({ draft }: AppProps = {}) {
               stylesheet where it can be read, and in the components' one so a
               story can check it. `.armada-screen__mounted` says why. */}
           <div className="armada-screen__mounted">
-            {slept.sheet}
             <Standing
               fleet={fleet} connection={state.connection} bridge={state.bridge} onRestartFleet={restartFleet}
               // **Not while the file is on screen**, which draws the same

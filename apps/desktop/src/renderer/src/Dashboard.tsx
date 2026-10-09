@@ -19,6 +19,7 @@ import {
   LoaderCircle,
   Megaphone,
   MessageSquare,
+  Moon,
   OctagonAlert,
   Scale,
   ShieldCheck,
@@ -30,6 +31,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { Button, Radio, RadioGroup, Textarea } from "@armada/components";
+import type { MorningDecided } from "@armada/components";
 import type { FixMain, JobSummary, RepositorySummary, WaitingItem } from "@armada/protocol";
 import type { AboutFiles, AboutLink, CallAskView, CallView } from "@armada/jobs/draft/calls";
 import type { NowView } from "@armada/jobs/draft/now";
@@ -42,6 +44,7 @@ import { useListKeydown } from "@armada/screens/src/list-keyboard";
 import type { BridgeState } from "../../shared/bridge";
 import { viewsOf } from "./merge-line";
 import { useSessions } from "./sessions-draft";
+import { useSleepDecided } from "./sleep";
 import { forgetCleared, identityOf, useDismissed } from "./cockpit/dismissed";
 import { callsFromWaiting, sessionIdOf, type WaitingCall } from "./cockpit/waiting";
 
@@ -92,6 +95,8 @@ export type Item = {
   settling?: true;
   /** A Session's recent cadence, each bar 0 to 1: a message tall, a tool call short. */
   spark?: readonly number[];
+  /** The decision Sleep made, where the item is one: the call keeps it or changes it. */
+  sleep?: MorningDecided;
   /** What a Session's call waits on: the item, which is what the call answers. */
   waiting?: { sessionId: string; item: WaitingItem };
 };
@@ -436,6 +441,24 @@ function waitingItem({ session, item }: WaitingCall, hosts: Hosts): Item {
   };
 }
 
+/** One thing Sleep decided for the owner, as a call: he keeps it or changes it. */
+function sleepItem(one: MorningDecided): Item {
+  return {
+    key: `sleep:${one.id}`,
+    icon: Moon,
+    kind: "Sleep",
+    title: one.who,
+    fact: one.asked,
+    hue: "ask",
+    where: "",
+    body: [],
+    context: [one.chose, ...(one.corrected === undefined ? [] : [`Changed to ${one.corrected}`])],
+    contextHead: "Chose",
+    sleep: one,
+    acts: () => null,
+  };
+}
+
 /** `rehearsed` is the mock, where a Drone's look at a pull request plays out in place on a timer. */
 function lineItems(state: BridgeState, tab: DashboardTab, hosts: Hosts, rehearsed: boolean): Item[] {
   const items: Item[] = [];
@@ -534,6 +557,7 @@ export function useItems(
   const sessions = useSessions();
   const nows = useContext(Nows);
   const dismissed = useDismissed();
+  const slept = useSleepDecided();
   const calls = tab === "command-central";
   const items = useMemo(() => {
     const read = overviewListsOf(state.jobs, picked);
@@ -562,6 +586,7 @@ export function useItems(
           });
       }
       items.push(...callsFromWaiting(sessions).map((one) => waitingItem(one, hosts)));
+      items.push(...slept.map(sleepItem));
     } else {
       const jobs = tab === "running" ? of(["running", "queued", "other"]) : of(["recently-ended", "done"]);
       for (const job of jobs) {
@@ -610,7 +635,7 @@ export function useItems(
       return { ...item, ...(steps.length === 0 ? {} : { steps, stepAt: at }), ...(settling ? { settling: true as const } : {}), ...(active === undefined ? {} : { ...active, live: true }) };
     });
     return drawn.filter((item) => !answered.has(item.key));
-  }, [tab, state, picked, nowViews, nows, sessions, answered, dismissed]);
+  }, [tab, state, picked, nowViews, nows, sessions, slept, answered, dismissed]);
   // A call dismissed for good stays gone while its state stands; once the state clears, the next one shows.
   const standing = useMemo(() => new Set(items.map(identityOf)), [items]);
   const board = state.jobs.length > 0 || viewsOf(state).length > 0;

@@ -64,5 +64,7 @@ export function createFleetSleep(fleet: FleetSleep): SleepSource {
     },
     toggle: () => void fleet.setSleep(!state.on).then(took),
     override: (id, text) => void fleet.overrideSleep(id, text).then(took),
+    // Reviewed is not on the wire yet.
+    review: () => undefined,
   };
 }

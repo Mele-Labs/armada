@@ -1,7 +1,7 @@
 // Mock-only: sleep mode with no Fleet behind it. Turning it on starts a night — the grace here is a
 // second or so, where the proposal is two minutes — and each event lands in turn: a question answered
 // for the owner, a pull request merged, a walk held. Turning it off lets the rest of the night pass at
-// once, so a walk reads the same review every time. An Override marks the row corrected.
+// once, so a walk reads the same review every time. Keeping or changing a decision takes its row off, which is what takes its call off the Cockpit.
 
 import type { SleepSource, SleepState } from "../sleep";
 
@@ -68,8 +68,9 @@ export function createMockSleep(): SleepSource & { reset(): void } {
       next = NIGHT.length;
       set(to);
     },
-    override: (id, text) =>
-      set({ ...state, decided: state.decided.map((one) => (one.id === id ? { ...one, corrected: text } : one)) }),
+    // A decision answered either way is reviewed: its call leaves the Cockpit.
+    override: (id, _text) => set({ ...state, decided: state.decided.filter((one) => one.id !== id) }),
+    review: (id) => set({ ...state, decided: state.decided.filter((one) => one.id !== id) }),
   };
 }
 

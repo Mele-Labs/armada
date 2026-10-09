@@ -17,6 +17,7 @@ import { refusalWords } from "@armada/screens/src/refusal-words";
 import type { BridgeState } from "../../../shared/bridge";
 import { viewsOf } from "../merge-line";
 import { useSessions, useSessionsDraft } from "../sessions-draft";
+import { useSleepSource } from "../sleep";
 import { attachPr } from "./claims";
 import { answerWaiting } from "./answer-waiting";
 import { dismissItem } from "./dismissed";
@@ -211,8 +212,14 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
     ...sessions.filter((one) => one.dead === undefined).map((one): Owner => ({ kind: "session", id: one.id, title: one.title ?? one.id })),
   ];
 
+  // A Sleep decision is kept, or changed in words; either way it is reviewed and the call leaves.
+  const slept = useSleepSource();
+  const sleep = item.sleep;
+  const reviewed = (id: string) => slept?.review(id);
+
   const answer = (label: string, run: () => void, extra: Partial<Answer> = {}): Answer => ({ id: label, label, run, ...extra });
   const actsOf = (): Answer[] => {
+    if (sleep !== undefined) return [answer("Keep", () => (reviewed(sleep.id), finish()))];
     if (waiting !== undefined) {
       const given = waiting.item;
       // A walk needs no choice: approving is what Fleet does with an answer that names none.
@@ -289,6 +296,9 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
     ...(decisions === undefined || decisions.length < 2 ? {} : { decision: { at, of: decisions.length } }),
     open,
     ...(owner === undefined ? {} : { owner }),
+    ...(sleep !== undefined
+      ? { reply: (text: string, accepted?: () => void) => (slept?.override(sleep.id, text), reviewed(sleep.id), accepted?.(), finish()) }
+      : {}),
     ...(replies ? { reply: (text: string, accepted?: () => void) => sendWaiting("reply", { text }, accepted) } : {}),
     ...(attaching ? { attaching: { candidates, choose: attach, close: () => setAttaching(false) } } : {}),
     pending,
