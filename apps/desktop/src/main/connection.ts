@@ -24,6 +24,7 @@ import { applyArrival, readCapacity, reread } from "./arrivals";
 import type { ArrivalHost } from "./arrivals";
 import { JobCommands } from "./command";
 import { PilotExits } from "./pilot-exits";
+import { FleetBuilds } from "./fleet-build";
 import { FollowSocket } from "./following";
 import { LandFollowSocket } from "./land-following";
 import { HelmConnection } from "./helm";
@@ -173,6 +174,12 @@ export class FleetConnection {
     (change) => this.publish(change),
     () => this.connected()?.port ?? null,
   );
+  /** The build Fleet runs on and the restart onto another — `fleet-build.ts`. */
+  readonly fleetBuild: FleetBuilds = new FleetBuilds({
+    port: () => this.connected()?.port ?? null,
+    current: () => this.current,
+    publish: (change) => this.publish(change),
+  });
   /** The mods on this machine and the acts on one — `mods.ts`. */
   readonly mods: Modding = new Modding(
     (change) => this.publish(change),
@@ -312,6 +319,7 @@ export class FleetConnection {
       studios: this.studios,
       mods: this.mods,
       sessions: this.sessions,
+      fleetBuild: this.fleetBuild,
       material: this.material,
       socket: this.socket,
       publish: (change) => this.publish(change),
@@ -452,6 +460,7 @@ export class FleetConnection {
     this.held.close();
     this.studios.close();
     this.sessions.close();
+    this.fleetBuild.close();
     for (const facades of this.windowFacades.values()) facades.overview.close();
     this.helm.close();
   }

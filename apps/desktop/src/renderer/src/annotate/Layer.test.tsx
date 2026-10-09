@@ -477,10 +477,13 @@ test("the panel groups notes by screen, in name order, with No screen last", asy
   await expect.element(panel()).toBeVisible();
   expect(headings()).toEqual(["Job Board", "Overview", "No screen"]);
 
-  const overview = panel().element().querySelectorAll("section")[1]!;
-  expect(overview.textContent).toContain("second: what the owner said");
-  expect(overview.textContent).toContain("fourth: what the owner said");
-  expect(overview.textContent).not.toContain("third: what the owner said");
+  expect(panel().getByRole("region").elements()).toHaveLength(3);
+  const overview = panel().getByRole("region", { name: "Overview" });
+  await expect.element(overview).toHaveTextContent("second: what the owner said");
+  await expect.element(overview).toHaveTextContent("fourth: what the owner said");
+  await expect.element(overview).not.toHaveTextContent("third: what the owner said");
+  await expect.element(panel().getByRole("region", { name: "Job Board" })).toHaveTextContent("third: what the owner said");
+  await expect.element(panel().getByRole("region", { name: "No screen" })).toHaveTextContent("first: what the owner said");
 });
 
 test("a done note is listed only once the done notes are shown, and then after the open ones", async () => {
@@ -606,4 +609,24 @@ test("a note off this screen sent to a Session goes without a screenshot", async
   await vi.waitFor(() => expect(sent).toHaveLength(1));
   expect(capture).not.toHaveBeenCalled();
   expect(sent[0]).not.toHaveProperty("attachments");
+});
+
+test("a row off this screen says on Dispatch job and Start session that it goes without a screenshot", async () => {
+  await annotating(sendable([note("here", "open", "5", 15), away("gone", "6")]), served().fleet);
+  await countOf().click();
+  const fact = "No screenshot: on another screen";
+
+  await expect.element(rowOf("gone:").getByRole("button", { name: "Dispatch job" })).toHaveAccessibleDescription(expect.stringContaining(fact));
+  await expect.element(rowOf("gone:").getByRole("button", { name: "Start session" })).toHaveAccessibleDescription(fact);
+  await expect.element(rowOf("here:").getByRole("button", { name: "Dispatch job" })).toHaveAccessibleDescription("Send this note as a Job");
+  await expect.element(rowOf("here:").getByRole("button", { name: "Start session" })).not.toHaveAccessibleDescription(expect.stringContaining("screenshot"));
+});
+
+test("where a row cannot be sent at all, the reason and the missing screenshot are both on Dispatch job", async () => {
+  await annotating(sinkOf([away("gone", "6")]));
+  await countOf().click();
+  const description = rowOf("gone:").getByRole("button", { name: "Dispatch job" }).element().getAttribute("aria-describedby") ?? "";
+  const said = description.split(" ").map((id) => document.getElementById(id)?.textContent ?? "").join(" ");
+  expect(said).toContain("Sending needs Bridge and its Fleet");
+  expect(said).toContain("No screenshot: on another screen");
 });

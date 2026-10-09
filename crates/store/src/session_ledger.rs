@@ -586,6 +586,21 @@ impl Store {
         )
     }
 
+    /// The rows of `kind` a watch keeps current: those still standing, and those settled
+    /// as spent while their own detail says the thing is still open. A `gh pr merge --auto`
+    /// read as a merge left a pull request settled that had not merged (#2027).
+    pub fn followed_of_kind(
+        &self,
+        kind: &str,
+        manifest_id: &str,
+    ) -> Result<Vec<KeptAttachment>, WriteError> {
+        self.attachments_where(
+            "kind = ?1 AND manifest_id = ?2 AND (state = 'standing' OR (state = 'spent' \
+             AND json_extract(detail, '$.state') IN ('open', 'draft')))",
+            params![kind, manifest_id],
+        )
+    }
+
     /// Give back everything `holder` still holds, of `kind` or of every kind.
     /// What a session ending does to its slot.
     pub fn give_back(

@@ -1,5 +1,5 @@
 // Whether a panel is open, remembered across a restart — Bridge/1088's own DoD line. Overview 27
-// (#1091) widened it past the left column's Stats and Fleet to Overview's own Needs you, Running,
+// (#1091) widened it past the left column's Fleet to Overview's own Needs you, Running,
 // Queued and Other, so the bag is keyed by name rather than a fixed pair.
 //
 // **`localStorage`, not a Fleet preference.** `where_things_are_open` (`where-open.ts`) is

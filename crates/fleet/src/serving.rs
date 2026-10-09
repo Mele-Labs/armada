@@ -232,6 +232,11 @@ where
         Ok(FleetCapacity::of(slots.cap(), slots.count(), room.hold()))
     }
 
+    /// The build Fleet runs on — [`crate::building`].
+    async fn get_fleet_build(&self) -> Result<ipc::FleetBuildReport, Refusal> {
+        self.fleet_build().await
+    }
+
     /// The limits in force and what shipped — [`crate::limits`].
     async fn get_limits(&self) -> Result<ipc::FleetLimits, Refusal> {
         Ok(self.limits_in_force().await)

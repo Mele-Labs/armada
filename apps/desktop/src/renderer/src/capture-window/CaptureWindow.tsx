@@ -10,7 +10,13 @@
 // page's own world and bounded there; this gets a box and one line.
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ACTION, CaptureBar, StudioCapture as CaptureOverlay, type CaptureBox } from "@armada/components";
+import {
+  ACTION,
+  CaptureBar,
+  StudioCapture as CaptureOverlay,
+  type CaptureBarApproval,
+  type CaptureBox,
+} from "@armada/components";
 import { said } from "@armada/screens/src/copy";
 import { UNTITLED_STUDIO } from "@armada/screens/src/studio";
 
@@ -40,6 +46,7 @@ export type CaptureWindowApi = {
   save: (said: string) => Promise<{ ok: boolean } & Record<string, unknown>>;
   reload: () => Promise<void>;
   followRefused: () => Promise<void>;
+  approve: () => Promise<{ ok: boolean } & Record<string, unknown>>;
   scroll: (wheel: { x: number; y: number; deltaX: number; deltaY: number }) => void;
 };
 
@@ -50,6 +57,7 @@ export function CaptureWindow({ api }: { api: CaptureWindowApi }) {
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
   const [refused, setRefused] = useState<string | undefined>(undefined);
+  const [approval, setApproval] = useState<CaptureBarApproval | undefined>(undefined);
   const bar = useRef<HTMLDivElement>(null);
   const pointer = useRef<Pointer | null>(null);
 
@@ -150,6 +158,14 @@ export function CaptureWindow({ api }: { api: CaptureWindowApi }) {
     setRefused(`Not captured: ${said(outcome as Parameters<typeof said>[0])}`);
   }
 
+  async function approve(): Promise<void> {
+    setApproval({ state: "pending" });
+    const outcome = await api.approve();
+    setApproval(
+      outcome.ok ? { state: "approved" } : { state: "refused", said: said(outcome as Parameters<typeof said>[0]) },
+    );
+  }
+
   if (state === null) return null;
 
   // The page starts below the bar, so a box measured in its viewport is drawn
@@ -182,6 +198,9 @@ export function CaptureWindow({ api }: { api: CaptureWindowApi }) {
           onReload={() => void api.reload()}
           onFollowRefused={() => void api.followRefused()}
           binding={BINDING}
+          // A Studio's window has nobody to tell; a Job's or a Session's has its owner.
+          {...(state.studio === null && state.job !== undefined ? { onApprove: () => void approve() } : {})}
+          {...(approval === undefined ? {} : { approval })}
         />
       </div>
       {armed ? (

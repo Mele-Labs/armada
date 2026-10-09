@@ -2,7 +2,9 @@
 // A slice imports protocol and screens, never another slice; `../api.ts` and `../bridge.ts` compose them.
 
 import type {
+  BuildSource,
   Followed,
+  FleetBuildReport,
   FleetRestart,
   Outcome,
   BridgeIdentity,
@@ -48,6 +50,14 @@ export type CoreApi<S = CoreState> = {
    */
   restartFleet: () => Promise<FleetRestart>;
   /**
+   * Restart Fleet and Bridge onto latest `main`, or onto a refreshed preview.
+   * **Fleet starts `scripts/restart-build` detached and answers at once**: what
+   * it came to arrives as `fleetBuild`, `restarting` while it works and `failed`
+   * with one line if it did not take. `adopt` is a person's say-so to restart
+   * with a Drone working.
+   */
+  changeFleetBuild: (build: BuildSource, adopt: boolean) => Promise<Outcome>;
+  /**
    * Where a pressed notification says to go.
    *
    * **The one entry here the renderer cannot initiate.** Every other capability
@@ -90,6 +100,14 @@ export type CoreState = {
    * machine reading rides along on the same call.
    */
   capacity: FleetCapacity | null;
+  /**
+   * The build Fleet runs on and where it stands against `origin/main`.
+   * **`null` where Fleet serves no build to choose** or has not answered, which
+   * draws no build section; a Fleet that is restarting keeps the last reading.
+   * Read on every connection and on a minute's interval, since a fetch moves it
+   * and no event says so.
+   */
+  fleetBuild: FleetBuildReport | null;
   /** Events Fleet dropped before Bridge saw them, since the window opened. */
   missed: number;
   /** When the Jobs above were last current, in epoch milliseconds. */
@@ -134,6 +152,7 @@ export const CORE_NOTHING_YET: CoreState = {
   jobs: [],
   unreadable: [],
   capacity: null,
+  fleetBuild: null,
   missed: 0,
   readAt: null,
   holds: { workflows: [], manifests: [], models: null, repositories: [] },
@@ -153,6 +172,7 @@ export const CORE_CHANNELS = {
   openServerLink: "bridge:open-server-link",
   openLink: "bridge:open-link",
   restartFleet: "bridge:restart-fleet",
+  changeFleetBuild: "bridge:change-fleet-build",
   summoned: "bridge:summoned",
   // A swipe or a browser key, from the OS to the window. Sent by main, never invoked.
   history: "bridge:history",

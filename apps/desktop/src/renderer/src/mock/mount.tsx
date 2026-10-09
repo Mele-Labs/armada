@@ -19,6 +19,7 @@ import { WiredSessions } from "../sessions-wired";
 import { Themed } from "../theme";
 import { mountAnnotating } from "./annotating";
 import { fakeBridge, heldSessions, liveDraft } from "./fake";
+import { MockFleetBuild } from "./fleet-build";
 import type { FakeOptions, LiveDraft } from "./fake";
 import { scenarioNamed } from "./scenario";
 import { mockThemes } from "./themes";
@@ -109,9 +110,11 @@ export function mountApp(
               is what a composer reads before a Job exists; the prop is what a
               Job's own boards read. */}
           <Themed source={mockThemes}>
-            <SessionsHere held={heldSessions(api)}>
-              <Drafted draft={liveDraft(api) ?? HELD(chosen.draft)} />
-            </SessionsHere>
+            <MockFleetBuild scenario={chosen.name}>
+              <SessionsHere held={heldSessions(api)}>
+                <Drafted draft={liveDraft(api) ?? HELD(chosen.draft)} />
+              </SessionsHere>
+            </MockFleetBuild>
           </Themed>
           <OnScreen say={say} />
         </HapticsProvider>

@@ -320,6 +320,14 @@ pub fn machine_path() -> Result<PathBuf, NoHome> {
         .join(FILE_NAME))
 }
 
+/// `scripts/restart`'s `$support`: the folder the runtime file, the restart record and the mod live in.
+pub fn support_dir(home: &str) -> PathBuf {
+    PathBuf::from(home)
+        .join("Library")
+        .join("Application Support")
+        .join("Armada")
+}
+
 /// Where the installed copy of the `armada` mod is kept, under `home`: the folder the owner installs
 /// from, which `scripts/restart` fills.
 pub fn mod_dir(home: &str) -> PathBuf {

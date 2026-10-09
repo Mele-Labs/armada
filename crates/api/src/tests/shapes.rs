@@ -213,6 +213,20 @@ pub fn capacity() -> FleetCapacity {
     }
 }
 
+/// Fleet on `main`, three commits behind `origin/main`, nothing restarting.
+pub fn fleet_build() -> ipc::FleetBuildReport {
+    ipc::FleetBuildReport {
+        on: ipc::BuildSource::Main,
+        commit: Some(String::from("0123456789abcdef0123456789abcdef01234567")),
+        position: Some(ipc::BuildPosition {
+            ahead: 0,
+            behind: 3,
+        }),
+        restarting: None,
+        failed: None,
+    }
+}
+
 /// The shipped numbers, in force because nothing has been saved.
 pub fn limits() -> ipc::FleetLimits {
     let shipped = ipc::LimitValues {

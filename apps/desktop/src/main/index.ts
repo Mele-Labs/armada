@@ -5,7 +5,7 @@ import { join } from "node:path";
 
 import { CHANNELS, NOTHING_YET } from "../shared/bridge";
 import type { BridgeState, PickedView, Summons } from "../shared/bridge";
-import type { ChangeSlotPool, Outcome, RescueSlot } from "@armada/protocol";
+import type { BuildSource, ChangeSlotPool, Outcome, RescueSlot } from "@armada/protocol";
 import type { HelmContext, LandCheckAt, StagedAttachment } from "@armada/protocol";
 import { landCheckAt } from "./land-following";
 import type { ToProposer, AddTask, ApproveWave, DropTask, EditJob, EditTask, FileReport, MovePlan } from "@armada/protocol";
@@ -155,6 +155,11 @@ const captureWindows = new CaptureWindows({
     UNSENT,
   sessionNote: async (sessionId, said, capture, address) => {
     const sent = await connection?.sessions.send({ session_id: sessionId, text: sessionNoteText(said, capture, address) });
+    return sent === undefined ? UNSENT : sent.ok ? { ok: true } : sent.outcome;
+  },
+  walkApproved: async (jobId) => (await connection?.commands.approveReview(jobId)) ?? UNSENT,
+  sessionApproved: async (sessionId, address) => {
+    const sent = await connection?.sessions.send({ session_id: sessionId, text: `Approved: ${address}` });
     return sent === undefined ? UNSENT : sent.ok ? { ok: true } : sent.outcome;
   },
   stage: stagePng,
@@ -855,6 +860,10 @@ void app.whenReady().then(() => {
   ipcMain.handle(CHANNELS.openLink, (_event, address: string) => openLink(address));
   // Asks launchd, not Fleet: `restart-fleet.ts`. Read from what main last published.
   ipcMain.handle(CHANNELS.restartFleet, () => restartFleet(published.connection));
+  // Asks Fleet, which starts `scripts/restart-build` detached: `fleet-build.ts`.
+  ipcMain.handle(CHANNELS.changeFleetBuild, (_event, build: BuildSource, adopt: boolean) =>
+    connection?.fleetBuild.change(build, adopt),
+  );
   // The act above that read. It moves nothing, costs no model call, and the
   // answer it publishes is also written into the Job's own log.
   ipcMain.handle(CHANNELS.examineJob, (_event, jobId: string) =>
