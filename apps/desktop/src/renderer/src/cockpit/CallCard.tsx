@@ -3,7 +3,8 @@
 // is active now in one line; a Session's call is a small view of the Session instead. Its answers
 // carry the numbers that pick them, and two standing ones carry `b` and `g`. Enter sends, `l` puts it
 // off for later, `d` dismisses it for good, `o` opens what it is about, `e` opens the whole request. The keys themselves are
-// `Cockpit`'s, on the window; this draws them and takes the press. Mock only, as the Dashboard is.
+// `Cockpit`'s, on the window; this draws them and takes the press. While an act waits on Fleet the
+// control pressed carries the loop and the rest of the card is held. Mock only, as the Dashboard is.
 
 import { useLayoutEffect, useRef, useState, type MutableRefObject } from "react";
 import { Bot, Box, ChevronDown, ChevronUp, Cpu, Scale, ShieldCheck, SquareTerminal, Waypoints, Workflow, type LucideIcon } from "lucide-react";
@@ -35,10 +36,27 @@ const WAIT: Record<"resource" | "job" | "transition" | "step", { Glyph: LucideIc
 /** What the keys can say to the card beyond what an answer does. */
 export type CardKeys = Answering & { expand?: () => void };
 
-/** One answer: its number or its own key, the agent's line under it where it gave one, and what it tells the agent where it says. */
-function AnswerTile({ one, mark, picked, onPick }: { one: Answer; mark: string; picked: boolean; onPick: () => void }) {
+/** The one word a loop's tooltip says: the control is out with Fleet. */
+const OUT = "Waiting on Fleet";
+
+/**
+ * One answer: its number or its own key, the agent's line under it where it gave one, and what it tells the
+ * agent where it says. `pending` is the one waiting on Fleet, which keeps its look and sweeps the bar; `held`
+ * is every other while one is, which cannot be pressed.
+ */
+function AnswerTile({ one, mark, picked, pending, held, onPick }: { one: Answer; mark: string; picked: boolean; pending: boolean; held: boolean; onPick: () => void }) {
   const tile = (
-    <button type="button" role="radio" aria-checked={picked} className="armada-callcard__answer" data-standing={one.key === undefined ? undefined : ""} onClick={onPick}>
+    <button
+      type="button"
+      role="radio"
+      aria-checked={picked}
+      className="armada-callcard__answer"
+      data-standing={one.key === undefined ? undefined : ""}
+      data-pending={pending || undefined}
+      aria-busy={pending || undefined}
+      disabled={held && !pending}
+      onClick={onPick}
+    >
       <Kbd>{mark}</Kbd>
       <span className="armada-callcard__option">
         <span className="armada-callcard__label">
@@ -49,30 +67,34 @@ function AnswerTile({ one, mark, picked, onPick }: { one: Answer; mark: string; 
       </span>
     </button>
   );
-  return one.says === undefined ? tile : <Tooltip label={one.says}>{tile}</Tooltip>;
+  const said = pending ? OUT : one.says;
+  return said === undefined ? tile : <Tooltip label={said}>{tile}</Tooltip>;
 }
 
 /** What a reply in words has been given and not yet sent, kept by call so leaving the card keeps it. */
 const DRAFTS = new Map<string, string>();
 
 /** A reply in words: the Session's own "type something". Enter sends it. */
-function Reply({ itemKey, send }: { itemKey: string; send: (text: string) => void }) {
+function Reply({ itemKey, send, pending, held }: { itemKey: string; send: (text: string, accepted: () => void) => void; pending: boolean; held: boolean }) {
   const [text, setText] = useState(DRAFTS.get(itemKey) ?? "");
   const change = (next: string) => (DRAFTS.set(itemKey, next), setText(next));
   return (
-    <label className="armada-callcard__reply">
+    <label className="armada-callcard__reply" data-pending={pending || undefined}>
       <Kbd>{keyFor("call_reply")}</Kbd>
       <textarea
         aria-label="Type something"
         rows={1}
         value={text}
+        readOnly={held}
+        aria-busy={pending || undefined}
         onChange={(event) => change(event.target.value)}
         onKeyDown={(event) => {
           if (event.key === "Enter" && !event.shiftKey && text.trim() !== "") {
             event.preventDefault();
             event.nativeEvent.stopPropagation();
-            DRAFTS.delete(itemKey);
-            send(text.trim());
+            if (held) return;
+            // Kept until Fleet takes it: a refusal leaves what was typed where it was.
+            send(text.trim(), () => DRAFTS.delete(itemKey));
           } else if (event.key === "Escape") {
             event.currentTarget.blur();
           }
@@ -151,7 +173,7 @@ export function CallCard({
   finish: () => void;
   /** Put it off: it goes to the back of the stack. */
   later: () => void;
-  /** Removes the call for good. */
+  /** Clears the call for good, once it is dismissed: on Fleet by the card, or here where Fleet raised it. */
   dismiss: () => void;
   leaving: "later" | "sent" | undefined;
   /** It was behind another card until now, and slides up from there. */
@@ -159,7 +181,7 @@ export function CallCard({
   /** Where the card hands its answers up to, for the keys. */
   answering: MutableRefObject<CardKeys | undefined>;
 }) {
-  const answer = useAnswering(item, hosts, state, finish);
+  const answer = useAnswering(item, hosts, state, finish, dismiss);
   const [whole, setWhole] = useState(false);
   const [long, setLong] = useState(false);
   const request = useRef<HTMLParagraphElement>(null);
@@ -173,6 +195,7 @@ export function CallCard({
   const session = useSessions().find((one) => one.id === sessionId);
   const Icon = item.icon;
   const lone = answer.answers.length === 0;
+  const held = answer.pending !== undefined;
   const numbered = answer.answers.filter((one) => one.key === undefined);
   const standing = answer.answers.filter((one) => one.key !== undefined);
 
@@ -262,36 +285,36 @@ export function CallCard({
           <div role="radiogroup" aria-label={answer.ask} className="armada-callcard__choices">
             <div className="armada-callcard__answers">
               {numbered.map((one, index) => (
-                <AnswerTile key={one.id} one={one} mark={String(index + 1)} picked={answer.picked === answer.answers.indexOf(one)} onPick={() => answer.pick(answer.answers.indexOf(one))} />
+                <AnswerTile key={one.id} one={one} mark={String(index + 1)} picked={answer.picked === answer.answers.indexOf(one)} pending={answer.pending === one.id} held={held} onPick={() => answer.pick(answer.answers.indexOf(one))} />
               ))}
             </div>
             {standing.length === 0 ? null : (
               <div className="armada-callcard__answers" data-standing>
                 {standing.map((one) => (
-                  <AnswerTile key={one.id} one={one} mark={one.key!} picked={answer.picked === answer.answers.indexOf(one)} onPick={() => answer.pick(answer.answers.indexOf(one))} />
+                  <AnswerTile key={one.id} one={one} mark={one.key!} picked={answer.picked === answer.answers.indexOf(one)} pending={answer.pending === one.id} held={held} onPick={() => answer.pick(answer.answers.indexOf(one))} />
                 ))}
               </div>
             )}
           </div>
         )}
-        {answer.reply === undefined ? null : <Reply itemKey={item.key} send={answer.reply} />}
+        {answer.reply === undefined ? null : <Reply itemKey={item.key} send={answer.reply} pending={answer.pending === "reply"} held={held} />}
         <div className="armada-callcard__acts">
           <Button variant="primary" disabled={!answer.canSend} onClick={answer.send}>
             {lone ? OPENS(item) : "Send"}
             <Kbd>↵</Kbd>
           </Button>
           {lone || answer.open === undefined ? null : (
-            <Button variant="ghost" onClick={answer.open}>
+            <Button variant="ghost" disabled={held} onClick={answer.open}>
               {OPENS(item)}
               <Kbd>{keyFor("open")}</Kbd>
             </Button>
           )}
-          <Button variant="ghost" onClick={later}>
+          <Button variant="ghost" disabled={held} onClick={later}>
             {actionOf("call_later").verb}
             <Kbd>{keyFor("call_later")}</Kbd>
           </Button>
-          <Tooltip label="Never show this again">
-            <Button variant="ghost" onClick={dismiss}>
+          <Tooltip label={answer.pending === "dismiss" ? OUT : "Never show this again"}>
+            <Button variant="ghost" pending={answer.pending === "dismiss"} disabled={held} onClick={answer.dismiss}>
               {actionOf("call_dismiss").verb}
               <Kbd>{keyFor("call_dismiss")}</Kbd>
             </Button>

@@ -63,14 +63,19 @@ describe("a dispatched request is a row", () => {
     await expect.element(page.getByRole("article").getByText("proposing").first()).toBeVisible();
   });
 
-  test("the workflow still settling draws no step in its place", async () => {
+  test("the workflow still settling blinks, and no step stands in for it", async () => {
     mount("arc/proposing-dispatched", SLICES);
     await listed();
     await onRunning();
     await expect.poll(() => proposingRows().length).toBeGreaterThan(0);
     const row = proposingRows()[0]!;
-    // **The workflow is the proposer's to settle, and it has not**: the tile
-    // draws no pips, because a step standing in for it would be a guess.
+    // **The workflow is the proposer's to settle, and it has not**: a blinking
+    // caret where the steps go, named on hover (the owner's `text-cursor`, 3 Oct
+    // 2026). A state is never text, so the tile prints no word for it.
+    expect(
+      row.querySelector('[role="img"][aria-label="Workflow, still being settled"]'),
+      "the tile drew no settling caret",
+    ).not.toBeNull();
     expect(row.querySelector('ol[aria-label="Steps"]'), "a step drew before the workflow settled").toBeNull();
   });
 });
@@ -259,7 +264,7 @@ function settling(): HTMLElement {
 }
 
 describe("a proposal fills in as it is written", () => {
-  test("the workflow lands first, and its steps come onto the tile", async () => {
+  test("the workflow lands first, and its steps take the caret's place", async () => {
     mount("arc/proposing-workflow-landed", SLICES);
     await listed();
     await onRunning();
@@ -268,6 +273,7 @@ describe("a proposal fills in as it is written", () => {
     // The workflow is chosen during `proposing` and frozen on the way out of it,
     // so its steps are what the tile draws once it lands.
     expect(row.querySelector('ol[aria-label="Steps"]'), "the tile drew no steps").not.toBeNull();
+    expect(row.querySelector('[aria-label="Workflow, still being settled"]')).toBeNull();
     // The title is still the request, because the title has not landed.
     expect(row.textContent).toContain(SECOND_REQUEST_SAYS);
   });

@@ -88,6 +88,8 @@ export type Item = {
   /** The Job's workflow steps and the index it is at, for the tile's pips. */
   steps?: readonly { id: string; label: string }[];
   stepAt?: number;
+  /** The Job is being proposed and its workflow has not landed: the tile holds the steps' place with the settling mark. */
+  settling?: true;
   /** A Session's recent cadence, each bar 0 to 1: a message tall, a tool call short. */
   spark?: readonly number[];
   /** What a Session's call waits on: the item, which is what the call answers. */
@@ -603,7 +605,9 @@ export function useItems(
       const steps = (state.holds.workflows.find((one) => one.id === job.workflow_id)?.steps ?? []).map((step) => ({ id: step.step_id, label: step.label }));
       const at = tab === "done" && item.hue !== "bad" ? steps.length : Math.max(0, steps.findIndex((step) => step.id === job.current_step_id));
       const active = tab === "done" ? undefined : activeOf(nows?.[job.id]);
-      return { ...item, ...(steps.length === 0 ? {} : { steps, stepAt: at }), ...(active === undefined ? {} : { ...active, live: true }) };
+      // The workflow is the proposer's to settle: until it lands there is nothing to draw pips from.
+      const settling = job.status === "proposing" && job.workflow_id === "";
+      return { ...item, ...(steps.length === 0 ? {} : { steps, stepAt: at }), ...(settling ? { settling: true as const } : {}), ...(active === undefined ? {} : { ...active, live: true }) };
     });
     return drawn.filter((item) => !answered.has(item.key));
   }, [tab, state, picked, nowViews, nows, sessions, answered, dismissed]);
