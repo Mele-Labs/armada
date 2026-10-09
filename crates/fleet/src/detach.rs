@@ -168,6 +168,14 @@ impl Detached {
         self
     }
 
+    /// Stdout and stderr both appended to `file`, for a child nobody reads
+    /// from but whose last words someone may want.
+    pub fn writing_output_to(mut self, file: &std::fs::File) -> io::Result<Detached> {
+        self.command.stdout(Stdio::from(file.try_clone()?));
+        self.command.stderr(Stdio::from(file.try_clone()?));
+        Ok(self)
+    }
+
     pub fn capturing_output(mut self) -> Detached {
         self.command.stdout(Stdio::piped()).stderr(Stdio::piped());
         self

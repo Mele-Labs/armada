@@ -247,6 +247,12 @@ to 90 seconds for a Fleet that is restarting before it fails a call. It reads
 Fleet's port once, so a Fleet that comes back on another port is not found; the
 port is claimed from the store and is normally the same.
 
+**`END` takes the keeper's socket and spool away at once**, from Fleet's side,
+so the next message starts a new keeper instead of reattaching to an agent that
+is going. The keeper's own stderr, the agent's and how the agent exited go to
+`<id>.log` beside the spool; Fleet puts its last lines in the thread's
+"process ended" row.
+
 **Not covered**: a keeper's own death (the agent loses its pipes and exits), and
 an agent whose hooks name a Fleet port that changed.
 
