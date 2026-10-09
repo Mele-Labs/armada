@@ -17,6 +17,7 @@ import { lessonsTabNamed, planViewNamed, type LessonsTab, type PlanView } from "
 const PLAN_KEY = "armada.bridge.plan-view";
 const LESSONS_KEY = "armada.bridge.lessons-tab";
 export const DASHBOARD_KEY = "armada.bridge.dashboard-tab";
+const DISPATCH_KEY = "armada.bridge.dispatch-kind";
 
 /**
  * A remembered arrangement and the press that moves it, on whatever the
@@ -61,4 +62,11 @@ export function useLessonsTab(): [LessonsTab, (tab: LessonsTab) => void] {
 /** Which tab the Dashboard reads. Command Central where nothing is stored. */
 export function useDashboardTab(): [DashboardTab, (tab: DashboardTab) => void] {
   return remembered(DASHBOARD_KEY, dashboardTabNamed);
+}
+
+export type DispatchKind = "job" | "session";
+
+/** What the Dashboard's dispatch bar starts: the last choice, a Job where nothing is stored. */
+export function useDispatchKind(): [DispatchKind, (kind: DispatchKind) => void] {
+  return remembered(DISPATCH_KEY, (value): DispatchKind => (value === "session" ? "session" : "job"));
 }

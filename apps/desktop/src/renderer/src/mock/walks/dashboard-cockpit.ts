@@ -10,8 +10,8 @@ const waiting = role("list", "Waiting calls");
 const call = (kind: RegExp) => region(kind);
 
 const dashboardCockpit = walk("dashboard-cockpit", [
-  { look: cockpit, say: "Everything running, one instrument each. How it stands is the glyph and the frame" },
-  { hover: inside(glass, role("img", "Running")), say: "A glyph names its state on hover" },
+  { look: cockpit, say: "Everything running, one tile each. What is active is the glyph, and a tile that asks is lit" },
+  { hover: inside(glass, role("img", "Drone working")), say: "A glyph names its state on hover" },
   { key: "j", on: cockpit, say: "j and k move along the glass, the arrows too" },
   { look: inside(glass, button("Open")), say: "The one under the cursor carries its keys: Enter opens, x stops" },
   { later: cockpit, say: "Time passes: a Drone reaches a question" },

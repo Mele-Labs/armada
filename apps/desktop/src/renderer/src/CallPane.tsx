@@ -5,7 +5,7 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { CircleDot, Workflow } from "lucide-react";
-import { Button, JobDiffSheet, UnifiedDiff, railOfPatch, type DiffFile } from "@armada/components";
+import { Button, JobDiffSheet, NowPanel, UnifiedDiff, railOfPatch, type DiffFile, type NowPanelProps } from "@armada/components";
 import type { AboutFiles, AboutLink } from "@armada/jobs/draft/calls";
 
 import type { BridgeState } from "../../shared/bridge";
@@ -82,6 +82,7 @@ export function CallPane({
   onOpenSession,
   onOpenJob,
   onOpenLink,
+  nowPanel,
 }: {
   item: Item;
   now: number;
@@ -93,6 +94,8 @@ export function CallPane({
   onOpenJob?: (id: string) => void;
   /** Opens an issue's address. */
   onOpenLink?: (url: string) => void;
+  /** What the Job is doing now, drawn in place of where it is in its workflow. Mock only. */
+  nowPanel?: Omit<NowPanelProps, "onHide">;
 }) {
   const [reading, setReading] = useState<string>();
   const allFiles = (item.about ?? []).flatMap(([, value]) => (typeof value === "object" && "files" in value ? value.files : []));
@@ -120,6 +123,12 @@ export function CallPane({
             <Button variant="ghost" size="sm" onClick={() => onOpenSession(sessionId)}>Open Session</Button>
           </div>
           <SessionMini sessionId={sessionId} onOpen={onOpenSession} />
+        </div>
+      ) : nowPanel !== undefined ? (
+        <div className="armada-call__body">
+          <h2 className="armada-call__title">{item.title}</h2>
+          <NowPanel {...nowPanel} />
+          <div className="armada-call__acts">{item.acts(onDone)}</div>
         </div>
       ) : (
       <div className="armada-call__body">

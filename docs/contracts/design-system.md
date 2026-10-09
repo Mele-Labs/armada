@@ -694,6 +694,15 @@ an object across a change (Heer & Robertson, InfoVis 2007); a new row
 does not travel, so nothing enters. "Placement resolves before paint"
 still holds: a layer never moves after it lands.
 
+**One exception: a call that needs the owner comes forward.** On Command
+Central a Plan question, a failed Check or a Session waiting on a command
+rises over the fleet at `--duration-travel`, and a call put off for later
+flies back up to the waiting calls at the edge. It is the one entrance on
+data, narrowly: nothing else on a board, row or tile enters, and a
+reading that merely changes still decays. Why: what needs the owner is
+the one event the screen exists to raise, and a call that arrived
+unannounced among the tiles could wait unseen (owner, 9 Oct 2026).
+
 **A changed row decays.** When a Job's status changes, its row takes its
 new status hue at `--row-tint-recent`, falling to the resting
 `--row-tint` across `--duration-decay`, and a mono line in the same hue

@@ -130,11 +130,14 @@ export function sessionsStore(
   dispatchedRows: readonly unknown[] = [],
   /** Sessions open beside the usual ones. */
   more: readonly Session[] = [],
+  /** What an agent says to a Session, one message each time a walk lets time pass, before the usual turns. */
+  arrivals: readonly (readonly [id: string, text: string])[] = [],
 ): SessionsStore {
   let now: readonly Session[] = [...others(), ...more];
   let clock = 0;
   let rowId = 0;
   let moment = 0;
+  let arrived = 0;
   let started = false;
   let made = 0;
   /** How many times a Session that was handed a Job has been asked, to know which of its two turns is next. */
@@ -573,6 +576,12 @@ export function sessionsStore(
       return { rows, finished, ...(finished ? { report: script[script.length - 1]![1] } : {}) };
     },
     later() {
+      const arrival = arrivals[arrived];
+      if (arrival !== undefined) {
+        arrived += 1;
+        addTo(arrival[0], [said(arrival[1])]);
+        return;
+      }
       const next = turns[moment];
       moment += 1;
       next?.();

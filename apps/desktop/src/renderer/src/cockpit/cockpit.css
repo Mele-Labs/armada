@@ -100,10 +100,10 @@
 .armada-view__stage { position: relative; display: flex; flex: 1 1 auto; min-height: 0; overflow: hidden; }
 
 /* The glass: a faint ruled grid, so the instruments read as standing on something. */
-.armada-view__grid {
+.armada-tiles.armada-view__grid {
   flex: 1 1 auto;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(calc(var(--space-12) * 6), 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(calc(var(--space-12) * 4), 1fr));
   grid-auto-rows: min-content;
   align-content: start;
   min-width: 0;
@@ -122,130 +122,7 @@
 }
 
 /* A call is in front: the glass sits back behind it. */
-.armada-view__grid[data-recessed] { opacity: 0.4; transform: scale(0.985); }
-
-/* ---- An instrument -------------------------------------------------------------------------- */
-
-.armada-inst {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  border: var(--border-width) solid var(--border-default);
-  border-top: calc(var(--border-width) * 3) solid var(--hue);
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--hue) var(--row-tint), var(--bg-raised));
-  cursor: pointer;
-  transition: border-color var(--duration-fast) var(--ease), box-shadow var(--duration-fast) var(--ease);
-}
-
-.armada-inst:hover { border-color: var(--hue); }
-
-/* The cursor: the accent frame, as every list's focused row is drawn. */
-.armada-inst[aria-selected="true"] {
-  border-color: var(--accent);
-  border-top-color: var(--hue);
-  box-shadow: 0 0 0 var(--border-width) var(--accent), 0 0 var(--space-4) color-mix(in srgb, var(--accent) 24%, transparent);
-}
-
-.armada-view__grid:not(:focus-within) .armada-inst[aria-selected="true"] { box-shadow: 0 0 0 var(--border-width) var(--accent); }
-
-.armada-inst__band {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-1) var(--space-3);
-  background: color-mix(in srgb, var(--hue) 16%, var(--bg-raised));
-  font-family: var(--font-mono);
-  font-size: var(--text-2xs);
-  line-height: var(--leading-2xs);
-  color: var(--fg-muted);
-}
-
-/* Asking: the band fills in the call's hue, so the instrument that wants him is the loudest on the glass. */
-.armada-inst[data-standing="asking"] .armada-inst__band { background: var(--hue); color: var(--fg-inverse); }
-
-.armada-inst__mark { position: relative; display: inline-flex; flex: none; color: var(--hue); }
-.armada-inst[data-standing="asking"] .armada-inst__mark { color: var(--fg-inverse); }
-
-.armada-inst__where { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.armada-inst__age { flex: none; opacity: 0.85; }
-
-/* The glyphs move by what they say: a ring turns for work under way, a terminal breathes while a
-   Session works, a reading frame sweeps, and an asking glyph sends out a ring. */
-.armada-inst[data-standing="running"] .armada-inst__mark svg { animation: armada-view-spin 1.2s linear infinite; }
-.armada-inst[data-standing="working"] .armada-inst__mark svg { animation: armada-view-breathe var(--duration-pulse) ease-in-out infinite; }
-.armada-inst[data-standing="proposing"] .armada-inst__mark svg { animation: armada-view-breathe var(--duration-pulse) ease-in-out infinite; }
-.armada-inst[data-standing="asking"] .armada-inst__mark::after {
-  content: "";
-  position: absolute;
-  inset: calc(var(--space-1) * -1);
-  border-radius: 50%;
-  border: calc(var(--border-width) * 2) solid var(--fg-inverse);
-  animation: armada-beacon 2s ease-out infinite;
-}
-
-@keyframes armada-view-spin { to { transform: rotate(360deg); } }
-@keyframes armada-view-breathe { 50% { opacity: 0.4; transform: scale(0.88); } }
-
-.armada-inst__body {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  min-width: 0;
-  padding: var(--space-3);
-  font-family: var(--font-mono);
-}
-
-.armada-inst__title {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-family: var(--font-sans);
-  font-size: var(--text-sm);
-  font-weight: var(--weight-medium);
-  color: var(--fg-default);
-}
-
-/* The workflow as a gauge: one segment a step, done filled, the current one live. */
-.armada-inst__gauge { display: flex; gap: var(--space-1); margin: 0; padding: 0; list-style: none; }
-
-.armada-inst__seg {
-  flex: 1 1 0;
-  height: var(--space-2);
-  border: var(--border-width) solid var(--border-strong, var(--border-default));
-  border-radius: var(--radius-sm);
-  background: transparent;
-}
-
-.armada-inst__seg[data-seg="done"] { border-color: var(--status-running); background: var(--status-running); }
-.armada-inst__seg[data-seg="here"] { border-color: var(--hue); background: color-mix(in srgb, var(--hue) 45%, transparent); }
-.armada-inst[data-standing="running"] .armada-inst__seg[data-seg="here"] { animation: armada-view-breathe var(--duration-pulse) ease-in-out infinite; }
-.armada-inst[data-standing="asking"] .armada-inst__seg[data-seg="here"] { background: var(--hue); }
-
-.armada-inst__step { font-size: var(--text-2xs); line-height: var(--leading-2xs); color: var(--fg-muted); }
-
-.armada-inst__line {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  font-size: var(--text-xs);
-  line-height: var(--leading-xs);
-  color: var(--fg-muted);
-  overflow-wrap: anywhere;
-}
-
-.armada-inst__line::before { content: "› "; color: var(--status-running); }
-
-/* What is running on it: the kind's mark and its name, the headline; the step is the gauge below. */
-.armada-inst__doing { display: inline-flex; align-items: center; gap: var(--space-2); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--text-xs); line-height: var(--leading-xs); color: var(--fg-default); }
-.armada-inst__doing > span:first-child { display: inline-flex; flex: none; color: var(--hue); }
-.armada-inst__doing[data-state="failed"] > span:first-child { color: var(--status-completed-failed); }
-.armada-inst__doing[data-waiting] { color: var(--fg-muted); }
-.armada-inst__gauge { padding: 0 var(--space-3) var(--space-3); }
-
-/* The cursor's acts, where it is: Open and Stop, each with the key that does it. */
-.armada-inst__acts { display: flex; gap: var(--space-2); padding: 0 var(--space-3) var(--space-3); }
+.armada-tiles.armada-view__grid[data-recessed] { opacity: 0.4; transform: scale(0.985); }
 
 /* ---- The calls waiting, in the band at the edge --------------------------------------------- */
 
@@ -435,9 +312,6 @@
   .armada-callcard,
   .armada-callcard::after,
   .armada-dock__chip[data-arrived],
-  .armada-view__block,
-  .armada-inst__mark svg,
-  .armada-inst__mark::after,
-  .armada-inst__seg { animation: none !important; }
+  .armada-view__block { animation: none !important; }
   .armada-view__grid { transition: none; }
 }

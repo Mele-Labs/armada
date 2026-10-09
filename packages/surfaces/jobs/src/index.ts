@@ -53,4 +53,4 @@ export * from "./wave-plan";
 export * from "./open-job";
 export type { AddedBinding } from "./added-steps";
 export * from "./alert-rows";
-export * from "./now-panel";
+export { nowPanelOf } from "./now-panel";
