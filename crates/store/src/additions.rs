@@ -316,7 +316,8 @@ impl Store {
             "removed_at IS NULL
              AND job_id IN (SELECT job_id FROM jobs WHERE reclaimed_at IS NULL)
              AND ((state IN ('failed', 'held') AND repair_tries > 0)
-                  OR (repair_state = 'fix_ready' AND fix_choice IS NULL))",
+                  OR (repair_state = 'fix_ready' AND fix_choice IS NULL)
+                  OR state = 'awaiting_owner')",
             &[],
         )
     }

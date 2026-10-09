@@ -1,59 +1,70 @@
-//! A Trigger on a destructive Command asks the owner before it runs: the Board
-//! row rings, `list_alerts` names it, and with `block` on the Job holds until
-//! he answers. His Run is the Command's one firing; his Skip records it
-//! skipped. Commands are real programs; the Drone and the pull request are
-//! fakes.
+//! A Script added to one Job on a destructive Command asks the owner before it
+//! runs, as a saved Trigger does: the Board row rings, `list_alerts` names it,
+//! and with `block` on the Job holds until he answers. His Run is the Command's
+//! one firing; his Skip records it skipped. Commands are real programs; the
+//! Drone and the pull request are fakes.
 
 use std::sync::Arc;
 
-use config::Manifest;
-use core_model::{Actor, JobId, JobStatus, TriggerSkipped, TriggerState};
-use ipc::{HoldAct, JobAlertKind, TriggerFiringState as Wire};
-use testkit::{Delivering, FakeHarness, FakeVcs, FakeWorkProduct};
+use core_model::{Actor, JobId, JobStatus, NotRun, TriggerState};
+use ipc::{AddStep, AddedRuns, HoldAct, JobAlertKind, TriggerFiringState as Wire, TriggerMoment};
 
 use crate::adrift::Adrift;
-use crate::daemon::Fleet;
 use crate::tests::admitted::started;
-use crate::tests::daemon::{a_proposal, note_evidence, worktree_directory};
+use crate::tests::daemon::{a_proposal, diff_evidence, note_evidence, worktree_directory};
 use crate::tests::tmp::TempDir;
 use crate::tests::tools::submitted_by_the_one;
-use crate::tests::triggering::{a_fleet, machine, to_the_delivering_step, Files};
+use crate::tests::trigger_asks::{a_fleet_asking, flag_in, Fixture};
+use crate::tests::triggering::Files;
+use crate::trigger_repair::Subject;
 
-pub(crate) type Fixture = Fleet<FakeHarness, FakeVcs, FakeWorkProduct>;
-
-fn wiping(moment: &str, on_failure: &str) -> config::TriggerWritten {
-    machine(
-        "wipe.yml",
-        &format!("name: wipe\nwhen: {moment}\ncommand: wipe\n{on_failure}"),
-    )
-}
-
-const BLOCKING: &str = "on_failure:\n  block: true\n";
-
-/// `wipe` is destructive and passes once `flag` exists.
-pub(crate) fn a_fleet_asking(home: &TempDir, files: &Arc<Files>, flag: &str) -> Arc<Fixture> {
-    let text = format!(
-        "version: 1\nid: 01FIXTUREMANIFEST\ncommands:\n  wipe:\n    run: \"test -f {flag}\"\n    destructive: true\n"
-    );
-    let manifest = Manifest::parse(std::path::Path::new("armada.yml"), &text).expect("a Manifest");
-    Arc::new(a_fleet(home, files, manifest, Delivering::default()))
-}
-
-pub(crate) fn flag_in(home: &TempDir) -> String {
-    format!("{}/flag", home.path().display())
+fn wipe(when: TriggerMoment, step: &str, block: bool, repair: bool) -> AddStep {
+    AddStep {
+        runs: AddedRuns::Script {
+            command: "wipe".to_string(),
+        },
+        when,
+        step: ipc::StepId::carried(step),
+        block,
+        repair,
+    }
 }
 
 fn act() -> HoldAct {
     HoldAct {
-        trigger: Some("wipe".to_string()),
-        addition: None,
+        trigger: None,
+        addition: Some("a1".to_string()),
     }
 }
 
-async fn the_firing(fleet: &Fixture, job: &JobId) -> core_model::TriggerFiring {
-    let held = fleet.store().lock().await.trigger_firings(job).unwrap();
-    assert_eq!(held.len(), 1, "one firing: {held:?}");
+async fn approved_with(fleet: &Fixture, home: &TempDir, added: AddStep) -> JobId {
+    let job = fleet.propose(a_proposal("fix the reader")).await.unwrap();
+    worktree_directory(home, &job);
+    let approval = ipc::ApproveDispatch {
+        additions: Some(vec![added]),
+        ..ipc::ApproveDispatch::default()
+    };
+    fleet.approve_as_left(job.id(), &approval).await.unwrap();
+    job.id().clone()
+}
+
+/// The Job is on the delivering step, where the pull request opened.
+async fn at_the_delivering_step(fleet: &Fixture, home: &TempDir, added: AddStep) -> JobId {
+    let id = approved_with(fleet, home, added).await;
+    started(fleet, &id).await.unwrap();
+    submitted_by_the_one(fleet, diff_evidence()).await.unwrap();
+    fleet.turn().await.unwrap();
+    id
+}
+
+async fn the_addition(fleet: &Fixture, job: &JobId) -> core_model::AddedStep {
+    let held = fleet.store().lock().await.job_additions(job).unwrap();
+    assert_eq!(held.len(), 1, "one addition: {held:?}");
     held.into_iter().next().unwrap()
+}
+
+fn state_of(added: &core_model::AddedStep) -> TriggerState {
+    added.fired.as_ref().expect("fired").state
 }
 
 async fn the_alert(fleet: &Fixture, id: &JobId) -> Option<ipc::JobAlert> {
@@ -64,7 +75,6 @@ async fn the_alert(fleet: &Fixture, id: &JobId) -> Option<ipc::JobAlert> {
         .alert
 }
 
-/// The delivering step's Drone has stopped, so the Command can run in its tree.
 async fn at_the_gate(fleet: &Fixture, id: &JobId) {
     submitted_by_the_one(fleet, note_evidence()).await.unwrap();
     fleet.turn().await.unwrap();
@@ -74,7 +84,6 @@ async fn at_the_gate(fleet: &Fixture, id: &JobId) {
     );
 }
 
-/// Where nothing blocks, the Job goes on to land and the Command is run after.
 async fn landed(fleet: &Fixture, id: &JobId) {
     submitted_by_the_one(fleet, note_evidence()).await.unwrap();
     fleet.turn().await.unwrap();
@@ -86,17 +95,19 @@ async fn landed(fleet: &Fixture, id: &JobId) {
 }
 
 #[tokio::test]
-async fn a_destructive_trigger_rings_the_row_and_names_itself_on_the_alerts() {
+async fn an_added_destructive_script_rings_the_row_and_names_itself_on_the_alerts() {
     let home = TempDir::new();
     let files = Arc::new(Files::default());
-    files.say(vec![wiping("pr_opened", "")]);
     let fleet = a_fleet_asking(&home, &files, &flag_in(&home));
-    let id = to_the_delivering_step(&fleet, &home).await;
+    let added = wipe(TriggerMoment::PrOpened, "summarise", false, false);
+    let id = at_the_delivering_step(&fleet, &home, added).await;
 
     assert_eq!(
-        the_firing(&fleet, &id).await.state,
+        state_of(&the_addition(&fleet, &id).await),
         TriggerState::AwaitingOwner
     );
+    let detail = fleet.job_detail(ipc::JobId::from(&id)).await.unwrap();
+    assert_eq!(detail.additions[0].state, Wire::AwaitingOwner);
     let alert = the_alert(&fleet, &id).await.expect("the bell rings");
     assert_eq!(
         (alert.kind, alert.trigger.as_str()),
@@ -115,14 +126,14 @@ async fn a_destructive_trigger_rings_the_row_and_names_itself_on_the_alerts() {
 }
 
 #[tokio::test]
-async fn run_executes_the_command_once_and_the_trigger_passes_and_the_bell_goes() {
+async fn run_executes_the_command_once_and_the_step_passes_and_the_bell_goes() {
     let home = TempDir::new();
     let flag = flag_in(&home);
     std::fs::write(&flag, "").unwrap();
     let files = Arc::new(Files::default());
-    files.say(vec![wiping("pr_opened", "")]);
     let fleet = a_fleet_asking(&home, &files, &flag);
-    let id = to_the_delivering_step(&fleet, &home).await;
+    let added = wipe(TriggerMoment::PrOpened, "summarise", false, false);
+    let id = at_the_delivering_step(&fleet, &home, added).await;
     landed(&fleet, &id).await;
 
     let ran = Arc::clone(&fleet)
@@ -130,29 +141,47 @@ async fn run_executes_the_command_once_and_the_trigger_passes_and_the_bell_goes(
         .await
         .expect("ran");
     assert_eq!(ran.state, Wire::Passed);
-    let after = the_firing(&fleet, &id).await;
-    assert_eq!(
-        (after.state, after.exit_code),
-        (TriggerState::Passed, Some(0))
-    );
+    let after = the_addition(&fleet, &id).await;
+    assert_eq!(state_of(&after), TriggerState::Passed);
+    assert_eq!(after.fired.and_then(|fired| fired.exit_code), Some(0));
     assert!(fleet.alerts(None).await.unwrap().waiting.is_empty());
 }
 
 #[tokio::test]
-async fn a_run_that_fails_ends_as_a_firing_does_failed_without_block() {
+async fn a_run_that_fails_ends_as_a_step_does_failed_without_block_and_repairing_with_repair() {
     let home = TempDir::new();
     let files = Arc::new(Files::default());
-    files.say(vec![wiping("pr_opened", "")]);
     let fleet = a_fleet_asking(&home, &files, &flag_in(&home));
-    let id = to_the_delivering_step(&fleet, &home).await;
+    let added = wipe(TriggerMoment::PrOpened, "summarise", false, false);
+    let id = at_the_delivering_step(&fleet, &home, added).await;
     landed(&fleet, &id).await;
-
     let ran = Arc::clone(&fleet)
         .hold_rerun(ipc::JobId::from(&id), act())
         .await
         .expect("ran");
     assert_eq!(ran.state, Wire::Failed);
-    assert_eq!(the_firing(&fleet, &id).await.exit_code, Some(1));
+    assert_eq!(
+        the_addition(&fleet, &id).await.fired.unwrap().exit_code,
+        Some(1)
+    );
+
+    let home = TempDir::new();
+    let fleet = a_fleet_asking(&home, &files, &flag_in(&home));
+    let added = wipe(TriggerMoment::PrOpened, "summarise", false, true);
+    let id = at_the_delivering_step(&fleet, &home, added).await;
+    landed(&fleet, &id).await;
+    let ran = Arc::clone(&fleet)
+        .hold_rerun(ipc::JobId::from(&id), act())
+        .await
+        .expect("ran");
+    assert_eq!(ran.state, Wire::Repairing);
+    let queued = fleet
+        .trigger_repairs()
+        .lock()
+        .unwrap()
+        .pop()
+        .expect("queued");
+    assert_eq!(queued.subject, Subject::Addition("a1".to_string()));
 }
 
 #[tokio::test]
@@ -160,9 +189,9 @@ async fn with_block_the_gate_is_held_until_he_answers_and_a_failed_run_keeps_it_
     let home = TempDir::new();
     let flag = flag_in(&home);
     let files = Arc::new(Files::default());
-    files.say(vec![wiping("pr_opened", BLOCKING)]);
     let fleet = a_fleet_asking(&home, &files, &flag);
-    let id = to_the_delivering_step(&fleet, &home).await;
+    let added = wipe(TriggerMoment::PrOpened, "summarise", true, false);
+    let id = at_the_delivering_step(&fleet, &home, added).await;
     at_the_gate(&fleet, &id).await;
 
     let held = fleet.approved(&id, Actor::Human).await.expect_err("asking");
@@ -175,11 +204,7 @@ async fn with_block_the_gate_is_held_until_he_answers_and_a_failed_run_keeps_it_
         .expect("ran");
     assert_eq!((failed.state, failed.released), (Wire::Held, false));
     let kind = the_alert(&fleet, &id).await.map(|alert| alert.kind);
-    assert_eq!(
-        kind,
-        Some(JobAlertKind::Held),
-        "it failed: the hold is the more pressing"
-    );
+    assert_eq!(kind, Some(JobAlertKind::Held));
 
     std::fs::write(&flag, "").unwrap();
     let passed = Arc::clone(&fleet)
@@ -198,9 +223,9 @@ async fn with_block_the_gate_is_held_until_he_answers_and_a_failed_run_keeps_it_
 async fn skip_records_it_skipped_by_the_owner_and_opens_the_gate() {
     let home = TempDir::new();
     let files = Arc::new(Files::default());
-    files.say(vec![wiping("pr_opened", BLOCKING)]);
     let fleet = a_fleet_asking(&home, &files, &flag_in(&home));
-    let id = to_the_delivering_step(&fleet, &home).await;
+    let added = wipe(TriggerMoment::PrOpened, "summarise", true, false);
+    let id = at_the_delivering_step(&fleet, &home, added).await;
     at_the_gate(&fleet, &id).await;
 
     let skipped = fleet
@@ -208,8 +233,11 @@ async fn skip_records_it_skipped_by_the_owner_and_opens_the_gate() {
         .await
         .expect("skipped");
     assert_eq!((skipped.state, skipped.released), (Wire::Skipped, true));
-    let after = the_firing(&fleet, &id).await;
-    assert_eq!(after.skipped, Some(TriggerSkipped::ByOwner));
+    let after = the_addition(&fleet, &id).await;
+    assert_eq!(
+        after.fired.and_then(|fired| fired.not_run),
+        Some(NotRun::ByOwner)
+    );
     assert!(the_alert(&fleet, &id).await.is_none());
     fleet.approved(&id, Actor::Human).await.expect("open");
 }
@@ -220,12 +248,9 @@ async fn a_step_starts_ask_with_block_stops_the_job_before_its_drone_until_he_ru
     let flag = flag_in(&home);
     std::fs::write(&flag, "").unwrap();
     let files = Arc::new(Files::default());
-    files.say(vec![wiping("step_starts\nstep: implement", BLOCKING)]);
     let fleet = a_fleet_asking(&home, &files, &flag);
-    let job = fleet.propose(a_proposal("fix the reader")).await.unwrap();
-    worktree_directory(&home, &job);
-    fleet.approve(job.id()).await.unwrap();
-    let id = job.id().clone();
+    let added = wipe(TriggerMoment::StepStarts, "implement", true, false);
+    let id = approved_with(&fleet, &home, added).await;
 
     let held = started(&fleet, &id).await.expect_err("asking first");
     assert!(matches!(held, Adrift::TriggerHolds { .. }), "{held:?}");
@@ -250,15 +275,9 @@ async fn a_step_starts_ask_with_block_stops_the_job_before_its_drone_until_he_ru
     assert_eq!(fleet.load(&id).await.unwrap().status(), JobStatus::Queued);
     started(&fleet, &id).await.unwrap();
     assert_eq!(
-        fleet
-            .store()
-            .lock()
-            .await
-            .trigger_firings(&id)
-            .unwrap()
-            .len(),
-        1,
-        "not fired a second time on the way in"
+        state_of(&the_addition(&fleet, &id).await),
+        TriggerState::Passed,
+        "not asked a second time on the way in"
     );
 }
 
@@ -268,27 +287,23 @@ async fn a_second_run_while_it_executes_is_refused_and_a_restart_leaves_it_askin
     let flag = flag_in(&home);
     std::fs::write(&flag, "").unwrap();
     let files = Arc::new(Files::default());
-    files.say(vec![wiping("pr_opened", BLOCKING)]);
     let fleet = a_fleet_asking(&home, &files, &flag);
-    let id = to_the_delivering_step(&fleet, &home).await;
+    let added = wipe(TriggerMoment::PrOpened, "summarise", true, false);
+    let id = at_the_delivering_step(&fleet, &home, added).await;
     at_the_gate(&fleet, &id).await;
 
     // What is written is all a restarted Fleet has: asking, and holding.
-    let (firing_id, asking) = fleet
-        .store()
-        .lock()
-        .await
-        .asking_firings(&id)
-        .unwrap()
-        .remove(0);
-    assert_eq!(asking.state, TriggerState::AwaitingOwner);
+    assert_eq!(
+        state_of(&the_addition(&fleet, &id).await),
+        TriggerState::AwaitingOwner
+    );
     assert_eq!(fleet.holds_on(&id).await.unwrap().len(), 1);
 
     fleet
         .owner_runs()
         .lock()
         .unwrap()
-        .insert(crate::trigger_repair::Subject::Firing(firing_id));
+        .insert(Subject::Addition("a1".to_string()));
     let again = Arc::clone(&fleet)
         .hold_rerun(ipc::JobId::from(&id), act())
         .await
@@ -299,8 +314,9 @@ async fn a_second_run_while_it_executes_is_refused_and_a_restart_leaves_it_askin
     );
     fleet.owner_runs().lock().unwrap().clear();
     assert_eq!(
-        the_firing(&fleet, &id).await.state,
-        TriggerState::AwaitingOwner
+        state_of(&the_addition(&fleet, &id).await),
+        TriggerState::AwaitingOwner,
+        "refusing left it asking"
     );
     Arc::clone(&fleet)
         .hold_rerun(ipc::JobId::from(&id), act())
@@ -310,37 +326,16 @@ async fn a_second_run_while_it_executes_is_refused_and_a_restart_leaves_it_askin
 }
 
 #[tokio::test]
-async fn a_run_that_fails_with_repair_on_queues_a_repair_a_restart_takes_up_again() {
-    let home = TempDir::new();
-    let files = Arc::new(Files::default());
-    files.say(vec![wiping("pr_opened", "on_failure:\n  repair: true\n")]);
-    let fleet = a_fleet_asking(&home, &files, &flag_in(&home));
-    let id = to_the_delivering_step(&fleet, &home).await;
-    landed(&fleet, &id).await;
-
-    let ran = Arc::clone(&fleet)
-        .hold_rerun(ipc::JobId::from(&id), act())
-        .await
-        .expect("ran");
-    assert_eq!(ran.state, Wire::Repairing);
-    fleet.trigger_repairs().lock().unwrap().pop();
-    fleet.repairs_recovered().await;
-    assert!(
-        fleet.repair_next().await,
-        "the repair was queued again from the store"
-    );
-}
-
-#[tokio::test]
 async fn nothing_that_is_not_asking_answers_to_run_or_skip() {
     let home = TempDir::new();
     let files = Arc::new(Files::default());
     let fleet = a_fleet_asking(&home, &files, &flag_in(&home));
-    let id = to_the_delivering_step(&fleet, &home).await;
+    let added = wipe(TriggerMoment::PrOpened, "summarise", false, false);
+    let id = approved_with(&fleet, &home, added).await;
     let none = fleet
         .hold_skip(ipc::JobId::from(&id), act())
         .await
-        .expect_err("nothing asks");
+        .expect_err("nothing asks yet");
     assert_eq!(
         (none.status(), none.error().code.as_str()),
         (409, "fleet.no_hold")
