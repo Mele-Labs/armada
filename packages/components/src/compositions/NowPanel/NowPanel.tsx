@@ -1,8 +1,9 @@
 import { Fragment, useEffect, useMemo, useState, type ReactNode } from "react";
-import { Bot, Box, ChevronDown, ChevronRight, CircleDot, CornerUpRight, Cpu, Megaphone, OctagonAlert, PanelRightClose, PencilRuler, RotateCw, Scale, ShieldCheck, ShieldOff, ShieldX, SkipForward, Waypoints, Workflow } from "lucide-react";
+import { Activity, Bot, Box, ChevronDown, ChevronRight, CircleDot, CornerUpRight, Cpu, Megaphone, OctagonAlert, PanelRightClose, PencilRuler, RotateCw, Scale, ShieldCheck, ShieldOff, ShieldX, SkipForward, Waypoints, Workflow } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
+import type { NowAsker } from "../AskerView/AskerView";
 import { Radio, RadioGroup } from "../../primitives/Radio/Radio";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 
@@ -31,8 +32,8 @@ export type NowSketchShow = { sketch: NowSketch; against?: NowSketch };
 /** Something the owner asked about a part of a sketch, kept under the ask it was asked of. */
 export type NowRemark = { key: string; about: string; said: string };
 
-/** What the Overview shows to the left of the panel while a sketch is open. */
-export type NowSketchView = "sketch" | "canvas";
+/** What the Overview shows to the left of the panel while something asks: the sketch, the asker, or the canvas. */
+export type NowSketchView = "sketch" | "asker" | "canvas";
 
 /** A Plan decision the Drone needs made, with the answers it takes. Mock data until Fleet has a plan interview. */
 export type NowDecision = {
@@ -49,6 +50,8 @@ export type NowPlanAsk = {
   key: string;
   kind: "plan";
   decisions: readonly NowDecision[];
+  /** What the Plan Drone is doing and has changed, drawn on the left while no sketch is. */
+  asker?: NowAsker;
   /** `edits` is what the owner marked on the sketches, where he marked any, so the Drone reads both. */
   onAnswer: (answers: Readonly<Record<string, string>>, edits?: Readonly<Record<string, unknown>>) => void;
 };
@@ -61,6 +64,8 @@ export type NowOpenAsk = {
   text: string;
   /** Shown beside the canvas while the question is open. */
   sketch?: NowSketch;
+  /** The asker's live output, what it changed, and for a Judge the product and checks. */
+  asker?: NowAsker;
   onOpen: () => void;
 };
 
@@ -160,9 +165,13 @@ export type NowPanelProps = {
   thread?: readonly NowRemark[];
   /** What the owner marked on the sketches, sent with a Plan answer. The host keeps it. */
   edits?: Readonly<Record<string, unknown>>;
-  /** Which the Overview shows while a sketch is open. Absent reads as the sketch. */
+  /** Told the asker of the ask now open, and `undefined` once none is. Absent leaves askers undrawn. */
+  onAsker?: (asker: NowAsker | undefined) => void;
+  /** What a press on a file in the asker view does. The panel draws no file; the host passes it on. */
+  onOpenFile?: (path: string) => void;
+  /** Which the Overview shows while something asks. Absent reads as the sketch, else the asker. */
   sketchView?: NowSketchView;
-  /** The head's Sketch and Canvas switch, drawn only while a sketch is open. Absent draws none. */
+  /** The head's switch between what applies: Sketch, Asker, Canvas. Absent draws none. */
   onSketchView?: (view: NowSketchView) => void;
 };
 
@@ -181,12 +190,20 @@ const STATE: Record<NowRunning["state"], { Glyph: LucideIcon; said: string }> = 
 const ASK_ORDER = ["plan", "judge", "drone"] as const;
 const RUN_ORDER = ["drone", "check", "judge"] as const;
 
-export function NowPanel({ asks = [], issues = [], running = [], waiting = [], onSkipAll, onHide, onStep, focusedStep, onSketch, sketchView = "sketch", onSketchView, thread = [], edits }: NowPanelProps) {
+export function NowPanel({ asks = [], issues = [], running = [], waiting = [], onSkipAll, onHide, onStep, focusedStep, onSketch, onAsker, sketchView, onSketchView, thread = [], edits }: NowPanelProps) {
   // The plan decision asked now reports its own sketch; a Judge's or Drone's is read off the asks.
   const [planSketch, setPlanSketch] = useState<NowSketchShow | undefined>(undefined);
   const openSketch = asks.flatMap((ask) => (ask.kind === "plan" || ask.sketch === undefined ? [] : [ask.sketch]))[0];
   const openShow = useMemo<NowSketchShow | undefined>(() => (openSketch === undefined ? undefined : { sketch: openSketch }), [openSketch]);
   const asked = planSketch ?? openShow;
+  const [planAsker, setPlanAsker] = useState<NowAsker | undefined>(undefined);
+  const openAsker = asks.flatMap((ask) => (ask.kind === "plan" || ask.asker === undefined ? [] : [ask.asker]))[0];
+  const askerNow = planAsker ?? openAsker;
+  const shownView = sketchView ?? (asked !== undefined ? "sketch" : "asker");
+  useEffect(() => {
+    onAsker?.(askerNow);
+    return () => onAsker?.(undefined);
+  }, [askerNow, onAsker]);
   useEffect(() => {
     onSketch?.(asked);
     return () => onSketch?.(undefined);
@@ -200,15 +217,24 @@ export function NowPanel({ asks = [], issues = [], running = [], waiting = [], o
     <aside className="armada-now" role="region" aria-label="Now">
       <header className="armada-now__head">
         <h3 className="armada-now__title">Now</h3>
-        {asked === undefined || onSketchView === undefined ? null : (
+        {(asked === undefined && askerNow === undefined) || onSketchView === undefined ? null : (
           <div className="armada-now__switch" role="group" aria-label="Show on the left">
-            <Tooltip label="Sketch">
-              <button type="button" className="armada-now__switch-act" aria-label="Sketch" aria-pressed={sketchView === "sketch"} onClick={() => onSketchView("sketch")}>
-                <PencilRuler size={16} strokeWidth={2} aria-hidden />
-              </button>
-            </Tooltip>
+            {asked === undefined ? null : (
+              <Tooltip label="Sketch">
+                <button type="button" className="armada-now__switch-act" aria-label="Sketch" aria-pressed={shownView === "sketch"} onClick={() => onSketchView("sketch")}>
+                  <PencilRuler size={16} strokeWidth={2} aria-hidden />
+                </button>
+              </Tooltip>
+            )}
+            {askerNow === undefined ? null : (
+              <Tooltip label="Asker">
+                <button type="button" className="armada-now__switch-act" aria-label="Asker" aria-pressed={shownView === "asker"} onClick={() => onSketchView("asker")}>
+                  <Activity size={16} strokeWidth={2} aria-hidden />
+                </button>
+              </Tooltip>
+            )}
             <Tooltip label="Canvas">
-              <button type="button" className="armada-now__switch-act" aria-label="Canvas" aria-pressed={sketchView === "canvas"} onClick={() => onSketchView("canvas")}>
+              <button type="button" className="armada-now__switch-act" aria-label="Canvas" aria-pressed={shownView === "canvas"} onClick={() => onSketchView("canvas")}>
                 <Workflow size={16} strokeWidth={2} aria-hidden />
               </button>
             </Tooltip>
@@ -231,7 +257,7 @@ export function NowPanel({ asks = [], issues = [], running = [], waiting = [], o
             const of = asks.filter((ask) => ask.kind === kind);
             return of.length === 0 ? null : (
               <Fragment key={kind}>
-                {of.map((ask) => (ask.kind === "plan" ? <PlanAsk key={ask.key} ask={ask} onSketch={setPlanSketch} {...(edits === undefined ? {} : { edits })} /> : <AskRow key={ask.key} ask={ask} />))}
+                {of.map((ask) => (ask.kind === "plan" ? <PlanAsk key={ask.key} ask={ask} onSketch={setPlanSketch} onAsker={setPlanAsker} {...(edits === undefined ? {} : { edits })} /> : <AskRow key={ask.key} ask={ask} />))}
               </Fragment>
             );
           })}
@@ -473,7 +499,7 @@ function AskRow({ ask }: { ask: NowOpenAsk }) {
  * One decision at a time, nothing preselected. Next goes to the next one still open;
  * the last decision carries Answer instead, which sends every pick together.
  */
-function PlanAsk({ ask, onSketch, edits }: { ask: NowPlanAsk; onSketch: (show: NowSketchShow | undefined) => void; edits?: Readonly<Record<string, unknown>> }) {
+function PlanAsk({ ask, onSketch, onAsker, edits }: { ask: NowPlanAsk; onSketch: (show: NowSketchShow | undefined) => void; onAsker: (asker: NowAsker | undefined) => void; edits?: Readonly<Record<string, unknown>> }) {
   const [at, setAt] = useState(0);
   const [picks, setPicks] = useState<Record<string, string>>({});
   const [sent, setSent] = useState(false);
@@ -494,6 +520,11 @@ function PlanAsk({ ask, onSketch, edits }: { ask: NowPlanAsk; onSketch: (show: N
     onSketch(drawn);
     return () => onSketch(undefined);
   }, [drawn, onSketch]);
+  const asker = sent ? undefined : ask.asker;
+  useEffect(() => {
+    onAsker(asker);
+    return () => onAsker(undefined);
+  }, [asker, onAsker]);
   if (decision === undefined) return null;
   const last = at === ask.decisions.length - 1;
   const picked = picks[decision.id];

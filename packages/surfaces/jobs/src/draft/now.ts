@@ -11,9 +11,22 @@ export type NowKindView = "drone" | "check" | "judge";
 /** A diagram the asking Drone drew: the scene it drew, validated where it is drawn. */
 export type NowSketchDraft = { scene: unknown };
 
+/** What is asking, drawn on the left while the ask has no sketch: its live output, what it changed, and for a Judge the product and checks. */
+export type NowAskerDraft = {
+  name: string;
+  of: "drone" | "judge";
+  step?: string;
+  state: "running" | "waiting";
+  actions: readonly string[];
+  tail: readonly string[];
+  changed?: readonly { path: string; change: "added" | "changed" | "removed"; asking?: boolean; diff?: readonly string[] }[];
+  product?: { title: string; lines: readonly string[] };
+  checks?: readonly { name: string; state: "passed" | "failed" | "running"; tail?: readonly string[] }[];
+};
+
 export type NowAskView =
-  | { key: string; kind: "plan"; decisions: readonly { id: string; question: string; options: readonly { id: string; label: string; sketch?: NowSketchDraft }[]; sketch?: NowSketchDraft }[] }
-  | { key: string; kind: "judge" | "drone"; name: string; text: string; target?: string; sketch?: NowSketchDraft };
+  | { key: string; kind: "plan"; decisions: readonly { id: string; question: string; options: readonly { id: string; label: string; sketch?: NowSketchDraft }[]; sketch?: NowSketchDraft }[]; asker?: NowAskerDraft }
+  | { key: string; kind: "judge" | "drone"; name: string; text: string; target?: string; sketch?: NowSketchDraft; asker?: NowAskerDraft };
 
 /** A quick act on a row. The host's handler is a stub on the mock. */
 export type NowActView = { key: string; glyph: "retry" | "skip" | "skip_all" | "redirect" | "retry_step"; said: string };

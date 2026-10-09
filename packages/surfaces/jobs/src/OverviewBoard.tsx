@@ -24,12 +24,13 @@ import {
   NowPanel,
   PlanGroupStateMark,
   Prose,
+  AskerView,
   SketchScene,
   SkeletonText,
   Tooltip,
   WorkflowCanvas,
 } from "@armada/components";
-import type { Figure, NowPanelProps, NowRemark, NowSketchShow, NowSketchView, PlanGroupState, WorkflowCanvasEdge, WorkflowCanvasNode } from "@armada/components";
+import type { Figure, NowAsker, NowPanelProps, NowRemark, NowSketchShow, NowSketchView, PlanGroupState, WorkflowCanvasEdge, WorkflowCanvasNode } from "@armada/components";
 import type { FromStudio } from "@armada/protocol";
 import { PanelRightOpen } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
@@ -163,11 +164,17 @@ export function OverviewBoard({
   const [thread, setThread] = useState<readonly NowRemark[]>([]);
   const [marks, setMarks] = useMarks(sketch === undefined ? undefined : marksKey(sketch.sketch.scene));
   const marked = useMarked();
-  const [sketchView, setSketchView] = useState<NowSketchView>("sketch");
+  // **What asks decides what stands in for the canvas**: a sketch where the ask drew one, else the
+  // asker's own view, else the canvas. The owner's pick holds while something asks and no longer.
+  const [asker, setAsker] = useState<NowAsker | undefined>(undefined);
+  const [chosen, setChosen] = useState<NowSketchView | undefined>(undefined);
   useEffect(() => {
-    if (sketch === undefined) setSketchView("sketch");
-  }, [sketch]);
+    if (sketch === undefined && asker === undefined) setChosen(undefined);
+  }, [sketch, asker]);
+  const fallback: NowSketchView = sketch !== undefined ? "sketch" : asker !== undefined ? "asker" : "canvas";
+  const sketchView: NowSketchView = hidden || chosen === "canvas" ? "canvas" : chosen === "sketch" && sketch !== undefined ? "sketch" : chosen === "asker" && asker !== undefined ? "asker" : fallback;
   const sketching = !hidden && sketch !== undefined && sketchView === "sketch";
+  const asking = !hidden && asker !== undefined && sketchView === "asker";
   // **Every step a Now row belongs to stays lit and the rest stand back**, for as long as the
   // panel has rows (owner, 8 Oct 2026). No step named, no dimming.
   const lit = hidden ? new Set<string>() : litSteps(now);
@@ -181,6 +188,8 @@ export function OverviewBoard({
           onMarks={setMarks}
           onAsk={(about, said) => setThread((was) => [...was, { key: `r${String(was.length + 1)}`, about: about.label, said }])}
         />
+      ) : asking ? (
+        <AskerView asker={asker} {...(now?.onOpenFile === undefined ? {} : { onOpenFile: now.onOpenFile })} />
       ) : (
         <>
           {approving}
@@ -376,8 +385,9 @@ export function OverviewBoard({
               {...now}
               onHide={() => hide(true)}
               onSketch={setSketch}
+              onAsker={setAsker}
               sketchView={sketchView}
-              onSketchView={setSketchView}
+              onSketchView={setChosen}
               thread={thread}
               edits={marked}
             />

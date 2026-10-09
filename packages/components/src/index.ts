@@ -437,6 +437,7 @@ export * from "./compositions/PauseConfirm/PauseConfirm";
 export * from "./compositions/NowPanel/NowPanel";
 export * from "./compositions/SketchScene/SketchScene";
 export * from "./compositions/SketchScene/scene";
+export * from "./compositions/AskerView/AskerView";
 export * from "./compositions/OwnerChip/OwnerChip";
 export * from "./compositions/SessionFrame/SessionFrame";
 export * from "./compositions/SessionThread/SessionThread";

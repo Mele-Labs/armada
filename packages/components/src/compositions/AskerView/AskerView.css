@@ -1,0 +1,196 @@
+/* What is asking, in frames: a header band over a mono body, state carried by the frame. The
+   canvas's own height, so swapping it for the canvas moves nothing. */
+.armada-asker {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-rows: min-content;
+  align-content: start;
+  gap: var(--space-3);
+  box-sizing: border-box;
+  block-size: var(--h-workflow-run-canvas);
+  min-width: 0;
+  margin: 0;
+  padding: var(--space-3);
+  border: var(--border-width) solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--bg-sunken);
+  overflow: auto;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+
+/* A Judge's own read runs the width, with the product and the checks side by side under it. */
+.armada-asker[data-of="judge"] > :first-child {
+  grid-column: 1 / -1;
+}
+
+.armada-asker__frame {
+  --hue: var(--status-not-started);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border: var(--edge-active) solid var(--hue);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--hue) var(--row-tint), var(--bg-raised));
+  overflow: hidden;
+}
+
+.armada-asker__frame[data-tone="live"] {
+  --hue: var(--status-running);
+}
+
+.armada-asker__band {
+  margin: 0;
+  padding: var(--space-1) var(--space-3);
+  background: var(--hue);
+  color: var(--fg-inverse);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  font-weight: var(--weight-heading);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+
+.armada-asker__who {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: var(--border-width) solid var(--border-subtle);
+}
+
+.armada-asker__step {
+  flex: 1;
+  color: var(--fg-muted);
+}
+
+.armada-asker__actions {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  list-style: none;
+  color: var(--fg-muted);
+}
+
+.armada-asker__actions li::before {
+  content: "> " / "";
+  color: var(--fg-subtle);
+}
+
+.armada-asker__tail,
+.armada-asker__diff {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  background: var(--bg-sunken);
+  font: inherit;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.armada-asker__product {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  font-weight: var(--weight-heading);
+}
+
+.armada-asker__rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.armada-asker__row {
+  border-top: var(--border-width) solid var(--border-subtle);
+}
+
+.armada-asker__row:first-child {
+  border-top: none;
+}
+
+.armada-asker__row[data-asking] {
+  box-shadow: inset var(--edge-active) 0 0 var(--status-escalated);
+}
+
+.armada-asker__line {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  inline-size: 100%;
+  padding: var(--space-1) var(--space-3);
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+}
+
+button.armada-asker__line {
+  cursor: pointer;
+}
+
+button.armada-asker__line:hover {
+  background: var(--bg-hover);
+}
+
+button.armada-asker__line:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.armada-asker__path {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.armada-asker__mark {
+  display: inline-flex;
+  color: var(--fg-muted);
+}
+
+.armada-asker__mark[data-state="added"],
+.armada-asker__mark[data-state="passed"] {
+  color: var(--status-completed-success);
+}
+
+.armada-asker__mark[data-state="removed"],
+.armada-asker__mark[data-state="failed"] {
+  color: var(--status-completed-failed);
+}
+
+.armada-asker__mark[data-state="changed"] {
+  color: var(--status-awaiting-review);
+}
+
+.armada-asker__mark[data-state="running"] {
+  color: var(--status-running);
+}
+
+.armada-asker__mark[data-state="waiting"],
+.armada-asker__mark[data-state="asking"] {
+  color: var(--status-escalated);
+}
+
+.armada-asker__mark[data-pulsing] {
+  animation: armada-asker-pulse var(--duration-pulse) ease-in-out infinite;
+}
+
+.armada-asker__code[data-sign="+"] {
+  color: var(--status-completed-success);
+}
+
+.armada-asker__code[data-sign="-"] {
+  color: var(--status-completed-failed);
+}
+
+@keyframes armada-asker-pulse {
+  50% {
+    opacity: 0.4;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .armada-asker__mark[data-pulsing] {
+    animation: none;
+  }
+}

@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, userEvent, waitFor } from "storybook/test";
 
+import type { NowAsker } from "../AskerView/AskerView";
 import { NowPanel, type NowAct, type NowAsk, type NowSketch, type NowIssue, type NowRunning, type NowWaiting } from "./NowPanel";
 
 /** What a Job is doing and what it wants, beside its canvas. A section is drawn only when it holds a row. */
@@ -335,5 +336,44 @@ export const AnswerCarriesEdits: Story = {
     await userEvent.click(canvas.getByText("Take it here"));
     await userEvent.click(canvas.getByRole("button", { name: "Answer" }));
     await expect(answer).toHaveBeenLastCalledWith({ shape: "split", tests: "pin", scope: "in" }, { drawn: { struck: ["writer"] } });
+  },
+};
+
+const ASKER: NowAsker = { name: "Implement Drone", of: "drone", state: "waiting", actions: ["Edit crates/store/tests/fixtures.rs"], tail: ["stopped: two clocks reach the fixture"] };
+
+/** The switch offers only what applies: an ask with an asker and no sketch offers the Asker and the Canvas. */
+export const SwitchOffersTheAsker: Story = {
+  args: { asks: [{ key: "da", kind: "drone", name: "Implement Drone", text: "Which clock does the fixture pin?", onOpen: open, asker: ASKER }], onAsker: fn(), onSketchView: fn(), sketchView: "asker" },
+  play: async ({ canvas, args }) => {
+    await expect(args.onAsker).toHaveBeenLastCalledWith(ASKER);
+    await expect(canvas.queryByRole("button", { name: "Sketch" })).toBeNull();
+    await expect(canvas.getByRole("button", { name: "Asker" })).toHaveAttribute("aria-pressed", "true");
+    await userEvent.click(canvas.getByRole("button", { name: "Canvas" }));
+    await expect(args.onSketchView).toHaveBeenCalledWith("canvas");
+  },
+};
+
+/** An ask with both offers all three, the sketch standing by default. */
+export const SwitchOffersAllThree: Story = {
+  args: { asks: [{ key: "ja", kind: "judge", name: "Judge on Review the change", text: "Is the retry cap in scope?", onOpen: open, sketch: NOW, asker: ASKER }], onSketchView: fn() },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("button", { name: "Sketch" })).toHaveAttribute("aria-pressed", "true");
+    await expect(canvas.getByRole("button", { name: "Asker" })).toHaveAttribute("aria-pressed", "false");
+    await expect(canvas.getByRole("button", { name: "Canvas" })).toBeInTheDocument();
+  },
+};
+
+/** A Plan question with an asker reports it until the answer goes. */
+export const PlanReportsItsAsker: Story = {
+  args: { asks: [{ ...(SKETCHED as Extract<NowAsk, { kind: "plan" }>), asker: ASKER }], onAsker: fn() },
+  play: async ({ canvas, args }) => {
+    await expect(args.onAsker).toHaveBeenLastCalledWith(ASKER);
+    await userEvent.click(canvas.getByText("Split it out"));
+    await userEvent.click(canvas.getByRole("button", { name: "Next" }));
+    await userEvent.click(canvas.getByText("Pin it in the fixtures"));
+    await userEvent.click(canvas.getByRole("button", { name: "Next" }));
+    await userEvent.click(canvas.getByText("Take it here"));
+    await userEvent.click(canvas.getByRole("button", { name: "Answer" }));
+    await expect(args.onAsker).toHaveBeenLastCalledWith(undefined);
   },
 };
