@@ -289,3 +289,29 @@
   flex-wrap: wrap;
   justify-content: flex-start;
 }
+
+/* The bar's count, pressed to open the all-notes panel: plain text until hovered. */
+.armada-annotate__status {
+  padding: 0 var(--space-1);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.armada-annotate__status:hover {
+  background: var(--bg-raised);
+  color: var(--fg-default);
+}
+
+.armada-annotate__status[aria-expanded="true"] {
+  background: var(--bg-raised);
+  color: var(--accent);
+}
+
+.armada-annotate__status:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}

@@ -12,7 +12,6 @@ import {
   type ReactNode,
 } from "react";
 import { Button, KbdChord, SplitButton, Textarea, Tooltip } from "@armada/components";
-import { PanelRightClose, PanelRightOpen } from "lucide-react";
 
 import { openJobIn } from "@armada/jobs";
 
@@ -526,15 +525,10 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSession, tell
 
       <div ref={barRef} className="armada-annotate__bar" role="status">
         <span>Annotating</span>
-        <Tooltip label={listing ? "Hide all notes" : "All notes"}>
-          <Button variant="ghost" size="sm" iconOnly aria-label={listing ? "Hide all notes" : "All notes"} aria-expanded={listing} onClick={() => setListing(!listing)}>
-            {listing ? <PanelRightClose size={16} strokeWidth={2} aria-hidden /> : <PanelRightOpen size={16} strokeWidth={2} aria-hidden />}
-          </Button>
-        </Tooltip>
-        <span>
+        <button type="button" className="armada-annotate__status" aria-expanded={listing} onClick={() => setListing(!listing)}>
           {open} open, {done} done
           {offScreen > 0 ? `, ${offScreen} not on this screen` : ""}
-        </span>
+        </button>
         {done > 0 && (
           <Button variant="ghost" size="sm" onClick={() => setShowingDone(!showingDone)}>
             {showingDone ? "Hide done notes" : "Show done notes"}

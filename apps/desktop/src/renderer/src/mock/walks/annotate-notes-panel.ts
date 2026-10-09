@@ -13,7 +13,7 @@ function steps(narrow: boolean): Step[] {
   const bar = role("status");
   const ledger = inside(panel, text("The ledger header wraps under the title"));
   return [
-    { press: inside(bar, button("All notes")), say: "The bar's list button opens every note" },
+    { press: inside(bar, button(/open, .* done/)), say: "The bar's count opens every note" },
     { look: inside(panel, text("Sessions")), say: "Grouped by the screen each was left on" },
     { look: inside(panel, text("No screen")), say: "A note with none has its own group" },
     { look: inside(panel, text("49-the-repo-field")), say: "A note already sent shows where it went" },
