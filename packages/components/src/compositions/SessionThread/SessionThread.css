@@ -340,33 +340,24 @@
 .armada-question-deck__done { display: flex; flex-wrap: wrap; gap: var(--space-1); }
 
 .armada-question-deck__stack {
-  --lift: var(--space-6);
+  --lift: var(--space-2);
   position: relative;
   padding-top: calc(var(--lift) * var(--behind, 0));
 }
 
+/* Each card behind is only its top edge peeking out: a little higher, narrower and dimmer. */
 .armada-question-deck__behind {
   position: absolute;
   top: calc(var(--lift) * (var(--behind) - 1 - var(--i)));
   left: calc(var(--space-3) * (var(--i) + 1));
   right: calc(var(--space-3) * (var(--i) + 1));
   z-index: calc(10 - var(--i));
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-2);
-  height: calc(var(--lift) + var(--space-4));
-  padding: var(--space-1) var(--space-3) 0;
+  height: calc(var(--lift) + var(--radius-lg));
   border: var(--border-width) solid var(--hue);
-  border-radius: var(--radius-md) var(--radius-md) 0 0;
-  background: color-mix(in srgb, var(--hue) 22%, var(--bg-overlay));
-  color: var(--fg-default);
-  opacity: calc(1.15 - var(--i) * 0.25);
-  font-size: var(--text-xs);
-  line-height: var(--leading-xs);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  background: color-mix(in srgb, var(--hue) 45%, var(--bg-overlay));
+  opacity: calc(1 - var(--i) * 0.25);
 }
-
-.armada-question-deck__behind > svg { flex: none; margin-top: var(--space-1); color: var(--hue); }
-.armada-question-deck__behind > span { min-width: 0; flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .armada-question-deck__card {
   position: relative;

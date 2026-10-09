@@ -1,5 +1,5 @@
 // The agent's questions as a deck, drawn as the Cockpit draws a call: one card in front with its
-// band and its answers as tiles, the rest standing behind it as strips. A single choice moves on as
+// band and its answers as tiles, the rest only peeking out behind it. A single choice moves on as
 // it is picked; the last one sends.
 
 import { useState } from "react";
@@ -73,10 +73,7 @@ export function QuestionDeck({
       )}
       <div className="armada-question-deck__stack" style={{ ["--behind" as string]: behind.length }}>
         {behind.map((q, index) => (
-          <div key={q.question} className="armada-question-deck__behind" style={{ ["--i" as string]: index }} aria-hidden>
-            <MessageCircleQuestion size={14} aria-hidden />
-            <span>{q.question}</span>
-          </div>
+          <div key={q.question} className="armada-question-deck__behind" style={{ ["--i" as string]: index }} title={q.question} aria-hidden />
         ))}
         <div key={one.question} className="armada-question-deck__card" role="group" aria-label={one.question} onKeyDown={key}>
           <header className="armada-question-deck__band">
