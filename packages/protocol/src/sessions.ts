@@ -187,3 +187,21 @@ export type SessionReport = {
   session_id: string;
   fact: SessionFact;
 };
+
+/**
+ * `POST /sessions/checks`: `armada check` tells Fleet a run began or ended in `cwd`. Fleet places the
+ * Session by the slot the directory is in. `run`, `outcome` and `log` ride the `end`. Since 23.74.
+ * Bridge never sends it; it is here so the wire reads whole.
+ */
+export type SessionCheckCall = {
+  act: "start" | "end";
+  cwd: string;
+  name: string;
+  run?: number;
+  outcome?: "passed" | "failed";
+  took_ms?: number;
+  log?: string;
+};
+
+/** What it answers. `run` is absent where no Session holds the slot, which is a person's own run. */
+export type SessionCheckAnswer = { run?: number };

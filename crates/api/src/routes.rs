@@ -226,6 +226,14 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(crate::hosted_sessions::dismiss_waiting::<D>),
         )
         .route(
+            "/sessions/checks",
+            post(crate::sessions::report_session_check::<D>),
+        )
+        .route(
+            "/sessions/checks/:run/output",
+            get(crate::sessions::get_session_check_output::<D>),
+        )
+        .route(
             "/sessions/claim_pull_request",
             post(crate::sessions::claim_pull_request::<D>),
         )

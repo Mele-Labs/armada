@@ -1,0 +1,14 @@
+[operations.report_session_check]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "A Session's agent ran `armada check` in its slot: the run begins, then ends with its log"
+notes = """
+`POST /sessions/checks`, body `SessionCheckCall`: `act` is `start` or `end`, with the `cwd` the Check ran in and its `name`; `end` adds the `run` that `start` answered, the `outcome` (`passed` or `failed`), `took_ms` and the `log`. Answered with `SessionCheckAnswer`. Since 23.74.
+
+**`armada check` runs in the caller's own process and keeps no record**, so it tells Fleet at both ends and nothing else. Fleet resolves `cwd` to the pool slot it stands in and then to the Session that holds that slot, the way the ledger places a terminal Session, and never by anything the call claims. `run` is absent where no Session holds the slot, which is a person's own run and not a refusal.
+
+A run is a `check` row on the Session's thread, replaced by id as it ends, and a row on the Checks page with the `session` requester and no Job. Each change publishes `session.changed`. The log is kept whole up to 256 KiB, newest end first when cut, and read by `get_session_check_output`. A run whose process was killed stays `running`: nothing ends it.
+
+`agent_access` is `No`: an agent reaches this only by running `armada check`, which tells Fleet itself.
+"""

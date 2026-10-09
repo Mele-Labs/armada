@@ -47,6 +47,26 @@ impl Sessions for FakeDaemon {
         .await
     }
 
+    async fn report_session_check(
+        &self,
+        call: ipc::SessionCheckCall,
+    ) -> Result<ipc::SessionCheckAnswer, Refusal> {
+        Ok(ipc::SessionCheckAnswer { run: call.run.or(Some(1)) })
+    }
+
+    async fn get_session_check_output(&self, run: u64) -> Result<ipc::CheckOutput, Refusal> {
+        Ok(ipc::CheckOutput {
+            attempt: 1,
+            name: String::from("suite"),
+            path: format!("session-check/{run}"),
+            lines: vec![String::from("ok")],
+            from_line: 1,
+            total_lines: 1,
+            bytes: 3,
+            whole: true,
+        })
+    }
+
     async fn claim_pull_request(
         &self,
         _caller: Option<crate::Caller>,

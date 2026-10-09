@@ -438,7 +438,7 @@ async fn the_manifest_wide_read_carries_gate_rows_and_asked_runs_with_openable_l
     assert_eq!(asked.requester, by_the_drone(&fleet, &job, &drone));
     assert_eq!(asked.state, "failed");
     assert_eq!(asked.name, "suite, diff_nonempty");
-    assert_eq!(asked.job_id.as_str(), job.as_str());
+    assert_eq!(asked.job_id.as_ref().map(|id| id.as_str()), Some(job.as_str()));
     assert!(asked.started_at.is_some() && asked.ended_at.is_some());
     let log = asked
         .logs
@@ -450,7 +450,7 @@ async fn the_manifest_wide_read_carries_gate_rows_and_asked_runs_with_openable_l
     use api::Queries;
     // **The existing reader opens it**, with the Check's own name on it.
     let opened = fleet
-        .get_check_output(asked.job_id.clone(), log.kept.clone())
+        .get_check_output(asked.job_id.clone().expect("a Job's run"), log.kept.clone())
         .await
         .expect("the asked run's log opens");
     assert_eq!(opened.name, "suite");
@@ -462,10 +462,11 @@ fn an_answer_is_cut_to_the_newest_and_says_so() {
     let row = |at: &str| ipc::ManifestCheckRow {
         source: "gate".to_string(),
         requester: ipc::Requester::outside(),
-        job_id: ipc::JobId::carried("01JOB"),
-        job_handle: "1-a".to_string(),
-        job_title: "a".to_string(),
-        step: ipc::StepId::carried("implement"),
+        job_id: Some(ipc::JobId::carried("01JOB")),
+        job_handle: Some("1-a".to_string()),
+        job_title: Some("a".to_string()),
+        step: Some(ipc::StepId::carried("implement")),
+        session_id: None,
         attempt: 1,
         group: None,
         name: "suite".to_string(),

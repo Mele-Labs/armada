@@ -38,11 +38,19 @@ pub struct ManifestCheckRow {
     /// Drone asked for. An opaque string, as `Requester::kind` is.
     pub source: String,
     pub requester: Requester,
-    pub job_id: JobId,
+    /// **Absent on a Session's run**, which belongs to no Job, along with the three below. Since 23.74.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub job_id: Option<JobId>,
     /// What a person calls the Job.
-    pub job_handle: String,
-    pub job_title: String,
-    pub step: StepId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub job_handle: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub job_title: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub step: Option<StepId>,
+    /// The Session whose agent ran it, on a row with no Job. Since 23.74.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<String>,
     /// Which run of the step.
     pub attempt: u32,
     /// The group whose gate it ran at, `G1` and on. Absent at a step's own gate.
@@ -74,7 +82,8 @@ pub struct ManifestCheckRow {
     /// `job_id` and the log's `kept`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub logs: Vec<ManifestCheckLog>,
-    /// The asked run's own id, on an `asked_run` row.
+    /// The asked run's own id, on an `asked_run` row. **On a Session's run, that run's id**, which
+    /// `get_session_check_output` reads the log by; it is unique with `session_id`, not alone.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub asked_run_id: Option<i64>,
 }

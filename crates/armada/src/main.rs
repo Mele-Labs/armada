@@ -161,7 +161,13 @@ async fn declared_by_the_manifest(
         }
     };
     let slots = declared::machine_slots();
-    match declared::execute(
+    // A Session's agent running a Check in its slot: Fleet is told at both ends. Only a Check.
+    let told = match registry {
+        Registry::Checks => armada::session_checks::begin(&root, name),
+        Registry::Commands => None,
+    };
+    let began = std::time::Instant::now();
+    let executed = declared::execute(
         &root,
         registry,
         name,
@@ -172,13 +178,19 @@ async fn declared_by_the_manifest(
         // merge line sets on every Check it runs.
         checks_runner::Priority::from_env(),
     )
-    .await
-    {
+    .await;
+    match executed {
         Ok(ran) => {
+            if let Some(told) = told {
+                told.end(&ran, began.elapsed());
+            }
             say::ran(&ran, verb);
             ExitCode::from(ran.status())
         }
         Err(why) => {
+            if let Some(told) = told {
+                told.refused(&why.to_string(), began.elapsed());
+            }
             eprintln!("{why}");
             ExitCode::FAILURE
         }

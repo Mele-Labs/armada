@@ -183,6 +183,7 @@ mod seeding;
 mod servers;
 /// The session ledger: what a harness reports of a session, and what Fleet
 /// answers. `docs/concepts/session.md`.
+mod session_checks;
 mod sessions;
 mod setup;
 /// What a step's harness produced, as a client is told about it.
@@ -412,6 +413,9 @@ pub use seeding::{DeclaredSeed, SeedWarmth, WorktreeSeeding};
 pub use servers::{
     NamedServer, ServerCheckout, ServerEntry, ServerLink, ServerList, ServerMessage, ServerOpened,
     ServerPhase, ServerPort, ServerState, StartServer, StartedBy,
+};
+pub use session_checks::{
+    SessionCheckAct, SessionCheckAnswer, SessionCheckCall, SessionCheckState,
 };
 pub use sessions::{
     AnswerWaiting, Attachment, AttachmentNamed, AttachmentReport, AttachmentState, DismissWaiting,

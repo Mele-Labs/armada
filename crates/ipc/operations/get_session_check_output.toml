@@ -1,0 +1,12 @@
+[operations.get_session_check_output]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "One Check a Session's agent ran, read back into the app by its run id"
+notes = """
+`GET /sessions/checks/:run/output`, answered with `CheckOutput`, the shape `get_check_output` answers. Since 23.74.
+
+**The run id is the key**, the `asked_run_id` of the Checks page's row for that run. `get_check_output` is keyed by a Job and a log file Fleet resolved against that Job's rows, and a Session's run has neither, so it gets its own route rather than a Job id standing in for a Session. A run no Session kept is a 422.
+
+The window is `get_check_output`'s: the newest 2,000 lines, 256 KiB at most, with `from_line`, `total_lines` and `whole` stated.
+"""

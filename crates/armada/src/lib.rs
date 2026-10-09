@@ -50,6 +50,7 @@ pub mod need;
 pub mod pocketing;
 pub mod reaching;
 pub mod say;
+pub mod session_checks;
 pub mod serve;
 pub mod setup;
 mod trigger_authoring;

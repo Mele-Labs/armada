@@ -419,11 +419,12 @@ Rules that follow:
 | `drone_task` | A Drone asking on a plan task | `job_id`, `step`, `task_id`, `drone_id` |
 | `drone_step` | A Drone asking on a step with no task | `job_id`, `step`, `drone_id` |
 | `merge_line` | The merge line, for one branch | `branch` |
+| `session` | A Session's agent running `armada check` in the slot it holds | `session_id`, `slot` |
 | `outside` | A person's press, a Helm session's or a person's own agent's `start_run`, a Verify | none |
 
 - **`outside` is a value and never an absence.** A record from before the field reads as it.
 - **An agent's `start_run` names the Drone that asked** where a Drone made the call: `drone_task` or `drone_step`, with the step, task and Drone the caller is at. Fleet places the connection against the Drones it holds, never by anything the call says, so a caller no Drone holds reads `outside`.
-- **A bare `armada check` writes no record**, so there is nothing to name: only what Fleet shows is stamped. The merge line's rows carry the entry's branch, which Fleet reads from the line's own state.
+- **A bare `armada check` writes no record**, so there is nothing to name: only what Fleet shows is stamped. **One exception, 23.74**: run in a slot a Session holds, it tells Fleet at both ends and the run is kept as that Session's (`docs/concepts/session.md`, *A Session's Checks*). The merge line's rows carry the entry's branch, which Fleet reads from the line's own state.
 
 ### At what priority a Check runs
 

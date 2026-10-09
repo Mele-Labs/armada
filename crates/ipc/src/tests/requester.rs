@@ -52,6 +52,14 @@ fn the_merge_line_names_the_branch() {
 }
 
 #[test]
+fn a_session_names_itself_and_its_slot() {
+    assert_eq!(
+        spelled(&Requester::session("s9", 10)),
+        r#"{"kind":"session","session_id":"s9","slot":10}"#
+    );
+}
+
+#[test]
 fn outside_a_job_is_a_value_and_is_what_nothing_reads_as() {
     assert_eq!(spelled(&Requester::outside()), r#"{"kind":"outside"}"#);
     assert_eq!(Requester::default(), Requester::outside());

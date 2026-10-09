@@ -430,6 +430,17 @@ where
         self.pull_request_claimed(caller, claim).await
     }
 
+    async fn report_session_check(
+        &self,
+        call: ipc::SessionCheckCall,
+    ) -> Result<ipc::SessionCheckAnswer, Refusal> {
+        self.session_check_reported(call).await
+    }
+
+    async fn get_session_check_output(&self, run: u64) -> Result<ipc::CheckOutput, Refusal> {
+        self.session_check_output(run).await
+    }
+
     async fn show_window(
         &self,
         caller: Option<api::Caller>,
