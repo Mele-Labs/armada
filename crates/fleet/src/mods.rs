@@ -18,7 +18,7 @@ use std::path::Path;
 use std::sync::Mutex;
 use std::time::UNIX_EPOCH;
 
-use ipc::{Instant, ModList, ModSummary};
+use ipc::{Instant, ModKind, ModList, ModSummary};
 
 pub(crate) mod manifest;
 mod promote;
@@ -39,6 +39,7 @@ const SHIPPED: &[&str] = &["dark", "light", "system", "default"];
 
 const MANIFEST: &str = "mod.toml";
 const THEME: &str = "theme.css";
+const LAYOUT: &str = "layout.json";
 
 /// Why `name` cannot be a mod's name, or `None`. **The only gate on a path
 /// segment**: a name that passes holds no `/`, no `.` and no way to climb.
@@ -87,7 +88,29 @@ pub(crate) struct Examined {
 
 pub(crate) struct Files {
     pub(crate) manifest: String,
-    pub(crate) css: String,
+    pub(crate) payload: Payload,
+}
+
+/// The file a mod's kind is about, as it was checked.
+pub(crate) enum Payload {
+    Css(String),
+    Layout(String),
+}
+
+impl Payload {
+    /// The file's name in the mod's folder.
+    pub(crate) fn file(&self) -> &'static str {
+        match self {
+            Payload::Css(_) => THEME,
+            Payload::Layout(_) => LAYOUT,
+        }
+    }
+
+    pub(crate) fn text(&self) -> &str {
+        match self {
+            Payload::Css(text) | Payload::Layout(text) => text,
+        }
+    }
 }
 
 impl Examined {
@@ -152,17 +175,22 @@ pub(crate) fn examine(mods_dir: &Path, name: &str) -> Examined {
         }
         Err(why) => found.problems.push(why),
     }
-    match read_small(&dir.join(THEME), stylesheet::MOST_BYTES, THEME) {
+    // A manifest that names no kind this build has is read as a theme, as it always was, so what
+    // is said about a broken mod's stylesheet does not change.
+    let layout = found.manifest.kind == Some(ModKind::Layout);
+    let (file, most) = if layout { (LAYOUT, ipc::layout::MOST_BYTES as u64) } else { (THEME, stylesheet::MOST_BYTES) };
+    match read_small(&dir.join(file), most, file) {
         Ok((text, ms)) => {
             stamps.push(ms);
-            found.problems.extend(stylesheet::problems(&text));
+            found.problems.extend(if layout { ipc::layout::problems(&text) } else { stylesheet::problems(&text) });
             texts.1 = Some(text);
         }
         Err(why) => found.problems.push(why),
     }
     found.changed_ms = stamps.into_iter().max();
-    if let (true, (Some(manifest), Some(css))) = (found.problems.is_empty(), texts) {
-        found.files = Some(Files { manifest, css });
+    if let (true, (Some(manifest), Some(text))) = (found.problems.is_empty(), texts) {
+        let payload = if layout { Payload::Layout(text) } else { Payload::Css(text) };
+        found.files = Some(Files { manifest, payload });
     }
     found
 }

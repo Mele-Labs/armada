@@ -12,8 +12,8 @@ import type { FixMain, RepositorySummary } from "@armada/protocol";
 import type { CallView } from "@armada/jobs/draft/calls";
 import type { NowView } from "@armada/jobs/draft/now";
 import type { BoardSection, PauseAct } from "@armada/screens";
-import { OverviewLists, dashboardTabOf, overviewPanelId } from "@armada/overview";
-import { Boundary } from "@armada/shell";
+import { OverviewLists, dashboardTabOf, overviewPanelId, type DashboardTab } from "@armada/overview";
+import { Boundary, useLayout } from "@armada/shell";
 
 import type { BridgeState } from "../../shared/bridge";
 import { Nows, useNeedsYou } from "./Dashboard";
@@ -133,7 +133,8 @@ export function Overview({
   // A press names a section; opening it (if folded) and scrolling to it happen once that open
   // state has committed, which is what the effect below waits for.
   const [jump, setJump] = useState<{ section: StripSection; at: number } | null>(null);
-  const [tab, setTab] = useDashboardTab();
+  const panels = useLayout("dashboard.panels").shown;
+  const [tab, setTab] = useDashboardTab(useLayout("dashboard.tabs").first as DashboardTab);
   const onJump = (section: StripSection) => {
     setters[section](true);
     setTab(dashboardTabOf(section));
@@ -172,7 +173,7 @@ export function Overview({
       <Nows.Provider value={nows}>
       <div className="armada-screen__overview">
         {/* n and ⌘N reach the bar from every surface (`useDispatchBarKeys`). Where Fleet cannot be reached the Board's own lists draw, and bind n themselves. */}
-        {fault ? null : <QuickDispatch onType={onQuickCompose} focused={!needsYou} onOpenSession={onOpenSession} />}
+        {fault || !panels.some((one) => one.id === "quick-dispatch") ? null : <QuickDispatch onType={onQuickCompose} focused={!needsYou} onOpenSession={onOpenSession} />}
         {fault ? (
           <OverviewLists
             jobs={state.jobs}

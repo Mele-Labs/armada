@@ -11,7 +11,7 @@ import type { CallView } from "@armada/jobs/draft/calls";
 import type { NowView } from "@armada/jobs/draft/now";
 import { nowPanelOf } from "@armada/jobs";
 import { isTerminal, titleOf } from "@armada/screens";
-import { DASHBOARD_TABS, overviewListsOf, type DashboardTab } from "@armada/overview";
+import { overviewListsOf, type DashboardTab } from "@armada/overview";
 import { holdsText } from "@armada/screens/src/keys";
 import { useListKeydown } from "@armada/screens/src/list-keyboard";
 
@@ -23,7 +23,8 @@ import { viewsOf } from "../merge-line";
 import { useSessions } from "../sessions-draft";
 import { CallCard, type CardKeys } from "./CallCard";
 import { FleetMap } from "./FleetMap";
-import { TAB_KEYS } from "./keys";
+import { useLayout } from "@armada/shell";
+import { TAB_KEYS, useFilters } from "./keys";
 import { sessionIdOf } from "./waiting";
 import { nearest, skyOf } from "./map-layout";
 import { useCockpitView } from "./view";
@@ -305,6 +306,8 @@ export function Cockpit({
         ? undefined
         : nowPanelOf(nowsHeld?.[current.job.id], { onOpenJob: hosts.onOpen, onSaid: () => {} });
   const pane = filter !== "command-central" && current !== undefined;
+  const filters = useFilters(filter);
+  const mergeLine = useLayout("dashboard.panels").shown.some((one) => one.id === "merge-line");
 
   return (
     <div className="armada-cockpit" data-hue={frame} data-settles>
@@ -314,12 +317,12 @@ export function Cockpit({
             <Tooltip label="Previous filter">
               <Kbd>{TAB_KEYS.previous}</Kbd>
             </Tooltip>
-            <Tabs items={DASHBOARD_TABS.map((one) => ({ id: one.id, label: one.label }))} value={filter} onChange={(id) => onFilter(id as DashboardTab)} />
+            <Tabs items={filters} value={filter} onChange={(id) => onFilter(id as DashboardTab)} />
             <Tooltip label="Next filter">
               <Kbd>{TAB_KEYS.next}</Kbd>
             </Tooltip>
           </span>
-          <Horizon state={state} />
+          {mergeLine ? <Horizon state={state} /> : null}
           <span className="armada-view__keys">
             <span className="armada-view__toggle" role="group" aria-label="View">
               <Tooltip label="Grid">

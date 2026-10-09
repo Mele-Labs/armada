@@ -9,12 +9,14 @@ use serde::{Deserialize, Serialize};
 
 use crate::ids::{Instant, ManifestId};
 
-/// What a mod changes. One kind this build knows; a `mod.toml` naming another
+/// What a mod changes. The kinds this build knows; a `mod.toml` naming another
 /// is invalid, so a valid row's kind is always one Bridge can act on.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ModKind {
     Theme,
+    /// A `layout.json` that reorders and hides Bridge's tabs, panels and rail rows.
+    Layout,
 }
 
 /// One mod on disk, as `list_mods` answers it and `mods.changed` carries it.
@@ -51,15 +53,18 @@ pub struct ModList {
     pub mods: Vec<ModSummary>,
 }
 
-/// `scaffold_mod`: make a mod with a starter `theme.css`.
+/// `scaffold_mod`: make a mod with a starter `theme.css`, or a `layout.json` for a layout.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ScaffoldMod {
     pub name: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
+    /// Absent is a theme, which is all there was before layouts.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub kind: Option<ModKind>,
 }
 
-/// A mod made. `path` is the directory, where `theme.css` is edited.
+/// A mod made. `path` is the directory, where `theme.css` or `layout.json` is edited.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ModScaffolded {
     pub name: String,
@@ -83,6 +88,10 @@ pub struct ModChecked {
     /// injects this text and no other, so what it loads is what was validated.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub css: Option<String>,
+    /// A layout mod's `layout.json` as it was checked, present only where it passed. Bridge
+    /// applies this text and no other, as it does `css`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub layout: Option<String>,
 }
 
 /// `promote_mod`: put the mod on a branch of a repository.

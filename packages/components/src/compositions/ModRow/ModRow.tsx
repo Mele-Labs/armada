@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { GitPullRequestArrow, Palette } from "lucide-react";
+import { GitPullRequestArrow, Palette, PanelsTopLeft } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
 import { Switch } from "../../primitives/Switch/Switch";
@@ -8,13 +8,15 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 /**
  * One mod on this machine: the kind it is, its switch, and Promote.
  *
- * **A theme is the only kind there is**, so the leading mark is the palette with its name on
- * hover. The line under the title is one plain fact: what is wrong with the mod, or the branch it
+ * **The leading mark is the kind's glyph**, the palette for a theme and the panels for a layout, with
+ * the kind's name on hover. The line under the title is one plain fact: what is wrong with the mod, or the branch it
  * was put on. Nothing is said where there is nothing to say.
  */
 export type ModRowProps = {
   /** The mod's name. Names the row and the switch. */
   title: string;
+  /** What the mod changes. A theme where absent. */
+  kind?: "theme" | "layout";
   /** This machine's switch for the mod. */
   enabled: boolean;
   onEnabled: (on: boolean) => void;
@@ -25,12 +27,14 @@ export type ModRowProps = {
   onPromote: () => void;
 };
 
-export function ModRow({ title, enabled, onEnabled, detail, promoteDisabled = false, onPromote }: ModRowProps) {
+const KIND = { theme: "Theme", layout: "Layout" } as const;
+
+export function ModRow({ title, kind = "theme", enabled, onEnabled, detail, promoteDisabled = false, onPromote }: ModRowProps) {
   return (
     <div className="armada-mod-row" role="group" aria-label={title}>
-      <Tooltip label="Theme">
-        <span className="armada-mod-row__kind" role="img" aria-label="Theme">
-          <Palette size={16} />
+      <Tooltip label={KIND[kind]}>
+        <span className="armada-mod-row__kind" role="img" aria-label={KIND[kind]}>
+          {kind === "layout" ? <PanelsTopLeft size={16} /> : <Palette size={16} />}
         </span>
       </Tooltip>
       <div className="armada-mod-row__switch">

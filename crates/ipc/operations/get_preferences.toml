@@ -12,5 +12,7 @@ Kept the way `get_limits` is: Fleet-wide, surviving a relaunch, and read once pe
 
 **`theme` is the third**: the id of the theme Bridge draws with, a shipped theme's or a mod's name. Left out of the answer while it is `dark`, which is what absent means.
 
+**`layout_choices` is the fourth**: the owner's own layout, as the text of a `layout.json` that Settings → Layout wrote, and applied over every layout mod. Left out while he has made no choice, which is what absent means.
+
 `agent_access` is `Yes` for `get_capacity`'s reason: a preference is cheap to read and a session asking what a person set is asking nothing it could not already see on the screen it is helping with.
 """

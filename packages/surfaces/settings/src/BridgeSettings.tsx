@@ -23,6 +23,7 @@ import {
 } from "@armada/components";
 import type { FleetLimits, HelmActionAuthority, Outcome, Preferences, SaveLimits, SavePreference } from "@armada/protocol";
 import { useState } from "react";
+import { LayoutSettings } from "./LayoutSettings";
 import { PhoneSettings } from "./PhoneSettings";
 import { ThemeSettings } from "./ThemeSettings";
 import type { HealthRead } from "@armada/screens/src/overview-reads";
@@ -108,6 +109,15 @@ export function BridgeSettings({ limits, live, health, onSave, preferences, onSa
         </CardHeader>
         <CardContent>
           <ThemeSettings />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Layout</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <LayoutSettings />
         </CardContent>
       </Card>
 

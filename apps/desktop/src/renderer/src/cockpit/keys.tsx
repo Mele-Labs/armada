@@ -9,6 +9,7 @@
 import { useState } from "react";
 import { Kbd, Sheet, actionOf, keyFor } from "@armada/components";
 import { DASHBOARD_TABS, type DashboardTab } from "@armada/overview";
+import { useLayout } from "@armada/shell";
 import { holdsText } from "@armada/screens/src/keys";
 import { useListKeydown } from "@armada/screens/src/list-keyboard";
 
@@ -55,19 +56,28 @@ const GROUPS: readonly Group[] = [
   },
 ];
 
+/** The filters in the layout's order, less those it hides; a hidden one still shows while it is the one on. */
+export function useFilters(tab: DashboardTab): { id: DashboardTab; label: string }[] {
+  return useLayout("dashboard.tabs")
+    .all.filter((one) => one.visible || one.id === tab)
+    .map((one) => DASHBOARD_TABS.find((known) => known.id === one.id))
+    .filter((one) => one !== undefined);
+}
+
 /**
  * `[` and `]` step the filters round, Option and 1 to 3 pick one, `?` opens the key sheet. Bound while
  * the Dashboard is drawn and a field does not have the keys.
  */
 export function useDashboardKeys(tab: DashboardTab, onTab: (tab: DashboardTab) => void, listening: boolean): { sheet: boolean; closeSheet: () => void } {
   const [sheet, setSheet] = useState(false);
+  const tabs = useFilters(tab);
   useListKeydown((event) => {
     if (!listening || event.metaKey || event.ctrlKey || holdsText(event.target)) return;
-    const at = DASHBOARD_TABS.findIndex((one) => one.id === tab);
+    const at = tabs.findIndex((one) => one.id === tab);
     // Option changes the character a digit types, so the key is read by its place on the keyboard.
     const digit = /^Digit([1-9])$/.exec(event.code)?.[1];
     if (event.altKey) {
-      const picked = digit === undefined ? undefined : DASHBOARD_TABS[Number(digit) - 1];
+      const picked = digit === undefined ? undefined : tabs[Number(digit) - 1];
       if (picked === undefined) return;
       event.preventDefault();
       onTab(picked.id);
@@ -76,7 +86,7 @@ export function useDashboardKeys(tab: DashboardTab, onTab: (tab: DashboardTab) =
     if (event.repeat) return;
     if (event.key === PREVIOUS || event.key === NEXT) {
       event.preventDefault();
-      onTab(DASHBOARD_TABS[(at + (event.key === NEXT ? 1 : -1) + DASHBOARD_TABS.length) % DASHBOARD_TABS.length]!.id);
+      onTab(tabs[(at + (event.key === NEXT ? 1 : -1) + tabs.length) % tabs.length]!.id);
     } else if (event.key === keyFor("key_sheet")) {
       event.preventDefault();
       setSheet(true);
