@@ -250,18 +250,20 @@ pub fn listening(read: Result<Presence, ReadError>, at: &Path) -> Result<u16, St
             ))
         }
     };
-    // The ID is in the file so a refusal is a sentence rather than a
-    // malformed first message. Bridge reads it the same way.
-    if found.protocol_id == ProtocolId::current() {
-        Ok(found.port)
-    } else {
-        Err(format!(
-            "the Fleet running speaks protocol {} and this `armada` speaks {}, so they cannot \
-             talk. One of the two is out of date.",
+    // **A different protocol is said, not refused.** The door relays each
+    // JSON-RPC message to Fleet's door route and Fleet answers it, so it reads
+    // none of the wire it would be comparing. Refusing cut every Session's
+    // tools at each Fleet restart that changed the protocol, because the door
+    // is a process the session started earlier (8 Oct 2026).
+    if found.protocol_id != ProtocolId::current() {
+        eprintln!(
+            "armada mcp: the Fleet running speaks protocol {} and this `armada` speaks {}; \
+             relaying anyway, since the door reads none of it.",
             found.protocol_id,
             ProtocolId::current()
-        ))
+        );
     }
+    Ok(found.port)
 }
 
 /// Whether the Fleet at that port is serving the Manifest the caller stands in.
