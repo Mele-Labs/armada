@@ -8,6 +8,7 @@ window.armada.onWalkFocus((focused) => {
   document.documentElement.toggleAttribute("data-walking", focused);
 });
 import type { BridgeIdentity } from "@armada/protocol";
+import { createPhoneGatewaySource, PhoneSourceProvider } from "@armada/settings";
 import { App, WAITING } from "./App";
 import { Boundary, LayoutSourceProvider, createLayoutSource } from "@armada/shell";
 import { HapticsProvider } from "@armada/components";
@@ -34,6 +35,8 @@ const THEMES = createFleetThemes(window.armada, CATALOGUE, { builtIn: BUILT_IN_S
 
 /** The layout this window draws: Fleet's layout mods and the owner's saved choices, or the shipped layout in safe mode. */
 const LAYOUT = skipsMods() ? createLayoutSource() : createFleetLayout(window.armada);
+/** Settings → Phone, over the Gateway through the main process. Reads nothing until Settings draws it. */
+const PHONE = createPhoneGatewaySource((request) => window.armada.phone(request));
 
 /**
  * Who Bridge is, read once. The only state above the boundary, and the least
@@ -56,9 +59,11 @@ function Root() {
       <HapticsProvider perform={window.armada.tap}>
         <Themed source={THEMES}>
           <LayoutSourceProvider value={LAYOUT}>
-            <WiredSessions>
-              <App />
-            </WiredSessions>
+            <PhoneSourceProvider value={PHONE}>
+              <WiredSessions>
+                <App />
+              </WiredSessions>
+            </PhoneSourceProvider>
           </LayoutSourceProvider>
         </Themed>
       </HapticsProvider>

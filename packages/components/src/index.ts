@@ -445,3 +445,4 @@ export * from "./compositions/PullRequestActs/PullRequestActs";
 export * from "./compositions/Pilot/Pilot";
 export * from "./compositions/ModRow/ModRow";
 export * from "./compositions/LayoutRow/LayoutRow";
+export * from "./compositions/PhonePairing/PhonePairing";

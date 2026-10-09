@@ -35,6 +35,8 @@ import { openFindingIssue, openPullRequest, openRemarkLink, openStudioNode } fro
 import { RemarksPoll } from "./remarks-poll";
 import { ResourcesPoll } from "./resources-poll";
 import { openLink } from "./links";
+import { askGateway } from "./phone-gateway";
+import type { PhoneRequest } from "@armada/settings/api";
 import { restartFleet } from "./restart-fleet";
 import { openServerLink } from "./servers";
 import { frameStream, FRAME_SCHEME } from "./streaming";
@@ -762,6 +764,8 @@ void app.whenReady().then(() => {
   ipcMain.handle(CHANNELS.savePreference, (_event, save: SavePreference) =>
     connection?.commands.savePreference(save),
   );
+  // The Phone Gateway, one named operation at a time — `phone-gateway.ts` makes the call.
+  ipcMain.handle(CHANNELS.phone, (_event, request: PhoneRequest) => askGateway(request));
   // The mods on this machine. Fleet-wide, so no Job id rides these either — `mods.ts`.
   ipcMain.handle(CHANNELS.validateMod, async (_event, name: string) => (await connection?.mods.validate(name)) ?? null);
   ipcMain.handle(CHANNELS.setModEnabled, async (_event, name: string, enabled: boolean): Promise<Outcome> =>

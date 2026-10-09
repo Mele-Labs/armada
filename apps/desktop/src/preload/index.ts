@@ -62,6 +62,7 @@ import type {
 import type { AddingStep, AddStepAnswer, EditingStep, EditStepAnswer, ReadingRepairDiff, RemovingStep, RemoveStepAnswer, RepairDiffAnswer } from "../shared/added-steps";
 import type { SavingWorkflow, WorkflowDefinitionRead, WorkflowSaveAnswer, WorkflowsRead } from "../shared/workflows";
 import type { AddKitServer, ManifestReach, ReachesDrones } from "@armada/protocol";
+import type { PhoneAnswer, PhoneRequest } from "@armada/settings/api";
 import type { LocateAnswer } from "@armada/screens/src/locate-reads";
 import type { ComposingRead } from "@armada/screens/src/composing-reads";
 import type { EditManifestProposal, WriteManifestProposal } from "@armada/protocol";
@@ -313,6 +314,9 @@ const api: BridgeApi = {
   // A person's Bridge preferences. **Fleet-wide**, `saveLimits`' reason.
   savePreference: (save: SavePreference): Promise<Outcome> =>
     ipcRenderer.invoke(CHANNELS.savePreference, save),
+
+  // The Phone Gateway, on loopback, one named operation at a time. Main makes the call.
+  phone: (request: PhoneRequest): Promise<PhoneAnswer> => ipcRenderer.invoke(CHANNELS.phone, request),
 
   // The mods on this machine. **Fleet-wide**, and the stylesheet comes from `validateMod` alone.
   validateMod: (name: string): Promise<ModChecked | null> =>
