@@ -389,12 +389,13 @@ While it is on, a pass over every live session's waiting items (`crates/fleet/sr
 | Item | What the night does |
 |---|---|
 | `ask:` or agent item waiting under two minutes | Nothing. The agent carries on by itself first. |
-| `ask:` or agent item past two minutes | Answers with the option labelled "(Recommended)", else `mode: best`. Recorded under decided. |
+| `ask:` or agent item past two minutes | Answers with the option labelled "(Recommended)", else `mode: best`. Recorded under decided; with `mode: best` the review shows the first line of the agent's next message as what it chose, filled in by a later pass. |
 | Destructive or irreversible (delete, drop, remove, force, reset, rm, overwrite, discard, close PR and the like, read from the text and the options; unsure holds) | Never answered. Recorded under blocked. |
 | `perm:` permission | Never allowed. Recorded under blocked. |
 | `walk:` | Recorded under walks. |
 | A pull request the pull watch sees merge | Recorded under landed. |
-| A Job that escalates | Recorded under blocked. No route answers an escalation in words, so the night has nothing to decide it with. |
+| A Job that escalates on a stall, silence, loop or failed gate, with a title that is not destructive | Told to decide for itself, once, with the owner's own act: a redirect to its Drone, or a restart of the step with the same words where the Drone is gone. Recorded under decided. |
+| Any other escalation, or a destructive title | Recorded under blocked. |
 
 `override_sleep` sends the session `Re: <asked>` and the owner's words, and marks the row corrected. Every change publishes `sleep.changed` with the night whole.
 
