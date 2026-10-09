@@ -1,0 +1,7 @@
+[conventions.fleet_build_position]
+  glyphs = ["check", "arrow-up", "arrow-down"]
+  means = "Where the build Fleet runs on stands against main, as a mark beside the word main in the Fleet panel"
+  group = "Fleet"
+  size = "12px"
+  status = "Proposed"
+  notes = "Proposed 8 Oct 2026 for the walk `fleetBuildAligned`, for the owner to rule on. `check` is aligned, no commit either side, in `--status-completed-success`. `arrow-up` is commits the build holds that main lacks, which is what a preview is for, and draws muted. `arrow-down` is commits main holds that the build lacks, in `--status-awaiting-review`, and a figure follows it. The count is a distance, not a total beside a list. Each mark has a tooltip that says the commits and the side, since the glyph alone is not read. Borrowed `check` is the bare checkmark and means yes; the two arrows are new to the registry and the owner may rule otherwise."

@@ -147,7 +147,8 @@ import { useWhereOpen } from "./where-open";
 import { usePlanView } from "./remembered-views";
 import { usePanelOpen } from "./panel-open";
 import { useGuideListWidth } from "./guide-list-width";
-import { statsOf, fleetPanelOf } from "./left-column";
+import { fleetPanelOf } from "./left-column";
+import { useFleetBuild } from "./fleet-build";
 import { copyDebugInfoFor, useCommandPalette } from "@armada/shell";
 import { Shell, SURFACE, SURFACES, useAtFloor, useNarrow, useSurfaceKeys } from "@armada/shell";
 
@@ -294,8 +295,8 @@ export function App({ draft }: AppProps = {}) {
   // Graph or list on Plan, this window's.
   const [planView, pressPlanView] = usePlanView();
   // The left column's own fold, remembered across a restart — Bridge/1088.
-  const [statsOpen, setStatsOpen] = usePanelOpen("stats");
   const [fleetOpen, setFleetOpen] = usePanelOpen("fleet");
+  const fleetBuild = useFleetBuild();
   // The catalogue list's width, remembered the same way the shell's column is.
   const [guideList, resizeGuideList] = useGuideListWidth();
 
@@ -654,13 +655,9 @@ export function App({ draft }: AppProps = {}) {
               Start fresh
             </Button>
           }
-          stats={{
-            rows: statsOf(state.connection, state.jobs, state.capacity, repositories, state.repository, state.drifts),
-            open: statsOpen,
-            onOpenChange: setStatsOpen,
-          }}
           fleet={{
             ...fleetPanelOf(state.connection, statement, state.health, now, state.readAt),
+            ...(fleetBuild === undefined ? {} : { build: fleetBuild }),
             open: fleetOpen,
             onOpenChange: setFleetOpen,
           }}

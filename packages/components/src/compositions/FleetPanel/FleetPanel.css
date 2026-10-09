@@ -115,3 +115,78 @@
 .armada-fleet-panel__doctor-outcome[data-tone="escalated"] {
   color: var(--status-escalated);
 }
+
+/* The build Fleet runs on: the choice, the one act on the preview, and where
+   the build stands against main. Stacked, since the panel is 160px at its
+   narrowest and a select and a labelled button do not share a row there. */
+.armada-fleet-build {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-bottom: var(--space-2);
+  margin-bottom: var(--space-1);
+  border-bottom: var(--border-width) solid var(--border-subtle);
+}
+
+/* The select and the button take the panel's width, through the tooltip's own wrapper. */
+.armada-fleet-build > .armada-tooltip {
+  display: block;
+}
+
+.armada-fleet-build .armada-button {
+  width: 100%;
+  justify-content: center;
+}
+
+.armada-fleet-build__position {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.armada-fleet-build__label {
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--text-label);
+}
+
+.armada-fleet-build__marks {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.armada-fleet-build__mark {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--space-1) / 2);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-muted);
+}
+
+.armada-fleet-build__mark[data-tone="success"] {
+  color: var(--status-completed-success);
+}
+
+.armada-fleet-build__mark[data-tone="warn"] {
+  color: var(--status-awaiting-review);
+}
+
+/* An open ring turning is a restart under way, and holds still under reduced motion. */
+.armada-fleet-build__spin {
+  animation: armada-fleet-build-spin var(--duration-pulse) linear infinite;
+}
+
+@keyframes armada-fleet-build-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .armada-fleet-build__spin {
+    animation: none;
+  }
+}

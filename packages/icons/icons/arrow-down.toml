@@ -1,0 +1,7 @@
+[icons.arrow-down]
+  means = "An arrow pointing down - commits main holds that the running build lacks"
+  group = "Fleet"
+  size = "12px"
+  status = "Proposed"
+  reserved = "Behind main, in the Fleet panel. Never a download, which is `download`, and never a sort."
+  notes = "Proposed 8 Oct 2026 for the walk `fleetBuildBehind`, for the owner to rule on. Draws in `--status-awaiting-review` beside a figure; tooltip `3 commits behind main`. Pair of `arrow-up`, and the two are part of `fleet_build_position`."

@@ -2,6 +2,7 @@ import { ArmadaMark } from "@armada/brand";
 import type { ReactNode } from "react";
 import { FigureList, type Figure } from "../FigureList/FigureList";
 import { Panel } from "../Panel/Panel";
+import { FleetBuildSection, type FleetBuild } from "./FleetBuild";
 
 /** Where Bridge's one connection is, collapsed to what a dot can carry. Was `StatusBar`'s. */
 export type FleetState = "running" | "not-running" | "starting" | "unreachable" | "unknown";
@@ -45,6 +46,12 @@ export type FleetPanelProps = {
    */
   detail?: ReactNode;
   doctor?: DoctorLine;
+  /**
+   * The build Fleet runs on and where it stands against main, with the choice
+   * between them and the one act on the preview. **Absent draws none**: a
+   * Fleet that is not running has no build to choose.
+   */
+  build?: FleetBuild;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   narrow?: boolean;
@@ -97,7 +104,7 @@ export function FleetStarting({ className, size = 16, phrase }: { className: str
 /** What the Board's card says under the mark while Fleet starts. */
 export const STARTING_PHRASE = "Armada activating";
 
-export function FleetPanel({ state, label, rows, detail, doctor, open, onOpenChange, narrow }: FleetPanelProps) {
+export function FleetPanel({ state, label, rows, detail, doctor, build, open, onOpenChange, narrow }: FleetPanelProps) {
   // **The state is the head's dot; the body is what the head cannot carry** —
   // the owner, 28 Sep 2026: *"Delete this row and just put the status dot next
   // to the 'Fleet' title in the panel header."* The row said in words what the
@@ -108,7 +115,7 @@ export function FleetPanel({ state, label, rows, detail, doctor, open, onOpenCha
   // A state with no figure, no sentence and no Doctor reading now has an empty
   // body — `reading`, Bridge's first moment. `Panel` draws its head alone
   // rather than a chevron onto an empty box.
-  const bodyless = figures === null && detail === undefined && doctor === undefined;
+  const bodyless = figures === null && detail === undefined && doctor === undefined && build === undefined;
   return (
     <Panel
       label="Fleet"
@@ -141,6 +148,7 @@ export function FleetPanel({ state, label, rows, detail, doctor, open, onOpenCha
     >
       {bodyless ? undefined : (
         <div className="armada-fleet-panel">
+          {build === undefined ? null : <FleetBuildSection build={build} />}
           {figures}
           {detail === undefined ? null : <div className="armada-fleet-panel__mono">{detail}</div>}
           {doctor === undefined ? null : (

@@ -44,6 +44,7 @@ export * from "./compositions/HelmComposer/HelmComposer";
 export * from "./compositions/JudgeQuestion/JudgeQuestion";
 export * from "./compositions/EvidenceCard/EvidenceCard";
 export * from "./compositions/FleetPanel/FleetPanel";
+export type { FleetBuild, FleetBuildChoice, FleetBuildPosition, FleetBuildWork } from "./compositions/FleetPanel/FleetBuild";
 export * from "./compositions/DroneTurns/DroneTurns";
 export * from "./compositions/EvidenceTrail/EvidenceTrail";
 export * from "./compositions/FailureNotice/FailureNotice";
