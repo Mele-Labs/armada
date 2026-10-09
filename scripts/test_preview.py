@@ -691,6 +691,114 @@ class MigrationGuard(unittest.TestCase):
         self.assertIn("origin/main", said)
 
 
+RESTART_BUILD = os.path.join(HERE, "scripts", "restart-build")
+
+
+class RestartBuild(unittest.TestCase):
+    """`scripts/restart-build` under a scratch HOME, with stubs for the two scripts it runs and for `cargo`."""
+
+    def setUp(self):
+        self.dir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.dir, True)
+        self.home = os.path.join(self.dir, "home")
+        self.support = os.path.join(self.home, "Library", "Application Support", "Armada")
+        os.makedirs(self.support)
+        self.root = os.path.join(self.dir, "repo")
+        os.makedirs(os.path.join(self.root, "scripts"))
+        shutil.copy(RESTART_BUILD, os.path.join(self.root, "scripts", "restart-build"))
+        for args in (["init", "-q", "-b", "main"], ["config", "user.name", "t"], ["config", "user.email", "t@example.com"],
+                     ["commit", "-q", "--allow-empty", "-m", "start"]):
+            subprocess.run(["git", "-C", self.root, *args], check=True, capture_output=True)
+        self.bin = os.path.join(self.dir, "bin")
+        os.makedirs(self.bin)
+        self.ran = os.path.join(self.dir, "ran")
+        self.cleaned = os.path.join(self.dir, "cleaned")
+        self.stub("cargo", f'echo "$PWD: $@" >> "{self.cleaned}"')
+        self.status_file = os.path.join(self.support, "restart-build.status")
+
+    def stub(self, name, body):
+        path = os.path.join(self.bin, name)
+        with open(path, "w") as f:
+            f.write(f"#!/bin/sh\n{body}\n")
+        os.chmod(path, 0o755)
+        return path
+
+    def build(self, which, *args, script="exit 0"):
+        """Run the wrapper with `script` standing in for what it wraps."""
+        stub = self.stub("wrapped", f'echo "$@" >> "{self.ran}"\n{script}')
+        env = dict(os.environ, HOME=self.home, PATH=self.bin + os.pathsep + os.environ["PATH"],
+                   ARMADA_RESTART_SCRIPT=stub, ARMADA_PREVIEW_SCRIPT=stub)
+        done = subprocess.run([os.path.join(self.root, "scripts", "restart-build"), which, *args],
+                              env=env, capture_output=True, text=True)
+        return done.returncode
+
+    def runs(self):
+        if not os.path.exists(self.ran):
+            return []
+        with open(self.ran) as f:
+            return f.read().split("\n")[:-1]
+
+    def status(self):
+        if not os.path.exists(self.status_file):
+            return None
+        with open(self.status_file) as f:
+            return f.read()
+
+    def test_main_runs_a_plain_restart_with_main_and_leaves_no_status(self):
+        self.assertEqual(self.build("main"), 0)
+        self.assertEqual(self.runs(), ["--main"])
+        self.assertIsNone(self.status())
+
+    def test_adopt_is_passed_through(self):
+        self.assertEqual(self.build("main", "--adopt"), 0)
+        self.assertEqual(self.build("preview", "--adopt"), 0)
+        self.assertEqual(self.runs(), ["--main --adopt", "--restart --adopt"])
+
+    def test_preview_runs_the_previews_restart(self):
+        self.assertEqual(self.build("preview"), 0)
+        self.assertEqual(self.runs(), ["--restart"])
+
+    def test_a_refusal_is_one_plain_line_and_names_the_build_it_failed_on(self):
+        with open(os.path.join(self.support, "restart-commit"), "w") as f:
+            f.write("a" * 40 + "\n")
+        code = self.build("main", script='echo "restart: refusing \u2014 drone-3\'s Drone is working" >&2; exit 1')
+        self.assertEqual(code, 1)
+        self.assertEqual(self.status(), "failed\nmain\n" + "a" * 40 + "\nrefusing \u2014 drone-3's Drone is working\n")
+
+    def test_a_failure_with_no_line_of_its_own_says_its_last_line(self):
+        self.assertEqual(self.build("preview", script='printf "one\\n\\033[31mtwo\\033[0m\\n"; exit 3'), 1)
+        self.assertEqual(self.status(), "failed\npreview\n\ntwo\n")
+
+    def test_main_is_refused_from_a_checkout_on_another_branch_and_nothing_runs(self):
+        subprocess.run(["git", "-C", self.root, "checkout", "-q", "-b", "feature"], check=True)
+        self.assertEqual(self.build("main"), 1)
+        self.assertEqual(self.runs(), [])
+        self.assertEqual(self.status(), "failed\nmain\n\nthe checkout is on feature, not main\n")
+
+    def test_a_stale_sqlite_build_script_is_cleaned_in_the_tree_and_tried_once_more(self):
+        os.makedirs(os.path.join(self.root, ".armada", "preview"))
+        marker = os.path.join(self.dir, "first")
+        script = (f'if [ ! -f "{marker}" ]; then touch "{marker}"; '
+                  'echo "error: failed to run custom build command for libsqlite3-sys" >&2; exit 101; fi')
+        self.assertEqual(self.build("preview", script=script), 0)
+        self.assertEqual(self.runs(), ["--restart", "--restart"])
+        with open(self.cleaned) as f:
+            cleaned = f.read().strip()
+        self.assertTrue(cleaned.endswith(f"{os.sep}repo{os.sep}.armada{os.sep}preview: clean -p libsqlite3-sys"), cleaned)
+        self.assertIsNone(self.status())
+
+    def test_the_retry_is_once_and_a_second_failure_is_reported(self):
+        os.makedirs(os.path.join(self.root, ".armada", "preview"))
+        script = 'echo "error: failed to run custom build command for libsqlite3-sys" >&2; exit 101'
+        self.assertEqual(self.build("preview", script=script), 1)
+        self.assertEqual(self.runs(), ["--restart", "--restart"])
+        self.assertEqual(self.status(), "failed\npreview\n\nerror: failed to run custom build command for libsqlite3-sys\n")
+
+    def test_an_unknown_build_is_refused(self):
+        self.assertNotEqual(self.build("feature"), 0)
+        self.assertEqual(self.runs(), [])
+
+
 class PreviewAdopt(unittest.TestCase):
     def run_preview(self, *args):
         return subprocess.run([PREVIEW, *args], capture_output=True, text=True)

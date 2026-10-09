@@ -311,3 +311,25 @@ fn a_subagent_that_handed_back_is_finished_with_what_it_handed_back() {
     assert!(!crate::terminal_thread::read_subagent(&file).unwrap().finished, "resumed after its hand-back");
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// A session that moves into a slot resumes in a project folder the CLI keys by the new
+/// directory; the transcript has to be there, and be the same file.
+#[test]
+fn a_conversation_follows_its_session_into_another_directory() {
+    let home = std::env::temp_dir().join(format!("follow-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&home);
+    let a = home.join(".claude/projects/-work-armada");
+    std::fs::create_dir_all(a.join("abc-123/subagents")).unwrap();
+    std::fs::write(a.join("abc-123.jsonl"), "{}\n").unwrap();
+    let root = home.to_string_lossy().to_string();
+    crate::terminal_thread::bring_conversation_to(&root, "abc-123", "/work/armada/.armada/slots/slot-4").unwrap();
+    let b = home.join(".claude/projects/-work-armada--armada-slots-slot-4");
+    assert_eq!(std::fs::read_to_string(b.join("abc-123.jsonl")).unwrap(), "{}\n");
+    assert!(b.join("abc-123/subagents").is_dir());
+    let mut appended = std::fs::OpenOptions::new().append(true).open(b.join("abc-123.jsonl")).unwrap();
+    std::io::Write::write_all(&mut appended, b"{\"more\":1}\n").unwrap();
+    assert!(std::fs::read_to_string(a.join("abc-123.jsonl")).unwrap().contains("more"), "one file");
+    crate::terminal_thread::bring_conversation_to(&root, "nope", "/elsewhere").unwrap();
+    assert!(!home.join(".claude/projects/-elsewhere").exists());
+    let _ = std::fs::remove_dir_all(&home);
+}

@@ -641,6 +641,8 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
                 events.clone(),
                 fleet::merge_lines::EVERY,
             );
+            // The mods folder, rescanned so a mod a session wrote reaches Bridge.
+            fleet::mods::keep_reading(Arc::clone(&fleet), fleet::mods::EVERY);
             // Stale build output, trimmed in every checkout of each served repository.
             fleet::sweeping::keep_sweeping(
                 Arc::clone(&fleet),
@@ -832,6 +834,11 @@ fn assemble(
     let walk_frames_dir = machine.join("walks");
     std::fs::create_dir_all(&walk_frames_dir)?;
 
+    // The mods, one folder each. Made here so a person has somewhere to look; a
+    // session that scaffolds one makes it again if it is gone.
+    let mods_dir = machine.join("mods");
+    std::fs::create_dir_all(&mods_dir)?;
+
     // The Evidence server alone, for a spawn that cannot name the Manifest it
     // is serving — `fleet::spawning` writes this file's Manifest-resolved
     // sibling for every spawn that can. The path is `api`'s own constant rather
@@ -873,6 +880,7 @@ fn assemble(
             keepers_dir: keepers_dir.to_string_lossy().to_string(),
             studio_frames_dir: studio_frames_dir.to_string_lossy().to_string(),
             walk_frames_dir: walk_frames_dir.to_string_lossy().to_string(),
+            mods_dir: mods_dir.to_string_lossy().to_string(),
             kit_home,
             // `judge_binary`'s reason: the same override reaches Helm's host.
             // `#943`.

@@ -307,7 +307,7 @@ fn session_file(id: &str, root: &str, home: &str) -> Option<PathBuf> {
 }
 
 /// A directory path as the CLI keys its project directory by.
-fn keyed(path: &str) -> String {
+pub(crate) fn keyed(path: &str) -> String {
     path.trim_end_matches('/')
         .chars()
         .map(|c| match c.is_ascii_alphanumeric() {

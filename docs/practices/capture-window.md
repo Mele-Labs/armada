@@ -266,6 +266,12 @@ this window, and that is another security review. `#1294`.
 
 > **Rule.** A refusal is said on the bar, naming the address that was refused.
 
+> **Rule.** A window a Job or a Session opened offers Approve. On a Job it is
+> the act JobDetail's Approve sends; on a Session it is a message from the
+> person, `Approved: <address>`, which wakes it. Nothing closes.
+> Why: the person walked the page and it is right, and the one who opened the
+> window is the one waiting to hear it. A Studio's window has nobody to tell.
+
 > **Rule.** The window draws no rail and reaches no Armada surface. A Studio is
 > read on Bridge's window.
 

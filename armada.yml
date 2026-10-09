@@ -272,7 +272,7 @@ checks:
       - ".claude/hooks/**"
 
   preview_test:
-    # `scripts/preview` and `scripts/restart` against a throwaway repository, a
+    # `scripts/preview`, `scripts/restart` and `scripts/restart-build` against a throwaway repository, a
     # stub `armada` and a stub Fleet. Git and Python only: no build, no real
     # Fleet, and `HOME` is a scratch directory. A failure means the preview
     # merges the wrong branches or a restart refuses or adopts wrongly.
@@ -281,6 +281,7 @@ checks:
       - ".github/**"
       - "scripts/preview"
       - "scripts/restart"
+      - "scripts/restart-build"
       - "scripts/test_preview.py"
       - "armada.yml"
 

@@ -25,6 +25,7 @@ import type {
   StagedAttachment,
 } from "@armada/protocol";
 import type { FileReport } from "@armada/protocol";
+import type { ModChecked } from "@armada/protocol";
 import type { AnswerSessionAsk, PilotOutcome, PullRequestState, RenameSession, ReviewDispatched, SendSessionMessage, SessionSubagent, TuneSession } from "@armada/protocol";
 import type { ArtifactRead, PageBounds } from "@armada/screens/src/draft/sessions";
 import type { PilotExit, PullRequestPress, SessionActed } from "../shared/api/sessions";
@@ -34,7 +35,7 @@ import type { StudioAnswer } from "@armada/screens/src/studio-reads";
 import type { AddTask, ApproveWave, DropTask, EditJob, EditTask, MovePlan } from "@armada/protocol";
 import type { ApproveDispatch, BranchesRead, ToProposer } from "@armada/protocol";
 import type { PlanEditAnswer } from "@armada/screens/src/plan-edits";
-import type { Artifact, Followed, FleetRestart, LandCheckAt, Opened } from "@armada/protocol";
+import type { Artifact, BuildSource, Followed, FleetRestart, LandCheckAt, Opened } from "@armada/protocol";
 import type { RunListRead, RunOutputRead, StartRun } from "@armada/protocol";
 import type { CheckoutRunListRead, StartCheckoutRun } from "@armada/protocol";
 import type { EditManifest, SaveManifestFile } from "@armada/protocol";
@@ -61,6 +62,7 @@ import type {
 import type { AddingStep, AddStepAnswer, EditingStep, EditStepAnswer, ReadingRepairDiff, RemovingStep, RemoveStepAnswer, RepairDiffAnswer } from "../shared/added-steps";
 import type { SavingWorkflow, WorkflowDefinitionRead, WorkflowSaveAnswer, WorkflowsRead } from "../shared/workflows";
 import type { AddKitServer, ManifestReach, ReachesDrones } from "@armada/protocol";
+import type { PhoneAnswer, PhoneRequest } from "@armada/settings/api";
 import type { LocateAnswer } from "@armada/screens/src/locate-reads";
 import type { ComposingRead } from "@armada/screens/src/composing-reads";
 import type { EditManifestProposal, WriteManifestProposal } from "@armada/protocol";
@@ -313,6 +315,17 @@ const api: BridgeApi = {
   savePreference: (save: SavePreference): Promise<Outcome> =>
     ipcRenderer.invoke(CHANNELS.savePreference, save),
 
+  // The Phone Gateway, on loopback, one named operation at a time. Main makes the call.
+  phone: (request: PhoneRequest): Promise<PhoneAnswer> => ipcRenderer.invoke(CHANNELS.phone, request),
+
+  // The mods on this machine. **Fleet-wide**, and the stylesheet comes from `validateMod` alone.
+  validateMod: (name: string): Promise<ModChecked | null> =>
+    ipcRenderer.invoke(CHANNELS.validateMod, name),
+  setModEnabled: (name: string, enabled: boolean): Promise<Outcome> =>
+    ipcRenderer.invoke(CHANNELS.setModEnabled, name, enabled),
+  promoteMod: (name: string): Promise<Outcome> =>
+    ipcRenderer.invoke(CHANNELS.promoteMod, name),
+
   // Say a job failed in error, and file its record with the reason. **Its own
   // entry and not a mode on `overrideVerdict`**: that one moves the job past a
   // verdict, and this one moves nothing at all — one capability doing both
@@ -529,6 +542,10 @@ const api: BridgeApi = {
   // name it; main opens `http(s):` only. `main/links.ts`.
   openLink: (address: string): Promise<Followed> => ipcRenderer.invoke(CHANNELS.openLink, address),
   restartFleet: (): Promise<FleetRestart> => ipcRenderer.invoke(CHANNELS.restartFleet),
+  // Restart Fleet and Bridge onto main or the preview. Fleet starts the script and answers at once;
+  // the outcome arrives as `fleetBuild` on the published state.
+  changeFleetBuild: (build: BuildSource, adopt: boolean): Promise<Outcome> =>
+    ipcRenderer.invoke(CHANNELS.changeFleetBuild, build, adopt),
 
   // Ask Fleet to go and look now. **The rung below intervene**, and the one
   // entry here that is an act and changes nothing: what it leaves is a line in
@@ -710,6 +727,7 @@ const api: BridgeApi = {
     save: (said: string): Promise<Outcome> => ipcRenderer.invoke(CHANNELS.captureWindowSave, said),
     reload: (): Promise<void> => ipcRenderer.invoke(CHANNELS.captureWindowReload),
     followRefused: (): Promise<void> => ipcRenderer.invoke(CHANNELS.captureWindowFollowRefused),
+    approve: (): Promise<Outcome> => ipcRenderer.invoke(CHANNELS.captureWindowApprove),
     scroll: (wheel: CaptureWheel): void => ipcRenderer.send(CHANNELS.captureWindowScroll, wheel),
   },
 

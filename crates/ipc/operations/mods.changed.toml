@@ -1,0 +1,12 @@
+[operations."mods.changed"]
+kind = "event"
+transport = "WebSocket"
+agent_access = "Bridge only"
+description = "The mods on this machine changed, and this is the list now"
+notes = """
+Carries `ModList` itself, the answer to `list_mods`, for `repositories.changed`' reason: a client replaces its list. Names no Job, Drone or step, and has no actor.
+
+Published when Fleet's rescan, every two seconds, finds a list unlike the one it last published — a file written by a session, a mod added or removed by hand, a switch moved — and by `scaffold_mod` and `set_mod_enabled` at once. Nothing is published on a quiet folder. The first scan sets the baseline and says nothing, since a client reads `list_mods` on connect.
+
+A resync does not carry it. It adds no queue: one message a change, through the shared drop-oldest backlog, and a Bridge that missed it reads `list_mods` again on the resync that follows a `Missed`.
+"""

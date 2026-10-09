@@ -965,6 +965,18 @@ pub trait Commands: Send + Sync + 'static {
         named: ipc::NamedServer,
     ) -> impl Future<Output = Result<ipc::ServerState, Refusal>> + Send;
 
+    /// `change_fleet_build` — start `scripts/restart-build` detached, so that it
+    /// outlives the Fleet it stops, and answer that it has begun.
+    ///
+    /// **Answers before the restart has done anything**; what it came to is the
+    /// next `get_fleet_build`. [`Refusal::IllegalMove`] where one is already
+    /// under way or this Fleet serves no checkout to restart from;
+    /// [`Refusal::Fault`] where the wrapper would not start.
+    fn change_fleet_build(
+        &self,
+        asked: ipc::ChangeFleetBuild,
+    ) -> impl Future<Output = Result<ipc::FleetBuildChanging, Refusal>> + Send;
+
     /// `save_limits` — save any of the three limits and answer with what is
     /// now in force. **An omitted field keeps its value.**
     ///

@@ -1,0 +1,51 @@
+/* Derived from the One Half Light terminal scheme by packages/tokens/themes/generate.mjs. Do not hand-edit.
+   Tone light. foreground 9.8:1, accent 5.3:1 at the worst ground.
+   Lightness moved to reach 4.5:1: failed, success, review, running, escalated, rejected, not-started, killed. */
+[data-theme="catalogue:one-half-light"] {
+  color-scheme: light;
+  /* Ground */
+  --bg-base: #FAFAFA;
+  --bg-sunken: #F2F3F3;
+  --bg-raised: #FEFEFE;
+  --bg-overlay: #FEFEFE;
+  --bg-hover: #EEEEEF;
+  --border-subtle: #EBEBEC;
+  --border-default: #DCDDDE;
+  --border-strong: #BFC0C3;
+  /* Foreground and accent */
+  --fg-default: #383A42;
+  --fg-muted: #696B71;
+  --fg-subtle: #67696F;
+  --fg-inverse: #FFFFFF;
+  --accent: #A626A4;
+  --accent-hover: #962F95;
+  --accent-muted: #EFDAED;
+  /* Depth */
+  --bg-glass: rgb(254 254 254 / 0.86);
+  --bg-glass-end: rgb(250 250 250 / 0.86);
+  --border-glass: rgb(56 58 66 / 0.08);
+  --border-highlight: rgb(255 255 255 / 0.6);
+  --shadow-overlay: 0 8px 24px -6px rgb(15 23 42 / 0.18), 0 2px 6px -2px rgb(15 23 42 / 0.12);
+  --shadow-card: 0 1px 2px rgb(15 23 42 / 0.08), 0 12px 28px -16px rgb(15 23 42 / 0.25);
+  --scrim: color-mix(in srgb, var(--fg-default) 40%, transparent);
+  /* Status */
+  --status-not-started: #5F6065;
+  --status-running: #00649A;
+  --status-awaiting-review: #8B5100;
+  --status-escalated: #A04000;
+  --status-completed-success: #176E1B;
+  --status-completed-failed: #B2241E;
+  --status-rejected: #A321A1;
+  --status-killed: #5F6166;
+  --status-handed-in: #006C64;
+  /* Helm, tools, diff */
+  --helm: #A321A1;
+  --tool-look: #007590;
+  --tool-change: #A626A4;
+  --tool-run: #975C00;
+  --diff-add-bg: #E2EEE2;
+  --diff-add-fg: #267A28;
+  --diff-del-bg: #F7E3E1;
+  --diff-del-fg: #C0332A;
+  --diff-context: #696B71;
+}

@@ -126,8 +126,6 @@
   --color-instrument-activity: var(--instrument-activity);
   --color-instrument-outside-plan: var(--instrument-outside-plan);
   --color-notice-caution-bg: var(--notice-caution-bg);
-  --color-stat-drones: var(--stat-drones);
-  --color-stat-manifest-current: var(--stat-manifest-current);
   --color-phase-live-edge: var(--phase-live-edge);
   --color-phase-live-bg: var(--phase-live-bg);
   --color-phase-live-rule: var(--phase-live-rule);

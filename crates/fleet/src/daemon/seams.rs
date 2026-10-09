@@ -126,6 +126,9 @@ where
     pub(crate) fn host(&self) -> &Local {
         &self.host
     }
+    pub(crate) fn mods(&self) -> &crate::mods::Told {
+        &self.mods
+    }
     pub(crate) fn budget(&self) -> CheckBudget {
         self.budget
     }
@@ -426,6 +429,9 @@ where
     }
     pub(crate) fn helm(&self) -> &crate::helm::Conversations {
         &self.helm
+    }
+    pub(crate) fn building(&self) -> &crate::building::Building {
+        &self.building
     }
     pub(crate) fn spared(&self) -> &crate::releasing::Spared {
         &self.spared

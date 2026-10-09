@@ -1,0 +1,12 @@
+[operations.set_mod_enabled]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Switch one mod on or off on this machine"
+notes = """
+`POST /mods/enable`, body `SetModEnabled`: `name`, `enabled`. Answered with the mod's `ModSummary`. Kept with the other preferences, per machine, so it survives a restart and is never committed with the mod.
+
+A name that is not a slug is a 422 `fleet.unacceptable_mod`; a slug naming no mod is a 404 `fleet.no_such_mod`. An invalid mod can be switched, and stays invalid: `enabled` says what the owner chose and `valid` says whether Bridge may act on it. Publishes `mods.changed`.
+
+`agent_access` is `No`: whether a mod a session wrote is allowed to change the owner's screen is the owner's say.
+"""

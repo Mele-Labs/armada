@@ -279,6 +279,16 @@ impl Commands for FakeDaemon {
         Err(self.no_such_workspace(&asked.dir))
     }
 
+    /// Recorded and answered; nothing restarts.
+    async fn change_fleet_build(
+        &self,
+        asked: ipc::ChangeFleetBuild,
+    ) -> Result<ipc::FleetBuildChanging, Refusal> {
+        let build = asked.build;
+        self.builds.lock().expect("not poisoned").push(asked);
+        Ok(ipc::FleetBuildChanging { build })
+    }
+
     /// Each field the save names replaces the fake's value. What a save does to
     /// admission is `fleet::limits`' and tested there.
     async fn save_limits(&self, save: ipc::SaveLimits) -> Result<ipc::FleetLimits, Refusal> {
@@ -308,7 +318,7 @@ impl Commands for FakeDaemon {
         match save.name.as_str() {
             "where_things_are_open" => {
                 preferences.where_things_are_open = save.value;
-                Ok(*preferences)
+                Ok(preferences.clone())
             }
             other => Err(Refusal::Unacceptable(ipc::WireError::raised(
                 "fleet.unknown_preference",

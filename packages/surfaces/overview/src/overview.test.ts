@@ -1,6 +1,6 @@
 // Overview's readings, case by case: the machine's three ignore a pick, the scope's own two follow
 // it. Overview 27 (#1091) retired the tile band these once drew for; `left-column.ts` reads them
-// into the left column's Stats and Fleet panels now.
+// into the left column's Fleet panel now.
 
 import { describe, expect, it } from "vitest";
 

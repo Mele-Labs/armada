@@ -32,3 +32,10 @@
     size = "16px"
     status = "Proposed"
     notes = "Proposed 8 Oct 2026 for the walk `fleetProtocolMismatch`. A restart is the same act a reload is, which the entry above already gives this glyph; `refresh-cw` stays churning's and `power` stays the stop. Tooltip `Restart Fleet. Working Drones are adopted and cannot be redirected until they finish.`"
+
+  [[icons.rotate-cw.usage]]
+    means = "Refresh preview or Update to main: restart Fleet and Bridge onto a refreshed preview or the latest main, from the Fleet panel"
+    group = "Action"
+    size = "16px"
+    status = "Specified"
+    notes = "Proposed 8 Oct 2026 for the walk `fleetBuildPreviewAhead`, approved by the owner the same day. A refresh is the same act a reload is, which the entries above already give this glyph. Tooltips `Merge in-flight branches and restart on the preview` and `Restart on latest main`. The button follows the selection, and on Main it is disabled with `On latest main` once Fleet is level with main."

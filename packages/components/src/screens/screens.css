@@ -90,14 +90,14 @@
   gap: 0;
 }
 
-/* Navigation, Stats and Fleet, stacked — the left column Bridge/1088 built to
+/* Navigation and Fleet, stacked — the left column Bridge/1088 built to
    replace the rail and the status bar. Inset on three sides the way the dock
    already is, because the panel beside it stays flush by design — "the panel
    *is* the ground", below.
 
    **A shared width, not three siblings fighting over intrinsic sizing.**
    Sidebar carries its own resting width inline (`--sidebar-default`,
-   collapsed to `--sidebar-rail`), but StatsPanel and FleetPanel (`.armada-panel`)
+   collapsed to `--sidebar-rail`), but FleetPanel (`.armada-panel`)
    set none — with no width here either, this column resolved to whichever
    panel's own content ran widest (a pid/port line, a Manifest advisory
    sentence), and `align-items: stretch` grew the panels to that figure while

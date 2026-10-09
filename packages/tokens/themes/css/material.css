@@ -1,0 +1,51 @@
+/* Derived from the Material terminal scheme by packages/tokens/themes/generate.mjs. Do not hand-edit.
+   Tone light. foreground 11.7:1, accent 5.7:1 at the worst ground.
+   Lightness moved to reach 4.5:1: failed, success, review, escalated, not-started, killed. */
+[data-theme="catalogue:material"] {
+  color-scheme: light;
+  /* Ground */
+  --bg-base: #EAEAEA;
+  --bg-sunken: #E2E2E2;
+  --bg-raised: #FAFAFA;
+  --bg-overlay: #FAFAFA;
+  --bg-hover: #DEDEDE;
+  --border-subtle: #DADADA;
+  --border-default: #CBCBCB;
+  --border-strong: #ADADAC;
+  /* Foreground and accent */
+  --fg-default: #232322;
+  --fg-muted: #5C5C5B;
+  --fg-subtle: #626261;
+  --fg-inverse: #FFFFFF;
+  --accent: #134EB2;
+  --accent-hover: #19489B;
+  --accent-muted: #C7D1E3;
+  /* Depth */
+  --bg-glass: rgb(250 250 250 / 0.86);
+  --bg-glass-end: rgb(234 234 234 / 0.86);
+  --border-glass: rgb(35 35 34 / 0.08);
+  --border-highlight: rgb(255 255 255 / 0.6);
+  --shadow-overlay: 0 8px 24px -6px rgb(15 23 42 / 0.18), 0 2px 6px -2px rgb(15 23 42 / 0.12);
+  --shadow-card: 0 1px 2px rgb(15 23 42 / 0.08), 0 12px 28px -16px rgb(15 23 42 / 0.25);
+  --scrim: color-mix(in srgb, var(--fg-default) 40%, transparent);
+  /* Status */
+  --status-not-started: #565655;
+  --status-running: #134EB2;
+  --status-awaiting-review: #903A00;
+  --status-escalated: #A02900;
+  --status-completed-success: #2D6200;
+  --status-completed-failed: #AC0015;
+  --status-rejected: #560088;
+  --status-killed: #575756;
+  --status-handed-in: #135F6C;
+  /* Helm, tools, diff */
+  --helm: #44329D;
+  --tool-look: #006B76;
+  --tool-change: #560088;
+  --tool-run: #9F4800;
+  --diff-add-bg: #D3DACE;
+  --diff-add-fg: #33680A;
+  --diff-del-bg: #E3CCCE;
+  --diff-del-fg: #B30D1C;
+  --diff-context: #5C5C5B;
+}

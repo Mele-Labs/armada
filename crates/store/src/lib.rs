@@ -219,7 +219,7 @@ pub use pending_evidence::PendingEvidence;
 pub use piloting::{KeptPilot, Narrative, PilotExit};
 pub use plan::DeclaredPlan;
 pub use ports::{PortClaim, PortClaimant};
-pub use preferences::Preferences;
+pub use preferences::{Preferences, SHIPPED_THEME};
 pub use process::DroneProcess;
 pub use proving::Proved;
 pub use pull_request_kept::KeptPullRequest;

@@ -8,10 +8,15 @@ window.armada.onWalkFocus((focused) => {
   document.documentElement.toggleAttribute("data-walking", focused);
 });
 import type { BridgeIdentity } from "@armada/protocol";
+import { createPhoneGatewaySource, PhoneSourceProvider } from "@armada/settings";
 import { App, WAITING } from "./App";
 import { Boundary } from "@armada/shell";
 import { HapticsProvider } from "@armada/components";
 import { WiredSessions } from "./sessions-wired";
+import { CATALOGUE } from "./catalogue";
+import { Themed } from "./theme";
+import { createFleetThemes } from "./fleet-themes";
+import { BUILT_IN_SWATCHES, modSwatch } from "./swatches";
 
 // Bridge's renderer entry point. No Node, no `require`, no socket — everything
 // it draws arrives through the preload from the one connection in the main
@@ -22,6 +27,12 @@ import { WiredSessions } from "./sessions-wired";
 // a boundary inside `App` cannot catch what `App` itself throws. `Root` holds
 // nothing but the path Bridge's log is at, so the fallback can still name it
 // when everything under it has gone.
+
+/** The themes this window offers: Fleet's mods and the saved preference, and the catalogue Bridge ships. */
+const THEMES = createFleetThemes(window.armada, CATALOGUE, { builtIn: BUILT_IN_SWATCHES, ofMod: modSwatch });
+
+/** Settings → Phone, over the Gateway through the main process. Reads nothing until Settings draws it. */
+const PHONE = createPhoneGatewaySource((request) => window.armada.phone(request));
 
 /**
  * Who Bridge is, read once. The only state above the boundary, and the least
@@ -42,9 +53,13 @@ function Root() {
     >
       {/* Here rather than in `App`, which the mock mounts: only a real Bridge reaches a trackpad. */}
       <HapticsProvider perform={window.armada.tap}>
-        <WiredSessions>
-          <App />
-        </WiredSessions>
+        <Themed source={THEMES}>
+          <PhoneSourceProvider value={PHONE}>
+            <WiredSessions>
+              <App />
+            </WiredSessions>
+          </PhoneSourceProvider>
+        </Themed>
       </HapticsProvider>
     </Boundary>
   );
