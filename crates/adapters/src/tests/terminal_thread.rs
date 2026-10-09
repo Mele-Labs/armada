@@ -293,3 +293,21 @@ fn a_subagent_name_cannot_leave_its_directory() {
     assert!(crate::terminal_thread::find_subagent(&root, "abc-123", "../abc-123").is_none());
     assert!(crate::terminal_thread::find_subagent(&root, "abc-123", "nope").is_none());
 }
+
+/// A background subagent ends on its hand-back, never on `end_turn`, and the report is what it
+/// handed back. Work after a hand-back (a resumed subagent) makes it running again.
+#[test]
+fn a_subagent_that_handed_back_is_finished_with_what_it_handed_back() {
+    let dir = std::env::temp_dir().join(format!("handback-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let file = dir.join("agent-a1.jsonl");
+    let call = r#"{"type":"assistant","isSidechain":true,"message":{"role":"assistant","content":[{"type":"tool_use","id":"t1","name":"Bash","input":{"command":"ls"}}]}}"#;
+    let back = r#"{"type":"assistant","isSidechain":true,"message":{"role":"assistant","content":[{"type":"tool_use","id":"t2","name":"SubagentHandback","input":{"message":"Done: pushed."}}]}}"#;
+    std::fs::write(&file, format!("{call}\n{back}\n")).unwrap();
+    let read = crate::terminal_thread::read_subagent(&file).unwrap();
+    assert!(read.finished);
+    assert_eq!(read.report.as_deref(), Some("Done: pushed."));
+    std::fs::write(&file, format!("{call}\n{back}\n{call}\n")).unwrap();
+    assert!(!crate::terminal_thread::read_subagent(&file).unwrap().finished, "resumed after its hand-back");
+    let _ = std::fs::remove_dir_all(&dir);
+}
