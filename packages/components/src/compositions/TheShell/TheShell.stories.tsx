@@ -93,7 +93,6 @@ export const CollapsedRail: Story = {
   render: Shell.render,
   play: async ({ canvas }) => {
     await expect(canvas.getAllByRole("img", { name: `Fleet — ${shell.fleet.label}` })).toHaveLength(2);
-    await expect(canvas.getByRole("region", { name: "Stats" })).toBeInTheDocument();
   },
 };
 
@@ -243,7 +242,7 @@ function WithResizableLeftColumn(args: ComponentProps<typeof TheShell>) {
 
 /**
  * The left column's trailing edge, grabbable and keyboard-operable — one
- * handle for Navigation, Stats and Fleet together, dragged wider, dragged to
+ * handle for Navigation and Fleet together, dragged wider, dragged to
  * `--sidebar-min`, or nudged by the arrow keys the ARIA separator pattern
  * names. `onResizeLeft` absent draws no handle at all: `Shell` above is that
  * case.
@@ -258,7 +257,7 @@ export const LeftColumnResizable: Story = {
     </div>
   ),
   play: async ({ canvas, canvasElement, userEvent }) => {
-    // Navigation, Stats and Fleet are one column, so each is as wide as the others.
+    // Navigation and Fleet are one column, so each is as wide as the others.
     const panelWidths = () =>
       [...(canvasElement.querySelector(".armada-shell__left")?.children ?? [])].map(
         (panel) => panel.getBoundingClientRect().width,
@@ -311,7 +310,7 @@ export const LeftColumnCollapsedBesideTheDock: Story = {
     dock: { open: true, binding: "⌘J", onOpen: () => {} },
   },
   render: LeftColumnResizable.render,
-  // What a rendering cannot show: that Navigation, Stats and Fleet are still
+  // What a rendering cannot show: that Navigation and Fleet are still
   // in the tree at the rail rather than unmounted — the #1435 regression is
   // exactly a tree that is missing them — and that collapsing took nothing
   // else with it, Helm's dock being the whole point of the band.

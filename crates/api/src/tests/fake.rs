@@ -90,6 +90,8 @@ pub struct FakeDaemon {
     pub land: Mutex<Option<crate::LandOutput>>,
     /// The limits in force, which the fake's own saves change.
     limits: Mutex<ipc::FleetLimits>,
+    /// Every restart asked for, so a route test can assert what arrived.
+    builds: Mutex<Vec<ipc::ChangeFleetBuild>>,
     /// The preferences in force, which the fake's own saves change.
     preferences: Mutex<ipc::Preferences>,
     /// Every rule a person always-allowed for the repository. Set by a test,
@@ -152,6 +154,7 @@ impl FakeDaemon {
             live: Mutex::new(None),
             land: Mutex::new(None),
             limits: Mutex::new(shapes::limits()),
+            builds: Mutex::new(Vec::new()),
             preferences: Mutex::new(shapes::preferences()),
             repository_allowed: Mutex::new(Vec::new()),
             kit_servers: Mutex::new(Vec::new()),

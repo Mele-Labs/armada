@@ -13,8 +13,8 @@
     notes = "Proposed 8 Oct 2026 for the walk `fleetProtocolMismatch`. Spins, and holds still under reduced motion, as the slot mark above does. An open ring spinning is an act under way, which is what both uses say."
 
   [[icons.loader-circle.usage]]
-    means = "Fleet is restarting onto the other build, or a refreshed preview: the Fleet panel's Refresh preview button and the mark beside main"
+    means = "Fleet is restarting onto the other build, a refreshed preview or the latest main: the Fleet panel's button and the mark beside main"
     group = "Action"
     size = "12 and 16px"
-    status = "Proposed"
-    notes = "Proposed 8 Oct 2026 for the walk `fleetBuildRefreshing`. The same restart the mismatch notice's button shows, from the Fleet panel. Spins, and holds still under reduced motion."
+    status = "Specified"
+    notes = "Proposed 8 Oct 2026 for the walk `fleetBuildRefreshing`, approved by the owner the same day. The same restart the mismatch notice's button shows, from the Fleet panel. Spins, and holds still under reduced motion."

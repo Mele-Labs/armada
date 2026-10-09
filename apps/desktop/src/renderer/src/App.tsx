@@ -65,7 +65,7 @@ import {
   openRemarkLink,
   openServerLink,
   runSheetServers,
-  openLink, restartFleet,
+  openLink, restartFleet, changeFleetBuild,
   observeRun,
   observeCheckoutRun,
   pickRepository,
@@ -148,7 +148,7 @@ import { usePlanView } from "./remembered-views";
 import { usePanelOpen } from "./panel-open";
 import { useGuideListWidth } from "./guide-list-width";
 import { fleetPanelOf } from "./left-column";
-import { useFleetBuild } from "./fleet-build";
+import { fleetBuildOf, useFleetBuild } from "./fleet-build";
 import { copyDebugInfoFor, useCommandPalette } from "@armada/shell";
 import { Shell, SURFACE, SURFACES, useAtFloor, useNarrow, useSurfaceKeys } from "@armada/shell";
 
@@ -296,7 +296,8 @@ export function App({ draft }: AppProps = {}) {
   const [planView, pressPlanView] = usePlanView();
   // The left column's own fold, remembered across a restart — Bridge/1088.
   const [fleetOpen, setFleetOpen] = usePanelOpen("fleet");
-  const fleetBuild = useFleetBuild();
+  // The mock provides a fixture; a real window builds it from what Fleet reported.
+  const fleetBuild = useFleetBuild() ?? fleetBuildOf(state.fleetBuild, state.jobs, (build, adopt) => void changeFleetBuild(build, adopt));
   // The catalogue list's width, remembered the same way the shell's column is.
   const [guideList, resizeGuideList] = useGuideListWidth();
 
@@ -352,7 +353,7 @@ export function App({ draft }: AppProps = {}) {
 
   // Fleet's health and every repository's drift in scope. Held for the life
   // of the window rather than only while Overview is showing — Bridge/1088's
-  // Stats and Fleet panels draw the same two reads on every surface now.
+  // Fleet panel draws its Doctor read on every surface now.
   useEffect(() => {
     watchOverview(true);
     return () => watchOverview(false);

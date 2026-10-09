@@ -57,6 +57,8 @@ pub mod basing;
 mod boot_restart;
 mod boundary;
 pub mod briefing;
+/// The build Fleet runs on and the detached restart onto another. `scripts/restart-build`.
+mod building;
 /// Racing a plain command's work against [`budget::CommandBudget`],
 /// split out of `commanding` at the 900-line refusal, `#897`.
 mod budget;

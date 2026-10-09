@@ -270,6 +270,9 @@ pub struct Fleet<H, V, W> {
     /// Whether a Job's retro is being written. Never written down, for
     /// `proving`'s reason — `crate::retro`.
     reflecting: crate::retro::Reflecting,
+    /// When `origin main` was last fetched, for `get_fleet_build`. Nothing else
+    /// of the build is held: the files `scripts/restart` leaves are the record.
+    building: crate::building::Building,
     /// **This process's** run id, minted once at assembly.
     ///
     /// It names the emitter rather than a record, which is the one id a

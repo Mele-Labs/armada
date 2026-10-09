@@ -11,3 +11,10 @@
     size = "12px"
     status = "Specified"
     notes = "Added 2 Oct 2026 with `land_state` in `crates/core-model/domain/enum-verbs.toml`, after the owner refused `split` on the walk, and chosen by him over `wrench` on the next walk the same day. Two halves with a gap where they should join is the merge that would not close. The row carries no reservation. It meets `interrupted` and a `signalled` Check in neither place: those mark a Job and a Check, and this marks a branch on the merge line. `wrench`, the other candidate, stays reserved to `job_status.awaiting_repair`. Refused: `split`, by the owner; `git-merge` and `git-pull-request-closed`, each reserved to a pull request's badge, and a closed-PR mark beside a row's own `#1770` would read as that pull request closed; `x`, which `red` takes; `triangle-alert`, reserved to Doctor."
+
+  [[icons.unplug.usage]]
+    means = "A Drone that is working when Fleet restarts: its pipes die and it cannot be redirected until it finishes, on the Fleet panel's restart confirm"
+    group = "Fleet"
+    size = "12px"
+    status = "Proposed"
+    notes = "Proposed 8 Oct 2026, with the wiring of the Fleet panel's build section. The mock had no confirm; the owner has not seen this line. A connection that is gone is what `unplug` already says for a Job that lost its Drone. Tooltip carries the rest of what adopting costs. The row carries no reservation."

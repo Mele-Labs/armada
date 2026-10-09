@@ -24,6 +24,7 @@ import { applyArrival, readCapacity, reread } from "./arrivals";
 import type { ArrivalHost } from "./arrivals";
 import { JobCommands } from "./command";
 import { PilotExits } from "./pilot-exits";
+import { FleetBuilds } from "./fleet-build";
 import { FollowSocket } from "./following";
 import { LandFollowSocket } from "./land-following";
 import { HelmConnection } from "./helm";
@@ -172,6 +173,12 @@ export class FleetConnection {
     (change) => this.publish(change),
     () => this.connected()?.port ?? null,
   );
+  /** The build Fleet runs on and the restart onto another — `fleet-build.ts`. */
+  readonly fleetBuild: FleetBuilds = new FleetBuilds({
+    port: () => this.connected()?.port ?? null,
+    current: () => this.current,
+    publish: (change) => this.publish(change),
+  });
   /** Every session on the machine and the threads a window opened — `sessions.ts`. */
   readonly sessions: SessionsHost = new SessionsHost(
     (change) => this.publish(change),
@@ -305,6 +312,7 @@ export class FleetConnection {
       helm: this.helm,
       studios: this.studios,
       sessions: this.sessions,
+      fleetBuild: this.fleetBuild,
       material: this.material,
       socket: this.socket,
       publish: (change) => this.publish(change),
@@ -445,6 +453,7 @@ export class FleetConnection {
     this.held.close();
     this.studios.close();
     this.sessions.close();
+    this.fleetBuild.close();
     for (const facades of this.windowFacades.values()) facades.overview.close();
     this.helm.close();
   }

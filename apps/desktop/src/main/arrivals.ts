@@ -19,6 +19,7 @@ import { PROTOCOL_ID, speaksOurProtocol } from "@armada/protocol";
 import type { Connection, JobSummary, ProposalMoved, ServerState, StreamMessage } from "@armada/protocol";
 import { movedOnto } from "@armada/screens/src/filling";
 import type { BridgeState } from "../shared/bridge";
+import type { FleetBuilds } from "./fleet-build";
 import type { Questions } from "./questions";
 import type { RehearsalConnection } from "./rehearsal";
 import { ask, capacityOf, limitsOf, mergeLinesOf, preferencesOf } from "./request";
@@ -49,6 +50,8 @@ export interface ArrivalHost {
   readonly studios: Pick<StudioReads, "again" | "changed" | "deleted">;
   /** Every session and the threads a window opened — `sessions.ts`. */
   readonly sessions: Pick<SessionsHost, "again" | "changed" | "row">;
+  /** The build Fleet runs on, read now and every minute — `fleet-build.ts`. */
+  readonly fleetBuild: Pick<FleetBuilds, "watch">;
   readonly material: ReviewMaterial;
   readonly socket: { close(): void; resetUnreachable(): void };
   publish(change: Partial<BridgeState>): void;
@@ -166,6 +169,9 @@ export function applyArrival(host: ArrivalHost, text: string, fleet: BridgeState
     // And how full the fleet is, which changes when a Job moves and is
     // therefore read again below on every status move.
     void readCapacity(fleet.port, host.publish);
+    // And the build it runs on, once now and then every minute: a fetch moves its position and no
+    // event says so.
+    host.fleetBuild.watch(fleet.port);
     // And what Fleet's last read of `armada.yml` came to. **Once per
     // connection and never again**, unlike capacity: it changes when somebody
     // saves a file, and `manifest.reread` is what says so. This read is for

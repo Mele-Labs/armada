@@ -2,7 +2,7 @@ import { ArmadaMark } from "@armada/brand";
 import type { ReactNode } from "react";
 import { FigureList, type Figure } from "../FigureList/FigureList";
 import { Panel } from "../Panel/Panel";
-import { FleetBuildSection, type FleetBuild } from "./FleetBuild";
+import { FleetBuildSection, type FleetBuild } from "../FleetBuild/FleetBuild";
 
 /** Where Bridge's one connection is, collapsed to what a dot can carry. Was `StatusBar`'s. */
 export type FleetState = "running" | "not-running" | "starting" | "unreachable" | "unknown";

@@ -95,6 +95,7 @@ function fakeHost(
     helm: { reconnected: () => {} },
     studios: { again: async () => {}, changed: () => {}, deleted: () => {} },
     sessions: { again: async () => {}, changed: () => {}, row: () => {} },
+    fleetBuild: { watch: () => {} },
     material: {} as unknown as ReviewMaterial,
     socket: { close: () => {}, resetUnreachable: () => {} },
     publish: (change) => (state = { ...state, ...change }),
