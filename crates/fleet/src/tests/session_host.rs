@@ -811,10 +811,8 @@ async fn a_session_whose_first_process_ended_before_a_turn_starts_fresh() {
     let id = rig.start().await;
     rig.send(&id, "first").await;
     eventually(|| async { rig.stand_in.starts().len() == 1 }).await;
-    // The process goes before it said anything.
+    // The process goes before it said anything; the message it never took starts another.
     rig.stand_in.hears(0, Heard::Gone);
-    eventually(|| async { !matches!(rig.turn(&id).await, SessionTurn::Working { .. }) }).await;
-    rig.send(&id, "second").await;
     eventually(|| async { rig.stand_in.starts().len() == 2 }).await;
     assert!(!rig.stand_in.starts()[1].resuming, "nothing to resume");
 }
