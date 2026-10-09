@@ -53,8 +53,10 @@ export function handleSessions({ ipc, connection, windowIdOf, pages }: Hosts): v
     return connection()?.sessions.answerWaiting(answer) ?? unsent;
   });
   ipc.handle(CHANNELS.claimPullRequest, (_event, claim: ClaimPullRequest) => {
-    if (!Number.isInteger(claim?.number) || claim.number < 1 || !text(claim.session_id)) return unsent;
-    return connection()?.sessions.claimPullRequest({ number: claim.number, session_id: claim.session_id }) ?? unsent;
+    if (!Number.isInteger(claim?.number) || claim.number < 1) return unsent;
+    // Exactly one claimant, as Fleet reads it.
+    const to = text(claim.session_id) && !text(claim.job_id) ? { session_id: claim.session_id } : text(claim.job_id) && !text(claim.session_id) ? { job_id: claim.job_id } : undefined;
+    return to === undefined ? unsent : (connection()?.sessions.claimPullRequest({ number: claim.number, ...to }) ?? unsent);
   });
   ipc.handle(CHANNELS.dismissWaiting, (_event, dismiss: DismissWaiting) => {
     if (!text(dismiss?.session_id) || !text(dismiss.item_id)) return unsent;

@@ -241,7 +241,7 @@ export class FakeSessionsFleet {
           },
           claimPullRequest: async (claim) => {
             this.calls.claimed.push(claim);
-            return { ok: true, value: { number: claim.number, branch: "", url: "", holder_kind: "session", holder_id: claim.session_id ?? "" } };
+            return { ok: true, value: { number: claim.number, branch: "", url: "", holder_kind: claim.job_id === undefined ? "session" : "job", holder_id: claim.job_id ?? claim.session_id ?? "" } };
           },
           dismissWaiting: async (dismiss) => {
             this.calls.dismissed.push(dismiss);
