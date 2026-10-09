@@ -62,13 +62,15 @@ pub struct PhoneSession {
 }
 
 /// The ask a Session is held on. **A Terminal Session's counts only while Fleet
-/// still holds it**: `asked_at` plus `holding_for_seconds`, against `now` in Unix
+/// still holds it and its mod is listening**: `asked_at` plus `holding_for_seconds`, against `now` in Unix
 /// seconds. After that the question is in the terminal and nowhere else.
 pub fn held_ask(record: &SessionRecord, now: i64) -> Option<&HelmCallInFlight> {
     match record.origin {
         SessionOrigin::Bridge => record.hosted.as_ref()?.asked.as_ref(),
         SessionOrigin::Terminal => {
-            let asked = record.terminal.as_ref()?.asked.as_ref()?;
+            let terminal = record.terminal.as_ref()?;
+            // A mod that is not listening will never collect the answer.
+            let asked = terminal.asked.as_ref().filter(|_| terminal.listening)?;
             let since = asked.asked_at.to_domain().epoch_millis()?;
             let until = since.saturating_add(i64::try_from(asked.holding_for_seconds).ok()?.saturating_mul(1000));
             (now.saturating_mul(1000) < until).then_some(asked)

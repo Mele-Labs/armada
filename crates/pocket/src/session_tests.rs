@@ -60,6 +60,13 @@ fn sessions() -> String {
                 ask("tc3", "Bash", "ls", "").replace(r#""holding_for_seconds":600"#, r#""holding_for_seconds":60"#)
             ),
         ),
+        // Held, but its mod has stopped listening: nobody would collect an answer.
+        record(
+            "t4",
+            "terminal",
+            "live",
+            &format!(r#","terminal":{{"listening":false,"asked":{}}}"#, ask("tc4", "Bash", "ls", "")),
+        ),
         record("t2", "terminal", "live", ""),
         record("e1", "bridge", "ended", &hosted(&format!(r#","asked":{}"#, ask("c9", "Bash", "x", "")))),
     ];
@@ -160,6 +167,10 @@ async fn sessions_are_trimmed_and_a_terminal_one_carries_its_ask_while_held() {
     let lapsed = &lapsed[..lapsed.find('}').unwrap()];
     assert!(lapsed.contains(r#""kind":"terminal""#) && lapsed.contains(r#""waiting":true"#), "{lapsed}");
     assert!(!lapsed.contains("ask"), "{lapsed}");
+    // Held but not listening: waiting, and nothing to answer.
+    let deaf = &body[body.find(r#""id":"t4""#).unwrap()..];
+    let deaf = &deaf[..deaf.find('}').unwrap()];
+    assert!(deaf.contains(r#""waiting":true"#) && !deaf.contains("ask"), "{deaf}");
 }
 
 #[tokio::test]
@@ -212,6 +223,7 @@ async fn answers_that_cannot_be_given_are_refused_before_fleet() {
     let (app, seen) = rig().await;
     let cases = [
         (r#"{"session_id":"t3","answer":"refuse"}"#, StatusCode::CONFLICT, "Armada is no longer holding that question. Answer it in the terminal."),
+        (r#"{"session_id":"t4","answer":"refuse"}"#, StatusCode::CONFLICT, "Armada is no longer holding that question. Answer it in the terminal."),
         (r#"{"session_id":"t2","answer":"refuse"}"#, StatusCode::CONFLICT, "Armada is no longer holding that question. Answer it in the terminal."),
         (r#"{"session_id":"t1","ask_id":"old","answer":"refuse"}"#, StatusCode::CONFLICT, "That question has been answered or has changed. Open it again."),
         (r#"{"session_id":"h3","answer":"refuse"}"#, StatusCode::CONFLICT, "That Session is not waiting on an answer."),
