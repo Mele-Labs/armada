@@ -15,9 +15,11 @@ mod live;
 mod pair_routes;
 mod pairing;
 mod phone;
+mod phone_sessions;
 mod push;
 mod reads;
 mod routes;
+mod session_routes;
 mod signing;
 mod stat;
 mod vapid;
@@ -47,5 +49,7 @@ mod pairing_tests;
 mod push_tests;
 #[cfg(test)]
 mod reads_tests;
+#[cfg(test)]
+mod session_tests;
 #[cfg(test)]
 mod tests;
