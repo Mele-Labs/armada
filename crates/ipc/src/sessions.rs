@@ -12,7 +12,7 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
-use crate::ids::{Instant, ManifestId};
+use crate::ids::{Instant, JobId, ManifestId};
 
 /// A session, by the id its harness knows it by.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -416,6 +416,10 @@ pub struct ClaimPullRequest {
     /// Drone**, as `ShowWindow::session_id` is.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub session_id: Option<SessionId>,
+    /// Or which Job, for a person attaching the pull request to one they picked. Exactly one of
+    /// the two, read where `session_id` is.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub job_id: Option<JobId>,
 }
 
 /// What `claim_pull_request` answers: the pull request now held, and by whom.

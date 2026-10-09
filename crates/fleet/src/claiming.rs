@@ -39,14 +39,27 @@ where
                 .or_else(|| self.caller_of(caller).ok().map(Owner::Job)),
             None => None,
         }
+        .map(Ok)
         .or_else(|| {
-            claim
+            let session = claim
                 .session_id
                 .as_ref()
                 .map(|id| id.as_str().trim().to_string())
-                .filter(|id| !id.is_empty())
-                .map(Owner::Session)
+                .filter(|id| !id.is_empty());
+            let job = claim
+                .job_id
+                .as_ref()
+                .filter(|id| !id.as_str().trim().is_empty());
+            match (session, job) {
+                (Some(_), Some(_)) => Some(Err(refuse(
+                    "a pull request is claimed by a session or a Job, not both".into(),
+                ))),
+                (Some(id), None) => Some(Ok(Owner::Session(id))),
+                (None, Some(job)) => Some(Ok(Owner::Job(job.to_domain()))),
+                (None, None) => None,
+            }
         })
+        .transpose()?
         .ok_or_else(|| refuse("a pull request is claimed by a session or a Job, and this call is neither".into()))?;
         let served = match &me {
             Owner::Session(id) => {
