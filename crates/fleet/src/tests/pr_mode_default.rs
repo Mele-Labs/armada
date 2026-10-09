@@ -47,6 +47,7 @@ async fn a_machine_that_drafts_serves_it_and_freezes_it_unless_the_job_chose_oth
         .save_preferences(ipc::SavePreference {
             name: "draft_pull_requests".to_string(),
             value: true,
+            text: None,
         })
         .await
         .expect("saved");

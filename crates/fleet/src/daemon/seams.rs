@@ -126,6 +126,9 @@ where
     pub(crate) fn host(&self) -> &Local {
         &self.host
     }
+    pub(crate) fn mods(&self) -> &crate::mods::Told {
+        &self.mods
+    }
     pub(crate) fn budget(&self) -> CheckBudget {
         self.budget
     }

@@ -308,7 +308,7 @@ impl Commands for FakeDaemon {
         match save.name.as_str() {
             "where_things_are_open" => {
                 preferences.where_things_are_open = save.value;
-                Ok(*preferences)
+                Ok(preferences.clone())
             }
             other => Err(Refusal::Unacceptable(ipc::WireError::raised(
                 "fleet.unknown_preference",

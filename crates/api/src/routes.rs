@@ -198,6 +198,11 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             "/pull_request_reviews/:repository",
             post(crate::pull_requests::review_pull_request::<D>),
         )
+        .route("/mods", get(crate::mods::list_mods::<D>))
+        .route("/mods/scaffold", post(crate::mods::scaffold_mod::<D>))
+        .route("/mods/enable", post(crate::mods::set_mod_enabled::<D>))
+        .route("/mods/validate", get(crate::mods::validate_mod::<D>))
+        .route("/mods/promote", post(crate::mods::promote_mod::<D>))
         .route("/sessions", get(crate::sessions::list_sessions::<D>))
         .route("/sessions/owner", get(crate::sessions::who_owns::<D>))
         .route(

@@ -184,6 +184,8 @@ pub mod manifest_proposal;
 mod mending;
 pub mod merge_lines;
 mod merging;
+/// Mods: folders on this machine that change how Bridge looks.
+pub mod mods;
 pub mod mint;
 /// What each Job is called on disk, answerable without a lock. **Every path
 /// under `.armada/` is named by the handle**, and half the places that write a

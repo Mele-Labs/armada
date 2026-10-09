@@ -95,6 +95,9 @@ pub struct Host {
     /// Kit's home, `~/.armada`, where Kit's own allowlist is kept as a plain
     /// file a person can edit. Since protocol 23.35.
     pub kit_home: String,
+    /// Where the mods are: one folder each, written by a person or a session
+    /// and never by Fleet but at `scaffold_mod`. `docs/concepts/mods.md`.
+    pub mods_dir: String,
 }
 
 /// [`Host`] without the repository: what is true of the machine whichever
@@ -111,6 +114,7 @@ pub(crate) struct Local {
     pub(crate) studio_frames_dir: String,
     pub(crate) walk_frames_dir: String,
     pub(crate) kit_home: String,
+    pub(crate) mods_dir: String,
 }
 
 /// One repository a Fleet is assembled already serving.
@@ -363,6 +367,7 @@ where
                 studio_frames_dir: fittings.host.studio_frames_dir,
                 walk_frames_dir: fittings.host.walk_frames_dir,
                 kit_home: fittings.host.kit_home,
+                mods_dir: fittings.host.mods_dir,
             },
             port_range: fittings.port_range,
             run_log_retention: fittings.run_log_retention,
@@ -435,6 +440,7 @@ where
             spared: Default::default(),
             merge_end: Mutex::new(()),
             reflecting: crate::retro::Reflecting::default(),
+            mods: crate::mods::Told::default(),
             run,
         }
     }
