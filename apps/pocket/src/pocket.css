@@ -1,9 +1,8 @@
-/* The phone mock (#1997). Tokens only, except the device frame itself. */
-.pk-stage { display: flex; align-items: center; justify-content: center; min-height: 100vh; background: var(--bg-sunken); }
-.pk-phone { width: 393px; height: 852px; max-height: 100vh; border-radius: 44px; border: var(--border-width) solid var(--border-strong); background: var(--bg-base); overflow: hidden; display: flex; flex-direction: column; font-family: var(--font-mono); font-size: var(--text-xs); color: var(--fg-default); }
+/* Pocket (#1997). Tokens only. */
+.pk-app { height: 100%; display: flex; flex-direction: column; background: var(--bg-base); font-family: var(--font-mono); font-size: var(--text-xs); color: var(--fg-default); }
 .pk-screen { display: flex; flex-direction: column; flex: 1; min-height: 0; }
 
-.pk-band { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-12) var(--space-4) var(--space-4); background: var(--bg-overlay); border-bottom: var(--border-width) solid var(--border-strong); }
+.pk-band { display: flex; align-items: center; gap: var(--space-2); padding: calc(var(--space-4) + env(safe-area-inset-top)) var(--space-4) var(--space-4); background: var(--bg-overlay); border-bottom: var(--border-width) solid var(--border-strong); }
 .pk-band__title { flex: 1; min-width: 0; margin: 0; font-family: var(--font-sans); font-size: var(--text-xl); line-height: var(--leading-xl); font-weight: var(--weight-heading); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .pk-icon, .pk-icon { display: grid; place-items: center; width: var(--space-12); height: var(--space-12); margin: calc(-1 * var(--space-2)) 0; border: 0; border-radius: var(--radius-md); background: transparent; }
@@ -27,7 +26,7 @@ button.pk-row:active { background: var(--bg-hover); }
 @keyframes pk-turn { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .pk-spin, .pk-live { animation: none; } }
 
-.pk-tabs { display: grid; grid-template-columns: repeat(3, 1fr); background: var(--bg-overlay); border-top: var(--border-width) solid var(--border-strong); padding-bottom: var(--space-6); }
+.pk-tabs { display: grid; grid-template-columns: repeat(3, 1fr); background: var(--bg-overlay); border-top: var(--border-width) solid var(--border-strong); padding-bottom: env(safe-area-inset-bottom); }
 .pk-tab { padding: var(--space-4) 0; border: 0; border-top: 3px solid transparent; background: transparent; color: var(--fg-muted); font-weight: var(--weight-medium); }
 .pk-tab[aria-selected="true"] { color: var(--fg-default); border-top-color: var(--accent); background: var(--accent-faint); }
 
@@ -40,7 +39,7 @@ button.pk-row:active { background: var(--bg-hover); }
 .pk-link { color: var(--accent); }
 .pk-link svg { width: var(--space-4); height: var(--space-4); vertical-align: -3px; }
 
-.pk-bar { display: grid; gap: var(--space-2); padding: var(--space-3) var(--space-4) var(--space-8); background: var(--bg-overlay); border-top: var(--border-width) solid var(--border-strong); }
+.pk-bar { display: grid; gap: var(--space-2); padding: var(--space-3) var(--space-4) calc(var(--space-4) + env(safe-area-inset-bottom)); background: var(--bg-overlay); border-top: var(--border-width) solid var(--border-strong); }
 .pk-pair-acts { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: var(--space-2); }
 .pk-dot { width: var(--space-2); height: var(--space-2); border-radius: 50%; background: var(--accent); }
 .pk-dictate, .pk-line { width: 100%; box-sizing: border-box; padding: var(--space-3); border: var(--border-width) solid var(--border-strong); border-radius: var(--radius-md); background: var(--bg-sunken); color: var(--fg-default); font-family: var(--font-sans); font-size: var(--text-lg); line-height: var(--leading-lg); resize: none; }
@@ -63,7 +62,6 @@ button.pk-row:active { background: var(--bg-hover); }
 .pk-dim { color: var(--fg-subtle); }
 .pk-facts .pk-mark, .pk-checks .pk-mark { display: inline-block; }
 .pk-mark:empty { display: inline-block; }
-/* Short windows: the walk's card takes the trailing corner, so the phone stands clear of it. */
-@media (max-width: 1140px) { .pk-stage { padding-inline-end: calc(var(--w-tooltip) + var(--space-6) * 2); } }
 .pk-big { width: 100%; min-height: var(--space-12); }
 .pk-pair-acts .pk-big { width: auto; }
+.pk-continue { display: flex; align-items: center; justify-content: center; border-radius: var(--radius-md); background: var(--accent); color: var(--fg-inverse); font-weight: var(--weight-medium); text-decoration: none; }

@@ -1,0 +1,8 @@
+/* The tokens, the theme and the components' own stylesheets, in the order Bridge's renderer takes them. */
+@import "@armada/tokens/tokens.css";
+@import "tailwindcss";
+@import "@armada/tokens/tokens.theme.css";
+@import "@armada/tokens/base.css";
+@import "@armada/components/src/index.css";
+
+html, body, #root { height: 100%; overflow: hidden; }

@@ -1,9 +1,8 @@
-// The phone app's design mock (#1997): one React tree in a 393x852 frame, played by
-// `?walk=pocket-*`. Local state only; nothing here reaches a Fleet.
+// The phone app's screens (#1997): a plain responsive page, fixture data only.
+// Everything it reads comes through `./data`, which the Gateway client replaces (#1998).
 
 import { useState } from "react";
 import type { ReactNode } from "react";
-import { createRoot } from "react-dom/client";
 import {
   Check, ChevronLeft, CircleDot, Eye, GitPullRequest, LoaderCircle, OctagonAlert, Plus, RefreshCw,
   Split, SquareTerminal, Unplug, UserCheck, X,
@@ -12,18 +11,9 @@ import type { LucideIcon } from "lucide-react";
 
 import { Button, HoldButton } from "@armada/components";
 
-import "../../styles/index.css";
-import "./pocket.css";
-import { APPROVAL, BLOCKED, DONE, HOSTED_ASK, MAC, REPOSITORIES, REVIEW, RUNNING, TERMINAL_WAITING } from "./fixtures";
-import type { PocketJob } from "./fixtures";
-
-type Screen =
-  | { is: "pair"; phase: "scanned" | "waiting" }
-  | { is: "tabs" }
-  | { is: "job"; job: PocketJob }
-  | { is: "review"; job: PocketJob }
-  | { is: "ask" }
-  | { is: "dispatch" };
+import { APPROVAL, BLOCKED, DONE, HOSTED_ASK, MAC, REPOSITORIES, REVIEW, RUNNING, TERMINAL_WAITING, jobById } from "./data";
+import type { PocketJob } from "./data";
+import { Link, go } from "./router";
 
 type Tab = "Needs you" | "Running" | "Done";
 const TABS: Tab[] = ["Needs you", "Running", "Done"];
@@ -82,7 +72,8 @@ function Band({ title, back, onBack, end }: { title: string; back?: string; onBa
   );
 }
 
-function Pair({ phase, go }: { phase: "scanned" | "waiting"; go: (screen: Screen) => void }) {
+function Pair() {
+  const [phase, setPhase] = useState<"scanned" | "waiting">("scanned");
   return (
     <section className="pk-screen" aria-label="Pair">
       <Band title="Pair" />
@@ -93,16 +84,16 @@ function Pair({ phase, go }: { phase: "scanned" | "waiting"; go: (screen: Screen
         {phase === "scanned" ? (
           <p className="pk-fact"><Check /> Code scanned <span className="pk-dim">{MAC}</span></p>
         ) : (
-          <button className="pk-waiting" onClick={() => go({ is: "tabs" })}>
-            <LoaderCircle className="pk-spin" aria-hidden="true" /> Waiting for Confirm on your Mac
-          </button>
+          <p className="pk-fact pk-waiting"><LoaderCircle className="pk-spin" aria-hidden="true" /> Waiting for Confirm on your Mac</p>
         )}
       </div>
-      {phase === "scanned" && (
-        <footer className="pk-bar">
-          <Button variant="primary" className="pk-big" onClick={() =>go({ is: "pair", phase: "waiting" })}>Pair</Button>
-        </footer>
-      )}
+      <footer className="pk-bar">
+        {phase === "scanned" ? (
+          <Button variant="primary" className="pk-big" onClick={() => setPhase("waiting")}>Pair</Button>
+        ) : (
+          <Link to="/" className="pk-big pk-continue">Continue</Link>
+        )}
+      </footer>
     </section>
   );
 }
@@ -119,21 +110,21 @@ function Row({ icon, tip, title, where, age, onOpen, spin }: { icon?: LucideIcon
   return onOpen === undefined ? <li className="pk-row" data-still>{body}</li> : <li><button className="pk-row" onClick={onOpen}>{body}</button></li>;
 }
 
-function Tabs({ go, gone, dispatched }: { go: (screen: Screen) => void; gone: Set<string>; dispatched: string[] }) {
+function Tabs({ gone, dispatched }: { gone: Set<string>; dispatched: string[] }) {
   const [tab, setTab] = useState<Tab>("Needs you");
   const left = (job: PocketJob) => !gone.has(job.id);
   return (
     <section className="pk-screen" aria-label={tab}>
-      <Band title={tab} end={<button className="pk-icon" aria-label="Dispatch" onClick={() => go({ is: "dispatch" })}><Plus /></button>} />
+      <Band title={tab} end={<button className="pk-icon" aria-label="Dispatch" onClick={() => go("/dispatch")}><Plus /></button>} />
       <div className="pk-body" role="tabpanel" aria-label={tab}>
         {tab === "Needs you" && (
           <ul className="pk-list">
             {BLOCKED.filter(left).map((job) => (
-              <Row key={job.id} icon={REASON[job.reason!].icon} tip={REASON[job.reason!].says} title={job.title} where={job.repository} age={job.quiet ?? job.age} onOpen={() => go({ is: "job", job })} />
+              <Row key={job.id} icon={REASON[job.reason!].icon} tip={REASON[job.reason!].says} title={job.title} where={job.repository} age={job.quiet ?? job.age} onOpen={() => go(`/jobs/${job.id}`)} />
             ))}
-            {left(APPROVAL) && <Row icon={UserCheck} tip="Approval" title={APPROVAL.title} where={APPROVAL.repository} age={APPROVAL.age} onOpen={() => go({ is: "job", job: APPROVAL })} />}
-            {left(REVIEW) && <Row icon={Eye} tip="Review" title={REVIEW.title} where={REVIEW.repository} age={REVIEW.age} onOpen={() => go({ is: "review", job: REVIEW })} />}
-            {!gone.has(HOSTED_ASK.id) && <Row icon={SquareTerminal} tip="Session asks" title={HOSTED_ASK.title} where={HOSTED_ASK.repository} age={HOSTED_ASK.age} onOpen={() => go({ is: "ask" })} />}
+            {left(APPROVAL) && <Row icon={UserCheck} tip="Approval" title={APPROVAL.title} where={APPROVAL.repository} age={APPROVAL.age} onOpen={() => go(`/jobs/${APPROVAL.id}`)} />}
+            {left(REVIEW) && <Row icon={Eye} tip="Review" title={REVIEW.title} where={REVIEW.repository} age={REVIEW.age} onOpen={() => go(`/jobs/${REVIEW.id}`)} />}
+            {!gone.has(HOSTED_ASK.id) && <Row icon={SquareTerminal} tip="Session asks" title={HOSTED_ASK.title} where={HOSTED_ASK.repository} age={HOSTED_ASK.age} onOpen={() => go(`/sessions/${HOSTED_ASK.id}`)} />}
             <Row icon={SquareTerminal} tip="Terminal session waiting" title={TERMINAL_WAITING.title} where={TERMINAL_WAITING.repository} age={TERMINAL_WAITING.age} />
           </ul>
         )}
@@ -303,26 +294,21 @@ function DispatchScreen({ back, done }: { back: () => void; done: (title: string
   );
 }
 
-export function Phone() {
-  const [screen, setScreen] = useState<Screen>({ is: "pair", phase: "scanned" });
+export function App({ path }: { path: string }) {
   const [gone, setGone] = useState<Set<string>>(new Set());
   const [dispatched, setDispatched] = useState<string[]>([]);
-  const home = () => setScreen({ is: "tabs" });
+  const home = () => go("/");
   const finish = (id: string) => () => { setGone((was) => new Set(was).add(id)); home(); };
+  const job = path.startsWith("/jobs/") ? jobById(path.slice("/jobs/".length)) : undefined;
   return (
-    <div className="pk-stage">
-      <main className="pk-phone" aria-label="Armada">
-        {screen.is === "pair" && <Pair phase={screen.phase} go={setScreen} />}
-        {screen.is === "tabs" && <Tabs go={setScreen} gone={gone} dispatched={dispatched} />}
-        {screen.is === "job" && <JobScreen key={screen.job.id} job={screen.job} back={home} done={finish(screen.job.id)} />}
-        {screen.is === "review" && <ReviewScreen key={screen.job.id} job={screen.job} back={home} done={finish(screen.job.id)} />}
-        {screen.is === "ask" && <AskScreen back={home} done={finish(HOSTED_ASK.id)} />}
-        {screen.is === "dispatch" && <DispatchScreen back={home} done={(title) => { setDispatched((was) => [title, ...was]); home(); }} />}
-      </main>
-    </div>
+    <main className="pk-app" aria-label="Armada">
+      {path === "/pair" && <Pair />}
+      {path === "/" && <Tabs gone={gone} dispatched={dispatched} />}
+      {job !== undefined && (job.status === "awaiting_review"
+        ? <ReviewScreen key={job.id} job={job} back={home} done={finish(job.id)} />
+        : <JobScreen key={job.id} job={job} back={home} done={finish(job.id)} />)}
+      {path === `/sessions/${HOSTED_ASK.id}` && <AskScreen back={home} done={finish(HOSTED_ASK.id)} />}
+      {path === "/dispatch" && <DispatchScreen back={home} done={(title) => { setDispatched((was) => [title, ...was]); home(); }} />}
+    </main>
   );
-}
-
-export function mountPhone(host: HTMLElement): void {
-  createRoot(host).render(<Phone />);
 }
