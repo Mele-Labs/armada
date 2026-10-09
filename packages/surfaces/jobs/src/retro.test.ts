@@ -13,6 +13,8 @@ import {
   lessonsSourceNamed,
   lessonsTabNamed,
   notesOf,
+  retroNumberOf,
+  retroSubjectOf,
   statusOf,
   underSource,
   underTab,
@@ -235,5 +237,25 @@ describe("what Agree and Disagree say they do", () => {
     expect(lessonsSourceNamed("jobs")).toBe("jobs");
     expect(lessonsSourceNamed("x")).toBe("all");
     expect(lessonsSourceNamed(null)).toBe("all");
+  });
+});
+
+describe("which retro an item belongs to", () => {
+  it("reads the number after the last -r in a Session item's id, hyphens in the Session id and all", () => {
+    expect(retroNumberOf("s-01J8ZQ4M-r3-12")).toBe(3);
+    expect(retroNumberOf("s-r7-abc-r2-1")).toBe(2);
+    expect(retroNumberOf("s-01J8ZQ4M-r10-1")).toBe(10);
+  });
+
+  it("has none for a Job's item, which is {ulid}-{ordinal}", () => {
+    expect(retroNumberOf("01K7LXYZ-2")).toBeUndefined();
+    expect(retroNumberOf("01K7L")).toBeUndefined();
+  });
+
+  it("subjects a Session's item with its number and a Job's item by its Job", () => {
+    const base = { job_id: "j", id: "x" };
+    expect(retroSubjectOf({ ...base, job_id: "s-01J8", id: "s-01J8-r2-1", session: { id: "s-01J8" } })).toEqual({ kind: "session", id: "s-01J8", n: 2 });
+    expect(retroSubjectOf({ ...base, job_id: "s-01J8", id: "unnumbered", session: { id: "s-01J8" } })).toEqual({ kind: "session", id: "s-01J8" });
+    expect(retroSubjectOf({ job_id: "01K6JOB", id: "01K7L-1" })).toEqual({ kind: "job", id: "01K6JOB" });
   });
 });

@@ -176,6 +176,12 @@ export type RetroRecord = {
 /** The Session a retro or an item was written for. Mock only until Fleet writes one. */
 export type RetroSession = { id: string; title?: string };
 
+/**
+ * Whose retro a read asks for. A Job's is read on `/jobs/:id/retro`; a Session's on
+ * `/sessions/:id/retro?n=`, where `n` names an older retro and absent is the newest.
+ */
+export type RetroSubject = { kind: "job"; id: string } | { kind: "session"; id: string; n?: number };
+
 /** A note the owner left in Bridge while the Job's detail was open. */
 export type LinkedAnnotation = {
   id: string;

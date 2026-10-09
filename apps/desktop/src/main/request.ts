@@ -16,7 +16,7 @@ import type {
 } from "@armada/protocol";
 import type { FleetCapacity, FleetLimits, JobSummary, ManifestReading, MergeLines } from "@armada/protocol";
 import type { Preferences } from "@armada/protocol";
-import type { JobRetro, Lessons, LessonsRead, RetroRead } from "@armada/protocol";
+import type { JobRetro, Lessons, LessonsRead, RetroRead, RetroSubject } from "@armada/protocol";
 import type { ServerList } from "@armada/protocol";
 import type { BriefContents, CheckOutput } from "@armada/protocol";
 import type { LeftOutWorkflow, ManifestSummary, ModelChoices, RepositoryList, WorkflowSummary } from "@armada/protocol";
@@ -442,21 +442,18 @@ export async function briefOf(port: number, jobId: string, name: string): Promis
 }
 
 /**
- * One Job's retro, read into the app: `briefOf`'s shape, on `GET /jobs/:job_id/retro`
- * (protocol 23.12). Asked when a surface opens it and again on focus, since nothing on `/events`
+ * One retro, read into the app: `briefOf`'s shape, on `GET /jobs/:job_id/retro` for a Job
+ * (protocol 23.12) and `GET /sessions/:session_id/retro?n=` for a Session. Asked when a surface opens it and again on focus, since nothing on `/events`
  * says a retro was written.
  */
-export async function retroOf(port: number, jobId: string): Promise<RetroRead> {
-  const answer = await ask(port, "GET", route(jobId, "retro"));
-  if (answer.ok !== true) {
-    // A Session's retro is read by its id, which the Job resolver refuses: ask the Session's route
-    // before giving up, and say the Job route's refusal where that fails too.
-    if (!answer.outcome.ok && answer.outcome.why === "refused") {
-      const session = await ask(port, "GET", `/sessions/${encodeURIComponent(jobId)}/retro`);
-      if (session.ok === true) return { ok: true, retro: session.body as JobRetro };
-    }
-    return { ok: false, outcome: answer.outcome };
-  }
+export async function retroOf(port: number, subject: RetroSubject): Promise<RetroRead> {
+  // **Routed by whose retro it is**, with no retry on the other route: a Session's `n` names an older one.
+  const path =
+    subject.kind === "job"
+      ? route(subject.id, "retro")
+      : `/sessions/${encodeURIComponent(subject.id)}/retro${subject.n === undefined ? "" : `?n=${Math.trunc(subject.n)}`}`;
+  const answer = await ask(port, "GET", path);
+  if (answer.ok !== true) return { ok: false, outcome: answer.outcome };
   return { ok: true, retro: answer.body as JobRetro };
 }
 

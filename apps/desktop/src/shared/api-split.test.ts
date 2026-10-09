@@ -20,6 +20,7 @@ import type {
   LessonAnswer,
   LessonsRead,
   RetroRead,
+  RetroSubject,
   ChooseTriggerFix,
   HoldAct,
   ClearOutcome,
@@ -357,7 +358,7 @@ type OldBridgeApi = {
     readDiff: (jobId: string | null) => Promise<void>;
     readCheckOutput: (jobId: string, kept: string) => Promise<CheckOutputRead>;
     readBrief: (jobId: string, name: string) => Promise<BriefRead>;
-    readRetro: (jobId: string) => Promise<RetroRead>;
+    readRetro: (subject: RetroSubject) => Promise<RetroRead>;
     readLessons: (state: "open" | "accepted") => Promise<LessonsRead>;
     agreeLesson: (lessonId: string) => Promise<LessonAnswer>;
     disagreeLesson: (lessonId: string) => Promise<LessonAnswer>;

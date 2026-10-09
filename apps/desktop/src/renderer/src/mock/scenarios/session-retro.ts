@@ -26,6 +26,7 @@ function build(refusal?: { code: string; message: string }): Scenario {
   });
   const { retros, lessons } = retroFixtures();
   const before: Lesson[] = [...lessons];
+  const pressed: Record<string, number> = {};
   const served = new FakeSessionsFleet(records(), {}).scenario(board);
   return {
     ...served,
@@ -38,10 +39,14 @@ function build(refusal?: { code: string; message: string }): Scenario {
       // **The press writes into the arrays the Retros page reads**, in place, and each mount starts from the Jobs' two.
       lessons.splice(0, lessons.length, ...before);
       for (const id of Object.keys(retros)) if (!before.some((one) => one.job_id === id)) delete retros[id];
+      for (const id of Object.keys(pressed)) delete pressed[id];
       fleet.refusesRetro = refusal;
       fleet.onRetro = (id, title) => {
-        const written = sessionRetro({ id, ...(title === undefined ? {} : { title }) }, now());
+        // **Each press is the Session's next retro**: held under `{id}-r{n}` for the numbered read, and under the id as the newest.
+        const n = (pressed[id] = (pressed[id] ?? 0) + 1);
+        const written = sessionRetro({ id, ...(title === undefined ? {} : { title }) }, now(), n);
         retros[id] = written.retro;
+        retros[`${id}-r${n}`] = written.retro;
         lessons.splice(0, 0, ...written.lessons);
       };
       return fleet.scenario(board).behaves!(handle);

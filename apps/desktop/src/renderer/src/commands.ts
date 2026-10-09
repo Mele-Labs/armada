@@ -27,7 +27,7 @@
 // log now, so it tracks which Job is open and nothing presses it.
 
 import type { ToProposer, ApproveDispatch, ApproveWave, EditJob, EditManifestProposal, EditTask, MovePlan, StudioPosition, StudioPromotion, WriteManifestProposal } from "@armada/protocol";
-import type { ChangeSlotPool, FixMain, LandCheckAt, RescueSlot, SketchToKeep } from "@armada/protocol";
+import type { ChangeSlotPool, FixMain, LandCheckAt, RescueSlot, RetroSubject, SketchToKeep } from "@armada/protocol";
 import { useEffect, useState } from "react";
 
 import type { BridgeState } from "../../shared/bridge";
@@ -158,7 +158,7 @@ export const readCheckOutput = (jobId: string, kept: string) =>
   window.armada.readCheckOutput(jobId, kept);
 export const readBrief = (jobId: string, name: string) => window.armada.readBrief(jobId, name);
 /** A Job's retro and the Lessons listing, read on open and on focus — `docs/concepts/retro.md`. */
-export const readRetro = (jobId: string) => window.armada.readRetro(jobId);
+export const readRetro = (subject: RetroSubject) => window.armada.readRetro(subject);
 export const readLessons = (state: "open" | "accepted") => window.armada.readLessons(state);
 /** The owner's answer to one retro item. */
 export const agreeLesson = (lessonId: string) => window.armada.agreeLesson(lessonId);

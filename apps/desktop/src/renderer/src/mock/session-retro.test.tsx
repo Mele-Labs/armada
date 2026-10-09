@@ -87,3 +87,18 @@ test("Closed, the retro's items stay on the Retros page beside the Jobs', each f
   await expect.element(list.getByRole("button", { name: "Job 3" }).first()).toBeVisible();
   await expect.element(list.getByRole("listitem", { name: "A restart of Fleet killed the subagents" }).getByText("Agent", { exact: true }).last()).toBeVisible();
 });
+
+test("A Session's read honours n: the numbered retro, the newest without it, and an unknown n refused", async () => {
+  mount(s205SessionRetro);
+  await onScreen();
+  await toSessions();
+
+  await userEvent.click(row().getByRole("button", { name: "Retro" }));
+  await expect.element(sheet()).toBeVisible();
+  const id = "01IDLECCCCCCCCCCCCCCCCCCCC";
+  const first = await window.armada.readRetro({ kind: "session", id, n: 1 });
+  expect(first.ok && first.retro.items?.[0]?.id).toBe(`${id}-r1-1`);
+  const newest = await window.armada.readRetro({ kind: "session", id });
+  expect(newest.ok && newest.retro.items?.[0]?.id).toBe(`${id}-r1-1`);
+  expect((await window.armada.readRetro({ kind: "session", id, n: 9 })).ok).toBe(false);
+});

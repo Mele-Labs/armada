@@ -17,6 +17,7 @@ import type {
   LessonAnswer,
   LessonsRead,
   RetroRead,
+  RetroSubject,
   FrameRead,
   ClearOutcome,
   Outcome,
@@ -559,8 +560,8 @@ const api: BridgeApi = {
   readBrief: (jobId: string, name: string): Promise<BriefRead> =>
     ipcRenderer.invoke(CHANNELS.readBrief, jobId, name),
   // A Job's retro and the Lessons listing, read when a surface opens and on focus.
-  readRetro: (jobId: string): Promise<RetroRead> =>
-    ipcRenderer.invoke(CHANNELS.readRetro, jobId),
+  readRetro: (subject: RetroSubject): Promise<RetroRead> =>
+    ipcRenderer.invoke(CHANNELS.readRetro, subject),
   readLessons: (state: "open" | "accepted"): Promise<LessonsRead> =>
     ipcRenderer.invoke(CHANNELS.readLessons, state),
   // The owner's answer to one retro item, by its id. Each is one operation, not a channel.

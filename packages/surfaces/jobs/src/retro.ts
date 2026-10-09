@@ -29,6 +29,7 @@ import type {
   RetroChange,
   RetroRead,
   RetroRecord,
+  RetroSubject,
 } from "@armada/protocol";
 import type { LessonAnswers, LessonRow, LessonSettled, RetroCite, RetroNote, RetroSheetItem } from "@armada/components";
 
@@ -36,8 +37,30 @@ import { refusalWords } from "@armada/screens/src/refusal-words";
 import { absoluteOf, lasting } from "@armada/screens/src/duration";
 import { addressOf } from "@armada/screens/src/sessions-wire";
 
-/** Ask main for one Job's retro. */
-export type ReadRetro = (jobId: string) => Promise<RetroRead>;
+/** Ask main for one retro: a Job's, or a Session's (the newest, or the numbered one). */
+export type ReadRetro = (subject: RetroSubject) => Promise<RetroRead>;
+
+/**
+ * The retro number in an item's id: Fleet spells a Session item `{session}-r{n}-{ordinal}`, and a
+ * Job item `{ulid}-{ordinal}`. Session ids hold hyphens, so only the digits after the last `-r`
+ * count. `undefined` for a Job's item, or an id that does not follow either spelling.
+ */
+export function retroNumberOf(lessonId: string): number | undefined {
+  const match = /-r(\d+)-\d+$/.exec(lessonId);
+  return match === null ? undefined : Number(match[1]);
+}
+
+/** The retro a listed item belongs to: its Session's numbered one, or its Job's. */
+export function retroSubjectOf(lesson: { id: string; job_id: string; session?: { id: string } }): RetroSubject {
+  if (lesson.session === undefined) return { kind: "job", id: lesson.job_id };
+  const n = retroNumberOf(lesson.id);
+  return { kind: "session", id: lesson.session.id, ...(n === undefined ? {} : { n }) };
+}
+
+/** What a read of one retro is held under, so a Session's two retros are two reads. */
+export function retroKeyOf(subject: RetroSubject): string {
+  return subject.kind === "job" ? subject.id : `${subject.id}:r${subject.n ?? ""}`;
+}
 /** Ask main for the Lessons listing, narrowed to this window's pick: the open items or the saved ones. */
 export type ReadLessons = (state: LessonsView) => Promise<LessonsRead>;
 /** Which list the page draws: items waiting on the owner, or the Kit items he saved. */
@@ -424,7 +447,7 @@ export type JobRead = { state: "pending" } | { state: "read"; retro: JobRetro } 
  * when the window comes back to the front, as the list's own read is asked
  * again then. A failed read is not kept: pressing again asks again.
  */
-export function useJobRetros(read: ReadRetro): { of: (jobId: string) => JobRead | undefined; ask: (jobId: string) => void } {
+export function useJobRetros(read: ReadRetro): { of: (subject: RetroSubject) => JobRead | undefined; ask: (subject: RetroSubject) => void } {
   const [held, setHeld] = useState<Record<string, JobRead>>({});
   // What is out or answered, and which generation asked: a drop makes earlier answers stale.
   const asked = useRef(new Set<string>());
@@ -441,18 +464,19 @@ export function useJobRetros(read: ReadRetro): { of: (jobId: string) => JobRead 
     return () => window.removeEventListener("focus", drop);
   }, []);
   return {
-    of: (jobId) => held[jobId],
-    ask: (jobId) => {
-      if (asked.current.has(jobId)) return;
-      asked.current.add(jobId);
+    of: (subject) => held[retroKeyOf(subject)],
+    ask: (subject) => {
+      const key = retroKeyOf(subject);
+      if (asked.current.has(key)) return;
+      asked.current.add(key);
       const mine = generation.current;
-      setHeld((was) => ({ ...was, [jobId]: { state: "pending" } }));
-      void latest.current(jobId).then((answer) => {
+      setHeld((was) => ({ ...was, [key]: { state: "pending" } }));
+      void latest.current(subject).then((answer) => {
         if (mine !== generation.current) return;
-        if (!answer.ok) asked.current.delete(jobId);
+        if (!answer.ok) asked.current.delete(key);
         setHeld((was) => ({
           ...was,
-          [jobId]: answer.ok ? { state: "read", retro: answer.retro } : { state: "failed", outcome: answer.outcome },
+          [key]: answer.ok ? { state: "read", retro: answer.retro } : { state: "failed", outcome: answer.outcome },
         }));
       });
     },

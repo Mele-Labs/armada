@@ -5,11 +5,11 @@
 import type { JobRetro, Lesson, RetroItem, RetroSession } from "@armada/protocol";
 
 /** The Session's retro as the Retro press writes it, and its items as the listing would hold them, all open. */
-export function sessionRetro(session: RetroSession, at: string): { retro: JobRetro; lessons: Lesson[] } {
+export function sessionRetro(session: RetroSession, at: string, n = 1): { retro: JobRetro; lessons: Lesson[] } {
   const t = (minutesBefore: number): string => new Date(Date.parse(at) - minutesBefore * 60_000).toISOString();
   const items: RetroItem[] = [
     {
-      id: `${session.id}-1`,
+      id: `${session.id}-r${n}-1`,
       who: "agent",
       lands_in: "armada",
       title: "A reset waited 40 minutes for an answer",
@@ -20,7 +20,7 @@ export function sessionRetro(session: RetroSession, at: string): { retro: JobRet
       state: "open",
     },
     {
-      id: `${session.id}-2`,
+      id: `${session.id}-r${n}-2`,
       who: "owner",
       lands_in: "armada",
       title: "A search of the whole disk set off privacy prompts",
@@ -31,7 +31,7 @@ export function sessionRetro(session: RetroSession, at: string): { retro: JobRet
       state: "open",
     },
     {
-      id: `${session.id}-3`,
+      id: `${session.id}-r${n}-3`,
       who: "agent",
       lands_in: "armada",
       title: "A commit message was read as a redirect",
@@ -42,7 +42,7 @@ export function sessionRetro(session: RetroSession, at: string): { retro: JobRet
       state: "open",
     },
     {
-      id: `${session.id}-4`,
+      id: `${session.id}-r${n}-4`,
       who: "agent",
       lands_in: "armada",
       title: "A restart of Fleet killed the subagents",
@@ -53,7 +53,7 @@ export function sessionRetro(session: RetroSession, at: string): { retro: JobRet
       state: "open",
     },
     {
-      id: `${session.id}-5`,
+      id: `${session.id}-r${n}-5`,
       who: "owner",
       lands_in: "kit",
       title: "Walks opened in your browser",
