@@ -35,6 +35,10 @@ export type CaptureBoard = {
   walkNote: (jobId: string, said: string, capture: StudioCapture, frame: StagedFrame | null) => Promise<Outcome>;
   /** A note taken on a page a Session showed: a message from the person, which wakes the Session. */
   sessionNote: (sessionId: string, said: string, capture: StudioCapture, address: string) => Promise<Outcome>;
+  /** Approve on the bar, for a Job: the act JobDetail's own Approve sends. */
+  walkApproved: (jobId: string) => Promise<Outcome>;
+  /** Approve on the bar, for a Session: a message from the person naming the address, which wakes it. */
+  sessionApproved: (sessionId: string, address: string) => Promise<Outcome>;
   stage: (png: Buffer, width: number, height: number) => Promise<StagedFrame | null>;
   /** This window took or gave up focus, by the server it is on. Bridge dims behind a focused one. */
   focused: (serverId: string, on: boolean) => void;
@@ -274,6 +278,16 @@ export class CaptureWindow {
       this.tell();
     }
     return outcome;
+  }
+
+  /**
+   * The person walked what this window shows and it is right. **Told to its owner, and nothing
+   * closes.** A Studio's window has no owner to tell, and its bar offers no Approve.
+   */
+  async approve(): Promise<Outcome> {
+    if ("job" in this.landsOn) return this.board.walkApproved(this.landsOn.job.id);
+    if ("session" in this.landsOn) return this.board.sessionApproved(this.landsOn.session.id, this.pin.url);
+    return { ok: false, why: "no_owner" };
   }
 
   /** Reload the pinned origin. There is no Back, no Forward and no history. */

@@ -503,6 +503,11 @@ export type Outcome =
    * something other than what it names. `docs/practices/capture-window.md`.
    */
   | { ok: false; why: "run_ended" }
+  /**
+   * Approve on a capture window that no Job or Session opened. Bridge's own, and Fleet never sees
+   * it: a Studio's bar offers no Approve, since there is nobody to tell.
+   */
+  | { ok: false; why: "no_owner" }
   | { ok: false; why: "refused"; error: WireError }
   | { ok: false; why: "transport"; detail: string; fault: TransportFault };
 
