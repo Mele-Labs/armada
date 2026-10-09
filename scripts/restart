@@ -40,6 +40,14 @@ bridge_label="$label.bridge"
 bridge_plist="$support/$bridge_label.plist"
 bridge_service="$domain/$bridge_label"
 
+# The Phone Gateway's job. Opt-in: written only if `$support/pocket` exists.
+# Under a label override it follows the override, so a dev-fleet run never
+# names the owner's `com.armada.pocket`.
+if [[ "$label" == com.armada.fleet ]]; then pocket_label=com.armada.pocket; else pocket_label="$label.pocket"; fi
+pocket_plist="$support/$pocket_label.plist"
+pocket_service="$domain/$pocket_label"
+pocket_optin="$support/pocket"
+
 # `say` is commentary, not the answer — it goes to stderr so a caller that
 # captures this script's stdout for the final report never captures a
 # progress line by accident.
@@ -483,6 +491,43 @@ if [[ -n "$from" ]]; then
   esac
 fi
 
+# The Gateway's plist, written to `$1` (`/dev/stdout` for a dry run).
+write_pocket_plist() {
+  python3 - "$1" "$pocket_label" "$armada_bin" "$src" "$home" "$PATH" <<'PY'
+import plistlib, sys
+
+path, label, armada_bin, src, home, path_env = sys.argv[1:7]
+plistlib.dump(
+    {
+        "Label": label,
+        "ProgramArguments": [armada_bin, "pocket", "--assets", f"{src}/apps/pocket/dist"],
+        "KeepAlive": True,
+        "RunAtLoad": True,
+        "StandardOutPath": f"{home}/Library/Logs/Armada/{label}.log",
+        "StandardErrorPath": f"{home}/Library/Logs/Armada/{label}.log",
+        "EnvironmentVariables": {"HOME": home, "PATH": path_env},
+    },
+    open(path, "wb"),
+)
+PY
+}
+
+# The command that builds the phone app: its own `build` script once it has
+# one, else vite directly.
+pocket_build_cmd() {
+  if node -e 'process.exit(require(process.argv[1]).scripts?.build ? 0 : 1)' "$src/apps/pocket/package.json" 2>/dev/null; then
+    echo "pnpm -C apps/pocket build"
+  else
+    echo "pnpm -C apps/pocket exec vite build"
+  fi
+}
+pocket_stamp="$src/apps/pocket/dist/.armada-restart-stamp"
+pocket_stale() {
+  [[ -f "$pocket_stamp" ]] || return 0
+  [[ -n "$(find "$src/apps/pocket" "$src/packages" -type f -not -path '*/node_modules/*' -not -path "$src/apps/pocket/dist/*" \
+      -not -name '*.tsbuildinfo' -newer "$pocket_stamp" -print 2>/dev/null | head -n 1)" ]]
+}
+
 # The protocol ID the tree's wire files hash to, and the one the last `ipc`
 # build compiled in. They differ when cargo did not run the build script
 # although the files changed (a target directory carried from another tree), and
@@ -525,6 +570,14 @@ if $dry_run; then
     || echo "WARNING: $src/apps/desktop/node_modules/.bin/electron-vite is missing, so the restart would refuse"
   if [[ "$(ipc_built_protocol)" != "" && "$(ipc_built_protocol)" != "$(tree_protocol)" ]]; then
     echo "would touch $src/crates/ipc/build.rs — ipc was last built at protocol $(ipc_built_protocol) and the wire files hash to $(tree_protocol)"
+  fi
+  if [[ -f "$pocket_optin" ]]; then
+    if pocket_stale; then echo "would build the phone app in $src: $(pocket_build_cmd)"; else echo "would not build the phone app — unchanged since its last build"; fi
+    echo "would write $pocket_plist:"
+    write_pocket_plist /dev/stdout
+    echo "would boot $pocket_service out if it is loaded, then bootstrap it from $pocket_plist"
+  else
+    echo "would not run the Phone Gateway — $pocket_optin does not exist (touch it to opt in)"
   fi
   echo "would copy $src/plugins to $support/mod (scripts/sync-mod)"
   echo "would write $support/restart-source: $src"
@@ -621,6 +674,18 @@ if $bridge_rebuilt; then
   (cd "$src" && pnpm --filter @armada/desktop build)
 else
   say "Bridge is unchanged since its last build"
+fi
+
+# The phone app, so the Gateway serves the tree it is restarted onto. Only for
+# someone who opted in.
+if [[ -f "$pocket_optin" ]]; then
+  if pocket_stale; then
+    say "Building the phone app — apps/pocket or packages/ moved since its last build"
+    (cd "$src" && $(pocket_build_cmd))
+    mkdir -p "$src/apps/pocket/dist" && touch "$pocket_stamp"
+  else
+    say "The phone app is unchanged since its last build"
+  fi
 fi
 
 # Refuse again, fresh, right before Fleet is touched — see the comment on
@@ -870,6 +935,22 @@ if [[ -n "$from" ]]; then
   echo "Built from $src; serving $root"
 elif $bridge_reopened; then
   rm -f "$source_record"
+fi
+
+# The Phone Gateway under its own launchd job, only if `$support/pocket` exists.
+if [[ -f "$pocket_optin" ]]; then
+  mkdir -p "$home/Library/Logs/Armada"
+  write_pocket_plist "$pocket_plist"
+  chmod 644 "$pocket_plist"
+  say "Booting $pocket_service out and back in from $pocket_plist"
+  if launchctl print "$pocket_service" >/dev/null 2>&1; then
+    launchctl bootout "$pocket_service" 2>/dev/null || true
+    for _ in $(seq 40); do
+      launchctl print "$pocket_service" >/dev/null 2>&1 || break
+      sleep 0.25
+    done
+  fi
+  launchctl bootstrap "$domain" "$pocket_plist"
 fi
 
 say "Done"
