@@ -440,6 +440,33 @@ span.armada-view__dot { cursor: default; }
   color: var(--fg-default);
 }
 
+/* An answer waiting on Fleet carries the loop of a control waiting on Fleet, the bar along its bottom edge
+   (`Button.css`, `data-pending`): the one pressed keeps its look, every other is held and cannot be pressed.
+   A reply in words is the same line under its field. Held still under reduced motion, full width. */
+.armada-callcard__answer { position: relative; overflow: clip; }
+/* The tooltip a pending answer gains wraps it in a span the grid then sizes; the answer keeps filling its cell, as it did bare. */
+.armada-callcard__answers:not([data-standing]) > .armada-tooltip > .armada-callcard__answer { flex: 1 1 auto; }
+.armada-callcard__answer:disabled { color: var(--fg-subtle); border-color: var(--border-strong); background: var(--bg-sunken); box-shadow: none; cursor: default; }
+.armada-callcard__answer[data-pending] { cursor: default; }
+.armada-callcard__reply { position: relative; }
+.armada-callcard__answer[data-pending]::after,
+.armada-callcard__reply[data-pending]::after {
+  content: "";
+  position: absolute;
+  inset-inline-start: 0;
+  bottom: 0;
+  width: 40%;
+  height: var(--pending-bar);
+  background: var(--status-running);
+  pointer-events: none;
+  animation: armada-button-waiting var(--duration-pulse) linear infinite;
+}
+.armada-callcard__reply[data-pending] textarea { color: var(--fg-muted); }
+@media (prefers-reduced-motion: reduce) {
+  .armada-callcard__answer[data-pending]::after,
+  .armada-callcard__reply[data-pending]::after { width: 100%; animation: none; }
+}
+
 .armada-callcard__acts { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
 .armada-callcard__acts > :last-child { margin-left: auto; }
 

@@ -10,7 +10,20 @@ import { closeWalkWindow, mockPage, openWalkWindow } from "@armada/jobs/fake";
 import type { Session, SessionTag, SessionAttachment, SessionCommand, SessionRow, SessionSketch, SessionsDraft } from "@armada/screens/src/draft/sessions";
 
 /** The draft the window reads, and what only the mock does: take the next turn, stop, and take a claim Fleet would have put in the ledger. */
-export type SessionsStore = SessionsDraft & { later: () => void; dispose: () => void; attach: (id: string, attachment: SessionAttachment) => void; drop: (id: string, itemId: string) => void };
+export type SessionsStore = SessionsDraft & {
+  later: () => void;
+  dispose: () => void;
+  attach: (id: string, attachment: SessionAttachment) => void;
+  drop: (id: string, itemId: string) => void;
+  /** How slow Fleet is to answer the Cockpit's routes, and then to stop carrying what it answered: at once where absent. */
+  pace?: Pace;
+};
+
+/** Something a route waits on until it is let go: a walk's step, not a timer, so a person can sit on the wait. */
+export type Gate = { wait: () => Promise<void>; release: () => void };
+
+/** How long Fleet takes to answer, and then to stop carrying what it answered. Where `held` is set it waits on that instead of on the clocks. */
+export type Pace = { answerMs: number; settleMs: number; held?: Gate };
 
 /** A Job the walk's Session dispatches. The real Board holds it, so its id is the Board's. */
 export type DispatchedJob = { id: string; number: number; title: string; branch: string; slot: number };
