@@ -52,6 +52,13 @@ pub trait HostedSessions: Send + Sync + 'static {
         said: ipc::AnswerWaiting,
     ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
 
+    /// `dismiss_waiting`: the person drops one item for good. [`Refusal::IllegalMove`] where
+    /// nothing holds the item.
+    fn dismiss_waiting(
+        self: Arc<Self>,
+        dismiss: ipc::DismissWaiting,
+    ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
+
     /// `tune_session`.
     fn tune_session(
         &self,

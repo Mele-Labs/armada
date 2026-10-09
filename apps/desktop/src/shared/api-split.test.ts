@@ -177,7 +177,7 @@ import type {
 import type {
   Outstanding,
 } from "@armada/screens/src/outstanding";
-import type { AnswerSessionAsk, AnswerWaiting, PilotOutcome, PullRequestState, RenameSession, ReviewDispatched, SendSessionMessage, SessionRow, SessionSubagent, TuneSession } from "@armada/protocol";
+import type { AnswerSessionAsk, AnswerWaiting, DismissWaiting, PilotOutcome, PullRequestState, RenameSession, ReviewDispatched, SendSessionMessage, SessionRow, SessionSubagent, TuneSession } from "@armada/protocol";
 import type { PilotExit, PullRequestPress, SessionActed, SessionsRead } from "./api/sessions";
 import type { BridgeApi } from "./api";
 import { CHANNELS, NOTHING_YET } from "./bridge";
@@ -442,6 +442,7 @@ type OldBridgeApi = {
     sendSessionMessage: (send: SendSessionMessage) => Promise<SessionActed>;
     answerSessionAsk: (answer: AnswerSessionAsk) => Promise<SessionActed>;
     answerWaiting: (answer: AnswerWaiting) => Promise<SessionActed>;
+    dismissWaiting: (dismiss: DismissWaiting) => Promise<SessionActed>;
     tuneSession: (tune: TuneSession) => Promise<SessionActed>;
     renameSession: (rename: RenameSession) => Promise<SessionActed>;
     forkSession: (sessionId: string) => Promise<SessionActed>;
@@ -712,6 +713,7 @@ const OLD_CHANNELS = {
     sendSessionMessage: "bridge:send-session-message",
     answerSessionAsk: "bridge:answer-session-ask",
     answerWaiting: "bridge:answer-waiting",
+    dismissWaiting: "bridge:dismiss-waiting",
     tuneSession: "bridge:tune-session",
     renameSession: "bridge:rename-session",
     retroSession: "bridge:retro-session",

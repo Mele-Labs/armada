@@ -9,6 +9,7 @@
 import type {
   AnswerSessionAsk,
   AnswerWaiting,
+  DismissWaiting,
   Attachment,
   AttachmentState,
   HelmCallInFlight,
@@ -93,6 +94,7 @@ export type Calls = {
   sent: SendSessionMessage[];
   answered: AnswerSessionAsk[];
   waited: AnswerWaiting[];
+  dismissed: DismissWaiting[];
   tuned: TuneSession[];
   renamed: RenameSession[];
   closed: string[];
@@ -113,7 +115,7 @@ export class FakeSessionsFleet {
   pageEscape(): void {
     this.escape.forEach((on) => on());
   }
-  readonly calls: Calls = { started: 0, piloted: [], exited: [], sent: [], answered: [], waited: [], tuned: [], renamed: [], closed: [], forked: [], retroed: [], pressed: [], watched: [], pages: [], pagesHidden: 0 };
+  readonly calls: Calls = { started: 0, piloted: [], exited: [], sent: [], answered: [], waited: [], dismissed: [], tuned: [], renamed: [], closed: [], forked: [], retroed: [], pressed: [], watched: [], pages: [], pagesHidden: 0 };
   private records: SessionRecord[];
   private threads: Record<string, SessionRow[]>;
   private fleet: FleetHandle | undefined;
@@ -233,6 +235,13 @@ export class FakeSessionsFleet {
             return this.change(answer.session_id, (one) => ({
               ...one,
               waiting_for: (one.waiting_for ?? []).filter((item) => item.id !== answer.item_id),
+            }));
+          },
+          dismissWaiting: async (dismiss) => {
+            this.calls.dismissed.push(dismiss);
+            return this.change(dismiss.session_id, (one) => ({
+              ...one,
+              waiting_for: (one.waiting_for ?? []).filter((item) => item.id !== dismiss.item_id),
             }));
           },
           tuneSession: async (tune) => {

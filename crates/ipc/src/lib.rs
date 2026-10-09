@@ -412,7 +412,7 @@ pub use servers::{
     ServerPhase, ServerPort, ServerState, StartServer, StartedBy,
 };
 pub use sessions::{
-    AnswerWaiting, Attachment, AttachmentNamed, AttachmentReport, AttachmentState,
+    AnswerWaiting, Attachment, AttachmentNamed, AttachmentReport, AttachmentState, DismissWaiting,
     ClaimPullRequest, Holder, HolderKind, Owners, Ownership, PullRequestClaimed, RenameSession,
     SessionFact, SessionId, SessionList, SessionOrigin, SessionRecord, SessionReport, SessionState,
     SessionUsage, SetWaitingFor, ShowWindow, TerminalCommand, TerminalFacts, WaitingAct,
