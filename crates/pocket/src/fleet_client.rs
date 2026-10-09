@@ -1,13 +1,17 @@
-//! One request to Fleet, on loopback, written by hand.
+//! Requests to Fleet, on loopback, over hyper's bare HTTP/1 client.
 //!
-//! **Only the headers written here are sent.** A library client adds what it
-//! likes, and Fleet refuses a request carrying `Origin`; this one has no way to
-//! add it.
+//! **Only the headers written here are sent.** hyper's `conn::http1` adds none
+//! of its own, and Fleet refuses a request carrying `Origin`; this module has
+//! no way to add it. A body is read to its end whether it is sized or chunked.
 
 use std::net::{Ipv4Addr, SocketAddr};
 use std::time::Duration;
 
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use http_body_util::{BodyExt, Full};
+use hyper::body::Bytes;
+use hyper::header::{CONNECTION, CONTENT_TYPE, HOST, UPGRADE};
+use hyper::{Request, StatusCode};
+use hyper_util::rt::TokioIo;
 use tokio::net::TcpStream;
 use tokio::time::timeout;
 
@@ -39,7 +43,16 @@ impl std::fmt::Display for Unreachable {
 
 impl std::error::Error for Unreachable {}
 
-/// One request, one connection, closed by the server.
+async fn connect(port: u16) -> Result<TcpStream, Unreachable> {
+    let cut = |cause: String| Unreachable { port, cause };
+    let at = SocketAddr::from((Ipv4Addr::LOCALHOST, port));
+    timeout(CONNECT_PATIENCE, TcpStream::connect(at))
+        .await
+        .map_err(|_| cut("no connection in 2 seconds".into()))?
+        .map_err(|why| cut(why.to_string()))
+}
+
+/// One request, one connection.
 pub async fn send(
     port: u16,
     method: &str,
@@ -47,41 +60,67 @@ pub async fn send(
     body: Option<&[u8]>,
 ) -> Result<Answer, Unreachable> {
     let cut = |cause: String| Unreachable { port, cause };
-    let at = SocketAddr::from((Ipv4Addr::LOCALHOST, port));
-    let mut socket = timeout(CONNECT_PATIENCE, TcpStream::connect(at))
+    let io = TokioIo::new(connect(port).await?);
+    let (mut sender, connection) = hyper::client::conn::http1::handshake(io)
         .await
-        .map_err(|_| cut("no connection in 2 seconds".into()))?
         .map_err(|why| cut(why.to_string()))?;
-    let mut head = format!("{method} {path} HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nConnection: close\r\n");
-    if let Some(body) = body {
-        head.push_str(&format!(
-            "Content-Type: application/json\r\nContent-Length: {}\r\n",
-            body.len()
-        ));
+    tokio::spawn(connection);
+    let mut request = Request::builder()
+        .method(method)
+        .uri(path)
+        .header(HOST, format!("127.0.0.1:{port}"));
+    if body.is_some() {
+        request = request.header(CONTENT_TYPE, "application/json");
     }
-    head.push_str("\r\n");
-    let mut raw = Vec::new();
-    socket
-        .write_all(head.as_bytes())
+    let request = request
+        .body(Full::new(Bytes::copy_from_slice(body.unwrap_or_default())))
+        .map_err(|why| cut(why.to_string()))?;
+    let response = sender
+        .send_request(request)
         .await
         .map_err(|why| cut(why.to_string()))?;
-    socket
-        .write_all(body.unwrap_or_default())
+    let status = response.status().as_u16();
+    let body = response
+        .into_body()
+        .collect()
         .await
-        .map_err(|why| cut(why.to_string()))?;
-    socket
-        .read_to_end(&mut raw)
-        .await
-        .map_err(|why| cut(why.to_string()))?;
-    answer(&raw).ok_or_else(|| cut("the answer was not HTTP".into()))
+        .map_err(|why| cut(why.to_string()))?
+        .to_bytes()
+        .to_vec();
+    Ok(Answer { status, body })
 }
 
-fn answer(raw: &[u8]) -> Option<Answer> {
-    let split = raw.windows(4).position(|w| w == b"\r\n\r\n")?;
-    let head = std::str::from_utf8(&raw[..split]).ok()?;
-    let status = head.lines().next()?.split_whitespace().nth(1)?.parse().ok()?;
-    Some(Answer {
-        status,
-        body: raw[split + 4..].to_vec(),
-    })
+/// Open Fleet's WebSocket at `path` and hand back the upgraded stream.
+pub async fn upgrade(
+    port: u16,
+    path: &str,
+) -> Result<TokioIo<hyper::upgrade::Upgraded>, Unreachable> {
+    let cut = |cause: String| Unreachable { port, cause };
+    let io = TokioIo::new(connect(port).await?);
+    let (mut sender, connection) = hyper::client::conn::http1::handshake(io)
+        .await
+        .map_err(|why| cut(why.to_string()))?;
+    tokio::spawn(connection.with_upgrades());
+    let request = Request::builder()
+        .uri(path)
+        .header(HOST, format!("127.0.0.1:{port}"))
+        .header(CONNECTION, "Upgrade")
+        .header(UPGRADE, "websocket")
+        .header("Sec-WebSocket-Version", "13")
+        // Fleet does not check the key against anything; the value is the
+        // protocol's own worked example.
+        .header("Sec-WebSocket-Key", "dGhlIHNhbXBsZSBub25jZQ==")
+        .body(Full::new(Bytes::new()))
+        .map_err(|why| cut(why.to_string()))?;
+    let response = sender
+        .send_request(request)
+        .await
+        .map_err(|why| cut(why.to_string()))?;
+    if response.status() != StatusCode::SWITCHING_PROTOCOLS {
+        return Err(cut(format!("answered {} to the upgrade", response.status())));
+    }
+    let upgraded = hyper::upgrade::on(response)
+        .await
+        .map_err(|why| cut(why.to_string()))?;
+    Ok(TokioIo::new(upgraded))
 }
