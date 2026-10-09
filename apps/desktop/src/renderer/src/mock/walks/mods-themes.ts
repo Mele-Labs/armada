@@ -10,6 +10,7 @@ const theme = role("combobox", "Theme");
 
 export const modsThemes = walk("mods-themes", [
   { press: rail("Settings"), say: "Settings" },
+  { press: role("tab", "Theme"), say: "Theme, one of Settings' categories" },
   { look: theme, say: "Dark is in force, with its colours beside it" },
   { press: theme, say: "Every theme is previewed by its own colours" },
   { type: "light", into: theme, say: "Typing narrows the list" },
@@ -24,6 +25,7 @@ export const modsThemes = walk("mods-themes", [
   { type: "Make a dusk theme: purple-grey ground, a warm accent.\n", into: message, say: "The request" },
   { look: inside(thread, text(/theme\.css/)), say: "theme.css written into the mod folder" },
   { press: rail("Settings"), say: "Settings" },
+  { press: role("tab", "Theme"), say: "Theme, one of Settings' categories" },
   { type: "dusk", into: theme, say: "Dusk" },
   { press: role("option", "Dusk"), say: "Dusk is in the list, under From mods" },
   { press: rail("Mods"), say: "And in Mods" },

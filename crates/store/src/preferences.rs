@@ -48,6 +48,8 @@ pub struct Preferences {
     pub theme: String,
     /// The text of the owner's `layout.json`, or empty where he has made no choice.
     pub layout_choices: String,
+    /// The text of the owner's key bindings, or empty where he has changed none.
+    pub key_bindings: String,
 }
 
 /// The theme nobody has chosen away from.
@@ -60,6 +62,7 @@ impl Default for Preferences {
             draft_pull_requests: false,
             theme: SHIPPED_THEME.to_string(),
             layout_choices: String::new(),
+            key_bindings: String::new(),
         }
     }
 }
@@ -115,6 +118,15 @@ impl Store {
             Err(rusqlite::Error::QueryReturnedNoRows) => {}
             Err(other) => return Err(fault("reading the saved preferences")(other)),
         }
+        match self.conn.query_row(
+            "SELECT value FROM key_bindings_preference WHERE id = 1",
+            [],
+            |row| row.get::<_, String>(0),
+        ) {
+            Ok(bindings) => preferences.key_bindings = bindings,
+            Err(rusqlite::Error::QueryReturnedNoRows) => {}
+            Err(other) => return Err(fault("reading the saved preferences")(other)),
+        }
         Ok(preferences)
     }
 
@@ -146,6 +158,23 @@ impl Store {
         };
         saved
             .map_err(fault("saving the layout choices"))
+            .map_err(WriteError::Database)?;
+        self.preferences().map_err(WriteError::Database)
+    }
+
+    /// Save the owner's key bindings, and answer with every preference now in force.
+    /// **Empty takes them back**, `save_layout_choices`' terms.
+    pub fn save_key_bindings(&mut self, text: &str) -> Result<Preferences, WriteError> {
+        let saved = match text.is_empty() {
+            true => self.conn.execute("DELETE FROM key_bindings_preference WHERE id = 1", []),
+            false => self.conn.execute(
+                "INSERT INTO key_bindings_preference (id, value) VALUES (1, ?1)
+                 ON CONFLICT (id) DO UPDATE SET value = excluded.value",
+                (text,),
+            ),
+        };
+        saved
+            .map_err(fault("saving the key bindings"))
             .map_err(WriteError::Database)?;
         self.preferences().map_err(WriteError::Database)
     }

@@ -8,7 +8,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { LeftOutWorkflow, ManifestReading, ManifestSummary, RepositorySummary } from "@armada/protocol";
-import { Button, Dialog, KbdBinding } from "@armada/components";
+import { Button, Dialog, isPressed, KbdBinding } from "@armada/components";
 import { AskRepository } from "@armada/screens";
 import { DispatchJob } from "@armada/jobs";
 import { Boundary } from "@armada/shell";
@@ -136,7 +136,7 @@ export function Composing({
   useEffect(() => {
     if (asking) return;
     const pressed = (event: KeyboardEvent): void => {
-      if (event.key !== "Escape" || event.defaultPrevented) return;
+      if (event.defaultPrevented || !isPressed("close", event)) return;
       leave();
     };
     window.addEventListener("keydown", pressed);

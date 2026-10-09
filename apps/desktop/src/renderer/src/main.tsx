@@ -19,6 +19,7 @@ import { CATALOGUE } from "./catalogue";
 import { Themed } from "./theme";
 import { createFleetThemes } from "./fleet-themes";
 import { createFleetLayout } from "./fleet-layout";
+import { wireFleetKeymap } from "./fleet-keymap";
 import { skipsMods } from "./theme-loader";
 import { BUILT_IN_SWATCHES, modSwatch } from "./swatches";
 
@@ -37,6 +38,8 @@ const THEMES = createFleetThemes(window.armada, CATALOGUE, { builtIn: BUILT_IN_S
 
 /** The layout this window draws: Fleet's layout mods and the owner's saved choices, or the shipped layout in safe mode. */
 const LAYOUT = skipsMods() ? createLayoutSource() : createFleetLayout(window.armada);
+/** The owner's key bindings, over Fleet. Not a mod, so safe mode keeps them. */
+wireFleetKeymap(window.armada);
 /** Settings → Phone, over the Gateway through the main process. Reads nothing until Settings draws it. */
 const PHONE = createPhoneGatewaySource((request) => window.armada.phone(request));
 /** The moon in the title row and the Morning review, over Fleet. */

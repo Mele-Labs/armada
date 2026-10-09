@@ -2,9 +2,8 @@
 // 1 Oct 2026. The binding is the registry's `refresh` row, read, never spelled.
 
 import { useEffect, useRef } from "react";
-import { keyFor } from "@armada/components";
+import { isPressed } from "@armada/components";
 
-const REFRESH_KEY = keyFor("refresh");
 
 /**
  * Re-read on `⇧⌘R`, from every surface and from inside a field.
@@ -19,9 +18,8 @@ export function useRefreshKey(onRefresh: () => void): void {
 
   useEffect(() => {
     function pressed(event: KeyboardEvent): void {
-      if (!(event.metaKey || event.ctrlKey) || !event.shiftKey || event.altKey || event.repeat) return;
-      // With ⌘ down macOS reports the letter lowercase, shift or not.
-      if (`⇧⌘${event.key.toUpperCase()}` !== REFRESH_KEY) return;
+      // With ⌘ down macOS reports the letter lowercase, shift or not; the keymap reads shift from the flag.
+      if (event.repeat || !isPressed("refresh", event)) return;
       event.preventDefault();
       latest.current();
     }

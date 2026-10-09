@@ -35,7 +35,7 @@ import { jobFailure } from "@armada/shell";
 import { SweepButtons, SweepDialogs, sweepsOf, useRefreshKey, type Sweep } from "@armada/shell";
 import { repositoryLabel } from "@armada/shell";
 import { AskRepository } from "@armada/screens";
-import { BridgeSettings, ModsSurface } from "@armada/settings";
+import { BridgeSettings, ModsSurface, openSettingsAt } from "@armada/settings";
 import { Kit } from "@armada/manifest";
 import { Reports } from "@armada/screens";
 import { Composing } from "./Composing";
@@ -1171,9 +1171,7 @@ export function App({ draft }: AppProps = {}) {
               if (failing !== null) copyDebugInfoFor(failing, setCopied);
             },
             confirm: (what, jobId) => setConfirming({ act: what, jobId }),
-            openSetting: (id) => {
-              if (id === "fleet_settings") goTo(SURFACE.settings);
-            },
+            openSetting: (id) => openSettingsAt(id, () => goTo(SURFACE.settings)),
             refresh: () => void commands.refresh(),
             board: (id) => {
               if (id !== "reports") return setSweep(id === "clear" ? "clear" : "forget");

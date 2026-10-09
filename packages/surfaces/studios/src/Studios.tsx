@@ -36,6 +36,7 @@ import {
   TableHead,
   TableHeaderCell,
   TableRow,
+  keyFor,
   useStudioPlacement,
 } from "@armada/components";
 import type {
@@ -117,8 +118,13 @@ type RailFace = Pick<GraphCanvasRailAct, "icon" | "shortcut">;
 
 /** One act's glyph and binding, each only where the registry gives one. */
 function faceOf(act: string): RailFace {
-  const { icon, shortcut } = ACTION[act] ?? {};
-  return { ...(icon == null ? {} : { icon }), ...(shortcut === undefined ? {} : { shortcut }) };
+  const icon = ACTION[act]?.icon;
+  // The binding is read when drawn, so a key rebound in Settings → Keyboard is the one on the rail.
+  const face: RailFace = icon == null ? {} : { icon };
+  if (ACTION[act] !== undefined) {
+    Object.defineProperty(face, "shortcut", { enumerable: true, get: () => keyFor(act) });
+  }
+  return face;
 }
 
 /** Run's glyph and binding, as the registry gives them. */

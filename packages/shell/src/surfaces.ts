@@ -32,6 +32,7 @@ import {
   SquareTerminal,
   Workflow,
 } from "lucide-react";
+import { digitKeyFor, pressedDigit } from "@armada/components";
 
 import type { PaletteSurface } from "./Palette";
 
@@ -113,7 +114,8 @@ export const SURFACE = {
  */
 function digitOf(id: SurfaceId): string | undefined {
   const at = RAIL.indexOf(id) + 1;
-  return at > 9 ? undefined : `⌘${at}`;
+  // The modifiers are `bridge_surfaces`' as this person has them: `⌘3` unless Settings → Keyboard moved the row.
+  return at === 0 || at > 9 ? undefined : digitKeyFor("bridge_surfaces", at);
 }
 
 /**
@@ -132,7 +134,9 @@ export const SURFACES: readonly PaletteSurface[] = [
   {
     id: SURFACE.overview,
     label: "Cockpit",
-    shortcut: digitOf(SURFACE.overview),
+    get shortcut() {
+      return digitOf(SURFACE.overview);
+    },
     // No alias, for the same reason Manifest carries none: this is the first
     // surface built at this name, so there is no earlier word to keep.
     icon: LayoutDashboard,
@@ -140,14 +144,18 @@ export const SURFACES: readonly PaletteSurface[] = [
   {
     id: SURFACE.studios,
     label: "Studios",
-    shortcut: digitOf(SURFACE.studios),
+    get shortcut() {
+      return digitOf(SURFACE.studios);
+    },
     // No alias, Manifest's reason: the first surface built at this name.
     icon: Presentation,
   },
   {
     id: SURFACE.manifest,
     label: "Manifest",
-    shortcut: digitOf(SURFACE.manifest),
+    get shortcut() {
+      return digitOf(SURFACE.manifest);
+    },
     // No alias. The rule above is that one is for a place a person already
     // knows by another word, and nothing in Bridge has ever reached this
     // surface — there is no earlier word for it to keep.
@@ -156,14 +164,18 @@ export const SURFACES: readonly PaletteSurface[] = [
   {
     id: SURFACE.worktrees,
     label: "Worktree Slots",
-    shortcut: digitOf(SURFACE.worktrees),
+    get shortcut() {
+      return digitOf(SURFACE.worktrees);
+    },
     aliases: ["cleanup", "held worktrees", "disk", "held disk"],
     icon: HardDrive,
   },
   {
     id: SURFACE.kit,
     label: "Kit",
-    shortcut: digitOf(SURFACE.kit),
+    get shortcut() {
+      return digitOf(SURFACE.kit);
+    },
     // "MCP" and "servers" are what a person looking for this will type: Kit
     // is Armada's word for the set, and the thing they came to connect has
     // its own name in every other tool they use.
@@ -173,7 +185,9 @@ export const SURFACES: readonly PaletteSurface[] = [
   {
     id: SURFACE.settings,
     label: "Settings",
-    shortcut: digitOf(SURFACE.settings),
+    get shortcut() {
+      return digitOf(SURFACE.settings);
+    },
     // No alias: `fleet_settings` is the palette's own row, in its own
     // section, and it names an id rather than a word somebody already knows.
     icon: SettingsIcon,
@@ -181,7 +195,9 @@ export const SURFACES: readonly PaletteSurface[] = [
   {
     id: SURFACE.mods,
     label: "Mods",
-    shortcut: digitOf(SURFACE.mods),
+    get shortcut() {
+      return digitOf(SURFACE.mods);
+    },
     // No alias: the first surface built at this name.
     icon: Puzzle,
   },
@@ -189,7 +205,9 @@ export const SURFACES: readonly PaletteSurface[] = [
     id: SURFACE.guides,
     label: "Guides",
     // Nothing: it is the tenth row and `⌘1–⌘9` is what the contract publishes.
-    shortcut: digitOf(SURFACE.guides),
+    get shortcut() {
+      return digitOf(SURFACE.guides);
+    },
     // What a person looking for this will type. "Help" is the word every other
     // application uses for the place explanations live, and "guide" singular is
     // what somebody types who met one card and wants the rest.
@@ -200,7 +218,9 @@ export const SURFACES: readonly PaletteSurface[] = [
     id: SURFACE.mergeLine,
     label: "Merge line",
     // Past the ninth, so no key; reached by the rail and by name.
-    shortcut: digitOf(SURFACE.mergeLine),
+    get shortcut() {
+      return digitOf(SURFACE.mergeLine);
+    },
     // `armada land` is the word a person already runs to read it.
     aliases: ["land"],
     icon: Merge,
@@ -209,7 +229,9 @@ export const SURFACES: readonly PaletteSurface[] = [
     id: SURFACE.lessons,
     label: "Retros",
     // Past the ninth, so no key; reached by the rail and by name.
-    shortcut: digitOf(SURFACE.lessons),
+    get shortcut() {
+      return digitOf(SURFACE.lessons);
+    },
     // What each item is, in `docs/concepts/retro.md`'s word.
     aliases: ["retro"],
     icon: Rewind,
@@ -218,7 +240,9 @@ export const SURFACES: readonly PaletteSurface[] = [
     id: SURFACE.workflows,
     label: "Workflows",
     // Past the ninth, so no key; reached by the rail and by name.
-    shortcut: digitOf(SURFACE.workflows),
+    get shortcut() {
+      return digitOf(SURFACE.workflows);
+    },
     aliases: ["workflow", "create workflow"],
     icon: Workflow,
   },
@@ -226,7 +250,9 @@ export const SURFACES: readonly PaletteSurface[] = [
     id: SURFACE.checks,
     label: "Checks",
     // Past the ninth, so no key; reached by the rail and by name.
-    shortcut: digitOf(SURFACE.checks),
+    get shortcut() {
+      return digitOf(SURFACE.checks);
+    },
     aliases: ["check", "checks run"],
     // A sketch: `shield-check` is the registry's Check family. A Navigation glyph is the owner's to mint.
     icon: ShieldCheck,
@@ -235,7 +261,9 @@ export const SURFACES: readonly PaletteSurface[] = [
     id: SURFACE.sessions,
     label: "Sessions",
     // Past the ninth, so no key; reached by the rail and by name.
-    shortcut: digitOf(SURFACE.sessions),
+    get shortcut() {
+      return digitOf(SURFACE.sessions);
+    },
     aliases: ["session", "new session"],
     icon: SquareTerminal,
   },
@@ -297,8 +325,10 @@ export function useSurfaceKeys(onSurface: (surfaceId: string) => void): void {
 
   useEffect(() => {
     function pressed(event: KeyboardEvent): void {
-      if (!(event.metaKey || event.ctrlKey) || event.altKey || event.shiftKey) return;
-      const surface = SURFACES.find((one) => one.shortcut === `⌘${event.key}`);
+      const digit = pressedDigit("bridge_surfaces", event);
+      if (digit === null) return;
+      const key = digitKeyFor("bridge_surfaces", digit);
+      const surface = SURFACES.find((one) => one.shortcut !== undefined && one.shortcut === key);
       if (surface === undefined) return;
       event.preventDefault();
       latest.current(surface.id);

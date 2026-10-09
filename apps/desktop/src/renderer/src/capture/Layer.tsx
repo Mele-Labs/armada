@@ -7,14 +7,14 @@
 // of the page, never its surface.
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ACTION, StudioCapture as CaptureOverlay, type CaptureBox } from "@armada/components";
+import { isPressed, keyFor, StudioCapture as CaptureOverlay, type CaptureBox, type Press } from "@armada/components";
 import type { Outcome, StudioCapture } from "@armada/protocol";
 import { said } from "@armada/screens/src/copy";
 
 import { captureOf, chainOf, namedOf } from "./note";
 
-/** The binding, from the action registry rather than retyped. `⌥⌘C`. */
-const BINDING = [...(ACTION.capture_note?.shortcut ?? "")];
+/** The binding as this person has it, one cap per character: `⌥⌘C` unless Settings → Keyboard moved it. */
+const bindingNow = (): string[] => [...keyFor("capture_note")];
 
 /** Pointer events capture takes from the app, so a press points rather than acts. */
 const SWALLOWED = ["pointerdown", "pointerup", "mousedown", "mouseup", "click", "dblclick", "contextmenu"] as const;
@@ -46,11 +46,9 @@ function targetOf(target: EventTarget | null): Element | null {
   return target.closest("svg") ?? target;
 }
 
-/** `⌥⌘C`, as the registry spells it. Nothing else in Bridge's map holds it. */
-export function isCaptureBinding(
-  event: Pick<globalThis.KeyboardEvent, "code" | "metaKey" | "altKey" | "ctrlKey" | "shiftKey">,
-): boolean {
-  return event.code === "KeyC" && event.metaKey && event.altKey && !event.ctrlKey && !event.shiftKey;
+/** `capture_note`'s keys, as this person has them — `⌥⌘C` unless Settings → Keyboard moved it. */
+export function isCaptureBinding(event: Press): boolean {
+  return isPressed("capture_note", event);
 }
 
 /** What the bar says capture is pointed at, and whether a press can land. */
@@ -162,7 +160,7 @@ export function CaptureLayer({ aim, onCapture }: CaptureLayerProps) {
   return (
     <CaptureOverlay
       {...where}
-      binding={BINDING}
+      binding={bindingNow()}
       note={note}
       onNote={setNote}
       onSave={() => void save()}

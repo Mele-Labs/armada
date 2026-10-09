@@ -3439,8 +3439,8 @@ Bridge's half is in `packages/protocol/src/helm-calls.ts` and `hosted-sessions.t
 | `validate_mod` (`GET /mods/validate?name=`) | `ModChecked`: `name`, `valid`, `problems[]`, `css?`, `layout?` | `css` is a theme's checked text and `layout` a layout mod's, each present only when `valid` and never both |
 | `promote_mod` (`POST /mods/promote`) | `PromoteMod`: `name`, `manifest_id?`; answers `ModPromoted`: `name`, `branch`, `commit` | 409 `fleet.mod_not_promotable`. `agent_access` is `No` |
 | `mods.changed` (event) | `ModList`, whole | Names no Job. A resync does not carry it |
-| `get_preferences` | `Preferences.theme?`, `Preferences.layout_choices?` | `theme` is left out while `dark`, and absent is `dark`. `layout_choices` is the text of the owner's `layout.json`, left out while he has made none |
-| `save_preferences` | `SavePreference.text?`, read for the names `theme` and `layout_choices` | 422 `fleet.unacceptable_theme`, and 422 `fleet.unacceptable_layout` for text `layout.json`'s rules refuse. An empty `layout_choices` takes the choices back |
+| `get_preferences` | `Preferences.theme?`, `Preferences.layout_choices?`, `Preferences.key_bindings?` | `theme` is left out while `dark`, and absent is `dark`. `layout_choices` is the text of the owner's `layout.json`, left out while he has made none. `key_bindings` is the owner's own keys, left out while he has changed none |
+| `save_preferences` | `SavePreference.text?`, read for the names `theme`, `layout_choices` and `key_bindings` | 422 `fleet.unacceptable_theme`, 422 `fleet.unacceptable_layout` for text `layout.json`'s rules refuse, and 422 `fleet.unacceptable_key_bindings`. An empty `layout_choices` or `key_bindings` takes the choices back |
 
 **The event stream gets no new queue.** `mods.changed` is one message per change, found by a rescan every two seconds, and goes through the shared drop-oldest backlog; a Bridge that missed it reads `list_mods` after the resync. It does not touch the unbounded-sink risk above.
 

@@ -37,7 +37,7 @@
 import { useEffect, useState } from "react";
 import type { LucideIcon } from "lucide-react";
 
-import { actsIn, ALIASES, globalActs, CommandPalette } from "@armada/components";
+import { actsIn, ALIASES, globalActs, CommandPalette, isPressed, keyFor } from "@armada/components";
 import type { Action, ActionContext, PaletteEntry, PaletteSection } from "@armada/components";
 
 /** A Job as a search result. It carries no binding, and that is not a gap. */
@@ -103,7 +103,7 @@ export type PaletteRunnable = {
  * standing configuration lives, whether that configuration is read here or
  * changed behind its own screen.
  */
-export type PaletteSetting = { id: string; label: string; value?: string };
+export type PaletteSetting = { id: string; label: string; value?: string; aliases?: readonly string[] };
 
 /**
  * One of the Board's state filters, with the digit that sets it.
@@ -211,8 +211,7 @@ export function useCommandPalette(): {
 
   useEffect(() => {
     function pressed(event: KeyboardEvent): void {
-      if (event.key !== "k" && event.key !== "K") return;
-      if (!(event.metaKey || event.ctrlKey)) return;
+      if (!isPressed("command_palette", event)) return;
       event.preventDefault();
       // Toggled, not opened. ⌘K twice is how a person closes something they
       // opened by reflex, and `Esc` is not what they reach for while their
@@ -315,6 +314,7 @@ export function Palette({
       section: SETTINGS,
       label: setting.label,
       ...(setting.value === undefined ? {} : { value: setting.value }),
+      ...(setting.aliases === undefined ? {} : { aliases: setting.aliases }),
     })),
   ];
 
@@ -349,7 +349,7 @@ function entryOf(
     id: `act:${action.id}`,
     section,
     label: action.verb,
-    shortcut: action.shortcut,
+    shortcut: keyFor(action.id),
     ...(action.icon === null ? {} : { icon: action.icon }),
     ...(ALIASES[action.id] === undefined ? {} : { aliases: ALIASES[action.id] }),
     ...(action.destructive ? { destructive: true } : {}),

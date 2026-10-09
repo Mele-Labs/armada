@@ -4,7 +4,7 @@ import { ArmadaLockupHorizontal, ArmadaMark } from "@armada/brand";
 import { FLEET_DOT_TONE, FleetStarting, fleetSaid, type FleetState } from "../FleetPanel/FleetPanel";
 import { Button } from "../../primitives/Button/Button";
 import type { DropdownMenuEntry } from "../../primitives/DropdownMenu/DropdownMenu";
-import { actionOf } from "../../actions";
+import { keyFor } from "../../actions";
 import { Kbd, KbdCmd } from "../../primitives/Kbd/Kbd";
 import { Popover } from "../../primitives/Popover/Popover";
 import { useShortcutReveal } from "../../shortcut-reveal";
@@ -246,7 +246,7 @@ export function TitleBar({
                   >
                     <Plus size={16} strokeWidth={2} aria-hidden />
                     <span>Dispatch</span>
-                    <Kbd aria-hidden>{actionOf("new_job").shortcut}</Kbd>
+                    <Kbd aria-hidden>{keyFor("new_job")}</Kbd>
                   </button>
                 )}
                 {helm === undefined ? null : (

@@ -42,6 +42,7 @@ afterEach(() => window.history.replaceState(null, "", window.location.pathname))
 /** Opens Settings and chooses a theme in the field, by typing its name and pressing its row. */
 async function choose(name: string, typed = name) {
   await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByRole("tab", { name: "Theme" }).click();
   await page.getByRole("combobox", { name: "Theme" }).fill(typed);
   await page.getByRole("option", { name, exact: true }).click();
 }
@@ -50,6 +51,7 @@ test("Light is the real token set: the root takes it, and the aliases read it", 
   mount("mods-themes");
   await onScreen();
   await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByRole("tab", { name: "Theme" }).click();
   expect(root().dataset["theme"]).toBe("dark");
   const dark = token("--surface-card");
 
@@ -73,6 +75,7 @@ test("the field groups themes by tone and narrows as it is typed in", async () =
   mount("mods-themes");
   await onScreen();
   await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByRole("tab", { name: "Theme" }).click();
   await page.getByRole("combobox", { name: "Theme" }).click();
   await expect.element(page.getByRole("group", { name: "Dark" })).toBeVisible();
   await expect.element(page.getByRole("group", { name: "Light" })).toBeVisible();
@@ -96,6 +99,7 @@ test("each row carries its own theme's strip, from the index and the built-in li
   await onScreen();
   mockThemes.install(DUSK_MOD);
   await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByRole("tab", { name: "Theme" }).click();
   await page.getByRole("combobox", { name: "Theme" }).click();
   expect(stripOf("Nord")).toEqual(INDEX.find((one) => one.id === "catalogue:nord")!.swatch.map(rgb));
   expect(stripOf("Dark")).toEqual(BUILT_IN.dark.map(rgb));
@@ -135,6 +139,7 @@ test("?nomods loads without mods: none in the field, none on the Mods surface, t
   await onScreen();
   mockThemes.install(DUSK_MOD);
   await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByRole("tab", { name: "Theme" }).click();
   await page.getByRole("combobox", { name: "Theme" }).click();
   await expect.element(page.getByRole("option", { name: "Nord", exact: true })).toBeVisible();
   await expect.element(page.getByRole("option", { name: "Dusk" })).not.toBeInTheDocument();

@@ -10,6 +10,7 @@ import { Palette, type PaletteBoardRow, type PaletteSurface } from "@armada/shel
 import type { JobSummary } from "@armada/protocol";
 import type { BridgeState } from "../../shared/bridge";
 import { checkoutRunnablesOf } from "@armada/manifest";
+import { SETTINGS_PALETTE } from "@armada/settings";
 import { studioName, titleOf } from "@armada/screens";
 import { askStudioAdd, askStudioRun, useStudioAddOff, useStudioRunOff } from "@armada/studios";
 import { absentIn, carryOut, dormantIn } from "./palette";
@@ -95,9 +96,10 @@ export function PaletteMount({
       runnables={checkoutRunnablesOf(checkoutRunSheet)}
       board={board}
       jobs={jobs.map((job) => ({ id: job.id, label: `${job.handle} — ${titleOf(job)}` }))}
-      // Fleet settings is the section's first row. It carries no value, because
-      // choosing it opens the sheet rather than stating a field.
-      settings={[{ id: "fleet_settings", label: "Fleet settings" }]}
+      // One row per category of Settings, each opening Settings at it — Fleet
+      // settings first. None carries a value: each opens a screen rather than
+      // stating a field.
+      settings={SETTINGS_PALETTE}
       dormant={dormantIn({ reading: reading !== null, cursor, failing: failing !== null, live, studioRun, studioAdd })}
       absent={absentIn({ reading: reading !== null, cursor })}
       onChoose={(choice: Parameters<typeof carryOut>[0]) =>

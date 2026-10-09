@@ -29,6 +29,7 @@ import {
   SketchPad,
   SketchPreview,
   TileSheet,
+  pressedSlot,
   useKept,
 } from "@armada/components";
 import type {
@@ -1005,11 +1006,13 @@ export function SessionsSurface({ openId, onOpen, goes, held }: { openId: string
   // j goes to the next Session down the list and k to the one above, opening each. Local to this page.
   useEffect(() => {
     const press = (event: KeyboardEvent) => {
-      if ((event.key !== "j" && event.key !== "k") || event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey || typing(event.target)) return;
+      // `move_focus`' first two slots, down and up, as this person has them.
+      const slot = pressedSlot("move_focus", event);
+      if ((slot !== 0 && slot !== 1) || event.defaultPrevented || typing(event.target)) return;
       const ids = listed(sessions);
       const at = openId === null ? -1 : ids.indexOf(openId);
-      const next = ids[event.key === "j" ? at + 1 : at - 1];
-      if (next === undefined || (at === -1 && event.key === "k")) return;
+      const next = ids[slot === 0 ? at + 1 : at - 1];
+      if (next === undefined || (at === -1 && slot === 1)) return;
       event.preventDefault();
       onOpen(next);
     };

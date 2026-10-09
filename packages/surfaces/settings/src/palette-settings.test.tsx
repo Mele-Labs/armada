@@ -67,5 +67,5 @@ test("choosing Fleet settings from the palette shows the Settings screen", async
   await userEvent.click(page.getByRole("option", { name: "Fleet settings" }));
 
   await expect.element(page.getByRole("heading", { name: "Fleet" })).toBeVisible();
-  await expect.element(page.getByRole("heading", { name: "This machine" })).toBeVisible();
+  await expect.element(page.getByRole("tab", { name: "This machine" })).toBeVisible();
 });

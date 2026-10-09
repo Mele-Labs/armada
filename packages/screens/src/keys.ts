@@ -68,7 +68,7 @@
 // - **A modifier means this map is not the one being addressed.** `⌘K` is the
 //   palette's and `⌘1`–`⌘5` are the rail's; a bare key is this tier's.
 
-import { ACTION } from "@armada/components";
+import { ACTION, isPressed, keyFor, pressedSlot } from "@armada/components";
 import type { JobSummary } from "@armada/protocol";
 
 /**
@@ -118,7 +118,13 @@ function rowBinding(id: RowVerb): { key: string; label: string } {
   if ([...act.shortcut].length !== 1) {
     throw new Error(`actions.toml — ${id} is bound to "${act.shortcut}", and a row draws one key`);
   }
-  return { key: act.shortcut, label: act.verb };
+  // Read when drawn, not when loaded: a key rebound in Settings → Keyboard is the one the row shows.
+  return {
+    get key() {
+      return keyFor(id);
+    },
+    label: act.verb,
+  };
 }
 
 /**
@@ -170,9 +176,7 @@ export type BoardPress =
  * out. `o` is not among them: the contract makes it the same act as `Enter`
  * rather than a fourth conditional one.
  */
-const BY_VERB_KEY = new Map<string, Exclude<RowVerb, "open">>(
-  (["review", "attest", "redirect"] as const).map((verb) => [ROW_VERBS[verb].key, verb]),
-);
+const ROW_VERB_ACTS = ["review", "attest", "redirect"] as const;
 
 /**
  * Whether a text input holds focus, and so whether every single-key shortcut is
@@ -223,25 +227,27 @@ function answersEnter(target: EventTarget | null): boolean {
  * two `pressOf` is the ambiguity that separation exists to avoid.
  */
 export function boardPressOf(event: KeyboardEvent): BoardPress | null {
-  // A modifier means a different tier is being addressed — the palette's `⌘K`,
-  // the rail's `⌘1`–`⌘5`. This map is bare keys only.
-  if (event.metaKey || event.ctrlKey || event.altKey) return null;
+  // Each act's keys come from `keymap`, which compares modifiers exactly: a bare
+  // key here never fires under the palette's `⌘K` or the rail's `⌘1`, and an act
+  // a person rebound to a chord answers to that chord.
   if (holdsText(event.target)) return null;
   // A held key repeats. Only the two movement keys accept one: a repeat that
   // opened a detail forty times is a repeat nobody asked for, and `x` repeating
-  // is the reason the contract worries about held keys at all.
-  const movement = event.key === "j" || event.key === "k";
+  // is the reason the contract worries about held keys at all. The arrows stay
+  // with whatever has focus here — a menu, a tab row — so only the first two
+  // slots of `move_focus` move the Board's cursor.
+  const moved = pressedSlot("move_focus", event);
+  const movement = moved === 0 || moved === 1;
   if (event.repeat && !movement) return null;
 
-  if (event.key === "j") return { act: "move", by: 1 };
-  if (event.key === "k") return { act: "move", by: -1 };
-  if (event.key === "Enter") return answersEnter(event.target) ? null : { act: "open" };
-  if (event.key === "o") return { act: "open" };
-  if (event.key === "x") return { act: "kill" };
-  if (event.key === "c") return { act: "copy" };
-  if (event.key === "n") return { act: "compose" };
+  if (movement) return { act: "move", by: moved === 0 ? 1 : -1 };
+  if (isPressed("open_focused", event)) return answersEnter(event.target) ? null : { act: "open" };
+  if (isPressed("open", event)) return { act: "open" };
+  if (isPressed("kill", event)) return { act: "kill" };
+  if (isPressed("copy_debug_info", event)) return { act: "copy" };
+  if (isPressed("new_job", event)) return { act: "compose" };
 
-  const verb = BY_VERB_KEY.get(event.key);
+  const verb = ROW_VERB_ACTS.find((one) => isPressed(one, event));
   if (verb !== undefined) return { act: "verb", verb };
 
   return null;

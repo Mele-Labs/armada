@@ -14,5 +14,7 @@ Kept the way `get_limits` is: Fleet-wide, surviving a relaunch, and read once pe
 
 **`layout_choices` is the fourth**: the owner's own layout, as the text of a `layout.json` that Settings → Layout wrote, and applied over every layout mod. Left out while he has made no choice, which is what absent means.
 
+**`key_bindings` is the fifth**: the owner's own key bindings, as the JSON Settings → Keyboard wrote — an act's id to the keys it answers in place of the ones `actions.toml` gives it. Left out while he has changed none, which is what absent means. `docs/concepts/key-bindings.md`.
+
 `agent_access` is `Yes` for `get_capacity`'s reason: a preference is cheap to read and a session asking what a person set is asking nothing it could not already see on the screen it is helping with.
 """
