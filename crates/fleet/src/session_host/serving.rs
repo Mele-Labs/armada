@@ -25,7 +25,7 @@ use crate::helm::NotAnswerable;
 use crate::repositories::Served;
 
 /// A session id that names nothing. A 422.
-pub(super) const NO_SUCH_SESSION: &str = "fleet.no_such_session";
+pub(crate) const NO_SUCH_SESSION: &str = "fleet.no_such_session";
 /// A message or a tune to a session that was closed. A 409.
 const SESSION_CLOSED: &str = "fleet.session_closed";
 /// A message with neither words nor a file. A 422.

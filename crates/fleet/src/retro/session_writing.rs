@@ -28,8 +28,8 @@ use crate::session_host::address_of;
 const BEING_WRITTEN: &str = "fleet.session_retro_being_written";
 /// A Session with nothing since its last retro, or nothing yet.
 const NOTHING_NEW: &str = "fleet.session_retro_nothing_new";
-/// No Session by that id.
-const NO_SUCH_SESSION: &str = "fleet.no_such_session";
+/// No Session by that id: the session host's own code, since one code is one failure.
+use crate::session_host::NO_SUCH_SESSION;
 /// The retro call failed or its answer would not read.
 const RETRO_FAILED: &str = "fleet.session_retro_failed";
 

@@ -18,6 +18,7 @@ mod places;
 mod process;
 mod rows;
 mod serving;
+pub(crate) use serving::NO_SUCH_SESSION;
 mod terminal;
 
 use std::collections::HashMap;
