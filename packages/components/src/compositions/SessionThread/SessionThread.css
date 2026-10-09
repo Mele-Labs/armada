@@ -157,22 +157,6 @@
   gap: var(--space-2);
 }
 
-.armada-session-questions {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-
-.armada-session-questions__one {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  margin: 0;
-  padding: 0;
-  border: 0;
-  min-width: 0;
-}
-
 .armada-session-questions__text {
   display: flex;
   flex-direction: column;
@@ -342,4 +326,66 @@
   margin: 0;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+}
+
+/* The questions as a deck: what is answered above, one in front, the rest standing behind it as
+   strips a little higher, narrower and dimmer, as the Cockpit stacks its calls. */
+.armada-question-deck {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.armada-question-deck__done {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.armada-question-deck__stack {
+  --lift: var(--space-6);
+  position: relative;
+  padding-top: calc(var(--lift) * var(--behind, 0));
+}
+
+.armada-question-deck__behind {
+  position: absolute;
+  top: calc(var(--lift) * (var(--behind) - 1 - var(--i)));
+  left: calc(var(--space-3) * (var(--i) + 1));
+  right: calc(var(--space-3) * (var(--i) + 1));
+  z-index: calc(10 - var(--i));
+  height: calc(var(--lift) + var(--space-3));
+  padding: var(--space-1) var(--space-3) 0;
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  background: var(--bg-raised);
+  color: var(--fg-muted);
+  opacity: calc(1 - var(--i) * 0.25);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.armada-question-deck__card {
+  position: relative;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-3);
+  border: var(--border-width) solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  background: var(--bg-overlay);
+  animation: armada-question-up var(--duration-travel) var(--ease);
+}
+
+@keyframes armada-question-up {
+  from { opacity: 0.6; transform: translateY(calc(var(--space-6) * -1)) scale(0.97); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .armada-question-deck__card { animation: none; }
 }

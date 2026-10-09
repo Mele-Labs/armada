@@ -1,6 +1,6 @@
 // A Session whose agent asks four questions at once: more than the card has room for, so the card
 // scrolls and the thread above keeps its share. Over the `sessions` scenario. The walk
-// `askCardScrolls` plays it.
+// `questionDeck` plays it.
 
 import type { Session } from "@armada/screens/src/draft/sessions";
 
@@ -45,6 +45,6 @@ const asking: Session[] = [
 export const s205SessionManyQuestions: Scenario = {
   ...s200Sessions,
   name: "session-many-questions",
-  says: "A Session whose agent asks four questions: the card scrolls",
+  says: "A Session whose agent asks four questions: one at a time",
   draft: { sessions: (board) => s200Sessions.draft!.sessions!(board, asking) },
 };

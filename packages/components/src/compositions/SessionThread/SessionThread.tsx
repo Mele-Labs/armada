@@ -1,17 +1,15 @@
-import { useLayoutEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef } from "react";
 import type { ReactNode, Ref } from "react";
 import { AppWindow, Box, ChevronRight, GitBranch, KeyRound, Layers, SquareTerminal, Wrench } from "lucide-react";
 
 import { AttachmentChip } from "../../primitives/AttachmentChip/AttachmentChip";
 import { Button } from "../../primitives/Button/Button";
 import { Card } from "../../primitives/Card/Card";
-import { Checkbox } from "../../primitives/Checkbox/Checkbox";
-import { Input } from "../../primitives/Input/Input";
 import { Prose } from "../../primitives/Prose/Prose";
-import { Radio, RadioGroup } from "../../primitives/Radio/Radio";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { SessionMark } from "../SessionFrame/SessionFrame";
 import { InlineTag } from "../SessionComposer/InlineTag";
+import { QuestionDeck } from "./QuestionDeck";
 import type { ComposerTag } from "../SessionComposer/InlineTag";
 
 /**
@@ -372,122 +370,6 @@ function Row({
   );
 }
 
-/**
- * The agent's questions as a form. **Each question takes an option or, last, the person's own words**
- * (*Other*); a multi-select takes any number. Answering is held until every question has something
- * in it, which is what Fleet checks too.
- */
-function Questions({
-  questions,
-  onAnswer,
-  canSkip,
-}: {
-  questions: readonly AskedQuestion[];
-  onAnswer: (answer?: string, answers?: QuestionAnswer[]) => void;
-  canSkip: boolean;
-}) {
-  const [picked, setPicked] = useState<readonly (readonly string[])[]>(() => questions.map(() => []));
-  const [using, setUsing] = useState<readonly boolean[]>(() => questions.map(() => false));
-  const [words, setWords] = useState<readonly string[]>(() => questions.map(() => ""));
-  const at = <T,>(list: readonly T[], index: number, value: T): T[] => list.map((one, i) => (i === index ? value : one));
-  const chosenFor = (index: number): string[] => {
-    const typed = words[index]?.trim() ?? "";
-    return [...(picked[index] ?? []), ...(using[index] === true && typed !== "" ? [typed] : [])];
-  };
-  const complete = questions.every((_, index) => chosenFor(index).length > 0);
-  return (
-    <div className="armada-session-questions">
-      {questions.map((one, index) => (
-        <fieldset key={one.question} className="armada-session-questions__one">
-          <legend className="armada-session-questions__text">
-            {one.header === "" ? null : <span className="armada-session-questions__header">{one.header}</span>}
-            {one.question}
-          </legend>
-          <RadioGroup>
-            {one.options.map((option) => {
-              const on = (picked[index] ?? []).includes(option.label);
-              const choose = () =>
-                setPicked(
-                  at(
-                    picked,
-                    index,
-                    one.multi_select ? (on ? (picked[index] ?? []).filter((x) => x !== option.label) : [...(picked[index] ?? []), option.label]) : [option.label],
-                  ),
-                );
-              const control = one.multi_select ? (
-                <Checkbox checked={on} onChange={choose}>
-                  {option.label}
-                </Checkbox>
-              ) : (
-                <Radio
-                  name={`question-${index}`}
-                  checked={on}
-                  onChange={() => {
-                    choose();
-                    setUsing(at(using, index, false));
-                  }}
-                >
-                  {option.label}
-                </Radio>
-              );
-              return option.description === "" ? (
-                <div key={option.label}>{control}</div>
-              ) : (
-                <Tooltip key={option.label} label={option.description}>
-                  <div>{control}</div>
-                </Tooltip>
-              );
-            })}
-            {one.multi_select ? (
-              <Checkbox checked={using[index] === true} onChange={() => setUsing(at(using, index, using[index] !== true))}>
-                Other
-              </Checkbox>
-            ) : (
-              <Radio
-                name={`question-${index}`}
-                checked={using[index] === true}
-                onChange={() => {
-                  setUsing(at(using, index, true));
-                  setPicked(at(picked, index, []));
-                }}
-              >
-                Other
-              </Radio>
-            )}
-          </RadioGroup>
-          {using[index] === true ? (
-            <Input
-              aria-label="Other"
-              value={words[index] ?? ""}
-              onChange={(event) => setWords(at(words, index, event.target.value))}
-            />
-          ) : null}
-        </fieldset>
-      ))}
-      <div className="armada-session-thread__answers" role="group" aria-label="Answers">
-        <Button
-          size="sm"
-          variant="secondary"
-          disabled={!complete}
-          onClick={() =>
-            onAnswer(
-              "allow_once",
-              questions.map((one, index) => ({ question: one.question, chosen: chosenFor(index) })),
-            )
-          }
-        >
-          Answer
-        </Button>
-        {canSkip ? (
-          <Button size="sm" variant="ghost" onClick={() => onAnswer("refuse")}>
-            Skip
-          </Button>
-        ) : null}
-      </div>
-    </div>
-  );
-}
-
 /** How far from the end still counts as being at it, so a rounding or a half row does not unpin. */
 const NEAR_END = 24;
 
@@ -537,7 +419,7 @@ export function SessionThread({ rows, asked, askRef, onAnswer, onOpenSession, on
           <span className="armada-session-thread__eyebrow">{(asked.questions?.length ?? 0) > 0 ? "Question" : "Permission"}</span>
           {(asked.questions?.length ?? 0) > 0 ? null : <p className="armada-session-thread__command">{asked.command}</p>}
           {asked.questions !== undefined && asked.questions.length > 0 ? (
-            <Questions
+            <QuestionDeck
               key={asked.command}
               questions={asked.questions}
               onAnswer={onAnswer}
