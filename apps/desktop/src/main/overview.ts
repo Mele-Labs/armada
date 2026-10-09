@@ -1,7 +1,6 @@
-// Fleet's health, and drift for every repository in the scope — each one served on All, or the
-// one picked. Read by Overview's own tiles, and by the left column's Fleet panel
-// (Bridge/1088), which is why `watchOverview` now holds this open for the life of the window
-// rather than only while Overview is showing.
+// Fleet's health. Read by Overview's own tiles, and by the left column's Fleet panel
+// (Bridge/1088), which is why `watchOverview` holds this open for the life of the window rather
+// than only while Overview is showing.
 //
 // **Held while a surface wants them, `holding.ts`'s shape.** Health is a pull by Doctor's own terms.
 // Read again when what they answer about may have moved: a listing or a pick (`repositories.ts`),
@@ -10,17 +9,15 @@
 // **The last good reading stays up through a re-read.** Only opening draws the placeholders; a
 // tile blanking on every save would read as a Fleet that stopped answering.
 
-import type { FleetHealth, ManifestDrift, ManifestDriftRead } from "@armada/protocol";
-import type { DriftsRead, HealthRead, RepositoryDrift } from "@armada/screens/src/overview-reads";
+import type { FleetHealth } from "@armada/protocol";
+import type { HealthRead } from "@armada/screens/src/overview-reads";
 import type { PickedView } from "../shared/bridge";
-import type { Picked } from "./picked";
-import { ask, NOT_SET_UP } from "./request";
+import { ask } from "./request";
 import type { Answer } from "./request";
 
 export type OverviewWiring = {
   /** This window's own overlay — one `OverviewReads` per window, `connection.ts`'s `windowFacades`. */
   publish: (change: Partial<PickedView>) => void;
-  picked: Picked;
   port: () => number | null;
 };
 
@@ -40,12 +37,10 @@ export class OverviewReads {
   async watch(want: boolean): Promise<void> {
     this.open = want;
     if (!want) {
-      this.wiring.publish({ health: { state: "none" }, drifts: { state: "none" } });
+      this.wiring.publish({ health: { state: "none" } });
       return;
     }
-    const reading = { state: "reading" } as const;
-    const repositories = this.scope().map(({ root }) => ({ root, drift: reading }));
-    this.wiring.publish({ health: reading, drifts: { state: "held", repositories } });
+    this.wiring.publish({ health: { state: "reading" } });
     await this.again(this.wiring.port());
   }
 
@@ -54,47 +49,24 @@ export class OverviewReads {
     if (!this.open) return;
     this.asked += 1;
     const asked = this.asked;
-    const scope = this.scope();
     if (port === null) {
-      const failed = { state: "failed", outcome: NOT_CONNECTED } as const;
-      const repositories = scope.map(({ root }) => ({ root, drift: failed }));
-      this.wiring.publish({ health: failed, drifts: { state: "held", repositories } });
+      this.wiring.publish({ health: { state: "failed", outcome: NOT_CONNECTED } });
       return;
     }
-    const [health, repositories] = await Promise.all([
-      ask(port, "GET", "/health"),
-      Promise.all(
-        scope.map(async ({ root, path }): Promise<RepositoryDrift> => ({
-          root,
-          drift: path === null ? { state: "failed", outcome: NOT_SET_UP } : driftOf(await ask(port, "GET", path)),
-        })),
-      ),
-    ]);
+    const health = await ask(port, "GET", "/health");
     // The surface closed, or a newer read went out, while this was in flight.
     if (!this.open || this.asked !== asked) return;
-    const drifts: DriftsRead = { state: "held", repositories };
-    this.wiring.publish({ health: healthOf(health), drifts });
+    this.wiring.publish({ health: healthOf(health) });
   }
 
   /** The read ends with the window. Nothing is published: the surface is gone. */
   close(): void {
     this.open = false;
   }
-
-  /** Every repository in the scope, with its drift route or `null` where it has no Manifest. */
-  private scope(): { root: string; path: string | null }[] {
-    return this.wiring.picked.each("/manifest/drift").map(({ repository, path }) => ({ root: repository.root, path }));
-  }
 }
 
 function healthOf(answer: Answer): HealthRead {
   return answer.ok === true
     ? { state: "read", health: answer.body as FleetHealth }
-    : { state: "failed", outcome: answer.outcome };
-}
-
-function driftOf(answer: Answer): ManifestDriftRead {
-  return answer.ok === true
-    ? { state: "read", drift: answer.body as ManifestDrift }
     : { state: "failed", outcome: answer.outcome };
 }

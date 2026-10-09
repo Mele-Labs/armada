@@ -172,7 +172,6 @@ import type {
   RepositoryScanRead,
 } from "@armada/screens/src/setup-reads";
 import type {
-  DriftsRead,
   HealthRead,
 } from "@armada/screens/src/overview-reads";
 import type {
@@ -229,7 +228,6 @@ type OldBridgeState = {
     checkoutRunFollowed: CheckoutRunFollowed;
     manifestDrift: ManifestDriftRead;
     health: HealthRead;
-    drifts: DriftsRead;
     questions: Outstanding[];
     helm: HelmThread;
     studios: StudiosRead;
@@ -503,8 +501,7 @@ const OLD_NOTHING_YET: OldBridgeState = {
     checkoutRunFollowed: { state: "none" },
     manifestDrift: { state: "none" },
     health: { state: "none" },
-    drifts: { state: "none" },
-    questions: [],
+      questions: [],
     helm: { state: "none" },
     studios: { state: "none" },
     studio: { state: "none" },
