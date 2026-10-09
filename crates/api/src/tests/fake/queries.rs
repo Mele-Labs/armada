@@ -463,6 +463,10 @@ impl Queries for FakeDaemon {
         Ok(shapes::diff(job_id))
     }
 
+    async fn get_repair_diff(&self, job_id: JobId, _of: ipc::RepairOf) -> Result<JobDiff, Refusal> {
+        self.get_diff(job_id).await
+    }
+
     /// **The two refusals are what this side holds**: a Job that is not there,
     /// and an id the record does not carry, which are different answers.
     /// [`shapes::THE_CALL`] is the one id it does carry.

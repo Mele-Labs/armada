@@ -126,3 +126,20 @@ it("hands a hold's refusal back in Fleet's own words", async () => {
   }
   expect(await new TriggerCommands(() => null, new Picked()).rerun("01JOB", { trigger: "x" })).toEqual({ ok: false, why: "not_connected" });
 });
+
+it("reads the alerts bare on All and narrowed to the pick's Manifest, and reads none for a repository with no Manifest", async () => {
+  const asked: { method: string; path: string; body: string }[] = [];
+  const body = { blocked: [], waiting: [{ job_id: "01JOB", handle: "2-a-job", status: "awaiting_review" }] };
+  const port = await fleetAnswering(200, body, asked);
+  const picked = new Picked();
+  const SET_UP = { root: "/r/store", records_root: "/rec", manifest: { id: "store-01", repository: "store", path: "/r/store/armada.yml", records_root: "/rec", version: 1, checks: [] } };
+  picked.hold([SET_UP, { root: "/r/scratch", records_root: "/rec2" }]);
+  const commands = new TriggerCommands(() => port, picked);
+  expect(await commands.alerts()).toEqual({ ok: true, ...body });
+  picked.pick(SET_UP.root);
+  await commands.alerts();
+  picked.pick("/r/scratch");
+  expect(await commands.alerts()).toEqual({ ok: true, blocked: [], waiting: [] });
+  expect(asked.map((one) => one.path)).toEqual(["/alerts", "/alerts?manifest_id=store-01"]);
+  expect(await new TriggerCommands(() => null, picked).alerts()).toEqual({ ok: false, outcome: { ok: false, why: "not_connected" } });
+});

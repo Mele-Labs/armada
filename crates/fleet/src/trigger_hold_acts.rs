@@ -1,5 +1,7 @@
-//! The owner's two acts on a hold: rerun the Command, or skip it.
-//! `docs/concepts/trigger.md`, *A failed Trigger with `block` on*.
+//! The owner's two acts on a hold: rerun the Command, or skip it. The same two
+//! answer a destructive Command that asks first: Run is its Rerun.
+//! `docs/concepts/trigger.md`, *A failed Trigger with `block` on* and *A
+//! destructive Command asks first*.
 
 use std::path::Path;
 
@@ -15,6 +17,7 @@ use verification::Exit;
 use crate::adrift::Adrift;
 use crate::daemon::Fleet;
 use crate::trigger_hold::Hold;
+use crate::trigger_repair::{Subject, Waiting};
 
 const NO_HOLD: &str = "fleet.no_hold";
 const NO_HOLD_NAMED: &str = "fleet.no_hold_named";
@@ -23,6 +26,7 @@ const HOLD_HAS_A_FIX: &str = "fleet.hold_has_a_fix";
 const HOLD_NOTHING_TO_RUN: &str = "fleet.hold_nothing_to_run";
 const HOLD_NO_WORKTREE: &str = "fleet.hold_no_worktree";
 const HOLD_JOB_WORKING: &str = "fleet.hold_job_working";
+const HOLD_ALREADY_RUNNING: &str = "fleet.hold_already_running";
 
 enum Named {
     Trigger(String),
@@ -110,7 +114,7 @@ where
             ));
         };
         let holds = self
-            .holds_on(job_id)
+            .holds_and_asks_on(job_id)
             .await
             .map_err(|why| self.refusal(why))?;
         let hold = holds
@@ -166,7 +170,8 @@ where
 
     async fn hold_skipped(&self, job: &Job, hold: Hold) -> Result<ipc::HoldSettled, Refusal> {
         let at = self.now();
-        let first_entry = hold.when() == TriggerWhen::StepStarts;
+        // An ask that does not block held nothing to release.
+        let first_entry = hold.when() == TriggerWhen::StepStarts && hold.blocks();
         let state = match &hold {
             Hold::Firing { id, firing } => {
                 let after = firing.clone().skipped_by_the_owner(at);
@@ -176,7 +181,7 @@ where
                     .settle_hold(*id, &after, first_entry)
                     .map_err(|why| self.refusal(Adrift::Writing(why)))?;
                 self.trigger_moved(job, &after);
-                self.logged(job.id(), self.hold_line(job, &after, None));
+                self.logged(job.id(), self.hold_line(job, &after, None, true));
                 after.state
             }
             Hold::Addition(added) => {
@@ -241,6 +246,13 @@ where
             }
             Err(why) => return Err(self.not_held(job_id, HOLD_NO_WORKTREE, why.to_string())),
         };
+        if let Hold::Firing { id, firing } = &hold {
+            if firing.state == TriggerState::AwaitingOwner {
+                return self
+                    .owner_ran(job, *id, firing, &command, Path::new(worktree.path()))
+                    .await;
+            }
+        }
         if let Hold::Firing { firing, .. } = &hold {
             let running = TriggerFiring {
                 state: TriggerState::Rerunning,
@@ -279,7 +291,7 @@ where
                     .settle_hold(*id, &after, passed && first_entry)
                     .map_err(|why| self.refusal(Adrift::Writing(why)))?;
                 self.trigger_moved(job, &after);
-                self.logged(job_id, self.hold_line(job, &after, Some(&attempt)));
+                self.logged(job_id, self.hold_line(job, &after, Some(&attempt), true));
             }
             Hold::Addition(added) => {
                 let fired = added
@@ -300,6 +312,74 @@ where
         let released = passed && self.hold_let_go(job_id, Actor::Human).await;
         Ok(ipc::HoldSettled {
             state: state.into(),
+            released,
+        })
+    }
+
+    /// The owner's Run on a destructive Command that asked: it runs once, in
+    /// the Job's worktree, and ends as a firing does. Passed lets the Job go,
+    /// a failure is held where `block` is on, and `repair` queues a repair
+    /// Drone. **The store still reads `awaiting_owner` while it runs**, so a
+    /// Fleet that stops halfway asks him again and never runs it unasked;
+    /// `owner_runs` is what refuses a second Run meanwhile.
+    async fn owner_ran(
+        &self,
+        job: &Job,
+        id: i64,
+        firing: &TriggerFiring,
+        command: &str,
+        worktree: &Path,
+    ) -> Result<ipc::HoldSettled, Refusal> {
+        if !self.owner_runs().lock().expect("not poisoned").insert(id) {
+            return Err(self.not_held(
+                job.id(),
+                HOLD_ALREADY_RUNNING,
+                format!("`{}` is already running", firing.name),
+            ));
+        }
+        self.trigger_moved(
+            job,
+            &TriggerFiring {
+                state: TriggerState::Running,
+                ..firing.clone()
+            },
+        );
+        let attempt = checks_runner::run(command, worktree, self.budget().duration()).await;
+        self.owner_runs().lock().expect("not poisoned").remove(&id);
+        let code = match &attempt.exit {
+            Exit::Code(code) => Some(*code),
+            _ => None,
+        };
+        let after = firing.clone().ended(code, self.now());
+        let passed = after.state == TriggerState::Passed;
+        let first_entry = firing.when == TriggerWhen::StepStarts && firing.on_failure.block;
+        self.store()
+            .lock()
+            .await
+            .settle_hold(id, &after, passed && first_entry)
+            .map_err(|why| self.refusal(Adrift::Writing(why)))?;
+        self.trigger_moved(job, &after);
+        self.logged(job.id(), self.hold_line(job, &after, Some(&attempt), false));
+        if after.state == TriggerState::Repairing {
+            self.trigger_repairs()
+                .lock()
+                .expect("not poisoned")
+                .push(Waiting {
+                    job: job.id().clone(),
+                    subject: Subject::Firing(id),
+                    trigger: after.name.clone(),
+                    step: after.step.clone(),
+                    command: command.to_string(),
+                    exit: after.exit_code,
+                    stdout: attempt.output.stdout.clone(),
+                    stderr: attempt.output.stderr.clone(),
+                    record: core_model::RepairRecord::default(),
+                    side: None,
+                });
+        }
+        let released = !after.holds_the_job() && self.hold_let_go(job.id(), Actor::Human).await;
+        Ok(ipc::HoldSettled {
+            state: after.state.into(),
             released,
         })
     }
@@ -332,12 +412,14 @@ where
         job: &Job,
         firing: &TriggerFiring,
         attempt: Option<&checks_runner::Attempt>,
+        again: bool,
     ) -> core_model::Envelope {
         let said = match &firing.skipped {
             Some(why) => format!("Trigger `{}` {why}", firing.name),
             None => format!(
-                "Trigger `{}` run again by you: {}",
+                "Trigger `{}` run {}by you: {}",
                 firing.name,
+                if again { "again " } else { "" },
                 firing.state.as_wire()
             ),
         };

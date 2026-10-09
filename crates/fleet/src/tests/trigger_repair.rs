@@ -32,6 +32,14 @@ pub(crate) fn harness_that_repairs_by(drone: &str) -> FakeHarness {
             ),
         ],
     )
+    .reading(
+        "turn-ended",
+        vec![adapter_traits::DroneEvent::Ended {
+            turns: 1,
+            cost_micros: 4_000,
+            refusals: 0,
+        }],
+    )
 }
 
 /// `deploy_qa` passes once `flag` exists, so it fails until a repair makes it.
@@ -108,6 +116,30 @@ async fn a_failed_trigger_is_repaired_on_its_own_branch_and_the_fix_waits_for_a_
     assert_eq!(fleet.vcs().released_slots().len(), 0);
     assert_eq!(fleet.vcs().parked_slots().len(), 1, "the fix holds no bay");
     the_job_has_not_moved(&fleet, &id).await;
+}
+
+#[tokio::test]
+async fn a_repair_drones_spend_counts_against_the_job_for_every_try() {
+    let home = TempDir::new();
+    let flag = format!("{}/never", home.path().display());
+    let (fleet, _files) = a_fleet(&home, "echo turn-ended", &flag);
+    let id = to_the_delivering_step(&fleet, &home).await;
+    let before = fleet
+        .store()
+        .lock()
+        .await
+        .spend_for(&id)
+        .unwrap()
+        .cost_micros;
+
+    assert!(fleet.repair_next().await);
+
+    let spend = fleet.store().lock().await.spend_for(&id).unwrap();
+    assert_eq!(
+        spend.cost_micros - before,
+        4_000 * u64::from(core_model::REPAIR_TRIES),
+        "two repair Drones, each counted: {spend:?}"
+    );
 }
 
 #[tokio::test]

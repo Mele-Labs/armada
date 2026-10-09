@@ -344,7 +344,11 @@ where
         crate::triggering::plan(&frozen, firing.when, &firing.step, &manifest)
             .into_iter()
             .find(|one| one.trigger().name == firing.name)
-            .and_then(|one| one.to_run().map(str::to_string))
+            .and_then(|one| {
+                one.to_run()
+                    .or_else(|| one.to_run_when_asked())
+                    .map(str::to_string)
+            })
     }
 
     /// Push the repair branch and open a pull request from it against the Job's

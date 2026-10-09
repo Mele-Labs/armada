@@ -2,13 +2,14 @@
 // length. `useCommands` hands the acts its own `setOutcome`, so a refusal goes where every
 // command's goes, in Fleet's sentence.
 
-import type { Outcome, HoldAct, TriggerFixChoice } from "@armada/protocol";
+import type { Outcome, HoldAct, TriggerFixChoice, Work } from "@armada/protocol";
 
 import type { ReadingTrigger, RemovingTrigger, SavingTrigger } from "../../shared/triggers";
-import type { AddingStep, AddStepAnswer, RemovingStep, RemoveStepAnswer } from "../../shared/added-steps";
+import type { AddingStep, AddStepAnswer, EditingStep, EditStepAnswer, RemovingStep, RemoveStepAnswer } from "../../shared/added-steps";
 
 /** Triggers: what the picked repository runs, one as its file holds it, a save and a removal. */
 export const readTriggers = () => window.armada.readTriggers();
+export const readAlerts = () => window.armada.readAlerts();
 export const readTrigger = (reading: ReadingTrigger) => window.armada.readTrigger(reading);
 export const saveTrigger = (saving: SavingTrigger) => window.armada.saveTrigger(saving);
 export const removeTrigger = (removing: RemovingTrigger) => window.armada.removeTrigger(removing);
@@ -55,5 +56,22 @@ export function triggerActs(setOutcome: (outcome: Outcome) => void) {
     return answer;
   }
 
-  return { chooseTriggerFix, rerunTrigger, skipTrigger, addJobStep, removeJobStep };
+  /** Change an added step's switches before it fires. */
+  async function editJobStep(editing: EditingStep): Promise<EditStepAnswer> {
+    const answer = await window.armada.editJobStep(editing);
+    setOutcome(answer.ok ? { ok: true } : answer.outcome);
+    return answer;
+  }
+
+  /** A fix's patch against the Job's branch, for a file of it to open. A refusal is said where every command's is. */
+  async function readRepairDiff(jobId: string, of: { trigger: string } | { addition: string }): Promise<{ ok: true; work?: Work } | { ok: false }> {
+    const answer = await window.armada.readRepairDiff({ jobId, of });
+    if (!answer.ok) {
+      setOutcome(answer.outcome);
+      return { ok: false };
+    }
+    return answer.diff.work === undefined ? { ok: true } : { ok: true, work: answer.diff.work };
+  }
+
+  return { chooseTriggerFix, rerunTrigger, skipTrigger, addJobStep, removeJobStep, editJobStep, readRepairDiff };
 }

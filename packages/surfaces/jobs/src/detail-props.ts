@@ -19,8 +19,10 @@
 // and `Render` from their own modules.
 
 import type { AddedBinding } from "./added-steps";
+import type { AlertRow } from "./alert-rows";
 import type { DetailTab } from "./detail-tabs";
 import type { ChooseTriggerFixCall, HoldActCall } from "./repair-branch";
+import type { ReadRepairDiff } from "./repair-diff-sheet";
 import type { ActAnswer, ActingAct, DecidingAct } from "./pending";
 import type { PlanView } from "./plan-view";
 
@@ -265,6 +267,8 @@ export type JobDetailProps = {
    * branch with no choice on it.
    */
   onChooseTriggerFix?: ChooseTriggerFixCall;
+  /** Read a fix's patch against the Job's branch, for a file of the fix to open in its diff. Absent leaves the files as names. */
+  onReadRepairDiff?: ReadRepairDiff;
   /** Rerun or skip a Trigger that holds the Job. The canvas and the Triggers list ask it. */
   onHoldAct?: HoldActCall;
   /**
@@ -303,6 +307,12 @@ export type JobDetailProps = {
    * happened without offering a press that would do nothing.
    */
   onOpenJob?: (jobId: string) => void;
+  /**
+   * The Jobs waiting on a person for a Trigger, one lead row each (`alert-rows.ts`), and the press
+   * that opens one at the step its Trigger fired at. `onOpenJob`'s reason for being optional.
+   */
+  alerts?: readonly AlertRow[];
+  onOpenAlert?: (jobId: string, to: JobOpening) => void;
   /**
    * Open the log of the Check that is red on main, for a Job that took main's red. **The shell's**,
    * which holds the log panel the merge line's head opens too; absent, the lead's act is not drawn.

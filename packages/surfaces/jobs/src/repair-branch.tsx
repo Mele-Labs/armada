@@ -133,7 +133,7 @@ export function leavesOf(
   for (const [key, one] of latest) {
     const anchor = anchorId(one);
     if (anchor === undefined || held.has(key) || repairPhase(one) !== "none") continue;
-    leaves.push({ id: `leaf:${key}`, anchor, height: ROW_HEIGHT, flowing: false, asking: false, drawn: <TriggerLeaf trigger={one} {...(openLog === undefined ? {} : { onOpenLog: openLog })} /> });
+    leaves.push({ id: `leaf:${key}`, anchor, height: ROW_HEIGHT, flowing: false, asking: false, drawn: <TriggerLeaf trigger={one} {...(openLog === undefined ? {} : { onOpenLog: openLog })} {...(on === undefined ? {} : holdAct(on, jobId))} /> });
   }
   return leaves;
 }

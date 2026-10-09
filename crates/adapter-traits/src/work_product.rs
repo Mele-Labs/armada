@@ -403,6 +403,14 @@ impl Patch {
     }
 }
 
+/// What one branch changes against another it was cut from: the files and the
+/// patch, read from the repository and no worktree.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct BranchWork {
+    pub changed: Changed,
+    pub patch: Patch,
+}
+
 /// Reading a Job's work product out of its worktree.
 pub trait WorkProduct {
     /// Errors this implementation can raise. Named by the implementation, so a
@@ -471,6 +479,21 @@ pub trait WorkProduct {
     /// [`changed_files`](WorkProduct::changed_files) gives — the Judge must
     /// never be handed a reading that did not happen and told it is the work.
     fn patch(&self, worktree: &Worktree) -> Result<Patch, Self::Error>;
+
+    /// What `branch` changes against `base`, as the merge base of the two to
+    /// `branch`'s tip. **Read from the repository at `repository`, with no
+    /// worktree checked out**: a repair branch is parked once its Drone is
+    /// done, and what a person opens to read its fix is still this.
+    ///
+    /// A failure, including a branch that no longer exists, is an error and
+    /// never an empty answer, for [`changed_files`](WorkProduct::changed_files)'s
+    /// reason.
+    fn branch_work(
+        &self,
+        repository: &str,
+        base: &str,
+        branch: &str,
+    ) -> Result<BranchWork, Self::Error>;
 
     /// The paths the index holds as unmerged: a merge or rebase left stages 1,
     /// 2 and 3 for them and nothing has said which side won.
