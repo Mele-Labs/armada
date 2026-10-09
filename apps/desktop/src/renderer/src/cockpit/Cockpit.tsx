@@ -1,7 +1,8 @@
 // The Dashboard's panel as a cockpit: a top bar with three filters (Your move, Active, Done) and the
 // way to read them, a grid of tiles or a map of stars, and a pane for the one picked. A call that
 // needs the owner comes forward over the panel whatever the filter, centred and answerable from the
-// keyboard, the calls behind it stacked like a deck; `l` puts the one in front at the back. Mock only.
+// keyboard, the calls behind it stacked like a deck; `l` puts the one in front at the back and `d`
+// dismisses it for good.
 
 import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Box, CircleDashed, GitMerge, LayoutGrid, Orbit, SquareTerminal } from "lucide-react";
@@ -26,6 +27,7 @@ import { CallCard, type CardKeys } from "./CallCard";
 import { FleetMap } from "./FleetMap";
 import { useLayout } from "@armada/shell";
 import { TAB_KEYS, useFilters } from "./keys";
+import { dismissItem } from "./dismissed";
 import { dotsOf, type Dot } from "./horizon";
 import { sessionIdOf } from "./waiting";
 import { nearest, skyOf } from "./map-layout";
@@ -243,6 +245,14 @@ export function Cockpit({
           setAnswered((was) => new Set([...was, front.key]));
           setForward(undefined);
         });
+  /** Gone for good: the card leaves as an answered one does, and what it was about is remembered as dismissed. */
+  const dismiss = () =>
+    front === undefined
+      ? undefined
+      : leave("sent", () => {
+          void dismissItem(front, hosts.onTell);
+          setForward(undefined);
+        });
   const later = () =>
     front === undefined
       ? undefined
@@ -316,6 +326,8 @@ export function Cockpit({
         case keyFor("call_later"):
         case "Escape":
           return claim(), later();
+        case keyFor("call_dismiss"):
+          return claim(), dismiss();
         case "o":
           return card.open === undefined ? undefined : (claim(), card.open());
       }
@@ -429,7 +441,7 @@ export function Cockpit({
             <div className="armada-cockpit__scrim" data-hue={front.hue}>
               <div className="armada-stack" style={{ ["--behind" as string]: Math.min(3, edge.length) }}>
                 <Behind edge={edge} put={waiting} recall={recall} />
-                <CallCard key={front.key} item={front} now={now} nowing={front.job === undefined ? undefined : nowPanelOf(nows?.[front.job.id], { onOpenJob: hosts.onOpen, onSaid: () => {} })} state={state} hosts={hosts} finish={finish} later={later} leaving={leaving} from={seen.current.has(front.key) ? "stack" : undefined} answering={answering} />
+                <CallCard key={front.key} item={front} now={now} nowing={front.job === undefined ? undefined : nowPanelOf(nows?.[front.job.id], { onOpenJob: hosts.onOpen, onSaid: () => {} })} state={state} hosts={hosts} finish={finish} later={later} dismiss={dismiss} leaving={leaving} from={seen.current.has(front.key) ? "stack" : undefined} answering={answering} />
               </div>
             </div>
           ) : edge.length === 0 ? null : (

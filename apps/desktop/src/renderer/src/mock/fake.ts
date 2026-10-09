@@ -15,6 +15,7 @@ import { unanswered } from "./moment";
 import type { Scenario } from "./moment";
 import { SLICES } from "./slices";
 import type { AnySlice } from "./slices";
+import { cockpitRoutes } from "./cockpit-routes";
 import type { SessionsStore } from "./sessions/script";
 import { onTimePassing } from "./time-passes";
 
@@ -59,7 +60,8 @@ export function fakeBridge(scenario: Scenario, options: FakeOptions = {}): Bridg
   const initial: BridgeState = left.length === 0 ? scenario.state : { ...scenario.state, ...Object.assign({}, ...left.map((one) => one.state)) };
   const fleet = fleetOf(scenario, initial);
   const api = compose(kept, left, scenario, fleet);
-  const fake = { ...api, ...scenario.behaves?.({ state: fleet.state, publish: fleet.publish }) };
+  const own = scenario.behaves?.({ state: fleet.state, publish: fleet.publish });
+  const fake = { ...api, ...own };
   let passed = 0;
   // What a Session may do to the Board: a Job's status moves on its row, on its detail and on the read a later open gets.
   const board = {
@@ -91,7 +93,16 @@ export function fakeBridge(scenario: Scenario, options: FakeOptions = {}): Bridg
           sessions?.later();
         },
   );
-  if (sessions !== undefined) SESSIONS.set(fake, sessions);
+  if (sessions !== undefined) {
+    SESSIONS.set(fake, sessions);
+    // The Cockpit's two session routes over those Sessions, unless the scenario serves its own or leaves Sessions out.
+    if (kept.some((one) => one.name === "sessions")) {
+      const served = cockpitRoutes(sessions, fleet.state);
+      if (own?.answerWaiting === undefined) fake.answerWaiting = served.answerWaiting;
+      if (own?.claimPullRequest === undefined) fake.claimPullRequest = served.claimPullRequest;
+      if (own?.dismissWaiting === undefined) fake.dismissWaiting = served.dismissWaiting;
+    }
+  }
   DRAFTS.set(fake, { current: fleet.draft.get, subscribe: fleet.draft.subscribe });
   return fake;
 }

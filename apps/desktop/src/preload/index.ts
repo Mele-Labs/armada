@@ -28,7 +28,7 @@ import type {
 import type { FileReport } from "@armada/protocol";
 import type { ModChecked } from "@armada/protocol";
 import type { SleepState } from "@armada/protocol";
-import type { AnswerSessionAsk, AnswerWaiting, DismissWaiting, PilotOutcome, PullRequestState, RenameSession, ReviewDispatched, SendSessionMessage, SessionSubagent, TuneSession } from "@armada/protocol";
+import type { AnswerSessionAsk, AnswerWaiting, ClaimPullRequest, DismissWaiting, PilotOutcome, PullRequestClaimed, PullRequestState, RenameSession, ReviewDispatched, SendSessionMessage, SessionSubagent, TuneSession } from "@armada/protocol";
 import type { ArtifactRead, PageBounds } from "@armada/screens/src/draft/sessions";
 import type { PilotExit, PullRequestPress, SessionActed } from "../shared/api/sessions";
 import type { SleepActed } from "../shared/api/sleep";
@@ -635,6 +635,7 @@ const api: BridgeApi = {
   answerSessionAsk: (answer: AnswerSessionAsk): Promise<SessionActed> =>
     ipcRenderer.invoke(CHANNELS.answerSessionAsk, answer),
   answerWaiting: (answer: AnswerWaiting): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.answerWaiting, answer),
+  claimPullRequest: (claim: ClaimPullRequest): Promise<SessionActed<PullRequestClaimed>> => ipcRenderer.invoke(CHANNELS.claimPullRequest, claim),
   dismissWaiting: (dismiss: DismissWaiting): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.dismissWaiting, dismiss),
   tuneSession: (tune: TuneSession): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.tuneSession, tune),
   renameSession: (rename: RenameSession): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.renameSession, rename),

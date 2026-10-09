@@ -30,7 +30,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { Button, Radio, RadioGroup, Textarea } from "@armada/components";
-import type { FixMain, JobSummary, RepositorySummary } from "@armada/protocol";
+import type { FixMain, JobSummary, RepositorySummary, WaitingItem } from "@armada/protocol";
 import type { AboutFiles, AboutLink, CallAskView, CallView } from "@armada/jobs/draft/calls";
 import type { NowView } from "@armada/jobs/draft/now";
 import type { Session } from "@armada/screens/src/draft/sessions";
@@ -42,7 +42,8 @@ import { useListKeydown } from "@armada/screens/src/list-keyboard";
 import type { BridgeState } from "../../shared/bridge";
 import { viewsOf } from "./merge-line";
 import { useSessions } from "./sessions-draft";
-import { callsFromWaiting, sessionIdOf, type WaitingCall, type WaitingItem } from "./cockpit/waiting";
+import { forgetCleared, identityOf, useDismissed } from "./cockpit/dismissed";
+import { callsFromWaiting, sessionIdOf, type WaitingCall } from "./cockpit/waiting";
 
 /** The frame's hue: what the row wants of the owner, or how it stands. */
 type Hue = "ask" | "issue" | "running" | "queued" | "ok" | "bad";
@@ -530,7 +531,9 @@ export function useItems(
 ): Item[] {
   const sessions = useSessions();
   const nows = useContext(Nows);
-  return useMemo(() => {
+  const dismissed = useDismissed();
+  const calls = tab === "command-central";
+  const items = useMemo(() => {
     const read = overviewListsOf(state.jobs, picked);
     const of = (ids: readonly string[]) => read.sections.filter((one) => ids.includes(one.id)).flatMap((one) => one.jobs);
     const items: Item[] = [];
@@ -603,5 +606,12 @@ export function useItems(
       return { ...item, ...(steps.length === 0 ? {} : { steps, stepAt: at }), ...(active === undefined ? {} : { ...active, live: true }) };
     });
     return drawn.filter((item) => !answered.has(item.key));
-  }, [tab, state, picked, nowViews, nows, sessions, answered]);
+  }, [tab, state, picked, nowViews, nows, sessions, answered, dismissed]);
+  // A call dismissed for good stays gone while its state stands; once the state clears, the next one shows.
+  const standing = useMemo(() => new Set(items.map(identityOf)), [items]);
+  const board = state.jobs.length > 0 || viewsOf(state).length > 0;
+  useEffect(() => {
+    if (calls) forgetCleared(standing, board);
+  }, [calls, standing, board]);
+  return useMemo(() => (calls ? items.filter((item) => !dismissed.has(identityOf(item))) : items), [calls, items, dismissed]);
 }

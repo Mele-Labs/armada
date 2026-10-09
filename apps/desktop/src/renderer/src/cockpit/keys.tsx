@@ -29,6 +29,7 @@ const GROUPS: readonly Group[] = [
       { keys: [keyFor("call_best"), keyFor("call_quick")], does: `${actionOf("call_best").verb}, ${actionOf("call_quick").verb.toLowerCase()}` },
       { keys: ["↵"], does: actionOf("call_send").verb },
       { keys: [keyFor("call_later"), "Esc"], does: actionOf("call_later").verb },
+      { keys: [keyFor("call_dismiss")], does: `${actionOf("call_dismiss").verb}, never to show again` },
       { keys: [keyFor("open")], does: "Open what it is about" },
       { keys: [keyFor("call_expand")], does: actionOf("call_expand").verb },
       { keys: [keyFor("call_reply")], does: actionOf("call_reply").verb },

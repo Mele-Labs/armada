@@ -1451,7 +1451,7 @@ Enter          open the focused job. Acts on nothing   (list only)
 o              open. The same act, named so the palette can display it   (list only)
 r              review             (list only)
 t              attest   (list and detail)
-d              redirect
+d              redirect   (list and detail)
 s              restart step        (detail only)
 p              pilot               (not built)
 c              copy debug info
@@ -1482,6 +1482,7 @@ w              bring a waiting call back   (dashboard only)
 1–9            pick an answer   (call only)
 Enter          send the answer   (call only)
 l              later   (call only)
+d              dismiss for good   (call only)
 e              expand the request   (call only)
 b              make the best decision   (call only)
 g              just get it done   (call only)
@@ -1490,7 +1491,7 @@ t              reply in words   (call only)
 
 **The Dashboard's panel and a call in front have scopes of their own**, `dashboard`
 and `call`, because their keys act on neither a list nor a Job. A call in front
-takes the digits, `Enter`, `l`, `e`, `b` and `g` while it is up and gives them
+takes the digits, `Enter`, `l`, `d`, `e`, `b` and `g` while it is up and gives them
 back when it goes; `l` and `Esc` both put it at the back of the stack, and
 `b` and `g` stand only on a question an agent asked and could answer itself,
 never on a call Fleet raises about a state. The panel's `[ ]` and `⌥1–3`

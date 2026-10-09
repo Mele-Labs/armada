@@ -13,10 +13,8 @@ export type Owner = { kind: "session" | "job"; id: string; title: string };
 /** The pull requests and the red the views carry, as the lookup reads them. */
 type Seen = Pick<MergeLineView, "root" | "hub">;
 
-/** Whoever owns pull request `number`: one it was claimed for, the Job that opened it, else a Session that holds it. */
-export function pullOwner(views: readonly Seen[], sessions: readonly Session[], number: number, branch?: string, claimed?: ReadonlyMap<number, Owner>): Owner | undefined {
-  const claim = claimed?.get(number);
-  if (claim !== undefined) return claim;
+/** Whoever owns pull request `number`: the Job that opened it, else a Session that holds it (a claim shows there too). */
+export function pullOwner(views: readonly Seen[], sessions: readonly Session[], number: number, branch?: string): Owner | undefined {
   const pull = views.flatMap((view) => view.hub?.pulls ?? []).find((one) => one.number === number);
   if (pull?.job !== undefined) return { kind: "job", id: pull.job.id, title: pull.job.title };
   const held = sessions.find((one) =>
@@ -26,13 +24,11 @@ export function pullOwner(views: readonly Seen[], sessions: readonly Session[], 
 }
 
 /** Whoever owns the branch that broke main, found the same way through the pull request that merged it. */
-export function mainOwner(views: readonly Seen[], sessions: readonly Session[], root: string, claimed?: ReadonlyMap<number, Owner>): Owner | undefined {
+export function mainOwner(views: readonly Seen[], sessions: readonly Session[], root: string): Owner | undefined {
   const main = views.find((view) => view.root === root)?.hub?.main;
   if (main?.state !== "red") return undefined;
   const merge = main.red.merge;
   if (merge === undefined) return undefined;
-  const claim = claimed?.get(merge.number);
-  if (claim !== undefined) return claim;
   if (merge.job !== undefined) return { kind: "job", id: merge.job.id, title: merge.job.title };
-  return pullOwner(views, sessions, merge.number, merge.branch, claimed);
+  return pullOwner(views, sessions, merge.number, merge.branch);
 }

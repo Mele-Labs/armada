@@ -2,7 +2,7 @@
 // question it says what the Job is and what he asked it for, where the question came from, and what
 // is active now in one line; a Session's call is a small view of the Session instead. Its answers
 // carry the numbers that pick them, and two standing ones carry `b` and `g`. Enter sends, `l` puts it
-// off for later, `o` opens what it is about, `e` opens the whole request. The keys themselves are
+// off for later, `d` dismisses it for good, `o` opens what it is about, `e` opens the whole request. The keys themselves are
 // `Cockpit`'s, on the window; this draws them and takes the press. Mock only, as the Dashboard is.
 
 import { useLayoutEffect, useRef, useState, type MutableRefObject } from "react";
@@ -109,7 +109,7 @@ function AttachPicker({ attaching }: { attaching: NonNullable<Answering["attachi
           event.nativeEvent.stopPropagation();
         }}
       />
-      <ul role="listbox" aria-label="Jobs and Sessions" className="armada-callcard__candidates">
+      <ul role="listbox" aria-label="Sessions" className="armada-callcard__candidates">
         {shown.map((one, index) => {
           const Glyph = one.kind === "session" ? SquareTerminal : Workflow;
           return (
@@ -136,6 +136,7 @@ export function CallCard({
   hosts,
   finish,
   later,
+  dismiss,
   leaving,
   from,
   answering,
@@ -150,6 +151,8 @@ export function CallCard({
   finish: () => void;
   /** Put it off: it goes to the back of the stack. */
   later: () => void;
+  /** Removes the call for good. */
+  dismiss: () => void;
   leaving: "later" | "sent" | undefined;
   /** It was behind another card until now, and slides up from there. */
   from: "stack" | undefined;
@@ -287,6 +290,12 @@ export function CallCard({
             {actionOf("call_later").verb}
             <Kbd>{keyFor("call_later")}</Kbd>
           </Button>
+          <Tooltip label="Never show this again">
+            <Button variant="ghost" onClick={dismiss}>
+              {actionOf("call_dismiss").verb}
+              <Kbd>{keyFor("call_dismiss")}</Kbd>
+            </Button>
+          </Tooltip>
         </div>
       </div>
     </section>

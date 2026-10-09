@@ -1,42 +1,39 @@
-import { describe, expect, test } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 
-import { answersSent, answerWaiting } from "./answer-waiting";
+import { answerWaiting } from "./answer-waiting";
 
-type Draft = NonNullable<Parameters<typeof answerWaiting>[0]>;
+const refusal = (code: string, message: string) => ({ ok: false as const, outcome: { ok: false as const, why: "refused" as const, error: { code, message, run_id: "", fields: {}, chain: [] } } });
 
-/** A draft holding one Session, and recording what it was answered. */
-function draftOf(asked: unknown) {
-  const answered: unknown[][] = [];
-  const draft = { get: () => [{ id: "s1", asked, turn: { state: "idle" }, rows: [], attachments: [] }], answer: (...args: unknown[]) => void answered.push(args) } as unknown as Draft;
-  return { draft, answered };
+/** `window.armada` with just the one route, answering as told. */
+function fleetAnswering(answer: unknown) {
+  const route = vi.fn(async () => answer);
+  vi.stubGlobal("window", { armada: { answerWaiting: route } });
+  return route;
 }
 
-const QUESTION = { question: "What should happen to it?", header: "h", multi_select: false, options: [{ label: "File an issue (Recommended)", description: "d" }, { label: "Drop it", description: "" }] };
+afterEach(() => vi.unstubAllGlobals());
 
 describe("answering what a Session waits on", () => {
-  test("a permission's label lands as the answer the Sessions page sends", () => {
-    const { draft, answered } = draftOf({ command: "git push", call: "c1", offers: ["allow_once", "refuse"] });
-    answerWaiting(draft, { session_id: "s1", item_id: "perm:c1", choice: "Allow once" });
-    expect(answered).toEqual([["s1", "allow_once"]]);
+  test("sends the request to Fleet whole: a choice is an index, and a mode stands alone", async () => {
+    const route = fleetAnswering({ ok: true, value: {} });
+    expect(await answerWaiting({ session_id: "s1", item_id: "ask:q1", choice: 2 })).toEqual({ kind: "answered" });
+    expect(await answerWaiting({ session_id: "s1", item_id: "ask:q1", mode: "best" })).toEqual({ kind: "answered" });
+    expect(route.mock.calls).toEqual([[{ session_id: "s1", item_id: "ask:q1", choice: 2 }], [{ session_id: "s1", item_id: "ask:q1", mode: "best" }]]);
   });
 
-  test("an option of the agent's question lands as the question's answer, label whole", () => {
-    const { draft, answered } = draftOf({ command: "AskUserQuestion", call: "q1", questions: [QUESTION] });
-    answerWaiting(draft, { session_id: "s1", item_id: "ask:q1:0", choice: "Drop it" });
-    expect(answered).toEqual([["s1", undefined, [{ question: "What should happen to it?", chosen: ["Drop it"] }]]]);
+  test("an item nothing holds is gone, and says nothing", async () => {
+    fleetAnswering(refusal("fleet.session_waiting_unheld", "nothing is waiting under that item."));
+    expect(await answerWaiting({ session_id: "s1", item_id: "perm:c1", choice: 0 })).toEqual({ kind: "gone" });
   });
 
-  test("words typed are the person's own answer, as Other is", () => {
-    const { draft, answered } = draftOf({ command: "AskUserQuestion", call: "q1", questions: [QUESTION] });
-    answerWaiting(draft, { session_id: "s1", item_id: "ask:q1:0", text: "File it and fix it Friday" });
-    expect(answered[0]?.[2]).toEqual([{ question: "What should happen to it?", chosen: ["File it and fix it Friday"] }]);
+  test("any other refusal comes back in Fleet's words", async () => {
+    fleetAnswering(refusal("fleet.session_waiting_empty", "an answer needs a choice, words or a mode"));
+    expect(await answerWaiting({ session_id: "s1", item_id: "ask:q1" })).toEqual({ kind: "refused", said: "an answer needs a choice, words or a mode" });
   });
 
-  test("handing the decision over sends the mode, and the mock answers with the first thing offered", () => {
-    const { draft, answered } = draftOf({ command: "AskUserQuestion", call: "q1", questions: [QUESTION] });
-    const before = answersSent().length;
-    answerWaiting(draft, { session_id: "s1", item_id: "ask:q1:0", mode: "best" });
-    expect(answersSent().slice(before)).toEqual([{ session_id: "s1", item_id: "ask:q1:0", mode: "best" }]);
-    expect(answered[0]?.[2]).toEqual([{ question: "What should happen to it?", chosen: ["File an issue (Recommended)"] }]);
+  test("a Fleet that is not there is a refusal too", async () => {
+    fleetAnswering({ ok: false, outcome: { ok: false, why: "not_connected" } });
+    const done = await answerWaiting({ session_id: "s1", item_id: "ask:q1", text: "yes" });
+    expect(done.kind).toBe("refused");
   });
 });

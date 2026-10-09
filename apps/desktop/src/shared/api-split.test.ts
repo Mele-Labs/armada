@@ -177,7 +177,7 @@ import type {
 import type {
   Outstanding,
 } from "@armada/screens/src/outstanding";
-import type { AnswerSessionAsk, AnswerWaiting, DismissWaiting, PilotOutcome, PullRequestState, RenameSession, ReviewDispatched, SendSessionMessage, SessionRow, SessionSubagent, TuneSession } from "@armada/protocol";
+import type { AnswerSessionAsk, AnswerWaiting, ClaimPullRequest, DismissWaiting, PilotOutcome, PullRequestClaimed, PullRequestState, RenameSession, ReviewDispatched, SendSessionMessage, SessionRow, SessionSubagent, TuneSession } from "@armada/protocol";
 import type { PilotExit, PullRequestPress, SessionActed, SessionsRead } from "./api/sessions";
 import type { SleepActed } from "./api/sleep";
 import type { SleepState } from "@armada/protocol";
@@ -444,6 +444,7 @@ type OldBridgeApi = {
     sendSessionMessage: (send: SendSessionMessage) => Promise<SessionActed>;
     answerSessionAsk: (answer: AnswerSessionAsk) => Promise<SessionActed>;
     answerWaiting: (answer: AnswerWaiting) => Promise<SessionActed>;
+    claimPullRequest: (claim: ClaimPullRequest) => Promise<SessionActed<PullRequestClaimed>>;
     dismissWaiting: (dismiss: DismissWaiting) => Promise<SessionActed>;
     getSleep: () => Promise<SleepActed>;
     setSleep: (on: boolean) => Promise<SleepActed>;
@@ -719,6 +720,7 @@ const OLD_CHANNELS = {
     sendSessionMessage: "bridge:send-session-message",
     answerSessionAsk: "bridge:answer-session-ask",
     answerWaiting: "bridge:answer-waiting",
+    claimPullRequest: "bridge:claim-pull-request",
     dismissWaiting: "bridge:dismiss-waiting",
     getSleep: "bridge:get-sleep",
     setSleep: "bridge:set-sleep",
