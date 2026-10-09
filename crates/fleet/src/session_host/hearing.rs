@@ -34,22 +34,27 @@ where
         }
         match said {
             Heard::Gone => {
-                let working = {
+                let (working, complaint) = {
                     let mut state = runtime.state();
-                    state.process = None;
+                    let complaint = state
+                        .process
+                        .take()
+                        .map(|process| process.complaint())
+                        .unwrap_or_default();
                     state.queued = 0;
                     state.moving = None;
                     let working = matches!(state.turn, SessionTurn::Working { .. });
                     state.turn = SessionTurn::Idle;
-                    working
+                    (working, complaint)
                 };
-                if working {
+                // A death that said something is shown even between turns.
+                if working || !complaint.is_empty() {
                     self.row_put(
                         id,
                         SessionRow::Tool {
                             id: self.row_id(id),
                             at: self.instant(),
-                            text: String::from("the session's process ended"),
+                            text: format!("the session's process ended{complaint}"),
                         },
                     )
                     .await;

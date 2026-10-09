@@ -10,7 +10,7 @@
 //! One client at a time, the newest. The keeper holds the acknowledged offset,
 //! so a Fleet that died with lines untaken is replayed exactly those.
 
-use std::io;
+use std::io::{self, Write};
 use std::num::NonZeroU32;
 use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
@@ -34,6 +34,9 @@ pub const ALONE_FOR: Duration = Duration::from_secs(30 * 60);
 pub struct Keeper {
     pub socket: PathBuf,
     pub spool: PathBuf,
+    /// Where the agent's stderr and how it ended are written. Fleet reads the
+    /// tail when the agent is gone, so a death says why.
+    pub log: PathBuf,
     pub program: String,
     pub args: Vec<String>,
     /// Where the agent runs. `None` is the keeper's own, which Fleet set.
@@ -64,6 +67,9 @@ struct Shared {
     pid: u32,
     stdin: mpsc::UnboundedSender<String>,
     end: Notify,
+    /// Fleet ordered the end, and has taken the socket and spool away itself:
+    /// the next keeper of this session may already be using those paths.
+    ended: AtomicBool,
 }
 
 /// Run until the agent is gone and its last word has been taken.
@@ -106,6 +112,7 @@ pub async fn keep(keeper: Keeper) -> io::Result<()> {
         pid,
         stdin: to_stdin,
         end: Notify::new(),
+        ended: AtomicBool::new(false),
     });
 
     tokio::spawn(async move {
@@ -116,9 +123,19 @@ pub async fn keep(keeper: Keeper) -> io::Result<()> {
             }
         }
     });
-    tokio::spawn(async move {
-        let _ = tokio::io::copy(&mut stderr, &mut tokio::io::sink()).await;
+    let log = keeper.log.clone();
+    let complaints = tokio::spawn(async move {
+        // Appended, as the keeper's own stderr is: both go to the one file.
+        match tokio::fs::OpenOptions::new().append(true).create(true).open(&log).await {
+            Ok(mut file) => {
+                let _ = tokio::io::copy(&mut stderr, &mut file).await;
+            }
+            Err(_) => {
+                let _ = tokio::io::copy(&mut stderr, &mut tokio::io::sink()).await;
+            }
+        }
     });
+    let log = keeper.log.clone();
     let speaking = Arc::clone(&shared);
     let ends_turn = Arc::clone(&keeper.ends_turn);
     tokio::spawn(async move {
@@ -148,7 +165,13 @@ pub async fn keep(keeper: Keeper) -> io::Result<()> {
                 }
             }
         }
-        let _ = child.wait().await;
+        if let Ok(status) = child.wait().await {
+            // Its last words are in the log before anyone is told it is over.
+            let _ = complaints.await;
+            if let Ok(mut file) = std::fs::OpenOptions::new().append(true).create(true).open(&log) {
+                let _ = writeln!(file, "the agent exited: {status}");
+            }
+        }
         speaking.progress.send_modify(|p| p.over = true);
     });
 
@@ -167,7 +190,8 @@ pub async fn keep(keeper: Keeper) -> io::Result<()> {
                         .alone_since
                         .lock()
                         .map_or(false, |at| at.elapsed() >= keeper.alone_for);
-                if over && (shared.told_gone.load(Ordering::SeqCst) || alone) {
+                let ended = shared.ended.load(Ordering::SeqCst);
+                if over && (shared.told_gone.load(Ordering::SeqCst) || alone || ended) {
                     break;
                 }
                 if alone && !over {
@@ -176,8 +200,11 @@ pub async fn keep(keeper: Keeper) -> io::Result<()> {
             }
         }
     }
-    let _ = std::fs::remove_file(&keeper.socket);
-    let _ = std::fs::remove_file(&keeper.spool);
+    // The log stays: Fleet reads it after the keeper is gone.
+    if !shared.ended.load(Ordering::SeqCst) {
+        let _ = std::fs::remove_file(&keeper.socket);
+        let _ = std::fs::remove_file(&keeper.spool);
+    }
     Ok(())
 }
 
@@ -205,7 +232,10 @@ async fn client(shared: Arc<Shared>, stream: UnixStream) {
                     shared.acked.fetch_max(offset, Ordering::SeqCst);
                 }
             }
-            "END" => shared.end.notify_one(),
+            "END" => {
+                shared.ended.store(true, Ordering::SeqCst);
+                shared.end.notify_one();
+            }
             _ => {}
         }
     }
@@ -290,6 +320,7 @@ pub async fn run(args: Vec<String>) -> Result<(), String> {
     keep(Keeper {
         socket: PathBuf::from(socket),
         spool: PathBuf::from(spool),
+        log: PathBuf::from(spool).with_extension("log"),
         program: program.clone(),
         args: rest.to_vec(),
         directory: None,
