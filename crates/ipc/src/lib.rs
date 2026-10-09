@@ -382,8 +382,8 @@ pub use resources::{
 pub use retro::{
     AnnotationFile, CheckRunBy, JobRetro, Lesson, Lessons, LinkedAnnotation, RecordAct,
     RecordAsked, RecordCheck, RecordNotMet, RecordPath, RecordRefusal, RecordSaid, RecordWaited,
-    RetroAnswered, RetroChange, RetroChangeAnswered, RetroItem, RetroRecord, RetroState,
-    RetroWritten,
+    RetroAnswered, RetroChange, RetroChangeAnswered, RetroItem, RetroRecord, RetroSession,
+    RetroState, RetroWritten,
 };
 pub use scan::{
     CiCommand, ComposeService, DeclaredPort, EvidenceStrength, MissingName, NotRead,

@@ -351,6 +351,19 @@ const ROUTES: &[Route] = &[
         method: "GET",
         path: "/jobs/:job_id/retro",
     },
+    // A Session's retro: read, and written on a press. Under `/sessions` by the
+    // Session's id, since a Session is not a Job and `/jobs/:job_id` would not
+    // resolve it.
+    Route {
+        operation: "get_session_retro",
+        method: "GET",
+        path: "/sessions/:session_id/retro",
+    },
+    Route {
+        operation: "write_session_retro",
+        method: "POST",
+        path: "/sessions/:session_id/retro",
+    },
     // Every retro's items across Jobs, for the Lessons page. Not under
     // `/jobs`: an item is about a Job and the list is about none of them.
     Route {

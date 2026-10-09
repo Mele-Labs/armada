@@ -346,8 +346,8 @@ wire_enum! {
     Via, core_model::Via, "a door a request came through"
 }
 wire_enum! {
-    /// Whom one item of a retro got in the way of: `drone`, `owner` or
-    /// `fleet`. Since 23.12.
+    /// Whom one item of a retro got in the way of: `drone`, `agent` (a
+    /// Session's), `owner` or `fleet`. Since 23.12.
     Whose, core_model::Whose, "whom a retro item got in the way of"
 }
 wire_enum! {

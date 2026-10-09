@@ -44,6 +44,7 @@ where
                     working
                 };
                 if working {
+                    self.kept_restart(id, "ended", Some("the session's process ended while a turn ran")).await;
                     self.row_put(
                         id,
                         SessionRow::Tool {

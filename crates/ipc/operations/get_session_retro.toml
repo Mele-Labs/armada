@@ -1,0 +1,10 @@
+[operations.get_session_retro]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "The newest retro of a Session: what got in the agent's way since the retro before it, and the record it was read from"
+notes = """
+`GET /sessions/:session_id/retro`. `docs/concepts/retro.md`, *A Session's retro*.
+
+**A `JobRetro`, with `session` present and `job_id` holding the Session's id**, so Bridge draws a Session's retro as it draws a Job's. `record` is the stretch the retro covers (from the end of the one before to its own end), assembled from what Fleet keeps of the Session: `asks`, `refusals`, `restarts`, `failed_tools`, `corrections`, `subagents` and `notes`. A Session with no retro answers `pending`, with the record so far. A Session Fleet does not know is a 404.
+"""

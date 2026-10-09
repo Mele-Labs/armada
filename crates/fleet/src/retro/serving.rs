@@ -28,9 +28,28 @@ pub(crate) fn parsed(id: &str) -> Option<(core_model::JobId, u32)> {
     (!job.as_str().is_empty()).then_some((job, ordinal))
 }
 
+/// What names one item of a Session's retro: the Session, its retro's number
+/// and the item's place. A Session's id holds hyphens, so the number is
+/// marked `r`, which [`parsed_session`] reads back.
+pub(crate) fn session_lesson_id(session: &str, retro: i64, ordinal: usize) -> String {
+    format!("{session}-r{retro}-{ordinal}")
+}
+
+/// The Session, retro and place an id names, or `None` where it names none.
+pub(crate) fn parsed_session(id: &str) -> Option<(String, i64, u32)> {
+    let (rest, ordinal) = id.rsplit_once('-')?;
+    let (session, retro) = rest.rsplit_once('-')?;
+    let retro = retro.strip_prefix('r')?.parse().ok()?;
+    (!session.is_empty()).then_some((session.to_string(), retro, ordinal.parse().ok()?))
+}
+
 fn item(job: &str, ordinal: usize, line: RetroLine) -> RetroItem {
+    item_named(lesson_id(job, ordinal), line)
+}
+
+pub(crate) fn item_named(id: String, line: RetroLine) -> RetroItem {
     RetroItem {
-        id: lesson_id(job, ordinal),
+        id,
         who: line.whose.into(),
         title: line.title,
         what: line.what,
@@ -42,6 +61,34 @@ fn item(job: &str, ordinal: usize, line: RetroLine) -> RetroItem {
         job_proposed: None,
         change: line.change.as_ref().map(RetroChange::from),
         applied: None,
+    }
+}
+
+/// One row of the Lessons listing for a Session's item. Its `job_id` holds the
+/// Session's id and its `handle` the Session's address.
+pub(crate) fn session_lesson_of(
+    lesson: store::KeptSessionLesson,
+    session: ipc::RetroSession,
+) -> Lesson {
+    let id = session_lesson_id(&lesson.session_id, lesson.retro_id, lesson.ordinal as usize);
+    let line = item_named(id, lesson.line);
+    Lesson {
+        id: line.id,
+        job_id: JobId::carried(lesson.session_id.as_str()),
+        handle: super::session_writing::handle_of(&lesson.session_id),
+        at: (&lesson.at).into(),
+        who: line.who,
+        title: line.title,
+        what: line.what,
+        fix: line.fix,
+        statement: line.statement,
+        evidence: line.evidence,
+        lands_in: line.lands_in,
+        state: LessonState::from(lesson.state),
+        job_proposed: lesson.job_proposed.as_ref().map(JobId::from),
+        session: Some(session),
+        applied: lesson.applied.then(|| line.change.clone()).flatten(),
+        change: line.change,
     }
 }
 
@@ -62,6 +109,7 @@ pub(crate) fn lesson_of(lesson: KeptLesson, handle: String) -> Lesson {
         lands_in: line.lands_in,
         state: LessonState::from(lesson.state),
         job_proposed: lesson.job_proposed.as_ref().map(JobId::from),
+        session: None,
         applied: lesson.applied.then(|| line.change.clone()).flatten(),
         change: line.change,
     }
@@ -92,6 +140,7 @@ where
             why: None,
             items: Vec::new(),
             record: gathered.record,
+            session: None,
             annotations: gathered.annotations,
         };
         if let Some(KeptRetro { reflected, at }) = kept {
@@ -175,7 +224,49 @@ where
             };
             lessons.push(lesson_of(lesson, handle));
         }
+        // A Session's items sit beside them, newest retro first.
+        let sessions = self
+            .store()
+            .lock()
+            .await
+            .session_lessons(
+                most,
+                lands_in.map(|lands| lands.domain()),
+                Some(state.map_or(core_model::LessonState::Open, |state| state.domain())),
+            )
+            .map_err(|cause| {
+                self.refusal(Adrift::Reading(store::LoadJobError::Unreadable(cause)))
+            })?;
+        for lesson in sessions {
+            let kept = self
+                .store()
+                .lock()
+                .await
+                .session(&lesson.session_id)
+                .ok()
+                .flatten();
+            let Some(kept) = kept else { continue };
+            if let Some(within) = &within {
+                if kept.manifest_id.as_deref() != Some(within.as_str()) {
+                    continue;
+                }
+            }
+            lessons.push(session_lesson_of(lesson, super::session_writing::session_of(&kept)));
+        }
+        lessons.sort_by(|one, other| other.at.as_str().cmp(one.at.as_str()));
+        lessons.truncate(most as usize);
         Ok(Lessons { lessons })
+    }
+
+    async fn get_session_retro(&self, session_id: String) -> Result<JobRetro, Refusal> {
+        self.read_session_retro(&session_id).await
+    }
+
+    async fn write_session_retro(
+        self: Arc<Self>,
+        session_id: String,
+    ) -> Result<JobRetro, Refusal> {
+        Fleet::write_session_retro(&self, &session_id).await
     }
 
     /// Agree with an item. `agreeing` has it.

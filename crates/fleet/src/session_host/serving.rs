@@ -792,13 +792,16 @@ where
         let served = self.served_named(Some(&ManifestId::carried(&hosting.manifest_id)));
         let (sink, heard) = tokio::sync::mpsc::unbounded_channel::<Heard>();
         let (process, directory) = match self.hosts().processes().reattach(id, sink.clone()) {
-            Some(process) => (
+            Some(process) => {
+                self.kept_restart(id, "reattached", Some("Fleet came back and took the session's process again")).await;
+                (
                 process,
                 served
                     .as_ref()
                     .map(|served| Self::directory_of(served, hosting))
                     .unwrap_or_default(),
-            ),
+                )
+            }
             None if !may_start => return Ok(false),
             None => {
                 let served = served.map_err(|_| {
@@ -816,7 +819,11 @@ where
                     mode: mode_of(&hosting.mode),
                     readable: vec![self.uploads_of(id).to_string_lossy().into_owned()],
                 };
-                (self.hosts().processes().start(&start, sink)?, directory)
+                let process = self.hosts().processes().start(&start, sink)?;
+                if hosting.ran {
+                    self.kept_restart(id, "resumed", None).await;
+                }
+                (process, directory)
             }
         };
         let generation = {
