@@ -31,12 +31,14 @@ const behind = (kind: RegExp) => page.getByRole("button", { name: kind });
 const selected = (name: string) => expect.element(page.getByRole("tab", { name })).toHaveAttribute("aria-selected", "true");
 const radio = (name: RegExp) => page.getByRole("radio", { name });
 
-test("Your move with nothing waiting is empty and says nothing, and draws no dispatch box of its own", async () => {
+test("Your move with nothing waiting is empty and says nothing, and the dispatch bar above it is the one line", async () => {
   localStorage.removeItem(FILTER);
   mount("dashboard-cockpit");
   await expect.element(page.getByRole("listbox", { name: "Tiles" })).toBeVisible();
   expect(document.querySelectorAll('[role="listbox"][aria-label="Tiles"] [role="option"]').length).toBe(0);
-  expect(page.getByRole("textbox", { name: "Request" }).query()).toBeNull();
+  // The bar is a line at rest: its frame is not grown, so nothing of the panel is drawn under it.
+  await expect.element(page.getByRole("textbox", { name: "Request" })).toBeVisible();
+  expect(page.getByRole("button", { name: "Dispatch", exact: true }).query()).toBeNull();
 });
 
 test("[ and ] step the filters round, Option and a digit jumps, and the filter is kept", async () => {
