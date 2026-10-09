@@ -160,6 +160,12 @@ impl Processes for ProcessHost {
             &[],
         )
         .map_err(|why| why.said())?;
+        // A conversation resumed from another directory (a Session moving into
+        // its slot) is not found by the CLI unless it is put where it looks.
+        if let Some(old) = start.forking.as_deref().or(start.resuming.then_some(start.session.as_str())) {
+            adapters::terminal_thread::bring_conversation_to(&self.home, old, &start.directory)
+                .map_err(|why| format!("the conversation would not follow into {}: {why}", start.directory))?;
+        }
         let hosted = HostedLaunch::at(
             &start.directory,
             &start.session,

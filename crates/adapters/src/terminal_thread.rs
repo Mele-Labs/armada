@@ -40,6 +40,34 @@ pub fn find(home: &str, id: &str) -> Option<PathBuf> {
         .find(|file| file.is_file())
 }
 
+/// Make session `id`'s conversation reachable from `directory`, before the CLI
+/// is started there with `--resume`.
+///
+/// The CLI looks for a resumed conversation in the project folder keyed by its
+/// own working directory, so a session that moves (into a slot) finds nothing
+/// and exits. The transcript is **hard-linked** into the new folder: one inode,
+/// so what the CLI appends there is the file the reader finds. A copy stands in
+/// where a link cannot be made. A `<id>/` folder (subagents) is symlinked, as
+/// best effort. A conversation already there, or not found, is left alone.
+pub fn bring_conversation_to(home: &str, id: &str, directory: &str) -> std::io::Result<()> {
+    let Some(file) = find(home, id) else {
+        return Ok(());
+    };
+    let folder = Path::new(home).join(SESSIONS).join(crate::reading_in::keyed(directory));
+    let target = folder.join(format!("{id}.jsonl"));
+    if target.exists() || file.parent() == Some(folder.as_path()) {
+        return Ok(());
+    }
+    std::fs::create_dir_all(&folder)?;
+    if std::fs::hard_link(&file, &target).is_err() {
+        std::fs::copy(&file, &target)?;
+    }
+    if let Some(from) = file.parent().map(|dir| dir.join(id)).filter(|dir| dir.is_dir()) {
+        let _ = std::os::unix::fs::symlink(from, folder.join(id));
+    }
+    Ok(())
+}
+
 /// The rows of the whole lines written from `offset` on. A line still being
 /// written is left for the next read.
 pub fn read_from(file: &Path, offset: u64) -> std::io::Result<Thread> {
