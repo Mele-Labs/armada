@@ -3,10 +3,10 @@
 // under it. `crates/ipc/src/layout.rs` is Fleet's half, and `packages/shell/layout-registry.json`
 // is the list both check.
 
-import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import registry from "@armada/shell/layout-registry.json";
+import skill from "../../../../.claude/skills/armada-mods/SKILL.md?raw";
 import { LAYOUT, LAYOUT_BYTES, LAYOUT_REGIONS, layersOf, parseLayout, resolveLayout, serializeLayout } from "@armada/shell";
 import type { LayoutFile, LayoutMod } from "@armada/shell";
 
@@ -26,12 +26,11 @@ describe("the registry file both sides check", () => {
 });
 
 describe("the regions table in the armada-mods skill", () => {
-  const skill = readFileSync(new URL("../../../../.claude/skills/armada-mods/SKILL.md", import.meta.url), "utf8");
-  const ids = (cell: string) => [...cell.matchAll(/`([^`]+)`/g)].map((one) => one[1]);
+  const ids = (cell = "") => [...cell.matchAll(/`([^`]+)`/g)].map((one) => one[1]);
   const rows = skill
     .split("\n")
     .map((line) => line.split("|").map((cell) => cell.trim()))
-    .filter((cells) => cells.length === 7 && /^`[a-z.]+`$/.test(cells[1]))
+    .filter((cells) => cells.length === 7 && /^`[a-z.]+`$/.test(cells[1] ?? ""))
     .map((cells) => ({ region: ids(cells[1])[0], ids: ids(cells[2]), fixed: ids(cells[3]), order: cells[4], first: cells[5] }));
   it("names the registry's regions, ids, non-hideable ids and flags", () => {
     expect(rows.map((row) => row.region)).toEqual(Object.keys(registry.regions));
