@@ -1,3 +1,4 @@
+import { encode } from "uqr";
 import { Alert } from "../../primitives/Alert/Alert";
 import { Button } from "../../primitives/Button/Button";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
@@ -13,7 +14,7 @@ export type PairedPhone = {
 export type PhoneProblem =
   | { kind: "not_running" }
   /** The Gateway's own sentence, shown as it arrived. */
-  | { kind: "tailscale"; said: string };
+  | { kind: "said"; said: string };
 
 /**
  * Settings → Phone: pair, confirm and unpair.
@@ -63,8 +64,8 @@ export function PhonePairing({ problem, url, secondsLeft, claim, phones, onPair,
         </div>
       ) : (
         <div className="armada-phone__code">
-          <div className="armada-phone__qr" role="img" aria-label="Pairing code" data-url={url}>
-            <QrPlaceholder />
+          <div className="armada-phone__qr" role="img" aria-label="Pairing code">
+            <Qr text={url} />
           </div>
           <div className="armada-phone__code-facts">
             <p className="armada-phone__url">{url}</p>
@@ -109,7 +110,19 @@ export function PhonePairing({ problem, url, secondsLeft, claim, phones, onPair,
   );
 }
 
-/** Stands in until the QR is drawn: a plain square in the foreground colour's outline. */
-function QrPlaceholder() {
-  return <svg className="armada-phone__qr-mark" viewBox="0 0 1 1" aria-hidden="true" />;
+/** Modules of empty margin round the code; the spec asks four and phone cameras rely on it. */
+const QUIET = 4;
+
+/** The QR of `text`, one path of unit squares. Its colours are the stylesheet's: a camera needs dark on light in both themes. */
+function Qr({ text }: { text: string }) {
+  const { data: rows } = encode(text, { ecc: "M", border: 0 });
+  const size = rows.length + QUIET * 2;
+  const path = rows
+    .flatMap((row, y) => row.map((dark, x) => (dark ? `M${x + QUIET} ${y + QUIET}h1v1h-1z` : "")))
+    .join("");
+  return (
+    <svg className="armada-phone__qr-mark" viewBox={`0 0 ${size} ${size}`} shapeRendering="crispEdges" aria-hidden="true">
+      <path d={path} />
+    </svg>
+  );
 }

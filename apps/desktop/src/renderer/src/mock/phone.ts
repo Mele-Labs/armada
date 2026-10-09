@@ -12,7 +12,7 @@ export type PhoneMoment = "paired" | "not_running" | "tailscale";
 const gateway = {
   paired: { state: "running" },
   not_running: { state: "not_running" },
-  tailscale: { state: "tailscale", said: "Tailscale is not signed in on this Mac. Sign in to it, then start pairing again." },
+  tailscale: { state: "said", said: "Tailscale is not signed in on this Mac. Sign in to it, then start pairing again." },
 } as const;
 
 function start(moment: PhoneMoment): PhoneState {

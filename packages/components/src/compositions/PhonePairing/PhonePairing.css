@@ -13,21 +13,22 @@
   min-width: 0;
 }
 
-/* A placeholder square until the QR is drawn; a real QR will need a light ground in both themes. */
+/* armada-allow-off-contract: a QR is read by a camera, so it is black on white in both themes and no token is both
+   Fixed #FFFFFF and #000000 on the code, whatever the ground — docs/contracts/design-system.md */
 .armada-phone__qr {
   flex: none;
   inline-size: var(--w-menu);
   aspect-ratio: 1;
-  padding: var(--space-3);
-  background: var(--bg-sunken);
+  background: #FFFFFF;
   border-radius: var(--radius-md);
+  overflow: hidden;
 }
 
 .armada-phone__qr-mark {
   display: block;
   inline-size: 100%;
   block-size: 100%;
-  background: var(--bg-hover);
+  fill: #000000;
 }
 
 .armada-phone__code-facts {

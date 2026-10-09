@@ -4,7 +4,7 @@
 
 import { createContext, useContext, useSyncExternalStore } from "react";
 
-export type PhoneGateway = { state: "running" } | { state: "not_running" } | { state: "tailscale"; said: string };
+export type PhoneGateway = { state: "running" } | { state: "not_running" } | { state: "said"; said: string };
 
 export type PhoneState = {
   gateway: PhoneGateway;

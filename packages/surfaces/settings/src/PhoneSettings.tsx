@@ -33,8 +33,8 @@ export function PhoneSettings() {
   const problem: PhoneProblem | undefined =
     state.gateway.state === "not_running"
       ? { kind: "not_running" }
-      : state.gateway.state === "tailscale"
-        ? { kind: "tailscale", said: state.gateway.said }
+      : state.gateway.state === "said"
+        ? { kind: "said", said: state.gateway.said }
         : undefined;
   return (
     <Card>

@@ -44,7 +44,15 @@ export const Paired: Story = {
 
 export const NothingPaired: Story = { args: { phones: [] } };
 
-export const CodeShown: Story = { args: { url: URL, secondsLeft: 272 } };
+export const CodeShown: Story = {
+  args: { url: URL, secondsLeft: 272 },
+  play: async ({ canvasElement }) => {
+    const code = within(canvasElement).getByRole("img", { name: "Pairing code" });
+    // A code is dark modules on a light ground: the drawing holds a path, not an empty square.
+    await expect(code.querySelector("path")?.getAttribute("d")?.length).toBeGreaterThan(100);
+    await expect(within(canvasElement).getByText("4:32")).toBeVisible();
+  },
+};
 
 export const Claimed: Story = {
   args: { url: URL, secondsLeft: 211, claim: { device: "Pixel 9" } },
@@ -57,5 +65,5 @@ export const Claimed: Story = {
 export const GatewayNotRunning: Story = { args: { problem: { kind: "not_running" } } };
 
 export const TailscaleSignedOut: Story = {
-  args: { problem: { kind: "tailscale", said: "Tailscale is not signed in on this Mac. Sign in to it, then start pairing again." } },
+  args: { problem: { kind: "said", said: "Tailscale is not signed in on this Mac. Sign in to it, then start pairing again." } },
 };
