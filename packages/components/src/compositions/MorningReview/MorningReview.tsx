@@ -51,7 +51,7 @@ export function MorningReview({ open, decided, blocked, landed, walks, onOverrid
       <div className="armada-morning">
         <Section icon={BadgeCheck} label="Decided for you" shown={decided.length > 0}>
           {decided.map((one) => (
-            <li key={one.id} className="armada-morning__row" data-corrected={one.corrected !== undefined}>
+            <li key={one.id} className="armada-morning__row" aria-label={one.who} data-corrected={one.corrected !== undefined}>
               <span className="armada-morning__who">{one.who}</span>
               <span className="armada-morning__asked">{one.asked}</span>
               <span className="armada-morning__chose">{one.chose}</span>

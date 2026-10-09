@@ -5,9 +5,10 @@
 
 import { button, inside, region, role, text, walk } from "../walk";
 
-const moon = button("Sleep mode");
+const moon = button("Sleep mode", { exact: true });
 const review = role("dialog", "Morning review");
 const decided = inside(review, region("Decided for you"));
+const lunch = inside(decided, role("listitem", "Order the lunch"));
 
 const sleepMode = walk("session-question", [
   { look: moon, say: "Sleep mode, beside Helm" },
@@ -15,11 +16,11 @@ const sleepMode = walk("session-question", [
   { look: button("Morning review"), say: "A question was answered for him; the review is there to read" },
   { press: moon, say: "Off, and the review opens" },
   { look: decided, say: "Decided for you" },
-  { look: inside(decided, text("Large")), say: "What the agent chose" },
-  { press: inside(decided, button("Override")), say: "Override" },
-  { type: "Medium", into: inside(decided, role("textbox", "Correction")), say: "The correction" },
-  { press: inside(decided, button("Send")), say: "Sent to the agent" },
-  { look: inside(decided, text("Medium")), say: "The row shows what was sent" },
+  { look: inside(lunch, text("Large")), say: "What the agent chose" },
+  { press: inside(lunch, button("Override")), say: "Override" },
+  { type: "Medium", into: inside(lunch, role("textbox", "Correction")), say: "The correction" },
+  { press: inside(lunch, button("Send")), say: "Sent to the agent" },
+  { look: inside(lunch, text("Medium")), say: "The row shows what was sent" },
   { look: inside(review, region("Still needs you")), say: "Still needs you" },
   { look: inside(review, region("Landed overnight")), say: "Landed overnight" },
   { look: inside(review, region("Walks waiting")), say: "Walks waiting" },
