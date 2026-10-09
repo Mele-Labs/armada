@@ -1,0 +1,5 @@
+/* A layout can put the merge line above the fleet: its rule is then the strip's lower edge. */
+.armada-deck__fleet > .armada-conveyor:first-child {
+  border-top: 0;
+  border-bottom: var(--border-width) dashed var(--border-subtle);
+}

@@ -1,4 +1,5 @@
-// The Dashboard's three tabs, and which of Overview's sections each one reads.
+// The Dashboard's three filters, and which of Overview's sections each one reads. The ids are the
+// tabs' they replaced (`command-central` is Your move, `running` is Active), so a remembered choice holds.
 //
 // **A section belongs to one tab.** Needs you is Command Central, where a person is sent first;
 // Running and Queued are Running; Recently ended and Done are Done. Other, a Job no section
@@ -8,10 +9,10 @@ import type { BoardSection } from "@armada/screens/src/board";
 
 export type DashboardTab = "command-central" | "running" | "done";
 
-/** The tabs in the order they are drawn. Labels carry no count. */
+/** The filters in the order they are drawn. Labels carry no count. */
 export const DASHBOARD_TABS: readonly { id: DashboardTab; label: string }[] = [
-  { id: "command-central", label: "Command Central" },
-  { id: "running", label: "Running" },
+  { id: "command-central", label: "Your move" },
+  { id: "running", label: "Active" },
   { id: "done", label: "Done" },
 ];
 

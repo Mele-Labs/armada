@@ -1,0 +1,7 @@
+[icons.layout-grid]
+  means = "Four equal tiles in two rows — the Dashboard panel read as a grid of tiles"
+  group = "View"
+  size = "16px"
+  status = "Specified"
+  reserved = "The Grid view of the Dashboard panel only, beside the Map view's `orbit`. Never Overview, which is `layout-dashboard` (unequal panes), and never a layout or density control."
+  notes = "Added 9 Oct 2026 with the Dashboard's one panel. `layout-dashboard` is Overview's rail glyph and splits its rectangle into unequal panes; four equal tiles say a grid of tiles and keep the toggle from reading as a second Overview."

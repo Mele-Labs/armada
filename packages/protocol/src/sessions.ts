@@ -72,7 +72,51 @@ export type SessionRecord = {
   terminal?: TerminalFacts;
   /** A terminal session whose mod is older than its repository's, or reported no version. Since 23.62. */
   mod_out_of_date?: true;
+  /**
+   * What the session waits on the person for: the agent's list with Fleet's own items merged in, the
+   * agent's first. Absent is nothing, and always absent for an ended session.
+   */
+  waiting_for?: WaitingItem[];
 };
+
+/** What a press on a waiting item does. `target` is an address, a call, a pull request number or a command. */
+export type WaitingAct = { kind: "walk" | "answer" | "approve_pr" | "run"; target: string };
+
+/** Who put an item on the list: the agent, or Fleet from an open card, a permission or an unapproved walk window. */
+export type WaitingSource = "agent" | "ask_card" | "walk" | "permission";
+
+/**
+ * One thing a session waits on the person for. `id` is stable across updates: the agent's own, or
+ * `ask:<call>`, `perm:<call>`, `walk:<url>` where Fleet derived it. `options` is present only on an
+ * `answer` item that has choices, and `answer_waiting`'s `choice` indexes it.
+ */
+export type WaitingItem = {
+  id: string;
+  text: string;
+  since: string;
+  source: WaitingSource;
+  act?: WaitingAct;
+  options?: { label: string }[];
+};
+
+/**
+ * `POST /sessions/waiting/answer`: settle one item. A `choice` (an index into its `options`), `text` of
+ * the person's own, or a `mode` that leaves it to the agent: `best` thinks it through, `quick` takes the
+ * reasonable path and keeps moving. A walk item needs none of the three, and approving is its default.
+ */
+export type AnswerWaiting = {
+  session_id: string;
+  item_id: string;
+  choice?: number;
+  text?: string;
+  mode?: "best" | "quick";
+};
+
+/**
+ * `POST /sessions/waiting/dismiss`: drop one item for good. Its id never comes back, whether Fleet derived
+ * it (`ask:`, `perm:`, `walk:`) or the agent stated it, and nothing is sent to the agent.
+ */
+export type DismissWaiting = { session_id: string; item_id: string };
 
 /** A command a terminal session lists, for `/` to offer. Since 23.53. */
 export type TerminalCommand = { name: string; says: string };

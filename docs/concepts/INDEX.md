@@ -19,12 +19,13 @@ assuming it is restated here.
 | [drone.md](drone.md) | The execution runtime for a single Job — a confined Claude Code process with its own worktree |
 | [fleet.md](fleet.md) | The Rust daemon — the only actor that writes a state transition on a Job or a Drone |
 | [helm.md](helm.md) | The conversational orchestrator agent that reasons across a Fleet |
-| [job-board.md](job-board.md) | Every Job on one Manifest, and what a row of them says. Read on Overview |
+| [job-board.md](job-board.md) | Every Job on one Manifest, and what a row of them says. Read on the Cockpit |
 | [job-proposer.md](job-proposer.md) | The model call that reads a dispatch request and proposes a Job |
 | [job.md](job.md) | The unit of work Fleet dispatches to a Drone — data, not an actor |
 | [judge.md](judge.md) | The semantic, veto-only tier of evidence verification |
 | [kit.md](kit.md) | The tool set you bring — Skills, MCP, sub agents, Commands, the allowlist |
 | [landing.md](landing.md) | How a Job's work reaches its target — one pull request, or members landing in order |
+| [layout-mods.md](layout-mods.md) | A mod whose `layout.json` reorders, hides and sets the opening choice of Bridge's Dashboard, Job tabs and rail, by id |
 | [log-envelope.md](log-envelope.md) | The field contract every log line carries across Fleet, Bridge and Drone |
 | [machine.md](machine.md) | How this installation behaves — resources, timing, budget, notification routing |
 | [manifest.md](manifest.md) | Per-project config, backed by `armada.yml` |
@@ -32,10 +33,12 @@ assuming it is restated here.
 | [observe.md](observe.md) | Watching a Drone work while it keeps working — read-only, taking nothing over |
 | [pilot.md](pilot.md) | The escape hatch from a running Job into a human-driven Claude Code session |
 | [plan.md](plan.md) | A Job's own record of what it means to do the work — an approach and its tasks |
+| [pocket.md](pocket.md) | The owner's phone app and the Phone Gateway in front of Fleet: what it shows, what it pushes, what keeps it closed |
 | [retro.md](retro.md) | What got in the way while one Job ran, and whose way, written once it ends |
 | [runner-adapter.md](runner-adapter.md) | A declarative description of one test runner, letting `draft_fix` reach a runner nobody has hand-configured |
 | [scout.md](scout.md) | A read-only agent a person starts from a Studio, which comes back as a Finding |
 | [session.md](session.md) | An agent session a person runs, kept as a row so Fleet can say which sessions are open and which one holds a branch, a pull request, a Job or a slot |
+| [sketch-pane.md](sketch-pane.md) | What the Overview draws beside the Now panel while something asks: a Drone's sketch, the asker's view or the canvas |
 | [studio.md](studio.md) | A typed graph of what one stretch of work produced, kept per repository |
 | [themes.md](themes.md) | The colours Bridge is drawn in: Dark, Light, a catalogue of terminal colour schemes, and the themes mods add |
 | [trigger.md](trigger.md) | Something that runs at a moment in a Job — a Command or a skill, set by Armada, a repository or this machine |

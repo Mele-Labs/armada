@@ -41,7 +41,7 @@ test("a Studio open, a press on another surface, and the note lands on it", asyn
 
   // Away to Overview: what is wrong is on the surface a person is looking at,
   // and the aim is the Studio they left open.
-  await page.getByRole("button", { name: "Overview", exact: true }).first().click();
+  await page.getByRole("button", { name: "Cockpit", exact: true }).first().click();
   await binding();
   await expect.element(bar()).toHaveTextContent("Onto Untitled Studio");
 
@@ -69,7 +69,7 @@ test("a Studio open, a press on another surface, and the note lands on it", asyn
   expect(capture?.selector).toMatch(/button/);
   expect(capture?.markup).toMatch(/Studios/);
   expect(capture?.styles?.["font-size"]).toBeDefined();
-  expect(capture?.screen).toBe("Overview");
+  expect(capture?.screen).toBe("Cockpit");
   expect(capture?.source).toBeUndefined();
 
   // And on the Studio, reopened from the list.
@@ -80,7 +80,7 @@ test("a Studio open, a press on another surface, and the note lands on it", asyn
 
 test("with no Studio open the bar says so, and the card offers no Capture", async () => {
   window_(studying([]).scenario);
-  await expect.element(page.getByRole("button", { name: "Overview", exact: true }).first()).toBeVisible();
+  await expect.element(page.getByRole("button", { name: "Cockpit", exact: true }).first()).toBeVisible();
 
   await binding();
   await expect.element(bar()).toHaveTextContent("No Studio open");

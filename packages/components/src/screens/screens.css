@@ -480,172 +480,15 @@
   min-width: 0;
 }
 
-/* The Dashboard: one list of rows beside the row picked, opened. Every kind of item — a Job's
-   question, a failed Check, a Session waiting, main red — is the same row; its hue is in the frame
-   (the row's left edge, the detail's band), never in a phrase. */
-.armada-dashboard {
-  display: grid;
-  grid-template-columns: minmax(calc(var(--space-12) * 7), 2fr) 3fr;
-  gap: var(--space-4);
-  align-items: start;
-}
-
-.armada-dashboard__list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  outline: none;
-}
-
-.armada-dashboard__row {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  column-gap: var(--space-3);
-  row-gap: var(--space-1);
-  padding: var(--space-2) var(--space-3);
-  border: var(--border-width) solid var(--border-subtle);
-  border-left: calc(var(--border-width) * 3) solid var(--hue);
-  border-radius: var(--radius-md);
-  background: var(--bg-raised);
-  cursor: pointer;
-}
-
-.armada-dashboard__row:hover { background: color-mix(in srgb, var(--hue) 6%, var(--bg-raised)); }
-
-.armada-dashboard__row[aria-selected="true"] {
-  border-color: var(--hue);
-  background: color-mix(in srgb, var(--hue) var(--row-tint), var(--bg-raised));
-}
-
-.armada-dashboard__list:focus-visible .armada-dashboard__row[aria-selected="true"] {
-  box-shadow: 0 0 0 var(--border-width) var(--accent);
-}
-
-.armada-dashboard__mark {
-  grid-row: span 2;
-  display: inline-flex;
-  padding-top: var(--space-1);
-  color: var(--hue);
-}
-
-.armada-dashboard__mark[data-live] svg { animation: armada-dashboard-spin 1.2s linear infinite; }
-
+/* The Dashboard's turning mark, and a Plan question answered in place. Every kind of item has its hue
+   in the frame (the tile's edge, the card's band), never in a phrase. */
 @keyframes armada-dashboard-spin { to { transform: rotate(360deg); } }
-
-@media (prefers-reduced-motion: reduce) {
-  .armada-dashboard__mark[data-live] svg { animation: none; }
-}
-
-.armada-dashboard__title {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-weight: var(--weight-medium);
-  color: var(--fg-default);
-}
-
-.armada-dashboard__age {
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  color: var(--fg-subtle);
-}
-
-.armada-dashboard__fact {
-  grid-column: 2 / span 2;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  color: var(--fg-muted);
-}
-
-.armada-dashboard__detail {
-  position: sticky;
-  top: 0;
-  border: var(--border-width) solid var(--hue);
-  border-radius: var(--radius-md);
-  overflow: hidden;
-  background: color-mix(in srgb, var(--hue) var(--row-tint), var(--bg-raised));
-}
-
-.armada-dashboard__band {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-1) var(--space-3);
-  background: var(--hue);
-  color: var(--fg-inverse);
-}
-
-/* The one legal ALL CAPS, an eyebrow. */
-.armada-dashboard__eyebrow {
-  flex: 1 1 auto;
-  font-size: var(--text-2xs);
-  font-weight: var(--weight-heading);
-  letter-spacing: var(--tracking-caps);
-  text-transform: uppercase;
-}
-
-.armada-dashboard__where {
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-}
-
-.armada-dashboard__body {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  padding: var(--space-4);
-}
-
-.armada-dashboard__heading {
-  margin: 0;
-  font-size: var(--text-lg);
-  font-weight: var(--weight-heading);
-  color: var(--fg-default);
-}
-
-.armada-dashboard__facts {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: var(--space-1) var(--space-4);
-  margin: 0;
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
-}
-
-.armada-dashboard__facts > div { display: contents; }
-.armada-dashboard__facts dt { color: var(--fg-subtle); }
-.armada-dashboard__facts dd { margin: 0; color: var(--fg-default); overflow-wrap: anywhere; }
-
-.armada-dashboard__said {
-  margin: 0;
-  padding: var(--space-3);
-  border-radius: var(--radius-sm);
-  background: var(--bg-sunken);
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  color: var(--fg-muted);
-  white-space: pre-wrap;
-}
 
 .armada-dashboard__answer {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: var(--space-3);
-}
-
-.armada-dashboard__acts {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
 }
 
 /* The hues every Dashboard part reads its frame from. */
@@ -692,90 +535,12 @@
 
 .armada-dispatch-bar__field::placeholder { color: var(--fg-subtle); }
 
-/* ---- The tab strip: a control panel, each tab a live glyph, a glowing underline that slides ------- */
+/* The Job / Session choice and its keys sit at the bar's trailing edge, ahead of the key that focuses it. */
+.armada-dispatch-bar__kind { display: inline-flex; align-items: center; gap: var(--space-2); }
 
-.armada-dtabs {
-  --tab-hue: var(--accent);
-  position: relative;
-  display: grid;
-  grid-template-columns: repeat(var(--tabs), minmax(0, 1fr));
-  width: 100%;
-  border-bottom: var(--border-width) solid var(--border-subtle);
-}
-
-.armada-dtabs[data-hue="ask"] { --tab-hue: var(--status-awaiting-review); }
-.armada-dtabs[data-hue="running"] { --tab-hue: var(--status-running); }
-.armada-dtabs[data-hue="ok"] { --tab-hue: var(--status-completed-success); }
-
-.armada-dtabs__tab {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-3);
-  height: calc(var(--h-row) * 1.5);
-  padding: 0 var(--space-4);
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  color: var(--fg-subtle);
-  font: inherit;
-  font-size: var(--text-base);
-  font-weight: var(--weight-medium);
-  white-space: nowrap;
-  cursor: pointer;
-  transition: color var(--duration-fast) var(--ease), background var(--duration-fast) var(--ease);
-}
-
-.armada-dtabs__tab:hover { color: var(--fg-default); }
-
-.armada-dtabs__tab[aria-selected="true"] { color: var(--fg-default); }
-
-.armada-dtabs__tab:focus { outline: none; }
-.armada-dtabs__tab:focus-visible { outline: none; color: var(--fg-default); text-decoration: underline; text-underline-offset: var(--space-1); }
-
-.armada-dtabs__glyph { display: inline-flex; align-items: center; justify-content: center; width: var(--space-4); height: var(--space-4); color: var(--fg-subtle); }
-.armada-dtabs__tab[aria-selected="true"] .armada-dtabs__glyph,
-.armada-dtabs__tab:hover .armada-dtabs__glyph { color: var(--fg-muted); }
-
-.armada-dtabs__tab[data-hue="running"] svg[data-live] { color: var(--status-running); animation: armada-dashboard-spin 1.2s linear infinite; }
-.armada-dtabs__tab[data-hue="ok"][aria-selected="true"] svg { color: var(--status-completed-success); }
-
-/* The beacon: a dot that pulses in the ask hue while something needs him. */
-.armada-dtabs__beacon {
-  position: relative;
-  width: var(--space-3);
-  height: var(--space-3);
-  border-radius: 50%;
-  border: calc(var(--border-width) * 2) solid var(--fg-subtle);
-}
-
-.armada-dtabs__beacon[data-on] {
-  border-color: var(--status-awaiting-review);
-  background: var(--status-awaiting-review);
-  box-shadow: 0 0 var(--space-3) var(--status-awaiting-review);
-}
-
-.armada-dtabs__beacon[data-on]::after {
-  content: "";
-  position: absolute;
-  inset: calc(var(--border-width) * -2);
-  border-radius: 50%;
-  border: calc(var(--border-width) * 2) solid var(--status-awaiting-review);
-  animation: armada-beacon 2s ease-out infinite;
-}
-
-/* The underline: one bar under the whole strip, slid to the active tab and lit in its hue. */
-.armada-dtabs__bar {
-  position: absolute;
-  left: 0;
-  bottom: calc(var(--border-width) * -1);
-  width: calc(100% / var(--tabs));
-  height: calc(var(--border-width) * 2);
-  background: var(--tab-hue);
-  transform: translateX(calc(var(--at) * 100%));
-  transition: transform var(--duration-base) var(--ease), background var(--duration-base) var(--ease), box-shadow var(--duration-base) var(--ease);
-  pointer-events: none;
-}
+/* Tab switches the choice only while the field has the cursor. */
+.armada-dispatch-bar__tab { visibility: hidden; }
+.armada-dispatch-bar:focus-within .armada-dispatch-bar__tab { visibility: visible; }
 
 /* Where a Job lives, under its title: short label and value pairs in one wrapping line. */
 .armada-call__about {
@@ -803,70 +568,6 @@
 
 /* ---- Command Central: the queue beside the call -------------------------- */
 
-.armada-deck {
-  display: grid;
-  grid-template-columns: minmax(0, 4fr) minmax(0, 8fr);
-  gap: var(--space-4);
-  align-items: start;
-}
-
-.armada-queue {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  outline: none;
-}
-
-.armada-queue__row {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  column-gap: var(--space-3);
-  padding: var(--space-2) var(--space-3);
-  border: var(--border-width) solid var(--border-subtle);
-  border-left: calc(var(--border-width) * 3) solid var(--hue);
-  border-radius: var(--radius-sm);
-  background: var(--bg-raised);
-  cursor: pointer;
-}
-
-.armada-queue__row:hover { background: color-mix(in srgb, var(--hue) 6%, var(--bg-raised)); }
-
-.armada-queue__row[aria-selected="true"] {
-  border-color: var(--hue);
-  background: color-mix(in srgb, var(--hue) var(--row-tint), var(--bg-raised));
-  box-shadow: 0 0 var(--space-4) color-mix(in srgb, var(--hue) 22%, transparent);
-}
-
-.armada-queue:focus-visible .armada-queue__row[aria-selected="true"] { outline: var(--border-width) solid var(--accent); }
-
-.armada-queue__mark { grid-row: span 2; display: inline-flex; padding-top: var(--space-1); color: var(--hue); }
-
-.armada-queue__title {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: var(--text-sm);
-  font-weight: var(--weight-medium);
-  color: var(--fg-default);
-}
-
-.armada-queue__age { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--fg-subtle); }
-
-.armada-queue__fact {
-  grid-column: 2 / span 2;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  color: var(--fg-muted);
-}
-
 /* ---- The call pane --------------------------------------------------------------------------- */
 
 .armada-call {
@@ -884,9 +585,6 @@
 @keyframes armada-call-in {
   from { opacity: 0; transform: translateY(var(--space-2)); }
 }
-
-.armada-deck > .armada-call,
-.armada-board[data-pane] > .armada-call { position: sticky; top: var(--space-2); }
 
 .armada-call__band {
   display: flex;
@@ -1040,214 +738,110 @@
 
 /* ---- The fleet board ---------------------------------------------------------------------------- */
 
-.armada-board { display: grid; grid-template-columns: 1fr; gap: var(--space-4); align-items: start; }
-.armada-board[data-pane] { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); }
-
 /* Each live Job a lane of its steps, on a quiet ground: the lanes carry the board, not the frame. */
-.armada-deck__fleet {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-}
+/* ---- Tiles: every Job and Session in one grid ----------------------------------------------------- */
 
-.armada-deck__lanes { display: flex; flex-direction: column; gap: var(--space-2); margin: 0; padding: 0; list-style: none; outline: none; }
-
-.armada-lane {
+.armada-tiles {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  row-gap: var(--space-2);
-  column-gap: var(--space-3);
-  padding: var(--space-3);
-  border: var(--border-width) solid transparent;
-  border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--bg-raised) 88%, transparent);
-}
-
-.armada-lane[data-pickable] { cursor: pointer; }
-.armada-lane[data-pickable]:hover { border-color: var(--border-default, var(--border-subtle)); }
-.armada-lane[data-focused] { border-color: var(--hue); box-shadow: 0 0 var(--space-4) color-mix(in srgb, var(--hue) 22%, transparent); }
-.armada-deck__lanes:focus-visible .armada-lane[data-focused] { outline: var(--border-width) solid var(--accent); }
-
-.armada-lane__title {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: var(--text-sm);
-  font-weight: var(--weight-medium);
-}
-
-/* The rail: named pips joined by a line, done filled, ahead hollow, the current one live. */
-.armada-lane__rail {
-  position: relative;
-  grid-column: 1 / -1;
-  display: grid;
-  grid-template-columns: repeat(var(--steps), minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(calc(var(--space-12) * 3), 1fr));
+  align-content: start;
+  gap: var(--space-3);
   margin: 0;
   padding: 0;
   list-style: none;
+  outline: none;
 }
 
-.armada-lane__rail::before {
-  content: "";
-  position: absolute;
-  top: calc(var(--space-3) / 2);
-  left: calc(50% / var(--steps));
-  right: calc(50% / var(--steps));
-  height: calc(var(--border-width) * 2);
-  background: var(--border-default, var(--border-subtle));
+/* The state is the frame: a weighted edge in the tile's hue, and a tile that needs the owner lit. */
+.armada-tile {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+  min-height: calc(var(--space-12) * 2);
+  padding: var(--space-3);
+  border: calc(var(--border-width) * 2) solid color-mix(in srgb, var(--hue) 40%, var(--border-subtle));
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--hue) 5%, var(--bg-raised));
+  cursor: pointer;
+  transition: border-color var(--duration-fast) var(--ease), background var(--duration-fast) var(--ease);
 }
 
-.armada-lane__rail:has(> :only-child)::before { display: none; }
+.armada-tile:hover { background: color-mix(in srgb, var(--hue) 10%, var(--bg-raised)); }
 
-.armada-lane__step { position: relative; display: flex; flex-direction: column; align-items: center; gap: var(--space-1); min-width: 0; }
+.armada-tile[aria-selected="true"] {
+  border-color: var(--hue);
+  background: color-mix(in srgb, var(--hue) 14%, var(--bg-raised));
+}
 
-/* The tooltip's wrapper is what sits in the step: held to the step's width, so a long name ellipses
-   rather than running into its neighbour. */
-.armada-lane__step > * { max-width: 100%; min-width: 0; overflow: hidden; }
+.armada-tiles:focus-visible .armada-tile[aria-selected="true"] { box-shadow: 0 0 0 var(--border-width) var(--accent); }
 
-.armada-lane__pip {
-  width: var(--space-3);
-  height: var(--space-3);
+.armada-tile[data-lit] {
+  border-color: var(--hue);
+  background: color-mix(in srgb, var(--hue) 16%, var(--bg-raised));
+  box-shadow: 0 0 var(--space-4) color-mix(in srgb, var(--hue) 45%, transparent);
+}
+
+/* The acts a grid adds under the tile picked, each with its key. */
+.armada-tile__extra { display: flex; gap: var(--space-2); margin: calc(var(--space-1) * -1) calc(var(--space-2) * -1) calc(var(--space-2) * -1); }
+
+.armada-tile__head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
+.armada-tile__mark { display: inline-flex; color: var(--hue); }
+.armada-tile__kind { display: inline-flex; color: var(--fg-subtle); }
+
+.armada-tile__mark[data-spin] svg { animation: armada-dashboard-spin 1.2s linear infinite; }
+.armada-tile__mark[data-live] svg { animation: armada-tile-live 1.6s ease-in-out infinite; }
+
+@keyframes armada-tile-live { 50% { opacity: 0.4; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .armada-tile__mark[data-spin] svg,
+  .armada-tile__mark[data-live] svg { animation: none; }
+}
+
+/* Two lines, then clamped. */
+.armada-tile__title {
+  flex: 1;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--fg-default);
+}
+
+.armada-tile__foot { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); min-height: var(--space-4); }
+.armada-tile__age { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--fg-subtle); }
+
+.armada-tile__pips { display: flex; align-items: center; gap: var(--space-1); margin: 0; padding: 0; list-style: none; }
+.armada-tile__pips > li { display: inline-flex; }
+
+.armada-tile__pip {
+  display: block;
+  width: var(--space-2);
+  height: var(--space-2);
   border: calc(var(--border-width) * 2) solid var(--fg-subtle);
   border-radius: 50%;
   background: var(--bg-sunken);
 }
 
-.armada-lane__step[data-pip="done"] .armada-lane__pip { border-color: var(--status-running); background: var(--status-running); }
+.armada-tile__pips [data-pip="done"] .armada-tile__pip { border-color: var(--status-running); background: var(--status-running); }
+.armada-tile__pips [data-pip="live"] .armada-tile__pip { border-color: var(--hue); background: var(--hue); }
 
-.armada-lane__step[data-pip="live"] .armada-lane__pip {
-  border-color: var(--status-running);
-  background: color-mix(in srgb, var(--status-running) 40%, transparent);
-  animation: armada-pip-live 1.6s ease-in-out infinite;
-}
-
-.armada-lane__step[data-pip="beacon"] .armada-lane__pip { border-color: var(--hue); background: var(--hue); }
-
-@keyframes armada-pip-live {
-  50% { box-shadow: 0 0 0 calc(var(--border-width) * 4) color-mix(in srgb, var(--status-running) 25%, transparent); }
-}
-
-.armada-lane__name {
-  max-width: 100%;
-  padding: 0 var(--space-1);
-  box-sizing: border-box;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-family: var(--font-mono);
-  font-size: var(--text-2xs);
-  color: var(--fg-subtle);
-}
-
-.armada-lane__step[data-pip="done"] .armada-lane__name { color: var(--fg-muted); }
-.armada-lane__step[data-pip="live"] .armada-lane__name,
-.armada-lane__step[data-pip="beacon"] .armada-lane__name { color: var(--fg-default); font-weight: var(--weight-heading); }
-
-/* The beacon: lit where the lane needs the owner. */
-.armada-lane__beacon {
-  width: var(--space-3);
-  height: var(--space-3);
-  border-radius: 50%;
-}
-
-.armada-lane__beacon[data-on] {
-  position: relative;
+/* A Session's cadence: a bar for each of its last rows, a message tall and a tool call short. */
+.armada-tile__spark { display: inline-flex; align-items: flex-end; gap: var(--space-1); height: var(--space-4); }
+.armada-tile__spark > span {
+  width: var(--space-1);
+  height: calc(var(--space-4) * var(--h));
+  border-radius: var(--radius-sm);
   background: var(--hue);
-  box-shadow: 0 0 var(--space-3) var(--hue);
+  opacity: 0.8;
 }
-
-.armada-lane__beacon[data-on]::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  border: calc(var(--border-width) * 2) solid var(--hue);
-  animation: armada-beacon 2s ease-out infinite;
-}
-
-@keyframes armada-beacon {
-  from { transform: scale(1); opacity: 0.9; }
-  to { transform: scale(2.6); opacity: 0; }
-}
-
-.armada-lane__line {
-  grid-column: 1 / -1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  color: var(--fg-muted);
-}
-
-.armada-lane__line::before { content: "› "; color: var(--status-running); }
-
-/* The merge line as a conveyor: blocks marching toward main's light. */
-.armada-conveyor {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-2) var(--space-3);
-  border-top: var(--border-width) dashed var(--border-subtle);
-  color: var(--fg-muted);
-}
-
-.armada-conveyor__belt {
-  display: flex;
-  flex: 1 1 auto;
-  justify-content: flex-end;
-  gap: var(--space-2);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  background: repeating-linear-gradient(90deg, var(--border-subtle) 0 var(--space-1), transparent var(--space-1) var(--space-3)) center / 100% var(--border-width) no-repeat;
-}
-
-.armada-conveyor__block {
-  width: var(--space-4);
-  height: var(--space-3);
-  border-radius: var(--radius-sm);
-  background: var(--status-not-started);
-}
-
-.armada-conveyor__block[data-state="gating"],
-.armada-conveyor__block[data-state="merging"],
-.armada-conveyor__block[data-state="preparing"] {
-  background: var(--status-running);
-  animation: armada-conveyor 1.4s ease-in-out infinite;
-}
-
-@keyframes armada-conveyor { 50% { transform: translateX(calc(var(--space-1) * -1)); } }
-
-.armada-conveyor__main {
-  padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-sm);
-  background: var(--status-completed-success);
-  color: var(--fg-inverse);
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-}
-
-.armada-conveyor__main[data-red] { background: var(--status-completed-failed); box-shadow: 0 0 var(--space-3) var(--status-completed-failed); }
 
 @media (prefers-reduced-motion: reduce) {
-  .armada-call,
-  .armada-lane__step[data-pip="live"] .armada-lane__pip,
-  .armada-lane__beacon[data-on]::after,
-  .armada-dtabs__beacon[data-on]::after,
-  .armada-dtabs__tab svg[data-live],
-  .armada-conveyor__block { animation: none; }
-  .armada-dtabs__bar { transition: none; }
-}
-
-@media (max-width: 960px) {
-  .armada-deck,
-  .armada-board[data-pane] { grid-template-columns: 1fr; }
+  .armada-call { animation: none; }
 }
 
 @keyframes armada-compose-grow {
@@ -3090,7 +2684,9 @@
 /* A Session in the Dashboard's pane: its own thread and box, held to the pane's height. */
 .armada-call__session-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
 .armada-session-mini { display: flex; flex-direction: column; gap: var(--space-3); min-height: 0; }
-.armada-session-mini__thread { max-height: calc(var(--space-12) * 8); overflow-y: auto; padding-right: var(--space-2); }
+/* The thread scrolls itself, from the end (`SessionThread`); this holds it to a height so that it does, rather than
+   scrolling a wrapper the thread's own pin knows nothing of. */
+.armada-session-mini__thread { display: flex; flex-direction: column; max-height: calc(var(--space-12) * 8); min-height: 0; padding-right: var(--space-2); }
 
 /* A Job or an issue named in a call's facts: a pill with its mark, number and title, pressed to open it. */
 .armada-linkchip {

@@ -54,6 +54,36 @@ pub(crate) async fn answer_session_ask<D: HostedSessions>(
     }
 }
 
+/// The person settles one thing a session waits on. 200 with the row; 409 where nothing holds it.
+pub(crate) async fn answer_waiting<D: HostedSessions>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let said: ipc::AnswerWaiting = match ipc::decode("an answer to what a session waits on", &body) {
+        Ok(said) => said,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().answer_waiting(said).await {
+        Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// The person drops one thing a session waits on for good. 200 with the row; 409 where nothing holds it.
+pub(crate) async fn dismiss_waiting<D: HostedSessions>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let dismiss: ipc::DismissWaiting = match ipc::decode("a dismissal of what a session waits on", &body) {
+        Ok(dismiss) => dismiss,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().dismiss_waiting(dismiss).await {
+        Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 pub(crate) async fn tune_session<D: HostedSessions>(
     State(served): State<Served<D>>,
     body: Bytes,

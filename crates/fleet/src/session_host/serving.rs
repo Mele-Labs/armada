@@ -193,6 +193,20 @@ where
         self.published_hosted(&id).await
     }
 
+    async fn answer_waiting(
+        self: Arc<Self>,
+        said: ipc::AnswerWaiting,
+    ) -> Result<SessionRecord, Refusal> {
+        self.settle_waiting(said).await
+    }
+
+    async fn dismiss_waiting(
+        self: Arc<Self>,
+        dismiss: ipc::DismissWaiting,
+    ) -> Result<SessionRecord, Refusal> {
+        self.dismiss_waited(dismiss).await
+    }
+
     async fn tune_session(&self, tuned: TuneSession) -> Result<SessionRecord, Refusal> {
         let id = tuned.session_id.as_str().to_string();
         if let Some(session) = self.terminal_session(&id).await? {

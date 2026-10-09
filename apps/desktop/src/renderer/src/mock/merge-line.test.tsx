@@ -18,7 +18,7 @@ test("with no line, neither the rail row nor the Overview panel draws", async ()
   mount("every-state");
   await onScreen();
 
-  await expect.element(page.getByRole("button", { name: "Overview", exact: true })).toBeVisible();
+  await expect.element(page.getByRole("button", { name: "Cockpit", exact: true })).toBeVisible();
   expect(row().query()).toBeNull();
   expect(page.getByRole("region", { name: "Merge line" }).query()).toBeNull();
 });

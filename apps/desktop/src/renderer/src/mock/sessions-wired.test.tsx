@@ -11,7 +11,7 @@ import { job, repository } from "@armada/screens/src/fixtures/build/base";
 import { onBoard } from "./scenario";
 import type { Scenario } from "./scenario";
 import { asking, FakeSessionsFleet, held, hosted, pullRequest, terminal } from "./sessions-fleet";
-import { mount, onScreen, unmountAfterEach } from "./testing";
+import { mount, onScreen, putOffEveryCall, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
@@ -213,6 +213,9 @@ test("Sessions wired: Open in a Session on a stopped Job starts one with the Job
   const fleet = new FakeSessionsFleet();
   mount(served(fleet));
   await onScreen();
+  await putOffEveryCall();
+  await userEvent.click(page.getByRole("tab", { name: "Active" }));
+  await userEvent.click(page.getByRole("option", { name: /^The retry loop/ }));
   await userEvent.click(page.getByRole("button", { name: "More for The retry loop" }));
   await userEvent.click(page.getByRole("menuitem", { name: "Open in a Session" }));
   await expect.element(page.getByRole("textbox", { name: "Message" }).getByText("The retry loop")).toBeVisible();

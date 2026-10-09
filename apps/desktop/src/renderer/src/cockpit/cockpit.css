@@ -1,0 +1,440 @@
+/* Command Central as a cockpit. The viewscreen is a sunken glass: every live Job and Session an
+   instrument under a header band, state carried in the frame (its hue, its edge, its glass) and
+   never in a phrase. A call that needs the owner comes forward over the glass, which recedes; the
+   calls waiting behind it sit in the band at the edge, where they stay lit. Tokens only. */
+
+.armada-cockpit {
+  --hue: var(--status-awaiting-review);
+  position: relative;
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-height: calc(var(--h-row) * 15);
+}
+
+/* ---- The viewscreen ------------------------------------------------------------------------- */
+
+.armada-view {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--bg-sunken);
+  overflow: hidden;
+}
+
+/* Something is waiting on the owner: the frame takes the call's hue, and its edge is lit. It does not move. */
+.armada-view[data-waiting] {
+  border-color: var(--hue);
+  box-shadow: inset 0 0 calc(var(--space-12) * 1.5) color-mix(in srgb, var(--hue) 16%, transparent), 0 0 var(--space-6) color-mix(in srgb, var(--hue) 16%, transparent);
+}
+
+.armada-view__band {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  min-height: calc(var(--h-row) * 1.25);
+  padding: var(--space-1) var(--space-3) var(--space-1) var(--space-4);
+  border-bottom: var(--border-width) solid var(--border-default);
+  background: var(--bg-raised);
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+
+.armada-view__band > svg { flex: none; }
+
+/* The merge line: blocks moving toward main's light. */
+.armada-view__line {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 0 1 calc(var(--space-12) * 5);
+  min-width: 0;
+}
+
+.armada-view__belt {
+  display: flex;
+  flex: 1 1 auto;
+  justify-content: flex-end;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  background: repeating-linear-gradient(90deg, var(--border-default) 0 var(--space-1), transparent var(--space-1) var(--space-3)) center / 100% var(--border-width) no-repeat;
+}
+
+.armada-view__block {
+  width: var(--space-3);
+  height: var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--status-not-started);
+}
+
+.armada-view__block[data-state="gating"],
+.armada-view__block[data-state="merging"],
+.armada-view__block[data-state="preparing"] { background: var(--status-running); }
+
+.armada-view__main {
+  width: var(--space-3);
+  height: var(--space-3);
+  border-radius: 50%;
+  background: var(--status-completed-success);
+  box-shadow: 0 0 var(--space-3) var(--status-completed-success);
+}
+
+.armada-view__main[data-red] { background: var(--status-completed-failed); box-shadow: 0 0 var(--space-3) var(--status-completed-failed); }
+
+.armada-view__keys { display: inline-flex; align-items: center; gap: var(--space-2); margin-left: auto; }
+
+.armada-view__filters { display: inline-flex; align-items: center; gap: var(--space-2); flex: none; }
+.armada-view__toggle { display: inline-flex; align-items: center; gap: var(--space-1); }
+.armada-view__toggle .armada-button[aria-pressed="true"] { background: var(--accent-muted); color: var(--fg-default); }
+
+/* The panel's body: what is picked, and the pane of the one under the cursor beside it. */
+.armada-view__body { flex: 1 1 auto; display: grid; grid-template-columns: minmax(0, 1fr); min-width: 0; min-height: 0; }
+.armada-view__body[data-pane] { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); }
+.armada-view__body[data-pane][data-view="map"] { grid-template-columns: minmax(0, 1fr) calc(var(--space-12) * 8); }
+.armada-view__pane { min-width: 0; min-height: 0; overflow-y: auto; padding: var(--space-4) var(--space-4) var(--space-4) 0; }
+
+.armada-view__stage { position: relative; display: flex; flex: 1 1 auto; min-height: 0; overflow: hidden; }
+
+/* The glass: a faint ruled grid, so the instruments read as standing on something. */
+.armada-tiles.armada-view__grid {
+  flex: 1 1 auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(calc(var(--space-12) * 4), 1fr));
+  grid-auto-rows: min-content;
+  align-content: start;
+  min-width: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  gap: var(--space-4);
+  margin: 0;
+  padding: var(--space-4);
+  list-style: none;
+  outline: none;
+  background:
+    linear-gradient(color-mix(in srgb, var(--border-subtle) 55%, transparent) var(--border-width), transparent var(--border-width)),
+    linear-gradient(90deg, color-mix(in srgb, var(--border-subtle) 55%, transparent) var(--border-width), transparent var(--border-width));
+  background-size: var(--space-6) var(--space-6);
+}
+
+/* A call is in front: the glass is dimmed behind it, and still. */
+.armada-tiles.armada-view__grid[data-recessed] { opacity: 0.4; }
+
+/* ---- The call, in front, and the calls stacked behind it ------------------------------------- */
+
+.armada-cockpit__scrim {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: var(--space-6);
+  overflow-y: auto;
+  background: color-mix(in srgb, var(--bg-base) 55%, transparent);
+  /* What is behind the card stays pressable: the card is in front, not a dialog. */
+  pointer-events: none;
+}
+
+/* The deck: the card in flow, and the calls behind it as strips standing up above it. */
+.armada-stack {
+  --lift: var(--space-6);
+  position: relative;
+  width: min(100%, calc(var(--space-12) * 14));
+  padding-top: calc(var(--lift) * var(--behind, 0));
+  pointer-events: auto;
+}
+
+/* Each strip: higher, narrower and dimmer than the one in front of it, its title readable. */
+.armada-behind {
+  position: absolute;
+  top: calc(var(--lift) * (var(--behind) - var(--i)));
+  left: calc(var(--space-3) * var(--i));
+  right: calc(var(--space-3) * var(--i));
+  z-index: calc(10 - var(--i));
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  height: calc(var(--lift) + var(--space-4));
+  padding: var(--space-1) var(--space-3) 0;
+  border: var(--border-width) solid var(--hue);
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  background: color-mix(in srgb, var(--hue) 22%, var(--bg-overlay));
+  color: var(--fg-default);
+  opacity: calc(1.15 - var(--i) * 0.25);
+  font: inherit;
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  text-align: left;
+  cursor: pointer;
+}
+
+.armada-behind > svg { flex: none; margin-top: var(--space-1); color: var(--hue); }
+.armada-behind > span { min-width: 0; flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Put off for later: dashed, and at the back. */
+.armada-behind[data-deferred] { border-style: dashed; background: var(--bg-overlay); color: var(--fg-muted); }
+.armada-behind:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
+
+/* With nothing in front, the stack waits at the bottom edge on its own. */
+.armada-tray { position: absolute; left: 0; right: 0; bottom: 0; display: flex; justify-content: center; padding: 0 var(--space-6); pointer-events: none; }
+.armada-tray .armada-stack { height: calc(var(--lift) * var(--behind) + var(--space-4)); pointer-events: auto; }
+.armada-tray .armada-behind { border-radius: var(--radius-md); }
+
+.armada-callcard {
+  position: relative;
+  z-index: 20;
+  width: 100%;
+  border: var(--border-width) solid var(--hue);
+  border-radius: var(--radius-lg);
+  background: var(--bg-overlay);
+  box-shadow: var(--shadow-overlay);
+  overflow: hidden;
+  animation: armada-card-forward var(--duration-travel) var(--ease);
+}
+
+/* One that stood behind another slides up into its place instead. */
+.armada-callcard[data-from="stack"] { animation: armada-card-up var(--duration-travel) var(--ease); }
+
+.armada-callcard[data-leaving="later"] { animation: armada-card-later var(--duration-sheet) var(--ease) forwards; }
+.armada-callcard[data-leaving="sent"] { animation: armada-card-sent var(--duration-sheet) var(--ease) forwards; }
+
+@keyframes armada-card-forward {
+  from { opacity: 0; transform: translateY(var(--space-8)) scale(0.94); }
+}
+
+@keyframes armada-card-up {
+  from { opacity: 0.6; transform: translateY(calc(var(--space-6) * -1)) scale(0.96); }
+}
+
+/* Later sinks back into the stack; sent just goes. */
+@keyframes armada-card-later {
+  to { opacity: 0; transform: translateY(calc(var(--space-6) * -1)) scale(0.94); }
+}
+
+@keyframes armada-card-sent {
+  to { opacity: 0; }
+}
+
+.armada-callcard__band {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  background: var(--hue);
+  color: var(--fg-inverse);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-heading);
+}
+
+.armada-callcard__where { margin-left: auto; font-family: var(--font-mono); font-weight: var(--weight-body); }
+.armada-callcard__age { font-family: var(--font-mono); font-weight: var(--weight-body); opacity: 0.85; }
+
+.armada-callcard__body { display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-4); }
+
+.armada-callcard__title { margin: 0; font-size: var(--text-lg); line-height: var(--leading-lg); font-weight: var(--weight-heading); color: var(--fg-default); }
+
+/* What he asked the Job for: a few lines, and the rest where he asks for it. */
+.armada-callcard__asked { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-1); }
+.armada-callcard__request {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  color: var(--fg-muted);
+  overflow-wrap: anywhere;
+}
+.armada-callcard__request[data-whole] { -webkit-line-clamp: unset; display: block; }
+
+/* Where the question came from, and what is active now: two quiet lines. */
+.armada-callcard__origin,
+.armada-callcard__doing { display: flex; align-items: center; gap: var(--space-2); margin: 0; font-family: var(--font-mono); font-size: var(--text-xs); line-height: var(--leading-xs); color: var(--fg-subtle); }
+.armada-callcard__doing { color: var(--fg-muted); }
+.armada-callcard__doing > span { display: inline-flex; flex: none; color: var(--hue); }
+
+.armada-callcard__why {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-left: calc(var(--border-width) * 2) solid var(--hue);
+  background: var(--bg-sunken);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: 1.5;
+  color: var(--fg-muted);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* A Session's call: a few messages of its thread, from the newest. */
+.armada-callcard__thread { display: flex; flex-direction: column; max-height: calc(var(--space-12) * 4); min-height: 0; padding-right: var(--space-2); overflow-y: auto; }
+
+.armada-callcard__ask {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  margin: 0;
+  padding-top: var(--space-3);
+  border-top: var(--border-width) solid var(--border-subtle);
+  font-size: var(--text-lg);
+  line-height: var(--leading-lg);
+  font-weight: var(--weight-heading);
+  color: var(--fg-default);
+  text-wrap: balance;
+}
+
+.armada-callcard__ask[data-quiet] { font-family: var(--font-mono); font-size: var(--text-sm); font-weight: var(--weight-medium); overflow-wrap: anywhere; }
+
+/* Where a Plan question is among its decisions: a pip each. */
+.armada-callcard__pips { display: inline-flex; gap: var(--space-1); margin-left: auto; }
+.armada-callcard__pip { width: var(--space-2); height: var(--space-2); border: var(--border-width) solid var(--hue); border-radius: 50%; }
+.armada-callcard__pip[data-here] { background: var(--hue); }
+
+/* The answers, each carrying the number or the key that picks it; the standing two sit under them. */
+.armada-callcard__choices { display: flex; flex-direction: column; gap: var(--space-2); }
+.armada-callcard__answers { display: grid; grid-template-columns: repeat(auto-fit, minmax(calc(var(--space-12) * 3), 1fr)); gap: var(--space-2); }
+
+.armada-callcard__answer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-sunken);
+  color: var(--fg-default);
+  font: inherit;
+  font-weight: var(--weight-medium);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color var(--duration-fast) var(--ease), background var(--duration-fast) var(--ease);
+}
+
+.armada-callcard__option { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
+.armada-callcard__label { display: inline-flex; align-items: baseline; gap: var(--space-2); flex-wrap: wrap; }
+.armada-callcard__recommended { padding: 0 var(--space-1); border: var(--border-width) solid var(--hue); border-radius: var(--radius-sm); color: var(--hue); font-size: var(--text-2xs); line-height: var(--leading-2xs); font-weight: var(--weight-medium); }
+.armada-callcard__description { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; font-size: var(--text-xs); line-height: var(--leading-xs); font-weight: var(--weight-body); color: var(--fg-muted); }
+
+/* A reply in words, and the picker an Attach opens. */
+.armada-callcard__reply { display: flex; align-items: flex-start; gap: var(--space-2); }
+.armada-callcard__reply textarea,
+.armada-callcard__picker input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-sunken);
+  color: var(--fg-default);
+  font: inherit;
+  font-size: var(--text-sm);
+  resize: vertical;
+}
+.armada-callcard__reply textarea:focus-visible,
+.armada-callcard__picker input:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
+.armada-callcard__picker { display: flex; flex-direction: column; gap: var(--space-2); }
+.armada-callcard__candidates { display: flex; flex-direction: column; gap: var(--space-1); max-height: calc(var(--space-12) * 3); margin: 0; padding: 0; overflow-y: auto; list-style: none; }
+.armada-callcard__candidate { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-1) var(--space-3); border: var(--border-width) solid transparent; border-radius: var(--radius-sm); font-size: var(--text-sm); color: var(--fg-default); cursor: pointer; }
+.armada-callcard__candidate > span { display: inline-flex; color: var(--fg-muted); }
+.armada-callcard__candidate[aria-selected="true"] { border-color: var(--hue); background: color-mix(in srgb, var(--hue) 14%, var(--bg-sunken)); }
+
+.armada-callcard__answer[data-standing] { padding: var(--space-2) var(--space-3); border-style: dashed; background: transparent; color: var(--fg-muted); font-size: var(--text-sm); font-weight: var(--weight-body); }
+.armada-callcard__answer:hover { border-color: var(--hue); }
+.armada-callcard__answer:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
+
+.armada-callcard__answer[aria-checked="true"] {
+  border-color: var(--hue);
+  background: color-mix(in srgb, var(--hue) 22%, var(--bg-sunken));
+  box-shadow: inset 0 0 0 var(--border-width) var(--hue);
+  color: var(--fg-default);
+}
+
+.armada-callcard__acts { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+.armada-callcard__acts > :last-child { margin-left: auto; }
+
+.armada-callcard__acts .armada-kbd,
+.armada-callcard__asked .armada-kbd { margin-left: var(--space-2); }
+
+/* ---- The key sheet -------------------------------------------------------------------------- */
+
+.armada-keys { display: flex; flex-direction: column; gap: var(--space-6); margin: 0; padding: var(--space-4); }
+.armada-keys__group { display: flex; flex-direction: column; gap: var(--space-2); margin: 0; padding: 0; border: 0; }
+.armada-keys__head { margin: 0 0 var(--space-1); font-size: var(--text-sm); font-weight: var(--weight-heading); color: var(--fg-default); }
+.armada-keys__row { display: grid; grid-template-columns: calc(var(--space-12) * 3) 1fr; align-items: center; gap: var(--space-3); margin: 0; font-size: var(--text-sm); color: var(--fg-muted); }
+.armada-keys__row dt { display: inline-flex; gap: var(--space-1); }
+.armada-keys__row dd { margin: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  .armada-callcard { animation: none !important; }
+}
+
+/* ---- The map ---------------------------------------------------------------------------------- */
+
+.armada-view__map { position: relative; display: flex; min-width: 0; min-height: 0; padding: var(--space-2); }
+.armada-view__map[data-recessed] { opacity: 0.4; }
+
+.armada-map { position: relative; flex: 1 1 auto; min-width: 0; min-height: 0; }
+.armada-map__field { position: absolute; inset: 0; width: 100%; height: 100%; outline: none; }
+.armada-map__field:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
+
+.armada-map__dust { fill: var(--fg-subtle); opacity: 0.35; }
+
+/* A repository: a faint ring round its stars, named at its top. */
+.armada-map__cluster circle { fill: color-mix(in srgb, var(--accent) 4%, transparent); stroke: var(--border-default); stroke-width: 1; stroke-dasharray: 2 7; }
+.armada-map__cluster text { fill: var(--fg-subtle); font-family: var(--font-mono); font-size: var(--text-xs); }
+
+/* What joins what: a parent to its child, a Job to what it waits on, a Session to its Job, a branch to main. */
+.armada-map__link { stroke: var(--fg-subtle); stroke-width: 1; opacity: 0.55; }
+.armada-map__link[data-kind="dispatched"] { stroke: var(--fg-muted); stroke-width: 1.5; opacity: 0.85; }
+.armada-map__link[data-kind="waits"] { stroke-dasharray: 5 4; }
+.armada-map__link[data-kind="works"] { stroke: var(--status-running); opacity: 0.55; }
+.armada-map__link[data-kind="line"] { stroke: var(--status-completed-success); stroke-dasharray: 1 5; stroke-linecap: round; opacity: 0.7; }
+
+/* A star: its colour is its state, its glow is how much it wants him. Nothing pulses. */
+.armada-star { cursor: pointer; }
+.armada-star__core { fill: var(--hue); }
+.armada-star__halo { fill: var(--hue); opacity: 0.14; }
+.armada-star__halo[data-inner] { opacity: 0.24; }
+.armada-star__ring { fill: none; stroke: var(--accent); stroke-width: 1.5; }
+.armada-star__label { fill: var(--fg-muted); font-family: var(--font-mono); font-size: var(--text-2xs); pointer-events: none; }
+.armada-star[data-lit] .armada-star__label,
+.armada-star[aria-selected="true"] .armada-star__label { fill: var(--fg-default); }
+.armada-star:hover .armada-star__core { stroke: var(--fg-default); stroke-width: 1; }
+
+.armada-map__landmark text { fill: var(--fg-subtle); font-family: var(--font-mono); font-size: var(--text-2xs); }
+.armada-map__main { fill: var(--status-completed-success); }
+.armada-map__landmark[data-red] .armada-map__main { fill: var(--status-completed-failed); }
+.armada-map__branch { fill: var(--status-not-started); }
+
+.armada-map__tip {
+  position: absolute;
+  z-index: 2;
+  transform: translate(-50%, calc(-100% - var(--space-2)));
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-1) var(--space-2);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-overlay);
+  box-shadow: var(--shadow-overlay);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-default);
+  pointer-events: none;
+  white-space: nowrap;
+}
+.armada-map__tip span { font-family: var(--font-mono); font-size: var(--text-2xs); color: var(--fg-muted); }
+
+.armada-map__key { position: absolute; right: var(--space-3); bottom: var(--space-3); display: flex; flex-direction: column; gap: var(--space-1); margin: 0; padding: 0; list-style: none; font-family: var(--font-mono); font-size: var(--text-2xs); color: var(--fg-subtle); }
+.armada-map__key li { display: flex; align-items: center; gap: var(--space-2); }
+
+/* The acts of the star under the cursor, as the tile carries them. */
+.armada-view__picked { position: absolute; left: 50%; bottom: var(--space-3); transform: translateX(-50%); display: flex; align-items: center; gap: var(--space-2); padding: var(--space-1) var(--space-3); border: var(--border-width) solid var(--border-default); border-radius: var(--radius-md); background: var(--bg-raised); font-size: var(--text-sm); color: var(--fg-default); white-space: nowrap; }
+.armada-view__picked > span:first-child { min-width: 0; max-width: calc(var(--space-12) * 5); overflow: hidden; text-overflow: ellipsis; }

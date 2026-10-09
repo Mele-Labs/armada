@@ -1,7 +1,14 @@
 ---
 name: armada-mods
-description: How a session makes a theme mod for Bridge end to end — scaffold it, edit its stylesheet, check it, and tell the owner where to pick it. Load when the owner asks for a different look, colours, or a theme.
+description: How a session makes a mod for Bridge end to end — a theme (colours) or a layout (which tabs, panels and rail rows are drawn, and in what order). Scaffold it, edit its one file, check it, and tell the owner where to see it. Load when the owner asks for a different look, colours, a theme, or to move, hide or reorder something in Bridge.
 ---
+
+# Making a mod
+
+**Two kinds.** A theme changes colours, in `theme.css`; a layout changes what
+Bridge arranges, in `layout.json`. Colours are the first section below and
+layouts the second. Pick the kind from the ask: "warmer", "darker" and "higher
+contrast" are themes; "move", "hide", "put first" and "reorder" are layouts.
 
 # Making a theme mod
 
@@ -99,3 +106,91 @@ primitive, not the alias. Keep body text at 4.5 to 1 against the layer it sits o
   --accent: #6CB8F0;
 }
 ```
+
+# Making a layout mod
+
+**A layout names tabs, panels and rail rows by id and nothing else.** It can
+reorder them, hide some, and say which tab opens first. It cannot add a panel,
+change a label or reach any code. `docs/concepts/layout-mods.md` is what Fleet
+accepts and how layers combine.
+
+## The steps
+
+| # | Do | Tool |
+|---|---|---|
+| 1 | See what exists, so the name is new | `list_mods` |
+| 2 | Make the folder; it answers with its `path` | `scaffold_mod` with `name`, `description` and `kind` set to `layout` |
+| 3 | Edit `layout.json` in that path | Your editor |
+| 4 | Check it; read `problems`, fix, check again | `validate_mod` with `name` |
+| 5 | Tell the owner where to see it | Mods lists it; Settings, Layout shows what it did |
+
+**The scaffold holds `{ "version": 1 }`, which changes nothing**, so it is valid
+before you edit it. **You are not done until `valid` is true**, and Bridge
+applies only the `layout` text `validate_mod` returned. You cannot switch the mod
+on or off: `set_mod_enabled` is his. A mod nobody switched is on, so it applies
+as soon as it is valid, with no restart.
+
+## The regions and ids
+
+An id that is not in this table is ignored, never an error, so a typo does
+nothing: check the id against the table.
+
+| Region | Ids, in the order shipped | Cannot be hidden | `order` | `first` |
+|---|---|---|---|---|
+| `dashboard.tabs` | `command-central`, `running`, `done` | `command-central` | yes | yes |
+| `dashboard.panels` | `quick-dispatch`, `fleet`, `merge-line` | `fleet` | yes | no |
+| `job.tabs` | `overview`, `workflow`, `plan`, `record`, `checks`, `drones`, `pulse`, `settings` | `overview`, `plan` | yes | yes |
+| `rail` | `overview`, `studios`, `worktrees`, `merge-line`, `lessons`, `checks`, `sessions`, `kit`, `mods`, `settings`, `guides`, `workflows` | `overview`, `mods`, `settings` | no | no |
+
+`packages/shell/layout-registry.json` is the list Fleet checks. **The Retros
+page is the rail row `lessons`**; the Dashboard has no such tab. Hiding takes an
+entry off the strip or the rail and nothing else: it stays in the palette and in
+links.
+
+| Field | Is | Notes |
+|---|---|---|
+| `version` | `1` | Required |
+| `order` | List of ids | Named first, in this order; the rest keep their place after |
+| `hidden` | List of ids | Not drawn. A non-hideable id is ignored |
+| `first` | One id | What opens first, if it is shown |
+
+A list is at most 32 ids, an id is lowercase letters, digits and `-` of at most
+40 characters, the file is at most 4 KiB, and any other key inside a region makes
+the whole file invalid.
+
+## Example: the merge line first, Retros off the rail
+
+```json
+{
+  "version": 1,
+  "dashboard.panels": { "order": ["merge-line", "fleet"] },
+  "rail": { "hidden": ["lessons"] }
+}
+```
+
+## Example: Record before Plan in a Job, Pulse hidden, open on Plan
+
+```json
+{
+  "version": 1,
+  "job.tabs": { "order": ["overview", "workflow", "record", "plan"], "hidden": ["pulse"], "first": "plan" }
+}
+```
+
+## What you must not do
+
+| Never | Because |
+|---|---|
+| Invent a region or an id | It is ignored, and the owner sees no change |
+| Try to hide Mods or Settings | They stay drawn so a bad layout can always be undone |
+| Edit `mod.toml` beyond `description` and `version` | `name` must equal the folder, and `kind` is `layout` |
+| Add a second file or a link in the folder | Only `mod.toml` and `layout.json` are read |
+| Write the owner's own choices | `layout_choices` is Settings, Layout, and it outranks every mod |
+
+**What he sees.** Layout mods apply in name order, a later name's `order` or
+`hidden` replacing an earlier one's for that region, and his own choices in
+Settings, Layout apply over all of them. Reset to defaults there clears his
+choices and switches layout mods off, so tell him the mod is still installed
+and can be switched back on in Mods. **Promotion is his act**, as for a theme:
+copy `mod.toml` and `layout.json`, and not `.git`, to `packages/mods/<name>/`
+in your own slot if he asks you to.

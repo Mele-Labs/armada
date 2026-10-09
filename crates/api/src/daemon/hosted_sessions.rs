@@ -44,6 +44,21 @@ pub trait HostedSessions: Send + Sync + 'static {
         said: AnswerSessionAsk,
     ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
 
+    /// `answer_waiting`: the person settles one item of what a session waits on. Routed by the
+    /// item's source. [`Refusal::IllegalMove`] where nothing holds the item, and
+    /// [`Refusal::Unacceptable`] for an answer that says nothing.
+    fn answer_waiting(
+        self: Arc<Self>,
+        said: ipc::AnswerWaiting,
+    ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
+
+    /// `dismiss_waiting`: the person drops one item for good. [`Refusal::IllegalMove`] where
+    /// nothing holds the item.
+    fn dismiss_waiting(
+        self: Arc<Self>,
+        dismiss: ipc::DismissWaiting,
+    ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
+
     /// `tune_session`.
     fn tune_session(
         &self,

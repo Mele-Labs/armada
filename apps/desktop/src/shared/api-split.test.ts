@@ -172,13 +172,12 @@ import type {
   RepositoryScanRead,
 } from "@armada/screens/src/setup-reads";
 import type {
-  DriftsRead,
   HealthRead,
 } from "@armada/screens/src/overview-reads";
 import type {
   Outstanding,
 } from "@armada/screens/src/outstanding";
-import type { AnswerSessionAsk, PilotOutcome, PullRequestState, RenameSession, ReviewDispatched, SendSessionMessage, SessionRow, SessionSubagent, TuneSession } from "@armada/protocol";
+import type { AnswerSessionAsk, AnswerWaiting, DismissWaiting, PilotOutcome, PullRequestState, RenameSession, ReviewDispatched, SendSessionMessage, SessionRow, SessionSubagent, TuneSession } from "@armada/protocol";
 import type { PilotExit, PullRequestPress, SessionActed, SessionsRead } from "./api/sessions";
 import type { BridgeApi } from "./api";
 import { CHANNELS, NOTHING_YET } from "./bridge";
@@ -229,7 +228,6 @@ type OldBridgeState = {
     checkoutRunFollowed: CheckoutRunFollowed;
     manifestDrift: ManifestDriftRead;
     health: HealthRead;
-    drifts: DriftsRead;
     questions: Outstanding[];
     helm: HelmThread;
     studios: StudiosRead;
@@ -443,6 +441,8 @@ type OldBridgeApi = {
     exitPilot: (jobId: string, exit: PilotExit, note?: string) => Promise<Outcome>;
     sendSessionMessage: (send: SendSessionMessage) => Promise<SessionActed>;
     answerSessionAsk: (answer: AnswerSessionAsk) => Promise<SessionActed>;
+    answerWaiting: (answer: AnswerWaiting) => Promise<SessionActed>;
+    dismissWaiting: (dismiss: DismissWaiting) => Promise<SessionActed>;
     tuneSession: (tune: TuneSession) => Promise<SessionActed>;
     renameSession: (rename: RenameSession) => Promise<SessionActed>;
     forkSession: (sessionId: string) => Promise<SessionActed>;
@@ -503,8 +503,7 @@ const OLD_NOTHING_YET: OldBridgeState = {
     checkoutRunFollowed: { state: "none" },
     manifestDrift: { state: "none" },
     health: { state: "none" },
-    drifts: { state: "none" },
-    questions: [],
+      questions: [],
     helm: { state: "none" },
     studios: { state: "none" },
     studio: { state: "none" },
@@ -713,6 +712,8 @@ const OLD_CHANNELS = {
     exitPilot: "bridge:exit-pilot",
     sendSessionMessage: "bridge:send-session-message",
     answerSessionAsk: "bridge:answer-session-ask",
+    answerWaiting: "bridge:answer-waiting",
+    dismissWaiting: "bridge:dismiss-waiting",
     tuneSession: "bridge:tune-session",
     renameSession: "bridge:rename-session",
     retroSession: "bridge:retro-session",

@@ -13,6 +13,7 @@ Read the journey that covers what you are about to design or build, before you b
 | [Triage Queue](triage-queue.md) | Design or build the proactive, self-initiated scan across Alerts and the Job Board's review filter |
 | [Respond to a Push Alert](respond-to-a-push-alert.md) | Design or build the reactive single-item Debug view, the Intervention Ladder, or the Alert Levels a push notification carries |
 | [Monitor Active Work](monitor-active-work.md) | Design or build the Active Jobs list or the job detail rail — the M1 monitoring subset, and what the full surface defers |
+| [Set up the phone app](set-up-the-phone-app.md) | Run `armada pocket`, put it on the tailnet, pair a phone and allow push |
 | [Set Up a Project (Manifest)](set-up-a-project-manifest.md) | Design or build onboarding a new repo — Locate, Scan, the picker, the proposal sheet, ports, Write and Verify |
 | [Change a Job's Scope](change-a-jobs-scope.md) | Design or build widening or narrowing a dispatched Job — the scope picker, the second approval gate, the narrowing confirmation, and what a respawn costs |
 | [Run and edit a Manifest](run-and-edit-a-manifest.md) | Design or build Bridge's Manifest surface — running a Check or Command on demand, editing a manifest, Verify's drift-plus-dry-run, or the run sheet on Job detail |

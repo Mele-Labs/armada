@@ -1,0 +1,7 @@
+[icons.drafting-compass]
+  means = "A pair of compass legs hinged at a ring - drafting a figure before it is built"
+  group = "Chrome"
+  size = "16px"
+  status = "Proposed"
+  reserved = "The Sketch toggle in the Now panel head only: the left-hand view of the diagram an asking Drone drew. Never the sketch pad's pen, which is `pencil`, never placing a Sketch node on a whiteboard, which is `shapes`, and never a Session's sketch, which is `pencil-ruler`."
+  notes = "Minted to replace `pencil-ruler`, which is reserved to a Session's sketches. Two splayed legs are one silhouette that survives 16px and says a figure is being drawn, where the pad's own marks (`pencil`, `shapes`) say a person is drawing it, and the Sketch view is read-only until the owner marks it. Refused: `pen-tool`, which promises a curve tool the pad does not have; `pen-line` and `pencil-line`, which collide with `pencil` and `square-pen` in the same family of glyphs; `frame`, which reads as a crop."

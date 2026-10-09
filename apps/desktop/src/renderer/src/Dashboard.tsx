@@ -1,37 +1,48 @@
-// The Dashboard's one surface: every Job, Session and merge-line item read as the same row in one
-// list, and the row picked opened beside it. Each tab is the same list over a different cut —
-// what needs the owner, what is under way, what is over. Mock only: what a Job asks comes from the
-// draft's Now views, which Fleet does not serve.
+// What the Dashboard's panel reads: every Job, Session and merge-line item as one `Item`, cut three
+// ways — what needs the owner, what is under way, what is over — with the keys the Board's lists
+// answer. `cockpit/` draws them. Mock only: what a Job asks comes from the draft's Now views, which
+// Fleet does not serve.
 
-import { useEffect, useMemo, useState, type KeyboardEvent, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   Bot,
+  Box,
+  Check,
   CircleCheck,
+  CircleDot,
   CircleX,
   Clock,
+  Cpu,
   Eye,
   GitMerge,
   GitPullRequest,
   LoaderCircle,
+  Megaphone,
   MessageSquare,
+  OctagonAlert,
   Scale,
+  ShieldCheck,
   ShieldX,
   SquareTerminal,
+  Unplug,
+  Waypoints,
   Workflow,
   type LucideIcon,
 } from "lucide-react";
-import { Button, Radio, RadioGroup, Textarea, Tooltip } from "@armada/components";
+import { Button, Radio, RadioGroup, Textarea } from "@armada/components";
 import type { FixMain, JobSummary, RepositorySummary } from "@armada/protocol";
 import type { AboutFiles, AboutLink, CallAskView, CallView } from "@armada/jobs/draft/calls";
+import type { NowView } from "@armada/jobs/draft/now";
 import type { Session } from "@armada/screens/src/draft/sessions";
 import { overviewListsOf, type DashboardTab } from "@armada/overview";
-import { JobActs, JobMarks, hasMarks, isTerminal, titleOf, type PauseAct } from "@armada/screens";
+import { JobActs, isTerminal, titleOf, type PauseAct } from "@armada/screens";
 import { boardPressOf } from "@armada/screens/src/keys";
 import { useListKeydown } from "@armada/screens/src/list-keyboard";
 
 import type { BridgeState } from "../../shared/bridge";
 import { viewsOf } from "./merge-line";
 import { useSessions } from "./sessions-draft";
+import { callsFromWaiting, sessionIdOf, type WaitingCall, type WaitingItem } from "./cockpit/waiting";
 
 /** The frame's hue: what the row wants of the owner, or how it stands. */
 type Hue = "ask" | "issue" | "running" | "queued" | "ok" | "bad";
@@ -67,7 +78,54 @@ export type Item = {
   context?: readonly string[];
   contextHead?: string;
   acts: (done: () => void) => ReactNode;
+  /** The tile's state icon where the kind's own would not say what is active: a Session's state, or a Job's Drone, Check or Judge. */
+  mark?: LucideIcon;
+  /** What that icon's tooltip says. The kind where absent. */
+  state?: string;
+  /** Whether the item is a Session. */
+  session?: boolean;
+  /** The Job's workflow steps and the index it is at, for the tile's pips. */
+  steps?: readonly { id: string; label: string }[];
+  stepAt?: number;
+  /** A Session's recent cadence, each bar 0 to 1: a message tall, a tool call short. */
+  spark?: readonly number[];
+  /** What a Session's call waits on: the item, which is what the call answers. */
+  waiting?: { sessionId: string; item: WaitingItem };
 };
+
+/** What the Dashboard knows of each Job's Now, by Job id. Mock only: Fleet serves none. */
+export const Nows = createContext<Readonly<Record<string, NowView>> | undefined>(undefined);
+
+const WAITING = {
+  resource: { mark: Cpu, state: "Waiting on a resource" },
+  job: { mark: Box, state: "Waiting on a Job" },
+  transition: { mark: Waypoints, state: "Between steps" },
+  step: { mark: Workflow, state: "Running a one-off step" },
+} as const;
+
+/**
+ * The first thing active on a Job, as the icon its tile wears: what asks the owner, then what went
+ * wrong, then what runs (a Drone, a Check, a Judge), then what it waits on.
+ */
+function activeOf(view: NowView | undefined): Pick<Item, "mark" | "state" | "hue"> | undefined {
+  if (view === undefined) return undefined;
+  if ((view.asks ?? []).length > 0) return { mark: Megaphone, state: "Waiting on you", hue: "ask" };
+  const issue = view.issues?.[0];
+  if (issue !== undefined) return { mark: OctagonAlert, state: issue.said, hue: "issue" };
+  const running = view.running?.find((one) => one.state === "running") ?? view.running?.[0];
+  if (running !== undefined) {
+    const said = running.state === "failed" ? "Check failed" : running.state === "passed" ? "Check passed" : running.of === "drone" ? "Drone working" : running.of === "check" ? "Check running" : "Judge deciding";
+    return { mark: running.state === "failed" ? ShieldX : running.of === "drone" ? Bot : running.of === "check" ? ShieldCheck : Scale, state: said, hue: "running" };
+  }
+  const waiting = view.waiting?.[0];
+  return waiting === undefined ? undefined : { ...WAITING[waiting.kind], hue: "queued" };
+}
+
+/** A Session's last ten rows as bars, a message tall and a tool call short, with a faint floor where it has said less. */
+function sparkOf(session: Session): number[] {
+  const rows = session.rows.slice(-10).map((row) => (row.kind === "message" ? 1 : row.kind === "tool" ? 0.45 : 0.25));
+  return [...Array.from({ length: 10 - rows.length }, () => 0.12), ...rows];
+}
 
 export const age = (at: string | undefined, now: number): string => {
   if (at === undefined) return "";
@@ -94,6 +152,8 @@ export type Hosts = {
   onRedispatch?: ((jobId: string) => void) | undefined;
   onClear?: ((jobId: string) => void) | undefined;
   onPausing?: ((act: PauseAct, jobId: string) => void) | undefined;
+  /** Says a sentence as a toast: a refusal the panel has to name. */
+  onTell?: ((sentence: string) => void) | undefined;
   /** Where the cursor is, for Helm's footer: the Job picked, or null. */
   onCursor?: ((jobId: string | null) => void) | undefined;
 };
@@ -159,20 +219,6 @@ function StuckDrone({ onDone, onOpen }: { onDone: () => void; onOpen: () => void
   );
 }
 
-/** The arrows, on a list that has focus: the Board's j and k are the window's, `useBoardKeys`. */
-export function onListKey(
-  event: KeyboardEvent,
-  rows: readonly { key: string }[],
-  at: number,
-  pick: (key: string) => void,
-): void {
-  const step = event.key === "ArrowDown" ? 1 : event.key === "ArrowUp" ? -1 : 0;
-  if (step === 0) return;
-  event.preventDefault();
-  const next = rows[Math.min(rows.length - 1, Math.max(0, at + step))];
-  if (next !== undefined) pick(next.key);
-}
-
 /**
  * The Board's keys on the Dashboard list in front, read off the window as the Board's lists read
  * them (`boardPressOf`): j and k move, Enter, o or the row's verb key open what is picked, x asks to
@@ -200,7 +246,7 @@ export function useBoardKeys(
       case "open":
       case "verb":
         if (here?.job !== undefined) hosts.onOpen(here.job.id);
-        else if (here?.key.startsWith("session:") === true) hosts.onOpenSession(here.key.slice("session:".length));
+        else if (sessionIdOf(here?.key ?? "") !== undefined) hosts.onOpenSession(sessionIdOf(here!.key)!);
         else return;
         break;
       case "kill":
@@ -332,6 +378,10 @@ function sessionItem(session: Session, hosts: Hosts): Item {
     owner: `session:${session.id}`,
     icon: SquareTerminal,
     kind: "Session",
+    session: true,
+    mark: ended ? Unplug : waiting ? Eye : working ? CircleDot : Check,
+    state: waiting ? "Waiting on a command" : ended ? "Ended" : working ? "Working" : "Idle",
+    spark: sparkOf(session),
     title: session.title ?? session.address ?? session.id,
     fact: waiting ? session.asked!.command : ended ? "ended" : working ? "working" : "idle",
     at: session.lastTurnAt,
@@ -353,6 +403,33 @@ function sessionItem(session: Session, hosts: Hosts): Item {
       ) : (
         <Button variant="secondary" onClick={open}>Open Session</Button>
       ),
+  };
+}
+
+/** One thing a Session waits on, as a call: one card per item, in the order they began. */
+function waitingItem({ session, item }: WaitingCall, hosts: Hosts): Item {
+  const last = [...session.rows].reverse().find((row) => row.kind === "message");
+  return {
+    key: `session:${session.id}:${item.id}`,
+    owner: `session:${session.id}`,
+    icon: SquareTerminal,
+    kind: item.source === "ask_card" ? "Session question" : item.source === "walk" ? "Session walk" : "Session",
+    session: true,
+    mark: Eye,
+    state: item.source === "permission" ? "Waiting on a command" : "Waiting on you",
+    spark: sparkOf(session),
+    title: session.title ?? session.address ?? session.id,
+    fact: item.text,
+    at: item.since,
+    hue: "ask",
+    where: session.address ?? "",
+    body: [],
+    ...(last !== undefined && last.kind === "message" ? { said: [last.text] } : {}),
+    doing: "Waiting on you",
+    context: session.rows.flatMap((row) => (row.kind === "message" ? [row.text] : [])).slice(-3),
+    contextHead: "Last messages",
+    waiting: { sessionId: session.id, item },
+    acts: () => <Button variant="secondary" onClick={() => hosts.onOpenSession(session.id)}>Open Session</Button>,
   };
 }
 
@@ -417,16 +494,16 @@ function lineItems(state: BridgeState, tab: DashboardTab, hosts: Hosts, rehearse
         });
       }
     }
-    const entries = tab === "running" ? view.line : tab === "done" ? view.landed : [];
-    for (const entry of entries) {
+    // Done is Jobs and Sessions; what landed is the merge line's, not an item.
+    for (const entry of tab === "running" ? view.line : []) {
       items.push({
         key: `line:${view.root}:${entry.branch}`,
         icon: GitMerge,
-        kind: tab === "running" ? "In the merge line" : "Landed",
+        kind: "In the merge line",
         title: entry.job?.title ?? entry.branch,
-        fact: tab === "running" ? `${entry.place === undefined ? "" : `#${entry.place} · `}${worded(entry.state)}` : "landed",
-        hue: tab === "running" ? "running" : "ok",
-        live: tab === "running" && (entry.state === "gating" || entry.state === "merging" || entry.state === "preparing"),
+        fact: `${entry.place === undefined ? "" : `#${entry.place} · `}${worded(entry.state)}`,
+        hue: "running",
+        live: entry.state === "gating" || entry.state === "merging" || entry.state === "preparing",
         where,
         body: [["Branch", entry.branch], ...(entry.pr === undefined ? [] : [["Pull request", `#${entry.pr.number}`] as const])],
         acts: () =>
@@ -452,6 +529,7 @@ export function useItems(
   answered: ReadonlySet<string>,
 ): Item[] {
   const sessions = useSessions();
+  const nows = useContext(Nows);
   return useMemo(() => {
     const read = overviewListsOf(state.jobs, picked);
     const of = (ids: readonly string[]) => read.sections.filter((one) => ids.includes(one.id)).flatMap((one) => one.jobs);
@@ -478,7 +556,7 @@ export function useItems(
             acts: () => <JobActs job={job} stale={false} onOpen={hosts.onOpen} onKill={hosts.onKill ?? noop} onRedispatch={hosts.onRedispatch ?? noop} onClear={hosts.onClear ?? noop} {...(hosts.onPausing === undefined ? {} : { onPausing: hosts.onPausing })} />,
           });
       }
-      items.push(...sessions.filter((one) => one.asked !== undefined && one.dead === undefined && one.turn.state !== "working").map((one) => sessionItem(one, hosts)));
+      items.push(...callsFromWaiting(sessions).map((one) => waitingItem(one, hosts)));
     } else {
       const jobs = tab === "running" ? of(["running", "queued", "other"]) : of(["recently-ended", "done"]);
       for (const job of jobs) {
@@ -515,96 +593,15 @@ export function useItems(
       );
     }
     items.push(...lineItems(state, tab, hosts, nowViews !== undefined));
-    return items.filter((item) => !answered.has(item.key));
-  }, [tab, state, picked, nowViews, sessions, answered]);
-}
-
-export function Dashboard({
-  tab,
-  state,
-  now,
-  picked,
-  nowViews,
-  ...hosts
-}: Hosts & {
-  tab: DashboardTab;
-  state: BridgeState;
-  now: number;
-  picked: RepositorySummary | null;
-  nowViews?: Readonly<Record<string, CallView>> | undefined;
-}) {
-  const [answered, setAnswered] = useState<ReadonlySet<string>>(new Set());
-  const items = useItems(tab, state, picked, nowViews, hosts, answered);
-  const [selected, setSelected] = useState<string>();
-  const current = items.find((item) => item.key === selected) ?? items[0];
-  useEffect(() => setSelected(undefined), [tab]);
-  useCursor(current?.job, hosts.onCursor);
-
-  const at = items.findIndex((item) => item.key === current?.key);
-  useBoardKeys(items, at, setSelected, hosts);
-  const move = (event: KeyboardEvent) => onListKey(event, items, at, setSelected);
-
-  if (current === undefined) return null;
-  const Icon = current.icon;
-  return (
-    <div className="armada-dashboard">
-      <ul className="armada-dashboard__list" role="listbox" aria-label="Items" tabIndex={0} onKeyDown={move}>
-        {items.map((item) => {
-          const Mark = item.live === true ? LoaderCircle : item.icon;
-          return (
-            <li
-              key={item.key}
-              role="option"
-              data-job-id={item.job?.id}
-              data-status={item.job?.status}
-              aria-selected={item.key === current.key}
-              data-hue={item.hue}
-              className="armada-dashboard__row"
-              onClick={() => setSelected(item.key)}
-            >
-              <Tooltip label={item.live === true ? `${item.kind}, live` : item.kind}>
-                <span className="armada-dashboard__mark" data-live={item.live === true || undefined}>
-                  <Mark size={16} aria-hidden="true" />
-                </span>
-              </Tooltip>
-              <span className="armada-dashboard__title">{item.title}</span>
-              <span className="armada-dashboard__age">{age(item.at, now)}</span>
-              <span className="armada-dashboard__fact">{item.fact}</span>
-            </li>
-          );
-        })}
-      </ul>
-      <section className="armada-dashboard__detail" data-hue={current.hue} aria-label={current.title}>
-        <header className="armada-dashboard__band">
-          <Icon size={14} aria-hidden="true" />
-          <span className="armada-dashboard__eyebrow">{current.kind}</span>
-          <span className="armada-dashboard__where">{current.where}</span>
-        </header>
-        <div className="armada-dashboard__body">
-          <h2 className="armada-dashboard__heading">
-            {current.title}
-            {current.job === undefined || !hasMarks(current.job, now) ? null : (
-              <span className="armada-call__marks">
-                <JobMarks job={current.job} now={now} />
-              </span>
-            )}
-          </h2>
-          {current.body.length === 0 ? null : (
-            <dl className="armada-dashboard__facts">
-              {current.body.map(([term, value]) => (
-                <div key={term}>
-                  <dt>{term}</dt>
-                  <dd>{value}</dd>
-                </div>
-              ))}
-            </dl>
-          )}
-          {(current.said ?? []).length === 0 ? null : (
-            <pre className="armada-dashboard__said">{current.said!.join("\n")}</pre>
-          )}
-          <div className="armada-dashboard__acts">{current.acts(() => setAnswered(new Set([...answered, current.key])))}</div>
-        </div>
-      </section>
-    </div>
-  );
+    // A Job's pips come from its workflow and its icon from the first thing active on it.
+    const drawn = items.map((item): Item => {
+      if (item.job === undefined || tab === "command-central") return item;
+      const job = item.job;
+      const steps = (state.holds.workflows.find((one) => one.id === job.workflow_id)?.steps ?? []).map((step) => ({ id: step.step_id, label: step.label }));
+      const at = tab === "done" && item.hue !== "bad" ? steps.length : Math.max(0, steps.findIndex((step) => step.id === job.current_step_id));
+      const active = tab === "done" ? undefined : activeOf(nows?.[job.id]);
+      return { ...item, ...(steps.length === 0 ? {} : { steps, stepAt: at }), ...(active === undefined ? {} : { ...active, live: true }) };
+    });
+    return drawn.filter((item) => !answered.has(item.key));
+  }, [tab, state, picked, nowViews, nows, sessions, answered]);
 }

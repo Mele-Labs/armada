@@ -227,6 +227,113 @@ pub struct ShowWindow {
     pub session_id: Option<SessionId>,
 }
 
+/// What a press on a waiting item does.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum WaitingActKind {
+    /// Open the walk window at `target`, an address.
+    Walk,
+    /// Go to the question or permission card; `target` is its call.
+    Answer,
+    /// Open the pull request; `target` is its number.
+    ApprovePr,
+    /// Show a command; `target` is the command.
+    Run,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WaitingAct {
+    pub kind: WaitingActKind,
+    pub target: String,
+}
+
+/// One choice of an `answer` item, in the order to draw and number them.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WaitingOption {
+    pub label: String,
+}
+
+/// Who put an item on the list.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum WaitingSource {
+    /// The agent, through `waiting_for`.
+    Agent,
+    /// Fleet: the agent's question card is open.
+    AskCard,
+    /// Fleet: a walk window the session showed has not been approved.
+    Walk,
+    /// Fleet: a permission card is open.
+    Permission,
+}
+
+/// One thing a session is waiting on the person for.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WaitingItem {
+    /// Stable across updates: the agent's own, or `ask:<call>`, `walk:<url>`, `perm:<call>`.
+    pub id: String,
+    pub text: String,
+    /// When it began to wait.
+    pub since: Instant,
+    pub source: WaitingSource,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub act: Option<WaitingAct>,
+    /// Present only on an `answer` item that has choices.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub options: Vec<WaitingOption>,
+}
+
+/// One item as the agent states it. Fleet stamps `since` and `source`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WaitingInput {
+    pub id: String,
+    pub text: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub act: Option<WaitingAct>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub options: Vec<WaitingOption>,
+}
+
+/// `waiting_for`: the agent sets the whole list of what it needs from the person. An empty list clears it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SetWaitingFor {
+    pub items: Vec<WaitingInput>,
+    /// Which session. **Read only where the connection places no hosted session**, as `ShowWindow`'s.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<SessionId>,
+}
+
+/// How the agent is told to settle an item itself.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum WaitingMode {
+    /// Think it through and decide.
+    Best,
+    /// Take the reasonable path and keep moving.
+    Quick,
+}
+
+/// `answer_waiting`: the person settles one item. `choice` is an index into the item's `options`, `text`
+/// is their own words, and `mode` leaves it to the agent.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AnswerWaiting {
+    pub session_id: SessionId,
+    pub item_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub choice: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub text: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mode: Option<WaitingMode>,
+}
+
+/// `dismiss_waiting`: the person drops one item for good. Nothing is sent to the agent.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DismissWaiting {
+    pub session_id: SessionId,
+    pub item_id: String,
+}
+
 /// One row of the ledger as the wire carries it.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Attachment {
@@ -279,6 +386,10 @@ pub struct SessionRecord {
     /// repository's. Since 23.62.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub mod_out_of_date: bool,
+    /// What the session waits on the person for: the agent's list with Fleet's own items merged in, the
+    /// agent's first. Empty for an ended session.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub waiting_for: Vec<WaitingItem>,
 }
 
 /// `list_sessions`: the most recently seen first.
@@ -302,4 +413,25 @@ pub struct Ownership {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Owners {
     pub holders: Vec<Ownership>,
+}
+
+/// `claim_pull_request`: a Session or Job takes an open pull request nobody holds.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ClaimPullRequest {
+    pub number: u64,
+    /// Which session claims it. **Read only where the connection places no hosted session and no
+    /// Drone**, as `ShowWindow::session_id` is.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<SessionId>,
+}
+
+/// What `claim_pull_request` answers: the pull request now held, and by whom.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PullRequestClaimed {
+    pub number: u64,
+    pub branch: String,
+    pub url: String,
+    /// `session` or `job`, and its id.
+    pub holder_kind: String,
+    pub holder_id: String,
 }

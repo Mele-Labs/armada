@@ -20,3 +20,10 @@
     size = "12px"
     status = "Specified"
     notes = "Added 5 Oct 2026 with the Workflow creator. A step the Judge reads, drawn on the definition rather than on a run. It is the Step phase use above before any run exists."
+
+  [[icons.scale.usage]]
+    means = "A Judge deciding, on a Job's Now line and on a Dashboard tile"
+    group = "Now"
+    size = "12px"
+    status = "Proposed"
+    notes = "Proposed 9 Oct 2026 with the Dashboard's call card and tiles, which draw what a Job runs now with the Now panel's own marks. It sits beside the reservation above rather than inside it, and the owner may rule it out."

@@ -277,8 +277,9 @@ async fn a_bad_signature_or_a_changed_body_is_refused() {
     let headers = signed(&id, "POST", "/api/jobs", now + 2, "{\"a\":1}");
     let (status, _) = call(&rig.app, Method::POST, "/api/jobs", &headers, "{\"a\":2}").await;
     assert_eq!(status, StatusCode::UNAUTHORIZED);
+    // Past the signature, the dispatch route refuses this body on its own terms.
     let (status, _) = call(&rig.app, Method::POST, "/api/jobs", &headers, "{\"a\":1}").await;
-    assert_eq!(status, StatusCode::NOT_IMPLEMENTED);
+    assert_eq!(status, StatusCode::BAD_REQUEST);
 }
 
 #[tokio::test]

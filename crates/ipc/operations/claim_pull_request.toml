@@ -1,0 +1,14 @@
+[operations.claim_pull_request]
+kind = "command"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Take an open pull request nobody holds, so its failures and its merge are told to this session or Job"
+notes = """
+`POST /sessions/claim_pull_request`, body `ClaimPullRequest`: `number` and an optional `session_id`. Answered with `PullRequestClaimed`.
+
+**The caller is placed as `show_window` places it**: a hosted session by the connection, a Job by its Drone's connection, a terminal session by `session_id`. A call that places none is refused with 422.
+
+**It attaches the open pull request when no live Session or Job holds it**, or when every holder has ended (a Session that ended, a Job that reached a terminal status). The ended holder's row is given back. A live holder refuses the claim with 422 and names it; a pull request that is not open is refused the same way. The row appears in the ledger, so Bridge needs nothing more.
+
+`agent_access` is `Yes`: noticing that a pull request has been orphaned is the agent's, and it is the one that can tell.
+"""

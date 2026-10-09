@@ -8,6 +8,7 @@
 //! permission door and `rows` writes the thread.
 
 mod asking;
+pub(crate) mod following;
 mod forking;
 mod gate;
 mod hearing;
@@ -20,6 +21,7 @@ mod rows;
 mod serving;
 pub(crate) use serving::NO_SUCH_SESSION;
 mod terminal;
+pub(crate) mod waiting;
 
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};

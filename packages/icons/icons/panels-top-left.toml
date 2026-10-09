@@ -1,0 +1,7 @@
+[icons.panels-top-left]
+  means = "A window split into a header strip and two panes"
+  group = "Mods"
+  size = "16px"
+  status = "Proposed"
+  reserved = "A mod of kind layout. Never the Overview surface, which is `layout-dashboard`."
+  notes = "Tooltip `Layout`. Proposed in the layout mods mock for the owner to walk."

@@ -12,6 +12,8 @@
 
 import type {
   AnswerSessionAsk,
+  AnswerWaiting,
+  DismissWaiting,
   Followed,
   FrameRead,
   Outcome,
@@ -173,6 +175,14 @@ export class SessionsHost {
 
   async answer(answer: AnswerSessionAsk): Promise<SessionActed> {
     return await this.act("POST", "/sessions/ask/answer", answer);
+  }
+
+  async answerWaiting(answer: AnswerWaiting): Promise<SessionActed> {
+    return await this.act("POST", "/sessions/waiting/answer", answer);
+  }
+
+  async dismissWaiting(dismiss: DismissWaiting): Promise<SessionActed> {
+    return await this.act("POST", "/sessions/waiting/dismiss", dismiss);
   }
 
   async tune(tune: TuneSession): Promise<SessionActed> {

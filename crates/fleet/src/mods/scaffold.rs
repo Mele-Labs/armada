@@ -4,7 +4,9 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use super::{manifest, slug_problem, MANIFEST, THEME};
+use ipc::ModKind;
+
+use super::{manifest, slug_problem, LAYOUT, MANIFEST, THEME};
 
 /// Why a scaffold did not happen.
 #[derive(Debug, PartialEq, Eq)]
@@ -27,10 +29,19 @@ const STARTER: &str = "\
 }
 ";
 
+/// The starter layout: the version and no region, so it validates and changes nothing until
+/// someone names a region.
+const STARTER_LAYOUT: &str = "{\n  \"version\": 1\n}\n";
+
 /// Make `mods_dir/name` and commit it. **The folder is made with `create_dir`**,
 /// which refuses one that exists in the same step it makes this one, so a
 /// concurrent scaffold of the same name cannot get into the other's folder.
-pub(crate) fn make(mods_dir: &Path, name: &str, description: Option<&str>) -> Result<PathBuf, Refused> {
+pub(crate) fn make(
+    mods_dir: &Path,
+    name: &str,
+    description: Option<&str>,
+    kind: ModKind,
+) -> Result<PathBuf, Refused> {
     if let Some(why) = slug_problem(name) {
         return Err(Refused::Unacceptable(why));
     }
@@ -50,7 +61,7 @@ pub(crate) fn make(mods_dir: &Path, name: &str, description: Option<&str>) -> Re
         std::io::ErrorKind::AlreadyExists => Refused::Unacceptable(format!("a mod called `{name}` already exists")),
         _ => Refused::Failed(format!("the mod's folder could not be made: {why}")),
     })?;
-    match written(&dir, name, description) {
+    match written(&dir, name, description, kind) {
         Ok(()) => Ok(dir),
         Err(why) => {
             // Ours, made a moment ago and holding only what this wrote.
@@ -60,12 +71,16 @@ pub(crate) fn make(mods_dir: &Path, name: &str, description: Option<&str>) -> Re
     }
 }
 
-fn written(dir: &Path, name: &str, description: &str) -> Result<(), String> {
+fn written(dir: &Path, name: &str, description: &str, kind: ModKind) -> Result<(), String> {
     let escaped = description.replace('\\', "\\\\").replace('"', "\\\"");
+    let (word, file, starter) = match kind {
+        ModKind::Theme => ("theme", THEME, STARTER),
+        ModKind::Layout => ("layout", LAYOUT, STARTER_LAYOUT),
+    };
     let toml = format!(
-        "name = \"{name}\"\nkind = \"theme\"\nversion = \"0.1.0\"\ndescription = \"{escaped}\"\n"
+        "name = \"{name}\"\nkind = \"{word}\"\nversion = \"0.1.0\"\ndescription = \"{escaped}\"\n"
     );
-    for (file, text) in [(MANIFEST, toml.as_str()), (THEME, STARTER)] {
+    for (file, text) in [(MANIFEST, toml.as_str()), (file, starter)] {
         std::fs::OpenOptions::new()
             .write(true)
             .create_new(true)
@@ -74,8 +89,8 @@ fn written(dir: &Path, name: &str, description: &str) -> Result<(), String> {
             .map_err(|why| format!("{file} could not be written: {why}"))?;
     }
     git(dir, &["init", "--quiet", "--initial-branch=main"])?;
-    git(dir, &["add", "--", MANIFEST, THEME])?;
-    git(dir, &["commit", "--quiet", "-m", &format!("Start the {name} theme")])
+    git(dir, &["add", "--", MANIFEST, file])?;
+    git(dir, &["commit", "--quiet", "-m", &format!("Start the {name} {word}")])
 }
 
 /// One git command in `dir`, with no configuration but what is passed here.

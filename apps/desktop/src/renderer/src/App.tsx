@@ -43,7 +43,7 @@ import { useEscapeLeavesJob, useNow, useReturnToRow, useSummoned } from "./app-e
 import { aJobAct, ConfirmAct, type Confirming } from "./ConfirmAct";
 import { PaletteMount } from "./PaletteMount";
 import { FLEET_DOWN } from "./palette";
-import { Overview } from "./Overview";
+import { Overview, useDispatchBarKeys } from "./Overview";
 import { CaptureLayer, type CaptureAim } from "./capture/Layer";
 import { StudiosSurface } from "./StudiosSurface";
 import type { SketchOpening } from "@armada/screens/src/draft/sketch";
@@ -336,7 +336,7 @@ export function App({ draft }: AppProps = {}) {
   // `⌘1`…`⌘n`, the binding the contract publishes and nothing answered until
   // the Manifest surface needed `⌘5`. One roster, read by the rail, the
   // palette and now the keyboard.
-  useSurfaceKeys(goTo);
+  useSurfaceKeys(goTo); useDispatchBarKeys(() => goTo(SURFACE.overview)); // `n` and ⌘N: the Dashboard's dispatch bar.
 
   // What this repository's Manifest declares, held open while the surface that
   // draws it is showing, **the palette is up** or a Studio is open, whose Run
@@ -353,9 +353,9 @@ export function App({ draft }: AppProps = {}) {
     watchManifestDrift(manifesting);
   }, [manifesting]);
 
-  // Fleet's health and every repository's drift in scope. Held for the life
-  // of the window rather than only while Overview is showing — Bridge/1088's
-  // Fleet panel draws its Doctor read on every surface now.
+  // Fleet's health. Held for the life of the window rather than only while
+  // Overview is showing — Bridge/1088's Fleet panel draws its Doctor read on
+  // every surface now.
   useEffect(() => {
     watchOverview(true);
     return () => watchOverview(false);
@@ -1067,6 +1067,7 @@ export function App({ draft }: AppProps = {}) {
                   onSave={commands.saveLimits}
                   preferences={state.preferences} onSavePreference={(save) => window.armada.savePreference(save)}
                   onReadGuides={() => goTo(SURFACE.guides)}
+                  onCopied={setCopied}
                 />
               </Boundary>
             ) : (
@@ -1093,7 +1094,7 @@ export function App({ draft }: AppProps = {}) {
                   onLanded={() => setLanding(null)}
                   onOpenLink={openProseLink} onFix={(fix) => void commands.fixMain(fix)}
                   onOpenSession={openSession}
-                  nowViews={draft?.calls}
+                  nowViews={draft?.calls} nows={draft?.now} onTell={tell}
                   onQuickCompose={(words) => (setSeed(words), setComposing(true))}
                 />
 

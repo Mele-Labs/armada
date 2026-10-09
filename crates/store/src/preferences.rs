@@ -46,6 +46,8 @@ pub struct Preferences {
     pub draft_pull_requests: bool,
     /// The theme's id, in a table of its own for `DRAFT_PULL_REQUESTS`' reason.
     pub theme: String,
+    /// The text of the owner's `layout.json`, or empty where he has made no choice.
+    pub layout_choices: String,
 }
 
 /// The theme nobody has chosen away from.
@@ -57,6 +59,7 @@ impl Default for Preferences {
             where_things_are_open: false,
             draft_pull_requests: false,
             theme: SHIPPED_THEME.to_string(),
+            layout_choices: String::new(),
         }
     }
 }
@@ -103,6 +106,15 @@ impl Store {
             Err(rusqlite::Error::QueryReturnedNoRows) => {}
             Err(other) => return Err(fault("reading the saved preferences")(other)),
         }
+        match self.conn.query_row(
+            "SELECT value FROM layout_preference WHERE id = 1",
+            [],
+            |row| row.get::<_, String>(0),
+        ) {
+            Ok(choices) => preferences.layout_choices = choices,
+            Err(rusqlite::Error::QueryReturnedNoRows) => {}
+            Err(other) => return Err(fault("reading the saved preferences")(other)),
+        }
         Ok(preferences)
     }
 
@@ -117,6 +129,23 @@ impl Store {
                 (theme,),
             )
             .map_err(fault("saving the theme"))
+            .map_err(WriteError::Database)?;
+        self.preferences().map_err(WriteError::Database)
+    }
+
+    /// Save the owner's layout choices, and answer with every preference now in force. **Empty
+    /// takes them back**: no row is no choices. Not checked here, for `save_theme`'s reason.
+    pub fn save_layout_choices(&mut self, text: &str) -> Result<Preferences, WriteError> {
+        let saved = match text.is_empty() {
+            true => self.conn.execute("DELETE FROM layout_preference WHERE id = 1", []),
+            false => self.conn.execute(
+                "INSERT INTO layout_preference (id, value) VALUES (1, ?1)
+                 ON CONFLICT (id) DO UPDATE SET value = excluded.value",
+                (text,),
+            ),
+        };
+        saved
+            .map_err(fault("saving the layout choices"))
             .map_err(WriteError::Database)?;
         self.preferences().map_err(WriteError::Database)
     }

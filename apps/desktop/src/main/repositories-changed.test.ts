@@ -20,7 +20,6 @@ const NO_PICK: PickedView = {
   repository: null,
   manifestReading: null,
   health: { state: "none" },
-  drifts: { state: "none" },
   checkoutRunSheet: { state: "none" },
   checkoutRunFollowed: { state: "none" },
   manifestDrift: { state: "none" },

@@ -130,9 +130,9 @@ describe("every arc moment loads", () => {
   test("the kinds Board opens every Job it holds", async () => {
     const { scenario } = mount("kinds", SLICES);
     await listed();
-    // Every Job is on one of the Dashboard's tabs: read each in turn.
+    // Every Job is on one of the Cockpit's filters: read each in turn.
     const ids = new Set<string>();
-    for (const name of ["Command Central", "Running", "Done"]) {
+    for (const name of ["Your move", "Active", "Done"]) {
       await userEvent.click(page.getByRole("tab", { name }));
       await expect.element(page.getByRole("tab", { name })).toHaveAttribute("aria-selected", "true");
       for (const row of rows()) if (row.dataset.jobId !== undefined) ids.add(row.dataset.jobId);

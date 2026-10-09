@@ -92,10 +92,10 @@ const STATES: { what: string; open: () => Promise<Drawn> }[] = [
   },
 ];
 
-/** The surface the composer was opened from, back again. `App` opens on Overview. */
+/** The surface the composer was opened from, back again. `App` opens on the Cockpit. */
 async function backToOverview(): Promise<void> {
   await expect.poll(() => page.getByRole("button", { name: WAY_OUT }).query()).toBe(null);
-  await expect.element(page.getByRole("tab", { name: "Running" })).toBeVisible();
+  await expect.element(page.getByRole("tab", { name: "Active" })).toBeVisible();
 }
 
 test.for(STATES)("$what carries the way out on its own head, and it closes the composer", async (state) => {

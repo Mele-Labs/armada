@@ -33,7 +33,7 @@ fn a_fleet_over_a_repository(home: &TempDir, with_packages: bool) -> Fleet<FakeH
 
 async fn scaffolded(fleet: &Fleet<FakeHarness, GitVcs, FakeWorkProduct>, name: &str) {
     fleet
-        .scaffold_mod(ScaffoldMod { name: name.into(), description: Some("Softer".into()) })
+        .scaffold_mod(ScaffoldMod { name: name.into(), description: Some("Softer".into()), kind: None })
         .await
         .expect("scaffolded");
 }
