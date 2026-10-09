@@ -572,6 +572,10 @@ export class FleetConnection {
     return await this.jobReads.readCheckOutput(jobId, kept);
   }
 
+  async readSessionCheckOutput(run: number): Promise<CheckOutputRead> {
+    return await this.jobReads.readSessionCheckOutput(run);
+  }
+
   async readBrief(jobId: string, name: string): Promise<BriefRead> {
     return await this.jobReads.readBrief(jobId, name);
   }

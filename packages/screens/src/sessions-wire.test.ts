@@ -194,6 +194,11 @@ describe("the thread", () => {
     expect(drawn).toMatchObject([{ kind: "command", text: "/reload-plugins" }, { kind: "compaction", text: "This session is being continued" }]);
   });
 
+  it("keeps an armada check the agent ran as a row with its run and where it stands", () => {
+    const drawn = rowsOfThread("a", [{ kind: "check", id: "check-7", at: AT, name: "components_test", run: 7, state: "failed" }], () => undefined);
+    expect(drawn).toMatchObject([{ kind: "check", name: "components_test", run: 7, state: "failed" }]);
+  });
+
   it("keeps a window the Session showed as a row with its address, and its ledger entry as a window", () => {
     const drawn = rowsOfThread("a", [{ kind: "window", id: "w", at: AT, title: "Findings", url: "http://localhost:5173/" }], () => undefined);
     expect(drawn).toMatchObject([{ kind: "window", title: "Findings", url: "http://localhost:5173/" }]);

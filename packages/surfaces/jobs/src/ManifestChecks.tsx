@@ -12,6 +12,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { Button, CheckDetails, CheckList, ConsoleOutput, SlotOwner, Tabs, type ConsoleRow } from "@armada/components";
 import type {
+  CheckOutputRead,
   CheckoutRunFollowed,
   CheckoutRunListRead,
   CheckoutRunRecord,
@@ -65,6 +66,8 @@ export type ManifestChecksProps = {
   onReadChecks: () => Promise<ManifestChecksRead>;
   /** A Job's Check log, read whole or followed while it is written. */
   onReadCheckOutput: ReadCheckOutput;
+  /** A Session's run, read by its id: it has no Job to read under. */
+  onReadSessionCheckOutput: (run: number) => Promise<CheckOutputRead>;
   onFollowCheckOutput: FollowCheckOutput;
   followedLog: FollowedLog;
   /** A Job as a person names it, for the link to it. */
@@ -201,9 +204,17 @@ function ReportedLogPanel(
 ) {
   const { entry, job, logs, floor, onClose } = props;
   const [at, setAt] = useState(0);
-  const outputs = useCheckOutputs(props.onReadCheckOutput, job);
+  const run = entry.session?.run;
+  const { onReadCheckOutput, onReadSessionCheckOutput } = props;
+  const read = useMemo<ReadCheckOutput>(
+    () => (run === undefined ? onReadCheckOutput : () => onReadSessionCheckOutput(run)),
+    [run, onReadCheckOutput, onReadSessionCheckOutput],
+  );
+  const outputs = useCheckOutputs(read, job);
   const following = useFollowing(props.onFollowCheckOutput, props.followedLog, job);
-  const log = logs[Math.min(at, logs.length - 1)]!;
+  const one = logs[Math.min(at, logs.length - 1)]!;
+  // A Session's log is kept when its run ends, so the key moves with the state and a log read while the run was out is read again.
+  const log = run === undefined ? one : { ...one, kept: `${one.kept}.${entry.status}` };
   return (
     <JobCheckLogSheet
       log={{ name: log.check, kept: log.kept, live: entry.status === "running" }}

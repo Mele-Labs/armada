@@ -580,6 +580,8 @@ const api: BridgeApi = {
 
   readCheckOutput: (jobId: string, kept: string): Promise<CheckOutputRead> =>
     ipcRenderer.invoke(CHANNELS.readCheckOutput, jobId, kept),
+  readSessionCheckOutput: (run: number): Promise<CheckOutputRead> =>
+    ipcRenderer.invoke(CHANNELS.readSessionCheckOutput, run),
   readBrief: (jobId: string, name: string): Promise<BriefRead> =>
     ipcRenderer.invoke(CHANNELS.readBrief, jobId, name),
   // A Job's retro and the Lessons listing, read when a surface opens and on focus.

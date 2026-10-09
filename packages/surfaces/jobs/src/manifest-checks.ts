@@ -40,7 +40,7 @@ export type CheckEntry = {
   /** The Job a reported Check belongs to, which its logs are read under. */
   job?: { id: string; handle: string };
   /** The Session whose agent ran it, and the slot it ran in. The page draws its owner chip. */
-  session?: { id: string; slot?: number };
+  session?: { id: string; slot?: number; run?: number };
   /** Each of a reported Check's logs, `get_check_output`'s `kept`. */
   logs?: readonly ManifestCheckLog[];
   /** Said on hover in place of the status's own word, where the wire has a finer one. */
@@ -292,7 +292,7 @@ export function entryOfReported(row: ManifestCheckRow): CheckEntry {
     command: "",
     requester: row.requester,
     ...(row.job_id === undefined ? {} : { job: { id: row.job_id, handle: row.job_handle ?? row.job_id } }),
-    ...(sessionId === undefined ? {} : { session: { id: sessionId, ...(row.requester.slot === undefined ? {} : { slot: row.requester.slot }) } }),
+    ...(sessionId === undefined ? {} : { session: { id: sessionId, ...(row.requester.slot === undefined ? {} : { slot: row.requester.slot }), ...(row.asked_run_id === undefined ? {} : { run: row.asked_run_id }) } }),
     ...(row.logs === undefined || row.logs.length === 0 ? {} : { logs: row.logs }),
     ...(held.says === undefined ? {} : { says: held.says }),
     ...(held.skipped === undefined ? {} : { skipped: true as const }),

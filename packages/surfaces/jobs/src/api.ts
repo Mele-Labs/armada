@@ -523,6 +523,11 @@ export type JobsApi = {
    * name against its own record. Read-only, like the reads above it.
    */
   readCheckOutput: (jobId: string, kept: string) => Promise<CheckOutputRead>;
+  /**
+   * One Check a Session's agent ran, by its run id: `GET /sessions/checks/:run/output`. `readCheckOutput`'s
+   * shape. A Session's run has no Job and no log file Fleet resolved against one, so it is read by the run.
+   */
+  readSessionCheckOutput: (run: number) => Promise<CheckOutputRead>;
   /** One kept brief a Judge or a gaming check was asked, by its file name. `readCheckOutput`'s shape. */
   readBrief: (jobId: string, name: string) => Promise<BriefRead>;
   /**
@@ -913,6 +918,7 @@ export const JOBS_CHANNELS = {
   readDiff: "bridge:read-diff",
   readRemarks: "bridge:read-remarks",
   readCheckOutput: "bridge:read-check-output",
+  readSessionCheckOutput: "bridge:read-session-check-output",
   readBrief: "bridge:read-brief",
   readRetro: "bridge:read-retro",
   readLessons: "bridge:read-lessons",

@@ -5,7 +5,7 @@
 import type { ManifestCheckRow } from "@armada/protocol";
 import type { Session } from "@armada/screens/src/draft/sessions";
 
-import { checkingOver, JOB_LOGS, REPORTED } from "../checks-fleet";
+import { checkingOver, REPORTED } from "../checks-fleet";
 import type { Scenario } from "../moment";
 import type { SessionsStore } from "../sessions/script";
 import { s200Sessions } from "./sessions";
@@ -38,7 +38,6 @@ const rows = (): ManifestCheckRow[] => [
 ];
 
 const LOGS: Record<string, string[]> = {
-  ...JOB_LOGS,
   [`session.${ID}.${OUT}.log`]: ["$ vitest run --project app_smoke", " FAIL  src/renderer/src/mock/walks.test.tsx", "AssertionError: expected the sheet to be visible"],
   [`session.${ID}.30.log`]: ["$ vitest run --project components_test", " FAIL  SessionThread.stories.tsx > Check rows", "AssertionError: expected 1 to be 2"],
   [`session.${ID}.29.log`]: ["$ tsc -b", "Found 0 errors."],
@@ -115,11 +114,12 @@ export const s203SessionChecks: Scenario = {
     return {
       ...base,
       readManifestChecks: async () => ({ ok: true, checks: { rows: rows(), total: rows().length } }),
-      readCheckOutput: async (_id, kept) => {
+      readSessionCheckOutput: async (run) => {
+        const kept = `session.${ID}.${run}.log`;
         const lines = LOGS[kept];
         return lines === undefined
           ? { ok: false, outcome: { ok: false, why: "not_connected" } }
-          : { ok: true, output: { attempt: 1, name: kept, path: `.armada/${kept}`, lines, from_line: 1, total_lines: lines.length, bytes: 0, whole: true } };
+          : { ok: true, output: { attempt: 1, name: kept, path: `session-check/${run}`, lines, from_line: 1, total_lines: lines.length, bytes: 0, whole: true } };
       },
     };
   },

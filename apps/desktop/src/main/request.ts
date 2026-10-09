@@ -430,6 +430,13 @@ export async function checkOutputOf(
   return { ok: true, output: answer.body as CheckOutput };
 }
 
+/** One Check a Session's agent ran, by its run id. `checkOutputOf`'s shape, on the route a Session's run has. */
+export async function sessionCheckOutputOf(port: number, run: number): Promise<CheckOutputRead> {
+  const answer = await ask(port, "GET", `/sessions/checks/${encodeURIComponent(String(run))}/output`);
+  if (answer.ok !== true) return { ok: false, outcome: answer.outcome };
+  return { ok: true, output: answer.body as CheckOutput };
+}
+
 /**
  * One kept brief, read into the app: `checkOutputOf`'s shape, on
  * `GET /jobs/:job_id/briefs/:name` (protocol 21.11). `name` is the last part of

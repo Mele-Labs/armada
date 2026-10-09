@@ -25,6 +25,8 @@ test("Session checks: a running row ends, and pressing it opens the run with the
   await userEvent.click(thread.getByRole("button", { name: "Check app_smoke, failed" }));
 
   await expect.element(page.getByRole("dialog", { name: "Check log" })).toBeVisible();
+  // Its log is read by the run id, and the run had ended by the time it was pressed.
+  await expect.element(page.getByRole("dialog", { name: "Check log" }).getByText(/expected the sheet to be visible/)).toBeVisible();
   // It opens over the Session: the thread is still there, and closing the panel leaves it there.
   await expect.element(page.getByRole("region", { name: "Thread" })).toBeVisible();
   await userEvent.click(page.getByRole("dialog", { name: "Check log" }).getByRole("button", { name: /^Close/ }));

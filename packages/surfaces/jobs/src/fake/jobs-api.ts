@@ -369,6 +369,7 @@ export const jobsApi = (scenario: JobsScenario, fleet: JobsFleet): JobsApi => {
         publish({ diff: jobId === null ? nothing : (readsOf(jobId)?.recorded.diff ?? failed(jobId, "/diff")) }),
       readCheckOutput: async (jobId, kept) =>
         readsOf(jobId)?.checkOutputs[kept] ?? refused(path(jobId, `/checks/${kept}/output`)),
+      readSessionCheckOutput: async (run) => refused(`/sessions/checks/${run}/output`),
       readBrief: async (jobId, name) => readsOf(jobId)?.briefs?.[name] ?? refused(path(jobId, `/briefs/${name}`)),
       readRetro: async (subject) => {
         const jobId = subject.id;
