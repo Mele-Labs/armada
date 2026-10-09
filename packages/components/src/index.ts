@@ -426,6 +426,7 @@ export * from "./compositions/CriterionOrigin/CriterionOrigin";
 export * from "./compositions/SettlingMark/SettlingMark";
 // A Job's retro, and the Lessons page that lists every retro's items. 23.12.
 export * from "./compositions/WhoMark/WhoMark";
+export * from "./compositions/RetroPress/RetroPress";
 export * from "./compositions/LandsMark/LandsMark";
 export * from "./compositions/LessonCard/LessonCard";
 export * from "./compositions/LessonList/LessonList";

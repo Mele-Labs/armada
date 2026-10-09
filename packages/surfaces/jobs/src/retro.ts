@@ -29,14 +29,38 @@ import type {
   RetroChange,
   RetroRead,
   RetroRecord,
+  RetroSubject,
 } from "@armada/protocol";
 import type { LessonAnswers, LessonRow, LessonSettled, RetroCite, RetroNote, RetroSheetItem } from "@armada/components";
 
 import { refusalWords } from "@armada/screens/src/refusal-words";
 import { absoluteOf, lasting } from "@armada/screens/src/duration";
+import { addressOf } from "@armada/screens/src/sessions-wire";
 
-/** Ask main for one Job's retro. */
-export type ReadRetro = (jobId: string) => Promise<RetroRead>;
+/** Ask main for one retro: a Job's, or a Session's (the newest, or the numbered one). */
+export type ReadRetro = (subject: RetroSubject) => Promise<RetroRead>;
+
+/**
+ * The retro number in an item's id: Fleet spells a Session item `{session}-r{n}-{ordinal}`, and a
+ * Job item `{ulid}-{ordinal}`. Session ids hold hyphens, so only the digits after the last `-r`
+ * count. `undefined` for a Job's item, or an id that does not follow either spelling.
+ */
+export function retroNumberOf(lessonId: string): number | undefined {
+  const match = /-r(\d+)-\d+$/.exec(lessonId);
+  return match === null ? undefined : Number(match[1]);
+}
+
+/** The retro a listed item belongs to: its Session's numbered one, or its Job's. */
+export function retroSubjectOf(lesson: { id: string; job_id: string; session?: { id: string } }): RetroSubject {
+  if (lesson.session === undefined) return { kind: "job", id: lesson.job_id };
+  const n = retroNumberOf(lesson.id);
+  return { kind: "session", id: lesson.session.id, ...(n === undefined ? {} : { n }) };
+}
+
+/** What a read of one retro is held under, so a Session's two retros are two reads. */
+export function retroKeyOf(subject: RetroSubject): string {
+  return subject.kind === "job" ? subject.id : `${subject.id}:r${subject.n ?? ""}`;
+}
 /** Ask main for the Lessons listing, narrowed to this window's pick: the open items or the saved ones. */
 export type ReadLessons = (state: LessonsView) => Promise<LessonsRead>;
 /** Which list the page draws: items waiting on the owner, or the Kit items he saved. */
@@ -121,6 +145,10 @@ function rowsOf(record: RetroRecord): Map<string, RetroCite> {
     ...(record.waited ?? []).map(waited),
     ...(record.acts ?? []).map(act),
     ...(record.notes ?? []).map(said),
+    ...(record.asks ?? []).map(asked),
+    ...(record.corrections ?? []).map(said),
+    ...(record.failed_tools ?? []).map(refusal),
+    ...(record.subagents ?? []).map(said),
   ];
   return new Map(rows.map((row) => [row.id, row]));
 }
@@ -214,6 +242,12 @@ function changed(item: { change?: RetroChange; applied?: RetroChange }): { chang
   return { ...(change === undefined ? {} : { change }), ...(applied === undefined ? {} : { applied }) };
 }
 
+/** A Session as a person reads it: its title and its address, `Fix the flaky test · s-01J8ZQ4M`. */
+export function sessionOf(session: { id: string; title?: string }): string {
+  const address = addressOf(session.id);
+  return session.title === undefined ? address : `${session.title} · ${address}`;
+}
+
 /** The Lessons list's rows, in Fleet's order: newest retro first. */
 export function lessonRowsOf(lessons: readonly Lesson[]): ListedRow[] {
   return lessons.map((lesson) => {
@@ -227,8 +261,8 @@ export function lessonRowsOf(lessons: readonly Lesson[]): ListedRow[] {
       ...(lesson.what === undefined ? {} : { what: lesson.what }),
       ...(lesson.fix === undefined ? {} : { fix: lesson.fix }),
       ...changed(lesson),
-      job: jobOf(lesson.handle),
-      jobExact: lesson.handle,
+      job: lesson.session === undefined ? jobOf(lesson.handle) : sessionOf(lesson.session),
+      jobExact: lesson.session === undefined ? lesson.handle : lesson.session.id,
       when: absoluteOf(lesson.at) ?? lesson.at,
       whenExact: lesson.at,
     };
@@ -249,6 +283,25 @@ export const LESSONS_TABS: readonly { id: LessonsTab; label: string }[] = [
 /** A remembered tab read back. Anything not a tab — nothing stored, an old value — is All. */
 export function lessonsTabNamed(value: string | null): LessonsTab {
   return LESSONS_TABS.find((one) => one.id === value)?.id ?? "all";
+}
+
+/** Whose retro an item came from: every item, a Session's, or a Job's. */
+export type LessonsSource = "all" | "sessions" | "jobs";
+
+export const LESSONS_SOURCES: readonly { id: LessonsSource; label: string }[] = [
+  { id: "all", label: "All" },
+  { id: "sessions", label: "Sessions" },
+  { id: "jobs", label: "Jobs" },
+];
+
+/** A remembered source read back. Anything not one — nothing stored, an old value — is All. */
+export function lessonsSourceNamed(value: string | null): LessonsSource {
+  return LESSONS_SOURCES.find((one) => one.id === value)?.id ?? "all";
+}
+
+/** The items of one source, in Fleet's order. A Session's item carries `session`; a Job's does not. */
+export function underSource(lessons: readonly Lesson[], source: LessonsSource): Lesson[] {
+  return source === "all" ? [...lessons] : lessons.filter((lesson) => (lesson.session !== undefined) === (source === "sessions"));
 }
 
 /**
@@ -394,7 +447,7 @@ export type JobRead = { state: "pending" } | { state: "read"; retro: JobRetro } 
  * when the window comes back to the front, as the list's own read is asked
  * again then. A failed read is not kept: pressing again asks again.
  */
-export function useJobRetros(read: ReadRetro): { of: (jobId: string) => JobRead | undefined; ask: (jobId: string) => void } {
+export function useJobRetros(read: ReadRetro): { of: (subject: RetroSubject) => JobRead | undefined; ask: (subject: RetroSubject) => void } {
   const [held, setHeld] = useState<Record<string, JobRead>>({});
   // What is out or answered, and which generation asked: a drop makes earlier answers stale.
   const asked = useRef(new Set<string>());
@@ -411,18 +464,19 @@ export function useJobRetros(read: ReadRetro): { of: (jobId: string) => JobRead 
     return () => window.removeEventListener("focus", drop);
   }, []);
   return {
-    of: (jobId) => held[jobId],
-    ask: (jobId) => {
-      if (asked.current.has(jobId)) return;
-      asked.current.add(jobId);
+    of: (subject) => held[retroKeyOf(subject)],
+    ask: (subject) => {
+      const key = retroKeyOf(subject);
+      if (asked.current.has(key)) return;
+      asked.current.add(key);
       const mine = generation.current;
-      setHeld((was) => ({ ...was, [jobId]: { state: "pending" } }));
-      void latest.current(jobId).then((answer) => {
+      setHeld((was) => ({ ...was, [key]: { state: "pending" } }));
+      void latest.current(subject).then((answer) => {
         if (mine !== generation.current) return;
-        if (!answer.ok) asked.current.delete(jobId);
+        if (!answer.ok) asked.current.delete(key);
         setHeld((was) => ({
           ...was,
-          [jobId]: answer.ok ? { state: "read", retro: answer.retro } : { state: "failed", outcome: answer.outcome },
+          [key]: answer.ok ? { state: "read", retro: answer.retro } : { state: "failed", outcome: answer.outcome },
         }));
       });
     },

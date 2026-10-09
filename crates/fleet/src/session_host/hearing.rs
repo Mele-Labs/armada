@@ -56,6 +56,9 @@ where
                     state.retried = !lost.is_empty();
                     (working, complaint, lost)
                 };
+                if working {
+                    self.kept_restart(id, "ended", Some("the session's process ended while a turn ran")).await;
+                }
                 // A death that said something is shown even between turns.
                 if working || !complaint.is_empty() {
                     self.row_put(

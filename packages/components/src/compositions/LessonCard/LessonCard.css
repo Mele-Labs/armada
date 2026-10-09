@@ -67,7 +67,8 @@
 }
 
 /* Whose way. Drone, You, Fleet. */
-.armada-lesson__label[data-hue="drone"] {
+.armada-lesson__label[data-hue="drone"],
+.armada-lesson__label[data-hue="agent"] {
   --hue: var(--tool-change);
 }
 .armada-lesson__label[data-hue="you"] {
