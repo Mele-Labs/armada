@@ -17,6 +17,9 @@ mod changing;
 pub(crate) mod gathering;
 pub(crate) mod record;
 mod serving;
+mod session_agreeing;
+mod session_record;
+mod session_writing;
 mod writing;
 
 use std::sync::atomic::AtomicBool;

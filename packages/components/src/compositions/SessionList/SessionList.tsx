@@ -7,6 +7,7 @@ import { Input } from "../../primitives/Input/Input";
 import { Tabs, type TabsItem } from "../../primitives/Tabs/Tabs";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { Chip, type OwnerChipRef } from "../OwnerChip/OwnerChip";
+import { RetroPress } from "../RetroPress/RetroPress";
 import { ModMark, SessionMark, type SessionState } from "../SessionFrame/SessionFrame";
 
 /**
@@ -40,6 +41,8 @@ export type SessionRowView = {
   lastTurnAt?: string;
   /** Its mod is older than the repository's. */
   modOutOfDate?: boolean;
+  /** Its retro is being written. */
+  retroWriting?: boolean;
 };
 
 export type SessionGroup = { label: string; rows: readonly SessionRowView[] };
@@ -50,6 +53,8 @@ export type SessionListProps = {
   onQuery: (query: string) => void;
   onOpen: (id: string) => void;
   onStart: () => void;
+  /** Writes a Session's retro. Absent where nothing serves it, and the press is left off. */
+  onRetro?: (id: string) => void;
   /** The views of the list as filled tabs, no figure on any. The host holds which headings each one has. */
   views?: readonly TabsItem[];
   view?: string;
@@ -172,7 +177,7 @@ function itemsOf(row: SessionRowView): Item[] {
   return items;
 }
 
-export function SessionList({ groups, query, onQuery, onOpen, onStart, views, view, onView, now = Date.now() }: SessionListProps) {
+export function SessionList({ groups, query, onQuery, onOpen, onStart, onRetro, views, view, onView, now = Date.now() }: SessionListProps) {
   return (
     <section className="armada-session-list" aria-label="Sessions">
       <div className="armada-session-list__head">
@@ -213,6 +218,7 @@ export function SessionList({ groups, query, onQuery, onOpen, onStart, views, vi
                         </span>
                       </Tooltip>
                     )}
+                    {onRetro === undefined ? null : <RetroPress writing={row.retroWriting === true} onPress={() => onRetro(row.id)} />}
                   </div>
                   {items.length === 0 ? null : <OpenLine items={items} />}
                 </li>

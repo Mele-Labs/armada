@@ -31,3 +31,11 @@ export const Drone: Story = {
 export const Owner: Story = { name: "A retro item in your way", args: { who: "owner" } };
 
 export const Fleet: Story = { name: "A retro item in Fleet's way", args: { who: "fleet" } };
+
+export const Agent: Story = {
+  name: "A retro item in a Session agent's way",
+  args: { who: "agent" },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("img", { name: "Agent" })).toBeVisible();
+  },
+};

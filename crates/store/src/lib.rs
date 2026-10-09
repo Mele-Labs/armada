@@ -155,6 +155,7 @@ mod row;
 mod schema;
 /// Every agent session a person runs and what each holds. `docs/concepts/session.md`.
 mod session_ledger;
+mod session_retro;
 /// The frames a step's harness produced, and where each one was kept.
 mod showing;
 mod shown_again;
@@ -229,6 +230,7 @@ pub use resolving::{NamedJob, ResolveJobError};
 pub use retain::Retained;
 pub use retro::{DroneNote, KeptLesson, KeptRetro, Reflected, RetroLine};
 pub use review::Review;
+pub use session_retro::{KeptRestart, KeptSessionLesson, KeptSessionRetro};
 pub use session_ledger::{
     AttachmentState, Holder, HolderKind, KeptAttachment, KeptSession, SessionFigures,
     SessionSearch, SessionState,

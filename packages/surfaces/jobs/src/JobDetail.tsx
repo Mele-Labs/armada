@@ -806,7 +806,7 @@ function OneJob(props: JobDetailProps) {
       )}
       {retroOpen ? (
         <JobRetroSheet
-          jobId={job.id}
+          subject={{ kind: "job", id: job.id }}
           job={jobOf(job.handle)}
           read={props.onReadRetro}
           onAgreeLesson={props.onAgreeLesson}

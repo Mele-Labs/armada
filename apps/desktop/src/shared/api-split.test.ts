@@ -21,6 +21,7 @@ import type {
   LessonAnswer,
   LessonsRead,
   RetroRead,
+  RetroSubject,
   ChooseTriggerFix,
   HoldAct,
   ClearOutcome,
@@ -373,7 +374,7 @@ type OldBridgeApi = {
     readDiff: (jobId: string | null) => Promise<void>;
     readCheckOutput: (jobId: string, kept: string) => Promise<CheckOutputRead>;
     readBrief: (jobId: string, name: string) => Promise<BriefRead>;
-    readRetro: (jobId: string) => Promise<RetroRead>;
+    readRetro: (subject: RetroSubject) => Promise<RetroRead>;
     readLessons: (state: "open" | "accepted") => Promise<LessonsRead>;
     agreeLesson: (lessonId: string) => Promise<LessonAnswer>;
     disagreeLesson: (lessonId: string) => Promise<LessonAnswer>;
@@ -445,6 +446,7 @@ type OldBridgeApi = {
     tuneSession: (tune: TuneSession) => Promise<SessionActed>;
     renameSession: (rename: RenameSession) => Promise<SessionActed>;
     forkSession: (sessionId: string) => Promise<SessionActed>;
+    retroSession: (sessionId: string) => Promise<Outcome>;
     closeSession: (sessionId: string) => Promise<SessionActed>;
     watchSession: (sessionId: string) => Promise<void>;
     readSessionFile: (sessionId: string, file: string) => Promise<FrameRead>;
@@ -713,6 +715,7 @@ const OLD_CHANNELS = {
     answerSessionAsk: "bridge:answer-session-ask",
     tuneSession: "bridge:tune-session",
     renameSession: "bridge:rename-session",
+    retroSession: "bridge:retro-session",
     closeSession: "bridge:close-session",
     watchSession: "bridge:watch-session",
     readSessionFile: "bridge:read-session-file",

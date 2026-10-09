@@ -18,6 +18,7 @@ export * from "./fake/job-2-repair";
 export * from "./fake/job-2-side-runs";
 export * from "./fake/job-2-leaves";
 export * from "./fake/job-3-retro";
+export * from "./fake/session-retro";
 export * from "./fake/job-detail-fixtures";
 export * from "./fake/job-detail-refusal";
 export * from "./fake/job-detail-undecided";

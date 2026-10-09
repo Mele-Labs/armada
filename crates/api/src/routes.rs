@@ -347,6 +347,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             "/jobs/:job_id/retro",
             get(crate::retros::get_job_retro::<D>),
         )
+        .route(
+            "/sessions/:session_id/retro",
+            get(crate::retros::get_session_retro::<D>).post(crate::retros::write_session_retro::<D>),
+        )
         .route("/lessons", get(crate::retros::list_lessons::<D>))
         .route(
             "/lessons/:lesson_id/agree",

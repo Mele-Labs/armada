@@ -370,8 +370,11 @@ export const jobsApi = (scenario: JobsScenario, fleet: JobsFleet): JobsApi => {
       readCheckOutput: async (jobId, kept) =>
         readsOf(jobId)?.checkOutputs[kept] ?? refused(path(jobId, `/checks/${kept}/output`)),
       readBrief: async (jobId, name) => readsOf(jobId)?.briefs?.[name] ?? refused(path(jobId, `/briefs/${name}`)),
-      readRetro: async (jobId) => {
-        const retro = scenario.retros?.[jobId];
+      readRetro: async (subject) => {
+        const jobId = subject.id;
+        // A Session's numbered retro is held under `{session}-r{n}`; its newest under the Session's id. An unknown `n` is refused.
+        const retro = scenario.retros?.[subject.kind === "session" && subject.n !== undefined ? `${jobId}-r${subject.n}` : jobId];
+        if (subject.kind === "session" && retro === undefined) return refused(`/sessions/${jobId}/retro${subject.n === undefined ? "" : `?n=${subject.n}`}`);
         // Each item stands as the answers left it, as Fleet's `state` says. An old item has none.
         const standing = (item: RetroItem): RetroItem => {
           const now = item.state === undefined ? undefined : lessons.find((one) => one.id === item.id);

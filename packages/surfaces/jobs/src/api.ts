@@ -17,6 +17,7 @@ import type {
   LessonAnswer,
   LessonsRead,
   RetroRead,
+  RetroSubject,
   AlwaysAllowScope,
   CommandAnswer,
   CommandExplainedRead,
@@ -529,7 +530,7 @@ export type JobsApi = {
    * surface that asked, and asked again when the window regains focus, because nothing on
    * `/events` says a retro was written.
    */
-  readRetro: (jobId: string) => Promise<RetroRead>;
+  readRetro: (subject: RetroSubject) => Promise<RetroRead>;
   /**
    * Every written retro's items across Jobs, newest first, narrowed to this window's pick: the
    * open ones, or the saved Kit items under `accepted`.
