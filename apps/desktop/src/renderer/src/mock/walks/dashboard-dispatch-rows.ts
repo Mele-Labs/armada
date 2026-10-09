@@ -1,10 +1,10 @@
-// The Dashboard's dispatch bar and its tiles. n and ⌘N bring the cursor to the bar from any filter and
-// from another page; Tab chooses a Job or a Session. Active and Done are one grid of tiles: a
+// The Dashboard's dispatch bar and its tiles. n and ⌘N bring the cursor to the bar from any filter,
+// and float the dispatch panel over another page; Tab chooses a Job or a Session. Active and Done are one grid of tiles: a
 // Job's icon names what is active on it, a Session carries its cadence, a tile that needs the owner
 // is lit, and the tile picked opens beside the grid. A Session's thread opens at its newest message
 // and follows a new one. Done lists Jobs and Sessions only. Over `dashboard-dispatch-rows`.
 
-import { region, role, tab, walk } from "../walk";
+import { button, region, role, tab, walk } from "../walk";
 
 const request = role("textbox", "Request");
 const tiles = role("listbox", "Tiles");
@@ -20,7 +20,10 @@ const dashboardDispatchRows = walk("dashboard-dispatch-rows", [
   { key: "Enter", on: request, say: "Press Enter" },
   { look: role("textbox", "Message"), say: "The Session started and opened, holding what was typed" },
   { key: "Meta+n", on: role("textbox", "Message"), say: "Press ⌘N from inside the Session's message box" },
-  { look: request, say: "The Dashboard, the cursor in the bar, Session still chosen" },
+  { look: role("dialog", "Dispatch"), say: "The dispatch panel floats over the Session, the cursor in it, Session still chosen" },
+  { key: "Escape", on: request, say: "Esc puts it away" },
+  { press: button("Cockpit", { exact: true }), say: "Back to the Cockpit" },
+  { look: request, say: "The dispatch bar, the cursor in it, Session still chosen" },
   { press: tab("Done"), say: "Done" },
   { look: tiles, say: "Done is tiles too, Jobs and Sessions that are over; what landed in the merge line is not one" },
   { press: tab("Active"), say: "Active" },

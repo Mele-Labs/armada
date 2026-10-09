@@ -22,7 +22,7 @@ import { KeySheet, useDashboardKeys } from "./cockpit/keys";
 import { proposeRequest } from "./dispatch";
 import { QuickDispatch, useDispatchBarDrawn } from "./QuickDispatch";
 
-export { useDispatchBarKeys } from "./QuickDispatch";
+export { DispatchFloat, useDispatchBarKeys } from "./QuickDispatch";
 import { usePanelOpen } from "./panel-open";
 import { useDashboardTab } from "./remembered-views";
 
@@ -51,7 +51,7 @@ export function Overview({
   nowViews,
   nows,
   onTell,
-  onQuickCompose,
+  onDispatch,
 }: {
   state: BridgeState;
   now: number;
@@ -95,8 +95,8 @@ export function Overview({
   nows?: Readonly<Record<string, NowView>>;
   /** Says a sentence as a toast: a refusal the panel has to name. */
   onTell?: (sentence: string) => void;
-  /** Words typed into the quick dispatch box, handed to the composer. */
-  onQuickCompose: (words: string) => void;
+  /** A Job's request sent from the dispatch panel, with the repository it is for. */
+  onDispatch: (words: string, root: string) => void;
 }) {
   const guarded = { bridge: state.bridge, onCopied };
 
@@ -173,7 +173,7 @@ export function Overview({
       <Nows.Provider value={nows}>
       <div className="armada-screen__overview">
         {/* n and ⌘N reach the bar from every surface (`useDispatchBarKeys`). Where Fleet cannot be reached the Board's own lists draw, and bind n themselves. */}
-        {fault || !panels.some((one) => one.id === "quick-dispatch") ? null : <QuickDispatch onType={onQuickCompose} focused={!needsYou} onOpenSession={onOpenSession} />}
+        {fault || !panels.some((one) => one.id === "quick-dispatch") ? null : <QuickDispatch state={state} repositories={repositories} focused={!needsYou} onDispatch={onDispatch} onOpenSession={onOpenSession} />}
         {fault ? (
           <OverviewLists
             jobs={state.jobs}

@@ -43,7 +43,7 @@ import { useEscapeLeavesJob, useNow, useReturnToRow, useSummoned } from "./app-e
 import { aJobAct, ConfirmAct, type Confirming } from "./ConfirmAct";
 import { PaletteMount } from "./PaletteMount";
 import { FLEET_DOWN } from "./palette";
-import { Overview, useDispatchBarKeys } from "./Overview";
+import { DispatchFloat, Overview, useDispatchBarKeys } from "./Overview";
 import { CaptureLayer, type CaptureAim } from "./capture/Layer";
 import { StudiosSurface } from "./StudiosSurface";
 import type { SketchOpening } from "@armada/screens/src/draft/sketch";
@@ -204,8 +204,7 @@ export function App({ draft }: AppProps = {}) {
   // before anybody has pressed anything. `drafted.tsx`.
   const [composing, setComposing] = useState(useDrafted().prompt !== undefined);
   const [composedFrom, setComposedFrom] = useState<SketchOpening>(); // A Sketch dispatched from a Studio.
-  const [seed, setSeed] = useState<string>(); // Words typed into the Dashboard's quick box.
-  useEffect(() => void (composing || (setComposedFrom(undefined), setSeed(undefined))), [composing]);
+  useEffect(() => void (composing || setComposedFrom(undefined)), [composing]);
   // What has been reported against the Judge. Its own view: a report is filed
   // about one Job and the rate is read across all of them.
   const [auditing, setAuditing] = useState(false);
@@ -336,7 +335,8 @@ export function App({ draft }: AppProps = {}) {
   // `⌘1`…`⌘n`, the binding the contract publishes and nothing answered until
   // the Manifest surface needed `⌘5`. One roster, read by the rail, the
   // palette and now the keyboard.
-  useSurfaceKeys(goTo); useDispatchBarKeys(() => goTo(SURFACE.overview)); // `n` and ⌘N: the Dashboard's dispatch bar.
+  useSurfaceKeys(goTo); useDispatchBarKeys(); // `n` and ⌘N: the Dashboard's dispatch bar, or the panel floated over the screen showing.
+  const dispatched = (words: string, root: string) => void commands.proposeFrom(words, [], root).then((told) => told !== null && setTelling(told));
 
   // What this repository's Manifest declares, held open while the surface that
   // draws it is showing, **the palette is up** or a Studio is open, whose Run
@@ -984,7 +984,6 @@ export function App({ draft }: AppProps = {}) {
                 onSaid={setTelling}
                 onCopied={setCopied}
                 sketch={composedFrom}
-                seed={seed}
               />
             ) : studying ? (
               <StudiosSurface
@@ -1095,7 +1094,7 @@ export function App({ draft }: AppProps = {}) {
                   onOpenLink={openProseLink} onFix={(fix) => void commands.fixMain(fix)}
                   onOpenSession={openSession}
                   nowViews={draft?.calls} nows={draft?.now} onTell={tell}
-                  onQuickCompose={(words) => (setSeed(words), setComposing(true))}
+                  onDispatch={dispatched}
                 />
 
                 {/* Never merged into the lists as a placeholder: a surface that
@@ -1187,6 +1186,7 @@ export function App({ draft }: AppProps = {}) {
           }}
         />
 
+        <DispatchFloat state={state} repositories={repositories} onDispatch={dispatched} onOpenSession={openSession} />
         <Toasts
           raised={raised}
           bridge={state.bridge}

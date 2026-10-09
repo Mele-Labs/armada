@@ -1,0 +1,327 @@
+/* The dispatch panel, in the Cockpit's own glass: a sunken frame, a raised band under the request,
+   a mono body. At rest it is the dispatch bar, one slim line; open, the drawer under the line
+   grows and nothing above it moves. State is the frame's edge and hue and the chip's icon, never
+   a phrase: accent while the repository is read, the awaiting hue (as a Cockpit call that needs
+   the owner) while Dispatch is waiting on the owner to name one. Tokens only. */
+
+/* ---- Where the frame sits ------------------------------------------------------------------ */
+
+/* Docked, the slot keeps the bar's height and the frame is laid over what follows it, so growing
+   reflows nothing under it. */
+.armada-dispatch-panel[data-layout="docked"] {
+  position: relative;
+  z-index: var(--z-menu);
+  min-height: calc(var(--h-row) * 2);
+}
+
+.armada-dispatch-panel[data-layout="docked"] > .armada-dispatch-panel__frame {
+  position: absolute;
+  inset: 0 0 auto 0;
+}
+
+/* Floating, top-anchored like the palette and never centred: the frame grows downward from a line
+   that stays put. */
+.armada-dispatch-panel[data-layout="floating"] {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-palette);
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 20vh var(--space-6) 0;
+  background: var(--scrim);
+  animation: armada-dispatch-panel-in var(--duration-base) var(--ease);
+}
+
+.armada-dispatch-panel[data-layout="floating"] > .armada-dispatch-panel__frame {
+  width: 100%;
+  max-width: calc(var(--palette-width) * 1.25);
+}
+
+@keyframes armada-dispatch-panel-in {
+  from { opacity: 0; }
+}
+
+/* ---- The frame ------------------------------------------------------------------------------ */
+
+.armada-dispatch-panel__frame {
+  --hue: var(--status-awaiting-review);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  min-height: calc(var(--h-row) * 2);
+  border: var(--border-width) solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-sunken);
+  overflow: hidden;
+  transition:
+    border-color var(--duration-fast) var(--ease),
+    border-radius var(--duration-sheet) var(--ease),
+    box-shadow var(--duration-sheet) var(--ease);
+}
+
+.armada-dispatch-panel__frame[data-open] {
+  border-color: var(--border-default);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-overlay);
+}
+
+.armada-dispatch-panel__frame:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 calc(var(--border-width) * 3) color-mix(in srgb, var(--accent) 20%, transparent);
+}
+
+.armada-dispatch-panel__frame[data-open]:focus-within {
+  box-shadow: var(--shadow-overlay), 0 0 0 calc(var(--border-width) * 3) color-mix(in srgb, var(--accent) 20%, transparent);
+}
+
+/* Dispatch is waiting on the owner for a repository: the frame takes the call's hue, lit at its edge, as a Cockpit call does. */
+.armada-dispatch-panel__frame[data-asking] {
+  border-color: var(--hue);
+  box-shadow:
+    inset 0 0 calc(var(--space-12) * 1.5) color-mix(in srgb, var(--hue) 16%, transparent),
+    0 0 var(--space-6) color-mix(in srgb, var(--hue) 16%, transparent),
+    var(--shadow-overlay);
+}
+
+/* ---- The line: the bar, which never moves --------------------------------------------------- */
+
+/* The padding centres one line of the request in the bar's height, so the field keeps its place when the frame grows. */
+.armada-dispatch-panel__line {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-4);
+  padding: calc((var(--h-row) * 2 - var(--border-width) * 2 - var(--leading-lg)) / 2) var(--space-6, var(--space-4));
+}
+
+.armada-dispatch-panel__prompt,
+.armada-dispatch-panel__line > :not(.armada-dispatch-panel__field) {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  min-height: var(--leading-lg);
+}
+
+.armada-dispatch-panel__prompt { color: var(--accent); }
+
+.armada-dispatch-panel__field {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: var(--leading-lg);
+  padding: 0;
+  border: 0;
+  outline: none;
+  resize: none;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  background: transparent;
+  color: var(--fg-default);
+  font-family: var(--font-sans);
+  font-size: var(--text-lg);
+  line-height: var(--leading-lg);
+  transition: height var(--duration-sheet) var(--ease);
+}
+
+.armada-dispatch-panel__frame[data-open] .armada-dispatch-panel__field { height: calc(var(--leading-lg) * 4); }
+
+.armada-dispatch-panel__field:focus,
+.armada-dispatch-panel__field:focus-visible { outline: none; box-shadow: none; }
+
+.armada-dispatch-panel__field::placeholder { color: var(--fg-subtle); }
+
+/* The Job / Session choice sits at the line's trailing edge, ahead of the key that focuses it. */
+.armada-dispatch-panel__kind { display: inline-flex; align-items: center; gap: var(--space-2); }
+
+/* Tab switches the choice only while the cursor is in the frame. */
+.armada-dispatch-panel__tab { visibility: hidden; }
+.armada-dispatch-panel__frame:focus-within .armada-dispatch-panel__tab { visibility: visible; }
+
+/* ---- The drawer: opens under the line ------------------------------------------------------- */
+
+.armada-dispatch-panel__drawer {
+  display: grid;
+  grid-template-rows: 0fr;
+  visibility: hidden;
+  transition:
+    grid-template-rows var(--duration-sheet) var(--ease),
+    visibility 0s linear var(--duration-sheet);
+}
+
+.armada-dispatch-panel__frame[data-open] > .armada-dispatch-panel__drawer {
+  grid-template-rows: 1fr;
+  visibility: visible;
+  transition-delay: 0s, 0s;
+}
+
+.armada-dispatch-panel__drawer-body {
+  min-height: 0;
+  overflow: hidden;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+
+/* The band, as the viewscreen's: raised, ruled from the glass, mono. */
+.armada-dispatch-panel__band {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: calc(var(--h-row) * 1.25);
+  padding: var(--space-1) var(--space-3) var(--space-1) var(--space-4);
+  border-top: var(--border-width) solid var(--border-default);
+  background: var(--bg-raised);
+  color: var(--fg-muted);
+  transition: background var(--duration-base) var(--ease), color var(--duration-base) var(--ease);
+}
+
+.armada-dispatch-panel__send {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-left: auto;
+}
+
+/* Waiting on the owner: the band is filled in the hue, as a held bay's is. */
+.armada-dispatch-panel__frame[data-asking] .armada-dispatch-panel__band {
+  border-top-color: var(--hue);
+  background: var(--hue);
+  color: var(--fg-inverse);
+}
+
+/* ---- The repository chip -------------------------------------------------------------------- */
+
+.armada-dispatch-panel__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  max-width: 100%;
+  height: var(--space-6);
+  padding: 0 var(--space-2);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+  color: var(--fg-default);
+  font: inherit;
+  cursor: pointer;
+  transition: border-color var(--duration-fast) var(--ease);
+}
+
+.armada-dispatch-panel__chip:hover { border-color: var(--border-strong); }
+.armada-dispatch-panel__chip:disabled { cursor: default; }
+.armada-dispatch-panel__chip:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
+.armada-dispatch-panel__chip > svg { flex: none; color: var(--fg-muted); }
+.armada-dispatch-panel__chip:has(.armada-dispatch-panel__name) { padding: 0 var(--space-3) 0 var(--space-2); }
+
+.armada-dispatch-panel__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Read from the words, picked, or the rail's: the glyph takes the accent. */
+.armada-dispatch-panel__chip[data-reading="detected"] > svg,
+.armada-dispatch-panel__chip[data-reading="picked"] > svg,
+.armada-dispatch-panel__chip[data-reading="scoped"] > svg { color: var(--accent); }
+
+/* Being read: an open ring turning. */
+.armada-dispatch-panel__chip[data-reading="detecting"] { border-color: var(--accent); }
+
+.armada-dispatch-panel__chip[data-reading="detecting"] > svg {
+  color: var(--accent);
+  animation: armada-dispatch-panel-spin var(--duration-pulse) linear infinite;
+}
+
+/* None found: an empty outline, drawn dashed. */
+.armada-dispatch-panel__chip[data-reading="idle"],
+.armada-dispatch-panel__chip[data-reading="unresolved"] { border-style: dashed; color: var(--fg-muted); }
+
+.armada-dispatch-panel__frame[data-asking] .armada-dispatch-panel__chip {
+  border-style: solid;
+  border-color: var(--fg-inverse);
+  background: transparent;
+  color: var(--fg-inverse);
+}
+
+.armada-dispatch-panel__frame[data-asking] .armada-dispatch-panel__chip > svg { color: var(--fg-inverse); }
+
+@keyframes armada-dispatch-panel-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .armada-dispatch-panel__chip[data-reading="detecting"] > svg { animation: none; }
+}
+
+/* ---- The inline ask: the set-up repositories, likely ones first ------------------------------ */
+
+.armada-dispatch-panel__ask {
+  display: grid;
+  grid-template-rows: 0fr;
+  visibility: hidden;
+  transition:
+    grid-template-rows var(--duration-sheet) var(--ease),
+    visibility 0s linear var(--duration-sheet);
+}
+
+.armada-dispatch-panel__ask[data-open] {
+  grid-template-rows: 1fr;
+  visibility: visible;
+  transition-delay: 0s, 0s;
+}
+
+.armada-dispatch-panel__options {
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  list-style: none;
+  background: var(--bg-sunken);
+}
+
+.armada-dispatch-panel__options > li[data-edge] { border-bottom: var(--border-width) solid var(--border-subtle); }
+
+.armada-dispatch-panel__option {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-2) var(--space-4);
+  border: 0;
+  border-left: calc(var(--border-width) * 3) solid transparent;
+  background: transparent;
+  color: var(--fg-muted);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.armada-dispatch-panel__option > svg { flex: none; }
+.armada-dispatch-panel__option[data-likely] { border-left-color: var(--accent); color: var(--fg-default); }
+.armada-dispatch-panel__option:hover { background: var(--bg-hover); }
+.armada-dispatch-panel__option:focus-visible { outline: var(--focus-ring); outline-offset: calc(var(--focus-ring-offset) * -1); background: var(--bg-hover); }
+
+.armada-dispatch-panel__root {
+  min-width: 0;
+  margin-left: auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--fg-subtle);
+}
+
+/* ---- Settings: the existing block, set in the panel's mono ----------------------------------- */
+
+.armada-dispatch-panel__settings {
+  padding: var(--space-3) var(--space-4);
+  border-top: var(--border-width) solid var(--border-default);
+}
+
+.armada-dispatch-panel__settings .armada-dispatch-settings { padding-top: 0; border-top: 0; }
+
+.armada-dispatch-panel__settings .armada-dispatch-settings__head {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}

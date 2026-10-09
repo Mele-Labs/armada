@@ -18,3 +18,10 @@
     size = "12 and 16px"
     status = "Specified"
     notes = "Proposed 8 Oct 2026 for the walk `fleetBuildRefreshing`, approved by the owner the same day. The same restart the mismatch notice's button shows, from the Fleet panel. Spins, and holds still under reduced motion."
+
+  [[icons.loader-circle.usage]]
+    means = "The dispatch panel is reading the request for the repository it belongs to"
+    group = "Action"
+    size = "12px"
+    status = "Proposed"
+    notes = "Proposed 9 Oct 2026 for the walk `dispatch-grows-from-the-bar`. The repository chip's mark from the first word until the reading comes back, tooltip `Finding the repository`: an open ring turning is something under way, which is what every use of it says. Spins, and holds still under reduced motion."

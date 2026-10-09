@@ -499,49 +499,6 @@
 .armada-screen__overview [data-hue="queued"] { --hue: var(--status-not-started); }
 .armada-screen__overview [data-hue="ok"] { --hue: var(--status-completed-success); }
 
-/* The dispatch bar: one slim line over every tab, a prompt mark and the field. */
-.armada-dispatch-bar {
-  display: flex;
-  align-items: center;
-  gap: var(--space-4);
-  min-height: calc(var(--h-row) * 2);
-  padding: var(--space-4) var(--space-6, var(--space-4));
-  border: var(--border-width) solid var(--border-subtle);
-  border-radius: var(--radius-md);
-  background: var(--bg-sunken);
-  transition: border-color var(--duration-fast) var(--ease), box-shadow var(--duration-fast) var(--ease);
-}
-
-.armada-dispatch-bar:focus-within {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 calc(var(--border-width) * 3) color-mix(in srgb, var(--accent) 20%, transparent);
-}
-
-.armada-dispatch-bar__prompt { display: inline-flex; color: var(--accent); }
-
-.armada-dispatch-bar__field {
-  flex: 1 1 auto;
-  min-width: 0;
-  border: 0;
-  outline: none;
-  background: transparent;
-  color: var(--fg-default);
-  font-size: var(--text-lg);
-  line-height: var(--leading-lg, 1.4);
-}
-
-.armada-dispatch-bar__field:focus,
-.armada-dispatch-bar__field:focus-visible { outline: none; box-shadow: none; }
-
-.armada-dispatch-bar__field::placeholder { color: var(--fg-subtle); }
-
-/* The Job / Session choice and its keys sit at the bar's trailing edge, ahead of the key that focuses it. */
-.armada-dispatch-bar__kind { display: inline-flex; align-items: center; gap: var(--space-2); }
-
-/* Tab switches the choice only while the field has the cursor. */
-.armada-dispatch-bar__tab { visibility: hidden; }
-.armada-dispatch-bar:focus-within .armada-dispatch-bar__tab { visibility: visible; }
-
 /* Where a Job lives, under its title: short label and value pairs in one wrapping line. */
 .armada-call__about {
   display: grid;
@@ -842,24 +799,6 @@
 
 @media (prefers-reduced-motion: reduce) {
   .armada-call { animation: none; }
-}
-
-@keyframes armada-compose-grow {
-  from {
-    opacity: 0;
-    transform: scaleY(0.6);
-  }
-}
-
-.armada-screen__pane--grown {
-  transform-origin: top;
-  animation: armada-compose-grow var(--duration-sheet) var(--ease);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .armada-screen__pane--grown {
-    animation: none;
-  }
 }
 
 /* ---- job detail --------------------------------------------------------- */

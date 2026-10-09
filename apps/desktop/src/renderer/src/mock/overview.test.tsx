@@ -87,13 +87,15 @@ test("every filter draws its own: what needs you comes forward, what is live and
   await expect.element(page.getByRole("listbox", { name: "Tiles" })).toBeVisible();
 });
 
-test("no jobs: the cursor is in the dispatch bar, and typing opens the composer", async () => {
+test("no jobs: the cursor is in the dispatch bar, and typing grows it into the panel with the cursor kept", async () => {
   mount(onOverview([]));
   const bar = page.getByRole("textbox", { name: "Request" });
   await expect.element(bar).toHaveFocus();
   await userEvent.keyboard("C");
-  // On All, the composer opens on its one question first.
-  await expect.element(page.getByText("Pick the repository this Job is for")).toBeVisible();
+  // The bar grows where it stands: no repository is asked first, and the field keeps the cursor.
+  await expect.element(page.getByRole("region", { name: "Dispatch" }).getByRole("button", { name: "Dispatch", exact: true })).toBeVisible();
+  await expect.element(bar).toHaveFocus();
+  expect(page.getByText("Pick the repository this Job is for").query()).toBeNull();
 });
 
 test("the filter picked is kept, and a filter draws no count", async () => {

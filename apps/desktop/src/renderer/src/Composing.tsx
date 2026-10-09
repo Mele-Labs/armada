@@ -74,7 +74,6 @@ export function Composing({
   onSaid,
   onCopied,
   sketch,
-  seed,
 }: {
   state: BridgeState;
   commands: ReturnType<typeof useCommands>;
@@ -101,8 +100,6 @@ export function Composing({
   onCopied: (value: string) => void;
   /** A Studio Sketch's drawing, dispatched from its node — 1 Oct 2026. Absent is a blank pad. */
   sketch?: SketchOpening | undefined;
-  /** Words typed into the Dashboard's quick box: the request opens holding them, focused, and grows in. */
-  seed?: string | undefined;
 }) {
   // The repository the ask answered, held apart from the rail's pick so
   // answering it never narrows the Board — #959. `null` until answered; this
@@ -177,7 +174,7 @@ export function Composing({
   const manifest = all ? repositories.find((one) => one.root === answered)?.manifest : scoped;
   const guarded = { bridge: state.bridge, onCopied };
   return (
-    <div className={seed === undefined ? "armada-screen__pane" : "armada-screen__pane armada-screen__pane--grown"}>
+    <div className="armada-screen__pane">
       {/* Describing the work is the only way in since the owner took the hand
           form out on 2026-09-23. What Fleet holds is read over the one
           connection and not scraped off the Jobs already on the board, which
@@ -226,8 +223,7 @@ export function Composing({
         {...(drafted.proposal === undefined
           ? {}
           : { settings: dispatchSettingsOf(drafted.proposal) })}
-        {...((seed ?? drafted.prompt) === undefined ? {} : { opensOn: seed ?? drafted.prompt })}
-        {...(seed === undefined ? {} : { focused: true })}
+        {...(drafted.prompt === undefined ? {} : { opensOn: drafted.prompt })}
         {...((sketch ?? drafted.sketch) === undefined ? {} : { sketch: sketch ?? drafted.sketch })}
         // On the head of each card this surface draws, since each is its own
         // way out of the same composer.
