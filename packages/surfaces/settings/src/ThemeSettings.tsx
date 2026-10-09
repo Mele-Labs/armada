@@ -1,29 +1,20 @@
-// Settings → Theme: Dark, Light, and a theme for each enabled mod that ships one.
+// Settings → Theme: Dark and Light, the catalogue's themes under whichever of the two their
+// background is, and the themes enabled mods ship.
 
-import { Puzzle } from "lucide-react";
-import { Radio, RadioGroup, Tooltip } from "@armada/components";
+import { ThemePicker } from "@armada/components";
+import type { ThemeGroup } from "@armada/components";
 
 import { useThemes } from "./theme-source";
 
+const byTitle = (a: { title: string }, b: { title: string }) => a.title.localeCompare(b.title);
+
 export function ThemeSettings() {
-  const { mods, active, source } = useThemes();
-  const choices = [{ name: "dark", title: "Dark", mod: false }, { name: "light", title: "Light", mod: false }, ...mods.filter((one) => one.enabled).map((one) => ({ name: one.name, title: one.title, mod: true }))];
-  return (
-    <RadioGroup label="Theme">
-      {choices.map((one) => (
-        <div key={one.name} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <Radio name="theme" checked={active === one.name} onChange={() => source.setActive(one.name)}>
-            {one.title}
-          </Radio>
-          {one.mod && (
-            <Tooltip label={`From the ${one.name} mod`}>
-              <span role="img" aria-label={`From the ${one.name} mod`} style={{ display: "inline-flex", color: "var(--fg-subtle)" }}>
-                <Puzzle size={14} />
-              </span>
-            </Tooltip>
-          )}
-        </div>
-      ))}
-    </RadioGroup>
-  );
+  const { mods, catalogue, active, source } = useThemes();
+  const of = (tone: "dark" | "light") => catalogue.filter((one) => one.tone === tone).sort(byTitle).map(({ id, title }) => ({ id, title }));
+  const groups: ThemeGroup[] = [
+    { label: "Dark", choices: [{ id: "dark", title: "Dark" }, ...of("dark")] },
+    { label: "Light", choices: [{ id: "light", title: "Light" }, ...of("light")] },
+    { label: "From mods", choices: mods.filter((one) => one.enabled).map((one) => ({ id: one.name, title: one.title })) },
+  ];
+  return <ThemePicker label="Theme" value={active} groups={groups} onValue={(id) => source.setActive(id)} />;
 }

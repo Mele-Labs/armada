@@ -5,15 +5,43 @@ import { afterEach, expect, test } from "vitest";
 import { page } from "vitest/browser";
 
 import { mount, onScreen, unmountAfterEach } from "./testing";
+import { DUSK_MOD, mockThemes } from "./themes";
 
 unmountAfterEach();
 
-/** The radio and the switch draw their own mark over the input, so a pointer press lands on the mark; the input takes the press itself. */
-const press = (role: "radio" | "switch", name: string) => (page.getByRole(role, { name }).element() as HTMLElement).click();
+// The values a theme says, read out of the files that say them rather than typed again here.
+const AUTHORED = (
+  import.meta as ImportMeta & {
+    glob(patterns: string[], options: { eager: true; query: string; import: string }): Record<string, string>;
+  }
+).glob(
+  [
+    "../../../../../../packages/tokens/src/colors.css",
+    "../../../../../../packages/tokens/src/light.css",
+    "../../../../../../packages/tokens/themes/css/nord.css",
+    "../../../../../../packages/tokens/themes/example-mod/dusk/theme.css",
+  ],
+  { eager: true, query: "?raw", import: "default" },
+);
+/** What `file` declares `name` as, first declaration. */
+function authored(file: string, name: string): string {
+  const css = Object.entries(AUTHORED).find(([path]) => path.endsWith(file))?.[1] ?? "";
+  const found = css.match(new RegExp(`${name}:\\s*([^;]+);`));
+  if (found?.[1] === undefined) throw new Error(`${file} declares no ${name}`);
+  return found[1].trim();
+}
+
 const root = () => document.documentElement;
 const token = (name: string) => getComputedStyle(root()).getPropertyValue(name).trim();
 
 afterEach(() => window.history.replaceState(null, "", window.location.pathname));
+
+/** Opens Settings and chooses a theme in the field, by typing its name and pressing its row. */
+async function choose(name: string, typed = name) {
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByRole("combobox", { name: "Theme" }).fill(typed);
+  await page.getByRole("option", { name, exact: true }).click();
+}
 
 test("Light is the real token set: the root takes it, and the aliases read it", async () => {
   mount("mods-themes");
@@ -22,37 +50,61 @@ test("Light is the real token set: the root takes it, and the aliases read it", 
   expect(root().dataset["theme"]).toBe("dark");
   const dark = token("--surface-card");
 
-  press("radio", "Light");
+  await choose("Light");
   expect(root().dataset["theme"]).toBe("light");
-  expect(token("--bg-raised")).toBe("#FFFFFF");
+  expect(token("--bg-raised")).toBe(authored("light.css", "--bg-raised"));
   // An alias declared once, in semantic.css, follows the theme and not the dark value it first read.
-  expect(token("--surface-card")).toBe("#FFFFFF");
+  expect(token("--surface-card")).toBe(authored("light.css", "--bg-raised"));
   expect(token("--surface-card")).not.toBe(dark);
+});
+
+test("a catalogue theme is read when chosen, and is the scheme's own ground", async () => {
+  mount("mods-themes");
+  await onScreen();
+  await choose("Nord");
+  await expect.poll(() => root().dataset["theme"]).toBe("catalogue:nord");
+  expect(token("--bg-base")).toBe(authored("nord.css", "--bg-base"));
+});
+
+test("the field groups themes by tone and narrows as it is typed in", async () => {
+  mount("mods-themes");
+  await onScreen();
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByRole("combobox", { name: "Theme" }).click();
+  await expect.element(page.getByRole("group", { name: "Dark" })).toBeVisible();
+  await expect.element(page.getByRole("group", { name: "Light" })).toBeVisible();
+  // No mod is installed, so the group is not drawn at all.
+  await expect.element(page.getByRole("group", { name: "From mods" })).not.toBeInTheDocument();
+  await page.getByRole("combobox", { name: "Theme" }).fill("latte");
+  await expect.element(page.getByRole("option", { name: "Catppuccin Latte" })).toBeVisible();
+  await expect.element(page.getByRole("option", { name: "Catppuccin Mocha" })).not.toBeInTheDocument();
 });
 
 test("a mod's theme is applied from its CSS, and Dark returns when it is switched off", async () => {
   mount("mods-themes");
   await onScreen();
-  await page.getByRole("button", { name: "Settings", exact: true }).click();
-  press("radio", "Nord");
-  expect(root().dataset["theme"]).toBe("nord");
-  expect(token("--bg-base")).toBe("#2E3440");
+  mockThemes.install(DUSK_MOD);
+  await choose("Dusk");
+  expect(root().dataset["theme"]).toBe("dusk");
+  expect(token("--bg-base")).toBe(authored("theme.css", "--bg-base"));
 
   await page.getByRole("button", { name: "Mods", exact: true }).click();
-  press("switch", "Nord");
-  expect(root().dataset["theme"]).toBe("dark");
-  expect(token("--bg-base")).toBe("#0F1419");
+  (page.getByRole("switch", { name: "Dusk" }).element() as HTMLElement).click();
+  await expect.poll(() => root().dataset["theme"]).toBe("dark");
+  expect(token("--bg-base")).toBe(authored("colors.css", "--bg-base"));
 });
 
-test("?nomods loads without mods: none in the picker, none on the Mods surface", async () => {
+test("?nomods loads without mods: none in the field, none on the Mods surface, the catalogue still there", async () => {
   window.history.replaceState(null, "", "?nomods");
   mount("mods-themes");
   await onScreen();
+  mockThemes.install(DUSK_MOD);
   await page.getByRole("button", { name: "Settings", exact: true }).click();
-  await expect.element(page.getByRole("radio", { name: "Light" })).toBeVisible();
-  await expect.element(page.getByRole("radio", { name: "Nord" })).not.toBeInTheDocument();
+  await page.getByRole("combobox", { name: "Theme" }).click();
+  await expect.element(page.getByRole("option", { name: "Nord", exact: true })).toBeVisible();
+  await expect.element(page.getByRole("option", { name: "Dusk" })).not.toBeInTheDocument();
   await page.getByRole("button", { name: "Mods", exact: true }).click();
-  await expect.element(page.getByRole("group", { name: "Nord" })).not.toBeInTheDocument();
+  await expect.element(page.getByRole("group", { name: "Dusk" })).not.toBeInTheDocument();
 });
 
 test("a themed element below the root resolves the aliases from its own theme, as a story's wrapper does", () => {
@@ -60,9 +112,10 @@ test("a themed element below the root resolves the aliases from its own theme, a
   wrap.dataset["theme"] = "light";
   document.body.append(wrap);
   const read = (name: string) => getComputedStyle(wrap).getPropertyValue(name).trim();
-  expect(read("--bg-raised")).toBe("#FFFFFF");
-  expect(read("--surface-card")).toBe("#FFFFFF");
-  expect(read("--text-body")).toBe("#18202A");
-  expect(read("--status-running-bg")).toContain("#1B657C");
+  const light = (name: string) => authored("light.css", name);
+  expect(read("--bg-raised")).toBe(light("--bg-raised"));
+  expect(read("--surface-card")).toBe(light("--bg-raised"));
+  expect(read("--text-body")).toBe(light("--fg-default"));
+  expect(read("--status-running-bg")).toContain(light("--status-running"));
   wrap.remove();
 });

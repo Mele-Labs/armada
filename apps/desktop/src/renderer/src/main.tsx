@@ -13,7 +13,9 @@ import { Boundary } from "@armada/shell";
 import { HapticsProvider } from "@armada/components";
 import { WiredSessions } from "./sessions-wired";
 import { createThemeSource } from "@armada/settings";
+import { CATALOGUE } from "./catalogue";
 import { Themed } from "./theme";
+import { remembered } from "./theme-kept";
 
 // Bridge's renderer entry point. No Node, no `require`, no socket — everything
 // it draws arrives through the preload from the one connection in the main
@@ -29,7 +31,7 @@ import { Themed } from "./theme";
  * The themes this window offers. **The seam**: the Fleet-backed source that serves the mod folder
  * replaces this one, and `Themed` and every surface under it read it unchanged.
  */
-const THEMES = createThemeSource();
+const THEMES = remembered(createThemeSource(() => ({ mods: [], catalogue: CATALOGUE, active: "dark" })));
 
 /**
  * Who Bridge is, read once. The only state above the boundary, and the least

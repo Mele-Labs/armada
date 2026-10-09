@@ -1,4 +1,5 @@
-// Puts a theme on the document: `data-theme` on <html>, and for a mod's theme its `theme.css`.
+// Puts a theme on the document: `data-theme` on <html>, and for a mod's or the catalogue's theme its
+// CSS block.
 //
 // **A constructable stylesheet, not a `<style>` element.** The window's CSP is `default-src 'self'`,
 // which refuses an inline `<style>`, and loosening it for mods is a security review rather than a
@@ -7,8 +8,6 @@
 // document, after every token, which is where a theme must sit to win at equal specificity.
 //
 // Nothing here throws. A theme that cannot be applied is Dark, and Bridge keeps running.
-
-import type { ThemeState } from "@armada/settings";
 
 const DARK = "dark";
 const BUILT_IN = new Set(["dark", "light"]);
@@ -31,8 +30,12 @@ function sheetOf(doc: Document, name: string, css: string): CSSStyleSheet {
 }
 
 export type ThemeLoader = {
-  /** Apply what the state asks for and return the theme in force: the asked-for id, or Dark. */
-  apply(state: ThemeState): string;
+  /**
+   * Put `id` on the document, with the CSS that defines it: none for Dark and Light, whose tokens
+   * are already loaded, and a mod's or the catalogue's block otherwise. Returns the theme in force:
+   * `id`, or Dark when the CSS is missing, refused, or throws.
+   */
+  apply(id: string, css: string | null): string;
   /** Leave the document as it was found. */
   clear(): void;
 };
@@ -55,20 +58,18 @@ export function createThemeLoader(doc: Document): ThemeLoader {
   };
 
   return {
-    apply: (state) => {
+    apply: (id, css) => {
       try {
-        const { active } = state;
-        if (BUILT_IN.has(active)) {
+        if (BUILT_IN.has(id)) {
           drop();
-          return show(active);
+          return show(id);
         }
-        const mod = state.mods.find((one) => one.name === active && one.enabled);
-        if (mod === undefined) return fallBack(`no enabled mod named ${active}`);
-        const next = sheetOf(doc, mod.name, mod.css);
+        if (css === null) return fallBack(`no theme named ${id}`);
+        const next = sheetOf(doc, id, css);
         drop();
         mine = next;
         doc.adoptedStyleSheets = [...doc.adoptedStyleSheets, next];
-        return show(active);
+        return show(id);
       } catch (why) {
         return fallBack(why);
       }

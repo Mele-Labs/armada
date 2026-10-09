@@ -11,12 +11,19 @@ const DARK = "dark";
 /** A theme a mod ships: its `theme.css`, one `[data-theme="<name>"]` block. */
 export type ThemeMod = { name: string; title: string; css: string; enabled: boolean; promoted: boolean };
 
-export type ThemeState = { mods: readonly ThemeMod[]; active: string };
+/**
+ * A theme Bridge ships. **The same shape as a mod's, delivered differently**: its CSS is one
+ * `[data-theme="<id>"]` block like a mod's `theme.css`, fetched when it is chosen so that none of
+ * it is in the initial stylesheet. Its id carries a `catalogue:` prefix, which no mod's name has.
+ */
+export type CatalogueTheme = { id: string; title: string; tone: "dark" | "light"; load(): Promise<string> };
+
+export type ThemeState = { mods: readonly ThemeMod[]; catalogue: readonly CatalogueTheme[]; active: string };
 
 export interface ThemeSource {
   get(): ThemeState;
   subscribe(on: () => void): () => void;
-  /** Choose a theme by id. An id that is neither built in nor an enabled mod becomes Dark. */
+  /** Choose a theme by id. An id that is neither built in, in the catalogue nor an enabled mod becomes Dark. */
   setActive(id: string): void;
 }
 
@@ -27,14 +34,14 @@ export interface ModsSource extends ThemeSource {
 }
 
 const isBuiltIn = (id: string) => (BUILT_IN_THEMES as readonly string[]).includes(id);
-const usable = (state: ThemeState, id: string) => isBuiltIn(id) || state.mods.some((mod) => mod.name === id && mod.enabled);
+const usable = (state: ThemeState, id: string) => isBuiltIn(id) || state.catalogue.some((one) => one.id === id) || state.mods.some((mod) => mod.name === id && mod.enabled);
 
 /**
  * A source held in memory. The mock runs on it with mods; Bridge runs on it with none until Fleet
  * serves the mod folder. **That is the seam**: a Fleet-backed `ModsSource` replaces this one in
  * `main.tsx`, and nothing else changes.
  */
-export function createThemeSource(initial: () => ThemeState = () => ({ mods: [], active: DARK })): ModsSource & {
+export function createThemeSource(initial: () => ThemeState = () => ({ mods: [], catalogue: [], active: DARK })): ModsSource & {
   /** A mod arriving, the way a Session writing one into the mod folder would. */
   install(mod: ThemeMod): void;
   reset(): void;
@@ -60,22 +67,24 @@ export function createThemeSource(initial: () => ThemeState = () => ({ mods: [],
   };
 }
 
-/** The same source with every mod hidden: safe mode. Built-in themes still choose. */
+/** The same source with every mod hidden: safe mode. Built-in and catalogue themes still choose. */
 export function withoutMods(source: ModsSource): ModsSource {
   let from: ThemeState | undefined;
-  let shown: ThemeState = { mods: [], active: DARK };
+  let shown: ThemeState = { mods: [], catalogue: [], active: DARK };
   return {
     get: () => {
       const state = source.get();
       if (state !== from) {
         from = state;
-        shown = { mods: [], active: isBuiltIn(state.active) ? state.active : DARK };
+        const kept = isBuiltIn(state.active) || state.catalogue.some((one) => one.id === state.active);
+        shown = { mods: [], catalogue: state.catalogue, active: kept ? state.active : DARK };
       }
       return shown;
     },
     subscribe: (on) => source.subscribe(on),
     setActive: (id) => {
-      if (isBuiltIn(id)) source.setActive(id);
+      const state = source.get();
+      if (isBuiltIn(id) || state.catalogue.some((one) => one.id === id)) source.setActive(id);
     },
     setEnabled: () => undefined,
     promote: () => undefined,
