@@ -10,5 +10,7 @@ Kept the way `get_limits` is: Fleet-wide, surviving a relaunch, and read once pe
 
 **The first preference is `where_things_are_open`**, a boolean defaulting to `false` — whether Job detail's *Where things are* chapter opens collapsed or expanded. Moving the Board's own view and sort onto this table is left for later.
 
+**`theme` is the third**: the id of the theme Bridge draws with, a shipped theme's or a mod's name. Left out of the answer while it is `dark`, which is what absent means.
+
 `agent_access` is `Yes` for `get_capacity`'s reason: a preference is cheap to read and a session asking what a person set is asking nothing it could not already see on the screen it is helping with.
 """

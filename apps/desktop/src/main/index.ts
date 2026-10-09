@@ -5,7 +5,7 @@ import { join } from "node:path";
 
 import { CHANNELS, NOTHING_YET } from "../shared/bridge";
 import type { BridgeState, PickedView, Summons } from "../shared/bridge";
-import type { ChangeSlotPool, Outcome, RescueSlot, RetroSubject } from "@armada/protocol";
+import type { BuildSource, ChangeSlotPool, Outcome, RescueSlot, RetroSubject } from "@armada/protocol";
 import type { HelmContext, LandCheckAt, StagedAttachment } from "@armada/protocol";
 import { landCheckAt } from "./land-following";
 import type { ToProposer, AddTask, ApproveWave, DropTask, EditJob, EditTask, FileReport, MovePlan } from "@armada/protocol";
@@ -35,6 +35,8 @@ import { openFindingIssue, openPullRequest, openRemarkLink, openStudioNode } fro
 import { RemarksPoll } from "./remarks-poll";
 import { ResourcesPoll } from "./resources-poll";
 import { openLink } from "./links";
+import { askGateway } from "./phone-gateway";
+import type { PhoneRequest } from "@armada/settings/api";
 import { restartFleet } from "./restart-fleet";
 import { openServerLink } from "./servers";
 import { frameStream, FRAME_SCHEME } from "./streaming";
@@ -157,6 +159,11 @@ const captureWindows = new CaptureWindows({
     const sent = await connection?.sessions.send({ session_id: sessionId, text: sessionNoteText(said, capture, address) });
     return sent === undefined ? UNSENT : sent.ok ? { ok: true } : sent.outcome;
   },
+  walkApproved: async (jobId) => (await connection?.commands.approveReview(jobId)) ?? UNSENT,
+  sessionApproved: async (sessionId, address) => {
+    const sent = await connection?.sessions.send({ session_id: sessionId, text: `Approved: ${address}` });
+    return sent === undefined ? UNSENT : sent.ok ? { ok: true } : sent.outcome;
+  },
   stage: stagePng,
   focused: (serverId, on) => {
     if (on) walkFocused.add(serverId);
@@ -260,7 +267,10 @@ function createWindow(): BrowserWindow {
   // injects an inline module preamble in dev and `default-src 'self'` refuses
   // it. Relaxing the CSP is a security review rather than a local convenience,
   // so the build is what moves. Reported.
-  void window.loadFile(join(__dirname, "../renderer/index.html"));
+  //
+  // **`--no-mods` is safe mode**: the renderer reads `?nomods` and loads without any mod's theme.
+  // A query on the page, so the preload surface gains nothing.
+  void window.loadFile(join(__dirname, "../renderer/index.html"), process.argv.includes("--no-mods") ? { query: { nomods: "1" } } : {});
   return window;
 }
 
@@ -754,6 +764,16 @@ void app.whenReady().then(() => {
   ipcMain.handle(CHANNELS.savePreference, (_event, save: SavePreference) =>
     connection?.commands.savePreference(save),
   );
+  // The Phone Gateway, one named operation at a time — `phone-gateway.ts` makes the call.
+  ipcMain.handle(CHANNELS.phone, (_event, request: PhoneRequest) => askGateway(request));
+  // The mods on this machine. Fleet-wide, so no Job id rides these either — `mods.ts`.
+  ipcMain.handle(CHANNELS.validateMod, async (_event, name: string) => (await connection?.mods.validate(name)) ?? null);
+  ipcMain.handle(CHANNELS.setModEnabled, async (_event, name: string, enabled: boolean): Promise<Outcome> =>
+    (await connection?.mods.setEnabled(name, enabled)) ?? { ok: false, why: "not_connected" },
+  );
+  ipcMain.handle(CHANNELS.promoteMod, async (_event, name: string): Promise<Outcome> =>
+    (await connection?.mods.promote(name)) ?? { ok: false, why: "not_connected" },
+  );
   // Saying a job failed in error. Its own channel beside the override rather
   // than a flag on it: the override moves the job past a verdict and this moves
   // nothing, and the two would otherwise be one press meaning either.
@@ -844,6 +864,10 @@ void app.whenReady().then(() => {
   ipcMain.handle(CHANNELS.openLink, (_event, address: string) => openLink(address));
   // Asks launchd, not Fleet: `restart-fleet.ts`. Read from what main last published.
   ipcMain.handle(CHANNELS.restartFleet, () => restartFleet(published.connection));
+  // Asks Fleet, which starts `scripts/restart-build` detached: `fleet-build.ts`.
+  ipcMain.handle(CHANNELS.changeFleetBuild, (_event, build: BuildSource, adopt: boolean) =>
+    connection?.fleetBuild.change(build, adopt),
+  );
   // The act above that read. It moves nothing, costs no model call, and the
   // answer it publishes is also written into the Job's own log.
   ipcMain.handle(CHANNELS.examineJob, (_event, jobId: string) =>

@@ -11,6 +11,7 @@
 //! credential, a network, or an agent.
 
 mod basing;
+mod build_standing;
 mod ci_workflows;
 mod cloning;
 mod commit;

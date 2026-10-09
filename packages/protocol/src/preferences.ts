@@ -13,6 +13,11 @@ export type Preferences = {
   /** Whether this machine offers a pull request as a draft unless the repository, the
    * workflow or the Job says otherwise. Since 23.68. Absent is `false`. */
   draft_pull_requests?: boolean;
+  /**
+   * The theme Bridge draws with: a built-in's id, a catalogue theme's, or a mod's name. Fleet holds
+   * the word and Bridge decides what it names. Absent is `dark`.
+   */
+  theme?: string;
 };
 
 /**
@@ -23,4 +28,9 @@ export type Preferences = {
 export type SavePreference = {
   name: string;
   value: boolean;
+  /**
+   * The value of a preference that is a word and not a switch, which is `theme` alone. `value` is
+   * read for every other name and this is read for none of them.
+   */
+  text?: string;
 };

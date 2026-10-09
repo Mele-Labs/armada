@@ -13,7 +13,7 @@
 
 import { StrictMode, useEffect, useRef, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { Button, CaptureBar } from "@armada/components";
+import { Button, CaptureBar, type CaptureBarApproval } from "@armada/components";
 
 /** What a press inside the page picked, as a walk note describes it. */
 export type Picked = { element: string; selector: string; location: string };
@@ -24,6 +24,8 @@ export type WalkWindowOptions = {
   /** Which of the two it is, as the note's Send says. Absent is a Job. */
   into?: "Job" | "Session";
   onNote: (said: string, picked: Picked) => void;
+  /** Approve, pressed on the page at `address`: what the Job or the Session is told. */
+  onApprove?: (address: string) => Promise<{ ok: true } | { ok: false; said: string }>;
 };
 
 let held: { root: Root; host: HTMLElement } | null = null;
@@ -90,13 +92,14 @@ if (typeof window !== "undefined") {
   );
 }
 
-function WalkWindow({ run, url, host, job, into = "Job", onNote }: { run: string; url: string; host: HTMLElement } & WalkWindowOptions) {
+function WalkWindow({ run, url, host, job, into = "Job", onNote, onApprove }: { run: string; url: string; host: HTMLElement } & WalkWindowOptions) {
   const testing = (import.meta as { env?: { MODE?: string } }).env?.MODE === "test";
   const frame = useRef<HTMLIFrameElement>(null);
   const [armed, setArmed] = useState(false);
   const [picked, setPicked] = useState<Picked | null>(null);
   const [said, setSaid] = useState("");
   const [kept, setKept] = useState(0);
+  const [approval, setApproval] = useState<CaptureBarApproval | undefined>(undefined);
 
   // **Bridge dims behind the window while it has focus**, as main dims its own
   // windows behind a focused walk window: a press here or in its page takes
@@ -200,6 +203,17 @@ function WalkWindow({ run, url, host, job, into = "Job", onNote }: { run: string
         }}
         onFollowRefused={() => {}}
         binding={["⌥", "⌘", "A"]}
+        {...(onApprove === undefined
+          ? {}
+          : {
+              onApprove: () => {
+                setApproval({ state: "pending" });
+                void onApprove(url).then((answer) =>
+                  setApproval(answer.ok ? { state: "approved" } : { state: "refused", said: answer.said }),
+                );
+              },
+            })}
+        {...(approval === undefined ? {} : { approval })}
       />
       {picked === null ? null : (
         <form

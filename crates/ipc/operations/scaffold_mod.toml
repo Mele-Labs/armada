@@ -1,0 +1,14 @@
+[operations.scaffold_mod]
+kind = "command"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Make a mod folder with a starter theme, kept as its own git repository with a first commit"
+notes = """
+`POST /mods/scaffold`, body `ScaffoldMod`: `name`, an optional `description`. Answered with `ModScaffolded`, whose `path` is the folder the session edits `theme.css` in.
+
+`name` is a slug: lowercase letters, digits and `-`, starting with a letter or digit, at most 40 characters. `dark`, `light`, `system` and `default` are refused because Bridge's own themes answer to them. A name that is not a slug, including anything with a `/` or a `..`, is a 422 `fleet.unacceptable_mod`, and so is a mod that already exists: the folder is made with `create_dir`, which refuses an existing one atomically, so two calls racing make one mod and refuse the other.
+
+The folder holds `mod.toml` (name, `kind = "theme"`, version `0.1.0`, description) and a `theme.css` with one commented token, and is a git repository with one commit, so every later edit has a history and promoting it is a copy. Nothing is pushed. A scaffold publishes `mods.changed`.
+
+`agent_access` is `Yes`: making the mod is the session's job. Enabling it is not, see `set_mod_enabled`.
+"""

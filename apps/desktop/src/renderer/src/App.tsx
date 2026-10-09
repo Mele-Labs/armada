@@ -35,7 +35,7 @@ import { jobFailure } from "@armada/shell";
 import { SweepButtons, SweepDialogs, sweepsOf, useRefreshKey, type Sweep } from "@armada/shell";
 import { repositoryLabel } from "@armada/shell";
 import { AskRepository } from "@armada/screens";
-import { BridgeSettings } from "@armada/settings";
+import { BridgeSettings, ModsSurface } from "@armada/settings";
 import { Kit } from "@armada/manifest";
 import { Reports } from "@armada/screens";
 import { Composing } from "./Composing";
@@ -65,7 +65,7 @@ import {
   openRemarkLink,
   openServerLink,
   runSheetServers,
-  openLink, restartFleet,
+  openLink, restartFleet, changeFleetBuild,
   observeRun,
   observeCheckoutRun,
   pickRepository,
@@ -147,7 +147,8 @@ import { useWhereOpen } from "./where-open";
 import { usePlanView } from "./remembered-views";
 import { usePanelOpen } from "./panel-open";
 import { useGuideListWidth } from "./guide-list-width";
-import { statsOf, fleetPanelOf } from "./left-column";
+import { fleetPanelOf } from "./left-column";
+import { fleetBuildOf, useFleetBuild } from "./fleet-build";
 import { copyDebugInfoFor, useCommandPalette } from "@armada/shell";
 import { Shell, SURFACE, SURFACES, useAtFloor, useNarrow, useSurfaceKeys } from "@armada/shell";
 
@@ -218,7 +219,7 @@ export function App({ draft }: AppProps = {}) {
   const [sweep, setSweep] = useState<Sweep | null>(null);
   // Whether Settings is open — a rail surface since #1089, the sheet it
   // replaced having lost its own opener when the status bar went (#1088).
-  const [settingsShowing, setSettingsShowing] = useState(false);
+  const [settingsShowing, setSettingsShowing] = useState(false); const [modding, setModding] = useState(false);
   // Whether Kit is open — a rail surface since #1275, at `⌘8`. Machine-wide,
   // and the rail's pick is what names its second tier.
   const [kitting, setKitting] = useState(false);
@@ -294,8 +295,9 @@ export function App({ draft }: AppProps = {}) {
   // Graph or list on Plan, this window's.
   const [planView, pressPlanView] = usePlanView();
   // The left column's own fold, remembered across a restart — Bridge/1088.
-  const [statsOpen, setStatsOpen] = usePanelOpen("stats");
   const [fleetOpen, setFleetOpen] = usePanelOpen("fleet");
+  // The mock provides a fixture; a real window builds it from what Fleet reported.
+  const fleetBuild = useFleetBuild() ?? fleetBuildOf(state.fleetBuild, state.jobs, (build, adopt) => void changeFleetBuild(build, adopt));
   // The catalogue list's width, remembered the same way the shell's column is.
   const [guideList, resizeGuideList] = useGuideListWidth();
 
@@ -351,7 +353,7 @@ export function App({ draft }: AppProps = {}) {
 
   // Fleet's health and every repository's drift in scope. Held for the life
   // of the window rather than only while Overview is showing — Bridge/1088's
-  // Stats and Fleet panels draw the same two reads on every surface now.
+  // Fleet panel draws its Doctor read on every surface now.
   useEffect(() => {
     watchOverview(true);
     return () => watchOverview(false);
@@ -472,7 +474,7 @@ export function App({ draft }: AppProps = {}) {
     setAuditing(false);
     setClearing(surfaceId === SURFACE.worktrees);
     setManifesting(surfaceId === SURFACE.manifest);
-    setSettingsShowing(surfaceId === SURFACE.settings);
+    setSettingsShowing(surfaceId === SURFACE.settings); setModding(surfaceId === SURFACE.mods);
     setKitting(surfaceId === SURFACE.kit);
     setGuiding(surfaceId === SURFACE.guides);
     setLining(surfaceId === SURFACE.mergeLine);
@@ -568,7 +570,7 @@ export function App({ draft }: AppProps = {}) {
   // Back and forward are keys and nothing on screen — `history.ts`.
   const [jobAt, onJobWhere] = useJobTab(openJob);
   useHistory(
-    { surface: showingOf({ clearing, manifesting, settingsShowing, kitting, guiding, studying, lining, learning, workflowing, checking, sessioning }), job: openJob, ...jobAt, session: sessionOpen, studio: openStudio, studioNode },
+    { surface: showingOf({ clearing, manifesting, settingsShowing, modding, kitting, guiding, studying, lining, learning, workflowing, checking, sessioning }), job: openJob, ...jobAt, session: sessionOpen, studio: openStudio, studioNode },
     (place) => { goTo(place.surface); setOpenJob(place.job); if (place.job !== null) asked.setOpening({ jobId: place.job, to: openingOf(place) }); setSessionOpen(place.session); setOpenStudio(place.studio); setStudioNode(place.studioNode); },
     (place) => place.job === null || state.jobs.some((job) => job.id === place.job),
   );
@@ -654,19 +656,15 @@ export function App({ draft }: AppProps = {}) {
               Start fresh
             </Button>
           }
-          stats={{
-            rows: statsOf(state.connection, state.jobs, state.capacity, repositories, state.repository, state.drifts),
-            open: statsOpen,
-            onOpenChange: setStatsOpen,
-          }}
           fleet={{
             ...fleetPanelOf(state.connection, statement, state.health, now, state.readAt),
+            ...(fleetBuild === undefined ? {} : { build: fleetBuild }),
             open: fleetOpen,
             onOpenChange: setFleetOpen,
           }}
           // Which row the rail marks — `showing.ts`.
           showing={showingOf({
-            clearing, manifesting, settingsShowing, kitting, guiding, studying, lining, learning, workflowing, checking, sessioning,
+            clearing, manifesting, settingsShowing, modding, kitting, guiding, studying, lining, learning, workflowing, checking, sessioning,
           })}
           onSurface={goTo}
         >
@@ -1056,7 +1054,7 @@ export function App({ draft }: AppProps = {}) {
               <Boundary region="Guides" {...guarded}>
                 <GuideCatalogue narrow={narrow} floor={floor} listWidth={guideList} onResizeList={resizeGuideList} />
               </Boundary>
-            ) : settingsShowing ? (
+            ) : modding ? (<Boundary region="Mods" {...guarded}><ModsSurface /></Boundary>) : settingsShowing ? (
               <Boundary region="Settings" {...guarded}>
                 <BridgeSettings
                   limits={state.limits}

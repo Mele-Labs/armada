@@ -122,6 +122,7 @@ pub fn fitted_over<V>(
             // Under the fixture's own home, so no case reads or writes a real
             // `~/.armada`.
             kit_home: home.path().join("kit").to_string_lossy().to_string(),
+            mods_dir: home.path().join("mods").to_string_lossy().to_string(),
         },
         // Reads no folder: the cases about adding a repository plant their own.
         locating: Arc::new(crate::tests::repositories::Planted::nothing()),

@@ -14,6 +14,7 @@ import type {
   CommandInFlight,
   JobSummary,
   JudgeQuestion,
+  ModSummary,
   ProposalSettled,
   QuestionInFlight,
 } from "@armada/protocol";
@@ -21,6 +22,7 @@ import { NOTHING_YET, type BridgeState } from "../shared/bridge";
 import { applyArrival, type ArrivalHost } from "./arrivals";
 import type { RehearsalConnection } from "./rehearsal";
 import type { RepositoryReads } from "./repositories";
+import { Modding } from "./mods";
 import { Questions } from "./questions";
 import type { ReviewMaterial } from "./review";
 
@@ -79,6 +81,7 @@ function fakeHost(
     current: () => state,
     publish: (change) => (state = { ...state, ...change }),
   });
+  const mods = new Modding((change) => (state = { ...state, ...change }), () => null);
   const host: ArrivalHost = {
     current: () => state,
     now: () => 0,
@@ -95,6 +98,8 @@ function fakeHost(
     helm: { reconnected: () => {} },
     studios: { again: async () => {}, changed: () => {}, deleted: () => {} },
     sessions: { again: async () => {}, changed: () => {}, row: () => {} },
+    fleetBuild: { watch: () => {} },
+    mods,
     material: {} as unknown as ReviewMaterial,
     socket: { close: () => {}, resetUnreachable: () => {} },
     publish: (change) => (state = { ...state, ...change }),
@@ -301,5 +306,26 @@ describe("a proposal filling in, on the Job its message names", () => {
     const { host, state } = fakeHost([proposingJob()]);
     applyArrival(host, moved({ workflow_id: "bug" }, { job_id: undefined }), FLEET);
     expect(state().jobs[0]?.workflow_id).toBe("");
+  });
+});
+
+describe("the mods on this machine, off `mods.changed`", () => {
+  const row = (name: string, over: Partial<ModSummary> = {}): ModSummary => ({ name, kind: "theme", enabled: true, valid: true, ...over });
+  const changed = (mods: ModSummary[]) => JSON.stringify({ message: "event", cursor: 3, event: { kind: "mods.changed", mods } });
+
+  it("holds nothing until the list has been read, and replaces it whole after", () => {
+    const { host, state } = fakeHost([]);
+    expect(state().mods).toBeNull();
+    applyArrival(host, changed([row("calm"), row("warm")]), FLEET);
+    expect(state().mods?.mods.map((one) => one.name)).toEqual(["calm", "warm"]);
+    // Whole, not folded: a mod that left the folder leaves the list, and a row's new state replaces the old.
+    applyArrival(host, changed([row("warm", { enabled: false, valid: false, reason: "line 3: not a token" })]), FLEET);
+    expect(state().mods?.mods).toEqual([row("warm", { enabled: false, valid: false, reason: "line 3: not a token" })]);
+  });
+
+  it("is not a Job event: the Board is untouched", () => {
+    const { host, state } = fakeHost([job()]);
+    applyArrival(host, changed([row("calm")]), FLEET);
+    expect(state().jobs).toEqual([job()]);
   });
 });

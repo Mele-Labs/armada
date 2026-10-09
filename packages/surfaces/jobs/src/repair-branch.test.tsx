@@ -124,6 +124,15 @@ test("a Drone that changed nothing leaves no branch, and an added step's fix is 
   expect(branches(step).asking).toBe(repairNodeId(step[0]!));
 });
 
+test("a Script added to the Job that waits on him to run it is a leaf with Run and Skip, named to Fleet by its id", () => {
+  const waiting = additionBranches([
+    { id: "a1", runs: { kind: "script", command: "wipe_qa" }, when: "pr_opened", step: "handoff", block: true, repair: false, placed: "running", added_at: AT, state: "awaiting_owner" },
+  ]);
+  expect(waiting.map((one) => fixOf(one))).toEqual([{ addition: "a1" }]);
+  expect(branches(waiting).nodes.map((one) => one.id)).toEqual(["leaf:addition|a1"]);
+  expect(triggerAlert([], [{ id: "a1", runs: { kind: "script", command: "wipe_qa" }, when: "pr_opened", step: "handoff", block: false, repair: false, placed: "running", added_at: AT, state: "awaiting_owner" }])).toBe(true);
+});
+
 test("a leaf stands in the column its lane made, and a second stands under the first with room for its files", () => {
   const first = deploy("fix_ready", FIX);
   const second = { ...deploy("passed", undefined), name: "fmt" };

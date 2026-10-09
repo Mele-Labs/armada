@@ -223,13 +223,15 @@ pub struct AddedStep {
 
 impl AddedStep {
     /// Whether this step holds its Job: it blocks, a hold can stand where it
-    /// is, and its latest firing failed and was not settled. A repair under way
-    /// is still a failure nobody has settled.
+    /// is, and its latest firing failed and was not settled, or is a destructive
+    /// Command still asking him. A repair under way is still a failure nobody
+    /// has settled.
     pub fn holds_the_job(&self, workflow: &FrozenWorkflow) -> bool {
         self.on_failure.block
             && can_hold(workflow, self.when, &self.step)
             && self.fired.as_ref().is_some_and(|fired| {
                 fired.state.holds_a_blocking_job()
+                    || fired.state == TriggerState::AwaitingOwner
                     || self.repair.side_run_in_flight(fired.state)
             })
     }

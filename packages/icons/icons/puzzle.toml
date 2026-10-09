@@ -1,0 +1,13 @@
+[icons.puzzle]
+  means = "A piece that fits into the whole"
+  group = "Navigation"
+  size = "16px"
+  status = "Specified"
+  reserved = "Mods, and a theme that came from a mod. Never an extension point drawn anywhere else, and never Kit's, which is `briefcase`."
+
+  [[icons.puzzle.usage]]
+    means = "The Mods surface, in the rail"
+    group = "Navigation"
+    size = "16px"
+    status = "Specified"
+    notes = "Tooltip `Mods`. Walked by the owner in the Mods mock."

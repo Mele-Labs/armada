@@ -23,6 +23,8 @@ import {
 } from "@armada/components";
 import type { FleetLimits, HelmActionAuthority, Outcome, Preferences, SaveLimits, SavePreference } from "@armada/protocol";
 import { useState } from "react";
+import { PhoneSettings } from "./PhoneSettings";
+import { ThemeSettings } from "./ThemeSettings";
 import type { HealthRead } from "@armada/screens/src/overview-reads";
 
 /** One of the four fields a row may send, by its wire name. */
@@ -95,6 +97,17 @@ export function BridgeSettings({ limits, live, health, onSave, preferences, onSa
           {preferences === undefined || onSavePreference === undefined ? null : (
             <DraftPullRequests on={preferences.draft_pull_requests === true} live={live} onSave={onSavePreference} />
           )}
+        </CardContent>
+      </Card>
+
+      <PhoneSettings />
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Theme</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ThemeSettings />
         </CardContent>
       </Card>
 

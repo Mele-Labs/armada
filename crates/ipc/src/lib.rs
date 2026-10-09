@@ -43,6 +43,9 @@ mod asked;
 mod asking;
 mod attempt;
 mod breakage;
+/// The build Fleet runs on, where it stands against `main`, and the request that
+/// moves it. **Fleet-wide, and not a Job's field.**
+mod building;
 /// How many Drones Fleet may run, how many it is running, and what holds the
 /// next one back. **Fleet-wide, and not a Job's field.**
 mod capacity;
@@ -120,6 +123,8 @@ mod manifest_proposal;
 pub mod mcp;
 mod merge_hub;
 mod merge_line;
+/// Mods: a directory on this machine that changes how Bridge looks.
+mod mods;
 /// `armada need`: a checkout says what it needs on a path, and Fleet answers from
 /// the session ledger. `docs/capabilities/needs.md`.
 mod needs;
@@ -230,6 +235,7 @@ pub use asked::{AskedRun, AskedRunState};
 pub use asking::{JudgeAnswer, JudgeAnswered, JudgeQuestion, SetWhenRefused, WhenRefused};
 pub use attempt::{ended_at, first_started_at, Move, ResolvedPolicies, StepAttempt};
 pub use breakage::{ClaimedBreakage, WaitingOnFix};
+pub use building::{BuildPosition, BuildSource, ChangeFleetBuild, FleetBuildChanging, FleetBuildReport};
 pub use capacity::{AdmissionHold, FleetCapacity};
 pub use capturing::{
     CaptureBounds, CaptureElement, CaptureFrame, CaptureServed, CaptureStudioNote, CaptureWindow,
@@ -338,13 +344,17 @@ pub use merge_line::{
     LandCheckState, LandOutputMessage, LandOutputOpened, LandState, MergeLine, MergeLineCheck,
     MergeLineEntry, MergeLinePullRequest, MergeLines,
 };
+pub use mods::{
+    ModChecked, ModKind, ModList, ModPromoted, ModScaffolded, ModSummary, PromoteMod, ScaffoldMod,
+    SetModEnabled,
+};
 pub use needs::{NeedAct, NeedAnswer, NeedCall, NeedLine, NeedList};
 pub use overlap::{ScopeOverlap, SharedPath};
 pub use piloting::{
     DroneNarrative, HandoffBundle, HandoffWorktree, PilotNote, PilotOutcome, Piloted, StoppedOn,
     TakeOver,
 };
-pub use preferences::{Preferences, SavePreference};
+pub use preferences::{Preferences, SavePreference, DEFAULT_THEME};
 pub use proposing::{
     ProposalInFlight, ProposalReach, ProposalSettings, ProposalSettled, ProposalStopped,
     StopProposal,

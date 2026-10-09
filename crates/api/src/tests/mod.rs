@@ -20,6 +20,7 @@ mod following;
 mod helm_kills;
 mod helm_pauses;
 mod journal;
+mod building;
 mod limits;
 mod mcp;
 mod observing;

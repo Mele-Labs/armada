@@ -15,6 +15,7 @@ export function useAlerts(state: Pick<BridgeState, "jobs" | "watched">, onOpenAl
     state.jobs.map((job) => [job.id, job.status, job.alert?.kind, job.alert?.trigger]),
     detail?.job.id,
     (detail?.triggers ?? []).map((one) => [one.name, one.state]),
+    (detail?.additions ?? []).map((one) => [one.id, one.state]),
   ]);
   useEffect(() => {
     let alive = true;

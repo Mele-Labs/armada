@@ -2,7 +2,7 @@ import { ChevronRight, ChevronUp } from "lucide-react";
 import type { ReactNode } from "react";
 
 /**
- * A rounded panel in the left column — Navigation, Stats and Fleet stack
+ * A rounded panel in the left column — Navigation and Fleet stack
  * inside these. Bridge/1088.
  *
  * **Controlled, not persisted**: the caller reads and writes `open`, the way
@@ -41,8 +41,7 @@ export type PanelProps = {
    * "running", which is every collapsed panel's state before 18 Sep 2026.
    *
    * The sentence is the caller's because only the caller has one: Fleet passes
-   * `fleetSaid(label)`, and Stats' dot is a rollup of six rows with no wording
-   * specified for it, so it passes none. See design-system.md → Left column.
+   * `fleetSaid(label)`. See design-system.md → Left column.
    */
   dotLabel?: string;
   /** Drawn in the dot's place at `narrow`, for a state a hue cannot carry. */

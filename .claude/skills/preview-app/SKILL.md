@@ -48,5 +48,12 @@ the code.** Run `cargo clean -p libsqlite3-sys` in `.armada/preview` and run the
 restart again. The owner's Fleet stays up, because the build fails before Fleet
 is stopped. Confirmed twice on 6 and 7 Oct 2026.
 
+**The owner can run this from Bridge.** The Fleet panel's build section has a
+Preview / Main Select and one button that follows it: `Refresh preview` is
+`scripts/preview --restart`, `Update to main` is `scripts/restart --main`.
+Bridge asks before `--adopt`, listing the working Jobs. It runs
+`scripts/restart-build`, which retries a stale `libsqlite3-sys` once itself.
+`docs/practices/running-locally.md`, *Restarting from Bridge*.
+
 **Starting a Fleet or Bridge of your own** is not this: that is
 `.claude/skills/armada-local/SKILL.md` and `.claude/skills/dev-fleet/SKILL.md`.

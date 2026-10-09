@@ -13,13 +13,13 @@ const panels = () => [...document.querySelectorAll(".armada-shell__left > :is(.a
 const surface = (element: Element) => getComputedStyle(element);
 const layer = (element: Element) => getComputedStyle(element, "::before");
 
-test("Navigation (Work and Machine), Stats and Fleet are flat, and the Dashboard's call is still a raised card", async () => {
+test("Navigation (Work and Machine) and Fleet are flat, and the Dashboard's call is still a raised card", async () => {
   await page.viewport(1440, 900);
   mount("every-state");
   await expect.element(page.getByText("pid")).toBeVisible();
 
   const flat = panels();
-  expect(flat).toHaveLength(4);
+  expect(flat).toHaveLength(3);
   for (const panel of flat) {
     expect(surface(panel).boxShadow).toBe("none");
     expect(surface(panel).backgroundImage).toBe("none");

@@ -1,0 +1,665 @@
+[
+  {
+    "id": "catalogue:ayu-light",
+    "title": "Ayu Light",
+    "tone": "light",
+    "source": "Ayu Light",
+    "flags": [],
+    "swatch": [
+      "#F8F9FA",
+      "#FDFDFE",
+      "#5C6166",
+      "#0070B5",
+      "#1C7200",
+      "#AC333A",
+      "#905300",
+      "#0064A9"
+    ]
+  },
+  {
+    "id": "catalogue:ayu-mirage",
+    "title": "Ayu Mirage",
+    "tone": "dark",
+    "source": "Ayu Mirage",
+    "flags": [],
+    "swatch": [
+      "#1F2430",
+      "#252A35",
+      "#CCCAC2",
+      "#73D0FF",
+      "#87D96C",
+      "#FB8E80",
+      "#FACC6E",
+      "#6DCBFA"
+    ]
+  },
+  {
+    "id": "catalogue:carbonfox",
+    "title": "Carbonfox",
+    "tone": "dark",
+    "source": "Carbonfox",
+    "flags": [],
+    "swatch": [
+      "#161616",
+      "#1D1D1D",
+      "#F2F4F8",
+      "#8CB6FF",
+      "#25BE6A",
+      "#FF67A8",
+      "#08BDBA",
+      "#78A9FF"
+    ]
+  },
+  {
+    "id": "catalogue:catppuccin-frappe",
+    "title": "Catppuccin Frappe",
+    "tone": "dark",
+    "source": "Catppuccin Frappe",
+    "flags": [],
+    "swatch": [
+      "#303446",
+      "#35394C",
+      "#C6D0F5",
+      "#ADC2F3",
+      "#A8D38B",
+      "#FFB2B3",
+      "#E5C890",
+      "#A9C8FF"
+    ]
+  },
+  {
+    "id": "catalogue:catppuccin-latte",
+    "title": "Catppuccin Latte",
+    "tone": "light",
+    "source": "Catppuccin Latte",
+    "flags": [],
+    "swatch": [
+      "#EFF1F5",
+      "#FBFBFC",
+      "#4C4F69",
+      "#125BE9",
+      "#006A00",
+      "#B60023",
+      "#944800",
+      "#004CD9"
+    ]
+  },
+  {
+    "id": "catalogue:catppuccin-macchiato",
+    "title": "Catppuccin Macchiato",
+    "tone": "dark",
+    "source": "Catppuccin Macchiato",
+    "flags": [],
+    "swatch": [
+      "#24273A",
+      "#2A2D41",
+      "#CAD3F5",
+      "#ADC5F7",
+      "#A6DA95",
+      "#FD96A5",
+      "#EED49F",
+      "#92B5FD"
+    ]
+  },
+  {
+    "id": "catalogue:catppuccin-mocha",
+    "title": "Catppuccin Mocha",
+    "tone": "dark",
+    "source": "Catppuccin Mocha",
+    "flags": [],
+    "swatch": [
+      "#1E1E2E",
+      "#242435",
+      "#CDD6F4",
+      "#AECCFC",
+      "#A6E3A1",
+      "#F38BA8",
+      "#F9E2AF",
+      "#89B4FA"
+    ]
+  },
+  {
+    "id": "catalogue:dayfox",
+    "title": "Dayfox",
+    "tone": "light",
+    "source": "Dayfox",
+    "flags": [],
+    "swatch": [
+      "#F6F2EE",
+      "#FDFCFB",
+      "#3D2B5A",
+      "#4863B6",
+      "#366544",
+      "#A5222F",
+      "#974000",
+      "#2848A9"
+    ]
+  },
+  {
+    "id": "catalogue:everforest-dark-hard",
+    "title": "Everforest Dark Hard",
+    "tone": "dark",
+    "source": "Everforest Dark Hard",
+    "flags": [],
+    "swatch": [
+      "#1E2326",
+      "#24292B",
+      "#D3C6AA",
+      "#7FBBB3",
+      "#A7C080",
+      "#F68D8E",
+      "#DBBC7F",
+      "#7FBBB3"
+    ]
+  },
+  {
+    "id": "catalogue:everforest-light-med",
+    "title": "Everforest Light Med",
+    "tone": "light",
+    "source": "Everforest Light Med",
+    "flags": [],
+    "swatch": [
+      "#EFEBD4",
+      "#FBFAF4",
+      "#59676F",
+      "#326D67",
+      "#4A5F21",
+      "#99393F",
+      "#715414",
+      "#24605A"
+    ]
+  },
+  {
+    "id": "catalogue:flexoki-dark",
+    "title": "Flexoki Dark",
+    "tone": "dark",
+    "source": "Flexoki Dark",
+    "flags": [],
+    "swatch": [
+      "#100F0F",
+      "#161515",
+      "#CECDC3",
+      "#3AA99F",
+      "#899C3B",
+      "#F06A5B",
+      "#D0A215",
+      "#5799D3"
+    ]
+  },
+  {
+    "id": "catalogue:flexoki-light",
+    "title": "Flexoki Light",
+    "tone": "light",
+    "source": "Flexoki Light",
+    "flags": [],
+    "swatch": [
+      "#FFFCF0",
+      "#FFFEFB",
+      "#100F0F",
+      "#205EA6",
+      "#506900",
+      "#AF3029",
+      "#7E5600",
+      "#205EA6"
+    ]
+  },
+  {
+    "id": "catalogue:github-dark-default",
+    "title": "GitHub Dark Default",
+    "tone": "dark",
+    "source": "GitHub Dark Default",
+    "flags": [],
+    "swatch": [
+      "#0D1117",
+      "#14181E",
+      "#E6EDF3",
+      "#79C0FF",
+      "#3FB950",
+      "#FF7B72",
+      "#D29922",
+      "#58A6FF"
+    ]
+  },
+  {
+    "id": "catalogue:github-light-default",
+    "title": "GitHub Light Default",
+    "tone": "light",
+    "source": "GitHub Light Default",
+    "flags": [],
+    "swatch": [
+      "#FFFFFF",
+      "#FFFFFF",
+      "#1F2328",
+      "#0969DA",
+      "#116329",
+      "#BF0120",
+      "#4D2D00",
+      "#005BCB"
+    ]
+  },
+  {
+    "id": "catalogue:gruvbox-dark",
+    "title": "Gruvbox Dark",
+    "tone": "dark",
+    "source": "Gruvbox Dark",
+    "flags": [],
+    "swatch": [
+      "#282828",
+      "#2F2E2D",
+      "#EBDBB2",
+      "#8EC07C",
+      "#BABA48",
+      "#FF9985",
+      "#E9AA3A",
+      "#7EBFC2"
+    ]
+  },
+  {
+    "id": "catalogue:gruvbox-dark-hard",
+    "title": "Gruvbox Dark Hard",
+    "tone": "dark",
+    "source": "Gruvbox Dark Hard",
+    "flags": [],
+    "swatch": [
+      "#1D2021",
+      "#242626",
+      "#EBDBB2",
+      "#8EC07C",
+      "#AFAF3B",
+      "#FF8774",
+      "#DC9E29",
+      "#74B4B7"
+    ]
+  },
+  {
+    "id": "catalogue:gruvbox-light",
+    "title": "Gruvbox Light",
+    "tone": "light",
+    "source": "Gruvbox Light",
+    "flags": [],
+    "swatch": [
+      "#FBF1C7",
+      "#FEFCF1",
+      "#3C3836",
+      "#076678",
+      "#5F5C00",
+      "#B50000",
+      "#884E00",
+      "#206366"
+    ]
+  },
+  {
+    "id": "catalogue:horizon",
+    "title": "Horizon",
+    "tone": "dark",
+    "source": "Horizon",
+    "flags": [],
+    "swatch": [
+      "#1C1E26",
+      "#22242C",
+      "#D5D8DA",
+      "#3FC4DE",
+      "#29D398",
+      "#FF7A99",
+      "#FAB795",
+      "#26BBD9"
+    ]
+  },
+  {
+    "id": "catalogue:kanagawa-dragon",
+    "title": "Kanagawa Dragon",
+    "tone": "dark",
+    "source": "Kanagawa Dragon",
+    "flags": [],
+    "swatch": [
+      "#181616",
+      "#1E1C1C",
+      "#C5C9C5",
+      "#7FB4CA",
+      "#92A283",
+      "#D7857F",
+      "#C4B28A",
+      "#8BA4B0"
+    ]
+  },
+  {
+    "id": "catalogue:kanagawa-lotus",
+    "title": "Kanagawa Lotus",
+    "tone": "light",
+    "source": "Kanagawa Lotus",
+    "flags": [],
+    "swatch": [
+      "#F2ECBC",
+      "#FCFAEF",
+      "#545464",
+      "#624C83",
+      "#4A6228",
+      "#A81E3A",
+      "#615B29",
+      "#3F5A8B"
+    ]
+  },
+  {
+    "id": "catalogue:kanagawa-wave",
+    "title": "Kanagawa Wave",
+    "tone": "dark",
+    "source": "Kanagawa Wave",
+    "flags": [],
+    "swatch": [
+      "#1F1F28",
+      "#25252D",
+      "#DCD7BA",
+      "#7FB4CA",
+      "#93B286",
+      "#FF8481",
+      "#C2A570",
+      "#8BA9E6"
+    ]
+  },
+  {
+    "id": "catalogue:light-owl",
+    "title": "Light Owl",
+    "tone": "light",
+    "source": "Light Owl",
+    "flags": [],
+    "swatch": [
+      "#FBFBFB",
+      "#FEFEFE",
+      "#403F53",
+      "#006FB6",
+      "#006E49",
+      "#BC0F1D",
+      "#875900",
+      "#0064AA"
+    ]
+  },
+  {
+    "id": "catalogue:material",
+    "title": "Material",
+    "tone": "light",
+    "source": "Material",
+    "flags": [],
+    "swatch": [
+      "#EAEAEA",
+      "#FAFAFA",
+      "#232322",
+      "#134EB2",
+      "#2D6200",
+      "#AC0015",
+      "#903A00",
+      "#134EB2"
+    ]
+  },
+  {
+    "id": "catalogue:material-ocean",
+    "title": "Material Ocean",
+    "tone": "dark",
+    "source": "Material Ocean",
+    "flags": [],
+    "swatch": [
+      "#0F111A",
+      "#13151F",
+      "#8F93A2",
+      "#82AAFF",
+      "#C3E88D",
+      "#FF5370",
+      "#FFCB6B",
+      "#82AAFF"
+    ]
+  },
+  {
+    "id": "catalogue:night-owl",
+    "title": "Night Owl",
+    "tone": "dark",
+    "source": "Night Owl",
+    "flags": [],
+    "swatch": [
+      "#011627",
+      "#061D2E",
+      "#D6DEEB",
+      "#82AAFF",
+      "#22DA6E",
+      "#FF635E",
+      "#ADDB67",
+      "#82AAFF"
+    ]
+  },
+  {
+    "id": "catalogue:nightfox",
+    "title": "Nightfox",
+    "tone": "dark",
+    "source": "Nightfox",
+    "flags": [],
+    "swatch": [
+      "#192330",
+      "#1F2936",
+      "#CDCECF",
+      "#86ABDC",
+      "#86B79F",
+      "#FF829D",
+      "#DBC074",
+      "#84B0EB"
+    ]
+  },
+  {
+    "id": "catalogue:nord",
+    "title": "Nord",
+    "tone": "dark",
+    "source": "Nord",
+    "flags": [],
+    "swatch": [
+      "#2E3440",
+      "#343A46",
+      "#D8DEE9",
+      "#88C0D0",
+      "#B4D09D",
+      "#FFB2B9",
+      "#EBCB8B",
+      "#AACBED"
+    ]
+  },
+  {
+    "id": "catalogue:nord-light",
+    "title": "Nord Light",
+    "tone": "light",
+    "source": "Nord Light",
+    "flags": [],
+    "swatch": [
+      "#E5E9F0",
+      "#F8F9FB",
+      "#414858",
+      "#456380",
+      "#465E30",
+      "#933A45",
+      "#6F5207",
+      "#3D5B78"
+    ]
+  },
+  {
+    "id": "catalogue:one-half-dark",
+    "title": "One Half Dark",
+    "tone": "dark",
+    "source": "One Half Dark",
+    "flags": [],
+    "swatch": [
+      "#282C34",
+      "#2E323A",
+      "#DCDFE4",
+      "#61AFEF",
+      "#9CC77D",
+      "#FFA0A7",
+      "#E5C07B",
+      "#74C2FF"
+    ]
+  },
+  {
+    "id": "catalogue:one-half-light",
+    "title": "One Half Light",
+    "tone": "light",
+    "source": "One Half Light",
+    "flags": [],
+    "swatch": [
+      "#FAFAFA",
+      "#FEFEFE",
+      "#383A42",
+      "#A626A4",
+      "#176E1B",
+      "#B2241E",
+      "#8B5100",
+      "#00649A"
+    ]
+  },
+  {
+    "id": "catalogue:oxocarbon",
+    "title": "Oxocarbon",
+    "tone": "dark",
+    "source": "Oxocarbon",
+    "flags": [],
+    "swatch": [
+      "#161616",
+      "#1D1D1D",
+      "#F2F4F8",
+      "#00C15A",
+      "#00B4FF",
+      "#00DFDB",
+      "#FF66B5",
+      "#00C15A"
+    ]
+  },
+  {
+    "id": "catalogue:rose-pine",
+    "title": "Rosé Pine",
+    "tone": "dark",
+    "source": "Rose Pine",
+    "flags": [],
+    "swatch": [
+      "#191724",
+      "#1F1D2B",
+      "#E0DEF4",
+      "#C4A7E7",
+      "#69ABC8",
+      "#F47799",
+      "#F6C177",
+      "#9CCFD8"
+    ]
+  },
+  {
+    "id": "catalogue:rose-pine-dawn",
+    "title": "Rosé Pine Dawn",
+    "tone": "light",
+    "source": "Rose Pine Dawn",
+    "flags": [],
+    "swatch": [
+      "#FAF4ED",
+      "#FEFCFA",
+      "#575279",
+      "#33727D",
+      "#256680",
+      "#91445B",
+      "#914A00",
+      "#276772"
+    ]
+  },
+  {
+    "id": "catalogue:rose-pine-moon",
+    "title": "Rosé Pine Moon",
+    "tone": "dark",
+    "source": "Rose Pine Moon",
+    "flags": [],
+    "swatch": [
+      "#232136",
+      "#29273D",
+      "#E0DEF4",
+      "#EA9A97",
+      "#6BBBDD",
+      "#FF8AAC",
+      "#F6C177",
+      "#9CCFD8"
+    ]
+  },
+  {
+    "id": "catalogue:iterm2-solarized-dark",
+    "title": "Solarized Dark",
+    "tone": "dark",
+    "source": "iTerm2 Solarized Dark",
+    "flags": [],
+    "swatch": [
+      "#002B36",
+      "#052F3A",
+      "#8B9C9E",
+      "#3E9EE7",
+      "#9CB231",
+      "#FF7F72",
+      "#CDA130",
+      "#54B2FC"
+    ]
+  },
+  {
+    "id": "catalogue:iterm2-solarized-light",
+    "title": "Solarized Light",
+    "tone": "light",
+    "source": "iTerm2 Solarized Light",
+    "flags": [],
+    "swatch": [
+      "#FDF6E3",
+      "#FFFDF8",
+      "#586E76",
+      "#0071B6",
+      "#566600",
+      "#BE0011",
+      "#845A00",
+      "#0062A6"
+    ]
+  },
+  {
+    "id": "catalogue:tokyonight",
+    "title": "Tokyo Night",
+    "tone": "dark",
+    "source": "TokyoNight",
+    "flags": [],
+    "swatch": [
+      "#1A1B26",
+      "#1F212D",
+      "#C0CAF5",
+      "#7AA2F7",
+      "#9ECE6A",
+      "#F97890",
+      "#E0AF68",
+      "#7AA2F7"
+    ]
+  },
+  {
+    "id": "catalogue:tokyonight-day",
+    "title": "Tokyo Night Day",
+    "tone": "light",
+    "source": "TokyoNight Day",
+    "flags": [],
+    "swatch": [
+      "#E1E2E7",
+      "#F7F8F9",
+      "#315AB8",
+      "#005BC4",
+      "#415D21",
+      "#A6002A",
+      "#6E5021",
+      "#004CB4"
+    ]
+  },
+  {
+    "id": "catalogue:tokyonight-storm",
+    "title": "Tokyo Night Storm",
+    "tone": "dark",
+    "source": "TokyoNight Storm",
+    "flags": [],
+    "swatch": [
+      "#24283B",
+      "#292E41",
+      "#C0CAF5",
+      "#7AA2F7",
+      "#9ECE6A",
+      "#FF94AB",
+      "#E0AF68",
+      "#8DB6FF"
+    ]
+  }
+]

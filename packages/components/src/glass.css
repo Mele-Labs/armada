@@ -52,8 +52,8 @@
 
    1. **A `backdrop-filter` makes its element the containing block for
       `position: fixed` descendants.** Tooltip, Popover and DropdownMenu place
-      themselves `position: fixed` with anchor positioning, and Stats' rows
-      and the dock's questions carry Tooltips. On the card, a bubble laid out
+      themselves `position: fixed` with anchor positioning, and the dock's
+      questions carry Tooltips. On the card, a bubble laid out
       against the card and was clipped by its `overflow: hidden`. On a layer
       with no descendants it contains nothing.
    2. **The highlight has to paint over the glass.** A card's own inset

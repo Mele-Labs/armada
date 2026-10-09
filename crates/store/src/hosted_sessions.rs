@@ -147,3 +147,81 @@ impl Store {
             .map_err(WriteError::Database)
     }
 }
+
+/// A terminal session's question, as the store keeps it. **Opaque here**, as a
+/// row of the thread is: Fleet encodes and decodes the JSON.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct KeptTerminalAsk {
+    pub call: String,
+    pub asking: String,
+    pub in_flight: String,
+    pub answer: Option<String>,
+}
+
+impl Store {
+    /// Keep a session's question, replacing the last it asked.
+    pub fn keep_terminal_ask(
+        &mut self,
+        session_id: &str,
+        ask: &KeptTerminalAsk,
+    ) -> Result<(), WriteError> {
+        let doing = "keeping a terminal session's question";
+        self.conn
+            .execute(
+                "INSERT OR REPLACE INTO terminal_asks (session_id, call, asking, in_flight, answer)
+                 VALUES (?1, ?2, ?3, ?4, ?5)",
+                params![session_id, ask.call, ask.asking, ask.in_flight, ask.answer],
+            )
+            .map(|_| ())
+            .map_err(fault(doing))
+            .map_err(WriteError::Database)
+    }
+
+    pub fn terminal_ask(&self, session_id: &str) -> Result<Option<KeptTerminalAsk>, WriteError> {
+        let doing = "reading a terminal session's question";
+        self.conn
+            .query_row(
+                "SELECT call, asking, in_flight, answer FROM terminal_asks WHERE session_id = ?1",
+                [session_id],
+                |row| {
+                    Ok(KeptTerminalAsk {
+                        call: row.get(0)?,
+                        asking: row.get(1)?,
+                        in_flight: row.get(2)?,
+                        answer: row.get(3)?,
+                    })
+                },
+            )
+            .optional()
+            .map_err(fault(doing))
+            .map_err(WriteError::Database)
+    }
+
+    /// Keep the answer to the question `call` named. False where that question
+    /// is no longer the session's.
+    pub fn answer_terminal_ask(
+        &mut self,
+        session_id: &str,
+        call: &str,
+        answer: &str,
+    ) -> Result<bool, WriteError> {
+        let doing = "keeping the answer to a terminal session's question";
+        self.conn
+            .execute(
+                "UPDATE terminal_asks SET answer = ?3 WHERE session_id = ?1 AND call = ?2",
+                params![session_id, call, answer],
+            )
+            .map(|changed| changed > 0)
+            .map_err(fault(doing))
+            .map_err(WriteError::Database)
+    }
+
+    pub fn drop_terminal_ask(&mut self, session_id: &str) -> Result<(), WriteError> {
+        let doing = "dropping a terminal session's question";
+        self.conn
+            .execute("DELETE FROM terminal_asks WHERE session_id = ?1", [session_id])
+            .map(|_| ())
+            .map_err(fault(doing))
+            .map_err(WriteError::Database)
+    }
+}

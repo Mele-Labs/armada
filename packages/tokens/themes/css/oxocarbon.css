@@ -1,0 +1,48 @@
+/* Derived from the Oxocarbon terminal scheme by packages/tokens/themes/generate.mjs. Do not hand-edit.
+   Tone dark. foreground 13.2:1, accent 6.1:1 at the worst ground.
+   Lightness moved to reach 4.5:1: review, not-started, killed. */
+[data-theme="catalogue:oxocarbon"] {
+  color-scheme: dark;
+  /* Ground */
+  --bg-base: #161616;
+  --bg-sunken: #070707;
+  --bg-raised: #1D1D1D;
+  --bg-overlay: #232324;
+  --bg-hover: #292929;
+  --border-subtle: #282828;
+  --border-default: #353536;
+  --border-strong: #494A4A;
+  /* Foreground and accent */
+  --fg-default: #F2F4F8;
+  --fg-muted: #A4A5A7;
+  --fg-subtle: #8F9092;
+  --fg-inverse: #000000;
+  --accent: #00C15A;
+  --accent-hover: #4ECA73;
+  --accent-muted: #203725;
+  /* Depth */
+  --bg-glass: rgb(29 29 29 / 0.86);
+  --bg-glass-end: rgb(22 22 22 / 0.86);
+  --border-glass: rgb(255 255 255 / 0.07);
+  --border-highlight: rgb(255 255 255 / 0.05);
+  /* Status */
+  --status-not-started: #9FA0A2;
+  --status-running: #00C15A;
+  --status-awaiting-review: #FF66B5;
+  --status-escalated: #C4A1B8;
+  --status-completed-success: #00B4FF;
+  --status-completed-failed: #00DFDB;
+  --status-rejected: #C693FF;
+  --status-killed: #A0A1A4;
+  --status-handed-in: #00BEB4;
+  /* Helm, tools, diff */
+  --helm: #89B0B4;
+  --tool-look: #FF74B8;
+  --tool-change: #C693FF;
+  --tool-run: #FF4599;
+  --diff-add-bg: #122F3B;
+  --diff-add-fg: #00B4FF;
+  --diff-del-bg: #123636;
+  --diff-del-fg: #00DFDB;
+  --diff-context: #A4A5A7;
+}

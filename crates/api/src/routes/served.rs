@@ -95,6 +95,19 @@ const ROUTES: &[Route] = &[
         method: "GET",
         path: "/capacity",
     },
+    // The build Fleet runs on, beside `/capacity` and for its reason: it is
+    // Fleet's, not a Job's. The change spells its act in the last segment the
+    // way `/limits/save` does.
+    Route {
+        operation: "get_fleet_build",
+        method: "GET",
+        path: "/fleet/build",
+    },
+    Route {
+        operation: "change_fleet_build",
+        method: "POST",
+        path: "/fleet/build/change",
+    },
     // The three numbers `/capacity` is measured against, beside it and for its
     // reason: they are Fleet's, not a Job's. The save spells its act in the last
     // segment the way `/manifest/save_file` does, so the read stays the noun.

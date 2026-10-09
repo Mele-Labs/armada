@@ -83,6 +83,9 @@ export type LayerFleet = Pick<
 /** What a Session without a title is called, as the Sessions list calls it. */
 const titled = (one: { id: string; title?: string }): string => one.title ?? `s-${one.id.slice(0, 8)}`;
 
+/** What a row off this screen tells its send acts: no screenshot can be taken of it. */
+const NO_SHOT = "No screenshot: on another screen";
+
 export function Layer({ sink, fleet: given, openSession = askToOpenSession, tell = askToTell }: { sink: Sink; fleet?: LayerFleet; openSession?: (id: string) => void; tell?: (sentence: string) => void }) {
   const fleet: LayerFleet | undefined = given ?? window.armada;
   const [live, setLive] = useState<SessionTarget[]>([]);
@@ -245,7 +248,8 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSession, tell
 
   /** One note to Fleet. Written back with its Job only once Fleet took it. */
   async function send(note: Annotation): Promise<boolean> {
-    const box = frames[note.id] ?? note.box;
+    // Null where the note's element is not on this screen, so no screenshot is taken of the wrong one.
+    const box = frames[note.id] ?? null;
     if (fleet === undefined) return false;
     try {
       const answer = await sendToFleet(note, box, sink, fleet, new Date());
@@ -283,7 +287,7 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSession, tell
     if (fleet === undefined || list.length === 0) return;
     setSending(key);
     try {
-      const answer = await sendToSession(list.map((note) => ({ note, box: frames[note.id] ?? note.box })), target, sink, fleet, new Date());
+      const answer = await sendToSession(list.map((note) => ({ note, box: frames[note.id] ?? null })), target, sink, fleet, new Date());
       if (!answer.ok) {
         tell(answer.saying);
         return;
@@ -455,7 +459,7 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSession, tell
           style={{ "--annotate-panel-bottom": `${panelBottom}px` } as CSSProperties}
         >
           {groupsOf(notes, showingDone).map(({ screen, list }) => (
-            <section key={screen ?? ""} className="armada-annotate__group">
+            <section key={screen ?? ""} className="armada-annotate__group" aria-label={screen ?? "No screen"}>
               <h2 className="armada-annotate__screen">{screen ?? "No screen"}</h2>
               <ul className="armada-annotate__rows">
                 {list.map((note) => {
@@ -485,7 +489,7 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSession, tell
                       <div className="armada-annotate__actions">
                         {dispatchable && (
                           <>
-                            <Tooltip label={cannotSend ?? "Send this note as a Job"} asChild>
+                            <Tooltip label={here ? (cannotSend ?? "Send this note as a Job") : `${cannotSend ?? "Send this note as a Job"}. ${NO_SHOT}`} asChild>
                               <Button variant="secondary" size="sm" disabled={cannotSend !== null || sending !== null} onClick={() => void sendOne(note)}>
                                 {sending === note.id ? "Sending…" : "Dispatch job"}
                               </Button>
@@ -495,6 +499,7 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSession, tell
                                 size="sm"
                                 menuLabel="Send to a Session"
                                 disabled={sending !== null}
+                                {...(here ? {} : { note: NO_SHOT })}
                                 onAction={() => void sendToSessionAs(note.id, [note], null)}
                                 items={live.map((one) => ({ label: one.title, onSelect: () => void sendToSessionAs(note.id, [note], one) }))}
                               >

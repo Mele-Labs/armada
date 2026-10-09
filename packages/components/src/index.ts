@@ -44,6 +44,7 @@ export * from "./compositions/HelmComposer/HelmComposer";
 export * from "./compositions/JudgeQuestion/JudgeQuestion";
 export * from "./compositions/EvidenceCard/EvidenceCard";
 export * from "./compositions/FleetPanel/FleetPanel";
+export type { FleetBuild, FleetBuildChoice, FleetBuildDrone, FleetBuildPosition } from "./compositions/FleetBuild/FleetBuild";
 export * from "./compositions/DroneTurns/DroneTurns";
 export * from "./compositions/EvidenceTrail/EvidenceTrail";
 export * from "./compositions/FailureNotice/FailureNotice";
@@ -67,7 +68,6 @@ export * from "./compositions/VerdictSheet/VerdictSheet";
 export * from "./compositions/ConfidenceSheet/ConfidenceSheet";
 export * from "./compositions/ViewSheet/ViewSheet";
 export * from "./compositions/Sidebar/Sidebar";
-export * from "./compositions/StatsPanel/StatsPanel";
 export * from "./compositions/StepActivityMark/StepActivityMark";
 export * from "./compositions/StepPhaseTrack/StepPhaseTrack";
 export * from "./compositions/StepBar/StepBar";
@@ -396,6 +396,8 @@ export * from "./compositions/WaveCanvas/WaveCanvas";
 // The two branch fields on the dispatch form: pick one, or type one that is
 // not there yet.
 export * from "./compositions/BranchPicker/BranchPicker";
+// Settings → Theme: one choice out of grouped themes, narrowed by typing.
+export * from "./compositions/ThemePicker/ThemePicker";
 // The guidance system — #1602, #1603. The guides themselves are data, one file
 // each under `guides/`; the `?` is what asks for one, the card is what a
 // person reads, and the catalogue is every one of them in order.
@@ -442,3 +444,5 @@ export * from "./compositions/SessionList/SessionList";
 export * from "./compositions/SessionComposer/SessionComposer";
 export * from "./compositions/PullRequestActs/PullRequestActs";
 export * from "./compositions/Pilot/Pilot";
+export * from "./compositions/ModRow/ModRow";
+export * from "./compositions/PhonePairing/PhonePairing";

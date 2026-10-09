@@ -13,6 +13,7 @@ fn saving(name: &str, value: bool) -> SavePreference {
     SavePreference {
         name: name.to_string(),
         value,
+        text: None,
     }
 }
 

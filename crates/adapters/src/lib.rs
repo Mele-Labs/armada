@@ -40,6 +40,7 @@
 
 mod base;
 mod basing;
+mod build_standing;
 mod ci_workflows;
 mod cloning;
 mod commit;
@@ -96,6 +97,7 @@ mod worktree;
 #[cfg(test)]
 mod tests;
 
+pub use build_standing::{fetch_main, position_against_main};
 pub use ci_workflows::ActionsWorkflows;
 pub use conversing::{
     door_tools, path_written, wrote_the_checkout, ConversationRefused, Conversing,

@@ -1,0 +1,48 @@
+/* Derived from the Rosé Pine Moon terminal scheme by packages/tokens/themes/generate.mjs. Do not hand-edit.
+   Tone dark. foreground 9.4:1, accent 5.6:1 at the worst ground.
+   Lightness moved to reach 4.5:1: failed, success, not-started, killed. */
+[data-theme="catalogue:rose-pine-moon"] {
+  color-scheme: dark;
+  /* Ground */
+  --bg-base: #232136;
+  --bg-sunken: #0F0D1A;
+  --bg-raised: #29273D;
+  --bg-overlay: #2F2D43;
+  --bg-hover: #343248;
+  --border-subtle: #333147;
+  --border-default: #3F3D53;
+  --border-strong: #504E65;
+  /* Foreground and accent */
+  --fg-default: #E0DEF4;
+  --fg-muted: #9E9CB2;
+  --fg-subtle: #9C9AB1;
+  --fg-inverse: #000000;
+  --accent: #EA9A97;
+  --accent-hover: #EAA5A5;
+  --accent-muted: #4A3A4B;
+  /* Depth */
+  --bg-glass: rgb(41 39 61 / 0.86);
+  --bg-glass-end: rgb(35 33 54 / 0.86);
+  --border-glass: rgb(255 255 255 / 0.07);
+  --border-highlight: rgb(255 255 255 / 0.05);
+  /* Status */
+  --status-not-started: #B0AEC7;
+  --status-running: #9CCFD8;
+  --status-awaiting-review: #F6C177;
+  --status-escalated: #F29A88;
+  --status-completed-success: #6BBBDD;
+  --status-completed-failed: #FF8AAC;
+  --status-rejected: #C4A7E7;
+  --status-killed: #B0AEC6;
+  --status-handed-in: #84C5DB;
+  /* Helm, tools, diff */
+  --helm: #D7A2C0;
+  --tool-look: #EA9A97;
+  --tool-change: #C4A7E7;
+  --tool-run: #F6C177;
+  --diff-add-bg: #27334A;
+  --diff-add-fg: #55A5C6;
+  --diff-del-bg: #432D45;
+  --diff-del-fg: #F17598;
+  --diff-context: #9E9CB2;
+}

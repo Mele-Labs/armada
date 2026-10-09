@@ -3,6 +3,7 @@
 // Kept, not deleted: a slice-by-slice equality cannot be asserted against anything but the whole.
 
 import { describe, expect, it } from "vitest";
+import type { PhoneAnswer, PhoneRequest } from "@armada/settings/api";
 import type {
   AddTask,
   FixMain,
@@ -86,10 +87,14 @@ import type {
   Remarks,
   Reports,
   Watched,
+  BuildSource,
+  FleetBuildReport,
   FleetCapacity,
   FleetLimits,
   JobSummary,
   MergeLines,
+  ModChecked,
+  ModList,
   Preferences,
   ProposalInFlight,
   RepositorySummary,
@@ -185,8 +190,10 @@ type OldBridgeState = {
     jobs: JobSummary[];
     unreadable: UnreadableJob[];
     capacity: FleetCapacity | null;
+    fleetBuild: FleetBuildReport | null;
     limits: FleetLimits | null;
     preferences: Preferences;
+    mods: ModList | null;
     manifestReading: ManifestReading | null;
     missed: number;
     readAt: number | null;
@@ -286,6 +293,10 @@ type OldBridgeApi = {
     raiseTurnCap: (jobId: string, turnCap: number) => Promise<Outcome>;
     saveLimits: (values: SaveLimits) => Promise<Outcome>;
     savePreference: (save: SavePreference) => Promise<Outcome>;
+    validateMod: (name: string) => Promise<ModChecked | null>;
+    setModEnabled: (name: string, enabled: boolean) => Promise<Outcome>;
+    promoteMod: (name: string) => Promise<Outcome>;
+    phone: (request: PhoneRequest) => Promise<PhoneAnswer>;
     fileReport: (jobId: string, filing: FileReport) => Promise<Outcome>;
     addTask: (jobId: string, add: AddTask) => Promise<PlanEditAnswer>;
     dropTask: (jobId: string, drop: DropTask) => Promise<PlanEditAnswer>;
@@ -357,6 +368,7 @@ type OldBridgeApi = {
     openServerLink: (serverId: string, url: string) => Promise<Followed>;
     openLink: (address: string) => Promise<Followed>;
     restartFleet: () => Promise<FleetRestart>;
+    changeFleetBuild: (build: BuildSource, adopt: boolean) => Promise<Outcome>;
     examineJob: (jobId: string) => Promise<void>;
     readEvidence: (jobId: string | null) => Promise<void>;
     readDiff: (jobId: string | null) => Promise<void>;
@@ -399,6 +411,7 @@ type OldBridgeApi = {
         save: (said: string) => Promise<Outcome>;
         reload: () => Promise<void>;
         followRefused: () => Promise<void>;
+        approve: () => Promise<Outcome>;
         scroll: (wheel: CaptureWheel) => void;
     };
     approveReview: (jobId: string) => Promise<Outcome>;
@@ -454,8 +467,10 @@ const OLD_NOTHING_YET: OldBridgeState = {
     jobs: [],
     unreadable: [],
     capacity: null,
+    fleetBuild: null,
     limits: null,
     preferences: { where_things_are_open: false },
+    mods: null,
     manifestReading: null,
     missed: 0,
     readAt: null,
@@ -550,6 +565,10 @@ const OLD_CHANNELS = {
     raiseTurnCap: "bridge:raise-turn-cap",
     saveLimits: "bridge:save-limits",
     savePreference: "bridge:save-preference",
+    validateMod: "bridge:validate-mod",
+    setModEnabled: "bridge:set-mod-enabled",
+    promoteMod: "bridge:promote-mod",
+    phone: "bridge:phone",
     fileReport: "bridge:file-report",
     addTask: "bridge:add-task",
     dropTask: "bridge:drop-task",
@@ -622,6 +641,7 @@ const OLD_CHANNELS = {
     openServerLink: "bridge:open-server-link",
     openLink: "bridge:open-link",
     restartFleet: "bridge:restart-fleet",
+    changeFleetBuild: "bridge:change-fleet-build",
     examineJob: "bridge:examine-job",
     readDiff: "bridge:read-diff",
     readRemarks: "bridge:read-remarks",
@@ -684,6 +704,7 @@ const OLD_CHANNELS = {
     captureWindowSave: "bridge:capture-window-save",
     captureWindowReload: "bridge:capture-window-reload",
     captureWindowFollowRefused: "bridge:capture-window-follow-refused",
+    captureWindowApprove: "bridge:capture-window-approve",
     captureWindowScroll: "bridge:capture-window-scroll",
     tap: "bridge:tap",
     startSession: "bridge:start-session",
