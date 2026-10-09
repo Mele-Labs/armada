@@ -13,12 +13,12 @@ const boardRow = (words: string) => role("option", words);
 
 export const proposingFillsIn = walk("proposing-fills-in", [
   { press: button("Dispatch", { exact: true }), say: "Dispatch the request" },
-  { press: tab("Running"), say: "A Job being proposed is under way" },
+  { press: tab("Active"), say: "A Job being proposed is under way" },
   { look: boardRow(REQUEST), say: "Its row arrives at once, titled with the request" },
-  { look: inside(boardRow(REQUEST), text("Plan the change")), say: "The workflow lands first, its steps on the rail" },
+  { look: inside(boardRow(REQUEST), role("img", "Plan the change")), say: "The workflow lands first, its steps as pips on the tile" },
   { look: boardRow(TITLE), say: "Then the title replaces the request" },
   { press: boardRow(TITLE), say: "Picked" },
-  { press: button(/^(Open|Review|Redirect|Attest)$/), say: "Open the Job" },
+  { press: inside(boardRow(TITLE), button(/^Open/)), say: "Open the Job" },
   { look: text("The rail's Drones stat reads one running"), say: "Done-when arrives a line at a time" },
   { look: text("opus"), say: "The settings land last" },
 ]);

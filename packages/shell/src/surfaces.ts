@@ -131,7 +131,7 @@ function digitOf(id: SurfaceId): string | undefined {
 export const SURFACES: readonly PaletteSurface[] = [
   {
     id: SURFACE.overview,
-    label: "Overview",
+    label: "Cockpit",
     shortcut: digitOf(SURFACE.overview),
     // No alias, for the same reason Manifest carries none: this is the first
     // surface built at this name, so there is no earlier word to keep.

@@ -694,6 +694,15 @@ an object across a change (Heer & Robertson, InfoVis 2007); a new row
 does not travel, so nothing enters. "Placement resolves before paint"
 still holds: a layer never moves after it lands.
 
+**One exception: a call that needs the owner comes forward.** On Command
+Central a Plan question, a failed Check or a Session waiting on a command
+rises over the fleet at `--duration-travel`, and a call put off for later
+flies back up to the waiting calls at the edge. It is the one entrance on
+data, narrowly: nothing else on a board, row or tile enters, and a
+reading that merely changes still decays. Why: what needs the owner is
+the one event the screen exists to raise, and a call that arrived
+unannounced among the tiles could wait unseen (owner, 9 Oct 2026).
+
 **A changed row decays.** When a Job's status changes, its row takes its
 new status hue at `--row-tint-recent`, falling to the resting
 `--row-tint` across `--duration-decay`, and a mono line in the same hue
@@ -1412,6 +1421,8 @@ is the back-fill by hand that this section existed to prevent.
 ⌘\       toggle sidebar
 ⌘[ ⌘]    back / forward
 ⌘Enter   send the message in the field that has focus
+⌘N       dispatch from a field, where n would type
+⌥1–3     filter by number  (dashboard only)
 Esc      close an overlay, or return to the list from a detail route
 ⇧⌘R      refresh, re-reading everything Fleet holds
 ```
@@ -1439,7 +1450,7 @@ j / k / ↓ / ↑  move focus          (list only)
 Enter          open the focused job. Acts on nothing   (list only)
 o              open. The same act, named so the palette can display it   (list only)
 r              review             (list only)
-t              attest
+t              attest   (list and detail)
 d              redirect
 s              restart step        (detail only)
 p              pilot               (not built)
@@ -1451,7 +1462,7 @@ n              dispatch
 a              approve             (dispatch card only)
 v              observe             (detail only)
 u              submit for verification  (piloted job only)
-e              redispatch as a new job
+e              redispatch as a new job   (list and detail)
 ⌥↑ ⌥↓          move up / down       (detail only)
 f              open the diff        (detail only)
 o              open the output      (detail only)
@@ -1464,7 +1475,27 @@ V              add a link           (open studio only)
 S              add a sketch         (open studio only)
 Z              add a zone           (open studio only)
 R              run                  (open studio only)
+[ ]            previous and next filter   (dashboard only)
+m              switch between grid and map   (dashboard only)
+?              show the keys   (dashboard only)
+w              bring a waiting call back   (dashboard only)
+1–9            pick an answer   (call only)
+Enter          send the answer   (call only)
+l              later   (call only)
+e              expand the request   (call only)
+b              make the best decision   (call only)
+g              just get it done   (call only)
+t              reply in words   (call only)
 ```
+
+**The Dashboard's panel and a call in front have scopes of their own**, `dashboard`
+and `call`, because their keys act on neither a list nor a Job. A call in front
+takes the digits, `Enter`, `l`, `e`, `b` and `g` while it is up and gives them
+back when it goes; `l` and `Esc` both put it at the back of the stack, and
+`b` and `g` stand only on a question an agent asked and could answer itself,
+never on a call Fleet raises about a state. The panel's `[ ]` and `⌥1–3`
+move between its filters, `m` flips grid and map, `w` brings a waiting call
+back and `?` lists them all. None is a palette row yet: each is read from the panel's own sheet.
 
 **This is the map, not a pattern.** It was settled by drawing the Job
 Board and the command palette together, which is what forced the two
@@ -1528,7 +1559,7 @@ run sheet, so an unshifted key would answer twice on one press. `R` opens
 the rail's Run menu rather than starting anything, as a press on Run does.
 See [Studio](../concepts/studio.md).
 
-**`⌘1`–`⌘9` follow the rail** — Overview, Studios, Alerts,
+**`⌘1`–`⌘9` follow the rail** — the Cockpit (Overview until 9 Oct 2026), Studios, Alerts,
 Doctor, Manifest, Worktree Slots, Kit, Settings, Guides, and no digit for Workflows or Checks — since Active Jobs, Reviews and the
 Activity Feed folded into the Board and Worktree Slots joined at the end of it.
 The digits shift if the rail does; the rule is rail order, not the

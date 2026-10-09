@@ -19,3 +19,10 @@
     size = "12px"
     status = "Specified"
     notes = "Added 8 Oct 2026 with a Session's retro. A Session's agent is the same kind of thing a Drone is, so it takes the same drawing and a tooltip of its own, so the owner can tell a Session's items from a Job's. --fg-muted; tooltip: Agent."
+
+  [[icons.bot.usage]]
+    means = "A Drone at work, on a Job's Now line and on a Dashboard tile"
+    group = "Now"
+    size = "12px"
+    status = "Proposed"
+    notes = "Proposed 9 Oct 2026 with the Dashboard's call card and tiles, which draw what a Job runs now with the Now panel's own marks. It sits beside the reservation above rather than inside it, and the owner may rule it out."

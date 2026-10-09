@@ -52,14 +52,14 @@ test("the Board's old shortcut reaches Studios, because the digits closed up beh
   ).toContain("Studios");
 });
 
-test("Done draws every Job that completed or was cleared, on its own tab", async () => {
+test("Done draws every Job that completed or was cleared, on its own filter", async () => {
   mount("every-state");
   await onScreen();
 
-  // What is over is read on purpose: its own tab, and not the one Overview opens on.
+  // What is over is read on purpose: its own filter, and not the one Overview opens on.
   const done = page.getByRole("tab", { name: "Done" });
   await expect.element(done).toHaveAttribute("aria-selected", "false");
   await done.click();
-  // **Polled, not read.** The tab flipping is one render and its rows are the next.
-  await expect.poll(() => document.querySelectorAll('[role="listbox"][aria-label="Items"] [data-job-id]').length).toBeGreaterThan(0);
+  // **Polled, not read.** The filter flipping is one render and its tiles are the next.
+  await expect.poll(() => document.querySelectorAll('[role="listbox"][aria-label="Tiles"] [data-job-id]').length).toBeGreaterThan(0);
 });

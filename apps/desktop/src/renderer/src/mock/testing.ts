@@ -2,6 +2,7 @@
 // down after, and reach a surface the way a person does — by the rail.
 
 import { forgetAllKept } from "@armada/components";
+import { closeWalkWindow } from "@armada/jobs/fake";
 import { afterEach, expect, onTestFinished } from "vitest";
 import type { Mock } from "vitest";
 import { commands, page, userEvent } from "vitest/browser";
@@ -17,6 +18,9 @@ let mounted: { app: Mounted; host: HTMLElement }[] = [];
 /** Registers the teardown. Call once at the top of a test file. */
 export function unmountAfterEach(): void {
   afterEach(() => {
+    // The mock's own window a Session showed a page in outlives the app that opened it, and a dialog left
+    // in the document stops every key the window listens for in the next test.
+    closeWalkWindow();
     for (const one of mounted) {
       one.app.unmount();
       one.host.remove();
@@ -30,6 +34,9 @@ export function unmountAfterEach(): void {
 export function mount(scenario: string | Scenario, options?: FakeOptions): Mounted {
   // Each mount is a fresh viewer: the ledger's kind filter is remembered in the browser, so a test that pressed it must not leak.
   localStorage.removeItem("armada.session-ledger.kinds.artifact");
+  // So is the Dashboard's filter and its grid or map: a test that flipped either must not leak.
+  localStorage.removeItem("armada.bridge.dashboard-tab");
+  localStorage.removeItem("armada.bridge.cockpit-view");
   const host = document.createElement("div");
   host.id = "root";
   document.body.append(host);
@@ -195,4 +202,19 @@ export async function openNode(name: string, at = 0): Promise<ReturnType<typeof 
   await expect.element(node).toBeInTheDocument();
   (node.element() as HTMLElement).click();
   return page.getByRole("dialog", { name });
+}
+
+/**
+ * Put off every call standing in front of the Dashboard's panel, so the tiles under it can be pressed.
+ * A call comes forward over the panel whatever the filter, and a press on what is behind it lands on
+ * the card. `l` sends the one in front to the back, so once each has gone the front is empty.
+ */
+export async function putOffEveryCall(): Promise<void> {
+  const front = () => document.querySelector<HTMLElement>(".armada-callcard")?.getAttribute("aria-label") ?? null;
+  for (let tries = 0; tries < 30 && front() !== null; tries += 1) {
+    const was = front();
+    await userEvent.keyboard("l");
+    await expect.poll(() => front() !== was || front() === null, { timeout: 3000 }).toBe(true);
+  }
+  expect(front()).toBeNull();
 }

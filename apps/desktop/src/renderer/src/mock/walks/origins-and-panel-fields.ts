@@ -19,15 +19,12 @@ const boardRow = (words: string) => role("option", words);
 
 export const originsAndPanelFields = walk("origins-and-panel-fields", [
   { press: button("Dispatch", { exact: true }), say: "Dispatch the request" },
-  { press: tab("Running"), say: "A Job being proposed is under way" },
-  {
-    hover: inside(boardRow(REQUEST), role("img", "Workflow, still being settled")),
-    say: "Its row arrives with the workflow cell blinking: the proposer has not settled it",
-  },
-  { look: inside(boardRow(REQUEST), role("list", /, steps$/)), say: "The workflow lands, and the caret gives way to its steps" },
-  { press: tab("Command Central"), say: "A Job waiting at its gate needs you" },
+  { press: tab("Active"), say: "A Job being proposed is under way" },
+  { look: boardRow(REQUEST), say: "Its tile arrives with the request on it: the proposer has not settled the workflow" },
+  { look: inside(boardRow(REQUEST), role("list", "Steps")), say: "The workflow lands, and its steps come onto the tile as pips" },
+  { press: tab("Your move"), say: "A Job waiting at its gate needs you" },
   { press: boardRow(AT_THE_GATE), say: "Picked" },
-  { press: button(/^(Open|Review|Redirect|Attest)$/), say: "Open the Job" },
+  { press: inside(boardRow(AT_THE_GATE), button(/^Open/)), say: "Open the Job" },
   { press: card("Done when"), say: "What counts as done, on its node" },
   { hover: inside(DONE_WHEN, role("img", "From an issue")), say: "A criterion read from an issue: the ticket, then the issue" },
   {

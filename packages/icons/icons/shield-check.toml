@@ -19,3 +19,10 @@
     status = "Specified"
     reserved = "The Checks surface, at 16px in the rail. Never a Check's own passed result in a row, which is the 12px use above."
     notes = "Chosen by the owner 6 Oct 2026 for the Checks rail row. The row names the family it lists, and the shield is already what a Check is. It meets its own 12px result mark only across sizes and hue groups, which the contract admits: this is a --fg-muted rail glyph, that one a status-hued badge mark."
+
+  [[icons.shield-check.usage]]
+    means = "A Check running or passed, on a Job's Now line and on a Dashboard tile"
+    group = "Now"
+    size = "12px"
+    status = "Proposed"
+    notes = "Proposed 9 Oct 2026 with the Dashboard's call card and tiles, which draw what a Job runs now with the Now panel's own marks. It sits beside the reservation above rather than inside it, and the owner may rule it out."

@@ -51,10 +51,10 @@ const RUNNING_ONE_WITH_A_PLAN = (): JobSummary[] => [
   }),
 ];
 
-/** Overview, where `App` opens, on these rows: the Dashboard, on Command Central. */
+/** Overview, where `App` opens, on these rows: the Dashboard's one panel, on its Your move filter. */
 async function overview(scenario: Scenario): Promise<void> {
   mount(scenario);
-  await expect.element(page.getByRole("tab", { name: "Command Central" })).toBeVisible();
+  await expect.element(page.getByRole("tab", { name: "Your move" })).toBeVisible();
 }
 
 const onOverview = (jobs: JobSummary[], options: Parameters<typeof onBoard>[1] = {}) =>
@@ -73,18 +73,18 @@ function unreachable(scenario: Scenario): Scenario {
   };
 }
 
-const queue = () => page.getByRole("listbox", { name: "Needs you" });
 const picked = () => document.querySelector<HTMLElement>('[role="option"][aria-selected="true"]');
 
-test("every tab draws its own: what needs you, what runs, what is over, and a status the registry does not know", async () => {
+test("every filter draws its own: what needs you comes forward, what is live and what is over are tiles", async () => {
   await overview(onOverview(JOBS()));
-  await expect.element(queue()).toBeVisible();
-  await page.getByRole("tab", { name: "Running" }).click();
-  await expect.element(page.getByRole("region", { name: "Fleet" })).toBeVisible();
-  // No badge to draw for it, so its lane names the status.
-  await expect.element(page.getByText("not_a_status_the_registry_has")).toBeVisible();
+  // Your move: what needs the owner is a call in front of the panel, whatever the filter.
+  await expect.element(page.getByRole("region", { name: /^Job:/ })).toBeVisible();
+  await page.getByRole("tab", { name: "Active" }).click();
+  await expect.element(page.getByRole("listbox", { name: "Tiles" })).toBeVisible();
+  // No badge to draw for it, so its tile's mark names the status.
+  await expect.element(page.getByRole("img", { name: "not_a_status_the_registry_has" })).toBeVisible();
   await page.getByRole("tab", { name: "Done" }).click();
-  await expect.element(page.getByRole("listbox", { name: "Items" })).toBeVisible();
+  await expect.element(page.getByRole("listbox", { name: "Tiles" })).toBeVisible();
 });
 
 test("no jobs: the cursor is in the dispatch bar, and typing opens the composer", async () => {
@@ -96,17 +96,19 @@ test("no jobs: the cursor is in the dispatch bar, and typing opens the composer"
   await expect.element(page.getByText("Pick the repository this Job is for")).toBeVisible();
 });
 
-test("the tab picked is kept, and a tab draws no count", async () => {
+test("the filter picked is kept, and a filter draws no count", async () => {
   await overview(onOverview(JOBS()));
   await page.getByRole("tab", { name: "Done" }).click();
   await expect.element(page.getByRole("tab", { name: "Done" })).toHaveAttribute("aria-selected", "true");
-  for (const name of ["Command Central", "Running", "Done"]) {
+  expect(localStorage.getItem("armada.bridge.dashboard-tab")).toBe("done");
+  for (const name of ["Your move", "Active", "Done"]) {
     expect(page.getByRole("tab", { name }).element().textContent).not.toMatch(/\d/);
   }
 });
 
 test("Fleet unreachable: the rows held from before stay, Needs you included", async () => {
-  await overview(unreachable(onOverview(JOBS())));
+  // Where Fleet cannot be reached the Board's own lists draw, and the panel's filters do not.
+  mount(unreachable(onOverview(JOBS())));
   await expect.element(page.getByRole("heading", { name: "Needs you" })).toBeVisible();
   expect(rows().length).toBeGreaterThan(0);
 });
@@ -116,10 +118,10 @@ test("Fleet unreachable with nothing held says so flatly", async () => {
   await expect.element(page.getByText("Fleet is not connected, so there is nothing to show.")).toBeVisible();
 });
 
-test("a running Job picked on Running, under Helm's dock, keeps its steps and its act", async () => {
+test("a running Job picked on Active, under Helm's dock, keeps its steps and its act", async () => {
   await overview(onOverview(RUNNING_ONE_WITH_A_PLAN(), { repositories: [ARMADA, STOREFRONT] }));
   await openHelm();
-  await page.getByRole("tab", { name: "Running" }).click();
+  await page.getByRole("tab", { name: "Active" }).click();
   await expect.element(page.getByRole("option", { name: /unanswered permission ask/ })).toBeVisible();
   await expect.element(page.getByRole("option", { name: /shows "queued"/ })).toBeVisible();
   await page.getByRole("option", { name: /unanswered permission ask/ }).click();
@@ -127,7 +129,9 @@ test("a running Job picked on Running, under Helm's dock, keeps its steps and it
 });
 
 test("j and k move the pick, x asks to kill, Enter opens", async () => {
-  await overview(onOverview(JOBS()));
+  await overview(onOverview(RUNNING_ONE_WITH_A_PLAN()));
+  await page.getByRole("tab", { name: "Active" }).click();
+  await expect.element(page.getByRole("listbox", { name: "Tiles" })).toBeVisible();
   await expect.poll(picked).not.toBeNull();
   const first = picked()!;
   await userEvent.keyboard("j");
@@ -135,27 +139,23 @@ test("j and k move the pick, x asks to kill, Enter opens", async () => {
   await userEvent.keyboard("k");
   await expect.poll(() => picked()).toBe(first);
 
-  await page.getByRole("tab", { name: "Running" }).click();
-  // The lanes draw a render after the tab flips: press once one is picked.
-  await expect.element(page.getByRole("listbox", { name: "Lanes" })).toBeVisible();
-  await expect.poll(picked).not.toBeNull();
   await userEvent.keyboard("x");
   await expect.element(page.getByRole("dialog")).toBeVisible();
   await userEvent.keyboard("{Escape}");
   await expect.poll(() => page.getByRole("dialog").query()).toBeNull();
 
   await userEvent.keyboard("{Enter}");
-  await expect.poll(() => page.getByRole("tab", { name: "Running" }).query()).toBeNull();
+  await expect.poll(() => page.getByRole("tab", { name: "Active" }).query()).toBeNull();
 });
 
 test("the Job picked is Overview's cursor, and Helm's footer names it", async () => {
   await overview(onOverview(JOBS()));
   await openHelm();
-  await expect.element(page.getByText(/^Overview · cursor on Job \d+$/)).toBeVisible();
+  await expect.element(page.getByText(/^Cockpit · cursor on Job \d+$/)).toBeVisible();
 });
 
-test("n opens the composer from Overview", async () => {
+test("n brings the cursor to the dispatch bar from the Dashboard", async () => {
   await overview(onOverview(JOBS()));
   await userEvent.keyboard("n");
-  await expect.element(page.getByText("Pick the repository this Job is for")).toBeVisible();
+  await expect.element(page.getByRole("textbox", { name: "Request" })).toHaveFocus();
 });

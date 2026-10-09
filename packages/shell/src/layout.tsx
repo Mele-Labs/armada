@@ -1,4 +1,4 @@
-// Layout: which Dashboard tabs and panels, Job detail tabs and rail rows Bridge draws, and in what
+// Layout: which Cockpit filters and panels, Job detail tabs and rail rows Bridge draws, and in what
 // order. `docs/concepts/layout-mods.md`.
 //
 // The registry is the one list of what can be arranged. A mod's `layout.json` and the owner's own
@@ -35,7 +35,7 @@ export type LayoutEntry = {
   icon: LucideIcon;
   /** False for anything the owner has to decide on, or has to reach to undo a layout. */
   hideable: boolean;
-  /** Where on the Dashboard a panel stands: above the tab strip, or on the board. */
+  /** Where on the Dashboard a panel stands: above the panel, or on it. */
   slot?: "top" | "board";
 };
 
@@ -53,17 +53,17 @@ const RAIL_FIXED: readonly string[] = [SURFACE.overview, SURFACE.settings, SURFA
 /** Default order is the array's own, and every entry is drawn until a layout says otherwise. */
 export const LAYOUT: Readonly<Record<LayoutRegion, Spec>> = {
   "dashboard.tabs": {
-    label: "Dashboard tabs",
+    label: "Cockpit filters",
     ordered: true,
     firstable: true,
     entries: [
-      { id: "command-central", label: "Command Central", icon: CircleDot, hideable: false },
-      { id: "running", label: "Running", icon: LoaderCircle, hideable: true },
+      { id: "command-central", label: "Your move", icon: CircleDot, hideable: false },
+      { id: "running", label: "Active", icon: LoaderCircle, hideable: true },
       { id: "done", label: "Done", icon: CircleCheck, hideable: true },
     ],
   },
   "dashboard.panels": {
-    label: "Dashboard panels",
+    label: "Cockpit panels",
     ordered: true,
     firstable: false,
     entries: [

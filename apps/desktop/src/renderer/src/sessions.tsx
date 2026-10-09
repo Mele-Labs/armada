@@ -334,7 +334,7 @@ export function SessionsListing({ onOpen }: { onOpen: (id: string) => void }) {
   );
 }
 
-function threadRowsOf(session: Session): SessionThreadRow[] {
+export function threadRowsOf(session: Session): SessionThreadRow[] {
   return threadRowsFrom(session.rows);
 }
 

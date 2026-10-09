@@ -4,3 +4,10 @@
   size = "16px"
   status = "Specified"
   notes = "Nodes inside the graph reuse the badge icons at 12px — a graph node and a Job Board row showing the same job must show the same glyph."
+
+  [[icons.waypoints.usage]]
+    means = "A Job between steps, on its Now line"
+    group = "Now"
+    size = "12px"
+    status = "Proposed"
+    notes = "Proposed 9 Oct 2026 with the Dashboard's call card and tiles, which draw what a Job runs now with the Now panel's own marks. It sits beside the reservation above rather than inside it, and the owner may rule it out."

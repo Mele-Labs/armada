@@ -24,20 +24,21 @@ unmountAfterEach();
 // Core and Jobs only: the surface's own members, and the scenario answers the rest.
 const SLICES = { slices: ["core", "jobs"] } as const;
 
-/** Every Job being proposed, as the Dashboard's Running tab draws it: one lane each. */
+/** Every Job being proposed, as the Cockpit's Active filter draws it: one tile each. */
 function proposingRows(): HTMLElement[] {
   return rows().filter((row) => row.dataset.status === "proposing");
 }
 
-/** Running, where a Job being proposed is under way. */
+/** Active, where a Job being proposed is under way. */
 async function onRunning(): Promise<void> {
-  await userEvent.click(page.getByRole("tab", { name: "Running" }));
+  await userEvent.click(page.getByRole("tab", { name: "Active" }));
 }
 
-/** A press picks a row; Enter opens what is picked, as on the Board. */
+/** A press picks a tile; the Open act under the picked tile opens it. */
 async function open(row: HTMLElement): Promise<void> {
   await userEvent.click(row);
-  await userEvent.keyboard("{Enter}");
+  const act = [...row.querySelectorAll<HTMLElement>("button")].find((one) => /^Open/.test(one.getAttribute("aria-label") ?? one.textContent ?? ""));
+  await userEvent.click(act!);
 }
 
 describe("a dispatched request is a row", () => {
@@ -62,20 +63,15 @@ describe("a dispatched request is a row", () => {
     await expect.element(page.getByRole("article").getByText("proposing").first()).toBeVisible();
   });
 
-  test("the workflow still settling blinks, and no step stands in for it", async () => {
+  test("the workflow still settling draws no step in its place", async () => {
     mount("arc/proposing-dispatched", SLICES);
     await listed();
     await onRunning();
     await expect.poll(() => proposingRows().length).toBeGreaterThan(0);
     const row = proposingRows()[0]!;
-    // **The workflow is the proposer's to settle, and it has not**: a blinking
-    // caret where the steps go, named on hover (the owner's `text-cursor`, 3 Oct
-    // 2026). A state is never text, so the lane prints no word for it.
-    expect(
-      row.querySelector('[role="img"][aria-label="Workflow, still being settled"]'),
-      "the lane drew no settling caret",
-    ).not.toBeNull();
-    expect(row.querySelector("ol.armada-lane__rail"), "a step drew before the workflow settled").toBeNull();
+    // **The workflow is the proposer's to settle, and it has not**: the tile
+    // draws no pips, because a step standing in for it would be a guess.
+    expect(row.querySelector('ol[aria-label="Steps"]'), "a step drew before the workflow settled").toBeNull();
   });
 });
 
@@ -263,16 +259,15 @@ function settling(): HTMLElement {
 }
 
 describe("a proposal fills in as it is written", () => {
-  test("the workflow lands first, and its steps take the caret's place", async () => {
+  test("the workflow lands first, and its steps come onto the tile", async () => {
     mount("arc/proposing-workflow-landed", SLICES);
     await listed();
     await onRunning();
     const row = settling();
 
     // The workflow is chosen during `proposing` and frozen on the way out of it,
-    // so its steps are what the lane draws once it lands.
-    expect(row.querySelector("ol.armada-lane__rail"), "the lane drew no steps").not.toBeNull();
-    expect(row.querySelector('[aria-label="Workflow, still being settled"]')).toBeNull();
+    // so its steps are what the tile draws once it lands.
+    expect(row.querySelector('ol[aria-label="Steps"]'), "the tile drew no steps").not.toBeNull();
     // The title is still the request, because the title has not landed.
     expect(row.textContent).toContain(SECOND_REQUEST_SAYS);
   });
@@ -373,8 +368,8 @@ describe("a proposal fills in as it is written", () => {
     settle(fleet, idOf(fleet), { workflow_id: "feature" }, { status: "escalated" });
     fleet.publish({ proposing: null });
 
-    // `escalated` needs a person, so the Job is on Command Central now.
-    await userEvent.click(page.getByRole("tab", { name: "Command Central" }));
+    // `escalated` needs a person, so the Job is on Your move now.
+    await userEvent.click(page.getByRole("tab", { name: "Your move" }));
     await expect
       .poll(() => rows().some((one) => one.dataset.status === "escalated" && one.textContent?.includes(SECOND_REQUEST_SAYS) === true))
       .toBe(true);
