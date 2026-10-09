@@ -97,8 +97,7 @@ export function ChecksSurface({
   const floor = useAtFloor();
   const { jobs } = state;
   const host = useChecksHost(state, onOpenMergeLine);
-  return (
-    <Boundary region="Checks" bridge={bridge} onCopied={onCopied}>
+  const checks = (
       <ManifestChecks
         {...host}
         jobLabel={(jobId) => jobs.find((one) => one.id === jobId)?.handle ?? jobId}
@@ -108,6 +107,12 @@ export function ChecksSurface({
         {...(only === true ? { only } : {})}
         {...(onClosed === undefined ? {} : { onClosed })}
       />
+  );
+  // Only the panel, over a Session: no Checks region laid out beside it.
+  if (only === true) return checks;
+  return (
+    <Boundary region="Checks" bridge={bridge} onCopied={onCopied}>
+      {checks}
     </Boundary>
   );
 }

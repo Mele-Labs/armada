@@ -138,6 +138,23 @@ export function ManifestChecks(props: ManifestChecksProps) {
   };
   const bands = open === undefined ? undefined : <FactsOf entry={open} {...props} />;
 
+  // Panel-only takes no room of its own: the sheet floats over the surface that asked, and the
+  // page around it would be laid out beside that surface and squeeze it.
+  if (only) return <>{open === undefined ? null : open.land !== undefined ? (
+        <LandCheckLogSheet
+          key={open.id}
+          at={open.land}
+          followed={props.landFollowed}
+          onFollow={props.onFollowLand}
+          bands={bands}
+          floor={floor}
+          onClose={close}
+        />
+      ) : (open.job ?? open.session) !== undefined && open.logs !== undefined ? (
+        <ReportedLogPanel key={open.id} entry={open} job={(open.job ?? open.session)!.id} logs={open.logs} {...props} onClose={close} />
+      ) : (
+        <CheckLogPanel key={open.id} entry={open} bands={bands} {...props} onClose={close} />
+      )}</>;
   return (
     <div className="armada-screen__overview">
       {only ? null : (
