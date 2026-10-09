@@ -64,6 +64,7 @@ export * from "./pull-requests";
 export * from "./servers";
 export * from "./hosted-sessions";
 export * from "./sessions";
+export * from "./sleep";
 export * from "./remarks";
 export * from "./report";
 export * from "./resources";

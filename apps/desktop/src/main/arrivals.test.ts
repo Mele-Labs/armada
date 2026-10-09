@@ -93,6 +93,7 @@ function fakeHost(
     watchedJobId: () => null,
     repositories: {} as unknown as RepositoryReads,
     rehearsal: {} as unknown as RehearsalConnection,
+    sleep: { changed: () => {} },
     overviewAgain: async () => {},
     questions,
     helm: { reconnected: () => {} },

@@ -51,7 +51,7 @@ export type PhoneQuestion = {
   options: PhoneChoice[];
 };
 
-/** What a hosted Session is held on. Never present on a Terminal Session. */
+/** What a Session is held on. A Terminal Session has one only while Fleet holds its question. */
 export type PhoneAsk = {
   ask_id: string;
   tool: string;
@@ -78,8 +78,8 @@ export type SessionsBody = { sessions: PhoneSession[] };
 export type ChosenAnswer = { question: string; chosen: string[] };
 
 /**
- * POST /api/sessions/answer. 204 on success; 409 for a Terminal Session, one
- * not waiting, or a stale `ask_id`; the body is a sentence to show.
+ * POST /api/sessions/answer. 204 on success; 409 for a Session not
+ * holding a question, or a stale `ask_id`; the body is a sentence to show.
  * `answer` is a decision for a permission ask, the choices for a question.
  */
 export type AnswerBody = {

@@ -82,4 +82,39 @@ impl Store {
         })();
         kept.map_err(fault(doing)).map_err(WriteError::Database)
     }
+
+    /// The item ids the person dismissed for good from a session's list.
+    pub fn dismissed_waiting(&self, session_id: &str) -> Result<Vec<String>, WriteError> {
+        let doing = "reading what was dismissed from a session's waiting list";
+        let mut statement = self
+            .conn
+            .prepare("SELECT item_id FROM session_waiting_dismissed WHERE session_id = ?1")
+            .map_err(fault(doing))
+            .map_err(WriteError::Database)?;
+        let rows = statement
+            .query_map([session_id], |row| row.get(0))
+            .map_err(fault(doing))
+            .map_err(WriteError::Database)?;
+        rows.collect::<Result<_, _>>()
+            .map_err(fault(doing))
+            .map_err(WriteError::Database)
+    }
+
+    /// Dismiss an item for good: its id is kept, and the agent's item under it is removed.
+    pub fn dismiss_waiting(&mut self, session_id: &str, item_id: &str) -> Result<(), WriteError> {
+        let doing = "dismissing what a session waits on";
+        let kept = (|| {
+            let transaction = self.conn.transaction()?;
+            transaction.execute(
+                "INSERT OR IGNORE INTO session_waiting_dismissed (session_id, item_id) VALUES (?1, ?2)",
+                params![session_id, item_id],
+            )?;
+            transaction.execute(
+                "DELETE FROM session_waiting WHERE session_id = ?1 AND item_id = ?2",
+                params![session_id, item_id],
+            )?;
+            transaction.commit()
+        })();
+        kept.map_err(fault(doing)).map_err(WriteError::Database)
+    }
 }

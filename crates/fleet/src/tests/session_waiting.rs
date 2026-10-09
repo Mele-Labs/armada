@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use api::{HostedSessions, Sessions};
 use ipc::{
-    AnswerWaiting, HelmCallAnswer, HelmCallInFlight, Instant, ManifestId, RunOrNot, SessionMode,
+    AnswerWaiting, DismissWaiting, HelmCallAnswer, HelmCallInFlight, Instant, ManifestId, RunOrNot, SendSessionMessage, SessionMode,
     SessionRow, SessionVoice, SetWaitingFor, ShowWindow, TuneSession, WaitingAct, WaitingActKind,
     WaitingInput, WaitingMode, WaitingOption, WaitingSource,
 };
@@ -60,7 +60,7 @@ fn the_agents_items_come_first_and_fleets_own_follow_with_stable_ids() {
         title: "Findings".into(),
         since: "2026-10-09T00:02:00Z".into(),
     }];
-    let items = merged(vec![kept("a1", "run", "cargo test")], Some(&asked), &windows, false);
+    let items = merged(vec![kept("a1", "run", "cargo test")], Some(&asked), &windows, &[], false);
     let ids: Vec<_> = items.iter().map(|one| one.id.as_str()).collect();
     assert_eq!(ids, ["a1", "ask:c1", "walk:http://localhost:5173/"]);
     assert_eq!(items[0].source, WaitingSource::Agent);
@@ -68,7 +68,7 @@ fn the_agents_items_come_first_and_fleets_own_follow_with_stable_ids() {
     assert_eq!(items[1].options.len(), 2, "one single-choice question has numbered choices");
     assert_eq!(items[2].source, WaitingSource::Walk);
 
-    let permission = merged(Vec::new(), Some(&card("c2", None)), &[], false);
+    let permission = merged(Vec::new(), Some(&card("c2", None)), &[], &[], false);
     assert_eq!(permission[0].id, "perm:c2");
     assert_eq!(permission[0].source, WaitingSource::Permission);
     assert_eq!(permission[0].text, "Bash rm -rf build");
@@ -82,11 +82,12 @@ fn where_an_agent_item_names_fleets_target_fleets_stands_and_an_ended_session_ho
         vec![kept("mine", "answer", "c1"), kept("other", "answer", "c9")],
         Some(&asked),
         &[],
+        &[],
         false,
     );
     let ids: Vec<_> = items.iter().map(|one| one.id.as_str()).collect();
     assert_eq!(ids, ["other", "ask:c1"], "the agent's duplicate of the open card is left off");
-    assert!(merged(vec![kept("a", "run", "x")], Some(&asked), &[], true).is_empty());
+    assert!(merged(vec![kept("a", "run", "x")], Some(&asked), &[], &[], true).is_empty());
 }
 
 fn set(id: &ipc::SessionId, items: &[(&str, &str)]) -> SetWaitingFor {
@@ -274,4 +275,99 @@ async fn an_open_walk_window_waits_until_it_is_approved_and_an_agent_item_become
         said
     }).await;
     assert!(matches!(missing, Err(api::Refusal::IllegalMove(_))), "an item nothing holds");
+}
+
+async fn show(rig: &Rig, id: &ipc::SessionId, url: &str) -> ipc::SessionRecord {
+    rig.fleet
+        .show_window(None, ShowWindow { url: url.into(), title: Some(url.into()), session_id: Some(id.clone()) })
+        .await
+        .unwrap()
+}
+
+async fn later() {
+    tokio::time::sleep(std::time::Duration::from_millis(1100)).await;
+}
+
+fn ids(record: &ipc::SessionRecord) -> Vec<&str> {
+    record.waiting_for.iter().map(|one| one.id.as_str()).collect()
+}
+
+async fn say(rig: &Rig, id: &ipc::SessionId, text: &str) {
+    Arc::clone(&rig.fleet)
+        .send_session_message(SendSessionMessage {
+            session_id: id.clone(),
+            text: text.into(),
+            attachments: Vec::new(),
+            mentions: Vec::new(),
+        })
+        .await
+        .unwrap();
+}
+
+#[tokio::test]
+async fn an_older_walk_is_superseded_by_a_newer_one() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    show(&rig, &id, "http://localhost:5173/one").await;
+    later().await;
+    let record = show(&rig, &id, "http://localhost:5173/two").await;
+    assert_eq!(ids(&record), ["walk:http://localhost:5173/two"]);
+}
+
+#[tokio::test]
+async fn a_walk_stops_waiting_once_the_owner_has_written_after_it_opened() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    show(&rig, &id, "http://localhost:5173/one").await;
+    later().await;
+    say(&rig, &id, "Looks off, change the header").await;
+    let record = Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap().session;
+    assert!(record.waiting_for.is_empty(), "{:?}", ids(&record));
+    later().await;
+    let shown_again = show(&rig, &id, "http://localhost:5173/two").await;
+    assert_eq!(ids(&shown_again), ["walk:http://localhost:5173/two"], "a message only settles the windows before it");
+}
+
+#[tokio::test]
+async fn a_walk_with_no_newer_walk_and_no_message_still_stands() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    show(&rig, &id, "http://localhost:5173/one").await;
+    let record = Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap().session;
+    assert_eq!(ids(&record), ["walk:http://localhost:5173/one"], "closing its window decides nothing");
+}
+
+#[tokio::test]
+async fn a_dismissed_item_never_comes_back_and_nothing_is_sent_to_the_agent() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    let url = "http://localhost:5173/one";
+    show(&rig, &id, url).await;
+    let before = rig.rows(&id).await.len();
+    let gone = Arc::clone(&rig.fleet)
+        .dismiss_waiting(DismissWaiting { session_id: id.clone(), item_id: format!("walk:{url}") })
+        .await
+        .unwrap();
+    assert!(gone.waiting_for.is_empty());
+    let again = Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap();
+    assert!(again.session.waiting_for.is_empty(), "the derived item does not return on the next read");
+    assert_eq!(again.rows.len(), before, "nothing was said to the agent");
+    let twice = Arc::clone(&rig.fleet)
+        .dismiss_waiting(DismissWaiting { session_id: id.clone(), item_id: format!("walk:{url}") })
+        .await;
+    assert!(matches!(twice, Err(api::Refusal::IllegalMove(_))), "nothing holds it any more");
+}
+
+#[tokio::test]
+async fn a_dismissed_agent_item_is_gone_and_stays_gone_when_the_agent_says_it_again() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    rig.fleet.waiting_for(None, set(&id, &[("a", "Run the tests"), ("b", "Look")])).await.unwrap();
+    let after = Arc::clone(&rig.fleet)
+        .dismiss_waiting(DismissWaiting { session_id: id.clone(), item_id: "a".into() })
+        .await
+        .unwrap();
+    assert_eq!(ids(&after), ["b"]);
+    let restated = rig.fleet.waiting_for(None, set(&id, &[("a", "Run the tests"), ("b", "Look")])).await.unwrap();
+    assert_eq!(ids(&restated), ["b"]);
 }

@@ -1,0 +1,10 @@
+[operations.dismiss_waiting]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Drop one thing a session is waiting on the person for, for good"
+notes = """
+`POST /sessions/waiting/dismiss`, body `DismissWaiting`: `session_id` and `item_id`. Answered with the `SessionRecord`, and `SessionChanged` is published.
+
+**The id never comes back.** A derived item (`ask:`, `perm:`, `walk:`) with that id is left off every later read, and an agent item with it is removed from the kept list and left off if the agent states it again. Nothing is sent to the agent. An item nothing holds is a 409, as for `answer_waiting`.
+"""

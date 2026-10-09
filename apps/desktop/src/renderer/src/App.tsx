@@ -138,6 +138,7 @@ import { useAddedBinding, useAlerts } from "./added-steps";
 import { useDrafted } from "./drafted";
 import { hiddenSurfaces, MergeLineSurface } from "./merge-line";
 import { LessonsSurface } from "./lessons";
+import { useSleepMode } from "./sleep";
 import { ChecksSurface, useAsked } from "./checks-surface";
 import { SessionsOwnership, SessionsSurface, sessionsHidden } from "./sessions"; import { useSessionsDraft } from "./sessions-draft";
 import { useOpenSessionAsked } from "./open-session"; import { useOpenRetroAsked } from "./open-retro";
@@ -269,6 +270,7 @@ export function App({ draft }: AppProps = {}) {
   // reports it up (#1075), so the palette can title its context block with the
   // job its acts would act on. Two cursors would drift.
   const palette = useCommandPalette();
+  const slept = useSleepMode();
   const [cursor, setCursor] = useState<string | null>(null);
   // The Job chipped above Helm's message box — #1075. Opening a Job's detail
   // chips it and points Helm at its repository; leaving the Job or its own ×
@@ -608,6 +610,7 @@ export function App({ draft }: AppProps = {}) {
           onOpenManifest={() => goTo(SURFACE.manifest)}
           onCompose={() => setComposing(true)}
           onSearch={palette.onOpen}
+          {...(slept.sleep === undefined ? {} : { sleep: slept.sleep })}
           questions={questions}
           asking={asks.length}
           helm={
@@ -673,6 +676,7 @@ export function App({ draft }: AppProps = {}) {
               stylesheet where it can be read, and in the components' one so a
               story can check it. `.armada-screen__mounted` says why. */}
           <div className="armada-screen__mounted">
+            {slept.sheet}
             <Standing
               fleet={fleet} connection={state.connection} bridge={state.bridge} onRestartFleet={restartFleet}
               // **Not while the file is on screen**, which draws the same

@@ -42,6 +42,7 @@
 .armada-title-bar__search,
 .armada-title-bar__helm,
 .armada-title-bar__dispatch,
+.armada-title-bar__sleep,
 /* Not interactive, but it opts out for the same reason the rest do: a drag
    region swallows the pointer, and a `title` tooltip inside one never opens.
    The dot carries pid, port and protocol nowhere, so being hovered for its
@@ -351,4 +352,17 @@
   .armada-title-bar__end {
     grid-column: 1 / -1;
   }
+}
+
+/* Sleep mode, beside Helm. Pressed is the state, so the moon takes the
+   running hue while it is on and rests quiet when it is not. */
+.armada-title-bar__sleep {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.armada-title-bar__sleep [aria-pressed="true"] {
+  color: var(--status-running);
 }

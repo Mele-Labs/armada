@@ -1,0 +1,7 @@
+[icons.lock-keyhole]
+  means = "A padlock with a keyhole"
+  group = "Sleep mode"
+  size = "16px"
+  status = "Specified"
+  reserved = "An item Morning review still needs the owner for. Never a refusal or a policy hold."
+  notes = "Approved 9 Oct 2026 with sleep mode."

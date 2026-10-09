@@ -13,6 +13,8 @@ import { App, WAITING } from "./App";
 import { Boundary, LayoutSourceProvider, createLayoutSource } from "@armada/shell";
 import { HapticsProvider } from "@armada/components";
 import { WiredSessions } from "./sessions-wired";
+import { SleepSourceProvider } from "./sleep";
+import { createFleetSleep } from "./fleet-sleep";
 import { CATALOGUE } from "./catalogue";
 import { Themed } from "./theme";
 import { createFleetThemes } from "./fleet-themes";
@@ -37,6 +39,8 @@ const THEMES = createFleetThemes(window.armada, CATALOGUE, { builtIn: BUILT_IN_S
 const LAYOUT = skipsMods() ? createLayoutSource() : createFleetLayout(window.armada);
 /** Settings → Phone, over the Gateway through the main process. Reads nothing until Settings draws it. */
 const PHONE = createPhoneGatewaySource((request) => window.armada.phone(request));
+/** The moon in the title row and the Morning review, over Fleet. */
+const SLEEP = createFleetSleep(window.armada);
 
 /**
  * Who Bridge is, read once. The only state above the boundary, and the least
@@ -60,9 +64,11 @@ function Root() {
         <Themed source={THEMES}>
           <LayoutSourceProvider value={LAYOUT}>
             <PhoneSourceProvider value={PHONE}>
-              <WiredSessions>
-                <App />
-              </WiredSessions>
+              <SleepSourceProvider value={SLEEP}>
+                <WiredSessions>
+                  <App />
+                </WiredSessions>
+              </SleepSourceProvider>
             </PhoneSourceProvider>
           </LayoutSourceProvider>
         </Themed>

@@ -44,6 +44,7 @@ import { Attention, soundOf } from "./telling";
 import { handleRehearsal } from "./rehearsal-channels";
 import { handleRepositories } from "./repository-channels";
 import { handleSessions } from "./session-channels";
+import { handleSleep } from "./sleep-channels";
 import { SessionPages } from "./session-page";
 import { handleStudios } from "./studio-channels";
 
@@ -472,6 +473,12 @@ void app.whenReady().then(() => {
   });
   // A Session showed a page: its window opens by itself, and opens again where it is already open.
   connection.sessions.onWindow((sessionId, title, url) => void captureWindows.openForSession(sessionId, title, url));
+  // Sleep mode changed in Fleet: every window gets the night whole.
+  connection.sleep.onChanged((state) => {
+    for (const window of BrowserWindow.getAllWindows()) {
+      if (!window.isDestroyed()) window.webContents.send(CHANNELS.sleepChanged, state);
+    }
+  });
   handleTaps({ ipc: ipcMain, app });
   if (!app.isPackaged) installSounds(join(app.getAppPath(), "sounds"), join(app.getPath("home"), "Library", "Sounds"));
 
@@ -920,6 +927,7 @@ void app.whenReady().then(() => {
     connection?.readHeld(want),
   );
   handleSessions({ ipc: ipcMain, connection: () => connection, windowIdOf, pages: new SessionPages() });
+  handleSleep({ ipc: ipcMain, connection: () => connection });
   handleStudios({ ipc: ipcMain, connection: () => connection, published: () => published, captureWindows });
   // The four decisions on the work, and they stay four channels. Merging lands
   // the branch and then takes the work, approving takes it and leaves the pull

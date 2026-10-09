@@ -44,6 +44,25 @@ impl HostedSessions for FakeDaemon {
         Err(nothing_hosted())
     }
 
+    async fn dismiss_waiting(
+        self: Arc<Self>,
+        _dismiss: ipc::DismissWaiting,
+    ) -> Result<SessionRecord, Refusal> {
+        Err(nothing_hosted())
+    }
+
+    async fn get_sleep(&self) -> Result<ipc::SleepState, Refusal> {
+        Ok(ipc::SleepState::default())
+    }
+
+    async fn set_sleep(self: Arc<Self>, set: ipc::SetSleep) -> Result<ipc::SleepState, Refusal> {
+        Ok(ipc::SleepState { on: set.on, ..Default::default() })
+    }
+
+    async fn override_sleep(self: Arc<Self>, _over: ipc::OverrideSleep) -> Result<ipc::SleepState, Refusal> {
+        Err(nothing_hosted())
+    }
+
     async fn tune_session(&self, _tuned: TuneSession) -> Result<SessionRecord, Refusal> {
         Err(nothing_hosted())
     }

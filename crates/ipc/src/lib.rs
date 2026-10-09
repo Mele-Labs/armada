@@ -187,6 +187,8 @@ mod sessions;
 mod setup;
 /// What a step's harness produced, as a client is told about it.
 mod showing;
+/// Sleep mode: the switch and the night it keeps.
+mod sleep;
 /// What crossed the stream since a cursor, counted rather than carried.
 /// **An agent's substitute for the socket it cannot hold.**
 mod since;
@@ -412,12 +414,13 @@ pub use servers::{
     ServerPhase, ServerPort, ServerState, StartServer, StartedBy,
 };
 pub use sessions::{
-    AnswerWaiting, Attachment, AttachmentNamed, AttachmentReport, AttachmentState,
+    AnswerWaiting, Attachment, AttachmentNamed, AttachmentReport, AttachmentState, DismissWaiting,
     ClaimPullRequest, Holder, HolderKind, Owners, Ownership, PullRequestClaimed, RenameSession,
     SessionFact, SessionId, SessionList, SessionOrigin, SessionRecord, SessionReport, SessionState,
     SessionUsage, SetWaitingFor, ShowWindow, TerminalCommand, TerminalFacts, WaitingAct,
     WaitingActKind, WaitingInput, WaitingItem, WaitingMode, WaitingOption, WaitingSource,
 };
+pub use sleep::{OverrideSleep, SetSleep, SleepBlocked, SleepDecided, SleepLanded, SleepState, SleepWalk};
 pub use setup::{
     LeftOutWorkflow, ManifestSummary, ModelChoices, OverriddenWorkflow, SaveWorkflow, StepPhase,
     WorkflowDefinition, WorkflowSaved, WorkflowScope, WorkflowStep, WorkflowSummary,

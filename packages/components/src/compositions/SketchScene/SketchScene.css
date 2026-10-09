@@ -1,0 +1,319 @@
+/* A scene, in frames: a header band over a mono body, state carried by the frame. The canvas's own
+   height, so swapping a sketch for the canvas moves nothing. */
+.armada-sketch {
+  display: flex;
+  box-sizing: border-box;
+  block-size: var(--h-workflow-run-canvas);
+  min-width: 0;
+  margin: 0;
+  border: var(--border-width) solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--bg-sunken);
+  overflow: hidden;
+}
+
+.armada-sketch:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.armada-sketch > .armada-graph-canvas-frame {
+  flex: 1;
+  min-width: 0;
+}
+
+.armada-scene-node {
+  --hue: var(--status-running);
+  box-sizing: border-box;
+  width: var(--w-sketch-box);
+  border: var(--edge-active) solid var(--hue);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--hue) var(--row-tint-recent), var(--bg-raised));
+  color: var(--fg-default);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  overflow: hidden;
+  transition: opacity var(--duration-base) var(--ease);
+}
+
+.armada-scene-node[data-kind="code"] {
+  --hue: var(--status-not-started);
+}
+
+.armada-scene-node[data-change="added"],
+.armada-scene-edge[data-change="added"] {
+  --hue: var(--status-completed-success);
+}
+
+.armada-scene-node[data-change="removed"],
+.armada-scene-edge[data-change="removed"] {
+  --hue: var(--status-completed-failed);
+}
+
+.armada-scene-node[data-change="changed"],
+.armada-scene-edge[data-change="changed"] {
+  --hue: var(--status-awaiting-review);
+}
+
+.armada-scene-node[data-change="removed"] .armada-scene-node__body,
+.armada-scene-node[data-change="removed"] .armada-scene-node__title {
+  text-decoration: line-through;
+}
+
+.armada-scene-node[data-dim],
+.armada-scene-edge[data-dim] {
+  opacity: 0.35;
+}
+
+.armada-scene-node[data-current],
+.armada-scene-node[data-asked] {
+  outline: var(--edge-active) solid var(--edge-focus);
+  outline-offset: var(--border-width);
+}
+
+.armada-scene-node__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: var(--hue);
+  color: var(--fg-inverse);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  font-weight: var(--weight-heading);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+
+.armada-scene-node__icon {
+  display: inline-flex;
+}
+
+.armada-scene-node__title {
+  flex: 1;
+  min-width: 0;
+}
+
+.armada-scene-node__lang {
+  opacity: 0.8;
+}
+
+.armada-scene-node__body {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  font: inherit;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* A group frames what is inside it, and a lane runs the width of a flow: neither fills. */
+.armada-scene-node[data-kind="group"],
+.armada-scene-node[data-kind="lane"] {
+  width: auto;
+  background: transparent;
+  border-style: dashed;
+}
+
+.armada-scene-node[data-kind="group"] .armada-scene-node__head,
+.armada-scene-node[data-kind="lane"] .armada-scene-node__head {
+  inline-size: fit-content;
+  border-end-end-radius: var(--radius-md);
+}
+
+.armada-scene-node[data-kind="lane"] {
+  border-inline: none;
+  border-radius: 0;
+}
+
+.armada-scene-node[data-kind="label"] {
+  width: auto;
+  border: none;
+  background: none;
+  overflow: visible;
+}
+
+.armada-scene-node__label {
+  color: var(--fg-muted);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-heading);
+}
+
+/* A wireframe part: drawn as a block, never as a control. */
+.armada-scene-node[data-kind="wire"] {
+  --hue: var(--border-strong);
+  background: var(--bg-sunken);
+  border-style: dashed;
+}
+
+.armada-scene-wire {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+}
+
+.armada-scene-wire__title {
+  color: var(--fg-muted);
+  font-weight: var(--weight-heading);
+}
+
+.armada-scene-wire[data-part="button"] {
+  align-items: center;
+  background: var(--border-strong);
+  color: var(--fg-default);
+}
+
+.armada-scene-wire[data-part="button"] .armada-scene-wire__title {
+  color: var(--fg-default);
+}
+
+.armada-scene-wire[data-part="input"] {
+  border: var(--border-width) solid var(--border-strong);
+  margin: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+}
+
+.armada-scene-wire[data-part="nav"] {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.armada-scene-wire__line {
+  block-size: var(--space-2);
+  background: var(--border-strong);
+  border-radius: var(--radius-sm);
+}
+
+.armada-scene-wire__line[data-short] {
+  inline-size: 60%;
+}
+
+/* An arrow: its line, its head, its words. Flow runs along its direction, and only while motion is allowed. */
+.armada-scene-edge {
+  --hue: var(--fg-muted);
+  transition: opacity var(--duration-base) var(--ease);
+}
+
+.armada-scene-edge__line {
+  fill: none;
+  stroke: var(--hue);
+  stroke-width: var(--edge-active);
+}
+
+.armada-scene-edge__head {
+  fill: var(--hue);
+}
+
+.armada-scene-edge[data-flow] .armada-scene-edge__line {
+  stroke-dasharray: var(--space-2) var(--space-2);
+  animation: armada-scene-flow var(--duration-pulse) linear infinite;
+}
+
+.armada-scene-edge[data-asked] .armada-scene-edge__line {
+  stroke: var(--edge-focus);
+}
+
+.armada-scene-edge__label {
+  fill: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  text-anchor: middle;
+  paint-order: stroke;
+  stroke: var(--bg-sunken);
+  stroke-width: var(--space-1);
+}
+
+/* The press target: wide, and drawn nowhere. */
+.armada-scene-edge__hit {
+  fill: none;
+  stroke: transparent;
+  stroke-width: var(--space-4);
+  pointer-events: stroke;
+  cursor: pointer;
+}
+
+.armada-scene-edge__hit:focus-visible {
+  stroke: var(--accent-faint);
+  outline: none;
+}
+
+@keyframes armada-scene-flow {
+  to {
+    stroke-dashoffset: calc(var(--space-2) * -2);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .armada-scene-edge[data-flow] .armada-scene-edge__line {
+    animation: none;
+    stroke-dasharray: none;
+  }
+}
+
+/* The ask about a part, over the canvas's top-right corner. */
+.armada-scene-ask {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  inline-size: var(--w-dock);
+  max-inline-size: 100%;
+  padding: var(--space-2);
+  border: var(--border-width) solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--bg-raised);
+}
+
+.armada-scene-ask__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.armada-scene-ask__about {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-heading);
+  overflow-wrap: anywhere;
+}
+
+/* The owner's own parts: his hue, over whatever the diff would say, so the Drone's parts and his read
+   apart. The one hue neither the diff nor a Drone's frame uses. */
+.armada-scene-node[data-mine],
+.armada-scene-edge[data-mine] {
+  --hue: var(--status-rejected);
+}
+
+.armada-scene-node__own {
+  padding: var(--space-2);
+}
+
+/* Struck out: still there, plainly not wanted. Put back by taking it off again. */
+.armada-scene-node[data-struck],
+.armada-scene-edge[data-struck] {
+  opacity: 0.5;
+}
+
+.armada-scene-node[data-struck] .armada-scene-node__body,
+.armada-scene-node[data-struck] .armada-scene-node__title {
+  text-decoration: line-through;
+}
+
+.armada-scene-edge[data-struck] .armada-scene-edge__line {
+  stroke-dasharray: var(--space-1) var(--space-1);
+  animation: none;
+}
+
+/* Picked, and armed to join. */
+.react-flow__node.selected > .armada-scene-node,
+.armada-scene-node[data-joining] {
+  outline: var(--edge-active) solid var(--edge-focus);
+  outline-offset: var(--border-width);
+}
+
+.armada-scene-ask__acts {
+  display: inline-flex;
+  align-items: center;
+}

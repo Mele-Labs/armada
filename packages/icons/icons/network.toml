@@ -1,0 +1,7 @@
+[icons.network]
+  means = "One box over two boxes, joined by right-angled lines - parts of a diagram and how they connect"
+  group = "Chrome"
+  size = "16px"
+  status = "Proposed"
+  reserved = "The Canvas toggle in the Now panel head only: the left-hand view that is the Overview's own canvas. Never a network connection, a server or a remote, and never the Workflows surface, which is `workflow`."
+  notes = "Minted to replace `workflow`, which is reserved to the Workflows surface. The canvas is a graph of steps, and a box over two boxes is the plainest drawing of a graph in lucide. It stays clear of `waypoints`, the Graph view toggle, whose nodes are circles on a winding path, and of `workflow`, whose one large box carries a routed line. Refused: `frame`, which reads as a crop; `git-graph`, which says git history; `layout-dashboard`, which says a screen's panes."

@@ -25,24 +25,25 @@ export function nowPanelOf(view: NowView | undefined, host: NowHost): Omit<NowPa
     (given ?? []).map((act) => ({ ...act, onAct: () => host.onSaid(`${act.said}: ${name}`) }));
   const asks: NowAsk[] = (view.asks ?? []).map((ask) =>
     ask.kind === "plan"
-      ? { ...ask, onAnswer: () => {} }
-      : { key: ask.key, kind: ask.kind, name: ask.name, text: ask.text, onOpen: opens(ask.kind, ask.target) },
+      ? { ...ask, onAnswer: () => host.onSaid("Answer sent") }
+      : { key: ask.key, kind: ask.kind, name: ask.name, text: ask.text, ...(ask.sketch === undefined ? {} : { sketch: ask.sketch }), ...(ask.asker === undefined ? {} : { asker: ask.asker }), onOpen: opens(ask.kind, ask.target) },
   );
   const issues: NowIssue[] = (view.issues ?? []).map(({ target, acts: given, ...one }) => ({
     ...one,
     ...(given === undefined ? {} : { acts: acts(one.name, given) }),
     onOpen: opens(one.of, target),
   }));
-  const running: NowRunning[] = (view.running ?? []).map(({ target, acts: given, ...one }) => ({
+  const running: NowRunning[] = (view.running ?? []).map(({ target, log, acts: given, ...one }) => ({
     ...one,
     ...(given === undefined ? {} : { acts: acts(one.name, given) }),
-    onOpen: opens(one.of, target, one.state),
+    onOpen: log === undefined ? opens(one.of, target, one.state) : () => host.onOpenCheckLog?.(log),
   }));
   const waiting: NowWaiting[] = (view.waiting ?? []).map(({ target, ...one }) => ({
     ...one,
     ...(one.kind === "job" && target !== undefined && host.onOpenJob !== undefined ? { onOpen: () => host.onOpenJob?.(target) } : {}),
   }));
   return {
+    onOpenFile: (path: string) => host.onSaid(`Open ${path}`),
     asks,
     issues,
     running,

@@ -164,7 +164,7 @@ pub async fn needs(State(gateway): State<Gateway>) -> Response {
                     .as_ref()
                     .and_then(|id| labels.get(id.as_str()))
                     .map(String::as_str);
-                PhoneSession::of(record, repository)
+                PhoneSession::of(record, repository, gateway.pairing.now())
             })
             .filter(|session| session.waiting)
             .collect();
