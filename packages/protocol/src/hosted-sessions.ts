@@ -80,14 +80,18 @@ export type TakeHeld = { session_id: string };
 
 /**
  * `POST /sessions/ask/terminal`. The mod in a terminal session puts its `AskUserQuestion` to Bridge (`asks`,
- * held open until a person answers there), or says the terminal's own prompt ended first (`settled`).
+ * answered at once with the call), polls for the answer (`wait`, held a bounded time), or says the terminal's own
+ * prompt ended first (`settled`).
  */
 export type TerminalAsk =
   | { kind: "asks"; session_id: string; input: unknown }
-  | { kind: "settled"; session_id: string; answered: boolean };
+  | { kind: "settled"; session_id: string; answered: boolean }
+  | { kind: "wait"; session_id: string; call: string };
 
-/** How a held `asks` ended: answered with the tool's input and `answers`, refused, or nothing more to wait on. */
+/** What Fleet answers it with: the call, no answer yet, or how the question ended. */
 export type TerminalAsked =
+  | { outcome: "asked"; call: string }
+  | { outcome: "waiting" }
   | { outcome: "answered"; updated_input: unknown }
   | { outcome: "refused"; message: string }
   | { outcome: "gone" };

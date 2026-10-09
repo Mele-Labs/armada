@@ -242,6 +242,7 @@ where
         let mut store = self.store().lock().await;
         let kept = store.session(&id).map_err(fault)?;
         let mut changed = kept.is_none();
+        let mut ended = false;
         let mut session = kept.unwrap_or_else(|| KeptSession {
             id: id.clone(),
             harness: report.harness.clone(),
@@ -371,6 +372,7 @@ where
             // it going away is a process ending, and the next message resumes.
             SessionFact::Ended { .. } if session.origin == "bridge" => {}
             SessionFact::Ended { reason } => {
+                ended = true;
                 changed |= session.state != store::SessionState::Ended;
                 session.state = store::SessionState::Ended;
                 session.ended_at = Some(now.clone());
@@ -383,6 +385,10 @@ where
         store.keep_session(&session).map_err(fault)?;
         let record = self.ledger_row(&store, &session)?;
         drop(store);
+        if ended {
+            // Its terminal prompt went with it, so Bridge must not offer the card.
+            self.terminal_ask_closed(&session.id, ipc::SessionAskState::Unanswered).await;
+        }
         if changed {
             self.publish(ipc::Event::SessionChanged(record.clone()));
         }
