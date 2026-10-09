@@ -1,7 +1,7 @@
 // The phone app's screens (#1997): a plain responsive page, fixture data only.
-// Everything it reads comes through `./data`, which the Gateway client replaces (#1998).
+// Everything it reads comes through `./data`: Jobs from the Gateway, the rest fixtures.
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import {
   Check, ChevronLeft, CircleDot, Eye, GitPullRequest, LoaderCircle, OctagonAlert, Plus, RefreshCw,
@@ -11,30 +11,40 @@ import type { LucideIcon } from "lucide-react";
 
 import { Button, HoldButton } from "@armada/components";
 
-import { APPROVAL, BLOCKED, DONE, HOSTED_ASK, MAC, REPOSITORIES, REVIEW, RUNNING, TERMINAL_WAITING, jobById } from "./data";
+import { Refused, lastRefusal } from "./client";
+import { HOSTED_ASK, REPOSITORIES, TERMINAL_WAITING, startLive, useJob, useJobs } from "./data";
 import type { PocketJob } from "./data";
-import { Link, go } from "./router";
+import { paired } from "./device";
+import { claim, codeFromUrl, defaultName, waitForConfirm } from "./pair";
+import { subscribe } from "./push";
+import { go } from "./router";
 
 type Tab = "Needs you" | "Running" | "Done";
 const TABS: Tab[] = ["Needs you", "Running", "Done"];
 
 /** Glyphs and verbs are `crates/core-model/domain/enum-verbs.toml`'s. */
-const REASON: Record<NonNullable<PocketJob["reason"]>, { icon?: LucideIcon; says: string }> = {
+const REASON: Record<string, { icon?: LucideIcon; says: string }> = {
   stalled: { icon: OctagonAlert, says: "Stalled" },
   thrashing: { icon: RefreshCw, says: "Churning" },
   rate_cap: { icon: Split, says: "Hit the sub-dispatch cap" },
   interrupted: { icon: Unplug, says: "Interrupted" },
 };
 
+const reasonOf = (reason: string): { icon?: LucideIcon; says: string } => REASON[reason] ?? { says: reason.replace(/_/g, " ") };
+
 type Act = "approve" | "redirect" | "restart" | "redispatch" | "kill";
 /** What a state allows. `approve_dispatch` means something only on a Job awaiting dispatch approval. */
-const ACTS: Record<NonNullable<PocketJob["reason"]> | "approval", Set<Act>> = {
+const ACTS: Record<string, Set<Act>> = {
   approval: new Set(["approve"]),
   stalled: new Set(["redirect", "restart", "redispatch", "kill"]),
   thrashing: new Set(["redirect", "restart", "redispatch", "kill"]),
   rate_cap: new Set(["restart", "kill"]),
   interrupted: new Set(["restart", "redispatch", "kill"]),
 };
+const actsOf = (job: PocketJob): Set<Act> => ACTS[job.reason ?? "approval"] ?? ACTS.stalled!;
+
+// TODO(#2001): the acts below do nothing yet; their Gateway routes (approve, redirect,
+// restart_step, kill, redispatch, approve_review, request_changes) come with #2001.
 
 /** Drafts live outside the screens, so leaving one and coming back finds what was typed. */
 const DRAFTS = new Map<string, string>();
@@ -74,6 +84,21 @@ function Band({ title, back, onBack, end }: { title: string; back?: string; onBa
 
 function Pair() {
   const [phase, setPhase] = useState<"scanned" | "waiting">("scanned");
+  const [name, setName] = useState(() => defaultName(navigator.userAgent));
+  const [trouble, setTrouble] = useState(lastRefusal());
+  const code = codeFromUrl(window.location.search);
+  const pair = async () => {
+    setTrouble("");
+    try {
+      await claim(name);
+    } catch (why) {
+      setTrouble(why instanceof Refused ? why.message : "The phone's key could not be made.");
+      return;
+    }
+    setPhase("waiting");
+    if (await waitForConfirm()) go("/");
+    else setPhase("scanned");
+  };
   return (
     <section className="pk-screen" aria-label="Pair">
       <Band title="Pair" />
@@ -82,18 +107,19 @@ function Pair() {
           {Array.from({ length: 169 }, (_, i) => <i key={i} data-on={((i * 7 + (i >> 3) * 5) % 3 === 0) || i % 13 === 0} />)}
         </div>
         {phase === "scanned" ? (
-          <p className="pk-fact"><Check /> Code scanned <span className="pk-dim">{MAC}</span></p>
+          <>
+            <input className="pk-line" aria-label="Name" value={name} autoCapitalize="words" onChange={(event) => setName(event.target.value)} />
+            {trouble !== "" && <p className="pk-fact">{trouble}</p>}
+          </>
         ) : (
           <p className="pk-fact pk-waiting"><LoaderCircle className="pk-spin" aria-hidden="true" /> Waiting for Confirm on your Mac</p>
         )}
       </div>
-      <footer className="pk-bar">
-        {phase === "scanned" ? (
-          <Button variant="primary" className="pk-big" onClick={() => setPhase("waiting")}>Pair</Button>
-        ) : (
-          <Link to="/" className="pk-big pk-continue">Continue</Link>
-        )}
-      </footer>
+      {phase === "scanned" && (
+        <footer className="pk-bar">
+          <Button variant="primary" className="pk-big" disabled={code === "" || name.trim() === ""} onClick={() => void pair()}>Pair</Button>
+        </footer>
+      )}
     </section>
   );
 }
@@ -110,20 +136,26 @@ function Row({ icon, tip, title, where, age, onOpen, spin }: { icon?: LucideIcon
   return onOpen === undefined ? <li className="pk-row" data-still>{body}</li> : <li><button className="pk-row" onClick={onOpen}>{body}</button></li>;
 }
 
+function needRow(job: PocketJob) {
+  const approval = job.status === "awaiting_approval";
+  const review = job.status === "awaiting_review";
+  const shown = job.reason !== undefined ? reasonOf(job.reason) : approval ? { icon: UserCheck, says: "Approval" } : review ? { icon: Eye, says: "Review" } : { says: "Asking" };
+  return <Row key={job.id} icon={shown.icon} tip={shown.says} title={job.title} where={job.repository} age={job.quiet ?? job.age} onOpen={() => go(`/jobs/${job.id}`)} />;
+}
+
 function Tabs({ gone, dispatched }: { gone: Set<string>; dispatched: string[] }) {
   const [tab, setTab] = useState<Tab>("Needs you");
+  const { needs, running, done, error } = useJobs();
   const left = (job: PocketJob) => !gone.has(job.id);
+  const waiting = needs.filter(left);
   return (
     <section className="pk-screen" aria-label={tab}>
       <Band title={tab} end={<button className="pk-icon" aria-label="Dispatch" onClick={() => go("/dispatch")}><Plus /></button>} />
       <div className="pk-body" role="tabpanel" aria-label={tab}>
+        {error !== undefined && <p className="pk-fact"><Unplug aria-hidden="true" /> {error}</p>}
         {tab === "Needs you" && (
           <ul className="pk-list">
-            {BLOCKED.filter(left).map((job) => (
-              <Row key={job.id} icon={REASON[job.reason!].icon} tip={REASON[job.reason!].says} title={job.title} where={job.repository} age={job.quiet ?? job.age} onOpen={() => go(`/jobs/${job.id}`)} />
-            ))}
-            {left(APPROVAL) && <Row icon={UserCheck} tip="Approval" title={APPROVAL.title} where={APPROVAL.repository} age={APPROVAL.age} onOpen={() => go(`/jobs/${APPROVAL.id}`)} />}
-            {left(REVIEW) && <Row icon={Eye} tip="Review" title={REVIEW.title} where={REVIEW.repository} age={REVIEW.age} onOpen={() => go(`/jobs/${REVIEW.id}`)} />}
+            {waiting.map(needRow)}
             {!gone.has(HOSTED_ASK.id) && <Row icon={SquareTerminal} tip="Session asks" title={HOSTED_ASK.title} where={HOSTED_ASK.repository} age={HOSTED_ASK.age} onOpen={() => go(`/sessions/${HOSTED_ASK.id}`)} />}
             <Row icon={SquareTerminal} tip="Terminal session waiting" title={TERMINAL_WAITING.title} where={TERMINAL_WAITING.repository} age={TERMINAL_WAITING.age} />
           </ul>
@@ -131,14 +163,14 @@ function Tabs({ gone, dispatched }: { gone: Set<string>; dispatched: string[] })
         {tab === "Running" && (
           <ul className="pk-list">
             {dispatched.map((title) => <Row key={title} icon={CircleDot} tip="Running" spin title={title} where={DRAFT_REPO.current} age="now" />)}
-            {RUNNING.map((job) => (
-              <Row key={job.id} icon={CircleDot} tip="Running" spin title={job.title} where={`${job.repository}  ${job.step!.at}/${job.step!.of} ${job.step!.name}`} age={job.age} />
+            {running.map((job) => (
+              <Row key={job.id} icon={CircleDot} tip="Running" spin title={job.title} where={job.step === undefined ? job.repository : `${job.repository}  ${job.step.at}/${job.step.of} ${job.step.name}`} age={job.age} />
             ))}
           </ul>
         )}
         {tab === "Done" && (
           <ul className="pk-list">
-            {DONE.map((job) => (
+            {done.map((job) => (
               <Row key={job.id} icon={job.status === "completed_success" ? Check : X} tip={job.status === "completed_success" ? "Landed" : "Failed"} title={job.title} where={job.pr === undefined ? job.repository : `${job.repository}  #${job.pr.number}`} age={job.age} />
             ))}
           </ul>
@@ -156,7 +188,7 @@ function Tabs({ gone, dispatched }: { gone: Set<string>; dispatched: string[] })
 const DRAFT_REPO = { current: REPOSITORIES[0]! };
 
 function Facts({ job }: { job: PocketJob }) {
-  const reason = job.reason === undefined ? undefined : REASON[job.reason];
+  const reason = job.reason === undefined ? undefined : reasonOf(job.reason);
   return (
     <dl className="pk-facts">
       <dt>Repository</dt><dd>{job.repository}</dd>
@@ -171,7 +203,6 @@ function Facts({ job }: { job: PocketJob }) {
         ))}</ul></dd></>
       )}
       {job.pr !== undefined && <><dt>Pull request</dt><dd><a className="pk-link" href={`https://${job.pr.url}`}><GitPullRequest aria-hidden="true" /> #{job.pr.number}</a></dd></>}
-      {job.lastAction !== undefined && <><dt>Last action</dt><dd>{job.lastAction}</dd></>}
     </dl>
   );
 }
@@ -187,7 +218,7 @@ function HoldToKill({ onKilled }: { onKilled: () => void }) {
 function JobScreen({ job, back, done }: { job: PocketJob; back: () => void; done: () => void }) {
   const [redirecting, setRedirecting] = useState(false);
   const draftId = `redirect-${job.id}`;
-  const acts = ACTS[job.reason ?? "approval"];
+  const acts = actsOf(job);
   return (
     <section className="pk-screen" aria-label={job.title}>
       <Band title={job.title} onBack={back} back="Back to Needs you" />
@@ -299,7 +330,17 @@ export function App({ path }: { path: string }) {
   const [dispatched, setDispatched] = useState<string[]>([]);
   const home = () => go("/");
   const finish = (id: string) => () => { setGone((was) => new Set(was).add(id)); home(); };
-  const job = path.startsWith("/jobs/") ? jobById(path.slice("/jobs/".length)) : undefined;
+  const job = useJob(path.startsWith("/jobs/") ? path.slice("/jobs/".length) : undefined);
+  useEffect(() => {
+    if (path === "/pair") return;
+    void paired().then((device) => {
+      if (device === undefined) go("/pair");
+      else {
+        void startLive();
+        void subscribe().catch(() => undefined);
+      }
+    });
+  }, [path === "/pair"]);
   return (
     <main className="pk-app" aria-label="Armada">
       {path === "/pair" && <Pair />}
