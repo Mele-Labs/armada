@@ -19,7 +19,7 @@ const swatchOf = (id: string): string[] => SHIPPED.find((one) => one.id === id)?
 const DARK_NOW = ["--bg-base", "--bg-raised", "--fg-default", "--accent", "--status-completed-success", "--status-completed-failed", "--status-awaiting-review", "--status-running"].map((name) => `var(${name})`);
 
 const GROUPS: ThemeGroup[] = [
-  { label: "Dark", choices: [{ id: "dark", title: "Dark", swatch: DARK_NOW }, { id: "catalogue:nord", title: "Nord", swatch: swatchOf("catalogue:nord") }, { id: "catalogue:dracula", title: "Dracula", swatch: swatchOf("catalogue:dracula") }] },
+  { label: "Dark", choices: [{ id: "dark", title: "Dark", swatch: DARK_NOW }, { id: "catalogue:nord", title: "Nord", swatch: swatchOf("catalogue:nord") }, { id: "catalogue:tokyonight", title: "Tokyo Night", swatch: swatchOf("catalogue:tokyonight") }] },
   { label: "Light", choices: [{ id: "light", title: "Light" }, { id: "catalogue:nord-light", title: "Nord Light", swatch: swatchOf("catalogue:nord-light") }] },
   // A mod whose colours have not been checked yet has none to show.
   { label: "From mods", choices: [{ id: "dusk", title: "Dusk" }] },

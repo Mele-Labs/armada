@@ -1,39 +1,5 @@
 [
   {
-    "id": "catalogue:atom-one-dark",
-    "title": "Atom One Dark",
-    "tone": "dark",
-    "source": "Atom One Dark",
-    "flags": [],
-    "swatch": [
-      "#21252B",
-      "#262A30",
-      "#ABB2BF",
-      "#61AFEF",
-      "#98C379",
-      "#FE878F",
-      "#E5C07B",
-      "#63B1F1"
-    ]
-  },
-  {
-    "id": "catalogue:atom-one-light",
-    "title": "Atom One Light",
-    "tone": "light",
-    "source": "Atom One Light",
-    "flags": [],
-    "swatch": [
-      "#F9F9F9",
-      "#FDFDFD",
-      "#2A2C33",
-      "#2F5AF3",
-      "#0B6D09",
-      "#B7070E",
-      "#755C22",
-      "#254BE4"
-    ]
-  },
-  {
     "id": "catalogue:ayu-light",
     "title": "Ayu Light",
     "tone": "light",
@@ -167,23 +133,6 @@
       "#A5222F",
       "#974000",
       "#2848A9"
-    ]
-  },
-  {
-    "id": "catalogue:dracula",
-    "title": "Dracula",
-    "tone": "dark",
-    "source": "Dracula+",
-    "flags": [],
-    "swatch": [
-      "#212121",
-      "#282828",
-      "#F8F8F2",
-      "#D6ACFF",
-      "#50FA7B",
-      "#FF8D87",
-      "#FFCB6B",
-      "#87AFFF"
     ]
   },
   {

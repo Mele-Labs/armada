@@ -103,7 +103,7 @@ on purpose and makes the gate name what was waiting.
 
 ## docs/concepts/themes.md
 
-- **[catalogue-scheme-licences]** Is a scheme's palette, colours read out of a file, covered by its author's licence at all? The collection's licence leaves each theme's to its author, and for the Dracula+ and Atom One ports no licence was found. What decides it: whether the Atom One and Dracula+ schemes ship on the licence of the theme they port, or leave `popular.txt` until their authors state one.
+- **[catalogue-scheme-licences]** Is a scheme's palette, colours read out of a file, covered by its author's licence at all? The collection's licence leaves each theme's to its author, and a scheme whose port states none is not shipped (Dracula+, Atom One). What decides it: whether a palette is covered by its author's licence at all, which would settle whether the ports that were left out may return on the licence of the theme they port.
 
 ## docs/concepts/workflow.md
 

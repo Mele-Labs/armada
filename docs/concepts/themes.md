@@ -99,12 +99,10 @@ A colour moved to pass is listed in its theme's header comment. A flagged theme 
 | Theme | Author, from the collection's credits | Upstream licence |
 |---|---|---|
 | Catppuccin | The Catppuccin team | MIT |
-| Dracula | zenorocha; Dracula+ by jos3s | MIT for Dracula; Dracula+ not found |
 | Gruvbox | morhetz | MIT/X11, per the project's README |
 | Nord, Nord Light | The Nord project | MIT |
 | Rosé Pine | The Rosé Pine project | MIT |
 | Tokyo Night | folke | Apache-2.0 |
-| Atom One | zasdaym, iamstarkov; after Atom's One | MIT for Atom's One; the ports not found |
 | Kanagawa | rebelot | MIT |
 | Everforest | sainnhe; ported for iTerm2 by others | MIT |
 | Material, Material Ocean | stoeffel; fr3fou after kaicataldo | MIT |
@@ -118,8 +116,8 @@ A colour moved to pass is listed in its theme's header comment. A flagged theme 
 | One Half | sonph | MIT |
 | Flexoki | kepano | MIT |
 
-**Not shipped, for want of a licence found:** the Monokai schemes. The rest of the collection is not in the repository; `generate.mjs --all` makes it on a machine that wants it.
+**Not shipped, for want of a licence found:** the Monokai schemes, Dracula+ and the Atom One schemes, whose ports state no licence of their own. The rest of the collection is not in the repository; `generate.mjs --all` makes it on a machine that wants it.
 
 ## Open questions
 
-- **[catalogue-scheme-licences]** Is a scheme's palette, colours read out of a file, covered by its author's licence at all? The collection's licence leaves each theme's to its author, and for the Dracula+ and Atom One ports no licence was found. What decides it: whether the Atom One and Dracula+ schemes ship on the licence of the theme they port, or leave `popular.txt` until their authors state one.
+- **[catalogue-scheme-licences]** Is a scheme's palette, colours read out of a file, covered by its author's licence at all? The collection's licence leaves each theme's to its author, and a scheme whose port states none is not shipped (Dracula+, Atom One). What decides it: whether a palette is covered by its author's licence at all, which would settle whether the ports that were left out may return on the licence of the theme they port.

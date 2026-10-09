@@ -2,7 +2,6 @@
 Catppuccin Mocha
 Catppuccin Macchiato
 Catppuccin Frappe
-Dracula+
 Gruvbox Dark
 Gruvbox Dark Hard
 Nord
@@ -10,7 +9,6 @@ Rose Pine
 Rose Pine Moon
 TokyoNight
 TokyoNight Storm
-Atom One Dark
 Kanagawa Wave
 Kanagawa Dragon
 Everforest Dark Hard
@@ -33,7 +31,6 @@ GitHub Light Default
 One Half Light
 iTerm2 Solarized Light
 Gruvbox Light
-Atom One Light
 TokyoNight Day
 Nord Light
 Kanagawa Lotus
