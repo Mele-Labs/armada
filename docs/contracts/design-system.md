@@ -2211,7 +2211,11 @@ position  "main" in --text-label, then Check (--status-completed-success) when
           level, ArrowUp and a figure (--fg-muted) for commits the build holds
           that main lacks, ArrowDown and a figure (--status-awaiting-review)
           for commits main holds that it lacks. The words are the tooltip
-          while restarting: a turning LoaderCircle in the mark's place
+          while restarting: the "main" label gives way to a turning LoaderCircle and the
+          stage in words (--fg-muted, sans): Merging branches (preview), Fetching main
+          (main), Building Fleet, Building Bridge, Restarting Fleet, Reopening Bridge,
+          Retrying build. The owner asked for words here, 8 Oct 2026; the ring alone
+          shows until the restart has named a stage
 failed    one line in --status-escalated under the button, Fleet's own words
 ```
 

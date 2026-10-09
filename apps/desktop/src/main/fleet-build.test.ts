@@ -118,3 +118,37 @@ describe("restarting onto another build", () => {
     expect(asked).toHaveLength(reads);
   });
 });
+
+describe("the stage of a restart", () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  it("is published as Fleet reported it", async () => {
+    const working: FleetBuildReport = { ...AT_MAIN, restarting: "preview", stage: "building_bridge" };
+    const { builds, state } = rig([{ ok: true, body: working }]);
+    await builds.read(40000);
+    expect(state().fleetBuild?.stage).toBe("building_bridge");
+  });
+
+  it("moves with each read of a restart, and is gone once the restart is", async () => {
+    const at = (stage: FleetBuildReport["stage"]): FleetBuildReport => ({ ...AT_MAIN, restarting: "main", ...(stage === undefined ? {} : { stage }) });
+    const { builds, state } = rig(
+      [
+        { ok: true, body: { build: "main" } },
+        { ok: true, body: at("fetching_main") },
+        { ok: true, body: at("building_fleet") },
+        { ok: true, body: AT_MAIN },
+      ],
+      AT_MAIN,
+    );
+    await builds.change("main", false);
+    expect(state().fleetBuild?.stage).toBeUndefined();
+    await vi.advanceTimersByTimeAsync(FOLLOW_MS);
+    expect(state().fleetBuild?.stage).toBe("fetching_main");
+    await vi.advanceTimersByTimeAsync(FOLLOW_MS);
+    expect(state().fleetBuild?.stage).toBe("building_fleet");
+    await vi.advanceTimersByTimeAsync(FOLLOW_MS);
+    expect(state().fleetBuild).toEqual(AT_MAIN);
+    builds.close();
+  });
+});

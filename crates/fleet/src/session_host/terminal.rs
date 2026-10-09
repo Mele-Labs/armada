@@ -44,6 +44,11 @@ pub struct Terminals {
     listening: Mutex<HashMap<String, Listening>>,
     watched: Mutex<HashSet<String>>,
     tuned: Mutex<HashMap<String, TerminalFacts>>,
+    /// When each standing question was last polled for, by call. Memory only: a
+    /// Fleet that restarts gives every mod a fresh lapse to poll again in.
+    polled: Mutex<HashMap<String, Instant>>,
+    /// Rung when a question is answered or closed, for the polls holding on it.
+    pub(crate) rung: tokio::sync::Notify,
 }
 
 impl Terminals {
@@ -60,6 +65,29 @@ impl Terminals {
             messages: std::mem::take(&mut one.held),
             commands: std::mem::take(&mut one.commands),
         }
+    }
+
+    /// The mod polled for this question just now.
+    pub(crate) fn polled(&self, call: &str) {
+        self.polled
+            .lock()
+            .expect("held across no panic")
+            .insert(call.to_string(), Instant::now());
+    }
+
+    /// How long since the mod polled for this question. **A question nobody has
+    /// polled for since Fleet began counts from now.**
+    pub(crate) fn since_polled(&self, call: &str) -> Duration {
+        self.polled
+            .lock()
+            .expect("held across no panic")
+            .entry(call.to_string())
+            .or_insert_with(Instant::now)
+            .elapsed()
+    }
+
+    pub(crate) fn forget_polls(&self, call: &str) {
+        self.polled.lock().expect("held across no panic").remove(call);
     }
 
     /// Keep a command for the mod, or say nobody is listening.

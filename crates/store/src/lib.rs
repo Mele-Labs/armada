@@ -207,7 +207,7 @@ pub use fold::{Moved, RecordedEvent};
 pub use footprint::Footprinted;
 pub use forget::Forgotten;
 pub use groups::GroupCoord;
-pub use hosted_sessions::KeptHosting;
+pub use hosted_sessions::{KeptHosting, KeptTerminalAsk};
 pub use limits::SavedLimits;
 pub use lineage::{ReplacedBy, Replaces};
 pub use main_ci::{MainCi, MainFailedJob, MainMerge, MainState};

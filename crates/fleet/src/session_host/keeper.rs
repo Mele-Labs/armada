@@ -154,7 +154,12 @@ pub async fn keep(keeper: Keeper) -> io::Result<()> {
                             break;
                         }
                         written += whole.len() as u64;
-                        speaking.busy.store(!ends_turn(&whole), Ordering::SeqCst);
+                        // Only a turn's end clears it: a line after the result
+                        // (a rate-limit notice, a hook) is not a new turn, and
+                        // setting busy on it left a finished agent Working.
+                        if ends_turn(&whole) {
+                            speaking.busy.store(false, Ordering::SeqCst);
+                        }
                         speaking.progress.send_modify(|p| p.written = written);
                     }
                     _ => break,

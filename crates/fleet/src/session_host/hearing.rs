@@ -79,6 +79,7 @@ where
                     state.last_active = std::time::Instant::now();
                     if busy {
                         state.turn = SessionTurn::Working { woken_by: None };
+                        state.reattached_busy = true;
                     }
                 }
                 let _ = self.published_hosted(id).await;
@@ -89,7 +90,11 @@ where
                 let _ = self.published_hosted(id).await;
             }
             Heard::Events(events) => {
-                runtime.state().last_active = std::time::Instant::now();
+                {
+                    let mut state = runtime.state();
+                    state.last_active = std::time::Instant::now();
+                    state.reattached_busy = false;
+                }
                 for event in events {
                     self.hear(id, &runtime, event).await;
                 }
@@ -227,6 +232,7 @@ where
         {
             let mut state = runtime.state();
             state.restart_after_turn = false;
+            state.reattached_busy = false;
             if restart {
                 Self::let_go(&mut state);
             }
