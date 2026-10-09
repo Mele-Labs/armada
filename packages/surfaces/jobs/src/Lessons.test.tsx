@@ -7,7 +7,7 @@
 
 import { afterEach, expect, test, vi } from "vitest";
 import { page } from "vitest/browser";
-import type { JobRetro, Lesson, LessonAnswer, LessonState, RetroRead } from "@armada/protocol";
+import type { JobRetro, Lesson, LessonAnswer, LessonState, RetroRead, RetroSubject } from "@armada/protocol";
 
 import { JobRetroSheet, Lessons } from "./Lessons";
 import { mount, unmount } from "@armada/screens/src/mounted";
@@ -61,7 +61,7 @@ function opened(
   open: Lesson[],
   saved: Lesson[] = [],
   acts: Acts = {},
-  readRetro: (jobId: string) => Promise<RetroRead> = async () => ({ ok: true, retro: { job_id: "j", state: "pending", record: {} } }),
+  readRetro: (subject: RetroSubject) => Promise<RetroRead> = async () => ({ ok: true, retro: { job_id: "j", state: "pending", record: {} } }),
 ) {
   const read = vi.fn(async (state: LessonState | "open" | "accepted") => ({
     ok: true as const,
@@ -277,7 +277,42 @@ test("Open and Accepted sit beside the places, and Accepted reads the saved item
   await page.getByRole("tab", { name: "Open", exact: true }).click();
   await expect.element(card(/blamed the Drone/)).toBeVisible();
   const tabs = page.getByRole("tab").elements().map((t) => t.textContent);
-  expect(tabs).toEqual(["All", "Armada", "Kit", "Manifest", "Open", "Accepted"]);
+  expect(tabs).toEqual(["All", "Armada", "Kit", "Manifest", "All", "Sessions", "Jobs", "Open", "Accepted"]);
+});
+
+test("Sessions and Jobs narrow the list to whose retro an item came from, and All is both", async () => {
+  const SESSION = lesson({
+    ...KIT,
+    id: "l-session",
+    job_id: "01SESSIONAAAAAAAAAAAAAAAAA",
+    handle: "s-01SESSION",
+    session: { id: "01SESSIONAAAAAAAAAAAAAAAAA", title: "Fix the flaky store test" },
+    title: "A reset waited on an answer",
+  });
+  opened([ARMADA, SESSION]);
+  await expect.element(card(/blamed the Drone/)).toBeVisible();
+  await expect.element(card(/reset waited/)).toBeVisible();
+  await page.getByRole("tab", { name: "Sessions", exact: true }).click();
+  await expect.element(card(/reset waited/)).toBeVisible();
+  expect(card(/blamed the Drone/).elements()).toHaveLength(0);
+  await page.getByRole("tab", { name: "Jobs", exact: true }).click();
+  await expect.element(card(/blamed the Drone/)).toBeVisible();
+  expect(card(/reset waited/).elements()).toHaveLength(0);
+});
+
+test("opening an item from an older Session retro reads that retro, and a Job's item reads its Job", async () => {
+  const session = { id: "s-01J8ZQ4M", title: "Fix the flaky store test" };
+  const of = (id: string, title: string) =>
+    lesson({ ...KIT, id, job_id: session.id, handle: session.id, session, title });
+  const readRetro = vi.fn(async () => ({ ok: true as const, retro: RETRO }));
+  opened([of("s-01J8ZQ4M-r2-1", "A newer pain"), of("s-01J8ZQ4M-r1-1", "An older pain"), ARMADA], [], {}, readRetro);
+  await expect.element(card(/An older pain/)).toBeVisible();
+  await card(/An older pain/).getByRole("button", { name: /Fix the flaky store test/ }).click();
+  await expect.element(page.getByRole("dialog", { name: "Retro" })).toBeVisible();
+  expect(readRetro).toHaveBeenLastCalledWith({ kind: "session", id: "s-01J8ZQ4M", n: 1 });
+  await page.getByRole("dialog", { name: "Retro" }).getByRole("button", { name: "Close" }).click();
+  await card(/blamed the Drone/).getByRole("button", { name: /Job 3/ }).click();
+  await expect.poll(() => readRetro.mock.lastCall).toEqual([{ kind: "job", id: "01K6JOB3" }]);
 });
 
 test("an empty list draws nothing", async () => {
@@ -311,7 +346,7 @@ test("the retro sheet draws the same item, keeps its evidence behind a control, 
   const agree = vi.fn(async (id: string) => ({ ok: true as const, lesson: lesson({ ...ARMADA, id, state: "agreed", job_proposed: "01K7JOB" }) }));
   mount(
     <JobRetroSheet
-      jobId="01K6JOB3"
+      subject={{ kind: "job", id: "01K6JOB3" }}
       job="Job 3"
       read={async () => ({ ok: true, retro: RETRO })}
       onAgreeLesson={agree}
@@ -351,7 +386,7 @@ test("the retro sheet shows an answered item as it stands, and offers buttons on
   const job = vi.fn();
   mount(
     <JobRetroSheet
-      jobId="01K6JOB3"
+      subject={{ kind: "job", id: "01K6JOB3" }}
       job="Job 3"
       read={async () => ({ ok: true, retro })}
       onAgreeLesson={async () => ({ ok: false, outcome: { ok: false, why: "not_connected" } })}
@@ -391,7 +426,7 @@ test("the retro sheet draws Update Kit on an open item with a change, and Update
   };
   mount(
     <JobRetroSheet
-      jobId="01K6JOB3"
+      subject={{ kind: "job", id: "01K6JOB3" }}
       job="Job 3"
       read={async () => ({ ok: true, retro })}
       onAgreeLesson={async () => ({ ok: false, outcome: { ok: false, why: "not_connected" } })}
@@ -432,7 +467,7 @@ test("list evidence: a list card offers Evidence and expands the rows it cites, 
   await one.getByRole("button", { name: "Evidence" }).click();
   await expect.element(one.getByText("armada.yml changed")).toBeVisible();
   expect(readRetro).toHaveBeenCalledTimes(1);
-  expect(readRetro).toHaveBeenCalledWith("01K6JOB3");
+  expect(readRetro).toHaveBeenCalledWith({ kind: "job", id: "01K6JOB3" });
   // A cite the record does not hold is left out.
   expect(one.element().querySelectorAll(".armada-retro__cite")).toHaveLength(1);
   // The answers stay as they were.

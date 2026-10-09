@@ -60,6 +60,7 @@ pub(crate) fn assembled(from: &Sources<'_>) -> RetroRecord {
                 said: note.said.clone(),
             })
             .collect(),
+        ..RetroRecord::default()
     }
 }
 
@@ -76,14 +77,18 @@ pub(crate) fn cites(record: &RetroRecord) -> BTreeSet<String> {
     all.extend(record.acts.iter().map(|row| row.cite.clone()));
     all.extend(record.asked.iter().map(|row| row.cite.clone()));
     all.extend(record.waited.iter().map(|row| row.cite.clone()));
+    all.extend(record.asks.iter().map(|row| row.cite.clone()));
+    all.extend(record.failed_tools.iter().map(|row| row.cite.clone()));
+    all.extend(record.corrections.iter().map(|row| row.cite.clone()));
+    all.extend(record.subagents.iter().map(|row| row.cite.clone()));
     all
 }
 
-fn cite(kind: &str, n: usize) -> String {
+pub(super) fn cite(kind: &str, n: usize) -> String {
     format!("{kind}:{}", n + 1)
 }
 
-fn cut(text: &str, most: usize) -> String {
+pub(super) fn cut(text: &str, most: usize) -> String {
     match text.char_indices().nth(most) {
         Some((at, _)) => format!("{}…", &text[..at]),
         None => text.to_string(),
@@ -564,7 +569,7 @@ fn field<'a>(note: &'a LogNote, name: &str) -> Option<&'a str> {
 
 /// Milliseconds from one instant to a later one. Zero where either will not
 /// read or the order is backwards.
-fn apart(from: &Instant, to: &Instant) -> u64 {
+pub(super) fn apart(from: &Instant, to: &Instant) -> u64 {
     let millis = |at: &Instant| Timestamp::from_rfc3339(at.as_str()).epoch_millis();
     match (millis(from), millis(to)) {
         (Some(from), Some(to)) => u64::try_from(to - from).unwrap_or(0),

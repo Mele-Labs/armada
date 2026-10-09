@@ -32,7 +32,7 @@ import type { BridgeState } from "../shared/bridge";
 import type { ArtifactRead } from "@armada/screens/src/draft/sessions";
 import type { PullRequestPress, SessionActed } from "../shared/api/sessions";
 import { openSessionFile, readSessionArtifact, titleOfWindow } from "./session-file";
-import { ask, sessionFileOf } from "./request";
+import { ask, MODEL_CALL_MS, sessionFileOf } from "./request";
 
 type Publish = (change: Partial<BridgeState>) => void;
 
@@ -192,6 +192,17 @@ export class SessionsHost {
 
   async end(sessionId: string): Promise<SessionActed> {
     return await this.act("POST", "/sessions/close", { session_id: sessionId });
+  }
+
+  /**
+   * Writes the Session's retro: Fleet asks the agent what got in its way and answers when the retro
+   * is written, so the wait is `MODEL_CALL_MS`. The retro is read afterwards on `GET /jobs/:id/retro`.
+   */
+  async retro(sessionId: string): Promise<Outcome> {
+    const port = this.port();
+    if (port === null) return NOT_CONNECTED;
+    const answer = await ask(port, "POST", `/sessions/${encodeURIComponent(sessionId)}/retro`, undefined, MODEL_CALL_MS);
+    return answer.ok === true ? { ok: true } : answer.outcome;
   }
 
   async file(sessionId: string, file: string): Promise<FrameRead> {

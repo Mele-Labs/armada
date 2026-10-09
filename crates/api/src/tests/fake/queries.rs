@@ -282,6 +282,8 @@ impl Queries for FakeDaemon {
             .expect("not poisoned")
             .last()
             .map(|asked| asked.build);
+        // A restart under way has reached some stage; the fake says the first build one.
+        report.stage = report.restarting.map(|_| ipc::BuildStage::BuildingFleet);
         Ok(report)
     }
 

@@ -8,6 +8,7 @@ window.armada.onWalkFocus((focused) => {
   document.documentElement.toggleAttribute("data-walking", focused);
 });
 import type { BridgeIdentity } from "@armada/protocol";
+import { createPhoneGatewaySource, PhoneSourceProvider } from "@armada/settings";
 import { App, WAITING } from "./App";
 import { Boundary } from "@armada/shell";
 import { HapticsProvider } from "@armada/components";
@@ -30,6 +31,9 @@ import { BUILT_IN_SWATCHES, modSwatch } from "./swatches";
 /** The themes this window offers: Fleet's mods and the saved preference, and the catalogue Bridge ships. */
 const THEMES = createFleetThemes(window.armada, CATALOGUE, { builtIn: BUILT_IN_SWATCHES, ofMod: modSwatch });
 
+/** Settings → Phone, over the Gateway through the main process. Reads nothing until Settings draws it. */
+const PHONE = createPhoneGatewaySource((request) => window.armada.phone(request));
+
 /**
  * Who Bridge is, read once. The only state above the boundary, and the least
  * that can be: everything this component can throw on, the fallback needs.
@@ -50,9 +54,11 @@ function Root() {
       {/* Here rather than in `App`, which the mock mounts: only a real Bridge reaches a trackpad. */}
       <HapticsProvider perform={window.armada.tap}>
         <Themed source={THEMES}>
-          <WiredSessions>
-            <App />
-          </WiredSessions>
+          <PhoneSourceProvider value={PHONE}>
+            <WiredSessions>
+              <App />
+            </WiredSessions>
+          </PhoneSourceProvider>
         </Themed>
       </HapticsProvider>
     </Boundary>

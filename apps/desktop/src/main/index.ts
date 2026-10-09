@@ -5,7 +5,7 @@ import { join } from "node:path";
 
 import { CHANNELS, NOTHING_YET } from "../shared/bridge";
 import type { BridgeState, PickedView, Summons } from "../shared/bridge";
-import type { BuildSource, ChangeSlotPool, Outcome, RescueSlot } from "@armada/protocol";
+import type { BuildSource, ChangeSlotPool, Outcome, RescueSlot, RetroSubject } from "@armada/protocol";
 import type { HelmContext, LandCheckAt, StagedAttachment } from "@armada/protocol";
 import { landCheckAt } from "./land-following";
 import type { ToProposer, AddTask, ApproveWave, DropTask, EditJob, EditTask, FileReport, MovePlan } from "@armada/protocol";
@@ -35,6 +35,8 @@ import { openFindingIssue, openPullRequest, openRemarkLink, openStudioNode } fro
 import { RemarksPoll } from "./remarks-poll";
 import { ResourcesPoll } from "./resources-poll";
 import { openLink } from "./links";
+import { askGateway } from "./phone-gateway";
+import type { PhoneRequest } from "@armada/settings/api";
 import { restartFleet } from "./restart-fleet";
 import { openServerLink } from "./servers";
 import { frameStream, FRAME_SCHEME } from "./streaming";
@@ -762,6 +764,8 @@ void app.whenReady().then(() => {
   ipcMain.handle(CHANNELS.savePreference, (_event, save: SavePreference) =>
     connection?.commands.savePreference(save),
   );
+  // The Phone Gateway, one named operation at a time — `phone-gateway.ts` makes the call.
+  ipcMain.handle(CHANNELS.phone, (_event, request: PhoneRequest) => askGateway(request));
   // The mods on this machine. Fleet-wide, so no Job id rides these either — `mods.ts`.
   ipcMain.handle(CHANNELS.validateMod, async (_event, name: string) => (await connection?.mods.validate(name)) ?? null);
   ipcMain.handle(CHANNELS.setModEnabled, async (_event, name: string, enabled: boolean): Promise<Outcome> =>
@@ -892,7 +896,7 @@ void app.whenReady().then(() => {
   );
   ipcMain.handle(CHANNELS.readBrief, (_event, jobId: string, name: string) => connection?.readBrief(jobId, name));
   // A Job's retro, and the Lessons listing narrowed to the asking window's pick. Read-only.
-  ipcMain.handle(CHANNELS.readRetro, (_event, jobId: string) => connection?.readRetro(jobId));
+  ipcMain.handle(CHANNELS.readRetro, (_event, subject: RetroSubject) => connection?.readRetro(subject));
   ipcMain.handle(CHANNELS.readLessons, (event, state: "open" | "accepted") =>
     connection?.readLessons(
       connection.repositories.pickedByWindow.of(windowIdOf(event)),

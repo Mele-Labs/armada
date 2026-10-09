@@ -35,8 +35,20 @@ impl Retros for FakeDaemon {
             why: None,
             items: Vec::new(),
             record: RetroRecord::default(),
+            session: None,
             annotations: Vec::new(),
         })
+    }
+
+    async fn get_session_retro(&self, session_id: String, _retro: Option<i64>) -> Result<JobRetro, Refusal> {
+        Ok(self.session_retro(&session_id))
+    }
+
+    async fn write_session_retro(
+        self: Arc<Self>,
+        session_id: String,
+    ) -> Result<JobRetro, Refusal> {
+        Ok(self.session_retro(&session_id))
     }
 
     async fn list_lessons(
@@ -69,6 +81,23 @@ impl Retros for FakeDaemon {
 }
 
 impl FakeDaemon {
+    fn session_retro(&self, session_id: &str) -> JobRetro {
+        JobRetro {
+            job_id: JobId::carried(session_id),
+            state: RetroState::Pending,
+            at: None,
+            model: None,
+            why: None,
+            items: Vec::new(),
+            record: RetroRecord::default(),
+            session: Some(ipc::RetroSession {
+                id: session_id.to_string(),
+                title: None,
+            }),
+            annotations: Vec::new(),
+        }
+    }
+
     /// The one id the fake knows answers with a 422, and any other is one
     /// nothing answers to.
     fn refusing_lesson(&self, lesson_id: &str) -> Refusal {

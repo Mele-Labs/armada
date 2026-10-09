@@ -1,0 +1,111 @@
+/* Settings → Phone: the pairing code, a claim, and the phones paired. */
+.armada-phone {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.armada-phone__code {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+/* armada-allow-off-contract: a QR is read by a camera, so it is black on white in both themes and no token is both
+   Fixed #FFFFFF and #000000 on the code, whatever the ground — docs/contracts/design-system.md */
+.armada-phone__qr {
+  flex: none;
+  inline-size: var(--w-menu);
+  aspect-ratio: 1;
+  background: #FFFFFF;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.armada-phone__qr-mark {
+  display: block;
+  inline-size: 100%;
+  block-size: 100%;
+  fill: #000000;
+}
+
+.armada-phone__code-facts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.armada-phone__url {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  color: var(--fg-muted);
+  overflow-wrap: anywhere;
+}
+
+.armada-phone__left {
+  font-family: var(--font-mono);
+  font-size: var(--text-lg);
+  line-height: var(--leading-lg);
+  font-weight: var(--weight-heading);
+  color: var(--fg-default);
+  font-variant-numeric: tabular-nums;
+}
+
+.armada-phone__command {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--fg-default);
+}
+
+.armada-phone__claim,
+.armada-phone__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.armada-phone__claim {
+  padding: var(--space-3) var(--space-4);
+  background: var(--bg-sunken);
+  border-radius: var(--radius-md);
+  justify-content: space-between;
+}
+
+.armada-phone__list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.armada-phone__row {
+  padding-block: var(--space-3);
+  border-top: var(--border-width) solid var(--border-subtle);
+}
+
+.armada-phone__row:first-child {
+  padding-top: 0;
+  border-top: none;
+}
+
+.armada-phone__name {
+  flex: 1;
+  margin: 0;
+  min-width: 0;
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  color: var(--fg-default);
+}
+
+.armada-phone__seen {
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-muted);
+}

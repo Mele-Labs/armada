@@ -3,6 +3,7 @@
 // Kept, not deleted: a slice-by-slice equality cannot be asserted against anything but the whole.
 
 import { describe, expect, it } from "vitest";
+import type { PhoneAnswer, PhoneRequest } from "@armada/settings/api";
 import type {
   AddTask,
   FixMain,
@@ -20,6 +21,7 @@ import type {
   LessonAnswer,
   LessonsRead,
   RetroRead,
+  RetroSubject,
   ChooseTriggerFix,
   HoldAct,
   ClearOutcome,
@@ -294,6 +296,7 @@ type OldBridgeApi = {
     validateMod: (name: string) => Promise<ModChecked | null>;
     setModEnabled: (name: string, enabled: boolean) => Promise<Outcome>;
     promoteMod: (name: string) => Promise<Outcome>;
+    phone: (request: PhoneRequest) => Promise<PhoneAnswer>;
     fileReport: (jobId: string, filing: FileReport) => Promise<Outcome>;
     addTask: (jobId: string, add: AddTask) => Promise<PlanEditAnswer>;
     dropTask: (jobId: string, drop: DropTask) => Promise<PlanEditAnswer>;
@@ -371,7 +374,7 @@ type OldBridgeApi = {
     readDiff: (jobId: string | null) => Promise<void>;
     readCheckOutput: (jobId: string, kept: string) => Promise<CheckOutputRead>;
     readBrief: (jobId: string, name: string) => Promise<BriefRead>;
-    readRetro: (jobId: string) => Promise<RetroRead>;
+    readRetro: (subject: RetroSubject) => Promise<RetroRead>;
     readLessons: (state: "open" | "accepted") => Promise<LessonsRead>;
     agreeLesson: (lessonId: string) => Promise<LessonAnswer>;
     disagreeLesson: (lessonId: string) => Promise<LessonAnswer>;
@@ -443,6 +446,7 @@ type OldBridgeApi = {
     tuneSession: (tune: TuneSession) => Promise<SessionActed>;
     renameSession: (rename: RenameSession) => Promise<SessionActed>;
     forkSession: (sessionId: string) => Promise<SessionActed>;
+    retroSession: (sessionId: string) => Promise<Outcome>;
     closeSession: (sessionId: string) => Promise<SessionActed>;
     watchSession: (sessionId: string) => Promise<void>;
     readSessionFile: (sessionId: string, file: string) => Promise<FrameRead>;
@@ -564,6 +568,7 @@ const OLD_CHANNELS = {
     validateMod: "bridge:validate-mod",
     setModEnabled: "bridge:set-mod-enabled",
     promoteMod: "bridge:promote-mod",
+    phone: "bridge:phone",
     fileReport: "bridge:file-report",
     addTask: "bridge:add-task",
     dropTask: "bridge:drop-task",
@@ -710,6 +715,7 @@ const OLD_CHANNELS = {
     answerSessionAsk: "bridge:answer-session-ask",
     tuneSession: "bridge:tune-session",
     renameSession: "bridge:rename-session",
+    retroSession: "bridge:retro-session",
     closeSession: "bridge:close-session",
     watchSession: "bridge:watch-session",
     readSessionFile: "bridge:read-session-file",

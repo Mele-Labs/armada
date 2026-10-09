@@ -12,7 +12,7 @@ type Posted = { url: string; body: any }
 
 function world(
   on: On,
-  options: { running?: () => boolean; hangs?: boolean; held?: string[]; heldCommands?: { command: string; args: string }[]; model?: () => string; onCommand?: () => void; transcript?: string; env?: Record<string, string>; pullRequest?: string; bridge?: Promise<string> } = {},
+  options: { running?: () => boolean; hangs?: boolean; held?: string[]; heldCommands?: { command: string; args: string }[]; model?: () => string; onCommand?: () => void; transcript?: string; env?: Record<string, string>; pullRequest?: string; polls?: (string | Promise<string> | Error)[] } = {},
 ) {
   const running = options.running ?? (() => true)
   const posts: Posted[] = []
@@ -43,8 +43,12 @@ function world(
     if (e.url.endsWith('/sessions/ask/terminal')) {
       const body = JSON.parse(e.init?.body ?? '{}')
       questions.push(body)
-      if (body.kind === 'asks') {
-        return (options.bridge ?? new Promise<string>(() => undefined)).then(text => ({ value: { status: 200, ok: true, headers: {}, text } }))
+      if (body.kind === 'asks') return { value: { status: 200, ok: true, headers: {}, text: '{"outcome":"asked","call":"helm-1"}' } }
+      // Each poll takes the next answer the test queued: a string, a poll that never ends, or a failure.
+      if (body.kind === 'wait') {
+        const poll = options.polls?.shift() ?? new Promise<string>(() => undefined)
+        if (poll instanceof Error) throw poll
+        return Promise.resolve(poll).then(text => ({ value: { status: 200, ok: true, headers: {}, text } }))
       }
       return { value: { status: 200, ok: true, headers: {}, text: '{"outcome":"gone"}' } }
     }
@@ -515,18 +519,57 @@ const SIZE = [
 
 test('a terminal question answered in Bridge is the tool result, and the terminal prompt is dropped', async ($, on) => {
   const { questions } = world(on, {
-    bridge: Promise.resolve(JSON.stringify({ outcome: 'answered', updated_input: { questions: SIZE, answers: { 'Which size?': 'L' } } })),
+    polls: [JSON.stringify({ outcome: 'answered', updated_input: { questions: SIZE, answers: { 'Which size?': 'L' } } })],
   })
   // The terminal's own prompt, which nobody answers.
   on('tool.call', { tool: 'AskUserQuestion' }, () => new Promise(() => undefined))
   const out = await $.tool.call({ tool: 'AskUserQuestion', questions: SIZE })
 
   expect(out.result).toEqual({ questions: SIZE, answers: { 'Which size?': 'L' } })
-  expect(questions).toEqual([{ kind: 'asks', session_id: 'S1', input: { questions: SIZE } }])
+  expect(questions).toEqual([
+    { kind: 'asks', session_id: 'S1', input: { questions: SIZE } },
+    { kind: 'wait', session_id: 'S1', call: 'helm-1' },
+  ])
+})
+
+const ANSWERED = JSON.stringify({ outcome: 'answered', updated_input: { questions: SIZE, answers: { 'Which size?': 'L' } } })
+
+test('a poll that times out or fails is asked again, and the answer is collected on a later one', async ($, on) => {
+  const { questions, clock } = world(on, {
+    // One that never comes back, one the connection dropped, one Fleet held and let go, then the answer.
+    polls: [new Promise<string>(() => undefined), new Error('connection reset'), '{"outcome":"waiting"}', ANSWERED],
+  })
+  on('tool.call', { tool: 'AskUserQuestion' }, () => new Promise(() => undefined))
+  const out = $.tool.call({ tool: 'AskUserQuestion', questions: SIZE })
+  for (let i = 0; i < 6; i++) {
+    await clock.advance(40_000)
+    await clock.settle()
+  }
+
+  expect((await out).result).toEqual({ questions: SIZE, answers: { 'Which size?': 'L' } })
+  expect(questions.filter(q => q.kind === 'wait')).toHaveLength(4)
+  expect(questions.filter(q => q.kind === 'asks')).toHaveLength(1)
+})
+
+test('a Fleet that is down when the question is asked is waited out until it answers', async ($, on) => {
+  let up = false
+  const { questions, clock } = world(on, { running: () => up, polls: [ANSWERED] })
+  on('tool.call', { tool: 'AskUserQuestion' }, () => new Promise(() => undefined))
+  const out = $.tool.call({ tool: 'AskUserQuestion', questions: SIZE })
+  await clock.advance(10_000)
+  await clock.settle()
+  expect(questions).toEqual([])
+
+  up = true
+  for (let i = 0; i < 3; i++) {
+    await clock.advance(10_000)
+    await clock.settle()
+  }
+  expect((await out).result).toEqual({ questions: SIZE, answers: { 'Which size?': 'L' } })
 })
 
 test('a terminal question refused in Bridge is told to the agent', async ($, on) => {
-  world(on, { bridge: Promise.resolve(JSON.stringify({ outcome: 'refused', message: 'The person refused this.' })) })
+  world(on, { polls: [JSON.stringify({ outcome: 'refused', message: 'The person refused this.' })] })
   on('tool.call', { tool: 'AskUserQuestion' }, () => new Promise(() => undefined))
   const out = await $.tool.call({ tool: 'AskUserQuestion', questions: SIZE })
 
@@ -541,10 +584,9 @@ test('a terminal question answered in the terminal first tells Fleet it was sett
   await clock.settle()
 
   expect(out.result).toEqual(typed)
-  expect(questions).toEqual([
-    { kind: 'asks', session_id: 'S1', input: { questions: SIZE } },
-    { kind: 'settled', session_id: 'S1', answered: true },
-  ])
+  expect(questions[0]).toEqual({ kind: 'asks', session_id: 'S1', input: { questions: SIZE } })
+  expect(questions.at(-1)).toEqual({ kind: 'settled', session_id: 'S1', answered: true })
+  expect(questions.filter(q => q.kind === 'wait')).toHaveLength(0)
 })
 
 test('a Drone does not put its question to Bridge', async ($, on) => {

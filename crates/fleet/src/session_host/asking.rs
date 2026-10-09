@@ -8,6 +8,8 @@
 //! person: `auto` asks only about those three classes, `ask` and `acceptEdits`
 //! ask about everything the person's own settings do not cover.
 
+use std::time::Duration;
+
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Caller, Refusal, Sessions};
 use ipc::{
@@ -17,7 +19,17 @@ use ipc::{
 
 use super::serving::mode_of;
 use crate::daemon::Fleet;
-use crate::helm::{answering, because_in_a_session, pages_opened, unanswered, Because};
+use crate::helm::{answering, because_in_a_session, pages_opened, unanswered, Because, Said};
+
+/// How long one `Wait` is held. The mod's request must outlast it.
+const POLL_HOLD: Duration = Duration::from_secs(25);
+
+/// How long a terminal question may go without a poll before its prompt is
+/// taken as gone and its card closes.
+pub(crate) const POLL_LAPSE: Duration = Duration::from_secs(180);
+
+/// A kept terminal question that would not encode or read back.
+const TERMINAL_ASK_UNREADABLE: &str = "fleet.terminal_ask_unreadable";
 
 impl<H, V, W> Fleet<H, V, W>
 where
@@ -152,6 +164,10 @@ where
     /// prompt is up. **The same ask row a hosted session's question writes**, and
     /// the same table: whichever of Bridge and the terminal answers first wins,
     /// and the mod tells Fleet when it was the terminal.
+    ///
+    /// **Kept in the store, not held on a connection.** The mod asks `Wait` for
+    /// the answer, so a request that ends or a Fleet that restarts costs a poll
+    /// and never the question.
     pub(crate) async fn terminal_question(
         &self,
         id: &str,
@@ -163,56 +179,187 @@ where
                 &format!("no terminal session is named {id}"),
             )
         })?;
+        // One at a time: a new question means the last one's prompt is gone.
+        self.terminal_ask_closed(id, SessionAskState::Unanswered).await;
         let asks = self.hosts().asks();
         let manifest = ManifestId::carried(session.manifest_id.as_deref().unwrap_or_default());
-        let (waiting, answer) = asks.minted(&manifest, &asking, &self.now());
+        // The channel is not waited on; the answer is kept by whoever gives it.
+        let (waiting, _) = asks.minted(&manifest, &asking, &self.now());
+        let kept = store::KeptTerminalAsk {
+            call: waiting.call.clone(),
+            asking: self.kept_text(&asking)?,
+            in_flight: self.kept_text(&waiting)?,
+            answer: None,
+        };
+        self.store()
+            .lock()
+            .await
+            .keep_terminal_ask(id, &kept)
+            .map_err(|why| self.ledger_fault(why))?;
+        self.hosts().terminals().polled(&waiting.call);
         self.hosts().of(id).state().asked = Some(waiting.clone());
         self.row_put(id, self.ask_row(id, &waiting, SessionAskState::Waiting))
             .await;
         let _ = self.published_hosted(id).await;
+        Ok(TerminalAsked::Asked { call: waiting.call })
+    }
 
-        let held = asks.hold();
-        let (state, asked) = match tokio::time::timeout(held, answer).await {
-            Ok(Ok(said)) => match answering(&asking, &said) {
-                RunOrNot::Allow { updated_input } => {
-                    (SessionAskState::AllowedOnce, TerminalAsked::Answered { updated_input })
-                }
-                RunOrNot::Deny { message } => {
-                    (SessionAskState::Refused, TerminalAsked::Refused { message })
-                }
-            },
-            // The terminal got there first: its settling wrote the row.
-            Ok(Err(_)) => return Ok(TerminalAsked::Gone {}),
-            Err(_) => {
-                let _ = asks.withdraw(&waiting.call);
-                (SessionAskState::Unanswered, TerminalAsked::Gone {})
+    /// One poll for a terminal question's answer, held up to [`POLL_HOLD`].
+    pub(crate) async fn terminal_question_wait(
+        &self,
+        id: &str,
+        call: &str,
+    ) -> Result<TerminalAsked, Refusal> {
+        let terminals = self.hosts().terminals();
+        terminals.polled(call);
+        let until = tokio::time::Instant::now() + POLL_HOLD;
+        loop {
+            // Rung before the look, so an answer between the two is not missed.
+            let rung = terminals.rung.notified();
+            tokio::pin!(rung);
+            rung.as_mut().enable();
+            let kept = self.terminal_ask_kept(id).await?;
+            match kept.filter(|kept| kept.call == call) {
+                None => return Ok(TerminalAsked::Gone {}),
+                Some(kept) => match kept.answer {
+                    Some(answer) => {
+                        return ipc::decode::<TerminalAsked>("a kept answer", answer.as_bytes())
+                            .map_err(|why| self.hosted_fault(TERMINAL_ASK_UNREADABLE, &why.why))
+                    }
+                    None => self.terminal_ask_revived(id, &kept),
+                },
             }
-        };
-        self.hosts().of(id).state().asked = None;
-        self.row_put(id, self.ask_row(id, &waiting, state)).await;
-        let _ = self.published_hosted(id).await;
-        Ok(asked)
+            if tokio::time::timeout_at(until, rung).await.is_err() {
+                return Ok(TerminalAsked::Waiting {});
+            }
+        }
     }
 
     /// The terminal's own prompt ended before Bridge answered: the card closes
-    /// and the held request ends.
+    /// and the mod's poll ends.
     pub(crate) async fn terminal_question_settled(
         &self,
         id: &str,
         answered: bool,
     ) -> Result<TerminalAsked, Refusal> {
+        let state = if answered {
+            SessionAskState::AllowedOnce
+        } else {
+            SessionAskState::Refused
+        };
+        self.terminal_ask_closed(id, state).await;
+        Ok(TerminalAsked::Gone {})
+    }
+
+    /// A person answered a terminal session's question in Bridge: kept for the
+    /// mod to collect, and the card closes. **Needs no poll under way.**
+    pub(crate) async fn terminal_ask_answered(
+        &self,
+        id: &str,
+        waiting: &HelmCallInFlight,
+        said: &Said,
+    ) -> Result<(), Refusal> {
+        let Some(kept) = self.terminal_ask_kept(id).await?.filter(|k| k.call == waiting.call)
+        else {
+            return Ok(());
+        };
+        let asking: AskingToRun = ipc::decode("a kept question", kept.asking.as_bytes())
+            .map_err(|why| self.hosted_fault(TERMINAL_ASK_UNREADABLE, &why.why))?;
+        let (state, asked) = match answering(&asking, said) {
+            RunOrNot::Allow { updated_input } => {
+                (SessionAskState::AllowedOnce, TerminalAsked::Answered { updated_input })
+            }
+            RunOrNot::Deny { message } => (SessionAskState::Refused, TerminalAsked::Refused { message }),
+        };
+        let body = self.kept_text(&asked)?;
+        self.store()
+            .lock()
+            .await
+            .answer_terminal_ask(id, &waiting.call, &body)
+            .map_err(|why| self.ledger_fault(why))?;
+        self.hosts().of(id).state().asked = None;
+        self.hosts().terminals().forget_polls(&waiting.call);
+        self.row_put(id, self.ask_row(id, waiting, state)).await;
+        self.hosts().terminals().rung.notify_waiters();
+        Ok(())
+    }
+
+    /// Close a terminal session's standing question without an answer for the
+    /// mod: its card settles at `state`, the kept question goes, and a poll
+    /// under way ends. Where there is none, nothing happens.
+    pub(crate) async fn terminal_ask_closed(&self, id: &str, state: SessionAskState) {
+        let Ok(Some(kept)) = self.terminal_ask_kept(id).await else {
+            return;
+        };
         let waiting = self.hosts().of(id).state().asked.take();
-        if let Some(waiting) = waiting {
-            let _ = self.hosts().asks().withdraw(&waiting.call);
-            let state = if answered {
-                SessionAskState::AllowedOnce
-            } else {
-                SessionAskState::Refused
-            };
+        let waiting = match waiting {
+            Some(waiting) => Some(waiting),
+            None => ipc::decode::<HelmCallInFlight>("a kept call", kept.in_flight.as_bytes()).ok(),
+        };
+        let _ = self.store().lock().await.drop_terminal_ask(id);
+        self.hosts().terminals().forget_polls(&kept.call);
+        self.hosts().terminals().rung.notify_waiters();
+        let _ = self.hosts().asks().withdraw(&kept.call);
+        // An answered one already closed its card.
+        if let (Some(waiting), None) = (waiting, kept.answer) {
             self.row_put(id, self.ask_row(id, &waiting, state)).await;
             let _ = self.published_hosted(id).await;
         }
-        Ok(TerminalAsked::Gone {})
+    }
+
+    /// Put a kept, unanswered terminal question back on the table and on the
+    /// session, as a Fleet that restarted lost it, and close one whose mod has
+    /// stopped polling: its prompt is gone, so Bridge must not offer the card.
+    pub(crate) async fn terminal_ask_standing(&self, id: &str) {
+        let Ok(Some(kept)) = self.terminal_ask_kept(id).await else {
+            self.terminal_cards_closed(id).await;
+            return;
+        };
+        if kept.answer.is_some() {
+            return;
+        }
+        self.terminal_ask_revived(id, &kept);
+        if self.hosts().terminals().since_polled(&kept.call) > POLL_LAPSE {
+            self.terminal_ask_closed(id, SessionAskState::Unanswered).await;
+        }
+    }
+
+    fn terminal_ask_revived(&self, id: &str, kept: &store::KeptTerminalAsk) {
+        let standing = self.hosts().of(id).state().asked.as_ref().map(|a| a.call == kept.call);
+        if standing == Some(true) {
+            return;
+        }
+        if let Ok(waiting) = ipc::decode::<HelmCallInFlight>("a kept call", kept.in_flight.as_bytes()) {
+            self.hosts().asks().restore(waiting.clone());
+            self.hosts().of(id).state().asked = Some(waiting);
+        }
+    }
+
+    /// A waiting card with no question kept behind it, as one from before
+    /// questions were kept, can never be answered.
+    async fn terminal_cards_closed(&self, id: &str) {
+        let Ok(rows) = self.rows_of(id).await else {
+            return;
+        };
+        for row in rows {
+            if let SessionRow::Ask { ask, state: SessionAskState::Waiting, .. } = &row {
+                self.row_put(id, self.ask_row(id, ask, SessionAskState::Unanswered)).await;
+            }
+        }
+        self.hosts().of(id).state().asked = None;
+    }
+
+    fn kept_text<T: serde::Serialize>(&self, value: &T) -> Result<String, Refusal> {
+        ipc::encode(value)
+            .map_err(|why| self.hosted_fault(TERMINAL_ASK_UNREADABLE, &format!("{why:?}")))
+    }
+
+    async fn terminal_ask_kept(&self, id: &str) -> Result<Option<store::KeptTerminalAsk>, Refusal> {
+        self.store()
+            .lock()
+            .await
+            .terminal_ask(id)
+            .map_err(|why| self.ledger_fault(why))
     }
 
     fn ask_row(&self, id: &str, waiting: &HelmCallInFlight, state: SessionAskState) -> SessionRow {

@@ -22,6 +22,7 @@ mod check_runs;
 mod corrupt;
 mod cursor;
 mod delivery;
+mod devices;
 mod drift;
 mod footprint;
 mod forget;

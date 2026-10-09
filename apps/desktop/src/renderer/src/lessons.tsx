@@ -2,12 +2,15 @@
 // Jobs, read on open and on focus (`docs/concepts/retro.md`). Apart from
 // `App.tsx`, which is at its length.
 
+import { useState } from "react";
+
 import { Lessons } from "@armada/jobs";
 import { Boundary, useAtFloor } from "@armada/shell";
 
 import type { BridgeState } from "../../shared/bridge";
 import { agreeLesson, disagreeLesson, readLessons, readRetro } from "./commands";
-import { useLessonsTab } from "./remembered-views";
+import { takeRetroAsked } from "./open-retro";
+import { useLessonsSource, useLessonsTab } from "./remembered-views";
 
 export function LessonsSurface({
   repository,
@@ -24,6 +27,9 @@ export function LessonsSurface({
   const floor = useAtFloor();
   // The tab is remembered for this viewer, the way Workflow's and Plan's views are.
   const [tab, setTab] = useLessonsTab();
+  // A Session's Retro press opens the page on that Session's retro; the ask is taken once.
+  const [source, setSource] = useLessonsSource();
+  const [asked] = useState(takeRetroAsked);
   return (
     <Boundary region="Retros" bridge={bridge} onCopied={onCopied}>
       {/* Keyed by the pick, because main narrows the read to it. */}
@@ -38,6 +44,9 @@ export function LessonsSurface({
         floor={floor}
         tab={tab}
         onTab={setTab}
+        source={source}
+        onSource={setSource}
+        {...(asked === undefined ? {} : { opening: asked })}
       />
     </Boundary>
   );

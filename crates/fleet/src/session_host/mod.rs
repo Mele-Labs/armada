@@ -19,6 +19,7 @@ mod places;
 mod process;
 mod rows;
 mod serving;
+pub(crate) use serving::NO_SUCH_SESSION;
 mod terminal;
 
 use std::collections::HashMap;
@@ -108,6 +109,7 @@ impl Hosts {
         Arc::clone(held.entry(session.to_string()).or_insert_with(|| {
             Arc::new(Runtime {
                 lease: tokio::sync::Mutex::new(()),
+                writing_retro: AtomicBool::new(false),
                 state: Mutex::new(State::new()),
             })
         }))
@@ -153,6 +155,8 @@ pub(crate) struct Move {
 pub(crate) struct Runtime {
     /// Held while a lease is taken, so two writes in one turn lease one slot.
     pub(crate) lease: tokio::sync::Mutex<()>,
+    /// Whether this session's retro is being written, so a second press waits.
+    pub(crate) writing_retro: AtomicBool,
     state: Mutex<State>,
 }
 
@@ -183,12 +187,16 @@ pub(crate) struct State {
     pub unstarted: Vec<String>,
     /// Those lines have been sent to a replacement once already.
     pub retried: bool,
+    /// The keeper said busy on reattach and nothing has been heard since, so
+    /// a long silence is a turn end that was missed.
+    pub reattached_busy: bool,
 }
 
 impl State {
     /// Write one line to the process as a turn of its own.
     pub fn send_turn(&mut self, line: String) {
         self.queued += 1;
+        self.reattached_busy = false;
         self.unstarted.push(line.clone());
         if let Some(process) = &self.process {
             process.send(line);
@@ -210,6 +218,7 @@ impl State {
             commands: Vec::new(),
             unstarted: Vec::new(),
             retried: false,
+            reattached_busy: false,
         }
     }
 }
