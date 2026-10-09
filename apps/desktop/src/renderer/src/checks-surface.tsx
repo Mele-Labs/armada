@@ -82,8 +82,12 @@ export function ChecksSurface({
   onOpenJob,
   onOpenMergeLine,
   focus,
+  only,
+  onClosed,
 }: {
   focus?: string;
+  only?: boolean;
+  onClosed?: () => void;
   state: ChecksState;
   bridge: BridgeState["bridge"];
   onCopied: (value: string) => void;
@@ -101,6 +105,8 @@ export function ChecksSurface({
         onOpenJob={onOpenJob}
         floor={floor}
         {...(focus === undefined ? {} : { focus })}
+        {...(only === true ? { only } : {})}
+        {...(onClosed === undefined ? {} : { onClosed })}
       />
     </Boundary>
   );

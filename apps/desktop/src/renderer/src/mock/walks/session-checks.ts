@@ -2,10 +2,9 @@
 // holds a row per `armada check`: the key and a mark, pulsing while it is out. Pressing one goes to
 // the Checks page with that run open, and the Session that ran it is the owner chip on its line.
 
-import { button, dialog, inside, region, role, row, walk } from "../walk";
+import { button, dialog, inside, region, walk } from "../walk";
 
 const THREAD = region("Thread");
-const CHECKS = region("Checks");
 
 export const sessionChecks = walk("session-checks", [
   { press: button("Sessions", { exact: true }), say: "Sessions" },
@@ -15,7 +14,8 @@ export const sessionChecks = walk("session-checks", [
   { hover: inside(THREAD, button("Check app_smoke, running")), say: "One still out: the mark pulses" },
   { later: inside(THREAD, button("Check app_smoke, running")), say: "It ends" },
   { look: inside(THREAD, button("Check app_smoke, failed")), say: "It failed" },
-  { press: inside(THREAD, button("Check app_smoke, failed")), say: "Pressing it goes to the Checks page" },
+  { press: inside(THREAD, button("Check app_smoke, failed")), say: "Pressing it opens its log here, over the Session" },
   { look: dialog("Check log"), say: "That run, open on its log" },
-  { look: inside(inside(CHECKS, row(/app_smoke/)), role("button", "Worktree slot 10")), say: "The Session that ran it, as its owner chip" },
+  { press: inside(dialog("Check log"), button("Close")), say: "Closing it leaves you on the Session" },
+  { look: THREAD, say: "Still here" },
 ]);

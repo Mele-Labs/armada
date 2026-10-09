@@ -44,6 +44,10 @@ import { useCheckOutputs, useFollowing, type FollowCheckOutput, type ReadCheckOu
 import { LogSheet } from "./log-sheet";
 
 export type ManifestChecksProps = {
+  /** Draw only the focused run's panel, over whatever surface asked; the list and filters are left out. */
+  only?: boolean;
+  /** The panel closed. */
+  onClosed?: () => void;
   /** `GET /manifest/run_sheet`, held open while this page is showing. */
   sheet: CheckoutRunSheetRead;
   /** The run being read, as it prints. */
@@ -124,11 +128,19 @@ export function ManifestChecks(props: ManifestChecksProps) {
     setOpenId(focus);
   }, [focus]);
   const shown = useMemo(() => entries.filter((one) => heldBy(filter, one)), [entries, filter]);
-  const open = shown.find((one) => one.id === openId);
+  // **Only the panel**, over the surface it was pressed from: a Session's Check opens here and
+  // closing it leaves the person where they were (owner, 8 Oct 2026).
+  const only = props.only === true;
+  const open = (only ? entries : shown).find((one) => one.id === openId);
+  const close = () => {
+    setOpenId(null);
+    props.onClosed?.();
+  };
   const bands = open === undefined ? undefined : <FactsOf entry={open} {...props} />;
 
   return (
     <div className="armada-screen__overview">
+      {only ? null : (
       <CheckFilters
         value={filter}
         onChange={(next) => {
@@ -136,7 +148,8 @@ export function ManifestChecks(props: ManifestChecksProps) {
           setOpenId(null);
         }}
       />
-      <CheckList rows={shown.map((one) => rowOf(one, jobLabel))} openRow={open?.id ?? null} onOpenRow={setOpenId} />
+      )}
+      {only ? null : <CheckList rows={shown.map((one) => rowOf(one, jobLabel))} openRow={open?.id ?? null} onOpenRow={setOpenId} />}
       {open === undefined ? null : open.land !== undefined ? (
         <LandCheckLogSheet
           key={open.id}
@@ -145,12 +158,12 @@ export function ManifestChecks(props: ManifestChecksProps) {
           onFollow={props.onFollowLand}
           bands={bands}
           floor={floor}
-          onClose={() => setOpenId(null)}
+          onClose={close}
         />
       ) : (open.job ?? open.session) !== undefined && open.logs !== undefined ? (
-        <ReportedLogPanel key={open.id} entry={open} job={(open.job ?? open.session)!.id} logs={open.logs} {...props} onClose={() => setOpenId(null)} />
+        <ReportedLogPanel key={open.id} entry={open} job={(open.job ?? open.session)!.id} logs={open.logs} {...props} onClose={close} />
       ) : (
-        <CheckLogPanel key={open.id} entry={open} bands={bands} {...props} onClose={() => setOpenId(null)} />
+        <CheckLogPanel key={open.id} entry={open} bands={bands} {...props} onClose={close} />
       )}
     </div>
   );
