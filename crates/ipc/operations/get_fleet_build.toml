@@ -12,7 +12,7 @@ notes = """
 
 **`position` counts `origin/main...commit`**: `ahead` is what the build holds that origin/main lacks, `behind` what origin/main holds that the build lacks. Fleet fetches `origin main` at most every ten minutes, in the background, so a read never waits on the network and the counts are as fresh as the last fetch. Absent where it cannot be counted.
 
-**`restarting` and `failed` come from `Armada/restart-build.status`**, the file `scripts/restart-build` keeps, because the Fleet that started a restart is not the Fleet that reads it back. A status `running` older than twenty minutes is a wrapper that died and is ignored. `failed` is one line of plain facts and is dropped once the recorded commit is no longer the one it failed on.
+**`restarting` and `failed` come from `Armada/restart-build.status`**, the file `scripts/restart-build` keeps, because the Fleet that started a restart is not the Fleet that reads it back. **`stage` is the status file's third line**, the heading `scripts/restart-build` last read off the output of the scripts it runs: `merging`, `fetching_main`, `building_fleet`, `building_bridge`, `restarting_fleet`, `reopening_bridge` or `retrying`. Absent while `restarting` is absent, and absent from a status file without one or with a word this Fleet does not know. A status `running` older than twenty minutes is a wrapper that died and is ignored. `failed` is one line of plain facts and is dropped once the recorded commit is no longer the one it failed on.
 
 No event. A build changes when a Fleet restarts, and Bridge reads this again on every connection and on a minute's interval.
 """

@@ -7,7 +7,7 @@ use std::path::Path;
 use std::process::Command;
 use std::time::{Duration, SystemTime};
 
-use ipc::{BuildPosition, BuildSource, ChangeFleetBuild};
+use ipc::{BuildPosition, BuildSource, BuildStage, ChangeFleetBuild};
 
 use crate::building::{checkout_of, Building, NotChanged, NotOffered};
 use crate::tests::tmp::TempDir;
@@ -119,6 +119,60 @@ async fn a_restart_under_way_is_reported_until_it_is_old_enough_to_be_a_dead_wra
     let later = now + Duration::from_secs(21 * 60);
     let report = building.report(Some(checkout.path()), support.path(), later).await.unwrap();
     assert_eq!(report.restarting, None, "twenty minutes on, nothing is working");
+}
+
+/// What the report says of a restart, for a status file holding `text`.
+async fn restarting_on(text: &str) -> (Option<BuildSource>, Option<BuildStage>) {
+    let (checkout, support) = rig();
+    fs::write(support.path().join("restart-build.status"), text).unwrap();
+    let report = Building::default()
+        .report(Some(checkout.path()), support.path(), SystemTime::now())
+        .await
+        .expect("a build");
+    (report.restarting, report.stage)
+}
+
+#[tokio::test]
+async fn a_status_with_a_third_line_reports_that_stage() {
+    for (word, stage) in [
+        ("merging", BuildStage::Merging),
+        ("fetching_main", BuildStage::FetchingMain),
+        ("building_fleet", BuildStage::BuildingFleet),
+        ("building_bridge", BuildStage::BuildingBridge),
+        ("restarting_fleet", BuildStage::RestartingFleet),
+        ("reopening_bridge", BuildStage::ReopeningBridge),
+        ("retrying", BuildStage::Retrying),
+    ] {
+        let (restarting, said) = restarting_on(&format!("running\npreview\n{word}\n")).await;
+        assert_eq!(restarting, Some(BuildSource::Preview));
+        assert_eq!(said, Some(stage), "{word}");
+    }
+}
+
+#[tokio::test]
+async fn an_old_two_line_status_is_a_restart_with_no_stage() {
+    assert_eq!(restarting_on("running\nmain\n").await, (Some(BuildSource::Main), None));
+    assert_eq!(restarting_on("running\nmain").await, (Some(BuildSource::Main), None));
+}
+
+#[tokio::test]
+async fn a_stage_word_this_fleet_does_not_know_is_no_stage_and_still_a_restart() {
+    assert_eq!(restarting_on("running\nmain\ncompiling\n").await, (Some(BuildSource::Main), None));
+    assert_eq!(restarting_on("running\nmain\n\n").await, (Some(BuildSource::Main), None));
+}
+
+#[tokio::test]
+async fn a_failed_status_and_a_dead_wrapper_report_no_stage() {
+    let (checkout, support) = rig();
+    let status = support.path().join("restart-build.status");
+    let building = Building::default();
+    fs::write(&status, format!("failed\nmain\n{SHA}\nwhy\n")).unwrap();
+    let report = building.report(Some(checkout.path()), support.path(), SystemTime::now()).await.unwrap();
+    assert_eq!(report.stage, None);
+    fs::write(&status, "running\nmain\nbuilding_fleet\n").unwrap();
+    let later = SystemTime::now() + Duration::from_secs(21 * 60);
+    let report = building.report(Some(checkout.path()), support.path(), later).await.unwrap();
+    assert_eq!((report.restarting, report.stage), (None, None));
 }
 
 #[tokio::test]

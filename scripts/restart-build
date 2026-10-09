@@ -9,8 +9,10 @@
 #
 # `docs/practices/running-locally.md`, "Restarting from Bridge", is what it
 # leaves behind and what reads it. In short: `Armada/restart-build.status` says
-# `running`, or `failed` with one line of why, and no file means it took.
-# Output goes to `~/Library/Logs/Armada/restart-build.log`.
+# `running` and, on its third line, the stage it has reached, or `failed` with
+# one line of why, and no file means it took. A stage is read off the bold
+# headings the scripts print, as they print them. Output goes to
+# `~/Library/Logs/Armada/restart-build.log`.
 #
 # **A `libsqlite3-sys` build failure is run once more after
 # `cargo clean -p libsqlite3-sys` in the tree that was built.** It is a stale
@@ -18,7 +20,8 @@
 # 6 and 7 Oct 2026; `.claude/skills/preview-app/SKILL.md`.
 #
 # Knobs for tests: `ARMADA_RESTART_SCRIPT` and `ARMADA_PREVIEW_SCRIPT` name the
-# scripts this runs, `HOME` moves the record and the log.
+# scripts this runs, `HOME` moves the record and the log, and
+# `ARMADA_RESTART_POLL` is how often, in seconds, the log is read for a stage.
 
 import os
 import re
@@ -29,6 +32,19 @@ STALE = "libsqlite3-sys"
 ANSI = re.compile(r"\x1b\[[0-9;]*m")
 SAID = re.compile(r"^(?:restart|preview): (?:!!! )?(.*)$")
 LIMIT = 200
+
+# The stage each bold heading puts the restart in. Matched against the raw line,
+# so cargo's own coloured output is never mistaken for one. A heading that is not
+# here leaves the stage as it was.
+HEADINGS = [
+    (re.compile(r"^\x1b\[1mFast-forwarding main"), "fetching_main"),
+    (re.compile(r"^\x1b\[1mInstalling armada from"), "building_fleet"),
+    (re.compile(r"^\x1b\[1mBuilding Bridge"), "building_bridge"),
+    (re.compile(r"^\x1b\[1m(?:Snapshot of the database|Stopping the Fleet in|Booting )"), "restarting_fleet"),
+    (re.compile(r"^\x1b\[1m(?:Quitting the running Bridge|Reopening Bridge from)"), "reopening_bridge"),
+]
+# What a second run, after the stale build script is cleaned, does not step back to.
+BEFORE_BRIDGE = ("fetching_main", "building_fleet")
 
 
 def write_atomically(path, text):
@@ -76,7 +92,16 @@ def main():
         print(f"restart-build: {why}", file=sys.stderr)
         return 1
 
-    write_atomically(status, f"running\n{build}\n")
+    stage = None
+
+    def enter(next_stage):
+        nonlocal stage
+        if next_stage != stage:
+            stage = next_stage
+            write_atomically(status, f"running\n{build}\n{stage}\n")
+
+    # Preview merges before it says anything; main's first step is its fast-forward.
+    enter("merging" if build == "preview" else "fetching_main")
 
     if build == "main":
         branch = subprocess.run(
@@ -92,11 +117,38 @@ def main():
     if adopt:
         command.append("--adopt")
 
-    def run():
+    poll = float(os.environ.get("ARMADA_RESTART_POLL") or 0.5)
+
+    def run(retrying=False):
+        """Run the command with its output in the log, and follow the log for stages."""
         with open(log_path, "a") as log:
             log.write(f"$ {' '.join(command)}\n")
             log.flush()
-            return subprocess.run(command, cwd=root, stdout=log, stderr=subprocess.STDOUT).returncode
+            seen = log.tell()
+            process = subprocess.Popen(command, cwd=root, stdout=log, stderr=subprocess.STDOUT)
+            held = b""
+            while True:
+                finished = False
+                try:
+                    process.wait(timeout=poll)
+                    finished = True
+                except subprocess.TimeoutExpired:
+                    pass
+                with open(log_path, "rb") as f:
+                    f.seek(seen)
+                    fresh = f.read()
+                seen += len(fresh)
+                lines = (held + fresh).split(b"\n")
+                held = lines.pop()
+                for line in lines:
+                    text = line.decode("utf-8", "replace")
+                    for heading, reached in HEADINGS:
+                        if heading.match(text):
+                            if not (retrying and reached in BEFORE_BRIDGE):
+                                enter(reached)
+                            break
+                if finished:
+                    return process.returncode
 
     open(log_path, "w").close()
     code = run()
@@ -106,8 +158,9 @@ def main():
         with open(log_path, "a") as f:
             f.write(f"\n$ cargo clean -p {STALE}  (in {tree})\n")
             f.flush()
+            enter("retrying")
             subprocess.run(["cargo", "clean", "-p", STALE], cwd=tree, stdout=f, stderr=subprocess.STDOUT)
-        code = run()
+        code = run(retrying=True)
         with open(log_path) as f:
             log = f.read()
     if code != 0:

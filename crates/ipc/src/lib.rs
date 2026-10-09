@@ -235,7 +235,7 @@ pub use asked::{AskedRun, AskedRunState};
 pub use asking::{JudgeAnswer, JudgeAnswered, JudgeQuestion, SetWhenRefused, WhenRefused};
 pub use attempt::{ended_at, first_started_at, Move, ResolvedPolicies, StepAttempt};
 pub use breakage::{ClaimedBreakage, WaitingOnFix};
-pub use building::{BuildPosition, BuildSource, ChangeFleetBuild, FleetBuildChanging, FleetBuildReport};
+pub use building::{BuildPosition, BuildSource, BuildStage, ChangeFleetBuild, FleetBuildChanging, FleetBuildReport};
 pub use capacity::{AdmissionHold, FleetCapacity};
 pub use capturing::{
     CaptureBounds, CaptureElement, CaptureFrame, CaptureServed, CaptureStudioNote, CaptureWindow,

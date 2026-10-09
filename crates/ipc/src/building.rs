@@ -19,6 +19,21 @@ pub enum BuildSource {
     Preview,
 }
 
+/// Where a restart under way has got to, in the order a restart takes them.
+/// `Merging` is the preview's alone and `FetchingMain` is main's.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum BuildStage {
+    Merging,
+    FetchingMain,
+    BuildingFleet,
+    BuildingBridge,
+    RestartingFleet,
+    ReopeningBridge,
+    /// The build ran again after a stale build script was cleaned.
+    Retrying,
+}
+
 /// Commits the running build holds that `origin/main` lacks, and commits
 /// `origin/main` holds that it lacks. Both nought is aligned.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -45,6 +60,10 @@ pub struct FleetBuildReport {
     /// The build a restart under way is moving Fleet onto. Absent when none is.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub restarting: Option<BuildSource>,
+    /// Where that restart has got to. **Absent where the restart has not said**,
+    /// which is one only just asked for, or a wrapper that records none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stage: Option<BuildStage>,
     /// Why the last restart did not take, in one line of plain facts. Absent
     /// when it took, and when the build has moved since it failed.
     #[serde(default, skip_serializing_if = "Option::is_none")]

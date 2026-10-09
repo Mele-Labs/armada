@@ -367,7 +367,7 @@ back**, in `~/Library/Application Support/Armada/`:
 |---|---|---|
 | `restart-source` | The tree the running build came from, `.armada/preview` or none for main | `scripts/restart` |
 | `restart-commit` | The commit it was built from | `scripts/restart`, once the new Fleet speaks the protocol its tree hashes to |
-| `restart-build.status` | `running` and the build, or `failed`, the build, the commit then current and one line of why. No file means the last restart took | `scripts/restart-build`; Fleet writes `running` first |
+| `restart-build.status` | `running`, the build and, once the wrapper has read a heading, the stage (`merging`, `fetching_main`, `building_fleet`, `building_bridge`, `restarting_fleet`, `reopening_bridge`, `retrying`), or `failed`, the build, the commit then current and one line of why. No file means the last restart took | `scripts/restart-build`; Fleet writes `running` first |
 
 Its output is `~/Library/Logs/Armada/restart-build.log`. **A `libsqlite3-sys`
 build failure is run once more after `cargo clean -p libsqlite3-sys`** in the tree
