@@ -1,0 +1,48 @@
+/* Derived from the Kanagawa Wave terminal scheme by packages/tokens/themes/generate.mjs. Do not hand-edit.
+   Tone dark. foreground 9.1:1, accent 5.9:1 at the worst ground.
+   Lightness moved to reach 4.5:1: failed, success, review, running, escalated, rejected, not-started, killed. */
+[data-theme="catalogue:kanagawa-wave"] {
+  color-scheme: dark;
+  /* Ground */
+  --bg-base: #1F1F28;
+  --bg-sunken: #0C0C12;
+  --bg-raised: #25252D;
+  --bg-overlay: #2B2B32;
+  --bg-hover: #302F36;
+  --border-subtle: #2F2F35;
+  --border-default: #3A3A3E;
+  --border-strong: #4C4B4C;
+  /* Foreground and accent */
+  --fg-default: #DCD7BA;
+  --fg-muted: #999788;
+  --fg-subtle: #9C988A;
+  --fg-inverse: #000000;
+  --accent: #7FB4CA;
+  --accent-hover: #8EBAC8;
+  --accent-muted: #333C48;
+  /* Depth */
+  --bg-glass: rgb(37 37 45 / 0.86);
+  --bg-glass-end: rgb(31 31 40 / 0.86);
+  --border-glass: rgb(255 255 255 / 0.07);
+  --border-highlight: rgb(255 255 255 / 0.05);
+  /* Status */
+  --status-not-started: #ABAAA3;
+  --status-running: #8BA9E6;
+  --status-awaiting-review: #C2A570;
+  --status-escalated: #E69576;
+  --status-completed-success: #93B286;
+  --status-completed-failed: #FF8481;
+  --status-rejected: #B7A0DB;
+  --status-killed: #ACA99F;
+  --status-handed-in: #8EAFB8;
+  /* Helm, tools, diff */
+  --helm: #9CA9D1;
+  --tool-look: #75A094;
+  --tool-change: #A58EC8;
+  --tool-run: #C0A36E;
+  --diff-add-bg: #2D3233;
+  --diff-add-fg: #83A277;
+  --diff-del-bg: #39242C;
+  --diff-del-fg: #EE6867;
+  --diff-context: #999788;
+}

@@ -94,6 +94,11 @@ panel body's rect the renderer reports, and only for an address the Session's ow
 ledger names (`src/main/session-page.ts`). A file the panel reads is held to the
 same rule and to a size cap (`session-file.ts`).
 
+A theme's CSS, a mod's or the catalogue's, reaches the window as a constructable
+stylesheet (`adoptedStyleSheets`) and never as a `<style>` element, because the
+CSP refuses an inline one and widening it for themes is the review above
+(`docs/concepts/themes.md`).
+
 These four are load-bearing together. Loosening any one of them to make a
 feature easier is a security review, not a local decision — say so explicitly
 in review rather than quietly relaxing a flag to unblock yourself.

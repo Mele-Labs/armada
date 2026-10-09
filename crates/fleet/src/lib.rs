@@ -186,6 +186,8 @@ pub mod manifest_proposal;
 mod mending;
 pub mod merge_lines;
 mod merging;
+/// Mods: folders on this machine that change how Bridge looks.
+pub mod mods;
 pub mod mint;
 /// What each Job is called on disk, answerable without a lock. **Every path
 /// under `.armada/` is named by the handle**, and half the places that write a
@@ -239,6 +241,8 @@ mod proposing;
 mod proving;
 /// What happened to a pull request, told to the Sessions and Jobs that own it.
 mod pull_notices;
+/// A pull request nobody reported, attached to the Session that worked its branch.
+mod pull_attaching;
 /// Who owns a pull request, from the Sessions ledger and the Jobs.
 mod pull_owners;
 /// A pull request by repository and number, and the acts a Session takes on one.

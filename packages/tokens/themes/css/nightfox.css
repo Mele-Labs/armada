@@ -1,0 +1,48 @@
+/* Derived from the Nightfox terminal scheme by packages/tokens/themes/generate.mjs. Do not hand-edit.
+   Tone dark. foreground 8.1:1, accent 5.4:1 at the worst ground.
+   Lightness moved to reach 4.5:1: failed, success, running, escalated, rejected, not-started, killed. */
+[data-theme="catalogue:nightfox"] {
+  color-scheme: dark;
+  /* Ground */
+  --bg-base: #192330;
+  --bg-sunken: #090F16;
+  --bg-raised: #1F2936;
+  --bg-overlay: #242E3B;
+  --bg-hover: #29333F;
+  --border-subtle: #28323E;
+  --border-default: #333C48;
+  --border-strong: #444C57;
+  /* Foreground and accent */
+  --fg-default: #CDCECF;
+  --fg-muted: #959A9F;
+  --fg-subtle: #979CA1;
+  --fg-inverse: #000000;
+  --accent: #86ABDC;
+  --accent-hover: #91B0DA;
+  --accent-muted: #2E3E52;
+  /* Depth */
+  --bg-glass: rgb(31 41 54 / 0.86);
+  --bg-glass-end: rgb(25 35 48 / 0.86);
+  --border-glass: rgb(255 255 255 / 0.07);
+  --border-highlight: rgb(255 255 255 / 0.05);
+  /* Status */
+  --status-not-started: #A8AFB9;
+  --status-running: #84B0EB;
+  --status-awaiting-review: #DBC074;
+  --status-escalated: #E59980;
+  --status-completed-success: #86B79F;
+  --status-completed-failed: #FF829D;
+  --status-rejected: #BE9AFA;
+  --status-killed: #A7ADB4;
+  --status-handed-in: #84B4C6;
+  /* Helm, tools, diff */
+  --helm: #A7A6EE;
+  --tool-look: #63CDCF;
+  --tool-change: #AC88E6;
+  --tool-run: #DBC074;
+  --diff-add-bg: #2A3A41;
+  --diff-add-fg: #81B29A;
+  --diff-del-bg: #352A3A;
+  --diff-del-fg: #EB6D8A;
+  --diff-context: #959A9F;
+}

@@ -464,6 +464,7 @@ Decisions.
 | `armada.db` (+ `-wal`, `-shm`) | Manifests, Jobs, Workflow, Status | `store`, sole writer |
 | `audit.jsonl` | The 3-way actor-separated audit trail. Spans every repo, so it stays here | `fleet` |
 | `fleet.pid` | Pidfile, for crash reconciliation on startup | `armada` |
+| `mods/<name>/` | A mod: `mod.toml` and `theme.css`, each folder a git repository of its own | The owner or a session; `fleet` at scaffold |
 
 ### Per-repo — `<repo>/.armada/`
 

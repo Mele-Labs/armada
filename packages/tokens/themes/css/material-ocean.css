@@ -1,0 +1,48 @@
+/* Derived from the Material Ocean terminal scheme by packages/tokens/themes/generate.mjs. Do not hand-edit.
+   Tone dark. foreground 5.5:1, accent 7.3:1 at the worst ground.
+   Lightness moved to reach 4.5:1: not-started, killed. */
+[data-theme="catalogue:material-ocean"] {
+  color-scheme: dark;
+  /* Ground */
+  --bg-base: #0F111A;
+  --bg-sunken: #040509;
+  --bg-raised: #13151F;
+  --bg-overlay: #171923;
+  --bg-hover: #1A1D26;
+  --border-subtle: #1A1C26;
+  --border-default: #22242E;
+  --border-strong: #2D303B;
+  /* Foreground and accent */
+  --fg-default: #8F93A2;
+  --fg-muted: #818493;
+  --fg-subtle: #828694;
+  --fg-inverse: #000000;
+  --accent: #82AAFF;
+  --accent-hover: #84A7F1;
+  --accent-muted: #1F263A;
+  /* Depth */
+  --bg-glass: rgb(19 21 31 / 0.86);
+  --bg-glass-end: rgb(15 17 26 / 0.86);
+  --border-glass: rgb(255 255 255 / 0.07);
+  --border-highlight: rgb(255 255 255 / 0.05);
+  /* Status */
+  --status-not-started: #8E91A0;
+  --status-running: #82AAFF;
+  --status-awaiting-review: #FFCB6B;
+  --status-escalated: #FF9470;
+  --status-completed-success: #C3E88D;
+  --status-completed-failed: #FF5370;
+  --status-rejected: #C792EA;
+  --status-killed: #8F94A1;
+  --status-handed-in: #A0CCCE;
+  /* Helm, tools, diff */
+  --helm: #A89FF5;
+  --tool-look: #89DDFF;
+  --tool-change: #C792EA;
+  --tool-run: #FFCB6B;
+  --diff-add-bg: #2C332C;
+  --diff-add-fg: #C3E88D;
+  --diff-del-bg: #351C28;
+  --diff-del-fg: #FF5370;
+  --diff-context: #818493;
+}

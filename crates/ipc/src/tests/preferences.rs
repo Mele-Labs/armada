@@ -37,6 +37,7 @@ fn a_save_names_one_preference_and_a_value() {
         SavePreference {
             name: "where_things_are_open".to_string(),
             value: true,
+            text: None,
         }
     );
 }

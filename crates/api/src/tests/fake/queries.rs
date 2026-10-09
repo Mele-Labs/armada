@@ -293,7 +293,7 @@ impl Queries for FakeDaemon {
 
     /// Whatever the fake's own saves have left, `get_limits`' reason.
     async fn get_preferences(&self) -> Result<ipc::Preferences, Refusal> {
-        Ok(*self.preferences.lock().expect("not poisoned"))
+        Ok(self.preferences.lock().expect("not poisoned").clone())
     }
 
     /// Whatever a test planted, unfiltered — `#836`.

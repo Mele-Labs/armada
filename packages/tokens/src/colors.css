@@ -1,7 +1,7 @@
 /* Ground, foreground and accent.
    Deep desaturated blue-slate, not near-black: reads as instrument panel
    rather than terminal, and gives status colour room to sit without vibrating. */
-:root {
+:root, [data-theme] {
   /* Ground */
   --bg-base: #0F1419;        /* canvas */
   --bg-sunken: #0B0F13;      /* wells, code blocks, log panes */

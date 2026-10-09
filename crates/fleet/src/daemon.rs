@@ -273,6 +273,9 @@ pub struct Fleet<H, V, W> {
     /// When `origin main` was last fetched, for `get_fleet_build`. Nothing else
     /// of the build is held: the files `scripts/restart` leaves are the record.
     building: crate::building::Building,
+    /// The mod list as last published. Never written down: a rescan after a
+    /// restart sets it again from the folder, and says nothing for doing so.
+    mods: crate::mods::Told,
     /// **This process's** run id, minted once at assembly.
     ///
     /// It names the emitter rather than a record, which is the one id a

@@ -91,6 +91,8 @@ import type {
   FleetLimits,
   JobSummary,
   MergeLines,
+  ModChecked,
+  ModList,
   Preferences,
   ProposalInFlight,
   RepositorySummary,
@@ -189,6 +191,7 @@ type OldBridgeState = {
     fleetBuild: FleetBuildReport | null;
     limits: FleetLimits | null;
     preferences: Preferences;
+    mods: ModList | null;
     manifestReading: ManifestReading | null;
     missed: number;
     readAt: number | null;
@@ -288,6 +291,9 @@ type OldBridgeApi = {
     raiseTurnCap: (jobId: string, turnCap: number) => Promise<Outcome>;
     saveLimits: (values: SaveLimits) => Promise<Outcome>;
     savePreference: (save: SavePreference) => Promise<Outcome>;
+    validateMod: (name: string) => Promise<ModChecked | null>;
+    setModEnabled: (name: string, enabled: boolean) => Promise<Outcome>;
+    promoteMod: (name: string) => Promise<Outcome>;
     fileReport: (jobId: string, filing: FileReport) => Promise<Outcome>;
     addTask: (jobId: string, add: AddTask) => Promise<PlanEditAnswer>;
     dropTask: (jobId: string, drop: DropTask) => Promise<PlanEditAnswer>;
@@ -459,6 +465,7 @@ const OLD_NOTHING_YET: OldBridgeState = {
     fleetBuild: null,
     limits: null,
     preferences: { where_things_are_open: false },
+    mods: null,
     manifestReading: null,
     missed: 0,
     readAt: null,
@@ -553,6 +560,9 @@ const OLD_CHANNELS = {
     raiseTurnCap: "bridge:raise-turn-cap",
     saveLimits: "bridge:save-limits",
     savePreference: "bridge:save-preference",
+    validateMod: "bridge:validate-mod",
+    setModEnabled: "bridge:set-mod-enabled",
+    promoteMod: "bridge:promote-mod",
     fileReport: "bridge:file-report",
     addTask: "bridge:add-task",
     dropTask: "bridge:drop-task",

@@ -1,0 +1,17 @@
+/* One mod: its kind, a switch that takes the width, and Promote at the trailing edge. */
+.armada-mod-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.armada-mod-row__kind {
+  display: inline-flex;
+  color: var(--fg-muted);
+}
+
+.armada-mod-row__switch {
+  flex: 1;
+  min-width: 0;
+}

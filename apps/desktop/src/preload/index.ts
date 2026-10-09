@@ -25,6 +25,7 @@ import type {
   StagedAttachment,
 } from "@armada/protocol";
 import type { FileReport } from "@armada/protocol";
+import type { ModChecked } from "@armada/protocol";
 import type { AnswerSessionAsk, PilotOutcome, PullRequestState, RenameSession, ReviewDispatched, SendSessionMessage, SessionSubagent, TuneSession } from "@armada/protocol";
 import type { ArtifactRead, PageBounds } from "@armada/screens/src/draft/sessions";
 import type { PilotExit, PullRequestPress, SessionActed } from "../shared/api/sessions";
@@ -312,6 +313,14 @@ const api: BridgeApi = {
   // A person's Bridge preferences. **Fleet-wide**, `saveLimits`' reason.
   savePreference: (save: SavePreference): Promise<Outcome> =>
     ipcRenderer.invoke(CHANNELS.savePreference, save),
+
+  // The mods on this machine. **Fleet-wide**, and the stylesheet comes from `validateMod` alone.
+  validateMod: (name: string): Promise<ModChecked | null> =>
+    ipcRenderer.invoke(CHANNELS.validateMod, name),
+  setModEnabled: (name: string, enabled: boolean): Promise<Outcome> =>
+    ipcRenderer.invoke(CHANNELS.setModEnabled, name, enabled),
+  promoteMod: (name: string): Promise<Outcome> =>
+    ipcRenderer.invoke(CHANNELS.promoteMod, name),
 
   // Say a job failed in error, and file its record with the reason. **Its own
   // entry and not a mode on `overrideVerdict`**: that one moves the job past a

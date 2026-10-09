@@ -49,6 +49,7 @@ import { ReportsReader } from "./reports";
 import { ReviewMaterial } from "./review";
 import { startingIdentity } from "./runtime-file";
 import { FleetSocket, type BridgeStateFleet } from "./socket";
+import { Modding } from "./mods";
 import { SessionsHost } from "./sessions";
 import { StudioReads } from "./studios";
 
@@ -179,6 +180,11 @@ export class FleetConnection {
     current: () => this.current,
     publish: (change) => this.publish(change),
   });
+  /** The mods on this machine and the acts on one — `mods.ts`. */
+  readonly mods: Modding = new Modding(
+    (change) => this.publish(change),
+    () => this.connected()?.port ?? null,
+  );
   /** Every session on the machine and the threads a window opened — `sessions.ts`. */
   readonly sessions: SessionsHost = new SessionsHost(
     (change) => this.publish(change),
@@ -311,6 +317,7 @@ export class FleetConnection {
       questions: this.questions,
       helm: this.helm,
       studios: this.studios,
+      mods: this.mods,
       sessions: this.sessions,
       fleetBuild: this.fleetBuild,
       material: this.material,
