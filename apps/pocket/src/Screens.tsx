@@ -4,16 +4,17 @@
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import {
-  Check, ChevronLeft, CircleDot, Eye, GitPullRequest, LoaderCircle, OctagonAlert, RefreshCw,
-  Split, Unplug, UserCheck, X,
+  Check, ChevronLeft, CircleDot, Eye, GitPullRequest, LoaderCircle, OctagonAlert, Plus, RefreshCw,
+  Split, SquareTerminal, Unplug, UserCheck, X,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { Button, HoldButton } from "@armada/components";
 
 import { Refused, lastRefusal } from "./client";
-import { startLive, useJob, useJobs } from "./data";
+import { DRAFTS, actOn, ago, answer, attempt, dispatch as dispatchJob, redirect, repositories, requestChanges, startLive, useJob, useJobs, useSessions } from "./data";
 import type { PocketJob } from "./data";
+import type { PhoneSession } from "./gateway";
 import { paired } from "./device";
 import { claim, codeFromInput, codeFromUrl, defaultName, waitForConfirm } from "./pair";
 import { subscribe } from "./push";
@@ -42,12 +43,6 @@ const ACTS: Record<string, Set<Act>> = {
   interrupted: new Set(["restart", "redispatch", "kill"]),
 };
 const actsOf = (job: PocketJob): Set<Act> => ACTS[job.reason ?? "approval"] ?? ACTS.stalled!;
-
-// TODO(#2001): the acts below do nothing yet; their Gateway routes (approve, redirect,
-// restart_step, kill, redispatch, approve_review, request_changes) come with #2001.
-
-/** Drafts live outside the screens, so leaving one and coming back finds what was typed. */
-const DRAFTS = new Map<string, string>();
 
 function Draft({ id, ...rest }: { id: string } & React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
   const [value, setValue] = useState(() => DRAFTS.get(id) ?? "");
@@ -146,19 +141,28 @@ function needRow(job: PocketJob) {
   return <Row key={job.id} icon={shown.icon} tip={shown.says} title={job.title} where={job.repository} age={job.quiet ?? job.age} onOpen={() => go(`/jobs/${job.id}`)} />;
 }
 
-function Tabs({ gone }: { gone: Set<string> }) {
+function sessionRow(session: PhoneSession) {
+  const age = session.waiting_since === undefined ? "" : ago(session.waiting_since, Date.now());
+  const title = session.title ?? "";
+  const where = session.repository ?? "";
+  if (session.kind === "terminal") return <Row key={session.id} icon={SquareTerminal} tip="Terminal session waiting" title={title} where={where} age={age} />;
+  if (session.ask === undefined) return null;
+  return <Row key={session.id} icon={SquareTerminal} tip="Session asks" title={title} where={where} age={age} onOpen={() => go(`/sessions/${session.id}`)} />;
+}
+
+function Tabs() {
   const [tab, setTab] = useState<Tab>("Needs you");
   const { needs, running, done, error } = useJobs();
-  const left = (job: PocketJob) => !gone.has(job.id);
-  const waiting = needs.filter(left);
+  const sessions = useSessions();
   return (
     <section className="pk-screen" aria-label={tab}>
-      <Band title={tab} />
+      <Band title={tab} end={<button className="pk-icon" aria-label="Dispatch" onClick={() => go("/dispatch")}><Plus /></button>} />
       <div className="pk-body" role="tabpanel" aria-label={tab}>
         {error !== undefined && <p className="pk-fact"><Unplug aria-hidden="true" /> {error}</p>}
         {tab === "Needs you" && (
           <ul className="pk-list">
-            {waiting.map(needRow)}
+            {needs.map(needRow)}
+            {sessions.map(sessionRow)}
           </ul>
         )}
         {tab === "Running" && (
@@ -205,6 +209,18 @@ function Facts({ job }: { job: PocketJob }) {
   );
 }
 
+/** Runs an act; on a 204 the screen goes back, on a refusal it shows the Gateway's sentence and keeps what was typed. */
+function useRun(done: () => void): [string, (act: () => Promise<void>, draftIds?: string[]) => void] {
+  const [trouble, setTrouble] = useState("");
+  const run = (act: () => Promise<void>, draftIds: string[] = []) => {
+    setTrouble("");
+    void attempt(act, draftIds).then((says) => (says === null ? done() : setTrouble(says)));
+  };
+  return [trouble, run];
+}
+
+const Trouble = ({ says }: { says: string }) => (says === "" ? null : <p className="pk-fact">{says}</p>);
+
 function HoldToKill({ onKilled }: { onKilled: () => void }) {
   return (
     <HoldButton className="pk-big" size="default" askLabel="Kill" description="Kill. Hold until the fill completes, then confirm." onCommit={onKilled} onAsk={onKilled}>
@@ -213,40 +229,37 @@ function HoldToKill({ onKilled }: { onKilled: () => void }) {
   );
 }
 
-/** The acts reach Fleet with #2001. Until then none is drawn: a press that changed
- * nothing on the Mac would read as done. */
-const ACTS_REACH_FLEET = false;
-
 function JobScreen({ job, back, done }: { job: PocketJob; back: () => void; done: () => void }) {
   const [redirecting, setRedirecting] = useState(false);
+  const [trouble, run] = useRun(done);
   const draftId = `redirect-${job.id}`;
   const acts = actsOf(job);
   return (
     <section className="pk-screen" aria-label={job.title}>
       <Band title={job.title} onBack={back} back="Back to Needs you" />
-      <div className="pk-body"><Facts job={job} /></div>
-      {!ACTS_REACH_FLEET ? null : redirecting ? (
+      <div className="pk-body"><Facts job={job} /><Trouble says={trouble} /></div>
+      {redirecting ? (
         <footer className="pk-bar pk-bar--sheet" role="dialog" aria-label="Redirect">
           <Draft id={draftId} className="pk-dictate" rows={4} placeholder="Redirect" aria-label="Redirect" enterKeyHint="send" autoCapitalize="sentences" autoCorrect="on" spellCheck />
           <div className="pk-pair-acts">
             <Button variant="secondary" className="pk-big" onClick={() =>setRedirecting(false)}>Close</Button>
-            <Button variant="primary" className="pk-big" onClick={() =>{ DRAFTS.delete(draftId); done(); }}>Send</Button>
+            <Button variant="primary" className="pk-big" onClick={() => run(() => redirect(job.id, (DRAFTS.get(draftId) ?? "").trim()), [draftId])}>Send</Button>
           </div>
         </footer>
       ) : (
         <footer className="pk-bar">
-          {acts.has("approve") && <Button variant="primary" className="pk-big" onClick={done}>Approve</Button>}
+          {acts.has("approve") && <Button variant="primary" className="pk-big" onClick={() => run(() => actOn(job.id, "approve"))}>Approve</Button>}
           {acts.has("redirect") && (
             <Button variant="secondary" className="pk-big" onClick={() =>setRedirecting(true)}>
        Redirect{drafted(draftId) && <span className="pk-dot" role="img" aria-label="Draft kept" />}</Button>
           )}
           {(acts.has("restart") || acts.has("redispatch")) && (
             <div className="pk-pair-acts">
-              {acts.has("restart") && <Button variant="secondary" className="pk-big" onClick={done}>Restart step</Button>}
-              {acts.has("redispatch") && <Button variant="secondary" className="pk-big" onClick={done}>Redispatch</Button>}
+              {acts.has("restart") && <Button variant="secondary" className="pk-big" onClick={() => run(() => actOn(job.id, "restart_step"))}>Restart step</Button>}
+              {acts.has("redispatch") && <Button variant="secondary" className="pk-big" onClick={() => run(() => actOn(job.id, "redispatch"))}>Redispatch</Button>}
             </div>
           )}
-          {acts.has("kill") && <HoldToKill onKilled={done} />}
+          {acts.has("kill") && <HoldToKill onKilled={() => run(() => actOn(job.id, "kill"))} />}
         </footer>
       )}
     </section>
@@ -255,24 +268,25 @@ function JobScreen({ job, back, done }: { job: PocketJob; back: () => void; done
 
 function ReviewScreen({ job, back, done }: { job: PocketJob; back: () => void; done: () => void }) {
   const [asking, setAsking] = useState(false);
+  const [trouble, run] = useRun(done);
   const draftId = `changes-${job.id}`;
   return (
     <section className="pk-screen" aria-label={`Review ${job.title}`}>
       <Band title={job.title} onBack={back} back="Back to Needs you" />
-      <div className="pk-body"><Facts job={job} /></div>
-      {!ACTS_REACH_FLEET ? null : asking ? (
+      <div className="pk-body"><Facts job={job} /><Trouble says={trouble} /></div>
+      {asking ? (
         <footer className="pk-bar pk-bar--sheet" role="dialog" aria-label="Request changes">
           <Draft id={draftId} className="pk-dictate" rows={4} placeholder="Reason" aria-label="Reason" enterKeyHint="send" autoCapitalize="sentences" autoCorrect="on" spellCheck />
           <div className="pk-pair-acts">
             <Button variant="secondary" className="pk-big" onClick={() =>setAsking(false)}>Close</Button>
-            <Button variant="primary" className="pk-big" onClick={() =>{ DRAFTS.delete(draftId); done(); }}>Send</Button>
+            <Button variant="primary" className="pk-big" onClick={() => run(() => requestChanges(job.id, (DRAFTS.get(draftId) ?? "").trim()), [draftId])}>Send</Button>
           </div>
         </footer>
       ) : (
         <footer className="pk-bar">
           <div className="pk-pair-acts">
             <Button variant="secondary" className="pk-big" onClick={() =>setAsking(true)}>Request changes{drafted(draftId) && <span className="pk-dot" role="img" aria-label="Draft kept" />}</Button>
-            <Button variant="primary" className="pk-big" onClick={done}>Approve</Button>
+            <Button variant="primary" className="pk-big" onClick={() => run(() => actOn(job.id, "approve_review"))}>Approve</Button>
           </div>
         </footer>
       )}
@@ -280,11 +294,95 @@ function ReviewScreen({ job, back, done }: { job: PocketJob; back: () => void; d
   );
 }
 
+function AskScreen({ session, back, done }: { session: PhoneSession; back: () => void; done: () => void }) {
+  const ask = session.ask!;
+  const questions = ask.questions ?? [];
+  const [picked, setPicked] = useState<Record<number, string[]>>({});
+  const [trouble, run] = useRun(done);
+  const draftId = (i: number) => (i === 0 ? `ask-${session.id}` : `ask-${session.id}-${i}`);
+  const choose = (i: number, option: string, multi: boolean) =>
+    setPicked((was) => {
+      const now = was[i] ?? [];
+      return { ...was, [i]: multi ? (now.includes(option) ? now.filter((one) => one !== option) : [...now, option]) : [option] };
+    });
+  const permission = questions.length === 0;
+  const send = () => run(() => answer({
+    session_id: session.id,
+    ask_id: ask.ask_id,
+    answer: questions.map((q, i) => {
+      const own = (DRAFTS.get(draftId(i)) ?? "").trim();
+      return { question: q.question, chosen: own !== "" ? [own] : (picked[i] ?? []) };
+    }),
+  }), questions.map((_, i) => draftId(i)));
+  const decide = (decision: "allow_once" | "refuse") => run(() => answer({ session_id: session.id, ask_id: ask.ask_id, answer: decision }));
+  return (
+    <section className="pk-screen" aria-label={session.title ?? ""}>
+      <Band title={session.title ?? ""} onBack={back} back="Back to Needs you" />
+      <div className="pk-body">
+        {permission && <p className="pk-question">{ask.detail ?? ask.tool}</p>}
+        {questions.map((q, i) => (
+          <div key={i}>
+            <p className="pk-question">{q.question}</p>
+            <div className="pk-choices" role={q.multi_select ? "group" : "radiogroup"} aria-label="Answer">
+              {q.options.map((option) => (
+                <button key={option.label} role={q.multi_select ? "checkbox" : "radio"} aria-checked={(picked[i] ?? []).includes(option.label)} className="pk-choice" onClick={() => choose(i, option.label, q.multi_select)}>{option.label}</button>
+              ))}
+            </div>
+            <Draft id={draftId(i)} className="pk-dictate" rows={3} placeholder="Other" aria-label="Other answer" enterKeyHint="send" autoCapitalize="sentences" autoCorrect="on" spellCheck />
+          </div>
+        ))}
+        <Trouble says={trouble} />
+      </div>
+      <footer className="pk-bar">
+        {permission ? (
+          <div className="pk-pair-acts">
+            {ask.offers.includes("refuse") && <Button variant="secondary" className="pk-big" onClick={() => decide("refuse")}>Refuse</Button>}
+            {ask.offers.includes("allow_once") && <Button variant="primary" className="pk-big" onClick={() => decide("allow_once")}>Allow once</Button>}
+          </div>
+        ) : (
+          <Button variant="primary" className="pk-big" onClick={send}>Answer</Button>
+        )}
+      </footer>
+    </section>
+  );
+}
+
+function DispatchScreen({ back, done }: { back: () => void; done: () => void }) {
+  const [repos, setRepos] = useState<string[]>([]);
+  const [repo, setRepo] = useState<string | undefined>(undefined);
+  const [line, setLine] = useState(() => DRAFTS.get("dispatch") ?? "");
+  const [trouble, run] = useRun(done);
+  useEffect(() => {
+    repositories().then((names) => { setRepos(names); setRepo((was) => was ?? names[0]); }, (why) => run(() => Promise.reject(why)));
+  }, []);
+  return (
+    <section className="pk-screen" aria-label="Dispatch">
+      <Band title="Dispatch" onBack={back} back="Back" />
+      <div className="pk-body">
+        <input
+          className="pk-line" aria-label="Job" placeholder="Job" value={line} enterKeyHint="send"
+          autoCapitalize="sentences" autoCorrect="on"
+          onChange={(event) => { DRAFTS.set("dispatch", event.target.value); setLine(event.target.value); }}
+        />
+        <div className="pk-choices" role="radiogroup" aria-label="Repository">
+          {repos.map((name) => (
+            <button key={name} role="radio" aria-checked={repo === name} className="pk-choice" onClick={() => setRepo(name)}>{name}</button>
+          ))}
+        </div>
+        <Trouble says={trouble} />
+      </div>
+      <footer className="pk-bar">
+        <Button variant="primary" className="pk-big" disabled={line.trim() === "" || repo === undefined} onClick={() => run(() => dispatchJob({ text: line.trim(), repository: repo! }), ["dispatch"])}>Dispatch</Button>
+      </footer>
+    </section>
+  );
+}
+
 export function App({ path }: { path: string }) {
-  const [gone, setGone] = useState<Set<string>>(new Set());
   const home = () => go("/");
-  const finish = (id: string) => () => { setGone((was) => new Set(was).add(id)); home(); };
   const job = useJob(path.startsWith("/jobs/") ? path.slice("/jobs/".length) : undefined);
+  const sessions = useSessions();
+  const asked = path.startsWith("/sessions/") ? sessions.find((one) => one.id === path.slice("/sessions/".length) && one.ask !== undefined) : undefined;
   useEffect(() => {
     if (path === "/pair") return;
     void paired().then((device) => {
@@ -298,10 +396,12 @@ export function App({ path }: { path: string }) {
   return (
     <main className="pk-app" aria-label="Armada">
       {path === "/pair" && <Pair />}
-      {path === "/" && <Tabs gone={gone} />}
+      {path === "/" && <Tabs />}
       {job !== undefined && (job.status === "awaiting_review"
-        ? <ReviewScreen key={job.id} job={job} back={home} done={finish(job.id)} />
-        : <JobScreen key={job.id} job={job} back={home} done={finish(job.id)} />)}
+        ? <ReviewScreen key={job.id} job={job} back={home} done={home} />
+        : <JobScreen key={job.id} job={job} back={home} done={home} />)}
+      {asked !== undefined && <AskScreen key={asked.id} session={asked} back={home} done={home} />}
+      {path === "/dispatch" && <DispatchScreen back={home} done={home} />}
     </main>
   );
 }
