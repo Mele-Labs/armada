@@ -289,8 +289,9 @@ pub enum TriggerState {
     /// Exited another way: a non-zero code, a signal, a timeout, or a program
     /// that never started.
     Failed,
-    /// A destructive Command, held until the owner says it may run. **Nothing
-    /// asks him yet**, so for now it stays here.
+    /// A destructive Command, held until the owner says it may run: his Run
+    /// runs it once, his Skip records it skipped by him. With `block` on it
+    /// holds the Job until he answers; without, it waits and holds nothing.
     AwaitingOwner,
     /// Failed with `repair` on, and a repair Drone is working on a branch of
     /// its own.
@@ -488,9 +489,10 @@ impl TriggerFiring {
 
 impl TriggerFiring {
     /// Whether this firing holds its Job: it blocks, and its failure has not
-    /// been settled.
+    /// been settled or the owner has not yet said it may run.
     pub fn holds_the_job(&self) -> bool {
-        self.on_failure.block && self.state.holds_a_blocking_job()
+        self.on_failure.block
+            && (self.state.holds_a_blocking_job() || self.state == TriggerState::AwaitingOwner)
     }
 
     /// Where a repair that came to `state` leaves a Trigger that blocks: a

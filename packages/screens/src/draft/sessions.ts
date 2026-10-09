@@ -25,6 +25,8 @@ export type SessionAttachment =
       state: SessionPullRequestState;
       /** Merge once every Check passes, asked for while they were still running. */
       auto: boolean;
+      /** In the base branch's merge queue now, which is more than asking for it. */
+      queued?: true;
     }
   /** A Job the Session dispatched. It leases its own slot and cuts its own branch. */
   | {

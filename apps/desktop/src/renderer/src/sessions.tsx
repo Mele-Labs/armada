@@ -86,7 +86,7 @@ function stateOf(session: Session): { state: SessionState; said: string } {
     return { state: "working", said: by === undefined ? "Working" : `Woken by ${by.title}` };
   }
   if (isBlank(session)) return { state: "blank", said: "Blank: no slot, no branch" };
-  const failing = attachmentsOf(session, "pull_request").find((pr) => pr.checks.state === "failed");
+  const failing = attachmentsOf(session, "pull_request").find((pr) => pr.state !== "merged" && pr.checks.state === "failed");
   if (failing !== undefined) return { state: "failing", said: `Checks failed on #${failing.number}` };
   if (session.asked !== undefined) return { state: "waiting", said: "Waiting on you" };
   return { state: "idle", said: "Idle" };
@@ -377,7 +377,7 @@ const readingOf = (session: Session, open: Reading | undefined): SessionAttachme
 
 /** What is true of a pull request beyond its Checks, as bare facts. */
 const factsOf = (one: Extract<SessionAttachment, { kind: "pull_request" }>): string[] =>
-  [one.state === "draft" ? "Draft" : undefined, one.auto && one.state !== "merged" ? "Auto-merge on" : undefined].filter(
+  [one.state === "draft" ? "Draft" : undefined, one.queued === true ? "In merge queue" : one.auto && one.state !== "merged" ? "Auto-merge on" : undefined].filter(
     (fact): fact is string => fact !== undefined,
   );
 
@@ -497,7 +497,8 @@ function ReadingSheet({
               <span key={fact}>{fact}</span>
             ))}
           </PullRequestCard>
-          <PullRequestActs state={one.state} checks={one.checks.state} auto={one.auto} onAct={(act) => onAct(one.number, act)} />
+          <Refused />
+          <PullRequestActs state={one.state} checks={one.checks.state} auto={one.auto} queued={one.queued === true} onAct={(act) => onAct(one.number, act)} />
         </div>
       ) : one?.kind === "sketch" ? (
         <SketchPreview label={one.title} boxes={one.drawing.boxes} lines={one.drawing.lines} strokes={one.drawing.strokes ?? []} pictures={[]} />
@@ -708,6 +709,11 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
   useEffect(() => {
     for (const number of prs === "" ? [] : prs.split(",")) refresh?.(id, Number(number));
   }, [refresh, id, prs]);
+  // Opening a pull request's sheet reads it again, so what the sheet says is the forge's now.
+  const opened = reading?.kind === "pull_request" ? reading.number : undefined;
+  useEffect(() => {
+    if (opened !== undefined) refresh?.(id, opened);
+  }, [refresh, id, opened]);
   // The panel a slot's tile opens on Cleanup reads what Fleet holds, so it is wanted while this is open.
   useEffect(() => {
     onWant(true);

@@ -4,7 +4,7 @@ transport = "HTTP"
 agent_access = "Helm only"
 description = "A person asks the forge to merge a pull request when its checks pass"
 notes = """
-`POST /pull_requests/:repository/:number/auto_merge`. Since 23.48. **Merges nothing itself**: the forge merges when its required checks pass, and until then this is a standing instruction on a repository other people read, so Helm asks first (`pushes to shared`).
+`POST /pull_requests/:repository/:number/auto_merge`. **Merges nothing itself**: the forge merges when its required checks pass, and until then this is a standing instruction on a repository other people read, so Helm asks first (`pushes to shared`).
 
-Allowed **while the checks run**. A 409 `fleet.pull_request_checks_passed` where they have already (merge it), a 409 `fleet.merge_checks_not_passed` where one has failed, `fleet.pull_request_is_a_draft` and `fleet.merge_not_open` as for a merge, and a 409 `fleet.auto_merge_refused` carrying the forge's sentence where the repository does not allow it. Asked twice, the second answers the pull request as it stands.
+Allowed **while the checks run and once they have passed**: the forge then puts the pull request in its merge queue, as `gh pr merge --auto` does. A 409 `fleet.merge_checks_not_passed` where one has failed, `fleet.pull_request_is_a_draft` and `fleet.merge_not_open` as for a merge, and a 409 `fleet.auto_merge_refused` carrying the forge's sentence where the repository does not allow it. Asked twice, or of a pull request already in the queue, the second answers the pull request as it stands. `PullRequestState.queued` says it is in the queue.
 """

@@ -9,8 +9,8 @@
 use std::future::Future;
 
 use ipc::{
-    AddStep, AddedStep, AddedStepRemoved, ChooseTriggerFix, HoldAct, HoldSettled, JobId,
-    ManifestId, RemoveAddedStep, RemoveTrigger, SaveTrigger, SaveWorkflow, TriggerFixChosen,
+    AddStep, AddedStep, AddedStepRemoved, ChooseTriggerFix, EditAddedStep, HoldAct, HoldSettled,
+    JobId, ManifestId, RemoveAddedStep, RemoveTrigger, SaveTrigger, SaveWorkflow, TriggerFixChosen,
     TriggerRemoved, TriggerSaved, WorkflowSaved,
 };
 
@@ -109,4 +109,13 @@ pub trait Authoring: Send + Sync + 'static {
         job_id: JobId,
         remove: RemoveAddedStep,
     ) -> impl Future<Output = Result<AddedStepRemoved, Refusal>> + Send;
+
+    /// `edit_job_step` — change an added step's `block` and `repair` switches
+    /// **before it fires**. A 409 `fleet.added_step_fired` once its moment has
+    /// come.
+    fn edit_job_step(
+        &self,
+        job_id: JobId,
+        edit: EditAddedStep,
+    ) -> impl Future<Output = Result<AddedStep, Refusal>> + Send;
 }

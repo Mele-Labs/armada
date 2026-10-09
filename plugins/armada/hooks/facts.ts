@@ -8,7 +8,14 @@ const TITLE_MOST = 80
  * repository's. **Bump it with `version` in `.claude-plugin/plugin.json`**: the mod cannot read that
  * file while it runs, and a Fleet test (`terminal_session.rs`) holds the two equal.
  */
-export const MOD_VERSION = '0.3.2'
+export const MOD_VERSION = '0.3.3'
+
+/** The `answers` map a question's answered input carries, keyed by question text. */
+export function answersIn(input: unknown): Record<string, string> {
+  const answers = (input as { answers?: unknown } | null)?.answers
+  if (typeof answers !== 'object' || answers === null) return {}
+  return Object.fromEntries(Object.entries(answers).filter(([, said]) => typeof said === 'string')) as Record<string, string>
+}
 
 /**
  * The web pages a shell line opens in the owner's browser: `open`, `xdg-open` or

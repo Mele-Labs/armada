@@ -7,7 +7,7 @@ use core_model::{
 };
 
 use crate::tests::{job_id, open, top_level, TempDir};
-use crate::{NewAddition, Removal};
+use crate::{Edited, NewAddition, Removal};
 
 fn at(s: &str) -> Timestamp {
     Timestamp::from_rfc3339(format!("2026-10-07T09:00:{s}.000Z"))
@@ -268,5 +268,59 @@ fn a_repair_in_flight_reads_over_running_and_survives_a_reopen() {
     assert_eq!(
         back.fired.map(|fired| fired.state),
         Some(TriggerState::Passed)
+    );
+}
+
+#[test]
+fn only_an_addition_that_has_not_fired_can_have_its_switches_changed() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    store
+        .insert_job(&top_level("01EDIT"), &crate::tests::created_at())
+        .expect("stored");
+    let id = job_id("01EDIT");
+    let one = script("fmt", TriggerWhen::StepPasses, "a");
+    let waiting = store
+        .add_job_step(&id, &one, Placed::WhileRunning, &at("01"))
+        .expect("added");
+    let fired = store
+        .add_job_step(&id, &one, Placed::WhileRunning, &at("02"))
+        .expect("added");
+    store
+        .set_addition_fired(&id, &fired.id, &Fired::running(at("03")))
+        .expect("fired");
+
+    assert_eq!(
+        store
+            .edit_job_step(&id, &waiting.id, Some(true), None)
+            .unwrap(),
+        Edited::Changed
+    );
+    assert_eq!(
+        store
+            .edit_job_step(&id, &waiting.id, None, Some(false))
+            .unwrap(),
+        Edited::Changed
+    );
+    assert_eq!(
+        store
+            .edit_job_step(&id, &fired.id, Some(true), None)
+            .unwrap(),
+        Edited::Fired
+    );
+    assert_eq!(
+        store.edit_job_step(&id, "a9", Some(true), None).unwrap(),
+        Edited::NoSuch
+    );
+
+    let read = store.job_additions(&id).expect("read");
+    let (edited, untouched) = (&read[0], &read[1]);
+    assert_eq!(
+        (edited.on_failure.block, edited.on_failure.repair),
+        (true, false)
+    );
+    assert_eq!(
+        (untouched.on_failure.block, untouched.on_failure.repair),
+        (false, true)
     );
 }

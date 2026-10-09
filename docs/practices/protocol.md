@@ -3148,15 +3148,15 @@ Additive. `hub.main.checking` (`MainChecking {commit, pull_request?}`, newest fi
 
 | Operation | Carries | Notes |
 | --- | --- | --- |
-| `get_pull_request` (`GET /pull_requests/:repository/:number`) | `PullRequestState`: `state` (`draft`, `open`, `merged` or `closed`), `auto_merge`, `checks` (`pending`, `passed`, or `failed` with `failing` names), `title`, `branch`, `address` | `agent_access` `Yes`. Refreshes every Session's `pr` row for it; a merged one is settled `spent`, a closed one `given_back` |
+| `get_pull_request` (`GET /pull_requests/:repository/:number`) | `PullRequestState`: `state` (`draft`, `open`, `merged` or `closed`), `auto_merge`, `queued` (in the base branch's merge queue now), `checks` (`pending`, `passed`, or `failed` with `failing` names), `title`, `branch`, `address` | `agent_access` `Yes`. Refreshes every Session's `pr` row for it, and the pull watch does each interval for pull requests nobody opened; a merged one is settled `spent`, a closed one `given_back`, in the same write as its detail |
 | `ready_pull_request` (`POST /pull_requests/:repository/:number/ready`) | nothing | Answers `PullRequestState`. `agent_access` `Helm only`, asked as `pushes to shared` |
 | `merge_pull_request_by_number` (`POST /pull_requests/:repository/:number/merge`) | nothing | Answers `PullRequestState`. Refused with `fleet.merge_checks_not_passed` unless the checks have passed. `Helm only`, `pushes to shared` |
-| `enable_auto_merge` (`POST /pull_requests/:repository/:number/auto_merge`) | nothing | Answers `PullRequestState`. Only while the checks run. `Helm only`, `pushes to shared` |
+| `enable_auto_merge` (`POST /pull_requests/:repository/:number/auto_merge`) | nothing | Answers `PullRequestState`. While the checks run, and once they have passed, when the forge queues it. `Helm only`, `pushes to shared` |
 | `review_pull_request` (`POST /pull_request_reviews/:repository`) | `ReviewPullRequest`: `pull_request` (a number or an address), `session_id?` | Answers `ReviewDispatched {job_id, address, session_id?}`, a 201. `Helm only` |
 
 **`merge_pull_request` was taken**, and is a Job's press at its gate, so the by-number sibling is `merge_pull_request_by_number` and the two are never one route. **`origin` gains `session_dispatched`** (*From a Session, by you*); a Bridge before 23.48 shows the raw spelling on such a row, since `origin` is a string on the wire. Which Session is the ledger's: the Session holds a `job` row with `detail.origin` reading *dispatched from Session <id>*.
 
-**Refusal codes**, all 409 unless noted: `fleet.merge_checks_not_passed`, `fleet.merge_not_open`, `fleet.pull_request_is_a_draft`, `fleet.pull_request_not_a_draft`, `fleet.pull_request_checks_passed`, `fleet.ready_refused` and `fleet.auto_merge_refused` (the forge's own sentence), and the forge's merge kinds `fleet.merge_branch_protected`, `fleet.merge_conflicted`; 500 for `fleet.pull_request_unreadable`, `fleet.merge_no_tool` and `fleet.merge_refused`; 422 for `fleet.pull_request_unnamed` and `fleet.session_unknown`. No migration. Bridge's half is `packages/protocol/src/pull-requests.ts`, written by hand like the rest.
+**Refusal codes**, all 409 unless noted: `fleet.merge_checks_not_passed`, `fleet.merge_not_open`, `fleet.pull_request_is_a_draft`, `fleet.pull_request_not_a_draft`, `fleet.ready_refused` and `fleet.auto_merge_refused` (the forge's own sentence), and the forge's merge kinds `fleet.merge_branch_protected`, `fleet.merge_conflicted`; 500 for `fleet.pull_request_unreadable`, `fleet.merge_no_tool` and `fleet.merge_refused`; 422 for `fleet.pull_request_unnamed` and `fleet.session_unknown`. No migration. Bridge's half is `packages/protocol/src/pull-requests.ts`, written by hand like the rest.
 
 ## Protocol 23.49: a session Fleet hosts
 
@@ -3173,6 +3173,7 @@ Additive. `hub.main.checking` (`MainChecking {commit, pull_request?}`, newest fi
 | `get_session_subagent` (`GET /sessions/subagent?session_id=&subagent_id=`) | `SessionSubagent`: the subagent's own `rows`, `finished`, and its `report` once it has | Read again while it runs; 422 where the session has no such subagent transcript |
 | `get_session_file` (`GET /sessions/file?session_id=&file=`) | The bytes, under the media type they were sent as | `file` is a `SentFile.id` |
 | `gate_session_call` (`POST /sessions/gate`) | `SessionGate`, answered in the harness's own hook shape | **Reached by the harness, never by a client** |
+| `ask_from_terminal` (`POST /sessions/ask/terminal`) | `TerminalAsk`: `asks` with the question's input, held open and answered with `TerminalAsked` (`answered` with the input and its `answers`, `refused`, or `gone`); `settled` where the terminal's own prompt ended first | **Reached by the session's mod, never by a client.** Writes the same `ask` row a hosted session's question does |
 | `take_held_messages` (`POST /sessions/held`) | `TakeHeld`, answered with `MessagesHeld`: what a person sent a terminal session, once | **Reached by the session's mod, never by a client.** Since 23.53 |
 | `session.row` (event) | `SessionRowChanged`: `session_id`, `row` | Appends, or replaces the row with that `id` |
 
@@ -3421,7 +3422,7 @@ Bridge's half is in `packages/protocol/src/helm-calls.ts` and `hosted-sessions.t
 
 | Where | Carries | Notes |
 | --- | --- | --- |
-| `enable_job_auto_merge` (`POST /jobs/:job_id/auto_merge`) | no body | Answers the `PullRequestState` the forge shows afterwards. Records the ask on the Job; the Job stays at `awaiting_review`. 409 off the gate, once the checks have passed (`fleet.pull_request_checks_passed`) or failed (`fleet.merge_checks_not_passed`), and with the forge's words where it refused. `Helm only` |
+| `enable_job_auto_merge` (`POST /jobs/:job_id/auto_merge`) | no body | Answers the `PullRequestState` the forge shows afterwards. Records the ask on the Job; the Job stays at `awaiting_review`. 409 off the gate, once the checks have failed (`fleet.merge_checks_not_passed`), and with the forge's words where it refused. `Helm only` |
 | the sweep | nothing on the wire | A Job at its gate whose pull request is found merged, and whose ask is recorded, is taken as `approve_review` takes it, actor `fleet`. Any other merge is recorded and left |
 
 `Outcome.pullRequest` is Bridge's own and not on the wire: the `PullRequestState` main carries back from `enable_job_auto_merge`, which the gate draws as Auto-merge on.

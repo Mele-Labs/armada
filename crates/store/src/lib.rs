@@ -193,7 +193,7 @@ mod additions;
 /// The Triggers frozen onto a Job at approval, and every firing of one.
 mod triggers;
 
-pub use additions::{NewAddition, Removal};
+pub use additions::{Edited, NewAddition, Removal};
 pub use asked_runs::{AskedRun, AskedRunBegun, AskedState};
 pub use asking::OpenJudgeQuestion;
 pub use attempt::Attempted;

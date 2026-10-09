@@ -50,6 +50,7 @@ import type { ManifestChecksRead } from "@armada/protocol";
 import type { RepositoryAllowedCommandsRead } from "@armada/screens/src/manifest-allows";
 import type { KitAllowedCommandsRead, KitInventoryRead, KitServersRead } from "@armada/screens/src/manifest-kit";
 import type {
+  AlertsRead,
   ReadingTrigger,
   RemovingTrigger,
   SavingTrigger,
@@ -58,7 +59,7 @@ import type {
   TriggerSaveAnswer,
   TriggersRead,
 } from "../shared/triggers";
-import type { AddingStep, AddStepAnswer, RemovingStep, RemoveStepAnswer } from "../shared/added-steps";
+import type { AddingStep, AddStepAnswer, EditingStep, EditStepAnswer, ReadingRepairDiff, RemovingStep, RemoveStepAnswer, RepairDiffAnswer } from "../shared/added-steps";
 import type { SavingWorkflow, WorkflowDefinitionRead, WorkflowSaveAnswer, WorkflowsRead } from "../shared/workflows";
 import type { AddKitServer, ManifestReach, ReachesDrones } from "@armada/protocol";
 import type { LocateAnswer } from "@armada/screens/src/locate-reads";
@@ -483,6 +484,7 @@ const api: BridgeApi = {
     ipcRenderer.invoke(CHANNELS.saveWorkflow, saving),
 
   readTriggers: (): Promise<TriggersRead> => ipcRenderer.invoke(CHANNELS.readTriggers),
+  readAlerts: (): Promise<AlertsRead> => ipcRenderer.invoke(CHANNELS.readAlerts),
   readTrigger: (reading: ReadingTrigger): Promise<TriggerDefinitionRead> =>
     ipcRenderer.invoke(CHANNELS.readTrigger, reading),
   saveTrigger: (saving: SavingTrigger): Promise<TriggerSaveAnswer> =>
@@ -497,6 +499,8 @@ const api: BridgeApi = {
   addJobStep: (adding: AddingStep): Promise<AddStepAnswer> => ipcRenderer.invoke(CHANNELS.addJobStep, adding),
   removeJobStep: (removing: RemovingStep): Promise<RemoveStepAnswer> =>
     ipcRenderer.invoke(CHANNELS.removeJobStep, removing),
+  editJobStep: (editing: EditingStep): Promise<EditStepAnswer> => ipcRenderer.invoke(CHANNELS.editJobStep, editing),
+  readRepairDiff: (reading: ReadingRepairDiff): Promise<RepairDiffAnswer> => ipcRenderer.invoke(CHANNELS.readRepairDiff, reading),
 
   // Start a declared server, for this Job's worktree or, with no Job, the
   // main checkout — the capability the Manifest surface shares, which is why

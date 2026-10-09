@@ -455,6 +455,15 @@ pub trait Queries: Send + Sync + 'static {
     /// [`Refusal::Fault`], never an empty patch.
     fn get_diff(&self, job_id: JobId) -> impl Future<Output = Result<JobDiff, Refusal>> + Send;
 
+    /// `get_repair_diff` — what a repair or side-run fix changes, against the
+    /// Job's branch, in `get_diff`'s shape. A 422 `fleet.no_repair_branch`
+    /// where the Trigger or added step has no repair branch.
+    fn get_repair_diff(
+        &self,
+        job_id: JobId,
+        of: ipc::RepairOf,
+    ) -> impl Future<Output = Result<JobDiff, Refusal>> + Send;
+
     /// `get_job_resources` — what this Job holds on this machine: the
     /// processes it owns, what each is burning, the disk its worktree has
     /// taken, and when anything was last written to its own log.

@@ -139,8 +139,9 @@ import type {
   WorkflowSaveAnswer,
   WorkflowsRead,
 } from "./workflows";
-import type { AddingStep, AddStepAnswer, RemovingStep, RemoveStepAnswer } from "./added-steps";
+import type { AddingStep, AddStepAnswer, EditingStep, EditStepAnswer, ReadingRepairDiff, RemovingStep, RemoveStepAnswer, RepairDiffAnswer } from "./added-steps";
 import type {
+  AlertsRead,
   ReadingTrigger,
   RemovingTrigger,
   SavingTrigger,
@@ -335,6 +336,7 @@ type OldBridgeApi = {
     readWorkflowDefinition: (workflowId: string, source: string) => Promise<WorkflowDefinitionRead>;
     saveWorkflow: (saving: SavingWorkflow) => Promise<WorkflowSaveAnswer>;
     readTriggers: () => Promise<TriggersRead>;
+    readAlerts: () => Promise<AlertsRead>;
     readTrigger: (reading: ReadingTrigger) => Promise<TriggerDefinitionRead>;
     saveTrigger: (saving: SavingTrigger) => Promise<TriggerSaveAnswer>;
     removeTrigger: (removing: RemovingTrigger) => Promise<TriggerRemoveAnswer>;
@@ -343,6 +345,8 @@ type OldBridgeApi = {
     skipTrigger: (jobId: string, body: HoldAct) => Promise<Outcome>;
     addJobStep: (adding: AddingStep) => Promise<AddStepAnswer>;
     removeJobStep: (removing: RemovingStep) => Promise<RemoveStepAnswer>;
+    editJobStep: (editing: EditingStep) => Promise<EditStepAnswer>;
+    readRepairDiff: (reading: ReadingRepairDiff) => Promise<RepairDiffAnswer>;
     pickRepository: (root: string | null) => Promise<void>;
     chooseFolder: () => Promise<string | null>;
     resolveFolder: (path: string) => Promise<string | null>;
@@ -597,6 +601,7 @@ const OLD_CHANNELS = {
     readWorkflowDefinition: "bridge:read-workflow-definition",
     saveWorkflow: "bridge:save-workflow",
     readTriggers: "bridge:read-triggers",
+    readAlerts: "bridge:read-alerts",
     readTrigger: "bridge:read-trigger",
     saveTrigger: "bridge:save-trigger",
     removeTrigger: "bridge:remove-trigger",
@@ -605,6 +610,8 @@ const OLD_CHANNELS = {
     skipTrigger: "bridge:skip-trigger",
     addJobStep: "bridge:add-job-step",
     removeJobStep: "bridge:remove-job-step",
+    editJobStep: "bridge:edit-job-step",
+    readRepairDiff: "bridge:read-repair-diff",
     pickRepository: "bridge:pick-repository",
     chooseFolder: "bridge:choose-folder",
     resolveFolder: "bridge:resolve-folder",

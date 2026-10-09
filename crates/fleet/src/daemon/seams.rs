@@ -187,6 +187,9 @@ where
     pub(crate) fn heals(&self) -> &std::sync::Mutex<crate::healing::Heals> {
         &self.heals
     }
+    pub(crate) fn owner_runs(&self) -> &std::sync::Mutex<std::collections::BTreeSet<i64>> {
+        &self.owner_runs
+    }
     pub(crate) fn trigger_repairs(&self) -> &std::sync::Mutex<crate::trigger_repair::Queue> {
         &self.trigger_repairs
     }

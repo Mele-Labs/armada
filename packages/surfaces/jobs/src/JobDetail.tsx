@@ -10,7 +10,7 @@
 // `tab-workflow.tsx`, `tab-plan.tsx`, `tab-record.tsx`, `tab-drones.tsx`,
 // `tab-pulse.tsx`, `tab-settings.tsx`.
 
-import { JobDetailHeaderActions, TriggerAlertMark, triggerAlert, type JobResourcesProps } from "@armada/components";
+import { JobDetailHeaderActions, RepairFileContext, TriggerAlertMark, triggerAlert, type JobResourcesProps } from "@armada/components";
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { useAtFloor, useNarrow } from "@armada/shell";
 
@@ -55,6 +55,7 @@ import { PulseTab } from "./tab-pulse";
 import { checkRowOf, RecordTab, type CheckAt } from "./tab-record";
 import { JobCheckLogSheet, type JobCheckLog } from "./check-log-sheet";
 import { TriggerLogSheet } from "./trigger-log-sheet";
+import { RepairDiffSheet, type RepairFileOpen } from "./repair-diff-sheet";
 import { useCheckOutputs, useFollowing } from "./outputs";
 
 /** What `followed` reads as where the caller hands none in. `tab-overview.tsx`'s own. */
@@ -259,6 +260,13 @@ function OneJob(props: JobDetailProps) {
   const [checkLog, setCheckLog] = useState<JobCheckLog | null>(null);
   // The Trigger whose line in the Job's log is open.
   const [triggerLog, setTriggerLog] = useState<JobTrigger | null>(null);
+  // The file of a fix open in its diff.
+  const [repairFile, setRepairFile] = useState<RepairFileOpen | null>(null);
+  useEffect(() => setRepairFile(null), [job.id]);
+  const openRepairFile = useMemo(
+    () => (props.onReadRepairDiff === undefined ? undefined : (trigger: RepairFileOpen["trigger"], path: string) => setRepairFile({ trigger, path })),
+    [props.onReadRepairDiff],
+  );
   // Whether this Job's retro is open over the Record. `docs/concepts/retro.md`.
   const [retroOpen, setRetroOpen] = useState(false);
   useEffect(() => setCheckLog(null), [job.id]);
@@ -397,6 +405,7 @@ function OneJob(props: JobDetailProps) {
       : undefined;
 
   return (
+    <RepairFileContext.Provider value={openRepairFile}>
     <div className="armada-screen__detail" ref={screen} {...{ [OPEN_JOB_ATTRIBUTE]: job.id }}>
       <JobDetailHeaderActions
         {...heading}
@@ -787,6 +796,9 @@ function OneJob(props: JobDetailProps) {
           onClose={() => setCheckLog(null)}
         />
       )}
+      {repairFile === null || props.onReadRepairDiff === undefined ? null : (
+        <RepairDiffSheet jobId={job.id} open={repairFile} read={props.onReadRepairDiff} floor={floor} onClose={() => setRepairFile(null)} />
+      )}
       {triggerLog === null ? null : (
         <TriggerLogSheet trigger={triggerLog} jobId={job.id} journalled={props.journalled} floor={floor} onClose={() => setTriggerLog(null)} />
       )}
@@ -803,6 +815,7 @@ function OneJob(props: JobDetailProps) {
         />
       ) : null}
     </div>
+    </RepairFileContext.Provider>
   );
 }
 

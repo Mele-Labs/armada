@@ -141,6 +141,14 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             "/jobs/:job_id/remove_job_step",
             post(crate::added_steps::remove_job_step::<D>),
         )
+        .route(
+            "/jobs/:job_id/edit_job_step",
+            post(crate::added_steps::edit_job_step::<D>),
+        )
+        .route(
+            "/jobs/:job_id/repair_diff",
+            get(crate::added_steps::get_repair_diff::<D>),
+        )
         .route("/triggers", get(crate::repositories::list_triggers::<D>))
         .route(
             "/triggers/definition",
@@ -235,6 +243,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route(
             "/sessions/gate",
             post(crate::hosted_sessions::gate_session_call::<D>),
+        )
+        .route(
+            "/sessions/ask/terminal",
+            post(crate::hosted_sessions::ask_from_terminal::<D>),
         )
         .route(
             "/sessions/held",

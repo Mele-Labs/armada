@@ -149,7 +149,9 @@ where
 
     async fn answer_session_ask(&self, said: AnswerSessionAsk) -> Result<SessionRecord, Refusal> {
         let id = said.session_id.as_str().to_string();
-        self.session_and_hosting(&id).await?;
+        if self.terminal_session(&id).await?.is_none() {
+            self.session_and_hosting(&id).await?;
+        }
         let held = self
             .hosts()
             .of(&id)
@@ -261,7 +263,11 @@ where
 
     async fn get_session(self: Arc<Self>, id: SessionId) -> Result<SessionThread, Refusal> {
         if let Some(session) = self.terminal_session(id.as_str()).await? {
-            let rows = self.terminal_thread(&session).await?;
+            let mut rows = self.terminal_thread(&session).await?;
+            // The question its terminal is showing, while Bridge may still answer it.
+            rows.extend(self.rows_of(id.as_str()).await?.into_iter().filter(|row| {
+                matches!(row, SessionRow::Ask { state: ipc::SessionAskState::Waiting, .. })
+            }));
             let record = {
                 let store = self.store().lock().await;
                 self.ledger_row(&store, &session)?
@@ -368,6 +374,23 @@ where
         self.held_for(ask).await
     }
 
+    async fn ask_from_terminal(&self, ask: ipc::TerminalAsk) -> Result<ipc::TerminalAsked, Refusal> {
+        match ask {
+            ipc::TerminalAsk::Asks { session_id, input } => {
+                let asking = ipc::AskingToRun {
+                    tool_name: String::from(ipc::ASKS_A_QUESTION),
+                    input,
+                    tool_use_id: None,
+                };
+                self.terminal_question(&session_id, asking).await
+            }
+            ipc::TerminalAsk::Settled {
+                session_id,
+                answered,
+            } => self.terminal_question_settled(&session_id, answered).await,
+        }
+    }
+
     async fn gate_session_call(&self, gate: SessionGate) -> Result<GateAnswer, Refusal> {
         Ok(self.gated(gate).await)
     }
@@ -422,7 +445,7 @@ where
 
     /// The ledger's row for `id` where a person runs it in a terminal and Fleet
     /// hosts nothing of it.
-    async fn terminal_session(&self, id: &str) -> Result<Option<KeptSession>, Refusal> {
+    pub(crate) async fn terminal_session(&self, id: &str) -> Result<Option<KeptSession>, Refusal> {
         let store = self.store().lock().await;
         let found = store.session(id).map_err(|why| self.ledger_fault(why))?;
         let hosted = store.hosting(id).map_err(|why| self.ledger_fault(why))?;

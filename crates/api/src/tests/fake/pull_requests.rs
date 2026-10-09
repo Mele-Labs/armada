@@ -17,6 +17,7 @@ fn open(manifest_id: ManifestId, number: u64) -> PullRequestState {
         number,
         state: PullRequestStanding::Open,
         auto_merge: false,
+        queued: false,
         checks: ForgeChecks::Passed,
         title: "A pull request".into(),
         branch: "a/branch".into(),

@@ -12,12 +12,16 @@ use crate::ids::StepId;
 use crate::triggers::{TriggerFiringState, TriggerMoment};
 
 /// Why a Job's row carries the bell. **One reason, the most pressing**: a hold
-/// before a fix waiting on a choice before a failure nobody can repair.
+/// before a destructive Command asking to run before a fix waiting on a choice
+/// before a failure nobody can repair.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum JobAlertKind {
     /// A Trigger that blocks failed, and the Job waits on the owner.
     Held,
+    /// A Trigger on a destructive Command waits on the owner's `rerun_trigger`
+    /// (run it once) or `skip_trigger`. With `block` on it holds the Job too.
+    Asks,
     /// A repair's fix passes and waits on the owner's `choose_trigger_fix`.
     FixReady,
     /// A Trigger failed after its repair tries, and nothing waits on it.
@@ -52,7 +56,9 @@ pub struct HoldAct {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct HoldSettled {
     /// Where the firing stands: `passed` for a rerun that passed, `skipped` for
-    /// a skip, `held` for a rerun that failed again.
+    /// a skip, `held` for a rerun that failed again. A Run on a destructive
+    /// Command that asks ends as any firing does: `passed`, `held` where it
+    /// blocks, `repairing` where it repairs, otherwise `failed`.
     pub state: TriggerFiringState,
     /// Whether the Job holds nothing now. False where a rerun failed again, and
     /// where another Trigger still holds it.

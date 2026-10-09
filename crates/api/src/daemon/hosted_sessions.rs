@@ -82,6 +82,13 @@ pub trait HostedSessions: Send + Sync + 'static {
         gate: SessionGate,
     ) -> impl Future<Output = Result<GateAnswer, Refusal>> + Send;
 
+    /// `ask_from_terminal`: a terminal session's question put to Bridge, or the
+    /// terminal's own prompt having ended first.
+    fn ask_from_terminal(
+        &self,
+        ask: ipc::TerminalAsk,
+    ) -> impl Future<Output = Result<ipc::TerminalAsked, Refusal>> + Send;
+
     /// `take_held_messages`: what a person sent a terminal session, handed to
     /// its mod once. **Every ask also says the session is listening.**
     fn take_held_messages(

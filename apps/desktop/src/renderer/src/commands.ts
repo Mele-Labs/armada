@@ -256,7 +256,7 @@ export const readWorkflows = () => window.armada.readWorkflows();
 export const readWorkflowDefinition = (workflowId: string, source: string) =>
   window.armada.readWorkflowDefinition(workflowId, source);
 export const saveWorkflow = (saving: SavingWorkflow) => window.armada.saveWorkflow(saving);
-export { readTriggers, readTrigger, saveTrigger, removeTrigger } from "./trigger-commands";
+export { readAlerts, readTriggers, readTrigger, saveTrigger, removeTrigger } from "./trigger-commands";
 export const addKitServer = (adding: AddKitServer) => window.armada.addKitServer(adding);
 export const forgetKitServer = (name: string) => window.armada.forgetKitServer(name);
 export const setKitServerReach = (name: string, drones: ReachesDrones) =>

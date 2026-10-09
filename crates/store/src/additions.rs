@@ -33,6 +33,16 @@ pub enum Removal {
     Fired,
 }
 
+/// What changing an addition's switches came to.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Edited {
+    Changed,
+    /// The Job holds no such addition, or it was removed.
+    NoSuch,
+    /// Its moment has come, so it is part of what the Job did.
+    Fired,
+}
+
 fn unknown(column: &'static str, value: String) -> LoadJobError {
     LoadJobError::Unreadable(RowError::UnknownEnumValue {
         table: "job_additions",
@@ -521,6 +531,45 @@ impl Store {
         Ok(match held {
             0 => Removal::NoSuch,
             _ => Removal::Fired,
+        })
+    }
+
+    /// Change the switches of an addition **that has not fired**; a switch left
+    /// `None` is left as it is.
+    pub fn edit_job_step(
+        &mut self,
+        job_id: &JobId,
+        addition_id: &str,
+        block: Option<bool>,
+        repair: Option<bool>,
+    ) -> Result<Edited, WriteError> {
+        let changed = self
+            .conn
+            .execute(
+                "UPDATE job_additions
+                 SET block_on_fail = COALESCE(?3, block_on_fail),
+                     repair_on_fail = COALESCE(?4, repair_on_fail)
+                 WHERE job_id = ?1 AND addition_id = ?2 AND removed_at IS NULL AND state IS NULL",
+                (job_id.as_str(), addition_id, block, repair),
+            )
+            .map_err(fault("changing the switches of a step added to a job"))
+            .map_err(WriteError::Database)?;
+        if changed > 0 {
+            return Ok(Edited::Changed);
+        }
+        let held: i64 = self
+            .conn
+            .query_row(
+                "SELECT COUNT(*) FROM job_additions
+                 WHERE job_id = ?1 AND addition_id = ?2 AND removed_at IS NULL",
+                (job_id.as_str(), addition_id),
+                |row| row.get(0),
+            )
+            .map_err(fault("changing the switches of a step added to a job"))
+            .map_err(WriteError::Database)?;
+        Ok(match held {
+            0 => Edited::NoSuch,
+            _ => Edited::Fired,
         })
     }
 }

@@ -528,6 +528,10 @@ where
         })
     }
 
+    async fn get_repair_diff(&self, job_id: JobId, of: ipc::RepairOf) -> Result<JobDiff, Refusal> {
+        self.repair_diff(job_id, of).await
+    }
+
     /// One tool call's arguments, read back out of the Job's transcripts.
     ///
     /// **The other end of a row that was cut.** A `called` row on the socket

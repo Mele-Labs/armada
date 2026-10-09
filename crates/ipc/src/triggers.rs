@@ -53,7 +53,7 @@ pub enum TriggerRuns {
     Command { name: String },
     /// A skill a side Drone runs, on a branch of its own.
     Skill { name: String },
-    /// A Drone sent with this prompt, on a branch of its own. 
+    /// A Drone sent with this prompt, on a branch of its own.
     Drone { brief: String },
 }
 
@@ -237,7 +237,7 @@ pub enum TriggerFiringState {
     Running,
     Passed,
     Failed,
-    /// A destructive Command, held for the owner. **Nothing asks him yet.**
+    /// A destructive Command, held for the owner, who answers Run (`rerun_trigger`) or Skip (`skip_trigger`).
     AwaitingOwner,
     /// Failed with `repair` on, and a repair Drone is working on a branch of
     /// its own. Since 23.68.
@@ -294,6 +294,18 @@ pub struct TriggerRepair {
     /// For `new_pr`, once it is open.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pull_request: Option<TriggerPullRequest>,
+}
+
+/// `get_repair_diff`'s query string: which Trigger or added step's fix to read.
+/// **Exactly one** of the two is set, as `ChooseTriggerFix`'s.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RepairOf {
+    /// The Trigger's name. The latest firing of it that has a repair branch.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub trigger: Option<String>,
+    /// An added step's id.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub addition: Option<String>,
 }
 
 /// `choose_trigger_fix`'s body: which of a Job's Triggers or added steps holds

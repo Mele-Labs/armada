@@ -763,6 +763,17 @@ export function OverviewTab(props: OverviewTabProps) {
         ...(lead.fix === undefined
           ? {}
           : { fix: { ...lead.fix, ...(openFix === undefined ? {} : { onOpen: openFix }) } }),
+        // One row for each Job Fleet lists as waiting on a Trigger, opened at the step it fired at.
+        ...(props.alerts === undefined || props.alerts.length === 0
+          ? {}
+          : {
+              alerts: props.alerts.map((one) => ({
+                ...one,
+                ...(props.onOpenAlert === undefined
+                  ? {}
+                  : { onOpen: () => props.onOpenAlert?.(one.job, { tab: "workflow", ...(one.alert.step === "" ? {} : { step: one.alert.step }) }) }),
+              })),
+            }),
         // Each Job parked on this one's fix, by the wire's title or the
         // Board's, and a press that opens it. #1673.
         ...(lead.parkedOnIt === undefined

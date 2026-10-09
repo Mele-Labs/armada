@@ -31,11 +31,11 @@ const HELD_ROW: JobTrigger = {
   blocks: true,
 };
 
-/** Job 2's Triggers, with `deploy_qa` holding the Job. */
-export const JOB_2_HELD: JobTrigger[] = JOB_2_TRIGGERS.map((one) => (one.name === HELD ? HELD_ROW : one));
+/** Job 2's Triggers, with `deploy_qa` holding the Job. `wipe_qa` is left out: a Trigger asking him would ring the Job's bell on its own. */
+export const JOB_2_HELD: JobTrigger[] = JOB_2_TRIGGERS.filter((one) => one.state !== "awaiting_owner").map((one) => (one.name === HELD ? HELD_ROW : one));
 
 /** The fixture with the row's alert, and the detail's, put on. */
-function alerted(fixture: JobFixture, alert: JobAlert | undefined): JobFixture {
+export function alerted(fixture: JobFixture, alert: JobAlert | undefined): JobFixture {
   const { alert: _was, ...job } = fixture.job;
   const row = alert === undefined ? job : { ...job, alert };
   if (fixture.watched.state !== "read") return { ...fixture, job: row };
