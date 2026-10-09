@@ -1,0 +1,13 @@
+export type Rgb = number[];
+export type Scheme = { palette: Rgb[]; background: Rgb; foreground: Rgb };
+export function parseHex(hex: string): Rgb;
+export function toHex(c: Rgb): string;
+export function luminance(c: Rgb): number;
+export function contrast(a: Rgb, b: Rgb): number;
+export function mix(a: Rgb, b: Rgb, t: number): Rgb;
+export function parseScheme(text: string): Scheme;
+export function toneOf(scheme: Scheme): "dark" | "light";
+export function derive(id: string, title: string, scheme: Scheme): { css: string; tone: "dark" | "light"; flags: string[]; adjusted: string[] };
+export function slugOf(name: string): string;
+export function idOf(name: string): string;
+export function titleOf(name: string): string;

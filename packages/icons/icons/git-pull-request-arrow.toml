@@ -1,0 +1,7 @@
+[icons.git-pull-request-arrow]
+  means = "A branch going to a pull request"
+  group = "Mods"
+  size = "16px"
+  status = "Specified"
+  reserved = "Promote: a mod becomes a branch and a pull request. Not the pull request itself, which is `git-pull-request`."
+  notes = "Tooltip `Promote <mod> to a branch and pull request`. Walked by the owner in the Mods mock."

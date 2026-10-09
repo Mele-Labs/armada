@@ -1,0 +1,51 @@
+/* Derived from the Kanagawa Lotus terminal scheme by packages/tokens/themes/generate.mjs. Do not hand-edit.
+   Tone light. foreground 5.7:1, accent 5.6:1 at the worst ground.
+   Lightness moved to reach 4.5:1: failed, success, review, running, escalated, rejected, not-started, killed, handed-in. */
+[data-theme="catalogue:kanagawa-lotus"] {
+  color-scheme: light;
+  /* Ground */
+  --bg-base: #F2ECBC;
+  --bg-sunken: #ECE6B9;
+  --bg-raised: #FCFAEF;
+  --bg-overlay: #FCFAEF;
+  --bg-hover: #E9E3B7;
+  --border-subtle: #E6E1B6;
+  --border-default: #DAD5B0;
+  --border-strong: #C3BFA3;
+  /* Foreground and accent */
+  --fg-default: #545464;
+  --fg-muted: #62626D;
+  --fg-subtle: #64636E;
+  --fg-inverse: #FFFFFF;
+  --accent: #624C83;
+  --accent-hover: #604D7E;
+  --accent-muted: #D9D1B5;
+  /* Depth */
+  --bg-glass: rgb(252 250 239 / 0.86);
+  --bg-glass-end: rgb(242 236 188 / 0.86);
+  --border-glass: rgb(84 84 100 / 0.08);
+  --border-highlight: rgb(255 255 255 / 0.6);
+  --shadow-overlay: 0 8px 24px -6px rgb(15 23 42 / 0.18), 0 2px 6px -2px rgb(15 23 42 / 0.12);
+  --shadow-card: 0 1px 2px rgb(15 23 42 / 0.08), 0 12px 28px -16px rgb(15 23 42 / 0.25);
+  --scrim: color-mix(in srgb, var(--fg-default) 40%, transparent);
+  /* Status */
+  --status-not-started: #5C5A4D;
+  --status-running: #3F5A8B;
+  --status-awaiting-review: #615B29;
+  --status-escalated: #874530;
+  --status-completed-success: #4A6228;
+  --status-completed-failed: #A81E3A;
+  --status-rejected: #913C5B;
+  --status-killed: #595851;
+  --status-handed-in: #405D5C;
+  /* Helm, tools, diff */
+  --helm: #7A4670;
+  --tool-look: #496B65;
+  --tool-change: #9C4665;
+  --tool-run: #6B6433;
+  --diff-add-bg: #E0DEAD;
+  --diff-add-fg: #4E662C;
+  --diff-del-bg: #ECD4AD;
+  --diff-del-fg: #B02840;
+  --diff-context: #62626D;
+}

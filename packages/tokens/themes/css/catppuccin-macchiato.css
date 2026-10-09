@@ -1,0 +1,48 @@
+/* Derived from the Catppuccin Macchiato terminal scheme by packages/tokens/themes/generate.mjs. Do not hand-edit.
+   Tone dark. foreground 7.9:1, accent 6.8:1 at the worst ground.
+   Lightness moved to reach 4.5:1: failed, running, not-started, killed. */
+[data-theme="catalogue:catppuccin-macchiato"] {
+  color-scheme: dark;
+  /* Ground */
+  --bg-base: #24273A;
+  --bg-sunken: #0F111C;
+  --bg-raised: #2A2D41;
+  --bg-overlay: #2F3246;
+  --bg-hover: #33374B;
+  --border-subtle: #32364A;
+  --border-default: #3D4156;
+  --border-strong: #4C5168;
+  /* Foreground and accent */
+  --fg-default: #CAD3F5;
+  --fg-muted: #9BA2C0;
+  --fg-subtle: #99A0BE;
+  --fg-inverse: #000000;
+  --accent: #ADC5F7;
+  --accent-hover: #B1C7F7;
+  --accent-muted: #3F465F;
+  /* Depth */
+  --bg-glass: rgb(42 45 65 / 0.86);
+  --bg-glass-end: rgb(36 39 58 / 0.86);
+  --border-glass: rgb(255 255 255 / 0.07);
+  --border-highlight: rgb(255 255 255 / 0.05);
+  /* Status */
+  --status-not-started: #ADB4D0;
+  --status-running: #92B5FD;
+  --status-awaiting-review: #EED49F;
+  --status-escalated: #EFAE9B;
+  --status-completed-success: #A6DA95;
+  --status-completed-failed: #FD96A5;
+  --status-rejected: #F5BDE6;
+  --status-killed: #ADB4D1;
+  --status-handed-in: #9AC9CD;
+  /* Helm, tools, diff */
+  --helm: #D3C2EF;
+  --tool-look: #8BD5CA;
+  --tool-change: #F5BDE6;
+  --tool-run: #EED49F;
+  --diff-add-bg: #394449;
+  --diff-add-fg: #A6DA95;
+  --diff-del-bg: #443649;
+  --diff-del-fg: #ED8796;
+  --diff-context: #9BA2C0;
+}

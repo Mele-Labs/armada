@@ -1,0 +1,296 @@
+[
+  {
+    "id": "catalogue:atom-one-dark",
+    "title": "Atom One Dark",
+    "tone": "dark",
+    "source": "Atom One Dark",
+    "flags": []
+  },
+  {
+    "id": "catalogue:atom-one-light",
+    "title": "Atom One Light",
+    "tone": "light",
+    "source": "Atom One Light",
+    "flags": []
+  },
+  {
+    "id": "catalogue:ayu-light",
+    "title": "Ayu Light",
+    "tone": "light",
+    "source": "Ayu Light",
+    "flags": []
+  },
+  {
+    "id": "catalogue:ayu-mirage",
+    "title": "Ayu Mirage",
+    "tone": "dark",
+    "source": "Ayu Mirage",
+    "flags": []
+  },
+  {
+    "id": "catalogue:carbonfox",
+    "title": "Carbonfox",
+    "tone": "dark",
+    "source": "Carbonfox",
+    "flags": []
+  },
+  {
+    "id": "catalogue:catppuccin-frappe",
+    "title": "Catppuccin Frappe",
+    "tone": "dark",
+    "source": "Catppuccin Frappe",
+    "flags": []
+  },
+  {
+    "id": "catalogue:catppuccin-latte",
+    "title": "Catppuccin Latte",
+    "tone": "light",
+    "source": "Catppuccin Latte",
+    "flags": []
+  },
+  {
+    "id": "catalogue:catppuccin-macchiato",
+    "title": "Catppuccin Macchiato",
+    "tone": "dark",
+    "source": "Catppuccin Macchiato",
+    "flags": []
+  },
+  {
+    "id": "catalogue:catppuccin-mocha",
+    "title": "Catppuccin Mocha",
+    "tone": "dark",
+    "source": "Catppuccin Mocha",
+    "flags": []
+  },
+  {
+    "id": "catalogue:dayfox",
+    "title": "Dayfox",
+    "tone": "light",
+    "source": "Dayfox",
+    "flags": []
+  },
+  {
+    "id": "catalogue:dracula",
+    "title": "Dracula",
+    "tone": "dark",
+    "source": "Dracula+",
+    "flags": []
+  },
+  {
+    "id": "catalogue:everforest-dark-hard",
+    "title": "Everforest Dark Hard",
+    "tone": "dark",
+    "source": "Everforest Dark Hard",
+    "flags": []
+  },
+  {
+    "id": "catalogue:everforest-light-med",
+    "title": "Everforest Light Med",
+    "tone": "light",
+    "source": "Everforest Light Med",
+    "flags": []
+  },
+  {
+    "id": "catalogue:flexoki-dark",
+    "title": "Flexoki Dark",
+    "tone": "dark",
+    "source": "Flexoki Dark",
+    "flags": []
+  },
+  {
+    "id": "catalogue:flexoki-light",
+    "title": "Flexoki Light",
+    "tone": "light",
+    "source": "Flexoki Light",
+    "flags": []
+  },
+  {
+    "id": "catalogue:github-dark-default",
+    "title": "GitHub Dark Default",
+    "tone": "dark",
+    "source": "GitHub Dark Default",
+    "flags": []
+  },
+  {
+    "id": "catalogue:github-light-default",
+    "title": "GitHub Light Default",
+    "tone": "light",
+    "source": "GitHub Light Default",
+    "flags": []
+  },
+  {
+    "id": "catalogue:gruvbox-dark",
+    "title": "Gruvbox Dark",
+    "tone": "dark",
+    "source": "Gruvbox Dark",
+    "flags": []
+  },
+  {
+    "id": "catalogue:gruvbox-dark-hard",
+    "title": "Gruvbox Dark Hard",
+    "tone": "dark",
+    "source": "Gruvbox Dark Hard",
+    "flags": []
+  },
+  {
+    "id": "catalogue:gruvbox-light",
+    "title": "Gruvbox Light",
+    "tone": "light",
+    "source": "Gruvbox Light",
+    "flags": []
+  },
+  {
+    "id": "catalogue:horizon",
+    "title": "Horizon",
+    "tone": "dark",
+    "source": "Horizon",
+    "flags": []
+  },
+  {
+    "id": "catalogue:kanagawa-dragon",
+    "title": "Kanagawa Dragon",
+    "tone": "dark",
+    "source": "Kanagawa Dragon",
+    "flags": []
+  },
+  {
+    "id": "catalogue:kanagawa-lotus",
+    "title": "Kanagawa Lotus",
+    "tone": "light",
+    "source": "Kanagawa Lotus",
+    "flags": []
+  },
+  {
+    "id": "catalogue:kanagawa-wave",
+    "title": "Kanagawa Wave",
+    "tone": "dark",
+    "source": "Kanagawa Wave",
+    "flags": []
+  },
+  {
+    "id": "catalogue:light-owl",
+    "title": "Light Owl",
+    "tone": "light",
+    "source": "Light Owl",
+    "flags": []
+  },
+  {
+    "id": "catalogue:material",
+    "title": "Material",
+    "tone": "light",
+    "source": "Material",
+    "flags": []
+  },
+  {
+    "id": "catalogue:material-ocean",
+    "title": "Material Ocean",
+    "tone": "dark",
+    "source": "Material Ocean",
+    "flags": []
+  },
+  {
+    "id": "catalogue:night-owl",
+    "title": "Night Owl",
+    "tone": "dark",
+    "source": "Night Owl",
+    "flags": []
+  },
+  {
+    "id": "catalogue:nightfox",
+    "title": "Nightfox",
+    "tone": "dark",
+    "source": "Nightfox",
+    "flags": []
+  },
+  {
+    "id": "catalogue:nord",
+    "title": "Nord",
+    "tone": "dark",
+    "source": "Nord",
+    "flags": []
+  },
+  {
+    "id": "catalogue:nord-light",
+    "title": "Nord Light",
+    "tone": "light",
+    "source": "Nord Light",
+    "flags": []
+  },
+  {
+    "id": "catalogue:one-half-dark",
+    "title": "One Half Dark",
+    "tone": "dark",
+    "source": "One Half Dark",
+    "flags": []
+  },
+  {
+    "id": "catalogue:one-half-light",
+    "title": "One Half Light",
+    "tone": "light",
+    "source": "One Half Light",
+    "flags": []
+  },
+  {
+    "id": "catalogue:oxocarbon",
+    "title": "Oxocarbon",
+    "tone": "dark",
+    "source": "Oxocarbon",
+    "flags": []
+  },
+  {
+    "id": "catalogue:rose-pine",
+    "title": "Rosé Pine",
+    "tone": "dark",
+    "source": "Rose Pine",
+    "flags": []
+  },
+  {
+    "id": "catalogue:rose-pine-dawn",
+    "title": "Rosé Pine Dawn",
+    "tone": "light",
+    "source": "Rose Pine Dawn",
+    "flags": []
+  },
+  {
+    "id": "catalogue:rose-pine-moon",
+    "title": "Rosé Pine Moon",
+    "tone": "dark",
+    "source": "Rose Pine Moon",
+    "flags": []
+  },
+  {
+    "id": "catalogue:iterm2-solarized-dark",
+    "title": "Solarized Dark",
+    "tone": "dark",
+    "source": "iTerm2 Solarized Dark",
+    "flags": []
+  },
+  {
+    "id": "catalogue:iterm2-solarized-light",
+    "title": "Solarized Light",
+    "tone": "light",
+    "source": "iTerm2 Solarized Light",
+    "flags": []
+  },
+  {
+    "id": "catalogue:tokyonight",
+    "title": "Tokyo Night",
+    "tone": "dark",
+    "source": "TokyoNight",
+    "flags": []
+  },
+  {
+    "id": "catalogue:tokyonight-day",
+    "title": "Tokyo Night Day",
+    "tone": "light",
+    "source": "TokyoNight Day",
+    "flags": []
+  },
+  {
+    "id": "catalogue:tokyonight-storm",
+    "title": "Tokyo Night Storm",
+    "tone": "dark",
+    "source": "TokyoNight Storm",
+    "flags": []
+  }
+]

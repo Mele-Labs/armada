@@ -1,0 +1,48 @@
+/* Derived from the Night Owl terminal scheme by packages/tokens/themes/generate.mjs. Do not hand-edit.
+   Tone dark. foreground 11.2:1, accent 6.6:1 at the worst ground.
+   Lightness moved to reach 4.5:1: failed, not-started, killed. */
+[data-theme="catalogue:night-owl"] {
+  color-scheme: dark;
+  /* Ground */
+  --bg-base: #011627;
+  --bg-sunken: #000711;
+  --bg-raised: #061D2E;
+  --bg-overlay: #0D2334;
+  --bg-hover: #122839;
+  --border-subtle: #112738;
+  --border-default: #1F3344;
+  --border-strong: #324557;
+  /* Foreground and accent */
+  --fg-default: #D6DEEB;
+  --fg-muted: #8A98A7;
+  --fg-subtle: #8391A1;
+  --fg-inverse: #000000;
+  --accent: #82AAFF;
+  --accent-hover: #8EB2FD;
+  --accent-muted: #183250;
+  /* Depth */
+  --bg-glass: rgb(6 29 46 / 0.86);
+  --bg-glass-end: rgb(1 22 39 / 0.86);
+  --border-glass: rgb(255 255 255 / 0.07);
+  --border-highlight: rgb(255 255 255 / 0.05);
+  /* Status */
+  --status-not-started: #8D9EB0;
+  --status-running: #82AAFF;
+  --status-awaiting-review: #ADDB67;
+  --status-escalated: #DA9F5C;
+  --status-completed-success: #22DA6E;
+  --status-completed-failed: #FF635E;
+  --status-rejected: #C792EA;
+  --status-killed: #8E9DAE;
+  --status-handed-in: #5FC6BE;
+  /* Helm, tools, diff */
+  --helm: #A89FF5;
+  --tool-look: #21C7A8;
+  --tool-change: #C792EA;
+  --tool-run: #ADDB67;
+  --diff-add-bg: #063532;
+  --diff-add-fg: #22DA6E;
+  --diff-del-bg: #27202E;
+  --diff-del-fg: #EF5350;
+  --diff-context: #8A98A7;
+}

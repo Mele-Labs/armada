@@ -1,0 +1,43 @@
+# The themes Bridge ships, by the scheme file name in ghostty/. One per line.
+Catppuccin Mocha
+Catppuccin Macchiato
+Catppuccin Frappe
+Dracula+
+Gruvbox Dark
+Gruvbox Dark Hard
+Nord
+Rose Pine
+Rose Pine Moon
+TokyoNight
+TokyoNight Storm
+Atom One Dark
+Kanagawa Wave
+Kanagawa Dragon
+Everforest Dark Hard
+Material Ocean
+Nightfox
+Carbonfox
+iTerm2 Solarized Dark
+GitHub Dark Default
+Ayu Mirage
+Night Owl
+Oxocarbon
+Horizon
+One Half Dark
+Flexoki Dark
+Catppuccin Latte
+Rose Pine Dawn
+Ayu Light
+Everforest Light Med
+GitHub Light Default
+One Half Light
+iTerm2 Solarized Light
+Gruvbox Light
+Atom One Light
+TokyoNight Day
+Nord Light
+Kanagawa Lotus
+Dayfox
+Flexoki Light
+Material
+Light Owl

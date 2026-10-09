@@ -101,6 +101,10 @@ on purpose and makes the gate name what was waiting.
 
 - **[zone-dispatch]** What a Job dispatched from a Zone is sent. A Zone holds any mix of nodes (Notes, Clusters, Issues, a Finding, a Sketch), and the proposer takes one request. It could get the Zone's contents as text in board order, only the Issue drafts and addresses inside it, or nothing until the Zone holds exactly one dispatchable node. An Issue draft carries its title and body whole to the proposer, and an address is the whole request, so whatever a Zone sends must not summarise either. Nothing dispatches a Zone until this is answered.
 
+## docs/concepts/themes.md
+
+- **[catalogue-scheme-licences]** Is a scheme's palette, colours read out of a file, covered by its author's licence at all? The collection's licence leaves each theme's to its author, and for the Dracula+ and Atom One ports no licence was found. What decides it: whether the Atom One and Dracula+ schemes ship on the licence of the theme they port, or leave `popular.txt` until their authors state one.
+
 ## docs/concepts/workflow.md
 
 - **[workflow-thrashing-threshold-judgement]** What threshold of repetition counts as thrashing, and what counts as off-scope work? Headless output parses reliably and denials are visible, so this no longer rests on an unanswered spike about the data — what stays open is the judgement layer, not the data.

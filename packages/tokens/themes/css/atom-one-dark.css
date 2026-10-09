@@ -1,0 +1,48 @@
+/* Derived from the Atom One Dark terminal scheme by packages/tokens/themes/generate.mjs. Do not hand-edit.
+   Tone dark. foreground 6.0:1, accent 5.4:1 at the worst ground.
+   Lightness moved to reach 4.5:1: failed, running, escalated, rejected, not-started, killed. */
+[data-theme="catalogue:atom-one-dark"] {
+  color-scheme: dark;
+  /* Ground */
+  --bg-base: #21252B;
+  --bg-sunken: #0D1013;
+  --bg-raised: #262A30;
+  --bg-overlay: #2A2E35;
+  --bg-hover: #2E3239;
+  --border-subtle: #2D3138;
+  --border-default: #363A41;
+  --border-strong: #43474F;
+  /* Foreground and accent */
+  --fg-default: #ABB2BF;
+  --fg-muted: #969CA8;
+  --fg-subtle: #949BA7;
+  --fg-inverse: #000000;
+  --accent: #61AFEF;
+  --accent-hover: #6EB0E8;
+  --accent-muted: #304051;
+  /* Depth */
+  --bg-glass: rgb(38 42 48 / 0.86);
+  --bg-glass-end: rgb(33 37 43 / 0.86);
+  --border-glass: rgb(255 255 255 / 0.07);
+  --border-highlight: rgb(255 255 255 / 0.05);
+  /* Status */
+  --status-not-started: #A9AEBA;
+  --status-running: #63B1F1;
+  --status-awaiting-review: #E5C07B;
+  --status-escalated: #E7997B;
+  --status-completed-success: #98C379;
+  --status-completed-failed: #FE878F;
+  --status-rejected: #DC8DF4;
+  --status-killed: #A8AEB9;
+  --status-handed-in: #7DBCBA;
+  /* Helm, tools, diff */
+  --helm: #ABA3F4;
+  --tool-look: #56B6C2;
+  --tool-change: #CA7CE1;
+  --tool-run: #E5C07B;
+  --diff-add-bg: #343E37;
+  --diff-add-fg: #98C379;
+  --diff-del-bg: #403037;
+  --diff-del-fg: #EE7881;
+  --diff-context: #969CA8;
+}
