@@ -3,6 +3,7 @@
 // under it. `crates/ipc/src/layout.rs` is Fleet's half, and `packages/shell/layout-registry.json`
 // is the list both check.
 
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import registry from "@armada/shell/layout-registry.json";
@@ -24,8 +25,27 @@ describe("the registry file both sides check", () => {
   });
 });
 
+describe("the regions table in the armada-mods skill", () => {
+  const skill = readFileSync(new URL("../../../../.claude/skills/armada-mods/SKILL.md", import.meta.url), "utf8");
+  const ids = (cell: string) => [...cell.matchAll(/`([^`]+)`/g)].map((one) => one[1]);
+  const rows = skill
+    .split("\n")
+    .map((line) => line.split("|").map((cell) => cell.trim()))
+    .filter((cells) => cells.length === 7 && /^`[a-z.]+`$/.test(cells[1]))
+    .map((cells) => ({ region: ids(cells[1])[0], ids: ids(cells[2]), fixed: ids(cells[3]), order: cells[4], first: cells[5] }));
+  it("names the registry's regions, ids, non-hideable ids and flags", () => {
+    expect(rows.map((row) => row.region)).toEqual(Object.keys(registry.regions));
+    for (const row of rows) {
+      const shipped = registry.regions[row.region as keyof typeof registry.regions];
+      expect(row.ids).toEqual(shipped.entries.map((one) => one.id));
+      expect(row.fixed).toEqual(shipped.entries.filter((one) => !one.hideable).map((one) => one.id));
+      expect({ order: row.order, first: row.first }).toEqual({ order: shipped.ordered ? "yes" : "no", first: shipped.firstable ? "yes" : "no" });
+    }
+  });
+});
+
 describe("the examples the armada-mods skill teaches", () => {
-  // Written out as the skill has them: a skill is not a file a test may read, so a change to either is a change to both.
+  // Written out as the skill has them, so a change to either is a change to both.
   const tidy = '{\n  "version": 1,\n  "dashboard.panels": { "order": ["merge-line", "fleet"] },\n  "rail": { "hidden": ["lessons"] }\n}\n';
   const job = '{\n  "version": 1,\n  "job.tabs": { "order": ["overview", "workflow", "record", "plan"], "hidden": ["pulse"], "first": "plan" }\n}\n';
   it("pass, and do what the skill says they do", () => {
