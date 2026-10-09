@@ -36,6 +36,24 @@ pub(crate) struct Window {
     pub since: String,
 }
 
+/// What [`Fleet::waiting_from`] needs from the store: SQL only, taken under the lock.
+pub(crate) struct WaitingReads {
+    kept: Vec<KeptWaiting>,
+    rows: Vec<String>,
+    dismissed: Vec<String>,
+}
+
+pub(crate) fn waiting_reads(
+    store: &Store,
+    session: &KeptSession,
+) -> Result<WaitingReads, store::WriteError> {
+    Ok(WaitingReads {
+        kept: store.waiting_for(&session.id)?,
+        rows: store.session_rows(&session.id)?,
+        dismissed: store.dismissed_waiting(&session.id)?,
+    })
+}
+
 /// The line that tells the agent to settle an item itself.
 pub(crate) fn mode_line(mode: WaitingMode) -> &'static str {
     match mode {
@@ -179,17 +197,17 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    /// What the session waits on now: its agent's list with Fleet's own merged in.
-    pub(crate) fn waiting_items(
+    /// What the session waits on now: its agent's list with Fleet's own merged in, off what
+    /// [`waiting_reads`] took, so decoding a thread's rows happens after the store lock is let go.
+    pub(crate) fn waiting_from(
         &self,
-        store: &Store,
+        reads: WaitingReads,
         session: &KeptSession,
         attachments: &[ipc::Attachment],
-    ) -> Result<Vec<WaitingItem>, store::WriteError> {
-        let kept = store.waiting_for(&session.id)?;
+    ) -> Vec<WaitingItem> {
+        let WaitingReads { kept, rows, dismissed } = reads;
         let asked = self.hosts().of(&session.id).state().asked.clone();
-        let rows: Vec<SessionRow> = store
-            .session_rows(&session.id)?
+        let rows: Vec<SessionRow> = rows
             .iter()
             .filter_map(|body| ipc::decode::<SessionRow>("a session row", body.as_bytes()).ok())
             .collect();
@@ -235,14 +253,13 @@ where
             })
             .into_iter()
             .collect();
-        let dismissed = store.dismissed_waiting(&session.id)?;
-        Ok(merged(
+        merged(
             kept,
             asked.as_ref(),
             &windows,
             &dismissed,
             session.state == store::SessionState::Ended,
-        ))
+        )
     }
 
     /// `waiting_for`: replace the agent's list. An item keeps the `since` its id first had.
@@ -308,20 +325,24 @@ where
         said: AnswerWaiting,
     ) -> Result<SessionRecord, Refusal> {
         let id = said.session_id.as_str().to_string();
-        if self.terminal_session(&id).await?.is_some() {
+        let terminal = self.terminal_session(&id).await?.is_some();
+        if terminal {
             self.terminal_ask_standing(&id).await;
         }
-        let item = {
+        // The lock is held for the reads and let go before anything is drawn.
+        let (session, reads) = {
             let store = self.store().lock().await;
             let session = store
                 .session(&id)
                 .map_err(|why| self.ledger_fault(why))?
                 .ok_or_else(|| self.hosted_refusal(SESSION_WAITING_UNNAMED, "a session Fleet knows"))?;
-            self.ledger_row(&store, &session)?
-                .waiting_for
-                .into_iter()
-                .find(|one| one.id == said.item_id)
-        }
+            let reads = self.ledger_reads(&store, &session)?;
+            (session, reads)
+        };
+        let item = self
+            .ledger_waiting(&session, reads)
+            .into_iter()
+            .find(|one| one.id == said.item_id)
         .ok_or_else(|| {
             Refusal::IllegalMove(WireError::raised(
                 SESSION_WAITING_UNHELD,
@@ -396,11 +417,11 @@ where
                 } else {
                     reply(&item.text, picked.as_deref().or(words), line)
                 };
-                self.send_session_message(message(body)).await
+                self.send_known(terminal.then_some(session), message(body)).await
             }
             WaitingSource::Agent => {
-                self.send_session_message(message(reply(&item.text, picked.as_deref().or(words), line)))
-                    .await
+                let body = reply(&item.text, picked.as_deref().or(words), line);
+                self.send_known(terminal.then_some(session), message(body)).await
             }
         }
     }

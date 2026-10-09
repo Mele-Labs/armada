@@ -6,7 +6,9 @@ description = "The `armada` mod in a terminal session asks what a person sent it
 notes = """
 `POST /sessions/held`, body `TakeHeld`: the session's id. Since 23.53. Answered with `MessagesHeld`, the messages oldest first and the `commands` (`model` or `effort`, with an argument) a person chose in Bridge, and each is in one answer only. The mod runs a command as typed and a message as the person's own prompt. A **command** because the answer empties what Fleet held.
 
-**The ask is also the session saying it is listening.** A message sent to a terminal session is kept until its mod asks, and Fleet refuses the send as `fleet.terminal_session_unreachable` when no ask has come within a few seconds, so a person is told at once instead of after a message that nothing will read. The mod submits each as the person's own prompt, which starts a turn whether the session is idle or busy (spike 27).
+**The ask may be held.** `TakeHeld.wait_ms` lets Fleet keep the ask open while nothing is held, up to 25 seconds, and answer the moment a message or command is held, so a message reaches the terminal when it is sent and not at a timer's next tick. Left out, the ask is answered at once, as before. The store is not held while it waits. The mod keeps one such ask open per session and asks again as soon as it returns.
+
+**The ask is also the session saying it is listening.** A message sent to a terminal session is kept until its mod asks, and Fleet refuses the send as `fleet.terminal_session_unreachable` when no ask is open and none has come within a few seconds, so a person is told at once instead of after a message that nothing will read. The mod submits each as the person's own prompt, which starts a turn whether the session is idle or busy (spike 27).
 
 `agent_access` is `No`: the harness asks, never the agent inside it.
 """

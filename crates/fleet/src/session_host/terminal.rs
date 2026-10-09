@@ -25,17 +25,67 @@ use crate::daemon::Fleet;
 /// A send to a session whose mod has not asked lately. A 409.
 const TERMINAL_UNREACHABLE: &str = "fleet.terminal_session_unreachable";
 
-/// How long after its mod last asked a session still counts as listening. The
-/// mod asks every couple of seconds.
+/// How long after its mod last asked a session still counts as listening. A
+/// mod holding an ask open is listening throughout, and this covers the moment
+/// between one ask's end and the next.
 pub(crate) const LISTENING_FOR: Duration = Duration::from_secs(10);
+
+/// The longest Fleet holds an ask for held messages, whatever the mod asked for.
+pub(crate) const HELD_HOLD_MAX: Duration = Duration::from_secs(25);
 
 /// How often a thread being watched is looked at. One `stat` when nothing grew.
 const LOOKS_EVERY: Duration = Duration::from_secs(1);
 
 struct Listening {
     asked_at: Instant,
+    /// Asks held open on this session now. One is listening however long ago
+    /// `asked_at` was.
+    holding: usize,
     held: Vec<String>,
     commands: Vec<HeldCommand>,
+    /// Rung when something is held, for the ask waiting on it.
+    rung: Arc<tokio::sync::Notify>,
+}
+
+impl Listening {
+    fn new() -> Self {
+        Listening {
+            asked_at: Instant::now(),
+            holding: 0,
+            held: Vec::new(),
+            commands: Vec::new(),
+            rung: Arc::default(),
+        }
+    }
+
+    fn listening_within(&self, within: Duration) -> bool {
+        self.holding > 0 || self.asked_at.elapsed() <= within
+    }
+
+    fn take(&mut self) -> MessagesHeld {
+        self.asked_at = Instant::now();
+        MessagesHeld {
+            messages: std::mem::take(&mut self.held),
+            commands: std::mem::take(&mut self.commands),
+        }
+    }
+}
+
+/// An ask held open on a session, counted for as long as it lives, **including
+/// where the request is dropped** from under it.
+struct Holding<'a> {
+    terminals: &'a Terminals,
+    session: String,
+}
+
+impl Drop for Holding<'_> {
+    fn drop(&mut self) {
+        let mut table = self.terminals.listening.lock().expect("held across no panic");
+        if let Some(one) = table.get_mut(&self.session) {
+            one.holding = one.holding.saturating_sub(1);
+            one.asked_at = Instant::now();
+        }
+    }
 }
 
 /// What Fleet holds for terminal sessions, which lives only as long as Fleet.
@@ -55,15 +105,41 @@ impl Terminals {
     /// The mod asked: it is listening now, and takes what was held.
     fn asked(&self, session: &str) -> MessagesHeld {
         let mut table = self.listening.lock().expect("held across no panic");
-        let one = table.entry(session.to_string()).or_insert(Listening {
-            asked_at: Instant::now(),
-            held: Vec::new(),
-            commands: Vec::new(),
-        });
-        one.asked_at = Instant::now();
-        MessagesHeld {
-            messages: std::mem::take(&mut one.held),
-            commands: std::mem::take(&mut one.commands),
+        table
+            .entry(session.to_string())
+            .or_insert_with(Listening::new)
+            .take()
+    }
+
+    /// The mod asked and will wait: it is listening for as long as this holds,
+    /// and the answer comes the moment something is held, or empty after `wait`.
+    pub(super) async fn asked_for(&self, session: &str, wait: Duration) -> MessagesHeld {
+        if wait.is_zero() {
+            return self.asked(session);
+        }
+        let rung = {
+            let mut table = self.listening.lock().expect("held across no panic");
+            let one = table.entry(session.to_string()).or_insert_with(Listening::new);
+            one.holding += 1;
+            Arc::clone(&one.rung)
+        };
+        let _holding = Holding {
+            terminals: self,
+            session: session.to_string(),
+        };
+        let until = tokio::time::Instant::now() + wait;
+        loop {
+            // Rung before the look, so a message held between the two is not missed.
+            let notified = rung.notified();
+            tokio::pin!(notified);
+            notified.as_mut().enable();
+            let held = self.asked(session);
+            if !held.messages.is_empty() || !held.commands.is_empty() {
+                return held;
+            }
+            if tokio::time::timeout_at(until, notified).await.is_err() {
+                return held;
+            }
         }
     }
 
@@ -94,21 +170,22 @@ impl Terminals {
     fn hold_command(&self, session: &str, command: HeldCommand, listening_for: Duration) -> bool {
         let mut table = self.listening.lock().expect("held across no panic");
         match table.get_mut(session) {
-            Some(one) if one.asked_at.elapsed() <= listening_for => {
+            Some(one) if one.listening_within(listening_for) => {
                 one.commands.push(command);
+                one.rung.notify_waiters();
                 true
             }
             _ => false,
         }
     }
 
-    /// Whether the session's mod has asked within [`LISTENING_FOR`].
+    /// Whether the session's mod is holding an ask, or has asked within [`LISTENING_FOR`].
     pub(crate) fn listening(&self, session: &str) -> bool {
         self.listening
             .lock()
             .expect("held across no panic")
             .get(session)
-            .is_some_and(|one| one.asked_at.elapsed() <= LISTENING_FOR)
+            .is_some_and(|one| one.listening_within(LISTENING_FOR))
     }
 
     /// What the session's mod said it runs on.
@@ -139,8 +216,9 @@ impl Terminals {
     pub(super) fn hold(&self, session: &str, text: String, listening_for: Duration) -> bool {
         let mut table = self.listening.lock().expect("held across no panic");
         match table.get_mut(session) {
-            Some(one) if one.asked_at.elapsed() <= listening_for => {
+            Some(one) if one.listening_within(listening_for) => {
                 one.held.push(text);
+                one.rung.notify_waiters();
                 true
             }
             _ => false,
@@ -275,12 +353,17 @@ where
         {
             return Err(self.terminal_unreachable());
         }
-        let store = self.store().lock().await;
-        self.ledger_row(&store, session)
+        let reads = {
+            let store = self.store().lock().await;
+            self.ledger_reads(&store, session)?
+        };
+        Ok(self.ledger_built(session, reads))
     }
 
     /// The mod's ask. A session that is not a terminal one is handed nothing
-    /// and not marked listening.
+    /// and not marked listening. **Where the ask carries `wait_ms` it is held,
+    /// up to [`HELD_HOLD_MAX`], until something is held**, and the store is not
+    /// held with it.
     pub(crate) async fn held_for(&self, ask: TakeHeld) -> Result<MessagesHeld, Refusal> {
         let kept = self
             .store()
@@ -288,8 +371,11 @@ where
             .await
             .session(&ask.session_id)
             .map_err(|why| self.ledger_fault(why))?;
+        let wait = ask
+            .wait_ms
+            .map_or(Duration::ZERO, |ms| Duration::from_millis(ms).min(HELD_HOLD_MAX));
         Ok(match kept {
-            Some(one) if one.origin == "terminal" => self.hosts().terminals().asked(&one.id),
+            Some(one) if one.origin == "terminal" => self.hosts().terminals().asked_for(&one.id, wait).await,
             _ => MessagesHeld::default(),
         })
     }

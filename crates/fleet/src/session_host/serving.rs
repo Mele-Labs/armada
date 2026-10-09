@@ -15,7 +15,7 @@ use ipc::{
     SendSessionMessage, SentFile, SessionGate, SessionId, SessionMode, SessionRecord, SessionRow,
     SessionSubagent, SessionThread, SessionTurn, SessionVoice, StartSession, TuneSession, WireError,
 };
-use store::{AttachmentState, Holder, KeptAttachment, KeptHosting, KeptSession, Store};
+use store::{AttachmentState, Holder, KeptAttachment, KeptHosting, KeptSession};
 
 use super::address_of;
 use super::process::{Heard, Start};
@@ -140,15 +140,8 @@ where
         self: Arc<Self>,
         sent: SendSessionMessage,
     ) -> Result<SessionRecord, Refusal> {
-        let id = sent.session_id.as_str().to_string();
-        if let Some(session) = self.terminal_session(&id).await? {
-            let addressed = self.addressed(&sent.mentions).await?;
-            let kept = self.keep_uploads(&id, &sent.attachments)?;
-            let mut paths = kept.paths;
-            paths.extend(kept.picture_paths);
-            return self.send_to_terminal(&session, sent, addressed, paths).await;
-        }
-        self.send_hosted(sent, SessionVoice::You).await
+        let terminal = self.terminal_session(sent.session_id.as_str()).await?;
+        self.send_known(terminal, sent).await
     }
 
     async fn answer_session_ask(&self, said: AnswerSessionAsk) -> Result<SessionRecord, Refusal> {
@@ -782,18 +775,29 @@ where
         Ok(())
     }
 
+    /// A message to a session whose kind the caller has already read: `terminal` is the session
+    /// where it is a terminal one.
+    pub(crate) async fn send_known(
+        self: Arc<Self>,
+        terminal: Option<KeptSession>,
+        sent: SendSessionMessage,
+    ) -> Result<SessionRecord, Refusal> {
+        let id = sent.session_id.as_str().to_string();
+        if let Some(session) = terminal {
+            let addressed = self.addressed(&sent.mentions).await?;
+            let kept = self.keep_uploads(&id, &sent.attachments)?;
+            let mut paths = kept.paths;
+            paths.extend(kept.picture_paths);
+            return self.send_to_terminal(&session, sent, addressed, paths).await;
+        }
+        self.send_hosted(sent, SessionVoice::You).await
+    }
+
     /// What a hosted session carries beyond a terminal's row.
-    pub(crate) fn hosted_facts(
-        &self,
-        store: &Store,
-        id: &str,
-    ) -> Result<Option<HostedFacts>, store::WriteError> {
-        let Some(hosting) = store.hosting(id)? else {
-            return Ok(None);
-        };
+    pub(crate) fn hosted_facts_of(&self, id: &str, hosting: KeptHosting) -> HostedFacts {
         let runtime = self.hosts().of(id);
         let state = runtime.state();
-        Ok(Some(HostedFacts {
+        HostedFacts {
             turn: state.turn.clone(),
             asked: state.asked.clone(),
             model: hosting.model,
@@ -805,7 +809,7 @@ where
             } else {
                 state.commands.clone()
             },
-        }))
+        }
     }
 
     /// The row as it stands, published whole, and answered.

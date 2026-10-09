@@ -12,11 +12,11 @@ type Posted = { url: string; body: any }
 
 function world(
   on: On,
-  options: { running?: () => boolean; hangs?: boolean; held?: string[]; heldCommands?: { command: string; args: string }[]; model?: () => string; onCommand?: () => void; transcript?: string; env?: Record<string, string>; pullRequest?: string; polls?: (string | Promise<string> | Error)[] } = {},
+  options: { running?: () => boolean; slowReports?: boolean; heldGate?: Promise<void>; held?: string[]; heldCommands?: { command: string; args: string }[]; model?: () => string; onCommand?: () => void; transcript?: string; env?: Record<string, string>; pullRequest?: string; polls?: (string | Promise<string> | Error)[] } = {},
 ) {
   const running = options.running ?? (() => true)
   const posts: Posted[] = []
-  const attempts = { fetches: 0, reads: 0 }
+  const attempts = { fetches: 0, reads: 0, reports: 0 }
   const submitted: { text: string; asUser?: boolean }[] = []
   const asked: unknown[] = []
   const questions: any[] = []
@@ -31,13 +31,14 @@ function world(
   })
   on('http.fetch', (_$, e) => {
     attempts.fetches += 1
-    if (options.hangs) return new Promise(() => undefined)
     // What the mod asks for, and not a report: kept apart so a count of reports holds.
     if (e.url.endsWith('/sessions/held')) {
       asked.push(JSON.parse(e.init?.body ?? '{}'))
       const messages = options.held?.splice(0) ?? []
       const commands = options.heldCommands?.splice(0) ?? []
-      return { value: { status: 200, ok: true, headers: {}, text: JSON.stringify({ messages, commands }) } }
+      const answer = { value: { status: 200, ok: true, headers: {}, text: JSON.stringify({ messages, commands }) } }
+      // Held open as Fleet holds an ask with nothing to hand over, until the test lets it go.
+      return options.heldGate === undefined ? answer : options.heldGate.then(() => answer)
     }
     // A question held by Fleet answers when the test says; the terminal's settling is answered at once.
     if (e.url.endsWith('/sessions/ask/terminal')) {
@@ -52,6 +53,9 @@ function world(
       }
       return { value: { status: 200, ok: true, headers: {}, text: '{"outcome":"gone"}' } }
     }
+    attempts.reports += 1
+    // Fleet busy behind its store: the report is taken and not answered.
+    if (options.slowReports) return new Promise(() => undefined)
     posts.push({ url: e.url, body: JSON.parse(e.init?.body ?? '{}') })
     return { value: { status: 200, ok: true, headers: {}, text: '{}' } }
   })
@@ -198,15 +202,17 @@ test('what Fleet missed is told again when it answers, and nothing is lost to th
   expect(facts(posts)).toContainEqual({ kind: 'titled', title: 'fix the ledger' })
 })
 
-test('a Fleet that never answers is waited on for a moment and then left alone', async ($, on) => {
-  const { attempts, clock } = world(on, { hangs: true })
+test('a Fleet that is slow to answer is waited on for a moment and is not treated as gone', async ($, on) => {
+  const { attempts, clock } = world(on, { slowReports: true })
   await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
   await clock.advance(2_000)
-  await $.session.end({ reason: 'other', sessionId: 'S1', resume: {} as never })
+  const first = attempts.reports
+  await $.turn.complete({ answer: '', durationMs: 1, isAborted: false, turnId: 't1', reason: 'answer' })
   await clock.advance(10_000)
   await clock.settle()
 
-  expect(attempts.fetches).toBe(1)
+  expect(first).toBeGreaterThan(0)
+  expect(attempts.reports).toBeGreaterThan(first)
 })
 
 test('the end of a session is told before the process goes', async ($, on) => {
@@ -306,7 +312,7 @@ test('what a person sent from Bridge is submitted as their own prompt, once, in 
   await clock.advance(2000)
   await clock.settle()
 
-  expect(asked[0]).toEqual({ session_id: 'S1' })
+  expect(asked[0]).toEqual({ session_id: 'S1', wait_ms: 25_000 })
   expect(submitted).toEqual([
     { text: 'run the tests', asUser: true },
     { text: 'then lint', asUser: true },
@@ -314,6 +320,42 @@ test('what a person sent from Bridge is submitted as their own prompt, once, in 
   await clock.advance(2000)
   await clock.settle()
   expect(submitted).toHaveLength(2)
+})
+
+test('a slow report does not silence the pickup of what a person sent', async ($, on) => {
+  const { attempts, clock, submitted } = world(on, { slowReports: true, held: ['approved'] })
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await clock.advance(2_000)
+  await clock.settle()
+
+  expect(attempts.reports).toBeGreaterThan(0)
+  expect(submitted).toEqual([{ text: 'approved', asUser: true }])
+})
+
+test('an ask held open by Fleet delivers the moment it answers, and only one is open at a time', async ($, on) => {
+  let release = () => {}
+  const heldGate = new Promise<void>(done => (release = done))
+  const { clock, submitted, asked } = world(on, { held: ['go now'], heldGate })
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await clock.advance(2_000)
+  await clock.advance(20_000)
+  await clock.settle()
+  expect(submitted).toEqual([])
+  expect(asked).toHaveLength(1)
+
+  release()
+  await clock.settle()
+  expect(submitted).toEqual([{ text: 'go now', asUser: true }])
+})
+
+test('a Fleet that answers an ask at once with nothing is asked no faster than every two seconds', async ($, on) => {
+  const { clock, asked } = world(on)
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await clock.advance(10_000)
+  await clock.settle()
+
+  expect(asked.length).toBeGreaterThan(1)
+  expect(asked.length).toBeLessThanOrEqual(6)
 })
 
 test('a Fleet that is not running is not asked, and nothing is submitted', async ($, on) => {

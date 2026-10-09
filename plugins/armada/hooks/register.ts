@@ -41,7 +41,11 @@ const HARNESS = 'claude_code'
 const MEASURE_EVERY_MS = 10_000
 const RUNTIME_FILE = 'Library/Application Support/Armada/fleet.json'
 const WAIT_MS = 1500
+// The tick that starts an ask when none is open, so also how soon one is retried after it failed.
 const ASK_EVERY_MS = 2000
+// How long Fleet may hold an ask, and how long the mod waits on one before it asks again.
+const HELD_WAIT_MS = 25_000
+const HELD_FETCH_MS = 35_000
 const SILENT_MS = 30_000
 const DOCS_ACTS = ['create', 'batch', 'update']
 const DISPATCHES = ['propose_job', 'propose_from_request', 'approve_dispatch', 'redispatch_job']
@@ -105,6 +109,8 @@ async function portOf($: Door): Promise<number | undefined> {
   return port
 }
 
+// **Slow is not down.** A connection that fails is Fleet out of reach, and a request still unanswered
+// after `WAIT_MS` is only Fleet busy: the report is left to land and the next goes behind it.
 async function post($: Door, report: Report): Promise<boolean> {
   const port = await portOf($)
   if (port === undefined) return false
@@ -113,9 +119,10 @@ async function post($: Door, report: Report): Promise<boolean> {
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(report),
   })
-  const answered = await Promise.race([sent, $.clock.sleep(WAIT_MS).then(() => undefined)])
-  // A refusal is Fleet answering; only silence is Fleet being out of reach.
-  return answered !== undefined
+  // Handled here too, so a refusal that arrives after the wait is not left unhandled.
+  sent.catch(() => undefined)
+  await Promise.race([sent, $.clock.sleep(WAIT_MS)])
+  return true
 }
 
 async function deliver($: Door, report: Report): Promise<void> {
@@ -133,22 +140,41 @@ async function deliver($: Door, report: Report): Promise<void> {
   }
 }
 
-// What a person sent this session from Bridge. Each is submitted as the
-// person's own prompt, which starts a turn when the session is idle and waits
-// for it when it is not (spike 27). One at a time, so they keep their order.
+// What a person sent this session from Bridge. Each is submitted as the person's
+// own prompt, which starts a turn when the session is idle and waits for it when
+// it is not (spike 27). One at a time, so they keep their order.
 let submitting: Promise<void> = Promise.resolve()
 
+// **One ask is held open at a time**, and Fleet answers it the moment something is held, so a
+// message arrives when it is sent and not at the next tick. It is its own path: the reports'
+// silence does not gate it, and its failures are met here (the tick asks again).
+let holding = false
+
 async function submitHeld($: Dollar): Promise<void> {
-  if ((await $.clock.now()) < silentUntil) return
+  if (holding) return
+  holding = true
+  try {
+    while (await askHeld($)) continue
+  } finally {
+    holding = false
+  }
+}
+
+/** One held ask. True to ask again at once; false where the tick should try later. */
+async function askHeld($: Dollar): Promise<boolean> {
   const port = await portOf($)
-  if (port === undefined) return
+  if (port === undefined) return false
   const id = await $.session.id()
-  const asked = await $.http.fetch(`http://127.0.0.1:${port}/sessions/held`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ session_id: id }),
-  })
-  if (!asked.ok) return
+  const began = await $.clock.now()
+  const asked = await Promise.race([
+    $.http.fetch(`http://127.0.0.1:${port}/sessions/held`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ session_id: id, wait_ms: HELD_WAIT_MS }),
+    }),
+    $.clock.sleep(HELD_FETCH_MS).then(() => undefined),
+  ])
+  if (asked === undefined || !asked.ok) return false
   const held = JSON.parse(asked.text) as { messages?: unknown; commands?: unknown }
   // A command is run as typed: the engine refuses a slash command submitted as text.
   const commands = Array.isArray(held.commands) ? held.commands : []
@@ -160,14 +186,21 @@ async function submitHeld($: Dollar): Promise<void> {
       .then(() => tuned($, id, {}))
       .catch(() => undefined)
   }
-  if (!Array.isArray(held.messages)) return
-  for (const text of held.messages) {
+  const messages = Array.isArray(held.messages) ? held.messages : []
+  for (const text of messages) {
     if (typeof text !== 'string') continue
     submitting = submitting
       .then(() => $.prompt.submit({ text, asUser: true }))
       .then(() => undefined)
       .catch(() => undefined)
   }
+  // A Fleet that answers at once with nothing (one from before the wait, or a session it has not
+  // heard of yet) is asked no faster than the tick used to.
+  const took = (await $.clock.now()) - began
+  if (commands.length === 0 && messages.length === 0 && took < ASK_EVERY_MS) {
+    await $.clock.sleep(ASK_EVERY_MS - took)
+  }
+  return true
 }
 
 /** Queue a report, in order. Never throws and never waits. */

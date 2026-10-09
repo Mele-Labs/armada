@@ -402,11 +402,16 @@ pub struct SessionGate {
     pub tool_input: serde_json::Value,
 }
 
-/// What the `armada` mod in a terminal session asks on a timer: has anyone
-/// written to this session from Bridge. Since 23.53.
+/// What the `armada` mod in a terminal session asks: has anyone written to this
+/// session from Bridge. Since 23.53.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TakeHeld {
     pub session_id: String,
+    /// How long Fleet may hold the ask while nothing is held, in milliseconds,
+    /// answering the moment something is. **Left out, it is answered at once.**
+    /// Fleet caps it at 25 seconds.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub wait_ms: Option<u64>,
 }
 
 /// What the `armada` mod in a terminal session tells Fleet about one
