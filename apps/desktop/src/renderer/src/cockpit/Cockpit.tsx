@@ -4,7 +4,7 @@
 // keyboard, the calls behind it stacked like a deck; `l` puts the one in front at the back. Mock only.
 
 import { useContext, useEffect, useMemo, useRef, useState } from "react";
-import { CircleDashed, GitMerge, LayoutGrid, Orbit } from "lucide-react";
+import { Box, CircleDashed, GitMerge, LayoutGrid, Orbit, SquareTerminal } from "lucide-react";
 import { Button, Kbd, Tabs, Tooltip, actionOf, keyFor } from "@armada/components";
 import type { RepositorySummary } from "@armada/protocol";
 import type { Session } from "@armada/screens/src/draft/sessions";
@@ -26,7 +26,7 @@ import { CallCard, type CardKeys } from "./CallCard";
 import { FleetMap } from "./FleetMap";
 import { useLayout } from "@armada/shell";
 import { TAB_KEYS, useFilters } from "./keys";
-import { chipsOf } from "./horizon";
+import { dotsOf, type Dot } from "./horizon";
 import { sessionIdOf } from "./waiting";
 import { nearest, skyOf } from "./map-layout";
 import { useCockpitView } from "./view";
@@ -35,47 +35,66 @@ import "./cockpit.css";
 /** Whether motion is off: nothing waits for an exit that will not play. */
 const stillness = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+/** What a dot says on hover: the pull request or the landing, row by row, each drawn only where its fact is. */
+function DotCard({ dot }: { dot: Dot }) {
+  const { card } = dot;
+  const State = dot.icon;
+  const Owner = card.owner === undefined ? null : card.owner.kind === "job" ? Box : SquareTerminal;
+  return (
+    <span className="armada-horizon-card" data-state={dot.state}>
+      <span className="armada-horizon-card__head">
+        <span className="armada-horizon-card__number">{card.heading}</span>
+        {card.title === undefined ? null : <span>{card.title}</span>}
+      </span>
+      <span className="armada-horizon-card__row armada-horizon-card__branch">{card.branch === card.heading ? null : card.branch}</span>
+      <span className="armada-horizon-card__row armada-horizon-card__state">
+        {State === null ? null : <State size={14} aria-hidden="true" />}
+        {card.says}
+      </span>
+      {card.check === undefined ? null : <span className="armada-horizon-card__row">{card.check}</span>}
+      {card.place === undefined ? null : <span className="armada-horizon-card__row">{dot.card.heading.startsWith("#") ? "Place" : "Turn"} {card.place}</span>}
+      {Owner === null || card.owner === undefined ? null : (
+        <span className="armada-horizon-card__row">
+          <Owner size={14} aria-hidden="true" />
+          {card.owner.title}
+        </span>
+      )}
+    </span>
+  );
+}
+
 /**
- * The merge line as the glass's horizon: chips moving toward main's light, one row, nearest main
- * first. Fleet's landings come first, then the pull requests in the forge's merge queue, then the
- * open ones. Still, and no count beside it.
+ * The merge line as the glass's horizon, a band along the foot of the panel under the grid or the
+ * map: dots moving toward main's light at the right end, nearest main first. Fleet's landings come
+ * first, then the pull requests in the forge's merge queue, then the open ones. A dot is coloured
+ * by its state, solid where a queue holds it and a ring where it is open, and only a running one
+ * pulses. Hovering or focusing one opens its card; pressing it opens the pull request or the Job.
  */
 function Horizon({ state, sessions, hosts }: { state: BridgeState; sessions: readonly Session[]; hosts: Hosts }) {
   const views = viewsOf(state);
   if (views.length === 0) return null;
   return (
-    <>
+    <footer className="armada-view__horizon" aria-label="Merge line">
       {views.map((view) => (
-        <div key={view.root} className="armada-view__line" aria-label="Merge line">
+        <div key={view.root} className="armada-view__line">
           <GitMerge size={16} aria-hidden="true" />
           <ol className="armada-view__belt">
-            {chipsOf(view, state.mergeLines, views, sessions).map((chip) => {
-              const Icon = chip.icon;
-              const inside = (
-                <>
-                  {Icon === null ? null : <Icon size={12} aria-hidden="true" />}
-                  <span>{chip.label}</span>
-                </>
-              );
-              const act = chip.act;
+            {dotsOf(view, state.mergeLines, views, sessions).map((dot) => {
+              const act = dot.act;
               return (
-                <li key={chip.key} className="armada-view__chip-item">
-                  <Tooltip label={chip.tip} asChild>
+                <li key={dot.key} className="armada-view__dot-item">
+                  <Tooltip label={<DotCard dot={dot} />} card asChild>
                     {act === undefined ? (
-                      <span className="armada-view__chip" data-state={chip.state} data-queued={chip.queued || undefined} role="img" aria-label={chip.tip}>
-                        {inside}
-                      </span>
+                      <span className="armada-view__dot" data-state={dot.state} data-queued={dot.queued || undefined} role="img" aria-label={dot.tip} />
                     ) : (
                       <button
                         type="button"
-                        className="armada-view__chip"
-                        data-state={chip.state}
-                        data-queued={chip.queued || undefined}
-                        aria-label={chip.tip}
+                        className="armada-view__dot"
+                        data-state={dot.state}
+                        data-queued={dot.queued || undefined}
+                        aria-label={dot.tip}
                         onClick={() => (act.kind === "link" ? hosts.onOpenLink(act.url) : hosts.onOpen(act.id))}
-                      >
-                        {inside}
-                      </button>
+                      />
                     )}
                   </Tooltip>
                 </li>
@@ -87,7 +106,7 @@ function Horizon({ state, sessions, hosts }: { state: BridgeState; sessions: rea
           </Tooltip>
         </div>
       ))}
-    </>
+    </footer>
   );
 }
 
@@ -355,7 +374,6 @@ export function Cockpit({
               <Kbd>{TAB_KEYS.next}</Kbd>
             </Tooltip>
           </span>
-          {mergeLine ? <Horizon state={state} sessions={sessions} hosts={hosts} /> : null}
           <span className="armada-view__keys">
             <span className="armada-view__toggle" role="group" aria-label="View">
               <Tooltip label="Grid">
@@ -422,6 +440,7 @@ export function Cockpit({
             </div>
           )}
         </div>
+        {mergeLine ? <Horizon state={state} sessions={sessions} hosts={hosts} /> : null}
       </section>
     </div>
   );

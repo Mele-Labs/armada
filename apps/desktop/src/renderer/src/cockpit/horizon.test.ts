@@ -3,7 +3,7 @@ import { describe, expect, test } from "vitest";
 import { mergeLineViews } from "@armada/screens";
 import type { MergeLines } from "@armada/protocol";
 
-import { chipsOf, landingChips, pullBlocks, shortBranch } from "./horizon";
+import { dotsOf, landingDots, pullBlocks } from "./horizon";
 
 const pull = (number: number, branch: string, more: Record<string, unknown> = {}) => ({ number, title: `Title ${number}`, branch, url: `https://git.example/pull/${number}`, ...more });
 
@@ -46,6 +46,10 @@ describe("the horizon's pull requests", () => {
     ]);
   });
 
+  test("the title is what the forge calls it", () => {
+    expect(blocksOf(served)[0]!.title).toBe("Title 2");
+  });
+
   test("the hover gives title, branch, state and place", () => {
     expect(blocksOf(served)[0]!.tip).toBe("#2 Title 2 · feat/first · In the merge queue, running its checks, place 1");
   });
@@ -64,30 +68,43 @@ describe("the horizon's pull requests", () => {
   });
 });
 
-describe("the landings as chips", () => {
+describe("the landings as dots", () => {
   const line = (rows: unknown[]): MergeLines =>
     ({ lines: [{ root: "/armada", line: rows, off: [], landed: [], sent_back: [], hub: { pull_requests: [pull(9, "feat/open", { ci: "passed" })] } }] }) as unknown as MergeLines;
 
-  test("a branch is its last path segment, an agent's worktree its first four hex, at most 12 characters", () => {
-    expect(shortBranch("fleet/gate-policy")).toBe("gate-policy");
-    expect(shortBranch("fleet/read-in-cluster-membership")).toBe("read-in-clu…");
-    expect(shortBranch("worktree-agent-aef3c24792026e2c3")).toBe("agent-aef3");
-    expect(shortBranch("main")).toBe("main");
-  });
-
-  test("a stage is a state colour, and the hover gives the full branch and its stage", () => {
+  test("a stage is a state colour, and the card gives the full branch, the stage and what the checks are doing", () => {
     const served = line([
-      { place: 1, branch: "docs/wire-lock-signed", state: "gating", checks: [{ name: "build", state: "running" }] },
+      { place: 1, branch: "docs/wire-lock-signed", state: "gating", checks: [{ name: "build", state: "passed" }, { name: "screens_test", state: "running" }] },
       { place: 2, branch: "worktree-agent-aef3c24792026e2c3", state: "preparing" },
-      { place: 3, branch: "fleet/pulse-log-rows", state: "red" },
+      { place: 3, branch: "fleet/pulse-log-rows", state: "red", failed: ["desktop_test"] },
       { place: 4, branch: "fleet/helm-kills-processes", state: "waiting" },
     ]);
     const views = mergeLineViews(served, null, [], []);
-    const chips = landingChips(views[0]!.line);
-    expect(chips.map((one) => one.state)).toEqual(["running", "running", "failing", "queued"]);
-    expect(chips.map((one) => one.label)).toEqual(["wire-lock-s…", "agent-aef3", "pulse-log-r…", "helm-kills-…"]);
-    expect(chips[0]!.tip).toBe("docs/wire-lock-signed · Running Checks before landing");
-    expect(chips.every((one) => one.icon !== null && one.queued)).toBe(true);
+    const dots = landingDots(views[0]!.line);
+    expect(dots.map((one) => one.state)).toEqual(["running", "running", "failing", "queued"]);
+    expect(dots[0]!.card).toMatchObject({ heading: "docs/wire-lock-signed", says: "Running Checks before landing", check: "Running: screens_test", place: 1 });
+    expect(dots[2]!.card.check).toBe("Failed: desktop_test");
+    expect(dots.every((one) => one.icon !== null && one.queued)).toBe(true);
+  });
+
+  test("a landing's card names the Job it belongs to", () => {
+    const served = line([{ place: 1, branch: "fleet/x", state: "gating", checks: [] }]);
+    const views = mergeLineViews(served, null, [], [{ id: "j", title: "Do x", branch: "fleet/x", status: "running" }] as never);
+    expect(landingDots(views[0]!.line)[0]!.card.owner).toEqual({ kind: "job", id: "j", title: "Do x" });
+  });
+
+  test("a pull request's card has its number, title, branch, the ci inside the queue, and its place", () => {
+    const served = lines([pull(2, "feat/first", { ci: "passed", queue: { state: "awaiting_checks", position: 1 } })]);
+    const views = mergeLineViews(served, null, [], []);
+    expect(dotsOf(views[0]!, served, views, [])[0]!.card).toEqual({
+      heading: "#2",
+      title: "Title 2",
+      branch: "feat/first",
+      says: "In the merge queue, running its checks",
+      check: "ci passed",
+      place: 1,
+      owner: undefined,
+    });
   });
 
   test("one row to main: the landings first, then the queue, then the open ones", () => {
@@ -104,6 +121,6 @@ describe("the landings as chips", () => {
       ],
     } as unknown as MergeLines;
     const views = mergeLineViews(served, null, [], []);
-    expect(chipsOf(views[0]!, served, views, []).map((one) => one.label)).toEqual(["a", "#3", "#5"]);
+    expect(dotsOf(views[0]!, served, views, []).map((one) => one.card.heading)).toEqual(["docs/a", "#3", "#5"]);
   });
 });

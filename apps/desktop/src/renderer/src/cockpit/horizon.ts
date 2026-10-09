@@ -1,10 +1,10 @@
-// The Cockpit's horizon as one row of chips, nearest main first: Fleet's own landing entries
+// The Cockpit's horizon as one row of dots, nearest main first: Fleet's own landing entries
 // (`view.line`), then the pull requests in the forge's merge queue by position, then the rest as the
 // line lists them. The pull requests are read off the view's hub (`view.hub.pulls`, which the Merge
 // line surface draws) with the title and the owner beside, so the strip folds nothing the surface
 // does not. Pure, so the order and the marks are checked without drawing the band.
 
-import { GitMerge, type LucideIcon } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
 import { CHECK_OUTCOME, LAND_STATE, QUEUED_REASON } from "@armada/components";
 import type { MergeLines } from "@armada/protocol";
@@ -52,7 +52,14 @@ export type PullBlock = {
   /** The registry's glyph and status token for the state. Absent where nothing has run. */
   mark: NonNullable<(typeof MARK)[PullState]> | undefined;
   owner: Owner | undefined;
-  /** Title, branch, state and owner, as the hover says them. */
+  /** What the forge calls it. Absent where the wire carries none. */
+  title: string | undefined;
+  /** The queue's place, 1 being next to merge. */
+  place: number | undefined;
+  /** What the forge's checks say, where the queue's own word stands for the state. */
+  check: string | undefined;
+  says: string;
+  /** Title, branch, state and owner, as the dot's name says them. */
   tip: string;
 };
 
@@ -84,33 +91,46 @@ export function pullBlocks(
       queued: pull.queue !== undefined && pull.queue.state !== "waiting_for_ci",
       mark: MARK[state],
       owner,
+      title: title === undefined || title === "" ? undefined : title,
+      place: position,
+      check: pull.queue !== undefined && pull.ci !== undefined ? CI[pull.ci]?.says : undefined,
+      says: reading?.says ?? "Open",
       tip,
     };
   });
 }
 
-/** What a chip does when pressed: the pull request on the forge, or the Job that owns the entry. */
-export type ChipAct = { kind: "link"; url: string } | { kind: "job"; id: string };
+/** What a dot does when pressed: the pull request on the forge, or the Job that owns the entry. */
+export type DotAct = { kind: "link"; url: string } | { kind: "job"; id: string };
 
-/** One thing on the strip, a pull request or a landing, drawn the same way. */
-export type Chip = {
-  key: string;
-  label: string;
-  state: PullState;
-  /** Held by a queue, Fleet's or the forge's, rather than open and waiting. Drawn solid. */
-  queued: boolean;
-  icon: LucideIcon | null;
-  tip: string;
-  act: ChipAct | undefined;
+/** What the dot's card says, row by row. A row is drawn only where its fact is. */
+export type DotCard = {
+  /** `#1890` for a pull request, the full branch for a landing. */
+  heading: string;
+  /** A pull request's title as the forge holds it. */
+  title: string | undefined;
+  branch: string;
+  /** The state in words: the queue's or the ci's for a pull request, the registry's stage for a landing. */
+  says: string;
+  /** The checks: where ci stands inside the queue, a landing's failed or running Check. */
+  check: string | undefined;
+  place: number | undefined;
+  owner: Owner | undefined;
 };
 
-/** The last path segment of a branch, a `worktree-agent-<hash>` as `agent-` and the hash's first four, at most 12 characters. */
-export function shortBranch(branch: string): string {
-  const last = branch.split("/").pop() ?? branch;
-  const agent = /^worktree-agent-([0-9a-f]{4})[0-9a-f]*$/i.exec(last);
-  const name = agent === null ? last : `agent-${agent[1]}`;
-  return name.length > 12 ? `${name.slice(0, 11)}…` : name;
-}
+/** One thing on the strip, a pull request or a landing, drawn the same way: a dot. */
+export type Dot = {
+  key: string;
+  state: PullState;
+  /** Held by a queue, Fleet's or the forge's, rather than open and waiting. Drawn solid, the rest a ring. */
+  queued: boolean;
+  /** The registry's glyph for the state, drawn in the card. Absent where nothing has run. */
+  icon: LucideIcon | null;
+  /** The dot's accessible name: the card's rows on one line. */
+  tip: string;
+  card: DotCard;
+  act: DotAct | undefined;
+};
 
 /** A landing's stage on the state colours: running its turn is running, a red or a conflict is failing. */
 const LANDING: Record<string, PullState> = {
@@ -125,40 +145,50 @@ const LANDING: Record<string, PullState> = {
   stopped: "failing",
 };
 
-/** Fleet's landing entries, in line order, as chips. */
-export function landingChips(line: MergeLineView["line"]): readonly Chip[] {
+/** A landing's Checks in a line: what failed, else what is running, else what Fleet says it is doing. */
+function checkOf(entry: MergeLineView["line"][number]): string | undefined {
+  if (entry.failed !== undefined && entry.failed.length > 0) return `Failed: ${entry.failed.join(", ")}`;
+  const running = entry.checks?.find((one) => one.state === "running");
+  if (running !== undefined) return `Running: ${running.name}`;
+  return entry.doing;
+}
+
+/** Fleet's landing entries, in line order, as dots. */
+export function landingDots(line: MergeLineView["line"]): readonly Dot[] {
   return line.map((entry) => {
-    const stage = LAND_STATE[entry.state]?.verb ?? entry.state;
-    const act: ChipAct | undefined = entry.pr !== undefined ? { kind: "link", url: entry.pr.url } : entry.job !== undefined ? { kind: "job", id: entry.job.id } : undefined;
+    const says = LAND_STATE[entry.state]?.verb ?? entry.state;
+    const owner: Owner | undefined = entry.job === undefined ? undefined : { kind: "job", id: entry.job.id, title: entry.job.title };
+    const act: DotAct | undefined = entry.pr !== undefined ? { kind: "link", url: entry.pr.url } : entry.job !== undefined ? { kind: "job", id: entry.job.id } : undefined;
+    const state = LANDING[entry.state] ?? "open";
     return {
       key: `line:${entry.branch}`,
-      label: shortBranch(entry.branch),
-      state: LANDING[entry.state] ?? "open",
+      state,
       queued: true,
-      icon: GitMerge,
-      tip: [entry.branch, stage, ...(entry.job === undefined ? [] : [`Job: ${entry.job.title}`])].join(" · "),
+      icon: MARK[state]?.icon ?? null,
+      tip: [entry.branch, says, ...(owner === undefined ? [] : [`Job: ${owner.title}`])].join(" · "),
+      card: { heading: entry.branch, title: undefined, branch: entry.branch, says, check: checkOf(entry), place: entry.place, owner },
       act,
     };
   });
 }
 
-/** Every chip of one repository's strip, nearest main first. */
-export function chipsOf(
+/** Every dot of one repository's strip, nearest main first. */
+export function dotsOf(
   view: Pick<MergeLineView, "root" | "hub" | "line">,
   lines: MergeLines | null,
   views: readonly Pick<MergeLineView, "root" | "hub">[],
   sessions: readonly Session[],
-): readonly Chip[] {
+): readonly Dot[] {
   return [
-    ...landingChips(view.line),
+    ...landingDots(view.line),
     ...pullBlocks(view, lines, views, sessions).map(
-      (pull): Chip => ({
+      (pull): Dot => ({
         key: `pull:${pull.number}`,
-        label: `#${pull.number}`,
         state: pull.state,
         queued: pull.queued,
         icon: pull.mark?.icon ?? null,
         tip: pull.tip,
+        card: { heading: `#${pull.number}`, title: pull.title, branch: pull.branch, says: pull.says, check: pull.check, place: pull.place, owner: pull.owner },
         act: { kind: "link", url: pull.url },
       }),
     ),
