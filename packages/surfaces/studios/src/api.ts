@@ -175,6 +175,8 @@ export type StudiosApi = {
     followRefused: () => Promise<void>;
     /** Tell the Job or the Session that opened this window that the person approved what it shows. */
     approve: () => Promise<Outcome>;
+    /** Open the Session that opened this window in Bridge's main window. Main knows which; the bar names none. */
+    openOwner: () => Promise<void>;
     /** A wheel taken while armed, so the page still scrolls under the outline. */
     scroll: (wheel: CaptureWheel) => void;
   };
@@ -240,5 +242,6 @@ export const STUDIOS_CHANNELS = {
   captureWindowReload: "bridge:capture-window-reload",
   captureWindowFollowRefused: "bridge:capture-window-follow-refused",
   captureWindowApprove: "bridge:capture-window-approve",
+  captureWindowOpenOwner: "bridge:capture-window-open-owner",
   captureWindowScroll: "bridge:capture-window-scroll",
 } as const;

@@ -9,7 +9,7 @@ import { join } from "node:path";
 import { STUDIO_PROMOTIONS } from "@armada/protocol";
 import type { StagedFrame, StudioCapture, StudioNodeByHand, StudioPosition, StudioPromotion } from "@armada/protocol";
 import { CHANNELS } from "../shared/bridge";
-import type { BridgeState } from "../shared/bridge";
+import type { BridgeState, Summons } from "../shared/bridge";
 import type { CaptureWindows } from "./capture/windows";
 import type { FleetConnection } from "./connection";
 import { handleSketches } from "./sketches";
@@ -22,6 +22,8 @@ type Hosts = {
   /** What main last published — `index.ts`'s `published`. */
   published: () => BridgeState;
   captureWindows: CaptureWindows;
+  /** Raise Bridge's main window on what a press asks for — `index.ts`'s `summon`. */
+  summon: (to: Summons) => void;
 };
 
 /** Enough of a capture to be worth sending. The rest is Fleet's to refuse. */
@@ -48,7 +50,7 @@ async function stagedFrame(event: Electron.IpcMainInvokeEvent): Promise<StagedFr
   return { staged_path: staged, width: size.width, height: size.height };
 }
 
-export function handleStudios({ ipc, connection, published, captureWindows }: Hosts): void {
+export function handleStudios({ ipc, connection, published, captureWindows, summon }: Hosts): void {
   // A repository's Studios and the one open — #1287. An id that is not a string, or a position that
   // is not two whole numbers, is not put on a route: the call answers nothing, as a typo would.
   const text = (value: unknown): value is string => typeof value === "string" && value !== "";
@@ -190,6 +192,10 @@ export function handleStudios({ ipc, connection, published, captureWindows }: Ho
     await barred(event)?.followRefused();
   });
   ipc.handle(CHANNELS.captureWindowApprove, async (event) => (await barred(event)?.approve()) ?? unsent);
+  ipc.handle(CHANNELS.captureWindowOpenOwner, (event) => {
+    const owner = barred(event)?.owner;
+    if (owner !== null && owner !== undefined) summon({ jobId: null, sessionId: owner });
+  });
   ipc.on(CHANNELS.captureWindowScroll, (event, wheel: unknown) => {
     const said = (wheel ?? {}) as Record<string, unknown>;
     const at = (key: string): number => (typeof said[key] === "number" ? (said[key] as number) : 0);

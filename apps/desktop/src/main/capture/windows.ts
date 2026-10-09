@@ -72,8 +72,11 @@ export class CaptureWindows {
    * replaces its window rather than opening a second. **Any `http` or `https` address**, unlike a
    * server's window; the origin it is pinned to is the address's own, since the
    * Session named it and there is no live holder to resolve it against as a server's link has.
+   *
+   * **`name` is the Session's and `title` the window's**, two things that read alike only when the
+   * Session gave the window no title and it was titled by its address.
    */
-  openForSession(sessionId: string, title: string, url: string): CaptureOpened {
+  openForSession(sessionId: string, name: string, title: string, url: string): CaptureOpened {
     const origin = webOrigin(url);
     if (origin === null) return { ok: false, why: "no_address" };
     const key = `${SESSION_KEY}${sessionId}`;
@@ -86,7 +89,7 @@ export class CaptureWindows {
       standing.close();
     }
     const pin = { run: key, name: title, origin, url, manifestId: null };
-    this.open.set(key, new CaptureWindow(pin, { session: { id: sessionId, title } }, this.board, barHeight()));
+    this.open.set(key, new CaptureWindow(pin, { session: { id: sessionId, name } }, this.board, barHeight()));
     return { ok: true };
   }
 

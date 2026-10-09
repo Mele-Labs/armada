@@ -190,7 +190,11 @@ export const CORE_CHANNELS = {
  *
  * It travels main → renderer only. Nothing the renderer sends can produce one.
  */
-export type Summons = { jobId: string | null };
+export type Summons = {
+  jobId: string | null;
+  /** A Session to open instead, where the press came from a window it opened. Absent from a notification. */
+  sessionId?: string;
+};
 
 /** Which way a gesture the OS recognised asks to move through visited places. */
 export type HistoryStep = "back" | "forward";

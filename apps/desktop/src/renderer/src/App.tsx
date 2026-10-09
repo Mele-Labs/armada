@@ -417,7 +417,7 @@ export function App({ draft }: AppProps = {}) {
     setClearing(false);
     setOpenJob(jobId);
     if (jobId === null) setLanding({ section: "needs-you", at: Date.now() });
-  });
+  }, openSession);
 
   useEscapeLeavesJob(openJob, close);
 

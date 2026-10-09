@@ -266,6 +266,16 @@ this window, and that is another security review. `#1294`.
 
 > **Rule.** A refusal is said on the bar, naming the address that was refused.
 
+> **Rule.** A Session's window names the Session by the Session's own name, as the Sessions
+> list does, never by the window's title, and that name opens the Session in Bridge's main
+> window. Main reads which Session from the window's own record, never from the bar.
+> Why: the window's title is the page's, and a window shown with no title is titled by its
+> address, so the bar said the address three times and named the Session by it.
+
+> **Rule.** A window with no title of its own draws no name chip: the address is drawn in full
+> in its place, since the full address holds the origin the window is pinned to. The OS title
+> follows the same rule.
+
 > **Rule.** A window a Job or a Session opened offers Approve. On a Job it is
 > the act JobDetail's Approve sends; on a Session it is a message from the
 > person, `Approved: <address>`, which wakes it. Nothing closes.

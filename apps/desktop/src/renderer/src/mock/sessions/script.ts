@@ -7,6 +7,7 @@
 // for the first, when the person sends a message.
 
 import { closeWalkWindow, mockPage, openWalkWindow } from "@armada/jobs/fake";
+import { askToOpenSession } from "../../open-session";
 import type { Session, SessionTag, SessionAttachment, SessionCommand, SessionRow, SessionSketch, SessionsDraft } from "@armada/screens/src/draft/sessions";
 
 /** The draft the window reads, and what only the mock does: take the next turn, stop, and take a claim Fleet would have put in the ledger. */
@@ -105,7 +106,7 @@ const SUBAGENT_SCRIPT: readonly (readonly ["message" | "tool", string])[] = [
 export const MINE = "s7";
 /** The Session that shows a page in a window when it is next spoken to. */
 export const SHOWER = "s11";
-const SHOWN = "Store clock findings";
+const SHOWN = "Clock read report";
 
 /** A Job on the Board that a person can tag: where it stands, and how the Session would hold it. */
 export type TaggableJob = DispatchedJob & { state: "escalated" | "review" };
@@ -178,8 +179,12 @@ export function sessionsStore(
   const openWindow = (id: string, url: string) => {
     const session = now.find((one) => one.id === id);
     if (session === undefined) return;
+    // The window's own title, apart from the Session's name. One titled by its address has none.
+    const titled = session.attachments.find((one) => one.kind === "artifact" && one.form === "window" && one.id === url);
     openWalkWindow(session.title ?? id, url, {
+      title: titled?.kind === "artifact" && titled.title !== url ? titled.title : null,
       job: session.title ?? id,
+      onOpenOwner: () => askToOpenSession(id),
       into: "Session",
       onNote: (note, picked) => store.send(id, { text: `${note}\nOn ${picked.element}, ${picked.location}`, files: [], sketches: [], tags: [] }),
       // Approve is a message from the person too, and wakes the Session the same way.

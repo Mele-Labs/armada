@@ -24,7 +24,7 @@ import type {
   CaptureWindowState,
 } from "../../shared/capture-window";
 import { CHANNELS } from "../../shared/bridge";
-import { isPinned, offerable, onOrigin, partitionFor, type Pinned } from "./address";
+import { isPinned, offerable, onOrigin, partitionFor, shown, type Pinned } from "./address";
 import { aimed, bounded, chainOf, rectOf } from "./bounds";
 import { askSource } from "./layer";
 
@@ -57,7 +57,13 @@ function isCaptureBinding(input: Electron.Input): boolean {
 export type LandsOn =
   | { studio: { id: string; name: string | null } }
   | { job: { id: string; handle: string } }
-  | { session: { id: string; title: string } };
+  | { session: { id: string; name: string } };
+
+/** The OS title: the name and the origin, or the address alone where the window has no name of its own. */
+function titled(pin: Pinned): string {
+  const on = shown(pin);
+  return on.name === null ? on.address : `${on.name} — ${on.address}`;
+}
 
 /**
  * Every partition already given its handlers. **Kept because a partition is
@@ -115,7 +121,7 @@ export class CaptureWindow {
       // The OS frame and its title, where Bridge's own window is frameless and
       // draws its own: two windows that are not the same kind of thing do not
       // have the same chrome.
-      title: `${pin.name} — ${pin.origin}`,
+      title: titled(pin),
       show: false,
     });
 
@@ -210,10 +216,10 @@ export class CaptureWindow {
   state(): CaptureWindowState {
     return {
       served: { run: this.pin.run, name: this.pin.name, address: this.pin.origin },
+      shown: shown(this.pin),
       studio: "studio" in this.landsOn ? this.landsOn.studio : null,
-      // A Session's title stands where a Job's handle does: the bar says "Notes go to" either.
       ...("job" in this.landsOn ? { job: this.landsOn.job } : {}),
-      ...("session" in this.landsOn ? { job: { id: this.landsOn.session.id, handle: this.landsOn.session.title } } : {}),
+      ...("session" in this.landsOn ? { session: { name: this.landsOn.session.name } } : {}),
       serving: this.serving,
       armed: this.armed,
       framesRefused: this.framesRefused,
@@ -288,6 +294,15 @@ export class CaptureWindow {
     if ("job" in this.landsOn) return this.board.walkApproved(this.landsOn.job.id);
     if ("session" in this.landsOn) return this.board.sessionApproved(this.landsOn.session.id, this.pin.url);
     return { ok: false, why: "no_owner" };
+  }
+
+  /**
+   * The Session that opened this window, for the bar's link to it. **Read off the window's own
+   * `landsOn`**, never from the bar: a document that names a Session to open is a document that
+   * can name any.
+   */
+  get owner(): string | null {
+    return "session" in this.landsOn ? this.landsOn.session.id : null;
   }
 
   /** Reload the pinned origin. There is no Back, no Forward and no history. */

@@ -34,6 +34,7 @@ import type {
 } from "@armada/protocol";
 import type { BridgeState } from "../shared/bridge";
 import type { ArtifactRead } from "@armada/screens/src/draft/sessions";
+import { addressOf, cleanTitle } from "@armada/screens/src/sessions-wire";
 import type { PullRequestPress, SessionActed } from "../shared/api/sessions";
 import { openSessionFile, readSessionArtifact, titleOfWindow } from "./session-file";
 import { ask, MODEL_CALL_MS, sessionFileOf } from "./request";
@@ -67,7 +68,7 @@ export class SessionsHost {
   private sessions: SessionRecord[] | null = null;
   private threads: Record<string, SessionRow[]> = {};
   /** Opens a window on a page a Session showed. Set once by main, which owns windows. */
-  private shown: (sessionId: string, title: string, url: string) => void = () => {};
+  private shown: (sessionId: string, title: string, url: string, name: string) => void = () => {};
   /** The window rows already acted on, so a row met again opens nothing. */
   private readonly opened = new Set<string>();
   /** Threads whose read has not answered, with the rows that arrived meanwhile. */
@@ -96,8 +97,12 @@ export class SessionsHost {
     this.fold(record);
   }
 
-  /** Say what opens a window: main's, since a window is not a thing this host holds. */
-  onWindow(shown: (sessionId: string, title: string, url: string) => void): void {
+  /**
+   * Say what opens a window: main's, since a window is not a thing this host holds. **`name` is the
+   * Session's own, apart from the window's `title`** — the Sessions list's rule, so the bar says
+   * the same thing the row does.
+   */
+  onWindow(shown: (sessionId: string, title: string, url: string, name: string) => void): void {
     this.shown = shown;
   }
 
@@ -108,8 +113,13 @@ export class SessionsHost {
   openWindow(sessionId: string, url: string): Outcome {
     const title = titleOfWindow(this.sessions?.find((one) => one.id === sessionId), url);
     if (title === null) return { ok: false, why: "no_manifest" };
-    this.shown(sessionId, title, url);
+    this.shown(sessionId, title, url, this.nameOf(sessionId));
     return { ok: true };
+  }
+
+  /** What the Sessions list calls this Session: its title, cleaned, or the address other sessions know it by. */
+  private nameOf(sessionId: string): string {
+    return cleanTitle(this.sessions?.find((one) => one.id === sessionId)?.title) ?? addressOf(sessionId);
   }
 
   /** `session.row`: one row of a thread, appended or replaced by its id. */
@@ -118,7 +128,7 @@ export class SessionsHost {
     // there, and none of those opens a window.
     if (change.row.kind === "window" && !this.opened.has(change.row.id)) {
       this.opened.add(change.row.id);
-      this.shown(change.session_id, change.row.title, change.row.url);
+      this.shown(change.session_id, change.row.title, change.row.url, this.nameOf(change.session_id));
     }
     const waiting = this.reading.get(change.session_id);
     if (waiting !== undefined) {

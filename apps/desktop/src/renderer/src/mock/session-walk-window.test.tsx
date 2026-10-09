@@ -23,12 +23,16 @@ test("Session window: opens by itself, reopens from the ledger row, and a note g
   await expect.element(window()).toBeVisible();
   const ledger = page.getByRole("region", { name: "Attachments" });
   await expect.element(ledger.getByRole("img", { name: "Shown in a window" })).toBeVisible();
-  await expect.element(page.getByRole("region", { name: "Thread" }).getByRole("button", { name: "Open window Store clock findings" })).toBeVisible();
+  await expect.element(page.getByRole("region", { name: "Thread" }).getByRole("button", { name: "Open window Clock read report" })).toBeVisible();
 
   await userEvent.click(page.getByRole("button", { name: "Close window" }));
   await expect.element(window()).not.toBeInTheDocument();
-  await userEvent.click(ledger.getByRole("button", { name: "Open Shown in a window Store clock findings" }));
+  await userEvent.click(ledger.getByRole("button", { name: "Open Shown in a window Clock read report" }));
   await expect.element(window()).toBeVisible();
+
+  // The bar names the Session by its own name, apart from the page's title, and the name opens it.
+  await expect.element(window().getByRole("button", { name: "Store clock findings" })).toBeVisible();
+  await expect.element(window().getByText("Clock read report", { exact: true })).toBeVisible();
 
   // A press inside the page picks what is under it. The frame is blank under test, so the page is made here.
   await userEvent.click(page.getByRole("button", { name: "Capture", exact: true }));

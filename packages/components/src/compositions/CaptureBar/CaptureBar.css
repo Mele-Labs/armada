@@ -59,6 +59,25 @@
   white-space: nowrap;
 }
 
+/* The Session's name where it opens that Session: `MainHead.css`'s inline link. */
+.armada-capture-bar__owner {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--accent);
+  cursor: pointer;
+}
+
+.armada-capture-bar__owner:hover {
+  text-decoration: underline;
+}
+
+.armada-capture-bar__owner:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
 .armada-capture-bar__said {
   background: var(--bg-overlay);
 }

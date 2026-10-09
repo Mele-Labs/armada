@@ -26,6 +26,7 @@ export function studiosApi(seeded: readonly Studio[] | undefined, fleet: FleetHa
       reload: async () => {},
       followRefused: async () => {},
       approve: async () => ({ ok: true }) as Outcome,
+      openOwner: async () => {},
       scroll: () => {},
     },
     // A Studio starting one entry — #1289, #1345. The mock Fleet answers, so

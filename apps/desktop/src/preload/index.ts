@@ -745,6 +745,7 @@ const api: BridgeApi = {
     reload: (): Promise<void> => ipcRenderer.invoke(CHANNELS.captureWindowReload),
     followRefused: (): Promise<void> => ipcRenderer.invoke(CHANNELS.captureWindowFollowRefused),
     approve: (): Promise<Outcome> => ipcRenderer.invoke(CHANNELS.captureWindowApprove),
+    openOwner: (): Promise<void> => ipcRenderer.invoke(CHANNELS.captureWindowOpenOwner),
     scroll: (wheel: CaptureWheel): void => ipcRenderer.send(CHANNELS.captureWindowScroll, wheel),
   },
 

@@ -32,9 +32,12 @@ export type CaptureBarRefusal = {
 };
 
 export type CaptureBarProps = {
-  /** What the Manifest calls the server this window is on. */
-  run: string;
-  /** Scheme, host and port, drawn in full and never abbreviated. */
+  /**
+   * What the Manifest calls the server this window is on. **Absent where the window has no name of
+   * its own** and was titled by its address: the address says it, and the bar does not say it twice.
+   */
+  run?: string | undefined;
+  /** Scheme, host and port, drawn in full and never abbreviated. The whole address where there is no `run`. */
   address: string;
   /**
    * The Studio a Note lands on, by name. **`null`: a Job's server, opened to be
@@ -43,9 +46,10 @@ export type CaptureBarProps = {
    */
   studio: string | null;
   /**
-   * The Job a note goes to where there is no Studio — the one whose server
-   * this window walks. Capture is offered for it, and the note waits on the
-   * Job until it is sent back.
+   * Who a note goes to where there is no Studio: the Job whose server this
+   * window walks, by its handle, or the Session that showed the page, by its
+   * own name. Capture is offered for it, and a Job's note waits on the Job
+   * until it is sent back.
    */
   job?: string;
   /** Whether the Run is still serving. Capture ends with it. */
@@ -67,6 +71,11 @@ export type CaptureBarProps = {
    * has no owner to tell.
    */
   onApprove?: () => void;
+  /**
+   * Open the one named in "Notes go to", in Bridge's main window. **Absent: the name is plain
+   * text**, as on a Job's window and a Studio's.
+   */
+  onOpenOwner?: () => void;
   approval?: CaptureBarApproval;
 };
 
@@ -78,15 +87,33 @@ export function hasASecondRow(props: Pick<CaptureBarProps, "serving" | "refused"
 export function CaptureBar(props: CaptureBarProps) {
   const { run, address, studio, job, serving, armed, framesRefused, refused, binding, approval } = props;
   const landsOn = studio !== null ? `Notes land on ${studio}` : job !== undefined ? `Notes go to ${job}` : null;
+  const aim =
+    studio === null && job !== undefined && props.onOpenOwner !== undefined ? (
+      <>
+        Notes go to{" "}
+        <button
+          type="button"
+          className="armada-capture-bar__owner"
+          title="Open this Session in Bridge"
+          onClick={props.onOpenOwner}
+        >
+          {job}
+        </button>
+      </>
+    ) : (
+      landsOn
+    );
   return (
     <div className="armada-capture-bar" data-armed={armed ? "" : undefined}>
       <div className="armada-capture-bar__row">
-        <span className="armada-capture-bar__run" title="This window shows a server, not Armada">
-          {run}
-        </span>
+        {run === undefined ? null : (
+          <span className="armada-capture-bar__run" title="This window shows a server, not Armada">
+            {run}
+          </span>
+        )}
         <span className="armada-capture-bar__address">{address}</span>
         <span className="armada-capture-bar__aim">
-          {!serving ? "The run ended" : (landsOn ?? "Walking a Job's server")}
+          {!serving ? "The run ended" : (aim ?? "Walking a Job's server")}
         </span>
         <Button variant="ghost" size="sm" disabled={!serving} onClick={props.onReload}>
           Reload

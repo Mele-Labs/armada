@@ -8,7 +8,7 @@ import { describe, expect, it } from "vitest";
 
 import type { ServerState } from "@armada/protocol";
 import { NOTHING_YET, type BridgeState } from "../../shared/bridge";
-import { isPinned, loopbackOrigin, webOrigin, offerable, onOrigin, partitionFor, pinned } from "./address";
+import { isPinned, loopbackOrigin, webOrigin, offerable, onOrigin, partitionFor, pinned, shown } from "./address";
 
 const SERVING: ServerState = {
   id: "01SERVER",
@@ -151,5 +151,17 @@ describe("a web origin", () => {
 
   it.each(["file:///etc/passwd", "javascript:alert(1)", "ftp://example.com/", "not an address", "http://"])("refuses %s", (address) => {
     expect(webOrigin(address)).toBeNull();
+  });
+});
+
+describe("what the bar says of a page", () => {
+  const page = { run: "session:s1", origin: "http://localhost:47342", url: "http://localhost:47342/?walk=a", manifestId: null };
+
+  it("names the page by its title and the origin it is pinned to", () => {
+    expect(shown({ ...page, name: "Store clock report" })).toEqual({ name: "Store clock report", address: "http://localhost:47342" });
+  });
+
+  it("drops the name where the window was titled by its address, and draws the address whole", () => {
+    expect(shown({ ...page, name: page.url })).toEqual({ name: null, address: page.url });
   });
 });

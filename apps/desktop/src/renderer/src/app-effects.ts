@@ -60,7 +60,10 @@ export function useReturnToRow(returning: string | null, done: () => void): void
  * One Job opens that Job. Several open the set they came from — the Needs-you tab — because
  * picking one of four for somebody is choosing on their behalf. Either way the overlays come down
  * first: the press asked for the Board or a Job, not for the composer that happened to be up.
+ *
+ * A Session named instead comes from the bar of a window that Session opened, and opens that
+ * Session on the Sessions surface.
  */
-export function useSummoned(go: (jobId: string | null) => void): void {
-  useEffect(() => window.armada.onSummoned((to) => go(to.jobId)), []);
+export function useSummoned(go: (jobId: string | null) => void, openSession: (sessionId: string) => void): void {
+  useEffect(() => window.armada.onSummoned((to) => (to.sessionId === undefined ? go(to.jobId) : openSession(to.sessionId))), []);
 }

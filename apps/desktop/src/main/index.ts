@@ -472,7 +472,7 @@ void app.whenReady().then(() => {
     now: () => Date.now(),
   });
   // A Session showed a page: its window opens by itself, and opens again where it is already open.
-  connection.sessions.onWindow((sessionId, title, url) => void captureWindows.openForSession(sessionId, title, url));
+  connection.sessions.onWindow((sessionId, title, url, name) => void captureWindows.openForSession(sessionId, name, title, url));
   // Sleep mode changed in Fleet: every window gets the night whole.
   connection.sleep.onChanged((state) => {
     for (const window of BrowserWindow.getAllWindows()) {
@@ -928,7 +928,7 @@ void app.whenReady().then(() => {
   );
   handleSessions({ ipc: ipcMain, connection: () => connection, windowIdOf, pages: new SessionPages() });
   handleSleep({ ipc: ipcMain, connection: () => connection });
-  handleStudios({ ipc: ipcMain, connection: () => connection, published: () => published, captureWindows });
+  handleStudios({ ipc: ipcMain, connection: () => connection, published: () => published, captureWindows, summon });
   // The four decisions on the work, and they stay four channels. Merging lands
   // the branch and then takes the work, approving takes it and leaves the pull
   // request open, requesting changes sends the drone back to the same step, and

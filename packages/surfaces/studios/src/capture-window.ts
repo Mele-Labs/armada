@@ -35,6 +35,11 @@ export type CaptureWindowState = {
   /** The Run, as the Note will record it. */
   served: CaptureServed;
   /**
+   * What the bar says of the page. **No `name` where the window has no title of its own** and was
+   * titled by its address: the address is then drawn in full and the same words are not said twice.
+   */
+  shown: { name: string | null; address: string };
+  /**
    * The Studio a Note lands on, decided when the window opened. A `null` name
    * is an untitled one. **`null` whole: a Job's server, walked rather than
    * captured** — nothing is armed, because there is nowhere for a Note to land.
@@ -42,6 +47,11 @@ export type CaptureWindowState = {
   studio: { id: string; name: string | null } | null;
   /** The Job a note lands on where there is no Studio: the one whose server this walks. */
   job?: { id: string; handle: string };
+  /**
+   * The Session that opened this window, by its own name — not the window's title. Notes go to it
+   * and the bar links to it; the id stays with main, which opens it from the window's own record.
+   */
+  session?: { name: string };
   /**
    * Whether the Run is still serving. **Capture is refused from the moment it
    * is not**, and the window loads nothing further.

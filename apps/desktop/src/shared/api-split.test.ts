@@ -412,6 +412,7 @@ type OldBridgeApi = {
         reload: () => Promise<void>;
         followRefused: () => Promise<void>;
         approve: () => Promise<Outcome>;
+        openOwner: () => Promise<void>;
         scroll: (wheel: CaptureWheel) => void;
     };
     approveReview: (jobId: string) => Promise<Outcome>;
@@ -711,6 +712,7 @@ const OLD_CHANNELS = {
     captureWindowReload: "bridge:capture-window-reload",
     captureWindowFollowRefused: "bridge:capture-window-follow-refused",
     captureWindowApprove: "bridge:capture-window-approve",
+    captureWindowOpenOwner: "bridge:capture-window-open-owner",
     captureWindowScroll: "bridge:capture-window-scroll",
     tap: "bridge:tap",
     startSession: "bridge:start-session",

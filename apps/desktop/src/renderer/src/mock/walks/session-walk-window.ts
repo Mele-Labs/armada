@@ -13,11 +13,12 @@ function steps(narrow: boolean): Step[] {
     { press: inside(region("Sessions"), button("Store clock findings")), say: "A Session with nothing shown yet" },
     { type: "Show me what you found\n", into: message, say: "Asked to show it" },
     { look: window, say: "The window opened by itself, over the page" },
-    { look: inside(thread, button("Open window Store clock findings")), say: "A quiet row in the thread marks it" },
+    { look: inside(thread, button("Open window Clock read report")), say: "A quiet row in the thread marks it" },
     ...opened([{ look: inside(ledger, role("img", "Shown in a window")), say: "And a row under Artifacts" }]),
     { press: button("Close window"), say: "Closed" },
-    ...row("Open Shown in a window Store clock findings", "The ledger row opens it again"),
+    ...row("Open Shown in a window Clock read report", "The ledger row opens it again"),
     { look: window, say: "Back" },
+    { look: inside(window, button("Store clock findings")), say: "Titled by the page's own name, and notes go to the Session by its own, which opens it" },
     { press: button("Capture"), say: "Capturing: a press in the page picks what is under it, and the note goes to the Session" },
   ];
 }

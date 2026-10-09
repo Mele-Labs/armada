@@ -58,7 +58,41 @@ export const WalkingAJob: Story = {
   args: { run: "mock", address: "http://localhost:41311", studio: null, job: "44-try-a-stacked-run-beside-the-canvas" },
   play: async ({ canvas }) => {
     await expect(canvas.getByText("Notes go to 44-try-a-stacked-run-beside-the-canvas")).toBeVisible();
+    // A Job's window offers no link: only a Session's names an owner to open.
+    await expect(canvas.queryByRole("button", { name: "44-try-a-stacked-run-beside-the-canvas" })).toBeNull();
     await expect(canvas.getByRole("button", { name: "Capture" })).toBeEnabled();
+  },
+};
+
+/**
+ * A page a Session showed. **The Session is named by its own name and links to it**; the window had
+ * no title, so the address is drawn once, in full, and no run label repeats it.
+ */
+export const ShownBySession: Story = {
+  args: {
+    run: undefined,
+    address: "http://localhost:47342/?walk=cockpit-pending",
+    studio: null,
+    job: "Store clock findings",
+    onOpenOwner: fn(),
+    onApprove: fn(),
+  },
+  play: async ({ args, canvas }) => {
+    await expect(canvas.getAllByText("http://localhost:47342/?walk=cockpit-pending")).toHaveLength(1);
+    await expect(canvas.getByText(/^Notes go to/)).toBeVisible();
+    await userEvent.click(canvas.getByRole("button", { name: "Store clock findings" }));
+    await expect(args.onOpenOwner).toHaveBeenCalledOnce();
+  },
+};
+
+/** The same, where the window had a title of its own: the label stays, and the Session is still named by its own name. */
+export const ShownBySessionTitled: Story = {
+  args: {
+    run: "Store clock report",
+    address: "http://localhost:47342",
+    studio: null,
+    job: "Store clock findings",
+    onOpenOwner: fn(),
   },
 };
 
