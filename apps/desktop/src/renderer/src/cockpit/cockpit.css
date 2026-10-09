@@ -53,15 +53,20 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  flex: 0 1 calc(var(--space-12) * 5);
+  flex: 0 1 calc(var(--space-12) * 12);
   min-width: 0;
 }
 
+/* Reversed, so the first block drawn is the one nearest main and a belt that overflows rests there. */
 .armada-view__belt {
   display: flex;
+  flex-direction: row-reverse;
   flex: 1 1 auto;
-  justify-content: flex-end;
+  align-items: center;
   gap: var(--space-1);
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: thin;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -69,6 +74,7 @@
 }
 
 .armada-view__block {
+  flex: none;
   width: var(--space-3);
   height: var(--space-2);
   border-radius: var(--radius-sm);
@@ -79,7 +85,35 @@
 .armada-view__block[data-state="merging"],
 .armada-view__block[data-state="preparing"] { background: var(--status-running); }
 
+.armada-view__pull-item { display: flex; flex: none; }
+
+/* An open pull request: its number, and the registry's mark for how it stands. Dashed until the forge's queue holds it. */
+.armada-view__pull {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0 var(--space-1);
+  border: var(--border-width) dashed var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-raised);
+  color: var(--fg-muted);
+  font: inherit;
+  line-height: var(--leading-xs);
+  cursor: pointer;
+}
+
+.armada-view__pull:hover { color: var(--fg-default); border-color: var(--fg-subtle); }
+.armada-view__pull:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
+.armada-view__pull[data-queued] { border-style: solid; border-color: var(--fg-subtle); color: var(--fg-default); }
+.armada-view__pull[data-state="queued"] > svg,
+.armada-view__pull[data-state="blocked"] > svg { color: var(--status-not-started); }
+.armada-view__pull[data-state="running"] > svg { color: var(--status-running); }
+.armada-view__pull[data-state="ready"] > svg { color: var(--status-completed-success); }
+.armada-view__pull[data-state="failing"] { border-color: var(--status-completed-failed); }
+.armada-view__pull[data-state="failing"] > svg { color: var(--status-completed-failed); }
+
 .armada-view__main {
+  flex: none;
   width: var(--space-3);
   height: var(--space-3);
   border-radius: 50%;

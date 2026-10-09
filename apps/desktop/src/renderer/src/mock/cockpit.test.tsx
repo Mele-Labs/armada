@@ -57,6 +57,22 @@ test("[ and ] step the filters round, Option and a digit jumps, and the filter i
   }
 });
 
+test("the merge line draws every open pull request, the queue nearest main, and a press opens one", async () => {
+  await dashboard();
+  const blocks = [...document.querySelectorAll<HTMLElement>(".armada-view__pull")];
+  // Nearest main first in the document, which the belt draws from the right: queue by place, then the rest as listed.
+  expect(blocks.map((one) => one.querySelector("span")?.textContent)).toEqual(["#1890", "#1891", "#1893", "#1894", "#1895"]);
+  expect(blocks.map((one) => one.hasAttribute("data-queued"))).toEqual([true, true, false, false, false]);
+  expect(blocks[0]!.getAttribute("aria-label")).toContain("Job: Debounce the Job Board's resize handler");
+  // A pull request's checks failing turns its block red.
+  expect(blocks[3]!.getAttribute("data-state")).toBe("running");
+  timePasses();
+  timePasses();
+  timePasses();
+  timePasses();
+  await expect.poll(() => document.querySelector('.armada-view__pull[aria-label^="#1894"]')?.getAttribute("data-state")).toBe("failing");
+});
+
 test("n brings the cursor back to the dispatch bar from the panel", async () => {
   await dashboard();
   await expect.element(page.getByRole("textbox", { name: "Request" })).not.toHaveFocus();

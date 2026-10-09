@@ -7,6 +7,7 @@ import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import { CircleDashed, GitMerge, LayoutGrid, Orbit } from "lucide-react";
 import { Button, Kbd, Tabs, Tooltip, actionOf, keyFor } from "@armada/components";
 import type { RepositorySummary } from "@armada/protocol";
+import type { Session } from "@armada/screens/src/draft/sessions";
 import type { CallView } from "@armada/jobs/draft/calls";
 import type { NowView } from "@armada/jobs/draft/now";
 import { nowPanelOf } from "@armada/jobs";
@@ -25,6 +26,7 @@ import { CallCard, type CardKeys } from "./CallCard";
 import { FleetMap } from "./FleetMap";
 import { useLayout } from "@armada/shell";
 import { TAB_KEYS, useFilters } from "./keys";
+import { pullBlocks } from "./horizon";
 import { sessionIdOf } from "./waiting";
 import { nearest, skyOf } from "./map-layout";
 import { useCockpitView } from "./view";
@@ -33,8 +35,12 @@ import "./cockpit.css";
 /** Whether motion is off: nothing waits for an exit that will not play. */
 const stillness = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-/** The merge line as the glass's horizon: blocks moving toward main's light. */
-function Horizon({ state }: { state: BridgeState }) {
+/**
+ * The merge line as the glass's horizon: blocks moving toward main's light. Nearest main first are
+ * Fleet's own landing entries, then each open pull request, the forge's merge queue before the rest,
+ * as a labelled block. Still, and no count beside it.
+ */
+function Horizon({ state, sessions, onOpenLink }: { state: BridgeState; sessions: readonly Session[]; onOpenLink: (address: string) => void }) {
   const views = viewsOf(state);
   if (views.length === 0) return null;
   return (
@@ -48,6 +54,26 @@ function Horizon({ state }: { state: BridgeState }) {
                 <li className="armada-view__block" data-state={entry.state} />
               </Tooltip>
             ))}
+            {pullBlocks(view, state.mergeLines, views, sessions).map((pull) => {
+              const Icon = pull.mark?.icon ?? null;
+              return (
+                <li key={pull.number} className="armada-view__pull-item">
+                  <Tooltip label={pull.tip} asChild>
+                    <button
+                      type="button"
+                      className="armada-view__pull"
+                      data-state={pull.state}
+                      data-queued={pull.queued || undefined}
+                      aria-label={pull.tip}
+                      onClick={() => onOpenLink(pull.url)}
+                    >
+                      {Icon === null ? null : <Icon size={12} aria-hidden="true" />}
+                      <span>#{pull.number}</span>
+                    </button>
+                  </Tooltip>
+                </li>
+              );
+            })}
           </ol>
           <Tooltip label={view.hub?.main?.state === "red" ? "Main is red" : "Main is green"}>
             <span className="armada-view__main" data-red={view.hub?.main?.state === "red" || undefined} />
@@ -322,7 +348,7 @@ export function Cockpit({
               <Kbd>{TAB_KEYS.next}</Kbd>
             </Tooltip>
           </span>
-          {mergeLine ? <Horizon state={state} /> : null}
+          {mergeLine ? <Horizon state={state} sessions={sessions} onOpenLink={hosts.onOpenLink} /> : null}
           <span className="armada-view__keys">
             <span className="armada-view__toggle" role="group" aria-label="View">
               <Tooltip label="Grid">

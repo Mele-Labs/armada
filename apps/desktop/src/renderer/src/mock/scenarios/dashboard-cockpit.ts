@@ -6,6 +6,7 @@
 
 import { repository } from "@armada/screens/src/fixtures/build/base";
 import { mergeLines } from "@armada/screens/src/fixtures/build/merge-line";
+import type { MergeLines } from "@armada/protocol";
 import type { Session } from "@armada/screens/src/draft/sessions";
 import type { CallView } from "@armada/jobs/draft/calls";
 import type { NowView } from "@armada/jobs/draft/now";
@@ -200,6 +201,27 @@ function asking(store: SessionsStore): SessionsStore {
   };
 }
 
+const FORGE = "https://git.example/armada/pull/";
+
+/** The forge's open pull requests: two in the merge queue, three not. One of those three is running its checks, or failing them. */
+function withPulls(lines: MergeLines, failing = false): MergeLines {
+  const pull = (number: number, title: string, branch: string, more: Record<string, unknown> = {}) => ({ number, title, branch, url: `${FORGE}${number}`, ...more });
+  return {
+    lines: lines.lines.map((one) => ({
+      ...one,
+      hub: {
+        pull_requests: [
+          pull(1893, "Bump the lockfile", "chore/bump-the-lockfile", { ci: "passed" }),
+          pull(1891, "Pin the store clock", "fix/pin-store-clock", { ci: "passed", queue: { state: "queued", position: 2 } }),
+          pull(1894, "Fix the reconnect wait", "fleet/reconnect-wait", { ci: failing ? "failed" : "running" }),
+          pull(1890, "Gate policy on every run", "fleet/gate-policy-every-run", { ci: "passed", queue: { state: "awaiting_checks", position: 1 } }),
+          pull(1895, "Read the pairing code", "pocket/pairing-code", { ci: "passed" }),
+        ],
+      },
+    })),
+  };
+}
+
 function build(): Scenario {
   const board = [debounce, cache, mainChecks, migrate, pause, pin, pwa, code, shell, landed, broke];
   const pocket = { ...repository().manifest!, id: POCKET, repository: POCKET, path: "/Users/user/pocket", records_root: "/Users/user/pocket/.armada" };
@@ -208,12 +230,12 @@ function build(): Scenario {
   });
   const none = { id: "x", number: 0, title: "", branch: "", slot: 0 };
   const jobs = board.map((one) => one.job);
-  const state = { ...base.state, repository: null, mergeLines: mergeLines(), jobs };
+  const state = { ...base.state, repository: null, mergeLines: withPulls(mergeLines()), jobs };
   return {
     ...base,
     state,
     reads: { ...base.reads, [plan.job.id]: plan, [check.job.id]: check },
-    later: [{ jobs: [...jobs, plan.job] }, { jobs: [...jobs, plan.job, check.job] }, {}],
+    later: [{ jobs: [...jobs, plan.job] }, { jobs: [...jobs, plan.job, check.job] }, {}, { mergeLines: withPulls(mergeLines(), true) }],
     draft: { calls: now, now: nows, sessions: (control) => asking(sessionsStore([none, none], none, [], control, [], SESSIONS)) },
   };
 }
