@@ -57,9 +57,9 @@ Which Jobs count as needing the owner follows Bridge's Needs you tab, in `needs_
 | Session | The phone shows | The phone can do |
 |---|---|---|
 | Hosted | Title, repository, since when it has waited, and the held ask: its question text and options, or the tool and its one-line detail | Answer a question with the options chosen, or a permission ask with `allow_once` or `refuse` |
-| Terminal | Title, repository, and that it is waiting | Nothing. Answering a Terminal Session is refused with a 409 |
+| Terminal | Title, repository, and that it is waiting. While Fleet holds its question, the ask as a hosted one shows it | While Fleet holds the question, the same answers as a hosted Session. After the hold, nothing: the answer is refused with a 409 and the question is answered in the terminal |
 
-- **A Terminal Session carries no ask**, even where Fleet holds one. Whether a Session is hosted is read from Fleet's own row when the answer arrives, never from the phone.
+- **A Terminal Session carries an ask only while Fleet holds its question**: from `asked_at` for `holding_for_seconds`, by the Gateway's clock. It falls back to the terminal after that. The answer goes to Fleet's `answer_session_ask`, as a hosted one does. Whether a Session is hosted is read from Fleet's own row when the answer arrives, never from the phone.
 - **`allow_and_remember` is never offered.** It writes the owner's personal settings, so the answer type has no such value.
 - **A Session's transcript, files, messages, working directory and environment values never reach the phone.** Nor does any ask but the one it is held on.
 - **Session asks do not push.** They queue in Needs you.

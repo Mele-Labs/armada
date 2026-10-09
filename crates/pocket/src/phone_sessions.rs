@@ -2,9 +2,9 @@
 //!
 //! **An allowlist, built field by field**, as [`crate::phone`] is for a Job. There
 //! is no field for a transcript, a file, a message, a working directory or an
-//! environment value, and so none to fill. A Terminal Session is built without
-//! an ask: [`held_ask`] answers only for a hosted one, and both the row and the
-//! answer route read it there.
+//! environment value, and so none to fill. A Terminal Session has an ask only
+//! while Fleet holds its question: [`held_ask`] judges that, and both the row
+//! and the answer route read it there.
 
 use ipc::{
     AskedChoice, AskedQuestion, HelmCallAnswer, HelmCallInFlight, SessionOrigin, SessionRecord,
@@ -56,17 +56,23 @@ pub struct PhoneSession {
     pub waiting: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub waiting_since: Option<String>,
-    /// Hosted Sessions only.
+    /// A hosted Session's, or a Terminal Session's while Fleet holds it.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ask: Option<PhoneAsk>,
 }
 
-/// The ask a hosted Session is held on. **Never a Terminal Session's**, which
-/// Fleet may carry and the phone does not answer.
-pub fn held_ask(record: &SessionRecord) -> Option<&HelmCallInFlight> {
+/// The ask a Session is held on. **A Terminal Session's counts only while Fleet
+/// still holds it**: `asked_at` plus `holding_for_seconds`, against `now` in Unix
+/// seconds. After that the question is in the terminal and nowhere else.
+pub fn held_ask(record: &SessionRecord, now: i64) -> Option<&HelmCallInFlight> {
     match record.origin {
         SessionOrigin::Bridge => record.hosted.as_ref()?.asked.as_ref(),
-        SessionOrigin::Terminal => None,
+        SessionOrigin::Terminal => {
+            let asked = record.terminal.as_ref()?.asked.as_ref()?;
+            let since = asked.asked_at.to_domain().epoch_millis()?;
+            let until = since.saturating_add(i64::try_from(asked.holding_for_seconds).ok()?.saturating_mul(1000));
+            (now.saturating_mul(1000) < until).then_some(asked)
+        }
     }
 }
 
@@ -105,12 +111,11 @@ fn ask(held: &HelmCallInFlight) -> PhoneAsk {
 }
 
 impl PhoneSession {
-    pub fn of(record: &SessionRecord, repository: Option<&str>) -> PhoneSession {
+    pub fn of(record: &SessionRecord, repository: Option<&str>, now: i64) -> PhoneSession {
         let hosted = record.origin == SessionOrigin::Bridge;
-        // A Terminal Session is waiting when its mod says it asked; that is the
-        // whole of what the phone is told.
+        // A Terminal Session is waiting when its mod says it asked, held or not.
         let waiting_on = match record.origin {
-            SessionOrigin::Bridge => held_ask(record),
+            SessionOrigin::Bridge => held_ask(record, now),
             SessionOrigin::Terminal => record.terminal.as_ref().and_then(|t| t.asked.as_ref()),
         }
         .filter(|_| record.state == SessionState::Live);
@@ -121,7 +126,7 @@ impl PhoneSession {
             kind: if hosted { "hosted" } else { "terminal" },
             waiting: waiting_on.is_some(),
             waiting_since: waiting_on.map(|asked| asked.asked_at.as_str().to_string()),
-            ask: held_ask(record)
+            ask: held_ask(record, now)
                 .filter(|_| record.state == SessionState::Live)
                 .map(ask),
         }

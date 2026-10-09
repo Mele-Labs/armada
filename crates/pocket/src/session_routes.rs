@@ -19,7 +19,7 @@ use crate::reads::{json, port, refusal, repositories, required, NOT_ANSWERING, N
 use crate::{fleet_client, Gateway};
 
 const NO_SUCH_SESSION: &str = "That Session is not here.";
-const IN_A_TERMINAL: &str = "That Session is running in a terminal. Answer it there.";
+const NO_LONGER_HELD: &str = "Armada is no longer holding that question. Answer it in the terminal.";
 const NOT_ASKING: &str = "That Session is not waiting on an answer.";
 const ASK_MOVED_ON: &str = "That question has been answered or has changed. Open it again.";
 const ANSWER_DOES_NOT_FIT: &str = "That answer does not fit the question. Open it again.";
@@ -41,7 +41,7 @@ pub async fn sessions(State(gateway): State<Gateway>) -> Response {
                 .as_ref()
                 .and_then(|id| labels.get(id.as_str()))
                 .map(String::as_str);
-            PhoneSession::of(record, repository)
+            PhoneSession::of(record, repository, gateway.pairing.now())
         })
         .collect();
     json(&Sessions { sessions: rows })
@@ -115,11 +115,9 @@ pub async fn answer(State(gateway): State<Gateway>, body: Bytes) -> Response {
     let Some(record) = list.iter().find(|record| record.id.as_str() == answering.session_id) else {
         return refusal(StatusCode::NOT_FOUND, NO_SUCH_SESSION);
     };
-    if record.origin == SessionOrigin::Terminal {
-        return refusal(StatusCode::CONFLICT, IN_A_TERMINAL);
-    }
-    let Some(held) = held_ask(record) else {
-        return refusal(StatusCode::CONFLICT, NOT_ASKING);
+    let Some(held) = held_ask(record, gateway.pairing.now()) else {
+        let gone = if record.origin == SessionOrigin::Terminal { NO_LONGER_HELD } else { NOT_ASKING };
+        return refusal(StatusCode::CONFLICT, gone);
     };
     if answering.ask_id.as_deref().is_some_and(|named| named != held.call) {
         return refusal(StatusCode::CONFLICT, ASK_MOVED_ON);

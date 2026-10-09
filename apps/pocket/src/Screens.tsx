@@ -145,8 +145,9 @@ function sessionRow(session: PhoneSession) {
   const age = session.waiting_since === undefined ? "" : ago(session.waiting_since, Date.now());
   const title = session.title ?? "";
   const where = session.repository ?? "";
-  if (session.kind === "terminal") return <Row key={session.id} icon={SquareTerminal} tip="Terminal session waiting" title={title} where={where} age={age} />;
-  if (session.ask === undefined) return null;
+  if (session.ask === undefined) {
+    return session.kind === "terminal" ? <Row key={session.id} icon={SquareTerminal} tip="Terminal session waiting" title={title} where={where} age={age} /> : null;
+  }
   return <Row key={session.id} icon={SquareTerminal} tip="Session asks" title={title} where={where} age={age} onOpen={() => go(`/sessions/${session.id}`)} />;
 }
 

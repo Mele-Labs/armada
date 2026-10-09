@@ -50,6 +50,16 @@ fn sessions() -> String {
                 ask("tc", "AskUserQuestion", TERMINAL_ASK, &format!(r#","questions":[{{"question":"{TERMINAL_ASK}"}}]"#))
             ),
         ),
+        // Asked at the same minute, held for 60 seconds: lapsed by the test's clock.
+        record(
+            "t3",
+            "terminal",
+            "live",
+            &format!(
+                r#","terminal":{{"listening":true,"asked":{}}}"#,
+                ask("tc3", "Bash", "ls", "").replace(r#""holding_for_seconds":600"#, r#""holding_for_seconds":60"#)
+            ),
+        ),
         record("t2", "terminal", "live", ""),
         record("e1", "bridge", "ended", &hosted(&format!(r#","asked":{}"#, ask("c9", "Bash", "x", "")))),
     ];
@@ -103,9 +113,13 @@ struct App {
     device: String,
 }
 
+/// 2026-10-08T05:05:00Z: five minutes into a 600-second hold, past a 60-second one.
+const FIVE_PAST: i64 = 1_791_435_900;
+
 async fn on(port: u16) -> App {
     let rig = rig_with(Arc::new(move || Ok(port)));
     let device = paired(&rig).await;
+    rig.now.store(FIVE_PAST, Ordering::Relaxed);
     App { rig, device }
 }
 
@@ -121,12 +135,11 @@ async fn rig() -> (App, Seen) {
 }
 
 #[tokio::test]
-async fn sessions_are_trimmed_and_a_terminal_one_carries_no_ask() {
+async fn sessions_are_trimmed_and_a_terminal_one_carries_its_ask_while_held() {
     let (app, _) = rig().await;
     let (status, body) = send(&app, Method::GET, "/api/sessions", "").await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert!(!body.contains(SECRET), "{body}");
-    assert!(!body.contains(TERMINAL_ASK), "{body}");
     for field in ["cwd", "model", "commands", "end_reason", "usage", "attachments", "hosted", "terminal"] {
         assert!(!body.contains(&format!("\"{field}\":")), "{field} in {body}");
     }
@@ -136,11 +149,17 @@ async fn sessions_are_trimmed_and_a_terminal_one_carries_no_ask() {
     assert!(body.contains(r#""repository":"armada""#), "{body}");
     // The permission ask offers allow_once and refuse, and not the remembered rule.
     assert!(body.contains(r#""offers":["allow_once","refuse"]"#), "{body}");
-    // The Terminal Session is waiting and has no ask.
-    let terminal = &body[body.find(r#""id":"t1""#).unwrap()..];
-    let terminal = &terminal[..terminal.find('}').unwrap()];
-    assert!(terminal.contains(r#""kind":"terminal""#) && terminal.contains(r#""waiting":true"#), "{terminal}");
-    assert!(!terminal.contains("ask"), "{terminal}");
+    // A Terminal Session whose question Fleet holds shows it, and stays a terminal one.
+    let held = &body[body.find(r#""id":"t1""#).unwrap()..];
+    let held = &held[..held.find(r#""id":"t3""#).unwrap_or(held.len())];
+    assert!(held.contains(r#""kind":"terminal""#) && held.contains(r#""waiting":true"#), "{held}");
+    assert!(held.contains(r#""ask_id":"tc""#) && held.contains(TERMINAL_ASK), "{held}");
+    assert!(held.contains(r#""offers":["allow_once","refuse"]"#), "{held}");
+    // Once the hold has lapsed it is still waiting, with nothing to answer.
+    let lapsed = &body[body.find(r#""id":"t3""#).unwrap()..];
+    let lapsed = &lapsed[..lapsed.find('}').unwrap()];
+    assert!(lapsed.contains(r#""kind":"terminal""#) && lapsed.contains(r#""waiting":true"#), "{lapsed}");
+    assert!(!lapsed.contains("ask"), "{lapsed}");
 }
 
 #[tokio::test]
@@ -149,13 +168,13 @@ async fn needs_holds_the_waiting_sessions_and_not_the_idle_ones() {
     let (status, body) = send(&app, Method::GET, "/api/needs", "").await;
     assert_eq!(status, StatusCode::OK, "{body}");
     let sessions = &body[body.find(r#""sessions""#).unwrap()..];
-    for present in ["\"h1\"", "\"h2\"", "\"t1\""] {
+    for present in ["\"h1\"", "\"h2\"", "\"t1\"", "\"t3\""] {
         assert!(sessions.contains(present), "{present} in {sessions}");
     }
     for absent in ["\"h3\"", "\"t2\"", "\"e1\""] {
         assert!(!sessions.contains(absent), "{absent} in {sessions}");
     }
-    assert!(!body.contains(SECRET) && !body.contains(TERMINAL_ASK), "{body}");
+    assert!(!body.contains(SECRET), "{body}");
 }
 
 #[tokio::test]
@@ -174,11 +193,27 @@ async fn a_hosted_answer_reaches_fleet_with_its_body() {
 }
 
 #[tokio::test]
+async fn a_terminal_answer_reaches_fleet_with_its_body() {
+    let (app, seen) = rig().await;
+    let refuse = r#"{"session_id":"t1","ask_id":"tc","answer":"refuse"}"#;
+    assert_eq!(send(&app, Method::POST, "/api/sessions/answer", refuse).await.0, StatusCode::NO_CONTENT);
+    let chosen = r#"{"session_id":"t1","answer":[{"question":"TERMINAL-ASK-TEXT-77","chosen":["a"]}]}"#;
+    assert_eq!(send(&app, Method::POST, "/api/sessions/answer", chosen).await.0, StatusCode::NO_CONTENT);
+    let seen = seen.lock().unwrap();
+    assert_eq!(seen[0], ("/sessions/ask/answer".to_string(), r#"{"session_id":"t1","call":"tc","answer":"refuse"}"#.to_string()));
+    assert_eq!(
+        seen[1].1,
+        r#"{"session_id":"t1","call":"tc","answer":"allow_once","answers":[{"question":"TERMINAL-ASK-TEXT-77","chosen":["a"]}]}"#
+    );
+}
+
+#[tokio::test]
 async fn answers_that_cannot_be_given_are_refused_before_fleet() {
     let (app, seen) = rig().await;
     let cases = [
-        (r#"{"session_id":"t1","answer":"allow_once"}"#, StatusCode::CONFLICT, "That Session is running in a terminal. Answer it there."),
-        (r#"{"session_id":"t1","ask_id":"tc","answer":"refuse"}"#, StatusCode::CONFLICT, "That Session is running in a terminal. Answer it there."),
+        (r#"{"session_id":"t3","answer":"refuse"}"#, StatusCode::CONFLICT, "Armada is no longer holding that question. Answer it in the terminal."),
+        (r#"{"session_id":"t2","answer":"refuse"}"#, StatusCode::CONFLICT, "Armada is no longer holding that question. Answer it in the terminal."),
+        (r#"{"session_id":"t1","ask_id":"old","answer":"refuse"}"#, StatusCode::CONFLICT, "That question has been answered or has changed. Open it again."),
         (r#"{"session_id":"h3","answer":"refuse"}"#, StatusCode::CONFLICT, "That Session is not waiting on an answer."),
         (r#"{"session_id":"h2","ask_id":"old","answer":"refuse"}"#, StatusCode::CONFLICT, "That question has been answered or has changed. Open it again."),
         (r#"{"session_id":"h1","answer":"allow_once"}"#, StatusCode::BAD_REQUEST, "That answer does not fit the question. Open it again."),
