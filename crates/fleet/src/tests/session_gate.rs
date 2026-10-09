@@ -223,3 +223,31 @@ async fn a_slot_the_agent_leased_by_the_cli_is_attached_and_writable() {
     let hosting = rig.fleet.store().lock().await.hosting(id.as_str()).unwrap().unwrap();
     assert_eq!(hosting.lease_slot, Some(5));
 }
+
+#[test]
+fn a_keeper_is_found_by_the_socket_it_serves() {
+    use crate::session_host::following::keeper_in;
+    let listing = "  41 /bin/zsh -l\n 977 armada session-keep /k/a.sock /k/a.spool 600 -- claude\n 978 armada session-keep /k/b.sock /k/b.spool 600 -- claude\n";
+    assert_eq!(keeper_in(listing, "/k/b.sock"), Some(978));
+    assert_eq!(keeper_in(listing, "/k/c.sock"), None);
+}
+
+#[tokio::test]
+async fn a_slot_is_read_through_the_keeper_when_fleet_holds_no_pid_for_the_agent() {
+    let peers = Placing::nothing();
+    let (rig, id) = in_its_slot(&peers).await;
+    let me = std::process::id();
+    let theirs = lease(&rig, 4, me, &started(me));
+    let file = format!(r#"{{"file_path":"{theirs}/src/lib.rs"}}"#);
+    // A keeper process whose argv names this session's socket.
+    let socket = std::path::Path::new(&rig.fleet.host().keepers_dir).join(format!("{}.sock", id.as_str()));
+    let mut keeper = Command::new("sh")
+        .args(["-c", "sleep 30; sleep 1", "session-keep", &socket.to_string_lossy()])
+        .spawn()
+        .expect("a stand-in keeper");
+    peers.started(keeper.id(), me);
+    rig.fleet.hosts().of(id.as_str()).state().process = None;
+    let allowed = !denied(&rig.gate(&id, "Edit", &file).await);
+    let _ = keeper.kill();
+    assert!(allowed);
+}

@@ -36,6 +36,17 @@ pub(super) fn standing(
     }
 }
 
+/// The pid of the `armada session-keep` serving `socket`, in a `ps -axo
+/// pid=,command=` listing.
+pub(crate) fn keeper_in(listing: &str, socket: &str) -> Option<u32> {
+    listing.lines().find_map(|line| {
+        let mut words = line.split_whitespace();
+        let pid = words.next()?.parse().ok()?;
+        let words: Vec<&str> = words.collect();
+        (words.contains(&"session-keep") && words.contains(&socket)).then_some(pid)
+    })
+}
+
 impl<H, V, W> Fleet<H, V, W>
 where
     H: AgentHarness + Send + Sync + 'static,
@@ -49,7 +60,22 @@ where
     /// The pids this session's agent and everything it started are among.
     fn tree_roots(&self, id: &str) -> Vec<u32> {
         let process = self.hosts().of(id).state().process.clone();
-        process.and_then(|process| process.pid()).into_iter().collect()
+        match process.and_then(|process| process.pid()) {
+            Some(agent) => vec![agent],
+            // No pid yet (READY unread) or no process attached: the keeper
+            // that serves this session's socket started the agent, so its
+            // tree holds the agent's.
+            None => self.keeper_of(id).into_iter().collect(),
+        }
+    }
+
+    fn keeper_of(&self, id: &str) -> Option<u32> {
+        let socket = std::path::Path::new(&self.host().keepers_dir).join(format!("{id}.sock"));
+        let listing = std::process::Command::new("ps")
+            .args(["-axo", "pid=,command="])
+            .output()
+            .ok()?;
+        keeper_in(&String::from_utf8_lossy(&listing.stdout), &socket.to_string_lossy())
     }
 
     pub(super) fn held_by_the_tree(&self, id: &str, path: &str) -> Standing {

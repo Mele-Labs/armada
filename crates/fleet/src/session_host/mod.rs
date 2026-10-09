@@ -8,7 +8,7 @@
 //! permission door and `rows` writes the thread.
 
 mod asking;
-mod following;
+pub(crate) mod following;
 mod forking;
 mod gate;
 mod hearing;
