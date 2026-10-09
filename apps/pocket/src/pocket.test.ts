@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { ago, toPocket } from "./data";
 import type { PhoneJob } from "./gateway";
+import { bytesOf } from "./push";
 import { SseParser } from "./sse";
 import { bodyHash, hex, signHeaders, signedMessage } from "./signing";
 
@@ -74,5 +75,11 @@ describe("data.ts mapping", () => {
     const job = toPocket({ ...base, status: "completed_success", ended_at: "2026-10-08T11:00:00Z" }, NOW);
     expect(job.age).toBe("1h");
     expect(job).toMatchObject({ repository: "", quiet: undefined, verdict: undefined, pr: undefined });
+  });
+});
+
+describe("the push key", () => {
+  it("decodes base64url, without padding, to the bytes of the point", () => {
+    expect(Array.from(bytesOf("BAH_-w"))).toEqual([4, 1, 255, 251]);
   });
 });
