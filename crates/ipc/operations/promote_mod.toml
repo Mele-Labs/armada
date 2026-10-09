@@ -1,0 +1,14 @@
+[operations.promote_mod]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Copy a valid mod onto a new branch of a repository under packages/mods, without touching the owner's checkout"
+notes = """
+`POST /mods/promote`, body `PromoteMod`: `name` and an optional `manifest_id` (absent is the first repository Fleet serves). Answered with `ModPromoted`: the new branch, `armada/mod-<name>-<milliseconds since the epoch>`, and its commit.
+
+Fleet leases a worktree slot from the repository's pool, copies `mod.toml` and `theme.css` (never the mod's `.git`) to `packages/mods/<name>/`, commits exactly those paths, and gives the slot back. **Nothing is pushed and no pull request is opened**, and neither the owner's checkout nor any branch that exists is touched. The mod's own history stays in its own repository.
+
+Refused with 409 `fleet.mod_not_promotable` where the mod is invalid, where the repository has no `packages/` folder, or where every slot is in use (try again); 404 `fleet.no_such_mod` for a slug naming no folder.
+
+`agent_access` is `No`: putting something on a branch of the owner's repository is asked for by the owner.
+"""

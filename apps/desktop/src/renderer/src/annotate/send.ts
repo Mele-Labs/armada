@@ -32,12 +32,13 @@ export function unsendable(sink: Sink): string | null {
  * **Nothing is saved here**: the caller writes `sent` onto the note, so a send
  * that fails leaves the note exactly as it was.
  */
-export async function sendToFleet(note: Annotation, box: Box, sink: Sink, fleet: Proposer, at: Date): Promise<SendAnswer> {
+export async function sendToFleet(note: Annotation, box: Box | null, sink: Sink, fleet: Proposer, at: Date): Promise<SendAnswer> {
   const root = await sink.root();
   if (root === null) return { ok: false, saying: "Job not sent: no repository found above Bridge" };
 
   const attachments: StagedAttachment[] = [];
-  const png = await sink.capture(box).catch(() => null);
+  // A null box is a note whose element is not on this screen: a shot of the screen would be of the wrong thing.
+  const png = box === null ? null : await sink.capture(box).catch(() => null);
   if (png !== null) {
     const filename = `annotation-${note.id}.png`;
     const { path } = await fleet.stageAttachment(png, filename, "image/png");
@@ -73,7 +74,7 @@ export const titleOf = (notes: readonly Annotation[]): string => (notes[0]?.text
  * A Session Fleet refuses, a terminal one among them, comes back as its words.
  */
 export async function sendToSession(
-  notes: readonly { note: Annotation; box: Box }[],
+  notes: readonly { note: Annotation; box: Box | null }[],
   target: SessionTarget | null,
   sink: Sink,
   fleet: SessionSender,
@@ -81,7 +82,7 @@ export async function sendToSession(
 ): Promise<SendAnswer> {
   const attachments: { name: string; media_type: string; data: string }[] = [];
   for (const { note, box } of notes) {
-    const png = await sink.capture(box).catch(() => null);
+    const png = box === null ? null : await sink.capture(box).catch(() => null);
     if (png !== null) attachments.push({ name: `annotation-${note.id}.png`, media_type: "image/png", data: base64(png) });
   }
 

@@ -756,6 +756,11 @@ if [[ "$protocol" != "$want_protocol" ]]; then
   fail "Fleet is up on protocol $protocol, not $want_protocol; Bridge was not reopened"
 fi
 
+# The commit the Fleet now running was built from, which Bridge's Fleet panel
+# counts against origin/main. Written once the new Fleet speaks the right
+# protocol, so a restart that failed before here leaves the old record true.
+git -C "$src" rev-parse HEAD >"$support/restart-commit" 2>/dev/null || rm -f "$support/restart-commit"
+
 # Reopen Bridge, only if it was rebuilt. Otherwise it reconnects on its own
 # — apps/desktop/src/main/socket.ts.
 bridge_reopened=false

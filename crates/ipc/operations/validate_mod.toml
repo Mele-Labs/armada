@@ -1,0 +1,14 @@
+[operations.validate_mod]
+kind = "query"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Check one mod's files and answer with every problem found, and the stylesheet if there are none"
+notes = """
+`GET /mods/validate?name=`, answered with `ModChecked`: `valid`, `problems` (empty exactly when valid) and, only when it passed, `css`, the stylesheet as it was checked. Bridge injects that text and no other, so what loads is what passed, with no window between a check and a read. Every problem is returned, not the first.
+
+`mod.toml` must be a flat file of `key = "value"` lines with `name` (the folder's name), `kind` (`theme`), `version` and optionally `description`; any other key is a problem. `theme.css` must be a regular file of at most 32 KiB holding only `:root { }` and `[data-theme] { }` blocks whose declarations are `--token: value;` with `--token` one of the design tokens in `packages/tokens/tokens.json` as compiled into this build. A value may not contain `url(`, `image-set(`, `@`, a backslash, `<`, `>`, `{`, `}`, `!` or a script. An `@import`, an at-rule of any kind, a selector, a property that is not a token and a block left open are each a problem with a line number.
+
+**A mod that cannot be read at all is `valid: false` with the reason, not an error.** A name that is not a slug is a 422 `fleet.unacceptable_mod`, a slug naming no folder a 404 `fleet.no_such_mod`.
+
+`agent_access` is `Yes`: a session checks its own work with this before it says it is done.
+"""

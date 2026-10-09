@@ -16,10 +16,15 @@ import { App } from "../App";
 import { DraftedFrom } from "../drafted";
 import { SessionsFrom } from "../sessions-draft";
 import { WiredSessions } from "../sessions-wired";
+import { Themed } from "../theme";
 import { mountAnnotating } from "./annotating";
 import { fakeBridge, heldSessions, liveDraft } from "./fake";
+import { MockFleetBuild } from "./fleet-build";
 import type { FakeOptions, LiveDraft } from "./fake";
 import { scenarioNamed } from "./scenario";
+import { PhoneSourceProvider } from "@armada/settings";
+import { mockPhone } from "./phone";
+import { mockThemes } from "./themes";
 import type { Scenario } from "./scenario";
 
 /** What was mounted: the fake the window is talking to, and how to take it down. */
@@ -89,6 +94,9 @@ export function mountApp(
   if (chosen === undefined) throw new Error(`no mock scenario named ${String(scenario)}`);
   // `shared` is a second window on the same main: both hear what either one's Fleet publishes.
   const api = shared ?? fakeBridge(chosen, options);
+  // A window starts on Dark with the mods a machine starts with; a second window on the same main shares them.
+  if (shared === undefined) mockThemes.reset();
+  mockPhone.reset(chosen.name === "phone/gateway-down" ? "not_running" : chosen.name === "phone/tailscale" ? "tailscale" : "paired");
   window.armada = api;
   const root = createRoot(host);
   let say = (): void => undefined;
@@ -104,9 +112,15 @@ export function mountApp(
               mount provides none, so every field is absent there. The context
               is what a composer reads before a Job exists; the prop is what a
               Job's own boards read. */}
-          <SessionsHere held={heldSessions(api)}>
-            <Drafted draft={liveDraft(api) ?? HELD(chosen.draft)} />
-          </SessionsHere>
+          <Themed source={mockThemes}>
+            <MockFleetBuild scenario={chosen.name}>
+              <PhoneSourceProvider value={mockPhone}>
+                <SessionsHere held={heldSessions(api)}>
+                  <Drafted draft={liveDraft(api) ?? HELD(chosen.draft)} />
+                </SessionsHere>
+              </PhoneSourceProvider>
+            </MockFleetBuild>
+          </Themed>
           <OnScreen say={say} />
         </HapticsProvider>
       </Boundary>

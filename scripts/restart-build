@@ -1,0 +1,123 @@
+#!/usr/bin/env python3
+#
+# Move the running Fleet and Bridge onto `main` or the preview, and keep a record
+# Fleet can read back. Started by Fleet's `change_fleet_build`, detached and
+# unmarked so it outlives the Fleet it stops; run by hand it does the same.
+#
+#   scripts/restart-build main [--adopt]      scripts/restart --main
+#   scripts/restart-build preview [--adopt]   scripts/preview --restart
+#
+# `docs/practices/running-locally.md`, "Restarting from Bridge", is what it
+# leaves behind and what reads it. In short: `Armada/restart-build.status` says
+# `running`, or `failed` with one line of why, and no file means it took.
+# Output goes to `~/Library/Logs/Armada/restart-build.log`.
+#
+# **A `libsqlite3-sys` build failure is run once more after
+# `cargo clean -p libsqlite3-sys` in the tree that was built.** It is a stale
+# build script, not the code, and Fleet is still up when it happens. Confirmed
+# 6 and 7 Oct 2026; `.claude/skills/preview-app/SKILL.md`.
+#
+# Knobs for tests: `ARMADA_RESTART_SCRIPT` and `ARMADA_PREVIEW_SCRIPT` name the
+# scripts this runs, `HOME` moves the record and the log.
+
+import os
+import re
+import subprocess
+import sys
+
+STALE = "libsqlite3-sys"
+ANSI = re.compile(r"\x1b\[[0-9;]*m")
+SAID = re.compile(r"^(?:restart|preview): (?:!!! )?(.*)$")
+LIMIT = 200
+
+
+def write_atomically(path, text):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    temporary = path + ".tmp"
+    with open(temporary, "w") as f:
+        f.write(text)
+    os.replace(temporary, path)
+
+
+def one_line(log):
+    """Why it stopped, from the end of the log: the last line a script said
+    for itself, else the last line at all."""
+    lines = [ANSI.sub("", line).strip() for line in log.splitlines()]
+    lines = [line for line in lines if line]
+    for line in reversed(lines):
+        said = SAID.match(line)
+        if said and said.group(1):
+            return said.group(1)[:LIMIT]
+    return lines[-1][:LIMIT] if lines else "exited without output"
+
+
+def main():
+    args = sys.argv[1:]
+    if not args or args[0] not in ("main", "preview") or any(a != "--adopt" for a in args[1:]):
+        sys.exit("usage: scripts/restart-build main|preview [--adopt]")
+    build, adopt = args[0], "--adopt" in args[1:]
+
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    home = os.path.expanduser("~")
+    support = os.path.join(home, "Library", "Application Support", "Armada")
+    status = os.path.join(support, "restart-build.status")
+    log_path = os.path.join(home, "Library", "Logs", "Armada", "restart-build.log")
+    os.makedirs(os.path.dirname(log_path), exist_ok=True)
+
+    def commit_now():
+        try:
+            with open(os.path.join(support, "restart-commit")) as f:
+                return f.read().strip()
+        except OSError:
+            return ""
+
+    def failed(why):
+        write_atomically(status, f"failed\n{build}\n{commit_now()}\n{why}\n")
+        print(f"restart-build: {why}", file=sys.stderr)
+        return 1
+
+    write_atomically(status, f"running\n{build}\n")
+
+    if build == "main":
+        branch = subprocess.run(
+            ["git", "-C", root, "branch", "--show-current"], capture_output=True, text=True
+        ).stdout.strip()
+        if branch != "main":
+            return failed(f"the checkout is on {branch or 'no branch'}, not main")
+        command = [os.environ.get("ARMADA_RESTART_SCRIPT") or os.path.join(root, "scripts", "restart"), "--main"]
+        tree = root
+    else:
+        command = [os.environ.get("ARMADA_PREVIEW_SCRIPT") or os.path.join(root, "scripts", "preview"), "--restart"]
+        tree = os.path.join(root, ".armada", "preview")
+    if adopt:
+        command.append("--adopt")
+
+    def run():
+        with open(log_path, "a") as log:
+            log.write(f"$ {' '.join(command)}\n")
+            log.flush()
+            return subprocess.run(command, cwd=root, stdout=log, stderr=subprocess.STDOUT).returncode
+
+    open(log_path, "w").close()
+    code = run()
+    with open(log_path) as f:
+        log = f.read()
+    if code != 0 and STALE in log and os.path.isdir(tree):
+        with open(log_path, "a") as f:
+            f.write(f"\n$ cargo clean -p {STALE}  (in {tree})\n")
+            f.flush()
+            subprocess.run(["cargo", "clean", "-p", STALE], cwd=tree, stdout=f, stderr=subprocess.STDOUT)
+        code = run()
+        with open(log_path) as f:
+            log = f.read()
+    if code != 0:
+        return failed(one_line(log))
+    try:
+        os.remove(status)
+    except OSError:
+        pass
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

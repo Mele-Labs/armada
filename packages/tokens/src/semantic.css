@@ -1,6 +1,6 @@
 /* Semantic aliases. Surfaces come from Ground, text from Foreground,
    interaction from Accent, and status only from the status tokens. */
-:root {
+:root, [data-theme] {
   --surface-canvas: var(--bg-base);
   --surface-card: var(--bg-raised);
   --surface-row: var(--bg-raised);

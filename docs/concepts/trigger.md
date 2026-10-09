@@ -6,7 +6,7 @@
 
 **Kind:** Concept.
 
-**Built:** the model, the loader, the freeze at approval, Fleet firing a Command Trigger, `repair`, the wire to Bridge, Bridge's saved Triggers, step cards and Job card, steps added to one Job in Fleet and on the wire, the `+` that adds one on Bridge's approval canvas and a running Job's Workflow tab, the repair branch on a Job's canvases, and `block`, which holds the Job, with the owner's Rerun and Skip, a bell on a Board row, and the hold on Bridge's canvas and list. Skill Triggers, Skill steps and Drone steps run on a side Drone (23.73), and a saved Trigger can run a Drone with a prompt. A destructive Command asks the owner first: Run or Skip on its leaf, and a bell on the Board row.
+**Built:** the model, the loader, the freeze at approval, Fleet firing a Command Trigger, `repair`, the wire to Bridge, Bridge's saved Triggers, step cards and Job card, steps added to one Job in Fleet and on the wire, the `+` that adds one on Bridge's approval canvas and a running Job's Workflow tab, the repair branch on a Job's canvases, and `block`, which holds the Job, with the owner's Rerun and Skip, a bell on a Board row, and the hold on Bridge's canvas and list. Skill Triggers, Skill steps and Drone steps run on a side Drone (23.73), and a saved Trigger can run a Drone with a prompt. A destructive Command asks the owner first, a saved Trigger's or a step added to one Job: Run or Skip on its leaf, and a bell on the Board row.
 
 ## What a Trigger is
 
@@ -125,7 +125,7 @@ Run is `rerun_trigger` and Skip is `skip_trigger`; the wire has no act of its ow
 - **The Board row rings** with `JobAlert.kind` `asks`, after a hold and before a fix waiting on his choice, and `list_alerts` names the Trigger. A Job that is over has no bell: its worktree is no longer there to run in.
 - **Restart-safe.** The firing stays `awaiting_owner` in the store while the Command runs. A Fleet that stops halfway asks him again and never runs it unasked; a second Run meanwhile is refused with `fleet.hold_already_running`.
 - **A repair that follows his Run reruns the Command on the repair branch without asking again.** He said yes to the Trigger, and the repair is its failure path.
-- An added Script on a destructive Command is recorded `awaiting_owner` as before, and nothing asks him yet.
+- **A Script added to one Job asks the same way.** Its leaf off the step it fires at has the same Run and Skip, named by the step's id (`HoldAct.addition`), and the rows, the bell, `block`, the restart and the refusals are the Trigger's.
 
 ## On the wire
 

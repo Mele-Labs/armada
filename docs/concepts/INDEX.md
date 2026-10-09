@@ -28,6 +28,7 @@ assuming it is restated here.
 | [log-envelope.md](log-envelope.md) | The field contract every log line carries across Fleet, Bridge and Drone |
 | [machine.md](machine.md) | How this installation behaves — resources, timing, budget, notification routing |
 | [manifest.md](manifest.md) | Per-project config, backed by `armada.yml` |
+| [mods.md](mods.md) | A folder on this machine that changes how Bridge looks, which Fleet reads and checks and which can never stop Fleet |
 | [observe.md](observe.md) | Watching a Drone work while it keeps working — read-only, taking nothing over |
 | [pilot.md](pilot.md) | The escape hatch from a running Job into a human-driven Claude Code session |
 | [plan.md](plan.md) | A Job's own record of what it means to do the work — an approach and its tasks |
@@ -36,5 +37,6 @@ assuming it is restated here.
 | [scout.md](scout.md) | A read-only agent a person starts from a Studio, which comes back as a Finding |
 | [session.md](session.md) | An agent session a person runs, kept as a row so Fleet can say which sessions are open and which one holds a branch, a pull request, a Job or a slot |
 | [studio.md](studio.md) | A typed graph of what one stretch of work produced, kept per repository |
+| [themes.md](themes.md) | The colours Bridge is drawn in: Dark, Light, a catalogue of terminal colour schemes, and the themes mods add |
 | [trigger.md](trigger.md) | Something that runs at a moment in a Job — a Command or a skill, set by Armada, a repository or this machine |
 | [workflow.md](workflow.md) | The template a Job runs against — ordered steps, gates and retry policy |

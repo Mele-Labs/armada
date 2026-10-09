@@ -34,25 +34,42 @@ where
         }
         match said {
             Heard::Gone => {
-                let working = {
+                let (working, complaint, lost) = {
                     let mut state = runtime.state();
-                    state.process = None;
+                    let gone = state.process.take();
+                    let complaint = gone.as_ref().map(|p| p.complaint()).unwrap_or_default();
+                    // Its socket is taken away, so a replacement is not found
+                    // at it: the keeper of a gone agent would say so again.
+                    if let Some(gone) = &gone {
+                        gone.end();
+                    }
                     state.queued = 0;
                     state.moving = None;
                     let working = matches!(state.turn, SessionTurn::Working { .. });
                     state.turn = SessionTurn::Idle;
-                    working
+                    // Lines it never took are not lost with it: once.
+                    let lost = match state.retried {
+                        true => Vec::new(),
+                        false => std::mem::take(&mut state.unstarted),
+                    };
+                    state.unstarted.clear();
+                    state.retried = !lost.is_empty();
+                    (working, complaint, lost)
                 };
-                if working {
+                // A death that said something is shown even between turns.
+                if working || !complaint.is_empty() {
                     self.row_put(
                         id,
                         SessionRow::Tool {
                             id: self.row_id(id),
                             at: self.instant(),
-                            text: String::from("the session's process ended"),
+                            text: format!("the session's process ended{complaint}"),
                         },
                     )
                     .await;
+                }
+                if !lost.is_empty() {
+                    self.send_again(id, &runtime, lost).await;
                 }
                 let _ = self.published_hosted(id).await;
             }
@@ -80,6 +97,36 @@ where
         }
     }
 
+    /// Start a replacement for a process that was gone before it took these
+    /// lines, which resumes the conversation, and write them to it.
+    pub(crate) async fn send_again(self: &Arc<Self>, id: &str, runtime: &Arc<Runtime>, lines: Vec<String>) {
+        let started = match self.session_and_hosting(id).await {
+            Ok((_, hosting)) => self.ensure_process(id, &hosting).await,
+            Err(_) => Err(String::from("the session could not be read")),
+        };
+        match started {
+            Ok(()) => {
+                let mut state = runtime.state();
+                state.turn = SessionTurn::Working { woken_by: None };
+                state.last_active = std::time::Instant::now();
+                for line in lines {
+                    state.send_turn(line);
+                }
+            }
+            Err(why) => {
+                self.row_put(
+                    id,
+                    SessionRow::Tool {
+                        id: self.row_id(id),
+                        at: self.instant(),
+                        text: format!("the session's process would not start again: {why}"),
+                    },
+                )
+                .await;
+            }
+        }
+    }
+
     async fn hear(self: &Arc<Self>, id: &str, runtime: &Arc<Runtime>, event: DroneEvent) {
         match event {
             DroneEvent::Started { .. } => {
@@ -88,6 +135,10 @@ where
                     state.last_active = std::time::Instant::now();
                     if state.queued > 0 {
                         state.queued -= 1;
+                        if !state.unstarted.is_empty() {
+                            state.unstarted.remove(0);
+                        }
+                        state.retried = false;
                         state.turn = SessionTurn::Working { woken_by: None };
                     } else {
                         let by = (!state.woken_by.is_empty()).then(|| state.woken_by.remove(0));
@@ -206,11 +257,8 @@ where
         match (started, line) {
             (Ok(()), Ok(line)) => {
                 let mut state = runtime.state();
-                state.queued += 1;
                 state.turn = SessionTurn::Working { woken_by: None };
-                if let Some(process) = &state.process {
-                    process.send(line);
-                }
+                state.send_turn(line);
             }
             (started, _) => {
                 runtime.state().turn = SessionTurn::Idle;

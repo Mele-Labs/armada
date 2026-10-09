@@ -272,6 +272,19 @@ impl Queries for FakeDaemon {
         Ok(shapes::capacity())
     }
 
+    /// The build [`shapes::fleet_build`] describes, restarting onto whatever the
+    /// last change asked for.
+    async fn get_fleet_build(&self) -> Result<ipc::FleetBuildReport, Refusal> {
+        let mut report = shapes::fleet_build();
+        report.restarting = self
+            .builds
+            .lock()
+            .expect("not poisoned")
+            .last()
+            .map(|asked| asked.build);
+        Ok(report)
+    }
+
     /// Whatever the fake's own saves have left, so a route test can read back
     /// what it saved.
     async fn get_limits(&self) -> Result<ipc::FleetLimits, Refusal> {
@@ -280,7 +293,7 @@ impl Queries for FakeDaemon {
 
     /// Whatever the fake's own saves have left, `get_limits`' reason.
     async fn get_preferences(&self) -> Result<ipc::Preferences, Refusal> {
-        Ok(*self.preferences.lock().expect("not poisoned"))
+        Ok(self.preferences.lock().expect("not poisoned").clone())
     }
 
     /// Whatever a test planted, unfiltered — `#836`.

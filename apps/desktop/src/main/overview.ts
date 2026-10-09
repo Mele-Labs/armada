@@ -1,5 +1,5 @@
 // Fleet's health, and drift for every repository in the scope — each one served on All, or the
-// one picked. Read by Overview's own tiles, and by the left column's Stats and Fleet panels
+// one picked. Read by Overview's own tiles, and by the left column's Fleet panel
 // (Bridge/1088), which is why `watchOverview` now holds this open for the life of the window
 // rather than only while Overview is showing.
 //

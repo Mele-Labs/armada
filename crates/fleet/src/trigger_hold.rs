@@ -80,7 +80,7 @@ impl Hold {
     pub(crate) fn blocks(&self) -> bool {
         match self {
             Hold::Firing { firing, .. } => firing.on_failure.block,
-            Hold::Addition(_) => true,
+            Hold::Addition(added) => added.on_failure.block,
         }
     }
 
@@ -153,6 +153,24 @@ where
                 .any(|hold| matches!(hold, Hold::Firing { id: other, .. } if *other == id));
             if !held {
                 out.push(Hold::Firing { id, firing });
+            }
+        }
+        let asking = self
+            .store()
+            .lock()
+            .await
+            .job_additions(job_id)
+            .map_err(Adrift::Reading)?;
+        for added in asking {
+            let waiting = added
+                .fired
+                .as_ref()
+                .is_some_and(|fired| fired.state == TriggerState::AwaitingOwner);
+            let held = out
+                .iter()
+                .any(|hold| matches!(hold, Hold::Addition(other) if other.id == added.id));
+            if waiting && !held {
+                out.push(Hold::Addition(added));
             }
         }
         Ok(out)
@@ -315,6 +333,7 @@ where
             };
             let slot = match fired.state {
                 TriggerState::Held if !over && added.holds_the_job(job.workflow()) => &mut held,
+                TriggerState::AwaitingOwner if !over => &mut asks,
                 TriggerState::FixReady if added.repair.choice.is_none() => &mut fix,
                 TriggerState::Failed if added.repair.tries > 0 => &mut failed,
                 _ => continue,

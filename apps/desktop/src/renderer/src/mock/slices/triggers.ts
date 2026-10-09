@@ -38,7 +38,12 @@ function served(fleet: Fleet): Omit<TriggersApi, "chooseTriggerFix" | "rerunTrig
   const triggers = triggersServed();
   alsoOnTimePassing(() => {
     const watched = fleet.state().watched;
-    if (watched.state === "read") fleet.stepping(watched.jobId, (whole, at) => advanced(whole, at, DECLARED.commands.map((one) => one.name)));
+    if (watched.state === "read") fleet.stepping(watched.jobId, (whole, at) => advanced(
+        whole,
+        at,
+        DECLARED.commands.map((one) => one.name),
+        DECLARED.commands.filter((one) => one.command.destructive === true).map((one) => one.name),
+      ));
   });
   return {
     ...triggers,

@@ -437,6 +437,16 @@ where
         Fleet::start_server_answered(self, asked, manifest_id).await
     }
 
+    /// A restart onto `main` or the preview, started detached —
+    /// [`crate::building`]. **Not `budgeted`**, `save_limits`' reason: no Job is
+    /// touched, and the answer is that the wrapper has started.
+    async fn change_fleet_build(
+        &self,
+        asked: ipc::ChangeFleetBuild,
+    ) -> Result<ipc::FleetBuildChanging, Refusal> {
+        self.change_fleet_build_now(&asked)
+    }
+
     /// A person's limits, saved and put in force for the next admission —
     /// [`crate::limits`]. **Not `budgeted`**: it waits on the roster at most
     /// for one admission, and then writes one row.

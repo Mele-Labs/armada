@@ -4,7 +4,7 @@ import { expect } from "storybook/test";
 import { Panel } from "./Panel";
 
 /**
- * The rounded panel Navigation, Stats and Fleet stack inside — Bridge/1088.
+ * The rounded panel Navigation and Fleet stack inside — Bridge/1088.
  * Open state is the caller's; this story holds it in `useState` the way the
  * left column holds it against a preference.
  */

@@ -19,6 +19,7 @@ checks-runner = { path = "../checks-runner" }
 adapters = { path = "../adapters" }
 fleet = { path = "../fleet" }
 api = { path = "../api" }
+pocket = { path = "../pocket" }
 # For `#[derive(Serialize, Deserialize)]` on `land`'s own state types. Bytes
 # still cross only through `ipc::decode`/`ipc::encode` — no `serde_json` here,
 # same as `fleet`'s own dependency on this crate for its runtime file.

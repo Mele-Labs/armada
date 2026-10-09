@@ -1,0 +1,48 @@
+/* Derived from the Everforest Dark Hard terminal scheme by packages/tokens/themes/generate.mjs. Do not hand-edit.
+   Tone dark. foreground 7.7:1, accent 6.0:1 at the worst ground.
+   Lightness moved to reach 4.5:1: failed, not-started, killed. */
+[data-theme="catalogue:everforest-dark-hard"] {
+  color-scheme: dark;
+  /* Ground */
+  --bg-base: #1E2326;
+  --bg-sunken: #0C0F10;
+  --bg-raised: #24292B;
+  --bg-overlay: #292D2F;
+  --bg-hover: #2E3232;
+  --border-subtle: #2D3132;
+  --border-default: #393B3A;
+  --border-strong: #494A47;
+  /* Foreground and accent */
+  --fg-default: #D3C6AA;
+  --fg-muted: #9F9885;
+  --fg-subtle: #A19986;
+  --fg-inverse: #000000;
+  --accent: #7FBBB3;
+  --accent-hover: #8DBDB2;
+  --accent-muted: #324142;
+  /* Depth */
+  --bg-glass: rgb(36 41 43 / 0.86);
+  --bg-glass-end: rgb(30 35 38 / 0.86);
+  --border-glass: rgb(255 255 255 / 0.07);
+  --border-highlight: rgb(255 255 255 / 0.05);
+  /* Status */
+  --status-not-started: #AFADA2;
+  --status-running: #7FBBB3;
+  --status-awaiting-review: #DBBC7F;
+  --status-escalated: #E29E80;
+  --status-completed-success: #A7C080;
+  --status-completed-failed: #F68D8E;
+  --status-rejected: #D699B6;
+  --status-killed: #B1AC9E;
+  --status-handed-in: #94BE9B;
+  /* Helm, tools, diff */
+  --helm: #B0ABB5;
+  --tool-look: #83C092;
+  --tool-change: #D699B6;
+  --tool-run: #DBBC7F;
+  --diff-add-bg: #343C34;
+  --diff-add-fg: #A7C080;
+  --diff-del-bg: #3E3234;
+  --diff-del-fg: #E88082;
+  --diff-context: #9F9885;
+}
