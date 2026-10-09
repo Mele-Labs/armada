@@ -127,10 +127,14 @@
   border-radius: var(--radius-md);
 }
 
+/* Many questions scroll inside the card, so the thread above keeps a share. */
 .armada-session-thread__ask {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+  flex-shrink: 0;
+  max-height: 60vh;
+  overflow: auto;
 }
 
 .armada-session-thread__eyebrow {
