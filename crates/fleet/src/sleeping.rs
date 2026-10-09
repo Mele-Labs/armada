@@ -71,7 +71,9 @@ const ANSWERABLE: &[EscalationTrigger] = &[
 
 /// The escalations a plain second run may clear, with nothing to say: the Drone or run ended, was not
 /// heard, would not start, or the gate or proposer gave no answer. The step is restarted, once a night
-/// (the Job's `job:` row stops a second restart).
+/// (the Job's `job:` row stops a second restart); an undecided gate is asked again instead, the work
+/// being fine. `Unheard`, `WouldNotStart`, `NotPrepared` and `ProposerFailed` are Job-level, with no
+/// stopped step to restart, so they usually end as a blocked row carrying the refusal.
 const RETRIED: &[EscalationTrigger] = &[
     EscalationTrigger::DroneGone,
     EscalationTrigger::RunEnded,
@@ -272,10 +274,17 @@ where
                 continue;
             }
             if retried {
-                let done = match self.restart_step_by(job.id(), None, Ending::Unheard, Actor::Fleet).await {
-                    Ok(_) => row("decided", id, who, format!("Restarted the step: {asked}")),
+                let (ran, said) = match trigger {
+                    EscalationTrigger::GateUndecided => (self.rerun_gate(job.id()).await, "Ran the gate again"),
+                    _ => (
+                        self.restart_step_by(job.id(), None, Ending::Unheard, Actor::Fleet).await,
+                        "Restarted the step",
+                    ),
+                };
+                let done = match ran {
+                    Ok(_) => row("decided", id, who, format!("{said}: {asked}")),
                     Err(why) => {
-                        row("blocked", id, who, format!("Escalated, could not restart ({why}): {title}"))
+                        row("blocked", id, who, format!("Escalated, could not carry on ({why}): {title}"))
                     }
                 };
                 self.leave(done).await?;

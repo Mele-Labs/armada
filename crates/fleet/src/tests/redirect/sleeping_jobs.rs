@@ -128,6 +128,30 @@ async fn a_run_that_ended_is_restarted_once_a_night() {
 }
 
 #[tokio::test]
+async fn an_undecided_gate_is_asked_again() {
+    use crate::tests::daemon::a_fleet_judged_by;
+    use crate::tests::regating::{judged_then_summarised, undecided};
+    use testkit::{FakeJudge, FakeWorkProduct};
+    let home = TempDir::new();
+    let fleet = a_fleet_judged_by(
+        &home,
+        FakeWorkProduct::changed(&["src/log.rs"]).but_refusing("a worktree that would not read"),
+        judged_then_summarised(),
+        FakeJudge::with_no_objection(),
+    );
+    let job = undecided(&fleet, &home).await;
+    night(&fleet).await;
+    fleet.work().reads_now();
+    let fleet = Arc::new(fleet);
+    Arc::clone(&fleet).sleep_pass().await.unwrap();
+    let kept = rows(&fleet).await;
+    assert_eq!(kept.len(), 1, "{kept:?}");
+    assert_eq!(kept[0].kind, "decided", "{kept:?}");
+    assert!(kept[0].text.starts_with("Ran the gate again"), "{kept:?}");
+    assert_ne!(fleet.load(&job).await.unwrap().status(), JobStatus::Escalated);
+}
+
+#[tokio::test]
 async fn a_policy_block_stays_blocked() {
     let home = TempDir::new();
     let fleet = a_fleet_with(&home, a_drone_that_answers());

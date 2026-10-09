@@ -42,7 +42,7 @@ fn implement() -> StepId {
 /// refuses every read also refuses the baseline `dispatch` takes when the step
 /// starts, so the second reading would fail a Check for want of a baseline
 /// rather than answer the question that failed to be asked.
-fn judged_then_summarised() -> config::ResolvedWorkflow {
+pub(super) fn judged_then_summarised() -> config::ResolvedWorkflow {
     testkit::resolved(&[
         Sketch {
             id: "implement",
@@ -92,7 +92,7 @@ fn gated_then_summarised() -> config::ResolvedWorkflow {
 
 /// A Job dispatched, worked, submitted, and standing escalated because the gate
 /// could not read what it needed. **Where this act starts, and the only place.**
-async fn undecided(fleet: &Fixture, home: &TempDir) -> core_model::JobId {
+pub(super) async fn undecided(fleet: &Fixture, home: &TempDir) -> core_model::JobId {
     let job = fleet
         .propose(a_proposal("fix the reader"))
         .await
