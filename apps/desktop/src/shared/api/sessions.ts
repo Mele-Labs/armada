@@ -58,10 +58,9 @@ export type SessionsApi = {
   renameSession: (rename: RenameSession) => Promise<SessionActed>;
   /**
    * Writes a retro of what happened in a Session since its last one, once Fleet has asked a live
-   * agent what got in its way. **Mock only**: the preload and main do not serve it yet, and the
-   * Retro press is left off where it is absent.
+   * agent what got in its way. Answers when it is written, which can take a minute.
    */
-  retroSession?: (sessionId: string) => Promise<Outcome>;
+  retroSession: (sessionId: string) => Promise<Outcome>;
   /** Ends the process, parks the slot and ends the row. */
   closeSession: (sessionId: string) => Promise<SessionActed>;
   /**
@@ -122,6 +121,7 @@ export const SESSIONS_CHANNELS = {
   answerSessionAsk: "bridge:answer-session-ask",
   tuneSession: "bridge:tune-session",
   renameSession: "bridge:rename-session",
+  retroSession: "bridge:retro-session",
   closeSession: "bridge:close-session",
   watchSession: "bridge:watch-session",
   readSessionFile: "bridge:read-session-file",

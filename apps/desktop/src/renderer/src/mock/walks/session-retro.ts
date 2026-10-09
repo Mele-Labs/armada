@@ -3,6 +3,7 @@
 // Session, the mark moving meanwhile, and opens it on the Retros page, headed by the Session's
 // title and address. Its items read like a Job's, and agreeing with one proposes a Job.
 
+import { toSessions } from "../sessions/walk-kit";
 import { button, dialog, inside, region, role, text, walk } from "../walk";
 
 const ROW = inside(region("Sessions"), role("listitem", "Fix the flaky store test"));
@@ -11,6 +12,7 @@ const item = (words: string) => inside(RETRO, role("listitem", words));
 const RESET = item("A reset waited 40 minutes for an answer");
 
 const retro = walk("session-retro", [
+  toSessions,
   { hover: inside(ROW, button("Retro")), say: "Retro, an icon on each row" },
   { press: inside(ROW, button("Retro")), say: "It writes the retro of what happened in this Session" },
   { look: inside(ROW, button("Writing the retro")), say: "The mark moves while it is written" },

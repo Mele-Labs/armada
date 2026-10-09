@@ -10,7 +10,7 @@ import { Boundary, useAtFloor } from "@armada/shell";
 import type { BridgeState } from "../../shared/bridge";
 import { agreeLesson, disagreeLesson, readLessons, readRetro } from "./commands";
 import { takeRetroAsked } from "./open-retro";
-import { useLessonsTab } from "./remembered-views";
+import { useLessonsSource, useLessonsTab } from "./remembered-views";
 
 export function LessonsSurface({
   repository,
@@ -28,6 +28,7 @@ export function LessonsSurface({
   // The tab is remembered for this viewer, the way Workflow's and Plan's views are.
   const [tab, setTab] = useLessonsTab();
   // A Session's Retro press opens the page on that Session's retro; the ask is taken once.
+  const [source, setSource] = useLessonsSource();
   const [asked] = useState(takeRetroAsked);
   return (
     <Boundary region="Retros" bridge={bridge} onCopied={onCopied}>
@@ -43,6 +44,8 @@ export function LessonsSurface({
         floor={floor}
         tab={tab}
         onTab={setTab}
+        source={source}
+        onSource={setSource}
         {...(asked === undefined ? {} : { opening: asked })}
       />
     </Boundary>

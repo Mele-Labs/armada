@@ -10,9 +10,11 @@ import {
   agreeLabelOf,
   itemsOf,
   lessonRowsOf,
+  lessonsSourceNamed,
   lessonsTabNamed,
   notesOf,
   statusOf,
+  underSource,
   underTab,
   type LessonsTab,
 } from "./retro";
@@ -218,5 +220,20 @@ describe("what Agree and Disagree say they do", () => {
     // A change on any other place is not drawn: Fleet carries one on a Kit item alone.
     expect(agreeLabelOf("armada", true)).toBe("Create Job");
     expect(agreeLabelOf("manifest", true)).toBe("Create Job");
+  });
+
+  it("splits items by whether they came from a Session, and reads a remembered source back", () => {
+    const base = { state: "open" as const, job_id: "j", handle: "3-x", at: AT, who: "owner" as const, evidence: [] };
+    const items: Lesson[] = [
+      { ...base, id: "a", statement: "A" },
+      { ...base, id: "b", statement: "B", session: { id: "s", title: "T" } },
+    ];
+    const said = (source: "all" | "sessions" | "jobs") => underSource(items, source).map((one) => one.id);
+    expect(said("all")).toEqual(["a", "b"]);
+    expect(said("sessions")).toEqual(["b"]);
+    expect(said("jobs")).toEqual(["a"]);
+    expect(lessonsSourceNamed("jobs")).toBe("jobs");
+    expect(lessonsSourceNamed("x")).toBe("all");
+    expect(lessonsSourceNamed(null)).toBe("all");
   });
 });

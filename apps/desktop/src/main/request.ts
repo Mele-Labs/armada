@@ -448,7 +448,15 @@ export async function briefOf(port: number, jobId: string, name: string): Promis
  */
 export async function retroOf(port: number, jobId: string): Promise<RetroRead> {
   const answer = await ask(port, "GET", route(jobId, "retro"));
-  if (answer.ok !== true) return { ok: false, outcome: answer.outcome };
+  if (answer.ok !== true) {
+    // A Session's retro is read by its id, which the Job resolver refuses: ask the Session's route
+    // before giving up, and say the Job route's refusal where that fails too.
+    if (!answer.outcome.ok && answer.outcome.why === "refused") {
+      const session = await ask(port, "GET", `/sessions/${encodeURIComponent(jobId)}/retro`);
+      if (session.ok === true) return { ok: true, retro: session.body as JobRetro };
+    }
+    return { ok: false, outcome: answer.outcome };
+  }
   return { ok: true, retro: answer.body as JobRetro };
 }
 

@@ -277,7 +277,27 @@ test("Open and Accepted sit beside the places, and Accepted reads the saved item
   await page.getByRole("tab", { name: "Open", exact: true }).click();
   await expect.element(card(/blamed the Drone/)).toBeVisible();
   const tabs = page.getByRole("tab").elements().map((t) => t.textContent);
-  expect(tabs).toEqual(["All", "Armada", "Kit", "Manifest", "Open", "Accepted"]);
+  expect(tabs).toEqual(["All", "Armada", "Kit", "Manifest", "All", "Sessions", "Jobs", "Open", "Accepted"]);
+});
+
+test("Sessions and Jobs narrow the list to whose retro an item came from, and All is both", async () => {
+  const SESSION = lesson({
+    ...KIT,
+    id: "l-session",
+    job_id: "01SESSIONAAAAAAAAAAAAAAAAA",
+    handle: "s-01SESSION",
+    session: { id: "01SESSIONAAAAAAAAAAAAAAAAA", title: "Fix the flaky store test" },
+    title: "A reset waited on an answer",
+  });
+  opened([ARMADA, SESSION]);
+  await expect.element(card(/blamed the Drone/)).toBeVisible();
+  await expect.element(card(/reset waited/)).toBeVisible();
+  await page.getByRole("tab", { name: "Sessions", exact: true }).click();
+  await expect.element(card(/reset waited/)).toBeVisible();
+  expect(card(/blamed the Drone/).elements()).toHaveLength(0);
+  await page.getByRole("tab", { name: "Jobs", exact: true }).click();
+  await expect.element(card(/blamed the Drone/)).toBeVisible();
+  expect(card(/reset waited/).elements()).toHaveLength(0);
 });
 
 test("an empty list draws nothing", async () => {

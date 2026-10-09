@@ -19,7 +19,7 @@ const records = () => [
   hosted("01IDLECCCCCCCCCCCCCCCCCCCC", { title: "Fix the flaky store test", last_turn_at: now(), attachments: [held("slot", "3")] }),
 ];
 
-function build(): Scenario {
+function build(refusal?: { code: string; message: string }): Scenario {
   const board = onBoard([job("escalated", { id: "01JOBSTOPPED", handle: "52-the-retry-loop", title: "The retry loop", branch: "fix/retry-loop", owner_manifest_id: "armada" })], {
     repositories: [ARMADA],
     picked: ARMADA.root,
@@ -29,7 +29,7 @@ function build(): Scenario {
   const served = new FakeSessionsFleet(records(), {}).scenario(board);
   return {
     ...served,
-    name: "session-retro",
+    name: refusal === undefined ? "session-retro" : "session-retro-refused",
     says: "The Sessions list with the Retro press on each row, and the Retros page it opens",
     retros,
     lessons,
@@ -38,6 +38,7 @@ function build(): Scenario {
       // **The press writes into the arrays the Retros page reads**, in place, and each mount starts from the Jobs' two.
       lessons.splice(0, lessons.length, ...before);
       for (const id of Object.keys(retros)) if (!before.some((one) => one.job_id === id)) delete retros[id];
+      fleet.refusesRetro = refusal;
       fleet.onRetro = (id, title) => {
         const written = sessionRetro({ id, ...(title === undefined ? {} : { title }) }, now());
         retros[id] = written.retro;
@@ -49,3 +50,6 @@ function build(): Scenario {
 }
 
 export const s205SessionRetro: Scenario = build();
+
+/** The same, with Fleet refusing the retro: another is already being written. */
+export const s205SessionRetroRefused: Scenario = build({ code: "fleet.session_retro_being_written", message: "A retro is already being written for this Session" });

@@ -121,6 +121,8 @@ export class FakeSessionsFleet {
   refuses: { code: string; message: string } | undefined;
   /** Set to have the next message refused, the way Fleet refuses one: the error says why and nothing is sent. */
   refusesSend: { code: string; message: string } | undefined;
+  /** Set to have the next retro refused the way Fleet refuses one: the error says why and nothing is written. */
+  refusesRetro: { code: string; message: string } | undefined;
   /** How long a retro takes to write, so a walk can see it being written. */
   retroTakes = 1500;
   /** Hears a retro being written, to put it where the Retros page reads from. */
@@ -246,17 +248,13 @@ export class FakeSessionsFleet {
             this.set([record, ...this.records.map((one) => (one.id === sessionId ? { ...one, attachments: [...one.attachments, held("forked_to", id, {}, "spent")] } : one))]);
             return { ok: true, value: record };
           },
-          // **Served only where the scenario hears retros**, so no other Sessions scenario grows a press.
-          ...(this.onRetro === undefined
-            ? {}
-            : {
-                retroSession: async (sessionId: string) => {
-                  this.calls.retroed.push(sessionId);
-                  await new Promise((done) => setTimeout(done, this.retroTakes));
-                  this.onRetro?.(sessionId, this.records.find((one) => one.id === sessionId)?.title);
-                  return { ok: true as const };
-                },
-              }),
+          retroSession: async (sessionId: string) => {
+            this.calls.retroed.push(sessionId);
+            if (this.refusesRetro !== undefined) return { ok: false as const, why: "refused", error: this.refusesRetro } as never;
+            await new Promise((done) => setTimeout(done, this.retroTakes));
+            this.onRetro?.(sessionId, this.records.find((one) => one.id === sessionId)?.title);
+            return { ok: true as const };
+          },
           closeSession: async (sessionId) => {
             this.calls.closed.push(sessionId);
             return this.change(sessionId, (one) => ({ ...one, state: "ended" }));

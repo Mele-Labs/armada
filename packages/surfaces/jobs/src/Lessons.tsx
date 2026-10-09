@@ -16,15 +16,18 @@ import { said } from "@armada/screens/src/copy";
 import {
   citesOf,
   itemsOf,
+  LESSONS_SOURCES,
   LESSONS_TABS,
   lessonRowsOf,
   notesOf,
   statusOf,
+  underSource,
   underTab,
   useAnswers,
   useJobRetros,
   useReadOnFocus,
   type AnswerLesson,
+  type LessonsSource,
   type LessonsTab,
   type LessonsView,
   type ReadLessons,
@@ -58,6 +61,9 @@ export type LessonsProps = {
    */
   tab?: LessonsTab;
   onTab?: (tab: LessonsTab) => void;
+  /** Whose retros are listed, Sessions' or Jobs', on the same terms as `tab`. */
+  source?: LessonsSource;
+  onSource?: (source: LessonsSource) => void;
   /** A retro to open over the list as the page opens: the one a Session's Retro press asked for. */
   opening?: { id: string; label: string };
 };
@@ -72,11 +78,15 @@ export function Lessons({
   floor,
   tab,
   onTab,
+  source,
+  onSource,
   opening,
 }: LessonsProps) {
   const [held, setHeld] = useState<LessonsTab>("all");
   const [view, setView] = useState<LessonsView>("open");
+  const [heldSource, setHeldSource] = useState<LessonsSource>("all");
   const showing = tab ?? held;
+  const showingSource = source ?? heldSource;
   // Keyed by the pick and the list, so another of either is another read.
   const read = useReadOnFocus(() => onReadLessons(view), `${repository ?? ""}:${view}`);
   const [open, setOpen] = useState<{ jobId: string; job: string } | null>(opening === undefined ? null : { jobId: opening.id, job: opening.label });
@@ -85,7 +95,7 @@ export function Lessons({
   // The items whose Evidence was pressed, so a read shared by a Job's cards speaks on the one that asked.
   const [pressed, setPressed] = useState<ReadonlySet<string>>(new Set());
   const cited = new Map((read?.ok === true ? read.lessons : []).map((lesson) => [lesson.id, lesson.evidence]));
-  const rows = underTab(read?.ok === true ? lessonRowsOf(read.lessons) : [], showing).flatMap((row) => {
+  const rows = underTab(read?.ok === true ? lessonRowsOf(underSource(read.lessons, showingSource)) : [], showing).flatMap((row) => {
     // **The list holds the ids a row cites; its Job's retro holds the rows.** Read once per Job, on the first press.
     const ids = cited.get(row.id) ?? [];
     const got = retros.of(row.jobId);
@@ -143,6 +153,15 @@ export function Lessons({
                 const next = id as LessonsTab;
                 setHeld(next);
                 onTab?.(next);
+              }}
+            />
+            <Tabs
+              items={[...LESSONS_SOURCES]}
+              value={showingSource}
+              onChange={(id) => {
+                const next = id as LessonsSource;
+                setHeldSource(next);
+                onSource?.(next);
               }}
             />
             <Tabs items={VIEWS} value={view} onChange={(id) => setView(id as LessonsView)} />

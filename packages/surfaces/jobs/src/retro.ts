@@ -262,6 +262,25 @@ export function lessonsTabNamed(value: string | null): LessonsTab {
   return LESSONS_TABS.find((one) => one.id === value)?.id ?? "all";
 }
 
+/** Whose retro an item came from: every item, a Session's, or a Job's. */
+export type LessonsSource = "all" | "sessions" | "jobs";
+
+export const LESSONS_SOURCES: readonly { id: LessonsSource; label: string }[] = [
+  { id: "all", label: "All" },
+  { id: "sessions", label: "Sessions" },
+  { id: "jobs", label: "Jobs" },
+];
+
+/** A remembered source read back. Anything not one — nothing stored, an old value — is All. */
+export function lessonsSourceNamed(value: string | null): LessonsSource {
+  return LESSONS_SOURCES.find((one) => one.id === value)?.id ?? "all";
+}
+
+/** The items of one source, in Fleet's order. A Session's item carries `session`; a Job's does not. */
+export function underSource(lessons: readonly Lesson[], source: LessonsSource): Lesson[] {
+  return source === "all" ? [...lessons] : lessons.filter((lesson) => (lesson.session !== undefined) === (source === "sessions"));
+}
+
 /**
  * The rows under one tab, still newest first. **Filtered here rather than
  * with `?lands_in=`**: the page holds one read, so a tab press asks Fleet for
