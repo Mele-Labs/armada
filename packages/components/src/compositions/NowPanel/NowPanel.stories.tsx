@@ -140,9 +140,10 @@ export const Running: Story = {
   play: async ({ canvas }) => {
     await expect(canvas.queryByRole("heading", { name: "Asks you" })).toBeNull();
     await expect(canvas.getByRole("heading", { name: "Running" })).toBeInTheDocument();
-    await expect(canvas.getByText("Drones")).toBeInTheDocument();
-    await expect(canvas.getByText("Checks")).toBeInTheDocument();
-    await expect(canvas.getByText("Judges")).toBeInTheDocument();
+    await expect(canvas.queryByText("Drones")).toBeNull();
+    await expect(canvas.getAllByRole("img", { name: "Drone" }).length).toBeGreaterThan(0);
+    await expect(canvas.getAllByRole("img", { name: "Check" }).length).toBeGreaterThan(0);
+    await expect(canvas.getAllByRole("img", { name: "Judge" }).length).toBeGreaterThan(0);
     await expect(canvas.getByText("Edit crates/store/src/clock.rs", { selector: "span" })).toBeInTheDocument();
     await expect(canvas.getByRole("button", { name: "Open typecheck, passed" })).toBeInTheDocument();
     await expect(canvas.getByRole("button", { name: "Open store, failed" })).toBeInTheDocument();
@@ -155,9 +156,9 @@ export const Running: Story = {
 export const PlanQuestion: Story = {
   args: { asks: [PLAN, JUDGE_ASK, DRONE_ASK] },
   play: async ({ canvas }) => {
-    await expect(canvas.getByText("Plan question")).toBeInTheDocument();
-    await expect(canvas.getByText("Judge question")).toBeInTheDocument();
-    await expect(canvas.getByText("Drone question")).toBeInTheDocument();
+    await expect(canvas.queryByText("Plan question")).toBeNull();
+    await expect(canvas.getByRole("img", { name: "Judge" })).toBeInTheDocument();
+    await expect(canvas.getByRole("img", { name: "Drone" })).toBeInTheDocument();
     await expect(canvas.queryByRole("button", { name: "Answer" })).toBeNull();
     const next = canvas.getByRole("button", { name: "Next" });
     await expect(next).toBeDisabled();

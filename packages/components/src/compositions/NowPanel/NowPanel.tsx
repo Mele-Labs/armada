@@ -148,9 +148,7 @@ const STATE: Record<NowRunning["state"], { Glyph: LucideIcon; said: string }> = 
 };
 
 const ASK_ORDER = ["plan", "judge", "drone"] as const;
-const ASK_HEAD = { plan: "Plan question", judge: "Judge question", drone: "Drone question" } as const;
 const RUN_ORDER = ["drone", "check", "judge"] as const;
-const RUN_HEAD = { drone: "Drones", check: "Checks", judge: "Judges" } as const;
 
 export function NowPanel({ asks = [], issues = [], running = [], waiting = [], onSkipAll, onHide, onStep, focusedStep }: NowPanelProps) {
   const drones = running.filter((one) => one.of === "drone");
@@ -179,7 +177,6 @@ export function NowPanel({ asks = [], issues = [], running = [], waiting = [], o
             const of = asks.filter((ask) => ask.kind === kind);
             return of.length === 0 ? null : (
               <Fragment key={kind}>
-                <SubHead label={ASK_HEAD[kind]} />
                 {of.map((ask) => (ask.kind === "plan" ? <PlanAsk key={ask.key} ask={ask} /> : <AskRow key={ask.key} ask={ask} />))}
               </Fragment>
             );
@@ -226,7 +223,6 @@ export function NowPanel({ asks = [], issues = [], running = [], waiting = [], o
             const of = running.filter((one) => one.of === kind);
             return of.length === 0 ? null : (
               <Fragment key={kind}>
-                <SubHead label={RUN_HEAD[kind]} />
                 {of.map((one) => (
                   <RunningRow
                     key={one.key}
@@ -263,15 +259,6 @@ export function NowPanel({ asks = [], issues = [], running = [], waiting = [], o
         </Section>
       )}
     </aside>
-  );
-}
-
-/** A small header inside a section, so a row's kind reads before the row does. */
-function SubHead({ label }: { label: string }) {
-  return (
-    <li className="armada-now__sub-head">
-      {label}
-    </li>
   );
 }
 

@@ -52,7 +52,7 @@ async fn events(upgrade: WebSocketUpgrade) -> impl IntoResponse {
 
 /// Fleet's port, serving: two Jobs that need the owner (one escalated, one
 /// asking), one that does not (queued), one running, one done.
-async fn fake_fleet() -> u16 {
+pub(crate) async fn fake_fleet() -> u16 {
     let jobs = format!(
         r#"{{"jobs":[{},{},{},{},{}]}}"#,
         summary("j2", "escalated", r#","reason":{"named":"stalled"}"#),

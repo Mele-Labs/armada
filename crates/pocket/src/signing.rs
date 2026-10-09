@@ -17,6 +17,10 @@ use sha2::{Digest, Sha256};
 
 use crate::pairing::{from_hex, to_hex, Pairing};
 
+/// The paired device whose signature a request passed, for the handler to read.
+#[derive(Clone)]
+pub struct DeviceId(pub String);
+
 pub const SKEW: i64 = 60;
 const BODY_LIMIT: usize = 1024 * 1024;
 
@@ -56,7 +60,7 @@ pub async fn signed(State(pairing): State<Pairing>, request: Request, next: Next
     let Ok(Some(found)) = found else {
         return refuse("This phone is not paired. Pair it again from Bridge, Settings, Phone.");
     };
-    let (parts, body) = request.into_parts();
+    let (mut parts, body) = request.into_parts();
     let Ok(body) = to_bytes(body, BODY_LIMIT).await else {
         return (StatusCode::PAYLOAD_TOO_LARGE, "This request is too large.").into_response();
     };
@@ -78,5 +82,6 @@ pub async fn signed(State(pairing): State<Pairing>, request: Request, next: Next
         return refuse("This request was already sent.");
     }
     let _ = pairing.store.lock().unwrap().touch_device(&device, now);
+    parts.extensions.insert(DeviceId(device));
     next.run(Request::from_parts(parts, Body::from(body))).await
 }
