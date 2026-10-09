@@ -19,12 +19,13 @@ pub trait Retros: Send + Sync + 'static {
         job_id: JobId,
     ) -> impl Future<Output = Result<JobRetro, Refusal>> + Send;
 
-    /// `get_session_retro`: the newest retro of a Session, `pending` with its
+    /// `get_session_retro`: retro number `retro` of a Session, or its newest, `pending` with its
     /// record so far where it has none. [`Refusal::NoSuchJob`] where no
     /// Session is `session_id`.
     fn get_session_retro(
         &self,
         session_id: String,
+        retro: Option<i64>,
     ) -> impl Future<Output = Result<JobRetro, Refusal>> + Send;
 
     /// `write_session_retro`: write one now, covering what happened since the

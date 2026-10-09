@@ -40,7 +40,7 @@ impl Retros for FakeDaemon {
         })
     }
 
-    async fn get_session_retro(&self, session_id: String) -> Result<JobRetro, Refusal> {
+    async fn get_session_retro(&self, session_id: String, _retro: Option<i64>) -> Result<JobRetro, Refusal> {
         Ok(self.session_retro(&session_id))
     }
 

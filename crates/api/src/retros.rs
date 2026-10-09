@@ -56,12 +56,20 @@ pub(crate) struct NamedSession {
     session_id: String,
 }
 
-/// The newest retro of a Session.
+/// `?n=` on `get_session_retro`: the retro's number, as an item's id names it.
+#[derive(Deserialize)]
+pub(crate) struct WhichRetro {
+    #[serde(default)]
+    n: Option<i64>,
+}
+
+/// A retro of a Session: the one `?n=` names, or the newest.
 pub(crate) async fn get_session_retro<D: Retros>(
     State(served): State<Served<D>>,
     Path(NamedSession { session_id }): Path<NamedSession>,
+    Query(which): Query<WhichRetro>,
 ) -> Response {
-    match served.daemon().get_session_retro(session_id).await {
+    match served.daemon().get_session_retro(session_id, which.n).await {
         Ok(retro) => answer(StatusCode::OK, &retro, served.run_id()),
         Err(refusal) => refused(refusal),
     }

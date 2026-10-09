@@ -102,9 +102,32 @@ where
 
     /// The newest retro of a Session as the wire has it, `pending` where it
     /// has none.
-    pub(crate) async fn read_session_retro(&self, session_id: &str) -> Result<JobRetro, Refusal> {
+    pub(crate) async fn read_session_retro(
+        &self,
+        session_id: &str,
+        retro: Option<i64>,
+    ) -> Result<JobRetro, Refusal> {
         let (session, last) = self.session_and_last_retro(session_id).await?;
-        self.session_retro_view(&session, last).await
+        let kept = match retro {
+            None => last,
+            Some(n) => Some(
+                self.store()
+                    .lock()
+                    .await
+                    .session_retro(session_id, n)
+                    .map_err(|why| {
+                        self.refusal(crate::adrift::Adrift::Reading(store::LoadJobError::Unreadable(why)))
+                    })?
+                    .ok_or_else(|| {
+                        Refusal::NoSuchJob(WireError::raised(
+                            NO_SUCH_SESSION,
+                            format!("session {session_id} has no retro numbered {n}"),
+                            self.run_id(),
+                        ))
+                    })?,
+            ),
+        };
+        self.session_retro_view(&session, kept).await
     }
 
     /// Write the retro of the Session that has been owed one longest. `None`

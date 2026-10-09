@@ -102,7 +102,7 @@ async fn a_press_writes_a_retro_that_is_read_listed_and_answered() {
     assert_eq!(retro.items[1].who.domain(), Whose::Agent);
     assert!(retro.items[0].id.contains("-r1-0"), "{}", retro.items[0].id);
 
-    let read = fleet.get_session_retro(id.as_str().to_string()).await.unwrap();
+    let read = fleet.get_session_retro(id.as_str().to_string(), None).await.unwrap();
     assert_eq!(read.items.len(), 2);
 
     let listed = fleet.list_lessons(None, None, None, 50).await.unwrap().lessons;
@@ -138,6 +138,21 @@ async fn a_press_writes_a_retro_that_is_read_listed_and_answered() {
         .expect("written");
     assert!(second.items[0].id.contains("-r2-0"), "{}", second.items[0].id);
     assert_eq!(second.record.corrections.len(), 1, "from the end of the first");
+
+    // An item of the first is opened on the first, whatever is newest.
+    let first = fleet
+        .get_session_retro(id.as_str().to_string(), Some(1))
+        .await
+        .unwrap();
+    assert!(first.items[0].id.contains("-r1-0"));
+    assert_eq!(first.record.corrections[0].said, "no, show walks with show_window");
+    let newest = fleet.get_session_retro(id.as_str().to_string(), None).await.unwrap();
+    assert!(newest.items[0].id.contains("-r2-0"));
+    let missing = fleet
+        .get_session_retro(id.as_str().to_string(), Some(99))
+        .await
+        .expect_err("no such retro");
+    assert_eq!(missing.status(), 404);
 }
 
 #[tokio::test]

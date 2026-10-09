@@ -265,7 +265,7 @@ the buttons**: Fleet refuses both acts on one with no place.
 | --- | --- | --- |
 | `get_job_retro` | `GET /jobs/:job_id/retro` | The record as it stands, the retro's state and items, linked annotations |
 | `list_lessons` | `GET /lessons?manifest_id=&lands_in=&state=&most=` | Items across Jobs and Sessions, newest retro first; `lands_in` absent is all three and `state` absent is `open` |
-| `get_session_retro` | `GET /sessions/:session_id/retro` | A Session's newest retro, as `get_job_retro` answers, with `session` present and `job_id` holding the Session's id |
+| `get_session_retro` | `GET /sessions/:session_id/retro?n=` | A Session's retro, the one numbered `n` (the `r<n>` of an item's id) or the newest, as `get_job_retro` answers, with `session` present and `job_id` holding the Session's id |
 | `write_session_retro` | `POST /sessions/:session_id/retro` | The same, once the retro is written |
 | `agree_lesson` | `POST /lessons/:lesson_id/agree` | The `Lesson` as it now stands, with `job_proposed` where a Job was proposed |
 | `disagree_lesson` | `POST /lessons/:lesson_id/disagree` | The `Lesson`, `discarded` |

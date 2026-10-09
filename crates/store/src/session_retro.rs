@@ -114,12 +114,38 @@ impl Store {
         &self,
         session_id: &str,
     ) -> Result<Option<KeptSessionRetro>, RowError> {
+        self.session_retro_where(
+            "WHERE session_id = ?1 ORDER BY retro_id DESC LIMIT 1",
+            params![session_id],
+            session_id,
+        )
+    }
+
+    /// One retro of a Session by its number. **A number that is another
+    /// Session's reads as none.**
+    pub fn session_retro(
+        &self,
+        session_id: &str,
+        retro_id: i64,
+    ) -> Result<Option<KeptSessionRetro>, RowError> {
+        self.session_retro_where(
+            "WHERE session_id = ?1 AND retro_id = ?2",
+            params![session_id, retro_id],
+            session_id,
+        )
+    }
+
+    fn session_retro_where(
+        &self,
+        filter: &str,
+        args: impl rusqlite::Params,
+        session_id: &str,
+    ) -> Result<Option<KeptSessionRetro>, RowError> {
         let head = self
             .conn
             .query_row(
-                "SELECT retro_id, covers_from, covers_to, model, at, note FROM session_retros \
-                 WHERE session_id = ?1 ORDER BY retro_id DESC LIMIT 1",
-                [session_id],
+                &format!("SELECT retro_id, covers_from, covers_to, model, at, note FROM session_retros {filter}"),
+                args,
                 |row| {
                     Ok((
                         row.get::<_, i64>(0)?,
@@ -138,10 +164,7 @@ impl Store {
             return Ok(None);
         };
         let items = self
-            .session_lessons_where(
-                &format!("SELECT {COLUMNS} FROM session_retro_items AS i JOIN session_retros AS r ON r.retro_id = i.retro_id WHERE i.retro_id = ?1 ORDER BY i.ordinal"),
-                params![retro_id],
-            )?
+            .session_retro_lessons(retro_id)?
             .into_iter()
             .map(|lesson| lesson.line)
             .collect();

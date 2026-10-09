@@ -258,8 +258,12 @@ where
         Ok(Lessons { lessons })
     }
 
-    async fn get_session_retro(&self, session_id: String) -> Result<JobRetro, Refusal> {
-        self.read_session_retro(&session_id).await
+    async fn get_session_retro(
+        &self,
+        session_id: String,
+        retro: Option<i64>,
+    ) -> Result<JobRetro, Refusal> {
+        self.read_session_retro(&session_id, retro).await
     }
 
     async fn write_session_retro(
