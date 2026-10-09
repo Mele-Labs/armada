@@ -26,6 +26,11 @@ pub struct Preferences {
     /// [`DEFAULT_THEME`], and absent reads as that from a Fleet before it.
     #[serde(default = "dark", skip_serializing_if = "is_default_theme")]
     pub theme: String,
+    /// The owner's own layout choices, as a `layout.json` that Settings → Layout wrote. They
+    /// outrank every layout mod. Left out while he has made none, and the same text a layout mod
+    /// holds, so one parser reads both.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub layout_choices: String,
 }
 
 /// The theme nobody has chosen away from.
@@ -45,6 +50,7 @@ impl Default for Preferences {
             where_things_are_open: false,
             draft_pull_requests: false,
             theme: dark(),
+            layout_choices: String::new(),
         }
     }
 }
@@ -64,9 +70,9 @@ impl Default for Preferences {
 pub struct SavePreference {
     pub name: String,
     pub value: bool,
-    /// The value of a preference that is a word rather than a switch, which is
-    /// `theme` alone. `value` is read for every other name and this is read for
-    /// none of them.
+    /// The value of a preference that is text rather than a switch, which is
+    /// `theme` and `layout_choices`. `value` is read for every other name and this is
+    /// read for none of them. An empty `layout_choices` takes the owner's choices back.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub text: Option<String>,
 }

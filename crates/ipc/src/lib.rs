@@ -123,6 +123,8 @@ mod manifest_proposal;
 pub mod mcp;
 mod merge_hub;
 mod merge_line;
+/// `layout.json`: what a layout mod or the owner's own choice may say. `docs/concepts/layout-mods.md`.
+pub mod layout;
 /// Mods: a directory on this machine that changes how Bridge looks.
 mod mods;
 /// `armada need`: a checkout says what it needs on a path, and Fleet answers from

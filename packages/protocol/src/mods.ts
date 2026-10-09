@@ -6,7 +6,7 @@
 // matches on it, which `ModKind` is.
 
 /** What a mod changes. A `mod.toml` naming another kind makes the mod invalid, so a valid row's is one of these. */
-export type ModKind = "theme";
+export type ModKind = "theme" | "layout";
 
 /** One mod on disk. A broken one is a row with `valid` false, never a failed read. */
 export type ModSummary = {
@@ -30,9 +30,14 @@ export type ModSummary = {
 export type ModList = { mods: ModSummary[] };
 
 /** `POST /mods/scaffold`'s body. */
-export type ScaffoldMod = { name: string; description?: string };
+export type ScaffoldMod = {
+  name: string;
+  description?: string;
+  /** Absent is a theme. */
+  kind?: ModKind;
+};
 
-/** A mod made. `path` is the folder, where `theme.css` is edited. */
+/** A mod made. `path` is the folder, where `theme.css` or `layout.json` is edited. */
 export type ModScaffolded = { name: string; path: string };
 
 /** `POST /mods/enable`'s body: this machine's switch for one mod. */
@@ -45,6 +50,8 @@ export type ModChecked = {
   problems: string[];
   /** The stylesheet as it was checked, present only where it passed. Bridge injects this text and no other. */
   css?: string;
+  /** A layout mod's `layout.json` as it was checked, present only where it passed. Bridge applies this text and no other. */
+  layout?: string;
 };
 
 /** `POST /mods/promote`'s body. */
