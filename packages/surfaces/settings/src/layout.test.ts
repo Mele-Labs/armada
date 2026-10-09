@@ -5,9 +5,9 @@
 
 import { describe, expect, it } from "vitest";
 
-import registry from "../../../shell/layout-registry.json";
-import { LAYOUT, LAYOUT_BYTES, LAYOUT_REGIONS, layersOf, parseLayout, resolveLayout, serializeLayout } from "../../../shell/src/layout";
-import type { LayoutFile, LayoutMod } from "../../../shell/src/layout";
+import registry from "@armada/shell/layout-registry.json";
+import { LAYOUT, LAYOUT_BYTES, LAYOUT_REGIONS, layersOf, parseLayout, resolveLayout, serializeLayout } from "@armada/shell";
+import type { LayoutFile, LayoutMod } from "@armada/shell";
 
 const mod = (name: string, text: string, over: Partial<LayoutMod> = {}): LayoutMod => ({ name, title: name, enabled: true, file: parseLayout(text).file, ...over });
 const shown = (region: Parameters<typeof resolveLayout>[0], layers: Parameters<typeof resolveLayout>[1]) => resolveLayout(region, layers).shown.map((one) => one.id);
@@ -21,6 +21,22 @@ describe("the registry file both sides check", () => {
       expect({ region, ordered: shipped.ordered, firstable: shipped.firstable }).toEqual({ region, ordered: spec.ordered, firstable: spec.firstable });
       expect(shipped.entries).toEqual(spec.entries.map((one) => ({ id: one.id, hideable: one.hideable })));
     }
+  });
+});
+
+describe("the examples the armada-mods skill teaches", () => {
+  // Written out as the skill has them: a skill is not a file a test may read, so a change to either is a change to both.
+  const tidy = '{\n  "version": 1,\n  "dashboard.panels": { "order": ["merge-line", "fleet"] },\n  "rail": { "hidden": ["lessons"] }\n}\n';
+  const job = '{\n  "version": 1,\n  "job.tabs": { "order": ["overview", "workflow", "record", "plan"], "hidden": ["pulse"], "first": "plan" }\n}\n';
+  it("pass, and do what the skill says they do", () => {
+    expect(parseLayout(tidy).problems).toEqual([]);
+    expect(parseLayout(job).problems).toEqual([]);
+    const layers = layersOf({ mods: [mod("tidy", tidy), mod("jobs", job)], own: { regions: {} } });
+    expect(shown("dashboard.panels", layers)[0]).toBe("merge-line");
+    expect(shown("rail", layers)).not.toContain("lessons");
+    expect(shown("job.tabs", layers).slice(0, 4)).toEqual(["overview", "workflow", "record", "plan"]);
+    expect(shown("job.tabs", layers)).not.toContain("pulse");
+    expect(resolveLayout("job.tabs", layers).first).toBe("plan");
   });
 });
 
