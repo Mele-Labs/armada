@@ -1,0 +1,8 @@
+[operations."sleep.changed"]
+kind = "event"
+transport = "WebSocket"
+agent_access = "Bridge only"
+description = "Sleep mode after any change to it, whole: the switch and the night's rows"
+notes = """
+Carries `SleepState`. Published when the switch is set, when the pass decides, holds or records something, when a pull request lands during the night, and on an override. It is rare: at most a few rows an hour, so it adds nothing to the unbounded-sink risk `docs/practices/protocol.md` names. Since the night's rows ride whole, a reconnecting Bridge replaces what it holds and cannot believe it missed a row.
+"""

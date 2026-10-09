@@ -33,6 +33,7 @@ use crate::reading::ManifestReading;
 use crate::rehearsal::{CheckoutRunRecord, RunRecord};
 use crate::repositories::RepositoryList;
 use crate::servers::ServerState;
+use crate::sleep::SleepState;
 use crate::sessions::SessionRecord;
 use crate::studio::{Studio, StudioDeleted, StudioHelmActed};
 use crate::triggers::JobTriggerChanged;
@@ -204,6 +205,9 @@ pub enum Event {
     // Since 23.49.
     #[serde(rename = "session.row")]
     SessionRow(SessionRowChanged),
+    // Sleep mode after any change to it, whole, so a client replaces what it holds.
+    #[serde(rename = "sleep.changed")]
+    SleepChanged(SleepState),
 }
 
 impl Event {
