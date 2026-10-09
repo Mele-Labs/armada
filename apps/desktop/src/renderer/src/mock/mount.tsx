@@ -13,6 +13,7 @@ import { HapticsProvider } from "@armada/components";
 import "../styles/index.css";
 import type { BridgeApi } from "../../../shared/api";
 import { App } from "../App";
+import { ModsMock } from "./mods-themes/ModsMock";
 import { DraftedFrom } from "../drafted";
 import { SessionsFrom } from "../sessions-draft";
 import { WiredSessions } from "../sessions-wired";
@@ -105,7 +106,7 @@ export function mountApp(
               is what a composer reads before a Job exists; the prop is what a
               Job's own boards read. */}
           <SessionsHere held={heldSessions(api)}>
-            <Drafted draft={liveDraft(api) ?? HELD(chosen.draft)} />
+            {chosen.name === "mods-themes" ? <ModsMock /> : <Drafted draft={liveDraft(api) ?? HELD(chosen.draft)} />}
           </SessionsHere>
           <OnScreen say={say} />
         </HapticsProvider>
