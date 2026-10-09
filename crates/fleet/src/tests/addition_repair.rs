@@ -342,3 +342,53 @@ async fn a_repair_a_restart_forgot_is_queued_again_from_the_store_for_an_added_s
         (TriggerState::FixReady, 1)
     );
 }
+
+#[tokio::test]
+async fn the_fix_of_an_added_step_serves_its_diff_against_the_jobs_branch() {
+    let home = TempDir::new();
+    let flag = format!("{}/fixed", home.path().display());
+    let fleet = a_fleet(&home, &format!("touch {flag}"), &flag);
+    let id = with_a_failed_addition(&fleet, &home, false).await;
+    let wire = ipc::JobId::from(&id);
+    let ask = ipc::RepairOf {
+        trigger: None,
+        addition: Some("a1".into()),
+    };
+
+    let nothing_yet = fleet
+        .repair_diff(wire.clone(), ask.clone())
+        .await
+        .expect_err("no Drone has made a branch yet");
+    assert_eq!(code(&nothing_yet), "fleet.no_repair_branch");
+
+    assert!(fleet.repair_next().await);
+    let diff = fleet
+        .repair_diff(wire.clone(), ask)
+        .await
+        .expect("the fix is held");
+    let work = diff.work.expect("a reading");
+    assert_eq!(
+        work.files
+            .iter()
+            .map(|one| one.path.as_str())
+            .collect::<Vec<_>>(),
+        ["src/log.rs"]
+    );
+    assert!(work.measured_whole);
+
+    let unknown = fleet
+        .repair_diff(
+            wire,
+            ipc::RepairOf {
+                trigger: None,
+                addition: Some("a9".into()),
+            },
+        )
+        .await
+        .expect_err("no such step");
+    assert_eq!(code(&unknown), "fleet.no_repair_branch");
+}
+
+fn code(refusal: &api::Refusal) -> &str {
+    &refusal.error().code
+}

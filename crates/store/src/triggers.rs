@@ -346,8 +346,26 @@ impl Store {
         Ok(self
             .firings_where(
                 "job_id = ?1 AND block_on_fail = 1
-                 AND (state IN ('held', 'repairing', 'rerunning', 'fix_ready')
+                 AND (state IN ('held', 'repairing', 'rerunning', 'fix_ready', 'awaiting_owner')
                       OR (state = 'running' AND repair_tries > 0))
+                 AND firing_id IN (SELECT MAX(firing_id) FROM job_triggers
+                                   GROUP BY job_id, name, moment, step_id)",
+                &[&job_id.as_str()],
+            )?
+            .into_iter()
+            .map(|(_, id, firing)| (id, firing))
+            .collect())
+    }
+
+    /// The destructive Commands waiting on this Job's owner: the latest firing
+    /// of each Trigger at its moment, **blocking or not**.
+    pub fn asking_firings(
+        &self,
+        job_id: &JobId,
+    ) -> Result<Vec<(i64, TriggerFiring)>, LoadJobError> {
+        Ok(self
+            .firings_where(
+                "job_id = ?1 AND state = 'awaiting_owner'
                  AND firing_id IN (SELECT MAX(firing_id) FROM job_triggers
                                    GROUP BY job_id, name, moment, step_id)",
                 &[&job_id.as_str()],
@@ -384,7 +402,8 @@ impl Store {
     }
 
     /// What is waiting on a person: a fix with no choice, a Trigger that
-    /// failed after a repair was tried, and one that holds its Job. **Only the latest firing of a Trigger
+    /// failed after a repair was tried, one that holds its Job, and a destructive
+    /// Command that asks him. **Only the latest firing of a Trigger
     /// counts**, so a later pass clears it, and a Job whose disk was given back
     /// has none.
     pub fn repairs_waiting_on_a_person(
@@ -396,7 +415,7 @@ impl Store {
              AND job_id IN (SELECT job_id FROM jobs WHERE reclaimed_at IS NULL)
              AND ((state = 'failed' AND repair_tries > 0)
                   OR (state = 'fix_ready' AND fix_choice IS NULL)
-                  OR state = 'held')",
+                  OR state IN ('held', 'awaiting_owner'))",
             &[],
         )
     }
@@ -416,7 +435,7 @@ impl Store {
                                    GROUP BY job_id, name, moment, step_id)
                  AND ((state = 'failed' AND repair_tries > 0)
                       OR (state = 'fix_ready' AND fix_choice IS NULL)
-                      OR state = 'held')",
+                      OR state IN ('held', 'awaiting_owner'))",
                 &[&job_id.as_str()],
             )?
             .into_iter()

@@ -120,6 +120,8 @@ mod manifest_proposal;
 pub mod mcp;
 mod merge_hub;
 mod merge_line;
+/// Mods: a directory on this machine that changes how Bridge looks.
+mod mods;
 /// `armada need`: a checkout says what it needs on a path, and Fleet answers from
 /// the session ledger. `docs/capabilities/needs.md`.
 mod needs;
@@ -296,7 +298,7 @@ pub use hosted_sessions::{
     HeldCommand, HostedFacts, MessagesHeld, PilotFrom, SendSessionMessage, SentFile,
     SessionAskState, SessionGate, SessionMode, SessionRow, SessionRowChanged, SessionTag,
     SessionSubagent, SessionThread, SessionTurn, SessionUpload, SessionVoice, SessionVoiceNamed, StartSession,
-    TagKind, TaggedJob, TakeHeld, TuneSession,
+    TagKind, TaggedJob, TakeHeld, TerminalAsk, TerminalAsked, TuneSession,
 };
 pub use ids::{
     CriterionId, DroneId, Instant, JobId, ManifestId, ProposalId, QuestionId, StepId, StudioEdgeId,
@@ -338,13 +340,17 @@ pub use merge_line::{
     LandCheckState, LandOutputMessage, LandOutputOpened, LandState, MergeLine, MergeLineCheck,
     MergeLineEntry, MergeLinePullRequest, MergeLines,
 };
+pub use mods::{
+    ModChecked, ModKind, ModList, ModPromoted, ModScaffolded, ModSummary, PromoteMod, ScaffoldMod,
+    SetModEnabled,
+};
 pub use needs::{NeedAct, NeedAnswer, NeedCall, NeedLine, NeedList};
 pub use overlap::{ScopeOverlap, SharedPath};
 pub use piloting::{
     DroneNarrative, HandoffBundle, HandoffWorktree, PilotNote, PilotOutcome, Piloted, StoppedOn,
     TakeOver,
 };
-pub use preferences::{Preferences, SavePreference};
+pub use preferences::{Preferences, SavePreference, DEFAULT_THEME};
 pub use proposing::{
     ProposalInFlight, ProposalReach, ProposalSettings, ProposalSettled, ProposalStopped,
     StopProposal,
@@ -427,12 +433,12 @@ pub use studio_sketch::{
 };
 pub use added_steps::{
     AddStep, AddedPlaced, AddedRuns, AddedSkip, AddedSkipReason, AddedStep, AddedStepRemoved,
-    JobAdditionChanged, KeptFrom, RemoveAddedStep,
+    EditAddedStep, JobAdditionChanged, KeptFrom, RemoveAddedStep,
 };
 pub use trigger_holds::{HoldAct, HoldSettled, JobAlert, JobAlertKind};
 pub use triggers::{
     ChooseTriggerFix, JobTrigger, JobTriggerChanged, LeftOutTrigger, OverriddenTrigger,
-    RemoveTrigger, SaveTrigger, TriggerDefinition, TriggerFiringState, TriggerFixChoice,
+    RemoveTrigger, RepairOf, SaveTrigger, TriggerDefinition, TriggerFiringState, TriggerFixChoice,
     TriggerFixChosen, TriggerLevel, TriggerList, TriggerMoment, TriggerPullRequest, TriggerRemoved,
     TriggerRepair, TriggerRuns, TriggerSaved, TriggerScope, TriggerSkip, TriggerSkipReason,
     TriggerSummary,

@@ -204,6 +204,10 @@ pub struct Fleet<H, V, W> {
     /// Failed Triggers waiting for a repair Drone. Never written down, for
     /// `heals`' reason — `crate::trigger_repair`.
     trigger_repairs: std::sync::Mutex<crate::trigger_repair::Queue>,
+    /// The firings whose destructive Command the owner's Run is executing, by
+    /// firing id, so a second Run is refused and not a second run. Never
+    /// written down: a restart leaves the firing asking, and he answers again.
+    owner_runs: std::sync::Mutex<std::collections::BTreeSet<i64>>,
     /// Which seed is warming and which warm-up failed. Never written down, for
     /// `proving`'s reason; an `Arc` because the warm-up is spawned — `crate::seeding`.
     seeds: Arc<std::sync::Mutex<crate::seeding::Seeds>>,
@@ -266,6 +270,9 @@ pub struct Fleet<H, V, W> {
     /// Whether a Job's retro is being written. Never written down, for
     /// `proving`'s reason — `crate::retro`.
     reflecting: crate::retro::Reflecting,
+    /// The mod list as last published. Never written down: a rescan after a
+    /// restart sets it again from the folder, and says nothing for doing so.
+    mods: crate::mods::Told,
     /// **This process's** run id, minted once at assembly.
     ///
     /// It names the emitter rather than a record, which is the one id a

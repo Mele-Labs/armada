@@ -28,6 +28,7 @@ assuming it is restated here.
 | [log-envelope.md](log-envelope.md) | The field contract every log line carries across Fleet, Bridge and Drone |
 | [machine.md](machine.md) | How this installation behaves — resources, timing, budget, notification routing |
 | [manifest.md](manifest.md) | Per-project config, backed by `armada.yml` |
+| [mods.md](mods.md) | A folder on this machine that changes how Bridge looks, which Fleet reads and checks and which can never stop Fleet |
 | [observe.md](observe.md) | Watching a Drone work while it keeps working — read-only, taking nothing over |
 | [pilot.md](pilot.md) | The escape hatch from a running Job into a human-driven Claude Code session |
 | [plan.md](plan.md) | A Job's own record of what it means to do the work — an approach and its tasks |

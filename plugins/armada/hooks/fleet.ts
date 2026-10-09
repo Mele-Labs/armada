@@ -12,6 +12,12 @@ export type Report = {
   fact: Fact
 }
 
+/** What Fleet answers a held question with (`TerminalAsked`, `crates/ipc/src/hosted_sessions.rs`). */
+export type Asked =
+  | { outcome: 'answered'; updated_input: unknown }
+  | { outcome: 'refused'; message: string }
+  | { outcome: 'gone' }
+
 export type Usage = {
   context_tokens?: number
   context_window?: number

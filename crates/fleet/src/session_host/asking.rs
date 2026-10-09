@@ -11,7 +11,8 @@
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Caller, Refusal, Sessions};
 use ipc::{
-    AskingToRun, HelmCallAnswer, ManifestId, RunOrNot, SessionAskState, SessionMode, SessionRow,
+    AskingToRun, HelmCallAnswer, HelmCallInFlight, ManifestId, RunOrNot, SessionAskState,
+    SessionMode, SessionRow, TerminalAsked,
 };
 
 use super::serving::mode_of;
@@ -145,5 +146,81 @@ where
         self.row_put(id, put(state)).await;
         let _ = self.published_hosted(id).await;
         Ok(decided)
+    }
+
+    /// A terminal session's `AskUserQuestion`, put to Bridge while its own
+    /// prompt is up. **The same ask row a hosted session's question writes**, and
+    /// the same table: whichever of Bridge and the terminal answers first wins,
+    /// and the mod tells Fleet when it was the terminal.
+    pub(crate) async fn terminal_question(
+        &self,
+        id: &str,
+        asking: AskingToRun,
+    ) -> Result<TerminalAsked, Refusal> {
+        let session = self.terminal_session(id).await?.ok_or_else(|| {
+            self.hosted_refusal(
+                super::serving::NO_SUCH_SESSION,
+                &format!("no terminal session is named {id}"),
+            )
+        })?;
+        let asks = self.hosts().asks();
+        let manifest = ManifestId::carried(session.manifest_id.as_deref().unwrap_or_default());
+        let (waiting, answer) = asks.minted(&manifest, &asking, &self.now());
+        self.hosts().of(id).state().asked = Some(waiting.clone());
+        self.row_put(id, self.ask_row(id, &waiting, SessionAskState::Waiting))
+            .await;
+        let _ = self.published_hosted(id).await;
+
+        let held = asks.hold();
+        let (state, asked) = match tokio::time::timeout(held, answer).await {
+            Ok(Ok(said)) => match answering(&asking, &said) {
+                RunOrNot::Allow { updated_input } => {
+                    (SessionAskState::AllowedOnce, TerminalAsked::Answered { updated_input })
+                }
+                RunOrNot::Deny { message } => {
+                    (SessionAskState::Refused, TerminalAsked::Refused { message })
+                }
+            },
+            // The terminal got there first: its settling wrote the row.
+            Ok(Err(_)) => return Ok(TerminalAsked::Gone {}),
+            Err(_) => {
+                let _ = asks.withdraw(&waiting.call);
+                (SessionAskState::Unanswered, TerminalAsked::Gone {})
+            }
+        };
+        self.hosts().of(id).state().asked = None;
+        self.row_put(id, self.ask_row(id, &waiting, state)).await;
+        let _ = self.published_hosted(id).await;
+        Ok(asked)
+    }
+
+    /// The terminal's own prompt ended before Bridge answered: the card closes
+    /// and the held request ends.
+    pub(crate) async fn terminal_question_settled(
+        &self,
+        id: &str,
+        answered: bool,
+    ) -> Result<TerminalAsked, Refusal> {
+        let waiting = self.hosts().of(id).state().asked.take();
+        if let Some(waiting) = waiting {
+            let _ = self.hosts().asks().withdraw(&waiting.call);
+            let state = if answered {
+                SessionAskState::AllowedOnce
+            } else {
+                SessionAskState::Refused
+            };
+            self.row_put(id, self.ask_row(id, &waiting, state)).await;
+            let _ = self.published_hosted(id).await;
+        }
+        Ok(TerminalAsked::Gone {})
+    }
+
+    fn ask_row(&self, id: &str, waiting: &HelmCallInFlight, state: SessionAskState) -> SessionRow {
+        SessionRow::Ask {
+            id: format!("ask-{}-{id}", waiting.call),
+            at: self.instant(),
+            ask: waiting.clone(),
+            state,
+        }
     }
 }

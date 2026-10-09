@@ -246,6 +246,40 @@ fn a_hold_is_listed_until_it_is_settled_and_a_released_one_is_passed_by_once() {
 }
 
 #[test]
+fn a_destructive_command_asking_is_listed_always_and_holds_only_where_it_blocks() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    store
+        .insert_job(&top_level("01ASKING"), &crate::tests::created_at())
+        .expect("stored");
+    let id = job_id("01ASKING");
+    let at = |s: &str| Timestamp::from_rfc3339(format!("2026-10-07T09:00:{s}.000Z"));
+    let mut ask = |name: &str, block: bool| {
+        let mut one = frozen(
+            name,
+            TriggerResolution::Command {
+                name: "wipe".to_string(),
+                asks_first: true,
+            },
+        );
+        one.on_failure.block = block;
+        store
+            .open_firing(&id, &TriggerFiring::awaiting_the_owner(&one, at("01")))
+            .expect("opened");
+    };
+    ask("blocks", true);
+    ask("waits", false);
+
+    assert_eq!(store.asking_firings(&id).expect("read").len(), 2);
+    let holding = store.holding_firings(&id).expect("read");
+    let [(_, only)] = holding.as_slice() else {
+        panic!("one holds: {holding:?}");
+    };
+    assert_eq!(only.name, "blocks");
+    assert_eq!(store.alerting_firings(&id).expect("read").len(), 2);
+}
+
+#[test]
 fn skipping_a_hold_keeps_who_and_the_next_entry_passes_it_once() {
     let dir = TempDir::new();
     let mut store = open(&dir);

@@ -40,10 +40,25 @@ const DRAFT_PULL_REQUESTS: &str = "draft_pull_requests";
 /// nobody wrote reads as the shipped default**, not as unset — there is
 /// nothing else it could mean, since a preference with no row has never been
 /// touched.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Preferences {
     pub where_things_are_open: bool,
     pub draft_pull_requests: bool,
+    /// The theme's id, in a table of its own for `DRAFT_PULL_REQUESTS`' reason.
+    pub theme: String,
+}
+
+/// The theme nobody has chosen away from.
+pub const SHIPPED_THEME: &str = "dark";
+
+impl Default for Preferences {
+    fn default() -> Preferences {
+        Preferences {
+            where_things_are_open: false,
+            draft_pull_requests: false,
+            theme: SHIPPED_THEME.to_string(),
+        }
+    }
 }
 
 impl Store {
@@ -79,7 +94,60 @@ impl Store {
             Err(rusqlite::Error::QueryReturnedNoRows) => false,
             Err(other) => return Err(fault("reading the saved preferences")(other)),
         };
+        match self.conn.query_row(
+            "SELECT value FROM theme_preference WHERE id = 1",
+            [],
+            |row| row.get::<_, String>(0),
+        ) {
+            Ok(theme) => preferences.theme = theme,
+            Err(rusqlite::Error::QueryReturnedNoRows) => {}
+            Err(other) => return Err(fault("reading the saved preferences")(other)),
+        }
         Ok(preferences)
+    }
+
+    /// Save the theme's id, and answer with every preference now in force.
+    /// **Not checked here against what a theme can be called**: the store keeps
+    /// the word, and Fleet decides what words it accepts.
+    pub fn save_theme(&mut self, theme: &str) -> Result<Preferences, WriteError> {
+        self.conn
+            .execute(
+                "INSERT INTO theme_preference (id, value) VALUES (1, ?1)
+                 ON CONFLICT (id) DO UPDATE SET value = excluded.value",
+                (theme,),
+            )
+            .map_err(fault("saving the theme"))
+            .map_err(WriteError::Database)?;
+        self.preferences().map_err(WriteError::Database)
+    }
+
+    /// This machine's switch for each mod somebody has moved. A mod with no row
+    /// is on.
+    pub fn mod_switches(&self) -> Result<std::collections::BTreeMap<String, bool>, DatabaseFault> {
+        let mut statement = self
+            .conn
+            .prepare("SELECT name, enabled FROM mod_switches")
+            .map_err(fault("reading the mod switches"))?;
+        let rows = statement
+            .query_map([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)? != 0)))
+            .map_err(fault("reading the mod switches"))?;
+        rows.collect::<Result<_, _>>()
+            .map_err(fault("reading the mod switches"))
+    }
+
+    /// Switch one mod. **The name is not looked up**: a switch for a mod that is
+    /// not there yet holds until it is, and one left behind by a mod that was
+    /// deleted does nothing.
+    pub fn switch_mod(&mut self, name: &str, enabled: bool) -> Result<(), WriteError> {
+        self.conn
+            .execute(
+                "INSERT INTO mod_switches (name, enabled) VALUES (?1, ?2)
+                 ON CONFLICT (name) DO UPDATE SET enabled = excluded.enabled",
+                (name, i64::from(enabled)),
+            )
+            .map(|_| ())
+            .map_err(fault("switching a mod"))
+            .map_err(WriteError::Database)
     }
 
     /// Save one preference by name, and answer with every preference now in

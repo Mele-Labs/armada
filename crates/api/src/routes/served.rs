@@ -588,6 +588,11 @@ const ROUTES: &[Route] = &[
         path: "/sessions/gate",
     },
     Route {
+        operation: "ask_from_terminal",
+        method: "POST",
+        path: "/sessions/ask/terminal",
+    },
+    Route {
         operation: "take_held_messages",
         method: "POST",
         path: "/sessions/held",

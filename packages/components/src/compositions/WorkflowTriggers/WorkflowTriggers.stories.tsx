@@ -160,3 +160,25 @@ export const TriggerHolds: Story = {
     await expect(hold.getAllByRole("img", { name: "Held, deploy_qa, PR opened, handoff" })).toHaveLength(2);
   },
 };
+
+const ASKING: JobTrigger = { name: "wipe_qa", when: "pr_opened", step: "handoff", level: "repository", state: "awaiting_owner", blocks: true };
+
+/** A Trigger on a destructive Command waits on him: its leaf has Run and Skip, and the Board row's bell names it. A press is sent once as the verb Fleet answers to. */
+export const TriggerAsks: Story = {
+  render: () => (
+    <>
+      <TriggerLeaf trigger={ASKING} onAct={fn().mockResolvedValue({ ok: true })} />
+      <JobAlertMark alert={{ kind: "asks", trigger: "wipe_qa", when: "pr_opened", step: "handoff" }} />
+    </>
+  ),
+  play: async ({ canvasElement }) => {
+    const leaf = within(canvasElement);
+    await expect(leaf.getByRole("group", { name: "wipe_qa, PR opened" })).toBeVisible();
+    await expect(leaf.getByRole("button", { name: "Run" })).toBeEnabled();
+    await expect(leaf.getByRole("button", { name: "Skip" })).toBeEnabled();
+    await expect(leaf.queryByRole("button", { name: "Rerun" })).toBeNull();
+    await expect(leaf.getByRole("img", { name: "Waiting on you, wipe_qa, PR opened, handoff" })).toBeVisible();
+    await userEvent.click(leaf.getByRole("button", { name: "Run" }));
+    await expect(leaf.getByRole("button", { name: "Run" })).toBeDisabled();
+  },
+};

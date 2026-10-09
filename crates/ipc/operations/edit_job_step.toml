@@ -1,0 +1,14 @@
+[operations.edit_job_step]
+kind = "command"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Change an added step's Block the Job and Self repair switches before it fires"
+notes = """
+`POST /jobs/:job_id/edit_job_step`. The body is `EditAddedStep`: `id`, and `block` and `repair`, each left out to be left as it is. The answer is the `AddedStep` as it now stands.
+
+**Only before the step fires**, `remove_job_step`'s rule: once its moment has come it is part of what the Job did, and 409 `fleet.added_step_fired` says so. 422 `fleet.no_such_addition` where the Job holds none by that id, or it was removed. Publishes `job.addition_changed` and writes one line in the Job's log.
+
+`repair` is carried for a Skill or Drone step as for a Script, and Bridge hides the switch for them: a side Drone's fix is held for a choice whatever it says.
+
+`agent_access` is `Bridge only`, `add_job_step`'s reason.
+"""

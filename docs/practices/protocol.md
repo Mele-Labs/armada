@@ -3173,6 +3173,7 @@ Additive. `hub.main.checking` (`MainChecking {commit, pull_request?}`, newest fi
 | `get_session_subagent` (`GET /sessions/subagent?session_id=&subagent_id=`) | `SessionSubagent`: the subagent's own `rows`, `finished`, and its `report` once it has | Read again while it runs; 422 where the session has no such subagent transcript |
 | `get_session_file` (`GET /sessions/file?session_id=&file=`) | The bytes, under the media type they were sent as | `file` is a `SentFile.id` |
 | `gate_session_call` (`POST /sessions/gate`) | `SessionGate`, answered in the harness's own hook shape | **Reached by the harness, never by a client** |
+| `ask_from_terminal` (`POST /sessions/ask/terminal`) | `TerminalAsk`: `asks` with the question's input, held open and answered with `TerminalAsked` (`answered` with the input and its `answers`, `refused`, or `gone`); `settled` where the terminal's own prompt ended first | **Reached by the session's mod, never by a client.** Writes the same `ask` row a hosted session's question does |
 | `take_held_messages` (`POST /sessions/held`) | `TakeHeld`, answered with `MessagesHeld`: what a person sent a terminal session, once | **Reached by the session's mod, never by a client.** Since 23.53 |
 | `session.row` (event) | `SessionRowChanged`: `session_id`, `row` | Appends, or replaces the row with that `id` |
 
@@ -3425,6 +3426,23 @@ Bridge's half is in `packages/protocol/src/helm-calls.ts` and `hosted-sessions.t
 | the sweep | nothing on the wire | A Job at its gate whose pull request is found merged, and whose ask is recorded, is taken as `approve_review` takes it, actor `fleet`. Any other merge is recorded and left |
 
 `Outcome.pullRequest` is Bridge's own and not on the wire: the `PullRequestState` main carries back from `enable_job_auto_merge`, which the gate draws as Auto-merge on.
+
+## Mods: a theme a session can make
+
+`docs/concepts/mods.md`. Five operations, one event and two optional fields on the preferences.
+
+| Where | Carries | Notes |
+| --- | --- | --- |
+| `list_mods` (`GET /mods`) | `ModList`: `ModSummary` `name`, `kind?`, `version?`, `description?`, `enabled`, `valid`, `reason?`, `changed_at?` | A broken mod is a row with `valid` false; a field that could not be read is left out |
+| `scaffold_mod` (`POST /mods/scaffold`) | `ScaffoldMod`: `name`, `description?`; answers `ModScaffolded`: `name`, `path` | 422 `fleet.unacceptable_mod` for a name that is not a slug, or a mod that exists. 500 `fleet.mod_not_written` |
+| `set_mod_enabled` (`POST /mods/enable`) | `SetModEnabled`: `name`, `enabled`; answers the `ModSummary` | 404 `fleet.no_such_mod`. `agent_access` is `No` |
+| `validate_mod` (`GET /mods/validate?name=`) | `ModChecked`: `name`, `valid`, `problems[]`, `css?` | `css` is the checked text, present only when `valid` |
+| `promote_mod` (`POST /mods/promote`) | `PromoteMod`: `name`, `manifest_id?`; answers `ModPromoted`: `name`, `branch`, `commit` | 409 `fleet.mod_not_promotable`. `agent_access` is `No` |
+| `mods.changed` (event) | `ModList`, whole | Names no Job. A resync does not carry it |
+| `get_preferences` | `Preferences.theme?` | Left out while `dark`. Absent is `dark` |
+| `save_preferences` | `SavePreference.text?`, read for the name `theme` alone | 422 `fleet.unacceptable_theme` |
+
+**The event stream gets no new queue.** `mods.changed` is one message per change, found by a rescan every two seconds, and goes through the shared drop-oldest backlog; a Bridge that missed it reads `list_mods` after the resync. It does not touch the unbounded-sink risk above.
 
 ## Open questions
 

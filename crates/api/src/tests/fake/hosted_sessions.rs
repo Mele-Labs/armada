@@ -61,6 +61,10 @@ impl HostedSessions for FakeDaemon {
         Ok(GateAnswer::pass())
     }
 
+    async fn ask_from_terminal(&self, _ask: ipc::TerminalAsk) -> Result<ipc::TerminalAsked, Refusal> {
+        Ok(ipc::TerminalAsked::Gone {})
+    }
+
     async fn take_held_messages(&self, _ask: TakeHeld) -> Result<MessagesHeld, Refusal> {
         Ok(MessagesHeld::default())
     }

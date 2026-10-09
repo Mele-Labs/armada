@@ -117,6 +117,31 @@ impl Authoring for FakeDaemon {
         })
     }
 
+    async fn edit_job_step(
+        &self,
+        job_id: ipc::JobId,
+        edit: ipc::EditAddedStep,
+    ) -> Result<ipc::AddedStep, Refusal> {
+        let mut added = self
+            .add_job_step(
+                job_id,
+                ipc::AddStep {
+                    runs: ipc::AddedRuns::Script {
+                        command: String::from("fmt"),
+                    },
+                    when: ipc::TriggerMoment::StepPasses,
+                    step: ipc::StepId::carried("implement"),
+                    block: false,
+                    repair: false,
+                },
+            )
+            .await?;
+        added.id = edit.id;
+        added.block = edit.block.unwrap_or(added.block);
+        added.repair = edit.repair.unwrap_or(added.repair);
+        Ok(added)
+    }
+
     async fn remove_job_step(
         &self,
         _job_id: ipc::JobId,

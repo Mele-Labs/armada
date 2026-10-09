@@ -24,8 +24,8 @@
 use std::path::{Path, PathBuf};
 
 use adapter_traits::{
-    Change, Changed, ChangedFile, Counted, CountedFile, Footprint, LineCount, Measured, Patch,
-    WorkProduct, Worktree,
+    BranchWork, Change, Changed, ChangedFile, Counted, CountedFile, Footprint, LineCount, Measured,
+    Patch, WorkProduct, Worktree,
 };
 use git2::{Delta, Diff, DiffOptions, ObjectType, Oid, Repository};
 
@@ -103,20 +103,86 @@ impl WorkProduct for GitVcs {
         // Whole-diff rendering, patches and headers together, in git's own
         // text. A structured walk would be Armada deciding what a hunk means,
         // and what the Judge is handed is the diff a person would read.
-        let mut text = String::new();
-        diff.print(git2::DiffFormat::Patch, |_, _, line| {
-            if matches!(line.origin(), '+' | '-' | ' ') {
-                text.push(line.origin());
-            }
-            text.push_str(&String::from_utf8_lossy(line.content()));
-            true
-        })
-        .map_err(|cause| ReadWorkProductError::DiffFailed {
-            worktree: worktree.path().to_string(),
-            cause,
-        })?;
-        Ok(Patch::of(text))
+        printed(&diff, worktree.path())
     }
+
+    fn branch_work(
+        &self,
+        repository: &str,
+        base: &str,
+        branch: &str,
+    ) -> Result<BranchWork, Self::Error> {
+        let repo = Repository::open(repository).map_err(|cause| {
+            ReadWorkProductError::RepositoryUnreadable {
+                worktree: repository.to_string(),
+                cause,
+            }
+        })?;
+        let diff = branch_diff_of(&repo, repository, base, branch)?;
+        Ok(BranchWork {
+            changed: Changed::of(files(&diff)),
+            patch: printed(&diff, repository)?,
+        })
+    }
+}
+
+/// Two branches of the repository at `repository`, as a diff from where the
+/// second left the first to the second's tip.
+fn branch_diff_of<'r>(
+    repo: &'r Repository,
+    repository: &str,
+    base: &str,
+    branch: &str,
+) -> Result<Diff<'r>, ReadWorkProductError> {
+    let tip_of = |name: &str| {
+        commit_of_local(repo, name).ok_or_else(|| ReadWorkProductError::BranchUnreadable {
+            worktree: repository.to_string(),
+            branch: name.to_string(),
+            cause: git2::Error::from_str("no such branch"),
+        })
+    };
+    let (from, to) = (tip_of(base)?, tip_of(branch)?);
+    let meeting =
+        repo.merge_base(from, to)
+            .map_err(|cause| ReadWorkProductError::BaseUnreadable {
+                worktree: repository.to_string(),
+                base: base.to_string(),
+                cause,
+            })?;
+    let failed = |cause| ReadWorkProductError::DiffFailed {
+        worktree: repository.to_string(),
+        cause,
+    };
+    let tree = |id| repo.find_commit(id).and_then(|commit| commit.tree());
+    let (old, new) = (tree(meeting).map_err(failed)?, tree(to).map_err(failed)?);
+    repo.diff_tree_to_tree(Some(&old), Some(&new), None)
+        .map_err(failed)
+}
+
+/// A local branch's tip, or a remote-tracking one where there is no local.
+fn commit_of_local(repo: &Repository, name: &str) -> Option<Oid> {
+    repo.find_branch(name, git2::BranchType::Local)
+        .ok()
+        .and_then(|branch| branch.get().peel_to_commit().ok())
+        .map(|commit| commit.id())
+        .or_else(|| commit_of(repo, name))
+}
+
+/// A diff as the text a person would read.
+fn printed(diff: &Diff<'_>, at: &str) -> Result<Patch, ReadWorkProductError> {
+    let mut text = String::new();
+    diff.print(git2::DiffFormat::Patch, |_, _, line| {
+        if matches!(line.origin(), '+' | '-' | ' ') {
+            text.push(line.origin());
+        }
+        text.push_str(&String::from_utf8_lossy(line.content()));
+        true
+    })
+    .map_err(|cause| ReadWorkProductError::DiffFailed {
+        worktree: at.to_string(),
+        cause,
+    })?;
+    Ok(Patch::of(text))
 }
 
 /// The branch's whole diff: every change since the commit the branch was cut

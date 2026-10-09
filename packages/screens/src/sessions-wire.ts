@@ -299,6 +299,7 @@ export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] 
   const model = hosted?.model ?? terminal?.model;
   const effort = hosted?.effort ?? terminal?.effort;
   const mode = hosted?.mode ?? terminal?.mode;
+  const asked = hosted?.asked ?? terminal?.asked;
   const ended = record.state === "ended";
   // A session that ended holds nothing, so it owns nothing: what it keeps is the link to its forks.
   const attachments = attachmentsOfRecord(record, beside).filter((one) => !ended || one.kind === "forked_to" || one.kind === "forked_from");
@@ -320,7 +321,7 @@ export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] 
         ? { state: "working", ...(hosted.turn.woken_by === undefined ? {} : { wokenBy: hosted.turn.woken_by }) }
         : { state: "idle" },
     ...(record.last_turn_at === undefined ? {} : { lastTurn: clock(record.last_turn_at).replace(/:\d\d$/, ""), lastTurnAt: record.last_turn_at }),
-    ...(hosted?.asked === undefined ? {} : { asked: askOf(hosted.asked) }),
+    ...(asked === undefined ? {} : { asked: askOf(asked) }),
     pendingTags: beside.pending,
     ...(model === undefined ? {} : { model }),
     ...(effort === undefined ? {} : { effort }),

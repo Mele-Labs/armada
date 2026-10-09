@@ -280,7 +280,7 @@ impl Queries for FakeDaemon {
 
     /// Whatever the fake's own saves have left, `get_limits`' reason.
     async fn get_preferences(&self) -> Result<ipc::Preferences, Refusal> {
-        Ok(*self.preferences.lock().expect("not poisoned"))
+        Ok(self.preferences.lock().expect("not poisoned").clone())
     }
 
     /// Whatever a test planted, unfiltered — `#836`.
@@ -461,6 +461,10 @@ impl Queries for FakeDaemon {
             return Err(self.no_such_job(&job_id));
         }
         Ok(shapes::diff(job_id))
+    }
+
+    async fn get_repair_diff(&self, job_id: JobId, _of: ipc::RepairOf) -> Result<JobDiff, Refusal> {
+        self.get_diff(job_id).await
     }
 
     /// **The two refusals are what this side holds**: a Job that is not there,

@@ -4,6 +4,7 @@
 import type { ChooseTriggerFix, HoldAct, Outcome } from "@armada/protocol";
 
 import type {
+  AlertsRead,
   ReadingTrigger,
   RemovingTrigger,
   SavingTrigger,
@@ -21,6 +22,8 @@ export type TriggersApi = {
    * `main`, and the answer says so.
    */
   readTriggers: () => Promise<TriggersRead>;
+  /** `list_alerts`: the Jobs waiting on a person. Read when the window wants it and again as the Board moves. */
+  readAlerts: () => Promise<AlertsRead>;
   readTrigger: (reading: ReadingTrigger) => Promise<TriggerDefinitionRead>;
   saveTrigger: (saving: SavingTrigger) => Promise<TriggerSaveAnswer>;
   removeTrigger: (removing: RemovingTrigger) => Promise<TriggerRemoveAnswer>;
@@ -44,6 +47,7 @@ export const TRIGGERS_NOTHING_YET: TriggersState = {};
 
 export const TRIGGERS_CHANNELS = {
   readTriggers: "bridge:read-triggers",
+  readAlerts: "bridge:read-alerts",
   readTrigger: "bridge:read-trigger",
   saveTrigger: "bridge:save-trigger",
   removeTrigger: "bridge:remove-trigger",

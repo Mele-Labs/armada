@@ -145,10 +145,12 @@ where
             let terminals = self.hosts().terminals();
             let listening =
                 session.state == store::SessionState::Live && terminals.listening(&session.id);
-            record.terminal = match (terminals.facts_of(&session.id), listening) {
-                (None, false) => None,
-                (facts, _) => Some(ipc::TerminalFacts {
+            let asked = self.hosts().of(&session.id).state().asked.clone();
+            record.terminal = match (terminals.facts_of(&session.id), listening, asked) {
+                (None, false, None) => None,
+                (facts, _, asked) => Some(ipc::TerminalFacts {
                     listening,
+                    asked,
                     ..facts.unwrap_or_default()
                 }),
             };
@@ -357,6 +359,7 @@ where
                         mode,
                         commands,
                         listening: false,
+                        asked: None,
                     },
                 );
             }

@@ -192,7 +192,7 @@ mod additions;
 /// The Triggers frozen onto a Job at approval, and every firing of one.
 mod triggers;
 
-pub use additions::{NewAddition, Removal};
+pub use additions::{Edited, NewAddition, Removal};
 pub use asked_runs::{AskedRun, AskedRunBegun, AskedState};
 pub use asking::OpenJudgeQuestion;
 pub use attempt::Attempted;
@@ -217,7 +217,7 @@ pub use pending_evidence::PendingEvidence;
 pub use piloting::{KeptPilot, Narrative, PilotExit};
 pub use plan::DeclaredPlan;
 pub use ports::{PortClaim, PortClaimant};
-pub use preferences::Preferences;
+pub use preferences::{Preferences, SHIPPED_THEME};
 pub use process::DroneProcess;
 pub use proving::Proved;
 pub use pull_request_kept::KeptPullRequest;
