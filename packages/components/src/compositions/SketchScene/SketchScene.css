@@ -26,13 +26,13 @@
   --hue: var(--status-running);
   box-sizing: border-box;
   width: var(--w-sketch-box);
-  border: var(--border-width) solid var(--hue);
+  border: var(--edge-active) solid var(--hue);
   border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--hue) var(--row-tint), var(--bg-raised));
+  background: color-mix(in srgb, var(--hue) var(--row-tint-recent), var(--bg-raised));
   color: var(--fg-default);
   font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  line-height: var(--leading-xs);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
   overflow: hidden;
   transition: opacity var(--duration-base) var(--ease);
 }
@@ -76,11 +76,11 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  padding: var(--space-1) var(--space-3);
+  padding: var(--space-2) var(--space-3);
   background: var(--hue);
   color: var(--fg-inverse);
-  font-size: var(--text-2xs);
-  line-height: var(--leading-2xs);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
   font-weight: var(--weight-heading);
   letter-spacing: var(--tracking-caps);
   text-transform: uppercase;

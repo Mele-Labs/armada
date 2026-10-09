@@ -188,7 +188,7 @@ describe("job sketch", () => {
     await onScreen();
     await settled();
     await drawn();
-    await expect.poll(scale).toBeGreaterThan(0);
+    await expect.poll(scale).toBeLessThan(1);
     const start = scale();
     const startAt = viewport();
     await page.getByRole("button", { name: "Zoom in" }).click();
@@ -209,7 +209,7 @@ describe("job sketch", () => {
     await onScreen();
     await settled();
     await drawn();
-    expect(inSketch(".armada-scene-edge[data-flow]")).toBeGreaterThan(0);
+    await expect.poll(() => inSketch(".armada-scene-edge[data-flow]")).toBeGreaterThan(0);
     await page.getByRole("button", { name: "Play the steps" }).click();
     await expect.poll(() => sketch()?.querySelector("[data-current] .armada-scene-node__title")?.textContent).toBe("Waiting");
     await expect.poll(() => inSketch(".armada-scene-node[data-dim]")).toBeGreaterThan(0);

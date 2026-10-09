@@ -1,4 +1,4 @@
-import { BaseEdge, Handle, getBezierPath, useReactFlow, type Edge, type EdgeProps, type Node, type NodeProps, type ReactFlowInstance } from "@xyflow/react";
+import { BaseEdge, Handle, getBezierPath, useNodesInitialized, useReactFlow, type Edge, type EdgeProps, type Node, type NodeProps, type ReactFlowInstance } from "@xyflow/react";
 import {
   Activity, Bot, Box, Clock, Cpu, Eye, File, GitBranch, GitMerge, Globe, Hammer, HardDrive, Layers, Lock, Package, Pause, Pencil, Play, Rocket, Scale,
   ScrollText, Server, Settings, ShieldCheck, Terminal, Undo2, Webhook, Wrench, X, Zap,
@@ -165,6 +165,14 @@ const STEP_MS = 1400;
 
 function Capture({ into }: { into: { current: ReactFlowInstance | null } }) {
   const flow = useReactFlow();
+  // Fitted once the nodes are measured, because a fit made before them frames boxes of no size.
+  const measured = useNodesInitialized();
+  const fitted = useRef(false);
+  useEffect(() => {
+    if (!measured || fitted.current) return;
+    fitted.current = true;
+    void flow.fitView(FIT);
+  }, [measured, flow]);
   useEffect(() => {
     into.current = flow;
     return () => {

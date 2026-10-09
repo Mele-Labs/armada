@@ -43,11 +43,11 @@ export const SHAPE_NOW = scene(
 export const SHAPE_SPLIT = scene(
   [
     label("title", -340, -40, "Clock and writer today"),
-    crate(300),
+    crate(330),
     caller,
     { ...writer, body: "write(batch, hour)\ntakes the hour it is given" },
     disk,
-    box("clock", 0, 200, "Clock", "now() -> Hour\nthe only reader of the wall", { icon: "clock", step: 2 }),
+    box("clock", 0, 230, "Clock", "now() -> Hour\nthe only reader of the wall", { icon: "clock", step: 2 }),
   ],
   [arrow("caller", "writer", "append"), arrow("writer", "disk", "flush"), arrow("clock", "writer", "hour")],
 );
@@ -55,11 +55,11 @@ export const SHAPE_SPLIT = scene(
 export const SHAPE_WRAP = scene(
   [
     label("title", -340, -40, "Clock and writer today"),
-    crate(300),
+    crate(330),
     caller,
     writer,
     disk,
-    box("wrapper", 0, 200, "Wrapper", "wraps Writer\nnow() stays inside, behind a trait", { icon: "layers", step: 2 }),
+    box("wrapper", 0, 230, "Wrapper", "wraps Writer\nnow() stays inside, behind a trait", { icon: "layers", step: 2 }),
   ],
   [arrow("caller", "wrapper", "append"), arrow("wrapper", "writer", "delegates"), arrow("writer", "disk", "flush")],
 );
@@ -102,15 +102,15 @@ export const TESTS_FAKE = scene(
 
 export const BACKOFF = scene(
   [
-    group("loop", -30, -20, 760, 330, "retry loop"),
-    box("wait", 0, 50, "Waiting", "sleep(backoff)", { icon: "clock", step: 1 }),
-    box("retry", 330, 50, "Retrying", "send(batch)", { icon: "webhook", step: 2 }),
-    box("capped", 330, 210, "Capped", "backoff = CAP", { icon: "lock", step: 3 }),
-    box("failed", 0, 210, "Failed", "give up, say why", { icon: "shield-check", step: 4 }),
-    code("snippet", 800, 60, "rust", "let next = (prev * 2)\n    .min(CAP);", "backoff"),
-    wire("nav", 800, 230, "nav", "Settings"),
-    wire("input", 800, 290, "input", "Retry cap"),
-    wire("button", 1050, 290, "button", "Save"),
+    group("loop", -30, -20, 700, 300, "retry loop"),
+    box("wait", 0, 40, "Waiting", "sleep(backoff)", { icon: "clock", step: 1 }),
+    box("retry", 400, 40, "Retrying", "send(batch)\nwait doubles on a miss", { icon: "webhook", step: 2 }),
+    box("capped", 400, 190, "Capped", "backoff = CAP", { icon: "lock", step: 3 }),
+    box("failed", 0, 190, "Failed", "give up, say why", { icon: "shield-check", step: 4 }),
+    code("snippet", 740, 20, "rust", "let next = (prev * 2)\n    .min(CAP);", "backoff"),
+    wire("nav", 740, 170, "nav", "Settings"),
+    wire("input", 740, 225, "input", "Retry cap"),
+    wire("button", 740, 280, "button", "Save"),
   ],
-  [arrow("wait", "retry", "wakes"), arrow("retry", "wait", "doubles the wait"), arrow("retry", "capped", "at the cap"), arrow("capped", "failed", "next failure")],
+  [arrow("wait", "retry", "wakes"), arrow("retry", "capped", "at the cap"), arrow("capped", "failed", "fails")],
 );
