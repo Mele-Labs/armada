@@ -36,6 +36,42 @@ const ENTRIES: LedgerEntry[] = [
   { key: "ar4", kind: "artifact", artifact: "window", name: "Shown in a window Store clock findings", text: "Store clock findings", onOpen: shown },
 ];
 
+const picked = fn();
+const WAITING: LedgerEntry[] = [
+  { key: "w1", kind: "waiting", act: "walk", name: "Look at the findings page", text: "Look at the findings page", onOpen: shown },
+  { key: "w2", kind: "waiting", act: "approve_pr", name: "Approve #1843", text: "Approve #1843", onOpen: open },
+  { key: "w3", kind: "waiting", act: "run", name: "cargo test -p store", text: <code>cargo test -p store</code>, onOpen: open },
+  {
+    key: "w4",
+    kind: "waiting",
+    act: "answer",
+    name: "Which clock?",
+    text: "Which clock?",
+    options: [
+      { label: "Fake", onPick: picked },
+      { label: "Frozen", onPick: picked },
+    ],
+    onOpen: open,
+  },
+];
+
+/** Waiting on you leads the ledger, each item names its act by glyph, and a question's choices are numbered presses. */
+export const WaitingOnYou: Story = {
+  args: { entries: [...ENTRIES.slice(0, 2), ...WAITING] },
+  play: async ({ canvas }) => {
+    const headings = canvas.getAllByRole("heading").map((one) => one.textContent);
+    await expect(headings[0]).toBe("Waiting on you");
+    await expect(canvas.getByRole("img", { name: "Opens the walk" })).toBeInTheDocument();
+    await expect(canvas.getByRole("img", { name: "Opens the pull request" })).toBeInTheDocument();
+    await expect(canvas.getByRole("img", { name: "Copies the command" })).toBeInTheDocument();
+    await expect(canvas.getByRole("img", { name: "Goes to the question" })).toBeInTheDocument();
+    await userEvent.click(canvas.getByRole("button", { name: "Open Look at the findings page" }));
+    await expect(shown).toHaveBeenCalled();
+    await userEvent.click(canvas.getByRole("button", { name: "Choice 2 Frozen" }));
+    await expect(picked).toHaveBeenCalledTimes(1);
+  },
+};
+
 /** Nothing attached: no section is drawn, only the small picture, and no sentence. */
 export const Blank: Story = {
   args: { entries: [] },

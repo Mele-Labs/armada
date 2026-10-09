@@ -3,7 +3,7 @@
 // What is drawn is `@armada/components`'; this reads the draft
 // (`packages/screens/src/draft/sessions.ts`) into it.
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { ExternalLink, GitMerge, PanelRightClose, PanelRightOpen } from "lucide-react";
 import {
@@ -88,7 +88,7 @@ function stateOf(session: Session): { state: SessionState; said: string } {
   if (isBlank(session)) return { state: "blank", said: "Blank: no slot, no branch" };
   const failing = attachmentsOf(session, "pull_request").find((pr) => pr.state !== "merged" && pr.checks.state === "failed");
   if (failing !== undefined) return { state: "failing", said: `Checks failed on #${failing.number}` };
-  if (session.asked !== undefined) return { state: "waiting", said: "Waiting on you" };
+  if (session.asked !== undefined || (session.waitingFor?.length ?? 0) > 0) return { state: "waiting", said: "Waiting on you" };
   return { state: "idle", said: "Idle" };
 }
 
@@ -320,6 +320,7 @@ export function SessionsListing({ onOpen }: { onOpen: (id: string) => void }) {
       ...(session.lastTurn === undefined ? {} : { lastTurn: session.lastTurn }),
       ...(session.lastTurnAt === undefined ? {} : { lastTurnAt: session.lastTurnAt }),
       ...(session.modOutOfDate === true ? { modOutOfDate: true } : {}),
+      ...((session.waitingFor?.length ?? 0) > 0 ? { waiting: session.waitingFor!.map((one) => one.text) } : {}),
       ...(retro.writing.has(session.id) ? { retroWriting: true } : {}),
     };
   });
@@ -566,8 +567,35 @@ function entriesOf(
   sessions: readonly Session[],
   open: (id: string) => void,
   openWindow: (url: string) => void,
+  answerWaiting: ((itemId: string, choice: number) => void) | undefined,
+  scrollToAsk: () => void,
 ): LedgerEntry[] {
-  return session.attachments.map((one): LedgerEntry => {
+  const waiting = (session.waitingFor ?? []).map((one): LedgerEntry => {
+    const act = one.act;
+    return {
+      key: `waiting${one.id}`,
+      kind: "waiting",
+      name: one.text,
+      text: act?.kind === "run" ? <code>{act.target}</code> : one.text,
+      ...(act === undefined ? {} : { act: act.kind }),
+      ...(one.options === undefined || answerWaiting === undefined
+        ? {}
+        : { options: one.options.map((option, at) => ({ label: option.label, onPick: () => answerWaiting(one.id, at) })) }),
+      onOpen: () => {
+        if (act === undefined) return;
+        if (act.kind === "walk") openWindow(act.target);
+        else if (act.kind === "approve_pr") read({ kind: "pull_request", number: Number(act.target.replace(/^#/, "")) });
+        else if (act.kind === "run") {
+          try {
+            void navigator.clipboard.writeText(act.target);
+          } catch {
+            // Not copied: the command stays on the row to be read.
+          }
+        } else scrollToAsk();
+      },
+    };
+  });
+  return [...waiting, ...session.attachments.map((one): LedgerEntry => {
     switch (one.kind) {
       case "forked_to":
       case "forked_from": {
@@ -655,7 +683,7 @@ function entriesOf(
           onOpen: () => read({ kind: "subagent", id: one.id }),
         };
     }
-  });
+  })];
 }
 
 /** What Cleanup holds, read here for a slot's panel. */
@@ -696,6 +724,7 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
   const [drawn, setDrawn] = useKept<DrawnSketch[]>(`session:${session.id}:drawn`, NO_SKETCHES);
   const narrow = useNarrow();
   const [ledgerOpen, setLedgerOpen] = useState(false);
+  const askCard = useRef<HTMLDivElement>(null);
   const [minimized, minimize] = useMinimized();
   const retro = useRetroPress();
   const { onWant } = held;
@@ -739,6 +768,13 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
     sessions,
     narrow ? fold(onOpen) : onOpen,
     (url) => draft.openWindow?.(id, url),
+    draft.answerWaiting === undefined ? undefined : (itemId, choice) => draft.answerWaiting?.(id, itemId, { choice }),
+    narrow
+      ? () => {
+          setLedgerOpen(false);
+          askCard.current?.scrollIntoView({ block: "center", behavior: "smooth" });
+        }
+      : () => askCard.current?.scrollIntoView({ block: "center", behavior: "smooth" }),
   );
   return (
     <>
@@ -811,6 +847,7 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
           <SessionThread
             sessionId={session.id}
             rows={threadRowsOf(session)}
+            askRef={askCard}
             onOpenWindow={(url) => draft.openWindow?.(id, url)}
             working={session.turn.state === "working"}
             {...(session.asked === undefined

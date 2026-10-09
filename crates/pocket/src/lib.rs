@@ -8,6 +8,7 @@
 //! **Every route is on a list.** [`router`] names each one, and anything else
 //! is 404. The routes whose issue has not landed answer 501.
 
+mod actions;
 mod admin;
 mod fleet_client;
 mod fleet_events;
@@ -43,6 +44,8 @@ pub async fn bind(port: u16) -> io::Result<TcpListener> {
     TcpListener::bind(SocketAddr::from((Ipv4Addr::LOCALHOST, port))).await
 }
 
+#[cfg(test)]
+mod actions_tests;
 #[cfg(test)]
 mod pairing_tests;
 #[cfg(test)]

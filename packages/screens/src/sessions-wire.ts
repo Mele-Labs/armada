@@ -328,6 +328,7 @@ export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] 
     ...(mode === undefined ? {} : { mode }),
     ...(terminal?.commands === undefined ? {} : { commands: terminal.commands }),
     ...(record.mod_out_of_date === true ? { modOutOfDate: true as const } : {}),
+    ...(ended || (record.waiting_for?.length ?? 0) === 0 ? {} : { waitingFor: record.waiting_for }),
   };
 }
 

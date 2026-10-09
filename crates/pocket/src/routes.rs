@@ -10,6 +10,7 @@ use axum::response::{IntoResponse, Response};
 use axum::routing::{delete, get, post};
 use axum::Router;
 
+use crate::actions::{self, Act};
 use crate::{admin, fleet_client, pair_routes, push, reads, session_routes, signing, stat};
 
 /// Where Fleet is now: its port out of the runtime file, read afresh each time
@@ -25,10 +26,6 @@ pub struct Gateway {
     pub push: push::Push,
 }
 
-/// A route whose issue has not landed.
-async fn later() -> Response {
-    (StatusCode::NOT_IMPLEMENTED, "This route is not built yet.").into_response()
-}
 
 /// A listed path asked with a method not on the list is not listed.
 async fn unlisted(answer: Response) -> Response {
@@ -70,13 +67,13 @@ pub fn router(gateway: Gateway) -> Router {
         .route("/api/live", get(reads::live))
         .route("/api/push/subscribe", post(push::subscribe))
         .route("/api/push/key", get(push::key))
-        .route("/api/jobs/:id/approve", post(later))
-        .route("/api/jobs/:id/redirect", post(later))
-        .route("/api/jobs/:id/restart_step", post(later))
-        .route("/api/jobs/:id/kill", post(later))
-        .route("/api/jobs/:id/redispatch", post(later))
-        .route("/api/jobs/:id/approve_review", post(later))
-        .route("/api/jobs/:id/request_changes", post(later))
+        .route("/api/jobs/:id/approve", actions::route(Act::Approve))
+        .route("/api/jobs/:id/redirect", actions::route(Act::Redirect))
+        .route("/api/jobs/:id/restart_step", actions::route(Act::RestartStep))
+        .route("/api/jobs/:id/kill", actions::route(Act::Kill))
+        .route("/api/jobs/:id/redispatch", actions::route(Act::Redispatch))
+        .route("/api/jobs/:id/approve_review", actions::route(Act::ApproveReview))
+        .route("/api/jobs/:id/request_changes", actions::route(Act::RequestChanges))
         .route("/api/sessions", get(session_routes::sessions))
         .route("/api/repositories", get(session_routes::repository_labels))
         .route("/api/sessions/answer", post(session_routes::answer))

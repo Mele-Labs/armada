@@ -94,3 +94,11 @@ export type RepositoriesBody = string[];
 /** POST /api/jobs. 201 with the Jobs the text became; 400 for an unknown repository. */
 export type DispatchBody = { text: string; repository: string };
 export type DispatchedBody = { jobs: PhoneJob[] };
+
+/** POST /api/jobs/:id/approve | restart_step | kill | redispatch | approve_review.
+ *  Every one answers 204, or Fleet's status with its sentence as text. */
+export type ActBody = Record<string, never>;
+/** POST /api/jobs/:id/redirect */
+export type RedirectBody = { text: string };
+/** POST /api/jobs/:id/request_changes */
+export type RequestChangesBody = { reason: string };
