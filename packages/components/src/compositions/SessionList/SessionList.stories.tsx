@@ -163,6 +163,16 @@ export const ModOutOfDate: Story = {
   },
 };
 
+/** A Session with items waiting on the person carries a hand whose tooltip lists them, and one without carries none. */
+export const WaitingOnYou: Story = {
+  args: { groups: [{ label: "Needs you", rows: [{ ...NOTES, waiting: ["Approve #1847", "Which prefix?"] }, FLAKY] }] },
+  play: async ({ canvas }) => {
+    const hands = canvas.getAllByRole("img", { name: /^Waiting on you:/ });
+    await expect(hands).toHaveLength(1);
+    await expect(hands[0]!.getAttribute("aria-label")).toBe("Waiting on you: Approve #1847; Which prefix?");
+  },
+};
+
 const VIEWS = [
   { id: "active", label: "Active" },
   { id: "quiet", label: "Quiet" },

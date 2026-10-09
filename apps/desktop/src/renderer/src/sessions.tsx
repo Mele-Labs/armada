@@ -85,7 +85,7 @@ function stateOf(session: Session): { state: SessionState; said: string } {
   if (isBlank(session)) return { state: "blank", said: "Blank: no slot, no branch" };
   const failing = attachmentsOf(session, "pull_request").find((pr) => pr.state !== "merged" && pr.checks.state === "failed");
   if (failing !== undefined) return { state: "failing", said: `Checks failed on #${failing.number}` };
-  if (session.asked !== undefined) return { state: "waiting", said: "Waiting on you" };
+  if (session.asked !== undefined || (session.waitingFor?.length ?? 0) > 0) return { state: "waiting", said: "Waiting on you" };
   return { state: "idle", said: "Idle" };
 }
 
@@ -295,6 +295,7 @@ export function SessionsListing({ onOpen }: { onOpen: (id: string) => void }) {
       ...(session.lastTurn === undefined ? {} : { lastTurn: session.lastTurn }),
       ...(session.lastTurnAt === undefined ? {} : { lastTurnAt: session.lastTurnAt }),
       ...(session.modOutOfDate === true ? { modOutOfDate: true } : {}),
+      ...((session.waitingFor?.length ?? 0) > 0 ? { waiting: session.waitingFor!.map((one) => one.text) } : {}),
     };
   });
   const shown: readonly string[] = VIEWS.find((one) => one.id === view)!.headings;
@@ -540,8 +541,34 @@ function entriesOf(
   sessions: readonly Session[],
   open: (id: string) => void,
   openWindow: (url: string) => void,
+  answerWaiting?: (itemId: string, choice: number) => void,
 ): LedgerEntry[] {
-  return session.attachments.map((one): LedgerEntry => {
+  const waiting = (session.waitingFor ?? []).map((one): LedgerEntry => {
+    const act = one.act;
+    return {
+      key: `waiting${one.id}`,
+      kind: "waiting",
+      name: one.text,
+      text: act?.kind === "run" ? <code>{act.target}</code> : one.text,
+      ...(act === undefined ? {} : { act: act.kind }),
+      ...(one.options === undefined || answerWaiting === undefined
+        ? {}
+        : { options: one.options.map((option, at) => ({ label: option.label, onPick: () => answerWaiting(one.id, at) })) }),
+      onOpen: () => {
+        if (act === undefined) return;
+        if (act.kind === "walk") openWindow(act.target);
+        else if (act.kind === "approve_pr") read({ kind: "pull_request", number: Number(act.target.replace(/^#/, "")) });
+        else if (act.kind === "run") {
+          try {
+            void navigator.clipboard.writeText(act.target);
+          } catch {
+            // Not copied: the command stays on the row to be read.
+          }
+        } else document.querySelector('article[aria-label="Waiting on you"]')?.scrollIntoView({ block: "center", behavior: "smooth" });
+      },
+    };
+  });
+  return [...waiting, ...session.attachments.map((one): LedgerEntry => {
     switch (one.kind) {
       case "forked_to":
       case "forked_from": {
@@ -629,7 +656,7 @@ function entriesOf(
           onOpen: () => read({ kind: "subagent", id: one.id }),
         };
     }
-  });
+  })];
 }
 
 /** What Cleanup holds, read here for a slot's panel. */
@@ -712,6 +739,7 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
     sessions,
     narrow ? fold(onOpen) : onOpen,
     (url) => draft.openWindow?.(id, url),
+    draft.answerWaiting === undefined ? undefined : (itemId, choice) => draft.answerWaiting?.(id, itemId, { choice }),
   );
   return (
     <>

@@ -148,6 +148,25 @@ export type SessionRow =
   /** The Session showed a page in a window: where in the thread it did, and the address to open again. */
   | { id: string; at: string; kind: "window"; title: string; url: string };
 
+/** What the person can do about a waiting item. `target` is the walk's address, the question's call, the PR's number, or the command. */
+export type WaitingAct = { kind: "walk" | "answer" | "approve_pr" | "run"; target: string };
+
+/**
+ * One thing a Session is waiting on the person for. **The agent keeps the list** (a door tool sets it
+ * whole) **and Fleet adds what it already knows**: an open question (`ask_card`), a walk window waiting on
+ * Approve (`walk`), a permission (`permission`). `id` stays the same across updates; `options` is present
+ * only on an `answer` item that has choices.
+ */
+export type WaitingFor = {
+  id: string;
+  text: string;
+  /** ISO time it began waiting. */
+  since: string;
+  source: "agent" | "ask_card" | "walk" | "permission";
+  act?: WaitingAct;
+  options?: readonly { label: string }[];
+};
+
 /** A turn running, or none. A message from another Session starts one, so `working` has no author. */
 export type SessionTurn = { state: "idle" } | { state: "working"; wokenBy?: { id: string; title: string } };
 
@@ -181,6 +200,8 @@ export type Session = {
   lastTurnAt?: string;
   /** What the agent is held on, while it is. */
   asked?: SessionAsk;
+  /** What the Session waits on the person for: the agent's list with Fleet's own items merged in. Absent or empty is nothing. */
+  waitingFor?: readonly WaitingFor[];
   /** Tags chosen and not yet sent: they wait in the message box as chips. */
   pendingTags?: readonly SessionTag[];
   /** The model and effort the next turn runs on. Absent is Auto. */
@@ -331,6 +352,8 @@ export type SessionsDraft = {
   efforts: readonly string[];
   /** The skills and commands `/` offers. */
   commands: readonly SessionCommand[];
+  /** Answers one waiting item: a numbered choice, words, or leave it to the agent (`best` thinks it through, `quick` takes the reasonable path). Absent where nothing serves it. */
+  answerWaiting?: (id: string, itemId: string, answer: { choice?: number; text?: string; mode?: "best" | "quick" }) => void;
   /** Answers the permission a Session is held on. The mock offers two and names none. */
   answer: (id: string, answer?: SessionAnswer, answers?: SessionQuestionAnswer[]) => void;
 };

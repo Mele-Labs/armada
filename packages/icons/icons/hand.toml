@@ -3,5 +3,5 @@
   group = "Session"
   size = "12px"
   status = "Proposed"
-  reserved = "A worktree slot or branch a Session holds because a Job was piloted into it, handed over and not leased. Never a stop, a refusal or a Job waiting on a person."
+  reserved = "A worktree slot or branch a Session holds because a Job was piloted into it, handed over and not leased. Also a Session that is waiting on the person for something, on its list row (owner, 8 Oct 2026). Never a stop or a refusal."
   notes = "Proposed 7 Oct 2026 for the walk `sessions`, for the owner to rule on. The ledger has to say a slot came with a Job and was not leased on a first write, and `key-round` already says a slot is held."
