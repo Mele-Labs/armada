@@ -46,6 +46,8 @@ mod rules_transcripts;
 mod rules_unsafe;
 mod rules_var_names;
 mod rules_vocabulary;
+#[cfg(test)]
+mod skill_regions;
 mod tokens;
 mod tokens_emit;
 
