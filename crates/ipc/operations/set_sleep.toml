@@ -1,0 +1,10 @@
+[operations.set_sleep]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Turn sleep mode on, which starts a new night, or off"
+notes = """
+`POST /sleep`, body `SetSleep`: `on`. Answered with `SleepState`, and `SleepChanged` is published.
+
+Turning it on clears the last night's rows. Turning it off keeps them for the Morning review. Setting it to what it already is changes nothing.
+"""

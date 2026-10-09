@@ -29,6 +29,7 @@ import type { RepositoryReads } from "./repositories";
 import type { Again } from "./screen";
 import type { BridgeStateFleet } from "./socket";
 import type { SessionsHost } from "./sessions";
+import type { SleepHost } from "./sleep";
 import type { StudioReads } from "./studios";
 
 /** What the arrival switch reaches on `FleetConnection`, and nothing more. */
@@ -53,6 +54,8 @@ export interface ArrivalHost {
   readonly mods: Pick<Modding, "read" | "listed">;
   /** Every session and the threads a window opened — `sessions.ts`. */
   readonly sessions: Pick<SessionsHost, "again" | "changed" | "row">;
+  /** Sleep mode, told when Fleet changes the night — `sleep.ts`. */
+  readonly sleep: Pick<SleepHost, "changed">;
   /** The build Fleet runs on, read now and every minute — `fleet-build.ts`. */
   readonly fleetBuild: Pick<FleetBuilds, "watch">;
   readonly material: ReviewMaterial;
@@ -494,6 +497,13 @@ export function applyArrival(host: ArrivalHost, text: string, fleet: BridgeState
     host.publish({ connection });
     const { kind: _kind, ...record } = event;
     host.sessions.changed(record);
+    return;
+  }
+  if (event.kind === "sleep.changed") {
+    // Above the tail for `session.changed`'s reason: no Job to find, and the night travels whole.
+    host.publish({ connection });
+    const { kind: _kind, ...state } = event;
+    host.sleep.changed(state);
     return;
   }
   if (event.kind === "session.row") {

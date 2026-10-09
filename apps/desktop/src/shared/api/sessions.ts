@@ -5,6 +5,7 @@ import type {
   AnswerSessionAsk,
   AnswerWaiting,
   ClaimPullRequest,
+  DismissWaiting,
   Followed,
   FrameRead,
   Outcome,
@@ -59,6 +60,8 @@ export type SessionsApi = {
   answerWaiting: (answer: AnswerWaiting) => Promise<SessionActed>;
   /** Takes an open pull request nobody holds for a Session. Fleet refuses, naming the holder, where a live one has it. */
   claimPullRequest: (claim: ClaimPullRequest) => Promise<SessionActed<PullRequestClaimed>>;
+  /** Drops one thing a session waits on for good. Nothing is sent to the agent. */
+  dismissWaiting: (dismiss: DismissWaiting) => Promise<SessionActed>;
   /** The model, effort and permission mode the next turn runs on. */
   tuneSession: (tune: TuneSession) => Promise<SessionActed>;
   /** A name the person gave a session, hosted or in a terminal. It stands until the next `/rename` in a terminal. */
@@ -128,6 +131,7 @@ export const SESSIONS_CHANNELS = {
   answerSessionAsk: "bridge:answer-session-ask",
   answerWaiting: "bridge:answer-waiting",
   claimPullRequest: "bridge:claim-pull-request",
+  dismissWaiting: "bridge:dismiss-waiting",
   tuneSession: "bridge:tune-session",
   renameSession: "bridge:rename-session",
   retroSession: "bridge:retro-session",

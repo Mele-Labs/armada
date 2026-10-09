@@ -3,14 +3,21 @@
 //! settles an item. `docs/concepts/session.md`.
 //!
 //! **Derived items are never kept.** An open card, a permission or a walk window
-//! not yet approved is read off the session as it stands, so it cannot go stale.
+//! is read off the session as it stands, so it cannot go stale.
+//!
+//! **Only a session's newest walk window can wait.** A newer `show_window` supersedes the older
+//! ones, and a window stops waiting once it is approved or the person has sent the session a
+//! message after it opened. A window closed without either still waits: that is his call.
+//!
+//! **A dismissed id never comes back.** `dismiss_waiting` keeps the id; a derived item with it is
+//! left off every read and an agent item with it is dropped from the kept list.
 
 use std::sync::Arc;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{HostedSessions, Refusal};
 use ipc::{
-    AnswerSessionAsk, AnswerWaiting, HelmCallAnswer, HelmCallInFlight, Instant, QuestionAnswer,
+    AnswerSessionAsk, AnswerWaiting, DismissWaiting, HelmCallAnswer, HelmCallInFlight, Instant, QuestionAnswer,
     SendSessionMessage, SessionRecord, SessionRow, SessionVoice, SetWaitingFor, WaitingAct,
     WaitingActKind, WaitingItem, WaitingMode, WaitingOption, WaitingSource, WireError,
 };
@@ -113,6 +120,7 @@ pub(crate) fn merged(
     kept: Vec<KeptWaiting>,
     asked: Option<&HelmCallInFlight>,
     windows: &[Window],
+    dismissed: &[String],
     ended: bool,
 ) -> Vec<WaitingItem> {
     if ended {
@@ -137,9 +145,10 @@ pub(crate) fn merged(
     let mut items: Vec<WaitingItem> = kept
         .into_iter()
         .filter(|one| {
-            !derived
-                .iter()
-                .any(|fleet| fleet.id == one.item_id || same(fleet, &one.act))
+            !dismissed.contains(&one.item_id)
+                && !derived
+                    .iter()
+                    .any(|fleet| fleet.id == one.item_id || same(fleet, &one.act))
         })
         .map(|one| WaitingItem {
             id: one.item_id,
@@ -156,7 +165,7 @@ pub(crate) fn merged(
                 .collect(),
         })
         .collect();
-    items.extend(derived);
+    items.extend(derived.into_iter().filter(|one| !dismissed.contains(&one.id)));
     items
 }
 
@@ -179,10 +188,13 @@ where
     ) -> Result<Vec<WaitingItem>, store::WriteError> {
         let kept = store.waiting_for(&session.id)?;
         let asked = self.hosts().of(&session.id).state().asked.clone();
-        let approved: Vec<String> = store
+        let rows: Vec<SessionRow> = store
             .session_rows(&session.id)?
             .iter()
             .filter_map(|body| ipc::decode::<SessionRow>("a session row", body.as_bytes()).ok())
+            .collect();
+        let approved: Vec<String> = rows
+            .iter()
             .filter_map(|row| match row {
                 SessionRow::Message {
                     from: SessionVoice::You,
@@ -192,14 +204,26 @@ where
                 _ => None,
             })
             .collect();
-        let windows: Vec<Window> = attachments
+        let spoke = rows.iter().filter_map(|row| match row {
+            SessionRow::Message {
+                from: SessionVoice::You,
+                at,
+                ..
+            } => Some(at),
+            _ => None,
+        });
+        let last_spoke = spoke.max();
+        let newest = attachments
             .iter()
             .filter(|one| {
                 one.kind == "artifact"
                     && one.detail.get("form").map(String::as_str) == Some("window")
                     && one.state == ipc::AttachmentState::Standing
-                    && !approved.contains(&one.target)
             })
+            .max_by(|a, b| a.since.cmp(&b.since));
+        let windows: Vec<Window> = newest
+            .filter(|one| !approved.contains(&one.target))
+            .filter(|one| last_spoke.map_or(true, |at| at <= &one.since))
             .map(|one| Window {
                 url: one.target.clone(),
                 title: one
@@ -209,11 +233,14 @@ where
                     .unwrap_or_else(|| one.target.clone()),
                 since: one.since.as_str().to_string(),
             })
+            .into_iter()
             .collect();
+        let dismissed = store.dismissed_waiting(&session.id)?;
         Ok(merged(
             kept,
             asked.as_ref(),
             &windows,
+            &dismissed,
             session.state == store::SessionState::Ended,
         ))
     }
@@ -376,6 +403,39 @@ where
                     .await
             }
         }
+    }
+
+    /// `dismiss_waiting`: drop one item for good. Nothing is sent to the agent.
+    pub(crate) async fn dismiss_waited(&self, dismiss: DismissWaiting) -> Result<SessionRecord, Refusal> {
+        let id = dismiss.session_id.as_str().to_string();
+        if self.terminal_session(&id).await?.is_some() {
+            self.terminal_ask_standing(&id).await;
+        }
+        let record = {
+            let mut store = self.store().lock().await;
+            let session = store
+                .session(&id)
+                .map_err(|why| self.ledger_fault(why))?
+                .ok_or_else(|| self.hosted_refusal(SESSION_WAITING_UNNAMED, "a session Fleet knows"))?;
+            let held = self
+                .ledger_row(&store, &session)?
+                .waiting_for
+                .iter()
+                .any(|one| one.id == dismiss.item_id);
+            if !held {
+                return Err(Refusal::IllegalMove(WireError::raised(
+                    SESSION_WAITING_UNHELD,
+                    "nothing is waiting under that item. It was settled already, or the session stopped waiting",
+                    self.run_id(),
+                )));
+            }
+            store
+                .dismiss_waiting(&id, &dismiss.item_id)
+                .map_err(|why| self.ledger_fault(why))?;
+            self.ledger_row(&store, &session)?
+        };
+        self.publish(ipc::Event::SessionChanged(record.clone()));
+        Ok(record)
     }
 
     /// Skip a card, with what the person said or the mode line as the reason the agent reads.

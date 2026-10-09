@@ -493,14 +493,14 @@ fi
 
 # The Gateway's plist, written to `$1` (`/dev/stdout` for a dry run).
 write_pocket_plist() {
-  python3 - "$1" "$pocket_label" "$armada_bin" "$src" "$home" "$PATH" <<'PY'
+  python3 - "$1" "$pocket_label" "$armada_bin" "$pocket_app" "$home" "$PATH" <<'PY'
 import plistlib, sys
 
-path, label, armada_bin, src, home, path_env = sys.argv[1:7]
+path, label, armada_bin, assets, home, path_env = sys.argv[1:7]
 plistlib.dump(
     {
         "Label": label,
-        "ProgramArguments": [armada_bin, "pocket", "--assets", f"{src}/apps/pocket/dist"],
+        "ProgramArguments": [armada_bin, "pocket", "--assets", assets],
         "KeepAlive": True,
         "RunAtLoad": True,
         "StandardOutPath": f"{home}/Library/Logs/Armada/{label}.log",
@@ -520,6 +520,19 @@ pocket_build_cmd() {
   else
     echo "pnpm -C apps/pocket exec vite build"
   fi
+}
+# Where the Gateway serves the app from: a copy outside any source tree, since a
+# later `scripts/preview` rebuilds its tree from scratch and deletes `dist`.
+pocket_app="$support/pocket-app"
+# Copy the built app beside it, then swap it in with a rename, so the Gateway
+# never serves a half-copied folder.
+install_pocket_app() {
+  local fresh="$support/pocket-app.new.$$" old="$support/pocket-app.old.$$"
+  rm -rf "$fresh" "$old"
+  cp -R "$src/apps/pocket/dist" "$fresh" || fail "could not copy $src/apps/pocket/dist to $fresh"
+  if [[ -d "$pocket_app" ]]; then mv "$pocket_app" "$old"; fi
+  mv "$fresh" "$pocket_app"
+  rm -rf "$old"
 }
 pocket_stamp="$src/apps/pocket/dist/.armada-restart-stamp"
 pocket_stale() {
@@ -573,6 +586,7 @@ if $dry_run; then
   fi
   if [[ -f "$pocket_optin" ]]; then
     if pocket_stale; then echo "would build the phone app in $src: $(pocket_build_cmd)"; else echo "would not build the phone app — unchanged since its last build"; fi
+    echo "would copy $src/apps/pocket/dist to $pocket_app (a fresh folder swapped in by rename)"
     echo "would write $pocket_plist:"
     write_pocket_plist /dev/stdout
     echo "would boot $pocket_service out if it is loaded, then bootstrap it from $pocket_plist"
@@ -683,8 +697,14 @@ if [[ -f "$pocket_optin" ]]; then
     say "Building the phone app — apps/pocket or packages/ moved since its last build"
     (cd "$src" && $(pocket_build_cmd))
     mkdir -p "$src/apps/pocket/dist" && touch "$pocket_stamp"
+    say "Copying the phone app to $pocket_app"
+    install_pocket_app
   else
     say "The phone app is unchanged since its last build"
+    if [[ ! -d "$pocket_app" ]]; then
+      say "Copying the phone app to $pocket_app — it was not there"
+      install_pocket_app
+    fi
   fi
 fi
 

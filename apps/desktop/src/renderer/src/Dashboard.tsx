@@ -559,7 +559,7 @@ export function useItems(
             acts: () => <JobActs job={job} stale={false} onOpen={hosts.onOpen} onKill={hosts.onKill ?? noop} onRedispatch={hosts.onRedispatch ?? noop} onClear={hosts.onClear ?? noop} {...(hosts.onPausing === undefined ? {} : { onPausing: hosts.onPausing })} />,
           });
       }
-      items.push(...callsFromWaiting(sessions, dismissed).map((one) => waitingItem(one, hosts)));
+      items.push(...callsFromWaiting(sessions).map((one) => waitingItem(one, hosts)));
     } else {
       const jobs = tab === "running" ? of(["running", "queued", "other"]) : of(["recently-ended", "done"]);
       for (const job of jobs) {

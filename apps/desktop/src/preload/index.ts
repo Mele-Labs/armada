@@ -27,9 +27,11 @@ import type {
 } from "@armada/protocol";
 import type { FileReport } from "@armada/protocol";
 import type { ModChecked } from "@armada/protocol";
-import type { AnswerSessionAsk, AnswerWaiting, ClaimPullRequest, PilotOutcome, PullRequestClaimed, PullRequestState, RenameSession, ReviewDispatched, SendSessionMessage, SessionSubagent, TuneSession } from "@armada/protocol";
+import type { SleepState } from "@armada/protocol";
+import type { AnswerSessionAsk, AnswerWaiting, ClaimPullRequest, DismissWaiting, PilotOutcome, PullRequestClaimed, PullRequestState, RenameSession, ReviewDispatched, SendSessionMessage, SessionSubagent, TuneSession } from "@armada/protocol";
 import type { ArtifactRead, PageBounds } from "@armada/screens/src/draft/sessions";
 import type { PilotExit, PullRequestPress, SessionActed } from "../shared/api/sessions";
+import type { SleepActed } from "../shared/api/sleep";
 import type { HelmContext, HelmDebugRead } from "@armada/protocol";
 import type { StudioCapture, StudioNodeByHand, StudioPosition, StudioPromotion } from "@armada/protocol";
 import type { StudioAnswer } from "@armada/screens/src/studio-reads";
@@ -615,6 +617,16 @@ const api: BridgeApi = {
   // Sessions Fleet hosts. **Each names a session by its id and nothing else of Fleet's**: the
   // repository a new one starts in is the window's own pick, read in main, and a pull request is
   // named by its number against the session that holds it. No path and no port crosses.
+  getSleep: (): Promise<SleepActed> => ipcRenderer.invoke(CHANNELS.getSleep),
+  setSleep: (on: boolean): Promise<SleepActed> => ipcRenderer.invoke(CHANNELS.setSleep, on),
+  overrideSleep: (id: string, text: string): Promise<SleepActed> => ipcRenderer.invoke(CHANNELS.overrideSleep, id, text),
+  onSleepChanged: (onChanged: (state: SleepState) => void): (() => void) => {
+    const handler = (_event: unknown, state: SleepState): void => onChanged(state);
+    ipcRenderer.on(CHANNELS.sleepChanged, handler);
+    return () => {
+      ipcRenderer.removeListener(CHANNELS.sleepChanged, handler);
+    };
+  },
   startSession: (title?: string, root?: string): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.startSession, title, root),
   pilotJob: (jobId: string, outcome: PilotOutcome): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.pilotJob, jobId, outcome),
   exitPilot: (jobId: string, exit: PilotExit, note?: string): Promise<Outcome> => ipcRenderer.invoke(CHANNELS.exitPilot, jobId, exit, note),
@@ -624,6 +636,7 @@ const api: BridgeApi = {
     ipcRenderer.invoke(CHANNELS.answerSessionAsk, answer),
   answerWaiting: (answer: AnswerWaiting): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.answerWaiting, answer),
   claimPullRequest: (claim: ClaimPullRequest): Promise<SessionActed<PullRequestClaimed>> => ipcRenderer.invoke(CHANNELS.claimPullRequest, claim),
+  dismissWaiting: (dismiss: DismissWaiting): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.dismissWaiting, dismiss),
   tuneSession: (tune: TuneSession): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.tuneSession, tune),
   renameSession: (rename: RenameSession): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.renameSession, rename),
   forkSession: (sessionId: string): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.forkSession, sessionId),

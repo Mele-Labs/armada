@@ -155,6 +155,12 @@ pub(super) const ROUTES: &[Route] = &[
         method: "GET",
         path: "/events",
     },
+    // Sleep mode after any change, whole.
+    Route {
+        operation: "sleep.changed",
+        method: "GET",
+        path: "/events",
+    },
     // One row of a hosted session's thread, appended or replaced.
     Route {
         operation: "session.row",

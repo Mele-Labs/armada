@@ -1,12 +1,10 @@
-// Calls the owner has dismissed for good, as opposed to put off for later. **One remembered set**, kept
-// in `localStorage` across restarts, and the two ways into it behind two functions so each is swapped
-// alone: a Session's waiting item goes to Fleet's `dismiss_waiting` once the window has it
-// (`window.armada.dismissWaiting`), and until then is remembered here by `session_id:item_id`; a call
-// Fleet raised about a state (a failing pull request, main red, a failed Check, a stuck Drone) is
-// remembered by the identity of that state, so the same failure stays gone and a new one comes back.
+// Calls the owner has dismissed for good, as opposed to put off for later. A Session's waiting item is
+// dismissed on Fleet (`window.armada.dismissWaiting`), which drops it from the Session's list for good.
+// A call Fleet raised about a state (a failing pull request, main red, a failed Check, a stuck Drone)
+// has no such route, so it is remembered here, in `localStorage` across restarts, by the identity of
+// that state: the same failure stays gone and a new one comes back.
 
 import { useSyncExternalStore } from "react";
-import type { WaitingItem } from "@armada/protocol";
 import { refusalWords } from "@armada/screens/src/refusal-words";
 
 import type { Item } from "../Dashboard";
@@ -63,20 +61,12 @@ export function forgetDismissals(): void {
   listeners.forEach((one) => one());
 }
 
-/** What a Session's waiting item is remembered by: the pair, as Fleet's route names it. */
-export const waitingIdentity = (sessionId: string, itemId: string): string => `${sessionId}:${itemId}`;
-
 /**
- * What a call is remembered by. A Session's item is its pair. A call about a state is its key and the
- * fact it states, so it is this failure: the wire serves no head commit for a pull request, so a new
- * failure is told by `forgetCleared` letting go of the old one once the state has cleared.
+ * What a call about a state is remembered by: its key and the fact it states, so it is this failure.
+ * The wire serves no head commit for a pull request, so a new failure is told by `forgetCleared`
+ * letting go of the old one once the state has cleared.
  */
-export const identityOf = (item: Pick<Item, "key" | "fact" | "waiting">): string =>
-  item.waiting === undefined ? `${RAISED}${item.key}|${item.fact}` : waitingIdentity(item.waiting.sessionId, item.waiting.item.id);
-
-/** Whether a Session's item was dismissed. */
-export const waitingDismissed = (dismissed: ReadonlySet<string>, sessionId: string, item: Pick<WaitingItem, "id">): boolean =>
-  dismissed.has(waitingIdentity(sessionId, item.id));
+export const identityOf = (item: Pick<Item, "key" | "fact">): string => `${RAISED}${item.key}|${item.fact}`;
 
 /**
  * Lets go of a dismissed call whose state no longer raises it, so the next time it is raised it shows.
@@ -91,27 +81,16 @@ export function forgetCleared(raised: ReadonlySet<string>, loaded: boolean): voi
 }
 
 /** Dismiss a call raised about a state, for good. */
-export function dismissCall(item: Pick<Item, "key" | "fact" | "waiting">): void {
+export function dismissCall(item: Pick<Item, "key" | "fact">): void {
   keep(new Set([...dismissedCalls(), identityOf(item)]));
 }
 
 /** Dismissed, or nothing held it any more (quietly the same), or Fleet refused in these words. */
 export type WaitingDismissed = { kind: "dismissed" } | { kind: "refused"; said: string };
 
-/** What the preload carries once Sessions in Armada serves `POST /sessions/waiting/dismiss`. */
-type DismissRoute = { dismissWaiting?: (dismissal: { session_id: string; item_id: string }) => Promise<{ ok: true } | { ok: false; outcome: Parameters<typeof refusalWords>[0] }> };
-
-/**
- * Dismiss one thing a Session waits on. **Fleet's route where the window has one**, which also takes
- * it off every other window and the phone; remembered here until it does.
- */
+/** Dismiss one thing a Session waits on, on Fleet, which also takes it off every other window and the phone. */
 export async function dismissWaiting(sessionId: string, itemId: string): Promise<WaitingDismissed> {
-  const route = (window.armada as DismissRoute).dismissWaiting;
-  if (route === undefined) {
-    keep(new Set([...dismissedCalls(), waitingIdentity(sessionId, itemId)]));
-    return { kind: "dismissed" };
-  }
-  const done = await route({ session_id: sessionId, item_id: itemId });
+  const done = await window.armada.dismissWaiting({ session_id: sessionId, item_id: itemId });
   if (done.ok) return { kind: "dismissed" };
   const outcome = done.outcome;
   // An item nothing holds is already gone, which is what was asked.

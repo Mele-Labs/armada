@@ -363,3 +363,15 @@ test("a dismissed call stays gone across a remount, and the same pull request fa
   checks("failed");
   await reach(/^Pull request: #1823/);
 });
+
+test("d on a Session's call dismisses that item on Fleet and the card goes", async () => {
+  localStorage.removeItem(FILTER);
+  const app = mount("dashboard-needs-you");
+  const dismiss = vi.spyOn(app.api, "dismissWaiting");
+  await onScreen();
+  await userEvent.keyboard("{Escape}");
+  await reach(/^Session walk/);
+  await userEvent.keyboard("d");
+  await expect.element(page.getByRole("region", { name: /^Session walk/ })).not.toBeInTheDocument();
+  expect(dismiss).toHaveBeenCalledWith({ session_id: "s15", item_id: "walk:https://git.example/pairing" });
+});

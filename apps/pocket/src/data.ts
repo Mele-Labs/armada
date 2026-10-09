@@ -4,9 +4,8 @@
 import { useEffect, useSyncExternalStore } from "react";
 
 import { Refused, getJson, call } from "./client";
-import type { JobsBody, LiveChange, NeedsBody, PhoneJob } from "./gateway";
+import type { AnswerBody, DispatchBody, JobsBody, LiveChange, NeedsBody, PhoneJob, PhoneSession, RepositoriesBody } from "./gateway";
 import { events } from "./sse";
-
 
 /** What the screens draw of a Job. Ages are text, counted at `now`. */
 export type PocketJob = {
@@ -59,9 +58,9 @@ export function toPocket(job: PhoneJob, now: number): PocketJob {
   };
 }
 
-type Lists = { needs: PhoneJob[]; running: PhoneJob[]; done: PhoneJob[]; details: Record<string, PhoneJob>; error?: string; at: number };
+type Lists = { needs: PhoneJob[]; sessions: PhoneSession[]; running: PhoneJob[]; done: PhoneJob[]; details: Record<string, PhoneJob>; error?: string; at: number };
 
-let lists: Lists = { needs: [], running: [], done: [], details: {}, at: Date.now() };
+let lists: Lists = { needs: [], sessions: [], running: [], done: [], details: {}, at: Date.now() };
 const watchers = new Set<() => void>();
 const set = (next: Partial<Lists>) => {
   lists = { ...lists, ...next };
@@ -81,7 +80,7 @@ export async function loadLists(): Promise<void> {
       getJson<JobsBody>("/api/jobs?state=running"),
       getJson<JobsBody>("/api/jobs?state=done"),
     ]);
-    set({ needs: needs.needs, running: running.jobs, done: done.jobs, error: undefined, at: Date.now() });
+    set({ needs: needs.needs, sessions: needs.sessions, running: running.jobs, done: done.jobs, error: undefined, at: Date.now() });
   } catch (why) {
     if (!(why instanceof Refused && why.status === 401)) set({ error: message(why) });
   }
@@ -159,4 +158,40 @@ export function useJob(id: string | undefined): PocketJob | undefined {
   if (id === undefined) return undefined;
   const found = current.details[id] ?? [...current.needs, ...current.running, ...current.done].find((job) => job.id === id);
   return found === undefined ? undefined : toPocket(found, now);
+}
+
+export function useSessions(): PhoneSession[] {
+  useNow();
+  return useLists().sessions;
+}
+
+/** The act's sentence on a refusal is the Gateway's own; a 204 changes nothing here, the lists are read again. */
+async function send(path: string, body: unknown): Promise<void> {
+  await call(path, { method: "POST", body });
+  await loadLists();
+}
+
+export type JobAct = "approve" | "restart_step" | "kill" | "redispatch" | "approve_review";
+
+export const actOn = (id: string, act: JobAct): Promise<void> => send(`/api/jobs/${encodeURIComponent(id)}/${act}`, {});
+export const redirect = (id: string, text: string): Promise<void> => send(`/api/jobs/${encodeURIComponent(id)}/redirect`, { text });
+export const requestChanges = (id: string, reason: string): Promise<void> => send(`/api/jobs/${encodeURIComponent(id)}/request_changes`, { reason });
+export const answer = (body: AnswerBody): Promise<void> => send("/api/sessions/answer", body);
+export const dispatch = (body: DispatchBody): Promise<void> => send("/api/jobs", body);
+export const repositories = (): Promise<RepositoriesBody> => getJson<RepositoriesBody>("/api/repositories");
+
+export const refusal = (why: unknown): string => (why instanceof Refused ? why.message : "");
+
+/** Drafts live outside the screens, so leaving one and coming back finds what was typed. */
+export const DRAFTS = new Map<string, string>();
+
+/** Runs an act. A send that succeeds clears its drafts and answers null; one that fails keeps them and answers the sentence to show. */
+export async function attempt(act: () => Promise<void>, draftIds: string[] = []): Promise<string | null> {
+  try {
+    await act();
+  } catch (why) {
+    return refusal(why);
+  }
+  draftIds.forEach((id) => DRAFTS.delete(id));
+  return null;
 }

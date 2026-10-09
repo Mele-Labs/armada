@@ -1,0 +1,7 @@
+[icons.badge-check]
+  means = "A scalloped badge with a tick"
+  group = "Sleep mode"
+  size = "16px"
+  status = "Specified"
+  reserved = "A question Sleep mode answered for the owner overnight, in Morning review. Never a Job state, which is check."
+  notes = "Approved 9 Oct 2026 with sleep mode."

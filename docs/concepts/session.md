@@ -262,7 +262,7 @@ an agent whose hooks name a Fleet port that changed.
 
 ## Waiting on the person
 
-**A session says what it is waiting on the person for with `waiting_for`**, a tool on the agent's door that replaces the whole list each call (`items`: `id`, `text`, an optional `act` of `walk`, `answer`, `approve_pr` or `run` with a `target`, optional `options`); an empty list clears it. Fleet keeps the agent's items in `session_waiting`, stamps `since` and keeps it for an unchanged `id`, and **adds its own on every read** into `SessionRecord.waiting_for`: `ask:<call>` for an open question, `perm:<call>` for an open permission, `walk:<url>` for a window the session showed that no `Approved: <url>` message has followed. Where an agent item names the same act and target as one of Fleet's, Fleet's stands. An ended session holds nothing. Bridge shows the list as the ledger's first section, **Waiting on you**, each row a press that does its act, and puts a Session with items under Needs you with a bell-ring mark whose tooltip lists them. **`answer_waiting`** (`session_id`, `item_id`, and a `choice` index into the item's `options`, `text`, or `mode` of `best` or `quick`) settles one: a card item goes through `answer_session_ask`, a walk item sends the approval as the person's message, an agent item becomes a message to the session. `best` tells the agent to decide for itself and think it through, `quick` to take the reasonable path and keep moving. The mod's first-message note tells the agent to keep the list current.
+**A session says what it is waiting on the person for with `waiting_for`**, a tool on the agent's door that replaces the whole list each call (`items`: `id`, `text`, an optional `act` of `walk`, `answer`, `approve_pr` or `run` with a `target`, optional `options`); an empty list clears it. Fleet keeps the agent's items in `session_waiting`, stamps `since` and keeps it for an unchanged `id`, and **adds its own on every read** into `SessionRecord.waiting_for`: `ask:<call>` for an open question, `perm:<call>` for an open permission, `walk:<url>` for a window the session showed that no `Approved: <url>` message has followed. Where an agent item names the same act and target as one of Fleet's, Fleet's stands. An ended session holds nothing. Bridge shows the list as the ledger's first section, **Waiting on you**, each row a press that does its act, and puts a Session with items under Needs you with a bell-ring mark whose tooltip lists them. **`answer_waiting`** (`session_id`, `item_id`, and a `choice` index into the item's `options`, `text`, or `mode` of `best` or `quick`) settles one: a card item goes through `answer_session_ask`, a walk item sends the approval as the person's message, an agent item becomes a message to the session. `best` tells the agent to decide for itself and think it through, `quick` to take the reasonable path and keep moving. **`dismiss_waiting`** (`session_id`, `item_id`) drops an item for good: the id is kept in `session_waiting_dismissed`, a derived item with it never comes back, an agent item with it is removed and left off if the agent states it again, and nothing is sent to the agent. A nothing-held id is refused as for `answer_waiting`. **Only the newest walk window of a session waits**, and it stops waiting once the person has sent the session a message after it opened; closing the window does not settle it. The mod's first-message note tells the agent to keep the list current.
 
 ## What Fleet tells a Session
 
@@ -347,7 +347,7 @@ Bridge reads every live session from `list_sessions` once per connection and kee
 | Artifacts | The `artifact` rows, one section with a glyph per form (`globe`, `files`, `image`, `notebook-text`) and a tooltip naming it (Published page, File written, Looked at, Doc). A file opens through main, which opens only a path the session's own ledger names as a file it wrote or a picture it looked at |
 | The ledger beside the thread | The ledger is its own panel beside the conversation, headed "Ledger" with a button at its trailing edge that hides it. While hidden, the conversation's header holds the button that shows it again; the choice is the window's, kept in its storage. Below the breakpoint the header's one button opens the ledger as a sheet instead |
 | A sketch the person drew | The picture it was sent as, and the drawing Bridge kept for the ledger. The wire holds only the picture |
-| An ask from the phone | A hosted session's held ask is answered through Pocket, with the same `answer_session_ask`. A terminal session shows there as waiting and is answered in its terminal. [Pocket](pocket.md) |
+| An ask from the phone | A hosted session's held ask is answered through Pocket, with the same `answer_session_ask`. A terminal session shows there as waiting, and while Fleet holds its question the phone answers it the same way; after the hold it is answered in its terminal. [Pocket](pocket.md) |
 
 ## A terminal session's thread
 
@@ -379,6 +379,24 @@ tool says a session in another mode holds a cross-session message for approval.
 Not measured.
 
 **A message names where it went and not which session**, because the harness does not say: a delivery says whether it came from a peer or a teammate, and never a session id.
+
+## Sleep mode
+
+The owner turns on the moon in Bridge's title row before bed (`set_sleep`), and sessions and Jobs keep going until only he can unblock them. `get_sleep` reads the switch and the night's rows; turning it on starts a new night and clears the last one's rows.
+
+While it is on, a pass over every live session's waiting items (`crates/fleet/src/sleeping.rs`, riding the pull-request notice tick) works like this:
+
+| Item | What the night does |
+|---|---|
+| `ask:` or agent item waiting under two minutes | Nothing. The agent carries on by itself first. |
+| `ask:` or agent item past two minutes | Answers with the option labelled "(Recommended)", else `mode: best`. Recorded under decided. |
+| Destructive or irreversible (delete, drop, remove, force, reset, rm, overwrite, discard, close PR and the like, read from the text and the options; unsure holds) | Never answered. Recorded under blocked. |
+| `perm:` permission | Never allowed. Recorded under blocked. |
+| `walk:` | Recorded under walks. |
+| A pull request the pull watch sees merge | Recorded under landed. |
+| A Job that escalates | Recorded under blocked. No route answers an escalation in words, so the night has nothing to decide it with. |
+
+`override_sleep` sends the session `Re: <asked>` and the owner's words, and marks the row corrected. Every change publishes `sleep.changed` with the night whole.
 
 ## A mod that is out of date
 

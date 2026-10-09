@@ -327,6 +327,13 @@ pub struct AnswerWaiting {
     pub mode: Option<WaitingMode>,
 }
 
+/// `dismiss_waiting`: the person drops one item for good. Nothing is sent to the agent.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DismissWaiting {
+    pub session_id: SessionId,
+    pub item_id: String,
+}
+
 /// One row of the ledger as the wire carries it.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Attachment {

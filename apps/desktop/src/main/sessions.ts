@@ -14,6 +14,7 @@ import type {
   AnswerSessionAsk,
   AnswerWaiting,
   ClaimPullRequest,
+  DismissWaiting,
   Followed,
   FrameRead,
   Outcome,
@@ -188,6 +189,10 @@ export class SessionsHost {
     if (port === null) return { ok: false, outcome: NOT_CONNECTED };
     const answer = await ask(port, "POST", "/sessions/claim_pull_request", claim);
     return answer.ok === true ? { ok: true, value: answer.body as PullRequestClaimed } : { ok: false, outcome: answer.outcome };
+  }
+
+  async dismissWaiting(dismiss: DismissWaiting): Promise<SessionActed> {
+    return await this.act("POST", "/sessions/waiting/dismiss", dismiss);
   }
 
   async tune(tune: TuneSession): Promise<SessionActed> {

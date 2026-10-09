@@ -72,6 +72,7 @@ import {
   type DockQuestion,
   type DropdownMenuEntry,
   type FleetPanelProps,
+  type TheShellProps,
 } from "@armada/components";
 
 import type { Connection } from "@armada/protocol";
@@ -117,6 +118,8 @@ export type ShellProps = {
   onCompose: () => void;
   /** Opens the command palette from the title row's search field. */
   onSearch: () => void;
+  /** Sleep mode's control, in the title row beside Helm's. Absent draws none. */
+  sleep?: TheShellProps["sleep"];
   /** Which surface is up, by its id in `surfaces.ts`. The rail marks it. */
   showing: string;
   /** Selecting a rail row goes to that surface, from wherever you are. The
@@ -165,6 +168,7 @@ export function Shell({
   fleet,
   onCompose,
   onSearch,
+  sleep,
   showing,
   onSurface,
   hidden = [],
@@ -291,6 +295,7 @@ export function Shell({
         </>
       }
       onSearch={onSearch}
+      {...(sleep === undefined ? {} : { sleep })}
       onDispatch={onCompose}
       dispatchDisabled={!live}
       fleet={fleet}

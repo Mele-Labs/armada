@@ -1,19 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
-import { callsFromWaiting } from "./waiting";
 import { dismissCall, dismissedCalls, dismissItem, dismissWaiting, forgetCleared, forgetDismissals, identityOf } from "./dismissed";
-
-type Held = Parameters<typeof callsFromWaiting>[0][number];
-
-const session = (id: string, ids: string[]): Held =>
-  ({
-    id,
-    title: id,
-    turn: { state: "idle" },
-    rows: [],
-    attachments: [],
-    waitingFor: ids.map((item) => ({ id: item, text: item, since: "2026-10-09T09:00:00.000Z", source: "agent" })),
-  }) as unknown as Held;
 
 /** A window with a storage that remembers, and `armada` as given. */
 function windowWith(armada: object = {}) {
@@ -34,20 +21,7 @@ afterEach(() => {
 const refusal = (code: string, message: string) => ({ ok: false as const, outcome: { ok: false as const, why: "refused" as const, error: { code, message, run_id: "", fields: {}, chain: [] as string[] } } });
 
 describe("dismissing what a Session waits on", () => {
-  test("until Fleet has the route it is remembered by session and item, and the call is gone", async () => {
-    const sessions = [session("s1", ["ask:q1", "walk:u"])];
-    expect(await dismissWaiting("s1", "ask:q1")).toEqual({ kind: "dismissed" });
-    expect([...dismissedCalls()]).toEqual(["s1:ask:q1"]);
-    expect(callsFromWaiting(sessions, dismissedCalls()).map((one) => one.item.id)).toEqual(["walk:u"]);
-  });
-
-  test("it is kept across a restart", async () => {
-    const store = windowWith();
-    await dismissWaiting("s1", "ask:q1");
-    expect(JSON.parse(store.get("armada.bridge.dismissed-calls") ?? "[]")).toEqual(["s1:ask:q1"]);
-  });
-
-  test("with the route it goes to Fleet and nothing is kept here", async () => {
+  test("goes to Fleet by session and item, and nothing is kept here", async () => {
     const route = vi.fn(async () => ({ ok: true as const, value: {} }));
     windowWith({ dismissWaiting: route });
     expect(await dismissWaiting("s1", "ask:q1")).toEqual({ kind: "dismissed" });
@@ -60,6 +34,18 @@ describe("dismissing what a Session waits on", () => {
     expect(await dismissWaiting("s1", "ask:q1")).toEqual({ kind: "dismissed" });
     windowWith({ dismissWaiting: async () => refusal("fleet.session_closed", "session s1 was closed") });
     expect(await dismissWaiting("s1", "ask:q1")).toEqual({ kind: "refused", said: "session s1 was closed" });
+  });
+
+  test("a refusal is told, and a dismissal is not", async () => {
+    const tell = vi.fn();
+    const item = { key: "session:s1:ask:q1", fact: "q", waiting: { sessionId: "s1", item: { id: "ask:q1", text: "q", since: "", source: "agent" as const } } };
+    windowWith({ dismissWaiting: async () => refusal("fleet.session_closed", "session s1 was closed") });
+    await dismissItem(item, tell);
+    expect(tell).toHaveBeenCalledWith("session s1 was closed");
+    tell.mockClear();
+    windowWith({ dismissWaiting: async () => ({ ok: true, value: {} }) });
+    await dismissItem(item, tell);
+    expect(tell).not.toHaveBeenCalled();
   });
 });
 
@@ -81,12 +67,6 @@ describe("dismissing a call Fleet raised about a state", () => {
     expect(dismissedCalls().size).toBe(1);
     forgetCleared(new Set(), true);
     expect(dismissedCalls().size).toBe(0);
-  });
-
-  test("a Session's dismissal is not let go with them", async () => {
-    await dismissWaiting("s1", "ask:q1");
-    forgetCleared(new Set(), true);
-    expect(dismissedCalls().size).toBe(1);
   });
 
   test("dismissItem keeps a state's call here, and tells nobody", async () => {

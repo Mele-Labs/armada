@@ -5,7 +5,7 @@
 
 import type { IpcMain } from "electron";
 
-import type { AnswerSessionAsk, AnswerWaiting, ClaimPullRequest, RenameSession, SendSessionMessage, TuneSession } from "@armada/protocol";
+import type { AnswerSessionAsk, AnswerWaiting, ClaimPullRequest, DismissWaiting, RenameSession, SendSessionMessage, TuneSession } from "@armada/protocol";
 import { CHANNELS } from "../shared/bridge";
 import type { PilotExit, PullRequestPress } from "../shared/api/sessions";
 import type { FleetConnection } from "./connection";
@@ -55,6 +55,10 @@ export function handleSessions({ ipc, connection, windowIdOf, pages }: Hosts): v
   ipc.handle(CHANNELS.claimPullRequest, (_event, claim: ClaimPullRequest) => {
     if (!Number.isInteger(claim?.number) || claim.number < 1 || !text(claim.session_id)) return unsent;
     return connection()?.sessions.claimPullRequest({ number: claim.number, session_id: claim.session_id }) ?? unsent;
+  });
+  ipc.handle(CHANNELS.dismissWaiting, (_event, dismiss: DismissWaiting) => {
+    if (!text(dismiss?.session_id) || !text(dismiss.item_id)) return unsent;
+    return connection()?.sessions.dismissWaiting(dismiss) ?? unsent;
   });
   ipc.handle(CHANNELS.renameSession, (_event, rename: RenameSession) => {
     if (!text(rename?.session_id) || typeof rename.title !== "string" || rename.title.trim() === "") return unsent;

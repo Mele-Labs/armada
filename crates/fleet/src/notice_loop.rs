@@ -61,8 +61,16 @@ where
     tokio::spawn(async move {
         let mut ticker = tokio::time::interval(tick);
         ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+        let mut slept = tokio::time::Instant::now();
         loop {
             ticker.tick().await;
+            // Sleep mode's pass rides this tick, but looks only every `sleeping::EVERY`.
+            if slept.elapsed() >= crate::sleeping::EVERY {
+                slept = tokio::time::Instant::now();
+                if let Err(why) = Arc::clone(&fleet).sleep_pass().await {
+                    eprintln!("sleep mode did not pass over the sessions: {why:?}");
+                }
+            }
             let (merge, issue) = fleet.read_landings().await;
             for why in [merge, issue].into_iter().filter_map(Result::err) {
                 adrift(why);

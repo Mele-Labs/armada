@@ -1,5 +1,6 @@
-// The two session routes the Cockpit calls, served over a scenario's Sessions as the mock holds them
-// (`sessions/script.ts`): `POST /sessions/waiting/answer` and `POST /sessions/claim_pull_request`.
+// The session routes the Cockpit calls, served over a scenario's Sessions as the mock holds them
+// (`sessions/script.ts`): `POST /sessions/waiting/answer`, `/sessions/waiting/dismiss` and
+// `/sessions/claim_pull_request`.
 // Each answers and refuses the way Fleet does, so the card is tested against the real shapes.
 // A scenario with a Fleet of its own for Sessions (`sessions-fleet.ts`) serves them there instead.
 
@@ -19,7 +20,7 @@ const refused = (code: string, message: string) => ({
 /** The record a served act answers with. The Cockpit reads that it was taken and nothing more. */
 const taken = (id: string) => ({ ok: true as const, value: { id } as SessionRecord });
 
-export function cockpitRoutes(sessions: SessionsStore, state: () => BridgeState): Pick<BridgeApi, "answerWaiting" | "claimPullRequest"> {
+export function cockpitRoutes(sessions: SessionsStore, state: () => BridgeState): Pick<BridgeApi, "answerWaiting" | "claimPullRequest" | "dismissWaiting"> {
   return {
     answerWaiting: async ({ session_id, item_id, choice, text }) => {
       const session = sessions.get().find((one) => one.id === session_id);
@@ -33,6 +34,14 @@ export function cockpitRoutes(sessions: SessionsStore, state: () => BridgeState)
       if (served) sessions.answerWaiting?.(session_id, item_id, { ...(choice === undefined ? {} : { choice }), ...(text === undefined ? {} : { text }) });
       else if (item.source === "permission") sessions.answer(session_id, permissionOf(chosen ?? "") ?? "refuse");
       else sessions.answer(session_id, undefined, [{ question: item.text, chosen: chosen === undefined ? [] : [chosen] }]);
+      return taken(session_id);
+    },
+    dismissWaiting: async ({ session_id, item_id }) => {
+      const session = sessions.get().find((one) => one.id === session_id);
+      if (session === undefined || !waitingOf(session).some((one) => one.id === item_id)) {
+        return refused("fleet.session_waiting_unheld", "nothing is waiting under that item. It was settled already, or the session stopped waiting");
+      }
+      sessions.drop(session_id, item_id);
       return taken(session_id);
     },
     claimPullRequest: async ({ number, session_id }) => {

@@ -26,6 +26,8 @@ import { scenarioNamed } from "./scenario";
 import { mockLayout, NO_LAYOUT_MODS } from "./layout";
 import { PhoneSourceProvider } from "@armada/settings";
 import { mockPhone } from "./phone";
+import { SleepSourceProvider } from "../sleep";
+import { mockSleep } from "./sleep";
 import { mockThemes } from "./themes";
 import type { Scenario } from "./scenario";
 
@@ -98,6 +100,7 @@ export function mountApp(
   const api = shared ?? fakeBridge(chosen, options);
   // A window starts on Dark with the mods a machine starts with; a second window on the same main shares them.
   if (shared === undefined) mockThemes.reset();
+  mockSleep.reset();
   if (shared === undefined) mockLayout.reset();
   mockPhone.reset(chosen.name === "phone/gateway-down" ? "not_running" : chosen.name === "phone/tailscale" ? "tailscale" : "paired");
   window.armada = api;
@@ -119,9 +122,11 @@ export function mountApp(
             <LayoutSourceProvider value={skipsMods() ? NO_LAYOUT_MODS : mockLayout}>
               <MockFleetBuild scenario={chosen.name}>
                 <PhoneSourceProvider value={mockPhone}>
-                  <SessionsHere held={heldSessions(api)}>
-                    <Drafted draft={liveDraft(api) ?? HELD(chosen.draft)} />
-                  </SessionsHere>
+                  <SleepSourceProvider value={mockSleep}>
+                    <SessionsHere held={heldSessions(api)}>
+                      <Drafted draft={liveDraft(api) ?? HELD(chosen.draft)} />
+                    </SessionsHere>
+                  </SleepSourceProvider>
                 </PhoneSourceProvider>
               </MockFleetBuild>
             </LayoutSourceProvider>

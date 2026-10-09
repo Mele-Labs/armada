@@ -9,6 +9,7 @@
 import type {
   AnswerSessionAsk,
   AnswerWaiting,
+  DismissWaiting,
   Attachment,
   ClaimPullRequest,
   AttachmentState,
@@ -95,6 +96,7 @@ export type Calls = {
   answered: AnswerSessionAsk[];
   waited: AnswerWaiting[];
   claimed: ClaimPullRequest[];
+  dismissed: DismissWaiting[];
   tuned: TuneSession[];
   renamed: RenameSession[];
   closed: string[];
@@ -115,7 +117,7 @@ export class FakeSessionsFleet {
   pageEscape(): void {
     this.escape.forEach((on) => on());
   }
-  readonly calls: Calls = { started: 0, piloted: [], exited: [], sent: [], answered: [], waited: [], claimed: [], tuned: [], renamed: [], closed: [], forked: [], retroed: [], pressed: [], watched: [], pages: [], pagesHidden: 0 };
+  readonly calls: Calls = { started: 0, piloted: [], exited: [], sent: [], answered: [], waited: [], claimed: [], dismissed: [], tuned: [], renamed: [], closed: [], forked: [], retroed: [], pressed: [], watched: [], pages: [], pagesHidden: 0 };
   private records: SessionRecord[];
   private threads: Record<string, SessionRow[]>;
   private fleet: FleetHandle | undefined;
@@ -240,6 +242,13 @@ export class FakeSessionsFleet {
           claimPullRequest: async (claim) => {
             this.calls.claimed.push(claim);
             return { ok: true, value: { number: claim.number, branch: "", url: "", holder_kind: "session", holder_id: claim.session_id ?? "" } };
+          },
+          dismissWaiting: async (dismiss) => {
+            this.calls.dismissed.push(dismiss);
+            return this.change(dismiss.session_id, (one) => ({
+              ...one,
+              waiting_for: (one.waiting_for ?? []).filter((item) => item.id !== dismiss.item_id),
+            }));
           },
           tuneSession: async (tune) => {
             this.calls.tuned.push(tune);

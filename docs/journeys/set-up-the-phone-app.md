@@ -34,7 +34,7 @@ armada pocket [--port <n>] [--assets <dir>]
 | Flag | Default | Means |
 |---|---|---|
 | `--port` | `8443` | The loopback port. If you change it, give `tailscale serve` the same one |
-| `--assets` | `apps/pocket/dist`, from the directory you run it in | The built app. A missing directory serves nothing, and the phone gets 404 |
+| `--assets` | The phone app's `dist` folder, from the directory you run it in | The built app. A missing directory serves nothing, and the phone gets 404. Under launchd, `scripts/restart` points it at the `pocket-app` folder in `~/Library/Application Support/Armada/`, a copy that survives `scripts/preview` rebuilding the tree |
 
 **Needs:** the Armada store in the machine directory, and Tailscale (on the path, or inside the Mac app) for pairing and for the push sender address. Fleet may be down: `GET /admin/status` on the Gateway answers 503, or 502 when Fleet is found and does not answer.
 
@@ -50,7 +50,7 @@ armada pocket [--port <n>] [--assets <dir>]
 | The app sends you to `/pair` | This phone is not paired, or was unpaired | Pair it again |
 | `The phone's clock is more than a minute off` | Skew over 60 s | Set the phone's clock to automatic |
 | `This code is not good any more` | Five minutes passed, or it was used | Start pairing again in Bridge |
-| 404 on the app's address | `apps/pocket/dist` is missing | Step 1 |
+| 404 on the app's address | The built app is missing: the phone app's `dist` folder for a hand-run Gateway, `pocket-app` in `~/Library/Application Support/Armada/` under launchd | Step 1, or `scripts/restart` |
 | No push on a Job that stopped | App not opened from the Home Screen, notifications not allowed, or the Job's stop is not Blocked | See [Pocket](../concepts/pocket.md), *What pushes* |
 
 To remove a phone, see *Unpairing* in [Pocket](../concepts/pocket.md).

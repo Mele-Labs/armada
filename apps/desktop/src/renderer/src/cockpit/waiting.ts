@@ -6,8 +6,6 @@
 import type { WaitingItem } from "@armada/protocol";
 import type { Session, SessionAnswer } from "@armada/screens/src/draft/sessions";
 
-import { waitingDismissed } from "./dismissed";
-
 /**
  * An option as the card draws it. The wire's is a label alone; the agent's own line under it rides
  * only on an item read off the pending ask, and is drawn where it is there.
@@ -42,11 +40,11 @@ export function waitingOf(session: Session): WaitingItem[] {
   return [{ id: `perm:${asked.call ?? session.id}`, text: asked.command, since, source: "permission", options: offers.map((one) => ({ label: PERMISSION[one] })) }];
 }
 
-/** Every item every live Session waits on, the one that began first leading, less those dismissed for good. */
-export function callsFromWaiting(sessions: readonly Session[], dismissed: ReadonlySet<string> = new Set()): WaitingCall[] {
+/** Every item every live Session waits on, the one that began first leading. */
+export function callsFromWaiting(sessions: readonly Session[]): WaitingCall[] {
   return sessions
     .filter((session) => session.dead === undefined && session.turn.state !== "working")
-    .flatMap((session) => waitingOf(session).filter((item) => !waitingDismissed(dismissed, session.id, item)).map((item) => ({ session, item })))
+    .flatMap((session) => waitingOf(session).map((item) => ({ session, item })))
     .sort((a, b) => Date.parse(a.item.since) - Date.parse(b.item.since) || a.item.id.localeCompare(b.item.id));
 }
 

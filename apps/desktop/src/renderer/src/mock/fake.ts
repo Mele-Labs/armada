@@ -100,6 +100,7 @@ export function fakeBridge(scenario: Scenario, options: FakeOptions = {}): Bridg
       const served = cockpitRoutes(sessions, fleet.state);
       if (own?.answerWaiting === undefined) fake.answerWaiting = served.answerWaiting;
       if (own?.claimPullRequest === undefined) fake.claimPullRequest = served.claimPullRequest;
+      if (own?.dismissWaiting === undefined) fake.dismissWaiting = served.dismissWaiting;
     }
   }
   DRAFTS.set(fake, { current: fleet.draft.get, subscribe: fleet.draft.subscribe });

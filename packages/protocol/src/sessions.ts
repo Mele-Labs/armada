@@ -122,6 +122,12 @@ export type ClaimPullRequest = { number: number; session_id?: string };
 /** What `claim_pull_request` answers: the pull request now held, and by whom (`session` or `job`). */
 export type PullRequestClaimed = { number: number; branch: string; url: string; holder_kind: string; holder_id: string };
 
+/**
+ * `POST /sessions/waiting/dismiss`: drop one item for good. Its id never comes back, whether Fleet derived
+ * it (`ask:`, `perm:`, `walk:`) or the agent stated it, and nothing is sent to the agent.
+ */
+export type DismissWaiting = { session_id: string; item_id: string };
+
 /** A command a terminal session lists, for `/` to offer. Since 23.53. */
 export type TerminalCommand = { name: string; says: string };
 

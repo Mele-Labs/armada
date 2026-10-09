@@ -10,7 +10,7 @@ import { closeWalkWindow, mockPage, openWalkWindow } from "@armada/jobs/fake";
 import type { Session, SessionTag, SessionAttachment, SessionCommand, SessionRow, SessionSketch, SessionsDraft } from "@armada/screens/src/draft/sessions";
 
 /** The draft the window reads, and what only the mock does: take the next turn, stop, and take a claim Fleet would have put in the ledger. */
-export type SessionsStore = SessionsDraft & { later: () => void; dispose: () => void; attach: (id: string, attachment: SessionAttachment) => void };
+export type SessionsStore = SessionsDraft & { later: () => void; dispose: () => void; attach: (id: string, attachment: SessionAttachment) => void; drop: (id: string, itemId: string) => void };
 
 /** A Job the walk's Session dispatches. The real Board holds it, so its id is the Board's. */
 export type DispatchedJob = { id: string; number: number; title: string; branch: string; slot: number };
@@ -607,6 +607,13 @@ export function sessionsStore(
       closeWalkWindow();
     },
     attach: (id, attachment) => addTo(id, [], [attachment]),
+    // Fleet drops an item from the list for good; one read off the pending ask goes with the ask.
+    drop: (id, itemId) =>
+      edit(id, (one) => {
+        const { asked, ...rest } = one;
+        const own = one.waitingFor?.some((it) => it.id === itemId) === true;
+        return own ? { ...one, waitingFor: one.waitingFor!.filter((it) => it.id !== itemId) } : asked === undefined ? one : rest;
+      }),
   };
   return store;
 }

@@ -177,8 +177,10 @@ import type {
 import type {
   Outstanding,
 } from "@armada/screens/src/outstanding";
-import type { AnswerSessionAsk, AnswerWaiting, ClaimPullRequest, PilotOutcome, PullRequestClaimed, PullRequestState, RenameSession, ReviewDispatched, SendSessionMessage, SessionRow, SessionSubagent, TuneSession } from "@armada/protocol";
+import type { AnswerSessionAsk, AnswerWaiting, ClaimPullRequest, DismissWaiting, PilotOutcome, PullRequestClaimed, PullRequestState, RenameSession, ReviewDispatched, SendSessionMessage, SessionRow, SessionSubagent, TuneSession } from "@armada/protocol";
 import type { PilotExit, PullRequestPress, SessionActed, SessionsRead } from "./api/sessions";
+import type { SleepActed } from "./api/sleep";
+import type { SleepState } from "@armada/protocol";
 import type { BridgeApi } from "./api";
 import { CHANNELS, NOTHING_YET } from "./bridge";
 import type { BridgeState, HistoryStep, Summons } from "./bridge";
@@ -443,6 +445,11 @@ type OldBridgeApi = {
     answerSessionAsk: (answer: AnswerSessionAsk) => Promise<SessionActed>;
     answerWaiting: (answer: AnswerWaiting) => Promise<SessionActed>;
     claimPullRequest: (claim: ClaimPullRequest) => Promise<SessionActed<PullRequestClaimed>>;
+    dismissWaiting: (dismiss: DismissWaiting) => Promise<SessionActed>;
+    getSleep: () => Promise<SleepActed>;
+    setSleep: (on: boolean) => Promise<SleepActed>;
+    overrideSleep: (id: string, text: string) => Promise<SleepActed>;
+    onSleepChanged: (onChanged: (state: SleepState) => void) => () => void;
     tuneSession: (tune: TuneSession) => Promise<SessionActed>;
     renameSession: (rename: RenameSession) => Promise<SessionActed>;
     forkSession: (sessionId: string) => Promise<SessionActed>;
@@ -714,6 +721,11 @@ const OLD_CHANNELS = {
     answerSessionAsk: "bridge:answer-session-ask",
     answerWaiting: "bridge:answer-waiting",
     claimPullRequest: "bridge:claim-pull-request",
+    dismissWaiting: "bridge:dismiss-waiting",
+    getSleep: "bridge:get-sleep",
+    setSleep: "bridge:set-sleep",
+    overrideSleep: "bridge:override-sleep",
+    sleepChanged: "bridge:sleep-changed",
     tuneSession: "bridge:tune-session",
     renameSession: "bridge:rename-session",
     retroSession: "bridge:retro-session",

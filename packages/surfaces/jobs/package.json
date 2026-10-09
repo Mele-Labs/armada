@@ -9,6 +9,7 @@
     ".": "./src/index.ts",
     "./api": "./src/api.ts",
     "./fake": "./src/fake.ts",
+    "./sketch-marks": "./src/sketch-marks.ts",
     "./draft/*": "./src/draft/*.ts",
     "./fixtures/*": "./src/fixtures/*.ts"
   },

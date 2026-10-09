@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { ago, toPocket } from "./data";
 import type { PhoneJob } from "./gateway";
@@ -96,5 +96,74 @@ describe("codeFromInput", () => {
     expect(codeFromInput("")).toBe("");
     expect(codeFromInput("hello")).toBe("");
     expect(codeFromInput("https://mac.example/pair?code=abc")).toBe("");
+  });
+});
+
+describe("the acts", () => {
+  type Sent = { url: string; method: string; body: string; signed: boolean };
+  const sent: Sent[] = [];
+  let reply: () => Response = () => new Response(null, { status: 204 });
+
+  const world = async () => {
+    const key = await crypto.subtle.importKey("jwk", PRIVATE, { name: "ECDSA", namedCurve: "P-256" }, false, ["sign"]);
+    vi.resetModules();
+    sent.length = 0;
+    vi.doMock("./device", () => ({ paired: async () => ({ key, deviceId: "abc" }) }));
+    vi.doMock("./router", () => ({ go: () => undefined }));
+    vi.stubGlobal("fetch", async (url: string, init: { method: string; body?: string; headers: Record<string, string> }) => {
+      sent.push({ url, method: init.method, body: init.body ?? "", signed: /^[0-9a-f]{128}$/.test(init.headers["X-Pocket-Signature"] ?? "") });
+      return url.startsWith("/api/needs") ? new Response(JSON.stringify({ needs: [], sessions: [] })) : url.startsWith("/api/jobs?") ? new Response(JSON.stringify({ jobs: [] })) : reply();
+    });
+    return import("./data");
+  };
+  const acts = () => sent.filter((one) => one.method === "POST");
+
+  it("posts each Job act, signed, with the body the route reads", async () => {
+    const data = await world();
+    await data.actOn("j1", "approve");
+    await data.actOn("j1", "restart_step");
+    await data.actOn("j1", "kill");
+    await data.actOn("j1", "redispatch");
+    await data.actOn("j1", "approve_review");
+    await data.redirect("j1", "use the cache");
+    await data.requestChanges("j1", "too broad");
+    expect(acts().map(({ url, body, signed }) => [url, body, signed])).toEqual([
+      ["/api/jobs/j1/approve", "{}", true],
+      ["/api/jobs/j1/restart_step", "{}", true],
+      ["/api/jobs/j1/kill", "{}", true],
+      ["/api/jobs/j1/redispatch", "{}", true],
+      ["/api/jobs/j1/approve_review", "{}", true],
+      ["/api/jobs/j1/redirect", '{"text":"use the cache"}', true],
+      ["/api/jobs/j1/request_changes", '{"reason":"too broad"}', true],
+    ]);
+  });
+
+  it("answers a permission ask with the decision and a question ask with the choices", async () => {
+    const data = await world();
+    await data.answer({ session_id: "s1", ask_id: "a1", answer: "allow_once" });
+    await data.answer({ session_id: "s1", ask_id: "a2", answer: [{ question: "Close now?", chosen: ["Now"] }, { question: "Why?", chosen: ["my own words"] }] });
+    expect(acts().map(({ url, body }) => [url, JSON.parse(body)])).toEqual([
+      ["/api/sessions/answer", { session_id: "s1", ask_id: "a1", answer: "allow_once" }],
+      ["/api/sessions/answer", { session_id: "s1", ask_id: "a2", answer: [{ question: "Close now?", chosen: ["Now"] }, { question: "Why?", chosen: ["my own words"] }] }],
+    ]);
+  });
+
+  it("dispatches the line to the repository", async () => {
+    const data = await world();
+    reply = () => new Response(JSON.stringify({ jobs: [] }), { status: 201 });
+    await data.dispatch({ text: "Trim the pool", repository: "armada" });
+    expect(acts().map(({ url, body, signed }) => [url, JSON.parse(body), signed])).toEqual([["/api/jobs", { text: "Trim the pool", repository: "armada" }, true]]);
+    reply = () => new Response(null, { status: 204 });
+  });
+
+  it("keeps the draft and answers the Gateway's sentence when the act is refused", async () => {
+    const data = await world();
+    reply = () => new Response("That Job is not waiting.", { status: 409 });
+    data.DRAFTS.set("redirect-j1", "use the cache");
+    expect(await data.attempt(() => data.redirect("j1", "use the cache"), ["redirect-j1"])).toBe("That Job is not waiting.");
+    expect(data.DRAFTS.get("redirect-j1")).toBe("use the cache");
+    reply = () => new Response(null, { status: 204 });
+    expect(await data.attempt(() => data.redirect("j1", "use the cache"), ["redirect-j1"])).toBeNull();
+    expect(data.DRAFTS.has("redirect-j1")).toBe(false);
   });
 });
