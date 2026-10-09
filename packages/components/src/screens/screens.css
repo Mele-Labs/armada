@@ -485,85 +485,12 @@
    (the row's left edge, the detail's band), never in a phrase. */
 .armada-dashboard {
   display: grid;
-  grid-template-columns: minmax(calc(var(--space-12) * 7), 2fr) 3fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: var(--space-4);
   align-items: start;
 }
 
-.armada-dashboard__list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  outline: none;
-}
-
-.armada-dashboard__row {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  column-gap: var(--space-3);
-  row-gap: var(--space-1);
-  padding: var(--space-2) var(--space-3);
-  border: var(--border-width) solid var(--border-subtle);
-  border-left: calc(var(--border-width) * 3) solid var(--hue);
-  border-radius: var(--radius-md);
-  background: var(--bg-raised);
-  cursor: pointer;
-}
-
-.armada-dashboard__row:hover { background: color-mix(in srgb, var(--hue) 6%, var(--bg-raised)); }
-
-.armada-dashboard__row[aria-selected="true"] {
-  border-color: var(--hue);
-  background: color-mix(in srgb, var(--hue) var(--row-tint), var(--bg-raised));
-}
-
-.armada-dashboard__list:focus-visible .armada-dashboard__row[aria-selected="true"] {
-  box-shadow: 0 0 0 var(--border-width) var(--accent);
-}
-
-.armada-dashboard__mark {
-  grid-row: span 2;
-  display: inline-flex;
-  padding-top: var(--space-1);
-  color: var(--hue);
-}
-
-.armada-dashboard__mark[data-live] svg { animation: armada-dashboard-spin 1.2s linear infinite; }
-
 @keyframes armada-dashboard-spin { to { transform: rotate(360deg); } }
-
-@media (prefers-reduced-motion: reduce) {
-  .armada-dashboard__mark[data-live] svg { animation: none; }
-}
-
-.armada-dashboard__title {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-weight: var(--weight-medium);
-  color: var(--fg-default);
-}
-
-.armada-dashboard__age {
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  color: var(--fg-subtle);
-}
-
-.armada-dashboard__fact {
-  grid-column: 2 / span 2;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  color: var(--fg-muted);
-}
 
 .armada-dashboard__detail {
   position: sticky;
@@ -1048,7 +975,7 @@
 /* ---- The fleet board ---------------------------------------------------------------------------- */
 
 .armada-board { display: grid; grid-template-columns: 1fr; gap: var(--space-4); align-items: start; }
-.armada-board[data-pane] { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); }
+.armada-board[data-pane] { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
 
 /* Each live Job a lane of its steps, on a quiet ground: the lanes carry the board, not the frame. */
 .armada-deck__fleet {
@@ -1057,183 +984,103 @@
   gap: var(--space-4);
 }
 
-.armada-deck__lanes { display: flex; flex-direction: column; gap: var(--space-2); margin: 0; padding: 0; list-style: none; outline: none; }
+/* ---- Tiles: every Job and Session in one grid ----------------------------------------------------- */
 
-.armada-lane {
+.armada-tiles {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  row-gap: var(--space-2);
-  column-gap: var(--space-3);
-  padding: var(--space-3);
-  border: var(--border-width) solid transparent;
-  border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--bg-raised) 88%, transparent);
-}
-
-.armada-lane[data-pickable] { cursor: pointer; }
-.armada-lane[data-pickable]:hover { border-color: var(--border-default, var(--border-subtle)); }
-.armada-lane[data-focused] { border-color: var(--hue); box-shadow: 0 0 var(--space-4) color-mix(in srgb, var(--hue) 22%, transparent); }
-.armada-deck__lanes:focus-visible .armada-lane[data-focused] { outline: var(--border-width) solid var(--accent); }
-
-.armada-lane__title {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: var(--text-sm);
-  font-weight: var(--weight-medium);
-}
-
-/* The rail: named pips joined by a line, done filled, ahead hollow, the current one live. */
-.armada-lane__rail {
-  position: relative;
-  grid-column: 1 / -1;
-  display: grid;
-  grid-template-columns: repeat(var(--steps), minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(calc(var(--space-12) * 3), 1fr));
+  align-content: start;
+  gap: var(--space-3);
   margin: 0;
   padding: 0;
   list-style: none;
+  outline: none;
 }
 
-.armada-lane__rail::before {
-  content: "";
-  position: absolute;
-  top: calc(var(--space-3) / 2);
-  left: calc(50% / var(--steps));
-  right: calc(50% / var(--steps));
-  height: calc(var(--border-width) * 2);
-  background: var(--border-default, var(--border-subtle));
+/* The state is the frame: a weighted edge in the tile's hue, and a tile that needs the owner lit. */
+.armada-tile {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+  min-height: calc(var(--space-12) * 2);
+  padding: var(--space-3);
+  border: calc(var(--border-width) * 2) solid color-mix(in srgb, var(--hue) 40%, var(--border-subtle));
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--hue) 5%, var(--bg-raised));
+  cursor: pointer;
+  transition: border-color var(--duration-fast) var(--ease), background var(--duration-fast) var(--ease);
 }
 
-.armada-lane__rail:has(> :only-child)::before { display: none; }
+.armada-tile:hover { background: color-mix(in srgb, var(--hue) 10%, var(--bg-raised)); }
 
-.armada-lane__step { position: relative; display: flex; flex-direction: column; align-items: center; gap: var(--space-1); min-width: 0; }
+.armada-tile[aria-selected="true"] {
+  border-color: var(--hue);
+  background: color-mix(in srgb, var(--hue) 14%, var(--bg-raised));
+}
 
-/* The tooltip's wrapper is what sits in the step: held to the step's width, so a long name ellipses
-   rather than running into its neighbour. */
-.armada-lane__step > * { max-width: 100%; min-width: 0; overflow: hidden; }
+.armada-tiles:focus-visible .armada-tile[aria-selected="true"] { box-shadow: 0 0 0 var(--border-width) var(--accent); }
 
-.armada-lane__pip {
-  width: var(--space-3);
-  height: var(--space-3);
+.armada-tile[data-lit] {
+  border-color: var(--hue);
+  background: color-mix(in srgb, var(--hue) 16%, var(--bg-raised));
+  box-shadow: 0 0 var(--space-4) color-mix(in srgb, var(--hue) 45%, transparent);
+}
+
+.armada-tile__head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
+.armada-tile__mark { display: inline-flex; color: var(--hue); }
+.armada-tile__kind { display: inline-flex; color: var(--fg-subtle); }
+
+.armada-tile__mark[data-spin] svg { animation: armada-dashboard-spin 1.2s linear infinite; }
+.armada-tile__mark[data-live] svg { animation: armada-tile-live 1.6s ease-in-out infinite; }
+
+@keyframes armada-tile-live { 50% { opacity: 0.4; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .armada-tile__mark[data-spin] svg,
+  .armada-tile__mark[data-live] svg { animation: none; }
+}
+
+/* Two lines, then clamped. */
+.armada-tile__title {
+  flex: 1;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--fg-default);
+}
+
+.armada-tile__foot { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); min-height: var(--space-4); }
+.armada-tile__age { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--fg-subtle); }
+
+.armada-tile__pips { display: flex; align-items: center; gap: var(--space-1); margin: 0; padding: 0; list-style: none; }
+.armada-tile__pips > li { display: inline-flex; }
+
+.armada-tile__pip {
+  display: block;
+  width: var(--space-2);
+  height: var(--space-2);
   border: calc(var(--border-width) * 2) solid var(--fg-subtle);
   border-radius: 50%;
   background: var(--bg-sunken);
 }
 
-.armada-lane__step[data-pip="done"] .armada-lane__pip { border-color: var(--status-running); background: var(--status-running); }
+.armada-tile__pips [data-pip="done"] .armada-tile__pip { border-color: var(--status-running); background: var(--status-running); }
+.armada-tile__pips [data-pip="live"] .armada-tile__pip { border-color: var(--hue); background: var(--hue); }
 
-.armada-lane__step[data-pip="live"] .armada-lane__pip {
-  border-color: var(--status-running);
-  background: color-mix(in srgb, var(--status-running) 40%, transparent);
-  animation: armada-pip-live 1.6s ease-in-out infinite;
-}
-
-.armada-lane__step[data-pip="beacon"] .armada-lane__pip { border-color: var(--hue); background: var(--hue); }
-
-@keyframes armada-pip-live {
-  50% { box-shadow: 0 0 0 calc(var(--border-width) * 4) color-mix(in srgb, var(--status-running) 25%, transparent); }
-}
-
-.armada-lane__name {
-  max-width: 100%;
-  padding: 0 var(--space-1);
-  box-sizing: border-box;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-family: var(--font-mono);
-  font-size: var(--text-2xs);
-  color: var(--fg-subtle);
-}
-
-.armada-lane__step[data-pip="done"] .armada-lane__name { color: var(--fg-muted); }
-.armada-lane__step[data-pip="live"] .armada-lane__name,
-.armada-lane__step[data-pip="beacon"] .armada-lane__name { color: var(--fg-default); font-weight: var(--weight-heading); }
-
-/* The beacon: lit where the lane needs the owner. */
-.armada-lane__beacon {
-  width: var(--space-3);
-  height: var(--space-3);
-  border-radius: 50%;
-}
-
-.armada-lane__beacon[data-on] {
-  position: relative;
+/* A Session's cadence: a bar for each of its last rows, a message tall and a tool call short. */
+.armada-tile__spark { display: inline-flex; align-items: flex-end; gap: var(--space-1); height: var(--space-4); }
+.armada-tile__spark > span {
+  width: var(--space-1);
+  height: calc(var(--space-4) * var(--h));
+  border-radius: var(--radius-sm);
   background: var(--hue);
-  box-shadow: 0 0 var(--space-3) var(--hue);
+  opacity: 0.8;
 }
-
-.armada-lane__beacon[data-on]::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  border: calc(var(--border-width) * 2) solid var(--hue);
-  animation: armada-beacon 2s ease-out infinite;
-}
-
-@keyframes armada-beacon {
-  from { transform: scale(1); opacity: 0.9; }
-  to { transform: scale(2.6); opacity: 0; }
-}
-
-.armada-lane__line {
-  grid-column: 1 / -1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  color: var(--fg-muted);
-}
-
-.armada-lane__line::before { content: "› "; color: var(--status-running); }
-
-/* A lane in the Running list takes the Dashboard row's shape: the live-state mark leads the title line,
-   the step pips trail it, and the preview sits under the title. */
-.armada-lane[data-compact] {
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  row-gap: var(--space-1);
-  padding: var(--space-2) var(--space-3);
-  border: var(--border-width) solid var(--border-subtle);
-  border-left: calc(var(--border-width) * 3) solid var(--hue);
-  border-radius: var(--radius-md);
-  background: var(--bg-raised);
-}
-
-.armada-lane[data-compact]:hover { background: color-mix(in srgb, var(--hue) 6%, var(--bg-raised)); }
-
-.armada-lane[data-compact][data-focused] {
-  border-color: var(--hue);
-  background: color-mix(in srgb, var(--hue) var(--row-tint), var(--bg-raised));
-  box-shadow: none;
-}
-
-.armada-lane[data-compact] .armada-lane__title { display: block; }
-.armada-lane[data-compact] .armada-lane__line { grid-column: 2 / -1; }
-
-.armada-lane__mark,
-.armada-lane__kind { display: inline-flex; }
-.armada-lane__mark { color: var(--hue); }
-.armada-lane__kind { color: var(--fg-subtle); }
-
-.armada-lane__mark[data-live] svg { animation: armada-dashboard-spin 1.2s linear infinite; }
-.armada-lane__mark[data-asking] svg { animation: armada-lane-asking 1.6s ease-in-out infinite; }
-
-@keyframes armada-lane-asking { 50% { opacity: 0.4; } }
-
-@media (prefers-reduced-motion: reduce) {
-  .armada-lane__mark[data-live] svg,
-  .armada-lane__mark[data-asking] svg { animation: none; }
-}
-
-.armada-lane__pips { display: flex; align-items: center; gap: var(--space-1); margin: 0; padding: 0; list-style: none; }
-.armada-lane__pips .armada-lane__pip { width: var(--space-2); height: var(--space-2); }
 
 /* The merge line as a conveyor: blocks marching toward main's light. */
 .armada-conveyor {
@@ -1285,8 +1132,6 @@
 
 @media (prefers-reduced-motion: reduce) {
   .armada-call,
-  .armada-lane__step[data-pip="live"] .armada-lane__pip,
-  .armada-lane__beacon[data-on]::after,
   .armada-dtabs__beacon[data-on]::after,
   .armada-dtabs__tab svg[data-live],
   .armada-conveyor__block { animation: none; }

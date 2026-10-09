@@ -1091,7 +1091,7 @@ export function App({ draft }: AppProps = {}) {
                   onLanded={() => setLanding(null)}
                   onOpenLink={openProseLink} onFix={(fix) => void commands.fixMain(fix)}
                   onOpenSession={openSession}
-                  nowViews={draft?.calls}
+                  nowViews={draft?.calls} nows={draft?.now}
                   onQuickCompose={(words) => (setSeed(words), setComposing(true))}
                 />
 

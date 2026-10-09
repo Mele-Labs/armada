@@ -15,7 +15,8 @@ import { DashboardTabs, OverviewLists, overviewListsOf, dashboardTabOf, overview
 import { Boundary } from "@armada/shell";
 
 import type { BridgeState } from "../../shared/bridge";
-import { Dashboard, useNeedsYou } from "./Dashboard";
+import { Dashboard, Nows, useNeedsYou } from "./Dashboard";
+import type { NowView } from "@armada/jobs/draft/now";
 import { CommandCentral } from "./CommandCentral";
 import { proposeRequest } from "./dispatch";
 import { FleetBoard } from "./FleetBoard";
@@ -48,6 +49,7 @@ export function Overview({
   onOpenSession,
   onFix,
   nowViews,
+  nows,
   onQuickCompose,
 }: {
   state: BridgeState;
@@ -88,6 +90,8 @@ export function Overview({
   onFix?: (fix: FixMain) => void;
   /** What each Job asks and has gone wrong in, by Job id. Mock only: Fleet serves none, and then only Jobs flagged as asking are listed. */
   nowViews?: Readonly<Record<string, CallView>>;
+  /** What each Job is doing now, by Job id: the Running tab's pane and its tiles' icons. Mock only. */
+  nows?: Readonly<Record<string, NowView>>;
   /** Words typed into the quick dispatch box, handed to the composer. */
   onQuickCompose: (words: string) => void;
 }) {
@@ -159,6 +163,7 @@ export function Overview({
 
   return (
     <Boundary region="the overview" {...guarded}>
+      <Nows.Provider value={nows}>
       <div className="armada-screen__overview">
         {/* n and ⌘N reach the bar from every surface (`useDispatchBarKeys`). Where Fleet cannot be reached the Board's own lists draw, and bind n themselves. */}
         {fault ? null : <QuickDispatch onType={onQuickCompose} focused={!needsYou} onOpenSession={onOpenSession} />}
@@ -240,6 +245,7 @@ export function Overview({
           />
         )}
       </div>
+      </Nows.Provider>
     </Boundary>
   );
 }

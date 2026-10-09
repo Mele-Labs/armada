@@ -3,26 +3,36 @@
 // what needs the owner, what is under way, what is over. Mock only: what a Job asks comes from the
 // draft's Now views, which Fleet does not serve.
 
-import { useEffect, useMemo, useState, type KeyboardEvent, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useState, type KeyboardEvent, type ReactNode } from "react";
 import {
   Bot,
+  Box,
+  Check,
   CircleCheck,
+  CircleDot,
   CircleX,
   Clock,
+  Cpu,
   Eye,
   GitMerge,
   GitPullRequest,
   LoaderCircle,
+  Megaphone,
   MessageSquare,
+  OctagonAlert,
   Scale,
+  ShieldCheck,
   ShieldX,
   SquareTerminal,
+  Unplug,
+  Waypoints,
   Workflow,
   type LucideIcon,
 } from "lucide-react";
-import { Button, Radio, RadioGroup, Textarea, Tooltip } from "@armada/components";
+import { Button, Radio, RadioGroup, Textarea } from "@armada/components";
 import type { FixMain, JobSummary, RepositorySummary } from "@armada/protocol";
 import type { AboutFiles, AboutLink, CallAskView, CallView } from "@armada/jobs/draft/calls";
+import type { NowView } from "@armada/jobs/draft/now";
 import type { Session } from "@armada/screens/src/draft/sessions";
 import { overviewListsOf, type DashboardTab } from "@armada/overview";
 import { JobActs, JobMarks, hasMarks, isTerminal, titleOf, type PauseAct } from "@armada/screens";
@@ -31,6 +41,7 @@ import { useListKeydown } from "@armada/screens/src/list-keyboard";
 
 import type { BridgeState } from "../../shared/bridge";
 import { viewsOf } from "./merge-line";
+import { FleetTile, onTilesKey } from "./FleetTile";
 import { useSessions } from "./sessions-draft";
 
 /** The frame's hue: what the row wants of the owner, or how it stands. */
@@ -67,7 +78,52 @@ export type Item = {
   context?: readonly string[];
   contextHead?: string;
   acts: (done: () => void) => ReactNode;
+  /** The tile's state icon where the kind's own would not say what is active: a Session's state, or a Job's Drone, Check or Judge. */
+  mark?: LucideIcon;
+  /** What that icon's tooltip says. The kind where absent. */
+  state?: string;
+  /** Whether the item is a Session. */
+  session?: boolean;
+  /** The Job's workflow steps and the index it is at, for the tile's pips. */
+  steps?: readonly { id: string; label: string }[];
+  stepAt?: number;
+  /** A Session's recent cadence, each bar 0 to 1: a message tall, a tool call short. */
+  spark?: readonly number[];
 };
+
+/** What the Dashboard knows of each Job's Now, by Job id. Mock only: Fleet serves none. */
+export const Nows = createContext<Readonly<Record<string, NowView>> | undefined>(undefined);
+
+const WAITING = {
+  resource: { mark: Cpu, state: "Waiting on a resource" },
+  job: { mark: Box, state: "Waiting on a Job" },
+  transition: { mark: Waypoints, state: "Between steps" },
+  step: { mark: Workflow, state: "Running a one-off step" },
+} as const;
+
+/**
+ * The first thing active on a Job, as the icon its tile wears: what asks the owner, then what went
+ * wrong, then what runs (a Drone, a Check, a Judge), then what it waits on.
+ */
+function activeOf(view: NowView | undefined): Pick<Item, "mark" | "state" | "hue"> | undefined {
+  if (view === undefined) return undefined;
+  if ((view.asks ?? []).length > 0) return { mark: Megaphone, state: "Waiting on you", hue: "ask" };
+  const issue = view.issues?.[0];
+  if (issue !== undefined) return { mark: OctagonAlert, state: issue.said, hue: "issue" };
+  const running = view.running?.find((one) => one.state === "running") ?? view.running?.[0];
+  if (running !== undefined) {
+    const said = running.state === "failed" ? "Check failed" : running.state === "passed" ? "Check passed" : running.of === "drone" ? "Drone working" : running.of === "check" ? "Check running" : "Judge deciding";
+    return { mark: running.state === "failed" ? ShieldX : running.of === "drone" ? Bot : running.of === "check" ? ShieldCheck : Scale, state: said, hue: "running" };
+  }
+  const waiting = view.waiting?.[0];
+  return waiting === undefined ? undefined : { ...WAITING[waiting.kind], hue: "queued" };
+}
+
+/** A Session's last ten rows as bars, a message tall and a tool call short, with a faint floor where it has said less. */
+function sparkOf(session: Session): number[] {
+  const rows = session.rows.slice(-10).map((row) => (row.kind === "message" ? 1 : row.kind === "tool" ? 0.45 : 0.25));
+  return [...Array.from({ length: 10 - rows.length }, () => 0.12), ...rows];
+}
 
 export const age = (at: string | undefined, now: number): string => {
   if (at === undefined) return "";
@@ -332,6 +388,10 @@ function sessionItem(session: Session, hosts: Hosts): Item {
     owner: `session:${session.id}`,
     icon: SquareTerminal,
     kind: "Session",
+    session: true,
+    mark: ended ? Unplug : waiting ? Eye : working ? CircleDot : Check,
+    state: waiting ? "Waiting on a command" : ended ? "Ended" : working ? "Working" : "Idle",
+    spark: sparkOf(session),
     title: session.title ?? session.address ?? session.id,
     fact: waiting ? session.asked!.command : ended ? "ended" : working ? "working" : "idle",
     at: session.lastTurnAt,
@@ -452,6 +512,7 @@ export function useItems(
   answered: ReadonlySet<string>,
 ): Item[] {
   const sessions = useSessions();
+  const nows = useContext(Nows);
   return useMemo(() => {
     const read = overviewListsOf(state.jobs, picked);
     const of = (ids: readonly string[]) => read.sections.filter((one) => ids.includes(one.id)).flatMap((one) => one.jobs);
@@ -515,8 +576,17 @@ export function useItems(
       );
     }
     items.push(...lineItems(state, tab, hosts, nowViews !== undefined));
-    return items.filter((item) => !answered.has(item.key));
-  }, [tab, state, picked, nowViews, sessions, answered]);
+    // A Job's pips come from its workflow and its icon from the first thing active on it.
+    const drawn = items.map((item): Item => {
+      if (item.job === undefined || tab === "command-central") return item;
+      const job = item.job;
+      const steps = (state.holds.workflows.find((one) => one.id === job.workflow_id)?.steps ?? []).map((step) => ({ id: step.step_id, label: step.label }));
+      const at = tab === "done" && item.hue !== "bad" ? steps.length : Math.max(0, steps.findIndex((step) => step.id === job.current_step_id));
+      const active = tab === "done" ? undefined : activeOf(nows?.[job.id]);
+      return { ...item, ...(steps.length === 0 ? {} : { steps, stepAt: at }), ...(active === undefined ? {} : { ...active, live: true }) };
+    });
+    return drawn.filter((item) => !answered.has(item.key));
+  }, [tab, state, picked, nowViews, nows, sessions, answered]);
 }
 
 export function Dashboard({
@@ -542,37 +612,16 @@ export function Dashboard({
 
   const at = items.findIndex((item) => item.key === current?.key);
   useBoardKeys(items, at, setSelected, hosts);
-  const move = (event: KeyboardEvent) => onListKey(event, items, at, setSelected);
+  const move = (event: KeyboardEvent) => onTilesKey(event, items, at, setSelected);
 
   if (current === undefined) return null;
   const Icon = current.icon;
   return (
     <div className="armada-dashboard">
-      <ul className="armada-dashboard__list" role="listbox" aria-label="Items" tabIndex={0} onKeyDown={move}>
-        {items.map((item) => {
-          const Mark = item.live === true ? LoaderCircle : item.icon;
-          return (
-            <li
-              key={item.key}
-              role="option"
-              data-job-id={item.job?.id}
-              data-status={item.job?.status}
-              aria-selected={item.key === current.key}
-              data-hue={item.hue}
-              className="armada-dashboard__row"
-              onClick={() => setSelected(item.key)}
-            >
-              <Tooltip label={item.live === true ? `${item.kind}, live` : item.kind}>
-                <span className="armada-dashboard__mark" data-live={item.live === true || undefined}>
-                  <Mark size={16} aria-hidden="true" />
-                </span>
-              </Tooltip>
-              <span className="armada-dashboard__title">{item.title}</span>
-              <span className="armada-dashboard__age">{age(item.at, now)}</span>
-              <span className="armada-dashboard__fact">{item.fact}</span>
-            </li>
-          );
-        })}
+      <ul className="armada-tiles" role="listbox" aria-label="Items" tabIndex={0} onKeyDown={move}>
+        {items.map((item) => (
+          <FleetTile key={item.key} item={item} selected={item.key === current.key} onSelect={setSelected} now={now} />
+        ))}
       </ul>
       <section className="armada-dashboard__detail" data-hue={current.hue} aria-label={current.title}>
         <header className="armada-dashboard__band">
