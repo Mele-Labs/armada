@@ -178,3 +178,140 @@
   color: var(--accent);
   font-weight: var(--weight-medium);
 }
+
+/* The all-notes panel: docked to the trailing edge above the bar, scrolling inside itself. */
+.armada-annotate__panel {
+  position: fixed;
+  top: var(--space-3);
+  right: var(--space-3);
+  bottom: calc(var(--annotate-panel-bottom) + var(--space-2));
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  width: calc(var(--w-tooltip) * 1.5);
+  max-width: calc(100vw - var(--space-6));
+  padding: var(--space-3);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--bg-overlay);
+  box-shadow: var(--shadow-overlay);
+  font-size: var(--text-sm);
+  pointer-events: auto;
+}
+
+.armada-annotate__group {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.armada-annotate__screen {
+  margin: 0;
+  color: var(--fg-muted);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+}
+
+.armada-annotate__rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.armada-annotate__row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-raised);
+}
+
+.armada-annotate__row[data-status="done"] {
+  color: var(--fg-subtle);
+}
+
+.armada-annotate__row-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.armada-annotate__row-main[aria-disabled="true"] {
+  cursor: default;
+}
+
+.armada-annotate__row-main:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.armada-annotate__row-text {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+
+.armada-annotate__row-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+}
+
+.armada-annotate__sent {
+  padding: 0 var(--space-1);
+  border: var(--border-width) solid var(--accent);
+  border-radius: var(--radius-sm);
+  color: var(--accent);
+}
+
+.armada-annotate__row .armada-annotate__actions {
+  flex-wrap: wrap;
+  justify-content: flex-start;
+}
+
+/* The bar's count, pressed to open the all-notes panel: plain text until hovered. */
+.armada-annotate__status {
+  padding: 0 var(--space-1);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.armada-annotate__status:hover {
+  background: var(--bg-raised);
+  color: var(--fg-default);
+}
+
+.armada-annotate__status[aria-expanded="true"] {
+  background: var(--bg-raised);
+  color: var(--accent);
+}
+
+.armada-annotate__status:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
