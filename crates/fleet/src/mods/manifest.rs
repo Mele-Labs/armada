@@ -1,6 +1,6 @@
 //! `mod.toml`: four `key = "value"` lines.
 //!
-//! **A subset of TOML read by hand.** A theme mod's file has no table, no array
+//! **A subset of TOML read by hand.** A mod's file has no table, no array
 //! and no number, and a TOML crate would be a dependency in the daemon to read
 //! four strings. Anything outside the subset is a problem that names the line,
 //! so a file that is real TOML but not this one is refused rather than half read.
@@ -74,6 +74,7 @@ pub(crate) fn read(text: &str, folder: &str) -> (Manifest, Vec<String>) {
     match kind.as_deref() {
         None => problems.push("mod.toml has no `kind`".to_string()),
         Some("theme") => manifest.kind = Some(ModKind::Theme),
+        Some("layout") => manifest.kind = Some(ModKind::Layout),
         Some(other) => problems.push(format!("mod.toml `kind` is `{other}`, which is not a kind of mod this build has")),
     }
     match version {

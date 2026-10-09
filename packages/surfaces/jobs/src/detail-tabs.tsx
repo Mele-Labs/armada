@@ -20,6 +20,7 @@
 // is mono and subtle beside the name rather than a chip.
 
 import type { JobDetail, JobSummary } from "@armada/protocol";
+import { useLayout } from "@armada/shell";
 
 import { changedOf, offersSettings } from "./settings";
 
@@ -107,9 +108,12 @@ export type JobTabsProps = {
  * what they divide.
  */
 export function JobTabs({ value, onChange, counts }: JobTabsProps) {
+  // The layout's order and what it hides; a hidden tab still shows while it is the one open.
+  const layout = useLayout("job.tabs");
+  const tabs = layout.all.filter((one) => one.visible || one.id === value).map((one) => one.id as DetailTab);
   function move(step: number): void {
-    const at = DETAIL_TABS.indexOf(value);
-    const next = DETAIL_TABS[(at + step + DETAIL_TABS.length) % DETAIL_TABS.length];
+    const at = tabs.indexOf(value);
+    const next = tabs[(at + step + tabs.length) % tabs.length];
     if (next !== undefined) onChange(next);
   }
   return (
@@ -128,7 +132,7 @@ export function JobTabs({ value, onChange, counts }: JobTabsProps) {
         }
       }}
     >
-      {DETAIL_TABS.map((tab) => {
+      {tabs.map((tab) => {
         const count = counts[tab];
         return (
           <button

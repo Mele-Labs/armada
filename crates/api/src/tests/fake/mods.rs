@@ -40,6 +40,7 @@ impl Mods for FakeDaemon {
             valid: true,
             problems: Vec::new(),
             css: None,
+            layout: None,
         })
     }
 

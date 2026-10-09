@@ -17,6 +17,7 @@ export * from "./FailureSurface";
 export * from "./FleetNotice";
 export * from "./fleet";
 export * from "./floor";
+export * from "./layout";
 export * from "./Palette";
 export * from "./history-keys";
 export * from "./refresh-key";

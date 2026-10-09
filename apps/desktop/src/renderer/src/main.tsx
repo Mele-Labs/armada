@@ -10,12 +10,14 @@ window.armada.onWalkFocus((focused) => {
 import type { BridgeIdentity } from "@armada/protocol";
 import { createPhoneGatewaySource, PhoneSourceProvider } from "@armada/settings";
 import { App, WAITING } from "./App";
-import { Boundary } from "@armada/shell";
+import { Boundary, LayoutSourceProvider, createLayoutSource } from "@armada/shell";
 import { HapticsProvider } from "@armada/components";
 import { WiredSessions } from "./sessions-wired";
 import { CATALOGUE } from "./catalogue";
 import { Themed } from "./theme";
 import { createFleetThemes } from "./fleet-themes";
+import { createFleetLayout } from "./fleet-layout";
+import { skipsMods } from "./theme-loader";
 import { BUILT_IN_SWATCHES, modSwatch } from "./swatches";
 
 // Bridge's renderer entry point. No Node, no `require`, no socket — everything
@@ -31,6 +33,8 @@ import { BUILT_IN_SWATCHES, modSwatch } from "./swatches";
 /** The themes this window offers: Fleet's mods and the saved preference, and the catalogue Bridge ships. */
 const THEMES = createFleetThemes(window.armada, CATALOGUE, { builtIn: BUILT_IN_SWATCHES, ofMod: modSwatch });
 
+/** The layout this window draws: Fleet's layout mods and the owner's saved choices, or the shipped layout in safe mode. */
+const LAYOUT = skipsMods() ? createLayoutSource() : createFleetLayout(window.armada);
 /** Settings → Phone, over the Gateway through the main process. Reads nothing until Settings draws it. */
 const PHONE = createPhoneGatewaySource((request) => window.armada.phone(request));
 
@@ -54,11 +58,13 @@ function Root() {
       {/* Here rather than in `App`, which the mock mounts: only a real Bridge reaches a trackpad. */}
       <HapticsProvider perform={window.armada.tap}>
         <Themed source={THEMES}>
-          <PhoneSourceProvider value={PHONE}>
-            <WiredSessions>
-              <App />
-            </WiredSessions>
-          </PhoneSourceProvider>
+          <LayoutSourceProvider value={LAYOUT}>
+            <PhoneSourceProvider value={PHONE}>
+              <WiredSessions>
+                <App />
+              </WiredSessions>
+            </PhoneSourceProvider>
+          </LayoutSourceProvider>
         </Themed>
       </HapticsProvider>
     </Boundary>
