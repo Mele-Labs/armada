@@ -59,6 +59,11 @@ export type SessionsApi = {
   tuneSession: (tune: TuneSession) => Promise<SessionActed>;
   /** A name the person gave a session, hosted or in a terminal. It stands until the next `/rename` in a terminal. */
   renameSession: (rename: RenameSession) => Promise<SessionActed>;
+  /**
+   * Writes a retro of what happened in a Session since its last one, once Fleet has asked a live
+   * agent what got in its way. Answers when it is written, which can take a minute.
+   */
+  retroSession: (sessionId: string) => Promise<Outcome>;
   /** Ends the process, parks the slot and ends the row. */
   closeSession: (sessionId: string) => Promise<SessionActed>;
   /**
@@ -120,6 +125,7 @@ export const SESSIONS_CHANNELS = {
   answerWaiting: "bridge:answer-waiting",
   tuneSession: "bridge:tune-session",
   renameSession: "bridge:rename-session",
+  retroSession: "bridge:retro-session",
   closeSession: "bridge:close-session",
   watchSession: "bridge:watch-session",
   readSessionFile: "bridge:read-session-file",

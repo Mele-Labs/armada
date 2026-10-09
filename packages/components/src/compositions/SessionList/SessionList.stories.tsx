@@ -202,3 +202,16 @@ export const Views: Story = {
     await expect(canvas.queryByText("Docs pass")).toBeNull();
   },
 };
+
+/** Each row has the Retro press, an icon with no label. Pressing it names that row's Session; while its retro is written the mark moves and the press holds. */
+export const RetroPress: Story = {
+  args: {
+    onRetro: fn(),
+    groups: [{ label: "Running", rows: [LIVE, { ...NOTES, retroWriting: true }] }],
+  },
+  play: async ({ canvas, args }) => {
+    await userEvent.click(canvas.getByRole("button", { name: "Retro" }));
+    await expect(args.onRetro).toHaveBeenCalledWith("s4");
+    await expect(canvas.getByRole("button", { name: "Writing the retro" })).toBeDisabled();
+  },
+};

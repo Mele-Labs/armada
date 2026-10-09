@@ -202,6 +202,17 @@ export class WiredStore {
     return done.value.id;
   }
 
+  /** One call: the Session's retro is written. Resolves to whether it was; a refusal says why in `said`. */
+  private async retroing(id: string): Promise<boolean> {
+    this.say(undefined);
+    const done = await this.api.retroSession(id);
+    if (!done.ok) {
+      this.say(done);
+      return false;
+    }
+    return true;
+  }
+
   private async exiting(jobId: string, exit: "submit" | "attest" | "supersede"): Promise<void> {
     this.say(undefined);
     const done = await this.api.exitPilot(jobId, exit);
@@ -250,6 +261,7 @@ export class WiredStore {
     start: (tag) => this.starting(tag),
     pilot: (jobId, outcome) => this.piloting(jobId, outcome),
     fork: (id) => this.forking(id),
+    retro: (id) => this.retroing(id),
     exit: (jobId, exit) => void this.exiting(jobId, exit),
     watch: (id) => void this.api.watchSession(id),
     subagent: async (id, subagentId) => {

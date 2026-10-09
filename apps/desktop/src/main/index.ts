@@ -5,7 +5,7 @@ import { join } from "node:path";
 
 import { CHANNELS, NOTHING_YET } from "../shared/bridge";
 import type { BridgeState, PickedView, Summons } from "../shared/bridge";
-import type { BuildSource, ChangeSlotPool, Outcome, RescueSlot } from "@armada/protocol";
+import type { BuildSource, ChangeSlotPool, Outcome, RescueSlot, RetroSubject } from "@armada/protocol";
 import type { HelmContext, LandCheckAt, StagedAttachment } from "@armada/protocol";
 import { landCheckAt } from "./land-following";
 import type { ToProposer, AddTask, ApproveWave, DropTask, EditJob, EditTask, FileReport, MovePlan } from "@armada/protocol";
@@ -896,7 +896,7 @@ void app.whenReady().then(() => {
   );
   ipcMain.handle(CHANNELS.readBrief, (_event, jobId: string, name: string) => connection?.readBrief(jobId, name));
   // A Job's retro, and the Lessons listing narrowed to the asking window's pick. Read-only.
-  ipcMain.handle(CHANNELS.readRetro, (_event, jobId: string) => connection?.readRetro(jobId));
+  ipcMain.handle(CHANNELS.readRetro, (_event, subject: RetroSubject) => connection?.readRetro(subject));
   ipcMain.handle(CHANNELS.readLessons, (event, state: "open" | "accepted") =>
     connection?.readLessons(
       connection.repositories.pickedByWindow.of(windowIdOf(event)),

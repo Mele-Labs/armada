@@ -7,7 +7,7 @@ use axum::body::Body;
 use axum::http::{Request, StatusCode};
 use axum::Router;
 use http_body_util::BodyExt;
-use ipc::{BuildSource, FleetBuildChanging, FleetBuildReport};
+use ipc::{BuildSource, BuildStage, FleetBuildChanging, FleetBuildReport};
 use tower::ServiceExt;
 
 use crate::tests::fake::FakeDaemon;
@@ -67,6 +67,17 @@ async fn a_change_is_accepted_and_the_next_read_shows_the_restart() {
     let changing: FleetBuildChanging = ipc::decode("answer", &body).expect("decodes");
     assert_eq!(changing.build, BuildSource::Preview);
     assert_eq!(read(&app).await.restarting, Some(BuildSource::Preview));
+}
+
+#[tokio::test]
+async fn the_stage_of_a_restart_under_way_crosses_the_wire_as_a_word() {
+    let app = wired();
+    let (_, before) = call(&app, "GET", "/fleet/build", "").await;
+    assert!(!String::from_utf8_lossy(&before).contains("stage"), "no restart, no stage");
+    call(&app, "POST", "/fleet/build/change", r#"{"build":"main"}"#).await;
+    let (_, body) = call(&app, "GET", "/fleet/build", "").await;
+    assert!(String::from_utf8_lossy(&body).contains(r#""stage":"building_fleet""#));
+    assert_eq!(read(&app).await.stage, Some(BuildStage::BuildingFleet));
 }
 
 #[tokio::test]

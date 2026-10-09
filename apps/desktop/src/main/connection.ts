@@ -18,7 +18,7 @@ import type { PilotOutcome } from "@armada/protocol";
 import type { SessionActed } from "../shared/api/sessions";
 import type { BridgeState, PickedView } from "../shared/bridge";
 import type { Connection, HelmContext, HelmDebugRead, JobSummary, Outcome } from "@armada/protocol";
-import type { BriefRead, CheckOutputRead, FrameRead, LandCheckAt, LessonsRead, RetroRead } from "@armada/protocol";
+import type { BriefRead, CheckOutputRead, FrameRead, LandCheckAt, LessonsRead, RetroRead, RetroSubject } from "@armada/protocol";
 import type { ComposingRead } from "@armada/screens/src/composing-reads";
 import { applyArrival, readCapacity, reread } from "./arrivals";
 import type { ArrivalHost } from "./arrivals";
@@ -573,8 +573,8 @@ export class FleetConnection {
     return await this.jobReads.readBrief(jobId, name);
   }
 
-  async readRetro(jobId: string): Promise<RetroRead> {
-    return await this.jobReads.readRetro(jobId);
+  async readRetro(subject: RetroSubject): Promise<RetroRead> {
+    return await this.jobReads.readRetro(subject);
   }
 
   async readLessons(picked: Picked, state: "open" | "accepted"): Promise<LessonsRead> {

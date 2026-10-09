@@ -83,6 +83,45 @@ export const Restarting: Story = {
   },
 };
 
+/** A restart that has named its stage: the words take the ring's place beside it, and the bare ring is gone. */
+export const RestartingStage: Story = {
+  args: base({ working: "preview", on: "preview", stage: "building_bridge", position: { ahead: 4, behind: 0 } }),
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("status")).toHaveTextContent("Building Bridge");
+    await expect(canvas.queryByRole("img", { name: "Restarting Fleet" })).toBeNull();
+    await expect(canvas.queryByRole("img", { name: "4 commits ahead of main" })).toBeNull();
+  },
+};
+
+/** The longest stage at the panel's narrowest, 160px: it neither runs past the section nor under the ring. */
+export const LongestStageAtTheNarrowestPanel: Story = {
+  args: base({ working: "main", stage: "reopening_bridge", position: { ahead: 0, behind: 3 } }),
+  decorators: [
+    (Story) => (
+      <div style={{ width: 160 }}>
+        <Story />
+      </div>
+    ),
+  ],
+  play: async ({ canvas, canvasElement }) => {
+    const stage = canvas.getByRole("status");
+    await expect(stage).toHaveTextContent("Reopening Bridge");
+    const section = canvasElement.querySelector(".armada-fleet-build");
+    const ring = stage.querySelector("svg");
+    if (section === null || ring === null) throw new Error("the section and its ring are drawn");
+    const words = document.createRange();
+    words.selectNodeContents(stage);
+    const sectionBox = section.getBoundingClientRect();
+    const ringBox = ring.getBoundingClientRect();
+    const lines = [...words.getClientRects()].filter((box) => box.left >= ringBox.right - 0.5);
+    await expect(lines.length).toBe(1);
+    const text = lines[0]!;
+    await expect(text.left).toBeGreaterThanOrEqual(ringBox.right);
+    await expect(text.right).toBeLessThanOrEqual(sectionBox.right);
+    await expect(section.scrollWidth).toBeLessThanOrEqual(section.clientWidth);
+  },
+};
+
 /** Switching from Main to the preview names what it is restarting onto. */
 export const SwitchingToThePreview: Story = {
   args: base({ working: "preview", position: { ahead: 0, behind: 0 } }),

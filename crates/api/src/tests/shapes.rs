@@ -223,6 +223,7 @@ pub fn fleet_build() -> ipc::FleetBuildReport {
             behind: 3,
         }),
         restarting: None,
+        stage: None,
         failed: None,
     }
 }

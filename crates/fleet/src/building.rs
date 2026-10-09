@@ -19,7 +19,7 @@ use std::time::{Duration, Instant, SystemTime};
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
 use ipc::{
-    BuildPosition, BuildSource, ChangeFleetBuild, FleetBuildChanging, FleetBuildReport, WireError,
+    BuildPosition, BuildSource, BuildStage, ChangeFleetBuild, FleetBuildChanging, FleetBuildReport, WireError,
 };
 
 use crate::daemon::Fleet;
@@ -73,7 +73,7 @@ pub(crate) enum NotChanged {
 /// What the status file says.
 #[derive(Debug, PartialEq, Eq)]
 enum Status {
-    Running(BuildSource),
+    Running(BuildSource, Option<BuildStage>),
     /// Stopped, having failed with the build at `commit`.
     Failed { commit: String, message: String },
 }
@@ -124,6 +124,19 @@ fn build_named(word: &str) -> Option<BuildSource> {
     }
 }
 
+fn stage_named(word: &str) -> Option<BuildStage> {
+    match word.trim() {
+        "merging" => Some(BuildStage::Merging),
+        "fetching_main" => Some(BuildStage::FetchingMain),
+        "building_fleet" => Some(BuildStage::BuildingFleet),
+        "building_bridge" => Some(BuildStage::BuildingBridge),
+        "restarting_fleet" => Some(BuildStage::RestartingFleet),
+        "reopening_bridge" => Some(BuildStage::ReopeningBridge),
+        "retrying" => Some(BuildStage::Retrying),
+        _ => None,
+    }
+}
+
 fn status_in(support: &Path, now: SystemTime) -> Option<Status> {
     let path = support.join(STATUS);
     let text = std::fs::read_to_string(&path).ok()?;
@@ -133,7 +146,9 @@ fn status_in(support: &Path, now: SystemTime) -> Option<Status> {
             let build = build_named(lines.next()?)?;
             let written = std::fs::metadata(&path).ok()?.modified().ok()?;
             let age = now.duration_since(written).unwrap_or_default();
-            (age <= RUNNING_FOR_AT_MOST).then_some(Status::Running(build))
+            // A third line is the stage; a file without one, or with one this does not know, has none.
+            let stage = lines.next().and_then(stage_named);
+            (age <= RUNNING_FOR_AT_MOST).then_some(Status::Running(build, stage))
         }
         "failed" => {
             let _build = lines.next()?;
@@ -194,21 +209,22 @@ impl Building {
                 .flatten()
                 .map(|(ahead, behind)| BuildPosition { ahead, behind }),
         };
-        let (restarting, failed) = match status_in(support, now) {
-            Some(Status::Running(build)) => (Some(build), None),
+        let (restarting, stage, failed) = match status_in(support, now) {
+            Some(Status::Running(build, stage)) => (Some(build), stage, None),
             // A failure belongs to the build it failed on; once that has moved, it is history.
             Some(Status::Failed { commit: at, message })
                 if (!at.is_empty()).then_some(at.as_str()) == commit.as_deref() =>
             {
-                (None, Some(message))
+                (None, None, Some(message))
             }
-            _ => (None, None),
+            _ => (None, None, None),
         };
         Ok(FleetBuildReport {
             on,
             commit,
             position,
             restarting,
+            stage,
             failed,
         })
     }
@@ -227,7 +243,7 @@ impl Building {
             return Err(NotChanged::NotOffered(NotOffered::NoWrapper));
         };
         source_in(support).map_err(NotChanged::NotOffered)?;
-        if let Some(Status::Running(build)) = status_in(support, now) {
+        if let Some(Status::Running(build, _)) = status_in(support, now) {
             return Err(NotChanged::Restarting(build));
         }
         let status = support.join(STATUS);

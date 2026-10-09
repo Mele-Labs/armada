@@ -34,6 +34,7 @@ export function fleetBuildOf(
     on: report.on,
     ...(report.position === undefined ? {} : { position: report.position }),
     working: report.restarting ?? null,
+    ...(report.stage === undefined ? {} : { stage: report.stage }),
     drones: dronesWorking(jobs),
     ...(report.failed === undefined ? {} : { failed: report.failed }),
     onChoose: change,

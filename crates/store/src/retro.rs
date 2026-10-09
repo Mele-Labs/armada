@@ -619,12 +619,12 @@ const LESSON_COLUMNS: &str = "i.job_id, i.ordinal, r.at, i.whose, i.said, i.evid
      i.change_command, i.applied";
 
 /// The three texts V105 added, which are all absent on an older item.
-struct Texts {
-    title: Option<String>,
-    what: Option<String>,
-    fix: Option<String>,
-    change_kind: Option<String>,
-    change_command: Option<String>,
+pub(crate) struct Texts {
+    pub(crate) title: Option<String>,
+    pub(crate) what: Option<String>,
+    pub(crate) fix: Option<String>,
+    pub(crate) change_kind: Option<String>,
+    pub(crate) change_command: Option<String>,
 }
 
 /// One row of [`LESSON_COLUMNS`], before its spellings are checked.
@@ -642,7 +642,7 @@ struct Stored {
     applied: bool,
 }
 
-fn line_of(
+pub(crate) fn line_of(
     whose: &str,
     said: String,
     evidence: &str,

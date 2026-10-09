@@ -1,0 +1,10 @@
+[operations.write_session_retro]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Write a Session's retro now, covering what happened since its last, and answer when it is written"
+notes = """
+`POST /sessions/:session_id/retro`, no body. `docs/concepts/retro.md`, *A Session's retro*.
+
+**Answers when the retro is written**, which takes a model call and, where the Session's agent is live and between turns, one question put to the agent first. 200 with the `JobRetro`. **409** `fleet.session_retro_being_written` while one is being written for the Session. **422** `fleet.session_retro_nothing_new` where the Session has nothing since its last retro and no retro to answer with; where it has one, that one answers. **500** `fleet.session_retro_failed` where the call failed or its answer would not read, and nothing is kept. A Session that ends is written one without a press.
+"""

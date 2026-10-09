@@ -190,6 +190,15 @@ it("sends each act to its own route with the session named, and folds what Fleet
   expect(last("sessions")).toMatchObject({ sessions: [{ id: "a", title: "Fleet's answer" }] });
 });
 
+it("writes a Session's retro on its own route and answers when it is written", async () => {
+  const sent: Sent[] = [];
+  const port = await fleet(sent, [record("a")]);
+  const { sessions } = host(port);
+  expect(await sessions.retro("a")).toEqual({ ok: true });
+  expect(sent.map((one) => `${one.method} ${one.path}`)).toEqual(["POST /sessions/a/retro"]);
+  expect(await host(null).sessions.retro("a")).toMatchObject({ ok: false, why: "not_connected" });
+});
+
 it("presses a pull request against the session's own repository", async () => {
   const sent: Sent[] = [];
   const port = await fleet(sent, [record("a", { manifest_id: "storefront" })]);

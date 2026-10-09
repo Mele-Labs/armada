@@ -21,7 +21,7 @@ export const fleetBuildBehind = walk("fleet/build-behind", [
   { hover: role("img", "3 commits behind main", { exact: true }), say: "An arrow down and a figure: three commits behind, in the warn hue" },
   { hover: UPDATE, say: "Update to main can be pressed: Restart on latest main" },
   { press: UPDATE, say: "Update" },
-  { look: role("img", "Restarting Fleet", { exact: true }), say: "The ring turns where the figure was, and the button shows it is working" },
+  { look: text("Fetching main"), say: "The stage the restart is at replaces the figure, with a ring turning beside it" },
   { look: button("Updating to main"), say: "The button says what it is doing and cannot be pressed again" },
 ]);
 
@@ -30,12 +30,17 @@ export const fleetBuildPreviewAhead = walk("fleet/build-preview-ahead", [
   { hover: role("img", "4 commits ahead of main", { exact: true }), say: "An arrow up and a figure: four commits ahead of main" },
   { hover: REFRESH, say: "Merge in-flight branches and restart on the preview" },
   { press: REFRESH, say: "Refresh" },
-  { look: role("img", "Restarting Fleet", { exact: true }), say: "The ring turns where the figure was, and the button shows it is working" },
+  { look: text("Merging branches"), say: "The stage the restart is at replaces the figure, and moves on about every second: building Fleet, building Bridge, restarting Fleet, reopening Bridge" },
 ]);
 
 export const fleetBuildRefreshing = walk("fleet/build-refreshing", [
   { look: button("Refreshing preview"), say: "The button is working and cannot be pressed again" },
-  { hover: role("img", "Restarting Fleet", { exact: true }), say: "The ring beside main says what is under way" },
+  { later: text("Merging branches"), say: "The first stage, with a ring turning beside it" },
+  { later: text("Building Fleet"), say: "Then the next" },
+  { later: text("Building Bridge"), say: "Then the next" },
+  { later: text("Restarting Fleet"), say: "Then the next" },
+  { look: text("Reopening Bridge"), say: "The last, held until the restart finishes" },
+  { hover: role("status"), say: "The tooltip names the build it is restarting onto" },
 ]);
 
 export const fleetBuildDronesWorking = walk("fleet/build-drones-working", [
