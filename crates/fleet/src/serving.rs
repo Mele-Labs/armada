@@ -991,12 +991,14 @@ where
         &self,
         manifest_id: Option<ManifestId>,
     ) -> Result<WorktreesHeld, Refusal> {
-        let holding = Fleet::worktrees_held(self)
-            .await
-            .map_err(|why| self.refusal(why))?;
-        let slots = Fleet::pool_slots(self)
-            .await
-            .map_err(|why| self.refusal(why))?;
+        // **One read of the Jobs for both halves, and the halves side by
+        // side**: each is git over every checkout, and neither waits on the other.
+        let (loaded, _) = self.every_job().await.map_err(|why| self.refusal(why))?;
+        let jobs = std::sync::Arc::new(loaded.jobs);
+        let (holding, slots) = tokio::join!(
+            Fleet::held_among(self, std::sync::Arc::clone(&jobs)),
+            Fleet::pool_slots_among(self, &jobs),
+        );
         let held = WorktreesHeld {
             worktrees: holding
                 .iter()

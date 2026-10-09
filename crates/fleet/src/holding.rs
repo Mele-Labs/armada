@@ -24,10 +24,11 @@
 //!
 //! A sweep on a timer nobody reads means the first surprise is a worktree gone
 //! with no record of who took it.
+use std::sync::Arc;
 use std::time::Duration;
 
-use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
-use adapters::{BranchStanding, Reclaimed, UnmergedWork, WorktreeStanding};
+use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct, WorktreeSpec};
+use adapters::{BranchStanding, Reclaimed, Standing, UnmergedWork, WorktreeStanding};
 use core_model::{
     Component, DependencyDirection, Envelope, FieldValue, Job, JobId, JobStatus, Level, Timestamp,
 };
@@ -35,6 +36,8 @@ use core_model::{
 use crate::adrift::Adrift;
 use crate::converging::elapsed;
 use crate::daemon::Fleet;
+use crate::leasing::reclaimed_spec_in;
+use crate::repositories::Served;
 
 /// How often Fleet asks what it could give back.
 ///
@@ -98,7 +101,7 @@ pub enum Held {
 /// applying with no second place to change.
 ///
 /// **The checkout and the branch are carried, not left to be derived again.**
-/// [`Fleet::holding_of`] already holds the `WorktreeSpec` that produced them,
+/// [`holding_of`] already holds the `WorktreeSpec` that produced them,
 /// and a caller that re-derived a path from a Job id would be the second
 /// derivation this module exists to avoid — the one that disagrees the day
 /// `WorktreeSpec` changes. `#385` draws both: a path is what a person goes and
@@ -196,22 +199,39 @@ where
     /// There is nothing to give back and nothing to hold.
     pub async fn worktrees_held(&self) -> Result<Vec<Holding>, Adrift> {
         let (loaded, _) = self.every_job().await?;
-        let mine: Vec<&Job> = loaded
-            .jobs
+        Ok(self.held_among(Arc::new(loaded.jobs)).await)
+    }
+
+    /// [`worktrees_held`](Fleet::worktrees_held) over Jobs the caller already
+    /// loaded, so a caller asking for more than this reads the store once.
+    ///
+    /// **The git half runs off the runtime and side by side.** Each Job's
+    /// checkout is its own handful of processes and none depends on another,
+    /// so asking costs the slowest one rather than the sum.
+    pub(crate) async fn held_among(&self, jobs: Arc<Vec<Job>>) -> Vec<Holding> {
+        let mine: Vec<(usize, Served)> = jobs
             .iter()
+            .enumerate()
             // **This repository's Jobs only.** One store serves the machine and
             // a `WorktreeSpec` is derived from *this* Fleet's root, so another
             // Manifest's Job would name a path under a repository it never ran
             // in. `armada clean` selects on the same column for the same reason.
-            .filter(|job| self.served_by(job).is_ok())
+            .filter_map(|(at, job)| Some((at, self.served_by(job).ok()?)))
             .collect();
-        let mut holding = Vec::new();
-        for job in &mine {
-            if let Some(one) = self.holding_of(job, &mine) {
-                holding.push(one);
-            }
-        }
-        Ok(holding)
+        let board: Vec<&Job> = mine.iter().map(|(at, _)| &jobs[*at]).collect();
+        let (vcs, asked) = (Arc::clone(self.vcs()), Arc::clone(&jobs));
+        let read = tokio::task::spawn_blocking(move || {
+            adapters::concurrently(&mine, |(at, served)| {
+                standing_of(vcs.as_ref(), served, &asked[*at])
+            })
+        })
+        .await
+        .expect("git panicked reading the worktrees held");
+        board
+            .iter()
+            .zip(read)
+            .filter_map(|(job, read)| holding_of(job, &board, read?))
+            .collect()
     }
 
     /// Reclaim every worktree that passes all five tests, if a sweep is due.
@@ -263,66 +283,6 @@ where
         }
         *last = Some(now);
         true
-    }
-
-    /// Every test one Job's worktree failed, or `None` where there is nothing
-    /// to give back.
-    ///
-    /// **The status tests come before the git ones and the git reading is taken
-    /// anyway**, because a person looking at a piloted Job's worktree wants to
-    /// know what is in it. What the order buys is that a Job whose worktree git
-    /// cannot be asked about still reports the reasons that do not need git.
-    fn holding_of(&self, job: &Job, board: &[&Job]) -> Option<Holding> {
-        let served = self.served_by(job).ok()?;
-        let spec = self.reclaimed_spec(&served, job).ok()?;
-        let stands = adapters::standing(&spec, served.manifest().base()).ok()?;
-        if stands.empty_handed() {
-            return None;
-        }
-        let mut held = Vec::new();
-        match job.status() {
-            JobStatus::Piloted => held.push(Held::Piloted),
-            status if !status.is_terminal() => held.push(Held::NotTerminal { status }),
-            _ => {}
-        }
-        match &stands.branch {
-            BranchStanding::Ahead { base, commits, tip } => held.push(Held::Unmerged {
-                base: base.clone(),
-                commits: *commits,
-                tip: tip.clone(),
-            }),
-            BranchStanding::Unanswered { why, .. } => {
-                held.push(Held::BaseUnanswered { why: why.clone() })
-            }
-            BranchStanding::Absent | BranchStanding::Merged { .. } => {}
-        }
-        match &stands.worktree {
-            WorktreeStanding::Dirty { files } => held.push(Held::Uncommitted {
-                files: files.clone(),
-            }),
-            WorktreeStanding::Locked { reason } => held.push(Held::Locked {
-                reason: reason.clone(),
-            }),
-            WorktreeStanding::Unreadable { why } => {
-                held.push(Held::Unreadable { why: why.clone() })
-            }
-            WorktreeStanding::Absent | WorktreeStanding::Clean => {}
-        }
-        let waiting = dependents_still_running(job.id(), board);
-        if !waiting.is_empty() {
-            held.push(Held::DependedOn { by: waiting });
-        }
-        Some(Holding {
-            handle: job.handle(),
-            job: job.id().clone(),
-            title: job.title().as_str().to_string(),
-            status: job.status(),
-            last_moved: last_moved(job),
-            path: spec.worktree_path(),
-            on_disk: stands.worktree != WorktreeStanding::Absent,
-            branch: spec.branch(),
-            held,
-        })
     }
 
     /// Take one Job's disk back and write down that it was taken.
@@ -390,6 +350,76 @@ where
         .with_field("cause", FieldValue::Str(why.to_string()));
         self.noted_in_the_log(job, &envelope);
     }
+}
+
+/// Where one Job's worktree is and what git says is in it, or `None` where
+/// there is nothing to give back. **The blocking half of a holding**: it
+/// reads the pool and the checkout.
+fn standing_of<V: Vcs>(
+    vcs: &V,
+    served: &Served,
+    job: &Job,
+) -> Option<(WorktreeSpec, Standing)> {
+    let spec = reclaimed_spec_in(vcs, served, job).ok()?;
+    let stands = adapters::standing(&spec, served.manifest().base()).ok()?;
+    (!stands.empty_handed()).then_some((spec, stands))
+}
+
+/// Every test one Job's worktree failed.
+///
+/// **The status tests come before the git ones and the git reading is taken
+/// anyway**, because a person looking at a piloted Job's worktree wants to
+/// know what is in it. What the order buys is that a Job whose worktree git
+/// cannot be asked about still reports the reasons that do not need git.
+fn holding_of(
+    job: &Job,
+    board: &[&Job],
+    (spec, stands): (WorktreeSpec, Standing),
+) -> Option<Holding> {
+    let mut held = Vec::new();
+    match job.status() {
+        JobStatus::Piloted => held.push(Held::Piloted),
+        status if !status.is_terminal() => held.push(Held::NotTerminal { status }),
+        _ => {}
+    }
+    match &stands.branch {
+        BranchStanding::Ahead { base, commits, tip } => held.push(Held::Unmerged {
+            base: base.clone(),
+            commits: *commits,
+            tip: tip.clone(),
+        }),
+        BranchStanding::Unanswered { why, .. } => {
+            held.push(Held::BaseUnanswered { why: why.clone() })
+        }
+        BranchStanding::Absent | BranchStanding::Merged { .. } => {}
+    }
+    match &stands.worktree {
+        WorktreeStanding::Dirty { files } => held.push(Held::Uncommitted {
+            files: files.clone(),
+        }),
+        WorktreeStanding::Locked { reason } => held.push(Held::Locked {
+            reason: reason.clone(),
+        }),
+        WorktreeStanding::Unreadable { why } => {
+            held.push(Held::Unreadable { why: why.clone() })
+        }
+        WorktreeStanding::Absent | WorktreeStanding::Clean => {}
+    }
+    let waiting = dependents_still_running(job.id(), board);
+    if !waiting.is_empty() {
+        held.push(Held::DependedOn { by: waiting });
+    }
+    Some(Holding {
+        handle: job.handle(),
+        job: job.id().clone(),
+        title: job.title().as_str().to_string(),
+        status: job.status(),
+        last_moved: last_moved(job),
+        path: spec.worktree_path(),
+        on_disk: stands.worktree != WorktreeStanding::Absent,
+        branch: spec.branch(),
+        held,
+    })
 }
 
 /// When Armada last moved anything on this Job.

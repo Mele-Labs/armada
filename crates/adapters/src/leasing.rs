@@ -427,12 +427,19 @@ impl Pool {
     }
 
     fn state_of(&self, number: usize) -> SlotState {
+        self.probe_of(number).0
+    }
+
+    /// [`state_of`](Pool::state_of), and the `git status` it ran where it ran
+    /// one, so a reader that also wants what the slot holds does not ask git
+    /// for it again.
+    fn probe_of(&self, number: usize) -> (SlotState, Option<Result<Vec<String>, String>>) {
         let path = self.path_of(number);
         if !path.exists() {
-            return SlotState::Unmade;
+            return (SlotState::Unmade, None);
         }
         if !git::is_checkout(&path) {
-            return SlotState::NotACheckout;
+            return (SlotState::NotACheckout, None);
         }
         let record = Record::read(&self.record_path(number));
         if let Some(Record {
@@ -443,18 +450,20 @@ impl Pool {
             completed,
         }) = record.as_ref().filter(|record| record.holder.alive())
         {
-            return SlotState::Held {
+            let held = SlotState::Held {
                 branch: branch.clone(),
                 holder: holder.clone(),
                 since: *since,
                 kept: kept.clone(),
                 completed: *completed,
             };
+            return (held, None);
         }
         // **Asked of a slot with no record too.** A record lost or cut short
         // must not make a tree holding work read as free.
-        let why = match git::dirty(&path) {
-            Err(why) => Some(why),
+        let status = git::dirty(&path);
+        let why = match &status {
+            Err(why) => Some(why.clone()),
             Ok(files) if !files.is_empty() => {
                 Some(format!("{} uncommitted, first {}", files.len(), files[0]))
             }
@@ -476,16 +485,17 @@ impl Pool {
         };
         let (branch, since) = match record {
             Some(record) => (record.branch, record.since),
-            None if why.is_none() => return SlotState::Free,
+            None if why.is_none() => return (SlotState::Free, Some(status)),
             None => (
-                git(&path, &["branch", "--show-current"]).unwrap_or_default(),
+                git::read(&path, &["branch", "--show-current"]).unwrap_or_default(),
                 0,
             ),
         };
-        match why {
+        let state = match why {
             None => SlotState::Abandoned { branch, since },
             Some(why) => SlotState::Stranded { branch, since, why },
-        }
+        };
+        (state, Some(status))
     }
 
     /// Put slot `number` on `branch` at the base, cleaned of all but the warm

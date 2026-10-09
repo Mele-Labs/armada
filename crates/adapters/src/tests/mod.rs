@@ -15,6 +15,7 @@ mod build_standing;
 mod ci_workflows;
 mod cloning;
 mod commit;
+mod concurrently;
 mod conversing;
 mod delivery;
 mod edited;

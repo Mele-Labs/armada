@@ -229,6 +229,32 @@ fn the_pool_reads_each_slot_with_its_holder_warmth_and_lag() {
     assert_eq!(warm[0].behind, Some(2));
 }
 
+/// The slots are read side by side and still answer in the pool's order, each
+/// with its own holder, however many there are past the fan-out's width.
+#[test]
+fn a_wide_pool_reads_in_slot_order_with_each_slots_own_holder() {
+    let repo = a_repository();
+    let pool = slots(&repo, 10);
+    leased(&repo, &pool, "1-a-job", "01A");
+    leased(&repo, &pool, "2-b-job", "01B");
+    leased(&repo, &pool, "3-c-job", "01C");
+
+    let read = GitVcs.slot_pool(&pool);
+    let numbers: Vec<u32> = read.iter().map(|one| one.slot).collect();
+    assert_eq!(numbers, (1..=10).collect::<Vec<u32>>());
+    let holders: Vec<&SlotHeld> = read.iter().take(4).map(|one| &one.held).collect();
+    assert_eq!(
+        holders,
+        [
+            &SlotHeld::Job(String::from("01A")),
+            &SlotHeld::Job(String::from("01B")),
+            &SlotHeld::Job(String::from("01C")),
+            &SlotHeld::Unmade,
+        ]
+    );
+    assert!(read[3..].iter().all(|one| one.held == SlotHeld::Unmade));
+}
+
 /// A pause's whole road through the real pool: the work is committed to the
 /// Job's own branch, the slot goes to somebody else, and the Job comes back to
 /// whichever slot is free with its file at the branch's tip.
