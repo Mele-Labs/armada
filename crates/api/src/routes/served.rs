@@ -587,6 +587,22 @@ const ROUTES: &[Route] = &[
         method: "POST",
         path: "/sessions/waiting/dismiss",
     },
+    // Sleep mode: the switch, the night it keeps, and a correction of one decision.
+    Route {
+        operation: "get_sleep",
+        method: "GET",
+        path: "/sleep",
+    },
+    Route {
+        operation: "set_sleep",
+        method: "POST",
+        path: "/sleep",
+    },
+    Route {
+        operation: "override_sleep",
+        method: "POST",
+        path: "/sleep/override",
+    },
     // A session Fleet hosts for Bridge. Since 23.49.
     Route {
         operation: "start_session",

@@ -1016,6 +1016,11 @@ where
             &moved.event,
             summary,
         )));
+        // Sleep mode holds an escalated Job for the owner, who is the only one who can unblock it.
+        if moved.job.status() == core_model::JobStatus::Escalated {
+            self.sleep_escalated(moved.job.id().as_str(), moved.job.handle(), moved.job.title().as_str())
+                .await;
+        }
         // An override is a person advancing a step that did not pass, so only
         // `Advanced` is `step_passes`.
         if passes {

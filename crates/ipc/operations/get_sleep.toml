@@ -1,0 +1,10 @@
+[operations.get_sleep]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "Whether sleep mode is on, and what the night has decided, held, landed and shown"
+notes = """
+`GET /sleep`, answered with `SleepState`: `on`, and the night's rows as `decided`, `blocked`, `landed` and `walks`.
+
+**What the night holds.** While sleep is on, a periodic pass answers a session's `ask:` or agent item once it has waited two minutes, picking the option labelled "(Recommended)" or else telling the agent to decide (`mode: best`, `chose` empty). **A destructive or irreversible question is never decided**, nor is a `perm:` permission: each is recorded under `blocked` and left. Destructive is read conservatively from the item's text and options, and an unsure reading holds. A `walk:` item is recorded under `walks`; a pull request the pull watch sees merge, under `landed`; an escalated Job, under `blocked`, because no route answers an escalation with words.
+"""

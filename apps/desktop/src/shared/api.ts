@@ -24,6 +24,7 @@ import type { CleanupApi } from "./api/cleanup";
 import type { ReportsApi } from "./api/reports";
 import type { JobsApi } from "./api/jobs";
 import type { SessionsApi } from "./api/sessions";
+import type { SleepApi } from "./api/sleep";
 import type { BridgeState } from "./bridge";
 
 /**
@@ -46,4 +47,5 @@ export type BridgeApi = CoreApi<BridgeState> &
   CleanupApi &
   ReportsApi &
   JobsApi &
-  SessionsApi;
+  SessionsApi &
+  SleepApi;

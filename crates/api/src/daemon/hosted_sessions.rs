@@ -59,6 +59,22 @@ pub trait HostedSessions: Send + Sync + 'static {
         dismiss: ipc::DismissWaiting,
     ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
 
+    /// `get_sleep`: the switch and the night's rows.
+    fn get_sleep(&self) -> impl Future<Output = Result<ipc::SleepState, Refusal>> + Send;
+
+    /// `set_sleep`: on starts a new night, off keeps it for the review.
+    fn set_sleep(
+        self: Arc<Self>,
+        set: ipc::SetSleep,
+    ) -> impl Future<Output = Result<ipc::SleepState, Refusal>> + Send;
+
+    /// `override_sleep`: tell the session what the owner would have said. [`Refusal::IllegalMove`]
+    /// where no decision holds the id, [`Refusal::Unacceptable`] for blank words.
+    fn override_sleep(
+        self: Arc<Self>,
+        over: ipc::OverrideSleep,
+    ) -> impl Future<Output = Result<ipc::SleepState, Refusal>> + Send;
+
     /// `tune_session`.
     fn tune_session(
         &self,

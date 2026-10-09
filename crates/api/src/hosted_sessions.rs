@@ -84,6 +84,37 @@ pub(crate) async fn dismiss_waiting<D: HostedSessions>(
     }
 }
 
+/// Whether sleep mode is on and what the night holds.
+pub(crate) async fn get_sleep<D: HostedSessions>(State(served): State<Served<D>>) -> Response {
+    match served.daemon().get_sleep().await {
+        Ok(state) => answer(StatusCode::OK, &state, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+pub(crate) async fn set_sleep<D: HostedSessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let set: ipc::SetSleep = match ipc::decode("a sleep switch", &body) {
+        Ok(set) => set,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().set_sleep(set).await {
+        Ok(state) => answer(StatusCode::OK, &state, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// The owner corrects one decision. 200 with the night; 409 where no decision holds the id.
+pub(crate) async fn override_sleep<D: HostedSessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let over: ipc::OverrideSleep = match ipc::decode("a correction of a sleep decision", &body) {
+        Ok(over) => over,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().override_sleep(over).await {
+        Ok(state) => answer(StatusCode::OK, &state, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 pub(crate) async fn tune_session<D: HostedSessions>(
     State(served): State<Served<D>>,
     body: Bytes,

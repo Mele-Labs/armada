@@ -268,3 +268,37 @@ export const WideHasNoMenu: Story = {
     await expect(canvas.getByRole("button", { name: "Menu", hidden: true })).not.toBeVisible();
   },
 };
+
+/**
+ * Sleep mode beside Helm: the moon is pressed while it is on, and the sunrise
+ * that reopens the review is drawn only while there is something to read.
+ */
+export const SleepModeToggle: Story = {
+  args: {
+    repositoryPicker: picker,
+    onSearch: () => {},
+    onDispatch: fn(),
+    fleet: { state: "running", label: "Running" },
+    sleep: { on: false, onToggle: fn() },
+  },
+  play: async ({ args, canvas, userEvent }) => {
+    const moon = canvas.getByRole("button", { name: "Sleep mode" });
+    await expect(moon).toHaveAttribute("aria-pressed", "false");
+    await expect(moon).toHaveAttribute("title", "Sleep mode");
+    await expect(canvas.queryByRole("button", { name: "Morning review" })).toBeNull();
+    await userEvent.click(moon);
+    await expect(args.sleep?.onToggle).toHaveBeenCalledTimes(1);
+  },
+};
+
+/** Sleep is on and the night has left something: the moon is pressed and the sunrise is there. */
+export const SleepingWithAReview: Story = {
+  args: {
+    ...SleepModeToggle.args,
+    sleep: { on: true, onToggle: fn(), morning: { onOpen: fn() } },
+  },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("button", { name: "Sleep mode" })).toHaveAttribute("aria-pressed", "true");
+    await expect(canvas.getByRole("button", { name: "Morning review" })).toBeVisible();
+  },
+};

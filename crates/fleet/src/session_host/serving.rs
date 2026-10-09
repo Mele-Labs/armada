@@ -207,6 +207,18 @@ where
         self.dismiss_waited(dismiss).await
     }
 
+    async fn get_sleep(&self) -> Result<ipc::SleepState, Refusal> {
+        self.sleep_state().await
+    }
+
+    async fn set_sleep(self: Arc<Self>, set: ipc::SetSleep) -> Result<ipc::SleepState, Refusal> {
+        self.switch_sleep(set.on).await
+    }
+
+    async fn override_sleep(self: Arc<Self>, over: ipc::OverrideSleep) -> Result<ipc::SleepState, Refusal> {
+        self.override_a_decision(over).await
+    }
+
     async fn tune_session(&self, tuned: TuneSession) -> Result<SessionRecord, Refusal> {
         let id = tuned.session_id.as_str().to_string();
         if let Some(session) = self.terminal_session(&id).await? {

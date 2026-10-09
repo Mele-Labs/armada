@@ -384,6 +384,7 @@
 @import "./compositions/LessonCard/LessonCard.css";
 @import "./compositions/LessonList/LessonList.css";
 @import "./compositions/RetroSheet/RetroSheet.css";
+@import "./compositions/MorningReview/MorningReview.css";
 @import "./compositions/PoolSlots/PoolSlots.css";
 @import "./compositions/PoolSlots/TileSheet.css";
 @import "./compositions/PausedMark/PausedMark.css";
