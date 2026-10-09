@@ -6,7 +6,7 @@
 
 **Kind:** Record.
 
-You ask a session for a warmer dark theme. It makes a mod called `warm`, edits its colours and checks them; you pick `warm` in Settings, Theme, and Bridge redraws. A month later you ask for it in the repository, and it is on a branch under `packages/mods/warm/`, ready to open as a pull request.
+You ask a session for a warmer dark theme. It makes a mod called `warm`, edits its colours and checks them; you pick `warm` in Settings, Theme, and Bridge redraws. A month later you ask for it in the repository, and it is on a branch under `packages/mods/<name>/`, ready to open as a pull request.
 
 ## What it is
 
