@@ -59,6 +59,17 @@ export const Blank: Story = {
   },
 };
 
+/** A turn is running and Send still works: the message goes as the agent's next input. */
+export const SendsWhileWorking: Story = {
+  args: { working: true },
+  play: async ({ canvas, args }) => {
+    await userEvent.type(canvas.getByRole("textbox", { name: "Message" }), "also check the tests");
+    await expect(canvas.getByRole("button", { name: "Send" })).toBeEnabled();
+    await userEvent.keyboard("{Enter}");
+    await expect(args.onSend).toHaveBeenCalledWith({ text: "also check the tests", files: [], tags: [] });
+  },
+};
+
 /** `/` at the start opens the commands, and choosing one writes it into the message. */
 export const Slash: Story = {
   play: async ({ canvas }) => {

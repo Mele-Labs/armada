@@ -32,6 +32,10 @@ const SESSION_CLOSED: &str = "fleet.session_closed";
 pub(super) const MESSAGE_EMPTY: &str = "fleet.session_message_empty";
 /// An attachment that would not decode, or is too large. A 422.
 const ATTACHMENT_REFUSED: &str = "fleet.session_attachment_refused";
+/// A reattached session the keeper called busy, and that then says nothing for
+/// this long, missed its turn's end: it goes to Idle.
+const REATTACH_QUIET: Duration = Duration::from_secs(120);
+
 /// The agent's process would not start. A 500.
 const SESSION_UNSTARTED: &str = "fleet.session_unstarted";
 /// An answer naming no ask that is waiting. A 409.
@@ -664,17 +668,6 @@ where
         if !lost.is_empty() {
             self.send_again(&id, &runtime, lost).await;
         }
-        if self.hosts().start_sweeping() {
-            let fleet = Arc::clone(&self);
-            let every =
-                (self.hosts().quiet() / 4).clamp(Duration::from_secs(1), Duration::from_secs(30));
-            tokio::spawn(async move {
-                loop {
-                    tokio::time::sleep(every).await;
-                    fleet.sweep_quiet().await;
-                }
-            });
-        }
         self.published_hosted(&id).await
     }
 
@@ -884,6 +877,17 @@ where
             generation,
             heard,
         ));
+        if self.hosts().start_sweeping() {
+            let fleet = Arc::clone(self);
+            let every =
+                (self.hosts().quiet() / 4).clamp(Duration::from_secs(1), Duration::from_secs(30));
+            tokio::spawn(async move {
+                loop {
+                    tokio::time::sleep(every).await;
+                    fleet.sweep_quiet().await;
+                }
+            });
+        }
         Ok(true)
     }
 
@@ -910,6 +914,15 @@ where
         let mut ended = Vec::new();
         for (id, runtime) in self.hosts().all() {
             let mut state = runtime.state();
+            if state.reattached_busy
+                && matches!(state.turn, SessionTurn::Working { .. })
+                && state.last_active.elapsed() >= REATTACH_QUIET
+            {
+                state.reattached_busy = false;
+                state.turn = SessionTurn::Idle;
+                ended.push(id.clone());
+                continue;
+            }
             let idle = matches!(state.turn, SessionTurn::Idle);
             if state.process.is_some()
                 && idle
