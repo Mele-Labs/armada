@@ -27,6 +27,7 @@ struct Code {
 struct Claim {
     name: String,
     public_key: Vec<u8>,
+    at: i64,
 }
 
 #[derive(Default)]
@@ -96,11 +97,25 @@ impl Pairing {
         }
         match memory.codes.get_mut(code) {
             Some(c) if c.expires > now && c.claimed.is_none() => {
-                c.claimed = Some(Claim { name: name.to_string(), public_key });
+                c.claimed = Some(Claim { name: name.to_string(), public_key, at: now });
                 Ok(())
             }
             _ => Err(PairRefused::BadCode),
         }
+    }
+
+    /// Codes a phone has claimed that nobody has confirmed: code, name, when claimed.
+    pub fn pending(&self) -> Vec<(String, String, i64)> {
+        let now = (self.clock)();
+        let memory = self.memory.lock().unwrap();
+        let mut all: Vec<_> = memory
+            .codes
+            .iter()
+            .filter(|(_, c)| c.expires > now)
+            .filter_map(|(code, c)| c.claimed.as_ref().map(|k| (code.clone(), k.name.clone(), k.at)))
+            .collect();
+        all.sort_by_key(|(_, _, at)| *at);
+        all
     }
 
     /// The owner confirms: the phone becomes a device and the code is burned.

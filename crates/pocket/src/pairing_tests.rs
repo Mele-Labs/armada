@@ -172,6 +172,28 @@ async fn a_code_cannot_be_confirmed_before_a_phone_claims_it_or_claimed_twice() 
 }
 
 #[tokio::test]
+async fn a_claimed_code_is_pending_until_confirmed_or_expired() {
+    let rig = rig();
+    let pending = || async {
+        call(&rig.app, Method::GET, "/admin/pair/pending", &[], "").await.1
+    };
+    assert_eq!(pending().await, "[]");
+    let unclaimed = start(&rig).await;
+    assert_eq!(pending().await, "[]");
+    let code = start(&rig).await;
+    claim(&rig, &code).await;
+    let listed = pending().await;
+    assert!(listed.contains(&code) && listed.contains("\"name\":\"Phone\"") && listed.contains("claimed_at"), "{listed}");
+    assert!(!listed.contains(&unclaimed));
+    confirm(&rig, &code).await;
+    assert_eq!(pending().await, "[]");
+    let code = start(&rig).await;
+    claim(&rig, &code).await;
+    rig.now.fetch_add(301, Ordering::Relaxed);
+    assert_eq!(pending().await, "[]");
+}
+
+#[tokio::test]
 async fn pairing_is_rate_limited() {
     let rig = rig();
     for _ in 0..10 {

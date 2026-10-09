@@ -53,6 +53,7 @@ pub fn router(gateway: Gateway) -> Router {
     let admin = Router::new()
         .route("/admin/status", get(status))
         .route("/admin/pair/start", post(pair_routes::start))
+        .route("/admin/pair/pending", get(pair_routes::pending))
         .route("/admin/pair/confirm", post(pair_routes::confirm))
         .route("/admin/devices", get(pair_routes::devices))
         .route("/admin/devices/:id", delete(pair_routes::unpair))

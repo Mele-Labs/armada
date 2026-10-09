@@ -82,6 +82,23 @@ pub async fn confirm(State(gateway): State<Gateway>, Json(body): Json<Confirm>) 
     }
 }
 
+#[derive(Serialize)]
+pub struct PendingView {
+    code: String,
+    name: String,
+    claimed_at: i64,
+}
+
+pub async fn pending(State(gateway): State<Gateway>) -> Response {
+    let all = gateway.pairing.pending();
+    Json(
+        all.into_iter()
+            .map(|(code, name, claimed_at)| PendingView { code, name, claimed_at })
+            .collect::<Vec<_>>(),
+    )
+    .into_response()
+}
+
 pub async fn devices(State(gateway): State<Gateway>) -> Response {
     match gateway.pairing.store.lock().unwrap().paired_devices() {
         Ok(all) => Json(all.into_iter().map(view).collect::<Vec<_>>()).into_response(),
