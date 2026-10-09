@@ -270,6 +270,9 @@ pub struct Fleet<H, V, W> {
     /// Whether a Job's retro is being written. Never written down, for
     /// `proving`'s reason — `crate::retro`.
     reflecting: crate::retro::Reflecting,
+    /// The mod list as last published. Never written down: a rescan after a
+    /// restart sets it again from the folder, and says nothing for doing so.
+    mods: crate::mods::Told,
     /// **This process's** run id, minted once at assembly.
     ///
     /// It names the emitter rather than a record, which is the one id a

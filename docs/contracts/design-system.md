@@ -106,7 +106,7 @@ is allowed only as that light, and never where a person reads a state.
    canvas alone, for the same reason in a file of their own — see Node
    kinds under Tokens. Depth's light and glass never take a
    status hue.
-4. **Dark is primary.** Design dark first. Light exists but is secondary.
+4. **Dark is primary.** Design dark first. Light exists but is secondary. Light is `packages/tokens/src/light.css`; every other theme is described in `docs/concepts/themes.md`.
 5. **Icons: lucide-react only**, used sparingly. A dashboard dense with
    icons reads as noise.
 6. **React Flow (`@xyflow/react`) is the one sanctioned graph surface.** It

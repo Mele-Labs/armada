@@ -129,6 +129,8 @@ mod merging_by_push;
 mod migrating;
 mod model_per_task;
 mod modelling;
+mod mods;
+mod mods_promote;
 mod needs;
 mod needs_served;
 mod needs_status;

@@ -1,0 +1,51 @@
+/* Derived from the Flexoki Light terminal scheme by packages/tokens/themes/generate.mjs. Do not hand-edit.
+   Tone light. foreground 16.3:1, accent 5.6:1 at the worst ground.
+   Lightness moved to reach 4.5:1: success, review, escalated, not-started, killed. */
+[data-theme="catalogue:flexoki-light"] {
+  color-scheme: light;
+  /* Ground */
+  --bg-base: #FFFCF0;
+  --bg-sunken: #F5F2E7;
+  --bg-raised: #FFFEFB;
+  --bg-overlay: #FFFEFB;
+  --bg-hover: #F0EDE2;
+  --border-subtle: #ECE9DE;
+  --border-default: #D9D6CC;
+  --border-strong: #B4B1A9;
+  /* Foreground and accent */
+  --fg-default: #100F0F;
+  --fg-muted: #52504D;
+  --fg-subtle: #6B6965;
+  --fg-inverse: #FFFFFF;
+  --accent: #205EA6;
+  --accent-hover: #20518D;
+  --accent-muted: #DBE2E6;
+  /* Depth */
+  --bg-glass: rgb(255 254 251 / 0.86);
+  --bg-glass-end: rgb(255 252 240 / 0.86);
+  --border-glass: rgb(16 15 15 / 0.08);
+  --border-highlight: rgb(255 255 255 / 0.6);
+  --shadow-overlay: 0 8px 24px -6px rgb(15 23 42 / 0.18), 0 2px 6px -2px rgb(15 23 42 / 0.12);
+  --shadow-card: 0 1px 2px rgb(15 23 42 / 0.08), 0 12px 28px -16px rgb(15 23 42 / 0.25);
+  --scrim: color-mix(in srgb, var(--fg-default) 40%, transparent);
+  /* Status */
+  --status-not-started: #62605A;
+  --status-running: #205EA6;
+  --status-awaiting-review: #7E5600;
+  --status-escalated: #9A4A00;
+  --status-completed-success: #506900;
+  --status-completed-failed: #AF3029;
+  --status-rejected: #A02F6F;
+  --status-killed: #63615D;
+  --status-handed-in: #376867;
+  /* Helm, tools, diff */
+  --helm: #704F8B;
+  --tool-look: #0D766E;
+  --tool-change: #A02F6F;
+  --tool-run: #8A6100;
+  --diff-add-bg: #EAEBD0;
+  --diff-add-fg: #566F00;
+  --diff-del-bg: #F4DFD4;
+  --diff-del-fg: #AF3029;
+  --diff-context: #52504D;
+}

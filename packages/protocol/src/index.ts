@@ -44,6 +44,7 @@ export * from "./kit";
 export * from "./limits";
 export * from "./manifest-proposal";
 export * from "./merge-lines";
+export * from "./mods";
 export * from "./preferences";
 export * from "./proposal";
 export * from "./pending";

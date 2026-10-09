@@ -143,6 +143,12 @@ pub(super) const ROUTES: &[Route] = &[
         method: "GET",
         path: "/events",
     },
+    // The mods on this machine, whole, whenever one was written or switched.
+    Route {
+        operation: "mods.changed",
+        method: "GET",
+        path: "/events",
+    },
     // A session after any fact about it, whole.
     Route {
         operation: "session.changed",

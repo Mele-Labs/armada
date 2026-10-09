@@ -116,3 +116,6 @@ __pycache__/
 
 # Written by crates/fleet/build.rs: one `mod` a test file.
 crates/fleet/src/tests/mods.inc
+
+# The rest of a theme collection, generated on a machine by `packages/tokens/themes/generate.mjs --all`.
+packages/tokens/themes/more/

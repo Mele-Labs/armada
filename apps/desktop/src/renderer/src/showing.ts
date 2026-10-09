@@ -10,6 +10,7 @@ export type Open = {
   clearing: boolean;
   manifesting: boolean;
   settingsShowing: boolean;
+  modding: boolean;
   kitting: boolean;
   guiding: boolean;
   studying: boolean;
@@ -25,6 +26,7 @@ export function showingOf(open: Open): string {
   if (open.clearing) return SURFACE.worktrees;
   if (open.manifesting) return SURFACE.manifest;
   if (open.settingsShowing) return SURFACE.settings;
+  if (open.modding) return SURFACE.mods;
   if (open.kitting) return SURFACE.kit;
   if (open.guiding) return SURFACE.guides;
   if (open.studying) return SURFACE.studios;

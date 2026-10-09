@@ -6,7 +6,7 @@
    4px base grid, deliberately tight. If it feels slightly cramped against
    normal web instincts, it is correct: this window holds a job list, a diff
    and a graph view at once. */
-:root {
+:root, [data-theme] {
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;

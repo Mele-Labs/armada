@@ -1,0 +1,48 @@
+/* Derived from the Flexoki Dark terminal scheme by packages/tokens/themes/generate.mjs. Do not hand-edit.
+   Tone dark. foreground 10.3:1, accent 5.8:1 at the worst ground.
+   Lightness moved to reach 4.5:1: failed, success, running, escalated, rejected, not-started, killed. */
+[data-theme="catalogue:flexoki-dark"] {
+  color-scheme: dark;
+  /* Ground */
+  --bg-base: #100F0F;
+  --bg-sunken: #050404;
+  --bg-raised: #161515;
+  --bg-overlay: #1B1A1A;
+  --bg-hover: #201F1E;
+  --border-subtle: #1F1E1E;
+  --border-default: #2B2A28;
+  --border-strong: #3C3B39;
+  /* Foreground and accent */
+  --fg-default: #CECDC3;
+  --fg-muted: #8A8983;
+  --fg-subtle: #888781;
+  --fg-inverse: #000000;
+  --accent: #3AA99F;
+  --accent-hover: #59AFA4;
+  --accent-muted: #1D2C2A;
+  /* Depth */
+  --bg-glass: rgb(22 21 21 / 0.86);
+  --bg-glass-end: rgb(16 15 15 / 0.86);
+  --border-glass: rgb(255 255 255 / 0.07);
+  --border-highlight: rgb(255 255 255 / 0.05);
+  /* Status */
+  --status-not-started: #95948F;
+  --status-running: #5799D3;
+  --status-awaiting-review: #D0A215;
+  --status-escalated: #D57D36;
+  --status-completed-success: #899C3B;
+  --status-completed-failed: #F06A5B;
+  --status-rejected: #E06DA7;
+  --status-killed: #95948F;
+  --status-handed-in: #709D91;
+  /* Helm, tools, diff */
+  --helm: #A18FA1;
+  --tool-look: #3AA99F;
+  --tool-change: #D15F99;
+  --tool-run: #D0A215;
+  --diff-add-bg: #232516;
+  --diff-add-fg: #879A39;
+  --diff-del-bg: #2F1917;
+  --diff-del-fg: #E25D4F;
+  --diff-context: #8A8983;
+}

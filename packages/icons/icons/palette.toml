@@ -1,0 +1,7 @@
+[icons.palette]
+  means = "A painter's palette"
+  group = "Mods"
+  size = "16px"
+  status = "Specified"
+  reserved = "A mod of kind theme. Another kind of mod takes a glyph of its own."
+  notes = "Tooltip `Theme`. Walked by the owner in the Mods mock."
