@@ -50,6 +50,22 @@ Setup is in [Set up the phone app](../journeys/set-up-the-phone-app.md).
 
 Which Jobs count as needing the owner follows Bridge's Needs you tab, in `needs_you` in the same file.
 
+## Sessions and dispatch
+
+`phone_sessions.rs` builds `PhoneSession` the same way. Needs you holds the Sessions waiting on the owner beside the Jobs.
+
+| Session | The phone shows | The phone can do |
+|---|---|---|
+| Hosted | Title, repository, since when it has waited, and the held ask: its question text and options, or the tool and its one-line detail | Answer a question with the options chosen, or a permission ask with `allow_once` or `refuse` |
+| Terminal | Title, repository, and that it is waiting | Nothing. Answering a Terminal Session is refused with a 409 |
+
+- **A Terminal Session carries no ask**, even where Fleet holds one. Whether a Session is hosted is read from Fleet's own row when the answer arrives, never from the phone.
+- **`allow_and_remember` is never offered.** It writes the owner's personal settings, so the answer type has no such value.
+- **A Session's transcript, files, messages, working directory and environment values never reach the phone.** Nor does any ask but the one it is held on.
+- **Session asks do not push.** They queue in Needs you.
+
+**One-line dispatch.** The phone sends a text and a repository label. The Gateway offers the labels it derives from Fleet's manifests, maps the one chosen to Fleet's manifest id and refuses a label it does not know or two repositories share. The Jobs the text becomes land at awaiting approval, so they appear under Needs you.
+
 ## What pushes
 
 Only a Job that has stopped. The levels are in [Respond to a Push Alert](../journeys/respond-to-a-push-alert.md), *Alert Levels*; this is the Blocked level.

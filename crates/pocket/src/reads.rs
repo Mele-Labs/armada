@@ -8,29 +8,30 @@ use axum::http::{header, StatusCode};
 use axum::response::{IntoResponse, Response};
 use futures_util::stream;
 use hyper::body::Bytes;
-use ipc::{AlertList, JobDetail, JobList, JobSummary, ManifestSummary};
+use ipc::{AlertList, JobDetail, JobList, JobSummary, ManifestSummary, SessionList};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
 use crate::fleet_events::Messages;
 use crate::phone::{done, needs_you, running, PhoneJob};
+use crate::phone_sessions::PhoneSession;
 use crate::{fleet_client, live, Gateway};
 
 /// What the owner is told when Fleet cannot be reached. Each says what to do.
 const NOT_RUNNING: &str = "Armada is not running on your Mac. Open it there, then try again.";
-const NOT_ANSWERING: &str = "Armada is not answering on your Mac. Open it there, then try again.";
-const NOT_READABLE: &str =
+pub(crate) const NOT_ANSWERING: &str = "Armada is not answering on your Mac. Open it there, then try again.";
+pub(crate) const NOT_READABLE: &str =
     "Armada answered in a way this phone cannot read. Update Armada on your Mac.";
 const NO_SUCH_JOB: &str = "That Job is not here.";
 
 /// How many finished Jobs the Done list holds.
 const DONE_SHOWN: usize = 50;
 
-fn refusal(status: StatusCode, sentence: &'static str) -> Response {
+pub(crate) fn refusal(status: StatusCode, sentence: &'static str) -> Response {
     (status, sentence).into_response()
 }
 
-fn port(gateway: &Gateway) -> Result<u16, Response> {
+pub(crate) fn port(gateway: &Gateway) -> Result<u16, Response> {
     (gateway.fleet)().map_err(|_| refusal(StatusCode::SERVICE_UNAVAILABLE, NOT_RUNNING))
 }
 
@@ -54,7 +55,7 @@ async fn read<T: DeserializeOwned>(
     }
 }
 
-async fn required<T: DeserializeOwned>(
+pub(crate) async fn required<T: DeserializeOwned>(
     gateway: &Gateway,
     path: &str,
     what: &'static str,
@@ -64,7 +65,7 @@ async fn required<T: DeserializeOwned>(
         .ok_or_else(|| refusal(StatusCode::BAD_GATEWAY, NOT_READABLE))
 }
 
-fn json<T: Serialize>(value: &T) -> Response {
+pub(crate) fn json<T: Serialize>(value: &T) -> Response {
     match ipc::encode(value) {
         Ok(body) => ([(header::CONTENT_TYPE, "application/json")], body).into_response(),
         Err(_) => refusal(StatusCode::INTERNAL_SERVER_ERROR, NOT_READABLE),
@@ -73,7 +74,7 @@ fn json<T: Serialize>(value: &T) -> Response {
 
 /// Repository labels by Manifest id. A Fleet that will not list them costs the
 /// labels, not the page.
-async fn repositories(gateway: &Gateway) -> BTreeMap<String, String> {
+pub(crate) async fn repositories(gateway: &Gateway) -> BTreeMap<String, String> {
     read::<Vec<ManifestSummary>>(gateway, "/manifests", "a manifest list")
         .await
         .ok()
@@ -91,6 +92,9 @@ fn label<'a>(labels: &'a BTreeMap<String, String>, job: &JobSummary) -> Option<&
 #[derive(Serialize)]
 struct Needs {
     needs: Vec<PhoneJob>,
+    /// Sessions waiting on the owner: a hosted one with its ask, a Terminal
+    /// one as waiting and nothing more.
+    sessions: Vec<PhoneSession>,
 }
 
 #[derive(Serialize)]
@@ -145,7 +149,27 @@ pub async fn needs(State(gateway): State<Gateway>) -> Response {
         phone.waiting_since = since.get(job.id.as_str()).cloned().flatten();
         needs.push(phone);
     }
-    json(&Needs { needs })
+    // A Fleet that will not list Sessions costs the Sessions, not the page.
+    let mut sessions: Vec<PhoneSession> =
+        read::<SessionList>(&gateway, "/sessions?state=live", "a session list")
+            .await
+            .ok()
+            .flatten()
+            .map(|list| list.sessions)
+            .unwrap_or_default()
+            .iter()
+            .map(|record| {
+                let repository = record
+                    .manifest_id
+                    .as_ref()
+                    .and_then(|id| labels.get(id.as_str()))
+                    .map(String::as_str);
+                PhoneSession::of(record, repository)
+            })
+            .filter(|session| session.waiting)
+            .collect();
+    sessions.sort_by(|a, b| (&a.waiting_since, &a.id).cmp(&(&b.waiting_since, &b.id)));
+    json(&Needs { needs, sessions })
 }
 
 #[derive(Deserialize)]
