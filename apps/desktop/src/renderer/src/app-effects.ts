@@ -3,6 +3,7 @@
 // notification lands. Each is App's, and each says why it is the way it is.
 
 import { useEffect, useState } from "react";
+import { isPressed } from "@armada/components";
 
 /** How often the elapsed figures are redrawn. They are read, so they must move. */
 const TICK_MS = 1000;
@@ -30,7 +31,7 @@ export function useEscapeLeavesJob(openJob: string | null, close: () => void): v
       // One view to leave, since the turns stopped being a screen of their own:
       // Escape returns to the list from anywhere inside a Job.
       // A press a layer above already answered — the palette, a sheet — is not a second exit.
-      if (event.key !== "Escape" || event.defaultPrevented) return;
+      if (event.defaultPrevented || !isPressed("close", event)) return;
       close();
     };
     window.addEventListener("keydown", pressed);

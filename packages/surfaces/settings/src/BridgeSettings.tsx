@@ -1,6 +1,9 @@
 // Fleet's four limits, and this machine's own settings, on one screen. #1089
 // — the sheet these limits used to live behind opened from the status bar,
-// gone since #1088, and had no rail row to open it from once it was.
+// gone since #1088, and had no rail row to open it from once it was. The
+// screen is split into categories with a search over every setting, one
+// category drawn at a time, since it had grown into one long list to scroll
+// (`./sections.ts`).
 //
 // **`BridgeSettings`, not `Settings`.** `./settings.tsx` is a Job's own —
 // `SettingsSheet`, its caps and its choices — and the two would collide by
@@ -18,14 +21,17 @@ import {
   FleetSettings,
   GuidesSetting,
   MachineSettings,
+  SettingsIndex,
   Switch,
   type FleetSettingsRow,
 } from "@armada/components";
 import type { FleetLimits, HelmActionAuthority, Outcome, Preferences, SaveLimits, SavePreference } from "@armada/protocol";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
+import { KeyboardSettings, keyboardMatches } from "./KeyboardSettings";
 import { LayoutSettings } from "./LayoutSettings";
 import { PhoneSettings } from "./PhoneSettings";
 import { ThemeSettings } from "./ThemeSettings";
+import { matchesIn, SETTINGS_SECTIONS, useSettingsSection, type SettingsSectionId } from "./sections";
 import type { HealthRead } from "@armada/screens/src/overview-reads";
 
 /** One of the four fields a row may send, by its wire name. */
@@ -68,21 +74,29 @@ export function helmActionAuthorityValue(health: HealthRead): string | undefined
 const WORDS: Record<HelmActionAuthority, string> = { acting: "Acting", read_only: "Read-only" };
 
 export function BridgeSettings({ limits, live, health, onSave, preferences, onSavePreference, onReadGuides, onCopied }: BridgeSettingsProps) {
-  return (
-    <div className="armada-screen__pane">
-      {/* Before Fleet answers there is nothing to draw: no heading over nothing. */}
-      {limits === null ? null : (
-        <Card>
-          <CardHeader>
-            <CardTitle>Fleet</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <FleetLimitsFields limits={limits} live={live} onSave={onSave} />
-          </CardContent>
-        </Card>
-      )}
+  const [current, setCurrent] = useSettingsSection();
+  const [query, setQuery] = useState("");
+  const searching = query.trim() !== "";
+  const counted = SETTINGS_SECTIONS.map((section) => ({
+    id: section.id,
+    label: section.label,
+    matches: searching ? matchesIn(section, query) + (section.id === "keyboard" ? keyboardMatches(query) : 0) : 0,
+  }));
+  const shown = searching ? counted.filter((one) => one.matches > 0).map((one) => one.id) : [current];
 
-      <Card>
+  const body: Record<SettingsSectionId, () => ReactNode> = {
+    fleet: () => (
+      <Card key="fleet">
+        <CardHeader>
+          <CardTitle>Fleet</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {limits === null ? <p className="armada-settings__quiet">Fleet has not answered yet, so its limits are not here.</p> : <FleetLimitsFields limits={limits} live={live} onSave={onSave} />}
+        </CardContent>
+      </Card>
+    ),
+    machine: () => (
+      <Card key="machine">
         <CardHeader>
           <CardTitle>This machine</CardTitle>
         </CardHeader>
@@ -102,10 +116,10 @@ export function BridgeSettings({ limits, live, health, onSave, preferences, onSa
           )}
         </CardContent>
       </Card>
-
-      <PhoneSettings {...(onCopied === undefined ? {} : { onCopied })} />
-
-      <Card>
+    ),
+    phone: () => <PhoneSettings key="phone" {...(onCopied === undefined ? {} : { onCopied })} />,
+    theme: () => (
+      <Card key="theme">
         <CardHeader>
           <CardTitle>Theme</CardTitle>
         </CardHeader>
@@ -113,8 +127,9 @@ export function BridgeSettings({ limits, live, health, onSave, preferences, onSa
           <ThemeSettings />
         </CardContent>
       </Card>
-
-      <Card>
+    ),
+    layout: () => (
+      <Card key="layout">
         <CardHeader>
           <CardTitle>Layout</CardTitle>
         </CardHeader>
@@ -122,8 +137,19 @@ export function BridgeSettings({ limits, live, health, onSave, preferences, onSa
           <LayoutSettings />
         </CardContent>
       </Card>
-
-      <Card>
+    ),
+    keyboard: () => (
+      <Card key="keyboard">
+        <CardHeader>
+          <CardTitle>Keyboard shortcuts</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <KeyboardSettings query={query} />
+        </CardContent>
+      </Card>
+    ),
+    guides: () => (
+      <Card key="guides">
         <CardHeader>
           <CardTitle>Guides</CardTitle>
         </CardHeader>
@@ -131,6 +157,14 @@ export function BridgeSettings({ limits, live, health, onSave, preferences, onSa
           <GuidesSetting {...(onReadGuides === undefined ? {} : { onReadGuides })} />
         </CardContent>
       </Card>
+    ),
+  };
+
+  return (
+    <div className="armada-screen__pane">
+      <SettingsIndex sections={counted} current={current} onSection={(id) => setCurrent(id as SettingsSectionId)} query={query} onQuery={setQuery}>
+        {shown.map((id) => body[id]())}
+      </SettingsIndex>
     </div>
   );
 }

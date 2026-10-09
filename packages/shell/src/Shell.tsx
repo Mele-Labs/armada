@@ -64,11 +64,13 @@
 import { FileCog } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
-  ACTION,
   Button,
   DockQuestions,
   DropdownMenu,
+  isPressed,
+  keyFor,
   TheShell,
+  useKeyBindings,
   type DockQuestion,
   type DropdownMenuEntry,
   type FleetPanelProps,
@@ -179,6 +181,8 @@ export function Shell({
   helmAction,
   children,
 }: ShellProps) {
+  // The chrome draws keys — Helm's, the rail's digits — so it redraws when Settings → Keyboard moves one.
+  useKeyBindings();
   const narrow = useNarrow();
   const dock = useDock(narrow);
   // One band, the window's own, and one press. It was two bands until #1583,
@@ -206,7 +210,7 @@ export function Shell({
         // row has no room for its button, which is not the same question as
         // whether the left column is at its rail.
         folded: narrow,
-        binding: HELM_KEY,
+        binding: keyFor("helm"),
         questions: questions.length + asking,
         width: dockWidth,
         onResize: resizeDock,
@@ -245,7 +249,7 @@ export function Shell({
       // No control under the breakpoint: there the rail is the only width
       // there is, and a toggle that cannot expand is a press that does nothing.
       {...(narrow ? {} : { onCollapsedChange: chooseCollapsed })}
-      {...(SIDEBAR_KEY === undefined ? {} : { collapseBinding: SIDEBAR_KEY })}
+      collapseBinding={keyFor("toggle_sidebar")}
       leftWidth={leftWidth}
       onResizeLeft={resizeLeft}
       repositoryMenu={{
@@ -378,11 +382,6 @@ function repositoryEntries(
   return entries;
 }
 
-/** Helm's binding, read from the registry rather than retyped. */
-const HELM_KEY = ACTION.helm?.shortcut;
-
-/** The left column's own, `toggle_sidebar` — `⌘\`. Same registry, same rule. */
-const SIDEBAR_KEY = ACTION.toggle_sidebar?.shortcut;
 
 /**
  * `⌘\` collapses the left column to its rail and brings it back — #1591.
@@ -397,10 +396,10 @@ function useToggleSidebar(narrow: boolean, toggle: () => void): void {
   press.current = toggle;
 
   useEffect(() => {
-    if (SIDEBAR_KEY === undefined || narrow) return undefined;
+    if (narrow) return undefined;
     function pressed(event: KeyboardEvent): void {
-      if (!(event.metaKey || event.ctrlKey) || event.altKey || event.shiftKey || event.repeat) return;
-      if (`⌘${event.key.toUpperCase()}` !== SIDEBAR_KEY) return;
+      // `toggle_sidebar`'s keys as this person has them — `⌘\` unless Settings → Keyboard moved it.
+      if (event.repeat || !isPressed("toggle_sidebar", event)) return;
       event.preventDefault();
       press.current();
     }
@@ -433,10 +432,8 @@ function useDock(folded: boolean): { open: boolean; onOpen: (open: boolean) => v
   toggle.current = () => onOpen(!open);
 
   useEffect(() => {
-    if (HELM_KEY === undefined) return undefined;
     function pressed(event: KeyboardEvent): void {
-      if (!(event.metaKey || event.ctrlKey) || event.altKey || event.shiftKey || event.repeat) return;
-      if (`⌘${event.key.toUpperCase()}` !== HELM_KEY) return;
+      if (event.repeat || !isPressed("helm", event)) return;
       event.preventDefault();
       toggle.current();
     }

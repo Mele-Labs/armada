@@ -5,7 +5,7 @@
 
 import { useEffect, useRef, type KeyboardEvent } from "react";
 import { Send } from "lucide-react";
-import { Kbd, REQUEST_PLACEHOLDER, Tabs, Tooltip, useKept } from "@armada/components";
+import { isPressed, Kbd, keyFor, REQUEST_PLACEHOLDER, Tabs, Tooltip, useKept } from "@armada/components";
 import { holdsText } from "@armada/screens/src/keys";
 
 import { useSessionsDraft } from "./sessions-draft";
@@ -53,9 +53,12 @@ export function useDispatchBarKeys(toDashboard: () => void): void {
   go.current = toDashboard;
   useEffect(() => {
     function press(event: KeyboardEvent | globalThis.KeyboardEvent): void {
-      // A capital N is a Studio's Note, so a bare press must be the lowercase n.
-      if ((event.metaKey ? event.key.toLowerCase() : event.key) !== "n" || event.repeat || event.defaultPrevented || event.altKey || event.ctrlKey || event.shiftKey) return;
-      const chord = event.metaKey;
+      // `new_job` and `dispatch_from_field`, as this person has them. A capital N is a Studio's Note,
+      // and the keymap reads shift exactly, so a bare press is the lowercase n.
+      if (event.repeat || event.defaultPrevented) return;
+      const bare = isPressed("new_job", event);
+      const chord = !bare && isPressed("dispatch_from_field", event);
+      if (!bare && !chord) return;
       if (!drawn || (!chord && holdsText(event.target)) || document.querySelector('[role="dialog"]') !== null) return;
       event.preventDefault();
       event.stopPropagation();
@@ -131,8 +134,8 @@ export function QuickDispatch({
           </Tooltip>
         </span>
       )}
-      <Tooltip label="Dispatch" shortcut="N">
-        <Kbd>N</Kbd>
+      <Tooltip label="Dispatch" shortcut={keyFor("new_job")}>
+        <Kbd>{keyFor("new_job").toUpperCase()}</Kbd>
       </Tooltip>
     </label>
   );

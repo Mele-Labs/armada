@@ -194,6 +194,10 @@
      --w-step-panel-min, so the request column beside it keeps taking the
      slack and this one yields first on a narrow window. */
   --w-proposal-settings: 448px;
+  /* 224px: the categories down the side of Settings and the search over them. Wide enough for its
+     longest name, `Keyboard shortcuts`, with a match count beside it, and no wider: the category
+     chosen is what the screen is for. */
+  --w-settings-index: 224px;
   /* 380px: Helm's dock, over the content on every surface at
      --layout-breakpoint and wider. Decided with the owner on 13 Sep (#948).
      The same number as --w-run-column and not borrowed from it: that one is a

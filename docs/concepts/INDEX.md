@@ -23,6 +23,7 @@ assuming it is restated here.
 | [job-proposer.md](job-proposer.md) | The model call that reads a dispatch request and proposes a Job |
 | [job.md](job.md) | The unit of work Fleet dispatches to a Drone — data, not an actor |
 | [judge.md](judge.md) | The semantic, veto-only tier of evidence verification |
+| [key-bindings.md](key-bindings.md) | The keys each act answers as this person has them: the registry's, with Settings → Keyboard shortcuts laid over them and kept by Fleet |
 | [kit.md](kit.md) | The tool set you bring — Skills, MCP, sub agents, Commands, the allowlist |
 | [landing.md](landing.md) | How a Job's work reaches its target — one pull request, or members landing in order |
 | [layout-mods.md](layout-mods.md) | A mod whose `layout.json` reorders, hides and sets the opening choice of Bridge's Dashboard, Job tabs and rail, by id |

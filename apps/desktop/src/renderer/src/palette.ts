@@ -188,10 +188,11 @@ export type PaletteHands = {
   /**
    * Go to the settings row's own screen, by the id `settings` was given.
    *
-   * **One row today, so one id.** `fleet_settings` goes to the Settings
-   * screen; the switch lives with the app that owns navigation rather than
-   * here, the way `surface` and `run` already read their id against the
-   * screen that answers for it.
+   * **One row per category of Settings.** `fleet_settings` and each
+   * `settings:<category>` go to the Settings screen at that category; the
+   * switch lives with the app that owns navigation rather than here, the way
+   * `surface` and `run` already read their id against the screen that
+   * answers for it.
    */
   openSetting: (id: string) => void;
   /** Re-read everything Fleet holds — `⇧⌘R`'s act. */

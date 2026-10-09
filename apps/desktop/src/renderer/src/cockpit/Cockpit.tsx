@@ -6,7 +6,7 @@
 
 import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Box, CircleDashed, GitMerge, LayoutGrid, Orbit, SquareTerminal } from "lucide-react";
-import { Button, Kbd, Tabs, Tooltip, actionOf, keyFor } from "@armada/components";
+import { Button, Kbd, Tabs, Tooltip, actionOf, isPressed, keyFor, pressedDigit, pressedSlot } from "@armada/components";
 import type { RepositorySummary } from "@armada/protocol";
 import type { Session } from "@armada/screens/src/draft/sessions";
 import type { CallView } from "@armada/jobs/draft/calls";
@@ -26,7 +26,7 @@ import { useSessions } from "../sessions-draft";
 import { CallCard, type CardKeys } from "./CallCard";
 import { FleetMap } from "./FleetMap";
 import { useLayout } from "@armada/shell";
-import { TAB_KEYS, useFilters } from "./keys";
+import { tabKeys, useFilters } from "./keys";
 import { dotsOf, type Dot } from "./horizon";
 import { sessionIdOf } from "./waiting";
 import { nearest, skyOf } from "./map-layout";
@@ -302,13 +302,17 @@ export function Cockpit({
   useBoardKeys(instruments, at, setSelected, hosts, front === undefined && leaving === undefined);
   const answering = useRef<CardKeys | undefined>(undefined);
   useListKeydown((event) => {
-    if (event.metaKey || event.ctrlKey || event.altKey) return;
-    const moves = ["j", "k", "ArrowDown", "ArrowUp", "ArrowLeft", "ArrowRight"].includes(event.key);
+    // Every act's keys are the keymap's, which reads modifiers exactly. The arrows that move across the
+    // glass are spatial rather than an act, and stay bare keys.
+    const bare = !(event.metaKey || event.ctrlKey || event.altKey);
+    const arrow = bare && ["ArrowDown", "ArrowUp", "ArrowLeft", "ArrowRight"].includes(event.key);
+    const step = pressedSlot("move_focus", event);
+    const moves = step !== -1 || arrow;
     if (event.repeat && !moves) return;
     if (holdsText(event.target)) {
       // The dispatch bar is always empty: Escape or Down hands the keys back to the glass.
       const field = event.target;
-      if (field instanceof HTMLInputElement && field.value === "" && (event.key === "Escape" || event.key === "ArrowDown")) {
+      if (field instanceof HTMLInputElement && field.value === "" && (isPressed("close", event) || (bare && event.key === "ArrowDown"))) {
         event.preventDefault();
         field.blur();
       }
@@ -316,7 +320,7 @@ export function Cockpit({
     }
     if (leaving !== undefined) {
       // Enter is not said again: a second press must never send the next call.
-      if (event.key !== "Enter") typed.current.push({ key: event.key, code: event.code, shiftKey: event.shiftKey });
+      if (bare && !isPressed("call_send", event)) typed.current.push({ key: event.key, code: event.code, shiftKey: event.shiftKey });
       return;
     }
     const claim = () => event.preventDefault();
@@ -324,39 +328,30 @@ export function Cockpit({
     if (front !== undefined) {
       const card = answering.current;
       if (card === undefined) return;
-      if (/^[1-9]$/.test(event.key)) return claim(), card.pickNumber(Number(event.key));
-      if (card.pickKey(event.key)) return claim();
-      switch (event.key) {
-        case keyFor("call_reply"): {
-          const field = document.querySelector<HTMLTextAreaElement>(".armada-callcard__reply textarea");
-          return field === null ? undefined : (claim(), field.focus());
-        }
-        case keyFor("call_expand"):
-          return card.expand === undefined ? undefined : (claim(), card.expand());
-        case "ArrowDown":
-        case "j":
-          return claim(), card.step(1);
-        case "ArrowUp":
-        case "k":
-          return claim(), card.step(-1);
-        case "Enter":
-          // A button on the card fires itself on Enter; one elsewhere (the filter just pressed) is not the answer.
-          if ((event.target as HTMLElement).tagName === "BUTTON" && document.querySelector(".armada-callcard")?.contains(event.target as Node) === true) return;
-          return card.canSend ? (claim(), card.send()) : undefined;
-        case keyFor("call_later"):
-        case "Escape":
-          // Nothing else on the card acts while an answer is out, or the answer would clear the wrong one.
-          return claim(), card.pending === undefined ? later() : undefined;
-        case keyFor("call_dismiss"):
-          return claim(), card.dismiss();
-        case "o":
-          return card.open === undefined ? undefined : (claim(), card.open());
+      const digit = pressedDigit("call_pick", event);
+      if (digit !== null) return claim(), card.pickNumber(digit);
+      if (card.pickKey(event)) return claim();
+      if (isPressed("call_reply", event)) {
+        const field = document.querySelector<HTMLTextAreaElement>(".armada-callcard__reply textarea");
+        return field === null ? undefined : (claim(), field.focus());
       }
+      if (isPressed("call_expand", event)) return card.expand === undefined ? undefined : (claim(), card.expand());
+      if (step === 0 || step === 2) return claim(), card.step(1);
+      if (step === 1 || step === 3) return claim(), card.step(-1);
+      if (isPressed("call_send", event)) {
+        // A button on the card fires itself on Enter; one elsewhere (the filter just pressed) is not the answer.
+        if ((event.target as HTMLElement).tagName === "BUTTON" && document.querySelector(".armada-callcard")?.contains(event.target as Node) === true) return;
+        return card.canSend ? (claim(), card.send()) : undefined;
+      }
+      // Nothing else on the card acts while an answer is out, or the answer would clear the wrong one.
+      if (isPressed("call_later", event) || isPressed("close", event)) return claim(), card.pending === undefined ? later() : undefined;
+      if (isPressed("call_dismiss", event)) return claim(), card.dismiss();
+      if (isPressed("open", event)) return card.open === undefined ? undefined : (claim(), card.open());
       return;
     }
 
-    if (event.key === keyFor("dashboard_view")) return claim(), setView(view === "map" ? "grid" : "map");
-    if (view === "map" && ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) {
+    if (isPressed("dashboard_view", event)) return claim(), setView(view === "map" ? "grid" : "map");
+    if (view === "map" && arrow) {
       const next = nearest(sky.stars, current?.key ?? "", event.key as "ArrowLeft");
       return next === undefined ? undefined : (claim(), setSelected(next));
     }
@@ -365,18 +360,19 @@ export function Cockpit({
       const next = instruments[Math.min(instruments.length - 1, Math.max(0, at + by))];
       if (next !== undefined) setSelected(next.key);
     };
-    switch (event.key) {
-      case "ArrowRight":
-        return claim(), to(1);
-      case "ArrowLeft":
-        return claim(), to(-1);
-      case "ArrowDown":
-        return claim(), to(cols);
-      case "ArrowUp":
-        return claim(), to(-cols);
-      case keyFor("call_recall"):
-        return edge[0] === undefined ? undefined : (claim(), recall(edge[0].key));
+    if (arrow) {
+      switch (event.key) {
+        case "ArrowRight":
+          return claim(), to(1);
+        case "ArrowLeft":
+          return claim(), to(-1);
+        case "ArrowDown":
+          return claim(), to(cols);
+        case "ArrowUp":
+          return claim(), to(-cols);
+      }
     }
+    if (isPressed("call_recall", event)) return edge[0] === undefined ? undefined : (claim(), recall(edge[0].key));
   });
 
   // Calls that have stood behind another: when one comes to the front it slides up from there.
@@ -400,11 +396,11 @@ export function Cockpit({
         <header className="armada-view__band">
           <span className="armada-view__filters">
             <Tooltip label="Previous filter">
-              <Kbd>{TAB_KEYS.previous}</Kbd>
+              <Kbd>{tabKeys().previous}</Kbd>
             </Tooltip>
             <Tabs items={filters} value={filter} onChange={(id) => onFilter(id as DashboardTab)} />
             <Tooltip label="Next filter">
-              <Kbd>{TAB_KEYS.next}</Kbd>
+              <Kbd>{tabKeys().next}</Kbd>
             </Tooltip>
           </span>
           <span className="armada-view__keys">

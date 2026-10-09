@@ -23,6 +23,11 @@ export type Preferences = {
    * layout mod (`docs/concepts/layout-mods.md`). Absent is none made.
    */
   layout_choices?: string;
+  /**
+   * The owner's own key bindings, as the JSON Settings → Keyboard wrote: an act's id to the keys it
+   * answers in place of the registry's (`docs/concepts/key-bindings.md`). Absent is none changed.
+   */
+  key_bindings?: string;
 };
 
 /**
@@ -34,7 +39,7 @@ export type SavePreference = {
   name: string;
   value: boolean;
   /**
-   * The value of a preference that is text and not a switch, which is `theme` and `layout_choices`.
+   * The value of a preference that is text and not a switch, which is `theme`, `layout_choices` and `key_bindings`.
    * `value` is read for every other name and this is read for none of them. An empty `layout_choices`
    * takes the owner's choices back; text that is not a `layout.json` is a 422 `fleet.unacceptable_layout`.
    */

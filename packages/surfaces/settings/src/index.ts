@@ -7,3 +7,6 @@ export { PhoneSourceProvider } from "./phone-source";
 export type { PhoneGateway, PhoneSource, PhoneState } from "./phone-source";
 export { createPhoneGatewaySource } from "./phone-gateway-source";
 export type { PhoneAsk } from "./phone-gateway-source";
+export { KeyboardSettings } from "./KeyboardSettings";
+export { openSettingsAt, SETTINGS_PALETTE, SETTINGS_SECTIONS, useSettingsSection } from "./sections";
+export type { SettingsSectionId } from "./sections";

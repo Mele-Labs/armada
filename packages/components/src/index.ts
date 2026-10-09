@@ -168,6 +168,8 @@ export * from "./concepts";
 // aliases and the context filter, which are Bridge's readings of it and not
 // the registry's.
 export * from "./actions";
+// The keys each act answers now, with a person's own bindings laid over the registry's.
+export * from "./keymap";
 
 // Whether Cmd is held, for a control that carries a Global-tier binding to
 // show its own `Kbd` badge. `TheShell` is the one provider; any control
@@ -451,4 +453,6 @@ export * from "./compositions/PullRequestActs/PullRequestActs";
 export * from "./compositions/Pilot/Pilot";
 export * from "./compositions/ModRow/ModRow";
 export * from "./compositions/LayoutRow/LayoutRow";
+export * from "./compositions/SettingsIndex/SettingsIndex";
+export * from "./compositions/KeyBindingRow/KeyBindingRow";
 export * from "./compositions/PhonePairing/PhonePairing";

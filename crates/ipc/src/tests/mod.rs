@@ -42,6 +42,7 @@ mod limits;
 mod mcp;
 mod merge_hub;
 mod layout;
+mod key_bindings;
 mod mods;
 mod needing;
 /// The one tool the harness calls rather than the model, and the two answers.

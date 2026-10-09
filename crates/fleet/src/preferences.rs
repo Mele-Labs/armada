@@ -19,6 +19,7 @@ fn as_wire(preferences: store::Preferences) -> Preferences {
         draft_pull_requests: preferences.draft_pull_requests,
         theme: preferences.theme,
         layout_choices: preferences.layout_choices,
+        key_bindings: preferences.key_bindings,
     }
 }
 
@@ -26,6 +27,8 @@ fn as_wire(preferences: store::Preferences) -> Preferences {
 const UNACCEPTABLE_THEME: &str = "fleet.unacceptable_theme";
 /// A `save_preferences` for `layout_choices` carrying text `layout.json` would refuse. A 422.
 const UNACCEPTABLE_LAYOUT: &str = "fleet.unacceptable_layout";
+/// A `save_preferences` for `key_bindings` carrying text Bridge could not read. A 422.
+const UNACCEPTABLE_KEY_BINDINGS: &str = "fleet.unacceptable_key_bindings";
 
 impl<H, V, W> Fleet<H, V, W>
 where
@@ -81,10 +84,24 @@ where
                 )));
             }
         }
+        let saving_keys = save.name == "key_bindings";
+        if saving_keys {
+            let text = save.text.as_deref().unwrap_or_default();
+            // Empty takes the bindings back, as it does the layout.
+            if let Some(first) = ipc::key_bindings::problems(text).first().filter(|_| !text.is_empty()) {
+                return Err(Refusal::Unacceptable(ipc::WireError::raised(
+                    UNACCEPTABLE_KEY_BINDINGS,
+                    format!("the key bindings could not be read: {first}"),
+                    self.run_id(),
+                )));
+            }
+        }
         let mut store = self.store().lock().await;
-        let saved = match (saving_theme, saving_layout) {
-            (true, _) => store.save_theme(save.text.as_deref().unwrap_or_default()),
-            (_, true) => store.save_layout_choices(save.text.as_deref().unwrap_or_default()),
+        let text = save.text.as_deref().unwrap_or_default();
+        let saved = match (saving_theme, saving_layout, saving_keys) {
+            (true, _, _) => store.save_theme(text),
+            (_, true, _) => store.save_layout_choices(text),
+            (_, _, true) => store.save_key_bindings(text),
             _ => store.save_preference(&save.name, save.value),
         };
         saved

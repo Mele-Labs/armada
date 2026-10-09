@@ -3,9 +3,8 @@
 // The mouse's back and forward buttons, 3 and 4, are the same input.
 
 import { useEffect, useRef } from "react";
-import { keyFor } from "@armada/components";
+import { pressedSlot } from "@armada/components";
 
-const [BACK, FORWARD] = keyFor("history").split(" ").map((chord) => chord.slice(-1));
 
 /** Whether a press landed where `⌘[` and `⌘]` already mean outdent and indent. */
 function inEditor(target: EventTarget | null): boolean {
@@ -19,11 +18,12 @@ export function useHistoryKeys(onBack: () => void, onForward: () => void): void 
 
   useEffect(() => {
     function pressed(event: KeyboardEvent): void {
-      if (!event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-      if (event.key !== BACK && event.key !== FORWARD) return;
+      // Slot 0 is back and slot 1 forward, as the registry spells them and Settings → Keyboard names them.
+      const slot = pressedSlot("history", event);
+      if (slot === -1) return;
       if (inEditor(event.target)) return;
       event.preventDefault();
-      if (event.key === BACK) latest.current.onBack();
+      if (slot === 0) latest.current.onBack();
       else latest.current.onForward();
     }
     function clicked(event: MouseEvent): void {

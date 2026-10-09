@@ -1,0 +1,106 @@
+/* Settings split into categories: the search and the categories down the side, the chosen one beside
+   them. Each column scrolls itself, so the categories stay in reach from deep in a long one. */
+.armada-settings-index {
+  container-type: inline-size;
+  min-width: 0;
+}
+
+.armada-settings-index__grid {
+  display: grid;
+  grid-template-columns: var(--w-settings-index) minmax(0, 1fr);
+  column-gap: var(--space-6);
+  align-items: start;
+  min-width: 0;
+}
+
+.armada-settings-index__side {
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.armada-settings-index__tabs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.armada-settings-index__tab {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--fg-muted);
+  font: inherit;
+  font-size: var(--text-sm);
+  text-align: left;
+  cursor: pointer;
+}
+
+.armada-settings-index__tab:hover {
+  background: var(--surface-row-hover);
+  color: var(--fg-default);
+}
+
+.armada-settings-index__tab[aria-selected="true"] {
+  background: var(--surface-row-selected);
+  color: var(--fg-default);
+}
+
+.armada-settings-index__tab:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.armada-settings-index__count {
+  color: var(--fg-subtle);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.armada-settings-index__none {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  color: var(--fg-muted);
+  font-size: var(--text-sm);
+}
+
+.armada-settings-index__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  min-width: 0;
+}
+
+/* Narrow, the categories run across the top and the chosen one is under them. */
+/* armada-allow-off-contract: a container condition cannot read a custom property, JobDetailHeaderActions' reason
+   640px is two --w-settings-index columns' worth plus the gap, where a card beside them is narrower than the index — docs/contracts/design-system.md */
+@container (max-width: 640px) {
+  .armada-settings-index__grid {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: var(--space-4);
+  }
+
+  .armada-settings-index__side {
+    position: static;
+  }
+
+  .armada-settings-index__tabs {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+}
+
+/* A category with nothing in it yet says so in the body's own quiet voice. */
+.armada-settings__quiet {
+  margin: 0;
+  color: var(--fg-muted);
+  font-size: var(--text-sm);
+}
