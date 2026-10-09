@@ -817,3 +817,38 @@ async fn a_pull_request_settled_too_soon_is_stood_back_up_while_it_is_open() {
     let row = held.iter().find(|one| one.kind == "pr").expect("the row");
     assert_eq!(row.state, AttachmentState::Standing);
 }
+
+/// A slot's lease names the branch worked in it, and a session that stands in the slot holds that
+/// branch, so the pull request from it is the session's without anyone reporting the branch.
+#[tokio::test]
+async fn a_pull_request_from_the_branch_a_sessions_slot_is_leased_on_is_attached_to_it() {
+    let rig = a_rig_holding(None);
+    let root = rig.fleet.repositories().first().unwrap().root().to_string();
+    let slot = adapter_traits::slot_path(&root, 3);
+    std::fs::create_dir_all(&slot).unwrap();
+    std::fs::write(
+        format!("{slot}.lease"),
+        "branch docs/approve\nholder job somebody\nsince 1\n",
+    )
+    .unwrap();
+    rig.fleet
+        .report_session(SessionReport {
+            harness: "a_harness".into(),
+            session_id: SessionId::carried("s-in-slot"),
+            fact: SessionFact::Started {
+                cwd: slot,
+                title: None,
+                origin: SessionOrigin::Terminal,
+                mod_version: None,
+            },
+        })
+        .await
+        .unwrap();
+    let mut mine = pull(21, vec![]);
+    mine.branch = FromOutside::verbatim("docs/approve");
+    rig.fleet.vcs().main_ci.watched_are(Some(vec![mine]));
+
+    rig.reads().await;
+
+    assert_eq!(rig.holders_of_pull(21).await, vec!["s-in-slot".to_string()]);
+}

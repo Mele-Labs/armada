@@ -64,6 +64,14 @@ pub fn holder_of(path: &Path) -> Option<Holder> {
     Record::read(Path::new(&record)).map(|record| record.holder)
 }
 
+/// The branch the record beside the slot at `path` names; `None` where nobody
+/// holds it.
+pub fn branch_of(path: &Path) -> Option<String> {
+    let mut record = path.as_os_str().to_owned();
+    record.push(".lease");
+    Record::read(Path::new(&record)).map(|record| record.branch)
+}
+
 /// One repository's pool.
 #[derive(Clone, Debug)]
 pub struct Pool {

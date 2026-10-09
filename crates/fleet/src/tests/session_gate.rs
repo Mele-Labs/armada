@@ -46,6 +46,15 @@ async fn in_its_slot(peers: &Arc<Placing>) -> (Rig, ipc::SessionId) {
         )
         .await;
     assert!(denied(&first));
+    // The stand-in vcs writes no record; the real pool holds the slot for the
+    // session by its id.
+    let at = adapter_traits::slot_path(&rig.root, 1);
+    std::fs::create_dir_all(&at).expect("a slot");
+    std::fs::write(
+        format!("{at}.lease"),
+        format!("branch sessions/own\nholder job {}\nsince 1\n", id.as_str()),
+    )
+    .expect("a lease record");
     rig.stand_in.finishes(0, "stopping");
     eventually(|| async { rig.stand_in.starts().len() == 2 }).await;
     rig.stand_in.init(1);
@@ -159,4 +168,58 @@ async fn a_shell_line_that_names_the_main_checkout_is_held_like_a_write() {
 #[derive(serde::Serialize)]
 struct Quoted<'a> {
     command: &'a str,
+}
+
+async fn standing(rig: &Rig, id: &ipc::SessionId, kind: &str) -> Vec<String> {
+    rig.fleet
+        .store()
+        .lock()
+        .await
+        .attachments_of(&store::Holder::session(id.as_str()))
+        .expect("the ledger")
+        .into_iter()
+        .filter(|one| one.kind == kind && one.state == store::AttachmentState::Standing)
+        .map(|one| one.target)
+        .collect()
+}
+
+#[tokio::test]
+async fn a_slot_the_agent_released_by_the_cli_is_given_back_in_the_ledger() {
+    let peers = Placing::nothing();
+    let (rig, id) = in_its_slot(&peers).await;
+    let own = adapter_traits::slot_path(&rig.root, 1);
+    let file = format!(r#"{{"file_path":"{own}/src/lib.rs"}}"#);
+    assert!(!denied(&rig.gate(&id, "Edit", &file).await));
+    assert_eq!(standing(&rig, &id, "slot").await, vec!["1"]);
+
+    // `armada worktree release` removes the record; the slot is then held by
+    // another session's agent.
+    std::fs::remove_file(format!("{own}.lease")).expect("released");
+    let me = std::process::id();
+    lease(&rig, 1, me, &started(me));
+    assert!(denied(&rig.gate(&id, "Edit", &file).await));
+    assert!(standing(&rig, &id, "slot").await.is_empty());
+    assert!(standing(&rig, &id, "branch").await.is_empty());
+    let hosting = rig.fleet.store().lock().await.hosting(id.as_str()).unwrap().unwrap();
+    assert_eq!(hosting.lease_slot, None);
+}
+
+#[tokio::test]
+async fn a_slot_the_agent_leased_by_the_cli_is_attached_and_writable() {
+    let peers = Placing::nothing();
+    let (rig, id) = in_its_slot(&peers).await;
+    let own = adapter_traits::slot_path(&rig.root, 1);
+    std::fs::remove_file(format!("{own}.lease")).expect("released");
+
+    // The agent (pid 1001, under its keeper) runs the command, whose caller is
+    // the agent itself.
+    let me = std::process::id();
+    let theirs = lease(&rig, 5, me, &started(me));
+    peers.started(1001, me);
+    let file = format!(r#"{{"file_path":"{theirs}/src/lib.rs"}}"#);
+    assert!(!denied(&rig.gate(&id, "Edit", &file).await));
+    assert_eq!(standing(&rig, &id, "slot").await, vec!["5"]);
+    assert_eq!(standing(&rig, &id, "branch").await, vec!["sessions/next"]);
+    let hosting = rig.fleet.store().lock().await.hosting(id.as_str()).unwrap().unwrap();
+    assert_eq!(hosting.lease_slot, Some(5));
 }
