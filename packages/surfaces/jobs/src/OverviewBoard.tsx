@@ -21,17 +21,21 @@ import {
   GUIDE_PULSE,
   GUIDE_WORKFLOW,
   JobBriefSkeleton,
+  NowPanel,
   PlanGroupStateMark,
   Prose,
   SkeletonText,
   Tooltip,
   WorkflowCanvas,
 } from "@armada/components";
-import type { Figure, PlanGroupState, WorkflowCanvasEdge, WorkflowCanvasNode } from "@armada/components";
+import type { Figure, NowPanelProps, PlanGroupState, WorkflowCanvasEdge, WorkflowCanvasNode } from "@armada/components";
 import type { FromStudio } from "@armada/protocol";
+import { PanelRightOpen } from "lucide-react";
 import type { ReactNode } from "react";
 
 import type { DetailTab } from "./detail-tabs";
+import { litSteps } from "./draft/now";
+import { useNowHidden } from "./now-hidden";
 import { JobLead, type JobLeadProps } from "./JobLead";
 import { studioName } from "@armada/screens/src/studio";
 import type { OpenStudioFrom } from "@armada/screens/src/open-studio";
@@ -122,6 +126,12 @@ export type OverviewBoardProps = {
    */
   reading?: boolean;
   onOpenTab: (tab: DetailTab) => void;
+  /**
+   * What the Now panel beside the canvas draws: what the Job asks, what is
+   * wrong, and what is running. **Absent draws no panel.** The panel hides from
+   * its own head and shows again from a button beside the cards.
+   */
+  now?: Omit<NowPanelProps, "onHide">;
 };
 
 export function OverviewBoard({
@@ -142,10 +152,14 @@ export function OverviewBoard({
   settings,
   reading = false,
   onOpenTab,
+  now,
 }: OverviewBoardProps) {
-  return (
-    <div className="armada-detail-tab armada-overview-board" role="tabpanel" aria-label="Overview">
-      <JobLead {...lead} waiting={waiting} />
+  const [hidden, hide] = useNowHidden();
+  // **Every step a Now row belongs to stays lit and the rest stand back**, for as long as the
+  // panel has rows (owner, 8 Oct 2026). No step named, no dimming.
+  const lit = hidden ? new Set<string>() : litSteps(now);
+  const main = (
+    <>
       {approving}
       {approving === undefined ? run : null}
 
@@ -220,7 +234,13 @@ export function OverviewBoard({
           ) : (
             <div className="armada-overview-board__canvas">
               <WorkflowCanvas
-                nodes={workflow.nodes}
+                nodes={
+                  lit.size === 0
+                    ? workflow.nodes
+                    : workflow.nodes.map((node) =>
+                        node.backdrop === true || node.card.kind !== "step" || lit.has(node.id.split(":")[0] ?? node.id) ? node : { ...node, card: { ...node.card, dimmed: true } },
+                      )
+                }
                 edges={workflow.edges}
                 label={workflow.label}
                 {...(workflow.opensOn === undefined ? {} : { opensOn: workflow.opensOn })}
@@ -310,6 +330,27 @@ export function OverviewBoard({
         </>
         )}
       </div>
+    </>
+  );
+  return (
+    <div className="armada-detail-tab armada-overview-board" role="tabpanel" aria-label="Overview">
+      <JobLead {...lead} waiting={waiting} />
+      {now === undefined ? (
+        main
+      ) : (
+        <div className="armada-overview-board__with-now">
+          <div className="armada-overview-board__main">{main}</div>
+          {hidden ? (
+            <Tooltip label="Show now">
+              <Button variant="ghost" size="sm" aria-label="Show now" onClick={() => hide(false)}>
+                <PanelRightOpen size={16} strokeWidth={2} aria-hidden />
+              </Button>
+            </Tooltip>
+          ) : (
+            <NowPanel {...now} onHide={() => hide(true)} />
+          )}
+        </div>
+      )}
     </div>
   );
 }
