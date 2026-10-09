@@ -4,7 +4,7 @@
 // Mock only, as the Dashboard is.
 
 import type { MutableRefObject } from "react";
-import { Button, Kbd } from "@armada/components";
+import { Button, Kbd, NowPanel, type NowPanelProps } from "@armada/components";
 
 import type { BridgeState } from "../../../shared/bridge";
 import { age, type Hosts, type Item } from "../Dashboard";
@@ -16,6 +16,7 @@ const OPENS = (item: Item) => (item.key.startsWith("session:") ? "Open Session" 
 export function CallCard({
   item,
   now,
+  nowing,
   state,
   hosts,
   finish,
@@ -25,6 +26,8 @@ export function CallCard({
 }: {
   item: Item;
   now: number;
+  /** What the Job runs now and waits on, where it is a Job: the Now panel beside the question. */
+  nowing: Omit<NowPanelProps, "onHide"> | undefined;
   state: BridgeState;
   hosts: Hosts;
   /** The call is answered: it is cleared from the queue. */
@@ -40,6 +43,8 @@ export function CallCard({
   const Icon = item.icon;
   const asking = item.hue === "ask";
   const lone = answer.answers.length === 0;
+  // Asks and issues are the card's own question; what is left is what runs and what waits.
+  const hasNow = nowing !== undefined && (nowing.running?.length ?? 0) + (nowing.waiting?.length ?? 0) > 0;
 
   return (
     <section className="armada-callcard" data-hue={item.hue} data-leaving={leaving} aria-label={`${item.kind}: ${item.title}`}>
@@ -49,6 +54,7 @@ export function CallCard({
         <span className="armada-callcard__where">{item.where}</span>
         <span className="armada-callcard__age">{age(item.at, now)}</span>
       </header>
+      <div className="armada-callcard__cols" data-now={hasNow || undefined}>
       <div className="armada-callcard__body">
         <h2 className="armada-callcard__title">{item.title}</h2>
         {item.context === undefined || item.context.length === 0 ? null : (
@@ -99,6 +105,12 @@ export function CallCard({
             <Kbd>l</Kbd>
           </Button>
         </div>
+      </div>
+      {hasNow ? (
+        <div className="armada-callcard__now">
+          <NowPanel running={nowing!.running ?? []} waiting={nowing!.waiting ?? []} />
+        </div>
+      ) : null}
       </div>
     </section>
   );

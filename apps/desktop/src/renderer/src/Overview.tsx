@@ -10,6 +10,7 @@
 import { useEffect, useState } from "react";
 import type { FixMain, RepositorySummary } from "@armada/protocol";
 import type { CallView } from "@armada/jobs/draft/calls";
+import type { NowView } from "@armada/jobs/draft/now";
 import type { BoardSection, PauseAct } from "@armada/screens";
 import { DashboardTabs, OverviewLists, overviewListsOf, dashboardTabOf, overviewPanelId } from "@armada/overview";
 import { Boundary } from "@armada/shell";
@@ -49,6 +50,7 @@ export function Overview({
   onOpenSession,
   onFix,
   nowViews,
+  nows,
   onQuickCompose,
 }: {
   state: BridgeState;
@@ -89,6 +91,8 @@ export function Overview({
   onFix?: (fix: FixMain) => void;
   /** What each Job asks and has gone wrong in, by Job id. Mock only: Fleet serves none, and then only Jobs flagged as asking are listed. */
   nowViews?: Readonly<Record<string, CallView>>;
+  /** What each Job runs now, and what it waits on, by Job id. Mock only, as `nowViews` is. */
+  nows?: Readonly<Record<string, NowView>>;
   /** Words typed into the quick dispatch box, handed to the composer. */
   onQuickCompose: (words: string) => void;
 }) {
@@ -201,6 +205,7 @@ export function Overview({
             now={now}
             picked={pickedRepository}
             nowViews={nowViews}
+            nows={nows}
             onOpen={onOpen}
             onOpenSession={onOpenSession}
             onOpenLink={onOpenLink}

@@ -4,10 +4,12 @@
 // list to read down: the glass is what is running, the card is what is wanted. Mock only.
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Activity, Clock, GitMerge, LoaderCircle, ScanLine, SquareTerminal, type LucideIcon } from "lucide-react";
+import { Activity, Bot, Box, Clock, Cpu, GitMerge, LoaderCircle, ScanLine, Scale, ShieldCheck, SquareTerminal, Waypoints, Workflow, type LucideIcon } from "lucide-react";
 import { Button, Kbd, Tooltip, actionOf, keyFor } from "@armada/components";
 import type { RepositorySummary } from "@armada/protocol";
 import type { CallView } from "@armada/jobs/draft/calls";
+import type { NowView } from "@armada/jobs/draft/now";
+import { nowPanelOf } from "@armada/jobs";
 import { isTerminal } from "@armada/screens";
 import { holdsText } from "@armada/screens/src/keys";
 import { useListKeydown } from "@armada/screens/src/list-keyboard";
@@ -29,6 +31,21 @@ const GLYPH: Record<Standing, LucideIcon> = {
   proposing: ScanLine,
   working: SquareTerminal,
   idle: SquareTerminal,
+};
+
+/** What is running, by its kind: the same three marks the Now panel draws. */
+const KIND: Record<"drone" | "check" | "judge", { Glyph: LucideIcon; said: string }> = {
+  drone: { Glyph: Bot, said: "Drone" },
+  check: { Glyph: ShieldCheck, said: "Check" },
+  judge: { Glyph: Scale, said: "Judge" },
+};
+
+/** Why nothing runs, by its kind: the Now panel's marks again. */
+const WAIT: Record<"resource" | "job" | "transition" | "step", { Glyph: LucideIcon; said: string }> = {
+  resource: { Glyph: Cpu, said: "Resource" },
+  job: { Glyph: Box, said: "Job" },
+  transition: { Glyph: Waypoints, said: "Transition" },
+  step: { Glyph: Workflow, said: "Step" },
 };
 
 /** Whether motion is off: nothing waits for an exit that will not play. */
@@ -87,18 +104,43 @@ function InstrumentTile({ one, now, selected, hosts, onPick }: { one: Instrument
       </div>
       <div className="armada-inst__body">
         <span className="armada-inst__title">{one.title}</span>
-        {one.steps.length === 0 ? null : (
-          <ol className="armada-inst__gauge" aria-label={`${one.title}, steps`}>
-            {one.steps.map((step, index) => (
-              <Tooltip key={step.id} label={step.label} asChild>
-                <li className="armada-inst__seg" data-seg={index < one.at ? "done" : index === one.at ? "here" : "ahead"} />
-              </Tooltip>
-            ))}
-          </ol>
+        {one.doing === undefined ? null : (
+          <span className="armada-inst__doing" data-state={one.doing.state}>
+            <Tooltip label={KIND[one.doing.of].said}>
+              <span role="img" aria-label={KIND[one.doing.of].said}>
+                {(() => {
+                  const { Glyph } = KIND[one.doing.of];
+                  return <Glyph size={12} aria-hidden="true" />;
+                })()}
+              </span>
+            </Tooltip>
+            {one.doing.name}
+          </span>
         )}
-        {one.steps.length === 0 ? null : <span className="armada-inst__step">{one.steps[one.at]?.label}</span>}
+        {one.doing !== undefined || one.waiting === undefined ? null : (
+          <span className="armada-inst__doing" data-waiting>
+            <Tooltip label={WAIT[one.waiting.kind].said}>
+              <span role="img" aria-label={WAIT[one.waiting.kind].said}>
+                {(() => {
+                  const { Glyph } = WAIT[one.waiting.kind];
+                  return <Glyph size={12} aria-hidden="true" />;
+                })()}
+              </span>
+            </Tooltip>
+            {one.waiting.text}
+          </span>
+        )}
         {one.line === undefined ? null : <span className="armada-inst__line">{one.line}</span>}
       </div>
+      {one.steps.length === 0 ? null : (
+        <ol className="armada-inst__gauge" aria-label={`${one.title}, steps`}>
+          {one.steps.map((step, index) => (
+            <Tooltip key={step.id} label={step.label} asChild>
+              <li className="armada-inst__seg" data-seg={index < one.at ? "done" : index === one.at ? "here" : "ahead"} />
+            </Tooltip>
+          ))}
+        </ol>
+      )}
       {selected ? (
         <div className="armada-inst__acts">
           <Button variant="ghost" size="sm" onClick={open}>
@@ -122,17 +164,19 @@ export function Cockpit({
   now,
   picked,
   nowViews,
+  nows,
   ...hosts
 }: Hosts & {
   state: BridgeState;
   now: number;
   picked: RepositorySummary | null;
   nowViews?: Readonly<Record<string, CallView>> | undefined;
+  nows?: Readonly<Record<string, NowView>> | undefined;
 }) {
   const [answered, setAnswered] = useState<ReadonlySet<string>>(new Set());
   const calls = useItems("command-central", state, picked, nowViews, hosts, answered);
   const sessions = useSessions();
-  const instruments = useMemo(() => instrumentsOf(state, picked, nowViews, calls, sessions), [state, picked, nowViews, calls, sessions]);
+  const instruments = useMemo(() => instrumentsOf(state, picked, nowViews, nows, calls, sessions), [state, picked, nowViews, nows, calls, sessions]);
 
   // Calls put off for later, in the order they were; and one brought back to the front by choice.
   const [put, setPut] = useState<readonly string[]>([]);
@@ -306,14 +350,14 @@ export function Cockpit({
           </span>
         </header>
         <div className="armada-view__stage">
-          <ol ref={grid} className="armada-view__grid" role="listbox" aria-label="Running" aria-activedescendant={current === undefined ? undefined : `inst-${current.key}`} tabIndex={0} data-recessed={front === undefined ? undefined : ""}>
+          <ol ref={grid} className="armada-view__grid" role="listbox" aria-label="Running" aria-activedescendant={current === undefined ? undefined : `inst-${current.key}`} tabIndex={0} data-recessed={front === undefined || leaving !== undefined ? undefined : ""}>
             {instruments.map((one) => (
               <InstrumentTile key={one.key} one={one} now={now} selected={one.key === current?.key} hosts={hosts} onPick={() => setSelected(one.key)} />
             ))}
           </ol>
           {front === undefined ? null : (
             <div className="armada-cockpit__scrim" data-hue={front.hue}>
-              <CallCard key={front.key} item={front} now={now} state={state} hosts={hosts} finish={finish} later={later} leaving={leaving} answering={answering} />
+              <CallCard key={front.key} item={front} now={now} nowing={front.job === undefined ? undefined : nowPanelOf(nows?.[front.job.id], { onOpenJob: hosts.onOpen, onSaid: () => {} })} state={state} hosts={hosts} finish={finish} later={later} leaving={leaving} answering={answering} />
             </div>
           )}
         </div>

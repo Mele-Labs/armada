@@ -237,6 +237,13 @@
 
 .armada-inst__line::before { content: "› "; color: var(--status-running); }
 
+/* What is running on it: the kind's mark and its name, the headline; the step is the gauge below. */
+.armada-inst__doing { display: inline-flex; align-items: center; gap: var(--space-2); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--text-xs); line-height: var(--leading-xs); color: var(--fg-default); }
+.armada-inst__doing > span:first-child { display: inline-flex; flex: none; color: var(--hue); }
+.armada-inst__doing[data-state="failed"] > span:first-child { color: var(--status-completed-failed); }
+.armada-inst__doing[data-waiting] { color: var(--fg-muted); }
+.armada-inst__gauge { padding: 0 var(--space-3) var(--space-3); }
+
 /* The cursor's acts, where it is: Open and Stop, each with the key that does it. */
 .armada-inst__acts { display: flex; gap: var(--space-2); padding: 0 var(--space-3) var(--space-3); }
 
@@ -286,6 +293,7 @@
 .armada-callcard {
   position: relative;
   width: min(100%, calc(var(--space-12) * 14));
+  --card-wide: calc(var(--space-12) * 20);
   border: var(--border-width) solid var(--hue);
   border-radius: var(--radius-lg);
   background: var(--bg-overlay);
@@ -324,6 +332,12 @@
 @keyframes armada-card-sent {
   to { opacity: 0; transform: scale(1.04); }
 }
+
+/* A Job's call carries what it runs now beside the question, in the Now panel's own frame. */
+.armada-callcard:has([data-now]) { width: min(100%, var(--card-wide)); }
+.armada-callcard__cols { display: grid; grid-template-columns: minmax(0, 1fr); }
+.armada-callcard__cols[data-now] { grid-template-columns: minmax(0, 1fr) auto; }
+.armada-callcard__now { min-width: 0; padding: var(--space-4) var(--space-4) var(--space-4) 0; }
 
 .armada-callcard__band {
   display: flex;

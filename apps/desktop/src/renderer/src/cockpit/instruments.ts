@@ -4,6 +4,7 @@
 
 import type { JobSummary, RepositorySummary } from "@armada/protocol";
 import type { CallView } from "@armada/jobs/draft/calls";
+import type { NowRunningView, NowView, NowWaitingView } from "@armada/jobs/draft/now";
 import type { Session } from "@armada/screens/src/draft/sessions";
 import { overviewListsOf } from "@armada/overview";
 import { titleOf } from "@armada/screens";
@@ -29,6 +30,10 @@ export type Instrument = {
   at: number;
   /** What it is doing now, in its own words. */
   line?: string | undefined;
+  /** What is running on it: a Drone, a Check or a Judge. Absent where nothing is. */
+  doing?: NowRunningView | undefined;
+  /** Why nothing is running, where nothing is. */
+  waiting?: NowWaitingView | undefined;
   /** When it began, for its age. */
   since?: string | undefined;
   job?: JobSummary | undefined;
@@ -40,6 +45,7 @@ export function instrumentsOf(
   state: BridgeState,
   picked: RepositorySummary | null,
   nowViews: Readonly<Record<string, CallView>> | undefined,
+  nows: Readonly<Record<string, NowView>> | undefined,
   calls: readonly Item[],
   sessions: readonly Session[],
 ): Instrument[] {
@@ -62,7 +68,9 @@ export function instrumentsOf(
       hue: call?.hue ?? (standing === "queued" ? "queued" : "running"),
       steps,
       at: Math.max(0, steps.findIndex((step) => step.id === job.current_step_id)),
-      line: nowViews?.[job.id]?.running?.[0]?.line,
+      line: nows?.[job.id]?.running?.[0]?.line ?? nowViews?.[job.id]?.running?.[0]?.line,
+      doing: nows?.[job.id]?.running?.[0],
+      waiting: nows?.[job.id]?.waiting?.[0],
       since: job.started_at ?? job.created_at,
       job,
       call,

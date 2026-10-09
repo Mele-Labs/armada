@@ -8,6 +8,7 @@ import { repository } from "@armada/screens/src/fixtures/build/base";
 import { mergeLines } from "@armada/screens/src/fixtures/build/merge-line";
 import type { Session } from "@armada/screens/src/draft/sessions";
 import type { CallView } from "@armada/jobs/draft/calls";
+import type { NowView } from "@armada/jobs/draft/now";
 import { featureRunning } from "@armada/jobs/fake";
 import { queued, running } from "@armada/jobs/fixtures/build/index";
 import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
@@ -94,6 +95,41 @@ const now: Record<string, CallView> = {
   [migrate.job.id]: { running: [{ key: "r", of: "drone", name: "Drone on Scope", line: "Listing the migrations since 0042", state: "running" }] },
 };
 
+/** What each Job runs now, and what waits on what: the Now panel's own data, by Job id. */
+const nows: Record<string, NowView> = {
+  [debounce.job.id]: {
+    running: [
+      { key: "d", of: "drone", name: "Drone on Implement", line: "Editing resize-handler.ts", step: { id: "implement", name: "Implement" }, state: "running", tail: ["Read resize-handler.ts", "Edit resize-handler.ts: debounce the observer", "Run pnpm test -p desktop resize"] },
+      { key: "c", of: "check", name: "lint", step: { id: "implement", name: "Implement" }, state: "running" },
+    ],
+  },
+  [cache.job.id]: {
+    running: [
+      { key: "d", of: "drone", name: "Drone on Write tests", line: "cargo test -p manifest read_again", state: "running" },
+      { key: "c1", of: "check", name: "typecheck", state: "passed" },
+      { key: "c2", of: "check", name: "manifest_test", state: "running" },
+    ],
+  },
+  [mainChecks.job.id]: {
+    running: [
+      { key: "d", of: "drone", name: "Drone on Fix", line: "Reading the failing snapshot", state: "running" },
+      { key: "j", of: "judge", name: "Judge on the plan", line: "Reading the plan against the diff", state: "running" },
+    ],
+  },
+  [migrate.job.id]: { running: [{ key: "d", of: "drone", name: "Drone on Scope", line: "Listing the migrations since 0042", state: "running" }] },
+  [pause.job.id]: { waiting: [{ key: "w", kind: "resource", text: "A free worktree slot" }] },
+  [plan.job.id]: {
+    running: [{ key: "d", of: "drone", name: "Drone on Plan", line: "Weighing the split against the wrap", state: "running" }],
+    waiting: [{ key: "w", kind: "transition", text: "Plan to Implement, on your answer" }],
+  },
+  [check.job.id]: {
+    running: [
+      { key: "d", of: "drone", name: "Drone on Implement", line: "Waiting on the store test", state: "running" },
+      { key: "c", of: "check", name: "store", state: "failed" },
+    ],
+  },
+};
+
 const quiet = { state: "idle" } as const;
 const said = (id: string, text: string) => [{ id, at: "14:00:00", kind: "message", from: { kind: "agent" }, text } as const];
 
@@ -145,7 +181,7 @@ function build(): Scenario {
     state,
     reads: { ...base.reads, [plan.job.id]: plan, [check.job.id]: check },
     later: [{ jobs: [...jobs, plan.job] }, { jobs: [...jobs, plan.job, check.job] }, {}],
-    draft: { calls: now, sessions: (control) => asking(sessionsStore([none, none], none, [], control, [], SESSIONS)) },
+    draft: { calls: now, now: nows, sessions: (control) => asking(sessionsStore([none, none], none, [], control, [], SESSIONS)) },
   };
 }
 

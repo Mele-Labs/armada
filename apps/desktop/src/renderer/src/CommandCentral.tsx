@@ -4,6 +4,7 @@
 
 import type { RepositorySummary } from "@armada/protocol";
 import type { CallView } from "@armada/jobs/draft/calls";
+import type { NowView } from "@armada/jobs/draft/now";
 
 import type { BridgeState } from "../../shared/bridge";
 import { Cockpit } from "./cockpit/Cockpit";
@@ -14,6 +15,7 @@ export function CommandCentral(props: Hosts & {
   now: number;
   picked: RepositorySummary | null;
   nowViews?: Readonly<Record<string, CallView>> | undefined;
+  nows?: Readonly<Record<string, NowView>> | undefined;
 }) {
   return <Cockpit {...props} />;
 }
