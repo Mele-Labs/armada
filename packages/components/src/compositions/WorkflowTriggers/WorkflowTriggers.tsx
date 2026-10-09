@@ -28,7 +28,7 @@ import { Switch } from "../../primitives/Switch/Switch";
 import { Textarea } from "../../primitives/Textarea/Textarea";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import type { WorkflowStepCardProps } from "../WorkflowStepCard/WorkflowStepCard";
-import { additionName } from "./side-branches";
+import { additionName, fixOf } from "./side-branches";
 import type { SideBranch } from "./side-branches";
 import {
   blankDraft,
@@ -438,7 +438,8 @@ export function TriggerLeaf({
   onOpenLog,
   onAct,
 }: {
-  trigger: JobTrigger;
+  /** A step added to one Job is drawn as the same leaf, and names itself to Fleet by its id. */
+  trigger: SideBranch;
   onOpenLog?: (trigger: JobTrigger) => void;
   /** Where the leaf asks him: Run and Skip, on a firing that waits on his answer. */
   onAct?: (act: HoldVerb, by: HoldAct) => Promise<{ ok: boolean }> | void;
@@ -449,9 +450,9 @@ export function TriggerLeaf({
       <FiringMark trigger={trigger} />
       <NameLink trigger={trigger} onOpenLog={onOpenLog} />
       <span className="armada-triggers__when">{moment}</span>
-      <LevelMark level={trigger.level} />
+      {trigger.addition === undefined ? <LevelMark level={trigger.level} /> : null}
       {trigger.state === "awaiting_owner" && onAct !== undefined ? (
-        <HoldActs held={{ key: "", name: trigger.name, when: trigger.when, step: trigger.step, by: { trigger: trigger.name }, state: trigger.state }} onAct={onAct} />
+        <HoldActs held={{ key: "", name: trigger.name, when: trigger.when, step: trigger.step, by: fixOf(trigger), state: trigger.state }} onAct={onAct} />
       ) : null}
     </div>
   );
@@ -656,6 +657,7 @@ export function triggerAlert(triggers: readonly JobTrigger[], additions: readonl
       return phase === "asking" || phase === "failed";
     }) ||
     [...latest.values()].some((one) => one.state === "awaiting_owner") ||
+    additions.some((one) => one.state === "awaiting_owner") ||
     holdsOf(triggers, additions).length > 0
   );
 }
