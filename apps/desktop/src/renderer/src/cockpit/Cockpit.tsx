@@ -328,6 +328,8 @@ export function Cockpit({
           return claim(), later();
         case keyFor("call_dismiss"):
           return claim(), dismiss();
+        case keyFor("call_open_walk"):
+          return card.openWalk === undefined ? undefined : (claim(), card.openWalk());
         case "o":
           return card.open === undefined ? undefined : (claim(), card.open());
       }

@@ -315,6 +315,32 @@ test("a permission is the only Session call that offers Allow once and Refuse, a
   await expect.element(radio(/Refuse/)).toBeVisible();
 });
 
+test("a walk waiting on approval offers Open walk on v, which opens its page and leaves the card, and a Session question does not", async () => {
+  localStorage.removeItem(FILTER);
+  mount("dashboard-needs-you");
+  await onScreen();
+  await userEvent.keyboard("{Escape}");
+  const window = page.getByRole("dialog", { name: "Bridge's window on Docs for the pairing screen" });
+
+  await reach(/^Session question/);
+  expect(call(/^Session question/).getByRole("button", { name: /Open walk/ }).query()).toBeNull();
+  await userEvent.keyboard("v");
+  expect(window.query()).toBeNull();
+
+  await reach(/^Session walk/);
+  const open = call(/^Session walk/).getByRole("button", { name: "Open walk v" });
+  await expect.element(open).toBeVisible();
+  await expect.element(call(/^Session walk/).getByRole("button", { name: /Open Session/ })).toBeVisible();
+  await userEvent.keyboard("v");
+  await expect.element(window).toHaveTextContent(/git\.example/);
+  await userEvent.click(page.getByRole("button", { name: "Close window" }));
+  await expect.element(window).not.toBeInTheDocument();
+  await userEvent.click(open);
+  await expect.element(window).toBeVisible();
+  // Opening it answers nothing: Approve still does.
+  await expect.element(call(/^Session walk/)).toBeVisible();
+});
+
 test("a Session's answer goes to Fleet as an index, its words as text, and a mode alone as the mode", async () => {
   localStorage.removeItem(FILTER);
   const app = mount("dashboard-needs-you");

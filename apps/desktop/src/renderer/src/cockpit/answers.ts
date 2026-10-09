@@ -48,6 +48,8 @@ export type Answering = {
   decision?: { at: number; of: number };
   /** Opens what the call is about, where it has somewhere to open. */
   open: (() => void) | undefined;
+  /** Opens the walk a Session waits on approval of, where the call is one. Opening it answers nothing. */
+  openWalk?: () => void;
   /** Whoever already owns what the call is about, where it is a pull request or main's red. */
   owner?: Owner;
   /** A reply in words, where the call takes one: a Session's question, or an item with no options. */
@@ -241,6 +243,7 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
     send,
     ...(decisions === undefined || decisions.length < 2 ? {} : { decision: { at, of: decisions.length } }),
     open,
+    ...(waiting?.item.act?.kind === "walk" ? { openWalk: () => draft?.openWindow?.(waiting.sessionId, waiting.item.act!.target) } : {}),
     ...(owner === undefined ? {} : { owner }),
     ...(replies ? { reply: (text: string) => sendWaiting({ text }) } : {}),
     ...(attaching ? { attaching: { candidates, choose: attach, close: () => setAttaching(false) } } : {}),

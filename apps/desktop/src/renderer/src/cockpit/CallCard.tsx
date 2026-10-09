@@ -2,7 +2,7 @@
 // question it says what the Job is and what he asked it for, where the question came from, and what
 // is active now in one line; a Session's call is a small view of the Session instead. Its answers
 // carry the numbers that pick them, and two standing ones carry `b` and `g`. Enter sends, `l` puts it
-// off for later, `d` dismisses it for good, `o` opens what it is about, `e` opens the whole request. The keys themselves are
+// off for later, `d` dismisses it for good, `o` opens what it is about, `v` opens the walk a Session waits on, `e` opens the whole request. The keys themselves are
 // `Cockpit`'s, on the window; this draws them and takes the press. Mock only, as the Dashboard is.
 
 import { useLayoutEffect, useRef, useState, type MutableRefObject } from "react";
@@ -280,6 +280,12 @@ export function CallCard({
             {lone ? OPENS(item) : "Send"}
             <Kbd>↵</Kbd>
           </Button>
+          {answer.openWalk === undefined ? null : (
+            <Button variant="ghost" onClick={answer.openWalk}>
+              {actionOf("call_open_walk").verb}
+              <Kbd>{keyFor("call_open_walk")}</Kbd>
+            </Button>
+          )}
           {lone || answer.open === undefined ? null : (
             <Button variant="ghost" onClick={answer.open}>
               {OPENS(item)}
