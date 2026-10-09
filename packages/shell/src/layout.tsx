@@ -302,7 +302,7 @@ export const LayoutSourceProvider = LayoutSourceContext.Provider;
 /** The source in force, and its state as it stands. */
 export function useLayouts(): LayoutState & { source: LayoutSource } {
   const source = useContext(LayoutSourceContext);
-  const state = useSyncExternalStore(source.subscribe, source.get);
+  const state = useSyncExternalStore(source.subscribe, source.get, source.get);
   return { ...state, source };
 }
 
