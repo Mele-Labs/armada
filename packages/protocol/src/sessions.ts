@@ -112,6 +112,16 @@ export type AnswerWaiting = {
   mode?: "best" | "quick";
 };
 
+/**
+ * `POST /sessions/claim_pull_request`: the caller takes an open pull request no live Session or Job holds.
+ * `session_id` names the caller where the connection places none, which is Bridge's case. Fleet refuses
+ * 422 `fleet.pull_request_not_claimable`, naming the holder, where a live one has it or it is not open.
+ */
+export type ClaimPullRequest = { number: number; session_id?: string };
+
+/** What `claim_pull_request` answers: the pull request now held, and by whom (`session` or `job`). */
+export type PullRequestClaimed = { number: number; branch: string; url: string; holder_kind: string; holder_id: string };
+
 /** A command a terminal session lists, for `/` to offer. Since 23.53. */
 export type TerminalCommand = { name: string; says: string };
 

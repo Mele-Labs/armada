@@ -27,7 +27,7 @@ import type {
 } from "@armada/protocol";
 import type { FileReport } from "@armada/protocol";
 import type { ModChecked } from "@armada/protocol";
-import type { AnswerSessionAsk, AnswerWaiting, PilotOutcome, PullRequestState, RenameSession, ReviewDispatched, SendSessionMessage, SessionSubagent, TuneSession } from "@armada/protocol";
+import type { AnswerSessionAsk, AnswerWaiting, ClaimPullRequest, PilotOutcome, PullRequestClaimed, PullRequestState, RenameSession, ReviewDispatched, SendSessionMessage, SessionSubagent, TuneSession } from "@armada/protocol";
 import type { ArtifactRead, PageBounds } from "@armada/screens/src/draft/sessions";
 import type { PilotExit, PullRequestPress, SessionActed } from "../shared/api/sessions";
 import type { HelmContext, HelmDebugRead } from "@armada/protocol";
@@ -623,6 +623,7 @@ const api: BridgeApi = {
   answerSessionAsk: (answer: AnswerSessionAsk): Promise<SessionActed> =>
     ipcRenderer.invoke(CHANNELS.answerSessionAsk, answer),
   answerWaiting: (answer: AnswerWaiting): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.answerWaiting, answer),
+  claimPullRequest: (claim: ClaimPullRequest): Promise<SessionActed<PullRequestClaimed>> => ipcRenderer.invoke(CHANNELS.claimPullRequest, claim),
   tuneSession: (tune: TuneSession): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.tuneSession, tune),
   renameSession: (rename: RenameSession): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.renameSession, rename),
   forkSession: (sessionId: string): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.forkSession, sessionId),

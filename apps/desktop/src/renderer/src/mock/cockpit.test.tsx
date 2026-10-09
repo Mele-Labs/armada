@@ -2,13 +2,17 @@
 // keys that step them, the call that comes forward over it and the deck behind, the standing
 // answers, and the grid and the map offering the same acts.
 
-import { expect, test } from "vitest";
+import { beforeEach, expect, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
+import { forgetDismissals } from "../cockpit/dismissed";
+import { s205DashboardNeedsYou } from "./scenarios/dashboard-needs-you";
+import type { Scenario } from "./moment";
 import { mount, onScreen, unmountAfterEach } from "./testing";
 import { timePasses } from "./time-passes";
 
 unmountAfterEach();
+beforeEach(forgetDismissals);
 
 const FILTER = "armada.bridge.dashboard-tab";
 const VIEW = "armada.bridge.cockpit-view";
@@ -166,7 +170,8 @@ async function reach(kind: RegExp): Promise<void> {
 
 test("a pull request that a Session or a Job already owns sends him to the owner, and one nobody owns offers a Drone", async () => {
   localStorage.removeItem(FILTER);
-  mount("dashboard-needs-you");
+  const app = mount("dashboard-needs-you");
+  const claim = vi.spyOn(app.api, "claimPullRequest");
   await onScreen();
   await userEvent.keyboard("{Escape}");
 
@@ -188,12 +193,15 @@ test("a pull request that a Session or a Job already owns sends him to the owner
   await expect.element(radio(/Attach/)).toBeVisible();
   expect(page.getByRole("group", { name: "Owner" }).query()).toBeNull();
 
-  // Attach lists the live Jobs and Sessions, a filter narrows them, and Enter attaches it: the card is owned.
+  // Attach lists the live Sessions (a Job is not offered until the route takes one), a filter narrows
+  // them, and Enter claims the pull request for it through Fleet: the card is owned.
   await userEvent.keyboard("2");
   await userEvent.keyboard("{Enter}");
-  await expect.element(page.getByRole("listbox", { name: "Jobs and Sessions" })).toBeVisible();
+  await expect.element(page.getByRole("listbox", { name: "Sessions" })).toBeVisible();
+  expect(page.getByRole("listbox", { name: "Sessions" }).getByRole("img", { name: "Job" }).query()).toBeNull();
   await userEvent.type(page.getByRole("textbox", { name: "Attach to" }), "Migration notes");
   await userEvent.keyboard("{Enter}");
+  expect(claim).toHaveBeenCalledWith({ number: 1823, session_id: "s10" });
   await expect.element(page.getByRole("group", { name: "Owner" })).toHaveTextContent(/Session · Migration notes/);
   await expect.element(radio(/Open the Session/)).toBeVisible();
   expect(radio(/Send a Drone/).query()).toBeNull();
@@ -246,4 +254,112 @@ test("a permission is the only Session call that offers Allow once and Refuse, a
   await reach(/^Session: Flaky/);
   await expect.element(radio(/Allow once/)).toBeVisible();
   await expect.element(radio(/Refuse/)).toBeVisible();
+});
+
+test("a Session's answer goes to Fleet as an index, its words as text, and a mode alone as the mode", async () => {
+  localStorage.removeItem(FILTER);
+  const app = mount("dashboard-needs-you");
+  const answer = vi.spyOn(app.api, "answerWaiting");
+  await onScreen();
+  await userEvent.keyboard("{Escape}");
+
+  // The second of its options, by number.
+  await reach(/^Session question/);
+  await userEvent.keyboard("2");
+  await userEvent.keyboard("{Enter}");
+  await expect.element(page.getByRole("region", { name: /^Session question/ })).not.toBeInTheDocument();
+  expect(answer).toHaveBeenLastCalledWith({ session_id: "s14", item_id: "ask:q14:0", choice: 1 });
+
+  // A walk needs no choice.
+  await reach(/^Session walk/);
+  await userEvent.keyboard("{Enter}");
+  await expect.poll(() => answer.mock.calls.length).toBe(2);
+  expect(answer).toHaveBeenLastCalledWith({ session_id: "s15", item_id: "walk:https://git.example/pairing" });
+
+  // The permission handed to the agent: g sends the mode and nothing else.
+  await reach(/^Session: Flaky/);
+  await userEvent.keyboard("g");
+  await userEvent.keyboard("{Enter}");
+  await expect.poll(() => answer.mock.calls.length).toBe(3);
+  expect(answer).toHaveBeenLastCalledWith({ session_id: "s9", item_id: "perm:s9", mode: "quick" });
+});
+
+test("an item nothing holds clears the card quietly, and any other refusal stays on it with Fleet's words", async () => {
+  localStorage.removeItem(FILTER);
+  const app = mount("dashboard-needs-you");
+  const refuse = (code: string, message: string) => ({ ok: false as const, outcome: { ok: false as const, why: "refused" as const, error: { code, message, run_id: "", fields: {}, chain: [] as string[] } } });
+  const answer = vi.spyOn(app.api, "answerWaiting");
+  await onScreen();
+  await userEvent.keyboard("{Escape}");
+
+  answer.mockResolvedValueOnce(refuse("fleet.session_waiting_empty", "an answer needs a choice, words or a mode"));
+  await reach(/^Session question/);
+  await userEvent.keyboard("1");
+  await userEvent.keyboard("{Enter}");
+  await expect.element(page.getByText("an answer needs a choice, words or a mode").first()).toBeVisible();
+  await expect.element(page.getByRole("region", { name: /^Session question/ })).toBeVisible();
+
+  answer.mockResolvedValueOnce(refuse("fleet.session_waiting_unheld", "nothing is waiting under that item."));
+  await userEvent.keyboard("1");
+  await userEvent.keyboard("{Enter}");
+  await expect.element(page.getByRole("region", { name: /^Session question/ })).not.toBeInTheDocument();
+  expect(page.getByText("nothing is waiting under that item.").query()).toBeNull();
+});
+
+test("a pull request Fleet will not hand over stays unowned, and the toast names who holds it", async () => {
+  localStorage.removeItem(FILTER);
+  const app = mount("dashboard-needs-you");
+  vi.spyOn(app.api, "claimPullRequest").mockResolvedValueOnce({
+    ok: false,
+    outcome: { ok: false, why: "refused", error: { code: "fleet.pull_request_not_claimable", message: "pull request #1823 is held by session Release script", run_id: "", fields: {}, chain: [] as string[] } },
+  });
+  await onScreen();
+  await userEvent.keyboard("{Escape}");
+  await reach(/^Pull request: #1823/);
+  await userEvent.keyboard("2");
+  await userEvent.keyboard("{Enter}");
+  await userEvent.type(page.getByRole("textbox", { name: "Attach to" }), "Migration notes");
+  await userEvent.keyboard("{Enter}");
+  await expect.element(page.getByText("pull request #1823 is held by session Release script").first()).toBeVisible();
+  expect(page.getByRole("group", { name: "Owner" }).query()).toBeNull();
+});
+
+test("a dismissed call stays gone across a remount, and the same pull request failing anew shows again", async () => {
+  localStorage.removeItem(FILTER);
+  // The scenario with a hand on its Fleet, so the pull request's checks can pass and then fail again.
+  let hand: Parameters<NonNullable<Scenario["behaves"]>>[0] | undefined;
+  const scenario: Scenario = { ...s205DashboardNeedsYou, behaves: (fleet) => ((hand = fleet), {}) };
+  const checks = (ci: string) => {
+    const lines = (hand!.state().mergeLines?.lines ?? []).map((line) => ({
+      ...line,
+      hub: { ...line.hub!, pull_requests: line.hub!.pull_requests!.map((pull) => (pull.number === 1823 ? { ...pull, ci } : pull)) },
+    }));
+    hand!.publish({ mergeLines: { lines } });
+  };
+
+  const first = mount(scenario);
+  await onScreen();
+  await userEvent.keyboard("{Escape}");
+  await reach(/^Pull request: #1823/);
+  await expect.element(page.getByRole("button", { name: /^Dismiss/ })).toHaveTextContent("d");
+  await userEvent.keyboard("d");
+  await expect.element(page.getByRole("region", { name: /^Pull request: #1823/ })).not.toBeInTheDocument();
+  expect(JSON.parse(localStorage.getItem("armada.bridge.dismissed-calls") ?? "[]")).toEqual([expect.stringContaining("pull:1823")]);
+  first.unmount();
+  document.querySelectorAll("#root").forEach((one) => one.remove());
+
+  // The window opens again: the other pull requests are called, this one is not.
+  mount(scenario);
+  await onScreen();
+  await userEvent.keyboard("{Escape}");
+  await reach(/^Pull request: #1822/);
+  await userEvent.keyboard("l");
+  await expect.poll(() => page.getByRole("region", { name: /^Pull request: #1823/ }).query()).toBeNull();
+  await expect.poll(() => page.getByRole("button", { name: /^Pull request: #1823/ }).query()).toBeNull();
+
+  // Its checks pass, which lets go of the dismissal, and when they fail again it is called again.
+  checks("passed");
+  await expect.poll(() => localStorage.getItem("armada.bridge.dismissed-calls")).toBe("[]");
+  checks("failed");
+  await reach(/^Pull request: #1823/);
 });

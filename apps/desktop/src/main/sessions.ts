@@ -13,9 +13,11 @@
 import type {
   AnswerSessionAsk,
   AnswerWaiting,
+  ClaimPullRequest,
   Followed,
   FrameRead,
   Outcome,
+  PullRequestClaimed,
   PullRequestState,
   RenameSession,
   ReviewDispatched,
@@ -178,6 +180,14 @@ export class SessionsHost {
 
   async answerWaiting(answer: AnswerWaiting): Promise<SessionActed> {
     return await this.act("POST", "/sessions/waiting/answer", answer);
+  }
+
+  /** A pull request nobody holds, taken for a session. Fleet shows the new row in the ledger, so nothing is folded here. */
+  async claimPullRequest(claim: ClaimPullRequest): Promise<SessionActed<PullRequestClaimed>> {
+    const port = this.port();
+    if (port === null) return { ok: false, outcome: NOT_CONNECTED };
+    const answer = await ask(port, "POST", "/sessions/claim_pull_request", claim);
+    return answer.ok === true ? { ok: true, value: answer.body as PullRequestClaimed } : { ok: false, outcome: answer.outcome };
   }
 
   async tune(tune: TuneSession): Promise<SessionActed> {

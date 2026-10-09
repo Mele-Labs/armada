@@ -1,34 +1,21 @@
-// The one function a waiting item is answered through. The wire's route is
-// `window.armada.answerWaiting({ session_id, item_id, choice?, text?, mode? })`; until it is served
-// this lands the answer in the Session through the path the Sessions page already uses (`draft.answer`),
-// and keeps what it was asked to send, so a test or a walk can read the body. Mock only.
+// The one function a waiting item is answered through: `window.armada.answerWaiting`, Fleet's
+// `POST /sessions/waiting/answer`. A `choice` is the index of one of the item's options, `text` is the
+// person's own words, and `mode` hands the decision to the agent. What it came to is told in one of
+// three ways, so the card can act on it.
 
-import type { SessionsDraft } from "@armada/screens/src/draft/sessions";
+import { refusalWords } from "@armada/screens/src/refusal-words";
+import type { AnswerWaiting } from "@armada/protocol";
 
-import { permissionOf, waitingOf } from "./waiting";
+/** Fleet's refusal for an item nothing holds (409): it was settled already, or the Session stopped waiting. */
+const UNHELD = "fleet.session_waiting_unheld";
 
-/** The body of `answerWaiting`. `mode` hands the decision to the agent: `best` weighs it, `quick` gets it done. */
-export type AnswerWaiting = { session_id: string; item_id: string; choice?: string; text?: string; mode?: "best" | "quick" };
+/** Answered, or nothing held it any more (the card goes quietly), or Fleet refused in these words. */
+export type WaitingAnswered = { kind: "answered" } | { kind: "gone" } | { kind: "refused"; said: string };
 
-const sent: AnswerWaiting[] = [];
-
-/** What was sent, oldest first. The mock's own record; a real Fleet has the route's. */
-export const answersSent = (): readonly AnswerWaiting[] => sent;
-
-export function answerWaiting(draft: SessionsDraft | undefined, request: AnswerWaiting): void {
-  sent.push(request);
-  const session = draft?.get().find((one) => one.id === request.session_id);
-  const item = session === undefined ? undefined : waitingOf(session).find((one) => one.id === request.item_id);
-  if (draft === undefined || item === undefined) return;
-  // Handing the decision over answers with the first thing offered, which the mock cannot weigh.
-  const chosen = request.choice ?? request.text ?? item.options?.[0]?.label;
-  if (item.source === "permission") {
-    draft.answer(request.session_id, permissionOf(chosen ?? "") ?? "refuse");
-    return;
-  }
-  if (item.source === "ask_card") {
-    draft.answer(request.session_id, undefined, [{ question: item.text, chosen: chosen === undefined ? [] : [chosen] }]);
-    return;
-  }
-  draft.answer(request.session_id);
+export async function answerWaiting(request: AnswerWaiting): Promise<WaitingAnswered> {
+  const done = await window.armada.answerWaiting(request);
+  if (done.ok) return { kind: "answered" };
+  const outcome = done.outcome;
+  if (!outcome.ok && outcome.why === "refused" && outcome.error.code === UNHELD) return { kind: "gone" };
+  return { kind: "refused", said: refusalWords(outcome) };
 }

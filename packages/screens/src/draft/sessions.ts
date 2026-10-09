@@ -8,6 +8,8 @@
 // no slot and no branch, leases a worktree slot on the agent's first write,
 // and from then on accumulates what it touches.
 
+import type { WaitingItem } from "@armada/protocol";
+
 /** What a Session has attached, by kind. A Session holds several of each. */
 export type SessionAttachment =
   /** A worktree slot the Session holds: leased on its first write, never at birth. */
@@ -148,25 +150,6 @@ export type SessionRow =
   /** The Session showed a page in a window: where in the thread it did, and the address to open again. */
   | { id: string; at: string; kind: "window"; title: string; url: string };
 
-/** What the person can do about a waiting item. `target` is the walk's address, the question's call, the PR's number, or the command. */
-export type WaitingAct = { kind: "walk" | "answer" | "approve_pr" | "run"; target: string };
-
-/**
- * One thing a Session is waiting on the person for. **The agent keeps the list** (a door tool sets it
- * whole) **and Fleet adds what it already knows**: an open question (`ask_card`), a walk window waiting on
- * Approve (`walk`), a permission (`permission`). `id` stays the same across updates; `options` is present
- * only on an `answer` item that has choices.
- */
-export type WaitingFor = {
-  id: string;
-  text: string;
-  /** ISO time it began waiting. */
-  since: string;
-  source: "agent" | "ask_card" | "walk" | "permission";
-  act?: WaitingAct;
-  options?: readonly { label: string }[];
-};
-
 /** A turn running, or none. A message from another Session starts one, so `working` has no author. */
 export type SessionTurn = { state: "idle" } | { state: "working"; wokenBy?: { id: string; title: string } };
 
@@ -201,7 +184,7 @@ export type Session = {
   /** What the agent is held on, while it is. */
   asked?: SessionAsk;
   /** What the Session waits on the person for: the agent's list with Fleet's own items merged in. Absent or empty is nothing. */
-  waitingFor?: readonly WaitingFor[];
+  waitingFor?: readonly WaitingItem[];
   /** Tags chosen and not yet sent: they wait in the message box as chips. */
   pendingTags?: readonly SessionTag[];
   /** The model and effort the next turn runs on. Absent is Auto. */

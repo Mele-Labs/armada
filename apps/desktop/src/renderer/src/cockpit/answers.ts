@@ -2,18 +2,20 @@
 // and Send. A Plan question is its decisions' options; a Session's call is the options of the item it
 // waits on, or a reply in words; a pull request or main's red is Open and Poke where somebody owns it,
 // and Send a Drone and Attach where nobody does. A call with no answer of its own opens what it is
-// about. Mock only: each answer does what its button did on the Dashboard, and clears the call,
-// except where it opens something and leaves the call standing.
+// about. A Session's call is answered through Fleet (`answerWaiting`) and clears when Fleet takes it
+// or says nothing holds it; a refusal stays on the card and goes to a toast. The rest do what their
+// button did on the Dashboard, and clear the call, except where one opens something and leaves it
+// standing.
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { actionOf, keyFor } from "@armada/components";
-import { isTerminal, titleOf } from "@armada/screens";
+import type { AnswerWaiting } from "@armada/protocol";
 
 import type { BridgeState } from "../../../shared/bridge";
 import { viewsOf } from "../merge-line";
 import { useSessions, useSessionsDraft } from "../sessions-draft";
-import { attachPr, useClaims, wasRefused } from "./claims";
-import { answerWaiting, type AnswerWaiting } from "./answer-waiting";
+import { attachPr } from "./claims";
+import { answerWaiting } from "./answer-waiting";
 import { mainOwner, pullOwner, type Owner } from "./owner";
 import { asksAnAgent } from "./standing";
 import { sessionIdOf } from "./waiting";
@@ -81,9 +83,9 @@ function opener(item: Item, hosts: Hosts, state: BridgeState): (() => void) | un
 /**
  * Two answers that stand after the numbered ones on a question an agent asked: the best solution,
  * thought through, or the quickest reasonable path. **On a Session's permission they hand the
- * decision to run the command to the agent** (owner, 9 Oct 2026), so they say that. Mock only: each
- * would be one Fleet command, an answer to the ask carrying `mode: "best" | "quick"` that the agent
- * is told as an instruction.
+ * decision to run the command to the agent** (owner, 9 Oct 2026), so they say that. On a Session's
+ * call each is an answer carrying `mode: "best" | "quick"`, which Fleet tells the agent as an
+ * instruction; on a Plan question or a state Fleet raised, they only clear the card for now.
  */
 function standingOf(send: (mode: "best" | "quick") => void, permission: boolean): Answer[] {
   return [
@@ -120,21 +122,28 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
   const open = opener(item, hosts, state);
   const sessions = useSessions();
   const draft = useSessionsDraft();
-  const claimed = useClaims();
   const views = viewsOf(state);
   const pull = pullOf(item, state);
   const owner = item.key.startsWith("pull:")
-    ? pullOwner(views, sessions, pull?.number ?? 0, undefined, claimed)
+    ? pullOwner(views, sessions, pull?.number ?? 0)
     : item.key.startsWith("main:")
-      ? mainOwner(views, sessions, item.key.slice("main:".length), claimed)
+      ? mainOwner(views, sessions, item.key.slice("main:".length))
       : undefined;
 
-  // A Session's call answers through the one function the wire's route will be.
+  // A Session's call answers through Fleet. One answer is out at a time, so a repeated key is not a second.
   const waiting = item.waiting;
+  const sending = useRef(false);
   const sendWaiting = (body: Omit<AnswerWaiting, "session_id" | "item_id">) => {
-    if (waiting === undefined) return;
-    answerWaiting(draft, { session_id: waiting.sessionId, item_id: waiting.item.id, ...body });
-    finish();
+    if (waiting === undefined || sending.current) return;
+    sending.current = true;
+    void answerWaiting({ session_id: waiting.sessionId, item_id: waiting.item.id, ...body })
+      .then((done) => {
+        if (done.kind === "refused") hosts.onTell?.(done.said);
+        else finish();
+      })
+      .finally(() => {
+        sending.current = false;
+      });
   };
 
   /** A short nudge to whoever owns the pull request, through the path that reaches them. */
@@ -148,23 +157,22 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
   const attach = (to: Owner) => {
     setAttaching(false);
     if (pull === undefined) return;
-    void attachPr(pull.number, to, pull).then((answer) => {
-      if (wasRefused(answer)) hosts.onTell?.(answer.said);
+    void attachPr(pull.number, to).then((done) => {
+      if (!done.attached) hosts.onTell?.(done.said);
     });
   };
-  const candidates: Owner[] = [
-    ...state.jobs.filter((job) => !isTerminal(job)).map((job): Owner => ({ kind: "job", id: job.id, title: titleOf(job) })),
-    ...sessions.filter((one) => one.dead === undefined).map((one): Owner => ({ kind: "session", id: one.id, title: one.title ?? one.id })),
-  ];
+  // Sessions alone until the route takes a Job's id (#2050).
+  const candidates: Owner[] = sessions.filter((one) => one.dead === undefined).map((one): Owner => ({ kind: "session", id: one.id, title: one.title ?? one.id }));
 
   const answer = (label: string, run: () => void, extra: Partial<Answer> = {}): Answer => ({ id: label, label, run, ...extra });
   const actsOf = (): Answer[] => {
     if (waiting !== undefined) {
       const given = waiting.item;
-      if (given.source === "walk") return [answer("Approve", () => sendWaiting({ choice: "approve" }))];
-      return (given.options ?? []).map((option) =>
-        answer(plainLabel(option.label), () => sendWaiting({ choice: option.label }), {
-          ...(option.description === undefined ? {} : { description: option.description }),
+      // A walk needs no choice: approving is what Fleet does with an answer that names none.
+      if (given.source === "walk") return [answer("Approve", () => sendWaiting({}))];
+      return (given.options ?? []).map((option, at) =>
+        answer(plainLabel(option.label), () => sendWaiting({ choice: at }), {
+          ...("description" in option && typeof option.description === "string" ? { description: option.description } : {}),
           ...(RECOMMENDED.test(option.label) ? { recommended: true } : {}),
         }),
       );

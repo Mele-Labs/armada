@@ -535,6 +535,18 @@ destructive = false
 confirms = false
 notes = "Puts the call in front at the back of the stack of waiting calls. `Esc` does the same while a call is in front, and is not a second row because `Esc` is the Global close above and means the same thing there: step back from what is in front."
 
+[actions.call_dismiss]
+kind = "Action"
+tier = "Contextual"
+verb = "Dismiss"
+icon = ""
+icon_absent = "undecided"
+shortcut = "d"
+scope = "call"
+destructive = false
+confirms = false
+notes = "Removes the call in front for good, where `call_later` only puts it at the back. Its tooltip reads *Never show this again*. A Session's waiting item is dismissed on the Session (`POST /sessions/waiting/dismiss`, and until the window has that route a remembered set keyed `session_id:item_id`); a call about a state Fleet raised (a failing pull request, main red, a failed Check, a stuck Drone) is remembered by that state, so the same failure stays gone and the next one shows. `d` is Redirect on a list and detail, a different scope. Added 9 Oct 2026 on the owner's *\"It thinks a bunch of things need me when really they don't. I should be able to ignore these for good, not just save for later.\"*"
+
 [actions.call_expand]
 kind = "Action"
 tier = "Contextual"
