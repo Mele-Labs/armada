@@ -1,0 +1,7 @@
+[icons.smartphone]
+  means = "A tall rounded rectangle with a short bar near its foot — a phone held upright"
+  group = "Record"
+  size = "12px"
+  status = "Specified"
+  reserved = "A Record row whose act a person took on their phone, drawn beside who took it and tooltipped From phone. Never a notification, a device count or a connection state, and never a screen size: Pocket's pairing and push are not this."
+  notes = "Added 9 Oct 2026 for #phone-acts. Drawn --fg-muted at 12px, so the row reads as the same act with the door it came through beside it. Rule 4: no other glyph in the set is a tall upright rectangle with a foot bar."

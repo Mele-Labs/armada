@@ -78,6 +78,8 @@ export type JobLedgerRow = {
   who: LedgerWho;
   /** Who, spelled. The caller's, so a Drone's row can name the Drone. */
   whoSays: ReactNode;
+  /** The door the act came through, where it was not Bridge's. Drawn beside who. */
+  door?: JobLedgerMark;
   /**
    * The kind's mark. Absent where the registry assigns the kind no glyph, and
    * drawn only while `kindMarks` is on.
@@ -256,6 +258,11 @@ export function JobLedger({
                     <TableCell variant="secondary" className="armada-ledger__who">
                       <span className="armada-ledger__actor" data-who={row.who}>
                         {row.whoSays}
+                        {row.door === undefined ? null : (
+                          <Tooltip label={row.door.says}>
+                            <span className="armada-ledger__door">{row.door.glyph}</span>
+                          </Tooltip>
+                        )}
                       </span>
                     </TableCell>
                     <TableCell className="armada-ledger__what">

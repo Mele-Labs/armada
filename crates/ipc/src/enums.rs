@@ -342,7 +342,7 @@ impl<'de> Deserialize<'de> for TopLevelOrigin {
 }
 wire_enum! {
     /// Which door a request that moved a Job came through: `bridge`, `helm`,
-    /// `door` or `http`. Since 23.12. `docs/concepts/retro.md`.
+    /// `door`, `http` or `phone`. Since 23.12. `docs/concepts/retro.md`.
     Via, core_model::Via, "a door a request came through"
 }
 wire_enum! {

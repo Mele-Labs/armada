@@ -5,7 +5,7 @@
 // English and holds no JSX; these are chrome.
 
 import type { ReactNode } from "react";
-import { Bot, Box, FileCheck, FileDiff, FlaskConical, ListTodo, Scale, Shield } from "lucide-react";
+import { Bot, Box, Smartphone, FileCheck, FileDiff, FlaskConical, ListTodo, Scale, Shield } from "lucide-react";
 
 import { PathChip, Prose, type JobLedgerMark } from "@armada/components";
 
@@ -35,6 +35,14 @@ export function markFor(kind: string): JobLedgerMark | undefined {
   // `says` is the kind as the record spells it, which is what the column this
   // replaced drew and what the tooltip now carries.
   return { glyph: <Glyph size={MARK_ICON} strokeWidth={MARK_STROKE} aria-hidden />, says: kind };
+}
+
+/** The glyph beside who, on an act taken on the phone. No sentence: the tooltip names it. */
+export function phoneDoor(): JobLedgerMark {
+  return {
+    glyph: <Smartphone size={MARK_ICON} strokeWidth={MARK_STROKE} aria-hidden />,
+    says: "From phone",
+  };
 }
 
 const MARKS: Record<LedgerFamily, typeof FileCheck> = {

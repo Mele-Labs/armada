@@ -207,7 +207,8 @@ impl Forgotten {
             "job_landing" | "job_drone_caps" | "job_policy_overrides" | "job_issue_sources" => {
                 &mut self.approval
             }
-            "job_retros" | "job_retro_items" | "job_drone_notes" | "job_event_via" => {
+            "job_retros" | "job_retro_items" | "job_drone_notes" | "job_event_via"
+            | "job_event_phone" => {
                 &mut self.retros
             }
             "job_walk_notes" => &mut self.walk_notes,

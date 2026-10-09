@@ -107,7 +107,7 @@ mod watching_run;
 #[cfg(test)]
 mod tests;
 
-pub use acting::{asked_by, asking, carrying, via, BRIDGE, CALLER_HEADER};
+pub use acting::{asked_by, asking, carrying, via, BRIDGE, CALLER_HEADER, PHONE};
 pub use conversing::{HelmFeed, HelmSeen, HelmWatch, ObservedHelm, HELM_BACKLOG};
 pub use daemon::{
     offerable, Admitting, Authoring, Commands, Conversations, Daemon, FramePart, FrameSpan,

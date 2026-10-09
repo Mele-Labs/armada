@@ -58,6 +58,25 @@ fn a_move_keeps_the_door_it_came_through() {
     );
 }
 
+/// A phone act is kept beside the other doors and read back with them.
+#[test]
+fn a_phone_act_is_kept_and_read_back_as_the_phone() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    let job = on_its_first_run(&mut store, "01RETROPHONE");
+    let moved = job
+        .transition(Target::Killed, Actor::Human, at("2026-08-26T10:05:00.000Z"))
+        .expect("a kill");
+    let seq = store.record_transition(&moved).expect("recorded");
+
+    store.record_via(job.id(), seq, Via::Phone).expect("kept");
+
+    assert_eq!(
+        store.vias_for(job.id()).expect("read back"),
+        vec![(seq, Via::Phone)]
+    );
+}
+
 /// What a Drone said got in its way, in the order it said it, under the step
 /// it said it on.
 #[test]

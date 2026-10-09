@@ -63,13 +63,13 @@ pub(crate) mod lines {
 
 /// Who a move is signed by, and the door it came through.
 ///
-/// **A person's act that came through any door but Bridge is Helm's**: an
+/// **A person's act that came through any door but Bridge or their phone is Helm's**: an
 /// agent made the request, and Fleet cannot see the person behind it. A move
 /// with no request behind it keeps the signer it was given and no door.
 pub(crate) fn signed(by: Actor) -> (Actor, Option<Via>) {
     let via = api::via().map(|via| via.domain());
     match (by, via) {
-        (Actor::Human, Some(via)) if !via.is_a_person_in_bridge() => (Actor::Helm, Some(via)),
+        (Actor::Human, Some(via)) if !via.is_a_person() => (Actor::Helm, Some(via)),
         (Actor::Human | Actor::Helm, via) => (by, via),
         (by, _) => (by, None),
     }
@@ -87,3 +87,25 @@ pub(crate) fn kept_via(store: &mut store::Store, job: &JobId, seq: i64, via: Opt
 /// and a Fleet that comes back to a dozen ended Jobs writes them in turn.
 #[derive(Clone, Default)]
 pub(crate) struct Reflecting(pub(crate) Arc<AtomicBool>);
+
+#[cfg(test)]
+mod signed_tests {
+    use super::*;
+
+    async fn signed_through(via: Via) -> (Actor, Option<Via>) {
+        let door = Some(ipc::Via::from_wire(via.as_wire()).expect("a door"));
+        api::carrying(door, async { signed(Actor::Human) }).await
+    }
+
+    #[tokio::test]
+    async fn a_phone_press_stays_a_persons_and_names_the_phone() {
+        assert_eq!(signed_through(Via::Phone).await, (Actor::Human, Some(Via::Phone)));
+    }
+
+    #[tokio::test]
+    async fn bridge_and_the_phone_are_a_person_and_a_bare_call_is_not() {
+        assert_eq!(signed_through(Via::Bridge).await, (Actor::Human, Some(Via::Bridge)));
+        assert_eq!(signed_through(Via::Http).await, (Actor::Helm, Some(Via::Http)));
+        assert_eq!(signed(Actor::Human), (Actor::Human, None));
+    }
+}
