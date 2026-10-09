@@ -12,6 +12,9 @@ const call = (kind: RegExp) => region(kind);
 
 const dashboardCockpit = walk("dashboard-cockpit", [
   { look: tab("Your move"), say: "One panel, three filters on its top bar. Your move is what needs him, and nothing does: the panel is empty" },
+  { look: role("img", /^docs\/wire-lock-signed/), say: "The merge line is a band along the foot of the panel, main's light at its right end. A dot each, nearest main first: Fleet's landings, then the pull requests in the merge queue by place, then the open ones" },
+  { hover: button(/^#1890/), say: "Colour is the state, a solid dot is held by a queue and a ring is open, and only a running one pulses. Hovering opens its card; pressing it opens the pull request" },
+  { hover: role("img", /^docs\/wire-lock-signed/), say: "A landing's card gives the full branch, its stage and the Check it is on" },
   { key: "]", on: cockpit, say: "] steps to the next filter, [ to the one before" },
   { look: tab("Active"), say: "Active: everything live, one tile each. What is active is the glyph, and a tile that asks is lit" },
   { hover: inside(glass, role("img", "Drone working")), say: "A glyph names its state on hover" },
@@ -55,6 +58,8 @@ const dashboardCockpit = walk("dashboard-cockpit", [
   { look: tab("Done"), say: "Done: Jobs and Sessions that are over, the same tiles, the one picked opened beside them" },
   { key: "Alt+1", on: tab("Done"), say: "Option and a number picks a filter" },
   { look: inside(glass, role("option", /Shorten the reconnect wait/)), say: "Your move again: the call that was put off is a lit tile" },
+  { later: cockpit, say: "Checks fail on an open pull request" },
+  { hover: button(/^#1894/), say: "Its dot turns red on the merge line, and the pull request is a call of its own" },
 ]);
 
 export { dashboardCockpit as "dashboard-cockpit" };

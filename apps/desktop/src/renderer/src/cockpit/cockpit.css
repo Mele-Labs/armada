@@ -48,40 +48,124 @@
 
 .armada-view__band > svg { flex: none; }
 
-/* The merge line: blocks moving toward main's light. */
+/* The merge line along the foot of the panel: dots moving toward main's light at the right end. Under the stage, so a call over the glass never covers it. */
+.armada-view__horizon {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-4);
+  border-top: var(--border-width) solid var(--border-default);
+  background: var(--bg-raised);
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+
 .armada-view__line {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
-  flex: 0 1 calc(var(--space-12) * 5);
+  gap: var(--space-3);
   min-width: 0;
 }
 
+.armada-view__line > svg { flex: none; }
+
+/* Reversed, so the first block drawn is the one nearest main and a belt that overflows rests there. */
 .armada-view__belt {
   display: flex;
+  flex-direction: row-reverse;
   flex: 1 1 auto;
-  justify-content: flex-end;
-  gap: var(--space-1);
+  align-items: center;
+  gap: var(--space-4);
+  min-width: 0;
+  padding: var(--space-2) var(--space-1);
+  overflow-x: auto;
+  scrollbar-width: thin;
   margin: 0;
   padding: 0;
   list-style: none;
   background: repeating-linear-gradient(90deg, var(--border-default) 0 var(--space-1), transparent var(--space-1) var(--space-3)) center / 100% var(--border-width) no-repeat;
 }
 
-.armada-view__block {
-  width: var(--space-3);
-  height: var(--space-2);
-  border-radius: var(--radius-sm);
-  background: var(--status-not-started);
+.armada-view__dot-item { display: flex; flex: none; }
+
+/* A dot on the horizon, a landing or a pull request, coloured by its state. Solid where a queue holds it, a ring where it is open.
+   The trigger is only the hit area; the dot is its `::before`, so the loop below moves the dot alone and never the card that opens inside the trigger. */
+.armada-view__dot {
+  --dot: var(--fg-subtle);
+  position: relative;
+  box-sizing: border-box;
+  width: var(--space-4);
+  height: var(--space-4);
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
 }
 
-.armada-view__block[data-state="gating"],
-.armada-view__block[data-state="merging"],
-.armada-view__block[data-state="preparing"] { background: var(--status-running); }
+.armada-view__dot::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  box-sizing: border-box;
+  border: calc(var(--border-width) * 2) solid var(--dot);
+  border-radius: 50%;
+}
+
+span.armada-view__dot { cursor: default; }
+.armada-view__dot[data-queued]::before { background: var(--dot); }
+.armada-view__dot[data-state="queued"] { --dot: var(--status-not-started); }
+.armada-view__dot[data-state="blocked"] { --dot: var(--status-escalated); }
+.armada-view__dot[data-state="running"] { --dot: var(--status-running); }
+.armada-view__dot[data-state="ready"] { --dot: var(--status-completed-success); }
+.armada-view__dot[data-state="failing"] { --dot: var(--status-completed-failed); }
+.armada-view__dot:hover::before { box-shadow: 0 0 0 var(--space-1) color-mix(in srgb, var(--dot) 30%, transparent); }
+.armada-view__dot:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); border-radius: 50%; }
+
+/* The one loop on the horizon: a running dot breathes, slowly, in opacity alone so nothing beside it moves. */
+.armada-view__dot[data-state="running"]::before { animation: armada-dot-breathe var(--duration-pulse) var(--ease) infinite; }
+
+@keyframes armada-dot-breathe {
+  50% { opacity: 0.5; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .armada-view__dot[data-state="running"]::before { animation: none; }
+}
+
+/* What a dot says on hover, on the tooltip's own bubble: an overlay surface, one row a fact. */
+.armada-horizon-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: calc(var(--space-12) * 4);
+  max-width: calc(var(--space-12) * 7);
+  padding: var(--space-3);
+  border: var(--border-width) solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--bg-overlay);
+  box-shadow: var(--shadow-overlay);
+  color: var(--fg-default);
+}
+
+.armada-horizon-card__head { display: flex; gap: var(--space-2); font-weight: var(--weight-medium); }
+.armada-horizon-card__number { flex: none; font-family: var(--font-mono); }
+.armada-horizon-card__row { display: flex; align-items: center; gap: var(--space-2); min-width: 0; color: var(--fg-muted); }
+.armada-horizon-card__row:empty { display: none; }
+.armada-horizon-card__branch { font-family: var(--font-mono); overflow-wrap: anywhere; }
+.armada-horizon-card__state { color: var(--fg-default); }
+.armada-horizon-card__state > svg { flex: none; color: var(--dot, currentColor); }
+.armada-horizon-card[data-state="queued"] .armada-horizon-card__state > svg { color: var(--status-not-started); }
+.armada-horizon-card[data-state="blocked"] .armada-horizon-card__state > svg { color: var(--status-escalated); }
+.armada-horizon-card[data-state="running"] .armada-horizon-card__state > svg { color: var(--status-running); }
+.armada-horizon-card[data-state="ready"] .armada-horizon-card__state > svg { color: var(--status-completed-success); }
+.armada-horizon-card[data-state="failing"] .armada-horizon-card__state > svg { color: var(--status-completed-failed); }
 
 .armada-view__main {
-  width: var(--space-3);
-  height: var(--space-3);
+  flex: none;
+  width: var(--space-4);
+  height: var(--space-4);
   border-radius: 50%;
   background: var(--status-completed-success);
   box-shadow: 0 0 var(--space-3) var(--status-completed-success);
