@@ -113,4 +113,16 @@ impl Store {
             .map_err(fault("correcting a decision of the night"))
             .map_err(WriteError::Database)
     }
+
+    /// Fill the choice of a decision that has none. False where the row is gone or already has one.
+    pub fn fill_sleep_chose(&mut self, id: &str, chose: &str) -> Result<bool, WriteError> {
+        self.conn
+            .execute(
+                "UPDATE sleep_rows SET chose = ?2 WHERE id = ?1 AND kind = 'decided' AND (chose IS NULL OR chose = '')",
+                params![id, chose],
+            )
+            .map(|changed| changed > 0)
+            .map_err(fault("filling what the agent chose"))
+            .map_err(WriteError::Database)
+    }
 }

@@ -3,8 +3,11 @@
 //!
 //! **What the night may decide.** A question a session asked, once it has waited out [`GRACE`] so the
 //! agent could carry on by itself first: the option labelled "(Recommended)", else `mode: best`. **Never
-//! a destructive or irreversible one, and never a permission.** Those are held under blocked, as is an
-//! escalated Job: no route answers an escalation in words, so there is nothing to decide with.
+//! a destructive or irreversible one, and never a permission.** Those are held under blocked.
+//!
+//! **An escalated Job** whose trigger words can carry past ([`ANSWERABLE`]) and whose title is not
+//! destructive is told to decide for itself, by the owner's own act: a redirect to its Drone, or a
+//! restart of the step with the same words where the Drone is gone. Any other escalation is held.
 //!
 //! **Each thing is left once.** A row's id is `<session>:<item>`, so a pass over an item already
 //! decided or held changes nothing.
@@ -14,13 +17,17 @@ use std::time::Duration;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{HostedSessions, Refusal};
+use core_model::{Actor, EscalationTrigger, JobStatus, TransitionReason};
 use ipc::{
     AnswerWaiting, OverrideSleep, SendSessionMessage, SleepBlocked, SleepDecided, SleepLanded, SleepState,
     SleepWalk, WaitingItem, WaitingMode, WaitingSource, WireError,
 };
 use store::{SessionState, SleepRow};
 
+use crate::adrift::Adrift;
 use crate::daemon::Fleet;
+use crate::resume::{Ending, Redirection, Steer};
+use crate::session_host::waiting::mode_line;
 
 /// How long an item waits before the night answers it.
 pub const GRACE: Duration = Duration::from_secs(120);
@@ -44,13 +51,34 @@ const DESTRUCTIVE: &[&str] = &[
 /// Whole words that are too short to match inside another.
 const DESTRUCTIVE_WORDS: &[&str] = &["rm", "kill", "undo"];
 
+/// The escalations a person's words can carry a Job past: a Drone that stopped, went quiet, looped or
+/// failed a gate. The rest (a dependency that failed, no worktree, a cap) are not cured by a sentence.
+const ANSWERABLE: &[EscalationTrigger] = &[
+    EscalationTrigger::Stalled,
+    EscalationTrigger::Silent,
+    EscalationTrigger::Thrashing,
+    EscalationTrigger::NoReport,
+    EscalationTrigger::Interrupted,
+    EscalationTrigger::LoopCap,
+    EscalationTrigger::GateFailure,
+];
+
+/// How much of the agent's next words the review shows.
+const CHOSE_CHARS: usize = 120;
+
 /// Whether the item, read with its options, may be destructive or irreversible.
 pub(crate) fn destructive(item: &WaitingItem) -> bool {
-    let mut text = item.text.to_lowercase();
+    let mut text = item.text.clone();
     for option in &item.options {
         text.push('\n');
-        text.push_str(&option.label.to_lowercase());
+        text.push_str(&option.label);
     }
+    destructive_text(&text)
+}
+
+/// [`destructive`] over plain text.
+fn destructive_text(text: &str) -> bool {
+    let text = text.to_lowercase();
     DESTRUCTIVE.iter().any(|word| text.contains(word))
         || text
             .split(|one: char| !one.is_alphanumeric())
@@ -190,12 +218,90 @@ where
         }
     }
 
-    /// An escalated Job: blocked, because nothing answers an escalation in words.
-    pub(crate) async fn sleep_escalated(&self, id: &str, who: String, title: &str) {
-        if self.sleeping().await {
-            let text = format!("Escalated, waiting on you: {title}");
-            let _ = self.leave(row("blocked", format!("job:{id}"), who, text)).await;
+    /// An escalated Job the night will not answer: blocked. One it will answer is left to the pass.
+    pub(crate) async fn sleep_escalated(&self, job: &core_model::Job) {
+        if !self.sleeping().await {
+            return;
         }
+        let (id, title) = (job.id().as_str(), job.title().as_str());
+        let answerable = match self.last_reason(job.id()).await {
+            Ok(Some(TransitionReason::Escalation(trigger))) => ANSWERABLE.contains(&trigger),
+            _ => false,
+        };
+        if !answerable || destructive_text(title) {
+            let text = format!("Escalated, waiting on you: {title}");
+            let _ = self.leave(row("blocked", format!("job:{id}"), job.handle(), text)).await;
+        }
+    }
+
+    /// Escalated Jobs, each once: told to decide for itself, or held.
+    async fn sleep_jobs(&self) -> Result<(), Refusal> {
+        let (loaded, _) = self.every_job().await.map_err(|why| self.refusal(why))?;
+        for job in loaded.jobs.iter().filter(|job| job.status() == JobStatus::Escalated) {
+            let id = format!("job:{}", job.id().as_str());
+            if self.store().lock().await.sleep_row(&id).map_err(|why| self.ledger_fault(why))?.is_some() {
+                continue;
+            }
+            let Ok(Some(TransitionReason::Escalation(trigger))) = self.last_reason(job.id()).await else {
+                continue;
+            };
+            let (who, title) = (job.handle(), job.title().as_str());
+            let asked = format!("{title} ({})", trigger.as_wire());
+            if !ANSWERABLE.contains(&trigger) || destructive_text(title) {
+                self.leave(row("blocked", id, who, format!("Escalated, waiting on you: {title}"))).await?;
+                continue;
+            }
+            let Some(words) = Redirection::saying(&format!("{}\n\n{asked}", mode_line(WaitingMode::Best))) else {
+                continue;
+            };
+            let by = Actor::Fleet;
+            let sent = match self.steer(job.id(), Steer::Words(&words, by)).await {
+                Err(Adrift::NoDroneToRedirect { .. }) => {
+                    self.restart_step_by(job.id(), Some(&words), Ending::Unheard, by).await
+                }
+                other => other,
+            };
+            match sent {
+                Ok(_) => self.leave(row("decided", id, who, asked)).await?,
+                Err(why) => {
+                    let text = format!("Escalated, could not carry on ({why}): {title}");
+                    self.leave(row("blocked", id, who, text)).await?;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Fill `chose` on decisions made with `mode: best`: the first line of what the agent said next.
+    async fn sleep_chose(self: &Arc<Self>) -> Result<(), Refusal> {
+        let empty: Vec<SleepRow> = self
+            .store()
+            .lock()
+            .await
+            .sleep_rows()
+            .map_err(|why| self.ledger_fault(why))?
+            .into_iter()
+            .filter(|one| one.kind == "decided" && one.chose.as_deref().map_or(true, str::is_empty))
+            .collect();
+        let mut filled = false;
+        for one in empty {
+            let Some(session) = one.session_id.clone() else { continue };
+            let Ok(read) = Arc::clone(self).get_session(ipc::SessionId::carried(session)).await else {
+                continue;
+            };
+            let Some(chose) = next_words(&read.rows) else { continue };
+            let done = self
+                .store()
+                .lock()
+                .await
+                .fill_sleep_chose(&one.id, &chose)
+                .map_err(|why| self.ledger_fault(why))?;
+            filled |= done;
+        }
+        if filled {
+            self.sleep_published().await?;
+        }
+        Ok(())
     }
 
     async fn sleeping(&self) -> bool {
@@ -268,8 +374,27 @@ where
                 }
             }
         }
-        Ok(())
+        self.sleep_jobs().await?;
+        self.sleep_chose().await
     }
+}
+
+/// The first non-empty line of the agent's message after the last "decide this yourself" the night sent.
+pub(crate) fn next_words(rows: &[ipc::SessionRow]) -> Option<String> {
+    let line = mode_line(WaitingMode::Best);
+    let from = rows.iter().rposition(|row| {
+        matches!(row, ipc::SessionRow::Message { from: ipc::SessionVoice::You, text, .. } if text.contains(line))
+    })?;
+    rows[from + 1..].iter().find_map(|row| match row {
+        ipc::SessionRow::Message { from: ipc::SessionVoice::Agent, text, .. } => {
+            let first = text.lines().map(str::trim).find(|one| !one.is_empty())?;
+            Some(match first.char_indices().nth(CHOSE_CHARS) {
+                Some((at, _)) => format!("{}…", first[..at].trim_end()),
+                None => first.to_string(),
+            })
+        }
+        _ => None,
+    })
 }
 
 fn ipc_millis(item: &WaitingItem) -> Option<i64> {
