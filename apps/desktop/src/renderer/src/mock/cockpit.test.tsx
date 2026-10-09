@@ -179,12 +179,24 @@ test("a pull request that a Session or a Job already owns sends him to the owner
   await reach(/^Pull request: #1822/);
   await expect.element(page.getByRole("group", { name: "Owner" })).toHaveTextContent("Session · Armada Pocket");
   await expect.element(radio(/Open the Session/)).toBeVisible();
+  await expect.element(radio(/Poke/)).toBeVisible();
   expect(radio(/Send a Drone/).query()).toBeNull();
 
-  // A person's, with nobody on it: a Drone stays.
+  // A person's, with nobody on it: a Drone stays, and so does a way to attach it to who is on it.
   await reach(/^Pull request: #1823/);
   await expect.element(radio(/Send a Drone/)).toBeVisible();
+  await expect.element(radio(/Attach/)).toBeVisible();
   expect(page.getByRole("group", { name: "Owner" }).query()).toBeNull();
+
+  // Attach lists the live Jobs and Sessions, a filter narrows them, and Enter attaches it: the card is owned.
+  await userEvent.keyboard("2");
+  await userEvent.keyboard("{Enter}");
+  await expect.element(page.getByRole("listbox", { name: "Jobs and Sessions" })).toBeVisible();
+  await userEvent.type(page.getByRole("textbox", { name: "Attach to" }), "Migration notes");
+  await userEvent.keyboard("{Enter}");
+  await expect.element(page.getByRole("group", { name: "Owner" })).toHaveTextContent(/Session · Migration notes/);
+  await expect.element(radio(/Open the Session/)).toBeVisible();
+  expect(radio(/Send a Drone/).query()).toBeNull();
 });
 
 test("main's red goes to the Job that broke it, and Enter opens that Job", async () => {
@@ -198,4 +210,38 @@ test("main's red goes to the Job that broke it, and Enter opens that Job", async
   await userEvent.keyboard("{Enter}");
   // The Job opens: the Dashboard's filters are no longer drawn.
   await expect.poll(() => page.getByRole("tab", { name: "Your move" }).query()).toBeNull();
+});
+
+test("a Session's own question shows its options and their lines, never Allow or Deny, and takes a reply in words", async () => {
+  localStorage.removeItem(FILTER);
+  mount("dashboard-needs-you");
+  await onScreen();
+  await userEvent.keyboard("{Escape}");
+  await reach(/^Session question/);
+  // The question whole, down to its last sentence.
+  await expect.element(page.getByText(/Nothing you see changes either way. What should happen to it\?/)).toBeVisible();
+  // Its own options, the recommended one marked, each with the agent's line.
+  await expect.element(radio(/File an issue/)).toBeVisible();
+  await expect.element(radio(/File an issue/)).toHaveTextContent("Recommended");
+  await expect.element(radio(/Fix it now/)).toHaveTextContent("Change the restart script");
+  await expect.element(radio(/Drop it/)).toBeVisible();
+  for (const name of [/Allow/, /Deny/, /Refuse/]) expect(radio(name).query()).toBeNull();
+  // Type something is a reply on the card, and it lands in the Session: the call is answered.
+  await userEvent.keyboard("t");
+  await expect.element(page.getByRole("textbox", { name: "Type something" })).toHaveFocus();
+  await userEvent.type(page.getByRole("textbox", { name: "Type something" }), "File it, and fix it on Friday");
+  await userEvent.keyboard("{Enter}");
+  await expect.element(page.getByRole("region", { name: /^Session question/ })).not.toBeInTheDocument();
+});
+
+test("a permission is the only Session call that offers Allow once and Refuse, and a walk's act is Approve", async () => {
+  localStorage.removeItem(FILTER);
+  mount("dashboard-needs-you");
+  await onScreen();
+  await userEvent.keyboard("{Escape}");
+  await reach(/^Session walk/);
+  await expect.element(radio(/Approve/)).toBeVisible();
+  await reach(/^Session: Flaky/);
+  await expect.element(radio(/Allow once/)).toBeVisible();
+  await expect.element(radio(/Refuse/)).toBeVisible();
 });

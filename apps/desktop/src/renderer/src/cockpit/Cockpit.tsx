@@ -24,6 +24,7 @@ import { useSessions } from "../sessions-draft";
 import { CallCard, type CardKeys } from "./CallCard";
 import { FleetMap } from "./FleetMap";
 import { TAB_KEYS } from "./keys";
+import { sessionIdOf } from "./waiting";
 import { nearest, skyOf } from "./map-layout";
 import { useCockpitView } from "./view";
 import "./cockpit.css";
@@ -89,7 +90,7 @@ function Behind({ edge, put, recall }: { edge: readonly Item[]; put: readonly st
 
 /** The acts of the tile under the cursor, each with the key that does it. */
 function TileActs({ item, hosts }: { item: Item; hosts: Hosts }) {
-  const open = () => (item.job === undefined ? hosts.onOpenSession(item.key.slice("session:".length)) : hosts.onOpen(item.job.id));
+  const open = () => (item.job === undefined ? hosts.onOpenSession(sessionIdOf(item.key)!) : hosts.onOpen(item.job.id));
   const stoppable = item.job !== undefined && !isTerminal(item.job) && hosts.onKill !== undefined;
   return (
     <>
@@ -243,6 +244,10 @@ export function Cockpit({
       if (/^[1-9]$/.test(event.key)) return claim(), card.pickNumber(Number(event.key));
       if (card.pickKey(event.key)) return claim();
       switch (event.key) {
+        case keyFor("call_reply"): {
+          const field = document.querySelector<HTMLTextAreaElement>(".armada-callcard__reply textarea");
+          return field === null ? undefined : (claim(), field.focus());
+        }
         case keyFor("call_expand"):
           return card.expand === undefined ? undefined : (claim(), card.expand());
         case "ArrowDown":

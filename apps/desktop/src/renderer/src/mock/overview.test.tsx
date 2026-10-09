@@ -151,7 +151,7 @@ test("j and k move the pick, x asks to kill, Enter opens", async () => {
 test("the Job picked is Overview's cursor, and Helm's footer names it", async () => {
   await overview(onOverview(JOBS()));
   await openHelm();
-  await expect.element(page.getByText(/^Overview · cursor on Job \d+$/)).toBeVisible();
+  await expect.element(page.getByText(/^Cockpit · cursor on Job \d+$/)).toBeVisible();
 });
 
 test("n brings the cursor to the dispatch bar from the Dashboard", async () => {

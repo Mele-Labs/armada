@@ -42,6 +42,7 @@ import { useListKeydown } from "@armada/screens/src/list-keyboard";
 import type { BridgeState } from "../../shared/bridge";
 import { viewsOf } from "./merge-line";
 import { useSessions } from "./sessions-draft";
+import { callsFromWaiting, sessionIdOf, type WaitingCall, type WaitingItem } from "./cockpit/waiting";
 
 /** The frame's hue: what the row wants of the owner, or how it stands. */
 type Hue = "ask" | "issue" | "running" | "queued" | "ok" | "bad";
@@ -88,6 +89,8 @@ export type Item = {
   stepAt?: number;
   /** A Session's recent cadence, each bar 0 to 1: a message tall, a tool call short. */
   spark?: readonly number[];
+  /** What a Session's call waits on: the item, which is what the call answers. */
+  waiting?: { sessionId: string; item: WaitingItem };
 };
 
 /** What the Dashboard knows of each Job's Now, by Job id. Mock only: Fleet serves none. */
@@ -149,6 +152,8 @@ export type Hosts = {
   onRedispatch?: ((jobId: string) => void) | undefined;
   onClear?: ((jobId: string) => void) | undefined;
   onPausing?: ((act: PauseAct, jobId: string) => void) | undefined;
+  /** Says a sentence as a toast: a refusal the panel has to name. */
+  onTell?: ((sentence: string) => void) | undefined;
   /** Where the cursor is, for Helm's footer: the Job picked, or null. */
   onCursor?: ((jobId: string | null) => void) | undefined;
 };
@@ -241,7 +246,7 @@ export function useBoardKeys(
       case "open":
       case "verb":
         if (here?.job !== undefined) hosts.onOpen(here.job.id);
-        else if (here?.key.startsWith("session:") === true) hosts.onOpenSession(here.key.slice("session:".length));
+        else if (sessionIdOf(here?.key ?? "") !== undefined) hosts.onOpenSession(sessionIdOf(here!.key)!);
         else return;
         break;
       case "kill":
@@ -401,6 +406,33 @@ function sessionItem(session: Session, hosts: Hosts): Item {
   };
 }
 
+/** One thing a Session waits on, as a call: one card per item, in the order they began. */
+function waitingItem({ session, item }: WaitingCall, hosts: Hosts): Item {
+  const last = [...session.rows].reverse().find((row) => row.kind === "message");
+  return {
+    key: `session:${session.id}:${item.id}`,
+    owner: `session:${session.id}`,
+    icon: SquareTerminal,
+    kind: item.source === "ask_card" ? "Session question" : item.source === "walk" ? "Session walk" : "Session",
+    session: true,
+    mark: Eye,
+    state: item.source === "permission" ? "Waiting on a command" : "Waiting on you",
+    spark: sparkOf(session),
+    title: session.title ?? session.address ?? session.id,
+    fact: item.text,
+    at: item.since,
+    hue: "ask",
+    where: session.address ?? "",
+    body: [],
+    ...(last !== undefined && last.kind === "message" ? { said: [last.text] } : {}),
+    doing: "Waiting on you",
+    context: session.rows.flatMap((row) => (row.kind === "message" ? [row.text] : [])).slice(-3),
+    contextHead: "Last messages",
+    waiting: { sessionId: session.id, item },
+    acts: () => <Button variant="secondary" onClick={() => hosts.onOpenSession(session.id)}>Open Session</Button>,
+  };
+}
+
 /** `rehearsed` is the mock, where a Drone's look at a pull request plays out in place on a timer. */
 function lineItems(state: BridgeState, tab: DashboardTab, hosts: Hosts, rehearsed: boolean): Item[] {
   const items: Item[] = [];
@@ -524,7 +556,7 @@ export function useItems(
             acts: () => <JobActs job={job} stale={false} onOpen={hosts.onOpen} onKill={hosts.onKill ?? noop} onRedispatch={hosts.onRedispatch ?? noop} onClear={hosts.onClear ?? noop} {...(hosts.onPausing === undefined ? {} : { onPausing: hosts.onPausing })} />,
           });
       }
-      items.push(...sessions.filter((one) => one.asked !== undefined && one.dead === undefined && one.turn.state !== "working").map((one) => sessionItem(one, hosts)));
+      items.push(...callsFromWaiting(sessions).map((one) => waitingItem(one, hosts)));
     } else {
       const jobs = tab === "running" ? of(["running", "queued", "other"]) : of(["recently-ended", "done"]);
       for (const job of jobs) {

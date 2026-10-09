@@ -92,7 +92,7 @@ test("Pilot wired: the Board says which Session has the Job, and its card opens 
   await pilotIt();
   await expect.element(handoff()).toBeVisible();
 
-  await userEvent.click(page.getByRole("button", { name: "Overview", exact: true }));
+  await userEvent.click(page.getByRole("button", { name: "Cockpit", exact: true }));
   await userEvent.click(page.getByRole("tab", { name: "Active" }));
   await userEvent.click(page.getByRole("option", { name: "The retry loop, Job" }));
   await expect.element(page.getByRole("img", { name: "Piloted in The retry loop" })).toBeVisible();

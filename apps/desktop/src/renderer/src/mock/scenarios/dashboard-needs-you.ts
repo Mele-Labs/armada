@@ -166,6 +166,47 @@ const SESSIONS: Session[] = [
     asked: { command: "git push --force-with-lease origin fix/flaky-store" },
   },
   { id: "s10", title: "Migration notes", turn: { state: "working" }, lastTurn: "14:05", lastTurnAt: ago(1), rows: [...said("s10-0", "Listing the migrations since 0042."), ...said("s10-1", "Reading the migrations.")], attachments: [] },
+  // A real Session's own question, as it came: three options, each with its line, and the question whole.
+  {
+    id: "s14",
+    title: "Preview Refresh from Bridge",
+    turn: quiet,
+    lastTurn: "13:10",
+    lastTurnAt: ago(50),
+    rows: said("s14-0", "The preview ran against a build from before the filters landed."),
+    attachments: [],
+    asked: {
+      command: "AskUserQuestion",
+      call: "q14",
+      questions: [
+        {
+          question:
+            "The preview refresh restarted Bridge on a build from before the filters landed, so the new panel never showed. Fixing it is one line in the restart script. Nothing you see changes either way. What should happen to it?",
+          header: "Stale build",
+          multi_select: false,
+          options: [
+            { label: "File an issue (Recommended)", description: "Write it up so it is tracked, and leave the restart script as it is for now." },
+            { label: "Fix it now", description: "Change the restart script in this session, run the preview again and push the branch." },
+            { label: "Drop it", description: "Leave it. It does not matter enough to track." },
+          ],
+        },
+      ],
+    },
+  },
+  // A Session on the wire's own shape: what it waits on, in the order each began. A page to look at, then a question with no options.
+  {
+    id: "s15",
+    title: "Docs for the pairing screen",
+    turn: quiet,
+    lastTurn: "13:20",
+    lastTurnAt: ago(30),
+    rows: said("s15-0", "The pairing page is up, and I need one decision before I write its caption."),
+    attachments: [],
+    waitingFor: [
+      { id: "ask:q15", text: "Which of the two pairing codes should the QR carry, the long one or the short?", since: ago(28), source: "agent" },
+      { id: "walk:https://git.example/pairing", text: "The pairing screen is ready to look at", since: ago(34), source: "walk", act: { kind: "walk", target: "https://git.example/pairing" } },
+    ],
+  } as Session,
   // A Session that holds a failing pull request: the call about it sends him to the Session.
   {
     id: "s13",

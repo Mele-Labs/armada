@@ -46,7 +46,7 @@ export const triggerEditsAndAlerts = walk("real/job-2-edits-and-alerts", [
   { press: inside(DRONE, button("Keep for every Job")), say: "Keep it for every Job, the name already taken" },
   { press: inside(KEEP, button("Keep", { exact: true })), say: "Kept under the next free name, never asked to Replace" },
   { press: inside(KEEP, button("Close")), say: "Close" },
-  { press: role("button", "Overview", { exact: true }), say: "Back to the Board" },
+  { press: role("button", "Cockpit", { exact: true }), say: "Back to the Board" },
   { press: button(/^Open Job/), say: "Job 2, which holds an alert" },
   { look: ALERTS, say: "The alert in this Job's lead, naming the Trigger" },
   { hover: inside(ALERTS, role("img", /Fix ready, deploy_qa/)), say: "Its state, and where it fired" },

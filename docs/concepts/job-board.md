@@ -1,6 +1,6 @@
 # Job Board
 
-**What it is:** Every Job for one Manifest, at every status — the reading, wherever it is drawn. **Not a Bridge surface any more:** [Overview](bridge.md) draws it.
+**What it is:** Every Job for one Manifest, at every status — the reading, wherever it is drawn. **Not a Bridge surface any more:** the Cockpit, once Overview, draws it ([Bridge](bridge.md)).
 
 ---
 
@@ -16,17 +16,25 @@ The owner: *"Overview now supersedes the job board. We should delete this page."
 
 **What was dropped rather than moved**, as the owner chose: the search field, the state tabs, the sort control and the card/table toggle. They are conveniences over a single list, and Overview's sections answer the question the tabs answered. They come back when he asks for one.
 
-## Overview became the Dashboard on 8 Oct 2026
+## Overview became the Dashboard on 8 Oct 2026, and the Cockpit on 9 Oct
 
-The owner asked for a live view of what needs him now, with quick dispatch when nothing does. Overview's panels became three tabs, Command Central, Running and Done, and Jobs, Sessions and merge line items each sort into one of them. A tab carries no count.
+The owner asked for a live view of what needs him now, with quick dispatch when nothing does. Overview's panels became tabs on 8 Oct, and on 9 Oct the tabs went and the page became one panel, called the Cockpit in the rail. Its top bar filters by **Your move**, **Active** and **Done**, and Jobs, Sessions and merge line items each sort into one of them. A filter carries no count. `[` and `]` step the filters and `⌥1` and up jump to one.
 
-**Command Central** is a queue of what needs him, with the item picked opened beside it and answered there. **Running** is every live Job and Session as a tile in one grid, with the merge line as a strip under it. A tile's icon names what is active on it, a Drone, a Check or a Judge, or that it waits on him, and a tile that needs him is lit. Its bottom strip is a Job's steps, drawn from two steps up, or a Session's recent cadence. The tile picked opens beside the grid, and a Job's pane says what is running now. **Done** is the same tiles for the Jobs and Sessions that are over; what landed stays on the merge line. A slim dispatch bar sits over every tab and takes the cursor when nothing needs him. `n`, or `⌘N` from anywhere, brings the cursor to it, and a Job or a Session is chosen beside it, Tab switching between them.
+**Your move** is what needs him. It is empty with nothing waiting, and says nothing. **Active** is every live Job and Session. **Done** is the Jobs and Sessions that are over; what landed stays on the merge line. Every filter draws the same tiles. A tile's icon names what is active on it, a Drone, a Check or a Judge, or that it waits on him, and a tile that needs him is lit. Its bottom strip is a Job's steps, drawn from two steps up, or a Session's recent cadence. On Active and Done the tile picked opens in a pane beside the grid, and a Job's pane says what is running now.
+
+**A call comes forward over the panel whatever the filter**, because it is what needs him. It says what the Job is and what he asked it for, where the question came from and what is active now; a Session's call is a few messages of its thread. It is answered from the keyboard: a digit picks, `Enter` sends, `l` puts it at the back of the stack, `o` opens what it is about. The calls behind it stand like a deck, and `w` brings one back when none is in front. The standing answers, `b` and `g`, hand the decision to the agent, and they stand only on a question an agent asked, never on a call Fleet raises about a state.
+
+**A pull request or main's red that a Job or a Session already owns sends him to the owner**, to open it or to poke it, and offers no new Drone. One nobody owns offers a Drone, or to attach it to a Job or a Session that is on it.
+
+**The grid has a map.** `m` flips the tiles into a map of stars, one for each Job and Session, clustered by repository and joined by what connects them: a parent to its child, a Job to what it waits on, a Session to its Job, a branch to main. The map offers the same acts as the grid. The choice is remembered.
+
+A slim dispatch bar sits over the panel and takes the cursor when nothing needs him. `n`, or `⌘N` from anywhere, brings the cursor to it, and a Job or a Session is chosen beside it, Tab switching between them.
 
 **The row's acts and marks moved into the pane beside the list.** Pilot, Open in a Session, Pause, Kill, Redispatch and Clear are the same control a Board row drew (`JobActs`), and the paused, fixing-main, alert and piloted marks sit beside the title (`JobMarks`). The Board's keys work on whichever list is in front: j and k move, Enter or the row's verb key opens, and x asks to kill. n composes.
 
-**Sessions and the merge line have their own pages for the whole list.** The Dashboard shows only what each tab is about.
+**Sessions and the merge line have their own pages for the whole list.** The Cockpit shows only what each filter is about.
 
-**Everything below still binds.** Which Jobs are in scope, what a row draws, what a status means on it, origin tagging and the dispatch flow are the same rules wherever the list is drawn. Read *the Board* below as *the list of Jobs*, and Overview as where a person reads it.
+**Everything below still binds.** Which Jobs are in scope, what a row draws, what a status means on it, origin tagging and the dispatch flow are the same rules wherever the list is drawn. Read *the Board* below as *the list of Jobs*, and the Cockpit as where a person reads it.
 
 ## What it's for
 
@@ -72,7 +80,7 @@ Approving such a Job is refused at that moment, naming the missing Manifest — 
 
 ## Layout
 
-The sections are still the reading, folded into three tabs: what needs you is Command Central; what is running, queued or claimed by no section is Running; what recently ended or is done is Done. The flat list with a state filter over it was the Board's own arrangement and went with that page. Where Fleet cannot be reached, Overview draws the held rows under their old section panels, which say so.
+The sections are still the reading, folded into the Cockpit's filters: what needs you is Your move; what is running, queued or claimed by no section is Active; what recently ended or is done is Done. The flat list with a state filter over it was the Board's own arrangement and went with that page. Where Fleet cannot be reached, Overview draws the held rows under their old section panels, which say so.
 
 The graph view was an opt-in toggle beside the flat list and is unscheduled: the graph a person asked for is a Job's own workflow, which is drawn on job detail — see [Monitor Active Work](../journeys/monitor-active-work.md). Its open question stands below.
 

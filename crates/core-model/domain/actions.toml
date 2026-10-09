@@ -640,3 +640,15 @@ scope = "anywhere"
 destructive = false
 confirms = false
 notes = "The same act as `n`, from inside a field where `n` would type: it focuses the Dashboard's dispatch bar. A modifier means this tier, so `n` alone stays suppressed in a field."
+
+[actions.call_reply]
+kind = "Action"
+tier = "Contextual"
+verb = "Reply in words"
+icon = ""
+icon_absent = "undecided"
+shortcut = "t"
+scope = "call"
+destructive = false
+confirms = false
+notes = "Puts the cursor in the reply on a call that takes one: a Session's own question, which offers Type something beside its options, or an item with no options. `Enter` in the field sends it and `Esc` leaves it. `t` is attest on a list; a call is not a list."

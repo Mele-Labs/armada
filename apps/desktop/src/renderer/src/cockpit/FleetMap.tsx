@@ -98,7 +98,7 @@ export function FleetMap({
         {sky.stars.map((star) => {
           const { item } = star;
           const lit = burn(item);
-          const session = item.session === true || item.key.startsWith("session:");
+          const session = item.session === true;
           const said = item.state ?? item.kind;
           const on = star.key === selected;
           const show = (event: { currentTarget: SVGGElement }) => {

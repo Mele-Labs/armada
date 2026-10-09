@@ -10,6 +10,7 @@ import type { AboutFiles, AboutLink } from "@armada/jobs/draft/calls";
 
 import type { BridgeState } from "../../shared/bridge";
 import { age, type Item } from "./Dashboard";
+import { sessionIdOf } from "./cockpit/waiting";
 import { SessionMini } from "./sessions";
 import { JobMarks, hasMarks } from "@armada/screens";
 
@@ -100,7 +101,7 @@ export function CallPane({
   const [reading, setReading] = useState<string>();
   const allFiles = (item.about ?? []).flatMap(([, value]) => (typeof value === "object" && "files" in value ? value.files : []));
   const patch: DiffFile[] = allFiles.map((file) => ({ path: file.path, lines: [...file.lines] }));
-  const sessionId = item.key.startsWith("session:") ? item.key.slice("session:".length) : undefined;
+  const sessionId = sessionIdOf(item.key);
   const Icon = item.icon;
   const [at, setAt] = useState(0);
   const [picked, setPicked] = useState<string>();

@@ -18,7 +18,7 @@ export const pickingUpASlot = walk("cleanup/slots", [
   { press: IN_PANEL("Pick up"), say: "Picked up at once" },
   { look: inside(PANEL, role("status")), say: "The slot is free, and the commit is named in the panel" },
   { press: IN_PANEL("Close panel Esc"), say: "Close the panel" },
-  { press: button("Overview", { exact: true }), say: "Back to the Dashboard" },
+  { press: button("Cockpit", { exact: true }), say: "Back to the Dashboard" },
   { press: tab("Active"), say: "Running" },
   { look: role("option", "Continue the work on branch fleet/an-old-try."), say: "The proposal is a row, titled with its request" },
 ]);

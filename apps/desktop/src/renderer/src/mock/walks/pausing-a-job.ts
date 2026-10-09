@@ -32,7 +32,7 @@ export const pausingAJob = walk("pausing/jobs", [
   { hover: MARK, say: "The Job reads queued, and the mark says where its work is" },
   { press: role("button", "Worktree Slots", { exact: true }), say: "Its slot is back in the pool" },
   { look: inside(role("listitem", "slot-1", { exact: true }), role("img", "Free", { exact: true })), say: "slot-1 is free, and the Job's work is on its branch" },
-  { press: role("button", "Overview", { exact: true }), say: "Back to the Dashboard" },
+  { press: role("button", "Cockpit", { exact: true }), say: "Back to the Dashboard" },
   { press: tab("Active"), say: "A Job at its review gate, on Active" },
   { press: role("option", new RegExp(GATE)), say: "Picked" },
   { press: MORE(GATE), say: "A Job at its gate: the same caret" },

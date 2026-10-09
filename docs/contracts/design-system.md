@@ -1450,7 +1450,7 @@ j / k / ↓ / ↑  move focus          (list only)
 Enter          open the focused job. Acts on nothing   (list only)
 o              open. The same act, named so the palette can display it   (list only)
 r              review             (list only)
-t              attest
+t              attest   (list and detail)
 d              redirect
 s              restart step        (detail only)
 p              pilot               (not built)
@@ -1485,6 +1485,7 @@ l              later   (call only)
 e              expand the request   (call only)
 b              make the best decision   (call only)
 g              just get it done   (call only)
+t              reply in words   (call only)
 ```
 
 **The Dashboard's panel and a call in front have scopes of their own**, `dashboard`
@@ -1558,7 +1559,7 @@ run sheet, so an unshifted key would answer twice on one press. `R` opens
 the rail's Run menu rather than starting anything, as a press on Run does.
 See [Studio](../concepts/studio.md).
 
-**`⌘1`–`⌘9` follow the rail** — Overview, Studios, Alerts,
+**`⌘1`–`⌘9` follow the rail** — the Cockpit (Overview until 9 Oct 2026), Studios, Alerts,
 Doctor, Manifest, Worktree Slots, Kit, Settings, Guides, and no digit for Workflows or Checks — since Active Jobs, Reviews and the
 Activity Feed folded into the Board and Worktree Slots joined at the end of it.
 The digits shift if the rail does; the rule is rail order, not the

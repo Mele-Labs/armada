@@ -5,6 +5,6 @@
 
 import type { Item } from "../Dashboard";
 
-export function asksAnAgent(item: Pick<Item, "decisions" | "kind" | "key">): boolean {
-  return item.decisions !== undefined || item.kind === "Drone question" || item.kind === "Judge question" || item.key.startsWith("session:");
+export function asksAnAgent(item: Pick<Item, "decisions" | "kind" | "key" | "waiting">): boolean {
+  return item.decisions !== undefined || item.kind === "Drone question" || item.kind === "Judge question" || (item.waiting !== undefined && item.waiting.item.source !== "walk");
 }

@@ -14,9 +14,10 @@ import { age, type Hosts, type Item } from "../Dashboard";
 import { useSessions } from "../sessions-draft";
 import { threadRowsOf } from "../sessions";
 import { useAnswering, type Answer, type Answering } from "./answers";
+import { sessionIdOf } from "./waiting";
 
 /** What `Enter` does where a call has no answer of its own: it opens the thing. */
-const OPENS = (item: Item) => (item.key.startsWith("session:") ? "Open Session" : item.key.startsWith("pull:") ? "Open pull request" : "Open Job");
+const OPENS = (item: Item) => (sessionIdOf(item.key) !== undefined ? "Open Session" : item.key.startsWith("pull:") ? "Open pull request" : "Open Job");
 
 /** What runs, by its kind, and why nothing runs, by its: the marks the Now panel draws. */
 const KIND: Record<"drone" | "check" | "judge", { Glyph: LucideIcon; said: string }> = {
@@ -34,15 +35,97 @@ const WAIT: Record<"resource" | "job" | "transition" | "step", { Glyph: LucideIc
 /** What the keys can say to the card beyond what an answer does. */
 export type CardKeys = Answering & { expand?: () => void };
 
-/** One answer: its number or its own key, and what it tells the agent where it says. */
+/** One answer: its number or its own key, the agent's line under it where it gave one, and what it tells the agent where it says. */
 function AnswerTile({ one, mark, picked, onPick }: { one: Answer; mark: string; picked: boolean; onPick: () => void }) {
   const tile = (
     <button type="button" role="radio" aria-checked={picked} className="armada-callcard__answer" data-standing={one.key === undefined ? undefined : ""} onClick={onPick}>
       <Kbd>{mark}</Kbd>
-      {one.label}
+      <span className="armada-callcard__option">
+        <span className="armada-callcard__label">
+          {one.label}
+          {one.recommended === true ? <span className="armada-callcard__recommended">Recommended</span> : null}
+        </span>
+        {one.description === undefined ? null : <span className="armada-callcard__description">{one.description}</span>}
+      </span>
     </button>
   );
   return one.says === undefined ? tile : <Tooltip label={one.says}>{tile}</Tooltip>;
+}
+
+/** What a reply in words has been given and not yet sent, kept by call so leaving the card keeps it. */
+const DRAFTS = new Map<string, string>();
+
+/** A reply in words: the Session's own "type something". Enter sends it. */
+function Reply({ itemKey, send }: { itemKey: string; send: (text: string) => void }) {
+  const [text, setText] = useState(DRAFTS.get(itemKey) ?? "");
+  const change = (next: string) => (DRAFTS.set(itemKey, next), setText(next));
+  return (
+    <label className="armada-callcard__reply">
+      <Kbd>{keyFor("call_reply")}</Kbd>
+      <textarea
+        aria-label="Type something"
+        rows={1}
+        value={text}
+        onChange={(event) => change(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" && !event.shiftKey && text.trim() !== "") {
+            event.preventDefault();
+            event.nativeEvent.stopPropagation();
+            DRAFTS.delete(itemKey);
+            send(text.trim());
+          } else if (event.key === "Escape") {
+            event.currentTarget.blur();
+          }
+        }}
+      />
+    </label>
+  );
+}
+
+/** Who a pull request can be attached to: every live Job and Session, a filter over them, j and k to move, Enter to pick. */
+function AttachPicker({ attaching }: { attaching: NonNullable<Answering["attaching"]> }) {
+  const [filter, setFilter] = useState("");
+  const [at, setAt] = useState(0);
+  const shown = attaching.candidates.filter((one) => one.title.toLowerCase().includes(filter.toLowerCase()));
+  const here = Math.min(at, Math.max(0, shown.length - 1));
+  const field = useRef<HTMLInputElement>(null);
+  useLayoutEffect(() => field.current?.focus(), []);
+  const move = (by: number) => setAt(Math.min(shown.length - 1, Math.max(0, here + by)));
+  return (
+    <div className="armada-callcard__picker">
+      <input
+        ref={field}
+        aria-label="Attach to"
+        value={filter}
+        onChange={(event) => (setFilter(event.target.value), setAt(0))}
+        onKeyDown={(event) => {
+          const empty = filter === "";
+          if (event.key === "ArrowDown" || (empty && event.key === "j")) move(1);
+          else if (event.key === "ArrowUp" || (empty && event.key === "k")) move(-1);
+          else if (event.key === "Enter" && shown[here] !== undefined) attaching.choose(shown[here]!);
+          else if (event.key === "Escape") attaching.close();
+          else return;
+          event.preventDefault();
+          event.nativeEvent.stopPropagation();
+        }}
+      />
+      <ul role="listbox" aria-label="Jobs and Sessions" className="armada-callcard__candidates">
+        {shown.map((one, index) => {
+          const Glyph = one.kind === "session" ? SquareTerminal : Workflow;
+          return (
+            <li key={`${one.kind}:${one.id}`} role="option" aria-selected={index === here} className="armada-callcard__candidate" onClick={() => attaching.choose(one)}>
+              <Tooltip label={one.kind === "session" ? "Session" : "Job"}>
+                <span role="img" aria-label={one.kind === "session" ? "Session" : "Job"}>
+                  <Glyph size={12} aria-hidden="true" />
+                </span>
+              </Tooltip>
+              {one.title}
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
 }
 
 export function CallCard({
@@ -83,7 +166,7 @@ export function CallCard({
   }, [item.request, whole]);
   answering.current = { ...answer, ...(long ? { expand: () => setWhole((was) => !was) } : {}) };
 
-  const sessionId = item.key.startsWith("session:") ? item.key.slice("session:".length) : undefined;
+  const sessionId = sessionIdOf(item.key);
   const session = useSessions().find((one) => one.id === sessionId);
   const Icon = item.icon;
   const lone = answer.answers.length === 0;
@@ -161,7 +244,7 @@ export function CallCard({
             )}
           </>
         )}
-        <p className="armada-callcard__ask" data-quiet={(item.hue === "ask" && sessionId === undefined) || answer.decision !== undefined ? undefined : ""}>
+        <p className="armada-callcard__ask" data-quiet={(item.waiting !== undefined ? item.waiting.item.source !== "permission" : item.hue === "ask") || answer.decision !== undefined ? undefined : ""}>
           {answer.ask}
           {answer.decision === undefined ? null : (
             <span className="armada-callcard__pips" aria-hidden="true">
@@ -171,7 +254,8 @@ export function CallCard({
             </span>
           )}
         </p>
-        {lone ? null : (
+        {answer.attaching === undefined ? null : <AttachPicker attaching={answer.attaching} />}
+        {lone || answer.attaching !== undefined ? null : (
           <div role="radiogroup" aria-label={answer.ask} className="armada-callcard__choices">
             <div className="armada-callcard__answers">
               {numbered.map((one, index) => (
@@ -187,6 +271,7 @@ export function CallCard({
             )}
           </div>
         )}
+        {answer.reply === undefined ? null : <Reply itemKey={item.key} send={answer.reply} />}
         <div className="armada-callcard__acts">
           <Button variant="primary" disabled={!answer.canSend} onClick={answer.send}>
             {lone ? OPENS(item) : "Send"}

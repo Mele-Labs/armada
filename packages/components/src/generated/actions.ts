@@ -727,6 +727,19 @@ export const ACTIONS: readonly Action[] = [
     confirms: false,
     unbuilt: null,
   },
+  {
+    id: "call_reply",
+    kind: "Action",
+    tier: "Contextual",
+    verb: "Reply in words",
+    icon: null,
+    iconAbsent: "undecided",
+    shortcut: "t",
+    scope: "call",
+    destructive: false,
+    confirms: false,
+    unbuilt: null,
+  },
 ];
 
 /**

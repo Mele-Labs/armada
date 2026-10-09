@@ -30,6 +30,7 @@ const GROUPS: readonly Group[] = [
       { keys: [keyFor("call_later"), "Esc"], does: actionOf("call_later").verb },
       { keys: [keyFor("open")], does: "Open what it is about" },
       { keys: [keyFor("call_expand")], does: actionOf("call_expand").verb },
+      { keys: [keyFor("call_reply")], does: actionOf("call_reply").verb },
     ],
   },
   {

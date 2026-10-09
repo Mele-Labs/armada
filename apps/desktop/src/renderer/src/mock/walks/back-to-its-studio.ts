@@ -20,7 +20,7 @@ export const backToItsStudio = walk("every-state", [
   { press: sentence, say: "One press leaves the Job for that Studio" },
   { press: button("Helm"), say: "Helm's footer says where you are" },
   { look: picked, say: "On that Studio, with the Job's own node picked" },
-  { press: button("Overview", { exact: true }), say: "Back to the Dashboard" },
+  { press: button("Cockpit", { exact: true }), say: "Back to the Dashboard" },
   { press: option, say: "The same Job, on Running" },
   { press: open, say: "Open it again" },
   { look: inside(studio, text("Every kind of node and edge")), say: "The canvas opens on the Studio it came from, named" },

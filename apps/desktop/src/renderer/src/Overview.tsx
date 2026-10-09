@@ -50,6 +50,7 @@ export function Overview({
   onFix,
   nowViews,
   nows,
+  onTell,
   onQuickCompose,
 }: {
   state: BridgeState;
@@ -92,6 +93,8 @@ export function Overview({
   nowViews?: Readonly<Record<string, CallView>>;
   /** What each Job is doing now, by Job id: the Running tab's pane and its tiles' icons. Mock only. */
   nows?: Readonly<Record<string, NowView>>;
+  /** Says a sentence as a toast: a refusal the panel has to name. */
+  onTell?: (sentence: string) => void;
   /** Words typed into the quick dispatch box, handed to the composer. */
   onQuickCompose: (words: string) => void;
 }) {
@@ -201,6 +204,7 @@ export function Overview({
             picked={pickedRepository}
             nowViews={nowViews}
             nows={nows}
+            onTell={onTell}
             onOpen={onOpen}
             onOpenSession={onOpenSession}
             onOpenLink={onOpenLink}
