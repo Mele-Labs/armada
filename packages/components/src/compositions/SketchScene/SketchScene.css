@@ -278,3 +278,42 @@
   font-weight: var(--weight-heading);
   overflow-wrap: anywhere;
 }
+
+/* The owner's own parts: his hue, over whatever the diff would say, so the Drone's parts and his read
+   apart. The one hue neither the diff nor a Drone's frame uses. */
+.armada-scene-node[data-mine],
+.armada-scene-edge[data-mine] {
+  --hue: var(--status-rejected);
+}
+
+.armada-scene-node__own {
+  padding: var(--space-2);
+}
+
+/* Struck out: still there, plainly not wanted. Put back by taking it off again. */
+.armada-scene-node[data-struck],
+.armada-scene-edge[data-struck] {
+  opacity: 0.5;
+}
+
+.armada-scene-node[data-struck] .armada-scene-node__body,
+.armada-scene-node[data-struck] .armada-scene-node__title {
+  text-decoration: line-through;
+}
+
+.armada-scene-edge[data-struck] .armada-scene-edge__line {
+  stroke-dasharray: var(--space-1) var(--space-1);
+  animation: none;
+}
+
+/* Picked, and armed to join. */
+.react-flow__node.selected > .armada-scene-node,
+.armada-scene-node[data-joining] {
+  outline: var(--edge-active) solid var(--edge-focus);
+  outline-offset: var(--border-width);
+}
+
+.armada-scene-ask__acts {
+  display: inline-flex;
+  align-items: center;
+}

@@ -323,3 +323,17 @@ export const RemarksUnderTheAsk: Story = {
     await expect(canvas.getByText("Does it still flush on close?")).toBeInTheDocument();
   },
 };
+
+/** The answer carries what the owner marked on the sketches, beside his picks. */
+export const AnswerCarriesEdits: Story = {
+  args: { asks: [SKETCHED], edits: { drawn: { struck: ["writer"] } } },
+  play: async ({ canvas }) => {
+    await userEvent.click(canvas.getByText("Split it out"));
+    await userEvent.click(canvas.getByRole("button", { name: "Next" }));
+    await userEvent.click(canvas.getByText("Pin it in the fixtures"));
+    await userEvent.click(canvas.getByRole("button", { name: "Next" }));
+    await userEvent.click(canvas.getByText("Take it here"));
+    await userEvent.click(canvas.getByRole("button", { name: "Answer" }));
+    await expect(answer).toHaveBeenLastCalledWith({ shape: "split", tests: "pin", scope: "in" }, { drawn: { struck: ["writer"] } });
+  },
+};

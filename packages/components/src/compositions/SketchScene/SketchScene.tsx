@@ -1,18 +1,21 @@
-import { BaseEdge, Handle, getBezierPath, useNodesInitialized, useReactFlow, type Edge, type EdgeProps, type Node, type NodeProps, type ReactFlowInstance } from "@xyflow/react";
+import { BaseEdge, Handle, applyNodeChanges, getBezierPath, useNodesInitialized, useReactFlow, type Edge, type EdgeProps, type Node, type NodeChange, type NodeProps, type ReactFlowInstance } from "@xyflow/react";
 import {
   Activity, Bot, Box, Clock, Cpu, Eye, File, GitBranch, GitMerge, Globe, Hammer, HardDrive, Layers, Lock, Package, Pause, Pencil, Play, Rocket, Scale,
-  ScrollText, Server, Settings, ShieldCheck, Terminal, Undo2, Webhook, Wrench, X, Zap,
+  ScrollText, Server, Settings, ShieldCheck, SquarePlus, Terminal, Trash2, Undo2, Webhook, Wrench, X, Zap,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 
 import { Button } from "../../primitives/Button/Button";
 import { Textarea } from "../../primitives/Textarea/Textarea";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
-import { GRAPH_CANVAS_SIDES, GraphCanvas, facingSides } from "../GraphCanvas/GraphCanvas";
-import { GraphCanvasRailGroup, type GraphCanvasRailAct } from "../GraphCanvas/GraphCanvasRail";
-import { Ink, type SketchPoint, type SketchStroke } from "../SketchPad/Ink";
-import { diffScenes, parseScene, partLabel, type Scene, type SceneChange, type SceneEdge, type SceneIcon, type SceneNode } from "./scene";
+import { GRAPH_CANVAS_SIDES, GraphCanvas, clearOf, facingSides } from "../GraphCanvas/GraphCanvas";
+import { GraphCanvasNodeAct, GraphCanvasNodeBar, GraphCanvasRailGroup, type GraphCanvasRailAct } from "../GraphCanvas/GraphCanvasRail";
+import { Ink, type SketchPoint } from "../SketchPad/Ink";
+import {
+  NO_MARKS, diffScenes, extentOf, markJoin, markRemove, nextMarkId, parseScene, partLabel, withMarks,
+  type Scene, type SceneChange, type SceneEdge, type SceneIcon, type SceneMarks, type SceneNode,
+} from "./scene";
 
 /**
  * A scene, drawn in Armada's own frames: a header band over a mono body, state carried by the
@@ -30,9 +33,12 @@ export type SketchSceneProps = {
   against?: unknown;
   /** A press on a part opens a small ask about it; this hears what was asked. */
   onAsk?: (about: { id: string; label: string }, said: string) => void;
-  /** What the owner drew on top, kept by the host. Absent draws no pen. */
-  ink?: readonly SketchStroke[];
-  onInk?: (ink: readonly SketchStroke[]) => void;
+  /**
+   * What the owner did to it, kept by the host: lines, boxes and joins of his, and parts of the
+   * Drone's he struck out. His parts are drawn in his colour. Absent offers no tools.
+   */
+  marks?: SceneMarks;
+  onMarks?: (marks: SceneMarks) => void;
 };
 
 const ICON: Record<SceneIcon, LucideIcon> = {
@@ -43,9 +49,19 @@ const ICON: Record<SceneIcon, LucideIcon> = {
 
 const CHANGE_SAID: Record<SceneChange, string> = { added: "Added", removed: "Removed", changed: "Changed", same: "Unchanged" };
 
-type NodeData = { node: SceneNode; change: SceneChange | undefined; dim: boolean; current: boolean; asked: boolean };
+type NodeData = {
+  node: SceneNode;
+  change: SceneChange | undefined;
+  dim: boolean;
+  current: boolean;
+  asked: boolean;
+  mine: boolean;
+  struck: boolean;
+  joining: boolean;
+  onBody: (body: string) => void;
+};
 type SceneRfNode = Node<NodeData, "scene">;
-type EdgeData = { edge: SceneEdge; change: SceneChange | undefined; dim: boolean; asked: boolean; onPress: (id: string) => void };
+type EdgeData = { edge: SceneEdge; change: SceneChange | undefined; dim: boolean; asked: boolean; mine: boolean; struck: boolean; onPress: (id: string) => void };
 type SceneRfEdge = Edge<EdgeData, "flow">;
 
 function Sides({ type }: { type: "source" | "target" }) {
@@ -92,7 +108,7 @@ function Wire({ node }: { node: SceneNode }) {
 }
 
 function SceneNodeView({ data }: NodeProps<SceneRfNode>) {
-  const { node, change, dim, current, asked } = data;
+  const { node, change, dim, current, asked, mine, struck, joining, onBody } = data;
   return (
     <>
       <Sides type="target" />
@@ -104,9 +120,17 @@ function SceneNodeView({ data }: NodeProps<SceneRfNode>) {
         data-dim={dim || undefined}
         data-current={current || undefined}
         data-asked={asked || undefined}
+        data-mine={mine || undefined}
+        data-struck={struck || undefined}
+        data-joining={joining || undefined}
         style={node.w === undefined || node.h === undefined ? undefined : { width: node.w, height: node.h }}
       >
-        {node.kind === "wire" ? (
+        {mine ? (
+          // `nodrag nopan`: typing and selecting words must not move the box or the view.
+          <div className="armada-scene-node__own nodrag nopan">
+            <Textarea rows={2} value={node.body ?? ""} aria-label="The words in your box" onChange={(event) => onBody(event.target.value)} />
+          </div>
+        ) : node.kind === "wire" ? (
           <Wire node={node} />
         ) : node.kind === "label" ? (
           <span className="armada-scene-node__label">{node.title ?? node.body}</span>
@@ -125,10 +149,10 @@ function SceneNodeView({ data }: NodeProps<SceneRfNode>) {
 function SceneEdgeView({ id, data, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition }: EdgeProps<SceneRfEdge>) {
   const [path, labelX, labelY] = getBezierPath({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition });
   if (data === undefined) return null;
-  const { edge, change, dim, asked, onPress } = data;
-  const said = `${change === undefined ? "" : `${CHANGE_SAID[change]}, `}${edge.label ?? "Arrow"}`;
+  const { edge, change, dim, asked, mine, struck, onPress } = data;
+  const said = `${mine ? "Yours, " : struck ? "Struck out, " : change === undefined ? "" : `${CHANGE_SAID[change]}, `}${edge.label ?? "Arrow"}`;
   return (
-    <g className="armada-scene-edge" data-change={change} data-dim={dim || undefined} data-asked={asked || undefined} data-flow={edge.flow !== false || undefined}>
+    <g className="armada-scene-edge" data-change={change} data-dim={dim || undefined} data-asked={asked || undefined} data-mine={mine || undefined} data-struck={struck || undefined} data-flow={edge.flow !== false || undefined}>
       <defs>
         <marker id={`head-${id}`} viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
           <path className="armada-scene-edge__head" d="M0 0L10 5L0 10z" />
@@ -163,16 +187,18 @@ const PAN = 80;
 const reduced = () => typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
 const STEP_MS = 1400;
 
-function Capture({ into }: { into: { current: ReactFlowInstance | null } }) {
+function Capture({ into, extent }: { into: { current: ReactFlowInstance | null }; extent: string }) {
   const flow = useReactFlow();
-  // Fitted once the nodes are measured, because a fit made before them frames boxes of no size.
+  // Fitted once the nodes are measured, because a fit made before them frames boxes of no size, and
+  // again when the Drone's own scene grows or shrinks. The owner's boxes never move the view.
   const measured = useNodesInitialized();
-  const fitted = useRef(false);
+  const seen = useRef<string | undefined>(undefined);
   useEffect(() => {
-    if (!measured || fitted.current) return;
-    fitted.current = true;
-    void flow.fitView(FIT);
-  }, [measured, flow]);
+    if (!measured || seen.current === extent) return;
+    const first = seen.current === undefined;
+    seen.current = extent;
+    void flow.fitView({ ...FIT, duration: first || reduced() ? 0 : 250 });
+  }, [measured, extent, flow]);
   useEffect(() => {
     into.current = flow;
     return () => {
@@ -184,16 +210,33 @@ function Capture({ into }: { into: { current: ReactFlowInstance | null } }) {
 
 const GROUND = new Set(["group", "lane"]);
 
-export function SketchScene({ scene: given, against, onAsk, ink, onInk }: SketchSceneProps) {
+/** What the caller built, over what React Flow kept per node: its size and whether it is picked. */
+function overlay(kept: readonly SceneRfNode[], fresh: readonly SceneRfNode[]): SceneRfNode[] {
+  const held = new Map(kept.map((one) => [one.id, one]));
+  return fresh.map((one) => {
+    const was = held.get(one.id);
+    return was === undefined ? one : { ...was, ...one, measured: was.measured, selected: was.selected };
+  });
+}
+const JOINS_THE_PICK = ["Meta", "Control"];
+
+export function SketchScene({ scene: given, against, onAsk, marks, onMarks }: SketchSceneProps) {
   const parsed = useMemo(() => parseScene(given), [given]);
   const before = useMemo(() => (against === undefined ? undefined : parseScene(against)), [against]);
   const diff = useMemo(() => (parsed === undefined || before === undefined ? undefined : diffScenes(before, parsed)), [parsed, before]);
-  const shown: Scene | undefined = diff?.scene ?? parsed;
+  const base: Scene | undefined = diff?.scene ?? parsed;
+  const mark = marks ?? NO_MARKS;
+  const composed = useMemo(() => (base === undefined ? undefined : withMarks(base, mark)), [base, mark]);
+  const shown = composed?.scene;
   const [asked, setAsked] = useState<string | undefined>(undefined);
   const [playing, setPlaying] = useState<number | undefined>(undefined);
   const [pen, setPen] = useState(false);
+  const [picked, setPicked] = useState<readonly string[]>([]);
+  const [joining, setJoining] = useState<string | undefined>(undefined);
   const flow = useRef<ReactFlowInstance | null>(null);
+  const figure = useRef<HTMLElement>(null);
   const steps = useMemo(() => (shown?.nodes ?? []).filter((one) => one.step !== undefined).sort((a, b) => (a.step ?? 0) - (b.step ?? 0)), [shown]);
+  const extent = base === undefined ? "" : extentOf(base);
 
   useEffect(() => {
     if (playing === undefined || reduced()) return;
@@ -201,23 +244,46 @@ export function SketchScene({ scene: given, against, onAsk, ink, onInk }: Sketch
     return () => clearTimeout(timer);
   }, [playing, steps.length]);
 
+  const edit = (next: SceneMarks) => onMarks?.(next);
+  const onBody = (id: string, body: string) => edit({ ...mark, nodes: mark.nodes.map((one) => (one.id === id ? { ...one, body } : one)) });
   const current = playing === undefined ? undefined : steps[playing]?.id;
-  const nodes = useMemo<SceneRfNode[]>(
+  const fresh = useMemo<SceneRfNode[]>(
     () =>
       (shown?.nodes ?? []).map((node) => {
         const change = diff?.nodes.get(node.id);
+        const mine = composed?.mine.has(node.id) ?? false;
+        const struck = composed?.struck.has(node.id) ?? false;
+        const name = mine ? (node.body?.trim() === "" || node.body === undefined ? "Your box" : `Your box: ${node.body}`) : partLabel(shown!, node.id);
         return {
           id: node.id,
           type: "scene",
           position: { x: node.x, y: node.y },
-          data: { node, change, dim: (diff !== undefined && change === "same") || (current !== undefined && node.id !== current), current: node.id === current, asked: node.id === asked },
+          data: {
+            node,
+            change,
+            dim: (diff !== undefined && change === "same") || (current !== undefined && node.id !== current),
+            current: node.id === current,
+            asked: node.id === asked,
+            mine,
+            struck,
+            joining: node.id === joining,
+            onBody: (body: string) => onBody(node.id, body),
+          },
           draggable: false,
           ...(GROUND.has(node.kind) ? { zIndex: -1 } : {}),
-          ariaLabel: `${change === undefined ? "" : `${CHANGE_SAID[change]}, `}${partLabel(shown!, node.id)}`,
+          ariaLabel: `${mine ? "" : struck ? "Struck out, " : change === undefined ? "" : `${CHANGE_SAID[change]}, `}${name}`,
         };
       }),
-    [shown, diff, current, asked],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `onBody` closes over `mark`, which `composed` already tracks
+    [shown, diff, current, asked, joining, composed],
   );
+  // **React Flow holds what a node measures and whether it is picked**, and a graph that is handed its
+  // nodes anew each render keeps neither unless it applies the changes itself, as the pad does.
+  const [kept, setKept] = useState<SceneRfNode[]>([]);
+  const latest = useRef(fresh);
+  latest.current = fresh;
+  const nodes = useMemo(() => overlay(kept, fresh), [kept, fresh]);
+  const onNodesChange = useCallback((changes: NodeChange<SceneRfNode>[]) => setKept((held) => applyNodeChanges(changes, overlay(held, latest.current))), []);
   const edges = useMemo<SceneRfEdge[]>(() => {
     const placed = new Map((shown?.nodes ?? []).map((node) => [node.id, { position: { x: node.x, y: node.y }, measured: { width: node.w ?? 200, height: node.h ?? 80 } }]));
     return (shown?.edges ?? []).map((edge) => {
@@ -228,15 +294,23 @@ export function SketchScene({ scene: given, against, onAsk, ink, onInk }: Sketch
         source: edge.from,
         target: edge.to,
         ...facingSides(placed.get(edge.from), placed.get(edge.to)),
-        data: { edge, change, dim: (diff !== undefined && change === "same") || (current !== undefined && edge.to !== current), asked: edge.id === asked, onPress: (id: string) => setAsked((was) => (was === id ? undefined : id)) },
+        data: {
+          edge,
+          change,
+          dim: (diff !== undefined && change === "same") || (current !== undefined && edge.to !== current),
+          asked: edge.id === asked,
+          mine: composed?.mine.has(edge.id) ?? false,
+          struck: composed?.struck.has(edge.id) ?? false,
+          onPress: (id: string) => setAsked((was) => (was === id ? undefined : id)),
+        },
       };
     });
-  }, [shown, diff, current, asked]);
+  }, [shown, diff, current, asked, composed]);
 
-  if (shown === undefined) return <figure className="armada-sketch" role="group" aria-label="Sketch" />;
+  if (shown === undefined || base === undefined) return <figure className="armada-sketch" role="group" aria-label="Sketch" />;
 
-  const strokes = [...(shown.strokes ?? []), ...(ink ?? [])];
-  const draw = (points: readonly SketchPoint[]) => onInk?.([...(ink ?? []), { id: `i${String((ink ?? []).length + 1)}`, points }]);
+  const strokes = [...(shown.strokes ?? []), ...mark.strokes];
+  const draw = (points: readonly SketchPoint[]) => edit({ ...mark, strokes: [...mark.strokes, { id: `i${String(mark.strokes.length + 1)}`, points }] });
 
   const onKeyDown = (event: KeyboardEvent) => {
     const target = event.target as HTMLElement;
@@ -256,12 +330,51 @@ export function SketchScene({ scene: given, against, onAsk, ink, onInk }: Sketch
     else if (event.key === "ArrowDown" && target.getAttribute("role") !== "button") moved(0, -PAN);
   };
 
+  /** Where a new box lands: the middle of what is in view, stepped to the nearest place no box already holds. */
+  const middle = () => {
+    const pane = figure.current?.querySelector(".react-flow")?.getBoundingClientRect();
+    const instance = flow.current;
+    if (pane === undefined || instance === null) return { x: 0, y: 0 };
+    const centre = instance.screenToFlowPosition({ x: (pane.left + pane.right) / 2 - 120, y: (pane.top + pane.bottom) / 2 - 40 });
+    const held = instance.getNodes().filter((one) => !GROUND.has((one.data as NodeData).node.kind)).map((one) => ({ x: one.position.x, y: one.position.y, w: one.measured?.width ?? 240, h: one.measured?.height ?? 90 }));
+    const free = (at: { x: number; y: number }) => held.every((one) => at.x + 240 + 20 <= one.x || at.x >= one.x + one.w + 20 || at.y + 90 + 20 <= one.y || at.y >= one.y + one.h + 20);
+    for (const dy of [0, 1, -1, 2, -2, 3, -3]) {
+      for (const dx of [0, 1, -1, 2, -2]) {
+        const at = { x: Math.round(centre.x + dx * 260), y: Math.round(centre.y + dy * 110) };
+        if (free(at)) return at;
+      }
+    }
+    return clearOf(held, centre, 40);
+  };
+
+  const press = (id: string) => {
+    if (joining !== undefined && id !== joining) {
+      edit(markJoin(base, mark, joining, id));
+      setJoining(undefined);
+      return;
+    }
+    // His own boxes are for editing and joining, not for asking the Drone about.
+    setAsked((was) => (was === id || composed?.mine.has(id) ? undefined : id));
+  };
+
   const acts: GraphCanvasRailAct[] = [
-    ...(onInk === undefined
+    ...(onMarks === undefined
       ? []
       : [
           { id: "draw", name: "Draw", icon: Pencil, pressed: pen, why: "Drag on the sketch to draw. Press again to stop.", onPress: () => setPen(!pen) },
-          { id: "undo", name: "Undo", icon: Undo2, disabled: (ink ?? []).length === 0, why: "Nothing has been drawn by hand.", onPress: () => onInk([...(ink ?? [])].slice(0, -1)) },
+          { id: "undo", name: "Undo", icon: Undo2, disabled: mark.strokes.length === 0, why: "Nothing has been drawn by hand.", onPress: () => edit({ ...mark, strokes: mark.strokes.slice(0, -1) }) },
+          {
+            id: "add",
+            name: "Add a box",
+            icon: SquarePlus,
+            onPress: () => {
+              setPen(false);
+              setAsked(undefined);
+              setJoining(undefined);
+              const at = middle();
+              edit({ ...mark, nodes: [...mark.nodes, { id: nextMarkId(mark), kind: "box", x: at.x, y: at.y, body: "" }] });
+            },
+          },
         ]),
     {
       id: "play",
@@ -275,10 +388,12 @@ export function SketchScene({ scene: given, against, onAsk, ink, onInk }: Sketch
   ];
 
   const part = asked === undefined ? undefined : { id: asked, label: partLabel(shown, asked) };
+  const isEdge = part !== undefined && shown.edges.some((one) => one.id === part.id);
+  const lifted = picked.length > 0 && picked.every((id) => composed?.struck.has(id));
 
   return (
     // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- the keys below act on the canvas it holds
-    <figure className="armada-sketch" role="group" aria-label="Sketch" aria-keyshortcuts="+ - 0 ArrowLeft ArrowRight ArrowUp ArrowDown" tabIndex={0} onKeyDown={onKeyDown}>
+    <figure ref={figure} className="armada-sketch" role="group" aria-label="Sketch" aria-keyshortcuts="+ - 0 ArrowLeft ArrowRight ArrowUp ArrowDown" tabIndex={0} onKeyDown={onKeyDown}>
       <GraphCanvas<SceneRfNode, SceneRfEdge>
         surface="armada-sketch-scene"
         label="Drawing"
@@ -286,22 +401,77 @@ export function SketchScene({ scene: given, against, onAsk, ink, onInk }: Sketch
         edges={edges}
         nodeTypes={NODE_TYPES}
         edgeTypes={EDGE_TYPES}
+        onNodesChange={onNodesChange}
         fitViewOptions={FIT}
         minZoom={0.2}
-        onNodePress={(id) => setAsked((was) => (was === id ? undefined : id))}
-        onPanePress={() => setAsked(undefined)}
+        multiSelectionKeyCode={JOINS_THE_PICK}
+        onSelectionChange={setPicked}
+        onNodePress={press}
+        onPanePress={() => {
+          setAsked(undefined);
+          setJoining(undefined);
+        }}
         rail={<GraphCanvasRailGroup label="What you can do with the sketch" acts={acts} />}
-        aside={part === undefined || onAsk === undefined ? undefined : <AskBox key={part.id} part={part} onAsk={onAsk} onClose={() => setAsked(undefined)} />}
+        aside={
+          part === undefined || onAsk === undefined ? undefined : (
+            <AskBox
+              key={part.id}
+              part={part}
+              onAsk={onAsk}
+              onClose={() => setAsked(undefined)}
+              {...(onMarks === undefined || !isEdge
+                ? {}
+                : {
+                    onRemove: () => {
+                      edit(markRemove(mark, [part.id]));
+                      setAsked(undefined);
+                    },
+                    removal: composed?.struck.has(part.id) ? "Put back" : "Remove",
+                  })}
+            />
+          )
+        }
       >
-        <Capture into={flow} />
-        <Ink strokes={strokes} pen={pen && onInk !== undefined} onDraw={draw} />
+        <Capture into={flow} extent={extent} />
+        <Ink strokes={strokes} pen={pen && onMarks !== undefined} onDraw={draw} />
+        {onMarks === undefined || pen || picked.length === 0 ? null : (
+          <GraphCanvasNodeBar label="What you can do with what you picked" nodeIds={picked}>
+            <GraphCanvasNodeAct
+              name="Join"
+              disabled={picked.length > 2}
+              why="Pick one box or two to join them."
+              onPress={() => {
+                if (picked.length === 2) edit(markJoin(base, mark, picked[0]!, picked[1]!));
+                else setJoining(picked[0]);
+              }}
+            />
+            <GraphCanvasNodeAct
+              name={lifted ? "Put back" : "Remove"}
+              icon={lifted ? Undo2 : Trash2}
+              danger={!lifted}
+              onPress={() => edit(markRemove(mark, picked))}
+            />
+          </GraphCanvasNodeBar>
+        )}
       </GraphCanvas>
     </figure>
   );
 }
 
 /** A small box to ask about the part pressed. Enter sends; Shift and Enter is a new line. */
-function AskBox({ part, onAsk, onClose }: { part: { id: string; label: string }; onAsk: NonNullable<SketchSceneProps["onAsk"]>; onClose: () => void }) {
+function AskBox({
+  part,
+  onAsk,
+  onClose,
+  onRemove,
+  removal,
+}: {
+  part: { id: string; label: string };
+  onAsk: NonNullable<SketchSceneProps["onAsk"]>;
+  onClose: () => void;
+  onRemove?: () => void;
+  removal?: string;
+}) {
   const [said, setSaid] = useState("");
   const send = () => {
     if (said.trim() === "") return;
@@ -319,11 +489,20 @@ function AskBox({ part, onAsk, onClose }: { part: { id: string; label: string };
     >
       <div className="armada-scene-ask__head">
         <span className="armada-scene-ask__about">{part.label}</span>
-        <Tooltip label="Close">
-          <Button variant="ghost" size="sm" aria-label="Close ask" onClick={onClose} type="button">
-            <X size={16} strokeWidth={2} aria-hidden />
-          </Button>
-        </Tooltip>
+        <span className="armada-scene-ask__acts">
+          {onRemove === undefined || removal === undefined ? null : (
+            <Tooltip label={removal}>
+              <Button variant="ghost" size="sm" iconOnly aria-label={removal} onClick={onRemove} type="button">
+                {removal === "Remove" ? <Trash2 size={16} strokeWidth={2} aria-hidden /> : <Undo2 size={16} strokeWidth={2} aria-hidden />}
+              </Button>
+            </Tooltip>
+          )}
+          <Tooltip label="Close">
+            <Button variant="ghost" size="sm" aria-label="Close ask" onClick={onClose} type="button">
+              <X size={16} strokeWidth={2} aria-hidden />
+            </Button>
+          </Tooltip>
+        </span>
       </div>
       <Textarea
         label={`Ask about ${part.label}`}

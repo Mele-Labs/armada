@@ -49,7 +49,8 @@ export type NowPlanAsk = {
   key: string;
   kind: "plan";
   decisions: readonly NowDecision[];
-  onAnswer: (answers: Readonly<Record<string, string>>) => void;
+  /** `edits` is what the owner marked on the sketches, where he marked any, so the Drone reads both. */
+  onAnswer: (answers: Readonly<Record<string, string>>, edits?: Readonly<Record<string, unknown>>) => void;
 };
 
 /** A Judge's or a Drone's question, opened where it is answered. */
@@ -157,6 +158,8 @@ export type NowPanelProps = {
   onSketch?: (show: NowSketchShow | undefined) => void;
   /** What was asked about the sketch's parts, drawn under the asks. Absent draws none. */
   thread?: readonly NowRemark[];
+  /** What the owner marked on the sketches, sent with a Plan answer. The host keeps it. */
+  edits?: Readonly<Record<string, unknown>>;
   /** Which the Overview shows while a sketch is open. Absent reads as the sketch. */
   sketchView?: NowSketchView;
   /** The head's Sketch and Canvas switch, drawn only while a sketch is open. Absent draws none. */
@@ -178,7 +181,7 @@ const STATE: Record<NowRunning["state"], { Glyph: LucideIcon; said: string }> = 
 const ASK_ORDER = ["plan", "judge", "drone"] as const;
 const RUN_ORDER = ["drone", "check", "judge"] as const;
 
-export function NowPanel({ asks = [], issues = [], running = [], waiting = [], onSkipAll, onHide, onStep, focusedStep, onSketch, sketchView = "sketch", onSketchView, thread = [] }: NowPanelProps) {
+export function NowPanel({ asks = [], issues = [], running = [], waiting = [], onSkipAll, onHide, onStep, focusedStep, onSketch, sketchView = "sketch", onSketchView, thread = [], edits }: NowPanelProps) {
   // The plan decision asked now reports its own sketch; a Judge's or Drone's is read off the asks.
   const [planSketch, setPlanSketch] = useState<NowSketchShow | undefined>(undefined);
   const openSketch = asks.flatMap((ask) => (ask.kind === "plan" || ask.sketch === undefined ? [] : [ask.sketch]))[0];
@@ -228,7 +231,7 @@ export function NowPanel({ asks = [], issues = [], running = [], waiting = [], o
             const of = asks.filter((ask) => ask.kind === kind);
             return of.length === 0 ? null : (
               <Fragment key={kind}>
-                {of.map((ask) => (ask.kind === "plan" ? <PlanAsk key={ask.key} ask={ask} onSketch={setPlanSketch} /> : <AskRow key={ask.key} ask={ask} />))}
+                {of.map((ask) => (ask.kind === "plan" ? <PlanAsk key={ask.key} ask={ask} onSketch={setPlanSketch} {...(edits === undefined ? {} : { edits })} /> : <AskRow key={ask.key} ask={ask} />))}
               </Fragment>
             );
           })}
@@ -470,7 +473,7 @@ function AskRow({ ask }: { ask: NowOpenAsk }) {
  * One decision at a time, nothing preselected. Next goes to the next one still open;
  * the last decision carries Answer instead, which sends every pick together.
  */
-function PlanAsk({ ask, onSketch }: { ask: NowPlanAsk; onSketch: (show: NowSketchShow | undefined) => void }) {
+function PlanAsk({ ask, onSketch, edits }: { ask: NowPlanAsk; onSketch: (show: NowSketchShow | undefined) => void; edits?: Readonly<Record<string, unknown>> }) {
   const [at, setAt] = useState(0);
   const [picks, setPicks] = useState<Record<string, string>>({});
   const [sent, setSent] = useState(false);
@@ -542,7 +545,7 @@ function PlanAsk({ ask, onSketch }: { ask: NowPlanAsk; onSketch: (show: NowSketc
           disabled={picked === undefined || sent}
           onClick={() => {
             setSent(true);
-            ask.onAnswer(picks);
+            ask.onAnswer(picks, edits);
           }}
         >
           Answer

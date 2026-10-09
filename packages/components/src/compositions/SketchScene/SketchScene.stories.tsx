@@ -3,7 +3,7 @@ import { useState } from "react";
 import { expect, fn, userEvent, waitFor } from "storybook/test";
 
 import { SketchScene } from "./SketchScene";
-import type { Scene } from "./scene";
+import { NO_MARKS, type Scene, type SceneMarks } from "./scene";
 
 /** A scene drawn in Armada's frames, with pan, zoom, fit, a pen, and a press on a part to ask about it. */
 const meta: Meta<typeof SketchScene> = {
@@ -138,13 +138,18 @@ export const FlowAndSteps: Story = {
   },
 };
 
+/** The owner's marks, held as a host holds them. */
+function Held(args: React.ComponentProps<typeof SketchScene>) {
+  const [marks, setMarks] = useState<SceneMarks>(NO_MARKS);
+  return <SketchScene {...args} marks={marks} onMarks={setMarks} />;
+}
+
+const mine = (root: HTMLElement, what: string) => root.querySelectorAll(`[data-mine]${what}`).length;
+
 /** The pen draws on top and Undo takes the last line back; the host keeps what was drawn. */
 export const DrawOnTop: Story = {
   args: { scene: FLOW },
-  render: (args) => {
-    const [ink, setInk] = useState<readonly { id: string; points: readonly { x: number; y: number }[] }[]>([]);
-    return <SketchScene {...args} ink={ink} onInk={setInk} />;
-  },
+  render: (args) => <Held {...args} />,
   play: async ({ canvas, canvasElement }) => {
     const draw = await canvas.findByRole("button", { name: "Draw" });
     await expect(canvas.getByRole("button", { name: "Undo" })).toBeDisabled();
@@ -157,5 +162,50 @@ export const DrawOnTop: Story = {
     window.dispatchEvent(new PointerEvent("pointermove", { clientX: box.left + 140, clientY: box.top + 60 }));
     window.dispatchEvent(new PointerEvent("pointerup", {}));
     await waitFor(() => expect(canvasElement.querySelectorAll(".armada-sketch-pad__ink path[role='img']").length).toBe(1));
+  },
+};
+
+/** Add a box puts one of his on the sketch, in his colour, with a field for its words. */
+export const AddABox: Story = {
+  args: { scene: FLOW },
+  render: (args) => <Held {...args} />,
+  play: async ({ canvas, canvasElement }) => {
+    await waitFor(() => expect(nodes(canvasElement).length).toBe(5));
+    await userEvent.click(canvas.getByRole("button", { name: "Add a box" }));
+    await waitFor(() => expect(mine(canvasElement, ".armada-scene-node")).toBe(1));
+    await userEvent.type(await canvas.findByRole("textbox", { name: "The words in your box" }), "Flush here");
+    await expect(canvas.getByRole("group", { name: "Your box: Flush here" })).toBeInTheDocument();
+  },
+};
+
+/** Pick a box, Join, then press another: his arrow joins them. */
+export const JoinTwoBoxes: Story = {
+  args: { scene: FLOW },
+  render: (args) => <Held {...args} />,
+  play: async ({ canvas, canvasElement }) => {
+    await waitFor(() => expect(nodes(canvasElement).length).toBe(5));
+    await userEvent.click(await canvas.findByRole("group", { name: "Caller" }));
+    await userEvent.click(await canvas.findByRole("button", { name: "Join" }));
+    await userEvent.click(canvas.getByRole("group", { name: "Retry cap" }));
+    await waitFor(() => expect(mine(canvasElement, ".armada-scene-edge")).toBe(1));
+  },
+};
+
+/** Remove takes his own box off, and strikes a Drone's part out until it is put back. */
+export const RemoveAPart: Story = {
+  args: { scene: FLOW },
+  render: (args) => <Held {...args} />,
+  play: async ({ canvas, canvasElement }) => {
+    await waitFor(() => expect(nodes(canvasElement).length).toBe(5));
+    await userEvent.click(await canvas.findByRole("group", { name: "Writer" }));
+    await userEvent.click(await canvas.findByRole("button", { name: "Remove" }));
+    await waitFor(() => expect(canvasElement.querySelectorAll(".armada-scene-node[data-struck]").length).toBe(1));
+    await userEvent.click(await canvas.findByRole("button", { name: "Put back" }));
+    await waitFor(() => expect(canvasElement.querySelectorAll("[data-struck]").length).toBe(0));
+    await userEvent.click(canvas.getByRole("button", { name: "Add a box" }));
+    await waitFor(() => expect(mine(canvasElement, ".armada-scene-node")).toBe(1));
+    await userEvent.click(await canvas.findByRole("group", { name: "Your box" }));
+    await userEvent.click(await canvas.findByRole("button", { name: "Remove" }));
+    await waitFor(() => expect(mine(canvasElement, ".armada-scene-node")).toBe(0));
   },
 };

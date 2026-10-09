@@ -2,12 +2,14 @@
 // focusing a Plan option draws its sketch against the current one, a pick keeps it, a press on a part
 // asks about it, the view pans and zooms, the arrows flow and the owner draws on top.
 
-import { describe, expect, test } from "vitest";
+import { forgetMarks } from "@armada/jobs/sketch-marks";
+import { beforeEach, describe, expect, test } from "vitest";
 import { page } from "vitest/browser";
 
 import { mount, onScreen, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
+beforeEach(forgetMarks);
 
 const sketch = () => document.querySelector<HTMLElement>('figure[aria-label="Sketch"]');
 const titles = () => [...(sketch()?.querySelectorAll(".armada-scene-node__title") ?? [])].map((one) => one.textContent ?? "").join("|");
@@ -125,7 +127,8 @@ describe("job sketch", () => {
     await drawn();
     await page.getByText("Wrap it in place", { exact: true }).hover();
     await expect.poll(() => inSketch('[data-change="added"]')).toBeGreaterThan(0);
-    await expect.poll(() => inSketch('.armada-scene-edge[data-change="removed"]')).toBeGreaterThan(0);
+    await expect.poll(() => inSketch('.armada-scene-edge[data-change="removed"] .armada-scene-edge__line')).toBeGreaterThan(0);
+    await expect.poll(() => inSketch('.armada-scene-edge[data-change="added"] .armada-scene-edge__line')).toBeGreaterThan(0);
     const edge = (change: string) => getComputedStyle(sketch()!.querySelector(`.armada-scene-edge[data-change="${change}"] .armada-scene-edge__line`)!).stroke;
     const added = edge("added");
     const removed = edge("removed");
@@ -236,5 +239,69 @@ describe("job sketch", () => {
     await expect.poll(() => inSketch(".armada-sketch-pad__ink path[role='img']")).toBe(1);
     await page.getByRole("button", { name: "Undo" }).click();
     await expect.poll(() => inSketch(".armada-sketch-pad__ink path[role='img']")).toBe(0);
+  });
+
+  test("Add a box puts one of his on the sketch in his colour, and what he types stays", async () => {
+    mount("job-sketch-plan");
+    await onScreen();
+    await settled();
+    await drawn();
+    await page.getByRole("button", { name: "Add a box", exact: true }).click();
+    await expect.poll(() => inSketch(".armada-scene-node[data-mine]")).toBe(1);
+    const words = page.getByRole("textbox", { name: "The words in your box" });
+    await words.fill("Flush here");
+    await expect.element(page.getByRole("group", { name: "Your box: Flush here" })).toBeVisible();
+    const frame = getComputedStyle(sketch()!.querySelector(".armada-scene-node[data-mine]")!).borderColor;
+    const theirs = getComputedStyle(sketch()!.querySelector('.armada-scene-node[data-kind="box"]:not([data-mine])')!).borderColor;
+    expect(frame).not.toBe(theirs);
+    await page.getByText("Split it out", { exact: true }).hover();
+    await expect.poll(() => inSketch(".armada-scene-node[data-mine]")).toBe(0);
+    await leave();
+    await expect.poll(() => inSketch(".armada-scene-node[data-mine]")).toBe(1);
+  });
+
+  test("Join: pick a box, Join, press another, and his arrow joins them", async () => {
+    mount("job-sketch-plan");
+    await onScreen();
+    await settled();
+    await drawn();
+    const node = (id: string) => page.elementLocator(sketch()!.querySelector<HTMLElement>(`.react-flow__node[data-id="${id}"]`)!);
+    await node("caller").click();
+    await page.getByRole("button", { name: "Join", exact: true }).click();
+    await node("disk").click();
+    await expect.poll(() => inSketch(".armada-scene-edge[data-mine]")).toBe(1);
+    expect(inSketch('[aria-label="Yours, Arrow"]')).toBe(1);
+  });
+
+  test("Remove takes his box off, and strikes out one of the Drone's until it is put back", async () => {
+    mount("job-sketch-plan");
+    await onScreen();
+    await settled();
+    await drawn();
+    const node = (id: string) => page.elementLocator(sketch()!.querySelector<HTMLElement>(`.react-flow__node[data-id="${id}"]`)!);
+    await node("writer").click();
+    await page.getByRole("button", { name: "Remove", exact: true }).click();
+    await expect.poll(() => inSketch(".armada-scene-node[data-struck]")).toBe(1);
+    expect(Number(getComputedStyle(sketch()!.querySelector(".armada-scene-node[data-struck]")!).opacity)).toBeLessThan(1);
+    await page.getByRole("button", { name: "Put back", exact: true }).click();
+    await expect.poll(() => inSketch("[data-struck]")).toBe(0);
+
+    await page.getByRole("button", { name: "Add a box", exact: true }).click();
+    await expect.poll(() => inSketch(".armada-scene-node[data-mine]")).toBe(1);
+    await node("m1").click();
+    await page.getByRole("button", { name: "Remove", exact: true }).click();
+    await expect.poll(() => inSketch(".armada-scene-node[data-mine]")).toBe(0);
+  });
+
+  test("a sketch that grows is fitted again, so it does not sit low", async () => {
+    mount("job-sketch-plan");
+    await onScreen();
+    await settled();
+    await drawn();
+    await expect.poll(scale).toBeGreaterThan(0);
+    const before = viewport();
+    await page.getByText("Split it out", { exact: true }).hover();
+    await expect.poll(() => inSketch('[data-change="added"]')).toBeGreaterThan(0);
+    await expect.poll(viewport).not.toBe(before);
   });
 });

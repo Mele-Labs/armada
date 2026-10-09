@@ -177,3 +177,77 @@ export function partLabel(scene: Scene, id: string): string {
   const name = (end: string) => partLabel(scene, end);
   return edge.label ?? `${name(edge.from)} to ${name(edge.to)}`;
 }
+
+/**
+ * What the owner did to a sketch that is not his: lines drawn on it, boxes and joins he added, and
+ * parts of the Drone's he struck out. **Kept apart from the scene**, so the Drone's parts stay the
+ * Drone's and a payload can say exactly what he changed.
+ */
+export type SceneMarks = {
+  strokes: readonly SketchStroke[];
+  nodes: readonly SceneNode[];
+  edges: readonly SceneEdge[];
+  /** Ids of the Drone's parts he struck out. */
+  struck: readonly string[];
+};
+
+export const NO_MARKS: SceneMarks = { strokes: [], nodes: [], edges: [], struck: [] };
+
+export const hasMarks = (marks: SceneMarks): boolean => marks.strokes.length + marks.nodes.length + marks.edges.length + marks.struck.length > 0;
+
+/** The scene with his boxes and joins in it. His ids are told apart by `mine`. */
+export function withMarks(scene: Scene, marks: SceneMarks): { scene: Scene; mine: ReadonlySet<string>; struck: ReadonlySet<string> } {
+  const mine = new Set([...marks.nodes.map((one) => one.id), ...marks.edges.map((one) => one.id)]);
+  return {
+    scene: { ...scene, nodes: [...scene.nodes, ...marks.nodes], edges: [...scene.edges, ...marks.edges] },
+    mine,
+    struck: new Set(marks.struck),
+  };
+}
+
+/** The lowest `m<n>` no box of his holds. */
+export function nextMarkId(marks: SceneMarks): string {
+  const held = new Set(marks.nodes.map((one) => one.id));
+  let at = 1;
+  while (held.has(`m${String(at)}`)) at += 1;
+  return `m${String(at)}`;
+}
+
+/** A join once, whichever way round it was drawn; ids that name no part of the scene join nothing. */
+export function markJoin(scene: Scene, marks: SceneMarks, from: string, to: string): SceneMarks {
+  const known = new Set([...scene.nodes, ...marks.nodes].map((one) => one.id));
+  if (from === to || !known.has(from) || !known.has(to)) return marks;
+  const joined = [...scene.edges, ...marks.edges].some((one) => (one.from === from && one.to === to) || (one.from === to && one.to === from));
+  return joined ? marks : { ...marks, edges: [...marks.edges, { id: `${from}~${to}`, from, to }] };
+}
+
+/**
+ * Parts taken off. **A box of his goes, and every join of his that hung on it; a part of the Drone's
+ * is struck out instead** (and put back by taking it off again), because it is the Drone's to drop.
+ */
+export function markRemove(marks: SceneMarks, ids: readonly string[]): SceneMarks {
+  const gone = new Set(ids);
+  const ownNodes = new Set(marks.nodes.map((one) => one.id));
+  const ownEdges = new Set(marks.edges.map((one) => one.id));
+  const dropped = new Set([...gone].filter((id) => ownNodes.has(id)));
+  const struck = new Set(marks.struck);
+  for (const id of gone) {
+    if (ownNodes.has(id) || ownEdges.has(id)) continue;
+    if (struck.has(id)) struck.delete(id);
+    else struck.add(id);
+  }
+  return {
+    ...marks,
+    nodes: marks.nodes.filter((one) => !gone.has(one.id)),
+    edges: marks.edges.filter((one) => !gone.has(one.id) && !dropped.has(one.from) && !dropped.has(one.to)),
+    struck: [...struck],
+  };
+}
+
+/** The frame a scene occupies, rounded, so a change in it is a change in what to fit. */
+export function extentOf(scene: Scene): string {
+  const boxes = scene.nodes.map((one) => ({ x: one.x, y: one.y, r: one.x + (one.w ?? 240), b: one.y + (one.h ?? 90) }));
+  if (boxes.length === 0) return "";
+  const round = (n: number) => String(Math.round(n / 20) * 20);
+  return [Math.min(...boxes.map((one) => one.x)), Math.min(...boxes.map((one) => one.y)), Math.max(...boxes.map((one) => one.r)), Math.max(...boxes.map((one) => one.b))].map(round).join(",");
+}

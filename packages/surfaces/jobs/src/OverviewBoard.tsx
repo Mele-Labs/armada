@@ -37,7 +37,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import type { DetailTab } from "./detail-tabs";
 import { litSteps } from "./draft/now";
 import { useNowHidden } from "./now-hidden";
-import { inkKey, useInk } from "./sketch-ink";
+import { marksKey, useMarked, useMarks } from "./sketch-marks";
 import { JobLead, type JobLeadProps } from "./JobLead";
 import { studioName } from "@armada/screens/src/studio";
 import type { OpenStudioFrom } from "@armada/screens/src/open-studio";
@@ -161,7 +161,8 @@ export function OverviewBoard({
   // hidden or the ask is answered. The panel reports the sketch; this keeps only which is shown.
   const [sketch, setSketch] = useState<NowSketchShow | undefined>(undefined);
   const [thread, setThread] = useState<readonly NowRemark[]>([]);
-  const [ink, setInk] = useInk(sketch === undefined ? undefined : inkKey(sketch.sketch.scene));
+  const [marks, setMarks] = useMarks(sketch === undefined ? undefined : marksKey(sketch.sketch.scene));
+  const marked = useMarked();
   const [sketchView, setSketchView] = useState<NowSketchView>("sketch");
   useEffect(() => {
     if (sketch === undefined) setSketchView("sketch");
@@ -176,8 +177,8 @@ export function OverviewBoard({
         <SketchScene
           scene={sketch.sketch.scene}
           {...(sketch.against === undefined ? {} : { against: sketch.against.scene })}
-          ink={ink}
-          onInk={setInk}
+          marks={marks}
+          onMarks={setMarks}
           onAsk={(about, said) => setThread((was) => [...was, { key: `r${String(was.length + 1)}`, about: about.label, said }])}
         />
       ) : (
@@ -378,6 +379,7 @@ export function OverviewBoard({
               sketchView={sketchView}
               onSketchView={setSketchView}
               thread={thread}
+              edits={marked}
             />
           )}
         </div>
