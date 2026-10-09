@@ -5,9 +5,8 @@ import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import {
-  Check, ChevronLeft, CircleCheck, CircleDot, CircleX, Clock, Flame, GitPullRequest, Hand, LoaderCircle,
-  MessageSquare, Pencil, Plus, RotateCw, ScanLine, Send, ShieldCheck, SquareTerminal, Trash2,
-  Undo2, Unplug, X, Zap,
+  Check, ChevronLeft, CircleDot, Eye, GitPullRequest, LoaderCircle, OctagonAlert, Pencil, Plus, RefreshCw,
+  RotateCw, ScanLine, Send, SquareTerminal, Trash2, Undo2, Unplug, UserCheck, X,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -27,11 +26,22 @@ type Screen =
 type Tab = "Needs you" | "Running" | "Done";
 const TABS: Tab[] = ["Needs you", "Running", "Done"];
 
-const REASON: Record<NonNullable<PocketJob["reason"]>, { icon: LucideIcon; says: string }> = {
-  stalled: { icon: Clock, says: "Stalled" },
-  thrashing: { icon: Flame, says: "Thrashing" },
-  rate_cap: { icon: Zap, says: "Rate cap" },
+/** Glyphs and verbs are `crates/core-model/domain/enum-verbs.toml`'s; a reason with none is drawn unmarked. */
+const REASON: Record<NonNullable<PocketJob["reason"]>, { icon?: LucideIcon; says: string }> = {
+  stalled: { icon: OctagonAlert, says: "Stalled" },
+  thrashing: { icon: RefreshCw, says: "Churning" },
+  rate_cap: { says: "Rate cap" },
   interrupted: { icon: Unplug, says: "Interrupted" },
+};
+
+type Act = "approve" | "redirect" | "restart" | "redispatch" | "kill";
+/** What a state allows. `approve_dispatch` means something only on a Job awaiting dispatch approval. */
+const ACTS: Record<NonNullable<PocketJob["reason"]> | "approval", Set<Act>> = {
+  approval: new Set(["approve"]),
+  stalled: new Set(["redirect", "restart", "redispatch", "kill"]),
+  thrashing: new Set(["redirect", "restart", "redispatch", "kill"]),
+  rate_cap: new Set(["restart", "kill"]),
+  interrupted: new Set(["restart", "redispatch", "kill"]),
 };
 
 /** Drafts live outside the screens, so leaving one and coming back finds what was typed. */
@@ -53,7 +63,8 @@ function Draft({ id, ...rest }: { id: string } & React.TextareaHTMLAttributes<HT
 
 const drafted = (id: string) => (DRAFTS.get(id) ?? "").trim() !== "";
 
-function Mark({ icon: Icon, tip, className }: { icon: LucideIcon; tip: string; className?: string }) {
+function Mark({ icon: Icon, tip, className }: { icon?: LucideIcon; tip: string; className?: string }) {
+  if (Icon === undefined) return <span className="pk-mark" title={tip} />;
   return <Icon className={className === undefined ? "pk-mark" : `pk-mark ${className}`} aria-label={tip} role="img"><title>{tip}</title></Icon>;
 }
 
@@ -94,7 +105,7 @@ function Pair({ phase, go }: { phase: "scanned" | "waiting"; go: (screen: Screen
   );
 }
 
-function Row({ icon, tip, title, where, age, onOpen, spin }: { icon: LucideIcon; tip: string; title: string; where: string; age: string; onOpen?: () => void; spin?: boolean }) {
+function Row({ icon, tip, title, where, age, onOpen, spin }: { icon?: LucideIcon; tip: string; title: string; where: string; age: string; onOpen?: () => void; spin?: boolean }) {
   const body = (
     <>
       <Mark icon={icon} tip={tip} className={spin === true ? "pk-live" : undefined} />
@@ -118,9 +129,9 @@ function Tabs({ go, gone, dispatched }: { go: (screen: Screen) => void; gone: Se
             {BLOCKED.filter(left).map((job) => (
               <Row key={job.id} icon={REASON[job.reason!].icon} tip={REASON[job.reason!].says} title={job.title} where={job.repository} age={job.quiet ?? job.age} onOpen={() => go({ is: "job", job })} />
             ))}
-            {left(APPROVAL) && <Row icon={Hand} tip="Approval" title={APPROVAL.title} where={APPROVAL.repository} age={APPROVAL.age} onOpen={() => go({ is: "job", job: APPROVAL })} />}
-            {left(REVIEW) && <Row icon={ShieldCheck} tip="Review" title={REVIEW.title} where={REVIEW.repository} age={REVIEW.age} onOpen={() => go({ is: "review", job: REVIEW })} />}
-            {!gone.has(HOSTED_ASK.id) && <Row icon={MessageSquare} tip="Session asks" title={HOSTED_ASK.title} where={HOSTED_ASK.repository} age={HOSTED_ASK.age} onOpen={() => go({ is: "ask" })} />}
+            {left(APPROVAL) && <Row icon={UserCheck} tip="Approval" title={APPROVAL.title} where={APPROVAL.repository} age={APPROVAL.age} onOpen={() => go({ is: "job", job: APPROVAL })} />}
+            {left(REVIEW) && <Row icon={Eye} tip="Review" title={REVIEW.title} where={REVIEW.repository} age={REVIEW.age} onOpen={() => go({ is: "review", job: REVIEW })} />}
+            {!gone.has(HOSTED_ASK.id) && <Row icon={SquareTerminal} tip="Session asks" title={HOSTED_ASK.title} where={HOSTED_ASK.repository} age={HOSTED_ASK.age} onOpen={() => go({ is: "ask" })} />}
             <Row icon={SquareTerminal} tip="Terminal session waiting" title={TERMINAL_WAITING.title} where={TERMINAL_WAITING.repository} age={TERMINAL_WAITING.age} />
           </ul>
         )}
@@ -135,7 +146,7 @@ function Tabs({ go, gone, dispatched }: { go: (screen: Screen) => void; gone: Se
         {tab === "Done" && (
           <ul className="pk-list">
             {DONE.map((job) => (
-              <Row key={job.id} icon={job.status === "completed_success" ? CircleCheck : CircleX} tip={job.status === "completed_success" ? "Landed" : "Failed"} title={job.title} where={job.pr === undefined ? job.repository : `${job.repository}  #${job.pr.number}`} age={job.age} />
+              <Row key={job.id} icon={job.status === "completed_success" ? Check : X} tip={job.status === "completed_success" ? "Landed" : "Failed"} title={job.title} where={job.pr === undefined ? job.repository : `${job.repository}  #${job.pr.number}`} age={job.age} />
             ))}
           </ul>
         )}
@@ -198,6 +209,7 @@ function HoldToKill({ onKilled }: { onKilled: () => void }) {
 function JobScreen({ job, back, done }: { job: PocketJob; back: () => void; done: () => void }) {
   const [redirecting, setRedirecting] = useState(false);
   const draftId = `redirect-${job.id}`;
+  const acts = ACTS[job.reason ?? "approval"];
   return (
     <section className="pk-screen" aria-label={job.title}>
       <Band title={job.title} onBack={back} back="Back to Needs you" />
@@ -212,17 +224,19 @@ function JobScreen({ job, back, done }: { job: PocketJob; back: () => void; done
         </footer>
       ) : (
         <footer className="pk-bar">
-          <div className="pk-pair-acts">
-            <button className="pk-act pk-act--primary" onClick={done}><Check /> Approve</button>
+          {acts.has("approve") && <button className="pk-act pk-act--primary" onClick={done}><Check /> Approve</button>}
+          {acts.has("redirect") && (
             <button className="pk-act" onClick={() => setRedirecting(true)}>
               <Pencil /> Redirect{drafted(draftId) && <span className="pk-dot" role="img" aria-label="Draft kept" />}
             </button>
-          </div>
-          <div className="pk-pair-acts">
-            <button className="pk-act" onClick={done}><RotateCw /> Restart step</button>
-            <button className="pk-act" onClick={done}><Undo2 /> Redispatch</button>
-          </div>
-          <HoldToKill onKilled={done} />
+          )}
+          {(acts.has("restart") || acts.has("redispatch")) && (
+            <div className="pk-pair-acts">
+              {acts.has("restart") && <button className="pk-act" onClick={done}><RotateCw /> Restart step</button>}
+              {acts.has("redispatch") && <button className="pk-act" onClick={done}><Undo2 /> Redispatch</button>}
+            </div>
+          )}
+          {acts.has("kill") && <HoldToKill onKilled={done} />}
         </footer>
       )}
     </section>

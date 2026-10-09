@@ -70,3 +70,6 @@ button.pk-row:active { background: var(--bg-hover); }
 .pk-waiting svg { width: var(--space-6); height: var(--space-6); }
 .pk-dim { color: var(--fg-subtle); }
 .pk-facts .pk-mark, .pk-checks .pk-mark { display: inline-block; }
+.pk-mark:empty { display: inline-block; }
+/* Short windows: the walk's card takes the trailing corner, so the phone stands clear of it. */
+@media (max-width: 1140px) { .pk-stage { padding-inline-end: calc(var(--w-tooltip) + var(--space-6) * 2); } }
