@@ -98,9 +98,11 @@ export async function dismissWaiting(sessionId: string, itemId: string): Promise
   return { kind: "refused", said: refusalWords(outcome) };
 }
 
-/** Dismiss the call in front for good, by whichever way it is kept. A refusal goes to `tell` in Fleet's words. */
-export async function dismissItem(item: Pick<Item, "key" | "fact" | "waiting">, tell: ((said: string) => void) | undefined): Promise<void> {
-  if (item.waiting === undefined) return dismissCall(item);
-  const done = await dismissWaiting(item.waiting.sessionId, item.waiting.item.id);
-  if (done.kind === "refused") tell?.(done.said);
+/** Dismiss the call in front for good, by whichever way it is kept. A refusal comes back in Fleet's words. */
+export async function dismissItem(item: Pick<Item, "key" | "fact" | "waiting">): Promise<WaitingDismissed> {
+  if (item.waiting === undefined) {
+    dismissCall(item);
+    return { kind: "dismissed" };
+  }
+  return dismissWaiting(item.waiting.sessionId, item.waiting.item.id);
 }
