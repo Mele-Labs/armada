@@ -38,6 +38,7 @@ assuming it is restated here.
 | [runner-adapter.md](runner-adapter.md) | A declarative description of one test runner, letting `draft_fix` reach a runner nobody has hand-configured |
 | [scout.md](scout.md) | A read-only agent a person starts from a Studio, which comes back as a Finding |
 | [session.md](session.md) | An agent session a person runs, kept as a row so Fleet can say which sessions are open and which one holds a branch, a pull request, a Job or a slot |
+| [sketch-pane.md](sketch-pane.md) | What the Overview draws beside the Now panel while something asks: a Drone's sketch, the asker's view or the canvas |
 | [studio.md](studio.md) | A typed graph of what one stretch of work produced, kept per repository |
 | [themes.md](themes.md) | The colours Bridge is drawn in: Dark, Light, a catalogue of terminal colour schemes, and the themes mods add |
 | [trigger.md](trigger.md) | Something that runs at a moment in a Job — a Command or a skill, set by Armada, a repository or this machine |

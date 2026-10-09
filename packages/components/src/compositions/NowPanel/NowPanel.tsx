@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useMemo, useState, type ReactNode } from "react";
-import { Activity, Bot, Box, ChevronDown, ChevronRight, CircleDot, CornerUpRight, Cpu, Megaphone, OctagonAlert, PanelRightClose, PencilRuler, RotateCw, Scale, ShieldCheck, ShieldOff, ShieldX, SkipForward, Waypoints, Workflow } from "lucide-react";
+import { Activity, Bot, Box, ChevronDown, ChevronRight, CircleDot, CornerUpRight, Cpu, DraftingCompass, Megaphone, Network, OctagonAlert, PanelRightClose, RotateCw, Scale, ShieldCheck, ShieldOff, ShieldX, SkipForward, Waypoints, Workflow } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
@@ -222,7 +222,7 @@ export function NowPanel({ asks = [], issues = [], running = [], waiting = [], o
             {asked === undefined ? null : (
               <Tooltip label="Sketch">
                 <button type="button" className="armada-now__switch-act" aria-label="Sketch" aria-pressed={shownView === "sketch"} onClick={() => onSketchView("sketch")}>
-                  <PencilRuler size={16} strokeWidth={2} aria-hidden />
+                  <DraftingCompass size={16} strokeWidth={2} aria-hidden />
                 </button>
               </Tooltip>
             )}
@@ -235,7 +235,7 @@ export function NowPanel({ asks = [], issues = [], running = [], waiting = [], o
             )}
             <Tooltip label="Canvas">
               <button type="button" className="armada-now__switch-act" aria-label="Canvas" aria-pressed={shownView === "canvas"} onClick={() => onSketchView("canvas")}>
-                <Workflow size={16} strokeWidth={2} aria-hidden />
+                <Network size={16} strokeWidth={2} aria-hidden />
               </button>
             </Tooltip>
           </div>
