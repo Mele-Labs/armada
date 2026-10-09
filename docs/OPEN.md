@@ -66,6 +66,14 @@ on purpose and makes the gate name what was waiting.
 - **[landing-a-target-branch-that-moves]** What happens to a Job whose target branch moves, or is deleted, while it runs? And what does the merge line do with a target that is not `main`, which it takes turns onto by construction?
 - **[landing-members-across-repositories]** Does Armada need members in separate repositories, and what is that Job's workflow graph? Carried forward from the root-scoping decision, which left it open, and no scenario currently pressures it.
 
+## docs/concepts/layout-mods.md
+
+- **[layout-reset-scope]** Does Reset to defaults switch layout mods off, or clear only the owner's own choices? The mock switches them off, so the screen is the shipped one in one press. What decides it: whether an owner who resets expects his mods to survive it.
+- **[layout-rail-region]** Is the rail a region in tier 2? The owner's example hid the Lessons tab, which is the Retros row of the rail, since the Dashboard has no such tab. What decides it: whether he means the rail, or a tab Bridge does not have.
+- **[layout-per-repository]** Is a layout machine-wide or per repository? Mods are machine-local today. What decides it: whether he arranges Bridge differently for different repositories.
+- **[layout-job-kinds]** Does a Job's tab layout apply to every kind of Job? A Job at its approval gate draws the proposal where Overview is, and an epic Job draws a wave. What decides it: whether the same order serves those.
+- **[layout-dashboard-reflow]** Which Dashboard entries survive the tile rework on `dashboard/cockpit` and `dashboard/dispatch-rows`? The registry names `fleet` and `merge-line`, and both branches keep the merge line and replace the lanes with tiles. What decides it: what those branches land.
+
 ## docs/concepts/log-envelope.md
 
 - **[log-envelope-name]** Is "Log Envelope" admitted into the sanctioned lexicon as a proper noun, or is this document renamed to something the lexicon already allows? "Log Envelope" is descriptive and currently outside it.

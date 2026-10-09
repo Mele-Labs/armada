@@ -25,6 +25,7 @@ assuming it is restated here.
 | [judge.md](judge.md) | The semantic, veto-only tier of evidence verification |
 | [kit.md](kit.md) | The tool set you bring — Skills, MCP, sub agents, Commands, the allowlist |
 | [landing.md](landing.md) | How a Job's work reaches its target — one pull request, or members landing in order |
+| [layout-mods.md](layout-mods.md) | A mod whose `layout.json` reorders, hides and sets the opening choice of Bridge's Dashboard, Job tabs and rail, by id |
 | [log-envelope.md](log-envelope.md) | The field contract every log line carries across Fleet, Bridge and Drone |
 | [machine.md](machine.md) | How this installation behaves — resources, timing, budget, notification routing |
 | [manifest.md](manifest.md) | Per-project config, backed by `armada.yml` |
