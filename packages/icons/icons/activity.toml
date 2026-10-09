@@ -1,6 +1,7 @@
 [icons.activity]
-  means = "Active jobs"
-  group = "Navigation"
+  means = "An ECG trace - a line that rises and falls with a live signal, what is happening now"
+  group = "Chrome"
   size = "16px"
-  status = "Retired"
-  notes = "Retired 2026-08-31. Active jobs folded into the Job Board when the Board became every Job with state as a filter, so the surface this named no longer exists — see docs/concepts/bridge.md. The glyph is free again. The ECG outline reads cleanly at 16px where it would not at 12px, which is why it was chosen and why it is worth someone else having."
+  status = "Specified"
+  reserved = "The Asker view's toggle in the Now panel head only: the left-hand view of what is asking, its live output and what it changed. Never an Active jobs surface (retired 2026-08-31), never a loading or spinner mark, and never a step's activity, which the step activity glyphs carry."
+  notes = "Un-retired 9 Oct 2026 for the Asker view, on the owner's ruling. Active jobs folded into the Job Board on 2026-08-31 and the glyph was left free; the ECG outline reads cleanly at 16px, which is why it was first chosen. It sits beside the Sketch and Canvas toggles in the Now panel head, so a person switches between a sketch, the asker and the canvas without a word. `pencil-ruler` and `workflow` stay borrowed there until the owner rules on them."

@@ -1,4 +1,4 @@
-import { Bot, CircleDot, FilePen, FilePlus, FileX, Megaphone, Scale, ShieldCheck, ShieldX } from "lucide-react";
+import { Bot, CircleDot, FileDiff, Megaphone, Scale, ShieldCheck, ShieldX } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
@@ -43,9 +43,10 @@ export type AskerViewProps = {
 };
 
 const CHANGE: Record<NowAskerFile["change"], { Glyph: LucideIcon; said: string }> = {
-  added: { Glyph: FilePlus, said: "Added" },
-  changed: { Glyph: FilePen, said: "Changed" },
-  removed: { Glyph: FileX, said: "Removed" },
+  // One glyph for all three: `file-diff` is a produced file's change, and the hue and the tooltip say which.
+  added: { Glyph: FileDiff, said: "Added" },
+  changed: { Glyph: FileDiff, said: "Changed" },
+  removed: { Glyph: FileDiff, said: "Removed" },
 };
 
 const CHECK: Record<NowAskerCheck["state"], { Glyph: LucideIcon; said: string }> = {
