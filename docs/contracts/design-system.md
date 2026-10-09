@@ -785,6 +785,17 @@ vanishing to nothing:
 A refusal is told from an acceptance by the line's colour and direction
 before the label is read. The control never moves in any of the four.
 
+**The Cockpit's call answers are such controls too.** The answer pressed,
+Poke, Attach or Dismiss sweeps the same bar along its edge until Fleet
+answers, with the tooltip *Waiting on Fleet* and no label of its own; every
+other control on the card is held, and a second press is not a second send.
+A refusal stops the line and the card stays, with Fleet's words in the toast.
+The five-second sentence is not drawn there: past it nothing new appears and
+the line keeps going (owner, 9 Oct 2026). **An answered or dismissed call is
+held out of the deck until Fleet stops carrying it**, because Fleet takes the
+POST before it has re-derived what the Session waits on; the hold lets go
+after thirty seconds if Fleet still carries it, with nothing said.
+
 **The live phase sweeps a bar along its top edge**, the same line on the
 same clock: `--pending-bar` tall, `--status-running`, one segment
 travelling at `--duration-pulse`, linear rather than `--ease` for the

@@ -27,12 +27,22 @@ import { CallCard, type CardKeys } from "./CallCard";
 import { FleetMap } from "./FleetMap";
 import { useLayout } from "@armada/shell";
 import { TAB_KEYS, useFilters } from "./keys";
-import { dismissItem } from "./dismissed";
 import { dotsOf, type Dot } from "./horizon";
 import { sessionIdOf } from "./waiting";
 import { nearest, skyOf } from "./map-layout";
 import { useCockpitView } from "./view";
 import "./cockpit.css";
+
+/**
+ * How long an answered call is held out of the deck if Fleet still carries it. **Fleet answers the POST
+ * before it has re-derived what a Session waits on or whether a Job asks**, so the next update can carry
+ * the call again; a call is held gone until an update stops carrying it, and this is the longest that
+ * holds before the call is allowed back (with no word, since nothing was refused). An object so a
+ * test can shorten it.
+ */
+export const holdFor = { ms: 30_000 };
+
+const NONE: ReadonlySet<string> = new Set();
 
 /** Whether motion is off: nothing waits for an exit that will not play. */
 const stillness = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -182,11 +192,29 @@ export function Cockpit({
   nowViews?: Readonly<Record<string, CallView>> | undefined;
   nows?: Readonly<Record<string, NowView>> | undefined;
 }) {
-  const [answered, setAnswered] = useState<ReadonlySet<string>>(new Set());
-  const calls = useItems("command-central", state, picked, nowViews, hosts, answered);
-  const running = useItems("running", state, picked, nowViews, hosts, answered);
-  const over = useItems("done", state, picked, nowViews, hosts, answered);
+  // Calls answered or dismissed, by key and when: held out of every list until the data stops carrying them.
+  const [holds, setHolds] = useState<ReadonlyMap<string, number>>(new Map());
+  const hold = (key: string) => setHolds((was) => new Map(was).set(key, Date.now()));
   const sessions = useSessions();
+  const carriedCalls = useItems("command-central", state, picked, nowViews, hosts, NONE);
+  const carriedRunning = useItems("running", state, picked, nowViews, hosts, NONE);
+  const carriedOver = useItems("done", state, picked, nowViews, hosts, NONE);
+  const calls = useMemo(() => carriedCalls.filter((one) => !holds.has(one.key)), [carriedCalls, holds]);
+  const running = useMemo(() => carriedRunning.filter((one) => !holds.has(one.key)), [carriedRunning, holds]);
+  const over = useMemo(() => carriedOver.filter((one) => !holds.has(one.key)), [carriedOver, holds]);
+  // A hold lets go when an update no longer carries its call, or after `holdFor`. Not while the Board is
+  // empty: a resync carries nothing, and letting go then would bring the call back to be dropped again.
+  const board = state.jobs.length > 0 || viewsOf(state).length > 0 || sessions.length > 0;
+  useEffect(() => {
+    if (holds.size === 0) return;
+    const carried = new Set([...carriedCalls, ...carriedRunning, ...carriedOver].map((one) => one.key));
+    const expired = (since: number) => Date.now() - since >= holdFor.ms;
+    const gone = [...holds].filter(([key, since]) => expired(since) || (board && !carried.has(key)));
+    if (gone.length > 0) return setHolds((was) => new Map([...was].filter(([key]) => !gone.some(([one]) => one === key))));
+    const next = Math.min(...holds.values()) + holdFor.ms - Date.now();
+    const timer = window.setTimeout(() => setHolds((was) => new Map(was)), Math.max(0, next));
+    return () => window.clearTimeout(timer);
+  }, [holds, carriedCalls, carriedRunning, carriedOver, board]);
   // Your move is what needs the owner; Active leads with that, then what runs, a call standing in for
   // the Job or Session it is about; Done is what is over, and what landed on the merge line is no tile.
   const instruments = useMemo(() => {
@@ -242,15 +270,7 @@ export function Cockpit({
     front === undefined
       ? undefined
       : leave("sent", () => {
-          setAnswered((was) => new Set([...was, front.key]));
-          setForward(undefined);
-        });
-  /** Gone for good: the card leaves as an answered one does, and what it was about is remembered as dismissed. */
-  const dismiss = () =>
-    front === undefined
-      ? undefined
-      : leave("sent", () => {
-          void dismissItem(front, hosts.onTell);
+          hold(front.key);
           setForward(undefined);
         });
   const later = () =>
@@ -325,9 +345,10 @@ export function Cockpit({
           return card.canSend ? (claim(), card.send()) : undefined;
         case keyFor("call_later"):
         case "Escape":
-          return claim(), later();
+          // Nothing else on the card acts while an answer is out, or the answer would clear the wrong one.
+          return claim(), card.pending === undefined ? later() : undefined;
         case keyFor("call_dismiss"):
-          return claim(), dismiss();
+          return claim(), card.dismiss();
         case "o":
           return card.open === undefined ? undefined : (claim(), card.open());
       }
@@ -433,7 +454,7 @@ export function Cockpit({
             )}
             {pane ? (
               <div className="armada-view__pane">
-                <CallPane item={current} now={now} workflows={state.holds.workflows} {...(panel === undefined ? {} : { nowPanel: panel })} onDone={() => setAnswered((was) => new Set([...was, current.key]))} onOpenSession={hosts.onOpenSession} onOpenJob={hosts.onOpen} onOpenLink={hosts.onOpenLink} />
+                <CallPane item={current} now={now} workflows={state.holds.workflows} {...(panel === undefined ? {} : { nowPanel: panel })} onDone={() => hold(current.key)} onOpenSession={hosts.onOpenSession} onOpenJob={hosts.onOpen} onOpenLink={hosts.onOpenLink} />
               </div>
             ) : null}
           </div>
@@ -441,7 +462,7 @@ export function Cockpit({
             <div className="armada-cockpit__scrim" data-hue={front.hue}>
               <div className="armada-stack" style={{ ["--behind" as string]: Math.min(3, edge.length) }}>
                 <Behind edge={edge} put={waiting} recall={recall} />
-                <CallCard key={front.key} item={front} now={now} nowing={front.job === undefined ? undefined : nowPanelOf(nows?.[front.job.id], { onOpenJob: hosts.onOpen, onSaid: () => {} })} state={state} hosts={hosts} finish={finish} later={later} dismiss={dismiss} leaving={leaving} from={seen.current.has(front.key) ? "stack" : undefined} answering={answering} />
+                <CallCard key={front.key} item={front} now={now} nowing={front.job === undefined ? undefined : nowPanelOf(nows?.[front.job.id], { onOpenJob: hosts.onOpen, onSaid: () => {} })} state={state} hosts={hosts} finish={finish} later={later} dismiss={finish} leaving={leaving} from={seen.current.has(front.key) ? "stack" : undefined} answering={answering} />
               </div>
             </div>
           ) : edge.length === 0 ? null : (

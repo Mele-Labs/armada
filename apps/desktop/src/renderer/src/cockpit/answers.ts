@@ -5,18 +5,21 @@
 // about. A Session's call is answered through Fleet (`answerWaiting`) and clears when Fleet takes it
 // or says nothing holds it; a refusal stays on the card and goes to a toast. The rest do what their
 // button did on the Dashboard, and clear the call, except where one opens something and leaves it
-// standing.
+// standing. **From the press until Fleet answers, one act is out**: its control is `pending`, the rest
+// of the card is held, and a second press is not a second send.
 
 import { useEffect, useRef, useState } from "react";
 import { actionOf, keyFor } from "@armada/components";
 import type { AnswerWaiting } from "@armada/protocol";
 import { isTerminal, titleOf } from "@armada/screens";
+import { refusalWords } from "@armada/screens/src/refusal-words";
 
 import type { BridgeState } from "../../../shared/bridge";
 import { viewsOf } from "../merge-line";
 import { useSessions, useSessionsDraft } from "../sessions-draft";
 import { attachPr } from "./claims";
 import { answerWaiting } from "./answer-waiting";
+import { dismissItem } from "./dismissed";
 import { mainOwner, pullOwner, type Owner } from "./owner";
 import { asksAnAgent } from "./standing";
 import { sessionIdOf } from "./waiting";
@@ -51,10 +54,17 @@ export type Answering = {
   /** Whoever already owns what the call is about, where it is a pull request or main's red. */
   owner?: Owner;
   /** A reply in words, where the call takes one: a Session's question, or an item with no options. */
-  reply?: (text: string) => void;
+  reply?: (text: string, accepted?: () => void) => void;
   /** The picker, while an Attach has it open. */
   attaching?: Attaching;
+  /** The control pressed and waiting on Fleet: an answer's id, `reply` or `dismiss`. Nothing else on the card acts meanwhile. */
+  pending: string | undefined;
+  /** Dismisses the call for good: on Fleet where a Session holds it, here where Fleet raised it. */
+  dismiss: () => void;
 };
+
+/** What an act out to Fleet came to. */
+type Told = { kind: "refused"; said: string } | { kind: "answered" | "gone" | "dismissed" | "attached" };
 
 /** The pull request a call is about, as the card and the claim name it. */
 function pullOf(item: Item, state: BridgeState): { number: number; branch: string; url: string; open: boolean } | undefined {
@@ -111,12 +121,40 @@ function standingOf(send: (mode: "best" | "quick") => void, permission: boolean)
 const RECOMMENDED = /\s*\(Recommended\)\s*$/i;
 export const plainLabel = (label: string): string => label.replace(RECOMMENDED, "");
 
-export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finish: () => void): Answering {
+/** `finish` clears the call once Fleet has answered; `dismissed` does the same for a dismissal. */
+export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finish: () => void, dismissed: () => void = finish): Answering {
   const [at, setAt] = useState(0);
   const [picked, setPicked] = useState<number>();
   const [attaching, setAttaching] = useState(false);
+  const [pending, setPending] = useState<string>();
+  // One act is out at a time, so a repeated key or a second press is not a second send.
+  const out = useRef(false);
   // A new call starts from its first question with nothing picked.
-  useEffect(() => (setAt(0), setPicked(undefined), setAttaching(false)), [item.key]);
+  useEffect(() => (setAt(0), setPicked(undefined), setAttaching(false), setPending(undefined), void (out.current = false)), [item.key]);
+
+  /**
+   * Sends one act to Fleet, `id` the control pressed. The loop runs until Fleet answers: an acceptance
+   * hands on to `done`, which leaves the control as it is while the card goes, and a refusal stops the
+   * loop and says Fleet's words, with the card as it was.
+   */
+  const wait = (id: string, call: () => Promise<Told>, done: () => void = finish) => {
+    if (out.current) return;
+    out.current = true;
+    setPending(id);
+    const stop = () => {
+      out.current = false;
+      setPending(undefined);
+    };
+    void call().then(
+      (told) => {
+        if (told.kind === "refused") {
+          stop();
+          hosts.onTell?.(told.said);
+        } else done();
+      },
+      stop,
+    );
+  };
 
   const decisions = item.decisions;
   const decision = decisions?.[at];
@@ -131,36 +169,42 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
       ? mainOwner(views, sessions, item.key.slice("main:".length))
       : undefined;
 
-  // A Session's call answers through Fleet. One answer is out at a time, so a repeated key is not a second.
+  // A Session's call answers through Fleet.
   const waiting = item.waiting;
-  const sending = useRef(false);
-  const sendWaiting = (body: Omit<AnswerWaiting, "session_id" | "item_id">) => {
-    if (waiting === undefined || sending.current) return;
-    sending.current = true;
-    void answerWaiting({ session_id: waiting.sessionId, item_id: waiting.item.id, ...body })
-      .then((done) => {
-        if (done.kind === "refused") hosts.onTell?.(done.said);
-        else finish();
-      })
-      .finally(() => {
-        sending.current = false;
-      });
+  const sendWaiting = (id: string, body: Omit<AnswerWaiting, "session_id" | "item_id">, accepted?: () => void) => {
+    if (waiting === undefined) return;
+    wait(id, () => answerWaiting({ session_id: waiting.sessionId, item_id: waiting.item.id, ...body }), () => (accepted?.(), finish()));
   };
 
   /** A short nudge to whoever owns the pull request, through the path that reaches them. */
   const poke = (who: Owner) => {
     const said = `Pull request #${pull?.number ?? ""}'s checks failed. Address them and push to the pull request.`;
-    if (who.kind === "session") draft?.send(who.id, { text: said, files: [], sketches: [], tags: [] });
-    else void window.armada.redirectDrone(who.id, said);
-    finish();
+    if (who.kind === "session") {
+      draft?.send(who.id, { text: said, files: [], sketches: [], tags: [] });
+      finish();
+    } else {
+      wait("Poke", async (): Promise<Told> => {
+        const done = await window.armada.redirectDrone(who.id, said);
+        return done.ok ? { kind: "answered" } : { kind: "refused", said: refusalWords(done) };
+      });
+    }
   };
 
   const attach = (to: Owner) => {
     setAttaching(false);
     if (pull === undefined) return;
-    void attachPr(pull.number, to).then((done) => {
-      if (!done.attached) hosts.onTell?.(done.said);
-    });
+    // The card stays: what it said is now somebody's, and its answers change with the owner.
+    wait(
+      "Attach",
+      async (): Promise<Told> => {
+        const done = await attachPr(pull.number, to);
+        return done.attached ? { kind: "attached" } : { kind: "refused", said: done.said };
+      },
+      () => {
+        out.current = false;
+        setPending(undefined);
+      },
+    );
   };
   const candidates: Owner[] = [
     ...state.jobs.filter((job) => !isTerminal(job)).map((job): Owner => ({ kind: "job", id: job.id, title: titleOf(job) })),
@@ -172,9 +216,9 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
     if (waiting !== undefined) {
       const given = waiting.item;
       // A walk needs no choice: approving is what Fleet does with an answer that names none.
-      if (given.source === "walk") return [answer("Approve", () => sendWaiting({}))];
+      if (given.source === "walk") return [answer("Approve", () => sendWaiting("Approve", {}))];
       return (given.options ?? []).map((option, at) =>
-        answer(plainLabel(option.label), () => sendWaiting({ choice: at }), {
+        answer(plainLabel(option.label), () => sendWaiting(plainLabel(option.label), { choice: at }), {
           ...("description" in option && typeof option.description === "string" ? { description: option.description } : {}),
           ...(RECOMMENDED.test(option.label) ? { recommended: true } : {}),
         }),
@@ -208,22 +252,25 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
         }))
       : actsOf();
   const permission = waiting?.item.source === "permission";
-  const standing = asksAnAgent(item) ? standingOf(waiting === undefined ? () => finish() : (mode) => sendWaiting({ mode }), permission) : [];
+  const standing = asksAnAgent(item) ? standingOf(waiting === undefined ? () => finish() : (mode) => sendWaiting(mode, { mode }), permission) : [];
   const answers = [...numbered, ...standing];
 
   // One answer is the answer: Enter sends it without a number first.
   const chosen = picked ?? (answers.length === 1 ? 0 : undefined);
-  const pick = (index: number) => answers[index] !== undefined && setPicked(index);
+  const held = pending !== undefined;
+  const pick = (index: number) => !held && answers[index] !== undefined && setPicked(index);
   const pickNumber = (digit: number) => digit <= numbered.length && pick(digit - 1);
   const pickKey = (key: string) => {
     const index = answers.findIndex((one) => one.key === key);
     if (index < 0) return false;
-    setPicked(index);
+    if (!held) setPicked(index);
     return true;
   };
   const step = (by: 1 | -1) =>
+    !held &&
     setPicked(chosen === undefined ? (by === 1 ? 0 : answers.length - 1) : Math.min(answers.length - 1, Math.max(0, chosen + by)));
   const send = () => {
+    if (held) return;
     if (answers.length === 0) open?.();
     else if (chosen !== undefined) answers[chosen]?.run();
   };
@@ -237,12 +284,14 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
     pickKey,
     pickNumber,
     step,
-    canSend: answers.length === 0 ? open !== undefined : chosen !== undefined,
+    canSend: !held && (answers.length === 0 ? open !== undefined : chosen !== undefined),
     send,
     ...(decisions === undefined || decisions.length < 2 ? {} : { decision: { at, of: decisions.length } }),
     open,
     ...(owner === undefined ? {} : { owner }),
-    ...(replies ? { reply: (text: string) => sendWaiting({ text }) } : {}),
+    ...(replies ? { reply: (text: string, accepted?: () => void) => sendWaiting("reply", { text }, accepted) } : {}),
     ...(attaching ? { attaching: { candidates, choose: attach, close: () => setAttaching(false) } } : {}),
+    pending,
+    dismiss: () => wait("dismiss", () => dismissItem(item), dismissed),
   };
 }
