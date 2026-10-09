@@ -23,10 +23,9 @@
   border-radius: var(--radius-lg);
   background: var(--bg-sunken);
   overflow: hidden;
-  transition: border-color var(--duration-travel) var(--ease), box-shadow var(--duration-travel) var(--ease);
 }
 
-/* Something is waiting on the owner: the frame takes the call's hue, and its edge is lit. */
+/* Something is waiting on the owner: the frame takes the call's hue, and its edge is lit. It does not move. */
 .armada-view[data-waiting] {
   border-color: var(--hue);
   box-shadow: inset 0 0 calc(var(--space-12) * 1.5) color-mix(in srgb, var(--hue) 16%, transparent), 0 0 var(--space-6) color-mix(in srgb, var(--hue) 16%, transparent);
@@ -78,12 +77,7 @@
 
 .armada-view__block[data-state="gating"],
 .armada-view__block[data-state="merging"],
-.armada-view__block[data-state="preparing"] {
-  background: var(--status-running);
-  animation: armada-view-block 1.4s ease-in-out infinite;
-}
-
-@keyframes armada-view-block { 50% { transform: translateX(calc(var(--space-1) * -1)); } }
+.armada-view__block[data-state="preparing"] { background: var(--status-running); }
 
 .armada-view__main {
   width: var(--space-3);
@@ -118,44 +112,12 @@
     linear-gradient(color-mix(in srgb, var(--border-subtle) 55%, transparent) var(--border-width), transparent var(--border-width)),
     linear-gradient(90deg, color-mix(in srgb, var(--border-subtle) 55%, transparent) var(--border-width), transparent var(--border-width));
   background-size: var(--space-6) var(--space-6);
-  transition: opacity var(--duration-travel) var(--ease), transform var(--duration-travel) var(--ease);
 }
 
-/* A call is in front: the glass sits back behind it. */
-.armada-tiles.armada-view__grid[data-recessed] { opacity: 0.4; transform: scale(0.985); }
+/* A call is in front: the glass is dimmed behind it, and still. */
+.armada-tiles.armada-view__grid[data-recessed] { opacity: 0.4; }
 
-/* ---- The calls waiting, in the band at the edge --------------------------------------------- */
-
-.armada-dock { display: flex; align-items: center; gap: var(--space-2); min-width: 0; margin-left: auto; }
-
-.armada-dock__chip {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  max-width: calc(var(--space-12) * 4);
-  min-width: 0;
-  padding: var(--space-1) var(--space-2);
-  border: var(--border-width) solid var(--hue);
-  border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--hue) 16%, var(--bg-raised));
-  color: var(--fg-default);
-  font: inherit;
-  cursor: pointer;
-}
-
-.armada-dock__chip > svg { flex: none; color: var(--hue); }
-.armada-dock__chip > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-/* Put off for later: still lit, but it has stopped asking for the front. */
-.armada-dock__chip[data-deferred] { border-style: dashed; background: transparent; color: var(--fg-muted); }
-
-.armada-dock__chip:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
-
-/* A call that arrived behind another one: its chip lands once. */
-.armada-dock__chip[data-arrived] { animation: armada-dock-in var(--duration-travel) var(--ease); }
-@keyframes armada-dock-in { from { opacity: 0; transform: translateY(calc(var(--space-2) * -1)) scale(0.9); } }
-
-/* ---- The call, in front --------------------------------------------------------------------- */
+/* ---- The call, in front, and the calls stacked behind it ------------------------------------- */
 
 .armada-cockpit__scrim {
   position: absolute;
@@ -167,54 +129,84 @@
   background: color-mix(in srgb, var(--bg-base) 55%, transparent);
 }
 
-.armada-callcard {
+/* The deck: the card in flow, and the calls behind it as strips standing up above it. */
+.armada-stack {
+  --lift: var(--space-6);
   position: relative;
   width: min(100%, calc(var(--space-12) * 14));
-  --card-wide: calc(var(--space-12) * 20);
+  padding-top: calc(var(--lift) * var(--behind, 0));
+}
+
+/* Each strip: higher, narrower and dimmer than the one in front of it, its title readable. */
+.armada-behind {
+  position: absolute;
+  top: calc(var(--lift) * (var(--behind) - var(--i)));
+  left: calc(var(--space-3) * var(--i));
+  right: calc(var(--space-3) * var(--i));
+  z-index: calc(10 - var(--i));
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  height: calc(var(--lift) + var(--space-4));
+  padding: var(--space-1) var(--space-3) 0;
+  border: var(--border-width) solid var(--hue);
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  background: color-mix(in srgb, var(--hue) 22%, var(--bg-overlay));
+  color: var(--fg-default);
+  opacity: calc(1.15 - var(--i) * 0.25);
+  font: inherit;
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  text-align: left;
+  cursor: pointer;
+}
+
+.armada-behind > svg { flex: none; margin-top: var(--space-1); color: var(--hue); }
+.armada-behind > span { min-width: 0; flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Put off for later: dashed, and at the back. */
+.armada-behind[data-deferred] { border-style: dashed; background: var(--bg-overlay); color: var(--fg-muted); }
+.armada-behind:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
+
+/* With nothing in front, the stack waits at the bottom edge on its own. */
+.armada-tray { position: absolute; left: 0; right: 0; bottom: 0; display: flex; justify-content: center; padding: 0 var(--space-6); pointer-events: none; }
+.armada-tray .armada-stack { height: calc(var(--lift) * var(--behind) + var(--space-4)); pointer-events: auto; }
+.armada-tray .armada-behind { border-radius: var(--radius-md); }
+
+.armada-callcard {
+  position: relative;
+  z-index: 20;
+  width: 100%;
   border: var(--border-width) solid var(--hue);
   border-radius: var(--radius-lg);
   background: var(--bg-overlay);
-  box-shadow: var(--shadow-overlay), 0 0 calc(var(--space-12) * 2) color-mix(in srgb, var(--hue) 28%, transparent);
+  box-shadow: var(--shadow-overlay);
   overflow: hidden;
   animation: armada-card-forward var(--duration-travel) var(--ease);
 }
 
-/* The ring a call sends out as it arrives, once. */
-.armada-callcard::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  pointer-events: none;
-  animation: armada-card-ring calc(var(--duration-travel) * 3) var(--ease);
-}
+/* One that stood behind another slides up into its place instead. */
+.armada-callcard[data-from="stack"] { animation: armada-card-up var(--duration-travel) var(--ease); }
 
 .armada-callcard[data-leaving="later"] { animation: armada-card-later var(--duration-sheet) var(--ease) forwards; }
 .armada-callcard[data-leaving="sent"] { animation: armada-card-sent var(--duration-sheet) var(--ease) forwards; }
 
 @keyframes armada-card-forward {
-  from { opacity: 0; transform: translateY(var(--space-8)) scale(0.9); }
+  from { opacity: 0; transform: translateY(var(--space-8)) scale(0.94); }
 }
 
-@keyframes armada-card-ring {
-  from { box-shadow: inset 0 0 0 calc(var(--border-width) * 3) var(--hue), 0 0 0 0 color-mix(in srgb, var(--hue) 60%, transparent); }
-  to { box-shadow: inset 0 0 0 calc(var(--border-width) * 3) transparent, 0 0 0 var(--space-12) transparent; }
+@keyframes armada-card-up {
+  from { opacity: 0.6; transform: translateY(calc(var(--space-6) * -1)) scale(0.96); }
 }
 
-/* Later flies up to the band where the waiting calls are; sent just goes. */
+/* Later sinks back into the stack; sent just goes. */
 @keyframes armada-card-later {
-  to { opacity: 0; transform: translateY(calc(var(--space-12) * -3)) scale(0.5); }
+  to { opacity: 0; transform: translateY(calc(var(--space-6) * -1)) scale(0.94); }
 }
 
 @keyframes armada-card-sent {
-  to { opacity: 0; transform: scale(1.04); }
+  to { opacity: 0; }
 }
-
-/* A Job's call carries what it runs now beside the question, in the Now panel's own frame. */
-.armada-callcard:has([data-now]) { width: min(100%, var(--card-wide)); }
-.armada-callcard__cols { display: grid; grid-template-columns: minmax(0, 1fr); }
-.armada-callcard__cols[data-now] { grid-template-columns: minmax(0, 1fr) auto; }
-.armada-callcard__now { min-width: 0; padding: var(--space-4) var(--space-4) var(--space-4) 0; }
 
 .armada-callcard__band {
   display: flex;
@@ -230,28 +222,54 @@
 .armada-callcard__where { margin-left: auto; font-family: var(--font-mono); font-weight: var(--weight-body); }
 .armada-callcard__age { font-family: var(--font-mono); font-weight: var(--weight-body); opacity: 0.85; }
 
-.armada-callcard__body { display: flex; flex-direction: column; gap: var(--space-4); padding: var(--space-4); }
+.armada-callcard__body { display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-4); }
 
-.armada-callcard__title { margin: 0; font-size: var(--text-base); font-weight: var(--weight-heading); color: var(--fg-muted); }
+.armada-callcard__title { margin: 0; font-size: var(--text-lg); line-height: var(--leading-lg); font-weight: var(--weight-heading); color: var(--fg-default); }
+
+/* What he asked the Job for: a few lines, and the rest where he asks for it. */
+.armada-callcard__asked { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-1); }
+.armada-callcard__request {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  color: var(--fg-muted);
+  overflow-wrap: anywhere;
+}
+.armada-callcard__request[data-whole] { -webkit-line-clamp: unset; display: block; }
+
+/* Where the question came from, and what is active now: two quiet lines. */
+.armada-callcard__origin,
+.armada-callcard__doing { display: flex; align-items: center; gap: var(--space-2); margin: 0; font-family: var(--font-mono); font-size: var(--text-xs); line-height: var(--leading-xs); color: var(--fg-subtle); }
+.armada-callcard__doing { color: var(--fg-muted); }
+.armada-callcard__doing > span { display: inline-flex; flex: none; color: var(--hue); }
 
 .armada-callcard__why {
   margin: 0;
-  padding: var(--space-3);
+  padding: var(--space-2) var(--space-3);
   border-left: calc(var(--border-width) * 2) solid var(--hue);
   background: var(--bg-sunken);
   font-family: var(--font-mono);
   font-size: var(--text-xs);
-  line-height: 1.6;
+  line-height: 1.5;
   color: var(--fg-muted);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+
+/* A Session's call: a few messages of its thread, from the newest. */
+.armada-callcard__thread { display: flex; flex-direction: column; max-height: calc(var(--space-12) * 4); min-height: 0; padding-right: var(--space-2); overflow-y: auto; }
 
 .armada-callcard__ask {
   display: flex;
   align-items: baseline;
   gap: var(--space-3);
   margin: 0;
+  padding-top: var(--space-3);
+  border-top: var(--border-width) solid var(--border-subtle);
   font-size: var(--text-lg);
   line-height: var(--leading-lg);
   font-weight: var(--weight-heading);
@@ -259,15 +277,16 @@
   text-wrap: balance;
 }
 
-.armada-callcard__ask[data-quiet] { font-family: var(--font-mono); font-size: var(--text-sm); font-weight: var(--weight-medium); }
+.armada-callcard__ask[data-quiet] { font-family: var(--font-mono); font-size: var(--text-sm); font-weight: var(--weight-medium); overflow-wrap: anywhere; }
 
 /* Where a Plan question is among its decisions: a pip each. */
 .armada-callcard__pips { display: inline-flex; gap: var(--space-1); margin-left: auto; }
 .armada-callcard__pip { width: var(--space-2); height: var(--space-2); border: var(--border-width) solid var(--hue); border-radius: 50%; }
 .armada-callcard__pip[data-here] { background: var(--hue); }
 
-/* The answers, each carrying the number that picks it. */
-.armada-callcard__answers { display: grid; grid-template-columns: repeat(auto-fit, minmax(calc(var(--space-12) * 3), 1fr)); gap: var(--space-3); }
+/* The answers, each carrying the number or the key that picks it; the standing two sit under them. */
+.armada-callcard__choices { display: flex; flex-direction: column; gap: var(--space-2); }
+.armada-callcard__answers { display: grid; grid-template-columns: repeat(auto-fit, minmax(calc(var(--space-12) * 3), 1fr)); gap: var(--space-2); }
 
 .armada-callcard__answer {
   display: flex;
@@ -285,6 +304,7 @@
   transition: border-color var(--duration-fast) var(--ease), background var(--duration-fast) var(--ease);
 }
 
+.armada-callcard__answer[data-standing] { padding: var(--space-2) var(--space-3); border-style: dashed; background: transparent; color: var(--fg-muted); font-size: var(--text-sm); font-weight: var(--weight-body); }
 .armada-callcard__answer:hover { border-color: var(--hue); }
 .armada-callcard__answer:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
 
@@ -292,12 +312,14 @@
   border-color: var(--hue);
   background: color-mix(in srgb, var(--hue) 22%, var(--bg-sunken));
   box-shadow: inset 0 0 0 var(--border-width) var(--hue);
+  color: var(--fg-default);
 }
 
 .armada-callcard__acts { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
 .armada-callcard__acts > :last-child { margin-left: auto; }
 
-.armada-callcard__acts .armada-kbd { margin-left: var(--space-2); }
+.armada-callcard__acts .armada-kbd,
+.armada-callcard__asked .armada-kbd { margin-left: var(--space-2); }
 
 /* ---- The key sheet -------------------------------------------------------------------------- */
 
@@ -309,9 +331,5 @@
 .armada-keys__row dd { margin: 0; }
 
 @media (prefers-reduced-motion: reduce) {
-  .armada-callcard,
-  .armada-callcard::after,
-  .armada-dock__chip[data-arrived],
-  .armada-view__block { animation: none !important; }
-  .armada-view__grid { transition: none; }
+  .armada-callcard { animation: none !important; }
 }

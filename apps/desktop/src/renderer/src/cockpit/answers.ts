@@ -9,7 +9,8 @@ import type { BridgeState } from "../../../shared/bridge";
 import { viewsOf } from "../merge-line";
 import type { Hosts, Item } from "../Dashboard";
 
-export type Answer = { id: string; label: string; run: () => void };
+/** `key` is a standing answer's own key; the others are picked by their number. `says` is what it tells the agent. */
+export type Answer = { id: string; label: string; run: () => void; key?: string; says?: string };
 
 export type Answering = {
   /** The question asked now: a Plan decision's, or the call's own fact. */
@@ -18,6 +19,10 @@ export type Answering = {
   /** Which answer is picked, where one is. A lone answer starts picked. */
   picked: number | undefined;
   pick: (index: number) => void;
+  /** Picks the standing answer a key names, where there is one. */
+  pickKey: (key: string) => boolean;
+  /** Picks the answer a digit names among the numbered ones. */
+  pickNumber: (digit: number) => void;
   /** Moves the pick down or up the list, from nothing to the first or last. */
   step: (by: 1 | -1) => void;
   /** Whether Enter sends: an answer is picked, or the call has none and Enter opens it. */
@@ -57,6 +62,20 @@ function actsOf(item: Item, hosts: Hosts, finish: () => void): Answer[] {
   return [];
 }
 
+/**
+ * Two answers that stand after the numbered ones on any call whose question is about an approach:
+ * the best solution, thought through, or the quickest reasonable path. **Not on a Session's
+ * permission**, which is a trust the owner gives and no agent may give itself. Mock only: each would
+ * be one Fleet command, an answer to the ask carrying `mode: "best" | "quick"` that the Drone is
+ * told as an instruction.
+ */
+function standingOf(finish: () => void): Answer[] {
+  return [
+    { id: "best", key: "b", label: "Make the best decision", says: "Tells the agent to weigh the options and choose the best solution itself", run: finish },
+    { id: "quick", key: "g", label: "Just get it done", says: "Tells the agent to take the quickest reasonable path and keep moving", run: finish },
+  ];
+}
+
 export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finish: () => void): Answering {
   const [at, setAt] = useState(0);
   const [picked, setPicked] = useState<number>();
@@ -67,7 +86,7 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
   const decision = decisions?.[at];
   const open = opener(item, hosts, state);
 
-  const answers: Answer[] =
+  const numbered: Answer[] =
     decision !== undefined
       ? decision.options.map((option) => ({
           id: option.id,
@@ -75,10 +94,18 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
           run: () => (at + 1 < decisions!.length ? (setAt(at + 1), setPicked(undefined)) : finish()),
         }))
       : actsOf(item, hosts, finish);
+  const answers = numbered.length === 0 || item.key.startsWith("session:") ? numbered : [...numbered, ...standingOf(finish)];
 
   // One answer is the answer: Enter sends it without a number first.
   const chosen = picked ?? (answers.length === 1 ? 0 : undefined);
   const pick = (index: number) => answers[index] !== undefined && setPicked(index);
+  const pickNumber = (digit: number) => digit <= numbered.length && pick(digit - 1);
+  const pickKey = (key: string) => {
+    const index = answers.findIndex((one) => one.key === key);
+    if (index < 0) return false;
+    setPicked(index);
+    return true;
+  };
   const step = (by: 1 | -1) =>
     setPicked(chosen === undefined ? (by === 1 ? 0 : answers.length - 1) : Math.min(answers.length - 1, Math.max(0, chosen + by)));
   const send = () => {
@@ -91,6 +118,8 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
     answers,
     picked: chosen,
     pick,
+    pickKey,
+    pickNumber,
     step,
     canSend: answers.length === 0 ? open !== undefined : chosen !== undefined,
     send,

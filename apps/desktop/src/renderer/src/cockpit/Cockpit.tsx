@@ -19,8 +19,7 @@ import type { BridgeState } from "../../../shared/bridge";
 import { useBoardKeys, useCursor, useItems, type Hosts, type Item } from "../Dashboard";
 import { FleetTile } from "../FleetTile";
 import { viewsOf } from "../merge-line";
-import { CallCard } from "./CallCard";
-import type { Answering } from "./answers";
+import { CallCard, type CardKeys } from "./CallCard";
 import { TAB_KEYS } from "./keys";
 import "./cockpit.css";
 
@@ -48,6 +47,37 @@ function Horizon({ state }: { state: BridgeState }) {
           </Tooltip>
         </div>
       ))}
+    </>
+  );
+}
+
+/**
+ * The calls behind the one in front, stacked like a deck: each a strip a little higher, narrower and
+ * dimmer than the one before, its title readable. A call put off is dashed and at the back. Pressing
+ * one brings it forward.
+ */
+function Behind({ edge, put, recall }: { edge: readonly Item[]; put: readonly string[]; recall: (key: string) => void }) {
+  return (
+    <>
+      {edge.slice(0, 3).map((one, index) => {
+        const Icon = one.icon;
+        return (
+          <button
+            key={one.key}
+            type="button"
+            className="armada-behind"
+            data-hue={one.hue}
+            data-deferred={put.includes(one.key) || undefined}
+            style={{ ["--i" as string]: index + 1 }}
+            aria-label={`${one.kind}: ${one.title}`}
+            onClick={() => recall(one.key)}
+          >
+            <Icon size={12} aria-hidden="true" />
+            <span>{one.title}</span>
+            {index === 0 ? <Kbd>w</Kbd> : null}
+          </button>
+        );
+      })}
     </>
   );
 }
@@ -156,7 +186,7 @@ export function Cockpit({
 
   // j, k, Enter, o and x are the Board's, as every list reads them; the rest are this screen's.
   useBoardKeys(instruments, at, setSelected, hosts, front === undefined && leaving === undefined);
-  const answering = useRef<Answering | undefined>(undefined);
+  const answering = useRef<CardKeys | undefined>(undefined);
   useListKeydown((event) => {
     if (event.metaKey || event.ctrlKey || event.altKey) return;
     const moves = ["j", "k", "ArrowDown", "ArrowUp", "ArrowLeft", "ArrowRight"].includes(event.key);
@@ -180,8 +210,11 @@ export function Cockpit({
     if (front !== undefined) {
       const card = answering.current;
       if (card === undefined) return;
-      if (/^[1-9]$/.test(event.key)) return claim(), card.pick(Number(event.key) - 1);
+      if (/^[1-9]$/.test(event.key)) return claim(), card.pickNumber(Number(event.key));
+      if (card.pickKey(event.key)) return claim();
       switch (event.key) {
+        case "e":
+          return card.expand === undefined ? undefined : (claim(), card.expand());
         case "ArrowDown":
         case "j":
           return claim(), card.step(1);
@@ -220,7 +253,9 @@ export function Cockpit({
     }
   });
 
-  const arrived = useRef(new Set<string>());
+  // Calls that have stood behind another: when one comes to the front it slides up from there.
+  const seen = useRef(new Set<string>());
+  edge.forEach((one) => seen.current.add(one.key));
   const frame = front?.hue ?? edge[0]?.hue;
 
   return (
@@ -231,26 +266,6 @@ export function Cockpit({
             <Activity size={16} aria-label="Fleet" />
           </Tooltip>
           <Horizon state={state} />
-          {edge.length === 0 ? null : (
-            <ul className="armada-dock" aria-label="Waiting calls">
-              {edge.map((one, index) => {
-                const Icon = one.icon;
-                const fresh = !arrived.current.has(one.key);
-                arrived.current.add(one.key);
-                return (
-                  <li key={one.key} data-hue={one.hue}>
-                    <Tooltip label={`${one.kind}: ${one.title}`}>
-                      <button type="button" className="armada-dock__chip" data-hue={one.hue} data-deferred={waiting.includes(one.key) || undefined} data-arrived={fresh || undefined} aria-label={`${one.kind}: ${one.title}`} onClick={() => recall(one.key)}>
-                        <Icon size={12} aria-hidden="true" />
-                        <span>{one.title}</span>
-                        {index === 0 ? <Kbd>w</Kbd> : null}
-                      </button>
-                    </Tooltip>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
           <span className="armada-view__keys">
             <Tooltip label={actionOf("move_focus").verb}>
               <span>
@@ -273,9 +288,18 @@ export function Cockpit({
               <FleetTile key={one.key} item={one} now={now} selected={one.key === current?.key} onSelect={setSelected} extra={<TileActs item={one} hosts={hosts} />} />
             ))}
           </ul>
-          {front === undefined ? null : (
+          {front !== undefined ? (
             <div className="armada-cockpit__scrim" data-hue={front.hue}>
-              <CallCard key={front.key} item={front} now={now} nowing={front.job === undefined ? undefined : nowPanelOf(nows?.[front.job.id], { onOpenJob: hosts.onOpen, onSaid: () => {} })} state={state} hosts={hosts} finish={finish} later={later} leaving={leaving} answering={answering} />
+              <div className="armada-stack" style={{ ["--behind" as string]: Math.min(3, edge.length) }}>
+                <Behind edge={edge} put={waiting} recall={recall} />
+                <CallCard key={front.key} item={front} now={now} nowing={front.job === undefined ? undefined : nowPanelOf(nows?.[front.job.id], { onOpenJob: hosts.onOpen, onSaid: () => {} })} state={state} hosts={hosts} finish={finish} later={later} leaving={leaving} from={seen.current.has(front.key) ? "stack" : undefined} answering={answering} />
+              </div>
+            </div>
+          ) : edge.length === 0 ? null : (
+            <div className="armada-tray">
+              <div className="armada-stack" data-tray style={{ ["--behind" as string]: Math.min(3, edge.length) }}>
+                <Behind edge={edge} put={waiting} recall={recall} />
+              </div>
             </div>
           )}
         </div>

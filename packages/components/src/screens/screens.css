@@ -1027,17 +1027,6 @@
   box-shadow: 0 0 var(--space-4) color-mix(in srgb, var(--hue) 45%, transparent);
 }
 
-/* And a ring goes out from its mark, as the tab strip's beacon does. */
-.armada-tile[data-lit] .armada-tile__mark { position: relative; }
-.armada-tile[data-lit] .armada-tile__mark::after {
-  content: "";
-  position: absolute;
-  inset: calc(var(--space-1) * -1);
-  border-radius: 50%;
-  border: calc(var(--border-width) * 2) solid var(--hue);
-  animation: armada-beacon 2s ease-out infinite;
-}
-
 /* The acts a grid adds under the tile picked, each with its key. */
 .armada-tile__extra { display: flex; gap: var(--space-2); margin: calc(var(--space-1) * -1) calc(var(--space-2) * -1) calc(var(--space-2) * -1); }
 
@@ -1052,8 +1041,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .armada-tile__mark[data-spin] svg,
-  .armada-tile__mark[data-live] svg,
-  .armada-tile[data-lit] .armada-tile__mark::after { animation: none; }
+  .armada-tile__mark[data-live] svg { animation: none; }
 }
 
 /* Two lines, then clamped. */

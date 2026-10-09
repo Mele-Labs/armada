@@ -49,7 +49,7 @@ export function FleetTile({
     >
       <div className="armada-tile__head">
         <Tooltip label={said}>
-          <span className="armada-tile__mark" role="img" aria-label={said} data-spin={spins || undefined} data-live={(!spins && (item.live === true || lit)) || undefined}>
+          <span className="armada-tile__mark" role="img" aria-label={said} data-spin={spins || undefined} data-live={(!spins && item.live === true) || undefined}>
             <State size={20} aria-hidden="true" />
           </span>
         </Tooltip>

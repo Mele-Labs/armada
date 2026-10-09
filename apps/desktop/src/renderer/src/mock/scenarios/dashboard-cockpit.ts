@@ -20,9 +20,8 @@ import { sessionsStore, type SessionsStore } from "../sessions/script";
 const OWNER = repository().manifest!.id;
 const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
 
-/** The picked repository's, started `minutes` ago, on step `step` of its workflow where one is named. */
-function live(fixture: JobFixture, minutes: number, step?: number, asking = false): JobFixture {
-  const id = step === undefined ? undefined : fixture.workflows[0]?.steps[step]?.step_id;
+/** The picked repository's, started `minutes` ago, on the step `id` of its workflow where one is named. */
+function live(fixture: JobFixture, minutes: number, id?: string, asking = false): JobFixture {
   const patch = {
     owner_manifest_id: OWNER,
     started_at: ago(minutes),
@@ -35,18 +34,19 @@ function live(fixture: JobFixture, minutes: number, step?: number, asking = fals
   return { ...fixture, job, watched: { ...fixture.watched, detail: { ...fixture.watched.detail, job: detailJob } } };
 }
 
-const debounce = live(asRow(featureRunning(), 80, "debounce", "Debounce the Job Board's resize handler"), 41, 1);
-const cache = live(asRow(featureRunning(), 81, "cache", "Cache the manifest read between dispatches"), 17, 2);
+const debounce = live(asRow(featureRunning(), 80, "debounce", "Debounce the Job Board's resize handler"), 41, "implement");
+const cache = live(asRow(featureRunning(), 81, "cache", "Cache the manifest read between dispatches"), 17, "tests");
 const mainChecks = live(asRow(running(), 82, "fix-main", "Fix components_test on main"), 9);
-const migrate = live(asRow(featureRunning(), 83, "migrate", "Order the store migrations"), 3, 0);
+const migrate = live(asRow(featureRunning(), 83, "migrate", "Order the store migrations"), 3, "scope");
 const pause = live(asRow(queued(), 84, "pause", "Store a pause marker on the Job"), 1);
 
 /** The Jobs that ask, on the Board only from the moment they do. */
-const plan = live(asRow(featureRunning(), 85, "dash-plan", "Split the writer from the clock"), 26, 0, true);
-const check = live(asRow(featureRunning(), 86, "dash-issue", "Shorten the reconnect wait"), 33, 1, true);
+const plan = live(asRow(featureRunning(), 85, "dash-plan", "Split the writer from the clock"), 26, "scope", true);
+const check = live(asRow(featureRunning(), 86, "dash-issue", "Shorten the reconnect wait"), 33, "implement", true);
 
 const now: Record<string, CallView> = {
   [plan.job.id]: {
+    request: "Fleet's event log writer and its heartbeat clock share one struct, so a slow disk stalls the heartbeat and Bridge marks Fleet unreachable. Pull the clock out so the heartbeat never waits on the writer. Keep the log format as it is, and do not touch the retry cap while you are in there. The store tests should pass untouched.",
     running: [{ key: "r", of: "drone", name: "Drone on Plan", line: "Weighing the split against the wrap", state: "running" }],
     asks: [
       {
@@ -71,6 +71,7 @@ const now: Record<string, CallView> = {
     ],
   },
   [check.job.id]: {
+    request: "When Bridge loses its socket to Fleet, it waits a flat 30s before reconnecting. Cut the first wait to 5s and back off from there, keeping the cap at 60s.",
     running: [{ key: "r", of: "drone", name: "Drone on Implement", line: "Waiting on the store test", state: "running" }],
     issues: [
       {
@@ -135,7 +136,11 @@ const said = (id: string, text: string) => [{ id, at: "14:00:00", kind: "message
 
 /** Two at work, one that will ask for a command, two idle beside them. */
 const SESSIONS: Session[] = [
-  { id: "s9", title: "Flaky store test", turn: { state: "working" }, lastTurn: "14:02", lastTurnAt: ago(2), rows: said("s9-0", "Replacing the 200ms sleep in store_test.rs with a wait on the channel."), attachments: [] },
+  { id: "s9", title: "Flaky store test", turn: { state: "working" }, lastTurn: "14:02", lastTurnAt: ago(2), rows: [
+      { id: "s9-u", at: "13:58:00", kind: "message", from: { kind: "you" }, text: "The store test is flaky on CI. Find out why and fix it, then push the branch when it is green." },
+      { id: "s9-t", at: "13:59:10", kind: "tool", text: "Read crates/store/tests/store_test.rs" },
+      ...said("s9-0", "The flake is the 200ms sleep in store_test.rs. Replacing it with a wait on the channel."),
+    ], attachments: [] },
   { id: "s10", title: "Migration notes", turn: { state: "working" }, lastTurn: "14:05", lastTurnAt: ago(1), rows: said("s10-0", "Reading the migrations since 0042."), attachments: [] },
   { id: "s12", title: "Theme token audit", turn: quiet, lastTurn: "13:51", lastTurnAt: ago(14), rows: said("s12-0", "Eleven tokens have no caller."), attachments: [] },
 ];
