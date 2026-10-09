@@ -19,6 +19,7 @@ import { PROTOCOL_ID, speaksOurProtocol } from "@armada/protocol";
 import type { Connection, JobSummary, ProposalMoved, ServerState, StreamMessage } from "@armada/protocol";
 import { movedOnto } from "@armada/screens/src/filling";
 import type { BridgeState } from "../shared/bridge";
+import type { Modding } from "./mods";
 import type { Questions } from "./questions";
 import type { RehearsalConnection } from "./rehearsal";
 import { ask, capacityOf, limitsOf, mergeLinesOf, preferencesOf } from "./request";
@@ -47,6 +48,8 @@ export interface ArrivalHost {
   readonly helm: { reconnected(port: number): void };
   /** The Studios surface's two reads — `studios.ts`. */
   readonly studios: Pick<StudioReads, "again" | "changed" | "deleted">;
+  /** The mods on this machine — `mods.ts`. */
+  readonly mods: Pick<Modding, "read" | "listed">;
   /** Every session and the threads a window opened — `sessions.ts`. */
   readonly sessions: Pick<SessionsHost, "again" | "changed" | "row">;
   readonly material: ReviewMaterial;
@@ -178,6 +181,8 @@ export function applyArrival(host: ArrivalHost, text: string, fleet: BridgeState
     // And a person's Bridge preferences, once per connection, `readLimits`'
     // reason.
     void readPreferences(fleet.port, host.publish);
+    // And the mods on this machine, once per connection — `mods.changed` carries the list whole.
+    void host.mods.read(fleet.port);
     // And every server Fleet holds, once per connection — `server.*` on
     // `/events` carries each row whole from here on.
     void host.rehearsal.readServers(fleet.port);
@@ -452,6 +457,12 @@ export function applyArrival(host: ArrivalHost, text: string, fleet: BridgeState
     // Carried whole, so an add made in another window or at the CLI lands without a round trip.
     host.publish({ connection });
     return void host.repositories.listed(event, fleet.port);
+  }
+  if (event.kind === "mods.changed") {
+    // Above the tail, `repositories.changed`' reason, and carried whole: the list replaces the one held.
+    host.publish({ connection });
+    host.mods.listed({ mods: event.mods });
+    return;
   }
   if (event.kind === "merge_lines.changed") {
     // Above the tail, `manifest.reread`'s reason. Replaced whole, never folded.

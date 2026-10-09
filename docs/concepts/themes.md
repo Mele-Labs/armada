@@ -20,14 +20,14 @@
 
 **The theme goes on `<html>`.** Every token file that aliases or mixes another declares on `:root, [data-theme]`, so an alias re-resolves on whichever element carries a theme. A themed `<div>`, as a story draws one, is light all the way down.
 
-**Bridge reads a `ThemeSource`** (`packages/surfaces/settings/src/theme-source.tsx`): the mods, the catalogue and the active id, with `setActive`. Settings, the Mods surface and the renderer's loader (`apps/desktop/src/renderer/src/theme.tsx`) read the same source. The mock runs on an in-memory one; Fleet's mod folder replaces it in `main.tsx`.
+**Bridge reads a `ThemeSource`** (`packages/surfaces/settings/src/theme-source.tsx`): the mods, the catalogue and the active id, with `setActive`. Settings, the Mods surface and the renderer's loader (`apps/desktop/src/renderer/src/theme.tsx`) read the same source. The mock runs on an in-memory one. Bridge runs on `fleet-themes.ts`, which takes the mod list from `list_mods` and `mods.changed` and keeps the choice in Fleet's `theme` preference, so it is the same on every window and survives a relaunch. A mod's CSS is not held: the loader asks for it when the theme is drawn and adopts the `css` that `validate_mod` returned. `docs/concepts/mods.md` says what each answer of the list comes to.
 
 ## What the loader refuses
 
 | Input | Result |
 |---|---|
-| CSS that is empty, does not parse, has a rule outside `[data-theme="<id>"]`, or contains `@import` | Dark, and the source is told Dark |
-| An id that is not offered, or a mod that is off | Dark |
+| CSS that is empty, does not parse, has a rule that is neither the theme's own `[data-theme="<id>"]` nor a bare `:root` or `[data-theme]`, or contains `@import` | Dark, and the source is told Dark |
+| An id that is not offered, or a mod that is off, invalid or fails `validate_mod` | Dark |
 | A catalogue file that cannot be read, or a source that throws | Dark |
 | `?nomods` on the page, set by main for `--no-mods` | No mod's theme is loaded or listed; Dark, Light and the catalogue remain |
 

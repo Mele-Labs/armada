@@ -9,4 +9,7 @@ const OK: Outcome = { ok: true };
 export const settingsApi = (): SettingsApi => ({
   saveLimits: async () => OK,
   savePreference: async () => OK,
+  validateMod: async () => null,
+  setModEnabled: async () => OK,
+  promoteMod: async () => OK,
 });

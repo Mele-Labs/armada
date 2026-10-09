@@ -12,10 +12,9 @@ import { App, WAITING } from "./App";
 import { Boundary } from "@armada/shell";
 import { HapticsProvider } from "@armada/components";
 import { WiredSessions } from "./sessions-wired";
-import { createThemeSource } from "@armada/settings";
 import { CATALOGUE } from "./catalogue";
 import { Themed } from "./theme";
-import { remembered } from "./theme-kept";
+import { createFleetThemes } from "./fleet-themes";
 
 // Bridge's renderer entry point. No Node, no `require`, no socket — everything
 // it draws arrives through the preload from the one connection in the main
@@ -27,11 +26,8 @@ import { remembered } from "./theme-kept";
 // nothing but the path Bridge's log is at, so the fallback can still name it
 // when everything under it has gone.
 
-/**
- * The themes this window offers. **The seam**: the Fleet-backed source that serves the mod folder
- * replaces this one, and `Themed` and every surface under it read it unchanged.
- */
-const THEMES = remembered(createThemeSource(() => ({ mods: [], catalogue: CATALOGUE, active: "dark" })));
+/** The themes this window offers: Fleet's mods and the saved preference, and the catalogue Bridge ships. */
+const THEMES = createFleetThemes(window.armada, CATALOGUE);
 
 /**
  * Who Bridge is, read once. The only state above the boundary, and the least

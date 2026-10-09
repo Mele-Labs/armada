@@ -85,7 +85,7 @@ Every problem is returned with its line, up to 20.
 | What | Where | Default |
 |---|---|---|
 | A mod's switch | `mod_switches`, a row per mod, with the other preferences | On |
-| The active theme | `theme` in `get_preferences`, saved by `save_preferences` with `text` | `dark` |
+| The active theme | `theme` in `get_preferences`, saved by `save_preferences` with `text`: a built-in's id, `catalogue:<slug>` or a mod's name | `dark` |
 
 A mod nobody switched is on. A switch only says whether the owner allows the mod, and `valid` says whether Bridge may act on it: a mod can be on and invalid.
 
@@ -110,4 +110,18 @@ The owner's checkout is never written, and a branch that exists is never moved. 
 > **Rule.** A mod that cannot be read, or that fails its checks, is never given to Bridge to apply.
 > Why: Bridge applies only what `validate_mod` returned, and that is nothing for an invalid mod.
 
-Fleet's half is above: a bad mod is a row with its reason, and `set_mod_enabled` and `save_preferences` are Fleet calls, so switching a mod off or saving `dark` works while Bridge cannot draw the mod. Starting Bridge with every mod ignored is Bridge's part, and Fleet holds nothing for it.
+Fleet's half is above: a bad mod is a row with its reason, and `set_mod_enabled` and `save_preferences` are Fleet calls, so switching a mod off or saving `dark` works while Bridge cannot draw the mod.
+
+`bridge --no-mods` is Bridge's half. Main loads the window with `?nomods`, and the window then lists no mod in Settings or on the Mods surface and never calls `validate_mod`, so no mod's CSS reaches the page. Dark, Light and the catalogue still choose. Safe mode does not touch the saved theme: a mod chosen before stays chosen for the next ordinary start, and a built-in or catalogue theme picked in safe mode is saved like any other.
+
+## What Bridge does with a list
+
+| The list says | The window shows | The preference |
+|---|---|---|
+| The chosen mod is on and valid | Its theme, from `validate_mod`'s `css` | Kept |
+| The chosen mod is on and invalid, or its check fails | Dark | Kept, so the mod returns when it passes |
+| The chosen mod is switched off, or gone | Dark | Saved as `dark` |
+| A new mod, on by default | Nothing changes | Kept |
+| No list has been read yet | Dark for a chosen mod | Kept, since "not read" is not "gone" |
+
+Bridge saves the theme with `save_preferences` as `theme` with `text`. A catalogue theme is saved as `catalogue:<slug>`, the id Bridge gives it, and a mod's name has no `:`, so the two cannot meet. Promote shows the branch `promote_mod` named and nothing more, since nothing is pushed and no pull request is opened.

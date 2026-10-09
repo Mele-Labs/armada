@@ -8,8 +8,22 @@ import { createContext, useContext, useSyncExternalStore } from "react";
 export const BUILT_IN_THEMES = ["dark", "light"] as const;
 const DARK = "dark";
 
-/** A theme a mod ships: its `theme.css`, one `[data-theme="<name>"]` block. */
-export type ThemeMod = { name: string; title: string; css: string; enabled: boolean; promoted: boolean };
+/**
+ * A theme a mod ships. **Its CSS is read when the theme is drawn, not held**: `load` resolves to the
+ * stylesheet Fleet checked and rejects where it did not pass, so what the loader adopts is the text
+ * that was validated and never a copy kept from before.
+ */
+export type ThemeMod = {
+  name: string;
+  title: string;
+  /** This machine's switch for the mod. */
+  enabled: boolean;
+  /** Why Bridge may not draw it, as Fleet said it. Absent while it can. */
+  problem?: string;
+  /** The branch of the repository it was put on, once it has been. */
+  branch?: string;
+  load(): Promise<string>;
+};
 
 /**
  * A theme Bridge ships. **The same shape as a mod's, delivered differently**: its CSS is one
@@ -25,6 +39,12 @@ export interface ThemeSource {
   subscribe(on: () => void): () => void;
   /** Choose a theme by id. An id that is neither built in, in the catalogue nor an enabled mod becomes Dark. */
   setActive(id: string): void;
+  /**
+   * The loader could not draw `id`, and the window shows Dark. A source that keeps the choice
+   * somewhere durable keeps it here too, since a mod that failed a check a moment ago may pass the
+   * next one; without this the choice is `setActive(Dark)`, as for a source with nowhere to keep it.
+   */
+  fellBack?(id: string): void;
 }
 
 /** What the Mods surface adds: switching a mod on and off, and promoting it to a branch. */
@@ -34,12 +54,13 @@ export interface ModsSource extends ThemeSource {
 }
 
 const isBuiltIn = (id: string) => (BUILT_IN_THEMES as readonly string[]).includes(id);
-const usable = (state: ThemeState, id: string) => isBuiltIn(id) || state.catalogue.some((one) => one.id === id) || state.mods.some((mod) => mod.name === id && mod.enabled);
+/** A mod Bridge may draw: switched on, and nothing wrong with it. */
+export const offered = (mod: ThemeMod) => mod.enabled && mod.problem === undefined;
+const usable = (state: ThemeState, id: string) => isBuiltIn(id) || state.catalogue.some((one) => one.id === id) || state.mods.some((mod) => mod.name === id && offered(mod));
 
 /**
- * A source held in memory. The mock runs on it with mods; Bridge runs on it with none until Fleet
- * serves the mod folder. **That is the seam**: a Fleet-backed `ModsSource` replaces this one in
- * `main.tsx`, and nothing else changes.
+ * A source held in memory: the mock runs on it. Bridge runs on `fleet-themes.ts`, which answers the
+ * same interface from Fleet's mod list and the saved theme preference.
  */
 export function createThemeSource(initial: () => ThemeState = () => ({ mods: [], catalogue: [], active: DARK })): ModsSource & {
   /** A mod arriving, the way a Session writing one into the mod folder would. */
@@ -61,7 +82,7 @@ export function createThemeSource(initial: () => ThemeState = () => ({ mods: [],
     },
     setActive: (id) => set({ ...held, active: id }),
     setEnabled: (name, enabled) => edit(name, { enabled }),
-    promote: (name) => edit(name, { promoted: true }),
+    promote: (name) => edit(name, { branch: `armada/mod-${name}-${Date.now()}` }),
     install: (mod) => held.mods.some((one) => one.name === mod.name) || set({ ...held, mods: [...held.mods, mod] }),
     reset: () => set(initial()),
   };
@@ -86,6 +107,7 @@ export function withoutMods(source: ModsSource): ModsSource {
       const state = source.get();
       if (isBuiltIn(id) || state.catalogue.some((one) => one.id === id)) source.setActive(id);
     },
+    ...(source.fellBack === undefined ? {} : { fellBack: (id: string) => source.fellBack?.(id) }),
     setEnabled: () => undefined,
     promote: () => undefined,
   };

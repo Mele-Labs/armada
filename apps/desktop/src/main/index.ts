@@ -757,6 +757,14 @@ void app.whenReady().then(() => {
   ipcMain.handle(CHANNELS.savePreference, (_event, save: SavePreference) =>
     connection?.commands.savePreference(save),
   );
+  // The mods on this machine. Fleet-wide, so no Job id rides these either — `mods.ts`.
+  ipcMain.handle(CHANNELS.validateMod, async (_event, name: string) => (await connection?.mods.validate(name)) ?? null);
+  ipcMain.handle(CHANNELS.setModEnabled, async (_event, name: string, enabled: boolean): Promise<Outcome> =>
+    (await connection?.mods.setEnabled(name, enabled)) ?? { ok: false, why: "not_connected" },
+  );
+  ipcMain.handle(CHANNELS.promoteMod, async (_event, name: string): Promise<Outcome> =>
+    (await connection?.mods.promote(name)) ?? { ok: false, why: "not_connected" },
+  );
   // Saying a job failed in error. Its own channel beside the override rather
   // than a flag on it: the override moves the job past a verdict and this moves
   // nothing, and the two would otherwise be one press meaning either.

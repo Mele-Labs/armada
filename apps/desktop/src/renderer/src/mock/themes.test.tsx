@@ -94,6 +94,16 @@ test("a mod's theme is applied from its CSS, and Dark returns when it is switche
   expect(token("--bg-base")).toBe(authored("colors.css", "--bg-base"));
 });
 
+test("Promote puts the mod on a branch and the row says the branch, once", async () => {
+  mount("mods-themes");
+  await onScreen();
+  mockThemes.install(DUSK_MOD);
+  await page.getByRole("button", { name: "Mods", exact: true }).click();
+  await page.getByRole("button", { name: "Promote Dusk" }).click();
+  await expect.element(page.getByText(/^armada\/mod-dusk-\d+$/)).toBeVisible();
+  await expect.element(page.getByRole("button", { name: "Promote Dusk" })).toBeDisabled();
+});
+
 test("?nomods loads without mods: none in the field, none on the Mods surface, the catalogue still there", async () => {
   window.history.replaceState(null, "", "?nomods");
   mount("mods-themes");

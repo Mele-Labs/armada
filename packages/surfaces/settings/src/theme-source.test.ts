@@ -3,7 +3,7 @@ import { expect, test } from "vitest";
 import { createThemeSource, withoutMods } from "./theme-source";
 import type { CatalogueTheme, ThemeMod, ThemeState } from "./theme-source";
 
-const DUSK: ThemeMod = { name: "dusk", title: "Dusk", css: "", enabled: true, promoted: false };
+const DUSK: ThemeMod = { name: "dusk", title: "Dusk", enabled: true, load: () => Promise.resolve("") };
 const SHIPPED: CatalogueTheme = { id: "catalogue:nord", title: "Nord", tone: "dark", load: () => Promise.resolve("") };
 const start = (): ThemeState => ({ mods: [DUSK], catalogue: [SHIPPED], active: "dark" });
 
@@ -62,4 +62,18 @@ test("a catalogue theme can be chosen, and an id nothing offers is Dark", () => 
   expect(source.get().active).toBe("catalogue:nord");
   source.setActive("catalogue:nowhere");
   expect(source.get().active).toBe("dark");
+});
+
+test("a mod with something wrong with it cannot be chosen, and one already chosen falls to Dark when it breaks", () => {
+  const source = createThemeSource(() => ({ mods: [{ ...DUSK, problem: "line 2: not a token" }], catalogue: [], active: "dark" }));
+  source.setActive("dusk");
+  expect(source.get().active).toBe("dark");
+});
+
+test("safe mode passes a fallback on to a source that keeps the choice", () => {
+  const told: string[] = [];
+  const kept = { ...createThemeSource(start), fellBack: (id: string) => void told.push(id) };
+  withoutMods(kept).fellBack?.("catalogue:nord");
+  expect(told).toEqual(["catalogue:nord"]);
+  expect(withoutMods(createThemeSource(start)).fellBack).toBeUndefined();
 });

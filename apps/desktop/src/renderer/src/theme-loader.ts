@@ -13,9 +13,11 @@ const DARK = "dark";
 const BUILT_IN = new Set(["dark", "light"]);
 
 /**
- * CSS a mod may ship: style rules only, each scoped to the mod's own `[data-theme]`, fetching
- * nothing. Scoping is what keeps a mod to its theme: a bare `body { … }` would restyle Bridge
- * whichever theme is in force.
+ * CSS a theme may ship: style rules only, fetching nothing. **A rule is the theme's own**, scoped
+ * to its `[data-theme]`, or a bare `:root` or `[data-theme]` block, which is what Fleet's checks
+ * let a mod write (`docs/concepts/mods.md`). A bare block cannot restyle Bridge whichever theme is
+ * in force, because the sheet is adopted only while this theme is, and leaves with it. Anything
+ * else, such as a bare `body { … }`, is refused.
  */
 function sheetOf(doc: Document, name: string, css: string): CSSStyleSheet {
   if (/@import/i.test(css)) throw new Error("a theme may not @import");
@@ -23,11 +25,14 @@ function sheetOf(doc: Document, name: string, css: string): CSSStyleSheet {
   sheet.replaceSync(css);
   if (sheet.cssRules.length === 0) throw new Error("a theme with no rules");
   const own = `[data-theme="${name}"]`;
+  const scoped = (selector: string) => selector.split(",").every((part) => BARE.has(part.trim()) || part.includes(own));
   for (const rule of Array.from(sheet.cssRules)) {
-    if (!(rule instanceof CSSStyleRule) || !rule.selectorText.includes(own)) throw new Error(`a theme rule outside ${own}`);
+    if (!(rule instanceof CSSStyleRule) || !scoped(rule.selectorText)) throw new Error(`a theme rule outside ${own}`);
   }
   return sheet;
 }
+
+const BARE = new Set([":root", "[data-theme]", ":root[data-theme]"]);
 
 export type ThemeLoader = {
   /**

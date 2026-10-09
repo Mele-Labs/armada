@@ -15,7 +15,7 @@ const FILES = (
 ).glob("../../../../../../packages/tokens/themes/example-mod/dusk/theme.css", { eager: true, query: "?raw", import: "default" });
 
 /** The theme a Session writes into the mod folder in the `mods-themes` scenario. */
-export const DUSK_MOD: ThemeMod = { name: "dusk", title: "Dusk", css: Object.values(FILES)[0] ?? "", enabled: true, promoted: false };
+export const DUSK_MOD: ThemeMod = { name: "dusk", title: "Dusk", enabled: true, load: () => Promise.resolve(Object.values(FILES)[0] ?? "") };
 
 /** The catalogue and no mods, Dark in force: where every mock window starts. */
 export const mockThemes = createThemeSource(() => ({ mods: [], catalogue: CATALOGUE, active: "dark" }));
