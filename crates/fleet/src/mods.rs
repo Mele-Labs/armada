@@ -65,6 +65,15 @@ pub(crate) fn theme_problem(id: &str) -> Option<String> {
     })
 }
 
+/// The prefix of a theme Bridge ships in its catalogue. No mod's name has a `:`.
+const CATALOGUE: &str = "catalogue:";
+
+/// Why `id` cannot be saved as the theme: a plain name, or a catalogue theme's
+/// id, which is Bridge's own spelling and is a plain name after its prefix.
+pub(crate) fn theme_id_problem(id: &str) -> Option<String> {
+    theme_problem(id.strip_prefix(CATALOGUE).unwrap_or(id))
+}
+
 /// One mod's folder, read.
 pub(crate) struct Examined {
     pub(crate) name: String,

@@ -59,7 +59,7 @@ where
         let saving_theme = save.name == "theme";
         if saving_theme {
             let text = save.text.as_deref().unwrap_or_default();
-            if let Some(why) = crate::mods::theme_problem(text) {
+            if let Some(why) = crate::mods::theme_id_problem(text) {
                 return Err(Refusal::Unacceptable(
                     ipc::WireError::raised(UNACCEPTABLE_THEME, why, self.run_id())
                         .with_field("theme", ipc::WireValue::Str(text.to_string())),

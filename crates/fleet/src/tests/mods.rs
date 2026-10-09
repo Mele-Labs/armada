@@ -360,6 +360,18 @@ async fn the_theme_is_a_preference_that_defaults_to_dark_and_refuses_what_a_mod_
         .await
         .expect("a shipped id is a theme id");
     assert_eq!(shipped.theme, "light");
+
+    let catalogue = fleet
+        .save_preferences(SavePreference { name: "theme".into(), value: false, text: Some("catalogue:nord".into()) })
+        .await
+        .expect("a catalogue theme's id is a theme id");
+    assert_eq!(catalogue.theme, "catalogue:nord");
+    for text in ["catalogue:", "catalogue:Nord", "catalogue:../x", "other:nord"] {
+        fleet
+            .save_preferences(SavePreference { name: "theme".into(), value: false, text: Some(text.into()) })
+            .await
+            .expect_err("not a theme");
+    }
 }
 
 /// The two examples in the armada-mods skill, as written there. A skill is not a
