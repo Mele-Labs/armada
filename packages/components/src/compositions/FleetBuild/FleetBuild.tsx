@@ -12,6 +12,26 @@ export type FleetBuildChoice = "main" | "preview";
 /** Commits the running build holds that main lacks, and commits main holds that it lacks. Both zero is aligned. */
 export type FleetBuildPosition = { ahead: number; behind: number };
 
+/** Where a restart has got to, in the order it takes them. `merging` is the preview's alone, `fetching_main` main's. */
+export type FleetBuildStage =
+  | "merging"
+  | "fetching_main"
+  | "building_fleet"
+  | "building_bridge"
+  | "restarting_fleet"
+  | "reopening_bridge"
+  | "retrying";
+
+const STAGE_SAID: Record<FleetBuildStage, string> = {
+  merging: "Merging branches",
+  fetching_main: "Fetching main",
+  building_fleet: "Building Fleet",
+  building_bridge: "Building Bridge",
+  restarting_fleet: "Restarting Fleet",
+  reopening_bridge: "Reopening Bridge",
+  retrying: "Retrying build",
+};
+
 /** A Job whose Drone is working, and so is adopted by a restart. */
 export type FleetBuildDrone = { id: string; label: string };
 
@@ -21,6 +41,8 @@ export type FleetBuild = {
   position?: FleetBuildPosition;
   /** The build Fleet is restarting onto, or none. */
   working: FleetBuildChoice | null;
+  /** Where that restart has got to. Absent until it says, which draws the ring alone. */
+  stage?: FleetBuildStage;
   /** The Jobs a restart would adopt. Any of them asks first; none restarts at once. */
   drones: readonly FleetBuildDrone[];
   /** Why the last restart did not take, in one line. */
@@ -55,7 +77,7 @@ type Asked = { kind: "choose"; build: FleetBuildChoice } | { kind: "restart" };
  * is the amber the panel's Doctor line uses for a warn, aligned the green.
  */
 export function FleetBuildSection({ build }: { build: FleetBuild }) {
-  const { on, position, working, drones } = build;
+  const { on, position, working, stage, drones } = build;
   const [asked, setAsked] = useState<Asked | null>(null);
   const aligned = position !== undefined && position.ahead === 0 && position.behind === 0;
   // The button names what is being restarted onto while that is under way, and the build in use otherwise.
@@ -113,11 +135,16 @@ export function FleetBuildSection({ build }: { build: FleetBuild }) {
         </p>
       )}
       <div className="armada-fleet-build__position">
-        <span className="armada-fleet-build__label">main</span>
+        {working === null ? <span className="armada-fleet-build__label">main</span> : null}
         {working !== null ? (
           <Tooltip label={`Restarting Fleet on ${target === "preview" ? "the preview" : "main"}`}>
-            <span className="armada-fleet-build__mark" data-tone="muted" role="img" aria-label="Restarting Fleet">
+            <span
+              className="armada-fleet-build__mark"
+              data-tone="muted"
+              {...(stage === undefined ? { role: "img", "aria-label": "Restarting Fleet" } : { role: "status" })}
+            >
               <LoaderCircle className="armada-fleet-build__spin" size={12} strokeWidth={2} aria-hidden="true" />
+              {stage === undefined ? null : STAGE_SAID[stage]}
             </span>
           </Tooltip>
         ) : position === undefined ? null : (

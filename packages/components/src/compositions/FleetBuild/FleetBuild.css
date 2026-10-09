@@ -59,6 +59,12 @@
   color: var(--fg-muted);
 }
 
+/* A restart's stage is words, not a figure, and takes the panel's sans. */
+.armada-fleet-build__mark[role="status"] {
+  gap: var(--space-2);
+  font-family: var(--font-sans);
+}
+
 .armada-fleet-build__mark[data-tone="success"] {
   color: var(--status-completed-success);
 }

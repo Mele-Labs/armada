@@ -13,6 +13,7 @@ fn a_build_with_nothing_to_say_carries_only_where_it_runs() {
         commit: None,
         position: None,
         restarting: None,
+        stage: None,
         failed: None,
     };
     let json = encode(&report).expect("a report is plain data");
@@ -30,6 +31,7 @@ fn a_full_report_round_trips() {
         commit: Some("a4fcca362".into()),
         position: Some(BuildPosition { ahead: 4, behind: 0 }),
         restarting: Some(BuildSource::Main),
+        stage: None,
         failed: Some("main cannot fast-forward to origin/main".into()),
     };
     let json = encode(&report).expect("a report is plain data");
