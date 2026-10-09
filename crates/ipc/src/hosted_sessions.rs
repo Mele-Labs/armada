@@ -415,25 +415,34 @@ pub struct TakeHeld {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum TerminalAsk {
-    /// The question, as the tool was called. Held open until a person answers
-    /// in Bridge, `Settled` arrives, or the hold runs out.
+    /// The question, as the tool was called. Answered at once with its `call`;
+    /// the mod then asks `Wait` until a person answers in Bridge or the
+    /// terminal's own prompt ends.
     Asks {
         session_id: String,
         input: serde_json::Value,
     },
     /// The terminal's prompt ended: `answered` is false where it was dismissed.
     Settled { session_id: String, answered: bool },
+    /// Is the question `call` answered yet. **Held for a bounded time**, so a
+    /// request that ends, or a Fleet that restarts, costs the next poll and not
+    /// the question.
+    Wait { session_id: String, call: String },
 }
 
-/// How a `TerminalAsk::Asks` ended. `Answered` carries the tool's input with
-/// the person's `answers` filled in, which the mod hands back as the call's
-/// result.
-#[derive(Clone, Debug, PartialEq, Serialize)]
+/// What Fleet answers a `TerminalAsk` with. `Answered` carries the tool's input
+/// with the person's `answers` filled in, which the mod hands back as the
+/// call's result.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "outcome", rename_all = "snake_case")]
 pub enum TerminalAsked {
+    /// The question is on Bridge's thread as `call`; ask `Wait` for its answer.
+    Asked { call: String },
+    /// Nobody has answered within this poll's hold: ask again.
+    Waiting {},
     Answered { updated_input: serde_json::Value },
     Refused { message: String },
-    /// The terminal answered first, or the hold ran out: nothing more to wait on.
+    /// The terminal answered first, or the card lapsed: nothing more to wait on.
     Gone {},
 }
 

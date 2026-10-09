@@ -149,7 +149,10 @@ where
 
     async fn answer_session_ask(&self, said: AnswerSessionAsk) -> Result<SessionRecord, Refusal> {
         let id = said.session_id.as_str().to_string();
-        if self.terminal_session(&id).await?.is_none() {
+        let terminal = self.terminal_session(&id).await?.is_some();
+        if terminal {
+            self.terminal_ask_standing(&id).await;
+        } else {
             self.session_and_hosting(&id).await?;
         }
         let held = self
@@ -162,14 +165,16 @@ where
         if !held {
             return Err(self.ask_not_waiting());
         }
-        self.hosts()
+        let answer = AnswerHelmCall {
+            call: said.call,
+            answer: said.answer,
+            note: said.note,
+            answers: said.answers,
+        };
+        let waiting = self
+            .hosts()
             .asks()
-            .answer(&AnswerHelmCall {
-                call: said.call,
-                answer: said.answer,
-                note: said.note,
-                answers: said.answers,
-            })
+            .answer(&answer)
             .map_err(|why| match why {
                 NotAnswerable::Incomplete => Refusal::Unacceptable(WireError::raised(
                     SESSION_ANSWER_INCOMPLETE,
@@ -178,6 +183,9 @@ where
                 )),
                 _ => self.ask_not_waiting(),
             })?;
+        if terminal {
+            self.terminal_ask_answered(&id, &waiting, &crate::helm::Said::of(&answer)).await?;
+        }
         self.published_hosted(&id).await
     }
 
@@ -263,6 +271,7 @@ where
 
     async fn get_session(self: Arc<Self>, id: SessionId) -> Result<SessionThread, Refusal> {
         if let Some(session) = self.terminal_session(id.as_str()).await? {
+            self.terminal_ask_standing(id.as_str()).await;
             let mut rows = self.terminal_thread(&session).await?;
             // The question its terminal is showing, while Bridge may still answer it.
             rows.extend(self.rows_of(id.as_str()).await?.into_iter().filter(|row| {
@@ -383,6 +392,9 @@ where
                     tool_use_id: None,
                 };
                 self.terminal_question(&session_id, asking).await
+            }
+            ipc::TerminalAsk::Wait { session_id, call } => {
+                self.terminal_question_wait(&session_id, &call).await
             }
             ipc::TerminalAsk::Settled {
                 session_id,
