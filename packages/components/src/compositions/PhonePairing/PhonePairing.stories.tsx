@@ -45,12 +45,18 @@ export const Paired: Story = {
 export const NothingPaired: Story = { args: { phones: [] } };
 
 export const CodeShown: Story = {
-  args: { url: URL, secondsLeft: 272 },
-  play: async ({ canvasElement }) => {
+  args: { url: URL, secondsLeft: 272, onCopied: fn() },
+  play: async ({ canvasElement, args }) => {
     const code = within(canvasElement).getByRole("img", { name: "Pairing code" });
     // A code is dark modules on a light ground: the drawing holds a path, not an empty square.
     await expect(code.querySelector("path")?.getAttribute("d")?.length).toBeGreaterThan(100);
     await expect(within(canvasElement).getByText("4:32")).toBeVisible();
+    // Headless Chromium grants no clipboard permission, so the write is caught rather than read back.
+    const written: string[] = [];
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: async (text: string) => void written.push(text) } });
+    await userEvent.click(within(canvasElement).getByRole("button", { name: "Copy link" }));
+    await expect(written).toEqual([URL]);
+    await expect(args.onCopied).toHaveBeenCalledWith("The link");
   },
 };
 

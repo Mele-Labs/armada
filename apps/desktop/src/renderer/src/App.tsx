@@ -1063,6 +1063,7 @@ export function App({ draft }: AppProps = {}) {
                   onSave={commands.saveLimits}
                   preferences={state.preferences} onSavePreference={(save) => window.armada.savePreference(save)}
                   onReadGuides={() => goTo(SURFACE.guides)}
+                  onCopied={setCopied}
                 />
               </Boundary>
             ) : (

@@ -36,6 +36,8 @@ export type PhonePairingProps = {
   onPair: () => void;
   onConfirm: () => void;
   onUnpair: (id: string) => void;
+  /** A clipboard write is silent, so the surface confirms it. */
+  onCopied?: (value: string) => void;
 };
 
 /** The figure for time left: `4:32`. */
@@ -44,7 +46,7 @@ export function timeLeft(seconds: number): string {
   return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, "0")}`;
 }
 
-export function PhonePairing({ problem, url, secondsLeft, claim, phones, onPair, onConfirm, onUnpair }: PhonePairingProps) {
+export function PhonePairing({ problem, url, secondsLeft, claim, phones, onPair, onConfirm, onUnpair, onCopied }: PhonePairingProps) {
   if (problem !== undefined) {
     return (
       <div className="armada-phone">
@@ -69,6 +71,21 @@ export function PhonePairing({ problem, url, secondsLeft, claim, phones, onPair,
           </div>
           <div className="armada-phone__code-facts">
             <p className="armada-phone__url">{url}</p>
+            <div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() =>
+                  // A failed write is otherwise indistinguishable from a dead button, so the surface is told either way.
+                  void navigator.clipboard.writeText(url).then(
+                    () => onCopied?.("The link"),
+                    () => onCopied?.("The link"),
+                  )
+                }
+              >
+                Copy link
+              </Button>
+            </div>
             {secondsLeft === undefined ? null : (
               <Tooltip label="Time left on this code">
                 <span className="armada-phone__left" tabIndex={0}>
