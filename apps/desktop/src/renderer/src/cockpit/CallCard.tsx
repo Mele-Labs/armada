@@ -109,7 +109,7 @@ function AttachPicker({ attaching }: { attaching: NonNullable<Answering["attachi
           event.nativeEvent.stopPropagation();
         }}
       />
-      <ul role="listbox" aria-label="Sessions" className="armada-callcard__candidates">
+      <ul role="listbox" aria-label="Jobs and Sessions" className="armada-callcard__candidates">
         {shown.map((one, index) => {
           const Glyph = one.kind === "session" ? SquareTerminal : Workflow;
           return (

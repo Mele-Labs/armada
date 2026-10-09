@@ -10,6 +10,7 @@
 import { useEffect, useRef, useState } from "react";
 import { actionOf, keyFor } from "@armada/components";
 import type { AnswerWaiting } from "@armada/protocol";
+import { isTerminal, titleOf } from "@armada/screens";
 
 import type { BridgeState } from "../../../shared/bridge";
 import { viewsOf } from "../merge-line";
@@ -161,8 +162,10 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
       if (!done.attached) hosts.onTell?.(done.said);
     });
   };
-  // Sessions alone until the route takes a Job's id (#2050).
-  const candidates: Owner[] = sessions.filter((one) => one.dead === undefined).map((one): Owner => ({ kind: "session", id: one.id, title: one.title ?? one.id }));
+  const candidates: Owner[] = [
+    ...state.jobs.filter((job) => !isTerminal(job)).map((job): Owner => ({ kind: "job", id: job.id, title: titleOf(job) })),
+    ...sessions.filter((one) => one.dead === undefined).map((one): Owner => ({ kind: "session", id: one.id, title: one.title ?? one.id })),
+  ];
 
   const answer = (label: string, run: () => void, extra: Partial<Answer> = {}): Answer => ({ id: label, label, run, ...extra });
   const actsOf = (): Answer[] => {

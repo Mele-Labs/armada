@@ -232,17 +232,37 @@ test("a pull request that a Session or a Job already owns sends him to the owner
   await expect.element(radio(/Attach/)).toBeVisible();
   expect(page.getByRole("group", { name: "Owner" }).query()).toBeNull();
 
-  // Attach lists the live Sessions (a Job is not offered until the route takes one), a filter narrows
-  // them, and Enter claims the pull request for it through Fleet: the card is owned.
+  // Attach lists the live Jobs and Sessions, each with its glyph, a filter narrows them, and Enter
+  // claims the pull request for the one picked through Fleet: the card is owned.
   await userEvent.keyboard("2");
   await userEvent.keyboard("{Enter}");
-  await expect.element(page.getByRole("listbox", { name: "Sessions" })).toBeVisible();
-  expect(page.getByRole("listbox", { name: "Sessions" }).getByRole("img", { name: "Job" }).query()).toBeNull();
+  const listed = page.getByRole("listbox", { name: "Jobs and Sessions" });
+  await expect.element(listed).toBeVisible();
+  await expect.element(listed.getByRole("img", { name: "Job" }).first()).toBeVisible();
+  await expect.element(listed.getByRole("img", { name: "Session" }).first()).toBeVisible();
   await userEvent.type(page.getByRole("textbox", { name: "Attach to" }), "Migration notes");
   await userEvent.keyboard("{Enter}");
   expect(claim).toHaveBeenCalledWith({ number: 1823, session_id: "s10" });
   await expect.element(page.getByRole("group", { name: "Owner" })).toHaveTextContent(/Session · Migration notes/);
   await expect.element(radio(/Open the Session/)).toBeVisible();
+  expect(radio(/Send a Drone/).query()).toBeNull();
+});
+
+test("Attach to a Job claims the pull request with its job_id, and the card is the Job's", async () => {
+  localStorage.removeItem(FILTER);
+  const app = mount("dashboard-needs-you");
+  const claim = vi.spyOn(app.api, "claimPullRequest");
+  await onScreen();
+  await userEvent.keyboard("{Escape}");
+  await reach(/^Pull request: #1823/);
+  await userEvent.keyboard("2");
+  await userEvent.keyboard("{Enter}");
+  await userEvent.type(page.getByRole("textbox", { name: "Attach to" }), "Split the writer");
+  await expect.element(page.getByRole("listbox", { name: "Jobs and Sessions" }).getByRole("option")).toHaveLength(1);
+  await userEvent.keyboard("{Enter}");
+  expect(claim).toHaveBeenCalledWith({ number: 1823, job_id: "01M2C1TJ8G0073EVERYSTATE00" });
+  await expect.element(page.getByRole("group", { name: "Owner" })).toHaveTextContent(/Job · Split the writer from the clock/);
+  await expect.element(radio(/Open the Job/)).toBeVisible();
   expect(radio(/Send a Drone/).query()).toBeNull();
 });
 
