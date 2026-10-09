@@ -1,0 +1,12 @@
+[operations.ask_from_terminal]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "The `armada` mod in a terminal session puts the question its agent asked to Bridge, and is answered when a person answers there"
+notes = """
+`POST /sessions/ask/terminal`, body `TerminalAsk`, tagged by `kind`. `asks` carries the session's id and the `AskUserQuestion` input as the tool was called; Fleet records the same `ask` row a hosted session's question writes and **holds the request open** until a person answers in Bridge. Answered with `TerminalAsked`: `answered` with the input and the person's `answers` filled in, which the mod returns as the tool's result so the terminal never draws its own prompt; `refused` with a message the agent reads; `gone` where the terminal answered first or the hold ran out. `settled` is the mod saying the terminal's prompt ended first (`answered` false when it was dismissed): Fleet closes the card and the held request ends `gone`.
+
+A **command** because it writes a row and ends a held ask.
+
+`agent_access` is `No`: the harness asks, never the agent inside it.
+"""

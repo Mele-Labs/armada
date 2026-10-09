@@ -50,6 +50,43 @@ pub(crate) async fn get_job_retro<D: Queries + Retros>(
     }
 }
 
+/// The session a retro route names.
+#[derive(Deserialize)]
+pub(crate) struct NamedSession {
+    session_id: String,
+}
+
+/// `?n=` on `get_session_retro`: the retro's number, as an item's id names it.
+#[derive(Deserialize)]
+pub(crate) struct WhichRetro {
+    #[serde(default)]
+    n: Option<i64>,
+}
+
+/// A retro of a Session: the one `?n=` names, or the newest.
+pub(crate) async fn get_session_retro<D: Retros>(
+    State(served): State<Served<D>>,
+    Path(NamedSession { session_id }): Path<NamedSession>,
+    Query(which): Query<WhichRetro>,
+) -> Response {
+    match served.daemon().get_session_retro(session_id, which.n).await {
+        Ok(retro) => answer(StatusCode::OK, &retro, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// Write a Session's retro now. **Answers when it is written**, which takes a
+/// model call.
+pub(crate) async fn write_session_retro<D: Retros>(
+    State(served): State<Served<D>>,
+    Path(NamedSession { session_id }): Path<NamedSession>,
+) -> Response {
+    match served.shared().write_session_retro(session_id).await {
+        Ok(retro) => answer(StatusCode::OK, &retro, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// Every written retro's items in one state, newest first.
 pub(crate) async fn list_lessons<D: Retros>(
     State(served): State<Served<D>>,

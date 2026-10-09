@@ -8,5 +8,5 @@ notes = """
 
 **The ask is recorded on the Job.** When Fleet's sweep next sees that pull request merged, it takes the work off the gate as `approve_review` does, with `fleet` as the actor on the record. A pull request merged on the forge by hand, or one this was never pressed for, is left for a person to take as before. Pressed twice, the second answers as it stands.
 
-It does what `enable_auto_merge` does for a pull request that is nobody's Job, so the refusals are that route's: `fleet.pull_request_checks_passed` once they have passed (press `merge_pull_request`), `fleet.merge_checks_not_passed` when one failed, a draft, a pull request that is not open, and `fleet.auto_merge_refused` with the forge's own words. Refused with a 409 on a Job that is not at `awaiting_review` and where its record holds no pull request. A write to the forge, so Helm asks first (`writes off machine`).
+It does what `enable_auto_merge` does for a pull request that is nobody's Job, so the refusals are that route's: `fleet.merge_checks_not_passed` when one failed, a draft, a pull request that is not open, and `fleet.auto_merge_refused` with the forge's own words. Refused with a 409 on a Job that is not at `awaiting_review` and where its record holds no pull request. A write to the forge, so Helm asks first (`writes off machine`).
 """

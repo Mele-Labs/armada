@@ -21,17 +21,24 @@ import {
   GUIDE_PULSE,
   GUIDE_WORKFLOW,
   JobBriefSkeleton,
+  NowPanel,
   PlanGroupStateMark,
   Prose,
+  AskerView,
+  SketchScene,
   SkeletonText,
   Tooltip,
   WorkflowCanvas,
 } from "@armada/components";
-import type { Figure, PlanGroupState, WorkflowCanvasEdge, WorkflowCanvasNode } from "@armada/components";
+import type { Figure, NowAsker, NowPanelProps, NowRemark, NowSketchShow, NowSketchView, PlanGroupState, WorkflowCanvasEdge, WorkflowCanvasNode } from "@armada/components";
 import type { FromStudio } from "@armada/protocol";
-import type { ReactNode } from "react";
+import { PanelRightOpen } from "lucide-react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import type { DetailTab } from "./detail-tabs";
+import { litSteps } from "./draft/now";
+import { useNowHidden } from "./now-hidden";
+import { marksKey, useMarked, useMarks } from "./sketch-marks";
 import { JobLead, type JobLeadProps } from "./JobLead";
 import { studioName } from "@armada/screens/src/studio";
 import type { OpenStudioFrom } from "@armada/screens/src/open-studio";
@@ -122,6 +129,12 @@ export type OverviewBoardProps = {
    */
   reading?: boolean;
   onOpenTab: (tab: DetailTab) => void;
+  /**
+   * What the Now panel beside the canvas draws: what the Job asks, what is
+   * wrong, and what is running. **Absent draws no panel.** The panel hides from
+   * its own head and shows again from a button beside the cards.
+   */
+  now?: Omit<NowPanelProps, "onHide">;
 };
 
 export function OverviewBoard({
@@ -142,12 +155,47 @@ export function OverviewBoard({
   settings,
   reading = false,
   onOpenTab,
+  now,
 }: OverviewBoardProps) {
-  return (
-    <div className="armada-detail-tab armada-overview-board" role="tabpanel" aria-label="Overview">
-      <JobLead {...lead} waiting={waiting} />
-      {approving}
-      {approving === undefined ? run : null}
+  const [hidden, hide] = useNowHidden();
+  // **An open ask's sketch stands in for the canvas** until the owner switches back, the panel is
+  // hidden or the ask is answered. The panel reports the sketch; this keeps only which is shown.
+  const [sketch, setSketch] = useState<NowSketchShow | undefined>(undefined);
+  const [thread, setThread] = useState<readonly NowRemark[]>([]);
+  const [marks, setMarks] = useMarks(sketch === undefined ? undefined : marksKey(sketch.sketch.scene));
+  const marked = useMarked();
+  // **What asks decides what stands in for the canvas**: a sketch where the ask drew one, else the
+  // asker's own view, else the canvas. The owner's pick holds while something asks and no longer.
+  const [asker, setAsker] = useState<NowAsker | undefined>(undefined);
+  const [chosen, setChosen] = useState<NowSketchView | undefined>(undefined);
+  useEffect(() => {
+    if (sketch === undefined && asker === undefined) setChosen(undefined);
+  }, [sketch, asker]);
+  const fallback: NowSketchView = sketch !== undefined ? "sketch" : asker !== undefined ? "asker" : "canvas";
+  const sketchView: NowSketchView = hidden || chosen === "canvas" ? "canvas" : chosen === "sketch" && sketch !== undefined ? "sketch" : chosen === "asker" && asker !== undefined ? "asker" : fallback;
+  const sketching = !hidden && sketch !== undefined && sketchView === "sketch";
+  const asking = !hidden && asker !== undefined && sketchView === "asker";
+  // **Every step a Now row belongs to stays lit and the rest stand back**, for as long as the
+  // panel has rows (owner, 8 Oct 2026). No step named, no dimming.
+  const lit = hidden ? new Set<string>() : litSteps(now);
+  const main = (
+    <>
+      {sketching ? (
+        <SketchScene
+          scene={sketch.sketch.scene}
+          {...(sketch.against === undefined ? {} : { against: sketch.against.scene })}
+          marks={marks}
+          onMarks={setMarks}
+          onAsk={(about, said) => setThread((was) => [...was, { key: `r${String(was.length + 1)}`, about: about.label, said }])}
+        />
+      ) : asking ? (
+        <AskerView asker={asker} {...(now?.onOpenFile === undefined ? {} : { onOpenFile: now.onOpenFile })} />
+      ) : (
+        <>
+          {approving}
+          {approving === undefined ? run : null}
+        </>
+      )}
 
       {/* **No Brief while the panel holds the request** (the owner, 3 Oct
           2026). The panel's field is the request, editable; a second copy
@@ -220,7 +268,13 @@ export function OverviewBoard({
           ) : (
             <div className="armada-overview-board__canvas">
               <WorkflowCanvas
-                nodes={workflow.nodes}
+                nodes={
+                  lit.size === 0
+                    ? workflow.nodes
+                    : workflow.nodes.map((node) =>
+                        node.backdrop === true || node.card.kind !== "step" || lit.has(node.id.split(":")[0] ?? node.id) ? node : { ...node, card: { ...node.card, dimmed: true } },
+                      )
+                }
                 edges={workflow.edges}
                 label={workflow.label}
                 {...(workflow.opensOn === undefined ? {} : { opensOn: workflow.opensOn })}
@@ -310,6 +364,36 @@ export function OverviewBoard({
         </>
         )}
       </div>
+    </>
+  );
+  return (
+    <div className="armada-detail-tab armada-overview-board" role="tabpanel" aria-label="Overview">
+      <JobLead {...lead} waiting={waiting} />
+      {now === undefined ? (
+        main
+      ) : (
+        <div className="armada-overview-board__with-now">
+          <div className="armada-overview-board__main">{main}</div>
+          {hidden ? (
+            <Tooltip label="Show now">
+              <Button variant="ghost" size="sm" aria-label="Show now" onClick={() => hide(false)}>
+                <PanelRightOpen size={16} strokeWidth={2} aria-hidden />
+              </Button>
+            </Tooltip>
+          ) : (
+            <NowPanel
+              {...now}
+              onHide={() => hide(true)}
+              onSketch={setSketch}
+              onAsker={setAsker}
+              sketchView={sketchView}
+              onSketchView={setChosen}
+              thread={thread}
+              {...(Object.keys(marked).length === 0 ? {} : { edits: marked })}
+            />
+          )}
+        </div>
+      )}
     </div>
   );
 }

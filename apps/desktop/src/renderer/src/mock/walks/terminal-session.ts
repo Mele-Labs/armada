@@ -5,7 +5,7 @@
 // own and is shown and not set. Told twice: wide, and below the
 // breakpoint, where the ledger folds into a sheet.
 
-import { kit, NARROW } from "../sessions/walk-kit";
+import { kit, NARROW, toSessions } from "../sessions/walk-kit";
 import { button, inside, region, role, text, walk } from "../walk";
 import type { Step } from "../walk";
 
@@ -36,7 +36,7 @@ function steps(narrow: boolean): Step[] {
   ];
 }
 
-const wide = walk("terminal-session", steps(false));
-const narrow = walk("terminal-session", steps(true), NARROW);
+const wide = walk("terminal-session", [toSessions, ...steps(false)]);
+const narrow = walk("terminal-session", [toSessions, ...steps(true)], NARROW);
 
 export { wide as "terminal-session", narrow as "terminal-session-narrow" };

@@ -35,14 +35,15 @@ import { jobFailure } from "@armada/shell";
 import { SweepButtons, SweepDialogs, sweepsOf, useRefreshKey, type Sweep } from "@armada/shell";
 import { repositoryLabel } from "@armada/shell";
 import { AskRepository } from "@armada/screens";
-import { BridgeSettings } from "@armada/settings";
+import { BridgeSettings, ModsSurface } from "@armada/settings";
 import { Kit } from "@armada/manifest";
 import { Reports } from "@armada/screens";
 import { Composing } from "./Composing";
+import { useEscapeLeavesJob, useNow, useReturnToRow, useSummoned } from "./app-effects";
 import { aJobAct, ConfirmAct, type Confirming } from "./ConfirmAct";
 import { PaletteMount } from "./PaletteMount";
 import { FLEET_DOWN } from "./palette";
-import { Overview } from "./Overview";
+import { Overview, useDispatchBarKeys } from "./Overview";
 import { CaptureLayer, type CaptureAim } from "./capture/Layer";
 import { StudiosSurface } from "./StudiosSurface";
 import type { SketchOpening } from "@armada/screens/src/draft/sketch";
@@ -64,7 +65,7 @@ import {
   openRemarkLink,
   openServerLink,
   runSheetServers,
-  openLink, restartFleet,
+  openLink, restartFleet, changeFleetBuild,
   observeRun,
   observeCheckoutRun,
   pickRepository,
@@ -133,25 +134,24 @@ import {
   watchManifestDrift,
   watchOverview,
 } from "./commands";
-import { useAddedBinding } from "./added-steps";
+import { useAddedBinding, useAlerts } from "./added-steps";
 import { useDrafted } from "./drafted";
 import { hiddenSurfaces, MergeLineSurface } from "./merge-line";
 import { LessonsSurface } from "./lessons";
+import { useSleepMode } from "./sleep";
 import { ChecksSurface, useAsked } from "./checks-surface";
 import { SessionsOwnership, SessionsSurface, sessionsHidden } from "./sessions"; import { useSessionsDraft } from "./sessions-draft";
-import { useOpenSessionAsked } from "./open-session";
+import { useOpenSessionAsked } from "./open-session"; import { useOpenRetroAsked } from "./open-retro";
 import { useTellAsked } from "./tell";
 import { openingOf, useHistory, useJobTab } from "./history"; import { showingOf } from "./showing"; import { WorkflowCreatorSurface, workflowsWarned } from "./workflow-creator";
 import { useWhereOpen } from "./where-open";
 import { usePlanView } from "./remembered-views";
 import { usePanelOpen } from "./panel-open";
 import { useGuideListWidth } from "./guide-list-width";
-import { statsOf, fleetPanelOf } from "./left-column";
+import { fleetPanelOf } from "./left-column";
+import { fleetBuildOf, useFleetBuild } from "./fleet-build";
 import { copyDebugInfoFor, useCommandPalette } from "@armada/shell";
 import { Shell, SURFACE, SURFACES, useAtFloor, useNarrow, useSurfaceKeys } from "@armada/shell";
-
-/** How often the elapsed figures are redrawn. They are read, so they must move. */
-const TICK_MS = 1000;
 
 /** Re-exported so nothing importing it has to learn a new path. */
 export const WAITING: BridgeState = NOTHING_YET;
@@ -170,7 +170,7 @@ export function App({ draft }: AppProps = {}) {
   // What has been read and acknowledged. The count itself belongs to the
   // connection and is never reset from here — a drop that happened, happened.
   const [acknowledged, setAcknowledged] = useState(0);
-  const [now, setNow] = useState(() => Date.now());
+  const now = useNow();
   const [copied, setCopied] = useCopied();
   // What the app is telling somebody, as a sentence it already wrote. Today
   // that is only an open that did not happen; a click ending in nothing on
@@ -204,7 +204,8 @@ export function App({ draft }: AppProps = {}) {
   // before anybody has pressed anything. `drafted.tsx`.
   const [composing, setComposing] = useState(useDrafted().prompt !== undefined);
   const [composedFrom, setComposedFrom] = useState<SketchOpening>(); // A Sketch dispatched from a Studio.
-  useEffect(() => void (composing || setComposedFrom(undefined)), [composing]);
+  const [seed, setSeed] = useState<string>(); // Words typed into the Dashboard's quick box.
+  useEffect(() => void (composing || (setComposedFrom(undefined), setSeed(undefined))), [composing]);
   // What has been reported against the Judge. Its own view: a report is filed
   // about one Job and the rate is read across all of them.
   const [auditing, setAuditing] = useState(false);
@@ -219,7 +220,7 @@ export function App({ draft }: AppProps = {}) {
   const [sweep, setSweep] = useState<Sweep | null>(null);
   // Whether Settings is open — a rail surface since #1089, the sheet it
   // replaced having lost its own opener when the status bar went (#1088).
-  const [settingsShowing, setSettingsShowing] = useState(false);
+  const [settingsShowing, setSettingsShowing] = useState(false); const [modding, setModding] = useState(false);
   // Whether Kit is open — a rail surface since #1275, at `⌘8`. Machine-wide,
   // and the rail's pick is what names its second tier.
   const [kitting, setKitting] = useState(false);
@@ -269,6 +270,7 @@ export function App({ draft }: AppProps = {}) {
   // reports it up (#1075), so the palette can title its context block with the
   // job its acts would act on. Two cursors would drift.
   const palette = useCommandPalette();
+  const slept = useSleepMode();
   const [cursor, setCursor] = useState<string | null>(null);
   // The Job chipped above Helm's message box — #1075. Opening a Job's detail
   // chips it and points Helm at its repository; leaving the Job or its own ×
@@ -295,8 +297,9 @@ export function App({ draft }: AppProps = {}) {
   // Graph or list on Plan, this window's.
   const [planView, pressPlanView] = usePlanView();
   // The left column's own fold, remembered across a restart — Bridge/1088.
-  const [statsOpen, setStatsOpen] = usePanelOpen("stats");
   const [fleetOpen, setFleetOpen] = usePanelOpen("fleet");
+  // The mock provides a fixture; a real window builds it from what Fleet reported.
+  const fleetBuild = useFleetBuild() ?? fleetBuildOf(state.fleetBuild, state.jobs, (build, adopt) => void changeFleetBuild(build, adopt));
   // The catalogue list's width, remembered the same way the shell's column is.
   const [guideList, resizeGuideList] = useGuideListWidth();
 
@@ -304,7 +307,7 @@ export function App({ draft }: AppProps = {}) {
   // leaves the list — superseded, or gone from a resync — closes its own detail
   // rather than leaving a row on screen that Fleet no longer has.
   const reading = openJob === null ? null : (state.jobs.find((job) => job.id === openJob) ?? null);
-  const added = useAddedBinding(commands, reading?.id ?? null);
+  const added = useAddedBinding(commands, reading?.id ?? null); const alerting = useAlerts(state, (jobId, to) => { asked.setOpening({ jobId, to }); setOpenJob(jobId); });
   // Main's log, opened from a Job that took main's red: the merge line head's own log, held here
   // because the Job's detail is not where that panel lives.
   const [mainLog, setMainLog] = useState<LandCheckAt | null>(null);
@@ -333,7 +336,7 @@ export function App({ draft }: AppProps = {}) {
   // `⌘1`…`⌘n`, the binding the contract publishes and nothing answered until
   // the Manifest surface needed `⌘5`. One roster, read by the rail, the
   // palette and now the keyboard.
-  useSurfaceKeys(goTo);
+  useSurfaceKeys(goTo); useDispatchBarKeys(() => goTo(SURFACE.overview)); // `n` and ⌘N: the Dashboard's dispatch bar.
 
   // What this repository's Manifest declares, held open while the surface that
   // draws it is showing, **the palette is up** or a Studio is open, whose Run
@@ -350,9 +353,9 @@ export function App({ draft }: AppProps = {}) {
     watchManifestDrift(manifesting);
   }, [manifesting]);
 
-  // Fleet's health and every repository's drift in scope. Held for the life
-  // of the window rather than only while Overview is showing — Bridge/1088's
-  // Stats and Fleet panels draw the same two reads on every surface now.
+  // Fleet's health. Held for the life of the window rather than only while
+  // Overview is showing — Bridge/1088's Fleet panel draws its Doctor read on
+  // every surface now.
   useEffect(() => {
     watchOverview(true);
     return () => watchOverview(false);
@@ -408,60 +411,17 @@ export function App({ draft }: AppProps = {}) {
     onWriteProposal: writeManifestProposal,
   });
 
-  // **Where a pressed notification says to go, and it always goes somewhere.**
-  // A press that raised the window and left it on whatever it was last showing
-  // is a press that did nothing, which is the one outcome that teaches somebody
-  // to stop pressing them.
-  //
-  // One Job opens that Job. Several open the set they came from — the Needs-you
-  // tab — because picking one of four for somebody is choosing on their behalf.
-  // Either way the overlays come down first: the press asked for the Board or a
-  // Job, not for the composer that happened to be up.
-  useEffect(
-    () =>
-      window.armada.onSummoned((to) => {
-        setComposing(false);
-        setAuditing(false);
-        setClearing(false);
-        setOpenJob(to.jobId);
-        if (to.jobId === null) setLanding({ section: "needs-you", at: Date.now() });
-      }),
-    [],
-  );
+  useSummoned((jobId) => {
+    setComposing(false);
+    setAuditing(false);
+    setClearing(false);
+    setOpenJob(jobId);
+    if (jobId === null) setLanding({ section: "needs-you", at: Date.now() });
+  });
 
-  useEffect(() => {
-    const tick = setInterval(() => setNow(Date.now()), TICK_MS);
-    return () => clearInterval(tick);
-  }, []);
+  useEscapeLeavesJob(openJob, close);
 
-  // Escape closes the detail wherever the cursor is inside it, which is the
-  // one thing every reader tries first. Bound while a Job is open and not
-  // before, so nothing listens for a key that means nothing.
-  useEffect(() => {
-    if (openJob === null) return;
-    const pressed = (event: KeyboardEvent): void => {
-      // One view to leave, since the turns stopped being a screen of their own:
-      // Escape returns to the list from anywhere inside a Job.
-      // A press a layer above already answered — the palette, a sheet — is not a second exit.
-      if (event.key !== "Escape" || event.defaultPrevented) return;
-      close();
-    };
-    window.addEventListener("keydown", pressed);
-    return () => window.removeEventListener("keydown", pressed);
-  }, [openJob]);
-
-  // Escape leaves the composer too — bound inside `Composing`, not here,
-  // because with anything typed it asks first and what has been typed is
-  // known there.
-
-  // The row is back in the document only after the list re-renders, so the
-  // focus move is an effect rather than part of the click that closed it.
-  useEffect(() => {
-    if (returning === null) return;
-    const row = document.querySelector<HTMLElement>(`[data-job-id="${CSS.escape(returning)}"]`);
-    row?.focus();
-    setReturning(null);
-  }, [returning]);
+  useReturnToRow(returning, () => setReturning(null));
 
   // The Job every palette act acts on: the one read whole, or the one under
   // Overview's cursor. In that order, because a Job open on screen is
@@ -508,7 +468,7 @@ export function App({ draft }: AppProps = {}) {
     goTo(SURFACE.sessions);
     setSessionOpen(id);
   }
-  useOpenSessionAsked(openSession); // The annotation layer's Start session.
+  useOpenSessionAsked(openSession); useOpenRetroAsked(() => goTo(SURFACE.lessons)); // The annotation layer's Start session; a Session's Retro press.
 
   function goTo(surfaceId: string): void {
     setOpenJob(null);
@@ -516,7 +476,7 @@ export function App({ draft }: AppProps = {}) {
     setAuditing(false);
     setClearing(surfaceId === SURFACE.worktrees);
     setManifesting(surfaceId === SURFACE.manifest);
-    setSettingsShowing(surfaceId === SURFACE.settings);
+    setSettingsShowing(surfaceId === SURFACE.settings); setModding(surfaceId === SURFACE.mods);
     setKitting(surfaceId === SURFACE.kit);
     setGuiding(surfaceId === SURFACE.guides);
     setLining(surfaceId === SURFACE.mergeLine);
@@ -612,7 +572,7 @@ export function App({ draft }: AppProps = {}) {
   // Back and forward are keys and nothing on screen — `history.ts`.
   const [jobAt, onJobWhere] = useJobTab(openJob);
   useHistory(
-    { surface: showingOf({ clearing, manifesting, settingsShowing, kitting, guiding, studying, lining, learning, workflowing, checking, sessioning }), job: openJob, ...jobAt, session: sessionOpen, studio: openStudio, studioNode },
+    { surface: showingOf({ clearing, manifesting, settingsShowing, modding, kitting, guiding, studying, lining, learning, workflowing, checking, sessioning }), job: openJob, ...jobAt, session: sessionOpen, studio: openStudio, studioNode },
     (place) => { goTo(place.surface); setOpenJob(place.job); if (place.job !== null) asked.setOpening({ jobId: place.job, to: openingOf(place) }); setSessionOpen(place.session); setOpenStudio(place.studio); setStudioNode(place.studioNode); },
     (place) => place.job === null || state.jobs.some((job) => job.id === place.job),
   );
@@ -650,6 +610,7 @@ export function App({ draft }: AppProps = {}) {
           onOpenManifest={() => goTo(SURFACE.manifest)}
           onCompose={() => setComposing(true)}
           onSearch={palette.onOpen}
+          {...(slept.sleep === undefined ? {} : { sleep: slept.sleep })}
           questions={questions}
           asking={asks.length}
           helm={
@@ -698,19 +659,15 @@ export function App({ draft }: AppProps = {}) {
               Start fresh
             </Button>
           }
-          stats={{
-            rows: statsOf(state.connection, state.jobs, state.capacity, repositories, state.repository, state.drifts),
-            open: statsOpen,
-            onOpenChange: setStatsOpen,
-          }}
           fleet={{
             ...fleetPanelOf(state.connection, statement, state.health, now, state.readAt),
+            ...(fleetBuild === undefined ? {} : { build: fleetBuild }),
             open: fleetOpen,
             onOpenChange: setFleetOpen,
           }}
           // Which row the rail marks — `showing.ts`.
           showing={showingOf({
-            clearing, manifesting, settingsShowing, kitting, guiding, studying, lining, learning, workflowing, checking, sessioning,
+            clearing, manifesting, settingsShowing, modding, kitting, guiding, studying, lining, learning, workflowing, checking, sessioning,
           })}
           onSurface={goTo}
         >
@@ -719,6 +676,7 @@ export function App({ draft }: AppProps = {}) {
               stylesheet where it can be read, and in the components' one so a
               story can check it. `.armada-screen__mounted` says why. */}
           <div className="armada-screen__mounted">
+            {slept.sheet}
             <Standing
               fleet={fleet} connection={state.connection} bridge={state.bridge} onRestartFleet={restartFleet}
               // **Not while the file is on screen**, which draws the same
@@ -866,7 +824,7 @@ export function App({ draft }: AppProps = {}) {
                   onDropTask={commands.dropTask}
                   onMovePlan={commands.movePlan}
                   onEditJob={commands.editJob} onSetLandingTarget={commands.setLandingTarget} onToProposer={commands.toProposer}
-                  onShowAgain={showAgain} onChooseTriggerFix={commands.chooseTriggerFix}
+                  onShowAgain={showAgain} onChooseTriggerFix={commands.chooseTriggerFix} onReadRepairDiff={commands.readRepairDiff} {...alerting}
                   onHoldAct={(jobId, act, by) => (act === "rerun" ? commands.rerunTrigger(jobId, by) : commands.skipTrigger(jobId, by))}
                   onApprove={commands.approve} onListBranches={commands.listBranches}
                   {...commands.mergeProps(reading.id)}
@@ -1026,6 +984,7 @@ export function App({ draft }: AppProps = {}) {
                 onSaid={setTelling}
                 onCopied={setCopied}
                 sketch={composedFrom}
+                seed={seed}
               />
             ) : studying ? (
               <StudiosSurface
@@ -1099,7 +1058,7 @@ export function App({ draft }: AppProps = {}) {
               <Boundary region="Guides" {...guarded}>
                 <GuideCatalogue narrow={narrow} floor={floor} listWidth={guideList} onResizeList={resizeGuideList} />
               </Boundary>
-            ) : settingsShowing ? (
+            ) : modding ? (<Boundary region="Mods" {...guarded}><ModsSurface /></Boundary>) : settingsShowing ? (
               <Boundary region="Settings" {...guarded}>
                 <BridgeSettings
                   limits={state.limits}
@@ -1108,6 +1067,7 @@ export function App({ draft }: AppProps = {}) {
                   onSave={commands.saveLimits}
                   preferences={state.preferences} onSavePreference={(save) => window.armada.savePreference(save)}
                   onReadGuides={() => goTo(SURFACE.guides)}
+                  onCopied={setCopied}
                 />
               </Boundary>
             ) : (
@@ -1134,6 +1094,8 @@ export function App({ draft }: AppProps = {}) {
                   onLanded={() => setLanding(null)}
                   onOpenLink={openProseLink} onFix={(fix) => void commands.fixMain(fix)}
                   onOpenSession={openSession}
+                  nowViews={draft?.calls} nows={draft?.now} onTell={tell}
+                  onQuickCompose={(words) => (setSeed(words), setComposing(true))}
                 />
 
                 {/* Never merged into the lists as a placeholder: a surface that

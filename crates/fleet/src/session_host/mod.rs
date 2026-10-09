@@ -8,6 +8,7 @@
 //! permission door and `rows` writes the thread.
 
 mod asking;
+pub(crate) mod following;
 mod forking;
 mod gate;
 mod hearing;
@@ -18,7 +19,9 @@ mod places;
 mod process;
 mod rows;
 mod serving;
+pub(crate) use serving::NO_SUCH_SESSION;
 mod terminal;
+pub(crate) mod waiting;
 
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -107,6 +110,7 @@ impl Hosts {
         Arc::clone(held.entry(session.to_string()).or_insert_with(|| {
             Arc::new(Runtime {
                 lease: tokio::sync::Mutex::new(()),
+                writing_retro: AtomicBool::new(false),
                 state: Mutex::new(State::new()),
             })
         }))
@@ -152,6 +156,8 @@ pub(crate) struct Move {
 pub(crate) struct Runtime {
     /// Held while a lease is taken, so two writes in one turn lease one slot.
     pub(crate) lease: tokio::sync::Mutex<()>,
+    /// Whether this session's retro is being written, so a second press waits.
+    pub(crate) writing_retro: AtomicBool,
     state: Mutex<State>,
 }
 
@@ -177,9 +183,27 @@ pub(crate) struct State {
     pub generation: u64,
     /// What this session's own process said it has. Empty until it starts.
     pub commands: Vec<String>,
+    /// The lines written whose turn has not started, kept so a process that
+    /// is gone before it took them is replaced and they are sent again.
+    pub unstarted: Vec<String>,
+    /// Those lines have been sent to a replacement once already.
+    pub retried: bool,
+    /// The keeper said busy on reattach and nothing has been heard since, so
+    /// a long silence is a turn end that was missed.
+    pub reattached_busy: bool,
 }
 
 impl State {
+    /// Write one line to the process as a turn of its own.
+    pub fn send_turn(&mut self, line: String) {
+        self.queued += 1;
+        self.reattached_busy = false;
+        self.unstarted.push(line.clone());
+        if let Some(process) = &self.process {
+            process.send(line);
+        }
+    }
+
     fn new() -> State {
         State {
             process: None,
@@ -193,6 +217,9 @@ impl State {
             directory: String::new(),
             generation: 0,
             commands: Vec::new(),
+            unstarted: Vec::new(),
+            retried: false,
+            reattached_busy: false,
         }
     }
 }

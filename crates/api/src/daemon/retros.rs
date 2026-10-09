@@ -19,6 +19,24 @@ pub trait Retros: Send + Sync + 'static {
         job_id: JobId,
     ) -> impl Future<Output = Result<JobRetro, Refusal>> + Send;
 
+    /// `get_session_retro`: retro number `retro` of a Session, or its newest, `pending` with its
+    /// record so far where it has none. [`Refusal::NoSuchJob`] where no
+    /// Session is `session_id`.
+    fn get_session_retro(
+        &self,
+        session_id: String,
+        retro: Option<i64>,
+    ) -> impl Future<Output = Result<JobRetro, Refusal>> + Send;
+
+    /// `write_session_retro`: write one now, covering what happened since the
+    /// last, and answer when it is written. [`Refusal::IllegalMove`] while one
+    /// is being written; [`Refusal::Unacceptable`] where there is nothing new
+    /// and no retro to answer with.
+    fn write_session_retro(
+        self: Arc<Self>,
+        session_id: String,
+    ) -> impl Future<Output = Result<JobRetro, Refusal>> + Send;
+
     /// `list_lessons` — up to `most` items in `state`, newest retro first, and
     /// `state` absent is `open`.
     /// `manifest_id` absent is every repository served, and `lands_in` absent

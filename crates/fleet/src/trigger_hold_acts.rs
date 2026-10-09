@@ -1,5 +1,7 @@
-//! The owner's two acts on a hold: rerun the Command, or skip it.
-//! `docs/concepts/trigger.md`, *A failed Trigger with `block` on*.
+//! The owner's two acts on a hold: rerun the Command, or skip it. The same two
+//! answer a destructive Command that asks first: Run is its Rerun.
+//! `docs/concepts/trigger.md`, *A failed Trigger with `block` on* and *A
+//! destructive Command asks first*.
 
 use std::path::Path;
 
@@ -15,6 +17,7 @@ use verification::Exit;
 use crate::adrift::Adrift;
 use crate::daemon::Fleet;
 use crate::trigger_hold::Hold;
+use crate::trigger_repair::Waiting;
 
 const NO_HOLD: &str = "fleet.no_hold";
 const NO_HOLD_NAMED: &str = "fleet.no_hold_named";
@@ -23,6 +26,7 @@ const HOLD_HAS_A_FIX: &str = "fleet.hold_has_a_fix";
 const HOLD_NOTHING_TO_RUN: &str = "fleet.hold_nothing_to_run";
 const HOLD_NO_WORKTREE: &str = "fleet.hold_no_worktree";
 const HOLD_JOB_WORKING: &str = "fleet.hold_job_working";
+const HOLD_ALREADY_RUNNING: &str = "fleet.hold_already_running";
 
 enum Named {
     Trigger(String),
@@ -110,7 +114,7 @@ where
             ));
         };
         let holds = self
-            .holds_on(job_id)
+            .holds_and_asks_on(job_id)
             .await
             .map_err(|why| self.refusal(why))?;
         let hold = holds
@@ -166,7 +170,8 @@ where
 
     async fn hold_skipped(&self, job: &Job, hold: Hold) -> Result<ipc::HoldSettled, Refusal> {
         let at = self.now();
-        let first_entry = hold.when() == TriggerWhen::StepStarts;
+        // An ask that does not block held nothing to release.
+        let first_entry = hold.when() == TriggerWhen::StepStarts && hold.blocks();
         let state = match &hold {
             Hold::Firing { id, firing } => {
                 let after = firing.clone().skipped_by_the_owner(at);
@@ -176,7 +181,7 @@ where
                     .settle_hold(*id, &after, first_entry)
                     .map_err(|why| self.refusal(Adrift::Writing(why)))?;
                 self.trigger_moved(job, &after);
-                self.logged(job.id(), self.hold_line(job, &after, None));
+                self.logged(job.id(), self.hold_line(job, &after, None, true));
                 after.state
             }
             Hold::Addition(added) => {
@@ -241,6 +246,11 @@ where
             }
             Err(why) => return Err(self.not_held(job_id, HOLD_NO_WORKTREE, why.to_string())),
         };
+        if hold.state() == TriggerState::AwaitingOwner {
+            return self
+                .owner_ran(job, &hold, &command, Path::new(worktree.path()))
+                .await;
+        }
         if let Hold::Firing { firing, .. } = &hold {
             let running = TriggerFiring {
                 state: TriggerState::Rerunning,
@@ -279,7 +289,7 @@ where
                     .settle_hold(*id, &after, passed && first_entry)
                     .map_err(|why| self.refusal(Adrift::Writing(why)))?;
                 self.trigger_moved(job, &after);
-                self.logged(job_id, self.hold_line(job, &after, Some(&attempt)));
+                self.logged(job_id, self.hold_line(job, &after, Some(&attempt), true));
             }
             Hold::Addition(added) => {
                 let fired = added
@@ -304,6 +314,166 @@ where
         })
     }
 
+    /// The owner's Run on a destructive Command that asked: it runs once, in
+    /// the Job's worktree, and ends as a firing does. Passed lets the Job go,
+    /// a failure is held where `block` is on, and `repair` queues a repair
+    /// Drone. **The store still reads `awaiting_owner` while it runs**, so a
+    /// Fleet that stops halfway asks him again and never runs it unasked;
+    /// `owner_runs` is what refuses a second Run meanwhile. A saved Trigger's
+    /// firing and a step added to one Job are answered by this one path.
+    async fn owner_ran(
+        &self,
+        job: &Job,
+        hold: &Hold,
+        command: &str,
+        worktree: &Path,
+    ) -> Result<ipc::HoldSettled, Refusal> {
+        let subject = hold.subject();
+        if !self
+            .owner_runs()
+            .lock()
+            .expect("not poisoned")
+            .insert(subject.clone())
+        {
+            return Err(self.not_held(
+                job.id(),
+                HOLD_ALREADY_RUNNING,
+                format!("`{}` is already running", hold.name()),
+            ));
+        }
+        let ran = self.owner_ran_once(job, hold, command, worktree).await;
+        self.owner_runs()
+            .lock()
+            .expect("not poisoned")
+            .remove(&subject);
+        let (state, repairing) = ran?;
+        let released = !self.still_holds(job, hold, state).await
+            && self.hold_let_go(job.id(), Actor::Human).await;
+        if let Some(waiting) = repairing {
+            self.trigger_repairs()
+                .lock()
+                .expect("not poisoned")
+                .push(waiting);
+        }
+        Ok(ipc::HoldSettled {
+            state: state.into(),
+            released,
+        })
+    }
+
+    /// Whether what the Run ended as still holds the Job. Read from the store
+    /// for a step added to the Job, whose row decides it with the Job's workflow.
+    async fn still_holds(&self, job: &Job, hold: &Hold, state: TriggerState) -> bool {
+        match hold {
+            Hold::Firing { firing, .. } => TriggerFiring {
+                state,
+                ..firing.clone()
+            }
+            .holds_the_job(),
+            Hold::Addition(added) => self
+                .store()
+                .lock()
+                .await
+                .job_additions(job.id())
+                .ok()
+                .and_then(|all| all.into_iter().find(|one| one.id == added.id))
+                .is_some_and(|one| one.holds_the_job(job.workflow())),
+        }
+    }
+
+    async fn owner_ran_once(
+        &self,
+        job: &Job,
+        hold: &Hold,
+        command: &str,
+        worktree: &Path,
+    ) -> Result<(TriggerState, Option<Waiting>), Refusal> {
+        match hold {
+            Hold::Firing { id, firing } => {
+                self.trigger_moved(
+                    job,
+                    &TriggerFiring {
+                        state: TriggerState::Running,
+                        ..firing.clone()
+                    },
+                );
+                let attempt = checks_runner::run(command, worktree, self.budget().duration()).await;
+                let code = match &attempt.exit {
+                    Exit::Code(code) => Some(*code),
+                    _ => None,
+                };
+                let after = firing.clone().ended(code, self.now());
+                let passed = after.state == TriggerState::Passed;
+                let first_entry = firing.when == TriggerWhen::StepStarts && firing.on_failure.block;
+                self.store()
+                    .lock()
+                    .await
+                    .settle_hold(*id, &after, passed && first_entry)
+                    .map_err(|why| self.refusal(Adrift::Writing(why)))?;
+                self.trigger_moved(job, &after);
+                self.logged(job.id(), self.hold_line(job, &after, Some(&attempt), false));
+                let waiting = (after.state == TriggerState::Repairing).then(|| {
+                    waiting_on(
+                        job,
+                        hold,
+                        &after.name,
+                        &after.step,
+                        command,
+                        &attempt,
+                        after.exit_code,
+                    )
+                });
+                Ok((after.state, waiting))
+            }
+            Hold::Addition(added) => {
+                let running = Fired {
+                    state: TriggerState::Running,
+                    ..added
+                        .fired
+                        .clone()
+                        .unwrap_or_else(|| Fired::running(self.now()))
+                };
+                self.addition_moved(
+                    job,
+                    &core_model::AddedStep {
+                        fired: Some(running),
+                        ..added.clone()
+                    },
+                    false,
+                );
+                let attempt = checks_runner::run(command, worktree, self.budget().duration()).await;
+                let code = match &attempt.exit {
+                    Exit::Code(code) => Some(*code),
+                    _ => None,
+                };
+                let blocks = added.on_failure.block
+                    && core_model::can_hold(job.workflow(), added.when, &added.step);
+                let asked = added
+                    .fired
+                    .clone()
+                    .unwrap_or_else(|| Fired::running(self.now()));
+                let after = asked.ended(code, blocks, added.on_failure.repair, self.now());
+                let passed = after.state == TriggerState::Passed;
+                let first_entry = added.when == TriggerWhen::StepStarts && added.on_failure.block;
+                self.addition_settled(job, added, &after, passed && first_entry)
+                    .await
+                    .map_err(|why| self.refusal(why))?;
+                let waiting = (after.state == TriggerState::Repairing).then(|| {
+                    waiting_on(
+                        job,
+                        hold,
+                        &added.kind.text().to_string(),
+                        &added.step,
+                        command,
+                        &attempt,
+                        code,
+                    )
+                });
+                Ok((after.state, waiting))
+            }
+        }
+    }
+
     /// The Command a hold would run again: the Trigger's as it now reads, or the
     /// added Script's. A skill and a Drone step have none.
     pub(crate) async fn hold_command(&self, job: &Job, hold: &Hold) -> Option<String> {
@@ -321,6 +491,8 @@ where
                 };
                 match crate::triggering::decided(&asked, &manifest) {
                     crate::triggering::Comes::Run { command } => Some(command),
+                    // His Run said yes to it, and a Rerun after a failure is the same yes.
+                    crate::triggering::Comes::AskTheOwner { command } => Some(command),
                     _ => None,
                 }
             }
@@ -332,12 +504,14 @@ where
         job: &Job,
         firing: &TriggerFiring,
         attempt: Option<&checks_runner::Attempt>,
+        again: bool,
     ) -> core_model::Envelope {
         let said = match &firing.skipped {
             Some(why) => format!("Trigger `{}` {why}", firing.name),
             None => format!(
-                "Trigger `{}` run again by you: {}",
+                "Trigger `{}` run {}by you: {}",
                 firing.name,
+                if again { "again " } else { "" },
                 firing.state.as_wire()
             ),
         };
@@ -364,5 +538,28 @@ where
                 .with_field("stderr", text(&attempt.output.stderr));
         }
         line
+    }
+}
+
+fn waiting_on(
+    job: &Job,
+    hold: &Hold,
+    trigger: &str,
+    step: &core_model::StepId,
+    command: &str,
+    attempt: &checks_runner::Attempt,
+    exit: Option<i32>,
+) -> Waiting {
+    Waiting {
+        job: job.id().clone(),
+        subject: hold.subject(),
+        trigger: trigger.to_string(),
+        step: step.clone(),
+        command: command.to_string(),
+        exit,
+        stdout: attempt.output.stdout.clone(),
+        stderr: attempt.output.stderr.clone(),
+        record: core_model::RepairRecord::default(),
+        side: None,
     }
 }

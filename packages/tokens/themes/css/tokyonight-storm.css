@@ -1,0 +1,48 @@
+/* Derived from the Tokyo Night Storm terminal scheme by packages/tokens/themes/generate.mjs. Do not hand-edit.
+   Tone dark. foreground 7.3:1, accent 4.7:1 at the worst ground.
+   Lightness moved to reach 4.5:1: failed, running, escalated, rejected, not-started, killed. */
+[data-theme="catalogue:tokyonight-storm"] {
+  color-scheme: dark;
+  /* Ground */
+  --bg-base: #24283B;
+  --bg-sunken: #0F121D;
+  --bg-raised: #292E41;
+  --bg-overlay: #2E3347;
+  --bg-hover: #32374C;
+  --border-subtle: #31364B;
+  --border-default: #3B4057;
+  --border-strong: #4A4F69;
+  /* Foreground and accent */
+  --fg-default: #C0CAF5;
+  --fg-muted: #97A0C5;
+  --fg-subtle: #99A1C7;
+  --fg-inverse: #000000;
+  --accent: #7AA2F7;
+  --accent-hover: #85A8F7;
+  --accent-muted: #364060;
+  /* Depth */
+  --bg-glass: rgb(41 46 65 / 0.86);
+  --bg-glass-end: rgb(36 40 59 / 0.86);
+  --border-glass: rgb(255 255 255 / 0.07);
+  --border-highlight: rgb(255 255 255 / 0.05);
+  /* Status */
+  --status-not-started: #ADB5D5;
+  --status-running: #8DB6FF;
+  --status-awaiting-review: #E0AF68;
+  --status-escalated: #F59D84;
+  --status-completed-success: #9ECE6A;
+  --status-completed-failed: #FF94AB;
+  --status-rejected: #C6A5FF;
+  --status-killed: #ADB6D9;
+  --status-handed-in: #93C5BC;
+  /* Helm, tools, diff */
+  --helm: #ACAEFF;
+  --tool-look: #7DCFFF;
+  --tool-change: #BB9AF7;
+  --tool-run: #E0AF68;
+  --diff-add-bg: #384343;
+  --diff-add-fg: #9ECE6A;
+  --diff-del-bg: #463448;
+  --diff-del-fg: #FD7B93;
+  --diff-context: #97A0C5;
+}

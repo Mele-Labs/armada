@@ -4,12 +4,14 @@
 // walk's test and the capture command.
 
 import { StrictMode, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { ChevronDown, ChevronUp } from "lucide-react";
 import { createRoot } from "react-dom/client";
 import { Alert, Button, Card, Switch } from "@armada/components";
-import type { CSSProperties } from "react";
+import type { CSSProperties, PointerEvent as ReactPointerEvent } from "react";
 
 import "./mock.css";
 import { WALK_UI, act, arrive, stopped } from "./walk";
+import { keepInside, placeCard } from "./walk-card";
 import type { Walk as WalkScript } from "./walk";
 
 /** How long autoplay holds each step before it moves on. */
@@ -49,31 +51,51 @@ function useBox(element: HTMLElement | null): DOMRect | null {
   return box;
 }
 
-const overlaps = (a: DOMRect, b: { left: number; right: number; top: number; bottom: number }) =>
-  a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+/** Where the card keeps from the window's edge, and how far down it starts under the top bar: `mock.css`'s `--space-6` and `--space-12 + --space-3`. */
+const GAP = 24;
+const TOP = 60;
 
-/**
- * The card rests in the trailing bottom corner, where the scenario picker does,
- * and **crosses to the leading one when the ring is under it**, so it never
- * covers what it is pointing at.
- */
-function useSide(card: HTMLElement | null, ring: DOMRect | null): "trailing" | "leading" {
-  const [side, setSide] = useState<"trailing" | "leading">("trailing");
+/** The spot a person dragged the card to, kept for the session. */
+const SPOT = "armada.mock.walk-card";
+const savedSpot = (): { x: number; y: number } | null => {
+  try {
+    const raw = window.sessionStorage.getItem(SPOT);
+    return raw === null ? null : (JSON.parse(raw) as { x: number; y: number });
+  } catch {
+    return null;
+  }
+};
+const saveSpot = (spot: { x: number; y: number }) => {
+  try {
+    window.sessionStorage.setItem(SPOT, JSON.stringify(spot));
+  } catch {
+    // A window that keeps nothing keeps nothing; the card is where it was dragged until it reloads.
+  }
+};
+
+/** Which edge the card rests on, from where the ring is: `placeCard`. */
+function useEdge(card: HTMLElement | null, ring: DOMRect | null, placed: boolean, folded: boolean): "bottom" | "top" {
+  const [edge, setEdge] = useState<"bottom" | "top">("bottom");
   useLayoutEffect(() => {
-    if (card === null || ring === null) return;
-    const here = card.getBoundingClientRect();
-    const there = { left: window.innerWidth - here.right, right: window.innerWidth - here.left, top: here.top, bottom: here.bottom };
-    if (overlaps(ring, here) && !overlaps(ring, there)) setSide((was) => (was === "trailing" ? "leading" : "trailing"));
-  }, [card, ring]);
-  return side;
+    if (card === null || placed) return;
+    const { width, height } = card.getBoundingClientRect();
+    setEdge(placeCard(ring, { width, height }, { width: window.innerWidth, height: window.innerHeight }, GAP, TOP));
+  }, [card, ring, placed, folded]);
+  return edge;
 }
+
+/** Whether a key is going into something a person types in, which `.` must leave alone. */
+const typing = (target: EventTarget | null) =>
+  target instanceof HTMLElement && (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName));
 
 export function WalkPlayer({ name, script, autoplay: startPlaying }: { name: string; script: WalkScript; autoplay: boolean }) {
   const [phase, setPhase] = useState<Phase>({ is: "seeking", at: 0 });
   const [autoplay, setAutoplay] = useState(startPlaying);
   const [card, setCard] = useState<HTMLDivElement | null>(null);
   const box = useBox(phase.is === "ready" ? phase.element : null);
-  const side = useSide(card, box);
+  const [spot, setSpot] = useState(savedSpot);
+  const [folded, setFolded] = useState(false);
+  const edge = useEdge(card, box, spot !== null, folded);
   const steps = script.steps;
 
   const at = phase.is === "done" ? steps.length : phase.at;
@@ -94,6 +116,32 @@ export function WalkPlayer({ name, script, autoplay: startPlaying }: { name: str
     act(steps[phase.at]!, phase.element);
     setPhase(phase.at + 1 < steps.length ? { is: "seeking", at: phase.at + 1 } : { is: "done" });
   }, [phase, steps]);
+
+  // `.` folds the card to a pill and opens it again, except where a field has the keys.
+  useEffect(() => {
+    const fold = (event: KeyboardEvent) => {
+      if (event.key === "." && !event.metaKey && !event.ctrlKey && !event.altKey && !typing(event.target)) setFolded((was) => !was);
+    };
+    window.addEventListener("keydown", fold);
+    return () => window.removeEventListener("keydown", fold);
+  }, []);
+
+  /** Drags the card by its header, and keeps the spot it is dropped on. */
+  const drag = (event: ReactPointerEvent<HTMLElement>) => {
+    if (card === null || event.button !== 0 || (event.target as HTMLElement).closest("button") !== null) return;
+    const here = card.getBoundingClientRect();
+    const grab = { x: event.clientX - here.left, y: event.clientY - here.top };
+    const size = { width: here.width, height: here.height };
+    const view = () => ({ width: window.innerWidth, height: window.innerHeight });
+    const move = (to: PointerEvent) => setSpot(keepInside({ x: to.clientX - grab.x, y: to.clientY - grab.y }, size, view()));
+    const drop = (to: PointerEvent) => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", drop);
+      saveSpot(keepInside({ x: to.clientX - grab.x, y: to.clientY - grab.y }, size, view()));
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", drop);
+  };
 
   const later = useRef(0);
   useEffect(() => {
@@ -126,7 +174,9 @@ export function WalkPlayer({ name, script, autoplay: startPlaying }: { name: str
       <div
         ref={setCard}
         className="armada-mock-walk__card"
-        data-side={side}
+        data-edge={edge}
+        data-folded={folded || undefined}
+        style={spot === null ? undefined : { left: spot.x, top: spot.y, right: "auto", bottom: "auto" }}
         data-walk-state={phase.is}
         data-walk-step={at + 1}
       >
@@ -134,11 +184,28 @@ export function WalkPlayer({ name, script, autoplay: startPlaying }: { name: str
           <Button size="sm" onClick={() => window.location.reload()}>
             Replay {name}
           </Button>
+        ) : folded ? (
+          <div className="armada-mock-walk__pill" onPointerDown={drag}>
+            <span className="armada-mock-walk__where">
+              Step {at + 1} of {steps.length}
+            </span>
+            <Button variant="ghost" size="sm" iconOnly aria-label="Unfold the card" onClick={() => setFolded(false)}>
+              <ChevronUp size={14} aria-hidden="true" />
+            </Button>
+            <Button variant="primary" size="sm" disabled={phase.is !== "ready"} onClick={next}>
+              Next
+            </Button>
+          </div>
         ) : (
           <Card>
-            <p className="armada-mock-walk__where">
-              {name} · Step {at + 1} of {steps.length}
-            </p>
+            <div className="armada-mock-walk__head" onPointerDown={drag}>
+              <p className="armada-mock-walk__where">
+                {name} · Step {at + 1} of {steps.length}
+              </p>
+              <Button variant="ghost" size="sm" iconOnly aria-label="Fold the card" onClick={() => setFolded(true)}>
+                <ChevronDown size={14} aria-hidden="true" />
+              </Button>
+            </div>
             {phase.is === "stopped" ? (
               <div className="armada-mock-walk__said" data-stopped>
                 <Alert>{stopped(phase.at, steps[phase.at]!)}</Alert>
@@ -176,7 +243,7 @@ export function mountWalk(name: string, script: WalkScript, autoplay: boolean, h
 export function mountNoWalk(name: string, host: HTMLElement): void {
   createRoot(host).render(
     <div {...{ [WALK_UI]: "" }} className="armada-mock-walk">
-      <div className="armada-mock-walk__card" data-side="trailing" data-walk-state="stopped">
+      <div className="armada-mock-walk__card" data-edge="bottom" data-walk-state="stopped">
         <Card>
           <div className="armada-mock-walk__said" data-stopped>
             <Alert>No walk named {name}.</Alert>

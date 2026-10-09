@@ -1,0 +1,372 @@
+/* A Job's Now panel: a head band over sections, each a coloured band over
+   mono rows. State is carried by the frame: asks in the escalated hue, issues
+   in the failure hue, running in the running hue. A section is drawn only once
+   it holds a row, so an idle Job is the head alone. */
+
+/* One frame holds the head and every section, divided by rules: the head is the panel's own top
+   band and not a card of its own. */
+.armada-now {
+  display: flex;
+  flex-direction: column;
+  border: var(--border-width) solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--bg-raised);
+  overflow: hidden;
+  width: var(--w-dock);
+  min-width: 0;
+  min-height: 0;
+  align-self: start;
+}
+
+.armada-now__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  background: var(--bg-raised);
+}
+
+.armada-now__title {
+  margin: 0;
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  font-weight: var(--weight-heading);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+
+.armada-now__group {
+  --now-hue: var(--status-running);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border-top: var(--border-width) solid var(--border-strong);
+  background: color-mix(in srgb, var(--now-hue) var(--row-tint), var(--bg-raised));
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+
+.armada-now__group[data-tone="asks"] {
+  --now-hue: var(--status-escalated);
+}
+
+.armada-now__group[data-tone="issues"] {
+  --now-hue: var(--status-completed-failed);
+}
+
+.armada-now__group[data-tone="waiting"] {
+  --now-hue: var(--status-not-started);
+}
+
+.armada-now__band {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-1) var(--space-3);
+  background: var(--now-hue);
+  color: var(--fg-inverse);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  font-weight: var(--weight-heading);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+
+.armada-now__rows {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.armada-now__row,
+.armada-now__ask {
+  min-width: 0;
+  border-top: var(--border-width) solid var(--border-subtle);
+}
+
+.armada-now__rows > :first-child {
+  border-top: none;
+}
+
+.armada-now__row:hover {
+  background: var(--bg-hover);
+}
+
+.armada-now__open {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  min-width: 0;
+  padding: var(--space-1) var(--space-3);
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.armada-now__open:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: calc(var(--focus-ring-offset) * -1);
+}
+
+.armada-now__text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.armada-now__line {
+  overflow: hidden;
+  color: var(--fg-muted);
+  text-overflow: ellipsis;
+}
+
+.armada-now__mark {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  color: var(--fg-muted);
+}
+
+.armada-now__mark[data-tone="asks"] {
+  color: var(--status-escalated);
+}
+
+.armada-now__mark[data-tone="issues"] {
+  color: var(--status-completed-failed);
+}
+
+.armada-now__mark[data-state="running"] {
+  color: var(--status-running);
+}
+
+.armada-now__mark[data-state="passed"] {
+  color: var(--step-advanced);
+}
+
+.armada-now__mark[data-state="failed"] {
+  color: var(--step-failed);
+}
+
+/* The running mark breathes as Badge's does: only the inner dot moves. */
+.armada-now__mark[data-pulsing] > svg > circle + circle {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: armada-badge-pulse var(--duration-pulse) var(--ease) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .armada-now__mark[data-pulsing] > svg > circle + circle {
+    animation: none;
+  }
+}
+
+/* A Plan decision: the question over its radios, and the one act under them. */
+.armada-now__ask {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+}
+
+/* A running row's second line: the canvas step it belongs to, and the fold for its output. */
+.armada-now__sub {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-3) var(--space-1);
+}
+
+.armada-now__step,
+.armada-now__fold {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0 var(--space-1);
+  border: var(--border-width) solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--fg-muted);
+  font: inherit;
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+}
+
+button.armada-now__step,
+.armada-now__fold {
+  cursor: pointer;
+}
+
+button.armada-now__step:hover,
+.armada-now__fold:hover {
+  border-color: var(--border-strong);
+  background: var(--bg-hover);
+}
+
+button.armada-now__step[aria-pressed="true"] {
+  border-color: var(--accent);
+  color: var(--fg-default);
+}
+
+.armada-now__step:focus-visible,
+.armada-now__fold:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+/* The last few lines of output, mono, wrapped at the panel's edge. */
+.armada-now__tail {
+  margin: 0 var(--space-3) var(--space-2);
+  padding: var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* Where the decision stands among the others, as marks and not a figure. */
+.armada-now__dots {
+  display: flex;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.armada-now__dot {
+  display: block;
+  inline-size: var(--space-2);
+  block-size: var(--space-2);
+  border: var(--border-width) solid var(--border-strong);
+  border-radius: 50%;
+}
+
+.armada-now__dot[data-state="answered"] {
+  border-color: var(--step-advanced);
+  background: var(--step-advanced);
+}
+
+.armada-now__dot[data-state="current"] {
+  border-color: var(--status-escalated);
+  background: var(--status-escalated);
+}
+
+.armada-now__band-title {
+  margin: 0;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+}
+
+.armada-now__band-act {
+  display: inline-flex;
+  align-items: center;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+.armada-now__band-act:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+/* A quick act: one icon, named by its tooltip. */
+.armada-now__act {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-1);
+  border: var(--border-width) solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--fg-muted);
+  cursor: pointer;
+}
+
+.armada-now__act:hover {
+  border-color: var(--border-strong);
+  background: var(--bg-hover);
+  color: var(--fg-default);
+}
+
+.armada-now__act:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+/* A Job with nothing to say: the owner reads this as a defect. */
+.armada-now__nothing {
+  margin: 0;
+  padding: var(--space-3);
+  border-top: var(--border-width) solid var(--border-strong);
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+
+/* Sketch and Canvas: a pair of icon toggles in the head, the pressed one raised. */
+.armada-now__switch {
+  display: inline-flex;
+  margin-left: auto;
+  gap: var(--space-1);
+}
+
+.armada-now__switch-act {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-1);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--fg-muted);
+  cursor: pointer;
+}
+
+.armada-now__switch-act[aria-pressed="true"] {
+  background: var(--bg-hover);
+  color: var(--fg-default);
+}
+
+.armada-now__switch-act:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+/* What was asked about a part of a sketch, under the ask it was asked of. */
+.armada-now__remark {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  border-top: var(--border-width) solid var(--border-subtle);
+}
+
+.armada-now__remark-about {
+  color: var(--fg-muted);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  font-weight: var(--weight-heading);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}

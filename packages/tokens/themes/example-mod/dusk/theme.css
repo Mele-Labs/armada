@@ -1,0 +1,21 @@
+/* A mod's theme.css, as a Session writes it into ~/Library/Application Support/Armada/mods/dusk/.
+   One block scoped to the mod's own name; the mock installs this file as the mod `dusk`. */
+[data-theme="dusk"] {
+  --bg-base: #1A1822;
+  --bg-sunken: #13111A;
+  --bg-raised: #231F2E;
+  --bg-overlay: #2B2638;
+  --bg-hover: #332D42;
+  --border-subtle: #2A2536;
+  --border-default: #383149;
+  --border-strong: #4D4463;
+  --fg-default: #ECE8F3;
+  --fg-muted: #A9A1BA;
+  --fg-subtle: #9189A4;
+  --fg-inverse: #1A1822;
+  --accent: #E8A25C;
+  --accent-hover: #F0B274;
+  --accent-muted: #473422;
+  --bg-glass: rgb(35 31 46 / 0.9);
+  --bg-glass-end: rgb(26 24 34 / 0.9);
+}

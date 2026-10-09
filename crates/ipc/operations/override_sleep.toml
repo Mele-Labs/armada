@@ -1,0 +1,8 @@
+[operations.override_sleep]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Correct one decision sleep mode made, by telling the session what the owner would have said"
+notes = """
+`POST /sleep/override`, body `OverrideSleep`: `id` of a decided row and `text`. Sends the session the message `Re: <asked>` and the text on the next line, marks the row corrected, answers with `SleepState` and publishes `SleepChanged`. A row nothing holds, or one that is not a decision, is a 409; blank text is a 422.
+"""

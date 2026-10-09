@@ -136,6 +136,9 @@ export function dormantIn(where: {
     // `Shell.tsx`'s own `useDock` and `App` holds no handle to it — a wiring
     // gap, same shape as the four signposts above.
     helm: "⌘J opens it; not reachable from the palette yet",
+    // Keys that reach a surface and are read where they are pressed: the palette is not where they act.
+    dashboard_filter_number: "a key on the Dashboard, ⌥1 to ⌥3",
+    dispatch_from_field: "n does this; ⌘N is for a field",
     // Not a wiring gap: ⌘Enter sends whatever is typed in the field that has
     // focus, and opening the palette took that focus away. The row is drawn so
     // the binding is discovered, and it says what it needs.

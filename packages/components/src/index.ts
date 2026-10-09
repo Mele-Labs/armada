@@ -44,6 +44,7 @@ export * from "./compositions/HelmComposer/HelmComposer";
 export * from "./compositions/JudgeQuestion/JudgeQuestion";
 export * from "./compositions/EvidenceCard/EvidenceCard";
 export * from "./compositions/FleetPanel/FleetPanel";
+export type { FleetBuild, FleetBuildChoice, FleetBuildDrone, FleetBuildPosition, FleetBuildStage } from "./compositions/FleetBuild/FleetBuild";
 export * from "./compositions/DroneTurns/DroneTurns";
 export * from "./compositions/EvidenceTrail/EvidenceTrail";
 export * from "./compositions/FailureNotice/FailureNotice";
@@ -67,7 +68,6 @@ export * from "./compositions/VerdictSheet/VerdictSheet";
 export * from "./compositions/ConfidenceSheet/ConfidenceSheet";
 export * from "./compositions/ViewSheet/ViewSheet";
 export * from "./compositions/Sidebar/Sidebar";
-export * from "./compositions/StatsPanel/StatsPanel";
 export * from "./compositions/StepActivityMark/StepActivityMark";
 export * from "./compositions/StepPhaseTrack/StepPhaseTrack";
 export * from "./compositions/StepBar/StepBar";
@@ -201,7 +201,7 @@ export * from "./compositions/DispatchRequest/DispatchRequest";
 export * from "./compositions/PoolSlots/PoolSlots";
 export * from "./compositions/WorkflowCreator/WorkflowCreator";
 export * from "./compositions/WorkflowCreator/exports";
-export { AddedFields, AddStep, addedCard, addedName, endsInPr, EveryMark, FiringMark, HoldNode, holdsOf, JobAlertMark, LevelMark, RepairNode, RepairPrMark, repairPhase, repairsOf, TriggerAlertMark, triggerAlert, TriggerLeaf, TriggerRows, TriggerSheet } from "./compositions/WorkflowTriggers/WorkflowTriggers";
+export { AddedFields, AddStep, RepairFileContext, addedCard, addedName, endsInPr, EveryMark, FiringMark, HoldNode, holdsOf, JobAlertMark, LevelMark, RepairNode, RepairPrMark, repairPhase, repairsOf, TriggerAlertMark, triggerAlert, TriggerLeaf, TriggerRows, TriggerSheet } from "./compositions/WorkflowTriggers/WorkflowTriggers";
 export type { AddedKind, Held, HoldVerb, RepairPhase, TriggerOpen, TriggerTarget } from "./compositions/WorkflowTriggers/WorkflowTriggers";
 export { additionBranches, fixOf } from "./compositions/WorkflowTriggers/side-branches";
 export type { SideBranch } from "./compositions/WorkflowTriggers/side-branches";
@@ -396,6 +396,8 @@ export * from "./compositions/WaveCanvas/WaveCanvas";
 // The two branch fields on the dispatch form: pick one, or type one that is
 // not there yet.
 export * from "./compositions/BranchPicker/BranchPicker";
+// Settings → Theme: one choice out of grouped themes, narrowed by typing.
+export * from "./compositions/ThemePicker/ThemePicker";
 // The guidance system — #1602, #1603. The guides themselves are data, one file
 // each under `guides/`; the `?` is what asks for one, the card is what a
 // person reads, and the catalogue is every one of them in order.
@@ -424,14 +426,20 @@ export * from "./compositions/CriterionOrigin/CriterionOrigin";
 export * from "./compositions/SettlingMark/SettlingMark";
 // A Job's retro, and the Lessons page that lists every retro's items. 23.12.
 export * from "./compositions/WhoMark/WhoMark";
+export * from "./compositions/RetroPress/RetroPress";
 export * from "./compositions/LandsMark/LandsMark";
 export * from "./compositions/LessonCard/LessonCard";
 export * from "./compositions/LessonList/LessonList";
 export * from "./compositions/RetroSheet/RetroSheet";
+export * from "./compositions/MorningReview/MorningReview";
 
 // A Job's pause: the mark beside its badge, and the two confirms around it.
 export * from "./compositions/PausedMark/PausedMark";
 export * from "./compositions/PauseConfirm/PauseConfirm";
+export * from "./compositions/NowPanel/NowPanel";
+export * from "./compositions/SketchScene/SketchScene";
+export * from "./compositions/SketchScene/scene";
+export * from "./compositions/AskerView/AskerView";
 export * from "./compositions/OwnerChip/OwnerChip";
 export * from "./compositions/SessionFrame/SessionFrame";
 export * from "./compositions/SessionThread/SessionThread";
@@ -441,3 +449,6 @@ export * from "./compositions/SessionList/SessionList";
 export * from "./compositions/SessionComposer/SessionComposer";
 export * from "./compositions/PullRequestActs/PullRequestActs";
 export * from "./compositions/Pilot/Pilot";
+export * from "./compositions/ModRow/ModRow";
+export * from "./compositions/LayoutRow/LayoutRow";
+export * from "./compositions/PhonePairing/PhonePairing";

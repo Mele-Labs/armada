@@ -189,6 +189,7 @@ export function handleStudios({ ipc, connection, published, captureWindows }: Ho
   ipc.handle(CHANNELS.captureWindowFollowRefused, async (event) => {
     await barred(event)?.followRefused();
   });
+  ipc.handle(CHANNELS.captureWindowApprove, async (event) => (await barred(event)?.approve()) ?? unsent);
   ipc.on(CHANNELS.captureWindowScroll, (event, wheel: unknown) => {
     const said = (wheel ?? {}) as Record<string, unknown>;
     const at = (key: string): number => (typeof said[key] === "number" ? (said[key] as number) : 0);

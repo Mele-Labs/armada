@@ -1,0 +1,48 @@
+/* Derived from the Catppuccin Frappe terminal scheme by packages/tokens/themes/generate.mjs. Do not hand-edit.
+   Tone dark. foreground 6.4:1, accent 5.5:1 at the worst ground.
+   Lightness moved to reach 4.5:1: failed, success, running, escalated, not-started, killed. */
+[data-theme="catalogue:catppuccin-frappe"] {
+  color-scheme: dark;
+  /* Ground */
+  --bg-base: #303446;
+  --bg-sunken: #161923;
+  --bg-raised: #35394C;
+  --bg-overlay: #3A3E52;
+  --bg-hover: #3E4356;
+  --border-subtle: #3D4256;
+  --border-default: #474C61;
+  --border-strong: #555A71;
+  /* Foreground and accent */
+  --fg-default: #C6D0F5;
+  --fg-muted: #A9B1D3;
+  --fg-subtle: #A7B0D1;
+  --fg-inverse: #000000;
+  --accent: #ADC2F3;
+  --accent-hover: #B1C4F3;
+  --accent-muted: #495069;
+  /* Depth */
+  --bg-glass: rgb(53 57 76 / 0.86);
+  --bg-glass-end: rgb(48 52 70 / 0.86);
+  --border-glass: rgb(255 255 255 / 0.07);
+  --border-highlight: rgb(255 255 255 / 0.05);
+  /* Status */
+  --status-not-started: #C0C7E5;
+  --status-running: #A9C8FF;
+  --status-awaiting-review: #E5C890;
+  --status-escalated: #FAB79A;
+  --status-completed-success: #A8D38B;
+  --status-completed-failed: #FFB2B3;
+  --status-rejected: #F4B8E4;
+  --status-killed: #BFC7E6;
+  --status-handed-in: #A7CFC8;
+  /* Helm, tools, diff */
+  --helm: #D3BFED;
+  --tool-look: #81C8BE;
+  --tool-change: #F4B8E4;
+  --tool-run: #E5C890;
+  --diff-add-bg: #434D51;
+  --diff-add-fg: #A6D189;
+  --diff-del-bg: #4D4050;
+  --diff-del-fg: #FB9495;
+  --diff-context: #A9B1D3;
+}

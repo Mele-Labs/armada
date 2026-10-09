@@ -21,7 +21,7 @@ function steps(narrow: boolean): Step[] {
     ...row("Open Worktree slot 5", "The slot row opens the panel Cleanup's tiles open"),
     { look: sheet("slot-5"), say: "What the worktree holds, over the Session" },
     { press: close(sheet("slot-5")), say: "Back to the Session" },
-    { press: rail("Overview"), say: "Overview lists every Session, under its own heading" },
+    { press: rail("Sessions"), say: "Sessions lists every Session, under its own heading" },
     { look: inside(sessions, role("listitem", "Store migration spike")), say: "Each row shows its slot, its pull requests with their Checks, and its Jobs" },
     { type: "#1849", into: role("searchbox", "Search Sessions"), say: "A pull request number" },
     { look: inside(sessions, role("listitem", "Store migration spike")), say: "It finds the Session that owns it, and rings what matched" },

@@ -163,6 +163,16 @@ export const ModOutOfDate: Story = {
   },
 };
 
+/** A Session with items waiting on the person carries a hand whose tooltip lists them, and one without carries none. */
+export const WaitingOnYou: Story = {
+  args: { groups: [{ label: "Needs you", rows: [{ ...NOTES, waiting: ["Approve #1847", "Which prefix?"] }, FLAKY] }] },
+  play: async ({ canvas }) => {
+    const hands = canvas.getAllByRole("img", { name: /^Waiting on you:/ });
+    await expect(hands).toHaveLength(1);
+    await expect(hands[0]!.getAttribute("aria-label")).toBe("Waiting on you: Approve #1847; Which prefix?");
+  },
+};
+
 const VIEWS = [
   { id: "active", label: "Active" },
   { id: "quiet", label: "Quiet" },
@@ -190,5 +200,18 @@ export const Views: Story = {
     await userEvent.click(canvas.getByRole("tab", { name: "Ended" }));
     await expect(canvas.getByText("Trim the retry loop")).toBeInTheDocument();
     await expect(canvas.queryByText("Docs pass")).toBeNull();
+  },
+};
+
+/** Each row has the Retro press, an icon with no label. Pressing it names that row's Session; while its retro is written the mark moves and the press holds. */
+export const RetroPress: Story = {
+  args: {
+    onRetro: fn(),
+    groups: [{ label: "Running", rows: [LIVE, { ...NOTES, retroWriting: true }] }],
+  },
+  play: async ({ canvas, args }) => {
+    await userEvent.click(canvas.getByRole("button", { name: "Retro" }));
+    await expect(args.onRetro).toHaveBeenCalledWith("s4");
+    await expect(canvas.getByRole("button", { name: "Writing the retro" })).toBeDisabled();
   },
 };

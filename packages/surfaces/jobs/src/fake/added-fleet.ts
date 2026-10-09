@@ -95,15 +95,30 @@ export function removedFrom(detail: JobDetail, id: string): { detail: JobDetail 
   return { detail: { ...detail, additions: (detail.additions ?? []).filter((one) => one.id !== id) } };
 }
 
+/** `edit_job_step`, only before the step fires; a switch left out is left as it is. */
+export function editedIn(detail: JobDetail, id: string, next: { block?: boolean; repair?: boolean }): { detail: JobDetail; edited: AddedStep } | Outcome {
+  const row = (detail.additions ?? []).find((one) => one.id === id);
+  if (row === undefined) return refusedAs("fleet.no_such_addition", `this Job holds no addition \`${id}\``, { id });
+  if (row.state !== "pending") return refusedAs("fleet.added_step_fired", `\`${id}\` has fired, so it is part of what this Job did and stays as it was`, { id });
+  const edited = { ...row, block: next.block ?? row.block, repair: next.repair ?? row.repair };
+  return { detail: { ...detail, additions: (detail.additions ?? []).map((one) => (one.id === id ? edited : one)) }, edited };
+}
+
 /** Where an addition was kept, once the Trigger it became is written. */
 export function keptAs(detail: JobDetail, id: string, scope: TriggerScope): JobDetail {
   return { ...detail, additions: (detail.additions ?? []).map((one) => (one.id === id ? { ...one, kept: scope } : one)) };
 }
 
-/** A moment passing: each pending step is reached, and each running Script ends. A Skill and a Drone step get a Drone and stay running until it answers; a Script the repository does not declare is skipped. */
-export function advanced(detail: JobDetail, at: string, declared: readonly string[]): JobDetail | undefined {
+/** His Run on a Script that asked: it ran once and passed. */
+export const addedReran = (one: AddedStep, second: number): AddedStep => ({ ...one, state: "passed", exit_code: 0, ended_at: `2026-10-01T21:2${Math.floor(second / 60)}:${String(second % 60).padStart(2, "0")}.000Z` });
+
+/** His Skip: the step is skipped, and the reason is his. */
+export const addedSkippedByOwner = (one: AddedStep): AddedStep => ({ ...one, state: "skipped", skipped: { reason: "by_owner", said: "skipped by you while it held the Job" } });
+
+/** A moment passing: each pending step is reached, and each running Script ends. A Script on a `destructive` Command is reached and waits on the owner. A Skill and a Drone step get a Drone and stay running until it answers; a Script the repository does not declare is skipped. */
+export function advanced(detail: JobDetail, at: string, declared: readonly string[], destructive: readonly string[] = []): JobDetail | undefined {
   const rows = detail.additions ?? [];
-  if (rows.every((one) => one.state === "passed" || one.state === "skipped" || one.state === "failed" || one.repair_record !== undefined)) return undefined;
+  if (rows.every((one) => one.state === "passed" || one.state === "skipped" || one.state === "failed" || one.state === "awaiting_owner" || one.repair_record !== undefined)) return undefined;
   return {
     ...detail,
     additions: rows.map((one): AddedStep => {
@@ -114,6 +129,7 @@ export function advanced(detail: JobDetail, at: string, declared: readonly strin
         if (!declared.includes(one.runs.command)) {
           return { ...one, state: "skipped", skipped: { reason: "not_in_this_repo", said: `skipped: \`${one.runs.command}\` is not in this repo` }, ended_at: at };
         }
+        if (destructive.includes(one.runs.command)) return { ...one, state: "awaiting_owner", started_at: at };
         return { ...one, state: "running", started_at: at };
       }
       return one.state === "running" && one.repair_record === undefined ? { ...one, state: "passed", exit_code: 0, ended_at: at } : one;

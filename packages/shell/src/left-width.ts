@@ -1,6 +1,6 @@
 // The left column's resting width, remembered across a restart — the same
 // mechanism `dock-width.ts` uses for Helm's dock, one `localStorage` key per
-// resizable region. One key here too: Navigation, Stats and Fleet resize as
+// resizable region. One key here too: Navigation and Fleet resize as
 // one column, never three.
 
 import { useState } from "react";

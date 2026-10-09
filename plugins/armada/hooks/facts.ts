@@ -8,7 +8,14 @@ const TITLE_MOST = 80
  * repository's. **Bump it with `version` in `.claude-plugin/plugin.json`**: the mod cannot read that
  * file while it runs, and a Fleet test (`terminal_session.rs`) holds the two equal.
  */
-export const MOD_VERSION = '0.3.2'
+export const MOD_VERSION = '0.3.6'
+
+/** The `answers` map a question's answered input carries, keyed by question text. */
+export function answersIn(input: unknown): Record<string, string> {
+  const answers = (input as { answers?: unknown } | null)?.answers
+  if (typeof answers !== 'object' || answers === null) return {}
+  return Object.fromEntries(Object.entries(answers).filter(([, said]) => typeof said === 'string')) as Record<string, string>
+}
 
 /**
  * The web pages a shell line opens in the owner's browser: `open`, `xdg-open` or
@@ -100,6 +107,9 @@ export type GhAct = { act: 'create' | 'merge' | 'close'; number?: string }
 export function ghAct(command: string): GhAct | undefined {
   const hit = /\bgh\s+pr\s+(create|merge|close)\b([^|;&]*)/.exec(command)
   if (hit === null) return undefined
+  // `--auto` asks the forge to merge later, or puts it in the merge queue: nothing has merged
+  // yet, and Fleet's pull watch settles it when it does (#2027 read as merged, 8 Oct 2026).
+  if (hit[1] === 'merge' && /(?:^|\s)--auto(?:\s|$)/.test(hit[2])) return undefined
   const number = /(?:^|\s)#?(\d+)(?:\s|$)/.exec(hit[2])?.[1]
   return { act: hit[1] as GhAct['act'], number }
 }

@@ -126,6 +126,9 @@ where
     pub(crate) fn host(&self) -> &Local {
         &self.host
     }
+    pub(crate) fn mods(&self) -> &crate::mods::Told {
+        &self.mods
+    }
     pub(crate) fn budget(&self) -> CheckBudget {
         self.budget
     }
@@ -186,6 +189,11 @@ where
     }
     pub(crate) fn heals(&self) -> &std::sync::Mutex<crate::healing::Heals> {
         &self.heals
+    }
+    pub(crate) fn owner_runs(
+        &self,
+    ) -> &std::sync::Mutex<std::collections::BTreeSet<crate::trigger_repair::Subject>> {
+        &self.owner_runs
     }
     pub(crate) fn trigger_repairs(&self) -> &std::sync::Mutex<crate::trigger_repair::Queue> {
         &self.trigger_repairs
@@ -421,6 +429,9 @@ where
     }
     pub(crate) fn helm(&self) -> &crate::helm::Conversations {
         &self.helm
+    }
+    pub(crate) fn building(&self) -> &crate::building::Building {
+        &self.building
     }
     pub(crate) fn spared(&self) -> &crate::releasing::Spared {
         &self.spared

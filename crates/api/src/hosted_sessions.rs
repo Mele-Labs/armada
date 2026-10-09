@@ -54,6 +54,67 @@ pub(crate) async fn answer_session_ask<D: HostedSessions>(
     }
 }
 
+/// The person settles one thing a session waits on. 200 with the row; 409 where nothing holds it.
+pub(crate) async fn answer_waiting<D: HostedSessions>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let said: ipc::AnswerWaiting = match ipc::decode("an answer to what a session waits on", &body) {
+        Ok(said) => said,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().answer_waiting(said).await {
+        Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// The person drops one thing a session waits on for good. 200 with the row; 409 where nothing holds it.
+pub(crate) async fn dismiss_waiting<D: HostedSessions>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let dismiss: ipc::DismissWaiting = match ipc::decode("a dismissal of what a session waits on", &body) {
+        Ok(dismiss) => dismiss,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().dismiss_waiting(dismiss).await {
+        Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// Whether sleep mode is on and what the night holds.
+pub(crate) async fn get_sleep<D: HostedSessions>(State(served): State<Served<D>>) -> Response {
+    match served.daemon().get_sleep().await {
+        Ok(state) => answer(StatusCode::OK, &state, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+pub(crate) async fn set_sleep<D: HostedSessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let set: ipc::SetSleep = match ipc::decode("a sleep switch", &body) {
+        Ok(set) => set,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().set_sleep(set).await {
+        Ok(state) => answer(StatusCode::OK, &state, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// The owner corrects one decision. 200 with the night; 409 where no decision holds the id.
+pub(crate) async fn override_sleep<D: HostedSessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let over: ipc::OverrideSleep = match ipc::decode("a correction of a sleep decision", &body) {
+        Ok(over) => over,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().override_sleep(over).await {
+        Ok(state) => answer(StatusCode::OK, &state, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 pub(crate) async fn tune_session<D: HostedSessions>(
     State(served): State<Served<D>>,
     body: Bytes,
@@ -162,6 +223,22 @@ pub(crate) async fn take_held_messages<D: HostedSessions>(
     };
     match served.daemon().take_held_messages(ask).await {
         Ok(held) => answer(StatusCode::OK, &held, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// The terminal session's mod, putting a question to Bridge. Held open until
+/// it is answered, so it ends when the person does.
+pub(crate) async fn ask_from_terminal<D: HostedSessions>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let ask: ipc::TerminalAsk = match ipc::decode("a terminal session's question", &body) {
+        Ok(ask) => ask,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().ask_from_terminal(ask).await {
+        Ok(asked) => answer(StatusCode::OK, &asked, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }

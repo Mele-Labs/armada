@@ -393,3 +393,20 @@ describe("a session nothing can be said to", () => {
     expect(sessionOfRecord(fork, undefined, beside()).attachments).toEqual([{ kind: "forked_from", id: "old" }]);
   });
 });
+
+describe("what a session waits on", () => {
+  const items: NonNullable<SessionRecord["waiting_for"]> = [
+    { id: "a1", text: "Run the tests", since: AT, source: "agent", act: { kind: "run", target: "cargo test" } },
+    { id: "ask:c1", text: "Which clock?", since: AT, source: "ask_card", act: { kind: "answer", target: "c1" }, options: [{ label: "Fake" }] },
+  ];
+
+  it("carries Fleet's merged list onto the session, with its choices", () => {
+    const session = sessionOfRecord(record("a", { waiting_for: items }), undefined, beside());
+    expect(session.waitingFor).toEqual(items);
+  });
+
+  it("carries none for a session with an empty list or one that ended", () => {
+    expect(sessionOfRecord(record("a"), undefined, beside()).waitingFor).toBeUndefined();
+    expect(sessionOfRecord(record("a", { state: "ended", waiting_for: items }), undefined, beside()).waitingFor).toBeUndefined();
+  });
+});

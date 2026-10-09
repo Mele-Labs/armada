@@ -14,6 +14,7 @@
 // fields, `ProposalTiers` the tiers and cap, `ProposalDoneWhen` the criteria.
 
 import { useState } from "react";
+import { stepThatWorksTheGroups } from "./workflow-canvas";
 import type { ReactNode } from "react";
 import { useAtFloor } from "@armada/shell";
 
@@ -163,6 +164,8 @@ export type ApprovalCanvasProps = ApprovingProps & {
    * Absent is the gate itself. Drawn with no `onEdits`, so every card reads.
    */
   life?: LifeRead;
+  /** The steps the Now panel's rows belong to: every other step stands back. Absent dims nothing. */
+  lit?: ReadonlySet<string>;
   /** Past the gate, a Job frozen with no landing target is given one, once: `set_landing_target` (23.22). */
   onSetLandingTarget?: (target: string) => Promise<Outcome>;
   /** The harnesses a Drone may run under, `ModelChoices.harnesses`. The first is the default. Absent draws none. */
@@ -194,6 +197,7 @@ export type ApprovalCanvasProps = ApprovingProps & {
 
 export function ApprovalCanvas({
   life,
+  lit,
   onOpenJob,
   onSetLandingTarget,
   harnesses = [],
@@ -216,6 +220,7 @@ export function ApprovalCanvas({
   machineCap,
 }: ApprovalCanvasProps) {
   const [open, setOpen] = useState<string | null>(null);
+  const groupsAt = stepThatWorksTheGroups(whole);
   const floor = useAtFloor();
   // At the gate a step is held in the edits until the press; past it, Fleet's.
   const added = useAddedSteps(
@@ -516,7 +521,18 @@ export function ApprovalCanvas({
       aria-label={life === undefined ? "What you are approving" : "This Job's run"}
     >
       <WorkflowCanvas
-        nodes={[...backdrops, ...placed, ...extra, ...branch.nodes]}
+        nodes={[...backdrops, ...placed, ...extra, ...branch.nodes].map((node) => {
+          if (lit === undefined || lit.size === 0 || node.backdrop === true) return node;
+          // **A node stays lit when a Now row belongs to its step**, and so do the pills hanging on it
+          // (`implement:checks`) and the plan's groups and tasks under the step that works them.
+          // Every other node stands back, whatever it is (owner, 8 Oct 2026).
+          const head = node.id.split(":")[0] ?? node.id;
+          const owner = head === "group" || head === "task" ? groupsAt : head;
+          if (owner !== undefined && lit.has(owner)) return node;
+          return node.drawn === undefined
+            ? { ...node, card: { ...node.card, dimmed: true } }
+            : { ...node, drawn: <div className="armada-now-dimmed">{node.drawn}</div> };
+        })}
         edges={drawnEdges}
         label="Run"
         runsDown

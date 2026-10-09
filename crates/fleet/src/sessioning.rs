@@ -145,10 +145,12 @@ where
             let terminals = self.hosts().terminals();
             let listening =
                 session.state == store::SessionState::Live && terminals.listening(&session.id);
-            record.terminal = match (terminals.facts_of(&session.id), listening) {
-                (None, false) => None,
-                (facts, _) => Some(ipc::TerminalFacts {
+            let asked = self.hosts().of(&session.id).state().asked.clone();
+            record.terminal = match (terminals.facts_of(&session.id), listening, asked) {
+                (None, false, None) => None,
+                (facts, _, asked) => Some(ipc::TerminalFacts {
                     listening,
+                    asked,
                     ..facts.unwrap_or_default()
                 }),
             };
@@ -159,6 +161,9 @@ where
                 .hosted_facts(store, &session.id)
                 .map_err(|why| self.ledger_fault(why))?;
         }
+        record.waiting_for = self
+            .waiting_items(store, session, &record.attachments)
+            .map_err(|why| self.ledger_fault(why))?;
         Ok(record)
     }
 
@@ -193,12 +198,13 @@ where
         store: &mut Store,
         holder: &Holder,
         placed: &Placed,
+        roots: &[(String, String)],
         now: &str,
     ) -> Result<bool, store::WriteError> {
         let (Some(manifest), Some(slot)) = (&placed.manifest, placed.slot) else {
             return store.give_back(holder, Some("slot"), now);
         };
-        store.attach(
+        let mut changed = store.attach(
             &KeptAttachment {
                 holder: holder.clone(),
                 kind: "slot".into(),
@@ -210,7 +216,30 @@ where
                 changed_at: now.into(),
             },
             true,
-        )
+        )?;
+        // The slot's lease names the branch worked in it, which is the branch a
+        // pull request from it is found by.
+        let branch = roots
+            .iter()
+            .find(|(id, _)| id == manifest)
+            .map(|(_, root)| adapter_traits::slot_path(root.trim_end_matches('/'), slot))
+            .and_then(|at| adapters::leasing::branch_of(std::path::Path::new(&at)));
+        if let Some(branch) = branch {
+            changed |= store.attach(
+                &KeptAttachment {
+                    holder: holder.clone(),
+                    kind: "branch".into(),
+                    manifest_id: manifest.clone(),
+                    target: branch,
+                    state: AttachmentState::Standing,
+                    detail: Default::default(),
+                    since: now.into(),
+                    changed_at: now.into(),
+                },
+                true,
+            )?;
+        }
+        Ok(changed)
     }
 }
 
@@ -240,6 +269,7 @@ where
         let mut store = self.store().lock().await;
         let kept = store.session(&id).map_err(fault)?;
         let mut changed = kept.is_none();
+        let mut ended = false;
         let mut session = kept.unwrap_or_else(|| KeptSession {
             id: id.clone(),
             harness: report.harness.clone(),
@@ -281,7 +311,7 @@ where
                 if let Some(title) = title.filter(|_| session.title.is_none()) {
                     session.title = Some(title);
                 }
-                Self::stand_in_slot(&mut store, &holder, &place, &now).map_err(fault)?;
+                Self::stand_in_slot(&mut store, &holder, &place, &roots, &now).map_err(fault)?;
                 changed = true;
             }
             SessionFact::Moved { cwd } => {
@@ -289,7 +319,7 @@ where
                     let place = placed(&cwd, &roots);
                     session.cwd = cwd;
                     session.manifest_id = place.manifest.clone();
-                    Self::stand_in_slot(&mut store, &holder, &place, &now).map_err(fault)?;
+                    Self::stand_in_slot(&mut store, &holder, &place, &roots, &now).map_err(fault)?;
                     changed = true;
                 }
             }
@@ -357,6 +387,7 @@ where
                         mode,
                         commands,
                         listening: false,
+                        asked: None,
                     },
                 );
             }
@@ -368,6 +399,7 @@ where
             // it going away is a process ending, and the next message resumes.
             SessionFact::Ended { .. } if session.origin == "bridge" => {}
             SessionFact::Ended { reason } => {
+                ended = true;
                 changed |= session.state != store::SessionState::Ended;
                 session.state = store::SessionState::Ended;
                 session.ended_at = Some(now.clone());
@@ -380,10 +412,22 @@ where
         store.keep_session(&session).map_err(fault)?;
         let record = self.ledger_row(&store, &session)?;
         drop(store);
+        if ended {
+            // Its terminal prompt went with it, so Bridge must not offer the card.
+            self.terminal_ask_closed(&session.id, ipc::SessionAskState::Unanswered).await;
+        }
         if changed {
             self.publish(ipc::Event::SessionChanged(record.clone()));
         }
         Ok(record)
+    }
+
+    async fn claim_pull_request(
+        &self,
+        caller: Option<api::Caller>,
+        claim: ipc::ClaimPullRequest,
+    ) -> Result<ipc::PullRequestClaimed, Refusal> {
+        self.pull_request_claimed(caller, claim).await
     }
 
     async fn show_window(
@@ -443,6 +487,14 @@ where
         )
         .await;
         Ok(record)
+    }
+
+    async fn waiting_for(
+        &self,
+        caller: Option<api::Caller>,
+        set: ipc::SetWaitingFor,
+    ) -> Result<SessionRecord, Refusal> {
+        self.set_waiting(caller, set).await
     }
 
     async fn rename_session(&self, rename: ipc::RenameSession) -> Result<SessionRecord, Refusal> {
@@ -663,5 +715,6 @@ fn session_wire(session: &KeptSession, held: &[KeptAttachment]) -> SessionRecord
         hosted: None,
         terminal: None,
         mod_out_of_date: false,
+        waiting_for: Vec::new(),
     }
 }

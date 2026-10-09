@@ -231,9 +231,14 @@ fn the_bell_on_a_row_names_the_trigger_and_where_it_fired() {
     let text = encode(&row).expect("encodes");
     let back: crate::JobSummary = decode("a row", text.as_bytes()).expect("decodes");
     assert_eq!(back, row);
-    for kind in [JobAlertKind::FixReady, JobAlertKind::Failed] {
+    for kind in [
+        JobAlertKind::Asks,
+        JobAlertKind::FixReady,
+        JobAlertKind::Failed,
+    ] {
         assert!(encode(&kind).expect("encodes").starts_with('"'));
     }
+    assert_eq!(encode(&JobAlertKind::Asks).expect("encodes"), r#""asks""#);
 }
 
 #[test]

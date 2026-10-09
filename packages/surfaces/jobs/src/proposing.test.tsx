@@ -24,27 +24,28 @@ unmountAfterEach();
 // Core and Jobs only: the surface's own members, and the scenario answers the rest.
 const SLICES = { slices: ["core", "jobs"] } as const;
 
-/** Every row on screen drawing the proposing badge, by the registry's own verb. */
+/** Every Job being proposed, as the Cockpit's Active filter draws it: one tile each. */
 function proposingRows(): HTMLElement[] {
-  return rows().filter((row) => row.textContent?.includes("proposing") === true);
+  return rows().filter((row) => row.dataset.status === "proposing");
 }
 
-/** Every cell of one row's field run, in the order the columns name them. */
-function cells(row: HTMLElement): HTMLElement[] {
-  return [...row.querySelectorAll<HTMLElement>(".armada-job-row__field")];
+/** Active, where a Job being proposed is under way. */
+async function onRunning(): Promise<void> {
+  await userEvent.click(page.getByRole("tab", { name: "Active" }));
 }
 
-/** One row's own cell under a named column, by the label the card stacks over it. */
-function cell(row: HTMLElement, label: string): HTMLElement | undefined {
-  return cells(row).find(
-    (field) => field.querySelector(".armada-job-row__field-label")?.textContent === label,
-  );
+/** A press picks a tile; the Open act under the picked tile opens it. */
+async function open(row: HTMLElement): Promise<void> {
+  await userEvent.click(row);
+  const act = [...row.querySelectorAll<HTMLElement>("button")].find((one) => /^Open/.test(one.getAttribute("aria-label") ?? one.textContent ?? ""));
+  await userEvent.click(act!);
 }
 
 describe("a dispatched request is a row", () => {
   test("two requests dispatched at once are two rows, each carrying what was typed", async () => {
     mount("arc/proposing-dispatched", SLICES);
     await listed();
+    await onRunning();
     await expect.poll(() => proposingRows().length).toBe(2);
     // The title is the request, because nobody wrote a title — the proposer
     // answers one, and it has not answered.
@@ -53,50 +54,24 @@ describe("a dispatched request is a row", () => {
     expect(said.some((one) => one.includes("Say which of the two was given back"))).toBe(true);
   });
 
-  test("the row reads the registry's verb and carries its glyph", async () => {
+  test("picked, the pane says it is being proposed", async () => {
     mount("arc/proposing-dispatched", SLICES);
     await listed();
-    const row = proposingRows()[0]!;
-    // `enum-verbs.toml` spells the word and names the glyph; nothing here does.
-    const badge = row.querySelector(".armada-badge");
-    expect(badge?.textContent).toContain("proposing");
-    expect(badge?.querySelector("svg"), "the badge drew its verb with no glyph").not.toBeNull();
+    await onRunning();
+    await expect.poll(() => proposingRows().length).toBeGreaterThan(0);
+    await userEvent.click(proposingRows()[0]!);
+    await expect.element(page.getByRole("article").getByText("proposing").first()).toBeVisible();
   });
 
-  test("the workflow still settling blinks, and the two it never settles are empty, heading and all", async () => {
+  test("the workflow still settling draws no step in its place", async () => {
     mount("arc/proposing-dispatched", SLICES);
     await listed();
+    await onRunning();
+    await expect.poll(() => proposingRows().length).toBeGreaterThan(0);
     const row = proposingRows()[0]!;
-    const running = rows().find((one) => one.textContent?.includes("running") === true)!;
-
-    // **Every cell is still there**, because the columns are the list's and a
-    // dropped field shifts every one behind it.
-    expect(cells(row), "the row lost a cell, which shifts every column behind it").toHaveLength(
-      cells(running).length,
-    );
-    // **The workflow is the proposer's to settle, and it has not**: a blinking
-    // caret under its heading, named on hover (the owner's `text-cursor`, 3 Oct
-    // 2026). A state is never text, so the cell prints no word for it.
-    const workflow = cell(row, "Workflow");
-    expect(workflow, "the Workflow column lost its heading over the caret").toBeDefined();
-    expect(
-      workflow?.querySelector('[role="img"][aria-label="Workflow, still being settled"]'),
-      "the Workflow column drew no settling caret",
-    ).not.toBeNull();
-    // **And the two it has no fact for say nothing at all** — no value, and
-    // no heading standing over the blank. Read by position, since the label
-    // that used to name each is exactly what is gone.
-    for (const at of [1, 2]) {
-      const under = cells(row)[at]!;
-      const named = cells(running)[at]?.querySelector(".armada-job-row__field-label")?.textContent;
-      expect(under.textContent?.trim(), `${named ?? at} said something about a fact this Job has none of`).toBe("");
-      expect(
-        under.querySelector(".armada-job-row__field-label"),
-        `${named ?? at} left its heading over a blank`,
-      ).toBeNull();
-    }
-    // And the one it does have a fact for still says it, under its own name.
-    expect(cell(row, "Dispatched by")?.textContent).toContain("Dispatched by");
+    // **The workflow is the proposer's to settle, and it has not**: the tile
+    // draws no pips, because a step standing in for it would be a guess.
+    expect(row.querySelector('ol[aria-label="Steps"]'), "a step drew before the workflow settled").toBeNull();
   });
 });
 
@@ -104,8 +79,9 @@ describe("coming back to one", () => {
   test("the row opens the Job, and its page says a model is reading the request", async () => {
     mount("arc/proposing-dispatched", SLICES);
     await listed();
-    const row = proposingRows()[0]!;
-    await userEvent.click(row);
+    await onRunning();
+    await expect.poll(() => proposingRows().length).toBeGreaterThan(0);
+    await open(proposingRows()[0]!);
 
     await expect
       .element(page.getByText("A model is reading the request"))
@@ -162,6 +138,7 @@ describe("where the press leaves you", () => {
   test("Dispatch leaves the composer, opens nothing, and the request is on the Board", async () => {
     mount("every-state", SLICES);
     await listed();
+    await onRunning();
     const before = rows().length;
 
     await page.getByRole("button", { name: "Dispatch", exact: true }).first().click();
@@ -261,7 +238,8 @@ function settle(
  */
 async function opened(): Promise<void> {
   await listed();
-  await userEvent.click(settling());
+  await onRunning();
+  await open(settling());
   await expect.element(page.getByText("A model is reading the request")).toBeVisible();
 }
 
@@ -281,22 +259,15 @@ function settling(): HTMLElement {
 }
 
 describe("a proposal fills in as it is written", () => {
-  test("the workflow lands first, and its column gets back both the heading and the value", async () => {
+  test("the workflow lands first, and its steps come onto the tile", async () => {
     mount("arc/proposing-workflow-landed", SLICES);
     await listed();
+    await onRunning();
     const row = settling();
 
-    // The one of the three columns that fills before the Job is approved: the
-    // workflow is chosen during `proposing` and frozen on the way out of it.
-    expect(cell(row, "Workflow")?.textContent, "the Workflow column stayed blank").toContain(
-      "Workflow",
-    );
-    expect(cell(row, "Workflow")?.textContent).toContain("feature");
-    // And the two that have nothing yet still have nothing: the step machine is
-    // initialised at `proposing -> awaiting_approval`, and nothing has run.
-    for (const at of [1, 2]) {
-      expect(cells(row)[at]?.textContent?.trim()).toBe("");
-    }
+    // The workflow is chosen during `proposing` and frozen on the way out of it,
+    // so its steps are what the tile draws once it lands.
+    expect(row.querySelector('ol[aria-label="Steps"]'), "the tile drew no steps").not.toBeNull();
     // The title is still the request, because the title has not landed.
     expect(row.textContent).toContain(SECOND_REQUEST_SAYS);
   });
@@ -304,6 +275,7 @@ describe("a proposal fills in as it is written", () => {
   test("the request standing in for the title reads as words, not as the markdown it was typed in", async () => {
     mount("arc/proposing-workflow-landed", SLICES);
     await listed();
+    await onRunning();
     const row = settling();
     // The request carries a bold word and a code span — `arc-proposing.ts`.
     expect(row.textContent).toContain("the worktree alone");
@@ -315,6 +287,7 @@ describe("a proposal fills in as it is written", () => {
   test("the title lands second, and the row says it", async () => {
     mount("arc/proposing-title-landed", SLICES);
     await listed();
+    await onRunning();
     expect(settling().textContent).toContain(PROPOSED_TITLE);
   });
 
@@ -352,6 +325,7 @@ describe("a proposal fills in as it is written", () => {
   test("a settings line that named no model says nothing about one, and the Job keeps configuration's", async () => {
     mount("arc/proposing-model-left-to-configuration", SLICES);
     await listed();
+    await onRunning();
     // **Absent stays absent.** Nothing stands in for a model the proposer
     // declined to name: the Job reaches configuration's choice, which is what
     // the row was already carrying.
@@ -394,10 +368,10 @@ describe("a proposal fills in as it is written", () => {
     settle(fleet, idOf(fleet), { workflow_id: "feature" }, { status: "escalated" });
     fleet.publish({ proposing: null });
 
-    // `enum-verbs.toml` spells `escalated` as **needs you**, and the badge is
-    // read through the registry here as everywhere else.
+    // `escalated` needs a person, so the Job is on Your move now.
+    await userEvent.click(page.getByRole("tab", { name: "Your move" }));
     await expect
-      .poll(() => rows().some((one) => one.textContent?.includes("needs you") === true))
+      .poll(() => rows().some((one) => one.dataset.status === "escalated" && one.textContent?.includes(SECOND_REQUEST_SAYS) === true))
       .toBe(true);
     const row = rows().find((one) => one.textContent?.includes(SECOND_REQUEST_SAYS) === true)!;
     // **The row is still readable as words somebody wrote.** A title that never

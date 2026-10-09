@@ -585,6 +585,9 @@ where
             .map(ipc::Instant::from);
         // A client replaces the row with this one, so it keeps its task counts.
         summary.tasks = self.task_counts(&noticed.job).await?;
+        if state == Settled::Merged {
+            self.sleep_landed(job.handle(), job.title().as_str().to_string(), url).await;
+        }
         self.publish(ipc::Event::JobLanded(ipc::JobLanded {
             job: summary,
             pull_request: url.clone(),

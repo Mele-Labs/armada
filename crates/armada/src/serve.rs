@@ -74,9 +74,8 @@ pub const MCP_FILE: &str = "mcp.json";
 /// yet. Fleet's own port was provisional in the same sense and is not any
 /// more — it is leased, per `fleet::listener`.
 ///
-/// Fleet's choice and never Fleet's own. A Drone that inherited the operator's
-/// `PATH` would find a different toolchain on two machines, and a different one
-/// again after a shell profile changes.
+/// The system directories, always last. Fleet's own `PATH` (the operator's)
+/// goes before them since 8 Oct 2026: see [`drone_path_with`].
 const PROVISIONAL_DRONE_PATH: &[&str] = &[
     "/usr/local/bin",
     "/opt/homebrew/bin",
@@ -642,6 +641,8 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
                 events.clone(),
                 fleet::merge_lines::EVERY,
             );
+            // The mods folder, rescanned so a mod a session wrote reaches Bridge.
+            fleet::mods::keep_reading(Arc::clone(&fleet), fleet::mods::EVERY);
             // Stale build output, trimmed in every checkout of each served repository.
             fleet::sweeping::keep_sweeping(
                 Arc::clone(&fleet),
@@ -770,7 +771,7 @@ struct MachineFacts {
 fn machine_facts() -> Result<MachineFacts, Box<dyn Error>> {
     let home = std::env::var("HOME")?;
     let user = std::env::var("USER")?;
-    let path = drone_path(&home);
+    let path = drone_path_with(&home, &std::env::var("PATH").unwrap_or_default());
     // Unset is the ordinary case and the adapter's default answers it. Set and
     // wrong is somebody having tried to point Fleet at something, and is
     // refused here — before the port, before the runtime file.
@@ -833,6 +834,11 @@ fn assemble(
     let walk_frames_dir = machine.join("walks");
     std::fs::create_dir_all(&walk_frames_dir)?;
 
+    // The mods, one folder each. Made here so a person has somewhere to look; a
+    // session that scaffolds one makes it again if it is gone.
+    let mods_dir = machine.join("mods");
+    std::fs::create_dir_all(&mods_dir)?;
+
     // The Evidence server alone, for a spawn that cannot name the Manifest it
     // is serving — `fleet::spawning` writes this file's Manifest-resolved
     // sibling for every spawn that can. The path is `api`'s own constant rather
@@ -874,6 +880,7 @@ fn assemble(
             keepers_dir: keepers_dir.to_string_lossy().to_string(),
             studio_frames_dir: studio_frames_dir.to_string_lossy().to_string(),
             walk_frames_dir: walk_frames_dir.to_string_lossy().to_string(),
+            mods_dir: mods_dir.to_string_lossy().to_string(),
             kit_home,
             // `judge_binary`'s reason: the same override reaches Helm's host.
             // `#943`.
@@ -961,11 +968,28 @@ const PER_USER_DRONE_PATH: &[&str] = &[".cargo/bin", ".local/bin"];
 ///
 /// Assembled rather than inherited. Adding an entry is a deliberate edit here,
 /// which is the point — the list is a diff, not a default.
+#[cfg(test)]
 pub(crate) fn drone_path(home: &str) -> String {
+    drone_path_with(home, "")
+}
+
+/// [`drone_path`] with Fleet's own `PATH` between the per-user and the system
+/// directories. **The owner's toolchain, as his shell has it** (8 Oct 2026):
+/// a Session started without nvm, pnpm or mise on its `PATH` went looking with
+/// `find /`, and its context7 and gitnexus servers did not start. He chose that
+/// Drones load all his user settings; their `PATH` follows. Fleet's `PATH` is
+/// the one `scripts/restart` wrote from his shell. Relative entries and
+/// repeats are dropped.
+pub(crate) fn drone_path_with(home: &str, inherited: &str) -> String {
     let mut entries: Vec<String> = PER_USER_DRONE_PATH
         .iter()
         .map(|dir| format!("{home}/{dir}"))
         .collect();
+    for dir in inherited.split(':').filter(|dir| dir.starts_with('/')) {
+        if !entries.iter().any(|had| had == dir) && !PROVISIONAL_DRONE_PATH.contains(&dir) {
+            entries.push(dir.to_string());
+        }
+    }
     entries.extend(PROVISIONAL_DRONE_PATH.iter().map(|dir| dir.to_string()));
     entries.join(":")
 }

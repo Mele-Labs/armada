@@ -143,3 +143,29 @@ fn a_drones_path_puts_the_per_user_directories_before_the_system_ones() {
         ["/home/user/.cargo/bin", "/home/user/.local/bin"]
     );
 }
+
+/// The owner's own toolchain (nvm, pnpm, mise) comes through from Fleet's
+/// `PATH`, after the per-user directories and before the system ones.
+#[test]
+fn a_drones_path_carries_fleets_own_path_between_per_user_and_system() {
+    let path = crate::serve::drone_path_with(
+        "/home/user",
+        "/home/user/.local/share/mise/shims:relative:/usr/bin:/home/user/.nvm/versions/node/v24/bin:/home/user/.cargo/bin",
+    );
+    let entries: Vec<&str> = path.split(':').collect();
+    assert_eq!(
+        entries,
+        [
+            "/home/user/.cargo/bin",
+            "/home/user/.local/bin",
+            "/home/user/.local/share/mise/shims",
+            "/home/user/.nvm/versions/node/v24/bin",
+            "/usr/local/bin",
+            "/opt/homebrew/bin",
+            "/usr/bin",
+            "/bin",
+            "/usr/sbin",
+            "/sbin",
+        ]
+    );
+}

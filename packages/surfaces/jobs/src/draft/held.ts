@@ -16,7 +16,9 @@ import type { DroneView } from "./drone";
 import type { GroupView } from "./group";
 import type { LandingRule } from "./landing";
 import type { LedgerRow } from "./ledger";
+import type { CallView } from "./calls";
 import type { JobMembersView } from "./members";
+import type { NowView } from "./now";
 import type { ProposalView } from "./proposal";
 import type { WaveView } from "./wave";
 
@@ -83,4 +85,15 @@ export type JobDraft = {
    * names no task.
    */
   drones?: readonly DroneView[];
+  /**
+   * What the Dashboard's calls carry beyond the Board, by Job id. **A Job absent here is drawn from
+   * the Board alone**, which is every real Job until Fleet publishes the reads behind it.
+   */
+  calls?: Readonly<Record<string, CallView>>;
+  /**
+   * What the Now panel beside the Overview canvas draws, by Job id. **A Job
+   * absent here draws what Fleet serves** (`now-real.ts`), so an entry only
+   * adds what the wire cannot: the Plan interview, issues and sketches.
+   */
+  now?: Readonly<Record<string, NowView>>;
 };

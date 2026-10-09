@@ -128,12 +128,16 @@ export function leavesOf(
   }
   // The latest firing of each Trigger that grew no branch and holds no one: a mark with its state.
   const latest = new Map<string, SideBranch>();
-  for (const one of triggers) if (one.addition === undefined) latest.set(keyOf(one), one);
+  // A step added to the Job is drawn here only while it waits on him to run it; its repair is the branch above.
+  for (const one of triggers) {
+    if (one.addition === undefined) latest.set(keyOf(one), one);
+    else if (one.state === "awaiting_owner") latest.set(`addition|${one.addition}`, one);
+  }
   const held = new Set((on?.holds ?? []).map((one) => one.key));
   for (const [key, one] of latest) {
     const anchor = anchorId(one);
     if (anchor === undefined || held.has(key) || repairPhase(one) !== "none") continue;
-    leaves.push({ id: `leaf:${key}`, anchor, height: ROW_HEIGHT, flowing: false, asking: false, drawn: <TriggerLeaf trigger={one} {...(openLog === undefined ? {} : { onOpenLog: openLog })} /> });
+    leaves.push({ id: `leaf:${key}`, anchor, height: ROW_HEIGHT, flowing: false, asking: false, drawn: <TriggerLeaf trigger={one} {...(openLog === undefined ? {} : { onOpenLog: openLog })} {...(on === undefined ? {} : holdAct(on, jobId))} /> });
   }
   return leaves;
 }

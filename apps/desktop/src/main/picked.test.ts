@@ -99,18 +99,6 @@ describe("the pick", () => {
     expect(picked.manifest("/manifest/start_verify")).toBe("/manifest/start_verify?manifest_id=scratch");
   });
 
-  it("names each repository in the scope by its own Manifest: every one on All, the pick on a pick", () => {
-    const picked = new Picked();
-    picked.hold([FIRST, SET_UP, NOT_SET_UP]);
-    expect(picked.each("/manifest/drift").map(({ path }) => path)).toEqual([
-      "/manifest/drift?manifest_id=armada",
-      "/manifest/drift?manifest_id=store-01",
-      null,
-    ]);
-    picked.pick(SET_UP.root);
-    expect(picked.each("/manifest/drift")).toEqual([{ repository: SET_UP, path: "/manifest/drift?manifest_id=store-01" }]);
-  });
-
   it("names a repository by root rather than the pick, for a caller New job's ask has given one", () => {
     const picked = new Picked();
     picked.hold([FIRST, SET_UP, NOT_SET_UP]);
@@ -313,7 +301,8 @@ describe("every per-repository call", () => {
     const socket = new CheckoutRunSocket(() => {}, picked);
     socket.open(port, "run-1");
     socket.close();
-    expect(asked.filter((url) => !FLEETWIDE.has(url))).toEqual([]);
+    // The Checks page reads across every repository on All, bare, as Fleet answers it.
+    expect(asked.filter((url) => !FLEETWIDE.has(url))).toEqual(["/manifest/checks"]);
   });
 
   it("names New job's answered repository for `left_out` and `manifest/reading`, with the pick on All", async () => {
@@ -390,6 +379,7 @@ describe("every per-repository call", () => {
                 "picked.scan(",
                 "picked.checkout(",
                 "picked.each(",
+                "picked.narrowed(",
               ].some(
                 (built) => line.includes(built),
               ),

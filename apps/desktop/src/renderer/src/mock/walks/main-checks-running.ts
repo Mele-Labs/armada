@@ -14,6 +14,7 @@ const LANDED = inside(MERGE, role("list", "Recently landed"));
 const LOG = dialog("Check log");
 
 export const mainChecksRunning = walk("main-checks-running", [
+  { press: role("button", "Merge line", { exact: true }), say: "The merge line" },
   // Main is red at #1812, and nothing is running on top of it.
   { look: RED, say: "Main is red: nothing newer is running, so the red band offers its two ways" },
   { look: inside(RED, button("Dispatch a new Job")), say: "A new Job, or an earlier one, as before" },

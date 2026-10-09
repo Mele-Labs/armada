@@ -44,3 +44,50 @@ test("mock hold: a Trigger that is only being repaired holds nothing: it does no
   const id = document.querySelector("[data-armada-open-job]")?.getAttribute("data-armada-open-job") ?? "";
   expect(refusedWith(await window.armada.rerunTrigger(id, { trigger: "deploy_qa" }))).toContain("fleet.no_hold");
 });
+
+test("mock asks: the Board row rings, Run on the leaf passes the Command once and the bell goes", async () => {
+  mount("real/job-2-trigger-asks");
+  await onScreen();
+  // The Job asks, so a call comes forward over the Dashboard; its Open Job opens the Job.
+  await expect.element(page.getByRole("region", { name: /^Job:/ })).toBeVisible();
+  await page.getByRole("button", { name: /^Open Job/ }).click();
+  await page.getByRole("button", { name: "Run", exact: true }).click();
+  await expect.element(page.getByRole("button", { name: "Run", exact: true })).not.toBeInTheDocument();
+  await expect.element(page.getByRole("img", { name: "Alert" })).not.toBeInTheDocument();
+  const id = document.querySelector("[data-armada-open-job]")?.getAttribute("data-armada-open-job") ?? "";
+  expect(refusedWith(await window.armada.rerunTrigger(id, { trigger: "wipe_qa" }))).toContain("fleet.no_hold");
+});
+
+test("mock asks: Skip records the firing skipped by the owner and the bell goes", async () => {
+  mount("real/job-2-trigger-asks");
+  await onScreen();
+  await page.getByRole("button", { name: /^Open Job/ }).click();
+  await page.getByRole("button", { name: "Skip", exact: true }).first().click();
+  await expect.element(page.getByRole("img", { name: /wipe_qa. was skipped by the owner/ }).first()).toBeVisible();
+  await expect.element(page.getByRole("img", { name: "Alert" })).not.toBeInTheDocument();
+});
+
+test("mock asks: a step added to the Job on a destructive Command rings the row, and Run on its leaf passes it once", async () => {
+  mount("real/job-2-added-step-asks");
+  await onScreen();
+  // The Job asks, so a call comes forward over the Dashboard; its Open Job opens the Job.
+  await expect.element(page.getByRole("region", { name: /^Job:/ })).toBeVisible();
+  await page.getByRole("button", { name: /^Open Job/ }).click();
+  await page.getByRole("tab", { name: "Workflow" }).click();
+  await page.getByRole("button", { name: "Run", exact: true }).click();
+  await expect.element(page.getByRole("button", { name: "Run", exact: true })).not.toBeInTheDocument();
+  await expect.element(page.getByRole("img", { name: "Alert" })).not.toBeInTheDocument();
+  const id = document.querySelector("[data-armada-open-job]")?.getAttribute("data-armada-open-job") ?? "";
+  expect(refusedWith(await window.armada.rerunTrigger(id, { addition: "a1" }))).toContain("fleet.no_hold");
+});
+
+test("mock asks: Skip on an added step records it skipped by the owner and the bell goes", async () => {
+  mount("real/job-2-added-step-asks");
+  await onScreen();
+  await page.getByRole("button", { name: /^Open Job/ }).click();
+  await page.getByRole("tab", { name: "Workflow" }).click();
+  await page.getByRole("button", { name: "Skip", exact: true }).first().click();
+  await expect.element(page.getByRole("img", { name: "Alert" })).not.toBeInTheDocument();
+  const id = document.querySelector("[data-armada-open-job]")?.getAttribute("data-armada-open-job") ?? "";
+  expect(refusedWith(await window.armada.skipTrigger(id, { addition: "a1" }))).toContain("fleet.no_hold");
+});

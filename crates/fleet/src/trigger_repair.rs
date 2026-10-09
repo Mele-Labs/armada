@@ -136,7 +136,7 @@ pub fn fix_waiting(trigger: &str) -> String {
 /// What is being repaired: a firing of a Trigger, or a step added to one Job.
 /// **Both go through the same repair**, so everything that asks "which" asks
 /// this.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) enum Subject {
     Firing(i64),
     /// The addition's id, `a1` and so on.

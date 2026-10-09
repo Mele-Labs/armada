@@ -99,7 +99,7 @@ export const Listed: Story = {
     ]);
     await expect(canvas.getAllByRole("button", { name: "Create Job" })).toHaveLength(2);
     await userEvent.click(canvas.getByRole("button", { name: "Job 2" }));
-    await expect(args.onOpen).toHaveBeenCalledWith("01K6Q2JOB2");
+    await expect(args.onOpen).toHaveBeenCalledWith("01K6Q2JOB2", "2-0");
   },
 };
 

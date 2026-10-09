@@ -3,9 +3,10 @@
 // `workflows.ts`'s shape. A save names the Manifest it is checked against, which is not always the
 // pick's: a machine Trigger is checked against whichever repository the person is looking at.
 
-import type { ChooseTriggerFix, HoldAct, Outcome, TriggerDefinition, TriggerList, TriggerRemoved, TriggerSaved } from "@armada/protocol";
+import type { AlertList, ChooseTriggerFix, HoldAct, Outcome, TriggerDefinition, TriggerList, TriggerRemoved, TriggerSaved } from "@armada/protocol";
 
 import type {
+  AlertsRead,
   ReadingTrigger,
   RemovingTrigger,
   SavingTrigger,
@@ -36,6 +37,17 @@ export class TriggerCommands {
     const answer = await ask(port, "GET", path);
     if (answer.ok !== true) return { ok: false, outcome: answer.outcome };
     return { ok: true, ...(answer.body as TriggerList) };
+  }
+
+  /** `list_alerts`: bare on All, the pick's Manifest otherwise. */
+  async alerts(): Promise<AlertsRead> {
+    const port = this.port();
+    if (port === null) return { ok: false, outcome: { ok: false, why: "not_connected" } };
+    const path = this.picked.narrowed("/alerts");
+    if (path === null) return { ok: true, blocked: [], waiting: [] };
+    const answer = await ask(port, "GET", path);
+    if (answer.ok !== true) return { ok: false, outcome: answer.outcome };
+    return { ok: true, ...(answer.body as AlertList) };
   }
 
   /** One definition as its file holds it. */

@@ -78,7 +78,7 @@ shortcut = "⌘1–⌘9"
 scope = "anywhere"
 destructive = false
 confirms = false
-notes = "One binding over the rail rather than six over six destinations — the contract's rule is rail order, not the numbers, and the digits shift if the rail does. They shifted on 2026-09-03: Held worktrees joined the rail as its fifth surface and took ⌘5, so this range grew by a digit and Helm moved off it. They shifted again on 2026-09-13 (#921): Overview joined first rather than last, so it took ⌘1 and every other surface's digit moved down one — the one time a surface's arrival moved a digit other than its own. They shifted again on 2026-09-14 (#1089): Settings joined the rail last, taking ⌘7, once the status bar it used to open from went with #1088. They shifted again on 2026-09-17 (#1287): the owner put Studios third, straight after the Job Board, so it took ⌘3 and Alerts, Doctor, Manifest, Cleanup and Settings each moved down one — the second arrival to move a digit other than its own, after Overview's. Where a Studio is read belongs beside the work it becomes. They shifted again on 2026-09-18 (#1275): Kit took a rail row of its own at ⌘8 and Settings moved to ⌘9 — the third arrival to move a digit other than its own, and the first to join before the last row rather than after it. Kit is what a person brings and Settings is what this machine is, so the machine reads last; and Kit is machine-wide, which is why it is a rail row rather than a view on one repository's Manifest. Each destination carries its own navigation glyph in the icon registry, so a glyph on this row would be a tenth one standing for all of them. Workflows and Checks joined after Guides and took no digit."
+notes = "One binding over the rail rather than six over six destinations — the contract's rule is rail order, not the numbers, and the digits shift if the rail does. They shifted on 2026-09-03: Held worktrees joined the rail as its fifth surface and took ⌘5, so this range grew by a digit and Helm moved off it. They shifted again on 2026-09-13 (#921): Overview joined first rather than last, so it took ⌘1 and every other surface's digit moved down one — the one time a surface's arrival moved a digit other than its own. They shifted again on 2026-09-14 (#1089): Settings joined the rail last, taking ⌘7, once the status bar it used to open from went with #1088. They shifted again on 2026-09-17 (#1287): the owner put Studios third, straight after the Job Board, so it took ⌘3 and Alerts, Doctor, Manifest, Cleanup and Settings each moved down one — the second arrival to move a digit other than its own, after Overview's. Where a Studio is read belongs beside the work it becomes. They shifted again on 2026-09-18 (#1275): Kit took a rail row of its own at ⌘8 and Settings moved to ⌘9 — the third arrival to move a digit other than its own, and the first to join before the last row rather than after it. Kit is what a person brings and Settings is what this machine is, so the machine reads last; and Kit is machine-wide, which is why it is a rail row rather than a view on one repository's Manifest. Each destination carries its own navigation glyph in the icon registry, so a glyph on this row would be a tenth one standing for all of them. Workflows and Checks joined after Guides and took no digit. Mods joined last, after Sessions, in the Machine panel, and took none."
 
 [actions.helm]
 kind = "Action"
@@ -334,7 +334,7 @@ shortcut = "n"
 scope = "anywhere"
 destructive = false
 confirms = false
-notes = "The one contextual key that acts on nothing on screen, which is why its scope is anywhere rather than the list it is pressed on. Renamed from `New job` on 2026-09-14 (#1087): the owner put this act in the title row and wanted it called Dispatch there, which means it now shares its verb with the dispatch card's own submit — this row opens the card, the card's own button sends what it read. The id stays `new_job`; only the rendered word moved. Icon decided 2026-09-14 (#1107): `plus`, newly registered in `packages/icons/icons/` for this row."
+notes = "The one contextual key that acts on nothing on screen, which is why its scope is anywhere rather than the list it is pressed on. Renamed from `New job` on 2026-09-14 (#1087): the owner put this act in the title row and wanted it called Dispatch there, which means it now shares its verb with the dispatch card's own submit — this row opens the card, the card's own button sends what it read. The id stays `new_job`; only the rendered word moved. Icon decided 2026-09-14 (#1107): `plus`, newly registered in `packages/icons/icons/` for this row. From 8 Oct 2026 `n`, and `⌘N` from inside a field, focus the Dashboard's dispatch bar from every surface, where a Job or a Session is chosen; the card opens once words are typed there."
 
 [actions.observe]
 kind = "Action"
@@ -498,3 +498,169 @@ scope = "open studio"
 destructive = false
 confirms = false
 notes = "Run on a Studio's rail (`.claude/decisions/2026-10-02-run-is-on-the-rail.md`): the key and the palette row open the same menu its press does — the Checks and Commands the checkout declares, then its servers — and the node lands where the person is looking. Added 2 Oct 2026 on the owner's *\"Add it, with R as the original design drew it.\"* Shifted, on `add_note`'s precedent, because `r` is Review on a list and the run sheet on detail. Off when the rail's Run is off, for the rail's reason — read-only, no connection, or nothing declared — and the palette row says that reason. The glyph is the rail's `zap`, whose row reserves it to this act."
+
+[actions.call_pick]
+kind = "Action"
+tier = "Contextual"
+verb = "Pick an answer"
+icon = ""
+icon_absent = "undecided"
+shortcut = "1–9"
+scope = "call"
+destructive = false
+confirms = false
+notes = "The number on each answer of the call in front, as `ROW_VERBS` numbers a row's own act. A digit only picks; `Enter` sends. Nothing happens on a number past the last answer."
+
+[actions.call_send]
+kind = "Action"
+tier = "Contextual"
+verb = "Send the answer"
+icon = ""
+icon_absent = "undecided"
+shortcut = "Enter"
+scope = "call"
+destructive = false
+confirms = false
+notes = "Sends the answer picked on the call in front, or opens what the call is about where it has no answer. **Never said again**: an `Enter` pressed while the card is leaving is dropped, because a second press must never send the next call."
+
+[actions.call_later]
+kind = "Action"
+tier = "Contextual"
+verb = "Later"
+icon = ""
+icon_absent = "undecided"
+shortcut = "l"
+scope = "call"
+destructive = false
+confirms = false
+notes = "Puts the call in front at the back of the stack of waiting calls. `Esc` does the same while a call is in front, and is not a second row because `Esc` is the Global close above and means the same thing there: step back from what is in front."
+
+[actions.call_dismiss]
+kind = "Action"
+tier = "Contextual"
+verb = "Dismiss"
+icon = ""
+icon_absent = "undecided"
+shortcut = "d"
+scope = "call"
+destructive = false
+confirms = false
+notes = "Removes the call in front for good, where `call_later` only puts it at the back. Its tooltip reads *Never show this again*. A Session's waiting item is dismissed on the Session (`POST /sessions/waiting/dismiss`, and until the window has that route a remembered set keyed `session_id:item_id`); a call about a state Fleet raised (a failing pull request, main red, a failed Check, a stuck Drone) is remembered by that state, so the same failure stays gone and the next one shows. `d` is Redirect on a list and detail, a different scope. Added 9 Oct 2026 on the owner's *\"It thinks a bunch of things need me when really they don't. I should be able to ignore these for good, not just save for later.\"*"
+
+[actions.call_expand]
+kind = "Action"
+tier = "Contextual"
+verb = "Expand the request"
+icon = ""
+icon_absent = "undecided"
+shortcut = "e"
+scope = "call"
+destructive = false
+confirms = false
+notes = "Opens the whole of what the owner dispatched the Job with, on a call whose request is longer than its clamp. `e` is redispatch on a list; a call is not a list, and the card says it beside its own button."
+
+[actions.call_best]
+kind = "Action"
+tier = "Contextual"
+verb = "Make the best decision"
+icon = ""
+icon_absent = "undecided"
+shortcut = "b"
+scope = "call"
+destructive = false
+confirms = false
+notes = "A standing answer, after the numbered ones, on a question an agent asked and could answer itself: a Plan question, a Drone's or a Judge's, a Session's ask. It tells the agent to weigh the options and choose the best solution itself; on a Session's permission, to weigh the command and decide whether to run it. **Never on a call Fleet raises about a state** — a failing pull request, main red, a failed Check, a stuck Drone. Needs a Fleet command: an answer to the ask carrying `mode: "best"`. Settled with the owner on 9 Oct 2026."
+
+[actions.call_quick]
+kind = "Action"
+tier = "Contextual"
+verb = "Just get it done"
+icon = ""
+icon_absent = "undecided"
+shortcut = "g"
+scope = "call"
+destructive = false
+confirms = false
+notes = "The other standing answer, on the same calls as `b`: take the quickest reasonable path and keep moving; on a Session's permission, run the command if it is reasonable. Needs a Fleet command: an answer to the ask carrying `mode: "quick"`."
+
+[actions.call_recall]
+kind = "Action"
+tier = "Contextual"
+verb = "Bring a waiting call back"
+icon = ""
+icon_absent = "undecided"
+shortcut = "w"
+scope = "dashboard"
+destructive = false
+confirms = false
+notes = "Brings the nearest of the waiting calls to the front, when none is in front. A press on the strip does the same."
+
+[actions.dashboard_filters]
+kind = "Action"
+tier = "Contextual"
+verb = "Previous and next filter"
+icon = ""
+icon_absent = "undecided"
+shortcut = "[ ]"
+scope = "dashboard"
+destructive = false
+confirms = false
+notes = "Steps the Dashboard panel's filter (Your move, Active, Done) back and forward, round. The chips beside the filter draw it. Bare brackets: `⌘[ ⌘]` is back and forward through places, and a field keeps both."
+
+[actions.dashboard_view]
+kind = "Action"
+tier = "Contextual"
+verb = "Switch between grid and map"
+icon = "orbit"
+shortcut = "m"
+scope = "dashboard"
+destructive = false
+confirms = false
+notes = "Flips the Dashboard panel between its tiles and its map. The choice is remembered. The toggle beside the filter draws `layout-grid` and `orbit`."
+
+[actions.key_sheet]
+kind = "Action"
+tier = "Contextual"
+verb = "Show the keys"
+icon = ""
+icon_absent = "undecided"
+shortcut = "?"
+scope = "dashboard"
+destructive = false
+confirms = false
+notes = "Opens the sheet that lists every key the Dashboard answers, grouped by what it acts on."
+
+[actions.dashboard_filter_number]
+kind = "Action"
+tier = "Global"
+verb = "Filter by number"
+icon = ""
+icon_absent = "undecided"
+shortcut = "⌥1–3"
+scope = "dashboard"
+destructive = false
+confirms = false
+notes = "Jumps to the Dashboard panel's first, second or third filter. Option and a digit, read by place on the keyboard because Option changes the character a digit types. Global because it is modified; it reaches a surface and not a Job, so the palette draws it dormant."
+
+[actions.dispatch_from_field]
+kind = "Action"
+tier = "Global"
+verb = "Dispatch from a field"
+icon = "plus"
+shortcut = "⌘N"
+scope = "anywhere"
+destructive = false
+confirms = false
+notes = "The same act as `n`, from inside a field where `n` would type: it focuses the Dashboard's dispatch bar. A modifier means this tier, so `n` alone stays suppressed in a field."
+
+[actions.call_reply]
+kind = "Action"
+tier = "Contextual"
+verb = "Reply in words"
+icon = ""
+icon_absent = "undecided"
+shortcut = "t"
+scope = "call"
+destructive = false
+confirms = false
+notes = "Puts the cursor in the reply on a call that takes one: a Session's own question, which offers Type something beside its options, or an item with no options. `Enter` in the field sends it and `Esc` leaves it. `t` is attest on a list; a call is not a list."

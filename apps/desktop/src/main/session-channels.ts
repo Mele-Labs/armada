@@ -5,7 +5,7 @@
 
 import type { IpcMain } from "electron";
 
-import type { AnswerSessionAsk, RenameSession, SendSessionMessage, TuneSession } from "@armada/protocol";
+import type { AnswerSessionAsk, AnswerWaiting, ClaimPullRequest, DismissWaiting, RenameSession, SendSessionMessage, TuneSession } from "@armada/protocol";
 import { CHANNELS } from "../shared/bridge";
 import type { PilotExit, PullRequestPress } from "../shared/api/sessions";
 import type { FleetConnection } from "./connection";
@@ -47,6 +47,21 @@ export function handleSessions({ ipc, connection, windowIdOf, pages }: Hosts): v
     if (!text(answer?.session_id) || !text(answer.call) || !ANSWERS.includes(answer.answer)) return unsent;
     return connection()?.sessions.answer(answer) ?? unsent;
   });
+  ipc.handle(CHANNELS.answerWaiting, (_event, answer: AnswerWaiting) => {
+    if (!text(answer?.session_id) || !text(answer.item_id)) return unsent;
+    if (answer.mode !== undefined && answer.mode !== "best" && answer.mode !== "quick") return unsent;
+    return connection()?.sessions.answerWaiting(answer) ?? unsent;
+  });
+  ipc.handle(CHANNELS.claimPullRequest, (_event, claim: ClaimPullRequest) => {
+    if (!Number.isInteger(claim?.number) || claim.number < 1) return unsent;
+    // Exactly one claimant, as Fleet reads it.
+    const to = text(claim.session_id) && !text(claim.job_id) ? { session_id: claim.session_id } : text(claim.job_id) && !text(claim.session_id) ? { job_id: claim.job_id } : undefined;
+    return to === undefined ? unsent : (connection()?.sessions.claimPullRequest({ number: claim.number, ...to }) ?? unsent);
+  });
+  ipc.handle(CHANNELS.dismissWaiting, (_event, dismiss: DismissWaiting) => {
+    if (!text(dismiss?.session_id) || !text(dismiss.item_id)) return unsent;
+    return connection()?.sessions.dismissWaiting(dismiss) ?? unsent;
+  });
   ipc.handle(CHANNELS.renameSession, (_event, rename: RenameSession) => {
     if (!text(rename?.session_id) || typeof rename.title !== "string" || rename.title.trim() === "") return unsent;
     return connection()?.sessions.rename({ session_id: rename.session_id, title: rename.title.trim() }) ?? unsent;
@@ -60,6 +75,9 @@ export function handleSessions({ ipc, connection, windowIdOf, pages }: Hosts): v
   );
   ipc.handle(CHANNELS.closeSession, (_event, sessionId: string) =>
     text(sessionId) ? (connection()?.sessions.end(sessionId) ?? unsent) : unsent,
+  );
+  ipc.handle(CHANNELS.retroSession, (_event, sessionId: string) =>
+    text(sessionId) ? (connection()?.sessions.retro(sessionId) ?? unsent.outcome) : unsent.outcome,
   );
   ipc.handle(CHANNELS.watchSession, (_event, sessionId: string) =>
     text(sessionId) ? connection()?.sessions.watch(sessionId) : undefined,

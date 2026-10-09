@@ -3148,15 +3148,15 @@ Additive. `hub.main.checking` (`MainChecking {commit, pull_request?}`, newest fi
 
 | Operation | Carries | Notes |
 | --- | --- | --- |
-| `get_pull_request` (`GET /pull_requests/:repository/:number`) | `PullRequestState`: `state` (`draft`, `open`, `merged` or `closed`), `auto_merge`, `checks` (`pending`, `passed`, or `failed` with `failing` names), `title`, `branch`, `address` | `agent_access` `Yes`. Refreshes every Session's `pr` row for it; a merged one is settled `spent`, a closed one `given_back` |
+| `get_pull_request` (`GET /pull_requests/:repository/:number`) | `PullRequestState`: `state` (`draft`, `open`, `merged` or `closed`), `auto_merge`, `queued` (in the base branch's merge queue now), `checks` (`pending`, `passed`, or `failed` with `failing` names), `title`, `branch`, `address` | `agent_access` `Yes`. Refreshes every Session's `pr` row for it, and the pull watch does each interval for pull requests nobody opened; a merged one is settled `spent`, a closed one `given_back`, in the same write as its detail |
 | `ready_pull_request` (`POST /pull_requests/:repository/:number/ready`) | nothing | Answers `PullRequestState`. `agent_access` `Helm only`, asked as `pushes to shared` |
 | `merge_pull_request_by_number` (`POST /pull_requests/:repository/:number/merge`) | nothing | Answers `PullRequestState`. Refused with `fleet.merge_checks_not_passed` unless the checks have passed. `Helm only`, `pushes to shared` |
-| `enable_auto_merge` (`POST /pull_requests/:repository/:number/auto_merge`) | nothing | Answers `PullRequestState`. Only while the checks run. `Helm only`, `pushes to shared` |
+| `enable_auto_merge` (`POST /pull_requests/:repository/:number/auto_merge`) | nothing | Answers `PullRequestState`. While the checks run, and once they have passed, when the forge queues it. `Helm only`, `pushes to shared` |
 | `review_pull_request` (`POST /pull_request_reviews/:repository`) | `ReviewPullRequest`: `pull_request` (a number or an address), `session_id?` | Answers `ReviewDispatched {job_id, address, session_id?}`, a 201. `Helm only` |
 
 **`merge_pull_request` was taken**, and is a Job's press at its gate, so the by-number sibling is `merge_pull_request_by_number` and the two are never one route. **`origin` gains `session_dispatched`** (*From a Session, by you*); a Bridge before 23.48 shows the raw spelling on such a row, since `origin` is a string on the wire. Which Session is the ledger's: the Session holds a `job` row with `detail.origin` reading *dispatched from Session <id>*.
 
-**Refusal codes**, all 409 unless noted: `fleet.merge_checks_not_passed`, `fleet.merge_not_open`, `fleet.pull_request_is_a_draft`, `fleet.pull_request_not_a_draft`, `fleet.pull_request_checks_passed`, `fleet.ready_refused` and `fleet.auto_merge_refused` (the forge's own sentence), and the forge's merge kinds `fleet.merge_branch_protected`, `fleet.merge_conflicted`; 500 for `fleet.pull_request_unreadable`, `fleet.merge_no_tool` and `fleet.merge_refused`; 422 for `fleet.pull_request_unnamed` and `fleet.session_unknown`. No migration. Bridge's half is `packages/protocol/src/pull-requests.ts`, written by hand like the rest.
+**Refusal codes**, all 409 unless noted: `fleet.merge_checks_not_passed`, `fleet.merge_not_open`, `fleet.pull_request_is_a_draft`, `fleet.pull_request_not_a_draft`, `fleet.ready_refused` and `fleet.auto_merge_refused` (the forge's own sentence), and the forge's merge kinds `fleet.merge_branch_protected`, `fleet.merge_conflicted`; 500 for `fleet.pull_request_unreadable`, `fleet.merge_no_tool` and `fleet.merge_refused`; 422 for `fleet.pull_request_unnamed` and `fleet.session_unknown`. No migration. Bridge's half is `packages/protocol/src/pull-requests.ts`, written by hand like the rest.
 
 ## Protocol 23.49: a session Fleet hosts
 
@@ -3173,6 +3173,7 @@ Additive. `hub.main.checking` (`MainChecking {commit, pull_request?}`, newest fi
 | `get_session_subagent` (`GET /sessions/subagent?session_id=&subagent_id=`) | `SessionSubagent`: the subagent's own `rows`, `finished`, and its `report` once it has | Read again while it runs; 422 where the session has no such subagent transcript |
 | `get_session_file` (`GET /sessions/file?session_id=&file=`) | The bytes, under the media type they were sent as | `file` is a `SentFile.id` |
 | `gate_session_call` (`POST /sessions/gate`) | `SessionGate`, answered in the harness's own hook shape | **Reached by the harness, never by a client** |
+| `ask_from_terminal` (`POST /sessions/ask/terminal`) | `TerminalAsk`: `asks` with the question's input, answered at once with `TerminalAsked` `asked` and the call's id; `wait` with that call, held up to 25 seconds and answered with `answered` (the input and its `answers`), `refused`, `gone`, or `waiting` where it ran out; `settled` where the terminal's own prompt ended first | **Reached by the session's mod, never by a client.** Writes the same `ask` row a hosted session's question does; the question and a Bridge answer are kept in the store until the mod collects them |
 | `take_held_messages` (`POST /sessions/held`) | `TakeHeld`, answered with `MessagesHeld`: what a person sent a terminal session, once | **Reached by the session's mod, never by a client.** Since 23.53 |
 | `session.row` (event) | `SessionRowChanged`: `session_id`, `row` | Appends, or replaces the row with that `id` |
 
@@ -3300,7 +3301,7 @@ Bridge's half is in `packages/protocol/src/hosted-sessions.ts`, written by hand 
 
 **A place is a moment and a step**, a Trigger's. Before a step is its `step_starts`, after it is its `step_passes`, the gap before the pull request opens is the delivering step's `step_starts` and the gap after is `pr_opened`. A gap behind the Job's current step is refused, which is what stops a step landing where it can never fire.
 
-**A Drone step is recorded `skipped`, and says so.** A step a Drone works needs a gate and Fleet has the frozen workflow's step rows only. A Skill is skipped as a skill Trigger is.
+**A Drone step is recorded `skipped`, and says so.** A step a Drone works needs a gate and Fleet has the frozen workflow's step rows only. A Skill is skipped as a skill Trigger is. Both run on a side Drone from 23.73, below.
 
 **The event stream: slightly worse, and bounded.** At most two messages a firing and one per act a person makes, on the one drop-oldest channel, with nothing a Drone produces on it. A Bridge that missed some re-reads `get_job`. The rate is `[broadcast-capacity]`'s to measure.
 
@@ -3421,10 +3422,27 @@ Bridge's half is in `packages/protocol/src/helm-calls.ts` and `hosted-sessions.t
 
 | Where | Carries | Notes |
 | --- | --- | --- |
-| `enable_job_auto_merge` (`POST /jobs/:job_id/auto_merge`) | no body | Answers the `PullRequestState` the forge shows afterwards. Records the ask on the Job; the Job stays at `awaiting_review`. 409 off the gate, once the checks have passed (`fleet.pull_request_checks_passed`) or failed (`fleet.merge_checks_not_passed`), and with the forge's words where it refused. `Helm only` |
+| `enable_job_auto_merge` (`POST /jobs/:job_id/auto_merge`) | no body | Answers the `PullRequestState` the forge shows afterwards. Records the ask on the Job; the Job stays at `awaiting_review`. 409 off the gate, once the checks have failed (`fleet.merge_checks_not_passed`), and with the forge's words where it refused. `Helm only` |
 | the sweep | nothing on the wire | A Job at its gate whose pull request is found merged, and whose ask is recorded, is taken as `approve_review` takes it, actor `fleet`. Any other merge is recorded and left |
 
 `Outcome.pullRequest` is Bridge's own and not on the wire: the `PullRequestState` main carries back from `enable_job_auto_merge`, which the gate draws as Auto-merge on.
+
+## Mods: a theme or a layout a session can make
+
+`docs/concepts/mods.md`, and `docs/concepts/layout-mods.md` for the second kind. Five operations, one event and two optional fields on the preferences, and a layout mod adds one field to each of three of them.
+
+| Where | Carries | Notes |
+| --- | --- | --- |
+| `list_mods` (`GET /mods`) | `ModList`: `ModSummary` `name`, `kind?` (`theme` or `layout`), `version?`, `description?`, `enabled`, `valid`, `reason?`, `changed_at?` | A broken mod is a row with `valid` false; a field that could not be read is left out |
+| `scaffold_mod` (`POST /mods/scaffold`) | `ScaffoldMod`: `name`, `description?`, `kind?` (`theme` or `layout`, absent is a theme); answers `ModScaffolded`: `name`, `path` | 422 `fleet.unacceptable_mod` for a name that is not a slug, or a mod that exists. 500 `fleet.mod_not_written` |
+| `set_mod_enabled` (`POST /mods/enable`) | `SetModEnabled`: `name`, `enabled`; answers the `ModSummary` | 404 `fleet.no_such_mod`. `agent_access` is `No` |
+| `validate_mod` (`GET /mods/validate?name=`) | `ModChecked`: `name`, `valid`, `problems[]`, `css?`, `layout?` | `css` is a theme's checked text and `layout` a layout mod's, each present only when `valid` and never both |
+| `promote_mod` (`POST /mods/promote`) | `PromoteMod`: `name`, `manifest_id?`; answers `ModPromoted`: `name`, `branch`, `commit` | 409 `fleet.mod_not_promotable`. `agent_access` is `No` |
+| `mods.changed` (event) | `ModList`, whole | Names no Job. A resync does not carry it |
+| `get_preferences` | `Preferences.theme?`, `Preferences.layout_choices?` | `theme` is left out while `dark`, and absent is `dark`. `layout_choices` is the text of the owner's `layout.json`, left out while he has made none |
+| `save_preferences` | `SavePreference.text?`, read for the names `theme` and `layout_choices` | 422 `fleet.unacceptable_theme`, and 422 `fleet.unacceptable_layout` for text `layout.json`'s rules refuse. An empty `layout_choices` takes the choices back |
+
+**The event stream gets no new queue.** `mods.changed` is one message per change, found by a rescan every two seconds, and goes through the shared drop-oldest backlog; a Bridge that missed it reads `list_mods` after the resync. It does not touch the unbounded-sink risk above.
 
 ## Open questions
 

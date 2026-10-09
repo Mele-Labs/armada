@@ -23,13 +23,13 @@ use crate::adrift::Adrift;
 use crate::daemon::Fleet;
 
 /// No item answers to that id. A 404.
-const NO_SUCH_LESSON: &str = "fleet.no_such_lesson";
+pub(super) const NO_SUCH_LESSON: &str = "fleet.no_such_lesson";
 /// An item written before 23.15, which names no place its fix lands. A 422:
 /// where its Job would go is not Fleet's to guess.
-const LESSON_NAMES_NO_PLACE: &str = "fleet.lesson_names_no_place";
+pub(super) const LESSON_NAMES_NO_PLACE: &str = "fleet.lesson_names_no_place";
 /// A Kit change that no listing in Kit could make run. A 409: the item stays
 /// open, and nothing is written.
-const KIT_CHANGE_REFUSED: &str = "fleet.kit_change_refused";
+pub(super) const KIT_CHANGE_REFUSED: &str = "fleet.kit_change_refused";
 /// A fix that lands in Armada, and the repository Armada is built in is not
 /// one this Fleet serves. A 422.
 const ARMADA_NOT_SERVED: &str = "fleet.lesson_armada_not_served";
@@ -56,6 +56,9 @@ where
         lesson_id: &str,
         by: Redirector,
     ) -> Result<Lesson, Refusal> {
+        if let Some(session) = super::serving::parsed_session(lesson_id) {
+            return self.agreed_with_session(lesson_id, session, by).await;
+        }
         let (job_id, ordinal) = parsed(lesson_id).ok_or_else(|| self.no_such_lesson(lesson_id))?;
         let held = self.lesson_held(lesson_id, &job_id, ordinal).await?;
         if held.state != LessonState::Open {
@@ -105,7 +108,10 @@ where
         }
         if let Some(manifest) = manifest {
             let request = JobRequest {
-                request: request_of(&held, self.lesson_handle(&job_id).await),
+                request: request_of(
+                    &held.line,
+                    format!("Job {}", self.lesson_handle(&job_id).await),
+                ),
                 client_ref: None,
                 attachments: Vec::new(),
                 settings: None,
@@ -187,6 +193,9 @@ where
     /// answered answers with where it stands**: a Job proposed is never
     /// taken back by pressing this.
     pub(crate) async fn disagreed_with(&self, lesson_id: &str) -> Result<Lesson, Refusal> {
+        if let Some(session) = super::serving::parsed_session(lesson_id) {
+            return self.disagreed_with_session(lesson_id, session).await;
+        }
         let (job_id, ordinal) = parsed(lesson_id).ok_or_else(|| self.no_such_lesson(lesson_id))?;
         self.lesson_held(lesson_id, &job_id, ordinal).await?;
         self.store()
@@ -198,7 +207,7 @@ where
         self.lesson_standing(held).await
     }
 
-    fn no_such_lesson(&self, lesson_id: &str) -> Refusal {
+    pub(super) fn no_such_lesson(&self, lesson_id: &str) -> Refusal {
         Refusal::NoSuchJob(WireError::raised(
             NO_SUCH_LESSON,
             format!("no retro item is named {lesson_id}"),
@@ -235,7 +244,7 @@ where
     }
 
     /// Armada's own repository, where this Fleet serves it.
-    fn armada_served(&self, lesson_id: &str) -> Result<ManifestId, Refusal> {
+    pub(super) fn armada_served(&self, lesson_id: &str) -> Result<ManifestId, Refusal> {
         let own = ManifestId::carried(ARMADAS_OWN);
         self.served_named(Some(&own)).map(|_| own).map_err(|_| {
             Refusal::Unacceptable(WireError::raised(
@@ -254,14 +263,13 @@ where
 /// The request an item is: a short title, what happened, what to change, and
 /// the Job it came from. **Carried whole**: the proposer reads what a person
 /// would have read.
-fn request_of(lesson: &KeptLesson, handle: String) -> String {
-    let line = &lesson.line;
+pub(super) fn request_of(line: &store::RetroLine, source: String) -> String {
     let title = line.title.as_deref().unwrap_or(&line.said);
     let what = line.what.as_deref().unwrap_or(&line.said);
     let mut request = format!("{title}\n\n{what}");
     if let Some(fix) = &line.fix {
         request.push_str(&format!("\n\nFix: {fix}"));
     }
-    request.push_str(&format!("\n\nFrom the retro of Job {handle}."));
+    request.push_str(&format!("\n\nFrom the retro of {source}."));
     request
 }

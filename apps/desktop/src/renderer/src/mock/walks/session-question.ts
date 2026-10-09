@@ -1,8 +1,8 @@
-// A Session whose agent asks the person questions: a single choice and a multi-select, answered
-// with a typed Other, and a second Session whose question is skipped. Over the `session-question`
+// A Session whose agent asks the person questions, one at a time as a deck: a single choice and a
+// multi-select, answered with a typed Other, and a second Session whose question is skipped. Over the `session-question`
 // scenario. Told twice: wide, and below the breakpoint.
 
-import { kit, NARROW } from "../sessions/walk-kit";
+import { kit, NARROW, toSessions } from "../sessions/walk-kit";
 import { button, inside, region, role, text, walk } from "../walk";
 import type { Step } from "../walk";
 
@@ -14,12 +14,11 @@ function steps(narrow: boolean): Step[] {
   return [
     { press: rail("Sessions"), say: "The Sessions page" },
     { press: inside(sessions, button(/Order the lunch/)), say: "A Session that is waiting on an answer" },
-    { look: inside(ask, text("Question")), say: "The agent's questions, under the thread" },
-    { look: inside(ask, text("Which size?")), say: "A single choice, one option at a time" },
-    { hover: inside(ask, role("radio", "Large")), say: "What each option means is on hover" },
+    { look: inside(ask, text("Size")), say: "The agent's questions, under the thread" },
+    { look: inside(ask, text("Which size?")), say: "One question at a time, the next behind it" },
+    { look: inside(ask, role("radio", "Large")), say: "Each option on its row, with what it means" },
+    { press: inside(ask, role("radio", "Large")), say: "Large, and the next comes forward" },
     { look: inside(ask, text("Which toppings?")), say: "A multi-select takes any number" },
-    { look: answer, say: "Answer waits until each question has something" },
-    { press: inside(ask, role("radio", "Large")), say: "Large" },
     { press: inside(ask, role("checkbox", "Cheese")), say: "Cheese" },
     { press: inside(ask, role("checkbox", "Olives")), say: "And olives" },
     { press: inside(ask, role("checkbox", "Other")), say: "Other is the person's own words" },
@@ -34,7 +33,7 @@ function steps(narrow: boolean): Step[] {
   ];
 }
 
-const wide = walk("session-question", steps(false));
-const narrow = walk("session-question", steps(true), NARROW);
+const wide = walk("session-question", [toSessions, ...steps(false)]);
+const narrow = walk("session-question", [toSessions, ...steps(true)], NARROW);
 
 export { wide as "session-question", narrow as "session-question-narrow" };

@@ -202,6 +202,17 @@ export class WiredStore {
     return done.value.id;
   }
 
+  /** One call: the Session's retro is written. Resolves to whether it was; a refusal says why in `said`. */
+  private async retroing(id: string): Promise<boolean> {
+    this.say(undefined);
+    const done = await this.api.retroSession(id);
+    if (!done.ok) {
+      this.say(done);
+      return false;
+    }
+    return true;
+  }
+
   private async exiting(jobId: string, exit: "submit" | "attest" | "supersede"): Promise<void> {
     this.say(undefined);
     const done = await this.api.exitPilot(jobId, exit);
@@ -227,6 +238,8 @@ export class WiredStore {
     this.say(undefined);
     const done = await this.api.pressPullRequest(id, number, act);
     if (!done.ok) this.say(done.outcome);
+    // Whatever the answer, the sheet shows the pull request as the forge has it now.
+    if (act !== "review") await this.api.pressPullRequest(id, number, "read");
   }
 
   private async plain(act: Promise<{ ok: true } | { ok: false; outcome: Parameters<typeof refusalWords>[0] }>): Promise<void> {
@@ -248,6 +261,7 @@ export class WiredStore {
     start: (tag) => this.starting(tag),
     pilot: (jobId, outcome) => this.piloting(jobId, outcome),
     fork: (id) => this.forking(id),
+    retro: (id) => this.retroing(id),
     exit: (jobId, exit) => void this.exiting(jobId, exit),
     watch: (id) => void this.api.watchSession(id),
     subagent: async (id, subagentId) => {
@@ -306,6 +320,9 @@ export class WiredStore {
     efforts: EFFORTS,
     get commands() {
       return store.commandsRead();
+    },
+    answerWaiting: (id: string, itemId: string, given: { choice?: number; text?: string; mode?: "best" | "quick" }) => {
+      void this.plain(this.api.answerWaiting({ session_id: id, item_id: itemId, ...given }));
     },
     answer: (id: string, answer?: SessionAnswer, answers?: SessionQuestionAnswer[]) => {
       const call = this.lookup(id)?.asked?.call;

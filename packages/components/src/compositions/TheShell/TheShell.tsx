@@ -3,7 +3,6 @@ import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent, typ
 import { BoardEmptyState } from "../BoardEmptyState/BoardEmptyState";
 import { FleetPanel, type FleetPanelProps } from "../FleetPanel/FleetPanel";
 import { Sidebar, type SidebarItem } from "../Sidebar/Sidebar";
-import { StatsPanel, type StatsPanelProps } from "../StatsPanel/StatsPanel";
 import { TitleBar, type TitleBarProps } from "../TitleBar/TitleBar";
 import { Button } from "../../primitives/Button/Button";
 import { KbdCmd } from "../../primitives/Kbd/Kbd";
@@ -13,7 +12,7 @@ import { DockHandle, clampToRange, defaultDockWidth, dockWidthRange, tokenPx } f
 
 /**
  * The shell — the left column, panel and dock. Bridge/1088 replaced the rail
- * and the status bar with three rounded panels — Navigation, Stats and
+ * and the status bar with two rounded panels — Navigation and
  * Fleet — stacked in one column. Spend and advice left with the bar and
  * appear nowhere here.
  *
@@ -43,6 +42,8 @@ export type TheShellProps = {
   onDispatch?: () => void;
   /** Disabled while nothing is connected to dispatch into. */
   dispatchDisabled?: boolean;
+  /** Sleep mode's control in the title row, beside Helm's. Absent draws none. */
+  sleep?: TitleBarProps["sleep"];
   /**
    * The rail's panels, each its own rounded panel in the column — the owner
    * split Navigation in two on 28 Sep 2026. **The roster and the grouping are
@@ -85,14 +86,12 @@ export type TheShellProps = {
   children: ReactNode;
   /** Helm's dock, on every surface. Absent draws none. */
   dock?: TheShellDock;
-  /** The left column's second panel. Open state is the surface's to persist. */
-  stats: Omit<StatsPanelProps, "narrow">;
-  /** The left column's third panel, what the status bar used to read. */
+  /** The left column's second panel, what the status bar used to read. */
   fleet: Omit<FleetPanelProps, "narrow">;
   /**
-   * The left column's resting width in px, for Navigation, Stats and Fleet
+   * The left column's resting width in px, for Navigation and Fleet
    * together — one width, the same way `.armada-shell__left` already shares
-   * it among the three (#1124). Absent draws `--sidebar-default`. Ignored
+   * it among the panels (#1124). Absent draws `--sidebar-default`. Ignored
    * while `collapsed`, which always draws `--sidebar-rail` — there is nothing
    * to size at 48px.
    */
@@ -164,6 +163,7 @@ export function TheShell({
   onSearch,
   onDispatch,
   dispatchDisabled,
+  sleep,
   panels,
   activeId,
   collapsed,
@@ -172,7 +172,6 @@ export function TheShell({
   onSelect,
   children,
   dock,
-  stats,
   fleet,
   leftWidth,
   onResizeLeft,
@@ -191,6 +190,7 @@ export function TheShell({
           onDispatch={onDispatch}
           dispatchDisabled={dispatchDisabled}
           helm={helmButtonOf(dock)}
+          {...(sleep === undefined ? {} : { sleep })}
           // Every width. The panel carries the same state from the same two
           // fields; the owner settled the duplication on 18 Sep 2026 — keep
           // it, drawn always, rather than mounting chrome on a resize.
@@ -215,12 +215,11 @@ export function TheShell({
                 {...(at === 0 && onCollapsedChange !== undefined ? { onCollapsedChange } : {})}
                 {...(at === 0 && collapseBinding !== undefined ? { collapseBinding } : {})}
                 // The column holds the width. Left to its own 200px default, the
-                // nav stayed put while Stats and Fleet followed a drag.
+                // nav stayed put while Fleet followed a drag.
                 width="100%"
                 onSelect={onSelect}
               />
             ))}
-            <StatsPanel {...stats} narrow={collapsed} />
             <FleetPanel {...fleet} narrow={collapsed} />
           </div>
           {collapsed || onResizeLeft === undefined ? null : (
@@ -291,12 +290,12 @@ const LEFT_WIDTH_MAX_FALLBACK = 320;
 const LEFT_WIDTH_DEFAULT_FALLBACK = 200;
 
 /**
- * The left column's drag range — Navigation, Stats and Fleet resize as one,
+ * The left column's drag range — Navigation and Fleet resize as one,
  * so the range is the rail's own tokens: `--sidebar-min` and `--sidebar-max`,
  * the same ceiling Sidebar's own `max-width` already enforces (#1124).
  * **No window-relative ceiling here**, unlike the dock — the dock holds
  * whatever a Drone hands back with no natural size of its own; the left
- * column is three panels of fixed content the design system already sized.
+ * column is two panels of fixed content the design system already sized.
  */
 function leftWidthBounds(): { min: number; max: number } {
   if (typeof document === "undefined") {
@@ -328,7 +327,7 @@ export function clampLeftWidth(width: number): number {
 const LEFT_WIDTH_STEP = 16;
 
 /**
- * The left column's trailing-edge handle — one handle for Navigation, Stats
+ * The left column's trailing-edge handle — one handle for Navigation
  * and Fleet together, never one per panel. Right widens the column, since it
  * sits on the window's leading edge and dragging toward the content is
  * dragging the edge that grows it; Home and End match a plain slider's own

@@ -13,7 +13,7 @@ import { job, repository } from "@armada/screens/src/fixtures/build/base";
 import { onBoard, onJob } from "./scenario";
 import type { Scenario } from "./scenario";
 import { FakeSessionsFleet, hosted } from "./sessions-fleet";
-import { mount, onScreen, unmountAfterEach } from "./testing";
+import { mount, onScreen, putOffEveryCall, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
@@ -27,9 +27,18 @@ function served(fleet: FakeSessionsFleet): Scenario {
   return fleet.scenario(onBoard([stopped], { repositories: [ARMADA], picked: ARMADA.root }));
 }
 
-/** Pilot, confirmed with its default outcome, from the Job's row. */
-async function pilotIt(): Promise<void> {
+/** The stopped Job's tile picked on Active, so its acts are in the pane beside the grid. */
+async function toTheJob(): Promise<void> {
   await onScreen();
+  // The Job asks, so its call is in front of the panel; put it off to reach the pane under it.
+  await putOffEveryCall();
+  await userEvent.click(page.getByRole("tab", { name: "Active" }));
+  await userEvent.click(page.getByRole("option", { name: /^The retry loop/ }));
+}
+
+/** Pilot, confirmed with its default outcome, from the Job's act in its pane. */
+async function pilotIt(): Promise<void> {
+  await toTheJob();
   await userEvent.click(page.getByRole("button", { name: "Pilot", exact: true }));
   await userEvent.click(page.getByRole("dialog", { name: "Pilot this Job?" }).getByRole("button", { name: "Pilot", exact: true }));
 }
@@ -38,7 +47,7 @@ const handoff = () => page.getByRole("region", { name: "Handed over: Job 52" });
 const ledger = () => page.getByRole("region", { name: "Attachments" });
 const exits = () => ledger().getByRole("group", { name: "Ways out of the pilot" });
 
-test("Pilot wired: a stopped Job is taken over from its row, and the Session opens on a handoff of what Fleet knew", async () => {
+test("Pilot wired: a stopped Job is taken over from its pane, and the Session opens on a handoff of what Fleet knew", async () => {
   const fleet = new FakeSessionsFleet();
   mount(served(fleet));
   await pilotIt();
@@ -58,7 +67,7 @@ test("Pilot wired: a stopped Job is taken over from its row, and the Session ope
 test("Pilot wired: Restart Step goes to Fleet as the outcome chosen", async () => {
   const fleet = new FakeSessionsFleet();
   mount(served(fleet));
-  await onScreen();
+  await toTheJob();
   await userEvent.click(page.getByRole("button", { name: "Pilot", exact: true }));
   const dialog = page.getByRole("dialog", { name: "Pilot this Job?" });
   await userEvent.click(dialog.getByText("Restart Step", { exact: true }));
@@ -83,7 +92,9 @@ test("Pilot wired: the Board says which Session has the Job, and its card opens 
   await pilotIt();
   await expect.element(handoff()).toBeVisible();
 
-  await userEvent.click(page.getByRole("button", { name: "Overview", exact: true }));
+  await userEvent.click(page.getByRole("button", { name: "Cockpit", exact: true }));
+  await userEvent.click(page.getByRole("tab", { name: "Active" }));
+  await userEvent.click(page.getByRole("option", { name: "The retry loop, Job" }));
   await expect.element(page.getByRole("img", { name: "Piloted in The retry loop" })).toBeVisible();
   await userEvent.click(page.getByRole("button", { name: "Job 52" }));
   const card = page.getByRole("group", { name: "Owned by The retry loop" });

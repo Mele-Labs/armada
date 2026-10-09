@@ -51,10 +51,10 @@ const RUNNING_ONE_WITH_A_PLAN = (): JobSummary[] => [
   }),
 ];
 
-/** Overview, where `App` opens, on these rows. */
+/** Overview, where `App` opens, on these rows: the Dashboard's one panel, on its Your move filter. */
 async function overview(scenario: Scenario): Promise<void> {
   mount(scenario);
-  await expect.element(page.getByRole("heading", { name: "Running" }).first()).toBeVisible();
+  await expect.element(page.getByRole("tab", { name: "Your move" })).toBeVisible();
 }
 
 const onOverview = (jobs: JobSummary[], options: Parameters<typeof onBoard>[1] = {}) =>
@@ -73,41 +73,42 @@ function unreachable(scenario: Scenario): Scenario {
   };
 }
 
-test("every section draws, Done included, and a status the registry does not know is named beneath", async () => {
+const picked = () => document.querySelector<HTMLElement>('[role="option"][aria-selected="true"]');
+
+test("every filter draws its own: what needs you comes forward, what is live and what is over are tiles", async () => {
   await overview(onOverview(JOBS()));
-  await expect.element(page.getByRole("heading", { name: "Needs you" })).toBeVisible();
-  await expect.element(page.getByRole("heading", { name: "Queued" })).toBeVisible();
-  await expect.element(page.getByText(/not_a_status_the_registry_has/)).toBeVisible();
-  // Done arrived when the Job Board went: every Job that completed or was
-  // cleared was only ever on that page. Folded, so the heading is what draws.
-  await expect.element(page.getByRole("heading", { name: "Done" })).toBeVisible();
+  // Your move: what needs the owner is a call in front of the panel, whatever the filter.
+  await expect.element(page.getByRole("region", { name: /^Job:/ })).toBeVisible();
+  await page.getByRole("tab", { name: "Active" }).click();
+  await expect.element(page.getByRole("listbox", { name: "Tiles" })).toBeVisible();
+  // No badge to draw for it, so its tile's mark names the status.
+  await expect.element(page.getByRole("img", { name: "not_a_status_the_registry_has" })).toBeVisible();
+  await page.getByRole("tab", { name: "Done" }).click();
+  await expect.element(page.getByRole("listbox", { name: "Tiles" })).toBeVisible();
 });
 
-test("no jobs: a card with Dispatch on it, and every summary count reads zero", async () => {
+test("no jobs: the cursor is in the dispatch bar, and typing opens the composer", async () => {
   mount(onOverview([]));
-  // Still named "Overview" to assistive tech, with the card inside it. #1262.
-  const empty = page.getByRole("region", { name: "Overview" });
-  await expect.element(empty.getByText("No jobs.", { exact: true })).toBeVisible();
-  await expect.element(empty.getByText("Propose one.", { exact: true })).toBeVisible();
-  await expect.element(empty.getByRole("button", { name: "Dispatch", exact: true })).toBeVisible();
-  await expect.element(page.getByRole("button", { name: "0 Needs you" })).toBeVisible();
+  const bar = page.getByRole("textbox", { name: "Request" });
+  await expect.element(bar).toHaveFocus();
+  await userEvent.keyboard("C");
+  // On All, the composer opens on its one question first.
+  await expect.element(page.getByText("Pick the repository this Job is for")).toBeVisible();
 });
 
-test("two repositories on All: an Overview row names its own", async () => {
-  await overview(onOverview(JOBS().map((row, at) => ({ ...row, owner_manifest_id: at % 2 === 0 ? "armada" : "storefront" })), {
-    repositories: [ARMADA, STOREFRONT],
-  }));
-  await expect
-    .poll(() =>
-      [...document.querySelectorAll(".armada-job-row__field-value")].some((one) =>
-        /^(armada|storefront)$/.test(one.textContent ?? ""),
-      ),
-    )
-    .toBe(true);
+test("the filter picked is kept, and a filter draws no count", async () => {
+  await overview(onOverview(JOBS()));
+  await page.getByRole("tab", { name: "Done" }).click();
+  await expect.element(page.getByRole("tab", { name: "Done" })).toHaveAttribute("aria-selected", "true");
+  expect(localStorage.getItem("armada.bridge.dashboard-tab")).toBe("done");
+  for (const name of ["Your move", "Active", "Done"]) {
+    expect(page.getByRole("tab", { name }).element().textContent).not.toMatch(/\d/);
+  }
 });
 
 test("Fleet unreachable: the rows held from before stay, Needs you included", async () => {
-  await overview(unreachable(onOverview(JOBS())));
+  // Where Fleet cannot be reached the Board's own lists draw, and the panel's filters do not.
+  mount(unreachable(onOverview(JOBS())));
   await expect.element(page.getByRole("heading", { name: "Needs you" })).toBeVisible();
   expect(rows().length).toBeGreaterThan(0);
 });
@@ -117,69 +118,44 @@ test("Fleet unreachable with nothing held says so flatly", async () => {
   await expect.element(page.getByText("Fleet is not connected, so there is nothing to show.")).toBeVisible();
 });
 
-test("the Running panel under Helm's dock keeps each row's facts and its action", async () => {
+test("a running Job picked on Active, under Helm's dock, keeps its steps and its act", async () => {
   await overview(onOverview(RUNNING_ONE_WITH_A_PLAN(), { repositories: [ARMADA, STOREFRONT] }));
   await openHelm();
-  // In the DOM rather than asserted visible: under 900px a card row gives up
-  // Run time, Repository and Tasks so its action stays reachable, by design —
-  // `JobRowStacked.narrow.css`. It was the dock's 380px that took the panel
-  // there; since #1583 the panel keeps the window's width and the dock lies
-  // over it, so which form the row takes is the window's business alone.
-  await expect.poll(() => document.querySelector('[role="img"][aria-label="0 of 6 tasks"]')).not.toBeNull();
+  await page.getByRole("tab", { name: "Active" }).click();
   await expect.element(page.getByRole("option", { name: /unanswered permission ask/ })).toBeVisible();
   await expect.element(page.getByRole("option", { name: /shows "queued"/ })).toBeVisible();
+  await page.getByRole("option", { name: /unanswered permission ask/ }).click();
   await expect.element(page.getByRole("button", { name: /Redirect/ }).first()).toBeVisible();
 });
 
-test("j and k move Overview's cursor across sections, Enter opens, x asks to kill", async () => {
-  await overview(onOverview(JOBS()));
-  const drawn = rows();
-  expect(drawn.length).toBeGreaterThan(3);
-  drawn[0]!.focus();
-
-  await userEvent.keyboard("jj");
-  await expect.element(drawn[2]!).toHaveFocus();
+test("j and k move the pick, x asks to kill, Enter opens", async () => {
+  await overview(onOverview(RUNNING_ONE_WITH_A_PLAN()));
+  await page.getByRole("tab", { name: "Active" }).click();
+  await expect.element(page.getByRole("listbox", { name: "Tiles" })).toBeVisible();
+  await expect.poll(picked).not.toBeNull();
+  const first = picked()!;
+  await userEvent.keyboard("j");
+  await expect.poll(() => picked()).not.toBe(first);
   await userEvent.keyboard("k");
-  await expect.element(drawn[1]!).toHaveFocus();
+  await expect.poll(() => picked()).toBe(first);
 
   await userEvent.keyboard("x");
   await expect.element(page.getByRole("dialog")).toBeVisible();
   await userEvent.keyboard("{Escape}");
   await expect.poll(() => page.getByRole("dialog").query()).toBeNull();
 
-  const handle = drawn[1]!.querySelector(".armada-job-row__id")?.textContent ?? "";
-  drawn[1]!.focus();
   await userEvent.keyboard("{Enter}");
-  await expect.poll(() => rows().length).toBe(0);
-  await expect.element(page.getByRole("button", { name: handle })).toBeVisible();
+  await expect.poll(() => page.getByRole("tab", { name: "Active" }).query()).toBeNull();
 });
 
-test("the focused row is Overview's cursor, and Helm's footer names it", async () => {
+test("the Job picked is Overview's cursor, and Helm's footer names it", async () => {
   await overview(onOverview(JOBS()));
   await openHelm();
-  await expect.element(page.getByText("Overview", { exact: true }).last()).toBeVisible();
-  rows()[0]!.focus();
-  await expect.element(page.getByText(/^Overview · cursor on Job \d+$/)).toBeVisible();
+  await expect.element(page.getByText(/^Cockpit · cursor on Job \d+$/)).toBeVisible();
 });
 
-test("n opens the composer from Overview", async () => {
+test("n brings the cursor to the dispatch bar from the Dashboard", async () => {
   await overview(onOverview(JOBS()));
   await userEvent.keyboard("n");
-  await expect.element(page.getByText("Pick the repository this Job is for")).toBeVisible();
-});
-
-test("Running folds and reopens, and folding it leaves the other panels open", async () => {
-  await overview(onOverview(JOBS()));
-  await page.getByRole("button", { name: "Collapse Running" }).click();
-  await expect.element(page.getByRole("button", { name: "Collapse Needs you" })).toBeVisible();
-  await page.getByRole("button", { name: "Expand Running" }).click();
-  await expect.element(page.getByRole("button", { name: "Collapse Running" })).toBeVisible();
-});
-
-test("a summary tile opens its panel", async () => {
-  await overview(onOverview(JOBS()));
-  await page.getByRole("button", { name: "Collapse Queued" }).click();
-  await expect.element(page.getByRole("button", { name: "Expand Queued" })).toBeVisible();
-  await page.getByRole("button", { name: /\d+ Queued/ }).click();
-  await expect.element(page.getByRole("button", { name: "Collapse Queued" })).toBeVisible();
+  await expect.element(page.getByRole("textbox", { name: "Request" })).toHaveFocus();
 });

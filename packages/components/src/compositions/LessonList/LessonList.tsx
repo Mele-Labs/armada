@@ -32,8 +32,8 @@ export type LessonRow = {
 export type LessonListProps = {
   /** Newest retro first, as Fleet serves them. */
   rows: readonly LessonRow[];
-  /** A press on the Job a row came from opens its retro. */
-  onOpen: (jobId: string) => void;
+  /** A press on the Job a row came from opens its retro. The row's id says which, where a Job or Session has several. */
+  onOpen: (jobId: string, rowId: string) => void;
 };
 
 /**
@@ -68,7 +68,7 @@ export function LessonList({ rows, onOpen }: LessonListProps) {
           from={{
             label: row.job,
             ...(row.jobExact === undefined ? {} : { exact: row.jobExact }),
-            onOpen: () => onOpen(row.jobId),
+            onOpen: () => onOpen(row.jobId, row.id),
           }}
         />
       ))}

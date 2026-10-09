@@ -135,7 +135,7 @@ impl Rig {
             .id;
         self.holds(
             Holder::session(id.as_str()),
-            "pull_request",
+            "pr",
             &number.to_string(),
             AttachmentState::Standing,
         )
@@ -165,7 +165,7 @@ impl Rig {
             .unwrap();
         self.holds(
             Holder::session(id),
-            "pull_request",
+            "pr",
             &number.to_string(),
             AttachmentState::Standing,
         )
@@ -401,7 +401,7 @@ async fn leaving_the_merge_queue_is_told_once_and_an_unmergeable_entry_is_told_a
     stuck.queue = PullQueue::Unmergeable;
     rig.holds(
         Holder::session(&session),
-        "pull_request",
+        "pr",
         "11",
         AttachmentState::Standing,
     )
@@ -421,7 +421,7 @@ async fn a_merge_is_told_to_the_session_that_held_it_and_noted_on_the_job() {
     let session = rig.a_hosted_session_on(1).await;
     rig.holds(
         Holder::session(&session),
-        "pull_request",
+        "pr",
         "1",
         AttachmentState::Spent,
     )
@@ -461,6 +461,86 @@ async fn a_merge_is_told_to_the_session_that_held_it_and_noted_on_the_job() {
     );
     let (loaded, _) = rig.fleet.every_job().await.unwrap();
     assert_eq!(loaded.jobs.len(), 1, "and starts nothing");
+}
+
+#[tokio::test]
+async fn a_merge_reaches_the_session_that_opened_it_after_its_slot_was_released() {
+    let rig = a_rig();
+    let session = rig.a_hosted_session_on(1).await;
+    // What a Session that opened the pull request holds in the ledger: its `pr` row, spent by
+    // the merge, and a `branch` row already given back with the slot.
+    rig.holds(
+        Holder::session(&session),
+        "pr",
+        "1",
+        AttachmentState::Spent,
+    )
+    .await;
+    rig.holds(
+        Holder::session(&session),
+        "branch",
+        "armada/1",
+        AttachmentState::GivenBack,
+    )
+    .await;
+    rig.fleet.vcs().main_ci.watched_are(Some(Vec::new()));
+    rig.fleet
+        .vcs()
+        .main_ci
+        .recently_merged_are(Some(vec![RecentlyMerged {
+            number: 1,
+            title: FromOutside::verbatim("Fix the reader"),
+            branch: FromOutside::verbatim("armada/1"),
+            url: FromOutside::verbatim("https://forge.invalid/armada/pull/1"),
+            author: None,
+            merged_at: FromOutside::verbatim(rig.fleet.now().as_str()),
+            commit: None,
+        }]));
+    let served = rig.fleet.repositories().served().remove(0);
+    rig.fleet.notice_merged(&served).await;
+
+    rig.reads().await;
+
+    let sent = rig.runs_sent_to_the_session();
+    assert!(
+        sent.iter().any(|line| line.contains("#1 merged into")),
+        "{sent:?}"
+    );
+}
+
+#[tokio::test]
+async fn the_watch_settles_the_row_of_a_merged_pull_request_a_terminal_session_holds() {
+    let rig = a_rig();
+    rig.a_terminal_session_on("t1", 1).await;
+    rig.holds(Holder::session("t1"), "pr", "1", AttachmentState::Standing)
+        .await;
+    rig.fleet.vcs().main_ci.watched_are(Some(Vec::new()));
+    rig.fleet
+        .vcs()
+        .now_pull_request(Some(adapter_traits::PullRequestFacts {
+            standing: adapter_traits::PullRequestStanding::Merged,
+            branch: "armada/1".into(),
+            auto_merge: false,
+            title: "Fix the reader".into(),
+            url: "https://forge.invalid/armada/pull/1".into(),
+        }));
+    rig.fleet.vcs().now_under_review(adapter_traits::UnderReview {
+        checks: adapter_traits::WhatTheForgeRan::AllPassed { checks: 1 },
+        ..adapter_traits::UnderReview::unreadable()
+    });
+
+    rig.reads().await;
+
+    let held = rig
+        .fleet
+        .store()
+        .lock()
+        .await
+        .attachments_of(&Holder::session("t1"))
+        .unwrap();
+    let row = held.iter().find(|one| one.kind == "pr").expect("the row");
+    assert_eq!(row.state, AttachmentState::Spent);
+    assert_eq!(row.detail.get("state").map(String::as_str), Some("merged"));
 }
 
 #[tokio::test]
@@ -614,4 +694,295 @@ async fn a_forge_that_will_not_answer_changes_nothing() {
     rig.fleet.vcs().main_ci.watched_are(None);
     rig.reads().await;
     assert!(rig.runs_sent_to_the_session().is_empty());
+}
+
+impl Rig {
+    async fn a_session_that_worked(&self, id: &str, branch: &str, state: AttachmentState) {
+        let root = self.fleet.repositories().first().unwrap().root().to_string();
+        self.fleet
+            .report_session(SessionReport {
+                harness: adapters::HOSTED_HARNESS.into(),
+                session_id: SessionId::carried(id),
+                fact: SessionFact::Started {
+                    cwd: root,
+                    title: None,
+                    origin: SessionOrigin::Terminal,
+                    mod_version: None,
+                },
+            })
+            .await
+            .unwrap();
+        self.holds(Holder::session(id), "branch", branch, state).await;
+    }
+
+    async fn holders_of_pull(&self, number: u64) -> Vec<String> {
+        let manifest = self.manifest();
+        self.fleet
+            .store()
+            .lock()
+            .await
+            .attachments_at("pr", &number.to_string(), Some(&manifest))
+            .unwrap()
+            .into_iter()
+            .map(|row| row.holder.id)
+            .collect()
+    }
+}
+
+#[tokio::test]
+async fn an_open_pull_request_nobody_reported_is_attached_to_the_session_that_worked_its_branch() {
+    let rig = a_rig_holding(None);
+    rig.a_session_that_worked("s-made-it", "armada/12", AttachmentState::Standing)
+        .await;
+    rig.a_session_that_worked("s-elsewhere", "armada/99", AttachmentState::Standing)
+        .await;
+    rig.fleet.vcs().main_ci.watched_are(Some(vec![pull(12, vec![])]));
+
+    rig.reads().await;
+    rig.reads().await;
+
+    assert_eq!(rig.holders_of_pull(12).await, vec!["s-made-it".to_string()]);
+}
+
+#[tokio::test]
+async fn a_pull_request_a_session_already_holds_is_not_attached_to_a_second() {
+    let rig = a_rig_holding(None);
+    rig.a_terminal_session_on("s-reported", 12).await;
+    rig.a_session_that_worked("s-branch", "armada/12", AttachmentState::Standing)
+        .await;
+    rig.fleet.vcs().main_ci.watched_are(Some(vec![pull(12, vec![])]));
+
+    rig.reads().await;
+
+    assert_eq!(rig.holders_of_pull(12).await, vec!["s-reported".to_string()]);
+}
+
+#[tokio::test]
+async fn a_branch_two_sessions_worked_gives_its_pull_request_to_the_one_still_on_it() {
+    let rig = a_rig_holding(None);
+    rig.a_session_that_worked("s-gone", "armada/12", AttachmentState::GivenBack)
+        .await;
+    rig.a_session_that_worked("s-here", "armada/12", AttachmentState::Standing)
+        .await;
+    rig.fleet.vcs().main_ci.watched_are(Some(vec![pull(12, vec![])]));
+
+    rig.reads().await;
+
+    assert_eq!(rig.holders_of_pull(12).await, vec!["s-here".to_string()]);
+}
+
+/// A pull request settled as merged while its own detail says it is open (a `gh pr merge
+/// --auto` read as a merge, #2027) is read again and stood back up while the forge says open.
+#[tokio::test]
+async fn a_pull_request_settled_too_soon_is_stood_back_up_while_it_is_open() {
+    let rig = a_rig();
+    rig.a_terminal_session_on("t1", 1).await;
+    let at = rig.fleet.now().as_str().to_string();
+    rig.fleet
+        .store()
+        .lock()
+        .await
+        .attach(
+            &KeptAttachment {
+                holder: Holder::session("t1"),
+                kind: "pr".into(),
+                manifest_id: rig.manifest(),
+                target: "1".into(),
+                state: AttachmentState::Spent,
+                detail: [("state".to_string(), "open".to_string())].into(),
+                since: at.clone(),
+                changed_at: at,
+            },
+            false,
+        )
+        .unwrap();
+    rig.fleet.vcs().main_ci.watched_are(Some(Vec::new()));
+    rig.fleet
+        .vcs()
+        .now_pull_request(Some(adapter_traits::PullRequestFacts {
+            standing: adapter_traits::PullRequestStanding::Open,
+            branch: "armada/1".into(),
+            auto_merge: true,
+            title: "Fix the reader".into(),
+            url: "https://forge.invalid/armada/pull/1".into(),
+        }));
+    rig.fleet.vcs().now_under_review(adapter_traits::UnderReview {
+        checks: adapter_traits::WhatTheForgeRan::AllPassed { checks: 1 },
+        ..adapter_traits::UnderReview::unreadable()
+    });
+
+    rig.reads().await;
+
+    let held = rig.fleet.store().lock().await.attachments_of(&Holder::session("t1")).unwrap();
+    let row = held.iter().find(|one| one.kind == "pr").expect("the row");
+    assert_eq!(row.state, AttachmentState::Standing);
+}
+
+/// A slot's lease names the branch worked in it, and a session that stands in the slot holds that
+/// branch, so the pull request from it is the session's without anyone reporting the branch.
+#[tokio::test]
+async fn a_pull_request_from_the_branch_a_sessions_slot_is_leased_on_is_attached_to_it() {
+    let rig = a_rig_holding(None);
+    let root = rig.fleet.repositories().first().unwrap().root().to_string();
+    let slot = adapter_traits::slot_path(&root, 3);
+    std::fs::create_dir_all(&slot).unwrap();
+    std::fs::write(
+        format!("{slot}.lease"),
+        "branch docs/approve\nholder job somebody\nsince 1\n",
+    )
+    .unwrap();
+    rig.fleet
+        .report_session(SessionReport {
+            harness: "a_harness".into(),
+            session_id: SessionId::carried("s-in-slot"),
+            fact: SessionFact::Started {
+                cwd: slot,
+                title: None,
+                origin: SessionOrigin::Terminal,
+                mod_version: None,
+            },
+        })
+        .await
+        .unwrap();
+    let mut mine = pull(21, vec![]);
+    mine.branch = FromOutside::verbatim("docs/approve");
+    rig.fleet.vcs().main_ci.watched_are(Some(vec![mine]));
+
+    rig.reads().await;
+
+    assert_eq!(rig.holders_of_pull(21).await, vec!["s-in-slot".to_string()]);
+}
+
+impl Rig {
+    async fn claims(&self, id: &str, number: u64) -> Result<ipc::PullRequestClaimed, api::Refusal> {
+        self.fleet
+            .claim_pull_request(
+                None,
+                ipc::ClaimPullRequest {
+                    number,
+                    session_id: Some(SessionId::carried(id)),
+                    job_id: None,
+                },
+            )
+            .await
+    }
+
+    async fn standing_holders_of_pull(&self, number: u64) -> Vec<String> {
+        let manifest = self.manifest();
+        self.fleet
+            .store()
+            .lock()
+            .await
+            .attachments_at("pr", &number.to_string(), Some(&manifest))
+            .unwrap()
+            .into_iter()
+            .filter(|row| row.state == AttachmentState::Standing)
+            .map(|row| row.holder.id)
+            .collect()
+    }
+}
+
+#[tokio::test]
+async fn a_session_claims_an_open_pull_request_nobody_holds() {
+    let rig = a_rig_holding(None);
+    rig.a_session_that_worked("s-claims", "armada/0", AttachmentState::GivenBack).await;
+    rig.fleet.vcs().main_ci.watched_are(Some(vec![pull(30, vec![])]));
+
+    let claimed = rig.claims("s-claims", 30).await.expect("claimed");
+
+    assert_eq!((claimed.number, claimed.holder_id.as_str()), (30, "s-claims"));
+    assert_eq!(rig.standing_holders_of_pull(30).await, vec!["s-claims".to_string()]);
+}
+
+#[tokio::test]
+async fn a_pull_request_a_live_session_holds_is_refused_with_the_reason() {
+    let rig = a_rig_holding(None);
+    rig.a_session_that_worked("s-live", "armada/31", AttachmentState::Standing).await;
+    rig.a_session_that_worked("s-other", "armada/0", AttachmentState::GivenBack).await;
+    rig.fleet.vcs().main_ci.watched_are(Some(vec![pull(31, vec![])]));
+
+    let refused = rig.claims("s-other", 31).await.expect_err("held live");
+
+    assert!(format!("{refused:?}").contains("still working"), "{refused:?}");
+    assert!(rig.standing_holders_of_pull(31).await.is_empty());
+}
+
+#[tokio::test]
+async fn a_pull_request_whose_holder_has_ended_is_claimed_and_the_holder_gives_it_back() {
+    let rig = a_rig_holding(None);
+    rig.a_terminal_session_on("s-old", 32).await;
+    rig.fleet
+        .report_session(SessionReport {
+            harness: adapters::HOSTED_HARNESS.into(),
+            session_id: SessionId::carried("s-old"),
+            fact: SessionFact::Ended { reason: "closed".into() },
+        })
+        .await
+        .unwrap();
+    rig.a_session_that_worked("s-new", "armada/0", AttachmentState::GivenBack).await;
+    rig.fleet.vcs().main_ci.watched_are(Some(vec![pull(32, vec![])]));
+
+    rig.claims("s-new", 32).await.expect("claimed");
+
+    assert_eq!(rig.standing_holders_of_pull(32).await, vec!["s-new".to_string()]);
+}
+
+#[tokio::test]
+async fn a_pull_request_that_is_not_open_is_not_claimed() {
+    let rig = a_rig_holding(None);
+    rig.a_session_that_worked("s-claims", "armada/0", AttachmentState::GivenBack).await;
+    rig.fleet.vcs().main_ci.watched_are(Some(vec![]));
+    assert!(rig.claims("s-claims", 33).await.is_err());
+}
+
+#[tokio::test]
+async fn a_person_attaches_an_open_pull_request_to_a_job_they_picked() {
+    let rig = a_rig_holding(None);
+    let job = a_finished_job(&rig.fleet, &rig._home, "fold the routes").await;
+    rig.fleet.vcs().main_ci.watched_are(Some(vec![pull(40, vec![])]));
+
+    let claimed = rig
+        .fleet
+        .claim_pull_request(
+            None,
+            ipc::ClaimPullRequest {
+                number: 40,
+                session_id: None,
+                job_id: Some(ipc::JobId::from(job.id())),
+            },
+        )
+        .await
+        .expect("attached");
+
+    assert_eq!(
+        (claimed.holder_kind.as_str(), claimed.holder_id.as_str()),
+        ("job", job.id().as_str())
+    );
+    assert_eq!(
+        rig.standing_holders_of_pull(40).await,
+        vec![job.id().as_str().to_string()]
+    );
+}
+
+#[tokio::test]
+async fn a_claim_naming_both_a_session_and_a_job_is_refused() {
+    let rig = a_rig_holding(None);
+    let job = a_finished_job(&rig.fleet, &rig._home, "fold the routes").await;
+    rig.a_session_that_worked("s-both", "armada/0", AttachmentState::GivenBack).await;
+    rig.fleet.vcs().main_ci.watched_are(Some(vec![pull(41, vec![])]));
+
+    let refused = rig
+        .fleet
+        .claim_pull_request(
+            None,
+            ipc::ClaimPullRequest {
+                number: 41,
+                session_id: Some(SessionId::carried("s-both")),
+                job_id: Some(ipc::JobId::from(job.id())),
+            },
+        )
+        .await;
+
+    assert!(refused.is_err());
+    assert!(rig.standing_holders_of_pull(41).await.is_empty());
 }

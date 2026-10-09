@@ -1,0 +1,7 @@
+[icons.arrow-up]
+  means = "An arrow pointing up - commits the running build holds that main lacks"
+  group = "Fleet"
+  size = "12px"
+  status = "Specified"
+  reserved = "Ahead of main, in the Fleet panel. Never sort, which is `arrow-up-down`, and never an upload or a push."
+  notes = "Proposed 8 Oct 2026 for the walk `fleetBuildPreviewAhead`, approved by the owner the same day. Draws muted beside a figure; tooltip `4 commits ahead of main`. Pair of `arrow-down`, and the two are part of `fleet_build_position`. Also drawn as `Move up` in the layout mods list, where a person arranges a row, at 16px."

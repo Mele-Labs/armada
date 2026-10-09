@@ -4,6 +4,7 @@
 // The header rules in `protocol.ts` hold here. `kind` on an attachment is open
 // text, so it is a `string`; the sets below that Fleet closes are written out.
 
+import type { HelmCallInFlight } from "./helm-calls";
 import type { HostedFacts, SessionMode } from "./hosted-sessions";
 
 /** What started a session. */
@@ -71,7 +72,62 @@ export type SessionRecord = {
   terminal?: TerminalFacts;
   /** A terminal session whose mod is older than its repository's, or reported no version. Since 23.62. */
   mod_out_of_date?: true;
+  /**
+   * What the session waits on the person for: the agent's list with Fleet's own items merged in, the
+   * agent's first. Absent is nothing, and always absent for an ended session.
+   */
+  waiting_for?: WaitingItem[];
 };
+
+/** What a press on a waiting item does. `target` is an address, a call, a pull request number or a command. */
+export type WaitingAct = { kind: "walk" | "answer" | "approve_pr" | "run"; target: string };
+
+/** Who put an item on the list: the agent, or Fleet from an open card, a permission or an unapproved walk window. */
+export type WaitingSource = "agent" | "ask_card" | "walk" | "permission";
+
+/**
+ * One thing a session waits on the person for. `id` is stable across updates: the agent's own, or
+ * `ask:<call>`, `perm:<call>`, `walk:<url>` where Fleet derived it. `options` is present only on an
+ * `answer` item that has choices, and `answer_waiting`'s `choice` indexes it.
+ */
+export type WaitingItem = {
+  id: string;
+  text: string;
+  since: string;
+  source: WaitingSource;
+  act?: WaitingAct;
+  options?: { label: string }[];
+};
+
+/**
+ * `POST /sessions/waiting/answer`: settle one item. A `choice` (an index into its `options`), `text` of
+ * the person's own, or a `mode` that leaves it to the agent: `best` thinks it through, `quick` takes the
+ * reasonable path and keeps moving. A walk item needs none of the three, and approving is its default.
+ */
+export type AnswerWaiting = {
+  session_id: string;
+  item_id: string;
+  choice?: number;
+  text?: string;
+  mode?: "best" | "quick";
+};
+
+/**
+ * `POST /sessions/claim_pull_request`: the caller takes an open pull request no live Session or Job holds.
+ * `session_id` or `job_id` names the claimant where the connection places none, which is Bridge's case:
+ * exactly one of the two. Fleet refuses
+ * 422 `fleet.pull_request_not_claimable`, naming the holder, where a live one has it or it is not open.
+ */
+export type ClaimPullRequest = { number: number; session_id?: string; job_id?: string };
+
+/** What `claim_pull_request` answers: the pull request now held, and by whom (`session` or `job`). */
+export type PullRequestClaimed = { number: number; branch: string; url: string; holder_kind: string; holder_id: string };
+
+/**
+ * `POST /sessions/waiting/dismiss`: drop one item for good. Its id never comes back, whether Fleet derived
+ * it (`ask:`, `perm:`, `walk:`) or the agent stated it, and nothing is sent to the agent.
+ */
+export type DismissWaiting = { session_id: string; item_id: string };
 
 /** A command a terminal session lists, for `/` to offer. Since 23.53. */
 export type TerminalCommand = { name: string; says: string };
@@ -87,6 +143,8 @@ export type TerminalFacts = {
   commands?: TerminalCommand[];
   /** Whether its mod asked within the last ten seconds. Absent is not listening. Since 23.69. */
   listening?: boolean;
+  /** The question its terminal is showing, while Bridge may still answer it. */
+  asked?: HelmCallInFlight;
 };
 
 /** `list_sessions`, the most recently seen first. */

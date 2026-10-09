@@ -11,7 +11,7 @@ import { job, repository } from "@armada/screens/src/fixtures/build/base";
 import { onBoard } from "./scenario";
 import type { Scenario } from "./scenario";
 import { asking, FakeSessionsFleet, held, hosted, pullRequest, terminal } from "./sessions-fleet";
-import { mount, onScreen, unmountAfterEach } from "./testing";
+import { mount, onScreen, putOffEveryCall, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
@@ -177,10 +177,45 @@ test("Sessions wired: a pull request the Session holds is merged from its sheet,
   await expect.element(sheet.getByText("Merged")).toBeVisible();
 });
 
+test("Sessions wired: a refused press on a pull request says Fleet's words in its sheet and reads the pull request again", async () => {
+  const fleet = new FakeSessionsFleet([hosted(ID, { title: "Fix the flaky store test", attachments: [pullRequest(1847, { checks: "pending" })] })]);
+  mount(served(fleet));
+  await onSessions();
+  await userEvent.click(page.getByRole("button", { name: "Fix the flaky store test" }));
+  await userEvent.click(page.getByRole("region", { name: "Attachments" }).getByRole("button", { name: "Open Pull request #1847" }));
+  const sheet = page.getByRole("dialog", { name: "Pull request #1847" });
+  fleet.refusesPress = { code: "fleet.auto_merge_refused", message: "Auto merge is not allowed" };
+  await userEvent.click(sheet.getByRole("button", { name: "Enable auto-merge" }));
+  await expect.element(sheet.getByText("Auto merge is not allowed")).toBeVisible();
+  await expect.poll(() => fleet.calls.pressed.filter((one) => one.press === "read").length).toBeGreaterThan(1);
+});
+
+test("Sessions wired: red checks on a merged pull request do not put a Session under Needs you", async () => {
+  const fleet = new FakeSessionsFleet([
+    hosted(ID, { title: "Fix the flaky store test", attachments: [held("slot", "3"), pullRequest(1843, { state: "merged", checks: "failed", failing: "lint" })] }),
+  ]);
+  mount(served(fleet));
+  await onSessions();
+  await expect.element(sessions().getByRole("button", { name: "Fix the flaky store test" })).toBeVisible();
+  await expect.element(page.getByText("Needs you")).not.toBeInTheDocument();
+});
+
+test("Sessions wired: red checks on an open pull request put a Session under Needs you", async () => {
+  const fleet = new FakeSessionsFleet([
+    hosted(ID, { title: "Fix the flaky store test", attachments: [held("slot", "3"), pullRequest(1843, { checks: "failed", failing: "lint" })] }),
+  ]);
+  mount(served(fleet));
+  await onSessions();
+  await expect.element(page.getByText("Needs you")).toBeVisible();
+});
+
 test("Sessions wired: Open in a Session on a stopped Job starts one with the Job in its first message's mentions", async () => {
   const fleet = new FakeSessionsFleet();
   mount(served(fleet));
   await onScreen();
+  await putOffEveryCall();
+  await userEvent.click(page.getByRole("tab", { name: "Active" }));
+  await userEvent.click(page.getByRole("option", { name: /^The retry loop/ }));
   await userEvent.click(page.getByRole("button", { name: "More for The retry loop" }));
   await userEvent.click(page.getByRole("menuitem", { name: "Open in a Session" }));
   await expect.element(page.getByRole("textbox", { name: "Message" }).getByText("The retry loop")).toBeVisible();

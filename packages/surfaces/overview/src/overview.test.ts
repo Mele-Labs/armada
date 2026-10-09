@@ -1,30 +1,15 @@
-// Overview's readings, case by case: the machine's three ignore a pick, the scope's own two follow
-// it. Overview 27 (#1091) retired the tile band these once drew for; `left-column.ts` reads them
-// into the left column's Stats and Fleet panels now.
+// Overview's readings, case by case: the machine's three ignore a pick. Overview 27 (#1091) retired the tile band these once drew for; `left-column.ts` reads them
+// into the left column's Fleet panel now.
 
 import { describe, expect, it } from "vitest";
 
-import type { Connection, FleetHealth, ManifestDriftRead, RepositorySummary } from "@armada/protocol";
+import type { Connection, FleetHealth } from "@armada/protocol";
 import { connectedTo, PROTOCOL_ID } from "@armada/protocol";
-import { doctorReading, driftReading, dronesReading, fleetReading } from "./overview";
-import type { RepositoryDrift } from "@armada/screens/src/overview-reads";
+import { doctorReading, dronesReading, fleetReading } from "./overview";
 
 const NOW = Date.parse("2026-09-13T12:00:00Z");
 const FLEET = { protocolId: PROTOCOL_ID, pid: 4242, port: 7878, startedAt: "2026-09-13T11:00:00Z" };
 const CONNECTED: Connection = connectedTo(FLEET, 1);
-
-const manifest = (id: string, root: string) => ({ id, repository: id, path: `${root}/armada.yml`, records_root: `/records/${id}`, version: 1, checks: [] });
-const ARMADA: RepositorySummary = { root: "/Users/user/armada", records_root: "/records/armada", manifest: manifest("armada", "/Users/user/armada") };
-const SHOP: RepositorySummary = { root: "/Users/user/shop", records_root: "/records/shop", manifest: manifest("shop", "/Users/user/shop") };
-const SCRATCH: RepositorySummary = { root: "/Users/user/scratch", records_root: "/records/scratch" };
-
-const gone = { section: "checks", name: "lint", key: "run", run: "scripts/lint.sh", drift: { verdict: "gone" as const, missing: ["scripts/lint.sh"] }, unfollowed: [] };
-const current = { section: "checks", name: "test", key: "run", run: "cargo test", drift: { verdict: "current" as const, checked: 1 }, unfollowed: [] };
-const read = (...declarations: (typeof gone | typeof current)[]): ManifestDriftRead => ({
-  state: "read",
-  drift: { path: "armada.yml", checkout: "/Users/user/armada", declarations },
-});
-const unset: ManifestDriftRead = { state: "failed", outcome: { ok: false, why: "not_set_up" } };
 
 describe("the Fleet tile", () => {
   it("reads the connection's own statement, in the status bar's three hues", () => {
@@ -76,35 +61,5 @@ describe("the Drones tile", () => {
   it("stands in while connected and unread, and says not read otherwise", () => {
     expect(dronesReading(CONNECTED, null, 0).value).toBeUndefined();
     expect(dronesReading({ state: "reading" }, null, 0).value).toBe("Not read");
-  });
-});
-
-describe("the Manifest drift tile", () => {
-  const held = (...repositories: RepositoryDrift[]) => ({ state: "held" as const, repositories });
-
-  it("says how many repositories are behind on All, and which could not be asked", () => {
-    const reading = driftReading(
-      held({ root: ARMADA.root, drift: read(gone, current) }, { root: SHOP.root, drift: read(current) }, { root: SCRATCH.root, drift: unset }),
-      null,
-    );
-    expect(reading).toMatchObject({ value: "1 behind", tone: "notice-caution", detail: "1 of 2 repositories · 1 not set up" });
-  });
-
-  it("reads current, without a hue, when nothing on All is behind", () => {
-    const reading = driftReading(held({ root: SHOP.root, drift: read(current) }), null);
-    expect(reading).toMatchObject({ value: "Current", detail: "1 repository, none behind" });
-    expect(reading.tone).toBeUndefined();
-  });
-
-  it("counts the picked repository's lines on a pick", () => {
-    const drifts = held({ root: ARMADA.root, drift: read(gone, gone, current) }, { root: SHOP.root, drift: read(current) });
-    expect(driftReading(drifts, ARMADA)).toMatchObject({ value: "2 behind", detail: "Of 3 lines armada.yml names" });
-    expect(driftReading(drifts, SHOP)).toMatchObject({ value: "Current", detail: "1 line, nothing they name is gone" });
-    expect(driftReading(held({ root: SCRATCH.root, drift: unset }), SCRATCH)).toMatchObject({ value: "Not set up" });
-  });
-
-  it("stands in until anything is read", () => {
-    expect(driftReading({ state: "none" }, null).value).toBeUndefined();
-    expect(driftReading(held({ root: ARMADA.root, drift: { state: "reading" } }), null).value).toBeUndefined();
   });
 });

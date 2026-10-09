@@ -6,13 +6,16 @@
 // below the breakpoint.
 
 import { kit, NARROW } from "../sessions/walk-kit";
+import { putOff, pick } from "../walk-steps";
 import { button, inside, role, text, walk } from "../walk";
 import type { Step } from "../walk";
 
 function steps(narrow: boolean): Step[] {
   const { ledger, message, thread, opened } = kit(narrow);
   return [
-    { look: button("More for Cap the retry backoff"), say: "A Job stopped at its gate is on the Board" },
+    ...putOff(2),
+    ...pick(/Cap the retry backoff/, "A Job stopped at its gate, picked on Active"),
+    { look: button("More for Cap the retry backoff"), say: "Its acts are beside it" },
     { press: button("More for Cap the retry backoff"), say: "Its menu has an act for talking it through" },
     { look: role("menuitem", "Open in a Session"), say: "Open in a Session leaves the Drone as it is. Pilot stops it" },
     { press: role("menuitem", "Open in a Session"), say: "It starts a Session with the Job tagged" },

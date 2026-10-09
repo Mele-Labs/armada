@@ -238,6 +238,16 @@ pub trait Queries: Send + Sync + 'static {
     /// its own roster, which is not a state that has ever occurred.
     fn get_capacity(&self) -> impl Future<Output = Result<FleetCapacity, Refusal>> + Send;
 
+    /// `get_fleet_build` — which build Fleet runs on, the commit it came from,
+    /// where that stands against `origin/main`, and the restart under way or
+    /// the one that failed.
+    ///
+    /// **Never waits on the network**: the counts are as fresh as Fleet's last
+    /// background fetch. [`Refusal::IllegalMove`] where this Fleet serves no
+    /// checkout that can be restarted from, and a Fleet in that state has no
+    /// build to choose.
+    fn get_fleet_build(&self) -> impl Future<Output = Result<ipc::FleetBuildReport, Refusal>> + Send;
+
     /// `get_limits` — the Drones-at-once bound, the memory share and the disk
     /// floor in force, and the values Fleet shipped with.
     ///
@@ -454,6 +464,15 @@ pub trait Queries: Send + Sync + 'static {
     /// as one that did nothing. A worktree that will not open is
     /// [`Refusal::Fault`], never an empty patch.
     fn get_diff(&self, job_id: JobId) -> impl Future<Output = Result<JobDiff, Refusal>> + Send;
+
+    /// `get_repair_diff` — what a repair or side-run fix changes, against the
+    /// Job's branch, in `get_diff`'s shape. A 422 `fleet.no_repair_branch`
+    /// where the Trigger or added step has no repair branch.
+    fn get_repair_diff(
+        &self,
+        job_id: JobId,
+        of: ipc::RepairOf,
+    ) -> impl Future<Output = Result<JobDiff, Refusal>> + Send;
 
     /// `get_job_resources` — what this Job holds on this machine: the
     /// processes it owns, what each is burning, the disk its worktree has

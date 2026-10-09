@@ -1,0 +1,7 @@
+[icons.sunrise]
+  means = "A half sun rising over a horizon line"
+  group = "Sleep mode"
+  size = "16px"
+  status = "Specified"
+  reserved = "The Morning review sheet and the control that reopens it. Never a theme or a schedule."
+  notes = "Approved 9 Oct 2026 with sleep mode."

@@ -9,8 +9,8 @@
 import { closeWalkWindow, mockPage, openWalkWindow } from "@armada/jobs/fake";
 import type { Session, SessionTag, SessionAttachment, SessionCommand, SessionRow, SessionSketch, SessionsDraft } from "@armada/screens/src/draft/sessions";
 
-/** The draft the window reads, and the two things only the mock does: take the next turn, and stop. */
-export type SessionsStore = SessionsDraft & { later: () => void; dispose: () => void };
+/** The draft the window reads, and what only the mock does: take the next turn, stop, and take a claim Fleet would have put in the ledger. */
+export type SessionsStore = SessionsDraft & { later: () => void; dispose: () => void; attach: (id: string, attachment: SessionAttachment) => void; drop: (id: string, itemId: string) => void };
 
 /** A Job the walk's Session dispatches. The real Board holds it, so its id is the Board's. */
 export type DispatchedJob = { id: string; number: number; title: string; branch: string; slot: number };
@@ -130,11 +130,14 @@ export function sessionsStore(
   dispatchedRows: readonly unknown[] = [],
   /** Sessions open beside the usual ones. */
   more: readonly Session[] = [],
+  /** What an agent says to a Session, one message each time a walk lets time pass, before the usual turns. */
+  arrivals: readonly (readonly [id: string, text: string])[] = [],
 ): SessionsStore {
   let now: readonly Session[] = [...others(), ...more];
   let clock = 0;
   let rowId = 0;
   let moment = 0;
+  let arrived = 0;
   let started = false;
   let made = 0;
   /** How many times a Session that was handed a Job has been asked, to know which of its two turns is next. */
@@ -179,6 +182,11 @@ export function sessionsStore(
       job: session.title ?? id,
       into: "Session",
       onNote: (note, picked) => store.send(id, { text: `${note}\nOn ${picked.element}, ${picked.location}`, files: [], sketches: [], tags: [] }),
+      // Approve is a message from the person too, and wakes the Session the same way.
+      onApprove: async (address) => {
+        await store.send(id, { text: `Approved: ${address}`, files: [], sketches: [], tags: [] });
+        return { ok: true };
+      },
     });
   };
   /** The Session shows a page: its window opens by itself, and the ledger and the thread keep it. */
@@ -536,6 +544,17 @@ export function sessionsStore(
     models: MODELS,
     efforts: EFFORTS,
     commands: COMMANDS,
+    answerWaiting: (id, itemId, given) => {
+      const item = now.find((one) => one.id === id)?.waitingFor?.find((one) => one.id === itemId);
+      if (item === undefined) return;
+      const chosen = given.choice === undefined ? given.text : item.options?.[given.choice]?.label;
+      edit(id, (one) => {
+        const { asked, ...rest } = one;
+        void asked;
+        return { ...rest, waitingFor: (one.waitingFor ?? []).filter((it) => it.id !== itemId) };
+      });
+      addTo(id, [said(`Going with ${chosen ?? "my own call"}.`)]);
+    },
     answer: (id, answer, answers) => {
       const questioned = now.find((one) => one.id === id)?.asked?.questions !== undefined;
       edit(id, (one) => {
@@ -573,6 +592,12 @@ export function sessionsStore(
       return { rows, finished, ...(finished ? { report: script[script.length - 1]![1] } : {}) };
     },
     later() {
+      const arrival = arrivals[arrived];
+      if (arrival !== undefined) {
+        arrived += 1;
+        addTo(arrival[0], [said(arrival[1])]);
+        return;
+      }
       const next = turns[moment];
       moment += 1;
       next?.();
@@ -581,6 +606,14 @@ export function sessionsStore(
       timers.forEach((one) => window.clearTimeout(one));
       closeWalkWindow();
     },
+    attach: (id, attachment) => addTo(id, [], [attachment]),
+    // Fleet drops an item from the list for good; one read off the pending ask goes with the ask.
+    drop: (id, itemId) =>
+      edit(id, (one) => {
+        const { asked, ...rest } = one;
+        const own = one.waitingFor?.some((it) => it.id === itemId) === true;
+        return own ? { ...one, waitingFor: one.waitingFor!.filter((it) => it.id !== itemId) } : asked === undefined ? one : rest;
+      }),
   };
   return store;
 }

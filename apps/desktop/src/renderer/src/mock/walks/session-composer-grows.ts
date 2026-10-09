@@ -1,7 +1,7 @@
 // The message box grows with what is typed, up to half the height of its panel, and then scrolls.
 // Told on a Session's composer and on Helm's.
 
-import { kit } from "../sessions/walk-kit";
+import { kit, toSessions } from "../sessions/walk-kit";
 import { button, inside, region, role, walk } from "../walk";
 import type { Step } from "../walk";
 
@@ -27,15 +27,15 @@ const helm: Step[] = [
 const keeping: Step[] = [
   { press: inside(region("Sessions"), button("CI timeout hunt")), say: "A Session" },
   { type: "Half a thought before I leave", into: kit(false).message, say: "Something typed and not sent" },
-  { press: button("Overview", { exact: true }), say: "Off to Overview" },
+  { press: button("Cockpit", { exact: true }), say: "Off to the Cockpit" },
   { press: button("Sessions", { exact: true }), say: "And back to the Sessions" },
   { press: inside(region("Sessions"), button("CI timeout hunt")), say: "The same Session" },
   { look: kit(false).message, say: "The message box has what was typed, with the caret at its end" },
 ];
 
-const session = walk("session-thread-polish", steps());
-const talking = walk("session-thread-polish", helm);
+const session = walk("session-thread-polish", [toSessions, ...steps()]);
+const talking = walk("session-thread-polish", [toSessions, ...helm]);
 
-const kept = walk("session-thread-polish", keeping);
+const kept = walk("session-thread-polish", [toSessions, ...keeping]);
 
 export { kept as "session-composer-keeps", session as "session-composer-grows", talking as "session-composer-grows-helm" };

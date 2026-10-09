@@ -26,12 +26,14 @@ use crate::ids::ProposalId;
 use crate::ids::{CriterionId, DroneId, Instant, JobId, StepId};
 use crate::job::{JobForgotten, JobList, JobSummary};
 use crate::merge_line::MergeLines;
+use crate::mods::ModList;
 use crate::proposing::ProposalInFlight;
 use crate::protocol_id::ProtocolId;
 use crate::reading::ManifestReading;
 use crate::rehearsal::{CheckoutRunRecord, RunRecord};
 use crate::repositories::RepositoryList;
 use crate::servers::ServerState;
+use crate::sleep::SleepState;
 use crate::sessions::SessionRecord;
 use crate::studio::{Studio, StudioDeleted, StudioHelmActed};
 use crate::triggers::JobTriggerChanged;
@@ -170,6 +172,10 @@ pub enum Event {
     // What `get_merge_lines` answers, whole, whenever a line moved on disk.
     #[serde(rename = "merge_lines.changed")]
     MergeLinesChanged(MergeLines),
+    // The mods on this machine, whole, whenever one was added, changed or
+    // switched.
+    #[serde(rename = "mods.changed")]
+    ModsChanged(ModList),
     // A Studio after any write to it, whole, so an open whiteboard replaces
     // what it holds. `#1285`.
     #[serde(rename = "studio.changed")]
@@ -199,6 +205,9 @@ pub enum Event {
     // Since 23.49.
     #[serde(rename = "session.row")]
     SessionRow(SessionRowChanged),
+    // Sleep mode after any change to it, whole, so a client replaces what it holds.
+    #[serde(rename = "sleep.changed")]
+    SleepChanged(SleepState),
 }
 
 impl Event {

@@ -13,7 +13,7 @@ import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import { scenarioNamed } from "./scenario";
-import { mount, listed, rows, unmountAfterEach } from "./testing";
+import { mount, listed, putOffEveryCall, rows, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
@@ -23,29 +23,44 @@ unmountAfterEach();
  */
 const JOBS = scenarioNamed("every-state")!.state.jobs;
 
-/** Overview, with its folded Done panel opened so every row is drawn. */
-async function everyRowDrawn(): Promise<void> {
-  await expect.poll(() => rows().length).toBeGreaterThan(0);
-  // The panel head says Expand or Collapse, so the name is matched at its end.
-  const done = page.getByRole("button", { name: /Done$/ });
-  if (done.query()?.getAttribute("aria-expanded") === "false") await done.click();
+const TABS = ["Your move", "Active", "Done"] as const;
+
+/** Every Job the Dashboard draws, read off each of its filters in turn. */
+async function everyRowDrawn(): Promise<string[]> {
+  const ids = new Set<string>();
+  for (const name of TABS) {
+    await userEvent.click(page.getByRole("tab", { name }));
+    await expect.poll(() => rows().length).toBeGreaterThan(0);
+    for (const row of rows()) if (row.dataset.jobId !== undefined) ids.add(row.dataset.jobId);
+  }
+  return [...ids].sort();
+}
+
+/** The filter that draws this Job's tile, opened on it. */
+async function tabHolding(jobId: string): Promise<void> {
+  for (const name of TABS) {
+    await userEvent.click(page.getByRole("tab", { name }));
+    if (rows().some((one) => one.dataset.jobId === jobId)) return;
+  }
 }
 
 test("every-state lists a row per Job", async () => {
   mount("every-state");
   await listed();
-  await everyRowDrawn();
-  await expect.poll(() => rows().map((row) => row.dataset.jobId).sort()).toEqual(JOBS.map((job) => job.id).sort());
+  await putOffEveryCall();
+  expect(await everyRowDrawn()).toEqual(JOBS.map((job) => job.id).sort());
 });
 
 test.for(JOBS)("$handle's row opens its own detail", async (job) => {
   const { scenario } = mount("every-state");
   await listed();
-  await everyRowDrawn();
-  // The fold's rows arrive with it, so wait for this Job's row rather than reading the board once.
+  await putOffEveryCall();
+  await tabHolding(job.id);
   const row = (): HTMLElement | undefined => rows().find((one) => one.dataset.jobId === job.id);
   await expect.poll(row).toBeDefined();
+  // A press picks the row; Enter opens what is picked, as on the Board.
   await userEvent.click(row()!);
+  await userEvent.keyboard("{Enter}");
   // The list is gone and the header names this Job by its handle.
   await expect.poll(() => rows().length).toBe(0);
   await expect.element(page.getByRole("button", { name: job.handle })).toBeVisible();

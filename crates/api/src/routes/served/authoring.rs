@@ -1,6 +1,7 @@
 //! What a person authors: the rows of [`SERVED`](super::SERVED) under
-//! `/workflows` and `/triggers`. The list, one definition, and the acts in the
-//! last segment, beside `/manifest/save_file`'s. `docs/concepts/trigger.md`.
+//! `/workflows`, `/triggers` and `/mods`. The list, one definition, and the acts
+//! in the last segment, beside `/manifest/save_file`'s. `docs/concepts/trigger.md`,
+//! `docs/concepts/mods.md`.
 
 use super::Route;
 
@@ -74,5 +75,44 @@ pub(super) const ROUTES: &[Route] = &[
         operation: "remove_job_step",
         method: "POST",
         path: "/jobs/:job_id/remove_job_step",
+    },
+    Route {
+        operation: "edit_job_step",
+        method: "POST",
+        path: "/jobs/:job_id/edit_job_step",
+    },
+    Route {
+        operation: "get_repair_diff",
+        method: "GET",
+        path: "/jobs/:job_id/repair_diff",
+    },
+    // A mod is a folder on this machine, so none of these names a Job or a
+    // repository but the promote, which names one in its body. The acts spell
+    // themselves in the last segment, and the read that takes a name takes it as
+    // `?name=`, as `/sessions/owner` takes its target.
+    Route {
+        operation: "list_mods",
+        method: "GET",
+        path: "/mods",
+    },
+    Route {
+        operation: "scaffold_mod",
+        method: "POST",
+        path: "/mods/scaffold",
+    },
+    Route {
+        operation: "set_mod_enabled",
+        method: "POST",
+        path: "/mods/enable",
+    },
+    Route {
+        operation: "validate_mod",
+        method: "GET",
+        path: "/mods/validate",
+    },
+    Route {
+        operation: "promote_mod",
+        method: "POST",
+        path: "/mods/promote",
     },
 ];

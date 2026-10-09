@@ -1,78 +1,21 @@
-// The left column's Stats and Fleet panels, built here rather than in
+// The left column's Fleet panel, built here rather than in
 // `@armada/shell` — that package is what `@armada/screens` imports
 // `statementOf` from, so the reverse import would be a dependency cycle.
 // Reuses Overview's own tile arithmetic rather than re-deriving it, so the
 // two readings cannot drift apart. Bridge/1088.
 
-import type { Figure, StatRow, FleetPanelProps } from "@armada/components";
-import type { Connection, FleetCapacity, JobSummary, RepositorySummary } from "@armada/protocol";
+import type { Figure, FleetPanelProps } from "@armada/components";
+import type { Connection } from "@armada/protocol";
 import { spoken } from "@armada/protocol";
 import { fleetStateOf, shortLabelOf, silenceOf, type Statement } from "@armada/shell";
-import { doctorReading, driftReading, dronesReading } from "@armada/overview";
-import type { DriftsRead, HealthRead } from "@armada/screens/src/overview-reads";
+import { doctorReading } from "@armada/overview";
+import type { HealthRead } from "@armada/screens/src/overview-reads";
 // `instant` and `lasting` are the Job elapsed-time figure's own parse-and-format
 // pair (`elapsedSince` above them). Reused rather than re-derived so a job's
 // "1h 30m" and Fleet's "up 1h 30m" cannot drift into two spellings of one span.
 import { instant, lasting } from "@armada/screens/src/duration";
 
-/** Stats — the six rows Overview's own tiles already read. No Queued: Overview's own Queued panel lists those Jobs. */
-export function statsOf(
-  connection: Connection,
-  jobs: readonly JobSummary[],
-  capacity: FleetCapacity | null,
-  repositories: readonly RepositorySummary[],
-  scope: string | null,
-  drifts: DriftsRead,
-): StatRow[] {
-  const picked = repositories.find((repository) => repository.root === scope) ?? null;
-  const queued = jobs.filter((job) => job.status === "queued").length;
-  const drone = dronesReading(connection, capacity, queued);
-  const drift = driftReading(drifts, picked);
-  // Only `driftReading`'s behind reading carries `notice-caution`; Current,
-  // Not read and Not set up all keep the current hue, dim.
-  const behind = drift.tone === "notice-caution";
-  return [
-    countRow("approval", "Awaiting approval", jobs.filter((job) => job.status === "awaiting_approval").length),
-    countRow("review", "Needs review", jobs.filter((job) => job.status === "awaiting_review").length),
-    countRow("escalated", "Escalated", jobs.filter((job) => job.status === "escalated").length, "hot"),
-    { id: "jobs", label: "Jobs", value: jobs.length, hue: "status-not-started", idle: jobs.length === 0 },
-    {
-      id: "drones",
-      label: "Drones",
-      value: drone.value ?? "—",
-      hint: asString(drone.detail),
-      hue: "stat-drones",
-      idle: (capacity?.occupied ?? 0) === 0,
-    },
-    {
-      id: "manifest",
-      label: "Manifest",
-      value: drift.value ?? "—",
-      tone: toneOf(drift.tone),
-      hint: asString(drift.detail),
-      hue: behind ? "notice-caution" : "stat-manifest-current",
-      idle: !behind,
-    },
-  ];
-}
-
-/**
- * A count row, amber past zero — Awaiting approval, Needs review and Escalated
- * share the treatment. The dot's hue is the value's own loud colour, dim at zero.
- */
-function countRow(id: string, label: string, value: number, tone: "warn" | "hot" = "warn"): StatRow {
-  const hue = tone === "hot" ? "status-escalated" : "status-awaiting-review";
-  return { id, label, value, hue, idle: value === 0, ...(value > 0 ? { tone } : {}) };
-}
-
-/** `ReadingTone` collapsed to the Stats panel's warn/hot pair. */
-function toneOf(tone: string | undefined): StatRow["tone"] {
-  if (tone === "completed-failed") return "hot";
-  if (tone === "awaiting-review" || tone === "notice-caution") return "warn";
-  return undefined;
-}
-
-/** Every reader `statsOf` calls returns a plain string `detail`; anything else is dropped rather than stringified blind. */
+/** Every reader `fleetPanelOf` calls returns a plain string `detail`; anything else is dropped rather than stringified blind. */
 function asString(node: unknown): string | undefined {
   return typeof node === "string" ? node : undefined;
 }

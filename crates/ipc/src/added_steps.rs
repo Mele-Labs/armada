@@ -50,6 +50,17 @@ pub struct AddStep {
     pub repair: bool,
 }
 
+/// `edit_job_step`'s body: the added step and the switches to change. A switch
+/// left out is left as it is.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct EditAddedStep {
+    pub id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub block: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub repair: Option<bool>,
+}
+
 /// `remove_job_step`'s body.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RemoveAddedStep {

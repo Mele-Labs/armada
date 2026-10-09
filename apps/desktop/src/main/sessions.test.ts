@@ -172,19 +172,43 @@ it("sends each act to its own route with the session named, and folds what Fleet
   await sessions.start({ manifest_id: "armada", title: "T" });
   await sessions.send({ session_id: "a", text: "hi", attachments: [{ name: "n.png", media_type: "image/png", data: "AAAA" }] });
   await sessions.answer({ session_id: "a", call: "c1", answer: "allow_and_remember" });
+  await sessions.answerWaiting({ session_id: "a", item_id: "ask:c1", choice: 1 });
   await sessions.tune({ session_id: "a", mode: "plan", effort: "high" });
   await sessions.end("a");
   expect(sent.map((one) => `${one.method} ${one.path}`)).toEqual([
     "POST /sessions/start",
     "POST /sessions/message",
     "POST /sessions/ask/answer",
+    "POST /sessions/waiting/answer",
     "POST /sessions/tune",
     "POST /sessions/close",
   ]);
   expect(sent[1]!.body).toEqual({ session_id: "a", text: "hi", attachments: [{ name: "n.png", media_type: "image/png", data: "AAAA" }] });
   expect(sent[2]!.body).toEqual({ session_id: "a", call: "c1", answer: "allow_and_remember" });
-  expect(sent[4]!.body).toEqual({ session_id: "a" });
+  expect(sent[3]!.body).toEqual({ session_id: "a", item_id: "ask:c1", choice: 1 });
+  expect(sent[5]!.body).toEqual({ session_id: "a" });
   expect(last("sessions")).toMatchObject({ sessions: [{ id: "a", title: "Fleet's answer" }] });
+});
+
+it("claims a pull request on its own route with the session named, and holds nothing of the answer", async () => {
+  const sent: Sent[] = [];
+  const port = await fleet(sent, [record("a")]);
+  const { sessions, published } = host(port);
+  const claimed = await sessions.claimPullRequest({ number: 1823, session_id: "a" });
+  expect(claimed.ok).toBe(true);
+  expect(sent.map((one) => `${one.method} ${one.path}`)).toEqual(["POST /sessions/claim_pull_request"]);
+  expect(sent[0]!.body).toEqual({ number: 1823, session_id: "a" });
+  expect(published).toEqual([]);
+  expect(await host(null).sessions.claimPullRequest({ number: 1823, session_id: "a" })).toMatchObject({ ok: false, outcome: { why: "not_connected" } });
+});
+
+it("writes a Session's retro on its own route and answers when it is written", async () => {
+  const sent: Sent[] = [];
+  const port = await fleet(sent, [record("a")]);
+  const { sessions } = host(port);
+  expect(await sessions.retro("a")).toEqual({ ok: true });
+  expect(sent.map((one) => `${one.method} ${one.path}`)).toEqual(["POST /sessions/a/retro"]);
+  expect(await host(null).sessions.retro("a")).toMatchObject({ ok: false, why: "not_connected" });
 });
 
 it("presses a pull request against the session's own repository", async () => {

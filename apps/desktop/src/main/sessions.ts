@@ -12,9 +12,13 @@
 
 import type {
   AnswerSessionAsk,
+  AnswerWaiting,
+  ClaimPullRequest,
+  DismissWaiting,
   Followed,
   FrameRead,
   Outcome,
+  PullRequestClaimed,
   PullRequestState,
   RenameSession,
   ReviewDispatched,
@@ -32,7 +36,7 @@ import type { BridgeState } from "../shared/bridge";
 import type { ArtifactRead } from "@armada/screens/src/draft/sessions";
 import type { PullRequestPress, SessionActed } from "../shared/api/sessions";
 import { openSessionFile, readSessionArtifact, titleOfWindow } from "./session-file";
-import { ask, sessionFileOf } from "./request";
+import { ask, MODEL_CALL_MS, sessionFileOf } from "./request";
 
 type Publish = (change: Partial<BridgeState>) => void;
 
@@ -175,6 +179,22 @@ export class SessionsHost {
     return await this.act("POST", "/sessions/ask/answer", answer);
   }
 
+  async answerWaiting(answer: AnswerWaiting): Promise<SessionActed> {
+    return await this.act("POST", "/sessions/waiting/answer", answer);
+  }
+
+  /** A pull request nobody holds, taken for a session. Fleet shows the new row in the ledger, so nothing is folded here. */
+  async claimPullRequest(claim: ClaimPullRequest): Promise<SessionActed<PullRequestClaimed>> {
+    const port = this.port();
+    if (port === null) return { ok: false, outcome: NOT_CONNECTED };
+    const answer = await ask(port, "POST", "/sessions/claim_pull_request", claim);
+    return answer.ok === true ? { ok: true, value: answer.body as PullRequestClaimed } : { ok: false, outcome: answer.outcome };
+  }
+
+  async dismissWaiting(dismiss: DismissWaiting): Promise<SessionActed> {
+    return await this.act("POST", "/sessions/waiting/dismiss", dismiss);
+  }
+
   async tune(tune: TuneSession): Promise<SessionActed> {
     return await this.act("POST", "/sessions/tune", tune);
   }
@@ -192,6 +212,17 @@ export class SessionsHost {
 
   async end(sessionId: string): Promise<SessionActed> {
     return await this.act("POST", "/sessions/close", { session_id: sessionId });
+  }
+
+  /**
+   * Writes the Session's retro: Fleet asks the agent what got in its way and answers when the retro
+   * is written, so the wait is `MODEL_CALL_MS`. The retro is read afterwards on `GET /jobs/:id/retro`.
+   */
+  async retro(sessionId: string): Promise<Outcome> {
+    const port = this.port();
+    if (port === null) return NOT_CONNECTED;
+    const answer = await ask(port, "POST", `/sessions/${encodeURIComponent(sessionId)}/retro`, undefined, MODEL_CALL_MS);
+    return answer.ok === true ? { ok: true } : answer.outcome;
   }
 
   async file(sessionId: string, file: string): Promise<FrameRead> {

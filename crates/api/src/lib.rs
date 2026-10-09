@@ -55,11 +55,15 @@ mod hosted_sessions;
 mod journal;
 /// Kit's MCP servers, and each Manifest's word over one. `#1275`.
 mod kit;
+/// The build Fleet runs on, read, and the restart onto another.
+mod building;
 /// Fleet's three changeable limits, read and saved.
 mod limiting;
 /// Setup's proposals, an edit to one, and its Write.
 mod manifest_proposals;
 mod mcp;
+/// Mods: folders on this machine that change how Bridge looks.
+mod mods;
 mod needs;
 mod observing;
 /// A message or a stop addressed to one Drone of a Job. #1666.
@@ -107,7 +111,7 @@ pub use acting::{asked_by, asking, carrying, via, BRIDGE, CALLER_HEADER};
 pub use conversing::{HelmFeed, HelmSeen, HelmWatch, ObservedHelm, HELM_BACKLOG};
 pub use daemon::{
     offerable, Admitting, Authoring, Commands, Conversations, Daemon, FramePart, FrameSpan,
-    HelmReach, HostedSessions, Needs, PermissionAnswer, Piloting, PullRequests, Queries,
+    HelmReach, HostedSessions, Mods, Needs, PermissionAnswer, Piloting, PullRequests, Queries,
     Redirector, Refusal, Rehearsing, Retros, Sessions, StoredFile, Studios, Tools,
 };
 pub use door::{door_within, offered, Scope, DOOR_PATH};

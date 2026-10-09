@@ -36,6 +36,8 @@ import { leadOf } from "./lead";
 import { heldByAFlag } from "./gaming";
 import { GamingHeld } from "./gaming-held";
 import { StepActs } from "./StepActs";
+import type { NowView } from "./draft/now";
+import { nowPanelOf } from "./now-panel";
 import { OverviewBoard } from "./OverviewBoard";
 import { walkAct } from "./walked";
 import type { DetailTab } from "./detail-tabs";
@@ -96,6 +98,8 @@ import { FIRST_PLAN_VIEW } from "./plan-view";
  */
 export type OverviewTabProps = JobDetailProps & {
   whole: JobWhole | null;
+  /** The Now panel's rows, the draft's or `nowViewOf`'s. Absent draws no panel. */
+  nowView: NowView | undefined;
   render: Render;
   /** Whether the window is under `--layout-breakpoint`, so the inspector folds. */
   narrow: boolean;
@@ -763,6 +767,17 @@ export function OverviewTab(props: OverviewTabProps) {
         ...(lead.fix === undefined
           ? {}
           : { fix: { ...lead.fix, ...(openFix === undefined ? {} : { onOpen: openFix }) } }),
+        // One row for each Job Fleet lists as waiting on a Trigger, opened at the step it fired at.
+        ...(props.alerts === undefined || props.alerts.length === 0
+          ? {}
+          : {
+              alerts: props.alerts.map((one) => ({
+                ...one,
+                ...(props.onOpenAlert === undefined
+                  ? {}
+                  : { onOpen: () => props.onOpenAlert?.(one.job, { tab: "workflow", ...(one.alert.step === "" ? {} : { step: one.alert.step }) }) }),
+              })),
+            }),
         // Each Job parked on this one's fix, by the wire's title or the
         // Board's, and a press that opens it. #1673.
         ...(lead.parkedOnIt === undefined
@@ -776,6 +791,7 @@ export function OverviewTab(props: OverviewTabProps) {
             }),
       }}
       waiting={waiting}
+      now={nowPanelOf(props.nowView, { onOpenDrone: props.onOpenDrone, onOpenCheckLog: props.onOpenCheckLog, onOpenJob: openJob, onSaid })}
       // **What the approval approves, only while the lead offers it.** The
       // owner approved Job 1 on 1 Oct 2026 without seeing what counted as
       // done or how its steps gate, and the Judge refused the plan for it.

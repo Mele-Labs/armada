@@ -226,8 +226,8 @@ test("one pixel over --layout-breakpoint the column is at width, with Helm up", 
 });
 
 // The collapse is the window's arithmetic, so it is on every surface and not
-// only the one that needs it. Navigation, Stats and Fleet go together and all
-// three are still in the tree, which is the #1435 regression: they were not.
+// only the one that needs it. Navigation and Fleet go together and all
+// of them are still in the tree, which is the #1435 regression: they were not.
 test("at the rail, every panel is there rather than gone", async () => {
   await atWidth(1000);
   await expect.poll(leftColumn).not.toBe(null);
@@ -235,9 +235,8 @@ test("at the rail, every panel is there rather than gone", async () => {
   // Two nav panels since the owner split Navigation, and both keep their
   // glyphs at 48px — the rail's own form, never an absent column.
   expect(document.querySelectorAll(".armada-sidebar").length).toBe(2);
-  await expect.element(page.getByRole("button", { name: "Overview" }).first()).toBeVisible();
-  // Stats and Fleet keep one status dot each, as named regions.
-  await expect.element(page.getByRole("region", { name: "Stats" }).first()).toBeVisible();
+  await expect.element(page.getByRole("button", { name: "Cockpit" }).first()).toBeVisible();
+  // Fleet keeps one status dot, as a named region.
   await expect.element(page.getByRole("region", { name: "Fleet" }).first()).toBeVisible();
 });
 

@@ -53,6 +53,7 @@ const QUERIES: &[(&str, &[&str])] = &[
     ("list_lessons", &["lands_in", "state", "most"]),
     ("list_sessions", &["q", "state"]),
     ("who_owns", &["kind", "target"]),
+    ("validate_mod", &["name"]),
 ];
 
 /// Every tool this door offers: the inventory's `agent_access` column, joined

@@ -167,6 +167,9 @@ where
         }
         let _ = self.store().lock().await.keep_pulls_queued(&root, &queued);
         self.merges_told(served, &base).await;
+        self.pulls_attached(served, &watched).await;
+        let manifest_id = ipc::ManifestId::carried(served.manifest().id().as_str());
+        self.pull_ledger_kept_current(&manifest_id, &root).await;
     }
 
     /// Tell the owners of one open pull request. **False where a drop out of the queue was not

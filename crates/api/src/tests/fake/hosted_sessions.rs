@@ -37,6 +37,32 @@ impl HostedSessions for FakeDaemon {
         Err(nothing_hosted())
     }
 
+    async fn answer_waiting(
+        self: Arc<Self>,
+        _said: ipc::AnswerWaiting,
+    ) -> Result<SessionRecord, Refusal> {
+        Err(nothing_hosted())
+    }
+
+    async fn dismiss_waiting(
+        self: Arc<Self>,
+        _dismiss: ipc::DismissWaiting,
+    ) -> Result<SessionRecord, Refusal> {
+        Err(nothing_hosted())
+    }
+
+    async fn get_sleep(&self) -> Result<ipc::SleepState, Refusal> {
+        Ok(ipc::SleepState::default())
+    }
+
+    async fn set_sleep(self: Arc<Self>, set: ipc::SetSleep) -> Result<ipc::SleepState, Refusal> {
+        Ok(ipc::SleepState { on: set.on, ..Default::default() })
+    }
+
+    async fn override_sleep(self: Arc<Self>, _over: ipc::OverrideSleep) -> Result<ipc::SleepState, Refusal> {
+        Err(nothing_hosted())
+    }
+
     async fn tune_session(&self, _tuned: TuneSession) -> Result<SessionRecord, Refusal> {
         Err(nothing_hosted())
     }
@@ -59,6 +85,10 @@ impl HostedSessions for FakeDaemon {
 
     async fn gate_session_call(&self, _gate: SessionGate) -> Result<GateAnswer, Refusal> {
         Ok(GateAnswer::pass())
+    }
+
+    async fn ask_from_terminal(&self, _ask: ipc::TerminalAsk) -> Result<ipc::TerminalAsked, Refusal> {
+        Ok(ipc::TerminalAsked::Gone {})
     }
 
     async fn take_held_messages(&self, _ask: TakeHeld) -> Result<MessagesHeld, Refusal> {

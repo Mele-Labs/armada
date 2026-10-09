@@ -31,6 +31,7 @@ impl Sessions for FakeDaemon {
             hosted: None,
             terminal: None,
             mod_out_of_date: false,
+            waiting_for: Vec::new(),
         })
     }
 
@@ -46,6 +47,20 @@ impl Sessions for FakeDaemon {
         .await
     }
 
+    async fn claim_pull_request(
+        &self,
+        _caller: Option<crate::Caller>,
+        claim: ipc::ClaimPullRequest,
+    ) -> Result<ipc::PullRequestClaimed, Refusal> {
+        Ok(ipc::PullRequestClaimed {
+            number: claim.number,
+            branch: String::new(),
+            url: String::new(),
+            holder_kind: String::from("session"),
+            holder_id: String::from("session"),
+        })
+    }
+
     async fn show_window(
         &self,
         _caller: Option<crate::Caller>,
@@ -58,6 +73,25 @@ impl Sessions for FakeDaemon {
                 attachment: ipc::AttachmentReport {
                     kind: String::from("artifact"),
                     target: show.url,
+                    detail: Default::default(),
+                },
+            },
+        })
+        .await
+    }
+
+    async fn waiting_for(
+        &self,
+        _caller: Option<crate::Caller>,
+        set: ipc::SetWaitingFor,
+    ) -> Result<SessionRecord, Refusal> {
+        self.report_session(SessionReport {
+            harness: String::new(),
+            session_id: set.session_id.unwrap_or_else(|| ipc::SessionId::carried("session")),
+            fact: ipc::SessionFact::Attached {
+                attachment: ipc::AttachmentReport {
+                    kind: String::from("waiting"),
+                    target: String::new(),
                     detail: Default::default(),
                 },
             },

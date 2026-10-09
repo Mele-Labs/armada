@@ -388,3 +388,20 @@ button.armada-wf-card:hover {
   border-style: dashed;
   border-color: var(--accent);
 }
+
+/* The canvas is focused on other steps: a scrim over this one, a token and not an alpha. */
+.armada-wf-card[data-dimmed] {
+  position: relative;
+}
+
+/* Twice: one scrim is 62% of the ground, and a card is already near it. */
+.armada-wf-card[data-dimmed]::before,
+.armada-wf-card[data-dimmed]::after {
+  content: "";
+  z-index: 1;
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--scrim);
+  pointer-events: none;
+}

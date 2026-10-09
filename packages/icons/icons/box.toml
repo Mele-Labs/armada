@@ -19,3 +19,10 @@
   size = "12px"
   status = "Proposed"
   notes = "Proposed 6 Oct 2026 for the walk `sessions`. The same Job mark Cleanup's tile already draws before the Job's title, on the chips that name a Job and in the ledger row of a Job a Session dispatched."
+
+  [[icons.box.usage]]
+    means = "A Job waiting on another Job, on its Now line"
+    group = "Now"
+    size = "12px"
+    status = "Proposed"
+    notes = "Proposed 9 Oct 2026 with the Dashboard's call card and tiles, which draw what a Job runs now with the Now panel's own marks. It sits beside the reservation above rather than inside it, and the owner may rule it out."

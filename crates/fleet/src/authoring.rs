@@ -208,6 +208,14 @@ where
         self.step_removed(&job_id.to_domain(), &remove.id).await
     }
 
+    async fn edit_job_step(
+        &self,
+        job_id: ipc::JobId,
+        edit: ipc::EditAddedStep,
+    ) -> Result<ipc::AddedStep, Refusal> {
+        self.step_edited(&job_id.to_domain(), &edit).await
+    }
+
     async fn remove_trigger(
         &self,
         asked: ipc::RemoveTrigger,

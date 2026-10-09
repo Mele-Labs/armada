@@ -539,6 +539,68 @@ impl Store {
             .map_err(WriteError::Database)
     }
 
+    /// Take what the forge now says of a thing a holder holds: its `detail` and its
+    /// `state` in one write, so a row never reads settled in one and standing in the
+    /// other. `true` where either moved.
+    pub fn follow(
+        &mut self,
+        row: &KeptAttachment,
+        state: AttachmentState,
+        detail: &BTreeMap<String, String>,
+        at: &str,
+    ) -> Result<bool, WriteError> {
+        let detail = serde_json::to_string(detail).unwrap_or_else(|_| "{}".into());
+        self.conn
+            .execute(
+                "UPDATE ledger_attachments
+                 SET since = CASE WHEN state <> ?6 THEN ?8 ELSE since END,
+                     state = ?6, detail = ?7, changed_at = ?8
+                 WHERE holder_kind = ?1 AND holder_id = ?2 AND kind = ?3
+                   AND manifest_id = ?4 AND target = ?5
+                   AND (state <> ?6 OR detail <> ?7)",
+                params![
+                    row.holder.kind.as_text(),
+                    row.holder.id,
+                    row.kind,
+                    row.manifest_id,
+                    row.target,
+                    state.as_text(),
+                    detail,
+                    at
+                ],
+            )
+            .map(|rows| rows > 0)
+            .map_err(fault("following the forge on an attachment"))
+            .map_err(WriteError::Database)
+    }
+
+    /// Every standing holder of `kind` in one repository, whatever the target.
+    pub fn standing_of_kind(
+        &self,
+        kind: &str,
+        manifest_id: &str,
+    ) -> Result<Vec<KeptAttachment>, WriteError> {
+        self.attachments_where(
+            "kind = ?1 AND manifest_id = ?2 AND state = 'standing'",
+            params![kind, manifest_id],
+        )
+    }
+
+    /// The rows of `kind` a watch keeps current: those still standing, and those settled
+    /// as spent while their own detail says the thing is still open. A `gh pr merge --auto`
+    /// read as a merge left a pull request settled that had not merged (#2027).
+    pub fn followed_of_kind(
+        &self,
+        kind: &str,
+        manifest_id: &str,
+    ) -> Result<Vec<KeptAttachment>, WriteError> {
+        self.attachments_where(
+            "kind = ?1 AND manifest_id = ?2 AND (state = 'standing' OR (state = 'spent' \
+             AND json_extract(detail, '$.state') IN ('open', 'draft')))",
+            params![kind, manifest_id],
+        )
+    }
+
     /// Give back everything `holder` still holds, of `kind` or of every kind.
     /// What a session ending does to its slot.
     pub fn give_back(

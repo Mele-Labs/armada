@@ -34,7 +34,7 @@ test("Sessions keep: text, a file and an inline tag survive another surface and 
   await userEvent.upload(page.getByLabelText("Files to attach"), new File(["hello"], "notes.txt", { type: "text/plain" }));
   await userEvent.type(message(), " and then");
 
-  await userEvent.click(page.getByRole("button", { name: "Cleanup", exact: true }));
+  await userEvent.click(page.getByRole("button", { name: "Worktree Slots", exact: true }));
   await open("Second one");
   await expect.element(message()).toHaveTextContent("");
   await userEvent.fill(message(), "Only for the second");

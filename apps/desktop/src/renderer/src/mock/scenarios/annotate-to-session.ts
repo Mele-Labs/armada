@@ -44,6 +44,9 @@ function build(): Scenario {
           if (started.ok && title !== undefined) await own.renameSession!({ session_id: started.value.id, title });
           return started;
         },
+        // A Job proposed from a note comes back with a handle, as Fleet answers one.
+        stageAttachment: async (_bytes, filename) => ({ path: `/tmp/${filename}` }),
+        proposeFromRequest: async () => ({ ok: true, jobs: [{ id: "01JOBFROMNOTE", handle: "57-the-note-job", title: "The note job" }] }) as never,
         sendSessionMessage: async (send) => {
           await own.watchSession!(send.session_id);
           return own.sendSessionMessage!(send);

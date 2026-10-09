@@ -46,7 +46,25 @@ one the preview's wire files hash to. Read the `Bridge runs ...` line in the out
 **A `libsqlite3-sys` compile error in the preview is a stale build script, not
 the code.** Run `cargo clean -p libsqlite3-sys` in `.armada/preview` and run the
 restart again. The owner's Fleet stays up, because the build fails before Fleet
-is stopped. Confirmed twice on 6 and 7 Oct 2026.
+is stopped. Confirmed twice on 6 and 7 Oct 2026. A slot freshly cloned from
+the seed hits the same error in `armada check test`; clean it there too (8 Oct).
+
+**The preview merges slot branches only.** A branch in a plain worktree under
+`.claude/worktrees/` is not in it, and nothing says so. With every slot held,
+`git worktree remove` it, `armada worktree add`, then
+`armada worktree lease --existing <branch>`. Confirmed 8 Oct 2026: one dry run
+and a read of `scripts/preview` to find why a branch was missing.
+
+**A branch that conflicts with another in-flight branch is skipped.** To preview
+both, merge the other into a preview-only copy of yours, and open the pull
+request from the clean commit instead. Confirmed 8 Oct 2026 (#2025).
+
+**The owner can run this from Bridge.** The Fleet panel's build section has a
+Preview / Main Select and one button that follows it: `Refresh preview` is
+`scripts/preview --restart`, `Update to main` is `scripts/restart --main`.
+Bridge asks before `--adopt`, listing the working Jobs. It runs
+`scripts/restart-build`, which retries a stale `libsqlite3-sys` once itself.
+`docs/practices/running-locally.md`, *Restarting from Bridge*.
 
 **Starting a Fleet or Bridge of your own** is not this: that is
 `.claude/skills/armada-local/SKILL.md` and `.claude/skills/dev-fleet/SKILL.md`.

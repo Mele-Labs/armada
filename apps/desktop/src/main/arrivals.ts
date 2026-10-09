@@ -19,6 +19,8 @@ import { PROTOCOL_ID, speaksOurProtocol } from "@armada/protocol";
 import type { Connection, JobSummary, ProposalMoved, ServerState, StreamMessage } from "@armada/protocol";
 import { movedOnto } from "@armada/screens/src/filling";
 import type { BridgeState } from "../shared/bridge";
+import type { FleetBuilds } from "./fleet-build";
+import type { Modding } from "./mods";
 import type { Questions } from "./questions";
 import type { RehearsalConnection } from "./rehearsal";
 import { ask, capacityOf, limitsOf, mergeLinesOf, preferencesOf } from "./request";
@@ -27,6 +29,7 @@ import type { RepositoryReads } from "./repositories";
 import type { Again } from "./screen";
 import type { BridgeStateFleet } from "./socket";
 import type { SessionsHost } from "./sessions";
+import type { SleepHost } from "./sleep";
 import type { StudioReads } from "./studios";
 
 /** What the arrival switch reaches on `FleetConnection`, and nothing more. */
@@ -47,8 +50,14 @@ export interface ArrivalHost {
   readonly helm: { reconnected(port: number): void };
   /** The Studios surface's two reads — `studios.ts`. */
   readonly studios: Pick<StudioReads, "again" | "changed" | "deleted">;
+  /** The mods on this machine — `mods.ts`. */
+  readonly mods: Pick<Modding, "read" | "listed">;
   /** Every session and the threads a window opened — `sessions.ts`. */
   readonly sessions: Pick<SessionsHost, "again" | "changed" | "row">;
+  /** Sleep mode, told when Fleet changes the night — `sleep.ts`. */
+  readonly sleep: Pick<SleepHost, "changed">;
+  /** The build Fleet runs on, read now and every minute — `fleet-build.ts`. */
+  readonly fleetBuild: Pick<FleetBuilds, "watch">;
   readonly material: ReviewMaterial;
   readonly socket: { close(): void; resetUnreachable(): void };
   publish(change: Partial<BridgeState>): void;
@@ -166,6 +175,9 @@ export function applyArrival(host: ArrivalHost, text: string, fleet: BridgeState
     // And how full the fleet is, which changes when a Job moves and is
     // therefore read again below on every status move.
     void readCapacity(fleet.port, host.publish);
+    // And the build it runs on, once now and then every minute: a fetch moves its position and no
+    // event says so.
+    host.fleetBuild.watch(fleet.port);
     // And what Fleet's last read of `armada.yml` came to. **Once per
     // connection and never again**, unlike capacity: it changes when somebody
     // saves a file, and `manifest.reread` is what says so. This read is for
@@ -178,6 +190,8 @@ export function applyArrival(host: ArrivalHost, text: string, fleet: BridgeState
     // And a person's Bridge preferences, once per connection, `readLimits`'
     // reason.
     void readPreferences(fleet.port, host.publish);
+    // And the mods on this machine, once per connection — `mods.changed` carries the list whole.
+    void host.mods.read(fleet.port);
     // And every server Fleet holds, once per connection — `server.*` on
     // `/events` carries each row whole from here on.
     void host.rehearsal.readServers(fleet.port);
@@ -453,6 +467,12 @@ export function applyArrival(host: ArrivalHost, text: string, fleet: BridgeState
     host.publish({ connection });
     return void host.repositories.listed(event, fleet.port);
   }
+  if (event.kind === "mods.changed") {
+    // Above the tail, `repositories.changed`' reason, and carried whole: the list replaces the one held.
+    host.publish({ connection });
+    host.mods.listed({ mods: event.mods });
+    return;
+  }
   if (event.kind === "merge_lines.changed") {
     // Above the tail, `manifest.reread`'s reason. Replaced whole, never folded.
     const { kind: _kind, ...mergeLines } = event;
@@ -477,6 +497,13 @@ export function applyArrival(host: ArrivalHost, text: string, fleet: BridgeState
     host.publish({ connection });
     const { kind: _kind, ...record } = event;
     host.sessions.changed(record);
+    return;
+  }
+  if (event.kind === "sleep.changed") {
+    // Above the tail for `session.changed`'s reason: no Job to find, and the night travels whole.
+    host.publish({ connection });
+    const { kind: _kind, ...state } = event;
+    host.sleep.changed(state);
     return;
   }
   if (event.kind === "session.row") {

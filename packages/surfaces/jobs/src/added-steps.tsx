@@ -16,7 +16,7 @@ import type { AddedKind, WorkflowCanvasEdge, WorkflowCanvasNode } from "@armada/
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 
-import type { AddedStep, AddStep as AddStepBody, JobDetail as JobWhole, JobSummary, KeptFrom, TriggerSaved, TriggerScope } from "@armada/protocol";
+import type { AddedStep, AddStep as AddStepBody, JobDetail as JobWhole, JobSummary, KeptFrom, TriggerSaved, TriggerScope, TriggerSummary } from "@armada/protocol";
 import { ordered } from "@armada/screens/src/facts";
 
 import { addStepOf, ahead, blankAddition, chainAt, delivererOf, heldId, NAMES_NOTHING, sameGap } from "./added-reach";
@@ -28,13 +28,20 @@ export const PLUS_HEIGHT = 44;
 export const ADDED_HEIGHT = 132;
 const LAST_APART = 132;
 
+/** The two switches of an added step. */
+export type SwitchesOf = Partial<Pick<AddedStep, "block" | "repair">>;
+
 /** What the window hands a Job's surface for its added steps: the two acts, and the save that keeps one for every Job. */
 export type AddedBinding = {
   /** The Commands the repository's `armada.yml` declares, which a Script may name. */
   commands: readonly string[];
+  /** The Triggers already saved, which a Drone step kept for every Job takes its next free name against. */
+  triggers: readonly TriggerSummary[];
   /** Fleet's answer, whole; a refusal has been said where the window says what a command answered. */
   onAdd: (jobId: string, body: AddStepBody) => Promise<{ ok: true; added: AddedStep } | { ok: false }>;
   onRemove: (jobId: string, id: string) => Promise<boolean>;
+  /** Change a step's switches before it fires. Fleet's answer is the row as it now stands. */
+  onEdit: (jobId: string, id: string, next: SwitchesOf) => Promise<{ ok: true; edited: AddedStep } | { ok: false }>;
   onKeep: (
     scope: TriggerScope,
     definition: string,
@@ -75,6 +82,8 @@ export type AddedSteps = {
   /** Whether Fleet's call is out. */
   adding: boolean;
   onRemove: (one: AddedStep) => Promise<void>;
+  /** Change a step's switches in Fleet, while it is pending. */
+  onSwitch: (one: AddedStep, next: SwitchesOf) => Promise<void>;
   onChange: (one: AddedStep, next: Partial<Pick<AddedStep, "runs" | "block" | "repair">>) => void;
 };
 
@@ -93,10 +102,12 @@ export function useAddedSteps(
   const [adding, setAdding] = useState(false);
   // What Fleet answered for an add, drawn until the Job's own re-read carries it.
   const [echo, setEcho] = useState<readonly AddedStep[]>([]);
+  // What Fleet answered for a switch, kept over a row that is still pending until its re-read agrees.
+  const [switched, setSwitched] = useState<Readonly<Record<string, SwitchesOf>>>({});
   const held = whole?.additions ?? [];
-  const rows = gated
-    ? (gate?.additions ?? [])
-    : [...held, ...echo.filter((one) => !held.some((other) => other.id === one.id))];
+  const rows = (
+    gated ? (gate?.additions ?? []) : [...held, ...echo.filter((one) => !held.some((other) => other.id === one.id))]
+  ).map((one) => (gated || one.state !== "pending" || switched[one.id] === undefined ? one : { ...one, ...switched[one.id] }));
   const offers = gated ? gate !== undefined : binding !== undefined;
 
   const onPick = (gap: Gap, kind: AddedKind) => onComposing(blankAddition(gap, kind));
@@ -134,6 +145,12 @@ export function useAddedSteps(
     }
   }
 
+  async function onSwitch(one: AddedStep, next: SwitchesOf) {
+    if (binding === undefined || gated) return;
+    const answer = await binding.onEdit(jobId, one.id, next);
+    if (answer.ok) setSwitched((was) => ({ ...was, [one.id]: { block: answer.edited.block, repair: answer.edited.repair } }));
+  }
+
   const onChange: AddedSteps["onChange"] = (one, next) => {
     if (one.id === "") onComposing({ ...one, ...next });
     else if (gated) gate?.onAdditions(gate.additions.map((other) => (other.id === one.id ? { ...other, ...next } : other)));
@@ -159,6 +176,7 @@ export function useAddedSteps(
     onAdd,
     adding,
     onRemove,
+    onSwitch,
     onChange,
   };
 }
@@ -334,7 +352,7 @@ export function AddedSheets({ added }: { added: AddedSteps }): ReactNode {
     return (
       <TriggerSheet
         binding={{
-          triggers: [],
+          triggers: binding.triggers,
           commands,
           onOpen: async () => ({ ok: false, said: "" }),
           onSave: binding.onKeep,
@@ -405,6 +423,7 @@ export function AddedSheets({ added }: { added: AddedSteps }): ReactNode {
           editable={added.gated}
           onChange={(next) => added.onChange(open, next)}
           {...(added.gated || binding === undefined ? {} : { onKeep: () => added.onKeeping(open) })}
+          {...(pending && !added.gated && binding !== undefined ? { onSwitch: (next: SwitchesOf) => void added.onSwitch(open, next) } : {})}
           {...(pending ? { onRemove: () => void added.onRemove(open) } : {})}
         />
       </div>

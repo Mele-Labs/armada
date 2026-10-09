@@ -108,6 +108,8 @@ export type JobDiffSheetProps = {
    * reading is not scoped to one — which needs the attribution above.
    */
   openedAt?: ReactNode;
+  /** What the sheet is called. A fix's diff is not the Job's. */
+  title?: string;
   /**
    * What the rail says about itself, under the files. The default is why every
    * file in one sheet belongs to one patch; a caller whose reading cannot
@@ -202,6 +204,7 @@ export function JobDiffSheet({
   onSelect,
   openedAt,
   note = ONE_PATCH,
+  title = "Job diff",
   children,
   floor = false,
   onClose,
@@ -213,7 +216,7 @@ export function JobDiffSheet({
       contained
       size="widest"
       floor={floor}
-      title="Job diff"
+      title={title}
       subtitle={
         <>
           <span className="armada-diff-sheet__mono">{branch}</span>

@@ -16,10 +16,12 @@ export type PullRequestActsProps = {
   checks: "pending" | "passed" | "failed";
   /** Auto-merge has been asked for. */
   auto: boolean;
+  /** It is in the merge queue: the forge has it, so no act asks for that again. */
+  queued?: boolean;
   onAct: (act: "ready" | "merge" | "auto_merge" | "review") => void;
 };
 
-export function PullRequestActs({ state, checks, auto, onAct }: PullRequestActsProps) {
+export function PullRequestActs({ state, checks, auto, queued = false, onAct }: PullRequestActsProps) {
   if (state === "merged") return null;
   return (
     <div className="armada-pr-acts" role="group" aria-label="Pull request acts">
@@ -27,6 +29,12 @@ export function PullRequestActs({ state, checks, auto, onAct }: PullRequestActsP
         <Tooltip label="Marks the pull request ready for review">
           <Button size="sm" variant="primary" onClick={() => onAct("ready")}>
             Ready for review
+          </Button>
+        </Tooltip>
+      ) : queued ? (
+        <Tooltip label="It is in the merge queue and merges when its turn comes">
+          <Button size="sm" variant="primary" disabled>
+            In merge queue
           </Button>
         </Tooltip>
       ) : checks === "passed" ? (

@@ -91,8 +91,8 @@ pub use under_review::{
     WhatPeopleSaid, WhatTheForgeRan,
 };
 pub use work_product::{
-    Change, Changed, ChangedFile, Counted, CountedFile, Footprint, LineCount, Measured, Patch,
-    WorkProduct,
+    BranchWork, Change, Changed, ChangedFile, Counted, CountedFile, Footprint, LineCount, Measured,
+    Patch, WorkProduct,
 };
 pub use worktree::{derived, slot_path, Worktree, WorktreeSpec, WorktreeSpecRefused, SLOT_ROOT};
 

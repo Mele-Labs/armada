@@ -20,6 +20,8 @@ export type PullRequestState = {
   state: PullRequestStanding;
   /** The forge will merge it when its required checks pass. */
   auto_merge: boolean;
+  /** It is in the base branch's merge queue now. */
+  queued?: boolean;
   checks: ForgeChecks;
   title: string;
   /** The branch it is opened from. */

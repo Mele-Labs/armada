@@ -11,7 +11,7 @@
 
 import type { CheckoutRunFollowed, CheckoutRunSheetRead, ManifestDriftRead } from "@armada/protocol";
 import type { LeftOutWorkflow, ManifestReading } from "@armada/protocol";
-import type { DriftsRead, HealthRead } from "@armada/screens/src/overview-reads";
+import type { HealthRead } from "@armada/screens/src/overview-reads";
 import { spoken } from "@armada/protocol";
 import { CORE_CHANNELS, CORE_NOTHING_YET } from "./api/core";
 import type { CoreState } from "./api/core";
@@ -41,6 +41,7 @@ import { JOBS_CHANNELS, JOBS_NOTHING_YET } from "./api/jobs";
 import type { JobsState } from "./api/jobs";
 import { SESSIONS_CHANNELS, SESSIONS_NOTHING_YET } from "./api/sessions";
 import type { SessionsState } from "./api/sessions";
+import { SLEEP_CHANNELS } from "./api/sleep";
 
 export type { HistoryStep, Summons } from "./api/core";
 
@@ -81,7 +82,6 @@ export type PickedView = {
   repository: string | null;
   manifestReading: ManifestReading | null;
   health: HealthRead;
-  drifts: DriftsRead;
   leftOut?: LeftOutWorkflow[];
   checkoutRunSheet: CheckoutRunSheetRead;
   checkoutRunFollowed: CheckoutRunFollowed;
@@ -148,4 +148,5 @@ export const CHANNELS = {
   ...REPORTS_CHANNELS,
   ...JOBS_CHANNELS,
   ...SESSIONS_CHANNELS,
+  ...SLEEP_CHANNELS,
 } as const;

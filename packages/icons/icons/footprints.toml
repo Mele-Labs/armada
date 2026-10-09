@@ -1,0 +1,7 @@
+[icons.footprints]
+  means = "Two footprints, one behind the other"
+  group = "Sleep mode"
+  size = "16px"
+  status = "Specified"
+  reserved = "A walk waiting for the owner to look at it. Never a Job's progress."
+  notes = "Approved 9 Oct 2026 with sleep mode."

@@ -3,7 +3,7 @@
 // What is drawn is `@armada/components`'; this reads the draft
 // (`packages/screens/src/draft/sessions.ts`) into it.
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { ExternalLink, GitMerge, PanelRightClose, PanelRightOpen } from "lucide-react";
 import {
@@ -15,6 +15,7 @@ import {
   PilotAct,
   PilotConfirm,
   PilotExits,
+  RetroPress,
   Tooltip,
   Prose,
   PullRequestActs,
@@ -46,6 +47,8 @@ import type {
   SessionState,
   SessionThreadRow,
 } from "@armada/components";
+import { sessionOf } from "@armada/jobs";
+import { askToOpenRetro } from "./open-retro";
 import { ArtifactBody, ARTIFACT_GLYPH, isAddress } from "./session-artifact";
 import { helmOfferedOf } from "@armada/screens/src/copy";
 import { attachmentsOf, isBlank, ownerOf, sessionsMatching } from "@armada/screens/src/draft/sessions";
@@ -83,9 +86,9 @@ function stateOf(session: Session): { state: SessionState; said: string } {
     return { state: "working", said: by === undefined ? "Working" : `Woken by ${by.title}` };
   }
   if (isBlank(session)) return { state: "blank", said: "Blank: no slot, no branch" };
-  const failing = attachmentsOf(session, "pull_request").find((pr) => pr.checks.state === "failed");
+  const failing = attachmentsOf(session, "pull_request").find((pr) => pr.state !== "merged" && pr.checks.state === "failed");
   if (failing !== undefined) return { state: "failing", said: `Checks failed on #${failing.number}` };
-  if (session.asked !== undefined) return { state: "waiting", said: "Waiting on you" };
+  if (session.asked !== undefined || (session.waitingFor?.length ?? 0) > 0) return { state: "waiting", said: "Waiting on you" };
   return { state: "idle", said: "Idle" };
 }
 
@@ -273,12 +276,34 @@ function Refused() {
   return said === undefined || said === "" ? null : <Alert tone="escalated">{said}</Alert>;
 }
 
+/**
+ * The Retro press: which Sessions have a retro being written, and the press. When it is written the
+ * Retros page opens on it, named by the Session's title and address.
+ */
+function useRetroPress(): { writing: ReadonlySet<string>; press?: (session: { id: string; title?: string }) => void } {
+  const draft = useSessionsDraft();
+  const [writing, setWriting] = useState<ReadonlySet<string>>(new Set());
+  const retro = draft?.retro;
+  if (retro === undefined) return { writing };
+  return {
+    writing,
+    press: ({ id, title }) => {
+      setWriting((was) => new Set(was).add(id));
+      void retro(id).then((written) => {
+        setWriting((was) => new Set([...was].filter((one) => one !== id)));
+        if (written) askToOpenRetro({ id, label: sessionOf({ id, ...(title === undefined ? {} : { title }) }) });
+      });
+    },
+  };
+}
+
 /** Every Session, searchable, with the act that starts one. On Overview and on the rail surface alike. */
 export function SessionsListing({ onOpen }: { onOpen: (id: string) => void }) {
   const draft = useSessionsDraft();
   const sessions = useSessions();
   const [query, setQuery] = useState("");
   const [view, setView] = useView();
+  const retro = useRetroPress();
   if (draft === undefined) return null;
   const views: SessionRowView[] = sessionsMatching(sessions, query).filter(({ session }) => session.older !== true || query.trim() !== "").map(({ session, matched }) => {
     const { state, said } = stateOf(session);
@@ -295,6 +320,8 @@ export function SessionsListing({ onOpen }: { onOpen: (id: string) => void }) {
       ...(session.lastTurn === undefined ? {} : { lastTurn: session.lastTurn }),
       ...(session.lastTurnAt === undefined ? {} : { lastTurnAt: session.lastTurnAt }),
       ...(session.modOutOfDate === true ? { modOutOfDate: true } : {}),
+      ...((session.waitingFor?.length ?? 0) > 0 ? { waiting: session.waitingFor!.map((one) => one.text) } : {}),
+      ...(retro.writing.has(session.id) ? { retroWriting: true } : {}),
     };
   });
   const shown: readonly string[] = VIEWS.find((one) => one.id === view)!.headings;
@@ -302,12 +329,12 @@ export function SessionsListing({ onOpen }: { onOpen: (id: string) => void }) {
   return (
     <>
       <Refused />
-      <SessionList groups={groups} query={query} onQuery={setQuery} views={VIEWS} view={view} onView={(next) => setView(next as ViewId)} onOpen={onOpen} onStart={() => opening(draft.start(), onOpen)} />
+      <SessionList groups={groups} query={query} onQuery={setQuery} views={VIEWS} view={view} onView={(next) => setView(next as ViewId)} onOpen={onOpen} onStart={() => opening(draft.start(), onOpen)} {...(retro.press === undefined ? {} : { onRetro: (id: string) => retro.press?.(sessions.find((one) => one.id === id) ?? { id }) })} />
     </>
   );
 }
 
-function threadRowsOf(session: Session): SessionThreadRow[] {
+export function threadRowsOf(session: Session): SessionThreadRow[] {
   return threadRowsFrom(session.rows);
 }
 
@@ -352,7 +379,7 @@ const readingOf = (session: Session, open: Reading | undefined): SessionAttachme
 
 /** What is true of a pull request beyond its Checks, as bare facts. */
 const factsOf = (one: Extract<SessionAttachment, { kind: "pull_request" }>): string[] =>
-  [one.state === "draft" ? "Draft" : undefined, one.auto && one.state !== "merged" ? "Auto-merge on" : undefined].filter(
+  [one.state === "draft" ? "Draft" : undefined, one.queued === true ? "In merge queue" : one.auto && one.state !== "merged" ? "Auto-merge on" : undefined].filter(
     (fact): fact is string => fact !== undefined,
   );
 
@@ -472,7 +499,8 @@ function ReadingSheet({
               <span key={fact}>{fact}</span>
             ))}
           </PullRequestCard>
-          <PullRequestActs state={one.state} checks={one.checks.state} auto={one.auto} onAct={(act) => onAct(one.number, act)} />
+          <Refused />
+          <PullRequestActs state={one.state} checks={one.checks.state} auto={one.auto} queued={one.queued === true} onAct={(act) => onAct(one.number, act)} />
         </div>
       ) : one?.kind === "sketch" ? (
         <SketchPreview label={one.title} boxes={one.drawing.boxes} lines={one.drawing.lines} strokes={one.drawing.strokes ?? []} pictures={[]} />
@@ -540,8 +568,35 @@ function entriesOf(
   sessions: readonly Session[],
   open: (id: string) => void,
   openWindow: (url: string) => void,
+  answerWaiting: ((itemId: string, choice: number) => void) | undefined,
+  scrollToAsk: () => void,
 ): LedgerEntry[] {
-  return session.attachments.map((one): LedgerEntry => {
+  const waiting = (session.waitingFor ?? []).map((one): LedgerEntry => {
+    const act = one.act;
+    return {
+      key: `waiting${one.id}`,
+      kind: "waiting",
+      name: one.text,
+      text: act?.kind === "run" ? <code>{act.target}</code> : one.text,
+      ...(act === undefined ? {} : { act: act.kind }),
+      ...(one.options === undefined || answerWaiting === undefined
+        ? {}
+        : { options: one.options.map((option, at) => ({ label: option.label, onPick: () => answerWaiting(one.id, at) })) }),
+      onOpen: () => {
+        if (act === undefined) return;
+        if (act.kind === "walk") openWindow(act.target);
+        else if (act.kind === "approve_pr") read({ kind: "pull_request", number: Number(act.target.replace(/^#/, "")) });
+        else if (act.kind === "run") {
+          try {
+            void navigator.clipboard.writeText(act.target);
+          } catch {
+            // Not copied: the command stays on the row to be read.
+          }
+        } else scrollToAsk();
+      },
+    };
+  });
+  return [...waiting, ...session.attachments.map((one): LedgerEntry => {
     switch (one.kind) {
       case "forked_to":
       case "forked_from": {
@@ -629,7 +684,7 @@ function entriesOf(
           onOpen: () => read({ kind: "subagent", id: one.id }),
         };
     }
-  });
+  })];
 }
 
 /** What Cleanup holds, read here for a slot's panel. */
@@ -670,7 +725,9 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
   const [drawn, setDrawn] = useKept<DrawnSketch[]>(`session:${session.id}:drawn`, NO_SKETCHES);
   const narrow = useNarrow();
   const [ledgerOpen, setLedgerOpen] = useState(false);
+  const askCard = useRef<HTMLDivElement>(null);
   const [minimized, minimize] = useMinimized();
+  const retro = useRetroPress();
   const { onWant } = held;
   const { id } = session;
   const watch = draft?.watch;
@@ -682,6 +739,11 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
   useEffect(() => {
     for (const number of prs === "" ? [] : prs.split(",")) refresh?.(id, Number(number));
   }, [refresh, id, prs]);
+  // Opening a pull request's sheet reads it again, so what the sheet says is the forge's now.
+  const opened = reading?.kind === "pull_request" ? reading.number : undefined;
+  useEffect(() => {
+    if (opened !== undefined) refresh?.(id, opened);
+  }, [refresh, id, opened]);
   // The panel a slot's tile opens on Cleanup reads what Fleet holds, so it is wanted while this is open.
   useEffect(() => {
     onWant(true);
@@ -707,6 +769,13 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
     sessions,
     narrow ? fold(onOpen) : onOpen,
     (url) => draft.openWindow?.(id, url),
+    draft.answerWaiting === undefined ? undefined : (itemId, choice) => draft.answerWaiting?.(id, itemId, { choice }),
+    narrow
+      ? () => {
+          setLedgerOpen(false);
+          askCard.current?.scrollIntoView({ block: "center", behavior: "smooth" });
+        }
+      : () => askCard.current?.scrollIntoView({ block: "center", behavior: "smooth" }),
   );
   return (
     <>
@@ -728,6 +797,7 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
                       </Button>
                     </Tooltip>
                   )}
+                  {retro.press === undefined ? null : <RetroPress writing={retro.writing.has(session.id)} onPress={() => retro.press?.(session)} />}
                   {draft.close === undefined || session.terminal === true || session.dead !== undefined ? null : (
                     <Tooltip label="End this Session and park its slot">
                       <Button variant="ghost" size="sm" onClick={() => draft.close?.(session.id)}>
@@ -778,6 +848,7 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
           <SessionThread
             sessionId={session.id}
             rows={threadRowsOf(session)}
+            askRef={askCard}
             onOpenWindow={(url) => draft.openWindow?.(id, url)}
             onOpenCheck={(run) => goes.onOpenCheck(session.id, run)}
             working={session.turn.state === "working"}
@@ -857,6 +928,66 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
       />
       {slot === undefined ? null : <TileSheet row={{ slot }} floor={floor} onOpenJob={goes.onOpenJob} onClose={() => setSlotOpen(undefined)} />}
     </>
+  );
+}
+
+/**
+ * A Session in miniature, for the Dashboard's pane: its thread, what it is held on, and the box to
+ * answer it, as its own page draws them. No ledger, no frame; Open goes to the whole Session.
+ */
+export function SessionMini({ sessionId, onOpen }: { sessionId: string; onOpen: (id: string) => void }) {
+  const draft = useSessionsDraft();
+  const sessions = useSessions();
+  const session = sessions.find((one) => one.id === sessionId);
+  const watch = draft?.watch;
+  useEffect(() => watch?.(sessionId), [watch, sessionId]);
+  if (draft === undefined || session === undefined) return null;
+  const mode: SessionMode = session.mode ?? (session.terminal === true ? "ask" : "auto");
+  return (
+    <div className="armada-session-mini">
+      <div className="armada-session-mini__thread">
+        <SessionThread
+          sessionId={session.id}
+          rows={threadRowsOf(session)}
+          {...(session.asked === undefined
+            ? {}
+            : {
+                asked: {
+                  command: session.asked.command,
+                  ...(session.asked.questions === undefined ? {} : { questions: session.asked.questions }),
+                  ...(session.asked.offers === undefined
+                    ? {}
+                    : { offers: helmOfferedOf(session.asked.offers).map((one) => ({ id: one.offer, label: one.label, means: one.means })) }),
+                },
+              })}
+          onAnswer={(answer, answers) => draft.answer(session.id, answer as SessionAnswer | undefined, answers)}
+          onOpenSession={onOpen}
+        />
+      </div>
+      {session.dead !== undefined ? null : (
+        <SessionComposer
+          modeLocked={session.terminal === true}
+          modeHidden={session.terminal === true && session.mode === undefined}
+          working={session.turn.state === "working"}
+          mode={mode}
+          onMode={(next) => draft.tune(session.id, { model: session.model ?? null, effort: session.effort ?? null, mode: next })}
+          model={session.model ?? null}
+          effort={session.effort ?? null}
+          models={draft.models}
+          efforts={draft.efforts}
+          onTune={(tuning) => draft.tune(session.id, { ...tuning, mode })}
+          commands={session.terminal === true ? (session.commands ?? []) : draft.commands}
+          compact
+          taggable={[]}
+          tags={session.pendingTags ?? []}
+          onTags={(tags) => draft.setTags(session.id, tags)}
+          drawn={[]}
+          onDraw={() => onOpen(session.id)}
+          onRemoveDrawn={() => undefined}
+          onSend={(sent) => draft.send(session.id, { text: sent.text, files: sent.files, sketches: [], tags: sent.tags as readonly SessionTag[] })}
+        />
+      )}
+    </div>
   );
 }
 

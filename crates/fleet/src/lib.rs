@@ -57,6 +57,8 @@ pub mod basing;
 mod boot_restart;
 mod boundary;
 pub mod briefing;
+/// The build Fleet runs on and the detached restart onto another. `scripts/restart-build`.
+mod building;
 /// Racing a plain command's work against [`budget::CommandBudget`],
 /// split out of `commanding` at the 900-line refusal, `#897`.
 mod budget;
@@ -184,6 +186,8 @@ pub mod manifest_proposal;
 mod mending;
 pub mod merge_lines;
 mod merging;
+/// Mods: folders on this machine that change how Bridge looks.
+pub mod mods;
 pub mod mint;
 /// What each Job is called on disk, answerable without a lock. **Every path
 /// under `.armada/` is named by the handle**, and half the places that write a
@@ -237,6 +241,9 @@ mod proposing;
 mod proving;
 /// What happened to a pull request, told to the Sessions and Jobs that own it.
 mod pull_notices;
+/// A pull request nobody reported, attached to the Session that worked its branch.
+mod claiming;
+mod pull_attaching;
 /// Who owns a pull request, from the Sessions ledger and the Jobs.
 mod pull_owners;
 /// A pull request by repository and number, and the acts a Session takes on one.
@@ -276,6 +283,7 @@ mod releasing;
 pub mod remarks;
 /// A Fleet that starts takes its Trigger repairs up again.
 mod repair_recovery;
+mod repair_diff;
 mod repair_subject;
 /// A failed Trigger's repair Drone, on a branch of its own.
 mod repairing;
@@ -324,6 +332,7 @@ pub mod showing;
 mod showing_again;
 pub mod silence;
 pub mod slots;
+mod sleeping;
 /// The Manifest a Job actually sees — what was snapshotted at its creation,
 /// resolved by every reader `#650` named rather than by `Fleet::manifest`
 /// directly.

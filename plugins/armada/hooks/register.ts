@@ -4,9 +4,10 @@
 // **A session is reported as it happens and never read back**, with one
 // exception: a message a person sent it from Bridge, which Fleet holds until
 // this mod asks (`submitHeld`). One thing is told to the model: its own session id, so
-// `show_window` can name it. No hook changes what a session does: each answers with what `next` returned and lets its report go unawaited, so
+// `show_window` can name it. Two hooks change what a session does, an `open` of a page and an
+// `AskUserQuestion` Bridge answers first; every other answers with what `next` returned and lets its report go unawaited, so
 // Fleet being down costs the session nothing (`fleet.ts`). **No message text and no prompt leaves, apart from the first
-// line of the first prompt as a title.** A message is reported as who it went to
+// line of the first prompt as a title, and a question put to Bridge.** A message is reported as who it went to
 // or came from, and how many.
 //
 // The helpers are top-level because the engine follows `$` only into a function
@@ -15,6 +16,7 @@
 import type { Engine, Register } from 'claude-code'
 
 import {
+  answersIn,
   artifactOf,
   customTitleIn,
   ghAct,
@@ -33,7 +35,7 @@ import {
   MOD_VERSION,
   transcriptPath,
 } from './facts'
-import type { Door, Fact, Report } from './fleet'
+import type { Asked, Door, Fact, Report } from './fleet'
 
 const HARNESS = 'claude_code'
 const MEASURE_EVERY_MS = 10_000
@@ -270,8 +272,71 @@ async function showPages($: Dollar, urls: string[]): Promise<void> {
   }
 }
 
+/** How long Fleet holds one poll, and how long the mod waits on a request before it asks again. */
+const POLL_FETCH_MS = 35_000
+const POLL_RETRY_MS = 3000
+
+async function postAsk($: Door, port: number, body: unknown, bound: number): Promise<Asked | undefined> {
+  const sent = await Promise.race([
+    $.http.fetch(`http://127.0.0.1:${port}/sessions/ask/terminal`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    }),
+    $.clock.sleep(bound).then(() => undefined),
+  ])
+  return sent?.ok === true ? (JSON.parse(sent.text) as Asked) : undefined
+}
+
+/**
+ * The terminal's question, put to Bridge. **Posted once, then polled for**: Fleet keeps the question
+ * and any answer from Bridge, so a request that times out, a dropped connection or a Fleet that
+ * restarts costs one poll and never the question. Resolves with the answer, or nothing where Fleet
+ * says the card is gone. A Fleet that is out of reach is waited out quietly; the terminal's own
+ * prompt is all there is meanwhile. `over` ends the loop once the terminal's prompt has.
+ */
+async function putToBridge($: Door, id: string, questions: unknown, over: { done: boolean }): Promise<Asked | undefined> {
+  try {
+    let call: string | undefined
+    while (call === undefined && !over.done) {
+      const port = await portOf($).catch(() => undefined)
+      const put = port === undefined ? undefined : await postAsk($, port, { kind: 'asks', session_id: id, input: { questions } }, POLL_FETCH_MS).catch(() => undefined)
+      if (put?.outcome === 'asked') call = put.call
+      else if (put !== undefined) return undefined
+      else await $.clock.sleep(POLL_RETRY_MS)
+    }
+    while (call !== undefined && !over.done) {
+      const port = await portOf($).catch(() => undefined)
+      const polled = port === undefined ? undefined : await postAsk($, port, { kind: 'wait', session_id: id, call }, POLL_FETCH_MS).catch(() => undefined)
+      if (polled === undefined) await $.clock.sleep(POLL_RETRY_MS)
+      else if (polled.outcome !== 'waiting') return polled
+    }
+    return undefined
+  } catch {
+    return undefined
+  }
+}
+
+/** The terminal's own prompt ended first, so Bridge's card closes. */
+async function settledInTerminal($: Door, id: string, answered: boolean): Promise<void> {
+  try {
+    const port = await portOf($)
+    if (port === undefined) return
+    await Promise.race([
+      $.http.fetch(`http://127.0.0.1:${port}/sessions/ask/terminal`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ kind: 'settled', session_id: id, answered }),
+      }),
+      $.clock.sleep(WAIT_MS),
+    ])
+  } catch {
+    // Fleet out of reach: its card closes when its hold runs out.
+  }
+}
+
 function idNote(id: string): string {
-  return `Your Armada session id is ${id}. Pass it as session_id to the armada show_window tool. To show the owner a web page (a walk, a mock, a dev server), call show_window. Never run \`open\`.`
+  return `Your Armada session id is ${id}. Pass it as session_id to the armada show_window tool. To show the owner a web page (a walk, a mock, a dev server), call show_window. Never run \`open\`. Keep the armada waiting_for tool current: whenever you need the owner for something (a decision, a page to look at, a pull request to approve, a command only he can run), put it in the list with one short line each and call waiting_for with the whole list, passing session_id. Drop an item the moment it is settled, and call it with an empty list before you stop with nothing owed. Do not wait to be asked what is outstanding.`
 }
 
 async function begin($: Dollar, id: string, cwd?: string): Promise<void> {
@@ -528,6 +593,35 @@ export const register: Register = on => {
       void afterBash($, e.command, ran.text ?? '').catch(() => undefined)
     }
     return ran
+  })
+
+  // A question asked in the terminal is also put to Bridge, and the first answer wins. The terminal's
+  // prompt opens beneath (`next`) while Fleet holds the question; returning before `next` does aborts
+  // the prompt, so an answer from Bridge is the tool's own result and the terminal never keeps it.
+  on('tool.call', { tool: 'AskUserQuestion' }, async ($, e, next) => {
+    if (await $.env.get('ARMADA_DRONE')) return next(e)
+    const id = await $.session.id()
+    const over = { done: false }
+    const terminal = next(e).then(ran => ({ ran }))
+    const bridge = putToBridge($, id, e.questions, over).then(asked =>
+      asked?.outcome === 'answered' || asked?.outcome === 'refused'
+        ? { asked }
+        : new Promise<never>(() => undefined),
+    )
+    try {
+      const first = await Promise.race([terminal, bridge])
+      if ('asked' in first) {
+        if (first.asked.outcome === 'refused') return { deny: first.asked.message }
+        return { result: { questions: e.questions, answers: answersIn(first.asked.updated_input) } }
+      }
+      void settledInTerminal($, id, first.ran.deny === undefined && first.ran.isError !== true)
+      return first.ran
+    } catch (error) {
+      void settledInTerminal($, id, false)
+      throw error
+    } finally {
+      over.done = true
+    }
   })
 
   for (const name of DISPATCHES) {

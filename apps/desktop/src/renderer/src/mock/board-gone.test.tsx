@@ -52,26 +52,14 @@ test("the Board's old shortcut reaches Studios, because the digits closed up beh
   ).toContain("Studios");
 });
 
-test("Done draws every Job that completed or was cleared, folded until asked for", async () => {
+test("Done draws every Job that completed or was cleared, on its own filter", async () => {
   mount("every-state");
   await onScreen();
 
-  // Folded: the heading is there and the rows are not, which is the whole
-  // point of what is over being read on purpose.
-  // Folded, so the head says Expand rather than Collapse — every other
-  // section opens by default and this one does not.
-  const done = page.getByRole("button", { name: "Expand Done" });
-  await expect.element(done).toBeVisible();
-
+  // What is over is read on purpose: its own filter, and not the one Overview opens on.
+  const done = page.getByRole("tab", { name: "Done" });
+  await expect.element(done).toHaveAttribute("aria-selected", "false");
   await done.click();
-  // A Job the Board's Done tab held and Overview did not draw at all before.
-  await expect.element(page.getByRole("button", { name: "Collapse Done" })).toBeVisible();
-  // **Polled, not read.** The head flipping to `Collapse Done` is one render
-  // and the rows under it are the next, so a `querySelectorAll` on the line
-  // after it is a race the test loses whenever the machine is busy — the same
-  // shape `canvas-pan` lost on 30 Sep 2026, and this one refused the merge
-  // line beside it.
-  await expect
-    .poll(() => document.querySelectorAll("#armada-overview-panel-done [data-job-id]").length)
-    .toBeGreaterThan(0);
+  // **Polled, not read.** The filter flipping is one render and its tiles are the next.
+  await expect.poll(() => document.querySelectorAll('[role="listbox"][aria-label="Tiles"] [data-job-id]').length).toBeGreaterThan(0);
 });

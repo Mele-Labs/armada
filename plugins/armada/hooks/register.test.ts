@@ -12,13 +12,14 @@ type Posted = { url: string; body: any }
 
 function world(
   on: On,
-  options: { running?: () => boolean; hangs?: boolean; held?: string[]; heldCommands?: { command: string; args: string }[]; model?: () => string; onCommand?: () => void; transcript?: string; env?: Record<string, string>; pullRequest?: string } = {},
+  options: { running?: () => boolean; hangs?: boolean; held?: string[]; heldCommands?: { command: string; args: string }[]; model?: () => string; onCommand?: () => void; transcript?: string; env?: Record<string, string>; pullRequest?: string; polls?: (string | Promise<string> | Error)[] } = {},
 ) {
   const running = options.running ?? (() => true)
   const posts: Posted[] = []
   const attempts = { fetches: 0, reads: 0 }
   const submitted: { text: string; asUser?: boolean }[] = []
   const asked: unknown[] = []
+  const questions: any[] = []
   const ran: { command: string; args?: string }[] = []
   const clock = mock.clock(on, { now: 1_000_000 })
   mock.env(on, { HOME: '/home/user', ...options.env })
@@ -37,6 +38,19 @@ function world(
       const messages = options.held?.splice(0) ?? []
       const commands = options.heldCommands?.splice(0) ?? []
       return { value: { status: 200, ok: true, headers: {}, text: JSON.stringify({ messages, commands }) } }
+    }
+    // A question held by Fleet answers when the test says; the terminal's settling is answered at once.
+    if (e.url.endsWith('/sessions/ask/terminal')) {
+      const body = JSON.parse(e.init?.body ?? '{}')
+      questions.push(body)
+      if (body.kind === 'asks') return { value: { status: 200, ok: true, headers: {}, text: '{"outcome":"asked","call":"helm-1"}' } }
+      // Each poll takes the next answer the test queued: a string, a poll that never ends, or a failure.
+      if (body.kind === 'wait') {
+        const poll = options.polls?.shift() ?? new Promise<string>(() => undefined)
+        if (poll instanceof Error) throw poll
+        return Promise.resolve(poll).then(text => ({ value: { status: 200, ok: true, headers: {}, text } }))
+      }
+      return { value: { status: 200, ok: true, headers: {}, text: '{"outcome":"gone"}' } }
     }
     posts.push({ url: e.url, body: JSON.parse(e.init?.body ?? '{}') })
     return { value: { status: 200, ok: true, headers: {}, text: '{}' } }
@@ -67,7 +81,7 @@ function world(
   on('turn.complete', () => ({ text: '' }))
   on('prompt.context', (_$, e) => ({ blocks: e.blocks }))
   on('classic.SessionStart', () => ({}))
-  return { posts, attempts, clock, submitted, asked, ran }
+  return { posts, attempts, clock, submitted, asked, ran, questions }
 }
 
 const facts = (posts: Posted[]) => posts.map(one => one.body.fact)
@@ -413,6 +427,7 @@ test('the model is told its Armada session id, and a Drone is not', async ($, on
   const out = await $.prompt.context({ blocks: [] })
   expect(out.blocks.map(one => one.name)).toEqual(['armadaSession'])
   expect(out.blocks[0].text).toContain('S1')
+  expect(out.blocks[0].text).toContain('waiting_for')
 })
 
 test('a Drone is told no session id', async ($, on) => {
@@ -489,4 +504,97 @@ test('a Drone may open what it likes', async ($, on) => {
 
   expect(ranIt).toBe(true)
   expect(posts).toEqual([])
+})
+
+const SIZE = [
+  {
+    question: 'Which size?',
+    header: 'Size',
+    multiSelect: false,
+    options: [
+      { label: 'S', description: 'Small' },
+      { label: 'L', description: 'Large' },
+    ],
+  },
+]
+
+test('a terminal question answered in Bridge is the tool result, and the terminal prompt is dropped', async ($, on) => {
+  const { questions } = world(on, {
+    polls: [JSON.stringify({ outcome: 'answered', updated_input: { questions: SIZE, answers: { 'Which size?': 'L' } } })],
+  })
+  // The terminal's own prompt, which nobody answers.
+  on('tool.call', { tool: 'AskUserQuestion' }, () => new Promise(() => undefined))
+  const out = await $.tool.call({ tool: 'AskUserQuestion', questions: SIZE })
+
+  expect(out.result).toEqual({ questions: SIZE, answers: { 'Which size?': 'L' } })
+  expect(questions).toEqual([
+    { kind: 'asks', session_id: 'S1', input: { questions: SIZE } },
+    { kind: 'wait', session_id: 'S1', call: 'helm-1' },
+  ])
+})
+
+const ANSWERED = JSON.stringify({ outcome: 'answered', updated_input: { questions: SIZE, answers: { 'Which size?': 'L' } } })
+
+test('a poll that times out or fails is asked again, and the answer is collected on a later one', async ($, on) => {
+  const { questions, clock } = world(on, {
+    // One that never comes back, one the connection dropped, one Fleet held and let go, then the answer.
+    polls: [new Promise<string>(() => undefined), new Error('connection reset'), '{"outcome":"waiting"}', ANSWERED],
+  })
+  on('tool.call', { tool: 'AskUserQuestion' }, () => new Promise(() => undefined))
+  const out = $.tool.call({ tool: 'AskUserQuestion', questions: SIZE })
+  for (let i = 0; i < 6; i++) {
+    await clock.advance(40_000)
+    await clock.settle()
+  }
+
+  expect((await out).result).toEqual({ questions: SIZE, answers: { 'Which size?': 'L' } })
+  expect(questions.filter(q => q.kind === 'wait')).toHaveLength(4)
+  expect(questions.filter(q => q.kind === 'asks')).toHaveLength(1)
+})
+
+test('a Fleet that is down when the question is asked is waited out until it answers', async ($, on) => {
+  let up = false
+  const { questions, clock } = world(on, { running: () => up, polls: [ANSWERED] })
+  on('tool.call', { tool: 'AskUserQuestion' }, () => new Promise(() => undefined))
+  const out = $.tool.call({ tool: 'AskUserQuestion', questions: SIZE })
+  await clock.advance(10_000)
+  await clock.settle()
+  expect(questions).toEqual([])
+
+  up = true
+  for (let i = 0; i < 3; i++) {
+    await clock.advance(10_000)
+    await clock.settle()
+  }
+  expect((await out).result).toEqual({ questions: SIZE, answers: { 'Which size?': 'L' } })
+})
+
+test('a terminal question refused in Bridge is told to the agent', async ($, on) => {
+  world(on, { polls: [JSON.stringify({ outcome: 'refused', message: 'The person refused this.' })] })
+  on('tool.call', { tool: 'AskUserQuestion' }, () => new Promise(() => undefined))
+  const out = await $.tool.call({ tool: 'AskUserQuestion', questions: SIZE })
+
+  expect(out.deny).toBe('The person refused this.')
+})
+
+test('a terminal question answered in the terminal first tells Fleet it was settled', async ($, on) => {
+  const { questions, clock } = world(on)
+  const typed = { questions: SIZE, answers: { 'Which size?': 'S' } }
+  on('tool.call', { tool: 'AskUserQuestion' }, () => ({ result: typed, text: 'answered' }))
+  const out = await $.tool.call({ tool: 'AskUserQuestion', questions: SIZE })
+  await clock.settle()
+
+  expect(out.result).toEqual(typed)
+  expect(questions[0]).toEqual({ kind: 'asks', session_id: 'S1', input: { questions: SIZE } })
+  expect(questions.at(-1)).toEqual({ kind: 'settled', session_id: 'S1', answered: true })
+  expect(questions.filter(q => q.kind === 'wait')).toHaveLength(0)
+})
+
+test('a Drone does not put its question to Bridge', async ($, on) => {
+  const { questions, clock } = world(on, { env: { ARMADA_DRONE: '1' } })
+  on('tool.call', { tool: 'AskUserQuestion' }, () => ({ result: { questions: SIZE, answers: {} }, text: 'answered' }))
+  await $.tool.call({ tool: 'AskUserQuestion', questions: SIZE })
+  await clock.settle()
+
+  expect(questions).toEqual([])
 })

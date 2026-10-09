@@ -1,0 +1,12 @@
+[operations.answer_waiting]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Settle one thing a session is waiting on the person for: a numbered choice, their words, or leave it to the agent"
+notes = """
+`POST /sessions/waiting/answer`, body `AnswerWaiting`: `session_id`, `item_id`, and one of `choice` (an index into the item's `options`), `text`, or `mode` (`best` or `quick`). Answered with the `SessionRecord`.
+
+**Routed by the item's source.** `ask_card` and `permission` items answer through the ask route underneath (`answer_session_ask`): a `choice` or `text` answers the card, a `mode` alone refuses it with the mode line as the note so the agent decides. A `walk` item sends the approval (`Approved: <url>`) as the person's message. An `agent` item becomes a message to the session: the item, the answer, and the mode line. A `mode` with a `choice` or `text` adds its line to the message. An item nothing holds is a 409; a body with none of the three is a 422.
+
+The mode lines: `best` tells the agent to decide for itself and think it through; `quick` tells it to take the reasonable path and keep moving.
+"""

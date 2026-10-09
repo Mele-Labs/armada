@@ -124,7 +124,7 @@ test("contextOf leaves an absent field off the wire", () => {
 });
 
 test("locationOf names the screen and the cursor row, off the wire's own job number", () => {
-  expect(locationOf({ screen: "overview", cursor: "j16" }, JOBS)).toBe("Overview · cursor on Job 16");
+  expect(locationOf({ screen: "overview", cursor: "j16" }, JOBS)).toBe("Cockpit · cursor on Job 16");
 });
 
 test("locationOf names the screen alone with no cursor to report", () => {
@@ -140,7 +140,7 @@ test("locationOf reports the Job's detail generically once the wire carries no c
 });
 
 test("locationOf never invents a number for an id the Board does not hold", () => {
-  expect(locationOf({ screen: "overview", cursor: "missing" }, JOBS)).toBe("Overview");
+  expect(locationOf({ screen: "overview", cursor: "missing" }, JOBS)).toBe("Cockpit");
 });
 
 test("a Studio rides on the context only on the Studios surface, and a node only beside its Studio", () => {

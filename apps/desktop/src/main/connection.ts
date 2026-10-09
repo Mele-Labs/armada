@@ -18,12 +18,13 @@ import type { PilotOutcome } from "@armada/protocol";
 import type { SessionActed } from "../shared/api/sessions";
 import type { BridgeState, PickedView } from "../shared/bridge";
 import type { Connection, HelmContext, HelmDebugRead, JobSummary, Outcome } from "@armada/protocol";
-import type { BriefRead, CheckOutputRead, FrameRead, LandCheckAt, LessonsRead, RetroRead } from "@armada/protocol";
+import type { BriefRead, CheckOutputRead, FrameRead, LandCheckAt, LessonsRead, RetroRead, RetroSubject } from "@armada/protocol";
 import type { ComposingRead } from "@armada/screens/src/composing-reads";
 import { applyArrival, readCapacity, reread } from "./arrivals";
 import type { ArrivalHost } from "./arrivals";
 import { JobCommands } from "./command";
 import { PilotExits } from "./pilot-exits";
+import { FleetBuilds } from "./fleet-build";
 import { FollowSocket } from "./following";
 import { LandFollowSocket } from "./land-following";
 import { HelmConnection } from "./helm";
@@ -48,7 +49,9 @@ import { ReportsReader } from "./reports";
 import { ReviewMaterial } from "./review";
 import { startingIdentity } from "./runtime-file";
 import { FleetSocket, type BridgeStateFleet } from "./socket";
+import { Modding } from "./mods";
 import { SessionsHost } from "./sessions";
+import { SleepHost } from "./sleep";
 import { StudioReads } from "./studios";
 
 /** Time is injected, never read: a connection that calls the clock cannot be replayed. */
@@ -172,11 +175,24 @@ export class FleetConnection {
     (change) => this.publish(change),
     () => this.connected()?.port ?? null,
   );
+  /** The build Fleet runs on and the restart onto another — `fleet-build.ts`. */
+  readonly fleetBuild: FleetBuilds = new FleetBuilds({
+    port: () => this.connected()?.port ?? null,
+    current: () => this.current,
+    publish: (change) => this.publish(change),
+  });
+  /** The mods on this machine and the acts on one — `mods.ts`. */
+  readonly mods: Modding = new Modding(
+    (change) => this.publish(change),
+    () => this.connected()?.port ?? null,
+  );
   /** Every session on the machine and the threads a window opened — `sessions.ts`. */
   readonly sessions: SessionsHost = new SessionsHost(
     (change) => this.publish(change),
     () => this.connected()?.port ?? null,
   );
+  /** Sleep mode — `sleep.ts`. */
+  readonly sleep: SleepHost = new SleepHost(() => this.connected()?.port ?? null);
   /**
    * Every act on a Job — see `command.ts`. Reached through this rather than
    * re-exported one method at a time: a delegator carries no reasoning, and
@@ -304,7 +320,10 @@ export class FleetConnection {
       questions: this.questions,
       helm: this.helm,
       studios: this.studios,
+      mods: this.mods,
       sessions: this.sessions,
+      sleep: this.sleep,
+      fleetBuild: this.fleetBuild,
       material: this.material,
       socket: this.socket,
       publish: (change) => this.publish(change),
@@ -368,7 +387,6 @@ export class FleetConnection {
         triggers: new TriggerCommands(port, picked),
         overview: new OverviewReads({
           publish: (change) => this.wiring.publishToWindow(windowId, change),
-          picked,
           port,
         }),
       };
@@ -445,6 +463,7 @@ export class FleetConnection {
     this.held.close();
     this.studios.close();
     this.sessions.close();
+    this.fleetBuild.close();
     for (const facades of this.windowFacades.values()) facades.overview.close();
     this.helm.close();
   }
@@ -557,8 +576,8 @@ export class FleetConnection {
     return await this.jobReads.readBrief(jobId, name);
   }
 
-  async readRetro(jobId: string): Promise<RetroRead> {
-    return await this.jobReads.readRetro(jobId);
+  async readRetro(subject: RetroSubject): Promise<RetroRead> {
+    return await this.jobReads.readRetro(subject);
   }
 
   async readLessons(picked: Picked, state: "open" | "accepted"): Promise<LessonsRead> {

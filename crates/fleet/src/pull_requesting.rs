@@ -12,11 +12,11 @@
 //! named, so a merge on a pull request whose checks are running never reaches
 //! the forge, and the forge's own words are for what Fleet could not know.
 //!
-//! **The ledger follows the forge, through the ledger's own attach.** Every
-//! read and every act refreshes the `pr` rows Sessions hold for the pull
-//! request by reporting an `attached` fact for each, and settles a merged one
-//! `spent` and a closed one `given_back`. Nothing here writes a ledger row
-//! another way.
+//! **The ledger follows the forge, in one write a row.** Every read and every
+//! act, and the pull watch each interval (`pull_ledger_kept_current`), take the
+//! pull request's state as the `detail` of every standing `pr` row Sessions
+//! hold for it and settle a merged one `spent` and a closed one `given_back`
+//! in the same write, so no row stands that says merged.
 
 use std::collections::BTreeMap;
 
@@ -26,9 +26,8 @@ use adapter_traits::{
 };
 use api::{PullRequests, Redirector, Refusal, Sessions};
 use ipc::{
-    AttachmentNamed, AttachmentReport, AttachmentState, ForgeChecks, ManifestId,
-    PullRequestStanding, PullRequestState, ReviewDispatched, ReviewPullRequest, SessionFact,
-    SessionId, SessionReport, WireError,
+    AttachmentReport, ForgeChecks, ManifestId, PullRequestStanding, PullRequestState,
+    ReviewDispatched, ReviewPullRequest, SessionFact, SessionReport, WireError,
 };
 use store::HolderKind;
 
@@ -48,8 +47,6 @@ const UNNAMED: &str = "fleet.pull_request_unnamed";
 const IS_A_DRAFT: &str = "fleet.pull_request_is_a_draft";
 /// Taking out of draft what is not one. A 409.
 const NOT_A_DRAFT: &str = "fleet.pull_request_not_a_draft";
-/// Auto-merge asked for once every check has passed: merge it. A 409.
-const CHECKS_PASSED: &str = "fleet.pull_request_checks_passed";
 /// The forge would not take it out of draft, in its own sentence. A 409.
 const READY_REFUSED: &str = "fleet.ready_refused";
 /// The forge would not turn auto-merge on, in its own sentence. A 409.
@@ -60,8 +57,8 @@ const SESSION_UNKNOWN: &str = "fleet.session_unknown";
 /// The workflow a review runs on, named here and never left to the proposer.
 const CODE_REVIEW: &str = "code_review";
 
-/// The ledger's kind for a pull request a Session holds.
-const PR: &str = "pr";
+/// The ledger's kind for a pull request a Session holds, and the kind its owners are read under.
+pub(crate) const PR: &str = "pr";
 
 /// What a pull request was named as.
 enum Named {
@@ -124,6 +121,7 @@ fn detail_of(state: &PullRequestState) -> BTreeMap<String, String> {
     BTreeMap::from([
         ("state".to_string(), standing.to_string()),
         ("auto_merge".to_string(), state.auto_merge.to_string()),
+        ("queued".to_string(), state.queued.to_string()),
         ("checks".to_string(), checks.to_string()),
         ("failing".to_string(), failing),
         ("title".to_string(), state.title.clone()),
@@ -168,6 +166,17 @@ where
             .ok_or_else(unreadable)?;
         let checks =
             checks_of(&self.vcs().under_review(root, &named).checks).ok_or_else(unreadable)?;
+        // Only an open pull request waits in the queue, and a forge that will not
+        // say leaves it out of the queue: the read stays the pull request's own.
+        let queued = facts.standing == Forge::Open
+            && self
+                .served_named(Some(manifest_id))
+                .ok()
+                .and_then(|served| {
+                    let base = served.manifest().base()?.to_string();
+                    self.vcs().merge_queue(root, &base)
+                })
+                .is_some_and(|queue| queue.iter().any(|entry| entry.number == number));
         Ok(PullRequestState {
             manifest_id: manifest_id.clone(),
             number,
@@ -178,6 +187,7 @@ where
                 Forge::Closed => PullRequestStanding::Closed,
             },
             auto_merge: facts.auto_merge,
+            queued,
             checks,
             title: facts.title,
             branch: facts.branch,
@@ -193,54 +203,62 @@ where
     /// not write is no reason to refuse an answer.
     async fn ledger_follows(&self, state: &PullRequestState) {
         let target = state.number.to_string();
-        let sessions: Vec<(String, String)> = {
-            let store = self.store().lock().await;
+        let detail = detail_of(state);
+        let over = match state.state {
+            PullRequestStanding::Merged => store::AttachmentState::Spent,
+            PullRequestStanding::Closed => store::AttachmentState::GivenBack,
+            _ => store::AttachmentState::Standing,
+        };
+        let now = self.clock().now().as_str().to_string();
+        let mut changed = Vec::new();
+        {
+            let mut store = self.store().lock().await;
             let Ok(rows) = store.attachments_at(PR, &target, Some(state.manifest_id.as_str()))
             else {
                 return;
             };
+            for row in rows.iter().filter(|row| {
+                row.holder.kind == HolderKind::Session
+                    && (row.state == store::AttachmentState::Standing
+                        || (row.state == store::AttachmentState::Spent
+                            && matches!(row.detail.get("state").map(String::as_str), Some("open" | "draft"))))
+            }) {
+                // **One write for the detail and the state**: a row never reads merged in
+                // one and standing in the other.
+                if !matches!(store.follow(row, over, &detail, &now), Ok(true)) {
+                    continue;
+                }
+                let Some(session) = store.session(&row.holder.id).ok().flatten() else {
+                    continue;
+                };
+                if let Ok(record) = self.ledger_row(&store, &session) {
+                    changed.push(record);
+                }
+            }
+        }
+        for record in changed {
+            self.publish(ipc::Event::SessionChanged(record));
+        }
+    }
+
+    /// Every pull request a Session still holds in this repository, read once and
+    /// followed, **so a terminal Session nobody has opened is as current as one
+    /// whose sheet is open**. Rows the forge will not answer for stay as they were.
+    pub(crate) async fn pull_ledger_kept_current(&self, manifest_id: &ManifestId, root: &str) {
+        let mut numbers: Vec<u64> = {
+            let store = self.store().lock().await;
+            let Ok(rows) = store.followed_of_kind(PR, manifest_id.as_str()) else {
+                return;
+            };
             rows.iter()
-                .filter(|row| {
-                    row.holder.kind == HolderKind::Session
-                        && row.state == store::AttachmentState::Standing
-                })
-                .filter_map(|row| {
-                    let session = store.session(&row.holder.id).ok().flatten()?;
-                    Some((session.id, session.harness))
-                })
+                .filter(|row| row.holder.kind == HolderKind::Session)
+                .filter_map(|row| row.target.parse().ok())
                 .collect()
         };
-        for (session_id, harness) in sessions {
-            let report = |fact| SessionReport {
-                harness: harness.clone(),
-                session_id: SessionId::carried(session_id.clone()),
-                fact,
-            };
-            let _ = self
-                .report_session(report(SessionFact::Attached {
-                    attachment: AttachmentReport {
-                        kind: PR.to_string(),
-                        target: target.clone(),
-                        detail: detail_of(state),
-                    },
-                }))
-                .await;
-            let over = match state.state {
-                PullRequestStanding::Merged => Some(AttachmentState::Spent),
-                PullRequestStanding::Closed => Some(AttachmentState::GivenBack),
-                _ => None,
-            };
-            if let Some(over) = over {
-                let _ = self
-                    .report_session(report(SessionFact::Settled {
-                        attachment: AttachmentNamed {
-                            kind: PR.to_string(),
-                            target: target.clone(),
-                        },
-                        state: over,
-                    }))
-                    .await;
-            }
+        numbers.sort_unstable();
+        numbers.dedup();
+        for number in numbers {
+            let _ = self.pull_request_followed(manifest_id, root, number).await;
         }
     }
 
@@ -417,20 +435,15 @@ where
         if let Some(refusal) = self.not_open_refusal(&before) {
             return Err(refusal);
         }
-        // Asked twice, the second answers as it stands.
-        if before.auto_merge {
+        // Asked twice, the second answers as it stands. A pull request in the
+        // queue has been asked already, whatever the flag says.
+        if before.auto_merge || before.queued {
             self.ledger_follows(&before).await;
             return Ok(before);
         }
-        match &before.checks {
-            ForgeChecks::Pending => {}
-            ForgeChecks::Passed => {
-                return Err(Refusal::IllegalMove(self.pr_refusal(
-                    CHECKS_PASSED,
-                    format!("the checks on pull request {number} have passed already: merge it"),
-                )))
-            }
-            ForgeChecks::Failed { .. } => return Err(self.checks_not_passed(&before)),
+        // Passed already is not a refusal: the forge queues it, as `gh pr merge --auto` does.
+        if let ForgeChecks::Failed { .. } = &before.checks {
+            return Err(self.checks_not_passed(&before));
         }
         self.vcs()
             .enable_auto_merge(root, &number.to_string())

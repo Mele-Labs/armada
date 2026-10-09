@@ -8,6 +8,8 @@
 // no slot and no branch, leases a worktree slot on the agent's first write,
 // and from then on accumulates what it touches.
 
+import type { WaitingItem } from "@armada/protocol";
+
 /** What a Session has attached, by kind. A Session holds several of each. */
 export type SessionAttachment =
   /** A worktree slot the Session holds: leased on its first write, never at birth. */
@@ -25,6 +27,8 @@ export type SessionAttachment =
       state: SessionPullRequestState;
       /** Merge once every Check passes, asked for while they were still running. */
       auto: boolean;
+      /** In the base branch's merge queue now, which is more than asking for it. */
+      queued?: true;
     }
   /** A Job the Session dispatched. It leases its own slot and cuts its own branch. */
   | {
@@ -181,6 +185,8 @@ export type Session = {
   lastTurnAt?: string;
   /** What the agent is held on, while it is. */
   asked?: SessionAsk;
+  /** What the Session waits on the person for: the agent's list with Fleet's own items merged in. Absent or empty is nothing. */
+  waitingFor?: readonly WaitingItem[];
   /** Tags chosen and not yet sent: they wait in the message box as chips. */
   pendingTags?: readonly SessionTag[];
   /** The model and effort the next turn runs on. Absent is Auto. */
@@ -286,6 +292,11 @@ export type SessionsDraft = {
    * Read again while it runs. Absent where nothing serves it, and the panel then shows the report alone.
    */
   subagent?: (id: string, subagentId: string) => Promise<SubagentThread | undefined>;
+  /**
+   * Writes a Session's retro and resolves when it is written, to whether it was. Absent where
+   * nothing serves it, and the Retro press is left off rather than drawn dead.
+   */
+  retro?: (id: string) => Promise<boolean>;
   /** Ends a Session: the slot is parked and the row ends. Absent in the mock, which has no end. */
   close?: (id: string) => void;
   /** Names a Session, hosted or in a terminal. Absent where there is nothing to save it to. */
@@ -331,6 +342,8 @@ export type SessionsDraft = {
   efforts: readonly string[];
   /** The skills and commands `/` offers. */
   commands: readonly SessionCommand[];
+  /** Answers one waiting item: a numbered choice, words, or leave it to the agent (`best` thinks it through, `quick` takes the reasonable path). Absent where nothing serves it. */
+  answerWaiting?: (id: string, itemId: string, answer: { choice?: number; text?: string; mode?: "best" | "quick" }) => void;
   /** Answers the permission a Session is held on. The mock offers two and names none. */
   answer: (id: string, answer?: SessionAnswer, answers?: SessionQuestionAnswer[]) => void;
 };

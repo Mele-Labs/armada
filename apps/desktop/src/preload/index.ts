@@ -17,6 +17,7 @@ import type {
   LessonAnswer,
   LessonsRead,
   RetroRead,
+  RetroSubject,
   FrameRead,
   ClearOutcome,
   Outcome,
@@ -25,16 +26,19 @@ import type {
   StagedAttachment,
 } from "@armada/protocol";
 import type { FileReport } from "@armada/protocol";
-import type { AnswerSessionAsk, PilotOutcome, PullRequestState, RenameSession, ReviewDispatched, SendSessionMessage, SessionSubagent, TuneSession } from "@armada/protocol";
+import type { ModChecked } from "@armada/protocol";
+import type { SleepState } from "@armada/protocol";
+import type { AnswerSessionAsk, AnswerWaiting, ClaimPullRequest, DismissWaiting, PilotOutcome, PullRequestClaimed, PullRequestState, RenameSession, ReviewDispatched, SendSessionMessage, SessionSubagent, TuneSession } from "@armada/protocol";
 import type { ArtifactRead, PageBounds } from "@armada/screens/src/draft/sessions";
 import type { PilotExit, PullRequestPress, SessionActed } from "../shared/api/sessions";
+import type { SleepActed } from "../shared/api/sleep";
 import type { HelmContext, HelmDebugRead } from "@armada/protocol";
 import type { StudioCapture, StudioNodeByHand, StudioPosition, StudioPromotion } from "@armada/protocol";
 import type { StudioAnswer } from "@armada/screens/src/studio-reads";
 import type { AddTask, ApproveWave, DropTask, EditJob, EditTask, MovePlan } from "@armada/protocol";
 import type { ApproveDispatch, BranchesRead, ToProposer } from "@armada/protocol";
 import type { PlanEditAnswer } from "@armada/screens/src/plan-edits";
-import type { Artifact, Followed, FleetRestart, LandCheckAt, Opened } from "@armada/protocol";
+import type { Artifact, BuildSource, Followed, FleetRestart, LandCheckAt, Opened } from "@armada/protocol";
 import type { RunListRead, RunOutputRead, StartRun } from "@armada/protocol";
 import type { CheckoutRunListRead, StartCheckoutRun } from "@armada/protocol";
 import type { EditManifest, SaveManifestFile } from "@armada/protocol";
@@ -49,6 +53,7 @@ import type { ManifestChecksRead } from "@armada/protocol";
 import type { RepositoryAllowedCommandsRead } from "@armada/screens/src/manifest-allows";
 import type { KitAllowedCommandsRead, KitInventoryRead, KitServersRead } from "@armada/screens/src/manifest-kit";
 import type {
+  AlertsRead,
   ReadingTrigger,
   RemovingTrigger,
   SavingTrigger,
@@ -57,9 +62,10 @@ import type {
   TriggerSaveAnswer,
   TriggersRead,
 } from "../shared/triggers";
-import type { AddingStep, AddStepAnswer, RemovingStep, RemoveStepAnswer } from "../shared/added-steps";
+import type { AddingStep, AddStepAnswer, EditingStep, EditStepAnswer, ReadingRepairDiff, RemovingStep, RemoveStepAnswer, RepairDiffAnswer } from "../shared/added-steps";
 import type { SavingWorkflow, WorkflowDefinitionRead, WorkflowSaveAnswer, WorkflowsRead } from "../shared/workflows";
 import type { AddKitServer, ManifestReach, ReachesDrones } from "@armada/protocol";
+import type { PhoneAnswer, PhoneRequest } from "@armada/settings/api";
 import type { LocateAnswer } from "@armada/screens/src/locate-reads";
 import type { ComposingRead } from "@armada/screens/src/composing-reads";
 import type { EditManifestProposal, WriteManifestProposal } from "@armada/protocol";
@@ -312,6 +318,17 @@ const api: BridgeApi = {
   savePreference: (save: SavePreference): Promise<Outcome> =>
     ipcRenderer.invoke(CHANNELS.savePreference, save),
 
+  // The Phone Gateway, on loopback, one named operation at a time. Main makes the call.
+  phone: (request: PhoneRequest): Promise<PhoneAnswer> => ipcRenderer.invoke(CHANNELS.phone, request),
+
+  // The mods on this machine. **Fleet-wide**, and the stylesheet comes from `validateMod` alone.
+  validateMod: (name: string): Promise<ModChecked | null> =>
+    ipcRenderer.invoke(CHANNELS.validateMod, name),
+  setModEnabled: (name: string, enabled: boolean): Promise<Outcome> =>
+    ipcRenderer.invoke(CHANNELS.setModEnabled, name, enabled),
+  promoteMod: (name: string): Promise<Outcome> =>
+    ipcRenderer.invoke(CHANNELS.promoteMod, name),
+
   // Say a job failed in error, and file its record with the reason. **Its own
   // entry and not a mode on `overrideVerdict`**: that one moves the job past a
   // verdict, and this one moves nothing at all — one capability doing both
@@ -482,6 +499,7 @@ const api: BridgeApi = {
     ipcRenderer.invoke(CHANNELS.saveWorkflow, saving),
 
   readTriggers: (): Promise<TriggersRead> => ipcRenderer.invoke(CHANNELS.readTriggers),
+  readAlerts: (): Promise<AlertsRead> => ipcRenderer.invoke(CHANNELS.readAlerts),
   readTrigger: (reading: ReadingTrigger): Promise<TriggerDefinitionRead> =>
     ipcRenderer.invoke(CHANNELS.readTrigger, reading),
   saveTrigger: (saving: SavingTrigger): Promise<TriggerSaveAnswer> =>
@@ -496,6 +514,8 @@ const api: BridgeApi = {
   addJobStep: (adding: AddingStep): Promise<AddStepAnswer> => ipcRenderer.invoke(CHANNELS.addJobStep, adding),
   removeJobStep: (removing: RemovingStep): Promise<RemoveStepAnswer> =>
     ipcRenderer.invoke(CHANNELS.removeJobStep, removing),
+  editJobStep: (editing: EditingStep): Promise<EditStepAnswer> => ipcRenderer.invoke(CHANNELS.editJobStep, editing),
+  readRepairDiff: (reading: ReadingRepairDiff): Promise<RepairDiffAnswer> => ipcRenderer.invoke(CHANNELS.readRepairDiff, reading),
 
   // Start a declared server, for this Job's worktree or, with no Job, the
   // main checkout — the capability the Manifest surface shares, which is why
@@ -525,6 +545,10 @@ const api: BridgeApi = {
   // name it; main opens `http(s):` only. `main/links.ts`.
   openLink: (address: string): Promise<Followed> => ipcRenderer.invoke(CHANNELS.openLink, address),
   restartFleet: (): Promise<FleetRestart> => ipcRenderer.invoke(CHANNELS.restartFleet),
+  // Restart Fleet and Bridge onto main or the preview. Fleet starts the script and answers at once;
+  // the outcome arrives as `fleetBuild` on the published state.
+  changeFleetBuild: (build: BuildSource, adopt: boolean): Promise<Outcome> =>
+    ipcRenderer.invoke(CHANNELS.changeFleetBuild, build, adopt),
 
   // Ask Fleet to go and look now. **The rung below intervene**, and the one
   // entry here that is an act and changes nothing: what it leaves is a line in
@@ -559,8 +583,8 @@ const api: BridgeApi = {
   readBrief: (jobId: string, name: string): Promise<BriefRead> =>
     ipcRenderer.invoke(CHANNELS.readBrief, jobId, name),
   // A Job's retro and the Lessons listing, read when a surface opens and on focus.
-  readRetro: (jobId: string): Promise<RetroRead> =>
-    ipcRenderer.invoke(CHANNELS.readRetro, jobId),
+  readRetro: (subject: RetroSubject): Promise<RetroRead> =>
+    ipcRenderer.invoke(CHANNELS.readRetro, subject),
   readLessons: (state: "open" | "accepted"): Promise<LessonsRead> =>
     ipcRenderer.invoke(CHANNELS.readLessons, state),
   // The owner's answer to one retro item, by its id. Each is one operation, not a channel.
@@ -593,6 +617,16 @@ const api: BridgeApi = {
   // Sessions Fleet hosts. **Each names a session by its id and nothing else of Fleet's**: the
   // repository a new one starts in is the window's own pick, read in main, and a pull request is
   // named by its number against the session that holds it. No path and no port crosses.
+  getSleep: (): Promise<SleepActed> => ipcRenderer.invoke(CHANNELS.getSleep),
+  setSleep: (on: boolean): Promise<SleepActed> => ipcRenderer.invoke(CHANNELS.setSleep, on),
+  overrideSleep: (id: string, text: string): Promise<SleepActed> => ipcRenderer.invoke(CHANNELS.overrideSleep, id, text),
+  onSleepChanged: (onChanged: (state: SleepState) => void): (() => void) => {
+    const handler = (_event: unknown, state: SleepState): void => onChanged(state);
+    ipcRenderer.on(CHANNELS.sleepChanged, handler);
+    return () => {
+      ipcRenderer.removeListener(CHANNELS.sleepChanged, handler);
+    };
+  },
   startSession: (title?: string, root?: string): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.startSession, title, root),
   pilotJob: (jobId: string, outcome: PilotOutcome): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.pilotJob, jobId, outcome),
   exitPilot: (jobId: string, exit: PilotExit, note?: string): Promise<Outcome> => ipcRenderer.invoke(CHANNELS.exitPilot, jobId, exit, note),
@@ -600,10 +634,14 @@ const api: BridgeApi = {
     ipcRenderer.invoke(CHANNELS.sendSessionMessage, send),
   answerSessionAsk: (answer: AnswerSessionAsk): Promise<SessionActed> =>
     ipcRenderer.invoke(CHANNELS.answerSessionAsk, answer),
+  answerWaiting: (answer: AnswerWaiting): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.answerWaiting, answer),
+  claimPullRequest: (claim: ClaimPullRequest): Promise<SessionActed<PullRequestClaimed>> => ipcRenderer.invoke(CHANNELS.claimPullRequest, claim),
+  dismissWaiting: (dismiss: DismissWaiting): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.dismissWaiting, dismiss),
   tuneSession: (tune: TuneSession): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.tuneSession, tune),
   renameSession: (rename: RenameSession): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.renameSession, rename),
   forkSession: (sessionId: string): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.forkSession, sessionId),
   closeSession: (sessionId: string): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.closeSession, sessionId),
+  retroSession: (sessionId: string): Promise<Outcome> => ipcRenderer.invoke(CHANNELS.retroSession, sessionId),
   watchSession: (sessionId: string): Promise<void> => ipcRenderer.invoke(CHANNELS.watchSession, sessionId),
   readSessionFile: (sessionId: string, file: string): Promise<FrameRead> =>
     ipcRenderer.invoke(CHANNELS.readSessionFile, sessionId, file),
@@ -706,6 +744,7 @@ const api: BridgeApi = {
     save: (said: string): Promise<Outcome> => ipcRenderer.invoke(CHANNELS.captureWindowSave, said),
     reload: (): Promise<void> => ipcRenderer.invoke(CHANNELS.captureWindowReload),
     followRefused: (): Promise<void> => ipcRenderer.invoke(CHANNELS.captureWindowFollowRefused),
+    approve: (): Promise<Outcome> => ipcRenderer.invoke(CHANNELS.captureWindowApprove),
     scroll: (wheel: CaptureWheel): void => ipcRenderer.send(CHANNELS.captureWindowScroll, wheel),
   },
 

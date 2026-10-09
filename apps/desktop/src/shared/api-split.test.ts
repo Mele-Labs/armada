@@ -3,6 +3,7 @@
 // Kept, not deleted: a slice-by-slice equality cannot be asserted against anything but the whole.
 
 import { describe, expect, it } from "vitest";
+import type { PhoneAnswer, PhoneRequest } from "@armada/settings/api";
 import type {
   AddTask,
   FixMain,
@@ -20,6 +21,7 @@ import type {
   LessonAnswer,
   LessonsRead,
   RetroRead,
+  RetroSubject,
   ChooseTriggerFix,
   HoldAct,
   ClearOutcome,
@@ -85,10 +87,14 @@ import type {
   Remarks,
   Reports,
   Watched,
+  BuildSource,
+  FleetBuildReport,
   FleetCapacity,
   FleetLimits,
   JobSummary,
   MergeLines,
+  ModChecked,
+  ModList,
   Preferences,
   ProposalInFlight,
   RepositorySummary,
@@ -138,8 +144,9 @@ import type {
   WorkflowSaveAnswer,
   WorkflowsRead,
 } from "./workflows";
-import type { AddingStep, AddStepAnswer, RemovingStep, RemoveStepAnswer } from "./added-steps";
+import type { AddingStep, AddStepAnswer, EditingStep, EditStepAnswer, ReadingRepairDiff, RemovingStep, RemoveStepAnswer, RepairDiffAnswer } from "./added-steps";
 import type {
+  AlertsRead,
   ReadingTrigger,
   RemovingTrigger,
   SavingTrigger,
@@ -165,14 +172,15 @@ import type {
   RepositoryScanRead,
 } from "@armada/screens/src/setup-reads";
 import type {
-  DriftsRead,
   HealthRead,
 } from "@armada/screens/src/overview-reads";
 import type {
   Outstanding,
 } from "@armada/screens/src/outstanding";
-import type { AnswerSessionAsk, PilotOutcome, PullRequestState, RenameSession, ReviewDispatched, SendSessionMessage, SessionRow, SessionSubagent, TuneSession } from "@armada/protocol";
+import type { AnswerSessionAsk, AnswerWaiting, ClaimPullRequest, DismissWaiting, PilotOutcome, PullRequestClaimed, PullRequestState, RenameSession, ReviewDispatched, SendSessionMessage, SessionRow, SessionSubagent, TuneSession } from "@armada/protocol";
 import type { PilotExit, PullRequestPress, SessionActed, SessionsRead } from "./api/sessions";
+import type { SleepActed } from "./api/sleep";
+import type { SleepState } from "@armada/protocol";
 import type { BridgeApi } from "./api";
 import { CHANNELS, NOTHING_YET } from "./bridge";
 import type { BridgeState, HistoryStep, Summons } from "./bridge";
@@ -183,8 +191,10 @@ type OldBridgeState = {
     jobs: JobSummary[];
     unreadable: UnreadableJob[];
     capacity: FleetCapacity | null;
+    fleetBuild: FleetBuildReport | null;
     limits: FleetLimits | null;
     preferences: Preferences;
+    mods: ModList | null;
     manifestReading: ManifestReading | null;
     missed: number;
     readAt: number | null;
@@ -220,7 +230,6 @@ type OldBridgeState = {
     checkoutRunFollowed: CheckoutRunFollowed;
     manifestDrift: ManifestDriftRead;
     health: HealthRead;
-    drifts: DriftsRead;
     questions: Outstanding[];
     helm: HelmThread;
     studios: StudiosRead;
@@ -284,6 +293,10 @@ type OldBridgeApi = {
     raiseTurnCap: (jobId: string, turnCap: number) => Promise<Outcome>;
     saveLimits: (values: SaveLimits) => Promise<Outcome>;
     savePreference: (save: SavePreference) => Promise<Outcome>;
+    validateMod: (name: string) => Promise<ModChecked | null>;
+    setModEnabled: (name: string, enabled: boolean) => Promise<Outcome>;
+    promoteMod: (name: string) => Promise<Outcome>;
+    phone: (request: PhoneRequest) => Promise<PhoneAnswer>;
     fileReport: (jobId: string, filing: FileReport) => Promise<Outcome>;
     addTask: (jobId: string, add: AddTask) => Promise<PlanEditAnswer>;
     dropTask: (jobId: string, drop: DropTask) => Promise<PlanEditAnswer>;
@@ -334,6 +347,7 @@ type OldBridgeApi = {
     readWorkflowDefinition: (workflowId: string, source: string) => Promise<WorkflowDefinitionRead>;
     saveWorkflow: (saving: SavingWorkflow) => Promise<WorkflowSaveAnswer>;
     readTriggers: () => Promise<TriggersRead>;
+    readAlerts: () => Promise<AlertsRead>;
     readTrigger: (reading: ReadingTrigger) => Promise<TriggerDefinitionRead>;
     saveTrigger: (saving: SavingTrigger) => Promise<TriggerSaveAnswer>;
     removeTrigger: (removing: RemovingTrigger) => Promise<TriggerRemoveAnswer>;
@@ -342,6 +356,8 @@ type OldBridgeApi = {
     skipTrigger: (jobId: string, body: HoldAct) => Promise<Outcome>;
     addJobStep: (adding: AddingStep) => Promise<AddStepAnswer>;
     removeJobStep: (removing: RemovingStep) => Promise<RemoveStepAnswer>;
+    editJobStep: (editing: EditingStep) => Promise<EditStepAnswer>;
+    readRepairDiff: (reading: ReadingRepairDiff) => Promise<RepairDiffAnswer>;
     pickRepository: (root: string | null) => Promise<void>;
     chooseFolder: () => Promise<string | null>;
     resolveFolder: (path: string) => Promise<string | null>;
@@ -352,12 +368,13 @@ type OldBridgeApi = {
     openServerLink: (serverId: string, url: string) => Promise<Followed>;
     openLink: (address: string) => Promise<Followed>;
     restartFleet: () => Promise<FleetRestart>;
+    changeFleetBuild: (build: BuildSource, adopt: boolean) => Promise<Outcome>;
     examineJob: (jobId: string) => Promise<void>;
     readEvidence: (jobId: string | null) => Promise<void>;
     readDiff: (jobId: string | null) => Promise<void>;
     readCheckOutput: (jobId: string, kept: string) => Promise<CheckOutputRead>;
     readBrief: (jobId: string, name: string) => Promise<BriefRead>;
-    readRetro: (jobId: string) => Promise<RetroRead>;
+    readRetro: (subject: RetroSubject) => Promise<RetroRead>;
     readLessons: (state: "open" | "accepted") => Promise<LessonsRead>;
     agreeLesson: (lessonId: string) => Promise<LessonAnswer>;
     disagreeLesson: (lessonId: string) => Promise<LessonAnswer>;
@@ -394,6 +411,7 @@ type OldBridgeApi = {
         save: (said: string) => Promise<Outcome>;
         reload: () => Promise<void>;
         followRefused: () => Promise<void>;
+        approve: () => Promise<Outcome>;
         scroll: (wheel: CaptureWheel) => void;
     };
     approveReview: (jobId: string) => Promise<Outcome>;
@@ -425,9 +443,17 @@ type OldBridgeApi = {
     exitPilot: (jobId: string, exit: PilotExit, note?: string) => Promise<Outcome>;
     sendSessionMessage: (send: SendSessionMessage) => Promise<SessionActed>;
     answerSessionAsk: (answer: AnswerSessionAsk) => Promise<SessionActed>;
+    answerWaiting: (answer: AnswerWaiting) => Promise<SessionActed>;
+    claimPullRequest: (claim: ClaimPullRequest) => Promise<SessionActed<PullRequestClaimed>>;
+    dismissWaiting: (dismiss: DismissWaiting) => Promise<SessionActed>;
+    getSleep: () => Promise<SleepActed>;
+    setSleep: (on: boolean) => Promise<SleepActed>;
+    overrideSleep: (id: string, text: string) => Promise<SleepActed>;
+    onSleepChanged: (onChanged: (state: SleepState) => void) => () => void;
     tuneSession: (tune: TuneSession) => Promise<SessionActed>;
     renameSession: (rename: RenameSession) => Promise<SessionActed>;
     forkSession: (sessionId: string) => Promise<SessionActed>;
+    retroSession: (sessionId: string) => Promise<Outcome>;
     closeSession: (sessionId: string) => Promise<SessionActed>;
     watchSession: (sessionId: string) => Promise<void>;
     readSessionFile: (sessionId: string, file: string) => Promise<FrameRead>;
@@ -448,8 +474,10 @@ const OLD_NOTHING_YET: OldBridgeState = {
     jobs: [],
     unreadable: [],
     capacity: null,
+    fleetBuild: null,
     limits: null,
     preferences: { where_things_are_open: false },
+    mods: null,
     manifestReading: null,
     missed: 0,
     readAt: null,
@@ -482,8 +510,7 @@ const OLD_NOTHING_YET: OldBridgeState = {
     checkoutRunFollowed: { state: "none" },
     manifestDrift: { state: "none" },
     health: { state: "none" },
-    drifts: { state: "none" },
-    questions: [],
+      questions: [],
     helm: { state: "none" },
     studios: { state: "none" },
     studio: { state: "none" },
@@ -544,6 +571,10 @@ const OLD_CHANNELS = {
     raiseTurnCap: "bridge:raise-turn-cap",
     saveLimits: "bridge:save-limits",
     savePreference: "bridge:save-preference",
+    validateMod: "bridge:validate-mod",
+    setModEnabled: "bridge:set-mod-enabled",
+    promoteMod: "bridge:promote-mod",
+    phone: "bridge:phone",
     fileReport: "bridge:file-report",
     addTask: "bridge:add-task",
     dropTask: "bridge:drop-task",
@@ -595,6 +626,7 @@ const OLD_CHANNELS = {
     readWorkflowDefinition: "bridge:read-workflow-definition",
     saveWorkflow: "bridge:save-workflow",
     readTriggers: "bridge:read-triggers",
+    readAlerts: "bridge:read-alerts",
     readTrigger: "bridge:read-trigger",
     saveTrigger: "bridge:save-trigger",
     removeTrigger: "bridge:remove-trigger",
@@ -603,6 +635,8 @@ const OLD_CHANNELS = {
     skipTrigger: "bridge:skip-trigger",
     addJobStep: "bridge:add-job-step",
     removeJobStep: "bridge:remove-job-step",
+    editJobStep: "bridge:edit-job-step",
+    readRepairDiff: "bridge:read-repair-diff",
     pickRepository: "bridge:pick-repository",
     chooseFolder: "bridge:choose-folder",
     resolveFolder: "bridge:resolve-folder",
@@ -613,6 +647,7 @@ const OLD_CHANNELS = {
     openServerLink: "bridge:open-server-link",
     openLink: "bridge:open-link",
     restartFleet: "bridge:restart-fleet",
+    changeFleetBuild: "bridge:change-fleet-build",
     examineJob: "bridge:examine-job",
     readDiff: "bridge:read-diff",
     readRemarks: "bridge:read-remarks",
@@ -675,6 +710,7 @@ const OLD_CHANNELS = {
     captureWindowSave: "bridge:capture-window-save",
     captureWindowReload: "bridge:capture-window-reload",
     captureWindowFollowRefused: "bridge:capture-window-follow-refused",
+    captureWindowApprove: "bridge:capture-window-approve",
     captureWindowScroll: "bridge:capture-window-scroll",
     tap: "bridge:tap",
     startSession: "bridge:start-session",
@@ -683,8 +719,16 @@ const OLD_CHANNELS = {
     exitPilot: "bridge:exit-pilot",
     sendSessionMessage: "bridge:send-session-message",
     answerSessionAsk: "bridge:answer-session-ask",
+    answerWaiting: "bridge:answer-waiting",
+    claimPullRequest: "bridge:claim-pull-request",
+    dismissWaiting: "bridge:dismiss-waiting",
+    getSleep: "bridge:get-sleep",
+    setSleep: "bridge:set-sleep",
+    overrideSleep: "bridge:override-sleep",
+    sleepChanged: "bridge:sleep-changed",
     tuneSession: "bridge:tune-session",
     renameSession: "bridge:rename-session",
+    retroSession: "bridge:retro-session",
     closeSession: "bridge:close-session",
     watchSession: "bridge:watch-session",
     readSessionFile: "bridge:read-session-file",

@@ -34,7 +34,7 @@ Bridge has no behaviour section of its own. Its behaviour is specified across th
 | --- | --- |
 | Check System Health | "Is everything okay right now?" — Doctor's module grid |
 | Monitor Active Work | "What's currently running?" — lightweight heartbeat view |
-| Dispatch a Job | "I want to start something" — the approval flow, read on Overview |
+| Dispatch a Job | "I want to start something" — the approval flow, read on the Cockpit |
 | Triage Queue | "What's waiting for me?" — proactive Reviews/Alerts/Activity Feed check |
 | Respond to a Push Alert | Reactive — a notification pulled you in, includes Debug/Pilot |
 | Run and edit a Manifest | Run this project's checks without dispatching a job |
@@ -47,7 +47,7 @@ Run and edit a Manifest reads a project's Checks and Commands, runs any one of t
 
 **Watching a healthy Drone work is [Observe](observe.md)**, opened on one Job and read-only. It is not on the Board, which stays a scanning surface.
 
-[Job Board](job-board.md) is a concept with its own document rather than a page: the owner deleted the page on 28 Sep 2026, and Overview draws the list it described.
+[Job Board](job-board.md) is a concept with its own document rather than a page: the owner deleted the page on 28 Sep 2026, and the Cockpit draws the list it described.
 
 ## Top-level shell
 
@@ -55,9 +55,9 @@ Bridge's shell is a **title row** across the top — the repository picker with 
 
 **The picker names a repository, never a Manifest's id.** A set-up repository read as its `ManifestId` — a ULID — until the owner found one in the trigger on 28 Sep 2026. [Manifest](manifest.md), Deletion, already bound it: a surface renders the name, and nothing renders a bare id. The name is what Fleet read the Manifest under, widening to `parent/folder` and then the whole root only where two repositories would otherwise read alike.
 
-**The left column stacks Work, Machine, Stats and Fleet**, one panel each, resizing and collapsing as a single unit rather than each settling its own width — Bridge/1088's replacement for the rail and the status bar, with Navigation split in two by the owner on 28 Sep 2026. See `../contracts/design-system.md`, Left column, and Component → token mapping.
+**The left column stacks Work, Machine and Fleet**, one panel each, resizing and collapsing as a single unit rather than each settling its own width — Bridge/1088's replacement for the rail and the status bar, with Navigation split in two by the owner on 28 Sep 2026. See `../contracts/design-system.md`, Left column, and Component → token mapping.
 
-Work carries Overview, Studios, Alerts, Doctor, Worktree Slots and Checks; Machine carries Kit, Settings, Guides and Workflows. Manifest is in neither: it is reached from the control beside the title row's picker (#1595), which is why the rail's panels name their members rather than taking every surface the roster holds. Helm is not one of them — it is a dock beside the content on every surface, toggled by `⌘J` rather than a rail digit, and above the layout breakpoint a closed dock draws nothing at all: the title row's own Helm button is the one way back. See [Helm](helm.md).
+Work carries the Cockpit, Studios, Alerts, Doctor, Worktree Slots and Checks; Machine carries Kit, Settings, Guides and Workflows. Manifest is in neither: it is reached from the control beside the title row's picker (#1595), which is why the rail's panels name their members rather than taking every surface the roster holds. Helm is not one of them — it is a dock beside the content on every surface, toggled by `⌘J` rather than a rail digit, and above the layout breakpoint a closed dock draws nothing at all: the title row's own Helm button is the one way back. See [Helm](helm.md).
 
 **Studios is one repository's Studios, and one open on its whiteboard.** The list names each Studio and when it was last touched; a Studio opened from it is read-only until Continue, and accepting or rejecting a proposed relation, and deleting a node, happen there and nowhere else. See [Studio](studio.md).
 

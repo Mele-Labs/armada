@@ -232,6 +232,11 @@ where
         Ok(FleetCapacity::of(slots.cap(), slots.count(), room.hold()))
     }
 
+    /// The build Fleet runs on — [`crate::building`].
+    async fn get_fleet_build(&self) -> Result<ipc::FleetBuildReport, Refusal> {
+        self.fleet_build().await
+    }
+
     /// The limits in force and what shipped — [`crate::limits`].
     async fn get_limits(&self) -> Result<ipc::FleetLimits, Refusal> {
         Ok(self.limits_in_force().await)
@@ -526,6 +531,10 @@ where
                 patch: Some(patch.as_str().to_string()).filter(|text| !text.is_empty()),
             }),
         })
+    }
+
+    async fn get_repair_diff(&self, job_id: JobId, of: ipc::RepairOf) -> Result<JobDiff, Refusal> {
+        self.repair_diff(job_id, of).await
     }
 
     /// One tool call's arguments, read back out of the Job's transcripts.

@@ -63,7 +63,7 @@
 /* Ground, foreground and accent.
    Deep desaturated blue-slate, not near-black: reads as instrument panel
    rather than terminal, and gives status colour room to sit without vibrating. */
-:root {
+:root, [data-theme] {
   /* Ground */
   --bg-base: #0F1419;        /* canvas */
   --bg-sunken: #0B0F13;      /* wells, code blocks, log panes */
@@ -135,7 +135,7 @@
 
    Two statuses mean a person is being waited on — awaiting_approval before the
    work and awaiting_review after it — and they share one hue. See below. */
-:root {
+:root, [data-theme] {
   --status-not-started: #8C97A6;        /* dormant, queued */
   --status-running: #4FB8D9;            /* active, in flight */
   --status-awaiting-review: #E5A93D;    /* needs you, not urgent */
@@ -211,7 +211,7 @@
    on. That is deliberate and Iconography states it: the label carries the
    distinction and the hue does not, because what amber means to a reader
    scanning a list is a person is on this. */
-:root {
+:root, [data-theme] {
   --status-piloted: var(--status-awaiting-review);
   --status-piloted-bg: var(--status-awaiting-review-bg);
   --status-awaiting-attestation: var(--status-awaiting-review);
@@ -239,7 +239,7 @@
    diverged at the 20 Aug legibility lift — #8C97A6 against #7E8CA0 — so the
    claim is corrected here. It was never the load-bearing reason: the status
    set had already moved.) */
-:root {
+:root, [data-theme] {
   --status-awaiting-approval: var(--status-awaiting-review);
   --status-awaiting-approval-bg: var(--status-awaiting-review-bg);
 }
@@ -251,7 +251,7 @@
    --status-completed-success (#4FAF7C): #4FB4AA, green-teal, between the two.
    Both neighbours clear 4.5:1 on their 12% tint and the midpoint's luminance
    lies between theirs, so it holds the same floor. */
-:root {
+:root, [data-theme] {
   --status-handed-in: #4FB4AA;          /* submitted, checks to answer */
   --status-handed-in-bg: color-mix(in srgb, var(--status-handed-in) 12%, transparent);
 }
@@ -267,7 +267,7 @@
    escalation set, per Iconography rule 4.
 
    It is deliberately not completed_failed's red. The Job did not fail. */
-:root {
+:root, [data-theme] {
   --status-awaiting-repair: var(--status-escalated);
   --status-awaiting-repair-bg: var(--status-escalated-bg);
 }
@@ -281,7 +281,7 @@
 
    Step activity — where the work is. Every value here maps to a job_steps.state,
    except failed, which renders last_verdict instead. See below. */
-:root {
+:root, [data-theme] {
   --step-advanced: var(--status-completed-success);
   --step-running: var(--status-running);
   --step-waiting: var(--status-awaiting-review);
@@ -332,7 +332,7 @@
    Job failed: a refusal is the gate working, and the row's copy says which
    criterion and why. Verdict hue is per criterion, never summed onto the
    step or the Job. */
-:root {
+:root, [data-theme] {
   --verdict-met: var(--status-completed-success);
   --verdict-not-met: var(--status-completed-failed);
 }
@@ -350,7 +350,7 @@
    Colour changes how a rehearsal looks, not what it counts for. A run still
    writes no Evidence and no check_runs row, and its hue is per run — never
    summed onto the step, the gate or the Job. */
-:root {
+:root, [data-theme] {
   --run-running: var(--status-running);
   --run-passed: var(--status-completed-success);
   --run-failed: var(--status-completed-failed);
@@ -373,7 +373,7 @@
    the build's: escalated's orange and not-started's grey. A slot not made
    takes none. Closed is a person declining to lease it, so rejected's
    violet, shuttered from its -bg; added 4 Oct 2026 with the pool's controls. */
-:root {
+:root, [data-theme] {
   --slot-held: var(--status-running);
   --slot-free: var(--status-completed-success);
   --slot-stranded: var(--status-awaiting-review);
@@ -412,7 +412,7 @@
    Text on either solid fill is --fg-inverse: 6.54:1 on --error and 7.03:1 on
    --degraded, both clear of 4.5:1 at --text-2xs. Nothing here introduces a
    value; all three resolve to a colour the set already held. */
-:root {
+:root, [data-theme] {
   --error: var(--status-completed-failed);
 
   /* Neutral, and declared anyway, beside the value it pairs with.
@@ -439,13 +439,6 @@
   --instrument-activity: var(--status-running);
   --instrument-outside-plan: var(--status-awaiting-review);
   --notice-caution-bg: var(--status-awaiting-review-bg);
-
-  /* Stats rows that count no Job state. Drones take running's hue because a
-     Drone is a Job's work in flight. A current Manifest takes success's,
-     because it is Fleet's own reading that nothing is behind; a Manifest
-     behind takes --notice-caution, which the drift reading already carries. */
-  --stat-drones: var(--status-running);
-  --stat-manifest-current: var(--status-completed-success);
 }
 
 /* The live phase — the one row of a step's timeline the Drone is inside right
@@ -467,7 +460,7 @@
    The wash is mixed into `transparent` rather than into a ground, so the card
    paints correctly on the panel and inside a sheet, which sit on different
    grounds. */
-:root {
+:root, [data-theme] {
   --phase-live-edge: color-mix(in srgb, var(--status-running) 45%, var(--border-default));
   --phase-live-bg: color-mix(in srgb, var(--status-running) 6%, transparent);
   /* The rule under the live phase's header. Quieter than the card's own edge:
@@ -566,7 +559,7 @@
    4px base grid, deliberately tight. If it feels slightly cramped against
    normal web instincts, it is correct: this window holds a job list, a diff
    and a graph view at once. */
-:root {
+:root, [data-theme] {
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -1013,7 +1006,8 @@
 /* ── motion.css ─────────────────────────────── */
 /* No entrance animations on data. A Job Board that animates rows in on every
    poll is unusable. A changed row decays instead of flashing, and a re-sorted
-   row travels; neither is an entrance. The three clocks are in the contract.
+   row travels; neither is an entrance. The one exception is a call that needs
+   the owner coming forward over Command Central. The three clocks are in the contract.
 
    What loops is what is still working: the running step mark, and a control
    waiting on Fleet (#1117, which retired one-animation-per-screen). The mark
@@ -1067,7 +1061,7 @@
 /* ── semantic.css ─────────────────────────────── */
 /* Semantic aliases. Surfaces come from Ground, text from Foreground,
    interaction from Accent, and status only from the status tokens. */
-:root {
+:root, [data-theme] {
   --surface-canvas: var(--bg-base);
   --surface-card: var(--bg-raised);
   --surface-row: var(--bg-raised);
@@ -1097,4 +1091,85 @@
 
   /* Keyboard focus on a full-width row does something stronger than a ring */
   --row-focus-bar: 2px solid var(--accent);
+}
+
+/* ── light.css ─────────────────────────────── */
+/* Light. The secondary polarity: a `[data-theme="light"]` element redefines
+   the semantic tokens and nothing else, so a component that reads a token is
+   light with no rule of its own and no hex.
+
+   Every file above declares on `:root, [data-theme]` rather than `:root`. A
+   custom property that aliases or mixes another is resolved on the element
+   that declares it, so an alias declared only on `:root` stays dark under a
+   themed `<div>`: `--surface-card` would still read the dark `--bg-raised`.
+   Declared on `[data-theme]` as well, every alias and every `color-mix()`
+   re-resolves on the element that carries the theme, and only the values
+   below have to be written. The theme belongs on `<html>` in Bridge. A mod's
+   `theme.css` is this file's shape: one `[data-theme="<name>"]` block.
+
+   Measured, not matched by eye. Text reaches 4.5:1 on every ground: the
+   foregrounds against `--bg-base`, `--bg-hover` and the wells, and each status
+   hue as badge text on its own 12% tint over the same grounds. That is why the
+   status hues are far darker than their dark twins: the dark set is lifted to
+   read on a dark ground, and the same lightness on white is 2 to 3:1. The hue
+   of each is the dark set's, so the mapping onto the Job state machine is
+   unchanged and no status is chosen here. */
+[data-theme="light"] {
+  /* Ground */
+  --bg-base: #F6F8FA;
+  --bg-sunken: #EDF0F3;
+  --bg-raised: #FFFFFF;
+  --bg-overlay: #FFFFFF;
+  --bg-hover: #E8ECF0;
+  --border-subtle: #E3E8ED;
+  --border-default: #D0D7DE;
+  --border-strong: #AEB8C3;
+
+  /* Foreground */
+  --fg-default: #18202A;
+  --fg-muted: #4D5B6B;
+  --fg-subtle: #5A6878;
+  --fg-inverse: #FFFFFF;
+
+  /* Accent. 5.85:1 for --fg-inverse on --accent, so a filled primary holds. */
+  --accent: #1B68A8;
+  --accent-hover: #145389;
+  --accent-muted: #D6E7F5;
+
+  /* Depth. Glass over a light canvas is nearly the card colour, so the edge
+     does the work the shadow does in Dark. */
+  --bg-glass: rgb(255 255 255 / 0.86);
+  --bg-glass-end: rgb(246 248 250 / 0.86);
+  --border-glass: rgb(15 23 42 / 0.08);
+  --border-highlight: rgb(255 255 255 / 0.6);
+  --shadow-overlay: 0 8px 24px -6px rgb(15 23 42 / 0.18), 0 2px 6px -2px rgb(15 23 42 / 0.12);
+  --shadow-card: 0 1px 2px rgb(15 23 42 / 0.08), 0 12px 28px -16px rgb(15 23 42 / 0.25);
+  /* Dims the page behind a dialog, so it mixes the text colour and not a well. */
+  --scrim: color-mix(in srgb, var(--fg-default) 40%, transparent);
+
+  /* Status. Hue from the dark set, lightness lowered to clear 4.5:1. */
+  --status-not-started: #555F6D;
+  --status-running: #1B657C;
+  --status-awaiting-review: #7D5711;
+  --status-escalated: #A03F10;
+  --status-completed-success: #2F694A;
+  --status-completed-failed: #B51D1D;
+  --status-rejected: #7F3BBB;
+  --status-killed: #575F69;
+  --status-handed-in: #2C6761;
+
+  /* Helm */
+  --helm: #4048D0;
+
+  /* Tool families, on --bg-sunken and --bg-hover */
+  --tool-look: #3B5AAE;
+  --tool-change: #9F346D;
+  --tool-run: #6A5D37;
+
+  /* Diff */
+  --diff-add-bg: #D8F0DF;
+  --diff-add-fg: #1B6B3A;
+  --diff-del-bg: #FBDDDF;
+  --diff-del-fg: #A32C33;
+  --diff-context: #4D5B6B;
 }

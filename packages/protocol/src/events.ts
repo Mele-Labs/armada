@@ -14,10 +14,12 @@ import type { LineCount } from "./footprint";
 import type { JobForgotten, JobList, JobSummary, Reason } from "./protocol";
 import type { ManifestReading } from "./reading";
 import type { MergeLines } from "./merge-lines";
+import type { ModList } from "./mods";
 import type { ProposalInFlight } from "./proposing";
 import type { CheckoutRunRecord, RunRecord } from "./rehearsal";
 import type { ServerState } from "./servers";
 import type { SessionRowChanged } from "./hosted-sessions";
+import type { SleepState } from "./sleep";
 import type { SessionRecord } from "./sessions";
 import type { RepositoryList } from "./setup";
 import type { Studio, StudioDeleted, StudioHelmActed } from "./studio";
@@ -83,6 +85,8 @@ export type Event =
   | ({ kind: "repositories.changed" } & RepositoryList)
   /** A merge line moved on disk; every line now, whole, as `get_merge_lines` answers. Since 22.1. */
   | ({ kind: "merge_lines.changed" } & MergeLines)
+  /** The mods on this machine changed; the list now, whole, as `list_mods` answers. */
+  | ({ kind: "mods.changed" } & ModList)
   | ({ kind: "run.finished" } & RunRecord)
   /** A run in the main checkout ended. Its own kind: the record names no Job. Since 11.9. */
   | ({ kind: "checkout_run.finished" } & CheckoutRunRecord)
@@ -100,7 +104,9 @@ export type Event =
   /** A session after any fact about it, whole. Since 23.43. */
   | ({ kind: "session.changed" } & SessionRecord)
   /** One row of a hosted session's thread, appended or replaced by its id. Since 23.49. */
-  | ({ kind: "session.row" } & SessionRowChanged);
+  | ({ kind: "session.row" } & SessionRowChanged)
+  /** Sleep mode after any change to it, whole. */
+  | ({ kind: "sleep.changed" } & SleepState);
 
 /**
  * A Job exists that did not before, carrying the row whole.

@@ -3,7 +3,7 @@
 // listening for is a toast that stays; and a Session whose mod is older than the repository's is
 // marked on its row and in its header. Told twice: wide, and below the breakpoint.
 
-import { kit, NARROW } from "../sessions/walk-kit";
+import { kit, NARROW, toSessions } from "../sessions/walk-kit";
 import { button, inside, region, role, walk } from "../walk";
 import type { Step } from "../walk";
 
@@ -29,7 +29,7 @@ function steps(narrow: boolean): Step[] {
   ];
 }
 
-const wide = walk("composer-fixes", steps(false));
-const narrow = walk("composer-fixes", steps(true), NARROW);
+const wide = walk("composer-fixes", [toSessions, ...steps(false)]);
+const narrow = walk("composer-fixes", [toSessions, ...steps(true)], NARROW);
 
 export { wide as "composer-fixes", narrow as "composer-fixes-narrow" };

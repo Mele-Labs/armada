@@ -25,6 +25,7 @@ import {
   HardDrive,
   LayoutDashboard,
   Merge,
+  Puzzle,
   Presentation,
   Settings as SettingsIcon,
   ShieldCheck,
@@ -77,6 +78,8 @@ const RAIL = [
   "checks",
   // The fourteenth, on the same terms: no digit moves and it takes none.
   "sessions",
+  // The fifteenth, on the same terms: no digit moves and it takes none.
+  "mods",
 ] as const;
 
 type SurfaceId = (typeof RAIL)[number];
@@ -95,6 +98,7 @@ export const SURFACE = {
   workflows: "workflows",
   checks: "checks",
   sessions: "sessions",
+  mods: "mods",
 } as const satisfies Record<string, SurfaceId>;
 
 /**
@@ -127,7 +131,7 @@ function digitOf(id: SurfaceId): string | undefined {
 export const SURFACES: readonly PaletteSurface[] = [
   {
     id: SURFACE.overview,
-    label: "Overview",
+    label: "Cockpit",
     shortcut: digitOf(SURFACE.overview),
     // No alias, for the same reason Manifest carries none: this is the first
     // surface built at this name, so there is no earlier word to keep.
@@ -173,6 +177,13 @@ export const SURFACES: readonly PaletteSurface[] = [
     // No alias: `fleet_settings` is the palette's own row, in its own
     // section, and it names an id rather than a word somebody already knows.
     icon: SettingsIcon,
+  },
+  {
+    id: SURFACE.mods,
+    label: "Mods",
+    shortcut: digitOf(SURFACE.mods),
+    // No alias: the first surface built at this name.
+    icon: Puzzle,
   },
   {
     id: SURFACE.guides,
@@ -249,7 +260,7 @@ export const RAIL_PANELS = [
     label: "Work",
     surfaces: [SURFACE.overview, SURFACE.studios, SURFACE.worktrees, SURFACE.mergeLine, SURFACE.lessons, SURFACE.checks, SURFACE.sessions],
   },
-  { id: "machine", label: "Machine", surfaces: [SURFACE.kit, SURFACE.settings, SURFACE.guides, SURFACE.workflows] },
+  { id: "machine", label: "Machine", surfaces: [SURFACE.kit, SURFACE.mods, SURFACE.settings, SURFACE.guides, SURFACE.workflows] },
 ] as const satisfies readonly { id: string; label: string; surfaces: readonly SurfaceId[] }[];
 
 /** One panel's rows, in the order it names them, skipping any surface that is not built. */

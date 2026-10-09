@@ -128,6 +128,24 @@ async fn a_skill_trigger_runs_on_a_side_drone_and_what_it_commits_waits_for_a_ch
         shown.repair.as_ref().and_then(|r| r.branch.clone()),
         Some(branch)
     );
+
+    // Its fix opens as a diff, named by the Trigger.
+    let diff = fleet
+        .repair_diff(
+            ipc::JobId::from(&id),
+            ipc::RepairOf {
+                trigger: Some("tidy".into()),
+                addition: None,
+            },
+        )
+        .await
+        .expect("the fix is held");
+    let work = diff.work.expect("a reading");
+    assert_eq!(work.files.len(), 1);
+    assert_eq!(
+        work.measured_from.as_deref(),
+        job.branch().map(|b| b.as_str())
+    );
 }
 
 #[tokio::test]

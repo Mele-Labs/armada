@@ -1,22 +1,22 @@
-// What the left column's Stats and Fleet panels read, from what Fleet already serves. Overview's
+// What the left column's Fleet panel reads, from what Fleet already serves. Overview's
 // own tile band read the same five once (#919); Overview 27 (#1091) replaced the band with the
-// summary strip and left these five readings here — `left-column.ts` is their only caller now.
+// summary strip and left these readings here — `left-column.ts` is their only caller now.
 //
-// **Fleet, Doctor and Drones read the machine; Queued and drift read the scope.** A pick narrows
-// the last two and never the first three — `docs/concepts/fleet.md` names what stays Fleet-wide.
+// **Fleet, Doctor and Drones read the machine.** A pick narrows none of them —
+// `docs/concepts/fleet.md` names what stays Fleet-wide.
 
 import { ADMISSION_HOLD } from "@armada/components";
-import type { Connection, FleetCapacity, ManifestDrift, RepositorySummary } from "@armada/protocol";
+import type { Connection, FleetCapacity } from "@armada/protocol";
 import type { ReactNode } from "react";
 import { statementOf } from "@armada/shell/src/fleet";
 import { said } from "@armada/screens/src/copy";
 import type { FleetHealth } from "@armada/protocol";
-import type { DriftsRead, HealthRead, RepositoryDrift } from "@armada/screens/src/overview-reads";
+import type { HealthRead } from "@armada/screens/src/overview-reads";
 
 /** One of the state machine's own hues, or none — never a colour picked for its own sake. */
 export type ReadingTone = "completed-success" | "awaiting-review" | "completed-failed" | "notice-caution";
 
-/** A reading, in `StatsPanel`'s and `FleetPanel`'s own terms. */
+/** A reading, in `FleetPanel`'s own terms. */
 export type MachineReading = {
   label: string;
   value?: ReactNode;
@@ -100,72 +100,4 @@ export function dronesReading(connection: Connection, capacity: FleetCapacity | 
   const detail =
     hold !== undefined && queued > 0 ? (ADMISSION_HOLD[hold]?.verb ?? hold) : free === 0 ? "None free" : `${free} free`;
   return { label: "Drones", value: `${capacity.occupied} of ${capacity.bound}`, valueFace: "mono", detail };
-}
-
-/** Whether a repository's drift names that it is behind, current, or could not be read. */
-export function driftReading(read: DriftsRead, picked: RepositorySummary | null): MachineReading {
-  if (read.state === "none") return { label: "Manifest drift" };
-  if (picked === null) return acrossOf(read.repositories);
-  return oneOf(read.repositories.find((one) => one.root === picked.root));
-}
-
-function goneIn(drift: ManifestDrift): number {
-  return drift.declarations.filter((line) => line.drift.verdict === "gone").length;
-}
-
-function notSetUp(one: RepositoryDrift): boolean {
-  return one.drift.state === "failed" && !one.drift.outcome.ok && one.drift.outcome.why === "not_set_up";
-}
-
-/** One repository: how many of the lines `armada.yml` names are behind. */
-function oneOf(one: RepositoryDrift | undefined): MachineReading {
-  const label = "Manifest drift";
-  if (one === undefined) return { label };
-  const drift = one.drift;
-  switch (drift.state) {
-    case "none":
-    case "reading":
-      return { label };
-    case "failed":
-      return notSetUp(one)
-        ? { label, value: "Not set up", detail: "No armada.yml to read" }
-        : { label, value: "Not read", detail: said(drift.outcome) };
-    case "read": {
-      const gone = goneIn(drift.drift);
-      const lines = lines_(drift.drift.declarations.length);
-      // A clean list says only that nothing it names is gone, never that every line is right.
-      return gone === 0
-        ? { label, value: "Current", detail: `${lines}, nothing they name is gone` }
-        : { label, value: `${gone} behind`, tone: "notice-caution", detail: `Of ${lines} armada.yml names` };
-    }
-  }
-}
-
-/** Every repository: how many are behind, and which could not be asked. */
-function acrossOf(each: readonly RepositoryDrift[]): MachineReading {
-  const label = "Manifest drift";
-  if (each.length === 0) return { label, value: "No repositories" };
-  const read = each.flatMap((one) => (one.drift.state === "read" ? [one.drift.drift] : []));
-  const waiting = each.some((one) => one.drift.state === "none" || one.drift.state === "reading");
-  if (read.length === 0 && waiting) return { label };
-  const unset = each.filter(notSetUp).length;
-  const unread = each.filter((one) => one.drift.state === "failed").length - unset;
-  const behind = read.filter((drift) => goneIn(drift) > 0).length;
-  const said = [
-    behind > 0 ? `${behind} of ${repositories(read.length)}` : `${repositories(read.length)}, none behind`,
-    ...(unset > 0 ? [`${unset} not set up`] : []),
-    ...(unread > 0 ? [`${unread} not read`] : []),
-  ];
-  if (read.length === 0) return { label, value: unread > 0 ? "Not read" : "Not set up", detail: said.slice(1).join(" · ") };
-  return behind > 0
-    ? { label, value: `${behind} behind`, tone: "notice-caution", detail: said.join(" · ") }
-    : { label, value: "Current", detail: said.join(" · ") };
-}
-
-function repositories(n: number): string {
-  return `${n} ${n === 1 ? "repository" : "repositories"}`;
-}
-
-function lines_(n: number): string {
-  return `${n} ${n === 1 ? "line" : "lines"}`;
 }

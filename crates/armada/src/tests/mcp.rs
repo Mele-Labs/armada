@@ -192,14 +192,17 @@ fn the_two_not_running_answers_stay_two_answers() {
     assert_ne!(absent, dead, "two events, two sentences");
 }
 
-/// Any other ID is refused, and so is a file written before IDs existed.
+/// A Fleet on another protocol is still reached: the door only relays, and a
+/// session started before a Fleet restart must keep its tools.
 #[test]
-fn a_fleet_on_another_protocol_is_not_connected_to() {
+fn a_fleet_on_another_protocol_is_still_relayed_to() {
     let other = ProtocolId::default();
-    let said = listening(Ok(Presence::Running(file(other))), machine())
-        .expect_err("a different ID is not bridged");
-
-    assert!(said.contains("out of date"), "{said}");
+    let found = file(other);
+    let port = found.port;
+    assert_eq!(
+        listening(Ok(Presence::Running(found)), machine()).expect("relayed"),
+        port
+    );
 }
 
 #[test]

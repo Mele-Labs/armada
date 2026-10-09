@@ -9,12 +9,12 @@ use std::time::Duration;
 
 use api::{HostedSessions, Next, Sessions};
 use ipc::{
-    SendSessionMessage, SessionFact, SessionId, SessionOrigin, SessionReport, SessionRow,
+    AnswerSessionAsk, HelmCallAnswer, QuestionAnswer, SendSessionMessage, SessionFact, SessionId, SessionOrigin, SessionReport, SessionRow,
     SessionVoice, TakeHeld,
 };
 use testkit::{FakeVcs, FakeHarness, FakeWorkProduct};
 
-use super::session_host::{Shared, StandIn};
+use super::session_host::{eventually, Shared, StandIn};
 use crate::daemon::Fleet;
 use crate::tests::daemon::a_fleet;
 use crate::tests::tmp::TempDir;
@@ -36,12 +36,16 @@ fn said(kind: &str, uuid: &str, origin: &str, text: &str) -> String {
     )
 }
 
-fn rig() -> Rig {
-    let home = TempDir::new();
-    let fleet = a_fleet(&home, FakeWorkProduct::changed(&[])).hosting_sessions_on(
+fn hosted(home: &TempDir) -> Hosted {
+    a_fleet(home, FakeWorkProduct::changed(&[])).hosting_sessions_on(
         Arc::new(Shared(Arc::new(StandIn::default()))),
         Duration::from_secs(600),
-    );
+    )
+}
+
+fn rig() -> Rig {
+    let home = TempDir::new();
+    let fleet = hosted(&home);
     let root = fleet.repositories().first().expect("a repository").root().to_string();
     let dir = home.path().join(adapters::SESSIONS).join("-somewhere");
     std::fs::create_dir_all(&dir).unwrap();
@@ -415,4 +419,191 @@ async fn a_subagent_whose_transcript_ended_reads_as_done_on_the_ledger() {
     Arc::clone(&rig.fleet).get_session_subagent(SessionId::carried(ID), "x1".into()).await.unwrap();
     std::fs::remove_file(&file).unwrap();
     assert_eq!(state(&rig).await, Some(ipc::AttachmentState::Spent), "and settled for good once read");
+}
+
+const QUESTION: &str = r#"{"questions":[{"question":"Which size?","header":"Size","multiSelect":false,
+  "options":[{"label":"S","description":"Small"},{"label":"L","description":"Large"}]}]}"#;
+
+impl Rig {
+    /// Fleet restarted: a new one over the same home and store, nothing in memory.
+    fn restarted(&mut self) {
+        self.fleet = Arc::new(hosted(&self._home));
+    }
+
+    async fn mod_says(&self, ask: String) -> Result<ipc::TerminalAsked, api::Refusal> {
+        let ask: ipc::TerminalAsk = ipc::decode("a question", ask.as_bytes()).unwrap();
+        self.fleet.ask_from_terminal(ask).await
+    }
+
+    /// The mod putting a terminal question to Fleet, which answers its call id.
+    async fn mod_asks_a_question(&self) -> String {
+        let ask = format!(r#"{{"kind":"asks","session_id":"{ID}","input":{QUESTION}}}"#);
+        match self.mod_says(ask).await.unwrap() {
+            ipc::TerminalAsked::Asked { call } => call,
+            other => panic!("a question is answered with its call: {other:?}"),
+        }
+    }
+
+    /// One poll of the mod's, held in a task.
+    fn mod_waits(
+        &self,
+        call: &str,
+    ) -> tokio::task::JoinHandle<Result<ipc::TerminalAsked, api::Refusal>> {
+        let fleet = Arc::clone(&self.fleet);
+        let ask = format!(r#"{{"kind":"wait","session_id":"{ID}","call":"{call}"}}"#);
+        let ask: ipc::TerminalAsk = ipc::decode("a poll", ask.as_bytes()).unwrap();
+        tokio::spawn(async move { fleet.ask_from_terminal(ask).await })
+    }
+
+    async fn bridge_answers(&self, call: &str, chosen: &str) -> Result<(), api::Refusal> {
+        Arc::clone(&self.fleet)
+            .answer_session_ask(AnswerSessionAsk {
+                session_id: SessionId::carried(ID),
+                call: call.into(),
+                answer: HelmCallAnswer::AllowOnce,
+                note: None,
+                answers: vec![QuestionAnswer {
+                    question: "Which size?".into(),
+                    chosen: vec![chosen.into()],
+                }],
+            })
+            .await
+            .map(|_| ())
+    }
+
+    /// The question as the session names it, read from the store and not memory.
+    async fn waiting_ask_again(&self, call: &str) -> ipc::HelmCallInFlight {
+        let rows = self.opened().await;
+        let [SessionRow::Ask { ask, state: ipc::SessionAskState::Waiting, .. }] = &rows[..] else {
+            panic!("the card stands after a restart: {rows:?}");
+        };
+        assert_eq!(ask.call, call);
+        ask.clone()
+    }
+
+    async fn waiting_ask(&self) -> ipc::HelmCallInFlight {
+        let found = std::sync::Mutex::new(None);
+        eventually(|| async {
+            let asked = Arc::clone(&self.fleet)
+                .get_session(SessionId::carried(ID))
+                .await
+                .unwrap()
+                .session
+                .terminal
+                .and_then(|facts| facts.asked);
+            *found.lock().unwrap() = asked.clone();
+            asked.is_some()
+        })
+        .await;
+        let asked = found.lock().unwrap().take();
+        asked.expect("a question is waiting")
+    }
+}
+
+/// **A terminal's question is a card in its thread**, answered from Bridge, and
+/// the answers go back to the mod in the tool's own shape.
+#[tokio::test]
+async fn a_terminal_question_is_an_ask_row_and_a_bridge_answer_reaches_the_polling_mod() {
+    let rig = rig();
+    rig.started().await;
+    let call = rig.mod_asks_a_question().await;
+    let polling = rig.mod_waits(&call);
+
+    let ask = rig.waiting_ask().await;
+    assert_eq!(ask.call, call);
+    assert_eq!(ask.tool, "AskUserQuestion");
+    assert_eq!(ask.questions[0].options[1].label, "L");
+    let rows = rig.opened().await;
+    assert!(matches!(
+        &rows[..],
+        [SessionRow::Ask { state: ipc::SessionAskState::Waiting, .. }]
+    ));
+
+    rig.bridge_answers(&call, "L").await.expect("a terminal session's ask is answerable");
+    let ipc::TerminalAsked::Answered { updated_input } = polling.await.unwrap().unwrap() else {
+        panic!("an answered question comes back answered");
+    };
+    assert_eq!(updated_input.pointer("/answers/Which size?").unwrap(), "L");
+    assert!(rig.opened().await.is_empty(), "no waiting card is left");
+}
+
+/// **No poll need be under way when Bridge answers.** The answer is kept, the
+/// card closes, and the mod's next poll collects it, however many times.
+#[tokio::test]
+async fn a_bridge_answer_before_the_mod_polls_is_kept_for_the_next_poll() {
+    let rig = rig();
+    rig.started().await;
+    let call = rig.mod_asks_a_question().await;
+
+    rig.bridge_answers(&call, "S").await.expect("answered while nobody polls");
+    assert!(rig.opened().await.is_empty(), "the card closes at the answer");
+
+    for _ in 0..2 {
+        let ipc::TerminalAsked::Answered { updated_input } = rig.mod_waits(&call).await.unwrap().unwrap()
+        else {
+            panic!("the kept answer is collected");
+        };
+        assert_eq!(updated_input.pointer("/answers/Which size?").unwrap(), "S");
+    }
+}
+
+/// **A Fleet that restarts between the question and the answer** still takes
+/// the answer from Bridge and hands it to the mod's next poll.
+#[tokio::test]
+async fn a_terminal_question_survives_a_fleet_restart() {
+    let mut rig = rig();
+    rig.started().await;
+    let call = rig.mod_asks_a_question().await;
+
+    rig.restarted();
+    let ask = rig.waiting_ask_again(&call).await;
+    assert_eq!(ask.call, call);
+    rig.bridge_answers(&call, "L").await.expect("answered after the restart");
+
+    rig.restarted();
+    let ipc::TerminalAsked::Answered { updated_input } = rig.mod_waits(&call).await.unwrap().unwrap() else {
+        panic!("the answer outlives a second restart");
+    };
+    assert_eq!(updated_input.pointer("/answers/Which size?").unwrap(), "L");
+}
+
+/// The terminal's own prompt answered first: the mod says so, the card closes
+/// and the mod's poll ends.
+#[tokio::test]
+async fn a_terminal_answer_settles_the_ask_and_ends_the_poll() {
+    let rig = rig();
+    rig.started().await;
+    let call = rig.mod_asks_a_question().await;
+    let polling = rig.mod_waits(&call);
+    rig.waiting_ask().await;
+
+    rig.fleet
+        .ask_from_terminal(ipc::TerminalAsk::Settled {
+            session_id: ID.into(),
+            answered: true,
+        })
+        .await
+        .unwrap();
+    assert!(matches!(
+        polling.await.unwrap().unwrap(),
+        ipc::TerminalAsked::Gone {}
+    ));
+    assert!(rig.opened().await.is_empty(), "the card is closed");
+}
+
+/// A session that ended has no prompt left to answer, so its card is closed
+/// and Bridge's answer would find nothing to send.
+#[tokio::test]
+async fn an_ended_session_closes_its_terminal_question() {
+    let rig = rig();
+    rig.started().await;
+    let call = rig.mod_asks_a_question().await;
+
+    rig.reports(SessionFact::Ended { reason: "exit".into() }).await;
+    assert!(rig.opened().await.is_empty(), "no dead card is offered");
+    assert!(matches!(
+        rig.mod_waits(&call).await.unwrap().unwrap(),
+        ipc::TerminalAsked::Gone {}
+    ));
+    assert!(rig.bridge_answers(&call, "L").await.is_err());
 }

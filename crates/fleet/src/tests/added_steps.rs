@@ -330,6 +330,69 @@ async fn an_addition_is_removed_before_it_fires_and_refused_after() {
 }
 
 #[tokio::test]
+async fn an_additions_switches_change_before_it_fires_and_are_refused_after() {
+    let home = TempDir::new();
+    let files = Arc::new(Files::default());
+    let fleet = a_fleet(&home, &files, manifest(Some("true")), Delivering::default());
+    let job = fleet.propose(a_proposal("fix the reader")).await.unwrap();
+    worktree_directory(&home, &job);
+    fleet.approve(job.id()).await.unwrap();
+    started(&fleet, job.id()).await.unwrap();
+    let wire = ipc::JobId::from(job.id());
+    for step in ["implement", "summarise"] {
+        fleet
+            .add_job_step(wire.clone(), script("fmt", TriggerMoment::StepPasses, step))
+            .await
+            .unwrap();
+    }
+    let edit = |id: &str, block, repair| ipc::EditAddedStep {
+        id: id.into(),
+        block,
+        repair,
+    };
+
+    let edited = fleet
+        .edit_job_step(wire.clone(), edit("a2", Some(true), None))
+        .await
+        .expect("it has not fired");
+    assert_eq!((edited.id.as_str(), edited.block), ("a2", true));
+    let both = fleet
+        .edit_job_step(wire.clone(), edit("a2", None, Some(false)))
+        .await
+        .unwrap();
+    assert_eq!(
+        (both.block, both.repair),
+        (true, false),
+        "left alone where not named"
+    );
+    let held = fleet.job_detail(wire.clone()).await.unwrap();
+    assert_eq!(
+        held.additions
+            .iter()
+            .map(|one| (one.block, one.repair))
+            .collect::<Vec<_>>(),
+        [(false, true), (true, false)]
+    );
+
+    let missing = fleet
+        .edit_job_step(wire.clone(), edit("a9", Some(true), None))
+        .await
+        .expect_err("no such step");
+    assert_eq!(code(&missing), "fleet.no_such_addition");
+
+    submitted_by_the_one(&fleet, diff_evidence()).await.unwrap();
+    fleet.turn().await.unwrap();
+    let fired = fleet
+        .edit_job_step(wire, edit("a1", Some(true), None))
+        .await
+        .expect_err("it has fired");
+    assert_eq!(
+        (fired.status(), code(&fired)),
+        (409, "fleet.added_step_fired")
+    );
+}
+
+#[tokio::test]
 async fn an_approval_refuses_a_place_the_workflow_lacks_and_nothing_is_kept() {
     let home = TempDir::new();
     let files = Arc::new(Files::default());

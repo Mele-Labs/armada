@@ -4,7 +4,7 @@
 
 import { button, dialog, inside, region, role, text, walk } from "../walk";
 import type { Step } from "../walk";
-import { kit } from "../sessions/walk-kit";
+import { kit, toSessions } from "../sessions/walk-kit";
 
 function steps(): Step[] {
   const { ledger, opened, row, close } = kit(false);
@@ -31,6 +31,6 @@ function steps(): Step[] {
   ];
 }
 
-const panel = walk("session-ledger", steps());
+const panel = walk("session-ledger", [toSessions, ...steps()]);
 
 export { panel as "session-ledger-panel" };

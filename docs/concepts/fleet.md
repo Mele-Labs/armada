@@ -403,11 +403,13 @@ Fleet asks about **one** pull request per sweep and rotates, because the turn in
 
 **Each notice is told once, and a restart does not repeat it.** The store keeps (pull request, commit, cause, recipient) and the merge queue's last reading. A new commit that fails is news; the same one read again is not. **A recipient that cannot be told now is asked again at the next reading** and nothing is kept for it: a terminal Session whose mod is not asking, a Job still working.
 
-**An owner is the Session the ledger says holds the pull request, else its branch, and every Job whose pull request or branch it is.** If both own it, both are told. `docs/concepts/session.md`, *What Fleet tells a Session*, and `docs/concepts/job.md`, *When its pull request fails*, say what each receives.
+**An owner is the Session whose `pr` row holds the pull request's number, else the Session holding its branch, and every Job whose pull request or branch it is.** If both own it, both are told. `docs/concepts/session.md`, *What Fleet tells a Session*, and `docs/concepts/job.md`, *When its pull request fails*, say what each receives.
 
 ### Restarting Fleet
 
 **Restarting Fleet is a `launchctl` call from Bridge, not an API command.** `restart_fleet` cannot be served by the process being restarted. Bridge already owns bootstrapping the launchd job, so it owns restarting it, and the operation is a `child_process` call rather than a protocol operation. It is the Restart Fleet button on the notice that says Fleet and Bridge do not match: `kickstart -k` restarts the job onto whatever `armada` is installed, working Drones are adopted at boot, and a Fleet whose pid launchd does not hold is refused rather than doubled.
+
+**Restarting onto another build is an API command, and the restart is not Fleet's.** `change_fleet_build` starts `scripts/restart-build` detached from Fleet and answers 202; `get_fleet_build` reads the outcome from the files the scripts leave. The Fleet panel's Select and button are it (`docs/practices/running-locally.md`, *Restarting from Bridge*). It is a different act from the one above: that one restarts the installed binary and builds nothing, and this one builds `main` or the preview and reopens Bridge.
 
 **`kickstart -k` does not bypass the throttle.** Issued inside a live crash-restart window it returned immediately, but the new instance took 19.0 s to appear at the 10 s default. `ThrottleInterval` 2 brings that to 2.6 s.
 

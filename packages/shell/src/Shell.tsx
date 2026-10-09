@@ -26,14 +26,14 @@
 //
 // # The status bar is gone; Fleet's state lives in the left column
 //
-// Bridge/1088 replaced the rail and the status bar with three rounded
-// panels — Navigation, Stats and Fleet. **Their rows arrive built**, from
+// Bridge/1088 replaced the rail and the status bar with two rounded
+// panels — Navigation and Fleet. **Their rows arrive built**, from
 // `apps/desktop`'s `left-column.ts`, which reads the same arithmetic
 // Overview's own tiles do. Not built here: `@armada/screens` already depends
 // on this package for `statementOf`, and the reverse import would be a cycle.
 //
-// **And under `--layout-breakpoint` all three collapse to the 48px rail.**
-// Navigation keeps its glyphs, Stats and Fleet keep one status dot each, and
+// **And under `--layout-breakpoint` both collapse to the 48px rail.**
+// Navigation keeps its glyphs, Fleet keeps one status dot, and
 // nothing leaves the screen. #1435 took the column away outright and the owner
 // corrected it on 18 Sep 2026. There was a second, wider band it collapsed in
 // to pay for Helm's dock; #1583 put the dock on a layer and the band went with
@@ -72,7 +72,7 @@ import {
   type DockQuestion,
   type DropdownMenuEntry,
   type FleetPanelProps,
-  type StatsPanelProps,
+  type TheShellProps,
 } from "@armada/components";
 
 import type { Connection } from "@armada/protocol";
@@ -82,6 +82,7 @@ import { useDockWidth } from "./dock-width";
 // folds to a sheet at the same bound. One reader, in `floor.ts`, so the two
 // cannot answer a resize a pixel apart.
 import { useNarrow } from "./floor";
+import { useLayout } from "./layout";
 import { useLeftCollapsed } from "./left-collapsed";
 import { useLeftWidth } from "./left-width";
 import { ALL_REPOSITORIES } from "./RepositoryOptions";
@@ -111,17 +112,14 @@ export type ShellProps = {
    * than this row growing a second answer to the same question.
    */
   onOpenManifest?: () => void;
-  /**
-   * The left column's Stats panel, built by the caller from the same
-   * arithmetic Overview's own tiles read — `apps/desktop`'s `left-column.ts`.
-   */
-  stats: Omit<StatsPanelProps, "narrow">;
   /** The left column's Fleet panel — what the status bar used to draw. */
   fleet: Omit<FleetPanelProps, "narrow">;
   /** Opens the composer. The title row's own Dispatch control — #1087 — beside the Board's own. */
   onCompose: () => void;
   /** Opens the command palette from the title row's search field. */
   onSearch: () => void;
+  /** Sleep mode's control, in the title row beside Helm's. Absent draws none. */
+  sleep?: TheShellProps["sleep"];
   /** Which surface is up, by its id in `surfaces.ts`. The rail marks it. */
   showing: string;
   /** Selecting a rail row goes to that surface, from wherever you are. The
@@ -167,10 +165,10 @@ export function Shell({
   onScope,
   onAddRepository,
   onOpenManifest,
-  stats,
   fleet,
   onCompose,
   onSearch,
+  sleep,
   showing,
   onSurface,
   hidden = [],
@@ -193,6 +191,8 @@ export function Shell({
   useToggleSidebar(narrow, () => chooseCollapsed(!chosen));
   const [dockWidth, resizeDock] = useDockWidth();
   const [leftWidth, resizeLeft] = useLeftWidth();
+  // What a layout takes off the rail. The palette still reaches it by name.
+  const railOff = useLayout("rail").all.filter((one) => !one.visible).map((one) => one.id);
   const live = connection.state === "connected";
   // One list, drawn twice: the picker's dropdown, and the narrow menu's rows.
   const pickerEntries = repositoryEntries(repositories, listed, onAddRepository !== undefined, scope);
@@ -226,7 +226,7 @@ export function Shell({
         id: panel.id,
         label: panel.label,
         surfaces: panelSurfaces(panel)
-          .filter((surface) => !hidden.includes(surface.id))
+          .filter((surface) => !hidden.includes(surface.id) && !railOff.includes(surface.id))
           .map((surface) => ({
             id: surface.id,
             label: surface.label,
@@ -235,8 +235,8 @@ export function Shell({
             ...(warned[surface.id] === undefined ? {} : { warning: warned[surface.id] }),
             // **No row carries a count.** The Board's did — active Jobs, the
             // owner's ruling of 11 Sep 2026 — and that row went with the page.
-            // Stats already carries every count the column shows, and a second
-            // place to read one is a second chance to disagree.
+            // A count beside a row is a second place to read one,
+            // and a second chance to disagree.
           })),
       }))}
       activeId={showing}
@@ -295,9 +295,9 @@ export function Shell({
         </>
       }
       onSearch={onSearch}
+      {...(sleep === undefined ? {} : { sleep })}
       onDispatch={onCompose}
       dispatchDisabled={!live}
-      stats={stats}
       fleet={fleet}
     >
       {children}

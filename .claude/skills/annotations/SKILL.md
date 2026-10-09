@@ -96,11 +96,13 @@ The brief is the only context the agent has, so it carries:
 
 **Verify what comes back yourself.** Read the diff, rerun the tests it added,
 and look at the screen in the mock. **The whole suite the change reaches is run
-twice, by the agent and by `ci` on the pull request, and not a third time here.** Check
-that the report names a whole-suite run with its counts, and send it back if it
-does not: on 1 Oct 2026 the rail change in #1721 broke an existing Link test, it
-was reported to the owner as verified on its three new tests, and the next agent
-found the break. `ci` reruns every Check the change hits on the pull request, so a
+by `ci` on the pull request, and nowhere on the owner's Mac.** The agent runs
+the tests it added or touched, by filter, with `CARGO_BUILD_JOBS=2`, and its one
+walk; the brief says so. Confirmed 8 Oct 2026: two agents briefed to run whole
+crates and all four walk shards, beside other sessions' builds, were killed when
+the owner said the tests were "murdering my machine". A break outside the
+new tests, like the Link test #1721 broke on 1 Oct 2026, is `ci`'s to catch, so
+never report a change as verified before `ci` has passed. `ci` reruns every Check the change hits on the pull request, so a
 repeat here buys nothing. On 2 Oct 2026 it was a repeat on
 every change, and the owner asked for it to stop.
 
@@ -122,6 +124,13 @@ step where he saw the app.
 <url>` on the served mock once it answers, then ask. Confirmed 1 Oct 2026: a
 walk link went out under a "should this land?" prompt, and his answer was "I
 haven't walked anything. Please show me."
+
+**One mock per walk: stop the last one before serving the next.** A loaded tab
+keeps the code it loaded, and Replay reruns that copy. Confirmed 8 Oct 2026:
+the fixed `aDroneTrigger` was served on `:47321` while `:47320` still ran the
+broken build, he walked the old tab twice, and a dozen calls went on
+reproducing a failure that only existed in it. Kill the old port, and ask him
+to press ⌘R.
 
 **A walk shows the primitive its branch was cut from.** When a shared component
 and its callers are dispatched in parallel, land the component first and merge

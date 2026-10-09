@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { Bell, Briefcase, Check, CircleDashed, CircleDot, Construction, Eye, FolderGit2, GitBranch, GitPullRequest, Infinity as EveryGlyph, Minus, Package, RotateCw, SkipForward, SquarePlus, Trash2, Webhook, X } from "lucide-react";
+import { createContext, useContext, useEffect, useState } from "react";
+import { Bell, Briefcase, Check, CircleDashed, CircleDot, Construction, Eye, FolderGit2, GitBranch, GitPullRequest, Infinity as EveryGlyph, Minus, Package, Play, RotateCw, SkipForward, SquarePlus, Trash2, Webhook, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type {
   AddedRuns,
@@ -28,7 +28,7 @@ import { Switch } from "../../primitives/Switch/Switch";
 import { Textarea } from "../../primitives/Textarea/Textarea";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import type { WorkflowStepCardProps } from "../WorkflowStepCard/WorkflowStepCard";
-import { additionName } from "./side-branches";
+import { additionName, fixOf } from "./side-branches";
 import type { SideBranch } from "./side-branches";
 import {
   blankDraft,
@@ -152,7 +152,7 @@ function Fails({
   /** A Skill or a Drone step has no Self repair: a Drone already fixes its own failures, so the switch is not drawn. */
   repairable?: boolean;
   onChange: (next: { block?: boolean; repair?: boolean }) => void;
-  /** An added step already on a Job is read: Fleet has no edit for one, so the switches are set before it is added. */
+  /** A step added to a Job that has fired is read: its switches are live only until then. */
   disabled?: boolean;
 }) {
   return (
@@ -433,14 +433,27 @@ function NameLink({ trigger, onOpenLog }: { trigger: JobTrigger; onOpenLog: ((tr
  * One Trigger a Job holds, as a leaf off the step it fired at: the state as a mark, the name, the
  * moment, and the level that sets it. **A firing with a log line is a button on its name**, which goes to the line.
  */
-export function TriggerLeaf({ trigger, onOpenLog }: { trigger: JobTrigger; onOpenLog?: (trigger: JobTrigger) => void }) {
+export function TriggerLeaf({
+  trigger,
+  onOpenLog,
+  onAct,
+}: {
+  /** A step added to one Job is drawn as the same leaf, and names itself to Fleet by its id. */
+  trigger: SideBranch;
+  onOpenLog?: (trigger: JobTrigger) => void;
+  /** Where the leaf asks him: Run and Skip, on a firing that waits on his answer. */
+  onAct?: (act: HoldVerb, by: HoldAct) => Promise<{ ok: boolean }> | void;
+}) {
   const moment = whenSaid(trigger.when, trigger.step);
   return (
     <div className="armada-leaf" role="group" aria-label={`${trigger.name}, ${moment}`}>
       <FiringMark trigger={trigger} />
       <NameLink trigger={trigger} onOpenLog={onOpenLog} />
       <span className="armada-triggers__when">{moment}</span>
-      <LevelMark level={trigger.level} />
+      {trigger.addition === undefined ? <LevelMark level={trigger.level} /> : null}
+      {trigger.state === "awaiting_owner" && onAct !== undefined ? (
+        <HoldActs held={{ key: "", name: trigger.name, when: trigger.when, step: trigger.step, by: fixOf(trigger), state: trigger.state }} onAct={onAct} />
+      ) : null}
     </div>
   );
 }
@@ -517,14 +530,15 @@ export function addedCard(one: AddedStep, selected: boolean, onOpen: () => void)
 
 /**
  * The fields of a step added to one Job. **Editable until it is added**, at the gate or in the
- * panel that adds it; after that it is read, because Fleet has no edit for one: what a person can
- * still do is take it off before it fires, and keep it for every Job.
+ * panel that adds it; after that it is read. **Its two switches stay live until it fires**, through
+ * `onSwitch`; what else a person can do is take it off before it fires, and keep it for every Job.
  */
 export function AddedFields({
   one,
   commands,
   editable,
   onChange,
+  onSwitch,
   onKeep,
   onRemove,
 }: {
@@ -532,6 +546,8 @@ export function AddedFields({
   commands: readonly string[];
   editable: boolean;
   onChange?: (next: Partial<Pick<AddedStep, "runs" | "block" | "repair">>) => void;
+  /** Change a switch on a step that is added and has not fired. Absent leaves them read. */
+  onSwitch?: (next: Partial<Pick<AddedStep, "block" | "repair">>) => void;
   onKeep?: () => void;
   onRemove?: () => void;
 }) {
@@ -568,7 +584,13 @@ export function AddedFields({
       ) : (
         <Input label="Skill" mono value={runs.skill} onChange={(event) => change({ runs: { kind: "skill", skill: event.target.value } })} />
       )}
-      <Fails block={one.block} repair={one.repair} repairable={runs.kind === "script"} disabled={!editable} onChange={change} />
+      <Fails
+        block={one.block}
+        repair={one.repair}
+        repairable={runs.kind === "script"}
+        disabled={!editable && onSwitch === undefined}
+        onChange={editable ? change : (onSwitch ?? change)}
+      />
       {onKeep === undefined && onRemove === undefined ? null : (
         <div className="armada-triggers__acts">
           {onKeep === undefined || one.kept !== undefined ? null : (
@@ -633,7 +655,10 @@ export function triggerAlert(triggers: readonly JobTrigger[], additions: readonl
     [...latest.values()].some((one) => {
       const phase = repairPhase(one);
       return phase === "asking" || phase === "failed";
-    }) || holdsOf(triggers, additions).length > 0
+    }) ||
+    [...latest.values()].some((one) => one.state === "awaiting_owner") ||
+    additions.some((one) => one.state === "awaiting_owner") ||
+    holdsOf(triggers, additions).length > 0
   );
 }
 
@@ -648,6 +673,12 @@ const REPAIR_MARK: Record<RepairPhase, { Glyph: LucideIcon; said: string; hue?: 
   done: { Glyph: Check, said: "Passed", hue: "passed" },
   failed: { Glyph: X, said: "Failed", hue: "failed" },
 };
+
+/**
+ * Opens one file of a fix in its diff. **Provided by the Job's surface**, which reads the repair
+ * branch's patch against the Job's branch; absent, the files are read as names.
+ */
+export const RepairFileContext = createContext<((trigger: SideBranch, path: string) => void) | undefined>(undefined);
 
 /**
  * The branch a failed Trigger with Self repair grows off the workflow: the repair Drone at work,
@@ -668,6 +699,7 @@ export function RepairNode({
   const phase = repairPhase(trigger);
   const mark = REPAIR_MARK[phase];
   const files = trigger.repair?.files ?? [];
+  const openFile = useContext(RepairFileContext);
   const choose = async (choice: TriggerFixChoice) => {
     if (onChoose === undefined) return;
     setSent(true);
@@ -687,7 +719,13 @@ export function RepairNode({
         <ul className="armada-repair__fix" aria-label="The fix">
           {files.map((path) => (
             <li key={path}>
-              <span className="armada-triggers__name">{path}</span>
+              {openFile === undefined ? (
+                <span className="armada-triggers__name">{path}</span>
+              ) : (
+                <button type="button" className="armada-triggers__name armada-triggers__link nodrag nopan" onClick={() => openFile(trigger, path)}>
+                  {path}
+                </button>
+              )}
             </li>
           ))}
         </ul>
@@ -728,6 +766,7 @@ export function TriggerAlertMark() {
 /** What each kind of a Board row's alert is called in its tooltip. */
 const ALERT: Record<JobAlert["kind"], { said: string; hue: string }> = {
   held: { said: "Held", hue: "waiting" },
+  asks: { said: "Waiting on you", hue: "waiting" },
   fix_ready: { said: "Fix ready", hue: "waiting" },
   failed: { said: "Failed", hue: "failed" },
 };
@@ -744,7 +783,7 @@ export function JobAlertMark({ alert }: { alert: JobAlert }) {
 /** What a Trigger or an added step that holds its Job is, and the body that names it to Fleet. */
 export type Held = { key: string; name: string; when: TriggerMoment; step: string; by: HoldAct; state: TriggerFiringState; log?: JobTrigger };
 
-/** `rerun` runs the Command again; `skip` lets it go. */
+/** `rerun` runs the Command again, or once where it asks first; `skip` lets it go. */
 export type HoldVerb = "rerun" | "skip";
 
 /** The states in which a blocking firing still holds the Job: held, and the repair that works on it. */
@@ -771,7 +810,7 @@ export function holdsOf(triggers: readonly JobTrigger[], additions: readonly Add
   return held;
 }
 
-/** Rerun and Skip on a hold. **Rerun is live only while it is `held`**, Skip also with a fix waiting; a repair under way has its own branch and Fleet refuses both. A press is sent once and comes back where Fleet refused it. */
+/** Rerun and Skip on a hold, Run and Skip on a destructive Command that asks first. **Rerun is live only while it is `held`**, Skip also with a fix waiting; a repair under way has its own branch and Fleet refuses both. A press is sent once and comes back where Fleet refused it. */
 function HoldActs({ held, onAct }: { held: Held; onAct?: (act: HoldVerb, by: HoldAct) => Promise<{ ok: boolean }> | void }) {
   const [sent, setSent] = useState(false);
   const act = async (verb: HoldVerb) => {
@@ -782,15 +821,17 @@ function HoldActs({ held, onAct }: { held: Held; onAct?: (act: HoldVerb, by: Hol
   };
   // A fix waiting on its choice is skipped like a hold, and rerun only through that choice.
   const live = onAct !== undefined && !sent;
+  const asking = held.state === "awaiting_owner";
+  const first = asking ? "Run" : "Rerun";
   return (
     <span className="armada-hold__acts nodrag nopan">
-      <Tooltip label="Rerun">
-        <Button variant="ghost" size="sm" iconOnly aria-label="Rerun" disabled={!live || held.state !== "held"} onClick={() => void act("rerun")}>
-          <RotateCw size={16} strokeWidth={2} aria-hidden />
+      <Tooltip label={first}>
+        <Button variant="ghost" size="sm" iconOnly aria-label={first} disabled={!live || (held.state !== "held" && !asking)} onClick={() => void act("rerun")}>
+          {asking ? <Play className="armada-triggers__run" size={16} strokeWidth={2} aria-hidden /> : <RotateCw size={16} strokeWidth={2} aria-hidden />}
         </Button>
       </Tooltip>
       <Tooltip label="Skip">
-        <Button variant="ghost" size="sm" iconOnly aria-label="Skip" disabled={!live || (held.state !== "held" && held.state !== "fix_ready")} onClick={() => void act("skip")}>
+        <Button variant="ghost" size="sm" iconOnly aria-label="Skip" disabled={!live || (held.state !== "held" && held.state !== "fix_ready" && !asking)} onClick={() => void act("skip")}>
           <SkipForward size={16} strokeWidth={2} aria-hidden />
         </Button>
       </Tooltip>

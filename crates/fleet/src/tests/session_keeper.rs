@@ -13,7 +13,7 @@ use std::time::Duration;
 use adapter_traits::DroneEvent;
 use adapters::HeadlessAgent;
 use api::HostedSessions;
-use ipc::{ManifestId, SendSessionMessage, SessionRow, SessionVoice, StartSession};
+use ipc::{ManifestId, SendSessionMessage, SessionRow, SessionTurn, SessionVoice, StartSession};
 use testkit::{FakeHarness, FakeVcs, FakeWorkProduct};
 use tokio::runtime::{Handle, Runtime};
 
@@ -25,11 +25,13 @@ use crate::tests::tmp::TempDir;
 const AGENT: &str = r#"
 while IFS= read -r line; do
   n=$((n+1))
+  case "$line" in *die*) echo 'boom: no such session' >&2; exit 3;; esac
   echo '{"type":"system","subtype":"init","session_id":"s","model":"m","mcp_servers":[]}'
   echo '{"type":"assistant","message":{"content":[{"type":"text","text":"pid '$$' before '$n'"}]}}'
   case "$line" in *hold*) while [ ! -f "$1" ]; do sleep 0.05; done;; esac
   echo '{"type":"assistant","message":{"content":[{"type":"text","text":"pid '$$' after '$n'"}]}}'
   echo '{"type":"result","num_turns":1,"total_cost_usd":0.01,"permission_denials":[]}'
+  echo '{"type":"rate_limit_event","rate_limit_info":{"status":"allowed","rateLimitType":"five_hour"}}'
 done
 "#;
 
@@ -62,10 +64,15 @@ impl Keepers {
         })
     }
 
+    fn spool(&self) -> PathBuf {
+        self.directory.join("spool")
+    }
+
     fn keeper(&self) -> Keeper {
         Keeper {
             socket: self.socket.clone(),
-            spool: self.directory.join("spool"),
+            spool: self.spool(),
+            log: self.directory.join("spool.log"),
             program: String::from("sh"),
             args: vec![
                 self.directory.join("agent.sh").to_string_lossy().into_owned(),
@@ -95,12 +102,25 @@ impl Processes for Through {
             }
             std::thread::sleep(Duration::from_millis(10));
         };
-        crate::session_host::kept::attached(stream, HeadlessAgent::at(String::new()), sink)
+        crate::session_host::kept::attached(
+            stream,
+            HeadlessAgent::at(String::new()),
+            sink,
+            &self.0.socket,
+            &self.0.spool(),
+        )
     }
 
     fn reattach(&self, _session: &str, sink: Sink) -> Option<Arc<dyn Process>> {
         let stream = crate::session_host::kept::connect(&self.0.socket)?;
-        crate::session_host::kept::attached(stream, HeadlessAgent::at(String::new()), sink).ok()
+        crate::session_host::kept::attached(
+            stream,
+            HeadlessAgent::at(String::new()),
+            sink,
+            &self.0.socket,
+            &self.0.spool(),
+        )
+        .ok()
     }
 }
 
@@ -311,4 +331,256 @@ async fn a_keeper_replays_from_what_was_acknowledged_and_no_earlier() {
     assert_eq!(texts.len(), 1, "only what had not been taken: {texts:?}");
     assert!(texts[0].contains("after 1"), "{texts:?}");
     drop(again);
+}
+
+/// A process Fleet let go is not the process the next message reaches. The
+/// keeper it ordered to end was still answering on its socket, so the next
+/// message reattached to an agent that was already gone and the session never
+/// ran again.
+#[test]
+fn a_message_after_the_process_was_let_go_starts_a_new_one() {
+    let keeper_side = Runtime::new().unwrap();
+    let home = TempDir::new();
+    let keepers = Keepers::new(keeper_side.handle().clone(), home.path());
+    let fleet_side = Runtime::new().unwrap();
+    fleet_side.block_on(async {
+        let fleet = a_fleet(&home, &keepers, 0);
+        let id = fleet
+            .start_session(StartSession {
+                manifest_id: manifest_of(&fleet),
+                title: None,
+                model: None,
+                effort: None,
+                mode: None,
+                pilot: None,
+                fork: None,
+            })
+            .await
+            .expect("started")
+            .id;
+        let say = |text: &str| {
+            Arc::clone(&fleet).send_session_message(SendSessionMessage {
+                session_id: id.clone(),
+                text: text.into(),
+                attachments: Vec::new(),
+                mentions: Vec::new(),
+            })
+        };
+        say("one").await.expect("taken");
+        eventually(|| async { said(&fleet, &id).await.len() == 2 }).await;
+        let first = pid_in(&said(&fleet, &id).await[0]);
+        // The turn is over, so a tune, a quiet spell or a move ends the process.
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        Hosted::let_go(&mut fleet.hosts().of(id.as_str()).state());
+        say("two").await.expect("taken");
+        eventually(|| async { said(&fleet, &id).await.len() == 4 }).await;
+        let rows = said(&fleet, &id).await;
+        assert_ne!(pid_in(&rows[2]), first, "a new process answered: {rows:?}");
+        assert_eq!(keepers.starts.load(Ordering::SeqCst), 2);
+    });
+}
+
+#[test]
+fn a_process_that_dies_says_why_in_the_thread() {
+    let keeper_side = Runtime::new().unwrap();
+    let home = TempDir::new();
+    let keepers = Keepers::new(keeper_side.handle().clone(), home.path());
+    let fleet_side = Runtime::new().unwrap();
+    fleet_side.block_on(async {
+        let fleet = a_fleet(&home, &keepers, 0);
+        let id = fleet
+            .start_session(StartSession {
+                manifest_id: manifest_of(&fleet),
+                title: None,
+                model: None,
+                effort: None,
+                mode: None,
+                pilot: None,
+                fork: None,
+            })
+            .await
+            .expect("started")
+            .id;
+        Arc::clone(&fleet)
+            .send_session_message(SendSessionMessage {
+                session_id: id.clone(),
+                text: "die".into(),
+                attachments: Vec::new(),
+                mentions: Vec::new(),
+            })
+            .await
+            .expect("taken");
+        eventually(|| async {
+            ended_rows(&fleet, &id)
+                .await
+                .iter()
+                .any(|text| text.contains("boom: no such session") && text.contains("exit status: 3"))
+        })
+        .await;
+    });
+}
+
+async fn ended_rows(fleet: &Arc<Hosted>, id: &ipc::SessionId) -> Vec<String> {
+    Arc::clone(fleet)
+        .get_session(id.clone())
+        .await
+        .expect("read")
+        .rows
+        .into_iter()
+        .filter_map(|row| match row {
+            SessionRow::Tool { text, .. } if text.starts_with("the session's process ended") => {
+                Some(text)
+            }
+            _ => None,
+        })
+        .collect()
+}
+
+#[test]
+fn a_message_to_an_agent_that_died_unattended_starts_another_and_is_not_lost() {
+    let keeper_side = Runtime::new().unwrap();
+    let home = TempDir::new();
+    let keepers = Keepers::new(keeper_side.handle().clone(), home.path());
+    let first = Runtime::new().unwrap();
+    let (id, pid) = first.block_on(async {
+        let fleet = a_fleet(&home, &keepers, 0);
+        let id = fleet
+            .start_session(StartSession {
+                manifest_id: manifest_of(&fleet),
+                title: None,
+                model: None,
+                effort: None,
+                mode: None,
+                pilot: None,
+                fork: None,
+            })
+            .await
+            .expect("started")
+            .id;
+        Arc::clone(&fleet)
+            .send_session_message(SendSessionMessage {
+                session_id: id.clone(),
+                text: "one".into(),
+                attachments: Vec::new(),
+                mentions: Vec::new(),
+            })
+            .await
+            .expect("taken");
+        eventually(|| async { said(&fleet, &id).await.len() == 2 }).await;
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        let pid = pid_in(&said(&fleet, &id).await[0]);
+        (id, pid)
+    });
+    // The Fleet is gone, and then the agent: nobody is told.
+    drop(first);
+    std::process::Command::new("kill").args(["-9", &pid]).status().unwrap();
+    std::thread::sleep(Duration::from_millis(300));
+
+    let second = Runtime::new().unwrap();
+    second.block_on(async {
+        let fleet = a_fleet(&home, &keepers, 1000);
+        Arc::clone(&fleet)
+            .send_session_message(SendSessionMessage {
+                session_id: id.clone(),
+                text: "two".into(),
+                attachments: Vec::new(),
+                mentions: Vec::new(),
+            })
+            .await
+            .expect("taken");
+        eventually(|| async { said(&fleet, &id).await.len() == 4 }).await;
+        let rows = said(&fleet, &id).await;
+        assert_ne!(pid_in(&rows[2]), pid, "a new process answered: {rows:?}");
+        assert!(rows[3].contains("after 1"), "{rows:?}");
+        assert!(!ended_rows(&fleet, &id).await.is_empty());
+    });
+    assert_eq!(keepers.starts.load(Ordering::SeqCst), 2);
+}
+
+/// A line after the turn's result is not a new turn: a keeper that took it for
+/// one reported a finished agent busy, and the session stayed Working.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_line_after_the_result_leaves_the_keeper_not_busy() {
+    let home = TempDir::new();
+    let keepers = Keepers::new(Handle::current(), home.path());
+    let through = Through(Arc::clone(&keepers));
+    let (sink, mut heard) = tokio::sync::mpsc::unbounded_channel();
+    let start = Start {
+        directory: String::new(),
+        session: String::new(),
+        resuming: false,
+        forking: None,
+        name: String::new(),
+        model: None,
+        effort: None,
+        mode: ipc::SessionMode::Auto,
+        readable: Vec::new(),
+    };
+    let first = through.start(&start, sink).unwrap();
+    first.send(String::from("one"));
+    heard_until_ended(&mut heard).await;
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    drop(first);
+    drop(heard);
+    tokio::time::sleep(Duration::from_millis(100)).await;
+
+    let (sink, mut again) = tokio::sync::mpsc::unbounded_channel();
+    let _kept = through.reattach("", sink).expect("the keeper answers");
+    let Some(Heard::Attached { busy }) = again.recv().await else {
+        panic!("attach comes first");
+    };
+    assert!(!busy, "the result ended the turn and a later line did not begin another");
+}
+
+/// A reattach the keeper called busy, with nothing heard after it, missed its
+/// turn's end: past the bound the session is Idle.
+#[test]
+fn a_reattached_session_called_busy_that_goes_quiet_is_idle() {
+    let keeper_side = Runtime::new().unwrap();
+    let home = TempDir::new();
+    let keepers = Keepers::new(keeper_side.handle().clone(), home.path());
+    let first = Runtime::new().unwrap();
+    let id = first.block_on(async {
+        let fleet = a_fleet(&home, &keepers, 0);
+        let id = fleet
+            .start_session(StartSession {
+                manifest_id: manifest_of(&fleet),
+                title: None,
+                model: None,
+                effort: None,
+                mode: None,
+                pilot: None,
+                fork: None,
+            })
+            .await
+            .expect("started")
+            .id;
+        Arc::clone(&fleet)
+            .send_session_message(SendSessionMessage {
+                session_id: id.clone(),
+                text: "hold".into(),
+                attachments: Vec::new(),
+                mentions: Vec::new(),
+            })
+            .await
+            .expect("taken");
+        eventually(|| async { said(&fleet, &id).await.len() == 1 }).await;
+        tokio::time::sleep(Duration::from_millis(200)).await;
+        id
+    });
+    drop(first);
+
+    let second = Runtime::new().unwrap();
+    second.block_on(async {
+        let fleet = a_fleet(&home, &keepers, 1000);
+        assert_eq!(fleet.reattached_sessions().await, 1);
+        let runtime = fleet.hosts().of(id.as_str());
+        eventually(|| async { matches!(runtime.state().turn, SessionTurn::Working { .. }) }).await;
+        fleet.sweep_quiet().await;
+        assert!(matches!(runtime.state().turn, SessionTurn::Working { .. }), "not yet quiet for long");
+        runtime.state().last_active = std::time::Instant::now() - Duration::from_secs(121);
+        fleet.sweep_quiet().await;
+        assert!(matches!(runtime.state().turn, SessionTurn::Idle));
+    });
+    std::fs::write(&keepers.go, "").unwrap();
 }

@@ -692,9 +692,6 @@ reached for.
   `packages/components/src/compositions/MergeLine/`.
 - **Spend, quota, elapsed, step N of M.** Numbers in mono. No gauge, no
   coin, no timer.
-- **Stats panel.** Text only. Its counts already carry their status token as
-  colour, and an icon beside them would make the panel a second alert
-  surface.
 
 ---
 

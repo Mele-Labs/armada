@@ -40,6 +40,34 @@ pub fn find(home: &str, id: &str) -> Option<PathBuf> {
         .find(|file| file.is_file())
 }
 
+/// Make session `id`'s conversation reachable from `directory`, before the CLI
+/// is started there with `--resume`.
+///
+/// The CLI looks for a resumed conversation in the project folder keyed by its
+/// own working directory, so a session that moves (into a slot) finds nothing
+/// and exits. The transcript is **hard-linked** into the new folder: one inode,
+/// so what the CLI appends there is the file the reader finds. A copy stands in
+/// where a link cannot be made. A `<id>/` folder (subagents) is symlinked, as
+/// best effort. A conversation already there, or not found, is left alone.
+pub fn bring_conversation_to(home: &str, id: &str, directory: &str) -> std::io::Result<()> {
+    let Some(file) = find(home, id) else {
+        return Ok(());
+    };
+    let folder = Path::new(home).join(SESSIONS).join(crate::reading_in::keyed(directory));
+    let target = folder.join(format!("{id}.jsonl"));
+    if target.exists() || file.parent() == Some(folder.as_path()) {
+        return Ok(());
+    }
+    std::fs::create_dir_all(&folder)?;
+    if std::fs::hard_link(&file, &target).is_err() {
+        std::fs::copy(&file, &target)?;
+    }
+    if let Some(from) = file.parent().map(|dir| dir.join(id)).filter(|dir| dir.is_dir()) {
+        let _ = std::os::unix::fs::symlink(from, folder.join(id));
+    }
+    Ok(())
+}
+
 /// The rows of the whole lines written from `offset` on. A line still being
 /// written is left for the next read.
 pub fn read_from(file: &Path, offset: u64) -> std::io::Result<Thread> {
@@ -85,19 +113,74 @@ pub fn read_subagent(file: &Path) -> std::io::Result<Subagent> {
     let whole = bytes.iter().rposition(|byte| *byte == b'\n').map_or(0, |at| at + 1);
     let text = String::from_utf8_lossy(&bytes[..whole]);
     let mut rows = Vec::new();
+    // **Finished where the last thing it did was finish**: a turn ended, or a hand-back. A
+    // background subagent ends on `SubagentHandback` and never on `end_turn`, so a ledger read
+    // only the one kept every finished subagent "running" (8 Oct 2026). Work after either, a
+    // resumed subagent, makes it running again.
+    let mut done: Option<Option<String>> = None;
     for line in text.lines() {
         let drew = drawn(line, true);
-        if ended(line) {
+        if let Some(said) = handed_back(line) {
+            done = Some(Some(said));
+        } else if ended(line) {
             let report = drew.iter().rev().find_map(|row| match row {
                 SessionRow::Message { from: SessionVoice::Agent, text, .. } => Some(text.clone()),
                 _ => None,
             });
-            rows.extend(drew);
-            return Ok(Subagent { rows, finished: true, report });
+            done = Some(report);
+        } else if worked(line) {
+            done = None;
         }
         rows.extend(drew);
     }
-    Ok(Subagent { rows, finished: false, report: None })
+    Ok(match done {
+        Some(report) => Subagent { rows, finished: true, report },
+        None => Subagent { rows, finished: false, report: None },
+    })
+}
+
+#[derive(Deserialize)]
+struct Turn {
+    #[serde(rename = "type", default)]
+    kind: String,
+    #[serde(default)]
+    message: Option<TurnMessage>,
+}
+
+#[derive(Deserialize)]
+struct TurnMessage {
+    #[serde(default)]
+    content: Option<Vec<TurnPart>>,
+}
+
+#[derive(Deserialize)]
+struct TurnPart {
+    #[serde(rename = "type", default)]
+    kind: String,
+    #[serde(default)]
+    name: Option<String>,
+    #[serde(default)]
+    input: Option<HandedBack>,
+}
+
+#[derive(Deserialize)]
+struct HandedBack {
+    #[serde(default)]
+    message: Option<String>,
+}
+
+/// The report a subagent handed back, where this line is its `SubagentHandback` call.
+fn handed_back(line: &str) -> Option<String> {
+    let turn = ipc::decode::<Turn>("a transcript line", line.as_bytes()).ok()?;
+    turn.message?.content?.into_iter().find_map(|part| {
+        (part.kind == "tool_use" && part.name.as_deref() == Some("SubagentHandback"))
+            .then(|| part.input.and_then(|input| input.message).unwrap_or_default())
+    })
+}
+
+/// An assistant line that goes on working: anything it says or calls but a hand-back.
+fn worked(line: &str) -> bool {
+    ipc::decode::<Turn>("a transcript line", line.as_bytes()).is_ok_and(|turn| turn.kind == "assistant")
 }
 
 /// Whether subagent `agent` of session `id` has ended its turn, by the file the CLI keeps for it.
