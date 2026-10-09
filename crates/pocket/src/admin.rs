@@ -1,11 +1,12 @@
-//! `/admin/*`: for Bridge on loopback, never for the phone.
+//! `/admin/*`: for Bridge on loopback, never for the phone and never for a page.
 //!
-//! `tailscale serve` adds headers to every request it forwards. A request that
-//! carries any of them came over the tailnet, and is refused. Bridge reaches
-//! the Gateway directly and carries none.
+//! Two kinds of request are refused. One carries a header `tailscale serve`
+//! adds, so it came over the tailnet. The other carries `Origin`, so a web page
+//! open in a browser on this Mac sent it; Fleet refuses `Origin` for the same
+//! reason (`api.from_a_page`). Bridge's main process calls with neither.
 
 use axum::extract::Request;
-use axum::http::StatusCode;
+use axum::http::{header, StatusCode};
 use axum::middleware::Next;
 use axum::response::{IntoResponse, Response};
 
@@ -19,10 +20,15 @@ pub const FORWARDED: [&str; 5] = [
 ];
 
 pub async fn loopback_only(request: Request, next: Next) -> Response {
-    if FORWARDED
-        .iter()
-        .any(|name| request.headers().contains_key(*name))
-    {
+    let headers = request.headers();
+    if headers.contains_key(header::ORIGIN) {
+        return (
+            StatusCode::FORBIDDEN,
+            "A web page sent this request. Pairing is done from Bridge on this Mac, in Settings, Phone.",
+        )
+            .into_response();
+    }
+    if FORWARDED.iter().any(|name| headers.contains_key(*name)) {
         return (
             StatusCode::FORBIDDEN,
             "This route is for Bridge on this Mac, not for a phone.",

@@ -143,3 +143,18 @@ async fn status_says_when_fleet_is_not_running() {
         StatusCode::SERVICE_UNAVAILABLE
     );
 }
+
+#[tokio::test]
+async fn admin_is_refused_when_a_web_page_sent_the_request() {
+    for (method, path) in [
+        (Method::POST, "/admin/pair/confirm"),
+        (Method::GET, "/admin/devices"),
+        (Method::GET, "/admin/status"),
+    ] {
+        assert_eq!(
+            status(method, path, &[("origin", "https://example.com")]).await,
+            StatusCode::FORBIDDEN,
+            "{path}"
+        );
+    }
+}
