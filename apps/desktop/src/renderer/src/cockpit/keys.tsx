@@ -38,6 +38,7 @@ function groups(): readonly Group[] {
         { keys: [...capsOf("call_later"), "Esc"], does: actionOf("call_later").verb },
         { keys: capsOf("call_dismiss"), does: `${actionOf("call_dismiss").verb}, never to show again` },
         { keys: capsOf("open"), does: "Open what it is about" },
+        { keys: capsOf("call_open_walk"), does: actionOf("call_open_walk").verb },
         { keys: capsOf("call_expand"), does: actionOf("call_expand").verb },
         { keys: capsOf("call_reply"), does: actionOf("call_reply").verb },
       ],
