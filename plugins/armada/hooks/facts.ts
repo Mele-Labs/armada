@@ -8,7 +8,7 @@ const TITLE_MOST = 80
  * repository's. **Bump it with `version` in `.claude-plugin/plugin.json`**: the mod cannot read that
  * file while it runs, and a Fleet test (`terminal_session.rs`) holds the two equal.
  */
-export const MOD_VERSION = '0.3.5'
+export const MOD_VERSION = '0.3.6'
 
 /** The `answers` map a question's answered input carries, keyed by question text. */
 export function answersIn(input: unknown): Record<string, string> {

@@ -544,6 +544,17 @@ export function sessionsStore(
     models: MODELS,
     efforts: EFFORTS,
     commands: COMMANDS,
+    answerWaiting: (id, itemId, given) => {
+      const item = now.find((one) => one.id === id)?.waitingFor?.find((one) => one.id === itemId);
+      if (item === undefined) return;
+      const chosen = given.choice === undefined ? given.text : item.options?.[given.choice]?.label;
+      edit(id, (one) => {
+        const { asked, ...rest } = one;
+        void asked;
+        return { ...rest, waitingFor: (one.waitingFor ?? []).filter((it) => it.id !== itemId) };
+      });
+      addTo(id, [said(`Going with ${chosen ?? "my own call"}.`)]);
+    },
     answer: (id, answer, answers) => {
       const questioned = now.find((one) => one.id === id)?.asked?.questions !== undefined;
       edit(id, (one) => {

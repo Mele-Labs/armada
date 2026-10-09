@@ -213,6 +213,7 @@ mod session_keeper;
 mod session_piloting;
 mod session_question;
 mod session_retro;
+mod session_waiting;
 mod sessioning;
 mod settling;
 mod terminal_session;

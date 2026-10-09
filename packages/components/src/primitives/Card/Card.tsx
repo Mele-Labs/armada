@@ -1,4 +1,4 @@
-import type { HTMLAttributes } from "react";
+import type { ComponentProps, HTMLAttributes } from "react";
 
 /**
  * Card — the card treatment under Depth where it sits on the canvas, and flat
@@ -10,7 +10,7 @@ import type { HTMLAttributes } from "react";
  * The card owns its padding, so the parts below add none. That is what keeps
  * a header, a body and a footer sharing one left edge.
  */
-export type CardProps = HTMLAttributes<HTMLDivElement>;
+export type CardProps = ComponentProps<"div">;
 
 /**
  * `flat` is the one ground the recipe's ancestry cannot see: a well, which has

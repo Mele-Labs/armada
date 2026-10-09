@@ -427,6 +427,7 @@ test('the model is told its Armada session id, and a Drone is not', async ($, on
   const out = await $.prompt.context({ blocks: [] })
   expect(out.blocks.map(one => one.name)).toEqual(['armadaSession'])
   expect(out.blocks[0].text).toContain('S1')
+  expect(out.blocks[0].text).toContain('waiting_for')
 })
 
 test('a Drone is told no session id', async ($, on) => {

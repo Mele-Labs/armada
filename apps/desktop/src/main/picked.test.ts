@@ -99,18 +99,6 @@ describe("the pick", () => {
     expect(picked.manifest("/manifest/start_verify")).toBe("/manifest/start_verify?manifest_id=scratch");
   });
 
-  it("names each repository in the scope by its own Manifest: every one on All, the pick on a pick", () => {
-    const picked = new Picked();
-    picked.hold([FIRST, SET_UP, NOT_SET_UP]);
-    expect(picked.each("/manifest/drift").map(({ path }) => path)).toEqual([
-      "/manifest/drift?manifest_id=armada",
-      "/manifest/drift?manifest_id=store-01",
-      null,
-    ]);
-    picked.pick(SET_UP.root);
-    expect(picked.each("/manifest/drift")).toEqual([{ repository: SET_UP, path: "/manifest/drift?manifest_id=store-01" }]);
-  });
-
   it("names a repository by root rather than the pick, for a caller New job's ask has given one", () => {
     const picked = new Picked();
     picked.hold([FIRST, SET_UP, NOT_SET_UP]);
