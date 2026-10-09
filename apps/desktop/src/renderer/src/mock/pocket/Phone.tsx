@@ -1,14 +1,16 @@
 // The phone app's design mock (#1997): one React tree in a 393x852 frame, played by
 // `?walk=pocket-*`. Local state only; nothing here reaches a Fleet.
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import type { ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import {
-  Check, ChevronLeft, CircleDot, Eye, GitPullRequest, LoaderCircle, OctagonAlert, Pencil, Plus, RefreshCw,
-  RotateCw, ScanLine, Send, SquareTerminal, Trash2, Undo2, Unplug, UserCheck, X,
+  Check, ChevronLeft, CircleDot, Eye, GitPullRequest, LoaderCircle, OctagonAlert, Plus, RefreshCw,
+  Split, SquareTerminal, Unplug, UserCheck, X,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+
+import { Button, HoldButton } from "@armada/components";
 
 import "../../styles/index.css";
 import "./pocket.css";
@@ -26,11 +28,11 @@ type Screen =
 type Tab = "Needs you" | "Running" | "Done";
 const TABS: Tab[] = ["Needs you", "Running", "Done"];
 
-/** Glyphs and verbs are `crates/core-model/domain/enum-verbs.toml`'s; a reason with none is drawn unmarked. */
+/** Glyphs and verbs are `crates/core-model/domain/enum-verbs.toml`'s. */
 const REASON: Record<NonNullable<PocketJob["reason"]>, { icon?: LucideIcon; says: string }> = {
   stalled: { icon: OctagonAlert, says: "Stalled" },
   thrashing: { icon: RefreshCw, says: "Churning" },
-  rate_cap: { says: "Rate cap" },
+  rate_cap: { icon: Split, says: "Hit the sub-dispatch cap" },
   interrupted: { icon: Unplug, says: "Interrupted" },
 };
 
@@ -98,7 +100,7 @@ function Pair({ phase, go }: { phase: "scanned" | "waiting"; go: (screen: Screen
       </div>
       {phase === "scanned" && (
         <footer className="pk-bar">
-          <button className="pk-act pk-act--primary" onClick={() => go({ is: "pair", phase: "waiting" })}><ScanLine /> Pair</button>
+          <Button variant="primary" className="pk-big" onClick={() =>go({ is: "pair", phase: "waiting" })}>Pair</Button>
         </footer>
       )}
     </section>
@@ -184,25 +186,10 @@ function Facts({ job }: { job: PocketJob }) {
 }
 
 function HoldToKill({ onKilled }: { onKilled: () => void }) {
-  const timer = useRef<number>(0);
-  const [holding, setHolding] = useState(false);
-  const stop = () => { window.clearTimeout(timer.current); setHolding(false); };
-  const start = () => { setHolding(true); timer.current = window.setTimeout(onKilled, 1000); };
-  useEffect(() => () => window.clearTimeout(timer.current), []);
   return (
-    <button
-      className="pk-act pk-act--kill"
-      data-holding={holding}
-      aria-label="Kill, hold to confirm"
-      onPointerDown={start}
-      onPointerUp={stop}
-      onPointerLeave={stop}
-      onPointerCancel={stop}
-      onKeyDown={(event) => { if ((event.key === " " || event.key === "Enter") && !event.repeat) start(); }}
-      onKeyUp={stop}
-    >
-      <Trash2 /> Kill
-    </button>
+    <HoldButton className="pk-big" size="default" askLabel="Kill" description="Kill. Hold until the fill completes, then confirm." onCommit={onKilled} onAsk={onKilled}>
+      Hold to kill
+    </HoldButton>
   );
 }
 
@@ -218,22 +205,21 @@ function JobScreen({ job, back, done }: { job: PocketJob; back: () => void; done
         <footer className="pk-bar pk-bar--sheet" role="dialog" aria-label="Redirect">
           <Draft id={draftId} className="pk-dictate" rows={4} placeholder="Redirect" aria-label="Redirect" enterKeyHint="send" autoCapitalize="sentences" autoCorrect="on" spellCheck />
           <div className="pk-pair-acts">
-            <button className="pk-act" onClick={() => setRedirecting(false)}><X /> Close</button>
-            <button className="pk-act pk-act--primary" onClick={() => { DRAFTS.delete(draftId); done(); }}><Send /> Send</button>
+            <Button variant="secondary" className="pk-big" onClick={() =>setRedirecting(false)}>Close</Button>
+            <Button variant="primary" className="pk-big" onClick={() =>{ DRAFTS.delete(draftId); done(); }}>Send</Button>
           </div>
         </footer>
       ) : (
         <footer className="pk-bar">
-          {acts.has("approve") && <button className="pk-act pk-act--primary" onClick={done}><Check /> Approve</button>}
+          {acts.has("approve") && <Button variant="primary" className="pk-big" onClick={done}>Approve</Button>}
           {acts.has("redirect") && (
-            <button className="pk-act" onClick={() => setRedirecting(true)}>
-              <Pencil /> Redirect{drafted(draftId) && <span className="pk-dot" role="img" aria-label="Draft kept" />}
-            </button>
+            <Button variant="secondary" className="pk-big" onClick={() =>setRedirecting(true)}>
+       Redirect{drafted(draftId) && <span className="pk-dot" role="img" aria-label="Draft kept" />}</Button>
           )}
           {(acts.has("restart") || acts.has("redispatch")) && (
             <div className="pk-pair-acts">
-              {acts.has("restart") && <button className="pk-act" onClick={done}><RotateCw /> Restart step</button>}
-              {acts.has("redispatch") && <button className="pk-act" onClick={done}><Undo2 /> Redispatch</button>}
+              {acts.has("restart") && <Button variant="secondary" className="pk-big" onClick={done}>Restart step</Button>}
+              {acts.has("redispatch") && <Button variant="secondary" className="pk-big" onClick={done}>Redispatch</Button>}
             </div>
           )}
           {acts.has("kill") && <HoldToKill onKilled={done} />}
@@ -254,15 +240,15 @@ function ReviewScreen({ job, back, done }: { job: PocketJob; back: () => void; d
         <footer className="pk-bar pk-bar--sheet" role="dialog" aria-label="Request changes">
           <Draft id={draftId} className="pk-dictate" rows={4} placeholder="Reason" aria-label="Reason" enterKeyHint="send" autoCapitalize="sentences" autoCorrect="on" spellCheck />
           <div className="pk-pair-acts">
-            <button className="pk-act" onClick={() => setAsking(false)}><X /> Close</button>
-            <button className="pk-act pk-act--primary" onClick={() => { DRAFTS.delete(draftId); done(); }}><Send /> Send</button>
+            <Button variant="secondary" className="pk-big" onClick={() =>setAsking(false)}>Close</Button>
+            <Button variant="primary" className="pk-big" onClick={() =>{ DRAFTS.delete(draftId); done(); }}>Send</Button>
           </div>
         </footer>
       ) : (
         <footer className="pk-bar">
           <div className="pk-pair-acts">
-            <button className="pk-act" onClick={() => setAsking(true)}><Pencil /> Request changes{drafted(draftId) && <span className="pk-dot" role="img" aria-label="Draft kept" />}</button>
-            <button className="pk-act pk-act--primary" onClick={done}><Check /> Approve</button>
+            <Button variant="secondary" className="pk-big" onClick={() =>setAsking(true)}>Request changes{drafted(draftId) && <span className="pk-dot" role="img" aria-label="Draft kept" />}</Button>
+            <Button variant="primary" className="pk-big" onClick={done}>Approve</Button>
           </div>
         </footer>
       )}
@@ -286,7 +272,7 @@ function AskScreen({ back, done }: { back: () => void; done: () => void }) {
         <Draft id={draftId} className="pk-dictate" rows={3} placeholder="Other" aria-label="Other answer" enterKeyHint="send" autoCapitalize="sentences" autoCorrect="on" spellCheck />
       </div>
       <footer className="pk-bar">
-        <button className="pk-act pk-act--primary" onClick={() => { DRAFTS.delete(draftId); done(); }}><Send /> Answer</button>
+        <Button variant="primary" className="pk-big" onClick={() =>{ DRAFTS.delete(draftId); done(); }}>Answer</Button>
       </footer>
     </section>
   );
@@ -311,7 +297,7 @@ function DispatchScreen({ back, done }: { back: () => void; done: (title: string
         </div>
       </div>
       <footer className="pk-bar">
-        <button className="pk-act pk-act--primary" disabled={line.trim() === ""} onClick={() => { DRAFTS.delete("dispatch"); DRAFT_REPO.current = repo; done(line.trim()); }}><Send /> Dispatch</button>
+        <Button variant="primary" className="pk-big" disabled={line.trim() === ""} onClick={() =>{ DRAFTS.delete("dispatch"); DRAFT_REPO.current = repo; done(line.trim()); }}>Dispatch</Button>
       </footer>
     </section>
   );

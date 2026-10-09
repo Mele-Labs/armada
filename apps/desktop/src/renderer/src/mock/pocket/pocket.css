@@ -6,8 +6,7 @@
 .pk-band { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-12) var(--space-4) var(--space-4); background: var(--bg-overlay); border-bottom: var(--border-width) solid var(--border-strong); }
 .pk-band__title { flex: 1; min-width: 0; margin: 0; font-family: var(--font-sans); font-size: var(--text-xl); line-height: var(--leading-xl); font-weight: var(--weight-heading); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-.pk-icon, .pk-act, .pk-tab, .pk-row, .pk-choice, .pk-waiting { font: inherit; color: inherit; cursor: pointer; }
-.pk-icon { display: grid; place-items: center; width: var(--space-12); height: var(--space-12); margin: calc(-1 * var(--space-2)) 0; border: 0; border-radius: var(--radius-md); background: transparent; }
+.pk-icon, .pk-icon { display: grid; place-items: center; width: var(--space-12); height: var(--space-12); margin: calc(-1 * var(--space-2)) 0; border: 0; border-radius: var(--radius-md); background: transparent; }
 .pk-icon svg { width: var(--space-6); height: var(--space-6); }
 
 .pk-body { flex: 1; min-height: 0; overflow-y: auto; padding: var(--space-4); }
@@ -43,13 +42,6 @@ button.pk-row:active { background: var(--bg-hover); }
 
 .pk-bar { display: grid; gap: var(--space-2); padding: var(--space-3) var(--space-4) var(--space-8); background: var(--bg-overlay); border-top: var(--border-width) solid var(--border-strong); }
 .pk-pair-acts { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: var(--space-2); }
-.pk-act { position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; gap: var(--space-2); min-height: var(--space-12); padding: 0 var(--space-3); border: var(--border-width) solid var(--border-strong); border-radius: var(--radius-md); background: var(--bg-raised); font-weight: var(--weight-medium); font-size: var(--text-xs); }
-.pk-act svg { width: var(--space-4); height: var(--space-4); flex: none; }
-.pk-act--primary { background: var(--accent); border-color: var(--accent); color: var(--fg-inverse); }
-.pk-act:disabled { opacity: 0.4; }
-.pk-act--kill { color: var(--status-completed-failed); border-color: var(--status-completed-failed); background: var(--status-completed-failed-bg); user-select: none; touch-action: none; }
-.pk-act--kill::before { content: ""; position: absolute; inset: 0 100% 0 0; background: var(--status-completed-failed); opacity: 0.45; }
-.pk-act--kill[data-holding="true"]::before { right: 0; transition: right 1000ms linear; }
 .pk-dot { width: var(--space-2); height: var(--space-2); border-radius: 50%; background: var(--accent); }
 .pk-dictate, .pk-line { width: 100%; box-sizing: border-box; padding: var(--space-3); border: var(--border-width) solid var(--border-strong); border-radius: var(--radius-md); background: var(--bg-sunken); color: var(--fg-default); font-family: var(--font-sans); font-size: var(--text-lg); line-height: var(--leading-lg); resize: none; }
 .pk-body .pk-dictate { margin-top: var(--space-4); }
@@ -73,3 +65,5 @@ button.pk-row:active { background: var(--bg-hover); }
 .pk-mark:empty { display: inline-block; }
 /* Short windows: the walk's card takes the trailing corner, so the phone stands clear of it. */
 @media (max-width: 1140px) { .pk-stage { padding-inline-end: calc(var(--w-tooltip) + var(--space-6) * 2); } }
+.pk-big { width: 100%; min-height: var(--space-12); }
+.pk-pair-acts .pk-big { width: auto; }

@@ -23,7 +23,7 @@ export const POCKET_WALKS: ReadonlyMap<string, Walk> = new Map<string, Walk>([
     { press: button("Redirect"), say: "Redirect: a box for dictation" },
     { type: "Check the count against the slot pool, not the store", into: role("textbox", "Redirect"), say: "Dictated text" },
     { press: button("Close"), say: "Closing keeps the draft" },
-    { look: button("Kill"), say: "Kill is held, not tapped" },
+    { look: button("Hold to kill"), say: "Kill is held, not tapped" },
     { press: button("Back to Needs you"), say: "Back" },
     { press: open("PR rows"), say: "A review" },
     { look: text("Pass, no objections"), say: "Judge verdict, Checks, pull request. No diff" },
