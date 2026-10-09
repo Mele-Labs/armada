@@ -6,6 +6,7 @@ use core_model::{JobId, Ulid};
 use store::{AttachmentState, HolderKind};
 
 use crate::daemon::Fleet;
+use crate::pull_requesting::PR;
 use crate::repositories::Served;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -57,7 +58,7 @@ where
                 .map(|row| (row.holder.kind, row.holder.id))
                 .collect::<Vec<_>>()
         };
-        let mut holders = held("pull_request", &number.to_string());
+        let mut holders = held(PR, &number.to_string());
         if !holders.iter().any(|(kind, _)| *kind == HolderKind::Session) {
             holders.extend(held("branch", branch));
         }

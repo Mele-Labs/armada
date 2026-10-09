@@ -57,8 +57,8 @@ const SESSION_UNKNOWN: &str = "fleet.session_unknown";
 /// The workflow a review runs on, named here and never left to the proposer.
 const CODE_REVIEW: &str = "code_review";
 
-/// The ledger's kind for a pull request a Session holds.
-const PR: &str = "pr";
+/// The ledger's kind for a pull request a Session holds, and the kind its owners are read under.
+pub(crate) const PR: &str = "pr";
 
 /// What a pull request was named as.
 enum Named {
