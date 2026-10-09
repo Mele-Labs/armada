@@ -434,3 +434,64 @@ async fn ended_rows(fleet: &Arc<Hosted>, id: &ipc::SessionId) -> Vec<String> {
         })
         .collect()
 }
+
+#[test]
+fn a_message_to_an_agent_that_died_unattended_starts_another_and_is_not_lost() {
+    let keeper_side = Runtime::new().unwrap();
+    let home = TempDir::new();
+    let keepers = Keepers::new(keeper_side.handle().clone(), home.path());
+    let first = Runtime::new().unwrap();
+    let (id, pid) = first.block_on(async {
+        let fleet = a_fleet(&home, &keepers, 0);
+        let id = fleet
+            .start_session(StartSession {
+                manifest_id: manifest_of(&fleet),
+                title: None,
+                model: None,
+                effort: None,
+                mode: None,
+                pilot: None,
+                fork: None,
+            })
+            .await
+            .expect("started")
+            .id;
+        Arc::clone(&fleet)
+            .send_session_message(SendSessionMessage {
+                session_id: id.clone(),
+                text: "one".into(),
+                attachments: Vec::new(),
+                mentions: Vec::new(),
+            })
+            .await
+            .expect("taken");
+        eventually(|| async { said(&fleet, &id).await.len() == 2 }).await;
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        let pid = pid_in(&said(&fleet, &id).await[0]);
+        (id, pid)
+    });
+    // The Fleet is gone, and then the agent: nobody is told.
+    drop(first);
+    std::process::Command::new("kill").args(["-9", &pid]).status().unwrap();
+    std::thread::sleep(Duration::from_millis(300));
+
+    let second = Runtime::new().unwrap();
+    second.block_on(async {
+        let fleet = a_fleet(&home, &keepers, 1000);
+        Arc::clone(&fleet)
+            .send_session_message(SendSessionMessage {
+                session_id: id.clone(),
+                text: "two".into(),
+                attachments: Vec::new(),
+                mentions: Vec::new(),
+            })
+            .await
+            .expect("taken");
+        eventually(|| async { said(&fleet, &id).await.len() == 4 }).await;
+        let rows = said(&fleet, &id).await;
+        assert_ne!(pid_in(&rows[2]), pid, "a new process answered: {rows:?}");
+        assert!(rows[3].contains("after 1"), "{rows:?}");
+        assert!(!ended_rows(&fleet, &id).await.is_empty());
+    });
+    assert_eq!(keepers.starts.load(Ordering::SeqCst), 2);
+}

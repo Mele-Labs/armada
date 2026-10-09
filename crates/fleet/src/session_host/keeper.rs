@@ -77,7 +77,11 @@ pub async fn keep(keeper: Keeper) -> io::Result<()> {
     let _ = std::fs::remove_file(&keeper.socket);
     let listener = UnixListener::bind(&keeper.socket)?;
     std::fs::set_permissions(&keeper.socket, std::fs::Permissions::from_mode(0o600))?;
+    // A new file, not the old one truncated: a keeper that is ending may still
+    // hold the old one and remove its path.
+    let _ = std::fs::remove_file(&keeper.spool);
     let mut spool = tokio::fs::File::create(&keeper.spool).await?;
+    let mine = (inode(&keeper.socket), inode(&keeper.spool));
 
     let mut agent = Detached::program(&keeper.program)
         .args(&keeper.args)
@@ -202,10 +206,21 @@ pub async fn keep(keeper: Keeper) -> io::Result<()> {
     }
     // The log stays: Fleet reads it after the keeper is gone.
     if !shared.ended.load(Ordering::SeqCst) {
-        let _ = std::fs::remove_file(&keeper.socket);
-        let _ = std::fs::remove_file(&keeper.spool);
+        // Only what is still this keeper's: a replacement may have bound the
+        // same paths while this one was ending.
+        if inode(&keeper.socket) == mine.0 {
+            let _ = std::fs::remove_file(&keeper.socket);
+        }
+        if inode(&keeper.spool) == mine.1 {
+            let _ = std::fs::remove_file(&keeper.spool);
+        }
     }
     Ok(())
+}
+
+fn inode(path: &std::path::Path) -> Option<u64> {
+    use std::os::unix::fs::MetadataExt;
+    std::fs::metadata(path).ok().map(|meta| meta.ino())
 }
 
 async fn client(shared: Arc<Shared>, stream: UnixStream) {

@@ -611,12 +611,23 @@ where
             .map_err(|why| self.hosted_fault(SESSION_UNSTARTED, &why))?;
         {
             let mut state = runtime.state();
-            state.queued += 1;
             state.turn = SessionTurn::Working { woken_by: None };
             state.last_active = std::time::Instant::now();
-            if let Some(process) = &state.process {
-                process.send(line);
+            state.send_turn(line);
+        }
+        // The process said it was gone before the line was written to it.
+        let lost = {
+            let mut state = runtime.state();
+            match (state.process.is_none(), state.retried) {
+                (true, false) if !state.unstarted.is_empty() => {
+                    state.retried = true;
+                    std::mem::take(&mut state.unstarted)
+                }
+                _ => Vec::new(),
             }
+        };
+        if !lost.is_empty() {
+            self.send_again(&id, &runtime, lost).await;
         }
         if self.hosts().start_sweeping() {
             let fleet = Arc::clone(&self);
@@ -750,6 +761,7 @@ where
         }
         state.generation += 1;
         state.queued = 0;
+        state.unstarted.clear();
     }
 
     /// Start the session's process if none is running. A keeper a Fleet before
