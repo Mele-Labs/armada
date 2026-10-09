@@ -112,6 +112,12 @@ export type AnswerWaiting = {
   mode?: "best" | "quick";
 };
 
+/**
+ * `POST /sessions/waiting/dismiss`: drop one item for good. Its id never comes back, whether Fleet derived
+ * it (`ask:`, `perm:`, `walk:`) or the agent stated it, and nothing is sent to the agent.
+ */
+export type DismissWaiting = { session_id: string; item_id: string };
+
 /** A command a terminal session lists, for `/` to offer. Since 23.53. */
 export type TerminalCommand = { name: string; says: string };
 

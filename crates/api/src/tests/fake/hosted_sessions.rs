@@ -44,6 +44,13 @@ impl HostedSessions for FakeDaemon {
         Err(nothing_hosted())
     }
 
+    async fn dismiss_waiting(
+        self: Arc<Self>,
+        _dismiss: ipc::DismissWaiting,
+    ) -> Result<SessionRecord, Refusal> {
+        Err(nothing_hosted())
+    }
+
     async fn tune_session(&self, _tuned: TuneSession) -> Result<SessionRecord, Refusal> {
         Err(nothing_hosted())
     }
