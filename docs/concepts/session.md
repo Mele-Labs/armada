@@ -394,7 +394,8 @@ While it is on, a pass over every live session's waiting items (`crates/fleet/sr
 | `perm:` permission | Never allowed. Recorded under blocked. |
 | `walk:` | Recorded under walks. |
 | A pull request the pull watch sees merge | Recorded under landed. |
-| A Job that escalates on a stall, silence, loop or failed gate, with a title that is not destructive | Told to decide for itself, once, with the owner's own act: a redirect to its Drone, or a restart of the step with the same words where the Drone is gone. Recorded under decided. |
+| A Job that escalates on a stall, silence, loop, failed gate, unanswered ask, or a refused hatch, scope or evidence, with a title that is not destructive | Told to decide for itself, once, with the owner's own act: a redirect to its Drone, or a restart of the step with the same words where the Drone is gone. Recorded under decided. |
+| A Job that escalates because its Drone or run ended, was not heard, would not start, was not prepared, or its gate or proposer gave no answer, with a title that is not destructive | Its step restarted once, with no words. Recorded under decided as restarted; if it escalates again the same night it stays as it is. |
 | Any other escalation, or a destructive title | Recorded under blocked. |
 
 `override_sleep` sends the session `Re: <asked>` and the owner's words, and marks the row corrected. Every change publishes `sleep.changed` with the night whole.
