@@ -72,6 +72,12 @@ pub trait Process: Send + Sync {
 
     /// End it and what it started.
     fn end(&self);
+
+    /// The last of what it said on its error output, and how it ended, for a
+    /// process that is gone. Empty where there is none.
+    fn complaint(&self) -> String {
+        String::new()
+    }
 }
 
 /// Something that can start a session's process.
@@ -179,6 +185,12 @@ impl Processes for ProcessHost {
         std::fs::create_dir_all(&self.keepers).map_err(|why| why.to_string())?;
         let socket = self.socket_of(&start.session)?;
         let spool = self.keepers.join(format!("{}.spool", start.session));
+        let log = spool.with_extension("log");
+        // Emptied, then held for append: the keeper's own error and the
+        // agent's, which it writes later, land in one file.
+        let logged = std::fs::write(&log, "")
+            .and_then(|()| std::fs::OpenOptions::new().append(true).open(&log))
+            .map_err(|why| format!("the session's keeper has no log: {why}"))?;
         let alone = super::keeper::ALONE_FOR.as_secs().to_string();
         let mut keeper = Detached::program(&self.exe)
             .arg("session-keep")
@@ -191,7 +203,8 @@ impl Processes for ProcessHost {
             .in_directory(launch.directory())
             .in_environment(launch.environment())
             .outliving_fleet()
-            .ignoring_output()
+            .writing_output_to(&logged)
+            .map_err(|why| why.to_string())?
             .spawn()
             .map_err(|why| format!("the session's keeper would not start: {why}"))?;
         // A keeper binds within milliseconds. Polled, because the trait this
@@ -203,7 +216,8 @@ impl Processes for ProcessHost {
             }
             if let Ok(Some(status)) = keeper.try_wait() {
                 return Err(format!(
-                    "the session's keeper exited ({status}) before it answered"
+                    "the session's keeper exited ({status}) before it answered{}",
+                    super::kept::tail_of(&log)
                 ));
             }
             if waited.elapsed() > KEEPER_WITHIN {
@@ -211,12 +225,13 @@ impl Processes for ProcessHost {
             }
             std::thread::sleep(Duration::from_millis(10));
         };
-        super::kept::attached(stream, self.agent.clone(), sink)
+        super::kept::attached(stream, self.agent.clone(), sink, &socket, &spool)
     }
 
     fn reattach(&self, session: &str, sink: Sink) -> Option<Arc<dyn Process>> {
         let socket = self.socket_of(session).ok()?;
+        let spool = self.keepers.join(format!("{session}.spool"));
         let stream = super::kept::connect(&socket)?;
-        super::kept::attached(stream, self.agent.clone(), sink).ok()
+        super::kept::attached(stream, self.agent.clone(), sink, &socket, &spool).ok()
     }
 }
