@@ -4,9 +4,10 @@
 // **A session is reported as it happens and never read back**, with one
 // exception: a message a person sent it from Bridge, which Fleet holds until
 // this mod asks (`submitHeld`). One thing is told to the model: its own session id, so
-// `show_window` can name it. No hook changes what a session does: each answers with what `next` returned and lets its report go unawaited, so
+// `show_window` can name it. Two hooks change what a session does, an `open` of a page and an
+// `AskUserQuestion` Bridge answers first; every other answers with what `next` returned and lets its report go unawaited, so
 // Fleet being down costs the session nothing (`fleet.ts`). **No message text and no prompt leaves, apart from the first
-// line of the first prompt as a title.** A message is reported as who it went to
+// line of the first prompt as a title, and a question put to Bridge.** A message is reported as who it went to
 // or came from, and how many.
 //
 // The helpers are top-level because the engine follows `$` only into a function
@@ -15,6 +16,7 @@
 import type { Engine, Register } from 'claude-code'
 
 import {
+  answersIn,
   artifactOf,
   customTitleIn,
   ghAct,
@@ -33,7 +35,7 @@ import {
   MOD_VERSION,
   transcriptPath,
 } from './facts'
-import type { Door, Fact, Report } from './fleet'
+import type { Asked, Door, Fact, Report } from './fleet'
 
 const HARNESS = 'claude_code'
 const MEASURE_EVERY_MS = 10_000
@@ -267,6 +269,44 @@ async function showPages($: Dollar, urls: string[]): Promise<void> {
     }
   } catch {
     // Fleet out of reach: the line is still not run.
+  }
+}
+
+/**
+ * The terminal's question, put to Bridge. **Held by Fleet until a person answers there**, so this
+ * resolves when they do, or with `gone` when the terminal answered first. A Fleet that is out of
+ * reach resolves to nothing: the terminal's own prompt is all there is.
+ */
+async function putToBridge($: Door, id: string, questions: unknown): Promise<Asked | undefined> {
+  try {
+    const port = await portOf($)
+    if (port === undefined) return undefined
+    const sent = await $.http.fetch(`http://127.0.0.1:${port}/sessions/ask/terminal`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ kind: 'asks', session_id: id, input: { questions } }),
+    })
+    return sent.ok ? (JSON.parse(sent.text) as Asked) : undefined
+  } catch {
+    return undefined
+  }
+}
+
+/** The terminal's own prompt ended first, so Bridge's card closes. */
+async function settledInTerminal($: Door, id: string, answered: boolean): Promise<void> {
+  try {
+    const port = await portOf($)
+    if (port === undefined) return
+    await Promise.race([
+      $.http.fetch(`http://127.0.0.1:${port}/sessions/ask/terminal`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ kind: 'settled', session_id: id, answered }),
+      }),
+      $.clock.sleep(WAIT_MS),
+    ])
+  } catch {
+    // Fleet out of reach: its card closes when its hold runs out.
   }
 }
 
@@ -528,6 +568,32 @@ export const register: Register = on => {
       void afterBash($, e.command, ran.text ?? '').catch(() => undefined)
     }
     return ran
+  })
+
+  // A question asked in the terminal is also put to Bridge, and the first answer wins. The terminal's
+  // prompt opens beneath (`next`) while Fleet holds the question; returning before `next` does aborts
+  // the prompt, so an answer from Bridge is the tool's own result and the terminal never keeps it.
+  on('tool.call', { tool: 'AskUserQuestion' }, async ($, e, next) => {
+    if (await $.env.get('ARMADA_DRONE')) return next(e)
+    const id = await $.session.id()
+    const terminal = next(e).then(ran => ({ ran }))
+    const bridge = putToBridge($, id, e.questions).then(asked =>
+      asked?.outcome === 'answered' || asked?.outcome === 'refused'
+        ? { asked }
+        : new Promise<never>(() => undefined),
+    )
+    try {
+      const first = await Promise.race([terminal, bridge])
+      if ('asked' in first) {
+        if (first.asked.outcome === 'refused') return { deny: first.asked.message }
+        return { result: { questions: e.questions, answers: answersIn(first.asked.updated_input) } }
+      }
+      void settledInTerminal($, id, first.ran.deny === undefined && first.ran.isError !== true)
+      return first.ran
+    } catch (error) {
+      void settledInTerminal($, id, false)
+      throw error
+    }
   })
 
   for (const name of DISPATCHES) {
