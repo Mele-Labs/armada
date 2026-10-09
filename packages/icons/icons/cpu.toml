@@ -4,3 +4,10 @@
   size = "12px"
   status = "Specified"
   notes = "The square-with-radiating-ticks outline is unique in the system, which is what matters at 12px."
+
+  [[icons.cpu.usage]]
+    means = "A Job waiting on a resource, on its Now line"
+    group = "Now"
+    size = "12px"
+    status = "Proposed"
+    notes = "Proposed 9 Oct 2026 with the Dashboard's call card and tiles, which draw what a Job runs now with the Now panel's own marks. It sits beside the reservation above rather than inside it, and the owner may rule it out."

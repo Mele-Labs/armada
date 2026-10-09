@@ -108,7 +108,7 @@ export type StudioNamed = { name: string; node?: string };
 
 /** Every screen but `job_detail`, which names itself off the Job it is reading rather than off this. */
 const SCREEN_LABEL: Record<Exclude<HelmScreen, "job_detail">, string> = {
-  overview: "Overview",
+  overview: "Cockpit",
   board: "Job Board",
   manifest: "Manifest",
   cleanup: "Cleanup",

@@ -220,6 +220,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(crate::hosted_sessions::answer_waiting::<D>),
         )
         .route(
+            "/sessions/claim_pull_request",
+            post(crate::sessions::claim_pull_request::<D>),
+        )
+        .route(
             "/sessions/start",
             post(crate::hosted_sessions::start_session::<D>),
         )

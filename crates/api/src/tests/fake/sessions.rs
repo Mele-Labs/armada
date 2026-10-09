@@ -47,6 +47,20 @@ impl Sessions for FakeDaemon {
         .await
     }
 
+    async fn claim_pull_request(
+        &self,
+        _caller: Option<crate::Caller>,
+        claim: ipc::ClaimPullRequest,
+    ) -> Result<ipc::PullRequestClaimed, Refusal> {
+        Ok(ipc::PullRequestClaimed {
+            number: claim.number,
+            branch: String::new(),
+            url: String::new(),
+            holder_kind: String::from("session"),
+            holder_id: String::from("session"),
+        })
+    }
+
     async fn show_window(
         &self,
         _caller: Option<crate::Caller>,

@@ -1,6 +1,6 @@
 # Layout mods
 
-**What it is:** A mod whose `layout.json` reorders, hides and sets the opening choice of Bridge's Dashboard tabs and panels, Job tabs and rail rows, by id, and nothing else, which Fleet checks and Bridge applies.
+**What it is:** A mod whose `layout.json` reorders, hides and sets the opening choice of Bridge's Cockpit filters and panels, Job tabs and rail rows, by id, and nothing else, which Fleet checks and Bridge applies.
 
 ---
 
@@ -21,7 +21,7 @@ The registry is `LAYOUT` in `packages/shell/src/layout.tsx`. A panel written in 
 | `label` | The name drawn |
 | `icon` | A glyph from `packages/icons/icons/` |
 | `hideable` | False where the owner has to decide on it, or has to reach it to undo a layout |
-| `slot` | Dashboard panels only: `top`, above the tab strip, or `board` |
+| `slot` | Cockpit panels only: `top`, above the panel, or `board` |
 | order | Position in the region's list, which is the default order |
 
 Every entry is drawn until a layout hides it.
@@ -124,7 +124,7 @@ Mods and Settings are never hideable, and Settings → Layout, Reset to defaults
 | The regions and ids both sides check | `packages/shell/layout-registry.json` |
 | Fleet's check of `layout.json` | `crates/ipc/src/layout.rs` |
 | Fleet's list, scaffold, validation and promotion for `kind = "layout"` | `crates/fleet/src/mods/` |
-| Dashboard tabs, Job tabs, rail | Read `useLayout(region)` |
+| Cockpit filters, Job tabs, rail | Read `useLayout(region)` |
 | Settings → Layout, Mods row | `packages/surfaces/settings/src/` |
 | The source over Fleet | `apps/desktop/src/renderer/src/fleet-layout.ts` |
 | The mock | `apps/desktop/src/renderer/src/mock/layout.ts`, walk `?walk=modsLayout` |

@@ -34,8 +34,8 @@ describe("overview menu gone", () => {
     mount("every-state");
     await onScreen();
 
-    // Overview, drawn: the Dashboard's tabs.
-    await expect.element(page.getByRole("tab", { name: "Command Central" })).toBeVisible();
+    // Overview, drawn: the Dashboard's filters.
+    await expect.element(page.getByRole("tab", { name: "Your move" })).toBeVisible();
     expect(page.getByRole("button", { name: "Everything else", exact: true }).query()).toBeNull();
     expect(page.getByRole("button", { name: /^Clear \d+ finished/ }).query()).toBeNull();
   });

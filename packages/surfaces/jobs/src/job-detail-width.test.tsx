@@ -235,7 +235,7 @@ test("at the rail, every panel is there rather than gone", async () => {
   // Two nav panels since the owner split Navigation, and both keep their
   // glyphs at 48px — the rail's own form, never an absent column.
   expect(document.querySelectorAll(".armada-sidebar").length).toBe(2);
-  await expect.element(page.getByRole("button", { name: "Overview" }).first()).toBeVisible();
+  await expect.element(page.getByRole("button", { name: "Cockpit" }).first()).toBeVisible();
   // Fleet keeps one status dot, as a named region.
   await expect.element(page.getByRole("region", { name: "Fleet" }).first()).toBeVisible();
 });

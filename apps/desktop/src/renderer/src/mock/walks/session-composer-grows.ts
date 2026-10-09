@@ -27,7 +27,7 @@ const helm: Step[] = [
 const keeping: Step[] = [
   { press: inside(region("Sessions"), button("CI timeout hunt")), say: "A Session" },
   { type: "Half a thought before I leave", into: kit(false).message, say: "Something typed and not sent" },
-  { press: button("Overview", { exact: true }), say: "Off to Overview" },
+  { press: button("Cockpit", { exact: true }), say: "Off to the Cockpit" },
   { press: button("Sessions", { exact: true }), say: "And back to the Sessions" },
   { press: inside(region("Sessions"), button("CI timeout hunt")), say: "The same Session" },
   { look: kit(false).message, say: "The message box has what was typed, with the caret at its end" },

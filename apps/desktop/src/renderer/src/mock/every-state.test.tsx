@@ -13,7 +13,7 @@ import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import { scenarioNamed } from "./scenario";
-import { mount, listed, rows, unmountAfterEach } from "./testing";
+import { mount, listed, putOffEveryCall, rows, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
@@ -23,9 +23,9 @@ unmountAfterEach();
  */
 const JOBS = scenarioNamed("every-state")!.state.jobs;
 
-const TABS = ["Command Central", "Running", "Done"] as const;
+const TABS = ["Your move", "Active", "Done"] as const;
 
-/** Every Job the Dashboard draws, read off each of its tabs in turn. */
+/** Every Job the Dashboard draws, read off each of its filters in turn. */
 async function everyRowDrawn(): Promise<string[]> {
   const ids = new Set<string>();
   for (const name of TABS) {
@@ -36,7 +36,7 @@ async function everyRowDrawn(): Promise<string[]> {
   return [...ids].sort();
 }
 
-/** The tab that draws this Job's row, opened on it. */
+/** The filter that draws this Job's tile, opened on it. */
 async function tabHolding(jobId: string): Promise<void> {
   for (const name of TABS) {
     await userEvent.click(page.getByRole("tab", { name }));
@@ -47,12 +47,14 @@ async function tabHolding(jobId: string): Promise<void> {
 test("every-state lists a row per Job", async () => {
   mount("every-state");
   await listed();
+  await putOffEveryCall();
   expect(await everyRowDrawn()).toEqual(JOBS.map((job) => job.id).sort());
 });
 
 test.for(JOBS)("$handle's row opens its own detail", async (job) => {
   const { scenario } = mount("every-state");
   await listed();
+  await putOffEveryCall();
   await tabHolding(job.id);
   const row = (): HTMLElement | undefined => rows().find((one) => one.dataset.jobId === job.id);
   await expect.poll(row).toBeDefined();

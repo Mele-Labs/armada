@@ -1,0 +1,7 @@
+[icons.orbit]
+  means = "A small body circling a larger one on an ellipse, with a second body further out — the fleet read as a map of stars"
+  group = "View"
+  size = "16px"
+  status = "Specified"
+  reserved = "The Map view of the Dashboard panel only, beside the Grid view's `layout-grid`. Never a loading or busy indicator, never a refresh, and never a graph on a Job, which is `waypoints`."
+  notes = "Chosen by the owner on 9 Oct 2026 for the toggle that turns the Dashboard's tiles into a map of Jobs and Sessions as stars. `waypoints` is the graph view toggle on Plan and Workflow, a graph of one Job's own steps; this map is of many Jobs and its marks are told apart so the two toggles never read as one."

@@ -475,7 +475,9 @@ class RestartAdopt(unittest.TestCase):
         self.assertEqual(code, 0, said)
         self.assertIn("com.armada.pocket.plist", said)
         self.assertIn("<string>pocket</string>", said)
-        self.assertIn(os.path.join(self.tree, "apps", "pocket", "dist"), said)
+        self.assertIn("<string>%s</string>" % os.path.join(self.support, "pocket-app"), said)
+        self.assertIn("would copy %s to %s" % (os.path.join(self.tree, "apps", "pocket", "dist"),
+                                               os.path.join(self.support, "pocket-app")), said)
         self.assertIn("pnpm -C apps/pocket", said)
 
     def test_a_label_override_gives_the_gateway_its_own_label(self):

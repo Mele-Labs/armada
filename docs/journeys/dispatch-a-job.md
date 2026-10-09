@@ -20,7 +20,7 @@ Analysis: Complete. UI/UX design: In progress.
 
 ## Flow
 
-Open Overview (scoped to a Manifest by the title row's picker) → browse the sections → select a ready Job → Job detail view opens → explicit approval action, separate from selection.
+Open the Cockpit (scoped to a Manifest by the title row's picker) → browse the sections → select a ready Job → Job detail view opens → explicit approval action, separate from selection.
 
 See [Job Board](../concepts/job-board.md) for the full board mechanics — what a row says, status states, origin tags. It is a concept rather than a page since 28 Sep 2026; Overview is where the list is read.
 
@@ -43,7 +43,7 @@ See [Job Board](../concepts/job-board.md) for the full board mechanics — what 
 **The press leaves this card, and it holds no wait.** A dispatched request is a
 Job from the press — `proposing` in
 [Job proposer](../concepts/job-proposer.md) — so the composer closes, the
-request is a row on Overview, and how far the call has got is drawn on that
+request is a row on the Cockpit, and how far the call has got is drawn on that
 Job's own page. Nothing opens: several requests go off at once, and each is an
 address to come back to.
 

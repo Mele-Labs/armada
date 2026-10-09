@@ -10,18 +10,19 @@
 import { useEffect, useState } from "react";
 import type { FixMain, RepositorySummary } from "@armada/protocol";
 import type { CallView } from "@armada/jobs/draft/calls";
+import type { NowView } from "@armada/jobs/draft/now";
 import type { BoardSection, PauseAct } from "@armada/screens";
-import { DashboardTabs, OverviewLists, overviewListsOf, dashboardTabOf, overviewPanelId, type DashboardTab } from "@armada/overview";
+import { OverviewLists, dashboardTabOf, overviewPanelId, type DashboardTab } from "@armada/overview";
 import { Boundary, useLayout } from "@armada/shell";
-import { boardPressOf } from "@armada/screens/src/keys";
-import { useListKeydown } from "@armada/screens/src/list-keyboard";
 
 import type { BridgeState } from "../../shared/bridge";
-import { Dashboard, useNeedsYou } from "./Dashboard";
+import { Nows, useNeedsYou } from "./Dashboard";
 import { CommandCentral } from "./CommandCentral";
+import { KeySheet, useDashboardKeys } from "./cockpit/keys";
 import { proposeRequest } from "./dispatch";
-import { FleetBoard } from "./FleetBoard";
-import { QuickDispatch } from "./QuickDispatch";
+import { QuickDispatch, useDispatchBarDrawn } from "./QuickDispatch";
+
+export { useDispatchBarKeys } from "./QuickDispatch";
 import { usePanelOpen } from "./panel-open";
 import { useDashboardTab } from "./remembered-views";
 
@@ -48,6 +49,8 @@ export function Overview({
   onOpenSession,
   onFix,
   nowViews,
+  nows,
+  onTell,
   onQuickCompose,
 }: {
   state: BridgeState;
@@ -88,6 +91,10 @@ export function Overview({
   onFix?: (fix: FixMain) => void;
   /** What each Job asks and has gone wrong in, by Job id. Mock only: Fleet serves none, and then only Jobs flagged as asking are listed. */
   nowViews?: Readonly<Record<string, CallView>>;
+  /** What each Job is doing now, by Job id: the Running tab's pane and its tiles' icons. Mock only. */
+  nows?: Readonly<Record<string, NowView>>;
+  /** Says a sentence as a toast: a refusal the panel has to name. */
+  onTell?: (sentence: string) => void;
   /** Words typed into the quick dispatch box, handed to the composer. */
   onQuickCompose: (words: string) => void;
 }) {
@@ -149,14 +156,6 @@ export function Overview({
     panel.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "start" });
   }, [jump]);
 
-  // n composes from anywhere on the Dashboard, as it did from the Board's lists.
-  // Where Fleet cannot be reached the Board's own lists draw, and bind n themselves.
-  useListKeydown((event) => {
-    if (fault || boardPressOf(event)?.act !== "compose") return;
-    event.preventDefault();
-    onCompose();
-  });
-
   // A Drone sent at a failing pull request is a request on the approval gate, as the composer's.
   const propose = (request: string) => void proposeRequest(request, [], state.repository);
 
@@ -164,12 +163,17 @@ export function Overview({
   const needsYou = useNeedsYou(state, pickedRepository, nowViews);
   // Fleet unreachable, still starting, or nothing served: the lists say so, as they always did.
   const fault = disconnected !== null || state.connection.state === "starting" || repositories.length === 0;
+  useDispatchBarDrawn(!fault);
+
+  // `[` `]` and Option with a digit switch filters, `?` lists the keys. Where Fleet cannot be reached the lists draw instead.
+  const keys = useDashboardKeys(tab, setTab, !fault);
 
   return (
     <Boundary region="the overview" {...guarded}>
+      <Nows.Provider value={nows}>
       <div className="armada-screen__overview">
-        {fault || !panels.some((one) => one.id === "quick-dispatch") ? null : <QuickDispatch onType={onQuickCompose} focused={!needsYou} />}
-        <DashboardTabs tab={tab} onTab={setTab} asking={needsYou} running={overviewListsOf(state.jobs, pickedRepository).sections.some((one) => one.id === "running" && one.jobs.length > 0)} />
+        {/* n and ⌘N reach the bar from every surface (`useDispatchBarKeys`). Where Fleet cannot be reached the Board's own lists draw, and bind n themselves. */}
+        {fault || !panels.some((one) => one.id === "quick-dispatch") ? null : <QuickDispatch onType={onQuickCompose} focused={!needsYou} onOpenSession={onOpenSession} />}
         {fault ? (
           <OverviewLists
             jobs={state.jobs}
@@ -192,48 +196,16 @@ export function Overview({
             onCopied={onCopied}
             onCursor={onCursor}
           />
-        ) : tab === "command-central" ? (
-          <CommandCentral
-            state={state}
-            now={now}
-            picked={pickedRepository}
-            nowViews={nowViews}
-            onOpen={onOpen}
-            onOpenSession={onOpenSession}
-            onOpenLink={onOpenLink}
-            onFix={onFix}
-            onPropose={propose}
-            onKill={onKill}
-            onRedispatch={onRedispatch}
-            onClear={onClear}
-            onPausing={onPausing}
-            onCursor={onCursor}
-          />
-        ) : tab === "running" ? (
-          <FleetBoard
-            state={state}
-            now={now}
-            picked={pickedRepository}
-            nowViews={nowViews}
-            pane
-            onOpen={onOpen}
-            onOpenSession={onOpenSession}
-            onOpenLink={onOpenLink}
-            onFix={onFix}
-            onPropose={propose}
-            onKill={onKill}
-            onRedispatch={onRedispatch}
-            onClear={onClear}
-            onPausing={onPausing}
-            onCursor={onCursor}
-          />
         ) : (
-          <Dashboard
-            tab={tab}
+          <CommandCentral
+            filter={tab}
+            onFilter={setTab}
             state={state}
             now={now}
             picked={pickedRepository}
             nowViews={nowViews}
+            nows={nows}
+            onTell={onTell}
             onOpen={onOpen}
             onOpenSession={onOpenSession}
             onOpenLink={onOpenLink}
@@ -246,7 +218,9 @@ export function Overview({
             onCursor={onCursor}
           />
         )}
+        <KeySheet open={keys.sheet} onClose={keys.closeSheet} />
       </div>
+      </Nows.Provider>
     </Boundary>
   );
 }

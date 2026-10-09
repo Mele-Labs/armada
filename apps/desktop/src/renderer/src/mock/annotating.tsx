@@ -34,7 +34,7 @@ const note = (id: string, text: string, selector: string, tag: string, label: st
 
 const NOTES: Record<string, () => Annotation[]> = {
   "annotate-to-session": () => [
-    note("20261007-134802-aaaa", "The title is cut off in the row", ".armada-dtabs", "div", "DashboardTabs", "packages/surfaces/overview/src/DashboardTabs.tsx", { x: 300, y: 120, width: 900, height: 200 }),
+    note("20261007-134802-aaaa", "The title is cut off in the row", ".armada-view__band", "header", "Cockpit", "apps/desktop/src/renderer/src/cockpit/Cockpit.tsx", { x: 300, y: 120, width: 900, height: 200 }),
     note("20261007-134905-bbbb", "The rail has no room for a third group", 'nav[aria-label="Work"]', "nav", "Rail", "packages/shell/src/Rail.tsx", { x: 0, y: 0, width: 220, height: 800 }),
     // The later ones are on other screens, whose elements this Board does not draw.
     note("20261007-135100-cccc", "The ledger header wraps under the title", "#session-ledger-head", "header", "LedgerHead", "packages/surfaces/sessions/src/LedgerHead.tsx", { x: 900, y: 40, width: 400, height: 60 }, "Sessions"),
