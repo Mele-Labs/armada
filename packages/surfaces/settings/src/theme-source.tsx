@@ -1,0 +1,95 @@
+// Where Bridge's themes come from. The Settings Theme card, the Mods surface and the renderer's
+// loader all read this one interface, so a mock, a local default and Fleet's mod folder are
+// interchangeable behind it. Nothing here touches the document: applying a theme is the renderer's.
+
+import { createContext, useContext, useSyncExternalStore } from "react";
+
+/** Built in, drawn by `light.css` or by the tokens' own defaults. Anything else is a mod's name. */
+export const BUILT_IN_THEMES = ["dark", "light"] as const;
+const DARK = "dark";
+
+/** A theme a mod ships: its `theme.css`, one `[data-theme="<name>"]` block. */
+export type ThemeMod = { name: string; title: string; css: string; enabled: boolean; promoted: boolean };
+
+export type ThemeState = { mods: readonly ThemeMod[]; active: string };
+
+export interface ThemeSource {
+  get(): ThemeState;
+  subscribe(on: () => void): () => void;
+  /** Choose a theme by id. An id that is neither built in nor an enabled mod becomes Dark. */
+  setActive(id: string): void;
+}
+
+/** What the Mods surface adds: switching a mod on and off, and promoting it to a branch. */
+export interface ModsSource extends ThemeSource {
+  setEnabled(name: string, enabled: boolean): void;
+  promote(name: string): void;
+}
+
+const isBuiltIn = (id: string) => (BUILT_IN_THEMES as readonly string[]).includes(id);
+const usable = (state: ThemeState, id: string) => isBuiltIn(id) || state.mods.some((mod) => mod.name === id && mod.enabled);
+
+/**
+ * A source held in memory. The mock runs on it with mods; Bridge runs on it with none until Fleet
+ * serves the mod folder. **That is the seam**: a Fleet-backed `ModsSource` replaces this one in
+ * `main.tsx`, and nothing else changes.
+ */
+export function createThemeSource(initial: () => ThemeState = () => ({ mods: [], active: DARK })): ModsSource & {
+  /** A mod arriving, the way a Session writing one into the mod folder would. */
+  install(mod: ThemeMod): void;
+  reset(): void;
+} {
+  let held = initial();
+  const listeners = new Set<() => void>();
+  const set = (next: ThemeState) => {
+    held = usable(next, next.active) ? next : { ...next, active: DARK };
+    listeners.forEach((on) => on());
+  };
+  const edit = (name: string, change: Partial<ThemeMod>) => set({ ...held, mods: held.mods.map((mod) => (mod.name === name ? { ...mod, ...change } : mod)) });
+  return {
+    get: () => held,
+    subscribe: (on) => {
+      listeners.add(on);
+      return () => void listeners.delete(on);
+    },
+    setActive: (id) => set({ ...held, active: id }),
+    setEnabled: (name, enabled) => edit(name, { enabled }),
+    promote: (name) => edit(name, { promoted: true }),
+    install: (mod) => held.mods.some((one) => one.name === mod.name) || set({ ...held, mods: [...held.mods, mod] }),
+    reset: () => set(initial()),
+  };
+}
+
+/** The same source with every mod hidden: safe mode. Built-in themes still choose. */
+export function withoutMods(source: ModsSource): ModsSource {
+  let from: ThemeState | undefined;
+  let shown: ThemeState = { mods: [], active: DARK };
+  return {
+    get: () => {
+      const state = source.get();
+      if (state !== from) {
+        from = state;
+        shown = { mods: [], active: isBuiltIn(state.active) ? state.active : DARK };
+      }
+      return shown;
+    },
+    subscribe: (on) => source.subscribe(on),
+    setActive: (id) => {
+      if (isBuiltIn(id)) source.setActive(id);
+    },
+    setEnabled: () => undefined,
+    promote: () => undefined,
+  };
+}
+
+const LOCAL = createThemeSource();
+const ThemeSourceContext = createContext<ModsSource>(LOCAL);
+
+export const ThemeSourceProvider = ThemeSourceContext.Provider;
+
+/** The source in force, and its state as it stands. */
+export function useThemes(): ThemeState & { source: ModsSource } {
+  const source = useContext(ThemeSourceContext);
+  const state = useSyncExternalStore(source.subscribe, source.get);
+  return { ...state, source };
+}

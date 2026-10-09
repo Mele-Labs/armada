@@ -1,12 +1,12 @@
-// Mods on this machine: one row each, with the kind, whether it is on, and Promote. Mock data.
+// Mods on this machine: one row each, with the kind, whether it is on, and Promote.
 
 import { Palette, GitPullRequestArrow } from "lucide-react";
 import { Button, Card, CardContent, Switch, Tooltip } from "@armada/components";
 
-import { enableMod, promoteMod, useMods } from "./mods";
+import { useThemes } from "./theme-source";
 
 export function ModsSurface() {
-  const { mods } = useMods();
+  const { mods, source } = useThemes();
   return (
     <div className="armada-screen__pane">
       {mods.map((mod) => (
@@ -19,13 +19,13 @@ export function ModsSurface() {
                 </span>
               </Tooltip>
               <div style={{ flex: 1 }}>
-                <Switch checked={mod.enabled} onChange={(event) => enableMod(mod.name, event.target.checked)}>
+                <Switch checked={mod.enabled} onChange={(event) => source.setEnabled(mod.name, event.target.checked)}>
                   {mod.title}
                 </Switch>
                 {mod.promoted && <div style={{ color: "var(--fg-muted)", fontSize: 12 }}>Branch mods/{mod.name} pushed. Pull request open.</div>}
               </div>
               <Tooltip label={`Promote ${mod.title} to a branch and pull request`}>
-                <Button iconOnly variant="ghost" aria-label={`Promote ${mod.title}`} disabled={mod.promoted} onClick={() => promoteMod(mod.name)}>
+                <Button iconOnly variant="ghost" aria-label={`Promote ${mod.title}`} disabled={mod.promoted} onClick={() => source.promote(mod.name)}>
                   <GitPullRequestArrow size={16} />
                 </Button>
               </Tooltip>

@@ -12,6 +12,8 @@ import { App, WAITING } from "./App";
 import { Boundary } from "@armada/shell";
 import { HapticsProvider } from "@armada/components";
 import { WiredSessions } from "./sessions-wired";
+import { createThemeSource } from "@armada/settings";
+import { Themed } from "./theme";
 
 // Bridge's renderer entry point. No Node, no `require`, no socket — everything
 // it draws arrives through the preload from the one connection in the main
@@ -22,6 +24,12 @@ import { WiredSessions } from "./sessions-wired";
 // a boundary inside `App` cannot catch what `App` itself throws. `Root` holds
 // nothing but the path Bridge's log is at, so the fallback can still name it
 // when everything under it has gone.
+
+/**
+ * The themes this window offers. **The seam**: the Fleet-backed source that serves the mod folder
+ * replaces this one, and `Themed` and every surface under it read it unchanged.
+ */
+const THEMES = createThemeSource();
 
 /**
  * Who Bridge is, read once. The only state above the boundary, and the least
@@ -42,9 +50,11 @@ function Root() {
     >
       {/* Here rather than in `App`, which the mock mounts: only a real Bridge reaches a trackpad. */}
       <HapticsProvider perform={window.armada.tap}>
-        <WiredSessions>
-          <App />
-        </WiredSessions>
+        <Themed source={THEMES}>
+          <WiredSessions>
+            <App />
+          </WiredSessions>
+        </Themed>
       </HapticsProvider>
     </Boundary>
   );

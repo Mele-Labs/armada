@@ -260,7 +260,10 @@ function createWindow(): BrowserWindow {
   // injects an inline module preamble in dev and `default-src 'self'` refuses
   // it. Relaxing the CSP is a security review rather than a local convenience,
   // so the build is what moves. Reported.
-  void window.loadFile(join(__dirname, "../renderer/index.html"));
+  //
+  // **`--no-mods` is safe mode**: the renderer reads `?nomods` and loads without any mod's theme.
+  // A query on the page, so the preload surface gains nothing.
+  void window.loadFile(join(__dirname, "../renderer/index.html"), process.argv.includes("--no-mods") ? { query: { nomods: "1" } } : {});
   return window;
 }
 
