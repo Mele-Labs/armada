@@ -400,6 +400,10 @@ test("a dismissed call stays gone across a remount, and the same pull request fa
   checks("passed");
   await expect.poll(() => localStorage.getItem("armada.bridge.dismissed-calls")).toBe("[]");
   checks("failed");
+  // Wait for it to be called, in front or behind, before cycling the deck to it.
+  await expect
+    .poll(() => page.getByRole("region", { name: /^Pull request: #1823/ }).query() !== null || page.getByRole("button", { name: /^Pull request: #1823/ }).query() !== null, { timeout: 5000 })
+    .toBe(true);
   await reach(/^Pull request: #1823/);
 });
 
