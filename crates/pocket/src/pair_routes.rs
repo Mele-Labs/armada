@@ -55,9 +55,15 @@ pub async fn start(State(gateway): State<Gateway>) -> Response {
     }
 }
 
+/// What a claim answers: the id the phone signs as once the owner confirms.
+#[derive(Serialize)]
+pub struct Claimed {
+    pub device_id: String,
+}
+
 pub async fn claim(State(gateway): State<Gateway>, Json(claim): Json<Claim>) -> Response {
     match gateway.pairing.claim(&claim.code, &claim.name, &claim.spki_hex) {
-        Ok(()) => StatusCode::ACCEPTED.into_response(),
+        Ok(device_id) => (StatusCode::ACCEPTED, Json(Claimed { device_id })).into_response(),
         Err(PairRefused::TooMany) => {
             (StatusCode::TOO_MANY_REQUESTS, "Too many tries. Wait a minute, then try again.").into_response()
         }
@@ -66,6 +72,9 @@ pub async fn claim(State(gateway): State<Gateway>, Json(claim): Json<Claim>) -> 
         }
         Err(PairRefused::BadKey) => (StatusCode::BAD_REQUEST, "The phone's key could not be read.").into_response(),
         Err(PairRefused::NoName) => (StatusCode::BAD_REQUEST, "The phone needs a name.").into_response(),
+        Err(PairRefused::NoId(_)) => {
+            (StatusCode::SERVICE_UNAVAILABLE, "The Mac could not make an id for this phone. Try again.").into_response()
+        }
     }
 }
 

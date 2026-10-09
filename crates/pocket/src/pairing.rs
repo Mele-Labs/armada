@@ -25,6 +25,8 @@ struct Code {
 }
 
 struct Claim {
+    /// Chosen here rather than at Confirm, so the phone knows what to sign as.
+    id: String,
     name: String,
     public_key: Vec<u8>,
     at: i64,
@@ -43,6 +45,7 @@ pub enum PairRefused {
     BadCode,
     BadKey,
     NoName,
+    NoId(String),
 }
 
 pub enum ConfirmRefused {
@@ -80,8 +83,9 @@ impl Pairing {
         Ok((code, address, now + CODE_TTL))
     }
 
-    /// A phone presents the code. Held until the owner confirms.
-    pub fn claim(&self, code: &str, name: &str, spki_hex: &str) -> Result<(), PairRefused> {
+    /// A phone presents the code, and learns the id it will sign as. Held until
+    /// the owner confirms; the id signs nothing before then.
+    pub fn claim(&self, code: &str, name: &str, spki_hex: &str) -> Result<String, PairRefused> {
         let now = (self.clock)();
         let mut memory = self.memory.lock().unwrap();
         memory.pair_attempts.retain(|t| *t > now - 60);
@@ -97,8 +101,9 @@ impl Pairing {
         }
         match memory.codes.get_mut(code) {
             Some(c) if c.expires > now && c.claimed.is_none() => {
-                c.claimed = Some(Claim { name: name.to_string(), public_key, at: now });
-                Ok(())
+                let id = random_hex().map_err(PairRefused::NoId)?;
+                c.claimed = Some(Claim { id: id.clone(), name: name.to_string(), public_key, at: now });
+                Ok(id)
             }
             _ => Err(PairRefused::BadCode),
         }
@@ -131,9 +136,8 @@ impl Pairing {
             return Err(ConfirmRefused::NotClaimed);
         }
         let claim = memory.codes.remove(code).and_then(|c| c.claimed).unwrap();
-        let id = random_hex().map_err(ConfirmRefused::Store)?;
         let device = Device {
-            id,
+            id: claim.id,
             name: claim.name,
             public_key: claim.public_key,
             created_at: now,
