@@ -11,6 +11,7 @@ that goes in the comment. Nobody carries a zip.
 |---|---|
 | `src/styles.css` | The cascade. The import order is load-bearing and is the only place it is declared |
 | `src/*.css` | The tokens, and the argument for each value |
+| `src/light.css` | The Light baseline: one `[data-theme="light"]` block redefining semantic tokens. Listed in `styles.css`, concatenated into `tokens.css`, and no token of its own: it may only override one an earlier file declares |
 | `src/base.css` | **Not a token file** — it consumes tokens and declares none. Excluded from the generator |
 | `tokens.css` | Generated. The cascade, concatenated, comments intact |
 | `tokens.json` | Generated. Every token, its source and its note. Read by the primitive spec test |

@@ -5,6 +5,16 @@ html {
   text-size-adjust: 100%;
 }
 
+html[data-theme="light"] { color-scheme: light; }
+
+/* A themed element below the root, a story's wrapper or a preview, paints the
+   theme's ground and text itself; the root's are `body`'s, below. */
+[data-theme]:not(html) {
+  background: var(--bg-base);
+  color: var(--fg-default);
+}
+[data-theme="light"]:not(html) { color-scheme: light; }
+
 body {
   margin: 0;
   /* The canvas under Depth: --bg-base with a faint pool of accent light on the
