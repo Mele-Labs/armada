@@ -62,7 +62,8 @@ pub fn router(gateway: Gateway) -> Router {
 
     // Issues 1995, 1996, 2001, 2004 and 2006 fill these in.
     Router::new()
-        .route("/pair", post(pair_routes::claim))
+        // GET is the app's own Pair page, which Bridge's QR opens; POST is the claim.
+        .route("/pair", get(stat::serve).post(pair_routes::claim))
         .route("/api/needs", get(reads::needs))
         .route("/api/jobs", get(reads::jobs).post(later))
         .route("/api/jobs/:id", get(reads::job))

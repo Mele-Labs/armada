@@ -158,3 +158,17 @@ async fn admin_is_refused_when_a_web_page_sent_the_request() {
         );
     }
 }
+
+#[tokio::test]
+async fn the_pair_page_is_the_apps_own() {
+    let dir = std::env::temp_dir().join(format!("pocket-pair-page-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("index.html"), "<html>app</html>").unwrap();
+    let mut gateway = gateway();
+    gateway.assets = Some(dir);
+    let answer = router(gateway)
+        .oneshot(Request::builder().method(Method::GET).uri("/pair?code=abc").body(Body::empty()).unwrap())
+        .await
+        .unwrap();
+    assert_eq!(answer.status(), StatusCode::OK);
+}
