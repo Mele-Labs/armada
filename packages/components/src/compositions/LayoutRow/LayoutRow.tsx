@@ -7,8 +7,8 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 
 /**
  * One tab, panel or rail row a layout arranges: its glyph, a switch for whether it is drawn, and
- * the two moves. **A row that cannot be hidden keeps its switch on and off to the touch**, and a row
- * a mod hid carries the puzzle with the mod's name on hover. Nothing is said where nothing is wrong.
+ * the two moves. **A row that cannot be hidden has no switch**, only its name with `Always shown` on
+ * hover, and a row a mod hid carries the puzzle with the mod's name on hover. Nothing else is said.
  */
 export type LayoutRowProps = {
   label: string;
@@ -31,9 +31,15 @@ export function LayoutRow({ label, icon: Icon, visible, hideable, onVisible, hid
         <Icon size={16} aria-hidden="true" />
       </span>
       <div className="armada-layout-row__switch">
-        <Switch checked={visible} disabled={!hideable} onChange={(event) => onVisible(event.target.checked)}>
-          {label}
-        </Switch>
+        {hideable ? (
+          <Switch checked={visible} onChange={(event) => onVisible(event.target.checked)}>
+            {label}
+          </Switch>
+        ) : (
+          <Tooltip label="Always shown">
+            <span className="armada-layout-row__fixed">{label}</span>
+          </Tooltip>
+        )}
       </div>
       {hiddenBy === undefined ? null : (
         <Tooltip label={hiddenBy}>

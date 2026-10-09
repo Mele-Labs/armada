@@ -67,6 +67,8 @@ function build(): Scenario {
             text: first ? "Merge line is first on the Dashboard. Retros is off the rail." : "In a Job, Record is before Plan and Pulse is hidden. Jobs open on Plan.",
           });
           writeTidy(first ? TIDY_DASHBOARD : TIDY_JOB);
+          // The turn is over, so the next request can be sent.
+          fake.changed(hosted(SESSION, { title: "A layout", attachments: [held("slot", "3")] }));
           return sent;
         },
       };

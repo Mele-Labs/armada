@@ -17,11 +17,15 @@
   min-width: 0;
 }
 
+.armada-layout-row__fixed {
+  color: var(--fg-default);
+}
+
 /* Settings → Layout: a caption over each region's rows. */
 .armada-layout-settings {
   display: flex;
   flex-direction: column;
-  gap: var(--space-5);
+  gap: var(--space-6);
 }
 
 .armada-layout-settings__region {

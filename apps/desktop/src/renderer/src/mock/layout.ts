@@ -8,6 +8,9 @@ import type { LayoutMod } from "@armada/shell";
 /** No mods, nothing chosen: where every mock window starts. */
 export const mockLayout = createLayoutSource();
 
+/** Safe mode, `?nomods`: no layout mod is read, so every window draws the shipped layout. */
+export const NO_LAYOUT_MODS = createLayoutSource();
+
 /** What the first request writes: the merge line above the fleet, and Retros off the rail. */
 export const TIDY_DASHBOARD = `{
   "version": 1,

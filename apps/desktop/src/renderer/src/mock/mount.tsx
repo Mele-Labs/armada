@@ -16,12 +16,13 @@ import { App } from "../App";
 import { DraftedFrom } from "../drafted";
 import { SessionsFrom } from "../sessions-draft";
 import { WiredSessions } from "../sessions-wired";
+import { skipsMods } from "../theme-loader";
 import { Themed } from "../theme";
 import { mountAnnotating } from "./annotating";
 import { fakeBridge, heldSessions, liveDraft } from "./fake";
 import type { FakeOptions, LiveDraft } from "./fake";
 import { scenarioNamed } from "./scenario";
-import { mockLayout } from "./layout";
+import { mockLayout, NO_LAYOUT_MODS } from "./layout";
 import { mockThemes } from "./themes";
 import type { Scenario } from "./scenario";
 
@@ -111,7 +112,7 @@ export function mountApp(
               is what a composer reads before a Job exists; the prop is what a
               Job's own boards read. */}
           <Themed source={mockThemes}>
-            <LayoutSourceProvider value={mockLayout}>
+            <LayoutSourceProvider value={skipsMods() ? NO_LAYOUT_MODS : mockLayout}>
               <SessionsHere held={heldSessions(api)}>
                 <Drafted draft={liveDraft(api) ?? HELD(chosen.draft)} />
               </SessionsHere>

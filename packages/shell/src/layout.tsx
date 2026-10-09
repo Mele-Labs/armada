@@ -297,9 +297,9 @@ export function useLayouts(): LayoutState & { source: LayoutSource } {
   return { ...state, source };
 }
 
-/** The layers in force, lowest first: each mod that is on and passes, then the owner's own. */
+/** The layers in force, lowest first: each mod that is on and passes, by name, then the owner's own. */
 export function layersOf(state: LayoutState): Layer[] {
-  return [...state.mods.filter((mod) => mod.enabled && mod.problem === undefined).map((mod) => ({ by: mod.title, file: mod.file })), { by: "You", file: state.own }];
+  return [...state.mods.filter((mod) => mod.enabled && mod.problem === undefined).sort((a, b) => a.name.localeCompare(b.name)).map((mod) => ({ by: mod.title, file: mod.file })), { by: "You", file: state.own }];
 }
 
 /** One region as it is to be drawn. */
