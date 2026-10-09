@@ -198,6 +198,20 @@ Fleet on its own (`apps/desktop/src/main/socket.ts`). Reopening is a second,
 separate launchd job for the same reason Fleet's is one: the window has to
 outlive the session that asked for it.
 
+**The Phone Gateway is a third launchd job, `com.armada.pocket`, and it is
+opt-in.** `armada pocket --assets apps/pocket/dist` runs under `KeepAlive` and
+`RunAtLoad`, so a reboot or a closed terminal no longer takes the phone
+offline. Turn it on once with `touch "$HOME/Library/Application Support/Armada/pocket"`;
+with no such file `scripts/restart` writes and starts nothing, so nobody who never
+set up a phone gets a Gateway. Delete the file and boot the job out
+(`launchctl bootout gui/$(id -u)/com.armada.pocket`) to turn it off. When the
+file exists the restart also builds `apps/pocket` if it or `packages/` moved
+since its last build (`pnpm -C apps/pocket build`, or `exec vite build` while the
+package has no `build` script), then boots the job out and back in, so the
+Gateway serves the tree it was restarted onto. Stop a Gateway started by hand
+first: it holds the port. Logs: `~/Library/Logs/Armada/com.armada.pocket.log`.
+Under `ARMADA_FLEET_LABEL` the job is `<label>.pocket`.
+
 **Never on an allow list.** `.claude/skills/restart-app/SKILL.md` is when an
 agent reaches for it and what to tell the owner first — the confirmation is
 Claude Code's own permission prompt, not a flag this script reads.

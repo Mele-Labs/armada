@@ -464,6 +464,30 @@ class RestartAdopt(unittest.TestCase):
         code, passed, said = self.plain_restart("--dry-run")
         self.assertIsNone(passed, said)
 
+    def test_the_gateway_is_written_only_when_the_owner_opted_in(self):
+        self.fleet({})
+        code, said = self.restart("--dry-run")
+        self.assertEqual(code, 0, said)
+        self.assertIn("would not run the Phone Gateway", said)
+        self.assertNotIn("com.armada.pocket", said)
+        open(os.path.join(self.support, "pocket"), "w").close()
+        code, said = self.restart("--dry-run")
+        self.assertEqual(code, 0, said)
+        self.assertIn("com.armada.pocket.plist", said)
+        self.assertIn("<string>pocket</string>", said)
+        self.assertIn(os.path.join(self.tree, "apps", "pocket", "dist"), said)
+        self.assertIn("pnpm -C apps/pocket", said)
+
+    def test_a_label_override_gives_the_gateway_its_own_label(self):
+        self.fleet({})
+        open(os.path.join(self.support, "pocket"), "w").close()
+        env = dict(os.environ, HOME=self.home, ARMADA_FLEET_LABEL="com.armada.test",
+                   PATH=self.bin + os.pathsep + os.environ["PATH"])
+        script = scratch_root(self.dir, MIGRATIONS)
+        done = subprocess.run([script, "--from", self.tree, "--dry-run"], env=env, capture_output=True, text=True)
+        self.assertIn("com.armada.test.pocket.plist", done.stdout + done.stderr)
+        self.assertNotIn("com.armada.pocket", done.stdout + done.stderr)
+
     def test_a_working_drone_refuses_without_adopt(self):
         self.fleet({"j1": "running", "j2": "escalated"})
         code, said = self.restart()
