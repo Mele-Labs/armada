@@ -417,16 +417,16 @@ function lineItems(state: BridgeState, tab: DashboardTab, hosts: Hosts, rehearse
         });
       }
     }
-    const entries = tab === "running" ? view.line : tab === "done" ? view.landed : [];
-    for (const entry of entries) {
+    // Done is Jobs and Sessions; what landed is the merge line's, not an item.
+    for (const entry of tab === "running" ? view.line : []) {
       items.push({
         key: `line:${view.root}:${entry.branch}`,
         icon: GitMerge,
-        kind: tab === "running" ? "In the merge line" : "Landed",
+        kind: "In the merge line",
         title: entry.job?.title ?? entry.branch,
-        fact: tab === "running" ? `${entry.place === undefined ? "" : `#${entry.place} · `}${worded(entry.state)}` : "landed",
-        hue: tab === "running" ? "running" : "ok",
-        live: tab === "running" && (entry.state === "gating" || entry.state === "merging" || entry.state === "preparing"),
+        fact: `${entry.place === undefined ? "" : `#${entry.place} · `}${worded(entry.state)}`,
+        hue: "running",
+        live: entry.state === "gating" || entry.state === "merging" || entry.state === "preparing",
         where,
         body: [["Branch", entry.branch], ...(entry.pr === undefined ? [] : [["Pull request", `#${entry.pr.number}`] as const])],
         acts: () =>

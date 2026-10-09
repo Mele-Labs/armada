@@ -36,6 +36,8 @@ export type Step =
   | { later: Target; say: string }
   /** Typed into a field; words ending in a newline end with Enter. */
   | { type: string; into: Target; say: string }
+  /** A key pressed on a target as the keyboard sends one: "n", "Tab", or "Meta+n" for a chord. */
+  | { key: string; on: Target; say: string }
   /** A screenshot pasted into a field, as a browser hands one over: a paste event carrying a PNG. */
   | { paste: Target; say: string }
   /** Picked up by its middle and put down `by` this far away, in screen pixels — a node on a canvas. */
@@ -90,6 +92,7 @@ export function inside(scope: Target, target: Target): Target {
 /** Where a step points: what it presses, looks at, or types into. */
 export function targetOf(step: Step): Target {
   if ("hover" in step) return step.hover;
+  if ("key" in step) return step.on;
   if ("later" in step) return step.later;
   if ("paste" in step) return step.paste;
   return "press" in step ? step.press : "look" in step ? step.look : "drag" in step ? step.drag : step.into;
@@ -98,6 +101,7 @@ export function targetOf(step: Step): Target {
 /** What the step does, said plainly for a stop. */
 function verb(step: Step): string {
   if ("hover" in step) return "hover over";
+  if ("key" in step) return "press a key on";
   if ("later" in step) return "look at";
   if ("paste" in step) return "paste into";
   return "press" in step ? "press" : "look" in step ? "look at" : "drag" in step ? "drag" : "type into";
@@ -346,9 +350,20 @@ function pasteScreenshot(element: HTMLElement): void {
   }, "image/png");
 }
 
+/** A key pressed on `element`: keydown only, with the modifiers a chord such as "Meta+n" names. */
+function pressKey(element: HTMLElement, chord: string): void {
+  const parts = chord.split("+");
+  const key = parts.pop()!;
+  const has = (name: string) => parts.includes(name);
+  element.dispatchEvent(
+    new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true, composed: true, metaKey: has("Meta"), ctrlKey: has("Control"), altKey: has("Alt"), shiftKey: has("Shift") }),
+  );
+}
+
 /** What the step does to its target when the walk moves past it. A look does nothing; a hover lets go. */
 export function act(step: Step, element: HTMLElement): void {
   if ("hover" in step) pointerOver(element, false);
+  else if ("key" in step) pressKey(element, step.key);
   else if ("later" in step) timePasses();
   else if ("press" in step) press(element);
   else if ("drag" in step) drag(element, step.by);

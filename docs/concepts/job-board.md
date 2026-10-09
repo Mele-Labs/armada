@@ -20,7 +20,7 @@ The owner: *"Overview now supersedes the job board. We should delete this page."
 
 The owner asked for a live view of what needs him now, with quick dispatch when nothing does. Overview's panels became three tabs, Command Central, Running and Done, and Jobs, Sessions and merge line items each sort into one of them. A tab carries no count.
 
-**Command Central** is a queue of what needs him, with the item picked opened beside it and answered there. **Running** is every live Job as a lane of its workflow's steps, with Sessions beside them and the merge line as a strip under them. **Done** is what is over. A slim dispatch bar sits over every tab and takes the cursor when nothing needs him.
+**Command Central** is a queue of what needs him, with the item picked opened beside it and answered there. **Running** is every live Job as a lane of its workflow's steps, with Sessions beside them and the merge line as a strip under them. **Done** is the Jobs and Sessions that are over; what landed stays on the merge line. A slim dispatch bar sits over every tab and takes the cursor when nothing needs him. `n`, or `⌘N` from anywhere, brings the cursor to it, and a Job or a Session is chosen beside it, Tab switching between them.
 
 **The row's acts and marks moved into the pane beside the list.** Pilot, Open in a Session, Pause, Kill, Redispatch and Clear are the same control a Board row drew (`JobActs`), and the paused, fixing-main, alert and piloted marks sit beside the title (`JobMarks`). The Board's keys work on whichever list is in front: j and k move, Enter or the row's verb key opens, and x asks to kill. n composes.
 

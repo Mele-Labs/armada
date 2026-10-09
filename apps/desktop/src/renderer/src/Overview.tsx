@@ -13,15 +13,15 @@ import type { CallView } from "@armada/jobs/draft/calls";
 import type { BoardSection, PauseAct } from "@armada/screens";
 import { DashboardTabs, OverviewLists, overviewListsOf, dashboardTabOf, overviewPanelId } from "@armada/overview";
 import { Boundary } from "@armada/shell";
-import { boardPressOf } from "@armada/screens/src/keys";
-import { useListKeydown } from "@armada/screens/src/list-keyboard";
 
 import type { BridgeState } from "../../shared/bridge";
 import { Dashboard, useNeedsYou } from "./Dashboard";
 import { CommandCentral } from "./CommandCentral";
 import { proposeRequest } from "./dispatch";
 import { FleetBoard } from "./FleetBoard";
-import { QuickDispatch } from "./QuickDispatch";
+import { QuickDispatch, useDispatchBarDrawn } from "./QuickDispatch";
+
+export { useDispatchBarKeys } from "./QuickDispatch";
 import { usePanelOpen } from "./panel-open";
 import { useDashboardTab } from "./remembered-views";
 
@@ -148,14 +148,6 @@ export function Overview({
     panel.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "start" });
   }, [jump]);
 
-  // n composes from anywhere on the Dashboard, as it did from the Board's lists.
-  // Where Fleet cannot be reached the Board's own lists draw, and bind n themselves.
-  useListKeydown((event) => {
-    if (fault || boardPressOf(event)?.act !== "compose") return;
-    event.preventDefault();
-    onCompose();
-  });
-
   // A Drone sent at a failing pull request is a request on the approval gate, as the composer's.
   const propose = (request: string) => void proposeRequest(request, [], state.repository);
 
@@ -163,11 +155,13 @@ export function Overview({
   const needsYou = useNeedsYou(state, pickedRepository, nowViews);
   // Fleet unreachable, still starting, or nothing served: the lists say so, as they always did.
   const fault = disconnected !== null || state.connection.state === "starting" || repositories.length === 0;
+  useDispatchBarDrawn(!fault);
 
   return (
     <Boundary region="the overview" {...guarded}>
       <div className="armada-screen__overview">
-        {fault ? null : <QuickDispatch onType={onQuickCompose} focused={!needsYou} />}
+        {/* n and ⌘N reach the bar from every surface (`useDispatchBarKeys`). Where Fleet cannot be reached the Board's own lists draw, and bind n themselves. */}
+        {fault ? null : <QuickDispatch onType={onQuickCompose} focused={!needsYou} onOpenSession={onOpenSession} />}
         <DashboardTabs tab={tab} onTab={setTab} asking={needsYou} running={overviewListsOf(state.jobs, pickedRepository).sections.some((one) => one.id === "running" && one.jobs.length > 0)} />
         {fault ? (
           <OverviewLists

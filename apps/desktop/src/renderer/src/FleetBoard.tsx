@@ -4,8 +4,8 @@
 // drawn alone. Mock only, as the Dashboard is.
 
 import { useMemo, useState, type KeyboardEvent } from "react";
-import { GitMerge, SquareTerminal } from "lucide-react";
-import { SettlingMark, Tooltip } from "@armada/components";
+import { CircleDashed, GitMerge, LoaderCircle, SquareTerminal } from "lucide-react";
+import { SessionMark, SettlingMark, Tooltip, type SessionState } from "@armada/components";
 import type { JobSummary, RepositorySummary } from "@armada/protocol";
 import type { CallView } from "@armada/jobs/draft/calls";
 import { overviewListsOf } from "@armada/overview";
@@ -16,6 +16,7 @@ import { titleOf } from "@armada/screens";
 import { onListKey, useBoardKeys, useCursor, useItems, type Hosts, type Item } from "./Dashboard";
 import { viewsOf } from "./merge-line";
 import { useSessions } from "./sessions-draft";
+import type { Session } from "@armada/screens/src/draft/sessions";
 
 type Lane = {
   key: string;
@@ -31,7 +32,15 @@ type Lane = {
   job?: JobSummary;
   /** A Job the proposer is still writing, with no workflow settled: its rail is a caret. */
   settling?: boolean;
+  /** What a Session is doing, where the lane is one. */
+  session?: { state: SessionState; said: string };
 };
+
+/** A Session's state as its own page marks it. */
+function sessionStateOf(session: Session): { state: SessionState; said: string } {
+  if (session.turn.state === "working") return { state: "working", said: "Working" };
+  return session.asked === undefined ? { state: "idle", said: "Idle" } : { state: "waiting", said: "Waiting on a command" };
+}
 
 function lanesOf(
   jobs: readonly JobSummary[],
@@ -58,9 +67,64 @@ function lanesOf(
       line: last?.kind === "message" ? last.text : undefined,
       call: callOf(`session:${session.id}`),
       icon: SquareTerminal,
+      session: sessionStateOf(session),
     });
   }
   return lanes;
+}
+
+/** The lane's one live-state mark, at the head of its first line: a Session's own, or the Job's. */
+function LaneMark({ lane, item }: { lane: Lane; item: Item | undefined }) {
+  if (lane.call === undefined && lane.session !== undefined) return <SessionMark state={lane.session.state} said={lane.session.said} />;
+  const Icon = lane.call?.icon ?? (item?.live === true ? LoaderCircle : (item?.icon ?? CircleDashed));
+  const said = lane.call?.kind ?? item?.kind ?? lane.job?.status ?? "Unknown";
+  return (
+    <Tooltip label={said}>
+      <span className="armada-lane__mark" role="img" aria-label={said} data-live={(lane.call === undefined && item?.live === true) || undefined} data-asking={lane.call !== undefined || undefined}>
+        <Icon size={16} aria-hidden="true" />
+      </span>
+    </Tooltip>
+  );
+}
+
+/** A lane in the list beside the pane: mark, title and its pips on one line, the preview under the title. */
+function CompactLane({ lane, item, selected, onPick }: { lane: Lane; item: Item | undefined; selected: boolean; onPick: (key: string) => void }) {
+  const hue = lane.call?.hue ?? item?.hue ?? "running";
+  const pips = lane.steps;
+  return (
+    <li
+      className="armada-lane"
+      data-compact=""
+      data-job-id={lane.job?.id}
+      data-status={lane.job?.status}
+      data-hue={hue}
+      data-focused={selected || undefined}
+      data-pickable=""
+      role="option"
+      aria-label={`${lane.title}, ${lane.icon === undefined ? "Job" : "Session"}`}
+      aria-selected={selected}
+      onClick={() => onPick(lane.key)}
+    >
+      <LaneMark lane={lane} item={item} />
+      <span className="armada-lane__title">{lane.title}</span>
+      {lane.icon !== undefined ? (
+        <Tooltip label="Session">
+          <span className="armada-lane__kind"><SquareTerminal size={14} aria-hidden="true" /></span>
+        </Tooltip>
+      ) : lane.settling === true || pips.length === 0 ? null : (
+        <ol className="armada-lane__pips" aria-label={`${lane.title}, steps`}>
+          {pips.map((step, index) => (
+            <li key={step.id} className="armada-lane__step" data-pip={index < lane.at ? "done" : index === lane.at ? (lane.call === undefined ? "live" : "beacon") : "ahead"}>
+              <Tooltip label={step.label}>
+                <span className="armada-lane__pip" role="img" aria-label={step.label} />
+              </Tooltip>
+            </li>
+          ))}
+        </ol>
+      )}
+      {lane.line === undefined ? null : <span className="armada-lane__line">{lane.line}</span>}
+    </li>
+  );
 }
 
 /** One lane: its steps as named pips on a rail, the current one live, or a beacon where it needs the owner. */
@@ -188,9 +252,13 @@ export function FleetBoard({
     <div className="armada-board" data-pane={pane || undefined}>
       <section className="armada-deck__fleet" aria-label="Fleet">
         <ul className="armada-deck__lanes" role={pane ? "listbox" : undefined} aria-label={pane ? "Lanes" : undefined} tabIndex={pane ? 0 : undefined} onKeyDown={pane ? move : undefined}>
-          {lanes.map((lane) => (
-            <LaneRow key={lane.key} lane={lane} selected={pane && lane.key === current?.key} onPick={pane ? setSelected : undefined} />
-          ))}
+          {lanes.map((lane) =>
+            pane ? (
+              <CompactLane key={lane.key} lane={lane} item={running.find((one) => one.key === lane.key || one.owner === lane.key)} selected={lane.key === current?.key} onPick={setSelected} />
+            ) : (
+              <LaneRow key={lane.key} lane={lane} selected={false} />
+            ),
+          )}
         </ul>
         <Conveyor state={state} />
       </section>

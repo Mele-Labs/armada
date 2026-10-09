@@ -43,7 +43,7 @@ import { useEscapeLeavesJob, useNow, useReturnToRow, useSummoned } from "./app-e
 import { aJobAct, ConfirmAct, type Confirming } from "./ConfirmAct";
 import { PaletteMount } from "./PaletteMount";
 import { FLEET_DOWN } from "./palette";
-import { Overview } from "./Overview";
+import { Overview, useDispatchBarKeys } from "./Overview";
 import { CaptureLayer, type CaptureAim } from "./capture/Layer";
 import { StudiosSurface } from "./StudiosSurface";
 import type { SketchOpening } from "@armada/screens/src/draft/sketch";
@@ -332,7 +332,7 @@ export function App({ draft }: AppProps = {}) {
   // `⌘1`…`⌘n`, the binding the contract publishes and nothing answered until
   // the Manifest surface needed `⌘5`. One roster, read by the rail, the
   // palette and now the keyboard.
-  useSurfaceKeys(goTo);
+  useSurfaceKeys(goTo); useDispatchBarKeys(() => goTo(SURFACE.overview)); // `n` and ⌘N: the Dashboard's dispatch bar.
 
   // What this repository's Manifest declares, held open while the surface that
   // draws it is showing, **the palette is up** or a Studio is open, whose Run
