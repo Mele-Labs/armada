@@ -389,7 +389,7 @@ export function OverviewBoard({
               sketchView={sketchView}
               onSketchView={setChosen}
               thread={thread}
-              edits={marked}
+              {...(Object.keys(marked).length === 0 ? {} : { edits: marked })}
             />
           )}
         </div>

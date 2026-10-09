@@ -576,7 +576,9 @@ function PlanAsk({ ask, onSketch, onAsker, edits }: { ask: NowPlanAsk; onSketch:
           disabled={picked === undefined || sent}
           onClick={() => {
             setSent(true);
-            ask.onAnswer(picks, edits);
+            // A caller with nothing marked sees the one-argument call it always has.
+            if (edits === undefined) ask.onAnswer(picks);
+            else ask.onAnswer(picks, edits);
           }}
         >
           Answer
