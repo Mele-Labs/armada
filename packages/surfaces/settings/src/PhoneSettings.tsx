@@ -25,7 +25,7 @@ function useNow(every: number): number {
   return now;
 }
 
-export function PhoneSettings() {
+export function PhoneSettings({ onCopied }: { onCopied?: (value: string) => void }) {
   const phone = usePhone();
   const now = useNow(1000);
   if (phone === null) return null;
@@ -50,6 +50,7 @@ export function PhoneSettings() {
       onPair={() => source.pair()}
       onConfirm={() => source.confirm()}
       onUnpair={(id) => source.unpair(id)}
+      {...(onCopied === undefined ? {} : { onCopied })}
     />
       </CardContent>
     </Card>

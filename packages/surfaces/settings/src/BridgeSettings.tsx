@@ -55,6 +55,8 @@ export type BridgeSettingsProps = {
   onSavePreference?: (save: SavePreference) => Promise<Outcome>;
   /** Opens the guide catalogue. Navigation is the window's, so it arrives as a prop. */
   onReadGuides?: () => void;
+  /** A clipboard write is silent, so the window confirms it. */
+  onCopied?: (value: string) => void;
 };
 
 /** "Acting"/"Read-only", as `this machine` reads it — or absent, before `health` has answered. */
@@ -65,7 +67,7 @@ export function helmActionAuthorityValue(health: HealthRead): string | undefined
 
 const WORDS: Record<HelmActionAuthority, string> = { acting: "Acting", read_only: "Read-only" };
 
-export function BridgeSettings({ limits, live, health, onSave, preferences, onSavePreference, onReadGuides }: BridgeSettingsProps) {
+export function BridgeSettings({ limits, live, health, onSave, preferences, onSavePreference, onReadGuides, onCopied }: BridgeSettingsProps) {
   return (
     <div className="armada-screen__pane">
       {/* Before Fleet answers there is nothing to draw: no heading over nothing. */}
@@ -101,7 +103,7 @@ export function BridgeSettings({ limits, live, health, onSave, preferences, onSa
         </CardContent>
       </Card>
 
-      <PhoneSettings />
+      <PhoneSettings {...(onCopied === undefined ? {} : { onCopied })} />
 
       <Card>
         <CardHeader>
