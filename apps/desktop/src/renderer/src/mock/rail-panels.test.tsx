@@ -1,7 +1,7 @@
 // The rail as two panels — the owner, 28 Sep 2026:
 //
 // *"We should split this into two panels. Not sure the name of the first one,
-// but its about jobs and studios. It should contain Overview, Studios, Cleanup.
+// but its about jobs and studios. It should contain the Cockpit, Studios, Cleanup.
 // The second one should contain Kit, Settings, Guides."*
 //
 // Through `App`, because the claim is about what the column draws and in what
@@ -36,12 +36,12 @@ test("Machine holds Kit, Settings and Guides, in that order, with Mods between K
   expect(rowsOf("Machine")).toEqual(["Kit", "Mods", "Settings", "Guides", "Workflows"]);
 });
 
-test("Work holds the jobs-and-studios rows, Overview first", async () => {
+test("Work holds the jobs-and-studios rows, Cockpit first", async () => {
   mount("every-state");
   await onScreen();
 
   // Exactly the owner's list. The Job Board row went with the page.
-  expect(rowsOf("Work")).toEqual(["Overview", "Studios", "Worktree Slots", "Retros", "Checks"]);
+  expect(rowsOf("Work")).toEqual(["Cockpit", "Studios", "Worktree Slots", "Retros", "Checks"]);
 });
 
 test("Manifest has left the rail, and the control beside the picker still opens it", async () => {

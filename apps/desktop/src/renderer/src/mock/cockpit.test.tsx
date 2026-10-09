@@ -199,7 +199,7 @@ test("a pull request that a Session or a Job already owns sends him to the owner
   expect(radio(/Send a Drone/).query()).toBeNull();
 });
 
-test("main's red goes to the Job that broke it, and Enter opens that Job", async () => {
+test("main's red goes to the Job that broke it: 1 opens it, 2 pokes it", async () => {
   localStorage.removeItem(FILTER);
   mount("dashboard-needs-you");
   await onScreen();
@@ -207,6 +207,8 @@ test("main's red goes to the Job that broke it, and Enter opens that Job", async
   await reach(/^Main/);
   await expect.element(radio(/Open the Job/)).toBeVisible();
   expect(radio(/Hand to a Job/).query()).toBeNull();
+  await expect.element(radio(/Poke/)).toBeVisible();
+  await userEvent.keyboard("1");
   await userEvent.keyboard("{Enter}");
   // The Job opens: the Dashboard's filters are no longer drawn.
   await expect.poll(() => page.getByRole("tab", { name: "Your move" }).query()).toBeNull();
