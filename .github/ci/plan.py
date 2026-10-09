@@ -29,10 +29,10 @@ DESKTOP = {"apps/desktop/unit:desktop_test"}
 RUST = {"apps/desktop:xtask_test"}
 
 # Workspace Checks by name that the Linux matrix job runs.
-MATRIX = {"typecheck", "bridge_build", "storybook", "components_test", "screens_test", "test"}
+MATRIX = {"typecheck", "bridge_build", "storybook", "components_test", "screens_test", "pocket_test", "test"}
 
 # Of those, the ones that never open a browser.
-NO_BROWSER = {"typecheck", "bridge_build"}
+NO_BROWSER = {"typecheck", "bridge_build", "pocket_test"}
 
 # Keys CI deliberately does not run, and why.
 EXCLUDED = {}

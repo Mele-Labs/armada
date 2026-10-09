@@ -1,0 +1,35 @@
+# Pocket, the phone app: a Vite page and a service worker, with its signer and parsers
+# tested in node. Commands run here, in this directory.
+# `docs/concepts/manifest.md`, *Workspace gating*.
+version: 1
+id: armada-pocket
+
+# What Pocket reads from elsewhere, repo-relative. It imports the components and the
+# tokens, and takes its icons from the brand package. A hit runs every Check below,
+# since none declares a `when`. `crates/pocket` is not here: the wire it mirrors is
+# `src/gateway.ts`, hand-kept, and no Check can read the Rust.
+depends_on:
+  - "packages/components/**"
+  - "packages/tokens/**"
+  - "packages/icons/**"
+  - "packages/brand/**"
+  - "packages/protocol/**"
+  - "package.json"
+  - "pnpm-lock.yaml"
+  - "pnpm-workspace.yaml"
+
+setup:
+  requires:
+    - bootstrap
+
+checks:
+  typecheck:
+    # `--noEmit`, no `narrow`: `tsc` reads whatever its tsconfig includes.
+    run: pnpm typecheck
+
+  pocket_test:
+    run: pnpm exec vitest run --maxWorkers=${width}
+    runner:
+      name: vitest
+    one_test:
+      run: pnpm exec vitest run --maxWorkers=1 -t {}
