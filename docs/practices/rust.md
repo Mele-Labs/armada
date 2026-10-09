@@ -412,6 +412,13 @@ cargo nextest run --workspace
 one of the machine's Check slots — `../concepts/manifest.md`, *How many Checks
 run at once*. Bare, it takes neither.
 
+`.claude/hooks/guard_test.py` refuses `cargo test` and `cargo nextest` in a
+Claude Bash call and names `armada check test --changed`, or `armada check test
+<name>` for one test. Measured 8 Oct 2026: a bare `cargo test -p fleet -p store
+-p ipc -p api -p acceptance -p core-model` held 14 of 18 cores for minutes, 77%
+of it system time, and the owner's Mac was unusable. `--no-run` is allowed, as
+it builds and runs nothing.
+
 **A test that hangs is ended at three minutes**, by `.config/nextest.toml`,
 which every `nextest` run in the workspace reads — `test`, `acceptance` and one
 test by name alike. It prints `SLOW` at each minute and then fails as `TIMEOUT`,
