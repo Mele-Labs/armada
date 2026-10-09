@@ -849,6 +849,11 @@ to `main`, the forge's merge API and a `git merge` in the checkout at `main`. It
 names the pull request instead. `armada check hooks_test` proves the hook, and
 needs nothing built.
 
+`.claude/hooks/guard_test.py` is the second Bash hook beside it: it refuses
+`cargo test` and `cargo nextest` and names `armada check test --changed`.
+`python3 .claude/hooks/test_guard_test.py` proves it; `hooks_test` does not run
+it yet.
+
 **An agent that opens a pull request watches `ci` on it**, so the owner does not
 have to: `gh pr checks <n> --watch`, in the background. A red `ci` comes back to
 the agent. It reads `gh pr checks <n>`, then `gh run view --log-failed`, fixes on

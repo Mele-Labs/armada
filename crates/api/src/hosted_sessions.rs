@@ -166,6 +166,22 @@ pub(crate) async fn take_held_messages<D: HostedSessions>(
     }
 }
 
+/// The terminal session's mod, putting a question to Bridge. Held open until
+/// it is answered, so it ends when the person does.
+pub(crate) async fn ask_from_terminal<D: HostedSessions>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let ask: ipc::TerminalAsk = match ipc::decode("a terminal session's question", &body) {
+        Ok(ask) => ask,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().ask_from_terminal(ask).await {
+        Ok(asked) => answer(StatusCode::OK, &asked, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// The hook a hosted session runs before a tool. **Always 200**: a refusal is
 /// the answer's own `deny`, in the shape the harness reads.
 pub(crate) async fn gate_session_call<D: HostedSessions>(

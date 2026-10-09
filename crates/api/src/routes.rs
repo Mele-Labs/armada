@@ -245,6 +245,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(crate::hosted_sessions::gate_session_call::<D>),
         )
         .route(
+            "/sessions/ask/terminal",
+            post(crate::hosted_sessions::ask_from_terminal::<D>),
+        )
+        .route(
             "/sessions/held",
             post(crate::hosted_sessions::take_held_messages::<D>),
         )

@@ -64,6 +64,7 @@ check test <name>`. Never `cargo test`, and never `nextest` bare: nextest is
 measured at 3x `cargo test` on v1, 83 seconds against 27 for the same 2,034
 tests, and a bare run skips both the width and the turn. Install nextest with
 `--locked`.
+`.claude/hooks/guard_test.py` refuses the bare run in any session, not only here.
 
 Cold compilation was v1's real cost and was never solved. Do not reintroduce a
 hook that rebuilds on merge; that was the cause v1 named. See

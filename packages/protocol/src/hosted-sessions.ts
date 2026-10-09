@@ -78,6 +78,20 @@ export type TuneSession = {
 /** `POST /sessions/held`. The mod in a terminal session asks what a person sent it. Since 23.53. */
 export type TakeHeld = { session_id: string };
 
+/**
+ * `POST /sessions/ask/terminal`. The mod in a terminal session puts its `AskUserQuestion` to Bridge (`asks`,
+ * held open until a person answers there), or says the terminal's own prompt ended first (`settled`).
+ */
+export type TerminalAsk =
+  | { kind: "asks"; session_id: string; input: unknown }
+  | { kind: "settled"; session_id: string; answered: boolean };
+
+/** How a held `asks` ended: answered with the tool's input and `answers`, refused, or nothing more to wait on. */
+export type TerminalAsked =
+  | { outcome: "answered"; updated_input: unknown }
+  | { outcome: "refused"; message: string }
+  | { outcome: "gone" };
+
 /** What a person sent a terminal session, oldest first, handed over once. Since 23.53. */
 /** A command a person chose in Bridge for a terminal session, run there as typed. Since 23.53. */
 export type HeldCommand = { command: string; args: string };

@@ -135,7 +135,7 @@ impl Rig {
             .id;
         self.holds(
             Holder::session(id.as_str()),
-            "pull_request",
+            "pr",
             &number.to_string(),
             AttachmentState::Standing,
         )
@@ -165,7 +165,7 @@ impl Rig {
             .unwrap();
         self.holds(
             Holder::session(id),
-            "pull_request",
+            "pr",
             &number.to_string(),
             AttachmentState::Standing,
         )
@@ -401,7 +401,7 @@ async fn leaving_the_merge_queue_is_told_once_and_an_unmergeable_entry_is_told_a
     stuck.queue = PullQueue::Unmergeable;
     rig.holds(
         Holder::session(&session),
-        "pull_request",
+        "pr",
         "11",
         AttachmentState::Standing,
     )
@@ -421,7 +421,7 @@ async fn a_merge_is_told_to_the_session_that_held_it_and_noted_on_the_job() {
     let session = rig.a_hosted_session_on(1).await;
     rig.holds(
         Holder::session(&session),
-        "pull_request",
+        "pr",
         "1",
         AttachmentState::Spent,
     )
@@ -461,6 +461,51 @@ async fn a_merge_is_told_to_the_session_that_held_it_and_noted_on_the_job() {
     );
     let (loaded, _) = rig.fleet.every_job().await.unwrap();
     assert_eq!(loaded.jobs.len(), 1, "and starts nothing");
+}
+
+#[tokio::test]
+async fn a_merge_reaches_the_session_that_opened_it_after_its_slot_was_released() {
+    let rig = a_rig();
+    let session = rig.a_hosted_session_on(1).await;
+    // What a Session that opened the pull request holds in the ledger: its `pr` row, spent by
+    // the merge, and a `branch` row already given back with the slot.
+    rig.holds(
+        Holder::session(&session),
+        "pr",
+        "1",
+        AttachmentState::Spent,
+    )
+    .await;
+    rig.holds(
+        Holder::session(&session),
+        "branch",
+        "armada/1",
+        AttachmentState::GivenBack,
+    )
+    .await;
+    rig.fleet.vcs().main_ci.watched_are(Some(Vec::new()));
+    rig.fleet
+        .vcs()
+        .main_ci
+        .recently_merged_are(Some(vec![RecentlyMerged {
+            number: 1,
+            title: FromOutside::verbatim("Fix the reader"),
+            branch: FromOutside::verbatim("armada/1"),
+            url: FromOutside::verbatim("https://forge.invalid/armada/pull/1"),
+            author: None,
+            merged_at: FromOutside::verbatim(rig.fleet.now().as_str()),
+            commit: None,
+        }]));
+    let served = rig.fleet.repositories().served().remove(0);
+    rig.fleet.notice_merged(&served).await;
+
+    rig.reads().await;
+
+    let sent = rig.runs_sent_to_the_session();
+    assert!(
+        sent.iter().any(|line| line.contains("#1 merged into")),
+        "{sent:?}"
+    );
 }
 
 #[tokio::test]

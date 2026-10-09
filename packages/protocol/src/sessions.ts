@@ -4,6 +4,7 @@
 // The header rules in `protocol.ts` hold here. `kind` on an attachment is open
 // text, so it is a `string`; the sets below that Fleet closes are written out.
 
+import type { HelmCallInFlight } from "./helm-calls";
 import type { HostedFacts, SessionMode } from "./hosted-sessions";
 
 /** What started a session. */
@@ -87,6 +88,8 @@ export type TerminalFacts = {
   commands?: TerminalCommand[];
   /** Whether its mod asked within the last ten seconds. Absent is not listening. Since 23.69. */
   listening?: boolean;
+  /** The question its terminal is showing, while Bridge may still answer it. */
+  asked?: HelmCallInFlight;
 };
 
 /** `list_sessions`, the most recently seen first. */
