@@ -104,18 +104,6 @@ export class Picked {
   }
 
   /**
-   * A Manifest route for every repository a scoped surface reads — the picked one, or each listed on
-   * All — naming each by its own `?manifest_id=`. `null` beside one with no Manifest yet.
-   */
-  each(path: string): { repository: RepositorySummary; path: string | null }[] {
-    const scope = this.repository === null ? this.listed : [this.repository];
-    return scope.map((repository) => ({
-      repository,
-      path: repository.manifest === undefined ? null : named(path, "manifest_id", repository.manifest.id),
-    }));
-  }
-
-  /**
    * A read Fleet answers across every repository when it names none — `list_lessons`. **Bare on
    * All**, which is the one place that is right, and the pick's `?manifest_id=` otherwise. `null`
    * for a repository with no Manifest yet: it has no Jobs, and bare would read everyone's.

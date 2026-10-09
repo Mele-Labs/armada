@@ -351,9 +351,9 @@ export function App({ draft }: AppProps = {}) {
     watchManifestDrift(manifesting);
   }, [manifesting]);
 
-  // Fleet's health and every repository's drift in scope. Held for the life
-  // of the window rather than only while Overview is showing — Bridge/1088's
-  // Fleet panel draws its Doctor read on every surface now.
+  // Fleet's health. Held for the life of the window rather than only while
+  // Overview is showing — Bridge/1088's Fleet panel draws its Doctor read on
+  // every surface now.
   useEffect(() => {
     watchOverview(true);
     return () => watchOverview(false);
