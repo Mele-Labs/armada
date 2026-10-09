@@ -12,8 +12,8 @@ const call = (kind: RegExp) => region(kind);
 
 const dashboardCockpit = walk("dashboard-cockpit", [
   { look: tab("Your move"), say: "One panel, three filters on its top bar. Your move is what needs him, and nothing does: the panel is empty" },
-  { look: button(/^#1890/), say: "The merge line on the top bar, main's light at its end. The pull requests in the merge queue sit nearest it, by place, then the open ones" },
-  { hover: button(/^#1890/), say: "A block names its title, branch, state, place and owner on hover; pressing it opens the pull request" },
+  { hover: role("img", /^docs\/wire-lock-signed/), say: "The merge line on the top bar, one row of chips, nearest main first. Fleet's landings come first: the merge glyph and a short branch name, the full branch and its stage on hover" },
+  { hover: button(/^#1890/), say: "Then the pull requests in the merge queue by place, then the open ones. A pull request is its number; hover names its title, branch, state, place and owner, and pressing it opens the pull request" },
   { key: "]", on: cockpit, say: "] steps to the next filter, [ to the one before" },
   { look: tab("Active"), say: "Active: everything live, one tile each. What is active is the glyph, and a tile that asks is lit" },
   { hover: inside(glass, role("img", "Drone working")), say: "A glyph names its state on hover" },
@@ -58,7 +58,7 @@ const dashboardCockpit = walk("dashboard-cockpit", [
   { key: "Alt+1", on: tab("Done"), say: "Option and a number picks a filter" },
   { look: inside(glass, role("option", /Shorten the reconnect wait/)), say: "Your move again: the call that was put off is a lit tile" },
   { later: cockpit, say: "Checks fail on an open pull request" },
-  { hover: button(/^#1894/), say: "Its block turns red on the merge line, and the pull request is a call of its own" },
+  { hover: button(/^#1894/), say: "Its chip turns red on the merge line, and the pull request is a call of its own" },
 ]);
 
 export { dashboardCockpit as "dashboard-cockpit" };

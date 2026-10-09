@@ -26,7 +26,7 @@ import { CallCard, type CardKeys } from "./CallCard";
 import { FleetMap } from "./FleetMap";
 import { useLayout } from "@armada/shell";
 import { TAB_KEYS, useFilters } from "./keys";
-import { pullBlocks } from "./horizon";
+import { chipsOf } from "./horizon";
 import { sessionIdOf } from "./waiting";
 import { nearest, skyOf } from "./map-layout";
 import { useCockpitView } from "./view";
@@ -36,11 +36,11 @@ import "./cockpit.css";
 const stillness = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 /**
- * The merge line as the glass's horizon: blocks moving toward main's light. Nearest main first are
- * Fleet's own landing entries, then each open pull request, the forge's merge queue before the rest,
- * as a labelled block. Still, and no count beside it.
+ * The merge line as the glass's horizon: chips moving toward main's light, one row, nearest main
+ * first. Fleet's landings come first, then the pull requests in the forge's merge queue, then the
+ * open ones. Still, and no count beside it.
  */
-function Horizon({ state, sessions, onOpenLink }: { state: BridgeState; sessions: readonly Session[]; onOpenLink: (address: string) => void }) {
+function Horizon({ state, sessions, hosts }: { state: BridgeState; sessions: readonly Session[]; hosts: Hosts }) {
   const views = viewsOf(state);
   if (views.length === 0) return null;
   return (
@@ -49,27 +49,34 @@ function Horizon({ state, sessions, onOpenLink }: { state: BridgeState; sessions
         <div key={view.root} className="armada-view__line" aria-label="Merge line">
           <GitMerge size={16} aria-hidden="true" />
           <ol className="armada-view__belt">
-            {view.line.map((entry) => (
-              <Tooltip key={entry.branch} label={`${entry.branch}, ${entry.state}`} asChild>
-                <li className="armada-view__block" data-state={entry.state} />
-              </Tooltip>
-            ))}
-            {pullBlocks(view, state.mergeLines, views, sessions).map((pull) => {
-              const Icon = pull.mark?.icon ?? null;
+            {chipsOf(view, state.mergeLines, views, sessions).map((chip) => {
+              const Icon = chip.icon;
+              const inside = (
+                <>
+                  {Icon === null ? null : <Icon size={12} aria-hidden="true" />}
+                  <span>{chip.label}</span>
+                </>
+              );
+              const act = chip.act;
               return (
-                <li key={pull.number} className="armada-view__pull-item">
-                  <Tooltip label={pull.tip} asChild>
-                    <button
-                      type="button"
-                      className="armada-view__pull"
-                      data-state={pull.state}
-                      data-queued={pull.queued || undefined}
-                      aria-label={pull.tip}
-                      onClick={() => onOpenLink(pull.url)}
-                    >
-                      {Icon === null ? null : <Icon size={12} aria-hidden="true" />}
-                      <span>#{pull.number}</span>
-                    </button>
+                <li key={chip.key} className="armada-view__chip-item">
+                  <Tooltip label={chip.tip} asChild>
+                    {act === undefined ? (
+                      <span className="armada-view__chip" data-state={chip.state} data-queued={chip.queued || undefined} role="img" aria-label={chip.tip}>
+                        {inside}
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        className="armada-view__chip"
+                        data-state={chip.state}
+                        data-queued={chip.queued || undefined}
+                        aria-label={chip.tip}
+                        onClick={() => (act.kind === "link" ? hosts.onOpenLink(act.url) : hosts.onOpen(act.id))}
+                      >
+                        {inside}
+                      </button>
+                    )}
                   </Tooltip>
                 </li>
               );
@@ -348,7 +355,7 @@ export function Cockpit({
               <Kbd>{TAB_KEYS.next}</Kbd>
             </Tooltip>
           </span>
-          {mergeLine ? <Horizon state={state} sessions={sessions} onOpenLink={hosts.onOpenLink} /> : null}
+          {mergeLine ? <Horizon state={state} sessions={sessions} hosts={hosts} /> : null}
           <span className="armada-view__keys">
             <span className="armada-view__toggle" role="group" aria-label="View">
               <Tooltip label="Grid">

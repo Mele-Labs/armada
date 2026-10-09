@@ -3,7 +3,7 @@ import { describe, expect, test } from "vitest";
 import { mergeLineViews } from "@armada/screens";
 import type { MergeLines } from "@armada/protocol";
 
-import { pullBlocks } from "./horizon";
+import { chipsOf, landingChips, pullBlocks, shortBranch } from "./horizon";
 
 const pull = (number: number, branch: string, more: Record<string, unknown> = {}) => ({ number, title: `Title ${number}`, branch, url: `https://git.example/pull/${number}`, ...more });
 
@@ -61,5 +61,49 @@ describe("the horizon's pull requests", () => {
   test("a line with no hub has none", () => {
     const bare = { lines: [{ root: "/armada", line: [], off: [], landed: [], sent_back: [] }] } as unknown as MergeLines;
     expect(blocksOf(bare)).toEqual([]);
+  });
+});
+
+describe("the landings as chips", () => {
+  const line = (rows: unknown[]): MergeLines =>
+    ({ lines: [{ root: "/armada", line: rows, off: [], landed: [], sent_back: [], hub: { pull_requests: [pull(9, "feat/open", { ci: "passed" })] } }] }) as unknown as MergeLines;
+
+  test("a branch is its last path segment, an agent's worktree its first four hex, at most 12 characters", () => {
+    expect(shortBranch("fleet/gate-policy")).toBe("gate-policy");
+    expect(shortBranch("fleet/read-in-cluster-membership")).toBe("read-in-clu…");
+    expect(shortBranch("worktree-agent-aef3c24792026e2c3")).toBe("agent-aef3");
+    expect(shortBranch("main")).toBe("main");
+  });
+
+  test("a stage is a state colour, and the hover gives the full branch and its stage", () => {
+    const served = line([
+      { place: 1, branch: "docs/wire-lock-signed", state: "gating", checks: [{ name: "build", state: "running" }] },
+      { place: 2, branch: "worktree-agent-aef3c24792026e2c3", state: "preparing" },
+      { place: 3, branch: "fleet/pulse-log-rows", state: "red" },
+      { place: 4, branch: "fleet/helm-kills-processes", state: "waiting" },
+    ]);
+    const views = mergeLineViews(served, null, [], []);
+    const chips = landingChips(views[0]!.line);
+    expect(chips.map((one) => one.state)).toEqual(["running", "running", "failing", "queued"]);
+    expect(chips.map((one) => one.label)).toEqual(["wire-lock-s…", "agent-aef3", "pulse-log-r…", "helm-kills-…"]);
+    expect(chips[0]!.tip).toBe("docs/wire-lock-signed · Running Checks before landing");
+    expect(chips.every((one) => one.icon !== null && one.queued)).toBe(true);
+  });
+
+  test("one row to main: the landings first, then the queue, then the open ones", () => {
+    const served = {
+      lines: [
+        {
+          root: "/armada",
+          line: [{ place: 1, branch: "docs/a", state: "gating" }],
+          off: [],
+          landed: [],
+          sent_back: [],
+          hub: { pull_requests: [pull(5, "x/open", { ci: "passed" }), pull(3, "x/queued", { ci: "passed", queue: { state: "queued", position: 1 } })] },
+        },
+      ],
+    } as unknown as MergeLines;
+    const views = mergeLineViews(served, null, [], []);
+    expect(chipsOf(views[0]!, served, views, []).map((one) => one.label)).toEqual(["a", "#3", "#5"]);
   });
 });

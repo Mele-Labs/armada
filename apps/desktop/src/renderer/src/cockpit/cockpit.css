@@ -53,7 +53,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  flex: 0 1 calc(var(--space-12) * 12);
+  flex: 1 1 0;
   min-width: 0;
 }
 
@@ -73,22 +73,10 @@
   background: repeating-linear-gradient(90deg, var(--border-default) 0 var(--space-1), transparent var(--space-1) var(--space-3)) center / 100% var(--border-width) no-repeat;
 }
 
-.armada-view__block {
-  flex: none;
-  width: var(--space-3);
-  height: var(--space-2);
-  border-radius: var(--radius-sm);
-  background: var(--status-not-started);
-}
+.armada-view__chip-item { display: flex; flex: none; }
 
-.armada-view__block[data-state="gating"],
-.armada-view__block[data-state="merging"],
-.armada-view__block[data-state="preparing"] { background: var(--status-running); }
-
-.armada-view__pull-item { display: flex; flex: none; }
-
-/* An open pull request: its number, and the registry's mark for how it stands. Dashed until the forge's queue holds it. */
-.armada-view__pull {
+/* A chip on the horizon, a landing or a pull request: its label and the registry's mark for how it stands. Dashed until a queue holds it. */
+.armada-view__chip {
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
@@ -102,15 +90,16 @@
   cursor: pointer;
 }
 
-.armada-view__pull:hover { color: var(--fg-default); border-color: var(--fg-subtle); }
-.armada-view__pull:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
-.armada-view__pull[data-queued] { border-style: solid; border-color: var(--fg-subtle); color: var(--fg-default); }
-.armada-view__pull[data-state="queued"] > svg,
-.armada-view__pull[data-state="blocked"] > svg { color: var(--status-not-started); }
-.armada-view__pull[data-state="running"] > svg { color: var(--status-running); }
-.armada-view__pull[data-state="ready"] > svg { color: var(--status-completed-success); }
-.armada-view__pull[data-state="failing"] { border-color: var(--status-completed-failed); }
-.armada-view__pull[data-state="failing"] > svg { color: var(--status-completed-failed); }
+span.armada-view__chip { cursor: default; }
+.armada-view__chip:hover { color: var(--fg-default); border-color: var(--fg-subtle); }
+.armada-view__chip:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
+.armada-view__chip[data-queued] { border-style: solid; border-color: var(--fg-subtle); color: var(--fg-default); }
+.armada-view__chip[data-state="queued"] > svg,
+.armada-view__chip[data-state="blocked"] > svg { color: var(--status-not-started); }
+.armada-view__chip[data-state="running"] > svg { color: var(--status-running); }
+.armada-view__chip[data-state="ready"] > svg { color: var(--status-completed-success); }
+.armada-view__chip[data-state="failing"] { border-color: var(--status-completed-failed); }
+.armada-view__chip[data-state="failing"] > svg { color: var(--status-completed-failed); }
 
 .armada-view__main {
   flex: none;

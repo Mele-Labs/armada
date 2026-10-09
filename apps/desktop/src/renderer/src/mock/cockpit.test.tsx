@@ -57,20 +57,26 @@ test("[ and ] step the filters round, Option and a digit jumps, and the filter i
   }
 });
 
-test("the merge line draws every open pull request, the queue nearest main, and a press opens one", async () => {
+test("the merge line is one row of chips, Fleet's landings nearest main, then the queue, then the open pull requests", async () => {
   await dashboard();
-  const blocks = [...document.querySelectorAll<HTMLElement>(".armada-view__pull")];
-  // Nearest main first in the document, which the belt draws from the right: queue by place, then the rest as listed.
-  expect(blocks.map((one) => one.querySelector("span")?.textContent)).toEqual(["#1890", "#1891", "#1893", "#1894", "#1895"]);
-  expect(blocks.map((one) => one.hasAttribute("data-queued"))).toEqual([true, true, false, false, false]);
-  expect(blocks[0]!.getAttribute("aria-label")).toContain("Job: Debounce the Job Board's resize handler");
-  // A pull request's checks failing turns its block red.
-  expect(blocks[3]!.getAttribute("data-state")).toBe("running");
+  const chips = [...document.querySelectorAll<HTMLElement>(".armada-view__chip")];
+  const labels = chips.map((one) => one.querySelector("span")?.textContent);
+  // Nearest main first in the document, which the belt draws from the right.
+  expect(labels.slice(-5)).toEqual(["#1890", "#1891", "#1893", "#1894", "#1895"]);
+  expect(labels.slice(0, 2)).toEqual(["wire-lock-s…", "agent-aef3"]);
+  expect(labels.slice(0, -5).every((one) => !one!.startsWith("#"))).toBe(true);
+  expect(chips.slice(-5).map((one) => one.hasAttribute("data-queued"))).toEqual([true, true, false, false, false]);
+  expect(chips.find((one) => one.getAttribute("aria-label")?.startsWith("docs/wire-lock-signed"))?.getAttribute("aria-label")).toBe("docs/wire-lock-signed · Preparing to land");
+  expect(chips.find((one) => one.getAttribute("aria-label")?.startsWith("#1890"))?.getAttribute("aria-label")).toContain("Job: Debounce the Job Board's resize handler");
+  expect(document.querySelector(".armada-view__block")).toBeNull();
+  // A pull request's checks failing turns its chip red.
+  const state = () => document.querySelector('.armada-view__chip[aria-label^="#1894"]')?.getAttribute("data-state");
+  expect(state()).toBe("running");
   timePasses();
   timePasses();
   timePasses();
   timePasses();
-  await expect.poll(() => document.querySelector('.armada-view__pull[aria-label^="#1894"]')?.getAttribute("data-state")).toBe("failing");
+  await expect.poll(state).toBe("failing");
 });
 
 test("n brings the cursor back to the dispatch bar from the panel", async () => {

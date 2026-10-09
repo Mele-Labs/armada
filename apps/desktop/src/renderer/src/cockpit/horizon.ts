@@ -1,8 +1,10 @@
-// The merge line's open pull requests as the Cockpit's horizon draws them: the ones in the forge's
-// merge queue first, by position, nearest main, then the rest as the line lists them. Read off the
-// view's hub (`view.hub.pulls`, which the Merge line surface draws) with the title and the owner
-// beside, so the strip folds nothing the surface does not. Pure, so the order and the marks are
-// checked without drawing the band.
+// The Cockpit's horizon as one row of chips, nearest main first: Fleet's own landing entries
+// (`view.line`), then the pull requests in the forge's merge queue by position, then the rest as the
+// line lists them. The pull requests are read off the view's hub (`view.hub.pulls`, which the Merge
+// line surface draws) with the title and the owner beside, so the strip folds nothing the surface
+// does not. Pure, so the order and the marks are checked without drawing the band.
+
+import { GitMerge, type LucideIcon } from "lucide-react";
 
 import { CHECK_OUTCOME, LAND_STATE, QUEUED_REASON } from "@armada/components";
 import type { MergeLines } from "@armada/protocol";
@@ -85,4 +87,80 @@ export function pullBlocks(
       tip,
     };
   });
+}
+
+/** What a chip does when pressed: the pull request on the forge, or the Job that owns the entry. */
+export type ChipAct = { kind: "link"; url: string } | { kind: "job"; id: string };
+
+/** One thing on the strip, a pull request or a landing, drawn the same way. */
+export type Chip = {
+  key: string;
+  label: string;
+  state: PullState;
+  /** Held by a queue, Fleet's or the forge's, rather than open and waiting. Drawn solid. */
+  queued: boolean;
+  icon: LucideIcon | null;
+  tip: string;
+  act: ChipAct | undefined;
+};
+
+/** The last path segment of a branch, a `worktree-agent-<hash>` as `agent-` and the hash's first four, at most 12 characters. */
+export function shortBranch(branch: string): string {
+  const last = branch.split("/").pop() ?? branch;
+  const agent = /^worktree-agent-([0-9a-f]{4})[0-9a-f]*$/i.exec(last);
+  const name = agent === null ? last : `agent-${agent[1]}`;
+  return name.length > 12 ? `${name.slice(0, 11)}…` : name;
+}
+
+/** A landing's stage on the state colours: running its turn is running, a red or a conflict is failing. */
+const LANDING: Record<string, PullState> = {
+  waiting: "queued",
+  preparing: "running",
+  gating: "running",
+  merging: "running",
+  held: "blocked",
+  landed: "ready",
+  red: "failing",
+  conflict: "failing",
+  stopped: "failing",
+};
+
+/** Fleet's landing entries, in line order, as chips. */
+export function landingChips(line: MergeLineView["line"]): readonly Chip[] {
+  return line.map((entry) => {
+    const stage = LAND_STATE[entry.state]?.verb ?? entry.state;
+    const act: ChipAct | undefined = entry.pr !== undefined ? { kind: "link", url: entry.pr.url } : entry.job !== undefined ? { kind: "job", id: entry.job.id } : undefined;
+    return {
+      key: `line:${entry.branch}`,
+      label: shortBranch(entry.branch),
+      state: LANDING[entry.state] ?? "open",
+      queued: true,
+      icon: GitMerge,
+      tip: [entry.branch, stage, ...(entry.job === undefined ? [] : [`Job: ${entry.job.title}`])].join(" · "),
+      act,
+    };
+  });
+}
+
+/** Every chip of one repository's strip, nearest main first. */
+export function chipsOf(
+  view: Pick<MergeLineView, "root" | "hub" | "line">,
+  lines: MergeLines | null,
+  views: readonly Pick<MergeLineView, "root" | "hub">[],
+  sessions: readonly Session[],
+): readonly Chip[] {
+  return [
+    ...landingChips(view.line),
+    ...pullBlocks(view, lines, views, sessions).map(
+      (pull): Chip => ({
+        key: `pull:${pull.number}`,
+        label: `#${pull.number}`,
+        state: pull.state,
+        queued: pull.queued,
+        icon: pull.mark?.icon ?? null,
+        tip: pull.tip,
+        act: { kind: "link", url: pull.url },
+      }),
+    ),
+  ];
 }
