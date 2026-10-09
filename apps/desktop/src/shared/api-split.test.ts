@@ -3,6 +3,7 @@
 // Kept, not deleted: a slice-by-slice equality cannot be asserted against anything but the whole.
 
 import { describe, expect, it } from "vitest";
+import type { PhoneAnswer, PhoneRequest } from "@armada/settings/api";
 import type {
   AddTask,
   FixMain,
@@ -20,6 +21,7 @@ import type {
   LessonAnswer,
   LessonsRead,
   RetroRead,
+  RetroSubject,
   ChooseTriggerFix,
   HoldAct,
   ClearOutcome,
@@ -85,6 +87,8 @@ import type {
   Remarks,
   Reports,
   Watched,
+  BuildSource,
+  FleetBuildReport,
   FleetCapacity,
   FleetLimits,
   JobSummary,
@@ -186,6 +190,7 @@ type OldBridgeState = {
     jobs: JobSummary[];
     unreadable: UnreadableJob[];
     capacity: FleetCapacity | null;
+    fleetBuild: FleetBuildReport | null;
     limits: FleetLimits | null;
     preferences: Preferences;
     mods: ModList | null;
@@ -291,6 +296,7 @@ type OldBridgeApi = {
     validateMod: (name: string) => Promise<ModChecked | null>;
     setModEnabled: (name: string, enabled: boolean) => Promise<Outcome>;
     promoteMod: (name: string) => Promise<Outcome>;
+    phone: (request: PhoneRequest) => Promise<PhoneAnswer>;
     fileReport: (jobId: string, filing: FileReport) => Promise<Outcome>;
     addTask: (jobId: string, add: AddTask) => Promise<PlanEditAnswer>;
     dropTask: (jobId: string, drop: DropTask) => Promise<PlanEditAnswer>;
@@ -362,12 +368,13 @@ type OldBridgeApi = {
     openServerLink: (serverId: string, url: string) => Promise<Followed>;
     openLink: (address: string) => Promise<Followed>;
     restartFleet: () => Promise<FleetRestart>;
+    changeFleetBuild: (build: BuildSource, adopt: boolean) => Promise<Outcome>;
     examineJob: (jobId: string) => Promise<void>;
     readEvidence: (jobId: string | null) => Promise<void>;
     readDiff: (jobId: string | null) => Promise<void>;
     readCheckOutput: (jobId: string, kept: string) => Promise<CheckOutputRead>;
     readBrief: (jobId: string, name: string) => Promise<BriefRead>;
-    readRetro: (jobId: string) => Promise<RetroRead>;
+    readRetro: (subject: RetroSubject) => Promise<RetroRead>;
     readLessons: (state: "open" | "accepted") => Promise<LessonsRead>;
     agreeLesson: (lessonId: string) => Promise<LessonAnswer>;
     disagreeLesson: (lessonId: string) => Promise<LessonAnswer>;
@@ -404,6 +411,7 @@ type OldBridgeApi = {
         save: (said: string) => Promise<Outcome>;
         reload: () => Promise<void>;
         followRefused: () => Promise<void>;
+        approve: () => Promise<Outcome>;
         scroll: (wheel: CaptureWheel) => void;
     };
     approveReview: (jobId: string) => Promise<Outcome>;
@@ -438,6 +446,7 @@ type OldBridgeApi = {
     tuneSession: (tune: TuneSession) => Promise<SessionActed>;
     renameSession: (rename: RenameSession) => Promise<SessionActed>;
     forkSession: (sessionId: string) => Promise<SessionActed>;
+    retroSession: (sessionId: string) => Promise<Outcome>;
     closeSession: (sessionId: string) => Promise<SessionActed>;
     watchSession: (sessionId: string) => Promise<void>;
     readSessionFile: (sessionId: string, file: string) => Promise<FrameRead>;
@@ -458,6 +467,7 @@ const OLD_NOTHING_YET: OldBridgeState = {
     jobs: [],
     unreadable: [],
     capacity: null,
+    fleetBuild: null,
     limits: null,
     preferences: { where_things_are_open: false },
     mods: null,
@@ -558,6 +568,7 @@ const OLD_CHANNELS = {
     validateMod: "bridge:validate-mod",
     setModEnabled: "bridge:set-mod-enabled",
     promoteMod: "bridge:promote-mod",
+    phone: "bridge:phone",
     fileReport: "bridge:file-report",
     addTask: "bridge:add-task",
     dropTask: "bridge:drop-task",
@@ -630,6 +641,7 @@ const OLD_CHANNELS = {
     openServerLink: "bridge:open-server-link",
     openLink: "bridge:open-link",
     restartFleet: "bridge:restart-fleet",
+    changeFleetBuild: "bridge:change-fleet-build",
     examineJob: "bridge:examine-job",
     readDiff: "bridge:read-diff",
     readRemarks: "bridge:read-remarks",
@@ -692,6 +704,7 @@ const OLD_CHANNELS = {
     captureWindowSave: "bridge:capture-window-save",
     captureWindowReload: "bridge:capture-window-reload",
     captureWindowFollowRefused: "bridge:capture-window-follow-refused",
+    captureWindowApprove: "bridge:capture-window-approve",
     captureWindowScroll: "bridge:capture-window-scroll",
     tap: "bridge:tap",
     startSession: "bridge:start-session",
@@ -702,6 +715,7 @@ const OLD_CHANNELS = {
     answerSessionAsk: "bridge:answer-session-ask",
     tuneSession: "bridge:tune-session",
     renameSession: "bridge:rename-session",
+    retroSession: "bridge:retro-session",
     closeSession: "bridge:close-session",
     watchSession: "bridge:watch-session",
     readSessionFile: "bridge:read-session-file",

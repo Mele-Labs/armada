@@ -202,7 +202,7 @@ dialog, a well or another card is not on the canvas: it stays flat, at
 `--radius-md`. A row, a well or an input inside a card stays flat on its
 Ground token.
 
-**The left column is flat.** Navigation, Stats and Fleet are `--bg-raised`
+**The left column is flat.** Navigation and Fleet are `--bg-raised`
 under `--border-subtle`, at `--radius-lg`: no highlight line, no shadow, no
 gradient and no blur, and they do not take `armada-glass`. The owner ruled on
 7 Oct 2026, "Remove the bevels and make this a bit more flat", for the left
@@ -903,8 +903,7 @@ opens.
 
 Bridge/1088 replaced the rail and the status bar with one column of rounded
 panels — collapsible and resizable, and both states are designed rather than
-one being an afterthought. They are **Work**, **Machine**, **Stats** and
-**Fleet**.
+one being an afterthought. They are **Work**, **Machine** and **Fleet**.
 
 **Navigation is two panels, not one.** The owner split it on 28 Sep 2026 —
 *"We should split this into two panels ... its about jobs and studios"*. Work
@@ -932,8 +931,8 @@ the lexicon exists to prevent.
 ```
 default     200px
 drag range  160-320px
-collapsed   48px icon rail — the two nav panels keep their glyphs; Stats
-            and Fleet collapse to one centred status dot at the same width
+collapsed   48px icon rail — the two nav panels keep their glyphs; Fleet
+            collapses to one centred status dot at the same width
 control     a toggle in Work's head, and ⌘\, at any width above
             --layout-breakpoint; drawn in both states, saying which it is in
 persistence width and collapsed state survive app restart
@@ -944,12 +943,12 @@ treatment under Depth, held apart by the column's own 16px gap (`--space-4`)
 rather than by margin on each panel. A panel's head is 40px
 (`--space-8` + `--space-2`), 12px horizontal padding (`--space-3`), and
 collapses to its head only — never to nothing, so a glance still answers
-the one question the panel is for. Token treatment for Stats and Fleet's
+the one question the panel is for. Token treatment for Fleet's
 own content is under Component → token mapping.
 
-**One width, shared by every panel.** Work, Machine, Stats and Fleet resize and
+**One width, shared by every panel.** Work, Machine and Fleet resize and
 collapse together, on one drag handle at the column's trailing edge — never one
-handle per panel, and never four panels each resolving their own width. **One
+handle per panel, and never three panels each resolving their own width. **One
 collapse control too**, in Work's head: two toggles for one column would be two
 controls on one act.
 
@@ -998,9 +997,9 @@ size column, not hidden away."* Giving way means reaching the rail. That
 correction still stands and is what the rule above says; only the second band
 it applied to has gone.
 
-**At 48px Stats and Fleet keep their one status dot each**, so a glance still
+**At 48px Fleet keeps its one status dot**, so a glance still
 says whether anything needs attention, and the nav panels keep their glyphs.
-Four panels at the rail read as four stacks held apart by the column's gap;
+Three panels at the rail read as three stacks held apart by the column's gap;
 photographed under `--layout-breakpoint` on 28 Sep 2026, when the split
 landed.
 
@@ -1029,20 +1028,16 @@ mapped, never chosen; see [Iconography](iconography.md).
 and at the rail they are behind the column's own expansion. A dot cannot carry
 a figure, and the title row is not where a person reads one.
 
-**Stats gets no equivalent in the title row.** Its rows are six counts, and a
-count has no single-dot form that is not a second, quieter place to check — its
-rail dot is the reading at 48px.
-
 **The cost, taken knowingly.** A surface that resizes on its own is
-disorienting the first time, and at the rail Stats and Fleet are a dot each
-rather than their rows. `⌘\` (`toggle_sidebar`) is what answers the first
+disorienting the first time, and at the rail Fleet is a dot
+rather than its rows. `⌘\` (`toggle_sidebar`) is what answers the first
 half — #1591 built it, so the rail is a person's to ask for as well as the
 window's to impose. Nothing hides the column by hand, and nothing hides it at
 all.
 
-**Nav items do not carry escalation or approval counts.** Stats already
-carries both, as its own rows. Duplicating them in Navigation creates two
-places to check and two chances to disagree.
+**Nav items do not carry escalation or approval counts.** Overview's tiles
+carry both. Duplicating them in Navigation creates two places to check and two
+chances to disagree.
 
 ### Content area
 
@@ -1153,7 +1148,7 @@ touch client floors at 390px, which leaves 358px between its gutters.
 
 | | ≥ 1100px | < 1100px | Touch client |
 | --- | --- | --- | --- |
-| Left column | Expanded or at its rail, whichever the person last chose — user-resizable, Work, Machine, Stats and Fleet together | Auto-collapses to the 48px rail whatever was chosen; Stats and Fleet each keep one status dot | A bottom tab bar |
+| Left column | Expanded or at its rail, whichever the person last chose — user-resizable, Work, Machine and Fleet together | Auto-collapses to the 48px rail whatever was chosen; Fleet keeps one status dot | A bottom tab bar |
 | Job row | One shape at every width — a stacked row carrying the badge, the headline sentence and the labelled field run beneath | The same row. Nothing reshapes | The same row, field run wrapped |
 | Helm's dock | A layer over the content when open, taking none of its width; closed draws nothing, and the title row's Helm button opens it | Closed draws nothing; the title row's Helm button opens it as a sheet over the content | Not built |
 | Job detail's Overview inspector | A column beside the run | **A sheet over the run**, opened by pressing a step and closed by `Esc`; flush to both edges at the floor | Not built |
@@ -2102,47 +2097,6 @@ its address in main, but that is not possible here: a link in model text has
 no id main could look it up by. Without an opener, a link draws as its text.
 A refused open is said in a toast, in `whyNotOpenedLink`'s words.
 
-### Stats panel
-
-The left column's second panel — what used to be the status bar's two
-counts, gathered with what Overview's own tiles already read for Drones and
-Manifest drift.
-
-```
-row     --text-xs, --dot, label in --fg-muted, value right-aligned in --font-mono
-value   --fg-default at rest; past zero, amber (--status-awaiting-review)
-        for Awaiting approval and Needs review, red (--status-escalated)
-        for Escalated
-dot     the row's hue, mixed into the ground at --dot-idle while the count
-        is zero, full past it
-```
-
-**Every row carries a dot in its own hue**, so the panel has colour on a quiet
-day, and a full dot still means something is waiting.
-
-| Row | Dot |
-| --- | --- |
-| Awaiting approval, Needs review | `--status-awaiting-review` |
-| Escalated | `--status-escalated` |
-| Jobs | `--status-not-started` |
-| Drones | `--stat-drones`, dim with nothing running |
-| Manifest | `--stat-manifest-current`; `--notice-caution` while behind |
-
-`--dot-idle` is 65%, the lowest mix that keeps every dot at 3:1 against
-`--bg-glass`. A dot is a mark and not an icon, so Iconography's text-only rule
-for this panel stands.
-
-**Three counts, not two.** Awaiting approval and Needs review are the old
-approval count, split by which gate a Job is waiting at; Escalated is the
-old escalation count, carrying the louder tone the same way it always did.
-All three span every repository Fleet serves, whichever one Navigation has
-picked. **No Queued row**: Overview's own Queued panel already lists those
-Jobs, and a count here would be a second place to check the same fact.
-
-**The panel's own dot, at the collapsed 48px width, is the worst tone among
-its rows** — red past an Escalated count, amber past any other, neutral
-otherwise — the same rollup reasoning Doctor's pass/warn/fail uses.
-
 ### Overview summary tiles
 
 Overview's four counts, each its own card, two by two.
@@ -2227,20 +2181,53 @@ reading replaces the drawing rather than moving it.
 
 ### Fleet panel
 
-The left column's third panel — what the status bar used to read.
+The left column's second panel — what the status bar used to read.
 
 ```
 state    --dot (6px) in the panel's head, beside the "Fleet" label — the
          trailing slot, so it is the same mark at every width
 rows     pid / port / protocol / up, one row each: label --text-xs
          --text-label on the left, value --font-mono --text-xs --text-body
-         right-aligned to the panel's edge, where Stats puts its counts —
+         right-aligned to the panel's edge —
          FigureList, `column="fit"`
 detail   --font-mono --text-2xs --fg-subtle, the sentence a state carries
 doctor   border-top --border-subtle above it; a dot, "Doctor", the outcome
          (--status-completed-success / --status-awaiting-review /
          --status-escalated) and the modules checked, in --fg-muted
 ```
+
+**The build sits above the rows**, in a section edged below by `--border-subtle`:
+a Select naming the build Fleet runs on (Main or Preview), one Button, and the
+build's position against main. The owner approved the look on 8 Oct 2026.
+
+```
+select    Main | Preview. Choosing the other restarts Fleet and Bridge onto it
+button    secondary, full width, a glyph and a label that follow the build in use
+          Preview   RotateCw   Refresh preview    "Merge in-flight branches and restart on the preview"
+          Main      RotateCw   Update to main      "Restart on latest main"
+          Main, level with main: disabled, tooltip "On latest main"
+          restarting: LoaderCircle, the label's -ing form, pending, disabled
+position  "main" in --text-label, then Check (--status-completed-success) when
+          level, ArrowUp and a figure (--fg-muted) for commits the build holds
+          that main lacks, ArrowDown and a figure (--status-awaiting-review)
+          for commits main holds that it lacks. The words are the tooltip
+          while restarting: the "main" label gives way to a turning LoaderCircle and the
+          stage in words (--fg-muted, sans): Merging branches (preview), Fetching main
+          (main), Building Fleet, Building Bridge, Restarting Fleet, Reopening Bridge,
+          Retrying build. The owner asked for words here, 8 Oct 2026; the ring alone
+          shows until the restart has named a stage
+failed    one line in --status-escalated under the button, Fleet's own words
+```
+
+**The button follows the selection, and on Main it is never left disabled
+while main has moved.** The owner, 8 Oct 2026: *"if main is selected the app
+should make sure its on the latest main"*. A position that cannot be counted
+draws no mark and leaves the button enabled.
+
+**A restart past a working Drone asks first.** The Dialog is neutral, titled
+"Drones are working", lists the Jobs that would be adopted in mono, and says
+"Cannot be redirected until it finishes", with the rest of what adoption costs
+on the line's tooltip. No Drone working asks nothing.
 
 **The rows were settled on 2026-09-17**, replacing two `·`-joined mono lines,
 at the cost of two lines in a column that was already tall. **A state draws
@@ -2334,9 +2321,8 @@ unreachable   --status-awaiting-review dot
               answer for N, plus how stale the last read is
 ```
 
-**Drone count moved to Stats.** This panel's rows carry pid, port, protocol
-and up only; the running count is Overview's own arithmetic, read once and
-shared by both panels.
+**This panel's rows carry pid, port, protocol and up only**; the running
+count is Overview's own arithmetic.
 
 The two failure states differ on the runtime file, which is the fact
 that separates them: Fleet writes port, pid and protocol ID on
@@ -2364,7 +2350,7 @@ running, so the edge is the degraded one and the headline is not red. See
 - **~~Window and layout model~~** **Closed.** Specified in full under
   Window and layout model above — frameless `hiddenInset` chrome insetting
   the traffic lights over the title row, a collapsible/resizable left column
-  carrying Work, Machine, Stats and Fleet as one unit, full-width routes with no
+  carrying Work, Machine and Fleet as one unit, full-width routes with no
   inspector but for Helm's dock, no page head and no status bar, and the
   floors and breakpoint under Responsive behaviour. Delivered as one
   responsive prototype rather than per-width comps.
@@ -2977,7 +2963,7 @@ first-class.
 
 **Spend and quota render on the row and on `JobDetail` only.** Bridge/1088
 removed both from the shell chrome along with the status bar — the left
-column's Stats and Fleet panels carry neither, and nothing in the shell
+column's Fleet panel carries neither, and nothing in the shell
 states a running total any more.
 
 **Repetition.** A second stall at step 3 reads "stalled at step 3, 2nd
@@ -3067,18 +3053,15 @@ classes mean different things. An escalation means work has stopped and
 nothing progresses until a person looks. An approval means work is
 waiting to start and will keep. If approvals could reach push, the
 distinction collapses and the escalation signal stops being trusted —
-which is what the Stats panel's counts and the push-alert design both
+which is what Overview's counts and the push-alert design both
 rest on. It is a product rule about what these events mean, not a
 config-tier rule: notification routing is a Machine setting with one
 value and no merge, so no Manifest is party to it.
 
-**Stats and Fleet**, present in the left column on every surface. Stats
-reads Awaiting approval, Needs review and Escalated — amber past zero for
-the first two, red for the third — plus Jobs, Drones and Manifest drift.
-Fleet reads "Fleet running" when idle, and pid, port, protocol and up as
-rows under it;
-neither panel carries spend or quota, which left the shell chrome
-entirely with the status bar Bridge/1088 replaced.
+**Fleet**, present in the left column on every surface, reads "Fleet running"
+when idle, and pid, port, protocol and up as rows under it; it carries neither
+spend nor quota, which left the shell chrome entirely with the status bar
+Bridge/1088 replaced.
 
 **Two separate fields, not one.** These do different jobs and a reader
 should not have to guess which.

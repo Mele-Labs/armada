@@ -219,7 +219,9 @@ where
             };
             for row in rows.iter().filter(|row| {
                 row.holder.kind == HolderKind::Session
-                    && row.state == store::AttachmentState::Standing
+                    && (row.state == store::AttachmentState::Standing
+                        || (row.state == store::AttachmentState::Spent
+                            && matches!(row.detail.get("state").map(String::as_str), Some("open" | "draft"))))
             }) {
                 // **One write for the detail and the state**: a row never reads merged in
                 // one and standing in the other.
@@ -245,7 +247,7 @@ where
     pub(crate) async fn pull_ledger_kept_current(&self, manifest_id: &ManifestId, root: &str) {
         let mut numbers: Vec<u64> = {
             let store = self.store().lock().await;
-            let Ok(rows) = store.standing_of_kind(PR, manifest_id.as_str()) else {
+            let Ok(rows) = store.followed_of_kind(PR, manifest_id.as_str()) else {
                 return;
             };
             rows.iter()

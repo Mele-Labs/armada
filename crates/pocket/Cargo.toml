@@ -9,13 +9,33 @@ publish = false
 workspace = true
 
 [dependencies]
-# Nothing here is new to the workspace: `axum` and `tokio` are already under
-# `api` and `armada`. No `reqwest`, `hyper` client or `fleet`: Fleet's port is
-# handed in by the composition root, and the one request this crate makes of it
-# is written by hand in `fleet_client`, as `armada::loopback` does, so that no
-# header is ever added that a caller did not write.
+# Apart from `p256` and `sha2`, nothing here is new to the workspace: every other crate is already in `Cargo.lock`
+# under `api`, `fleet` or `armada`. No `reqwest`, `fleet` or WebSocket crate:
+# Fleet's port is handed in by the composition root, and the requests this
+# crate makes of it go through hyper's bare HTTP/1 client, which adds no header
+# a caller did not write (Fleet refuses `Origin`). `/events` is a WebSocket, so
+# its upgrade and the few frame kinds Fleet sends are read in `fleet_events`.
 axum = "0.7"
-tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "io-util", "fs"] }
+core-model = { path = "../core-model" }
+futures-util = "0.3"
+http-body-util = "0.1"
+hyper = { version = "1", features = ["client", "http1"] }
+hyper-util = { version = "0.1", features = ["tokio"] }
+ipc = { path = "../ipc" }
+store = { path = "../store" }
+serde = { version = "1", features = ["derive"] }
+# Request signing and the pairing key. `p256` reads the SPKI WebCrypto exports and
+# verifies its raw r||s signature; `sha2` hashes the body. Approved 8 Oct 2026.
+p256 = { version = "0.13", features = ["ecdsa", "ecdh"] }
+sha2 = "0.10"
+# Web Push (RFC 8030/8291/8292): `hkdf` and `aes-gcm` encrypt the payload, `reqwest`
+# (rustls, nothing else) posts it. `base64` is already in the lock. Approved 8 Oct 2026.
+aes-gcm = "0.10"
+base64 = "0.22"
+hkdf = "0.12"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "io-util", "fs", "time", "sync"] }
 
 [dev-dependencies]
+axum = { version = "0.7", features = ["ws"] }
 tower = { version = "0.5", features = ["util"] }

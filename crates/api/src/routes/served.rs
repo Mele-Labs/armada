@@ -95,6 +95,19 @@ const ROUTES: &[Route] = &[
         method: "GET",
         path: "/capacity",
     },
+    // The build Fleet runs on, beside `/capacity` and for its reason: it is
+    // Fleet's, not a Job's. The change spells its act in the last segment the
+    // way `/limits/save` does.
+    Route {
+        operation: "get_fleet_build",
+        method: "GET",
+        path: "/fleet/build",
+    },
+    Route {
+        operation: "change_fleet_build",
+        method: "POST",
+        path: "/fleet/build/change",
+    },
     // The three numbers `/capacity` is measured against, beside it and for its
     // reason: they are Fleet's, not a Job's. The save spells its act in the last
     // segment the way `/manifest/save_file` does, so the read stays the noun.
@@ -350,6 +363,19 @@ const ROUTES: &[Route] = &[
         operation: "get_job_retro",
         method: "GET",
         path: "/jobs/:job_id/retro",
+    },
+    // A Session's retro: read, and written on a press. Under `/sessions` by the
+    // Session's id, since a Session is not a Job and `/jobs/:job_id` would not
+    // resolve it.
+    Route {
+        operation: "get_session_retro",
+        method: "GET",
+        path: "/sessions/:session_id/retro",
+    },
+    Route {
+        operation: "write_session_retro",
+        method: "POST",
+        path: "/sessions/:session_id/retro",
     },
     // Every retro's items across Jobs, for the Lessons page. Not under
     // `/jobs`: an item is about a Job and the list is about none of them.

@@ -272,6 +272,21 @@ impl Queries for FakeDaemon {
         Ok(shapes::capacity())
     }
 
+    /// The build [`shapes::fleet_build`] describes, restarting onto whatever the
+    /// last change asked for.
+    async fn get_fleet_build(&self) -> Result<ipc::FleetBuildReport, Refusal> {
+        let mut report = shapes::fleet_build();
+        report.restarting = self
+            .builds
+            .lock()
+            .expect("not poisoned")
+            .last()
+            .map(|asked| asked.build);
+        // A restart under way has reached some stage; the fake says the first build one.
+        report.stage = report.restarting.map(|_| ipc::BuildStage::BuildingFleet);
+        Ok(report)
+    }
+
     /// Whatever the fake's own saves have left, so a route test can read back
     /// what it saved.
     async fn get_limits(&self) -> Result<ipc::FleetLimits, Refusal> {

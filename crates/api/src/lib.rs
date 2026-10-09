@@ -55,6 +55,8 @@ mod hosted_sessions;
 mod journal;
 /// Kit's MCP servers, and each Manifest's word over one. `#1275`.
 mod kit;
+/// The build Fleet runs on, read, and the restart onto another.
+mod building;
 /// Fleet's three changeable limits, read and saved.
 mod limiting;
 /// Setup's proposals, an edit to one, and its Write.

@@ -17,6 +17,7 @@ Job's record that show it.
 | Who | Means |
 | --- | --- |
 | `drone` | The agent doing the work was slowed or stopped |
+| `agent` | A Session's agent was slowed or stopped. A Session's retro says `agent` where a Job's says `drone` |
 | `owner` | The person who owns the Job had to step in, wait or redo something |
 | `fleet` | Armada itself cost the Job something it should not have |
 
@@ -218,7 +219,7 @@ where none is open. `packages/surfaces/jobs/src/open-job.ts`.
 
 | Where | What |
 | --- | --- |
-| **Retros**, a rail surface (glyph `rewind`, Proposed) under Work | `list_lessons`, narrowed to the rail's pick and every repository on All, under tabs `All · Armada · Kit · Manifest` by where each fix lands, and `Open · Accepted` beside them for the saved Kit items. All is the default, an item with no `lands_in` is under All alone, and the tab is remembered for the viewer. Each item is a card; its Job label opens that Job's retro |
+| **Retros**, a rail surface (glyph `rewind`, Proposed) under Work | `list_lessons`, narrowed to the rail's pick and every repository on All, under tabs `All · Armada · Kit · Manifest` by where each fix lands, `All · Sessions · Jobs` for where an item came from, and `Open · Accepted` beside them for the saved Kit items. All is the default, an item with no `lands_in` is under All alone, and the tab is remembered for the viewer. Each item is a card; its Job label opens that Job's retro |
 | **Retro**, in the head of a Job's Record | The same cards, on `get_job_retro` |
 
 Both read when they open and again when the window regains focus, because
@@ -263,7 +264,9 @@ the buttons**: Fleet refuses both acts on one with no place.
 | Operation | Route | Answers |
 | --- | --- | --- |
 | `get_job_retro` | `GET /jobs/:job_id/retro` | The record as it stands, the retro's state and items, linked annotations |
-| `list_lessons` | `GET /lessons?manifest_id=&lands_in=&state=&most=` | Items across Jobs, newest retro first; `lands_in` absent is all three and `state` absent is `open` |
+| `list_lessons` | `GET /lessons?manifest_id=&lands_in=&state=&most=` | Items across Jobs and Sessions, newest retro first; `lands_in` absent is all three and `state` absent is `open` |
+| `get_session_retro` | `GET /sessions/:session_id/retro?n=` | A Session's retro, the one numbered `n` (the `r<n>` of an item's id) or the newest, as `get_job_retro` answers, with `session` present and `job_id` holding the Session's id |
+| `write_session_retro` | `POST /sessions/:session_id/retro` | The same, once the retro is written |
 | `agree_lesson` | `POST /lessons/:lesson_id/agree` | The `Lesson` as it now stands, with `job_proposed` where a Job was proposed |
 | `disagree_lesson` | `POST /lessons/:lesson_id/disagree` | The `Lesson`, `discarded` |
 
@@ -274,6 +277,56 @@ The wire shapes are `crates/ipc/src/retro.rs`, and
 Lessons list agree on what has been answered. Both acts are
 Helm only, as `propose_from_request` is: a person presses them in Bridge, and
 Helm may when a person asks.
+
+## A Session's retro
+
+**A Session has retros too, and several.** The owner's decision, 8 Oct 2026,
+after walking the mock. A Session is a conversation with a person and not a Job
+with steps, so its retro is read from what Fleet kept of the conversation, and
+it is pressed for rather than owed when work ends.
+
+| | A Job's retro | A Session's retro |
+| --- | --- | --- |
+| Written | Once, when the Job ends | On a press (the Retro icon on the Session header and on each row of Sessions), and once when the Session ends |
+| How many | One | Several. Each covers from where the last ended (`covers_from`, `covers_to`) |
+| Its agent | `drone` | `agent` |
+| An item's id | The Job's id, a hyphen and its place | The Session's id, `-r`, the retro's number, a hyphen and its place |
+| Where `manifest` fixes go | The Job's repository | The repository the Session was started in |
+
+A press writes the retro and answers when it is written, so Bridge shows the
+writing mark until then and opens it. **A second press while one is writing is
+refused** (409), and **a Session with nothing since its last retro answers with
+that retro**, or is refused (422) where it has none. A Session that ends is
+written one on the road a Job's takes, and one with nothing new, or whose call
+failed, is given up on and not tried again.
+
+**The record is mechanical, as a Job's is**, read from what Fleet keeps of the
+Session since the last retro ended.
+
+| Row | Read from |
+| --- | --- |
+| `asks` | The ask rows on a hosted Session's thread: what was asked, the answer and how long it waited |
+| `refusals` | Tool results the agent CLI's transcript shows were refused: a hook's `Refused`, the harness's denial, the person declining |
+| `restarts` | A hosted Session's process resumed, reattached after Fleet came back, or gone while a turn ran |
+| `failed_tools` | The other tool results that errored, each joined to its call: `tried` is the call, `because` the error |
+| `corrections` | Every message the person sent, unfiltered. The call reads which of them redirected the agent |
+| `subagents` | What went wrong in each subagent's own transcript |
+| `notes` | What the agent said got in its way, below |
+
+**The agent is asked once, and only between turns.** Where the Session is
+hosted, its process is running and its turn is idle, Fleet sends it one fixed
+message from Fleet, "What got in your way since <time>? One line per thing, or
+'nothing'.", and waits a bounded time for the reply, which becomes the note. A
+Session mid-turn, asleep or ended is written without. The message is Fleet's
+and is never read back as one of the person's corrections.
+
+**The call is a Job's retro call** on the same client, budget and model
+setting, with the same item parser and the same rules to name no cause the
+record does not show. Its prompt says this is a conversation with a person. Agree
+and Disagree are the Job's, on `/lessons/:id/...`, and an `armada` item proposes
+a Job against the Armada manifest as before. The Retros page lists a Session's
+items beside a Job's and narrows to either with its Sessions and Jobs tabs. A
+Session's row reads `Title · s-xxxxxxxx`.
 
 ## Open questions
 

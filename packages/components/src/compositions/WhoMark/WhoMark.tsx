@@ -3,7 +3,7 @@ import { Bot, Server, UserCheck } from "lucide-react";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 
 /** Whose way a retro item got in — `Whose` on the wire. `docs/concepts/retro.md`. */
-export type Who = "drone" | "owner" | "fleet";
+export type Who = "drone" | "agent" | "owner" | "fleet";
 
 /**
  * Whose way one retro item got in, as a 12px mark named by its tooltip.
@@ -33,6 +33,7 @@ export function whoWord(who: Who): string {
 
 const MARKS: Record<Who, { Glyph: typeof Bot; says: string }> = {
   drone: { Glyph: Bot, says: "Drone" },
+  agent: { Glyph: Bot, says: "Agent" },
   owner: { Glyph: UserCheck, says: "You" },
   fleet: { Glyph: Server, says: "Fleet" },
 };

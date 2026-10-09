@@ -52,6 +52,8 @@ impl Via {
 pub enum Whose {
     /// The Drone doing the work.
     Drone,
+    /// A Session's agent, where a Job's retro says Drone.
+    Agent,
     /// The person who owns the Job.
     Owner,
     /// Fleet itself: a gate, a Check or a rule that cost the Job and was wrong
@@ -60,11 +62,12 @@ pub enum Whose {
 }
 
 impl Whose {
-    pub const ALL: &'static [Whose] = &[Whose::Drone, Whose::Owner, Whose::Fleet];
+    pub const ALL: &'static [Whose] = &[Whose::Drone, Whose::Agent, Whose::Owner, Whose::Fleet];
 
     pub fn as_wire(&self) -> &'static str {
         match self {
             Whose::Drone => "drone",
+            Whose::Agent => "agent",
             Whose::Owner => "owner",
             Whose::Fleet => "fleet",
         }

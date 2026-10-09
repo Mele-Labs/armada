@@ -110,7 +110,8 @@ and the next start replaces it, saying so.
 onto the latest `main`**, without the owner leaving Bridge for a terminal. A
 checkout on `main` is fast-forwarded to `origin/main` first; the restart
 refuses if it cannot be. Two callers: an agent, through Bash, after a merge that touches
-Fleet or Bridge; and Bridge itself, through `#810`'s act.
+Fleet or Bridge; and Bridge itself, through the Fleet panel's build section
+(*Restarting from Bridge*, below).
 
 **It also copies `plugins/` from the tree it built to `Armada/mod/`**, Fleet's
 own copy of the Claude Code mod (`scripts/sync-mod`, atomic, nothing else in
@@ -333,7 +334,56 @@ alone, run `scripts/restart --main`.
 
 **`python3 scripts/test_preview.py`** runs it against a throwaway repository
 with git alone, and a stub Fleet. CI runs it as `preview_test` when
-`scripts/preview` or `scripts/restart` changes.
+`scripts/preview`, `scripts/restart` or `scripts/restart-build` changes.
+
+## Restarting from Bridge
+
+**The Fleet panel's build section is `scripts/restart --main` and
+`scripts/preview --restart`, pressed from the window.** A Select names the build
+Fleet runs on, Main or Preview, and one button follows it:
+
+| Selected | Button | Runs |
+|---|---|---|
+| Preview | `Refresh preview` | `scripts/preview --restart` |
+| Main | `Update to main` | `scripts/restart --main`: the checkout is fast-forwarded to `origin/main`, then Fleet and Bridge are built from it |
+| Main, level with `origin/main` | `Update to main`, disabled, `On latest main` | nothing |
+
+Choosing the other build in the Select runs that build's restart at once. The
+mark beside `main` counts the running build against `origin/main`: an arrow up
+and a figure for commits it holds that main lacks, an arrow down for commits main
+holds that it lacks, a check when there are none of either.
+
+**Bridge asks Fleet, and Fleet starts `scripts/restart-build` detached.** The
+restart stops the Fleet that asked for it, so the wrapper is started in a session
+of its own and without the mark `crate::orphans` sweeps by, and survives both
+Fleet stopping and Bridge being reopened. Measured 8 Oct 2026: a child started
+with `setsid` from a launchd job outlived `launchctl bootout` of that job.
+`change_fleet_build` in `crates/ipc/operations/` is the request.
+
+**`scripts/restart-build main|preview [--adopt]` keeps the record Fleet reads
+back**, in `~/Library/Application Support/Armada/`:
+
+| File | Says | Written by |
+|---|---|---|
+| `restart-source` | The tree the running build came from, `.armada/preview` or none for main | `scripts/restart` |
+| `restart-commit` | The commit it was built from | `scripts/restart`, once the new Fleet speaks the protocol its tree hashes to |
+| `restart-build.status` | `running`, the build and, once the wrapper has read a heading, the stage (`merging`, `fetching_main`, `building_fleet`, `building_bridge`, `restarting_fleet`, `reopening_bridge`, `retrying`), or `failed`, the build, the commit then current and one line of why. No file means the last restart took | `scripts/restart-build`; Fleet writes `running` first |
+
+Its output is `~/Library/Logs/Armada/restart-build.log`. **A `libsqlite3-sys`
+build failure is run once more after `cargo clean -p libsqlite3-sys`** in the tree
+that was built. `main` is refused from a checkout that is not on `main`, which
+`scripts/restart` would otherwise build from whatever it holds.
+
+**Fleet counts the position, and fetches on its own time.** `get_fleet_build`
+reads the files above and counts `origin/main...commit`; `git fetch origin main`
+runs in the background at most every ten minutes, so a read never waits on the
+network and the counts are as fresh as the last fetch. Bridge reads it on every
+connection and every minute, and every two seconds while a restart is under way.
+A `running` status older than twenty minutes is a wrapper that died and is ignored.
+
+**A restart past a working Drone asks first.** Bridge lists the Jobs at `running`
+in a confirm and passes `--adopt` only after the person says so; with no Drone
+working there is no confirm. The costs are `scripts/restart --adopt`'s.
 
 ## A Fleet of your own
 

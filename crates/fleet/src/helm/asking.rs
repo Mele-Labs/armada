@@ -54,6 +54,21 @@ pub struct Said {
     pub answers: Vec<QuestionAnswer>,
 }
 
+impl Said {
+    pub fn of(said: &AnswerHelmCall) -> Said {
+        Said {
+            answer: said.answer,
+            note: said
+                .note
+                .as_deref()
+                .map(str::trim)
+                .filter(|note| !note.is_empty())
+                .map(str::to_string),
+            answers: said.answers.clone(),
+        }
+    }
+}
+
 /// Why an answer did not land.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum NotAnswerable {
@@ -174,17 +189,30 @@ impl Asks {
         let in_flight = held.in_flight.clone();
         // The receiver is gone where the hold already ran out. The ask is off
         // the table either way, and the call has answered itself.
-        let _ = held.answer.send(Said {
-            answer: said.answer,
-            note: said
-                .note
-                .as_deref()
-                .map(str::trim)
-                .filter(|note| !note.is_empty())
-                .map(str::to_string),
-            answers: said.answers.clone(),
-        });
+        let _ = held.answer.send(Said::of(said));
         Ok(in_flight)
+    }
+
+    /// Put back an ask a restarted Fleet kept, under the id it had. Nothing
+    /// waits on its channel: the answer is kept by whoever answers.
+    pub fn restore(&self, in_flight: HelmCallInFlight) {
+        if let Some(minted) = in_flight
+            .call
+            .strip_prefix("helm-")
+            .and_then(|n| n.parse::<u64>().ok())
+        {
+            self.minted.fetch_max(minted, Ordering::SeqCst);
+        }
+        let (sender, _) = oneshot::channel();
+        if let Ok(mut waiting) = self.waiting.lock() {
+            waiting.insert(
+                in_flight.call.clone(),
+                Held {
+                    in_flight,
+                    answer: sender,
+                },
+            );
+        }
     }
 
     /// Take one ask off the table without answering it — the hold running out,

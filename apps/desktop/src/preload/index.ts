@@ -17,6 +17,7 @@ import type {
   LessonAnswer,
   LessonsRead,
   RetroRead,
+  RetroSubject,
   FrameRead,
   ClearOutcome,
   Outcome,
@@ -35,7 +36,7 @@ import type { StudioAnswer } from "@armada/screens/src/studio-reads";
 import type { AddTask, ApproveWave, DropTask, EditJob, EditTask, MovePlan } from "@armada/protocol";
 import type { ApproveDispatch, BranchesRead, ToProposer } from "@armada/protocol";
 import type { PlanEditAnswer } from "@armada/screens/src/plan-edits";
-import type { Artifact, Followed, FleetRestart, LandCheckAt, Opened } from "@armada/protocol";
+import type { Artifact, BuildSource, Followed, FleetRestart, LandCheckAt, Opened } from "@armada/protocol";
 import type { RunListRead, RunOutputRead, StartRun } from "@armada/protocol";
 import type { CheckoutRunListRead, StartCheckoutRun } from "@armada/protocol";
 import type { EditManifest, SaveManifestFile } from "@armada/protocol";
@@ -62,6 +63,7 @@ import type {
 import type { AddingStep, AddStepAnswer, EditingStep, EditStepAnswer, ReadingRepairDiff, RemovingStep, RemoveStepAnswer, RepairDiffAnswer } from "../shared/added-steps";
 import type { SavingWorkflow, WorkflowDefinitionRead, WorkflowSaveAnswer, WorkflowsRead } from "../shared/workflows";
 import type { AddKitServer, ManifestReach, ReachesDrones } from "@armada/protocol";
+import type { PhoneAnswer, PhoneRequest } from "@armada/settings/api";
 import type { LocateAnswer } from "@armada/screens/src/locate-reads";
 import type { ComposingRead } from "@armada/screens/src/composing-reads";
 import type { EditManifestProposal, WriteManifestProposal } from "@armada/protocol";
@@ -314,6 +316,9 @@ const api: BridgeApi = {
   savePreference: (save: SavePreference): Promise<Outcome> =>
     ipcRenderer.invoke(CHANNELS.savePreference, save),
 
+  // The Phone Gateway, on loopback, one named operation at a time. Main makes the call.
+  phone: (request: PhoneRequest): Promise<PhoneAnswer> => ipcRenderer.invoke(CHANNELS.phone, request),
+
   // The mods on this machine. **Fleet-wide**, and the stylesheet comes from `validateMod` alone.
   validateMod: (name: string): Promise<ModChecked | null> =>
     ipcRenderer.invoke(CHANNELS.validateMod, name),
@@ -538,6 +543,10 @@ const api: BridgeApi = {
   // name it; main opens `http(s):` only. `main/links.ts`.
   openLink: (address: string): Promise<Followed> => ipcRenderer.invoke(CHANNELS.openLink, address),
   restartFleet: (): Promise<FleetRestart> => ipcRenderer.invoke(CHANNELS.restartFleet),
+  // Restart Fleet and Bridge onto main or the preview. Fleet starts the script and answers at once;
+  // the outcome arrives as `fleetBuild` on the published state.
+  changeFleetBuild: (build: BuildSource, adopt: boolean): Promise<Outcome> =>
+    ipcRenderer.invoke(CHANNELS.changeFleetBuild, build, adopt),
 
   // Ask Fleet to go and look now. **The rung below intervene**, and the one
   // entry here that is an act and changes nothing: what it leaves is a line in
@@ -572,8 +581,8 @@ const api: BridgeApi = {
   readBrief: (jobId: string, name: string): Promise<BriefRead> =>
     ipcRenderer.invoke(CHANNELS.readBrief, jobId, name),
   // A Job's retro and the Lessons listing, read when a surface opens and on focus.
-  readRetro: (jobId: string): Promise<RetroRead> =>
-    ipcRenderer.invoke(CHANNELS.readRetro, jobId),
+  readRetro: (subject: RetroSubject): Promise<RetroRead> =>
+    ipcRenderer.invoke(CHANNELS.readRetro, subject),
   readLessons: (state: "open" | "accepted"): Promise<LessonsRead> =>
     ipcRenderer.invoke(CHANNELS.readLessons, state),
   // The owner's answer to one retro item, by its id. Each is one operation, not a channel.
@@ -617,6 +626,7 @@ const api: BridgeApi = {
   renameSession: (rename: RenameSession): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.renameSession, rename),
   forkSession: (sessionId: string): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.forkSession, sessionId),
   closeSession: (sessionId: string): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.closeSession, sessionId),
+  retroSession: (sessionId: string): Promise<Outcome> => ipcRenderer.invoke(CHANNELS.retroSession, sessionId),
   watchSession: (sessionId: string): Promise<void> => ipcRenderer.invoke(CHANNELS.watchSession, sessionId),
   readSessionFile: (sessionId: string, file: string): Promise<FrameRead> =>
     ipcRenderer.invoke(CHANNELS.readSessionFile, sessionId, file),
@@ -719,6 +729,7 @@ const api: BridgeApi = {
     save: (said: string): Promise<Outcome> => ipcRenderer.invoke(CHANNELS.captureWindowSave, said),
     reload: (): Promise<void> => ipcRenderer.invoke(CHANNELS.captureWindowReload),
     followRefused: (): Promise<void> => ipcRenderer.invoke(CHANNELS.captureWindowFollowRefused),
+    approve: (): Promise<Outcome> => ipcRenderer.invoke(CHANNELS.captureWindowApprove),
     scroll: (wheel: CaptureWheel): void => ipcRenderer.send(CHANNELS.captureWindowScroll, wheel),
   },
 

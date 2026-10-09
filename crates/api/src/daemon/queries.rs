@@ -238,6 +238,16 @@ pub trait Queries: Send + Sync + 'static {
     /// its own roster, which is not a state that has ever occurred.
     fn get_capacity(&self) -> impl Future<Output = Result<FleetCapacity, Refusal>> + Send;
 
+    /// `get_fleet_build` — which build Fleet runs on, the commit it came from,
+    /// where that stands against `origin/main`, and the restart under way or
+    /// the one that failed.
+    ///
+    /// **Never waits on the network**: the counts are as fresh as Fleet's last
+    /// background fetch. [`Refusal::IllegalMove`] where this Fleet serves no
+    /// checkout that can be restarted from, and a Fleet in that state has no
+    /// build to choose.
+    fn get_fleet_build(&self) -> impl Future<Output = Result<ipc::FleetBuildReport, Refusal>> + Send;
+
     /// `get_limits` — the Drones-at-once bound, the memory share and the disk
     /// floor in force, and the values Fleet shipped with.
     ///

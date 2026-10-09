@@ -95,6 +95,8 @@ export type Calls = {
   renamed: RenameSession[];
   closed: string[];
   forked: string[];
+  /** The Sessions the Retro press was pressed on. */
+  retroed: string[];
   pressed: { sessionId: string; number: number; press: string }[];
   watched: string[];
   /** The addresses a page view was shown on, and how many times it was taken away. */
@@ -109,7 +111,7 @@ export class FakeSessionsFleet {
   pageEscape(): void {
     this.escape.forEach((on) => on());
   }
-  readonly calls: Calls = { started: 0, piloted: [], exited: [], sent: [], answered: [], tuned: [], renamed: [], closed: [], forked: [], pressed: [], watched: [], pages: [], pagesHidden: 0 };
+  readonly calls: Calls = { started: 0, piloted: [], exited: [], sent: [], answered: [], tuned: [], renamed: [], closed: [], forked: [], retroed: [], pressed: [], watched: [], pages: [], pagesHidden: 0 };
   private records: SessionRecord[];
   private threads: Record<string, SessionRow[]>;
   private fleet: FleetHandle | undefined;
@@ -119,6 +121,12 @@ export class FakeSessionsFleet {
   refuses: { code: string; message: string } | undefined;
   /** Set to have the next message refused, the way Fleet refuses one: the error says why and nothing is sent. */
   refusesSend: { code: string; message: string } | undefined;
+  /** Set to have the next retro refused the way Fleet refuses one: the error says why and nothing is written. */
+  refusesRetro: { code: string; message: string } | undefined;
+  /** How long a retro takes to write, so a walk can see it being written. */
+  retroTakes = 1500;
+  /** Hears a retro being written, to put it where the Retros page reads from. */
+  onRetro: ((sessionId: string, title: string | undefined) => void) | undefined;
   /** Set to have the next act on a pull request refused, the way Fleet refuses one: the error says why and nothing changes. */
   refusesPress: { code: string; message: string } | undefined;
   /** Each subagent's thread as its transcript stands, by subagent id. A test changes it to let one run on. */
@@ -241,6 +249,13 @@ export class FakeSessionsFleet {
             const record = hosted(id, { ...(old.title === undefined ? {} : { title: old.title }), attachments: [held("forked_from", sessionId, {}, "spent")] });
             this.set([record, ...this.records.map((one) => (one.id === sessionId ? { ...one, attachments: [...one.attachments, held("forked_to", id, {}, "spent")] } : one))]);
             return { ok: true, value: record };
+          },
+          retroSession: async (sessionId: string) => {
+            this.calls.retroed.push(sessionId);
+            if (this.refusesRetro !== undefined) return { ok: false as const, why: "refused", error: this.refusesRetro } as never;
+            await new Promise((done) => setTimeout(done, this.retroTakes));
+            this.onRetro?.(sessionId, this.records.find((one) => one.id === sessionId)?.title);
+            return { ok: true as const };
           },
           closeSession: async (sessionId) => {
             this.calls.closed.push(sessionId);

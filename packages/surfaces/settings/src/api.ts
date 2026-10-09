@@ -12,6 +12,25 @@ import type {
   Preferences,
 } from "@armada/protocol";
 
+/**
+ * One thing Bridge asks the Phone Gateway. **A named operation and never a path**, so the renderer
+ * can reach exactly these six routes and no other. Main makes the call: the Gateway's admin routes
+ * refuse any request that carries `Origin`, which a renderer's own fetch always does.
+ */
+export type PhoneRequest =
+  | { op: "start" }
+  | { op: "pending" }
+  | { op: "confirm"; code: string }
+  | { op: "devices" }
+  | { op: "unpair"; id: string }
+  | { op: "status" };
+
+/** `body` is the route's JSON, or `null` for a 204. `unreachable` is a refused connection. */
+export type PhoneAnswer =
+  | { ok: true; body: unknown }
+  | { ok: false; why: "unreachable" }
+  | { ok: false; why: "refused"; said: string };
+
 export type SettingsApi = {
   /**
    * Change one or more of Fleet's three admission limits: drones at once, the
@@ -42,6 +61,8 @@ export type SettingsApi = {
   setModEnabled: (name: string, enabled: boolean) => Promise<Outcome>;
   /** Put a valid mod on a new branch of the repository. `modPromoted` on the answer names the branch; nothing is pushed. */
   promoteMod: (name: string) => Promise<Outcome>;
+  /** One request to the Phone Gateway on loopback, made by Bridge's main process. */
+  phone: (request: PhoneRequest) => Promise<PhoneAnswer>;
 };
 
 export type SettingsState = {
@@ -84,4 +105,5 @@ export const SETTINGS_CHANNELS = {
   validateMod: "bridge:validate-mod",
   setModEnabled: "bridge:set-mod-enabled",
   promoteMod: "bridge:promote-mod",
+  phone: "bridge:phone",
 } as const;

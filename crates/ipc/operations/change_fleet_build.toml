@@ -1,0 +1,16 @@
+[operations.change_fleet_build]
+kind = "command"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Restart Fleet and Bridge onto latest main, or onto a refreshed preview, detached from Fleet"
+notes = """
+`POST /fleet/build/change`, body `ChangeFleetBuild`, answered `FleetBuildChanging` with a 202: the restart has begun, not finished. Fleet stops during it, so the answer is the last thing this Fleet says about it; the next Fleet's `get_fleet_build` says whether it took.
+
+`build` `main` runs `scripts/restart-build main`, which runs `scripts/restart --main`: the checkout is fast-forwarded to origin/main and Fleet and Bridge are built from it. `build` `preview` runs `scripts/restart-build preview`, which runs `scripts/preview --restart`. `adopt` adds `--adopt`; without it the script refuses while a Drone is working, and that refusal is what `get_fleet_build` reports as `failed`.
+
+**Detached, and not marked.** The wrapper starts in a session of its own and carries no `ARMADA_SPAWNED_BY` mark, so neither Fleet stopping nor the next Fleet's orphan sweep ends it. It keeps its output in `~/Library/Logs/Armada/restart-build.log`. Run once more after `cargo clean -p libsqlite3-sys` where the first run failed on that stale build script.
+
+A second request while one is under way is a 409 `fleet.build_restarting`. A checkout that is not on `main` is refused by the wrapper, which reports it as `failed`. A Fleet with no checkout holding `scripts/restart-build` is a 409 `fleet.build_not_offered`.
+
+`Bridge only`: restarting the Fleet that serves a Helm conversation is a person's act, whatever Helm's authority setting says.
+"""
