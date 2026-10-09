@@ -90,6 +90,7 @@ export type JobDraft = {
    * the Board alone**, which is every real Job until Fleet publishes the reads behind it.
    */
   calls?: Readonly<Record<string, CallView>>;
+  /**
    * What the Now panel beside the Overview canvas draws, by Job id. **A Job
    * absent here draws no panel**, which is every real Job until Fleet publishes
    * the reads behind it.
