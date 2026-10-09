@@ -3,6 +3,7 @@
 // Kept, not deleted: a slice-by-slice equality cannot be asserted against anything but the whole.
 
 import { describe, expect, it } from "vitest";
+import type { PhoneAnswer, PhoneRequest } from "@armada/settings/api";
 import type {
   AddTask,
   FixMain,
@@ -294,6 +295,7 @@ type OldBridgeApi = {
     validateMod: (name: string) => Promise<ModChecked | null>;
     setModEnabled: (name: string, enabled: boolean) => Promise<Outcome>;
     promoteMod: (name: string) => Promise<Outcome>;
+    phone: (request: PhoneRequest) => Promise<PhoneAnswer>;
     fileReport: (jobId: string, filing: FileReport) => Promise<Outcome>;
     addTask: (jobId: string, add: AddTask) => Promise<PlanEditAnswer>;
     dropTask: (jobId: string, drop: DropTask) => Promise<PlanEditAnswer>;
@@ -564,6 +566,7 @@ const OLD_CHANNELS = {
     validateMod: "bridge:validate-mod",
     setModEnabled: "bridge:set-mod-enabled",
     promoteMod: "bridge:promote-mod",
+    phone: "bridge:phone",
     fileReport: "bridge:file-report",
     addTask: "bridge:add-task",
     dropTask: "bridge:drop-task",
