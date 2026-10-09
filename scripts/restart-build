@@ -20,7 +20,8 @@
 # 6 and 7 Oct 2026; `.claude/skills/preview-app/SKILL.md`.
 #
 # Knobs for tests: `ARMADA_RESTART_SCRIPT` and `ARMADA_PREVIEW_SCRIPT` name the
-# scripts this runs, `HOME` moves the record and the log.
+# scripts this runs, `HOME` moves the record and the log, and
+# `ARMADA_RESTART_POLL` is how often, in seconds, the log is read for a stage.
 
 import os
 import re
@@ -116,6 +117,8 @@ def main():
     if adopt:
         command.append("--adopt")
 
+    poll = float(os.environ.get("ARMADA_RESTART_POLL") or 0.5)
+
     def run(retrying=False):
         """Run the command with its output in the log, and follow the log for stages."""
         with open(log_path, "a") as log:
@@ -127,7 +130,7 @@ def main():
             while True:
                 finished = False
                 try:
-                    process.wait(timeout=0.5)
+                    process.wait(timeout=poll)
                     finished = True
                 except subprocess.TimeoutExpired:
                     pass
