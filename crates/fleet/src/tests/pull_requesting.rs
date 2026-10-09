@@ -26,6 +26,12 @@ const ADDRESS: &str = "https://forge.invalid/armada/pull/12";
 fn a_fleet(home: &TempDir) -> Fixture {
     let mut fittings = fittings(home, FakeWorkProduct::changed(&[]));
     fittings.starting().workflows = one(workflow_named("code_review"));
+    // A base, since the merge queue is the base branch's.
+    fittings.starting().manifest = config::Manifest::parse(
+        std::path::Path::new("armada.yml"),
+        "version: 1\nid: 01FIXTUREMANIFEST\nbase: main\n",
+    )
+    .expect("parses");
     Fleet::assembled(fittings)
 }
 
@@ -517,13 +523,107 @@ async fn auto_merge_is_asked_for_while_the_checks_run() {
 }
 
 #[tokio::test]
-async fn auto_merge_is_refused_once_the_checks_passed_or_failed_and_on_a_draft() {
+async fn auto_merge_on_checks_that_passed_already_queues_it_instead_of_refusing() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home);
+    let (id, _) = manifest(&fleet);
+    a_session_holding_pull_request_12(&fleet, "s1").await;
+    fleet
+        .vcs()
+        .now_pull_request(Some(facts(PullRequestStanding::Open)));
+    forge_ran(&fleet, passed());
+
+    let now = fleet.enable_auto_merge(id, 12).await.expect("queued");
+
+    assert!(now.auto_merge);
+    assert_eq!(fleet.vcs().times_asked_for_auto_merge(), 1);
+    assert_eq!(
+        the_row(&fleet, "s1", "pr")
+            .await
+            .detail
+            .get("auto_merge")
+            .map(String::as_str),
+        Some("true")
+    );
+}
+
+#[tokio::test]
+async fn a_pull_request_already_in_the_merge_queue_is_answered_as_queued_and_not_asked_again() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home);
+    let (id, _) = manifest(&fleet);
+    a_session_holding_pull_request_12(&fleet, "s1").await;
+    fleet
+        .vcs()
+        .now_pull_request(Some(facts(PullRequestStanding::Open)));
+    forge_ran(&fleet, passed());
+    fleet.vcs().main_ci.queue_is(Some(vec![adapter_traits::QueueEntry {
+        number: 12,
+        position: 1,
+        state: adapter_traits::QueueState::Queued,
+    }]));
+
+    let now = fleet.enable_auto_merge(id, 12).await.expect("as it stands");
+
+    assert!(now.queued);
+    assert_eq!(fleet.vcs().times_asked_for_auto_merge(), 0);
+    assert_eq!(
+        the_row(&fleet, "s1", "pr")
+            .await
+            .detail
+            .get("queued")
+            .map(String::as_str),
+        Some("true")
+    );
+}
+
+#[tokio::test]
+async fn the_pull_watch_settles_a_terminal_sessions_merged_pull_request_nobody_opened() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home);
+    let (id, root) = manifest(&fleet);
+    a_session_holding_pull_request_12(&fleet, "s1").await;
+    fleet
+        .vcs()
+        .now_pull_request(Some(facts(PullRequestStanding::Merged)));
+    forge_ran(&fleet, passed());
+
+    fleet.pull_ledger_kept_current(&id, &root).await;
+
+    let row = the_row(&fleet, "s1", "pr").await;
+    assert_eq!(row.state, AttachmentState::Spent);
+    assert_eq!(row.detail.get("state").map(String::as_str), Some("merged"));
+}
+
+#[tokio::test]
+async fn a_row_a_session_took_again_after_the_merge_is_settled_by_the_next_watch() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home);
+    let (id, root) = manifest(&fleet);
+    a_session_holding_pull_request_12(&fleet, "s1").await;
+    fleet
+        .vcs()
+        .now_pull_request(Some(facts(PullRequestStanding::Merged)));
+    forge_ran(&fleet, passed());
+    fleet.get_pull_request(id.clone(), 12).await.expect("read");
+    assert_eq!(the_row(&fleet, "s1", "pr").await.state, AttachmentState::Spent);
+    // The harness's own report takes it up again, as standing.
+    a_session_holding_pull_request_12(&fleet, "s1").await;
+    assert_eq!(
+        the_row(&fleet, "s1", "pr").await.state,
+        AttachmentState::Standing
+    );
+
+    fleet.pull_ledger_kept_current(&id, &root).await;
+
+    let row = the_row(&fleet, "s1", "pr").await;
+    assert_eq!(row.state, AttachmentState::Spent);
+    assert_eq!(row.detail.get("state").map(String::as_str), Some("merged"));
+}
+
+#[tokio::test]
+async fn auto_merge_is_refused_once_a_check_failed_and_on_a_draft() {
     for (standing, ran, expected) in [
-        (
-            PullRequestStanding::Open,
-            passed(),
-            "fleet.pull_request_checks_passed",
-        ),
         (
             PullRequestStanding::Open,
             WhatTheForgeRan::SomeFailed {

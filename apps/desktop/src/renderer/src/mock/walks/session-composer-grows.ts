@@ -1,7 +1,7 @@
 // The message box grows with what is typed, up to half the height of its panel, and then scrolls.
 // Told on a Session's composer and on Helm's.
 
-import { kit } from "../sessions/walk-kit";
+import { kit, toSessions } from "../sessions/walk-kit";
 import { button, inside, region, role, walk } from "../walk";
 import type { Step } from "../walk";
 
@@ -33,9 +33,9 @@ const keeping: Step[] = [
   { look: kit(false).message, say: "The message box has what was typed, with the caret at its end" },
 ];
 
-const session = walk("session-thread-polish", steps());
-const talking = walk("session-thread-polish", helm);
+const session = walk("session-thread-polish", [toSessions, ...steps()]);
+const talking = walk("session-thread-polish", [toSessions, ...helm]);
 
-const kept = walk("session-thread-polish", keeping);
+const kept = walk("session-thread-polish", [toSessions, ...keeping]);
 
 export { kept as "session-composer-keeps", session as "session-composer-grows", talking as "session-composer-grows-helm" };

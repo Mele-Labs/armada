@@ -83,7 +83,7 @@ function stateOf(session: Session): { state: SessionState; said: string } {
     return { state: "working", said: by === undefined ? "Working" : `Woken by ${by.title}` };
   }
   if (isBlank(session)) return { state: "blank", said: "Blank: no slot, no branch" };
-  const failing = attachmentsOf(session, "pull_request").find((pr) => pr.checks.state === "failed");
+  const failing = attachmentsOf(session, "pull_request").find((pr) => pr.state !== "merged" && pr.checks.state === "failed");
   if (failing !== undefined) return { state: "failing", said: `Checks failed on #${failing.number}` };
   if (session.asked !== undefined) return { state: "waiting", said: "Waiting on you" };
   return { state: "idle", said: "Idle" };
@@ -351,7 +351,7 @@ const readingOf = (session: Session, open: Reading | undefined): SessionAttachme
 
 /** What is true of a pull request beyond its Checks, as bare facts. */
 const factsOf = (one: Extract<SessionAttachment, { kind: "pull_request" }>): string[] =>
-  [one.state === "draft" ? "Draft" : undefined, one.auto && one.state !== "merged" ? "Auto-merge on" : undefined].filter(
+  [one.state === "draft" ? "Draft" : undefined, one.queued === true ? "In merge queue" : one.auto && one.state !== "merged" ? "Auto-merge on" : undefined].filter(
     (fact): fact is string => fact !== undefined,
   );
 
@@ -471,7 +471,8 @@ function ReadingSheet({
               <span key={fact}>{fact}</span>
             ))}
           </PullRequestCard>
-          <PullRequestActs state={one.state} checks={one.checks.state} auto={one.auto} onAct={(act) => onAct(one.number, act)} />
+          <Refused />
+          <PullRequestActs state={one.state} checks={one.checks.state} auto={one.auto} queued={one.queued === true} onAct={(act) => onAct(one.number, act)} />
         </div>
       ) : one?.kind === "sketch" ? (
         <SketchPreview label={one.title} boxes={one.drawing.boxes} lines={one.drawing.lines} strokes={one.drawing.strokes ?? []} pictures={[]} />
@@ -681,6 +682,11 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
   useEffect(() => {
     for (const number of prs === "" ? [] : prs.split(",")) refresh?.(id, Number(number));
   }, [refresh, id, prs]);
+  // Opening a pull request's sheet reads it again, so what the sheet says is the forge's now.
+  const opened = reading?.kind === "pull_request" ? reading.number : undefined;
+  useEffect(() => {
+    if (opened !== undefined) refresh?.(id, opened);
+  }, [refresh, id, opened]);
   // The panel a slot's tile opens on Cleanup reads what Fleet holds, so it is wanted while this is open.
   useEffect(() => {
     onWant(true);
@@ -855,6 +861,66 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
       />
       {slot === undefined ? null : <TileSheet row={{ slot }} floor={floor} onOpenJob={goes.onOpenJob} onClose={() => setSlotOpen(undefined)} />}
     </>
+  );
+}
+
+/**
+ * A Session in miniature, for the Dashboard's pane: its thread, what it is held on, and the box to
+ * answer it, as its own page draws them. No ledger, no frame; Open goes to the whole Session.
+ */
+export function SessionMini({ sessionId, onOpen }: { sessionId: string; onOpen: (id: string) => void }) {
+  const draft = useSessionsDraft();
+  const sessions = useSessions();
+  const session = sessions.find((one) => one.id === sessionId);
+  const watch = draft?.watch;
+  useEffect(() => watch?.(sessionId), [watch, sessionId]);
+  if (draft === undefined || session === undefined) return null;
+  const mode: SessionMode = session.mode ?? (session.terminal === true ? "ask" : "auto");
+  return (
+    <div className="armada-session-mini">
+      <div className="armada-session-mini__thread">
+        <SessionThread
+          sessionId={session.id}
+          rows={threadRowsOf(session)}
+          {...(session.asked === undefined
+            ? {}
+            : {
+                asked: {
+                  command: session.asked.command,
+                  ...(session.asked.questions === undefined ? {} : { questions: session.asked.questions }),
+                  ...(session.asked.offers === undefined
+                    ? {}
+                    : { offers: helmOfferedOf(session.asked.offers).map((one) => ({ id: one.offer, label: one.label, means: one.means })) }),
+                },
+              })}
+          onAnswer={(answer, answers) => draft.answer(session.id, answer as SessionAnswer | undefined, answers)}
+          onOpenSession={onOpen}
+        />
+      </div>
+      {session.dead !== undefined ? null : (
+        <SessionComposer
+          modeLocked={session.terminal === true}
+          modeHidden={session.terminal === true && session.mode === undefined}
+          working={session.turn.state === "working"}
+          mode={mode}
+          onMode={(next) => draft.tune(session.id, { model: session.model ?? null, effort: session.effort ?? null, mode: next })}
+          model={session.model ?? null}
+          effort={session.effort ?? null}
+          models={draft.models}
+          efforts={draft.efforts}
+          onTune={(tuning) => draft.tune(session.id, { ...tuning, mode })}
+          commands={session.terminal === true ? (session.commands ?? []) : draft.commands}
+          compact
+          taggable={[]}
+          tags={session.pendingTags ?? []}
+          onTags={(tags) => draft.setTags(session.id, tags)}
+          drawn={[]}
+          onDraw={() => onOpen(session.id)}
+          onRemoveDrawn={() => undefined}
+          onSend={(sent) => draft.send(session.id, { text: sent.text, files: sent.files, sketches: [], tags: sent.tags as readonly SessionTag[] })}
+        />
+      )}
+    </div>
   );
 }
 

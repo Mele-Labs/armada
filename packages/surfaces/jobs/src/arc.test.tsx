@@ -15,7 +15,7 @@
 // sentence stops being true.
 
 import { expect, test, describe, vi } from "vitest";
-import { page } from "vitest/browser";
+import { page, userEvent } from "vitest/browser";
 
 
 import {
@@ -130,11 +130,14 @@ describe("every arc moment loads", () => {
   test("the kinds Board opens every Job it holds", async () => {
     const { scenario } = mount("kinds", SLICES);
     await listed();
-    const done = page.getByRole("button", { name: /^Done/ });
-    if (done.query()?.getAttribute("aria-expanded") === "false") await done.click();
-    await expect
-      .poll(() => rows().map((row) => row.dataset.jobId).sort())
-      .toEqual(scenario.state.jobs.map((job) => job.id).sort());
+    // Every Job is on one of the Dashboard's tabs: read each in turn.
+    const ids = new Set<string>();
+    for (const name of ["Command Central", "Running", "Done"]) {
+      await userEvent.click(page.getByRole("tab", { name }));
+      await expect.element(page.getByRole("tab", { name })).toHaveAttribute("aria-selected", "true");
+      for (const row of rows()) if (row.dataset.jobId !== undefined) ids.add(row.dataset.jobId);
+    }
+    expect([...ids].sort()).toEqual(scenario.state.jobs.map((job) => job.id).sort());
   });
 });
 

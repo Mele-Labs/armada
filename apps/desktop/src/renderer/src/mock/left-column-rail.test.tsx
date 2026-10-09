@@ -43,7 +43,7 @@ test("the column collapses to its rail on a press at a wide width, and comes bac
   await collapse().click();
   expect(panelRows().query()).toBeNull();
   // The rail, not a second narrow state: Navigation's own glyphs are still there.
-  await expect.element(page.getByRole("button", { name: "Job Board" }).first()).toBeInTheDocument();
+  await expect.element(page.getByRole("button", { name: "Overview", exact: true }).first()).toBeInTheDocument();
 
   await expand().click();
   await expect.element(panelRows()).toBeVisible();

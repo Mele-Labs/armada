@@ -119,6 +119,8 @@ export class FakeSessionsFleet {
   refuses: { code: string; message: string } | undefined;
   /** Set to have the next message refused, the way Fleet refuses one: the error says why and nothing is sent. */
   refusesSend: { code: string; message: string } | undefined;
+  /** Set to have the next act on a pull request refused, the way Fleet refuses one: the error says why and nothing changes. */
+  refusesPress: { code: string; message: string } | undefined;
   /** Each subagent's thread as its transcript stands, by subagent id. A test changes it to let one run on. */
   subagents: Record<string, SessionSubagent> = {};
   private minted = 0;
@@ -270,6 +272,7 @@ export class FakeSessionsFleet {
           },
           pressPullRequest: async (sessionId, number, press) => {
             this.calls.pressed.push({ sessionId, number, press });
+            if (press !== "read" && this.refusesPress !== undefined) return { ok: false, outcome: { ok: false, why: "refused", error: this.refusesPress } as never };
             if (press === "review") return { ok: true, value: { job_id: "01REVIEWJOB", address: `https://forge.example/pull/${number}`, session_id: sessionId } };
             if (press === "merge") {
               const refused = this.merge(sessionId, number);

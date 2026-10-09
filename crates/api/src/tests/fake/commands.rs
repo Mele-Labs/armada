@@ -129,6 +129,7 @@ impl Commands for FakeDaemon {
             number: 1,
             state: ipc::PullRequestStanding::Open,
             auto_merge: true,
+            queued: false,
             checks: ipc::ForgeChecks::Pending,
             title: "A pull request".to_string(),
             branch: "fake/branch".to_string(),

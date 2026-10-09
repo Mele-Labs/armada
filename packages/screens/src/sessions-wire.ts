@@ -104,6 +104,7 @@ function pullRequestOf(one: Attachment): SessionAttachment | undefined {
     checks: checksOf(detail),
     state: standingOf(detail, one.state === "spent"),
     auto: detail["auto_merge"] === "true",
+    ...(detail["queued"] === "true" ? { queued: true as const } : {}),
   };
 }
 

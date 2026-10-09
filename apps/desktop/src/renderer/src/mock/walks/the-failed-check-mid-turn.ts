@@ -14,6 +14,7 @@ const NOTES_ALERT = inside(NOTES, role("status"));
 const CARRIER = role("listitem", "worktree-agent-aef3c24792026e2c3");
 
 export const theFailedCheckMidTurn = walk("merge-line-failed-check", [
+  { press: role("button", "Merge line", { exact: true }), say: "The merge line" },
   { look: inside(ARMADA, role("list", "Batch")), say: "A batch of three, one turn" },
   { press: inside(ARMADA, button(/^Open guide 22/)), say: "The ? beside the heading opens the guide" },
   { look: dialog(/^Guide 22/), say: "What the line is, what the number and bracket mean, and each waiting mark" },
@@ -29,13 +30,16 @@ export const theFailedCheckMidTurn = walk("merge-line-failed-check", [
   { look: inside(NOTES, role("status")), say: "One branch: told at once" },
   { look: inside(NOTES_ALERT, text("notes/reading-list-tags")), say: "A single branch is named too, batched or not" },
   { look: inside(SCRATCH, role("status")), say: "Another branch, told the same way" },
-  { press: text("Cache the manifest read between dispatches"), say: "A Job in the batch" },
+  { press: role("button", "Overview", { exact: true }), say: "A Job in the batch, on the Dashboard" },
+  { press: tab("Running"), say: "It is running" },
+  { press: role("option", /Cache the manifest read between dispatches, Job/), say: "Picked" },
+  { press: button(/^(Open|Review|Redirect|Attest)$/), say: "Open it" },
   { press: tab("Pulse"), say: "Its Pulse" },
   { press: button(/Job log/), say: "Its own log" },
   { later: text("screens_test failed in the merge line turn"), say: "The failure is a line in the Job's own log" },
   { look: text("screens_test is fleet/gate-policy-every-run's"), say: "The split names the branch; this Job is cleared" },
   { press: button(/^Close/), say: "Back to the Job" },
-  { press: button("Overview", { exact: true }), say: "Back to the lines" },
+  { press: role("button", "Merge line", { exact: true }), say: "Back to the lines" },
   { look: inside(ARMADA, role("status")), say: "The same alert now names the branch" },
   { later: inside(SCRATCH, text("ports_test red on main")), say: "Red on main too: nobody's, and the turn holds" },
   { look: inside(SCRATCH, role("listitem", "scratch/try-ports, Held, red on main")), say: "The row's mark stops pulsing and shows the same pause as the alert" },

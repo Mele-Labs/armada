@@ -29,6 +29,7 @@ import type {
 } from "@armada/protocol";
 import type {
   BranchesAnswer,
+  CallView,
   CaseRunView,
   CaseView,
   CriterionView,
@@ -121,6 +122,8 @@ export type ArcDraft = {
   wave?: WaveView;
   /** The repository's merge line. Window-wide, so Overview reads it rather than a Job's board. */
   mergeLine?: MergeLineView;
+  /** What the Dashboard's calls carry beyond the Board, by Job id. */
+  calls?: Readonly<Record<string, CallView>>;
 };
 
 /**
