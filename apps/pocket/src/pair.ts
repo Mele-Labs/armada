@@ -23,6 +23,18 @@ export function codeFromUrl(search: string): string {
   return code;
 }
 
+/** The 32-hex code out of a whole pairing link or a bare code; "" when there is none. */
+export function codeFromInput(text: string): string {
+  const t = text.trim();
+  if (/^[0-9a-f]{32}$/i.test(t)) return t;
+  try {
+    const found = new URL(t).searchParams.get("code") ?? "";
+    return /^[0-9a-f]{32}$/i.test(found) ? found : "";
+  } catch {
+    return "";
+  }
+}
+
 /** `POST /pair` answers 202 with `{device_id}`, chosen at claim. */
 export const deviceIdOf = (answer: unknown): string | undefined =>
   typeof answer === "object" && answer !== null && typeof (answer as { device_id?: unknown }).device_id === "string"
@@ -30,7 +42,7 @@ export const deviceIdOf = (answer: unknown): string | undefined =>
     : undefined;
 
 /** Posts the claim. Resolves once the key and id are kept; throws a `Refused` with a sentence. */
-export async function claim(name: string): Promise<void> {
+export async function claim(name: string, code: string): Promise<void> {
   const pair = await generateKey();
   const spki = hex(await crypto.subtle.exportKey("spki", pair.publicKey));
   let response: Response;

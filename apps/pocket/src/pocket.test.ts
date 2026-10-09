@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { ago, toPocket } from "./data";
 import type { PhoneJob } from "./gateway";
+import { codeFromInput } from "./pair";
 import { bytesOf } from "./push";
 import { SseParser } from "./sse";
 import { bodyHash, hex, signHeaders, signedMessage } from "./signing";
@@ -81,5 +82,19 @@ describe("data.ts mapping", () => {
 describe("the push key", () => {
   it("decodes base64url, without padding, to the bytes of the point", () => {
     expect(Array.from(bytesOf("BAH_-w"))).toEqual([4, 1, 255, 251]);
+  });
+});
+
+describe("codeFromInput", () => {
+  const code = "0123456789abcdef0123456789abcdef";
+  it("reads the code from a whole link", () => {
+    expect(codeFromInput(`https://mac.example:7777/pair?code=${code}`)).toBe(code);
+    expect(codeFromInput(`  https://mac.example/pair?code=${code}\n`)).toBe(code);
+  });
+  it("accepts a bare code", () => expect(codeFromInput(code)).toBe(code));
+  it("refuses junk", () => {
+    expect(codeFromInput("")).toBe("");
+    expect(codeFromInput("hello")).toBe("");
+    expect(codeFromInput("https://mac.example/pair?code=abc")).toBe("");
   });
 });

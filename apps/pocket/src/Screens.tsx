@@ -15,7 +15,7 @@ import { Refused, lastRefusal } from "./client";
 import { startLive, useJob, useJobs } from "./data";
 import type { PocketJob } from "./data";
 import { paired } from "./device";
-import { claim, codeFromUrl, defaultName, waitForConfirm } from "./pair";
+import { claim, codeFromInput, codeFromUrl, defaultName, waitForConfirm } from "./pair";
 import { subscribe } from "./push";
 import { go } from "./router";
 
@@ -86,11 +86,13 @@ function Pair() {
   const [phase, setPhase] = useState<"scanned" | "waiting">("scanned");
   const [name, setName] = useState(() => defaultName(navigator.userAgent));
   const [trouble, setTrouble] = useState(lastRefusal());
-  const code = codeFromUrl(window.location.search);
+  const urlCode = codeFromUrl(window.location.search);
+  const [link, setLink] = useState("");
+  const code = urlCode !== "" ? urlCode : codeFromInput(link);
   const pair = async () => {
     setTrouble("");
     try {
-      await claim(name);
+      await claim(name, code);
     } catch (why) {
       setTrouble(why instanceof Refused ? why.message : "The phone's key could not be made.");
       return;
@@ -108,6 +110,7 @@ function Pair() {
         </div>
         {phase === "scanned" ? (
           <>
+            {urlCode === "" && <input className="pk-line" aria-label="Pairing link" placeholder="Pairing link" value={link} autoCapitalize="none" autoCorrect="off" spellCheck={false} onChange={(event) => setLink(event.target.value)} />}
             <input className="pk-line" aria-label="Name" value={name} autoCapitalize="words" onChange={(event) => setName(event.target.value)} />
             {trouble !== "" && <p className="pk-fact">{trouble}</p>}
           </>
