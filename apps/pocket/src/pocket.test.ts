@@ -63,11 +63,11 @@ describe("data.ts mapping", () => {
   });
 
   it("maps a needs row", () => {
-    const job = toPocket({ ...base, repository: "armada", reason: "stalled", waiting_since: "2026-10-08T11:19:00Z", step: { at: 2, of: 5, name: "Implement" }, verdict: "veto", checks: [{ name: "typecheck", passed: true }], pull_request: "https://github.com/Mele-Labs/armada/pull/2003" }, NOW);
+    const job = toPocket({ ...base, repository: "armada", reason: "stalled", waiting_since: "2026-10-08T11:19:00Z", step: { at: 2, of: 5, name: "Implement" }, verdict: "veto", checks: [{ name: "typecheck", passed: true }], pull_request: "https://example.test/armada/pull/2003" }, NOW);
     expect(job).toMatchObject({
       repository: "armada", reason: "stalled", age: "2h 10m", quiet: "41m",
       step: { at: 2, of: 5, name: "Implement" }, verdict: { says: "veto", line: "Veto" },
-      checks: [{ name: "typecheck", passed: true }], pr: { number: 2003, url: "github.com/Mele-Labs/armada/pull/2003" },
+      checks: [{ name: "typecheck", passed: true }], pr: { number: 2003, url: "example.test/armada/pull/2003" },
     });
   });
 
