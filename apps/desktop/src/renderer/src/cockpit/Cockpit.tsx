@@ -1,26 +1,31 @@
-// Command Central as a cockpit: the viewscreen shows every live Job and Session at a glance, and a
-// call that needs the owner comes forward over it, centred and answerable from the keyboard. Calls
-// behind it wait in the band at the edge; `l` puts the one in front back there. Nothing here is a
-// list to read down: the glass is what is running, the card is what is wanted. Mock only.
+// The Dashboard's panel as a cockpit: a top bar with three filters (Your move, Active, Done) and the
+// way to read them, a grid of tiles or a map of stars, and a pane for the one picked. A call that
+// needs the owner comes forward over the panel whatever the filter, centred and answerable from the
+// keyboard, the calls behind it stacked like a deck; `l` puts the one in front at the back. Mock only.
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Activity, CircleDashed, GitMerge } from "lucide-react";
-import { Button, Kbd, Tooltip, actionOf, keyFor } from "@armada/components";
+import { useContext, useEffect, useMemo, useRef, useState } from "react";
+import { CircleDashed, GitMerge, LayoutDashboard, Waypoints } from "lucide-react";
+import { Button, Kbd, Tabs, Tooltip, actionOf, keyFor } from "@armada/components";
 import type { RepositorySummary } from "@armada/protocol";
 import type { CallView } from "@armada/jobs/draft/calls";
 import type { NowView } from "@armada/jobs/draft/now";
 import { nowPanelOf } from "@armada/jobs";
 import { isTerminal, titleOf } from "@armada/screens";
-import { overviewListsOf } from "@armada/overview";
+import { DASHBOARD_TABS, overviewListsOf, type DashboardTab } from "@armada/overview";
 import { holdsText } from "@armada/screens/src/keys";
 import { useListKeydown } from "@armada/screens/src/list-keyboard";
 
 import type { BridgeState } from "../../../shared/bridge";
-import { useBoardKeys, useCursor, useItems, type Hosts, type Item } from "../Dashboard";
+import { CallPane } from "../CallPane";
+import { Nows, useBoardKeys, useCursor, useItems, type Hosts, type Item } from "../Dashboard";
 import { FleetTile } from "../FleetTile";
 import { viewsOf } from "../merge-line";
+import { useSessions } from "../sessions-draft";
 import { CallCard, type CardKeys } from "./CallCard";
+import { FleetMap } from "./FleetMap";
 import { TAB_KEYS } from "./keys";
+import { nearest, skyOf } from "./map-layout";
+import { useCockpitView } from "./view";
 import "./cockpit.css";
 
 /** Whether motion is off: nothing waits for an exit that will not play. */
@@ -103,6 +108,8 @@ function TileActs({ item, hosts }: { item: Item; hosts: Hosts }) {
 }
 
 export function Cockpit({
+  filter,
+  onFilter,
   state,
   now,
   picked,
@@ -110,6 +117,9 @@ export function Cockpit({
   nows,
   ...hosts
 }: Hosts & {
+  /** Which of the three the panel shows. */
+  filter: DashboardTab;
+  onFilter: (filter: DashboardTab) => void;
   state: BridgeState;
   now: number;
   picked: RepositorySummary | null;
@@ -119,15 +129,35 @@ export function Cockpit({
   const [answered, setAnswered] = useState<ReadonlySet<string>>(new Set());
   const calls = useItems("command-central", state, picked, nowViews, hosts, answered);
   const running = useItems("running", state, picked, nowViews, hosts, answered);
-  // What needs the owner leads, then what runs; a call stands in for the Job or Session it is about.
+  const over = useItems("done", state, picked, nowViews, hosts, answered);
+  const sessions = useSessions();
+  // Your move is what needs the owner; Active leads with that, then what runs, a call standing in for
+  // the Job or Session it is about; Done is what is over, and what landed on the merge line is no tile.
   const instruments = useMemo(() => {
+    if (filter === "command-central") return calls;
+    if (filter === "done") return over.filter((one) => !one.key.startsWith("line:"));
     const read = overviewListsOf(state.jobs, picked);
     const unknown = read.undrawable.map(
       (job): Item => ({ key: job.id, owner: job.id, job, icon: CircleDashed, kind: job.status, title: titleOf(job), fact: job.status, hue: "queued", where: job.handle, body: [["Status", job.status]], acts: () => null }),
     );
     const owned = new Set(calls.flatMap((one) => (one.owner === undefined ? [] : [one.owner])));
     return [...calls, ...running.filter((one) => !one.key.startsWith("line:") && !owned.has(one.owner ?? one.key)), ...unknown];
-  }, [state, picked, calls, running]);
+  }, [filter, state, picked, calls, running, over]);
+  const [view, setView] = useCockpitView();
+  const [field, setField] = useState({ width: 900, height: 560 });
+  const sky = useMemo(
+    () =>
+      skyOf(
+        instruments,
+        sessions,
+        viewsOf(state),
+        (root) => state.holds.repositories?.find((one) => one.root === root)?.manifest?.id,
+        (manifest) => state.holds.repositories?.find((one) => one.manifest?.id === manifest)?.manifest?.repository ?? manifest,
+        field,
+      ),
+    [instruments, sessions, state, field],
+  );
+  const nowsHeld = useContext(Nows);
 
   // Calls put off for later, in the order they were; and one brought back to the front by choice.
   const [put, setPut] = useState<readonly string[]>([]);
@@ -234,6 +264,11 @@ export function Cockpit({
       return;
     }
 
+    if (event.key === "m") return claim(), setView(view === "map" ? "grid" : "map");
+    if (view === "map" && ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) {
+      const next = nearest(sky.stars, current?.key ?? "", event.key as "ArrowLeft");
+      return next === undefined ? undefined : (claim(), setSelected(next));
+    }
     const cols = grid.current === null ? 1 : Math.max(1, getComputedStyle(grid.current).gridTemplateColumns.split(" ").length);
     const to = (by: number) => {
       const next = instruments[Math.min(instruments.length - 1, Math.max(0, at + by))];
@@ -258,23 +293,47 @@ export function Cockpit({
   edge.forEach((one) => seen.current.add(one.key));
   const frame = front?.hue ?? edge[0]?.hue;
 
+  const panel =
+    filter === "command-central" || current === undefined || current.decisions !== undefined
+      ? undefined
+      : current.job === undefined
+        ? undefined
+        : nowPanelOf(nowsHeld?.[current.job.id], { onOpenJob: hosts.onOpen, onSaid: () => {} });
+  const pane = filter !== "command-central" && current !== undefined;
+
   return (
     <div className="armada-cockpit" data-hue={frame} data-settles>
-      <section className="armada-view" aria-label="Command Central" data-hue={frame} data-waiting={frame === undefined ? undefined : ""}>
+      <section className="armada-view" aria-label="Dashboard" data-hue={frame} data-waiting={frame === undefined ? undefined : ""}>
         <header className="armada-view__band">
-          <Tooltip label="Fleet">
-            <Activity size={16} aria-label="Fleet" />
-          </Tooltip>
+          <span className="armada-view__filters">
+            <Tooltip label="Previous filter">
+              <Kbd>{TAB_KEYS.previous}</Kbd>
+            </Tooltip>
+            <Tabs items={DASHBOARD_TABS.map((one) => ({ id: one.id, label: one.label }))} value={filter} onChange={(id) => onFilter(id as DashboardTab)} />
+            <Tooltip label="Next filter">
+              <Kbd>{TAB_KEYS.next}</Kbd>
+            </Tooltip>
+          </span>
           <Horizon state={state} />
           <span className="armada-view__keys">
+            <span className="armada-view__toggle" role="group" aria-label="View">
+              <Tooltip label="Grid">
+                <Button variant="ghost" size="sm" iconOnly aria-label="Grid" aria-pressed={view === "grid"} onClick={() => setView("grid")}>
+                  <LayoutDashboard size={16} aria-hidden="true" />
+                </Button>
+              </Tooltip>
+              <Tooltip label="Map">
+                <Button variant="ghost" size="sm" iconOnly aria-label="Map" aria-pressed={view === "map"} onClick={() => setView("map")}>
+                  <Waypoints size={16} aria-hidden="true" />
+                </Button>
+              </Tooltip>
+              <Tooltip label="Switch between grid and map">
+                <Kbd>m</Kbd>
+              </Tooltip>
+            </span>
             <Tooltip label={actionOf("move_focus").verb}>
               <span>
                 <Kbd>j</Kbd> <Kbd>k</Kbd>
-              </span>
-            </Tooltip>
-            <Tooltip label="Previous and next tab">
-              <span>
-                <Kbd>{TAB_KEYS.previous}</Kbd> <Kbd>{TAB_KEYS.next}</Kbd>
               </span>
             </Tooltip>
             <Tooltip label="Keys">
@@ -283,11 +342,30 @@ export function Cockpit({
           </span>
         </header>
         <div className="armada-view__stage">
-          <ul ref={grid} className="armada-tiles armada-view__grid" role="listbox" aria-label="Running" tabIndex={0} data-recessed={front === undefined || leaving !== undefined ? undefined : ""}>
-            {instruments.map((one) => (
-              <FleetTile key={one.key} item={one} now={now} selected={one.key === current?.key} onSelect={setSelected} extra={<TileActs item={one} hosts={hosts} />} />
-            ))}
-          </ul>
+          <div className="armada-view__body" data-pane={pane || undefined} data-view={view} style={front === undefined && edge.length > 0 ? { paddingBottom: `calc(var(--space-6) * ${Math.min(3, edge.length)} + var(--space-8))` } : undefined}>
+            {view === "map" ? (
+              <div className="armada-view__map" data-recessed={front === undefined || leaving !== undefined ? undefined : ""}>
+                <FleetMap sky={sky} field={field} onField={setField} selected={current?.key} onSelect={setSelected} />
+                {current === undefined ? null : (
+                  <div className="armada-view__picked">
+                    <span>{current.title}</span>
+                    <TileActs item={current} hosts={hosts} />
+                  </div>
+                )}
+              </div>
+            ) : (
+              <ul ref={grid} className="armada-tiles armada-view__grid" role="listbox" aria-label="Tiles" tabIndex={0} data-recessed={front === undefined || leaving !== undefined ? undefined : ""}>
+                {instruments.map((one) => (
+                  <FleetTile key={one.key} item={one} now={now} selected={one.key === current?.key} onSelect={setSelected} extra={<TileActs item={one} hosts={hosts} />} />
+                ))}
+              </ul>
+            )}
+            {pane ? (
+              <div className="armada-view__pane">
+                <CallPane item={current} now={now} workflows={state.holds.workflows} {...(panel === undefined ? {} : { nowPanel: panel })} onDone={() => setAnswered((was) => new Set([...was, current.key]))} onOpenSession={hosts.onOpenSession} onOpenJob={hosts.onOpen} onOpenLink={hosts.onOpenLink} />
+              </div>
+            ) : null}
+          </div>
           {front !== undefined ? (
             <div className="armada-cockpit__scrim" data-hue={front.hue}>
               <div className="armada-stack" style={{ ["--behind" as string]: Math.min(3, edge.length) }}>

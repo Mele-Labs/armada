@@ -12,15 +12,14 @@ import type { FixMain, RepositorySummary } from "@armada/protocol";
 import type { CallView } from "@armada/jobs/draft/calls";
 import type { NowView } from "@armada/jobs/draft/now";
 import type { BoardSection, PauseAct } from "@armada/screens";
-import { DashboardTabs, OverviewLists, overviewListsOf, dashboardTabOf, overviewPanelId } from "@armada/overview";
+import { OverviewLists, dashboardTabOf, overviewPanelId } from "@armada/overview";
 import { Boundary } from "@armada/shell";
 
 import type { BridgeState } from "../../shared/bridge";
-import { Dashboard, Nows, useNeedsYou } from "./Dashboard";
+import { Nows, useNeedsYou } from "./Dashboard";
 import { CommandCentral } from "./CommandCentral";
 import { KeySheet, useDashboardKeys } from "./cockpit/keys";
 import { proposeRequest } from "./dispatch";
-import { FleetBoard } from "./FleetBoard";
 import { QuickDispatch, useDispatchBarDrawn } from "./QuickDispatch";
 
 export { useDispatchBarKeys } from "./QuickDispatch";
@@ -162,7 +161,7 @@ export function Overview({
   const fault = disconnected !== null || state.connection.state === "starting" || repositories.length === 0;
   useDispatchBarDrawn(!fault);
 
-  // `[` `]` and Option with a digit switch tabs, `?` lists the keys. Where Fleet cannot be reached the lists draw instead.
+  // `[` `]` and Option with a digit switch filters, `?` lists the keys. Where Fleet cannot be reached the lists draw instead.
   const keys = useDashboardKeys(tab, setTab, !fault);
 
   return (
@@ -171,7 +170,6 @@ export function Overview({
       <div className="armada-screen__overview">
         {/* n and ⌘N reach the bar from every surface (`useDispatchBarKeys`). Where Fleet cannot be reached the Board's own lists draw, and bind n themselves. */}
         {fault ? null : <QuickDispatch onType={onQuickCompose} focused={!needsYou} onOpenSession={onOpenSession} />}
-        <DashboardTabs tab={tab} onTab={setTab} asking={needsYou} running={overviewListsOf(state.jobs, pickedRepository).sections.some((one) => one.id === "running" && one.jobs.length > 0)} />
         {fault ? (
           <OverviewLists
             jobs={state.jobs}
@@ -194,49 +192,15 @@ export function Overview({
             onCopied={onCopied}
             onCursor={onCursor}
           />
-        ) : tab === "command-central" ? (
+        ) : (
           <CommandCentral
+            filter={tab}
+            onFilter={setTab}
             state={state}
             now={now}
             picked={pickedRepository}
             nowViews={nowViews}
             nows={nows}
-            onOpen={onOpen}
-            onOpenSession={onOpenSession}
-            onOpenLink={onOpenLink}
-            onFix={onFix}
-            onPropose={propose}
-            onKill={onKill}
-            onRedispatch={onRedispatch}
-            onClear={onClear}
-            onPausing={onPausing}
-            onCursor={onCursor}
-          />
-        ) : tab === "running" ? (
-          <FleetBoard
-            state={state}
-            now={now}
-            picked={pickedRepository}
-            nowViews={nowViews}
-            pane
-            onOpen={onOpen}
-            onOpenSession={onOpenSession}
-            onOpenLink={onOpenLink}
-            onFix={onFix}
-            onPropose={propose}
-            onKill={onKill}
-            onRedispatch={onRedispatch}
-            onClear={onClear}
-            onPausing={onPausing}
-            onCursor={onCursor}
-          />
-        ) : (
-          <Dashboard
-            tab={tab}
-            state={state}
-            now={now}
-            picked={pickedRepository}
-            nowViews={nowViews}
             onOpen={onOpen}
             onOpenSession={onOpenSession}
             onOpenLink={onOpenLink}

@@ -91,6 +91,16 @@
 
 .armada-view__keys { display: inline-flex; align-items: center; gap: var(--space-2); margin-left: auto; }
 
+.armada-view__filters { display: inline-flex; align-items: center; gap: var(--space-2); flex: none; }
+.armada-view__toggle { display: inline-flex; align-items: center; gap: var(--space-1); }
+.armada-view__toggle .armada-button[aria-pressed="true"] { background: var(--accent-muted); color: var(--fg-default); }
+
+/* The panel's body: what is picked, and the pane of the one under the cursor beside it. */
+.armada-view__body { flex: 1 1 auto; display: grid; grid-template-columns: minmax(0, 1fr); min-width: 0; min-height: 0; }
+.armada-view__body[data-pane] { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); }
+.armada-view__body[data-pane][data-view="map"] { grid-template-columns: minmax(0, 1fr) calc(var(--space-12) * 8); }
+.armada-view__pane { min-width: 0; min-height: 0; overflow-y: auto; padding: var(--space-4) var(--space-4) var(--space-4) 0; }
+
 .armada-view__stage { position: relative; display: flex; flex: 1 1 auto; min-height: 0; overflow: hidden; }
 
 /* The glass: a faint ruled grid, so the instruments read as standing on something. */
@@ -333,3 +343,67 @@
 @media (prefers-reduced-motion: reduce) {
   .armada-callcard { animation: none !important; }
 }
+
+/* ---- The map ---------------------------------------------------------------------------------- */
+
+.armada-view__map { position: relative; display: flex; min-width: 0; min-height: 0; padding: var(--space-2); }
+.armada-view__map[data-recessed] { opacity: 0.4; }
+
+.armada-map { position: relative; flex: 1 1 auto; min-width: 0; min-height: 0; }
+.armada-map__field { position: absolute; inset: 0; width: 100%; height: 100%; outline: none; }
+.armada-map__field:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
+
+.armada-map__dust { fill: var(--fg-subtle); opacity: 0.35; }
+
+/* A repository: a faint ring round its stars, named at its top. */
+.armada-map__cluster circle { fill: color-mix(in srgb, var(--accent) 4%, transparent); stroke: var(--border-default); stroke-width: 1; stroke-dasharray: 2 7; }
+.armada-map__cluster text { fill: var(--fg-subtle); font-family: var(--font-mono); font-size: 12px; }
+
+/* What joins what: a parent to its child, a Job to what it waits on, a Session to its Job, a branch to main. */
+.armada-map__link { stroke: var(--fg-subtle); stroke-width: 1; opacity: 0.55; }
+.armada-map__link[data-kind="dispatched"] { stroke: var(--fg-muted); stroke-width: 1.5; opacity: 0.85; }
+.armada-map__link[data-kind="waits"] { stroke-dasharray: 5 4; }
+.armada-map__link[data-kind="works"] { stroke: var(--status-running); opacity: 0.55; }
+.armada-map__link[data-kind="line"] { stroke: var(--status-completed-success); stroke-dasharray: 1 5; stroke-linecap: round; opacity: 0.7; }
+
+/* A star: its colour is its state, its glow is how much it wants him. Nothing pulses. */
+.armada-star { cursor: pointer; }
+.armada-star__core { fill: var(--hue); }
+.armada-star__halo { fill: var(--hue); opacity: 0.14; }
+.armada-star__halo[data-inner] { opacity: 0.24; }
+.armada-star__ring { fill: none; stroke: var(--accent); stroke-width: 1.5; }
+.armada-star__label { fill: var(--fg-muted); font-family: var(--font-mono); font-size: 10px; pointer-events: none; }
+.armada-star[data-lit] .armada-star__label,
+.armada-star[aria-selected="true"] .armada-star__label { fill: var(--fg-default); }
+.armada-star:hover .armada-star__core { stroke: var(--fg-default); stroke-width: 1; }
+
+.armada-map__landmark text { fill: var(--fg-subtle); font-family: var(--font-mono); font-size: 10px; }
+.armada-map__main { fill: var(--status-completed-success); }
+.armada-map__landmark[data-red] .armada-map__main { fill: var(--status-completed-failed); }
+.armada-map__branch { fill: var(--status-not-started); }
+
+.armada-map__tip {
+  position: absolute;
+  z-index: 2;
+  transform: translate(-50%, calc(-100% - var(--space-2)));
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-1) var(--space-2);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-overlay);
+  box-shadow: var(--shadow-overlay);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-default);
+  pointer-events: none;
+  white-space: nowrap;
+}
+.armada-map__tip span { font-family: var(--font-mono); font-size: var(--text-2xs); color: var(--fg-muted); }
+
+.armada-map__key { position: absolute; right: var(--space-3); bottom: var(--space-3); display: flex; flex-direction: column; gap: var(--space-1); margin: 0; padding: 0; list-style: none; font-family: var(--font-mono); font-size: var(--text-2xs); color: var(--fg-subtle); }
+.armada-map__key li { display: flex; align-items: center; gap: var(--space-2); }
+
+/* The acts of the star under the cursor, as the tile carries them. */
+.armada-view__picked { position: absolute; left: 50%; bottom: var(--space-3); transform: translateX(-50%); display: flex; align-items: center; gap: var(--space-2); padding: var(--space-1) var(--space-3); border: var(--border-width) solid var(--border-default); border-radius: var(--radius-md); background: var(--bg-raised); font-size: var(--text-sm); color: var(--fg-default); white-space: nowrap; }
+.armada-view__picked > span:first-child { min-width: 0; max-width: calc(var(--space-12) * 5); overflow: hidden; text-overflow: ellipsis; }

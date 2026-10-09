@@ -1,6 +1,6 @@
-// The Dashboard's keys beyond the Board's: switching its tabs, and the sheet that lists them all.
+// The Dashboard's keys beyond the Board's: switching its filters, and the sheet that lists them all.
 // Bare keys follow the contextual tier (`holdsText` suppresses them in a field, a modifier means
-// another tier); the one modified binding, Option and a digit, is a tab picked by number.
+// another tier); the one modified binding, Option and a digit, is a filter picked by number.
 //
 // **Proposed, not registered.** `[` `]` `?` `l` `w` and the number keys are in no row of
 // `actions.toml`, so no caption may read them from the registry yet; they are written here, once, and
@@ -12,7 +12,7 @@ import { DASHBOARD_TABS, type DashboardTab } from "@armada/overview";
 import { holdsText } from "@armada/screens/src/keys";
 import { useListKeydown } from "@armada/screens/src/list-keyboard";
 
-/** Previous and next tab, and the tab by number with Option held. */
+/** Previous and next filter, and the filter by number with Option held. */
 export const TAB_KEYS = { previous: "[", next: "]", numbered: "⌥1–3" } as const;
 
 type Group = { head: string; rows: readonly { keys: readonly string[]; does: string }[] };
@@ -42,8 +42,9 @@ const GROUPS: readonly Group[] = [
   {
     head: "Dashboard",
     rows: [
-      { keys: [TAB_KEYS.previous, TAB_KEYS.next], does: "Previous and next tab" },
-      { keys: [TAB_KEYS.numbered], does: "A tab by number" },
+      { keys: [TAB_KEYS.previous, TAB_KEYS.next], does: "Previous and next filter" },
+      { keys: [TAB_KEYS.numbered], does: "A filter by number" },
+      { keys: ["m"], does: "Switch between grid and map" },
       { keys: [keyFor("new_job")], does: actionOf("new_job").verb },
       { keys: ["?"], does: "This sheet" },
     ],
@@ -51,7 +52,7 @@ const GROUPS: readonly Group[] = [
 ];
 
 /**
- * `[` and `]` step the tabs round, Option and 1 to 3 pick one, `?` opens the key sheet. Bound while
+ * `[` and `]` step the filters round, Option and 1 to 3 pick one, `?` opens the key sheet. Bound while
  * the Dashboard is drawn and a field does not have the keys.
  */
 export function useDashboardKeys(tab: DashboardTab, onTab: (tab: DashboardTab) => void, listening: boolean): { sheet: boolean; closeSheet: () => void } {

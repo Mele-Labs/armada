@@ -10,7 +10,7 @@ import type { Session } from "@armada/screens/src/draft/sessions";
 import type { CallView } from "@armada/jobs/draft/calls";
 import type { NowView } from "@armada/jobs/draft/now";
 import { featureRunning } from "@armada/jobs/fake";
-import { queued, running } from "@armada/jobs/fixtures/build/index";
+import { completedFailed, completedSuccess, queued, running } from "@armada/jobs/fixtures/build/index";
 import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
 
 import { asRow, holding } from "../holding";
@@ -21,12 +21,13 @@ const OWNER = repository().manifest!.id;
 const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
 
 /** The picked repository's, started `minutes` ago, on the step `id` of its workflow where one is named. */
-function live(fixture: JobFixture, minutes: number, id?: string, asking = false): JobFixture {
+function live(fixture: JobFixture, minutes: number, id?: string, asking = false, extra: Record<string, unknown> = {}): JobFixture {
   const patch = {
     owner_manifest_id: OWNER,
     started_at: ago(minutes),
     ...(asking ? { asking: true } : {}),
     ...(id === undefined ? {} : { current_step_id: id }),
+    ...extra,
   };
   const { reclaimed_at: _cleared, ...job } = { ...fixture.job, ...patch };
   if (fixture.watched.state !== "read") return { ...fixture, job };
@@ -34,11 +35,30 @@ function live(fixture: JobFixture, minutes: number, id?: string, asking = false)
   return { ...fixture, job, watched: { ...fixture.watched, detail: { ...fixture.watched.detail, job: detailJob } } };
 }
 
-const debounce = live(asRow(featureRunning(), 80, "debounce", "Debounce the Job Board's resize handler"), 41, "implement");
-const cache = live(asRow(featureRunning(), 81, "cache", "Cache the manifest read between dispatches"), 17, "tests");
+const debounce = live(asRow(featureRunning(), 80, "debounce", "Debounce the Job Board's resize handler"), 41, "implement", false, { branch: "fleet/gate-policy-every-run" });
+const cache = live(asRow(featureRunning(), 81, "cache", "Cache the manifest read between dispatches"), 17, "tests", false, { branch: "fleet/read-in-cluster-membership" });
 const mainChecks = live(asRow(running(), 82, "fix-main", "Fix components_test on main"), 9);
-const migrate = live(asRow(featureRunning(), 83, "migrate", "Order the store migrations"), 3, "scope");
-const pause = live(asRow(queued(), 84, "pause", "Store a pause marker on the Job"), 1);
+const migrate = live(asRow(featureRunning(), 83, "migrate", "Order the store migrations"), 3, "scope", false, { branch: "armada/83-migrate" });
+const pause = live(asRow(queued(), 84, "pause", "Store a pause marker on the Job"), 1, undefined, false, { waits_on: [debounce.job.id] });
+/** Dispatched by the Migration notes Session's Job: a child on the map. */
+const pin = live(asRow(featureRunning(), 87, "pin", "Pin the clock in the store tests"), 2, "scope", false, { dispatched_by: migrate.job.id, origin: "sub_dispatched" });
+
+/** A second repository, so there are two clusters to read: a phone app that pairs with Fleet. */
+const POCKET = "pocket";
+const pwa = live(asRow(featureRunning(), 88, "pwa", "Pair a phone with Fleet"), 22, "implement", false, { owner_manifest_id: POCKET });
+const code = live(asRow(queued(), 89, "code", "Read the pairing code from the runtime file"), 4, undefined, false, { owner_manifest_id: POCKET, waits_on: [pwa.job.id] });
+const shell = live(asRow(featureRunning(), 90, "shell", "Install the PWA shell offline"), 11, "tests", false, { owner_manifest_id: POCKET });
+
+/** Work that is over, for the Done filter: two Jobs and a Session. */
+function over(fixture: JobFixture, ended: number): JobFixture {
+  const patch = { owner_manifest_id: OWNER, ended_at: ago(ended) };
+  const { reclaimed_at: _cleared, ...job } = { ...fixture.job, ...patch };
+  if (fixture.watched.state !== "read") return { ...fixture, job };
+  const { reclaimed_at: _also, ...detailJob } = { ...fixture.watched.detail.job, ...patch };
+  return { ...fixture, job, watched: { ...fixture.watched, detail: { ...fixture.watched.detail, job: detailJob } } };
+}
+const landed = over(asRow(completedSuccess(), 91, "landed", "Fold the two notification routes into one"), 55);
+const broke = over(asRow(completedFailed(), 92, "broke", "Move the store reads behind one trait"), 130);
 
 /** The Jobs that ask, on the Board only from the moment they do. */
 const plan = live(asRow(featureRunning(), 85, "dash-plan", "Split the writer from the clock"), 26, "scope", true);
@@ -118,7 +138,11 @@ const nows: Record<string, NowView> = {
     ],
   },
   [migrate.job.id]: { running: [{ key: "d", of: "drone", name: "Drone on Scope", line: "Listing the migrations since 0042", state: "running" }] },
-  [pause.job.id]: { waiting: [{ key: "w", kind: "resource", text: "A free worktree slot" }] },
+  [pause.job.id]: { waiting: [{ key: "w", kind: "job", text: "Debounce the Job Board's resize handler", target: debounce.job.id }] },
+  [pin.job.id]: { running: [{ key: "d", of: "drone", name: "Drone on Scope", line: "Reading store_test.rs", state: "running" }] },
+  [pwa.job.id]: { running: [{ key: "d", of: "drone", name: "Drone on Implement", line: "Writing the pairing screen", state: "running" }] },
+  [code.job.id]: { waiting: [{ key: "w", kind: "job", text: "Pair a phone with Fleet", target: pwa.job.id }] },
+  [shell.job.id]: { running: [{ key: "d", of: "drone", name: "Drone on Write tests", line: "Caching the shell in a service worker", state: "running" }] },
   [plan.job.id]: {
     running: [{ key: "d", of: "drone", name: "Drone on Plan", line: "Weighing the split against the wrap", state: "running" }],
     waiting: [{ key: "w", kind: "transition", text: "Plan to Implement, on your answer" }],
@@ -141,7 +165,8 @@ const SESSIONS: Session[] = [
       { id: "s9-t", at: "13:59:10", kind: "tool", text: "Read crates/store/tests/store_test.rs" },
       ...said("s9-0", "The flake is the 200ms sleep in store_test.rs. Replacing it with a wait on the channel."),
     ], attachments: [] },
-  { id: "s10", title: "Migration notes", turn: { state: "working" }, lastTurn: "14:05", lastTurnAt: ago(1), rows: said("s10-0", "Reading the migrations since 0042."), attachments: [] },
+  { id: "s10", title: "Migration notes", turn: { state: "working" }, lastTurn: "14:05", lastTurnAt: ago(1), rows: said("s10-0", "Reading the migrations since 0042."), attachments: [{ kind: "job", id: migrate.job.id, number: 83, title: "Order the store migrations", state: "running", branch: "armada/83-migrate" }] },
+  { id: "s11", title: "Release script", dead: "ended", turn: quiet, lastTurn: "11:40", lastTurnAt: ago(150), rows: said("s11-1", "Done."), attachments: [] },
   { id: "s12", title: "Theme token audit", turn: quiet, lastTurn: "13:51", lastTurnAt: ago(14), rows: said("s12-0", "Eleven tokens have no caller."), attachments: [] },
 ];
 
@@ -176,11 +201,14 @@ function asking(store: SessionsStore): SessionsStore {
 }
 
 function build(): Scenario {
-  const board = [debounce, cache, mainChecks, migrate, pause];
-  const base = holding("dashboard-cockpit", "Command Central with Jobs and Sessions at work, and three calls that arrive one at a time", board);
+  const board = [debounce, cache, mainChecks, migrate, pause, pin, pwa, code, shell, landed, broke];
+  const pocket = { ...repository().manifest!, id: POCKET, repository: POCKET, path: "/Users/user/pocket", records_root: "/Users/user/pocket/.armada" };
+  const base = holding("dashboard-cockpit", "The Dashboard with Jobs and Sessions at work in two repositories, and three calls that arrive one at a time", board, {
+    alsoServed: [{ root: "/Users/user/pocket", records_root: "/Users/user/pocket/.armada", manifest: pocket }],
+  });
   const none = { id: "x", number: 0, title: "", branch: "", slot: 0 };
   const jobs = board.map((one) => one.job);
-  const state = { ...base.state, repository: repository().root, mergeLines: mergeLines(), jobs };
+  const state = { ...base.state, repository: null, mergeLines: mergeLines(), jobs };
   return {
     ...base,
     state,

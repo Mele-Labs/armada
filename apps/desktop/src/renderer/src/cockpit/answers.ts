@@ -63,7 +63,7 @@ function actsOf(item: Item, hosts: Hosts, finish: () => void): Answer[] {
 }
 
 /**
- * Two answers that stand after the numbered ones on any call that has choices: the best solution,
+ * Two answers that stand after the numbered ones on a question an agent asked: the best solution,
  * thought through, or the quickest reasonable path. **On a Session's permission they hand the
  * decision to run the command to the agent** (owner, 9 Oct 2026), so they say that. Mock only: each
  * would be one Fleet command, an answer to the ask carrying `mode: "best" | "quick"` that the agent
@@ -106,7 +106,11 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
           run: () => (at + 1 < decisions!.length ? (setAt(at + 1), setPicked(undefined)) : finish()),
         }))
       : actsOf(item, hosts, finish);
-  const answers = numbered.length === 0 ? numbered : [...numbered, ...standingOf(finish, item.key.startsWith("session:"))];
+  // The standing two answer a question an agent asked and could have answered itself: a Plan question,
+  // a Drone's or a Judge's, a Session's ask. A call Fleet raises about a state (a failing pull request,
+  // main red, a failed Check, a stuck Drone) keeps only its own acts (owner, 9 Oct 2026).
+  const askedByAgent = decisions !== undefined || item.kind === "Drone question" || item.kind === "Judge question" || item.key.startsWith("session:");
+  const answers = askedByAgent ? [...numbered, ...standingOf(finish, item.key.startsWith("session:"))] : numbered;
 
   // One answer is the answer: Enter sends it without a number first.
   const chosen = picked ?? (answers.length === 1 ? 0 : undefined);

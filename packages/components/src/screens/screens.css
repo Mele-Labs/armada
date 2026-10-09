@@ -626,91 +626,6 @@
 .armada-dispatch-bar__tab { visibility: hidden; }
 .armada-dispatch-bar:focus-within .armada-dispatch-bar__tab { visibility: visible; }
 
-/* ---- The tab strip: a control panel, each tab a live glyph, a glowing underline that slides ------- */
-
-.armada-dtabs {
-  --tab-hue: var(--accent);
-  position: relative;
-  display: grid;
-  grid-template-columns: repeat(var(--tabs), minmax(0, 1fr));
-  width: 100%;
-  border-bottom: var(--border-width) solid var(--border-subtle);
-}
-
-.armada-dtabs[data-hue="ask"] { --tab-hue: var(--status-awaiting-review); }
-.armada-dtabs[data-hue="running"] { --tab-hue: var(--status-running); }
-.armada-dtabs[data-hue="ok"] { --tab-hue: var(--status-completed-success); }
-
-.armada-dtabs__tab {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-3);
-  height: calc(var(--h-row) * 1.5);
-  padding: 0 var(--space-4);
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  color: var(--fg-subtle);
-  font: inherit;
-  font-size: var(--text-base);
-  font-weight: var(--weight-medium);
-  white-space: nowrap;
-  cursor: pointer;
-  transition: color var(--duration-fast) var(--ease), background var(--duration-fast) var(--ease);
-}
-
-.armada-dtabs__tab:hover { color: var(--fg-default); }
-
-.armada-dtabs__tab[aria-selected="true"] { color: var(--fg-default); }
-
-.armada-dtabs__tab:focus { outline: none; }
-.armada-dtabs__tab:focus-visible { outline: none; color: var(--fg-default); text-decoration: underline; text-underline-offset: var(--space-1); }
-
-.armada-dtabs__glyph { display: inline-flex; align-items: center; justify-content: center; width: var(--space-4); height: var(--space-4); color: var(--fg-subtle); }
-.armada-dtabs__tab[aria-selected="true"] .armada-dtabs__glyph,
-.armada-dtabs__tab:hover .armada-dtabs__glyph { color: var(--fg-muted); }
-
-.armada-dtabs__tab[data-hue="running"] svg[data-live] { color: var(--status-running); animation: armada-dashboard-spin 1.2s linear infinite; }
-.armada-dtabs__tab[data-hue="ok"][aria-selected="true"] svg { color: var(--status-completed-success); }
-
-/* The beacon: a dot that pulses in the ask hue while something needs him. */
-.armada-dtabs__beacon {
-  position: relative;
-  width: var(--space-3);
-  height: var(--space-3);
-  border-radius: 50%;
-  border: calc(var(--border-width) * 2) solid var(--fg-subtle);
-}
-
-.armada-dtabs__beacon[data-on] {
-  border-color: var(--status-awaiting-review);
-  background: var(--status-awaiting-review);
-  box-shadow: 0 0 var(--space-3) var(--status-awaiting-review);
-}
-
-.armada-dtabs__beacon[data-on]::after {
-  content: "";
-  position: absolute;
-  inset: calc(var(--border-width) * -2);
-  border-radius: 50%;
-  border: calc(var(--border-width) * 2) solid var(--status-awaiting-review);
-  animation: armada-beacon 2s ease-out infinite;
-}
-
-/* The underline: one bar under the whole strip, slid to the active tab and lit in its hue. */
-.armada-dtabs__bar {
-  position: absolute;
-  left: 0;
-  bottom: calc(var(--border-width) * -1);
-  width: calc(100% / var(--tabs));
-  height: calc(var(--border-width) * 2);
-  background: var(--tab-hue);
-  transform: translateX(calc(var(--at) * 100%));
-  transition: transform var(--duration-base) var(--ease), background var(--duration-base) var(--ease), box-shadow var(--duration-base) var(--ease);
-  pointer-events: none;
-}
-
 /* Where a Job lives, under its title: short label and value pairs in one wrapping line. */
 .armada-call__about {
   display: grid;
@@ -1135,10 +1050,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .armada-call,
-  .armada-dtabs__beacon[data-on]::after,
-  .armada-dtabs__tab svg[data-live],
   .armada-conveyor__block { animation: none; }
-  .armada-dtabs__bar { transition: none; }
 }
 
 @media (max-width: 960px) {
