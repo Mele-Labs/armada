@@ -43,6 +43,9 @@ mod asked;
 mod asking;
 mod attempt;
 mod breakage;
+/// The build Fleet runs on, where it stands against `main`, and the request that
+/// moves it. **Fleet-wide, and not a Job's field.**
+mod building;
 /// How many Drones Fleet may run, how many it is running, and what holds the
 /// next one back. **Fleet-wide, and not a Job's field.**
 mod capacity;
@@ -232,6 +235,7 @@ pub use asked::{AskedRun, AskedRunState};
 pub use asking::{JudgeAnswer, JudgeAnswered, JudgeQuestion, SetWhenRefused, WhenRefused};
 pub use attempt::{ended_at, first_started_at, Move, ResolvedPolicies, StepAttempt};
 pub use breakage::{ClaimedBreakage, WaitingOnFix};
+pub use building::{BuildPosition, BuildSource, ChangeFleetBuild, FleetBuildChanging, FleetBuildReport};
 pub use capacity::{AdmissionHold, FleetCapacity};
 pub use capturing::{
     CaptureBounds, CaptureElement, CaptureFrame, CaptureServed, CaptureStudioNote, CaptureWindow,

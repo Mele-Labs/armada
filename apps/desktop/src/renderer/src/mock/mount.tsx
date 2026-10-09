@@ -20,6 +20,7 @@ import { skipsMods } from "../theme-loader";
 import { Themed } from "../theme";
 import { mountAnnotating } from "./annotating";
 import { fakeBridge, heldSessions, liveDraft } from "./fake";
+import { MockFleetBuild } from "./fleet-build";
 import type { FakeOptions, LiveDraft } from "./fake";
 import { scenarioNamed } from "./scenario";
 import { mockLayout, NO_LAYOUT_MODS } from "./layout";
@@ -113,9 +114,11 @@ export function mountApp(
               Job's own boards read. */}
           <Themed source={mockThemes}>
             <LayoutSourceProvider value={skipsMods() ? NO_LAYOUT_MODS : mockLayout}>
-              <SessionsHere held={heldSessions(api)}>
-                <Drafted draft={liveDraft(api) ?? HELD(chosen.draft)} />
-              </SessionsHere>
+              <MockFleetBuild scenario={chosen.name}>
+                <SessionsHere held={heldSessions(api)}>
+                  <Drafted draft={liveDraft(api) ?? HELD(chosen.draft)} />
+                </SessionsHere>
+              </MockFleetBuild>
             </LayoutSourceProvider>
           </Themed>
           <OnScreen say={say} />

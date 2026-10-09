@@ -2,7 +2,7 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 
 /**
  * Labels on the left, their figures justified to the list's right edge where
- * the Stats panel's counts sit — the key/value rows Pulse draws under a Job's
+ * the Fleet panel's rows sit — the key/value rows Pulse draws under a Job's
  * run, and the Fleet panel draws under its state.
  *
  * **One treatment, not two.** This was `JobHoldsSummary`'s own `Figure`, and a

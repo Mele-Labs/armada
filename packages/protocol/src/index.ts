@@ -41,6 +41,7 @@ export * from "./holding";
 export * from "./journal";
 export * from "./judged";
 export * from "./kit";
+export * from "./building";
 export * from "./limits";
 export * from "./manifest-proposal";
 export * from "./merge-lines";

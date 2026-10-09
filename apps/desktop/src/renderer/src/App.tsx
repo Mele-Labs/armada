@@ -65,7 +65,7 @@ import {
   openRemarkLink,
   openServerLink,
   runSheetServers,
-  openLink, restartFleet,
+  openLink, restartFleet, changeFleetBuild,
   observeRun,
   observeCheckoutRun,
   pickRepository,
@@ -147,7 +147,8 @@ import { useWhereOpen } from "./where-open";
 import { usePlanView } from "./remembered-views";
 import { usePanelOpen } from "./panel-open";
 import { useGuideListWidth } from "./guide-list-width";
-import { statsOf, fleetPanelOf } from "./left-column";
+import { fleetPanelOf } from "./left-column";
+import { fleetBuildOf, useFleetBuild } from "./fleet-build";
 import { copyDebugInfoFor, useCommandPalette } from "@armada/shell";
 import { Shell, SURFACE, SURFACES, useAtFloor, useNarrow, useSurfaceKeys } from "@armada/shell";
 
@@ -294,8 +295,9 @@ export function App({ draft }: AppProps = {}) {
   // Graph or list on Plan, this window's.
   const [planView, pressPlanView] = usePlanView();
   // The left column's own fold, remembered across a restart — Bridge/1088.
-  const [statsOpen, setStatsOpen] = usePanelOpen("stats");
   const [fleetOpen, setFleetOpen] = usePanelOpen("fleet");
+  // The mock provides a fixture; a real window builds it from what Fleet reported.
+  const fleetBuild = useFleetBuild() ?? fleetBuildOf(state.fleetBuild, state.jobs, (build, adopt) => void changeFleetBuild(build, adopt));
   // The catalogue list's width, remembered the same way the shell's column is.
   const [guideList, resizeGuideList] = useGuideListWidth();
 
@@ -351,7 +353,7 @@ export function App({ draft }: AppProps = {}) {
 
   // Fleet's health and every repository's drift in scope. Held for the life
   // of the window rather than only while Overview is showing — Bridge/1088's
-  // Stats and Fleet panels draw the same two reads on every surface now.
+  // Fleet panel draws its Doctor read on every surface now.
   useEffect(() => {
     watchOverview(true);
     return () => watchOverview(false);
@@ -654,13 +656,9 @@ export function App({ draft }: AppProps = {}) {
               Start fresh
             </Button>
           }
-          stats={{
-            rows: statsOf(state.connection, state.jobs, state.capacity, repositories, state.repository, state.drifts),
-            open: statsOpen,
-            onOpenChange: setStatsOpen,
-          }}
           fleet={{
             ...fleetPanelOf(state.connection, statement, state.health, now, state.readAt),
+            ...(fleetBuild === undefined ? {} : { build: fleetBuild }),
             open: fleetOpen,
             onOpenChange: setFleetOpen,
           }}

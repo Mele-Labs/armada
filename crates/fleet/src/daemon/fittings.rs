@@ -440,6 +440,7 @@ where
             spared: Default::default(),
             merge_end: Mutex::new(()),
             reflecting: crate::retro::Reflecting::default(),
+            building: crate::building::Building::default(),
             mods: crate::mods::Told::default(),
             run,
         }

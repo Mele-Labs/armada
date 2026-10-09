@@ -26,14 +26,14 @@
 //
 // # The status bar is gone; Fleet's state lives in the left column
 //
-// Bridge/1088 replaced the rail and the status bar with three rounded
-// panels — Navigation, Stats and Fleet. **Their rows arrive built**, from
+// Bridge/1088 replaced the rail and the status bar with two rounded
+// panels — Navigation and Fleet. **Their rows arrive built**, from
 // `apps/desktop`'s `left-column.ts`, which reads the same arithmetic
 // Overview's own tiles do. Not built here: `@armada/screens` already depends
 // on this package for `statementOf`, and the reverse import would be a cycle.
 //
-// **And under `--layout-breakpoint` all three collapse to the 48px rail.**
-// Navigation keeps its glyphs, Stats and Fleet keep one status dot each, and
+// **And under `--layout-breakpoint` both collapse to the 48px rail.**
+// Navigation keeps its glyphs, Fleet keeps one status dot, and
 // nothing leaves the screen. #1435 took the column away outright and the owner
 // corrected it on 18 Sep 2026. There was a second, wider band it collapsed in
 // to pay for Helm's dock; #1583 put the dock on a layer and the band went with
@@ -72,7 +72,6 @@ import {
   type DockQuestion,
   type DropdownMenuEntry,
   type FleetPanelProps,
-  type StatsPanelProps,
 } from "@armada/components";
 
 import type { Connection } from "@armada/protocol";
@@ -112,11 +111,6 @@ export type ShellProps = {
    * than this row growing a second answer to the same question.
    */
   onOpenManifest?: () => void;
-  /**
-   * The left column's Stats panel, built by the caller from the same
-   * arithmetic Overview's own tiles read — `apps/desktop`'s `left-column.ts`.
-   */
-  stats: Omit<StatsPanelProps, "narrow">;
   /** The left column's Fleet panel — what the status bar used to draw. */
   fleet: Omit<FleetPanelProps, "narrow">;
   /** Opens the composer. The title row's own Dispatch control — #1087 — beside the Board's own. */
@@ -168,7 +162,6 @@ export function Shell({
   onScope,
   onAddRepository,
   onOpenManifest,
-  stats,
   fleet,
   onCompose,
   onSearch,
@@ -238,8 +231,8 @@ export function Shell({
             ...(warned[surface.id] === undefined ? {} : { warning: warned[surface.id] }),
             // **No row carries a count.** The Board's did — active Jobs, the
             // owner's ruling of 11 Sep 2026 — and that row went with the page.
-            // Stats already carries every count the column shows, and a second
-            // place to read one is a second chance to disagree.
+            // A count beside a row is a second place to read one,
+            // and a second chance to disagree.
           })),
       }))}
       activeId={showing}
@@ -300,7 +293,6 @@ export function Shell({
       onSearch={onSearch}
       onDispatch={onCompose}
       dispatchDisabled={!live}
-      stats={stats}
       fleet={fleet}
     >
       {children}

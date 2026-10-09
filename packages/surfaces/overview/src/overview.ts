@@ -1,4 +1,4 @@
-// What the left column's Stats and Fleet panels read, from what Fleet already serves. Overview's
+// What the left column's Fleet panel reads, from what Fleet already serves. Overview's
 // own tile band read the same five once (#919); Overview 27 (#1091) replaced the band with the
 // summary strip and left these five readings here — `left-column.ts` is their only caller now.
 //
@@ -16,7 +16,7 @@ import type { DriftsRead, HealthRead, RepositoryDrift } from "@armada/screens/sr
 /** One of the state machine's own hues, or none — never a colour picked for its own sake. */
 export type ReadingTone = "completed-success" | "awaiting-review" | "completed-failed" | "notice-caution";
 
-/** A reading, in `StatsPanel`'s and `FleetPanel`'s own terms. */
+/** A reading, in `FleetPanel`'s own terms. */
 export type MachineReading = {
   label: string;
   value?: ReactNode;
