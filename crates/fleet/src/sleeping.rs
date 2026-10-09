@@ -7,7 +7,8 @@
 //!
 //! **An escalated Job** whose trigger words can carry past ([`ANSWERABLE`]) and whose title is not
 //! destructive is told to decide for itself, by the owner's own act: a redirect to its Drone, or a
-//! restart of the step with the same words where the Drone is gone. Any other escalation is held.
+//! restart of the step with the same words where the Drone is gone. One whose trigger a second run
+//! may well clear ([`RETRIED`]) has its step restarted, with no words. Any other escalation is held.
 //!
 //! **Each thing is left once.** A row's id is `<session>:<item>`, so a pass over an item already
 //! decided or held changes nothing.
@@ -51,8 +52,9 @@ const DESTRUCTIVE: &[&str] = &[
 /// Whole words that are too short to match inside another.
 const DESTRUCTIVE_WORDS: &[&str] = &["rm", "kill", "undo"];
 
-/// The escalations a person's words can carry a Job past: a Drone that stopped, went quiet, looped or
-/// failed a gate. The rest (a dependency that failed, no worktree, a cap) are not cured by a sentence.
+/// The escalations a person's words can carry a Job past: a Drone that stopped, went quiet, looped,
+/// failed a gate, asked and went unanswered, or was refused a hatch, its scope or its evidence. The rest
+/// (a dependency that failed, no worktree, a cap, a policy) are not cured by a sentence.
 const ANSWERABLE: &[EscalationTrigger] = &[
     EscalationTrigger::Stalled,
     EscalationTrigger::Silent,
@@ -61,6 +63,25 @@ const ANSWERABLE: &[EscalationTrigger] = &[
     EscalationTrigger::Interrupted,
     EscalationTrigger::LoopCap,
     EscalationTrigger::GateFailure,
+    EscalationTrigger::AskUnanswered,
+    EscalationTrigger::HatchUnbidden,
+    EscalationTrigger::ScopeRefused,
+    EscalationTrigger::EvidenceTooLarge,
+];
+
+/// The escalations a plain second run may clear, with nothing to say: the Drone or run ended, was not
+/// heard, would not start, or the gate or proposer gave no answer. The step is restarted, once a night
+/// (the Job's `job:` row stops a second restart); an undecided gate is asked again instead, the work
+/// being fine. `Unheard`, `WouldNotStart`, `NotPrepared` and `ProposerFailed` are Job-level, with no
+/// stopped step to restart, so they usually end as a blocked row carrying the refusal.
+const RETRIED: &[EscalationTrigger] = &[
+    EscalationTrigger::DroneGone,
+    EscalationTrigger::RunEnded,
+    EscalationTrigger::Unheard,
+    EscalationTrigger::WouldNotStart,
+    EscalationTrigger::NotPrepared,
+    EscalationTrigger::GateUndecided,
+    EscalationTrigger::ProposerFailed,
 ];
 
 /// How much of the agent's next words the review shows.
@@ -225,7 +246,7 @@ where
         }
         let (id, title) = (job.id().as_str(), job.title().as_str());
         let answerable = match self.last_reason(job.id()).await {
-            Ok(Some(TransitionReason::Escalation(trigger))) => ANSWERABLE.contains(&trigger),
+            Ok(Some(TransitionReason::Escalation(trigger))) => ANSWERABLE.contains(&trigger) || RETRIED.contains(&trigger),
             _ => false,
         };
         if !answerable || destructive_text(title) {
@@ -247,8 +268,26 @@ where
             };
             let (who, title) = (job.handle(), job.title().as_str());
             let asked = format!("{title} ({})", trigger.as_wire());
-            if !ANSWERABLE.contains(&trigger) || destructive_text(title) {
+            let retried = RETRIED.contains(&trigger);
+            if !(ANSWERABLE.contains(&trigger) || retried) || destructive_text(title) {
                 self.leave(row("blocked", id, who, format!("Escalated, waiting on you: {title}"))).await?;
+                continue;
+            }
+            if retried {
+                let (ran, said) = match trigger {
+                    EscalationTrigger::GateUndecided => (self.rerun_gate(job.id()).await, "Ran the gate again"),
+                    _ => (
+                        self.restart_step_by(job.id(), None, Ending::Unheard, Actor::Fleet).await,
+                        "Restarted the step",
+                    ),
+                };
+                let done = match ran {
+                    Ok(_) => row("decided", id, who, format!("{said}: {asked}")),
+                    Err(why) => {
+                        row("blocked", id, who, format!("Escalated, could not carry on ({why}): {title}"))
+                    }
+                };
+                self.leave(done).await?;
                 continue;
             }
             let Some(words) = Redirection::saying(&format!("{}\n\n{asked}", mode_line(WaitingMode::Best))) else {
