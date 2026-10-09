@@ -10,7 +10,7 @@ use axum::response::{IntoResponse, Response};
 use axum::routing::{delete, get, post};
 use axum::Router;
 
-use crate::{admin, fleet_client, pair_routes, signing, stat};
+use crate::{admin, fleet_client, pair_routes, reads, signing, stat};
 
 /// Where Fleet is now: its port out of the runtime file, read afresh each time
 /// so a Fleet that restarted is found, or the sentence saying why it is not.
@@ -62,10 +62,10 @@ pub fn router(gateway: Gateway) -> Router {
     // Issues 1995, 1996, 2001, 2004 and 2006 fill these in.
     Router::new()
         .route("/pair", post(pair_routes::claim))
-        .route("/api/needs", get(later))
-        .route("/api/jobs", get(later).post(later))
-        .route("/api/jobs/:id", get(later))
-        .route("/api/live", get(later))
+        .route("/api/needs", get(reads::needs))
+        .route("/api/jobs", get(reads::jobs).post(later))
+        .route("/api/jobs/:id", get(reads::job))
+        .route("/api/live", get(reads::live))
         .route("/api/push/subscribe", post(later))
         .route("/api/jobs/:id/approve", post(later))
         .route("/api/jobs/:id/redirect", post(later))

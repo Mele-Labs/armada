@@ -42,9 +42,13 @@ pub(crate) fn rig_pairing() -> Pairing {
 }
 
 pub(crate) fn rig() -> Rig {
+    rig_with(Arc::new(|| Err("Fleet is not running".to_string())))
+}
+
+pub(crate) fn rig_with(fleet: crate::Fleet) -> Rig {
     let now = Arc::new(AtomicI64::new(1_000_000));
     let gateway = Gateway {
-        fleet: Arc::new(|| Err("Fleet is not running".to_string())),
+        fleet,
         assets: None,
         pairing: pairing(now.clone(), Ok("https://mac.tail.ts.net".into())),
     };
@@ -55,7 +59,7 @@ fn key() -> SigningKey {
     SigningKey::from_slice(&[7u8; 32]).unwrap()
 }
 
-async fn call(app: &Router, method: Method, path: &str, headers: &[(&str, String)], body: &str) -> (StatusCode, String) {
+pub(crate) async fn call(app: &Router, method: Method, path: &str, headers: &[(&str, String)], body: &str) -> (StatusCode, String) {
     let mut request = Request::builder().method(method).uri(path);
     for (name, value) in headers {
         request = request.header(*name, value);
@@ -88,7 +92,7 @@ async fn confirm(rig: &Rig, code: &str) -> (StatusCode, String) {
     call(&rig.app, Method::POST, "/admin/pair/confirm", &[("content-type", "application/json".into())], &body).await
 }
 
-async fn paired(rig: &Rig) -> String {
+pub(crate) async fn paired(rig: &Rig) -> String {
     let code = start(rig).await;
     assert_eq!(claim(rig, &code).await, StatusCode::ACCEPTED);
     let (status, body) = confirm(rig, &code).await;
@@ -96,7 +100,7 @@ async fn paired(rig: &Rig) -> String {
     field(&body, "id")
 }
 
-fn signed(device: &str, method: &str, path: &str, time: i64, body: &str) -> Vec<(&'static str, String)> {
+pub(crate) fn signed(device: &str, method: &str, path: &str, time: i64, body: &str) -> Vec<(&'static str, String)> {
     let message = format!("{method}{path}{time}{}", to_hex(&Sha256::digest(body.as_bytes())));
     let signature: Signature = key().sign(message.as_bytes());
     vec![
@@ -106,6 +110,7 @@ fn signed(device: &str, method: &str, path: &str, time: i64, body: &str) -> Vec<
     ]
 }
 
+/// Past the signature, `/api/needs` asks Fleet, which the rig has down: 503.
 async fn get_needs(rig: &Rig, headers: &[(&str, String)]) -> StatusCode {
     call(&rig.app, Method::GET, "/api/needs", headers, "").await.0
 }
@@ -209,7 +214,7 @@ async fn a_signed_request_from_a_paired_phone_passes_and_marks_it_seen() {
     let rig = rig();
     let id = paired(&rig).await;
     let now = rig.now.load(Ordering::Relaxed);
-    assert_eq!(get_needs(&rig, &signed(&id, "GET", "/api/needs", now, "")).await, StatusCode::NOT_IMPLEMENTED);
+    assert_eq!(get_needs(&rig, &signed(&id, "GET", "/api/needs", now, "")).await, StatusCode::SERVICE_UNAVAILABLE);
     let (_, list) = call(&rig.app, Method::GET, "/admin/devices", &[], "").await;
     assert!(list.contains(&format!("\"last_seen_at\":{now}")), "{list}");
 }
@@ -226,7 +231,7 @@ async fn a_replayed_signature_is_refused() {
     let id = paired(&rig).await;
     let now = rig.now.load(Ordering::Relaxed);
     let headers = signed(&id, "GET", "/api/needs", now, "");
-    assert_eq!(get_needs(&rig, &headers).await, StatusCode::NOT_IMPLEMENTED);
+    assert_eq!(get_needs(&rig, &headers).await, StatusCode::SERVICE_UNAVAILABLE);
     assert_eq!(get_needs(&rig, &headers).await, StatusCode::UNAUTHORIZED);
 }
 
@@ -238,7 +243,7 @@ async fn a_skewed_request_is_refused() {
     for time in [now - 61, now + 61] {
         assert_eq!(get_needs(&rig, &signed(&id, "GET", "/api/needs", time, "")).await, StatusCode::UNAUTHORIZED);
     }
-    assert_eq!(get_needs(&rig, &signed(&id, "GET", "/api/needs", now - 60, "")).await, StatusCode::NOT_IMPLEMENTED);
+    assert_eq!(get_needs(&rig, &signed(&id, "GET", "/api/needs", now - 60, "")).await, StatusCode::SERVICE_UNAVAILABLE);
 }
 
 #[tokio::test]
@@ -270,7 +275,7 @@ async fn after_an_unpair_the_next_request_is_refused() {
     let rig = rig();
     let id = paired(&rig).await;
     let now = rig.now.load(Ordering::Relaxed);
-    assert_eq!(get_needs(&rig, &signed(&id, "GET", "/api/needs", now, "")).await, StatusCode::NOT_IMPLEMENTED);
+    assert_eq!(get_needs(&rig, &signed(&id, "GET", "/api/needs", now, "")).await, StatusCode::SERVICE_UNAVAILABLE);
     let (status, _) = call(&rig.app, Method::DELETE, &format!("/admin/devices/{id}"), &[], "").await;
     assert_eq!(status, StatusCode::NO_CONTENT);
     assert_eq!(get_needs(&rig, &signed(&id, "GET", "/api/needs", now + 1, "")).await, StatusCode::UNAUTHORIZED);

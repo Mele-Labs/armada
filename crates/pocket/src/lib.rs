@@ -10,8 +10,12 @@
 
 mod admin;
 mod fleet_client;
+mod fleet_events;
+mod live;
 mod pair_routes;
 mod pairing;
+mod phone;
+mod reads;
 mod routes;
 mod signing;
 mod stat;
@@ -33,5 +37,7 @@ pub async fn bind(port: u16) -> io::Result<TcpListener> {
 
 #[cfg(test)]
 mod pairing_tests;
+#[cfg(test)]
+mod reads_tests;
 #[cfg(test)]
 mod tests;
