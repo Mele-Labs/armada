@@ -480,18 +480,18 @@ where
     }
 
     /// Whether there is a conversation to resume: the agent CLI kept one, or the agent has
-    /// said something or leased a slot in the thread. A process that ended before its first turn
-    /// left none of these.
+    /// left anything in the thread but the person's own messages and Fleet's note that a process
+    /// ended. A process that ended before its first turn left nothing else.
     async fn has_a_conversation(&self, id: &str) -> bool {
         if adapters::terminal_thread::find(&self.host().home, id).is_some() {
             return true;
         }
         self.rows_of(id).await.is_ok_and(|rows| {
-            rows.iter().any(|row| {
-                matches!(
-                    row,
-                    SessionRow::Message { from: ipc::SessionVoice::Agent, .. } | SessionRow::Lease { .. }
-                )
+            rows.iter().any(|row| match row {
+                SessionRow::Message { from, .. } => *from == ipc::SessionVoice::Agent,
+                // Fleet's own note that a process ended is not the agent's.
+                SessionRow::Tool { text, .. } => !text.starts_with("the session's process ended"),
+                _ => true,
             })
         })
     }
