@@ -727,7 +727,7 @@ class RestartBuild(unittest.TestCase):
         """Run the wrapper with `script` standing in for what it wraps."""
         stub = self.stub("wrapped", f'echo "$@" >> "{self.ran}"\n{script}')
         env = dict(os.environ, HOME=self.home, PATH=self.bin + os.pathsep + os.environ["PATH"],
-                   ARMADA_RESTART_SCRIPT=stub, ARMADA_PREVIEW_SCRIPT=stub)
+                   ARMADA_RESTART_SCRIPT=stub, ARMADA_PREVIEW_SCRIPT=stub, ARMADA_RESTART_POLL="0.02")
         done = subprocess.run([os.path.join(self.root, "scripts", "restart-build"), which, *args],
                               env=env, capture_output=True, text=True)
         return done.returncode
@@ -793,6 +793,73 @@ class RestartBuild(unittest.TestCase):
         self.assertEqual(self.build("preview", script=script), 1)
         self.assertEqual(self.runs(), ["--restart", "--restart"])
         self.assertEqual(self.status(), "failed\npreview\n\nerror: failed to run custom build command for libsqlite3-sys\n")
+
+    def stages_seen(self, which, headings, plain=(), **kwargs):
+        """The stages the status file shows, in order, as a stub prints `headings` bold and `plain` unbold.
+        The stub waits after each line, long enough for the wrapper's poll to have read it."""
+        seen = os.path.join(self.dir, "seen")
+        if os.path.exists(seen):
+            os.remove(seen)
+        save = f'sleep 0.3; cat "{self.status_file}" >> "{seen}"; echo --- >> "{seen}"'
+        lines = [f"printf '\\n\\033[1m%s\\033[0m\\n' '{h}' >&2; {save}" for h in headings]
+        lines += [f"printf '%s\\n' '{p}' >&2; {save}" for p in plain]
+        code = self.build(which, script="\n".join(lines), **kwargs)
+        self.assertEqual(code, 0)
+        with open(seen) as f:
+            records = [r.split("\n") for r in f.read().split("---\n") if r]
+        return [r[2] if len(r) > 2 else None for r in records]
+
+    PREVIEW_RUN = ["Installing armada from /x", "Copying the Claude Code mod from /x", "ipc was last built at protocol a",
+                   "Building Bridge \u2014 apps/ moved", "Snapshot of the database: x", "Booting org.armada out and back in",
+                   "Quitting the running Bridge (pid 1) for this repository", "Reopening Bridge from /x", "Done"]
+
+    def test_a_preview_restart_starts_merging_and_follows_the_headings(self):
+        self.assertEqual(self.stages_seen("preview", self.PREVIEW_RUN),
+                         ["building_fleet", "building_fleet", "building_fleet", "building_bridge", "restarting_fleet",
+                          "restarting_fleet", "reopening_bridge", "reopening_bridge", "reopening_bridge"])
+
+    def test_the_first_stage_is_merging_for_preview_and_fetching_main_for_main(self):
+        for which, first in (("preview", "merging"), ("main", "fetching_main")):
+            seen = self.stages_seen(which, [], plain=["something that is no heading"])
+            self.assertEqual(seen, [first], which)
+
+    def test_a_main_restart_goes_from_the_fast_forward_through_the_same_stages(self):
+        stages = self.stages_seen("main", ["Fast-forwarding main to origin/main", "Fleet is running (pid 1) \u2014 checking for a working Drone",
+                                           *self.PREVIEW_RUN])
+        self.assertEqual(stages[:2], ["fetching_main", "fetching_main"])
+        self.assertEqual(stages[2], "building_fleet")
+        self.assertEqual(stages[-1], "reopening_bridge")
+
+    def test_a_line_that_is_not_bold_never_sets_a_stage(self):
+        seen = self.stages_seen("main", [], plain=["Building Bridge", "Installing armada from /x", "Booting x",
+                                                   "  Installing armada v0.0.0", "\x1b[1m\x1b[32m   Installing\x1b[0m armada"])
+        self.assertEqual(seen, ["fetching_main"] * 5)
+
+    def test_cargos_own_bold_output_is_not_a_heading(self):
+        stub = ("printf '\\033[1m\\033[32m   Installing\\033[0m armada v1\\n' >&2\n"
+                f"sleep 0.3; cat \"{self.status_file}\" > \"{self.dir}/seen\"")
+        self.assertEqual(self.build("main", script=stub), 0)
+        with open(os.path.join(self.dir, "seen")) as f:
+            self.assertEqual(f.read(), "running\nmain\nfetching_main\n")
+
+    def test_retrying_holds_through_the_second_installing_heading_and_gives_way_to_bridge(self):
+        os.makedirs(os.path.join(self.root, ".armada", "preview"))
+        marker = os.path.join(self.dir, "first")
+        seen = os.path.join(self.dir, "seen")
+        save = f'sleep 0.3; cat "{self.status_file}" >> "{seen}"; echo --- >> "{seen}"'
+        say = lambda h: f"printf '\\n\\033[1m%s\\033[0m\\n' '{h}' >&2; {save}"
+        script = (f'if [ ! -f "{marker}" ]; then touch "{marker}"; {say("Installing armada from /x")}\n'
+                  'echo "error: failed to run custom build command for libsqlite3-sys" >&2; exit 101; fi\n'
+                  f'{say("Installing armada from /x")}\n{say("Fast-forwarding main to origin/main")}\n{say("Building Bridge")}')
+        self.assertEqual(self.build("preview", script=script), 0)
+        with open(seen) as f:
+            records = [r.split("\n") for r in f.read().split("---\n") if r]
+        self.assertEqual([r[2] for r in records], ["building_fleet", "retrying", "retrying", "building_bridge"])
+
+    def test_a_failure_after_a_stage_is_still_one_failed_record(self):
+        code = self.build("main", script='printf "\\n\\033[1mInstalling armada from /x\\033[0m\\n" >&2; sleep 0.3; echo "restart: !!! nope" >&2; exit 1')
+        self.assertEqual(code, 1)
+        self.assertEqual(self.status(), "failed\nmain\n\nnope\n")
 
     def test_an_unknown_build_is_refused(self):
         self.assertNotEqual(self.build("feature"), 0)

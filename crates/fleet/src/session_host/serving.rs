@@ -25,13 +25,17 @@ use crate::helm::NotAnswerable;
 use crate::repositories::Served;
 
 /// A session id that names nothing. A 422.
-pub(super) const NO_SUCH_SESSION: &str = "fleet.no_such_session";
+pub(crate) const NO_SUCH_SESSION: &str = "fleet.no_such_session";
 /// A message or a tune to a session that was closed. A 409.
 const SESSION_CLOSED: &str = "fleet.session_closed";
 /// A message with neither words nor a file. A 422.
 pub(super) const MESSAGE_EMPTY: &str = "fleet.session_message_empty";
 /// An attachment that would not decode, or is too large. A 422.
 const ATTACHMENT_REFUSED: &str = "fleet.session_attachment_refused";
+/// A reattached session the keeper called busy, and that then says nothing for
+/// this long, missed its turn's end: it goes to Idle.
+const REATTACH_QUIET: Duration = Duration::from_secs(120);
+
 /// The agent's process would not start. A 500.
 const SESSION_UNSTARTED: &str = "fleet.session_unstarted";
 /// An answer naming no ask that is waiting. A 409.
@@ -149,7 +153,10 @@ where
 
     async fn answer_session_ask(&self, said: AnswerSessionAsk) -> Result<SessionRecord, Refusal> {
         let id = said.session_id.as_str().to_string();
-        if self.terminal_session(&id).await?.is_none() {
+        let terminal = self.terminal_session(&id).await?.is_some();
+        if terminal {
+            self.terminal_ask_standing(&id).await;
+        } else {
             self.session_and_hosting(&id).await?;
         }
         let held = self
@@ -162,14 +169,16 @@ where
         if !held {
             return Err(self.ask_not_waiting());
         }
-        self.hosts()
+        let answer = AnswerHelmCall {
+            call: said.call,
+            answer: said.answer,
+            note: said.note,
+            answers: said.answers,
+        };
+        let waiting = self
+            .hosts()
             .asks()
-            .answer(&AnswerHelmCall {
-                call: said.call,
-                answer: said.answer,
-                note: said.note,
-                answers: said.answers,
-            })
+            .answer(&answer)
             .map_err(|why| match why {
                 NotAnswerable::Incomplete => Refusal::Unacceptable(WireError::raised(
                     SESSION_ANSWER_INCOMPLETE,
@@ -178,6 +187,9 @@ where
                 )),
                 _ => self.ask_not_waiting(),
             })?;
+        if terminal {
+            self.terminal_ask_answered(&id, &waiting, &crate::helm::Said::of(&answer)).await?;
+        }
         self.published_hosted(&id).await
     }
 
@@ -263,6 +275,7 @@ where
 
     async fn get_session(self: Arc<Self>, id: SessionId) -> Result<SessionThread, Refusal> {
         if let Some(session) = self.terminal_session(id.as_str()).await? {
+            self.terminal_ask_standing(id.as_str()).await;
             let mut rows = self.terminal_thread(&session).await?;
             // The question its terminal is showing, while Bridge may still answer it.
             rows.extend(self.rows_of(id.as_str()).await?.into_iter().filter(|row| {
@@ -384,6 +397,9 @@ where
                 };
                 self.terminal_question(&session_id, asking).await
             }
+            ipc::TerminalAsk::Wait { session_id, call } => {
+                self.terminal_question_wait(&session_id, &call).await
+            }
             ipc::TerminalAsk::Settled {
                 session_id,
                 answered,
@@ -477,6 +493,23 @@ where
             Some(slot) => adapter_traits::slot_path(served.root(), slot),
             None => served.root().to_string(),
         }
+    }
+
+    /// Whether there is a conversation to resume: the agent CLI kept one, or the agent has
+    /// left anything in the thread but the person's own messages and Fleet's note that a process
+    /// ended. A process that ended before its first turn left nothing else.
+    async fn has_a_conversation(&self, id: &str) -> bool {
+        if adapters::terminal_thread::find(&self.host().home, id).is_some() {
+            return true;
+        }
+        self.rows_of(id).await.is_ok_and(|rows| {
+            rows.iter().any(|row| match row {
+                SessionRow::Message { from, .. } => *from == ipc::SessionVoice::Agent,
+                // Fleet's own note that a process ended is not the agent's.
+                SessionRow::Tool { text, .. } => !text.starts_with("the session's process ended"),
+                _ => true,
+            })
+        })
     }
 
     pub(crate) fn uploads_of(&self, id: &str) -> std::path::PathBuf {
@@ -652,17 +685,6 @@ where
         if !lost.is_empty() {
             self.send_again(&id, &runtime, lost).await;
         }
-        if self.hosts().start_sweeping() {
-            let fleet = Arc::clone(&self);
-            let every =
-                (self.hosts().quiet() / 4).clamp(Duration::from_secs(1), Duration::from_secs(30));
-            tokio::spawn(async move {
-                loop {
-                    tokio::time::sleep(every).await;
-                    fleet.sweep_quiet().await;
-                }
-            });
-        }
         self.published_hosted(&id).await
     }
 
@@ -827,13 +849,16 @@ where
         let served = self.served_named(Some(&ManifestId::carried(&hosting.manifest_id)));
         let (sink, heard) = tokio::sync::mpsc::unbounded_channel::<Heard>();
         let (process, directory) = match self.hosts().processes().reattach(id, sink.clone()) {
-            Some(process) => (
+            Some(process) => {
+                self.kept_restart(id, "reattached", Some("Fleet came back and took the session's process again")).await;
+                (
                 process,
                 served
                     .as_ref()
                     .map(|served| Self::directory_of(served, hosting))
                     .unwrap_or_default(),
-            ),
+                )
+            }
             None if !may_start => return Ok(false),
             None => {
                 let served = served.map_err(|_| {
@@ -843,7 +868,11 @@ where
                 let start = Start {
                     directory: directory.clone(),
                     session: id.to_string(),
-                    resuming: hosting.ran,
+                    // **Resumed only where there is a conversation to resume.** A process that
+                    // started and ended before its first turn wrote none, and `--resume` on it
+                    // exits at once ("No conversation found"), so every later message was lost
+                    // (s-c271bfe5, 8 Oct 2026). Started fresh under the same id instead.
+                    resuming: hosting.ran && self.has_a_conversation(id).await,
                     forking: hosting.fork_of.clone(),
                     name: address_of(id),
                     model: hosting.model.clone(),
@@ -851,7 +880,11 @@ where
                     mode: mode_of(&hosting.mode),
                     readable: vec![self.uploads_of(id).to_string_lossy().into_owned()],
                 };
-                (self.hosts().processes().start(&start, sink)?, directory)
+                let process = self.hosts().processes().start(&start, sink)?;
+                if hosting.ran {
+                    self.kept_restart(id, "resumed", None).await;
+                }
+                (process, directory)
             }
         };
         let generation = {
@@ -872,6 +905,17 @@ where
             generation,
             heard,
         ));
+        if self.hosts().start_sweeping() {
+            let fleet = Arc::clone(self);
+            let every =
+                (self.hosts().quiet() / 4).clamp(Duration::from_secs(1), Duration::from_secs(30));
+            tokio::spawn(async move {
+                loop {
+                    tokio::time::sleep(every).await;
+                    fleet.sweep_quiet().await;
+                }
+            });
+        }
         Ok(true)
     }
 
@@ -898,6 +942,15 @@ where
         let mut ended = Vec::new();
         for (id, runtime) in self.hosts().all() {
             let mut state = runtime.state();
+            if state.reattached_busy
+                && matches!(state.turn, SessionTurn::Working { .. })
+                && state.last_active.elapsed() >= REATTACH_QUIET
+            {
+                state.reattached_busy = false;
+                state.turn = SessionTurn::Idle;
+                ended.push(id.clone());
+                continue;
+            }
             let idle = matches!(state.turn, SessionTurn::Idle);
             if state.process.is_some()
                 && idle

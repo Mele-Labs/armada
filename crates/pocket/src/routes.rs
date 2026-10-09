@@ -5,12 +5,12 @@ use std::sync::Arc;
 
 use axum::extract::State;
 use axum::http::StatusCode;
-use axum::middleware::{from_fn, map_response};
+use axum::middleware::{from_fn, from_fn_with_state, map_response};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{delete, get, post};
 use axum::Router;
 
-use crate::{admin, fleet_client, stat};
+use crate::{admin, fleet_client, pair_routes, reads, signing, stat};
 
 /// Where Fleet is now: its port out of the runtime file, read afresh each time
 /// so a Fleet that restarted is found, or the sentence saying why it is not.
@@ -21,6 +21,7 @@ pub struct Gateway {
     pub fleet: Fleet,
     /// The built PWA. `None`, or a directory that is not there, serves nothing.
     pub assets: Option<PathBuf>,
+    pub pairing: crate::Pairing,
 }
 
 /// A route whose issue has not landed.
@@ -51,19 +52,20 @@ async fn status(State(gateway): State<Gateway>) -> Response {
 pub fn router(gateway: Gateway) -> Router {
     let admin = Router::new()
         .route("/admin/status", get(status))
-        .route("/admin/pair/start", post(later))
-        .route("/admin/pair/confirm", post(later))
-        .route("/admin/devices", get(later))
-        .route("/admin/devices/:id", delete(later))
+        .route("/admin/pair/start", post(pair_routes::start))
+        .route("/admin/pair/pending", get(pair_routes::pending))
+        .route("/admin/pair/confirm", post(pair_routes::confirm))
+        .route("/admin/devices", get(pair_routes::devices))
+        .route("/admin/devices/:id", delete(pair_routes::unpair))
         .layer(from_fn(admin::loopback_only));
 
     // Issues 1995, 1996, 2001, 2004 and 2006 fill these in.
     Router::new()
-        .route("/pair", post(later))
-        .route("/api/needs", get(later))
-        .route("/api/jobs", get(later).post(later))
-        .route("/api/jobs/:id", get(later))
-        .route("/api/live", get(later))
+        .route("/pair", post(pair_routes::claim))
+        .route("/api/needs", get(reads::needs))
+        .route("/api/jobs", get(reads::jobs).post(later))
+        .route("/api/jobs/:id", get(reads::job))
+        .route("/api/live", get(reads::live))
         .route("/api/push/subscribe", post(later))
         .route("/api/jobs/:id/approve", post(later))
         .route("/api/jobs/:id/redirect", post(later))
@@ -74,6 +76,7 @@ pub fn router(gateway: Gateway) -> Router {
         .route("/api/jobs/:id/request_changes", post(later))
         .route("/api/sessions", get(later))
         .route("/api/sessions/answer", post(later))
+        .layer(from_fn_with_state(gateway.pairing.clone(), signing::signed))
         .merge(admin)
         .fallback(stat::serve)
         .layer(map_response(unlisted))

@@ -34,9 +34,20 @@ pub struct JobRetro {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub items: Vec<RetroItem>,
     pub record: RetroRecord,
+    /// Present on a Session's retro, whose `job_id` then holds the Session's id.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session: Option<RetroSession>,
     /// Notes the owner left in Bridge while this Job's detail was open.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub annotations: Vec<LinkedAnnotation>,
+}
+
+/// The Session a retro or an item was written for.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RetroSession {
+    pub id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
 }
 
 /// Where a Job's retro stands.
@@ -257,6 +268,10 @@ pub struct Lesson {
     /// 23.26.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub job_proposed: Option<JobId>,
+    /// Present on an item of a Session's retro, whose `job_id` then holds the
+    /// Session's id and `handle` its address.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session: Option<RetroSession>,
     /// What Accept would change in Kit. **Only on a `kit` item whose change
     /// Fleet copied off a refusal in the record**; absent on every other, and
     /// on one kept before 23.35. Since 23.35.
@@ -300,6 +315,20 @@ pub struct RetroRecord {
     /// What a Drone said got in its way, on submitting.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub notes: Vec<RecordSaid>,
+    /// A Session's rows, beside the Job's. Its asks and how long each waited.
+    /// Its gate denials are `refusals` and its resumes and reattaches are
+    /// `restarts`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub asks: Vec<RecordAsked>,
+    /// The owner's messages to the Session, unfiltered.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub corrections: Vec<RecordSaid>,
+    /// Tool results that errored: `tried` is the call, `because` the error.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub failed_tools: Vec<RecordRefusal>,
+    /// What each subagent's own transcript shows went wrong.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub subagents: Vec<RecordSaid>,
 }
 
 /// A tool call the Drone was refused, with what it tried.

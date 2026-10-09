@@ -77,7 +77,7 @@ export function propsFor(fixture: JobFixture): JobDetailProps {
     onReadCheckOutput: async (_jobId, kept) => fixture.checkOutputs[kept] ?? NOT_ANSWERED_OUTPUT,
     onReadBrief: async (_jobId, name) => fixture.briefs?.[name] ?? NOT_ANSWERED_BRIEF,
     // A Job with no retro written: what Fleet says of any Job not ended.
-    onReadRetro: async (jobId) => ({ ok: true, retro: { job_id: jobId, state: "pending", record: {} } }),
+    onReadRetro: async ({ id: jobId }) => ({ ok: true, retro: { job_id: jobId, state: "pending", record: {} } }),
     onAgreeLesson: async () => ({ ok: false, outcome: NOT_CONNECTED }),
     onDisagreeLesson: async () => ({ ok: false, outcome: NOT_CONNECTED }),
     onReadFrame: async (_jobId, kept) => fixture.frames[kept] ?? NOT_ANSWERED_FRAME,

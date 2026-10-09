@@ -140,7 +140,7 @@ import { hiddenSurfaces, MergeLineSurface } from "./merge-line";
 import { LessonsSurface } from "./lessons";
 import { ChecksSurface, useAsked } from "./checks-surface";
 import { SessionsOwnership, SessionsSurface, sessionsHidden } from "./sessions"; import { useSessionsDraft } from "./sessions-draft";
-import { useOpenSessionAsked } from "./open-session";
+import { useOpenSessionAsked } from "./open-session"; import { useOpenRetroAsked } from "./open-retro";
 import { useTellAsked } from "./tell";
 import { openingOf, useHistory, useJobTab } from "./history"; import { showingOf } from "./showing"; import { WorkflowCreatorSurface, workflowsWarned } from "./workflow-creator";
 import { useWhereOpen } from "./where-open";
@@ -466,7 +466,7 @@ export function App({ draft }: AppProps = {}) {
     goTo(SURFACE.sessions);
     setSessionOpen(id);
   }
-  useOpenSessionAsked(openSession); // The annotation layer's Start session.
+  useOpenSessionAsked(openSession); useOpenRetroAsked(() => goTo(SURFACE.lessons)); // The annotation layer's Start session; a Session's Retro press.
 
   function goTo(surfaceId: string): void {
     setOpenJob(null);

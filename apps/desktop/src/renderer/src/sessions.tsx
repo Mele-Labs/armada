@@ -15,6 +15,7 @@ import {
   PilotAct,
   PilotConfirm,
   PilotExits,
+  RetroPress,
   Tooltip,
   Prose,
   PullRequestActs,
@@ -46,6 +47,8 @@ import type {
   SessionState,
   SessionThreadRow,
 } from "@armada/components";
+import { sessionOf } from "@armada/jobs";
+import { askToOpenRetro } from "./open-retro";
 import { ArtifactBody, ARTIFACT_GLYPH, isAddress } from "./session-artifact";
 import { helmOfferedOf } from "@armada/screens/src/copy";
 import { attachmentsOf, isBlank, ownerOf, sessionsMatching } from "@armada/screens/src/draft/sessions";
@@ -273,12 +276,34 @@ function Refused() {
   return said === undefined || said === "" ? null : <Alert tone="escalated">{said}</Alert>;
 }
 
+/**
+ * The Retro press: which Sessions have a retro being written, and the press. When it is written the
+ * Retros page opens on it, named by the Session's title and address.
+ */
+function useRetroPress(): { writing: ReadonlySet<string>; press?: (session: { id: string; title?: string }) => void } {
+  const draft = useSessionsDraft();
+  const [writing, setWriting] = useState<ReadonlySet<string>>(new Set());
+  const retro = draft?.retro;
+  if (retro === undefined) return { writing };
+  return {
+    writing,
+    press: ({ id, title }) => {
+      setWriting((was) => new Set(was).add(id));
+      void retro(id).then((written) => {
+        setWriting((was) => new Set([...was].filter((one) => one !== id)));
+        if (written) askToOpenRetro({ id, label: sessionOf({ id, ...(title === undefined ? {} : { title }) }) });
+      });
+    },
+  };
+}
+
 /** Every Session, searchable, with the act that starts one. On Overview and on the rail surface alike. */
 export function SessionsListing({ onOpen }: { onOpen: (id: string) => void }) {
   const draft = useSessionsDraft();
   const sessions = useSessions();
   const [query, setQuery] = useState("");
   const [view, setView] = useView();
+  const retro = useRetroPress();
   if (draft === undefined) return null;
   const views: SessionRowView[] = sessionsMatching(sessions, query).filter(({ session }) => session.older !== true || query.trim() !== "").map(({ session, matched }) => {
     const { state, said } = stateOf(session);
@@ -295,6 +320,7 @@ export function SessionsListing({ onOpen }: { onOpen: (id: string) => void }) {
       ...(session.lastTurn === undefined ? {} : { lastTurn: session.lastTurn }),
       ...(session.lastTurnAt === undefined ? {} : { lastTurnAt: session.lastTurnAt }),
       ...(session.modOutOfDate === true ? { modOutOfDate: true } : {}),
+      ...(retro.writing.has(session.id) ? { retroWriting: true } : {}),
     };
   });
   const shown: readonly string[] = VIEWS.find((one) => one.id === view)!.headings;
@@ -302,7 +328,7 @@ export function SessionsListing({ onOpen }: { onOpen: (id: string) => void }) {
   return (
     <>
       <Refused />
-      <SessionList groups={groups} query={query} onQuery={setQuery} views={VIEWS} view={view} onView={(next) => setView(next as ViewId)} onOpen={onOpen} onStart={() => opening(draft.start(), onOpen)} />
+      <SessionList groups={groups} query={query} onQuery={setQuery} views={VIEWS} view={view} onView={(next) => setView(next as ViewId)} onOpen={onOpen} onStart={() => opening(draft.start(), onOpen)} {...(retro.press === undefined ? {} : { onRetro: (id: string) => retro.press?.(sessions.find((one) => one.id === id) ?? { id }) })} />
     </>
   );
 }
@@ -671,6 +697,7 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
   const narrow = useNarrow();
   const [ledgerOpen, setLedgerOpen] = useState(false);
   const [minimized, minimize] = useMinimized();
+  const retro = useRetroPress();
   const { onWant } = held;
   const { id } = session;
   const watch = draft?.watch;
@@ -733,6 +760,7 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
                       </Button>
                     </Tooltip>
                   )}
+                  {retro.press === undefined ? null : <RetroPress writing={retro.writing.has(session.id)} onPress={() => retro.press?.(session)} />}
                   {draft.close === undefined || session.terminal === true || session.dead !== undefined ? null : (
                     <Tooltip label="End this Session and park its slot">
                       <Button variant="ghost" size="sm" onClick={() => draft.close?.(session.id)}>

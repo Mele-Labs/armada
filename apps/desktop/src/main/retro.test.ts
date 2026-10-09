@@ -71,13 +71,29 @@ describe("retro and lessons reads", () => {
   it("reads one Job's retro off its own route, as Bridge", async () => {
     const asked: string[] = [];
     const port = await fleet(asked, RETRO);
-    expect(await retroOf(port, "01K6JOB")).toEqual({ ok: true, retro: RETRO });
+    expect(await retroOf(port, { kind: "job", id: "01K6JOB" })).toEqual({ ok: true, retro: RETRO });
     expect(asked).toEqual(["/jobs/01K6JOB/retro bridge"]);
+  });
+
+  it("reads a Session's retro off the Session's route, the newest without n and a numbered one with it", async () => {
+    const asked: string[] = [];
+    const port = await fleet(asked, RETRO);
+    expect(await retroOf(port, { kind: "session", id: "s-01J8ZQ4M" })).toEqual({ ok: true, retro: RETRO });
+    expect(await retroOf(port, { kind: "session", id: "s-01J8ZQ4M", n: 2 })).toEqual({ ok: true, retro: RETRO });
+    expect(asked).toEqual(["/sessions/s-01J8ZQ4M/retro bridge", "/sessions/s-01J8ZQ4M/retro?n=2 bridge"]);
+  });
+
+  it("does not retry on the other route when a read is refused", async () => {
+    const asked: string[] = [];
+    const port = await fleet(asked, { code: "session_retro_not_found", message: "no such retro" }, 404);
+    expect((await retroOf(port, { kind: "session", id: "s-01J8ZQ4M", n: 9 })).ok).toBe(false);
+    expect((await retroOf(port, { kind: "job", id: "01K6GONE" })).ok).toBe(false);
+    expect(asked).toEqual(["/sessions/s-01J8ZQ4M/retro?n=9 bridge", "/jobs/01K6GONE/retro bridge"]);
   });
 
   it("answers a refused retro as the refusal", async () => {
     const port = await fleet([], { code: "job_not_found", message: "no such job" }, 404);
-    const read = await retroOf(port, "01K6GONE");
+    const read = await retroOf(port, { kind: "job", id: "01K6GONE" });
     expect(read.ok).toBe(false);
   });
 

@@ -53,6 +53,7 @@ mod crew;
 /// The Drone pointer, where it now lives: one column per step.
 mod delivery;
 mod drift;
+mod devices;
 mod drone;
 mod error;
 mod fold;
@@ -154,6 +155,7 @@ mod row;
 mod schema;
 /// Every agent session a person runs and what each holds. `docs/concepts/session.md`.
 mod session_ledger;
+mod session_retro;
 /// The frames a step's harness produced, and where each one was kept.
 mod showing;
 mod shown_again;
@@ -199,13 +201,14 @@ pub use attempt::Attempted;
 pub use check_runs::{CheckOutcome, CheckRun};
 pub use crew::{ExtraEnded, TaskEdit};
 pub use delivery::{Currency, Delivery, Unsettled};
+pub use devices::Device;
 pub use drift::ScopeDrift;
 pub use error::{DatabaseFault, LoadAllError, LoadJobError, OpenError, RowError, WriteError};
 pub use fold::{Moved, RecordedEvent};
 pub use footprint::Footprinted;
 pub use forget::Forgotten;
 pub use groups::GroupCoord;
-pub use hosted_sessions::KeptHosting;
+pub use hosted_sessions::{KeptHosting, KeptTerminalAsk};
 pub use limits::SavedLimits;
 pub use lineage::{ReplacedBy, Replaces};
 pub use main_ci::{MainCi, MainFailedJob, MainMerge, MainState};
@@ -227,6 +230,7 @@ pub use resolving::{NamedJob, ResolveJobError};
 pub use retain::Retained;
 pub use retro::{DroneNote, KeptLesson, KeptRetro, Reflected, RetroLine};
 pub use review::Review;
+pub use session_retro::{KeptRestart, KeptSessionLesson, KeptSessionRetro};
 pub use session_ledger::{
     AttachmentState, Holder, HolderKind, KeptAttachment, KeptSession, SessionFigures,
     SessionSearch, SessionState,

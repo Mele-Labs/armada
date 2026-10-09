@@ -60,7 +60,7 @@ const MODES: { id: ComposerMode; label: string; says: string }[] = [
 ];
 
 export type SessionComposerProps = {
-  /** A turn is running: Send is off. */
+  /** A turn is running. Send stays on: a message sent now is the agent's next input. */
   working: boolean;
   mode: ComposerMode;
   onMode: (mode: ComposerMode) => void;
@@ -124,7 +124,6 @@ function tokenAt(text: string, caret: number): { trigger: "/" | "@"; query: stri
 }
 
 export function SessionComposer({
-  working,
   mode,
   onMode,
   model,
@@ -310,7 +309,7 @@ export function SessionComposer({
   const held = files.length + drawn.length > 0;
 
   const send = () => {
-    if (working || (text.trim() === "" && !held)) return;
+    if (text.trim() === "" && !held) return;
     onSend({ text: sentText(text, draft.tags).trim(), files, tags: draft.tags });
     forget();
     setHead("");
@@ -420,7 +419,7 @@ export function SessionComposer({
             <AttachmentChip key={one.id} filename={one.title} from="Sketch" onRemove={() => onRemoveDrawn(one.id)} />
           ))}
         </div>
-        <Button type="submit" variant="primary" size="sm" disabled={working || (text.trim() === "" && !held)}>
+        <Button type="submit" variant="primary" size="sm" disabled={text.trim() === "" && !held}>
           <Send size={12} strokeWidth={2} aria-hidden />
           Send
         </Button>

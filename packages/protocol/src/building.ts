@@ -12,6 +12,19 @@
 /** The tree a build came from: `main` as the checkout holds it, or the preview, which is main with every in-flight branch merged. */
 export type BuildSource = "main" | "preview";
 
+/**
+ * Where a restart under way has got to. `merging` is the preview's alone and `fetching_main` is
+ * main's; `retrying` is the build run again after a stale build script was cleaned.
+ */
+export type BuildStage =
+  | "merging"
+  | "fetching_main"
+  | "building_fleet"
+  | "building_bridge"
+  | "restarting_fleet"
+  | "reopening_bridge"
+  | "retrying";
+
 /** `GET /fleet/build`. */
 export type FleetBuildReport = {
   /** The tree the running build came from. */
@@ -26,6 +39,8 @@ export type FleetBuildReport = {
   position?: { ahead: number; behind: number };
   /** The build a restart under way is moving Fleet onto. Absent when none is. */
   restarting?: BuildSource;
+  /** Where that restart has got to. Absent until the restart says. */
+  stage?: BuildStage;
   /** Why the last restart did not take, in one line of plain facts. Absent when it took. */
   failed?: string;
 };

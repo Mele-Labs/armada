@@ -11,6 +11,7 @@ fn gateway() -> Gateway {
     Gateway {
         fleet: Arc::new(|| Err("Fleet is not running".to_string())),
         assets: None,
+        pairing: crate::pairing_tests::rig_pairing(),
     }
 }
 
@@ -34,7 +35,6 @@ async fn a_route_not_on_the_list_is_404() {
         (Method::POST, "/api/pilot"),
         (Method::GET, "/api/nothing"),
         (Method::GET, "/admin/nothing"),
-        (Method::DELETE, "/api/jobs/1"),
         (Method::GET, "/"),
     ] {
         assert_eq!(status(method, path, &[]).await, StatusCode::NOT_FOUND, "{path}");
@@ -42,10 +42,9 @@ async fn a_route_not_on_the_list_is_404() {
 }
 
 #[tokio::test]
-async fn a_listed_route_that_is_not_built_is_501() {
-    assert_eq!(status(Method::POST, "/pair", &[]).await, StatusCode::NOT_IMPLEMENTED);
-    assert_eq!(status(Method::GET, "/api/needs", &[]).await, StatusCode::NOT_IMPLEMENTED);
-    assert_eq!(status(Method::POST, "/api/jobs/7/kill", &[]).await, StatusCode::NOT_IMPLEMENTED);
+async fn a_listed_api_route_without_a_signature_is_401() {
+    assert_eq!(status(Method::GET, "/api/needs", &[]).await, StatusCode::UNAUTHORIZED);
+    assert_eq!(status(Method::DELETE, "/api/jobs/1", &[]).await, StatusCode::UNAUTHORIZED);
 }
 
 #[tokio::test]
@@ -59,7 +58,7 @@ async fn admin_is_refused_when_tailscale_serve_forwarded_the_request() {
     }
     assert_eq!(
         status(Method::GET, "/admin/devices", &[]).await,
-        StatusCode::NOT_IMPLEMENTED
+        StatusCode::OK
     );
 }
 
@@ -67,7 +66,7 @@ async fn admin_is_refused_when_tailscale_serve_forwarded_the_request() {
 async fn the_forwarding_headers_do_not_close_the_phone_routes() {
     assert_eq!(
         status(Method::GET, "/api/needs", &[("x-forwarded-for", "100.1.1.1")]).await,
-        StatusCode::NOT_IMPLEMENTED
+        StatusCode::UNAUTHORIZED
     );
 }
 

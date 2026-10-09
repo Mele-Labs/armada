@@ -41,7 +41,7 @@ export const retroFromTheRetrosPage = walk("retro/lessons", [
   { press: tab("Manifest"), say: "Manifest: the repository's Checks, tests and code" },
   { hover: inside(DOCS, button("Reject change")), say: "Reject change" },
   { press: inside(DOCS, button("Reject change")), say: "Reject change discards it" },
-  { press: tab("All"), say: "All, with the items from before" },
+  { press: tab("Kit"), say: "Kit again, where the saved item will be" },
   { press: tab("Accepted"), say: "Accepted: the saved Kit items" },
   { look: GREP, say: "The Kit item, saved" },
   { press: tab("Open"), say: "Back to Open" },
