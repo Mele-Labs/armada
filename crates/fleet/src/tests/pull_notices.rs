@@ -770,3 +770,50 @@ async fn a_branch_two_sessions_worked_gives_its_pull_request_to_the_one_still_on
 
     assert_eq!(rig.holders_of_pull(12).await, vec!["s-here".to_string()]);
 }
+
+/// A pull request settled as merged while its own detail says it is open (a `gh pr merge
+/// --auto` read as a merge, #2027) is read again and stood back up while the forge says open.
+#[tokio::test]
+async fn a_pull_request_settled_too_soon_is_stood_back_up_while_it_is_open() {
+    let rig = a_rig();
+    rig.a_terminal_session_on("t1", 1).await;
+    let at = rig.fleet.now().as_str().to_string();
+    rig.fleet
+        .store()
+        .lock()
+        .await
+        .attach(
+            &KeptAttachment {
+                holder: Holder::session("t1"),
+                kind: "pr".into(),
+                manifest_id: rig.manifest(),
+                target: "1".into(),
+                state: AttachmentState::Spent,
+                detail: [("state".to_string(), "open".to_string())].into(),
+                since: at.clone(),
+                changed_at: at,
+            },
+            false,
+        )
+        .unwrap();
+    rig.fleet.vcs().main_ci.watched_are(Some(Vec::new()));
+    rig.fleet
+        .vcs()
+        .now_pull_request(Some(adapter_traits::PullRequestFacts {
+            standing: adapter_traits::PullRequestStanding::Open,
+            branch: "armada/1".into(),
+            auto_merge: true,
+            title: "Fix the reader".into(),
+            url: "https://forge.invalid/armada/pull/1".into(),
+        }));
+    rig.fleet.vcs().now_under_review(adapter_traits::UnderReview {
+        checks: adapter_traits::WhatTheForgeRan::AllPassed { checks: 1 },
+        ..adapter_traits::UnderReview::unreadable()
+    });
+
+    rig.reads().await;
+
+    let held = rig.fleet.store().lock().await.attachments_of(&Holder::session("t1")).unwrap();
+    let row = held.iter().find(|one| one.kind == "pr").expect("the row");
+    assert_eq!(row.state, AttachmentState::Standing);
+}
