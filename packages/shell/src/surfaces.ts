@@ -29,6 +29,7 @@ import {
   Presentation,
   Settings as SettingsIcon,
   ShieldCheck,
+  Stethoscope,
   SquareTerminal,
   Workflow,
 } from "lucide-react";
@@ -93,6 +94,7 @@ export const SURFACE = {
   kit: "kit",
   settings: "settings",
   studios: "studios",
+  doctor: "doctor",
   guides: "guides",
   mergeLine: "merge-line",
   lessons: "lessons",
@@ -123,8 +125,8 @@ function digitOf(id: SurfaceId): string | undefined {
  *
  * **What is not built is not in here.** A row a person presses and gets nothing
  * from is worse than one that is absent, which is the contract's own rule about
- * a registered binding nothing answers. So the digits skip: `⌘4` and `⌘5` are
- * owed to Alerts and Doctor and reach nothing today.
+ * a registered binding nothing answers. So the digits skip: `⌘3` is owed to
+ * Alerts and reaches nothing today.
  *
  * `held disk` is an alias because that was the word on the Overview menu's
  * item for this screen until the menu went, and a person who learned it should
@@ -149,6 +151,15 @@ export const SURFACES: readonly PaletteSurface[] = [
     },
     // No alias, Manifest's reason: the first surface built at this name.
     icon: Presentation,
+  },
+  {
+    id: SURFACE.doctor,
+    label: "Doctor",
+    shortcut: digitOf(SURFACE.doctor),
+    // What a person looking for it will type. "health" and "status" are the
+    // words for the question it answers; `armada doctor` is the verb (#99).
+    aliases: ["health", "status", "system health"],
+    icon: Stethoscope,
   },
   {
     id: SURFACE.manifest,
@@ -306,9 +317,9 @@ export function panelSurfaces(panel: (typeof RAIL_PANELS)[number]): PaletteSurfa
  * reads and presses to no effect is the thing `dormant` exists to prevent, and
  * it had been true of `⌘1` since the rail shipped.
  *
- * **Only the surfaces that draw.** `SURFACES` is what is built, so `⌘4` and
- * `⌘5` — Alerts and Doctor — reach nothing and are not bound; the digit stays
- * theirs, because `digitOf` reads the rail and not this list.
+ * **Only the surfaces that draw.** `SURFACES` is what is built, so `⌘3` —
+ * Alerts — reaches nothing and is not bound; the digit stays its own, because
+ * `digitOf` reads the rail and not this list.
  *
  * **A modified key, so a focused field does not suppress it.** `⌘K` is bound
  * the same way and for the same reason: the contextual tier is suppressed

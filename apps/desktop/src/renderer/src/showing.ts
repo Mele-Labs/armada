@@ -19,6 +19,8 @@ export type Open = {
   workflowing: boolean;
   checking: boolean;
   sessioning: boolean;
+  /** Doctor, reached from the Fleet panel's Doctor row. Optional so a caller that never opens it need not say so. */
+  doctoring?: boolean;
 };
 
 /** The rail row for what is open, in the precedence `App` draws by. */
@@ -35,5 +37,6 @@ export function showingOf(open: Open): string {
   if (open.workflowing) return SURFACE.workflows;
   if (open.checking) return SURFACE.checks;
   if (open.sessioning) return SURFACE.sessions;
+  if (open.doctoring === true) return SURFACE.doctor;
   return SURFACE.overview;
 }
