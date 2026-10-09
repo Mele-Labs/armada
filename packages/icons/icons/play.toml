@@ -10,5 +10,5 @@
     means = "Run on a Trigger that asks first: run its destructive Command once, now"
     group = "Trigger"
     size = "16px"
-    status = "Proposed"
-    notes = "Proposed 8 Oct 2026 for the walk `aDestructiveTriggerAsks`. A Trigger on a destructive Command waits on the owner, and Run is his yes for this one firing, with `skip-forward` as the no. The triangle keeps its one claim, go, one level down from a paused Job's Resume. Tooltip `Run`. Draws at 16px in a small button on the Trigger's leaf, the size of the Rerun and Skip acts."
+    status = "Specified"
+    notes = "Owner ruled 8 Oct 2026: `play`, drawn red (`--run-failed`) because pressing it does the destructive thing. Proposed the same day for the walk `aDestructiveTriggerAsks`. A Trigger on a destructive Command waits on the owner, and Run is his yes for this one firing, with `skip-forward` as the no. The triangle keeps its one claim, go, one level down from a paused Job's Resume. Tooltip `Run`. Draws at 16px in a small button on the Trigger's leaf, the size of the Rerun and Skip acts."

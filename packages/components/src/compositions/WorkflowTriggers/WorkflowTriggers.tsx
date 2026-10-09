@@ -825,7 +825,7 @@ function HoldActs({ held, onAct }: { held: Held; onAct?: (act: HoldVerb, by: Hol
     <span className="armada-hold__acts nodrag nopan">
       <Tooltip label={first}>
         <Button variant="ghost" size="sm" iconOnly aria-label={first} disabled={!live || (held.state !== "held" && !asking)} onClick={() => void act("rerun")}>
-          {asking ? <Play size={16} strokeWidth={2} aria-hidden /> : <RotateCw size={16} strokeWidth={2} aria-hidden />}
+          {asking ? <Play className="armada-triggers__run" size={16} strokeWidth={2} aria-hidden /> : <RotateCw size={16} strokeWidth={2} aria-hidden />}
         </Button>
       </Tooltip>
       <Tooltip label="Skip">

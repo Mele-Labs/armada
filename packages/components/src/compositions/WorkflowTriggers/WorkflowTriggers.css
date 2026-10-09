@@ -332,3 +332,8 @@
   padding: var(--space-1);
   border-color: var(--accent);
 }
+
+/* Run on a destructive Command: red, since pressing it does the destructive thing. */
+.armada-triggers__run {
+  color: var(--run-failed);
+}
