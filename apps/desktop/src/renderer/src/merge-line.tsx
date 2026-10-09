@@ -20,7 +20,7 @@ import { usePanelOpen } from "./panel-open";
 
 type Lined = Pick<BridgeState, "mergeLines" | "repository" | "holds" | "landFollowed" | "jobs">;
 
-function viewsOf({ mergeLines, repository, holds, jobs }: Lined): readonly MergeLineView[] {
+export function viewsOf({ mergeLines, repository, holds, jobs }: Lined): readonly MergeLineView[] {
   const repositories: readonly RepositorySummary[] = holds.repositories ?? [];
   return mergeLineViews(mergeLines, repository, repositories, jobs);
 }

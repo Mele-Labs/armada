@@ -886,6 +886,66 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
   );
 }
 
+/**
+ * A Session in miniature, for the Dashboard's pane: its thread, what it is held on, and the box to
+ * answer it, as its own page draws them. No ledger, no frame; Open goes to the whole Session.
+ */
+export function SessionMini({ sessionId, onOpen }: { sessionId: string; onOpen: (id: string) => void }) {
+  const draft = useSessionsDraft();
+  const sessions = useSessions();
+  const session = sessions.find((one) => one.id === sessionId);
+  const watch = draft?.watch;
+  useEffect(() => watch?.(sessionId), [watch, sessionId]);
+  if (draft === undefined || session === undefined) return null;
+  const mode: SessionMode = session.mode ?? (session.terminal === true ? "ask" : "auto");
+  return (
+    <div className="armada-session-mini">
+      <div className="armada-session-mini__thread">
+        <SessionThread
+          sessionId={session.id}
+          rows={threadRowsOf(session)}
+          {...(session.asked === undefined
+            ? {}
+            : {
+                asked: {
+                  command: session.asked.command,
+                  ...(session.asked.questions === undefined ? {} : { questions: session.asked.questions }),
+                  ...(session.asked.offers === undefined
+                    ? {}
+                    : { offers: helmOfferedOf(session.asked.offers).map((one) => ({ id: one.offer, label: one.label, means: one.means })) }),
+                },
+              })}
+          onAnswer={(answer, answers) => draft.answer(session.id, answer as SessionAnswer | undefined, answers)}
+          onOpenSession={onOpen}
+        />
+      </div>
+      {session.dead !== undefined ? null : (
+        <SessionComposer
+          modeLocked={session.terminal === true}
+          modeHidden={session.terminal === true && session.mode === undefined}
+          working={session.turn.state === "working"}
+          mode={mode}
+          onMode={(next) => draft.tune(session.id, { model: session.model ?? null, effort: session.effort ?? null, mode: next })}
+          model={session.model ?? null}
+          effort={session.effort ?? null}
+          models={draft.models}
+          efforts={draft.efforts}
+          onTune={(tuning) => draft.tune(session.id, { ...tuning, mode })}
+          commands={session.terminal === true ? (session.commands ?? []) : draft.commands}
+          compact
+          taggable={[]}
+          tags={session.pendingTags ?? []}
+          onTags={(tags) => draft.setTags(session.id, tags)}
+          drawn={[]}
+          onDraw={() => onOpen(session.id)}
+          onRemoveDrawn={() => undefined}
+          onSend={(sent) => draft.send(session.id, { text: sent.text, files: sent.files, sketches: [], tags: sent.tags as readonly SessionTag[] })}
+        />
+      )}
+    </div>
+  );
+}
+
 /** The rail surface: the list, or the Session open on it. */
 /** Sessions in the order the list draws them: under each heading in turn. */
 export function listed(sessions: readonly Session[]): string[] {

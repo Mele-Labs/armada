@@ -2,6 +2,7 @@
 // Quiet and Ended are views of their own, and All holds every heading. Over the `session-list-views` scenario.
 
 import { inside, region, role, text, walk } from "../walk";
+import { toSessions } from "../sessions/walk-kit";
 import type { Step } from "../walk";
 
 function steps(): Step[] {
@@ -23,6 +24,6 @@ function steps(): Step[] {
   ];
 }
 
-const listViews = walk("session-list-views", steps());
+const listViews = walk("session-list-views", [toSessions, ...steps()]);
 
 export { listViews as "session-list-views" };

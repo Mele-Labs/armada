@@ -4,7 +4,7 @@
 
 import { button, inside, region, role, walk } from "../walk";
 import type { Step } from "../walk";
-import { NARROW, kit } from "../sessions/walk-kit";
+import { NARROW, kit, toSessions } from "../sessions/walk-kit";
 
 function steps(narrow: boolean): Step[] {
   const { ledger, opened, rail } = kit(narrow);
@@ -35,7 +35,7 @@ function steps(narrow: boolean): Step[] {
   ];
 }
 
-const wide = walk("session-ledger", steps(false));
-const narrow = walk("session-ledger", steps(true), NARROW);
+const wide = walk("session-ledger", [toSessions, ...steps(false)]);
+const narrow = walk("session-ledger", [toSessions, ...steps(true)], NARROW);
 
 export { wide as "session-ledger", narrow as "session-ledger-narrow" };

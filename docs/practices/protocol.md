@@ -3300,7 +3300,7 @@ Bridge's half is in `packages/protocol/src/hosted-sessions.ts`, written by hand 
 
 **A place is a moment and a step**, a Trigger's. Before a step is its `step_starts`, after it is its `step_passes`, the gap before the pull request opens is the delivering step's `step_starts` and the gap after is `pr_opened`. A gap behind the Job's current step is refused, which is what stops a step landing where it can never fire.
 
-**A Drone step is recorded `skipped`, and says so.** A step a Drone works needs a gate and Fleet has the frozen workflow's step rows only. A Skill is skipped as a skill Trigger is.
+**A Drone step is recorded `skipped`, and says so.** A step a Drone works needs a gate and Fleet has the frozen workflow's step rows only. A Skill is skipped as a skill Trigger is. Both run on a side Drone from 23.73, below.
 
 **The event stream: slightly worse, and bounded.** At most two messages a firing and one per act a person makes, on the one drop-oldest channel, with nothing a Drone produces on it. A Bridge that missed some re-reads `get_job`. The rate is `[broadcast-capacity]`'s to measure.
 

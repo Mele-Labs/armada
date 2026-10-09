@@ -136,6 +136,8 @@ export type DispatchJobProps = {
   disabled: boolean;
   /** Why the controls are off, where they are. */
   disabledNote?: ReactNode;
+  /** The Request field takes focus as this opens. */
+  focused?: boolean;
 };
 
 export function DispatchJob({
@@ -156,6 +158,7 @@ export function DispatchJob({
   onTyped,
   disabled,
   disabledNote,
+  focused,
 }: DispatchJobProps) {
   const [request, setRequest] = useState(opensOn ?? "");
   const [attachments, setAttachments] = useState<StagedAttachment[]>([]);
@@ -282,6 +285,7 @@ export function DispatchJob({
       close={close}
       disabled={disabled}
       disabledNote={disabledNote}
+      {...(focused === true ? { focused } : {})}
     />
   );
 }

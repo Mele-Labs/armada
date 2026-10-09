@@ -32,6 +32,7 @@ function pilotSteps(narrow: boolean): Step[] {
       : steps;
   const dialog = role("dialog", "Pilot this Job?");
   return [
+    { press: role("option", /Cap the retry backoff/), say: "A Job stopped at its gate, picked on Command Central" },
     { look: rail("Pilot"), say: "On a Job that stopped at its gate, Pilot is the main act, and Redirect has stepped into the menu" },
     { press: rail("Pilot"), say: "Pilot stops the Drone and takes the worktree" },
     { look: dialog, say: "What each outcome does to the Drone and to the worktree" },
@@ -53,7 +54,9 @@ function pilotSteps(narrow: boolean): Step[] {
     { type: "cap the loop at five attempts", into: message, say: "The fix is worked with the agent" },
     { press: button("Send"), say: "It reads the loop and edits it" },
     { look: text("clippy is clean"), say: "Clippy is clean on the worktree" },
-    { press: rail("Overview"), say: "On the Board the Job reads piloted" },
+    { press: rail("Overview"), say: "Back to the Dashboard" },
+    { press: role("tab", "Running"), say: "A piloted Job is still running" },
+    { press: role("option", /Cap the retry backoff, Job/), say: "It reads piloted" },
     { hover: button("Job 55"), say: "The Session that has it is named, and its card is on hover" },
     { press: button("Job 55"), say: "A press keeps the card up" },
     { look: role("group", "Owned by Cap the retry backoff"), say: "Its title, slot, state and last turn" },
@@ -68,6 +71,8 @@ function pilotSteps(narrow: boolean): Step[] {
     ...opened([{ look: inside(ledger, role("listitem", "Job 55")), say: "The ledger row settled: no pilot mark, no exits" }]),
     { press: rail("Overview"), say: "A running Job can be piloted too" },
     { later: rail("Overview"), say: "Jobs another Session dispatched start running" },
+    { press: role("tab", "Running"), say: "Running" },
+    { press: role("option", /Retire sleep calls in the store tests, Job/), say: "Picked" },
     { press: button("More for Retire sleep calls in the store tests"), say: "From its menu" },
     { look: role("menuitem", "Pilot"), say: "Pilot is secondary on a running Job: one slot, two fills" },
   ];

@@ -38,6 +38,8 @@ const records = () => [
 const VIEW: Record<string, string> = { "One that ended": "Ended", "A terminal gone quiet": "Quiet" };
 
 async function open(title: string) {
+  // Sessions' own page: the Dashboard lists no Sessions apart from its tabs.
+  await userEvent.click(page.getByRole("button", { name: "Sessions", exact: true }));
   const list = page.getByRole("region", { name: "Sessions" });
   await userEvent.click(list.getByRole("tab", { name: VIEW[title] ?? "Active" }));
   await userEvent.click(list.getByRole("button", { name: title }));

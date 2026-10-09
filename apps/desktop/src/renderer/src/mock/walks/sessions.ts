@@ -6,7 +6,7 @@
 // `packages/screens/src/draft/sessions.ts`. Told twice: wide, and below the
 // breakpoint, where the ledger folds into a sheet.
 
-import { kit, NARROW } from "../sessions/walk-kit";
+import { kit, NARROW, toSessions } from "../sessions/walk-kit";
 import { button, inside, role, region, text, walk } from "../walk";
 import type { Step } from "../walk";
 
@@ -85,7 +85,7 @@ function steps(narrow: boolean): Step[] {
   ];
 }
 
-const sessionsWide = walk("sessions", steps(false));
-const sessionsNarrow = walk("sessions", steps(true), NARROW);
+const sessionsWide = walk("sessions", [toSessions, ...steps(false)]);
+const sessionsNarrow = walk("sessions", [toSessions, ...steps(true)], NARROW);
 
 export { sessionsWide as "sessions", sessionsNarrow as "sessions-narrow" };

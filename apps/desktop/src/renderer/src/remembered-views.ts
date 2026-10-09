@@ -11,10 +11,12 @@
 // five crates. These are ways of reading, not facts about the Job.
 
 import { useState } from "react";
+import { dashboardTabNamed, type DashboardTab } from "@armada/overview";
 import { lessonsTabNamed, planViewNamed, type LessonsTab, type PlanView } from "@armada/jobs";
 
 const PLAN_KEY = "armada.bridge.plan-view";
 const LESSONS_KEY = "armada.bridge.lessons-tab";
+export const DASHBOARD_KEY = "armada.bridge.dashboard-tab";
 
 /**
  * A remembered arrangement and the press that moves it, on whatever the
@@ -54,4 +56,9 @@ export function usePlanView(): [PlanView, (view: PlanView) => void] {
 /** Which place Lessons is narrowed to (owner, 3 Oct 2026). All where nothing is stored. */
 export function useLessonsTab(): [LessonsTab, (tab: LessonsTab) => void] {
   return remembered(LESSONS_KEY, lessonsTabNamed);
+}
+
+/** Which tab the Dashboard reads. Command Central where nothing is stored. */
+export function useDashboardTab(): [DashboardTab, (tab: DashboardTab) => void] {
+  return remembered(DASHBOARD_KEY, dashboardTabNamed);
 }

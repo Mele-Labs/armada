@@ -13,7 +13,7 @@ const panels = () => [...document.querySelectorAll(".armada-shell__left > :is(.a
 const surface = (element: Element) => getComputedStyle(element);
 const layer = (element: Element) => getComputedStyle(element, "::before");
 
-test("Navigation (Work and Machine), Stats and Fleet are flat, and an Overview card is still a card", async () => {
+test("Navigation (Work and Machine), Stats and Fleet are flat, and the Dashboard's call is still a raised card", async () => {
   await page.viewport(1440, 900);
   mount("every-state");
   await expect.element(page.getByText("pid")).toBeVisible();
@@ -27,8 +27,6 @@ test("Navigation (Work and Machine), Stats and Fleet are flat, and an Overview c
     expect(layer(panel).backdropFilter).toBe("none");
   }
 
-  const card = document.querySelector(".armada-overview-summary__item");
-  expect(card).not.toBeNull();
-  expect(surface(card!).boxShadow).not.toBe("none");
-  expect(layer(card!).backgroundImage).toContain("linear-gradient");
+  await expect.poll(() => document.querySelector(".armada-call")).not.toBeNull();
+  expect(surface(document.querySelector(".armada-call")!).boxShadow).not.toBe("none");
 });

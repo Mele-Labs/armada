@@ -39,6 +39,7 @@ import { BridgeSettings } from "@armada/settings";
 import { Kit } from "@armada/manifest";
 import { Reports } from "@armada/screens";
 import { Composing } from "./Composing";
+import { useEscapeLeavesJob, useNow, useReturnToRow, useSummoned } from "./app-effects";
 import { aJobAct, ConfirmAct, type Confirming } from "./ConfirmAct";
 import { PaletteMount } from "./PaletteMount";
 import { FLEET_DOWN } from "./palette";
@@ -150,9 +151,6 @@ import { statsOf, fleetPanelOf } from "./left-column";
 import { copyDebugInfoFor, useCommandPalette } from "@armada/shell";
 import { Shell, SURFACE, SURFACES, useAtFloor, useNarrow, useSurfaceKeys } from "@armada/shell";
 
-/** How often the elapsed figures are redrawn. They are read, so they must move. */
-const TICK_MS = 1000;
-
 /** Re-exported so nothing importing it has to learn a new path. */
 export const WAITING: BridgeState = NOTHING_YET;
 
@@ -170,7 +168,7 @@ export function App({ draft }: AppProps = {}) {
   // What has been read and acknowledged. The count itself belongs to the
   // connection and is never reset from here — a drop that happened, happened.
   const [acknowledged, setAcknowledged] = useState(0);
-  const [now, setNow] = useState(() => Date.now());
+  const now = useNow();
   const [copied, setCopied] = useCopied();
   // What the app is telling somebody, as a sentence it already wrote. Today
   // that is only an open that did not happen; a click ending in nothing on
@@ -204,7 +202,8 @@ export function App({ draft }: AppProps = {}) {
   // before anybody has pressed anything. `drafted.tsx`.
   const [composing, setComposing] = useState(useDrafted().prompt !== undefined);
   const [composedFrom, setComposedFrom] = useState<SketchOpening>(); // A Sketch dispatched from a Studio.
-  useEffect(() => void (composing || setComposedFrom(undefined)), [composing]);
+  const [seed, setSeed] = useState<string>(); // Words typed into the Dashboard's quick box.
+  useEffect(() => void (composing || (setComposedFrom(undefined), setSeed(undefined))), [composing]);
   // What has been reported against the Judge. Its own view: a report is filed
   // about one Job and the rate is read across all of them.
   const [auditing, setAuditing] = useState(false);
@@ -408,60 +407,17 @@ export function App({ draft }: AppProps = {}) {
     onWriteProposal: writeManifestProposal,
   });
 
-  // **Where a pressed notification says to go, and it always goes somewhere.**
-  // A press that raised the window and left it on whatever it was last showing
-  // is a press that did nothing, which is the one outcome that teaches somebody
-  // to stop pressing them.
-  //
-  // One Job opens that Job. Several open the set they came from — the Needs-you
-  // tab — because picking one of four for somebody is choosing on their behalf.
-  // Either way the overlays come down first: the press asked for the Board or a
-  // Job, not for the composer that happened to be up.
-  useEffect(
-    () =>
-      window.armada.onSummoned((to) => {
-        setComposing(false);
-        setAuditing(false);
-        setClearing(false);
-        setOpenJob(to.jobId);
-        if (to.jobId === null) setLanding({ section: "needs-you", at: Date.now() });
-      }),
-    [],
-  );
+  useSummoned((jobId) => {
+    setComposing(false);
+    setAuditing(false);
+    setClearing(false);
+    setOpenJob(jobId);
+    if (jobId === null) setLanding({ section: "needs-you", at: Date.now() });
+  });
 
-  useEffect(() => {
-    const tick = setInterval(() => setNow(Date.now()), TICK_MS);
-    return () => clearInterval(tick);
-  }, []);
+  useEscapeLeavesJob(openJob, close);
 
-  // Escape closes the detail wherever the cursor is inside it, which is the
-  // one thing every reader tries first. Bound while a Job is open and not
-  // before, so nothing listens for a key that means nothing.
-  useEffect(() => {
-    if (openJob === null) return;
-    const pressed = (event: KeyboardEvent): void => {
-      // One view to leave, since the turns stopped being a screen of their own:
-      // Escape returns to the list from anywhere inside a Job.
-      // A press a layer above already answered — the palette, a sheet — is not a second exit.
-      if (event.key !== "Escape" || event.defaultPrevented) return;
-      close();
-    };
-    window.addEventListener("keydown", pressed);
-    return () => window.removeEventListener("keydown", pressed);
-  }, [openJob]);
-
-  // Escape leaves the composer too — bound inside `Composing`, not here,
-  // because with anything typed it asks first and what has been typed is
-  // known there.
-
-  // The row is back in the document only after the list re-renders, so the
-  // focus move is an effect rather than part of the click that closed it.
-  useEffect(() => {
-    if (returning === null) return;
-    const row = document.querySelector<HTMLElement>(`[data-job-id="${CSS.escape(returning)}"]`);
-    row?.focus();
-    setReturning(null);
-  }, [returning]);
+  useReturnToRow(returning, () => setReturning(null));
 
   // The Job every palette act acts on: the one read whole, or the one under
   // Overview's cursor. In that order, because a Job open on screen is
@@ -1026,6 +982,7 @@ export function App({ draft }: AppProps = {}) {
                 onSaid={setTelling}
                 onCopied={setCopied}
                 sketch={composedFrom}
+                seed={seed}
               />
             ) : studying ? (
               <StudiosSurface
@@ -1134,6 +1091,8 @@ export function App({ draft }: AppProps = {}) {
                   onLanded={() => setLanding(null)}
                   onOpenLink={openProseLink} onFix={(fix) => void commands.fixMain(fix)}
                   onOpenSession={openSession}
+                  nowViews={draft?.calls}
+                  onQuickCompose={(words) => (setSeed(words), setComposing(true))}
                 />
 
                 {/* Never merged into the lists as a placeholder: a surface that

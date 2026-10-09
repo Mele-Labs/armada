@@ -33,7 +33,7 @@ const note = (id: string, text: string, selector: string, tag: string, label: st
 
 const NOTES: Record<string, () => Annotation[]> = {
   "annotate-to-session": () => [
-    note("20261007-134802-aaaa", "The title is cut off in the row", ".armada-job-row-list", "div", "JobRowStacked", "packages/surfaces/jobs/src/JobRowStacked.tsx", { x: 300, y: 120, width: 900, height: 200 }),
+    note("20261007-134802-aaaa", "The title is cut off in the row", ".armada-dtabs", "div", "DashboardTabs", "packages/surfaces/overview/src/DashboardTabs.tsx", { x: 300, y: 120, width: 900, height: 200 }),
     note("20261007-134905-bbbb", "The rail has no room for a third group", 'nav[aria-label="Work"]', "nav", "Rail", "packages/shell/src/Rail.tsx", { x: 0, y: 0, width: 220, height: 800 }),
   ],
 };
