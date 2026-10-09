@@ -11,7 +11,7 @@ const meta: Meta<typeof PhonePairing> = {
   component: PhonePairing,
   args: {
     phones: [
-      { id: "p1", name: "Nick's iPhone", seen: "2 minutes ago" },
+      { id: "p1", name: "iPhone", seen: "2 minutes ago" },
       { id: "p2", name: "iPad", seen: "3 days ago" },
     ],
     onPair: fn(),
@@ -57,5 +57,5 @@ export const Claimed: Story = {
 export const GatewayNotRunning: Story = { args: { problem: { kind: "not_running" } } };
 
 export const TailscaleSignedOut: Story = {
-  args: { problem: { kind: "tailscale", said: "Tailscale is logged out. Run tailscale up and sign in." } },
+  args: { problem: { kind: "tailscale", said: "Tailscale is not signed in on this Mac. Sign in to it, then start pairing again." } },
 };
