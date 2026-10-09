@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { AppWindow, Box, GitPullRequestArrow, MessageSquare, Check, CircleDot, Files, Globe, Hand, Image, Megaphone, MoveRight, NotebookText, Search, Terminal, GitBranch, GitPullRequest, KeyRound, Presentation, PencilRuler, ShieldCheck, ShieldEllipsis, ShieldX, Split } from "lucide-react";
+import { AppWindow, BellRing, Box, GitPullRequestArrow, MessageSquare, Check, CircleDot, Files, Globe, Hand, Image, Megaphone, MoveRight, NotebookText, Search, Terminal, GitBranch, GitPullRequest, KeyRound, Presentation, PencilRuler, ShieldCheck, ShieldEllipsis, ShieldX, Split } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
@@ -60,11 +60,11 @@ const WAITING_ACT: Record<WaitingActKind | "none", { Glyph: LucideIcon; said: st
   answer: { Glyph: MessageSquare, said: "Goes to the question" },
   approve_pr: { Glyph: GitPullRequestArrow, said: "Opens the pull request" },
   run: { Glyph: Terminal, said: "Copies the command" },
-  none: { Glyph: Hand, said: "Waiting on you" },
+  none: { Glyph: BellRing, said: "Waiting on you" },
 };
 
 const SECTIONS: { kind: LedgerKind; label: string; Glyph: LucideIcon }[] = [
-  { kind: "waiting", label: "Waiting on you", Glyph: Hand },
+  { kind: "waiting", label: "Waiting on you", Glyph: BellRing },
   { kind: "slot", label: "Worktree Slot", Glyph: KeyRound },
   { kind: "branch", label: "Branches", Glyph: GitBranch },
   { kind: "pull_request", label: "Pull requests", Glyph: GitPullRequest },

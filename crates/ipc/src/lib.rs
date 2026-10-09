@@ -410,9 +410,11 @@ pub use servers::{
     ServerPhase, ServerPort, ServerState, StartServer, StartedBy,
 };
 pub use sessions::{
-    Attachment, AttachmentNamed, AttachmentReport, AttachmentState, Holder, HolderKind, Owners,
-    Ownership, RenameSession, SessionFact, SessionId, SessionList, SessionOrigin, SessionRecord,
-    SessionReport, SessionState, SessionUsage, ShowWindow, TerminalCommand, TerminalFacts,
+    AnswerWaiting, Attachment, AttachmentNamed, AttachmentReport, AttachmentState, Holder,
+    HolderKind, Owners, Ownership, RenameSession, SessionFact, SessionId, SessionList,
+    SessionOrigin, SessionRecord, SessionReport, SessionState, SessionUsage, SetWaitingFor,
+    ShowWindow, TerminalCommand, TerminalFacts, WaitingAct, WaitingActKind, WaitingInput,
+    WaitingItem, WaitingMode, WaitingOption, WaitingSource,
 };
 pub use setup::{
     LeftOutWorkflow, ManifestSummary, ModelChoices, OverriddenWorkflow, SaveWorkflow, StepPhase,

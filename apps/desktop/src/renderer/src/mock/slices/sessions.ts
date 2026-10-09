@@ -16,6 +16,7 @@ export const sessions: Slice<SessionsApi, SessionsState> = {
     exitPilot: async () => unanswered("/jobs/:job_id/attest_complete"),
     sendSessionMessage: async () => ({ ok: false, outcome: unanswered("/sessions/message") }),
     answerSessionAsk: async () => ({ ok: false, outcome: unanswered("/sessions/ask/answer") }),
+    answerWaiting: async () => ({ ok: false, outcome: unanswered("/sessions/waiting/answer") }),
     tuneSession: async () => ({ ok: false, outcome: unanswered("/sessions/tune") }),
     renameSession: async () => ({ ok: false, outcome: unanswered("/sessions/rename") }),
     forkSession: async () => ({ ok: false, outcome: unanswered("/sessions/start") }),

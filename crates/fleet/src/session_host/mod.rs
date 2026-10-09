@@ -19,6 +19,7 @@ mod process;
 mod rows;
 mod serving;
 mod terminal;
+pub(crate) mod waiting;
 
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};

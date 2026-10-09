@@ -28,7 +28,7 @@ const waiting: Session = {
       number: 1843,
       title: "Pin the store clock",
       branch: "fix/pin-store-clock",
-      address: "https://github.com/Mele-Labs/armada/pull/1843",
+      address: "https://example.com/pull/1843",
       checks: { state: "passed" },
       state: "open",
       auto: false,

@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { Hand, Search } from "lucide-react";
+import { BellRing, Search } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
 import { Input } from "../../primitives/Input/Input";
@@ -210,7 +210,7 @@ export function SessionList({ groups, query, onQuery, onOpen, onStart, views, vi
                       {row.waiting === undefined || row.waiting.length === 0 ? null : (
                         <Tooltip label={row.waiting.join("; ")}>
                           <span className="armada-session-mark" role="img" aria-label={`Waiting on you: ${row.waiting.join("; ")}`}>
-                            <Hand size={12} strokeWidth={2} aria-hidden />
+                            <BellRing size={12} strokeWidth={2} aria-hidden />
                           </span>
                         </Tooltip>
                       )}

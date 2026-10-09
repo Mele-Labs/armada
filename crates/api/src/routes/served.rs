@@ -554,6 +554,16 @@ const ROUTES: &[Route] = &[
         method: "POST",
         path: "/sessions/window",
     },
+    Route {
+        operation: "waiting_for",
+        method: "POST",
+        path: "/sessions/waiting",
+    },
+    Route {
+        operation: "answer_waiting",
+        method: "POST",
+        path: "/sessions/waiting/answer",
+    },
     // A session Fleet hosts for Bridge. Since 23.49.
     Route {
         operation: "start_session",

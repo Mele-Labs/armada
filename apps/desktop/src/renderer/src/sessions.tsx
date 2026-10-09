@@ -3,7 +3,7 @@
 // What is drawn is `@armada/components`'; this reads the draft
 // (`packages/screens/src/draft/sessions.ts`) into it.
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { ExternalLink, GitMerge, PanelRightClose, PanelRightOpen } from "lucide-react";
 import {
@@ -541,7 +541,8 @@ function entriesOf(
   sessions: readonly Session[],
   open: (id: string) => void,
   openWindow: (url: string) => void,
-  answerWaiting?: (itemId: string, choice: number) => void,
+  answerWaiting: ((itemId: string, choice: number) => void) | undefined,
+  scrollToAsk: () => void,
 ): LedgerEntry[] {
   const waiting = (session.waitingFor ?? []).map((one): LedgerEntry => {
     const act = one.act;
@@ -564,7 +565,7 @@ function entriesOf(
           } catch {
             // Not copied: the command stays on the row to be read.
           }
-        } else document.querySelector('article[aria-label="Waiting on you"]')?.scrollIntoView({ block: "center", behavior: "smooth" });
+        } else scrollToAsk();
       },
     };
   });
@@ -697,6 +698,7 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
   const [drawn, setDrawn] = useKept<DrawnSketch[]>(`session:${session.id}:drawn`, NO_SKETCHES);
   const narrow = useNarrow();
   const [ledgerOpen, setLedgerOpen] = useState(false);
+  const askCard = useRef<HTMLDivElement>(null);
   const [minimized, minimize] = useMinimized();
   const { onWant } = held;
   const { id } = session;
@@ -740,6 +742,12 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
     narrow ? fold(onOpen) : onOpen,
     (url) => draft.openWindow?.(id, url),
     draft.answerWaiting === undefined ? undefined : (itemId, choice) => draft.answerWaiting?.(id, itemId, { choice }),
+    narrow
+      ? () => {
+          setLedgerOpen(false);
+          askCard.current?.scrollIntoView({ block: "center", behavior: "smooth" });
+        }
+      : () => askCard.current?.scrollIntoView({ block: "center", behavior: "smooth" }),
   );
   return (
     <>
@@ -811,6 +819,7 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
           <SessionThread
             sessionId={session.id}
             rows={threadRowsOf(session)}
+            askRef={askCard}
             onOpenWindow={(url) => draft.openWindow?.(id, url)}
             working={session.turn.state === "working"}
             {...(session.asked === undefined

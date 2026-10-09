@@ -172,18 +172,21 @@ it("sends each act to its own route with the session named, and folds what Fleet
   await sessions.start({ manifest_id: "armada", title: "T" });
   await sessions.send({ session_id: "a", text: "hi", attachments: [{ name: "n.png", media_type: "image/png", data: "AAAA" }] });
   await sessions.answer({ session_id: "a", call: "c1", answer: "allow_and_remember" });
+  await sessions.answerWaiting({ session_id: "a", item_id: "ask:c1", choice: 1 });
   await sessions.tune({ session_id: "a", mode: "plan", effort: "high" });
   await sessions.end("a");
   expect(sent.map((one) => `${one.method} ${one.path}`)).toEqual([
     "POST /sessions/start",
     "POST /sessions/message",
     "POST /sessions/ask/answer",
+    "POST /sessions/waiting/answer",
     "POST /sessions/tune",
     "POST /sessions/close",
   ]);
   expect(sent[1]!.body).toEqual({ session_id: "a", text: "hi", attachments: [{ name: "n.png", media_type: "image/png", data: "AAAA" }] });
   expect(sent[2]!.body).toEqual({ session_id: "a", call: "c1", answer: "allow_and_remember" });
-  expect(sent[4]!.body).toEqual({ session_id: "a" });
+  expect(sent[3]!.body).toEqual({ session_id: "a", item_id: "ask:c1", choice: 1 });
+  expect(sent[5]!.body).toEqual({ session_id: "a" });
   expect(last("sessions")).toMatchObject({ sessions: [{ id: "a", title: "Fleet's answer" }] });
 });
 
