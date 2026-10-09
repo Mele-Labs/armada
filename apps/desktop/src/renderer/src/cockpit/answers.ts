@@ -63,16 +63,28 @@ function actsOf(item: Item, hosts: Hosts, finish: () => void): Answer[] {
 }
 
 /**
- * Two answers that stand after the numbered ones on any call whose question is about an approach:
- * the best solution, thought through, or the quickest reasonable path. **Not on a Session's
- * permission**, which is a trust the owner gives and no agent may give itself. Mock only: each would
- * be one Fleet command, an answer to the ask carrying `mode: "best" | "quick"` that the Drone is
- * told as an instruction.
+ * Two answers that stand after the numbered ones on any call that has choices: the best solution,
+ * thought through, or the quickest reasonable path. **On a Session's permission they hand the
+ * decision to run the command to the agent** (owner, 9 Oct 2026), so they say that. Mock only: each
+ * would be one Fleet command, an answer to the ask carrying `mode: "best" | "quick"` that the agent
+ * is told as an instruction.
  */
-function standingOf(finish: () => void): Answer[] {
+function standingOf(finish: () => void, permission: boolean): Answer[] {
   return [
-    { id: "best", key: "b", label: "Make the best decision", says: "Tells the agent to weigh the options and choose the best solution itself", run: finish },
-    { id: "quick", key: "g", label: "Just get it done", says: "Tells the agent to take the quickest reasonable path and keep moving", run: finish },
+    {
+      id: "best",
+      key: "b",
+      label: "Make the best decision",
+      says: permission ? "Tells the agent to weigh the command carefully and decide for itself whether to run it" : "Tells the agent to weigh the options and choose the best solution itself",
+      run: finish,
+    },
+    {
+      id: "quick",
+      key: "g",
+      label: "Just get it done",
+      says: permission ? "Tells the agent to run the command if it is reasonable and keep moving" : "Tells the agent to take the quickest reasonable path and keep moving",
+      run: finish,
+    },
   ];
 }
 
@@ -94,7 +106,7 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
           run: () => (at + 1 < decisions!.length ? (setAt(at + 1), setPicked(undefined)) : finish()),
         }))
       : actsOf(item, hosts, finish);
-  const answers = numbered.length === 0 || item.key.startsWith("session:") ? numbered : [...numbered, ...standingOf(finish)];
+  const answers = numbered.length === 0 ? numbered : [...numbered, ...standingOf(finish, item.key.startsWith("session:"))];
 
   // One answer is the answer: Enter sends it without a number first.
   const chosen = picked ?? (answers.length === 1 ? 0 : undefined);
