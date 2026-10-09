@@ -6,9 +6,12 @@
 //! and a line this does not draw is skipped. The row's id is the line's own
 //! `uuid`, so a line read twice replaces itself.
 
+use std::collections::BTreeMap;
 use std::fs::File;
 use std::io::{Read as _, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
+use std::sync::Mutex;
+use std::time::SystemTime;
 
 use ipc::{Instant, SessionRow, SessionVoice};
 use serde::Deserialize;
@@ -185,9 +188,64 @@ fn worked(line: &str) -> bool {
 
 /// Whether subagent `agent` of session `id` has ended its turn, by the file the CLI keeps for it.
 pub fn subagent_ended(home: &str, id: &str, agent: &str) -> bool {
-    find_subagent(home, id, agent)
-        .and_then(|file| read_subagent(&file).ok())
-        .is_some_and(|one| one.finished)
+    find_subagent(home, id, agent).is_some_and(|file| finished_cached(&file))
+}
+
+/// What a file said last time, keyed by its length and modified time: an unchanged file costs a
+/// `stat`. A transcript is only ever appended to, so a file that grew has a new length.
+static FINISHED: Mutex<BTreeMap<PathBuf, (u64, SystemTime, bool)>> = Mutex::new(BTreeMap::new());
+
+pub(crate) fn finished_cached(file: &Path) -> bool {
+    let Ok(meta) = std::fs::metadata(file) else {
+        return false;
+    };
+    let Ok(modified) = meta.modified() else {
+        return finished_at_the_end(file).unwrap_or(false);
+    };
+    let key = (meta.len(), modified);
+    let kept = FINISHED.lock().ok().and_then(|seen| seen.get(file).copied());
+    if let Some((len, at, finished)) = kept {
+        if (len, at) == key {
+            return finished;
+        }
+    }
+    let Ok(finished) = finished_at_the_end(file) else {
+        return false;
+    };
+    if let Ok(mut seen) = FINISHED.lock() {
+        seen.insert(file.to_path_buf(), (key.0, key.1, finished));
+    }
+    finished
+}
+
+/// What [`read_subagent`] decides `finished` by, found from the end: the last line that is a
+/// hand-back, an ended turn or more work decides, and a read stops at it. Rows are not drawn.
+pub(crate) fn finished_at_the_end(file: &Path) -> std::io::Result<bool> {
+    let mut file = File::open(file)?;
+    let end = file.metadata()?.len();
+    let mut width = 64 * 1024_u64;
+    loop {
+        let from = end.saturating_sub(width);
+        file.seek(SeekFrom::Start(from))?;
+        let mut bytes = Vec::with_capacity((end - from) as usize);
+        (&mut file).take(end - from).read_to_end(&mut bytes)?;
+        let whole = bytes.iter().rposition(|byte| *byte == b'\n').map_or(0, |at| at + 1);
+        // A read that starts mid-file begins in the middle of a line, which is not one to decide by.
+        let first = if from == 0 { 0 } else { bytes.iter().position(|byte| *byte == b'\n').map_or(whole, |at| at + 1) };
+        let text = String::from_utf8_lossy(&bytes[first.min(whole)..whole]);
+        for line in text.lines().rev() {
+            if handed_back(line).is_some() || ended(line) {
+                return Ok(true);
+            }
+            if worked(line) {
+                return Ok(false);
+            }
+        }
+        if from == 0 {
+            return Ok(false);
+        }
+        width *= 4;
+    }
 }
 
 #[derive(Deserialize)]

@@ -340,7 +340,7 @@ where
         let in_force = shipped.overlaid_by(&fittings.store.saved_limits().unwrap_or_default());
         let turns = api::Turns::new();
         Fleet {
-            store: Mutex::new(fittings.store),
+            store: crate::store_lock::StoreLock::new(fittings.store),
             harness: Arc::new(fittings.harness),
             vcs: Arc::new(fittings.vcs),
             work: fittings.work,

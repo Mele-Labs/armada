@@ -31,3 +31,8 @@ unsafe_code = "forbid"
 # by removing a worktree when its branch merges rather than by shrinking each.
 [profile.dev]
 debug = "line-tables-only"
+
+# Dependencies optimised, ours not: serde_json, SQLite, tokio and hyper run on every request, and
+# built at opt-level 0 they cost Fleet several times over. Built once, then cached.
+[profile.dev.package."*"]
+opt-level = 3

@@ -333,3 +333,62 @@ fn a_conversation_follows_its_session_into_another_directory() {
     assert!(!home.join(".claude/projects/-elsewhere").exists());
     let _ = std::fs::remove_dir_all(&home);
 }
+
+fn subagent_file(lines: &[String]) -> (crate::tests::repo::TempRepo, String, std::path::PathBuf) {
+    let (home, root) = agent_written(lines);
+    let file = crate::terminal_thread::find_subagent(&root, "abc-123", "x1").expect("its file");
+    (home, root, file)
+}
+
+/// The lean check says what `read_subagent` says, without drawing a row.
+#[test]
+fn the_lean_subagent_check_finishes_on_end_turn_or_hand_back_and_resumes_on_work() {
+    let call = in_agent("assistant", "s2", "\"tool_use\"", r#"[{"type":"tool_use","id":"t1","name":"Read","input":{"file_path":"/a"}}]"#);
+    let ended = in_agent("assistant", "s3", "\"end_turn\"", r#"[{"type":"text","text":"Done."}]"#);
+    let back = in_agent("assistant", "s4", "null", r#"[{"type":"tool_use","id":"t2","name":"SubagentHandback","input":{"message":"Done: pushed."}}]"#);
+    let asked = in_agent("user", "s1", "null", r#""Read the CI history""#);
+    let cases: [(&str, Vec<String>, bool); 5] = [
+        ("end_turn", vec![asked.clone(), call.clone(), ended.clone()], true),
+        ("hand-back", vec![asked.clone(), call.clone(), back.clone()], true),
+        ("work after end_turn", vec![asked.clone(), ended.clone(), call.clone()], false),
+        ("a user line after end_turn", vec![asked.clone(), ended.clone(), asked.clone()], true),
+        ("nothing decided", vec![asked.clone()], false),
+    ];
+    for (name, lines, want) in cases {
+        let (_home, root, file) = subagent_file(&lines);
+        assert_eq!(crate::terminal_thread::subagent_ended(&root, "abc-123", "x1"), want, "{name}");
+        assert_eq!(crate::terminal_thread::read_subagent(&file).unwrap().finished, want, "{name}, as read_subagent has it");
+    }
+    assert!(!crate::terminal_thread::subagent_ended("/nowhere", "abc-123", "x1"), "no file, not finished");
+}
+
+/// The deciding line can be further from the end than one read: the scan widens until it finds it.
+#[test]
+fn the_lean_check_reaches_back_past_a_long_tail() {
+    let back = in_agent("assistant", "s4", "null", r#"[{"type":"tool_use","id":"t2","name":"SubagentHandback","input":{"message":"Done."}}]"#);
+    let long = in_agent("user", "u", "null", &format!("\"{}\"", "x".repeat(150 * 1024)));
+    let (_home, _root, file) = subagent_file(&[back.clone(), long.clone(), long.clone()]);
+    assert!(crate::terminal_thread::finished_at_the_end(&file).unwrap());
+    std::fs::write(&file, [long.clone(), long.clone()].join("\n") + "\n").unwrap();
+    assert!(!crate::terminal_thread::finished_at_the_end(&file).unwrap(), "nothing to decide by");
+}
+
+/// An unchanged file (same length, same modified time) is not read again: the answer from the
+/// first read stands even when the bytes under it differ.
+#[test]
+fn an_unchanged_subagent_file_is_served_from_the_cache() {
+    let ended = in_agent("assistant", "s3", "\"end_turn\"", r#"[{"type":"text","text":"Done."}]"#);
+    let (_home, root, file) = subagent_file(&[ended.clone()]);
+    let before = std::fs::metadata(&file).unwrap().modified().unwrap();
+    assert!(crate::terminal_thread::subagent_ended(&root, "abc-123", "x1"));
+
+    // Same length, no longer an ended turn, and the modified time put back.
+    std::fs::write(&file, ended.replace("end_turn", "end_tur_") + "\n").unwrap();
+    std::fs::File::options().write(true).open(&file).unwrap().set_modified(before).unwrap();
+    assert!(crate::terminal_thread::subagent_ended(&root, "abc-123", "x1"), "served from the cache");
+
+    // The same bytes with a later modified time are read again.
+    let later = before + std::time::Duration::from_secs(5);
+    std::fs::File::options().write(true).open(&file).unwrap().set_modified(later).unwrap();
+    assert!(!crate::terminal_thread::subagent_ended(&root, "abc-123", "x1"), "a changed file is read again");
+}
