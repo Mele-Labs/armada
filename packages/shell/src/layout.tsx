@@ -168,6 +168,15 @@ export function parseLayout(text: string): Parsed {
   return { file: problems.length === 0 ? file : { regions: {} }, problems, ignored };
 }
 
+/**
+ * `file` as the text of a `layout.json`, for the owner's saved choices. **Empty where nothing is
+ * chosen**, which Fleet takes as no choices. `parseLayout` reads back what this wrote.
+ */
+export function serializeLayout(file: LayoutFile): string {
+  const regions = Object.entries(file.regions).filter(([, choice]) => choice !== undefined && Object.keys(choice).length > 0);
+  return regions.length === 0 ? "" : JSON.stringify({ version: VERSION, ...Object.fromEntries(regions) });
+}
+
 function idsOf(body: unknown): string[] | undefined {
   if (!Array.isArray(body) || body.length > MOST_IDS) return undefined;
   return body.every((one): one is string => typeof one === "string" && ID.test(one)) ? body : undefined;

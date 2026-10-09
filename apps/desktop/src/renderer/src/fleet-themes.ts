@@ -137,7 +137,8 @@ export function createFleetThemes(fleet: FleetThemes, catalogue: readonly Catalo
     const key = JSON.stringify([next.mods, theme]);
     if (key === seen) return;
     seen = key;
-    facts = next.mods;
+    // A layout mod is not a theme, and the Mods surface lists it from the layout source.
+    facts = next.mods === null ? null : { mods: next.mods.mods.filter((row) => row.kind !== "layout") };
     declined = null;
     if (saving === 0) chosen = theme;
     refresh();
