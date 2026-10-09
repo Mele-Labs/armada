@@ -28,6 +28,12 @@ use std::path::Path;
 enum Source {
     /// Declares custom properties. Goes through the generator.
     Tokens,
+    /// Redefines tokens that a `Tokens` file above it declared, under a
+    /// `[data-theme]` selector. Concatenated into `tokens.css` and listed
+    /// nowhere else: a second declaration of a name is not a second token, and
+    /// listing it would collide in the Tailwind theme. A name no earlier file
+    /// declares fails the check, so a theme cannot invent a token.
+    Theme,
     /// Consumes custom properties and declares none — a stylesheet, not a
     /// token file. `base.css` is the only one, and the reason it is named here
     /// rather than skipped by a rule is that a rule would also skip the next
@@ -47,6 +53,7 @@ const SOURCES: &[(&str, Source)] = &[
     ("spacing.css", Source::Tokens),
     ("motion.css", Source::Tokens),
     ("semantic.css", Source::Tokens),
+    ("light.css", Source::Theme),
     ("base.css", Source::Stylesheet),
 ];
 
@@ -174,7 +181,6 @@ pub const THEME: &[(&str, Slot)] = &[
     ),
     ("--helm", Slot::Named("color", "helm")),
     ("--helm-", Slot::NsFull("color")),
-    ("--stat-", Slot::NsFull("color")),
     // An instrument's marks, aliased in status.css below Job level.
     ("--instrument-", Slot::NsFull("color")),
     // A caution notice — an alias of --status-awaiting-review, not a new
@@ -322,6 +328,17 @@ pub fn read(root: &Path) -> Result<(Vec<String>, Vec<Token>), String> {
             .map_err(|_| format!("packages/tokens/src/{name} — imported and not present"))?;
         if let Source::Tokens = kind {
             tokens.extend(parse(&text, name));
+            sources.push(name.clone());
+        } else if let Source::Theme = kind {
+            for t in parse(&text, name) {
+                if !tokens.iter().any(|d| d.name == t.name) {
+                    return Err(format!(
+                        "{name} redefines {} and no file above it declares that token — \
+                         a theme overrides tokens, it does not add them",
+                        t.name
+                    ));
+                }
+            }
             sources.push(name.clone());
         } else if text.contains("--") && declares_a_property(&text) {
             return Err(format!(

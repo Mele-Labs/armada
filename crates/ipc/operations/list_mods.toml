@@ -1,0 +1,14 @@
+[operations.list_mods]
+kind = "query"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Every mod on this machine, with whether it is switched on and whether Bridge may load it"
+notes = """
+`GET /mods`, answered with `ModList`: one `ModSummary` a directory under the machine's `mods/` folder, by name. `enabled` is this machine's switch, and a mod nobody switched is on. `valid` is whether `mod.toml` reads and every file it names passes `validate_mod`'s checks; where it is false `reason` carries the first thing wrong and how many more, and `kind`, `version` and `description` are left out for whatever could not be read.
+
+**A broken mod is a row, never a failed read.** A `mod.toml` that does not parse, a `theme.css` that is a link, too large or full of things a theme may not say, a folder that is not a name Fleet accepts: each is its own row with `valid` false and the rest of the list is untouched. The folder is rescanned on every call, so a session that wrote files shows up without a restart.
+
+Fleet also rescans every two seconds and publishes `mods.changed` when the list differs from the last it published, so an open Bridge refreshes when a session writes a file.
+
+`agent_access` is `Yes`: a session making a mod asks what is already there before it picks a name.
+"""

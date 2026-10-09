@@ -1,0 +1,91 @@
+/* Theme picker — the field, and the groups it opens over.
+ *
+ * The list is Branch picker's surface one control over: a floating layer anchored under its field,
+ * `--bg-overlay` on `--shadow-overlay`, no scrim, because the field is still the thing being
+ * edited. It keeps its own stylesheet rather than borrowing that one's classes. */
+.armada-themepick {
+  position: relative;
+  min-width: 0;
+}
+
+.armada-themepick__trailing {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.armada-themepick__caret {
+  color: var(--fg-muted);
+}
+
+.armada-themepick__list {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: var(--z-menu);
+  max-height: calc(var(--h-menu-item) * 8);
+  overflow-y: auto;
+  margin-top: var(--space-1);
+  padding: var(--space-1) 0;
+  border-radius: var(--radius-md);
+  background: var(--bg-overlay);
+  border: var(--border-width) solid var(--border-default);
+  box-shadow: var(--shadow-overlay);
+}
+
+/* A group's name sits above its rows and is not one: set back, and short of the row height. */
+.armada-themepick__group {
+  padding: var(--space-2) var(--space-3) var(--space-1);
+}
+
+.armada-themepick__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  height: var(--h-menu-item);
+  padding: 0 var(--space-3);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--fg-default);
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+.armada-themepick__title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The theme's own colours, edge to edge as solid blocks. The hairline keeps a ground that matches
+   the list's own from vanishing into it. */
+.armada-themepick__swatch {
+  display: inline-flex;
+  flex: none;
+  overflow: hidden;
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-sm);
+}
+
+.armada-themepick__cell {
+  width: var(--space-2);
+  height: var(--space-3);
+}
+
+/* Colours not known yet: the same strip, said in nothing. */
+.armada-themepick__swatch[data-placeholder] .armada-themepick__cell {
+  background: var(--bg-hover);
+}
+
+.armada-themepick__row--active {
+  background: var(--bg-hover);
+}
+
+/* The chosen row reads from the field above it; the list marks it by weight, not by a hue. */
+.armada-themepick__row[aria-selected="true"] {
+  font-weight: var(--weight-medium);
+}

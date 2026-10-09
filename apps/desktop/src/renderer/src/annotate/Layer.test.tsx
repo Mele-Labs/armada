@@ -433,3 +433,200 @@ test("a note sent to a Session says which, on its card", async () => {
   await page.getByRole("button", { name: /sent as Fix the flaky store test/ }).click();
   await expect.element(page.getByRole("dialog", { name: "Note" })).toHaveTextContent("Sent to Session Fix the flaky store test");
 });
+
+// The all-notes panel, opened from the bar's count. What it does, held as the owner approved it.
+
+/** A note whose element is not on this screen: its selector finds nothing. */
+function away(name: string, at: string, change: Partial<Annotation> = {}): Annotation {
+  const one = note(name, "open", at, 60);
+  document.querySelector(one.selector)?.remove();
+  return { ...one, selector: `[data-noted="${name}-is-elsewhere"]`, ...change };
+}
+
+const panel = () => page.getByRole("complementary", { name: "All notes" });
+const countOf = () => page.getByRole("status").getByRole("button", { name: /open, \d+ done/ });
+const rowOf = (text: string) => panel().getByRole("listitem").filter({ hasText: text });
+const headings = () => panel().getByRole("heading").elements().map((one) => one.textContent);
+const screened = (one: Annotation, screen: string | null): Annotation => ({ ...one, screen });
+
+test("the status text opens the panel and closes it again", async () => {
+  await annotating(sinkOf(batch()));
+  expect(panel().elements()).toHaveLength(0);
+  const count = countOf();
+  await expect.element(count).toHaveAttribute("aria-expanded", "false");
+
+  await count.click();
+  await expect.element(panel()).toBeVisible();
+  await expect.element(count).toHaveAttribute("aria-expanded", "true");
+
+  await count.click();
+  expect(panel().elements()).toHaveLength(0);
+  await expect.element(count).toHaveAttribute("aria-expanded", "false");
+});
+
+test("the panel groups notes by screen, in name order, with No screen last", async () => {
+  await annotating(
+    sinkOf([
+      screened(note("first", "open", "5", 15), null),
+      screened(note("second", "open", "6", 30), "Overview"),
+      screened(note("third", "open", "7", 45), "Job Board"),
+      screened(note("fourth", "open", "8", 60), "Overview"),
+    ]),
+  );
+  await countOf().click();
+  await expect.element(panel()).toBeVisible();
+  expect(headings()).toEqual(["Job Board", "Overview", "No screen"]);
+
+  expect(panel().getByRole("region").elements()).toHaveLength(3);
+  const overview = panel().getByRole("region", { name: "Overview" });
+  await expect.element(overview).toHaveTextContent("second: what the owner said");
+  await expect.element(overview).toHaveTextContent("fourth: what the owner said");
+  await expect.element(overview).not.toHaveTextContent("third: what the owner said");
+  await expect.element(panel().getByRole("region", { name: "Job Board" })).toHaveTextContent("third: what the owner said");
+  await expect.element(panel().getByRole("region", { name: "No screen" })).toHaveTextContent("first: what the owner said");
+});
+
+test("a done note is listed only once the done notes are shown, and then after the open ones", async () => {
+  await annotating(sinkOf(batch()));
+  await countOf().click();
+  await expect.element(rowOf("first:")).toBeVisible();
+  expect(rowOf("second:").elements()).toHaveLength(0);
+
+  await page.getByRole("status").getByRole("button", { name: "Show done notes" }).click();
+  await expect.element(rowOf("second:")).toBeVisible();
+  expect(panel().getByRole("listitem").elements().map((one) => one.getAttribute("data-status"))).toEqual(["open", "open", "done"]);
+
+  await page.getByRole("status").getByRole("button", { name: "Hide done notes" }).click();
+  expect(rowOf("second:").elements()).toHaveLength(0);
+});
+
+test("a screen holding only done notes has no heading until they are shown", async () => {
+  await annotating(sinkOf([screened(note("first", "open", "5", 15), "Overview"), screened(note("second", "done", "6", 30), "Job Board")]));
+  await countOf().click();
+  await expect.element(panel()).toBeVisible();
+  expect(headings()).toEqual(["Overview"]);
+  await page.getByRole("status").getByRole("button", { name: "Show done notes" }).click();
+  await expect.element(panel().getByRole("heading", { name: "Job Board" })).toBeVisible();
+});
+
+test("a row's Dispatch job proposes that note alone, and marks only it sent", async () => {
+  const { fleet } = served();
+  const held = sendable(batch());
+  await annotating(held, fleet);
+  await countOf().click();
+  await rowOf("first:").getByRole("button", { name: "Dispatch job" }).click();
+
+  await vi.waitFor(async () => expect((await held.list()).find((one) => one.text.startsWith("first:"))?.sent).toEqual(expect.objectContaining({ jobId: "01JOB" })));
+  expect(fleet.proposeFromRequest).toHaveBeenCalledTimes(1);
+  expect((fleet.proposeFromRequest.mock.calls[0] as unknown as [string])[0]).toContain("first: what the owner said");
+  expect((fleet.proposeFromRequest.mock.calls[0] as unknown as [string])[0]).not.toContain("third: what the owner said");
+  expect((await held.list()).filter((one) => one.sent !== undefined).map((one) => one.text)).toEqual(["first: what the owner said"]);
+});
+
+test("a row's Start session sends that note alone to a new Session, and marks only it sent", async () => {
+  const { fleet, sent } = served();
+  const held = sendable(batch());
+  const opened = vi.fn();
+  await annotating(held, fleet, opened);
+  await countOf().click();
+  await rowOf("third:").getByRole("button", { name: "Start session" }).click();
+
+  await vi.waitFor(() => expect(opened).toHaveBeenCalledWith("01NEWSESSION0000"));
+  expect(fleet.startSession).toHaveBeenCalledTimes(1);
+  expect(sent).toHaveLength(1);
+  expect(sent[0]!.text).toContain("third: what the owner said");
+  expect(sent[0]!.text).not.toContain("first: what the owner said");
+  expect((await held.list()).filter((one) => one.sent !== undefined).map((one) => one.text)).toEqual(["third: what the owner said"]);
+});
+
+test("a sent note and a done note offer no dispatch, and an open unsent one does", async () => {
+  const unsent = note("first", "open", "5", 15);
+  const forwarded = note("second", "open", "6", 30);
+  const finished = note("third", "done", "7", 45);
+  await annotating(
+    sendable([unsent, { ...forwarded, sent: { jobId: "01JOB", handle: "9-the-note", at: forwarded.createdAt } }, finished]),
+    served().fleet,
+  );
+  await countOf().click();
+  await page.getByRole("status").getByRole("button", { name: "Show done notes" }).click();
+  await expect.element(rowOf("third:")).toBeVisible();
+
+  for (const name of ["Dispatch job", "Start session"]) {
+    await expect.element(rowOf("first:").getByRole("button", { name })).toBeVisible();
+    expect(rowOf("second:").getByRole("button", { name }).elements()).toHaveLength(0);
+    expect(rowOf("third:").getByRole("button", { name }).elements()).toHaveLength(0);
+  }
+  // What stays on every row is what a person does to a note, sent or not.
+  await expect.element(rowOf("second:").getByRole("button", { name: "Mark done" })).toBeVisible();
+  await expect.element(rowOf("third:").getByRole("button", { name: "Reopen" })).toBeVisible();
+});
+
+test("a row opens its card when the element is on screen, and does nothing when it is not", async () => {
+  await annotating(sinkOf([note("here", "open", "5", 15), away("gone", "6")]));
+  await countOf().click();
+  await expect.element(rowOf("gone:")).toBeVisible();
+  const there = rowOf("gone:").element() as HTMLElement;
+  expect(there.hasAttribute("data-here")).toBe(false);
+  expect(rowOf("here:").element().hasAttribute("data-here")).toBe(true);
+
+  // A DOM click: the row is aria-disabled, which the pointer-level click waits on forever.
+  (there.querySelector(".armada-annotate__row-main") as HTMLElement).click();
+  await new Promise((settled) => requestAnimationFrame(() => requestAnimationFrame(settled)));
+  expect(page.getByRole("dialog", { name: "Note" }).elements()).toHaveLength(0);
+
+  await rowOf("here:").getByRole("button", { name: /here: what the owner said/ }).click();
+  await expect.element(page.getByRole("dialog", { name: "Note" })).toHaveTextContent("here: what the owner said");
+});
+
+test("a note whose element is not on this screen is sent without a screenshot, and one that is on it with one", async () => {
+  const { fleet } = served();
+  const capture = vi.fn(async () => new Uint8Array([137, 80, 78, 71]).buffer);
+  const held = { ...sendable([note("here", "open", "5", 15), away("gone", "6")]), capture };
+  await annotating(held, fleet);
+  await countOf().click();
+
+  await rowOf("gone:").getByRole("button", { name: "Dispatch job" }).click();
+  await vi.waitFor(() => expect(fleet.proposeFromRequest).toHaveBeenCalledTimes(1));
+  expect(capture).not.toHaveBeenCalled();
+  expect(fleet.stageAttachment).not.toHaveBeenCalled();
+  expect((fleet.proposeFromRequest.mock.calls[0] as unknown as [string, unknown[]])[1]).toEqual([]);
+  await vi.waitFor(async () => expect((await held.list()).find((one) => one.text.startsWith("gone:"))?.sent).toBeDefined());
+
+  await rowOf("here:").getByRole("button", { name: "Dispatch job" }).click();
+  await vi.waitFor(() => expect(fleet.proposeFromRequest).toHaveBeenCalledTimes(2));
+  expect(capture).toHaveBeenCalledTimes(1);
+  expect(fleet.stageAttachment).toHaveBeenCalledTimes(1);
+});
+
+test("a note off this screen sent to a Session goes without a screenshot", async () => {
+  const { fleet, sent } = served();
+  const capture = vi.fn(async () => new Uint8Array([137, 80, 78, 71]).buffer);
+  const held = { ...sendable([away("gone", "6")]), capture };
+  await annotating(held, fleet);
+  await countOf().click();
+
+  await rowOf("gone:").getByRole("button", { name: "Start session" }).click();
+  await vi.waitFor(() => expect(sent).toHaveLength(1));
+  expect(capture).not.toHaveBeenCalled();
+  expect(sent[0]).not.toHaveProperty("attachments");
+});
+
+test("a row off this screen says on Dispatch job and Start session that it goes without a screenshot", async () => {
+  await annotating(sendable([note("here", "open", "5", 15), away("gone", "6")]), served().fleet);
+  await countOf().click();
+  const fact = "No screenshot: on another screen";
+
+  await expect.element(rowOf("gone:").getByRole("button", { name: "Dispatch job" })).toHaveAccessibleDescription(expect.stringContaining(fact));
+  await expect.element(rowOf("gone:").getByRole("button", { name: "Start session" })).toHaveAccessibleDescription(fact);
+  await expect.element(rowOf("here:").getByRole("button", { name: "Dispatch job" })).toHaveAccessibleDescription("Send this note as a Job");
+  await expect.element(rowOf("here:").getByRole("button", { name: "Start session" })).not.toHaveAccessibleDescription(expect.stringContaining("screenshot"));
+});
+
+test("where a row cannot be sent at all, the reason and the missing screenshot are both on Dispatch job", async () => {
+  await annotating(sinkOf([away("gone", "6")]));
+  await countOf().click();
+  const description = rowOf("gone:").getByRole("button", { name: "Dispatch job" }).element().getAttribute("aria-describedby") ?? "";
+  const said = description.split(" ").map((id) => document.getElementById(id)?.textContent ?? "").join(" ");
+  expect(said).toContain("Sending needs Bridge and its Fleet");
+  expect(said).toContain("No screenshot: on another screen");
+});

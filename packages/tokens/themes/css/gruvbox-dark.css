@@ -1,0 +1,48 @@
+/* Derived from the Gruvbox Dark terminal scheme by packages/tokens/themes/generate.mjs. Do not hand-edit.
+   Tone dark. foreground 8.5:1, accent 5.6:1 at the worst ground.
+   Lightness moved to reach 4.5:1: failed, success, review, running, escalated, rejected, not-started, killed. */
+[data-theme="catalogue:gruvbox-dark"] {
+  color-scheme: dark;
+  /* Ground */
+  --bg-base: #282828;
+  --bg-sunken: #121212;
+  --bg-raised: #2F2E2D;
+  --bg-overlay: #343431;
+  --bg-hover: #393835;
+  --border-subtle: #393734;
+  --border-default: #45433D;
+  --border-strong: #57534A;
+  /* Foreground and accent */
+  --fg-default: #EBDBB2;
+  --fg-muted: #ABA085;
+  --fg-subtle: #ADA287;
+  --fg-inverse: #000000;
+  --accent: #8EC07C;
+  --accent-hover: #9DC484;
+  --accent-muted: #3D463A;
+  /* Depth */
+  --bg-glass: rgb(47 46 45 / 0.86);
+  --bg-glass-end: rgb(40 40 40 / 0.86);
+  --border-glass: rgb(255 255 255 / 0.07);
+  --border-highlight: rgb(255 255 255 / 0.05);
+  /* Status */
+  --status-not-started: #BEB6A3;
+  --status-running: #7EBFC2;
+  --status-awaiting-review: #E9AA3A;
+  --status-escalated: #FF9B5A;
+  --status-completed-success: #BABA48;
+  --status-completed-failed: #FF9985;
+  --status-rejected: #F29DC2;
+  --status-killed: #BDB59E;
+  --status-handed-in: #9EBE8E;
+  /* Helm, tools, diff */
+  --helm: #C7B3A3;
+  --tool-look: #79AF7B;
+  --tool-change: #DC89AD;
+  --tool-run: #D79921;
+  --diff-add-bg: #3A3A26;
+  --diff-add-fg: #A9A833;
+  --diff-del-bg: #422726;
+  --diff-del-fg: #FF5F4F;
+  --diff-context: #ABA085;
+}

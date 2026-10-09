@@ -114,6 +114,16 @@ describe("sending to Fleet", () => {
     expect(proposer.proposeFromRequest.mock.calls[0]![1]).toEqual([]);
   });
 
+  it("takes no screenshot of a note whose element is not on this screen, and still sends it", async () => {
+    const proposer = fleet({ ok: true, jobs: [JOB] });
+    const capture = vi.fn(async () => new Uint8Array([137]).buffer);
+    const answer = await sendToFleet(note(), null, sink({ capture }), proposer, AT);
+    expect(capture).not.toHaveBeenCalled();
+    expect(proposer.stageAttachment).not.toHaveBeenCalled();
+    expect(proposer.proposeFromRequest.mock.calls[0]![1]).toEqual([]);
+    expect(answer).toEqual({ ok: true, sent: { jobId: JOB.id, handle: JOB.handle, at: AT.toISOString() } });
+  });
+
   it("says what Fleet said when it takes nothing, and sends nothing when there is no repository", async () => {
     const refused = await sendToFleet(note(), note().box, sink(), fleet({ ok: false, why: "refused", outcome: { ok: false, why: "not_connected" } }), AT);
     expect(refused).toEqual({ ok: false, saying: "Job not sent: Fleet is not connected. Nothing was sent." });
@@ -166,6 +176,28 @@ describe("a note sent to a Session", () => {
     expect(fleet.startSession).not.toHaveBeenCalled();
     expect(answer).toEqual({ ok: true, sent: { sessionId: "01T", title: "Release notes", at: AT.toISOString() } });
     expect((fleet.sendSessionMessage.mock.calls[0] as unknown as [object])[0]).not.toHaveProperty("attachments");
+  });
+
+  it("takes a screenshot of each note that is on this screen and none of one that is not, and sends them all", async () => {
+    const fleet = sessions();
+    const capture = vi.fn(async () => new Uint8Array([137, 80, 78, 71]).buffer);
+    const away = note({ id: "20260917-140000-away", text: "Over on another screen" });
+    const answer = await sendToSession([item, { note: away, box: null }], null, sink({ capture }), fleet, AT);
+    expect(capture).toHaveBeenCalledTimes(1);
+    expect(capture).toHaveBeenCalledWith(note().box);
+    const message = (fleet.sendSessionMessage.mock.calls[0] as unknown as [{ text: string; attachments: { name: string }[] }])[0];
+    expect(message.attachments.map((one) => one.name)).toEqual(["annotation-20260917-135315-tsfq.png"]);
+    expect(message.text).toContain("Over on another screen");
+    expect(answer.ok).toBe(true);
+  });
+
+  it("sends a note with no screenshot at all where none is on this screen", async () => {
+    const fleet = sessions();
+    const capture = vi.fn(async () => new Uint8Array([137]).buffer);
+    const answer = await sendToSession([{ note: note(), box: null }], null, sink({ capture }), fleet, AT);
+    expect(capture).not.toHaveBeenCalled();
+    expect((fleet.sendSessionMessage.mock.calls[0] as unknown as [object])[0]).not.toHaveProperty("attachments");
+    expect(answer.ok).toBe(true);
   });
 
   it("says what Fleet said when it refuses, and marks nothing", async () => {

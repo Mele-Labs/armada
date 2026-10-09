@@ -21,8 +21,8 @@ import { EVERY_WALK } from "./walks";
  * the card draggable, which moved the problem rather than ending it: wherever
  * it was dropped it was still on top of something, and every screenshot taken
  * all night had to hide it first. A child of the column is in the flow with
- * Navigation, Stats and Fleet, so it covers nothing at any width and scrolls
- * with them when the window is too short to hold all four.
+ * Navigation and Fleet, so it covers nothing at any width and scrolls
+ * with them when the window is too short to hold all three.
  */
 const COLUMN = ".armada-shell__left";
 

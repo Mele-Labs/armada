@@ -48,6 +48,7 @@ use crate::fleetwide::{
     get_drone, get_events_since, get_health, get_manifest, get_manifest_spend, get_usage,
     list_drones,
 };
+use crate::building::{change_fleet_build, get_fleet_build};
 use crate::limiting::{get_limits, save_limits};
 use crate::preferring::{get_preferences, save_preferences};
 use crate::processes::{kill_process, kill_processes};
@@ -198,6 +199,11 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             "/pull_request_reviews/:repository",
             post(crate::pull_requests::review_pull_request::<D>),
         )
+        .route("/mods", get(crate::mods::list_mods::<D>))
+        .route("/mods/scaffold", post(crate::mods::scaffold_mod::<D>))
+        .route("/mods/enable", post(crate::mods::set_mod_enabled::<D>))
+        .route("/mods/validate", get(crate::mods::validate_mod::<D>))
+        .route("/mods/promote", post(crate::mods::promote_mod::<D>))
         .route("/sessions", get(crate::sessions::list_sessions::<D>))
         .route("/sessions/owner", get(crate::sessions::who_owns::<D>))
         .route(
@@ -265,6 +271,8 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/merge_lines/fix", post(fix_main::<D>))
         .route("/models", get(list_models::<D>))
         .route("/capacity", get(get_capacity::<D>))
+        .route("/fleet/build", get(get_fleet_build::<D>))
+        .route("/fleet/build/change", post(change_fleet_build::<D>))
         .route("/limits", get(get_limits::<D>))
         .route("/limits/save", post(save_limits::<D>))
         .route("/preferences", get(get_preferences::<D>))

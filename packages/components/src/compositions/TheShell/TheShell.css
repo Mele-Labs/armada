@@ -251,7 +251,7 @@
   padding: var(--space-4);
 }
 
-/* The left column's own handle — one drag for Navigation, Stats and Fleet
+/* The left column's own handle — one drag for Navigation and Fleet
    together, the same recipe as the dock's own handle above. Its margin
    supplies the gap `.armada-shell__body` no longer does once it exists —
    screens.css's `:has()` rule is the dock's own trick, read the other way. */

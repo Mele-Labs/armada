@@ -85,6 +85,42 @@ fn the_draft_default_is_saved_beside_the_other_preference() {
         Preferences {
             where_things_are_open: true,
             draft_pull_requests: true,
+            ..Default::default()
         }
     );
+}
+
+/// The theme is a word in a table of its own: `dark` until saved, kept across a
+/// reopen, and saving it moves no switch.
+#[test]
+fn the_theme_is_dark_until_saved_and_survives_a_reopen() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    assert_eq!(store.preferences().expect("reads").theme, "dark");
+    let saved = store.save_theme("calm").expect("saved");
+    assert_eq!(saved.theme, "calm");
+    assert!(!saved.where_things_are_open);
+    drop(store);
+
+    let mut store = open(&dir);
+    assert_eq!(store.preferences().expect("reads").theme, "calm");
+    store.save_theme("light").expect("replaced");
+    assert_eq!(store.preferences().expect("reads").theme, "light");
+}
+
+/// A mod nobody switched has no row, and a switch is one row replaced.
+#[test]
+fn a_mod_switch_is_a_row_and_a_second_one_replaces_it() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    assert!(store.mod_switches().expect("reads").is_empty());
+    store.switch_mod("calm", false).expect("off");
+    store.switch_mod("loud", true).expect("on");
+    store.switch_mod("calm", true).expect("on again");
+    drop(store);
+
+    let switches = open(&dir).mod_switches().expect("reads");
+    assert_eq!(switches.len(), 2);
+    assert_eq!(switches["calm"], true);
+    assert_eq!(switches["loud"], true);
 }

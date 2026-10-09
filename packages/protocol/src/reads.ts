@@ -8,6 +8,7 @@
 // `JobRead` is the family: every per-Job read is one of these, so a screen that
 // can draw one unread Job can draw them all.
 
+import type { ModPromoted } from "./mods";
 import type {
   BranchDeleted,
   Branches,
@@ -414,6 +415,8 @@ export type Outcome =
       shown?: ShownAgain;
       /** The pull request as the forge showed it after a press at a Job's gate, or when it was read. */
       pullRequest?: PullRequestState;
+      /** What `promote_mod` answered: the branch the mod is on. Shown once, by the surface that pressed. */
+      modPromoted?: ModPromoted;
     }
   | { ok: false; why: "not_connected" }
   | { ok: false; why: "empty_brief" }
@@ -500,6 +503,11 @@ export type Outcome =
    * something other than what it names. `docs/practices/capture-window.md`.
    */
   | { ok: false; why: "run_ended" }
+  /**
+   * Approve on a capture window that no Job or Session opened. Bridge's own, and Fleet never sees
+   * it: a Studio's bar offers no Approve, since there is nobody to tell.
+   */
+  | { ok: false; why: "no_owner" }
   | { ok: false; why: "refused"; error: WireError }
   | { ok: false; why: "transport"; detail: string; fault: TransportFault };
 

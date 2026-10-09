@@ -29,11 +29,11 @@ test("the rail draws two panels, named Work and Machine", async () => {
   await expect.element(page.getByRole("navigation", { name: "Machine" })).toBeVisible();
 });
 
-test("Machine holds Kit, Settings and Guides, in that order, and Workflows joined after them", async () => {
+test("Machine holds Kit, Settings and Guides, in that order, with Mods between Kit and Settings and Workflows after", async () => {
   mount("every-state");
   await onScreen();
 
-  expect(rowsOf("Machine")).toEqual(["Kit", "Settings", "Guides", "Workflows"]);
+  expect(rowsOf("Machine")).toEqual(["Kit", "Mods", "Settings", "Guides", "Workflows"]);
 });
 
 test("Work holds the jobs-and-studios rows, Overview first", async () => {

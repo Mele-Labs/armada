@@ -11,10 +11,10 @@ export type SideBranch = JobTrigger & { addition?: string };
 export const additionName = (one: AddedStep): string =>
   one.runs.kind === "script" ? one.runs.command : one.runs.kind === "skill" ? one.runs.skill : one.runs.brief;
 
-/** The added steps a Drone has been put on, whether to repair a Script or to run a Skill or a Drone step. */
+/** The added steps a Drone has been put on, whether to repair a Script or to run a Skill or a Drone step, and a Script waiting on the owner to run. */
 export function additionBranches(additions: readonly AddedStep[]): SideBranch[] {
   return additions.flatMap((one): SideBranch[] =>
-    one.repair_record === undefined
+    one.repair_record === undefined && one.state !== "awaiting_owner"
       ? []
       : [
           {
@@ -25,7 +25,7 @@ export function additionBranches(additions: readonly AddedStep[]): SideBranch[] 
             state: one.state,
             ...(one.started_at === undefined ? {} : { started_at: one.started_at }),
             ...(one.log_at === undefined ? {} : { log_at: one.log_at }),
-            repair: one.repair_record,
+            ...(one.repair_record === undefined ? {} : { repair: one.repair_record }),
             ...(one.block ? { blocks: true } : {}),
             ...(one.runs.kind === "script" ? {} : { drone: true }),
             addition: one.id,

@@ -11,6 +11,8 @@ that goes in the comment. Nobody carries a zip.
 |---|---|
 | `src/styles.css` | The cascade. The import order is load-bearing and is the only place it is declared |
 | `src/*.css` | The tokens, and the argument for each value |
+| `src/light.css` | The Light baseline: one `[data-theme="light"]` block redefining semantic tokens. Listed in `styles.css`, concatenated into `tokens.css`, and no token of its own: it may only override one an earlier file declares |
+| `themes/` | The shipped theme catalogue: Ghostty schemes in, one `[data-theme]` block each out, by `themes/generate.mjs`. Not part of the cascade; loaded when chosen. `docs/concepts/themes.md` |
 | `src/base.css` | **Not a token file** — it consumes tokens and declares none. Excluded from the generator |
 | `tokens.css` | Generated. The cascade, concatenated, comments intact |
 | `tokens.json` | Generated. Every token, its source and its note. Read by the primitive spec test |

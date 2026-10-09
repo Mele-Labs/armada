@@ -6,7 +6,7 @@ import type { DriftsRead, HealthRead } from "@armada/screens/src/overview-reads"
 export type OverviewApi = {
   /**
    * Fleet's health and per-repository drift, or `false` to stop. **Reads.** `App.tsx` holds this
-   * open for the life of the window: Overview's own tiles and the left column's Stats and Fleet
+   * open for the life of the window: Overview's own tiles and the left column's Fleet
    * panels (Bridge/1088) all draw it.
    */
   watchOverview: (want: boolean) => Promise<void>;

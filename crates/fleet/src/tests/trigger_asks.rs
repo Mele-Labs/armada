@@ -19,7 +19,7 @@ use crate::tests::tmp::TempDir;
 use crate::tests::tools::submitted_by_the_one;
 use crate::tests::triggering::{a_fleet, machine, to_the_delivering_step, Files};
 
-type Fixture = Fleet<FakeHarness, FakeVcs, FakeWorkProduct>;
+pub(crate) type Fixture = Fleet<FakeHarness, FakeVcs, FakeWorkProduct>;
 
 fn wiping(moment: &str, on_failure: &str) -> config::TriggerWritten {
     machine(
@@ -31,7 +31,7 @@ fn wiping(moment: &str, on_failure: &str) -> config::TriggerWritten {
 const BLOCKING: &str = "on_failure:\n  block: true\n";
 
 /// `wipe` is destructive and passes once `flag` exists.
-fn a_fleet_asking(home: &TempDir, files: &Arc<Files>, flag: &str) -> Arc<Fixture> {
+pub(crate) fn a_fleet_asking(home: &TempDir, files: &Arc<Files>, flag: &str) -> Arc<Fixture> {
     let text = format!(
         "version: 1\nid: 01FIXTUREMANIFEST\ncommands:\n  wipe:\n    run: \"test -f {flag}\"\n    destructive: true\n"
     );
@@ -39,7 +39,7 @@ fn a_fleet_asking(home: &TempDir, files: &Arc<Files>, flag: &str) -> Arc<Fixture
     Arc::new(a_fleet(home, files, manifest, Delivering::default()))
 }
 
-fn flag_in(home: &TempDir) -> String {
+pub(crate) fn flag_in(home: &TempDir) -> String {
     format!("{}/flag", home.path().display())
 }
 
@@ -284,7 +284,11 @@ async fn a_second_run_while_it_executes_is_refused_and_a_restart_leaves_it_askin
     assert_eq!(asking.state, TriggerState::AwaitingOwner);
     assert_eq!(fleet.holds_on(&id).await.unwrap().len(), 1);
 
-    fleet.owner_runs().lock().unwrap().insert(firing_id);
+    fleet
+        .owner_runs()
+        .lock()
+        .unwrap()
+        .insert(crate::trigger_repair::Subject::Firing(firing_id));
     let again = Arc::clone(&fleet)
         .hold_rerun(ipc::JobId::from(&id), act())
         .await

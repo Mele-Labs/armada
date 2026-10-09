@@ -1,0 +1,48 @@
+/* Derived from the Horizon terminal scheme by packages/tokens/themes/generate.mjs. Do not hand-edit.
+   Tone dark. foreground 9.5:1, accent 6.6:1 at the worst ground.
+   Lightness moved to reach 4.5:1: failed, rejected, not-started, killed. */
+[data-theme="catalogue:horizon"] {
+  color-scheme: dark;
+  /* Ground */
+  --bg-base: #1C1E26;
+  --bg-sunken: #0B0C10;
+  --bg-raised: #22242C;
+  --bg-overlay: #282A32;
+  --bg-hover: #2C2E36;
+  --border-subtle: #2B2E35;
+  --border-default: #373941;
+  --border-strong: #484A51;
+  /* Foreground and accent */
+  --fg-default: #D5D8DA;
+  --fg-muted: #94979B;
+  --fg-subtle: #929599;
+  --fg-inverse: #000000;
+  --accent: #3FC4DE;
+  --accent-hover: #61C7DE;
+  --accent-muted: #293E4A;
+  /* Depth */
+  --bg-glass: rgb(34 36 44 / 0.86);
+  --bg-glass-end: rgb(28 30 38 / 0.86);
+  --border-glass: rgb(255 255 255 / 0.07);
+  --border-highlight: rgb(255 255 255 / 0.05);
+  /* Status */
+  --status-not-started: #A4A7AD;
+  --status-running: #26BBD9;
+  --status-awaiting-review: #FAB795;
+  --status-escalated: #F38987;
+  --status-completed-success: #29D398;
+  --status-completed-failed: #FF7A99;
+  --status-rejected: #FF74BB;
+  --status-killed: #A6A9AF;
+  --status-handed-in: #24C8BA;
+  /* Helm, tools, diff */
+  --helm: #B79EC7;
+  --tool-look: #59E1E3;
+  --tool-change: #EE64AC;
+  --tool-run: #FAB795;
+  --diff-add-bg: #1E3B38;
+  --diff-add-fg: #29D398;
+  --diff-del-bg: #3D2733;
+  --diff-del-fg: #F56182;
+  --diff-context: #94979B;
+}

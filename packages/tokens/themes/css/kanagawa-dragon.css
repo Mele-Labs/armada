@@ -1,0 +1,48 @@
+/* Derived from the Kanagawa Dragon terminal scheme by packages/tokens/themes/generate.mjs. Do not hand-edit.
+   Tone dark. foreground 9.0:1, accent 6.7:1 at the worst ground.
+   Lightness moved to reach 4.5:1: failed, success, rejected, not-started, killed. */
+[data-theme="catalogue:kanagawa-dragon"] {
+  color-scheme: dark;
+  /* Ground */
+  --bg-base: #181616;
+  --bg-sunken: #080707;
+  --bg-raised: #1E1C1C;
+  --bg-overlay: #232121;
+  --bg-hover: #272625;
+  --border-subtle: #262525;
+  --border-default: #31302F;
+  --border-strong: #41403F;
+  /* Foreground and accent */
+  --fg-default: #C5C9C5;
+  --fg-muted: #8C8E8B;
+  --fg-subtle: #8E8F8D;
+  --fg-inverse: #000000;
+  --accent: #7FB4CA;
+  --accent-hover: #8AB7C9;
+  --accent-muted: #2D3438;
+  /* Depth */
+  --bg-glass: rgb(30 28 28 / 0.86);
+  --bg-glass-end: rgb(24 22 22 / 0.86);
+  --border-glass: rgb(255 255 255 / 0.07);
+  --border-highlight: rgb(255 255 255 / 0.05);
+  /* Status */
+  --status-not-started: #9C9D9A;
+  --status-running: #8BA4B0;
+  --status-awaiting-review: #C4B28A;
+  --status-escalated: #C6937C;
+  --status-completed-success: #92A283;
+  --status-completed-failed: #D7857F;
+  --status-rejected: #A898A9;
+  --status-killed: #9D9E9C;
+  --status-handed-in: #8EA39A;
+  /* Helm, tools, diff */
+  --helm: #93A3B6;
+  --tool-look: #8EA4A2;
+  --tool-change: #A292A3;
+  --tool-run: #C4B28A;
+  --diff-add-bg: #2A2B26;
+  --diff-add-fg: #8A9A7B;
+  --diff-del-bg: #342524;
+  --diff-del-fg: #CB7A74;
+  --diff-context: #8C8E8B;
+}

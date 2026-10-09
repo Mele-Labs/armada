@@ -1,0 +1,48 @@
+/* Derived from the Carbonfox terminal scheme by packages/tokens/themes/generate.mjs. Do not hand-edit.
+   Tone dark. foreground 13.2:1, accent 7.1:1 at the worst ground.
+   Lightness moved to reach 4.5:1: failed, escalated, not-started, killed. */
+[data-theme="catalogue:carbonfox"] {
+  color-scheme: dark;
+  /* Ground */
+  --bg-base: #161616;
+  --bg-sunken: #070707;
+  --bg-raised: #1D1D1D;
+  --bg-overlay: #232324;
+  --bg-hover: #292929;
+  --border-subtle: #282828;
+  --border-default: #353536;
+  --border-strong: #494A4A;
+  /* Foreground and accent */
+  --fg-default: #F2F4F8;
+  --fg-muted: #A4A5A7;
+  --fg-subtle: #8F9092;
+  --fg-inverse: #000000;
+  --accent: #8CB6FF;
+  --accent-hover: #9BC0FF;
+  --accent-muted: #2D3542;
+  /* Depth */
+  --bg-glass: rgb(29 29 29 / 0.86);
+  --bg-glass-end: rgb(22 22 22 / 0.86);
+  --border-glass: rgb(255 255 255 / 0.07);
+  --border-highlight: rgb(255 255 255 / 0.05);
+  /* Status */
+  --status-not-started: #9FA0A2;
+  --status-running: #78A9FF;
+  --status-awaiting-review: #08BDBA;
+  --status-escalated: #B599AE;
+  --status-completed-success: #25BE6A;
+  --status-completed-failed: #FF67A8;
+  --status-rejected: #BE95FF;
+  --status-killed: #A0A1A4;
+  --status-handed-in: #55B7BA;
+  /* Helm, tools, diff */
+  --helm: #A8A6FF;
+  --tool-look: #33B1FF;
+  --tool-change: #BE95FF;
+  --tool-run: #08BDBA;
+  --diff-add-bg: #183123;
+  --diff-add-fg: #25BE6A;
+  --diff-del-bg: #39202A;
+  --diff-del-fg: #F05598;
+  --diff-context: #A4A5A7;
+}

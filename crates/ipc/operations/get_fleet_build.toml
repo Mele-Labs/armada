@@ -1,0 +1,18 @@
+[operations.get_fleet_build]
+kind = "query"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Which build Fleet runs on, the commit it was built from, where that stands against origin/main, and the restart under way or the one that failed"
+notes = """
+`GET /fleet/build`, answered `FleetBuildReport`. Fleet-wide, `get_capacity`'s reason: the build is a fact about Fleet and no Job's.
+
+**`on` is read off `Armada/restart-source`**, which `scripts/restart --from` writes and a plain restart removes: a path ending in `.armada/preview` is `preview`, no file is `main`. A record naming any other tree is not a build this panel offers, and is a 409 `fleet.build_not_offered`, as is a Fleet serving no checkout that holds `scripts/restart-build`.
+
+**`commit` is `Armada/restart-commit`**, written by `scripts/restart` once the new Fleet speaks the protocol its tree hashes to. Absent for a Fleet nothing restarted.
+
+**`position` counts `origin/main...commit`**: `ahead` is what the build holds that origin/main lacks, `behind` what origin/main holds that the build lacks. Fleet fetches `origin main` at most every ten minutes, in the background, so a read never waits on the network and the counts are as fresh as the last fetch. Absent where it cannot be counted.
+
+**`restarting` and `failed` come from `Armada/restart-build.status`**, the file `scripts/restart-build` keeps, because the Fleet that started a restart is not the Fleet that reads it back. A status `running` older than twenty minutes is a wrapper that died and is ignored. `failed` is one line of plain facts and is dropped once the recorded commit is no longer the one it failed on.
+
+No event. A build changes when a Fleet restarts, and Bridge reads this again on every connection and on a minute's interval.
+"""

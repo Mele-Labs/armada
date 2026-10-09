@@ -7,6 +7,8 @@ import type {
   SaveLimits,
   SavePreference,
   FleetLimits,
+  ModChecked,
+  ModList,
   Preferences,
 } from "@armada/protocol";
 
@@ -31,6 +33,15 @@ export type SettingsApi = {
    * is republished with it — `readPreferences`' terms otherwise.
    */
   savePreference: (save: SavePreference) => Promise<Outcome>;
+  /**
+   * Fleet's check of one mod, and the stylesheet if it passed. **The only text Bridge injects for a
+   * mod** (`docs/concepts/mods.md`). `null` where Fleet could not be asked or knows no such mod.
+   */
+  validateMod: (name: string) => Promise<ModChecked | null>;
+  /** This machine's switch for one mod. `mods` is republished with it, and `mods.changed` follows. */
+  setModEnabled: (name: string, enabled: boolean) => Promise<Outcome>;
+  /** Put a valid mod on a new branch of the repository. `modPromoted` on the answer names the branch; nothing is pushed. */
+  promoteMod: (name: string) => Promise<Outcome>;
 };
 
 export type SettingsState = {
@@ -53,14 +64,24 @@ export type SettingsState = {
    * republished on every save, `limits`' terms otherwise.
    */
   preferences: Preferences;
+  /**
+   * The mods on this machine, or `null` before the first read. **`null` is not "none"**: a theme
+   * the preference names is not a mod that has gone until this has been read. Read once per
+   * connection and replaced whole by every `mods.changed`.
+   */
+  mods: ModList | null;
 };
 
 export const SETTINGS_NOTHING_YET: SettingsState = {
   limits: null,
   preferences: { where_things_are_open: false },
+  mods: null,
 };
 
 export const SETTINGS_CHANNELS = {
   saveLimits: "bridge:save-limits",
   savePreference: "bridge:save-preference",
+  validateMod: "bridge:validate-mod",
+  setModEnabled: "bridge:set-mod-enabled",
+  promoteMod: "bridge:promote-mod",
 } as const;

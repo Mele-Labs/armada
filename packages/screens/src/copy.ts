@@ -110,6 +110,8 @@ export function said(outcome: Outcome): string {
         "This run stopped serving while the note was being written, so nothing was captured — " +
         "what is on the port now may not be the run. Start the server again and capture there."
       );
+    case "no_owner":
+      return "Nothing opened this window, so there is nobody to tell it was approved.";
     case "refused":
       // Drawn as a failure notice above, with everything it carries — except Fleet serving nothing, which is no fault.
       return servesNothing(outcome) ? `${NOTHING_SERVED.title}. ${NOTHING_SERVED.next}` : "";
