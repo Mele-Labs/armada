@@ -324,6 +324,48 @@ export const MatchingNothing: Story = {
 };
 
 /**
+ * **The one bar: what is typed can be dispatched.** Words that match nothing
+ * lead with the row that sends them, so ↵ dispatches; ⇥ switches to a Session
+ * where Sessions are served (the owner, 10 Oct 2026).
+ */
+export const NothingMatchesSoTheWorkLeads: Story = {
+  args: {
+    ...board,
+    defaultQuery: "retire the sleep calls",
+    dispatch: { kind: "job", onDispatch: fn(), onKind: fn(), onCompose: fn() },
+  },
+  play: async ({ args, canvas, userEvent }) => {
+    const row = canvas.getByRole("option", { name: /^Dispatch “retire the sleep calls” as a Job/ });
+    await expect(row).toHaveAttribute("aria-selected", "true");
+    // The miss is still named, beside the row that sends the words.
+    await expect(canvas.getByText(/Nothing matches “retire the sleep calls”/)).toBeVisible();
+    await userEvent.keyboard("{Tab}");
+    await expect(args.dispatch!.onKind).toHaveBeenCalledWith("session");
+    await userEvent.keyboard("{Enter}");
+    await expect(args.dispatch!.onDispatch).toHaveBeenCalledWith("retire the sleep calls", "job");
+  },
+};
+
+/**
+ * **A search that matches keeps ↵ on the match**: the dispatch row waits at the
+ * foot, and ⌘↵ sends the words whatever is picked. ⇧↵ is the full composer.
+ */
+export const AMatchKeepsEnter: Story = {
+  args: {
+    ...board,
+    defaultQuery: "kill",
+    dispatch: { kind: "job", onDispatch: fn(), onCompose: fn() },
+  },
+  play: async ({ args, canvas, userEvent }) => {
+    const options = canvas.getAllByRole("option");
+    await expect(options[0]).toHaveAttribute("aria-selected", "true");
+    await expect(options[options.length - 1]).toHaveAccessibleName(/^Dispatch “kill” as a Job/);
+    await userEvent.keyboard("{Shift>}{Enter}{/Shift}");
+    await expect(args.dispatch!.onCompose).toHaveBeenCalledWith("kill");
+  },
+};
+
+/**
  * **The first row is always active**, so a query narrowed to one result is a
  * two-key act: type enough, press Enter.
  */

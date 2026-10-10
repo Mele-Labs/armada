@@ -2,6 +2,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { LucideIcon } from "lucide-react";
 
 import { KbdChord } from "../Kbd/Kbd";
+import { DISPATCH_ROW, DispatchKeys, DispatchRow, readsAsWork, useAnchor, type PaletteDispatch } from "./dispatch-row";
+
+export { readsAsWork, type DispatchKind, type PaletteDispatch } from "./dispatch-row";
 
 /**
  * The palette is a superset of the UI, never a substitute for it, and it is
@@ -112,6 +115,13 @@ export type CommandPaletteProps = {
   onSelect?: (entry: PaletteEntry) => void;
   onConfirm?: (entry: PaletteEntry) => void;
   onClose?: () => void;
+  /** The title bar's one bar: what was typed can be dispatched as well as searched. Absent draws no dispatch row. */
+  dispatch?: PaletteDispatch;
+  /**
+   * A selector for the box the palette's field opens over, so the search and the field it opened from
+   * read as one bar. Absent, or not on screen (the narrow title row hides it), the palette centres.
+   */
+  anchor?: string;
 };
 
 /** Whether the query matches, and where in the label it matched. */
@@ -140,6 +150,8 @@ export function CommandPalette({
   onSelect,
   onConfirm,
   onClose,
+  dispatch,
+  anchor,
 }: CommandPaletteProps) {
   const [query, setQuery] = useState(defaultQuery);
   const [at, setAt] = useState(0);
@@ -160,7 +172,14 @@ export function CommandPalette({
       .filter((group) => group.hits.length > 0);
   }, [entries, sections, query]);
 
-  const flat = useMemo(() => grouped.flatMap((group) => group.hits), [grouped]);
+  const hits = useMemo(() => grouped.flatMap((group) => group.hits), [grouped]);
+  // The dispatch row, once something is typed: first where nothing else matches, the words are a
+  // link, or `n` opened the bar, so ↵ sends them; last otherwise, so ↵ still opens what was searched
+  // for. ⌘↵ always sends.
+  const offered = dispatch !== undefined && query.trim() !== "";
+  const leading = offered && (dispatch.leads === true || hits.length === 0 || readsAsWork(query));
+  const flat: (Hit | "dispatch")[] = !offered ? hits : leading ? ["dispatch", ...hits] : [...hits, "dispatch"];
+  const place = useAnchor(open, anchor);
 
   // **The first row is always active**, so a query narrowed to one result is a
   // two-key act. Reset on every change to the query rather than clamped: a
@@ -215,8 +234,13 @@ export function CommandPalette({
 
   if (!open) return null;
 
-  function choose(held: Hit | undefined) {
+  function send() {
+    if (dispatch !== undefined && query.trim() !== "") (dispatch.onDispatch(query.trim(), dispatch.kind), onClose?.());
+  }
+
+  function choose(held: Hit | "dispatch" | undefined) {
     if (held === undefined) return;
+    if (held === "dispatch") return send();
     // Drawn so the binding can be learned, and inert because the row already
     // says why. Pressing it does nothing rather than reaching something
     // invented.
@@ -244,20 +268,36 @@ export function CommandPalette({
     }
     if (event.key === "Enter") {
       event.preventDefault();
+      if (event.metaKey) return send();
+      if (event.shiftKey && dispatch?.onCompose !== undefined) {
+        dispatch.onCompose(query.trim());
+        onClose?.();
+        return;
+      }
       choose(flat[at]);
+      return;
+    }
+    if (event.key === "Tab" && dispatch?.onKind !== undefined && !event.altKey && !event.ctrlKey && !event.metaKey) {
+      event.preventDefault();
+      dispatch.onKind(dispatch.kind === "job" ? "session" : "job");
     }
   }
 
-  let n = -1;
+  let n = leading ? 0 : -1;
+  const current = flat[at];
+  const sendRow = !offered ? null : (
+    <DispatchRow words={query.trim()} kind={dispatch.kind} active={current === "dispatch"} ref={current === "dispatch" ? active : undefined} onEnter={() => setAt(flat.indexOf("dispatch"))} onChoose={send} />
+  );
 
   return (
-    <div className="armada-palette-layer">
+    <div className="armada-palette-layer" data-anchored={place === undefined ? undefined : ""}>
       <div
         ref={panel}
         className="armada-palette"
         role="dialog"
         aria-modal="true"
         aria-label="Command palette"
+        style={place}
       >
         <input
           ref={input}
@@ -266,15 +306,16 @@ export function CommandPalette({
           role="combobox"
           aria-expanded="true"
           aria-controls="armada-palette-list"
-          aria-activedescendant={flat[at] === undefined ? undefined : rowId(flat[at]!.entry)}
+          aria-activedescendant={current === undefined ? undefined : current === "dispatch" ? DISPATCH_ROW : rowId(current.entry)}
           aria-label={placeholder}
-          placeholder={placeholder}
+          placeholder={dispatch?.leads === true ? "Describe the work, or paste a link to a ticket." : placeholder}
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           onKeyDown={onKey}
         />
         <div className="armada-palette__list" id="armada-palette-list" role="listbox">
-          {flat.length === 0 ? (
+          {leading ? sendRow : null}
+          {hits.length === 0 ? (
             /* **Names the query and says what was searched.** No suggestions
                and no did-you-mean: the palette is the discovery surface, so
                the honest answer to a miss is the extent of the index. */
@@ -304,7 +345,9 @@ export function CommandPalette({
               })}
             </div>
           ))}
+          {offered && !leading ? sendRow : null}
         </div>
+        {offered && dispatch !== undefined ? <DispatchKeys dispatch={dispatch} sends={current === "dispatch"} /> : null}
       </div>
     </div>
   );

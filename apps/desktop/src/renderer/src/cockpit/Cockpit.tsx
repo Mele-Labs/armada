@@ -324,7 +324,7 @@ export function Cockpit({
     const moves = step !== -1 || arrow;
     if (event.repeat && !moves) return;
     if (holdsText(event.target)) {
-      // The dispatch bar is always empty: Escape or Down hands the keys back to the glass.
+      // An empty field hands the keys back to the glass on Escape or Down.
       const field = event.target;
       if (field instanceof HTMLInputElement && field.value === "" && (isPressed("close", event) || (bare && event.key === "ArrowDown"))) {
         event.preventDefault();

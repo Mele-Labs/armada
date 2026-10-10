@@ -6,7 +6,6 @@
       { "id": "done", "hideable": true }
     ] },
     "dashboard.panels": { "ordered": true, "firstable": false, "entries": [
-      { "id": "quick-dispatch", "hideable": true },
       { "id": "fleet", "hideable": false },
       { "id": "merge-line", "hideable": true }
     ] },

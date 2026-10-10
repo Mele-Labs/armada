@@ -517,12 +517,6 @@ function lineItems(state: BridgeState, tab: DashboardTab, hosts: Hosts, rehearse
   return items;
 }
 
-/** Whether the owner is wanted anywhere: the quick box shows only where this is false. */
-export function useNeedsYou(state: BridgeState, picked: RepositorySummary | null, nowViews: Readonly<Record<string, CallView>> | undefined): boolean {
-  const items = useItems("command-central", state, picked, nowViews, { onOpen: () => {}, onOpenSession: () => {}, onOpenLink: () => {} }, new Set());
-  return items.length > 0;
-}
-
 export function useItems(
   tab: DashboardTab,
   state: BridgeState,

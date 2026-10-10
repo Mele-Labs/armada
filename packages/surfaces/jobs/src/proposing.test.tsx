@@ -146,7 +146,8 @@ describe("where the press leaves you", () => {
     await onRunning();
     const before = rows().length;
 
-    await page.getByRole("button", { name: "Dispatch", exact: true }).first().click();
+    await page.getByRole("button", { name: /^Search, or describe work/ }).click();
+    await userEvent.keyboard("{Shift>}{Enter}{/Shift}");
     const select = page.getByLabelText("Repository", { exact: true }).element() as HTMLSelectElement;
     const offered = [...select.options].find((one) => !one.disabled && one.value !== "");
     await userEvent.selectOptions(select, offered!.value);

@@ -11,7 +11,7 @@ import { boardJobs, boardWorkflows } from "@armada/screens/src/fixtures/build/bo
 
 import { onBoard } from "./scenario";
 import type { Scenario } from "./scenario";
-import { mount, openHelm, rows, unmountAfterEach } from "./testing";
+import { mount, onScreen, openHelm, rows, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
 
@@ -87,11 +87,14 @@ test("every filter draws its own: what needs you comes forward, what is live and
   await expect.element(page.getByRole("listbox", { name: "Tiles" })).toBeVisible();
 });
 
-test("no jobs: the cursor is in the dispatch bar, and typing opens the composer", async () => {
+test("no jobs: n opens the one bar, and the work typed there dispatches through the composer on All", async () => {
   mount(onOverview([]));
-  const bar = page.getByRole("textbox", { name: "Request" });
-  await expect.element(bar).toHaveFocus();
-  await userEvent.keyboard("C");
+  await onScreen();
+  await userEvent.keyboard("n");
+  await expect.element(page.getByRole("combobox")).toHaveFocus();
+  await userEvent.keyboard("Cap the retry backoff");
+  await expect.element(page.getByRole("option", { name: /^Dispatch “Cap the retry backoff” as a Job/ })).toHaveAttribute("aria-selected", "true");
+  await userEvent.keyboard("{Enter}");
   // On All, the composer opens on its one question first.
   await expect.element(page.getByText("Pick the repository this Job is for")).toBeVisible();
 });
@@ -154,8 +157,14 @@ test("the Job picked is Overview's cursor, and Helm's footer names it", async ()
   await expect.element(page.getByText(/^Cockpit · cursor on Job \d+$/)).toBeVisible();
 });
 
-test("n brings the cursor to the dispatch bar from the Dashboard", async () => {
+test("a search that matches keeps ↵ on the match, and ⌘↵ still dispatches", async () => {
   await overview(onOverview(JOBS()));
-  await userEvent.keyboard("n");
-  await expect.element(page.getByRole("textbox", { name: "Request" })).toHaveFocus();
+  await page.getByRole("button", { name: /^Search/ }).click();
+  await userEvent.keyboard("Settings");
+  // One word that names something: the match leads, and the dispatch row waits at the foot.
+  await expect.element(page.getByRole("option", { name: /^Dispatch “Settings”/ })).toHaveAttribute("aria-selected", "false");
+  await userEvent.keyboard("{Meta>}{Enter}{/Meta}");
+  await expect.element(page.getByRole("dialog", { name: "Command palette" })).not.toBeInTheDocument();
+  // On All, the Job goes to the composer, which asks for the repository.
+  await expect.element(page.getByText("Pick the repository this Job is for")).toBeVisible();
 });
