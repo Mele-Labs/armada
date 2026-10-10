@@ -25,6 +25,7 @@ use crate::daemon::Fleet;
 use crate::permitting::{
     always_allow_rules, first, Answered, First, Permitted, Refusing, Waiting, Withheld,
 };
+use crate::prompts::Prompts;
 use crate::resume::Steer;
 use crate::session::{LiveSession, Occasion};
 
@@ -187,11 +188,15 @@ fn said_of(answered: &Answered) -> &'static str {
 /// **The note rides the reject and nothing else can read it**: [`Answered`] has
 /// no field for one on an allow, so there is no arm here that could carry a
 /// person's words into a sentence about a command that was permitted.
-fn permitted(command: &str, answered: &Answered) -> Permitted {
+fn permitted(prompts: &Prompts, command: &str, answered: &Answered) -> Permitted {
     match answered {
-        Answered::Allowed(reach, rule) => Permitted::allowed(command, *reach, rule.as_deref()),
-        Answered::AllowedInKit(rule) => Permitted::allowed_in_kit(command, rule.as_deref()),
-        Answered::Rejected(note) => Permitted::rejected(command, note.as_ref()),
+        Answered::Allowed(reach, rule) => {
+            Permitted::allowed(prompts, command, *reach, rule.as_deref())
+        }
+        Answered::AllowedInKit(rule) => {
+            Permitted::allowed_in_kit(prompts, command, rule.as_deref())
+        }
+        Answered::Rejected(note) => Permitted::rejected(prompts, command, note.as_ref()),
     }
 }
 
@@ -715,7 +720,7 @@ where
             None => Some(answered),
         };
         if let Some(answered) = as_a_turn {
-            let told = permitted(&command, &answered);
+            let told = permitted(&self.prompts(), &command, &answered);
             at_work.instructed(Occasion::Permission, told.text());
             at_work
                 .session()
@@ -769,9 +774,12 @@ where
         }
         let step = crate::stuck::stopped_step(&job).cloned();
         let delivered = if self.drone_speakable(job_id).await {
-            self.steer(job_id, Steer::Permission(&permitted(&command, &answered)))
-                .await
-                .map(|_| ())
+            self.steer(
+                job_id,
+                Steer::Permission(&permitted(&self.prompts(), &command, &answered)),
+            )
+            .await
+            .map(|_| ())
         } else {
             // Reject is never offered here, so this is an allow: the next
             // Drone carries it, and is told nothing about it.

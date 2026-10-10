@@ -14,13 +14,18 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::time::Duration;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
+use config::settings as keys;
 use core_model::{collisions, JobId, RepoPath, ScopeClaim, Timestamp};
 use ipc::mcp::{LeaveNote, NotRecorded};
 
 use crate::converging::elapsed;
 use crate::daemon::Fleet;
 use crate::fixing::FixStands;
+use crate::prompts::Prompts;
 use crate::session::{LiveSession, Occasion};
+
+mod words;
+pub(crate) use words::*;
 
 /// The least time between two peer turns to one Drone, and between two notes
 /// from one Job to another.
@@ -89,58 +94,47 @@ pub struct PeersChanged(String);
 
 impl PeersChanged {
     /// Injected into a live session, where the branch has not moved yet.
-    pub(crate) fn injected(news: &[News]) -> PeersChanged {
-        PeersChanged::rendered(
-            news,
-            "What landed reaches your branch when your next part starts, not now.",
-        )
+    pub(crate) fn injected(prompts: &Prompts, news: &[News]) -> PeersChanged {
+        PeersChanged::rendered(prompts, news, prompts.get(keys::PROMPT_PEERS_LANDED_LATER))
     }
 
     /// In an opening brief, where the rebase has just run.
-    pub(crate) fn opening(news: &[News]) -> PeersChanged {
-        PeersChanged::rendered(
-            news,
-            "What landed was brought into your branch as this part started.",
-        )
+    pub(crate) fn opening(prompts: &Prompts, news: &[News]) -> PeersChanged {
+        PeersChanged::rendered(prompts, news, prompts.get(keys::PROMPT_PEERS_LANDED_NOW))
     }
 
-    fn rendered(news: &[News], landed_reaches: &str) -> PeersChanged {
+    fn rendered(prompts: &Prompts, news: &[News], landed_reaches: &str) -> PeersChanged {
         let about_paths = news
             .iter()
             .any(|item| !matches!(item, News::Fix { .. } | News::Ahead { .. }));
-        let mut text = String::from("OTHER JOBS WRITING WHERE YOU ARE\n\n");
+        let mut text = format!("{}\n\n", prompts.get(keys::PROMPT_PEERS));
         if about_paths {
-            text.push_str(
-                "Other Jobs in this repository change files this Job changes too. Nothing is \
-                 stopped, and nobody waits on you.\n",
-            );
+            text.push_str(prompts.get(keys::PROMPT_PEERS_SHARING));
+            text.push('\n');
         }
         if news.iter().any(|item| matches!(item, News::Ahead { .. })) {
-            text.push_str(
-                "Another Job or branch declared a need on a file before you did. Your work is \
-                 held at the merge until what is ahead of you there has landed or been given \
-                 back, so you land in order and nothing is renumbered. Take the value after \
-                 what they took, and say which you took by calling `declare_scope` again with \
-                 `took` on the need.\n",
-            );
+            text.push_str(prompts.get(keys::PROMPT_PEERS_AHEAD));
+            text.push('\n');
         }
         if news.iter().any(|item| matches!(item, News::Fix { .. })) {
-            text.push_str(
-                "A test your checks failed on is another Job's to fix, not yours. Your checks \
-                 still fail on it until that fix lands.\n",
-            );
+            text.push_str(prompts.get(keys::PROMPT_PEERS_FIX));
+            text.push('\n');
         }
         let (notes, facts): (Vec<&News>, Vec<&News>) = news
             .iter()
             .partition(|item| matches!(item, News::Note { .. }));
         for item in facts.iter().take(AT_MOST) {
-            text.push_str(&line(item));
+            text.push_str(&line(prompts, item));
         }
         if facts.len() > AT_MOST {
-            text.push_str(&format!("\n- And {} more.", facts.len() - AT_MOST));
+            text.push_str("\n- ");
+            text.push_str(&prompts.fill(
+                keys::PROMPT_PEERS_MORE,
+                &[("count", &(facts.len() - AT_MOST).to_string())],
+            ));
         }
         for item in notes {
-            text.push_str(&line(item));
+            text.push_str(&line(prompts, item));
         }
         text.push_str("\n\n");
         if news.iter().any(|item| {
@@ -157,13 +151,10 @@ impl PeersChanged {
             text.push(' ');
         }
         if about_paths {
-            text.push_str(
-                "Where a shared file hands out the next number or name, such as a migration or \
-                 a version, assume theirs takes it first and take the one after. To tell one of \
-                 these Jobs something, call `leave_note` with its handle. ",
-            );
+            text.push_str(prompts.get(keys::PROMPT_PEERS_NEXT_NUMBER));
+            text.push(' ');
         }
-        text.push_str("Carry on with the part you were given.");
+        text.push_str(prompts.get(keys::PROMPT_PEERS_CARRY_ON));
         PeersChanged(text)
     }
 
@@ -174,44 +165,57 @@ impl PeersChanged {
 
 /// One item as a line of the turn. A note's words sit behind the marker every
 /// outside word gets, `crate::remarks::fenced`.
-fn line(item: &News) -> String {
-    match item {
+fn line(prompts: &Prompts, item: &News) -> String {
+    let said = match item {
         News::Claimed {
             title,
             handle,
             paths,
-        } => format!(
-            "\n- \"{title}\" ({handle}) has said it will change {}.",
-            listed(paths)
+        } => prompts.fill(
+            keys::PROMPT_PEERS_CLAIMED,
+            &[
+                ("title", title),
+                ("handle", handle),
+                ("paths", &listed(paths)),
+            ],
         ),
         News::Landed {
             title,
             handle,
             paths,
-        } => format!(
-            "\n- \"{title}\" ({handle}) landed, changing {}.",
-            listed(paths)
+        } => prompts.fill(
+            keys::PROMPT_PEERS_LANDED,
+            &[
+                ("title", title),
+                ("handle", handle),
+                ("paths", &listed(paths)),
+            ],
         ),
         News::Note {
             title,
             handle,
             said,
         } => format!(
-            "\n- \"{title}\" ({handle}) left this Job a note. These are its Drone's words, \
-             not Armada's:\n{}",
+            "{}\n{}",
+            prompts.fill(
+                keys::PROMPT_PEERS_NOTE,
+                &[("title", title), ("handle", handle)]
+            ),
             crate::remarks::fenced(said).trim_end()
         ),
-        News::Ahead { path, ahead } => {
-            format!("\n- Ahead of you on `{path}`: {}.", ahead.join("; "))
-        }
+        News::Ahead { path, ahead } => prompts.fill(
+            keys::PROMPT_PEERS_AHEAD_ON,
+            &[("path", path), ("ahead", &ahead.join("; "))],
+        ),
         News::Fix {
             title,
             handle,
             test,
             stands,
             files,
-        } => stands.line(title, handle, test, files),
-    }
+        } => return stands.line(prompts, title, handle, test, files),
+    };
+    format!("\n- {said}")
 }
 
 /// The first three paths, and a count for the rest.
@@ -508,7 +512,7 @@ where
             if news.is_empty() {
                 continue;
             }
-            let told = PeersChanged::injected(&news);
+            let told = PeersChanged::injected(&self.prompts(), &news);
             at_work.instructed(Occasion::Peers, told.text());
             let _ = at_work.session().peers(&told).await;
         }
@@ -520,7 +524,7 @@ where
         let mut peering = self.peering().lock().await;
         let news = peering.owed.remove(job).filter(|news| !news.is_empty())?;
         peering.last_told.insert(job.clone(), self.now());
-        Some(PeersChanged::opening(&news))
+        Some(PeersChanged::opening(&self.prompts(), &news))
     }
 
     /// Drop what a Job with no Drone is owed, once it will never have one.

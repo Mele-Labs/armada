@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useRef, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 
 import { GuideCard } from "./compositions/GuideCard/GuideCard";
 import type { Guide } from "./guides/guide";
@@ -21,8 +21,9 @@ export type GuidanceMemory = {
 
 const NOTHING_MET: GuidanceMemory = { off: false, met: [], cardSeen: false };
 
-// `localStorage` rather than a Fleet preference, `left-collapsed.ts`' own
-// reason: this is one window's way of looking, not a fact about the fleet.
+// `localStorage` for what has been met, `left-collapsed.ts`' own reason: one window's way of looking.
+// Whether first contact is on at all is `features.openGuidesFirstTime` in settings.json once Fleet
+// has answered (`GuidanceProvider.firstContact`); `off` here is only read before then.
 const KEY = "armada.bridge.guides";
 
 function readMemory(): GuidanceMemory {
@@ -102,6 +103,12 @@ export type GuidanceProviderProps = {
    * control and the window answers it. Absent draws no control.
    */
   onReadAll?: () => void;
+  /**
+   * First contact as settings.json holds it, `features.openGuidesFirstTime`. **Absent until Fleet
+   * has answered**, and the window's own memory of the switch answers until then. `saved` is whether
+   * the file holds the key, so a switch turned off before the setting existed is carried into it once.
+   */
+  firstContact?: { off: boolean; saved: boolean; onOff: (off: boolean) => void };
 };
 
 /**
@@ -113,9 +120,20 @@ export type GuidanceProviderProps = {
  * four; the rest keep their first contact for a later visit. Four uninvited
  * cards in a row is the noise the mark exists to replace.
  */
-export function GuidanceProvider({ children, remembered = true, onReadAll }: GuidanceProviderProps) {
-  const [memory, setMemory] = useState<GuidanceMemory>(() => (remembered ? readMemory() : NOTHING_MET));
+export function GuidanceProvider({ children, remembered = true, onReadAll, firstContact }: GuidanceProviderProps) {
+  const [stored, setMemory] = useState<GuidanceMemory>(() => (remembered ? readMemory() : NOTHING_MET));
   const [showing, setShowing] = useState<Showing | null>(null);
+  const memory = firstContact === undefined ? stored : { ...stored, off: firstContact.off };
+
+  // A switch turned off in this window before settings.json held it is carried there, once.
+  const carried = useRef(false);
+  useEffect(() => {
+    if (firstContact === undefined || carried.current) return;
+    carried.current = true;
+    if (!firstContact.saved && stored.off && !firstContact.off) firstContact.onOff(true);
+  }, [firstContact, stored.off]);
+  const setting = useRef(firstContact);
+  setting.current = firstContact;
 
   // Read through a ref, so the two callbacks below never change identity: a
   // mark says it is on screen from an effect, and an effect that re-runs on
@@ -153,7 +171,11 @@ export function GuidanceProvider({ children, remembered = true, onReadAll }: Gui
   );
 
   const onOff = useCallback(
-    (off: boolean) => remember({ ...latest.current.memory, off }),
+    (off: boolean) => {
+      const own = setting.current;
+      if (own === undefined) remember({ ...latest.current.memory, off });
+      else own.onOff(off);
+    },
     [remember],
   );
 

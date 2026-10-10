@@ -316,7 +316,7 @@ where
                 node_ids,
             },
         );
-        let told = crate::scout::told_a_read_in(&root, &source.told(), &text);
+        let told = crate::scout::told_a_read_in(&self.prompts(), &root, &source.told(), &text);
         Arc::clone(self)
             .scouting(id, gathering, root, told, Some(link))
             .await;

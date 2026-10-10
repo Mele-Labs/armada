@@ -224,7 +224,7 @@ pub mod policy;
 pub mod ports;
 mod pr_mode;
 mod precedent;
-/// A person's Bridge preferences, `limits`'s shape one table over.
+/// A person's Bridge preferences, five keys of settings.json in their older shape.
 mod preferences;
 pub mod preparing;
 /// The probes Fleet can run on itself, and the Doctor modules it cannot.
@@ -233,6 +233,8 @@ mod probing;
 pub mod process;
 /// Starting a scout on a Studio, recording what it read, and stopping it.
 mod promoting;
+/// The prompts a person may override in settings.json: what ships, and what is in force.
+pub mod prompts;
 pub mod proposal;
 pub mod proposals;
 mod proposing;
@@ -356,6 +358,9 @@ pub mod sub_dispatch;
 mod summarising;
 mod superseding;
 pub use orphans::keep_ending_orphans;
+/// settings.json: the file, its watch's re-read, its save, and the move of the
+/// store's saved rows into it. `docs/concepts/machine.md`, *settings.json*.
+pub mod settings;
 pub mod sweeping;
 /// Edit this task, and a Job's tier map. Spike 022, slice 3.
 /// The merge line Fleet runs for each repository, and its turn.
@@ -376,6 +381,8 @@ pub mod trigger_repair;
 pub mod triggering;
 /// A step's tuning at the approval press. 23.20.
 pub mod tuned;
+/// The live dials settings.json moves, shipped and overlaid by saved.
+pub mod tuning;
 pub mod turning;
 /// The one vigil whose subject is a Job with no Drone to watch.
 mod unattended;

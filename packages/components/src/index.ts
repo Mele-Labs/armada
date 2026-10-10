@@ -294,10 +294,8 @@ export * from "./compositions/PlanGroupSheet/PlanGroupSheet";
 // Every setting a person can change on a running Job, on the same layer, and
 // the header's way into it.
 export * from "./compositions/JobSettings/JobSettings";
-export * from "./compositions/FleetSettings/FleetSettings";
 export * from "./compositions/KitServers/KitServers";
 export * from "./compositions/KitSetup/KitSetup";
-export * from "./compositions/MachineSettings/MachineSettings";
 
 // Asking a Job to show its work again, and every set a press kept beside the
 // step's own frames. Each set is an unchanged `FramesShown`.
@@ -457,3 +455,5 @@ export * from "./compositions/LayoutRow/LayoutRow";
 export * from "./compositions/SettingsIndex/SettingsIndex";
 export * from "./compositions/KeyBindingRow/KeyBindingRow";
 export * from "./compositions/PhonePairing/PhonePairing";
+// One setting from settings.json, drawn from its kind.
+export * from "./compositions/SettingField/SettingField";

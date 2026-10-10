@@ -129,7 +129,7 @@ where
             self.members_landed(&job).await?;
         }
         let job = self.move_step(&job, &step, StepTarget::Advanced).await?;
-        let told = OutcomeTurn::approved(&passed, next.as_ref());
+        let told = OutcomeTurn::approved(&passed, next.as_ref(), &self.prompts().wording());
         let Some(next) = next else {
             let done = self
                 .completed(&job, &told, job_id, &mut working, by)
@@ -155,7 +155,7 @@ where
         // dispatch that used to happen here ran inside the request that
         // approved the work, and a client that stopped waiting took the
         // preparation and the timeout watching it away together. The turn
-        // admits, within one `PROVISIONAL_TURN_INTERVAL`.
+        // admits, within one `timeouts.turnIntervalMs`.
         //
         // The `told` above is still built and still goes to the Drone on the
         // path where there is no next step: a Job that finished tells the

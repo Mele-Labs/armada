@@ -12,11 +12,11 @@ use axum::response::Response;
 use ipc::SavePreference;
 
 use crate::answers::{answer, refused, undecodable};
-use crate::daemon::{Commands, Queries};
+use crate::daemon::Settings;
 use crate::served::Served;
 
 /// Every preference, and what is in force for each.
-pub(crate) async fn get_preferences<D: Queries>(State(served): State<Served<D>>) -> Response {
+pub(crate) async fn get_preferences<D: Settings>(State(served): State<Served<D>>) -> Response {
     match served.daemon().get_preferences().await {
         Ok(preferences) => answer(StatusCode::OK, &preferences, served.run_id()),
         Err(refusal) => refused(refusal),
@@ -29,7 +29,7 @@ pub(crate) async fn get_preferences<D: Queries>(State(served): State<Served<D>>)
 /// **A name outside the closed set is [`crate::daemon::Refusal::Unacceptable`]**,
 /// not undecodable — `SavePreference.name` is a plain string, so the body
 /// always decodes and the daemon is what refuses it, by name.
-pub(crate) async fn save_preferences<D: Commands>(
+pub(crate) async fn save_preferences<D: Settings>(
     State(served): State<Served<D>>,
     body: Bytes,
 ) -> Response {

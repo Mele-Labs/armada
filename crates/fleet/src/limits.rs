@@ -4,23 +4,23 @@
 //!
 //! **Shipped, overlaid by saved.** The composition root hands in the shipped
 //! numbers as [`Fittings`](crate::daemon::Fittings)' `concurrency`, `headroom`
-//! and `checks_at_once`; a field somebody saved replaces its shipped value at
-//! assembly and again at every save. A stored value outside the range the wire
-//! allows is ignored rather than trusted, since only a hand-edited file could
-//! hold one.
+//! and `checks_at_once`; a value settings.json holds replaces its shipped one
+//! at assembly and at every save or hand edit. `config::settings` has already
+//! refused a file holding one out of range, so nothing here checks a range.
 //!
-//! **A save changes the next admission and the next Check, and nothing else.**
-//! The roster's bound and the headroom are replaced under the roster lock, so
-//! no admission sees one limit changed and the other not; a Drone already
-//! working keeps working, a gate already running keeps the headroom it began
-//! with, and a saved Checks at once counts from the next place given out. No
-//! Commands method admits — `crate::admitting` says why — so this does not either.
+//! **A change reaches the next admission and the next Check, and nothing
+//! else.** The roster's bound and the headroom are replaced under the roster
+//! lock, so no admission sees one limit changed and the other not; a Drone
+//! already working keeps working, a gate already running keeps the headroom it
+//! began with, and a saved Checks at once counts from the next place given out.
+
+use std::collections::BTreeMap;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
-use ipc::{DiskFloorGib, DronesAtOnce, FleetLimits, LimitValues, MemorySparePercent, SaveLimits};
-use store::{LoadJobError, SavedLimits};
+use api::Refusal;
+use config::settings::{self as keys, Resolved};
+use ipc::{FleetLimits, LimitValues, SaveLimits, SaveSettings, SettingValue};
 
-use crate::adrift::Adrift;
 use crate::daemon::Fleet;
 use crate::headroom::{Bytes, Headroom, Spare};
 use crate::places::ChecksAtOnce;
@@ -35,27 +35,20 @@ pub struct Limits {
 }
 
 impl Limits {
-    /// These limits with every value a person saved put over them.
-    pub fn overlaid_by(self, saved: &SavedLimits) -> Limits {
-        let concurrency = saved
-            .concurrency
-            .and_then(DronesAtOnce::new)
-            .map(|jobs| Concurrency::of(jobs.get() as usize))
+    /// These limits with every value settings.json chose put over them.
+    pub fn overlaid_by(self, settings: &Resolved) -> Limits {
+        let whole = |key| settings.chosen(key).and_then(|n: i64| u32::try_from(n).ok());
+        let concurrency = whole(keys::DRONES_AT_ONCE)
+            .map(|jobs| Concurrency::of(jobs as usize))
             .unwrap_or(self.concurrency);
-        let spare = saved
-            .memory_spare_percent
-            .and_then(MemorySparePercent::new)
-            .map(|share| Spare::percent(share.get()))
+        let spare = whole(keys::MEMORY_SPARE_PERCENT)
+            .map(Spare::percent)
             .unwrap_or(self.headroom.memory_spare());
-        let disk = saved
-            .disk_floor_gib
-            .and_then(DiskFloorGib::new)
-            .map(|floor| Bytes::gibibytes(u64::from(floor.get())))
+        let disk = whole(keys::DISK_FLOOR_GIB)
+            .map(|floor| Bytes::gibibytes(u64::from(floor)))
             .unwrap_or(self.headroom.disk_floor());
-        let checks_at_once = saved
-            .checks_at_once
-            .and_then(ipc::ChecksAtOnce::new)
-            .map(|checks| ChecksAtOnce::of(checks.get() as usize))
+        let checks_at_once = whole(keys::CHECKS_AT_ONCE)
+            .map(|checks| ChecksAtOnce::of(checks as usize))
             .unwrap_or(self.checks_at_once);
         Limits {
             concurrency,
@@ -77,24 +70,24 @@ impl Limits {
     }
 }
 
-/// A save put over what was saved before it: a field the save names replaces
-/// its value, and one it omits keeps whatever was there — including nothing.
-pub(crate) fn merged(before: SavedLimits, save: &SaveLimits) -> SavedLimits {
-    SavedLimits {
-        concurrency: save.concurrency.map(|v| v.get()).or(before.concurrency),
-        memory_spare_percent: save
-            .memory_spare_percent
-            .map(|v| v.get())
-            .or(before.memory_spare_percent),
-        disk_floor_gib: save
-            .disk_floor_gib
-            .map(|v| v.get())
-            .or(before.disk_floor_gib),
-        checks_at_once: save
-            .checks_at_once
-            .map(|v| v.get())
-            .or(before.checks_at_once),
-    }
+/// A save of the older shape as the keys it names. **An omitted field is not
+/// a key**, so it keeps whatever the file holds — including nothing.
+fn as_changes(save: &SaveLimits) -> SaveSettings {
+    let mut changes = BTreeMap::new();
+    let mut named = |key: keys::Integer, value: Option<u32>| {
+        if let Some(value) = value {
+            changes.insert(key_name(key), Some(SettingValue::Integer(i64::from(value))));
+        }
+    };
+    named(keys::DRONES_AT_ONCE, save.concurrency.map(|v| v.get()));
+    named(keys::MEMORY_SPARE_PERCENT, save.memory_spare_percent.map(|v| v.get()));
+    named(keys::DISK_FLOOR_GIB, save.disk_floor_gib.map(|v| v.get()));
+    named(keys::CHECKS_AT_ONCE, save.checks_at_once.map(|v| v.get()));
+    SaveSettings { changes }
+}
+
+fn key_name(key: impl config::settings::Key) -> String {
+    key.name().to_string()
 }
 
 impl<H, V, W> Fleet<H, V, W>
@@ -122,23 +115,20 @@ where
         }
     }
 
-    /// Save, then put what was saved in force.
+    /// Save into settings.json, then answer with what is in force.
+    pub(crate) async fn save_limits_now(&self, save: SaveLimits) -> Result<FleetLimits, Refusal> {
+        self.save_settings_now(as_changes(&save)).await?;
+        Ok(self.limits_in_force().await)
+    }
+
+    /// Put the limits settings.json holds in force.
     ///
-    /// **Roster, then store** — the order `crate::slots` states. The store is
-    /// written before anything in memory moves, so a save that did not land
-    /// changes nothing a person could then see disagree with a restart.
-    pub(crate) async fn save_limits_now(&self, save: SaveLimits) -> Result<FleetLimits, Adrift> {
+    /// **Roster first**, the order `crate::slots` states, and the file is
+    /// already written by the time this runs, so nothing in memory moves on a
+    /// save that did not land.
+    pub(crate) async fn relimited(&self, settings: &Resolved) {
         let mut slots = self.slots().lock().await;
-        let saved = {
-            let mut store = self.store().lock().await;
-            let before = store
-                .saved_limits()
-                .map_err(|fault| Adrift::Reading(LoadJobError::Database(fault)))?;
-            let saved = merged(before, &save);
-            store.save_limits(&saved).map_err(Adrift::Writing)?;
-            saved
-        };
-        let limits = self.shipped().overlaid_by(&saved);
+        let limits = self.shipped().overlaid_by(settings);
         slots.rebound(limits.concurrency);
         self.rehoused(limits.headroom);
         self.rechecked(limits.checks_at_once);
@@ -147,9 +137,5 @@ where
         // act, and a width still divided by the old bound would hand out more
         // of the machine than the new one allows. #1444.
         self.rewidened(limits.concurrency);
-        Ok(FleetLimits {
-            values: limits.values(),
-            shipped: self.shipped().values(),
-        })
     }
 }

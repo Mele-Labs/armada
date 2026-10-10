@@ -92,6 +92,11 @@ pub use fields::{
 pub use gaming::{
     CitedAt, ClearedFlag, DecidedBy, EvidenceRef, GamingCheck, GamingFlag, GamingPattern,
 };
+/// What the Judge is asked about each judged pattern, as Armada ships it.
+pub use gaming::{
+    ASSERTION_WEAKENED_QUESTION, FINDINGS_GENERIC_QUESTION, FINDINGS_NOT_TIED_QUESTION,
+    NO_FINDINGS_QUESTION, TAUTOLOGICAL_TEST_QUESTION, TEST_SCOPE_NARROWED_QUESTION,
+};
 pub use guard::Guard;
 pub use handle::{handle_of, names_a_credential, JobNumber, JobReference, CREDENTIAL_NAMES};
 pub(crate) use ids::id_newtype;

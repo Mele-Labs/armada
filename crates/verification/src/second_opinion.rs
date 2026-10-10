@@ -14,19 +14,25 @@
 use core_model::{CitedAt, ClearedFlag, GamingFlag, GamingPattern};
 
 use crate::gaming::GamingBrief;
+use crate::wording::{Piece, Wording};
 
 /// What the answer ends with. **Reasoning first is allowed**, which is the
 /// whole difference from the first look's format; the two lines are read from
 /// the end so that reasoning using either word does not answer for them.
-const ANSWER_FORMAT: &str = "\
+pub const JUDGE_SECOND_ANSWER: Piece = Piece {
+    id: "judgeSecondAnswer",
+    shipped: "\
 Reason it through first, for as long as that takes. Then end your answer with \
 these two lines and nothing after them:
 
     agree: yes or no
-    why: <one or two plain sentences a person reads beside the flag>";
+    why: <one or two plain sentences a person reads beside the flag>",
+};
 
 /// How the question is weighed. Owned here, beside the one reader it is for.
-const HOW_TO_WEIGH_IT: &str = "\
+pub const JUDGE_SECOND_HOW_TO_WEIGH: Piece = Piece {
+    id: "judgeSecondHowToWeigh",
+    shipped: "\
 An assertion is a check inside test code that can fail when the code under it \
 is wrong. A comment, a doc comment or any other prose is never an assertion, \
 whatever it says.
@@ -34,9 +40,41 @@ whatever it says.
 Agree where the change does what the question describes. Disagree where it \
 does not: where the cited line is not the kind of thing the question is about, \
 where what was dropped is still checked somewhere else in this change, or where \
-the earlier step's evidence above called for this change.
+the earlier step's evidence above called for this change.",
+};
 
-";
+/// What a second reader is told it is doing.
+pub const JUDGE_SECOND_OPENING: Piece = Piece {
+    id: "judgeSecondOpening",
+    shipped: "You are the second reader of a flag. A first reader was checking whether a \
+              change was made to look finished rather than to be finished. It had no room to \
+              reason, and it answered yes to the question below. Decide whether it was right.",
+};
+
+/// The line the first reader's question follows.
+pub const JUDGE_SECOND_QUESTION: Piece = Piece {
+    id: "judgeSecondQuestion",
+    shipped: "The question the first reader answered yes to:",
+};
+
+/// The line what the first reader cited follows.
+pub const JUDGE_SECOND_CITED: Piece = Piece {
+    id: "judgeSecondCited",
+    shipped: "What it cited:",
+};
+
+/// Where the cited line is, on a line the change leaves.
+pub const JUDGE_SECOND_AT_LINE: Piece = Piece {
+    id: "judgeSecondAtLine",
+    shipped: "The diff holds that in `{file}`, at line {line} of the file as this change \
+              leaves it.",
+};
+
+/// Where the cited line is, on a line the change removes.
+pub const JUDGE_SECOND_REMOVED_LINE: Piece = Piece {
+    id: "judgeSecondRemovedLine",
+    shipped: "The diff holds that in `{file}`, on a line this change removes.",
+};
 
 /// One judged flag, put to a second reader.
 ///
@@ -52,20 +90,22 @@ pub struct SecondOpinion {
 impl SecondOpinion {
     /// Assemble the second question about `flag`, which `first` raised.
     pub fn about(first: &GamingBrief, flag: GamingFlag) -> SecondOpinion {
-        let mut question = String::from(
-            "You are the second reader of a flag. A first reader was checking whether a \
-             change was made to look finished rather than to be finished. It had no room to \
-             reason, and it answered yes to the question below. Decide whether it was right.\n\n",
-        );
+        SecondOpinion::worded(first, flag, &Wording::shipped())
+    }
+
+    /// The same question in `wording`.
+    pub fn worded(first: &GamingBrief, flag: GamingFlag, wording: &Wording) -> SecondOpinion {
+        let mut question = format!("{}\n\n", wording.get(JUDGE_SECOND_OPENING));
         question.push_str(first.shown());
-        question.push_str("\n\nThe question the first reader answered yes to:\n\n");
+        question.push_str(&format!("\n\n{}\n\n", wording.get(JUDGE_SECOND_QUESTION)));
         question.push_str(first.asked());
-        question.push_str("\n\nWhat it cited:\n\n");
+        question.push_str(&format!("\n\n{}\n\n", wording.get(JUDGE_SECOND_CITED)));
         question.push_str(&flag.cited);
         question.push_str("\n\n");
-        question.push_str(&placed(flag.at.as_ref()));
-        question.push_str(HOW_TO_WEIGH_IT);
-        question.push_str(ANSWER_FORMAT);
+        question.push_str(&placed(flag.at.as_ref(), wording));
+        question.push_str(wording.get(JUDGE_SECOND_HOW_TO_WEIGH));
+        question.push_str("\n\n");
+        question.push_str(wording.get(JUDGE_SECOND_ANSWER));
         SecondOpinion { flag, question }
     }
 
@@ -118,17 +158,19 @@ impl SecondOpinion {
 }
 
 /// Where the patch holds the citation, said to the reader so it need not hunt.
-fn placed(at: Option<&CitedAt>) -> String {
+fn placed(at: Option<&CitedAt>, wording: &Wording) -> String {
     match at {
         Some(at) => match at.line() {
             Some(line) => format!(
-                "The diff holds that in `{}`, at line {line} of the file as this change \
-                 leaves it.\n\n",
-                at.path().as_str()
+                "{}\n\n",
+                wording.fill(
+                    JUDGE_SECOND_AT_LINE,
+                    &[("file", at.path().as_str()), ("line", &line.to_string())]
+                )
             ),
             None => format!(
-                "The diff holds that in `{}`, on a line this change removes.\n\n",
-                at.path().as_str()
+                "{}\n\n",
+                wording.fill(JUDGE_SECOND_REMOVED_LINE, &[("file", at.path().as_str())])
             ),
         },
         None => String::new(),

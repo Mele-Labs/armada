@@ -22,6 +22,9 @@ mod session_record;
 mod session_writing;
 mod writing;
 
+pub(crate) use session_writing::SESSION_QUESTION;
+pub(crate) use writing::{LANDS_IN, QUESTION, TEXTS};
+
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 

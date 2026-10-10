@@ -5,16 +5,18 @@
 //! and the file named for the router now holds the router. The gate rule reads
 //! both halves as one text — `xtask/src/rules_protocol.rs`.
 //!
-//! **Split again at the 1200-line rule**, into five tables joined at compile
+//! **Split again at the 1200-line rule**, into tables joined at compile
 //! time: Studios' in [`studios`](mod@studios), the published event kinds in
 //! [`events`](mod@events), a pilot's in [`piloting`](mod@piloting), workflows' and Triggers' in
-//! [`authoring`](mod@authoring), and every other row here. Each is a subject a
+//! [`authoring`](mod@authoring), the Machine's settings in [`settings`](mod@settings),
+//! and every other row here. Each is a subject a
 //! reader opens on its own, and [`SERVED`] stays one slice to every caller. The
 //! gate rule reads all three files — `xtask/src/rules_protocol.rs`.
 
 mod authoring;
 mod events;
 mod piloting;
+mod settings;
 mod studios;
 
 /// One operation, and where it is served.
@@ -46,6 +48,7 @@ pub const SERVED: &[Route] = &joined::<
             + events::ROUTES.len()
             + piloting::ROUTES.len()
             + authoring::ROUTES.len()
+            + settings::ROUTES.len()
     },
 >([
     ROUTES,
@@ -53,11 +56,12 @@ pub const SERVED: &[Route] = &joined::<
     events::ROUTES,
     piloting::ROUTES,
     authoring::ROUTES,
+    settings::ROUTES,
 ]);
 
-/// The five tables as one, in order. A count that disagrees with `N` fails
+/// The six tables as one, in order. A count that disagrees with `N` fails
 /// the build rather than serving a short table.
-const fn joined<const N: usize>(tables: [&[Route]; 5]) -> [Route; N] {
+const fn joined<const N: usize>(tables: [&[Route]; 6]) -> [Route; N] {
     // Filled from the first row and overwritten below: a literal `Route` here
     // would read as a row to the gate rule, which parses this file as text.
     let mut out = [tables[0][0]; N];
@@ -75,7 +79,7 @@ const fn joined<const N: usize>(tables: [&[Route]; 5]) -> [Route; N] {
     out
 }
 
-/// Every row that is neither a Studio's, a pilot's, a workflow's, a Trigger's nor a published event kind.
+/// Every row that is neither a Studio's, a pilot's, a workflow's, a Trigger's, a setting's nor a published event kind.
 const ROUTES: &[Route] = &[
     Route {
         operation: "list_jobs",
@@ -107,32 +111,6 @@ const ROUTES: &[Route] = &[
         operation: "change_fleet_build",
         method: "POST",
         path: "/fleet/build/change",
-    },
-    // The three numbers `/capacity` is measured against, beside it and for its
-    // reason: they are Fleet's, not a Job's. The save spells its act in the last
-    // segment the way `/manifest/save_file` does, so the read stays the noun.
-    Route {
-        operation: "get_limits",
-        method: "GET",
-        path: "/limits",
-    },
-    Route {
-        operation: "save_limits",
-        method: "POST",
-        path: "/limits/save",
-    },
-    // A person's Bridge preferences, `get_limits`/`save_limits`'s shape one
-    // table over: Fleet-wide, not a Job's, and the save spells its act in the
-    // last segment the way `/limits/save` does.
-    Route {
-        operation: "get_preferences",
-        method: "GET",
-        path: "/preferences",
-    },
-    Route {
-        operation: "save_preferences",
-        method: "POST",
-        path: "/preferences/save",
     },
     // One repository's Helm conversation, named by `?manifest_id=`.
     Route {

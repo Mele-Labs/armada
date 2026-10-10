@@ -8,7 +8,31 @@ The settings themselves are `crates/config/settings.toml` — the crate that
 reads them owns the list. Nothing here restates it, because two copies of a
 settings list is how the second one goes stale.
 
-Its open questions are in that file's own `## Open questions` section and in
+Its open questions are in that file's own `## The Machine tier is one file
+
+**Every Machine setting is a key of `settings.json`** in the machine directory, and `config::settings` is the one table of them: key, kind and bounds, default, whether it is live, and the `settings.toml` row it realises. `../concepts/machine.md`, *settings.json*, says what the file is for; these are the rules it is held to.
+
+> **Rule.** A file with one unknown key, one value of the wrong kind or one out of range is refused whole, and changes nothing.
+> Why: `armada.yml`'s rule above. A file half applied is a machine running on settings nobody wrote.
+
+> **Rule.** The refusal names the key and the reason, on Fleet's console and on the wire, and the last good settings stay in force.
+> Why: the value of noticing a hand edit is that somebody is told, and a Fleet that stopped over one typo would stop every Job.
+
+> **Rule.** An environment variable a key names wins over the file, and the file wins over what ships.
+> Why: the variables are a developer's override and predate the file. The wire names the variable where one wins.
+
+> **Rule.** A Job's, a step's or a repository's own value still wins over the machine's.
+> Why: the file replaced the constants beneath those tiers, not the tiers. `fleet::Allowance::at` and `fleet::Liveness::at` are the orders.
+
+> **Rule.** Only a key a person changed is written. A key removed is the shipped default.
+> Why: a later build that ships a different number reaches every key nobody touched.
+
+> **Rule.** A setting read once at start is marked `at_restart`, and a saved change to it is shown as waiting for the next start.
+> Why: a value that silently did nothing until a restart is the defect `armada.yml`'s live keys were built to end.
+
+**`settings.toml` stays the design registry.** Each row a key realises says so in its notes, and `config`'s own test fails on a key naming a row that is not there.
+
+## Open questions` section and in
 `docs/OPEN.md`, not here.
 
 ---
@@ -652,7 +676,7 @@ So `exclude_paths` is now the third tier of three, resolved the way `quiet_after
 
 That day also closes the one gap it cannot close now. A setting nothing reads is visible — `Helm action authority` and `Helm budget soft-warning threshold` carry `unassigned (no crate)`, because Helm has no crate at all, and several Bridge settings carry `bridge (TS)` alone, for which no dependency path in the crate graph resolves config from `armada.yml`/`machine.yml` down to Bridge. **A crate listed here that reads nothing is not visible**, and cannot be: it is a claim about code that does not exist. Once each owning crate's exhaustive match declares the keys it reads, both directions collapse into one diff.
 
-**`Job detail: Where things are open` carries `bridge (TS)` too and is not one of them** — `#927`. It is never a value `config` resolves at all: a person sets it in Bridge, and Fleet's own store keeps it, the way `fleet_limits` keeps a person's admission limits. `get_preferences`/`save_preferences` is the path, and it is a route to Fleet's store rather than a crate reading a resolved Kit/Machine value — this document's tiering rule still classifies the setting as `Machine` because it has one value and no per-project override, not because it travels the pipeline the rest of this section is about.
+**`Job detail: Where things are open` carries `bridge (TS)` too and is not one of them.** It is `bridge.whereThingsAreOpen` in settings.json, resolved by `config::settings` like every other Machine value, and Bridge reads it off `get_settings` or `get_preferences`. #927 kept it in Fleet's store until the owner reversed that on 10 Oct 2026.
 
 - **Owner is the unit that enforces a setting, not the page that documents it.** Six settings moved: `Drone/Job timeout`, `Approval request timeout`, `Job retention` and `Drone heartbeat` were filed under Job and Drone, which are records rather than actors — Fleet enforces all four. `Secrets exposure method` moved from Drone to Fleet for the same reason. Where a setting's documenting page is not a Concept row at all, Owner is deliberately empty: both copy-lint settings, because the Agent Copy Contract is a contract rather than a component.
 - **Fourteen settings were added that code will read and nothing defined.** The Judge — the only tier in the system that measures correctness — had none of the original settings: no model, no threshold, no cost cap, no trigger set. Neither did `ModelClient`, `AgentHarness`'s binary path, the Secrets provider, the VCS host, the worktree root, the Evidence MCP bind address, or `verification`'s `max_context_size`. Each carries a `default` of `undecided` rather than a silent constant.

@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 
 /// Every preference Fleet knows, and what is in force for each.
 ///
-/// **Flat, one field per known preference** — `store::Preferences`' shape,
+/// **Flat, one field per known preference** — the five settings.json keys it reads,
 /// carried across the wire rather than restated as a map: a name outside this
 /// struct cannot be read, which is the closed set on this side of the seam.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

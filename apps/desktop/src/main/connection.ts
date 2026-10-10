@@ -20,7 +20,7 @@ import type { BridgeState, PickedView } from "../shared/bridge";
 import type { Connection, HelmContext, HelmDebugRead, JobSummary, Outcome } from "@armada/protocol";
 import type { BriefRead, CheckOutputRead, FrameRead, LandCheckAt, LessonsRead, RetroRead, RetroSubject } from "@armada/protocol";
 import type { ComposingRead } from "@armada/screens/src/composing-reads";
-import { applyArrival, readCapacity, reread } from "./arrivals";
+import { applyArrival, reread } from "./arrivals";
 import type { ArrivalHost } from "./arrivals";
 import { JobCommands } from "./command";
 import { PilotExits } from "./pilot-exits";
@@ -282,7 +282,6 @@ export class FleetConnection {
       },
       proposalOut: () => this.current.proposing,
       proposalJob: () => this.proposalJobId,
-      rereadCapacity: (port) => readCapacity(port, (change) => this.publish(change)),
     });
     this.pilotExits = new PilotExits({
       port,

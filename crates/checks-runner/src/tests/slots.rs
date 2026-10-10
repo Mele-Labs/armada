@@ -224,3 +224,23 @@ fn a_check_wider_than_the_machine_takes_every_slot_there_is() {
     assert!(slots.try_take(1).expect("writable").is_err());
     drop(all);
 }
+
+/// A count moved while a Check holds a slot past it: the holder keeps it, and
+/// the next ask is counted against the new number. Every clone sees the move.
+#[test]
+fn a_resize_reaches_every_clone_and_leaves_a_holder_its_slot() {
+    let dir = Dir::new("resize");
+    let slots = CheckSlots::at(&dir.0, 3);
+    let held = slots.try_take(3).expect("writable").expect("free");
+
+    let shared = slots.clone();
+    slots.resize(1);
+    assert_eq!(shared.count(), 1, "the clone a Fleet's places hold");
+    let Err(in_use) = shared.try_take(1).expect("writable") else { panic!("slot 0 is held") };
+    assert_eq!(in_use, InUse { in_use: 1, of: 1, wants: 1, behind_the_line: false });
+
+    drop(held);
+    slots.resize(0);
+    assert_eq!(slots.count(), 1, "never fewer than one");
+    assert!(shared.try_take(1).expect("writable").is_ok());
+}

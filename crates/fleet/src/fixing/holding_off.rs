@@ -8,9 +8,12 @@ use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use core_model::{under, BreakageClaim, JobId, LandedHold, RepoPath};
 use verification::TheBaseMoved;
 
+use config::settings as keys;
+
 use crate::daemon::Fleet;
 use crate::fixing::FixStands;
 use crate::peers::News;
+use crate::prompts::Prompts;
 
 /// One fix holding files off this Job.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -67,25 +70,16 @@ impl HeldOff {
     }
 
     /// The opening brief's block, where anything is held.
-    pub(crate) fn text(&self) -> Option<String> {
+    pub(crate) fn text(&self, prompts: &Prompts) -> Option<String> {
         if self.0.is_empty() {
             return None;
         }
-        let mut text = String::from(
-            "FILES ANOTHER JOB IS FIXING\n\n\
-             A test this Job's checks failed on is another Job's to fix, and these files are \
-             that fix's. Until it lands and reaches your copy they are outside what this Job may \
-             change: a declaration naming one is refused, and so is an edit to one. Do the rest \
-             of your part around them, and say in your evidence that the test still fails until \
-             the fix lands.\n",
-        );
+        let mut text = String::from(prompts.get(keys::PROMPT_FIX_HELD_OFF));
+        text.push('\n');
         for hold in &self.0 {
             let doing = match hold.landed {
-                false => format!("is fixing `{}`", hold.test),
-                true => format!(
-                    "landed its fix for `{}`, and your branch could not take it yet",
-                    hold.test
-                ),
+                false => prompts.fill(keys::PROMPT_FIX_HELD_OFF_FIXING, &[("test", &hold.test)]),
+                true => prompts.fill(keys::PROMPT_FIX_HELD_OFF_LANDED, &[("test", &hold.test)]),
             };
             text.push_str(&format!(
                 "\n- \"{}\" ({}) {doing}: {}.",

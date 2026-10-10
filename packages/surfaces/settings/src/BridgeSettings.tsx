@@ -1,259 +1,116 @@
-// Fleet's four limits, and this machine's own settings, on one screen. #1089
-// — the sheet these limits used to live behind opened from the status bar,
-// gone since #1088, and had no rail row to open it from once it was. The
-// screen is split into categories with a search over every setting, one
-// category drawn at a time, since it had grown into one long list to scroll
-// (`./sections.ts`).
+// Every setting on this machine, on one screen. #1089 — split into groups with a search over every
+// setting, one group drawn at a time with each of its sections under its own heading (`./sections.ts`).
 //
-// **`BridgeSettings`, not `Settings`.** `./settings.tsx` is a Job's own —
-// `SettingsSheet`, its caps and its choices — and the two would collide by
-// name and, on a case-insensitive filesystem, by file.
+// **settings.json is the source.** Fleet's schema decides the categories and the controls
+// (`./SchemaSettings.tsx`), so a key Fleet adds is drawn without a change here; Phone, Theme,
+// Layout, Keyboard shortcuts and Guides keep their own panes.
 //
-// A limit changed here takes the same way it always has: `FleetSettings`
-// beneath is unchanged but for the layer, which is `Card` now instead of
-// `Sheet`.
+// **`BridgeSettings`, not `Settings`.** `./settings.tsx` is a Job's own — `SettingsSheet`, its caps
+// and its choices — and the two would collide by name and, on a case-insensitive filesystem, by file.
 
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  FleetSettings,
-  GuidesSetting,
-  MachineSettings,
-  SettingsIndex,
-  Switch,
-  type FleetSettingsRow,
-} from "@armada/components";
-import type { FleetLimits, HelmActionAuthority, Outcome, Preferences, SaveLimits, SavePreference } from "@armada/protocol";
-import { useState, type ReactNode } from "react";
+import { Card, CardContent, CardHeader, CardTitle, GuidesSetting, SettingsIndex } from "@armada/components";
+import type { Outcome, SaveSettings, SettingsList } from "@armada/protocol";
+import { useEffect, useState, type ReactNode } from "react";
+
+import type { SettingsFileOpened } from "./api";
 import { KeyboardSettings, keyboardMatches } from "./KeyboardSettings";
 import { LayoutSettings } from "./LayoutSettings";
 import { PhoneSettings } from "./PhoneSettings";
+import { SchemaSection, SettingsFile } from "./SchemaSettings";
 import { ThemeSettings } from "./ThemeSettings";
-import { matchesIn, SETTINGS_SECTIONS, useSettingsSection, type SettingsSectionId } from "./sections";
-import type { HealthRead } from "@armada/screens/src/overview-reads";
+import {
+  groupsFor,
+  matches,
+  matchesIn,
+  settingsIn,
+  takeSettingsFocus,
+  useSettingsAsked,
+  useSettingsSection,
+  wordsOf,
+  type SettingsSection,
+} from "./sections";
 
-/** One of the four fields a row may send, by its wire name. */
-type Field = keyof SaveLimits;
-
-const ROWS: readonly { field: Field; min: number; max: number; unit?: string }[] = [
-  { field: "concurrency", min: 1, max: 8 },
-  { field: "memory_spare_percent", min: 0, max: 50, unit: "%" },
-  { field: "disk_floor_gib", min: 0, max: 100, unit: "GiB" },
-  { field: "checks_at_once", min: 1, max: 8 },
-];
-
-/** Said under a row once its own save takes. */
-const TOOK = "Changed. Applies the next time a job is ready to start.";
+/** The element a section is drawn in, which the palette scrolls to. */
+const anchorOf = (section: string) => `settings-${section}`;
 
 export type BridgeSettingsProps = {
-  /** `null` where Fleet has not answered yet — every row is off until it has. */
-  limits: FleetLimits | null;
+  /** settings.json as Fleet resolved it. `null` where Fleet has not answered — the schema's categories say so. */
+  settings: SettingsList | null;
   /** A live connection. Off with nothing to send to. */
   live: boolean;
-  /** `GET /health`, `#1127`'s reason: what Fleet resolved `this machine`'s own settings to. */
-  health: HealthRead;
-  onSave: (values: SaveLimits) => Promise<Outcome>;
-  /** What is in force for each preference. Absent draws no preference. */
-  preferences?: Preferences;
-  /** Save one preference by name. Fleet answers every preference now in force. */
-  onSavePreference?: (save: SavePreference) => Promise<Outcome>;
+  /** Change settings by key; `null` removes one, so the shipped value is back. */
+  onSaveSettings: (changes: SaveSettings["changes"]) => Promise<Outcome>;
+  /** Open settings.json in the configured editor. */
+  onOpenSettingsFile: () => Promise<SettingsFileOpened>;
   /** Opens the guide catalogue. Navigation is the window's, so it arrives as a prop. */
   onReadGuides?: () => void;
   /** A clipboard write is silent, so the window confirms it. */
   onCopied?: (value: string) => void;
 };
 
-/** "Acting"/"Read-only", as `this machine` reads it — or absent, before `health` has answered. */
-export function helmActionAuthorityValue(health: HealthRead): string | undefined {
-  if (health.state !== "read") return undefined;
-  return WORDS[health.health.helm_action_authority];
-}
-
-const WORDS: Record<HelmActionAuthority, string> = { acting: "Acting", read_only: "Read-only" };
-
-export function BridgeSettings({ limits, live, health, onSave, preferences, onSavePreference, onReadGuides, onCopied }: BridgeSettingsProps) {
-  const [current, setCurrent] = useSettingsSection();
+export function BridgeSettings({ settings, live, onSaveSettings, onOpenSettingsFile, onReadGuides, onCopied }: BridgeSettingsProps) {
+  const [chosen, setCurrent] = useSettingsSection();
+  const asked = useSettingsAsked();
   const [query, setQuery] = useState("");
   const searching = query.trim() !== "";
-  const counted = SETTINGS_SECTIONS.map((section) => ({
-    id: section.id,
-    label: section.label,
-    matches: searching ? matchesIn(section, query) + (section.id === "keyboard" ? keyboardMatches(query) : 0) : 0,
+  const groups = groupsFor(settings);
+  // A group this reading does not have draws the first.
+  const current = groups.some((one) => one.id === chosen) ? chosen : (groups[0]?.id ?? chosen);
+  const found = (section: SettingsSection) =>
+    matchesIn(section, query, settings) + (section.id === "keyboard" ? keyboardMatches(query) : 0);
+  const counted = groups.map((group) => ({
+    id: group.id,
+    label: group.label,
+    matches: searching ? group.sections.reduce((sum, section) => sum + found(section), 0) : 0,
   }));
-  const shown = searching ? counted.filter((one) => one.matches > 0).map((one) => one.id) : [current];
+  // While a search is on, every group with a match, and in each only the sections holding one.
+  const shown = searching
+    ? groups.flatMap((group) => group.sections.filter((section) => found(section) > 0).map((section) => ({ group, section })))
+    : (groups.find((one) => one.id === current)?.sections ?? []).map((section) => ({ group: undefined, section }));
 
-  const body: Record<SettingsSectionId, () => ReactNode> = {
-    fleet: () => (
-      <Card key="fleet">
-        <CardHeader>
-          <CardTitle>Fleet</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {limits === null ? <p className="armada-settings__quiet">Fleet has not answered yet, so its limits are not here.</p> : <FleetLimitsFields limits={limits} live={live} onSave={onSave} />}
-        </CardContent>
-      </Card>
-    ),
-    machine: () => (
-      <Card key="machine">
-        <CardHeader>
-          <CardTitle>This machine</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <MachineSettings
-            rows={[
-              {
-                label: "Helm action authority",
-                value: helmActionAuthorityValue(health),
-                means:
-                  "Whether Helm may act on a Tier 1 Redirect on this machine, or only read one and suggest it. Fleet resolves this once, when it starts, and nothing here changes it while Fleet runs.",
-              },
-            ]}
-          />
-          {preferences === undefined || onSavePreference === undefined ? null : (
-            <DraftPullRequests on={preferences.draft_pull_requests === true} live={live} onSave={onSavePreference} />
-          )}
-        </CardContent>
-      </Card>
-    ),
-    phone: () => <PhoneSettings key="phone" {...(onCopied === undefined ? {} : { onCopied })} />,
-    theme: () => (
-      <Card key="theme">
-        <CardHeader>
-          <CardTitle>Theme</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ThemeSettings />
-        </CardContent>
-      </Card>
-    ),
-    layout: () => (
-      <Card key="layout">
-        <CardHeader>
-          <CardTitle>Layout</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <LayoutSettings />
-        </CardContent>
-      </Card>
-    ),
-    keyboard: () => (
-      <Card key="keyboard">
-        <CardHeader>
-          <CardTitle>Keyboard shortcuts</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <KeyboardSettings query={query} />
-        </CardContent>
-      </Card>
-    ),
-    guides: () => (
-      <Card key="guides">
-        <CardHeader>
-          <CardTitle>Guides</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <GuidesSetting {...(onReadGuides === undefined ? {} : { onReadGuides })} />
-        </CardContent>
-      </Card>
-    ),
+  // The palette opened a section: its group is drawn, so scroll it into view.
+  useEffect(() => {
+    const wanted = takeSettingsFocus();
+    if (wanted !== null) document.getElementById(anchorOf(wanted))?.scrollIntoView({ block: "start" });
+  }, [asked, current]);
+
+  const card = (title: string, body: ReactNode) => (
+    <Card>
+      <CardHeader>
+        <CardTitle>{title}</CardTitle>
+      </CardHeader>
+      <CardContent>{body}</CardContent>
+    </Card>
+  );
+
+  const panes: Record<string, (title: string) => ReactNode> = {
+    phone: () => <PhoneSettings {...(onCopied === undefined ? {} : { onCopied })} />,
+    theme: (title) => card(title, <ThemeSettings />),
+    layout: (title) => card(title, <LayoutSettings />),
+    keyboard: (title) => card(title, <KeyboardSettings query={query} />),
+    guides: (title) => card(title, <GuidesSetting {...(onReadGuides === undefined ? {} : { onReadGuides })} />),
+  };
+
+  /** One section under its heading: `Group › Section` while searching, since matches from several groups share the page. */
+  const body = (section: SettingsSection, group: string | undefined): ReactNode => {
+    const title = group === undefined || group === section.label ? section.label : `${group} › ${section.label}`;
+    const own = panes[section.id];
+    if (section.schema !== true && own !== undefined) return own(title);
+    const all = settings === null ? null : settingsIn(settings, section.id);
+    const hits = all === null || !searching ? all : all.filter((one) => matches(wordsOf(one), query));
+    return <SchemaSection label={title} settings={hits} live={live} onSave={onSaveSettings} />;
   };
 
   return (
     <div className="armada-screen__pane">
-      <SettingsIndex sections={counted} current={current} onSection={(id) => setCurrent(id as SettingsSectionId)} query={query} onQuery={setQuery}>
-        {shown.map((id) => body[id]())}
+      <SettingsIndex sections={counted} current={current} onSection={setCurrent} query={query} onQuery={setQuery}>
+        <SettingsFile settings={settings} onOpen={onOpenSettingsFile} />
+        {shown.map(({ group, section }) => (
+          <div key={section.id} id={anchorOf(section.id)}>
+            {body(section, group?.label)}
+          </div>
+        ))}
       </SettingsIndex>
     </div>
-  );
-}
-
-/**
- * This machine's default for a pull request: offered as a draft unless the repository, the
- * workflow or the Job says otherwise. **The press shows at once** and the republished preference
- * takes over, so a refused save puts the switch back where Fleet has it.
- */
-function DraftPullRequests({ on, live, onSave }: { on: boolean; live: boolean; onSave: (save: SavePreference) => Promise<Outcome> }) {
-  const [asked, setAsked] = useState<boolean | null>(null);
-  return (
-    <Switch
-      checked={asked ?? on}
-      disabled={!live}
-      onChange={(event) => {
-        const value = event.target.checked;
-        setAsked(value);
-        void onSave({ name: "draft_pull_requests", value }).then(() => setAsked(null));
-      }}
-    >
-      Draft pull requests
-    </Switch>
-  );
-}
-
-/**
- * The four fields, once Fleet has answered. **One save in flight for the
- * whole section**, on Job settings' terms: the four rows are one act's worth
- * of controls and a second set here could only ever refuse a press this never
- * sends.
- */
-function FleetLimitsFields({
-  limits,
-  live,
-  onSave,
-}: {
-  limits: FleetLimits;
-  live: boolean;
-  onSave: (values: SaveLimits) => Promise<Outcome>;
-}) {
-  const [saving, setSaving] = useState<Field | null>(null);
-  const [said, setSaid] = useState<Partial<Record<Field, boolean>>>({});
-  const [refused, setRefused] = useState<Partial<Record<Field, string>>>({});
-
-  function send(field: Field, value: number): void {
-    setSaving(field);
-    setSaid((was) => ({ ...was, [field]: false }));
-    setRefused((was) => ({ ...was, [field]: undefined }));
-    void onSave({ [field]: value }).then((outcome) => {
-      setSaving(null);
-      if (outcome.ok) setSaid((was) => ({ ...was, [field]: true }));
-      else if (!outcome.ok && outcome.why === "refused") {
-        setRefused((was) => ({ ...was, [field]: outcome.error.message }));
-      }
-    });
-  }
-
-  const off = !live || saving !== null;
-  const rowOf = (field: Field, unit: string | undefined, min: number, max: number): FleetSettingsRow => ({
-    value: limits[field],
-    shipped: limits.shipped[field],
-    min,
-    max,
-    unit,
-    saving: saving === field,
-    said: said[field] === true ? TOOK : undefined,
-    refused: refused[field],
-    onSave: (value) => send(field, value),
-  });
-
-  const [concurrency, memorySparePercent, diskFloorGib, checksAtOnce] = ROWS.map((row) =>
-    rowOf(row.field, row.unit, row.min, row.max),
-  ) as [FleetSettingsRow, FleetSettingsRow, FleetSettingsRow, FleetSettingsRow];
-
-  return (
-    <FleetSettings
-      disabled={off}
-      disabledNote={
-        !live
-          ? "Fleet is not connected, so nothing can be changed."
-          : saving !== null
-            ? "Something sent to Fleet is still on its way."
-            : undefined
-      }
-      concurrency={concurrency}
-      memorySparePercent={memorySparePercent}
-      diskFloorGib={diskFloorGib}
-      checksAtOnce={checksAtOnce}
-    />
   );
 }

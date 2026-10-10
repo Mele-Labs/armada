@@ -62,7 +62,10 @@ impl Process for Kept {
 /// or nothing where the log is empty or unreadable.
 pub(crate) fn tail_of(log: &Path) -> String {
     let text = std::fs::read_to_string(log).unwrap_or_default();
-    let lines: Vec<&str> = text.lines().filter(|line| !line.trim().is_empty()).collect();
+    let lines: Vec<&str> = text
+        .lines()
+        .filter(|line| !line.trim().is_empty())
+        .collect();
     let from = lines.len().saturating_sub(TAIL_LINES);
     match lines[from..].join("\n") {
         tail if tail.is_empty() => tail,

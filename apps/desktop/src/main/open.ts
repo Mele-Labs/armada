@@ -26,14 +26,17 @@
 // string away from a shell; this one owns the path and the answer.
 
 import { shell } from "electron";
-import { stat } from "node:fs/promises";
+import { stat, writeFile } from "node:fs/promises";
 
 import type { BridgeState } from "../shared/bridge";
+import type { SettingsFileOpened } from "../shared/api/settings";
 import { artifactPath, isKept, recordsOf, repoOf } from "@armada/protocol";
 import type { Artifact, Opened } from "@armada/protocol";
 import { chooseEditor, startEditor, whereIs } from "./editor";
 import type { Editor } from "./editor";
 import type { JobSummary } from "@armada/protocol";
+import { textSetting } from "./settings";
+import { openTerminal } from "./terminal";
 
 /**
  * The Job by that id, from what main last published.
@@ -109,8 +112,8 @@ function transcripts(state: BridgeState, jobId: string): string[] {
  * about their own configuration. Falling through from an *unset* variable is a
  * different case entirely and is silent, because nothing has gone wrong.
  *
- * The sentence names the variable, because the next step is editing the line
- * that set it.
+ * The sentence names the setting or the variable, because the next step is
+ * editing the line that set it.
  */
 function noEditor(editor: Editor): string {
   if (!editor.command.includes("/")) {
@@ -131,8 +134,7 @@ function noEditor(editor: Editor): string {
  *
  * The editor is resolved here rather than passed in: the renderer names a Job
  * id and one of three words, and it supplies no editor for the same reason it
- * supplies no path. See `editor.ts` for the precedence and for why the config
- * tier above `$VISUAL` is absent.
+ * supplies no path. See `editor.ts` for the precedence.
  *
  * `shell.openPath` rather than `showItemInFolder`: the ask was to land in an
  * editor, and revealing a file in Finder is a different act with a different
@@ -164,16 +166,63 @@ export async function openArtifact(
     return { ok: false, why: "not_there", path };
   }
 
-  const editor = chooseEditor(process.env);
+  const opened = await inEditor(state, path);
+  return opened === null ? { ok: true } : { ok: false, why: "refused", path, detail: opened };
+}
+
+/**
+ * Open a path in the editor `editor.command` names, then `$VISUAL` or `$EDITOR`, then whatever the
+ * OS opens it with. `null` is success; a string is why not, in the row's voice.
+ */
+async function inEditor(state: BridgeState, path: string): Promise<string | null> {
+  const editor = chooseEditor(process.env, textSetting(state.settings, "editor.command"));
   if (editor !== null) {
     const program = await whereIs(editor.command, process.env);
-    if (program === null) return { ok: false, why: "refused", path, detail: noEditor(editor) };
+    if (program === null) return noEditor(editor);
     startEditor(program, editor.args, path);
-    return { ok: true };
+    return null;
   }
 
   // Empty is success. Anything else is the OS explaining itself, and it is
   // carried through rather than replaced with a sentence Bridge made up.
   const refused = await shell.openPath(path);
-  return refused === "" ? { ok: true } : { ok: false, why: "refused", path, detail: refused };
+  return refused === "" ? null : refused;
+}
+
+/**
+ * Open a Job's worktree in the terminal `terminal.app` names. **The renderer names the Job and
+ * nothing else**, `openArtifact`'s rule: the directory is derived here, and checked to exist first.
+ */
+export async function openInTerminal(state: BridgeState, jobId: string): Promise<Opened> {
+  const job = jobOf(state, jobId);
+  if (job === undefined) return { ok: false, why: "unknown_job" };
+  const manifest = state.holds.manifests.find((manifest) => manifest.id === job.owner_manifest_id);
+  const repo = repoOf(manifest);
+  const records = recordsOf(manifest);
+  if (repo === null || records === null) return { ok: false, why: "no_repository" };
+  const path = artifactPath("worktree", repo, records, job.id, job.assigned_drone);
+  try {
+    await stat(path);
+  } catch {
+    return { ok: false, why: "not_there", path };
+  }
+  const launch = await openTerminal(textSetting(state.settings, "terminal.app"), textSetting(state.settings, "terminal.command"), path, process.env);
+  return launch.ok ? { ok: true } : { ok: false, why: "refused", path, detail: launch.detail };
+}
+
+/**
+ * Open settings.json in the editor. **The path is the one Fleet named**, never one the renderer
+ * sends. Fleet writes the file only once something is saved, so a machine with none gets an empty
+ * object first: `{}` is every shipped default, which is what Fleet already has in force.
+ */
+export async function openSettingsFile(state: BridgeState): Promise<SettingsFileOpened> {
+  const path = state.settings?.path;
+  if (path === undefined || path === "") return { ok: false, why: "not_read" };
+  try {
+    await writeFile(path, "{}\n", { flag: "wx" });
+  } catch {
+    // Already there, which is the usual case. A directory that cannot be written is the editor's to report.
+  }
+  const opened = await inEditor(state, path);
+  return opened === null ? { ok: true } : { ok: false, why: "refused", detail: opened };
 }

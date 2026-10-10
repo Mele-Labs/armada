@@ -213,9 +213,7 @@
 
 /* Every setting a person can change on a running Job, on a trailing sheet. */
 @import "./compositions/JobSettings/JobSettings.css";
-@import "./compositions/FleetSettings/FleetSettings.css";
 /* This machine's own settings — Helm's action authority first, read-only. */
-@import "./compositions/MachineSettings/MachineSettings.css";
 
 /* A step's work, with runs of one tool folded to a line. */
 
@@ -420,3 +418,4 @@
 @import "./compositions/PhonePairing/PhonePairing.css";
 @import "./compositions/SettingsIndex/SettingsIndex.css";
 @import "./compositions/KeyBindingRow/KeyBindingRow.css";
+@import "./compositions/SettingField/SettingField.css";

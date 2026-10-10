@@ -47,6 +47,7 @@ export * from "./manifest-proposal";
 export * from "./merge-lines";
 export * from "./mods";
 export * from "./preferences";
+export * from "./settings";
 export * from "./proposal";
 export * from "./pending";
 export * from "./protocol";

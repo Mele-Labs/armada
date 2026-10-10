@@ -25,7 +25,7 @@ use crate::daemon::Fleet;
 
 /// Passes in a row Fleet sends back before a person decides: three that each
 /// still conflicted is a base moving faster than a Drone can follow.
-/// `conflict-clearing-send-cap` in `crates/config/settings.toml`.
+/// `conflict-clearing-send-cap`, as it ships; `limits.conflictClearingSends` moves it.
 pub(crate) const CLEARING_SENDS: u32 = 3;
 
 impl<H, V, W> Fleet<H, V, W>
@@ -96,7 +96,8 @@ where
                 .clearing_sends_for(job_id)
                 .map_err(Adrift::Reading)?;
             let spent = StepLevelTrigger::of(EscalationTrigger::LoopCap);
-            if let Some(spent) = spent.filter(|_| in_a_row >= CLEARING_SENDS) {
+            let cap = self.tuned(|dials| dials.clearing_sends);
+            if let Some(spent) = spent.filter(|_| in_a_row >= cap) {
                 self.logged(
                     job_id,
                     Envelope::new(

@@ -63,6 +63,8 @@ pub struct Proposing {
     /// 2026 is that this call picks it from here. A list rather than a free
     /// field, so the proposer cannot name a model nothing can run.
     pub choices: Vec<String>,
+    /// `prompts.proposer` as it stood when the call was put together.
+    pub prompt: String,
 }
 
 /// Make the call, and answer with what it proposed.
@@ -87,7 +89,7 @@ pub async fn proposed(
     Result<(ProposalId, Proposal), NotProposed>,
     Option<WorkflowId>,
 ) {
-    let brief = Brief::about(request, workflows, &proposing.choices);
+    let brief = Brief::worded(&proposing.prompt, request, workflows, &proposing.choices);
     let Ok(ask) = Ask::put(
         proposing.model.clone(),
         brief.question(),

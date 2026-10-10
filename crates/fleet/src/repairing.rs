@@ -191,8 +191,14 @@ where
             record.tries += 1;
             self.repair_kept(job, waiting, TriggerState::Repairing, record, false)
                 .await;
-            let told =
-                trigger_repair::brief(&waiting.trigger, &waiting.command, exit, &stdout, &stderr);
+            let told = trigger_repair::worded(
+                self.prompts().get(config::settings::PROMPT_TRIGGER_REPAIR),
+                &waiting.trigger,
+                &waiting.command,
+                exit,
+                &stdout,
+                &stderr,
+            );
             let prompt = Prompt::assembled(&told)
                 .map_err(|why| format!("the brief would not render: {why:?}"))?;
             let belt = self.repair_belt(job).await;

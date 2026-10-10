@@ -24,6 +24,8 @@ Closing Bridge does not stop Fleet; reopening it reconnects rather than respawni
 
 **Alerts show an escalation trigger's plain-language label first.** The enum name stays recoverable in the detail view.
 
+**A person's own way of looking is kept by Fleet, in settings.json** — theme, layout, key bindings, and the editor and terminal a file or a worktree opens in. Bridge's Settings page is drawn from `get_settings`, so a key Fleet adds appears there without a change to Bridge, and a hand edit reaches an open Bridge on `settings.changed`. [Machine](machine.md), *settings.json*.
+
 **Bridge also calls `launchctl` directly**, outside the protocol: it bootstraps Fleet's launchd job at login and restarts it via `kickstart -k`. Why that is Bridge's job rather than an API operation, and what "Restart Fleet" actually means under launchd, are on [Fleet](fleet.md) — Daemon Lifecycle.
 
 ## Where Bridge's behavior is actually documented

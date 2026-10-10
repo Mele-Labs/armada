@@ -29,6 +29,10 @@ use config::{EvidenceType, ResolvedStep};
 use core_model::StepEvidence;
 
 use crate::gate::Accepted;
+use crate::wording::Wording;
+
+mod words;
+pub use words::*;
 
 /// The document a step was asked for, as the Judge is shown it.
 ///
@@ -281,7 +285,7 @@ impl<'a> Product<'a> {
     /// sending them to a patch.
     ///
     /// Concatenated, this is byte for byte what it was when it was one string.
-    pub(crate) fn parts(&self) -> Vec<(String, String)> {
+    pub(crate) fn parts(&self, wording: &Wording) -> Vec<(String, String)> {
         let mut parts = Vec::new();
         // **The file first, and labelled as the document.** Where a step was
         // asked for one, the criteria are about it and the three strings are a
@@ -290,9 +294,8 @@ impl<'a> Product<'a> {
         // name a root cause" against whichever came first.
         if let Some(delivered) = self.delivered {
             let mut told = format!(
-                "What this step produced, which is the document it was asked \
-                 for. Fleet read it from {}:\n\n",
-                delivered.target
+                "{}\n\n",
+                wording.fill(JUDGE_DELIVERABLE, &[("file", delivered.target)])
             );
             told.push_str(delivered.contents);
             told.push('\n');
@@ -303,24 +306,17 @@ impl<'a> Product<'a> {
         // never have the two conflated — a criterion about the deliverable is
         // never answered against the plan, and the reverse. `#1006`.
         if let Some(plan) = self.plan {
-            let mut told = String::from(
-                "The Job's plan, as Fleet's own record holds it now. Read \
-                 separately from what this step delivers, and never in \
-                 place of it:\n\n",
-            );
+            let mut told = format!("{}\n\n", wording.get(JUDGE_PLAN));
             told.push_str(plan.contents);
             told.push('\n');
             parts.push((String::from(PLAN), told));
         }
         if let Some(written) = self.written {
             let big_document_above = self.delivered.is_some() || self.plan.is_some();
-            let mut told = String::from(match big_document_above {
-                true => {
-                    "\nThe summary submitted with it. The document is above; \
-                     these three lines are not it:\n\n"
-                }
-                false => "What this step produced, which is the document it was asked for:\n\n",
-            });
+            let mut told = match big_document_above {
+                true => format!("\n{}\n\n", wording.get(JUDGE_SUMMARY_AFTER)),
+                false => format!("{}\n\n", wording.get(JUDGE_SUMMARY)),
+            };
             told.push_str(&format!(
                 "  it establishes: {}\n  shown by: {}\n  not claimed: {}\n",
                 written.claimed,
@@ -335,12 +331,12 @@ impl<'a> Product<'a> {
         if let Some(patch) = self.changed {
             let big_document_above =
                 self.written.is_some() || self.delivered.is_some() || self.plan.is_some();
-            let mut told = String::from(match big_document_above {
+            let mut told = match big_document_above {
                 // Said plainly, so a Judge weighing a written deliverable does
                 // not read the files beside it as the thing it was asked about.
-                true => "\nThe step also changed these files:\n\n",
-                false => "The change, as a diff:\n\n",
-            });
+                true => format!("\n{}\n\n", wording.get(JUDGE_ALSO_CHANGED)),
+                false => format!("{}\n\n", wording.get(JUDGE_DIFF)),
+            };
             told.push_str(patch.as_str());
             told.push('\n');
             parts.push((String::from(DIFF), told));
@@ -435,16 +431,13 @@ impl<'a> Reference<'a> {
     /// for a citation as much as for a sentence.
     ///
     /// Concatenated, this is byte for byte what it was when it was one string.
-    pub(crate) fn parts(references: &[Reference<'_>]) -> Vec<(String, String)> {
+    pub(crate) fn parts(references: &[Reference<'_>], wording: &Wording) -> Vec<(String, String)> {
         if references.is_empty() {
             return Vec::new();
         }
         let mut parts = vec![(
             String::from(REFERENCES),
-            String::from(
-                "What earlier steps established, which this work is measured against \
-                 and is not itself under judgment:\n\n",
-            ),
+            format!("{}\n\n", wording.get(JUDGE_REFERENCES)),
         )];
         for reference in references {
             parts.push((

@@ -123,6 +123,10 @@ pub fn fitted_over<V>(
             // `~/.armada`.
             kit_home: home.path().join("kit").to_string_lossy().to_string(),
             mods_dir: home.path().join("mods").to_string_lossy().to_string(),
+            // The shipped fifteen minutes; the cases about a reply running out
+            // plant their own with `answering_within`.
+            helm_reply_budget: Duration::from_secs(15 * 60),
+            helm_effort: None,
         },
         // Reads no folder: the cases about adding a repository plant their own.
         locating: Arc::new(crate::tests::repositories::Planted::nothing()),
@@ -232,6 +236,13 @@ pub fn fitted_over<V>(
             harnesses: vec!["a-harness".to_string()],
         },
         events: api::Broadcaster::new(),
+        // Beside the store, and absent until a case saves or writes one.
+        settings: crate::settings::MachineSettings::at(
+            crate::tests::settings_json::settings_file_in(home),
+            crate::tests::settings_json::supplied(),
+            config::settings::Env::none(),
+        ),
+        session_quiet: crate::session_host::SHIPPED_QUIET_TIMEOUT,
     }
 }
 

@@ -24,6 +24,32 @@ that page.
 **Revised Aug 2026** after adversarial review. Sections 1, 2, 3, 5 and 6
 were rewritten; section 4a and section 9 are new.
 
+**The text here is what ships, and a person may override it.** Since
+10 Oct 2026 every authored piece of a prompt Fleet builds is the default of
+a key in the Machine's `settings.json`, and Bridge's Settings page edits it
+under Prompts, one sub-heading per family in the order a Drone meets them,
+with "Reset to shipped". An override reaches the next prompt
+Fleet builds; nothing already sent changes. Fleet fills each `{placeholder}`
+when it builds the prompt, and a save that drops one is refused whole.
+Material — a diff, a file, a request, a person's note in a list — is never a
+piece: the code lays it, after the words that say how to read it, and the
+first line a harness keys on (`REPAIR THE TRIGGER`, `RUN THE SKILL`, `REPAIR
+THE INDEX`) stays Fleet's. A wording change to what ships still belongs here
+first. The keys, by family: `prompts.droneBaseline` (section 5) and the
+rest of a Drone's brief and turns as `prompts.drone…`, `prompts.crossing…`,
+`prompts.peers…`, `prompts.fix…`, `prompts.plan…`, `prompts.heal…`,
+`prompts.side…` and `prompts.triggerRepair`; the turns injected while it
+works as `prompts.poke…`, `prompts.interrupt`, `prompts.permit…`, and the
+gate's `prompts.outcome…` and `prompts.base…`; a piloted session's preface as
+`prompts.pilot…`; `prompts.helm`,
+`prompts.helmReadOnly` and `prompts.helmVoice` (5a); `prompts.scoutAsk`
+(5b), `prompts.scoutReadIn` (5c), `prompts.scoutRescue` (5d);
+`prompts.proposer`; `prompts.retro…`; and the Judge's briefs as
+`prompts.judge…`, which Fleet hands `verification` as its wording. The table
+and every key's placeholders are `crates/config/src/settings/prompts.rs`,
+`crates/config/src/settings/prompts_drone.rs` and
+`crates/config/src/settings/prompts_judge.rs`.
+
 ---
 
 # 1. Scope
@@ -1139,6 +1165,9 @@ because what it asks the Drone to do is the same.
 ---
 
 # 5. The Drone baseline
+
+What ships as `prompts.droneBaseline`; a person's override replaces this
+text and nothing else in the brief.
 
 **Revised Aug 2026** after adversarial review. The first cut carried eight
 clauses. Three belong here, four belong where their mechanism lives, and

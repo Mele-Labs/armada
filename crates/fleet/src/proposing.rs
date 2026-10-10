@@ -32,6 +32,7 @@ use core_model::{Ulid, Urgency, WorkflowId};
 use verification::field;
 
 use crate::judging::CallFailed;
+use crate::prompts::fill;
 
 /// The block an answer owes per Job, and the one word that declines.
 ///
@@ -90,6 +91,24 @@ Job is for.
 
 Do not work out which files are involved. That is the first step's, and it is \
 answered there by reading the code rather than guessed at here.";
+
+/// The proposer's prompt as it ships: `prompts.proposer`'s default.
+///
+/// **Not "what it will write"** in its opening. It used to say so, and the
+/// answer format tells the model the opposite in its last line. A proposer
+/// asked for paths it cannot see answers with paths it guessed, and
+/// `write_targets` is null at the gate precisely so nothing downstream reads a
+/// guess as a declaration.
+pub(crate) fn shipped() -> String {
+    format!(
+        "You are deciding what a piece of work is: which workflow it runs \
+         under, and whether it is one Job or several. Answer only the \
+         question at the end.\n\n\
+         The request, as the person wrote it:\n\n{{request}}\n\n\
+         The workflows this repository holds, and the steps each runs:\n\n{{workflows}}\n\n\
+         The models this machine can run a worker on:\n\n{{models}}\n\n{ANSWER_FORMAT}"
+    )
+}
 
 /// One Job a reading proposed, before Fleet has minted anything.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -312,25 +331,23 @@ impl Brief {
         workflows: &BTreeMap<WorkflowId, ResolvedWorkflow>,
         models: &[String],
     ) -> Brief {
-        let mut question = String::new();
-        question.push_str(
-            // **Not "what it will write".** It used to say so, and the answer
-            // format below tells the model the opposite in its last line. A
-            // proposer asked for paths it cannot see answers with paths it
-            // guessed, and `write_targets` is null at the gate precisely so
-            // nothing downstream reads a guess as a declaration.
-            "You are deciding what a piece of work is: which workflow it runs \
-             under, and whether it is one Job or several. Answer only the \
-             question at the end.\n\n",
-        );
-        question.push_str("The request, as the person wrote it:\n\n");
-        question.push_str(request);
-        question.push_str("\n\nThe workflows this repository holds, and the steps each runs:\n\n");
+        Brief::worded(&shipped(), request, workflows, models)
+    }
+
+    /// The same question, in the words of `prompt`: `prompts.proposer` as it
+    /// stands, its three placeholders filled with what only Fleet knows.
+    pub fn worded(
+        prompt: &str,
+        request: &str,
+        workflows: &BTreeMap<WorkflowId, ResolvedWorkflow>,
+        models: &[String],
+    ) -> Brief {
+        let mut held = String::new();
         if workflows.is_empty() {
-            question.push_str("  (this repository holds none)\n");
+            held.push_str("  (this repository holds none)\n");
         }
         for workflow in workflows.values() {
-            question.push_str(&format!(
+            held.push_str(&format!(
                 "  {} — {}\n",
                 workflow.id().as_str(),
                 workflow.name()
@@ -345,13 +362,13 @@ impl Brief {
             // Absent writes no line, so a definition that declares nothing is
             // offered exactly as it was before the key existed.
             if let Some(asked) = workflow.for_requests() {
-                question.push_str(&format!("    for: {asked}\n"));
+                held.push_str(&format!("    for: {asked}\n"));
             }
             // The steps are how a workflow is told apart from its five
             // neighbours. A name alone separates `bug` from `revert` and does
             // not separate `feature` from `refactor`.
             let steps: Vec<&str> = workflow.steps().iter().map(|step| step.label()).collect();
-            question.push_str(&format!("    {}\n", steps.join(" -> ")));
+            held.push_str(&format!("    {}\n", steps.join(" -> ")));
         }
         // **The models this machine actually holds, so the settings line can
         // name one rather than invent one.** The owner chose on 30 Sep 2026 to
@@ -359,15 +376,21 @@ impl Brief {
         // which model runs the work is a dial deciding every later cost — and
         // the guard he took with it is that it picks from the list. A name that
         // is not here is refused exactly as a workflow id that is not held is.
-        question.push_str("\nThe models this machine can run a worker on:\n\n");
+        let mut runs = String::new();
         if models.is_empty() {
-            question.push_str("  (this machine has named none, so leave `model` out)\n");
+            runs.push_str("  (this machine has named none, so leave `model` out)\n");
         }
         for model in models {
-            question.push_str(&format!("  {model}\n"));
+            runs.push_str(&format!("  {model}\n"));
         }
-        question.push('\n');
-        question.push_str(ANSWER_FORMAT);
+        let question = fill(
+            prompt,
+            &[
+                ("request", request),
+                ("workflows", held.trim_end_matches('\n')),
+                ("models", runs.trim_end_matches('\n')),
+            ],
+        );
         Brief {
             question,
             request: request.to_string(),

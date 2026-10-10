@@ -16,8 +16,8 @@ import type {
   CommandAnswer,
   HelmCallAnswer,
   JudgeAnswer,
-  SaveLimits,
   SavePreference,
+  SaveSettings,
   WhenBlocked,
   WhenRefused,
 } from "@armada/protocol";
@@ -30,7 +30,7 @@ import { stagePng } from "./staging";
 import { FleetConnection } from "./connection";
 import { handleTaps } from "./haptics";
 import { installSounds } from "./dev-sounds";
-import { openArtifact } from "./open";
+import { openArtifact, openInTerminal, openSettingsFile } from "./open";
 import { openFindingIssue, openPullRequest, openRemarkLink, openStudioNode } from "./forge";
 import { RemarksPoll } from "./remarks-poll";
 import { ResourcesPoll } from "./resources-poll";
@@ -760,16 +760,17 @@ void app.whenReady().then(() => {
   ipcMain.handle(CHANNELS.raiseTurnCap, (_event, jobId: string, turnCap: number) =>
     connection?.commands.raiseTurnCap(jobId, turnCap),
   );
-  // Fleet's three admission limits. Fleet-wide, so no Job id rides this
-  // channel — the only one among the acts above that names none.
-  ipcMain.handle(CHANNELS.saveLimits, (_event, values: SaveLimits) =>
-    connection?.commands.saveLimits(values),
-  );
   // A person's Bridge preferences. Fleet-wide, so no Job id rides this
-  // channel either.
+  // channel — the only one among the acts above that names none.
   ipcMain.handle(CHANNELS.savePreference, (_event, save: SavePreference) =>
     connection?.commands.savePreference(save),
   );
+  // settings.json. Fleet-wide, so no Job id rides this either — `settings.ts`.
+  ipcMain.handle(CHANNELS.saveSettings, async (_event, changes: SaveSettings["changes"]): Promise<Outcome> =>
+    (await connection?.commands.saveSettings(changes)) ?? { ok: false, why: "not_connected" },
+  );
+  // The file itself, in the configured editor. No path crosses: main opens the one Fleet named.
+  ipcMain.handle(CHANNELS.openSettingsFile, () => openSettingsFile(published));
   // The Phone Gateway, one named operation at a time — `phone-gateway.ts` makes the call.
   ipcMain.handle(CHANNELS.phone, (_event, request: PhoneRequest) => askGateway(request));
   // The mods on this machine. Fleet-wide, so no Job id rides these either — `mods.ts`.
@@ -984,6 +985,7 @@ void app.whenReady().then(() => {
   // request at all. **The path is built here** from the Job and the repository
   // its Manifest was read from; what crosses is a Job id and one of three
   // words, so no string the renderer composed reaches `shell.openPath`.
+  ipcMain.handle(CHANNELS.openInTerminal, (_event, jobId: string) => openInTerminal(published, jobId));
   ipcMain.handle(CHANNELS.openArtifact, (_event, jobId: string, what: Artifact) =>
     openArtifact(published, jobId, what),
   );

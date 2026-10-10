@@ -10,6 +10,7 @@ use std::sync::Arc;
 
 use adapter_traits::{AgentHarness, Delivery, Grant, Vcs, WorkProduct};
 use api::Refusal;
+use config::settings as keys;
 use core_model::{
     Actor, DropReason, EvidenceType, FrozenWorkflow, JobId, NewTask, PlanChange, PlanRefused,
     PlanTask, ResolvedStep, StepEvidence, StepId, TaskId, TaskState, TaskUpdate, Timestamp,
@@ -21,6 +22,10 @@ use store::{PlanHand, PlanNotKept};
 use crate::adrift::Adrift;
 use crate::budget::budgeted_for;
 use crate::daemon::Fleet;
+use crate::prompts::Prompts;
+
+mod words;
+pub(crate) use words::*;
 use crate::session::{LiveSession, Occasion};
 
 /// Why a Drone's change to the plan was not kept. **None of these moves a
@@ -232,39 +237,36 @@ pub struct PlanChanged(String);
 
 impl PlanChanged {
     /// A task added, at the id the plan gave it.
-    pub fn added(id: TaskId, task: &NewTask) -> PlanChanged {
-        PlanChanged(format!(
-            "THE PLAN CHANGED\n\nA person added a task to this Job's plan: {id} {}. It \
-             is open, for you or a later part to pick up. This is not a question. Carry \
-             on with the part you were given.",
-            task.title()
+    pub fn added(prompts: &Prompts, id: TaskId, task: &NewTask) -> PlanChanged {
+        PlanChanged(prompts.fill(
+            keys::PROMPT_PLAN_ADDED,
+            &[("id", &id.to_string()), ("title", task.title())],
         ))
     }
 
     /// A task dropped, with the reason.
-    pub fn dropped(id: TaskId, title: &str, reason: &str) -> PlanChanged {
-        PlanChanged(format!(
-            "THE PLAN CHANGED\n\nA person dropped a task from this Job's plan: {id} \
-             {title}. Reason: {reason}. This is settled, not a question to raise — the \
-             task stays dropped unless a person adds it back. Carry on with the part \
-             you were given."
+    pub fn dropped(prompts: &Prompts, id: TaskId, title: &str, reason: &str) -> PlanChanged {
+        PlanChanged(prompts.fill(
+            keys::PROMPT_PLAN_DROPPED,
+            &[
+                ("id", &id.to_string()),
+                ("title", title),
+                ("reason", reason),
+            ],
         ))
     }
 
     /// A group's Checks went red and its last Drone goes round for all of it,
     /// after the red Checks themselves. Spike 022, slice 2.
-    pub fn round(group: core_model::GroupId, plan: &WorkPlan) -> PlanChanged {
+    pub fn round(prompts: &Prompts, group: core_model::GroupId, plan: &WorkPlan) -> PlanChanged {
         let tasks: Vec<String> = plan
             .tasks_in(group)
             .filter(|task| task.state() != TaskState::Dropped)
             .map(|task| format!("{} {}", task.id(), task.title()))
             .collect();
-        PlanChanged(format!(
-            "THE GROUP GOES ROUND\n\nThe Checks above ran at the end of group {group}, \
-             which is these tasks: {}. Fix what they found across all of them, not only \
-             your own, then call submit_evidence once for the group. Every one of them \
-             stays handed in while you do. Do not start a task of a later group.",
-            tasks.join("; ")
+        PlanChanged(prompts.fill(
+            keys::PROMPT_PLAN_GROUP_ROUND,
+            &[("group", &group.to_string()), ("tasks", &tasks.join("; "))],
         ))
     }
 
@@ -454,7 +456,7 @@ where
             .max()
             .expect("the task just added is in the plan it leaves");
         self.told_plan_changed(job, &change, &plan, &at);
-        self.deliver_plan_change(job, &PlanChanged::added(id, &task))
+        self.deliver_plan_change(job, &PlanChanged::added(&self.prompts(), id, &task))
             .await;
         Ok(plan)
     }
@@ -498,8 +500,11 @@ where
             .unwrap_or_default()
             .to_string();
         self.told_plan_changed(job, &change, &plan, &at);
-        self.deliver_plan_change(job, &PlanChanged::dropped(task, &title, reason.as_str()))
-            .await;
+        self.deliver_plan_change(
+            job,
+            &PlanChanged::dropped(&self.prompts(), task, &title, reason.as_str()),
+        )
+        .await;
         Ok(plan)
     }
 

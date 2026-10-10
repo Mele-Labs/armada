@@ -237,7 +237,7 @@ where
                     .await?;
                 match next {
                     None => {
-                        let told = OutcomeTurn::approved(&passed, None);
+                        let told = OutcomeTurn::approved(&passed, None, &self.prompts().wording());
                         self.completed(&job, &told, job_id, &mut working, Actor::Human)
                             .await?
                     }

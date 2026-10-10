@@ -1,4 +1,4 @@
-//! Fleet's three changeable limits: the read and the save, on one page for
+//! Fleet's four changeable limits, four keys of settings.json: the read and the save, on one page for
 //! [`crate::editing`]'s reason — a reader of one needs the other.
 //!
 //! **No `Resolved` extractor and no path parameter.** The limits are Fleet's
@@ -11,22 +11,22 @@ use axum::response::Response;
 use ipc::SaveLimits;
 
 use crate::answers::{answer, refused, undecodable};
-use crate::daemon::{Commands, Queries};
+use crate::daemon::Settings;
 use crate::served::Served;
 
 /// The limits in force, and what shipped.
-pub(crate) async fn get_limits<D: Queries>(State(served): State<Served<D>>) -> Response {
+pub(crate) async fn get_limits<D: Settings>(State(served): State<Served<D>>) -> Response {
     match served.daemon().get_limits().await {
         Ok(limits) => answer(StatusCode::OK, &limits, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }
 
-/// Save any of the three, and answer with what is now in force.
+/// Save any of the four, and answer with what is now in force.
 ///
 /// **A value out of range is the 400 an undecodable body gets**, and the daemon
 /// is never asked: `ipc::SaveLimits` cannot hold one, so nothing is saved.
-pub(crate) async fn save_limits<D: Commands>(
+pub(crate) async fn save_limits<D: Settings>(
     State(served): State<Served<D>>,
     body: Bytes,
 ) -> Response {

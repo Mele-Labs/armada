@@ -7,7 +7,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use adapter_traits::Footprint;
-use api::{Commands, Queries};
+use api::Settings;
 use ipc::SaveLimits;
 use testkit::{FakeHarness, FakeVcs, FakeWorkProduct, Gate, Sketch};
 use verification::{Lifted, Request};

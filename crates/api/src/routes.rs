@@ -292,6 +292,8 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/limits/save", post(save_limits::<D>))
         .route("/preferences", get(get_preferences::<D>))
         .route("/preferences/save", post(save_preferences::<D>))
+        .route("/settings", get(crate::settling::get_settings::<D>))
+        .route("/settings/save", post(crate::settling::save_settings::<D>))
         .route("/health", get(get_health::<D>))
         .route("/usage", get(get_usage::<D>))
         .route("/alerts", get(list_alerts::<D>))

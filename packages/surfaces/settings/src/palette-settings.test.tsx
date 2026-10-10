@@ -1,4 +1,4 @@
-// Choosing "Fleet settings" from the command palette goes to the Settings screen.
+// Choosing "Fleet limits" from the command palette goes to the Settings screen.
 //
 // **This is the wiring the palette's Settings section exists to prove.** The
 // primitive draws the row and `@armada/shell` turns choosing it into a
@@ -14,20 +14,14 @@ import { expect } from "vitest";
 import { useState } from "react";
 
 import { Palette } from "@armada/shell";
-import type { FleetLimits, Outcome } from "@armada/protocol";
+import type { Outcome } from "@armada/protocol";
 
 import { BridgeSettings } from "./BridgeSettings";
+import { MOCK_SETTINGS } from "./fake-settings";
+import { openSettingsAt } from "./sections";
 import { mount, unmount } from "@armada/screens/src/mounted";
 
 afterEach(unmount);
-
-const LIMITS: FleetLimits = {
-  concurrency: 2,
-  memory_spare_percent: 15,
-  disk_floor_gib: 10,
-  checks_at_once: 4,
-  shipped: { concurrency: 2, memory_spare_percent: 15, disk_floor_gib: 10, checks_at_once: 4 },
-};
 
 /** A stand-in for the app: the palette and the rail's own toggle, wired the way `App.tsx` wires them. */
 function Host() {
@@ -41,31 +35,32 @@ function Host() {
         on={null}
         surfaces={[]}
         jobs={[]}
-        settings={[{ id: "fleet_settings", label: "Fleet settings" }]}
+        settings={[{ id: "fleet_settings", label: "Fleet limits" }]}
         onChoose={(choice) => {
-          if (choice.of === "setting" && choice.id === "fleet_settings") setShowing(true);
+          if (choice.of === "setting") openSettingsAt(choice.id, () => setShowing(true));
         }}
         onConfirmAct={() => {}}
       />
       {showing ? (
         <BridgeSettings
-          limits={LIMITS}
+          settings={MOCK_SETTINGS}
           live
-          health={{ state: "none" }}
-          onSave={(): Promise<Outcome> => Promise.resolve({ ok: true })}
+          onSaveSettings={(): Promise<Outcome> => Promise.resolve({ ok: true })}
+          onOpenSettingsFile={() => Promise.resolve({ ok: true })}
         />
       ) : null}
     </>
   );
 }
 
-test("choosing Fleet settings from the palette shows the Settings screen", async () => {
+test("choosing Fleet limits from the palette shows the Settings screen", async () => {
   mount(<Host />);
 
-  await expect.element(page.getByRole("heading", { name: "Fleet" })).not.toBeInTheDocument();
+  await expect.element(page.getByRole("heading", { name: "Limits" })).not.toBeInTheDocument();
 
-  await userEvent.click(page.getByRole("option", { name: "Fleet settings" }));
+  await userEvent.click(page.getByRole("option", { name: "Fleet limits" }));
 
-  await expect.element(page.getByRole("heading", { name: "Fleet" })).toBeVisible();
-  await expect.element(page.getByRole("tab", { name: "This machine" })).toBeVisible();
+  // The row names a section, and its group is what opens.
+  await expect.element(page.getByRole("heading", { name: "Limits" })).toBeVisible();
+  await expect.element(page.getByRole("tab", { name: "Fleet" })).toHaveAttribute("aria-selected", "true");
 });

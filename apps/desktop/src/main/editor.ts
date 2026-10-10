@@ -9,20 +9,13 @@
 //
 // | order | source | the question it answers |
 // |---|---|---|
-// | 1 | a config row | what a person decided, and will change from Bridge |
+// | 1 | `editor.command` in settings.json | what a person decided, and changes from Bridge |
 // | 2 | `$VISUAL`, then `$EDITOR` | what a developer already told every other tool |
 // | 3 | `shell.openPath` | what happens when nobody has said anything |
 //
-// **Tier 1 is not here, and its absence is the finding rather than an
-// omission.** `crates/config/settings.toml` is where such a row would go, and
-// seven rows in it already carry `read_by = "bridge (TS)"` against no delivery
-// mechanism at all — `docs/contracts/configuration.md` says so in as many
-// words, and `[bridge-notification-routing-path]` in `docs/OPEN.md` is the
-// same problem filed as a question. `crates/config` today reads five keys of an
-// `armada.yml` and has no Machine layer, so a row added for this would be an
-// eighth thing nothing resolves, which is exactly the defect
-// `docs/practices/half-built.md` names. Tiers 2 and 3 stand on their own; when
-// config can reach Bridge, `chooseEditor` gains one branch above the two here.
+// Tier 1 is read off the settings list main last published; empty is unset, so the two below it
+// answer exactly as they did before the setting existed. It may carry `{file}` and `{line}`, as
+// `code -g {file}:{line}`; without `{file}` the path is the last argument, as for the variables.
 //
 // # Nothing here reaches a shell
 //
@@ -67,8 +60,8 @@ export type Editor = {
   readonly command: string;
   /** Arguments written before the path, in order. */
   readonly args: readonly string[];
-  /** Which variable it was read from. */
-  readonly from: "$VISUAL" | "$EDITOR";
+  /** Which setting or variable it was read from. */
+  readonly from: "editor.command" | "$VISUAL" | "$EDITOR";
 };
 
 /** Whitespace-only is unset. An exported empty string is not a decision. */
@@ -85,7 +78,12 @@ function said(value: string | undefined): string[] | null {
  * terminal, `$VISUAL` names the full-screen one, and Bridge is asking for the
  * second kind. A person with both set has already drawn that distinction.
  */
-export function chooseEditor(env: NodeJS.ProcessEnv): Editor | null {
+export function chooseEditor(env: NodeJS.ProcessEnv, configured = ""): Editor | null {
+  const chosen = said(configured);
+  if (chosen !== null) {
+    const [command, ...args] = chosen;
+    if (command !== undefined) return { command, args, from: "editor.command" };
+  }
   for (const from of ["$VISUAL", "$EDITOR"] as const) {
     const words = said(env[from.slice(1)]);
     if (words === null) continue;
@@ -147,8 +145,26 @@ export async function whereIs(command: string, env: NodeJS.ProcessEnv): Promise<
  * reported is the one failure Bridge can see and a person can act on, which
  * `whereIs` has already answered before this is called.
  */
-export function startEditor(program: string, args: readonly string[], path: string): void {
-  const child = spawn(program, [...args, path], {
+export function startEditor(program: string, args: readonly string[], path: string, line = 1): void {
+  startDetached(program, withFile(args, path, line));
+}
+
+/**
+ * The arguments with `{file}` and `{line}` filled in, each inside the word it was written in, so
+ * `{file}:{line}` stays one argument. **No `{file}` anywhere puts the path last**, which is what
+ * `$EDITOR` has always meant.
+ */
+export function withFile(args: readonly string[], path: string, line = 1): string[] {
+  const filled = args.map((word) => word.replaceAll("{file}", path).replaceAll("{line}", String(line)));
+  return args.some((word) => word.includes("{file}")) ? filled : [...filled, path];
+}
+
+/**
+ * Start a program on an argv, detached, and stop caring about it. `startEditor`'s terms, shared with
+ * the terminal launcher in `terminal.ts`.
+ */
+export function startDetached(program: string, argv: readonly string[]): void {
+  const child = spawn(program, [...argv], {
     detached: true,
     stdio: "ignore",
     // Named rather than defaulted. `shell: true` here would hand the whole

@@ -35,7 +35,7 @@ import { jobFailure } from "@armada/shell";
 import { SweepButtons, SweepDialogs, sweepsOf, useRefreshKey, type Sweep } from "@armada/shell";
 import { repositoryLabel } from "@armada/shell";
 import { AskRepository } from "@armada/screens";
-import { BridgeSettings, ModsSurface, openSettingsAt } from "@armada/settings";
+import { ModsSurface, openSettingsAt } from "@armada/settings";
 import { Kit } from "@armada/manifest";
 import { Reports } from "@armada/screens";
 import { Composing } from "./Composing";
@@ -61,6 +61,7 @@ import { Toasts, useRaised } from "./raised";
 import {
   examine,
   openArtifact,
+  openInTerminal,
   openPullRequest,
   openFindingIssue,
   openRemarkLink,
@@ -149,7 +150,9 @@ import { useWhereOpen } from "./where-open";
 import { usePlanView } from "./remembered-views";
 import { usePanelOpen } from "./panel-open";
 import { useGuideListWidth } from "./guide-list-width";
-import { fleetPanelOf } from "./left-column"; import { DoctorSurface } from "./doctor/Doctor";
+import { fleetPanelOf } from "./left-column";
+import { DoctorSurface } from "./doctor/Doctor";
+import { firstContactOf, SettingsSurface } from "./settings-surface";
 import { fleetBuildOf, useFleetBuild } from "./fleet-build";
 import { copyDebugInfoFor, useCommandPalette } from "@armada/shell";
 import { Shell, SURFACE, SURFACES, useAtFloor, useNarrow, useSurfaceKeys } from "@armada/shell";
@@ -419,6 +422,7 @@ export function App({ draft }: AppProps = {}) {
   // unambiguously what is in front of you.
   const onWhat = reading ?? state.jobs.find((job) => job.id === cursor);
   const live = state.connection.state === "connected"; const oneBar = useOneBar({ palette, live, repository: state.repository, compose: (words) => (setSeed(words), setComposing(true)), openSession, said: setTelling, proposeFrom: commands.proposeFrom }); // `n`, ⌘N and ⌘K: the title bar's one bar.
+  const firstContact = firstContactOf(state.settings); // Whether a guide opens itself, once Fleet has answered.
   // Which failure is on screen, and which one `Copy debug info` would copy.
   // The order between them, and the reason there is one, are `failing.ts`.
   const { raised, lower, tell } = useRaised(commands.outcome);
@@ -589,7 +593,7 @@ export function App({ draft }: AppProps = {}) {
        has been met, and the card it opens is a framed layer, so it belongs
        above every surface rather than inside the one that raised it. */
     <ProseLinks.Provider value={openProseLink}>
-      <GuidanceProvider onReadAll={() => goTo(SURFACE.guides)}>
+      <GuidanceProvider onReadAll={() => goTo(SURFACE.guides)} {...(firstContact === undefined ? {} : { firstContact })}>
         <SessionsOwnership onOpen={openSession}>
         <Shell
           hidden={hidden} warned={workflowsWarned(state.health)}
@@ -713,6 +717,7 @@ export function App({ draft }: AppProps = {}) {
                   onStopProposer={() => void commands.stopProposal()}
                   onReadDiff={readDiff}
                   onOpenArtifact={openArtifact}
+                  onOpenInTerminal={openInTerminal}
                   onOpenPullRequest={openPullRequest}
                   // The replacement opens over the board, the way a Studio's Job
                   // node does — the same state, so Escape still returns here.
@@ -1051,17 +1056,7 @@ export function App({ draft }: AppProps = {}) {
                 <GuideCatalogue narrow={narrow} floor={floor} listWidth={guideList} onResizeList={resizeGuideList} />
               </Boundary>
             ) : modding ? (<Boundary region="Mods" {...guarded}><ModsSurface /></Boundary>) : settingsShowing ? (
-              <Boundary region="Settings" {...guarded}>
-                <BridgeSettings
-                  limits={state.limits}
-                  live={live}
-                  health={state.health}
-                  onSave={commands.saveLimits}
-                  preferences={state.preferences} onSavePreference={(save) => window.armada.savePreference(save)}
-                  onReadGuides={() => goTo(SURFACE.guides)}
-                  onCopied={setCopied}
-                />
-              </Boundary>
+              <SettingsSurface settings={state.settings} live={live} guarded={guarded} onReadGuides={() => goTo(SURFACE.guides)} />
             ) : (
               <>
                 <Overview

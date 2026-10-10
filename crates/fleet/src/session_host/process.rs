@@ -55,7 +55,9 @@ pub enum Heard {
     Commands(Vec<String>),
     /// Fleet is connected to a process that was already running, and `busy`
     /// says whether it was in the middle of a turn.
-    Attached { busy: bool },
+    Attached {
+        busy: bool,
+    },
     /// The process is gone, whoever ended it.
     Gone,
 }
@@ -162,9 +164,18 @@ impl Processes for ProcessHost {
         .map_err(|why| why.said())?;
         // A conversation resumed from another directory (a Session moving into
         // its slot) is not found by the CLI unless it is put where it looks.
-        if let Some(old) = start.forking.as_deref().or(start.resuming.then_some(start.session.as_str())) {
+        if let Some(old) = start
+            .forking
+            .as_deref()
+            .or(start.resuming.then_some(start.session.as_str()))
+        {
             adapters::terminal_thread::bring_conversation_to(&self.home, old, &start.directory)
-                .map_err(|why| format!("the conversation would not follow into {}: {why}", start.directory))?;
+                .map_err(|why| {
+                    format!(
+                        "the conversation would not follow into {}: {why}",
+                        start.directory
+                    )
+                })?;
         }
         let hosted = HostedLaunch::at(
             &start.directory,

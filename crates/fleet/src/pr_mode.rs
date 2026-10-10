@@ -1,7 +1,7 @@
 //! Which way a pull request opens when a person's approval says nothing: the
 //! workflow's delivering step, the repository, this machine, then ready.
 //! `crate::approving::pr_mode_default` is the order, and this is what asks the
-//! repository and the store for the tiers beneath it.
+//! repository and settings.json for the tiers beneath it.
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use core_model::{Job, JobId};
@@ -51,12 +51,7 @@ where
         &self,
         served: &crate::repositories::Served,
     ) -> (Option<core_model::PrMode>, Option<core_model::PrMode>) {
-        let drafts = self
-            .store()
-            .lock()
-            .await
-            .preferences()
-            .is_ok_and(|saved| saved.draft_pull_requests);
+        let drafts = self.tuned(|dials| dials.draft_pull_requests);
         (
             served.manifest().pr_mode(),
             drafts.then_some(core_model::PrMode::Draft),

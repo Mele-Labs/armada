@@ -20,12 +20,14 @@
 //! fixes its own failures.
 
 use adapter_traits::{AgentHarness, Delivery, Prompt, SlotPool, Vcs, WorkProduct, Worktree};
+use config::settings as keys;
 use core_model::{
     AddedKind, DroneId, Job, Level, RepairRecord, StepId, TriggerResolution, TriggerState,
     TriggerWhen,
 };
 
 use crate::daemon::Fleet;
+use crate::prompts::Prompts;
 use crate::trigger_hold::Hold;
 use crate::trigger_repair::{Subject, Waiting};
 
@@ -48,37 +50,64 @@ impl Side {
     }
 }
 
-fn place(when: TriggerWhen, step: &StepId) -> String {
+fn place(prompts: &Prompts, when: TriggerWhen, step: &StepId) -> String {
     match when {
-        TriggerWhen::StepStarts => format!("before step `{}` starts", step.as_str()),
-        TriggerWhen::StepPasses => format!("after step `{}` passes", step.as_str()),
-        TriggerWhen::PrOpened => String::from("after the pull request opens"),
+        TriggerWhen::StepStarts => {
+            prompts.fill(keys::PROMPT_SIDE_BEFORE_STEP, &[("step", step.as_str())])
+        }
+        TriggerWhen::StepPasses => {
+            prompts.fill(keys::PROMPT_SIDE_AFTER_STEP, &[("step", step.as_str())])
+        }
+        TriggerWhen::PrOpened => prompts.get(keys::PROMPT_SIDE_AFTER_PR).to_string(),
     }
 }
 
 /// The Drone's one turn. The first line is what a Drone harness and a fake
-/// both key on, as the repair's is.
+/// both key on, as the repair's is, so **the heading stays Fleet's** whatever
+/// the words below it say.
 pub(crate) fn brief(
+    prompts: &Prompts,
     side: &Side,
     title: &str,
     branch: Option<&str>,
     when: TriggerWhen,
     step: &StepId,
 ) -> String {
-    let on = branch.map_or(String::new(), |branch| format!(" on `{branch}`"));
-    let context = format!(
-        "This runs for the Job \"{title}\"{on}, {}.",
-        place(when, step)
-    );
-    let rest = "Change what is needed and stop when it is done. Do not commit, push or open a \
-                pull request: Fleet does that.";
+    let place = place(prompts, when, step);
+    let context = match branch {
+        Some(branch) => prompts.fill(
+            keys::PROMPT_SIDE_CONTEXT_ON_BRANCH,
+            &[("job", title), ("branch", branch), ("place", &place)],
+        ),
+        None => prompts.fill(
+            keys::PROMPT_SIDE_CONTEXT,
+            &[("job", title), ("place", &place)],
+        ),
+    };
+    let rest = prompts.get(keys::PROMPT_SIDE_REST);
     match side {
         Side::Skill(skill) => format!(
-            "RUN THE SKILL `{skill}`\n\nRun the `{skill}` skill on this branch. {context}\n\n{rest}"
+            "RUN THE SKILL `{skill}`\n\n{}\n\n{rest}",
+            prompts.fill(
+                keys::PROMPT_SIDE_SKILL,
+                &[("skill", skill), ("context", &context)]
+            )
         ),
         Side::Brief(task) => format!("RUN THE STEP\n\n{task}\n\n{context}\n\n{rest}"),
     }
 }
+
+/// A side run's words as they ship: each the default of a `prompts.side…` key.
+pub(crate) const SKILL: &str = "Run the `{skill}` skill on this branch. {context}";
+pub(crate) const CONTEXT: &str = "This runs for the Job \"{job}\", {place}.";
+pub(crate) const CONTEXT_ON_BRANCH: &str =
+    "This runs for the Job \"{job}\" on `{branch}`, {place}.";
+pub(crate) const BEFORE_STEP: &str = "before step `{step}` starts";
+pub(crate) const AFTER_STEP: &str = "after step `{step}` passes";
+pub(crate) const AFTER_PR: &str = "after the pull request opens";
+pub(crate) const REST: &str =
+    "Change what is needed and stop when it is done. Do not commit, push or open a \
+                pull request: Fleet does that.";
 
 impl<H, V, W> Fleet<H, V, W>
 where
@@ -129,6 +158,7 @@ where
             ..RepairRecord::default()
         };
         let told = brief(
+            &self.prompts(),
             side,
             job.title().as_str(),
             job.branch().map(|branch| branch.as_str()),
@@ -261,6 +291,7 @@ mod tests {
     #[test]
     fn a_skill_is_named_on_the_first_line_and_told_where_it_runs() {
         let told = brief(
+            &Prompts::shipped(),
             &Side::Skill("simplify".into()),
             "Fix the reader",
             Some("armada/fix-the-reader"),
@@ -277,6 +308,7 @@ mod tests {
     #[test]
     fn a_drone_step_carries_its_brief_whole() {
         let told = brief(
+            &Prompts::shipped(),
             &Side::Brief("Add a changelog line.".into()),
             "Fix the reader",
             None,

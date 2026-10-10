@@ -91,15 +91,18 @@ where
                     .iter()
                     .map(|commit| (commit.sha.clone(), commit.subject.clone()))
                     .collect();
-                let (told, cut) = crate::scout::told_a_rescue(&crate::scout::Stranded {
-                    root: &root,
-                    branch: work.branch.as_deref(),
-                    commit: &work.commit,
-                    base: pool.base(),
-                    uncommitted: &work.uncommitted,
-                    commits: &commits,
-                    diff: &diff,
-                });
+                let (told, cut) = crate::scout::told_a_rescue(
+                    &self.prompts(),
+                    &crate::scout::Stranded {
+                        root: &root,
+                        branch: work.branch.as_deref(),
+                        commit: &work.commit,
+                        base: pool.base(),
+                        uncommitted: &work.uncommitted,
+                        commits: &commits,
+                        diff: &diff,
+                    },
+                );
                 let reading = KeptRescue {
                     manifest_id: manifest,
                     slot,

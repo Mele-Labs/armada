@@ -88,7 +88,7 @@ where
         self.port_range
     }
     pub(crate) fn run_log_retention(&self) -> std::time::Duration {
-        self.run_log_retention
+        self.tuned(|dials| dials.run_log_retention)
     }
     /// How far this machine lets Helm act rather than only read. **The one
     /// place `settings.helm-action-authority-tier-1-redirect-enabled-vs-read-
@@ -96,12 +96,12 @@ where
     /// place it is asked, and the brief and the door both follow that answer.
     /// `#943`.
     pub(crate) fn helm_authority(&self) -> crate::helm::Authority {
-        self.helm_authority
+        self.tuned(|dials| dials.helm_authority)
     }
     /// How long a closed Helm session's stored session id is kept. See
     /// `crate::helm::serving`, which sweeps by it on every reply. `#943`.
     pub(crate) fn helm_session_retention(&self) -> std::time::Duration {
-        self.helm_session_retention
+        self.tuned(|dials| dials.helm_session_retention)
     }
     /// What this repository has said about `auto_merge` and `review_gate`,
     /// folded across the Manifests gating one Job.
@@ -129,12 +129,38 @@ where
         &self.mods
     }
     pub(crate) fn budget(&self) -> CheckBudget {
-        self.budget
+        self.tuned(|dials| dials.budget)
+    }
+    /// settings.json as Fleet holds it. See [`crate::settings`].
+    pub(crate) fn machine_settings(&self) -> &crate::settings::MachineSettings {
+        &self.settings
+    }
+    /// One read of the live dials, at one instant. See [`crate::tuning`].
+    pub(crate) fn tuned<T>(&self, read: impl FnOnce(&crate::tuning::Tuning) -> T) -> T {
+        read(
+            &self
+                .tuning
+                .read()
+                .unwrap_or_else(std::sync::PoisonError::into_inner),
+        )
+    }
+    /// The prompts in force, read once by whoever is building one. See
+    /// [`crate::prompts`].
+    pub(crate) fn prompts(&self) -> crate::prompts::Prompts {
+        self.tuned(|dials| dials.prompts.clone())
+    }
+    /// Put what `settings` chose over the dials as shipped. `crate::settings`' alone.
+    pub(crate) fn retuned(&self, settings: &config::settings::Resolved) {
+        let tuned = self.shipped_tuning.overlaid_by(settings);
+        *self
+            .tuning
+            .write()
+            .unwrap_or_else(std::sync::PoisonError::into_inner) = tuned;
     }
     /// How long a plain command may take. See
     /// [`crate::budget::CommandBudget`].
     pub(crate) fn command_budget(&self) -> crate::budget::CommandBudget {
-        self.command_budget
+        self.tuned(|dials| dials.command_budget)
     }
     /// How long a permission question is held inside the Drone's call. See
     /// [`crate::permitting::PermissionHold`].
@@ -145,7 +171,7 @@ where
     /// Drone and escalates the Job. See
     /// [`crate::permitting::UnansweredAskLimit`].
     pub(crate) fn unanswered_ask_limit(&self) -> crate::permitting::UnansweredAskLimit {
-        self.unanswered_ask_limit
+        self.tuned(|dials| dials.unanswered_ask_limit)
     }
     /// What this Job may spend: the composition root's constant, then
     /// `armada.yml`'s `drone.cost_cap_micros_per_job`, then the Job's own
@@ -162,26 +188,27 @@ where
     /// purpose.
     pub(crate) fn allowance_for(&self, job: &Job) -> Allowance {
         // A Job no served repository owns is held to the machine's tier alone.
+        let machine = self.machine_allowance();
         match self.served_by(job) {
-            Ok(served) => self.allowance.at(served.manifest(), job),
-            Err(_) => self.allowance,
+            Ok(served) => machine.at(served.manifest(), job),
+            Err(_) => machine,
         }
     }
     /// What a Job may spend on this machine before any Manifest says otherwise.
     pub(crate) fn machine_allowance(&self) -> Allowance {
-        self.allowance
+        self.tuned(|dials| dials.allowance)
     }
     pub(crate) fn norms(&self) -> StepNorms {
-        self.norms
+        self.tuned(|dials| dials.norms)
     }
     pub(crate) fn liveness(&self) -> Liveness {
-        self.liveness
+        self.tuned(|dials| dials.liveness)
     }
     pub(crate) fn asked_runs(&self) -> AskedRuns {
-        self.asked_runs
+        self.tuned(|dials| dials.asked_runs)
     }
     pub(crate) fn fixes(&self) -> crate::fixing::Fixes {
-        self.fixes
+        self.tuned(|dials| dials.fixes)
     }
     pub(crate) fn fixing_on_main(&self) -> &Mutex<std::collections::BTreeSet<String>> {
         &self.fixing_on_main
@@ -215,11 +242,21 @@ where
         job: &Job,
         served: &crate::repositories::Served,
     ) -> Result<Judging, SpawnConfigRefused> {
+        let (budget, default_model, second_opinion_model, turns, standing_cap) =
+            self.tuned(|dials| {
+                (
+                    dials.judge_budget,
+                    dials.judge_model.clone(),
+                    dials.second_opinion_model.clone(),
+                    dials.judge_read_turns,
+                    dials.standing_rules_bytes,
+                )
+            });
         Ok(Judging {
             client: Arc::clone(&self.judge),
-            budget: self.judge_budget,
-            default_model: self.judge_model.clone(),
-            second_opinion_model: self.second_opinion_model.clone(),
+            budget,
+            default_model,
+            second_opinion_model,
             environment: environment(
                 HostPaths {
                     path: &self.host.path,
@@ -235,12 +272,13 @@ where
                 self.aloft.clone(),
                 self.events.clone(),
                 Arc::clone(&self.clock),
-                self.judge_budget,
+                budget,
             ),
             asked: Asked::under(served.records_root().to_string(), job.handle()),
-            standing: crate::judging::standing(served.manifest(), served.root()),
+            standing: crate::judging::standing(served.manifest(), served.root(), standing_cap),
             // The checkout, beside the file `standing` read from it.
-            reading: Some(crate::judging::reading(served.root())?),
+            reading: Some(crate::judging::reading(served.root(), turns)?),
+            wording: self.prompts().wording(),
         })
     }
     /// The Judge call that is out, for `serving` to put on `get_job`.
@@ -293,8 +331,8 @@ where
     pub(crate) fn proposing(&self) -> Result<Proposing, SpawnConfigRefused> {
         Ok(Proposing {
             client: Arc::clone(&self.judge),
-            budget: self.proposer_budget,
-            model: self.proposer_model.clone(),
+            budget: self.tuned(|dials| dials.proposer_budget),
+            model: self.tuned(|dials| dials.proposer_model.clone()),
             environment: environment(
                 HostPaths {
                     path: &self.host.path,
@@ -308,6 +346,10 @@ where
             // The same list `list_models` serves, so what the proposer may pick
             // and what a picker offers cannot disagree.
             choices: self.models.models.clone(),
+            prompt: self
+                .prompts()
+                .get(config::settings::PROMPT_PROPOSER)
+                .to_string(),
         })
     }
 
@@ -322,8 +364,8 @@ where
     pub(crate) fn explaining(&self) -> Result<Explaining, SpawnConfigRefused> {
         Ok(Explaining {
             client: Arc::clone(&self.judge),
-            budget: self.judge_budget,
-            model: self.judge_model.clone(),
+            budget: self.tuned(|dials| dials.judge_budget),
+            model: self.tuned(|dials| dials.judge_model.clone()),
             environment: environment(
                 HostPaths {
                     path: &self.host.path,
@@ -344,7 +386,7 @@ where
     /// machine can raise or lower it without moving a Judge's.
     pub(crate) fn writing_retros(&self) -> Result<Explaining, SpawnConfigRefused> {
         Ok(Explaining {
-            model: self.retro_model.clone(),
+            model: self.tuned(|dials| dials.retro_model.clone()),
             ..self.explaining()?
         })
     }
@@ -366,11 +408,11 @@ where
             events: self.events.clone(),
             clock: Arc::clone(&self.clock),
             mint: Arc::clone(&self.mint),
-            budget: self.proposer_budget,
+            budget: self.tuned(|dials| dials.proposer_budget),
             // The spelling the call will actually be made with, so a surface
             // naming the model names the one that is out rather than a default
             // read from somewhere else.
-            model: self.proposer_model.as_str().to_string(),
+            model: self.tuned(|dials| dials.proposer_model.as_str().to_string()),
             actor: by,
             reading_for: None,
         }
@@ -593,7 +635,7 @@ where
         self.shipped
     }
     pub(crate) fn polling(&self) -> Polling {
-        self.polling
+        self.tuned(|dials| dials.polling)
     }
     pub(crate) fn proving(&self) -> &Arc<Mutex<crate::proving::Proving>> {
         &self.proving
@@ -626,10 +668,10 @@ where
         &self.sizes
     }
     pub(crate) fn noticing(&self) -> Noticing {
-        self.noticing
+        self.tuned(|dials| dials.noticing)
     }
     pub(crate) fn reclaiming(&self) -> Reclaiming {
-        self.reclaiming
+        self.tuned(|dials| dials.reclaiming)
     }
     pub(crate) fn swept(&self) -> &Mutex<Option<core_model::Timestamp>> {
         &self.swept

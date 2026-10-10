@@ -248,21 +248,6 @@ pub trait Queries: Send + Sync + 'static {
     /// build to choose.
     fn get_fleet_build(&self) -> impl Future<Output = Result<ipc::FleetBuildReport, Refusal>> + Send;
 
-    /// `get_limits` — the Drones-at-once bound, the memory share and the disk
-    /// floor in force, and the values Fleet shipped with.
-    ///
-    /// **What `get_capacity` is measured against**, read on its own because it
-    /// changes only when a person saves. The only `Refusal` is a fault.
-    fn get_limits(&self) -> impl Future<Output = Result<ipc::FleetLimits, Refusal>> + Send;
-
-    /// `get_preferences` — every preference a person has saved in Bridge, and
-    /// what is in force for each.
-    ///
-    /// **Fleet-wide, `get_limits`' shape one table over**, read once per
-    /// connection because nothing but a save changes it. The only `Refusal` is
-    /// a fault.
-    fn get_preferences(&self) -> impl Future<Output = Result<ipc::Preferences, Refusal>> + Send;
-
     /// `get_repository_allowed_commands` — every rule a person always-allowed
     /// for this Manifest's repository, oldest first. **Since `#836`.**
     ///

@@ -519,7 +519,15 @@ export const WithItsActs: Story = {
     examined: null,
     onExamine: () => {},
     onOpen: fn(),
+    onOpenTerminal: fn(),
     onKillProcess: fn(),
     onKillAll: fn(),
+  },
+  /** The worktree's row opens it in a terminal too, and only that row: a log has no directory. */
+  play: async ({ args, canvas, userEvent }) => {
+    const terminal = canvas.getAllByRole("button", { name: "Open in terminal" });
+    await expect(terminal).toHaveLength(1);
+    await userEvent.click(terminal[0]!);
+    await expect(args.onOpenTerminal).toHaveBeenCalled();
   },
 };
