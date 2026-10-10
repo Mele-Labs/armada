@@ -19,6 +19,8 @@ pub const PROMPT_RETRO_JOB: Words = Words("prompts.retroJob");
 pub const PROMPT_RETRO_SESSION: Words = Words("prompts.retroSession");
 pub const PROMPT_RETRO_WHERE_FIXES_LAND: Words = Words("prompts.retroWhereFixesLand");
 pub const PROMPT_RETRO_HOW_TO_WRITE: Words = Words("prompts.retroHowToWrite");
+pub const PROMPT_RETRO_REVIEW: Words = Words("prompts.retroReview");
+pub const PROMPT_RETRO_ASK: Words = Words("prompts.retroAsk");
 pub const PROMPT_CROSSING_REDIRECT: Words = Words("prompts.crossingRedirect");
 pub const PROMPT_CROSSING_OVERTAKEN: Words = Words("prompts.crossingOvertaken");
 pub const PROMPT_CROSSING_CONFLICTS: Words = Words("prompts.crossingConflicts");
@@ -227,6 +229,20 @@ pub(super) const PROMPTS: &[Entry] = &[
         "How to write an item",
         "How both retros are told to write an item's title, what and fix.",
         &[],
+    ),
+    prompt(
+        PromptSection::Retros,
+        PROMPT_RETRO_REVIEW,
+        "The review of the open items",
+        "What the model is asked when the open retro items are reviewed together. {items} is the list of open items. Its answer is read by field name, so keep the field names.",
+        &["items"],
+    ),
+    prompt(
+        PromptSection::Retros,
+        PROMPT_RETRO_ASK,
+        "A question about an item",
+        "What the model is asked when a person asks about one retro item. {item} is the item, {rows} the record rows it cites, {history} the earlier turns and {question} the question.",
+        &["item", "rows", "history", "question"],
     ),
     prompt(
         PromptSection::Crossing,

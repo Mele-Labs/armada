@@ -1,0 +1,16 @@
+[operations.review_lessons]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "Read the open retro items together and answer which are worth a person's time, which repeat another, and which to set aside"
+notes = """
+Since 23.74. `POST /lessons/review`, body `{ manifest_id? }` and the body may be left out. Answers `LessonReview`: `model`, `entries` and `set_aside`.
+
+**The items read are `list_lessons` with `state=open`**, narrowed by the same `manifest_id`, and nothing is stored: a review is made again on every press. One model call on the retro model, client and budget, unmetered as a retro's call is.
+
+**`entries` are best first**, with no rank number. Each names the best `lesson_id` of a group, the `merged_ids` that say the same thing (open items only), and one plain sentence for `reason`. `set_aside` names items the model judged stale or already settled, with `why`, and the model may set one aside only for a reason grounded in what it was told: the item's parts, its age and the record rows it cites.
+
+**Nothing vanishes.** An id the model invented is dropped. An open item the model left out of every list is appended to the end of `entries` with the reason `not ranked`. An id named twice is kept once, where it first appears. An empty open set answers empty with no model call.
+
+A manifest Fleet does not serve is refused as `list_lessons` refuses it. A call that fails, or an answer that will not read, is a 500 `fleet.lesson_review_failed`. **A person's act**, `Helm only` like `agree_lesson`: a person presses it in Bridge.
+"""

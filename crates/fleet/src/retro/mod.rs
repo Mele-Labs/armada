@@ -13,15 +13,19 @@
 //! whose friction it was unless the record says an agent drove it.
 
 mod agreeing;
+mod asking;
 mod changing;
 pub(crate) mod gathering;
 pub(crate) mod record;
+mod reviewing;
 mod serving;
 mod session_agreeing;
 mod session_record;
 mod session_writing;
 mod writing;
 
+pub(crate) use asking::ASK;
+pub(crate) use reviewing::REVIEW;
 pub(crate) use session_writing::SESSION_QUESTION;
 pub(crate) use writing::{LANDS_IN, QUESTION, TEXTS};
 

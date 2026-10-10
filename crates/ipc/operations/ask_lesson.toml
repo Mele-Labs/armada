@@ -1,0 +1,12 @@
+[operations.ask_lesson]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "Ask one question about one retro item and answer it from the item's record alone"
+notes = """
+Since 23.74. `POST /lessons/:lesson_id/ask`, body `{ question, history }`, where `history` is `[{ role: "person" | "fleet", text }]`, oldest first, and may be left out. Answers `{ answer }`.
+
+One model call on the retro model, client and budget, unmetered. The model is given the item, the record rows it cites, taken from the record of its Job or Session as it stands now, the earlier turns and the question. It is told to answer from the record only and to say plainly where the record does not show it. Nothing is stored, so Bridge carries the conversation.
+
+An id that names no item is a 404 `fleet.no_such_lesson`. An empty question, a question over 2000 characters, more than 20 turns of history or a turn over 4000 characters is a 422 `fleet.lesson_question_refused`. A call that fails is a 500 `fleet.lesson_ask_failed`. `Helm only`, as `agree_lesson`.
+"""

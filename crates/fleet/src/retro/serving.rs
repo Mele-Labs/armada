@@ -286,4 +286,21 @@ where
     async fn disagree_lesson(&self, lesson_id: String) -> Result<Lesson, Refusal> {
         self.disagreed_with(&lesson_id).await
     }
+
+    /// Read the open items together. `reviewing` has it.
+    async fn review_lessons(
+        &self,
+        manifest_id: Option<ManifestId>,
+    ) -> Result<ipc::LessonReview, Refusal> {
+        self.reviewed(manifest_id).await
+    }
+
+    /// Answer a question about an item. `asking` has it.
+    async fn ask_lesson(
+        &self,
+        lesson_id: String,
+        ask: ipc::LessonAsk,
+    ) -> Result<ipc::AskLessonAnswer, Refusal> {
+        self.asked_about(&lesson_id, ask).await
+    }
 }

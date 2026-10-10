@@ -7,7 +7,10 @@
 use std::future::Future;
 use std::sync::Arc;
 
-use ipc::{JobId, JobRetro, LandsIn, Lesson, LessonState, Lessons, ManifestId};
+use ipc::{
+    AskLessonAnswer, JobId, JobRetro, LandsIn, Lesson, LessonAsk, LessonReview, LessonState,
+    Lessons, ManifestId,
+};
 
 use crate::daemon::{Redirector, Refusal};
 
@@ -67,4 +70,21 @@ pub trait Retros: Send + Sync + 'static {
         &self,
         lesson_id: String,
     ) -> impl Future<Output = Result<Lesson, Refusal>> + Send;
+
+    /// `review_lessons`: one model call over the open items, read together.
+    /// Nothing is stored. [`Refusal::Unacceptable`] where the Manifest is not
+    /// one Fleet serves; an empty open set answers empty and makes no call.
+    fn review_lessons(
+        &self,
+        manifest_id: Option<ManifestId>,
+    ) -> impl Future<Output = Result<LessonReview, Refusal>> + Send;
+
+    /// `ask_lesson`: one model call about one item, answered from its record.
+    /// [`Refusal::NoSuchJob`] where no item has the id; [`Refusal::Unacceptable`]
+    /// for an empty or over-long question or history.
+    fn ask_lesson(
+        &self,
+        lesson_id: String,
+        ask: LessonAsk,
+    ) -> impl Future<Output = Result<AskLessonAnswer, Refusal>> + Send;
 }
