@@ -97,6 +97,6 @@ export function askedAbout(lessons: readonly Lesson[], id: string, ask: LessonAs
   const lesson = lessons.find((one) => one.id === id);
   if (lesson === undefined) return { ok: false, outcome: { ok: false, why: "not_connected" } };
   if (ask.question.trim() === "") return { ok: false, outcome: { ok: false, why: "not_connected" } };
-  const earlier = ask.history.length === 0 ? "" : " That is the same answer as before: the record holds nothing more.";
+  const earlier = (ask.history ?? []).length === 0 ? "" : " That is the same answer as before: the record holds nothing more.";
   return { ok: true, answer: { answer: `The record cited for this item does not show more than its own words say.${earlier}` } };
 }
