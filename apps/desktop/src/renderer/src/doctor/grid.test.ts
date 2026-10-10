@@ -4,7 +4,7 @@
 import { describe, expect, it } from "vitest";
 import type { Connection, FleetHealth } from "@armada/protocol";
 
-import { gridOf, worstOf } from "./grid";
+import { gridOf, readingOf, worstOf } from "./grid";
 
 const FLEET = { pid: 4242, port: 7878, protocolId: "p", startedAt: "", runId: "r" } as unknown as Extract<Connection, { state: "connected" }>["fleet"];
 const CONNECTED: Connection = { state: "connected", fleet: FLEET, cursor: 0 };
@@ -60,5 +60,27 @@ describe("gridOf", () => {
     const grid = gridOf({ state: "read", health: { ...HEALTH, probes: [...HEALTH.probes, { module: "Network", outcome: "fail", detail: "offline" }] } }, CONNECTED, "Running");
     // Not dropped, and not drawn among the doc's own rows either: after them.
     expect(grid.rows.at(-1)).toMatchObject({ module: "Network", result: "fail" });
+  });
+});
+
+describe("readingOf", () => {
+  it("names the values in a probe's line, and keeps the rest as sentences", () => {
+    expect(readingOf("cpu 64% in use, memory 91% in use, 18874368 KiB free on the volume")).toEqual({
+      lines: [],
+      facts: [
+        { label: "CPU", value: "64% used" },
+        { label: "Memory", value: "91% used" },
+        { label: "Disk", value: "18.0 GB free" },
+      ],
+    });
+    expect(readingOf("/Users/user/ledger/armada.yml would not re-read: checks.test names no command")).toEqual({
+      lines: ["Would not re-read: checks.test names no command"],
+      facts: [{ label: "File", value: "ledger/armada.yml", mono: true, full: "/Users/user/ledger/armada.yml" }],
+    });
+  });
+
+  it("keeps a line no rule knows word for word, so nothing a probe says is lost", () => {
+    expect(readingOf("opens; 42 Jobs read back")).toEqual({ lines: ["Opens", "42 Jobs read back"], facts: [] });
+    expect(readingOf("")).toEqual({ lines: [], facts: [] });
   });
 });

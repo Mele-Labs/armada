@@ -20,6 +20,12 @@
 .armada-doctor__result[data-result="warn"] { color: var(--status-awaiting-review); }
 .armada-doctor__result[data-result="fail"] { color: var(--status-completed-failed); }
 
+/* The pane's lit word takes the picked row's hue, not the grid's worst. */
+.armada-doctor-pane { --hue: var(--fg-subtle); }
+.armada-doctor-pane[data-result="pass"] { --hue: var(--status-completed-success); }
+.armada-doctor-pane[data-result="warn"] { --hue: var(--status-awaiting-review); }
+.armada-doctor-pane[data-result="fail"] { --hue: var(--status-completed-failed); }
+
 /* The tile's frame takes its own result's hue, as a Job tile takes its state's. */
 .armada-doctor-tile { --hue: var(--fg-subtle); }
 .armada-doctor-tile[data-result="pass"] { --hue: var(--status-completed-success); }
@@ -35,18 +41,64 @@
 
 .armada-doctor-tile__module { font-size: var(--text-sm); font-weight: var(--weight-medium); color: var(--fg-default); }
 
-.armada-doctor-tile__detail {
-  flex: 1;
+/* The result as a chip, so it reads as the tile's verdict rather than one more word in the line. */
+.armada-doctor__result[data-chip] {
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, currentColor 14%, transparent);
+  line-height: var(--leading-xs);
+}
+
+.armada-doctor-tile__checks {
   display: -webkit-box;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 2;
   overflow: hidden;
-  overflow-wrap: anywhere;
-  font-family: var(--font-mono);
   font-size: var(--text-xs);
-  line-height: var(--leading-xs);
+  color: var(--fg-subtle);
+}
+
+.armada-doctor-tile .armada-doctor-reading {
+  flex: 1;
+  padding-top: var(--space-2);
+  border-top: var(--border-width) solid color-mix(in srgb, var(--hue) 20%, var(--border-subtle));
+}
+
+.armada-doctor-tile__owner { font-size: var(--text-xs); color: var(--fg-subtle); }
+
+/* ---- A probe's reading: its sentences, then its values, label beside value -------------------- */
+
+.armada-doctor-reading { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
+
+.armada-doctor-reading__line {
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  color: var(--fg-default);
+  overflow-wrap: anywhere;
+}
+
+.armada-doctor-reading__facts { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: var(--space-1) var(--space-3); margin: 0; }
+.armada-doctor-reading__facts > div { display: contents; }
+.armada-doctor-reading__facts dt { font-size: var(--text-xs); line-height: var(--leading-sm); color: var(--fg-subtle); }
+
+.armada-doctor-reading__facts dd {
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-xs);
+  line-height: var(--leading-sm);
   color: var(--fg-muted);
 }
+
+.armada-doctor-reading__facts dd[data-mono] { font-family: var(--font-mono); }
+
+/* In the pane the reading is whole: nothing cut. */
+.armada-doctor-reading[data-whole] .armada-doctor-reading__facts dd { white-space: normal; overflow-wrap: anywhere; }
+
+.armada-doctor-reading__none { font-size: var(--text-xs); color: var(--fg-subtle); }
 
 /* ---- The pane: the module picked, whole ----------------------------------------------------- */
 
@@ -74,7 +126,6 @@
 
 .armada-doctor-pane__facts dt { color: var(--fg-subtle); }
 .armada-doctor-pane__facts dd { margin: 0; color: var(--fg-default); overflow-wrap: anywhere; }
-.armada-doctor-pane__mono { font-family: var(--font-mono); font-size: var(--text-xs); }
 
 /* The three words this module can answer in, the one it answered lit. */
 .armada-doctor-pane__words {
