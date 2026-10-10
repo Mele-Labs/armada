@@ -1,5 +1,6 @@
-// The Manifest surface walked by keyboard alone, through `App`: its tiles move like the cockpit's
-// glass, Enter goes in a level and Esc comes back out, and the file view's editor keeps its keys.
+// The Manifest surface walked by keyboard alone, through `App`: each grid of tiles is one Tab stop
+// and moves like the cockpit's glass (`tile-grid.ts`), Enter goes in a level and Esc comes back
+// out, and the file view's editor keeps its keys.
 
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
@@ -16,7 +17,26 @@ async function opened(): Promise<void> {
   await onScreen();
   await userEvent.click(page.getByRole("button", { name: "Open the Manifest", exact: true }));
   await expect.element(tile("bootstrap")).toBeVisible();
+  // From nowhere: the press that opened the surface leaves focus on the picker, whose keys are its own.
+  (document.activeElement as HTMLElement | null)?.blur();
 }
+
+test("Manifest keys: the run grid is one Tab stop, and Run is the next one past it", async () => {
+  await opened();
+
+  await userEvent.keyboard("j");
+  await expect.element(tile("bootstrap")).toHaveFocus();
+  // Tab leaves the grid rather than walking it: the next stop is the readout's, never a second tile.
+  await userEvent.keyboard("{Tab}");
+  await expect.element(page.getByRole("button", { name: "Dismiss", exact: true })).toHaveFocus();
+  await userEvent.keyboard("{Shift>}{Tab}{/Shift}");
+  await expect.element(tile("bootstrap")).toHaveFocus();
+
+  await userEvent.keyboard("{ArrowDown}{Enter}");
+  await expect.element(tile("build")).toHaveAttribute("aria-current", "true");
+  await userEvent.keyboard("{Tab}");
+  await expect.element(page.getByRole("button", { name: "Run", exact: true })).toHaveFocus();
+});
 
 test("Manifest keys: j lands on the tiles, arrows move across the grid, and Enter or o picks one", async () => {
   await opened();
@@ -73,4 +93,5 @@ test("Manifest keys: the file view's editor keeps Esc and the arrows", async () 
   await userEvent.click(editor);
   await userEvent.keyboard("{Escape}{ArrowDown}j");
   await expect.element(editor).toHaveFocus();
+  await expect.poll(() => (editor.element() as HTMLTextAreaElement).value).toContain("j");
 });
