@@ -1551,21 +1551,82 @@
   min-width: 0;
 }
 
-/* ---- the Manifest surface's tab row ------------------------------------- */
+/* ---- the Manifest surface as a viewscreen -------------------------------- */
 
-/* The tab strip with the surface's own readings at its trailing edge — Drift
-   and Verify, which were resident panels under this row until #1383 and took
-   45% of the window's height between them.
+/* The cockpit's viewscreen, `cockpit.css`'s: a sunken glass under a raised
+   band, state carried in the frame. Drift that names a line the checkout no
+   longer has lights it in --notice-caution, the contract's drift hue, as a
+   call waiting on the owner lights the cockpit's in its own. */
+.armada-screen__viewscreen {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--bg-sunken);
+  overflow: hidden;
+}
+
+.armada-screen__viewscreen[data-lit] {
+  border-color: color-mix(in srgb, var(--notice-caution) 70%, var(--border-default));
+  box-shadow:
+    inset 0 0 calc(var(--space-12) * 1.5) color-mix(in srgb, var(--notice-caution) 8%, transparent),
+    0 0 var(--space-6) color-mix(in srgb, var(--notice-caution) 14%, transparent);
+}
+
+/* The band: the tab strip with the surface's own readings at its trailing edge
+   — Drift and Verify, which were resident panels under this row until #1383
+   and took 45% of the window's height between them.
 
    One row, so the two acts cost the Checks below no height at all. They are
    ghosts, which is what the contract gives a toolbar, and the accent on this
    surface stays spent on Run. */
 .armada-screen__tabs {
+  position: relative;
+  z-index: 1;
   display: flex;
   align-items: center;
   gap: var(--space-4);
   flex: none;
   min-width: 0;
+  min-height: calc(var(--h-row) * 1.25);
+  padding: var(--space-1) var(--space-3) var(--space-1) var(--space-2);
+  border-bottom: var(--border-width) solid var(--border-default);
+  background: var(--bg-raised);
+}
+
+/* The glass: a faint ruled grid, so what stands on it reads as standing on
+   something. Each view scrolls inside itself, so the glass never does. */
+.armada-screen__glass {
+  gap: 0;
+  min-width: 0;
+  overflow: hidden;
+  background:
+    linear-gradient(
+      color-mix(in srgb, var(--border-subtle) 55%, transparent) var(--border-width),
+      transparent var(--border-width)
+    ),
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--border-subtle) 55%, transparent) var(--border-width),
+      transparent var(--border-width)
+    );
+  background-size: var(--space-6) var(--space-6);
+}
+
+/* What the view on screen is for: a readout strip along the top of the glass. */
+.armada-screen__view-note {
+  flex: none;
+  margin: 0;
+  padding: var(--space-2) var(--space-4);
+  border-bottom: var(--border-width) solid var(--border-subtle);
+  background: color-mix(in srgb, var(--bg-raised) 60%, transparent);
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
 }
 
 .armada-screen__tabs-acts {
