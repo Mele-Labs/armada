@@ -65,6 +65,7 @@ mod review_record;
 mod revision;
 mod roundtrip;
 mod session_ledger;
+mod settings_file;
 mod showing;
 mod signers;
 mod spend;

@@ -442,6 +442,7 @@ export const jobsApi = (scenario: JobsScenario, fleet: JobsFleet): JobsApi => {
       takeUpRemarks: async () => OK,
       dismissFinding: async () => OK,
       openArtifact: async () => ({ ok: false, why: "no_repository" }),
+      openInTerminal: async () => ({ ok: false, why: "no_repository" }),
       openPullRequest: async () => ({ ok: false, why: "no_address" }),
       openRemarkLink: async () => ({ ok: false, why: "no_address" }),
     };

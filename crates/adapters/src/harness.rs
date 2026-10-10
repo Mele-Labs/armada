@@ -253,17 +253,7 @@ impl AgentHarness for HeadlessAgent {
             config.model().as_str().into(),
         ];
         // Only where a person set one: absent is the CLI's own default.
-        if let Some(effort) = config.model().effort() {
-            args.push("--effort".into());
-            args.push(
-                match effort {
-                    Effort::Low => "low",
-                    Effort::Medium => "medium",
-                    Effort::High => "high",
-                }
-                .into(),
-            );
-        }
+        thinking(&mut args, config.model().effort());
 
         // The asking mode, with Armada as the one asked. `dontAsk` never
         // consults a prompt tool, so a Job holding a question for a person
@@ -653,4 +643,20 @@ pub fn permission_tool() -> &'static str {
 /// The server every tool above is served from.
 pub fn evidence_server() -> &'static str {
     EVIDENCE_SERVER
+}
+
+/// `--effort` and its word where one is set: absent is the CLI's own default.
+/// **One spelling for every call** — a Drone, a Judge, Helm.
+pub(crate) fn thinking(args: &mut Vec<String>, effort: Option<Effort>) {
+    if let Some(effort) = effort {
+        args.push("--effort".into());
+        args.push(
+            match effort {
+                Effort::Low => "low",
+                Effort::Medium => "medium",
+                Effort::High => "high",
+            }
+            .into(),
+        );
+    }
 }

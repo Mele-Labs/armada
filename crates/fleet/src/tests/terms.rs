@@ -102,6 +102,7 @@ fn watching(live: bool) -> config::ResolvedWorkflow {
 
 fn drift_notice(workflow: &config::ResolvedWorkflow, paths: &[&str]) -> Option<Redeclaring> {
     Redeclaring::at(
+        &crate::prompts::Prompts::shipped(),
         workflow.steps().first().expect("a first step"),
         &paths
             .iter()

@@ -85,9 +85,32 @@ pub fn branch_is_done_with(state: TriggerState, choice: Option<FixChoice>) -> bo
     }
 }
 
-/// The repair Drone's one turn. The first line is what a Drone harness and a
-/// fake both key on, as the worktree repair's is.
+/// The repair Drone's one turn, in the words Armada ships. The first line is
+/// what a Drone harness and a fake both key on, as the worktree repair's is.
 pub fn brief(
+    trigger: &str,
+    command: &str,
+    exit: Option<i32>,
+    stdout: &str,
+    stderr: &str,
+) -> String {
+    worded(SHIPPED, trigger, command, exit, stdout, stderr)
+}
+
+/// The repair Drone's body as it ships: `prompts.triggerRepair`'s default.
+pub(crate) const SHIPPED: &str = "\
+The Trigger `{trigger}` runs `{command}`, and it failed: it {exited}.
+
+{printed}
+
+Make the command pass. Change what this branch needs changed, run `{command}` yourself \
+to check, and stop when it passes. Do not commit, push or open a pull request: Fleet \
+does that.";
+
+/// The same turn with `template` as its body. **The heading stays Fleet's**,
+/// whatever the template says, because it is the line the harness keys on.
+pub fn worded(
+    template: &str,
     trigger: &str,
     command: &str,
     exit: Option<i32>,
@@ -104,14 +127,16 @@ pub fn brief(
         }
         _ => format!("stdout:\n{}\n\nstderr:\n{}", tail(stdout), tail(stderr)),
     };
-    format!(
-        "REPAIR THE TRIGGER `{trigger}`\n\n\
-         The Trigger `{trigger}` runs `{command}`, and it failed: it {exited}.\n\n\
-         {printed}\n\n\
-         Make the command pass. Change what this branch needs changed, run `{command}` yourself \
-         to check, and stop when it passes. Do not commit, push or open a pull request: Fleet \
-         does that."
-    )
+    let body = crate::prompts::fill(
+        template,
+        &[
+            ("trigger", trigger),
+            ("command", command),
+            ("exited", &exited),
+            ("printed", &printed),
+        ],
+    );
+    format!("REPAIR THE TRIGGER `{trigger}`\n\n{body}")
 }
 
 /// The last of what a Command printed, which is where it says why.

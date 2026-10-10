@@ -26,6 +26,7 @@ mod model;
 mod prerequisites;
 mod samples;
 mod scope;
+mod settings;
 mod triggers;
 mod workflow;
 

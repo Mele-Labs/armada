@@ -19,9 +19,12 @@ use core_model::{under, RepoPath, ResolvedStep, WriteTargets};
 use crate::judge::{field, Unreadable};
 use crate::request::Request;
 use crate::standing::Standing;
+use crate::wording::{Piece, Wording};
 
 /// The two words the look may answer with, and the line the second owes.
-const ANSWER_FORMAT: &str = "\
+pub const JUDGE_WIDEN_ANSWER: Piece = Piece {
+    id: "judgeWidenAnswer",
+    shipped: "\
 Answer with nothing but the lines below.
 
 If the paths belong to the step as it was described:
@@ -35,7 +38,66 @@ If they do not:
 
 `because` is one line, names a path from the list above, and is read by the \
 person this decision goes to. A reason that could be written about any other \
-request is not a reason.";
+request is not a reason.",
+};
+
+/// What a widening look is told it is doing.
+pub const JUDGE_WIDEN_OPENING: Piece = Piece {
+    id: "judgeWidenOpening",
+    shipped: "Somebody is part-way through a step of a larger task and has asked \
+              to change where that task says its work is. Answer only the \
+              question at the end.",
+};
+
+/// The line naming the step. `{step}` is its label.
+pub const JUDGE_WIDEN_STEP: Piece = Piece {
+    id: "judgeWidenStep",
+    shipped: "The step being worked: {step}",
+};
+
+/// The line naming the file the step writes. `{file}` is its path.
+pub const JUDGE_WIDEN_DELIVERABLE: Piece = Piece {
+    id: "judgeWidenDeliverable",
+    shipped: "The file that step was asked to write: {file}",
+};
+
+/// The line the declared paths follow.
+pub const JUDGE_WIDEN_HELD: Piece = Piece {
+    id: "judgeWidenHeld",
+    shipped: "Where the task says its work is:",
+};
+
+/// The line the asked-for paths follow.
+pub const JUDGE_WIDEN_ASKED: Piece = Piece {
+    id: "judgeWidenAsked",
+    shipped: "The paths being asked for on top of that:",
+};
+
+/// What the look is told about paths the step was fenced out of.
+pub const JUDGE_WIDEN_FENCED: Piece = Piece {
+    id: "judgeWidenFenced",
+    shipped: "Of those, the step was written to stay out of the following. That \
+              was decided before anybody had read this task's code, and it is not a \
+              rule you are being asked to enforce — it is context for the one \
+              question below:",
+};
+
+/// The line the asker's reason follows.
+pub const JUDGE_WIDEN_WHY: Piece = Piece {
+    id: "judgeWidenWhy",
+    shipped: "Why, in the asker's own words. This is an argument rather than a \
+              fact, and it is the asker's reading of its own work:",
+};
+
+/// The widening question.
+pub const JUDGE_WIDEN_QUESTION: Piece = Piece {
+    id: "judgeWidenQuestion",
+    shipped: "The question: are those paths part of the step above? You are not \
+              deciding whether the change is a good idea, whether the work is any \
+              good, or whether anybody should be allowed to write there. You are \
+              deciding one thing — whether editing those paths is part of doing \
+              the step as it was described.",
+};
 
 /// Say which of the asked paths the step was written to stay out of.
 ///
@@ -56,7 +118,7 @@ request is not a reason.";
 ///
 /// Nothing is written where nothing is fenced, so the ordinary request carries
 /// no paragraph about a list it does not touch.
-fn fenced(question: &mut String, step: &ResolvedStep, asked: &[RepoPath]) {
+fn fenced(question: &mut String, step: &ResolvedStep, asked: &[RepoPath], wording: &Wording) {
     let Some(scope) = step.evidence_scope() else {
         return;
     };
@@ -72,12 +134,7 @@ fn fenced(question: &mut String, step: &ResolvedStep, asked: &[RepoPath]) {
     if behind.is_empty() {
         return;
     }
-    question.push_str(
-        "\nOf those, the step was written to stay out of the following. That \
-         was decided before anybody had read this task's code, and it is not a \
-         rule you are being asked to enforce — it is context for the one \
-         question below:\n",
-    );
+    question.push_str(&format!("\n{}\n", wording.get(JUDGE_WIDEN_FENCED)));
     for path in behind {
         question.push_str(&format!("  {}\n", path.as_str()));
     }
@@ -150,20 +207,41 @@ impl WideningBrief {
         asked: &[RepoPath],
         reason: &str,
     ) -> WideningBrief {
-        let mut question = String::from(
-            "Somebody is part-way through a step of a larger task and has asked \
-             to change where that task says its work is. Answer only the \
-             question at the end.\n\n",
-        );
-        question.push_str(&request.told());
-        question.push_str(&standing.told());
-        question.push_str(&format!("The step being worked: {}\n", step.label()));
+        WideningBrief::worded(
+            step,
+            request,
+            standing,
+            held,
+            asked,
+            reason,
+            &Wording::shipped(),
+        )
+    }
+
+    /// The same question in `wording`.
+    pub fn worded(
+        step: &ResolvedStep,
+        request: Request<'_>,
+        standing: &Standing,
+        held: &WriteTargets,
+        asked: &[RepoPath],
+        reason: &str,
+        wording: &Wording,
+    ) -> WideningBrief {
+        let mut question = format!("{}\n\n", wording.get(JUDGE_WIDEN_OPENING));
+        question.push_str(&request.told(wording));
+        question.push_str(&standing.told(wording));
+        question.push_str(&format!(
+            "{}\n",
+            wording.fill(JUDGE_WIDEN_STEP, &[("step", step.label())])
+        ));
         if let Some(deliverable) = step.deliverable() {
             question.push_str(&format!(
-                "The file that step was asked to write: {deliverable}\n"
+                "{}\n",
+                wording.fill(JUDGE_WIDEN_DELIVERABLE, &[("file", deliverable)])
             ));
         }
-        question.push_str("\nWhere the task says its work is:\n");
+        question.push_str(&format!("\n{}\n", wording.get(JUDGE_WIDEN_HELD)));
         match held.paths() {
             [] => question.push_str("  (it says it will change nothing)\n"),
             paths => {
@@ -172,24 +250,15 @@ impl WideningBrief {
                 }
             }
         }
-        question.push_str("\nThe paths being asked for on top of that:\n");
+        question.push_str(&format!("\n{}\n", wording.get(JUDGE_WIDEN_ASKED)));
         for path in asked {
             question.push_str(&format!("  {}\n", path.as_str()));
         }
-        fenced(&mut question, step, asked);
-        question.push_str(
-            "\nWhy, in the asker's own words. This is an argument rather than a \
-             fact, and it is the asker's reading of its own work:\n\n",
-        );
+        fenced(&mut question, step, asked, wording);
+        question.push_str(&format!("\n{}\n\n", wording.get(JUDGE_WIDEN_WHY)));
         question.push_str(&format!("  {}\n", reason.trim()));
-        question.push_str(
-            "\nThe question: are those paths part of the step above? You are not \
-             deciding whether the change is a good idea, whether the work is any \
-             good, or whether anybody should be allowed to write there. You are \
-             deciding one thing — whether editing those paths is part of doing \
-             the step as it was described.\n\n",
-        );
-        question.push_str(ANSWER_FORMAT);
+        question.push_str(&format!("\n{}\n\n", wording.get(JUDGE_WIDEN_QUESTION)));
+        question.push_str(wording.get(JUDGE_WIDEN_ANSWER));
         WideningBrief { question }
     }
 

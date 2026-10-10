@@ -1,0 +1,12 @@
+[operations."settings.changed"]
+kind = "event"
+transport = "WebSocket"
+agent_access = "Bridge only"
+description = "settings.json changed, by a save or by hand, or a hand edit was refused; every setting now"
+notes = """
+Carries `SettingsList` itself, the answer to `get_settings`, for `mods.changed`' reason: a client replaces what it holds. Names no Job, Drone or step, and has no actor.
+
+Published by `save_settings`, `save_limits` and `save_preferences`, and when Fleet's watch on the file finds its contents changed and settles — a hand edit taken, or one refused, in which case `refused` says why and every value is the last good one. A re-read that finds what Fleet already holds publishes nothing, so a save is told once.
+
+A resync does not carry it. It adds no queue: one message a change, through the shared drop-oldest backlog, and a Bridge that missed it reads `get_settings` again on the resync that follows a `Missed`.
+"""

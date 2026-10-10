@@ -14,7 +14,10 @@ use std::time::{Duration, Instant};
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
-use ipc::{HeldCommand, MessagesHeld, SendSessionMessage, TerminalFacts, TuneSession, SessionId, SessionRecord, SessionRow, SessionRowChanged};
+use ipc::{
+    HeldCommand, MessagesHeld, SendSessionMessage, SessionId, SessionRecord, SessionRow,
+    SessionRowChanged, TerminalFacts, TuneSession,
+};
 use ipc::{TakeHeld, WireError};
 use store::{KeptSession, SessionState};
 
@@ -87,7 +90,10 @@ impl Terminals {
     }
 
     pub(crate) fn forget_polls(&self, call: &str) {
-        self.polled.lock().expect("held across no panic").remove(call);
+        self.polled
+            .lock()
+            .expect("held across no panic")
+            .remove(call);
     }
 
     /// Keep a command for the mod, or say nobody is listening.
@@ -317,13 +323,18 @@ where
         if session.state == SessionState::Ended {
             return Err(self.closed(&session.id));
         }
-        let now = self.hosts().terminals().facts_of(&session.id).unwrap_or_default();
+        let now = self
+            .hosts()
+            .terminals()
+            .facts_of(&session.id)
+            .unwrap_or_default();
         let wanted = [
             ("model", tuned.model, now.model),
             ("effort", tuned.effort, now.effort),
         ];
         for (command, asked, has) in wanted {
-            let Some(args) = asked.filter(|one| !one.trim().is_empty() && Some(one) != has.as_ref())
+            let Some(args) =
+                asked.filter(|one| !one.trim().is_empty() && Some(one) != has.as_ref())
             else {
                 continue;
             };

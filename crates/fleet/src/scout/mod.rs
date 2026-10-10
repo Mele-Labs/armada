@@ -8,5 +8,7 @@
 mod brief;
 mod hosting;
 
-pub(crate) use brief::{told, told_a_read_in, told_a_rescue, Stranded};
+pub(crate) use brief::{
+    shipped_ask, shipped_read_in, shipped_rescue, told, told_a_read_in, told_a_rescue, Stranded,
+};
 pub use hosting::{ScoutHost, Scouts};

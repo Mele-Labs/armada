@@ -23,6 +23,20 @@ use config::ResolvedStep;
 
 use crate::answered::Printed;
 use crate::mechanical::CheckFailed;
+use crate::Wording;
+
+mod words;
+pub use words::*;
+
+/// What a turn says after its opening: the next step, or that there is none.
+/// The two read differently on purpose: a Drone told only "verified" at the
+/// end of a workflow keeps working.
+fn then(next: Option<&ResolvedStep>, wording: &Wording) -> String {
+    match next {
+        Some(next) => wording.fill(OUTCOME_GO_ON, &[("step", next.label())]),
+        None => wording.get(OUTCOME_LAST).to_string(),
+    }
+}
 
 /// What the mechanical tier did on a step that advanced.
 ///
@@ -52,22 +66,16 @@ impl Verified {
         }
     }
 
-    fn told(&self, label: &str) -> String {
-        match (self.declared, self.skipped) {
+    fn told(&self, label: &str, wording: &Wording) -> String {
+        let piece = match (self.declared, self.skipped) {
             // A step that declares nothing, and a step whose every check ran.
             // The sentence is vacuously true of the first and was already
             // being told to it.
-            (_, 0) => format!("{label} is verified. It passed every check the step declared."),
-            (declared, skipped) if declared == skipped => format!(
-                "{label} is verified. No check the step declares covers what you \
-                 changed, so none was run."
-            ),
-            _ => format!(
-                "{label} is verified. It passed every check that covers what you \
-                 changed; the rest cover paths this step did not touch and were \
-                 not run."
-            ),
-        }
+            (_, 0) => OUTCOME_VERIFIED_ALL,
+            (declared, skipped) if declared == skipped => OUTCOME_VERIFIED_NONE_COVERED,
+            _ => OUTCOME_VERIFIED_SOME,
+        };
+        wording.fill(piece, &[("step", label)])
     }
 }
 
@@ -105,21 +113,12 @@ impl OutcomeTurn {
         passed: &ResolvedStep,
         next: Option<&ResolvedStep>,
         verified: Verified,
+        wording: &Wording,
     ) -> OutcomeTurn {
-        let label = passed.label();
-        let opening = verified.told(label);
-        let text = match next {
-            Some(next) => format!(
-                "{opening}\n\n\
-                 Go on to {}. Submit when it is done, then wait.",
-                next.label()
-            ),
-            None => format!(
-                "{opening}\n\n\
-                 That was the last part of this task. Nothing further is yours. Stop here."
-            ),
-        };
-        OutcomeTurn { text }
+        let opening = verified.told(passed.label(), wording);
+        OutcomeTurn {
+            text: format!("{opening}\n\n{}", then(next, wording)),
+        }
     }
 
     /// A person took the work at a human gate, and the Drone continues.
@@ -134,20 +133,15 @@ impl OutcomeTurn {
     /// change, the act is `request_changes` and the words go with it — an
     /// approval that quoted a reviewer would be an instruction wearing a
     /// verdict's shape.
-    pub fn approved(passed: &ResolvedStep, next: Option<&ResolvedStep>) -> OutcomeTurn {
-        let label = passed.label();
-        let text = match next {
-            Some(next) => format!(
-                "{label} was reviewed and accepted.\n\n\
-                 Go on to {}. Submit when it is done, then wait.",
-                next.label()
-            ),
-            None => format!(
-                "{label} was reviewed and accepted.\n\n\
-                 That was the last part of this task. Nothing further is yours. Stop here."
-            ),
-        };
-        OutcomeTurn { text }
+    pub fn approved(
+        passed: &ResolvedStep,
+        next: Option<&ResolvedStep>,
+        wording: &Wording,
+    ) -> OutcomeTurn {
+        let opening = wording.fill(OUTCOME_ACCEPTED, &[("step", passed.label())]);
+        OutcomeTurn {
+            text: format!("{opening}\n\n{}", then(next, wording)),
+        }
     }
 
     /// The same turn, with what happened to the branch underneath added.
@@ -155,12 +149,12 @@ impl OutcomeTurn {
     /// `None` leaves it alone, which is how a base that did not move stays
     /// unannounced — a turn saying nothing happened spends a Drone's tool call
     /// to deliver nothing.
-    pub fn and(self, moved: Option<TheBaseMoved>) -> OutcomeTurn {
+    pub fn and(self, moved: Option<TheBaseMoved>, wording: &Wording) -> OutcomeTurn {
         let Some(moved) = moved else {
             return self;
         };
         OutcomeTurn {
-            text: format!("{}\n\n{}", self.text, moved.told()),
+            text: format!("{}\n\n{}", self.text, moved.told(wording)),
         }
     }
 
@@ -185,8 +179,8 @@ impl OutcomeTurn {
         failed: &ResolvedStep,
         failures: &[CheckFailed],
         printed: &[Printed<'_>],
+        wording: &Wording,
     ) -> OutcomeTurn {
-        let label = failed.label();
         let said = failures
             .iter()
             .map(|failure| {
@@ -198,17 +192,12 @@ impl OutcomeTurn {
             })
             .collect::<Vec<String>>()
             .join("\n");
-        let mut text =
-            format!("{label} did not pass. This is what the checks found:\n\n{said}\n\n");
+        let opening = wording.fill(OUTCOME_HANDED_BACK, &[("step", failed.label())]);
+        let mut text = format!("{opening}\n\n{said}\n\n");
         for one in printed {
-            text.push_str(&one.quoted());
+            text.push_str(&one.quoted(wording));
         }
-        text.push_str(
-            "Work the same step again and submit when it is done. Fix what the output says is \
-             wrong.\n\nDo not change what a check runs, and do not weaken, narrow, skip or \
-             delete a test to get past it. A check that stops asking is not a check that passed, \
-             and it is looked for.",
-        );
+        text.push_str(wording.get(OUTCOME_WORK_AGAIN));
         OutcomeTurn { text }
     }
 
@@ -239,29 +228,23 @@ pub enum TheBaseMoved {
 
 impl TheBaseMoved {
     /// The paragraph that goes into the turn.
-    fn told(&self) -> String {
+    fn told(&self, wording: &Wording) -> String {
         match self {
-            TheBaseMoved::BroughtUpToDate { base, commits } => format!(
-                "While you worked, `{base}` moved on by {commits} commit(s) and your branch \
-                 has been put on top of it. Anything you are about to change may have \
-                 changed underneath you — re-read a file before you edit it."
+            TheBaseMoved::BroughtUpToDate { base, commits } => wording.fill(
+                BASE_UP_TO_DATE,
+                &[("base", base), ("commits", &commits.to_string())],
             ),
-            TheBaseMoved::Conflicted { base, files } => format!(
-                "While you worked, `{base}` moved on and your branch has been put on top of \
-                 it. These files were left with conflict markers in them and resolving them \
-                 is part of the work:\n\n{}\n\nOpen each one, keep what belongs, and \
-                 remove every marker before you submit again.",
-                files
+            TheBaseMoved::Conflicted { base, files } => {
+                let files = files
                     .iter()
                     .map(|file| format!("- {file}"))
                     .collect::<Vec<_>>()
-                    .join("\n")
-            ),
-            TheBaseMoved::CouldNotFollow { base } => format!(
-                "While you worked, `{base}` moved on, and this branch could not be put on \
-                 top of it. It is exactly where you left it. Carry on — somebody will \
-                 reconcile the two."
-            ),
+                    .join("\n");
+                wording.fill(BASE_CONFLICTED, &[("base", base), ("files", &files)])
+            }
+            TheBaseMoved::CouldNotFollow { base } => {
+                wording.fill(BASE_NOT_MOVED, &[("base", base)])
+            }
         }
     }
 }
@@ -278,16 +261,19 @@ mod tests {
 
     #[test]
     fn a_base_that_did_not_move_leaves_the_turn_exactly_as_it_was() {
-        assert_eq!(advanced().and(None), advanced());
+        assert_eq!(advanced().and(None, &Wording::shipped()), advanced());
     }
 
     #[test]
     fn a_clean_catch_up_tells_the_drone_what_moved_and_how_much() {
         let told = advanced()
-            .and(Some(TheBaseMoved::BroughtUpToDate {
-                base: String::from("main"),
-                commits: 3,
-            }))
+            .and(
+                Some(TheBaseMoved::BroughtUpToDate {
+                    base: String::from("main"),
+                    commits: 3,
+                }),
+                &Wording::shipped(),
+            )
             .text()
             .to_string();
         assert!(told.starts_with("Implement is verified."), "{told}");
@@ -304,10 +290,13 @@ mod tests {
     #[test]
     fn a_conflict_is_handed_over_as_work_and_names_every_file() {
         let told = advanced()
-            .and(Some(TheBaseMoved::Conflicted {
-                base: String::from("main"),
-                files: vec![String::from("src/log.rs"), String::from("src/write.rs")],
-            }))
+            .and(
+                Some(TheBaseMoved::Conflicted {
+                    base: String::from("main"),
+                    files: vec![String::from("src/log.rs"), String::from("src/write.rs")],
+                }),
+                &Wording::shipped(),
+            )
             .text()
             .to_string();
         assert!(told.contains("- src/log.rs"), "{told}");
@@ -323,9 +312,12 @@ mod tests {
     #[test]
     fn nothing_told_here_is_a_number_a_drone_could_be_judged_on() {
         let told = advanced()
-            .and(Some(TheBaseMoved::CouldNotFollow {
-                base: String::from("main"),
-            }))
+            .and(
+                Some(TheBaseMoved::CouldNotFollow {
+                    base: String::from("main"),
+                }),
+                &Wording::shipped(),
+            )
             .text()
             .to_string();
         assert!(told.contains("exactly where you left it"), "{told}");

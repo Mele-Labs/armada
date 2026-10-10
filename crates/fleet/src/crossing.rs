@@ -23,10 +23,18 @@
 //! **Drafted wording**, which `docs/contracts/agent-prompt.md` section 4a says.
 //! The product block is not — the contract draws it, and [`Produced::text`]
 //! follows it.
+use config::settings::{
+    self as keys, PROMPT_CROSSING_CONFLICTS, PROMPT_CROSSING_OVERTAKEN, PROMPT_CROSSING_REDIRECT,
+};
 use core_model::{
     FrozenWorkflow, PlanTask, RedirectWaiting, ResolvedStep, StepEvidence, StepId, WorkPlan,
 };
 use verification::TheBaseMoved;
+
+use crate::prompts::{fill, Prompts};
+
+mod words;
+pub(crate) use words::*;
 
 /// What a Drone that was not there has to be handed, because the process that
 /// would have held it is gone.
@@ -47,20 +55,20 @@ pub struct Crossed {
     the_plan: Option<ThePlan>,
     dismissed: Option<Dismissed>,
     peers: Option<crate::peers::PeersChanged>,
-    held_off: Option<String>,
+    held_off: Option<crate::fixing::HeldOff>,
 }
 
 impl Crossed {
     /// The files a test another Job is fixing holds off this one. #1673.
     pub(crate) fn and_held_off(self, held_off: &crate::fixing::HeldOff) -> Crossed {
         Crossed {
-            held_off: held_off.text(),
+            held_off: Some(held_off.clone()),
             ..self
         }
     }
 
-    pub(crate) fn held_off(&self) -> Option<&str> {
-        self.held_off.as_deref()
+    pub(crate) fn held_off(&self) -> Option<&crate::fixing::HeldOff> {
+        self.held_off.as_ref()
     }
 
     /// What other Jobs writing here claimed or landed while no Drone was there
@@ -215,6 +223,14 @@ pub struct Overtaken {
     claimed: String,
 }
 
+/// [`Overtaken`]'s block as it ships, `{title}` and `{claimed}` filled at the spawn.
+pub(crate) const OVERTAKEN: &str = "WHAT LANDED WHILE YOU WERE WORKING\n\nThis Job and another \
+     were read off one request, so neither waits on the other. That one — \"{title}\" — has \
+     since landed, and its own evidence says:\n\n  \"{claimed}\"\n\nSome of what this step was \
+     going to do may already be in your base. Read before you write, and say in your evidence \
+     what you found rather than doing it twice. Where nothing is left, that is a finding and not \
+     a failure.";
+
 impl Overtaken {
     /// What a landed sibling was called, and what its Evidence claimed the work
     /// now does.
@@ -230,13 +246,12 @@ impl Overtaken {
         }
     }
 
-    /// The block, as it reaches a Drone.
-    pub(crate) fn text(&self) -> String {
+    /// The block, as it reaches a Drone: `prompts.crossingOvertaken`, filled.
+    pub(crate) fn text(&self, prompts: &Prompts) -> String {
         let Overtaken { title, claimed } = self;
-        format!(
-            "WHAT LANDED WHILE YOU WERE WORKING
-
-This Job and another were read off one              request, so neither waits on the other. That one — \"{title}\" — has since              landed, and its own evidence says:\n\n  \"{claimed}\"\n\nSome of what this              step was going to do may already be in your base. Read before you write, and say              in your evidence what you found rather than doing it twice. Where nothing is              left, that is a finding and not a failure."
+        fill(
+            prompts.get(PROMPT_CROSSING_OVERTAKEN),
+            &[("title", title), ("claimed", claimed)],
         )
     }
 }
@@ -253,28 +268,32 @@ This Job and another were read off one              request, so neither waits on
 /// `follows_plan`.** A Job with no recorded plan gets no block at all, per
 /// [`Crossed`]'s own rule. **Drafted**, like [`Overtaken`] beside it.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ThePlan(String);
+pub struct ThePlan {
+    /// The plan as `WorkPlan::rendered` leaves it.
+    plan: String,
+    then: Then,
+}
+
+/// What a Drone holding the plan is told to do with it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum Then {
+    Follow,
+    Read,
+    Task { id: String, title: String },
+}
 
 impl ThePlan {
     /// The plan as `WorkPlan::rendered` leaves it — the same text a later
     /// step's Judge reads through `crate::work_plan::with_the_plan` — plus
     /// what this step may do about it.
     pub fn of(plan: &WorkPlan, follows: bool) -> ThePlan {
-        let mut block = format!("THE PLAN\n\n{}", plan.rendered());
-        block.push_str(match follows {
-            true => {
-                "\n\nKeep it current as you work: call update_task when you \
-                 start a task and when it is done, and add_task for work the \
-                 plan missed. The checks each part must pass run on their \
-                 own when that part is submitted, so do not add a task for \
-                 running them. Drop a task with a reason rather than leaving \
-                 it open. A done task may move back; a dropped one stays \
-                 dropped. A task's state decides nothing on its own — it is \
-                 your account of the work, and the diff is what is checked."
-            }
-            false => "\n\nRead it before you start. It is not yours to change.",
-        });
-        ThePlan(block)
+        ThePlan {
+            plan: plan.rendered(),
+            then: match follows {
+                true => Then::Follow,
+                false => Then::Read,
+            },
+        }
     }
 
     /// The plan, and the one task this Drone was put on: `task_brief`, which
@@ -286,27 +305,28 @@ impl ThePlan {
     /// Drone, which is the one thing a task's Drone does that a step's does not.
     /// **Drafted**, like the rest of this block.
     pub fn for_task(plan: &WorkPlan, task: &PlanTask) -> ThePlan {
-        let id = task.id();
-        let mut block = format!("THE PLAN\n\n{}", plan.rendered());
-        block.push_str(&format!(
-            "\n\nYOUR TASK\n\nThis part's tasks are worked one at a time, each by an \
-             agent of its own, and yours is {id}: {}. Its line in the plan above \
-             says what it touches and what should show it is done. Do {id} and \
-             nothing past it: the tasks handed in or done before it are already \
-             on the branch you are in, and the open ones after it are each \
-             another agent's.\n\nWhen {id} is done, submit it with the evidence \
-             submission tool. What you claim, and what shows it, are about {id} \
-             alone. That submission is your hand-in, and it ends your work on \
-             this Job. The plan's states are kept from it, so you mark nothing \
-             yourself.",
-            task.title()
-        ));
-        ThePlan(block)
+        ThePlan {
+            plan: plan.rendered(),
+            then: Then::Task {
+                id: task.id().to_string(),
+                title: task.title().to_string(),
+            },
+        }
     }
 
     /// The block, exactly as it reaches a Drone.
-    pub(crate) fn text(&self) -> &str {
-        &self.0
+    pub(crate) fn text(&self, prompts: &Prompts) -> String {
+        let mut block = prompts.fill(keys::PROMPT_CROSSING_PLAN, &[("plan", &self.plan)]);
+        block.push_str("\n\n");
+        match &self.then {
+            Then::Follow => block.push_str(prompts.get(keys::PROMPT_CROSSING_PLAN_FOLLOW)),
+            Then::Read => block.push_str(prompts.get(keys::PROMPT_CROSSING_PLAN_READ)),
+            Then::Task { id, title } => block.push_str(&prompts.fill(
+                keys::PROMPT_CROSSING_PLAN_TASK,
+                &[("task", id), ("title", title)],
+            )),
+        }
+        block
     }
 }
 
@@ -323,7 +343,7 @@ impl ThePlan {
 /// listed only what succeeded would be the one nobody needs — the failures are
 /// what the next step is there for.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Dispatched(String);
+pub struct Dispatched(Vec<(String, String, &'static str)>);
 
 impl Dispatched {
     /// One line per child: the id, what it was called, and where it ended.
@@ -332,25 +352,16 @@ impl Dispatched {
     /// rather than a block saying there were none — `Crossed`'s rule, and the
     /// same argument the empty boundary makes.
     pub fn of(children: &[(String, String, &'static str)]) -> Option<Dispatched> {
-        if children.is_empty() {
-            return None;
-        }
-        let mut said = String::from(
-            "THE JOBS YOU DISPATCHED\n\nEvery one of these has finished. This is \
-             the whole of what you have to report on, and it is not visible to \
-             you anywhere else.\n",
-        );
-        for (id, title, ended) in children {
-            said.push_str(&format!(
-                "
-  {id}  {ended}  {title}"
-            ));
-        }
-        Some(Dispatched(said))
+        (!children.is_empty()).then(|| Dispatched(children.to_vec()))
     }
 
-    pub fn text(&self) -> &str {
-        &self.0
+    pub fn text(&self, prompts: &Prompts) -> String {
+        let mut said = String::from(prompts.get(keys::PROMPT_CROSSING_DISPATCHED));
+        said.push('\n');
+        for (id, title, ended) in &self.0 {
+            said.push_str(&format!("\n  {id}  {ended}  {title}"));
+        }
+        said
     }
 }
 
@@ -378,6 +389,14 @@ impl Dispatched {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Redirected(String);
 
+/// [`Redirected`]'s frame as it ships, `{note}` filled at the spawn.
+pub(crate) const REDIRECTED: &str =
+    "WHAT A PERSON ASKED FOR\n\nA person read this work and left this before you \
+     started. It is not part of the step's definition and it is not something an \
+     earlier part claimed — it is an instruction, and it is why this part is being \
+     worked:\n\n  \"{note}\"\n\nDo what it asks. Where it and the step below disagree \
+     about what to do first, this comes first.";
+
 impl Redirected {
     /// The note the record is holding.
     pub fn of(waiting: &RedirectWaiting) -> Redirected {
@@ -402,15 +421,8 @@ impl Redirected {
     /// writes this column. The frame has to be true of both, and the note
     /// itself is what says which kind it is — the assembled one opens by saying
     /// whose words follow.
-    pub(crate) fn text(&self) -> String {
-        let said = &self.0;
-        format!(
-            "WHAT A PERSON ASKED FOR\n\nA person read this work and left this before you \
-             started. It is not part of the step's definition and it is not something an \
-             earlier part claimed — it is an instruction, and it is why this part is being \
-             worked:\n\n  \"{said}\"\n\nDo what it asks. Where it and the step below disagree \
-             about what to do first, this comes first."
-        )
+    pub(crate) fn text(&self, prompts: &Prompts) -> String {
+        fill(prompts.get(PROMPT_CROSSING_REDIRECT), &[("note", &self.0)])
     }
 }
 
@@ -513,29 +525,33 @@ impl Produced {
     /// doing the next part's work, having been handed a list of it. So the
     /// sentence under it says what the field is — everything the claim does not
     /// cover — and says outright that it is not work this part owes.
-    pub(crate) fn text(&self) -> String {
-        let part = self.part;
+    pub(crate) fn text(&self, prompts: &Prompts) -> String {
+        let part = self.part.to_string();
         let mut block = match &self.claimed {
-            Some(claimed) => format!("What part {part} produced:\n  \"{claimed}\""),
+            Some(claimed) => prompts.fill(
+                keys::PROMPT_CROSSING_PRODUCED,
+                &[("part", &part), ("claimed", claimed)],
+            ),
             // Said rather than left out, which is `verification::GamingBrief`'s
             // answer to the same absence — it tells the Judge there is no
             // earlier step to measure against rather than handing it a blank.
-            None => format!("What part {part} produced:\n  There is no record of what it claimed."),
-        };
-        block.push_str(&match &self.at {
-            Some(at) => format!(
-                "\n\nIt wrote that part's finding to {at}, in the worktree you \
-                 are in. Read it before you start. What is quoted above \
-                 summarises it and does not replace it."
+            None => prompts.fill(
+                keys::PROMPT_CROSSING_PRODUCED_UNRECORDED,
+                &[("part", &part)],
             ),
-            None => String::from("\n\nIts work is on the branch you are in."),
+        };
+        block.push_str("\n\n");
+        block.push_str(&match &self.at {
+            Some(at) => prompts.fill(keys::PROMPT_CROSSING_PRODUCED_FILE, &[("file", at)]),
+            None => prompts
+                .get(keys::PROMPT_CROSSING_PRODUCED_ON_BRANCH)
+                .to_string(),
         });
         if let Some(left_alone) = &self.not_claimed {
-            block.push_str(&format!(
-                "\n\nWhat part {part} did not claim:\n  \"{left_alone}\"\n\nThat is \
-                 everything its claim does not cover — a gap it left on purpose, \
-                 or something it changed that nobody asked for. It is context \
-                 for this part and not a list of work this part owes."
+            block.push_str("\n\n");
+            block.push_str(&prompts.fill(
+                keys::PROMPT_CROSSING_NOT_CLAIMED,
+                &[("part", &part), ("not_claimed", left_alone)],
             ));
         }
         block
@@ -600,17 +616,13 @@ impl Cleared {
     }
 
     /// The block, exactly as it reaches a Drone.
-    pub(crate) fn text(&self) -> String {
-        let label = &self.label;
+    pub(crate) fn text(&self, prompts: &Prompts) -> String {
         let how = match self.by {
-            ByWhom::Checks => format!("{label} passed the checks that gate it"),
-            ByWhom::Person => format!("{label} was read by a person and accepted"),
+            ByWhom::Checks => keys::PROMPT_CROSSING_SETTLED_BY_CHECKS,
+            ByWhom::Person => keys::PROMPT_CROSSING_SETTLED_BY_PERSON,
         };
-        format!(
-            "THE PART BEFORE THIS ONE\n\n{how}, and its work is on the branch \
-             you are in. It is settled: it is not yours to do again, to review \
-             or to improve on. Start this part from it."
-        )
+        let how = prompts.fill(how, &[("step", &self.label)]);
+        prompts.fill(keys::PROMPT_CROSSING_SETTLED, &[("how", &how)])
     }
 }
 
@@ -635,32 +647,31 @@ pub struct Reconciling(String);
 
 impl Reconciling {
     /// The block, from what the catch-up came to.
-    pub fn of(moved: &TheBaseMoved) -> Reconciling {
+    pub fn of(prompts: &Prompts, moved: &TheBaseMoved) -> Reconciling {
         let said = match moved {
-            TheBaseMoved::BroughtUpToDate { base, commits } => format!(
-                "`{base}` moved on by {commits} commit(s) since this branch was cut, and the \
-                 branch has been brought up to it before you started. The worktree is current. \
-                 Work already on the branch may now sit on top of code that changed underneath \
-                 it — read a file before you edit it."
+            TheBaseMoved::BroughtUpToDate { base, commits } => prompts.fill(
+                keys::PROMPT_CROSSING_BRANCH_UP_TO_DATE,
+                &[("base", base), ("commits", &commits.to_string())],
             ),
-            TheBaseMoved::Conflicted { base, files } => format!(
-                "`{base}` moved on since this branch was cut, and the branch has been brought \
-                 up to it before you started. These files were left with conflict markers in \
-                 them, and resolving them is the first piece of your work:\n\n{}\n\nOpen each \
-                 one, keep what belongs, and remove every marker before you submit.",
-                files
-                    .iter()
-                    .map(|file| format!("- {file}"))
-                    .collect::<Vec<String>>()
-                    .join("\n")
+            TheBaseMoved::Conflicted { base, files } => prompts.fill(
+                keys::PROMPT_CROSSING_BRANCH_CONFLICTED,
+                &[
+                    ("base", base),
+                    (
+                        "files",
+                        &files
+                            .iter()
+                            .map(|file| format!("- {file}"))
+                            .collect::<Vec<String>>()
+                            .join("\n"),
+                    ),
+                ],
             ),
-            TheBaseMoved::CouldNotFollow { base } => format!(
-                "`{base}` moved on since this branch was cut, and the branch could not be put \
-                 on top of it. It is exactly where it was. Nothing here is yours to fix — do \
-                 the work described above, and somebody will reconcile the two."
-            ),
+            TheBaseMoved::CouldNotFollow { base } => {
+                prompts.fill(keys::PROMPT_CROSSING_BRANCH_NOT_MOVED, &[("base", base)])
+            }
         };
-        Reconciling(format!("THE BRANCH YOU ARE ON\n\n{said}"))
+        Reconciling(prompts.fill(keys::PROMPT_CROSSING_BRANCH, &[("what_happened", &said)]))
     }
 
     pub fn text(&self) -> &str {
@@ -694,7 +705,8 @@ enum Why {
 
 /// **Drafted wording.** It says nothing was found, because a Drone told only
 /// "sent back" reads the step's definition as work to redo.
-const CLEARING_CONFLICTS: &str = "WHAT SENT THIS PART BACK\n\nThe base branch moved on after \
+pub(crate) const CLEARING_CONFLICTS: &str =
+    "WHAT SENT THIS PART BACK\n\nThe base branch moved on after \
      this work was read, and the branch now conflicts with it. Nothing was found wrong with \
      the work: this pass is for the conflicts alone, and the block about the branch at the end \
      of this brief names them. Keep what each side meant, remove every marker, and change \
@@ -733,31 +745,30 @@ impl SentBack {
     /// **"Address it", and not "do it again".** The part's own work passed
     /// its gate; what the later part found is narrower than the step, and a
     /// Drone told to redo the step would redo what nobody asked about.
-    pub(crate) fn text(&self) -> String {
+    pub(crate) fn text(&self, prompts: &Prompts) -> String {
         let Why::Found(Produced {
             part, claimed, at, ..
         }) = &self.0
         else {
-            return String::from(CLEARING_CONFLICTS);
+            return prompts.get(PROMPT_CROSSING_CONFLICTS).to_string();
         };
-        let mut block = format!(
-            "WHAT SENT THIS PART BACK\n\nPart {part} read the work after this part passed, \
-             and sent it back to be worked again. It found:\n\n"
-        );
-        block.push_str(&match claimed {
-            Some(claimed) => format!("  \"{claimed}\""),
-            None => String::from("  There is no record of what it found."),
-        });
+        let part = part.to_string();
+        let mut block = match claimed {
+            Some(claimed) => prompts.fill(
+                keys::PROMPT_CROSSING_SENT_BACK,
+                &[("part", &part), ("found", claimed)],
+            ),
+            None => prompts.fill(
+                keys::PROMPT_CROSSING_SENT_BACK_UNRECORDED,
+                &[("part", &part)],
+            ),
+        };
+        block.push_str("\n\n");
         block.push_str(&match at {
-            Some(at) => format!(
-                "\n\nThe whole of it is in {at}, in the worktree you are in. Read it \
-                 before you start and address what it found: it is why this part is \
-                 being worked again. What is quoted above summarises it and does not \
-                 replace it."
-            ),
-            None => String::from(
-                "\n\nAddress what it found: it is why this part is being worked again.",
-            ),
+            Some(at) => prompts.fill(keys::PROMPT_CROSSING_SENT_BACK_FILE, &[("file", at)]),
+            None => prompts
+                .get(keys::PROMPT_CROSSING_SENT_BACK_ADDRESS)
+                .to_string(),
         });
         block
     }
@@ -777,17 +788,16 @@ impl Dismissed {
     }
 
     /// The block, as it reaches a Drone.
-    pub(crate) fn text(&self) -> String {
-        let mut block = String::from(
-            "WHAT A PERSON RULED OUT\n\nA person read an earlier review of this change and \
-             dismissed these findings. Do not raise them again. If the change has moved so \
-             that one is true again, raise it and say what moved.\n",
-        );
+    pub(crate) fn text(&self, prompts: &Prompts) -> String {
+        let mut block = String::from(prompts.get(keys::PROMPT_CROSSING_DISMISSED));
+        block.push('\n');
         for gone in &self.0 {
-            block.push_str(&format!(
-                "\n  \"{}\"\n  Why it was dismissed: {}\n",
-                gone.finding, gone.reason
+            block.push('\n');
+            block.push_str(&prompts.fill(
+                keys::PROMPT_CROSSING_DISMISSED_ROW,
+                &[("finding", &gone.finding), ("reason", &gone.reason)],
             ));
+            block.push('\n');
         }
         block
     }

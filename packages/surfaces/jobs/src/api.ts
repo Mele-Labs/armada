@@ -649,6 +649,11 @@ export type JobsApi = {
    */
   openArtifact: (jobId: string, what: Artifact) => Promise<Opened>;
   /**
+   * Open this Job's worktree in the terminal `terminal.app` names in settings.json. **A Job id and
+   * nothing else**, `openArtifact`'s rule: main derives the directory.
+   */
+  openInTerminal: (jobId: string) => Promise<Opened>;
+  /**
    * Open the pull request Fleet opened for this Job, in whatever browses the
    * web on this machine.
    *
@@ -933,6 +938,7 @@ export const JOBS_CHANNELS = {
   takeUpRemarks: "bridge:take-up-remarks",
   dismissFinding: "bridge:dismiss-finding",
   openArtifact: "bridge:open-artifact",
+  openInTerminal: "bridge:open-in-terminal",
   openPullRequest: "bridge:open-pull-request",
   openRemarkLink: "bridge:open-remark-link",
   // New job's own reads for the repository its ask answered, on All — #959.

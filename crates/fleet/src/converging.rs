@@ -33,9 +33,12 @@ use core_model::{
 };
 use verification::{Convergence, NotConverging};
 
+use config::settings as keys;
+
 use crate::adrift::Adrift;
 use crate::daemon::Fleet;
 use crate::judging;
+use crate::prompts::Prompts;
 use crate::session::{LiveSession, Occasion};
 use crate::slots::Slot;
 use crate::working::Working;
@@ -190,14 +193,10 @@ pub(crate) fn stops_the_step() -> Option<StepLevelTrigger> {
 pub struct ReportNow(String);
 
 impl ReportNow {
-    pub fn about(why: &NotConverging) -> ReportNow {
-        ReportNow(format!(
-            "Stop and report your current state now.\n\n  \
-             Expected   {}\n  Produced   {}\n\n\
-             Submit what you have. Partial work with an accurate Not claimed is \
-             worth more than carrying on.",
-            why.expected(),
-            why.produced()
+    pub fn about(prompts: &Prompts, why: &NotConverging) -> ReportNow {
+        ReportNow(prompts.fill(
+            keys::PROMPT_INTERRUPT,
+            &[("expected", why.expected()), ("produced", why.produced())],
         ))
     }
 
@@ -205,6 +204,12 @@ impl ReportNow {
         &self.0
     }
 }
+
+/// The force-interrupt directive, as it ships: `prompts.interrupt`'s default.
+pub(crate) const INTERRUPT: &str = "Stop and report your current state now.\n\n  \
+     Expected   {expected}\n  Produced   {produced}\n\n\
+     Submit what you have. Partial work with an accurate Not claimed is \
+     worth more than carrying on.";
 
 /// What the step that stopped is written down as.
 ///
@@ -645,7 +650,7 @@ where
         let Some(at_work) = working.as_ref() else {
             return Ok(());
         };
-        let directive = ReportNow::about(why);
+        let directive = ReportNow::about(&self.prompts(), why);
         at_work.instructed(Occasion::Report, directive.text());
         at_work
             .session()

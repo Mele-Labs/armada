@@ -25,6 +25,8 @@
 
 use core_model::Job;
 
+use crate::wording::{Piece, Wording};
+
 /// The request a Job answers: its title, its facts, and what its requester
 /// said "done" means.
 ///
@@ -77,21 +79,17 @@ impl<'a> Request<'a> {
     /// is what stops the missing `source_ref` join becoming a refusal — a Judge
     /// shown a Job's acceptance criteria beside a first step's scope note would
     /// otherwise read them as conditions that step failed to meet.
-    pub(crate) fn told(&self) -> String {
-        let mut told = String::from(
-            "What was asked for, in the requester's own words. This is the \
-             request the whole Job answers, and it is the standard the work \
-             below is measured against rather than something under judgment:\n\n",
-        );
+    pub(crate) fn told(&self, wording: &Wording) -> String {
+        let mut told = String::from(wording.get(JUDGE_REQUEST));
+        told.push_str("\n\n");
         told.push_str(&format!("  the request: {}\n", self.title));
         if !self.facts.trim().is_empty() {
             told.push_str(&format!("  what they said about it: {}\n", self.facts));
         }
         if !self.criteria.is_empty() {
-            told.push_str(
-                "  the whole Job is done when, which is not this step's bar on \
-                 its own:\n",
-            );
+            told.push_str("  ");
+            told.push_str(wording.get(JUDGE_REQUEST_DONE_WHEN));
+            told.push('\n');
             for criterion in self.criteria {
                 told.push_str(&format!("    - {}\n", criterion.text));
             }
@@ -100,3 +98,18 @@ impl<'a> Request<'a> {
         told
     }
 }
+
+/// What a Judge is told the request is, before the request.
+pub const JUDGE_REQUEST: Piece = Piece {
+    id: "judgeRequest",
+    shipped: "What was asked for, in the requester's own words. This is the \
+              request the whole Job answers, and it is the standard the work \
+              below is measured against rather than something under judgment:",
+};
+
+/// The line the Job's acceptance criteria follow.
+pub const JUDGE_REQUEST_DONE_WHEN: Piece = Piece {
+    id: "judgeRequestDoneWhen",
+    shipped: "the whole Job is done when, which is not this step's bar on \
+              its own:",
+};

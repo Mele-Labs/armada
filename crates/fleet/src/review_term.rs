@@ -5,19 +5,35 @@
 //! parses. Beside `crate::terms` rather than in it, which is at its line budget. **Drafted**,
 //! like `RecordingThePlan`: `docs/contracts/agent-prompt.md` has no copy for it.
 
+use config::settings as keys;
 use core_model::{EvidenceType, ResolvedStep};
+
+use crate::prompts::Prompts;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Reviewing(String);
 
 impl Reviewing {
     /// `Some` on a step whose evidence is a review.
-    pub fn at(step: &ResolvedStep) -> Option<Reviewing> {
+    pub fn at(prompts: &Prompts, step: &ResolvedStep) -> Option<Reviewing> {
         if step.evidence_type() != Some(EvidenceType::Review) {
             return None;
         }
         Some(Reviewing(String::from(
-            "WHAT THIS PART DELIVERS\n\nThis part's product is Armada's review of the \
+            prompts.get(keys::PROMPT_DRONE_REVIEW),
+        )))
+    }
+
+    /// The block, exactly as it reaches a Drone.
+    pub fn text(&self) -> &str {
+        &self.0
+    }
+}
+
+/// The block for a part whose product is a review, as it ships: the default
+/// of `prompts.droneReview`.
+pub(crate) const REVIEW: &str =
+    "WHAT THIS PART DELIVERS\n\nThis part's product is Armada's review of the \
              change, which a person reads before deciding whether to take it. Hand it in \
              with submit_evidence's review field.\n\n\
              Write every sentence for that person, who has not read the code: short \
@@ -39,12 +55,4 @@ impl Reviewing {
              diff wrote it.\n\n\
              Fleet checks the review against the diff and refuses one that leaves a \
              changed file out, names a test or a hunk the diff does not hold, or gives \
-             a finding no reason. Each refusal names what to fix.",
-        )))
-    }
-
-    /// The block, exactly as it reaches a Drone.
-    pub fn text(&self) -> &str {
-        &self.0
-    }
-}
+             a finding no reason. Each refusal names what to fix.";

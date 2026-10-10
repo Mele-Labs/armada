@@ -287,17 +287,6 @@ impl Queries for FakeDaemon {
         Ok(report)
     }
 
-    /// Whatever the fake's own saves have left, so a route test can read back
-    /// what it saved.
-    async fn get_limits(&self) -> Result<ipc::FleetLimits, Refusal> {
-        Ok(*self.limits.lock().expect("not poisoned"))
-    }
-
-    /// Whatever the fake's own saves have left, `get_limits`' reason.
-    async fn get_preferences(&self) -> Result<ipc::Preferences, Refusal> {
-        Ok(self.preferences.lock().expect("not poisoned").clone())
-    }
-
     /// Whatever a test planted, unfiltered — `#836`.
     async fn get_repository_allowed_commands(
         &self,

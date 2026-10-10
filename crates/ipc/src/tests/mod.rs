@@ -49,6 +49,7 @@ mod needing;
 mod permission;
 mod planning;
 mod preferences;
+mod settings;
 /// The one DTO on this seam a peer *writes*, and what it refuses.
 mod proposals;
 mod protocol_id;

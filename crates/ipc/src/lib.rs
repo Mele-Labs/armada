@@ -142,6 +142,8 @@ mod piloting;
 /// out of the closed set does not save**, `limits`' reason one field over.
 mod preferences;
 mod proposing;
+/// settings.json: every setting as Fleet resolved it, the save, and a refusal.
+mod settings;
 /// Which wire a build speaks: a hash `build.rs` takes of the wire surface.
 mod protocol_id;
 /// A pull request, by repository and number, and the acts a Session takes on one.
@@ -362,6 +364,9 @@ pub use piloting::{
     TakeOver,
 };
 pub use preferences::{Preferences, SavePreference, DEFAULT_THEME};
+pub use settings::{
+    SaveSettings, Setting, SettingApplies, SettingKind, SettingValue, SettingsList, SettingsRefused,
+};
 pub use proposing::{
     ProposalInFlight, ProposalReach, ProposalSettings, ProposalSettled, ProposalStopped,
     StopProposal,

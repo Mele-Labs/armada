@@ -28,6 +28,7 @@
 //! first one and the one turn it was built for consumes it.
 
 use adapter_traits::{Prompt, SpawnConfigRefused};
+use config::settings::{self as keys, Words, PROMPT_DRONE_BASELINE};
 use core_model::{
     EscalationTrigger, FrozenWorkflow, GamingFlag, Job, JobId, Judgment, ResolvedStep, StepId,
     StepVerdict,
@@ -37,12 +38,17 @@ use verification::TheBaseMoved;
 use crate::crossing::{
     Crossed, Dismissed, Overtaken, Produced, Reconciling, Redirected, SentBack, ThePlan,
 };
+use crate::prompts::Prompts;
+
+mod words;
 use crate::review_term::Reviewing;
 use crate::terms::{Capturing, Checking, Declaring, Delivering, RecordingThePlan, Splitting};
+pub(crate) use words::*;
 
 /// Layer 1, verbatim from the Agent Prompt Contract's M1 rendering: **mechanics,
 /// never task content**, identical on every step of every Job, which is what
-/// makes it a constant rather than something assembled.
+/// makes it a constant rather than something assembled. It is what ships: a
+/// person may replace it as `prompts.droneBaseline` in settings.json.
 ///
 /// **Its third paragraph names which outcome comes back and which does not.** It
 /// used to promise a later turn carrying the reason whenever work did not pass,
@@ -112,6 +118,9 @@ pub struct Opening {
     /// which is every brief assembled outside a spawn — an acceptance bench
     /// rendering one, and the two entry points a test calls directly.
     allowance: Option<Allowance>,
+    /// The words of the prompts a person may override in settings.json, as
+    /// they stood when the spawn asked; what ships until [`Opening::worded`].
+    prompts: Prompts,
 }
 
 /// Whether the step being opened has been worked before.
@@ -154,21 +163,16 @@ impl Allowance {
 
     /// What the brief says. **`None` where a part gets none at all**, which is
     /// a sentence about asking that would only confuse a part that cannot.
-    pub(crate) fn said(&self) -> Option<String> {
+    pub(crate) fn said(&self, prompts: &Prompts) -> Option<String> {
+        let allowed = self.allowed.to_string();
         (self.allowed > 0).then(|| match self.left {
-            0 => format!(
-                "You may ask for every check {} times in this part, and you have used all \
-                 of them. Naming one check is still free.",
-                self.allowed
-            ),
-            left if left == self.allowed => format!(
-                "You may ask for every check {} times in this part.",
-                self.allowed
-            ),
-            left => format!(
-                "You may ask for every check {} times in this part, and {left} of those are \
-                 left.",
-                self.allowed
+            0 => prompts.fill(keys::PROMPT_DRONE_ASKS_USED, &[("allowed", &allowed)]),
+            left if left == self.allowed => {
+                prompts.fill(keys::PROMPT_DRONE_ASKS_ALL, &[("allowed", &allowed)])
+            }
+            left => prompts.fill(
+                keys::PROMPT_DRONE_ASKS_LEFT,
+                &[("allowed", &allowed), ("left", &left.to_string())],
             ),
         })
     }
@@ -181,6 +185,7 @@ impl Opening {
             attempted: Attempted::No,
             crossed: Crossed::nothing(),
             allowance: None,
+            prompts: Prompts::shipped(),
         }
     }
 
@@ -190,6 +195,7 @@ impl Opening {
             attempted: Attempted::Before(stopped),
             crossed: Crossed::nothing(),
             allowance: None,
+            prompts: Prompts::shipped(),
         }
     }
 
@@ -203,6 +209,12 @@ impl Opening {
             allowance: Some(allowance),
             ..self
         }
+    }
+
+    /// The same opening, worded by the prompts in force: settings.json's,
+    /// read at the spawn so a saved prompt reaches the next Drone.
+    pub(crate) fn worded(self, prompts: Prompts) -> Opening {
+        Opening { prompts, ..self }
     }
 
     /// The same opening, with what the boundary handed across.
@@ -308,15 +320,32 @@ impl Opening {
         moved: Option<&TheBaseMoved>,
     ) -> Result<Brief, SpawnConfigRefused> {
         let mut blocks = match &self.attempted {
-            Attempted::No => assemble(job, workflow, at, &self.crossed, self.allowance),
+            Attempted::No => assemble(
+                job,
+                workflow,
+                at,
+                &self.crossed,
+                self.allowance,
+                &self.prompts,
+            ),
             Attempted::Before(stopped) => {
-                let mut blocks = assemble(job, workflow, at, &self.crossed, self.allowance);
-                blocks.headed(&stopped.block(), ipc::BlockKind::AboutThisJob);
+                let mut blocks = assemble(
+                    job,
+                    workflow,
+                    at,
+                    &self.crossed,
+                    self.allowance,
+                    &self.prompts,
+                );
+                blocks.headed(&stopped.block(&self.prompts), ipc::BlockKind::AboutThisJob);
                 blocks
             }
         };
         if let Some(moved) = moved {
-            blocks.headed(Reconciling::of(moved).text(), ipc::BlockKind::AboutThisJob);
+            blocks.headed(
+                Reconciling::of(&self.prompts, moved).text(),
+                ipc::BlockKind::AboutThisJob,
+            );
         }
         blocks.brief()
     }
@@ -448,7 +477,7 @@ pub fn first_turn(
     at: &StepId,
     crossed: &Crossed,
 ) -> Result<Brief, SpawnConfigRefused> {
-    assemble(job, workflow, at, crossed, None).brief()
+    assemble(job, workflow, at, crossed, None, &Prompts::shipped()).brief()
 }
 
 /// Assemble the first turn for a Drone taking over a step that stopped.
@@ -467,8 +496,11 @@ pub fn resuming_turn(
     stopped: &Stopped,
     crossed: &Crossed,
 ) -> Result<Brief, SpawnConfigRefused> {
-    let mut blocks = assemble(job, workflow, at, crossed, None);
-    blocks.headed(&stopped.block(), ipc::BlockKind::AboutThisJob);
+    let mut blocks = assemble(job, workflow, at, crossed, None, &Prompts::shipped());
+    blocks.headed(
+        &stopped.block(&Prompts::shipped()),
+        ipc::BlockKind::AboutThisJob,
+    );
     blocks.brief()
 }
 
@@ -505,10 +537,10 @@ impl Stopped {
     /// **The closing line follows what was cited rather than being fixed.**
     /// "Address this" names the rows above it, and there are stops that leave
     /// no rows at all — a Drone told to address nothing goes looking for it.
-    fn block(&self) -> String {
-        let mut block = format!(
-            "WHY THIS PART IS BEING DONE AGAIN\n\n{} Its work is on the branch you are in.",
-            self.why()
+    fn block(&self, prompts: &Prompts) -> String {
+        let mut block = prompts.fill(
+            keys::PROMPT_DRONE_AGAIN,
+            &[("why", prompts.get(self.why()))],
         );
         let mut cited = false;
         for judgment in self.judged.iter().filter(|judged| judged.verdict.refuses()) {
@@ -528,13 +560,11 @@ impl Stopped {
                 flag.cited
             ));
         }
-        block.push_str(match cited {
-            true => {
-                "\n\nAddress this and submit again. Say what changed since the last \
-                 submission."
-            }
-            false => "\n\nNothing was cited for you to answer. Finish this part and submit.",
-        });
+        block.push_str("\n\n");
+        block.push_str(prompts.get(match cited {
+            true => keys::PROMPT_DRONE_AGAIN_ANSWER,
+            false => keys::PROMPT_DRONE_AGAIN_NOTHING_CITED,
+        }));
         block
     }
 
@@ -560,30 +590,18 @@ impl Stopped {
     /// read, and what a Judge would make of it, are not Fleet's to speculate
     /// about — `docs/concepts/drone.md`'s rule about self-report, pointed the
     /// other way.
-    fn why(&self) -> &'static str {
+    fn why(&self) -> Words {
         let Some(StepVerdict::Failed(stopped_by)) = self.verdict else {
             // No verdict against the work at all. `passed` and `not_reached`
             // are not refusals either, and rendering any of the three as one
             // is the defect this function exists to close.
-            return "An earlier attempt at this part stopped. The record holds no verdict \
-                    against its work.";
+            return keys::PROMPT_DRONE_AGAIN_NO_VERDICT;
         };
         match stopped_by.trigger() {
-            EscalationTrigger::GateFailure => {
-                "An earlier attempt at this part was checked and did not pass."
-            }
-            EscalationTrigger::EvidenceSuspect => {
-                "An earlier attempt at this part passed its checks, and what it submitted \
-                 was not accepted as evidence that the work was done."
-            }
-            EscalationTrigger::GateUndecided => {
-                "An earlier attempt at this part was never checked. Something the check \
-                 needed could not be read, so nothing was decided about the work itself."
-            }
-            EscalationTrigger::Thrashing => {
-                "An earlier attempt at this part was stopped while it was still running. \
-                 Nothing it did was checked."
-            }
+            EscalationTrigger::GateFailure => keys::PROMPT_DRONE_AGAIN_GATE_FAILURE,
+            EscalationTrigger::EvidenceSuspect => keys::PROMPT_DRONE_AGAIN_SUSPECT,
+            EscalationTrigger::GateUndecided => keys::PROMPT_DRONE_AGAIN_UNDECIDED,
+            EscalationTrigger::Thrashing => keys::PROMPT_DRONE_AGAIN_THRASHING,
             // **Not `Thrashing`'s line, though it is true of this too.** That
             // one is a machine finding the work was going nowhere, and a Drone
             // told it goes looking for what was wrong with what it produced.
@@ -591,10 +609,7 @@ impl Stopped {
             // person took the process away. Saying who is the whole of the
             // difference, and it is said without a reason because the record
             // holds none — why a person did it is theirs and is not in this.
-            EscalationTrigger::DroneKilled => {
-                "An earlier attempt at this part was ended by a person while it was still \
-                 running. Nothing it did was checked, and nothing about it was judged."
-            }
+            EscalationTrigger::DroneKilled => keys::PROMPT_DRONE_AGAIN_KILLED,
             // **Not `DroneKilled`'s line, and the difference is who acted.**
             // There a person took the process away mid-run; here the Drone
             // said its own run was over and Fleet took it at its word. Told
@@ -602,20 +617,13 @@ impl Stopped {
             // stopped it and there was none. The second sentence is the
             // accepted cost said out loud: a run that reports it has ended and
             // then carries on loses whatever it did after saying so.
-            EscalationTrigger::RunEnded => {
-                "An earlier attempt at this part said its run was over without having \
-                 submitted anything, and was stopped there. Nothing it did was checked, \
-                 and anything it did after saying so was not kept."
-            }
+            EscalationTrigger::RunEnded => keys::PROMPT_DRONE_AGAIN_RUN_ENDED,
             // **Not `DroneKilled`'s line either.** Nobody ended this process —
             // it left on its own, or was lost to a Fleet restart — before the
             // person who is now restarting it acted. The restart is what
             // stopped it, and this sentence says so rather than naming an
             // ending that did not happen.
-            EscalationTrigger::DroneGone => {
-                "An earlier attempt at this part was still running when its Drone was found \
-                 gone, and this restart is what stopped it there. Nothing it did was checked."
-            }
+            EscalationTrigger::DroneGone => keys::PROMPT_DRONE_AGAIN_GONE,
             // **Not `BlockedByPolicy`'s line**, which says a tool or a
             // command was denied and sends the next attempt looking for a
             // setting to work around. Nothing was denied here: the earlier
@@ -624,43 +632,19 @@ impl Stopped {
             // differently, and it is the only one of these lines that names
             // the scope at all — a Drone that reads only the first will ask
             // for the same paths again.
-            EscalationTrigger::ScopeRefused => {
-                "An earlier attempt at this part asked to write files outside what this \
-                 Job says it changes, and was told they are not part of it. Nothing it \
-                 did was checked. Do this part inside the files the Job already names."
-            }
+            EscalationTrigger::ScopeRefused => keys::PROMPT_DRONE_AGAIN_SCOPE_REFUSED,
             // `Thrashing`'s line is true of this too and leaves out the part
             // this attempt can do differently.
-            EscalationTrigger::NoReport => {
-                "An earlier attempt at this part was told to stop and report where it had \
-                 got to, and did not answer. It was stopped there, and nothing it did was \
-                 checked."
-            }
-            EscalationTrigger::CheckTimeout => {
-                "An earlier attempt at this part was stopped because a check did not \
-                 finish. Nothing was decided about the work itself."
-            }
-            EscalationTrigger::EvidenceTooLarge => {
-                "An earlier attempt at this part submitted more than could be read, so it \
-                 was never checked."
-            }
-            EscalationTrigger::BlockedByPolicy => {
-                "An earlier attempt at this part was refused a tool or a command it needed, \
-                 and stopped without submitting anything."
-            }
+            EscalationTrigger::NoReport => keys::PROMPT_DRONE_AGAIN_NO_REPORT,
+            EscalationTrigger::CheckTimeout => keys::PROMPT_DRONE_AGAIN_CHECK_TIMEOUT,
+            EscalationTrigger::EvidenceTooLarge => keys::PROMPT_DRONE_AGAIN_TOO_LARGE,
+            EscalationTrigger::BlockedByPolicy => keys::PROMPT_DRONE_AGAIN_BLOCKED,
             // **Not `BlockedByPolicy`'s line.** Nothing was refused there; a
             // person was asked and nobody answered before the limit on
             // waiting ran out, so Fleet ended the run rather than a policy
             // denying the call.
-            EscalationTrigger::AskUnanswered => {
-                "An earlier attempt at this part asked a person whether it could run a \
-                 command, and nobody answered before the limit on waiting ran out. It was \
-                 stopped there, and nothing it did was checked."
-            }
-            EscalationTrigger::LoopCap => {
-                "An earlier attempt at this part used every round it is allowed. Nothing it \
-                 did was refused."
-            }
+            EscalationTrigger::AskUnanswered => keys::PROMPT_DRONE_AGAIN_ASK_UNANSWERED,
+            EscalationTrigger::LoopCap => keys::PROMPT_DRONE_AGAIN_LOOP_CAP,
             // Job-level triggers, which `StepLevelTrigger::of` will not build,
             // so none of these is reachable through a stopped step. Named
             // rather than swept into a wildcard: the narrowing is what makes
@@ -680,10 +664,7 @@ impl Stopped {
             | EscalationTrigger::Stalled
             | EscalationTrigger::TriggerHeld
             | EscalationTrigger::Unheard
-            | EscalationTrigger::WouldNotStart => {
-                "An earlier attempt at this part stopped. The record holds no verdict \
-                 against its work."
-            }
+            | EscalationTrigger::WouldNotStart => keys::PROMPT_DRONE_AGAIN_NO_VERDICT,
         }
     }
 }
@@ -694,27 +675,28 @@ fn assemble(
     at: &StepId,
     crossed: &Crossed,
     allowance: Option<Allowance>,
+    prompts: &Prompts,
 ) -> Blocks {
     // The baseline is the one block with no heading of its own.
-    let mut blocks = Blocks::opening(BASELINE);
-    blocks.headed(&notekeeping(job.id()), ipc::BlockKind::Standing);
-    blocks.headed(&job_brief(job), ipc::BlockKind::AboutThisJob);
+    let mut blocks = Blocks::opening(prompts.get(PROMPT_DRONE_BASELINE));
+    blocks.headed(&notekeeping(prompts, job.id()), ipc::BlockKind::Standing);
+    blocks.headed(&job_brief(prompts, job), ipc::BlockKind::AboutThisJob);
     // **Before the rail, and after what the Job is about.** THE PLAN is a
     // fact about the whole Job, like the brief above it, and the rail below
     // it is about where this step sits — reading in that order says what the
     // work is, then how it is meant to go, then where this part is in it.
     if let Some(the_plan) = crossed.the_plan() {
-        blocks.headed(the_plan.text(), ipc::BlockKind::AboutThisJob);
+        blocks.headed(&the_plan.text(prompts), ipc::BlockKind::AboutThisJob);
     }
     blocks.headed(
-        &where_you_are(workflow, at, crossed.produced()),
+        &where_you_are(prompts, workflow, at, crossed.produced()),
         ipc::BlockKind::Steps,
     );
     // **After the rail and before the step.** The rail is what establishes
     // that there is a part before this one at all, and this says that part is
     // closed — which is only meaningful once a Drone knows it exists.
     if let Some(cleared) = crossed.cleared() {
-        blocks.headed(&cleared.text(), ipc::BlockKind::AboutThisJob);
+        blocks.headed(&cleared.text(prompts), ipc::BlockKind::AboutThisJob);
     }
     // **Before the step and not after it.** A Drone that stops reading at the
     // step block has read the instruction, and the block itself says which of
@@ -722,16 +704,16 @@ fn assemble(
     // overrides reads as a footnote to it.
     // **Before the person's note**, which says what to do about what it found.
     if let Some(sent_back) = crossed.sent_back() {
-        blocks.headed(&sent_back.text(), ipc::BlockKind::AboutThisJob);
+        blocks.headed(&sent_back.text(prompts), ipc::BlockKind::AboutThisJob);
     }
     if let Some(redirect) = crossed.redirect() {
-        blocks.headed(&redirect.text(), ipc::BlockKind::AboutThisJob);
+        blocks.headed(&redirect.text(prompts), ipc::BlockKind::AboutThisJob);
     }
     // **Before the step block, with the other things the boundary carried.**
     // It is what the part is about rather than a footnote to it: a Drone after
     // a dispatch has no other way to learn that the Jobs exist.
     if let Some(dispatched) = crossed.dispatched() {
-        blocks.headed(dispatched.text(), ipc::BlockKind::AboutThisJob);
+        blocks.headed(&dispatched.text(prompts), ipc::BlockKind::AboutThisJob);
     }
     // **After the instruction and before the step.** It is not something the
     // person asked for, so it does not come first; it is something about the
@@ -739,7 +721,7 @@ fn assemble(
     // reads a step that may already be done. `crossing::Overtaken` says why the
     // Drone is told rather than the Job stopped.
     if let Some(overtaken) = crossed.overtaken() {
-        blocks.headed(&overtaken.text(), ipc::BlockKind::AboutThisJob);
+        blocks.headed(&overtaken.text(prompts), ipc::BlockKind::AboutThisJob);
     }
     // Beside what a sibling landed, and for its reason: a fact about the base
     // this part starts from and the Jobs writing beside it. #998.
@@ -748,47 +730,50 @@ fn assemble(
     }
     // After the peers, which may say a fix landed, and before the step: what
     // the part may not touch is read before the part. #1673.
-    if let Some(held_off) = crossed.held_off() {
-        blocks.headed(held_off, ipc::BlockKind::AboutThisJob);
+    if let Some(held_off) = crossed.held_off().and_then(|held| held.text(prompts)) {
+        blocks.headed(&held_off, ipc::BlockKind::AboutThisJob);
     }
     // Before the step, so a review pass reads what was ruled out before it reviews. #907.
     if let Some(dismissed) = crossed.dismissed() {
-        blocks.headed(&dismissed.text(), ipc::BlockKind::AboutThisJob);
+        blocks.headed(&dismissed.text(prompts), ipc::BlockKind::AboutThisJob);
     }
     if let Some(step) = workflow.steps().iter().find(|step| step.id() == at) {
-        blocks.headed(&step_block(step), ipc::BlockKind::AboutThisJob);
+        blocks.headed(&step_block(prompts, step), ipc::BlockKind::AboutThisJob);
         // **Right after the step it is about**, so the words read as this
         // part's and not the Job's.
         if let Some(context) = step.context() {
-            blocks.headed(&for_this_part(context), ipc::BlockKind::AboutThisJob);
+            blocks.headed(
+                &for_this_part(prompts, context),
+                ipc::BlockKind::AboutThisJob,
+            );
         }
         // **Right after the step and before what it delivers.** What a
         // captured step does with `shown_by` is true of the step itself, the
         // same way `step_block` is — a Drone reading only the step and this
         // has read the whole of what makes this step different from one that
         // is not captured.
-        if let Some(capturing) = Capturing::at(step) {
+        if let Some(capturing) = Capturing::at(prompts, step) {
             blocks.headed(capturing.text(), ipc::BlockKind::Standing);
         }
         // **Before the file the part delivers**, on the one workflow where
         // both appear: what the part is for decides what goes in the file, and
         // a Drone reading the path first has already started writing.
-        if let Some(splitting) = Splitting::at(workflow, at) {
+        if let Some(splitting) = Splitting::at(prompts, workflow, at) {
             blocks.headed(splitting.text(), ipc::BlockKind::Standing);
         }
-        if let Some(delivers) = Delivering::at(step) {
+        if let Some(delivers) = Delivering::at(prompts, step) {
             blocks.headed(delivers.text(), ipc::BlockKind::AboutThisJob);
         }
-        if let Some(records) = RecordingThePlan::at(step) {
+        if let Some(records) = RecordingThePlan::at(prompts, step) {
             blocks.headed(records.text(), ipc::BlockKind::AboutThisJob);
         }
-        if let Some(reviews) = Reviewing::at(step) {
+        if let Some(reviews) = Reviewing::at(prompts, step) {
             blocks.headed(reviews.text(), ipc::BlockKind::AboutThisJob);
         }
-        if let Some(asked) = Declaring::at(step) {
+        if let Some(asked) = Declaring::at(prompts, step) {
             blocks.headed(asked.text(), ipc::BlockKind::Standing);
         }
-        if let Some(offered) = Checking::at(workflow, step, allowance) {
+        if let Some(offered) = Checking::at(prompts, workflow, step, allowance) {
             blocks.headed(offered.text(), ipc::BlockKind::Checks);
         }
     }
@@ -820,18 +805,8 @@ fn assemble(
 /// the word's one meaning to a Drone — `#894` moved the declared scope off
 /// it — so this block still leads with what a Drone is actually holding, a
 /// file it wrote for itself, rather than reaching for the word at all.
-fn notekeeping(job: &JobId) -> String {
-    format!(
-        "FILES YOU WRITE FOR YOURSELF\n\nNotes you want to keep \
-         between turns — anything you write for yourself rather than for the \
-         work goes under .armada/{}/, which is this Job's alone. None of it \
-         belongs at the repository root, where a file outlives the Job that \
-         wrote it with nothing to say that Job is over. Nothing here is \
-         asking you to write any of it, and a file this part is asked to \
-         deliver is not one of them — that one is named where it is asked \
-         for, at the path that is read, and it does not go here.",
-        job.as_str()
-    )
+fn notekeeping(prompts: &Prompts, job: &JobId) -> String {
+    prompts.fill(keys::PROMPT_DRONE_NOTEKEEPING, &[("job", job.as_str())])
 }
 
 /// What the Job is about, in the requester's own words.
@@ -846,21 +821,26 @@ fn notekeeping(job: &JobId) -> String {
 /// worktree-relative path is the whole of what this owes a Drone: `dispatch`
 /// already copied the file to that path, and a Drone opens it with its own
 /// tools rather than being handed anything more than where to look.
-fn job_brief(job: &Job) -> String {
-    let mut brief = format!("JOB BRIEF\n\n{}", job.title().as_str());
+fn job_brief(prompts: &Prompts, job: &Job) -> String {
+    let mut brief = prompts.fill(
+        keys::PROMPT_DRONE_JOB_BRIEF,
+        &[("title", job.title().as_str())],
+    );
     if !job.facts().as_str().is_empty() {
         brief.push_str("\n\n");
         brief.push_str(job.facts().as_str());
     }
     if !job.attachments().is_empty() {
-        brief.push_str("\n\nFiles attached to this brief, copied into your worktree:");
+        brief.push_str("\n\n");
+        brief.push_str(prompts.get(keys::PROMPT_DRONE_JOB_ATTACHMENTS));
         for attachment in job.attachments() {
             brief.push_str("\n  - .armada/attachments/");
             brief.push_str(&attachment.filename);
         }
     }
     if !job.acceptance_criteria().is_empty() {
-        brief.push_str("\n\nThis is done when:");
+        brief.push_str("\n\n");
+        brief.push_str(prompts.get(keys::PROMPT_DRONE_JOB_DONE_WHEN));
         for criterion in job.acceptance_criteria() {
             brief.push_str("\n  - ");
             brief.push_str(&criterion.text);
@@ -884,35 +864,46 @@ fn job_brief(job: &Job) -> String {
 /// rather than beside it because it is positional — "part 1" only means
 /// anything to a Drone that has just read the numbered list — and the contract
 /// draws it inside.
-fn where_you_are(workflow: &FrozenWorkflow, at: &StepId, produced: Option<&Produced>) -> String {
+fn where_you_are(
+    prompts: &Prompts,
+    workflow: &FrozenWorkflow,
+    at: &StepId,
+    produced: Option<&Produced>,
+) -> String {
     let steps = workflow.steps();
     let position = steps.iter().position(|step| step.id() == at);
-    let mut block = format!("WHERE YOU ARE\n\nThis work runs in {} parts.", steps.len());
+    let mut block = prompts.fill(
+        keys::PROMPT_DRONE_WHERE_YOU_ARE,
+        &[("parts", &steps.len().to_string())],
+    );
     if let Some(index) = position {
-        block.push_str(&format!(" You are on part {}.\n", index + 1));
+        block.push(' ');
+        block.push_str(&prompts.fill(
+            keys::PROMPT_DRONE_YOU_ARE_ON,
+            &[("part", &(index + 1).to_string())],
+        ));
+        block.push('\n');
     } else {
         block.push('\n');
     }
     for (index, step) in steps.iter().enumerate() {
         let mark = match position {
-            Some(here) if index < here => "done",
-            Some(here) if index == here => "you are here",
-            _ => "not yours — do not do it",
+            Some(here) if index < here => prompts.get(keys::PROMPT_DRONE_PART_DONE),
+            Some(here) if index == here => prompts.get(keys::PROMPT_DRONE_PART_HERE),
+            _ => prompts.get(keys::PROMPT_DRONE_PART_NOT_YOURS),
         };
         block.push_str(&format!("\n  {}. {} — {mark}", index + 1, step.label()));
         if position == Some(index) {
-            block.push_str("\n     STOP. Submit when this part is done, then wait.");
+            block.push_str("\n     ");
+            block.push_str(prompts.get(keys::PROMPT_DRONE_PART_STOP));
         }
     }
     if let Some(produced) = produced {
         block.push_str("\n\n");
-        block.push_str(&produced.text());
+        block.push_str(&produced.text(prompts));
     }
-    block.push_str(
-        "\n\nThe parts after this one happen after you submit, and doing them \
-         yourself does not move the work forward. Leave the branch in a state \
-         they can start from.",
-    );
+    block.push_str("\n\n");
+    block.push_str(prompts.get(keys::PROMPT_DRONE_PARTS_AFTER));
     block
 }
 
@@ -921,19 +912,12 @@ fn where_you_are(workflow: &FrozenWorkflow, at: &StepId, produced: Option<&Produ
 ///
 /// The closing line is where a work submission's `not_claimed` field comes
 /// from — an adjacent problem noticed and left alone has somewhere to land.
-fn step_block(step: &ResolvedStep) -> String {
-    format!(
-        "STEP: {}\n\nWhat you claim should be what the work now does, not that \
-         you finished. An adjacent problem you notice and leave alone goes \
-         under Not claimed.",
-        step.label()
-    )
+fn step_block(prompts: &Prompts, step: &ResolvedStep) -> String {
+    prompts.fill(keys::PROMPT_DRONE_STEP, &[("step", step.label())])
 }
 
 /// What the person who approved the Job left for this part, at the press.
 /// `crossing::Redirected`'s shape, for a note left before the work began.
-fn for_this_part(context: &str) -> String {
-    format!(
-        "FOR THIS PART\n\nThe person who approved this work left this for this part:\n\n  \"{context}\""
-    )
+fn for_this_part(prompts: &Prompts, context: &str) -> String {
+    prompts.fill(keys::PROMPT_DRONE_FOR_THIS_PART, &[("note", context)])
 }

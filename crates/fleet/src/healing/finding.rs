@@ -4,6 +4,9 @@
 use std::path::Path;
 
 use adapter_traits::Repair;
+use config::settings as keys;
+
+use crate::prompts::Prompts;
 
 /// What an output says when a Check failed on an install that never finished.
 ///
@@ -78,36 +81,27 @@ impl Finding {
     }
 
     /// The repair Drone's only turn.
-    pub(crate) fn told(&self, bootstrap: &[String]) -> String {
+    pub(crate) fn told(&self, prompts: &Prompts, bootstrap: &[String]) -> String {
+        // **The heading stays Fleet's**, whatever the body says: it is the
+        // line a Drone harness and a fake key on.
+        let quoted = |items: &[String]| {
+            items
+                .iter()
+                .map(|item| format!("`{item}`"))
+                .collect::<Vec<_>>()
+                .join(", ")
+        };
         match self {
             Finding::UnmergedIndex { paths } => format!(
-                "REPAIR THE INDEX\n\n\
-                 This worktree's index holds {} as unmerged, but the files carry no conflict \
-                 markers: the conflict was resolved and the resolution never staged, so the \
-                 diff does not show it.\n\n\
-                 Stage each with `git add`. Where a path was deleted on one side and the file \
-                 is gone, `git rm` it. Do not edit any file's content, and do not commit: Fleet \
-                 commits. If a file's content does not look resolved, leave that path alone and \
-                 say which and why. Then stop.",
-                paths
-                    .iter()
-                    .map(|path| format!("`{path}`"))
-                    .collect::<Vec<_>>()
-                    .join(", ")
+                "REPAIR THE INDEX\n\n{}",
+                prompts.fill(keys::PROMPT_HEAL_INDEX, &[("paths", &quoted(paths))])
             ),
             Finding::BrokenInstall { said } => format!(
-                "REPAIR THE INSTALL\n\n\
-                 A Check failed because something installed in this worktree never finished \
-                 installing. It printed: {said}\n\n\
-                 This worktree was reused, so the repository's bootstrap finished at once \
-                 without redoing it. Run the bootstrap again with its flag for a forced \
-                 reinstall, so the install steps of every dependency run: {}. Change no source \
-                 file. Then stop; Fleet runs the Check again.",
-                bootstrap
-                    .iter()
-                    .map(|run| format!("`{run}`"))
-                    .collect::<Vec<_>>()
-                    .join(", ")
+                "REPAIR THE INSTALL\n\n{}",
+                prompts.fill(
+                    keys::PROMPT_HEAL_INSTALL,
+                    &[("printed", said), ("bootstrap", &quoted(bootstrap))]
+                )
             ),
         }
     }
@@ -132,3 +126,22 @@ fn holds_a_marker(file: &Path) -> bool {
         .map(|text| text.lines().any(|line| line.starts_with("<<<<<<< ")))
         .unwrap_or(false)
 }
+
+/// The body under REPAIR THE INDEX, as it ships. `{paths}` names the unmerged paths.
+pub(crate) const INDEX: &str = "\
+                 This worktree's index holds {paths} as unmerged, but the files carry no conflict \
+                 markers: the conflict was resolved and the resolution never staged, so the \
+                 diff does not show it.\n\n\
+                 Stage each with `git add`. Where a path was deleted on one side and the file \
+                 is gone, `git rm` it. Do not edit any file's content, and do not commit: Fleet \
+                 commits. If a file's content does not look resolved, leave that path alone and \
+                 say which and why. Then stop.";
+
+/// The body under REPAIR THE INSTALL, as it ships.
+pub(crate) const INSTALL: &str = "\
+                 A Check failed because something installed in this worktree never finished \
+                 installing. It printed: {printed}\n\n\
+                 This worktree was reused, so the repository's bootstrap finished at once \
+                 without redoing it. Run the bootstrap again with its flag for a forced \
+                 reinstall, so the install steps of every dependency run: {bootstrap}. Change no source \
+                 file. Then stop; Fleet runs the Check again.";

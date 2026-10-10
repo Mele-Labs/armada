@@ -1,0 +1,127 @@
+/* One setting from settings.json, with the key and its marks on a
+   line of their own under the title. */
+
+.armada-setting-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+  padding-top: var(--space-4);
+  border-top: var(--border-width) solid var(--border-subtle);
+}
+
+.armada-setting-field:first-of-type {
+  padding-top: 0;
+  border-top: none;
+}
+
+.armada-setting-field__title {
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  font-weight: var(--weight-heading);
+  color: var(--fg-default);
+}
+
+/* The key, what marks it changed, and the way back. Wraps rather than pushing past a narrow card. */
+.armada-setting-field__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  min-height: var(--space-6);
+}
+
+.armada-setting-field__key {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-subtle);
+  overflow-wrap: anywhere;
+}
+
+/* Neutral, like a setting that took: a changed value is not a Job state, and status hue is never
+   chosen. Sentence case, since ALL CAPS is the eyebrow's and a table header's alone. */
+.armada-setting-field__modified {
+  padding: 0 var(--space-2);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  color: var(--fg-default);
+}
+
+.armada-setting-field__means,
+.armada-setting-field__ships,
+.armada-setting-field__note {
+  margin: 0;
+  min-width: 0;
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-muted);
+  text-wrap: pretty;
+}
+
+.armada-setting-field__note {
+  color: var(--fg-default);
+}
+
+.armada-setting-field__note code {
+  font-family: var(--font-mono);
+}
+
+.armada-setting-field__refused {
+  margin: 0;
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--status-completed-failed);
+}
+
+/* The field takes the slack, so Save holds the trailing edge at any width. */
+.armada-setting-field__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: var(--space-3);
+}
+
+/* A prompt or a list is read at length: its box takes the whole width and Save sits beneath it. */
+.armada-setting-field__row[data-wide] {
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: end;
+}
+
+.armada-setting-field__row[data-wide] > :first-child {
+  justify-self: stretch;
+}
+
+/* A section's rows under its lead. */
+.armada-setting-fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  min-width: 0;
+}
+
+.armada-setting-fields__opening {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.armada-setting-fields__lead {
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  color: var(--fg-muted);
+  text-wrap: pretty;
+}
+
+/* The path takes the slack and wraps; the press holds the trailing edge. */
+.armada-setting-fields__file {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+}

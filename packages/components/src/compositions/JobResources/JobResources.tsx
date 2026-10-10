@@ -98,6 +98,11 @@ export type JobResourcesProps = {
    */
   onOpen?: (what: Artifact) => void;
   /**
+   * Open the Job's worktree in a terminal, beside the worktree row's `Open`. **Absent draws no
+   * control**, `onOpen`'s rule.
+   */
+  onOpenTerminal?: () => void;
+  /**
    * Read a log in a panel, by pressing its row. **Absent draws no row as
    * pressable**, so a surface with no panel to open does not offer one.
    */
@@ -136,6 +141,7 @@ export function JobResources({
   nothingToAsk,
   onExamine,
   onOpen,
+  onOpenTerminal,
   onViewLog,
   viewingLog,
   onKillProcess,
@@ -229,7 +235,11 @@ export function JobResources({
               }
             >
               {reading.worktrees.length === 0 ? null : (
-                <Worktrees worktrees={reading.worktrees} {...(onOpen === undefined ? {} : { onOpen })} />
+                <Worktrees
+                  worktrees={reading.worktrees}
+                  {...(onOpen === undefined ? {} : { onOpen })}
+                  {...(onOpenTerminal === undefined ? {} : { onOpenTerminal })}
+                />
               )}
             </DestinationCard>
           </div>

@@ -20,7 +20,10 @@ use store::{AttachmentState, Holder, KeptAttachment, KeptHosting, KeptSession};
 
 use super::rows::new_id;
 use super::serving::mode_text;
+use config::settings as keys;
+
 use crate::daemon::Fleet;
+use crate::prompts::Prompts;
 
 /// A Job with no checkout of its own to hand over. A 422.
 const NO_WORKTREE: &str = "fleet.pilot_without_worktree";
@@ -167,7 +170,7 @@ where
     pub(crate) async fn handoff_preface(&self, session: &str) -> Option<String> {
         let job = self.piloted_job_of(session).await?;
         let bundle = self.handoff_bundle(JobId::from(&job)).await.ok()?;
-        Some(rendered_for_the_agent(&bundle))
+        Some(rendered_for_the_agent(&self.prompts(), &bundle))
     }
 
     /// The pilot is over, or its session is: the session holds no slot, so its
@@ -318,46 +321,75 @@ impl HandoffRowParts<'_> {
 /// and not the Board**: what stopped, what was refused, what the plan said
 /// against what the tree holds, and what the Drone said it was stuck on, which
 /// it is told is the Drone's word.
-pub(crate) fn rendered_for_the_agent(bundle: &HandoffBundle) -> String {
+pub(crate) fn rendered_for_the_agent(prompts: &Prompts, bundle: &HandoffBundle) -> String {
     let mut said = String::new();
     let job = &bundle.job.job;
-    said.push_str(&format!(
-        "A person has taken over Job \"{}\" (id {}) and you are working it with them. Its Drone \
-         was stopped, and its worktree is yours: you are already in it.\n",
-        job.title,
-        job.id.as_str()
-    ));
+    let line = |said: &mut String, text: String| {
+        said.push_str(&text);
+        said.push('\n');
+    };
+    line(
+        &mut said,
+        prompts.fill(
+            keys::PROMPT_PILOT_OPENING,
+            &[("title", job.title.as_str()), ("id", job.id.as_str())],
+        ),
+    );
     if let Some(worktree) = &bundle.worktree {
-        said.push_str(&format!(
-            "Worktree {}, branch {}.\n",
-            worktree.path, worktree.branch
-        ));
+        line(
+            &mut said,
+            prompts.fill(
+                keys::PROMPT_PILOT_WORKTREE,
+                &[
+                    ("path", worktree.path.as_str()),
+                    ("branch", worktree.branch.as_str()),
+                ],
+            ),
+        );
     }
-    said.push_str(match bundle.reason.as_str() {
-        "restart_step" => {
-            "It was taken over to restart its step: a fresh Drone takes the step after the person \
-             is done.\n"
-        }
-        _ => "It was taken over for good: the person ends the pilot when they are done.\n",
-    });
+    line(
+        &mut said,
+        prompts
+            .get(match bundle.reason.as_str() {
+                "restart_step" => keys::PROMPT_PILOT_RESTART,
+                _ => keys::PROMPT_PILOT_FOR_GOOD,
+            })
+            .to_string(),
+    );
     if let Some(stopped) = &bundle.stopped_on {
         let step = bundle
             .job
             .steps
             .iter()
             .find(|step| step.step_id == stopped.step_id);
-        said.push_str(&format!(
-            "\nIt stopped on step `{}`{}{}, after {} run(s).\n",
-            stopped.step_id.as_str(),
-            step.map(|step| format!(" \"{}\"", step.label))
-                .unwrap_or_default(),
-            stopped
-                .trigger
-                .as_ref()
-                .map(|trigger| format!(" ({trigger})"))
-                .unwrap_or_default(),
-            step.map_or(0, |step| step.attempts.len())
-        ));
+        said.push('\n');
+        line(
+            &mut said,
+            prompts.fill(
+                keys::PROMPT_PILOT_STOPPED,
+                &[
+                    ("step", stopped.step_id.as_str()),
+                    (
+                        "label",
+                        &step
+                            .map(|step| format!(" \"{}\"", step.label))
+                            .unwrap_or_default(),
+                    ),
+                    (
+                        "trigger",
+                        &stopped
+                            .trigger
+                            .as_ref()
+                            .map(|trigger| format!(" ({trigger})"))
+                            .unwrap_or_default(),
+                    ),
+                    (
+                        "runs",
+                        &step.map_or(0, |step| step.attempts.len()).to_string(),
+                    ),
+                ],
+            ),
+        );
         if let Some(step) = step {
             let refused: Vec<String> = step
                 .judged
@@ -378,9 +410,11 @@ pub(crate) fn rendered_for_the_agent(bundle: &HandoffBundle) -> String {
                 })
                 .collect();
             if !refused.is_empty() {
-                said.push_str("The Judge refused:\n");
-                said.push_str(&refused.join("\n"));
-                said.push('\n');
+                line(
+                    &mut said,
+                    prompts.get(keys::PROMPT_PILOT_JUDGE_REFUSED).to_string(),
+                );
+                line(&mut said, refused.join("\n"));
             }
             let failed: Vec<String> = step
                 .check_runs
@@ -389,9 +423,11 @@ pub(crate) fn rendered_for_the_agent(bundle: &HandoffBundle) -> String {
                 .map(|run| format!("- {} (run {})", run.name, run.attempt))
                 .collect();
             if !failed.is_empty() {
-                said.push_str("Checks that did not pass:\n");
-                said.push_str(&failed.join("\n"));
-                said.push('\n');
+                line(
+                    &mut said,
+                    prompts.get(keys::PROMPT_PILOT_CHECKS_FAILED).to_string(),
+                );
+                line(&mut said, failed.join("\n"));
             }
         }
     }
@@ -403,10 +439,14 @@ pub(crate) fn rendered_for_the_agent(bundle: &HandoffBundle) -> String {
             .map(|file| file.path.as_str())
             .collect();
         if !outside.is_empty() {
-            said.push_str(&format!(
-                "\nFiles changed outside the plan the step declared: {}.\n",
-                outside.join(", ")
-            ));
+            said.push('\n');
+            line(
+                &mut said,
+                prompts.fill(
+                    keys::PROMPT_PILOT_OUTSIDE_PLAN,
+                    &[("files", &outside.join(", "))],
+                ),
+            );
         }
     }
     if !bundle.changed.is_empty() {
@@ -415,21 +455,27 @@ pub(crate) fn rendered_for_the_agent(bundle: &HandoffBundle) -> String {
             .iter()
             .map(|file| file.path.as_str())
             .collect();
-        said.push_str(&format!(
-            "\nThe worktree holds changes to: {}.\n",
-            files.join(", ")
-        ));
+        said.push('\n');
+        line(
+            &mut said,
+            prompts.fill(keys::PROMPT_PILOT_CHANGED, &[("files", &files.join(", "))]),
+        );
     }
     if let Some(narrative) = &bundle.narrative {
-        said.push_str(&format!(
-            "\nThe Drone's own account, which is its word and not evidence:\n- trying to: {}\n- \
-             blocked by: {}\n- tried: {}\n",
-            narrative.trying_to, narrative.blocked_by, narrative.tried
-        ));
+        said.push('\n');
+        line(
+            &mut said,
+            prompts.fill(
+                keys::PROMPT_PILOT_NARRATIVE,
+                &[
+                    ("trying_to", narrative.trying_to.as_str()),
+                    ("blocked_by", narrative.blocked_by.as_str()),
+                    ("tried", narrative.tried.as_str()),
+                ],
+            ),
+        );
     }
-    said.push_str(
-        "\nEvery attempt of every step and the evidence each submitted are in the handoff record, \
-         `get_handoff` for this Job id, if you need them.",
-    );
+    said.push('\n');
+    said.push_str(prompts.get(keys::PROMPT_PILOT_RECORD));
     said
 }

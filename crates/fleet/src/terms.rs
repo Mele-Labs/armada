@@ -26,7 +26,13 @@
 //! Five of the six carry **drafted wording**. Sanctioned copy is
 //! `docs/contracts/agent-prompt.md`'s to write and it has none for them yet.
 
+use config::settings as keys;
 use core_model::{FrozenWorkflow, RepoPath, ResolvedCheck, ResolvedStep, StepId};
+
+use crate::prompts::Prompts;
+
+mod words;
+pub(crate) use words::*;
 
 /// The file a step is asked to write, where it declares one.
 ///
@@ -63,17 +69,11 @@ impl Delivering {
     /// **One file, and `ResolvedStep::deliverable` is what says so.** A step
     /// declaring two is refused where it is written, so there is no list here
     /// and no "the first one" to be wrong about.
-    pub fn at(step: &ResolvedStep) -> Option<Delivering> {
+    pub fn at(prompts: &Prompts, step: &ResolvedStep) -> Option<Delivering> {
         let target = step.deliverable()?;
-        Some(Delivering(format!(
-            "WHAT THIS PART DELIVERS\n\nWrite this part's finding to a file, \
-             at this exact path in your worktree:\n\n  {target}\n\nThis is the \
-             work product, not a note to yourself, so it does not go in the \
-             directory named above. This exact path is the one that is read: an \
-             empty file or no file stops this part, and a file somewhere else \
-             is not this part's work however good it is. What you submit \
-             summarises it and does not replace it."
-        )))
+        Some(Delivering(
+            prompts.fill(keys::PROMPT_DRONE_DELIVERS, &[("target", target)]),
+        ))
     }
 
     /// The block, exactly as it reaches a Drone.
@@ -96,7 +96,7 @@ pub struct RecordingThePlan(String);
 impl RecordingThePlan {
     /// `Some` on the step that records the Job's plan — the same switch
     /// `crate::work_plan::plan_grants` reads to grant the tool at all.
-    pub fn at(step: &ResolvedStep) -> Option<RecordingThePlan> {
+    pub fn at(prompts: &Prompts, step: &ResolvedStep) -> Option<RecordingThePlan> {
         if !step.records_plan() {
             return None;
         }
@@ -104,28 +104,8 @@ impl RecordingThePlan {
             // Beside a real deliverable, the plan is not the product —
             // `Delivering` already told the Drone what is, and this says
             // there is a second thing to record besides it.
-            true => {
-                "RECORDING THE PLAN\n\nBeside what this part delivers, it \
-                 also records the Job's plan. Record it with record_plan: \
-                 an approach in a paragraph, then the tasks it breaks into, \
-                 in the order they will be done. Recording again replaces \
-                 the whole plan, so correct one by recording it again. The \
-                 checks each part must pass run on their own when that \
-                 part is submitted, so the plan carries no task for \
-                 running them. Recording the plan does not finish this \
-                 part — submit_evidence still does."
-            }
-            false => {
-                "WHAT THIS PART DELIVERS\n\nThis part's product is the Job's \
-                 plan. Record it with record_plan: an approach in a \
-                 paragraph, then the tasks it breaks into, in the order \
-                 they will be done. Recording again replaces the whole \
-                 plan, so correct one by recording it again. The checks \
-                 each part must pass run on their own when that part is \
-                 submitted, so the plan carries no task for running them. \
-                 Recording does not finish this part — submit_evidence \
-                 still does."
-            }
+            true => prompts.get(keys::PROMPT_DRONE_RECORDS_PLAN_TOO),
+            false => prompts.get(keys::PROMPT_DRONE_RECORDS_PLAN),
         };
         Some(RecordingThePlan(String::from(text)))
     }
@@ -159,22 +139,12 @@ impl Capturing {
     /// **`ResolvedStep::captured` is the only switch.** A step that is not
     /// captured must not gain a paragraph about specs — the ordinary
     /// `shown_by` obligation in the baseline already covers it.
-    pub fn at(step: &ResolvedStep) -> Option<Capturing> {
+    pub fn at(prompts: &Prompts, step: &ResolvedStep) -> Option<Capturing> {
         if !step.captured() {
             return None;
         }
         Some(Capturing(String::from(
-            "THIS PART IS CAPTURED\n\nWhatever you name in `shown_by` is not \
-             only read. This repository's own `evidence.run` runs it once \
-             you submit — so it has to be a spec: one file of runnable code \
-             that reaches the state your claim is about, landing in the \
-             diff like anything else this part changes, not a description \
-             of what you saw. What that run leaves behind is what a \
-             reviewer sees, in place of reading the diff for themselves. \
-             What the spec has to look like beyond that is this \
-             repository's own decision, not something this instruction can \
-             tell you.\n\nNaming none does not fail this part. It means \
-             nothing is captured, and a reviewer reads the diff instead.",
+            prompts.get(keys::PROMPT_DRONE_CAPTURED),
         )))
     }
 
@@ -240,6 +210,7 @@ impl Checking {
     /// sometimes less, so a step holding a path-scoped Check says so — on the
     /// same reading `crate::asked_run` skips by, and never in schema words.
     pub fn at(
+        prompts: &Prompts,
         workflow: &FrozenWorkflow,
         step: &ResolvedStep,
         allowance: Option<crate::briefing::Allowance>,
@@ -247,67 +218,39 @@ impl Checking {
         if step.mid_step_checks().is_empty() {
             return None;
         }
-        let mut block = String::from(
-            "FINDING OUT WHERE YOU STAND\n\nThese are the checks that gate \
-             this part:\n",
-        );
+        let mut block = String::from(prompts.get(keys::PROMPT_DRONE_CHECKS));
+        block.push('\n');
         for check in step.checks() {
             block.push_str("\n  - ");
             block.push_str(check.label());
         }
         let whole = match step.mid_step_checks().len() == step.checks().len() {
-            true => "An ask that names no check runs the whole list",
-            false => "An ask that names no check runs every one of them but those named below",
+            true => prompts.get(keys::PROMPT_DRONE_CHECKS_WHOLE_ALL),
+            false => prompts.get(keys::PROMPT_DRONE_CHECKS_WHOLE_EXCEPT),
         };
-        block.push_str(&format!(
-            "\n\nYou can ask for them to be run against your worktree, and you \
-             will be told what each one did. A check that fails carries its \
-             own output back with the answer — you do not need to run the \
-             command yourself or go looking for a log to read it. {whole}. \
-             A build or test command run directly is not granted; asking is \
-             how you get the same answer.\n\nYou can also name one check off \
-             the list above, and the files you changed, and get an answer in \
-             seconds rather than minutes. **Asking that way costs you \
-             nothing** — only a run of every check counts against the limit \
-             below, so ask about one check as often as it is useful. Naming \
-             one does not lower the bar you are measured against: every check \
-             is run whole when you submit, whatever you asked for before \
-             then.",
-        ));
+        block.push_str("\n\n");
+        block.push_str(&prompts.fill(keys::PROMPT_DRONE_CHECKS_ASK, &[("whole", whole)]));
         if step.checks().iter().any(ResolvedCheck::needs_changed_paths) {
-            block.push_str(
-                " A check on this list that covers only certain files comes \
-                 back skipped rather than run, where your changes have not \
-                 touched them.",
-            );
+            block.push(' ');
+            block.push_str(prompts.get(keys::PROMPT_DRONE_CHECKS_SKIPPED));
         }
-        block.push_str(
-            " Use it \
-             when you want to know whether the work holds up rather than \
-             guessing. The call comes back at once, and each check's result \
-             arrives as a later turn as it finishes, however long they take. \
-             The first one that fails stops the rest, and the last turn says \
-             the run is over. Wait for them rather than running them yourself.",
-        );
-        block.push_str(&not_asked(workflow, step));
-        block.push_str(
-            "\n\nIt is not a verdict and it advances nothing. A run in which \
-             everything passes does not finish this part; the checks are run \
-             again when you submit, and that run is the one that decides. \
-             Submitting is still the only way to report.",
-        );
+        block.push(' ');
+        block.push_str(prompts.get(keys::PROMPT_DRONE_CHECKS_WAIT));
+        block.push_str(&not_asked(prompts, workflow, step));
+        block.push_str("\n\n");
+        block.push_str(prompts.get(keys::PROMPT_DRONE_CHECKS_NOT_A_VERDICT));
         // **The number, where the caller knows it.** "There is a limit" and no
         // number is what a part read on 17 Sep before it stopped asking
         // altogether: it could not tell whether spending one early risked
         // running out at the second task of seven, so it spent none and ran
         // the commands by hand. A brief assembled outside a spawn has no
         // allowance to state and says nothing rather than guessing. #1456.
-        match allowance.and_then(|allowance| allowance.said()) {
+        match allowance.and_then(|allowance| allowance.said(prompts)) {
             Some(said) => block.push_str(&format!(" {said}")),
-            None => block.push_str(
-                " There is a limit on how many times one part may ask for every check \
-                 at once, and none on asking about one.",
-            ),
+            None => {
+                block.push(' ');
+                block.push_str(prompts.get(keys::PROMPT_DRONE_CHECKS_LIMIT));
+            }
         }
         Some(Checking(block))
     }
@@ -320,7 +263,7 @@ impl Checking {
 
 /// The checks asking leaves out and where each runs instead, so a clean run
 /// does not read as the whole bar. Empty where asking runs every one. #849.
-fn not_asked(workflow: &FrozenWorkflow, step: &ResolvedStep) -> String {
+fn not_asked(prompts: &Prompts, workflow: &FrozenWorkflow, step: &ResolvedStep) -> String {
     let named = |runs_at: core_model::RunsAt| -> Vec<&str> {
         step.checks()
             .iter()
@@ -328,44 +271,35 @@ fn not_asked(workflow: &FrozenWorkflow, step: &ResolvedStep) -> String {
             .map(ResolvedCheck::label)
             .collect()
     };
+    let runs = |names: usize| if names == 1 { "it runs" } else { "they run" };
     let mut said = String::new();
     let at_gate = named(core_model::RunsAt::Gate);
     if !at_gate.is_empty() {
-        said.push_str(&format!(
-            "\n\nAsking does not run {}: {} only when you submit.",
-            quoted(&at_gate),
-            if at_gate.len() == 1 {
-                "it runs"
-            } else {
-                "they run"
-            },
+        said.push_str("\n\n");
+        said.push_str(&prompts.fill(
+            keys::PROMPT_DRONE_CHECKS_AT_GATE,
+            &[("checks", &quoted(&at_gate)), ("runs", runs(at_gate.len()))],
         ));
     }
     let last = named(core_model::RunsAt::Handoff);
     if !last.is_empty() {
-        said.push_str(&format!(
-            "\n\nAsking does not run {} either: when you submit, {} only once \
-             every other check here has passed, before the work is handed off.",
-            quoted(&last),
-            if last.len() == 1 {
-                "it runs"
-            } else {
-                "they run"
-            },
+        said.push_str("\n\n");
+        said.push_str(&prompts.fill(
+            keys::PROMPT_DRONE_CHECKS_AT_HANDOFF,
+            &[("checks", &quoted(&last)), ("runs", runs(last.len()))],
         ));
     }
     let later = workflow.held_for_handoff(step.id());
     if !later.is_empty() {
-        said.push_str(&format!(
-            "\n\n{} {} not checked on this part at all, when you ask or when you \
-             submit. {} once, before the work is handed off.",
-            quoted(&later),
-            if later.len() == 1 { "is" } else { "are" },
-            if later.len() == 1 {
-                "It runs"
-            } else {
-                "They run"
-            },
+        let one = later.len() == 1;
+        said.push_str("\n\n");
+        said.push_str(&prompts.fill(
+            keys::PROMPT_DRONE_CHECKS_LATER,
+            &[
+                ("checks", &quoted(&later)),
+                ("is", if one { "is" } else { "are" }),
+                ("runs", if one { "It runs" } else { "They run" }),
+            ],
         ));
     }
     said
@@ -415,25 +349,15 @@ impl Declaring {
     /// twenty-two minutes, and failed `evidence_scope` on a call nobody had
     /// requested: the declaration is cleared at the boundary and the ask was
     /// not repeated there.
-    pub fn at(step: &ResolvedStep) -> Option<Declaring> {
+    pub fn at(prompts: &Prompts, step: &ResolvedStep) -> Option<Declaring> {
         let scope = step.evidence_scope()?;
         if !scope.wants_a_declaration() {
             return None;
         }
-        let mut block = String::from(
-            "BEFORE YOU START\n\nCall the scope tool with the repository-relative \
-             paths this part's work will be in. Include what you will change and \
-             what has to be read to judge the change. Each part is checked \
-             against what was declared for it, and what you declared for an \
-             earlier part does not carry over.",
-        );
+        let mut block = String::from(prompts.get(keys::PROMPT_DRONE_DECLARE));
         if scope.scope_diff_check() {
-            block.push_str(
-                " Files you change outside them are compared against what you \
-                 declared. If the work turns out to be somewhere else, call the \
-                 tool again — a scope that changed is fine, and a file changed \
-                 for the next part is not.",
-            );
+            block.push(' ');
+            block.push_str(prompts.get(keys::PROMPT_DRONE_DECLARE_COMPARED));
         }
         if !scope.exclude_paths().is_empty() {
             // **It says there is a route**, and until `#417` it did not. A
@@ -442,12 +366,8 @@ impl Declaring {
             // person finds out at the end. These are boundaries set before
             // anybody read the code, so whether one is right for this
             // particular fix is a real question with a real answer.
-            block.push_str(
-                "\n\nThis part of the work is meant to stay out of these. If \
-                 the fix you find genuinely needs one of them, say so with the \
-                 scope request tool and say why — somebody will look at whether \
-                 it belongs here, and you keep working while they do:",
-            );
+            block.push_str("\n\n");
+            block.push_str(prompts.get(keys::PROMPT_DRONE_DECLARE_EXCLUDED));
             for path in scope.exclude_paths() {
                 block.push_str("\n  - ");
                 block.push_str(path.as_str());
@@ -504,25 +424,17 @@ impl Redeclaring {
     /// answers. Passing everything seen so far would say the same thing every
     /// turn, and a notice a Drone has already acted on is one it reads as
     /// having been ignored.
-    pub fn at(step: &ResolvedStep, drifted: &[RepoPath]) -> Option<Redeclaring> {
+    pub fn at(prompts: &Prompts, step: &ResolvedStep, drifted: &[RepoPath]) -> Option<Redeclaring> {
         if drifted.is_empty() || !step.evidence_scope()?.watches_live_edits() {
             return None;
         }
-        let mut block = String::from(
-            "FILES OUTSIDE WHAT YOU DECLARED\n\nThe scope you declared for this \
-             part does not cover everything that has changed:",
-        );
+        let mut block = String::from(prompts.get(keys::PROMPT_DRONE_REDECLARE));
         for path in drifted {
             block.push_str("\n  - ");
             block.push_str(path.as_str());
         }
-        block.push_str(
-            "\n\nNothing has failed and you are not being asked to stop. If this \
-             part's work is there, call the scope tool again with every path the \
-             work is in. The new call replaces the scope, and that is how a \
-             scope that turned out wrong is corrected. If that work belongs to \
-             a later part, leave it to that part.",
-        );
+        block.push_str("\n\n");
+        block.push_str(prompts.get(keys::PROMPT_DRONE_REDECLARE_WHAT));
         Some(Redeclaring(block))
     }
 
@@ -561,14 +473,16 @@ impl Splitting {
     /// The block this step puts to its Drone, or `None` on every step that
     /// neither creates Jobs nor stands in front of one that does — which is
     /// every step of every workflow but one.
-    pub fn at(workflow: &FrozenWorkflow, at: &StepId) -> Option<Splitting> {
+    pub fn at(prompts: &Prompts, workflow: &FrozenWorkflow, at: &StepId) -> Option<Splitting> {
         if workflow.step(at)?.may_dispatch_jobs() {
-            return Some(Splitting(String::from(PROPOSES_IT)));
+            return Some(Splitting(String::from(
+                prompts.get(keys::PROMPT_DRONE_SPLIT_PROPOSES),
+            )));
         }
         workflow
             .after(at)
             .is_some_and(ResolvedStep::may_dispatch_jobs)
-            .then(|| Splitting(String::from(DECIDES_IT)))
+            .then(|| Splitting(String::from(prompts.get(keys::PROMPT_DRONE_SPLIT_DECIDES))))
     }
 
     /// The block, exactly as it reaches a Drone.
@@ -584,7 +498,7 @@ impl Splitting {
 /// and two pieces that would write the same files are held apart by the plan
 /// and by nothing else — `#47` settled that an overlap is surfaced, never
 /// serialised.
-const DECIDES_IT: &str = "\
+pub(crate) const DECIDES_IT: &str = "\
 WHAT THIS PART DECIDES
 
 The part after this one creates a Job for each piece you name here. Each of \
@@ -605,7 +519,7 @@ apart by this plan and by nothing else. Say which you mean.";
 /// The dispatching step: what it proposes is real, waits for a person, and is
 /// carried out as written. Since slice 6 the step that creates Jobs is the one
 /// a person answers, so the decision and the creating are one part.
-const PROPOSES_IT: &str = "\
+pub(crate) const PROPOSES_IT: &str = "\
 WHAT THIS PART PROPOSES
 
 Each piece you name becomes a Job when you call dispatch_job for it: its own \

@@ -68,7 +68,6 @@ function boardOn(port: number, rereads: number[] = []): Board {
     publish: () => {},
     watchProposal: () => {},
     proposalOut: () => null,
-    rereadCapacity: async () => {},
   };
 }
 

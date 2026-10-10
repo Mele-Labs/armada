@@ -366,7 +366,9 @@ fn the_turn_names_five_and_counts_the_rest() {
         handle: "9-job".to_string(),
         said: "one\nline two".to_string(),
     });
-    let text = PeersChanged::injected(&news).text().to_string();
+    let text = PeersChanged::injected(&crate::prompts::Prompts::shipped(), &news)
+        .text()
+        .to_string();
     assert!(text.contains("job 4") && !text.contains("job 5"), "{text}");
     assert!(text.contains("And 2 more."), "{text}");
     assert!(
@@ -379,12 +381,16 @@ fn the_turn_names_five_and_counts_the_rest() {
         handle: "14-renumber-migrations".to_string(),
         paths: vec!["crates/store/src/migrations.rs".to_string()],
     }];
-    assert!(PeersChanged::opening(&landed)
-        .text()
-        .contains("brought into your branch as this part started"));
-    assert!(PeersChanged::injected(&landed)
-        .text()
-        .contains("when your next part starts, not now"));
+    assert!(
+        PeersChanged::opening(&crate::prompts::Prompts::shipped(), &landed)
+            .text()
+            .contains("brought into your branch as this part started")
+    );
+    assert!(
+        PeersChanged::injected(&crate::prompts::Prompts::shipped(), &landed)
+            .text()
+            .contains("when your next part starts, not now")
+    );
 }
 
 /// **Who is ahead is not spaced.** A Drone that picks its value before it hears

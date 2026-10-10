@@ -4,7 +4,7 @@
 
 use std::sync::Arc;
 
-use api::{Commands, Queries};
+use api::{Commands, Queries, Settings};
 use testkit::{FakeHarness, FakeVcs, FakeWorkProduct};
 
 use crate::daemon::Fleet;

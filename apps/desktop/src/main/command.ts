@@ -23,8 +23,8 @@ import type {
   FilesFound,
   Outcome,
   ReclaimOutcome,
-  SaveLimits,
   SavePreference,
+  SaveSettings,
   StagedAttachment,
 } from "@armada/protocol";
 import type { ApproveDispatch, FixMain, Branches, BranchesRead, ChangeSlotPool, RescueSlot, SetLandingTarget, SlotPoolChanged, SlotRescued, ToProposer } from "@armada/protocol";
@@ -50,8 +50,8 @@ import type { Lesson, LessonAnswer } from "@armada/protocol";
 import { ask, CHECKS_MS, COMMAND_MS, isJobSummary, MODEL_CALL_MS, NO_WAIT, route, type Answer } from "./request";
 import type { Picked } from "./picked";
 import { Clearing } from "./clearing";
-import { Limits } from "./limits";
 import { Preferring } from "./preferences";
+import { Settling } from "./settings";
 import { Reporting } from "./reporting";
 import { proposeFromRequest as propose } from "./proposing";
 import {
@@ -108,12 +108,6 @@ export type Board = {
   proposalJob?: () => string | null;
   /** The proposal this window is waiting on, as Fleet last described it. */
   proposalOut: () => ProposalInFlight | null;
-  /**
-   * Read `/capacity` again. **What a saved limit needs**, not a Job: the
-   * status bar's count and its hold both read off that answer, and a save
-   * changes what admission works against without moving a Job at all.
-   */
-  rereadCapacity: (port: number) => Promise<void>;
 };
 
 /**
@@ -155,12 +149,12 @@ export class JobCommands {
    * is what everything else here is — see `clearing.ts` for the seam.
    */
   readonly clearing: Clearing;
-  /** Fleet's three admission limits. Not acts on a Job either — `limits.ts`. */
-  private readonly limits: Limits;
   /** A person's Bridge preferences. Not acts on a Job either —
    *  `preferences.ts`. */
   private readonly preferring: Preferring;
-  /** A report being filed. Its own class beside `clearing` and `limits` —
+  /** settings.json. Not acts on a Job either — `settings.ts`. */
+  private readonly settling: Settling;
+  /** A report being filed. Its own class beside `clearing` and `settling` —
    *  `reporting.ts`. */
   private readonly reporting: Reporting;
   private readonly approving = new Set<string>();
@@ -231,8 +225,8 @@ export class JobCommands {
   constructor(board: Board) {
     this.board = board;
     this.clearing = new Clearing(board);
-    this.limits = new Limits(board);
     this.preferring = new Preferring(board);
+    this.settling = new Settling(board);
     this.reporting = new Reporting(board);
   }
 
@@ -341,18 +335,17 @@ export class JobCommands {
     return answer.ok === true ? { ok: true } : answer.outcome;
   }
 
-  // -------------------------------------------------------------- fleet limits
-  /** Change one or more of Fleet's three admission limits. `limits.ts` holds
-   *  why this is not the shape `act` or `setting` above are. */
-  saveLimits(values: SaveLimits): Promise<Outcome> {
-    return this.limits.save(values);
-  }
-
   // --------------------------------------------------------- Bridge preferences
   /** Save one preference by name. `preferences.ts` holds why this is not the
    *  shape `act` or `setting` above are. */
   savePreference(save: SavePreference): Promise<Outcome> {
     return this.preferring.save(save);
+  }
+
+  // ---------------------------------------------------------------- settings.json
+  /** Change settings by key; `null` removes one. `settings.ts`. */
+  saveSettings(changes: SaveSettings["changes"]): Promise<Outcome> {
+    return this.settling.save(changes);
   }
 
   /**

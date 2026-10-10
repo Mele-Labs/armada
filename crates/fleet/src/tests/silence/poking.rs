@@ -296,7 +296,12 @@ async fn spoke_again(fleet: &Fixture, since: usize) -> bool {
 /// tell a Drone precisely how long it has left to look busy."*
 #[test]
 fn the_poke_names_the_minutes_and_not_the_budget() {
-    let text = Poke::after(Duration::from_secs(180)).text().to_string();
+    let text = Poke::after(
+        &crate::prompts::Prompts::shipped(),
+        Duration::from_secs(180),
+    )
+    .text()
+    .to_string();
 
     assert!(text.contains("3 minutes"), "{text}");
     assert!(!text.contains("poke"), "{text}");

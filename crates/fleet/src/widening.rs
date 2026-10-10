@@ -313,13 +313,14 @@ where
             .map_err(|why| NotWidened::CouldNotAsk {
                 cause: format!("{why:?}"),
             })?;
-        let brief = WideningBrief::about(
+        let brief = WideningBrief::worded(
             declared,
             Request::of(&record),
             &judging.told(),
             &held,
             &adding,
             &request.reason,
+            &judging.wording,
         );
         let answer = judging::widening(declared, &brief, &judging)
             .await

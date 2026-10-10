@@ -111,6 +111,7 @@ async fn ruled(
             asked,
             standing: verification::Standing::unstated(),
             reading: None,
+            wording: verification::Wording::shipped(),
         },
         &keeping_nowhere(),
         Policies::unstated(),

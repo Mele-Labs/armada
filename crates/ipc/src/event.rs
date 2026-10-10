@@ -33,6 +33,7 @@ use crate::reading::ManifestReading;
 use crate::rehearsal::{CheckoutRunRecord, RunRecord};
 use crate::repositories::RepositoryList;
 use crate::servers::ServerState;
+use crate::settings::SettingsList;
 use crate::sleep::SleepState;
 use crate::sessions::SessionRecord;
 use crate::studio::{Studio, StudioDeleted, StudioHelmActed};
@@ -176,6 +177,9 @@ pub enum Event {
     // switched.
     #[serde(rename = "mods.changed")]
     ModsChanged(ModList),
+    // settings.json, whole, after a save or a hand edit — or a refusal of one.
+    #[serde(rename = "settings.changed")]
+    SettingsChanged(SettingsList),
     // A Studio after any write to it, whole, so an open whiteboard replaces
     // what it holds. `#1285`.
     #[serde(rename = "studio.changed")]

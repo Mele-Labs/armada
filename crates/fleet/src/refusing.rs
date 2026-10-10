@@ -47,8 +47,8 @@ const DRONE_NOT_LIVE: &str = "fleet.drone_not_live";
 const FAULT: &str = "fleet.fault";
 /// A Job whose repository this Fleet does not serve. A 422.
 const NOT_SERVED: &str = "fleet.repository_not_served";
-/// A `save_preferences` naming something outside `store::Preferences`' closed
-/// set. A 422, refused by name — `name` rides on the field the message quotes.
+/// A `save_preferences` naming something outside the five preferences it
+/// reads. A 422, refused by name — `name` rides on the field the message quotes.
 const UNKNOWN_PREFERENCE: &str = "fleet.unknown_preference";
 /// A proposal that decoded and names something that cannot produce a Drone.
 const UNACCEPTABLE: &str = "fleet.unacceptable_proposal";

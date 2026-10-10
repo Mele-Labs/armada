@@ -194,9 +194,13 @@ impl Places {
         self.state().at_once
     }
 
-    /// Put a saved limit in force. It counts from the next place given out.
+    /// Put a saved limit in force. It counts from the next place given out,
+    /// and the machine's slots, which `armada check` shares, move with it.
     pub(crate) fn limit(&self, at_once: ChecksAtOnce) {
         self.state().at_once = at_once;
+        if let Some(slots) = &self.0.slots {
+            slots.resize(at_once.get());
+        }
         self.0.changed.notify_waiters();
     }
 

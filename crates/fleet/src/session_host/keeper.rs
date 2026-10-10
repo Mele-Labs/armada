@@ -130,7 +130,12 @@ pub async fn keep(keeper: Keeper) -> io::Result<()> {
     let log = keeper.log.clone();
     let complaints = tokio::spawn(async move {
         // Appended, as the keeper's own stderr is: both go to the one file.
-        match tokio::fs::OpenOptions::new().append(true).create(true).open(&log).await {
+        match tokio::fs::OpenOptions::new()
+            .append(true)
+            .create(true)
+            .open(&log)
+            .await
+        {
             Ok(mut file) => {
                 let _ = tokio::io::copy(&mut stderr, &mut file).await;
             }
@@ -177,7 +182,11 @@ pub async fn keep(keeper: Keeper) -> io::Result<()> {
         if let Ok(status) = child.wait().await {
             // Its last words are in the log before anyone is told it is over.
             let _ = complaints.await;
-            if let Ok(mut file) = std::fs::OpenOptions::new().append(true).create(true).open(&log) {
+            if let Ok(mut file) = std::fs::OpenOptions::new()
+                .append(true)
+                .create(true)
+                .open(&log)
+            {
                 let _ = writeln!(file, "the agent exited: {status}");
             }
         }

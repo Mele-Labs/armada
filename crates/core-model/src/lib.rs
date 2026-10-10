@@ -49,6 +49,9 @@ pub use job::{
 };
 pub use job::{collisions, under};
 pub use job::{
+    ASSERTION_WEAKENED_QUESTION, FINDINGS_GENERIC_QUESTION, FINDINGS_NOT_TIED_QUESTION, NO_FINDINGS_QUESTION, TAUTOLOGICAL_TEST_QUESTION, TEST_SCOPE_NARROWED_QUESTION,
+};
+pub use job::{
     handle_of, names_a_credential, AcceptanceCriterion, AdmissionHold, AdvanceGate, AllowedCommand,
     Answered, Area, Attachment, Attempt, AutoMerge, BadPattern, Became, BlankBranch, BlankModel,
     BlankTitle, Branch, Breakage, BreakageClaim, Bucket, BudgetHold, ChangedTest, CheckOutcome,

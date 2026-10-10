@@ -37,6 +37,7 @@ mod queries;
 mod rehearsing;
 mod retros;
 mod sessions;
+mod settings;
 mod studios;
 mod tools;
 
@@ -53,6 +54,7 @@ pub use queries::{FramePart, FrameSpan, Queries};
 pub use rehearsing::Rehearsing;
 pub use retros::Retros;
 pub use sessions::Sessions;
+pub use settings::Settings;
 pub use studios::Studios;
 pub use tools::{PermissionAnswer, Tools};
 
@@ -92,7 +94,7 @@ use ipc::WireError;
 /// is a sixth and [`Retros`] a seventh, each for a reason its own module gives.
 /// [`Authoring`] is one more, for [`Retros`]' reason, and [`Sessions`] another,
 /// [`HostedSessions`] one more beside it, and [`Needs`] and [`PullRequests`] two
-/// more, with [`Rehearsing`] split out of [`Commands`] at the line, and [`Mods`] the last.
+/// more, [`Rehearsing`] split out of [`Commands`], [`Mods`] and [`Settings`].
 pub trait Daemon:
     Queries
     + Commands
@@ -109,6 +111,7 @@ pub trait Daemon:
     + Piloting
     + Rehearsing
     + Mods
+    + Settings
 {
 }
 
@@ -127,7 +130,8 @@ impl<
             + PullRequests
             + Piloting
             + Rehearsing
-            + Mods,
+            + Mods
+            + Settings,
     > Daemon for D
 {
 }

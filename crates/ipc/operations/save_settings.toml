@@ -1,0 +1,14 @@
+[operations.save_settings]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Change Machine settings by key, a null putting one back to what ships, and answer with every setting now"
+notes = """
+`POST /settings/save`, body `SaveSettings`: `changes`, a key to its new value or to `null`, which removes the key from `settings.json` so the shipped default is back in force. A key the save does not name keeps what the file holds. Answered with `SettingsList`, as `get_settings` answers it, and `settings.changed` is published.
+
+**Checked whole, against the file it would write.** An unknown key, a value of the wrong kind or out of range is a 400 `fleet.unacceptable_settings` naming the key, and nothing is written. The file is written beside itself and renamed over, so a reader never meets it half written.
+
+**A `live` setting reaches Fleet at once**, from the next time it is read — the next admission turn, the next Check, the next Judge call. An `at_restart` one is saved and answered with `pending_restart` until Fleet starts again. A setting an environment variable overrides is saved and stays overridden.
+
+`agent_access` is `No`: settings.json names the program every Drone is started as, and what a machine runs is a person's to change. `save_limits` and `save_preferences` stay open to Helm for the values they always carried.
+"""

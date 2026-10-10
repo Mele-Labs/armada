@@ -13,7 +13,8 @@ use base64::Engine as _;
 use ipc::{
     AnswerHelmCall, AnswerSessionAsk, CloseSession, GateAnswer, HostedFacts, ManifestId,
     SendSessionMessage, SentFile, SessionGate, SessionId, SessionMode, SessionRecord, SessionRow,
-    SessionSubagent, SessionThread, SessionTurn, SessionVoice, StartSession, TuneSession, WireError,
+    SessionSubagent, SessionThread, SessionTurn, SessionVoice, StartSession, TuneSession,
+    WireError,
 };
 use store::{AttachmentState, Holder, KeptAttachment, KeptHosting, KeptSession, Store};
 
@@ -146,7 +147,9 @@ where
             let kept = self.keep_uploads(&id, &sent.attachments)?;
             let mut paths = kept.paths;
             paths.extend(kept.picture_paths);
-            return self.send_to_terminal(&session, sent, addressed, paths).await;
+            return self
+                .send_to_terminal(&session, sent, addressed, paths)
+                .await;
         }
         self.send_hosted(sent, SessionVoice::You).await
     }
@@ -188,7 +191,8 @@ where
                 _ => self.ask_not_waiting(),
             })?;
         if terminal {
-            self.terminal_ask_answered(&id, &waiting, &crate::helm::Said::of(&answer)).await?;
+            self.terminal_ask_answered(&id, &waiting, &crate::helm::Said::of(&answer))
+                .await?;
         }
         self.published_hosted(&id).await
     }
@@ -215,7 +219,10 @@ where
         self.switch_sleep(set.on).await
     }
 
-    async fn override_sleep(self: Arc<Self>, over: ipc::OverrideSleep) -> Result<ipc::SleepState, Refusal> {
+    async fn override_sleep(
+        self: Arc<Self>,
+        over: ipc::OverrideSleep,
+    ) -> Result<ipc::SleepState, Refusal> {
         self.override_a_decision(over).await
     }
 
@@ -305,7 +312,13 @@ where
             let mut rows = self.terminal_thread(&session).await?;
             // The question its terminal is showing, while Bridge may still answer it.
             rows.extend(self.rows_of(id.as_str()).await?.into_iter().filter(|row| {
-                matches!(row, SessionRow::Ask { state: ipc::SessionAskState::Waiting, .. })
+                matches!(
+                    row,
+                    SessionRow::Ask {
+                        state: ipc::SessionAskState::Waiting,
+                        ..
+                    }
+                )
             }));
             let record = {
                 let store = self.store().lock().await;
@@ -369,7 +382,9 @@ where
                 report: thread.report,
             }),
             Some(Err(why)) => Err(self.hosted_fault(ATTACHMENT_REFUSED, &why.to_string())),
-            None => Err(self.hosted_refusal(ATTACHMENT_REFUSED, "that session has no such subagent")),
+            None => {
+                Err(self.hosted_refusal(ATTACHMENT_REFUSED, "that session has no such subagent"))
+            }
         }
     }
 
@@ -413,7 +428,10 @@ where
         self.held_for(ask).await
     }
 
-    async fn ask_from_terminal(&self, ask: ipc::TerminalAsk) -> Result<ipc::TerminalAsked, Refusal> {
+    async fn ask_from_terminal(
+        &self,
+        ask: ipc::TerminalAsk,
+    ) -> Result<ipc::TerminalAsked, Refusal> {
         match ask {
             ipc::TerminalAsk::Asks { session_id, input } => {
                 let asking = ipc::AskingToRun {
@@ -545,7 +563,11 @@ where
     }
 
     /// Store what a message carried, outside every worktree.
-    pub(crate) fn keep_uploads(&self, id: &str, uploads: &[ipc::SessionUpload]) -> Result<Kept, Refusal> {
+    pub(crate) fn keep_uploads(
+        &self,
+        id: &str,
+        uploads: &[ipc::SessionUpload],
+    ) -> Result<Kept, Refusal> {
         let mut kept = Kept {
             files: Vec::new(),
             pictures: Vec::new(),
@@ -611,7 +633,11 @@ where
                 return Ok(false);
             }
             let said = format!("{FLEET_NAME}: {text}");
-            return Ok(self.hosts().terminals().hold(session, said, super::terminal::LISTENING_FOR));
+            return Ok(self.hosts().terminals().hold(
+                session,
+                said,
+                super::terminal::LISTENING_FOR,
+            ));
         }
         let (kept, _) = self.session_and_hosting(session).await?;
         if kept.state == store::SessionState::Ended {
@@ -876,13 +902,18 @@ where
         let (sink, heard) = tokio::sync::mpsc::unbounded_channel::<Heard>();
         let (process, directory) = match self.hosts().processes().reattach(id, sink.clone()) {
             Some(process) => {
-                self.kept_restart(id, "reattached", Some("Fleet came back and took the session's process again")).await;
+                self.kept_restart(
+                    id,
+                    "reattached",
+                    Some("Fleet came back and took the session's process again"),
+                )
+                .await;
                 (
-                process,
-                served
-                    .as_ref()
-                    .map(|served| Self::directory_of(served, hosting))
-                    .unwrap_or_default(),
+                    process,
+                    served
+                        .as_ref()
+                        .map(|served| Self::directory_of(served, hosting))
+                        .unwrap_or_default(),
                 )
             }
             None if !may_start => return Ok(false),

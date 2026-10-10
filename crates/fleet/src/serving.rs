@@ -237,18 +237,6 @@ where
         self.fleet_build().await
     }
 
-    /// The limits in force and what shipped — [`crate::limits`].
-    async fn get_limits(&self) -> Result<ipc::FleetLimits, Refusal> {
-        Ok(self.limits_in_force().await)
-    }
-
-    /// Every preference in force — [`crate::preferences`].
-    async fn get_preferences(&self) -> Result<ipc::Preferences, Refusal> {
-        self.preferences_in_force()
-            .await
-            .map_err(|why| self.refusal(why))
-    }
-
     /// Every rule a person always-allowed for this Manifest's repository —
     /// `crate::permitting::repository`.
     async fn get_repository_allowed_commands(

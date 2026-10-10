@@ -73,17 +73,27 @@ typeOfServiceStaysAdvisory();
  */
 const FLEET: Dispatcher = new Agent({ headersTimeout: 0, bodyTimeout: 0 });
 
+/** The margin over Fleet's own bound on a command, so Fleet gives up first and says so in words. */
+const COMMAND_MARGIN_MS = 5_000;
+
 /**
  * How long an ordinary command waits before it is a transport failure.
  *
  * **Derived, not guessed.** `#712`: Fleet's own bound on a plain command is
- * `PROVISIONAL_COMMAND_BUDGET` in `crates/armada/src/serve.rs` — fifteen
- * seconds — and this is that plus a five-second margin, so a timeout here
- * means Fleet gave up first and answered in words, the way `MODEL_CALL_MS`
- * already reads for the two routes with a model call inside them. Nothing
- * generates this from the Rust constant; the two are coupled by this comment.
+ * `timeouts.commandSeconds` in settings.json — fifteen seconds as shipped —
+ * and this is that plus a five-second margin, so a timeout here means Fleet
+ * gave up first and answered in words, the way `MODEL_CALL_MS` already reads
+ * for the two routes with a model call inside them. **A live binding**: it
+ * follows the setting from the first read of settings.json on
+ * (`followCommandSeconds`), and every importer reads the value now in force.
  */
-export const COMMAND_MS = 20_000;
+export let COMMAND_MS = 15_000 + COMMAND_MARGIN_MS;
+
+/** Follow `timeouts.commandSeconds`. A figure that is not a positive number leaves the wait as it was. */
+export function followCommandSeconds(seconds: number): void {
+  if (!Number.isFinite(seconds) || seconds <= 0) return;
+  COMMAND_MS = seconds * 1000 + COMMAND_MARGIN_MS;
+}
 
 /**
  * What a route waits when a model call is inside the request.

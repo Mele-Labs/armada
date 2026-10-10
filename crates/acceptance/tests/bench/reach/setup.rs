@@ -5,13 +5,13 @@ use std::path::Path;
 
 use adapters::ActionsWorkflows;
 use config::Manifest;
-use fleet::manifest_proposal::{Draft, propose};
+use fleet::manifest_proposal::{propose, Draft};
 use fleet::scanning::scan;
 use ipc::{
     CiCommand, ManifestProposal, ProposalEdit, Provenance, RepositoryScan, ScannedWorkspace,
 };
 
-use super::{CHECKOUT, Held};
+use super::{Held, CHECKOUT};
 
 /// A scan as a picker receives it: through `ipc::encode` and back.
 pub fn received(repository: &Held) -> RepositoryScan {

@@ -359,7 +359,7 @@ where
     /// took the cold install and the timeout watching it away together.
     /// [`Fleet::admit_next`] holds the rule that came out of it. The wire's
     /// shape is unchanged and the move to `running` follows on the turn that
-    /// dispatches, within one `PROVISIONAL_TURN_INTERVAL`.
+    /// dispatches, within one `timeouts.turnIntervalMs`.
     pub async fn approve(&self, job_id: &JobId) -> Result<Job, Adrift> {
         let job = self.load(job_id).await?;
         // **The gate is `awaiting_approval` and nothing else, said here rather

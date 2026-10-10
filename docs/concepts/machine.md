@@ -26,6 +26,20 @@ There is no project-level version of *how loudly Armada notifies you*; the notio
 
 It stays Machine because the preference is unfelt: demand already drives a claim's width, and what the granule buys is headroom for a mid-Job widening to extend in place, which is rare. The signal to move it is a repo where widenings routinely fail to extend and re-claim, changing port numbers under a running worktree.
 
+## settings.json
+
+**Every Machine setting is one key of one file**, `settings.json` beside Fleet's store. It is a flat JSON object of dotted keys, `"limits.dronesAtOnce": 3`, and a key the file does not hold is what ships. The owner decided it on 10 Oct 2026, `.claude/decisions/2026-10-10-settings-json-replaces-the-store.md`.
+
+| Question | Answer |
+| --- | --- |
+| Which keys exist | `config::settings`' table, which is also what Bridge's Settings page is drawn from |
+| Who changes it | Bridge through `save_settings`, or a person by hand. Fleet watches the file |
+| When a change is in force | A `live` key from the next time Fleet reads it; an `at_restart` key at the next start, and Bridge says so |
+| A file Fleet will not take | An unknown key, a wrong type or a value out of range refuses it whole. The last good settings stay in force, and Bridge shows the refusal |
+| What wins over it | An environment variable such as `ARMADA_MODEL`; and a Job's, a step's or a repository's own value, as before |
+
+**A person's Bridge preferences are keys too**: theme, layout, key bindings and whether *Where things are* opens. A mod's on-off switch is not, and stays in Fleet's store. The binding rules are `../contracts/configuration.md`, *The Machine tier is one file*.
+
 ## Two functional groups
 
 ### Resources & Budget
@@ -67,9 +81,9 @@ That rule holds because escalations and approvals mean different things. An esca
 
 ## Draft pull requests
 
-**Whether this machine offers a pull request as a draft is the bottom of five tiers.** The Job's own choice at approval, the delivering step's `draft_pr`, the repository's `pr_mode` and then this machine's all sit above ready, the most specific winning. It is off until a person turns it on, through `save_preferences` as `draft_pull_requests`, and it is kept in Fleet's store and does not travel with [Kit](kit.md). [Landing](landing.md), *What the landing rule carries*.
+**Whether this machine offers a pull request as a draft is the bottom of five tiers.** The Job's own choice at approval, the delivering step's `draft_pr`, the repository's `pr_mode` and then this machine's all sit above ready, the most specific winning. It is off until a person turns it on, as `features.draftPullRequests` in settings.json, and it does not travel with [Kit](kit.md). [Landing](landing.md), *What the landing rule carries*.
 
-**It is a Machine setting with a repository tier above it, which the rule above does not describe.** The budget caps went the same way on 8 Sept 2026 and the settings registry files both *Kit → Manifest*, with no Kit tier in either. Bridge has no control for it yet.
+**It is a Machine setting with a repository tier above it, which the rule above does not describe.** The budget caps went the same way on 8 Sept 2026 and the settings registry files both *Kit → Manifest*, with no Kit tier in either. Bridge's Settings page draws its switch from the table.
 
 ## Voice/tone
 

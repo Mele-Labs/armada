@@ -74,7 +74,6 @@ function boardOn(port: number, picked: Picked = new Picked()): Board {
     publish: () => {},
     watchProposal: () => {},
     proposalOut: () => null,
-    rereadCapacity: async () => {},
   };
 }
 

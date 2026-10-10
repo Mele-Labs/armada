@@ -150,7 +150,7 @@ fn a_review_pass_is_handed_each_dismissal_and_its_reason() {
         reason: "Saving takes one lock".to_string(),
     }])
     .expect("one dismissal draws the block")
-    .text();
+    .text(&crate::prompts::Prompts::shipped());
     assert!(block.starts_with("WHAT A PERSON RULED OUT"), "{block}");
     assert!(block.contains(FINDING), "{block}");
     assert!(block.contains("Saving takes one lock"), "{block}");

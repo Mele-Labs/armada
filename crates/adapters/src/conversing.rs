@@ -167,6 +167,7 @@ impl HeadlessAgent {
             "--mcp-config".into(),
             conversing.door.path().into(),
         ];
+        crate::harness::thinking(&mut args, conversing.model.effort());
         if let Some(session) = &conversing.resuming {
             args.push("--resume".into());
             args.push(session.clone());

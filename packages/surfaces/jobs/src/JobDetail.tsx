@@ -931,6 +931,17 @@ function pulseOf(
       void openArtifact(props.onOpenArtifact, jobId, what).then((because) => {
         if (because !== null) props.onSaid(because);
       }),
+    ...(props.onOpenInTerminal === undefined
+      ? {}
+      : {
+          onOpenTerminal: () => {
+            const inTerminal = props.onOpenInTerminal;
+            if (inTerminal === undefined) return;
+            void openArtifact((id) => inTerminal(id), jobId, "worktree").then((because) => {
+              if (because !== null) props.onSaid(because);
+            });
+          },
+        }),
   };
 }
 

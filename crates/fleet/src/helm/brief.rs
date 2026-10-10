@@ -2,12 +2,22 @@
 //!
 //! The wording is `docs/contracts/agent-prompt.md` section 5a, transcribed. A
 //! change to it belongs in the contract first, then here and in the snapshot.
+//! What is here ships; a person may override it in settings.json as
+//! `prompts.helm` and `prompts.helmReadOnly`.
 
 use std::path::Path;
 
 use config::Manifest;
 
 use super::reach::{Authority, RESERVED, UNASKED};
+use config::settings as keys;
+
+use crate::prompts::{fill, Prompts};
+
+/// The block Machine Voice is given in, as it ships: `prompts.helmVoice`'s
+/// default. `{voice}` is the setting.
+pub(crate) const VOICE: &str = "VOICE\n\n{voice}\n\nThis sets how long and how formal your \
+     answers are. It changes nothing else in this brief.";
 
 /// The Machine Voice setting as it reads. It tunes length and formality and
 /// nothing else, and a blank one is no Voice, so no block is rendered empty.
@@ -201,47 +211,76 @@ const AUTHORING_READ_ONLY: &str = "\
 Where a definition would help, say which and why, and leave writing it to \
 the person.";
 
-/// Assemble the brief for one repository's Helm session.
+/// Assemble the brief for one repository's Helm session, in the words Armada
+/// ships.
 ///
 /// **The Manifest is named, not quoted.** Everything in it past its id and
 /// folder is `get_manifest`'s to answer, and a copy here goes stale over a long
 /// conversation. Voice is last, so it adjusts what is above it.
 pub fn brief(manifest: &Manifest, authority: Authority, voice: Option<&Voice>) -> Brief {
-    let mut blocks = vec![
-        OPENING.to_string(),
-        this_repository(manifest),
-        THE_CHECKOUT.to_string(),
-        WAITING.to_string(),
-        EACH_TURN.to_string(),
-        WHERE_THEY_ARE.to_string(),
-        what_you_may_do(authority),
-        on_a_studio(authority),
-        authoring_a_workflow(authority),
-        HOW_YOU_ANSWER.to_string(),
-    ];
-    if let Some(Voice(voice)) = voice {
-        blocks.push(format!(
-            "VOICE\n\n{voice}\n\nThis sets how long and how formal your answers are. It \
-             changes nothing else in this brief."
-        ));
-    }
-    Brief(blocks.join("\n\n"))
+    worded(&Prompts::shipped(), authority, manifest, voice)
 }
 
-fn this_repository(manifest: &Manifest) -> String {
+/// The same brief in the words of `prompts`: `prompts.helm` or
+/// `prompts.helmReadOnly`, whichever `authority` reads, and `prompts.helmVoice`.
+///
+/// **[`RESERVED`] and [`UNASKED`] are filled from the constants the door
+/// reads**, so whatever a person writes around them, the brief and the
+/// refusal cannot name a different exception.
+pub(crate) fn worded(
+    prompts: &Prompts,
+    authority: Authority,
+    manifest: &Manifest,
+    voice: Option<&Voice>,
+) -> Brief {
     let file = manifest.path();
     let folder = file
         .parent()
         .filter(|folder| folder != &Path::new(""))
         .unwrap_or(file);
-    format!(
-        "THIS REPOSITORY\n\nEvery question in this conversation is about Manifest {}, read \
-         from {}. The Fleet tools answer inside it and reach nothing outside it, so when you \
-         are asked about another repository, say it cannot be answered here.",
-        manifest.id().as_str(),
-        folder.display()
-    )
+    let mut said = fill(
+        prompts.helm(authority),
+        &[
+            ("manifest", manifest.id().as_str()),
+            ("folder", &folder.display().to_string()),
+            ("reserved", &RESERVED.join(", ")),
+            ("unasked", &listed(UNASKED)),
+            ("workflow_fields", &field_list()),
+            ("workflow_sample", &sample()),
+        ],
+    );
+    if let Some(Voice(voice)) = voice {
+        said.push_str("\n\n");
+        said.push_str(&prompts.fill(keys::PROMPT_HELM_VOICE, &[("voice", voice)]));
+    }
+    Brief(said)
 }
+
+/// The brief as it ships for `authority`, its placeholders unfilled: the
+/// default of `prompts.helm` where Helm acts, and of `prompts.helmReadOnly`
+/// where it only reads.
+pub(crate) fn shipped(authority: Authority) -> String {
+    [
+        OPENING,
+        THIS_REPOSITORY,
+        THE_CHECKOUT,
+        WAITING,
+        EACH_TURN,
+        WHERE_THEY_ARE,
+        &what_you_may_do(authority),
+        &on_a_studio(authority),
+        &authoring_a_workflow(authority),
+        HOW_YOU_ANSWER,
+    ]
+    .join("\n\n")
+}
+
+const THIS_REPOSITORY: &str = "\
+THIS REPOSITORY
+
+Every question in this conversation is about Manifest {manifest}, read from \
+{folder}. The Fleet tools answer inside it and reach nothing outside it, so \
+when you are asked about another repository, say it cannot be answered here.";
 
 /// States the rule in [`super::may`] rather than enumerating what it admits — the
 /// grant is most of a hundred acts wide now, and a list that long in a system
@@ -251,13 +290,10 @@ fn this_repository(manifest: &Manifest) -> String {
 fn what_you_may_do(authority: Authority) -> String {
     match authority {
         Authority::ReadOnly => READ_ONLY.to_string(),
-        Authority::Acting => {
-            let reserved = RESERVED.join(", ");
-            format!(
-                "{MAY_ACT}{reserved}, which stays a person's whatever you are asked.\n\n\
-                 {APPROVAL_ASK}\n\n{CAP_BOUND}"
-            )
-        }
+        Authority::Acting => format!(
+            "{MAY_ACT}{{reserved}}, which stays a person's whatever you are asked.\n\n\
+             {APPROVAL_ASK}\n\n{CAP_BOUND}"
+        ),
     }
 }
 
@@ -270,10 +306,9 @@ fn on_a_studio(authority: Authority) -> String {
     let acting = match authority {
         Authority::ReadOnly => READING_A_STUDIO.to_string(),
         Authority::Acting => format!(
-            "On a Studio you may call {} without being asked, and only to add a node that \
+            "On a Studio you may call {{unasked}} without being asked, and only to add a node that \
              starts proposed, to propose an edge between two nodes, and to name a Studio \
-             nobody has named. {ADDED_AND_ASKED}",
-            listed(UNASKED)
+             nobody has named. {ADDED_AND_ASKED}"
         ),
     };
     [A_STUDIO, &acting, RUNS, A_PERSONS_ON_A_STUDIO].join("\n\n")
@@ -301,11 +336,7 @@ fn authoring_a_workflow(authority: Authority) -> String {
         Authority::Acting => SAVING_A_WORKFLOW,
         Authority::ReadOnly => AUTHORING_READ_ONLY,
     };
-    format!(
-        "{A_WORKFLOW}\n\n{}\n\n{rest}\n\n{A_SAMPLE}\n\n{}",
-        field_list(),
-        sample()
-    )
+    format!("{A_WORKFLOW}\n\n{{workflow_fields}}\n\n{rest}\n\n{A_SAMPLE}\n\n{{workflow_sample}}")
 }
 
 fn field_list() -> String {

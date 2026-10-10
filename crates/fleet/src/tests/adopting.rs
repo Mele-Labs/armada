@@ -242,7 +242,10 @@ async fn a_drone_that_outlives_its_fleet_is_picked_up_by_the_next_one() {
     // a check: there is no method on `Adopted` that would send this.
     let refused = at_work
         .session()
-        .poke(&Poke::after(Duration::from_secs(120)))
+        .poke(&Poke::after(
+            &crate::prompts::Prompts::shipped(),
+            Duration::from_secs(120),
+        ))
         .await
         .expect_err("there is no pipe to poke down");
     assert!(

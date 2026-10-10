@@ -33,7 +33,7 @@ export const modsLayout = walk("mods-layout", [
   { type: "pin the store\n", into: palette, say: "The running Job" },
   tabsOf("Record is before Plan, Pulse is gone, and the Job opened on Plan"),
   { press: rail("Settings"), say: "Settings" },
-  { press: tab("Layout"), say: "Layout, one of Settings' categories" },
+  { press: tab("Appearance"), say: "Appearance, the group Layout is in" },
   { look: group("Job tabs"), say: "Layout lists every tab, in the order it is drawn" },
   { look: inside(group("Job tabs"), group("Pulse")), say: "Pulse is off, and a mod did it" },
   { look: inside(group("Job tabs"), role("img", "Hidden by Tidy")), say: "The mod's name on hover" },

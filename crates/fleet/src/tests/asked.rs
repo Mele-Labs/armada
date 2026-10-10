@@ -66,6 +66,7 @@ fn judging(client: Arc<FakeJudge>, asked: Asked) -> Judging {
         asked,
         standing: verification::Standing::unstated(),
         reading: None,
+        wording: verification::Wording::shipped(),
     }
 }
 
