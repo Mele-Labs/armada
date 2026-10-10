@@ -52,7 +52,12 @@ export function Overview({
   nows,
   onTell,
   onQuickCompose,
+  bring,
+  onBrought,
 }: {
+  /** A call an alert asked for, handed to the cockpit once it is mounted. */
+  bring?: { key: string; at: number } | null;
+  onBrought?: () => void;
   state: BridgeState;
   now: number;
   live: boolean;
@@ -205,6 +210,8 @@ export function Overview({
             picked={pickedRepository}
             nowViews={nowViews}
             nows={nows}
+            bring={bring}
+            onBrought={onBrought}
             onTell={onTell}
             onOpen={onOpen}
             onOpenSession={onOpenSession}

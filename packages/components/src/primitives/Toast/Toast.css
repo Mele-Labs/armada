@@ -62,6 +62,20 @@
   text-wrap: pretty;
 }
 
+.armada-toast__press {
+  border: none;
+  background: transparent;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.armada-toast__press:hover {
+  text-decoration: underline;
+}
+
 .armada-toast__action {
   flex: none;
   border: none;
