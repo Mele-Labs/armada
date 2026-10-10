@@ -427,8 +427,7 @@ export function App({ draft }: AppProps = {}) {
   // Overview's cursor. In that order, because a Job open on screen is
   // unambiguously what is in front of you.
   const onWhat = reading ?? state.jobs.find((job) => job.id === cursor);
-  const live = state.connection.state === "connected";
-  const oneBar = useOneBar({ palette, live, repository: state.repository, compose: (words) => (setSeed(words), setComposing(true)), openSession, said: setTelling, proposeFrom: commands.proposeFrom }); // `n`, ⌘N and ⌘K: the title bar's one bar.
+  const live = state.connection.state === "connected"; const oneBar = useOneBar({ palette, live, repository: state.repository, compose: (words) => (setSeed(words), setComposing(true)), openSession, said: setTelling, proposeFrom: commands.proposeFrom }); // `n`, ⌘N and ⌘K: the title bar's one bar.
   // Which failure is on screen, and which one `Copy debug info` would copy.
   // The order between them, and the reason there is one, are `failing.ts`.
   const { raised, lower, tell } = useRaised(commands.outcome);
@@ -1146,10 +1145,7 @@ export function App({ draft }: AppProps = {}) {
         <Locate locating={locate} />
 
         <PaletteMount
-          open={palette.open}
-          onClose={palette.onClose}
-          dispatch={oneBar}
-          anchor={ONE_BAR}
+          open={palette.open} onClose={palette.onClose} dispatch={oneBar} anchor={ONE_BAR}
           reading={reading}
           shownStudio={shownStudio}
           on={onWhat}

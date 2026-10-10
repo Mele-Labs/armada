@@ -1,9 +1,10 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { LucideIcon } from "lucide-react";
 
-import { Plus } from "lucide-react";
-
 import { KbdChord } from "../Kbd/Kbd";
+import { DISPATCH_ROW, DispatchKeys, DispatchRow, readsAsWork, useAnchor, type PaletteDispatch } from "./dispatch-row";
+
+export { readsAsWork, type DispatchKind, type PaletteDispatch } from "./dispatch-row";
 
 /**
  * The palette is a superset of the UI, never a substitute for it, and it is
@@ -123,27 +124,6 @@ export type CommandPaletteProps = {
   anchor?: string;
 };
 
-export type DispatchKind = "job" | "session";
-
-export type PaletteDispatch = {
-  kind: DispatchKind;
-  /** Tab switches the kind. Absent while Sessions are not offered, and the row stays a Job's. */
-  onKind?: (kind: DispatchKind) => void;
-  onDispatch: (words: string, kind: DispatchKind) => void;
-  /** ⇧↵: the full composer, holding the words, for a file, a sketch or a long request. */
-  onCompose?: (words: string) => void;
-  /** Opened by `n`: the dispatch row leads whatever else matches. */
-  leads?: boolean;
-};
-
-/**
- * Words that read as work rather than a search: a link to a ticket. A sentence is not enough, since
- * a Job is searched by its title and a title is a sentence — "pin the store" opens that Job.
- */
-export function readsAsWork(query: string): boolean {
-  return /^https?:\/\//.test(query.trim());
-}
-
 /** Whether the query matches, and where in the label it matched. */
 type Hit = {
   entry: PaletteEntry;
@@ -198,10 +178,7 @@ export function CommandPalette({
   // for. ⌘↵ always sends.
   const offered = dispatch !== undefined && query.trim() !== "";
   const leading = offered && (dispatch.leads === true || hits.length === 0 || readsAsWork(query));
-  const flat: (Hit | "dispatch")[] = useMemo(
-    () => (!offered ? hits : leading ? ["dispatch", ...hits] : [...hits, "dispatch"]),
-    [hits, offered, leading],
-  );
+  const flat: (Hit | "dispatch")[] = !offered ? hits : leading ? ["dispatch", ...hits] : [...hits, "dispatch"];
   const place = useAnchor(open, anchor);
 
   // **The first row is always active**, so a query narrowed to one result is a
@@ -258,9 +235,7 @@ export function CommandPalette({
   if (!open) return null;
 
   function send() {
-    if (dispatch === undefined || query.trim() === "") return;
-    dispatch.onDispatch(query.trim(), dispatch.kind);
-    onClose?.();
+    if (dispatch !== undefined && query.trim() !== "") (dispatch.onDispatch(query.trim(), dispatch.kind), onClose?.());
   }
 
   function choose(held: Hit | "dispatch" | undefined) {
@@ -309,18 +284,10 @@ export function CommandPalette({
   }
 
   let n = leading ? 0 : -1;
-  const sendRow =
-    offered && dispatch !== undefined ? (
-      <DispatchRow
-        words={query.trim()}
-        kind={dispatch.kind}
-        active={flat[at] === "dispatch"}
-        ref={flat[at] === "dispatch" ? active : undefined}
-        onEnter={() => setAt(flat.indexOf("dispatch"))}
-        onChoose={send}
-      />
-    ) : null;
   const current = flat[at];
+  const sendRow = !offered ? null : (
+    <DispatchRow words={query.trim()} kind={dispatch.kind} active={current === "dispatch"} ref={current === "dispatch" ? active : undefined} onEnter={() => setAt(flat.indexOf("dispatch"))} onChoose={send} />
+  );
 
   return (
     <div className="armada-palette-layer" data-anchored={place === undefined ? undefined : ""}>
@@ -348,7 +315,7 @@ export function CommandPalette({
         />
         <div className="armada-palette__list" id="armada-palette-list" role="listbox">
           {leading ? sendRow : null}
-          {hits.length === 0 && !offered ? (
+          {hits.length === 0 ? (
             /* **Names the query and says what was searched.** No suggestions
                and no did-you-mean: the palette is the discovery surface, so
                the honest answer to a miss is the extent of the index. */
@@ -380,75 +347,10 @@ export function CommandPalette({
           ))}
           {offered && !leading ? sendRow : null}
         </div>
-        {offered && dispatch !== undefined ? (
-          <div className="armada-palette__keys-foot" aria-hidden>
-            <span><KbdChord keys={["↵"]} /> {current === "dispatch" ? "dispatch" : "open"}</span>
-            <span><KbdChord keys={["⌘", "↵"]} /> dispatch</span>
-            {dispatch.onKind === undefined ? null : <span><KbdChord keys={["⇥"]} /> Job / Session</span>}
-            {dispatch.onCompose === undefined ? null : <span><KbdChord keys={["⇧", "↵"]} /> full composer</span>}
-          </div>
-        ) : null}
+        {offered && dispatch !== undefined ? <DispatchKeys dispatch={dispatch} sends={current === "dispatch"} /> : null}
       </div>
     </div>
   );
-}
-
-const DISPATCH_ROW = "armada-palette-row-dispatch";
-
-/** What was typed, as the row that dispatches it. */
-function DispatchRow({
-  words,
-  kind,
-  active,
-  ref,
-  onEnter,
-  onChoose,
-}: {
-  words: string;
-  kind: DispatchKind;
-  active: boolean;
-  ref?: React.Ref<HTMLDivElement> | undefined;
-  onEnter: () => void;
-  onChoose: () => void;
-}) {
-  return (
-    <div
-      ref={ref}
-      id={DISPATCH_ROW}
-      role="option"
-      aria-selected={active}
-      className={["armada-palette__row", "armada-palette__row--dispatch", active ? "armada-palette__row--active" : ""].join(" ").trim()}
-      onMouseEnter={onEnter}
-      onClick={onChoose}
-    >
-      <span className="armada-palette__glyph">
-        <Plus size={16} strokeWidth={2} aria-hidden />
-      </span>
-      <span className="armada-palette__label">
-        {kind === "job" ? "Dispatch " : "Start a Session with "}
-        <span className="armada-palette__words">“{words}”</span>
-        {kind === "job" ? " as a Job" : ""}
-      </span>
-      <span className="armada-palette__keys">
-        <KbdChord keys={["⌘", "↵"]} />
-      </span>
-    </div>
-  );
-}
-
-/**
- * Where the palette sits when it opens over a field: the field's own box, so its input lands where
- * the field was. Read once on opening, as `Popover` reads its trigger; a resize while open leaves it.
- */
-function useAnchor(open: boolean, anchor: string | undefined): CSSProperties | undefined {
-  const [place, setPlace] = useState<CSSProperties>();
-  useLayoutEffect(() => {
-    if (!open || anchor === undefined) return setPlace(undefined);
-    const box = document.querySelector(anchor)?.getBoundingClientRect();
-    if (box === undefined || box.width === 0) return setPlace(undefined);
-    setPlace({ top: box.top, left: box.left, width: box.width, ["--palette-field" as string]: `${box.height}px` });
-  }, [open, anchor]);
-  return place;
 }
 
 /** The dom id of a row, so `aria-activedescendant` can name it. */

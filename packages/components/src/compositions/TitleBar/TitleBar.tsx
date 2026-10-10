@@ -18,12 +18,7 @@ import { useShortcutReveal } from "../../shortcut-reveal";
  * **Three regions, not one flex row with a trailing spacer.** Left carries the
  * repository picker, centered carries the one bar, right carries Helm's reopen
  * control and the logo — `TitleBar.css`'s grid keeps the one bar on the bar's
- * true midpoint however wide the two sides measure.
- *
- * **One bar searches and dispatches** (the owner, 10 Oct 2026). It opens the
- * palette over itself, and the palette offers what was typed as the work too,
- * so the row draws no Dispatch button of its own. The narrow menu keeps one,
- * since the bar is not drawn there.
+ * true midpoint however wide the two sides measure. The one bar also dispatches.
  *
  * **A slot, not a decision.** `repositoryPicker` arrives built: the Select and
  * its options are Bridge's own reading of what Fleet serves, and this row only

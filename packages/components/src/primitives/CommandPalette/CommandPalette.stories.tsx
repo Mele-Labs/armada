@@ -337,7 +337,8 @@ export const NothingMatchesSoTheWorkLeads: Story = {
   play: async ({ args, canvas, userEvent }) => {
     const row = canvas.getByRole("option", { name: /^Dispatch “retire the sleep calls” as a Job/ });
     await expect(row).toHaveAttribute("aria-selected", "true");
-    await expect(canvas.queryByText(/Nothing matches/)).toBeNull();
+    // The miss is still named, beside the row that sends the words.
+    await expect(canvas.getByText(/Nothing matches “retire the sleep calls”/)).toBeVisible();
     await userEvent.keyboard("{Tab}");
     await expect(args.dispatch!.onKind).toHaveBeenCalledWith("session");
     await userEvent.keyboard("{Enter}");
