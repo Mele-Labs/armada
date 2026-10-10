@@ -188,54 +188,58 @@ export function SessionList({ groups, query, onQuery, onOpen, onStart, onRetro, 
           New Session
         </Button>
       </div>
-      <Input
-        type="search"
-        aria-label="Search Sessions"
-        mono
-        value={query}
-        onChange={(event) => onQuery(event.target.value)}
-        trailing={<Search size={12} strokeWidth={2} aria-hidden />}
-      />
-      {views === undefined || view === undefined || onView === undefined ? null : <Tabs items={[...views]} value={view} onChange={onView} />}
-      {groups.map((group) => (
-        <div className="armada-session-list__group" key={group.label}>
-          <h3 className="armada-session-list__eyebrow">{group.label}</h3>
-          <ul className="armada-session-list__rows">
-            {group.rows.map((row) => {
-              const items = itemsOf(row);
-              return (
-                <li key={row.id} className="armada-session-list__row" data-state={row.state} aria-label={row.title ?? row.address ?? row.id}>
-                  <div className="armada-session-list__top">
-                    <button type="button" className="armada-session-list__open" onClick={() => onOpen(row.id)}>
-                      {row.state === "quiet" && row.modOutOfDate === true ? <ModMark size={12} /> : <SessionMark state={row.state} said={row.said} />}
-                      <span className="armada-session-list__title">
-                        {row.title ?? <span className="armada-session-list__id">{row.address ?? row.id}</span>}
-                      </span>
-                      {row.modOutOfDate === true && row.state !== "quiet" ? <ModMark size={12} /> : null}
-                      {row.waiting === undefined || row.waiting.length === 0 ? null : (
-                        <Tooltip label={row.waiting.join("; ")}>
-                          <span className="armada-session-mark" role="img" aria-label={`Waiting on you: ${row.waiting.join("; ")}`}>
-                            <BellRing size={12} strokeWidth={2} aria-hidden />
+      <div className="armada-session-list__controls">
+        <Input
+          type="search"
+          aria-label="Search Sessions"
+          mono
+          value={query}
+          onChange={(event) => onQuery(event.target.value)}
+          trailing={<Search size={12} strokeWidth={2} aria-hidden />}
+        />
+        {views === undefined || view === undefined || onView === undefined ? null : <Tabs items={[...views]} value={view} onChange={onView} />}
+      </div>
+      <div className="armada-session-list__glass">
+        {groups.map((group) => (
+          <div className="armada-session-list__group" key={group.label}>
+            <h3 className="armada-session-list__eyebrow">{group.label}</h3>
+            <ul className="armada-session-list__rows">
+              {group.rows.map((row) => {
+                const items = itemsOf(row);
+                return (
+                  <li key={row.id} className="armada-session-list__row" data-state={row.state} aria-label={row.title ?? row.address ?? row.id}>
+                    <div className="armada-session-list__top">
+                      <button type="button" className="armada-session-list__open" onClick={() => onOpen(row.id)}>
+                        {row.state === "quiet" && row.modOutOfDate === true ? <ModMark size={12} /> : <SessionMark state={row.state} said={row.said} />}
+                        <span className="armada-session-list__title">
+                          {row.title ?? <span className="armada-session-list__id">{row.address ?? row.id}</span>}
+                        </span>
+                        {row.modOutOfDate === true && row.state !== "quiet" ? <ModMark size={12} /> : null}
+                        {row.waiting === undefined || row.waiting.length === 0 ? null : (
+                          <Tooltip label={row.waiting.join("; ")}>
+                            <span className="armada-session-mark" role="img" aria-label={`Waiting on you: ${row.waiting.join("; ")}`}>
+                              <BellRing size={12} strokeWidth={2} aria-hidden />
+                            </span>
+                          </Tooltip>
+                        )}
+                      </button>
+                      {row.lastTurn === undefined ? null : (
+                        <Tooltip label={`Last turn ${row.lastTurn}`}>
+                          <span className="armada-session-list__last" aria-label={`Last turn ${row.lastTurn}`}>
+                            {(row.lastTurnAt === undefined ? undefined : since(row.lastTurnAt, now)) ?? row.lastTurn}
                           </span>
                         </Tooltip>
                       )}
-                    </button>
-                    {row.lastTurn === undefined ? null : (
-                      <Tooltip label={`Last turn ${row.lastTurn}`}>
-                        <span className="armada-session-list__last" aria-label={`Last turn ${row.lastTurn}`}>
-                          {(row.lastTurnAt === undefined ? undefined : since(row.lastTurnAt, now)) ?? row.lastTurn}
-                        </span>
-                      </Tooltip>
-                    )}
-                    {onRetro === undefined ? null : <RetroPress writing={row.retroWriting === true} onPress={() => onRetro(row.id)} />}
-                  </div>
-                  {items.length === 0 ? null : <OpenLine items={items} />}
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      ))}
+                      {onRetro === undefined ? null : <RetroPress writing={row.retroWriting === true} onPress={() => onRetro(row.id)} />}
+                    </div>
+                    {items.length === 0 ? null : <OpenLine items={items} />}
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ))}
+      </div>
     </section>
   );
 }

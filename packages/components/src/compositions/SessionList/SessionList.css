@@ -1,24 +1,75 @@
-/* The Sessions list: headed like Overview's lists, a row each. A row's state
-   is its one mark, not a colour on its edge. */
+/* The Sessions list as the cockpit draws its viewscreen: a sunken glass under a header band, every
+   Session a tile standing on it. State is carried in the frame (its hue, its edge, its glass), and
+   a Session waiting on the owner is lit. Tokens only. */
 
 .armada-session-list {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
   min-width: 0;
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--bg-sunken);
+  overflow: hidden;
 }
+
+/* ---- The band ------------------------------------------------------------------------------- */
 
 .armada-session-list__head {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: var(--space-4);
+  min-height: calc(var(--h-row) * 1.25);
+  padding: var(--space-1) var(--space-3) var(--space-1) var(--space-4);
+  border-bottom: var(--border-width) solid var(--border-default);
+  background: var(--bg-raised);
 }
 
 .armada-session-list__title-bar {
   margin: 0;
-  font-size: var(--text-lg);
-  line-height: var(--leading-lg);
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
   font-weight: var(--weight-heading);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+
+.armada-session-list__controls {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: var(--border-width) solid var(--border-default);
+  background: var(--bg-raised);
+}
+
+/* ---- The glass: a faint ruled grid, so the tiles read as standing on something ---------------- */
+
+.armada-session-list__glass {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+  padding: var(--space-4);
+  background:
+    linear-gradient(
+      color-mix(in srgb, var(--border-subtle) 55%, transparent)
+        var(--border-width),
+      transparent var(--border-width)
+    ),
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--border-subtle) 55%, transparent)
+        var(--border-width),
+      transparent var(--border-width)
+    );
+  background-size: var(--space-6) var(--space-6);
+}
+
+.armada-session-list__glass:empty {
+  display: none;
 }
 
 .armada-session-list__group {
@@ -30,6 +81,7 @@
 .armada-session-list__eyebrow {
   margin: 0;
   color: var(--fg-muted);
+  font-family: var(--font-mono);
   font-size: var(--text-2xs);
   line-height: var(--leading-2xs);
   font-weight: var(--weight-heading);
@@ -38,70 +90,93 @@
 }
 
 .armada-session-list__rows {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
+  display: grid;
+  grid-template-columns: repeat(
+    auto-fill,
+    minmax(calc(var(--space-12) * 4), 1fr)
+  );
+  grid-auto-rows: min-content;
+  gap: var(--space-3);
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
+/* ---- A Session as a tile -------------------------------------------------------------------- */
+
 .armada-session-list__row {
+  --hue: var(--fg-subtle);
+  position: relative;
   display: flex;
   flex-direction: column;
-  align-items: stretch;
-  gap: var(--space-1);
+  justify-content: space-between;
+  gap: var(--space-2);
   min-width: 0;
-  padding: var(--space-2) var(--space-3);
-  border: var(--border-width) solid var(--border-subtle);
+  min-height: calc(var(--space-12) * 1.5);
+  padding: var(--space-3);
+  border: calc(var(--border-width) * 2) solid
+    color-mix(in srgb, var(--hue) 40%, var(--border-subtle));
   border-radius: var(--radius-md);
-  border-inline-start: var(--space-1) solid var(--session-edge, var(--border-subtle));
-  background: var(--bg-raised);
+  background: color-mix(in srgb, var(--hue) 5%, var(--bg-raised));
   font-size: var(--text-sm);
   line-height: var(--leading-sm);
+  transition:
+    border-color var(--duration-fast) var(--ease),
+    background var(--duration-fast) var(--ease);
 }
 
-/* State in the frame, from the Job rows' own status tokens. */
+/* The hue, from the Job rows' own status tokens. */
 .armada-session-list__row[data-state="working"] {
-  --session-edge: var(--status-running);
+  --hue: var(--status-running);
 }
-
 .armada-session-list__row[data-state="waiting"] {
-  --session-edge: var(--status-awaiting-review);
+  --hue: var(--status-awaiting-review);
 }
-
 .armada-session-list__row[data-state="failing"] {
-  --session-edge: var(--status-completed-failed);
+  --hue: var(--status-completed-failed);
 }
-
 .armada-session-list__row[data-state="idle"] {
-  --session-edge: var(--status-completed-success);
+  --hue: var(--status-completed-success);
 }
-
 .armada-session-list__row[data-state="blank"] {
-  --session-edge: var(--status-not-started);
+  --hue: var(--status-not-started);
 }
 
 .armada-session-list__row[data-state] .armada-session-mark {
-  color: var(--session-edge);
+  color: var(--hue);
+}
+
+.armada-session-list__row:hover {
+  background: color-mix(in srgb, var(--hue) 10%, var(--bg-raised));
+}
+
+/* Waiting on the owner, or red on its checks: lit, as a tile that needs him is on the cockpit's glass. */
+.armada-session-list__row[data-state="waiting"],
+.armada-session-list__row[data-state="failing"] {
+  border-color: var(--hue);
+  background: color-mix(in srgb, var(--hue) 16%, var(--bg-raised));
+  box-shadow: 0 0 var(--space-4) color-mix(in srgb, var(--hue) 45%, transparent);
+}
+
+/* Ended or out of reach: still on the glass, receded. */
+.armada-session-list__row[data-state="ended"],
+.armada-session-list__row[data-state="quiet"] {
+  border-style: dashed;
+  background: var(--bg-raised);
 }
 
 .armada-session-list__top {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: var(--space-2);
   min-width: 0;
 }
 
-.armada-session-list__row:hover {
-  background: var(--bg-hover);
-}
-
 .armada-session-list__open {
   display: flex;
   flex: 1;
-  align-items: center;
+  align-items: flex-start;
   gap: var(--space-2);
   min-width: 0;
   padding: 0;
@@ -113,39 +188,69 @@
   cursor: pointer;
 }
 
+/* The whole tile is the press: the button's hit area is stretched over it, under what else is pressable. */
+.armada-session-list__open::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-md);
+}
+
+.armada-session-list__top > :not(.armada-session-list__open),
+.armada-session-list__open .armada-tooltip,
+.armada-session-list__chips {
+  position: relative;
+  z-index: 1;
+}
+
 .armada-session-list__open:focus-visible {
+  outline: none;
+}
+.armada-session-list__open:focus-visible::after {
   outline: var(--focus-ring);
   outline-offset: var(--focus-ring-offset);
-  border-radius: var(--radius-sm);
 }
 
+/* Two lines, then clamped. */
 .armada-session-list__title {
-  font-weight: var(--weight-heading);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
+  font-weight: var(--weight-medium);
+  color: var(--fg-default);
 }
 
-.armada-session-list__id,
-.armada-session-list__last {
+.armada-session-list__row[data-state="ended"] .armada-session-list__title,
+.armada-session-list__row[data-state="quiet"] .armada-session-list__title {
+  color: var(--fg-muted);
+}
+
+.armada-session-list__id {
   font-family: var(--font-mono);
   font-size: var(--text-2xs);
   line-height: var(--leading-2xs);
 }
 
 .armada-session-list__last {
+  flex: none;
   color: var(--fg-subtle);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
 }
 
-/* The open items are one line that never wraps; the ghost is the same items measured, unseen. */
+/* The open items are one line that never wraps, ruled off at the tile's foot; the ghost is the same items measured, unseen. */
 .armada-session-list__chips {
-  position: relative;
   display: flex;
   flex-wrap: nowrap;
   align-items: center;
   gap: var(--space-2);
   overflow: hidden;
-  padding-inline-start: calc(var(--space-4) + var(--space-2));
+  padding-top: var(--space-2);
+  border-top: var(--border-width) solid
+    color-mix(in srgb, var(--hue) 25%, var(--border-subtle));
   font-family: var(--font-mono);
 }
 
