@@ -36,6 +36,10 @@ use core_model::{Actor, JobId, Via};
 
 #[cfg(test)]
 pub(crate) use writing::read;
+#[cfg(test)]
+pub(crate) mod review_for_tests {
+    pub(crate) use super::reviewing::read;
+}
 pub(crate) use writing::reflected;
 
 /// The lines Fleet writes into a Job's log when a person is asked something
