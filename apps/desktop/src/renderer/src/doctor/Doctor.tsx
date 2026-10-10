@@ -10,7 +10,7 @@ import type { Connection } from "@armada/protocol";
 import type { HealthRead } from "@armada/screens/src/overview-reads";
 
 import { age } from "../Dashboard";
-import { gridOf, MEANS, worstOf, type Grid, type Row } from "./grid";
+import { gridOf, MEANS, readingOf, worstOf, type Grid, type Row } from "./grid";
 import "../cockpit/cockpit.css";
 import "./doctor.css";
 
@@ -43,15 +43,43 @@ function Tile({ row, selected, onSelect }: { row: Row; selected: boolean; onSele
     >
       <div className="armada-tile__head">
         <span className="armada-doctor-tile__module">{row.module}</span>
-        <b className="armada-doctor__result" data-result={row.result}>
+        <b className="armada-doctor__result" data-result={row.result} data-chip="">
           {row.result}
         </b>
       </div>
-      <span className="armada-doctor-tile__detail">{row.detail}</span>
+      {MEANS[row.module] === undefined ? null : <span className="armada-doctor-tile__checks">{MEANS[row.module]!.reads}</span>}
+      <ReadingOf detail={row.detail} />
       <div className="armada-tile__foot">
-        <span className="armada-tile__age">{row.owner}</span>
+        <span className="armada-doctor-tile__owner">{`Probed by ${row.owner}`}</span>
       </div>
     </li>
+  );
+}
+
+/** A probe's line laid out: its sentences, then each value it named, label beside value. */
+function ReadingOf({ detail, whole = false }: { detail: string; whole?: boolean }) {
+  const { lines, facts } = readingOf(detail);
+  if (lines.length === 0 && facts.length === 0) return <span className="armada-doctor-reading__none">Nothing read yet</span>;
+  return (
+    <div className="armada-doctor-reading" data-whole={whole || undefined}>
+      {lines.map((line, at) => (
+        <p key={at} className="armada-doctor-reading__line">
+          {line}
+        </p>
+      ))}
+      {facts.length === 0 ? null : (
+        <dl className="armada-doctor-reading__facts">
+          {facts.map((fact, at) => (
+            <div key={at}>
+              <dt>{fact.label}</dt>
+              <dd data-mono={fact.mono || undefined} title={fact.full}>
+                {whole && fact.full !== undefined ? fact.full : fact.value}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      )}
+    </div>
   );
 }
 
@@ -60,7 +88,7 @@ function Pane({ row }: { row: Row }) {
   const means = MEANS[row.module];
   const words = (["pass", "warn", "fail"] as const).filter((word) => means === undefined || word !== "warn" || means.warn !== undefined);
   return (
-    <article className="armada-doctor-pane" aria-label={row.module}>
+    <article className="armada-doctor-pane" data-result={row.result} aria-label={row.module}>
       <header className="armada-doctor-pane__head">
         <h2>{row.module}</h2>
         <b className="armada-doctor__result" data-result={row.result}>
@@ -69,9 +97,11 @@ function Pane({ row }: { row: Row }) {
       </header>
       <dl className="armada-doctor-pane__facts">
         <dt>Read</dt>
-        <dd className="armada-doctor-pane__mono">{row.detail === "" ? "—" : row.detail}</dd>
-        <dt>Probed from</dt>
-        <dd className="armada-doctor-pane__mono">{row.owner}</dd>
+        <dd>
+          <ReadingOf detail={row.detail} whole />
+        </dd>
+        <dt>Probed by</dt>
+        <dd>{row.owner}</dd>
         {means === undefined ? null : (
           <>
             <dt>Checks</dt>

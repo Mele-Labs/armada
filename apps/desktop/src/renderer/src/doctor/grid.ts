@@ -135,6 +135,46 @@ export function gridOf(read: HealthRead, connection: Connection, said: string): 
   return read.state === "failed" ? { rows, gaps, unread: unread(read) } : { rows, gaps };
 }
 
+/** One labelled value a probe's line carries, such as a percentage, a port or a file. */
+export type Fact = { label: string; value: string; mono?: boolean; full?: string };
+
+/** A probe's one line, laid out: its sentences, and the values in it named. */
+export type Reading = { lines: string[]; facts: Fact[] };
+
+const capitalised = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
+
+/** A path's last two parts — enough to tell one repository's file from another's. */
+const shortPath = (path: string) => path.split("/").filter(Boolean).slice(-2).join("/");
+
+/** KiB as a person reads a disk, in GB to one place. */
+const kibSaid = (kib: number) => `${(kib / 1024 / 1024).toFixed(1)} GB`;
+
+/**
+ * A probe's `detail` split into what reads as a sentence and what reads as a value. Only how it is
+ * drawn: a clause no rule here knows is kept as a sentence, word for word, so nothing is lost.
+ */
+export function readingOf(detail: string): Reading {
+  const lines: string[] = [];
+  const facts: Fact[] = [];
+  for (const clause of detail.split(/\s+—\s+|;\s+|,\s+/).map((one) => one.trim()).filter(Boolean)) {
+    let match: RegExpMatchArray | null;
+    if ((match = clause.match(/^(cpu|memory|disk) (\d+(?:\.\d+)?%) in use$/i))) {
+      facts.push({ label: match[1]!.toLowerCase() === "cpu" ? "CPU" : capitalised(match[1]!), value: `${match[2]} used` });
+    } else if ((match = clause.match(/^(\d+) KiB free on the volume$/))) {
+      facts.push({ label: "Disk", value: `${kibSaid(Number(match[1]))} free` });
+    } else if ((match = clause.match(/^this process is run (\S+)$/))) {
+      facts.push({ label: "Run", value: match[1]!, mono: true });
+    } else if ((match = clause.match(/^connected on port (\d+)$/))) {
+      lines.push("Connected");
+      facts.push({ label: "Port", value: match[1]!, mono: true });
+    } else if ((match = clause.match(/^(\/\S+?)(?:[:,])?(?:\s+(.*))?$/))) {
+      facts.push({ label: "File", value: shortPath(match[1]!), mono: true, full: match[1]! });
+      if (match[2] !== undefined) lines.push(capitalised(match[2]));
+    } else lines.push(capitalised(clause));
+  }
+  return { lines, facts };
+}
+
 /** Why `/health` was not read, in the app's own words for that outcome. */
 function unread(read: Extract<HealthRead, { state: "failed" }>): string {
   return saidOf(read.outcome) || "Fleet did not answer";
