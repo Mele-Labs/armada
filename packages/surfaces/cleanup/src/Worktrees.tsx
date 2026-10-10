@@ -22,14 +22,11 @@
 // unit-tested, because every line of it is read immediately before something
 // is destroyed.
 
-import { useEffect, useRef, type ReactNode, type RefObject } from "react";
-import { Alert, Button, isPressed, openTile, pressedSlot, tileAfter, tileOf } from "@armada/components";
-import type { TileMove } from "@armada/components";
+import { useEffect, type ReactNode } from "react";
+import { Alert, Button } from "@armada/components";
 
 import type { ChangeSlotPool, HeldWorktrees, JobSummary, Outcome, RescueSlot } from "@armada/protocol";
 import { said } from "@armada/screens/src/copy";
-import { holdsText } from "@armada/screens/src/keys";
-import { useListKeydown } from "@armada/screens/src/list-keyboard";
 import { SlotPools } from "./SlotPools";
 import type { RescueOutcome } from "./slot-rescue";
 
@@ -105,45 +102,6 @@ export type WorktreesProps = {
   onRescueSlot?: (manifestId: string, rescue: RescueSlot) => Promise<RescueOutcome>;
 };
 
-/** The bare arrows, which move across the grid by where tiles are drawn, as on the cockpit's glass. */
-const ARROWS: Record<string, TileMove> = { ArrowLeft: "left", ArrowRight: "right", ArrowUp: "up", ArrowDown: "down" };
-
-/**
- * The grid's keys. **The cursor is DOM focus**, on a tile's name: the arrows move it spatially,
- * `j`/`k` through the tiles in drawn order, and Enter is the focused button's own. `o` opens the
- * focused tile's panel, where every act on it is. A field hands the keys back on Esc or Down.
- */
-function useGridKeys(root: RefObject<HTMLDivElement | null>): void {
-  useListKeydown((event) => {
-    const pane = root.current;
-    if (pane === null) return;
-    const bare = !(event.metaKey || event.ctrlKey || event.altKey || event.shiftKey);
-    const arrow = bare ? ARROWS[event.key] : undefined;
-    if (holdsText(event.target)) {
-      const field = event.target;
-      if (field instanceof HTMLInputElement && field.value === "" && (isPressed("close", event) || arrow === "down")) {
-        event.preventDefault();
-        tileAfter(pane, null, "next")?.focus();
-      }
-      return;
-    }
-    const step = pressedSlot("move_focus", event);
-    const move = arrow ?? (step === 0 ? "next" : step === 1 ? "previous" : undefined);
-    const from = document.activeElement;
-    if (move !== undefined) {
-      // From outside the grid only the keys that are not a control's own enter it.
-      if (arrow !== undefined && from !== null && from !== document.body && tileOf(from) === null) return;
-      const to = tileAfter(pane, from, move);
-      if (to === undefined) return;
-      event.preventDefault();
-      to.focus();
-      return;
-    }
-    if (event.repeat) return;
-    if (isPressed("open", event) && openTile(from)) event.preventDefault();
-  });
-}
-
 /** How often the pool is read again while a Scout reads a slot, so its files arrive as it goes. */
 const RESCUE_READ_MS = 1_000;
 
@@ -168,8 +126,6 @@ export function Worktrees({
     onWant(true);
     return () => onWant(false);
   }, []);
-  const pane = useRef<HTMLDivElement>(null);
-  useGridKeys(pane);
 
   const scouting =
     held.state === "read" && (held.held.slots ?? []).some((one) => one.rescue?.state === "reading");
@@ -207,7 +163,7 @@ export function Worktrees({
   }
 
   return (
-    <div className="armada-screen__pane" ref={pane}>
+    <div className="armada-screen__pane">
       {back}
       <SlotPools
         slots={held.held.slots ?? []}
