@@ -210,6 +210,13 @@ test("Bays is a filter of its own: each bay a compartment of its repository's sh
   expect(document.querySelectorAll('.armada-ship__wire[data-kind="in"]').length).toBe(1);
   expect(document.querySelector("footer.armada-view__horizon")).toBeNull();
 
+  // Hovering a bay lights its wire and its card on the line, and steps the rest back.
+  await bay(/^Bay 1: Debounce/).hover();
+  await expect.poll(() => document.querySelector('[data-card="pull:1890"]')?.hasAttribute("data-lit")).toBe(true);
+  expect(document.querySelector('[data-card="pull:1891"]')?.hasAttribute("data-lit")).toBe(false);
+  expect(document.querySelectorAll(".armada-ship__wire[data-lit]").length).toBe(1);
+  await userEvent.unhover(bay(/^Bay 1: Debounce/));
+
   // Nothing is open until a bay is picked; picking one opens its drawer under its row, with every act.
   expect(document.querySelector(".armada-ship__drawer")).toBeNull();
   await bay(/^Bay 6: Pin the clock/).click();

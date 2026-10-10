@@ -87,6 +87,9 @@ const DUST = Array.from({ length: 80 }, (_, at) => {
   return { x: `${(hash(1) * 100).toFixed(2)}%`, y: `${(hash(2) * 100).toFixed(2)}%`, r: hash(3) > 0.92 ? 1.1 : 0.6 };
 });
 
+/** A track: a gap between bays the wires run along, drawn faintly so a wire is seen to follow one. */
+type Track = { key: string; d: string };
+
 type Wire = { key: string; lit: string | undefined; kind: "out" | "in"; state: Dot["state"] | undefined; queued: boolean; d: string };
 
 type Point = readonly [number, number];
@@ -113,7 +116,7 @@ function route(corners: readonly Point[], end: Point): string {
 /** As many columns as the hull's width holds bays wide enough for a title, at most four: by width alone, so picking a bay never reshuffles them. */
 function columnsFor(count: number, width: number, gap: number): number {
   if (count === 0 || width === 0) return 1;
-  const fits = Math.floor((width + gap) / (160 + gap));
+  const fits = Math.floor((width + gap) / (150 + gap));
   return Math.max(1, Math.min(4, count, fits));
 }
 
@@ -181,8 +184,16 @@ export function Bays({ read, reading, selected, onSelect, onOpenLink, onOpenSess
   const host = useRef<HTMLDivElement>(null);
   const [wires, setWires] = useState<readonly Wire[]>([]);
   const [hovered, setHovered] = useState<string>();
+  const [tracks, setTracks] = useState<readonly Track[]>([]);
   const [columns, setColumns] = useState<Readonly<Record<string, number>>>({});
   const bays = read.harbours.flatMap((one) => one.bays);
+  // Hovering a bay brings its pull request's card into view on the line, as well as lighting it.
+  useLayoutEffect(() => {
+    if (hovered === undefined) return;
+    const dot = read.harbours.flatMap((one) => one.bays).find((bay) => bay.key === hovered)?.dot;
+    if (dot === undefined) return;
+    host.current?.querySelector(`[data-card="${CSS.escape(dot.key)}"]`)?.scrollIntoView({ block: "nearest" });
+  }, [hovered, read]);
   const own = selected === undefined ? undefined : (bays.find((bay) => itemOf(bay)?.key === selected)?.key ?? read.waiting.find((one) => one.key === selected)?.key);
   // Only a pointer lights a bay and steps the rest back; the cursor marks its bay and wire alone.
   const lit = hovered;
@@ -221,7 +232,7 @@ export function Bays({ read, reading, selected, onSelect, onOpenLink, onOpenSess
         // gap below its row to the hull's wall, each column at its own height in that gap.
         const gapX = (Number(getComputedStyle(room.parentElement!).columnGap.replace("px", "")) || 16) / 2;
         const gapY = (Number(getComputedStyle(room.parentElement!).rowGap.replace("px", "")) || 12) / 2;
-        const lane = (col - (cols - 2) / 2) * 3;
+        const lane = (col - (cols - 2) / 2) * 5;
         const corners: Point[] =
           col === cols - 1
             ? [port]
@@ -248,6 +259,30 @@ export function Bays({ read, reading, selected, onSelect, onOpenLink, onOpenSess
       });
       const drawn = [...out, ...inbound];
       setWires((was) => (JSON.stringify(was) === JSON.stringify(drawn) ? was : drawn));
+      // The tracks: down the middle of every gap between columns, along every gap between rows, and out
+      // through the hull's wall, each read off where the bays are.
+      const laid = [...root.querySelectorAll<HTMLElement>(".armada-ship__bays")].flatMap((grid, at): Track[] => {
+        const rooms = [...grid.querySelectorAll<HTMLElement>(":scope > .armada-ship__bay")].map((one) => one.getBoundingClientRect());
+        if (rooms.length === 0) return [];
+        const box = grid.getBoundingClientRect();
+        const style = getComputedStyle(grid);
+        const gapX = (Number(style.columnGap.replace("px", "")) || 16) / 2;
+        const lefts = [...new Set(rooms.map((one) => Math.round(one.left)))].sort((a, b) => a - b);
+        const bottoms = [...new Set(rooms.map((one) => Math.round(one.bottom)))].sort((a, b) => a - b);
+        const tops = [...new Set(rooms.map((one) => Math.round(one.top)))].sort((a, b) => a - b);
+        const top = y(box.top);
+        const bottom = y(box.bottom);
+        const across = lefts.slice(1).map((left, index): Track => ({ key: `${at}:c${index}`, d: `M${x(left) - gapX},${top} V${bottom}` }));
+        const along = bottoms
+          .filter((one) => tops.some((t) => t > one))
+          .map((one, index): Track => {
+            const next = tops.find((t) => t > one)!;
+            const mid = y((one + next) / 2);
+            return { key: `${at}:r${index}`, d: `M${x(box.left)},${mid} H${x(box.right) + gapX * 2}` };
+          });
+        return [...across, ...along];
+      });
+      setTracks((was) => (JSON.stringify(was) === JSON.stringify(laid) ? was : laid));
       // Each hull's columns, from the room its grid has.
       const next: Record<string, number> = {};
       root.querySelectorAll<HTMLElement>(".armada-ship__bays").forEach((grid) => {
@@ -287,6 +322,9 @@ export function Bays({ read, reading, selected, onSelect, onOpenLink, onOpenSess
             <path d="M0,0 L8,4 L0,8 z" className="armada-ship__arrow" />
           </marker>
         </defs>
+        {tracks.map((one) => (
+          <path key={one.key} className="armada-ship__track" d={one.d} />
+        ))}
         {wires.map((one) => (
           <path
             key={one.key}
@@ -387,12 +425,6 @@ export function Bays({ read, reading, selected, onSelect, onOpenLink, onOpenSess
                       <span className="armada-ship__bay-top">
                         <span className="armada-ship__lamp" aria-hidden="true" />
                         <span className="armada-ship__bay-number">{String(bay.slot).padStart(2, "0")}</span>
-                        {bay.dot === undefined ? null : (
-                          <span className="armada-ship__badge" data-state={bay.dot.state}>
-                            {bay.dot.card.heading.startsWith("#") ? bay.dot.card.heading : "Landing"}
-                            {bay.dot.card.place === undefined ? "" : ` · ${ordinal(bay.dot.card.place)}`}
-                          </span>
-                        )}
                       </span>
                       <span className="armada-ship__room">
                         {bay.holder.kind === "job" || bay.holder.kind === "session" ? (

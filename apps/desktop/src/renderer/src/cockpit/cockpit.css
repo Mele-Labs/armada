@@ -559,7 +559,7 @@ span.armada-view__dot { cursor: default; }
   isolation: isolate;
   flex: 1 1 auto;
   display: grid;
-  grid-template-columns: calc(var(--space-12) * 3.5) minmax(0, 1fr) calc(var(--space-12) * 4.25);
+  grid-template-columns: calc(var(--space-12) * 3.25) minmax(0, 1fr) calc(var(--space-12) * 4.25);
   column-gap: var(--space-8);
   min-width: 0;
   min-height: 0;
@@ -645,7 +645,8 @@ span.armada-view__dot { cursor: default; }
   display: grid;
   flex: 1 1 auto;
   grid-template-columns: repeat(var(--cols, 2), minmax(0, 1fr));
-  gap: var(--space-3) var(--space-4);
+  /* Wide enough between bays for the tracks the wires run in, a lane for each column. */
+  gap: var(--space-6) var(--space-8);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -798,19 +799,22 @@ span.armada-view__dot { cursor: default; }
 
 /* The wires: a bay to its card through the hull's gaps, solid where a queue holds it, flowing while its
    checks run; the next one in to the bay it will take, dashed, with an arrow. */
+.armada-ship__track { fill: none; stroke: var(--border-subtle); stroke-width: 1; stroke-dasharray: 1 3; stroke-linecap: round; }
 .armada-ship__wire { --dot: var(--fg-subtle); fill: none; stroke: var(--dot); stroke-width: 1.5; stroke-dasharray: 4 4; stroke-linejoin: round; opacity: 0.6; transition: opacity var(--duration-fast) var(--ease); }
 .armada-ship__wire[data-queued] { stroke-dasharray: none; }
 .armada-ship__wire[data-state="running"] { stroke-dasharray: 2 8; animation: armada-ship-flow 1.6s linear infinite; }
 .armada-ship__wire[data-kind="in"] { --dot: var(--fg-muted); stroke-dasharray: 3 5; }
-.armada-ship__wire[data-lit] { opacity: 1; stroke-width: 2; filter: drop-shadow(0 0 var(--space-1) var(--dot)); }
+.armada-ship__wire[data-lit] { opacity: 1; stroke-width: 2.5; filter: drop-shadow(0 0 var(--space-1) var(--dot)); }
 .armada-ship__arrow { fill: var(--fg-muted); }
 @keyframes armada-ship-flow { to { stroke-dashoffset: -40; } }
 
 /* One bay lit: its room, its wire and its card stand forward and the rest step back. */
 .armada-ship[data-lighting] .armada-ship__bay:not([data-lit]),
 .armada-ship[data-lighting] .armada-ship__wait:not([data-lit]),
-.armada-ship[data-lighting] .armada-ship__card[data-wired]:not([data-lit]) { opacity: 0.5; }
-.armada-ship[data-lighting] .armada-ship__wire:not([data-lit]) { opacity: 0.18; }
+.armada-ship[data-lighting] .armada-ship__card:not([data-lit]) { opacity: 0.35; }
+.armada-ship[data-lighting] .armada-ship__wire:not([data-lit]) { opacity: 0.12; }
+.armada-ship__card[data-lit] { border-color: var(--dot); box-shadow: 0 0 0 var(--border-width) var(--dot), 0 0 var(--space-4) color-mix(in srgb, var(--dot) 30%, transparent); }
+.armada-ship__bay[data-lit] { box-shadow: 0 0 var(--space-4) color-mix(in srgb, var(--lamp) 25%, transparent); }
 
 @media (prefers-reduced-motion: reduce) {
   .armada-ship__orbit[data-working], .armada-ship__wire[data-state="running"] { animation: none; }
