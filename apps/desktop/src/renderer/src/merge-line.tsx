@@ -6,13 +6,11 @@
 // every one on All, named once there is more than one. With none served for the pick, neither the
 // panels nor the rail row draws, rather than a sentence about an absence or a row opening nothing.
 
-import { useEffect, useRef, useState, type RefObject } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import type { FixMain, LandCheckAt, RepositorySummary } from "@armada/protocol";
-import { MergeLine, isPressed, pressedSlot } from "@armada/components";
+import { MergeLine, useTileGrid } from "@armada/components";
 import { mergeLineViews, type MergeLineView } from "@armada/screens";
-import { holdsText } from "@armada/screens/src/keys";
-import { useListKeydown } from "@armada/screens/src/list-keyboard";
 import { LandCheckLogSheet } from "@armada/jobs";
 import { Boundary, SURFACE, useAtFloor } from "@armada/shell";
 
@@ -130,85 +128,6 @@ function OneLine({
   );
 }
 
-type Arrow = "ArrowDown" | "ArrowUp" | "ArrowLeft" | "ArrowRight";
-const ARROWS: readonly string[] = ["ArrowDown", "ArrowUp", "ArrowLeft", "ArrowRight"];
-
-/**
- * The tile nearest `from` in an arrow's direction, by the boxes as drawn: down a column, across to the
- * other column of the board, and on into the next repository's panel. Distance across the direction
- * counts double, so Down stays in its column while that column has a tile below.
- */
-function nearest(tiles: readonly HTMLElement[], from: HTMLElement, arrow: Arrow): HTMLElement | undefined {
-  const a = from.getBoundingClientRect();
-  const ax = a.left + a.width / 2;
-  const ay = a.top + a.height / 2;
-  const vertical = arrow === "ArrowDown" || arrow === "ArrowUp";
-  let best: HTMLElement | undefined;
-  let score = Infinity;
-  for (const tile of tiles) {
-    if (tile === from) continue;
-    const b = tile.getBoundingClientRect();
-    const dx = b.left + b.width / 2 - ax;
-    const dy = b.top + b.height / 2 - ay;
-    const along = arrow === "ArrowDown" ? dy : arrow === "ArrowUp" ? -dy : arrow === "ArrowRight" ? dx : -dx;
-    if (along <= 1) continue;
-    const near = along + 2 * Math.abs(vertical ? dx : dy);
-    if (near < score) [best, score] = [tile, near];
-  }
-  return best;
-}
-
-/**
- * The surface's keys, as the cockpit's glass reads them. **The cursor is DOM focus**: every tile is
- * focusable, so a tile reached by Tab, by a press or by a key is the same cursor. Bare arrows move
- * spatially and are not an act; `j`/`k` walk the tiles in reading order; Enter on a tile, and `o`
- * anywhere in one, open the Job it came from.
- */
-function useLineKeys(scope: RefObject<HTMLElement | null>, onOpenJob: ((jobId: string) => void) | undefined): void {
-  useListKeydown((event) => {
-    const root = scope.current;
-    if (root === null || event.defaultPrevented) return;
-    const tiles = Array.from(root.querySelectorAll<HTMLElement>("[data-merge-item]"));
-    if (tiles.length === 0) return;
-    const bare = !(event.metaKey || event.ctrlKey || event.altKey);
-    const arrow = bare && ARROWS.includes(event.key);
-    if (holdsText(event.target)) {
-      // A field on the surface, empty: Escape or Down hands the keys back to the tiles.
-      const field = event.target;
-      const empty = (field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement) && field.value === "";
-      if (empty && root.contains(field) && (isPressed("close", event) || (bare && event.key === "ArrowDown"))) {
-        event.preventDefault();
-        tiles[0]?.focus();
-      }
-      return;
-    }
-    const at = document.activeElement;
-    const step = pressedSlot("move_focus", event);
-    // Focus elsewhere, on the rail row just pressed say: `j` and `k` come to the tiles, as the cockpit's
-    // do, and the arrows, Enter and `o` stay with whatever holds focus.
-    if (at !== null && at !== document.body && !root.contains(at)) {
-      if (step !== 0 && step !== 1) return;
-      event.preventDefault();
-      return tiles[0]?.focus();
-    }
-    const here = at instanceof HTMLElement ? at.closest<HTMLElement>("[data-merge-item]") : null;
-    if (arrow || step !== -1) {
-      event.preventDefault();
-      if (here === null) return tiles[0]?.focus();
-      if (arrow) return nearest(tiles, here, event.key as Arrow)?.focus();
-      const by = step === 0 || step === 2 ? 1 : -1;
-      return tiles[Math.min(tiles.length - 1, Math.max(0, tiles.indexOf(here) + by))]?.focus();
-    }
-    // Enter belongs to whatever holds focus first: on a tile's own link or button, it is theirs.
-    const opens = (isPressed("open_focused", event) && at === here) || isPressed("open", event);
-    const job = here?.dataset.job;
-    if (opens && job !== undefined && onOpenJob !== undefined) {
-      event.preventDefault();
-      onOpenJob(job);
-    }
-  });
-}
-
 /** The rail surface: the panels alone, on Overview's own padding. */
 export function MergeLineSurface({
   state,
@@ -227,8 +146,17 @@ export function MergeLineSurface({
   onFix?: (fix: FixMain) => void;
   focus?: string;
 }) {
+  // One Tab stop for every repository's tiles, the arrows across them all. Enter on a tile, and `o`
+  // anywhere in one, open the Job it came from; a tile with no Job leaves the press alone.
   const scope = useRef<HTMLDivElement>(null);
-  useLineKeys(scope, onOpenJob);
+  useTileGrid(scope, {
+    tile: "[data-merge-item]",
+    onOpen: (tile) => {
+      const job = tile.dataset.job;
+      if (job === undefined || onOpenJob === undefined) return false;
+      onOpenJob(job);
+    },
+  });
   return (
     <Boundary region="Merge line" bridge={bridge} onCopied={onCopied}>
       <div className="armada-screen__overview" ref={scope}>

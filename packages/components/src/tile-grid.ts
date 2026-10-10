@@ -208,6 +208,7 @@ export function useTileGrid(root: RefObject<HTMLElement | null>, options: TileGr
 
     rove();
     const watch = new MutationObserver(rove);
+    // A `tabindex` set after the last pass is roved too, or a stop a component gives itself on render slips in.
     watch.observe(element, { childList: true, subtree: true, attributes: true, attributeFilter: ["tabindex"] });
     element.addEventListener("focusin", noted);
     element.addEventListener("keydown", press);
