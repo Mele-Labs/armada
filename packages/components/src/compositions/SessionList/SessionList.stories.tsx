@@ -216,7 +216,7 @@ export const RetroPress: Story = {
   },
 };
 
-/** The keys alone: Down or Escape leaves the search for the first tile, the arrows move across the glass and down each column, and Enter opens the tile with focus. */
+/** The keys alone: the glass is one Tab stop, Down or Escape leaves the search for its tile, the arrows move across the glass and down each column, and Enter opens the tile with focus. */
 export const Keyboard: Story = {
   args: {
     groups: [
@@ -235,6 +235,17 @@ export const Keyboard: Story = {
     const notes = canvas.getByRole("button", { name: /Release notes script/ });
     const docs = canvas.getByRole("button", { name: /Docs pass/ });
     const search = canvas.getByRole("searchbox", { name: "Search Sessions" });
+    // One Tab stop: Tab from the search lands on a tile, and Tab on from there never reaches another.
+    await userEvent.click(search);
+    await userEvent.tab();
+    await expect(flaky).toHaveFocus();
+    const reached = new Set<Element | null>();
+    for (let at = 0; at < 8; at++) {
+      await userEvent.tab();
+      reached.add(document.activeElement);
+    }
+    await expect(reached.has(notes)).toBe(false);
+    await expect(reached.has(docs)).toBe(false);
     await userEvent.click(search);
     await userEvent.keyboard("{ArrowDown}");
     await expect(flaky).toHaveFocus();
