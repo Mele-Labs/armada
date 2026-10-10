@@ -47,10 +47,11 @@ const INSET = 16;
  */
 const LEVEL = 2;
 
-/** The composer, opened the way a person opens it: the title row's Dispatch. */
+/** The composer, opened the way a person opens it: the title row's one bar, and ⇧↵ for the full composer. */
 async function composing(): Promise<void> {
   mount("every-state", SLICES);
-  await page.getByRole("button", { name: "Dispatch", exact: true }).first().click();
+  await page.getByRole("button", { name: /^Search, or describe work/ }).click();
+  await userEvent.keyboard("{Shift>}{Enter}{/Shift}");
   await expect.element(page.getByText(ASK)).toBeVisible();
 }
 
