@@ -1,5 +1,8 @@
-/* The Manifest as forms — Journey 9's *Editing*. One panel per section, each
-   entry a group inside it, and every row wrapping rather than overflowing.
+/* The Manifest as forms — Journey 9's *Editing*, on the cockpit's glass. One
+   raised panel per section under its own band, each declared entry a tile
+   inside it in an auto-fill grid, and every row wrapping rather than
+   overflowing. A section and an entry are tiles to the keys too: focusable,
+   and ringed when they hold the cursor.
 
    **It scrolls itself**, because the mount never does: without this the form is
    clipped at the window's height and the sticky head has nothing to pin in. */
@@ -12,12 +15,15 @@
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
+  /* A field reached by Tab scrolls clear of the sticky strip rather than under it. */
+  scroll-padding-top: calc(var(--space-12) + var(--space-4));
   /* No top padding: the sticky head pins at the scrollport's padded edge, and
      a strip above it would show rows scrolling past. */
   padding: 0 var(--space-4) var(--space-4);
 }
 
-/* Sticky, so Save and what it came to are in reach from the last section. */
+/* Sticky, so Save and what it came to are in reach from the last section. A
+   controls strip across the glass, edge to edge, the Sessions list's own. */
 .armada-manifest-form__top {
   position: sticky;
   top: 0;
@@ -25,8 +31,10 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  padding: var(--space-2) 0;
-  background: var(--bg-base);
+  margin: 0 calc(var(--space-4) * -1);
+  padding: var(--space-2) var(--space-4);
+  border-bottom: var(--border-width) solid var(--border-default);
+  background: var(--bg-raised);
 }
 
 .armada-manifest-form__head {
@@ -61,24 +69,47 @@
   color: var(--fg-muted);
 }
 
+/* A section: a raised panel on the glass. Its entries tile across it, and
+   everything else in it takes the whole row. */
 .armada-manifest-form__section {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(calc(var(--space-12) * 8), 1fr));
+  align-items: start;
   gap: var(--space-3);
-  padding: var(--space-3) var(--space-4);
-  border: var(--border-width) solid var(--border-subtle);
+  padding: 0 var(--space-4) var(--space-4);
+  border: var(--border-width) solid var(--border-default);
   border-radius: var(--radius-lg);
   background: var(--bg-raised);
   min-width: 0;
+  /* Clips the band to the panel's radius; `flex: none` so the clip never lets
+     the form's own column squeeze a section shut. */
+  flex: none;
+  overflow: hidden;
 }
 
+.armada-manifest-form__section > :not(.armada-manifest-form__entry) {
+  grid-column: 1 / -1;
+}
+
+.armada-manifest-form__section:focus-visible,
+.armada-manifest-form__entry:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+/* The section's band: the cockpit's header voice, edge to edge across the panel. */
 .armada-manifest-form__title {
-  margin: 0;
-  font-family: var(--font-sans);
-  font-size: var(--text-sm);
-  line-height: var(--leading-sm);
+  margin: 0 calc(var(--space-4) * -1);
+  padding: var(--space-2) var(--space-4);
+  border-bottom: var(--border-width) solid var(--border-default);
+  background: color-mix(in srgb, var(--bg-sunken) 40%, var(--bg-raised));
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
   font-weight: var(--weight-heading);
-  color: var(--fg-default);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  color: var(--fg-muted);
 }
 
 .armada-manifest-form__says,
@@ -99,23 +130,35 @@
   color: var(--status-completed-failed);
 }
 
+/* A declared entry as a tile: the cockpit tile's weighted frame, unhued —
+   the form knows what the file says, not how anything last ran. Sunk a step
+   below its panel, so it reads as an instrument set into it. */
 .armada-manifest-form__entry {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
   margin: 0;
   padding: var(--space-3);
-  border: var(--border-width) solid var(--border-subtle);
+  border: calc(var(--border-width) * 2) solid color-mix(in srgb, var(--fg-subtle) 30%, var(--border-subtle));
   border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--bg-sunken) 55%, var(--bg-raised));
   min-width: 0;
+  transition: border-color var(--duration-fast) var(--ease);
 }
 
+.armada-manifest-form__entry:focus-within {
+  border-color: color-mix(in srgb, var(--fg-subtle) 60%, var(--border-subtle));
+}
+
+/* The entry's name, ruled off as the tile's head. */
 .armada-manifest-form__entry-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
   min-width: 0;
+  padding-bottom: var(--space-2);
+  border-bottom: var(--border-width) solid var(--border-subtle);
 }
 
 .armada-manifest-form__nested {
@@ -188,6 +231,7 @@
   flex-direction: column;
   gap: var(--space-1);
   min-width: 0;
+  padding-top: var(--space-2);
 }
 
 .armada-manifest-form__facts {
@@ -196,6 +240,7 @@
   column-gap: var(--space-6);
   row-gap: var(--space-1);
   margin: 0;
+  font-family: var(--font-mono);
   font-size: var(--text-xs);
   line-height: var(--leading-xs);
 }

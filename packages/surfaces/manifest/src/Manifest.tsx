@@ -54,7 +54,7 @@
 // `setup`, `evidence`, `after_merge` and `base`: no edit reaches them until the
 // writer's own edits for them land, so they are the file view's for now.
 
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import type { ManifestDriftRead, Outcome } from "@armada/protocol";
 import {
   Alert,
@@ -74,6 +74,7 @@ import { useManifestRuns, type ManifestSlice } from "./checkout-runs";
 import { useRepositoryAllows, type RepositoryAllowsSlice } from "@armada/screens/src/manifest-allows";
 import type { ManifestEditing } from "./manifest-file";
 import type { ManifestForming } from "./manifest-form";
+import { useManifestKeys } from "./manifest-keys";
 import { driftGoneOf, driftPanelOf, verifyPanelOf, verifySaidOf, type VerifyInputs } from "@armada/screens/src/verify";
 
 export type ManifestProps = ManifestSlice & RepositoryAllowsSlice & {
@@ -143,6 +144,9 @@ export function Manifest(props: ManifestProps) {
   const verify = verifyPanelOf(verifying);
   const verifySaid = verifySaidOf(verifying);
   const gone = driftGoneOf(props.drift);
+  // The tiles' keys. The file view is an editor, and an editor keeps every key it is given.
+  const screen = useRef<HTMLDivElement>(null);
+  useManifestKeys(screen, { editor: editing.view === "file" && !props.settingUp && !rootless });
 
   // A Fleet serving nothing is where a fresh install starts, not a Manifest that would not read.
   if (props.sheet.state === "failed" && servesNothing(props.sheet.outcome)) {
@@ -195,6 +199,14 @@ export function Manifest(props: ManifestProps) {
           rather than under it, so they cost the Checks below no height at all
           — #1383. They are the run view's: drift is about lines this list
           draws, and Verify runs them. */}
+      {/* The viewscreen: the tab row is its band, the view its glass. Drift that
+          names a line the checkout no longer has lights the frame, as a call
+          waiting on the owner lights the cockpit's. */}
+      <div
+        ref={screen}
+        className="armada-screen__viewscreen"
+        data-lit={gone.size === 0 ? undefined : ""}
+      >
       <div className="armada-screen__tabs">
         <Tabs
           items={[
@@ -236,8 +248,8 @@ export function Manifest(props: ManifestProps) {
           switch. Keyed on the selected tab, so a sheet re-reading under the
           same view does not fade. A stack of its own, so the wrapper lays its
           children out as the screen's stack did. */}
-      <TabPanel tab={selected} className="armada-screen__stack" role="tabpanel">
-        {viewNote === null ? null : <p className="text-fg-muted">{viewNote}</p>}
+      <TabPanel tab={selected} className="armada-screen__stack armada-screen__glass" role="tabpanel">
+        {viewNote === null ? null : <p className="armada-screen__view-note">{viewNote}</p>}
         {(props.settingUp || onlySetup) && props.setup !== undefined ? (
           props.setup
         ) : rootless ? (
@@ -250,6 +262,7 @@ export function Manifest(props: ManifestProps) {
           <RunView {...props} slot={slot} />
         )}
       </TabPanel>
+      </div>
       {/* Both layers, mounted once at the stack rather than inside the view, so
           closing one does not depend on which tab is up. */}
       <DriftSheet
