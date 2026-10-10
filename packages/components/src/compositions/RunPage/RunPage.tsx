@@ -303,6 +303,7 @@ export function RunPage({
             group={group}
             selectedId={selectedId}
             onSelect={onSelect}
+            serving={server === undefined || server.phase === "exited" ? undefined : server.phase}
           />
         ))}
         {alwaysAllowed === undefined ? null : (
@@ -493,10 +494,13 @@ function RunPageGroupList({
   group,
   selectedId,
   onSelect,
+  serving,
 }: {
   group: RunPageGroup;
   selectedId: string | null;
   onSelect?: (id: string) => void;
+  /** The selected entry's server, while it is up — the one live state a row is told of. */
+  serving?: "starting" | "serving";
 }) {
   return (
     <div className="armada-run-page__group">
@@ -515,10 +519,17 @@ function RunPageGroupList({
       ) : (
         <ul className="armada-run-page__entries">
           {group.entries.map((entry) => (
-            <li className="armada-run-page__entry" key={entry.id}>
+            <li
+              className="armada-run-page__entry"
+              key={entry.id}
+              // The tile's hue: how it last ran, a server up, and drift, which lights it.
+              data-run={entry.id === selectedId && serving !== undefined ? serving : entry.last?.outcome}
+              data-drifted={entry.drifted === true ? "" : undefined}
+            >
               <button
                 type="button"
                 className="armada-run-page__entry-select"
+                data-tile=""
                 aria-current={entry.id === selectedId ? "true" : undefined}
                 onClick={() => onSelect?.(entry.id)}
               >
@@ -599,6 +610,7 @@ function RunPageAlwaysAllowedList({
                   variant="secondary"
                   size="sm"
                   ground="sunken"
+                  data-tile=""
                   aria-label={`Remove ${row.run}`}
                   onClick={() => onRemove(row.run)}
                 >
