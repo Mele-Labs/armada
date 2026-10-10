@@ -3,7 +3,7 @@
 // with nobody in line, and on All each repository with a line has its own, named.
 
 import { expect, test } from "vitest";
-import { page } from "vitest/browser";
+import { page, userEvent } from "vitest/browser";
 
 import { scenarioNamed, type Scenario } from "./scenario";
 import { mount, onScreen, unmountAfterEach } from "./testing";
@@ -111,4 +111,39 @@ test("an open pull request wears its merge queue mark and place, and its owner",
   const order = [...line.element().querySelectorAll('ul[aria-label="Open pull requests"] > li')].map((li) => li.getAttribute("aria-label")?.split(",")[0]);
   expect(order).toEqual(["fix/61-order-store-migrations", "fix/pin-store-clock", "chore/bump-the-lockfile", "docs/typo-in-the-readme", "wip/not-in-the-queue"]);
   expect(entry("wip/not-in-the-queue").element().querySelector(".armada-merge-line__place")?.textContent).toBe("");
+});
+
+// The surface reads keys as the cockpit's glass does, the cursor being DOM focus: `j` and `k` walk
+// the tiles in reading order, from the rail row too, and Enter on a tile opens the Job it came from.
+test("j and k walk the tiles, and Enter on one opens its Job", async () => {
+  mount("merge-line-owners");
+  await onScreen();
+
+  await row().click();
+  const entry = (branch: string) => panel("Merge line").getByRole("listitem", { name: new RegExp(`^${branch},`) });
+  await userEvent.keyboard("j");
+  await expect.element(entry("fix/pin-store-clock")).toHaveFocus();
+  await userEvent.keyboard("j");
+  await expect.element(entry("fix/61-order-store-migrations")).toHaveFocus();
+  await userEvent.keyboard("j");
+  await userEvent.keyboard("k");
+  await expect.element(entry("fix/61-order-store-migrations")).toHaveFocus();
+  await userEvent.keyboard("{Enter}");
+  await expect.element(page.getByRole("heading", { name: "Order the store migrations" })).toBeVisible();
+});
+
+test("bare arrows move across the board: right to what left the line, left and down along the line", async () => {
+  mount("merge-line");
+  await onScreen();
+
+  await row().click();
+  const armada = panel("Merge line, armada");
+  await userEvent.keyboard("j");
+  await expect.element(armada.getByRole("listitem", { name: /^docs\/wire-lock-signed,/ })).toHaveFocus();
+  await userEvent.keyboard("{ArrowRight}");
+  await expect.element(armada.getByRole("list", { name: "Recently landed" }).getByRole("listitem", { name: /^studio\/read-in-lands-in-a-zone,/ })).toHaveFocus();
+  await userEvent.keyboard("{ArrowLeft}");
+  await expect.element(armada.getByRole("listitem", { name: /^docs\/wire-lock-signed,/ })).toHaveFocus();
+  await userEvent.keyboard("{ArrowDown}");
+  await expect.element(armada.getByRole("listitem", { name: /^worktree-agent-aef3c24792026e2c3,/ })).toHaveFocus();
 });
