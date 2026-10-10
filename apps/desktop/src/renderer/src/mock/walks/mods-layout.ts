@@ -29,7 +29,7 @@ export const modsLayout = walk("mods-layout", [
   { press: inside(region("Sessions"), button(/A layout/)), say: "Back to the Session" },
   ask("In a Job, put Record before Plan, hide Pulse and open on Plan.\n"),
   { look: inside(thread, text(/Jobs open on Plan/)), say: "layout.json rewritten" },
-  { press: button("Search jobs, commands, settings… ⌘ K"), say: "Open a Job" },
+  { press: button("Search, or describe work to dispatch ⌘ K"), say: "Open a Job" },
   { type: "pin the store\n", into: palette, say: "The running Job" },
   tabsOf("Record is before Plan, Pulse is gone, and the Job opened on Plan"),
   { press: rail("Settings"), say: "Settings" },

@@ -7,6 +7,7 @@
 // thing; the object is the shape that function already agrees on.
 
 import { Palette, type PaletteBoardRow, type PaletteSurface } from "@armada/shell";
+import type { PaletteDispatch } from "@armada/components";
 import type { JobSummary } from "@armada/protocol";
 import type { BridgeState } from "../../shared/bridge";
 import { checkoutRunnablesOf } from "@armada/manifest";
@@ -44,6 +45,9 @@ export type PaletteMountProps = {
   acts: Omit<Parameters<typeof carryOut>[2], "studioRun" | "studioAdd">;
   /** A destructive act chosen from the palette, handed on to confirm. */
   onConfirmAct: (id: string, jobId: string) => void;
+  /** The one bar's dispatch row, and the title bar's field it opens over. `one-bar.tsx`. */
+  dispatch: PaletteDispatch;
+  anchor: string;
 };
 
 /**
@@ -65,6 +69,8 @@ export function PaletteMount({
   board,
   acts,
   onConfirmAct,
+  dispatch,
+  anchor,
 }: PaletteMountProps) {
   const studioRun = useStudioRunOff();
   const studioAdd = useStudioAddOff();
@@ -72,6 +78,8 @@ export function PaletteMount({
     <Palette
       open={open}
       onClose={onClose}
+      dispatch={dispatch}
+      anchor={anchor}
       // Three places, not two: a Studio open on its whiteboard is neither the
       // Board nor a job read whole, and the acts scoped to it act on the board
       // rather than on anything focused — #1364.

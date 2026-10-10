@@ -24,9 +24,6 @@ async function dashboard(): Promise<void> {
   mount("dashboard-cockpit");
   await onScreen();
   await expect.element(page.getByRole("tab", { name: "Your move" })).toHaveAttribute("aria-selected", "true");
-  // Nothing needs the owner, so the dispatch bar has the cursor; Escape hands the keys to the panel.
-  await expect.element(page.getByRole("textbox", { name: "Request" })).toHaveFocus();
-  await userEvent.keyboard("{Escape}");
 }
 
 const call = (kind: RegExp) => page.getByRole("region", { name: kind });
@@ -34,12 +31,12 @@ const behind = (kind: RegExp) => page.getByRole("button", { name: kind });
 const selected = (name: string) => expect.element(page.getByRole("tab", { name })).toHaveAttribute("aria-selected", "true");
 const radio = (name: RegExp) => page.getByRole("radio", { name });
 
-test("Your move with nothing waiting is empty and says nothing, and the cursor is in the dispatch bar", async () => {
+test("Your move with nothing waiting is empty and says nothing, and draws no dispatch box of its own", async () => {
   localStorage.removeItem(FILTER);
   mount("dashboard-cockpit");
-  await expect.element(page.getByRole("textbox", { name: "Request" })).toHaveFocus();
   await expect.element(page.getByRole("listbox", { name: "Tiles" })).toBeVisible();
   expect(document.querySelectorAll('[role="listbox"][aria-label="Tiles"] [role="option"]').length).toBe(0);
+  expect(page.getByRole("textbox", { name: "Request" }).query()).toBeNull();
 });
 
 test("[ and ] step the filters round, Option and a digit jumps, and the filter is kept", async () => {
@@ -100,11 +97,11 @@ test("the merge line is a footer of dots, Fleet's landings nearest main, then th
   await expect.poll(state).toBe("failing");
 });
 
-test("n brings the cursor back to the dispatch bar from the panel", async () => {
+test("n opens the title bar's one bar from the panel, ready for the work", async () => {
   await dashboard();
-  await expect.element(page.getByRole("textbox", { name: "Request" })).not.toHaveFocus();
   await userEvent.keyboard("n");
-  await expect.element(page.getByRole("textbox", { name: "Request" })).toHaveFocus();
+  await expect.element(page.getByRole("combobox")).toHaveFocus();
+  await expect.element(page.getByRole("combobox")).toHaveAttribute("placeholder", "Describe the work, or paste a link to a ticket.");
 });
 
 test("a call comes forward over the panel whatever the filter, the next steps up, and one put off goes to the back until w", async () => {

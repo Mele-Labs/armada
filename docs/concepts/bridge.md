@@ -51,7 +51,7 @@ Run and edit a Manifest reads a project's Checks and Commands, runs any one of t
 
 ## Top-level shell
 
-Bridge's shell is a **title row** across the top — the repository picker with a control beside it that opens the picked repository's [Manifest](manifest.md), search, Dispatch and, once Helm's dock is closed, its own reopen button — a **left column** of resizable panels beneath it, and a **full-width panel** to their right where the journeys mount. Finer layout treatment within each journey remains UI/UX design phase work.
+Bridge's shell is a **title row** across the top — the repository picker with a control beside it that opens the picked repository's [Manifest](manifest.md), the one bar that searches and dispatches, and, once Helm's dock is closed, its own reopen button — a **left column** of resizable panels beneath it, and a **full-width panel** to their right where the journeys mount. Finer layout treatment within each journey remains UI/UX design phase work.
 
 **The picker names a repository, never a Manifest's id.** A set-up repository read as its `ManifestId` — a ULID — until the owner found one in the trigger on 28 Sep 2026. [Manifest](manifest.md), Deletion, already bound it: a surface renders the name, and nothing renders a bare id. The name is what Fleet read the Manifest under, widening to `parent/folder` and then the whole root only where two repositories would otherwise read alike.
 

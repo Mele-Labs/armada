@@ -43,7 +43,7 @@ import { useEscapeLeavesJob, useNow, useReturnToRow, useSummoned } from "./app-e
 import { aJobAct, ConfirmAct, type Confirming } from "./ConfirmAct";
 import { PaletteMount } from "./PaletteMount";
 import { FLEET_DOWN } from "./palette";
-import { Overview, useDispatchBarKeys } from "./Overview";
+import { Overview } from "./Overview"; import { ONE_BAR, useOneBar } from "./one-bar";
 import { CaptureLayer, type CaptureAim } from "./capture/Layer";
 import { StudiosSurface } from "./StudiosSurface";
 import type { SketchOpening } from "@armada/screens/src/draft/sketch";
@@ -204,7 +204,7 @@ export function App({ draft }: AppProps = {}) {
   // before anybody has pressed anything. `drafted.tsx`.
   const [composing, setComposing] = useState(useDrafted().prompt !== undefined);
   const [composedFrom, setComposedFrom] = useState<SketchOpening>(); // A Sketch dispatched from a Studio.
-  const [seed, setSeed] = useState<string>(); // Words typed into the Dashboard's quick box.
+  const [seed, setSeed] = useState<string>(); // Words typed into the title bar's one bar.
   useEffect(() => void (composing || (setComposedFrom(undefined), setSeed(undefined))), [composing]);
   // What has been reported against the Judge. Its own view: a report is filed
   // about one Job and the rate is read across all of them.
@@ -336,7 +336,7 @@ export function App({ draft }: AppProps = {}) {
   // `⌘1`…`⌘n`, the binding the contract publishes and nothing answered until
   // the Manifest surface needed `⌘5`. One roster, read by the rail, the
   // palette and now the keyboard.
-  useSurfaceKeys(goTo); useDispatchBarKeys(() => goTo(SURFACE.overview)); // `n` and ⌘N: the Dashboard's dispatch bar.
+  useSurfaceKeys(goTo);
 
   // What this repository's Manifest declares, held open while the surface that
   // draws it is showing, **the palette is up** or a Studio is open, whose Run
@@ -428,6 +428,7 @@ export function App({ draft }: AppProps = {}) {
   // unambiguously what is in front of you.
   const onWhat = reading ?? state.jobs.find((job) => job.id === cursor);
   const live = state.connection.state === "connected";
+  const oneBar = useOneBar({ palette, live, repository: state.repository, compose: (words) => (setSeed(words), setComposing(true)), openSession, said: setTelling, proposeFrom: commands.proposeFrom }); // `n`, ⌘N and ⌘K: the title bar's one bar.
   // Which failure is on screen, and which one `Copy debug info` would copy.
   // The order between them, and the reason there is one, are `failing.ts`.
   const { raised, lower, tell } = useRaised(commands.outcome);
@@ -1095,7 +1096,6 @@ export function App({ draft }: AppProps = {}) {
                   onOpenLink={openProseLink} onFix={(fix) => void commands.fixMain(fix)}
                   onOpenSession={openSession}
                   nowViews={draft?.calls} nows={draft?.now} onTell={tell}
-                  onQuickCompose={(words) => (setSeed(words), setComposing(true))}
                 />
 
                 {/* Never merged into the lists as a placeholder: a surface that
@@ -1148,6 +1148,8 @@ export function App({ draft }: AppProps = {}) {
         <PaletteMount
           open={palette.open}
           onClose={palette.onClose}
+          dispatch={oneBar}
+          anchor={ONE_BAR}
           reading={reading}
           shownStudio={shownStudio}
           on={onWhat}

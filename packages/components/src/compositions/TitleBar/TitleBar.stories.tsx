@@ -38,7 +38,7 @@ const picker = (
 );
 
 /**
- * Every slot filled: the picker, the search field, Dispatch, the logo and
+ * Every slot filled: the picker, the one bar, the logo and
  * Fleet's dot — Helm's dock is open, so its button is absent. The dot is not a
  * slot that can be left out: it is drawn at every width, so every story below
  * carries it.
@@ -50,18 +50,10 @@ export const Full: Story = {
     onDispatch: fn(),
     fleet: { state: "running", label: "Running" },
   },
-  /**
-   * #1156: Dispatch is one button with no caret, and clicking it dispatches.
-   * `SplitButton` drew a second, separately-named control for the menu even
-   * with nothing behind it — `queryByRole` for that name is the regression
-   * this guards.
-   */
-  play: async ({ args, canvas, userEvent }) => {
-    const dispatch = canvas.getByRole("button", { name: "Dispatch" });
-    await expect(canvas.queryByRole("button", { name: "Dispatch a job" })).not.toBeInTheDocument();
-
-    await userEvent.click(dispatch);
-    await expect(args.onDispatch).toHaveBeenCalledTimes(1);
+  /** One bar searches and dispatches, so the full row draws no Dispatch button (the owner, 10 Oct 2026). */
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("button", { name: /^Search, or describe work to dispatch/ })).toBeVisible();
+    await expect(canvas.queryByRole("button", { name: "Dispatch" })).not.toBeInTheDocument();
   },
 };
 
@@ -233,7 +225,6 @@ export const InASlimWindow: Story = {
     </div>
   ),
   play: async ({ args, canvas, canvasElement, userEvent }) => {
-    await expect(canvas.getByRole("button", { name: "Dispatch", hidden: true })).not.toBeVisible();
     await expect(canvasElement.querySelector(".armada-title-bar__search")).not.toBeVisible();
 
     const bar = canvasElement.querySelector(".armada-title-bar")!.getBoundingClientRect();
@@ -264,7 +255,7 @@ export const InASlimWindow: Story = {
 export const WideHasNoMenu: Story = {
   args: InASlimWindow.args,
   play: async ({ canvas }) => {
-    await expect(canvas.getByRole("button", { name: "Dispatch" })).toBeVisible();
+    await expect(canvas.getByRole("button", { name: /^Search, or describe work/ })).toBeVisible();
     await expect(canvas.getByRole("button", { name: "Menu", hidden: true })).not.toBeVisible();
   },
 };

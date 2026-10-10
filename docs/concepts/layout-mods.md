@@ -31,7 +31,7 @@ Every entry is drawn until a layout hides it.
 | Region | Entries | Never hidden | Orders | Opens on |
 |---|---|---|---|---|
 | `dashboard.tabs` | `command-central`, `running`, `done` | `command-central` | yes | `first` |
-| `dashboard.panels` | `quick-dispatch`, `fleet`, `merge-line` | `fleet` | yes, within a slot | |
+| `dashboard.panels` | `fleet`, `merge-line` | `fleet` | yes, within a slot | |
 | `job.tabs` | `overview`, `workflow`, `plan`, `record`, `checks`, `drones`, `pulse`, `settings` | `overview`, `plan` | yes | `first` |
 | `rail` | The rows of Work and Machine | `overview`, `mods`, `settings` | no | |
 

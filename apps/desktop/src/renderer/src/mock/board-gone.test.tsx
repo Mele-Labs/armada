@@ -15,21 +15,15 @@ unmountAfterEach();
 
 /**
  * The owner, 28 Sep 2026: *"We dont need this button on the overview because
- * its already right above it in the title bar."* The menu's face and the title
- * row's button called one `onCompose`, so the face went and the menu stayed.
+ * its already right above it in the title bar."* On 10 Oct 2026 the title
+ * row's button went too: its one bar searches and dispatches. `one-bar.tsx`.
  */
-test("Overview carries no Dispatch of its own, since the title row has one", async () => {
+test("Overview carries no Dispatch of its own, and the title row's one bar is the way in", async () => {
   mount("every-state");
   await onScreen();
 
-  const dispatch = page.getByRole("button", { name: "Dispatch", exact: true });
-  await expect.element(dispatch).toBeVisible();
-  // One, and it is the title row's: a second on the surface below it is the
-  // duplicate that was cut.
-  expect(dispatch.all()).toHaveLength(1);
-  expect(
-    page.getByRole("region", { name: "Overview" }).getByRole("button", { name: "Dispatch", exact: true }).query(),
-  ).toBeNull();
+  await expect.element(page.getByRole("button", { name: /^Search, or describe work to dispatch/ })).toBeVisible();
+  expect(page.getByRole("button", { name: "Dispatch", exact: true }).query()).toBeNull();
 });
 
 test("the Job Board is gone from the rail", async () => {

@@ -16,7 +16,6 @@ import {
   ListTodo,
   LoaderCircle,
   ScrollText,
-  Send,
   Settings,
   ShieldCheck,
   Waypoints,
@@ -67,7 +66,6 @@ export const LAYOUT: Readonly<Record<LayoutRegion, Spec>> = {
     ordered: true,
     firstable: false,
     entries: [
-      { id: "quick-dispatch", label: "Dispatch", icon: Send, hideable: true, slot: "top" },
       { id: "fleet", label: "Fleet", icon: Waypoints, hideable: false, slot: "board" },
       { id: "merge-line", label: "Merge line", icon: GitMerge, hideable: true, slot: "board" },
     ],

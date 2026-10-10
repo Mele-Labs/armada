@@ -85,12 +85,12 @@ describe("what is drawn, layer on layer", () => {
   const TIDY = '{"version":1,"dashboard.panels":{"order":["merge-line","fleet"]},"rail":{"hidden":["lessons"]}}';
 
   it("is the registry's own order and every entry with no layer", () => {
-    expect(shown("dashboard.panels", layersOf({ mods: [], own: { regions: {} } }))).toEqual(["quick-dispatch", "fleet", "merge-line"]);
+    expect(shown("dashboard.panels", layersOf({ mods: [], own: { regions: {} } }))).toEqual(["fleet", "merge-line"]);
   });
 
   it("applies a mod that is on and valid, and not one that is off or has a problem", () => {
     const on = layersOf({ mods: [mod("tidy", TIDY)], own: { regions: {} } });
-    expect(shown("dashboard.panels", on)).toEqual(["merge-line", "fleet", "quick-dispatch"]);
+    expect(shown("dashboard.panels", on)).toEqual(["merge-line", "fleet"]);
     expect(shown("rail", on)).not.toContain("lessons");
     const off = layersOf({ mods: [mod("tidy", TIDY, { enabled: false })], own: { regions: {} } });
     expect(shown("rail", off)).toContain("lessons");
