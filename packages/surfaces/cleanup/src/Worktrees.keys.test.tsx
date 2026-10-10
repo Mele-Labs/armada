@@ -107,3 +107,67 @@ test("o and Enter open the focused tile's panel, its acts are sent from the keyb
   await userEvent.keyboard("{Enter}");
   await expect.poll(() => sent).toEqual([{ act: "close", slot: 3 }]);
 });
+
+test("kept tiles, a bay and a worktree outside the pool, are in Kept and not the pool, and the keys reach them", async () => {
+  mount(
+    <Worktrees
+      onWant={WANT}
+      held={{
+        state: "read",
+        held: {
+          slots: [
+            slot(1),
+            slot(2, { held: { state: "job", job_id: "01KEPT", job_title: "Retry the read", kept: "2 uncommitted, first a.rs" } }),
+            slot(3),
+          ],
+          worktrees: [
+            {
+              job_id: "outside",
+              job_title: "Send the digest",
+              status: "rejected",
+              last_moved_at: "2026-08-30T09:14:00Z",
+              path: "/r/.armada/worktrees/outside",
+              branch: "armada/outside",
+              held: [{ why: "uncommitted", files: ["src/a.rs"] }],
+              on_disk: true,
+            },
+          ],
+        },
+      }}
+      onReclaim={() => Promise.resolve({ ok: true })}
+      onDeleteBranch={() => Promise.resolve({ ok: true })}
+      onForget={() => Promise.resolve({ ok: true })}
+      now={NOW}
+      onClose={() => {}}
+      onCopied={() => {}}
+      onOpenJob={() => {}}
+    />,
+  );
+  const pooled = page.getByRole("list", { name: "Worktree slots" });
+  const kept = page.getByRole("list", { name: "Kept" });
+  await expect.element(kept).toBeInTheDocument();
+  expect(kept.getByRole("listitem").elements().map((one) => one.getAttribute("aria-label"))).toEqual(["slot-2", "outside"]);
+  expect(pooled.getByRole("listitem").elements().map((one) => one.getAttribute("aria-label"))).toEqual(["slot-1", "slot-3"]);
+
+  // j crosses from the pool's last tile into Kept, and Up crosses back.
+  await userEvent.keyboard("jj");
+  await expect.element(name(3)).toHaveFocus();
+  await userEvent.keyboard("j");
+  await expect.element(name(2)).toHaveFocus();
+  await userEvent.keyboard("{ArrowUp}");
+  expect(pooled.element().contains(document.activeElement)).toBe(true);
+  await userEvent.keyboard("{ArrowDown}");
+  expect(kept.element().contains(document.activeElement)).toBe(true);
+
+  // A panel opened in Kept gives focus back to its tile there.
+  await userEvent.keyboard("{ArrowRight}o");
+  await expect.element(page.getByRole("dialog", { name: "outside" })).toBeVisible();
+  await userEvent.keyboard("{Escape}");
+  await expect.element(kept.getByRole("button", { name: "outside", exact: true })).toHaveFocus();
+});
+
+test("nothing kept draws no Kept section", async () => {
+  pool();
+  await expect.element(name(1)).toBeInTheDocument();
+  expect(page.getByRole("list", { name: "Kept" }).elements()).toHaveLength(0);
+});

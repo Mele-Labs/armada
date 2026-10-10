@@ -29,6 +29,14 @@
 
 /* ---- The viewscreen ------------------------------------------------------------------------- */
 
+/* The pool's section, and under it the Kept section where anything is kept. */
+.armada-pool-slots__views {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
 .armada-pool-slots__view {
   display: flex;
   flex-direction: column;
