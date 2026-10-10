@@ -59,6 +59,7 @@ import type { ManifestDriftRead, Outcome } from "@armada/protocol";
 import {
   Alert,
   Button,
+  useTileGrid,
   DriftSheet,
   ManifestFile,
   ManifestForm,
@@ -74,7 +75,6 @@ import { useManifestRuns, type ManifestSlice } from "./checkout-runs";
 import { useRepositoryAllows, type RepositoryAllowsSlice } from "@armada/screens/src/manifest-allows";
 import type { ManifestEditing } from "./manifest-file";
 import type { ManifestForming } from "./manifest-form";
-import { useManifestKeys } from "./manifest-keys";
 import { driftGoneOf, driftPanelOf, verifyPanelOf, verifySaidOf, type VerifyInputs } from "@armada/screens/src/verify";
 
 export type ManifestProps = ManifestSlice & RepositoryAllowsSlice & {
@@ -144,9 +144,10 @@ export function Manifest(props: ManifestProps) {
   const verify = verifyPanelOf(verifying);
   const verifySaid = verifySaidOf(verifying);
   const gone = driftGoneOf(props.drift);
-  // The tiles' keys. The file view is an editor, and an editor keeps every key it is given.
+  // One Tab stop a grid of tiles, the arrows across it: `tile-grid.ts`. The file view's editor
+  // carries `data-keeps-keys`, so it keeps every key it is given.
   const screen = useRef<HTMLDivElement>(null);
-  useManifestKeys(screen, { editor: editing.view === "file" && !props.settingUp && !rootless });
+  useTileGrid(screen, { tile: "[data-tile]" });
 
   // A Fleet serving nothing is where a fresh install starts, not a Manifest that would not read.
   if (props.sheet.state === "failed" && servesNothing(props.sheet.outcome)) {

@@ -64,9 +64,18 @@ export function useTileGrid(root: RefObject<HTMLElement | null>, options: TileGr
   // The tile last focused at each level, keyed by the tile it sits in (`null` at the top).
   const current = useRef(new Map<Element | null, Element>());
 
+  // The element the listeners are on. A root drawn after the first render (a surface that first says
+  // nothing is served) is picked up on the render that draws it, so the check runs after every one.
+  const attached = useRef<{ element: HTMLElement; detach: () => void } | null>(null);
+  useEffect(() => () => attached.current?.detach(), []);
   useEffect(() => {
     const element = root.current;
-    if (element === null) return;
+    if (attached.current?.element === element) return;
+    attached.current?.detach();
+    attached.current = element === null ? null : { element, detach: attach(element) };
+  });
+
+  function attach(element: HTMLElement): () => void {
     const { tile: TILE } = latest.current;
     const parentOf = (tile: Element): Element | null => tile.parentElement?.closest(TILE) ?? null;
     const cursorOf = (tile: Element): HTMLElement | null => {
@@ -95,9 +104,8 @@ export function useTileGrid(root: RefObject<HTMLElement | null>, options: TileGr
           if (was === "") one.removeAttribute("tabindex");
           else one.setAttribute("tabindex", was);
           one.removeAttribute(ROVED);
-        } else if (!open && one.getAttribute("tabindex") !== "-1") {
-          // Taken out, or put back in since by its own component (a tooltip's trigger gives itself a stop
-          // once the tile around it is no longer focusable): out again, keeping the stop it asked for.
+        } else if (!open && (!one.hasAttribute(ROVED) || one.getAttribute("tabindex") !== "-1")) {
+          // Also where something wrote it back since (a tooltip's trigger re-takes its stop on every render): that value is the one to give back.
           one.setAttribute(ROVED, one.getAttribute("tabindex") ?? "");
           one.setAttribute("tabindex", "-1");
         }
@@ -198,5 +206,5 @@ export function useTileGrid(root: RefObject<HTMLElement | null>, options: TileGr
       element.removeEventListener("keydown", press);
       window.removeEventListener("keydown", idle);
     };
-  }, [root]);
+  }
 }

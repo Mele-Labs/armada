@@ -3,17 +3,16 @@ import { useRef, useState } from "react";
 import type { RescueAct, SlotAct } from "@armada/protocol";
 
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
+import { useTileGrid } from "../../tile-grid";
 import { PoolTile, stateOf } from "./PoolTile";
 import { TileSheet } from "./TileSheet";
-import { focusTile } from "./keys";
+import { CURSOR, focusTile } from "./keys";
 import { keyOf } from "./tiles";
 import type { TileRow } from "./tiles";
 
 export type { ClearCost, Offered, TileRow } from "./tiles";
 export { ClearSaves } from "./ClearSaves";
 export { TileSheet } from "./TileSheet";
-export { openTile, tileAfter, tileOf } from "./keys";
-export type { TileMove } from "./keys";
 
 /**
  * Cleanup's grid, one tile per worktree and each styled by what holds it. A
@@ -111,6 +110,16 @@ export function PoolSlots({
   /** The tile whose panel is open. */
   const [opened, setOpened] = useState<string | null>(null);
   const view = useRef<HTMLDivElement>(null);
+  // One Tab stop for the pool and Kept together, the arrows and j and k across both; o opens a tile's panel, as a press on its name does.
+  useTileGrid(view, {
+    tile: ".armada-bay",
+    cursor: CURSOR,
+    onOpen: (tile) => {
+      const name = tile.querySelector<HTMLElement>(".armada-bay__name");
+      if (name === null) return false;
+      name.click();
+    },
+  });
   // A tile that went away, a slot removed or a record forgotten, has no panel left.
   const open = rows.find((row) => keyOf(row) === opened);
   // Kept, a bay or a worktree outside the pool, is its own section: each waits on a person, not on the pool.

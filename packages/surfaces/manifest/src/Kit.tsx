@@ -31,12 +31,10 @@
 
 import { useRef, type ReactNode } from "react";
 
-import { KitServers, KitSetup } from "@armada/components";
+import { KitServers, KitSetup, useTileGrid } from "@armada/components";
 
 import { said } from "@armada/screens/src/copy";
 import { addressReads, addressTyped, useKit, type KitSlice } from "@armada/screens/src/manifest-kit";
-
-import { useKitKeys } from "./kit-keys";
 
 export type KitProps = KitSlice & {
   /**
@@ -51,9 +49,10 @@ export type KitProps = KitSlice & {
 
 export function Kit(props: KitProps) {
   const kit = useKit(props);
-  // Every kind and every server is a tile, and the keys move across them. `kit-keys.ts`.
+  // Every kind and every server is a tile on one grid: one Tab stop, the arrows across both
+  // glasses, and Enter or `o` into a tile's first control. `tile-grid.ts`.
   const tiles = useRef<HTMLDivElement>(null);
-  useKitKeys(tiles);
+  useTileGrid(tiles, { tile: "[data-kit-tile]" });
   return (
     // The pane is where the window scrolls Kit: the shell's mount never does.
     <div className="armada-screen__pane">

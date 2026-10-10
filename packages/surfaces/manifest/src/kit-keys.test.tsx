@@ -1,5 +1,5 @@
-// Kit's keyboard, through `App`: the tiles move like the cockpit's glass, a tile's controls are
-// stepped into and back out of, and a field hands the keys back. `kit-keys.ts`.
+// Kit's keyboard, through `App`: one Tab stop for the tiles, which move like the cockpit's glass, a
+// tile's controls stepped into and back out of, and a field handing the keys back. `tile-grid.ts`.
 
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
@@ -20,6 +20,34 @@ async function kit(): Promise<void> {
 }
 
 const region = (name: string) => page.getByRole("region", { name, exact: true });
+
+/**
+ * **The grid is one Tab stop** — the owner's choice. Tab from before it lands on one tile and Tab
+ * onward goes to the add form and out, never through the other tiles.
+ */
+test("Kit's tiles are one Tab stop", async () => {
+  await kit();
+  (page.getByRole("separator", { name: "Resize the left column" }).element() as HTMLElement).focus();
+
+  await userEvent.tab();
+  await expect.element(region("Skills")).toHaveFocus();
+  await userEvent.tab();
+  await expect.element(page.getByRole("textbox", { name: "Name" })).toHaveFocus();
+  await userEvent.tab();
+  await userEvent.tab();
+  await userEvent.tab();
+  await expect.element(page.getByRole("button", { name: "Add" })).toHaveFocus();
+  // Past the add row and off the grid: no server row is a second stop.
+  await userEvent.tab();
+  expect(document.activeElement?.closest("[data-kit-tile]") ?? null).toBeNull();
+
+  // The tile last held is the stop, and Shift+Tab from the form comes back to it.
+  (region("Plugins").element() as HTMLElement).focus();
+  await userEvent.tab();
+  await expect.element(page.getByRole("textbox", { name: "Name" })).toHaveFocus();
+  await userEvent.tab({ shift: true });
+  await expect.element(region("Plugins")).toHaveFocus();
+});
 
 /**
  * Bare arrows move across the glass by where the tiles are drawn, and `j`/`k` through them in the
@@ -84,13 +112,15 @@ test("a field hands the keys back to the tiles on Esc, and on Down when it is em
 
   await name.click();
   await userEvent.keyboard("{ArrowDown}");
-  // Nothing held yet, so the tile under the field.
-  await expect.element(page.getByRole("row", { name: /tracker/ })).toHaveFocus();
+  // Nothing held yet, so the grid's one stop: its first tile.
+  await expect.element(region("Skills")).toHaveFocus();
 
+  (page.getByRole("row", { name: /nexus/ }).element() as HTMLElement).focus();
   await name.click();
   await userEvent.keyboard("abc{ArrowDown}");
   await expect.element(name).toHaveFocus();
   await userEvent.keyboard("{Escape}");
-  await expect.element(page.getByRole("row", { name: /tracker/ })).toHaveFocus();
+  // The tile last held.
+  await expect.element(page.getByRole("row", { name: /nexus/ })).toHaveFocus();
   await expect.element(name).toHaveValue("abc");
 });
