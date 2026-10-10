@@ -1,16 +1,19 @@
 import { FolderPlus } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { RescueAct, SlotAct } from "@armada/protocol";
 
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { PoolTile } from "./PoolTile";
 import { TileSheet } from "./TileSheet";
+import { focusTile } from "./keys";
 import { keyOf } from "./tiles";
 import type { TileRow } from "./tiles";
 
 export type { ClearCost, Offered, TileRow } from "./tiles";
 export { ClearSaves } from "./ClearSaves";
 export { TileSheet } from "./TileSheet";
+export { openTile, tileAfter, tileOf } from "./keys";
+export type { TileMove } from "./keys";
 
 /**
  * Cleanup's grid, one tile per worktree and each styled by what holds it. A
@@ -106,6 +109,7 @@ export function PoolSlots({
 }: PoolSlotsProps) {
   /** The tile whose panel is open. */
   const [opened, setOpened] = useState<string | null>(null);
+  const view = useRef<HTMLDivElement>(null);
   // A tile that went away, a slot removed or a record forgotten, has no panel left.
   const open = rows.find((row) => keyOf(row) === opened);
   const bays = rows.filter((row) => row.slot !== undefined);
@@ -115,11 +119,17 @@ export function PoolSlots({
   );
   return (
     <>
-      <ul className="armada-pool-slots" aria-label="Worktree slots">
-        {bays.map(tile)}
-        {onAct === undefined ? null : <AddTile onAct={onAct} {...(addRefused === undefined ? {} : { refused: addRefused })} {...(adding === undefined ? {} : { adding })} />}
-        {outside.map(tile)}
-      </ul>
+      {/* The cockpit's viewscreen: a band over a ruled glass the tiles stand on. The band repeats the list's name, so it is unread. */}
+      <div className="armada-pool-slots__view" ref={view}>
+        <div className="armada-pool-slots__band" aria-hidden>
+          Worktree slots
+        </div>
+        <ul className="armada-pool-slots" aria-label="Worktree slots">
+          {bays.map(tile)}
+          {onAct === undefined ? null : <AddTile onAct={onAct} {...(addRefused === undefined ? {} : { refused: addRefused })} {...(adding === undefined ? {} : { adding })} />}
+          {outside.map(tile)}
+        </ul>
+      </div>
       {open === undefined ? null : (
         <TileSheet
           key={opened}
@@ -135,7 +145,11 @@ export function PoolSlots({
           {...(onPause === undefined ? {} : { onPause })}
           {...(onResume === undefined ? {} : { onResume })}
           {...(onCopied === undefined ? {} : { onCopied })}
-          onClose={() => setOpened(null)}
+          onClose={() => {
+            // The sheet takes focus when it opens, so closing it gives focus back to the tile it was opened from.
+            if (view.current !== null && opened !== null) focusTile(view.current, opened);
+            setOpened(null);
+          }}
         />
       )}
     </>

@@ -1,12 +1,70 @@
-/* The worktree pool as bays, one per slot, read at a glance by availability.
-   Held is a filled card under a band in the leased hue; free an open dashed
-   outline; stranded hatched in the warning hue; not made a faint ghost.
-   Contrast, worked from the tokens: --fg-inverse on the running band 8.10:1,
-   on the review band 8.88:1; --fg-default on the hatch's stripe 11.29:1 and
-   --fg-muted 5.23:1; --accent on a held body 5.42:1; --fg-subtle on a ghost
-   5.42:1. Every one clears 4.5:1. A closed bay is shuttered: slats of
-   --slot-closed-bg under --slot-closed words, which a person closing a slot
-   reads apart from stranded's diagonal hatch. */
+/* The worktree pool as the cockpit draws its viewscreen: a sunken glass under a header band, every
+   slot a bay standing on it. State is carried in the frame (its hue, its edge, its glass): held
+   framed in the leased hue, kept in the warning hue, stranded hatched in it and lit, because it
+   needs the owner; free an open dashed outline the glass shows through, not made a faint ghost.
+   A closed bay is shuttered: slats of --slot-closed-bg under --slot-closed words, which a person
+   closing a slot reads apart from stranded's diagonal hatch. Tokens only.
+   Contrast, worked from the tokens: the leased hue on its 14% band 5.84:1, the warning hue on
+   stranded's 22% band 5.30:1 and on kept's 14% band 6.34:1, --slot-free on the glass 7.10:1,
+   --slot-closed on its slats 5.12:1. Every one clears 4.5:1. */
+
+.armada-pool-slots__pool {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+/* The repository's name, where there is more than one pool to tell apart: an eyebrow over its glass. */
+.armada-pool-slots__repo {
+  margin: 0;
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  font-weight: var(--weight-heading);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+
+/* ---- The viewscreen ------------------------------------------------------------------------- */
+
+.armada-pool-slots__view {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--bg-sunken);
+  overflow: hidden;
+}
+
+/* A pool with a stranded bay in it: the frame takes the warning hue, and its edge is lit. */
+.armada-pool-slots__view:has(.armada-bay[data-bay="stranded"]) {
+  border-color: var(--slot-stranded);
+  box-shadow:
+    inset 0 0 calc(var(--space-12) * 1.5) color-mix(in srgb, var(--slot-stranded) 10%, transparent),
+    0 0 var(--space-6) color-mix(in srgb, var(--slot-stranded) 12%, transparent);
+}
+
+.armada-pool-slots__band {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  min-height: calc(var(--h-row) * 1.25);
+  padding: var(--space-1) var(--space-3) var(--space-1) var(--space-4);
+  border-bottom: var(--border-width) solid var(--border-default);
+  background: var(--bg-raised);
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  font-weight: var(--weight-heading);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+
+/* ---- The glass: a faint ruled grid, so the bays read as standing on something ---------------- */
 
 .armada-pool-slots {
   display: grid;
@@ -14,59 +72,100 @@
   grid-auto-rows: auto;
   gap: var(--space-3);
   margin: 0;
-  padding: 0;
+  padding: var(--space-4);
   list-style: none;
+  background:
+    linear-gradient(
+      color-mix(in srgb, var(--border-subtle) 55%, transparent)
+        var(--border-width),
+      transparent var(--border-width)
+    ),
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--border-subtle) 55%, transparent)
+        var(--border-width),
+      transparent var(--border-width)
+    );
+  background-size: var(--space-6) var(--space-6);
 }
 
+/* ---- A slot as a bay ------------------------------------------------------------------------ */
+
 .armada-bay {
+  --hue: var(--fg-subtle);
   display: flex;
   flex-direction: column;
   min-width: 0;
   min-height: calc(var(--h-row) * 3);
-  border: var(--border-width) solid transparent;
+  border: calc(var(--border-width) * 2) solid
+    color-mix(in srgb, var(--hue) 40%, var(--border-subtle));
   border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--hue) 5%, var(--bg-raised));
   overflow: hidden;
   font-size: var(--text-xs);
   line-height: var(--leading-xs);
   color: var(--fg-default);
+  transition:
+    border-color var(--duration-fast) var(--ease),
+    background var(--duration-fast) var(--ease);
 }
 
-/* Held, and a take or release under way: a solid card under a filled band. */
+/* The hue, from the slot's own status tokens. */
 .armada-bay[data-bay="held"],
 .armada-bay[data-bay="busy"] {
-  --bay-hue: var(--slot-held);
-  background: color-mix(in srgb, var(--slot-held) var(--row-tint), var(--bg-raised));
-  border-color: var(--slot-held);
+  --hue: var(--slot-held);
+}
+.armada-bay[data-bay="kept"],
+.armada-bay[data-bay="stranded"] {
+  --hue: var(--slot-stranded);
+}
+.armada-bay[data-bay="free"] {
+  --hue: var(--slot-free);
+}
+.armada-bay[data-bay="closed"] {
+  --hue: var(--slot-closed);
 }
 
-/* Stranded: the warning hue, hatched, so it reads as needing a person. */
+.armada-bay[data-bay="held"]:hover,
+.armada-bay[data-bay="busy"]:hover,
+.armada-bay[data-bay="kept"]:hover {
+  background: color-mix(in srgb, var(--hue) 10%, var(--bg-raised));
+}
+
+/* A Job that ended and kept its slot: a strong warning edge, steady, without the stranded bay's hatch or light. */
+.armada-bay[data-bay="kept"] {
+  border-color: color-mix(in srgb, var(--hue) 70%, var(--border-subtle));
+}
+
+/* Stranded: the warning hue, hatched and lit, as a bay that needs the owner is on the cockpit's glass. */
 .armada-bay[data-bay="stranded"] {
-  --bay-hue: var(--slot-stranded);
+  border-color: var(--hue);
   background:
     repeating-linear-gradient(
       135deg,
       var(--slot-stranded-bg) 0 var(--space-2),
       transparent var(--space-2) var(--space-4)
     ),
-    var(--bg-raised);
-  border-color: var(--slot-stranded);
+    color-mix(in srgb, var(--hue) 10%, var(--bg-raised));
+  box-shadow:
+    0 0 var(--space-4) color-mix(in srgb, var(--hue) 55%, transparent),
+    inset 0 0 var(--space-6) color-mix(in srgb, var(--hue) 18%, transparent);
 }
 
-/* A Job that ended and kept its slot: a solid card in the warning hue, so it
-   reads as needing a person without the stranded bay's hatch. */
-.armada-bay[data-bay="kept"] {
-  --bay-hue: var(--slot-stranded);
-  background: color-mix(in srgb, var(--slot-stranded) var(--row-tint), var(--bg-raised));
-  border-color: var(--slot-stranded);
-}
-
+/* The band: the state's word in its hue over a tint of it, ruled off from the body. */
 .armada-bay__band {
   display: flex;
   align-items: center;
   gap: var(--space-2);
   padding: var(--space-1) var(--space-3);
-  background: var(--bay-hue);
-  color: var(--fg-inverse);
+  border-bottom: var(--border-width) solid
+    color-mix(in srgb, var(--hue) 35%, var(--border-subtle));
+  background: color-mix(in srgb, var(--hue) 14%, var(--bg-raised));
+  color: var(--hue);
+}
+
+.armada-bay[data-bay="stranded"] .armada-bay__band {
+  background: color-mix(in srgb, var(--hue) 22%, var(--bg-raised));
 }
 
 .armada-bay__state {
@@ -77,6 +176,7 @@
 /* The one legal ALL CAPS, an eyebrow: --text-2xs at --tracking-caps. */
 .armada-bay__eyebrow {
   flex: 1 1 auto;
+  font-family: var(--font-mono);
   font-size: var(--text-2xs);
   line-height: var(--leading-2xs);
   font-weight: var(--weight-heading);
@@ -89,25 +189,32 @@
   padding: 0;
   border: none;
   background: none;
-  color: inherit;
+  color: var(--fg-muted);
   cursor: pointer;
   font-family: var(--font-mono);
   font-size: var(--text-2xs);
   line-height: var(--leading-2xs);
 }
 
+/* The keyboard's cursor is the tile's name, and the ring is drawn round the whole tile it opens. */
 .armada-bay__name:focus-visible {
+  outline: none;
+}
+
+.armada-bay:has(.armada-bay__name:focus-visible),
+.armada-bay:has(.armada-bay__add:focus-visible) {
+  border-color: var(--hue);
   outline: var(--focus-ring);
   outline-offset: var(--focus-ring-offset);
-  border-radius: var(--radius-sm);
 }
 
 .armada-bay:not([data-bay="add"]) {
   cursor: pointer;
 }
 
-/* The tile whose panel is open. */
+/* The tile whose panel is open: its full edge, and the ring. */
 .armada-bay[data-open] {
+  border-color: var(--hue);
   outline: var(--focus-ring);
   outline-offset: var(--focus-ring-offset);
 }
@@ -134,11 +241,15 @@
   color: var(--fg-muted);
 }
 
+/* The figures, ruled off at the bay's foot. */
 .armada-bay__foot {
   display: flex;
   align-items: center;
   gap: var(--space-3);
   margin-top: auto;
+  padding-top: var(--space-2);
+  border-top: var(--border-width) solid
+    color-mix(in srgb, var(--hue) 25%, var(--border-subtle));
   font-family: var(--font-mono);
   color: var(--fg-muted);
 }
@@ -183,7 +294,7 @@
   border-radius: var(--radius-sm);
 }
 
-/* Free and not made: open bays. The name sits in the corner, the state in the middle. */
+/* Free and not made: open bays, the glass showing through. The name sits in the corner, the state in the middle. */
 .armada-bay[data-bay="free"],
 .armada-bay[data-bay="ghost"],
 .armada-bay[data-bay="closed"],
@@ -194,8 +305,12 @@
 }
 
 .armada-bay[data-bay="free"] {
-  border-color: var(--slot-free);
-  color: var(--slot-free);
+  border-color: color-mix(in srgb, var(--hue) 70%, transparent);
+  color: var(--hue);
+}
+
+.armada-bay[data-bay="free"]:hover {
+  background: color-mix(in srgb, var(--hue) 6%, transparent);
 }
 
 .armada-bay[data-bay="ghost"] {
@@ -208,11 +323,10 @@
   color: var(--fg-subtle);
 }
 
-/* Closed, an open bay is shuttered: solid, slatted, and locked. */
+/* Closed, an open bay is shuttered: solid, slatted, and locked. Still on the glass, receded. */
 .armada-bay[data-bay="closed"] {
   border-style: solid;
-  border-color: var(--slot-closed);
-  color: var(--slot-closed);
+  color: var(--hue);
   background:
     repeating-linear-gradient(
       180deg,
@@ -252,8 +366,7 @@
 }
 
 .armada-bay__add:focus-visible {
-  outline: var(--focus-ring);
-  outline-offset: var(--focus-ring-offset);
+  outline: none;
 }
 
 .armada-bay__add[aria-disabled] {
@@ -311,6 +424,7 @@
 
 .armada-bay[data-bay="free"] .armada-bay__word,
 .armada-bay[data-bay="closed"] .armada-bay__word {
+  font-family: var(--font-mono);
   font-size: var(--text-2xs);
   line-height: var(--leading-2xs);
   font-weight: var(--weight-heading);
