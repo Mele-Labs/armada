@@ -1,6 +1,6 @@
 // The Dashboard's one panel, through `App` on the `dashboard-cockpit` mock Fleet: its filters and the
 // keys that step them, the call that comes forward over it and the deck behind, the standing
-// answers, and the grid, the map and the bays offering the same acts.
+// answers, the grid and the map offering the same acts, and the Bays filter's ship.
 
 import { beforeEach, expect, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
@@ -49,14 +49,16 @@ test("[ and ] step the filters round, Option and a digit jumps, and the filter i
   await userEvent.keyboard("]");
   await selected("Done");
   await userEvent.keyboard("]");
+  await selected("Bays");
+  await userEvent.keyboard("]");
   await selected("Your move");
   // `[[` is the bracket itself, in user-event's own syntax.
   await userEvent.keyboard("[[");
-  await selected("Done");
+  await selected("Bays");
   await userEvent.keyboard("{Alt>}2{/Alt}");
   await selected("Active");
   expect(localStorage.getItem(FILTER)).toBe("running");
-  for (const name of ["Your move", "Active", "Done"]) {
+  for (const name of ["Your move", "Active", "Done", "Bays"]) {
     expect(page.getByRole("tab", { name }).element().textContent).not.toMatch(/\d/);
   }
 });
@@ -188,23 +190,29 @@ test("the grid and the map offer the same acts: a press picks, x asks to kill, E
   await expect.poll(() => page.getByRole("tab", { name: "Active" }).query()).toBeNull();
 });
 
-test("the bays draw each worktree bay with its holder, thread it to its pull request on the line, and pick as the grid does", async () => {
+test("Bays is a filter of its own: each bay a compartment of its repository's ship, what waits queued at the hatches, and each bay wired to its card on the merge line", async () => {
   await dashboard();
-  await page.getByRole("tab", { name: "Active" }).click();
-  await page.getByRole("button", { name: "Bays", exact: true }).click();
-  expect(localStorage.getItem(VIEW)).toBe("bays");
+  await page.getByRole("tab", { name: "Bays" }).click();
+  await selected("Bays");
   const bay = (name: RegExp) => page.getByRole("option", { name });
+  await expect.element(page.getByRole("region", { name: "armada" })).toBeVisible();
   await expect.element(bay(/^Bay 1: Debounce the Job Board/)).toBeVisible();
   // A bay a Session holds is drawn under the Session's own name, not the process the pool reads.
   await expect.element(bay(/^Bay 3: Flaky store test/)).toBeVisible();
-  await expect.element(bay(/^Bay 8: Free/)).toBeVisible();
-  expect(bay(/^Bay 1: Debounce/).element().textContent).toContain("#1890");
-  await expect.poll(() => document.querySelectorAll(".armada-bays__thread").length).toBeGreaterThan(0);
-  // The line stands upright beside the bays, so the footer does not draw it a second time.
+  await expect.element(bay(/^Bay 8: Free/)).toHaveAttribute("data-kind", "free");
+  await expect.element(bay(/^Bay 9: Closed/)).toHaveAttribute("data-kind", "closed");
+  // A queued Job of this repository waits to go into its free bay; one of another repository does not.
+  const queue = page.getByRole("complementary", { name: "Waiting for a bay" });
+  await expect.element(queue.getByText("Next in, to bay 08")).toBeVisible();
+  // The merge line stands as cards, and a bay with a pull request is wired out to its own.
+  await expect.element(page.getByRole("complementary", { name: "Merge line" }).getByText("#1890", { exact: true }).first()).toBeVisible();
+  await expect.poll(() => document.querySelectorAll('.armada-ship__wire[data-kind="out"]').length).toBeGreaterThan(0);
+  expect(document.querySelectorAll('.armada-ship__wire[data-kind="in"]').length).toBe(1);
   expect(document.querySelector("footer.armada-view__horizon")).toBeNull();
 
-  await bay(/^Bay 1: Debounce/).click();
-  await expect.element(bay(/^Bay 1: Debounce/)).toHaveAttribute("aria-selected", "true");
+  // The bays step and act as the grid's tiles do.
+  await bay(/^Bay 6: Pin the clock/).click();
+  await expect.element(bay(/^Bay 6: Pin the clock/)).toHaveAttribute("aria-selected", "true");
   await userEvent.keyboard("x");
   await expect.element(page.getByRole("dialog")).toBeVisible();
   await userEvent.keyboard("{Escape}");

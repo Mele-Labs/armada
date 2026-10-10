@@ -64,14 +64,21 @@ describe("the bays", () => {
 
   test("a Session working on a bay's Job rides with it, and is not listed as without a bay", () => {
     const s = session("s2", [{ kind: "job", id: "j1", number: 1, title: "Job one", state: "running", branch: "feat/a" }]);
-    const { harbours, unbayed } = read([slot(1, { state: "job", job_id: "j1" }, { branch: "feat/a" })], [s], [tile("j1"), tile("session:s2", { owner: "session:s2", session: true })]);
+    const { harbours, waiting, adrift } = read([slot(1, { state: "job", job_id: "j1" }, { branch: "feat/a" })], [s], [tile("j1"), tile("session:s2", { owner: "session:s2", session: true })]);
     expect(harbours[0]!.bays[0]!.riders.map((one) => one.session.id)).toEqual(["s2"]);
-    expect(unbayed).toEqual([]);
+    expect([...waiting, ...adrift]).toEqual([]);
   });
 
   test("live work no bay holds is listed once, and work that is over is not", () => {
-    const { unbayed } = read([slot(1, { state: "free" })], [], [tile("j9", { owner: "j9", hue: "ask" }), tile("j9"), tile("j8"), tile("line:x", { owner: "line" })], [tile("j8")]);
-    expect(unbayed.map((one) => one.key)).toEqual(["j9"]);
+    const { adrift } = read([slot(1, { state: "free" })], [], [tile("j9", { owner: "j9", hue: "ask" }), tile("j9"), tile("j8"), tile("line:x", { owner: "line" })], [tile("j8")]);
+    expect(adrift.map((one) => one.key)).toEqual(["j9"]);
+  });
+
+  test("queued Jobs wait for a bay, the longest waiting first, and a Session without one is only adrift", () => {
+    const job = (key: string, at: string) => tile(key, { hue: "queued", at, job: { id: key } as unknown as JobSummary });
+    const { waiting, adrift } = read([slot(1, { state: "free" })], [], [job("late", "2026-10-10T10:05:00Z"), job("early", "2026-10-10T10:00:00Z"), tile("session:s3", { owner: "session:s3", hue: "queued", session: true })]);
+    expect(waiting.map((one) => one.key)).toEqual(["early", "late"]);
+    expect(adrift.map((one) => one.key)).toEqual(["session:s3"]);
   });
 
   test("a closed bay with nobody in it reads closed, not free", () => {

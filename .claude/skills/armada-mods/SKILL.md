@@ -137,7 +137,7 @@ nothing: check the id against the table.
 
 | Region | Ids, in the order shipped | Cannot be hidden | `order` | `first` |
 |---|---|---|---|---|
-| `dashboard.tabs` | `command-central`, `running`, `done` | `command-central` | yes | yes |
+| `dashboard.tabs` | `command-central`, `running`, `done`, `bays` | `command-central` | yes | yes |
 | `dashboard.panels` | `quick-dispatch`, `fleet`, `merge-line` | `fleet` | yes | no |
 | `job.tabs` | `overview`, `workflow`, `plan`, `record`, `checks`, `drones`, `pulse`, `settings` | `overview`, `plan` | yes | yes |
 | `rail` | `overview`, `studios`, `worktrees`, `merge-line`, `lessons`, `checks`, `sessions`, `kit`, `mods`, `settings`, `guides`, `workflows` | `overview`, `mods`, `settings` | no | no |

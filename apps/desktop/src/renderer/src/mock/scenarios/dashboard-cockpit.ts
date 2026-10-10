@@ -228,6 +228,7 @@ function pool(): WorktreesHeld {
       at(6, job(pin, "fix/pin-store-clock", 2)),
       at(7, job(mainChecks, "fix/components-test-on-main", 9)),
       bay(OWNER, 8, { state: "free" }, { behind: 3 }),
+      bay(OWNER, 9, { state: "free" }, { closed: true, warm: false, behind: 12 }),
       at(1, job(pwa, "pocket/pairing-code", 22, POCKET)),
       at(2, job(shell, "pocket/offline-shell", 11, POCKET)),
     ],

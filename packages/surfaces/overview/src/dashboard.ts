@@ -7,13 +7,15 @@
 
 import type { BoardSection } from "@armada/screens/src/board";
 
-export type DashboardTab = "command-central" | "running" | "done";
+/** `bays` reads no section: it draws the worktree bays, what waits for one, and the merge line. */
+export type DashboardTab = "command-central" | "running" | "done" | "bays";
 
 /** The filters in the order they are drawn. Labels carry no count. */
 export const DASHBOARD_TABS: readonly { id: DashboardTab; label: string }[] = [
   { id: "command-central", label: "Your move" },
   { id: "running", label: "Active" },
   { id: "done", label: "Done" },
+  { id: "bays", label: "Bays" },
 ];
 
 /** The tab a section is read on. */

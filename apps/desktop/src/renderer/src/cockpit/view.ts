@@ -1,17 +1,16 @@
-// Grid, map or bays, remembered across a restart as the panel's other ways of reading are: in the window's
+// Grid or map, remembered across a restart as the panel's other ways of reading are: in the window's
 // own storage, never a Fleet preference. A failed read is the grid.
 
 import { useState } from "react";
 
-export type CockpitView = "grid" | "map" | "bays";
+export type CockpitView = "grid" | "map";
 
 const KEY = "armada.bridge.cockpit-view";
 
 export function useCockpitView(): [CockpitView, (view: CockpitView) => void] {
   const [view, set] = useState<CockpitView>(() => {
     try {
-      const kept = window.localStorage.getItem(KEY);
-      return kept === "map" || kept === "bays" ? kept : "grid";
+      return window.localStorage.getItem(KEY) === "map" ? "map" : "grid";
     } catch {
       return "grid";
     }

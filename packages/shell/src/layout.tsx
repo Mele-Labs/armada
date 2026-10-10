@@ -15,6 +15,7 @@ import {
   LayoutDashboard,
   ListTodo,
   LoaderCircle,
+  Rows3,
   ScrollText,
   Send,
   Settings,
@@ -60,6 +61,7 @@ export const LAYOUT: Readonly<Record<LayoutRegion, Spec>> = {
       { id: "command-central", label: "Your move", icon: CircleDot, hideable: false },
       { id: "running", label: "Active", icon: LoaderCircle, hideable: true },
       { id: "done", label: "Done", icon: CircleCheck, hideable: true },
+      { id: "bays", label: "Bays", icon: Rows3, hideable: true },
     ],
   },
   "dashboard.panels": {

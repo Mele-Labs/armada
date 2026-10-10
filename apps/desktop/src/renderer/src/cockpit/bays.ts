@@ -45,8 +45,10 @@ export type Harbour = {
 
 export type BaysRead = {
   harbours: readonly Harbour[];
-  /** Live work no bay holds: a Job waiting for one, a Session with none of its own. */
-  unbayed: readonly Item[];
+  /** Jobs queued for a bay, the longest waiting first: the next one in is the first. */
+  waiting: readonly Item[];
+  /** Other live work no bay holds, a Session with none of its own. */
+  adrift: readonly Item[];
 };
 
 /** What the pool says of a slot nobody can lease, as Cleanup's tile words it. */
@@ -128,7 +130,10 @@ export function baysOf({
     (one, at) =>
       !over.has(ownerOf(one)) && !ownerOf(one).startsWith("line") && !seen.has(ownerOf(one)) && one.hue !== "ok" && one.hue !== "bad" && items.findIndex((other) => ownerOf(other) === ownerOf(one)) === at,
   );
-  return { harbours, unbayed };
+  const queued = (one: Item) => one.hue === "queued" && one.job !== undefined;
+  const since = (one: Item) => Date.parse(one.at ?? "") || 0;
+  const waiting = unbayed.filter(queued).sort((a, b) => since(a) - since(b));
+  return { harbours, waiting, adrift: unbayed.filter((one) => !queued(one)) };
 }
 
 function holderOf(slot: WorktreeSlot, jobs: readonly JobSummary[], sessions: readonly Session[], items: readonly Item[]): Holder {
