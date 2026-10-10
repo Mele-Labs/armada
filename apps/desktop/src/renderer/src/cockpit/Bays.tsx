@@ -1,7 +1,9 @@
-// The bays as the glass's third face: a row per worktree bay with its holder drawn as the map draws
-// it (a Job a star, a Session a diamond, lit by how much it wants the owner), the Sessions riding with
-// the Job beside it, and a thread from the bay to its pull request on the merge line, which stands
-// upright on the right with main at its foot. A press selects the holder as the grid and the map do.
+// The bays as the glass's third face, drawn as the map's sky: each worktree bay a port on the
+// station's spine, its holder docked there as the map marks it (a Job a star, a Session a diamond,
+// lit by how much it wants the owner) with the Sessions riding with the Job in orbit round it, and a
+// burn from the bay to its pull request on the merge line, which falls through its rings to main.
+// What moves is what is still working: a working Session's orbit, and a burn whose checks run.
+// A press selects the holder as the grid and the map do.
 
 import { useLayoutEffect, useRef, useState } from "react";
 import { Tooltip } from "@armada/components";
@@ -11,17 +13,41 @@ import type { Bay, BaysRead, Harbour } from "./bays";
 import { burn } from "./FleetMap";
 import type { Dot } from "./horizon";
 
-/** A Job's star or a Session's diamond, the map's own marks at the size of a row. */
-function Mark({ item, session }: { item: Item | undefined; session: boolean }) {
+/** A Session in orbit round the Job it works on: its hue, and whether it is mid-turn. */
+type Pod = { key: string; hue: string; working: boolean };
+
+/** A Job's star or a Session's diamond, the map's own marks at the size of a row, its riders in orbit. */
+function Mark({ item, session, pods = [] }: { item: Item | undefined; session: boolean; pods?: readonly Pod[] }) {
   const lit = item === undefined ? { r: 4.5, halo: 0, alpha: 0.75 } : burn(item);
   const r = Math.min(lit.r, 7);
   return (
-    <svg className="armada-bays__mark armada-star" data-hue={item?.hue ?? "queued"} viewBox="-14 -14 28 28" aria-hidden="true">
+    <svg className="armada-bays__mark armada-star" data-hue={item?.hue ?? "queued"} viewBox="-16 -16 32 32" aria-hidden="true">
       {lit.halo === 0 ? null : <circle className="armada-star__halo" r={Math.min(lit.halo, 14)} />}
       {session ? <rect className="armada-star__core" x={-r} y={-r} width={r * 2} height={r * 2} transform="rotate(45)" opacity={lit.alpha} /> : <circle className="armada-star__core" r={r} opacity={lit.alpha} />}
+      {pods.length === 0 ? null : <circle className="armada-bays__orbit-path" r={12} />}
+      {pods.map((pod, at) => (
+        <g key={pod.key} className="armada-bays__orbit" data-working={pod.working || undefined} style={{ ["--at" as string]: `${-60 + at * 180}deg` }}>
+          <rect className="armada-bays__pod" data-hue={pod.hue} x={10} y={-2} width={4} height={4} transform="rotate(45 12 0)" />
+        </g>
+      ))}
     </svg>
   );
 }
+
+/** Faint dust behind the bays, as the map has: placed by a fixed hash, so it never shifts between draws. */
+const DUST = Array.from({ length: 90 }, (_, at) => {
+  const hash = (salt: number) => {
+    const x = Math.sin(at * 127.1 + salt * 311.7) * 43758.5453;
+    return x - Math.floor(x);
+  };
+  return { x: `${(hash(1) * 100).toFixed(2)}%`, y: `${(hash(2) * 100).toFixed(2)}%`, r: hash(3) > 0.92 ? 1.1 : 0.6 };
+});
+
+/** The merge line's rings, widening as it falls toward main: one between each pair of dots, at most eight. */
+const ringsFor = (dots: number) => {
+  const count = Math.max(2, Math.min(8, dots));
+  return Array.from({ length: count }, (_, at) => 8 + (at * 72) / Math.max(1, count - 1));
+};
 
 /** The holder's title and the one line under it. */
 function said(bay: Bay): { title: string; fact: string } {
@@ -111,11 +137,11 @@ function HarbourField({ harbour, named, selected, lit, onLight, onSelect, onOpen
                 onMouseEnter={() => onLight(bay.key)}
                 onClick={() => (item === undefined ? undefined : onSelect(item.key))}
               >
-                <span className="armada-bays__slot">{String(bay.slot).padStart(2, "0")}</span>
+                <span className="armada-bays__port" aria-hidden="true">{String(bay.slot).padStart(2, "0")}</span>
                 {bay.holder.kind === "free" || bay.holder.kind === "closed" || bay.holder.kind === "other" ? (
                   <span className="armada-bays__berth" aria-hidden="true" />
                 ) : (
-                  <Mark item={item} session={bay.holder.kind === "session"} />
+                  <Mark item={item} session={bay.holder.kind === "session"} pods={bay.riders.map((one) => ({ key: one.session.id, hue: one.item?.hue ?? "queued", working: one.session.turn.state === "working" }))} />
                 )}
                 <span className="armada-bays__what">
                   <span className="armada-bays__title">{title}</span>
@@ -148,6 +174,12 @@ function HarbourField({ harbour, named, selected, lit, onLight, onSelect, onOpen
             );
           })}
         </ol>
+        <div className="armada-bays__lane">
+        <svg className="armada-bays__tunnel" aria-hidden="true">
+          {ringsFor(harbour.line.length).map((y, at) => (
+            <ellipse key={y} cx={8} cy={`${y}%`} rx={10 + at * 1.5} ry={2.5 + at * 0.3} />
+          ))}
+        </svg>
         <ol className="armada-bays__line" aria-label="Merge line">
           {harbour.line.map((dot) => {
             const act = dot.act;
@@ -163,13 +195,15 @@ function HarbourField({ harbour, named, selected, lit, onLight, onSelect, onOpen
               </li>
             );
           })}
-          <li className="armada-bays__node armada-bays__main">
+          <li className="armada-bays__node armada-bays__main" data-red={harbour.main === "red" || undefined}>
+            <span className="armada-bays__planet" aria-hidden="true" />
             <span className="armada-view__main" data-red={harbour.main === "red" || undefined} />
             <span className="armada-bays__node-said">
               <span>main</span>
             </span>
           </li>
         </ol>
+        </div>
       </div>
     </section>
   );
@@ -192,6 +226,11 @@ export function Bays({ read, reading, selected, onSelect, onOpenLink }: {
   }
   return (
     <div className="armada-bays" data-lighting={lit === undefined ? undefined : ""} onMouseLeave={() => setHovered(undefined)}>
+      <svg className="armada-bays__dust" aria-hidden="true">
+        {DUST.map((one, at) => (
+          <circle key={at} className="armada-map__dust" cx={one.x} cy={one.y} r={one.r} />
+        ))}
+      </svg>
       {read.harbours.map((harbour) => (
         <HarbourField key={harbour.manifest} harbour={harbour} named={read.harbours.length > 1} selected={selected} lit={lit} onLight={setHovered} onSelect={onSelect} onOpenLink={onOpenLink} />
       ))}

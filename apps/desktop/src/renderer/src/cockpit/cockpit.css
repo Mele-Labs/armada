@@ -554,17 +554,20 @@ span.armada-view__dot { cursor: default; }
    its pull request on the merge line, which stands upright on the right with main at its foot. */
 .armada-view__bays { position: relative; display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow-y: auto; padding: var(--space-3) var(--space-4); }
 .armada-view__bays[data-recessed] { opacity: 0.4; }
-.armada-bays { display: flex; flex-direction: column; gap: var(--space-4); min-width: 0; }
+.armada-bays { position: relative; isolation: isolate; display: flex; flex-direction: column; gap: var(--space-4); min-width: 0; }
+.armada-bays__dust { position: absolute; inset: calc(var(--space-3) * -1) calc(var(--space-4) * -1); z-index: -1; width: calc(100% + var(--space-8)); height: calc(100% + var(--space-6)); pointer-events: none; }
 .armada-bays__empty { margin: auto; color: var(--fg-subtle); font-size: var(--text-sm); }
 .armada-bays__name { margin: 0 0 var(--space-1); font-family: var(--font-mono); font-size: var(--text-2xs); font-weight: var(--weight-body); color: var(--fg-subtle); }
 
 .armada-bays__field { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) calc(var(--space-12) * 1.5) calc(var(--space-12) * 3); }
 .armada-bays__threads { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
 
-.armada-bays__rows { grid-column: 1; display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; }
+.armada-bays__rows { position: relative; grid-column: 1; display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; }
+/* The station's spine, the ports strung along it. */
+.armada-bays__rows::before { content: ""; position: absolute; top: var(--space-4); bottom: var(--space-4); left: calc(var(--space-2) + var(--space-6) / 2); width: calc(var(--border-width) * 2); background: linear-gradient(var(--border-default), var(--border-subtle)); }
 .armada-bays__row {
   display: grid;
-  grid-template-columns: 2.5ch var(--space-6) minmax(0, 1fr) auto auto;
+  grid-template-columns: var(--space-6) var(--space-8) minmax(0, 1fr) auto auto;
   align-items: center;
   gap: var(--space-2);
   min-height: calc(var(--space-8) + var(--space-3));
@@ -579,8 +582,31 @@ span.armada-view__dot { cursor: default; }
 .armada-bays__row[data-kind="free"], .armada-bays__row[data-kind="closed"], .armada-bays__row[data-kind="other"] { cursor: default; }
 .armada-bays__row[data-kind="closed"] .armada-bays__title { color: var(--fg-subtle); }
 
-.armada-bays__slot { font-family: var(--font-mono); font-size: var(--text-2xs); color: var(--fg-subtle); font-variant-numeric: tabular-nums; }
-.armada-bays__mark { width: var(--space-6); height: var(--space-6); overflow: visible; }
+/* A port on the spine: the bay's number in a ring, edged with its holder's hue, clamped to what is docked. */
+.armada-bays__port {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: var(--space-6);
+  height: var(--space-6);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: 50%;
+  background: var(--bg-base);
+  color: var(--fg-subtle);
+  font-family: var(--font-mono);
+  font-size: calc(var(--text-2xs) - 2px);
+  font-variant-numeric: tabular-nums;
+}
+.armada-bays__row[data-hue] .armada-bays__port { border-color: color-mix(in srgb, var(--hue) 60%, transparent); color: var(--fg-muted); }
+.armada-bays__row[data-kind="job"] .armada-bays__port::after,
+.armada-bays__row[data-kind="session"] .armada-bays__port::after { content: ""; position: absolute; left: 100%; top: 50%; width: var(--space-2); border-top: var(--border-width) solid var(--border-strong); }
+.armada-bays__mark { width: var(--space-8); height: var(--space-8); overflow: visible; }
+.armada-bays__orbit-path { fill: none; stroke: var(--fg-subtle); stroke-width: 0.6; stroke-dasharray: 1 2; opacity: 0.6; }
+.armada-bays__orbit { transform: rotate(var(--at)); }
+.armada-bays__orbit[data-working] { animation: armada-bays-orbit 14s linear infinite; }
+.armada-bays__pod { fill: var(--hue); }
+@keyframes armada-bays-orbit { from { transform: rotate(var(--at)); } to { transform: rotate(calc(var(--at) + 360deg)); } }
 .armada-bays__berth { justify-self: center; width: var(--space-3); height: var(--space-3); border: var(--border-width) dashed var(--border-strong); border-radius: 50%; }
 .armada-bays__row[data-kind="closed"] .armada-bays__berth { border-style: solid; border-color: var(--border-default); background: repeating-linear-gradient(45deg, var(--border-default) 0 1px, transparent 1px 4px); }
 
@@ -620,7 +646,11 @@ span.armada-view__dot { cursor: default; }
 .armada-bays__thread[data-state="failing"] { --dot: var(--status-completed-failed); }
 
 /* The line, upright: its dots on one rail falling to main. */
-.armada-bays__line { position: relative; grid-column: 3; display: flex; flex-direction: column; justify-content: space-around; gap: var(--space-1); margin: 0; padding: var(--space-2) 0; list-style: none; }
+/* The line's lane: rings the dots fall through, widening toward main. */
+.armada-bays__lane { position: relative; grid-column: 3; display: flex; min-width: 0; min-height: 0; }
+.armada-bays__tunnel { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+.armada-bays__tunnel ellipse { fill: none; stroke: var(--border-default); stroke-width: 1; opacity: 0.7; }
+.armada-bays__line { position: relative; flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; justify-content: space-around; gap: var(--space-1); margin: 0; padding: var(--space-2) 0; list-style: none; }
 .armada-bays__line::before { content: ""; position: absolute; top: var(--space-4); bottom: var(--space-4); left: calc(var(--space-4) / 2 - var(--border-width) / 2); border-left: var(--border-width) dashed var(--border-default); }
 .armada-bays__node { position: relative; display: flex; align-items: center; gap: var(--space-2); min-width: 0; transition: opacity var(--duration-fast) var(--ease); }
 .armada-bays__node:not([data-bayed]):not(.armada-bays__main) { opacity: 0.7; }
@@ -629,18 +659,39 @@ span.armada-view__dot { cursor: default; }
 .armada-bays__place { flex: none; color: var(--fg-subtle); }
 .armada-bays__place::before { content: "·"; margin-right: var(--space-2); }
 .armada-bays__main { margin-top: auto; }
+/* Main, as a world's horizon the line comes down onto: green, or red when main is. */
+.armada-bays__main { --world: var(--status-completed-success); padding-top: var(--space-2); }
+.armada-bays__main[data-red] { --world: var(--status-completed-failed); }
+.armada-bays__planet {
+  position: absolute;
+  z-index: -1;
+  left: calc(var(--space-12) * -1.5);
+  right: 0;
+  top: var(--space-1);
+  height: var(--space-8);
+  border-top: var(--border-width) solid color-mix(in srgb, var(--world) 70%, transparent);
+  border-radius: 50% 50% 0 0 / 100% 100% 0 0;
+  background: radial-gradient(ellipse at 50% 0%, color-mix(in srgb, var(--world) 22%, transparent), transparent 70%);
+  box-shadow: 0 calc(var(--space-2) * -1) var(--space-6) color-mix(in srgb, var(--world) 18%, transparent);
+}
 .armada-bays__main .armada-bays__node-said > span:first-child { color: var(--fg-default); }
 
 /* One bay lit: its row, its thread and its pull request stand forward and the rest step back. */
 .armada-bays[data-lighting] .armada-bays__row:not([data-lit]),
 .armada-bays[data-lighting] .armada-bays__node[data-bayed]:not([data-lit]) { opacity: 0.45; }
 .armada-bays[data-lighting] .armada-bays__thread:not([data-lit]) { opacity: 0.15; }
-.armada-bays__thread[data-lit] { opacity: 1; stroke-width: 2; }
+.armada-bays__thread[data-lit] { opacity: 1; stroke-width: 2; filter: drop-shadow(0 0 var(--space-1) var(--dot)); }
+/* A burn whose checks are running flows toward the line: still working, so it moves. */
+.armada-bays__thread[data-state="running"] { stroke-dasharray: 2 8; animation: armada-bays-flow 1.6s linear infinite; }
+@keyframes armada-bays-flow { to { stroke-dashoffset: -40; } }
 
 .armada-bays__unbayed { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); padding-top: var(--space-2); border-top: var(--border-width) dashed var(--border-subtle); }
 
 /* Narrowed by the pane, a rider keeps its mark and gives its words to the holder's title. */
 .armada-bays__field { container-type: inline-size; }
+@media (prefers-reduced-motion: reduce) {
+  .armada-bays__orbit[data-working], .armada-bays__thread[data-state="running"] { animation: none; }
+}
 @container (max-width: 640px) {
   .armada-bays__rider > span { display: none; }
   .armada-bays__rider { padding: 0; }
