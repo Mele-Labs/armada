@@ -157,6 +157,8 @@ export type Hosts = {
   onPausing?: ((act: PauseAct, jobId: string) => void) | undefined;
   /** Says a sentence as a toast: a refusal the panel has to name. */
   onTell?: ((sentence: string) => void) | undefined;
+  /** Asks Fleet for the worktree pool while the bays are drawn, and lets go after. */
+  onWantHeld?: ((want: boolean) => void) | undefined;
   /** Where the cursor is, for Helm's footer: the Job picked, or null. */
   onCursor?: ((jobId: string | null) => void) | undefined;
 };

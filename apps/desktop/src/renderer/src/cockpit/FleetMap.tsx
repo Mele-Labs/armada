@@ -12,7 +12,7 @@ import type { Field, Link, Sky } from "./map-layout";
 const LINE_SAID: Record<Link["kind"], string> = { dispatched: "Dispatched", waits: "Waits on", works: "Holds", line: "On the merge line" };
 
 /** How bright a star burns: what needs the owner most, what is over least. */
-function burn(item: Item): { r: number; halo: number; alpha: number } {
+export function burn(item: Item): { r: number; halo: number; alpha: number } {
   if (item.hue === "ask" || item.hue === "issue") return { r: 9, halo: 30, alpha: 1 };
   if (item.hue === "running") return { r: 6, halo: 15, alpha: 0.95 };
   if (item.hue === "queued") return { r: 4.5, halo: 0, alpha: 0.75 };

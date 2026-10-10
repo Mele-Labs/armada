@@ -6,7 +6,7 @@
 
 import { repository } from "@armada/screens/src/fixtures/build/base";
 import { mergeLines } from "@armada/screens/src/fixtures/build/merge-line";
-import type { MergeLines } from "@armada/protocol";
+import type { MergeLines, WorktreeSlot, WorktreesHeld } from "@armada/protocol";
 import type { Session } from "@armada/screens/src/draft/sessions";
 import type { CallView } from "@armada/jobs/draft/calls";
 import type { NowView } from "@armada/jobs/draft/now";
@@ -165,7 +165,7 @@ const SESSIONS: Session[] = [
       { id: "s9-u", at: "13:58:00", kind: "message", from: { kind: "you" }, text: "The store test is flaky on CI. Find out why and fix it, then push the branch when it is green." },
       { id: "s9-t", at: "13:59:10", kind: "tool", text: "Read crates/store/tests/store_test.rs" },
       ...said("s9-0", "The flake is the 200ms sleep in store_test.rs. Replacing it with a wait on the channel."),
-    ], attachments: [] },
+    ], attachments: [{ kind: "branch", name: "fix/flaky-store", slot: 3 }] },
   { id: "s10", title: "Migration notes", turn: { state: "working" }, lastTurn: "14:05", lastTurnAt: ago(1), rows: said("s10-0", "Reading the migrations since 0042."), attachments: [{ kind: "job", id: migrate.job.id, number: 83, title: "Order the store migrations", state: "running", branch: "armada/83-migrate" }] },
   { id: "s11", title: "Release script", dead: "ended", turn: quiet, lastTurn: "11:40", lastTurnAt: ago(150), rows: said("s11-1", "Done."), attachments: [] },
   { id: "s12", title: "Theme token audit", turn: quiet, lastTurn: "13:51", lastTurnAt: ago(14), rows: said("s12-0", "Eleven tokens have no caller."), attachments: [] },
@@ -203,6 +203,37 @@ function asking(store: SessionsStore): SessionsStore {
 
 const FORGE = "https://git.example/armada/pull/";
 
+/** The worktree pool of each repository: who holds each bay, on which branch, and since when. */
+function pool(): WorktreesHeld {
+  const bay = (manifest: string, n: number, held: WorktreeSlot["held"], rest: Partial<WorktreeSlot> = {}): WorktreeSlot => ({
+    manifest_id: manifest,
+    slot: n,
+    path: `/Users/user/${manifest === OWNER ? "armada" : manifest}/.armada/slots/slot-${n}`,
+    base: "main",
+    warm: true,
+    behind: 0,
+    held,
+    ...rest,
+  });
+  const job = (fixture: JobFixture, branch: string, minutes: number, manifest = OWNER) => bay(manifest, 0, { state: "job", job_id: fixture.job.id, job_title: fixture.job.title }, { branch, since: ago(minutes) });
+  const at = (n: number, slot: WorktreeSlot) => ({ ...slot, slot: n, path: slot.path.replace("slot-0", `slot-${n}`) });
+  return {
+    worktrees: [],
+    slots: [
+      at(1, job(debounce, "fleet/gate-policy-every-run", 41)),
+      at(2, job(cache, "fleet/read-in-cluster-membership", 17)),
+      bay(OWNER, 3, { state: "session", holder: "claude (pid 5120)" }, { branch: "fix/flaky-store", since: ago(6), behind: 2 }),
+      at(4, job(migrate, "armada/83-migrate", 3)),
+      at(5, job(check, "fleet/reconnect-wait", 33)),
+      at(6, job(pin, "fix/pin-store-clock", 2)),
+      at(7, job(mainChecks, "fix/components-test-on-main", 9)),
+      bay(OWNER, 8, { state: "free" }, { behind: 3 }),
+      at(1, job(pwa, "pocket/pairing-code", 22, POCKET)),
+      at(2, job(shell, "pocket/offline-shell", 11, POCKET)),
+    ],
+  };
+}
+
 /** The forge's open pull requests: two in the merge queue, three not. One of those three is running its checks, or failing them. */
 function withPulls(lines: MergeLines, failing = false): MergeLines {
   const pull = (number: number, title: string, branch: string, more: Record<string, unknown> = {}) => ({ number, title, branch, url: `${FORGE}${number}`, ...more });
@@ -235,6 +266,7 @@ function build(): Scenario {
     ...base,
     state,
     reads: { ...base.reads, [plan.job.id]: plan, [check.job.id]: check },
+    held: pool(),
     later: [{ jobs: [...jobs, plan.job] }, { jobs: [...jobs, plan.job, check.job] }, {}, { mergeLines: withPulls(mergeLines(), true) }],
     draft: { calls: now, now: nows, sessions: (control) => asking(sessionsStore([none, none], none, [], control, [], SESSIONS)) },
   };

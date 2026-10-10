@@ -5,7 +5,7 @@
 // dismisses it for good.
 
 import { useContext, useEffect, useMemo, useRef, useState } from "react";
-import { Box, CircleDashed, GitMerge, LayoutGrid, Orbit, SquareTerminal } from "lucide-react";
+import { Box, CircleDashed, GitMerge, LayoutGrid, Orbit, Rows3, SquareTerminal } from "lucide-react";
 import { Button, Kbd, Tabs, Tooltip, actionOf, isPressed, keyFor, pressedDigit, pressedSlot } from "@armada/components";
 import type { RepositorySummary } from "@armada/protocol";
 import type { Session } from "@armada/screens/src/draft/sessions";
@@ -24,6 +24,8 @@ import { FleetTile } from "../FleetTile";
 import { viewsOf } from "../merge-line";
 import { useSessions } from "../sessions-draft";
 import { CallCard, type CardKeys } from "./CallCard";
+import { Bays } from "./Bays";
+import { baysOf } from "./bays";
 import { FleetMap } from "./FleetMap";
 import { useLayout } from "@armada/shell";
 import { tabKeys, useFilters } from "./keys";
@@ -241,6 +243,33 @@ export function Cockpit({
       ),
     [instruments, sessions, state, field],
   );
+  // The bays read every tile the Cockpit holds, whatever the filter: a bay is held whether or not its Job is your move.
+  const everything = useMemo(() => [...calls, ...running, ...over], [calls, running, over]);
+  const onWantHeld = hosts.onWantHeld;
+  useEffect(() => {
+    if (view !== "bays" || onWantHeld === undefined) return;
+    onWantHeld(true);
+    return () => onWantHeld(false);
+  }, [view, onWantHeld]);
+  const bays = useMemo(
+    () =>
+      baysOf({
+        slots: state.held.state === "read" ? (state.held.held.slots ?? []).filter((one) => picked?.manifest === undefined || one.manifest_id === picked.manifest.id) : [],
+        jobs: state.jobs,
+        sessions,
+        items: everything,
+        ended: over,
+        views: viewsOf(state),
+        lines: state.mergeLines,
+        manifestOf: (root) => state.holds.repositories?.find((one) => one.root === root)?.manifest?.id,
+        nameOf: (manifest) => state.holds.repositories?.find((one) => one.manifest?.id === manifest)?.manifest?.repository ?? manifest,
+      }),
+    [state, sessions, everything, picked],
+  );
+  const bayKeys = useMemo(
+    () => bays.harbours.flatMap((one) => one.bays).flatMap((bay) => (bay.holder.kind === "job" || bay.holder.kind === "session" ? (bay.holder.item === undefined ? [] : [bay.holder.item.key]) : [])),
+    [bays],
+  );
   const nowsHeld = useContext(Nows);
 
   // Calls put off for later, in the order they were; and one brought back to the front by choice.
@@ -288,7 +317,8 @@ export function Cockpit({
   // The cursor on the glass.
   const [selected, setSelected] = useState<string>();
   const at = Math.max(0, instruments.findIndex((one) => one.key === selected));
-  const current = instruments[at];
+  // On the bays a selection can be any tile the Cockpit holds, not only the filter's.
+  const current = view === "bays" ? everything.find((one) => one.key === selected) : instruments[at];
   useCursor(current?.job, hosts.onCursor);
   const grid = useRef<HTMLUListElement>(null);
 
@@ -351,6 +381,11 @@ export function Cockpit({
     }
 
     if (isPressed("dashboard_view", event)) return claim(), setView(view === "map" ? "grid" : "map");
+    if (view === "bays" && arrow && (event.key === "ArrowDown" || event.key === "ArrowUp")) {
+      const here = bayKeys.indexOf(selected ?? "");
+      const next = bayKeys[event.key === "ArrowDown" ? Math.min(bayKeys.length - 1, here + 1) : Math.max(0, here - 1)];
+      return next === undefined ? undefined : (claim(), setSelected(next));
+    }
     if (view === "map" && arrow) {
       const next = nearest(sky.stars, current?.key ?? "", event.key as "ArrowLeft");
       return next === undefined ? undefined : (claim(), setSelected(next));
@@ -415,6 +450,11 @@ export function Cockpit({
                   <Orbit size={16} aria-hidden="true" />
                 </Button>
               </Tooltip>
+              <Tooltip label="Bays">
+                <Button variant="ghost" size="sm" iconOnly aria-label="Bays" aria-pressed={view === "bays"} onClick={() => setView("bays")}>
+                  <Rows3 size={16} aria-hidden="true" />
+                </Button>
+              </Tooltip>
               <Tooltip label={actionOf("dashboard_view").verb}>
                 <Kbd>{keyFor("dashboard_view")}</Kbd>
               </Tooltip>
@@ -431,7 +471,17 @@ export function Cockpit({
         </header>
         <div className="armada-view__stage">
           <div className="armada-view__body" data-pane={pane || undefined} data-view={view} style={front === undefined && edge.length > 0 ? { paddingBottom: `calc(var(--space-6) * ${Math.min(3, edge.length)} + var(--space-8))` } : undefined}>
-            {view === "map" ? (
+            {view === "bays" ? (
+              <div className="armada-view__bays" data-recessed={front === undefined || leaving !== undefined ? undefined : ""}>
+                <Bays read={bays} reading={state.held.state !== "read" && state.held.state !== "failed"} selected={current?.key} onSelect={setSelected} onOpenLink={hosts.onOpenLink} />
+                {current === undefined || pane ? null : (
+                  <div className="armada-view__picked">
+                    <span>{current.title}</span>
+                    <TileActs item={current} hosts={hosts} />
+                  </div>
+                )}
+              </div>
+            ) : view === "map" ? (
               <div className="armada-view__map" data-recessed={front === undefined || leaving !== undefined ? undefined : ""}>
                 <FleetMap sky={sky} field={field} onField={setField} selected={current?.key} onSelect={setSelected} />
                 {current === undefined ? null : (
@@ -469,7 +519,7 @@ export function Cockpit({
             </div>
           )}
         </div>
-        {mergeLine ? <Horizon state={state} sessions={sessions} hosts={hosts} /> : null}
+        {mergeLine && view !== "bays" ? <Horizon state={state} sessions={sessions} hosts={hosts} /> : null}
       </section>
     </div>
   );

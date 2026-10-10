@@ -1,6 +1,6 @@
 // The Dashboard's one panel, through `App` on the `dashboard-cockpit` mock Fleet: its filters and the
 // keys that step them, the call that comes forward over it and the deck behind, the standing
-// answers, and the grid and the map offering the same acts.
+// answers, and the grid, the map and the bays offering the same acts.
 
 import { beforeEach, expect, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
@@ -186,6 +186,28 @@ test("the grid and the map offer the same acts: a press picks, x asks to kill, E
   await expect.poll(() => page.getByRole("dialog").query()).toBeNull();
   await userEvent.keyboard("{Enter}");
   await expect.poll(() => page.getByRole("tab", { name: "Active" }).query()).toBeNull();
+});
+
+test("the bays draw each worktree bay with its holder, thread it to its pull request on the line, and pick as the grid does", async () => {
+  await dashboard();
+  await page.getByRole("tab", { name: "Active" }).click();
+  await page.getByRole("button", { name: "Bays", exact: true }).click();
+  expect(localStorage.getItem(VIEW)).toBe("bays");
+  const bay = (name: RegExp) => page.getByRole("option", { name });
+  await expect.element(bay(/^Bay 1: Debounce the Job Board/)).toBeVisible();
+  // A bay a Session holds is drawn under the Session's own name, not the process the pool reads.
+  await expect.element(bay(/^Bay 3: Flaky store test/)).toBeVisible();
+  await expect.element(bay(/^Bay 8: Free/)).toBeVisible();
+  expect(bay(/^Bay 1: Debounce/).element().textContent).toContain("#1890");
+  await expect.poll(() => document.querySelectorAll(".armada-bays__thread").length).toBeGreaterThan(0);
+  // The line stands upright beside the bays, so the footer does not draw it a second time.
+  expect(document.querySelector("footer.armada-view__horizon")).toBeNull();
+
+  await bay(/^Bay 1: Debounce/).click();
+  await expect.element(bay(/^Bay 1: Debounce/)).toHaveAttribute("aria-selected", "true");
+  await userEvent.keyboard("x");
+  await expect.element(page.getByRole("dialog")).toBeVisible();
+  await userEvent.keyboard("{Escape}");
 });
 
 test("the call deck comes forward over the map too", async () => {

@@ -52,6 +52,7 @@ export function Overview({
   nows,
   onTell,
   onQuickCompose,
+  onWantHeld,
 }: {
   state: BridgeState;
   now: number;
@@ -97,6 +98,8 @@ export function Overview({
   onTell?: (sentence: string) => void;
   /** Words typed into the quick dispatch box, handed to the composer. */
   onQuickCompose: (words: string) => void;
+  /** Asks Fleet for the worktree pool while the Cockpit's bays are drawn. */
+  onWantHeld?: (want: boolean) => void;
 }) {
   const guarded = { bridge: state.bridge, onCopied };
 
@@ -216,6 +219,7 @@ export function Overview({
             onClear={onClear}
             onPausing={onPausing}
             onCursor={onCursor}
+            onWantHeld={onWantHeld}
           />
         )}
         <KeySheet open={keys.sheet} onClose={keys.closeSheet} />
