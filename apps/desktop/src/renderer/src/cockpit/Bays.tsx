@@ -1,5 +1,5 @@
-// The Cockpit's Bays: each repository a ship, its worktree bays the compartments of its hull, laid in as
-// many columns as keep each one a room rather than a row, the work in them marked as the map marks it
+// The Cockpit's Bays: each repository a ship, its worktree bays the rooms of its hull, laid in as many
+// columns as its width holds, the work in them marked as the map marks it
 // (a Job a star, a Session a diamond, lit by how much it wants the owner) with the Sessions riding with
 // a Job in orbit round it. What waits for a bay queues on the left; on the right the merge line stands
 // as cards, and each bay with a pull request is wired out to its card through the hull's conduits, the
@@ -110,20 +110,11 @@ function route(corners: readonly Point[], end: Point): string {
   return `${d} C${last[0] + bend},${last[1]} ${end[0] - bend},${end[1]} ${end[0]},${end[1]}`;
 }
 
-/** The columns that keep `count` bays in `width` × `height` closest to a room's shape, about 5 to 2. */
-function columnsFor(count: number, width: number, height: number): number {
-  if (count === 0 || width === 0 || height === 0) return 1;
-  let best = 1;
-  let score = -Infinity;
-  for (let cols = 1; cols <= Math.min(4, count); cols++) {
-    const rows = Math.ceil(count / cols);
-    const w = width / cols;
-    const h = height / rows;
-    // A bay narrower than a title, or shorter than a mark and two lines, is not a room.
-    const fit = Math.min(w / 210, h / 84, 1.6) - Math.abs(Math.log(w / h / 2.4)) * 0.25;
-    if (fit > score) [best, score] = [cols, fit];
-  }
-  return best;
+/** As many columns as the hull's width holds bays wide enough for a title, at most four: by width alone, so picking a bay never reshuffles them. */
+function columnsFor(count: number, width: number, gap: number): number {
+  if (count === 0 || width === 0) return 1;
+  const fits = Math.floor((width + gap) / (160 + gap));
+  return Math.max(1, Math.min(4, count, fits));
 }
 
 /** What the picked bay says beyond its room: where its branch stands, its step, its Sessions and pull request, and every act. */
@@ -260,8 +251,8 @@ export function Bays({ read, reading, selected, onSelect, onOpenLink, onOpenSess
       // Each hull's columns, from the room its grid has.
       const next: Record<string, number> = {};
       root.querySelectorAll<HTMLElement>(".armada-ship__bays").forEach((grid) => {
-        const count = grid.children.length;
-        next[grid.dataset.harbour ?? ""] = columnsFor(count, grid.clientWidth, grid.clientHeight);
+        const count = grid.querySelectorAll(":scope > .armada-ship__bay").length;
+        next[grid.dataset.harbour ?? ""] = columnsFor(count, grid.clientWidth, Number(getComputedStyle(grid).columnGap.replace("px", "")) || 16);
       });
       setColumns((was) => (JSON.stringify(was) === JSON.stringify(next) ? was : next));
     };
@@ -270,7 +261,7 @@ export function Bays({ read, reading, selected, onSelect, onOpenLink, onOpenSess
     watch.observe(root);
     root.querySelectorAll(".armada-ship__bays").forEach((grid) => watch.observe(grid));
     // A scrolled list moves what a wire ends at, so a scroll draws again.
-    const scrollers = [...root.querySelectorAll(".armada-ship__cards, .armada-ship__bays")];
+    const scrollers = [...root.querySelectorAll(".armada-ship__cards, .armada-ship__fleet")];
     scrollers.forEach((one) => one.addEventListener("scroll", draw));
     return () => {
       watch.disconnect();
@@ -363,7 +354,7 @@ export function Bays({ read, reading, selected, onSelect, onOpenLink, onOpenSess
           const held = harbour.bays.filter((bay) => bay.holder.kind === "job" || bay.holder.kind === "session").length;
           const working = harbour.bays.some((bay) => itemOf(bay)?.hue === "running");
           return (
-            <section key={harbour.manifest} className="armada-ship__hull" aria-label={harbour.name} style={{ flexGrow: harbour.bays.length }} data-working={working || undefined}>
+            <section key={harbour.manifest} className="armada-ship__hull" aria-label={harbour.name} style={{ flexGrow: Math.ceil(harbour.bays.length / (columns[harbour.manifest] ?? 2)) }} data-working={working || undefined}>
               <header className="armada-ship__bow">
                 <span className="armada-ship__name">{harbour.name}</span>
                 <span className="armada-ship__fact">
@@ -375,7 +366,6 @@ export function Bays({ read, reading, selected, onSelect, onOpenLink, onOpenSess
                   const item = itemOf(bay);
                   const { title, fact } = said(bay);
                   const on = item !== undefined && item.key === selected;
-                  const steps = item?.steps;
                   const cols = columns[harbour.manifest] ?? 2;
                   const room = (
                     <li
@@ -394,15 +384,14 @@ export function Bays({ read, reading, selected, onSelect, onOpenLink, onOpenSess
                       onMouseEnter={() => setHovered(bay.key)}
                       onClick={() => (item === undefined ? undefined : onSelect(item.key))}
                     >
-                      <span className="armada-ship__placard">
+                      <span className="armada-ship__bay-top">
                         <span className="armada-ship__lamp" aria-hidden="true" />
-                        <span className="armada-ship__bay-number">Bay {String(bay.slot).padStart(2, "0")}</span>
-                        {steps === undefined || steps.length < 2 ? null : (
-                          <ol className="armada-ship__pips" aria-label="Steps">
-                            {steps.map((step, at) => (
-                              <li key={step.id} data-pip={at < (item?.stepAt ?? 0) ? "done" : at === item?.stepAt ? "live" : "ahead"} title={step.label} />
-                            ))}
-                          </ol>
+                        <span className="armada-ship__bay-number">{String(bay.slot).padStart(2, "0")}</span>
+                        {bay.dot === undefined ? null : (
+                          <span className="armada-ship__badge" data-state={bay.dot.state}>
+                            {bay.dot.card.heading.startsWith("#") ? bay.dot.card.heading : "Landing"}
+                            {bay.dot.card.place === undefined ? "" : ` · ${ordinal(bay.dot.card.place)}`}
+                          </span>
                         )}
                       </span>
                       <span className="armada-ship__room">
@@ -416,32 +405,6 @@ export function Bays({ read, reading, selected, onSelect, onOpenLink, onOpenSess
                           <span className="armada-ship__fact">{fact}</span>
                         </span>
                       </span>
-                      <span className="armada-ship__deck-line">
-                        <span className="armada-ship__riders">
-                          {bay.riders.slice(0, 2).map((one) => (
-                            <Tooltip key={one.session.id} label={`Session: ${one.session.title ?? one.session.id}`}>
-                              <button
-                                type="button"
-                                className="armada-ship__drifter"
-                                data-hue={one.item?.hue ?? "queued"}
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  if (one.item !== undefined) onSelect(one.item.key);
-                                }}
-                              >
-                                <Mark item={one.item} session />
-                                <span>{one.session.title ?? one.session.id}</span>
-                              </button>
-                            </Tooltip>
-                          ))}
-                        </span>
-                        {bay.dot === undefined ? null : (
-                          <span className="armada-ship__badge" data-state={bay.dot.state}>
-                            {bay.dot.card.heading.startsWith("#") ? bay.dot.card.heading : "Landing"}
-                            {bay.dot.card.place === undefined ? "" : ` · ${ordinal(bay.dot.card.place)}`}
-                          </span>
-                        )}
-                      </span>
                       <span className="armada-ship__port" data-wired={bay.dot === undefined ? undefined : ""} aria-hidden="true" />
                     </li>
                   );
@@ -454,10 +417,10 @@ export function Bays({ read, reading, selected, onSelect, onOpenLink, onOpenSess
                   return [room, <Drawer key={`drawer:${chosen.key}`} bay={chosen} col={picked % cols2} cols={cols2} onOpenLink={onOpenLink} onOpenSession={onOpenSession} actsOf={actsOf} />];
                 })}
               </ol>
-              <footer className="armada-ship__stern" aria-hidden="true">
+              <span className="armada-ship__stern" aria-hidden="true">
                 <span className="armada-ship__thruster" />
                 <span className="armada-ship__thruster" />
-              </footer>
+              </span>
             </section>
           );
         })}
