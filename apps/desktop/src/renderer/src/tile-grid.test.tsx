@@ -1,8 +1,9 @@
 // The shared tile grid on a surface whose grid is not drawn on its first render: one that first says
 // nothing is served, as the Manifest does on a fresh install. Its keys and its one Tab stop are
-// picked up on the render that draws the grid, not lost because the first render had none.
+// picked up on the render that draws the grid, not lost because the first render had none, nor
+// because StrictMode tore its effects down once.
 
-import { useRef, useState } from "react";
+import { StrictMode, useRef, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { flushSync } from "react-dom";
 import { afterEach, expect, test } from "vitest";
@@ -47,7 +48,8 @@ test("a grid drawn after the first render is still one Tab stop and moves on the
   const host = document.body.appendChild(document.createElement("div"));
   const root = createRoot(host);
   roots.push({ root, host });
-  flushSync(() => root.render(<Late />));
+  // StrictMode, as the app renders: every effect runs twice, and the grid must come back from the second.
+  flushSync(() => root.render(<StrictMode><Late /></StrictMode>));
 
   await userEvent.click(page.getByRole("button", { name: "Serve" }));
   await expect.element(page.getByRole("button", { name: "one" })).toBeVisible();
@@ -59,6 +61,31 @@ test("a grid drawn after the first render is still one Tab stop and moves on the
   await expect.element(page.getByRole("button", { name: "After" })).toHaveFocus();
   await userEvent.keyboard("{Shift>}{Tab}{/Shift}");
   await expect.element(page.getByRole("button", { name: "one" })).toHaveFocus();
+  await userEvent.keyboard("{ArrowDown}");
+  await expect.element(page.getByRole("button", { name: "two" })).toHaveFocus();
+});
+
+function Drawn() {
+  const grid = useRef<HTMLUListElement>(null);
+  useTileGrid(grid, { tile: "li", cursor: "button" });
+  return (
+    <ul ref={grid}>
+      {["one", "two"].map((name) => (
+        <li key={name}>
+          <button type="button">{name}</button>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+test("a grid drawn on the first render keeps its keys through StrictMode's second run of its effects", async () => {
+  const host = document.body.appendChild(document.createElement("div"));
+  const root = createRoot(host);
+  roots.push({ root, host });
+  flushSync(() => root.render(<StrictMode><Drawn /></StrictMode>));
+
+  await userEvent.click(page.getByRole("button", { name: "one" }));
   await userEvent.keyboard("{ArrowDown}");
   await expect.element(page.getByRole("button", { name: "two" })).toHaveFocus();
 });

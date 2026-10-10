@@ -67,7 +67,14 @@ export function useTileGrid(root: RefObject<HTMLElement | null>, options: TileGr
   // The element the listeners are on. A root drawn after the first render (a surface that first says
   // nothing is served) is picked up on the render that draws it, so the check runs after every one.
   const attached = useRef<{ element: HTMLElement; detach: () => void } | null>(null);
-  useEffect(() => () => attached.current?.detach(), []);
+  // Forgotten as well as detached, so a remount (StrictMode runs every effect twice) attaches again.
+  useEffect(
+    () => () => {
+      attached.current?.detach();
+      attached.current = null;
+    },
+    [],
+  );
   useEffect(() => {
     const element = root.current;
     if (attached.current?.element === element) return;
