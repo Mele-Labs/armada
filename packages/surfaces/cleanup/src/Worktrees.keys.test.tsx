@@ -1,13 +1,13 @@
-// Cleanup's grid from the keyboard alone: the arrows move across it by where tiles are drawn, `j`
-// and `k` through it in drawn order, `o` and Enter open a tile's panel, an act in that panel is
-// sent from the keyboard, and closing the panel puts the cursor back on the tile it came from.
+// Cleanup's grid from the keyboard alone: it is one Tab stop, the arrows move across it by where
+// tiles are drawn, `j` and `k` through it in drawn order, `o` and Enter open a tile's panel, an act
+// in that panel is sent from the keyboard, and closing the panel puts the cursor back on the tile.
 // **The cursor is DOM focus**, so every assertion here is about what holds focus, by role.
 
 import { afterEach, expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import type { ChangeSlotPool, WorktreeSlot } from "@armada/protocol";
 
-import { mount, unmount } from "@armada/screens/src/mounted";
+import { mount, rerender, unmount } from "@armada/screens/src/mounted";
 import { Worktrees } from "./Worktrees";
 
 afterEach(unmount);
@@ -25,10 +25,9 @@ const slot = (n: number, over: Partial<WorktreeSlot> = {}): WorktreeSlot => ({
   ...over,
 });
 
-/** A pool of eight bays, enough for two rows at any width the tests run at; returns what the slot acts sent. */
-function pool(): ChangeSlotPool[] {
-  const sent: ChangeSlotPool[] = [];
-  mount(
+/** A pool of eight bays, enough for two rows at any width the tests run at, recording what the slot acts sent. */
+function screen(sent: ChangeSlotPool[], now = NOW) {
+  return (
     <Worktrees
       onWant={WANT}
       held={{ state: "read", held: { worktrees: [], slots: [1, 2, 3, 4, 5, 6, 7, 8].map((n) => slot(n)) } }}
@@ -39,12 +38,18 @@ function pool(): ChangeSlotPool[] {
         sent.push(change);
         return Promise.resolve({ ok: true });
       }}
-      now={NOW}
+      now={now}
       onClose={() => {}}
       onCopied={() => {}}
       onOpenJob={() => {}}
-    />,
+    />
   );
+}
+
+/** Mount the pool; returns what the slot acts sent. */
+function pool(): ChangeSlotPool[] {
+  const sent: ChangeSlotPool[] = [];
+  mount(screen(sent));
   return sent;
 }
 
@@ -55,6 +60,37 @@ function columns(): number {
   const list = page.getByRole("list", { name: "Worktree slots" }).element();
   return getComputedStyle(list).gridTemplateColumns.split(" ").length;
 }
+
+test("the grid is one Tab stop: Tab enters one tile and leaves without visiting another", async () => {
+  const sent = pool();
+  await expect.element(name(1)).toBeInTheDocument();
+  // The clock moves and every tile draws again: a tooltip's trigger re-takes its Tab stop then, and must not keep it.
+  rerender(screen(sent, NOW + 60_000));
+  const list = page.getByRole("list", { name: "Worktree slots" }).element();
+  const visited = new Set<string | null>();
+  let entered = false;
+  for (let tab = 0; tab < 30; tab++) {
+    await userEvent.keyboard("{Tab}");
+    const tile = document.activeElement?.closest(".armada-bay") ?? null;
+    if (list.contains(document.activeElement)) {
+      entered = true;
+      visited.add(tile?.getAttribute("aria-label") ?? "add");
+    } else if (entered) break;
+  }
+  expect(entered).toBe(true);
+  expect([...visited]).toEqual(["slot-1"]);
+
+  // Shift+Tab comes back into the same tile, at its last control, and Esc goes to the tile's name.
+  await userEvent.keyboard("{Shift>}{Tab}{/Shift}");
+  expect(page.getByRole("listitem", { name: "slot-1" }).element().contains(document.activeElement)).toBe(true);
+  await userEvent.keyboard("{Escape}");
+  await expect.element(name(1)).toHaveFocus();
+  // The tile Tab enters at is the one last chosen, not always the first.
+  await userEvent.keyboard("{ArrowRight}{ArrowRight}");
+  await expect.element(name(3)).toHaveFocus();
+  await userEvent.keyboard("{Shift>}{Tab}{/Shift}{Tab}");
+  await expect.element(name(3)).toHaveFocus();
+});
 
 test("the arrows move across the grid as it is drawn, and j and k through it in order", async () => {
   pool();

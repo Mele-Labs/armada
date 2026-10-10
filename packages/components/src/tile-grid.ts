@@ -95,7 +95,8 @@ export function useTileGrid(root: RefObject<HTMLElement | null>, options: TileGr
           if (was === "") one.removeAttribute("tabindex");
           else one.setAttribute("tabindex", was);
           one.removeAttribute(ROVED);
-        } else if (!open && !one.hasAttribute(ROVED)) {
+        } else if (!open && (!one.hasAttribute(ROVED) || one.getAttribute("tabindex") !== "-1")) {
+          // Also where something wrote it back since (a tooltip's trigger re-takes its stop on every render): that value is the one to give back.
           one.setAttribute(ROVED, one.getAttribute("tabindex") ?? "");
           one.setAttribute("tabindex", "-1");
         }
@@ -185,7 +186,7 @@ export function useTileGrid(root: RefObject<HTMLElement | null>, options: TileGr
 
     rove();
     const watch = new MutationObserver(rove);
-    watch.observe(element, { childList: true, subtree: true });
+    watch.observe(element, { childList: true, subtree: true, attributes: true, attributeFilter: ["tabindex"] });
     element.addEventListener("focusin", noted);
     element.addEventListener("keydown", press);
     window.addEventListener("keydown", idle);
