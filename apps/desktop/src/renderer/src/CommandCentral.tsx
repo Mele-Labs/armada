@@ -19,6 +19,8 @@ export function CommandCentral(props: Hosts & {
   picked: RepositorySummary | null;
   nowViews?: Readonly<Record<string, CallView>> | undefined;
   nows?: Readonly<Record<string, NowView>> | undefined;
+  bring?: { key: string; at: number } | null | undefined;
+  onBrought?: (() => void) | undefined;
 }) {
   return <Cockpit {...props} />;
 }

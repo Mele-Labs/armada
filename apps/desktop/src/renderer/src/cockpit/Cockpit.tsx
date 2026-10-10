@@ -181,8 +181,14 @@ export function Cockpit({
   picked,
   nowViews,
   nows,
+  bring,
+  onBrought,
   ...hosts
 }: Hosts & {
+  /** A call an alert asked for, brought to the front once this is on screen. `at` makes a second press land. */
+  bring?: { key: string; at: number } | null | undefined;
+  /** Taken, so the token is not acted on twice. */
+  onBrought?: (() => void) | undefined;
   /** Which of the three the panel shows. */
   filter: DashboardTab;
   onFilter: (filter: DashboardTab) => void;
@@ -285,6 +291,14 @@ export function Cockpit({
     setForward(key);
   };
 
+  // An alert's press: the call it spoke of comes to the front, out of the back if it was put off.
+  useEffect(() => {
+    if (bring === undefined || bring === null) return;
+    recall(bring.key);
+    onBrought?.();
+    // `at` alone: the same call pressed twice is two landings.
+  }, [bring?.at]);
+
   // The cursor on the glass.
   const [selected, setSelected] = useState<string>();
   const at = Math.max(0, instruments.findIndex((one) => one.key === selected));
@@ -310,7 +324,7 @@ export function Cockpit({
     const moves = step !== -1 || arrow;
     if (event.repeat && !moves) return;
     if (holdsText(event.target)) {
-      // The dispatch bar is always empty: Escape or Down hands the keys back to the glass.
+      // An empty field hands the keys back to the glass on Escape or Down.
       const field = event.target;
       if (field instanceof HTMLInputElement && field.value === "" && (isPressed("close", event) || (bare && event.key === "ArrowDown"))) {
         event.preventDefault();

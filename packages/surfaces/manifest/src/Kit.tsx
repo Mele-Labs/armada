@@ -29,9 +29,9 @@
 // is authoritative over the other's idea of anything, and a person who cannot
 // tell them apart is the failure two homes was weighed against.
 
-import type { ReactNode } from "react";
+import { useRef, type ReactNode } from "react";
 
-import { KitServers, KitSetup } from "@armada/components";
+import { KitServers, KitSetup, useTileGrid } from "@armada/components";
 
 import { said } from "@armada/screens/src/copy";
 import { addressReads, addressTyped, useKit, type KitSlice } from "@armada/screens/src/manifest-kit";
@@ -49,10 +49,14 @@ export type KitProps = KitSlice & {
 
 export function Kit(props: KitProps) {
   const kit = useKit(props);
+  // Every kind and every server is a tile on one grid: one Tab stop, the arrows across both
+  // glasses, and Enter or `o` into a tile's first control. `tile-grid.ts`.
+  const tiles = useRef<HTMLDivElement>(null);
+  useTileGrid(tiles, { tile: "[data-kit-tile]" });
   return (
     // The pane is where the window scrolls Kit: the shell's mount never does.
     <div className="armada-screen__pane">
-      <div className="armada-kit">
+      <div className="armada-kit" ref={tiles}>
         <KitSetup setup={kit.setup} onRemoveAllowed={kit.onRemoveAllowed} />
         <section className="armada-kit__own" aria-label="What Armada holds">
           <header className="armada-kit__head">
@@ -62,7 +66,7 @@ export function Kit(props: KitProps) {
             </p>
           </header>
           {props.repository === null ? (
-            props.ask
+            <div className="armada-kit__ask">{props.ask}</div>
           ) : (
             <KitServers
               here={props.repository}

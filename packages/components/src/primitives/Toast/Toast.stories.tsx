@@ -43,3 +43,12 @@ export const Landed: Story = {
     actionLabel: "View",
   },
 };
+
+/** A toast about a thing somebody can go to: the sentence is the way there. */
+export const Pressable: Story = {
+  args: {
+    status: "awaiting-review",
+    children: "“Fix the login” needs you.",
+    onPress: () => undefined,
+  },
+};

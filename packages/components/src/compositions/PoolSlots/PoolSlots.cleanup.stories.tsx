@@ -30,8 +30,9 @@ const COST = { name: "armada/job-a", commits: 3, tip: TIP, base: "main" };
 
 /**
  * A Job's worktree outside the pool is a tile after the bays, in the same
- * grid: its Job as a link, its branch, and how long it has sat. **Its state is
- * what holds it, in git's words**: held while the Job has not finished, kept for
+ * grid, or in the Kept section under it where it is kept: its Job as a link,
+ * its branch, and how long it has sat. **Its state is what holds it, in git's
+ * words**: held while the Job has not finished, kept for
  * what it holds, free where nothing is uncommitted or unmerged, removed where
  * only the branch or record is left.
  */
@@ -50,8 +51,10 @@ export const OutsideTiles: Story = {
   },
   play: async ({ args, canvas, userEvent }) => {
     const tiles = within(canvas.getByRole("list", { name: "Worktree slots" })).getAllByRole("listitem");
-    // The pool's own add tile closes the bays, and the worktrees follow it.
-    await expect(tiles.map((one) => one.getAttribute("aria-label"))).toEqual(["slot-1", null, "run", "kept", "free", "gone", "record"]);
+    // The pool's own add tile closes the bays, and the worktrees follow it; a kept one is in Kept, under them.
+    await expect(tiles.map((one) => one.getAttribute("aria-label"))).toEqual(["slot-1", null, "run", "free", "record"]);
+    const kept = within(canvas.getByRole("list", { name: "Kept" })).getAllByRole("listitem");
+    await expect(kept.map((one) => one.getAttribute("aria-label"))).toEqual(["kept", "gone"]);
     await expect(tile(canvas, "run").getByRole("img", { name: "Held: its Job has not finished" })).toBeInTheDocument();
     await expect(tile(canvas, "kept").getByRole("img", { name: "Kept: uncommitted changes" })).toBeInTheDocument();
     await expect(tile(canvas, "free").getByRole("img", { name: "Free: nothing uncommitted or unmerged" })).toBeInTheDocument();

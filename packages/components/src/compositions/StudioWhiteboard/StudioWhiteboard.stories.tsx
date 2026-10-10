@@ -149,9 +149,10 @@ export const EveryKind: Story = {
 export const ReadOnly: Story = {
   args: { nodes, edges, readOnly: true, onNodeMoved: fn(), onSelectionChange: fn(), onDecide: fn() },
   play: async ({ canvas, args, userEvent, step }) => {
-    const note = canvas.getByRole("group", { name: /^Note: The legend under the step bar/ });
+    // The board draws its nodes after it has measured them, so they are found rather than got.
+    const note = await canvas.findByRole("group", { name: /^Note: The legend under the step bar/ });
     await waitFor(() => expect(note).toBeVisible());
-    const link = canvas.getByRole("group", { name: /^Link: / });
+    const link = await canvas.findByRole("group", { name: /^Link: / });
     const apart = () => centre(note).x - centre(link).x;
 
     await step("a drag moves nothing and reports nothing", async () => {
