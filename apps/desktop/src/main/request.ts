@@ -17,6 +17,14 @@ import type {
 import type { FleetCapacity, FleetLimits, JobSummary, ManifestReading, MergeLines } from "@armada/protocol";
 import type { Preferences } from "@armada/protocol";
 import type { JobRetro, Lessons, LessonsRead, RetroRead, RetroSubject } from "@armada/protocol";
+import type {
+  AskLessonAnswer,
+  AskLessonRead,
+  AskTurn,
+  LessonAsk,
+  LessonReview,
+  LessonReviewRead,
+} from "@armada/jobs/review-wire";
 import type { ServerList } from "@armada/protocol";
 import type { BriefContents, CheckOutput } from "@armada/protocol";
 import type { LeftOutWorkflow, ManifestSummary, ModelChoices, RepositoryList, WorkflowSummary } from "@armada/protocol";
@@ -483,6 +491,39 @@ export async function lessonsOf(
   const answer = await ask(port, "GET", path);
   if (answer.ok !== true) return { ok: false, outcome: answer.outcome };
   return { ok: true, lessons: (answer.body as Lessons).lessons };
+}
+
+/**
+ * The guided review, `POST /lessons/review`: the model reads every open item and orders them. A
+ * model call, so it waits `MODEL_CALL_MS`. **The pick rides the body as `manifest_id`**, absent on
+ * All; a repository with no Manifest has no items, and nothing is asked.
+ */
+export async function reviewOf(port: number, picked: Picked): Promise<LessonReviewRead> {
+  const manifest = picked.narrowed("/lessons");
+  if (manifest === null) return { ok: true, review: { model: "", entries: [], set_aside: [] } };
+  const id = new URL(manifest, "http://fleet").searchParams.get("manifest_id");
+  const answer = await ask(port, "POST", "/lessons/review", id === null ? {} : { manifest_id: id }, MODEL_CALL_MS);
+  if (answer.ok !== true) return { ok: false, outcome: answer.outcome };
+  return { ok: true, review: answer.body as LessonReview };
+}
+
+/**
+ * One question about one item, `POST /lessons/:lesson_id/ask`. **The thread is cut to what the
+ * wire takes** here, because the renderer is sandboxed and its argument is not trusted: two roles,
+ * text only, nothing else it may have attached.
+ */
+export async function askOf(port: number, lessonId: string, question: string, history: AskTurn[]): Promise<AskLessonRead> {
+  const turns = Array.isArray(history)
+    ? history.flatMap((turn) =>
+        (turn?.role === "person" || turn?.role === "fleet") && typeof turn.text === "string"
+          ? [{ role: turn.role, text: turn.text }]
+          : [],
+      )
+    : [];
+  const body: LessonAsk = { question: String(question), history: turns };
+  const answer = await ask(port, "POST", `/lessons/${encodeURIComponent(lessonId)}/ask`, body, MODEL_CALL_MS);
+  if (answer.ok !== true) return { ok: false, outcome: answer.outcome };
+  return { ok: true, answer: answer.body as AskLessonAnswer };
 }
 
 /**

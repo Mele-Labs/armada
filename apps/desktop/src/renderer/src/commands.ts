@@ -58,6 +58,7 @@ import type {
 import type { HelmContext, JobSummary, PullRequestState } from "@armada/protocol";
 import type { StudioCapture, StudioNodeByHand } from "@armada/protocol";
 import type { Confirming } from "./ConfirmAct";
+import type { AskTurn } from "@armada/jobs/review-wire";
 import type { PauseAct, Taken, TakenAct } from "@armada/screens";
 import type { ActAnswer, ActingAct, ConfirmableAct, DecidingAct, TaskAct } from "@armada/jobs";
 import { pauseRefusal, refusedAsPaused, said, takenNotice, takenStands } from "@armada/screens";
@@ -162,6 +163,9 @@ export const readLessons = (state: "open" | "accepted") => window.armada.readLes
 /** The owner's answer to one retro item. */
 export const agreeLesson = (lessonId: string) => window.armada.agreeLesson(lessonId);
 export const disagreeLesson = (lessonId: string) => window.armada.disagreeLesson(lessonId);
+export const reviewLessons = () => window.armada.reviewLessons();
+export const askLesson = (lessonId: string, question: string, history: AskTurn[]) =>
+  window.armada.askLesson(lessonId, question, history);
 /** A repository's branches for a branch field (#1605). A refusal is nothing to offer, never a toast. */
 export const listBranches = async (manifestId: string) => {
   const read = await window.armada.listBranches(manifestId);
