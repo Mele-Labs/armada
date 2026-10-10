@@ -28,6 +28,8 @@ export type TileGridOptions = {
 type Arrow = "ArrowUp" | "ArrowDown" | "ArrowLeft" | "ArrowRight";
 const ARROWS: readonly string[] = ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"];
 const FOCUSABLE = 'a[href], button, input, select, textarea, summary, [tabindex], [contenteditable="true"]';
+/** What is a control by what it is, rather than by a `tabindex` given to it. */
+const NATIVE = 'a[href], button, input, select, textarea, summary, [contenteditable="true"]';
 /** Set on what this file took out of the Tab order, holding the `tabindex` it had, so it can be given back. */
 const ROVED = "data-roved";
 
@@ -104,8 +106,12 @@ export function useTileGrid(root: RefObject<HTMLElement | null>, options: TileGr
       for (const one of element.querySelectorAll<HTMLElement>(FOCUSABLE)) {
         // A `tabindex="-1"` this file did not set is the author's: never in the Tab order.
         if (one.getAttribute("tabindex") === "-1" && !one.hasAttribute(ROVED)) continue;
-        let open = true;
-        for (let tile = one.closest(TILE); tile !== null && open; tile = parentOf(tile)) open = currentOf(parentOf(tile)) === tile;
+        // Inside a tile, a stop that is only a tooltip's trigger is not a control: the tile's own name and
+        // acts are its stops, and what a tooltip says is the trigger's label, read without a stop of its own.
+        const own = one.closest(TILE);
+        const control = one.matches(NATIVE) || one.matches(TILE) || (own !== null && one === cursorOf(own));
+        let open = own === null || control;
+        for (let tile = own; tile !== null && open; tile = parentOf(tile)) open = currentOf(parentOf(tile)) === tile;
         if (open && one.hasAttribute(ROVED)) {
           const was = one.getAttribute(ROVED)!;
           if (was === "") one.removeAttribute("tabindex");
