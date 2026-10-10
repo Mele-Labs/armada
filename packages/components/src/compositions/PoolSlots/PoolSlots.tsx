@@ -1,23 +1,27 @@
 import { FolderPlus } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { RescueAct, SlotAct } from "@armada/protocol";
 
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
-import { PoolTile } from "./PoolTile";
+import { PoolTile, stateOf } from "./PoolTile";
 import { TileSheet } from "./TileSheet";
+import { focusTile } from "./keys";
 import { keyOf } from "./tiles";
 import type { TileRow } from "./tiles";
 
 export type { ClearCost, Offered, TileRow } from "./tiles";
 export { ClearSaves } from "./ClearSaves";
 export { TileSheet } from "./TileSheet";
+export { openTile, tileAfter, tileOf } from "./keys";
+export type { TileMove } from "./keys";
 
 /**
  * Cleanup's grid, one tile per worktree and each styled by what holds it. A
  * bay of the pool: held is a filled card under a band in the leased hue, free
  * an open dashed outline, stranded hatched in the warning hue, and a slot not
  * made a faint ghost. A Job's worktree outside the pool is drawn in the same
- * grid after the bays. A slot a person closed is shuttered in the closed hue;
+ * grid after the bays. Kept, a bay or a worktree outside the pool, is drawn
+ * in a section of its own under the pool, named Kept. A slot a person closed is shuttered in the closed hue;
  * a held one closed keeps its holder and takes the closed mark.
  * `armada worktree --status` is the same reading. Marks are group `Worktree
  * slot` in `packages/icons/icons/`.
@@ -106,20 +110,45 @@ export function PoolSlots({
 }: PoolSlotsProps) {
   /** The tile whose panel is open. */
   const [opened, setOpened] = useState<string | null>(null);
+  const view = useRef<HTMLDivElement>(null);
   // A tile that went away, a slot removed or a record forgotten, has no panel left.
   const open = rows.find((row) => keyOf(row) === opened);
-  const bays = rows.filter((row) => row.slot !== undefined);
-  const outside = rows.filter((row) => row.slot === undefined);
+  // Kept, a bay or a worktree outside the pool, is its own section: each waits on a person, not on the pool.
+  const kept = rows.filter((row) => stateOf(row).bay === "kept");
+  const rest = rows.filter((row) => stateOf(row).bay !== "kept");
+  const bays = rest.filter((row) => row.slot !== undefined);
+  const outside = rest.filter((row) => row.slot === undefined);
+  const pooled = bays.length > 0 || outside.length > 0 || onAct !== undefined;
   const tile = (row: TileRow) => (
     <PoolTile key={keyOf(row)} row={row} open={keyOf(row) === opened} onOpenJob={onOpenJob} onOpen={() => setOpened(keyOf(row))} />
   );
   return (
     <>
-      <ul className="armada-pool-slots" aria-label="Worktree slots">
-        {bays.map(tile)}
-        {onAct === undefined ? null : <AddTile onAct={onAct} {...(addRefused === undefined ? {} : { refused: addRefused })} {...(adding === undefined ? {} : { adding })} />}
-        {outside.map(tile)}
-      </ul>
+      {/* The cockpit's viewscreen: a band over a ruled glass the tiles stand on, a section each. A band repeats its list's name, so it is unread. */}
+      <div className="armada-pool-slots__views" ref={view}>
+        {pooled ? (
+          <div className="armada-pool-slots__view">
+            <div className="armada-pool-slots__band" aria-hidden>
+              Worktree slots
+            </div>
+            <ul className="armada-pool-slots" aria-label="Worktree slots">
+              {bays.map(tile)}
+              {onAct === undefined ? null : <AddTile onAct={onAct} {...(addRefused === undefined ? {} : { refused: addRefused })} {...(adding === undefined ? {} : { adding })} />}
+              {outside.map(tile)}
+            </ul>
+          </div>
+        ) : null}
+        {kept.length === 0 ? null : (
+          <div className="armada-pool-slots__view" data-section="kept">
+            <div className="armada-pool-slots__band" aria-hidden>
+              Kept
+            </div>
+            <ul className="armada-pool-slots" aria-label="Kept">
+              {kept.map(tile)}
+            </ul>
+          </div>
+        )}
+      </div>
       {open === undefined ? null : (
         <TileSheet
           key={opened}
@@ -135,7 +164,11 @@ export function PoolSlots({
           {...(onPause === undefined ? {} : { onPause })}
           {...(onResume === undefined ? {} : { onResume })}
           {...(onCopied === undefined ? {} : { onCopied })}
-          onClose={() => setOpened(null)}
+          onClose={() => {
+            // The sheet takes focus when it opens, so closing it gives focus back to the tile it was opened from.
+            if (view.current !== null && opened !== null) focusTile(view.current, opened);
+            setOpened(null);
+          }}
         />
       )}
     </>
