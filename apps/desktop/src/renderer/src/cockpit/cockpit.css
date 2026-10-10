@@ -550,8 +550,8 @@ span.armada-view__dot { cursor: default; }
 .armada-view__picked { position: absolute; left: 50%; bottom: var(--space-3); transform: translateX(-50%); display: flex; align-items: center; gap: var(--space-2); padding: var(--space-1) var(--space-3); border: var(--border-width) solid var(--border-default); border-radius: var(--radius-md); background: var(--bg-raised); font-size: var(--text-sm); color: var(--fg-default); white-space: nowrap; }
 .armada-view__picked > span:first-child { min-width: 0; max-width: calc(var(--space-12) * 5); overflow: hidden; text-overflow: ellipsis; }
 
-/* Bays: each repository a ship, its worktree bays the compartments down its hull. What waits for a bay
-   queues on the left; the merge line stands as cards on the right; wires join a bay to its card. */
+/* Bays: each repository a ship, its worktree bays the rooms of its hull. What waits for a bay queues on
+   the left; the merge line stands as cards on the right; wires run out through the gaps between bays. */
 .armada-view__bays { position: relative; display: flex; min-width: 0; min-height: 0; padding: var(--space-3) var(--space-4); overflow: hidden; }
 .armada-ship__empty { margin: auto; color: var(--fg-subtle); font-size: var(--text-sm); }
 .armada-ship {
@@ -559,8 +559,8 @@ span.armada-view__dot { cursor: default; }
   isolation: isolate;
   flex: 1 1 auto;
   display: grid;
-  grid-template-columns: calc(var(--space-12) * 4) minmax(0, 1fr) calc(var(--space-12) * 5);
-  column-gap: var(--space-12);
+  grid-template-columns: calc(var(--space-12) * 3.5) minmax(0, 1fr) calc(var(--space-12) * 4.5);
+  column-gap: var(--space-8);
   min-width: 0;
   min-height: 0;
 }
@@ -579,7 +579,7 @@ span.armada-view__dot { cursor: default; }
 .armada-ship__pod { fill: var(--hue); }
 @keyframes armada-ship-orbit { from { transform: rotate(var(--at)); } to { transform: rotate(calc(var(--at) + 360deg)); } }
 
-/* The queue: what waits for a bay, in line toward the hatches, the next one in at the head. */
+/* The queue: what waits for a bay, in line, the next one in at the head. */
 .armada-ship__queue { display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow-y: auto; }
 .armada-ship__waiting { position: relative; display: flex; flex-direction: column; gap: var(--space-2); margin: 0 0 var(--space-4); padding: 0; list-style: none; }
 .armada-ship__waiting::before { content: ""; position: absolute; top: var(--space-4); bottom: var(--space-4); left: var(--space-6); border-left: var(--border-width) dashed var(--border-default); }
@@ -618,8 +618,8 @@ span.armada-view__dot { cursor: default; }
 .armada-ship__drifter .armada-ship__mark { width: var(--space-4); height: var(--space-4); }
 .armada-ship__drifter:hover, .armada-ship__drifter[aria-pressed="true"] { border-color: var(--border-strong); color: var(--fg-default); }
 
-/* The ship: plated hull, a rounded bow with the repository's name, the bays down it, thrusters astern. */
-.armada-ship__fleet { display: flex; flex-direction: column; gap: var(--space-6); padding-top: var(--space-2); min-width: 0; min-height: 0; }
+/* The ship: a plated hull with the repository's name on its bow and thrusters astern. */
+.armada-ship__fleet { display: flex; flex-direction: column; gap: var(--space-6); min-width: 0; min-height: 0; padding-top: var(--space-2); }
 .armada-ship__hull {
   position: relative;
   display: flex;
@@ -632,86 +632,134 @@ span.armada-view__dot { cursor: default; }
   background: linear-gradient(var(--bg-raised), var(--bg-sunken));
   box-shadow: inset 0 0 0 var(--space-1) var(--bg-base), inset 0 0 0 calc(var(--space-1) + var(--border-width)) var(--border-subtle);
 }
-/* The bow's nameplate sits on the hull's own edge, so it costs the bays no height. */
 .armada-ship__bow { position: absolute; top: calc(var(--space-2) * -1 - var(--border-width)); left: 50%; z-index: 1; display: flex; align-items: baseline; gap: var(--space-3); padding: 0 var(--space-3); transform: translateX(-50%); background: var(--bg-base); white-space: nowrap; }
 .armada-ship__name { color: var(--fg-muted); font-family: var(--font-mono); font-size: var(--text-2xs); letter-spacing: 0.12em; text-transform: uppercase; }
-.armada-ship__bays { display: flex; flex: 1 1 auto; flex-direction: column; gap: var(--space-1); min-height: 0; margin: 0; padding: 0; list-style: none; }
 .armada-ship__stern { position: absolute; bottom: calc(var(--space-1) * -1 - var(--border-width)); left: 50%; display: flex; gap: var(--space-6); transform: translateX(-50%); }
 .armada-ship__thruster { width: var(--space-6); height: var(--space-1); border-radius: var(--radius-sm); background: var(--border-default); }
 .armada-ship__hull[data-working] .armada-ship__thruster { background: var(--status-running); box-shadow: 0 var(--space-1) var(--space-3) var(--status-running); }
 
-/* A bay: a compartment with a hatch on the port wall and a port on the starboard wall the wire leaves by. */
+/* The bays: rooms in as many columns as keep each a room; the picked one's row grows to say more. */
+.armada-ship__bays {
+  display: grid;
+  flex: 1 1 auto;
+  grid-template-columns: repeat(var(--cols, 2), minmax(0, 1fr));
+  gap: var(--space-2) var(--space-4);
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+  transition: grid-template-rows var(--duration-fast) var(--ease);
+}
+
+/* A bay: a placard with its number and the lamp above the door, the room, and the deck at its mouth. */
 .armada-ship__bay {
   --lamp: transparent;
   position: relative;
-  display: grid;
-  flex: 1 1 0;
-  grid-template-columns: var(--space-8) var(--space-8) minmax(0, 1fr) auto auto var(--space-2);
-  align-items: center;
-  gap: var(--space-2);
-  min-height: calc(var(--space-8) + var(--space-1));
-  max-height: calc(var(--space-12) + var(--space-6));
-  border: var(--border-width) solid var(--border-subtle);
-  border-radius: var(--radius-sm);
+  container-type: size;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-md);
   background: var(--bg-base);
   cursor: pointer;
   transition: opacity var(--duration-fast) var(--ease), border-color var(--duration-fast) var(--ease);
 }
-.armada-ship__bay[data-hue] { --lamp: var(--hue); background: linear-gradient(90deg, color-mix(in srgb, var(--hue) 12%, var(--bg-base)), var(--bg-base) 55%); }
-/* A free bay: nobody in it, its lamp lit, the light falling across an empty floor toward the hatch. */
-.armada-ship__bay[data-kind="free"] {
-  --lamp: var(--fg-default);
-  border-color: color-mix(in srgb, var(--fg-default) 18%, var(--border-subtle));
-  background:
-    radial-gradient(ellipse 45% 160% at 0% 50%, color-mix(in srgb, var(--fg-default) 20%, transparent), transparent 70%),
-    radial-gradient(ellipse 90% 100% at 30% 0%, color-mix(in srgb, var(--fg-default) 7%, transparent), transparent 80%),
-    var(--bg-base);
-  cursor: default;
-}
-.armada-ship__bay[data-kind="closed"], .armada-ship__bay[data-kind="other"] { background: repeating-linear-gradient(135deg, var(--bg-sunken) 0 var(--space-2), color-mix(in srgb, var(--bg-sunken) 70%, var(--bg-base)) var(--space-2) var(--space-4)); cursor: default; }
-.armada-ship__bay[data-kind="closed"] .armada-ship__title, .armada-ship__bay[data-kind="closed"] .armada-ship__hatch { color: var(--fg-subtle); }
-.armada-ship__bay[data-kind="free"] .armada-ship__title { color: var(--fg-muted); }
+.armada-ship__bay[data-hue] { --lamp: var(--hue); background: radial-gradient(ellipse 80% 90% at 50% 0%, color-mix(in srgb, var(--hue) 13%, transparent), transparent 75%), var(--bg-base); }
 .armada-ship__bay:hover, .armada-ship__bay[data-lit] { border-color: var(--border-strong); }
 .armada-ship__bay[aria-selected="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 var(--border-width) var(--accent); }
-.armada-ship__bay[data-berth] { border-style: dashed; border-color: var(--border-strong); }
 
-.armada-ship__hatch {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-1);
-  align-self: stretch;
-  margin: var(--space-1) 0 var(--space-1) calc((var(--space-3) + var(--border-width) * 2 + var(--space-1)) * -1);
-  border: var(--border-width) solid var(--border-default);
-  border-radius: var(--radius-sm);
-  background: var(--bg-sunken);
-  color: var(--fg-muted);
-  font-family: var(--font-mono);
-  font-size: calc(var(--text-2xs) - 2px);
-  line-height: 1;
-}
-.armada-ship__lamp { width: var(--space-1); height: var(--space-1); border: var(--border-width) solid var(--border-default); border-radius: 50%; background: var(--lamp); }
+.armada-ship__placard { display: flex; flex: none; align-items: center; gap: var(--space-2); padding: 0 var(--space-2); border-bottom: var(--border-width) solid var(--border-subtle); background: var(--bg-sunken); border-radius: var(--radius-md) var(--radius-md) 0 0; }
+.armada-ship__bay-number { color: var(--fg-muted); font-family: var(--font-mono); font-size: var(--text-2xs); line-height: var(--leading-2xs); letter-spacing: 0.06em; text-transform: uppercase; }
+.armada-ship__lamp { flex: none; width: var(--space-2); height: var(--space-2); border: var(--border-width) solid var(--border-default); border-radius: 50%; background: var(--lamp); }
 .armada-ship__bay[data-hue] .armada-ship__lamp, .armada-ship__bay[data-kind="free"] .armada-ship__lamp { border-color: var(--lamp); box-shadow: 0 0 var(--space-2) var(--lamp); }
-.armada-ship__floor { justify-self: center; width: var(--space-4); height: var(--space-4); border: var(--border-width) dashed var(--border-default); border-radius: var(--radius-sm); }
-.armada-ship__bay[data-kind="closed"] .armada-ship__floor { border: 0; }
-.armada-ship__riders { display: inline-flex; gap: var(--space-1); min-width: 0; }
-.armada-ship__riders .armada-ship__drifter { max-width: calc(var(--space-12) * 3); }
-.armada-ship__acts { display: inline-flex; align-items: center; gap: var(--space-1); }
-.armada-ship__pips { display: inline-flex; gap: var(--space-1); margin: 0; padding: 0; list-style: none; }
+.armada-ship__pips { display: inline-flex; gap: var(--space-1); margin: 0 0 0 auto; padding: 0; list-style: none; }
 .armada-ship__pips li { width: var(--space-2); height: var(--space-2); border: var(--border-width) solid var(--border-default); border-radius: 50%; }
 .armada-ship__pips [data-pip="done"] { border-color: var(--status-running); background: var(--status-running); }
 .armada-ship__pips [data-pip="live"] { border-color: var(--hue); background: var(--hue); }
-.armada-ship__port {
-  justify-self: end;
-  width: var(--space-3);
-  height: var(--space-3);
-  margin-right: calc((var(--space-3) + var(--border-width) * 2 + var(--space-1) + var(--space-3) / 2) * -1);
-  border: var(--border-width) solid var(--border-default);
-  border-radius: 50%;
-  background: var(--bg-base);
+
+.armada-ship__room { display: flex; flex: 1 1 auto; align-items: center; gap: var(--space-2); min-height: 0; padding: 0 var(--space-2); }
+.armada-ship__bay .armada-ship__title { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.armada-ship__floor { flex: none; width: var(--space-8); height: var(--space-6); border: var(--border-width) dashed var(--border-strong); border-radius: var(--radius-sm); }
+.armada-ship__deck-line {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  min-height: var(--space-4);
+  padding: 0 var(--space-2) var(--space-1);
+  /* The deck at the bay's mouth, striped as a hangar's is. */
+  background: repeating-linear-gradient(135deg, transparent 0 var(--space-1), color-mix(in srgb, var(--border-default) 70%, transparent) var(--space-1) var(--space-2)) bottom / 100% calc(var(--space-1) / 2) no-repeat;
 }
+.armada-ship__riders { display: inline-flex; gap: var(--space-1); min-width: 0; }
+.armada-ship__riders .armada-ship__drifter { max-width: calc(var(--space-12) * 2.5); }
+.armada-ship__badge { --dot: var(--fg-subtle); flex: none; margin-left: auto; padding: 0 var(--space-1); border: var(--border-width) solid color-mix(in srgb, var(--dot) 50%, transparent); border-radius: var(--radius-sm); color: var(--dot); font-family: var(--font-mono); font-size: var(--text-2xs); line-height: var(--leading-2xs); }
+.armada-ship__port { position: absolute; top: 50%; right: calc(var(--space-1) * -1 - var(--border-width)); width: var(--space-2); height: var(--space-2); border: var(--border-width) solid var(--border-default); border-radius: 50%; background: var(--bg-base); transform: translateY(-50%); }
 .armada-ship__port[data-wired] { border-color: var(--fg-muted); background: var(--bg-raised); }
+
+/* Free: nobody in it, its lamp lit, light falling across an empty floor. Closed: dark, its shutter down. */
+.armada-ship__bay[data-kind="free"] {
+  --lamp: var(--fg-default);
+  border-style: dashed;
+  border-color: color-mix(in srgb, var(--fg-default) 25%, var(--border-default));
+  background: radial-gradient(ellipse 70% 110% at 50% 0%, color-mix(in srgb, var(--fg-default) 15%, transparent), transparent 75%), var(--bg-base);
+  cursor: default;
+}
+.armada-ship__bay[data-kind="free"] .armada-ship__title { color: var(--fg-muted); }
+.armada-ship__bay[data-kind="closed"], .armada-ship__bay[data-kind="other"] {
+  border-color: var(--border-subtle);
+  background: repeating-linear-gradient(0deg, var(--bg-sunken) 0 var(--space-2), color-mix(in srgb, var(--border-subtle) 60%, var(--bg-sunken)) var(--space-2) calc(var(--space-2) + var(--border-width)));
+  cursor: default;
+}
+.armada-ship__bay[data-kind="closed"] .armada-ship__title, .armada-ship__bay[data-kind="closed"] .armada-ship__bay-number { color: var(--fg-subtle); }
+.armada-ship__bay[data-kind="closed"] .armada-ship__floor { border: 0; }
+.armada-ship__bay[data-berth] { border-color: var(--fg-muted); }
+
+/* The picked bay's drawer: under its row, the hull's whole width, its notch over the bay. */
+.armada-ship__drawer {
+  position: relative;
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-width) solid var(--accent);
+  border-radius: var(--radius-md);
+  background: var(--bg-overlay);
+  cursor: default;
+}
+.armada-ship__drawer::before {
+  content: "";
+  position: absolute;
+  top: calc(var(--space-2) * -1);
+  left: var(--notch);
+  border: var(--space-2) solid transparent;
+  border-top: 0;
+  border-bottom-color: var(--accent);
+  transform: translateX(-50%);
+}
+.armada-ship__facts { display: grid; flex: 1 1 calc(var(--space-12) * 6); grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-1) var(--space-4); margin: 0; min-width: 0; }
+.armada-ship__facts > div { display: flex; flex-direction: column; min-width: 0; }
+.armada-ship__facts dt { color: var(--fg-subtle); font-size: var(--text-2xs); line-height: var(--leading-2xs); }
+.armada-ship__facts dd { overflow: hidden; margin: 0; color: var(--fg-default); font-family: var(--font-mono); font-size: var(--text-2xs); line-height: var(--leading-2xs); white-space: nowrap; text-overflow: ellipsis; }
+.armada-ship__acts { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1); }
+
+/* Tight rooms keep their name and drop the rest. */
+@container (max-height: 88px) {
+  .armada-ship__fact { display: none; }
+}
+@container (max-height: 64px) {
+  .armada-ship__deck-line { display: none; }
+}
+@container (max-width: 200px) {
+  .armada-ship__riders .armada-ship__drifter > span { display: none; }
+  .armada-ship__pips { display: none; }
+}
 
 /* The merge line, as cards: farthest from main at the top, the next to merge at the foot, then main. */
 .armada-ship__line { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
@@ -737,11 +785,6 @@ span.armada-view__dot { cursor: default; }
 }
 .armada-ship__card:not([data-wired]) { opacity: 0.7; }
 .armada-ship__card:hover, .armada-ship__card[data-lit] { border-color: var(--border-strong); border-left-color: var(--dot); opacity: 1; }
-.armada-ship__card[data-state="queued"] { --dot: var(--status-not-started); }
-.armada-ship__card[data-state="blocked"] { --dot: var(--status-escalated); }
-.armada-ship__card[data-state="running"] { --dot: var(--status-running); }
-.armada-ship__card[data-state="ready"] { --dot: var(--status-completed-success); }
-.armada-ship__card[data-state="failing"] { --dot: var(--status-completed-failed); }
 .armada-ship__card-head { display: flex; align-items: center; gap: var(--space-2); min-width: 0; font-family: var(--font-mono); font-size: var(--text-2xs); line-height: var(--leading-2xs); }
 .armada-ship__number { color: var(--fg-default); }
 .armada-ship__place { padding: 0 var(--space-1); border: var(--border-width) solid var(--border-default); border-radius: var(--radius-sm); color: var(--fg-muted); }
@@ -764,21 +807,24 @@ span.armada-view__dot { cursor: default; }
 .armada-ship__main[data-red] { --dot: var(--status-completed-failed); }
 .armada-ship__main .armada-view__main { width: var(--space-3); height: var(--space-3); }
 
-/* The wires: a bay to its card in the pull request's colour, solid where a queue holds it, flowing
-   while its checks run; the next one in to the bay it will take, dashed, with an arrow. */
-.armada-ship__wire { --dot: var(--fg-subtle); fill: none; stroke: var(--dot); stroke-width: 1.5; stroke-dasharray: 4 4; opacity: 0.6; transition: opacity var(--duration-fast) var(--ease); }
+/* One colour per pull-request state, for a card, a badge and a wire alike. */
+:is(.armada-ship__card, .armada-ship__badge, .armada-ship__wire)[data-state="queued"] { --dot: var(--status-not-started); }
+:is(.armada-ship__card, .armada-ship__badge, .armada-ship__wire)[data-state="blocked"] { --dot: var(--status-escalated); }
+:is(.armada-ship__card, .armada-ship__badge, .armada-ship__wire)[data-state="running"] { --dot: var(--status-running); }
+:is(.armada-ship__card, .armada-ship__badge, .armada-ship__wire)[data-state="ready"] { --dot: var(--status-completed-success); }
+:is(.armada-ship__card, .armada-ship__badge, .armada-ship__wire)[data-state="failing"] { --dot: var(--status-completed-failed); }
+
+/* The wires: a bay to its card through the hull's gaps, solid where a queue holds it, flowing while its
+   checks run; the next one in to the bay it will take, dashed, with an arrow. */
+.armada-ship__wire { --dot: var(--fg-subtle); fill: none; stroke: var(--dot); stroke-width: 1.5; stroke-dasharray: 4 4; stroke-linejoin: round; opacity: 0.6; transition: opacity var(--duration-fast) var(--ease); }
 .armada-ship__wire[data-queued] { stroke-dasharray: none; }
-.armada-ship__wire[data-state="queued"] { --dot: var(--status-not-started); }
-.armada-ship__wire[data-state="blocked"] { --dot: var(--status-escalated); }
-.armada-ship__wire[data-state="running"] { --dot: var(--status-running); stroke-dasharray: 2 8; animation: armada-ship-flow 1.6s linear infinite; }
-.armada-ship__wire[data-state="ready"] { --dot: var(--status-completed-success); }
-.armada-ship__wire[data-state="failing"] { --dot: var(--status-completed-failed); }
+.armada-ship__wire[data-state="running"] { stroke-dasharray: 2 8; animation: armada-ship-flow 1.6s linear infinite; }
 .armada-ship__wire[data-kind="in"] { --dot: var(--fg-muted); stroke-dasharray: 3 5; }
 .armada-ship__wire[data-lit] { opacity: 1; stroke-width: 2; filter: drop-shadow(0 0 var(--space-1) var(--dot)); }
 .armada-ship__arrow { fill: var(--fg-muted); }
 @keyframes armada-ship-flow { to { stroke-dashoffset: -40; } }
 
-/* One bay lit: its compartment, its wire and its card stand forward and the rest step back. */
+/* One bay lit: its room, its wire and its card stand forward and the rest step back. */
 .armada-ship[data-lighting] .armada-ship__bay:not([data-lit]),
 .armada-ship[data-lighting] .armada-ship__wait:not([data-lit]),
 .armada-ship[data-lighting] .armada-ship__card[data-wired]:not([data-lit]) { opacity: 0.5; }

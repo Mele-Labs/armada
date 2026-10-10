@@ -200,7 +200,7 @@ test("Bays is a filter of its own: each bay a compartment of its repository's sh
   // A bay a Session holds is drawn under the Session's own name, not the process the pool reads.
   await expect.element(bay(/^Bay 3: Flaky store test/)).toBeVisible();
   await expect.element(bay(/^Bay 8: Free/)).toHaveAttribute("data-kind", "free");
-  await expect.element(bay(/^Bay 9: Closed/)).toHaveAttribute("data-kind", "closed");
+  await expect.element(bay(/^Bay 11: Closed/)).toHaveAttribute("data-kind", "closed");
   // A queued Job of this repository waits to go into its free bay; one of another repository does not.
   const queue = page.getByRole("complementary", { name: "Waiting for a bay" });
   await expect.element(queue.getByText("Next in, to bay 08")).toBeVisible();
@@ -210,9 +210,13 @@ test("Bays is a filter of its own: each bay a compartment of its repository's sh
   expect(document.querySelectorAll('.armada-ship__wire[data-kind="in"]').length).toBe(1);
   expect(document.querySelector("footer.armada-view__horizon")).toBeNull();
 
-  // The bays step and act as the grid's tiles do.
+  // Nothing is open until a bay is picked; picking one opens its drawer under its row, with every act.
+  expect(document.querySelector(".armada-ship__drawer")).toBeNull();
   await bay(/^Bay 6: Pin the clock/).click();
   await expect.element(bay(/^Bay 6: Pin the clock/)).toHaveAttribute("aria-selected", "true");
+  const drawer = page.getByRole("group", { name: "Bay 6 in full" });
+  await expect.element(drawer.getByText("fix/pin-store-clock", { exact: false })).toBeVisible();
+  await expect.element(drawer.getByRole("button", { name: "Open #1891" })).toBeVisible();
   await userEvent.keyboard("x");
   await expect.element(page.getByRole("dialog")).toBeVisible();
   await userEvent.keyboard("{Escape}");

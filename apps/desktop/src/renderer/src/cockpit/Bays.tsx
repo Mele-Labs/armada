@@ -1,12 +1,13 @@
-// The Cockpit's Bays: each repository a ship, its worktree bays the compartments down its hull, the work
-// in them marked as the map marks it (a Job a star, a Session a diamond, lit by how much it wants the
-// owner) with the Sessions riding with a Job in orbit round it. What waits for a bay queues at the
-// hatches on the left; on the right the merge line stands as cards, and each bay with a pull request is
-// wired out to its card, main at the foot. A free bay is empty with its lamp lit; a closed one is dark.
+// The Cockpit's Bays: each repository a ship, its worktree bays the compartments of its hull, laid in as
+// many columns as keep each one a room rather than a row, the work in them marked as the map marks it
+// (a Job a star, a Session a diamond, lit by how much it wants the owner) with the Sessions riding with
+// a Job in orbit round it. What waits for a bay queues on the left; on the right the merge line stands
+// as cards, and each bay with a pull request is wired out to its card through the hull's conduits, the
+// gaps between bays, so no wire crosses a bay. A free bay is empty with its lamp lit; a closed one dark.
 // What moves is what is still working: a working Session's orbit, a wire whose checks run.
 
-import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import { Tooltip } from "@armada/components";
+import { useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { Button, Tooltip } from "@armada/components";
 
 import type { Item } from "../Dashboard";
 import type { Bay, BaysRead } from "./bays";
@@ -58,6 +59,23 @@ const itemOf = (bay: Bay) => (bay.holder.kind === "job" || bay.holder.kind === "
 /** A short word for a card on the line: the state, beside the queue's place where it has one. */
 const PULL_SAID: Record<Dot["state"], string> = { queued: "Queued", running: "Checks running", failing: "Failing", ready: "Ready", blocked: "Blocked", open: "Open" };
 
+/** The hull's grid: its columns, every row an even share, and under the picked bay's row a drawer that says more. */
+function rowsOf(bays: readonly Bay[], cols: number, selected: string | undefined): CSSProperties {
+  const rows = Math.max(1, Math.ceil(bays.length / cols));
+  const picked = selected === undefined ? -1 : bays.findIndex((bay) => itemOf(bay)?.key === selected);
+  const row = picked === -1 ? -1 : Math.floor(picked / cols);
+  const tracks = Array.from({ length: rows }, (_, at) => (at === row ? "minmax(calc(var(--space-12) * 1.75), 1.4fr) auto" : "minmax(calc(var(--space-12) + var(--space-1)), 1fr)")).join(" ");
+  return { ["--cols" as string]: cols, gridTemplateRows: tracks };
+}
+
+/** How long a bay has been held, from when its holder took it. */
+function heldFor(since: string | undefined): string | undefined {
+  const at = since === undefined ? NaN : Date.parse(since);
+  if (Number.isNaN(at)) return undefined;
+  const minutes = Math.max(0, Math.round((Date.now() - at) / 60_000));
+  return minutes < 60 ? `${minutes}m` : `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
+}
+
 const ordinal = (place: number) => `${place}${place === 1 ? "st" : place === 2 ? "nd" : place === 3 ? "rd" : "th"}`;
 
 /** Faint dust behind the ship, as the map has: placed by a fixed hash, so it never shifts between draws. */
@@ -71,17 +89,93 @@ const DUST = Array.from({ length: 80 }, (_, at) => {
 
 type Wire = { key: string; lit: string | undefined; kind: "out" | "in"; state: Dot["state"] | undefined; queued: boolean; d: string };
 
-/** A curve from the right edge of one box to the left edge of another, both read where the browser put them. */
-function curve(base: DOMRect, from: DOMRect, to: DOMRect): string {
-  const x1 = from.right - base.left;
-  const y1 = from.top + from.height / 2 - base.top;
-  const x2 = to.left - base.left;
-  const y2 = to.top + to.height / 2 - base.top;
-  const bend = Math.max(24, (x2 - x1) / 2);
-  return `M${x1},${y1} C${x1 + bend},${y1} ${x2 - bend},${y2} ${x2},${y2}`;
+type Point = readonly [number, number];
+
+/** Straight runs through the given corners, each corner rounded, then a curve into the last point. */
+function route(corners: readonly Point[], end: Point): string {
+  const [first, ...rest] = corners;
+  if (first === undefined) return "";
+  const r = 5;
+  let d = `M${first[0]},${first[1]}`;
+  rest.forEach((at, index) => {
+    const before = index === 0 ? first : rest[index - 1]!;
+    const after = rest[index + 1];
+    if (after === undefined) return void (d += ` L${at[0]},${at[1]}`);
+    const into = [Math.sign(at[0] - before[0]), Math.sign(at[1] - before[1])];
+    const out = [Math.sign(after[0] - at[0]), Math.sign(after[1] - at[1])];
+    d += ` L${at[0] - into[0]! * r},${at[1] - into[1]! * r} Q${at[0]},${at[1]} ${at[0] + out[0]! * r},${at[1] + out[1]! * r}`;
+  });
+  const last = corners[corners.length - 1]!;
+  const bend = Math.max(16, Math.abs(end[0] - last[0]) / 2) * Math.sign(end[0] - last[0] || 1);
+  return `${d} C${last[0] + bend},${last[1]} ${end[0] - bend},${end[1]} ${end[0]},${end[1]}`;
 }
 
-export function Bays({ read, reading, selected, onSelect, onOpenLink, actsOf }: {
+/** The columns that keep `count` bays in `width` × `height` closest to a room's shape, about 5 to 2. */
+function columnsFor(count: number, width: number, height: number): number {
+  if (count === 0 || width === 0 || height === 0) return 1;
+  let best = 1;
+  let score = -Infinity;
+  for (let cols = 1; cols <= Math.min(4, count); cols++) {
+    const rows = Math.ceil(count / cols);
+    const w = width / cols;
+    const h = height / rows;
+    // A bay narrower than a title, or shorter than a mark and two lines, is not a room.
+    const fit = Math.min(w / 210, h / 84, 1.6) - Math.abs(Math.log(w / h / 2.4)) * 0.25;
+    if (fit > score) [best, score] = [cols, fit];
+  }
+  return best;
+}
+
+/** What the picked bay says beyond its room: where its branch stands, its step, its Sessions and pull request, and every act. */
+function Drawer({ bay, col, cols, onOpenLink, onOpenSession, actsOf }: {
+  bay: Bay;
+  col: number;
+  cols: number;
+  onOpenLink: (address: string) => void;
+  onOpenSession: (id: string) => void;
+  actsOf: (item: Item) => ReactNode;
+}) {
+  const item = itemOf(bay);
+  if (item === undefined) return null;
+  const steps = item.steps;
+  const held = heldFor(bay.since);
+  const facts: [string, string][] = [
+    ["Branch", [bay.branch, bay.behind === undefined ? undefined : bay.behind === 0 ? "level with main" : `${bay.behind} behind main`].filter(Boolean).join(" · ")],
+    ...(held === undefined ? [] : [["Held", held] as [string, string]]),
+    ...(steps === undefined || item.stepAt === undefined ? [] : [["Step", `${steps[item.stepAt]?.label ?? "—"} · ${item.stepAt + 1} of ${steps.length}`] as [string, string]]),
+    ["Doing", item.fact],
+    ...(bay.riders.length === 0 ? [] : [["Sessions", bay.riders.map((one) => one.session.title ?? one.session.id).join(", ")] as [string, string]]),
+    ["Merge line", bay.dot === undefined ? "No pull request yet" : [bay.dot.card.heading, bay.dot.card.place === undefined ? undefined : `${ordinal(bay.dot.card.place)} in line`, bay.dot.card.says].filter(Boolean).join(" · ")],
+  ];
+  const link = bay.dot?.act?.kind === "link" ? bay.dot.act.url : undefined;
+  return (
+    <li className="armada-ship__drawer" role="group" aria-label={`Bay ${bay.slot} in full`} style={{ ["--notch" as string]: `${((col + 0.5) / cols) * 100}%` }} onClick={(event) => event.stopPropagation()}>
+      <dl className="armada-ship__facts">
+        {facts.map(([term, value]) => (
+          <div key={term}>
+            <dt>{term}</dt>
+            <dd title={value}>{value}</dd>
+          </div>
+        ))}
+      </dl>
+      <span className="armada-ship__acts">
+        {actsOf(item)}
+        {link === undefined || bay.dot === undefined ? null : (
+          <Button variant="ghost" size="sm" onClick={() => onOpenLink(link)}>
+            Open {bay.dot.card.heading}
+          </Button>
+        )}
+        {bay.riders.slice(0, 2).map((one) => (
+          <Button key={one.session.id} variant="ghost" size="sm" onClick={() => onOpenSession(one.session.id)}>
+            Open {one.session.title ?? "Session"}
+          </Button>
+        ))}
+      </span>
+    </li>
+  );
+}
+
+export function Bays({ read, reading, selected, onSelect, onOpenLink, onOpenSession, actsOf }: {
   read: BaysRead;
   /** Fleet has not answered for the pool yet. */
   reading: boolean;
@@ -89,12 +183,14 @@ export function Bays({ read, reading, selected, onSelect, onOpenLink, actsOf }: 
   selected: string | undefined;
   onSelect: (key: string) => void;
   onOpenLink: (address: string) => void;
+  onOpenSession: (id: string) => void;
   /** The picked tile's acts, drawn in its bay. */
   actsOf: (item: Item) => ReactNode;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const [wires, setWires] = useState<readonly Wire[]>([]);
   const [hovered, setHovered] = useState<string>();
+  const [columns, setColumns] = useState<Readonly<Record<string, number>>>({});
   const bays = read.harbours.flatMap((one) => one.bays);
   const own = selected === undefined ? undefined : (bays.find((bay) => itemOf(bay)?.key === selected)?.key ?? read.waiting.find((one) => one.key === selected)?.key);
   // Only a pointer lights a bay and steps the rest back; the cursor marks its bay and wire alone.
@@ -117,30 +213,70 @@ export function Bays({ read, reading, selected, onSelect, onOpenLink, actsOf }: 
     const find = (selector: string) => root.querySelector(selector)?.getBoundingClientRect();
     const draw = () => {
       const base = root.getBoundingClientRect();
+      const x = (value: number) => value - base.left;
+      const y = (value: number) => value - base.top;
       const out = bays.flatMap((bay): Wire[] => {
         if (bay.dot === undefined) return [];
-        const from = find(`[data-port="${CSS.escape(bay.key)}"]`);
-        const to = find(`[data-card="${CSS.escape(bay.dot.key)}"]`);
-        return from === undefined || to === undefined ? [] : [{ key: `out:${bay.key}`, lit: bay.key, kind: "out", state: bay.dot.state, queued: bay.dot.queued, d: curve(base, from, to) }];
+        const room = root.querySelector<HTMLElement>(`[data-bay="${CSS.escape(bay.key)}"]`);
+        const grid = room?.parentElement?.getBoundingClientRect();
+        const card = find(`[data-card="${CSS.escape(bay.dot.key)}"]`);
+        if (room === null || room === undefined || grid === undefined || card === undefined) return [];
+        const box = room.getBoundingClientRect();
+        const col = Number(room.dataset.col);
+        const cols = Number(room.dataset.cols);
+        const port: Point = [x(box.right), y(box.top + box.height / 2)];
+        const into: Point = [x(card.left), y(card.top + card.height / 2)];
+        // The rightmost column goes straight out; any other runs down the gap to its right, then along the
+        // gap below its row to the hull's wall, each column at its own height in that gap.
+        const gapX = (Number(getComputedStyle(room.parentElement!).columnGap.replace("px", "")) || 16) / 2;
+        const gapY = (Number(getComputedStyle(room.parentElement!).rowGap.replace("px", "")) || 12) / 2;
+        const lane = (col - (cols - 2) / 2) * 3;
+        const corners: Point[] =
+          col === cols - 1
+            ? [port]
+            : [port, [port[0] + gapX, port[1]], [port[0] + gapX, y(box.bottom) + gapY + lane], [x(grid.right) + gapX, y(box.bottom) + gapY + lane]];
+        return [{ key: `out:${bay.key}`, lit: bay.key, kind: "out", state: bay.dot.state, queued: bay.dot.queued, d: route(corners, into) }];
       });
       const inbound = [...berths].flatMap(([key, bay]): Wire[] => {
         const from = find(`[data-wait="${CSS.escape(key)}"]`);
-        const to = find(`[data-hatch="${CSS.escape(bay.key)}"]`);
-        return from === undefined || to === undefined ? [] : [{ key: `in:${key}`, lit: key, kind: "in", state: undefined, queued: false, d: curve(base, from, to) }];
+        const room = root.querySelector<HTMLElement>(`[data-bay="${CSS.escape(bay.key)}"]`);
+        const grid = room?.parentElement?.getBoundingClientRect();
+        if (from === undefined || room === null || room === undefined || grid === undefined) return [];
+        const box = room.getBoundingClientRect();
+        const gapX = (Number(getComputedStyle(room.parentElement!).columnGap.replace("px", "")) || 16) / 2;
+        const gapY = (Number(getComputedStyle(room.parentElement!).rowGap.replace("px", "")) || 12) / 2;
+        const start: Point = [x(from.right), y(from.top + from.height / 2)];
+        const door: Point = [x(box.left), y(box.top + box.height / 2)];
+        // Into the first column straight; deeper in, along the gap above the bay's row and down the gap to its left.
+        if (Number(room.dataset.col) === 0) return [{ key: `in:${key}`, lit: key, kind: "in", state: undefined, queued: false, d: route([start], door) }];
+        const above = y(box.top) - gapY;
+        const corners: Point[] = [[x(grid.left) - gapX, above], [x(box.left) - gapX, above], [x(box.left) - gapX, door[1]], door];
+        const lead = route([start], corners[0]!);
+        const run = route(corners.slice(0, -1), door).replace(/^M[^ ]+/, "");
+        return [{ key: `in:${key}`, lit: key, kind: "in", state: undefined, queued: false, d: `${lead}${run}` }];
       });
       const drawn = [...out, ...inbound];
       setWires((was) => (JSON.stringify(was) === JSON.stringify(drawn) ? was : drawn));
+      // Each hull's columns, from the room its grid has.
+      const next: Record<string, number> = {};
+      root.querySelectorAll<HTMLElement>(".armada-ship__bays").forEach((grid) => {
+        const count = grid.children.length;
+        next[grid.dataset.harbour ?? ""] = columnsFor(count, grid.clientWidth, grid.clientHeight);
+      });
+      setColumns((was) => (JSON.stringify(was) === JSON.stringify(next) ? was : next));
     };
     draw();
     const watch = new ResizeObserver(draw);
     watch.observe(root);
-    const cards = root.querySelector(".armada-ship__cards");
-    cards?.addEventListener("scroll", draw);
+    root.querySelectorAll(".armada-ship__bays").forEach((grid) => watch.observe(grid));
+    // A scrolled list moves what a wire ends at, so a scroll draws again.
+    const scrollers = [...root.querySelectorAll(".armada-ship__cards, .armada-ship__bays")];
+    scrollers.forEach((one) => one.addEventListener("scroll", draw));
     return () => {
       watch.disconnect();
-      cards?.removeEventListener("scroll", draw);
+      scrollers.forEach((one) => one.removeEventListener("scroll", draw));
     };
-  }, [read]);
+  }, [read, columns, selected]);
 
   if (read.harbours.length === 0) {
     return <p className="armada-ship__empty">{reading ? "Reading the bays…" : "Fleet serves no worktree bays for this repository."}</p>;
@@ -234,19 +370,23 @@ export function Bays({ read, reading, selected, onSelect, onOpenLink, actsOf }: 
                   {held} of {harbour.bays.length} bays held
                 </span>
               </header>
-              <ol className="armada-ship__bays" role="listbox" aria-label="Bays">
-                {harbour.bays.map((bay) => {
+              <ol className="armada-ship__bays" role="listbox" aria-label="Bays" data-harbour={harbour.manifest} style={rowsOf(harbour.bays, columns[harbour.manifest] ?? 2, selected)}>
+                {harbour.bays.flatMap((bay, index) => {
                   const item = itemOf(bay);
                   const { title, fact } = said(bay);
                   const on = item !== undefined && item.key === selected;
                   const steps = item?.steps;
-                  return (
+                  const cols = columns[harbour.manifest] ?? 2;
+                  const room = (
                     <li
                       key={bay.key}
                       className="armada-ship__bay"
                       role="option"
                       aria-selected={on}
                       aria-label={`Bay ${bay.slot}: ${title}`}
+                      data-bay={bay.key}
+                      data-col={index % cols}
+                      data-cols={cols}
                       data-kind={bay.holder.kind}
                       data-hue={item?.hue}
                       data-lit={lit === bay.key || undefined}
@@ -254,20 +394,29 @@ export function Bays({ read, reading, selected, onSelect, onOpenLink, actsOf }: 
                       onMouseEnter={() => setHovered(bay.key)}
                       onClick={() => (item === undefined ? undefined : onSelect(item.key))}
                     >
-                      <span className="armada-ship__hatch" data-hatch={bay.key} aria-hidden="true">
-                        <span className="armada-ship__lamp" />
-                        {String(bay.slot).padStart(2, "0")}
+                      <span className="armada-ship__placard">
+                        <span className="armada-ship__lamp" aria-hidden="true" />
+                        <span className="armada-ship__bay-number">Bay {String(bay.slot).padStart(2, "0")}</span>
+                        {steps === undefined || steps.length < 2 ? null : (
+                          <ol className="armada-ship__pips" aria-label="Steps">
+                            {steps.map((step, at) => (
+                              <li key={step.id} data-pip={at < (item?.stepAt ?? 0) ? "done" : at === item?.stepAt ? "live" : "ahead"} title={step.label} />
+                            ))}
+                          </ol>
+                        )}
                       </span>
-                      {bay.holder.kind === "job" || bay.holder.kind === "session" ? (
-                        <Mark item={item} session={bay.holder.kind === "session"} pods={bay.riders.map((one) => ({ key: one.session.id, hue: one.item?.hue ?? "queued", working: one.session.turn.state === "working" }))} />
-                      ) : (
-                        <span className="armada-ship__floor" aria-hidden="true" />
-                      )}
-                      <span className="armada-ship__what">
-                        <span className="armada-ship__title">{title}</span>
-                        <span className="armada-ship__fact">{fact}</span>
+                      <span className="armada-ship__room">
+                        {bay.holder.kind === "job" || bay.holder.kind === "session" ? (
+                          <Mark item={item} session={bay.holder.kind === "session"} pods={bay.riders.map((one) => ({ key: one.session.id, hue: one.item?.hue ?? "queued", working: one.session.turn.state === "working" }))} />
+                        ) : (
+                          <span className="armada-ship__floor" aria-hidden="true" />
+                        )}
+                        <span className="armada-ship__what">
+                          <span className="armada-ship__title">{title}</span>
+                          <span className="armada-ship__fact">{fact}</span>
+                        </span>
                       </span>
-                      {bay.riders.length === 0 ? null : (
+                      <span className="armada-ship__deck-line">
                         <span className="armada-ship__riders">
                           {bay.riders.slice(0, 2).map((one) => (
                             <Tooltip key={one.session.id} label={`Session: ${one.session.title ?? one.session.id}`}>
@@ -286,21 +435,23 @@ export function Bays({ read, reading, selected, onSelect, onOpenLink, actsOf }: 
                             </Tooltip>
                           ))}
                         </span>
-                      )}
-                      {on && item !== undefined ? (
-                        <span className="armada-ship__acts" onClick={(event) => event.stopPropagation()}>
-                          {actsOf(item)}
-                        </span>
-                      ) : steps === undefined || steps.length < 2 ? null : (
-                        <ol className="armada-ship__pips" aria-label="Steps">
-                          {steps.map((step, at) => (
-                            <li key={step.id} data-pip={at < (item?.stepAt ?? 0) ? "done" : at === item?.stepAt ? "live" : "ahead"} title={step.label} />
-                          ))}
-                        </ol>
-                      )}
-                      <span className="armada-ship__port" data-port={bay.key} data-wired={bay.dot === undefined ? undefined : ""} aria-hidden="true" />
+                        {bay.dot === undefined ? null : (
+                          <span className="armada-ship__badge" data-state={bay.dot.state}>
+                            {bay.dot.card.heading.startsWith("#") ? bay.dot.card.heading : "Landing"}
+                            {bay.dot.card.place === undefined ? "" : ` · ${ordinal(bay.dot.card.place)}`}
+                          </span>
+                        )}
+                      </span>
+                      <span className="armada-ship__port" data-wired={bay.dot === undefined ? undefined : ""} aria-hidden="true" />
                     </li>
                   );
+                  // The drawer opens under the picked bay's row, its notch over the bay.
+                  const cols2 = columns[harbour.manifest] ?? 2;
+                  const picked = selected === undefined ? -1 : harbour.bays.findIndex((one) => itemOf(one)?.key === selected);
+                  const endOfRow = picked === -1 ? -1 : Math.min(harbour.bays.length - 1, Math.floor(picked / cols2) * cols2 + cols2 - 1);
+                  if (index !== endOfRow) return [room];
+                  const chosen = harbour.bays[picked]!;
+                  return [room, <Drawer key={`drawer:${chosen.key}`} bay={chosen} col={picked % cols2} cols={cols2} onOpenLink={onOpenLink} onOpenSession={onOpenSession} actsOf={actsOf} />];
                 })}
               </ol>
               <footer className="armada-ship__stern" aria-hidden="true">
