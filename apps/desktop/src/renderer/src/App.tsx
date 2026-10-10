@@ -39,7 +39,8 @@ import { BridgeSettings, ModsSurface, openSettingsAt } from "@armada/settings";
 import { Kit } from "@armada/manifest";
 import { Reports } from "@armada/screens";
 import { Composing } from "./Composing";
-import { useEscapeLeavesJob, useNow, useReturnToRow, useSummoned } from "./app-effects";
+import { useEscapeLeavesJob, useLandings, useNow, useReturnToRow, useSummoned } from "./app-effects";
+import { CallAlerts } from "./cockpit/CallAlerts";
 import { aJobAct, ConfirmAct, type Confirming } from "./ConfirmAct";
 import { PaletteMount } from "./PaletteMount";
 import { FLEET_DOWN } from "./palette";
@@ -192,11 +193,7 @@ export function App({ draft }: AppProps = {}) {
   // it and Escape is what clears it.
   const [openJob, setOpenJob] = useState<string | null>(null);
   const asked = useAsked(openJob, state, () => goTo(SURFACE.mergeLine)); // Where the Checks page's requester links sent a person. `checks-surface.tsx`.
-  // The section a pressed notification asked for. **A token rather than a
-  // call**: the press may have arrived over the composer or over a Job, so
-  // Overview is not mounted yet, and it opens and scrolls to the section once
-  // it is. `at` is what makes a second press of the same section land.
-  const [landing, setLanding] = useState<{ section: "needs-you"; at: number } | null>(null);
+  const lands = useLandings(); // The section a pressed notification asked for, and the call an alert did.
   // Whether the composer is open. It used to sit permanently above the list;
   // `New job` is what opens it now, so the surface is the list until somebody
   // asks for the form — **or until a moment being replayed hands the window a
@@ -411,13 +408,7 @@ export function App({ draft }: AppProps = {}) {
     onWriteProposal: writeManifestProposal,
   });
 
-  useSummoned((jobId) => {
-    setComposing(false);
-    setAuditing(false);
-    setClearing(false);
-    setOpenJob(jobId);
-    if (jobId === null) setLanding({ section: "needs-you", at: Date.now() });
-  });
+  useSummoned((jobId) => (setComposing(false), setAuditing(false), setClearing(false), setOpenJob(jobId), jobId === null && lands.landOn()));
 
   useEscapeLeavesJob(openJob, close);
 
@@ -569,6 +560,7 @@ export function App({ draft }: AppProps = {}) {
     () => dockCardsOf(state.questions, state.jobs, repositories, now, { ...dockAnswering, onDiscuss: onDiscussHelm }),
     [state.questions, state.jobs, repositories, now, dockAnswering, onDiscussHelm],
   );
+  const atCockpit = openJob === null && !composing && !auditing && showingOf({ clearing, manifesting, settingsShowing, modding, kitting, guiding, studying, lining, learning, workflowing, checking, sessioning, doctoring }) === SURFACE.overview; // Its call is already in front.
   // Back and forward are keys and nothing on screen — `history.ts`.
   const [jobAt, onJobWhere] = useJobTab(openJob);
   useHistory(
@@ -1090,8 +1082,10 @@ export function App({ draft }: AppProps = {}) {
                   onCompose={() => setComposing(true)}
                   onCopied={setCopied}
                   onCursor={setCursor}
-                  land={landing}
-                  onLanded={() => setLanding(null)}
+                  land={lands.landing}
+                  onLanded={lands.landed}
+                  bring={lands.bringing}
+                  onBrought={lands.brought}
                   onOpenLink={openProseLink} onFix={(fix) => void commands.fixMain(fix)}
                   onOpenSession={openSession}
                   nowViews={draft?.calls} nows={draft?.now} onTell={tell}
@@ -1192,7 +1186,9 @@ export function App({ draft }: AppProps = {}) {
           copied={copied}
           said={telling}
           onCopied={setCopied}
-        />
+        >
+          <CallAlerts state={state} picked={pickedRepository} nowViews={draft?.calls} onCockpit={atCockpit} onShow={(key) => (goTo(SURFACE.overview), lands.bring(key))} />
+        </Toasts>
         </SessionsOwnership>
       </GuidanceProvider>
     </ProseLinks.Provider>

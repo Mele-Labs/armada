@@ -2456,7 +2456,7 @@ nothing but the edge.
 | Placement | Where | Rule |
 | --- | --- | --- |
 | Inline | In the row, or beside the act | Contained to the thing you touched |
-| Toast | Bottom trailing, inset `--space-6`, shadowed | A confirmation, which may carry no act and goes on its own; or a press that failed or was not sent, which carries its acts and stays until dismissed |
+| Toast | Bottom trailing, inset `--space-6`, shadowed | A confirmation, which may carry no act and goes on its own; or a press that failed or was not sent, which carries its acts and stays until dismissed; or a call that has come for the owner while he is away from the cockpit, which is pressable as a whole, opens that call's card, and goes when the call is dealt with or after fifteen seconds |
 | Banner | Above the surface, inside it | Persistent. The surface works beneath |
 | Full-surface | Replaces the surface | The one placement that takes the screen |
 
