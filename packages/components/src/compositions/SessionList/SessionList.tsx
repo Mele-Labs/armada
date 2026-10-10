@@ -1,11 +1,12 @@
 import { useLayoutEffect, useRef, useState } from "react";
-import type { ReactNode } from "react";
+import type { KeyboardEvent, ReactNode } from "react";
 import { BellRing, Search } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
 import { Input } from "../../primitives/Input/Input";
 import { Tabs, type TabsItem } from "../../primitives/Tabs/Tabs";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
+import { isPressed } from "../../keymap";
 import { Chip, type OwnerChipRef } from "../OwnerChip/OwnerChip";
 import { RetroPress } from "../RetroPress/RetroPress";
 import { ModMark, SessionMark, type SessionState } from "../SessionFrame/SessionFrame";
@@ -179,7 +180,55 @@ function itemsOf(row: SessionRowView): Item[] {
   return items;
 }
 
+
+type Way = "ArrowUp" | "ArrowDown" | "ArrowLeft" | "ArrowRight";
+const WAYS: readonly string[] = ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"];
+
+/** The tile nearest `from` the way an arrow points, as the glass lays them out: across the columns and down each one. */
+function nearest(from: HTMLElement, all: readonly HTMLElement[], way: Way): HTMLElement | undefined {
+  // Measured by the tile, not the press inside it, whose width moves with what sits beside it.
+  const centre = (one: HTMLElement) => {
+    const box = (one.closest(".armada-session-list__row") ?? one).getBoundingClientRect();
+    return { x: box.left + box.width / 2, y: box.top + box.height / 2 };
+  };
+  const here = centre(from);
+  let best: { one: HTMLElement; score: number } | undefined;
+  for (const one of all) {
+    if (one === from) continue;
+    const there = centre(one);
+    const dx = there.x - here.x;
+    const dy = there.y - here.y;
+    const ahead = way === "ArrowRight" ? dx : way === "ArrowLeft" ? -dx : way === "ArrowDown" ? dy : -dy;
+    const aside = way === "ArrowRight" || way === "ArrowLeft" ? Math.abs(dy) : Math.abs(dx);
+    if (ahead <= 1) continue;
+    // Straight ahead beats nearer but off to the side.
+    const score = ahead + aside * 2;
+    if (best === undefined || score < best.score) best = { one, score };
+  }
+  return best?.one;
+}
+
 export function SessionList({ groups, query, onQuery, onOpen, onStart, onRetro, views, view, onView, now = Date.now() }: SessionListProps) {
+  const glass = useRef<HTMLDivElement>(null);
+  const tiles = () => [...(glass.current?.querySelectorAll<HTMLElement>(".armada-session-list__open") ?? [])];
+  // The arrows move across the glass from the tile that has focus. Spatial rather than an act, so bare keys, as the cockpit's are.
+  const roam = (event: KeyboardEvent) => {
+    if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey || !WAYS.includes(event.key)) return;
+    const from = (event.target as HTMLElement).closest<HTMLElement>(".armada-session-list__row")?.querySelector<HTMLElement>(".armada-session-list__open");
+    if (from === null || from === undefined) return;
+    const to = nearest(from, tiles(), event.key as Way);
+    event.preventDefault();
+    to?.focus();
+  };
+  // Down, or Escape on an empty search, hands the keys from the field to the first tile.
+  const leave = (event: KeyboardEvent<HTMLInputElement>) => {
+    const bare = !(event.metaKey || event.ctrlKey || event.altKey || event.shiftKey);
+    if (!((bare && event.key === "ArrowDown") || (isPressed("close", event) && event.currentTarget.value === ""))) return;
+    const first = tiles()[0];
+    if (first === undefined) return;
+    event.preventDefault();
+    first.focus();
+  };
   return (
     <section className="armada-session-list" aria-label="Sessions">
       <div className="armada-session-list__head">
@@ -188,54 +237,59 @@ export function SessionList({ groups, query, onQuery, onOpen, onStart, onRetro, 
           New Session
         </Button>
       </div>
-      <Input
-        type="search"
-        aria-label="Search Sessions"
-        mono
-        value={query}
-        onChange={(event) => onQuery(event.target.value)}
-        trailing={<Search size={12} strokeWidth={2} aria-hidden />}
-      />
-      {views === undefined || view === undefined || onView === undefined ? null : <Tabs items={[...views]} value={view} onChange={onView} />}
-      {groups.map((group) => (
-        <div className="armada-session-list__group" key={group.label}>
-          <h3 className="armada-session-list__eyebrow">{group.label}</h3>
-          <ul className="armada-session-list__rows">
-            {group.rows.map((row) => {
-              const items = itemsOf(row);
-              return (
-                <li key={row.id} className="armada-session-list__row" data-state={row.state} aria-label={row.title ?? row.address ?? row.id}>
-                  <div className="armada-session-list__top">
-                    <button type="button" className="armada-session-list__open" onClick={() => onOpen(row.id)}>
-                      {row.state === "quiet" && row.modOutOfDate === true ? <ModMark size={12} /> : <SessionMark state={row.state} said={row.said} />}
-                      <span className="armada-session-list__title">
-                        {row.title ?? <span className="armada-session-list__id">{row.address ?? row.id}</span>}
-                      </span>
-                      {row.modOutOfDate === true && row.state !== "quiet" ? <ModMark size={12} /> : null}
-                      {row.waiting === undefined || row.waiting.length === 0 ? null : (
-                        <Tooltip label={row.waiting.join("; ")}>
-                          <span className="armada-session-mark" role="img" aria-label={`Waiting on you: ${row.waiting.join("; ")}`}>
-                            <BellRing size={12} strokeWidth={2} aria-hidden />
+      <div className="armada-session-list__controls">
+        <Input
+          type="search"
+          aria-label="Search Sessions"
+          mono
+          value={query}
+          onChange={(event) => onQuery(event.target.value)}
+          onKeyDown={leave}
+          trailing={<Search size={12} strokeWidth={2} aria-hidden />}
+        />
+        {views === undefined || view === undefined || onView === undefined ? null : <Tabs items={[...views]} value={view} onChange={onView} />}
+      </div>
+      <div className="armada-session-list__glass" ref={glass} onKeyDown={roam}>
+        {groups.map((group) => (
+          <div className="armada-session-list__group" key={group.label}>
+            <h3 className="armada-session-list__eyebrow">{group.label}</h3>
+            <ul className="armada-session-list__rows">
+              {group.rows.map((row) => {
+                const items = itemsOf(row);
+                return (
+                  <li key={row.id} className="armada-session-list__row" data-state={row.state} aria-label={row.title ?? row.address ?? row.id}>
+                    <div className="armada-session-list__top">
+                      <button type="button" className="armada-session-list__open" onClick={() => onOpen(row.id)}>
+                        {row.state === "quiet" && row.modOutOfDate === true ? <ModMark size={12} /> : <SessionMark state={row.state} said={row.said} />}
+                        <span className="armada-session-list__title">
+                          {row.title ?? <span className="armada-session-list__id">{row.address ?? row.id}</span>}
+                        </span>
+                        {row.modOutOfDate === true && row.state !== "quiet" ? <ModMark size={12} /> : null}
+                        {row.waiting === undefined || row.waiting.length === 0 ? null : (
+                          <Tooltip label={row.waiting.join("; ")}>
+                            <span className="armada-session-mark" role="img" aria-label={`Waiting on you: ${row.waiting.join("; ")}`}>
+                              <BellRing size={12} strokeWidth={2} aria-hidden />
+                            </span>
+                          </Tooltip>
+                        )}
+                      </button>
+                      {row.lastTurn === undefined ? null : (
+                        <Tooltip label={`Last turn ${row.lastTurn}`}>
+                          <span className="armada-session-list__last" aria-label={`Last turn ${row.lastTurn}`}>
+                            {(row.lastTurnAt === undefined ? undefined : since(row.lastTurnAt, now)) ?? row.lastTurn}
                           </span>
                         </Tooltip>
                       )}
-                    </button>
-                    {row.lastTurn === undefined ? null : (
-                      <Tooltip label={`Last turn ${row.lastTurn}`}>
-                        <span className="armada-session-list__last" aria-label={`Last turn ${row.lastTurn}`}>
-                          {(row.lastTurnAt === undefined ? undefined : since(row.lastTurnAt, now)) ?? row.lastTurn}
-                        </span>
-                      </Tooltip>
-                    )}
-                    {onRetro === undefined ? null : <RetroPress writing={row.retroWriting === true} onPress={() => onRetro(row.id)} />}
-                  </div>
-                  {items.length === 0 ? null : <OpenLine items={items} />}
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      ))}
+                      {onRetro === undefined ? null : <RetroPress writing={row.retroWriting === true} onPress={() => onRetro(row.id)} />}
+                    </div>
+                    {items.length === 0 ? null : <OpenLine items={items} />}
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ))}
+      </div>
     </section>
   );
 }
