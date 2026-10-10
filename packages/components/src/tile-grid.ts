@@ -95,7 +95,9 @@ export function useTileGrid(root: RefObject<HTMLElement | null>, options: TileGr
           if (was === "") one.removeAttribute("tabindex");
           else one.setAttribute("tabindex", was);
           one.removeAttribute(ROVED);
-        } else if (!open && !one.hasAttribute(ROVED)) {
+        } else if (!open && one.getAttribute("tabindex") !== "-1") {
+          // Taken out, or put back in since by its own component (a tooltip's trigger gives itself a stop
+          // once the tile around it is no longer focusable): out again, keeping the stop it asked for.
           one.setAttribute(ROVED, one.getAttribute("tabindex") ?? "");
           one.setAttribute("tabindex", "-1");
         }
@@ -185,7 +187,8 @@ export function useTileGrid(root: RefObject<HTMLElement | null>, options: TileGr
 
     rove();
     const watch = new MutationObserver(rove);
-    watch.observe(element, { childList: true, subtree: true });
+    // A `tabindex` set after the last pass is roved too, or a stop a component gives itself on render slips in.
+    watch.observe(element, { childList: true, subtree: true, attributes: true, attributeFilter: ["tabindex"] });
     element.addEventListener("focusin", noted);
     element.addEventListener("keydown", press);
     window.addEventListener("keydown", idle);
