@@ -1,6 +1,6 @@
 /* The Sessions list as the cockpit draws its viewscreen: a sunken glass under a header band, every
-   Session a tile standing on it. State is carried in the frame (its hue, its edge, its glass), and
-   a Session waiting on the owner is lit. Tokens only. */
+   Session a tile standing on it, each heading a column of the board. State is carried in the frame
+   (its hue, its edge, its glass), and a Session waiting on the owner is lit. Tokens only. */
 
 .armada-session-list {
   display: flex;
@@ -47,35 +47,27 @@
 
 /* ---- The glass: a faint ruled grid, so the tiles read as standing on something ---------------- */
 
+/* Each heading a column, side by side where the width holds them and stacked where it does not. */
 .armada-session-list__glass {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(calc(var(--space-12) * 6), 1fr));
+  align-items: start;
   gap: var(--space-4);
   min-width: 0;
   padding: var(--space-4);
   background:
-    linear-gradient(
-      color-mix(in srgb, var(--border-subtle) 55%, transparent)
-        var(--border-width),
-      transparent var(--border-width)
-    ),
-    linear-gradient(
-      90deg,
-      color-mix(in srgb, var(--border-subtle) 55%, transparent)
-        var(--border-width),
-      transparent var(--border-width)
-    );
+    linear-gradient(color-mix(in srgb, var(--border-subtle) 55%, transparent) var(--border-width), transparent var(--border-width)),
+    linear-gradient(90deg, color-mix(in srgb, var(--border-subtle) 55%, transparent) var(--border-width), transparent var(--border-width));
   background-size: var(--space-6) var(--space-6);
 }
 
-.armada-session-list__glass:empty {
-  display: none;
-}
+.armada-session-list__glass:empty { display: none; }
 
 .armada-session-list__group {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+  min-width: 0;
 }
 
 .armada-session-list__eyebrow {
@@ -90,12 +82,8 @@
 }
 
 .armada-session-list__rows {
-  display: grid;
-  grid-template-columns: repeat(
-    auto-fill,
-    minmax(calc(var(--space-12) * 4), 1fr)
-  );
-  grid-auto-rows: min-content;
+  display: flex;
+  flex-direction: column;
   gap: var(--space-3);
   margin: 0;
   padding: 0;
@@ -112,43 +100,25 @@
   justify-content: space-between;
   gap: var(--space-2);
   min-width: 0;
-  min-height: calc(var(--space-12) * 1.5);
   padding: var(--space-3);
-  border: calc(var(--border-width) * 2) solid
-    color-mix(in srgb, var(--hue) 40%, var(--border-subtle));
+  border: calc(var(--border-width) * 2) solid color-mix(in srgb, var(--hue) 40%, var(--border-subtle));
   border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--hue) 5%, var(--bg-raised));
   font-size: var(--text-sm);
   line-height: var(--leading-sm);
-  transition:
-    border-color var(--duration-fast) var(--ease),
-    background var(--duration-fast) var(--ease);
+  transition: border-color var(--duration-fast) var(--ease), background var(--duration-fast) var(--ease);
 }
 
 /* The hue, from the Job rows' own status tokens. */
-.armada-session-list__row[data-state="working"] {
-  --hue: var(--status-running);
-}
-.armada-session-list__row[data-state="waiting"] {
-  --hue: var(--status-awaiting-review);
-}
-.armada-session-list__row[data-state="failing"] {
-  --hue: var(--status-completed-failed);
-}
-.armada-session-list__row[data-state="idle"] {
-  --hue: var(--status-completed-success);
-}
-.armada-session-list__row[data-state="blank"] {
-  --hue: var(--status-not-started);
-}
+.armada-session-list__row[data-state="working"] { --hue: var(--status-running); }
+.armada-session-list__row[data-state="waiting"] { --hue: var(--status-awaiting-review); }
+.armada-session-list__row[data-state="failing"] { --hue: var(--status-completed-failed); }
+.armada-session-list__row[data-state="idle"] { --hue: var(--status-completed-success); }
+.armada-session-list__row[data-state="blank"] { --hue: var(--status-not-started); }
 
-.armada-session-list__row[data-state] .armada-session-mark {
-  color: var(--hue);
-}
+.armada-session-list__row[data-state] .armada-session-mark { color: var(--hue); }
 
-.armada-session-list__row:hover {
-  background: color-mix(in srgb, var(--hue) 10%, var(--bg-raised));
-}
+.armada-session-list__row:hover { background: color-mix(in srgb, var(--hue) 10%, var(--bg-raised)); }
 
 /* Waiting on the owner, or red on its checks: lit, as a tile that needs him is on the cockpit's glass. */
 .armada-session-list__row[data-state="waiting"],
@@ -203,13 +173,8 @@
   z-index: 1;
 }
 
-.armada-session-list__open:focus-visible {
-  outline: none;
-}
-.armada-session-list__open:focus-visible::after {
-  outline: var(--focus-ring);
-  outline-offset: var(--focus-ring-offset);
-}
+.armada-session-list__open:focus-visible { outline: none; }
+.armada-session-list__open:focus-visible::after { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
 
 /* Two lines, then clamped. */
 .armada-session-list__title {
@@ -223,9 +188,7 @@
 }
 
 .armada-session-list__row[data-state="ended"] .armada-session-list__title,
-.armada-session-list__row[data-state="quiet"] .armada-session-list__title {
-  color: var(--fg-muted);
-}
+.armada-session-list__row[data-state="quiet"] .armada-session-list__title { color: var(--fg-muted); }
 
 .armada-session-list__id {
   font-family: var(--font-mono);
@@ -249,8 +212,7 @@
   gap: var(--space-2);
   overflow: hidden;
   padding-top: var(--space-2);
-  border-top: var(--border-width) solid
-    color-mix(in srgb, var(--hue) 25%, var(--border-subtle));
+  border-top: var(--border-width) solid color-mix(in srgb, var(--hue) 25%, var(--border-subtle));
   font-family: var(--font-mono);
 }
 
