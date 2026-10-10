@@ -35,36 +35,35 @@ function Mark({ item, session, pods = [] }: { item: Item | undefined; session: b
   );
 }
 
-/** What a bay says: its holder's title and the line under it, or what an empty bay is. */
+/** What a bay says at rest: its holder's title and what it is doing now, or what an empty bay is. Where its branch stands is the drawer's. */
 function said(bay: Bay): { title: string; fact: string } {
   const { holder } = bay;
-  const branch = bay.branch ?? "";
-  const behind = bay.behind === undefined ? undefined : bay.behind === 0 ? "level with main" : `${bay.behind} behind main`;
   switch (holder.kind) {
     case "job":
-      return { title: holder.title, fact: [holder.item?.fact, branch].filter(Boolean).join(" · ") };
+      return { title: holder.title, fact: holder.item?.fact ?? "" };
     case "session":
-      return { title: holder.title, fact: ["Session", branch].filter(Boolean).join(" · ") };
+      return { title: holder.title, fact: holder.item?.fact ?? "Session" };
     case "free":
-      return { title: "Free", fact: ["Lit and waiting", bay.warm ? "warm" : "cold", behind].filter(Boolean).join(" · ") };
+      return { title: "Free", fact: bay.behind === undefined || bay.behind === 0 ? "Lit and waiting" : `Lit and waiting · ${bay.behind} behind main` };
     case "closed":
       return { title: "Closed", fact: "Dark until it is opened" };
     case "other":
-      return { title: holder.said, fact: branch };
+      return { title: holder.said, fact: bay.branch ?? "" };
   }
 }
 
 const itemOf = (bay: Bay) => (bay.holder.kind === "job" || bay.holder.kind === "session" ? bay.holder.item : undefined);
 
 /** A short word for a card on the line: the state, beside the queue's place where it has one. */
-const PULL_SAID: Record<Dot["state"], string> = { queued: "Queued", running: "Checks running", failing: "Failing", ready: "Ready", blocked: "Blocked", open: "Open" };
+const PULL_SAID: Record<Dot["state"], string> = { queued: "Queued", running: "Running", failing: "Failing", ready: "Ready", blocked: "Blocked", open: "Open" };
 
 /** The hull's grid: its columns, every row an even share, and under the picked bay's row a drawer that says more. */
 function rowsOf(bays: readonly Bay[], cols: number, selected: string | undefined): CSSProperties {
   const rows = Math.max(1, Math.ceil(bays.length / cols));
   const picked = selected === undefined ? -1 : bays.findIndex((bay) => itemOf(bay)?.key === selected);
   const row = picked === -1 ? -1 : Math.floor(picked / cols);
-  const tracks = Array.from({ length: rows }, (_, at) => (at === row ? "minmax(calc(var(--space-12) * 1.75), 1.4fr) auto" : "minmax(calc(var(--space-12) + var(--space-1)), 1fr)")).join(" ");
+  // Every row as tall as its bays' words need, never less; the picked one's drawer under it as tall as its own.
+  const tracks = Array.from({ length: rows }, (_, at) => (at === row ? "auto auto" : "auto")).join(" ");
   return { ["--cols" as string]: cols, gridTemplateRows: tracks };
 }
 
@@ -113,10 +112,10 @@ function route(corners: readonly Point[], end: Point): string {
   return `${d} C${last[0] + bend},${last[1]} ${end[0] - bend},${end[1]} ${end[0]},${end[1]}`;
 }
 
-/** As many columns as the hull's width holds bays wide enough for a title, at most four: by width alone, so picking a bay never reshuffles them. */
+/** As many columns as the hull's width holds bays wide enough for a title on two lines, at most four: by width alone, so picking a bay never reshuffles them. */
 function columnsFor(count: number, width: number, gap: number): number {
   if (count === 0 || width === 0) return 1;
-  const fits = Math.floor((width + gap) / (150 + gap));
+  const fits = Math.floor((width + gap) / (210 + gap));
   return Math.max(1, Math.min(4, count, fits));
 }
 
@@ -194,6 +193,11 @@ export function Bays({ read, reading, selected, onSelect, onOpenLink, onOpenSess
     if (dot === undefined) return;
     host.current?.querySelector(`[data-card="${CSS.escape(dot.key)}"]`)?.scrollIntoView({ block: "nearest" });
   }, [hovered, read]);
+  // A picked bay's drawer is brought into view, so what it says is never left below the fold.
+  useLayoutEffect(() => {
+    if (selected === undefined) return;
+    host.current?.querySelector(".armada-ship__drawer")?.scrollIntoView({ block: "nearest" });
+  }, [selected]);
   const own = selected === undefined ? undefined : (bays.find((bay) => itemOf(bay)?.key === selected)?.key ?? read.waiting.find((one) => one.key === selected)?.key);
   // Only a pointer lights a bay and steps the rest back; the cursor marks its bay and wire alone.
   const lit = hovered;
@@ -425,18 +429,18 @@ export function Bays({ read, reading, selected, onSelect, onOpenLink, onOpenSess
                       <span className="armada-ship__bay-top">
                         <span className="armada-ship__lamp" aria-hidden="true" />
                         <span className="armada-ship__bay-number">{String(bay.slot).padStart(2, "0")}</span>
-                      </span>
-                      <span className="armada-ship__room">
                         {bay.holder.kind === "job" || bay.holder.kind === "session" ? (
                           <Mark item={item} session={bay.holder.kind === "session"} pods={bay.riders.map((one) => ({ key: one.session.id, hue: one.item?.hue ?? "queued", working: one.session.turn.state === "working" }))} />
-                        ) : (
-                          <span className="armada-ship__floor" aria-hidden="true" />
-                        )}
-                        <span className="armada-ship__what">
-                          <span className="armada-ship__title">{title}</span>
-                          <span className="armada-ship__fact">{fact}</span>
-                        </span>
+                        ) : null}
                       </span>
+                      <span className="armada-ship__title" title={title}>
+                        {title}
+                      </span>
+                      {fact === "" ? null : (
+                        <span className="armada-ship__doing" title={fact}>
+                          {fact}
+                        </span>
+                      )}
                       <span className="armada-ship__port" data-wired={bay.dot === undefined ? undefined : ""} aria-hidden="true" />
                     </li>
                   );
