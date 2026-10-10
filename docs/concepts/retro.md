@@ -269,14 +269,55 @@ the buttons**: Fleet refuses both acts on one with no place.
 | `write_session_retro` | `POST /sessions/:session_id/retro` | The same, once the retro is written |
 | `agree_lesson` | `POST /lessons/:lesson_id/agree` | The `Lesson` as it now stands, with `job_proposed` where a Job was proposed |
 | `disagree_lesson` | `POST /lessons/:lesson_id/disagree` | The `Lesson`, `discarded` |
+| `review_lessons` | `POST /lessons/review` | `LessonReview`: the open items grouped, ordered and set aside, from one model call. Body `{ manifest_id? }` |
+| `ask_lesson` | `POST /lessons/:lesson_id/ask` | `{ answer }`, from one model call over the item and the record rows it cites. Body `{ question, history }` |
 
 The wire shapes are `crates/ipc/src/retro.rs`, and
 `docs/practices/protocol.md` *Protocol 23.12* has the change, *Protocol 23.15*
 `lands_in`, *Protocol 23.26* the parts, the two acts and `state`, *Protocol 23.27*
 `state` and `job_proposed` on the items `get_job_retro` serves, so the sheet and the
-Lessons list agree on what has been answered. Both acts are
+Lessons list agree on what has been answered, and *Protocol 23.74* the review.
+Both acts are
 Helm only, as `propose_from_request` is: a person presses them in Bridge, and
-Helm may when a person asks.
+Helm may when a person asks. So are the two calls under *Reviewing*.
+
+## Reviewing
+
+**The Retros page gets long, so a person can ask for the open items to be read
+together.** The owner's decision, 10 Oct 2026, after the page listed every open
+item with its repeats and its stale ones. `review_lessons` reads the open items
+as `list_lessons` does, with the same narrowing by repository, and asks the
+retro model once. Nothing is stored: a review is made again on every press, and
+Bridge holds the answer for as long as the page is open.
+
+| Part | Is |
+| --- | --- |
+| `entries` | Best first, with no rank number. Each is the best item of a group (`lesson_id`), the open items that repeat it (`merged_ids`) and one plain sentence on why it is worth the owner's time (`reason`) |
+| `set_aside` | Items the model would leave out of the queue, each with `why` |
+
+**The model sees each item's parts, its age in days and the record rows it
+cites by name**, and may set an item aside only for a reason those support. A
+cause that no longer applies is such a reason; a hunch is not, and an item
+with no such reason stays in the queue.
+
+**Nothing an answer says can lose an open item.** An id the model invented is
+dropped. An id that leads an entry is kept once, so it is not also merged or
+set aside. A set aside with no `why` does not count. **An open item the answer
+names nowhere is appended to the end of `entries` as `not ranked`**, so a model
+that forgets one leaves it in the queue where a person sees it. With no open
+item there is no call and the answer is empty.
+
+**A person can also put a question to one item.** `ask_lesson` hands the model
+the item, the rows of its Job's or Session's record that the item cites, as the
+record reads now, the turns so far and the question. The model answers from the
+record only and says plainly where the record does not show it. A question is at
+most 2000 characters and an empty one is refused; the history is at most 20
+turns of 4000 characters. Fleet holds no thread, so Bridge sends the turns back
+each time. An id that names no item is refused as `agree_lesson` refuses it.
+
+Both calls go out on the retro's model, client and budget, and are not metered,
+as a retro's call is. The two prompts are `prompts.retroReview` and
+`prompts.retroAsk`, written to the same rules for plain words.
 
 ## A Session's retro
 
