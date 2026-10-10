@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, within } from "storybook/test";
+import { expect, fn, userEvent, within } from "storybook/test";
 import { FleetPanel, fleetSaid } from "./FleetPanel";
 
 /**
@@ -160,6 +160,28 @@ export const DoctorReading: Story = {
     ],
     doctor: { outcome: "reading", checked: "Fleet, SQLite, Manifest, system stats" },
     open: true,
+  },
+};
+
+/**
+ * **The Doctor row opens Doctor's grid.** One press, from the row that already
+ * carries the rollup, and drawn while nothing has answered yet — the grid is
+ * where a person goes to see why.
+ */
+export const OpensDoctor: Story = {
+  args: {
+    state: "running",
+    label: "Running",
+    rows: [{ label: "pid", value: "61372" }],
+    doctor: { outcome: "warn", checked: "System stats: warn" },
+    onOpenDoctor: fn(),
+    open: true,
+  },
+  play: async ({ args, canvas }) => {
+    const row = canvas.getByRole("button", { name: "Open Doctor" });
+    await expect(row).toHaveTextContent("warn");
+    await userEvent.click(row);
+    await expect(args.onOpenDoctor).toHaveBeenCalledOnce();
   },
 };
 
