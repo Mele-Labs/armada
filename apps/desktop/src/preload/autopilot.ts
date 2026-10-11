@@ -2,7 +2,7 @@
 // line count the gate reports; it names channels and no port, like the rest.
 
 import { ipcRenderer } from "electron";
-import type { AutopilotSettings } from "@armada/protocol";
+import type { Autopilot, AutopilotSettings } from "@armada/protocol";
 
 import type { AutopilotApi } from "../shared/api/autopilot";
 import { CHANNELS } from "../shared/bridge";
@@ -17,4 +17,9 @@ export const autopilotPreload: AutopilotApi = {
   getAutopilot: (manifestId) => ipcRenderer.invoke(CHANNELS.getAutopilot, manifestId),
   dispatchSetAside: (manifestId, pickId) => ipcRenderer.invoke(CHANNELS.dispatchSetAside, manifestId, pickId),
   dismissSetAside: (manifestId, pickId) => ipcRenderer.invoke(CHANNELS.dismissSetAside, manifestId, pickId),
+  onAutopilotChanged: (onChanged) => {
+    const handler = (_event: unknown, autopilot: Autopilot): void => onChanged(autopilot);
+    ipcRenderer.on(CHANNELS.autopilotChanged, handler);
+    return () => void ipcRenderer.removeListener(CHANNELS.autopilotChanged, handler);
+  },
 };

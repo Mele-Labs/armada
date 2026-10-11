@@ -93,7 +93,7 @@ Neither one stops a Job that is spending. That is the Job's own Pause.
 | The Autopilot record, caps, picker, Pause and Stop | Built, #2092's Fleet half: [`../concepts/autopilot.md`](../concepts/autopilot.md). The picker is one model call made the way the Job proposer's is, not a Drone. A Job waiting on a person holds no place |
 | The set-aside pile's acts | Built: a person dispatches a pick to the approval gate, or dismisses it |
 | The acceptance test | `crates/acceptance/tests/autopilot.rs`, passing |
-| The Cockpit lane | Not built. Bridge has the acts and a mock to draw against; `autopilot.changed` does not reach the windows yet |
+| The Cockpit lane | Built, #2092's Bridge half: [`../concepts/autopilot.md`](../concepts/autopilot.md), *In Bridge* |
 
 ## What it depends on
 

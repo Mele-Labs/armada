@@ -1,4 +1,4 @@
-// Issues' member: two open issues for whichever repository asks, so the composer's list has
+// Issues' member: four open issues for whichever repository asks, so the composer's list has
 // something to draw. What Fleet reads and holds is `fleet::tracking`'s.
 
 import type { IssueList } from "@armada/protocol";
@@ -30,6 +30,26 @@ function listed(manifestId: string): IssueList {
         updated_at: "2026-10-10T09:12:00Z",
         excerpt: "",
         linked_pull_request: true,
+      },
+      {
+        number: 405,
+        title: "Coupon field accepts an expired code",
+        url: "https://forge.invalid/storefront/issues/405",
+        labels: ["bug"],
+        assignees: [],
+        updated_at: "2026-10-10T16:20:00Z",
+        excerpt: "",
+        linked_pull_request: false,
+      },
+      {
+        number: 409,
+        title: "Order history pages past the last order",
+        url: "https://forge.invalid/storefront/issues/409",
+        labels: [],
+        assignees: [],
+        updated_at: "2026-10-09T08:05:00Z",
+        excerpt: "",
+        linked_pull_request: false,
       },
     ],
   };

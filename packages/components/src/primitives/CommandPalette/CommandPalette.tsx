@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { LucideIcon } from "lucide-react";
 
 import { KbdChord } from "../Kbd/Kbd";
-import { DISPATCH_ROW, DispatchKeys, DispatchRow, readsAsWork, useAnchor, type PaletteDispatch } from "./dispatch-row";
+import { DISPATCH_ROW, DispatchKeys, DispatchRow, nextKind, readsAsWork, useAnchor, type PaletteDispatch } from "./dispatch-row";
 
 export { readsAsWork, type DispatchKind, type PaletteDispatch } from "./dispatch-row";
 
@@ -281,7 +281,7 @@ export function CommandPalette({
     }
     if (event.key === "Tab" && dispatch?.onKind !== undefined && !event.altKey && !event.ctrlKey && !event.metaKey) {
       event.preventDefault();
-      dispatch.onKind(dispatch.kind === "job" ? "session" : "job");
+      dispatch.onKind(nextKind(dispatch));
     }
   }
 

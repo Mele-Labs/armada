@@ -1,7 +1,7 @@
 // A repository's open issues, as main asks Fleet for them: one request, and nothing kept here, since
 // Fleet holds the list. #91. And the Autopilot that works them (#2092), which Fleet holds too.
 
-import type { Autopilot, AutopilotSettings, IssueList, Outcome } from "@armada/protocol";
+import type { Autopilot, AutopilotList, AutopilotSettings, IssueList, Outcome } from "@armada/protocol";
 import type { AutopilotActed } from "../shared/api/autopilot";
 import type { IssuesRead } from "../shared/api/issues";
 import { ask, MODEL_CALL_MS } from "./request";
@@ -10,6 +10,7 @@ const NOT_CONNECTED: Outcome = { ok: false, why: "not_connected" };
 
 export class IssuesHost {
   private readonly port: () => number | null;
+  private told: (autopilot: Autopilot) => void = () => {};
 
   constructor(port: () => number | null) {
     this.port = port;
@@ -41,5 +42,21 @@ export class IssuesHost {
   async proposeAutopilot(manifestId: string, sentence: string, localNow: string): Promise<AutopilotActed<AutopilotSettings>> {
     const body = { sentence, local_now: localNow };
     return await this.autopilot<AutopilotSettings>("POST", IssuesHost.autopilotOf(manifestId, "/proposal"), body, true);
+  }
+
+  /** Say where a changed Autopilot goes: main's, which owns the windows. */
+  onAutopilotChanged(told: (autopilot: Autopilot) => void): void {
+    this.told = told;
+  }
+
+  /** `autopilot.changed`, carried whole. */
+  autopilotChanged(autopilot: Autopilot): void {
+    this.told(autopilot);
+  }
+
+  /** Every Autopilot again, on a resync: one changed while the stream was down was never told. */
+  async autopilotsAgain(): Promise<void> {
+    const read = await this.autopilot<AutopilotList>("GET", "/autopilots");
+    if (read.ok) read.value.autopilots.forEach((one) => this.told(one));
   }
 }

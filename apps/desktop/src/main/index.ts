@@ -495,12 +495,12 @@ void app.whenReady().then(() => {
   connection.sessions.onWindow((sessionId, title, url) => void captureWindows.openForSession(sessionId, title, url));
   // A Session asked about a place on its walk: the window comes forward and goes there.
   connection.sessions.onAsked((sessionId, title, window, place) => void captureWindows.askedFor(sessionId, title, window, place));
-  // Sleep mode changed in Fleet: every window gets the night whole.
-  connection.sleep.onChanged((state) => {
-    for (const window of BrowserWindow.getAllWindows()) {
-      if (!window.isDestroyed()) window.webContents.send(CHANNELS.sleepChanged, state);
-    }
-  });
+  // Sleep mode or a repository's Autopilot changed in Fleet: every window gets the night, or it, whole.
+  const everyWindow = (channel: string, value: unknown): void => {
+    for (const window of BrowserWindow.getAllWindows()) if (!window.isDestroyed()) window.webContents.send(channel, value);
+  };
+  connection.sleep.onChanged((state) => everyWindow(CHANNELS.sleepChanged, state));
+  connection.issues.onAutopilotChanged((autopilot) => everyWindow(CHANNELS.autopilotChanged, autopilot));
   handleTaps({ ipc: ipcMain, app });
   if (!app.isPackaged) installSounds(join(app.getAppPath(), "sounds"), join(app.getPath("home"), "Library", "Sounds"));
 
