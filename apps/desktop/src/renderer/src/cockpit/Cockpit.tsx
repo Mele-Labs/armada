@@ -24,7 +24,7 @@ import { FleetTile } from "../FleetTile";
 import { viewsOf } from "../merge-line";
 import { useSessions } from "../sessions-draft";
 import { CallCard, type CardKeys } from "./CallCard";
-import { Bays } from "./Bays";
+import { Bays } from "./BaysView";
 import { baysOf } from "./bays";
 import { metroOf, orderOf } from "./metro";
 import { FleetMap } from "./FleetMap";
