@@ -796,15 +796,15 @@ pub struct EvidenceSubmitted {
 /// out it is [`Actor::Drone`] and coming back [`Actor::Human`], because those
 /// are the two ends of the act. Fleet caused neither.
 ///
-/// **It names no [`JobSummary`](crate::JobSummary).** Nothing on the Board's
-/// row changes when a question goes out, and this is read by a detail view
-/// somebody has open on one Job — [`JobFilesChanged`]'s terms exactly.
+/// **It names no [`JobSummary`](crate::JobSummary).** The row changes through
+/// the `job.state_changed` the stand-down publishes, and this is read by a
+/// detail view somebody has open on one Job — [`JobFilesChanged`]'s terms.
 ///
 /// # What it costs the channel, stated
 ///
 /// The bound is `api::stream::BACKLOG`, shared by every kind. This one produces
 /// at the rate a **person answers**, the slowest rate anything here produces at,
-/// and it holds no queue of its own — the question lives on the working slot. It
+/// and it holds no queue of its own — the question lives on the Job's record. It
 /// adds nothing measurable to the unbounded-sink risk
 /// `docs/practices/protocol.md` names.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

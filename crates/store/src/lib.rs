@@ -129,6 +129,7 @@ mod proving;
 mod pull_notice;
 /// A pull request's title and comment count, kept past the merge.
 mod pull_request_kept;
+mod questioning;
 mod read;
 /// Giving a Job's resources back without giving up its record.
 mod rechecking;

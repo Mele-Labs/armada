@@ -754,13 +754,14 @@ pub trait Commands: Send + Sync + 'static {
     /// offered.
     ///
     /// **The Bridge half of the Drone's [`ask_question`](Tools::ask_question)**,
-    /// and one act seen from its two ends: a Drone asked and stopped, and this
-    /// starts it again. The answer goes into the live session as a turn, the
-    /// delivery half `redirect_drone` already uses.
+    /// and one act seen from its two ends: a Drone asked and stood down, and
+    /// this lets the Job go again. The answer is kept on the Job, and the fresh
+    /// Drone admission puts back on the step opens with it.
     ///
-    /// **It moves nothing.** The Job is `running` before and after, and it comes
-    /// back for the reason every other command answers with one — a caller folds
-    /// the row rather than re-reading the board.
+    /// **It moves nothing.** The Job is `queued` before and after, reading
+    /// `awaiting_answer` and then not, and it comes back for the reason every
+    /// other command answers with one — a caller folds the row rather than
+    /// re-reading the board.
     ///
     /// **There is no field for prose.** [`ChosenAnswer::chose`] is one of the labels
     /// the Drone offered and a label matching none is refused, which keeps this from

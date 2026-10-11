@@ -165,15 +165,12 @@ pub struct JobDetail {
     pub breakages: Vec<crate::ClaimedBreakage>,
     /// The question this Job's Drone asked and nobody has answered yet.
     ///
-    /// **Absent is the ordinary case.** A Drone that never asked, a Drone whose
-    /// question has been answered and a Job with no Drone on it are all this
-    /// field absent, and the Job's own status tells them apart — a Job that is
-    /// not `running` has nothing waiting on an answer.
+    /// **Absent is the ordinary case**: a Drone that never asked, and one whose
+    /// question has been answered.
     ///
-    /// **It is not a status and there is no seventh one.** The Job is `running`
-    /// and its step is `running`, exactly as they are while a Judge call is
-    /// out, and the question stops being outstanding without either moving. See
-    /// [`QuestionInFlight`].
+    /// **It is not a status.** The Job is `queued` while it waits, reading
+    /// `awaiting_answer`, and its step `running`; the answer lets admission
+    /// take it again. See [`QuestionInFlight`].
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub asking: Option<QuestionInFlight>,
     /// What kind of stuck this Job is, and what moves it.

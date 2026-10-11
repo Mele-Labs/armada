@@ -90,9 +90,9 @@ impl UnansweredAskLimit {
 /// A permission question a person has been asked, about a call this Drone
 /// made, and not answered yet.
 ///
-/// **Held on the slot and written to no column**, for
-/// `crate::questioning::Question`'s reason: a Fleet that restarts loses the
-/// Drone whose call it was.
+/// **Held on the slot and written to no column**: a Fleet that restarts loses
+/// the Drone whose call it was, and the call is answered in that Drone's
+/// session or not at all.
 pub struct Waiting {
     /// The harness's id for the call. What a person's answer names, so an
     /// answer from a window left open across a newer question joins to nothing.
@@ -573,7 +573,7 @@ fn rejected(what: &str, note: Option<&Note>) -> String {
 /// call it was about has returned.
 ///
 /// **One constructor takes free text, and only on a reject.** It did not until
-/// 11.5, on `crate::questioning::Answer`'s property and for its reason — the
+/// 11.5, on the property a Drone's answered question had and for its reason — the
 /// words were Fleet's, around a command the Drone itself ran. What changed is
 /// where the reason lives: it is in a person's head exactly when they press
 /// reject, and telling them to reject here and redirect from another box spends

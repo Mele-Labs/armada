@@ -49,6 +49,7 @@ pub struct Crossed {
     produced: Option<Produced>,
     cleared: Option<Cleared>,
     redirect: Option<Redirected>,
+    answered: Option<crate::questioning::Answered>,
     dispatched: Option<Dispatched>,
     overtaken: Option<Overtaken>,
     sent_back: Option<SentBack>,
@@ -174,6 +175,16 @@ impl Crossed {
 
     pub(crate) fn redirect(&self) -> Option<&Redirected> {
         self.redirect.as_ref()
+    }
+
+    /// A person's answer to the question the Drone before asked. Folded in by
+    /// `crate::spawning`, like the redirect.
+    pub(crate) fn and_answered(self, answered: Option<crate::questioning::Answered>) -> Crossed {
+        Crossed { answered, ..self }
+    }
+
+    pub(crate) fn answered(&self) -> Option<&crate::questioning::Answered> {
+        self.answered.as_ref()
     }
 
     pub(crate) fn dispatched(&self) -> Option<&Dispatched> {

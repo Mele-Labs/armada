@@ -48,6 +48,7 @@ pub use job::{
     IssueSource, Landing, NotAtApproval, PolicyOverrides, PrMode, PrModeTiers, ProposalEdit,
 };
 pub use job::{collisions, under};
+pub use job::{DroneQuestion, GivenAnswer, OfferedAnswer};
 pub use job::{
     ASSERTION_WEAKENED_QUESTION, FINDINGS_GENERIC_QUESTION, FINDINGS_NOT_TIED_QUESTION, NO_FINDINGS_QUESTION, TAUTOLOGICAL_TEST_QUESTION, TEST_SCOPE_NARROWED_QUESTION,
 };

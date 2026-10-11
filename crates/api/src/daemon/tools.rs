@@ -70,11 +70,10 @@ pub trait Tools: Send + Sync + 'static {
     /// # The receipt is not the answer
     ///
     /// It returns as soon as Fleet has taken the question, like submitting and
-    /// [`Tools::run_checks`]. Holding it open was rejected twice over: a
-    /// person's wait has no budget that could bound an HTTP call, and an injected
-    /// turn is consumed when the current tool call returns — so a Drone blocked
-    /// inside this would swallow every redirect sent to unstick it. The answer
-    /// arrives as a later turn in the Drone's own session.
+    /// [`Tools::run_checks`]. Holding it open was rejected: a person's wait has
+    /// no budget that could bound an HTTP call. Then the asking Drone stands
+    /// down and gives its place back, and the answer reaches the fresh Drone
+    /// that takes the part over, in its opening brief.
     ///
     /// **One at a time**, because a Drone that could stack questions would be
     /// holding a conversation. Bound to a Job and a step the caller never names,
