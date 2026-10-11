@@ -15,6 +15,8 @@
 
 mod authoring;
 mod events;
+mod hosted_sessions;
+mod outside;
 mod piloting;
 mod settings;
 mod studios;
@@ -49,6 +51,8 @@ pub const SERVED: &[Route] = &joined::<
             + piloting::ROUTES.len()
             + authoring::ROUTES.len()
             + settings::ROUTES.len()
+            + outside::ROUTES.len()
+            + hosted_sessions::ROUTES.len()
     },
 >([
     ROUTES,
@@ -57,11 +61,13 @@ pub const SERVED: &[Route] = &joined::<
     piloting::ROUTES,
     authoring::ROUTES,
     settings::ROUTES,
+    outside::ROUTES,
+    hosted_sessions::ROUTES,
 ]);
 
-/// The six tables as one, in order. A count that disagrees with `N` fails
+/// The eight tables as one, in order. A count that disagrees with `N` fails
 /// the build rather than serving a short table.
-const fn joined<const N: usize>(tables: [&[Route]; 6]) -> [Route; N] {
+const fn joined<const N: usize>(tables: [&[Route]; 8]) -> [Route; N] {
     // Filled from the first row and overwritten below: a literal `Route` here
     // would read as a row to the gate rule, which parses this file as text.
     let mut out = [tables[0][0]; N];
@@ -79,7 +85,7 @@ const fn joined<const N: usize>(tables: [&[Route]; 6]) -> [Route; N] {
     out
 }
 
-/// Every row that is neither a Studio's, a pilot's, a workflow's, a Trigger's, a setting's nor a published event kind.
+/// Every row no other table here holds.
 const ROUTES: &[Route] = &[
     Route {
         operation: "list_jobs",
@@ -577,84 +583,6 @@ const ROUTES: &[Route] = &[
         operation: "dismiss_waiting",
         method: "POST",
         path: "/sessions/waiting/dismiss",
-    },
-    // Sleep mode: the switch, the night it keeps, and a correction of one decision.
-    Route {
-        operation: "get_sleep",
-        method: "GET",
-        path: "/sleep",
-    },
-    Route {
-        operation: "set_sleep",
-        method: "POST",
-        path: "/sleep",
-    },
-    Route {
-        operation: "override_sleep",
-        method: "POST",
-        path: "/sleep/override",
-    },
-    // A repository's open issues, read from its tracker. #91.
-    Route {
-        operation: "list_issues",
-        method: "GET",
-        path: "/issues/:repository",
-    },
-    // A session Fleet hosts for Bridge. Since 23.49.
-    Route {
-        operation: "start_session",
-        method: "POST",
-        path: "/sessions/start",
-    },
-    Route {
-        operation: "send_session_message",
-        method: "POST",
-        path: "/sessions/message",
-    },
-    Route {
-        operation: "answer_session_ask",
-        method: "POST",
-        path: "/sessions/ask/answer",
-    },
-    Route {
-        operation: "tune_session",
-        method: "POST",
-        path: "/sessions/tune",
-    },
-    Route {
-        operation: "close_session",
-        method: "POST",
-        path: "/sessions/close",
-    },
-    Route {
-        operation: "get_session",
-        method: "GET",
-        path: "/sessions/one",
-    },
-    Route {
-        operation: "get_session_subagent",
-        method: "GET",
-        path: "/sessions/subagent",
-    },
-    Route {
-        operation: "get_session_file",
-        method: "GET",
-        path: "/sessions/file",
-    },
-    Route {
-        operation: "gate_session_call",
-        method: "POST",
-        path: "/sessions/gate",
-    },
-    Route {
-        operation: "ask_from_terminal",
-        method: "POST",
-        path: "/sessions/ask/terminal",
-    },
-    Route {
-        operation: "take_held_messages",
-        method: "POST",
-        path: "/sessions/held",
     },
     Route {
         operation: "list_manifests",
