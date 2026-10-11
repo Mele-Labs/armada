@@ -54,6 +54,8 @@ mod following;
 mod hosted_sessions;
 /// A repository's open issues. #91.
 mod issues;
+/// A repository working its own backlog. #2092.
+mod autopilots;
 mod journal;
 /// Kit's MCP servers, and each Manifest's word over one. `#1275`.
 mod kit;
@@ -115,7 +117,7 @@ pub use acting::{asked_by, asking, carrying, via, BRIDGE, CALLER_HEADER};
 pub use conversing::{HelmFeed, HelmSeen, HelmWatch, ObservedHelm, HELM_BACKLOG};
 pub use daemon::{
     offerable, Admitting, Authoring, Commands, Conversations, Daemon, FramePart, FrameSpan,
-    HelmReach, HostedSessions, Issues, Mods, Needs, PermissionAnswer, Piloting, PullRequests, Queries,
+    Autopilots, HelmReach, HostedSessions, Issues, Mods, Needs, PermissionAnswer, Piloting, PullRequests, Queries,
     Redirector, Refusal, Rehearsing, Retros, Sessions, Settings, StoredFile, Studios, Tools,
 };
 pub use door::{door_within, offered, Scope, DOOR_PATH};

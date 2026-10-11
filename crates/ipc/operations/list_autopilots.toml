@@ -1,0 +1,8 @@
+[operations.list_autopilots]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "Every repository's Autopilot, stopped ones included, each whole with its picks"
+notes = """
+`GET /autopilots`, answered with `AutopilotList`: `autopilots`, one `Autopilot` per repository that has ever had one, by manifest id. #2092, `docs/concepts/autopilot.md`. Each is what `get_autopilot` answers.
+"""

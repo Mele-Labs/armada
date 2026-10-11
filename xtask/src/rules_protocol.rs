@@ -57,6 +57,7 @@ const SERVED_PARTS: &[&str] = &[
     "crates/api/src/routes/served/settings.rs",
     "crates/api/src/routes/served/outside.rs",
     "crates/api/src/routes/served/hosted_sessions.rs",
+    "crates/api/src/routes/served/autopilot.rs",
 ];
 const EVENT_ENUM: &str = "crates/ipc/src/event.rs";
 

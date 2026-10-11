@@ -35,6 +35,7 @@ use crate::repositories::RepositoryList;
 use crate::servers::ServerState;
 use crate::settings::SettingsList;
 use crate::sleep::SleepState;
+use crate::autopilot::Autopilot;
 use crate::sessions::SessionRecord;
 use crate::studio::{Studio, StudioDeleted, StudioHelmActed};
 use crate::triggers::JobTriggerChanged;
@@ -173,15 +174,13 @@ pub enum Event {
     // What `get_merge_lines` answers, whole, whenever a line moved on disk.
     #[serde(rename = "merge_lines.changed")]
     MergeLinesChanged(MergeLines),
-    // The mods on this machine, whole, whenever one was added, changed or
-    // switched.
+    // The mods on this machine, whole, whenever one was added, changed or switched.
     #[serde(rename = "mods.changed")]
     ModsChanged(ModList),
     // settings.json, whole, after a save or a hand edit — or a refusal of one.
     #[serde(rename = "settings.changed")]
     SettingsChanged(SettingsList),
-    // A Studio after any write to it, whole, so an open whiteboard replaces
-    // what it holds. `#1285`.
+    // A Studio after any write to it, whole, so an open whiteboard replaces what it holds. `#1285`.
     #[serde(rename = "studio.changed")]
     StudioChanged(Studio),
     #[serde(rename = "studio.deleted")]
@@ -205,13 +204,14 @@ pub enum Event {
     // holds. `docs/concepts/session.md`.
     #[serde(rename = "session.changed")]
     SessionChanged(SessionRecord),
-    // One row of a hosted session's thread, appended or replaced by its id.
-    // Since 23.49.
+    // One row of a hosted session's thread, appended or replaced by its id. Since 23.49.
     #[serde(rename = "session.row")]
     SessionRow(SessionRowChanged),
-    // Sleep mode after any change to it, whole, so a client replaces what it holds.
+    // Sleep mode, or a repository's Autopilot (#2092), after any change to it, whole.
     #[serde(rename = "sleep.changed")]
     SleepChanged(SleepState),
+    #[serde(rename = "autopilot.changed")]
+    AutopilotChanged(Autopilot),
 }
 
 impl Event {

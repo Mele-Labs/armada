@@ -44,7 +44,7 @@ where
 }
 
 /// Read the pull request and issue rotations every `tick`; their own
-/// intervals still gate them.
+/// intervals still gate them. Starts Autopilot's pass beside it.
 pub fn keep_noticing<H, V, W>(
     fleet: Arc<Fleet<H, V, W>>,
     tick: Duration,
@@ -59,6 +59,9 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
+    // Autopilot's picks, on the same interval and in a task of their own: a pick is a model call,
+    // and a landing must not wait behind one. #2092.
+    crate::autopilot::keep_autopiloting(Arc::clone(&fleet), tick);
     tokio::spawn(async move {
         let mut ticker = tokio::time::interval(tick);
         ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);

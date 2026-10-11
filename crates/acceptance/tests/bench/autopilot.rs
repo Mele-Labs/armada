@@ -24,7 +24,8 @@ pub const LOCAL_NOW: &str = "2026-10-11T23:00:00-04:00";
 pub const NOW: &str = "2026-10-12T03:00:00Z";
 
 /// What the sentence is read as.
-pub const READ_AS: &str = "instruction: work through the open issues that don't need design decisions\n\
+pub const READ_AS: &str =
+    "instruction: work through the open issues that don't need design decisions\n\
                            at_once: 2\n\
                            until: 2026-10-12T07:00:00-04:00\n\
                            spend: 30\n\
@@ -63,7 +64,9 @@ pub fn the_backlog() -> FakeTracker {
 /// What the tracker lists, as the picker is handed it.
 pub fn listed(tracker: &FakeTracker) -> Vec<OpenIssue> {
     use adapter_traits::Tracker;
-    tracker.open_issues("/repos/storefront").expect("the fake lists")
+    tracker
+        .open_issues("/repos/storefront")
+        .expect("the fake lists")
 }
 
 pub fn url_of(number: u64) -> String {

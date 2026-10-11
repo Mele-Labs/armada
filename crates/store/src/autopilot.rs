@@ -43,9 +43,11 @@ pub struct KeptPick {
     pub at: String,
 }
 
-const AUTOPILOT: &str = "manifest_id, run_id, instruction, at_once, until, spend_cap_micros, job_cap, \
+const AUTOPILOT: &str =
+    "manifest_id, run_id, instruction, at_once, until, spend_cap_micros, job_cap, \
                          state, started_at, ended_at, capped_by";
-const PICK: &str = "pick_id, run_id, manifest_id, issue_number, issue_title, issue_url, workflow_id, \
+const PICK: &str =
+    "pick_id, run_id, manifest_id, issue_number, issue_title, issue_url, workflow_id, \
                     started_job, state, reason, at";
 
 fn autopilot_of(row: &rusqlite::Row<'_>) -> rusqlite::Result<KeptAutopilot> {
@@ -55,7 +57,9 @@ fn autopilot_of(row: &rusqlite::Row<'_>) -> rusqlite::Result<KeptAutopilot> {
         instruction: row.get(2)?,
         at_once: row.get(3)?,
         until: row.get(4)?,
-        spend_cap_micros: row.get::<_, Option<i64>>(5)?.map(|micros| micros.max(0) as u64),
+        spend_cap_micros: row
+            .get::<_, Option<i64>>(5)?
+            .map(|micros| micros.max(0) as u64),
         job_cap: row.get(6)?,
         state: row.get(7)?,
         started_at: row.get(8)?,
@@ -90,9 +94,13 @@ impl Store {
         let doing = "reading every Autopilot";
         let mut statement = self
             .conn
-            .prepare(&format!("SELECT {AUTOPILOT} FROM autopilots ORDER BY manifest_id"))
+            .prepare(&format!(
+                "SELECT {AUTOPILOT} FROM autopilots ORDER BY manifest_id"
+            ))
             .map_err(failed(doing))?;
-        let rows = statement.query_map([], autopilot_of).map_err(failed(doing))?;
+        let rows = statement
+            .query_map([], autopilot_of)
+            .map_err(failed(doing))?;
         rows.collect::<Result<_, _>>().map_err(failed(doing))
     }
 
@@ -161,7 +169,9 @@ impl Store {
                 "SELECT {PICK} FROM autopilot_picks WHERE run_id = ?1 ORDER BY pick_id"
             ))
             .map_err(failed(doing))?;
-        let rows = statement.query_map([run_id], pick_of).map_err(failed(doing))?;
+        let rows = statement
+            .query_map([run_id], pick_of)
+            .map_err(failed(doing))?;
         rows.collect::<Result<_, _>>().map_err(failed(doing))
     }
 

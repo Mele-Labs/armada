@@ -1,0 +1,112 @@
+//! Autopilot on the wire: a repository working its own backlog, what it picked, and the acts on
+//! it. #2092, `docs/concepts/autopilot.md`.
+
+use serde::{Deserialize, Serialize};
+
+use crate::{Instant, JobId, ManifestId, WorkflowId};
+
+/// Whether it picks. `stopped` is the end: a new start replaces it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AutopilotState {
+    Running,
+    Paused,
+    Stopped,
+}
+
+/// The cap that stopped it picking.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AutopilotCap {
+    Until,
+    Spend,
+    Jobs,
+}
+
+/// What became of one pick.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AutopilotPickState {
+    /// A Job came of it: Autopilot was sure, or a person dispatched it from the pile.
+    Started,
+    /// Autopilot was unsure, and left it for a person with its reason.
+    SetAside,
+    /// Its Job had not started when Autopilot was stopped, and was killed.
+    Withdrawn,
+    /// A person put it away from the pile.
+    Dismissed,
+}
+
+/// One pick. `workflow_id` is what the picker chose, absent where it was unsure of that too.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AutopilotPick {
+    pub pick_id: String,
+    pub issue_number: u64,
+    pub issue_title: String,
+    pub issue_url: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub workflow_id: Option<WorkflowId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub job_id: Option<JobId>,
+    pub state: AutopilotPickState,
+    /// The picker's reason, in its words.
+    pub reason: String,
+    pub at: Instant,
+}
+
+/// One repository's Autopilot, whole. `get_autopilot`'s answer, every act's, and `autopilot.changed`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Autopilot {
+    pub manifest_id: ManifestId,
+    pub instruction: String,
+    pub at_once: u32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub until: Option<Instant>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub spend_cap_micros: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub job_cap: Option<u32>,
+    pub state: AutopilotState,
+    pub started_at: Instant,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ended_at: Option<Instant>,
+    /// The cap that stopped it, where one did rather than a person.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub capped_by: Option<AutopilotCap>,
+    /// What its Jobs have spent so far, summed from each Job's own spend.
+    pub spent_micros: u64,
+    /// How many Jobs it has started, the count `job_cap` is held to.
+    pub jobs_started: u32,
+    /// How many of its Jobs hold a place now: running or ready to run, and not waiting on a person.
+    pub at_work: u32,
+    pub picks: Vec<AutopilotPick>,
+}
+
+/// `list_autopilots`: every repository's, stopped ones included.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AutopilotList {
+    pub autopilots: Vec<Autopilot>,
+}
+
+/// `propose_autopilot`: the sentence a person typed, and their own clock, so *until 7am* is theirs.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ProposeAutopilot {
+    pub sentence: String,
+    /// RFC 3339 with the person's offset, as their machine reads it now.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub local_now: Option<String>,
+}
+
+/// The settings one sentence was read as, for the person to confirm or change. **Nothing starts
+/// from this**: `start_autopilot` takes what they confirmed.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AutopilotSettings {
+    pub instruction: String,
+    pub at_once: u32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub until: Option<Instant>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub spend_cap_micros: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub job_cap: Option<u32>,
+}
