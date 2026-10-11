@@ -295,6 +295,9 @@ pub struct Fittings<H, V, W> {
     /// `facts`. **A pointer rather than a type parameter**, for `judge`'s
     /// reason: rendering cannot fail, so nothing about it needs to be generic.
     pub links: Arc<dyn LinkLookup + Send + Sync>,
+    /// The tracker a repository's open issues are read from and written back
+    /// on. A pointer, for `links`' reason — `crate::tracking`. #91.
+    pub tracker: Arc<dyn adapter_traits::Tracker + Send + Sync>,
     /// What reads a repository's CI configuration for Scan. **A seam so Fleet
     /// names no provider**, and so a test can plant what a reader answers.
     pub ci_configuration: Arc<dyn CiConfiguration + Send + Sync>,
@@ -396,6 +399,7 @@ where
             underway: Underway::default(),
             proposals: Proposals::new(),
             links: fittings.links,
+            tracking: crate::tracking::Tracking::with(fittings.tracker),
             ci_configuration: fittings.ci_configuration,
             models: fittings.models,
             events: fittings.events,

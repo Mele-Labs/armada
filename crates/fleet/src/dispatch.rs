@@ -473,7 +473,8 @@ where
             // attempt* wrote something rather than whether the step did, and a
             // second `declare_plan_at` would spend a turn asking a Drone to
             // restate a plan it never left.
-            Ruling::HandedBack { tell, retrying, .. } => {
+            Ruling::HandedBack { tell, retrying, .. }
+            | Ruling::JudgesAgreed { tell, retrying, .. } => {
                 let job = self.load(job_id).await?;
                 let job = self
                     .move_step_by(
@@ -497,7 +498,9 @@ where
             // sends a step back to its Drone is a check that ran and said no.
             // A refusal says the work runs and is not what was asked for,
             // which is a person's to answer — resubmitting under the same
-            // instructions would produce the same work. **The refusal
+            // instructions would produce the same work. The exception is a
+            // refusal a panel of different models agreed on, which takes the
+            // hand-back's arm above with the Judges' findings: #206. **The refusal
             // reprompt the contract specifies is not injected here and no
             // longer waits to be** — the step stopping is what ends the
             // Drone, so `expected` and `produced` reach the opening brief of

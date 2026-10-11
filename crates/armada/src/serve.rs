@@ -704,6 +704,8 @@ fn assemble(
         // The one link shape resolved before dispatch. See
         // `adapters::IssueLookup` for why it is the only one.
         links: Arc::new(IssueLookup),
+        // The one tracker read and written back on: the same forge. #91.
+        tracker: Arc::new(adapters::IssueTracker),
         // The one CI provider Scan follows; the rest read as not followed.
         ci_configuration: Arc::new(ActionsWorkflows),
         models,

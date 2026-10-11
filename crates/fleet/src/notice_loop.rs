@@ -1,4 +1,5 @@
-//! The pull request and issue rotations, beside the turn.
+//! The pull request and issue rotations, and writing back on issues, beside
+//! the turn.
 //!
 //! **A turn waits behind each Job's Checks**, so a landing that rode only on
 //! the turn could be told minutes late. This is `crate::main_ci::keep_reading_main`'s
@@ -72,7 +73,9 @@ where
                 }
             }
             let (merge, issue) = fleet.read_landings().await;
-            for why in [merge, issue].into_iter().filter_map(Result::err) {
+            // What is owed on the issues Jobs came from, every interval. #91.
+            let written = fleet.write_back_when_due().await.map(|_| ());
+            for why in [merge, issue, written].into_iter().filter_map(Result::err) {
                 adrift(why);
             }
         }

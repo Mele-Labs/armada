@@ -22,6 +22,7 @@
 use config::ResolvedStep;
 
 use crate::answered::Printed;
+use crate::judge::Refusals;
 use crate::mechanical::CheckFailed;
 use crate::Wording;
 
@@ -199,6 +200,42 @@ impl OutcomeTurn {
         }
         text.push_str(wording.get(OUTCOME_WORK_AGAIN));
         OutcomeTurn { text }
+    }
+
+    /// The Judges agreed on a refusal and none called the work risky, so it is
+    /// going back to the Drone that did it — #206.
+    ///
+    /// **What was expected and what was found, and never the consequence**,
+    /// which is the field a person triages on and the one a live Drone is not
+    /// shown. One line per criterion: a panel that agreed said it several
+    /// times, and the Drone needs it once.
+    pub fn sent_back(
+        refused: &ResolvedStep,
+        refusals: &Refusals,
+        wording: &Wording,
+    ) -> OutcomeTurn {
+        let mut seen: Vec<&str> = Vec::new();
+        let mut said: Vec<String> = Vec::new();
+        for judgment in refusals.cited() {
+            let criterion = judgment.criterion_id.as_str();
+            if seen.contains(&criterion) {
+                continue;
+            }
+            seen.push(criterion);
+            said.push(format!(
+                "- {criterion}: expected {}, and found {}",
+                judgment.expected.as_deref().unwrap_or_default(),
+                judgment.produced.as_deref().unwrap_or_default(),
+            ));
+        }
+        let opening = wording.fill(OUTCOME_SENT_BACK, &[("step", refused.label())]);
+        OutcomeTurn {
+            text: format!(
+                "{opening}\n\n{}\n\n{}",
+                said.join("\n"),
+                wording.get(OUTCOME_WORK_AGAIN)
+            ),
+        }
     }
 
     /// The content of the injected message, exactly as it goes to the session.

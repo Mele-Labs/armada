@@ -51,6 +51,7 @@ const PNG = Uint8Array.from(atob("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAA
 
 function sinkOf(notes: Annotation[]): Sink {
   const held = new Map(notes.map((one) => [one.id, one]));
+  const shots = new Map<string, ArrayBuffer>();
   return {
     via: "main",
     list: async () => [...held.values()],
@@ -59,9 +60,14 @@ function sinkOf(notes: Annotation[]): Sink {
     },
     remove: async (id) => {
       held.delete(id);
+      shots.delete(id);
     },
     root: async () => "/Users/user/code/armada",
     capture: async () => PNG,
+    saveShot: async (id, png) => {
+      shots.set(id, png);
+    },
+    shot: async (id) => shots.get(id) ?? null,
   };
 }
 

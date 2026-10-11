@@ -323,6 +323,19 @@ const BRIDGE: RepositorySummary = {
 };
 
 /**
+ * A person working across many repositories: the picker's list is long enough that finding
+ * one is the cost, so it grows a filter field and leads with the last few picked.
+ */
+const MANY: RepositorySummary[] = [
+  "billing-api", "billing-web", "checkout", "docs-site", "infra", "ios-app", "android-app",
+  "data-pipeline", "design-system", "auth-service", "search", "notifications", "analytics",
+  "admin-console", "marketing-site", "mobile-sdk", "payments", "reporting", "scheduler", "armada-fork",
+].map((name) => ({
+  root: `/Users/user/code/${name}`,
+  records_root: `/Users/user/Library/Application Support/Armada/records/${name}`,
+}));
+
+/**
  * Repositories served, and not one of them with a Manifest. **The moment every
  * surface that needs a Manifest has nothing to offer**: the rail is on All
  * repositories, the ask lists only what is set up, and nothing is. Studios is
@@ -426,6 +439,12 @@ export const SCENARIOS: readonly Scenario[] = [
     ),
   ),
   failingCheck(),
+  holding(
+    "many-repositories",
+    "Twenty-one repositories served, so the picker has a filter field and leads with the last few picked",
+    EVERY_STATE_ROWS.filter((one) => ["running", "review"].some((slug) => one.job.handle.endsWith(`-${slug}`))),
+    { alsoServed: MANY },
+  ),
   // Each surface's own Fleet, listed by its slice: `slices.ts`.
   ...scenariosOf("setup", "manifest", "studios", "workflows", "helm"),
   // The arc: one Feature Job from an empty prompt to a merge, one scenario per

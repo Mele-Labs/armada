@@ -48,7 +48,7 @@ pub fn group_end(ruling: &Ruling) -> GroupEnd {
         Ruling::Advanced { .. } | Ruling::Finished { .. } | Ruling::HeldForReview { .. } => {
             GroupEnd::Passed
         }
-        Ruling::HandedBack { .. } => GroupEnd::Round,
+        Ruling::HandedBack { .. } | Ruling::JudgesAgreed { .. } => GroupEnd::Round,
         Ruling::Failed { .. } => GroupEnd::Failed,
         Ruling::Refused { .. }
         | Ruling::Questioned { .. }
@@ -68,7 +68,9 @@ pub fn verdict_of(ruling: &Ruling) -> StepVerdict {
         Ruling::Advanced { .. } | Ruling::Finished { .. } | Ruling::HeldForReview { .. } => {
             StepVerdict::Passed
         }
-        Ruling::HandedBack { retrying, .. } => StepVerdict::Failed(*retrying),
+        Ruling::HandedBack { retrying, .. } | Ruling::JudgesAgreed { retrying, .. } => {
+            StepVerdict::Failed(*retrying)
+        }
         Ruling::NotWhatTheStepAsked(_) => StepVerdict::NotReached,
         other => StepVerdict::Failed(stopping(other).unwrap_or_else(gate_failure)),
     }

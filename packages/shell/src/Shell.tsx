@@ -72,7 +72,6 @@ import {
   TheShell,
   useKeyBindings,
   type DockQuestion,
-  type DropdownMenuEntry,
   type FleetPanelProps,
   type TheShellProps,
 } from "@armada/components";
@@ -87,7 +86,8 @@ import { useNarrow } from "./floor";
 import { useLayout } from "./layout";
 import { useLeftCollapsed } from "./left-collapsed";
 import { useLeftWidth } from "./left-width";
-import { ALL_REPOSITORIES } from "./RepositoryOptions";
+import { useRecentRepositories } from "./recent-repositories";
+import { ADD, ALL, repositoryEntries, rootOf, SEARCHABLE_FROM } from "./repository-entries";
 import { MACHINE_SCOPE_SAID, surfaceScope } from "./surface-scope";
 import { repositoryLabel } from "./repository-label";
 import { panelSurfaces, RAIL_PANELS, SURFACE, SURFACES } from "./surfaces";
@@ -200,9 +200,22 @@ export function Shell({
   const railOff = useLayout("rail").all.filter((one) => !one.visible).map((one) => one.id);
   const live = connection.state === "connected";
   // One list, drawn twice: the picker's dropdown, and the narrow menu's rows.
-  const pickerEntries = repositoryEntries(repositories, listed, onAddRepository !== undefined, scope);
+  const [recent, remember] = useRecentRepositories();
+  const pickerEntries = repositoryEntries(repositories, {
+    scope,
+    all: repositories.length === 0 ? (listed ? "Nothing set up yet" : "No repository read yet") : "All repositories",
+    add: onAddRepository !== undefined,
+    recent,
+  });
   const machineWide = surfaceScope(showing) === "machine";
-  const pick = (id: string) => (id === ADD_REPOSITORY ? onAddRepository?.() : onScope(id === ALL_REPOSITORIES ? null : id));
+  const pick = (picked: string) => {
+    if (picked === ADD) return onAddRepository?.();
+    const root = rootOf(picked);
+    if (root !== ALL) remember(root);
+    onScope(root === ALL ? null : root);
+  };
+  // A fleet of a few reads at a glance; past that, finding one is the cost.
+  const searchLabel = repositories.length > SEARCHABLE_FROM ? "Find a repository" : undefined;
 
   return (
     <TheShell
@@ -271,6 +284,9 @@ export function Shell({
       repositoryPicker={
         <>
           <DropdownMenu
+            // The trigger leads the title row, so the menu hangs from its leading
+            // edge: trailing-flush ran off the window's left edge for a short name.
+            align="start"
             triggerLabel={machineWide ? MACHINE_SCOPE_SAID : repositoryTriggerLabel(repositories, scope, listed)}
             entries={pickerEntries}
             // Disabled where nothing behind it is actionable — Add a
@@ -279,6 +295,7 @@ export function Shell({
             // surface about this machine, where a pick changes nothing.
             disabled={machineWide || (repositories.length === 0 && onAddRepository === undefined)}
             onSelect={pick}
+            {...(searchLabel === undefined ? {} : { searchLabel })}
           />
           {/* Beside the pick rather than under it: the menu answers *which*,
               and this answers *open it*, which are two acts and not one entry.
@@ -312,9 +329,6 @@ export function Shell({
   );
 }
 
-/** No root is ever this, so it cannot collide with one. */
-const ADD_REPOSITORY = "add-repository";
-
 /**
  * Manifest's own glyph and word, read off the surface roster rather than
  * retyped — the control beside the picker and the palette's row for the same
@@ -335,56 +349,6 @@ function repositoryTriggerLabel(
   const repository = repositories.find((one) => one.root === scope);
   return repository === undefined ? scope : repositoryLabel(repository, repositories);
 }
-
-/**
- * The picker's menu: All first, set up repositories, then a `Not set up`
- * group — `RepositoryOptions`'s own order, read here instead of rendered
- * there since a `<select>` groups with `optgroup` and a menu with a `label`
- * entry. Add a repository sits last, below a separator: not destructive, but
- * a different kind of row from the list above it, which is the separator's
- * established use here. All is a reset, so it gets the same separator above
- * the specific choices, and whichever entry matches `scope` carries the
- * checkmark.
- */
-function repositoryEntries(
-  repositories: readonly RepositorySummary[],
-  listed: boolean,
-  hasAdd: boolean,
-  scope: string | null,
-): DropdownMenuEntry[] {
-  const setUp = repositories.filter((one) => one.manifest !== undefined);
-  const loose = repositories.filter((one) => one.manifest === undefined);
-  const item = (repo: RepositorySummary) => ({
-    kind: "item" as const,
-    id: repo.root,
-    label: repositoryLabel(repo, repositories),
-    selected: repo.root === scope,
-  });
-  const entries: DropdownMenuEntry[] = [
-    {
-      kind: "item",
-      id: ALL_REPOSITORIES,
-      label: repositories.length === 0
-        ? (listed ? "Nothing set up yet" : "No repository read yet")
-        : "All repositories",
-      selected: scope === null,
-    },
-  ];
-  if (setUp.length > 0) {
-    entries.push({ kind: "separator", id: "all-repositories-rule" });
-    entries.push(...setUp.map(item));
-  }
-  if (loose.length > 0) {
-    entries.push({ kind: "label", id: "not-set-up", label: "Not set up" });
-    entries.push(...loose.map(item));
-  }
-  if (hasAdd) {
-    entries.push({ kind: "separator", id: "add-repository-rule" });
-    entries.push({ kind: "item", id: ADD_REPOSITORY, label: "Add a repository" });
-  }
-  return entries;
-}
-
 
 /**
  * `⌘\` collapses the left column to its rail and brings it back — #1591.

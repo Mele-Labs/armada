@@ -18,8 +18,15 @@
 
 import type { ReactNode } from "react";
 import type { RepositorySummary } from "@armada/protocol";
-import { Alert, Select } from "@armada/components";
-import { repositoryLabel, RepositoryOptions } from "@armada/shell";
+import { Alert, DropdownMenu, Select } from "@armada/components";
+import {
+  repositoryEntries,
+  repositoryLabel,
+  RepositoryOptions,
+  rootOf,
+  SEARCHABLE_FROM,
+  useRecentRepositories,
+} from "@armada/shell";
 
 /** No root is empty, so this value is never a repository. */
 const UNANSWERED = "";
@@ -55,6 +62,27 @@ export function AskRepository({
   action?: ReactNode;
 }) {
   const loose = repositories.filter((one) => one.manifest === undefined);
+  const [recent, remember] = useRecentRepositories();
+  // Past a few repositories a list to scroll is the cost: the ask is the same filter field and
+  // recents the title row's picker has, so one habit finds a repository in either place.
+  if (repositories.length > SEARCHABLE_FROM) {
+    return (
+      <Alert tone="neutral" title={title} action={action} actionOn="title">
+        <p>{next}</p>
+        <DropdownMenu
+          align="start"
+          triggerLabel="Choose a repository"
+          searchLabel="Find a repository"
+          entries={repositoryEntries(repositories, { onlySetUp, recent })}
+          onSelect={(picked) => {
+            const root = rootOf(picked);
+            remember(root);
+            onPick(root);
+          }}
+        />
+      </Alert>
+    );
+  }
   return (
     <Alert tone="neutral" title={title} action={action} actionOn="title">
       <p>{next}</p>

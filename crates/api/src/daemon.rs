@@ -29,6 +29,7 @@ mod authoring;
 mod commands;
 mod conversing;
 mod hosted_sessions;
+mod issues;
 mod mods;
 mod needs;
 mod piloting;
@@ -46,6 +47,7 @@ pub use authoring::Authoring;
 pub use commands::Commands;
 pub use conversing::Conversations;
 pub use hosted_sessions::{HostedSessions, StoredFile};
+pub use issues::Issues;
 pub use mods::Mods;
 pub use needs::Needs;
 pub use piloting::Piloting;
@@ -108,6 +110,7 @@ pub trait Daemon:
     + HostedSessions
     + Needs
     + PullRequests
+    + Issues
     + Piloting
     + Rehearsing
     + Mods
@@ -128,6 +131,7 @@ impl<
             + HostedSessions
             + Needs
             + PullRequests
+            + Issues
             + Piloting
             + Rehearsing
             + Mods
