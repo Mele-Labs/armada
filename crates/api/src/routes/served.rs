@@ -549,6 +549,11 @@ const ROUTES: &[Route] = &[
         path: "/sessions/window",
     },
     Route {
+        operation: "ask_in_window",
+        method: "POST",
+        path: "/sessions/window/ask",
+    },
+    Route {
         operation: "window_closed",
         method: "POST",
         path: "/sessions/window/closed",

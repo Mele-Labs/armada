@@ -490,6 +490,14 @@ where
         Ok(record)
     }
 
+    async fn ask_in_window(
+        &self,
+        caller: Option<api::Caller>,
+        ask: ipc::AskInWindow,
+    ) -> Result<SessionRecord, Refusal> {
+        self.window_asked(caller, ask).await
+    }
+
     async fn window_closed(&self, closed: ipc::WindowClosed) -> Result<SessionRecord, Refusal> {
         let id = closed.session_id.as_str().trim().to_string();
         let known = {

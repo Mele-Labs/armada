@@ -18,7 +18,7 @@ use ipc::{
 };
 
 use super::serving::mode_of;
-use super::walking::WALK_OPEN_ASK;
+use super::walking::walk_open_refusal;
 use crate::daemon::Fleet;
 use crate::helm::{answering, because_in_a_session, pages_opened, unanswered, Because, Said};
 
@@ -60,7 +60,7 @@ where
         // A question held open during a walk would hold back every note and the Approve.
         if asking.tool_name == ipc::ASKS_A_QUESTION && self.walk_open(id).await.is_some() {
             return Ok(RunOrNot::Deny {
-                message: String::from(WALK_OPEN_ASK),
+                message: walk_open_refusal(),
             });
         }
         // The owner's browser is never opened by a session: the page goes to
@@ -191,7 +191,7 @@ where
             .await;
         if self.walk_open(id).await.is_some() {
             return Ok(TerminalAsked::Refused {
-                message: String::from(WALK_OPEN_ASK),
+                message: walk_open_refusal(),
             });
         }
         let asks = self.hosts().asks();

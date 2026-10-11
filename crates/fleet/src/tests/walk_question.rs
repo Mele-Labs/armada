@@ -47,6 +47,7 @@ async fn a_question_while_a_walk_is_open_is_refused_with_what_to_do_instead_and_
     };
     assert!(message.contains("waiting_for"), "{message}");
     assert!(message.contains("end your turn"), "{message}");
+    assert!(message.contains("ask_in_window"), "a question about the page has its own way in: {message}");
     let now = Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap();
     assert!(now.session.hosted.and_then(|hosted| hosted.asked).is_none(), "no card was put up");
     assert!(!now.rows.iter().any(|row| matches!(row, SessionRow::Ask { .. })), "and no ask row");

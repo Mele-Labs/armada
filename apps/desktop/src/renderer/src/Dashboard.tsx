@@ -418,7 +418,7 @@ function waitingItem({ session, item }: WaitingCall, hosts: Hosts): Item {
     key: `session:${session.id}:${item.id}`,
     owner: `session:${session.id}`,
     icon: SquareTerminal,
-    kind: item.source === "ask_card" ? "Session question" : item.source === "walk" ? "Session walk" : "Session",
+    kind: item.source === "ask_card" || item.source === "window_ask" ? "Session question" : item.source === "walk" ? "Session walk" : "Session",
     session: true,
     mark: Eye,
     state: item.source === "permission" ? "Waiting on a command" : "Waiting on you",

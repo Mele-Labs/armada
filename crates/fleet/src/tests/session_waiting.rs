@@ -102,7 +102,7 @@ fn set(id: &ipc::SessionId, items: &[(&str, &str)]) -> SetWaitingFor {
                     kind: WaitingActKind::Run,
                     target: "cargo test".into(),
                 }),
-                options: vec![WaitingOption { label: "Yes".into() }],
+                options: vec![WaitingOption { label: "Yes".into(), description: None }],
             })
             .collect(),
     }

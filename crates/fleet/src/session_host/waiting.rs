@@ -9,6 +9,8 @@
 //! ones, and a window stops waiting once it is approved or the person has sent the session a
 //! message after it opened. A window closed without either still waits: that is his call.
 //!
+//! **A question asked in the walk window waits until answered**, read off its row as `window_ask:<row>`.
+//!
 //! **A dismissed id never comes back.** `dismiss_waiting` keeps the id; a derived item with it is
 //! left off every read and an agent item with it is dropped from the kept list.
 
@@ -24,6 +26,7 @@ use ipc::{
 use store::{KeptSession, KeptWaiting, Store};
 
 use crate::daemon::Fleet;
+use crate::session_host::asking_in_window::WINDOW_ASK_PREFIX;
 
 const SESSION_WAITING_UNNAMED: &str = "fleet.session_waiting_unnamed";
 const SESSION_WAITING_EMPTY: &str = "fleet.session_waiting_empty";
@@ -91,11 +94,13 @@ fn card_item(asked: &HelmCallInFlight) -> WaitingItem {
                     .iter()
                     .map(|one| WaitingOption {
                         label: one.label.clone(),
+                        description: None,
                     })
                     .collect()
             } else {
                 Vec::new()
             },
+            place: None,
         };
     }
     WaitingItem {
@@ -111,8 +116,10 @@ fn card_item(asked: &HelmCallInFlight) -> WaitingItem {
             .iter()
             .map(|one| WaitingOption {
                 label: offer_label(one).to_string(),
+                description: None,
             })
             .collect(),
+        place: None,
     }
 }
 
@@ -139,6 +146,7 @@ pub(crate) fn merged(
             target: one.url.clone(),
         }),
         options: Vec::new(),
+        place: None,
     }));
     let same = |item: &WaitingItem, act: &Option<(String, String)>| {
         matches!((&item.act, act), (Some(a), Some((kind, target)))
@@ -163,8 +171,12 @@ pub(crate) fn merged(
             options: one
                 .options
                 .into_iter()
-                .map(|label| WaitingOption { label })
+                .map(|label| WaitingOption {
+                    label,
+                    description: None,
+                })
                 .collect(),
+            place: None,
         })
         .collect();
     items.extend(
@@ -244,13 +256,37 @@ where
             .into_iter()
             .collect();
         let dismissed = store.dismissed_waiting(&session.id)?;
-        Ok(merged(
-            kept,
-            asked.as_ref(),
-            &windows,
-            &dismissed,
-            session.state == store::SessionState::Ended,
-        ))
+        let ended = session.state == store::SessionState::Ended;
+        let mut items = merged(kept, asked.as_ref(), &windows, &dismissed, ended);
+        if !ended {
+            items.extend(rows.into_iter().filter_map(|row| match row {
+                SessionRow::WindowAsk {
+                    id,
+                    at,
+                    question,
+                    options,
+                    place,
+                    window,
+                    answer: None,
+                } => {
+                    let id = format!("{WINDOW_ASK_PREFIX}{id}");
+                    (!dismissed.contains(&id)).then_some(WaitingItem {
+                        id,
+                        text: question,
+                        since: at,
+                        source: WaitingSource::WindowAsk,
+                        act: Some(WaitingAct {
+                            kind: WaitingActKind::Walk,
+                            target: window,
+                        }),
+                        options,
+                        place: Some(place),
+                    })
+                }
+                _ => None,
+            }));
+        }
+        Ok(items)
     }
 
     /// `waiting_for`: replace the agent's list. An item keeps the `since` its id first had.
@@ -420,6 +456,18 @@ where
                     reply(&item.text, picked.as_deref().or(words), line)
                 };
                 self.send_session_message(message(body)).await
+            }
+            WaitingSource::WindowAsk => {
+                let answer = [picked.as_deref(), words, line]
+                    .into_iter()
+                    .flatten()
+                    .collect::<Vec<_>>()
+                    .join("\n");
+                if let Some(row) = item.id.strip_prefix(WINDOW_ASK_PREFIX) {
+                    self.window_ask_answered(&id, row, answer.clone()).await;
+                }
+                self.send_session_message(message(format!("Re: {}\n{answer}", item.text)))
+                    .await
             }
             WaitingSource::Agent => {
                 self.send_session_message(message(reply(

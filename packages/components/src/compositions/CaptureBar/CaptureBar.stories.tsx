@@ -102,3 +102,23 @@ export const RunEnded: Story = {
     await expect(canvas.getByRole("button", { name: "Reload" })).toBeDisabled();
   },
 };
+
+/**
+ * A Session's question, folded so the page can be used. The second row says it waits, and one press
+ * draws it over the page again.
+ */
+export const QuestionFolded: Story = {
+  args: {
+    run: "Findings page",
+    address: "http://localhost:5173",
+    studio: null,
+    job: "Findings page",
+    question: "Should the count sit beside the title or under it?",
+    onShowQuestion: fn(),
+  },
+  play: async ({ args, canvas }) => {
+    await expect(canvas.getByText(/Question waiting: Should the count sit/)).toBeVisible();
+    await userEvent.click(canvas.getByRole("button", { name: "Show question" }));
+    await expect(args.onShowQuestion).toHaveBeenCalled();
+  },
+};

@@ -277,8 +277,54 @@ this window, and that is another security review. `#1294`.
 > Why: it ends the Session's walk, and a Session refuses its own questions
 > while one is open (`docs/concepts/session.md`, *Showing a window*).
 
-> **Rule.** The window draws no rail and reaches no Armada surface. A Studio is
+> **Rule.** The window draws no rail and reaches one Armada surface: the card
+> of a question its Session asked about the page, drawn on the bar. A Studio is
 > read on Bridge's window.
+> Why: the owner, 11 Oct 2026, "a question about the walk should open in the
+> walk. In fact it should take me where the agent is asking me about. Highlight
+> it like an annotation and show a card with the question and my options to
+> answer. If the question is not related to the walk it should wait." *A
+> question asked in the window* has what that adds.
+
+## A question asked in the window
+
+A Session's `ask_in_window` names a page on the origin of its window and a
+selector for a place on it. `docs/concepts/session.md`, *Asking in the window*,
+has the tool. This is what the window does with it, and what that adds to the
+review above.
+
+| Step | Held by | What happens |
+|---|---|---|
+| The question arrives | Main, off Fleet's row | The window comes forward, opening on the address the Session showed if it is closed |
+| The page moves | Main | `loadURL` of the question's address, **only on the pinned origin**, and not when the page is already there |
+| The place is found | One ask, `apps/desktop/src/main/capture/locate.ts` | The element the selector finds, its box, and one scroll that brings it into view |
+| It is drawn | The bar's view, over the whole frame | An outline at the box and the card beside it, as capture's are |
+| It is answered | Main names the Session and the item | `answer_waiting`; the bar sends only an option's index and words |
+
+> **Rule.** The locate ask is the injected layer's kind: its source travels with
+> the ask, it leaves no global and no listener, and its answer is a box that
+> main re-bounds against the viewport.
+> Why: the page then holds nothing it did not hold before, which is what every
+> rule under *What the page can reach back into* rests on.
+
+> **Rule.** The one thing it moves is the page's scroll, once per question, as a
+> person's own scroll would. It writes no node, no attribute and no style.
+> Why: taking him where the agent is asking about is the decision. Scrolling is
+> the least that does it, and the outline stays Bridge's.
+
+> **Rule.** While the card is drawn over the page, the bar's view covers the
+> frame and the page takes no press, as under armed capture. The card folds into
+> the bar's second row, and the page takes presses again.
+> Why: a card the page could draw over, or a press that reached the page through
+> it, is the forgery *The injected layer* exists to rule out.
+
+> **Rule.** The selector, the address and the Session's id stay in main. The bar
+> gets the question, its options, who asks and a box.
+
+**What it does not add.** No preload on the page, no channel from the page to
+main, no address off the origin, and no Armada record named to the page. The
+selector comes from the Session, not the page, and a selector that matches
+nothing draws the card without an outline.
 
 ## Refused outright
 

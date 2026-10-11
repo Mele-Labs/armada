@@ -166,6 +166,11 @@ const captureWindows = new CaptureWindows({
     const sent = await connection?.sessions.send({ session_id: sessionId, text: `Approved: ${address}` });
     return sent === undefined ? UNSENT : sent.ok ? { ok: true } : sent.outcome;
   },
+  // The Session's question in its window settles as the item it is under Waiting on you.
+  answerAsk: async (sessionId, itemId, answer) => {
+    const sent = await connection?.sessions.answerWaiting({ session_id: sessionId, item_id: itemId, ...answer });
+    return sent === undefined ? UNSENT : sent.ok ? { ok: true } : sent.outcome;
+  },
   sessionClosed: (sessionId, address) => {
     void connection?.sessions.windowClosed({ session_id: sessionId, url: address });
   },
@@ -477,6 +482,8 @@ void app.whenReady().then(() => {
   });
   // A Session showed a page: its window opens by itself, and opens again where it is already open.
   connection.sessions.onWindow((sessionId, title, url) => void captureWindows.openForSession(sessionId, title, url));
+  // A Session asked about a place on its walk: the window comes forward and goes there.
+  connection.sessions.onAsked((sessionId, title, window, place) => void captureWindows.askedFor(sessionId, title, window, place));
   // Sleep mode changed in Fleet: every window gets the night whole.
   connection.sleep.onChanged((state) => {
     for (const window of BrowserWindow.getAllWindows()) {

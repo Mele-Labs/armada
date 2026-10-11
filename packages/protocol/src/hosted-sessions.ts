@@ -8,7 +8,7 @@
 
 import type { HelmCallAnswer, HelmCallInFlight, QuestionAnswer } from "./helm-calls";
 import type { DroneNarrative, PilotOutcome } from "./piloting";
-import type { SessionRecord } from "./sessions";
+import type { SessionRecord, WaitingOption, WindowPlace } from "./sessions";
 
 /** The permission mode a session runs in. `auto` is the default. */
 export type SessionMode = "ask" | "auto" | "accept_edits" | "plan";
@@ -170,6 +170,20 @@ export type SessionRow =
    * approval or the window closing; absent while it is open.
    */
   | { kind: "window"; id: string; at: string; title: string; url: string; ended_at?: string }
+  /**
+   * A question the session asked in its walk window, `ask_in_window`. `window` is the address it was
+   * asked in. **Replaced by id once answered**, with `answer` set to what the person chose and said.
+   */
+  | {
+      kind: "window_ask";
+      id: string;
+      at: string;
+      question: string;
+      options?: WaitingOption[];
+      place: WindowPlace;
+      window: string;
+      answer?: string;
+    }
   /**
    * What a piloted session starts with, first in its thread: the Job's worktree handed over and what
    * Fleet knew when its Drone stopped, as the bundle's structured fields. Since 23.51.

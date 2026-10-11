@@ -14,6 +14,15 @@ use crate::daemon::Fleet;
 /// naming a way to ask about the page itself.
 pub(crate) const WALK_OPEN_ASK: &str = "Refused: the owner is walking a page you showed him, and a question held open here would keep his notes and his Approve from reaching you until he answered it. Put the question in your waiting_for list, where he answers it when he is ready, and end your turn so what he sends reaches you.";
 
+/// The sentence that follows [`WALK_OPEN_ASK`]: a question about the page has a way in that holds
+/// nothing back. `docs/concepts/session.md`, *Asking in the window*.
+pub(crate) const WALK_ASK_THE_PAGE: &str = "If the question is about the page you showed him, ask it in the window instead: call ask_in_window with the page's url and a CSS selector for the place.";
+
+/// The whole refusal of a question asked during a walk.
+pub(crate) fn walk_open_refusal() -> String {
+    format!("{WALK_OPEN_ASK} {WALK_ASK_THE_PAGE}")
+}
+
 /// What Bridge's Approve sends the session, ahead of the address.
 pub(crate) const APPROVED: &str = "Approved: ";
 

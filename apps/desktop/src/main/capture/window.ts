@@ -15,9 +15,11 @@
 import { BaseWindow, session, shell, WebContentsView, type Session } from "electron";
 import { join } from "node:path";
 
-import type { Outcome, StagedFrame, StudioCapture } from "@armada/protocol";
+import type { Outcome, StagedFrame, StudioCapture, WindowPlace } from "@armada/protocol";
 import type {
   CaptureAimed,
+  CaptureAnswer,
+  CaptureRect,
   CaptureHeld,
   CaptureRefusedWhat,
   CaptureWheel,
@@ -27,6 +29,7 @@ import { CHANNELS } from "../../shared/bridge";
 import { isPinned, offerable, onOrigin, partitionFor, type Pinned } from "./address";
 import { aimed, bounded, chainOf, rectOf } from "./bounds";
 import { askSource } from "./layer";
+import { locateSource } from "./locate";
 
 /** What the window needs from main: a Note lands, and a frame is staged. */
 export type CaptureBoard = {
@@ -39,6 +42,8 @@ export type CaptureBoard = {
   walkApproved: (jobId: string) => Promise<Outcome>;
   /** Approve on the bar, for a Session: a message from the person naming the address, which wakes it. */
   sessionApproved: (sessionId: string, address: string) => Promise<Outcome>;
+  /** The Session's question, answered from the bar: `answer_waiting` on its item, which wakes it. */
+  answerAsk: (sessionId: string, itemId: string, answer: CaptureAnswer) => Promise<Outcome>;
   /** A Session's window closed, whoever closed it: its walk is over, so the Session may ask again. */
   sessionClosed: (sessionId: string, address: string) => void;
   stage: (png: Buffer, width: number, height: number) => Promise<StagedFrame | null>;
@@ -56,6 +61,14 @@ function isCaptureBinding(input: Electron.Input): boolean {
 }
 
 /** Where a note made in this window lands: the Run's Studio, the Job whose server it walks, or the Session that showed the page. */
+/** A question the Session asked about a place on this window's page — `ask_in_window`. */
+export type WindowQuestion = {
+  id: string;
+  question: string;
+  options: { label: string; description?: string }[];
+  place: WindowPlace;
+};
+
 export type LandsOn =
   | { studio: { id: string; name: string | null } }
   | { job: { id: string; handle: string } }
@@ -104,6 +117,17 @@ export class CaptureWindow {
   private refusedAddress: CaptureWindowState["refused"];
   /** The capture a press is holding, which never leaves this process until it lands. */
   private holding: StudioCapture | null = null;
+  /** The Session's open question, its place kept here as a capture's selector is. */
+  private asked: WindowQuestion | null = null;
+  /** Whether the question is drawn over the page, or folded into the bar. */
+  private askShown = true;
+  /** Where its place is in the page's viewport: unasked yet, found, or `null` for nothing on the page. */
+  private askBox: CaptureRect | null | undefined = undefined;
+  /** The question whose place has been scrolled to, so a later look does not pull the page back. */
+  private scrolledFor: string | null = null;
+  private relocating: ReturnType<typeof setTimeout> | null = null;
+  /** Questions answered from this bar, so a publish from before the answer cannot raise one again. */
+  private readonly settled = new Set<string>();
 
   constructor(pin: Pinned, landsOn: LandsOn, board: CaptureBoard, barHeight: number) {
     this.pin = pin;
@@ -155,7 +179,10 @@ export class CaptureWindow {
 
     this.window.contentView.addChildView(this.page);
     this.window.contentView.addChildView(this.bar);
-    this.window.on("resize", () => this.layout());
+    this.window.on("resize", () => {
+      this.layout();
+      this.relocateSoon();
+    });
     this.window.on("focus", () => this.board.focused(pin.run, true));
     this.window.on("blur", () => this.board.focused(pin.run, false));
     this.window.on("closed", () => {
@@ -223,7 +250,67 @@ export class CaptureWindow {
       armed: this.armed,
       framesRefused: this.framesRefused,
       ...(this.refusedAddress === undefined ? {} : { refused: this.refusedAddress }),
+      ...(this.asked === null
+        ? {}
+        : {
+            ask: {
+              id: this.asked.id,
+              question: this.asked.question,
+              options: this.asked.options,
+              from: "session" in this.landsOn ? this.landsOn.session.title : this.pin.name,
+              shown: this.askShown,
+              ...(this.askBox === undefined ? {} : { box: this.askBox }),
+            },
+          }),
     };
+  }
+
+  /**
+   * The Session's open question, or `null` where none is. **A new one brings the window forward,
+   * moves the page to its address and finds its place**: the owner, 11 Oct 2026, a question about the
+   * walk takes him where it is asking about. The address is held to the window's own origin.
+   */
+  question(question: WindowQuestion | null): void {
+    if (question === null) {
+      if (this.asked === null) return;
+      this.asked = null;
+      this.askBox = undefined;
+      this.tell();
+      return;
+    }
+    if (this.asked?.id === question.id || this.settled.has(question.id)) return;
+    this.asked = question;
+    this.askShown = true;
+    this.askBox = undefined;
+    this.tell();
+    this.raise();
+    if (!this.serving || this.page.webContents.isDestroyed() || !onOrigin(this.pin.origin, question.place.url)) {
+      void this.locate();
+      return;
+    }
+    if (sameAddress(this.page.webContents.getURL(), question.place.url)) void this.locate();
+    // The rest is `did-finish-load`'s: the place is looked for once the page it is on has drawn.
+    else void this.page.webContents.loadURL(question.place.url);
+  }
+
+  /** Draw the question over the page, or fold it into the bar so the page takes presses again. */
+  showAsk(on: boolean): void {
+    if (this.asked === null || this.askShown === on) return;
+    this.askShown = on;
+    this.tell();
+    if (on) void this.locate();
+  }
+
+  /** Answer the open question. **Main names the Session and the item**; the bar sends only what was said. */
+  async answerAsk(answer: CaptureAnswer): Promise<Outcome> {
+    const asked = this.asked;
+    if (asked === null || !("session" in this.landsOn)) return { ok: false, why: "nothing_held" };
+    const outcome = await this.board.answerAsk(this.landsOn.session.id, asked.id, answer);
+    if (outcome.ok) {
+      this.settled.add(asked.id);
+      if (this.asked?.id === asked.id) this.question(null);
+    }
+    return outcome;
   }
 
   arm(on: boolean): CaptureWindowState {
@@ -313,9 +400,9 @@ export class CaptureWindow {
     await shell.openExternal(refused.address);
   }
 
-  /** A wheel the bar took while armed, so the page still scrolls under the outline. */
+  /** A wheel the bar took while it covers the page, so the page still scrolls under the outline. */
   scroll(wheel: CaptureWheel): void {
-    if (!this.armed || this.page.webContents.isDestroyed()) return;
+    if (!this.covered() || this.page.webContents.isDestroyed()) return;
     this.page.webContents.sendInputEvent({
       type: "mouseWheel",
       x: Math.round(wheel.x),
@@ -324,6 +411,48 @@ export class CaptureWindow {
       deltaY: Math.round(wheel.deltaY),
       canScroll: true,
     } as Electron.MouseWheelInputEvent);
+    this.relocateSoon();
+  }
+
+  /** Whether the bar covers the whole frame: capture is armed, or a question is drawn over the page. */
+  private covered(): boolean {
+    return this.armed || (this.asked !== null && this.askShown);
+  }
+
+  /** Look for the question's place again once the page has settled from a wheel or a resize. */
+  private relocateSoon(): void {
+    if (this.asked === null || !this.askShown) return;
+    if (this.relocating !== null) clearTimeout(this.relocating);
+    this.relocating = setTimeout(() => {
+      this.relocating = null;
+      void this.locate();
+    }, 80);
+  }
+
+  /**
+   * Find the question's place in the page, scrolling it into view the first time. **One ask, on the
+   * promise main created**, as a capture's is, and the box re-bounded here against the viewport.
+   */
+  private async locate(): Promise<void> {
+    const asked = this.asked;
+    if (asked === null) return;
+    let answer: unknown = null;
+    if (this.serving && !this.page.webContents.isDestroyed() && onOrigin(this.pin.origin, this.page.webContents.getURL())) {
+      const scroll = this.scrolledFor !== asked.id;
+      try {
+        answer = await this.page.webContents.executeJavaScript(
+          locateSource(asked.place.selector, asked.place.text ?? null, scroll),
+          false,
+        );
+        if (scroll) this.scrolledFor = asked.id;
+      } catch {
+        answer = null;
+      }
+    }
+    if (this.asked?.id !== asked.id) return;
+    const box = typeof answer === "object" && answer !== null ? (answer as Record<string, unknown>)["box"] : undefined;
+    this.askBox = box === undefined ? null : rectOf(box, this.viewport());
+    this.tell();
   }
 
   /** The page's viewport, which every box is clamped to. */
@@ -367,10 +496,11 @@ export class CaptureWindow {
   private layout(): void {
     if (this.window.isDestroyed()) return;
     const { width, height } = this.window.getContentBounds();
-    const said = !this.serving || this.refusedAddress !== undefined || this.framesRefused > 0;
+    const folded = this.asked !== null && !this.askShown;
+    const said = !this.serving || this.refusedAddress !== undefined || this.framesRefused > 0 || folded;
     const strip = this.barHeight * (said ? 2 : 1);
     this.page.setBounds({ x: 0, y: strip, width, height: Math.max(0, height - strip) });
-    this.bar.setBounds({ x: 0, y: 0, width, height: this.armed ? height : strip });
+    this.bar.setBounds({ x: 0, y: 0, width, height: this.covered() ? height : strip });
   }
 
   private tell(): void {
@@ -432,6 +562,18 @@ export class CaptureWindow {
     this.bar.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
     this.bar.webContents.on("will-navigate", (event) => event.preventDefault());
     this.bar.webContents.on("did-finish-load", () => this.tell());
+    // A page the question moved to, or one that moved under it: its place is looked for again.
+    contents.on("did-finish-load", () => void this.locate());
+    contents.on("did-navigate-in-page", () => void this.locate());
+  }
+}
+
+/** Whether two addresses are the same page, as the browser spells each. */
+function sameAddress(a: string, b: string): boolean {
+  try {
+    return new URL(a).href === new URL(b).href;
+  } catch {
+    return a === b;
   }
 }
 

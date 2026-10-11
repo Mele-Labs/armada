@@ -27,6 +27,8 @@ export function studiosApi(seeded: readonly Studio[] | undefined, fleet: FleetHa
       followRefused: async () => {},
       approve: async () => ({ ok: true }) as Outcome,
       scroll: () => {},
+      showAsk: async () => {},
+      answerAsk: async () => ({ ok: true }) as Outcome,
     },
     // A Studio starting one entry — #1289, #1345. The mock Fleet answers, so
     // what these do here is what every other unstubbed act does: nothing.

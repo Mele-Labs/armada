@@ -190,6 +190,22 @@ export function handleStudios({ ipc, connection, published, captureWindows }: Ho
     await barred(event)?.followRefused();
   });
   ipc.handle(CHANNELS.captureWindowApprove, async (event) => (await barred(event)?.approve()) ?? unsent);
+  ipc.handle(CHANNELS.captureWindowShowAsk, (event, on: unknown) => {
+    if (typeof on === "boolean") barred(event)?.showAsk(on);
+  });
+  // The Session's question, answered: an index into its options, words of the person's own, or both.
+  ipc.handle(CHANNELS.captureWindowAnswerAsk, async (event, answer: unknown) => {
+    const said = (answer ?? {}) as Record<string, unknown>;
+    const choice = typeof said["choice"] === "number" && Number.isInteger(said["choice"]) ? said["choice"] : undefined;
+    const words = typeof said["text"] === "string" && said["text"].trim() !== "" ? said["text"] : undefined;
+    if (choice === undefined && words === undefined) return undefined;
+    return (
+      (await barred(event)?.answerAsk({
+        ...(choice === undefined ? {} : { choice }),
+        ...(words === undefined ? {} : { text: words }),
+      })) ?? unsent
+    );
+  });
   ipc.on(CHANNELS.captureWindowScroll, (event, wheel: unknown) => {
     const said = (wheel ?? {}) as Record<string, unknown>;
     const at = (key: string): number => (typeof said[key] === "number" ? (said[key] as number) : 0);

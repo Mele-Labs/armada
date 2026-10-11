@@ -82,13 +82,39 @@ export type SessionRecord = {
 /** What a press on a waiting item does. `target` is an address, a call, a pull request number or a command. */
 export type WaitingAct = { kind: "walk" | "answer" | "approve_pr" | "run"; target: string };
 
-/** Who put an item on the list: the agent, or Fleet from an open card, a permission or an unapproved walk window. */
-export type WaitingSource = "agent" | "ask_card" | "walk" | "permission";
+/**
+ * Who put an item on the list: the agent, or Fleet from an open card, a permission, an unapproved walk
+ * window, or a question the session asked in its walk window (`ask_in_window`).
+ */
+export type WaitingSource = "agent" | "ask_card" | "walk" | "permission" | "window_ask";
+
+/** One choice of an item or a question, with what choosing it means where the asker said. */
+export type WaitingOption = { label: string; description?: string };
+
+/**
+ * Where on a walked page a question points: the address, on the origin of a window the session showed,
+ * a CSS selector for the element, and text it shows that picks one where the selector finds several.
+ */
+export type WindowPlace = { url: string; selector: string; text?: string };
+
+/**
+ * `POST /sessions/window/ask`, the agent's: a question about a place on the page its walk window shows.
+ * Answered at once with the `SessionRecord`; the person's answer comes back as their message.
+ */
+export type AskInWindow = {
+  question: string;
+  options?: WaitingOption[];
+  url: string;
+  selector: string;
+  text?: string;
+  session_id?: string;
+};
 
 /**
  * One thing a session waits on the person for. `id` is stable across updates: the agent's own, or
- * `ask:<call>`, `perm:<call>`, `walk:<url>` where Fleet derived it. `options` is present only on an
- * `answer` item that has choices, and `answer_waiting`'s `choice` indexes it.
+ * `ask:<call>`, `perm:<call>`, `walk:<url>`, `window_ask:<row>` where Fleet derived it. `options` is
+ * present only on an item that has choices, and `answer_waiting`'s `choice` indexes it. `place` is
+ * present only on a `window_ask` item, whose `act` is a walk of the window it was asked in.
  */
 export type WaitingItem = {
   id: string;
@@ -96,7 +122,8 @@ export type WaitingItem = {
   since: string;
   source: WaitingSource;
   act?: WaitingAct;
-  options?: { label: string }[];
+  options?: WaitingOption[];
+  place?: WindowPlace;
 };
 
 /**

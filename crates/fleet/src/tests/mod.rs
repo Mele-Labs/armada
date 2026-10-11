@@ -27,6 +27,7 @@ mod approving;
 mod asked;
 mod asked_run;
 mod asking;
+mod asking_in_window;
 mod at_once;
 mod attachments;
 mod attribution;

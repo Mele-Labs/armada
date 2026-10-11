@@ -6,7 +6,7 @@ import { ANNOTATE_FLAG, ANNOTATION_CHANNELS } from "../shared/annotations";
 import type { Annotation, AnnotationsDevApi, Box } from "../shared/annotations";
 import { frameStreamUrl } from "../shared/streaming";
 import type { BridgeState, HistoryStep, Summons } from "../shared/bridge";
-import type { CaptureAimed, CaptureHeld, CaptureWheel, CaptureWindowState } from "../shared/capture-window";
+import type { CaptureAimed, CaptureAnswer, CaptureHeld, CaptureWheel, CaptureWindowState } from "../shared/capture-window";
 import type { CaptureOpened, ChooseTriggerFix, FixMain, HoldAct } from "@armada/protocol";
 import type { ChangeSlotPool, RescueSlot, SketchToKeep } from "@armada/protocol";
 import type { BridgeApi, CommandExplainedRead } from "../shared/api";
@@ -754,6 +754,8 @@ const api: BridgeApi = {
     followRefused: (): Promise<void> => ipcRenderer.invoke(CHANNELS.captureWindowFollowRefused),
     approve: (): Promise<Outcome> => ipcRenderer.invoke(CHANNELS.captureWindowApprove),
     scroll: (wheel: CaptureWheel): void => ipcRenderer.send(CHANNELS.captureWindowScroll, wheel),
+    showAsk: (on: boolean): Promise<void> => ipcRenderer.invoke(CHANNELS.captureWindowShowAsk, on),
+    answerAsk: (answer: CaptureAnswer): Promise<Outcome> => ipcRenderer.invoke(CHANNELS.captureWindowAnswerAsk, answer),
   },
 
   // The three decisions on the work, and they are three entries for the reason

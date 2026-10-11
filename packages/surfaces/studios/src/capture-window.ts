@@ -53,7 +53,32 @@ export type CaptureWindowState = {
   framesRefused: number;
   /** The last address refused, or absent. */
   refused?: CaptureRefusal;
+  /** A question the Session that opened this window asked about a place on its page. Absent: none open. */
+  ask?: CaptureAsk;
 };
+
+/**
+ * A question a Session asked in its walk window — `ask_in_window`, `docs/concepts/session.md`. **The
+ * selector stays in main**, as a capture's does: the bar gets the box to outline and the words to draw.
+ */
+export type CaptureAsk = {
+  /** The waiting item it settles. */
+  id: string;
+  question: string;
+  options: { label: string; description?: string }[];
+  /** Who asks: the Session's title. */
+  from: string;
+  /**
+   * Drawn over the page with the place outlined, or folded into the bar's second row so the page can
+   * be used. Folded, the page takes presses again.
+   */
+  shown: boolean;
+  /** The place, in the page's viewport. Absent while it is being looked for; `null` where nothing on the page matched. */
+  box?: CaptureRect | null;
+};
+
+/** An answer from the bar: an option by its index, words of the person's own, or both. */
+export type CaptureAnswer = { choice?: number; text?: string };
 
 /** What the bar draws over the element under the pointer while capture is armed. */
 export type CaptureAimed = { box: CaptureRect; named: string };

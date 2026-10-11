@@ -445,6 +445,14 @@ test('the session id is told again at every session start, and not to a Drone', 
   }
 })
 
+test('the first-message note says a question waits during a walk, and one about the page is asked in the window', async ($, on) => {
+  world(on)
+  const out = await $.classic.SessionStart({ source: 'startup' })
+  const note = out.additionalContext?.[0] ?? ''
+  expect(note).toContain('do not ask with AskUserQuestion')
+  expect(note).toContain('call ask_in_window')
+})
+
 test('a Drone is told no session id at a start', async ($, on) => {
   world(on, { env: { ARMADA_DRONE: '1' } })
   const out = await $.classic.SessionStart({ source: 'startup' })
