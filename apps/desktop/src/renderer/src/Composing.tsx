@@ -20,6 +20,7 @@ import { landingRuleOf } from "@armada/jobs/draft/landing";
 import type { BridgeState } from "../../shared/bridge";
 import { readComposing, searchFiles, stageAttachment, type useCommands } from "./commands";
 import { useDrafted } from "./drafted";
+import { OpenIssues } from "./issues";
 
 /**
  * The way out, on the head of the thing it closes — the owner's call of
@@ -237,6 +238,22 @@ export function Composing({
         disabled={!live}
       />
       </Boundary>
+      {/* The repository's open issues, each a dispatch of its own address through the press
+          above. #91. */}
+      {manifest === undefined ? null : (
+        <Boundary region="the open issues" {...guarded}>
+          <OpenIssues
+            manifestId={manifest.id}
+            disabled={!live}
+            onDispatch={(url) => {
+              onClose();
+              void commands.proposeFrom(url, [], all ? answered : null).then((told) => {
+                if (told !== null) onSaid(told);
+              });
+            }}
+          />
+        </Boundary>
+      )}
       {/* The ask, and only where something would be lost. Every destructive
           act confirms through this one dialog, which owns `Cancel` holding
           focus; this supplies the words. Cancelling leaves the composer
