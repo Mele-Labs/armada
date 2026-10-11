@@ -47,6 +47,7 @@ mod pull_watch;
 mod secret;
 mod setup;
 mod slots;
+mod tracker;
 mod under_review;
 mod work_product;
 mod worktree;
@@ -78,6 +79,7 @@ pub use main_ci::{
 pub use pull_request::{PullRequestFacts, PullRequestStanding};
 pub use pull_watch::{PullQueue, WatchedCheck, WatchedPull, WatchedPulls};
 pub use secret::Secret;
+pub use tracker::{NotTracked, OpenIssue, Tracker};
 pub use setup::{
     HarnessSetup, Inventory, KindRead, SetupFiles, SetupItem, SetupKind, Unreadable, WhatWasRead,
 };

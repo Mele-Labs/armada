@@ -58,6 +58,8 @@ mod harness;
 mod hosted_session;
 mod inline_comments;
 mod issue_lookup;
+/// Reading a repository's open issues and writing back on one. #91.
+mod issue_tracker;
 mod judge;
 mod keeping_current;
 mod landing;
@@ -113,6 +115,7 @@ pub use harness::{
 };
 pub use hosted_session::{reads_only, HostedLaunch, HostedRefused, HOSTED_HARNESS, MOD_INSTALLED_MANIFEST, MOD_MANIFEST};
 pub use issue_lookup::IssueLookup;
+pub use issue_tracker::IssueTracker;
 pub use mcp::{publish_the_agents_door, the_drones_servers, Published, REPOSITORY_CONFIG};
 pub use reading_in::{
     bounded, fetching, forge_facts, forge_node, milestone_read, source_of, text_of_a_page,

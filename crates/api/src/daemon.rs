@@ -29,6 +29,7 @@ mod authoring;
 mod commands;
 mod conversing;
 mod hosted_sessions;
+mod issues;
 mod mods;
 mod needs;
 mod piloting;
@@ -46,6 +47,7 @@ pub use authoring::Authoring;
 pub use commands::Commands;
 pub use conversing::Conversations;
 pub use hosted_sessions::{HostedSessions, StoredFile};
+pub use issues::Issues;
 pub use mods::Mods;
 pub use needs::Needs;
 pub use piloting::Piloting;
@@ -94,7 +96,8 @@ use ipc::WireError;
 /// is a sixth and [`Retros`] a seventh, each for a reason its own module gives.
 /// [`Authoring`] is one more, for [`Retros`]' reason, and [`Sessions`] another,
 /// [`HostedSessions`] one more beside it, and [`Needs`] and [`PullRequests`] two
-/// more, [`Rehearsing`] split out of [`Commands`], [`Mods`] and [`Settings`].
+/// more, [`Rehearsing`] split out of [`Commands`], [`Mods`] and [`Settings`],
+/// and [`Issues`].
 pub trait Daemon:
     Queries
     + Commands
@@ -108,6 +111,7 @@ pub trait Daemon:
     + HostedSessions
     + Needs
     + PullRequests
+    + Issues
     + Piloting
     + Rehearsing
     + Mods
@@ -128,6 +132,7 @@ impl<
             + HostedSessions
             + Needs
             + PullRequests
+            + Issues
             + Piloting
             + Rehearsing
             + Mods

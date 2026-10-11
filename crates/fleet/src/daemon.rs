@@ -99,6 +99,9 @@ pub struct Fleet<H, V, W> {
     /// and it is empty after a restart because a proposal is not a record.
     proposals: Proposals,
     links: Arc<dyn LinkLookup + Send + Sync>,
+    /// The tracker, the issue lists last read from it, and when Fleet last
+    /// wrote back. Never written down but for what was said — `crate::tracking`.
+    tracking: crate::tracking::Tracking,
     ci_configuration: Arc<dyn CiConfiguration + Send + Sync>,
     models: ipc::ModelChoices,
     events: api::Broadcaster,

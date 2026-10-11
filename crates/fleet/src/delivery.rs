@@ -307,6 +307,8 @@ where
             .changed_files(worktree)
             .unwrap_or_else(|_| Changed::nothing());
         let (review, structured) = review_of(job, &checks, base, &remote, &changed);
+        // Merging it closes the issue the Job came from, where it came from one. #91.
+        let review = self.closing_its_issue(job, review).await;
         // A draft where a person chose one at approval (spike 022, slice 4).
         let review = match self.landing_of(job.id()).await.pr_mode {
             core_model::PrMode::Draft => review.as_draft(),

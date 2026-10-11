@@ -370,6 +370,8 @@ pub mod task_edits;
 pub mod tasking;
 pub mod terms;
 mod tooling;
+/// A repository's open issues, read from its tracker. #91.
+mod tracking;
 pub mod transcript;
 mod trigger_authoring;
 mod trigger_hold;
@@ -405,6 +407,8 @@ mod wire;
 mod work_plan;
 pub mod working;
 pub mod workspaces;
+/// What Fleet writes on the issue a Job came from. #91.
+mod writing_back;
 
 #[cfg(test)]
 mod tests;

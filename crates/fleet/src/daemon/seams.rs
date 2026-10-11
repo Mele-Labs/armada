@@ -433,6 +433,10 @@ where
     pub(crate) fn links(&self) -> &Arc<dyn LinkLookup + Send + Sync> {
         &self.links
     }
+    /// The tracker and what Fleet holds of it — `crate::tracking`.
+    pub(crate) fn tracking(&self) -> &crate::tracking::Tracking {
+        &self.tracking
+    }
     /// What reads a repository's CI configuration, for Scan.
     pub(crate) fn ci_configuration(&self) -> &Arc<dyn CiConfiguration + Send + Sync> {
         &self.ci_configuration

@@ -102,6 +102,8 @@ mod holding;
 /// write goes through. `docs/concepts/session.md`.
 mod hosted_sessions;
 mod ids;
+/// A repository's open issues, as Fleet read them. #91.
+mod issues;
 mod job;
 /// What Fleet did to a Job, out of the Job's own log. **The third voice the
 /// activity log was designed around and nothing produced.**
@@ -320,6 +322,7 @@ pub use ids::{
     CriterionId, DroneId, Instant, JobId, ManifestId, ProposalId, QuestionId, StepId, StudioEdgeId,
     StudioId, StudioNodeId, WorkflowId,
 };
+pub use issues::{IssueList, TrackedIssue};
 pub use job::{
     AttachmentRef, DependencyEdge, JobForgotten, JobList, JobRequest, JobSummary, Paused,
     ProposeJob, ProposedCriterion, ProposedPlan, Redirection, Redispatched, RestartRequested,
