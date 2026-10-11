@@ -39,6 +39,8 @@ export type CaptureBoard = {
   walkApproved: (jobId: string) => Promise<Outcome>;
   /** Approve on the bar, for a Session: a message from the person naming the address, which wakes it. */
   sessionApproved: (sessionId: string, address: string) => Promise<Outcome>;
+  /** A Session's window closed, whoever closed it: its walk is over, so the Session may ask again. */
+  sessionClosed: (sessionId: string, address: string) => void;
   stage: (png: Buffer, width: number, height: number) => Promise<StagedFrame | null>;
   /** This window took or gave up focus, by the server it is on. Bridge dims behind a focused one. */
   focused: (serverId: string, on: boolean) => void;
@@ -156,7 +158,10 @@ export class CaptureWindow {
     this.window.on("resize", () => this.layout());
     this.window.on("focus", () => this.board.focused(pin.run, true));
     this.window.on("blur", () => this.board.focused(pin.run, false));
-    this.window.on("closed", () => this.board.focused(pin.run, false));
+    this.window.on("closed", () => {
+      this.board.focused(pin.run, false);
+      if ("session" in landsOn) this.board.sessionClosed(landsOn.session.id, pin.url);
+    });
     this.layout();
 
     this.holdThePage();

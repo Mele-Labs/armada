@@ -166,6 +166,9 @@ const captureWindows = new CaptureWindows({
     const sent = await connection?.sessions.send({ session_id: sessionId, text: `Approved: ${address}` });
     return sent === undefined ? UNSENT : sent.ok ? { ok: true } : sent.outcome;
   },
+  sessionClosed: (sessionId, address) => {
+    void connection?.sessions.windowClosed({ session_id: sessionId, url: address });
+  },
   stage: stagePng,
   focused: (serverId, on) => {
     if (on) walkFocused.add(serverId);

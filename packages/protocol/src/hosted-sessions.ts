@@ -165,8 +165,11 @@ export type SessionRow =
   | { kind: "compaction"; id: string; at: string; text: string }
   /** The first write: the slot leased and the branch cut. */
   | { kind: "lease"; id: string; at: string; slot: number; branch: string }
-  /** The session showed the person a page in a window. */
-  | { kind: "window"; id: string; at: string; title: string; url: string }
+  /**
+   * The session showed the person a page in a window. `ended_at` is when the walk ended, by an
+   * approval or the window closing; absent while it is open.
+   */
+  | { kind: "window"; id: string; at: string; title: string; url: string; ended_at?: string }
   /**
    * What a piloted session starts with, first in its thread: the Job's worktree handed over and what
    * Fleet knew when its Drone stopped, as the bundle's structured fields. Since 23.51.

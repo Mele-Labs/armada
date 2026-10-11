@@ -317,6 +317,10 @@ pub enum SessionRow {
         at: Instant,
         title: String,
         url: String,
+        /// When the walk ended: the person approved the page or closed its window. Absent while
+        /// it is open. **The row is replaced by id** when it is set.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        ended_at: Option<Instant>,
     },
     /// A call put to the person. **The row is replaced by id** as the ask is
     /// answered, so a client holds one row per ask.

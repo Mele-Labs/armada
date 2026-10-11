@@ -272,6 +272,11 @@ this window, and that is another security review. `#1294`.
 > Why: the person walked the page and it is right, and the one who opened the
 > window is the one waiting to hear it. A Studio's window has nobody to tell.
 
+> **Rule.** A Session's window that closes, whoever closed it, is told to
+> Fleet as `window_closed` with the address it opened on.
+> Why: it ends the Session's walk, and a Session refuses its own questions
+> while one is open (`docs/concepts/session.md`, *Showing a window*).
+
 > **Rule.** The window draws no rail and reaches no Armada surface. A Studio is
 > read on Bridge's window.
 

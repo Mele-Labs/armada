@@ -549,6 +549,11 @@ const ROUTES: &[Route] = &[
         path: "/sessions/window",
     },
     Route {
+        operation: "window_closed",
+        method: "POST",
+        path: "/sessions/window/closed",
+    },
+    Route {
         operation: "claim_pull_request",
         method: "POST",
         path: "/sessions/claim_pull_request",

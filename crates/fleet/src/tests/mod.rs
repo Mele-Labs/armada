@@ -219,6 +219,7 @@ mod sleeping;
 mod sessioning;
 mod settling;
 mod terminal_session;
+mod walk_question;
 mod showing;
 mod showing_again;
 mod silence;
