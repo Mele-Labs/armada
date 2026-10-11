@@ -594,6 +594,25 @@ where
                         policies,
                     }
                 }
+                // Back to the Drone, ahead of the gaming look for the reason
+                // above. A trigger that is not step-level falls through to a
+                // refusal a person sees, as `handed_back` falls through. #206.
+                Ok((judged, JudgeFold::SentBack(refusals))) => {
+                    match StepLevelTrigger::of(EscalationTrigger::GateFailure) {
+                        Some(retrying) => {
+                            return Ruling::JudgesAgreed {
+                                tell: OutcomeTurn::sent_back(step, &refusals, &judging.wording),
+                                refusals,
+                                checks,
+                                output,
+                                judged,
+                                retrying,
+                                policies,
+                            }
+                        }
+                        None => (judged, mechanical.but_for(Some(refusals))),
+                    }
+                }
                 Ok((judged, JudgeFold::Refused(refusals))) => {
                     (judged, mechanical.but_for(Some(refusals)))
                 }
@@ -951,9 +970,10 @@ impl Ruling {
     /// one: its evidence was a signal, never the decision.
     pub fn signed_by(&self) -> Actor {
         match self {
-            Ruling::Refused { .. } | Ruling::Questioned { .. } | Ruling::Suspect { .. } => {
-                Actor::Judge
-            }
+            Ruling::Refused { .. }
+            | Ruling::JudgesAgreed { .. }
+            | Ruling::Questioned { .. }
+            | Ruling::Suspect { .. } => Actor::Judge,
             Ruling::Failed { .. } | Ruling::HandedBack { .. } => Actor::Check,
             _ => Actor::Fleet,
         }

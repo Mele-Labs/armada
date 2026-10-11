@@ -14,6 +14,7 @@
 //! that drifted apart between them would leave three modules arguing about
 //! three different steps.
 
+mod agreed;
 mod brief;
 mod marking;
 mod reading;

@@ -18,6 +18,7 @@ pub(super) fn judge() -> Vec<(Words, verification::Piece)> {
             keys::PROMPT_JUDGE_ANSWER,
             verification::pieces::JUDGE_ANSWER,
         ),
+        (keys::PROMPT_JUDGE_RISK, verification::pieces::JUDGE_RISK),
         (
             keys::PROMPT_JUDGE_REQUEST,
             verification::pieces::JUDGE_REQUEST,
@@ -279,6 +280,10 @@ pub(super) fn judge() -> Vec<(Words, verification::Piece)> {
         (
             keys::PROMPT_OUTCOME_HANDED_BACK,
             verification::pieces::OUTCOME_HANDED_BACK,
+        ),
+        (
+            keys::PROMPT_OUTCOME_SENT_BACK,
+            verification::pieces::OUTCOME_SENT_BACK,
         ),
         (
             keys::PROMPT_OUTCOME_WORK_AGAIN,

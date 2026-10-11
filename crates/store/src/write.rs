@@ -530,8 +530,8 @@ impl Store {
             tx.execute(
                 "INSERT INTO job_step_judgments (
                      job_id, step_id, attempt, ordinal, criterion, verdict, expected,
-                     produced, consequence, judged_at, brief_path, member, cited, given
-                 ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
+                     produced, consequence, judged_at, brief_path, member, cited, given, risky
+                 ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)",
                 rusqlite::params![
                     job_id.as_str(),
                     step_id.as_str(),
@@ -550,6 +550,7 @@ impl Store {
                     // readable apart. `judged::V35`.
                     judgment.cited.as_deref().map(columns::write_citations),
                     judgment.given.as_ref().map(columns::write_given),
+                    judgment.risky.as_deref(),
                 ],
             )
             .map_err(fault("writing a judgment"))
