@@ -156,6 +156,12 @@ export type PullRequestClaimed = { number: number; branch: string; url: string; 
  */
 export type DismissWaiting = { session_id: string; item_id: string };
 
+/**
+ * `POST /sessions/window/closed`: the person closed the window a session showed, by its `url` as
+ * `show_window` named it. It ends the session's walk and settles nothing on Waiting on you.
+ */
+export type WindowClosed = { session_id: string; url: string };
+
 /** A command a terminal session lists, for `/` to offer. Since 23.53. */
 export type TerminalCommand = { name: string; says: string };
 

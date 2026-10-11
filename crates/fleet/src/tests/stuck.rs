@@ -207,6 +207,7 @@ async fn settled(fleet: &Fixture) {
         last = seen;
         tokio::time::sleep(std::time::Duration::from_millis(5)).await;
     }
+    panic!("the Drone never stopped turning");
 }
 
 /// One Job as the wire serves it.

@@ -375,6 +375,18 @@ const ROUTES: &[Route] = &[
         method: "POST",
         path: "/lessons/:lesson_id/disagree",
     },
+    // Two model calls over the open items, neither of which stores anything.
+    // `review` is a literal segment beside `:lesson_id`, which axum ranks first.
+    Route {
+        operation: "review_lessons",
+        method: "POST",
+        path: "/lessons/review",
+    },
+    Route {
+        operation: "ask_lesson",
+        method: "POST",
+        path: "/lessons/:lesson_id/ask",
+    },
     // What Fleet did to the Job, settled: the socket's backfill, answered once.
     // **The one row whose last segment is not its key**, and the reason is the
     // route next door. Elsewhere a log has two routes — `<noun>/output` for the
@@ -435,18 +447,9 @@ const ROUTES: &[Route] = &[
         method: "POST",
         path: "/jobs/:job_id/ask_person_to_approve",
     },
-    // One call's arguments, and a member read rather than an act — the same
-    // shape as `get_job` under `/jobs`, which is why the last segment is the id
-    // and not the key. The socket sends the line and the size; this is what a
-    // person opening that row asks for, once, about one call.
-    Route {
-        operation: "get_call",
-        method: "GET",
-        path: "/jobs/:job_id/calls/:call_id",
-    },
-    // What that call would do, read by a model for the person deciding whether
-    // to allow it. Under the call and not beside it: it is a second reading of
-    // the one call above, on the same id `answer_command` takes. A query,
+    // What one call would do, read by a model for the person deciding whether
+    // to allow it. Under the call: the segment before `explain` is the call id,
+    // the same id `answer_command` takes. A query,
     // because it decides nothing — the offers are unchanged and the Drone stays
     // held whatever it says.
     Route {
@@ -549,6 +552,11 @@ const ROUTES: &[Route] = &[
         operation: "ask_in_window",
         method: "POST",
         path: "/sessions/window/ask",
+    },
+    Route {
+        operation: "window_closed",
+        method: "POST",
+        path: "/sessions/window/closed",
     },
     Route {
         operation: "claim_pull_request",

@@ -53,7 +53,7 @@ use crate::limiting::{get_limits, save_limits};
 use crate::preferring::{get_preferences, save_preferences};
 use crate::processes::{kill_process, kill_processes};
 use crate::queries::{
-    explain_command, get_brief, get_call, get_capacity, get_check_output, get_diff, get_evidence,
+    explain_command, get_brief, get_capacity, get_check_output, get_diff, get_evidence,
     get_frame, get_job, get_job_events, get_job_log, get_job_resources, get_manifest_drift,
     get_manifest_reading, get_remarks, list_job_drones, list_jobs, list_manifest_checks,
     list_manifests, list_models, list_reports, list_workflows, list_worktrees, search_files,
@@ -218,6 +218,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             "/sessions/window/ask",
             post(crate::sessions::ask_in_window::<D>),
         )
+        .route(
+            "/sessions/window/closed",
+            post(crate::sessions::window_closed::<D>),
+        )
         .route("/sleep", get(crate::hosted_sessions::get_sleep::<D>).post(crate::hosted_sessions::set_sleep::<D>))
         .route("/sleep/override", post(crate::hosted_sessions::override_sleep::<D>))
         .route("/sessions/waiting", post(crate::sessions::waiting_for::<D>))
@@ -373,6 +377,11 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             get(crate::retros::get_session_retro::<D>).post(crate::retros::write_session_retro::<D>),
         )
         .route("/lessons", get(crate::retros::list_lessons::<D>))
+        .route("/lessons/review", post(crate::retros::review_lessons::<D>))
+        .route(
+            "/lessons/:lesson_id/ask",
+            post(crate::retros::ask_lesson::<D>),
+        )
         .route(
             "/lessons/:lesson_id/agree",
             post(crate::retros::agree_lesson::<D>),
@@ -391,7 +400,6 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             "/jobs/:job_id/ask_person_to_approve",
             post(ask_person_to_approve::<D>),
         )
-        .route("/jobs/:job_id/calls/:call_id", get(get_call::<D>))
         .route(
             "/jobs/:job_id/calls/:call_id/explain",
             get(explain_command::<D>),

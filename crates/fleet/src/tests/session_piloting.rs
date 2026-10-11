@@ -20,6 +20,7 @@ use crate::tests::daemon::a_fleet;
 use crate::tests::piloting::{changed, running, Fixture};
 use crate::tests::session_host::{Shared, StandIn};
 use crate::tests::tmp::TempDir;
+use crate::tests::waiting::until;
 
 struct Rig {
     fleet: Arc<Fixture>,
@@ -398,12 +399,13 @@ async fn the_commands_an_agent_names_reach_the_session_and_every_other() {
             .unwrap()
             .commands
     };
-    for _ in 0..500 {
-        if !names().await.is_empty() {
-            break;
-        }
-        tokio::time::sleep(Duration::from_millis(10)).await;
-    }
+    until(
+        "the session never listed a command",
+        500,
+        Duration::from_millis(10),
+        || async { (!names().await.is_empty()).then_some(()) },
+    )
+    .await;
     assert_eq!(names().await, vec!["compact", "review"]);
 
     let blank = rig

@@ -227,6 +227,15 @@ pub struct ShowWindow {
     pub session_id: Option<SessionId>,
 }
 
+/// `window_closed`: the person closed the window a session showed. Bridge tells it; nothing is
+/// closed by it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WindowClosed {
+    pub session_id: SessionId,
+    /// The address the window was opened on, as `show_window` named it.
+    pub url: String,
+}
+
 /// What a press on a waiting item does.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]

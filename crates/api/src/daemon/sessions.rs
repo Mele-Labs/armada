@@ -52,6 +52,13 @@ pub trait Sessions: Send + Sync + 'static {
         ask: ipc::AskInWindow,
     ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
 
+    /// `window_closed` — the person closed a session's window, which ends its walk. Answers with
+    /// the row. [`Refusal::Unacceptable`] for a session Fleet does not know.
+    fn window_closed(
+        &self,
+        closed: ipc::WindowClosed,
+    ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
+
     /// `claim_pull_request` — the caller takes an open pull request no live Session or Job holds,
     /// or whose holder has ended. [`Refusal::Unacceptable`] with the reason for a pull request
     /// that is not open, a live holder, or a call that places no holder.

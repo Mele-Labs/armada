@@ -820,9 +820,7 @@ where
             return Some((refusal.tool.clone(), None));
         }
         let command = if refusal.truncated {
-            crate::transcript::arguments(records, &handle, call)
-                .await
-                .map(|whole| whole.arguments)
+            crate::transcript::arguments(records, &handle, call).await
         } else {
             Some(refusal.detail.clone())
         };

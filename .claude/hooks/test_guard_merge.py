@@ -212,6 +212,19 @@ class MergesByHand(unittest.TestCase):
             with self.subTest(command=command):
                 self.assertIsNone(decide(command, self.feature))
 
+    def test_lets_a_merge_run_where_a_cd_cannot_be_followed(self) -> None:
+        # A path made by another command, or one that is not there yet, says
+        # nothing about the checkout the merge runs in. It must not fall back
+        # to the checkout above it, which is the one at `main`.
+        for command in (
+            "cd $(armada worktree lease x) && git merge origin/main",
+            'cd "$(armada worktree lease x)" && git merge origin/main',
+            "armada worktree lease x && cd .claude/worktrees/x && git merge origin/main",
+            "git -C .claude/worktrees/x merge origin/main",
+        ):
+            with self.subTest(command=command):
+                self.assertIsNone(decide(command, self.main))
+
     def test_lets_a_checkout_at_main_follow_the_remote(self) -> None:
         for command in (
             "git merge --ff-only origin/main",

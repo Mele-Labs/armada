@@ -388,7 +388,7 @@ fn a_refusal_crosses_with_its_command_and_keeps_its_empty_reason() {
     );
     assert!(
         json.contains("\"call\":\"toolu_01B13LL\""),
-        "and the id `get_call` serves the whole argument by: {json}"
+        "and the id the command is answered and explained by: {json}"
     );
     assert_eq!(
         decode::<Stuck>("a classification", json.as_bytes()).expect("it reads back"),

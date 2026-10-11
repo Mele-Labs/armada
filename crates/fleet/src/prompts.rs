@@ -45,6 +45,8 @@ fn shipped_texts() -> Vec<(Words, String)> {
             keys::PROMPT_RETRO_HOW_TO_WRITE,
             crate::retro::TEXTS.to_string(),
         ),
+        (keys::PROMPT_RETRO_REVIEW, crate::retro::REVIEW.to_string()),
+        (keys::PROMPT_RETRO_ASK, crate::retro::ASK.to_string()),
         (
             keys::PROMPT_CROSSING_REDIRECT,
             crate::crossing::REDIRECTED.to_string(),

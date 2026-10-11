@@ -88,6 +88,7 @@ import { useLayout } from "./layout";
 import { useLeftCollapsed } from "./left-collapsed";
 import { useLeftWidth } from "./left-width";
 import { ALL_REPOSITORIES } from "./RepositoryOptions";
+import { MACHINE_SCOPE_SAID, surfaceScope } from "./surface-scope";
 import { repositoryLabel } from "./repository-label";
 import { panelSurfaces, RAIL_PANELS, SURFACE, SURFACES } from "./surfaces";
 
@@ -200,6 +201,7 @@ export function Shell({
   const live = connection.state === "connected";
   // One list, drawn twice: the picker's dropdown, and the narrow menu's rows.
   const pickerEntries = repositoryEntries(repositories, listed, onAddRepository !== undefined, scope);
+  const machineWide = surfaceScope(showing) === "machine";
   const pick = (id: string) => (id === ADD_REPOSITORY ? onAddRepository?.() : onScope(id === ALL_REPOSITORIES ? null : id));
 
   return (
@@ -269,12 +271,13 @@ export function Shell({
       repositoryPicker={
         <>
           <DropdownMenu
-            triggerLabel={repositoryTriggerLabel(repositories, scope, listed)}
+            triggerLabel={machineWide ? MACHINE_SCOPE_SAID : repositoryTriggerLabel(repositories, scope, listed)}
             entries={pickerEntries}
-            // Disabled only where nothing behind it is actionable — Add a
+            // Disabled where nothing behind it is actionable — Add a
             // repository stays reachable on an empty Fleet, which is when it
-            // matters most, so its presence keeps the trigger live.
-            disabled={repositories.length === 0 && onAddRepository === undefined}
+            // matters most, so its presence keeps the trigger live. And on a
+            // surface about this machine, where a pick changes nothing.
+            disabled={machineWide || (repositories.length === 0 && onAddRepository === undefined)}
             onSelect={pick}
           />
           {/* Beside the pick rather than under it: the menu answers *which*,

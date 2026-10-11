@@ -186,6 +186,8 @@ export function CommandPalette({
   // cursor left at position four in a list that now has two is a cursor
   // somewhere the person did not put it.
   useEffect(() => setAt(0), [query]);
+  // Closed, it forgets what was typed: the one bar reopens empty rather than holding words `n` could send.
+  useEffect(() => void (open || setQuery(defaultQuery)), [open, defaultQuery]);
 
   useEffect(() => {
     if (open) input.current?.focus();
@@ -286,7 +288,7 @@ export function CommandPalette({
   let n = leading ? 0 : -1;
   const current = flat[at];
   const sendRow = !offered ? null : (
-    <DispatchRow words={query.trim()} kind={dispatch.kind} active={current === "dispatch"} ref={current === "dispatch" ? active : undefined} onEnter={() => setAt(flat.indexOf("dispatch"))} onChoose={send} />
+    <DispatchRow words={query.trim()} kind={dispatch.kind} trailing={!leading} active={current === "dispatch"} ref={current === "dispatch" ? active : undefined} onEnter={() => setAt(flat.indexOf("dispatch"))} onChoose={send} />
   );
 
   return (

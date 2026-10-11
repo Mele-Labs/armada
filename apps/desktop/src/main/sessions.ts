@@ -31,6 +31,7 @@ import type {
   SessionThread,
   StartSession,
   TuneSession,
+  WindowClosed,
 } from "@armada/protocol";
 import type { BridgeState } from "../shared/bridge";
 import type { ArtifactRead } from "@armada/screens/src/draft/sessions";
@@ -207,6 +208,11 @@ export class SessionsHost {
 
   async dismissWaiting(dismiss: DismissWaiting): Promise<SessionActed> {
     return await this.act("POST", "/sessions/waiting/dismiss", dismiss);
+  }
+
+  /** The person closed a window a Session showed: its walk is over, and its waiting item stands. */
+  async windowClosed(closed: WindowClosed): Promise<SessionActed> {
+    return await this.act("POST", "/sessions/window/closed", closed);
   }
 
   async tune(tune: TuneSession): Promise<SessionActed> {
