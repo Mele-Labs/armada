@@ -20,8 +20,7 @@
 //!
 //! # The asking Drone gives its place back
 //!
-//! The owner's decision of 11 Oct 2026
-//! (`.claude/decisions/2026-10-11-a-job-waiting-on-him-gives-its-place-back.md`):
+//! The owner's decision of 11 Oct 2026 (#2094):
 //! a Drone that asks stands down at once, its branch and worktree stay, and
 //! admission gives its place to the next Job. The question is stored on the Job
 //! so a restart in the hours before the answer loses nothing. Answering writes

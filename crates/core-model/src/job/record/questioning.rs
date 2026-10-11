@@ -1,5 +1,5 @@
 //! The question a Job's Drone asked, held on the record until the next Drone
-//! opens with the answer. `.claude/decisions/2026-10-11-a-job-waiting-on-him-gives-its-place-back.md`.
+//! opens with the answer. The owner's decision of 11 Oct 2026, #2094.
 //!
 //! **On the record and not on the working slot**, because the Drone that asked
 //! stands down at once and gives its place back. The slot it asked from is
@@ -72,7 +72,7 @@ impl Job {
     /// The Job holding a question its Drone just asked. Also the read-back.
     pub fn asking(&self, question: DroneQuestion) -> Job {
         let mut job = self.clone();
-        job.question = Some(question);
+        job.question = Some(alloc::boxed::Box::new(question));
         job
     }
 
@@ -96,7 +96,7 @@ impl Job {
     }
 
     pub fn question(&self) -> Option<&DroneQuestion> {
-        self.question.as_ref()
+        self.question.as_deref()
     }
 
     /// Whether the Job is waiting on a person's answer. **Admission's predicate

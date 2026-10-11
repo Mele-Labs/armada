@@ -431,7 +431,7 @@ icon = ""
 status_token = "--status-not-started"
 vocabulary = "Queued reason"
 in_code = ""
-notes = "Its Drone asked a person something and stood down, giving its place back; the branch and worktree stay, and when the person answers a fresh Drone resumes from the answer and the branch. Derived from the question stored on the Job. It reads after `paused`, because a pause is the Job's own act on top of the question, and before `frozen`, because the question is the Job's own and only that person's answer clears it. The row also says `asking`, which is what puts it under Needs you. No glyph: the call card is what answers it. `.claude/decisions/2026-10-11-a-job-waiting-on-him-gives-its-place-back.md`."
+notes = "Its Drone asked a person something and stood down, giving its place back; the branch and worktree stay, and when the person answers a fresh Drone resumes from the answer and the branch. Derived from the question stored on the Job. It reads after `paused`, because a pause is the Job's own act on top of the question, and before `frozen`, because the question is the Job's own and only that person's answer clears it. The row also says `asking`, which is what puts it under Needs you. No glyph: the call card is what answers it. The owner's decision of 11 Oct 2026, #2094."
 
 [verbs.queued_reason.frozen]
 verb = "frozen"

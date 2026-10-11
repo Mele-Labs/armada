@@ -195,8 +195,9 @@ pub struct Job {
     /// [`note`](mod@crate::job::note) for why those two are one value.
     redirect_waiting: Option<RedirectWaiting>,
     /// What its Drone asked a person, held after that Drone stood down. See
-    /// [`questioning`](mod@questioning).
-    question: Option<DroneQuestion>,
+    /// [`questioning`](mod@questioning). Boxed, because a `Job` is held across
+    /// a great many awaits and this is the largest field it would carry.
+    question: Option<alloc::boxed::Box<DroneQuestion>>,
     /// What this one Job may spend, in millionths of a dollar. **`None` is
     /// unset and defers to the tier above**, which is not the same answer as
     /// `Some(0)` — a cap of zero says this Job starts nothing. `fleet::

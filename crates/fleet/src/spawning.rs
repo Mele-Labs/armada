@@ -146,6 +146,7 @@ where
         // The same, for a person's answer to the question the Drone before
         // asked; `None` while it is unanswered, which admission never starts.
         let answered = job.question().and_then(crate::questioning::Answered::of);
+        let answering = answered.is_some();
         // Asked of the board on every spawn, and answered `None` on all but a
         // Job read off a request that split. Beside the redirect because it is
         // the same kind of fact — what is true of this Job at the moment a
@@ -208,7 +209,7 @@ where
             // reaches this Drone and not only the next start.
             .worded(self.prompts())
             .also_carrying(waiting.clone())
-            .answering(answered.clone())
+            .answering(answered)
             .overtaken_by(overtaken)
             .told_of_peers(peers)
             .holding_off(&self.held_off(&job_id).await)
@@ -327,7 +328,7 @@ where
         if waiting.is_some() {
             self.redirect_delivered(job, step).await?;
         }
-        if answered.is_some() {
+        if answering {
             self.answer_delivered(job, step).await?;
         }
 

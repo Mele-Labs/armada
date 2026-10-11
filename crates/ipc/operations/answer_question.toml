@@ -12,5 +12,5 @@ The id is what makes a stale answer a refusal. A window left open across an answ
 
 **`agent_access` is `Helm only` now, on `file_report`'s argument read against itself.** Answering on the owner's behalf without his sentence is the failure mode that rule names, and here it is worse than a filed report: the answer becomes work that exists. Nick's ruling grants this row anyway, on the reasoning that his own ask to Helm to pick an answer *is* his sentence — named here rather than resolved, the same tension `file_report` carries.
 
-It moves no status and no step state. The asking Drone has already stood down: the Job is `queued` while it waits, reading `awaiting_answer`, and the answer is kept on the Job, so admission takes it again in its turn and the fresh Drone opens with the answer (`.claude/decisions/2026-10-11-a-job-waiting-on-him-gives-its-place-back.md`). See `job.asking`.
+It moves no status and no step state. The asking Drone has already stood down: the Job is `queued` while it waits, reading `awaiting_answer`, and the answer is kept on the Job, so admission takes it again in its turn and the fresh Drone opens with the answer (the owner's decision of 11 Oct 2026, #2094). See `job.asking`.
 """
