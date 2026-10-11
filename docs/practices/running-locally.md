@@ -649,13 +649,16 @@ above, and it is absent from a packaged app. Click anything, write a note, and
 ⌘Enter saves it as one file under `.armada/annotations/` at the repository root,
 gitignored. Each file names the component under the click and the ones around
 it, a selector, the screen and the mock scenario, which is what an agent needs to
-find the code without asking where you clicked.
+find the code without asking where you clicked. In Bridge the save also keeps a
+screenshot of the element beside it, as `<id>.png`, taken with the layer out of
+the picture; in a browser nothing can capture the window, so a note there has
+none.
 
 **A note reaches work one of two ways.**
 
 | Way | What happens |
 |---|---|
-| *Send to Fleet*, on the note or for every open note on the screen | Proposed as a Job at the approval gate, with a screenshot of the area attached. Nothing runs until you approve it on the Board, and no session has to be open. The pin says where it went |
+| *Send to Fleet*, on the note or for every open note on the screen | Proposed as a Job at the approval gate, with the note's screenshot attached, from whichever screen it is sent. A note saved before screenshots were kept takes one at send where its element is on screen, and goes without one otherwise. Nothing runs until you approve it on the Board, and no session has to be open. The pin says where it went |
 | `/annotations`, in a session | The agent reads the open notes, asks what is the owner's to decide, dispatches a subagent for each change, verifies it, and marks it done — `.claude/skills/annotations/` |
 
 **Send needs Bridge and its Fleet.** In the mock there is no Fleet, so the layer
