@@ -6,9 +6,9 @@
 import tokens from "@armada/tokens/tokens.json";
 
 import type { BridgeState } from "../../shared/bridge";
-import type { CaptureOpened } from "@armada/protocol";
+import type { CaptureOpened, SessionRecord } from "@armada/protocol";
 import { isPinned, pinned, webOrigin } from "./address";
-import { CaptureWindow, type CaptureBoard, type LandsOn } from "./window";
+import { CaptureWindow, type CaptureBoard, type LandsOn, type WindowQuestion } from "./window";
 
 /**
  * How tall the bar is drawn. **The title row's own composition**, which
@@ -29,6 +29,8 @@ const SESSION_KEY = "session:";
 export class CaptureWindows {
   private readonly board: CaptureBoard;
   private readonly open = new Map<string, CaptureWindow>();
+  /** The sessions main last published, which each Session's window reads its open question off. */
+  private sessions: readonly SessionRecord[] | null = null;
 
   constructor(board: CaptureBoard) {
     this.board = board;
@@ -86,8 +88,34 @@ export class CaptureWindows {
       standing.close();
     }
     const pin = { run: key, name: title, origin, url, manifestId: null };
-    this.open.set(key, new CaptureWindow(pin, { session: { id: sessionId, title } }, this.board, barHeight()));
+    const window = new CaptureWindow(pin, { session: { id: sessionId, title } }, this.board, barHeight());
+    this.open.set(key, window);
+    // A window opened by a press on a waiting question shows it as one opened by its arrival does.
+    if (this.sessions !== null) window.question(questionOf(this.sessions.find((one) => one.id === sessionId), origin));
     return { ok: true };
+  }
+
+  /**
+   * A Session asked about a place on its walk: **its window comes forward, and opens where it is
+   * closed** or is on another origin. `window` is the address the Session showed, which the window
+   * opens on; the question itself, and the page it moves to, are read off what Fleet published.
+   */
+  askedFor(sessionId: string, title: string, window: string, place: string): CaptureOpened {
+    const standing = this.open.get(`${SESSION_KEY}${sessionId}`);
+    const here = standing !== undefined && standing.open && webOrigin(standing.address) === webOrigin(place);
+    const opened = here ? ({ ok: true } as const) : this.openForSession(sessionId, title, window);
+    this.ask();
+    return opened;
+  }
+
+  /** Every Session window shows its Session's oldest open question on its own origin, or none. */
+  private ask(): void {
+    if (this.sessions === null) return;
+    for (const [key, window] of this.open) {
+      if (!key.startsWith(SESSION_KEY) || !window.open) continue;
+      const record = this.sessions.find((one) => one.id === key.slice(SESSION_KEY.length));
+      window.question(questionOf(record, webOrigin(window.address)));
+    }
   }
 
   /**
@@ -95,6 +123,7 @@ export class CaptureWindows {
    * its window, and the bar says the run ended.
    */
   changed(state: BridgeState): void {
+    if (state.sessions.state === "read") this.sessions = state.sessions.sessions;
     for (const [serverId, window] of this.open) {
       if (!window.open) {
         this.open.delete(serverId);
@@ -105,6 +134,7 @@ export class CaptureWindows {
       const server = state.servers.servers.find((one) => one.id === serverId);
       if (server === undefined || server.phase === "exited") window.ended();
     }
+    this.ask();
   }
 
   /** The window an IPC call came from, or `null` where it came from anything else. */
@@ -119,4 +149,17 @@ export class CaptureWindows {
     for (const window of this.open.values()) window.close();
     this.open.clear();
   }
+}
+
+/**
+ * The question a Session's window shows: its oldest open `window_ask` item on that window's origin.
+ * Pure, so the rule is tested without a window.
+ */
+export function questionOf(record: SessionRecord | undefined, origin: string | null): WindowQuestion | null {
+  for (const item of record?.waiting_for ?? []) {
+    if (item.source !== "window_ask" || item.place === undefined) continue;
+    if (origin === null || webOrigin(item.place.url) !== origin) continue;
+    return { id: item.id, question: item.text, options: item.options ?? [], place: item.place };
+  }
+  return null;
 }

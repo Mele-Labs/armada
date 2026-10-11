@@ -15,6 +15,7 @@ import type {
 } from "@armada/protocol";
 import type {
   CaptureAimed,
+  CaptureAnswer,
   CaptureHeld,
   CaptureWheel,
   CaptureWindowState,
@@ -177,6 +178,10 @@ export type StudiosApi = {
     approve: () => Promise<Outcome>;
     /** A wheel taken while armed, so the page still scrolls under the outline. */
     scroll: (wheel: CaptureWheel) => void;
+    /** Draw the Session's open question over the page, or fold it into the bar so the page can be used. */
+    showAsk: (on: boolean) => Promise<void>;
+    /** Answer the Session's open question. It reaches the Session as the person's message. */
+    answerAsk: (answer: CaptureAnswer) => Promise<Outcome>;
   };
 };
 
@@ -241,4 +246,6 @@ export const STUDIOS_CHANNELS = {
   captureWindowFollowRefused: "bridge:capture-window-follow-refused",
   captureWindowApprove: "bridge:capture-window-approve",
   captureWindowScroll: "bridge:capture-window-scroll",
+  captureWindowShowAsk: "bridge:capture-window-show-ask",
+  captureWindowAnswerAsk: "bridge:capture-window-answer-ask",
 } as const;

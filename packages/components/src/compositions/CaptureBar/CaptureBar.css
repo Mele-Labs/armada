@@ -82,3 +82,13 @@
   flex: none;
   color: var(--fg-subtle);
 }
+
+/* A folded question takes the row's slack, as a refusal does, and gives way to the acts beside it. */
+.armada-capture-bar__question {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--fg-default);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

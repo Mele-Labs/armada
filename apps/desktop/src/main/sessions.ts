@@ -68,6 +68,8 @@ export class SessionsHost {
   private threads: Record<string, SessionRow[]> = {};
   /** Opens a window on a page a Session showed. Set once by main, which owns windows. */
   private shown: (sessionId: string, title: string, url: string) => void = () => {};
+  /** Brings a Session's window forward for a question asked in it. Set once by main, as `shown` is. */
+  private askedIn: (sessionId: string, title: string, window: string, place: string) => void = () => {};
   /** The window rows already acted on, so a row met again opens nothing. */
   private readonly opened = new Set<string>();
   /** Threads whose read has not answered, with the rows that arrived meanwhile. */
@@ -101,6 +103,11 @@ export class SessionsHost {
     this.shown = shown;
   }
 
+  /** Say what brings a window forward for a question the Session asked in it: main's, as `onWindow` is. */
+  onAsked(asked: (sessionId: string, title: string, window: string, place: string) => void): void {
+    this.askedIn = asked;
+  }
+
   /**
    * A press on a window the Session showed, or on its row. **Only an address the Session's ledger shows
    * as a window**, so the renderer names a session and an address and main loads nothing else.
@@ -119,6 +126,13 @@ export class SessionsHost {
     if (change.row.kind === "window" && !this.opened.has(change.row.id)) {
       this.opened.add(change.row.id);
       this.shown(change.session_id, change.row.title, change.row.url);
+    }
+    // A question asked in the walk takes the person there, once, when it is asked.
+    if (change.row.kind === "window_ask" && change.row.answer === undefined && !this.opened.has(change.row.id)) {
+      this.opened.add(change.row.id);
+      const record = this.sessions?.find((one) => one.id === change.session_id);
+      const title = titleOfWindow(record, change.row.window) ?? change.row.window;
+      this.askedIn(change.session_id, title, change.row.window, change.row.place.url);
     }
     const waiting = this.reading.get(change.session_id);
     if (waiting !== undefined) {
@@ -145,7 +159,7 @@ export class SessionsHost {
     this.reading.delete(sessionId);
     if (answer.ok !== true) return;
     const thread = answer.body as SessionThread;
-    for (const row of thread.rows) if (row.kind === "window") this.opened.add(row.id);
+    for (const row of thread.rows) if (row.kind === "window" || row.kind === "window_ask") this.opened.add(row.id);
     this.threads = { ...this.threads, [sessionId]: meanwhile.reduce(withRow, thread.rows) };
     this.fold(thread.session);
     this.publish({ sessionThreads: this.threads });

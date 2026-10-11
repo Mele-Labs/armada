@@ -111,6 +111,7 @@ import type {
 } from "@armada/protocol";
 import type {
   CaptureAimed,
+  CaptureAnswer,
   CaptureHeld,
   CaptureWheel,
   CaptureWindowState,
@@ -416,6 +417,8 @@ type OldBridgeApi = {
         followRefused: () => Promise<void>;
         approve: () => Promise<Outcome>;
         scroll: (wheel: CaptureWheel) => void;
+        showAsk: (on: boolean) => Promise<void>;
+        answerAsk: (answer: CaptureAnswer) => Promise<Outcome>;
     };
     approveReview: (jobId: string) => Promise<Outcome>;
     mergePullRequest: (jobId: string) => Promise<Outcome>;
@@ -719,6 +722,8 @@ const OLD_CHANNELS = {
     captureWindowFollowRefused: "bridge:capture-window-follow-refused",
     captureWindowApprove: "bridge:capture-window-approve",
     captureWindowScroll: "bridge:capture-window-scroll",
+    captureWindowShowAsk: "bridge:capture-window-show-ask",
+    captureWindowAnswerAsk: "bridge:capture-window-answer-ask",
     tap: "bridge:tap",
     startSession: "bridge:start-session",
     pilotJob: "bridge:pilot-job",

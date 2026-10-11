@@ -143,6 +143,35 @@ it("opens a window when a Session shows a page, once, and never for a row a thre
   expect(opened).toEqual([["a", "Findings", "http://localhost:5173/"]]);
 });
 
+it("brings the walk forward when a Session asks in it, once, and never for an answered question or one a read brought", async () => {
+  const sent: Sent[] = [];
+  const walk = "http://localhost:5173/";
+  const asked = {
+    kind: "window_ask",
+    id: "q1",
+    at: AT,
+    question: "Beside or under?",
+    place: { url: `${walk}findings`, selector: "main > h1" },
+    window: walk,
+  } as const;
+  const port = await fleet(
+    sent,
+    [record("a", { attachments: [{ kind: "artifact", target: walk, state: "standing", detail: { form: "window", title: "Findings" }, since: AT, changed_at: AT }] })],
+    { a: [asked] },
+  );
+  const { sessions } = host(port);
+  const forward: string[][] = [];
+  sessions.onAsked((id, title, window, place) => forward.push([id, title, window, place]));
+  await sessions.again(port);
+  await sessions.watch("a");
+  sessions.row({ session_id: "a", row: asked });
+  sessions.row({ session_id: "a", row: { ...asked, id: "q2", answer: "Under" } });
+  expect(forward).toEqual([]);
+  sessions.row({ session_id: "a", row: { ...asked, id: "q3" } });
+  sessions.row({ session_id: "a", row: { ...asked, id: "q3" } });
+  expect(forward).toEqual([["a", "Findings", walk, `${walk}findings`]]);
+});
+
 it("reopens only an address the ledger shows as a window", async () => {
   const sent: Sent[] = [];
   const url = "http://localhost:5173/";
