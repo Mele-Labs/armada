@@ -889,6 +889,8 @@ if (process.argv.includes(ANNOTATE_FLAG)) {
     remove: (id: string): Promise<void> => ipcRenderer.invoke(ANNOTATION_CHANNELS.remove, id),
     root: (): Promise<string | null> => ipcRenderer.invoke(ANNOTATION_CHANNELS.root),
     capture: (box: Box): Promise<ArrayBuffer | null> => ipcRenderer.invoke(ANNOTATION_CHANNELS.capture, box),
+    saveShot: (id: string, png: ArrayBuffer): Promise<void> => ipcRenderer.invoke(ANNOTATION_CHANNELS.saveShot, id, png),
+    shot: (id: string): Promise<ArrayBuffer | null> => ipcRenderer.invoke(ANNOTATION_CHANNELS.shot, id),
   };
   contextBridge.exposeInMainWorld("armadaDev", annotations);
 }
