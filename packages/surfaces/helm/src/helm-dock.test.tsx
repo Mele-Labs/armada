@@ -56,14 +56,14 @@ test("repositories set up and Helm pointed at none: the thread says nothing, and
   mount("every-state", SLICES);
   await openHelm();
 
-  const switcher = page.getByRole("combobox", { name: "Point Helm at a repository" });
+  const switcher = page.getByRole("button", { name: "Point Helm at a repository" });
   await expect.element(switcher).toBeVisible();
   threadSaysNothing();
   // The switch stands at an entry of its own, not at whichever repository is
   // listed first. It read *armada* here — a `<select>` whose value matches no
   // option displays the first one — so the dock said Helm was pointed at
   // nothing while the control said armada.
-  await expect.element(switcher).toHaveDisplayValue("Choose a repository");
+  await expect.element(switcher).toHaveTextContent("Choose a repository");
 });
 
 test("one repository set up and Helm pointed at none: the thread says nothing, and there is a switch to pick it with", async () => {
@@ -73,12 +73,13 @@ test("one repository set up and Helm pointed at none: the thread says nothing, a
   mount("empty-store", SLICES);
   await openHelm();
 
-  const switcher = page.getByRole("combobox", { name: "Point Helm at a repository" });
+  const switcher = page.getByRole("button", { name: "Point Helm at a repository" });
   await expect.element(switcher).toBeVisible();
   threadSaysNothing();
   // Standing at its own entry, with the one repository under it to pick.
-  await expect.element(switcher).toHaveDisplayValue("Choose a repository");
-  await expect.element(page.getByRole("option", { name: "armada" })).toBeInTheDocument();
+  await expect.element(switcher).toHaveTextContent("Choose a repository");
+  await switcher.click();
+  await expect.element(page.getByRole("menuitem", { name: "armada" })).toBeInTheDocument();
 });
 
 test("nothing set up: the thread says nothing, and there is no switch to offer", async () => {
@@ -90,7 +91,7 @@ test("nothing set up: the thread says nothing, and there is no switch to offer",
   await expect.element(page.getByText("No repository to ask yet")).toBeVisible();
   threadSaysNothing();
   // And no switch, though the dock hands the composer its handler in every state.
-  expect(page.getByRole("combobox", { name: /^Point Helm at a/ }).query()).toBeNull();
+  expect(page.getByRole("button", { name: /^Point Helm at a/ }).query()).toBeNull();
 });
 
 // Where Start fresh is drawn, and when Fleet refuses it — the owner's note of

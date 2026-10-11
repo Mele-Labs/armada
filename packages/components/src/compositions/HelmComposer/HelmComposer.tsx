@@ -1,7 +1,7 @@
 import type { FormEvent, KeyboardEvent } from "react";
 import { AttachmentChip } from "../../primitives/AttachmentChip/AttachmentChip";
 import { Button } from "../../primitives/Button/Button";
-import { Select } from "../../primitives/Select/Select";
+import { DropdownMenu } from "../../primitives/DropdownMenu/DropdownMenu";
 import { SplitButton } from "../../primitives/SplitButton/SplitButton";
 import { Textarea } from "../../primitives/Textarea/Textarea";
 import { SendKbd, sendsOn } from "../../send-message";
@@ -9,9 +9,6 @@ import { COPY_DEBUG_INFO } from "../../errors/ErrorNotice/payload";
 
 /** One repository the switch may point Helm at — id is the Manifest id. */
 export type HelmRepositoryOption = { id: string; label: string };
-
-/** No Manifest id is empty, so this value is never a repository. `AskRepository` reads the same way. */
-const UNPOINTED = "";
 
 /** The open Job chipped above the message box — `#1075`. */
 export type HelmComposerChip = { jobHandle: string; title: string };
@@ -124,37 +121,29 @@ export function HelmComposer({
           <span className="armada-helm-composer__repository">{naming}</span>
         )}
         {onSwitch === undefined || !switching ? null : (
-          <Select
+          <DropdownMenu
+            align="start"
+            // In a layer of its own: the dock clips what hangs past its head row.
+            portal
             // Named for what it does from where Helm is standing. *A different
             // repository* is a lie while it is pointed at none, and since this
             // change that is the switch's commonest moment — every unpointed
             // dock with anything set up draws it, one repository included.
-            aria-label={current === undefined ? "Point Helm at a repository" : "Point Helm at a different repository"}
-            value={current ?? UNPOINTED}
-            onChange={(event) => {
-              if (event.target.value !== UNPOINTED) onSwitch(event.target.value);
-            }}
-          >
-            {/* Pointed at nothing, the switch needs an entry of its own to
-                stand at — the same disabled placeholder the repository asks
-                elsewhere draw (`AskRepository`), in the same words. Without
-                one, a `value` matching no `<option>` left Chromium displaying
-                the first repository: the switch disagreed with the chip beside
-                it, and that first repository could not be chosen at all,
-                because picking the entry already displayed fires no `change`.
-                Once Helm is pointed at one, there is nothing to stand in for
-                and the entry is gone. */}
-            {current === undefined ? (
-              <option value={UNPOINTED} disabled>
-                Choose a repository
-              </option>
-            ) : null}
-            {repositories.map((one) => (
-              <option key={one.id} value={one.id}>
-                {one.label}
-              </option>
-            ))}
-          </Select>
+            triggerAriaLabel={current === undefined ? "Point Helm at a repository" : "Point Helm at a different repository"}
+            // Pointed at nothing it stands at an entry of its own, the same words the repository
+            // asks elsewhere draw (`AskRepository`), and never at whichever repository is listed
+            // first: the switch disagreeing with the chip beside it was the defect a native
+            // `<select>` had, since a value matching no `<option>` displays the first one.
+            triggerLabel={repositories.find((one) => one.id === current)?.label ?? "Choose a repository"}
+            searchLabel="Find a repository"
+            entries={repositories.map((one) => ({
+              kind: "item" as const,
+              id: one.id,
+              label: one.label,
+              selected: one.id === current,
+            }))}
+            onSelect={onSwitch}
+          />
         )}
         {/* The record's two acts as one control — the owner's note of
             18 Sep 2026: three controls beside the repository wrapped this row

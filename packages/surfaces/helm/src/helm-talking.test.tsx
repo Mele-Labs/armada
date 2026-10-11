@@ -68,7 +68,7 @@ test("pointed at a repository, the composer takes a message", async () => {
   await expect.element(send).toBeEnabled();
 
   // No switch: pointed at the one repository set up, there is nothing to switch to.
-  expect(page.getByRole("combobox", { name: /^Point Helm at a/ }).query()).toBeNull();
+  expect(page.getByRole("button", { name: /^Point Helm at a/ }).query()).toBeNull();
 });
 
 test("the record's split button offers both acts, and Details opens this session and no other", async () => {

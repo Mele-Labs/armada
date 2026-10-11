@@ -259,6 +259,19 @@
   border-bottom: var(--border-width) solid var(--border-subtle);
 }
 
+/* The filter field at the head of the narrow menu's repositories, a row's own inset. */
+.armada-title-bar__menu-search {
+  padding-inline: var(--space-2);
+  padding-bottom: var(--space-1);
+}
+
+.armada-title-bar__menu-empty {
+  margin: 0;
+  padding-inline: var(--space-2);
+  color: var(--fg-subtle);
+  font-size: var(--text-sm);
+}
+
 .armada-title-bar__menu-rule {
   height: var(--border-width);
   margin: var(--space-1) 0;

@@ -21,8 +21,8 @@ async function openStudios(): Promise<void> {
 
 /**
  * The ask's own menu button, which is the picker this state must not draw. **Named exactly**:
- * Helm's footer draws a second combobox — *Point Helm at a repository*, or *at a different
- * repository* once Helm is pointed at one — and it is not this button.
+ * Helm's footer draws a second menu button — named *Point Helm at a repository*, or *at a
+ * different repository* once Helm is pointed at one — and it is not this one.
  */
 const picker = () => page.getByRole("button", { name: "Choose a repository", exact: true });
 
