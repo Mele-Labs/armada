@@ -6,18 +6,28 @@ import { Plus } from "lucide-react";
 
 import { KbdChord } from "../Kbd/Kbd";
 
-export type DispatchKind = "job" | "session";
+export type DispatchKind = "job" | "session" | "autopilot";
 
 export type PaletteDispatch = {
   kind: DispatchKind;
-  /** Tab switches the kind. Absent while Sessions are not offered, and the row stays a Job's. */
+  /** Tab switches the kind. Absent while there is no other kind to offer, and the row stays a Job's. */
   onKind?: (kind: DispatchKind) => void;
+  /** The kinds Tab steps through, in order: a Job and a Session where absent. Autopilot is offered on a picked repository (#2092). */
+  kinds?: readonly DispatchKind[];
   onDispatch: (words: string, kind: DispatchKind) => void;
   /** ⇧↵: the full composer, holding the words, for a file, a sketch or a long request. */
   onCompose?: (words: string) => void;
   /** Opened by `n`: the dispatch row leads whatever else matches. */
   leads?: boolean;
 };
+
+const KIND: Record<DispatchKind, string> = { job: "Job", session: "Session", autopilot: "Autopilot" };
+
+/** The kind Tab steps to from this one, round the kinds offered. */
+export function nextKind(dispatch: PaletteDispatch): DispatchKind {
+  const kinds = dispatch.kinds ?? ["job", "session"];
+  return kinds[(kinds.indexOf(dispatch.kind) + 1) % kinds.length] ?? "job";
+}
 
 /**
  * Words that read as work rather than a search: a link to a ticket. A sentence is not enough, since
@@ -62,7 +72,7 @@ export function DispatchRow({
         <Plus size={16} strokeWidth={2} aria-hidden />
       </span>
       <span className="armada-palette__label">
-        {kind === "job" ? "Dispatch " : "Start a Session with "}
+        {kind === "job" ? "Dispatch " : kind === "session" ? "Start a Session with " : "Start Autopilot with "}
         <span className="armada-palette__words">“{words}”</span>
         {kind === "job" ? " as a Job" : ""}
       </span>
@@ -95,7 +105,7 @@ export function DispatchKeys({ dispatch, sends }: { dispatch: PaletteDispatch; s
     <div className="armada-palette__keys-foot" aria-hidden>
       <span><KbdChord keys={["↵"]} /> {sends ? "dispatch" : "open"}</span>
       <span><KbdChord keys={["⌘", "↵"]} /> dispatch</span>
-      {dispatch.onKind === undefined ? null : <span><KbdChord keys={["⇥"]} /> Job / Session</span>}
+      {dispatch.onKind === undefined ? null : <span><KbdChord keys={["⇥"]} /> {(dispatch.kinds ?? ["job", "session"]).map((kind) => KIND[kind]).join(" / ")}</span>}
       {dispatch.onCompose === undefined ? null : <span><KbdChord keys={["⇧", "↵"]} /> full composer</span>}
     </div>
   );
