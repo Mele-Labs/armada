@@ -24,6 +24,7 @@ use crate::tests::http::call;
 use crate::tests::serving::A_PROPOSAL;
 use crate::tests::tmp::TempDir;
 use crate::tests::tools::submitted_by_the_one;
+use crate::tests::waiting::until;
 
 /// A Job driven from the gate to `completed_success` by the real loop, and then
 /// asked how it got there.
@@ -62,42 +63,51 @@ async fn a_finished_job_can_say_every_move_it_made() {
     assert_eq!(status, StatusCode::OK);
     // The route queues; the loop above dispatches. `#428` — a dispatch that
     // ran inside the request died when the client stopped waiting.
-    for _ in 0..400 {
-        let job = fleet
-            .load(&job_id.to_domain())
-            .await
-            .expect("the Job is there");
-        if job.current_step_id().is_some() {
-            break;
-        }
-        tokio::time::sleep(Duration::from_millis(10)).await;
-    }
+    until(
+        "the loop never dispatched the Job",
+        400,
+        Duration::from_millis(10),
+        || async {
+            let job = fleet
+                .load(&job_id.to_domain())
+                .await
+                .expect("the Job is there");
+            job.current_step_id().is_some().then_some(())
+        },
+    )
+    .await;
     submitted_by_the_one(&fleet, diff_evidence())
         .await
         .expect("the working Job's Drone submits");
-    for _ in 0..400 {
-        let job = fleet
-            .load(&job_id.to_domain())
-            .await
-            .expect("the Job is there");
-        if job.current_step_id().map(|id| id.as_str()) == Some("summarise") {
-            break;
-        }
-        tokio::time::sleep(Duration::from_millis(10)).await;
-    }
+    until(
+        "the Job never reached its second step",
+        400,
+        Duration::from_millis(10),
+        || async {
+            let job = fleet
+                .load(&job_id.to_domain())
+                .await
+                .expect("the Job is there");
+            (job.current_step_id().map(|id| id.as_str()) == Some("summarise")).then_some(())
+        },
+    )
+    .await;
     submitted_by_the_one(&fleet, note_evidence())
         .await
         .expect("the same Drone, on the second step");
-    for _ in 0..400 {
-        let job = fleet
-            .load(&job_id.to_domain())
-            .await
-            .expect("the Job is there");
-        if job.status().is_terminal() {
-            break;
-        }
-        tokio::time::sleep(Duration::from_millis(10)).await;
-    }
+    until(
+        "the Job never ended",
+        400,
+        Duration::from_millis(10),
+        || async {
+            let job = fleet
+                .load(&job_id.to_domain())
+                .await
+                .expect("the Job is there");
+            job.status().is_terminal().then_some(())
+        },
+    )
+    .await;
     turning.stopped().await;
     assert_eq!(
         adrift.lock().expect("nothing panicked holding this").len(),

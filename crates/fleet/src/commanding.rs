@@ -17,8 +17,8 @@ use api::{Commands, Refusal};
 use ipc::{
     AddTask, CapRaise, CaptureWalkNote, ChangesRequested, DropTask, FindingDismissed,
     FindingQueued, IssueFiled, JobExamined, JobForgotten, JobId, JobSummary, Overruled,
-    Preferences, ProposeJob, Redirection, Redispatched, RemarksTakenUp, RemoveWalkNote,
-    SavePreference, TurnRaise, WalkNotes, WorkPlan, WorktreeReclaimed,
+    ProposeJob, Redirection, Redispatched, RemarksTakenUp, RemoveWalkNote,
+    TurnRaise, WalkNotes, WorkPlan, WorktreeReclaimed,
 };
 
 use crate::adrift::Adrift;
@@ -445,19 +445,6 @@ where
         asked: ipc::ChangeFleetBuild,
     ) -> Result<ipc::FleetBuildChanging, Refusal> {
         self.change_fleet_build_now(&asked)
-    }
-
-    /// A person's limits, saved and put in force for the next admission —
-    /// [`crate::limits`]. **Not `budgeted`**: it waits on the roster at most
-    /// for one admission, and then writes one row.
-    async fn save_limits(&self, save: ipc::SaveLimits) -> Result<ipc::FleetLimits, Refusal> {
-        self.save_limits_now(save)
-            .await
-            .map_err(|why| self.refusal(why))
-    }
-
-    async fn save_preferences(&self, save: SavePreference) -> Result<Preferences, Refusal> {
-        self.save_preference_now(save).await
     }
 
     /// Take back a rule a person always-allowed for this Manifest's

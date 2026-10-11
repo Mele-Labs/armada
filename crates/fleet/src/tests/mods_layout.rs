@@ -5,7 +5,7 @@
 use std::path::Path;
 
 use adapters::GitVcs;
-use api::{Commands, Mods, Queries};
+use api::{Mods, Settings};
 use ipc::{ModKind, PromoteMod, SavePreference, ScaffoldMod};
 use testkit::{FakeHarness, FakeWorkProduct};
 
@@ -154,15 +154,18 @@ async fn the_owners_layout_choices_are_a_preference_checked_by_the_same_rules() 
 
     let save = |text: Option<&str>| SavePreference { name: "layout_choices".into(), value: false, text: text.map(str::to_string) };
     let saved = fleet.save_preferences(save(Some(GOOD))).await.expect("saved");
-    assert_eq!(saved.layout_choices, GOOD);
-    assert_eq!(fleet.get_preferences().await.expect("reads").layout_choices, GOOD);
+    // settings.json holds the choices as JSON, so the text comes back as the
+    // same value, compact and with its keys in order.
+    let good = store::settings_file::SettingValue::from_json_text(GOOD).expect("JSON").to_json_text();
+    assert_eq!(saved.layout_choices, good);
+    assert_eq!(fleet.get_preferences().await.expect("reads").layout_choices, good);
     assert_eq!(fleet.get_preferences().await.expect("reads").theme, "dark", "the theme is not touched");
 
     for bad in ["{", "{\"version\": 2}", "{\"version\": 1, \"rail\": {\"hidden\": [\"Lessons\"]}}"] {
         let refused = fleet.save_preferences(save(Some(bad))).await.expect_err("not a layout");
         assert_eq!((refused.status(), refused.error().code.clone()), (422, "fleet.unacceptable_layout".to_string()), "{bad}");
     }
-    assert_eq!(fleet.get_preferences().await.expect("reads").layout_choices, GOOD, "nothing moved");
+    assert_eq!(fleet.get_preferences().await.expect("reads").layout_choices, good, "nothing moved");
 
     let cleared = fleet.save_preferences(save(Some(""))).await.expect("empty takes the choices back");
     assert_eq!(cleared.layout_choices, "");

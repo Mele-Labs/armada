@@ -76,7 +76,13 @@ async fn the_tool_points_at_the_block_that_names_the_checks() {
         .find(|step| step.id() == &StepId::new("implement"))
         .expect("the step")
         .clone();
-    let offer = Checking::at(workflow.frozen(), &step, None).expect("an offer");
+    let offer = Checking::at(
+        &crate::prompts::Prompts::shipped(),
+        workflow.frozen(),
+        &step,
+        None,
+    )
+    .expect("an offer");
     let heading = offer
         .text()
         .lines()
@@ -123,7 +129,13 @@ fn a_step_with_no_checks_is_not_offered_the_asked_run() {
         .find(|step| step.id() == &StepId::new("implement"))
         .expect("the step")
         .clone();
-    assert!(Checking::at(unchecked.frozen(), &step, None).is_none());
+    assert!(Checking::at(
+        &crate::prompts::Prompts::shipped(),
+        unchecked.frozen(),
+        &step,
+        None
+    )
+    .is_none());
 }
 
 /// The `implement` step of the one-step fixture, which declares a Check.
@@ -148,10 +160,15 @@ fn the_offer_says_how_many_whole_runs_are_left() {
 
     let said = |allowance| {
         let (workflow, step) = a_step_with_checks();
-        Checking::at(workflow.frozen(), &step, Some(allowance))
-            .expect("an offer")
-            .text()
-            .to_string()
+        Checking::at(
+            &crate::prompts::Prompts::shipped(),
+            workflow.frozen(),
+            &step,
+            Some(allowance),
+        )
+        .expect("an offer")
+        .text()
+        .to_string()
     };
 
     let fresh = said(Allowance::of(3, 0));
@@ -182,10 +199,15 @@ fn the_offer_says_how_many_whole_runs_are_left() {
 #[test]
 fn an_offer_with_no_allowance_says_a_limit_exists_and_no_number() {
     let (workflow, step) = a_step_with_checks();
-    let said = Checking::at(workflow.frozen(), &step, None)
-        .expect("an offer")
-        .text()
-        .to_string();
+    let said = Checking::at(
+        &crate::prompts::Prompts::shipped(),
+        workflow.frozen(),
+        &step,
+        None,
+    )
+    .expect("an offer")
+    .text()
+    .to_string();
     assert!(said.contains("There is a limit"), "{said}");
     assert!(!said.contains("3 times"), "it invents no number: {said}");
 }

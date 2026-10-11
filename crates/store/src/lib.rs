@@ -116,6 +116,9 @@ mod plan;
 mod ports;
 /// A person's preferences, one row per name, kept beside `limits`.
 mod preferences;
+/// `settings.json`, the Machine's settings file: parsed and written here, read
+/// against `config`'s registry everywhere else.
+pub mod settings_file;
 /// Which operating-system process is working a Job, so a restart can ask.
 mod process;
 mod proposing;
@@ -224,7 +227,7 @@ pub use pending_evidence::PendingEvidence;
 pub use piloting::{KeptPilot, Narrative, PilotExit};
 pub use plan::DeclaredPlan;
 pub use ports::{PortClaim, PortClaimant};
-pub use preferences::{Preferences, SHIPPED_THEME};
+pub use preferences::{Preferences, SavedPreferences, SHIPPED_THEME};
 pub use process::DroneProcess;
 pub use proving::Proved;
 pub use pull_request_kept::KeptPullRequest;

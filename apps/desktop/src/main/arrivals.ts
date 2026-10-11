@@ -29,6 +29,7 @@ import type { RepositoryReads } from "./repositories";
 import type { Again } from "./screen";
 import type { BridgeStateFleet } from "./socket";
 import type { SessionsHost } from "./sessions";
+import { publishSettings, readSettings } from "./settings";
 import type { SleepHost } from "./sleep";
 import type { StudioReads } from "./studios";
 
@@ -94,8 +95,7 @@ export async function readCapacity(
 
 /**
  * Fleet's three admission limits. **Once per connection**, `readManifest`'s
- * terms: nothing but a save changes them, and `saveLimits` publishes the new
- * reading itself rather than asking this to run again.
+ * terms, and again on every `settings.changed`, since settings.json holds them.
  */
 export async function readLimits(
   port: number,
@@ -190,6 +190,8 @@ export function applyArrival(host: ArrivalHost, text: string, fleet: BridgeState
     // And a person's Bridge preferences, once per connection, `readLimits`'
     // reason.
     void readPreferences(fleet.port, host.publish);
+    // And settings.json, once per connection — `settings.changed` carries the list whole.
+    void readSettings(fleet.port, host.publish);
     // And the mods on this machine, once per connection — `mods.changed` carries the list whole.
     void host.mods.read(fleet.port);
     // And every server Fleet holds, once per connection — `server.*` on
@@ -471,6 +473,15 @@ export function applyArrival(host: ArrivalHost, text: string, fleet: BridgeState
     // Above the tail, `repositories.changed`' reason, and carried whole: the list replaces the one held.
     host.publish({ connection });
     host.mods.listed({ mods: event.mods });
+    return;
+  }
+  if (event.kind === "settings.changed") {
+    // Above the tail, `mods.changed`' reason, and carried whole: a save, or a hand edit to the file.
+    host.publish({ connection });
+    const { kind: _kind, ...list } = event;
+    publishSettings(list, host.publish);
+    // The limits and preferences are read off the same file now, and the count follows the limits.
+    for (const read of [readLimits, readPreferences, readCapacity]) void read(fleet.port, host.publish);
     return;
   }
   if (event.kind === "merge_lines.changed") {

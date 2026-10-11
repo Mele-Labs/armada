@@ -7,7 +7,7 @@ import { button, role, text, walk } from "../walk";
 const query = role("combobox", "Search actions");
 
 export const nothingToDisclose = walk("job/running", [
-  { press: button("Search jobs"), say: "The palette, as ⌘K opens it" },
+  { press: button("Search, or describe work"), say: "The palette, as ⌘K opens it" },
   { type: "disclose", into: query, say: "Search for disclose" },
   { look: text("Nothing matches “disclose”."), say: "Nothing matches" },
   { type: "expand and", into: query, say: "Search for the act's own verb" },

@@ -579,8 +579,8 @@ node bar, the sketch pad and the attachment chip together rather than here
 alone.
 
 **It is still a mint and never a borrow.** A glyph that already means something
-in Armada stays where it is, whatever room it would buy here: `plus` is the
-title row's Dispatch segment by its own reservation, `send` means dispatched,
+in Armada stays where it is, whatever room it would buy here: `plus` is
+dispatch by its own reservation — the one bar's dispatch row and the narrow title menu's Dispatch — `send` means dispatched,
 `eye` is Review, `pencil` is the sketch pad's pen and is banned there from
 meaning edit, `square-pen` is rename and nothing else — the Studio heading's,
 minted 29 Sep 2026 — `clock` is the set's one time-shaped mark, `clipboard-list` is the

@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef } from "react";
+import { Fragment, useEffect, useRef, useState, type CSSProperties, type FocusEvent } from "react";
 import { ArrowUpToLine, Ban, Box, SquareTerminal, ChevronRight, ChevronUp, GitBranch, GitCommitHorizontal, type LucideIcon } from "lucide-react";
 
 import { CHECK_OUTCOME, LAND_STATE, QUEUED_REASON } from "../../generated/vocabulary";
@@ -22,7 +22,8 @@ import {
 
 /**
  * The merge line: the branches waiting to land on main through `armada land`,
- * in place order, then Recently landed and Sent back. An Overview panel.
+ * in place order, then Recently landed and Sent back, drawn as the cockpit's viewscreen: a horizon
+ * of dots running into main's light, and each branch a focusable tile in its state's hue.
  *
  * **A batch is drawn as one group, not as a "together with" string on every
  * member.** The branches a turn gates at once are consecutive in place order,
@@ -204,8 +205,18 @@ export function MergeLine(props: MergeLineProps) {
   const left = LEFT.map((one) => ({ heading: one.heading, entries: one.pick(props) })).filter(
     (one) => one.entries.length > 0,
   );
+  // The tile under the cursor, so its dot on the horizon lights with it.
+  const [on, setOn] = useState<string>();
+  const lane = notice !== undefined || line.length > 0 || (hub?.pulls.length ?? 0) > 0;
   return (
-    <section className="armada-merge-line" id={id} aria-label={named}>
+    <section
+      className="armada-merge-line"
+      id={id}
+      aria-label={named}
+      data-red={hub?.main?.state === "red" || undefined}
+      onFocus={(event: FocusEvent) => setOn((event.target as HTMLElement).closest<HTMLElement>("[data-branch]")?.dataset.branch)}
+      onBlur={() => setOn(undefined)}
+    >
       <header className="armada-merge-line__head">
         <div className="armada-merge-line__title">
           <h2 className="armada-merge-line__heading">
@@ -248,53 +259,67 @@ export function MergeLine(props: MergeLineProps) {
           <EmptyLine />
         </div>
       ) : (
-        <div className="armada-merge-line__body">
-          {notice === undefined ? null : (
-            <Notice notice={notice} {...(name === undefined ? {} : { repository: name })} {...(onOpenCheck === undefined ? {} : { onOpenCheck })} />
-          )}
-          {line.length === 0 ? null : (
-            <ol className="armada-merge-line__list" aria-label="In line">
-              {batched(line).map((run) =>
-                run.length === 1 ? (
-                  <Entry key={run[0]!.branch} entry={run[0]!} {...acts} />
-                ) : (
-                  <li key={run[0]!.branch} className="armada-merge-line__batch">
-                    <Tooltip label="Batch" decorative asChild>
-                      <span className="armada-merge-line__bracket" aria-hidden />
-                    </Tooltip>
-                    <ol className="armada-merge-line__list" aria-label="Batch">
-                      {run.map((entry) => (
+        <>
+          {line.length === 0 && hub?.main === undefined ? null : <Horizon line={line} main={hub?.main} on={on ?? focus} />}
+          <div className="armada-merge-line__body">
+            {!lane ? null : (
+              <div className="armada-merge-line__lane">
+                {notice === undefined ? null : (
+                  <Notice notice={notice} {...(name === undefined ? {} : { repository: name })} {...(onOpenCheck === undefined ? {} : { onOpenCheck })} />
+                )}
+                {line.length === 0 ? null : (
+                  <>
+                    <h3 className="armada-merge-line__subheading">In line</h3>
+                    <ol className="armada-merge-line__list" aria-label="In line">
+                      {batched(line).map((run) =>
+                        run.length === 1 ? (
+                          <Entry key={run[0]!.branch} entry={run[0]!} {...acts} />
+                        ) : (
+                          <li key={run[0]!.branch} className="armada-merge-line__batch">
+                            <Tooltip label="Batch" decorative asChild>
+                              <span className="armada-merge-line__bracket" aria-hidden />
+                            </Tooltip>
+                            <ol className="armada-merge-line__list" aria-label="Batch">
+                              {run.map((entry) => (
+                                <Entry key={entry.branch} entry={entry} {...acts} />
+                              ))}
+                            </ol>
+                          </li>
+                        ),
+                      )}
+                    </ol>
+                  </>
+                )}
+                {hub === undefined || hub.pulls.length === 0 ? null : (
+                  <>
+                    {line.length > 0 ? <Separator className="armada-merge-line__rule" /> : null}
+                    <h3 className="armada-merge-line__subheading">Open pull requests</h3>
+                    <ul className="armada-merge-line__list" aria-label="Open pull requests">
+                      {hub.pulls.map((pull) => (
+                        <Pull key={pull.number} pull={pull} fixing={hub.main?.state === "red" ? hub.main.taken : undefined} onOpenPullRequest={onOpenPullRequest} {...(onOpenJob === undefined ? {} : { onOpenJob })} />
+                      ))}
+                    </ul>
+                  </>
+                )}
+              </div>
+            )}
+            {left.length === 0 ? null : (
+              <div className="armada-merge-line__side">
+                {left.map((one, n) => (
+                  <Fragment key={one.heading}>
+                    {n > 0 ? <Separator className="armada-merge-line__rule" /> : null}
+                    <h3 className="armada-merge-line__subheading">{one.heading}</h3>
+                    <ul className="armada-merge-line__list" aria-label={one.heading}>
+                      {one.entries.map((entry) => (
                         <Entry key={entry.branch} entry={entry} {...acts} />
                       ))}
-                    </ol>
-                  </li>
-                ),
-              )}
-            </ol>
-          )}
-          {hub === undefined || hub.pulls.length === 0 ? null : (
-            <>
-              {line.length > 0 ? <Separator className="armada-merge-line__rule" /> : null}
-              <h3 className="armada-merge-line__subheading">Open pull requests</h3>
-              <ul className="armada-merge-line__list" aria-label="Open pull requests">
-                {hub.pulls.map((pull) => (
-                  <Pull key={pull.number} pull={pull} fixing={hub.main?.state === "red" ? hub.main.taken : undefined} onOpenPullRequest={onOpenPullRequest} {...(onOpenJob === undefined ? {} : { onOpenJob })} />
+                    </ul>
+                  </Fragment>
                 ))}
-              </ul>
-            </>
-          )}
-          {left.map((one, n) => (
-            <Fragment key={one.heading}>
-              {line.length > 0 || (hub?.pulls.length ?? 0) > 0 || n > 0 ? <Separator className="armada-merge-line__rule" /> : null}
-              <h3 className="armada-merge-line__subheading">{one.heading}</h3>
-              <ul className="armada-merge-line__list" aria-label={one.heading}>
-                {one.entries.map((entry) => (
-                  <Entry key={entry.branch} entry={entry} {...acts} />
-                ))}
-              </ul>
-            </Fragment>
-          ))}
-        </div>
+              </div>
+            )}
+          </div>
+        </>
       )}
     </section>
   );
@@ -394,6 +419,42 @@ function Notice({
   );
 }
 
+/** The states a branch is in the turn in, or held in it: a solid dot. Waiting is a ring. */
+const IN_TURN: ReadonlySet<MergeLineState> = new Set(["preparing", "gating", "merging", "held"]);
+
+/** Off the line and wanting the owner: the tile is lit, as a call on the cockpit's glass is. */
+const LIT: ReadonlySet<MergeLineState> = new Set(["red", "conflict"]);
+
+/** A row's frame in its state's own status token, never one chosen here. */
+function hueOf(token: string | null | undefined): CSSProperties | undefined {
+  return token ? ({ "--hue": `var(${token})` } as CSSProperties) : undefined;
+}
+
+/**
+ * The cockpit's horizon, the width of the page: the line's branches as dots on a belt, moving toward
+ * main's light at the right end, place 1 nearest it. A picture of the rows under it, so it is hidden
+ * from a screen reader and takes no focus; the tile under the cursor lights its dot.
+ */
+function Horizon({ line, main, on }: { line: readonly MergeLineEntry[]; main: MainState | undefined; on: string | undefined }) {
+  return (
+    <div className="armada-merge-line__horizon" aria-hidden>
+      <ol className="armada-merge-line__belt">
+        {line.map((entry) => (
+          <li
+            key={entry.branch}
+            className="armada-merge-line__dot"
+            data-state={entry.state}
+            data-queued={IN_TURN.has(entry.state) || undefined}
+            data-on={entry.branch === on || undefined}
+            style={hueOf(LAND_STATE[entry.state]?.statusToken)}
+          />
+        ))}
+      </ol>
+      <span className="armada-merge-line__main" data-state={main?.state} />
+    </div>
+  );
+}
+
 /**
  * A line nobody has been in: main, and a dashed branch with empty places on it
  * meeting main. Drawn in the border tokens, so it sits back from every row.
@@ -449,6 +510,13 @@ function Entry({
       className="armada-merge-line__row"
       aria-label={`${entry.branch}, ${said}`}
       aria-current={focused ? "true" : undefined}
+      tabIndex={0}
+      data-merge-item=""
+      data-branch={entry.branch}
+      data-job={entry.job?.id}
+      data-state={entry.state}
+      data-lit={LIT.has(entry.state) || undefined}
+      style={hueOf(reading?.statusToken)}
     >
       {entry.place === undefined ? (
         <span className="armada-merge-line__place" />
@@ -622,7 +690,16 @@ function Pull({
     mark === undefined ? undefined : queued === undefined && pull.ci === "waiting_on_main" && fixing !== undefined ? `${mark.says}, waiting on the fix: ${fixing.title}` : mark.says;
   const position = pull.queue?.position;
   return (
-    <li className="armada-merge-line__row" aria-label={said === undefined ? pull.branch : `${pull.branch}, ${said}`}>
+    <li
+      className="armada-merge-line__row"
+      aria-label={said === undefined ? pull.branch : `${pull.branch}, ${said}`}
+      tabIndex={0}
+      data-merge-item=""
+      data-branch={pull.branch}
+      data-job={pull.job?.id}
+      data-lit={pull.queue?.state === "unmergeable" || (queued === undefined && pull.ci === "failed") || undefined}
+      style={hueOf(mark?.reading?.statusToken)}
+    >
       {position === undefined ? (
         <span className="armada-merge-line__place" />
       ) : (

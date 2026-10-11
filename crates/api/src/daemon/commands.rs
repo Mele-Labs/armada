@@ -977,31 +977,6 @@ pub trait Commands: Send + Sync + 'static {
         asked: ipc::ChangeFleetBuild,
     ) -> impl Future<Output = Result<ipc::FleetBuildChanging, Refusal>> + Send;
 
-    /// `save_limits` — save any of the three limits and answer with what is
-    /// now in force. **An omitted field keeps its value.**
-    ///
-    /// **Nothing out of range reaches this.** `ipc::SaveLimits` cannot hold
-    /// one, so the route refuses it as undecodable. It changes the next
-    /// admission and stops nothing already running; [`Refusal::Fault`] where
-    /// the save would not be written, and then nothing changed.
-    fn save_limits(
-        &self,
-        save: ipc::SaveLimits,
-    ) -> impl Future<Output = Result<ipc::FleetLimits, Refusal>> + Send;
-
-    /// `save_preferences` — save one preference by name, and answer with what
-    /// is now in force. **`limits`' shape one table over, one field at a
-    /// time**: a save names a preference rather than the whole set, and every
-    /// other preference is untouched.
-    ///
-    /// [`Refusal::Unacceptable`] where `name` is outside the closed set —
-    /// refused by name, since `SavePreference.name` is a plain string and
-    /// always decodes.
-    fn save_preferences(
-        &self,
-        save: ipc::SavePreference,
-    ) -> impl Future<Output = Result<ipc::Preferences, Refusal>> + Send;
-
     /// `remove_repository_allowed_command` — take back a rule a person
     /// always-allowed for this Manifest's repository. **Since `#836`.**
     ///

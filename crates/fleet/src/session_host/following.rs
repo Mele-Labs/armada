@@ -75,7 +75,10 @@ where
             .args(["-axo", "pid=,command="])
             .output()
             .ok()?;
-        keeper_in(&String::from_utf8_lossy(&listing.stdout), &socket.to_string_lossy())
+        keeper_in(
+            &String::from_utf8_lossy(&listing.stdout),
+            &socket.to_string_lossy(),
+        )
     }
 
     pub(super) fn held_by_the_tree(&self, id: &str, path: &str) -> Standing {
@@ -170,4 +173,3 @@ where
         hosting
     }
 }
-

@@ -39,7 +39,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use adapter_traits::{Ask, Environment, Model, ModelClient, Reading, SpawnConfigRefused};
-use verification::{NothingToJudge, Standing, Unreadable};
+use verification::{NothingToJudge, Standing, Unreadable, Wording};
 
 use crate::asked::Asked;
 
@@ -100,19 +100,21 @@ pub struct Judging {
     /// worktree**, for `standing`'s reason: a Drone must not be able to rewrite
     /// what its Judge reads. [`reading`] is the one place it is built.
     pub reading: Option<Reading>,
+    /// The words each brief is laid in: settings.json's Judge prompts, read
+    /// when this was put together. `verification` knows no settings.
+    pub wording: Wording,
 }
 
-/// How many turns a Judge's call may take, its reads and its answer together.
-/// `judge-read-turns` in `crates/config/settings.toml`.
+/// How many turns a Judge's call may take, its reads and its answer together,
+/// as it ships. `limits.judgeReadTurns` in settings.json moves it.
 pub(crate) const JUDGE_READ_TURNS: NonZeroU8 = NonZeroU8::new(16).expect("sixteen is not zero");
 
-/// What a Judge may read: the repository's checkout at `root`, for
-/// [`JUDGE_READ_TURNS`].
+/// What a Judge may read: the repository's checkout at `root`, for `turns`.
 ///
 /// **`root` is `Served::root`**, the same path [`standing`] reads the named
 /// file from, and never a Job's worktree.
-pub(crate) fn reading(root: &str) -> Result<Reading, SpawnConfigRefused> {
-    Reading::checkout(root, JUDGE_READ_TURNS)
+pub(crate) fn reading(root: &str, turns: NonZeroU8) -> Result<Reading, SpawnConfigRefused> {
+    Reading::checkout(root, turns)
 }
 
 impl Judging {
@@ -143,12 +145,12 @@ impl Judging {
 ///
 /// `root` is the repository's own checkout and never a Job's worktree, so a
 /// Drone cannot rewrite what its Judge is told the repository requires.
-pub(crate) fn standing(manifest: &config::Manifest, root: &str) -> Standing {
+pub(crate) fn standing(manifest: &config::Manifest, root: &str, cap: usize) -> Standing {
     let Some(path) = manifest.standing_rules() else {
         return Standing::unstated();
     };
     match std::fs::read_to_string(std::path::Path::new(root).join(path)) {
-        Ok(text) => Standing::read(path, &text),
+        Ok(text) => Standing::read_within(path, &text, cap),
         Err(_) => Standing::unreadable(path),
     }
 }

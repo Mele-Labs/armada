@@ -15,6 +15,7 @@ import type { JobForgotten, JobList, JobSummary, Reason } from "./protocol";
 import type { ManifestReading } from "./reading";
 import type { MergeLines } from "./merge-lines";
 import type { ModList } from "./mods";
+import type { SettingsList } from "./settings";
 import type { ProposalInFlight } from "./proposing";
 import type { CheckoutRunRecord, RunRecord } from "./rehearsal";
 import type { ServerState } from "./servers";
@@ -87,6 +88,8 @@ export type Event =
   | ({ kind: "merge_lines.changed" } & MergeLines)
   /** The mods on this machine changed; the list now, whole, as `list_mods` answers. */
   | ({ kind: "mods.changed" } & ModList)
+  /** settings.json changed, by a save or by hand; every setting now, whole, as `get_settings` answers. */
+  | ({ kind: "settings.changed" } & SettingsList)
   | ({ kind: "run.finished" } & RunRecord)
   /** A run in the main checkout ended. Its own kind: the record names no Job. Since 11.9. */
   | ({ kind: "checkout_run.finished" } & CheckoutRunRecord)

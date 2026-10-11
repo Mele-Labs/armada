@@ -149,6 +149,12 @@ pub(super) const ROUTES: &[Route] = &[
         method: "GET",
         path: "/events",
     },
+    // settings.json, whole, after a save, a hand edit, or a hand edit refused.
+    Route {
+        operation: "settings.changed",
+        method: "GET",
+        path: "/events",
+    },
     // A session after any fact about it, whole.
     Route {
         operation: "session.changed",

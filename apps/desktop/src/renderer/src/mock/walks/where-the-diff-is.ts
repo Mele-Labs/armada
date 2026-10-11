@@ -8,7 +8,7 @@ import { button, role, text, walk } from "../walk";
 const query = role("combobox", "Search actions");
 
 export const whereTheDiffIs = walk("job/running", [
-  { press: button("Search jobs"), say: "The palette, as ⌘K opens it" },
+  { press: button("Search, or describe work"), say: "The palette, as ⌘K opens it" },
   { type: "diff", into: query, say: "Search for the diff" },
   { look: role("option", /^Open the diff/), say: "Greyed, and it says where: f on a job's Overview" },
   { type: "log", into: query, say: "Search for the log" },

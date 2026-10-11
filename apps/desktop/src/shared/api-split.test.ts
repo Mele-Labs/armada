@@ -3,7 +3,8 @@
 // Kept, not deleted: a slice-by-slice equality cannot be asserted against anything but the whole.
 
 import { describe, expect, it } from "vitest";
-import type { PhoneAnswer, PhoneRequest } from "@armada/settings/api";
+import type { PhoneAnswer, PhoneRequest, SettingsFileOpened } from "@armada/settings/api";
+import type { AskLessonRead, AskTurn, LessonReviewRead } from "@armada/jobs/review-wire";
 import type {
   AddTask,
   FixMain,
@@ -42,8 +43,9 @@ import type {
   RunListRead,
   RunOutputRead,
   CheckoutRunListRead,
-  SaveLimits,
   SavePreference,
+  SaveSettings,
+  SettingsList,
   StagedAttachment,
   StartCheckoutRun,
   StartRun,
@@ -194,6 +196,7 @@ type OldBridgeState = {
     fleetBuild: FleetBuildReport | null;
     limits: FleetLimits | null;
     preferences: Preferences;
+    settings: SettingsList | null;
     mods: ModList | null;
     manifestReading: ManifestReading | null;
     missed: number;
@@ -291,8 +294,9 @@ type OldBridgeApi = {
     showAgain: (jobId: string, spec?: string) => Promise<Outcome>;
     raiseCostCap: (jobId: string, costCapMicros: number) => Promise<Outcome>;
     raiseTurnCap: (jobId: string, turnCap: number) => Promise<Outcome>;
-    saveLimits: (values: SaveLimits) => Promise<Outcome>;
     savePreference: (save: SavePreference) => Promise<Outcome>;
+    saveSettings: (changes: SaveSettings["changes"]) => Promise<Outcome>;
+    openSettingsFile: () => Promise<SettingsFileOpened>;
     validateMod: (name: string) => Promise<ModChecked | null>;
     setModEnabled: (name: string, enabled: boolean) => Promise<Outcome>;
     promoteMod: (name: string) => Promise<Outcome>;
@@ -378,6 +382,8 @@ type OldBridgeApi = {
     readLessons: (state: "open" | "accepted") => Promise<LessonsRead>;
     agreeLesson: (lessonId: string) => Promise<LessonAnswer>;
     disagreeLesson: (lessonId: string) => Promise<LessonAnswer>;
+    reviewLessons: () => Promise<LessonReviewRead>;
+    askLesson: (lessonId: string, question: string, history: AskTurn[]) => Promise<AskLessonRead>;
     readFrame: (jobId: string, kept: string) => Promise<FrameRead>;
     readComposing: (repository: string) => Promise<ComposingRead>;
     frameStreamUrl: (jobId: string, kept: string) => string;
@@ -429,6 +435,7 @@ type OldBridgeApi = {
     takeUpRemarks: (jobId: string, remarks: string[]) => Promise<Outcome>;
     dismissFinding: (jobId: string, finding: string, reason: string) => Promise<Outcome>;
     openArtifact: (jobId: string, what: Artifact) => Promise<Opened>;
+    openInTerminal: (jobId: string) => Promise<Opened>;
     openPullRequest: (jobId: string) => Promise<Followed>;
     openRemarkLink: (jobId: string, remarkId: string) => Promise<Followed>;
     onSummoned: (onGo: (to: Summons) => void) => () => void;
@@ -477,6 +484,7 @@ const OLD_NOTHING_YET: OldBridgeState = {
     fleetBuild: null,
     limits: null,
     preferences: { where_things_are_open: false },
+    settings: null,
     mods: null,
     manifestReading: null,
     missed: 0,
@@ -569,8 +577,9 @@ const OLD_CHANNELS = {
     showAgain: "bridge:show-again",
     raiseCostCap: "bridge:raise-cost-cap",
     raiseTurnCap: "bridge:raise-turn-cap",
-    saveLimits: "bridge:save-limits",
     savePreference: "bridge:save-preference",
+    saveSettings: "bridge:save-settings",
+    openSettingsFile: "bridge:open-settings-file",
     validateMod: "bridge:validate-mod",
     setModEnabled: "bridge:set-mod-enabled",
     promoteMod: "bridge:promote-mod",
@@ -657,6 +666,8 @@ const OLD_CHANNELS = {
     readLessons: "bridge:read-lessons",
     agreeLesson: "bridge:agree-lesson",
     disagreeLesson: "bridge:disagree-lesson",
+    reviewLessons: "bridge:review-lessons",
+    askLesson: "bridge:ask-lesson",
     readFrame: "bridge:read-frame",
     readReports: "bridge:read-reports",
     readHeld: "bridge:read-held",
@@ -674,6 +685,7 @@ const OLD_CHANNELS = {
     takeUpRemarks: "bridge:take-up-remarks",
     dismissFinding: "bridge:dismiss-finding",
     openArtifact: "bridge:open-artifact",
+    openInTerminal: "bridge:open-in-terminal",
     openPullRequest: "bridge:open-pull-request",
     openRemarkLink: "bridge:open-remark-link",
     summoned: "bridge:summoned",

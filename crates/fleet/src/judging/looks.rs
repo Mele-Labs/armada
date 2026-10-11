@@ -198,7 +198,7 @@ pub(crate) async fn judged(
     for check in step.judge_checks() {
         let model = model_for(check, &judging.default_model)?;
         for criterion in check.criteria() {
-            let brief = Brief::about(
+            let brief = Brief::worded(
                 step,
                 criterion,
                 request,
@@ -206,6 +206,7 @@ pub(crate) async fn judged(
                 &product,
                 &references,
                 answered,
+                &judging.wording,
             );
             // Once, outside the panel loop, because the panel answers one
             // brief. See `crate::asked`: the file is not a summary of the
@@ -264,7 +265,7 @@ pub(crate) async fn judged(
     // step's own rigour dial bill it for drift.
     if let Some(criterion) = verification::drift_criterion(off_plan) {
         let model = fleets_model(step, &judging.default_model)?;
-        let brief = Brief::about(
+        let brief = Brief::worded(
             step,
             &criterion,
             request,
@@ -272,6 +273,7 @@ pub(crate) async fn judged(
             &product,
             &references,
             answered,
+            &judging.wording,
         );
         // Kept like any other, and this is the one whose brief nobody could
         // reconstruct: `drift_criterion` assembles a question out of the paths
@@ -373,7 +375,7 @@ pub(crate) async fn converging(
     judging: &Judging,
 ) -> Result<Convergence, CallFailed> {
     let model = fleets_model(step, &judging.default_model)?;
-    let brief = ConvergenceBrief::about(
+    let brief = ConvergenceBrief::worded(
         step,
         patch,
         declared,
@@ -381,6 +383,7 @@ pub(crate) async fn converging(
         held,
         precedent,
         &judging.told(),
+        &judging.wording,
     );
     let ask = judging
         .ask(&model, brief.question())

@@ -1,0 +1,198 @@
+/* The guided review: one Lesson card at a time with the model's reason over it
+   and a thread under it. Every value is a token; the card is `LessonCard`'s own. */
+.armada-review {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.armada-review__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.armada-review__nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.armada-review__progress {
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  font-weight: var(--weight-medium);
+  color: var(--fg-muted);
+}
+
+/* The model's reason, set apart the way a card's fix is: a well with a leading edge. */
+.armada-review__why {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
+  border-inline-start: var(--edge-active) solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: var(--surface-well);
+}
+
+.armada-review__label {
+  margin: 0;
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  font-weight: var(--weight-medium);
+  color: var(--fg-subtle);
+}
+
+.armada-review__reason {
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  color: var(--fg-default);
+  text-wrap: pretty;
+  overflow-wrap: anywhere;
+}
+
+.armada-review__merged,
+.armada-review__aside {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.armada-review__twins,
+.armada-review__set-aside,
+.armada-review__turns {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  align-self: stretch;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.armada-review__twin {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+}
+
+.armada-review__twin-label {
+  font-weight: var(--weight-medium);
+  color: var(--text-label);
+}
+
+.armada-review__twin-title {
+  min-width: 0;
+  color: var(--fg-muted);
+  overflow-wrap: anywhere;
+}
+
+/* The thread: turns oldest first, then the field and its send. */
+.armada-review__thread {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.armada-review__turn {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--surface-well);
+}
+
+.armada-review__turn[data-role="person"] {
+  border-inline-start: var(--edge-active) solid var(--border-strong);
+}
+
+.armada-review__turn[data-role="fleet"] {
+  border-inline-start: var(--edge-active) solid var(--accent);
+}
+
+.armada-review__who {
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  font-weight: var(--weight-medium);
+  color: var(--text-label);
+}
+
+.armada-review__said {
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  color: var(--fg-default);
+  text-wrap: pretty;
+  overflow-wrap: anywhere;
+}
+
+.armada-review__ask {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-2);
+}
+
+.armada-review__ask > :first-child {
+  flex: 1;
+  min-width: 0;
+}
+
+.armada-review__ended {
+  margin: 0;
+  font-size: var(--text-base);
+  line-height: var(--leading-base);
+  font-weight: var(--weight-heading);
+  color: var(--fg-default);
+}
+
+.armada-review__aside-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-width) solid var(--edge-card);
+  border-radius: var(--radius-md);
+  background: var(--surface-card);
+}
+
+.armada-review__aside-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+  flex: 1;
+}
+
+.armada-review__aside-title {
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  font-weight: var(--weight-medium);
+  color: var(--fg-default);
+  overflow-wrap: anywhere;
+}
+
+.armada-review__aside-why {
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-muted);
+  overflow-wrap: anywhere;
+}

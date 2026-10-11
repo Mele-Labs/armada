@@ -170,6 +170,7 @@ export * from "./concepts";
 export * from "./actions";
 // The keys each act answers now, with a person's own bindings laid over the registry's.
 export * from "./keymap";
+export * from "./tile-grid";
 
 // Whether Cmd is held, for a control that carries a Global-tier binding to
 // show its own `Kbd` badge. `TheShell` is the one provider; any control
@@ -293,10 +294,8 @@ export * from "./compositions/PlanGroupSheet/PlanGroupSheet";
 // Every setting a person can change on a running Job, on the same layer, and
 // the header's way into it.
 export * from "./compositions/JobSettings/JobSettings";
-export * from "./compositions/FleetSettings/FleetSettings";
 export * from "./compositions/KitServers/KitServers";
 export * from "./compositions/KitSetup/KitSetup";
-export * from "./compositions/MachineSettings/MachineSettings";
 
 // Asking a Job to show its work again, and every set a press kept beside the
 // step's own frames. Each set is an unchanged `FramesShown`.
@@ -432,6 +431,7 @@ export * from "./compositions/RetroPress/RetroPress";
 export * from "./compositions/LandsMark/LandsMark";
 export * from "./compositions/LessonCard/LessonCard";
 export * from "./compositions/LessonList/LessonList";
+export * from "./compositions/LessonReview/LessonReview";
 export * from "./compositions/RetroSheet/RetroSheet";
 export * from "./compositions/MorningReview/MorningReview";
 
@@ -456,3 +456,5 @@ export * from "./compositions/LayoutRow/LayoutRow";
 export * from "./compositions/SettingsIndex/SettingsIndex";
 export * from "./compositions/KeyBindingRow/KeyBindingRow";
 export * from "./compositions/PhonePairing/PhonePairing";
+// One setting from settings.json, drawn from its kind.
+export * from "./compositions/SettingField/SettingField";

@@ -517,7 +517,7 @@ where
         let Some(plan) = self.plan_of(job_id).await? else {
             return Ok(());
         };
-        let note = PlanChanged::round(group, &plan);
+        let note = PlanChanged::round(&self.prompts(), group, &plan);
         at_work.instructed(Occasion::Plan, note.text());
         let _ = at_work.session().plan_changed(&note).await;
         Ok(())

@@ -17,9 +17,9 @@ use std::sync::Arc;
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{HostedSessions, Refusal};
 use ipc::{
-    AnswerSessionAsk, AnswerWaiting, DismissWaiting, HelmCallAnswer, HelmCallInFlight, Instant, QuestionAnswer,
-    SendSessionMessage, SessionRecord, SessionRow, SessionVoice, SetWaitingFor, WaitingAct,
-    WaitingActKind, WaitingItem, WaitingMode, WaitingOption, WaitingSource, WireError,
+    AnswerSessionAsk, AnswerWaiting, DismissWaiting, HelmCallAnswer, HelmCallInFlight, Instant,
+    QuestionAnswer, SendSessionMessage, SessionRecord, SessionRow, SessionVoice, SetWaitingFor,
+    WaitingAct, WaitingActKind, WaitingItem, WaitingMode, WaitingOption, WaitingSource, WireError,
 };
 use store::{KeptSession, KeptWaiting, Store};
 
@@ -100,7 +100,9 @@ fn card_item(asked: &HelmCallInFlight) -> WaitingItem {
     }
     WaitingItem {
         id: format!("perm:{}", asked.call),
-        text: format!("{} {}", asked.tool, asked.detail).trim().to_string(),
+        text: format!("{} {}", asked.tool, asked.detail)
+            .trim()
+            .to_string(),
         since: asked.asked_at.clone(),
         source: WaitingSource::Permission,
         act,
@@ -165,7 +167,11 @@ pub(crate) fn merged(
                 .collect(),
         })
         .collect();
-    items.extend(derived.into_iter().filter(|one| !dismissed.contains(&one.id)));
+    items.extend(
+        derived
+            .into_iter()
+            .filter(|one| !dismissed.contains(&one.id)),
+    );
     items
 }
 
@@ -200,7 +206,9 @@ where
                     from: SessionVoice::You,
                     text,
                     ..
-                } => text.strip_prefix("Approved: ").map(|url| url.trim().to_string()),
+                } => text
+                    .strip_prefix("Approved: ")
+                    .map(|url| url.trim().to_string()),
                 _ => None,
             })
             .collect();
@@ -253,13 +261,19 @@ where
     ) -> Result<SessionRecord, Refusal> {
         let id = caller
             .and_then(|caller| self.session_holding(&caller))
-            .or_else(|| set.session_id.map(|named| named.as_str().trim().to_string()))
+            .or_else(|| {
+                set.session_id
+                    .map(|named| named.as_str().trim().to_string())
+            })
             .filter(|id| !id.is_empty())
-            .ok_or_else(|| self.hosted_refusal(SESSION_WAITING_UNNAMED, "a session to set it for"))?;
+            .ok_or_else(|| {
+                self.hosted_refusal(SESSION_WAITING_UNNAMED, "a session to set it for")
+            })?;
         let mut seen = std::collections::HashSet::new();
         for item in &set.items {
             if item.id.trim().is_empty() || item.text.trim().is_empty() {
-                return Err(self.hosted_refusal(SESSION_WAITING_EMPTY, "every item needs an id and its text"));
+                return Err(self
+                    .hosted_refusal(SESSION_WAITING_EMPTY, "every item needs an id and its text"));
             }
             if !seen.insert(item.id.trim().to_string()) {
                 return Err(self.hosted_refusal(SESSION_WAITING_EMPTY, "two items share an id"));
@@ -271,8 +285,12 @@ where
             let session = store
                 .session(&id)
                 .map_err(|why| self.ledger_fault(why))?
-                .ok_or_else(|| self.hosted_refusal(SESSION_WAITING_UNNAMED, "a session Fleet knows"))?;
-            let before = store.waiting_for(&id).map_err(|why| self.ledger_fault(why))?;
+                .ok_or_else(|| {
+                    self.hosted_refusal(SESSION_WAITING_UNNAMED, "a session Fleet knows")
+                })?;
+            let before = store
+                .waiting_for(&id)
+                .map_err(|why| self.ledger_fault(why))?;
             let items: Vec<KeptWaiting> = set
                 .items
                 .into_iter()
@@ -333,15 +351,24 @@ where
             && said.mode.is_none()
             && said.text.as_deref().map_or(true, |t| t.trim().is_empty());
         if nothing && item.source != WaitingSource::Walk {
-            return Err(self.hosted_refusal(SESSION_WAITING_EMPTY, "an answer needs a choice, words or a mode"));
+            return Err(self.hosted_refusal(
+                SESSION_WAITING_EMPTY,
+                "an answer needs a choice, words or a mode",
+            ));
         }
-        let words = said.text.as_deref().map(str::trim).filter(|t| !t.is_empty());
+        let words = said
+            .text
+            .as_deref()
+            .map(str::trim)
+            .filter(|t| !t.is_empty());
         let picked = match said.choice {
             Some(at) => Some(
                 item.options
                     .get(at as usize)
                     .map(|one| one.label.clone())
-                    .ok_or_else(|| self.hosted_refusal(SESSION_WAITING_EMPTY, "that item has no such choice"))?,
+                    .ok_or_else(|| {
+                        self.hosted_refusal(SESSION_WAITING_EMPTY, "that item has no such choice")
+                    })?,
             ),
             None => None,
         };
@@ -354,13 +381,9 @@ where
         };
         match item.source {
             WaitingSource::AskCard | WaitingSource::Permission => {
-                let asked = self
-                    .hosts()
-                    .of(&id)
-                    .state()
-                    .asked
-                    .clone()
-                    .ok_or_else(|| self.hosted_refusal(SESSION_WAITING_UNHELD, "no card is open"))?;
+                let asked = self.hosts().of(&id).state().asked.clone().ok_or_else(|| {
+                    self.hosted_refusal(SESSION_WAITING_UNHELD, "no card is open")
+                })?;
                 let answer = if item.source == WaitingSource::AskCard {
                     match (picked.as_deref().or(words), asked.questions.first()) {
                         (Some(chosen), Some(first)) => AnswerSessionAsk {
@@ -399,14 +422,21 @@ where
                 self.send_session_message(message(body)).await
             }
             WaitingSource::Agent => {
-                self.send_session_message(message(reply(&item.text, picked.as_deref().or(words), line)))
-                    .await
+                self.send_session_message(message(reply(
+                    &item.text,
+                    picked.as_deref().or(words),
+                    line,
+                )))
+                .await
             }
         }
     }
 
     /// `dismiss_waiting`: drop one item for good. Nothing is sent to the agent.
-    pub(crate) async fn dismiss_waited(&self, dismiss: DismissWaiting) -> Result<SessionRecord, Refusal> {
+    pub(crate) async fn dismiss_waited(
+        &self,
+        dismiss: DismissWaiting,
+    ) -> Result<SessionRecord, Refusal> {
         let id = dismiss.session_id.as_str().to_string();
         if self.terminal_session(&id).await?.is_some() {
             self.terminal_ask_standing(&id).await;
@@ -416,7 +446,9 @@ where
             let session = store
                 .session(&id)
                 .map_err(|why| self.ledger_fault(why))?
-                .ok_or_else(|| self.hosted_refusal(SESSION_WAITING_UNNAMED, "a session Fleet knows"))?;
+                .ok_or_else(|| {
+                    self.hosted_refusal(SESSION_WAITING_UNNAMED, "a session Fleet knows")
+                })?;
             let held = self
                 .ledger_row(&store, &session)?
                 .waiting_for

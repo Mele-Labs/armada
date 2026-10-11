@@ -14,7 +14,12 @@ mod gate;
 mod hearing;
 pub mod keeper;
 pub(crate) mod kept;
+mod pilot_words;
 mod piloting;
+pub(crate) use pilot_words::{
+    PILOT_CHANGED, PILOT_CHECKS_FAILED, PILOT_FOR_GOOD, PILOT_JUDGE_REFUSED, PILOT_NARRATIVE,
+    PILOT_OPENING, PILOT_OUTSIDE_PLAN, PILOT_RECORD, PILOT_RESTART, PILOT_STOPPED, PILOT_WORKTREE,
+};
 mod places;
 mod process;
 mod rows;

@@ -231,9 +231,16 @@
   grid-template-columns: max-content minmax(max-content, 1fr) fit-content(calc(var(--space-12) * 3)) max-content max-content max-content;
 }
 
-/* dot · branch over state · size · Open */
+/* dot · branch over state · size · Open and Open in terminal */
 .armada-holds__rows[data-list="worktrees"] {
   grid-template-columns: max-content minmax(0, 1fr) max-content max-content;
+}
+
+/* The worktree's two ways out of the app, side by side in the row's last track. */
+.armada-holds__opens {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
 }
 
 /* kind · whose and what · size · Open or being written */

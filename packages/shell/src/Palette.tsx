@@ -38,7 +38,7 @@ import { useEffect, useState } from "react";
 import type { LucideIcon } from "lucide-react";
 
 import { actsIn, ALIASES, globalActs, CommandPalette, isPressed, keyFor } from "@armada/components";
-import type { Action, ActionContext, PaletteEntry, PaletteSection } from "@armada/components";
+import type { Action, ActionContext, PaletteDispatch, PaletteEntry, PaletteSection } from "@armada/components";
 
 /** A Job as a search result. It carries no binding, and that is not a gap. */
 export type PaletteJob = { id: string; label: string };
@@ -178,6 +178,10 @@ export type PaletteProps = {
    */
   onChoose: (choice: PaletteChoice) => void;
   onConfirmAct: (actionId: string) => void;
+  /** The one bar's dispatch row: what was typed, sent as a Job or a Session. */
+  dispatch?: PaletteDispatch;
+  /** The title bar's field, which the palette opens over. */
+  anchor?: string;
 };
 
 /** The section ids. Their order is the contract's contents order. */
@@ -240,6 +244,8 @@ export function Palette({
   absent = [],
   onChoose,
   onConfirmAct,
+  dispatch,
+  anchor,
 }: PaletteProps) {
   const sections: PaletteSection[] = [
     { id: CONTEXT, title: on ?? NOTHING_FOCUSED },
@@ -325,6 +331,8 @@ export function Palette({
       entries={entries}
       searched={searchedSentence(jobs.length, settings.length, runnables.length)}
       onClose={onClose}
+      {...(dispatch === undefined ? {} : { dispatch })}
+      {...(anchor === undefined ? {} : { anchor })}
       onSelect={(entry) => onChoose(choiceOf(entry.id))}
       // A destructive board row opens its own confirmation, so it is a choice.
       onConfirm={(entry) =>

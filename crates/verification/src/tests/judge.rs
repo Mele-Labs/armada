@@ -494,3 +494,42 @@ fn the_call_count_is_criteria_times_panel_size() {
         1
     );
 }
+
+/// A brief laid in a caller's words carries them where the shipped words sat,
+/// and the material around them is laid exactly as before: the piece is the
+/// only thing that moves. A wording that replaces nothing is what ships.
+#[test]
+fn a_brief_in_another_wording_moves_only_the_piece_it_replaced() {
+    let workflow = workflow();
+    let step = &workflow.steps()[0];
+    let submitted = submitted();
+    let patch = patch();
+    let accepted = Accepted::of(step, &submitted).expect("the step asks for a diff");
+    let product =
+        Product::of(step, &patch, accepted, None, None).expect("the step changed something");
+    let laid = |wording: &crate::Wording| {
+        Brief::worded(
+            step,
+            &step.judge_checks()[0].criteria()[0],
+            Request::of(testkit::asked_for()),
+            &crate::Standing::unstated(),
+            &product,
+            &[],
+            Answered::of(&checks(), &[]),
+            wording,
+        )
+        .question()
+        .to_string()
+    };
+    let shipped = laid(&crate::Wording::shipped());
+    assert_eq!(
+        shipped,
+        brief(&workflow).question(),
+        "no override is what ships"
+    );
+
+    let piece = crate::pieces::JUDGE_OPENING;
+    let reworded = laid(&crate::Wording::shipped().with(piece, "Check one thing."));
+    assert!(reworded.starts_with("Check one thing.\n\n"), "{reworded}");
+    assert_eq!(reworded.replace("Check one thing.", piece.shipped), shipped);
+}

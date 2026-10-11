@@ -142,6 +142,8 @@ mod piloting;
 /// out of the closed set does not save**, `limits`' reason one field over.
 mod preferences;
 mod proposing;
+/// settings.json: every setting as Fleet resolved it, the save, and a refusal.
+mod settings;
 /// Which wire a build speaks: a hash `build.rs` takes of the wire surface.
 mod protocol_id;
 /// A pull request, by repository and number, and the acts a Session takes on one.
@@ -176,6 +178,9 @@ mod resources;
 /// A Job's retro and the record it was read from, and the Lessons listing.
 /// Since 23.12.
 mod retro;
+/// A guided review of the open retro items, and a question about one. Since
+/// 23.74.
+mod retro_review;
 /// What Scan found in a repository nobody set up for Armada. **Evidence,
 /// never a proposal** — every finding carries the file it came from.
 mod scan;
@@ -362,6 +367,9 @@ pub use piloting::{
     TakeOver,
 };
 pub use preferences::{Preferences, SavePreference, DEFAULT_THEME};
+pub use settings::{
+    SaveSettings, Setting, SettingApplies, SettingKind, SettingValue, SettingsList, SettingsRefused,
+};
 pub use proposing::{
     ProposalInFlight, ProposalReach, ProposalSettings, ProposalSettled, ProposalStopped,
     StopProposal,
@@ -401,6 +409,9 @@ pub use retro::{
     RecordAsked, RecordCheck, RecordNotMet, RecordPath, RecordRefusal, RecordSaid, RecordWaited,
     RetroAnswered, RetroChange, RetroChangeAnswered, RetroItem, RetroRecord, RetroSession,
     RetroState, RetroWritten,
+};
+pub use retro_review::{
+    AskLessonAnswer, AskRole, AskTurn, LessonAsk, LessonReview, ReviewEntry, ReviewLessons, SetAside,
 };
 pub use scan::{
     CiCommand, ComposeService, DeclaredPort, EvidenceStrength, MissingName, NotRead,
@@ -458,7 +469,7 @@ pub use triggers::{
     TriggerSummary,
 };
 pub use turn::{
-    BlockKind, CallArguments, Closed, Opened, Saw, Shown, Silence, TranscriptRow, TurnMessage,
+    BlockKind, Closed, Opened, Saw, Shown, Silence, TranscriptRow, TurnMessage,
     Voice, Withheld,
 };
 pub use underway::{

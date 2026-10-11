@@ -25,6 +25,7 @@ mod loopback;
 mod mcp;
 mod need;
 mod reaching;
+mod settings_watch;
 mod setup;
 mod trigger_authoring;
 mod watching;

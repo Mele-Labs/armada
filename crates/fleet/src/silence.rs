@@ -35,10 +35,13 @@ use core_model::{
     Refusal, Refusals, StepId, Target,
 };
 
+use config::settings as keys;
+
 use crate::adrift::Adrift;
 use crate::converging::elapsed;
 use crate::daemon::Fleet;
 use crate::drone::{aftermath, awaiting_background, Aftermath, Ending};
+use crate::prompts::Prompts;
 use crate::session::{LiveSession, Occasion};
 use crate::transcript;
 use crate::watch::Drained;
@@ -171,15 +174,11 @@ fn seconds(count: u32) -> Duration {
 pub struct Poke(String);
 
 impl Poke {
-    pub fn after(quiet: Duration) -> Poke {
+    pub fn after(prompts: &Prompts, quiet: Duration) -> Poke {
         let minutes = (quiet.as_secs() / 60).max(1);
         let plural = if minutes == 1 { "" } else { "s" };
-        Poke(format!(
-            "Nothing has arrived from you for {minutes} minute{plural}.\n\n\
-             If you are working, keep going. If you are finished, submit — work \
-             you do not submit is work no one sees. If you are stuck, submit \
-             what you have with an accurate Not claimed and stop."
-        ))
+        let quiet = format!("{minutes} minute{plural}");
+        Poke(prompts.fill(keys::PROMPT_POKE_QUIET, &[("quiet", &quiet)]))
     }
 
     /// What a Drone is told when it ended its turn waiting for work it put in
@@ -195,16 +194,8 @@ impl Poke {
     /// exploring a large repository with a subagent is doing the right thing;
     /// what is not legitimate is ending a turn on it. So the wording says where
     /// to put the waiting rather than telling it not to have delegated.
-    pub fn waiting_on_background() -> Poke {
-        Poke(String::from(
-            "You ended your turn waiting for work you put in the background. \
-             Nothing will arrive while you are not in a turn, so waiting that \
-             way ends your run instead of pausing it.\n\n\
-             If you still need what it was finding, do that work in this turn \
-             yourself. If you delegate again, stay in the turn until the report \
-             is in your hands. Then submit — work you do not submit is work no \
-             one sees.",
-        ))
+    pub fn waiting_on_background(prompts: &Prompts) -> Poke {
+        Poke(String::from(prompts.get(keys::PROMPT_POKE_BACKGROUND)))
     }
 
     pub fn text(&self) -> &str {
@@ -318,7 +309,7 @@ where
         };
         // **A Drone whose evidence is at the gate is not silent, it is
         // waiting.** The step's clock runs through Fleet's own Checks, which is
-        // why `wall_clock`'s floor had to hold `PROVISIONAL_CHECK_BUDGET` — a
+        // why `wall_clock`'s floor had to hold `timeouts.checkSeconds` — a
         // Drone is legitimately quiet while `cargo nextest` runs, and this is
         // the half of that Fleet can see for itself. The other half is the
         // Drone's own long command, which is not quiet at all: the harness
@@ -425,8 +416,10 @@ where
         // Drone that is about to carry on working.
         let mut refused = Refusals::none();
         let said = if spent < liveness.pokes() {
-            self.poke(working, Poke::after(after), |spent| Vigil::Poked { spent })
-                .await
+            self.poke(working, Poke::after(&self.prompts(), after), |spent| {
+                Vigil::Poked { spent }
+            })
+            .await
         } else {
             refused = working
                 .as_ref()
@@ -531,9 +524,11 @@ where
                 .map(|at_work| at_work.quiet_for(&self.now()))
                 .unwrap_or_default();
             let said = self
-                .poke(working, Poke::waiting_on_background(), |spent| {
-                    Vigil::PokedAtRest { spent }
-                })
+                .poke(
+                    working,
+                    Poke::waiting_on_background(&self.prompts()),
+                    |spent| Vigil::PokedAtRest { spent },
+                )
                 .await;
             // Nothing was reaped and nothing was refused: this road holds its
             // Drone, exactly as the quiet ladder's poke does.
@@ -803,3 +798,20 @@ fn named(refusal: &Refusal) -> FieldValue {
     }
     FieldValue::Str(line)
 }
+
+/// The poke a quiet Drone gets, as it ships: `prompts.pokeQuiet`'s default.
+/// `{quiet}` is how long, as "12 minutes".
+pub(crate) const POKE_QUIET: &str = "Nothing has arrived from you for {quiet}.\n\n\
+     If you are working, keep going. If you are finished, submit — work \
+     you do not submit is work no one sees. If you are stuck, submit \
+     what you have with an accurate Not claimed and stop.";
+
+/// The poke a Drone gets for ending its turn on background work, as it ships.
+pub(crate) const POKE_BACKGROUND: &str =
+    "You ended your turn waiting for work you put in the background. \
+     Nothing will arrive while you are not in a turn, so waiting that \
+     way ends your run instead of pausing it.\n\n\
+     If you still need what it was finding, do that work in this turn \
+     yourself. If you delegate again, stay in the turn until the report \
+     is in your hands. Then submit — work you do not submit is work no \
+     one sees.";

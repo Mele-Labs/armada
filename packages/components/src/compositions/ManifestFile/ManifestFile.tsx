@@ -138,6 +138,7 @@ export function ManifestFile({
             onChange={(event) => onText?.(event.target.value)}
             spellCheck={false}
             wrap="off"
+            data-keeps-keys=""
           />
         </div>
       ) : (
@@ -189,6 +190,7 @@ function Moved({
                 readOnly
                 spellCheck={false}
                 wrap="off"
+                data-keeps-keys=""
               />
             </div>
           )}
@@ -202,6 +204,7 @@ function Moved({
               onChange={(event) => onText?.(event.target.value)}
               spellCheck={false}
               wrap="off"
+              data-keeps-keys=""
             />
           </div>
         </div>

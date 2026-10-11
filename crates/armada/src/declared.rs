@@ -144,10 +144,10 @@ pub async fn execute(
     // different command from the one the gate runs — it would not even start,
     // since there is no shell here to expand it.
     //
-    // **The shipped Jobs bound, not a saved one.** There is no store open here
-    // and nothing to ask; a person who saved a different bound gets the shipped
-    // number at the terminal and the gate stays the authority. #1444.
-    let width = CheckWidth::read(crate::serve::PROVISIONAL_CONCURRENCY.jobs())
+    // **The Jobs bound settings.json holds**, read off the file with no Fleet
+    // to ask, so the terminal divides the machine as the gate does. #1444.
+    let jobs = crate::settings::now_or_shipped().get(config::settings::DRONES_AT_ONCE);
+    let width = CheckWidth::read(usize::try_from(jobs).unwrap_or(1))
         .narrowed_to(manifest.check(name).and_then(config::Check::width));
     let command = resolve_width(&command, width);
 
@@ -232,7 +232,7 @@ pub fn machine_slots() -> Option<CheckSlots> {
     let runtime_file = fleet::runtime::machine_path().ok()?;
     let slots = CheckSlots::at(
         runtime_file.parent()?.join("check-slots"),
-        crate::serve::provisional_checks_at_once().get(),
+        usize::try_from(crate::settings::now_or_shipped().get(config::settings::CHECKS_AT_ONCE)).unwrap_or(1),
     );
     // The merge line sets it on its own Checks, and nothing else does.
     match std::env::var_os(AHEAD_ENV) {

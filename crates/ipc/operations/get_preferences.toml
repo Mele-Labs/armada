@@ -4,7 +4,7 @@ transport = "HTTP"
 agent_access = "Yes"
 description = "Every preference a person has saved in Bridge, and what is in force for each"
 notes = """
-Kept the way `get_limits` is: Fleet-wide, surviving a relaunch, and read once per connection rather than on a timer — nothing but a save changes it. `store::Preferences` is a row per name and an absent row is the shipped default, so this always answers whole even where nobody has ever saved anything.
+Kept the way `get_limits` is: Fleet-wide, surviving a relaunch. **Read from settings.json since the file replaced the store** (the owner's decision of 10 Oct 2026, reversing #927): `bridge.whereThingsAreOpen`, `features.draftPullRequests`, `bridge.theme`, `bridge.layout` and `bridge.keyBindings`. A key the file does not hold is the shipped default, so this always answers whole. A hand edit to the file changes it too, and `settings.changed` says so.
 
 **`draft_pull_requests` is the second** (23.68): whether this machine offers a pull request as a draft below the repository's and the workflow's say. Left out of the answer while `false`.
 

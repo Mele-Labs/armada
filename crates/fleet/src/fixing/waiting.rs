@@ -14,8 +14,11 @@ use checks_runner::Output;
 use core_model::{BreakageClaim, FixWaiter, Job, JobId, JobStatus, ManifestId, Ulid};
 use ipc::mcp::CheckReport;
 
+use config::settings as keys;
+
 use crate::daemon::Fleet;
 use crate::peers::News;
+use crate::prompts::Prompts;
 
 /// Where a fix a Job was pointed at stands, as its peer turn says it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -30,35 +33,29 @@ pub(crate) enum FixStands {
 impl FixStands {
     /// The item's line in the turn. `files` are what the fix holds off this
     /// Job, and empty where it holds nothing. #1673.
-    pub(crate) fn line(self, title: &str, handle: &str, test: &str, files: &[String]) -> String {
+    pub(crate) fn line(
+        self,
+        prompts: &Prompts,
+        title: &str,
+        handle: &str,
+        test: &str,
+        files: &[String],
+    ) -> String {
         let named = files
             .iter()
             .map(|path| format!("`{path}`"))
             .collect::<Vec<_>>()
             .join(", ");
-        let said = match (self, files.is_empty()) {
-            (FixStands::Fixing, true) => format!("is fixing `{test}`, which your checks failed on"),
-            (FixStands::Fixing, false) => format!(
-                "is fixing `{test}`, which your checks failed on. Until that fix lands and \
-                 reaches your copy, {named} are outside what this Job may change"
-            ),
-            (FixStands::Landed, true) => format!("landed its fix for `{test}`"),
-            (FixStands::Landed, false) => format!(
-                "landed its fix for `{test}`. It reaches your copy when your next part starts, \
-                 and until then {named} stay outside what this Job may change"
-            ),
-            (FixStands::InYourCopy, _) => format!(
-                "landed its fix for `{test}`, and that fix is already in your copy. {named} \
-                 are yours to change again"
-            ),
-            (FixStands::Gone, true) => {
-                format!("ended without landing its fix for `{test}`, so nobody is fixing it now")
-            }
-            (FixStands::Gone, false) => format!(
-                "ended without landing its fix for `{test}`, so nobody is fixing it now. \
-                 {named} are yours to change again"
-            ),
+        let key = match (self, files.is_empty()) {
+            (FixStands::Fixing, true) => keys::PROMPT_FIX_FIXING,
+            (FixStands::Fixing, false) => keys::PROMPT_FIX_FIXING_HOLDS,
+            (FixStands::Landed, true) => keys::PROMPT_FIX_LANDED,
+            (FixStands::Landed, false) => keys::PROMPT_FIX_LANDED_HOLDS,
+            (FixStands::InYourCopy, _) => keys::PROMPT_FIX_IN_YOUR_COPY,
+            (FixStands::Gone, true) => keys::PROMPT_FIX_GONE,
+            (FixStands::Gone, false) => keys::PROMPT_FIX_GONE_HOLDS,
         };
+        let said = prompts.fill(key, &[("test", test), ("files", &named)]);
         format!("\n- \"{title}\" ({handle}) {said}.")
     }
 }

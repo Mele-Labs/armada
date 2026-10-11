@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer, webUtils } from "electron";
 
 import { CHANNELS } from "../shared/bridge";
+import type { AskLessonRead, AskTurn, LessonReviewRead } from "@armada/jobs/review-wire";
 import { ANNOTATE_FLAG, ANNOTATION_CHANNELS } from "../shared/annotations";
 import type { Annotation, AnnotationsDevApi, Box } from "../shared/annotations";
 import { frameStreamUrl } from "../shared/streaming";
@@ -65,7 +66,7 @@ import type {
 import type { AddingStep, AddStepAnswer, EditingStep, EditStepAnswer, ReadingRepairDiff, RemovingStep, RemoveStepAnswer, RepairDiffAnswer } from "../shared/added-steps";
 import type { SavingWorkflow, WorkflowDefinitionRead, WorkflowSaveAnswer, WorkflowsRead } from "../shared/workflows";
 import type { AddKitServer, ManifestReach, ReachesDrones } from "@armada/protocol";
-import type { PhoneAnswer, PhoneRequest } from "@armada/settings/api";
+import type { PhoneAnswer, PhoneRequest, SettingsFileOpened } from "@armada/settings/api";
 import type { LocateAnswer } from "@armada/screens/src/locate-reads";
 import type { ComposingRead } from "@armada/screens/src/composing-reads";
 import type { EditManifestProposal, WriteManifestProposal } from "@armada/protocol";
@@ -79,8 +80,8 @@ import type {
   CommandAnswer,
   HelmCallAnswer,
   JudgeAnswer,
-  SaveLimits,
   SavePreference,
+  SaveSettings,
   WhenBlocked,
   WhenRefused,
 } from "@armada/protocol";
@@ -309,14 +310,16 @@ const api: BridgeApi = {
   raiseTurnCap: (jobId: string, turnCap: number): Promise<Outcome> =>
     ipcRenderer.invoke(CHANNELS.raiseTurnCap, jobId, turnCap),
 
-  // Fleet's three admission limits. **Fleet-wide, and no Job id crosses this
+  // A person's Bridge preferences. **Fleet-wide, and no Job id crosses this
   // channel** — the only act on this surface that names none.
-  saveLimits: (values: SaveLimits): Promise<Outcome> =>
-    ipcRenderer.invoke(CHANNELS.saveLimits, values),
-
-  // A person's Bridge preferences. **Fleet-wide**, `saveLimits`' reason.
   savePreference: (save: SavePreference): Promise<Outcome> =>
     ipcRenderer.invoke(CHANNELS.savePreference, save),
+
+  // settings.json, by key; `null` removes one. **Fleet-wide**, `savePreference`'s reason.
+  saveSettings: (changes: SaveSettings["changes"]): Promise<Outcome> =>
+    ipcRenderer.invoke(CHANNELS.saveSettings, changes),
+  // The file in the configured editor. **No path crosses**: main opens the one Fleet named.
+  openSettingsFile: (): Promise<SettingsFileOpened> => ipcRenderer.invoke(CHANNELS.openSettingsFile),
 
   // The Phone Gateway, on loopback, one named operation at a time. Main makes the call.
   phone: (request: PhoneRequest): Promise<PhoneAnswer> => ipcRenderer.invoke(CHANNELS.phone, request),
@@ -591,6 +594,11 @@ const api: BridgeApi = {
   agreeLesson: (lessonId: string): Promise<LessonAnswer> => ipcRenderer.invoke(CHANNELS.agreeLesson, lessonId),
   disagreeLesson: (lessonId: string): Promise<LessonAnswer> =>
     ipcRenderer.invoke(CHANNELS.disagreeLesson, lessonId),
+  // The guided review: the model's queue over the open items, and one question about one item.
+  // Neither names a manifest or a port: main narrows the first to this window's pick.
+  reviewLessons: (): Promise<LessonReviewRead> => ipcRenderer.invoke(CHANNELS.reviewLessons),
+  askLesson: (lessonId: string, question: string, history: AskTurn[]): Promise<AskLessonRead> =>
+    ipcRenderer.invoke(CHANNELS.askLesson, lessonId, question, history),
   readFrame: (jobId: string, kept: string): Promise<FrameRead> =>
     ipcRenderer.invoke(CHANNELS.readFrame, jobId, kept),
   // New job's own reads on All — #959: `leftOut` and the Manifest reading for
@@ -805,6 +813,8 @@ const api: BridgeApi = {
   // only in which file and none of them changes anything about the Job.
   openArtifact: (jobId: string, what: Artifact): Promise<Opened> =>
     ipcRenderer.invoke(CHANNELS.openArtifact, jobId, what),
+  // A Job's worktree in the terminal `terminal.app` names. A Job id and nothing else, `openArtifact`'s rule.
+  openInTerminal: (jobId: string): Promise<Opened> => ipcRenderer.invoke(CHANNELS.openInTerminal, jobId),
 
   // The second entry that reaches outside the app, and the only one that
   // leaves the machine. **A Job id and nothing else** — narrower than the one

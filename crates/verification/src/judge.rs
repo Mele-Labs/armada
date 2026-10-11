@@ -31,13 +31,16 @@ use crate::product::{Product, Reference};
 use crate::request::Request;
 use crate::shown::{placed, Laid, Region};
 use crate::standing::Standing;
+use crate::wording::{Piece, Wording};
 
 /// The two words a Judge may answer with, and the three fields a refusal owes.
 ///
 /// Spelled from the registry's own `criterion_verdict_judge` keys rather than
 /// invented here, so the answer a model writes, the value stored and the word
 /// rendered are one vocabulary.
-const ANSWER_FORMAT: &str = "\
+pub const JUDGE_ANSWER: Piece = Piece {
+    id: "judgeAnswer",
+    shipped: "\
 Answer with nothing but the lines below.
 
 If the evidence satisfies the criterion:
@@ -64,7 +67,21 @@ material in your own words — write the line with no quotation marks at all. \
 That is a complete answer and not a lesser one. Never put quotation marks \
 around words you assembled or reworded to stand in for words above. An answer \
 that quotes words which are not above is discarded, and the work is neither \
-passed nor refused.";
+passed nor refused.",
+};
+
+/// What a Judge is told it is doing, before anything else.
+pub const JUDGE_OPENING: Piece = Piece {
+    id: "judgeOpening",
+    shipped: "You are verifying one condition on work somebody else did. Answer only the \
+              question at the end.",
+};
+
+/// The line the criterion's question follows.
+pub const JUDGE_QUESTION: Piece = Piece {
+    id: "judgeQuestion",
+    shipped: "The question, which is yes or no:",
+};
 
 /// What one call is asked, assembled.
 ///
@@ -103,45 +120,70 @@ impl Brief {
         references: &[Reference<'_>],
         answered: Answered<'_>,
     ) -> Brief {
+        Brief::worded(
+            step,
+            criterion,
+            request,
+            standing,
+            product,
+            references,
+            answered,
+            &Wording::shipped(),
+        )
+    }
+
+    /// The same brief in `wording`: the pieces a caller replaced, every other
+    /// as it ships. Material is laid exactly where [`Brief::about`] lays it.
+    #[allow(clippy::too_many_arguments)]
+    pub fn worded(
+        step: &ResolvedStep,
+        criterion: &JudgeCriterion,
+        request: Request<'_>,
+        standing: &Standing,
+        product: &Product<'_>,
+        references: &[Reference<'_>],
+        answered: Answered<'_>,
+        wording: &Wording,
+    ) -> Brief {
         // **Laid in labelled parts, and the text is byte for byte what it
         // was.** The labels are what a citation says it landed in, and they
         // are recorded at assembly rather than recognised afterwards — see
         // [`shown`](mod@crate::shown).
         let mut laid = Laid::new();
-        laid.loose(
-            "You are verifying one condition on work somebody else did. \
-             Answer only the question at the end.\n\n",
-        );
+        laid.loose(wording.get(JUDGE_OPENING));
+        laid.loose("\n\n");
         laid.loose(&format!("Step: {}\n\n", step.label()));
         // **First, and above the step's own evidence.** The request is the
         // outermost yardstick — an earlier step's note is measured against it
         // too — so it is read before anything it is the standard for, which is
         // the ordering `Reference::parts` already argues for one level down.
-        laid.part(REQUEST, &request.told());
+        laid.part(REQUEST, &request.told(wording));
         // Beside the request and for its reason: a standard, not the work.
-        laid.part(STANDING, &standing.told());
+        laid.part(STANDING, &standing.told(wording));
         // **The deterministic facts, and the whole of them.** A name and an
         // outcome word is what this rendered until #205, which dropped the two
         // parts a criterion is actually answered from: why a Check that did not
         // run did not, and what a Check that ran observed. A Judge asked
         // whether a suite covers a case was answering off the diff while the
         // suite's own output sat unread.
-        for (label, part) in answered.parts() {
+        for (label, part) in answered.parts(wording) {
             laid.part(&label, &part);
         }
         // The yardstick before the product, the way the gaming brief puts its
         // baseline first: what the work is measured against is context for
         // reading it, and it is labelled as not being the thing under judgment.
-        for (label, part) in Reference::parts(references) {
+        for (label, part) in Reference::parts(references, wording) {
             laid.part(&label, &part);
         }
-        for (label, part) in product.parts() {
+        for (label, part) in product.parts(wording) {
             laid.part(&label, &part);
         }
-        laid.loose("\nThe question, which is yes or no:\n\n");
+        laid.loose("\n");
+        laid.loose(wording.get(JUDGE_QUESTION));
+        laid.loose("\n\n");
         laid.loose(&criterion.question);
         laid.loose("\n\n");
-        laid.loose(ANSWER_FORMAT);
+        laid.loose(wording.get(JUDGE_ANSWER));
         let (question, regions) = laid.done();
         Brief {
             criterion: criterion.criterion_id.clone(),

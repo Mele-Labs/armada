@@ -1,7 +1,7 @@
 //! A preference a person saves survives a restart, and a name outside the
 //! closed set is refused by name on the wire code `fleet.unknown_preference`.
 
-use api::{Commands, Queries, Refusal};
+use api::{Refusal, Settings};
 use ipc::{Preferences, SavePreference};
 use testkit::FakeWorkProduct;
 
@@ -73,7 +73,8 @@ async fn an_unknown_name_is_refused_by_name_and_saves_nothing() {
 
 #[tokio::test]
 async fn the_owners_key_bindings_are_a_preference_that_survives_a_restart() {
-    const MINE: &str = r#"{"version":1,"bindings":{"kill":["q"]}}"#;
+    // As settings.json gives JSON back: compact, its keys in order.
+    const MINE: &str = r#"{"bindings":{"kill":["q"]},"version":1}"#;
     let home = TempDir::new();
     let fleet = Fleet::assembled(fittings(&home, FakeWorkProduct::changed(&[])));
     let save = |text: Option<&str>| SavePreference { name: "key_bindings".into(), value: false, text: text.map(str::to_string) };

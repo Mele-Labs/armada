@@ -57,7 +57,7 @@ mod journal;
 mod kit;
 /// The build Fleet runs on, read, and the restart onto another.
 mod building;
-/// Fleet's three changeable limits, read and saved.
+/// Fleet's four changeable limits, read and saved.
 mod limiting;
 /// Setup's proposals, an edit to one, and its Write.
 mod manifest_proposals;
@@ -95,6 +95,8 @@ mod scoped;
 mod served;
 mod servers;
 mod sessions;
+/// settings.json, read and saved.
+mod settling;
 mod sockets;
 mod stream;
 /// A Studio's routes: the list, one Studio, and every act on one. `#1285`.
@@ -112,7 +114,7 @@ pub use conversing::{HelmFeed, HelmSeen, HelmWatch, ObservedHelm, HELM_BACKLOG};
 pub use daemon::{
     offerable, Admitting, Authoring, Commands, Conversations, Daemon, FramePart, FrameSpan,
     HelmReach, HostedSessions, Mods, Needs, PermissionAnswer, Piloting, PullRequests, Queries,
-    Redirector, Refusal, Rehearsing, Retros, Sessions, StoredFile, Studios, Tools,
+    Redirector, Refusal, Rehearsing, Retros, Sessions, Settings, StoredFile, Studios, Tools,
 };
 pub use door::{door_within, offered, Scope, DOOR_PATH};
 pub use following::{Follow, Followed, LandOutput, LiveOutput};

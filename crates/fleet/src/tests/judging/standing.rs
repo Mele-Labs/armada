@@ -50,8 +50,13 @@ async fn handed(manifest: &Manifest, root: &Path) -> String {
         environment: Environment::nothing(),
         marking: Marking::detached(),
         asked: Asked::nowhere(),
-        standing: standing(manifest, &root.to_string_lossy()),
+        standing: standing(
+            manifest,
+            &root.to_string_lossy(),
+            verification::STANDING_RULES,
+        ),
         reading: None,
+        wording: verification::Wording::shipped(),
     };
     rule_on(
         at,

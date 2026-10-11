@@ -14,7 +14,7 @@
 //! side of the seam — which is what keeps these readable as the answer alone.
 
 use ipc::{
-    Actor, Alert, AlertList, Asked, CallArguments, CheckOutput, CommandExplained, DroneDetail,
+    Actor, Alert, AlertList, Asked, CheckOutput, CommandExplained, DroneDetail,
     DroneId, DroneState, DroneSummary, EvidenceType, Finding, FleetCapacity, FleetHealth,
     FleetUsage, Held, HelmActionAuthority, Instant, JobDetail, JobDiff, JobDrone, JobDrones,
     JobEvidence, JobExamined, JobHistory, JobId, JobProcess, JobRemarks, JobResources, JobStatus,
@@ -37,8 +37,8 @@ pub fn run_id() -> RunId {
     RunId::carried("01RUN")
 }
 
-/// The one call id this fake's record holds. Anything else is a call the
-/// transcripts do not carry, which is a different answer from a missing Job.
+/// The one call id this fake holds an open command for. Anything else is a
+/// call it cannot explain.
 pub const THE_CALL: &str = "toolu_01Haa";
 
 /// The one Drone this fake is holding a slot for. Anything else names no live
@@ -47,10 +47,6 @@ pub const THE_DRONE: &str = "01DRONE";
 
 /// The one Manifest this fake serves, and therefore the only scope.
 pub const THE_MANIFEST: &str = "01MF";
-
-/// An argument longer than a row carries, so a test can prove the whole of it
-/// comes back rather than the line the socket sent.
-pub const THE_ARGUMENT: &str = "cat <<'EOF' > notes.md\n  one\n  two\n  three\nEOF";
 
 /// The one kept Check output this fake's record holds, spelled as
 /// `fleet::check_output` names a file: step, attempt, ordinal. Anything else is
@@ -616,19 +612,6 @@ pub fn reclaimed(job_id: JobId) -> WorktreeReclaimed {
             unmerged_commits: Some(3),
         },
         saved: None,
-    }
-}
-
-/// One call's arguments, whole. **The fake holds exactly one**, keyed by
-/// [`THE_CALL`]: what the route has to prove is that the argument comes back at
-/// its full size.
-pub fn call(call_id: String) -> CallArguments {
-    CallArguments {
-        tool: "Bash".to_string(),
-        call: call_id,
-        arguments: THE_ARGUMENT.to_string(),
-        whole: true,
-        length: Some(THE_ARGUMENT.chars().count()),
     }
 }
 

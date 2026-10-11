@@ -37,6 +37,8 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use adapters::{ActionsWorkflows, GitVcs, HeadlessAgent, IssueLookup};
+use adapter_traits::Model;
+use config::settings::{self as keys, Key, Resolved};
 use config::Roster;
 use fleet::permitting::{self, PermissionHold, UnansweredAskLimit};
 use fleet::repositories::Locating;
@@ -50,10 +52,8 @@ use fleet::{
 use ipc::ProtocolId;
 use store::Store;
 
-use crate::{
-    agent_binary, judge_model, model_choices, proposer_model, retro_model, second_opinion_model,
-    AGENT_BINARY, JUDGE_MODEL, MODEL, PROPOSER_MODEL, RETRO_MODEL,
-};
+use crate::agent::agent_binary_named_by;
+use crate::AGENT_BINARY;
 
 /// The store, beside the runtime file rather than inside the repository.
 ///
@@ -70,341 +70,35 @@ pub const STORE_FILE: &str = "armada.db";
 /// could write it could name a different server.
 pub const MCP_FILE: &str = "mcp.json";
 
-/// What a Drone's `PATH` is set to. **Provisional**: nothing owns this value
-/// yet. Fleet's own port was provisional in the same sense and is not any
-/// more — it is leased, per `fleet::listener`.
-///
-/// The system directories, always last. Fleet's own `PATH` (the operator's)
-/// goes before them since 8 Oct 2026: see [`drone_path_with`].
-const PROVISIONAL_DRONE_PATH: &[&str] = &[
-    "/usr/local/bin",
-    "/opt/homebrew/bin",
-    "/usr/bin",
-    "/bin",
-    "/usr/sbin",
-    "/sbin",
-];
+/// Every number Fleet runs by is a setting now, read out of settings.json
+/// against `config::settings`' table: what ships, and the argument for each
+/// number, sit beside its entry there. **Two readings of the file are handed
+/// in.** A live dial goes in as what ships on this machine — the defaults and
+/// any variable set — and Fleet puts what the file chose over it at assembly
+/// and at every save or hand edit (`fleet::tuning`). A value read once at start
+/// is the file's at this start, and a change to it waits for the next one.
+fn whole(n: i64) -> u32 {
+    u32::try_from(n).unwrap_or(0)
+}
 
-/// How long a Check may run before it is a failure. **Provisional**: a cold
-/// workspace build is minutes, and nothing has measured what the ceiling should
-/// be.
-pub const PROVISIONAL_CHECK_BUDGET: Duration = Duration::from_secs(900);
+fn days(n: i64) -> Duration {
+    Duration::from_secs(u64::from(whole(n)) * 24 * 60 * 60)
+}
 
-/// How long one Judge call may take. **Provisional**: the Judge latency row in
-/// `crates/config/settings.toml` reads `undecided`, so nothing has measured what
-/// the ceiling should be. It is short because the calls sit at a gate a person
-/// is waiting behind — latency is what this bounds, not money.
-///
-/// `judge-cost-cap-per-check` is open for a different reason and does not
-/// belong in this sentence: a Judge is rendered `--output-format text` and
-/// emits no result envelope, so nothing can read what one cost. A dollar cap there would be enforced by nothing.
-pub const PROVISIONAL_JUDGE_BUDGET: Duration = Duration::from_secs(120);
-
-/// How long a plain command may take — one that only reads and writes the
-/// store, or does a small amount of local work beside it, such as
-/// `approve_review`'s occasional commit and push on a workflow's last step.
-/// Paired with `COMMAND_MS` in `apps/desktop/src/main/request.ts`: Bridge
-/// waits this plus a five-second margin, so a Bridge timeout means Fleet gave
-/// up first and said so — `crates/fleet/src/commanding.rs`'s `CommandBudget`
-/// is what enforces it. `#712`.
-///
-/// **Provisional, replacing rather than repeating `#693`'s finding**: an 18s
-/// `GET /jobs` under load, which is what the old margin was sized against
-/// before `#693` moved Fleet's blocking `git`/`gh` calls off the async
-/// runtime and made that number stop describing the system.
-pub const PROVISIONAL_COMMAND_BUDGET: Duration = Duration::from_secs(15);
-
-/// How long a permission ask may run unanswered before Fleet gives up
-/// waiting for a person and reclaims the Job's slot: ends the Drone, stops
-/// the step and escalates the Job as `ask_unanswered`. `#801`.
-///
-/// **Provisional, and measured on nothing** — chosen only to sit an order of
-/// magnitude past [`permitting::HOLD`]'s few minutes, which bounds the
-/// harness's own call rather than the Job's patience for a person, and
-/// comfortably short of the "overnight" `#801` was filed about.
-pub const PROVISIONAL_UNANSWERED_ASK_LIMIT: Duration = Duration::from_secs(30 * 60);
-
-/// How long the Job proposer's call may take.
-///
-/// **Longer than the Judge's, and the difference is who is waiting.** A Judge
-/// runs at a gate with nobody watching, so its budget is the only thing that
-/// can end a call that will not answer — two minutes is a bound chosen on a
-/// person's behalf because there is no person to choose.
-///
-/// A proposal is watched. Fleet publishes what the call has reached and
-/// `stop_proposal` kills it, so the person in front of the form is the one
-/// ending a call that is going nowhere — and a budget tight enough to be that
-/// backstop would take the decision away from them. Ten minutes is the outer
-/// bound on a call nobody is left to stop, not a wait anybody is expected to
-/// sit through: Bridge asks after two, which is `PROPOSAL_IS_SLOW` in
-/// `packages/screens`.
-///
-/// **Provisional, and measured on nothing.** The two-minute figure above was
-/// chosen the same way. What would settle it is a distribution of real proposal
-/// latencies, which nothing collects yet.
-pub const PROVISIONAL_PROPOSER_BUDGET: Duration = Duration::from_secs(600);
-
-/// What a step is expected to cost before the thrashing chain looks at it.
-///
-/// **Provisional, and measured on one repository rather than on none.**
-/// `docs/spikes/009-how-long-does-a-step-take.md` holds the distribution and
-/// what it was taken over — 31 steps, two workflows, one model, a warm build
-/// cache. Not a fleet-wide constant.
-///
-/// | Wire | Value | What the measurement said |
-/// |---|---|---|
-/// | Calls, per step | 60 | Median 18, p90 68, so sixty sits just under the widest ordinary step and four of the 31 would have bought a look. Left there rather than raised to the p95: sixty is the more sensitive reading, and 31 steps on one repository is not enough to move a tripwire in the direction that makes it fire less. The unit is `fleet::Progress::calls`, because the harness's `turns` could not be read per step |
-/// | Wall clock | 1500s | Down from an 1800s nothing had measured. Nine steps in ten finished inside 500s and the longest honest one took 1777s — but the floor is not the distribution, it is 1337s: one Check at [`PROVISIONAL_CHECK_BUDGET`] plus a p90 step's own work, because a step's clock runs through Fleet's own Checks and does not restart on a retry |
-/// | Grace | 120s | The shortest of the three deliberately. Spike 4 measured an injected turn consumed in 1.59s mid-task and 33s against a forty-second command, so two minutes is a Drone that is not answering rather than one inside a long call |
-///
-/// **A trip spends the step's only look**, whichever wire fired, so a ceiling
-/// low enough to catch a stuck Drone early is one that burns the attention a
-/// later, real thrash would need. Tripping costs a Judge call and nothing else
-/// — see `fleet::converging`, where the escalation is three stages further on.
-///
-/// **What none of them catches is what stopped every stuck step measured.**
-/// They were quiet, not long, and that is [`PROVISIONAL_LIVENESS`]'s to catch
-/// rather than this value's.
-pub const PROVISIONAL_STEP_NORMS: StepNorms =
-    StepNorms::of(60, Duration::from_secs(1_500), Duration::from_secs(120));
-
-/// How long a Drone may say nothing, and how many times it is asked before the
-/// Job escalates as `stalled`.
-///
-/// **What a step declaring neither inherits**, rather than what every step
-/// gets: since `#60` a step may name `quiet_after_seconds`, `poke_limit` or
-/// both, and `fleet::Liveness::at` resolves each half against this pair at the
-/// step boundary. No shipped workflow names either yet, so these are still what
-/// a formatting step and a large refactor share.
-///
-/// **Provisional, and measured on one repository rather than on none** — the
-/// same steps as the norms above, from
-/// `docs/spikes/009-how-long-does-a-step-take.md`, plus the eight that never
-/// finished, which are the half that matters here.
-///
-/// **Two minutes, the bottom of the band that spike leaves open.** Inside an
-/// honest step the longest silence between two Drone events was 79s, so none of
-/// the 31 honest steps would have been poked at 120s. Three of the eight stuck
-/// ones were quieter than that — 147s, 409s and 1636s — and only the bottom of
-/// the band catches the first. Firing early costs one injected turn; firing
-/// late cost 27 minutes of a person watching a step that had already stopped.
-///
-/// **Two pokes**, `poke_limit`'s default in `crates/config/settings.toml`. What
-/// must not fire routinely is the escalation rather than the poke, and that one
-/// needs the silence to survive both — about six minutes, or four and a half
-/// times the longest silence any honest step produced.
-pub const PROVISIONAL_LIVENESS: Liveness = Liveness::of(Duration::from_secs(120), 2);
-
-/// The low end of the range a Job's port span is claimed from.
-/// `settings.port-range-base`. **Provisional, and measured on nothing** —
-/// chosen only to sit comfortably below every platform's ephemeral floor and
-/// above the ports a repository's own tooling conventionally claims (3000,
-/// 5432, 8080). Nothing has measured whether a real repository's `ports:`
-/// ever collides with something else running on a developer's machine here.
-pub const PORT_RANGE_BASE: u16 = 40_000;
-
-/// The rounding unit a Job's claim width is raised to. `settings.port-block-
-/// granule`. **Provisional**: `docs/concepts/machine.md` names the signal to
-/// move it — a repository where mid-Job widenings routinely fail to extend in
-/// place — and nothing has been measured against yet.
-pub const PORT_BLOCK_GRANULE: u16 = 8;
-
-/// `settings.ad-hoc-run-log-retention`, at its own default: 30 days. How long
-/// a Check or Command run fired by hand from the Manifest surface keeps its
-/// log — see `crates/config/settings.toml` for the reasoning against the Job
-/// retention window this deliberately does not share.
-pub const RUN_LOG_RETENTION: Duration = Duration::from_secs(30 * 24 * 60 * 60);
-
-/// `settings.helm-action-authority-tier-1-redirect-enabled-vs-read-only`, at
-/// its own default: enabled. How far Helm may act rather than only read,
-/// resolved once here like every other Machine setting — `#943`.
-pub const HELM_ACTION_AUTHORITY: fleet::helm::Authority = fleet::helm::Authority::Acting;
-
-/// `settings.helm-ask-hold`, at its own default: five minutes. How long one
-/// call a Helm session made is held open for a person to answer in the dock
-/// before Fleet answers `deny` for them — `#1389`, and
-/// `fleet::helm::SHIPPED_ASK_HOLD` says what the five is measured against.
-pub const HELM_ASK_HOLD: fleet::helm::HelmAskHold =
-    fleet::helm::HelmAskHold::of(fleet::helm::SHIPPED_ASK_HOLD);
-
-/// `settings.helm-session-retention-expiry`, at its own default: 30 days. How
-/// long a closed Helm session's stored session id is kept before the next
-/// reply's write sweeps it away. `#943`.
-pub const HELM_SESSION_RETENTION: Duration = Duration::from_secs(30 * 24 * 60 * 60);
-
-/// How many times one step may ask Fleet to run its Checks.
-///
-/// **Provisional, and nothing has measured it** — there is no history of a
-/// Drone asking, because until now it could not.
-///
-/// **Three, derived from what it is standing in for.** A Drone that could run
-/// the Checks itself would run them roughly once per attempt at getting them
-/// green, and `docs/spikes/009-how-long-does-a-step-take.md` puts a step's p90
-/// at 437s of work — which is not room for many `cargo build --workspace
-/// --locked` runs on top. One would make the tool a single shot to be saved for
-/// the end, which is the moment it is worth least; more than three stops being
-/// a check on the work and starts being the work.
-///
-/// **It is a cost bound and not a convergence one.** `fleet::asked_run` suspends
-/// the wall clock and the silence clock while a run is in flight, which is
-/// correct — a Drone waiting on Fleet is not thrashing — and which removes the
-/// pressure that would otherwise have bounded this. A Drone that spends all
-/// three and is no closer is still caught, by the tool-call tripwire in
-/// `fleet::converging`: each ask is one of its own calls.
-pub const PROVISIONAL_ASKED_RUNS: AskedRuns = AskedRuns::of(3);
-
-/// How many fixes one step may ask for: one. **A cost bound**, for
-/// `PROVISIONAL_ASKED_RUNS`' reason: each is a run against main. A step that meets
-/// a second test broken on main says so in its evidence. #999.
-pub const PROVISIONAL_FIXES: fleet::fixing::Fixes = fleet::fixing::Fixes::of(1);
-
-/// How many Jobs Fleet works at once.
-///
-/// **The `concurrency-cap` row in `crates/config/settings.toml`, resolved here**
-/// like every other dial on this page: that file names the knob and carries no
-/// value, and nothing below the composition root reads configuration.
-///
-/// **Two, and the ceiling is not what bounds it.**
-/// `docs/spikes/012-peer-identity-under-concurrency.md` ran five Drones against
-/// one listener and told every one of them apart, so the attribution this rests
-/// on is measured well above two. What is not measured is everything else about
-/// running five: `#47` — two Drones writing the same file, with no write-scope
-/// reservation to stop them — and `#44` — whether the machine has the memory
-/// and the quota for them, which nothing in this workspace reads. Two is the
-/// number `#50`'s own definition of done names, it is enough to make the
-/// deadlock `#215` describes impossible, and it is the smallest step that is
-/// still a step.
-///
-/// **The shipped number, not the one in force.** A person changes it from
-/// Bridge while Fleet runs and the store keeps it — `fleet::limits`. What more
-/// buys is throughput; what it costs is the unbuilt guard above, and a longer
-/// wait at the merge end, where `Fleet::merge_end` serialises every push.
-pub const PROVISIONAL_CONCURRENCY: Concurrency = Concurrency::of(2);
-
-/// How much of the machine has to be free before another Drone starts.
-///
-/// **Two `settings.toml` rows in one value**:
-/// `cpu-mem-headroom-threshold-for-spawning` for the share and
-/// `disk-headroom-floor-for-spawning` for the bytes, resolved here like every
-/// other dial on this page. They are two rows because disk is not a share —
-/// see [`Headroom::of`].
-///
-/// **Shipped values, each replaced by one a person saves** — `fleet::limits`.
-///
-/// **15% of memory, a floor rather than a measurement.** Nothing has measured
-/// what a Drone costs in memory; the number refuses work on a machine that is
-/// already full. CPU has no threshold at all: the operating system schedules it.
-///
-/// **Ten gibibytes of disk, and that one is measured.** A parallel agent run
-/// filled a volume at 220 GB across 74 worktrees — three gigabytes each, cut
-/// worktree plus build output — and three agents died at zero bytes free
-/// holding uncommitted work. Ten is about three of those: enough that the Job
-/// being started can finish and the operator has warning before the next one.
-const PROVISIONAL_HEADROOM: Headroom = Headroom::of(Spare::percent(15), Bytes::gibibytes(10));
-
-/// How many Checks run at once on this machine, across every Job. **The
-/// `checks-at-once` row**, resolved here like every other dial on this page, and
-/// replaced by one a person saves.
-///
-/// **Half the cores, from one to eight** — `fleet::ChecksAtOnce::for_cores`.
-/// Measured under one Job on ten cores: this repository's six Checks took 28.5s
-/// one at a time against 16.5s at four, with two to six within noise, because
-/// the slowest Check and one Cargo target lock set the floor. Four was per gate;
-/// the limit is the machine's now (#1063), and half leaves the rest to Drones.
-pub(crate) fn provisional_checks_at_once() -> fleet::ChecksAtOnce {
-    fleet::ChecksAtOnce::for_cores(
-        std::thread::available_parallelism().map_or(1, std::num::NonZeroUsize::get),
+/// The range every port claim on this machine comes from: the base and the
+/// granule settings.json held at start, the ceiling the platform's.
+fn port_range_of(at_start: &Resolved) -> PortRange {
+    PortRange::of(
+        u16::try_from(at_start.get(keys::PORT_RANGE_BASE)).unwrap_or(40_000),
+        detect_ceiling(),
+        u16::try_from(at_start.get(keys::PORT_BLOCK_GRANULE)).unwrap_or(8),
     )
 }
 
-/// How stale a machine reading may be before it is taken again. **The
-/// `fleet-health-check-resource-poll-interval` row.**
-///
-/// A reading costs three short-lived processes and about eighty milliseconds,
-/// so taking one on every turn — four a second — would be a measurable share of
-/// a core spent on a number that does not move that fast. Five seconds is
-/// twenty turns, and what the staleness can cost is one Job admitted against a
-/// machine that filled since: the bound is what stops that being unbounded.
-const PROVISIONAL_RESOURCE_POLL: Polling = Polling::every(Duration::from_secs(5));
-
-/// How often Fleet asks the forge what became of one pull request.
-///
-/// **One pull request a minute, not every Job on a turn.** The turn interval is
-/// 250ms and the question is a process — asking about every unsettled Job four
-/// times a second would spend more of a machine on the question than on the
-/// work. A pull request that is open needs asking rarely and one that has
-/// merged never needs asking again, so `fleet::noticing` rotates and this is
-/// how fast the rotation moves: ten open pull requests is each of them asked
-/// every ten minutes, and the set only ever shrinks.
-///
-/// **No `settings.toml` row yet.** There is nothing in the registry about how
-/// often to ask a forge anything, because nothing asked one until now. A minute
-/// is the latency of a merge appearing on the Board — a person who has just
-/// merged and switched windows sees it, and nobody is waiting on it faster than
-/// that.
-const PROVISIONAL_MERGE_NOTICE: Noticing = Noticing::every(Duration::from_secs(60));
-
-/// How often Fleet asks what disk it could give back.
-///
-/// **Five minutes, and not the turn interval**, for the merge notice's reason
-/// one step milder: the reading is a `git status` per worktree Fleet is still
-/// holding rather than a call over the network, and the set shrinks to nothing
-/// as the sweep works through it. Nobody is waiting on disk faster than this —
-/// what filled a disk was seventy-four worktrees over days, not five minutes of
-/// one.
-///
-/// **No `settings.toml` row yet**, exactly as the merge notice has none: there
-/// is nothing in the registry about how often to tidy up, because nothing tidied
-/// up on its own until now.
-const PROVISIONAL_RECLAIM_SWEEP: Reclaiming = Reclaiming::every(Duration::from_secs(300));
-
-/// What one Job may spend before Fleet stops starting Drones on it, **where
-/// nothing below this says otherwise**: `armada.yml` and a Job's own column
-/// each override either half, and `fleet::Allowance::at` writes that order.
-/// Changing this one still needs a rebuild; what the two under it buy is that
-/// nobody has to wait for one.
-///
-/// **Two `settings.toml` rows in one value**: `budget-cost-cap-per-job` and
-/// `budget-turn-cap-per-job`. Two rows because one number cannot carry both —
-/// see `fleet::allowance`, and spike 5, which is why there are two signals.
-///
-/// | Cap | Value | Why there |
-/// |---|---|---|
-/// | Dollars | 10 | Deliberately wide. A small feature Job measured a mean of $0.099 across three identical successful runs whose prices spread 2.31x on cache warmth alone — $0.063, $0.087, $0.146 — with almost none of that attributable to the work, so a cap anywhere near the mean would refuse a healthy Job for having started cold. Ten dollars is roughly a hundred such Jobs: not a Job going slightly over, but one that has stopped making progress and kept paying. It was five until 9 Sep 2026, when one Job was refused its last step at $5.28 having spent three of its six Drones on defects in Armada rather than on the work — a runaway detector should not be spent by the runaway detector's own bugs |
-/// | Turns | 300 | The ceiling that actually catches something. The same three runs turned 7, 7 and 4 times, so turns are the steady signal the price is not. A four-step Job at a generous thirty turns a step is 120; three hundred leaves room for a workflow twice that long and still stops a Drone that has been going in circles for hours. It had no tier under it at all until 9 Sep 2026, when one Job stopped at 393 against it having passed every Check, with a cheap `summarise` unrun and its branch committed by hand |
-///
-/// **Neither figure stops a Drone that is spending**, and the settings rows say
-/// so where a person sets them. `cost_micros` arrives once, on the final result
-/// line of a session, so a cap can decline to start the next thing and cannot
-/// interrupt the current one.
-///
-/// **Notional dollars.** Spike 5 established that `total_cost_usd` is what a
-/// run would have cost at API list price, and this machine's account is not
-/// billed per token. The figure is arithmetically exact and denominated in a
-/// currency nothing here spends, which is what makes it a runaway detector
-/// rather than an invoice.
-const PROVISIONAL_ALLOWANCE: Allowance = Allowance::of(Micros::dollars(10), 300);
-
-/// How often Fleet is turned. **Provisional**, and nothing has measured it.
-///
-/// It is the latency of a ruling *and* of a start. What a quarter of a second
-/// buys on the ruling is a Drone hearing the gate's answer promptly after it
-/// submits; what it buys on the start is that the start cannot be taken away.
-/// **`approve` used to dispatch inline** — inside the request that asked for
-/// it, so a client giving up after five seconds killed a cold install and the
-/// timeout watching it together. Every dispatch is this loop's now, and this
-/// loop is a task nobody's browser owns. `fleet::daemon::Fleet::approve`
-/// carries the chain, `#428` is the issue.
-///
-/// What it costs is one store read per tick while nothing is being worked,
-/// which `fleet::turning` names as the reason a later milestone should wake
-/// this loop rather than poll it.
-const PROVISIONAL_TURN_INTERVAL: Duration = Duration::from_millis(250);
-
-/// `build-sweep-interval-minutes`: how often Fleet trims every checkout's
-/// `target/`. An hour: a stale file is a fortnight old, so nothing is gained by
-/// looking more often than a person would notice.
-const PROVISIONAL_SWEEP_INTERVAL: Duration = Duration::from_secs(60 * 60);
+/// A model the table holds, at the effort another setting names.
+fn model_at(name: String, effort: String) -> Result<Model, Box<dyn Error>> {
+    Model::named_at(&name, fleet::tuning::effort_of(&effort)).map_err(|refused| refused.said().into())
+}
 
 /// Serve until a signal says stop, adding `repository` first where one is given.
 ///
@@ -426,17 +120,20 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
         return Ok(());
     }
 
-    // Before the port and before the runtime file. A Manifest Armada will not
-    // have is a refusal that costs nothing to discover here and costs a bound
-    // socket and a published file to discover later.
-    let machine_facts = machine_facts()?;
-    // The roster workflows are checked against is the one the picker offers:
-    // two lists would be two answers to "is this a model this machine has".
-    let kit = crate::setup::kit(std::path::Path::new(&machine_facts.home))?;
     let machine = path
         .parent()
         .expect("the runtime file has a directory")
         .to_path_buf();
+    // settings.json, read for what Fleet is started as. Read again once the
+    // store is open, in case the first start carries the store's rows into it.
+    let early = crate::settings::in_machine(&machine);
+    // Before the port and before the runtime file. A Manifest Armada will not
+    // have is a refusal that costs nothing to discover here and costs a bound
+    // socket and a published file to discover later.
+    let machine_facts = machine_facts(early.at_start())?;
+    // The roster workflows are checked against is the one the picker offers:
+    // two lists would be two answers to "is this a model this machine has".
+    let kit = crate::setup::kit(std::path::Path::new(&machine_facts.home))?;
     let roster = Roster::of(&machine_facts.models.models);
     // Reads a folder a person adds, and holds every served `armada.yml`'s watch.
     let kit_home = kit.to_string_lossy().to_string();
@@ -479,11 +176,31 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
         );
     }
 
+    // The store's saved limits and preferences, carried into settings.json at
+    // the first start that finds no file, and never read again after.
+    match fleet::settings::migrated(&store, &machine.join(crate::settings::SETTINGS_FILE)) {
+        Ok(moved) if moved.is_empty() => {}
+        Ok(moved) => println!("settings.json written from the store's saved rows: {}", moved.join(", ")),
+        Err(why) => eprintln!("{why}"),
+    }
+    let settings = crate::settings::in_machine(&machine);
+    if let Some(refused) = settings.refused() {
+        eprintln!("{} was not taken: {refused}", settings.path().display());
+        eprintln!("Fleet starts on the shipped settings; correct the file and save again");
+    }
+    let at_start = settings.at_start().clone();
+    let turn_interval = Duration::from_millis(u64::from(whole(at_start.get(keys::TURN_INTERVAL_MS))));
+    let sweep_interval = at_start.get(keys::BUILD_SWEEP_SECONDS);
+    let trim = adapters::leasing::Trim {
+        older_than: days(at_start.get(keys::SLOT_BUILD_TRIM_AFTER_DAYS)),
+        ceiling_bytes: u64::from(whole(at_start.get(keys::SLOT_BUILD_CEILING_GIB))) * 1024 * 1024 * 1024,
+    };
+
     // One range for every claim on this machine — a Job's span, the main
     // checkout's, and this one. Its ceiling is detected from the platform's
     // ephemeral floor, so nothing here hands out a port the kernel will also
     // assign. See `fleet::ports`.
-    let port_range = PortRange::of(PORT_RANGE_BASE, detect_ceiling(), PORT_BLOCK_GRANULE);
+    let port_range = port_range_of(&at_start);
     let claimed = fleet::claimed_listener_port(
         &mut store,
         port_range,
@@ -513,12 +230,17 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
         &machine,
         store,
         bound.port(),
-        port_range,
         machine_facts,
         kit_home,
         Arc::clone(&locator) as Arc<dyn Locating>,
+        settings,
     )?;
     let fleet = Arc::new(fleet);
+    // A save or a hand edit to settings.json, handed to Fleet once it settles.
+    let _settings_watch = crate::settings::watched_by(
+        Arc::clone(&fleet),
+        machine.join(crate::settings::SETTINGS_FILE),
+    );
     // Before any repository is served, so every watch hands its re-read to Fleet.
     locator.bind(&fleet);
 
@@ -611,30 +333,30 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
             // is already dispatched: it needs turning whether or not anything
             // ever connects.
             let turning =
-                fleet::keep_turning(Arc::clone(&fleet), PROVISIONAL_TURN_INTERVAL, |why| {
+                fleet::keep_turning(Arc::clone(&fleet), turn_interval, |why| {
                     // Carried out on its own line, and the loop keeps going: one
                     // turn having failed is not a reason for every later Job to
                     // stop advancing silently.
                     eprintln!("a turn did not complete: {why}");
                 });
-            println!("turning every {}ms", PROVISIONAL_TURN_INTERVAL.as_millis());
+            println!("turning every {}ms", turn_interval.as_millis());
             // Main and the open pull requests, on the merge notice's interval but not
             // behind a turn, which waits on every Job's Checks.
             fleet::main_ci::keep_reading_main(
                 Arc::clone(&fleet),
-                PROVISIONAL_TURN_INTERVAL,
+                turn_interval,
                 |why| eprintln!("main was not read: {why}"),
             );
             // Pull requests and issues, for the same reason: a landing is told to its Job
             // without waiting behind a Check.
             fleet::notice_loop::keep_noticing(
                 Arc::clone(&fleet),
-                PROVISIONAL_TURN_INTERVAL,
+                turn_interval,
                 |why| eprintln!("a pull request or issue was not read: {why}"),
             );
             // A failed Trigger with `repair` on is worked by a Drone off the
             // Job's own path, so the Job carries on while it does.
-            fleet::notice_loop::keep_repairing(Arc::clone(&fleet), PROVISIONAL_TURN_INTERVAL);
+            fleet::notice_loop::keep_repairing(Arc::clone(&fleet), turn_interval);
             // Each served repository's merge line, published when its hub moves.
             fleet::merge_lines::keep_reading(
                 Arc::clone(&fleet),
@@ -646,8 +368,8 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
             // Stale build output, trimmed in every checkout of each served repository.
             fleet::sweeping::keep_sweeping(
                 Arc::clone(&fleet),
-                PROVISIONAL_SWEEP_INTERVAL,
-                adapters::leasing::Trim::SHIPPED,
+                sweep_interval,
+                trim,
                 {
                     let fleet = Arc::clone(&fleet);
                     move || {
@@ -768,18 +490,32 @@ struct MachineFacts {
     models: ipc::ModelChoices,
 }
 
-fn machine_facts() -> Result<MachineFacts, Box<dyn Error>> {
+fn machine_facts(settings: &Resolved) -> Result<MachineFacts, Box<dyn Error>> {
     let home = std::env::var("HOME")?;
     let user = std::env::var("USER")?;
-    let path = drone_path_with(&home, &std::env::var("PATH").unwrap_or_default());
-    // Unset is the ordinary case and the adapter's default answers it. Set and
-    // wrong is somebody having tried to point Fleet at something, and is
+    let path = drone_path_over(
+        &home,
+        &std::env::var("PATH").unwrap_or_default(),
+        &settings.get(keys::HARNESS_DRONE_PATH),
+    );
+    // Unnamed is the ordinary case and the adapter's default answers it. Named
+    // and wrong is somebody having tried to point Fleet at something, and is
     // refused here — before the port, before the runtime file.
-    let agent = agent_binary(std::env::var(AGENT_BINARY).ok(), &path)?;
+    let binary = config::settings::entry(keys::HARNESS_BINARY_PATH.name()).expect("in the table");
+    let named = match (settings.overridden_by_env(binary), settings.chosen(keys::HARNESS_BINARY_PATH)) {
+        (Some(_), _) => Some((settings.get(keys::HARNESS_BINARY_PATH), AGENT_BINARY)),
+        (None, Some(chosen)) if !chosen.trim().is_empty() => Some((chosen, "harness.binaryPath in settings.json")),
+        _ => None,
+    };
+    let agent = agent_binary_named_by(named, &path)?;
     // Not probed. Whether a model name is one this account may use is a
     // question only the vendor answers, and asking it would put a network call
     // before the bind.
-    let models = model_choices(std::env::var(MODEL).ok());
+    let models = ipc::ModelChoices {
+        models: settings.models(),
+        default: settings.get(keys::MODELS_DEFAULT),
+        harnesses: settings.options_of(config::settings::entry(keys::HARNESS_AGENT.name()).expect("in the table")),
+    };
     Ok(MachineFacts {
         home,
         user,
@@ -802,11 +538,16 @@ fn assemble(
     machine: &std::path::Path,
     store: Store,
     port: u16,
-    port_range: PortRange,
     facts: MachineFacts,
     kit_home: String,
     locator: Arc<dyn Locating>,
+    settings: fleet::settings::MachineSettings,
 ) -> Result<Served, Box<dyn Error>> {
+    // What ships on this machine, for every live dial; the file's own values
+    // are Fleet's to put over them. `at_start` is for what is read once.
+    let shipped = settings.shipped();
+    let at_start = settings.at_start().clone();
+    let port_range = port_range_of(&at_start);
     let MachineFacts {
         home,
         user,
@@ -857,12 +598,11 @@ fn assemble(
     // machine that named one through the override names all three — a second
     // variable would let any pair disagree about which binary is installed.
     let judge_binary = agent.program().to_string();
-    let judge_model =
-        judge_model(std::env::var(JUDGE_MODEL).ok()).map_err(|refused| refused.said())?;
-    let proposer_model =
-        proposer_model(std::env::var(PROPOSER_MODEL).ok()).map_err(|refused| refused.said())?;
-    let retro_model =
-        retro_model(std::env::var(RETRO_MODEL).ok()).map_err(|refused| refused.said())?;
+    let judge_model = model_at(shipped.get(keys::MODELS_JUDGE), shipped.get(keys::EFFORT_JUDGE))?;
+    let second_opinion_model =
+        model_at(shipped.get(keys::MODELS_SECOND_OPINION), shipped.get(keys::EFFORT_JUDGE))?;
+    let proposer_model = model_at(shipped.get(keys::MODELS_PROPOSER), shipped.get(keys::EFFORT_PROPOSER))?;
+    let retro_model = model_at(shipped.get(keys::MODELS_RETRO), String::new())?;
     let fleet = Fleet::assembled(Fittings {
         store,
         harness: agent,
@@ -885,6 +625,8 @@ fn assemble(
             // `judge_binary`'s reason: the same override reaches Helm's host.
             // `#943`.
             agent_binary: judge_binary.clone(),
+            helm_reply_budget: at_start.get(keys::HELM_REPLY_SECONDS),
+            helm_effort: fleet::tuning::effort_of(&at_start.get(keys::EFFORT_HELM)),
             // The port the listener actually bound, which is the same one
             // written into `mcp.json` above — one value, so a Drone's
             // connection to the address it was given is the connection Fleet
@@ -901,14 +643,17 @@ fn assemble(
             &home,
         )),
         port_range,
-        run_log_retention: RUN_LOG_RETENTION,
-        helm_authority: HELM_ACTION_AUTHORITY,
-        helm_session_retention: HELM_SESSION_RETENTION,
-        helm_ask_hold: HELM_ASK_HOLD,
+        run_log_retention: days(shipped.get(keys::RUN_LOG_DAYS)),
+        helm_authority: match shipped.get(keys::HELM_CAN_ACT) {
+            true => fleet::helm::Authority::Acting,
+            false => fleet::helm::Authority::ReadOnly,
+        },
+        helm_session_retention: days(shipped.get(keys::HELM_SESSION_DAYS)),
+        helm_ask_hold: fleet::helm::HelmAskHold::of(at_start.get(keys::HELM_ASK_HOLD_SECONDS)),
         // The kernel, because the question is which process holds a socket.
         // `fleet::peer` holds the measurement that chose it over `lsof`.
         peers: Arc::new(fleet::peer::Kernel),
-        concurrency: PROVISIONAL_CONCURRENCY,
+        concurrency: Concurrency::of(whole(shipped.get(keys::DRONES_AT_ONCE)) as usize),
         // The shell, not a platform crate: `fleet::headroom` carries the
         // argument, which is `fleet::process`'s and is about one spelling on
         // both platforms rather than about convenience.
@@ -916,33 +661,46 @@ fn assemble(
         // repository is read at admission, on its own volume — `fleet::admitting`.
         machine: Arc::new(TheMachine::watching(&home)),
         copy_on_write: Arc::new(TheVolume),
-        headroom: PROVISIONAL_HEADROOM,
-        checks_at_once: provisional_checks_at_once(),
+        headroom: Headroom::of(
+            Spare::percent(whole(shipped.get(keys::MEMORY_SPARE_PERCENT))),
+            Bytes::gibibytes(u64::from(whole(shipped.get(keys::DISK_FLOOR_GIB)))),
+        ),
+        checks_at_once: fleet::ChecksAtOnce::of(whole(shipped.get(keys::CHECKS_AT_ONCE)) as usize),
         check_slots: crate::declared::machine_slots_for_fleet(),
-        polling: PROVISIONAL_RESOURCE_POLL,
-        noticing: PROVISIONAL_MERGE_NOTICE,
-        reclaiming: PROVISIONAL_RECLAIM_SWEEP,
-        allowance: PROVISIONAL_ALLOWANCE,
-        budget: CheckBudget::of(PROVISIONAL_CHECK_BUDGET),
-        norms: PROVISIONAL_STEP_NORMS,
-        liveness: PROVISIONAL_LIVENESS,
-        asked_runs: PROVISIONAL_ASKED_RUNS,
-        fixes: PROVISIONAL_FIXES,
+        polling: Polling::every(shipped.get(keys::RESOURCE_POLL_SECONDS)),
+        noticing: Noticing::every(shipped.get(keys::MERGE_NOTICE_SECONDS)),
+        reclaiming: Reclaiming::every(shipped.get(keys::RECLAIM_SWEEP_SECONDS)),
+        allowance: Allowance::of(
+            Micros::dollars(u64::from(whole(shipped.get(keys::COST_CAP_DOLLARS_PER_JOB)))),
+            u64::from(whole(shipped.get(keys::TURN_CAP_PER_JOB))),
+        ),
+        budget: CheckBudget::of(shipped.get(keys::CHECK_SECONDS)),
+        norms: StepNorms::of(
+            whole(shipped.get(keys::TOOL_CALLS_PER_STEP)),
+            shipped.get(keys::STEP_WALL_CLOCK_SECONDS),
+            shipped.get(keys::STEP_GRACE_SECONDS),
+        ),
+        liveness: Liveness::of(
+            shipped.get(keys::DRONE_QUIET_AFTER_SECONDS),
+            whole(shipped.get(keys::DRONE_POKE_LIMIT)),
+        ),
+        asked_runs: AskedRuns::of(whole(shipped.get(keys::ASKED_RUNS_PER_STEP))),
+        fixes: fleet::fixing::Fixes::of(whole(shipped.get(keys::FIXES_PER_STEP))),
         // The same CLI, invoked as a call rather than as a session. The
         // spelling of the model is the adapter's; this crate never learns it.
         judge: Arc::new(HeadlessAgent::at(judge_binary)),
-        judge_budget: JudgeBudget::of(PROVISIONAL_JUDGE_BUDGET),
-        proposer_budget: JudgeBudget::of(PROVISIONAL_PROPOSER_BUDGET),
-        command_budget: CommandBudget::of(PROVISIONAL_COMMAND_BUDGET),
-        // Not a `PROVISIONAL_` beside the others: the four minutes is derived
-        // from what the agent CLI itself waits, so it stays spelled beside that
+        judge_budget: JudgeBudget::of(shipped.get(keys::JUDGE_SECONDS)),
+        proposer_budget: JudgeBudget::of(shipped.get(keys::PROPOSER_SECONDS)),
+        command_budget: CommandBudget::of(shipped.get(keys::COMMAND_SECONDS)),
+        // Not a setting beside the others: the four minutes is derived from
+        // what the agent CLI itself waits, so it stays spelled beside that
         // derivation and this line only names it.
         permission_hold: PermissionHold::of(permitting::HOLD),
-        unanswered_ask_limit: UnansweredAskLimit::of(PROVISIONAL_UNANSWERED_ASK_LIMIT),
+        unanswered_ask_limit: UnansweredAskLimit::of(shipped.get(keys::UNANSWERED_ASK_SECONDS)),
         judge_model,
         proposer_model,
         retro_model,
-        second_opinion_model: second_opinion_model().map_err(|refused| refused.said())?,
+        second_opinion_model,
         // The one link shape resolved before dispatch. See
         // `adapters::IssueLookup` for why it is the only one.
         links: Arc::new(IssueLookup),
@@ -950,6 +708,8 @@ fn assemble(
         ci_configuration: Arc::new(ActionsWorkflows),
         models,
         events: api::Broadcaster::new(),
+        session_quiet: at_start.get(keys::SESSION_QUIET_SECONDS),
+        settings,
     });
     Ok(fleet)
 }
@@ -973,24 +733,31 @@ pub(crate) fn drone_path(home: &str) -> String {
     drone_path_with(home, "")
 }
 
-/// [`drone_path`] with Fleet's own `PATH` between the per-user and the system
-/// directories. **The owner's toolchain, as his shell has it** (8 Oct 2026):
+/// [`drone_path_over`] with the system directories settings.json ships.
+#[cfg(test)]
+pub(crate) fn drone_path_with(home: &str, inherited: &str) -> String {
+    let shipped = config::settings::Resolved::default().get(keys::HARNESS_DRONE_PATH);
+    drone_path_over(home, inherited, &shipped)
+}
+
+/// The per-user directories, Fleet's own `PATH`, then `system` —
+/// `harness.dronePath` in settings.json. **The owner's toolchain, as his shell has it** (8 Oct 2026):
 /// a Session started without nvm, pnpm or mise on its `PATH` went looking with
 /// `find /`, and its context7 and gitnexus servers did not start. He chose that
 /// Drones load all his user settings; their `PATH` follows. Fleet's `PATH` is
 /// the one `scripts/restart` wrote from his shell. Relative entries and
 /// repeats are dropped.
-pub(crate) fn drone_path_with(home: &str, inherited: &str) -> String {
+pub(crate) fn drone_path_over(home: &str, inherited: &str, system: &[String]) -> String {
     let mut entries: Vec<String> = PER_USER_DRONE_PATH
         .iter()
         .map(|dir| format!("{home}/{dir}"))
         .collect();
     for dir in inherited.split(':').filter(|dir| dir.starts_with('/')) {
-        if !entries.iter().any(|had| had == dir) && !PROVISIONAL_DRONE_PATH.contains(&dir) {
+        if !entries.iter().any(|had| had == dir) && !system.iter().any(|one| one == dir) {
             entries.push(dir.to_string());
         }
     }
-    entries.extend(PROVISIONAL_DRONE_PATH.iter().map(|dir| dir.to_string()));
+    entries.extend(system.iter().cloned());
     entries.join(":")
 }
 

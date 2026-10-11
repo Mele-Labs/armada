@@ -65,3 +65,22 @@ export function useReturnToRow(returning: string | null, done: () => void): void
 export function useSummoned(go: (jobId: string | null) => void): void {
   useEffect(() => window.armada.onSummoned((to) => go(to.jobId)), []);
 }
+
+/**
+ * Where a press asked the Dashboard to land: a section (a system notification's press), or one call
+ * (an in-app alert's). **A token rather than a call**: the press may have arrived over the composer or
+ * over a Job, so Overview is not mounted yet, and it acts once it is. `at` is what makes a second press
+ * of the same thing land, and the taker clears the token so it is not acted on twice.
+ */
+export function useLandings() {
+  const [landing, setLanding] = useState<{ section: "needs-you"; at: number } | null>(null);
+  const [bringing, setBringing] = useState<{ key: string; at: number } | null>(null);
+  return {
+    landing,
+    bringing,
+    landOn: () => setLanding({ section: "needs-you", at: Date.now() }),
+    bring: (key: string) => setBringing({ key, at: Date.now() }),
+    landed: () => setLanding(null),
+    brought: () => setBringing(null),
+  };
+}

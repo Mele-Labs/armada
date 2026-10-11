@@ -201,6 +201,9 @@ where
             _ => None,
         };
         let opening = opening
+            // The prompts in force now, so a prompt saved in settings.json
+            // reaches this Drone and not only the next start.
+            .worded(self.prompts())
             .also_carrying(waiting.clone())
             .overtaken_by(overtaken)
             .told_of_peers(peers)
@@ -503,10 +506,12 @@ where
             Model::named_at(
                 job.model_spawned_for(step, chosen.as_ref(), task, &tiers)
                     .as_str(),
+                // The step's or the approval's, then this machine's `effort.default`.
                 job.workflow()
                     .step(step)
                     .and_then(ResolvedStep::effort)
-                    .map(effort_of),
+                    .map(effort_of)
+                    .or_else(|| self.tuned(|dials| dials.default_effort)),
             )?,
             brief,
             self.mcp_config(job).await?,

@@ -20,6 +20,7 @@ pub(crate) mod unanswered;
 
 pub use asking::{answering, unanswered, Asks, HelmAskHold, NotAnswerable, Said};
 pub use brief::{brief, Brief, Voice};
+pub(crate) use brief::{shipped, worded, VOICE};
 pub use conversation::{ConversationKey, Conversations};
 pub use deciding::{because, because_in_a_session, pages_opened, Because};
 #[cfg(test)]

@@ -27,27 +27,21 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-use adapter_traits::{CiConfiguration, LinkLookup, Model, ModelClient};
+use adapter_traits::{CiConfiguration, LinkLookup, ModelClient};
 use core_model::{JobId, Ulid};
 use tokio::sync::Mutex;
 
 use crate::admitting::Polled;
-use crate::allowance::Allowance;
-use crate::asked_run::AskedRuns;
 use crate::clock::Clock;
-use crate::converging::StepNorms;
 use crate::delivery::Delivered;
 use crate::evidence::EvidenceInbox;
-use crate::gate::CheckBudget;
-use crate::headroom::{Headroom, Machine, Polling};
-use crate::holding::Reclaiming;
-use crate::judging::{Aloft, JudgeBudget};
+use crate::headroom::{Headroom, Machine};
+use crate::judging::Aloft;
 use crate::mint::Mint;
 use crate::naming::Names;
-use crate::noticing::{Noticing, Sweep};
+use crate::noticing::Sweep;
 use crate::peer::{Drones, PeerOf};
 use crate::proposals::Proposals;
-use crate::silence::Liveness;
 use crate::slots::Slots;
 use crate::underway::Underway;
 
@@ -78,37 +72,20 @@ pub struct Fleet<H, V, W> {
     /// The range a Job's port span is claimed from, and the granule its width
     /// rounds up to. See [`crate::ports`].
     port_range: crate::ports::PortRange,
-    /// `settings.ad-hoc-run-log-retention`. How long a run fired by hand from
-    /// the Manifest surface keeps its log — see [`mod@crate::rehearsing`].
-    run_log_retention: std::time::Duration,
-    /// `settings.helm-action-authority-tier-1-redirect-enabled-vs-read-only`.
-    /// How far this machine lets Helm act rather than only read. `#943` —
-    /// [`crate::helm::admitting`] is the one place it is asked.
-    helm_authority: crate::helm::Authority,
-    /// `settings.helm-session-retention-expiry`. How long a closed Helm
-    /// session's stored session id is kept before the next reply's write
-    /// sweeps it away. `#943` — see [`mod@crate::helm::serving`].
-    helm_session_retention: std::time::Duration,
-    budget: CheckBudget,
-    norms: StepNorms,
-    liveness: Liveness,
-    asked_runs: AskedRuns,
-    fixes: crate::fixing::Fixes,
+    /// Every live dial in force: what the composition root shipped, overlaid
+    /// by settings.json. A `std` lock for `drones`' reason — never held across
+    /// an `.await`. See [`crate::tuning`].
+    tuning: std::sync::RwLock<crate::tuning::Tuning>,
+    /// The dials as handed in, which a key removed from the file falls back to.
+    shipped_tuning: crate::tuning::Tuning,
+    /// settings.json: the file, what was in force at start, and the last good
+    /// read. See [`crate::settings`].
+    settings: crate::settings::MachineSettings,
     judge: Arc<dyn ModelClient + Send + Sync>,
-    judge_budget: JudgeBudget,
-    proposer_budget: JudgeBudget,
-    /// How long a plain command may take before Fleet answers a refusal in
-    /// its own words rather than leaving Bridge's wait as the only account of
-    /// who gave up. See [`crate::budget::CommandBudget`].
-    command_budget: crate::budget::CommandBudget,
     /// How long a permission question is held inside the Drone's call before
     /// the Drone is told to wait for a turn. See
     /// [`crate::permitting::PermissionHold`].
     permission_hold: crate::permitting::PermissionHold,
-    /// How long a permission ask may go unanswered before Fleet ends the
-    /// Drone and escalates the Job, reclaiming its concurrency slot. See
-    /// [`crate::permitting::UnansweredAskLimit`].
-    unanswered_ask_limit: crate::permitting::UnansweredAskLimit,
     /// The Judge call that is out right now, or none. **The one piece of Fleet
     /// state that is only ever true for as long as it takes** — it is never
     /// written down, because a record of it would outlive the fact.
@@ -121,10 +98,6 @@ pub struct Fleet<H, V, W> {
     /// **Minted here, not a fitting** — nothing outside this crate holds one,
     /// and it is empty after a restart because a proposal is not a record.
     proposals: Proposals,
-    judge_model: Model,
-    second_opinion_model: Model,
-    proposer_model: Model,
-    retro_model: Model,
     links: Arc<dyn LinkLookup + Send + Sync>,
     ci_configuration: Arc<dyn CiConfiguration + Send + Sync>,
     models: ipc::ModelChoices,
@@ -169,9 +142,6 @@ pub struct Fleet<H, V, W> {
     /// What the composition root handed in, kept so a save can say what
     /// shipped and an omitted field can fall back to it.
     shipped: crate::limits::Limits,
-    polling: Polling,
-    noticing: Noticing,
-    reclaiming: Reclaiming,
     /// When the reclaim sweep last ran. **Never written down**, for
     /// `sweeping`'s reason: what it decides is re-derived from git and the
     /// board every time, so a stamp that outlived the process would only make
@@ -233,10 +203,6 @@ pub struct Fleet<H, V, W> {
     /// The last size each Job's worktree walked to. Never written down, for
     /// `servers`' reason — `crate::resources`.
     sizes: crate::resources::Sizes,
-    /// What one Job may spend. **Held rather than read** — like every other
-    /// dial here, the composition root resolves it and nothing below Fleet
-    /// reads configuration.
-    allowance: Allowance,
     /// The last machine reading, and when it was taken. **Never written down**
     /// — headroom frees on its own, so a reading that outlived the process
     /// would be a reason that was already wrong when it was read back.

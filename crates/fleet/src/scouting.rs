@@ -86,7 +86,7 @@ where
             store.add_studio_node(id, gathering.node(), produced_by, &at)
         })
         .await?;
-        let told = crate::scout::told(&root, &ask.asked);
+        let told = crate::scout::told(&self.prompts(), &root, &ask.asked);
         Arc::clone(&self)
             .scouting(id, gathering, root, told, None)
             .await;
@@ -126,7 +126,7 @@ where
             StudioNodeContent::Finding(finding) => finding.ask().to_string(),
             _ => unreachable!("a GatheringFinding holds a Finding"),
         };
-        let told = crate::scout::told(&root, &asked);
+        let told = crate::scout::told(&self.prompts(), &root, &asked);
         Arc::clone(&self)
             .scouting(id, gathering, root, told, None)
             .await;
