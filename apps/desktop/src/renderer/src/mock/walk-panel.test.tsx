@@ -15,7 +15,7 @@ import type { BridgeApi } from "../../../shared/api";
 import type { Summons } from "../../../shared/bridge";
 import { Panel } from "../walk-panel/Panel";
 import { fakeBridge } from "./fake";
-import { holding } from "./holding";
+import { asRow, holding } from "./holding";
 import { mount, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
@@ -53,9 +53,11 @@ test("the panel draws its Job's verdict live: the pull request's Merge and the d
 
 test("a panel whose Job Bridge no longer has open says so, and how it comes back", async () => {
   const walked = reviewAtDelivery();
-  const other = running();
-  const api = fakeBridge(holding("walk/elsewhere", "Bridge moved on", [walked, { ...other, job: { ...other.job, id: "other" } }]));
-  await api.watchJob("other");
+  // Moved whole: every `build/` fixture is the same Job, so renaming its row alone left its read
+  // naming the walked Job — and Bridge's "other" Job drew here as this one.
+  const other = asRow(running(), 1, "other", "Another Job");
+  const api = fakeBridge(holding("walk/elsewhere", "Bridge moved on", [walked, other]));
+  await api.watchJob(other.job.id);
   mountPanel(api, walked.job.id);
   await expect
     .element(page.getByText("Bridge has another Job open. This one comes back when this window has focus."))
