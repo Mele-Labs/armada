@@ -26,6 +26,7 @@ import { useSessions } from "../sessions-draft";
 import { CallCard, type CardKeys } from "./CallCard";
 import { Bays } from "./Bays";
 import { baysOf } from "./bays";
+import { metroOf, orderOf } from "./metro";
 import { FleetMap } from "./FleetMap";
 import { useLayout } from "@armada/shell";
 import { tabKeys, useFilters } from "./keys";
@@ -245,10 +246,7 @@ export function Cockpit({
   // Bays is the work in the bays, down each hull, then what waits for one: the order the keys step in.
   const instruments = useMemo(() => {
     if (filter === "command-central") return calls;
-    if (filter === "bays") {
-      const docked = bays.harbours.flatMap((one) => one.bays).flatMap((bay) => (bay.holder.kind === "job" || bay.holder.kind === "session" ? (bay.holder.item === undefined ? [] : [bay.holder.item]) : []));
-      return [...docked, ...bays.waiting, ...bays.adrift];
-    }
+    if (filter === "bays") return orderOf(metroOf(bays, now));
     if (filter === "done") return over.filter((one) => !one.key.startsWith("line:"));
     const read = overviewListsOf(state.jobs, picked);
     const unknown = read.undrawable.map(
@@ -256,7 +254,7 @@ export function Cockpit({
     );
     const owned = new Set(calls.flatMap((one) => (one.owner === undefined ? [] : [one.owner])));
     return [...calls, ...running.filter((one) => !one.key.startsWith("line:") && !owned.has(one.owner ?? one.key)), ...unknown];
-  }, [filter, state, picked, calls, running, over, bays]);
+  }, [filter, state, picked, calls, running, over, bays, now]);
   const [view, setView] = useCockpitView();
   const [field, setField] = useState({ width: 900, height: 560 });
   const sky = useMemo(
@@ -466,7 +464,7 @@ export function Cockpit({
           <div className="armada-view__body" data-pane={pane || undefined} data-view={view} style={front === undefined && edge.length > 0 ? { paddingBottom: `calc(var(--space-6) * ${Math.min(3, edge.length)} + var(--space-8))` } : undefined}>
             {filter === "bays" ? (
               <div className="armada-view__bays" data-recessed={front === undefined || leaving !== undefined ? undefined : ""}>
-                <Bays read={bays} reading={state.held.state !== "read" && state.held.state !== "failed"} selected={selected === undefined ? undefined : current?.key} onSelect={setSelected} onOpenLink={hosts.onOpenLink} onOpenSession={hosts.onOpenSession} actsOf={(item) => <TileActs item={item} hosts={hosts} />} />
+                <Bays read={bays} reading={state.held.state !== "read" && state.held.state !== "failed"} now={now} selected={selected === undefined ? undefined : current?.key} onSelect={setSelected} onOpenJob={hosts.onOpen} onOpenSession={hosts.onOpenSession} onOpenLink={hosts.onOpenLink} />
               </div>
             ) : view === "map" ? (
               <div className="armada-view__map" data-recessed={front === undefined || leaving !== undefined ? undefined : ""}>

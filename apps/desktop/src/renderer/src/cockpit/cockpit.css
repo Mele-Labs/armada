@@ -550,272 +550,99 @@ span.armada-view__dot { cursor: default; }
 .armada-view__picked { position: absolute; left: 50%; bottom: var(--space-3); transform: translateX(-50%); display: flex; align-items: center; gap: var(--space-2); padding: var(--space-1) var(--space-3); border: var(--border-width) solid var(--border-default); border-radius: var(--radius-md); background: var(--bg-raised); font-size: var(--text-sm); color: var(--fg-default); white-space: nowrap; }
 .armada-view__picked > span:first-child { min-width: 0; max-width: calc(var(--space-12) * 5); overflow: hidden; text-overflow: ellipsis; }
 
-/* Bays: each repository a ship, its worktree bays the rooms of its hull. What waits for a bay queues on
-   the left; the merge line stands as cards on the right; wires run out through the gaps between bays. */
-.armada-view__bays { position: relative; display: flex; min-width: 0; min-height: 0; padding: var(--space-3) var(--space-4); overflow: hidden; }
-.armada-ship__empty { margin: auto; color: var(--fg-subtle); font-size: var(--text-sm); }
-.armada-ship {
-  position: relative;
-  isolation: isolate;
-  flex: 1 1 auto;
+/* Bays: the work in every bay, and what waits for one, as metro lines through the same stations. The
+   line is the work's status colour; a stop it reached is the state at that station; the stop it is at
+   now is large, says what to know inside it, and fills its ring with the Job's steps. */
+.armada-view__bays { position: relative; display: flex; min-width: 0; min-height: 0; overflow: hidden; }
+.armada-metro__empty { margin: auto; color: var(--fg-subtle); font-size: var(--text-sm); }
+.armada-metro { --label: calc(var(--space-12) * 7); position: relative; display: grid; flex: 1 1 auto; grid-template-rows: auto minmax(0, 1fr) auto; min-width: 0; min-height: 0; }
+
+.armada-metro__head, .armada-metro__row { display: grid; grid-template-columns: var(--label) repeat(6, minmax(0, 1fr)); align-items: center; padding: 0 var(--space-4); }
+.armada-metro__head { min-height: calc(var(--space-12) + var(--space-1)); border-bottom: var(--border-width) solid var(--border-subtle); }
+.armada-metro__label { color: var(--fg-subtle); font-size: var(--text-2xs); }
+.armada-metro__station-name { display: flex; flex-direction: column; align-items: center; gap: var(--space-1); color: var(--fg-default); font-size: var(--text-xs); font-weight: var(--weight-heading); }
+.armada-metro__counts { display: flex; gap: var(--space-1); }
+.armada-metro__counts > span { min-width: var(--space-4); padding: 0 var(--space-1); border-radius: var(--radius-lg); background: color-mix(in srgb, var(--tone) 16%, transparent); color: var(--tone); font-family: var(--font-mono); font-size: calc(var(--text-2xs) - 1px); font-weight: var(--weight-medium); line-height: var(--leading-2xs); text-align: center; }
+
+.armada-metro__lines { min-height: 0; overflow-y: auto; }
+.armada-metro__block { margin: 0; padding: 0; list-style: none; }
+.armada-metro__part { display: flex; align-items: center; min-height: var(--space-6); padding: 0 var(--space-4); border-top: var(--border-width) solid var(--border-subtle); color: var(--fg-subtle); font-family: var(--font-mono); font-size: calc(var(--text-2xs) - 2px); letter-spacing: 0.08em; text-transform: uppercase; }
+.armada-metro__row { min-height: calc(var(--space-8) + var(--space-1)); }
+.armada-metro__row[data-wants="you"] { background: linear-gradient(90deg, color-mix(in srgb, var(--status-awaiting-review) 12%, transparent), transparent 70%); }
+.armada-metro__row[data-wants="fixing"] { background: linear-gradient(90deg, color-mix(in srgb, var(--status-completed-failed) 11%, transparent), transparent 70%); }
+.armada-metro__row[data-selected] { box-shadow: inset calc(var(--border-width) * 3) 0 0 var(--accent); }
+
+.armada-metro__who { display: flex; align-items: center; gap: var(--space-2); min-width: 0; padding: 0; border: 0; background: none; color: var(--fg-default); font: inherit; font-size: var(--text-sm); text-align: left; cursor: pointer; }
+.armada-metro__who:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); border-radius: var(--radius-sm); }
+.armada-metro__bay { flex: none; width: 2.5ch; color: var(--fg-subtle); font-family: var(--font-mono); font-size: var(--text-2xs); }
+.armada-metro__mark { flex: none; width: var(--space-2); height: var(--space-2); border-radius: 50%; background: var(--line); box-shadow: 0 0 0 calc(var(--space-1) * 0.75) color-mix(in srgb, var(--line) 20%, transparent); }
+.armada-metro__mark[data-session] { border-radius: 2px; transform: rotate(45deg); }
+.armada-metro__title { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+
+/* A station: the line through it, solid in the work's colour where it has been, dashed where it has not. */
+.armada-metro__station { position: relative; display: grid; place-items: center; align-self: stretch; }
+.armada-metro__station::before { content: ""; position: absolute; top: 50%; right: 0; left: 0; border-top: calc(var(--border-width) * 2) dashed var(--border-subtle); transform: translateY(-50%); }
+.armada-metro__station[data-first]::before { left: 50%; }
+.armada-metro__station[data-last]::before { right: 50%; }
+.armada-metro__station[data-state="past"]::before { border-top: calc(var(--border-width) * 3) solid var(--line); opacity: 0.8; }
+.armada-metro__station[data-state="now"]::before { right: 50%; border-top: calc(var(--border-width) * 3) solid var(--line); opacity: 0.8; }
+.armada-metro__station[data-state="now"][data-first]::before { display: none; }
+
+.armada-metro__stop { position: relative; z-index: 1; width: var(--space-2); height: var(--space-2); padding: 0; border: calc(var(--border-width) * 2) solid var(--border-strong); border-radius: 50%; background: var(--bg-base); }
+button.armada-metro__stop { cursor: pointer; }
+.armada-metro__station[data-state="past"] .armada-metro__stop { width: calc(var(--space-2) + 2px); height: calc(var(--space-2) + 2px); border-color: var(--tone); background: var(--tone); }
+.armada-metro__stop[data-session] { border-radius: 2px; transform: rotate(45deg); }
+button.armada-metro__stop:hover, button.armada-metro__stop:focus-visible { outline: calc(var(--border-width) * 2) solid var(--fg-default); outline-offset: 2px; }
+/* Where it is now: large, in the station's state, its ring filled with the Job's steps, what to know inside. */
+.armada-metro__station[data-state="now"] .armada-metro__stop {
   display: grid;
-  grid-template-columns: calc(var(--space-12) * 4) minmax(0, 1fr) calc(var(--space-12) * 4.25);
-  column-gap: var(--space-8);
-  min-width: 0;
-  min-height: 0;
+  place-items: center;
+  width: var(--space-6);
+  height: var(--space-6);
+  border: 0;
+  background: conic-gradient(var(--tone) calc(var(--p) * 1%), color-mix(in srgb, var(--tone) 22%, transparent) 0);
+  box-shadow: 0 0 var(--space-3) color-mix(in srgb, var(--tone) 55%, transparent);
 }
-.armada-ship__dust { position: absolute; inset: 0; z-index: -1; width: 100%; height: 100%; pointer-events: none; }
-.armada-ship__wires { position: absolute; inset: 0; z-index: 2; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
-.armada-ship__head { display: flex; align-items: baseline; gap: var(--space-2); margin: 0 0 var(--space-2); color: var(--fg-subtle); font-family: var(--font-mono); font-size: var(--text-2xs); font-weight: var(--weight-body); line-height: var(--leading-2xs); }
-.armada-ship__head > span { color: var(--fg-muted); }
-.armada-ship__quiet { margin: 0; color: var(--fg-subtle); font-size: var(--text-xs); }
-.armada-ship__what { display: flex; flex-direction: column; min-width: 0; text-align: left; }
-.armada-ship__title { overflow: hidden; color: var(--fg-default); font-size: var(--text-xs); line-height: var(--leading-xs); white-space: nowrap; text-overflow: ellipsis; }
-.armada-ship__fact { overflow: hidden; color: var(--fg-subtle); font-family: var(--font-mono); font-size: var(--text-2xs); line-height: var(--leading-2xs); white-space: nowrap; text-overflow: ellipsis; }
-.armada-ship__mark { flex: none; width: var(--space-8); height: var(--space-8); overflow: visible; }
-.armada-ship__orbit-path { fill: none; stroke: var(--fg-subtle); stroke-width: 0.6; stroke-dasharray: 1 2; opacity: 0.6; }
-.armada-ship__orbit { transform: rotate(var(--at)); }
-.armada-ship__orbit[data-working] { animation: armada-ship-orbit 14s linear infinite; }
-.armada-ship__pod { fill: var(--hue); }
-@keyframes armada-ship-orbit { from { transform: rotate(var(--at)); } to { transform: rotate(calc(var(--at) + 360deg)); } }
+.armada-metro__station[data-state="now"] .armada-metro__stop::after { content: ""; position: absolute; inset: 3px; border-radius: inherit; background: radial-gradient(circle, var(--tone) 0 60%, var(--bg-base) 62%); }
+.armada-metro__station[data-state="now"] .armada-metro__stop[data-session]::after { background: var(--tone); box-shadow: inset 0 0 0 2px var(--bg-base); }
+.armada-metro__stop b { position: relative; z-index: 1; color: var(--bg-sunken); font-family: var(--font-mono); font-size: var(--text-2xs); font-weight: var(--weight-heading); line-height: 1; }
+.armada-metro__stop[data-session] b { transform: rotate(-45deg); }
 
-/* The queue: what waits for a bay, in line, the next one in at the head. */
-.armada-ship__queue { display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow-y: auto; }
-.armada-ship__waiting { position: relative; display: flex; flex-direction: column; gap: var(--space-2); margin: 0 0 var(--space-4); padding: 0; list-style: none; }
-.armada-ship__waiting::before { content: ""; position: absolute; top: var(--space-4); bottom: var(--space-4); left: var(--space-6); border-left: var(--border-width) dashed var(--border-default); }
-.armada-ship__wait {
-  position: relative;
-  display: grid;
-  grid-template-columns: var(--space-6) minmax(0, 1fr);
-  align-items: start;
-  gap: var(--space-1);
-  width: 100%;
-  padding: var(--space-2);
-  border: var(--border-width) dashed var(--border-default);
-  border-radius: var(--radius-md);
-  background: var(--bg-base);
-  color: inherit;
-  cursor: pointer;
-}
-/* A waiting Job's title on two whole lines, as a bay's is, never cut mid-word. */
-.armada-ship__wait .armada-ship__title { display: -webkit-box; white-space: normal; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
-.armada-ship__wait .armada-ship__fact { font-family: inherit; white-space: normal; }
-.armada-ship__wait[data-next] { border-style: solid; border-color: var(--border-strong); background: var(--bg-raised); }
-.armada-ship__wait:hover, .armada-ship__wait[aria-pressed="true"] { border-color: var(--accent); }
-.armada-ship__adrift { display: flex; flex-direction: column; gap: var(--space-1); margin: 0; padding: 0; list-style: none; }
-.armada-ship__drifter {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  max-width: 100%;
-  padding: 0 var(--space-2) 0 0;
-  border: var(--border-width) solid var(--border-subtle);
-  border-radius: var(--radius-sm);
-  background: var(--bg-sunken);
-  color: var(--fg-muted);
-  font-size: var(--text-2xs);
-  line-height: var(--leading-2xs);
-  cursor: pointer;
-}
-.armada-ship__drifter > span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-.armada-ship__drifter .armada-ship__mark { width: var(--space-4); height: var(--space-4); }
-.armada-ship__drifter:hover, .armada-ship__drifter[aria-pressed="true"] { border-color: var(--border-strong); color: var(--fg-default); }
+.armada-metro__foot { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-4); padding: var(--space-2) var(--space-4); border-top: var(--border-width) solid var(--border-subtle); color: var(--fg-muted); font-size: var(--text-2xs); }
+.armada-metro__strip { display: inline-flex; gap: 3px; }
+.armada-metro__strip i { width: var(--space-4); height: var(--space-2); border-radius: 2px; background: var(--tone, var(--border-default)); }
+.armada-metro__strip i[data-kind="free"] { border: var(--border-width) solid var(--fg-muted); background: transparent; box-shadow: 0 0 var(--space-2) color-mix(in srgb, var(--fg-default) 25%, transparent); }
+.armada-metro__strip i[data-kind="closed"] { border: var(--border-width) solid var(--border-subtle); background: repeating-linear-gradient(135deg, var(--border-subtle) 0 2px, transparent 2px 4px); }
+.armada-metro__legend { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-left: auto; }
+.armada-metro__legend > span { display: inline-flex; align-items: center; gap: var(--space-1); }
+.armada-metro__legend i { width: var(--space-2); height: var(--space-2); border-radius: 50%; background: var(--tone); }
 
-/* The ship: a plated hull with the repository's name on its bow and thrusters astern. */
-/* The ships share the height by their rows of bays, and none goes below what its rows need; past that the fleet scrolls. */
-.armada-ship__fleet { display: flex; flex-direction: column; gap: var(--space-4); min-width: 0; min-height: 0; overflow-y: auto; }
-.armada-ship__hull {
-  position: relative;
-  display: flex;
-  flex: 1 0 auto;
-  flex-direction: column;
-  padding: var(--space-2) var(--space-3) var(--space-3);
-  border: calc(var(--border-width) * 2) solid var(--border-default);
-  border-radius: var(--radius-lg);
-  background: linear-gradient(var(--bg-raised), var(--bg-sunken));
-  box-shadow: inset 0 0 0 var(--space-1) var(--bg-base), inset 0 0 0 calc(var(--space-1) + var(--border-width)) var(--border-subtle);
-}
-/* The ship's name and how full it is, along the top of the hull, above the bays and clear of them. */
-.armada-ship__bow { display: flex; flex: none; align-items: baseline; justify-content: space-between; gap: var(--space-3); padding: 0 0 var(--space-2); white-space: nowrap; }
-.armada-ship__name { color: var(--fg-muted); font-family: var(--font-mono); font-size: var(--text-2xs); letter-spacing: 0.12em; text-transform: uppercase; }
-/* Thrusters on the stern wall, the side work comes in by. */
-.armada-ship__stern { position: absolute; top: 50%; left: calc(var(--space-1) * -1 - var(--border-width)); display: flex; flex-direction: column; gap: var(--space-6); transform: translateY(-50%); }
-.armada-ship__thruster { width: var(--space-1); height: var(--space-6); border-radius: var(--radius-sm); background: var(--border-default); }
-.armada-ship__hull[data-working] .armada-ship__thruster { background: var(--status-running); box-shadow: calc(var(--space-1) * -1) 0 var(--space-3) var(--status-running); }
-
-/* The bays: rooms in as many columns as keep each a room; the picked one's row grows to say more. */
-.armada-ship__bays {
-  display: grid;
-  flex: 1 1 auto;
-  grid-template-columns: repeat(var(--cols, 2), minmax(0, 1fr));
-  /* Wide enough between bays for the tracks the wires run in, a lane for each column. */
-  gap: var(--space-4) var(--space-6);
-  align-content: start;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  transition: grid-template-rows var(--duration-fast) var(--ease);
-}
-
-/* A bay: its lamp and number over the door, the room with what is in it, and the deck at its mouth. */
-.armada-ship__bay {
-  --lamp: transparent;
-  position: relative;
+/* A stop's card: opened by hover or focus, kept by a press. */
+.armada-metro__card {
+  position: absolute;
+  z-index: 5;
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
-  min-width: 0;
+  width: calc(var(--space-12) * 6);
   padding: var(--space-2) var(--space-3) var(--space-3);
   border: var(--border-width) solid var(--border-default);
-  border-radius: var(--radius-md);
-  background: var(--bg-base);
-  cursor: pointer;
-  transition: opacity var(--duration-fast) var(--ease), border-color var(--duration-fast) var(--ease);
-}
-.armada-ship__bay[data-hue] { --lamp: var(--hue); background: radial-gradient(ellipse 80% 90% at 50% 0%, color-mix(in srgb, var(--hue) 13%, transparent), transparent 75%), var(--bg-base); }
-.armada-ship__bay:hover, .armada-ship__bay[data-lit] { border-color: var(--border-strong); }
-.armada-ship__bay[aria-selected="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 var(--border-width) var(--accent); }
-
-/* A bay's top: the lamp over its door, its number, and its pull request's badge. */
-/* A bay's top line: the lamp over its door, its number, what is happening in it now, and what holds it. */
-.armada-ship__bay-top { display: flex; align-items: center; gap: var(--space-2); min-width: 0; min-height: var(--space-6); }
-.armada-ship__bay-top .armada-ship__mark { width: var(--space-6); height: var(--space-6); margin-left: auto; }
-/* What it is doing now, one line under the title. */
-.armada-ship__doing { overflow: hidden; color: var(--fg-muted); font-size: var(--text-xs); line-height: var(--leading-xs); white-space: nowrap; text-overflow: ellipsis; }
-/* The title on as many as two whole lines, below everything else in the bay and clear of it. */
-.armada-ship__bay > .armada-ship__title { display: -webkit-box; overflow: hidden; color: var(--fg-default); font-size: var(--text-sm); line-height: var(--leading-sm); white-space: normal; overflow-wrap: anywhere; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
-.armada-ship__bay-number { color: var(--fg-subtle); font-family: var(--font-mono); font-size: var(--text-2xs); line-height: var(--leading-2xs); }
-.armada-ship__lamp { flex: none; width: var(--space-2); height: var(--space-2); border: var(--border-width) solid var(--border-default); border-radius: 50%; background: var(--lamp); }
-.armada-ship__bay[data-hue] .armada-ship__lamp, .armada-ship__bay[data-kind="free"] .armada-ship__lamp { border-color: var(--lamp); box-shadow: 0 0 var(--space-2) var(--lamp); }
-/* The deck at the bay's mouth, striped as a hangar's is. */
-.armada-ship__bay::after { content: ""; position: absolute; right: var(--space-3); bottom: var(--space-1); left: var(--space-3); height: calc(var(--border-width) * 2); background: repeating-linear-gradient(90deg, var(--border-strong) 0 var(--space-1), transparent var(--space-1) var(--space-2)); opacity: 0.6; }
-.armada-ship__bay[data-kind="closed"]::after { display: none; }
-.armada-ship__badge { --dot: var(--fg-subtle); flex: none; margin-left: auto; padding: 0 var(--space-1); border: var(--border-width) solid color-mix(in srgb, var(--dot) 50%, transparent); border-radius: var(--radius-sm); color: var(--dot); font-family: var(--font-mono); font-size: var(--text-2xs); line-height: var(--leading-2xs); }
-.armada-ship__port { position: absolute; top: 50%; right: calc(var(--space-1) * -1 - var(--border-width)); width: var(--space-2); height: var(--space-2); border: var(--border-width) solid var(--border-default); border-radius: 50%; background: var(--bg-base); transform: translateY(-50%); }
-.armada-ship__port[data-wired] { border-color: var(--fg-muted); background: var(--bg-raised); }
-
-/* Free: nobody in it, its lamp lit, light falling across an empty floor. Closed: dark, its shutter down. */
-.armada-ship__bay[data-kind="free"] {
-  --lamp: var(--fg-default);
-  border-style: dashed;
-  border-color: color-mix(in srgb, var(--fg-default) 25%, var(--border-default));
-  background: radial-gradient(ellipse 70% 110% at 50% 0%, color-mix(in srgb, var(--fg-default) 15%, transparent), transparent 75%), var(--bg-base);
-  cursor: default;
-}
-.armada-ship__bay[data-kind="free"] .armada-ship__title { color: var(--fg-muted); }
-.armada-ship__bay[data-kind="closed"], .armada-ship__bay[data-kind="other"] {
-  border-color: var(--border-subtle);
-  background: repeating-linear-gradient(0deg, var(--bg-sunken) 0 var(--space-2), color-mix(in srgb, var(--border-subtle) 60%, var(--bg-sunken)) var(--space-2) calc(var(--space-2) + var(--border-width)));
-  cursor: default;
-}
-.armada-ship__bay[data-kind="closed"] .armada-ship__title, .armada-ship__bay[data-kind="closed"] .armada-ship__bay-number { color: var(--fg-subtle); }
-.armada-ship__bay[data-berth] { border-color: var(--fg-muted); }
-
-/* The picked bay's drawer: under its row, the hull's whole width, its notch over the bay. */
-.armada-ship__drawer {
-  position: relative;
-  grid-column: 1 / -1;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-2) var(--space-4);
-  padding: var(--space-2) var(--space-3);
-  border: var(--border-width) solid var(--accent);
+  border-top: calc(var(--border-width) * 3) solid var(--tone);
   border-radius: var(--radius-md);
   background: var(--bg-overlay);
-  cursor: default;
+  box-shadow: var(--shadow-overlay);
+  font-size: var(--text-xs);
+  pointer-events: none;
 }
-.armada-ship__drawer::before {
-  content: "";
-  position: absolute;
-  top: calc(var(--space-2) * -1);
-  left: var(--notch);
-  border: var(--space-2) solid transparent;
-  border-top: 0;
-  border-bottom-color: var(--accent);
-  transform: translateX(-50%);
-}
-.armada-ship__facts { display: grid; flex: 1 1 calc(var(--space-12) * 6); grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-1) var(--space-4); margin: 0; min-width: 0; }
-.armada-ship__facts > div { display: flex; flex-direction: column; min-width: 0; }
-.armada-ship__facts dt { color: var(--fg-subtle); font-size: var(--text-2xs); line-height: var(--leading-2xs); }
-.armada-ship__facts dd { margin: 0; color: var(--fg-default); font-family: var(--font-mono); font-size: var(--text-2xs); line-height: var(--leading-2xs); overflow-wrap: anywhere; }
-.armada-ship__acts { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1); }
-
-/* Tight rooms keep their name and drop the rest. */
-
-/* The merge line, as cards: farthest from main at the top, the next to merge at the foot, then main. */
-.armada-ship__line { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
-.armada-ship__cards { display: flex; flex: 1 1 auto; flex-direction: column; gap: var(--space-3); min-height: 0; overflow-y: auto; }
-.armada-ship__deck { display: flex; flex-direction: column; gap: var(--space-1); margin: 0; padding: 0; list-style: none; }
-.armada-ship__deck > li { display: flex; }
-.armada-ship__deck > li > * { flex: 1 1 auto; min-width: 0; }
-.armada-ship__deck-name { color: var(--fg-subtle); font-family: var(--font-mono); font-size: var(--text-2xs); }
-.armada-ship__card {
-  --dot: var(--fg-subtle);
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  padding: calc(var(--space-1) / 2) var(--space-2);
-  border: var(--border-width) solid var(--border-subtle);
-  border-left: calc(var(--border-width) * 3) solid var(--dot);
-  border-radius: var(--radius-sm);
-  background: var(--bg-raised);
-  color: inherit;
-  text-align: left;
-  cursor: pointer;
-  transition: opacity var(--duration-fast) var(--ease), border-color var(--duration-fast) var(--ease);
-}
-.armada-ship__card:not([data-wired]) { opacity: 0.7; }
-.armada-ship__card:hover, .armada-ship__card[data-lit] { border-color: var(--border-strong); border-left-color: var(--dot); opacity: 1; }
-.armada-ship__card-head { display: flex; align-items: center; gap: var(--space-2); min-width: 0; font-family: var(--font-mono); font-size: var(--text-2xs); line-height: var(--leading-2xs); }
-.armada-ship__number { color: var(--fg-default); }
-.armada-ship__place { padding: 0 var(--space-1); border: var(--border-width) solid var(--border-default); border-radius: var(--radius-sm); color: var(--fg-muted); }
-.armada-ship__state { margin-left: auto; color: var(--dot); white-space: nowrap; }
-.armada-ship__card-title { display: -webkit-box; overflow: hidden; color: var(--fg-muted); font-size: var(--text-2xs); line-height: var(--leading-2xs); overflow-wrap: anywhere; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
-.armada-ship__main {
-  --dot: var(--status-completed-success);
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  margin-top: var(--space-1);
-  padding: var(--space-1) var(--space-2);
-  border: var(--border-width) solid color-mix(in srgb, var(--dot) 50%, transparent);
-  border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--dot) 10%, var(--bg-base));
-  color: var(--fg-default);
-  font-family: var(--font-mono);
-  font-size: var(--text-2xs);
-}
-.armada-ship__main[data-red] { --dot: var(--status-completed-failed); }
-.armada-ship__main .armada-view__main { width: var(--space-3); height: var(--space-3); }
-
-/* One colour per pull-request state, for a card, a badge and a wire alike. */
-:is(.armada-ship__card, .armada-ship__badge, .armada-ship__wire)[data-state="queued"] { --dot: var(--status-not-started); }
-:is(.armada-ship__card, .armada-ship__badge, .armada-ship__wire)[data-state="blocked"] { --dot: var(--status-escalated); }
-:is(.armada-ship__card, .armada-ship__badge, .armada-ship__wire)[data-state="running"] { --dot: var(--status-running); }
-:is(.armada-ship__card, .armada-ship__badge, .armada-ship__wire)[data-state="ready"] { --dot: var(--status-completed-success); }
-:is(.armada-ship__card, .armada-ship__badge, .armada-ship__wire)[data-state="failing"] { --dot: var(--status-completed-failed); }
-
-/* The wires: a bay to its card through the hull's gaps, solid where a queue holds it, flowing while its
-   checks run; the next one in to the bay it will take, dashed, with an arrow. */
-.armada-ship__track { fill: none; stroke: var(--border-subtle); stroke-width: 1; stroke-dasharray: 1 3; stroke-linecap: round; }
-.armada-ship__wire { --dot: var(--fg-subtle); fill: none; stroke: var(--dot); stroke-width: 1.5; stroke-dasharray: 4 4; stroke-linejoin: round; opacity: 0.6; transition: opacity var(--duration-fast) var(--ease); }
-.armada-ship__wire[data-queued] { stroke-dasharray: none; }
-.armada-ship__wire[data-state="running"] { stroke-dasharray: 2 8; animation: armada-ship-flow 1.6s linear infinite; }
-.armada-ship__wire[data-kind="in"] { --dot: var(--fg-muted); stroke-dasharray: 3 5; }
-.armada-ship__wire[data-lit] { opacity: 1; stroke-width: 2.5; filter: drop-shadow(0 0 var(--space-1) var(--dot)); }
-.armada-ship__arrow { fill: var(--fg-muted); }
-@keyframes armada-ship-flow { to { stroke-dashoffset: -40; } }
-
-/* One bay lit: its room, its wire and its card stand forward and the rest step back. */
-.armada-ship[data-lighting] .armada-ship__bay:not([data-lit]),
-.armada-ship[data-lighting] .armada-ship__wait:not([data-lit]),
-.armada-ship[data-lighting] .armada-ship__card:not([data-lit]) { opacity: 0.35; }
-.armada-ship[data-lighting] .armada-ship__wire:not([data-lit]) { opacity: 0.12; }
-.armada-ship__card[data-lit] { border-color: var(--dot); box-shadow: 0 0 0 var(--border-width) var(--dot), 0 0 var(--space-4) color-mix(in srgb, var(--dot) 30%, transparent); }
-.armada-ship__bay[data-lit] { box-shadow: 0 0 var(--space-4) color-mix(in srgb, var(--lamp) 25%, transparent); }
-
-@media (prefers-reduced-motion: reduce) {
-  .armada-ship__orbit[data-working], .armada-ship__wire[data-state="running"] { animation: none; }
-}
+.armada-metro__card[data-pinned] { pointer-events: auto; }
+.armada-metro__card-head { display: flex; align-items: center; gap: var(--space-2); }
+.armada-metro__pill { padding: 0 var(--space-2); border-radius: var(--radius-lg); background: color-mix(in srgb, var(--tone) 16%, transparent); color: var(--tone); font-family: var(--font-mono); font-size: calc(var(--text-2xs) - 1px); line-height: var(--leading-2xs); }
+.armada-metro__where { flex: none; margin-left: auto; color: var(--fg-subtle); font-size: var(--text-2xs); white-space: nowrap; }
+.armada-metro__card-title { color: var(--fg-default); font-weight: var(--weight-heading); line-height: var(--leading-xs); }
+.armada-metro__facts { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px var(--space-3); margin: var(--space-1) 0 0; font-size: var(--text-2xs); line-height: var(--leading-2xs); }
+.armada-metro__facts > div { display: contents; }
+.armada-metro__facts dt { color: var(--fg-subtle); }
+.armada-metro__facts dd { margin: 0; color: var(--fg-default); overflow-wrap: anywhere; }
+.armada-metro__facts dd[data-mono] { font-family: var(--font-mono); }
+.armada-metro__acts { display: flex; flex-wrap: wrap; gap: var(--space-1); margin-top: var(--space-2); }
+.armada-metro__hint { margin-top: var(--space-1); color: var(--fg-subtle); font-size: calc(var(--text-2xs) - 1px); }

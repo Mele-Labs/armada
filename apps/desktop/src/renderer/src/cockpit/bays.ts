@@ -1,7 +1,7 @@
-// The Cockpit's third reading: each worktree bay as a row, with whoever holds it (a Job, or a Session
-// working in it directly) and the Sessions riding with that Job, and the pull request its branch has on
-// the merge line, matched by branch. The line itself is the horizon's own dots stood upright, so the
-// two readings cannot disagree. Pure, so which bay holds what is checked without drawing a row.
+// What the Bays filter reads: each worktree bay with whoever holds it (a Job, or a Session working in it
+// directly) and the Sessions riding with that Job, the pull request its branch has on the merge line,
+// matched by branch against the horizon's own dots so the two cannot disagree, and the Jobs queued for a
+// bay. Pure, so which bay holds what is checked without drawing a line.
 
 import type { JobSummary, MergeLines, WorktreeSlot } from "@armada/protocol";
 import type { MergeLineView } from "@armada/screens";
@@ -47,8 +47,6 @@ export type BaysRead = {
   harbours: readonly Harbour[];
   /** Jobs queued for a bay, the longest waiting first: the next one in is the first. */
   waiting: readonly Item[];
-  /** Other live work no bay holds, a Session with none of its own. */
-  adrift: readonly Item[];
 };
 
 /** What the pool says of a slot nobody can lease, as Cleanup's tile words it. */
@@ -133,7 +131,7 @@ export function baysOf({
   const queued = (one: Item) => one.hue === "queued" && one.job !== undefined;
   const since = (one: Item) => Date.parse(one.at ?? "") || 0;
   const waiting = unbayed.filter(queued).sort((a, b) => since(a) - since(b));
-  return { harbours, waiting, adrift: unbayed.filter((one) => !queued(one)) };
+  return { harbours, waiting };
 }
 
 function holderOf(slot: WorktreeSlot, jobs: readonly JobSummary[], sessions: readonly Session[], items: readonly Item[]): Holder {

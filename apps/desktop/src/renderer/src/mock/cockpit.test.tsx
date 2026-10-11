@@ -1,6 +1,6 @@
 // The Dashboard's one panel, through `App` on the `dashboard-cockpit` mock Fleet: its filters and the
 // keys that step them, the call that comes forward over it and the deck behind, the standing
-// answers, the grid and the map offering the same acts, and the Bays filter's ship.
+// answers, the grid and the map offering the same acts, and the Bays filter's metro lines.
 
 import { beforeEach, expect, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
@@ -190,40 +190,38 @@ test("the grid and the map offer the same acts: a press picks, x asks to kill, E
   await expect.poll(() => page.getByRole("tab", { name: "Active" }).query()).toBeNull();
 });
 
-test("Bays is a filter of its own: each bay a compartment of its repository's ship, what waits queued at the hatches, and each bay wired to its card on the merge line", async () => {
+test("Bays is a filter of its own: each piece of work in a bay, and each waiting for one, a line through the same stations to main", async () => {
   await dashboard();
   await page.getByRole("tab", { name: "Bays" }).click();
   await selected("Bays");
-  const bay = (name: RegExp) => page.getByRole("option", { name });
-  await expect.element(page.getByRole("region", { name: "armada" })).toBeVisible();
-  await expect.element(bay(/^Bay 1: Debounce the Job Board/)).toBeVisible();
+  const line = (name: RegExp) => page.getByRole("button", { name });
+  const stop = (name: RegExp) => page.getByRole("button", { name });
+  await expect.element(line(/^Bay 01: Debounce the Job Board/)).toBeVisible();
   // A bay a Session holds is drawn under the Session's own name, not the process the pool reads.
-  await expect.element(bay(/^Bay 3: Flaky store test/)).toBeVisible();
-  await expect.element(bay(/^Bay 8: Free/)).toHaveAttribute("data-kind", "free");
-  await expect.element(bay(/^Bay 11: Closed/)).toHaveAttribute("data-kind", "closed");
-  // A queued Job of this repository waits to go into its free bay; one of another repository does not.
-  const queue = page.getByRole("complementary", { name: "Waiting for a bay" });
-  await expect.element(queue.getByText("Next in, to bay 08")).toBeVisible();
-  // The merge line stands as cards, and a bay with a pull request is wired out to its own.
-  await expect.element(page.getByRole("complementary", { name: "Merge line" }).getByText("#1890", { exact: true }).first()).toBeVisible();
-  await expect.poll(() => document.querySelectorAll('.armada-ship__wire[data-kind="out"]').length).toBeGreaterThan(0);
-  expect(document.querySelectorAll('.armada-ship__wire[data-kind="in"]').length).toBe(1);
+  await expect.element(line(/^Bay 03: Flaky store test$/)).toBeVisible();
+  // Waiting work is a line too, at the first station.
+  await expect.element(page.getByRole("list", { name: "Waiting for a bay" }).getByRole("button", { name: /^Waiting: Store a pause marker/ })).toBeVisible();
+  // The stop where work is now says its place in the merge queue inside it.
+  await expect.element(stop(/^Debounce the Job Board's resize handler: Merge queue/)).toHaveTextContent("1");
+  await expect.element(stop(/^Pin the clock in the store tests: Merge queue/)).toHaveTextContent("2");
+  // Free and closed bays draw no line, and are counted in the strip.
+  await expect.element(page.getByRole("img", { name: /held, 3 free, 3 closed$/ })).toBeVisible();
   expect(document.querySelector("footer.armada-view__horizon")).toBeNull();
 
-  // Hovering a bay lights its wire and its card on the line, and steps the rest back.
-  await bay(/^Bay 1: Debounce/).hover();
-  await expect.poll(() => document.querySelector('[data-card="pull:1890"]')?.hasAttribute("data-lit")).toBe(true);
-  expect(document.querySelector('[data-card="pull:1891"]')?.hasAttribute("data-lit")).toBe(false);
-  expect(document.querySelectorAll(".armada-ship__wire[data-lit]").length).toBe(1);
-  await userEvent.unhover(bay(/^Bay 1: Debounce/));
+  // Hovering a stop opens its card; a press keeps it, and its acts go where they say.
+  await stop(/^Pin the clock in the store tests: In a bay/).hover();
+  await expect.element(page.getByRole("dialog", { name: "In bay 06" })).toBeVisible();
+  await expect.element(page.getByRole("dialog", { name: "In bay 06" }).getByText("fix/pin-store-clock")).toBeVisible();
+  await stop(/^Pin the clock in the store tests: Merge queue/).click();
+  const card = page.getByRole("dialog", { name: "2nd in the merge queue" });
+  await expect.element(card).toHaveAttribute("data-pinned");
+  await expect.element(card.getByRole("button", { name: "Open #1891" })).toBeVisible();
+  await userEvent.keyboard("{Escape}");
+  await expect.poll(() => document.querySelector(".armada-metro__card")).toBeNull();
 
-  // Nothing is open until a bay is picked; picking one opens its drawer under its row, with every act.
-  expect(document.querySelector(".armada-ship__drawer")).toBeNull();
-  await bay(/^Bay 6: Pin the clock/).click();
-  await expect.element(bay(/^Bay 6: Pin the clock/)).toHaveAttribute("aria-selected", "true");
-  const drawer = page.getByRole("group", { name: "Bay 6 in full" });
-  await expect.element(drawer.getByText("fix/pin-store-clock", { exact: false })).toBeVisible();
-  await expect.element(drawer.getByRole("button", { name: "Open #1891" })).toBeVisible();
+  // A line's title selects its work, which steps and acts as the grid's tiles do.
+  await line(/^Bay 06: Pin the clock in the store tests$/).click();
+  await expect.element(line(/^Bay 06: Pin the clock in the store tests$/)).toHaveAttribute("aria-pressed", "true");
   await userEvent.keyboard("x");
   await expect.element(page.getByRole("dialog")).toBeVisible();
   await userEvent.keyboard("{Escape}");
