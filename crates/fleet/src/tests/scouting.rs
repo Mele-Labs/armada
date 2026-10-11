@@ -31,6 +31,10 @@ use crate::tests::tmp::TempDir;
 
 type Scouted = Fleet<FakeHarness, FakeVcs, FakeWorkProduct>;
 
+/// How long the slow scout has to read its one file: the ten seconds the poll
+/// it replaced allowed, against 0.21s alone.
+const READ_WITHIN: Duration = Duration::from_secs(10);
+
 /// The agent CLI as a scout meets it. An ask naming `slowly` reads one file and
 /// then waits to be interrupted, answering the interrupt with the turn's end
 /// and its cost; any other reads two files, has a third refused as outside the
@@ -247,6 +251,8 @@ async fn a_scout_stopped_from_its_node_ends_stopped_with_its_cost() {
     let home = TempDir::new();
     let fleet = scouted(&home);
     let studio = a_studio(&fleet).await;
+    // Before the ask, so no read the scout keeps is published unheard.
+    let mut watching = fleet.events().subscribe();
     let asked = Arc::clone(&fleet)
         .ask_scout(studio.id.clone(), asking("read slowly"), None)
         .await
@@ -254,17 +260,25 @@ async fn a_scout_stopped_from_its_node_ends_stopped_with_its_cost() {
     let node_id = asked.nodes[0].id.clone();
 
     // Stopped once it has read something, so the interrupt lands mid-turn.
-    for _ in 0..1000 {
-        let read = fleet
-            .get_studio(studio.id.clone(), None)
-            .await
-            .expect("reads");
-        if matches!(&read.nodes[0].content, StudioNodeContent::Finding { read, .. } if !read.is_empty())
-        {
-            break;
+    // Woken by each publish rather than polled; the Studio is read whole
+    // after each, so a publish dropped as lagged still wakes it.
+    tokio::time::timeout(READ_WITHIN, async {
+        loop {
+            let read = fleet
+                .get_studio(studio.id.clone(), None)
+                .await
+                .expect("reads");
+            if matches!(&read.nodes[0].content, StudioNodeContent::Finding { read, .. } if !read.is_empty())
+            {
+                return;
+            }
+            watching.next().await.expect("the stream outlives the Fleet");
         }
-        tokio::time::sleep(Duration::from_millis(10)).await;
-    }
+    })
+    .await
+    .unwrap_or_else(|_| {
+        panic!("the scout read nothing within {READ_WITHIN:?}, so there was no turn to stop")
+    });
     fleet
         .stop_scout(
             studio.id.clone(),
