@@ -54,8 +54,7 @@ export function DispatchRow({
       id={DISPATCH_ROW}
       role="option"
       aria-selected={active}
-      data-trailing={trailing ? "" : undefined}
-      className={["armada-palette__row", "armada-palette__row--dispatch", active ? "armada-palette__row--active" : ""].join(" ").trim()}
+      className={["armada-palette__row", "armada-palette__row--dispatch", trailing ? "armada-palette__row--trailing" : "", active ? "armada-palette__row--active" : ""].filter((one) => one !== "").join(" ")}
       onMouseEnter={onEnter}
       onClick={onChoose}
     >
