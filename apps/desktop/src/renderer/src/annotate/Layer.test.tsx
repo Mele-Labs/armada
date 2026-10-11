@@ -18,7 +18,7 @@ const OWNER = { width: 1324, height: 922 };
 const SHORT = { width: 1324, height: 700 };
 
 /** Notes the layer reads, saves back to and deletes from, held in memory. */
-function sinkOf(notes: Annotation[] = []): Sink {
+function sinkOf(notes: Annotation[] = [], shots = new Map<string, ArrayBuffer>()): Sink {
   const held = new Map(notes.map((note) => [note.id, note]));
   return {
     via: "dev server",
@@ -28,9 +28,14 @@ function sinkOf(notes: Annotation[] = []): Sink {
     },
     remove: async (id) => {
       held.delete(id);
+      shots.delete(id);
     },
     root: async () => null,
     capture: async () => null,
+    saveShot: async (id, png) => {
+      shots.set(id, png);
+    },
+    shot: async (id) => shots.get(id) ?? null,
   };
 }
 

@@ -35,6 +35,8 @@ function sink(overrides: Partial<Sink> = {}): Sink {
     remove: async () => undefined,
     root: async () => "/Users/user/armada",
     capture: async () => new Uint8Array([137, 80, 78, 71]).buffer,
+    saveShot: async () => undefined,
+    shot: async () => null,
     ...overrides,
   };
 }
