@@ -110,6 +110,7 @@ pub(super) fn record_a_whole_run(store: &mut Store, id: &str, saying: &str, when
                 brief_path: Some(format!(".armada/briefs/{id}/fix.1.c1.txt")),
                 cited: None,
                 given: None,
+                risky: None,
             }],
             &at(when),
         )

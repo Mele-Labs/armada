@@ -188,6 +188,23 @@ pub enum Ruling {
         judged: Vec<Judgment>,
         policies: Policies,
     },
+    /// Every Check passed, a panel of more than one model refused, every member
+    /// of it agreed, none called the work risky, and the step has retries left.
+    /// **The work goes back to the Drone that did it**, as a
+    /// [`HandedBack`](Ruling::HandedBack) does: the Job stays `running`, the
+    /// step passes through `retrying`, and the Drone is told what the Judges
+    /// found. Signed by the Judge, which is how `store` counts these apart from
+    /// a Check's. #206, `crate::judging::agreeing`.
+    JudgesAgreed {
+        /// Never empty.
+        refusals: Refusals,
+        checks: Vec<StepCheck>,
+        output: Vec<CheckOutput>,
+        judged: Vec<Judgment>,
+        tell: OutcomeTurn,
+        retrying: StepLevelTrigger,
+        policies: Policies,
+    },
     /// Every Check passed, and one criterion refused that `docs/concepts/judge.md`'s
     /// asking design says to ask a person about rather than stop the step
     /// over. **Nothing about the Job moves yet.** The step holds at
@@ -290,6 +307,7 @@ impl Ruling {
             | Ruling::Finished { policies, .. }
             | Ruling::HeldForReview { policies, .. } => (policies, true),
             Ruling::HandedBack { policies, .. }
+            | Ruling::JudgesAgreed { policies, .. }
             | Ruling::Failed { policies, .. }
             | Ruling::Refused { policies, .. }
             | Ruling::Questioned { policies, .. }
@@ -316,7 +334,8 @@ impl Ruling {
         match self {
             Ruling::Advanced { tell, .. }
             | Ruling::Finished { tell, .. }
-            | Ruling::HandedBack { tell, .. } => Some(tell),
+            | Ruling::HandedBack { tell, .. }
+            | Ruling::JudgesAgreed { tell, .. } => Some(tell),
             _ => None,
         }
     }
@@ -332,6 +351,7 @@ impl Ruling {
             | Ruling::Finished { checks, .. }
             | Ruling::HeldForReview { checks, .. }
             | Ruling::HandedBack { checks, .. }
+            | Ruling::JudgesAgreed { checks, .. }
             | Ruling::Failed { checks, .. }
             | Ruling::Refused { checks, .. }
             | Ruling::Questioned { checks, .. }
@@ -375,6 +395,7 @@ impl Ruling {
             | Ruling::Finished { judged, .. }
             | Ruling::HeldForReview { judged, .. }
             | Ruling::Refused { judged, .. }
+            | Ruling::JudgesAgreed { judged, .. }
             | Ruling::Questioned { judged, .. }
             | Ruling::Suspect { judged, .. } => judged,
             Ruling::Failed { .. }
@@ -396,6 +417,7 @@ impl Ruling {
             | Ruling::Finished { output, .. }
             | Ruling::HeldForReview { output, .. }
             | Ruling::HandedBack { output, .. }
+            | Ruling::JudgesAgreed { output, .. }
             | Ruling::Failed { output, .. }
             | Ruling::Refused { output, .. }
             | Ruling::Questioned { output, .. }
@@ -449,7 +471,9 @@ impl Ruling {
     /// move a Job by any path.
     pub fn hands_back(&self) -> Option<StepLevelTrigger> {
         match self {
-            Ruling::HandedBack { retrying, .. } => Some(*retrying),
+            Ruling::HandedBack { retrying, .. } | Ruling::JudgesAgreed { retrying, .. } => {
+                Some(*retrying)
+            }
             _ => None,
         }
     }

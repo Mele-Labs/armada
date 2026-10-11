@@ -23,6 +23,7 @@
 //! in particular belongs to no one half — `looks` and `flagging` raise four of its variants
 //! and `running` the other five.
 
+mod agreeing;
 mod flagging;
 mod looks;
 mod marking;

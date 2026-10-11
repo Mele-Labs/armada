@@ -348,6 +348,13 @@ where
             .await
             .step_spent(job_id, step)
             .map_err(|cause| Adrift::Reading(store::LoadJobError::Unreadable(cause)))?;
+        // How often this pass already went back on an agreed refusal. #206.
+        let sent_back = self
+            .store()
+            .lock()
+            .await
+            .step_sent_back_by_judges(job_id, step)
+            .map_err(|cause| Adrift::Reading(store::LoadJobError::Unreadable(cause)))?;
         let declared = self
             .store()
             .lock()
@@ -410,6 +417,7 @@ where
         let held_off = self.held_off(job_id).await.paths();
         let ruling = rule_on(
             at.on_attempt(attempt, spent)
+                .sent_back(sent_back)
                 .holding_handoff(at_group.is_some_and(|g| g.follows))
                 .over(gated.as_ref()),
             Request::of(job),

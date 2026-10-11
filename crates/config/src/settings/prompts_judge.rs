@@ -6,6 +6,7 @@ use super::{Entry, Words};
 pub const PROMPT_JUDGE_OPENING: Words = Words("prompts.judgeOpening");
 pub const PROMPT_JUDGE_QUESTION: Words = Words("prompts.judgeQuestion");
 pub const PROMPT_JUDGE_ANSWER: Words = Words("prompts.judgeAnswer");
+pub const PROMPT_JUDGE_RISK: Words = Words("prompts.judgeRisk");
 pub const PROMPT_JUDGE_REQUEST: Words = Words("prompts.judgeRequest");
 pub const PROMPT_JUDGE_REQUEST_DONE_WHEN: Words = Words("prompts.judgeRequestDoneWhen");
 pub const PROMPT_JUDGE_READABLE: Words = Words("prompts.judgeReadable");
@@ -79,6 +80,7 @@ pub const PROMPT_OUTCOME_ACCEPTED: Words = Words("prompts.outcomeAccepted");
 pub const PROMPT_OUTCOME_GO_ON: Words = Words("prompts.outcomeGoOn");
 pub const PROMPT_OUTCOME_LAST: Words = Words("prompts.outcomeLast");
 pub const PROMPT_OUTCOME_HANDED_BACK: Words = Words("prompts.outcomeHandedBack");
+pub const PROMPT_OUTCOME_SENT_BACK: Words = Words("prompts.outcomeSentBack");
 pub const PROMPT_OUTCOME_WORK_AGAIN: Words = Words("prompts.outcomeWorkAgain");
 pub const PROMPT_BASE_UP_TO_DATE: Words = Words("prompts.baseUpToDate");
 pub const PROMPT_BASE_CONFLICTED: Words = Words("prompts.baseConflicted");
@@ -88,6 +90,7 @@ pub(super) const JUDGE: &[Entry] = &[
     prompt(PromptSection::Judge, PROMPT_JUDGE_OPENING, "What it is doing", "What a Judge is told before anything else.", &[]),
     prompt(PromptSection::Judge, PROMPT_JUDGE_QUESTION, "The question", "The line a criterion's question follows.", &[]),
     prompt(PromptSection::Judge, PROMPT_JUDGE_ANSWER, "How it answers", "How a Judge answers. Fleet reads the answer by these field names.", &[]),
+    prompt(PromptSection::Judge, PROMPT_JUDGE_RISK, "Whether it is risky", "What a panel's members are asked beside a refusal. Fleet reads the answer by the field name risky.", &[]),
     prompt(PromptSection::Judge, PROMPT_JUDGE_REQUEST, "The request", "The line the request follows.", &[]),
     prompt(PromptSection::Judge, PROMPT_JUDGE_REQUEST_DONE_WHEN, "The Job's criteria", "The line the Job's acceptance criteria follow.", &[]),
     prompt(PromptSection::Judge, PROMPT_JUDGE_READABLE, "Reading the checkout", "What a Judge is told about reading the repository.", &[]),
@@ -155,6 +158,7 @@ pub(super) const JUDGE: &[Entry] = &[
     prompt(PromptSection::InjectedTurns, PROMPT_OUTCOME_GO_ON, "Outcome: go on", "What follows the opening when another step comes next. {step} is that step.", &["step"]),
     prompt(PromptSection::InjectedTurns, PROMPT_OUTCOME_LAST, "Outcome: the last part", "What follows the opening when the step was the last.", &[]),
     prompt(PromptSection::InjectedTurns, PROMPT_OUTCOME_HANDED_BACK, "Outcome: handed back", "The line the failed checks follow when the work goes back to its Drone. {step} is the step.", &["step"]),
+    prompt(PromptSection::InjectedTurns, PROMPT_OUTCOME_SENT_BACK, "Outcome: sent back by the Judges", "The line the Judges' findings follow when they agreed and the work goes back to its Drone. {step} is the step.", &["step"]),
     prompt(PromptSection::InjectedTurns, PROMPT_OUTCOME_WORK_AGAIN, "Outcome: work it again", "The close of a hand-back.", &[]),
     prompt(PromptSection::InjectedTurns, PROMPT_BASE_UP_TO_DATE, "The base moved: brought up to date", "{base} is the base branch and {commits} how many commits it moved.", &["base", "commits"]),
     prompt(PromptSection::InjectedTurns, PROMPT_BASE_CONFLICTED, "The base moved: conflicts left", "{base} is the base branch and {files} the files with markers.", &["base", "files"]),

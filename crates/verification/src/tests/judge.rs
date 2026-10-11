@@ -132,6 +132,7 @@ fn refusal(id: &str) -> Judgment {
         // verdicts and reads neither of these.
         cited: None,
         given: None,
+        risky: None,
     }
 }
 
@@ -146,6 +147,7 @@ fn met(id: &str) -> Judgment {
         brief_path: None,
         cited: None,
         given: None,
+        risky: None,
     }
 }
 

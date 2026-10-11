@@ -67,6 +67,8 @@ Why: that citation is the artifact the Drone retries against and the human reads
 **5. Unanimity, not majority.** A `panel_size` above 1 runs independent judges against identical inputs, none seeing the others' verdicts, and **any single refusal fails the step**.
 Why: majority voting would let the Judge grant by consensus, breaking rule 1, so a panel stays a stricter veto rather than a vote.
 
+**Agreement decides who answers a refusal, never whether there is one.** A step one member refused is refused; what a panel's agreement changes is whether a person is needed to say so. See *When the Judges agree*, below.
+
 **6. Cold by default.** The Judge fires on mechanical triggers only, never on a schedule, and on a well-behaved Drone it never runs at all.
 Why: a detector that polls is the wrong design — the Judge costs money, and a free mechanical signal decides when it is worth spending.
 
@@ -128,6 +130,27 @@ Why: it is the load-bearing half of the change — without it the Judge grades a
 **Citations name the criterion only.** Why: which judge raised a refusal is detail inside the record rather than part of the link, so the reference a Drone retries against keeps its shape whether `panel_size` is 1 or 3.
 
 **A refusal can hold the step rather than fail it.** A criterion asks a person by default: the step waits at its gate with the Drone alive, and the answer is agree with the refusal, disagree for this step, or disagree for the repository — the last recorded against the criterion, so it is not asked again here. Agreeing sends the step back to a fresh Drone by the restart road, the Judge's `expected`, `produced` and `consequence` and the person's note waiting in its opening brief; no retry budget is read, because a person's answer is not a retry. Why: a person who agrees with a refusal wants the work fixed, not the Job stopped — the owner's ruling of 2 Oct 2026, after Agree had stopped a Job he expected to go round again. A `judge_checks[]` entry may carry `on_refusal: refuse` to stop the step outright, and a Job's own setting overrides in either direction. `declared_plan_drift` is the one criterion that can never fail a step: it tags, or it asks.
+
+### When the Judges agree
+
+**A refusal the whole panel agreed on goes back to the Drone, with what was expected and what was found, and no person is asked.** The step goes round again as a failed Check's does: the Job stays `running`, the step passes through `retrying` signed by the Judge, and the same Drone works it again. Why: an Autopilot Job that runs overnight cannot stall on every refusal until morning, and a refusal two different models made independently is not the close call a person is there for.
+
+All four must hold, on every criterion that refused, or the refusals reach a person exactly as they did before:
+
+| Must hold | Why |
+| --- | --- |
+| Every member of the criterion's panel refused | A split is a close call, and a person reads close calls |
+| The members ran on at least two models | One model asked three times agrees with itself more than two models would. A panel of one model is not a second opinion |
+| No member called the work risky | Risk is the Judges' own call, not a list of paths. A refusal that only says the work needs redoing goes back; one a member says could do harm a redo would not undo does not |
+| Fewer than two went back already on this pass | Two retries, then a person. Past it, redoing the work has stopped working |
+
+**`panel_models` names one model per member**, and sizes the panel. A check without it runs every member on its `model`, so a `panel_size: 3` alone still sends every refusal to a person. `panel_size` defaults to one, so nothing goes back to a Drone until a workflow asks for a panel of different models.
+
+**Only a panel's members are asked about risk, and only on a refusal.** Each answers `risky: no`, or says what in the work could break, lose or expose something. A member that refuses and does not say is an unreadable answer, never a safe one, so silence cannot send work back. The reason is kept on the member's judgment. A Judge of one is asked and read exactly as before.
+
+**The drift look never goes back**: it runs no panel, so there is no agreement to read. A criterion a repository stood down with "always disagree" is not a refusal here either.
+
+**This makes the gaming check carry more than it did.** A refusal that returns to a Drone unseen leaves the gaming look as the one thing between a Drone and work shaped to satisfy the criterion rather than the request.
 
 ### Cost
 
@@ -219,6 +242,7 @@ Two readings per member per criterion, beside the verdict. Both are records of t
 | `enabled` | Per-step. Some steps have no semantic question worth asking |
 | `model` | Per-step model dial. The rigor-scaling mechanism |
 | `panel_size` | Default 1. Rigor as a dial — see rule 5 |
+| `panel_models` | One model per member, sizing the panel. What makes a panel's agreement a second opinion — see *When the Judges agree* |
 | `criteria[]` | Per-criterion narrow questions — see above |
 | `prompt_key` | Reference into the compiled-in prompt set |
 | `gaming_check` | `baseline_ref` plus `flag_if` patterns — see Where it fires |

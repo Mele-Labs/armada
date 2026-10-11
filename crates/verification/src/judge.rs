@@ -70,6 +70,27 @@ that quotes words which are not above is discarded, and the work is neither \
 passed nor refused.",
 };
 
+/// What a panel's member is asked beside its verdict: whether the work is
+/// risky. **Only a panel is asked**, because only a panel's agreed refusal can
+/// go back to the Drone without a person reading it — #206.
+pub const JUDGE_RISK: Piece = Piece {
+    id: "judgeRisk",
+    shipped: "\
+Other Judges are answering this same question, each on their own. If your \
+verdict is not_met, add one more line saying whether the work is risky:
+
+    risky: no
+
+when it is unfinished or wrong and redoing it is the whole of the fix. Or:
+
+    risky: <what in the work above could break, lose or expose something>
+
+when it could do harm that redoing it would not undo, or a person should see it \
+before anyone tries again: data lost or rewritten, a secret exposed, a \
+migration or a public interface changed, a check weakened, something done \
+outside what was asked.",
+};
+
 /// What a Judge is told it is doing, before anything else.
 pub const JUDGE_OPENING: Piece = Piece {
     id: "judgeOpening",
@@ -95,6 +116,9 @@ pub struct Brief {
     /// the brief rather than only on a line of it. See
     /// [`shown`](mod@crate::shown).
     regions: Vec<Region>,
+    /// Whether a refusal must say if the work is risky. Set by
+    /// [`on_a_panel`](Brief::on_a_panel) and nowhere else.
+    asks_risk: bool,
 }
 
 impl Brief {
@@ -189,7 +213,20 @@ impl Brief {
             criterion: criterion.criterion_id.clone(),
             question,
             regions,
+            asks_risk: false,
         }
+    }
+
+    /// The same brief, put to a panel: it ends by asking whether the work is
+    /// risky, and a refusal that does not say is unreadable.
+    ///
+    /// **Appended rather than laid**, so every region keeps its place, and a
+    /// brief for one Judge is byte for byte what it was.
+    pub fn on_a_panel(mut self, wording: &Wording) -> Brief {
+        self.question.push_str("\n\n");
+        self.question.push_str(wording.get(JUDGE_RISK));
+        self.asks_risk = true;
+        self
     }
 
     /// Which criterion this call is about. A citation names the criterion and
@@ -243,6 +280,7 @@ impl Brief {
                 brief_path: None,
                 cited: Some(Vec::new()),
                 given: None,
+                risky: None,
             });
         }
         // Constitutional rule 4: a refusal must cite. An uncited one is
@@ -257,7 +295,23 @@ impl Brief {
         // stricter refusal — it is one nobody can check, which is the only
         // kind that cannot be argued with. `self.question` is the whole of
         // what the call was shown, so this is containment and costs no call.
-        for cited in [&expected, &produced, &consequence] {
+        // Absent where the brief did not ask. Where it did, an answer that does
+        // not say is unreadable rather than safe: read as `no`, a member's
+        // silence would send the work back without a person.
+        let risky = match self.asks_risk {
+            false => None,
+            true => {
+                let said = field(answer, "risky").ok_or(Unreadable::RefusalWeighsNoRisk)?;
+                let no = said
+                    .trim_matches(|c: char| !c.is_alphanumeric())
+                    .eq_ignore_ascii_case("no");
+                (!no).then_some(said)
+            }
+        };
+        for cited in [&expected, &produced, &consequence]
+            .into_iter()
+            .chain(risky.as_ref())
+        {
             if let Some(span) = crate::quoted::invented(cited, &self.question) {
                 return Err(Unreadable::RefusalQuotesWhatIsNotThere { span });
             }
@@ -283,6 +337,7 @@ impl Brief {
             brief_path: None,
             cited,
             given: None,
+            risky,
         })
     }
 }
@@ -323,6 +378,8 @@ pub enum Unreadable {
     NoVerdict,
     /// A refusal with no `expected`, `produced` or `consequence`.
     RefusalCitesNothing,
+    /// A panel member's refusal with no `risky:` line.
+    RefusalWeighsNoRisk,
     /// A refusal quoting a run of words that is in none of what the call was
     /// shown. See [`quoted`](mod@crate::quoted) for the defect, and for what
     /// is deliberately not checked.
@@ -355,6 +412,10 @@ impl core::fmt::Display for Unreadable {
             Unreadable::RefusalCitesNothing => f.write_str(
                 "the answer refuses and cites nothing, and an uncited refusal is \
                  unactionable for the Drone and for the person",
+            ),
+            Unreadable::RefusalWeighsNoRisk => f.write_str(
+                "the answer refuses and does not say whether the work is risky, \
+                 so it cannot be sent back without a person",
             ),
             Unreadable::RefusalQuotesWhatIsNotThere { span } => write!(
                 f,

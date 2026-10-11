@@ -63,6 +63,7 @@ pub use job::{
     GateManifest, GateOutcome, GateVerdict, Given, Guard, IllegalDroneMove, IllegalStepTransition,
     IllegalTransition, Iteration, Job, JobEvent, JobId, JobNumber, JobReference, JobStatus,
     JobStep, JudgeCheck, JudgeCriterion, JudgeVerdict, Judgment, LandedHold, ManifestId, ModelName,
+    AGREED_RETRIES,
     Narrowing, NewJob, NewProposal, NotRunDisposition, NotRunReason, OnRefusal, Origin,
     PathPattern, Pause, PausedBy, PilotReason, Prerequisite, ProposalId, Proves, QueuedReason,
     Reach, Recourse, RedirectAlreadyWaiting, RedirectWaiting, Refusal, Refusals, RepoPath,

@@ -119,6 +119,8 @@ fn what_the_judge_said_survives_the_process_that_asked() {
                         size: 41_204,
                         model: "haiku".to_string(),
                     }),
+                    // A panel member's risk reads back as it was said. #206.
+                    risky: Some("it changes what a reader of the table is told".to_string()),
                 },
                 Judgment {
                     criterion_id: CriterionId::new("c2"),
@@ -140,6 +142,7 @@ fn what_the_judge_said_survives_the_process_that_asked() {
                     // empty digest.
                     cited: Some(Vec::new()),
                     given: None,
+                    risky: None,
                 },
             ],
             &created_at(),
@@ -238,6 +241,7 @@ fn a_panels_members_come_back_told_apart() {
             size: 12_880,
             model: "haiku".to_string(),
         }),
+        risky: None,
     };
     store
         .record_step_judgments(

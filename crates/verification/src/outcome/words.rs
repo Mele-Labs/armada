@@ -49,6 +49,13 @@ pub const OUTCOME_HANDED_BACK: Piece = Piece {
     shipped: "{step} did not pass. This is what the checks found:",
 };
 
+/// The line an agreed refusal's findings follow, when the work goes back to
+/// its Drone — #206.
+pub const OUTCOME_SENT_BACK: Piece = Piece {
+    id: "outcomeSentBack",
+    shipped: "{step} did not pass. The Judges agreed on what is wrong with it:",
+};
+
 /// The close of a hand-back.
 pub const OUTCOME_WORK_AGAIN: Piece = Piece {
     id: "outcomeWorkAgain",

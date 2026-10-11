@@ -104,7 +104,9 @@ pub use ids::{
     BlankModel, BlankTitle, CriterionId, DroneId, JobId, ManifestId, ModelName, ProposalId,
     RepoPath, StepId, Title, WorkflowId,
 };
-pub use judge::{Citation, Given, JudgeCheck, JudgeCriterion, JudgeVerdict, Judgment, OnRefusal};
+pub use judge::{
+    Citation, Given, JudgeCheck, JudgeCriterion, JudgeVerdict, Judgment, OnRefusal, AGREED_RETRIES,
+};
 pub use narrowing::Narrowing;
 pub use note::{RedirectAlreadyWaiting, RedirectWaiting};
 pub use phase::StepPhase;
