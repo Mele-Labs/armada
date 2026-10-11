@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { ReactElement, ReactNode } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, fn, userEvent, within } from "storybook/test";
+import { expect, fn, screen, userEvent, within } from "storybook/test";
 
 import { ShortcutRevealProvider } from "../../shortcut-reveal";
 import { HelmComposer, type HelmRepositoryOption } from "./HelmComposer";
@@ -24,22 +24,16 @@ const REPOINT = "Point Helm at a different repository";
 const MORE = "More ways to report this answer";
 
 /**
- * Picking an entry the way a person's mouse does, which is not what
- * `selectOptions` does on its own: **a native `<select>` fires `change` only
- * when the displayed value actually moves**, and `user-event` dispatches one
- * regardless. That difference is this whole defect — the switch displayed
- * *armada* while holding no value, so choosing *armada* changed nothing and
- * Chromium stayed silent — and a play that let `user-event` fire anyway would
- * report the handler called when the app's first repository could not be
- * chosen at all.
+ * Pressing the switch and choosing a row, the way a person does. The menu is drawn in a layer of
+ * its own over the page, so its rows are found on the screen and not inside the story's canvas.
  */
-async function pick(
-  select: HTMLElement,
-  value: string,
-  events: { selectOptions: (target: HTMLElement, value: string) => Promise<void> },
+async function choose(
+  switcher: HTMLElement,
+  label: string,
+  events: { click: (target: Element) => Promise<void> },
 ): Promise<void> {
-  if ((select as HTMLSelectElement).value === value) return;
-  await events.selectOptions(select, value);
+  await events.click(switcher);
+  await events.click(await screen.findByRole("menuitem", { name: label }));
 }
 
 /** The dock's own width and glass — every story draws inside it, so a story that
@@ -84,7 +78,7 @@ export const AtRest: Story = {
     onOpenRecord: fn(),
   },
   play: async ({ canvas }) => {
-    await expect(canvas.queryByRole("combobox")).not.toBeInTheDocument();
+    await expect(canvas.queryByRole("button", { name: /^Point Helm at a/ })).not.toBeInTheDocument();
     await expect(canvas.getByText(repositories[0]!.label)).toBeInTheDocument();
   },
 };
@@ -169,7 +163,7 @@ export const HeadHoldsOneLineAtDockWidth: Story = {
       if (!(head instanceof HTMLElement)) throw new Error("the composer drew no head row");
       const row = head.getBoundingClientRect();
       const controls = [
-        canvas.getByRole("combobox", { name: REPOINT }),
+        canvas.getByRole("button", { name: REPOINT }),
         canvas.getByRole("button", { name: "Copy debug info" }),
         canvas.getByRole("button", { name: MORE }),
       ].map((one) => one.getBoundingClientRect());
@@ -212,18 +206,17 @@ export const HeadHoldsOneLineAtDockWidth: Story = {
 export const UnpointedWithOneRepository: Story = {
   args: { repositories: [repositories[0]!], onSwitch: fn(), disabled: true },
   play: async ({ args, canvas, userEvent }) => {
-    const switcher = canvas.getByRole("combobox", { name: POINT });
+    const switcher = canvas.getByRole("button", { name: POINT });
     // Its own entry, not the one repository: Helm is not pointed at that yet,
     // and a switch displaying it would say it was.
-    await expect(switcher).toHaveDisplayValue(UNPOINTED);
-    await expect(switcher).not.toHaveDisplayValue(repositories[0]!.label);
+    await expect(switcher).toHaveTextContent(UNPOINTED);
+    await expect(switcher).not.toHaveTextContent(repositories[0]!.label);
     // Said once, as with two or more: the entry says it and says what to do.
     await expect(canvas.queryByText("No repository to ask yet")).not.toBeInTheDocument();
 
     // And the one repository is pickable — which is the whole of why the
-    // control is drawn. `pick` because the browser fires no `change` for an
-    // entry already displayed, and `user-event` fires one regardless.
-    await pick(switcher, repositories[0]!.id, userEvent);
+    // control is drawn.
+    await choose(switcher, repositories[0]!.label, userEvent);
     await expect(args.onSwitch).toHaveBeenCalledWith(repositories[0]!.id);
   },
 };
@@ -233,12 +226,17 @@ export const SwitchOnAll: Story = {
   args: { current: repositories[0]!.id, repositories, onSwitch: fn() },
   play: async ({ args, canvasElement }) => {
     const canvas = within(canvasElement);
-    const switcher = canvas.getByRole("combobox", { name: REPOINT });
+    const switcher = canvas.getByRole("button", { name: REPOINT });
     // Pointed at one, the switch stands on it and carries nothing else — the
-    // unpointed entry is not an option a pointed switch offers.
-    await expect(switcher).toHaveDisplayValue(repositories[0]!.label);
-    await expect(canvas.queryByRole("option", { name: UNPOINTED })).not.toBeInTheDocument();
-    await userEvent.selectOptions(switcher, repositories[1]!.id);
+    // unpointed entry is not a row a pointed switch offers.
+    await expect(switcher).toHaveTextContent(repositories[0]!.label);
+    await userEvent.click(switcher);
+    await expect(screen.queryByRole("menuitem", { name: UNPOINTED })).not.toBeInTheDocument();
+    // The switch searches: focus lands in the filter field, and typing leaves only what matches.
+    await expect(await screen.findByRole("searchbox", { name: "Find a repository" })).toHaveFocus();
+    await userEvent.keyboard("shop");
+    await expect(screen.queryByRole("menuitem", { name: repositories[0]!.label })).not.toBeInTheDocument();
+    await userEvent.click(await screen.findByRole("menuitem", { name: repositories[1]!.label }));
     await expect(args.onSwitch).toHaveBeenCalledWith(repositories[1]!.id);
   },
 };
@@ -257,15 +255,15 @@ export const SwitchOnAll: Story = {
 export const UnpointedStandsAtItsOwnEntry: Story = {
   args: { repositories, onSwitch: fn(), disabled: true },
   play: async ({ args, canvas, userEvent }) => {
-    const switcher = canvas.getByRole("combobox", { name: POINT });
-    await expect(switcher).toHaveDisplayValue(UNPOINTED);
-    await expect(switcher).not.toHaveDisplayValue(repositories[0]!.label);
+    const switcher = canvas.getByRole("button", { name: POINT });
+    await expect(switcher).toHaveTextContent(UNPOINTED);
+    await expect(switcher).not.toHaveTextContent(repositories[0]!.label);
     // Said once: the entry says it and says what to do, so the line does not
     // repeat it — at the dock's width the two cut each other down to "No repo…".
     await expect(canvas.queryByText("No repository to ask yet")).not.toBeInTheDocument();
 
-    // The first repository in the list, which is the one that could not be chosen.
-    await pick(switcher, repositories[0]!.id, userEvent);
+    // The first repository in the list, which is the one a native select could not choose.
+    await choose(switcher, repositories[0]!.label, userEvent);
     await expect(args.onSwitch).toHaveBeenCalledWith(repositories[0]!.id);
   },
 };
@@ -280,7 +278,7 @@ export const NothingToAskYet: Story = {
   play: async ({ args, canvas }) => {
     // No switch is drawn with nothing to point at, so the line is the only
     // place the state can be said, and it says it.
-    await expect(canvas.queryByRole("combobox")).not.toBeInTheDocument();
+    await expect(canvas.queryByRole("button", { name: /^Point Helm at a/ })).not.toBeInTheDocument();
     await expect(canvas.getByText("No repository to ask yet")).toBeInTheDocument();
     await expect(canvas.getByRole("textbox")).toBeDisabled();
     const send = canvas.getByRole("button", { name: "Send" });

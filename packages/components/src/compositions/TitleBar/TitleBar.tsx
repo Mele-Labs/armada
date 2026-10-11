@@ -1,9 +1,10 @@
 import { Check, Menu, MessageSquare, Moon, Plus, Search, Sunrise, type LucideIcon } from "lucide-react";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { ArmadaLockupHorizontal, ArmadaMark } from "@armada/brand";
 import { FLEET_DOT_TONE, FleetStarting, fleetSaid, type FleetState } from "../FleetPanel/FleetPanel";
 import { Button } from "../../primitives/Button/Button";
-import type { DropdownMenuEntry } from "../../primitives/DropdownMenu/DropdownMenu";
+import { filterEntries, type DropdownMenuEntry } from "../../primitives/DropdownMenu/DropdownMenu";
+import { Input } from "../../primitives/Input/Input";
 import { keyFor } from "../../actions";
 import { Kbd, KbdCmd } from "../../primitives/Kbd/Kbd";
 import { Popover } from "../../primitives/Popover/Popover";
@@ -255,9 +256,18 @@ export function TitleBar({
 
 /** The picker's list, flat: the same entries its dropdown draws, one row each. */
 function RepositoryRows({ entries, onSelect, manifest }: NonNullable<TitleBarProps["repositoryMenu"]>) {
+  // The wide picker's filter field, in the narrow menu too: a list of twenty is a scroll here as well.
+  const [query, setQuery] = useState("");
+  const shown = filterEntries(entries, query);
   return (
     <div className="armada-title-bar__menu-repositories" role="group" aria-label="Repositories">
-      {entries.map((entry) =>
+      <div className="armada-title-bar__menu-search">
+        <Input aria-label="Find a repository" role="searchbox" autoComplete="off" value={query} onChange={(event) => setQuery(event.target.value)} />
+      </div>
+      {query.trim() !== "" && shown.length === 0 ? (
+        <p className="armada-title-bar__menu-empty" role="status">{`Nothing matches “${query.trim()}”.`}</p>
+      ) : null}
+      {shown.map((entry) =>
         entry.kind === "separator" ? (
           <div key={entry.id} className="armada-title-bar__menu-rule" aria-hidden />
         ) : entry.kind === "label" ? (

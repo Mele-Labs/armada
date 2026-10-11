@@ -94,6 +94,12 @@ export type DropdownMenuProps = {
    * choosable row left, and ↓ walks into the list.
    */
   searchLabel?: string;
+  /**
+   * What the trigger is called to a screen reader where its text says only the current choice —
+   * Helm's repository switch shows the repository it stands on, and the name says what pressing
+   * it does. Absent, the trigger is named by its text.
+   */
+  triggerAriaLabel?: string;
 };
 
 /**
@@ -133,6 +139,7 @@ export function DropdownMenu({
   icon: Glyph,
   portal = false,
   searchLabel,
+  triggerAriaLabel,
 }: DropdownMenuProps) {
   const [own, setOwn] = useState(defaultOpen);
   const open = held ?? own;
@@ -235,6 +242,7 @@ export function DropdownMenu({
           ref={trigger}
           type="button"
           className="armada-dropdown-menu__trigger"
+          aria-label={triggerAriaLabel}
           aria-haspopup="menu"
           aria-expanded={open && !disabled}
           disabled={disabled}

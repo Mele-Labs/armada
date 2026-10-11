@@ -244,8 +244,16 @@ export const InASlimWindow: Story = {
     await expect(args.helm!.onOpen).toHaveBeenCalledTimes(1);
     await expect(canvas.queryByRole("dialog", { name: "Menu" })).not.toBeInTheDocument();
 
+    // The filter field is here at this width too, and typing narrows the rows to what matches.
     await userEvent.click(canvas.getByRole("button", { name: "Menu" }));
-    await userEvent.click(canvas.getByRole("button", { name: "armada" }));
+    const reopened = canvas.getByRole("dialog", { name: "Menu" });
+    await userEvent.type(within(reopened).getByRole("searchbox", { name: "Find a repository" }), "arm");
+    await expect(within(reopened).queryByRole("button", { name: "All repositories" })).toBeNull();
+    await userEvent.type(within(reopened).getByRole("searchbox"), "zzz");
+    await expect(within(reopened).getByRole("status")).toHaveTextContent("Nothing matches “armzzz”.");
+    await userEvent.clear(within(reopened).getByRole("searchbox"));
+    await userEvent.type(within(reopened).getByRole("searchbox"), "arm");
+    await userEvent.click(within(reopened).getByRole("button", { name: "armada" }));
     await expect(args.repositoryMenu!.onSelect).toHaveBeenCalledWith("/code/armada");
     await expect(canvas.queryByRole("dialog", { name: "Menu" })).not.toBeInTheDocument();
   },
