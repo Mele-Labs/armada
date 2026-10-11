@@ -211,8 +211,7 @@ pub(crate) async fn judged(
                 answered,
                 &judging.wording,
             );
-            // A panel is asked whether the work is risky too, since only a
-            // panel's agreement can send it back without a person. #206.
+            // Only a panel's agreement can skip a person, so only it is asked about risk.
             let brief = match check.panel_size() > 1 {
                 true => brief.on_a_panel(&judging.wording),
                 false => brief,
@@ -484,8 +483,7 @@ fn fleets_model(step: &ResolvedStep, default: &Model) -> Result<Model, CallFaile
     }
 }
 
-/// What one member of a check's panel runs on: its own model, the check's,
-/// or the fleet default, in that order.
+/// What one panel member runs on: its own model, the check's, or the default.
 fn member_model(check: &JudgeCheck, member: u32, default: &Model) -> Result<Model, CallFailed> {
     match check.member_model(member) {
         Some(named) => Model::named(named.as_str()).map_err(|_| CallFailed::NothingToAsk),

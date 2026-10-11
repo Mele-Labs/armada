@@ -1,20 +1,16 @@
-//! Whether a refusal goes back to the Drone rather than to a person — #206.
-//!
-//! **A panel that agreed, on different models, with nobody calling the work
-//! risky, inside the retry budget.** All four, on every criterion that refused,
-//! or the refusals take the road every refusal took before: a person. That is
-//! the owner's decision of 11 Oct 2026,
-//! `.claude/decisions/2026-10-11-agreed-refusals-go-back-to-the-drone.md`.
+//! Whether a refusal goes back to the Drone rather than to a person — the
+//! owner's decision on #206 of 11 Oct 2026. All four must hold on every
+//! criterion that refused, or the refusals reach a person as before.
 //!
 //! | Must hold | Why |
 //! |---|---|
-//! | every member of the criterion's panel refused | a split is a close call, and a person reads close calls |
-//! | the members ran on at least two models | one model asked three times agrees with itself; that is not a second opinion |
-//! | no member called the work risky | the Judges' own sense of risk is what still brings a person in |
-//! | fewer than [`AGREED_RETRIES`] went back already | past it, redoing the work has stopped working |
+//! | every member of the criterion's panel refused | a person reads close calls |
+//! | the members ran on at least two models | one model agreeing with itself is not a second opinion |
+//! | no member called the work risky | the Judges' own sense of risk still brings a person in |
+//! | fewer than [`AGREED_RETRIES`] went back already | past it, redoing has stopped working |
 //!
-//! **A step's panel size defaults to one**, so nothing here fires until a
-//! workflow asks for a panel of different models.
+//! `panel_size` defaults to one, so nothing fires until a workflow asks for a
+//! panel of different models.
 
 use core_model::{CriterionId, JudgeCheck, Judgment, AGREED_RETRIES};
 use verification::Refusals;
