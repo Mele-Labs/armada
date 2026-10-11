@@ -25,4 +25,5 @@ export * from "./Shell";
 export * from "./repository-label";
 export * from "./RepositoryOptions";
 export * from "./surfaces";
+export * from "./surface-scope";
 export * from "./uncaught";
