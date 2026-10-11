@@ -61,10 +61,12 @@ export const autopilot: Slice<AutopilotApi, Record<string, never>> = {
   state: {},
   api: () => {
     const held = new Map<string, Autopilot>();
+    const told = new Set<(autopilot: Autopilot) => void>();
     const of = (manifestId: string): Autopilot => held.get(manifestId) ?? running(manifestId);
     const moved = (manifestId: string, change: Partial<Autopilot>) => {
       const now = { ...of(manifestId), ...change };
       held.set(manifestId, now);
+      told.forEach((one) => one(now));
       return { ok: true as const, value: now };
     };
     const picked = (manifestId: string, pickId: string, state: "started" | "dismissed") =>
@@ -85,6 +87,10 @@ export const autopilot: Slice<AutopilotApi, Record<string, never>> = {
       getAutopilot: async (manifestId) => ({ ok: true, value: of(manifestId) }),
       dispatchSetAside: async (manifestId, pickId) => picked(manifestId, pickId, "started"),
       dismissSetAside: async (manifestId, pickId) => picked(manifestId, pickId, "dismissed"),
+      onAutopilotChanged: (onChanged) => {
+        told.add(onChanged);
+        return () => void told.delete(onChanged);
+      },
     };
   },
 };

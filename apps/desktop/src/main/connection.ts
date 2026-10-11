@@ -306,9 +306,7 @@ export class FleetConnection {
       current: () => this.current,
       now: () => this.wiring.now(),
       greeted: () => this.greeted,
-      setGreeted: (value) => {
-        this.greeted = value;
-      },
+      setGreeted: (value) => void (this.greeted = value),
       proposalRef: () => this.proposalRef,
       setProposalJob: (value) => {
         this.proposalJobId = value;
@@ -326,6 +324,8 @@ export class FleetConnection {
       mods: this.mods,
       sessions: this.sessions,
       sleep: this.sleep,
+      // Autopilot's changes, which main/index.ts passes to every window.
+      issues: this.issues,
       fleetBuild: this.fleetBuild,
       material: this.material,
       socket: this.socket,
