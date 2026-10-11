@@ -57,12 +57,12 @@ A Drone that does not know has two options today, and here neither one works.
 | Guess | Nothing prevents it | The output is Jobs that run and spend, not a bad verdict |
 
 **Ask is built, and it is not a status.** `ask_question` is a Drone tool in
-every toolbelt and `answer_question` is the Bridge command that answers it; the question
-rides beside the state on the working slot, crosses on `get_job` as `asking`,
-and moves as `job.asking`. A step whose Drone is waiting is still `running`, for
-the reason `crates/ipc/operations/` gives about a Judge call in flight — a
-seventh step state or a twelfth Job status would be a variant the other side
-matches on, which is a major bump and Bridge falling back to the /v0 lifeboat.
+every toolbelt and `answer_question` is the Bridge command that answers it; the
+question is kept on the Job, crosses on `get_job` as `asking`, and moves as
+`job.asking`. The asking Drone stands down and the Job waits at `queued`
+reading `awaiting_answer`, its step still `running` — the shape `over_budget`
+and a parent waiting on its children already have, rather than a new step
+state or Job status.
 
 **The answer is one of the labels the Drone itself offered.** Two to four of
 them, each saying what it commits to, and there is no field for prose anywhere
@@ -71,19 +71,19 @@ conversation `scope.md` rejected. Redirect is how a person's own words reach a
 Drone from here — and since protocol 11.5 a reject carries a note about the one
 command it refuses, which is a refusal explaining itself rather than a reply.
 
-Neither vigil counts a waiting Drone as a stopped one: `crates/fleet/src/silence.rs`
-and `crates/fleet/src/converging.rs` decline on it exactly as they decline on
-evidence sitting at the gate.
-
 **A question reaches the Board, and it is the one tab rule that is not a
-lifecycle row.** `who_is_acting` on `running` is `Drone`, so the registry cannot
+lifecycle row.** `who_is_acting` on `queued` is `Drone`, so the registry cannot
 place a Job that is waiting on a person; the row carries `asking` and
 `docs/concepts/job-board.md` is the rule. Without it a question on a Job nobody
 had open would be invisible.
 
-**What it still costs is a slot.** A waiting Drone occupies a place under
-`#50`'s bound and nothing gives it back, so a question left unanswered overnight
-is a fraction of the fleet idle. That is filed rather than fixed.
+**A waiting Job gives its place back** (the owner's decision of 11 Oct
+2026, #2094).
+The asking Drone stands down, the branch and worktree stay, and admission gives
+the place to the next queued Job. The question survives a Fleet restart, and
+when it is answered the Job queues for a place and a fresh Drone resumes the
+same step from the answer and the branch. **The cost taken**: the asking
+Drone's own context is lost. It still holds its worktree slot while it waits.
 
 ## The tracker is an adapter for Bridge, and this workflow does not wait on it
 
