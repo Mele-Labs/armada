@@ -14,7 +14,10 @@ fn the_call_reads_with_only_what_is_required_and_writes_nothing_absent() {
     .unwrap();
     assert!(ask.options.is_empty() && ask.text.is_none() && ask.session_id.is_none());
     let back = serde_json::to_value(&ask).unwrap();
-    assert_eq!(back, json!({"question":"Beside or under?","url":"http://localhost:5173/","selector":"main > h1"}));
+    assert_eq!(
+        back,
+        json!({"question":"Beside or under?","url":"http://localhost:5173/","selector":"main > h1"})
+    );
 }
 
 #[test]

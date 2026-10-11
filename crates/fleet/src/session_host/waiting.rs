@@ -9,8 +9,7 @@
 //! ones, and a window stops waiting once it is approved or the person has sent the session a
 //! message after it opened. A window closed without either still waits: that is his call.
 //!
-//! **A question asked in the walk window waits until it is answered.** It is read off its thread
-//! row, `window_ask:<row>`, and follows Fleet's other items.
+//! **A question asked in the walk window waits until answered**, read off its row as `window_ask:<row>`.
 //!
 //! **A dismissed id never comes back.** `dismiss_waiting` keeps the id; a derived item with it is
 //! left off every read and an agent item with it is dropped from the kept list.
@@ -172,7 +171,10 @@ pub(crate) fn merged(
             options: one
                 .options
                 .into_iter()
-                .map(|label| WaitingOption { label, description: None })
+                .map(|label| WaitingOption {
+                    label,
+                    description: None,
+                })
                 .collect(),
             place: None,
         })
@@ -258,14 +260,25 @@ where
         let mut items = merged(kept, asked.as_ref(), &windows, &dismissed, ended);
         if !ended {
             items.extend(rows.into_iter().filter_map(|row| match row {
-                SessionRow::WindowAsk { id, at, question, options, place, window, answer: None } => {
+                SessionRow::WindowAsk {
+                    id,
+                    at,
+                    question,
+                    options,
+                    place,
+                    window,
+                    answer: None,
+                } => {
                     let id = format!("{WINDOW_ASK_PREFIX}{id}");
-                    (!dismissed.contains(&id)).then(|| WaitingItem {
+                    (!dismissed.contains(&id)).then_some(WaitingItem {
                         id,
                         text: question,
                         since: at,
                         source: WaitingSource::WindowAsk,
-                        act: Some(WaitingAct { kind: WaitingActKind::Walk, target: window }),
+                        act: Some(WaitingAct {
+                            kind: WaitingActKind::Walk,
+                            target: window,
+                        }),
                         options,
                         place: Some(place),
                     })

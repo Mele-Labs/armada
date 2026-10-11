@@ -33,7 +33,11 @@ pub(crate) fn origin_of(url: &str) -> Option<String> {
         _ => return None,
     };
     let authority = rest.split(['/', '?', '#']).next().unwrap_or_default();
-    let host = authority.rsplit('@').next().unwrap_or_default().to_ascii_lowercase();
+    let host = authority
+        .rsplit('@')
+        .next()
+        .unwrap_or_default()
+        .to_ascii_lowercase();
     if host.is_empty() || host.starts_with(':') {
         return None;
     }
@@ -90,7 +94,10 @@ where
         };
         let id = caller
             .and_then(|caller| self.session_holding(&caller))
-            .or_else(|| ask.session_id.map(|named| named.as_str().trim().to_string()))
+            .or_else(|| {
+                ask.session_id
+                    .map(|named| named.as_str().trim().to_string())
+            })
             .filter(|id| !id.is_empty())
             .ok_or_else(|| self.hosted_refusal(WINDOW_ASK_UNNAMED, "a session to ask it for"))?;
         let window = {
@@ -131,7 +138,11 @@ where
                 at: self.instant(),
                 question,
                 options,
-                place: WindowPlace { url, selector, text },
+                place: WindowPlace {
+                    url,
+                    selector,
+                    text,
+                },
                 window,
                 answer: None,
             },
@@ -156,9 +167,23 @@ where
             return;
         };
         let found = rows.into_iter().find_map(|row| match row {
-            SessionRow::WindowAsk { id, at, question, options, place, window, .. } if id == row_id => {
-                Some(SessionRow::WindowAsk { id, at, question, options, place, window, answer: Some(answer.clone()) })
-            }
+            SessionRow::WindowAsk {
+                id,
+                at,
+                question,
+                options,
+                place,
+                window,
+                ..
+            } if id == row_id => Some(SessionRow::WindowAsk {
+                id,
+                at,
+                question,
+                options,
+                place,
+                window,
+                answer: Some(answer.clone()),
+            }),
             _ => None,
         });
         if let Some(row) = found {
@@ -173,10 +198,22 @@ mod tests {
 
     #[test]
     fn an_origin_is_scheme_host_and_a_port_that_is_not_the_schemes_own() {
-        assert_eq!(origin_of("http://localhost:5173/findings?x=1").as_deref(), Some("http://localhost:5173"));
-        assert_eq!(origin_of("HTTPS://Example.com:443/a").as_deref(), Some("https://example.com"));
-        assert_eq!(origin_of("http://user@example.com:80").as_deref(), Some("http://example.com"));
-        assert_ne!(origin_of("http://localhost:5173/"), origin_of("http://localhost:6006/"));
+        assert_eq!(
+            origin_of("http://localhost:5173/findings?x=1").as_deref(),
+            Some("http://localhost:5173")
+        );
+        assert_eq!(
+            origin_of("HTTPS://Example.com:443/a").as_deref(),
+            Some("https://example.com")
+        );
+        assert_eq!(
+            origin_of("http://user@example.com:80").as_deref(),
+            Some("http://example.com")
+        );
+        assert_ne!(
+            origin_of("http://localhost:5173/"),
+            origin_of("http://localhost:6006/")
+        );
         assert_eq!(origin_of("file:///etc/hosts"), None);
         assert_eq!(origin_of("http:///nohost"), None);
     }
