@@ -33,6 +33,7 @@ import type { AnswerSessionAsk, AnswerWaiting, ClaimPullRequest, DismissWaiting,
 import type { ArtifactRead, PageBounds } from "@armada/screens/src/draft/sessions";
 import type { PilotExit, PullRequestPress, SessionActed } from "../shared/api/sessions";
 import type { SleepActed } from "../shared/api/sleep";
+import type { IssuesRead } from "../shared/api/issues";
 import type { HelmContext, HelmDebugRead } from "@armada/protocol";
 import type { StudioCapture, StudioNodeByHand, StudioPosition, StudioPromotion } from "@armada/protocol";
 import type { StudioAnswer } from "@armada/screens/src/studio-reads";
@@ -626,6 +627,8 @@ const api: BridgeApi = {
   // repository a new one starts in is the window's own pick, read in main, and a pull request is
   // named by its number against the session that holds it. No path and no port crosses.
   getSleep: (): Promise<SleepActed> => ipcRenderer.invoke(CHANNELS.getSleep),
+  // A repository's open issues, by its Manifest. #91.
+  listIssues: (manifestId: string, refresh: boolean): Promise<IssuesRead> => ipcRenderer.invoke(CHANNELS.listIssues, manifestId, refresh),
   setSleep: (on: boolean): Promise<SleepActed> => ipcRenderer.invoke(CHANNELS.setSleep, on),
   overrideSleep: (id: string, text: string): Promise<SleepActed> => ipcRenderer.invoke(CHANNELS.overrideSleep, id, text),
   onSleepChanged: (onChanged: (state: SleepState) => void): (() => void) => {

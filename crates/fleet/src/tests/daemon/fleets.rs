@@ -225,6 +225,9 @@ pub fn fitted_over<V>(
         // exactly as it did before this seam existed. The cases about it
         // plant their own.
         links: Arc::new(FakeLinkLookup::resolving_nothing()),
+        // Lists nothing and takes every write. The cases about writing back
+        // plant their own, to read what was written.
+        tracker: Arc::new(testkit::FakeTracker::empty()),
         // The shipped reader: it only reads files, so a fixture runs what ships.
         ci_configuration: Arc::new(adapters::ActionsWorkflows),
         // Planted, not read. The composition root resolves these from the

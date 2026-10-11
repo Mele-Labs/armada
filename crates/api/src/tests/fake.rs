@@ -20,6 +20,7 @@ mod authoring;
 mod commands;
 mod conversing;
 mod hosted_sessions;
+mod issues;
 mod mods;
 mod settings;
 mod needs;

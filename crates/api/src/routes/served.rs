@@ -594,6 +594,12 @@ const ROUTES: &[Route] = &[
         method: "POST",
         path: "/sleep/override",
     },
+    // A repository's open issues, read from its tracker. #91.
+    Route {
+        operation: "list_issues",
+        method: "GET",
+        path: "/issues/:repository",
+    },
     // A session Fleet hosts for Bridge. Since 23.49.
     Route {
         operation: "start_session",

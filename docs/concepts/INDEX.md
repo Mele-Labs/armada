@@ -42,5 +42,6 @@ assuming it is restated here.
 | [sketch-pane.md](sketch-pane.md) | What the Overview draws beside the Now panel while something asks: a Drone's sketch, the asker's view or the canvas |
 | [studio.md](studio.md) | A typed graph of what one stretch of work produced, kept per repository |
 | [themes.md](themes.md) | The colours Bridge is drawn in: Dark, Light, a catalogue of terminal colour schemes, and the themes mods add |
+| [tracker.md](tracker.md) | The adapter through which Fleet lists a repository's open issues and writes back on the one a Job came from |
 | [trigger.md](trigger.md) | Something that runs at a moment in a Job — a Command or a skill, set by Armada, a repository or this machine |
 | [workflow.md](workflow.md) | The template a Job runs against — ordered steps, gates and retry policy |

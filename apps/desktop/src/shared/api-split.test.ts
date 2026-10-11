@@ -183,6 +183,7 @@ import type {
 import type { AnswerSessionAsk, AnswerWaiting, ClaimPullRequest, DismissWaiting, PilotOutcome, PullRequestClaimed, PullRequestState, RenameSession, ReviewDispatched, SendSessionMessage, SessionRow, SessionSubagent, TuneSession } from "@armada/protocol";
 import type { PilotExit, PullRequestPress, SessionActed, SessionsRead } from "./api/sessions";
 import type { SleepActed } from "./api/sleep";
+import type { IssuesRead } from "./api/issues";
 import type { SleepState } from "@armada/protocol";
 import type { BridgeApi } from "./api";
 import { CHANNELS, NOTHING_YET } from "./bridge";
@@ -461,6 +462,7 @@ type OldBridgeApi = {
     claimPullRequest: (claim: ClaimPullRequest) => Promise<SessionActed<PullRequestClaimed>>;
     dismissWaiting: (dismiss: DismissWaiting) => Promise<SessionActed>;
     getSleep: () => Promise<SleepActed>;
+    listIssues: (manifestId: string, refresh: boolean) => Promise<IssuesRead>;
     setSleep: (on: boolean) => Promise<SleepActed>;
     overrideSleep: (id: string, text: string) => Promise<SleepActed>;
     onSleepChanged: (onChanged: (state: SleepState) => void) => () => void;
@@ -746,6 +748,7 @@ const OLD_CHANNELS = {
     claimPullRequest: "bridge:claim-pull-request",
     dismissWaiting: "bridge:dismiss-waiting",
     getSleep: "bridge:get-sleep",
+    listIssues: "bridge:list-issues",
     setSleep: "bridge:set-sleep",
     overrideSleep: "bridge:override-sleep",
     sleepChanged: "bridge:sleep-changed",
