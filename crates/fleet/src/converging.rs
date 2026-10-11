@@ -328,15 +328,15 @@ where
         job: &JobId,
         step: &StepId,
     ) -> Result<Option<Wandering>, Adrift> {
-        // At the gate, or waiting on a person — neither is thrashing, and both
-        // are cheaper than the tripwires. `crate::questioning` says why.
+        // At the gate, or waiting on a person about a command — neither is
+        // thrashing, and both are cheaper than the tripwires.
         if self.evidence_waiting_for(job) > 0 {
             return Ok(None);
         }
         let (tripped, worktree, in_plan, declared, off_plan) = {
             let working = slot.lock().await;
             let at_work = working.as_ref().expect("the slot was read as full");
-            if crate::questioning::waiting_on_an_answer(at_work) {
+            if at_work.permission().is_some() {
                 return Ok(None);
             }
             let Some(tripped) = self.tripped(at_work) else {

@@ -87,7 +87,7 @@ Neither one stops a Job that is spending. That is the Job's own Pause.
 | Part | State |
 |---|---|
 | The decisions | Taken, `.claude/decisions/2026-10-11-*.md` |
-| A waiting Job gives its place back | Not built |
+| A waiting Job gives its place back | Built, #2094: the Job waits at `queued` reading `awaiting_answer`, and keeps its worktree slot |
 | An agreed refusal goes back to the Drone | Built, #206: `docs/concepts/judge.md`, *When the Judges agree*. It needs a panel of two models or more |
 | Fleet reads issues and writes back | Built, #91: `docs/concepts/tracker.md`. The list is in the composer; the Cockpit lane is Autopilot's |
 | The Autopilot record, caps, picker, Pause and Stop | Not built |

@@ -235,18 +235,15 @@ pub struct JobSummary {
     ///
     /// # One of the two things on the row that are not from the record
     ///
-    /// [`landed`](JobSummary::landed) is the other. Every other field is read
-    /// off `core_model::Job`; this is read off the working slot, which is why
-    /// [`JobSummary::of`] takes it rather than finding it — and why it is
-    /// `false` on every summary built where no slot was in hand, which is
-    /// every event publish. That is correct rather than a gap: a Job created,
-    /// advancing a step or losing its Drone has not just asked something, and
-    /// the one message that says a question exists is `job.asking`.
+    /// [`landed`](JobSummary::landed) is the other. A Drone's own question is
+    /// read off the record, so every summary says it; a permission question is
+    /// read off the working slot, which is why [`JobSummary::of`] also takes
+    /// it, and why that half is `false` where no slot was in hand.
     ///
     /// # Why the Board needs it at all
     ///
-    /// `who_is_acting` on `running` is `Drone`, so without this a Job waiting on
-    /// a person sits under **Running** and a question on a Job nobody has open
+    /// `who_is_acting` on `queued` is `Drone`, so without this a Job waiting on
+    /// a person sits under **Queued** and a question on a Job nobody has open
     /// is invisible. `docs/concepts/job-board.md` carries the rule.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub asking: bool,
@@ -371,6 +368,7 @@ impl JobSummary {
             reason: reason.and_then(Reason::of),
             queued_reason: queued_reason.map(QueuedReason::from),
             budget_hold: budget_hold.map(BudgetHold::from),
+            asking: asking || job.waiting_on_an_answer(),
             frozen_by: Vec::new(),
             resumption: resumption.map(Resumption::from),
             workflow_id: job.workflow_id().into(),
@@ -391,7 +389,6 @@ impl JobSummary {
                 .map(|edge| JobId::from(&edge.peer))
                 .collect(),
             reclaimed_at: job.reclaimed_at().map(Instant::from),
-            asking,
             // Filled by the caller that has it, and `None` here on purpose:
             // it is not a field of `core_model::Job` at all — it is what a
             // person did to the pull request afterwards, which lives in three
@@ -510,11 +507,9 @@ pub struct RestartRequested {
 /// holds no log to ask.
 impl From<&core_model::Job> for JobSummary {
     fn from(job: &core_model::Job) -> JobSummary {
-        // **`asking` is `false` here and that is the answer, not a default.**
-        // This conversion is what an event publish uses and it holds no slot;
-        // creation, a step advancing and a Drone arriving or leaving are none of
-        // them a Job that has just asked something. The message that says a
-        // question exists is `job.asking`, which carries the question itself.
+        // **The slot half of `asking` is `false` here, not a default**: this
+        // conversion holds no slot. A Drone's own question is on the record,
+        // and `JobSummary::of` reads it from there.
         //
         // `budget_hold` is `None` for the same reason `queued_reason` is: both
         // are read off the board rather than off the record, and this

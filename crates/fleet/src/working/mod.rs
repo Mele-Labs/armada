@@ -45,7 +45,6 @@ use crate::converging::{elapsed, Chain};
 use crate::drone::{Ending, Started};
 use crate::footprint::Publishing;
 use crate::permitting::Waiting;
-use crate::questioning::Question;
 use crate::session::LiveSession;
 use crate::silence::Liveness;
 use crate::transcript::{Tap, Taps};
@@ -168,26 +167,11 @@ pub(crate) struct Working {
     /// costs the same care. The instant is kept beside the baseline because the
     /// wait is a fact a person is owed — `Fleet::redirect_awaited` serves it.
     answering: Option<Awaiting>,
-    /// The question this Drone asked and nobody has answered yet.
-    ///
-    /// **`Some` is a Drone that is waiting rather than working**, and it is the
-    /// only thing that tells the two apart: the process is alive, the Job is
-    /// `running`, the step is `running`, and nothing is arriving. Both vigils
-    /// read this and decline, exactly as they decline on evidence sitting at
-    /// the gate — see `crate::questioning`.
-    ///
-    /// Held here and written to no column, for
-    /// [`JudgeInFlight`](ipc::JudgeInFlight)'s reason: it is only ever true
-    /// now. A Fleet that restarts loses the Drone that asked, and the Job it
-    /// asked on is escalated as `interrupted`, so a stored question would
-    /// outlive the only process that could act on the answer.
-    ///
-    /// **One at a time.** `Fleet::ask_question` refuses a second while one is
-    /// held, because a Drone that could stack questions would be holding a
-    /// conversation and a queue is a thing a person answers out of order.
-    asked: Option<Question>,
     /// The permission question a person was asked about a call this Drone
-    /// made. Beside `asked` and for its reasons — see `crate::permitting`.
+    /// made. **`Some` is a Drone that is waiting rather than working**, and
+    /// both vigils read it and decline. See `crate::permitting`. A Drone's own
+    /// question is not held here: asking stands the Drone down, and the
+    /// question is on the Job — `crate::questioning`.
     permission: Option<Waiting>,
     /// What [`Progress::boundaries`](crate::Progress::boundaries) read when
     /// Armada last put a turn into this session.
@@ -383,7 +367,6 @@ impl Working {
             heard_at: at,
             heard: 0,
             answering: None,
-            asked: None,
             permission: None,
             told_after: AtomicUsize::new(0),
             pokes: 0,
@@ -454,7 +437,6 @@ impl Working {
             heard_at: at,
             heard: 0,
             answering: None,
-            asked: None,
             permission: None,
             told_after: AtomicUsize::new(0),
             pokes: 0,

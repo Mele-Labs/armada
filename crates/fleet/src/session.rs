@@ -38,7 +38,6 @@ use crate::fixing::FixReported;
 use crate::group::{end_the_group, run_is_over};
 use crate::peers::PeersChanged;
 use crate::permitting::Permitted;
-use crate::questioning::Answer;
 use crate::resume::Redirection;
 use crate::silence::Poke;
 use crate::terms::{Declaring, Redeclaring};
@@ -161,20 +160,6 @@ pub trait LiveSession {
         &self,
         directive: &ReportNow,
     ) -> impl Future<Output = Result<(), Self::Error>> + Send;
-
-    /// Hand the waiting Drone a person's answer to the question it asked.
-    ///
-    /// **A separate method from [`redirect`](LiveSession::redirect) because the
-    /// two carry different authorship**, the same argument that keeps `redirect`
-    /// apart from [`tell`](LiveSession::tell). A redirect is a person's own
-    /// words and Fleet adds none; this is Fleet's own sentence built around a
-    /// label the Drone itself offered, and there is no way to send other text
-    /// under it — [`Answer`] has no constructor taking one.
-    ///
-    /// One method taking either would let a person's free text arrive as though
-    /// it were an answer to a closed question, which is the conversation
-    /// `crate::questioning` exists instead of.
-    fn answer(&self, answer: &Answer) -> impl Future<Output = Result<(), Self::Error>> + Send;
 
     /// Hand the Drone a person's answer to a permission question, after the
     /// call it was about has returned.
@@ -299,16 +284,6 @@ impl Turn {
     /// text under it.
     pub fn reporting(directive: &ReportNow) -> Turn {
         Turn::of(directive.text())
-    }
-
-    /// A person's answer to the question this Drone asked, injected into a
-    /// session already running.
-    ///
-    /// The wording is [`Answer`]'s and there is no way to send other text
-    /// under it — which is the difference from [`redirection`](Turn::redirection),
-    /// where a person's own words are exactly what travels.
-    pub fn answering(answer: &Answer) -> Turn {
-        Turn::of(answer.text())
     }
 
     /// A person's answer to a permission question, injected after the call
@@ -548,10 +523,6 @@ impl LiveSession for DroneSession {
 
     async fn interrupt(&self, directive: &ReportNow) -> Result<(), io::Error> {
         self.say(&Turn::reporting(directive)).await
-    }
-
-    async fn answer(&self, answer: &Answer) -> Result<(), io::Error> {
-        self.say(&Turn::answering(answer)).await
     }
 
     async fn permit(&self, permitted: &Permitted) -> Result<(), io::Error> {

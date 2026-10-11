@@ -50,6 +50,7 @@ mod preferences;
 mod process;
 mod proposing;
 mod proving;
+mod questioning;
 mod rebuilding;
 mod rechecking;
 mod reconstruct;

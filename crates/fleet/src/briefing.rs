@@ -245,6 +245,15 @@ impl Opening {
         }
     }
 
+    /// The same opening, plus a person's answer to the question the Drone
+    /// before asked. Folded in for `also_carrying`'s reason.
+    pub(crate) fn answering(self, answered: Option<crate::questioning::Answered>) -> Opening {
+        Opening {
+            crossed: self.crossed.and_answered(answered),
+            ..self
+        }
+    }
+
     /// The same opening, plus what a Job from the same request landed while
     /// this one was between steps.
     ///
@@ -708,6 +717,10 @@ fn assemble(
     }
     if let Some(redirect) = crossed.redirect() {
         blocks.headed(&redirect.text(prompts), ipc::BlockKind::AboutThisJob);
+    }
+    // Beside the note, and for its reason: it is what this part is resumed for.
+    if let Some(answered) = crossed.answered() {
+        blocks.headed(answered.text(), ipc::BlockKind::AboutThisJob);
     }
     // **Before the step block, with the other things the boundary carried.**
     // It is what the part is about rather than a footnote to it: a Drone after

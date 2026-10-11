@@ -858,10 +858,11 @@ where
         reported(&filed).map_err(|why| self.refusal(why))
     }
 
-    /// A person's answer to the question a waiting Drone asked. **Nothing
-    /// moves** — the Job was `running` while it waited and is now, and the
-    /// summary comes back because a caller folds the row rather than re-reading
-    /// the board. The four refusals are `crate::questioning::NotAnswered`'s.
+    /// A person's answer to the question a Drone asked before it stood down.
+    /// **Nothing moves** — the Job is `queued` before and after, and admission
+    /// takes it in its turn. The summary comes back because a caller folds the
+    /// row rather than re-reading the board. The refusals are
+    /// `crate::questioning::NotAnswered`'s.
     async fn answer_question(
         self: Arc<Self>,
         job_id: JobId,

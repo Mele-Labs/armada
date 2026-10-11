@@ -412,9 +412,9 @@ pub enum Adrift {
     /// something else, or it was never the Job's. `#1647`.
     NotTheJobsProcess { job: JobId, pid: u32 },
     /// An answer that does not apply: nothing outstanding, the wrong question,
-    /// a label never offered, or a pipe that would not take it. **One variant
-    /// carrying a sentence rather than four** — the recourse is identical in all
-    /// four, and `crate::questioning::NotAnswered` says which this is.
+    /// or a label never offered. **One variant carrying a sentence rather than
+    /// three** — the recourse is identical in all three, and
+    /// `crate::questioning::NotAnswered` says which this is.
     NotAnswerable { job: JobId, because: String },
     /// A review act was asked for on a Job that is not at a human gate.
     ///
