@@ -23,6 +23,9 @@
 /// Arc's own apparatus: a step move signed by whoever the ruling names, and
 /// the signers read back. See its own header.
 pub mod arc;
+/// Autopilot's own apparatus: a backlog, a catalogue and a model that answers
+/// what the test wrote. See its own header.
+pub mod autopilot;
 /// Board's own apparatus: the record-to-wire conversions, and the round trip
 /// every assertion in `board.rs` is made through. See its own header.
 pub mod board;
