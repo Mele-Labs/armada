@@ -337,6 +337,8 @@ impl Store {
 
         // Read back for `branch`'s reason. Null on every Job nobody has paused.
         let created = crate::pausing::read_pause(row, created)?;
+        // Null on every Job whose Drone asked nothing. `crate::questioning`.
+        let created = crate::questioning::read_question(row, created)?;
 
         Ok((replay(created, events)?, cached))
     }

@@ -143,6 +143,10 @@ where
         // all of them. It is read before the brief because it is part of the
         // brief, and kept beside it because clearing it needs the same value.
         let waiting = job.redirect_waiting().map(Redirected::of);
+        // The same, for a person's answer to the question the Drone before
+        // asked; `None` while it is unanswered, which admission never starts.
+        let answered = job.question().and_then(crate::questioning::Answered::of);
+        let answering = answered.is_some();
         // Asked of the board on every spawn, and answered `None` on all but a
         // Job read off a request that split. Beside the redirect because it is
         // the same kind of fact — what is true of this Job at the moment a
@@ -205,6 +209,7 @@ where
             // reaches this Drone and not only the next start.
             .worded(self.prompts())
             .also_carrying(waiting.clone())
+            .answering(answered)
             .overtaken_by(overtaken)
             .told_of_peers(peers)
             .holding_off(&self.held_off(&job_id).await)
@@ -323,6 +328,9 @@ where
         if waiting.is_some() {
             self.redirect_delivered(job, step).await?;
         }
+        if answering {
+            self.answer_delivered(job, step).await?;
+        }
 
         *working = Some(Working::holding(
             job_id,
@@ -405,6 +413,29 @@ where
             Component::Fleet,
             self.run().clone(),
             "the note a person left at the gate was delivered into this Drone's opening brief",
+        )
+        .in_job(job.id().as_ulid().clone())
+        .at_step(step.as_str());
+        self.noted_in_the_log(job.id(), &envelope);
+        Ok(())
+    }
+
+    /// The answer went into the brief this Drone opened with, so the question
+    /// is gone from the record. For `redirect_delivered`'s reasons, the same
+    /// three: the log says delivered, it is cleared once the Drone exists, and
+    /// the column write returns.
+    async fn answer_delivered(&self, job: &Job, step: &StepId) -> Result<(), Adrift> {
+        self.store()
+            .lock()
+            .await
+            .record_question(&job.question_delivered())
+            .map_err(Adrift::Writing)?;
+        let envelope = Envelope::new(
+            self.now(),
+            Level::Info,
+            Component::Fleet,
+            self.run().clone(),
+            "the answer a person gave the Drone before was delivered into this Drone's opening brief",
         )
         .in_job(job.id().as_ulid().clone())
         .at_step(step.as_str());

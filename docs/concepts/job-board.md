@@ -137,12 +137,11 @@ and this tab is where a reclaimed Job goes so the act reads as what it did
 rather than as nothing.
 
 **One of the five registry-partitioned rules is not a lifecycle row.** A
-[Drone](drone.md) that has asked a person a question is on a Job that is
-`running`, with `who_is_acting = "Drone"`, and nothing about the Job or its
-step moves while it waits — which is deliberate, and is why there is no
-seventh step state for it. So `job-statuses.toml` has nothing to say about
-this and cannot: it is a fact about a live working slot rather than about a
-status, and it rides on the Job row as `asking`. `Cleared`'s rule is the same
+[Drone](drone.md) that has asked a person a question stands down, and its Job
+waits at `queued` reading `awaiting_answer`, with `who_is_acting = "Drone"` —
+the same status as every Job waiting for a place. A Drone waiting on a command
+it reached for is on a `running` Job. So `job-statuses.toml` cannot place
+either, and it rides on the Job row as `asking`. `Cleared`'s rule is the same
 shape one level up — `reclaimed_at` is a fact about the row rather than the
 registry — but it sits outside the five-way partition entirely rather than
 inside it, which is why it is read first rather than fitted among them.

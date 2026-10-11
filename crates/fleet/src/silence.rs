@@ -357,7 +357,7 @@ where
                 said,
             }));
         }
-        if crate::questioning::waiting_on_an_answer(at_work) {
+        if at_work.permission().is_some() {
             at_work.waiting(self.now());
             return Ok(None);
         }

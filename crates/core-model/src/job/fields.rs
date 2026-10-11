@@ -189,15 +189,15 @@ impl Urgency {
 }
 
 /// Why an approved Job has not started. **Derived, never stored** — `Paused`
-/// is derived from a marker that is.
+/// and `AwaitingAnswer` are derived from a marker and a question that are.
 ///
 /// `job-statuses.toml` applies the recomputed-label rule literally on `queued`:
 /// CPU, memory and disk all free without anything moving the Job, so a stored
 /// value would be wrong from the moment it was written. It is computed from
 /// `dependencies` and live headroom at read time.
 ///
-/// The registry's vocabulary reads `paused / frozen / blocked_by_dependency /
-/// over_budget / waiting_on_resources / none`. **`none` is the absence of
+/// The registry's vocabulary reads `paused / awaiting_answer / frozen /
+/// blocked_by_dependency / over_budget / waiting_on_resources / none`. **`none` is the absence of
 /// one**: `Option<QueuedReason>` carries it, so there is no variant meaning
 /// "no reason" for a renderer to have a case for.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -207,6 +207,10 @@ pub enum QueuedReason {
     /// would not start it. Derived from the stored `pause` marker, which is
     /// the one thing here that is stored.
     Paused,
+    /// Its Drone asked a person something and stood down, and nobody has
+    /// answered yet. **Asked next**: the question is the Job's own, and only
+    /// that person's answer clears it. Derived from the stored question.
+    AwaitingAnswer,
     /// A Manifest gating it says `freeze: true`. **Asked next**, because only a
     /// person lifts it; `JobSummary.frozen_by` says which Manifest.
     Frozen,
@@ -236,6 +240,7 @@ impl QueuedReason {
     /// Every variant, in the order `job-statuses.toml` names them.
     pub const ALL: &'static [QueuedReason] = &[
         QueuedReason::Paused,
+        QueuedReason::AwaitingAnswer,
         QueuedReason::Frozen,
         QueuedReason::BlockedByDependency,
         QueuedReason::OverBudget,
@@ -245,6 +250,7 @@ impl QueuedReason {
     pub fn as_wire(&self) -> &'static str {
         match self {
             QueuedReason::Paused => "paused",
+            QueuedReason::AwaitingAnswer => "awaiting_answer",
             QueuedReason::Frozen => "frozen",
             QueuedReason::BlockedByDependency => "blocked_by_dependency",
             QueuedReason::OverBudget => "over_budget",
