@@ -236,13 +236,16 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSession, tell
     }
   }
 
-  async function setStatus(note: Annotation, status: Annotation["status"]): Promise<void> {
+  /** True once the file says it; a failure is told and leaves the note as it was. */
+  async function setStatus(note: Annotation, status: Annotation["status"]): Promise<boolean> {
     const next = { ...note, status, updatedAt: new Date().toISOString() };
     try {
       await sink.save(next);
       setNotes((was) => was.map((n) => (n.id === note.id ? next : n)));
+      return true;
     } catch (cause) {
       fail("Saving", cause);
+      return false;
     }
   }
 
@@ -283,37 +286,41 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSession, tell
   }
 
   /** These notes as one message: to a Session started for them, or to `target`. `key` names the send that is out. */
-  async function sendToSessionAs(key: string, list: readonly Annotation[], target: SessionTarget | null): Promise<void> {
-    if (fleet === undefined || list.length === 0) return;
+  async function sendToSessionAs(key: string, list: readonly Annotation[], target: SessionTarget | null): Promise<boolean> {
+    if (fleet === undefined || list.length === 0) return false;
     setSending(key);
     try {
       const answer = await sendToSession(list.map((note) => ({ note, box: frames[note.id] ?? null })), target, sink, fleet, new Date());
       if (!answer.ok) {
         tell(answer.saying);
-        return;
+        return false;
       }
       const sentNotes = list.map((note) => ({ ...note, sent: answer.sent, updatedAt: answer.sent.at }));
       for (const next of sentNotes) await sink.save(next);
       setNotes((was) => was.map((n) => sentNotes.find((next) => next.id === n.id) ?? n));
       if ("sessionId" in answer.sent) openSession(answer.sent.sessionId);
+      return true;
     } catch (cause) {
       fail("Sending", cause);
+      return false;
     } finally {
       setSending(null);
     }
   }
 
-  const sendHereToSession = (target: SessionTarget | null): Promise<void> =>
+  const sendHereToSession = (target: SessionTarget | null): Promise<boolean> =>
     sendToSessionAs("here", notes.filter((n) => n.status === "open" && n.sent === undefined && frames[n.id] != null), target);
 
-  async function remove(note: Annotation): Promise<void> {
+  async function remove(note: Annotation): Promise<boolean> {
     try {
       await sink.remove(note.id);
       setNotes((was) => was.filter((n) => n.id !== note.id));
       setOpened(null);
       setDeletingRow(null);
+      return true;
     } catch (cause) {
       fail("Deleting", cause);
+      return false;
     }
   }
 
