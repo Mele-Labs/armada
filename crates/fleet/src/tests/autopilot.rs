@@ -17,7 +17,8 @@ use crate::tests::tmp::TempDir;
 type Fixture = Fleet<FakeHarness, FakeVcs, FakeWorkProduct>;
 
 const SURE_12: &str = "issue: 12\nworkflow: bug\nsure: yes\nbecause: a wrong label, one file";
-const UNSURE_11: &str = "issue: 11\nworkflow: feature\nsure: no\nbecause: it may want a design call";
+const UNSURE_11: &str =
+    "issue: 11\nworkflow: feature\nsure: no\nbecause: it may want a design call";
 const SURE_13: &str = "issue: 13\nworkflow: bug\nsure: yes\nbecause: a plain crash";
 
 fn url(number: u64) -> String {
@@ -75,21 +76,45 @@ async fn a_sure_pick_starts_unasked_and_an_unsure_one_is_set_aside_in_the_same_p
     assert_eq!(fleet.autopilot_pass().await.expect("a pass"), 1);
 
     let now = fleet.get_autopilot(here(&fleet)).await.expect("held");
-    let states: Vec<(u64, AutopilotPickState)> =
-        now.picks.iter().map(|pick| (pick.issue_number, pick.state)).collect();
+    let states: Vec<(u64, AutopilotPickState)> = now
+        .picks
+        .iter()
+        .map(|pick| (pick.issue_number, pick.state))
+        .collect();
     assert_eq!(
         states,
-        vec![(11, AutopilotPickState::SetAside), (12, AutopilotPickState::Started)]
+        vec![
+            (11, AutopilotPickState::SetAside),
+            (12, AutopilotPickState::Started)
+        ]
     );
     assert_eq!(now.picks[0].reason, "it may want a design call");
     let job = fleet.load(&job_of(&now.picks[1])).await.expect("the Job");
     assert_eq!(job.status(), JobStatus::Queued, "no approval asked");
     assert_eq!(job.origin(), Origin::from(TopLevelOrigin::AutopilotPicked));
     assert_eq!(job.workflow().id().as_str(), "bug");
-    let events = fleet.store().lock().await.events_for(job.id()).expect("its log");
-    assert_eq!(events.last().expect("a move").actor(), Actor::Fleet, "Fleet queued it, not a person");
-    let source = fleet.store().lock().await.issue_source(job.id()).expect("reads");
-    assert_eq!(source.expect("its issue").url, url(12), "the write-back reads this");
+    let events = fleet
+        .store()
+        .lock()
+        .await
+        .events_for(job.id())
+        .expect("its log");
+    assert_eq!(
+        events.last().expect("a move").actor(),
+        Actor::Fleet,
+        "Fleet queued it, not a person"
+    );
+    let source = fleet
+        .store()
+        .lock()
+        .await
+        .issue_source(job.id())
+        .expect("reads");
+    assert_eq!(
+        source.expect("its issue").url,
+        url(12),
+        "the write-back reads this"
+    );
     assert_eq!(now.at_work, 1);
     assert_eq!(now.jobs_started, 1);
 }
@@ -116,7 +141,11 @@ async fn a_full_autopilot_asks_nothing_and_a_job_waiting_on_a_person_gives_its_p
         )
         .await
         .expect("it escalates");
-    assert_eq!(fleet.autopilot_pass().await.expect("a pass"), 1, "its place is free");
+    assert_eq!(
+        fleet.autopilot_pass().await.expect("a pass"),
+        1,
+        "its place is free"
+    );
 }
 
 #[tokio::test]
@@ -133,7 +162,11 @@ async fn the_first_cap_reached_stops_it_and_says_which_and_the_started_job_carri
     assert_eq!(now.capped_by, Some(AutopilotCap::Jobs));
     assert_eq!(model.asked().len(), 1, "the cap stopped the next pick");
     let job = fleet.load(&job_of(&now.picks[0])).await.expect("the Job");
-    assert_eq!(job.status(), JobStatus::Queued, "and not the Job it started");
+    assert_eq!(
+        job.status(),
+        JobStatus::Queued,
+        "and not the Job it started"
+    );
 }
 
 #[tokio::test]
@@ -152,7 +185,10 @@ async fn pause_picks_nothing_resume_carries_on_and_stop_withdraws_what_never_sta
     let stopped = fleet.stop_autopilot(here(&fleet)).await.expect("stops");
     assert_eq!(stopped.state, AutopilotState::Stopped);
     assert_eq!(stopped.picks[0].state, AutopilotPickState::Withdrawn);
-    let job = fleet.load(&job_of(&stopped.picks[0])).await.expect("the Job");
+    let job = fleet
+        .load(&job_of(&stopped.picks[0]))
+        .await
+        .expect("the Job");
     assert_eq!(job.status(), JobStatus::Killed, "it never had a Drone");
     assert!(matches!(
         fleet.resume_autopilot(here(&fleet)).await,
@@ -161,7 +197,8 @@ async fn pause_picks_nothing_resume_carries_on_and_stop_withdraws_what_never_sta
 }
 
 #[tokio::test]
-async fn a_set_aside_pick_a_person_dispatches_waits_at_the_gate_and_one_dismissed_leaves_the_pile() {
+async fn a_set_aside_pick_a_person_dispatches_waits_at_the_gate_and_one_dismissed_leaves_the_pile()
+{
     let home = TempDir::new();
     let (fleet, _) = a_fleet(
         &home,
@@ -183,7 +220,11 @@ async fn a_set_aside_pick_a_person_dispatches_waits_at_the_gate_and_one_dismisse
 
     assert_eq!(now.picks[0].state, AutopilotPickState::Started);
     let job = fleet.load(&job_of(&now.picks[0])).await.expect("the Job");
-    assert_eq!(job.status(), JobStatus::AwaitingApproval, "a person chose it, so the gate holds");
+    assert_eq!(
+        job.status(),
+        JobStatus::AwaitingApproval,
+        "a person chose it, so the gate holds"
+    );
     assert_eq!(job.origin(), Origin::Manual);
     assert!(matches!(
         fleet.dismiss_set_aside(here(&fleet), aside.pick_id).await,
@@ -194,7 +235,10 @@ async fn a_set_aside_pick_a_person_dispatches_waits_at_the_gate_and_one_dismisse
 #[tokio::test]
 async fn a_picker_that_finds_nothing_is_not_asked_again_until_the_list_changes() {
     let home = TempDir::new();
-    let (fleet, model) = a_fleet(&home, &["issue: none\nbecause: nothing here is what was asked"]);
+    let (fleet, model) = a_fleet(
+        &home,
+        &["issue: none\nbecause: nothing here is what was asked"],
+    );
     started(&fleet, 1, None).await;
 
     assert_eq!(fleet.autopilot_pass().await.expect("a pass"), 0);
@@ -240,7 +284,12 @@ async fn one_sentence_is_proposed_and_nothing_starts() {
 
     assert_eq!(proposed.at_once, 2);
     assert_eq!(proposed.spend_cap_micros, Some(30_000_000));
-    assert!(fleet.list_autopilots().await.expect("listed").autopilots.is_empty());
+    assert!(fleet
+        .list_autopilots()
+        .await
+        .expect("listed")
+        .autopilots
+        .is_empty());
 }
 
 #[tokio::test]
@@ -248,7 +297,10 @@ async fn a_dismissed_pick_leaves_the_pile_and_is_not_offered_again() {
     let home = TempDir::new();
     let (fleet, model) = a_fleet(
         &home,
-        &[UNSURE_11, "issue: none\nbecause: the rest are not what was asked"],
+        &[
+            UNSURE_11,
+            "issue: none\nbecause: the rest are not what was asked",
+        ],
     );
     started(&fleet, 1, None).await;
     fleet.autopilot_pass().await.expect("a pass");
@@ -276,7 +328,10 @@ async fn a_pass_that_could_not_pick_says_why_on_the_autopilot_until_one_goes_thr
         .map(|workflow| (workflow.id().clone(), workflow))
         .collect();
     fittings.judge = Arc::new(FakeJudge::answering_in_turn(&[SURE_12]));
-    let tracker = Arc::new(FakeTracker::listing(vec![FakeTracker::issue(12, "A wrong label")]));
+    let tracker = Arc::new(FakeTracker::listing(vec![FakeTracker::issue(
+        12,
+        "A wrong label",
+    )]));
     tracker.will_not_list("nobody is signed in to the forge");
     fittings.tracker = tracker.clone();
     let fleet: Fixture = Fleet::assembled(fittings);
@@ -288,5 +343,8 @@ async fn a_pass_that_could_not_pick_says_why_on_the_autopilot_until_one_goes_thr
 
     tracker.answers_again();
     assert_eq!(fleet.autopilot_pass().await.expect("a pass"), 1);
-    assert_eq!(fleet.get_autopilot(here(&fleet)).await.expect("held").fault, None);
+    assert_eq!(
+        fleet.get_autopilot(here(&fleet)).await.expect("held").fault,
+        None
+    );
 }

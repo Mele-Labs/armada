@@ -78,7 +78,12 @@ where
     /// will not answer for one is not a reason for the others to stop, and the person who comes
     /// back in the morning reads why it picked nothing on the Autopilot itself.
     pub async fn autopilot_pass(&self) -> Result<usize, Adrift> {
-        let every = self.store().lock().await.autopilots().map_err(Adrift::Writing)?;
+        let every = self
+            .store()
+            .lock()
+            .await
+            .autopilots()
+            .map_err(Adrift::Writing)?;
         let mut started = 0;
         for kept in every {
             if State::from_stored(&kept.state) != Some(State::Running) {
@@ -86,7 +91,9 @@ where
             }
             let manifest_id = ipc::ManifestId::carried(kept.manifest_id.clone());
             let passed = self.passed_over(kept).await;
-            self.tracking().autopilot.faulted(manifest_id.as_str(), passed.as_ref().err().cloned());
+            self.tracking()
+                .autopilot
+                .faulted(manifest_id.as_str(), passed.as_ref().err().cloned());
             started += passed.unwrap_or(0);
             self.autopilot_told(&manifest_id).await;
         }

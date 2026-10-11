@@ -250,7 +250,9 @@ where
             .map_err(|why| self.faulted(why))?;
         // A new instruction may cover what the last one's picker turned down.
         self.tracking().autopilot.forget(manifest_id.as_str());
-        self.tracking().autopilot.faulted(manifest_id.as_str(), None);
+        self.tracking()
+            .autopilot
+            .faulted(manifest_id.as_str(), None);
         self.answered(kept).await
     }
 
