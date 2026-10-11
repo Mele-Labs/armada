@@ -93,6 +93,21 @@ impl Sessions for FakeDaemon {
         .await
     }
 
+    async fn window_closed(&self, closed: ipc::WindowClosed) -> Result<SessionRecord, Refusal> {
+        self.report_session(SessionReport {
+            harness: String::new(),
+            session_id: closed.session_id,
+            fact: ipc::SessionFact::Attached {
+                attachment: ipc::AttachmentReport {
+                    kind: String::from("artifact"),
+                    target: closed.url,
+                    detail: Default::default(),
+                },
+            },
+        })
+        .await
+    }
+
     async fn waiting_for(
         &self,
         _caller: Option<crate::Caller>,

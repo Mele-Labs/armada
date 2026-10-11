@@ -165,8 +165,11 @@ export type SessionRow =
   | { kind: "compaction"; id: string; at: string; text: string }
   /** The first write: the slot leased and the branch cut. */
   | { kind: "lease"; id: string; at: string; slot: number; branch: string }
-  /** The session showed the person a page in a window. */
-  | { kind: "window"; id: string; at: string; title: string; url: string }
+  /**
+   * The session showed the person a page in a window. `ended_at` is when the walk ended, by an
+   * approval or the window closing; absent while it is open.
+   */
+  | { kind: "window"; id: string; at: string; title: string; url: string; ended_at?: string }
   /**
    * A question the session asked in its walk window, `ask_in_window`. `window` is the address it was
    * asked in. **Replaced by id once answered**, with `answer` set to what the person chose and said.

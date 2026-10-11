@@ -1,6 +1,6 @@
 // The Dashboard's one panel, through `App` on the `dashboard-cockpit` mock Fleet: its filters and the
 // keys that step them, the call that comes forward over it and the deck behind, the standing
-// answers, and the grid and the map offering the same acts.
+// answers, the grid and the map offering the same acts, and the Bays filter's metro lines.
 
 import { beforeEach, expect, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
@@ -46,14 +46,16 @@ test("[ and ] step the filters round, Option and a digit jumps, and the filter i
   await userEvent.keyboard("]");
   await selected("Done");
   await userEvent.keyboard("]");
+  await selected("Bays");
+  await userEvent.keyboard("]");
   await selected("Your move");
   // `[[` is the bracket itself, in user-event's own syntax.
   await userEvent.keyboard("[[");
-  await selected("Done");
+  await selected("Bays");
   await userEvent.keyboard("{Alt>}2{/Alt}");
   await selected("Active");
   expect(localStorage.getItem(FILTER)).toBe("running");
-  for (const name of ["Your move", "Active", "Done"]) {
+  for (const name of ["Your move", "Active", "Done", "Bays"]) {
     expect(page.getByRole("tab", { name }).element().textContent).not.toMatch(/\d/);
   }
 });
@@ -183,6 +185,43 @@ test("the grid and the map offer the same acts: a press picks, x asks to kill, E
   await expect.poll(() => page.getByRole("dialog").query()).toBeNull();
   await userEvent.keyboard("{Enter}");
   await expect.poll(() => page.getByRole("tab", { name: "Active" }).query()).toBeNull();
+});
+
+test("Bays is a filter of its own: each piece of work in a bay, and each waiting for one, a line through the same stations to main", async () => {
+  await dashboard();
+  await page.getByRole("tab", { name: "Bays" }).click();
+  await selected("Bays");
+  const line = (name: RegExp) => page.getByRole("button", { name });
+  const stop = (name: RegExp) => page.getByRole("button", { name });
+  await expect.element(line(/^Bay 01: Debounce the Job Board/)).toBeVisible();
+  // A bay a Session holds is drawn under the Session's own name, not the process the pool reads.
+  await expect.element(line(/^Bay 03: Flaky store test$/)).toBeVisible();
+  // Waiting work is a line too, at the first station.
+  await expect.element(page.getByRole("list", { name: "Waiting for a bay" }).getByRole("button", { name: /^Waiting: Store a pause marker/ })).toBeVisible();
+  // The stop where work is now says its place in the merge queue inside it.
+  await expect.element(stop(/^Debounce the Job Board's resize handler: Merge queue/)).toHaveTextContent("1");
+  await expect.element(stop(/^Pin the clock in the store tests: Merge queue/)).toHaveTextContent("2");
+  // Free and closed bays draw no line, and are counted in the strip.
+  await expect.element(page.getByRole("img", { name: /held, 3 free, 3 closed$/ })).toBeVisible();
+  expect(document.querySelector("footer.armada-view__horizon")).toBeNull();
+
+  // Hovering a stop opens its card; a press keeps it, and its acts go where they say.
+  await stop(/^Pin the clock in the store tests: In a bay/).hover();
+  await expect.element(page.getByRole("dialog", { name: "In bay 06" })).toBeVisible();
+  await expect.element(page.getByRole("dialog", { name: "In bay 06" }).getByText("fix/pin-store-clock")).toBeVisible();
+  await stop(/^Pin the clock in the store tests: Merge queue/).click();
+  const card = page.getByRole("dialog", { name: "2nd in the merge queue" });
+  await expect.element(card).toHaveAttribute("data-pinned");
+  await expect.element(card.getByRole("button", { name: "Open #1891" })).toBeVisible();
+  await userEvent.keyboard("{Escape}");
+  await expect.poll(() => document.querySelector(".armada-metro__card")).toBeNull();
+
+  // A line's title selects its work, which steps and acts as the grid's tiles do.
+  await line(/^Bay 06: Pin the clock in the store tests$/).click();
+  await expect.element(line(/^Bay 06: Pin the clock in the store tests$/)).toHaveAttribute("aria-pressed", "true");
+  await userEvent.keyboard("x");
+  await expect.element(page.getByRole("dialog")).toBeVisible();
+  await userEvent.keyboard("{Escape}");
 });
 
 test("the call deck comes forward over the map too", async () => {

@@ -157,6 +157,17 @@ test("the Job picked is Overview's cursor, and Helm's footer names it", async ()
   await expect.element(page.getByText(/^Cockpit · cursor on Job \d+$/)).toBeVisible();
 });
 
+test("the one bar reopens empty, so nothing typed before is waiting to be sent", async () => {
+  await overview(onOverview(JOBS()));
+  const bar = page.getByRole("button", { name: /^Search, or describe work/ });
+  await bar.click();
+  await userEvent.keyboard("Retire the sleep calls");
+  await userEvent.keyboard("{Escape}");
+  await expect.element(page.getByRole("dialog", { name: "Command palette" })).not.toBeInTheDocument();
+  await bar.click();
+  await expect.element(page.getByRole("combobox")).toHaveValue("");
+});
+
 test("a search that matches keeps ↵ on the match, and ⌘↵ still dispatches", async () => {
   await overview(onOverview(JOBS()));
   await page.getByRole("button", { name: /^Search/ }).click();

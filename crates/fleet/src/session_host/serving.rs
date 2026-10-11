@@ -142,16 +142,25 @@ where
         sent: SendSessionMessage,
     ) -> Result<SessionRecord, Refusal> {
         let id = sent.session_id.as_str().to_string();
-        if let Some(session) = self.terminal_session(&id).await? {
+        let approved = sent
+            .text
+            .trim()
+            .strip_prefix(super::walking::APPROVED)
+            .map(|url| url.trim().to_string());
+        let record = if let Some(session) = self.terminal_session(&id).await? {
             let addressed = self.addressed(&sent.mentions).await?;
             let kept = self.keep_uploads(&id, &sent.attachments)?;
             let mut paths = kept.paths;
             paths.extend(kept.picture_paths);
-            return self
-                .send_to_terminal(&session, sent, addressed, paths)
-                .await;
+            self.send_to_terminal(&session, sent, addressed, paths)
+                .await?
+        } else {
+            Arc::clone(&self).send_hosted(sent, SessionVoice::You).await?
+        };
+        if let Some(url) = approved {
+            self.walk_ended(&id, &url).await;
         }
-        self.send_hosted(sent, SessionVoice::You).await
+        Ok(record)
     }
 
     async fn answer_session_ask(&self, said: AnswerSessionAsk) -> Result<SessionRecord, Refusal> {

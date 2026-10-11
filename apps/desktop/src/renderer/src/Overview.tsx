@@ -51,6 +51,7 @@ export function Overview({
   onTell,
   bring,
   onBrought,
+  onWantHeld,
 }: {
   /** A call an alert asked for, handed to the cockpit once it is mounted. */
   bring?: { key: string; at: number } | null;
@@ -97,6 +98,8 @@ export function Overview({
   nows?: Readonly<Record<string, NowView>>;
   /** Says a sentence as a toast: a refusal the panel has to name. */
   onTell?: (sentence: string) => void;
+  /** Asks Fleet for the worktree pool while the Cockpit's bays are drawn. */
+  onWantHeld?: (want: boolean) => void;
 }) {
   const guarded = { bridge: state.bridge, onCopied };
 
@@ -213,6 +216,7 @@ export function Overview({
             onClear={onClear}
             onPausing={onPausing}
             onCursor={onCursor}
+            onWantHeld={onWantHeld}
           />
         )}
         <KeySheet open={keys.sheet} onClose={keys.closeSheet} />

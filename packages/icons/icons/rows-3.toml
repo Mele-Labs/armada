@@ -1,0 +1,6 @@
+[icons.rows-3]
+  means = "Rows stacked one under another - the worktree bays, a line each"
+  group = "Worktree slot"
+  size = "16px"
+  status = "Proposed"
+  notes = "Proposed 11 Oct 2026 with the Cockpit's Bays tab, its rail glyph. The tab draws every bay's work as one row through the same stations, so the glyph is the rows, not a slot's state: `door-open` and `door-closed-locked` keep those."

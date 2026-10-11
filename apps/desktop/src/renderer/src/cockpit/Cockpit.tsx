@@ -24,6 +24,9 @@ import { FleetTile } from "../FleetTile";
 import { viewsOf } from "../merge-line";
 import { useSessions } from "../sessions-draft";
 import { CallCard, type CardKeys } from "./CallCard";
+import { Bays } from "./BaysView";
+import { baysOf } from "./bays";
+import { metroOf, orderOf } from "./metro";
 import { FleetMap } from "./FleetMap";
 import { useLayout } from "@armada/shell";
 import { tabKeys, useFilters } from "./keys";
@@ -221,10 +224,35 @@ export function Cockpit({
     const timer = window.setTimeout(() => setHolds((was) => new Map(was)), Math.max(0, next));
     return () => window.clearTimeout(timer);
   }, [holds, carriedCalls, carriedRunning, carriedOver, board]);
+  // The bays read every tile the Cockpit holds, whatever the filter: a bay is held whether or not its Job is your move.
+  const everything = useMemo(() => [...calls, ...running, ...over], [calls, running, over]);
+  const onWantHeld = hosts.onWantHeld;
+  useEffect(() => {
+    if (filter !== "bays" || onWantHeld === undefined) return;
+    onWantHeld(true);
+    return () => onWantHeld(false);
+  }, [filter, onWantHeld]);
+  const bays = useMemo(
+    () =>
+      baysOf({
+        slots: state.held.state === "read" ? (state.held.held.slots ?? []).filter((one) => picked?.manifest === undefined || one.manifest_id === picked.manifest.id) : [],
+        jobs: state.jobs,
+        sessions,
+        items: everything,
+        ended: over,
+        views: viewsOf(state),
+        lines: state.mergeLines,
+        manifestOf: (root) => state.holds.repositories?.find((one) => one.root === root)?.manifest?.id,
+        nameOf: (manifest) => state.holds.repositories?.find((one) => one.manifest?.id === manifest)?.manifest?.repository ?? manifest,
+      }),
+    [state, sessions, everything, picked],
+  );
   // Your move is what needs the owner; Active leads with that, then what runs, a call standing in for
   // the Job or Session it is about; Done is what is over, and what landed on the merge line is no tile.
+  // Bays is the work in the bays, down each hull, then what waits for one: the order the keys step in.
   const instruments = useMemo(() => {
     if (filter === "command-central") return calls;
+    if (filter === "bays") return orderOf(metroOf(bays, now));
     if (filter === "done") return over.filter((one) => !one.key.startsWith("line:"));
     const read = overviewListsOf(state.jobs, picked);
     const unknown = read.undrawable.map(
@@ -232,7 +260,7 @@ export function Cockpit({
     );
     const owned = new Set(calls.flatMap((one) => (one.owner === undefined ? [] : [one.owner])));
     return [...calls, ...running.filter((one) => !one.key.startsWith("line:") && !owned.has(one.owner ?? one.key)), ...unknown];
-  }, [filter, state, picked, calls, running, over]);
+  }, [filter, state, picked, calls, running, over, bays, now]);
   const [view, setView] = useCockpitView();
   const [field, setField] = useState({ width: 900, height: 560 });
   const sky = useMemo(
@@ -365,7 +393,7 @@ export function Cockpit({
     }
 
     if (isPressed("dashboard_view", event)) return claim(), setView(view === "map" ? "grid" : "map");
-    if (view === "map" && arrow) {
+    if (view === "map" && arrow && filter !== "bays") {
       const next = nearest(sky.stars, current?.key ?? "", event.key as "ArrowLeft");
       return next === undefined ? undefined : (claim(), setSelected(next));
     }
@@ -400,7 +428,8 @@ export function Cockpit({
       : current.job === undefined
         ? undefined
         : nowPanelOf(nowsHeld?.[current.job.id], { onOpenJob: hosts.onOpen, onSaid: () => {} });
-  const pane = filter !== "command-central" && current !== undefined;
+  // Bays draws the picked one's acts in its own bay, and keeps the glass for the ship.
+  const pane = filter !== "command-central" && filter !== "bays" && current !== undefined;
   const filters = useFilters(filter);
   const mergeLine = useLayout("dashboard.panels").shown.some((one) => one.id === "merge-line");
 
@@ -418,21 +447,23 @@ export function Cockpit({
             </Tooltip>
           </span>
           <span className="armada-view__keys">
-            <span className="armada-view__toggle" role="group" aria-label="View">
-              <Tooltip label="Grid">
-                <Button variant="ghost" size="sm" iconOnly aria-label="Grid" aria-pressed={view === "grid"} onClick={() => setView("grid")}>
-                  <LayoutGrid size={16} aria-hidden="true" />
-                </Button>
-              </Tooltip>
-              <Tooltip label="Map">
-                <Button variant="ghost" size="sm" iconOnly aria-label="Map" aria-pressed={view === "map"} onClick={() => setView("map")}>
-                  <Orbit size={16} aria-hidden="true" />
-                </Button>
-              </Tooltip>
-              <Tooltip label={actionOf("dashboard_view").verb}>
-                <Kbd>{keyFor("dashboard_view")}</Kbd>
-              </Tooltip>
-            </span>
+            {filter === "bays" ? null : (
+              <span className="armada-view__toggle" role="group" aria-label="View">
+                <Tooltip label="Grid">
+                  <Button variant="ghost" size="sm" iconOnly aria-label="Grid" aria-pressed={view === "grid"} onClick={() => setView("grid")}>
+                    <LayoutGrid size={16} aria-hidden="true" />
+                  </Button>
+                </Tooltip>
+                <Tooltip label="Map">
+                  <Button variant="ghost" size="sm" iconOnly aria-label="Map" aria-pressed={view === "map"} onClick={() => setView("map")}>
+                    <Orbit size={16} aria-hidden="true" />
+                  </Button>
+                </Tooltip>
+                <Tooltip label={actionOf("dashboard_view").verb}>
+                  <Kbd>{keyFor("dashboard_view")}</Kbd>
+                </Tooltip>
+              </span>
+            )}
             <Tooltip label={actionOf("move_focus").verb}>
               <span>
                 <Kbd>j</Kbd> <Kbd>k</Kbd>
@@ -445,7 +476,11 @@ export function Cockpit({
         </header>
         <div className="armada-view__stage">
           <div className="armada-view__body" data-pane={pane || undefined} data-view={view} style={front === undefined && edge.length > 0 ? { paddingBottom: `calc(var(--space-6) * ${Math.min(3, edge.length)} + var(--space-8))` } : undefined}>
-            {view === "map" ? (
+            {filter === "bays" ? (
+              <div className="armada-view__bays" data-recessed={front === undefined || leaving !== undefined ? undefined : ""}>
+                <Bays read={bays} reading={state.held.state !== "read" && state.held.state !== "failed"} now={now} selected={selected === undefined ? undefined : current?.key} onSelect={setSelected} onOpenJob={hosts.onOpen} onOpenSession={hosts.onOpenSession} onOpenLink={hosts.onOpenLink} />
+              </div>
+            ) : view === "map" ? (
               <div className="armada-view__map" data-recessed={front === undefined || leaving !== undefined ? undefined : ""}>
                 <FleetMap sky={sky} field={field} onField={setField} selected={current?.key} onSelect={setSelected} />
                 {current === undefined ? null : (
@@ -483,7 +518,7 @@ export function Cockpit({
             </div>
           )}
         </div>
-        {mergeLine ? <Horizon state={state} sessions={sessions} hosts={hosts} /> : null}
+        {mergeLine && filter !== "bays" ? <Horizon state={state} sessions={sessions} hosts={hosts} /> : null}
       </section>
     </div>
   );

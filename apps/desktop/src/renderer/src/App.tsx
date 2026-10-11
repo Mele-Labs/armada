@@ -1083,6 +1083,7 @@ export function App({ draft }: AppProps = {}) {
                   onBrought={lands.brought}
                   onOpenLink={openProseLink} onFix={(fix) => void commands.fixMain(fix)}
                   onOpenSession={openSession}
+                  onWantHeld={readHeld}
                   nowViews={draft?.calls} nows={draft?.now} onTell={tell}
                 />
 

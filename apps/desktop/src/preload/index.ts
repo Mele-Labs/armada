@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer, webUtils } from "electron";
 
 import { CHANNELS } from "../shared/bridge";
+import type { AskLessonRead, AskTurn, LessonReviewRead } from "@armada/jobs/review-wire";
 import { ANNOTATE_FLAG, ANNOTATION_CHANNELS } from "../shared/annotations";
 import type { Annotation, AnnotationsDevApi, Box } from "../shared/annotations";
 import { frameStreamUrl } from "../shared/streaming";
@@ -593,6 +594,11 @@ const api: BridgeApi = {
   agreeLesson: (lessonId: string): Promise<LessonAnswer> => ipcRenderer.invoke(CHANNELS.agreeLesson, lessonId),
   disagreeLesson: (lessonId: string): Promise<LessonAnswer> =>
     ipcRenderer.invoke(CHANNELS.disagreeLesson, lessonId),
+  // The guided review: the model's queue over the open items, and one question about one item.
+  // Neither names a manifest or a port: main narrows the first to this window's pick.
+  reviewLessons: (): Promise<LessonReviewRead> => ipcRenderer.invoke(CHANNELS.reviewLessons),
+  askLesson: (lessonId: string, question: string, history: AskTurn[]): Promise<AskLessonRead> =>
+    ipcRenderer.invoke(CHANNELS.askLesson, lessonId, question, history),
   readFrame: (jobId: string, kept: string): Promise<FrameRead> =>
     ipcRenderer.invoke(CHANNELS.readFrame, jobId, kept),
   // New job's own reads on All — #959: `leftOut` and the Manifest reading for

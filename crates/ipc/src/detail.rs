@@ -542,7 +542,7 @@ pub struct Stuck {
     /// How many calls were refused altogether, counting the ones
     /// [`refused`](Stuck::refused) left out.
     ///
-    /// **A size rather than a flag**, which is `CallArguments::length`'s
+    /// **A size rather than a flag**, which is `Saw::Called::detail_length`'s
     /// reason: a surface can say *showing 50 of 137* instead of reporting that
     /// something was taken away. Equal to `refused.len()` on every Job whose
     /// refusals all fit, which is the ordinary case.
@@ -572,8 +572,7 @@ pub struct Stuck {
 /// leaves it: a heredoc is a whole file and this crosses on every open of a
 /// stopped Job. What crosses instead is that the line was cut and how long the
 /// argument was — enough for a surface to say so, which is what a person about
-/// to paste a command into an allowlist needs. `get_call` is the operation that
-/// serves the rest.
+/// to paste a command into an allowlist needs.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Refusal {
     /// The tool that was reached for, in the harness's own spelling.
@@ -583,9 +582,8 @@ pub struct Refusal {
     pub tool: String,
     /// The call id the transcript rows carried.
     ///
-    /// **What makes a cut detail openable**: `get_call` serves the whole
-    /// argument by this id, so a refused heredoc shown to its bound is not a
-    /// dead end.
+    /// **The id `answer_command` and `explain_command` take**, and the one
+    /// Fleet reads the whole argument back by when it explains a cut command.
     pub call: String,
     /// The argument as the transcript recorded it — the command, the path.
     ///
@@ -604,7 +602,7 @@ pub struct Refusal {
     /// How many characters the argument had, before anything was cut.
     ///
     /// **A size rather than only a flag**, which is
-    /// [`CallArguments::length`](crate::CallArguments)'s reason: a surface says
+    /// `Saw::Called::detail_length`'s reason: a surface says
     /// *showing 200 of 14,320 characters* instead of reporting that something
     /// was taken away.
     ///

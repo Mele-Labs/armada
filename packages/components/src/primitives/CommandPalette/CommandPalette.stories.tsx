@@ -366,6 +366,20 @@ export const AMatchKeepsEnter: Story = {
 };
 
 /**
+ * **A long list never hides the dispatch row**: at the foot of the matches it
+ * is pinned to the list's bottom edge, so it is in view before any scrolling.
+ */
+export const TheDispatchRowStaysInView: Story = {
+  args: { ...board, defaultQuery: "e", dispatch: { kind: "job", onDispatch: fn() } },
+  play: async ({ canvas }) => {
+    const row = canvas.getByRole("option", { name: /^Dispatch “e” as a Job/ });
+    const list = canvas.getByRole("listbox");
+    await expect(list.scrollHeight).toBeGreaterThan(list.clientHeight);
+    await expect(row.getBoundingClientRect().bottom).toBeLessThanOrEqual(list.getBoundingClientRect().bottom + 1);
+  },
+};
+
+/**
  * **The first row is always active**, so a query narrowed to one result is a
  * two-key act: type enough, press Enter.
  */

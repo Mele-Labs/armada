@@ -272,8 +272,8 @@ export function StudioNode(props: StudioNodeProps) {
   const whole = untitled ? title : props.kind === "file" ? props.path : undefined;
   return (
     <Card
-      // A card on the canvas is glass. `docs/contracts/design-system.md`, Depth.
-      className="armada-studio-node armada-glass"
+      // Glass without asking: `glass.css` names `.armada-card` on the canvas.
+      className="armada-studio-node"
       data-kind={props.kind}
       data-selected={selected || undefined}
       aria-busy={reading.working || undefined}
@@ -369,7 +369,7 @@ export type StudioNodeDraftProps = {
 export function StudioNodeDraft({ kind, children, pending = false }: StudioNodeDraftProps) {
   return (
     <Card
-      className="armada-studio-node armada-glass nowheel"
+      className="armada-studio-node nowheel"
       data-kind={kind}
       data-selected
       aria-busy={pending || undefined}

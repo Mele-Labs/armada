@@ -52,6 +52,7 @@ use crate::tests::admitted::dispatched;
 use crate::tests::daemon::{a_proposal, diff_evidence, fitted_with, one, worktree_directory};
 use crate::tests::tmp::TempDir;
 use crate::tests::tools::submitted_by_the_one;
+use crate::tests::waiting::until;
 
 type Fixture = Fleet<FakeHarness, FakeVcs, FakeWorkProduct>;
 
@@ -683,12 +684,13 @@ async fn the_line_for_a_policy_ending_names_the_call_that_was_refused() {
     let job = started(&fleet, &home).await;
     assert!(spoke(&fleet, 3).await, "the run never ended");
 
-    for _ in 0..40 {
-        if fleet.turn().await.expect("a turn").quiet().is_some() {
-            break;
-        }
-        tokio::time::sleep(Duration::from_millis(5)).await;
-    }
+    until(
+        "the vigil said nothing about the ending",
+        40,
+        Duration::from_millis(5),
+        || async { fleet.turn().await.expect("a turn").quiet().map(drop) },
+    )
+    .await;
     assert_eq!(
         fleet.last_reason(&job).await.unwrap(),
         Some(TransitionReason::Escalation(
@@ -782,17 +784,18 @@ async fn a_drone_that_has_not_ended_its_run_still_gets_its_pokes() {
     assert_eq!(fleet.load(&job).await.unwrap().status(), JobStatus::Running);
 
     clock.on(QUIET_AFTER.as_secs() + 60);
-    let mut said = None;
-    for _ in 0..40 {
-        if let Some(quiet) = fleet.turn().await.expect("a turn").quiet() {
-            said = Some(format!("{:?}", quiet.said));
-            break;
-        }
-        tokio::time::sleep(Duration::from_millis(5)).await;
-    }
+    let said = until(
+        "the vigil said nothing past the threshold",
+        40,
+        Duration::from_millis(5),
+        || async {
+            let turned = fleet.turn().await.expect("a turn");
+            Some(format!("{:?}", turned.quiet()?.said))
+        },
+    )
+    .await;
     assert_eq!(
-        said.as_deref(),
-        Some("Poked { spent: 1 }"),
+        said, "Poked { spent: 1 }",
         "a Drone that has not ended its run is poked, not escalated"
     );
 }
