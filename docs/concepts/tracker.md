@@ -54,4 +54,4 @@ Bridge talks to Fleet and nothing else, and a person choosing what to dispatch h
 | A Job's address outside Bridge | The started comment names the Job by number and title, since there is no link to give |
 | A milestone's issues on their own | `../journeys/dispatch-a-milestone.md`, step 1 |
 | A Drone reading the same issues through a tool | `../capabilities/epic-as-one-job.md` |
-| The Cockpit lane Autopilot chooses from | Autopilot, `#2092` |
+| The Cockpit lane Autopilot chooses from | Autopilot's Bridge half, `#2092`. Its picker already reads this list, held the same five minutes: [autopilot.md](autopilot.md) |

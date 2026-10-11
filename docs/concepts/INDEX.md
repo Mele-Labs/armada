@@ -14,6 +14,7 @@ assuming it is restated here.
 
 | Concept | What it is |
 |---|---|
+| [autopilot.md](autopilot.md) | A repository working its own backlog: one instruction, caps, and every issue it picked, started or set aside |
 | [bridge.md](bridge.md) | The Electron command-center shell — Armada's only engineer-facing surface |
 | [doctor.md](doctor.md) | The health-check surface — a passive per-module grid and the first-run hard gate |
 | [drone.md](drone.md) | The execution runtime for a single Job — a confined Claude Code process with its own worktree |

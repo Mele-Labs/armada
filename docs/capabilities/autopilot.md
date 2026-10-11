@@ -17,7 +17,7 @@ the only thing Autopilot adds is the choosing, the bounds and the off switch.
 
 ```mermaid
 flowchart LR
-  AP["Autopilot (one per repository)<br/>instruction, caps<br/>Running / Paused / Stopped"] -->|"a place opens"| PICK["Picker Drone<br/>short-lived, holds no place"]
+  AP["Autopilot (one per repository)<br/>instruction, caps<br/>Running / Paused / Stopped"] -->|"a place opens"| PICK["Picker<br/>one model call, holds no place"]
   ISS["Issues, fetched by Fleet (#91)"] --> PICK
   PICK -->|"sure"| JOB["Job, normal workflow"]
   PICK -->|"unsure"| ASIDE["Set aside, with its reason"]
@@ -90,8 +90,10 @@ Neither one stops a Job that is spending. That is the Job's own Pause.
 | A waiting Job gives its place back | Built, #2094: the Job waits at `queued` reading `awaiting_answer`, and keeps its worktree slot |
 | An agreed refusal goes back to the Drone | Built, #206: `docs/concepts/judge.md`, *When the Judges agree*. It needs a panel of two models or more |
 | Fleet reads issues and writes back | Built, #91: `docs/concepts/tracker.md`. The list is in the composer; the Cockpit lane is Autopilot's |
-| The Autopilot record, caps, picker, Pause and Stop | Not built |
-| The Cockpit lane | Not built |
+| The Autopilot record, caps, picker, Pause and Stop | Built, #2092's Fleet half: [`../concepts/autopilot.md`](../concepts/autopilot.md). The picker is one model call made the way the Job proposer's is, not a Drone. A Job waiting on a person holds no place |
+| The set-aside pile's acts | Built: a person dispatches a pick to the approval gate, or dismisses it |
+| The acceptance test | `crates/acceptance/tests/autopilot.rs`, passing |
+| The Cockpit lane | Not built. Bridge has the acts and a mock to draw against; `autopilot.changed` does not reach the windows yet |
 
 ## What it depends on
 
