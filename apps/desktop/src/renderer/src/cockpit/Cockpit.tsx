@@ -24,7 +24,7 @@ import { FleetTile } from "../FleetTile";
 import { viewsOf } from "../merge-line";
 import { useSessions } from "../sessions-draft";
 import { CallCard, type CardKeys } from "./CallCard";
-import { Bays } from "./BaysView";
+import { Bays } from "./BaysView"; import { useAutopilotLane } from "./AutopilotLane";
 import { baysOf } from "./bays";
 import { metroOf, orderOf } from "./metro";
 import { FleetMap } from "./FleetMap";
@@ -158,14 +158,12 @@ function Behind({ edge, put, recall }: { edge: readonly Item[]; put: readonly st
 
 /** The acts of the tile under the cursor, each with the key that does it. */
 function TileActs({ item, hosts }: { item: Item; hosts: Hosts }) {
+  if (item.job === undefined && sessionIdOf(item.key) === undefined) return <>{item.acts(() => {})}</>;
   const open = () => (item.job === undefined ? hosts.onOpenSession(sessionIdOf(item.key)!) : hosts.onOpen(item.job.id));
   const stoppable = item.job !== undefined && !isTerminal(item.job) && hosts.onKill !== undefined;
   return (
     <>
-      <Button variant="ghost" size="sm" onClick={open}>
-        {actionOf("open").verb}
-        <Kbd>↵</Kbd>
-      </Button>
+      <Button variant="ghost" size="sm" onClick={open}>{actionOf("open").verb}<Kbd>↵</Kbd></Button>
       {stoppable ? (
         <Button variant="ghost" size="sm" onClick={() => hosts.onKill!(item.job!.id)}>
           {actionOf("kill").verb}
@@ -205,6 +203,7 @@ export function Cockpit({
   const [holds, setHolds] = useState<ReadonlyMap<string, number>>(new Map());
   const hold = (key: string) => setHolds((was) => new Map(was).set(key, Date.now()));
   const sessions = useSessions();
+  const autopilot = useAutopilotLane({ picked, state, now });
   const carriedCalls = useItems("command-central", state, picked, nowViews, hosts, NONE);
   const carriedRunning = useItems("running", state, picked, nowViews, hosts, NONE);
   const carriedOver = useItems("done", state, picked, nowViews, hosts, NONE);
@@ -251,7 +250,7 @@ export function Cockpit({
   // the Job or Session it is about; Done is what is over, and what landed on the merge line is no tile.
   // Bays is the work in the bays, down each hull, then what waits for one: the order the keys step in.
   const instruments = useMemo(() => {
-    if (filter === "command-central") return calls;
+    if (filter === "command-central") return [...calls, ...autopilot.asides];
     if (filter === "bays") return orderOf(metroOf(bays, now));
     if (filter === "done") return over.filter((one) => !one.key.startsWith("line:"));
     const read = overviewListsOf(state.jobs, picked);
@@ -260,7 +259,7 @@ export function Cockpit({
     );
     const owned = new Set(calls.flatMap((one) => (one.owner === undefined ? [] : [one.owner])));
     return [...calls, ...running.filter((one) => !one.key.startsWith("line:") && !owned.has(one.owner ?? one.key)), ...unknown];
-  }, [filter, state, picked, calls, running, over, bays, now]);
+  }, [filter, state, picked, calls, running, over, bays, now, autopilot.asides]);
   const [view, setView] = useCockpitView();
   const [field, setField] = useState({ width: 900, height: 560 });
   const sky = useMemo(
@@ -474,11 +473,12 @@ export function Cockpit({
             </Tooltip>
           </span>
         </header>
+        {autopilot.bar}
         <div className="armada-view__stage">
           <div className="armada-view__body" data-pane={pane || undefined} data-view={view} style={front === undefined && edge.length > 0 ? { paddingBottom: `calc(var(--space-6) * ${Math.min(3, edge.length)} + var(--space-8))` } : undefined}>
             {filter === "bays" ? (
               <div className="armada-view__bays" data-recessed={front === undefined || leaving !== undefined ? undefined : ""}>
-                <Bays read={bays} reading={state.held.state !== "read" && state.held.state !== "failed"} now={now} selected={selected === undefined ? undefined : current?.key} onSelect={setSelected} onOpenJob={hosts.onOpen} onOpenSession={hosts.onOpenSession} onOpenLink={hosts.onOpenLink} />
+                <Bays autopilot={autopilot.bays} read={bays} reading={state.held.state !== "read" && state.held.state !== "failed"} now={now} selected={selected === undefined ? undefined : current?.key} onSelect={setSelected} onOpenJob={hosts.onOpen} onOpenSession={hosts.onOpenSession} onOpenLink={hosts.onOpenLink} />
               </div>
             ) : view === "map" ? (
               <div className="armada-view__map" data-recessed={front === undefined || leaving !== undefined ? undefined : ""}>

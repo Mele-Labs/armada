@@ -66,10 +66,13 @@ A pass makes at most four calls per Autopilot, and asks again before keeping eac
 
 `list_autopilots`, `get_autopilot`, `propose_autopilot`, `start_autopilot`, `pause_autopilot`, `resume_autopilot`, `stop_autopilot`, `dispatch_set_aside`, `dismiss_set_aside`, and the event `autopilot.changed`. `crates/ipc/operations/` has each, and `../practices/protocol.md` has the section.
 
+## In Bridge
+
+The Cockpit draws it: a bar on every filter with the switch, the caps used of their limit, Pause, Resume and Stop, and the start form; on Bays a Next up station before Waiting, its lines marked with `plane`, a dashed stop for a pick not started, Next up as a numbered list and the Set aside siding; and each set-aside pick as a tile in Your move. The one bar offers Autopilot as a third kind on a picked repository. `autopilot.changed` reaches every window through main, which keeps no copy. The code is `apps/desktop/src/renderer/src/cockpit/AutopilotLane.tsx` and the composition `AutopilotBar`.
+
 ## What it does not do yet
 
 | Missing | Where |
 |---|---|
-| The Cockpit lane that draws it | `#2092`'s Bridge half |
-| `autopilot.changed` reaching the windows | The same. Fleet publishes it; main does not pass it on yet |
+| The words each setting was read from | A proposal answers the settings alone, so the start form can say only which ones the sentence left out |
 | Its two prompts in settings.json | Both are shipped text in `crates/fleet/src/autopilot/` |
