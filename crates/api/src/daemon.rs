@@ -96,8 +96,7 @@ use ipc::WireError;
 /// is a sixth and [`Retros`] a seventh, each for a reason its own module gives.
 /// [`Authoring`] is one more, for [`Retros`]' reason, and [`Sessions`] another,
 /// [`HostedSessions`] one more beside it, and [`Needs`] and [`PullRequests`] two
-/// more, [`Rehearsing`] split out of [`Commands`], [`Mods`] and [`Settings`],
-/// and [`Issues`].
+/// more, [`Rehearsing`] split out of [`Commands`], [`Mods`] and [`Settings`].
 pub trait Daemon:
     Queries
     + Commands
