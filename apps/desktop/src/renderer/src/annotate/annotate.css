@@ -22,6 +22,11 @@
   --annotate-pin-inset: var(--space-3);
 }
 
+/* Out of the picture while main captures the window under it (`shoot.ts`). */
+.armada-annotate[data-shooting] {
+  opacity: 0;
+}
+
 .armada-annotate__outline {
   position: fixed;
   left: var(--annotate-x);

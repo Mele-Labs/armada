@@ -5,6 +5,7 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type CSSProperties,
@@ -16,7 +17,7 @@ import { Button, Checkbox, KbdChord, SplitButton, Textarea, Tooltip } from "@arm
 import { openJobIn } from "@armada/jobs";
 
 import type { BridgeApi } from "../../../shared/api";
-import { byCreation, sentAs, type Annotation, type Box } from "../../../shared/annotations";
+import { byCreation, sentAs, shotName, type Annotation, type Box } from "../../../shared/annotations";
 import { askToOpenSession } from "../open-session";
 import { askToTell } from "../tell";
 import { capture, locate } from "./capture";
@@ -33,6 +34,7 @@ import {
   type Viewport,
 } from "./place";
 import { sendToFleet, sendToSession, unsendable, type SessionTarget } from "./send";
+import { withoutLayer } from "./shoot";
 import type { Sink } from "./sink";
 import "./annotate.css";
 
@@ -123,6 +125,9 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSession, tell
   const draftRef = useRef(draft);
   draftRef.current = draft;
   const barRef = useRef<HTMLDivElement | null>(null);
+  const layerRef = useRef<HTMLDivElement | null>(null);
+  // The sink, with every capture taken of the app alone and not of the layer drawn over it.
+  const shooter = useMemo<Sink>(() => ({ ...sink, capture: (box) => withoutLayer(layerRef.current, () => sink.capture(box)) }), [sink]);
   // A save out on the draft. A ref, not state: a second press can land before
   // the first one's render, and the draft stays up until the save answers.
   const savingRef = useRef(false);
@@ -228,20 +233,41 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSession, tell
     return () => cancelAnimationFrame(frame);
   }, [on, notes, hovered, draft]);
 
+  /**
+   * A picture of `box`, kept as note `id`'s, or null where none was taken or kept. A picture
+   * that fails to keep is told, and the note is saved without one rather than lost to it.
+   */
+  async function keepShot(id: string, box: Box): Promise<string | null> {
+    // In a browser nothing captures, so the layer is not blinked out for a picture that never comes.
+    if (sink.via !== "main") return null;
+    const png = await shooter.capture(box).catch(() => null);
+    if (png === null) return null;
+    try {
+      await sink.saveShot(id, png);
+      return shotName(id);
+    } catch (cause) {
+      fail("Saving the screenshot", cause);
+      return null;
+    }
+  }
+
   async function save(): Promise<void> {
     if (draft === null || draft.text.trim() === "" || savingRef.current) return;
     savingRef.current = true;
     // The Job whose detail is open as the note is saved, not as it was begun: the save is the act
     // that says what it is about. Left out where none is, and never kept from an earlier save.
-    const { openJobId: _was, ...begun } = draft.note;
+    const { openJobId: _was, screenshot: _none, ...begun } = draft.note;
     const openJobId = openJobIn(document);
-    const note: Annotation = {
-      ...begun,
-      text: draft.text.trim(),
-      ...(openJobId === undefined ? {} : { openJobId }),
-      updatedAt: new Date().toISOString(),
-    };
     try {
+      // Taken here, once: a draft is always a new note, and nothing rewrites a saved note's text.
+      const screenshot = await keepShot(begun.id, draft.element.isConnected ? boxOf(draft.element) : draft.note.box);
+      const note: Annotation = {
+        ...begun,
+        text: draft.text.trim(),
+        ...(openJobId === undefined ? {} : { openJobId }),
+        ...(screenshot === null ? {} : { screenshot }),
+        updatedAt: new Date().toISOString(),
+      };
       await sink.save(note);
       setNotes((was) => [...was.filter((n) => n.id !== note.id), note].sort(byCreation));
       setDraft(null);
@@ -437,7 +463,7 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSession, tell
   const dispatchSays = cannotSend ?? "Send each note as a Job";
 
   return (
-    <div className="armada-annotate" data-armada-annotate="" onKeyDown={keyed}>
+    <div ref={layerRef} className="armada-annotate" data-armada-annotate="" onKeyDown={keyed}>
       {hoveredBox !== null && hovered !== null && (
         <div className="armada-annotate__outline" style={place(hoveredBox)}>
           <span className="armada-annotate__tag">

@@ -329,6 +329,110 @@ test("a note pressed to save twice while its save is out is saved once", async (
   expect(saved).toHaveLength(1);
 });
 
+// The picture a note keeps, taken once as it is saved, of the app under the layer.
+
+/** The eight bytes a PNG starts with, and one more: what a capture answers here. */
+const PNG = Uint8Array.from([137, 80, 78, 71, 13, 10, 26, 10, 0]).buffer;
+
+/** A sink in Bridge, which captures, keeping its pictures in `shots`. */
+const capturing = (shots: Map<string, ArrayBuffer>, capture: Sink["capture"] = async () => PNG): Sink => ({ ...sinkOf([], shots), via: "main", capture });
+
+async function writeOn(target: string, text: string): Promise<void> {
+  document.querySelector<HTMLElement>(target)?.click();
+  const card = page.getByRole("dialog", { name: "New note" });
+  await card.getByRole("textbox", { name: "Note" }).fill(text);
+  await card.getByRole("button", { name: "Save note" }).click();
+  await expect.element(card).not.toBeInTheDocument();
+}
+
+test("a note's first save captures its element and keeps the picture beside it, named on the note", async () => {
+  const shots = new Map<string, ArrayBuffer>();
+  const capture = vi.fn(async () => PNG);
+  const held = capturing(shots, capture);
+  await annotating(held);
+  const target = noted("target", 20);
+  await writeOn(target, "Keep a picture of me");
+
+  const [saved] = await held.list();
+  expect(saved?.screenshot).toBe(`${saved?.id}.png`);
+  expect(shots.get(saved!.id)).toBe(PNG);
+  expect(capture).toHaveBeenCalledTimes(1);
+  const rect = document.querySelector(target)!.getBoundingClientRect();
+  expect(capture).toHaveBeenCalledWith({ x: rect.x, y: rect.y, width: rect.width, height: rect.height });
+
+  // Marking it done rewrites the file and keeps the picture it named, taking no other.
+  await countOf().click();
+  await rowOf("Keep a picture of me").getByRole("button", { name: "Mark done" }).click();
+  await vi.waitFor(async () => expect((await held.list())[0]?.status).toBe("done"));
+  expect((await held.list())[0]?.screenshot).toBe(`${saved?.id}.png`);
+  expect(capture).toHaveBeenCalledTimes(1);
+});
+
+test("a note whose picture is not kept is told, and saved without one", async () => {
+  const told = vi.fn();
+  const held: Sink = { ...capturing(new Map()), saveShot: async () => Promise.reject(new Error("disk full")) };
+  await annotating(held, undefined, undefined, told);
+  await writeOn(noted("target", 20), "Save me anyway");
+  expect(told).toHaveBeenCalledWith("Saving the screenshot failed through main: disk full");
+  const [saved] = await held.list();
+  expect(saved?.text).toBe("Save me anyway");
+  expect(saved).not.toHaveProperty("screenshot");
+});
+
+test("in a browser, where nothing captures, a note is saved with no picture and none is asked for", async () => {
+  const capture = vi.fn(async () => null);
+  const held: Sink = { ...sinkOf(), capture };
+  await annotating(held);
+  await writeOn(noted("target", 20), "No picture here");
+  expect(capture).not.toHaveBeenCalled();
+  expect((await held.list())[0]).not.toHaveProperty("screenshot");
+});
+
+/** Pixels of a PNG that are not the colour the app under the layer is painted. */
+async function strayPixels(png: Blob): Promise<number> {
+  const bitmap = await createImageBitmap(png);
+  const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+  const context = canvas.getContext("2d")!;
+  context.drawImage(bitmap, 0, 0);
+  const { data } = context.getImageData(0, 0, bitmap.width, bitmap.height);
+  let stray = 0;
+  for (let at = 0; at < data.length; at += 4) {
+    if (Math.abs(data[at]! - 0) > 8 || Math.abs(data[at + 1]! - 128) > 8 || Math.abs(data[at + 2]! - 0) > 8) stray += 1;
+  }
+  return stray;
+}
+
+const pngOf = (base64: string): Blob => new Blob([Uint8Array.from(atob(base64), (c) => c.charCodeAt(0))], { type: "image/png" });
+
+// A real screenshot of the page stands in for main's capturePage, which shoots the window as
+// painted, the layer with it. The app is one flat colour under the card and the bar, so a
+// picture that holds any other pixel holds the layer.
+test("the picture kept at save is of the app under the note, with none of the layer drawn over it", async () => {
+  await page.viewport(800, 600);
+  const app = document.createElement("div");
+  app.setAttribute("data-noted", "app");
+  app.style.cssText = "position:fixed;inset:0;background:rgb(0,128,0)";
+  document.body.append(app);
+  const shot = async (): Promise<ArrayBuffer> => (await pngOf(await page.screenshot({ element: app, save: false })).arrayBuffer());
+  const shots = new Map<string, ArrayBuffer>();
+  await annotating(capturing(shots, shot));
+
+  app.click();
+  const card = page.getByRole("dialog", { name: "New note" });
+  await card.getByRole("textbox", { name: "Note" }).fill("The whole window is wrong");
+  // The same shot with the layer up holds the card, the outline and the bar: the check can see them.
+  expect(await strayPixels(new Blob([await shot()]))).toBeGreaterThan(1000);
+
+  await card.getByRole("button", { name: "Save note" }).click();
+  await expect.element(card).not.toBeInTheDocument();
+  const [kept] = [...shots.values()];
+  expect(kept).toBeDefined();
+  expect(await strayPixels(new Blob([kept!]))).toBe(0);
+  // And the layer is back once it is taken.
+  await expect.element(page.getByRole("status")).toBeVisible();
+  expect(getComputedStyle(document.querySelector(".armada-annotate")!).opacity).toBe("1");
+});
+
 // The bar's two sends: a Job at the gate, and the notes as a message to a Session.
 
 const sendable = (notes: Annotation[]): Sink => ({ ...sinkOf(notes), via: "main", root: async () => "/Users/user/armada" });
