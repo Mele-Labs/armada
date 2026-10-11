@@ -133,6 +133,9 @@ export const NOTHING_YET: BridgeState = {
   ...SESSIONS_NOTHING_YET,
 };
 
+// Below the block above rather than with the other imports, which would move it. #2092.
+import { AUTOPILOT_CHANNELS } from "./api/autopilot";
+
 /** The channels the preload is allowed to name. There is no general `invoke`. */
 export const CHANNELS = {
   ...CORE_CHANNELS,
@@ -151,4 +154,5 @@ export const CHANNELS = {
   ...SESSIONS_CHANNELS,
   ...SLEEP_CHANNELS,
   ...ISSUES_CHANNELS,
+  ...AUTOPILOT_CHANNELS,
 } as const;

@@ -26,6 +26,7 @@ import type { JobsApi } from "./api/jobs";
 import type { SessionsApi } from "./api/sessions";
 import type { SleepApi } from "./api/sleep";
 import type { IssuesApi } from "./api/issues";
+import type { AutopilotApi } from "./api/autopilot";
 import type { BridgeState } from "./bridge";
 
 /**
@@ -50,4 +51,5 @@ export type BridgeApi = CoreApi<BridgeState> &
   JobsApi &
   SessionsApi &
   SleepApi &
-  IssuesApi;
+  IssuesApi &
+  AutopilotApi;
