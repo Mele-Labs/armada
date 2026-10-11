@@ -650,22 +650,13 @@ pub enum Adrift {
     /// not in it — and an empty detail would draw a dead process as a live one
     /// with nothing to say. What it did is the Job's, through `observe_job`.
     NoSuchDrone { named: String },
-    /// A request named a tool call this Job's transcripts do not carry.
-    ///
-    /// **The Job is there and the call is not**, which is why it is this rather
-    /// than a missing Job: an id read off a row that is no longer in the record
-    /// — transcripts reclaimed, or a Fleet that never wrote them — and a
-    /// caller told the Job does not exist would go looking for the wrong thing.
-    NoSuchCall { named: String },
     /// A request named a kept Check output no row of this Job carries.
     ///
-    /// **The Job is there and the file is not**, which is [`NoSuchCall`]'s
-    /// distinction one record over: an id read off a row whose `.armada`
+    /// **The Job is there and the file is not**, which is why it is this rather
+    /// than a missing Job: an id read off a row whose `.armada`
     /// directory has since been reclaimed, or a name that was never one. It is
     /// also what a caller naming anything else gets, because the Job's own rows
     /// are the only thing that resolves this id to a file.
-    ///
-    /// [`NoSuchCall`]: Adrift::NoSuchCall
     NoSuchCheckOutput { named: String },
     /// A request named a kept frame no row of this Job carries.
     ///
@@ -703,8 +694,8 @@ pub enum Adrift {
     /// A reading was asked for on a call this Job is neither waiting on nor
     /// refused.
     ///
-    /// **Not [`NoSuchCall`](Adrift::NoSuchCall)**, which is about the
-    /// transcripts. This is about the two live places a still-answerable
+    /// **Not a question about the transcripts.** This is about the two live
+    /// places a still-answerable
     /// command lives — a question held open, and a refused row on the step the
     /// Job stopped on — which are the two `answer_command` looks in, so the
     /// same id is a 409 there and this here.

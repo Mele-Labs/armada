@@ -655,7 +655,6 @@ where
             | Adrift::NotFileable { .. }
             | Adrift::NoSuchWorkflow { .. }
             | Adrift::NoSuchManifest { .. }
-            | Adrift::NoSuchCall { .. }
             | Adrift::NoSuchDrone { .. }
             | Adrift::NoSuchCheckOutput { .. }
             | Adrift::NoSuchFrame { .. }

@@ -447,18 +447,9 @@ const ROUTES: &[Route] = &[
         method: "POST",
         path: "/jobs/:job_id/ask_person_to_approve",
     },
-    // One call's arguments, and a member read rather than an act — the same
-    // shape as `get_job` under `/jobs`, which is why the last segment is the id
-    // and not the key. The socket sends the line and the size; this is what a
-    // person opening that row asks for, once, about one call.
-    Route {
-        operation: "get_call",
-        method: "GET",
-        path: "/jobs/:job_id/calls/:call_id",
-    },
-    // What that call would do, read by a model for the person deciding whether
-    // to allow it. Under the call and not beside it: it is a second reading of
-    // the one call above, on the same id `answer_command` takes. A query,
+    // What one call would do, read by a model for the person deciding whether
+    // to allow it. Under the call: the segment before `explain` is the call id,
+    // the same id `answer_command` takes. A query,
     // because it decides nothing — the offers are unchanged and the Drone stays
     // held whatever it says.
     Route {
