@@ -87,7 +87,7 @@ import { useLayout } from "./layout";
 import { useLeftCollapsed } from "./left-collapsed";
 import { useLeftWidth } from "./left-width";
 import { useRecentRepositories } from "./recent-repositories";
-import { ADD, ALL, repositoryEntries, rootOf, SEARCHABLE_FROM } from "./repository-entries";
+import { ADD, ALL, FIND_A_REPOSITORY, repositoryEntries, rootOf } from "./repository-entries";
 import { MACHINE_SCOPE_SAID, surfaceScope } from "./surface-scope";
 import { repositoryLabel } from "./repository-label";
 import { panelSurfaces, RAIL_PANELS, SURFACE, SURFACES } from "./surfaces";
@@ -214,8 +214,8 @@ export function Shell({
     if (root !== ALL) remember(root);
     onScope(root === ALL ? null : root);
   };
-  // A fleet of a few reads at a glance; past that, finding one is the cost.
-  const searchLabel = repositories.length > SEARCHABLE_FROM ? "Find a repository" : undefined;
+  // Always, once there is a repository to find: over none it would filter nothing.
+  const searchLabel = repositories.length > 0 ? FIND_A_REPOSITORY : undefined;
 
   return (
     <TheShell

@@ -57,9 +57,10 @@ async function composing(): Promise<void> {
 
 /** Answer the ask, which is what draws the composer itself. */
 async function answered(): Promise<void> {
-  const select = page.getByLabelText("Repository", { exact: true }).element() as HTMLSelectElement;
-  const offered = [...select.options].find((one) => !one.disabled && one.value !== "");
-  await userEvent.selectOptions(select, offered!.value);
+  await page.getByRole("button", { name: "Choose a repository", exact: true }).click();
+  // The first row that can be pressed: a repository nobody set up is listed greyed and takes none.
+  const offered = page.getByRole("menuitem").elements().find((one) => one.getAttribute("aria-disabled") !== "true");
+  await userEvent.click(offered!);
   await expect.element(page.getByRole("heading", { name: "Dispatch a job" })).toBeVisible();
 }
 

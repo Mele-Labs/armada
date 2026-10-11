@@ -13,10 +13,14 @@ export const ALL = "";
 export const ADD = "add-repository";
 
 /**
- * Past this many repositories the picker grows a filter field and leads with the last few picked.
- * Below it the list is short enough to read, and a search box over three rows is clutter.
+ * Past this many repositories the picker leads with the last few picked. Below it the list is short
+ * enough to read and a Recent group would only repeat it. The filter field has no such floor: the
+ * owner, 11 Oct 2026, wanted it always.
  */
-export const SEARCHABLE_FROM = 6;
+export const RECENT_FROM = 6;
+
+/** What the filter field is called, to a screen reader and in the walk that types into it. */
+export const FIND_A_REPOSITORY = "Find a repository";
 
 /** A recent row's id: a repository listed twice must not repeat an id, and the prefix says which row. */
 const RECENT = "recent:";
@@ -52,7 +56,7 @@ export function repositoryEntries(
     ...(onlySetUp && repo.manifest === undefined ? { disabled: true } : {}),
   });
   const entries: DropdownMenuEntry[] = [];
-  const led = repositories.length > SEARCHABLE_FROM
+  const led = repositories.length > RECENT_FROM
     ? recent.flatMap((root) => repositories.filter((one) => one.root === root && (!onlySetUp || one.manifest !== undefined)))
     : [];
   if (led.length > 0) {
