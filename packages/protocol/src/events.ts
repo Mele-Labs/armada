@@ -21,6 +21,7 @@ import type { CheckoutRunRecord, RunRecord } from "./rehearsal";
 import type { ServerState } from "./servers";
 import type { SessionRowChanged } from "./hosted-sessions";
 import type { SleepState } from "./sleep";
+import type { Autopilot } from "./autopilot";
 import type { SessionRecord } from "./sessions";
 import type { RepositoryList } from "./setup";
 import type { Studio, StudioDeleted, StudioHelmActed } from "./studio";
@@ -109,7 +110,9 @@ export type Event =
   /** One row of a hosted session's thread, appended or replaced by its id. Since 23.49. */
   | ({ kind: "session.row" } & SessionRowChanged)
   /** Sleep mode after any change to it, whole. */
-  | ({ kind: "sleep.changed" } & SleepState);
+  | ({ kind: "sleep.changed" } & SleepState)
+  /** A repository's Autopilot after any change to it, whole. #2092. */
+  | ({ kind: "autopilot.changed" } & Autopilot);
 
 /**
  * A Job exists that did not before, carrying the row whole.

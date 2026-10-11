@@ -17,6 +17,7 @@
 //! to raise it. There are two, and the modules below hold none of their own.
 
 mod authoring;
+mod autopilots;
 mod commands;
 mod conversing;
 mod hosted_sessions;

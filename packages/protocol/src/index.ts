@@ -64,6 +64,7 @@ export * from "./needs";
 export * from "./piloting";
 export * from "./pull-requests";
 export * from "./issues";
+export * from "./autopilot";
 export * from "./servers";
 export * from "./hosted-sessions";
 export * from "./sessions";

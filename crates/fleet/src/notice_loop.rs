@@ -1,11 +1,9 @@
-//! The pull request and issue rotations, and writing back on issues, beside
-//! the turn.
+//! The pull request and issue rotations, writing back on issues, and Autopilot's picks, beside the turn.
 //!
-//! **A turn waits behind each Job's Checks**, so a landing that rode only on
-//! the turn could be told minutes late. This is `crate::main_ci::keep_reading_main`'s
-//! shape for the two other forge readings: whoever reaches the interval first
-//! reads, the interval gates stay where they were, and the turn still calls
-//! both.
+//! **A turn waits behind each Job's Checks**, so a landing that rode only on the turn could be told
+//! minutes late. This is `crate::main_ci::keep_reading_main`'s shape for the two other forge readings:
+//! whoever reaches the interval first reads, the interval gates stay where they were, and the turn
+//! still calls both.
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -44,11 +42,11 @@ where
 }
 
 /// Read the pull request and issue rotations every `tick`; their own
-/// intervals still gate them.
+/// intervals still gate them. Starts Autopilot's pass beside it.
 pub fn keep_noticing<H, V, W>(
     fleet: Arc<Fleet<H, V, W>>,
     tick: Duration,
-    adrift: impl Fn(Adrift) + Send + 'static,
+    adrift: impl Fn(Adrift) + Send + Sync + 'static,
 ) -> JoinHandle<()>
 where
     H: AgentHarness + Send + Sync + 'static,
@@ -59,6 +57,8 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
+    let adrift = Arc::new(adrift);
+    crate::autopilot::keep_autopiloting(Arc::clone(&fleet), tick, Arc::clone(&adrift));
     tokio::spawn(async move {
         let mut ticker = tokio::time::interval(tick);
         ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);

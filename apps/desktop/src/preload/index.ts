@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer, webUtils } from "electron";
 
 import { CHANNELS } from "../shared/bridge";
+import { autopilotPreload } from "./autopilot";
 import type { AskLessonRead, AskTurn, LessonReviewRead } from "@armada/jobs/review-wire";
 import { ANNOTATE_FLAG, ANNOTATION_CHANNELS } from "../shared/annotations";
 import type { Annotation, AnnotationsDevApi, Box } from "../shared/annotations";
@@ -210,13 +211,11 @@ const api: BridgeApi = {
   rescueSlot: (manifestId: string, rescue: RescueSlot): Promise<RescueOutcome> =>
     ipcRenderer.invoke(CHANNELS.rescueSlot, manifestId, rescue),
 
-  // A force, unlike the reclaim above — Fleet's 409 is the safety net a
-  // stale confirmation needs.
+  // A force, unlike the reclaim above — Fleet's 409 is the safety net a stale confirmation needs.
   deleteBranch: (jobId: string, tip: string): Promise<Outcome> =>
     ipcRenderer.invoke(CHANNELS.deleteBranch, jobId, tip),
 
-  // The per-Job half of `forgetTerminalJobs` above. Real deletion, and there
-  // is no undo.
+  // The per-Job half of `forgetTerminalJobs` above. Real deletion, and there is no undo.
   forgetJob: (jobId: string): Promise<Outcome> =>
     ipcRenderer.invoke(CHANNELS.forgetJob, jobId),
 
@@ -627,8 +626,9 @@ const api: BridgeApi = {
   // repository a new one starts in is the window's own pick, read in main, and a pull request is
   // named by its number against the session that holds it. No path and no port crosses.
   getSleep: (): Promise<SleepActed> => ipcRenderer.invoke(CHANNELS.getSleep),
-  // A repository's open issues, by its Manifest. #91.
+  // A repository's open issues, by its Manifest (#91), and the Autopilot that works them (#2092).
   listIssues: (manifestId: string, refresh: boolean): Promise<IssuesRead> => ipcRenderer.invoke(CHANNELS.listIssues, manifestId, refresh),
+  ...autopilotPreload,
   setSleep: (on: boolean): Promise<SleepActed> => ipcRenderer.invoke(CHANNELS.setSleep, on),
   overrideSleep: (id: string, text: string): Promise<SleepActed> => ipcRenderer.invoke(CHANNELS.overrideSleep, id, text),
   onSleepChanged: (onChanged: (state: SleepState) => void): (() => void) => {
