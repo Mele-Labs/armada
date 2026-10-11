@@ -630,3 +630,268 @@ test("where a row cannot be sent at all, the reason and the missing screenshot a
   expect(said).toContain("Sending needs Bridge and its Fleet");
   expect(said).toContain("No screenshot: on another screen");
 });
+
+// Several notes ticked in the panel and acted on at once. Every act here takes
+// the ticked notes and no others, which the bar's own sends cannot: they take
+// every open note on this screen.
+
+/** Four open notes, each on a live element, in the order they were written. */
+const four = (): Annotation[] => [
+  note("first", "open", "5", 15),
+  note("second", "open", "6", 30),
+  note("third", "open", "7", 45),
+  note("fourth", "open", "8", 60),
+];
+
+const selection = () => panel().getByRole("group", { name: "Selected notes" });
+const tickOf = (text: string) => panel().getByRole("checkbox", { name: `Select ${text}` });
+const ticked = () =>
+  panel()
+    .getByRole("checkbox", { name: /^Select (?!all)/ })
+    .elements()
+    .filter((one) => (one as HTMLInputElement).checked)
+    .map((one) => (one.getAttribute("aria-label") ?? "").replace(/^Select /, "").replace(/: what the owner said$/, ""));
+const textsOf = async (sink: Sink, which: (one: Annotation) => boolean) => (await sink.list()).filter(which).map((one) => one.text.replace(/: what the owner said$/, ""));
+
+async function panelOn(sink: Sink, fleet?: LayerFleet, openSession?: (id: string) => void, tell?: (sentence: string) => void): Promise<void> {
+  await annotating(sink, fleet, openSession, tell);
+  await countOf().click();
+  await expect.element(panel()).toBeVisible();
+}
+
+test("ticking rows selects them, and the head says how many with the acts on them", async () => {
+  await panelOn(sendable(four()), served().fleet);
+  // Nothing is ticked, so the head offers Select all and no act.
+  await expect.element(selection().getByRole("checkbox", { name: "Select all" })).not.toBeChecked();
+  expect(selection().getByRole("button").elements()).toHaveLength(0);
+
+  await tickOf("first:").click();
+  await tickOf("third:").click();
+  expect(ticked()).toEqual(["first", "third"]);
+  await expect.element(selection()).toHaveTextContent("2 selected");
+  for (const name of ["Dispatch job", "Start session", "Mark done", "Delete"]) {
+    await expect.element(selection().getByRole("button", { name, exact: true })).toBeVisible();
+  }
+  expect(rowOf("first:").element().hasAttribute("data-selected")).toBe(true);
+  expect(rowOf("second:").element().hasAttribute("data-selected")).toBe(false);
+
+  await tickOf("first:").click();
+  expect(ticked()).toEqual(["third"]);
+  await expect.element(selection()).toHaveTextContent("1 selected");
+});
+
+test("Select all ticks every listed note, and pressed again clears them", async () => {
+  await panelOn(sendable(four()), served().fleet);
+  const all = selection().getByRole("checkbox", { name: "Select all" });
+  await all.click();
+  expect(ticked()).toEqual(["first", "second", "third", "fourth"]);
+  await expect.element(all).toBeChecked();
+  await all.click();
+  expect(ticked()).toEqual([]);
+  expect(selection().getByRole("button").elements()).toHaveLength(0);
+});
+
+test("Select all takes only what is listed: a done note stays out until the done notes are shown", async () => {
+  await panelOn(sendable(batch()), served().fleet);
+  await selection().getByRole("checkbox", { name: "Select all" }).click();
+  expect(ticked()).toEqual(["first", "third"]);
+  await expect.element(selection()).toHaveTextContent("2 selected");
+});
+
+test("a shift-press ticks every row between it and the last one ticked", async () => {
+  await panelOn(sendable(four()), served().fleet);
+  await tickOf("first:").click();
+  await tickOf("third:").click({ modifiers: ["Shift"] });
+  expect(ticked()).toEqual(["first", "second", "third"]);
+});
+
+test("Dispatch job on the selection proposes one Job per ticked note and no other, then clears the selection", async () => {
+  const { fleet } = served();
+  const held = sendable(four());
+  await panelOn(held, fleet);
+  await tickOf("second:").click();
+  await tickOf("fourth:").click();
+  await selection().getByRole("button", { name: "Dispatch job" }).click();
+
+  await vi.waitFor(() => expect(fleet.proposeFromRequest).toHaveBeenCalledTimes(2));
+  const asked = fleet.proposeFromRequest.mock.calls.map((call) => (call as unknown as [string])[0]);
+  expect(asked[0]).toContain("second: what the owner said");
+  expect(asked[1]).toContain("fourth: what the owner said");
+  expect(asked.join()).not.toContain("first: what the owner said");
+  expect(asked.join()).not.toContain("third: what the owner said");
+  await vi.waitFor(async () => expect(await textsOf(held, (one) => one.sent !== undefined)).toEqual(["second", "fourth"]));
+  await vi.waitFor(() => expect(ticked()).toEqual([]));
+});
+
+test("Dispatch job on the selection stops at the first Fleet refuses, and keeps the selection", async () => {
+  const { fleet } = served();
+  fleet.proposeFromRequest.mockResolvedValueOnce({ ok: false, outcome: { ok: false, why: "refused", error: { code: "fleet.x", message: "No" } } } as never);
+  const told = vi.fn();
+  const held = sendable(four());
+  await panelOn(held, fleet, undefined, told);
+  await tickOf("first:").click();
+  await tickOf("third:").click();
+  await selection().getByRole("button", { name: "Dispatch job" }).click();
+
+  await vi.waitFor(() => expect(told).toHaveBeenCalled());
+  expect(fleet.proposeFromRequest).toHaveBeenCalledTimes(1);
+  expect(await textsOf(held, (one) => one.sent !== undefined)).toEqual([]);
+  expect(ticked()).toEqual(["first", "third"]);
+});
+
+test("Start session on the selection sends the ticked notes alone as one message, and clears the selection", async () => {
+  const { fleet, sent } = served();
+  const held = sendable(four());
+  const opened = vi.fn();
+  await panelOn(held, fleet, opened);
+  await tickOf("first:").click();
+  await tickOf("third:").click();
+  await selection().getByRole("button", { name: "Start session" }).click();
+
+  await vi.waitFor(() => expect(opened).toHaveBeenCalledWith("01NEWSESSION0000"));
+  expect(sent).toHaveLength(1);
+  expect(sent[0]!.text).toContain("first: what the owner said");
+  expect(sent[0]!.text).toContain("third: what the owner said");
+  expect(sent[0]!.text).not.toContain("second: what the owner said");
+  expect(sent[0]!.text).not.toContain("fourth: what the owner said");
+  expect(await textsOf(held, (one) => one.sent !== undefined)).toEqual(["first", "third"]);
+  await vi.waitFor(() => expect(ticked()).toEqual([]));
+});
+
+test("the selection's caret sends the ticked notes to a live Session", async () => {
+  const { fleet, sent } = served();
+  const held = sendable(four());
+  await panelOn(held, fleet, vi.fn());
+  await tickOf("fourth:").click();
+  await selection().getByRole("button", { name: "Send to a Session" }).click();
+  await page.getByRole("menu", { name: "Send to a Session" }).getByRole("menuitem", { name: "Fix the flaky store test" }).click();
+
+  await vi.waitFor(() => expect(sent).toHaveLength(1));
+  expect(fleet.startSession).not.toHaveBeenCalled();
+  expect(sent[0]!.session_id).toBe("01HOSTEDAAAAAAAA");
+  expect(sent[0]!.text).toContain("fourth: what the owner said");
+  expect(sent[0]!.text).not.toContain("first: what the owner said");
+  await vi.waitFor(async () => expect(await textsOf(held, (one) => one.sent !== undefined)).toEqual(["fourth"]));
+});
+
+test("Mark done and Reopen on the selection change the ticked notes alone", async () => {
+  const held = sinkOf(four());
+  await panelOn(held);
+  await tickOf("second:").click();
+  await tickOf("third:").click();
+  await selection().getByRole("button", { name: "Mark done" }).click();
+
+  await vi.waitFor(async () => expect(await textsOf(held, (one) => one.status === "done")).toEqual(["second", "third"]));
+  await expect.element(page.getByRole("status")).toHaveTextContent("2 open, 2 done");
+  expect(ticked()).toEqual([]);
+
+  await page.getByRole("status").getByRole("button", { name: "Show done notes" }).click();
+  await tickOf("first:").click();
+  await tickOf("third:").click();
+  // One open and one done: both acts are offered, each for the ticked notes it applies to.
+  await selection().getByRole("button", { name: "Reopen" }).click();
+  await vi.waitFor(async () => expect(await textsOf(held, (one) => one.status === "done")).toEqual(["second"]));
+  expect(ticked()).toEqual([]);
+});
+
+test("Delete on the selection asks once for the batch, then deletes the ticked notes alone", async () => {
+  const held = sinkOf(four());
+  await panelOn(held);
+  await tickOf("first:").click();
+  await tickOf("fourth:").click();
+  const remove = selection().getByRole("button", { name: "Delete" });
+  await remove.click();
+  await expect.element(remove).toHaveTextContent("Press again to delete");
+  expect(await textsOf(held, () => true)).toEqual(["first", "second", "third", "fourth"]);
+
+  await remove.click();
+  await vi.waitFor(async () => expect(await textsOf(held, () => true)).toEqual(["second", "third"]));
+  expect(rowOf("first:").elements()).toHaveLength(0);
+  expect(ticked()).toEqual([]);
+  expect(selection().getByRole("button").elements()).toHaveLength(0);
+});
+
+test("a change to the selection takes back an armed Delete", async () => {
+  await panelOn(sinkOf(four()));
+  await tickOf("first:").click();
+  await selection().getByRole("button", { name: "Delete" }).click();
+  await expect.element(selection().getByRole("button", { name: "Press again to delete" })).toBeVisible();
+  await tickOf("second:").click();
+  await expect.element(selection().getByRole("button", { name: "Delete", exact: true })).toBeVisible();
+});
+
+test("a ticked note deleted from its own row leaves the selection", async () => {
+  await panelOn(sinkOf(four()));
+  await tickOf("first:").click();
+  await tickOf("second:").click();
+  const remove = rowOf("first:").getByRole("button", { name: "Delete" });
+  await remove.click();
+  await rowOf("first:").getByRole("button", { name: "Press again to delete" }).click();
+  await expect.element(rowOf("first:")).not.toBeInTheDocument();
+  expect(ticked()).toEqual(["second"]);
+  await expect.element(selection()).toHaveTextContent("1 selected");
+});
+
+test("a selection holding sent and done notes sends only the open unsent ones, and says how many it leaves out", async () => {
+  const { fleet } = served();
+  const forwarded = note("second", "open", "6", 30);
+  const held = sendable([note("first", "open", "5", 15), { ...forwarded, sent: { jobId: "01OLD", handle: "8-old", at: forwarded.createdAt } }, note("third", "done", "7", 45)]);
+  await panelOn(held, fleet);
+  await page.getByRole("status").getByRole("button", { name: "Show done notes" }).click();
+  await selection().getByRole("checkbox", { name: "Select all" }).click();
+  await expect.element(selection()).toHaveTextContent("3 selected. Sends leave out 2: 1 already sent, 1 done");
+
+  await selection().getByRole("button", { name: "Dispatch job" }).click();
+  await vi.waitFor(() => expect(fleet.proposeFromRequest).toHaveBeenCalledTimes(1));
+  expect((fleet.proposeFromRequest.mock.calls[0] as unknown as [string])[0]).toContain("first: what the owner said");
+  await vi.waitFor(() => expect(ticked()).toEqual([]));
+});
+
+test("a selection of only sent and done notes offers no send, and still offers the rest", async () => {
+  const forwarded = note("second", "open", "6", 30);
+  await panelOn(sendable([{ ...forwarded, sent: { jobId: "01OLD", handle: "8-old", at: forwarded.createdAt } }, note("third", "done", "7", 45)]), served().fleet);
+  await page.getByRole("status").getByRole("button", { name: "Show done notes" }).click();
+  await selection().getByRole("checkbox", { name: "Select all" }).click();
+  await expect.element(selection()).toHaveTextContent("2 selected");
+  expect(selection().element().textContent).not.toContain("Sends leave out");
+  for (const name of ["Dispatch job", "Start session"]) expect(selection().getByRole("button", { name }).elements()).toHaveLength(0);
+  for (const name of ["Mark done", "Reopen", "Delete"]) await expect.element(selection().getByRole("button", { name, exact: true })).toBeVisible();
+});
+
+test("where sending is not possible, the selection's Dispatch job is off and says why, and Start session is not offered", async () => {
+  await panelOn(sinkOf(four()));
+  await tickOf("first:").click();
+  const dispatch = selection().getByRole("button", { name: "Dispatch job" });
+  await expect.element(dispatch).toBeDisabled();
+  await expect.element(dispatch).toHaveAccessibleDescription(expect.stringContaining("Sending needs Bridge and its Fleet"));
+  expect(selection().getByRole("button", { name: "Start session" }).elements()).toHaveLength(0);
+});
+
+test("a selection reaching off this screen is sent, and its acts say how many go without a screenshot", async () => {
+  const { fleet } = served();
+  const capture = vi.fn(async () => new Uint8Array([137, 80, 78, 71]).buffer);
+  const held = { ...sendable([note("here", "open", "5", 15), away("gone", "6")]), capture };
+  await panelOn(held, fleet);
+  await tickOf("here:").click();
+  await tickOf("gone:").click();
+  await expect.element(selection().getByRole("button", { name: "Dispatch job" })).toHaveAccessibleDescription(
+    "Send each note as a Job. No screenshot for 1 of 2: on another screen",
+  );
+  await expect.element(selection().getByRole("button", { name: "Start session" })).toHaveAccessibleDescription("No screenshot for 1 of 2: on another screen");
+
+  await selection().getByRole("button", { name: "Dispatch job" }).click();
+  await vi.waitFor(() => expect(fleet.proposeFromRequest).toHaveBeenCalledTimes(2));
+  // One screenshot, of the note on this screen.
+  expect(capture).toHaveBeenCalledTimes(1);
+  await vi.waitFor(async () => expect(await textsOf(held, (one) => one.sent !== undefined)).toEqual(["here", "gone"]));
+});
+
+test("turning the layer off and on again comes back with nothing selected", async () => {
+  await panelOn(sinkOf(four()));
+  await tickOf("first:").click();
+  await pressToggle();
+  await pressToggle();
+  await countOf().click();
+  await expect.element(panel()).toBeVisible();
+  expect(ticked()).toEqual([]);
+});
