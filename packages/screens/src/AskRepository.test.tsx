@@ -38,9 +38,9 @@ test("the Manifest surface's own ask can pick a repository nobody has set up", a
     />,
   );
 
-  const select = page.getByLabelText("Repository");
-  await expect.element(page.getByRole("option", { name: "scratch" })).not.toBeDisabled();
-  await select.selectOptions(NOT_SET_UP.root);
+  await page.getByRole("button", { name: "Choose a repository" }).click();
+  await expect.element(page.getByRole("menuitem", { name: "scratch" })).not.toHaveAttribute("aria-disabled");
+  await page.getByRole("menuitem", { name: "scratch" }).click();
 
   expect(picked).toEqual([NOT_SET_UP.root]);
 });
@@ -57,10 +57,28 @@ test("New job's own ask shows a repository nobody has set up, greyed out and unp
     />,
   );
 
-  await expect.element(page.getByRole("option", { name: "scratch — Set it up first" })).toBeDisabled();
-  const select = page.getByLabelText("Repository");
-  await select.selectOptions(SET_UP.root);
+  await page.getByRole("button", { name: "Choose a repository" }).click();
+  await expect.element(page.getByRole("menuitem", { name: "scratch — Set it up first" })).toHaveAttribute("aria-disabled", "true");
+  await page.getByRole("menuitem", { name: "armada" }).click();
 
-  // Selecting the disabled option is not offered at all — only the one Manifest is.
+  // The greyed row takes no press at all — only the one Manifest is offered.
   expect(picked).toEqual([SET_UP.root]);
+});
+
+test("the filter field is there at any size, and typing narrows the rows to what matches", async () => {
+  mount(
+    <AskRepository
+      repositories={[SET_UP, NOT_SET_UP]}
+      title="Pick a repository to open its Manifest"
+      next="Picking it opens Setup."
+      onPick={() => undefined}
+    />,
+  );
+
+  await page.getByRole("button", { name: "Choose a repository" }).click();
+  await expect.element(page.getByRole("menuitem", { name: "armada" })).toBeVisible();
+  await page.getByRole("searchbox", { name: "Find a repository" }).fill("scr");
+
+  await expect.element(page.getByRole("menuitem", { name: "scratch" })).toBeVisible();
+  expect(page.getByRole("menuitem", { name: "armada" }).query()).toBeNull();
 });

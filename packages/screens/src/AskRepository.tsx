@@ -18,18 +18,8 @@
 
 import type { ReactNode } from "react";
 import type { RepositorySummary } from "@armada/protocol";
-import { Alert, DropdownMenu, Select } from "@armada/components";
-import {
-  repositoryEntries,
-  repositoryLabel,
-  RepositoryOptions,
-  rootOf,
-  SEARCHABLE_FROM,
-  useRecentRepositories,
-} from "@armada/shell";
-
-/** No root is empty, so this value is never a repository. */
-const UNANSWERED = "";
+import { Alert, DropdownMenu } from "@armada/components";
+import { FIND_A_REPOSITORY, repositoryEntries, rootOf, useRecentRepositories } from "@armada/shell";
 
 export function AskRepository({
   repositories,
@@ -61,64 +51,23 @@ export function AskRepository({
    */
   action?: ReactNode;
 }) {
-  const loose = repositories.filter((one) => one.manifest === undefined);
   const [recent, remember] = useRecentRepositories();
-  // Past a few repositories a list to scroll is the cost: the ask is the same filter field and
-  // recents the title row's picker has, so one habit finds a repository in either place.
-  if (repositories.length > SEARCHABLE_FROM) {
-    return (
-      <Alert tone="neutral" title={title} action={action} actionOn="title">
-        <p>{next}</p>
-        <DropdownMenu
-          align="start"
-          triggerLabel="Choose a repository"
-          searchLabel="Find a repository"
-          entries={repositoryEntries(repositories, { onlySetUp, recent })}
-          onSelect={(picked) => {
-            const root = rootOf(picked);
-            remember(root);
-            onPick(root);
-          }}
-        />
-      </Alert>
-    );
-  }
+  // The same menu the title row's picker is, filter field and all, so one habit finds a repository
+  // in either place and a list of twenty is no longer a scroll. The trigger keeps the old prompt.
   return (
     <Alert tone="neutral" title={title} action={action} actionOn="title">
       <p>{next}</p>
-      <Select
-        label="Repository"
-        value={UNANSWERED}
-        onChange={(event) => {
-          if (event.target.value !== UNANSWERED) onPick(event.target.value);
+      <DropdownMenu
+        align="start"
+        triggerLabel="Choose a repository"
+        searchLabel={FIND_A_REPOSITORY}
+        entries={repositoryEntries(repositories, { onlySetUp, recent })}
+        onSelect={(picked) => {
+          const root = rootOf(picked);
+          remember(root);
+          onPick(root);
         }}
-      >
-        <option value={UNANSWERED} disabled>
-          Choose a repository
-        </option>
-        {onlySetUp ? (
-          <>
-            {repositories
-              .filter((one) => one.manifest !== undefined)
-              .map((repository) => (
-                <option key={repository.root} value={repository.root} title={repository.root}>
-                  {repositoryLabel(repository, repositories)}
-                </option>
-              ))}
-            {loose.length === 0 ? null : (
-              <optgroup label="Not set up">
-                {loose.map((repository) => (
-                  <option key={repository.root} value={repository.root} title={repository.root} disabled>
-                    {repositoryLabel(repository, repositories)} — Set it up first
-                  </option>
-                ))}
-              </optgroup>
-            )}
-          </>
-        ) : (
-          <RepositoryOptions repositories={repositories} />
-        )}
-      </Select>
+      />
     </Alert>
   );
 }

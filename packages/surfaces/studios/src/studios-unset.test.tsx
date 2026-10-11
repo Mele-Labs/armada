@@ -20,11 +20,11 @@ async function openStudios(): Promise<void> {
 }
 
 /**
- * The ask's own select, which is the picker this state must not draw. **Named exactly**: Helm's
- * footer draws a second combobox — *Point Helm at a repository*, or *at a different repository*
- * once Helm is pointed at one — which a loose name matches too.
+ * The ask's own menu button, which is the picker this state must not draw. **Named exactly**:
+ * Helm's footer draws a second combobox — *Point Helm at a repository*, or *at a different
+ * repository* once Helm is pointed at one — and it is not this button.
  */
-const picker = () => page.getByRole("combobox", { name: "Repository", exact: true });
+const picker = () => page.getByRole("button", { name: "Choose a repository", exact: true });
 
 test("no repository set up: Studios says so and offers Setup, rather than a picker holding nothing", async () => {
   // `nothing-set-up` is the moment: repositories served, none of them with a Manifest, and the
@@ -67,24 +67,19 @@ test("every-state serves one repository nobody set up, so the picker draws it gr
   await openStudios();
   await expect.element(picker()).toBeVisible();
 
-  // The greyed half, read by what its rows say. **Not by the Not set up group itself**: Chromium
-  // gives a closed select's `optgroup` no accessible role, so `getByRole("group")` finds nothing
-  // here — `packages/screens/src/AskRepository.test.tsx` is where the grouping is held. Every row
-  // in it carries the same instruction and nothing else on the surface does, and an unset
-  // repository's own label is its folder, which the scenario is free to change.
-  const unset = picker()
-    .getByRole("option")
-    .elements()
-    .filter((one) => (one.textContent ?? "").includes("Set it up first"));
-  expect(unset.length).toBeGreaterThan(0);
-  for (const option of unset) expect(option).toBeDisabled();
+  await picker().click();
 
-  // The pickable half, in the same picker — which is the whole point of the moment. Past the
-  // placeholder, which is disabled too and is not a repository.
-  const pickable = picker()
-    .getByRole("option")
-    .elements()
-    .filter((one) => !unset.includes(one) && one.textContent?.trim() !== "Choose a repository");
+  // The greyed half, read by what its rows say. Every row in it carries the same instruction and
+  // nothing else on the surface does, and an unset repository's own label is its folder, which
+  // the scenario is free to change. The grouping itself is held in
+  // `packages/screens/src/AskRepository.test.tsx`.
+  const rows = page.getByRole("menuitem").elements();
+  const unset = rows.filter((one) => (one.textContent ?? "").includes("Set it up first"));
+  expect(unset.length).toBeGreaterThan(0);
+  for (const row of unset) expect(row.getAttribute("aria-disabled")).toBe("true");
+
+  // The pickable half, in the same menu — which is the whole point of the moment.
+  const pickable = rows.filter((one) => !unset.includes(one));
   expect(pickable.length).toBeGreaterThan(0);
-  for (const option of pickable) expect(option).toBeEnabled();
+  for (const row of pickable) expect(row.getAttribute("aria-disabled")).toBeNull();
 });
