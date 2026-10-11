@@ -4,6 +4,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent as Rea
 import { createPortal } from "react-dom";
 
 import { Button } from "../Button/Button";
+import { Input } from "../Input/Input";
 
 /**
  * The row menu, and the one place besides a dialog, sheet, popover, tooltip
@@ -28,6 +29,11 @@ export type DropdownMenuEntry =
       shortcut?: string;
       danger?: boolean;
       selected?: boolean;
+      /**
+       * Listed and not choosable: `aria-disabled`, `--fg-subtle`, and a press
+       * does nothing. It stays in the arrow order so a person can read why.
+       */
+      disabled?: boolean;
       /**
        * How many rows the item holds, where the menu is a panel's filters (the
        * owner, 29 Sep 2026). Tabs' count rule: trailing mono. Zero draws nothing.
@@ -80,7 +86,39 @@ export type DropdownMenuProps = {
    * would otherwise open behind the next node.
    */
   portal?: boolean;
+  /**
+   * A filter field at the head of the panel, named by this. For a menu long
+   * enough that finding a row by eye is the cost — the repository picker, at
+   * twenty repositories. Typing narrows the items by their label, a label or
+   * rule with nothing left under it goes with them, Enter takes the first
+   * choosable row left, and ↓ walks into the list.
+   */
+  searchLabel?: string;
 };
+
+/**
+ * What a typed query leaves of a menu's entries.
+ *
+ * **A heading with nothing under it is dropped.** A group whose rows all fell
+ * out would otherwise stand as a label over nothing. Where the query is blank
+ * every entry stays, as it was.
+ */
+export function filterEntries(entries: DropdownMenuEntry[], query: string): DropdownMenuEntry[] {
+  const needle = query.trim().toLowerCase();
+  if (needle === "") return entries;
+  const kept: DropdownMenuEntry[] = [];
+  let heading: DropdownMenuEntry[] = [];
+  for (const entry of entries) {
+    if (entry.kind !== "item") {
+      heading = entry.kind === "label" ? [entry] : [];
+      continue;
+    }
+    if (!entry.label.toLowerCase().includes(needle)) continue;
+    kept.push(...heading, entry);
+    heading = [];
+  }
+  return kept;
+}
 
 export function DropdownMenu({
   triggerLabel,
@@ -94,6 +132,7 @@ export function DropdownMenu({
   onSelect,
   icon: Glyph,
   portal = false,
+  searchLabel,
 }: DropdownMenuProps) {
   const [own, setOwn] = useState(defaultOpen);
   const open = held ?? own;
@@ -109,6 +148,16 @@ export function DropdownMenu({
   const trigger = useRef<HTMLButtonElement>(null);
   const panel = useRef<HTMLDivElement>(null);
   const shown = open && !disabled;
+  const [query, setQuery] = useState("");
+  const search = useRef<HTMLInputElement>(null);
+  const visible = searchLabel === undefined ? entries : filterEntries(entries, query);
+  const choosable = visible.flatMap((entry) => (entry.kind === "item" && entry.disabled !== true ? [entry] : []));
+
+  // A reopened menu starts unfiltered: the last query is not what its next
+  // opening is for.
+  useEffect(() => {
+    if (!shown) setQuery("");
+  }, [shown]);
 
   // Which side the menu resolved to, read before the first paint so its
   // entrance rises from that side. Anchor positioning chooses a fallback in
@@ -149,8 +198,10 @@ export function DropdownMenu({
   // the trigger's, which left focus where it was (Run's `R`, the owner, 2 Oct
   // 2026).
   useEffect(() => {
-    if (shown) itemsOf(panel.current)[0]?.focus();
-  }, [shown]);
+    if (!shown) return;
+    if (searchLabel !== undefined) search.current?.focus();
+    else itemsOf(panel.current)[0]?.focus();
+  }, [shown, searchLabel]);
 
   // Esc closes an overlay, per the global tier, and hands focus back to the
   // trigger where it was in the menu, rather than dropping it on the page.
@@ -213,8 +264,31 @@ export function DropdownMenu({
       {/* A menu open when its trigger turns off stays shut rather than sending
           from under a control that says it cannot. */}
       {shown ? layered(
-        <div ref={panel} className="armada-dropdown-menu__panel" data-portal={portal || undefined} role="menu" onKeyDown={moveFocus}>
-          {entries.map((entry) => {
+        <div ref={panel} className="armada-dropdown-menu__panel" data-portal={portal || undefined} data-searchable={searchLabel !== undefined || undefined} role="menu" onKeyDown={moveFocus}>
+          {searchLabel === undefined ? null : (
+            <div className="armada-dropdown-menu__search">
+              <Input
+                ref={search}
+                role="searchbox"
+                aria-label={searchLabel}
+                autoComplete="off"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key !== "Enter") return;
+                  event.preventDefault();
+                  const first = choosable[0];
+                  if (first === undefined) return;
+                  setOpen(false);
+                  onSelect?.(first.id);
+                }}
+              />
+            </div>
+          )}
+          {searchLabel !== undefined && visible.length === 0 ? (
+            <p className="armada-dropdown-menu__empty" role="status">{`Nothing matches “${query.trim()}”.`}</p>
+          ) : null}
+          {visible.map((entry) => {
             if (entry.kind === "separator") {
               return <div key={entry.id} className="armada-dropdown-menu__separator" role="separator" />;
             }
@@ -231,12 +305,14 @@ export function DropdownMenu({
                 type="button"
                 role="menuitem"
                 aria-current={entry.selected || undefined}
+                aria-disabled={entry.disabled || undefined}
                 className={
                   entry.danger
                     ? "armada-dropdown-menu__item armada-dropdown-menu__item--danger"
                     : "armada-dropdown-menu__item"
                 }
                 onClick={() => {
+                  if (entry.disabled === true) return;
                   setOpen(false);
                   onSelect?.(entry.id);
                 }}
@@ -266,6 +342,8 @@ function itemsOf(panel: HTMLElement | null): HTMLElement[] {
 
 /** ↑ and ↓ step through the items and wrap; Home and End go to either end. Enter is the item's own. */
 function moveFocus(event: ReactKeyboardEvent<HTMLDivElement>): void {
+  // In the filter field only ↓ and ↑ are the menu's: Home and End move its caret.
+  if ((event.target as HTMLElement).getAttribute("role") === "searchbox" && event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
   const items = itemsOf(event.currentTarget);
   const at = items.indexOf(document.activeElement as HTMLElement);
   const to =
