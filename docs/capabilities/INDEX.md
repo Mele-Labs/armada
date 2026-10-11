@@ -16,6 +16,9 @@ under. `cargo xtask verify-foundations` checks the shape and this index offline;
 A capability acquires a file when it acquires prose worth keeping. One that is
 only its steps does not need one.
 
+- [`autopilot.md`](autopilot.md) — a repository works its own backlog from one
+  plain-language instruction, every pick an ordinary Job, within caps a person
+  sets, until they pause or stop it.
 - [`drone-per-step.md`](drone-per-step.md) — a Drone belongs to a workflow step
   rather than to a Job, ending when its step ends so that what crosses the
   boundary is the record rather than the session.
