@@ -33,6 +33,9 @@ function onTheRepository(): Scenario {
   return { ...base, name: "dashboard-cockpit-autopilot", state: { ...base.state, jobs, repository: repository().root } };
 }
 
+/** An issue's number as Bridge writes it, spelled so it never reads as a colour. */
+const issue = (n: number) => `#${n}`;
+
 const bar = () => page.getByRole("region", { name: "Autopilot" });
 
 /** The switch, pressed where a person presses it: on its label, since the native box is clipped. */
@@ -65,7 +68,7 @@ test("turning it off asks in the bar first, and turning it on reads a sentence b
   await cockpit();
   await flip();
   const asked = bar().getByRole("group", { name: "Stop Autopilot" });
-  await expect.element(asked).toHaveTextContent("Stop ends Autopilot. #401, picked and not started, is withdrawn.");
+  await expect.element(asked).toHaveTextContent(`Stop ends Autopilot. ${issue(401)}, picked and not started, is withdrawn.`);
   expect(page.getByRole("dialog").query()).toBeNull();
   await asked.getByRole("button", { name: "Stop Autopilot" }).click();
   await expect.element(bar().getByRole("status")).toHaveTextContent("Off");
@@ -85,7 +88,7 @@ test("turning it off asks in the bar first, and turning it on reads a sentence b
 
 test("a pick it set aside is in Your move, and Dismiss takes it off", async () => {
   await cockpit();
-  const tile = page.getByRole("option", { name: /#377 Should the Board group Jobs by repository\?/ });
+  const tile = page.getByRole("option", { name: `${issue(377)} Should the Board group Jobs by repository?` });
   await expect.element(tile).toBeVisible();
   await tile.click();
   await page.getByRole("button", { name: "Dismiss" }).click();

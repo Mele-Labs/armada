@@ -7,7 +7,7 @@
 /* One more station, before Waiting, only while an Autopilot is on. */
 .armada-metro[data-next-up] .armada-metro__head,
 .armada-metro[data-next-up] .armada-metro__row { grid-template-columns: var(--label) repeat(7, minmax(0, 1fr)); }
-.armada-metro__station-name[data-next-up] { color: var(--fg-subtle); font-weight: var(--weight-body); }
+.armada-metro__head > [data-next-up] { color: var(--fg-subtle); font-weight: var(--weight-body); }
 .armada-metro__station[data-next-up]::before { display: none; }
 .armada-metro__stop[data-picked] { border-style: dashed; border-color: var(--border-strong); background: var(--bg-base); }
 .armada-metro__station[data-next-up][data-state="now"] .armada-metro__stop[data-picked] { width: calc(var(--space-2) + var(--border-width) * 4); height: calc(var(--space-2) + var(--border-width) * 4); box-shadow: none; }

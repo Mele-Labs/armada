@@ -85,7 +85,7 @@ export const EndedByACap: Story = {
 
 /** Its last pass picked nothing, and Fleet says why. */
 export const LastPassPickedNothing: Story = {
-  args: { fault: "The tracker did not answer: GitHub returned 502." },
+  args: { fault: "The tracker did not answer in time." },
 };
 
 /** Off, with nothing to say: the switch, and nothing else until it is turned on. */
