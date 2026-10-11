@@ -52,6 +52,7 @@ import { waveOffTheWire } from "@armada/jobs/fixtures/build/wave-off-the-wire";
 import { agentText } from "@armada/jobs/fixtures/build/markdown";
 import { emptiedLine, mergeLines, neverLanded } from "@armada/screens/src/fixtures/build/merge-line";
 import { repository, workflow } from "@armada/screens/src/fixtures/build/base";
+import { asOfNow } from "@armada/screens/src/fixtures/as-of-now";
 import { recorded, RECORDED_SLUGS } from "@armada/screens/src/fixtures/recorded";
 import realBoard from "@armada/screens/src/fixtures/boards/real-board.json";
 
@@ -226,9 +227,14 @@ const EVERY_STATE_TITLES: Record<Builder, string> = {
   proposing: "Let a Job’s settings sheet remember which section was open",
 };
 
+/**
+ * Every builder, moved onto the real clock — #1505. The builders are dated a
+ * month back, so a running Job read its run time in hundreds of hours and the
+ * Working area's twelve minutes of Activity windows drew empty.
+ */
 const BUILT: [Builder, JobFixture][] = Object.entries(BUILDERS).map(([name, make]) => [
   name as Builder,
-  make(),
+  asOfNow(make()),
 ]);
 
 /** Every recording, by its directory. */
