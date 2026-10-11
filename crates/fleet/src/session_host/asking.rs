@@ -18,6 +18,7 @@ use ipc::{
 };
 
 use super::serving::mode_of;
+use super::walking::WALK_OPEN_ASK;
 use crate::daemon::Fleet;
 use crate::helm::{answering, because_in_a_session, pages_opened, unanswered, Because, Said};
 
@@ -56,6 +57,12 @@ where
         id: &str,
         asking: AskingToRun,
     ) -> Result<RunOrNot, Refusal> {
+        // A question held open during a walk would hold back every note and the Approve.
+        if asking.tool_name == ipc::ASKS_A_QUESTION && self.walk_open(id).await.is_some() {
+            return Ok(RunOrNot::Deny {
+                message: String::from(WALK_OPEN_ASK),
+            });
+        }
         // The owner's browser is never opened by a session: the page goes to
         // Bridge's window, and the session is told so.
         if asking.tool_name == "Bash" {
@@ -182,6 +189,11 @@ where
         // One at a time: a new question means the last one's prompt is gone.
         self.terminal_ask_closed(id, SessionAskState::Unanswered)
             .await;
+        if self.walk_open(id).await.is_some() {
+            return Ok(TerminalAsked::Refused {
+                message: String::from(WALK_OPEN_ASK),
+            });
+        }
         let asks = self.hosts().asks();
         let manifest = ManifestId::carried(session.manifest_id.as_deref().unwrap_or_default());
         // The channel is not waited on; the answer is kept by whoever gives it.

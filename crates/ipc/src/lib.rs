@@ -427,6 +427,7 @@ pub use sessions::{
     SessionFact, SessionId, SessionList, SessionOrigin, SessionRecord, SessionReport, SessionState,
     SessionUsage, SetWaitingFor, ShowWindow, TerminalCommand, TerminalFacts, WaitingAct,
     WaitingActKind, WaitingInput, WaitingItem, WaitingMode, WaitingOption, WaitingSource,
+    WindowClosed,
 };
 pub use sleep::{OverrideSleep, SetSleep, SleepBlocked, SleepDecided, SleepLanded, SleepState, SleepWalk};
 pub use setup::{
