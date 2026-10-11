@@ -178,6 +178,9 @@ mod resources;
 /// A Job's retro and the record it was read from, and the Lessons listing.
 /// Since 23.12.
 mod retro;
+/// A guided review of the open retro items, and a question about one. Since
+/// 23.74.
+mod retro_review;
 /// What Scan found in a repository nobody set up for Armada. **Evidence,
 /// never a proposal** — every finding carries the file it came from.
 mod scan;
@@ -406,6 +409,9 @@ pub use retro::{
     RecordAsked, RecordCheck, RecordNotMet, RecordPath, RecordRefusal, RecordSaid, RecordWaited,
     RetroAnswered, RetroChange, RetroChangeAnswered, RetroItem, RetroRecord, RetroSession,
     RetroState, RetroWritten,
+};
+pub use retro_review::{
+    AskLessonAnswer, AskRole, AskTurn, LessonAsk, LessonReview, ReviewEntry, ReviewLessons, SetAside,
 };
 pub use scan::{
     CiCommand, ComposeService, DeclaredPort, EvidenceStrength, MissingName, NotRead,

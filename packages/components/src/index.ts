@@ -431,6 +431,7 @@ export * from "./compositions/RetroPress/RetroPress";
 export * from "./compositions/LandsMark/LandsMark";
 export * from "./compositions/LessonCard/LessonCard";
 export * from "./compositions/LessonList/LessonList";
+export * from "./compositions/LessonReview/LessonReview";
 export * from "./compositions/RetroSheet/RetroSheet";
 export * from "./compositions/MorningReview/MorningReview";
 

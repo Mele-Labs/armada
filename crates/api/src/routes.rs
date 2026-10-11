@@ -369,6 +369,11 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             get(crate::retros::get_session_retro::<D>).post(crate::retros::write_session_retro::<D>),
         )
         .route("/lessons", get(crate::retros::list_lessons::<D>))
+        .route("/lessons/review", post(crate::retros::review_lessons::<D>))
+        .route(
+            "/lessons/:lesson_id/ask",
+            post(crate::retros::ask_lesson::<D>),
+        )
         .route(
             "/lessons/:lesson_id/agree",
             post(crate::retros::agree_lesson::<D>),

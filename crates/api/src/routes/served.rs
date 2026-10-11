@@ -375,6 +375,18 @@ const ROUTES: &[Route] = &[
         method: "POST",
         path: "/lessons/:lesson_id/disagree",
     },
+    // Two model calls over the open items, neither of which stores anything.
+    // `review` is a literal segment beside `:lesson_id`, which axum ranks first.
+    Route {
+        operation: "review_lessons",
+        method: "POST",
+        path: "/lessons/review",
+    },
+    Route {
+        operation: "ask_lesson",
+        method: "POST",
+        path: "/lessons/:lesson_id/ask",
+    },
     // What Fleet did to the Job, settled: the socket's backfill, answered once.
     // **The one row whose last segment is not its key**, and the reason is the
     // route next door. Elsewhere a log has two routes — `<noun>/output` for the

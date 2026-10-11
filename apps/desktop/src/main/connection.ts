@@ -19,6 +19,7 @@ import type { SessionActed } from "../shared/api/sessions";
 import type { BridgeState, PickedView } from "../shared/bridge";
 import type { Connection, HelmContext, HelmDebugRead, JobSummary, Outcome } from "@armada/protocol";
 import type { BriefRead, CheckOutputRead, FrameRead, LandCheckAt, LessonsRead, RetroRead, RetroSubject } from "@armada/protocol";
+import type { AskLessonRead, AskTurn, LessonReviewRead } from "@armada/jobs/review-wire";
 import type { ComposingRead } from "@armada/screens/src/composing-reads";
 import { applyArrival, reread } from "./arrivals";
 import type { ArrivalHost } from "./arrivals";
@@ -581,6 +582,14 @@ export class FleetConnection {
 
   async readLessons(picked: Picked, state: "open" | "accepted"): Promise<LessonsRead> {
     return await this.jobReads.readLessons(picked, state);
+  }
+
+  async reviewLessons(picked: Picked): Promise<LessonReviewRead> {
+    return await this.jobReads.reviewLessons(picked);
+  }
+
+  async askLesson(lessonId: string, question: string, history: AskTurn[]): Promise<AskLessonRead> {
+    return await this.jobReads.askLesson(lessonId, question, history);
   }
 
   /** `leftOut` and the Manifest reading for the repository New job's ask answered, on All — #959.

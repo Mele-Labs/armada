@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { CHANNELS, NOTHING_YET } from "../shared/bridge";
 import type { BridgeState, PickedView, Summons } from "../shared/bridge";
 import type { BuildSource, ChangeSlotPool, Outcome, RescueSlot, RetroSubject } from "@armada/protocol";
+import type { AskTurn } from "@armada/jobs/review-wire";
 import type { HelmContext, LandCheckAt, StagedAttachment } from "@armada/protocol";
 import { landCheckAt } from "./land-following";
 import type { ToProposer, AddTask, ApproveWave, DropTask, EditJob, EditTask, FileReport, MovePlan } from "@armada/protocol";
@@ -909,6 +910,13 @@ void app.whenReady().then(() => {
       connection.repositories.pickedByWindow.of(windowIdOf(event)),
       state === "accepted" ? "accepted" : "open",
     ),
+  );
+  // The guided review of the open items, narrowed to the asking window's pick, and one question about one item.
+  ipcMain.handle(CHANNELS.reviewLessons, (event) =>
+    connection?.reviewLessons(connection.repositories.pickedByWindow.of(windowIdOf(event))),
+  );
+  ipcMain.handle(CHANNELS.askLesson, (_event, lessonId: string, question: string, history: AskTurn[]) =>
+    connection?.askLesson(lessonId, question, history),
   );
   // New job's own reads for the repository its ask answered, on All — #959.
   ipcMain.handle(CHANNELS.readComposing, (event, repository: string) =>
