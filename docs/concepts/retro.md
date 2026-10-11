@@ -259,6 +259,18 @@ answered already stands as its `state` says**, on the sheet as on the list:
 buttons. **An item with no `state`, or kept before `lands_in`, is drawn without
 the buttons**: Fleet refuses both acts on one with no place.
 
+**Review is a button beside Open and Accepted, and it shows one item at a
+time.** Pressing it reads `review_lessons` and draws the best item first, with
+how far through the person is, the model's one sentence on why it is worth their
+time, and the same card and answers as the list. An item that stands for repeats
+says so and lists them; rejecting it rejects the repeats only where the person
+ticked the box, which starts off. Skip and Back move without answering, and the
+arrow keys do the same. Each item keeps its own thread of questions to
+`ask_lesson`, kept as the person moves between items. The items the model set
+aside are folded away with their reasons, and each can be put back in the queue.
+Leaving Review reads the list again, since the review answered items the list
+still held. `packages/surfaces/jobs/src/LessonsReview.tsx`.
+
 ## Where it is served
 
 | Operation | Route | Answers |
