@@ -422,6 +422,10 @@ type OldBridgeApi = {
         scroll: (wheel: CaptureWheel) => void;
         showAsk: (on: boolean) => Promise<void>;
         answerAsk: (answer: CaptureAnswer) => Promise<Outcome>;
+        panel: (open: boolean) => Promise<void>;
+    };
+    walkPanel: {
+        openInBridge: () => Promise<void>;
     };
     approveReview: (jobId: string) => Promise<Outcome>;
     mergePullRequest: (jobId: string) => Promise<Outcome>;
@@ -729,6 +733,8 @@ const OLD_CHANNELS = {
     captureWindowScroll: "bridge:capture-window-scroll",
     captureWindowShowAsk: "bridge:capture-window-show-ask",
     captureWindowAnswerAsk: "bridge:capture-window-answer-ask",
+    captureWindowPanel: "bridge:capture-window-panel",
+    walkPanelOpenInBridge: "bridge:walk-panel-open-in-bridge",
     tap: "bridge:tap",
     startSession: "bridge:start-session",
     pilotJob: "bridge:pilot-job",

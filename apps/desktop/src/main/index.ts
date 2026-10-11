@@ -26,6 +26,7 @@ import { ANNOTATE_FLAG } from "../shared/annotations";
 import { handleAnnotations } from "./annotations";
 import { sessionNoteText } from "./capture/session-note";
 import { CaptureWindows } from "./capture/windows";
+import { follow } from "./capture/follow";
 import { coalesce } from "./coalesce";
 import { stagePng } from "./staging";
 import { FleetConnection } from "./connection";
@@ -182,6 +183,7 @@ const captureWindows = new CaptureWindows({
       if (!window.isDestroyed()) window.webContents.send(CHANNELS.walkFocused, walkFocused.size > 0);
     }
   },
+  follow: (jobId) => follow(jobId, { watch: (id) => void connection?.watchJob(id), bridge: bridgeWindow }),
 });
 
 /** Whether any window is on screen and not minimized. A closed one is neither. */
@@ -347,6 +349,8 @@ const toWindows = coalesce((state: BridgeState) => {
   for (const window of BrowserWindow.getAllWindows()) {
     if (!window.isDestroyed()) window.webContents.send(CHANNELS.changed, withView(state, viewFor(window.id)));
   }
+  // A walk window's panel reads what Bridge's windows read, and picks no repository of its own.
+  for (const panel of captureWindows.panels()) panel.send(CHANNELS.changed, withView(state, NO_PICK));
 });
 
 /**
@@ -413,6 +417,12 @@ function summon(to: Summons): void {
   window.show();
   window.focus();
   hand(window);
+}
+
+/** Bridge's own window, where one is open. A walk window is a `BaseWindow`, never listed here. */
+function bridgeWindow(): Electron.WebContents | null {
+  const [window] = BrowserWindow.getAllWindows();
+  return window === undefined || window.isDestroyed() ? null : window.webContents;
 }
 
 /** Hand over a held press, if there is one. Nothing is handed twice. */
@@ -947,7 +957,7 @@ void app.whenReady().then(() => {
   );
   handleSessions({ ipc: ipcMain, connection: () => connection, windowIdOf, pages: new SessionPages() });
   handleSleep({ ipc: ipcMain, connection: () => connection });
-  handleStudios({ ipc: ipcMain, connection: () => connection, published: () => published, captureWindows });
+  handleStudios({ ipc: ipcMain, connection: () => connection, published: () => published, captureWindows, summon });
   // The four decisions on the work, and they stay four channels. Merging lands
   // the branch and then takes the work, approving takes it and leaves the pull
   // request open, requesting changes sends the drone back to the same step, and

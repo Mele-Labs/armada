@@ -182,6 +182,17 @@ export type StudiosApi = {
     showAsk: (on: boolean) => Promise<void>;
     /** Answer the Session's open question. It reaches the Session as the person's message. */
     answerAsk: (answer: CaptureAnswer) => Promise<Outcome>;
+    /** Draw the Session's or the Job's panel beside the page, or fold it away. */
+    panel: (open: boolean) => Promise<void>;
+  };
+  /**
+   * What the panel beside a walk window's page may ask that Bridge's own window does not. **Answered for
+   * the calling panel and no other document**: main finds the window by the sender's own `webContents`
+   * and names the Job or the Session itself, so a panel cannot name another.
+   */
+  walkPanel: {
+    /** Bring Bridge's window forward on the panel's Session or Job, for what the panel does not draw. */
+    openInBridge: () => Promise<void>;
   };
 };
 
@@ -248,4 +259,6 @@ export const STUDIOS_CHANNELS = {
   captureWindowScroll: "bridge:capture-window-scroll",
   captureWindowShowAsk: "bridge:capture-window-show-ask",
   captureWindowAnswerAsk: "bridge:capture-window-answer-ask",
+  captureWindowPanel: "bridge:capture-window-panel",
+  walkPanelOpenInBridge: "bridge:walk-panel-open-in-bridge",
 } as const;

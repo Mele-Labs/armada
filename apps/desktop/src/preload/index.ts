@@ -756,6 +756,12 @@ const api: BridgeApi = {
     scroll: (wheel: CaptureWheel): void => ipcRenderer.send(CHANNELS.captureWindowScroll, wheel),
     showAsk: (on: boolean): Promise<void> => ipcRenderer.invoke(CHANNELS.captureWindowShowAsk, on),
     answerAsk: (answer: CaptureAnswer): Promise<Outcome> => ipcRenderer.invoke(CHANNELS.captureWindowAnswerAsk, answer),
+    panel: (open: boolean): Promise<void> => ipcRenderer.invoke(CHANNELS.captureWindowPanel, open),
+  },
+  // The panel beside a walk window's page — `capture-window.md`, *The panel beside the page*. The call
+  // names nothing: main answers for the panel the call came from, and refuses any other document.
+  walkPanel: {
+    openInBridge: (): Promise<void> => ipcRenderer.invoke(CHANNELS.walkPanelOpenInBridge),
   },
 
   // The three decisions on the work, and they are three entries for the reason

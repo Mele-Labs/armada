@@ -2,8 +2,9 @@
 // elapsed figures read, Escape out of a Job, the cursor's way back to its row, and where a pressed
 // notification lands. Each is App's, and each says why it is the way it is.
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { isPressed } from "@armada/components";
+import { askToOpenSession } from "./open-session";
 
 /** How often the elapsed figures are redrawn. They are read, so they must move. */
 const TICK_MS = 1000;
@@ -61,9 +62,26 @@ export function useReturnToRow(returning: string | null, done: () => void): void
  * One Job opens that Job. Several open the set they came from — the Needs-you tab — because
  * picking one of four for somebody is choosing on their behalf. Either way the overlays come down
  * first: the press asked for the Board or a Job, not for the composer that happened to be up.
+ *
+ * **A Job's walk window taking focus is followed, not pressed** (owner, 11 Oct 2026): `follow` opens
+ * that Job over whatever is showing, so Escape goes back to it, and leaves the composer standing —
+ * nobody asked to lose what they were typing by clicking into another window.
  */
-export function useSummoned(go: (jobId: string | null) => void): void {
-  useEffect(() => window.armada.onSummoned((to) => go(to.jobId)), []);
+export function useSummoned(go: (jobId: string | null) => void, follow: (jobId: string) => void): void {
+  // The latest of each, because the follow reads whether the composer is up and the listener is installed once.
+  const latest = useRef({ go, follow });
+  latest.current = { go, follow };
+  useEffect(
+    () =>
+      window.armada.onSummoned((to) =>
+        to.follow === true && to.jobId !== null
+          ? latest.current.follow(to.jobId)
+          : to.sessionId === undefined
+            ? latest.current.go(to.jobId)
+            : askToOpenSession(to.sessionId),
+      ),
+    [],
+  );
 }
 
 /**

@@ -411,7 +411,7 @@ export function App({ draft }: AppProps = {}) {
     onWriteProposal: writeManifestProposal,
   });
 
-  useSummoned((jobId) => (setComposing(false), setAuditing(false), setClearing(false), setOpenJob(jobId), jobId === null && lands.landOn()));
+  useSummoned((jobId) => (setComposing(false), setAuditing(false), setClearing(false), setOpenJob(jobId), jobId === null && lands.landOn()), (jobId) => void (composing && reading === null ? null : setOpenJob(jobId)));
 
   useEscapeLeavesJob(openJob, close);
 
