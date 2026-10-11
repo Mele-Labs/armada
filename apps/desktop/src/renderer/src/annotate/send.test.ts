@@ -126,6 +126,28 @@ describe("sending to Fleet", () => {
     expect(answer).toEqual({ ok: true, sent: { jobId: JOB.id, handle: JOB.handle, at: AT.toISOString() } });
   });
 
+  it("stages the picture kept as the note was saved, from any screen, and takes none now", async () => {
+    const kept = new Uint8Array([137, 80, 78, 71, 1]).buffer;
+    const shot = vi.fn(async () => kept);
+    const capture = vi.fn(async () => new Uint8Array([137]).buffer);
+    for (const box of [note().box, null]) {
+      const proposer = fleet({ ok: true, jobs: [JOB] });
+      await sendToFleet(note({ screenshot: `${note().id}.png` }), box, sink({ shot, capture }), proposer, AT);
+      expect(proposer.stageAttachment).toHaveBeenCalledWith(kept, "annotation-20260917-135315-tsfq.png", "image/png");
+      expect(proposer.proposeFromRequest.mock.calls[0]![1]).toHaveLength(1);
+    }
+    expect(shot).toHaveBeenCalledWith(note().id);
+    expect(capture).not.toHaveBeenCalled();
+  });
+
+  it("takes one now, where the note is on this screen, when its kept picture is gone", async () => {
+    const proposer = fleet({ ok: true, jobs: [JOB] });
+    const capture = vi.fn(async () => new Uint8Array([137]).buffer);
+    await sendToFleet(note({ screenshot: `${note().id}.png` }), note().box, sink({ shot: async () => null, capture }), proposer, AT);
+    expect(capture).toHaveBeenCalledWith(note().box);
+    expect(proposer.stageAttachment).toHaveBeenCalledTimes(1);
+  });
+
   it("says what Fleet said when it takes nothing, and sends nothing when there is no repository", async () => {
     const refused = await sendToFleet(note(), note().box, sink(), fleet({ ok: false, why: "refused", outcome: { ok: false, why: "not_connected" } }), AT);
     expect(refused).toEqual({ ok: false, saying: "Job not sent: Fleet is not connected. Nothing was sent." });
@@ -191,6 +213,23 @@ describe("a note sent to a Session", () => {
     expect(message.attachments.map((one) => one.name)).toEqual(["annotation-20260917-135315-tsfq.png"]);
     expect(message.text).toContain("Over on another screen");
     expect(answer.ok).toBe(true);
+  });
+
+  it("attaches each note's kept picture, a note off this screen among them, and shoots only an older note that is on it", async () => {
+    const fleet = sessions();
+    const kept = new Uint8Array([137, 80, 78, 71, 9]).buffer;
+    const capture = vi.fn(async () => new Uint8Array([137, 80, 78, 71]).buffer);
+    const shot = vi.fn(async (id: string) => (id === "20260917-140000-kept" ? kept : null));
+    const away = note({ id: "20260917-140000-kept", text: "Kept from another screen", screenshot: "20260917-140000-kept.png" });
+    const older = note({ id: "20260917-140100-gone", text: "Older, and away" });
+    await sendToSession([{ note: away, box: null }, item, { note: older, box: null }], null, sink({ capture, shot }), fleet, AT);
+    const message = (fleet.sendSessionMessage.mock.calls[0] as unknown as [{ attachments: { name: string; data: string }[] }])[0];
+    expect(message.attachments).toEqual([
+      { name: "annotation-20260917-140000-kept.png", media_type: "image/png", data: "iVBORwk=" },
+      { name: "annotation-20260917-135315-tsfq.png", media_type: "image/png", data: "iVBORw==" },
+    ]);
+    expect(capture).toHaveBeenCalledTimes(1);
+    expect(capture).toHaveBeenCalledWith(note().box);
   });
 
   it("sends a note with no screenshot at all where none is on this screen", async () => {

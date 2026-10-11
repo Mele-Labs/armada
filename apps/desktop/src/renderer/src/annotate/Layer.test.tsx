@@ -435,7 +435,7 @@ test("the picture kept at save is of the app under the note, with none of the la
 
 // The bar's two sends: a Job at the gate, and the notes as a message to a Session.
 
-const sendable = (notes: Annotation[]): Sink => ({ ...sinkOf(notes), via: "main", root: async () => "/Users/user/armada" });
+const sendable = (notes: Annotation[], shots?: Map<string, ArrayBuffer>): Sink => ({ ...sinkOf(notes, shots), via: "main", root: async () => "/Users/user/armada" });
 
 const record = (id: string, title: string | undefined, change: object = {}) =>
   ({ id, title, state: "live", origin: "bridge", ...change }) as never;
@@ -740,6 +740,50 @@ test("where a row cannot be sent at all, the reason and the missing screenshot a
   expect(said).toContain("No screenshot: on another screen");
 });
 
+/** A note off this screen that kept its picture as it was saved, and the store holding it. */
+function keptAway(name: string, at: string): { note: Annotation; shots: Map<string, ArrayBuffer> } {
+  const one = away(name, at);
+  return { note: { ...one, screenshot: `${one.id}.png` }, shots: new Map([[one.id, PNG]]) };
+}
+
+test("a note that kept its picture is sent with it from another screen, to a Job and to a Session, and its row says nothing is missing", async () => {
+  const { fleet, sent } = served();
+  const capture = vi.fn(async () => new Uint8Array([137, 80, 78, 71]).buffer);
+  const first = keptAway("kept", "6");
+  const second = keptAway("also", "7");
+  const held = { ...sendable([first.note, second.note], new Map([...first.shots, ...second.shots])), capture };
+  await annotating(held, fleet);
+  await countOf().click();
+
+  await expect.element(rowOf("kept:").getByRole("button", { name: "Dispatch job" })).toHaveAccessibleDescription("Send this note as a Job");
+  await expect.element(rowOf("kept:").getByRole("button", { name: "Start session" })).not.toHaveAccessibleDescription(expect.stringContaining("screenshot"));
+
+  await rowOf("kept:").getByRole("button", { name: "Dispatch job" }).click();
+  await vi.waitFor(() => expect(fleet.proposeFromRequest).toHaveBeenCalledTimes(1));
+  expect(fleet.stageAttachment).toHaveBeenCalledWith(PNG, `annotation-${first.note.id}.png`, "image/png");
+  expect((fleet.proposeFromRequest.mock.calls[0] as unknown as [string, unknown[]])[1]).toHaveLength(1);
+
+  await rowOf("also:").getByRole("button", { name: "Start session" }).click();
+  await vi.waitFor(() => expect(sent).toHaveLength(1));
+  expect((sent[0] as unknown as { attachments: { name: string }[] }).attachments.map((one) => one.name)).toEqual([`annotation-${second.note.id}.png`]);
+  expect(capture).not.toHaveBeenCalled();
+});
+
+test("a screenshot taken at send, of an older note on this screen, is taken with the layer out of it", async () => {
+  const { fleet } = served();
+  const seen: boolean[] = [];
+  const capture = vi.fn(async () => {
+    seen.push(document.querySelector(".armada-annotate")!.hasAttribute("data-shooting"));
+    return PNG;
+  });
+  await annotating({ ...sendable([note("here", "open", "5", 15)]), capture }, fleet);
+  await countOf().click();
+  await rowOf("here:").getByRole("button", { name: "Dispatch job" }).click();
+  await vi.waitFor(() => expect(fleet.proposeFromRequest).toHaveBeenCalledTimes(1));
+  expect(seen).toEqual([true]);
+  expect(document.querySelector(".armada-annotate")!.hasAttribute("data-shooting")).toBe(false);
+});
+
 // Several notes ticked in the panel and acted on at once. Every act here takes
 // the ticked notes and no others, which the bar's own sends cannot: they take
 // every open note on this screen.
@@ -993,6 +1037,16 @@ test("a selection reaching off this screen is sent, and its acts say how many go
   // One screenshot, of the note on this screen.
   expect(capture).toHaveBeenCalledTimes(1);
   await vi.waitFor(async () => expect(await textsOf(held, (one) => one.sent !== undefined)).toEqual(["here", "gone"]));
+});
+
+test("a selection counts as going without a screenshot only the notes off this screen that kept none", async () => {
+  const kept = keptAway("kept", "7");
+  await panelOn(sendable([note("here", "open", "5", 15), away("gone", "6"), kept.note], kept.shots), served().fleet);
+  await selection().getByRole("checkbox", { name: "Select all" }).click();
+  await expect.element(selection().getByRole("button", { name: "Dispatch job" })).toHaveAccessibleDescription(
+    "Send each note as a Job. No screenshot for 1 of 3: on another screen",
+  );
+  await expect.element(selection().getByRole("button", { name: "Start session" })).toHaveAccessibleDescription("No screenshot for 1 of 3: on another screen");
 });
 
 test("turning the layer off and on again comes back with nothing selected", async () => {

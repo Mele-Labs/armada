@@ -85,10 +85,13 @@ export type LayerFleet = Pick<
 /** What a Session without a title is called, as the Sessions list calls it. */
 const titled = (one: { id: string; title?: string }): string => one.title ?? `s-${one.id.slice(0, 8)}`;
 
-/** What a row off this screen tells its send acts: no screenshot can be taken of it. */
+/**
+ * What a row tells its send acts when the note kept no picture as it was saved, which only one
+ * written before pictures were kept has, and is off this screen, where none can be taken now.
+ */
 const NO_SHOT = "No screenshot: on another screen";
 
-/** The same fact for a send of several, where only some of them are off this screen. */
+/** The same fact for a send of several, where only some of them go without one. */
 const noShot = (away: number, of: number): string => (away === of ? NO_SHOT : `No screenshot for ${away} of ${of}: on another screen`);
 
 export function Layer({ sink, fleet: given, openSession = askToOpenSession, tell = askToTell }: { sink: Sink; fleet?: LayerFleet; openSession?: (id: string) => void; tell?: (sentence: string) => void }) {
@@ -293,11 +296,11 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSession, tell
 
   /** One note to Fleet. Written back with its Job only once Fleet took it. */
   async function send(note: Annotation): Promise<boolean> {
-    // Null where the note's element is not on this screen, so no screenshot is taken of the wrong one.
+    // Null where the note's element is not on this screen, so a note with no kept picture is never shot at the wrong one.
     const box = frames[note.id] ?? null;
     if (fleet === undefined) return false;
     try {
-      const answer = await sendToFleet(note, box, sink, fleet, new Date());
+      const answer = await sendToFleet(note, box, shooter, fleet, new Date());
       if (!answer.ok) {
         tell(answer.saying);
         return false;
@@ -318,7 +321,7 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSession, tell
     setSending(null);
   }
 
-  /** Every open, unsent note on this screen, one Job each, stopping at the first Fleet refuses. */
+  /** Every open, unsent note on this screen, one Job each, stopping at the first Fleet refuses. "Here" is this screen, not which notes have a picture. */
   async function sendHere(): Promise<void> {
     setSending("here");
     for (const note of notes.filter((n) => n.status === "open" && n.sent === undefined && frames[n.id] != null)) {
@@ -332,7 +335,7 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSession, tell
     if (fleet === undefined || list.length === 0) return false;
     setSending(key);
     try {
-      const answer = await sendToSession(list.map((note) => ({ note, box: frames[note.id] ?? null })), target, sink, fleet, new Date());
+      const answer = await sendToSession(list.map((note) => ({ note, box: frames[note.id] ?? null })), target, shooter, fleet, new Date());
       if (!answer.ok) {
         tell(answer.saying);
         return false;
@@ -456,7 +459,7 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSession, tell
   const chosenSendable = chosen.filter((n) => n.status === "open" && n.sent === undefined);
   const chosenSent = chosen.filter((n) => n.sent !== undefined).length;
   const chosenDone = chosen.length - chosenSendable.length - chosenSent;
-  const chosenAway = chosenSendable.filter((n) => frames[n.id] == null).length;
+  const chosenShotless = chosenSendable.filter((n) => n.screenshot === undefined && frames[n.id] == null).length;
   const leftOut = [chosenSent > 0 ? `${chosenSent} already sent` : null, chosenDone > 0 ? `${chosenDone} done` : null].filter((part) => part !== null);
   const allChosen = listed.length > 0 && chosen.length === listed.length;
   const busy = sending !== null || acting;
@@ -585,7 +588,7 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSession, tell
                   <div className="armada-annotate__actions">
                     {chosenSendable.length > 0 && (
                       <>
-                        <Tooltip label={chosenAway > 0 ? `${dispatchSays}. ${noShot(chosenAway, chosenSendable.length)}` : dispatchSays} asChild>
+                        <Tooltip label={chosenShotless > 0 ? `${dispatchSays}. ${noShot(chosenShotless, chosenSendable.length)}` : dispatchSays} asChild>
                           <Button variant="secondary" size="sm" disabled={cannotSend !== null || busy} onClick={() => void dispatchSelection(chosenSendable)}>
                             {sending === "selection" ? "Sending…" : "Dispatch job"}
                           </Button>
@@ -595,7 +598,7 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSession, tell
                             size="sm"
                             menuLabel="Send to a Session"
                             disabled={busy}
-                            {...(chosenAway > 0 ? { note: noShot(chosenAway, chosenSendable.length) } : {})}
+                            {...(chosenShotless > 0 ? { note: noShot(chosenShotless, chosenSendable.length) } : {})}
                             onAction={() => void sessionSelection(chosenSendable, null)}
                             items={live.map((one) => ({ label: one.title, onSelect: () => void sessionSelection(chosenSendable, one) }))}
                           >
@@ -633,6 +636,7 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSession, tell
               <ul className="armada-annotate__rows">
                 {list.map((note) => {
                   const here = frames[note.id] != null;
+                  const shotless = !here && note.screenshot === undefined;
                   const dispatchable = note.status === "open" && note.sent === undefined;
                   return (
                     <li
@@ -681,7 +685,7 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSession, tell
                         </Checkbox>
                         {dispatchable && (
                           <>
-                            <Tooltip label={here ? (cannotSend ?? "Send this note as a Job") : `${cannotSend ?? "Send this note as a Job"}. ${NO_SHOT}`} asChild>
+                            <Tooltip label={shotless ? `${cannotSend ?? "Send this note as a Job"}. ${NO_SHOT}` : (cannotSend ?? "Send this note as a Job")} asChild>
                               <Button variant="secondary" size="sm" disabled={cannotSend !== null || sending !== null} onClick={() => void sendOne(note)}>
                                 {sending === note.id ? "Sending…" : "Dispatch job"}
                               </Button>
@@ -691,7 +695,7 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSession, tell
                                 size="sm"
                                 menuLabel="Send to a Session"
                                 disabled={sending !== null}
-                                {...(here ? {} : { note: NO_SHOT })}
+                                {...(shotless ? { note: NO_SHOT } : {})}
                                 onAction={() => void sendToSessionAs(note.id, [note], null)}
                                 items={live.map((one) => ({ label: one.title, onSelect: () => void sendToSessionAs(note.id, [note], one) }))}
                               >
