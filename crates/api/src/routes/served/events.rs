@@ -167,6 +167,12 @@ pub(super) const ROUTES: &[Route] = &[
         method: "GET",
         path: "/events",
     },
+    // A repository's Autopilot after any change to it, whole. #2092.
+    Route {
+        operation: "autopilot.changed",
+        method: "GET",
+        path: "/events",
+    },
     // One row of a hosted session's thread, appended or replaced.
     Route {
         operation: "session.row",

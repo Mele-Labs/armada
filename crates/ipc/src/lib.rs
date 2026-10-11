@@ -197,6 +197,8 @@ mod sessions;
 mod setup;
 /// What a step's harness produced, as a client is told about it.
 mod showing;
+/// Autopilot: a repository working its own backlog. #2092.
+mod autopilot;
 /// Sleep mode: the switch and the night it keeps.
 mod sleep;
 /// What crossed the stream since a cursor, counted rather than carried.
@@ -437,6 +439,10 @@ pub use sessions::{
     SessionUsage, SetWaitingFor, ShowWindow, AskInWindow, WindowPlace, TerminalCommand, TerminalFacts, WaitingAct,
     WaitingActKind, WaitingInput, WaitingItem, WaitingMode, WaitingOption, WaitingSource,
     WindowClosed,
+};
+pub use autopilot::{
+    Autopilot, AutopilotCap, AutopilotList, AutopilotPick, AutopilotPickState, AutopilotSettings,
+    AutopilotState, ProposeAutopilot,
 };
 pub use sleep::{OverrideSleep, SetSleep, SleepBlocked, SleepDecided, SleepLanded, SleepState, SleepWalk};
 pub use setup::{

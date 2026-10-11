@@ -47,7 +47,7 @@ pub use authoring::Authoring;
 pub use commands::Commands;
 pub use conversing::Conversations;
 pub use hosted_sessions::{HostedSessions, StoredFile};
-pub use issues::Issues;
+pub use issues::{Autopilots, Issues};
 pub use mods::Mods;
 pub use needs::Needs;
 pub use piloting::Piloting;
@@ -111,6 +111,7 @@ pub trait Daemon:
     + Needs
     + PullRequests
     + Issues
+    + Autopilots
     + Piloting
     + Rehearsing
     + Mods
@@ -132,6 +133,7 @@ impl<
             + Needs
             + PullRequests
             + Issues
+            + Autopilots
             + Piloting
             + Rehearsing
             + Mods

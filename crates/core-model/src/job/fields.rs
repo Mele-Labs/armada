@@ -17,20 +17,14 @@ use core::fmt;
 use crate::envelope::Timestamp;
 use crate::job::ids::{CriterionId, JobId, ManifestId, RepoPath, StepId};
 
-/// Where a Job came from. A denormalised label written from `dispatched_by` at
-/// creation — where the two disagree, `dispatched_by` wins.
+/// Where a Job came from. A denormalised label written from `dispatched_by` at creation — where
+/// the two disagree, `dispatched_by` wins. That rule is structural here: [`Origin::SubDispatched`]
+/// is written by the sub-dispatch constructor and nothing else — see [`TopLevelOrigin`].
 ///
-/// That rule is structural here: [`Origin::SubDispatched`] is written by the
-/// sub-dispatch constructor and by nothing else, and the top-level constructor
-/// cannot name it — see [`TopLevelOrigin`].
-///
-/// **Three values are not written from `dispatched_by`.**
-/// [`WorkflowTriggered`](Self::WorkflowTriggered) because the Job that named
-/// it is over, and the two Studio values because the record they denormalise
-/// is not on the Job at all: a Studio's `produced` edge into its Job node,
-/// which lives on the Studio. The pair says *which* person pressed as well as
-/// *where from*, because one column answers one question and the row has to
-/// keep answering both — see [`from_a_studio`](Self::from_a_studio).
+/// **Some are not written from `dispatched_by`.** [`WorkflowTriggered`](Self::WorkflowTriggered)
+/// because the Job that named it is over; the two Studio values because what they denormalise is a
+/// Studio's `produced` edge into its Job node, which lives on the Studio. The pair says *which*
+/// person pressed as well as *where from* — see [`from_a_studio`](Self::from_a_studio).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Origin {
     AutoDetected,
@@ -48,6 +42,9 @@ pub enum Origin {
     /// request it holds. Which Session is the ledger's: the `job` row that
     /// Session holds.
     SessionDispatched,
+    /// Picked by a repository's Autopilot and started unasked. Which Autopilot is
+    /// the pick's row, as which Session is the ledger's. #2092.
+    AutopilotPicked,
 }
 
 impl Origin {
@@ -61,6 +58,7 @@ impl Origin {
         Origin::StudioDispatched,
         Origin::StudioHelmDrafted,
         Origin::SessionDispatched,
+        Origin::AutopilotPicked,
     ];
 
     pub fn as_wire(&self) -> &'static str {
@@ -74,16 +72,15 @@ impl Origin {
             Origin::StudioDispatched => "studio_dispatched",
             Origin::StudioHelmDrafted => "studio_helm_drafted",
             Origin::SessionDispatched => "session_dispatched",
+            Origin::AutopilotPicked => "autopilot_picked",
         }
     }
 
     /// Whether this Job reached the Board off a Studio.
     ///
-    /// **The predicate the way back is drawn from**, and the reason the pair
-    /// is stored rather than derived: the `produced` edge that names *which*
-    /// Studio goes when the Studio is deleted, and this does not — so a Job
-    /// whose Studio is gone can still say where it came from and that the
-    /// Studio is no longer there.
+    /// **The predicate the way back is drawn from**, and the reason the pair is stored rather than
+    /// derived: the `produced` edge that names *which* Studio goes when the Studio is deleted, and
+    /// this does not — so a Job whose Studio is gone can still say where it came from.
     pub fn from_a_studio(&self) -> bool {
         matches!(self, Origin::StudioDispatched | Origin::StudioHelmDrafted)
     }
@@ -111,6 +108,7 @@ impl Origin {
             Origin::StudioDispatched => Some(TopLevelOrigin::StudioDispatched),
             Origin::StudioHelmDrafted => Some(TopLevelOrigin::StudioHelmDrafted),
             Origin::SessionDispatched => Some(TopLevelOrigin::SessionDispatched),
+            Origin::AutopilotPicked => Some(TopLevelOrigin::AutopilotPicked),
             Origin::SubDispatched => None,
         }
     }
@@ -141,9 +139,10 @@ pub enum TopLevelOrigin {
     /// than dispatched for [`HelmDrafted`](Self::HelmDrafted)'s reason — it
     /// still takes the person's approval. #1362.
     StudioHelmDrafted,
-    /// Dispatched from a Session by the person. Top-level, at the ordinary
-    /// gate.
+    /// Dispatched from a Session by the person. Top-level, at the ordinary gate.
     SessionDispatched,
+    /// Picked by an Autopilot. Top-level, and the one origin that skips the gate. #2092.
+    AutopilotPicked,
 }
 
 impl From<TopLevelOrigin> for Origin {
@@ -157,6 +156,7 @@ impl From<TopLevelOrigin> for Origin {
             TopLevelOrigin::StudioDispatched => Origin::StudioDispatched,
             TopLevelOrigin::StudioHelmDrafted => Origin::StudioHelmDrafted,
             TopLevelOrigin::SessionDispatched => Origin::SessionDispatched,
+            TopLevelOrigin::AutopilotPicked => Origin::AutopilotPicked,
         }
     }
 }

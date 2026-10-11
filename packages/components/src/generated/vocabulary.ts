@@ -262,6 +262,7 @@ export const ORIGIN: Readonly<Record<string, Rendering | undefined>> = {
   "studio_dispatched": { verb: "From a Studio, by you", icon: null, badgeStatus: null, statusToken: null, hint: null },
   "studio_helm_drafted": { verb: "From a Studio, via Helm", icon: null, badgeStatus: null, statusToken: null, hint: null },
   "session_dispatched": { verb: "From a Session, by you", icon: null, badgeStatus: null, statusToken: null, hint: null },
+  "autopilot_picked": { verb: "Picked by Autopilot", icon: null, badgeStatus: null, statusToken: null, hint: null },
 };
 
 /**
@@ -431,4 +432,5 @@ export const GAPS: readonly Gap[] = [
   { vocabulary: "origin", variant: "studio_dispatched", missing: ["icon", "token"] },
   { vocabulary: "origin", variant: "studio_helm_drafted", missing: ["icon", "token"] },
   { vocabulary: "origin", variant: "session_dispatched", missing: ["icon", "token"] },
+  { vocabulary: "origin", variant: "autopilot_picked", missing: ["icon", "token"] },
 ];

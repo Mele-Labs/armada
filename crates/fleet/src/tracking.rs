@@ -33,6 +33,8 @@ pub(crate) struct Tracking {
     tracker: Arc<dyn Tracker + Send + Sync>,
     lists: std::sync::Mutex<BTreeMap<String, Held>>,
     pub(crate) written_back: tokio::sync::Mutex<Option<Timestamp>>,
+    /// What Autopilot's pass remembers about these lists between intervals. #2092.
+    pub(crate) autopilot: crate::autopilot::Remembered,
 }
 
 #[derive(Clone)]
@@ -47,6 +49,7 @@ impl Tracking {
             tracker,
             lists: std::sync::Mutex::new(BTreeMap::new()),
             written_back: tokio::sync::Mutex::new(None),
+            autopilot: crate::autopilot::Remembered::default(),
         }
     }
 
@@ -148,12 +151,39 @@ where
         manifest_id: ManifestId,
         refresh: bool,
     ) -> Result<IssueList, Refusal> {
-        let served = self.served_named(Some(&manifest_id))?;
+        let (held, stale) = self.held_or_read(&manifest_id, refresh).await?;
+        self.issue_list(manifest_id, held, stale).await
+    }
+}
+
+impl<H, V, W> Fleet<H, V, W>
+where
+    H: AgentHarness + Send + Sync + 'static,
+    H::Error: std::error::Error + Send + Sync + 'static,
+    V: Vcs + Delivery + Send + Sync + 'static,
+    V::Error: std::error::Error + Send + Sync + 'static,
+    V::CommitError: std::error::Error + Send + Sync + 'static,
+    W: WorkProduct + Send + Sync + 'static,
+    W::Error: std::error::Error + Send + Sync + 'static,
+{
+    /// The open issues as Fleet holds them, read again where they are old: Autopilot picks from
+    /// the same list Bridge shows, and with the same five minutes. #2092.
+    pub(crate) async fn open_issues(&self, manifest_id: &ManifestId) -> Result<Vec<OpenIssue>, Refusal> {
+        Ok(self.held_or_read(manifest_id, false).await?.0.issues)
+    }
+
+    /// What is held, or a fresh read, and why an older list was answered where one was.
+    async fn held_or_read(
+        &self,
+        manifest_id: &ManifestId,
+        refresh: bool,
+    ) -> Result<(Held, Option<String>), Refusal> {
+        let served = self.served_named(Some(manifest_id))?;
         let now = self.now();
         let held = self.tracking().held(manifest_id.as_str());
         if let Some(held) = held.as_ref().filter(|_| !refresh) {
             if elapsed(&held.fetched_at, &now) < HELD_FOR {
-                return self.issue_list(manifest_id, held.clone(), None).await;
+                return Ok((held.clone(), None));
             }
         }
         let tracker = self.tracking().tracker();
@@ -173,11 +203,11 @@ where
                     issues,
                 };
                 self.tracking().keep(manifest_id.as_str(), fresh.clone());
-                self.issue_list(manifest_id, fresh, None).await
+                Ok((fresh, None))
             }
             (Err(not), Some(held)) => {
                 let said = format!("{} did not happen: {}", not.doing, not.said);
-                self.issue_list(manifest_id, held, Some(said)).await
+                Ok((held, Some(said)))
             }
             (Err(not), None) => Err(Refusal::Fault(WireError::raised(
                 UNREADABLE,

@@ -1283,6 +1283,14 @@ vocabulary = "Origin"
 in_code = ""
 notes = "A person pressed Review on a pull request a Session holds, and Fleet drafted a Code Review Job naming the workflow itself, so the proposer's reading is not in it. **Where from, and who pressed**, as `studio_dispatched` carries both clauses and for the same reason. *Which* Session is not on the Job: the `job` row that Session holds on the session ledger says it, read back with `who_owns`, and goes when the Session's rows are cleared without the Job losing what it says about itself. Neither glyph nor token, for `auto_detected`'s reason."
 
+[verbs.origin.autopilot_picked]
+verb = "Picked by Autopilot"
+icon = ""
+status_token = ""
+vocabulary = "Origin"
+in_code = ""
+notes = "A repository's Autopilot picked the issue, was sure of it, and started the Job with no approval: the one origin whose Job skips the dispatch gate, the owner's call of 11 Oct 2026 (`.claude/decisions/2026-10-11-autopilots-clear-picks-start-unasked.md`). *Which* Autopilot is not on the Job: the pick's row names it, read back through `get_autopilot`, as `session_dispatched` leaves which Session to the ledger. A pick it was unsure of and a person then dispatched is `manual`, since a person chose it at the gate. Neither glyph nor token, for `auto_detected`'s reason. #2092."
+
 [verbs.land_state.waiting]
 verb = "waiting"
 icon = "clock"

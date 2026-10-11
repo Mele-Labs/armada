@@ -5,15 +5,15 @@
 //! and the file named for the router now holds the router. The gate rule reads
 //! both halves as one text — `xtask/src/rules_protocol.rs`.
 //!
-//! **Split again at the 1200-line rule**, into tables joined at compile
-//! time: Studios' in [`studios`](mod@studios), the published event kinds in
-//! [`events`](mod@events), a pilot's in [`piloting`](mod@piloting), workflows' and Triggers' in
-//! [`authoring`](mod@authoring), the Machine's settings in [`settings`](mod@settings),
-//! and every other row here. Each is a subject a
-//! reader opens on its own, and [`SERVED`] stays one slice to every caller. The
-//! gate rule reads all three files — `xtask/src/rules_protocol.rs`.
+//! **Split again at the 1200-line rule**, into tables joined at compile time: Studios' in
+//! [`studios`](mod@studios), the published event kinds in [`events`](mod@events), a pilot's in
+//! [`piloting`](mod@piloting), workflows' and Triggers' in [`authoring`](mod@authoring), the
+//! Machine's settings in [`settings`](mod@settings), Autopilot's in [`autopilot`](mod@autopilot),
+//! and every other row here. Each is a subject a reader opens on its own, and [`SERVED`] stays one
+//! slice to every caller. The gate rule reads every file — `xtask/src/rules_protocol.rs`.
 
 mod authoring;
+mod autopilot;
 mod events;
 mod hosted_sessions;
 mod outside;
@@ -53,6 +53,7 @@ pub const SERVED: &[Route] = &joined::<
             + settings::ROUTES.len()
             + outside::ROUTES.len()
             + hosted_sessions::ROUTES.len()
+            + autopilot::ROUTES.len()
     },
 >([
     ROUTES,
@@ -63,13 +64,12 @@ pub const SERVED: &[Route] = &joined::<
     settings::ROUTES,
     outside::ROUTES,
     hosted_sessions::ROUTES,
+    autopilot::ROUTES,
 ]);
 
-/// The eight tables as one, in order. A count that disagrees with `N` fails
-/// the build rather than serving a short table.
-const fn joined<const N: usize>(tables: [&[Route]; 8]) -> [Route; N] {
-    // Filled from the first row and overwritten below: a literal `Route` here
-    // would read as a row to the gate rule, which parses this file as text.
+/// The nine tables as one, in order. A count that disagrees with `N` fails the build.
+const fn joined<const N: usize>(tables: [&[Route]; 9]) -> [Route; N] {
+    // Filled from the first row: a literal `Route` here would read as a row to the gate rule.
     let mut out = [tables[0][0]; N];
     let (mut table, mut at) = (0, 0);
     while table < tables.len() {
