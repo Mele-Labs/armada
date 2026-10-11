@@ -190,6 +190,9 @@ pub enum Fault {
     /// The two are one statement made twice, and a file where they disagree has
     /// no reading that is not a guess about which the author meant.
     GateAndJudgeDisagree { gate: &'static str },
+    /// **`panel_size` beside a `panel_models` list of a different length.**
+    /// The list sizes the panel, so the two are one number stated twice.
+    PanelSizeAndModelsDisagree { size: u64, models: usize },
     /// **A step asks the Judge and declares nothing for it to look at.** A step
     /// with no `evidence_type` produces no work product, so every criterion on
     /// it is a call made against nothing and a refusal that could not have gone
@@ -586,6 +589,11 @@ impl fmt::Display for Fault {
                 f,
                 "is `{gate}`, and the step declares no `judge_checks` criterion \
                  for a Judge to read"
+            ),
+            Fault::PanelSizeAndModelsDisagree { size, models } => write!(
+                f,
+                "is {size}, and `panel_models` names {models}. The list sizes the \
+                 panel, so leave `panel_size` out or make the two agree"
             ),
             Fault::TwoPlanSteps { first_at } => write!(
                 f,
