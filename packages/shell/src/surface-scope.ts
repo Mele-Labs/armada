@@ -13,8 +13,8 @@ import { SURFACE } from "./surfaces";
  */
 export type SurfaceScope = "repository" | "machine";
 
+// Kit is not here: its second tier is a repository's, and it reads the pick.
 const MACHINE: ReadonlySet<string> = new Set([
-  SURFACE.kit,
   SURFACE.settings,
   SURFACE.guides,
   SURFACE.mods,
