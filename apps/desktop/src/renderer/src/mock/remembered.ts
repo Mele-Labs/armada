@@ -20,6 +20,7 @@ const REMEMBERED = [
   "armada.bridge.panels-open",
   "armada.bridge.plan-lead-open",
   "armada.bridge.plan-view",
+  "armada.bridge.recent-repositories",
   "armada.bridge.sessions-view",
   "armada.bridge.sheet-width",
 ];

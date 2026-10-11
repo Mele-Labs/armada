@@ -237,3 +237,55 @@ export const WithNoRoomBelow: Story = {
     </Frame>
   ),
 };
+
+/**
+ * **A menu long enough to search.** The repository picker at twenty repositories: a filter field
+ * at the head, focus lands in it, typing narrows the rows and takes a heading with nothing left
+ * under it, Enter takes the first row that can be chosen, and a row listed but not choosable is
+ * skipped and does nothing when pressed.
+ */
+export const Searchable: Story = {
+  args: {
+    defaultOpen: true,
+    triggerLabel: "All repositories",
+    searchLabel: "Find a repository",
+    entries: [
+      { kind: "label", id: "recent", label: "Recent" },
+      { kind: "item", id: "recent:/code/billing-api", label: "billing-api" },
+      { kind: "separator", id: "rule" },
+      { kind: "item", id: "/code/armada", label: "armada" },
+      { kind: "label", id: "not-set-up", label: "Not set up" },
+      { kind: "item", id: "/code/billing-web", label: "billing-web — Set it up first", disabled: true },
+      { kind: "item", id: "/code/checkout", label: "checkout" },
+    ],
+    onSelect: fn(),
+  },
+  play: async ({ args, canvas, userEvent }) => {
+    await waitFor(() => expect(canvas.getByRole("searchbox", { name: "Find a repository" })).toHaveFocus());
+
+    // Narrowing takes the rows that fall out and the heading over a group left empty.
+    await userEvent.keyboard("check");
+    await expect(canvas.getAllByRole("menuitem")).toHaveLength(1);
+    await expect(canvas.getByRole("menuitem", { name: "checkout" })).toBeVisible();
+    await expect(canvas.queryByText("Recent")).toBeNull();
+
+    await userEvent.clear(canvas.getByRole("searchbox"));
+    await userEvent.keyboard("zzz");
+    await expect(canvas.getByRole("status")).toHaveTextContent("Nothing matches “zzz”.");
+
+    // A row that is listed and not choosable stays in the list, says so, and Enter skips it:
+    // the only match left is the one that cannot be chosen, so nothing is picked and the menu stays.
+    await userEvent.clear(canvas.getByRole("searchbox"));
+    await userEvent.keyboard("billing-w{Enter}");
+    await expect(canvas.getByRole("menuitem", { name: /billing-web/ })).toHaveAttribute("aria-disabled", "true");
+    await expect(args.onSelect).not.toHaveBeenCalled();
+    await expect(canvas.getByRole("menu")).toBeVisible();
+
+    // Enter takes the first row that can be chosen, and the menu closes.
+    await userEvent.clear(canvas.getByRole("searchbox"));
+    await userEvent.keyboard("billing{Enter}");
+    await expect(args.onSelect).toHaveBeenCalledTimes(1);
+    await expect(args.onSelect).toHaveBeenCalledWith("recent:/code/billing-api");
+    await expect(canvas.queryByRole("menu")).toBeNull();
+  },
+};
