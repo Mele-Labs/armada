@@ -34,6 +34,7 @@ export function DispatchRow({
   words,
   kind,
   active,
+  trailing,
   ref,
   onEnter,
   onChoose,
@@ -41,6 +42,8 @@ export function DispatchRow({
   words: string;
   kind: DispatchKind;
   active: boolean;
+  /** At the foot of the matches, where it stays pinned in view however far the list scrolls. */
+  trailing: boolean;
   ref?: React.Ref<HTMLDivElement> | undefined;
   onEnter: () => void;
   onChoose: () => void;
@@ -51,6 +54,7 @@ export function DispatchRow({
       id={DISPATCH_ROW}
       role="option"
       aria-selected={active}
+      data-trailing={trailing ? "" : undefined}
       className={["armada-palette__row", "armada-palette__row--dispatch", active ? "armada-palette__row--active" : ""].join(" ").trim()}
       onMouseEnter={onEnter}
       onClick={onChoose}

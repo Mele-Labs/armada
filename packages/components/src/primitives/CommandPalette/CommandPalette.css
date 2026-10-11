@@ -236,11 +236,24 @@
 
 .armada-palette-layer[data-anchored] .armada-palette__input {
   height: var(--palette-field);
+  font-family: var(--font-mono);
   font-size: var(--text-xs);
   line-height: var(--leading-xs);
 }
 
-/* What was typed, offered as the work itself. The accent marks the one row that sends something. */
+/* What was typed, offered as the work itself. The accent marks the one row that sends something.
+ * At the foot of the matches it is pinned to the list's bottom edge, so a long list never hides it. */
+.armada-palette__row--dispatch[data-trailing] {
+  position: sticky;
+  bottom: 0;
+  border-top: var(--border-width) solid var(--border-subtle);
+  background: var(--bg-overlay);
+}
+
+.armada-palette__row--dispatch[data-trailing].armada-palette__row--active {
+  background: var(--bg-hover);
+}
+
 .armada-palette__row--dispatch .armada-palette__glyph {
   color: var(--accent);
 }
