@@ -57,7 +57,7 @@ describe("the bays", () => {
 
   test("a bay held by a process is matched to the Session that names its slot", () => {
     const s = session("s1", [{ kind: "branch", name: "fix/flaky", slot: 3 }]);
-    const { harbours } = read([slot(3, { state: "session", holder: "claude (pid 1)" }, { branch: "fix/flaky" })], [s]);
+    const { harbours } = read([slot(3, { state: "session", holder: "agent (pid 1)" }, { branch: "fix/flaky" })], [s]);
     const holder = harbours[0]!.bays[0]!.holder;
     expect(holder.kind === "session" ? holder.title : undefined).toBe("Session s1");
   });

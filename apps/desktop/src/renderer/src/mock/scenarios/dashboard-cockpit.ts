@@ -222,7 +222,7 @@ function pool(): WorktreesHeld {
     slots: [
       at(1, job(debounce, "fleet/gate-policy-every-run", 41)),
       at(2, job(cache, "fleet/read-in-cluster-membership", 17)),
-      bay(OWNER, 3, { state: "session", holder: "claude (pid 5120)" }, { branch: "fix/flaky-store", since: ago(6), behind: 2 }),
+      bay(OWNER, 3, { state: "session", holder: "agent (pid 5120)" }, { branch: "fix/flaky-store", since: ago(6), behind: 2 }),
       at(4, job(migrate, "armada/83-migrate", 3)),
       at(5, job(check, "fleet/reconnect-wait", 33)),
       at(6, job(pin, "fix/pin-store-clock", 2)),
