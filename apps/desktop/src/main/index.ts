@@ -343,6 +343,8 @@ const toWindows = coalesce((state: BridgeState) => {
   for (const window of BrowserWindow.getAllWindows()) {
     if (!window.isDestroyed()) window.webContents.send(CHANNELS.changed, withView(state, viewFor(window.id)));
   }
+  // A walk window's panel reads what Bridge's windows read, and picks no repository of its own.
+  for (const panel of captureWindows.panels()) panel.send(CHANNELS.changed, withView(state, NO_PICK));
 });
 
 /**
@@ -936,7 +938,7 @@ void app.whenReady().then(() => {
   );
   handleSessions({ ipc: ipcMain, connection: () => connection, windowIdOf, pages: new SessionPages() });
   handleSleep({ ipc: ipcMain, connection: () => connection });
-  handleStudios({ ipc: ipcMain, connection: () => connection, published: () => published, captureWindows });
+  handleStudios({ ipc: ipcMain, connection: () => connection, published: () => published, captureWindows, summon });
   // The four decisions on the work, and they stay four channels. Merging lands
   // the branch and then takes the work, approving takes it and leaves the pull
   // request open, requesting changes sends the drone back to the same step, and

@@ -112,7 +112,7 @@ export const QuestionFolded: Story = {
     run: "Findings page",
     address: "http://localhost:5173",
     studio: null,
-    job: "Findings page",
+    session: "Findings page",
     question: "Should the count sit beside the title or under it?",
     onShowQuestion: fn(),
   },
@@ -120,5 +120,48 @@ export const QuestionFolded: Story = {
     await expect(canvas.getByText(/Question waiting: Should the count sit/)).toBeVisible();
     await userEvent.click(canvas.getByRole("button", { name: "Show question" }));
     await expect(args.onShowQuestion).toHaveBeenCalled();
+  },
+};
+
+/**
+ * A Session's page, its thread drawn beside it. The bar names the Session as it would a Job, and one
+ * press folds the panel away so the page has the window — `capture-window.md`, *The panel beside the page*.
+ */
+export const WalkingASession: Story = {
+  args: {
+    run: "Findings page",
+    address: "http://localhost:5173",
+    studio: null,
+    session: "Findings page",
+    onApprove: fn(),
+    panel: { kind: "session", open: true, onToggle: fn() },
+  },
+  play: async ({ args, canvas }) => {
+    await expect(canvas.getByText("Notes go to Findings page")).toBeVisible();
+    await userEvent.click(canvas.getByRole("button", { name: "Hide Session" }));
+    await expect(args.panel?.onToggle).toHaveBeenCalledWith(false);
+  },
+};
+
+/** A Job's server, its panel folded away. The press names the kind, so it says what comes back. */
+export const JobPanelFolded: Story = {
+  args: {
+    run: "mock",
+    address: "http://localhost:41311",
+    studio: null,
+    job: "44-try-a-stacked-run-beside-the-canvas",
+    panel: { kind: "job", open: false, onToggle: fn() },
+  },
+  play: async ({ args, canvas }) => {
+    await expect(canvas.queryByRole("button", { name: "Hide Job" })).toBeNull();
+    await userEvent.click(canvas.getByRole("button", { name: "Show Job" }));
+    await expect(args.panel?.onToggle).toHaveBeenCalledWith(true);
+  },
+};
+
+/** A Studio's window has no panel: its Studio is read on Bridge's window. */
+export const StudioHasNoPanel: Story = {
+  play: async ({ canvas }) => {
+    await expect(canvas.queryByRole("button", { name: /Session|Job/ })).toBeNull();
   },
 };

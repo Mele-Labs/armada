@@ -42,6 +42,10 @@ export type CaptureWindowState = {
   studio: { id: string; name: string | null } | null;
   /** The Job a note lands on where there is no Studio: the one whose server this walks. */
   job?: { id: string; handle: string };
+  /** The Session a note goes to, where it showed this page. **Never folded into `job`**: the two are told apart to the panel. */
+  session?: { id: string; title: string };
+  /** The panel beside the page: which kind it holds, and whether it is drawn. Absent: a Studio's window, which has none. */
+  panel?: CapturePanel;
   /**
    * Whether the Run is still serving. **Capture is refused from the moment it
    * is not**, and the window loads nothing further.
@@ -76,6 +80,9 @@ export type CaptureAsk = {
   /** The place, in the page's viewport. Absent while it is being looked for; `null` where nothing on the page matched. */
   box?: CaptureRect | null;
 };
+
+/** The Session's thread or the Job's view beside the page — `capture-window.md`, *The panel beside the page*. */
+export type CapturePanel = { kind: "session" | "job"; open: boolean };
 
 /** An answer from the bar: an option by its index, words of the person's own, or both. */
 export type CaptureAnswer = { choice?: number; text?: string };

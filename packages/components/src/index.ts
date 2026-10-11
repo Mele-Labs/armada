@@ -458,3 +458,4 @@ export * from "./compositions/KeyBindingRow/KeyBindingRow";
 export * from "./compositions/PhonePairing/PhonePairing";
 // One setting from settings.json, drawn from its kind.
 export * from "./compositions/SettingField/SettingField";
+export * from "./compositions/WalkPanel/WalkPanel";

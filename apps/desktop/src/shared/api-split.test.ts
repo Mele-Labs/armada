@@ -34,6 +34,7 @@ import type {
   Followed,
   FleetRestart,
   FrameRead,
+  JobDetail,
   JudgeAnswer,
   Opened,
   Outcome,
@@ -419,6 +420,12 @@ type OldBridgeApi = {
         scroll: (wheel: CaptureWheel) => void;
         showAsk: (on: boolean) => Promise<void>;
         answerAsk: (answer: CaptureAnswer) => Promise<Outcome>;
+        panel: (open: boolean) => Promise<void>;
+    };
+    walkPanel: {
+        readJob: () => Promise<JobDetail | null>;
+        openInBridge: () => Promise<void>;
+        onStale: (onStale: () => void) => () => void;
     };
     approveReview: (jobId: string) => Promise<Outcome>;
     mergePullRequest: (jobId: string) => Promise<Outcome>;
@@ -724,6 +731,10 @@ const OLD_CHANNELS = {
     captureWindowScroll: "bridge:capture-window-scroll",
     captureWindowShowAsk: "bridge:capture-window-show-ask",
     captureWindowAnswerAsk: "bridge:capture-window-answer-ask",
+    captureWindowPanel: "bridge:capture-window-panel",
+    walkPanelReadJob: "bridge:walk-panel-read-job",
+    walkPanelOpenInBridge: "bridge:walk-panel-open-in-bridge",
+    walkPanelStale: "bridge:walk-panel-stale",
     tap: "bridge:tap",
     startSession: "bridge:start-session",
     pilotJob: "bridge:pilot-job",

@@ -1,19 +1,16 @@
-// armada-allow-off-contract: the one colour here is Electron's own spelling for a view with no background of its own, not a design value
-// docs/practices/capture-window.md
-//
 // The capture window — #1294, `docs/practices/capture-window.md`.
 //
-// **Two views in one frame.** The page runs in a view with no preload, in a
-// persistent session of its own; Bridge's bar runs above it in a view with
-// Bridge's preload and Bridge's CSP. While capture is armed the bar's view
-// grows over the whole frame, so the outline is drawn where the page cannot
-// read it, restyle it or forge it, and a press never reaches the app.
+// **Three views in one frame.** The page runs in a view with no preload, in a
+// persistent session of its own; Bridge's bar runs above it, and a Session's or
+// a Job's panel beside it, each a view with Bridge's preload and Bridge's CSP.
+// While capture is armed the bar's view grows over the page, so the outline is
+// drawn where the page cannot read it, restyle it or forge it, and a press never
+// reaches the app. `views.ts` builds the three; `layout.ts` places them.
 //
 // Bridge's own window is untouched: it still loads one file and refuses every
 // navigation — `bridge.md`, *Security posture*.
 
-import { BaseWindow, session, shell, WebContentsView, type Session } from "electron";
-import { join } from "node:path";
+import { BaseWindow, screen, shell, type WebContentsView } from "electron";
 
 import type { Outcome, StagedFrame, StudioCapture, WindowPlace } from "@armada/protocol";
 import type {
@@ -26,10 +23,14 @@ import type {
   CaptureWindowState,
 } from "../../shared/capture-window";
 import { CHANNELS } from "../../shared/bridge";
-import { isPinned, offerable, onOrigin, partitionFor, type Pinned } from "./address";
+import { isPinned, offerable, onOrigin, type Pinned } from "./address";
 import { aimed, bounded, chainOf, rectOf } from "./bounds";
+import { panelFor, walkLayout, type LandsOn, type PanelSubject } from "./layout";
 import { askSource } from "./layer";
 import { locateSource } from "./locate";
+import { barView, pageView, panelView } from "./views";
+
+export type { LandsOn } from "./layout";
 
 /** What the window needs from main: a Note lands, and a frame is staged. */
 export type CaptureBoard = {
@@ -58,7 +59,6 @@ function isCaptureBinding(input: Electron.Input): boolean {
   return input.type === "keyDown" && chord && input.meta && input.alt && !input.control && !input.shift;
 }
 
-/** Where a note made in this window lands: the Run's Studio, the Job whose server it walks, or the Session that showed the page. */
 /** A question the Session asked about a place on this window's page — `ask_in_window`. */
 export type WindowQuestion = {
   id: string;
@@ -67,37 +67,11 @@ export type WindowQuestion = {
   place: WindowPlace;
 };
 
-export type LandsOn =
-  | { studio: { id: string; name: string | null } }
-  | { job: { id: string; handle: string } }
-  | { session: { id: string; title: string } };
+/** How the window is sized, in CSS pixels, from tokens: the bar's row, the panel, and the page's floor beside it. */
+export type WalkSizes = { bar: number; panel: number; floor: number };
 
-/**
- * Every partition already given its handlers. **Kept because a partition is
- * per repository and two windows share one**, so the download refusal would
- * otherwise be added twice and the second window's close would take both.
- */
-const held = new Set<string>();
-
-/**
- * The session this window's page runs in: persistent, one per repository, and
- * nothing of Bridge's in it.
- *
- * **Every permission is denied without asking.** A page that wants the camera,
- * the clipboard, a notification or the screen gets no dialog and no capability
- * — this window exists to look at a page, not to host one.
- */
-function sessionFor(manifestId: string | null): Session {
-  const name = partitionFor(manifestId);
-  const part = session.fromPartition(name);
-  if (held.has(name)) return part;
-  held.add(name);
-  part.setPermissionRequestHandler((_contents, _permission, decide) => decide(false));
-  part.setPermissionCheckHandler(() => false);
-  part.setDisplayMediaRequestHandler(() => {}, { useSystemPicker: false });
-  part.on("will-download", (event) => event.preventDefault());
-  return part;
-}
+/** Whether the panel is drawn, as last left for this kind of window, and where a press on it is kept. */
+export type PanelKept = { open: boolean; keep: (open: boolean) => void };
 
 export class CaptureWindow {
   private readonly window: BaseWindow;
@@ -106,8 +80,12 @@ export class CaptureWindow {
   private readonly board: CaptureBoard;
   private readonly pin: Pinned;
   private readonly landsOn: LandsOn;
-  /** How tall the bar is drawn, in CSS pixels, from the tokens the title row is built of. */
-  private readonly barHeight: number;
+  private readonly sizes: WalkSizes;
+  /** The Session or the Job beside the page, and the view it is drawn in. `null`: a Studio's window. */
+  private readonly subject: PanelSubject | null;
+  private readonly panel: WebContentsView | null;
+  private readonly kept: PanelKept | null;
+  private panelOpen: boolean;
 
   private armed = false;
   private serving = true;
@@ -127,14 +105,16 @@ export class CaptureWindow {
   /** Questions answered from this bar, so a publish from before the answer cannot raise one again. */
   private readonly settled = new Set<string>();
 
-  constructor(pin: Pinned, landsOn: LandsOn, board: CaptureBoard, barHeight: number) {
+  constructor(pin: Pinned, landsOn: LandsOn, board: CaptureBoard, sizes: WalkSizes, kept: PanelKept | null) {
     this.pin = pin;
     this.landsOn = landsOn;
     this.board = board;
-    this.barHeight = barHeight;
+    this.sizes = sizes;
+    this.kept = kept;
 
     this.window = new BaseWindow({
-      width: 1280,
+      // The page keeps the width it had before there was a panel, where the screen has room for both.
+      width: Math.min(1280 + (panelFor(landsOn) === null ? 0 : sizes.panel), screen.getPrimaryDisplay().workAreaSize.width),
       height: 900,
       // The OS frame and its title, where Bridge's own window is frameless and
       // draws its own: two windows that are not the same kind of thing do not
@@ -143,40 +123,15 @@ export class CaptureWindow {
       show: false,
     });
 
-    this.page = new WebContentsView({
-      webPreferences: {
-        session: sessionFor(pin.manifestId),
-        // **No preload.** The only surface that cannot be widened by accident
-        // is an absent one — `capture-window.md`, *What the page can reach into*.
-        sandbox: true,
-        contextIsolation: true,
-        nodeIntegration: false,
-        nodeIntegrationInSubFrames: false,
-        webviewTag: false,
-        spellcheck: false,
-        // A dialog the page draws would be a dialog that looks like Armada's.
-        disableDialogs: true,
-        // Neither loosened. A page's own CSP is what governs it, and Bridge
-        // rewrites no header to make an awkward app render.
-        webSecurity: true,
-        allowRunningInsecureContent: false,
-      },
-    });
-
-    this.bar = new WebContentsView({
-      webPreferences: {
-        preload: join(__dirname, "../preload/index.js"),
-        sandbox: true,
-        contextIsolation: true,
-        nodeIntegration: false,
-      },
-    });
-    // Fully transparent: the bar paints its own strip and nothing else, so the
-    // page shows through this view wherever the bar does not draw.
-    this.bar.setBackgroundColor("#00000000");
+    this.page = pageView(pin.manifestId);
+    this.bar = barView();
+    this.subject = panelFor(landsOn);
+    this.panel = this.subject === null ? null : panelView(this.subject);
+    this.panelOpen = kept?.open ?? false;
 
     this.window.contentView.addChildView(this.page);
     this.window.contentView.addChildView(this.bar);
+    if (this.panel !== null) this.window.contentView.addChildView(this.panel);
     this.window.on("resize", () => {
       this.layout();
       this.relocateSoon();
@@ -184,10 +139,13 @@ export class CaptureWindow {
     this.window.on("focus", () => this.board.focused(pin.run, true));
     this.window.on("blur", () => this.board.focused(pin.run, false));
     this.window.on("closed", () => this.board.focused(pin.run, false));
+    // A view's document outlives a closed `BaseWindow` unless it is closed with it.
+    this.window.on("closed", () => {
+      for (const view of [this.page, this.bar, this.panel]) if (view !== null && !view.webContents.isDestroyed()) view.webContents.close();
+    });
     this.layout();
 
     this.holdThePage();
-    void this.bar.webContents.loadFile(join(__dirname, "../renderer/capture.html"));
     void this.page.webContents.loadURL(pin.url);
     this.window.show();
   }
@@ -221,6 +179,26 @@ export class CaptureWindow {
     return !this.bar.webContents.isDestroyed() && contents.id === this.bar.webContents.id;
   }
 
+  /** Whether an IPC call came from this window's own panel, and what it holds if it did. Never the page or the bar. */
+  panelOf(contents: Electron.WebContents): PanelSubject | null {
+    if (this.panel === null || this.panel.webContents.isDestroyed()) return null;
+    return contents.id === this.panel.webContents.id ? this.subject : null;
+  }
+
+  /** The panel's document, live, to be told what Bridge's own windows are told. */
+  get panelContents(): Electron.WebContents | null {
+    return this.panel === null || this.panel.webContents.isDestroyed() ? null : this.panel.webContents;
+  }
+
+  /** Draw the panel beside the page or fold it away, from the bar. **Kept for the next window of its kind.** */
+  showPanel(open: boolean): void {
+    if (this.panel === null || this.panelOpen === open) return;
+    this.panelOpen = open;
+    this.kept?.keep(open);
+    this.tell();
+    this.relocateSoon();
+  }
+
   /**
    * The Run stopped serving. **Capture ends here and the window loads nothing
    * further** — a loopback port is not an identity, and anything on the machine
@@ -238,9 +216,9 @@ export class CaptureWindow {
     return {
       served: { run: this.pin.run, name: this.pin.name, address: this.pin.origin },
       studio: "studio" in this.landsOn ? this.landsOn.studio : null,
-      // A Session's title stands where a Job's handle does: the bar says "Notes go to" either.
       ...("job" in this.landsOn ? { job: this.landsOn.job } : {}),
-      ...("session" in this.landsOn ? { job: { id: this.landsOn.session.id, handle: this.landsOn.session.title } } : {}),
+      ...("session" in this.landsOn ? { session: this.landsOn.session } : {}),
+      ...(this.subject === null ? {} : { panel: { kind: this.subject.kind, open: this.panelOpen } }),
       serving: this.serving,
       armed: this.armed,
       framesRefused: this.framesRefused,
@@ -363,6 +341,8 @@ export class CaptureWindow {
       this.holding = null;
       this.armed = false;
       this.tell();
+      // A walk note waits on the Job, and the panel lists it under What should change.
+      if ("job" in this.landsOn) this.panelContents?.send(CHANNELS.walkPanelStale);
     }
     return outcome;
   }
@@ -482,7 +462,7 @@ export class CaptureWindow {
   }
 
   /**
-   * The bar over the whole frame while armed, and a strip at the top while not.
+   * The bar over the page while armed, and a strip at the top while not; the panel beside both.
    *
    * **Two rows when there is something to say** — a refusal, a count of frames,
    * or the run having ended — which is the same condition the bar's own
@@ -493,9 +473,14 @@ export class CaptureWindow {
     const { width, height } = this.window.getContentBounds();
     const folded = this.asked !== null && !this.askShown;
     const said = !this.serving || this.refusedAddress !== undefined || this.framesRefused > 0 || folded;
-    const strip = this.barHeight * (said ? 2 : 1);
-    this.page.setBounds({ x: 0, y: strip, width, height: Math.max(0, height - strip) });
-    this.bar.setBounds({ x: 0, y: 0, width, height: this.covered() ? height : strip });
+    const strip = this.sizes.bar * (said ? 2 : 1);
+    const shown = this.panel !== null && this.panelOpen;
+    const at = walkLayout({ width, height, strip, covered: this.covered(), panel: shown ? this.sizes.panel : 0 }, this.sizes.floor);
+    this.page.setBounds(at.page);
+    this.bar.setBounds(at.bar);
+    if (this.panel === null) return;
+    this.panel.setBounds(at.panel);
+    this.panel.setVisible(at.panel.width > 0);
   }
 
   private tell(): void {
@@ -542,20 +527,14 @@ export class CaptureWindow {
     });
     // A certificate error is not overridden: Electron's own default refuses,
     // and nothing here listens for one.
-    contents.on("before-input-event", (event, input) => {
-      if (!isCaptureBinding(input)) return;
-      event.preventDefault();
-      this.arm(!this.armed);
-    });
-    this.bar.webContents.on("before-input-event", (event, input) => {
-      if (!isCaptureBinding(input)) return;
-      event.preventDefault();
-      this.arm(!this.armed);
-    });
-    // The bar goes nowhere either: it is a Bridge document and Bridge's own
-    // window's rule holds over every one of them.
-    this.bar.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
-    this.bar.webContents.on("will-navigate", (event) => event.preventDefault());
+    // The chord arms capture from any of the three views, so it is the same press wherever focus is.
+    for (const view of [this.page, this.bar, ...(this.panel === null ? [] : [this.panel])]) {
+      view.webContents.on("before-input-event", (event, input) => {
+        if (!isCaptureBinding(input)) return;
+        event.preventDefault();
+        this.arm(!this.armed);
+      });
+    }
     this.bar.webContents.on("did-finish-load", () => this.tell());
     // A page the question moved to, or one that moved under it: its place is looked for again.
     contents.on("did-finish-load", () => void this.locate());

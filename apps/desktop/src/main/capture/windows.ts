@@ -8,19 +8,26 @@ import tokens from "@armada/tokens/tokens.json";
 import type { BridgeState } from "../../shared/bridge";
 import type { CaptureOpened, SessionRecord } from "@armada/protocol";
 import { isPinned, pinned, webOrigin } from "./address";
-import { CaptureWindow, type CaptureBoard, type LandsOn, type WindowQuestion } from "./window";
+import type { PanelSubject } from "./layout";
+import { CaptureWindow, type CaptureBoard, type LandsOn, type PanelKept, type WalkSizes, type WindowQuestion } from "./window";
+
+/** One spacing token, in CSS pixels. */
+function token(name: string): number {
+  const found = tokens.tokens.find((one) => one.name === name);
+  return found === undefined ? 0 : Number.parseInt(found.value, 10);
+}
 
 /**
- * How tall the bar is drawn. **The title row's own composition**, which
- * `TitleBar.css` spells as the same three tokens — read here rather than
- * written as a number, so the bar and Bridge's own title row are one height.
+ * How the window is sized. **The bar is the title row's own composition**, which `TitleBar.css` spells
+ * as the same three tokens, so the bar and Bridge's own title row are one height. **The panel is a
+ * sheet's width**, and the page beside it keeps what a dock leaves of the work, `--w-work-min`.
  */
-function barHeight(): number {
-  const of = (name: string): number => {
-    const found = tokens.tokens.find((token) => token.name === name);
-    return found === undefined ? 0 : Number.parseInt(found.value, 10);
+function sizes(): WalkSizes {
+  return {
+    bar: token("--space-8") + token("--space-2") + token("--space-1"),
+    panel: token("--w-sheet"),
+    floor: token("--w-work-min"),
   };
-  return of("--space-8") + of("--space-2") + of("--space-1");
 }
 
 /** What a Session's window is keyed by, so it cannot be mistaken for a server Run's id. */
@@ -31,6 +38,8 @@ export class CaptureWindows {
   private readonly open = new Map<string, CaptureWindow>();
   /** The sessions main last published, which each Session's window reads its open question off. */
   private sessions: readonly SessionRecord[] | null = null;
+  /** Whether the panel is drawn, as last left on a window of each kind. Drawn until a press folds it. */
+  private readonly panelOpen = { session: true, job: true };
 
   constructor(board: CaptureBoard) {
     this.board = board;
@@ -63,7 +72,7 @@ export class CaptureWindows {
     }
     const pin = pinned(state, serverId, url);
     if (!isPinned(pin)) return pin;
-    this.open.set(serverId, new CaptureWindow(pin, landsOn, this.board, barHeight()));
+    this.open.set(serverId, new CaptureWindow(pin, landsOn, this.board, sizes(), this.kept(landsOn)));
     return { ok: true };
   }
 
@@ -88,7 +97,8 @@ export class CaptureWindows {
       standing.close();
     }
     const pin = { run: key, name: title, origin, url, manifestId: null };
-    const window = new CaptureWindow(pin, { session: { id: sessionId, title } }, this.board, barHeight());
+    const landsOn = { session: { id: sessionId, title } };
+    const window = new CaptureWindow(pin, landsOn, this.board, sizes(), this.kept(landsOn));
     this.open.set(key, window);
     // A window opened by a press on a waiting question shows it as one opened by its arrival does.
     if (this.sessions !== null) window.question(questionOf(this.sessions.find((one) => one.id === sessionId), origin));
@@ -135,6 +145,27 @@ export class CaptureWindows {
       if (server === undefined || server.phase === "exited") window.ended();
     }
     this.ask();
+  }
+
+  /** Where a window of this kind keeps whether its panel is drawn. `null`: a Studio's, which has none. */
+  private kept(landsOn: LandsOn): PanelKept | null {
+    const kind = "session" in landsOn ? "session" : "job" in landsOn ? "job" : null;
+    if (kind === null) return null;
+    return { open: this.panelOpen[kind], keep: (open) => void (this.panelOpen[kind] = open) };
+  }
+
+  /** The Session or the Job an IPC call's panel holds, or `null` where the call came from anything but a walk window's panel. */
+  panelFrom(contents: Electron.WebContents): PanelSubject | null {
+    for (const window of this.open.values()) {
+      const subject = window.open ? window.panelOf(contents) : null;
+      if (subject !== null) return subject;
+    }
+    return null;
+  }
+
+  /** Every panel's document, to be told the state Bridge's own windows are told. */
+  panels(): Electron.WebContents[] {
+    return [...this.open.values()].flatMap((window) => (window.open && window.panelContents !== null ? [window.panelContents] : []));
   }
 
   /** The window an IPC call came from, or `null` where it came from anything else. */

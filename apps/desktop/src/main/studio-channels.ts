@@ -7,11 +7,12 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { STUDIO_PROMOTIONS } from "@armada/protocol";
-import type { StagedFrame, StudioCapture, StudioNodeByHand, StudioPosition, StudioPromotion } from "@armada/protocol";
+import type { JobDetail, StagedFrame, StudioCapture, StudioNodeByHand, StudioPosition, StudioPromotion } from "@armada/protocol";
 import { CHANNELS } from "../shared/bridge";
-import type { BridgeState } from "../shared/bridge";
+import type { BridgeState, Summons } from "../shared/bridge";
 import type { CaptureWindows } from "./capture/windows";
 import type { FleetConnection } from "./connection";
+import { ask } from "./request";
 import { handleSketches } from "./sketches";
 import { stagedPicture } from "./staging";
 
@@ -22,6 +23,8 @@ type Hosts = {
   /** What main last published — `index.ts`'s `published`. */
   published: () => BridgeState;
   captureWindows: CaptureWindows;
+  /** Bring Bridge's window forward on a Job or a Session — `index.ts`'s, as a pressed notification does. */
+  summon: (to: Summons) => void;
 };
 
 /** Enough of a capture to be worth sending. The rest is Fleet's to refuse. */
@@ -48,7 +51,7 @@ async function stagedFrame(event: Electron.IpcMainInvokeEvent): Promise<StagedFr
   return { staged_path: staged, width: size.width, height: size.height };
 }
 
-export function handleStudios({ ipc, connection, published, captureWindows }: Hosts): void {
+export function handleStudios({ ipc, connection, published, captureWindows, summon }: Hosts): void {
   // A repository's Studios and the one open — #1287. An id that is not a string, or a position that
   // is not two whole numbers, is not put on a route: the call answers nothing, as a typo would.
   const text = (value: unknown): value is string => typeof value === "string" && value !== "";
@@ -205,6 +208,22 @@ export function handleStudios({ ipc, connection, published, captureWindows }: Ho
         ...(words === undefined ? {} : { text: words }),
       })) ?? unsent
     );
+  });
+  ipc.handle(CHANNELS.captureWindowPanel, (event, open: unknown) => {
+    if (typeof open === "boolean") barred(event)?.showPanel(open);
+  });
+  // The panel beside the page. **Main names the Job or the Session**, off the panel that asked; the
+  // call carries nothing, so a panel cannot name another and no other document is answered.
+  ipc.handle(CHANNELS.walkPanelReadJob, async (event): Promise<JobDetail | null> => {
+    const subject = captureWindows.panelFrom(event.sender);
+    const fleet = published().connection;
+    if (subject?.kind !== "job" || fleet.state !== "connected") return null;
+    const answer = await ask(fleet.fleet.port, "GET", `/jobs/${encodeURIComponent(subject.id)}`);
+    return answer.ok === true ? (answer.body as JobDetail) : null;
+  });
+  ipc.handle(CHANNELS.walkPanelOpenInBridge, (event) => {
+    const subject = captureWindows.panelFrom(event.sender);
+    if (subject !== null) summon(subject.kind === "job" ? { jobId: subject.id } : { jobId: null, sessionId: subject.id });
   });
   ipc.on(CHANNELS.captureWindowScroll, (event, wheel: unknown) => {
     const said = (wheel ?? {}) as Record<string, unknown>;

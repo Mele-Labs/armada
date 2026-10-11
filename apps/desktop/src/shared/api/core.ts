@@ -188,9 +188,12 @@ export const CORE_CHANNELS = {
  * lands on the Needs-you tab — which is the set the notification was derived
  * from, and the same one keyboard `2` reaches.
  *
- * It travels main → renderer only. Nothing the renderer sends can produce one.
+ * **A Session, from a walk window's panel**: `sessionId` opens that Session where `jobId` is null.
+ *
+ * It travels main → renderer only. Nothing the renderer sends can produce one but the panel's
+ * `openInBridge`, which names nothing: main reads the Session or the Job off the panel that asked.
  */
-export type Summons = { jobId: string | null };
+export type Summons = { jobId: string | null; sessionId?: string };
 
 /** Which way a gesture the OS recognised asks to move through visited places. */
 export type HistoryStep = "back" | "forward";

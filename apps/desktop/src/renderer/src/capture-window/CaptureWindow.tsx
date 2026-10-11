@@ -51,6 +51,7 @@ export type CaptureWindowApi = {
   scroll: (wheel: { x: number; y: number; deltaX: number; deltaY: number }) => void;
   showAsk: (on: boolean) => Promise<void>;
   answerAsk: (answer: CaptureAnswer) => Promise<{ ok: boolean } & Record<string, unknown>>;
+  panel: (open: boolean) => Promise<void>;
 };
 
 export function CaptureWindow({ api }: { api: CaptureWindowApi }) {
@@ -214,7 +215,8 @@ export function CaptureWindow({ api }: { api: CaptureWindowApi }) {
   // that much lower in this document.
   const lowered = (box: CaptureBox): CaptureBox => ({ ...box, y: box.y + strip() });
   const studio = state.studio === null ? null : (state.studio.name ?? UNTITLED_STUDIO);
-  const aim = state.serving ? `Onto ${studio ?? state.job?.handle ?? ""}` : "The run ended — nothing more is captured";
+  const aim = state.serving ? `Onto ${studio ?? state.job?.handle ?? state.session?.title ?? ""}` : "The run ended — nothing more is captured";
+  const panel = state.panel;
 
   return (
     <>
@@ -224,6 +226,7 @@ export function CaptureWindow({ api }: { api: CaptureWindowApi }) {
           address={state.served.address}
           studio={studio}
           {...(state.job === undefined ? {} : { job: state.job.handle })}
+          {...(state.session === undefined ? {} : { session: state.session.title })}
           serving={state.serving}
           armed={armed}
           framesRefused={state.framesRefused}
@@ -241,9 +244,10 @@ export function CaptureWindow({ api }: { api: CaptureWindowApi }) {
           onFollowRefused={() => void api.followRefused()}
           binding={BINDING}
           // A Studio's window has nobody to tell; a Job's or a Session's has its owner.
-          {...(state.studio === null && state.job !== undefined ? { onApprove: () => void approve() } : {})}
+          {...(state.studio === null && (state.job !== undefined || state.session !== undefined) ? { onApprove: () => void approve() } : {})}
           {...(approval === undefined ? {} : { approval })}
           {...(ask === undefined || ask.shown ? {} : { question: ask.question, onShowQuestion: () => void api.showAsk(true) })}
+          {...(panel === undefined ? {} : { panel: { kind: panel.kind, open: panel.open, onToggle: (open: boolean) => void api.panel(open) } })}
         />
       </div>
       {ask === undefined || !asking ? null : (

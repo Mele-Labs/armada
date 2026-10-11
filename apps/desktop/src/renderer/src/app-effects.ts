@@ -4,6 +4,7 @@
 
 import { useEffect, useState } from "react";
 import { isPressed } from "@armada/components";
+import { askToOpenSession } from "./open-session";
 
 /** How often the elapsed figures are redrawn. They are read, so they must move. */
 const TICK_MS = 1000;
@@ -63,7 +64,7 @@ export function useReturnToRow(returning: string | null, done: () => void): void
  * first: the press asked for the Board or a Job, not for the composer that happened to be up.
  */
 export function useSummoned(go: (jobId: string | null) => void): void {
-  useEffect(() => window.armada.onSummoned((to) => go(to.jobId)), []);
+  useEffect(() => window.armada.onSummoned((to) => (to.sessionId === undefined ? go(to.jobId) : askToOpenSession(to.sessionId))), []);
 }
 
 /**

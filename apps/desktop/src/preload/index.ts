@@ -6,7 +6,7 @@ import type { Annotation, AnnotationsDevApi, Box } from "../shared/annotations";
 import { frameStreamUrl } from "../shared/streaming";
 import type { BridgeState, HistoryStep, Summons } from "../shared/bridge";
 import type { CaptureAimed, CaptureAnswer, CaptureHeld, CaptureWheel, CaptureWindowState } from "../shared/capture-window";
-import type { CaptureOpened, ChooseTriggerFix, FixMain, HoldAct } from "@armada/protocol";
+import type { CaptureOpened, ChooseTriggerFix, FixMain, HoldAct, JobDetail } from "@armada/protocol";
 import type { ChangeSlotPool, RescueSlot, SketchToKeep } from "@armada/protocol";
 import type { BridgeApi, CommandExplainedRead } from "../shared/api";
 import type { RescueOutcome } from "@armada/cleanup/api";
@@ -750,6 +750,18 @@ const api: BridgeApi = {
     scroll: (wheel: CaptureWheel): void => ipcRenderer.send(CHANNELS.captureWindowScroll, wheel),
     showAsk: (on: boolean): Promise<void> => ipcRenderer.invoke(CHANNELS.captureWindowShowAsk, on),
     answerAsk: (answer: CaptureAnswer): Promise<Outcome> => ipcRenderer.invoke(CHANNELS.captureWindowAnswerAsk, answer),
+    panel: (open: boolean): Promise<void> => ipcRenderer.invoke(CHANNELS.captureWindowPanel, open),
+  },
+  // The panel beside a walk window's page — `capture-window.md`, *The panel beside the page*. Neither
+  // call names anything: main answers for the panel the call came from, and refuses any other document.
+  walkPanel: {
+    readJob: (): Promise<JobDetail | null> => ipcRenderer.invoke(CHANNELS.walkPanelReadJob),
+    openInBridge: (): Promise<void> => ipcRenderer.invoke(CHANNELS.walkPanelOpenInBridge),
+    onStale: (onStale: () => void): (() => void) => {
+      const handler = (): void => onStale();
+      ipcRenderer.on(CHANNELS.walkPanelStale, handler);
+      return () => ipcRenderer.removeListener(CHANNELS.walkPanelStale, handler);
+    },
   },
 
   // The three decisions on the work, and they are three entries for the reason

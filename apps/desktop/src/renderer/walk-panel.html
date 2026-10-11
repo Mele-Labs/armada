@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <!--
+      Bridge's own CSP, unchanged. The panel beside a walk window's page is an
+      Armada document loaded from disk, so `default-src 'self'` binds it as it
+      binds Bridge's window, and `127.0.0.1` is refused here too. `blob:` for the
+      pictures a Session's messages carry, read by main and handed over as bytes,
+      exactly as `index.html` draws them.
+
+      The page beside this panel is another view and another document. It loads
+      none of this, reaches none of it, and is told nothing of what is drawn here
+      — `docs/practices/capture-window.md`, *The panel beside the page*.
+    -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' blob:" />
+    <title>Walk panel</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="./src/walk-panel/main.tsx"></script>
+  </body>
+</html>
