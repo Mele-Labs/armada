@@ -266,3 +266,27 @@ async fn a_dismissed_pick_leaves_the_pile_and_is_not_offered_again() {
         "the next call was not offered it"
     );
 }
+
+#[tokio::test]
+async fn a_pass_that_could_not_pick_says_why_on_the_autopilot_until_one_goes_through() {
+    let home = TempDir::new();
+    let mut fittings = fittings(&home, FakeWorkProduct::changed(&["src/read.rs"]));
+    fittings.starting().workflows = a_catalogue()
+        .into_iter()
+        .map(|workflow| (workflow.id().clone(), workflow))
+        .collect();
+    fittings.judge = Arc::new(FakeJudge::answering_in_turn(&[SURE_12]));
+    let tracker = Arc::new(FakeTracker::listing(vec![FakeTracker::issue(12, "A wrong label")]));
+    tracker.will_not_list("nobody is signed in to the forge");
+    fittings.tracker = tracker.clone();
+    let fleet: Fixture = Fleet::assembled(fittings);
+    started(&fleet, 1, None).await;
+
+    assert_eq!(fleet.autopilot_pass().await.expect("a pass"), 0);
+    let fault = fleet.get_autopilot(here(&fleet)).await.expect("held").fault;
+    assert!(fault.is_some_and(|why| why.contains("nobody is signed in")));
+
+    tracker.answers_again();
+    assert_eq!(fleet.autopilot_pass().await.expect("a pass"), 1);
+    assert_eq!(fleet.get_autopilot(here(&fleet)).await.expect("held").fault, None);
+}

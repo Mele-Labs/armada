@@ -3,9 +3,7 @@
 //! set aside with their reason, and nothing past the caps I set; Pause and
 //! Stop do what they say.** #2092, `docs/capabilities/autopilot.md`.
 //!
-//! Written before the code it names; the compiler's errors were what #2092
-//! provides. Asserted in the order the owner meets it: the sentence, the
-//! picks, the room, the caps, then Pause and Stop.
+//! Written before the code it names, and asserted in the order the owner meets it.
 //!
 //! | Proved | Not proved |
 //! |---|---|

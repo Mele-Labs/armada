@@ -45,6 +45,9 @@ use crate::Report;
 const INVENTORY: &str = "crates/ipc/operations";
 /// The router: every `.route(` call.
 const TABLE: &str = "crates/api/src/routes.rs";
+/// Routers [`TABLE`] merges whole, read with it as one text: the issues and Autopilot's, mounted
+/// together because `routes.rs` sits at the line count the gate reports. #2092.
+const ROUTER_PARTS: &[&str] = &["crates/api/src/issues.rs"];
 /// The inventory half of the same subject: every `SERVED` row.
 const SERVED_TABLE: &str = "crates/api/src/routes/served.rs";
 /// The tables [`SERVED_TABLE`] joins into `SERVED`, split out of it at the
@@ -68,10 +71,18 @@ pub fn the_router_serves_what_the_inventory_names(root: &Path) -> Report {
         report.fail(format!("{INVENTORY} — the operation inventory itself"));
         return report;
     };
-    let Ok(router) = fs::read_to_string(root.join(TABLE)) else {
+    let Ok(mut router) = fs::read_to_string(root.join(TABLE)) else {
         report.fail(format!("{TABLE} — the router itself"));
         return report;
     };
+    for part in ROUTER_PARTS {
+        let Ok(text) = fs::read_to_string(root.join(part)) else {
+            report.fail(format!("{part} — a router {TABLE} merges"));
+            return report;
+        };
+        router.push('\n');
+        router.push_str(&text);
+    }
     let Some(rows) = served_rows(root, &mut report) else {
         return report;
     };

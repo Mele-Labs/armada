@@ -1,22 +1,13 @@
-//! Autopilot: a repository works its own backlog from one plain-language instruction until a
-//! person pauses or stops it. #2092, `docs/capabilities/autopilot.md`, `docs/concepts/autopilot.md`.
+//! Autopilot: a repository works its own backlog from one instruction until a person pauses or
+//! stops it. #2092, `docs/concepts/autopilot.md`, which has the parts and the rules.
 //!
 //! **A Fleet record that starts Jobs, and neither a Session nor a Job.** Fleet does what is
-//! deterministic here: the room, the caps, Pause and Stop. The judgement is two model calls made
-//! the way the Job proposer's is, each of which ends: one reads the sentence, one picks an issue.
-//! Neither is a Drone, so neither holds a place a Job needs.
-//!
-//! | Part | Where |
-//! |---|---|
-//! | The sentence read as settings | [`sentence`] |
-//! | The picker's question and its answer | [`picking`] |
-//! | Room, caps, and the three states | [`bounds`] |
-//! | The pass on the noticing interval, and the Job a sure pick starts | `pass` |
-//! | The acts a person takes, and the wire | `acts`, `wire` |
+//! deterministic: the room, the caps, Pause and Stop. The judgement is two model calls made the
+//! way the Job proposer's is, each of which ends, so neither holds a place a Job needs.
 //!
 //! **A sure pick skips the dispatch gate, and nothing else does.** [`picking::SurePick`] has no
 //! public constructor: only reading the picker's answer makes one, and only a sure pick reaches
-//! the queue unasked. The owner's call, `.claude/decisions/2026-10-11-autopilots-clear-picks-start-unasked.md`.
+//! the queue unasked. The owner's call of 11 Oct 2026, `2026-10-11-autopilots-clear-picks-start-unasked.md`.
 
 mod acts;
 pub mod bounds;
@@ -55,6 +46,8 @@ pub(crate) struct Remembered {
     declined: std::sync::Mutex<std::collections::BTreeMap<String, Vec<String>>>,
     /// Per repository, the Autopilot last published, so a pass publishes only what moved.
     published: std::sync::Mutex<std::collections::BTreeMap<String, ipc::Autopilot>>,
+    /// Per repository, why the last pass picked nothing. **In memory**: the next pass says again.
+    faults: std::sync::Mutex<std::collections::BTreeMap<String, String>>,
 }
 
 impl Remembered {
@@ -66,6 +59,18 @@ impl Remembered {
 
     pub(crate) fn decline(&self, manifest: &str, offered: Vec<String>) {
         held(&self.declined).insert(manifest.to_string(), offered);
+    }
+
+    /// Keep why a pass failed, or clear it where it went through.
+    pub(crate) fn faulted(&self, manifest: &str, why: Option<String>) {
+        match why {
+            Some(why) => held(&self.faults).insert(manifest.to_string(), why),
+            None => held(&self.faults).remove(manifest),
+        };
+    }
+
+    pub(crate) fn fault(&self, manifest: &str) -> Option<String> {
+        held(&self.faults).get(manifest).cloned()
     }
 
     /// Clear what the picker declined, for a start whose instruction may cover it.

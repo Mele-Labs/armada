@@ -2,7 +2,7 @@
 //!
 //! **Pause and Stop never stop a Job that is spending**: that is the Job's own Pause. Pause stops
 //! the picks; Stop also withdraws a pick whose Job has never had a Drone, and ends it.
-//! `.claude/decisions/2026-10-11-pause-drains-stop-withdraws.md`.
+//! The owner's call of 11 Oct 2026, `2026-10-11-pause-drains-stop-withdraws.md`.
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Autopilots, Redirector, Refusal};
@@ -60,7 +60,7 @@ where
             .autopilot_gathered(kept)
             .await
             .map_err(|why| self.refusal(why))?;
-        let now = gathered.wire();
+        let now = self.autopilot_wire(&gathered);
         // Told here as well as answered, so a second Bridge sees the act.
         if self.tracking().autopilot.moved(&now) {
             self.publish(ipc::Event::AutopilotChanged(now.clone()));
@@ -78,6 +78,8 @@ where
     }
 
     async fn moved_to(&self, kept: &KeptAutopilot, to: State) -> Result<(), Refusal> {
+        // What the last pass said no longer describes an Autopilot a person just moved.
+        self.tracking().autopilot.faulted(&kept.manifest_id, None);
         let ended = (to == State::Stopped).then(|| self.now());
         self.store()
             .lock()
@@ -248,6 +250,7 @@ where
             .map_err(|why| self.faulted(why))?;
         // A new instruction may cover what the last one's picker turned down.
         self.tracking().autopilot.forget(manifest_id.as_str());
+        self.tracking().autopilot.faulted(manifest_id.as_str(), None);
         self.answered(kept).await
     }
 
@@ -303,7 +306,7 @@ where
                 .autopilot_gathered(kept)
                 .await
                 .map_err(|why| self.refusal(why))?;
-            autopilots.push(gathered.wire());
+            autopilots.push(self.autopilot_wire(&gathered));
         }
         Ok(AutopilotList { autopilots })
     }
@@ -314,7 +317,7 @@ where
             .autopilot_gathered(kept)
             .await
             .map_err(|why| self.refusal(why))?;
-        Ok(gathered.wire())
+        Ok(self.autopilot_wire(&gathered))
     }
 
     /// Through the proposer and to the gate, as `propose_from_request` would take the issue's

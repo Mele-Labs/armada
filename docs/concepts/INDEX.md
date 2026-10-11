@@ -14,10 +14,10 @@ assuming it is restated here.
 
 | Concept | What it is |
 |---|---|
-| [autopilot.md](autopilot.md) | A repository working its own backlog: one instruction, caps, and every issue it picked, started or set aside |
 | [bridge.md](bridge.md) | The Electron command-center shell — Armada's only engineer-facing surface |
 | [doctor.md](doctor.md) | The health-check surface — a passive per-module grid and the first-run hard gate |
 | [drone.md](drone.md) | The execution runtime for a single Job — a confined Claude Code process with its own worktree |
+| [autopilot.md](autopilot.md) | A repository working its own backlog: one instruction, caps, and every issue it picked, started or set aside |
 | [fleet.md](fleet.md) | The Rust daemon — the only actor that writes a state transition on a Job or a Drone |
 | [helm.md](helm.md) | The conversational orchestrator agent that reasons across a Fleet |
 | [job-board.md](job-board.md) | Every Job on one Manifest, and what a row of them says. Read on the Cockpit |

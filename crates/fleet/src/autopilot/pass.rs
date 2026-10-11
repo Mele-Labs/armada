@@ -34,8 +34,13 @@ const CALLS_PER_PASS: usize = 4;
 const STARTED_UNASKED: &str =
     "Autopilot picked this issue and was sure of it, so it started unasked";
 
-/// Pick for every running Autopilot, every `tick`.
-pub fn keep_autopiloting<H, V, W>(fleet: Arc<Fleet<H, V, W>>, tick: Duration) -> JoinHandle<()>
+/// Pick for every running Autopilot, every `tick`. `adrift` hears only a store that would not list
+/// them; what stopped one repository's picks is on its record, for the person who reads it.
+pub fn keep_autopiloting<H, V, W>(
+    fleet: Arc<Fleet<H, V, W>>,
+    tick: Duration,
+    adrift: Arc<impl Fn(Adrift) + Send + Sync + 'static>,
+) -> JoinHandle<()>
 where
     H: AgentHarness + Send + Sync + 'static,
     H::Error: std::error::Error + Send + Sync + 'static,
@@ -51,7 +56,7 @@ where
         loop {
             ticker.tick().await;
             if let Err(why) = fleet.autopilot_pass().await {
-                eprintln!("Autopilot did not pick: {why}");
+                adrift(why);
             }
         }
     })
@@ -69,24 +74,21 @@ where
 {
     /// One pass over every Autopilot. Answers how many Jobs it started.
     ///
-    /// One repository's failure is said and the rest still pass: a tracker that will not answer
-    /// for one is not a reason for the others to stop.
-    pub async fn autopilot_pass(&self) -> Result<usize, String> {
-        let every = self
-            .store()
-            .lock()
-            .await
-            .autopilots()
-            .map_err(|why| format!("{why:?}"))?;
+    /// **One repository's failure is kept on its record and the rest still pass**: a tracker that
+    /// will not answer for one is not a reason for the others to stop, and the person who comes
+    /// back in the morning reads why it picked nothing on the Autopilot itself.
+    pub async fn autopilot_pass(&self) -> Result<usize, Adrift> {
+        let every = self.store().lock().await.autopilots().map_err(Adrift::Writing)?;
         let mut started = 0;
         for kept in every {
             if State::from_stored(&kept.state) != Some(State::Running) {
                 continue;
             }
-            match self.passed_over(kept).await {
-                Ok(count) => started += count,
-                Err(why) => eprintln!("Autopilot did not pick on one repository: {why}"),
-            }
+            let manifest_id = ipc::ManifestId::carried(kept.manifest_id.clone());
+            let passed = self.passed_over(kept).await;
+            self.tracking().autopilot.faulted(manifest_id.as_str(), passed.as_ref().err().cloned());
+            started += passed.unwrap_or(0);
+            self.autopilot_told(&manifest_id).await;
         }
         Ok(started)
     }
@@ -154,13 +156,9 @@ where
             let pick = match picked(&gathered.kept.instruction, &offered, &workflows, &asking).await
             {
                 Ok(pick) => pick,
-                Err(why) => {
-                    eprintln!(
-                        "Autopilot's picker for {} was not read: {why}",
-                        gathered.kept.manifest_id
-                    );
-                    break;
-                }
+                // Kept as the pass's fault, so the person reads why it picked nothing.
+                Err(why) if made == 0 => return Err(why.to_string()),
+                Err(_) => break,
             };
             // A Pause or a Stop pressed while the call was out wins over its answer.
             if !self.still_picking(&gathered.kept).await.map_err(said)? {
@@ -352,8 +350,15 @@ where
         }
     }
 
+    /// The wire's Autopilot, with why the last pass picked nothing where one did.
+    pub(crate) fn autopilot_wire(&self, gathered: &Gathered) -> ipc::Autopilot {
+        let mut now = gathered.wire();
+        now.fault = self.tracking().autopilot.fault(&gathered.kept.manifest_id);
+        now
+    }
+
     fn told_if_moved(&self, gathered: &Gathered) {
-        let now = gathered.wire();
+        let now = self.autopilot_wire(gathered);
         if self.tracking().autopilot.moved(&now) {
             self.publish(ipc::Event::AutopilotChanged(now));
         }

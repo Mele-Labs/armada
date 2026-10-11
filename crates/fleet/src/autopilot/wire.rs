@@ -76,6 +76,7 @@ impl Gathered {
             jobs_started: self.spent.started,
             at_work: u32::try_from(at_work).unwrap_or(u32::MAX),
             picks: self.picks.iter().filter_map(pick).collect(),
+            fault: None,
         }
     }
 }

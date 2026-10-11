@@ -80,6 +80,10 @@ pub struct Autopilot {
     /// How many of its Jobs hold a place now: running or ready to run, and not waiting on a person.
     pub at_work: u32,
     pub picks: Vec<AutopilotPick>,
+    /// Why the last pass picked nothing, in Fleet's words: the tracker would not answer, or the
+    /// picker's answer was refused. Absent once a pass goes through.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fault: Option<String>,
 }
 
 /// `list_autopilots`: every repository's, stopped ones included.

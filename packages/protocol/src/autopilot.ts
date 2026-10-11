@@ -46,6 +46,8 @@ export type Autopilot = {
   jobs_started: number;
   at_work: number;
   picks: AutopilotPick[];
+  /** Why the last pass picked nothing, in Fleet's words. Absent once a pass goes through. */
+  fault?: string;
 };
 
 /** `GET /autopilots`: every repository's, stopped ones included. */

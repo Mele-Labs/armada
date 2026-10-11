@@ -20,11 +20,9 @@
 //! clock therefore writes its own. Named here as a gap rather than left to be
 //! discovered as a coincidence.
 
-/// Arc's own apparatus: a step move signed by whoever the ruling names, and
-/// the signers read back. See its own header.
+/// Arc's own apparatus: a step move signed by whoever the ruling names, and the signers read back.
 pub mod arc;
-/// Autopilot's own apparatus: a backlog, a catalogue and a model that answers
-/// what the test wrote. See its own header.
+/// Autopilot's own apparatus: a backlog, a catalogue and a scripted model.
 pub mod autopilot;
 /// Board's own apparatus: the record-to-wire conversions, and the round trip
 /// every assertion in `board.rs` is made through. See its own header.
@@ -38,8 +36,7 @@ pub mod landing;
 /// Overview's own apparatus: Jobs placed directly under a chosen Manifest,
 /// bypassing `Bench::created`'s one hard-coded id. See its own header.
 pub mod overview;
-/// Plan's own apparatus: a workflow with a plan step, built frozen until #895.
-/// See its own header.
+/// Plan's own apparatus: a workflow with a plan step, built frozen until #895. See its own header.
 pub mod plan;
 /// Reach's own apparatus: a Manifest and a workflow definition for a
 /// repository that is not this one, held as text. See its own header.

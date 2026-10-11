@@ -10,5 +10,7 @@ notes = """
 
 `picks`, oldest first, are `AutopilotPick`: `pick_id`, the issue's `issue_number`, `issue_title` and `issue_url`, the `workflow_id` the picker chose where it chose one, the `job_id` it started, `state` (`started`, `set_aside`, `withdrawn`, `dismissed`), the picker's `reason`, and `at`.
 
+`fault`, where present, is why the last pass picked nothing, in Fleet's words: the tracker would not answer, or the picker's answer was refused. It goes once a pass goes through, and is the only place a pass's failure is told.
+
 A 409 `fleet.no_autopilot` for a repository that has never had one, and a 422 for one Fleet does not serve.
 """
