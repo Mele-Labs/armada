@@ -489,6 +489,14 @@ where
         Ok(record)
     }
 
+    async fn ask_in_window(
+        &self,
+        caller: Option<api::Caller>,
+        ask: ipc::AskInWindow,
+    ) -> Result<SessionRecord, Refusal> {
+        self.window_asked(caller, ask).await
+    }
+
     async fn waiting_for(
         &self,
         caller: Option<api::Caller>,

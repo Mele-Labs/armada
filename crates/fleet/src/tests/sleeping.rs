@@ -195,7 +195,8 @@ fn what_counts_as_destructive_reads_the_text_and_the_options() {
         since: ipc::Instant::carried(OLD),
         source: ipc::WaitingSource::Agent,
         act: None,
-        options: options.iter().map(|label| ipc::WaitingOption { label: (*label).into() }).collect(),
+        options: options.iter().map(|label| ipc::WaitingOption { label: (*label).into(), description: None }).collect(),
+        place: None,
     };
     assert!(crate::sleeping::destructive(&one("Close PR 12?", &[])));
     assert!(crate::sleeping::destructive(&one("Which?", &["Overwrite it", "Keep"])));
