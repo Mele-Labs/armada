@@ -18,6 +18,7 @@
 | State | `running`, `paused` or `stopped`, with when it started and ended |
 | Capped by | `until`, `spend` or `jobs`, where a cap rather than a person stopped it |
 | Picks | Each issue it picked, the workflow, the Job it started, the picker's reason, and `started`, `set_aside`, `withdrawn` or `dismissed` |
+| Fault | Why the last pass picked nothing: the tracker would not answer, or the picker's answer was refused. In memory, and gone once a pass goes through. The only place a pass's failure is told |
 
 **One per repository.** Starting a stopped one again replaces it, and the old run's picks are no longer served. Starting over one that is running or paused is refused.
 
