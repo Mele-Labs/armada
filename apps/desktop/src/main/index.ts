@@ -25,6 +25,7 @@ import { ANNOTATE_FLAG } from "../shared/annotations";
 import { handleAnnotations } from "./annotations";
 import { sessionNoteText } from "./capture/session-note";
 import { CaptureWindows } from "./capture/windows";
+import { follow } from "./capture/follow";
 import { coalesce } from "./coalesce";
 import { stagePng } from "./staging";
 import { FleetConnection } from "./connection";
@@ -178,6 +179,7 @@ const captureWindows = new CaptureWindows({
       if (!window.isDestroyed()) window.webContents.send(CHANNELS.walkFocused, walkFocused.size > 0);
     }
   },
+  follow: (jobId) => follow(jobId, { watch: (id) => void connection?.watchJob(id), bridge: bridgeWindow }),
 });
 
 /** Whether any window is on screen and not minimized. A closed one is neither. */
@@ -411,6 +413,12 @@ function summon(to: Summons): void {
   window.show();
   window.focus();
   hand(window);
+}
+
+/** Bridge's own window, where one is open. A walk window is a `BaseWindow`, never listed here. */
+function bridgeWindow(): Electron.WebContents | null {
+  const [window] = BrowserWindow.getAllWindows();
+  return window === undefined || window.isDestroyed() ? null : window.webContents;
 }
 
 /** Hand over a held press, if there is one. Nothing is handed twice. */

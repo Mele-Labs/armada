@@ -190,10 +190,11 @@ export const CORE_CHANNELS = {
  *
  * **A Session, from a walk window's panel**: `sessionId` opens that Session where `jobId` is null.
  *
+ * **`follow`**: a Job's walk window took focus; open the Job, raise nothing, keep a composer that is up.
  * It travels main → renderer only. Nothing the renderer sends can produce one but the panel's
  * `openInBridge`, which names nothing: main reads the Session or the Job off the panel that asked.
  */
-export type Summons = { jobId: string | null; sessionId?: string };
+export type Summons = { jobId: string | null; sessionId?: string; follow?: true };
 
 /** Which way a gesture the OS recognised asks to move through visited places. */
 export type HistoryStep = "back" | "forward";

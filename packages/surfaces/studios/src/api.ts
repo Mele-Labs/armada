@@ -6,7 +6,6 @@ import type {
   CaptureOpened,
   Followed,
   FrameRead,
-  JobDetail,
   Outcome,
   SketchToKeep,
   StudioCapture,
@@ -192,15 +191,8 @@ export type StudiosApi = {
    * and names the Job or the Session itself, so a panel cannot name another.
    */
   walkPanel: {
-    /**
-     * The panel's Job, read whole — the read `JobDetail` is drawn from. **Its own read and not
-     * `watchJob`**, which is the one open Job Bridge's window follows and would be taken from it.
-     */
-    readJob: () => Promise<JobDetail | null>;
     /** Bring Bridge's window forward on the panel's Session or Job, for what the panel does not draw. */
     openInBridge: () => Promise<void>;
-    /** Hear that a note from this walk landed on the panel's Job, so it reads the Job again. Returns the remover. */
-    onStale: (onStale: () => void) => () => void;
   };
 };
 
@@ -268,7 +260,5 @@ export const STUDIOS_CHANNELS = {
   captureWindowShowAsk: "bridge:capture-window-show-ask",
   captureWindowAnswerAsk: "bridge:capture-window-answer-ask",
   captureWindowPanel: "bridge:capture-window-panel",
-  walkPanelReadJob: "bridge:walk-panel-read-job",
   walkPanelOpenInBridge: "bridge:walk-panel-open-in-bridge",
-  walkPanelStale: "bridge:walk-panel-stale",
 } as const;

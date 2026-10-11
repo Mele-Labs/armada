@@ -26,6 +26,7 @@ import { CHANNELS } from "../../shared/bridge";
 import { isPinned, offerable, onOrigin, type Pinned } from "./address";
 import { aimed, bounded, chainOf, rectOf } from "./bounds";
 import { panelFor, walkLayout, type LandsOn, type PanelSubject } from "./layout";
+import { followedBy } from "./follow";
 import { askSource } from "./layer";
 import { locateSource } from "./locate";
 import { barView, pageView, panelView } from "./views";
@@ -48,6 +49,8 @@ export type CaptureBoard = {
   stage: (png: Buffer, width: number, height: number) => Promise<StagedFrame | null>;
   /** This window took or gave up focus, by the server it is on. Bridge dims behind a focused one. */
   focused: (serverId: string, on: boolean) => void;
+  /** A Job's window opened or took focus: its Job becomes Bridge's open Job. Never called for a Studio's or a Session's. */
+  follow: (jobId: string) => void;
 };
 
 /** `⌥⌘C`, as the action registry spells it. The renderer's own reader is `capture/Layer.tsx`. */
@@ -136,7 +139,10 @@ export class CaptureWindow {
       this.layout();
       this.relocateSoon();
     });
-    this.window.on("focus", () => this.board.focused(pin.run, true));
+    this.window.on("focus", () => {
+      this.board.focused(pin.run, true);
+      this.follow();
+    });
     this.window.on("blur", () => this.board.focused(pin.run, false));
     this.window.on("closed", () => this.board.focused(pin.run, false));
     // A view's document outlives a closed `BaseWindow` unless it is closed with it.
@@ -148,6 +154,13 @@ export class CaptureWindow {
     this.holdThePage();
     void this.page.webContents.loadURL(pin.url);
     this.window.show();
+    this.follow();
+  }
+
+  /** Make this window's Job Bridge's open Job, where it walks one. */
+  private follow(): void {
+    const jobId = followedBy(this.landsOn);
+    if (jobId !== null) this.board.follow(jobId);
   }
 
   /** Whether this window is still on screen. */
@@ -341,8 +354,6 @@ export class CaptureWindow {
       this.holding = null;
       this.armed = false;
       this.tell();
-      // A walk note waits on the Job, and the panel lists it under What should change.
-      if ("job" in this.landsOn) this.panelContents?.send(CHANNELS.walkPanelStale);
     }
     return outcome;
   }

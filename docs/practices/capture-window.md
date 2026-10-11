@@ -333,17 +333,22 @@ nothing draws the card without an outline.
 
 A window a Session or a Job opened draws that Session or Job in a third view, on
 the window's right edge at full height. A Session's panel is its thread, the
-cards it waits on and the box to answer it. A Job's is its state, its brief, and
-the act JobDetail offers at that moment: the decision at the review gate with
-this walk's notes, or a redirect to a Drone still working. A Studio's window has
-no panel.
+cards it waits on and the box to answer it. A Job's is JobDetail's own reading of
+it, live: its state, its brief, and the verdict at the gate with its evidence,
+its pull request, the comments on it, Merge, and the decision with this walk's
+notes — or a redirect to a Drone still working. A Studio's window has no panel.
+
+**Focusing a Job's walk window makes its Job Bridge's open Job.** The owner,
+11 Oct 2026: *"Right now I see a window with a walk in it with no context to the
+job/session that walk stemmed from."*
 
 | Step | Held by | What happens |
 |---|---|---|
 | The window opens | Main, `apps/desktop/src/main/capture/layout.ts` | A Session's window gets a Session panel and a Job's a Job panel, never the other kind |
+| A Job's window opens or takes focus | Main, `apps/desktop/src/main/capture/follow.ts` | Main watches the Job and tells Bridge's window to open it, raising nothing |
 | The panel loads | `apps/desktop/src/main/capture/views.ts` | `walk-panel.html` from disk, with Bridge's preload, Bridge's CSP and the default session; its subject is the query it is loaded with |
-| It reads | Main's publish | The state every Bridge window is sent, with no repository picked; a Job panel also reads its Job whole |
-| It acts | Bridge's preload | A message, an answer, a decision or a redirect, on the channels Bridge's window sends each on |
+| It reads | Main's publish | The state every Bridge window is sent, with no repository picked; a Job panel draws Bridge's open Job, its claims and its comments from it |
+| It acts | Bridge's preload | A message, an answer, a decision, a merge or a redirect, on the channels Bridge's window sends each on |
 | It folds | The bar | One press hides it and the page takes the width; the next window of its kind opens as this one was left, while Bridge runs |
 
 > **Rule.** The panel is a Bridge document in a view of its own, never the
@@ -360,25 +365,30 @@ no panel.
 > answerable while a question is drawn over the page.
 
 > **Rule.** The panel's preload is Bridge's whole surface, as the bar's is.
-> Three entries are answered for a walk window and no other document: the
-> bar's `captureWindow.panel`, and the panel's `walkPanel.readJob` and
-> `walkPanel.openInBridge`. None takes an id. Main reads the Job or the Session
-> off the view the call came from.
-> Why: a panel that named its subject could name another, and Bridge's window
-> calling one of these would read a Job nobody walks.
+> Two entries are answered for a walk window and no other document: the bar's
+> `captureWindow.panel` and the panel's `walkPanel.openInBridge`. Neither takes
+> an id. Main reads the Job or the Session off the view the call came from.
+> Why: a panel that named its subject could name another.
 
-> **Rule.** A Job panel reads its Job on a read of its own, `GET /jobs/:id`,
-> and not by `watchJob`. It reads no evidence and no pull-request comments,
-> and offers no merge. Open in Bridge brings Bridge's window forward on the Job
-> or the Session for those.
-> Why: Bridge's window follows one open Job, and a panel asking for it, or for
-> the reads beside it, would take them from the window the person left open.
+> **Rule.** A Job's walk window opening or taking focus makes its Job Bridge's
+> open Job. Main watches it, then sends Bridge's window a summons marked
+> `follow`, which opens the Job without raising the window. With the composer
+> up, Bridge's window keeps it and opens nothing. A Studio's window and a
+> Session's move nothing.
+> Why: the owner chose one open Job that follows the walk in front of him over
+> a second open Job per window (11 Oct 2026). The summons keeps Bridge's own
+> open Job the same one, so main never swaps the watch out from under it.
+
+> **Rule.** A Job panel reads only what Bridge's window reads: the open Job,
+> its claims and its pull request's comments. It asks for the claims and the
+> comments by Bridge's own calls, and never lets either go.
+> Why: Bridge's window holds the same reads for the same Job, and a panel
+> closing with its window would drop them from under that window.
 
 > **Rule.** Nothing from the page reaches the panel but what capture already
 > sends. A note taken here reaches the Session as a message, or waits on the
 > Job as a walk note, and the panel shows it because it reads Fleet's record of
-> it. Main tells a Job panel that a walk note landed with a nudge that carries
-> nothing, and the panel reads its Job again.
+> it. Saving a walk note re-reads the open Job, which is this Job.
 
 | Reach | The page | The panel |
 |---|---|---|

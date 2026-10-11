@@ -7,12 +7,11 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { STUDIO_PROMOTIONS } from "@armada/protocol";
-import type { JobDetail, StagedFrame, StudioCapture, StudioNodeByHand, StudioPosition, StudioPromotion } from "@armada/protocol";
+import type { StagedFrame, StudioCapture, StudioNodeByHand, StudioPosition, StudioPromotion } from "@armada/protocol";
 import { CHANNELS } from "../shared/bridge";
 import type { BridgeState, Summons } from "../shared/bridge";
 import type { CaptureWindows } from "./capture/windows";
 import type { FleetConnection } from "./connection";
-import { ask } from "./request";
 import { handleSketches } from "./sketches";
 import { stagedPicture } from "./staging";
 
@@ -214,13 +213,6 @@ export function handleStudios({ ipc, connection, published, captureWindows, summ
   });
   // The panel beside the page. **Main names the Job or the Session**, off the panel that asked; the
   // call carries nothing, so a panel cannot name another and no other document is answered.
-  ipc.handle(CHANNELS.walkPanelReadJob, async (event): Promise<JobDetail | null> => {
-    const subject = captureWindows.panelFrom(event.sender);
-    const fleet = published().connection;
-    if (subject?.kind !== "job" || fleet.state !== "connected") return null;
-    const answer = await ask(fleet.fleet.port, "GET", `/jobs/${encodeURIComponent(subject.id)}`);
-    return answer.ok === true ? (answer.body as JobDetail) : null;
-  });
   ipc.handle(CHANNELS.walkPanelOpenInBridge, (event) => {
     const subject = captureWindows.panelFrom(event.sender);
     if (subject !== null) summon(subject.kind === "job" ? { jobId: subject.id } : { jobId: null, sessionId: subject.id });

@@ -33,9 +33,7 @@ export function studiosApi(seeded: readonly Studio[] | undefined, fleet: FleetHa
     },
     // The panel beside a walk window's page, which the mock has no window for either.
     walkPanel: {
-      readJob: async () => null,
       openInBridge: async () => {},
-      onStale: () => () => {},
     },
     // A Studio starting one entry — #1289, #1345. The mock Fleet answers, so
     // what these do here is what every other unstubbed act does: nothing.
