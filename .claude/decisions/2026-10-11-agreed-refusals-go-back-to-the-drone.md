@@ -3,8 +3,8 @@
 **Decided 2026-10-11.**
 
 At 2am the Judge refuses a fix: *the test still sleeps 50ms, so it is less
-flaky, not fixed.* Every refusal comes to him today, so a standing order's Job
-stalls until morning. Asked whether that is acceptable for a standing order,
+flaky, not fixed.* Every refusal comes to him today, so an Autopilot Job
+stalls until morning. Asked whether that is acceptable for Autopilot,
 he chose to build #206 first, and then settled its three open questions.
 
 **Chosen:**
@@ -19,4 +19,4 @@ he chose to build #206 first, and then settled its three open questions.
 as good as the Judges' sense of it. Up to two more Drone runs are spent on work
 that may never pass. A panel member has its own model setting to build.
 
-**Where it landed:** #206, which a standing order now waits on.
+**Where it landed:** #206, which Autopilot now waits on.
