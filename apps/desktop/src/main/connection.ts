@@ -53,6 +53,7 @@ import { FleetSocket, type BridgeStateFleet } from "./socket";
 import { Modding } from "./mods";
 import { SessionsHost } from "./sessions";
 import { SleepHost } from "./sleep";
+import { IssuesHost } from "./issues";
 import { StudioReads } from "./studios";
 
 /** Time is injected, never read: a connection that calls the clock cannot be replayed. */
@@ -194,6 +195,8 @@ export class FleetConnection {
   );
   /** Sleep mode — `sleep.ts`. */
   readonly sleep: SleepHost = new SleepHost(() => this.connected()?.port ?? null);
+  /** A repository's open issues — `issues.ts`. #91. */
+  readonly issues: IssuesHost = new IssuesHost(() => this.connected()?.port ?? null);
   /**
    * Every act on a Job — see `command.ts`. Reached through this rather than
    * re-exported one method at a time: a delegator carries no reasoning, and
