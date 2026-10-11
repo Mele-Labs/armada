@@ -3,11 +3,12 @@
 // A stop opens its card on hover or focus and keeps it open when pressed; a line's title selects its
 // work as the grid and the map do. What moves is what is still working: nothing here does.
 
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { Plane } from "lucide-react";
 import { Button } from "@armada/components";
 
 import type { BaysRead } from "./bays";
-import { MAIN, STATIONS, metroOf, type Act, type Card, type Line, type Tone } from "./metro";
+import { MAIN, STATIONS, metroOf, type Act, type Card, type Line, type Metro, type Tone } from "./metro";
 
 const TONE: Record<Tone, string> = {
   run: "var(--status-running)",
@@ -30,16 +31,45 @@ const two = (n: number) => String(n).padStart(2, "0");
 
 type Open = { id: string; card: Card; station: string; left: number; top: number; pinned: boolean };
 
-function Row({ line, selected, onSelect, onCard }: { line: Line; selected: boolean; onSelect: () => void; onCard: (id: string, card: Card, station: string, at: HTMLElement, pin: boolean) => void }) {
+/** The legend's two Autopilot marks, beside the tones while one is on. */
+function AutopilotKey() {
+  return (
+    <>
+      <span>
+        <Plane size={12} aria-hidden="true" />
+        picked by Autopilot
+      </span>
+      <span>
+        <i data-picked />
+        picked, not started
+      </span>
+    </>
+  );
+}
+
+/** What an Autopilot that is on adds: its marks on the lines, and its sidings under them (`AutopilotSidings.tsx`). */
+export type BaysAutopilot = { mark: (metro: Metro) => Metro; sidings: ReactNode };
+
+function Row({ line, selected, onSelect, onCard, nextUp = false }: { line: Line; selected: boolean; onSelect: () => void; onCard: (id: string, card: Card, station: string, at: HTMLElement, pin: boolean) => void; nextUp?: boolean }) {
   return (
     <li className="armada-metro__row" data-wants={line.wants} data-selected={selected || undefined} style={{ ["--line" as string]: TONE[line.tone] } as CSSProperties}>
       <button type="button" className="armada-metro__who" aria-label={line.bay === undefined ? `Waiting: ${line.title}` : `Bay ${two(line.bay)}: ${line.title}`} aria-pressed={selected} onClick={onSelect}>
         <span className="armada-metro__bay">{line.bay === undefined ? "—" : two(line.bay)}</span>
         <span className="armada-metro__mark" data-session={line.session || undefined} />
+        {line.autopilot === true ? <Plane className="armada-metro__autopilot" size={12} aria-label="Picked by Autopilot" /> : null}
         <span className="armada-metro__title" title={line.title}>
           {line.title}
         </span>
       </button>
+      {!nextUp ? null : (
+        <span className="armada-metro__station" data-next-up data-state={line.nextUp === undefined ? "ahead" : "now"}>
+          {line.nextUp === undefined ? (
+            <span className="armada-metro__stop" aria-hidden="true" />
+          ) : (
+            <button type="button" className="armada-metro__stop" data-picked aria-label={`${line.title}: Next up, ${line.nextUp.card.pill}`} style={{ ["--tone" as string]: TONE[line.nextUp.tone] } as CSSProperties} onMouseEnter={(event) => onCard(`${line.key}:next`, line.nextUp!.card, "Next up", event.currentTarget, false)} onFocus={(event) => onCard(`${line.key}:next`, line.nextUp!.card, "Next up", event.currentTarget, false)} onClick={(event) => onCard(`${line.key}:next`, line.nextUp!.card, "Next up", event.currentTarget, true)} />
+          )}
+        </span>
+      )}
       {STATIONS.map((station, at) => {
         const stop = line.stops[at];
         const state = at < line.reach ? "past" : at === line.reach ? "now" : "ahead";
@@ -69,8 +99,10 @@ function Row({ line, selected, onSelect, onCard }: { line: Line; selected: boole
   );
 }
 
-export function Bays({ read, reading, now, selected, onSelect, onOpenJob, onOpenSession, onOpenLink }: {
+export function Bays({ read, reading, now, selected, onSelect, onOpenJob, onOpenSession, onOpenLink, autopilot }: {
   read: BaysRead;
+  /** Drawn only while an Autopilot is on: the Next up station, its marks and its sidings. */
+  autopilot?: BaysAutopilot | undefined;
   /** Fleet has not answered for the pool yet. */
   reading: boolean;
   now: number;
@@ -81,7 +113,8 @@ export function Bays({ read, reading, now, selected, onSelect, onOpenJob, onOpen
   onOpenSession: (id: string) => void;
   onOpenLink: (address: string) => void;
 }) {
-  const metro = useMemo(() => metroOf(read, now), [read, now]);
+  const metro = useMemo(() => (autopilot === undefined ? metroOf(read, now) : autopilot.mark(metroOf(read, now))), [read, now, autopilot]);
+  const nextUp = autopilot !== undefined;
   const host = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState<Open>();
 
@@ -133,9 +166,10 @@ export function Bays({ read, reading, now, selected, onSelect, onOpenJob, onOpen
   }
   const named = metro.harbours.length > 1;
   return (
-    <div ref={host} className="armada-metro" onMouseLeave={() => (open?.pinned === true ? undefined : setOpen(undefined))}>
+    <div ref={host} className="armada-metro" data-next-up={nextUp || undefined} onMouseLeave={() => (open?.pinned === true ? undefined : setOpen(undefined))}>
       <div className="armada-metro__head" role="presentation">
         <span className="armada-metro__label">Work</span>
+        {nextUp ? <span className="armada-metro__station-name" data-next-up>Next up</span> : null}
         {STATIONS.map((station, at) => (
           <span key={station} className="armada-metro__station-name">
             {station}
@@ -158,18 +192,27 @@ export function Bays({ read, reading, now, selected, onSelect, onOpenJob, onOpen
           <ol key={harbour.manifest} className="armada-metro__block" aria-label={named ? `${harbour.name} bays` : "Bays"}>
             {named ? <li className="armada-metro__part">{harbour.name}</li> : null}
             {harbour.lines.map((line) => (
-              <Row key={line.key} line={line} selected={line.item !== undefined && line.item.key === selected} onSelect={() => (line.item === undefined ? undefined : onSelect(line.item.key))} onCard={onCard} />
+              <Row key={line.key} line={line} nextUp={nextUp} selected={line.item !== undefined && line.item.key === selected} onSelect={() => (line.item === undefined ? undefined : onSelect(line.item.key))} onCard={onCard} />
             ))}
           </ol>
         ))}
+        {(metro.nextUp ?? []).length === 0 ? null : (
+          <ol className="armada-metro__block" aria-label="Picked by Autopilot, not started">
+            <li className="armada-metro__part">Picked by Autopilot, not started</li>
+            {metro.nextUp!.map((line) => (
+              <Row key={line.key} line={line} nextUp selected={line.item !== undefined && line.item.key === selected} onSelect={() => (line.item === undefined ? undefined : onSelect(line.item.key))} onCard={onCard} />
+            ))}
+          </ol>
+        )}
         {metro.waiting.length === 0 ? null : (
           <ol className="armada-metro__block" aria-label="Waiting for a bay">
             <li className="armada-metro__part">Waiting for a bay</li>
             {metro.waiting.map((line) => (
-              <Row key={line.key} line={line} selected={line.item !== undefined && line.item.key === selected} onSelect={() => (line.item === undefined ? undefined : onSelect(line.item.key))} onCard={onCard} />
+              <Row key={line.key} line={line} nextUp={nextUp} selected={line.item !== undefined && line.item.key === selected} onSelect={() => (line.item === undefined ? undefined : onSelect(line.item.key))} onCard={onCard} />
             ))}
           </ol>
         )}
+        {autopilot?.sidings}
       </div>
       <footer className="armada-metro__foot">
         <span>Bays</span>
@@ -188,6 +231,7 @@ export function Bays({ read, reading, now, selected, onSelect, onOpenJob, onOpen
               {said}
             </span>
           ))}
+          {nextUp ? <AutopilotKey /> : null}
         </span>
       </footer>
       {open === undefined ? null : (

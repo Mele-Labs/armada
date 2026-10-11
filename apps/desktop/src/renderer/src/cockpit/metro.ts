@@ -35,12 +35,18 @@ export type Line = {
   stops: readonly (Stop | undefined)[];
   /** A row tinted for what it wants: the owner's answer, or its failing checks. */
   wants: "you" | "fixing" | undefined;
+  /** Autopilot's: the line wears its glyph. Set by `autopilot-metro.ts`, only while one is on. */
+  autopilot?: boolean;
+  /** Its stop at Next up, where Autopilot picked it and its Job has not started. */
+  nextUp?: Stop;
 };
 
 export type Metro = {
   /** One block of lines per repository with bays, furthest along first. */
   harbours: readonly { manifest: string; name: string; lines: readonly Line[] }[];
   waiting: readonly Line[];
+  /** Autopilot's picks not started, at Next up before Waiting: only while an Autopilot is on. */
+  nextUp?: readonly Line[];
   /** How many lines are at each station, by tone, for the station's header. */
   counts: readonly (readonly (readonly [Tone, number])[])[];
   bays: { held: number; free: number; closed: number; strip: readonly ("held" | "free" | "closed")[]; tones: readonly (Tone | undefined)[] };

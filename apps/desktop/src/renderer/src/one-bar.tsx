@@ -1,12 +1,15 @@
 // The title bar's one bar: search and dispatch in one field, proposal D (the owner, 10 Oct 2026). It
 // replaced the Dashboard's dispatch bar and the title bar's Dispatch button. The palette is the field,
 // and this is what it sends: a Job goes straight to the proposer where one repository is picked, and
-// to the composer on All, which asks which. A Session starts as the dispatch bar started one.
+// to the composer on All, which asks which. A Session starts as the dispatch bar started one. On a picked
+// repository the third kind is Autopilot (#2092): the words open the Cockpit's start form, which reads
+// them and starts nothing until the person presses Start.
 
 import { useEffect, useRef, useState } from "react";
 import { isPressed, type DispatchKind, type PaletteDispatch } from "@armada/components";
 import { holdsText } from "@armada/screens/src/keys";
 
+import { seedAutopilot } from "./cockpit/autopilot-seed";
 import { useSessionsDraft } from "./sessions-draft";
 import { useDispatchKind } from "./remembered-views";
 
@@ -21,6 +24,7 @@ export function useOneBar({
   openSession,
   said,
   proposeFrom,
+  showCockpit,
 }: {
   palette: { open: boolean; onOpen: () => void };
   /** Off the line, `n` keeps the Board's own meaning, as it did beside the dispatch bar. */
@@ -32,21 +36,30 @@ export function useOneBar({
   openSession: (sessionId: string) => void;
   said: (sentence: string) => void;
   proposeFrom: (request: string, attachments: readonly [], repository: null) => Promise<string | null>;
+  /** The Cockpit, where Autopilot's start form is. */
+  showCockpit: () => void;
 }): PaletteDispatch {
   const draft = useSessionsDraft();
   const [chosen, choose] = useDispatchKind();
-  const kind: DispatchKind = draft === undefined ? "job" : chosen;
+  // Autopilot is chosen for this opening only and never remembered: the next `n` is for a Job again.
+  const [autopilot, setAutopilot] = useState(false);
+  const kinds: DispatchKind[] = ["job", ...(draft === undefined ? [] : ["session" as const]), ...(repository === null ? [] : ["autopilot" as const])];
+  const kind: DispatchKind = autopilot && repository !== null ? "autopilot" : draft === undefined ? "job" : chosen;
   const [leads, setLeads] = useOpenedToDispatch(palette, live);
 
-  useEffect(() => void (palette.open || setLeads(false)), [palette.open, setLeads]);
+  useEffect(() => void (palette.open || (setLeads(false), setAutopilot(false))), [palette.open, setLeads]);
 
   return {
     kind,
-    ...(draft === undefined ? {} : { onKind: choose }),
+    kinds,
+    ...(kinds.length < 2 ? {} : { onKind: (next: DispatchKind) => (setAutopilot(next === "autopilot"), next === "autopilot" || choose(next)) }),
     leads,
     onCompose: compose,
     onDispatch: (words, as) => {
-      if (as === "session" && draft !== undefined) {
+      if (as === "autopilot") {
+        seedAutopilot(words);
+        showCockpit();
+      } else if (as === "session" && draft !== undefined) {
         void Promise.resolve(draft.start()).then((id) => {
           if (id === undefined) return;
           draft.send(id, { text: words, files: [], sketches: [], tags: [] });

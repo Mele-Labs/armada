@@ -14,12 +14,12 @@
 // `reread`, `readCapacity` and `readLimits` travel with it: each is a stream
 // arm's own read-and-publish, used nowhere else the switch is not.
 
-import { connectedTo } from "@armada/protocol";
-import { PROTOCOL_ID, speaksOurProtocol } from "@armada/protocol";
+import { connectedTo, PROTOCOL_ID, speaksOurProtocol } from "@armada/protocol";
 import type { Connection, JobSummary, ProposalMoved, ServerState, StreamMessage } from "@armada/protocol";
 import { movedOnto } from "@armada/screens/src/filling";
 import type { BridgeState } from "../shared/bridge";
 import type { FleetBuilds } from "./fleet-build";
+import type { IssuesHost } from "./issues";
 import type { Modding } from "./mods";
 import type { Questions } from "./questions";
 import type { RehearsalConnection } from "./rehearsal";
@@ -57,6 +57,8 @@ export interface ArrivalHost {
   readonly sessions: Pick<SessionsHost, "again" | "changed" | "row">;
   /** Sleep mode, told when Fleet changes the night — `sleep.ts`. */
   readonly sleep: Pick<SleepHost, "changed">;
+  /** Every repository's Autopilot, told to the windows — `issues.ts`. #2092. */
+  readonly issues: Pick<IssuesHost, "autopilotChanged" | "autopilotsAgain">;
   /** The build Fleet runs on, read now and every minute — `fleet-build.ts`. */
   readonly fleetBuild: Pick<FleetBuilds, "watch">;
   readonly material: ReviewMaterial;
@@ -70,11 +72,7 @@ export interface ArrivalHost {
 }
 
 /** Re-read the Board whole, brought current by a status move nobody folded. */
-export async function reread(
-  port: number,
-  publish: (change: Partial<BridgeState>) => void,
-  now: () => number,
-): Promise<void> {
+export async function reread(port: number, publish: (change: Partial<BridgeState>) => void, now: () => number): Promise<void> {
   const answer = await ask(port, "GET", "/jobs");
   if (answer.ok !== true) return;
   const list = answer.body as { jobs: JobSummary[]; unreadable?: [] };
@@ -86,10 +84,7 @@ export async function reread(
  * nothing rather than as the last count — the bar must not keep saying
  * "2 of 2" off an answer it could not get.
  */
-export async function readCapacity(
-  port: number,
-  publish: (change: Partial<BridgeState>) => void,
-): Promise<void> {
+export async function readCapacity(port: number, publish: (change: Partial<BridgeState>) => void): Promise<void> {
   publish({ capacity: await capacityOf(port) });
 }
 
@@ -97,10 +92,7 @@ export async function readCapacity(
  * Fleet's three admission limits. **Once per connection**, `readManifest`'s
  * terms, and again on every `settings.changed`, since settings.json holds them.
  */
-export async function readLimits(
-  port: number,
-  publish: (change: Partial<BridgeState>) => void,
-): Promise<void> {
+export async function readLimits(port: number, publish: (change: Partial<BridgeState>) => void): Promise<void> {
   publish({ limits: await limitsOf(port) });
 }
 
@@ -114,10 +106,7 @@ export async function readLimits(
  * yet" to draw, and overwriting it with the shipped default on a glitch would
  * draw a person's own choice as though it had never been saved.
  */
-export async function readPreferences(
-  port: number,
-  publish: (change: Partial<BridgeState>) => void,
-): Promise<void> {
+export async function readPreferences(port: number, publish: (change: Partial<BridgeState>) => void): Promise<void> {
   const read = await preferencesOf(port);
   if (read !== null) publish({ preferences: read });
 }
@@ -216,6 +205,8 @@ export function applyArrival(host: ArrivalHost, text: string, fleet: BridgeState
     void host.studios.again();
     // And every session, with the threads a window holds: a row published while the stream was down was never folded.
     void host.sessions.again(fleet.port);
+    // And every Autopilot, `sessions.again`'s reason.
+    void host.issues.autopilotsAgain();
     return;
   }
 
@@ -515,6 +506,15 @@ export function applyArrival(host: ArrivalHost, text: string, fleet: BridgeState
     host.publish({ connection });
     const { kind: _kind, ...state } = event;
     host.sleep.changed(state);
+    return;
+  }
+  if (event.kind === "autopilot.changed") {
+    // Above the tail for `sleep.changed`'s reason: no Job to find, and the Autopilot travels whole.
+    // Main keeps none of it: each window folds what it is told by repository, and a resync tells
+    // every one again.
+    host.publish({ connection });
+    const { kind: _kind, ...autopilot } = event;
+    host.issues.autopilotChanged(autopilot);
     return;
   }
   if (event.kind === "session.row") {

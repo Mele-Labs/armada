@@ -1,0 +1,7 @@
+[icons.plane]
+  means = "An aircraft seen from above, nose up and to the right"
+  group = "Autopilot"
+  size = "12 and 16px"
+  status = "Specified"
+  reserved = "Autopilot: its bar on the Cockpit, the lines and set-aside picks it made, and the one bar's Autopilot choice. Never a Job dispatched by hand, never a Job running, and never travel or a deploy."
+  notes = "Minted 11 Oct 2026 for #2092's Cockpit lane. The owner's mock drew a paper plane, which is `send`, and `send` means dispatched, so it is refused here: a set-aside pick is the opposite of dispatched. The aircraft names the thing by its own word, as `moon` names Sleep mode. Refused besides: `rocket`, the node bar's send-to-proposer; `bot`, which reads as a Drone; `infinity`, which promises no end, where every Autopilot has a Stop and caps."

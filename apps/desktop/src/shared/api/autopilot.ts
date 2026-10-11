@@ -22,6 +22,8 @@ export type AutopilotApi = {
   /** A set-aside pick, dispatched by the person: it waits at the approval gate. */
   dispatchSetAside: (manifestId: string, pickId: string) => Promise<AutopilotActed>;
   dismissSetAside: (manifestId: string, pickId: string) => Promise<AutopilotActed>;
+  /** `autopilot.changed`: one repository's Autopilot, whole, whenever Fleet changes it. */
+  onAutopilotChanged: (onChanged: (autopilot: Autopilot) => void) => () => void;
 };
 
 export const AUTOPILOT_CHANNELS = {
@@ -34,4 +36,6 @@ export const AUTOPILOT_CHANNELS = {
   getAutopilot: "bridge:get-autopilot",
   dispatchSetAside: "bridge:dispatch-set-aside",
   dismissSetAside: "bridge:dismiss-set-aside",
+  /** Main to every window, not a request. */
+  autopilotChanged: "bridge:autopilot-changed",
 } as const;
