@@ -76,15 +76,12 @@ describe("job sketch", () => {
     await expect.element(page.getByRole("button", { name: "Sketch", exact: true })).not.toBeInTheDocument();
   });
 
-  test("hiding the panel gives the canvas back, and showing it brings the sketch", async () => {
+  test("the panel cannot be hidden while its ask holds a sketch, so the sketch stays", async () => {
     mount("job-sketch-judge");
     await onScreen();
     await settled();
     await drawn();
-    await page.getByRole("button", { name: "Hide now" }).click();
-    await expect.poll(sketch).toBeNull();
-    await expect.poll(canvasNodes).toBeGreaterThan(5);
-    await page.getByRole("button", { name: "Show now" }).click();
+    await expect.element(page.getByRole("button", { name: "Hide now" })).not.toBeInTheDocument();
     await drawn();
   });
 

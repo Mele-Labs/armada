@@ -45,22 +45,23 @@ function within(selector: string) {
   return page.elementLocator(found);
 }
 
-const lead = () => within(".armada-lead");
+// The lead is gone from Overview (11 Oct 2026): what it held is a card in the Now panel.
+const card = () => within(".armada-now .armada-callcard");
 const header = () => within(".armada-job-head");
 
-test("the lead holds Approve dispatch beside the header's, with the same menu", async () => {
+test("the Now panel's approval card holds Approve dispatch beside the header's, with the same menu", async () => {
   await opened();
-  await expect.element(lead().getByRole("button", { name: "Approve dispatch" })).toBeVisible();
+  await expect.element(card().getByRole("button", { name: "Approve dispatch" })).toBeVisible();
   await expect.element(header().getByRole("button", { name: "Approve dispatch" })).toBeVisible();
   // One act reached two ways, so the caret offers what the header's does.
-  await lead().getByRole("button", { name: "Everything else this job can do" }).click();
+  await card().getByRole("button", { name: "Everything else this job can do" }).click();
   await expect.element(page.getByRole("menuitem", { name: /Kill job/ })).toBeVisible();
 });
 
-test("pressing the lead's Approve dispatch approves, as the header's does", async () => {
+test("pressing the approval card's Approve dispatch approves, as the header's does", async () => {
   const api = await opened();
   const approveDispatch = vi.spyOn(api, "approveDispatch");
-  await lead().getByRole("button", { name: "Approve dispatch" }).click();
+  await card().getByRole("button", { name: "Approve dispatch" }).click();
   // Nothing moved on the proposal, so it is approved as it stands: no body.
   expect(approveDispatch).toHaveBeenCalledWith(JOB_ID, undefined);
 });

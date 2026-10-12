@@ -45,6 +45,7 @@ import type {
   TaskView,
   WaveView,
 } from "../../draft";
+import type { CommanderDraft } from "../../draft/commander";
 import type { NowView } from "../../draft/now";
 import type { MergeLineView } from "@armada/screens/src/merge-line";
 import type { Outstanding } from "@armada/screens/src/outstanding";
@@ -127,6 +128,8 @@ export type ArcDraft = {
   mergeLine?: MergeLineView;
   /** What the Dashboard's calls carry beyond the Board, by Job id. */
   calls?: Readonly<Record<string, CallView>>;
+  /** A Job's Commander and the acts on it. Mock only. */
+  commander?: CommanderDraft;
 };
 
 /**

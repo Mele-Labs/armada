@@ -111,7 +111,8 @@ test("a Job killed with a refusal waiting leads with its stop, and offers no Ans
   // Board's row does not carry. Before it the lead is the row's to say.
   await expect.element(page.getByText(/Guide 8 is removed from the catalogue|selectors cannot be tested/).first()).toBeVisible();
   await expect.element(page.getByRole("heading", { name: "This Job stopped" })).toBeVisible();
-  const lead = document.querySelector(".armada-lead");
+  const lead = document.querySelector(".armada-now .armada-callcard");
+  expect(lead, "the stop is a card in the Now panel").not.toBeNull();
   expect(lead?.textContent).not.toMatch(/Judge refused/);
   expect(page.getByRole("button", { name: "Answer it" }).query()).toBeNull();
 });

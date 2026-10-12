@@ -253,6 +253,11 @@
   white-space: nowrap;
 }
 
+.armada-plan-board__task-title .armada-who-mark {
+  margin-inline-start: var(--space-2);
+  vertical-align: middle;
+}
+
 .armada-plan-board__task[data-mark="dropped"] .armada-plan-board__task-title {
   text-decoration: line-through;
   color: var(--fg-subtle);

@@ -147,6 +147,7 @@ export function taskCard(
       : {}),
     said: awaiting ?? row?.verb ?? task.state,
     facts,
+    ...(task.by === undefined ? {} : { by: task.by }),
     ...(held ? { needs: [HELD_NEED] } : {}),
     ...(onOpen === undefined ? {} : { onOpen }),
   };

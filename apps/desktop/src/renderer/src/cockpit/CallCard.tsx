@@ -8,7 +8,7 @@
 
 import { useLayoutEffect, useRef, useState, type MutableRefObject } from "react";
 import { Bot, Box, ChevronDown, ChevronUp, Cpu, Scale, ShieldCheck, SquareTerminal, Waypoints, Workflow, type LucideIcon } from "lucide-react";
-import { Button, Kbd, SessionThread, Tooltip, actionOf, keyFor, type NowPanelProps } from "@armada/components";
+import { AskAnswer, AskAnswers, AskActs, AskCard, AskChoices, AskQuestion, Button, Kbd, SessionThread, Tooltip, actionOf, keyFor, type NowPanelProps } from "@armada/components";
 
 import type { BridgeState } from "../../../shared/bridge";
 import { age, type Hosts, type Item } from "../Dashboard";
@@ -46,30 +46,17 @@ const OUT = "Waiting on Fleet";
  * is every other while one is, which cannot be pressed.
  */
 function AnswerTile({ one, mark, picked, pending, held, onPick }: { one: Answer; mark: string; picked: boolean; pending: boolean; held: boolean; onPick: () => void }) {
-  const tile = (
-    <button
-      type="button"
-      role="radio"
-      aria-checked={picked}
-      className="armada-callcard__answer"
-      data-standing={one.key === undefined ? undefined : ""}
-      data-pending={pending || undefined}
-      aria-busy={pending || undefined}
-      disabled={held && !pending}
-      onClick={onPick}
-    >
-      <Kbd>{mark}</Kbd>
-      <span className="armada-callcard__option">
-        <span className="armada-callcard__label">
-          {one.label}
-          {one.recommended === true ? <span className="armada-callcard__recommended">Recommended</span> : null}
-        </span>
-        {one.description === undefined ? null : <span className="armada-callcard__description">{one.description}</span>}
-      </span>
-    </button>
+  return (
+    <AskAnswer
+      one={{ label: one.label, ...(one.description === undefined ? {} : { description: one.description }), ...(one.recommended === true ? { recommended: true } : {}), ...(one.says === undefined ? {} : { says: one.says }), standing: one.key !== undefined }}
+      mark={mark}
+      picked={picked}
+      pending={pending}
+      held={held}
+      pendingSays={OUT}
+      onPick={onPick}
+    />
   );
-  const said = pending ? OUT : one.says;
-  return said === undefined ? tile : <Tooltip label={said}>{tile}</Tooltip>;
 }
 
 /** What a reply in words has been given and not yet sent, kept by call so leaving the card keeps it. */
@@ -221,15 +208,7 @@ export function CallCard({
   const OwnerGlyph = answer.owner?.kind === "session" ? SquareTerminal : Workflow;
 
   return (
-    <section className="armada-callcard" data-hue={item.hue} data-leaving={leaving} data-from={from} aria-label={`${item.kind}: ${item.title}`}>
-      <header className="armada-callcard__band">
-        <Icon size={16} aria-hidden="true" />
-        <span>{item.kind}</span>
-        <span className="armada-callcard__where">{item.where}</span>
-        <span className="armada-callcard__age">{age(item.at, now)}</span>
-      </header>
-      <div className="armada-callcard__body">
-        <h2 className="armada-callcard__title">{item.title}</h2>
+    <AskCard icon={Icon} kind={item.kind} where={item.where} age={age(item.at, now)} title={item.title} hue={item.hue} leaving={leaving} from={from}>
         {session !== undefined ? (
           <div className="armada-callcard__thread">
             <SessionThread sessionId={session.id} rows={threadRowsOf(session)} onAnswer={() => {}} onOpenSession={hosts.onOpenSession} />
@@ -283,7 +262,7 @@ export function CallCard({
             )}
           </>
         )}
-        <p className="armada-callcard__ask" data-quiet={(item.waiting !== undefined ? item.waiting.item.source !== "permission" : item.hue === "ask") || answer.decision !== undefined ? undefined : ""}>
+        <AskQuestion quiet={!((item.waiting !== undefined ? item.waiting.item.source !== "permission" : item.hue === "ask") || answer.decision !== undefined)}>
           {answer.ask}
           {answer.decision === undefined ? null : (
             <span className="armada-callcard__pips" aria-hidden="true">
@@ -292,26 +271,26 @@ export function CallCard({
               ))}
             </span>
           )}
-        </p>
+        </AskQuestion>
         {answer.attaching === undefined ? null : <AttachPicker attaching={answer.attaching} />}
         {lone || answer.attaching !== undefined ? null : (
-          <div role="radiogroup" aria-label={answer.ask} className="armada-callcard__choices">
-            <div className="armada-callcard__answers">
+          <AskChoices label={answer.ask}>
+            <AskAnswers>
               {numbered.map((one, index) => (
                 <AnswerTile key={one.id} one={one} mark={String(index + 1)} picked={answer.picked === answer.answers.indexOf(one)} pending={answer.pending === one.id} held={held} onPick={() => answer.pick(answer.answers.indexOf(one))} />
               ))}
-            </div>
+            </AskAnswers>
             {standing.length === 0 ? null : (
-              <div className="armada-callcard__answers" data-standing>
+              <AskAnswers standing>
                 {standing.map((one) => (
                   <AnswerTile key={one.id} one={one} mark={one.key!} picked={answer.picked === answer.answers.indexOf(one)} pending={answer.pending === one.id} held={held} onPick={() => answer.pick(answer.answers.indexOf(one))} />
                 ))}
-              </div>
+              </AskAnswers>
             )}
-          </div>
+          </AskChoices>
         )}
         {answer.reply === undefined ? null : <Reply label={item.sleep === undefined ? "Type something" : "Change"} text={text} change={change} send={sendWords} pending={answer.pending === "reply"} held={held} />}
-        <div className="armada-callcard__acts">
+        <AskActs>
           <Button variant="primary" disabled={!canSend} onClick={send}>
             {lone && !words ? OPENS(item) : "Send"}
             <Kbd>↵</Kbd>
@@ -338,8 +317,7 @@ export function CallCard({
               <Kbd>{keyFor("call_dismiss")}</Kbd>
             </Button>
           </Tooltip>
-        </div>
-      </div>
-    </section>
+        </AskActs>
+    </AskCard>
   );
 }
