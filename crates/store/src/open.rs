@@ -47,6 +47,13 @@ pub struct Store {
     pub(crate) conn: Connection,
     pub(crate) path: String,
     unknown_migrations: Vec<String>,
+    /// The last whole-board read and the version of the file it was taken at.
+    /// See [`Store::load_all_jobs`].
+    pub(crate) board: Option<crate::read::Board>,
+    /// How many times the whole board was folded, for the test that proves a
+    /// quiet read is not.
+    #[cfg(test)]
+    pub(crate) folds: u64,
 }
 
 impl Store {
@@ -75,6 +82,9 @@ impl Store {
             conn,
             path: shown,
             unknown_migrations: Vec::new(),
+            board: None,
+            #[cfg(test)]
+            folds: 0,
         };
         store.migrate(list)?;
         store.no_dangling_references()?;

@@ -19,12 +19,15 @@
 // after the surface closed is dropped, because publishing it would put a list
 // back on a screen nobody is looking at.
 //
-// # The bodies travel with the list, so the read is dropped on close
+// # The bodies travel with the list, so it is read when asked for, and the last one stays
 //
 // `crates/ipc/operations/` states the cost: one rendered record per report,
 // all of them in one answer, because the record is the payload the sentence is
-// a finding about. That is affordable while the list is read deliberately and
-// dropped when it closes, and it is why this is asked for rather than held.
+// a finding about. That is affordable while the list is read deliberately, which
+// is why it is asked for and not polled or warmed. The one list read last is kept
+// past the surface that asked, and a reopened surface draws it while the next read
+// is out: "reading" is only for a list never read, and a failed read leaves the
+// list up rather than replacing it with a refusal.
 
 import type { Reports } from "@armada/protocol";
 import type { ReportList } from "@armada/protocol";
@@ -35,20 +38,22 @@ export class ReportsReader {
   private readonly publish: (reports: Reports) => void;
   /** Whether anybody is reading. The only scope this read has. */
   private open = false;
+  /** The last list Fleet gave, kept past the surface that asked for it. Null until there has been one. */
+  private last: ReportList | null = null;
+  /** Which read is the latest, so an answer that a newer read overtook is dropped. */
+  private generation = 0;
 
   constructor(publish: (reports: Reports) => void) {
     this.publish = publish;
   }
 
-  /** Read them, or drop what was read. Nothing connected is a failure to draw. */
+  /** Read them, or stop reading. The list read last stays, and is the first thing a reopened surface draws. */
   async want(port: number | null, want: boolean): Promise<void> {
     this.open = want;
-    if (!want) {
-      this.publish({ state: "none" });
-      return;
-    }
+    if (!want) return;
+    if (this.last !== null) this.publish({ state: "read", list: this.last });
     if (port === null) {
-      this.publish({ state: "failed", outcome: { ok: false, why: "not_connected" } });
+      if (this.last === null) this.publish({ state: "failed", outcome: { ok: false, why: "not_connected" } });
       return;
     }
     await this.again(port);
@@ -57,16 +62,17 @@ export class ReportsReader {
   /** Read again, where a surface has one open. Nothing open is no read. */
   async again(port: number): Promise<void> {
     if (!this.open) return;
-    this.publish({ state: "reading" });
+    const mine = ++this.generation;
+    if (this.last === null) this.publish({ state: "reading" });
     const answer = await ask(port, "GET", "/reports");
+    if (mine !== this.generation) return;
+    if (answer.ok === true) this.last = answer.body as ReportList;
     // The surface closed while this was in flight, so nobody is reading the
     // answer and publishing it would draw a list onto a screen that is gone.
+    // It is kept: the next surface to open starts from it.
     if (!this.open) return;
-    this.publish(
-      answer.ok === true
-        ? { state: "read", list: answer.body as ReportList }
-        : { state: "failed", outcome: answer.outcome },
-    );
+    if (this.last !== null) this.publish({ state: "read", list: this.last });
+    else if (answer.ok !== true) this.publish({ state: "failed", outcome: answer.outcome });
   }
 
   /** The read ends with the window. Nothing is published: the surface is gone. */

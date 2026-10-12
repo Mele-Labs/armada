@@ -477,6 +477,17 @@ pub trait Vcs {
         slot: u32,
         rescue: SlotRescue,
     ) -> Result<SlotRescued, RescueRefused>;
+
+    /// How many times this adapter has changed a slot, a checkout or a branch
+    /// the pool holds, since the process began. Only ever larger.
+    ///
+    /// **A tick for a reader that keeps a copy of what the pool shows**, so it
+    /// can notice the pool moved without having been told by whichever caller
+    /// moved it. An adapter that does not count answers 0 for ever, and that
+    /// reader then falls back to its timer.
+    fn changes(&self) -> u64 {
+        0
+    }
 }
 
 /// Credential access, brokered. A Drone never holds a secret directly, and what

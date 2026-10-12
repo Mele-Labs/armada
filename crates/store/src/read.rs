@@ -47,6 +47,28 @@ pub struct Loaded {
     pub repaired: Vec<StatusRepair>,
 }
 
+/// The board as last folded, and the version of the file it was folded at.
+///
+/// **Kept so a quiet Fleet does not re-fold every Job's log on every tick.**
+/// Fleet's turn asks for the whole board five or six times a quarter second,
+/// and each ask was a SELECT, a JSON parse of every workflow and a replay of
+/// every event: about a quarter of one core with fourteen Jobs and nothing
+/// happening.
+pub(crate) struct Board {
+    version: Version,
+    jobs: Vec<Job>,
+}
+
+/// What changes whenever a Job's rows could have. `total_changes` counts every
+/// row this connection has written; `data_version` moves when another
+/// connection — `armada clean` in its own process — commits. Either moving
+/// drops the memo, so it errs towards folding and never towards a stale board.
+#[derive(Clone, Copy, PartialEq, Eq)]
+struct Version {
+    written: u64,
+    elsewhere: i64,
+}
+
 /// A Job as the log says it is, beside the status its row claimed. The pair
 /// travels together so the boot read can tell a stale cache from a good one.
 ///
@@ -105,7 +127,49 @@ impl Store {
     /// A Job that will not rebuild does not take the others down with it and is
     /// not dropped either: the error carries both halves, so a caller cannot
     /// end up holding a short list with nothing saying so.
+    ///
+    /// **Folded again only when the file has changed** since the last read that
+    /// came back whole. A read that repaired a status or left a row unreadable
+    /// is not kept, so those still fold every time and still report.
     pub fn load_all_jobs(&mut self) -> Result<Loaded, LoadAllError> {
+        let version = self.version();
+        if let (Some(now), Some(kept)) = (version, &self.board) {
+            if kept.version == now {
+                return Ok(Loaded {
+                    jobs: kept.jobs.clone(),
+                    repaired: Vec::new(),
+                });
+            }
+        }
+        self.board = None;
+        let loaded = self.fold_every_job()?;
+        if let (Some(version), true) = (version, loaded.repaired.is_empty()) {
+            self.board = Some(Board {
+                version,
+                jobs: loaded.jobs.clone(),
+            });
+        }
+        Ok(loaded)
+    }
+
+    /// Read before the fold, so a write that lands during it leaves the memo
+    /// behind the file rather than ahead of it.
+    fn version(&self) -> Option<Version> {
+        let elsewhere = self
+            .conn
+            .pragma_query_value(None, "data_version", |row| row.get::<_, i64>(0))
+            .ok()?;
+        Some(Version {
+            written: self.conn.total_changes(),
+            elsewhere,
+        })
+    }
+
+    fn fold_every_job(&mut self) -> Result<Loaded, LoadAllError> {
+        #[cfg(test)]
+        {
+            self.folds += 1;
+        }
         let attempts: Vec<Rebuilt> = self.rebuild_every_job()?;
         let mut loaded = Loaded::default();
         let mut failed = Vec::new();
