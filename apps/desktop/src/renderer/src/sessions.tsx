@@ -31,12 +31,10 @@ import {
   SketchPreview,
   TileSheet,
   pressedSlot,
-  seedDraft,
   useKept,
 } from "@armada/components";
 import type {
   ChipOwnershipValue,
-  ForkPick,
   OpenInSessionValue,
   PilotValue,
   LedgerEntry,
@@ -56,6 +54,7 @@ import { sessionOf } from "@armada/jobs";
 import { askToOpenRetro } from "./open-retro";
 import { readRetro } from "./commands";
 import { ArtifactBody, ARTIFACT_GLYPH, isAddress } from "./session-artifact";
+import { forkAtPick, threadRowsFrom, threadRowsOf, upTo } from "./session-thread-rows";
 import { helmOfferedOf } from "@armada/screens/src/copy";
 import { attachmentsOf, isBlank, ownerOf, sessionsMatching } from "@armada/screens/src/draft/sessions";
 import type { ChipRef, DrawnSketch, PullRequestAct, Session, SessionAnswer, SessionAttachment, SessionMode, SessionsDraft, SessionTag, SubagentThread as Subagent } from "@armada/screens/src/draft/sessions";
@@ -418,35 +417,6 @@ export function SessionsListing({ onOpen }: { onOpen: (id: string) => void }) {
       <SessionList groups={groups} query={query} onQuery={setQuery} views={VIEWS} view={view} onView={(next) => setView(next as ViewId)} onOpen={onOpen} onStart={() => opening(draft.start(), onOpen)} {...(retro.press === undefined ? {} : { onRetro: (id: string) => retro.press?.(sessions.find((one) => one.id === id) ?? { id }) })} />
     </>
   );
-}
-
-export function threadRowsOf(session: Session): SessionThreadRow[] {
-  return threadRowsFrom(session.rows);
-}
-
-/** The rows up to and including the one with this id; all of them where it names none. */
-function upTo<T extends { id: string }>(rows: readonly T[], at: string | undefined): readonly T[] {
-  const end = at === undefined ? -1 : rows.findIndex((one) => one.id === at);
-  return end < 0 ? rows : rows.slice(0, end + 1);
-}
-
-function threadRowsFrom(rows: Session["rows"]): SessionThreadRow[] {
-  return rows.map((row): SessionThreadRow => {
-    if (row.kind === "lease" || row.kind === "tool" || row.kind === "handoff" || row.kind === "command" || row.kind === "compaction" || row.kind === "window" || row.kind === "check" || row.kind === "retro") return row;
-    if (row.from.kind === "session") {
-      return { id: row.id, at: row.at, kind: "message", from: "session", sender: { id: row.from.id, title: row.from.title }, text: row.text };
-    }
-    return {
-      id: row.id,
-      at: row.at,
-      kind: "message",
-      from: row.from.kind,
-      text: row.text,
-      ...(row.files === undefined ? {} : { files: row.files }),
-      ...(row.sketches === undefined ? {} : { sketches: row.sketches }),
-      ...(row.tags === undefined ? {} : { tags: row.tags }),
-    };
-  });
 }
 
 /** Where a ledger row goes: the surface that already shows the thing. */
@@ -997,22 +967,7 @@ function SessionView({ session, goes, onOpen, held, board, lines }: { session: S
             sessionId={session.id}
             rows={thread}
             onOpenRetro={openRetro}
-            {...(draft.forkAt === undefined
-              ? {}
-              : {
-                  onForkAt: ({ rowId, quote }: ForkPick) =>
-                    opening(
-                      Promise.resolve(draft.forkAt!(session.id, rowId)).then((forked) => {
-                        // The words are in the new Session's box before it opens, with the caret behind them.
-                        if (forked !== undefined) {
-                          seedDraft(forked, quote);
-                          setFocusFor(forked);
-                        }
-                        return forked;
-                      }),
-                      onOpen,
-                    ),
-                })}
+            {...(draft.forkAt === undefined ? {} : { onForkAt: (pick) => opening(forkAtPick(draft.forkAt!, session.id, pick, setFocusFor), onOpen) })}
             askRef={askCard}
             onOpenWindow={(url) => draft.openWindow?.(id, url)}
             onOpenCheck={(run) => goes.onOpenCheck(session.id, run)}
