@@ -47,25 +47,37 @@ pub(crate) fn runs(in_repo: &str, commit: &str) -> Option<CiRuns> {
     Some(folded_runs(&said))
 }
 
+/// **One job a name.** A commit that went through the merge queue and then main has a run of the
+/// same jobs from each, and a re-run adds a third. The newest stands, by the forge's own id, which
+/// only grows; a skipped job never replaces one that ran, because a path filter on the later run
+/// is not a pass for the earlier run's failure.
 pub(crate) fn folded_runs(lines: &str) -> CiRuns {
-    lines
-        .lines()
-        .filter(|line| !line.is_empty())
-        .filter_map(|line| {
-            let mut field = line.split('\t');
-            let handle = field.next()?;
-            let name = field.next()?;
-            let status = field.next().unwrap_or_default();
-            let conclusion = field.next().unwrap_or_default();
-            let url = field.next().unwrap_or_default();
-            (!handle.is_empty()).then(|| CiRun {
-                name: FromOutside::verbatim(as_written(name)),
-                state: state_of(status, conclusion),
-                handle: FromOutside::verbatim(handle),
-                log_url: (!url.is_empty()).then(|| FromOutside::verbatim(as_written(url))),
-            })
-        })
-        .collect()
+    let mut kept: Vec<((bool, u64), CiRun)> = Vec::new();
+    for line in lines.lines().filter(|line| !line.is_empty()) {
+        let mut field = line.split('\t');
+        let (Some(handle), Some(name)) = (field.next(), field.next()) else {
+            continue;
+        };
+        let status = field.next().unwrap_or_default();
+        let conclusion = field.next().unwrap_or_default();
+        let url = field.next().unwrap_or_default();
+        if handle.is_empty() {
+            continue;
+        }
+        let rank = (conclusion != "skipped", handle.parse().unwrap_or(0));
+        let run = CiRun {
+            name: FromOutside::verbatim(as_written(name)),
+            state: state_of(status, conclusion),
+            handle: FromOutside::verbatim(handle),
+            log_url: (!url.is_empty()).then(|| FromOutside::verbatim(as_written(url))),
+        };
+        match kept.iter_mut().find(|(_, it)| it.name == run.name) {
+            Some(held) if held.0 < rank => *held = (rank, run),
+            Some(_) => {}
+            None => kept.push((rank, run)),
+        }
+    }
+    kept.into_iter().map(|(_, run)| run).collect()
 }
 
 /// This forge's words for how a job came out. **A conclusion with no name here
@@ -434,6 +446,31 @@ mod tests {
         assert_eq!(runs[1].state, CiState::Passed);
         assert!(runs[1].log_url.is_none());
         assert_eq!(runs[2].state, CiState::Pending);
+    }
+
+    #[test]
+    fn a_job_run_by_the_queue_and_again_on_main_is_one_job_the_newest() {
+        // The merge queue's run (ids 1x) and main's own push run (ids 2x) of one commit.
+        let lines = "10\tapp_smoke_shard (4)\tcompleted\tfailure\t\n\
+                     11\tdesktop_test\tcompleted\tfailure\t\n\
+                     12\tacceptance\tcompleted\tfailure\t\n\
+                     20\tapp_smoke_shard (4)\tcompleted\tsuccess\t\n\
+                     21\tdesktop_test\tcompleted\tfailure\t\n\
+                     22\tacceptance\tcompleted\tskipped\t\n";
+        let runs = folded_runs(lines);
+        let seen: Vec<(&str, CiState)> = runs
+            .iter()
+            .map(|run| (run.name.as_written(), run.state))
+            .collect();
+        assert_eq!(
+            seen,
+            [
+                ("app_smoke_shard (4)", CiState::Passed),
+                ("desktop_test", CiState::Failed),
+                ("acceptance", CiState::Failed),
+            ]
+        );
+        assert_eq!(runs[1].handle.as_written(), "21");
     }
 
     #[test]

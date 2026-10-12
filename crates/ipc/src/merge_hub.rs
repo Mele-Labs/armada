@@ -81,6 +81,15 @@ pub struct HubJob {
     pub title: String,
 }
 
+/// A Session, by its id and the title the ledger holds for it. Since 23.80.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HubSession {
+    pub id: String,
+    /// Absent where the Session has none; Bridge names it by the branch.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+}
+
 /// Where main's newest commit stands on the forge's CI.
 ///
 /// **Strict, because Bridge branches on it**: green draws a mark, red a band.
@@ -168,6 +177,9 @@ pub struct MainMerge {
     /// The Job whose pull request that is. Absent for a person's.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub job: Option<HubJob>,
+    /// The Session that held the pull request or its branch, where no Job owns it. Since 23.80.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session: Option<HubSession>,
 }
 
 /// One open pull request.

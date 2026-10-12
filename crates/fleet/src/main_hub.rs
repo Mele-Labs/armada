@@ -21,7 +21,7 @@ use adapter_traits::{
 use core_model::JobId;
 use core_model::Timestamp;
 use ipc::{
-    HubJob, HubMerged, HubPullCi, HubPullRequest, HubQueue, HubQueueState, MainChecking,
+    HubJob, HubMerged, HubPullCi, HubPullRequest, HubQueue, HubQueueState, HubSession, MainChecking,
     MainCiState, MainFailedJob, MainMerge, MainRun, MainRunState, MainStanding, MergeLineHub,
 };
 use store::{MainCi, MainState};
@@ -391,6 +391,29 @@ where
             })
     }
 
+    /// The Session that held a pull request, else its branch, in any state, **given back and spent
+    /// included**: the question is who made it, and a Session that has finished still did. The
+    /// newest hold stands where several do.
+    pub(crate) fn session_of_pull(
+        &self,
+        store: &store::Store,
+        served: &Served,
+        number: u64,
+        branch: Option<&str>,
+    ) -> Option<String> {
+        let manifest = served.manifest().id().as_str().to_string();
+        let held = |kind: &str, target: &str| {
+            store
+                .attachments_at(kind, target, Some(&manifest))
+                .unwrap_or_default()
+                .into_iter()
+                .find(|row| row.holder.kind == store::HolderKind::Session)
+                .map(|row| row.holder.id)
+        };
+        held(crate::pull_requesting::PR, &number.to_string())
+            .or_else(|| branch.and_then(|branch| held("branch", branch)))
+    }
+
     /// The Checks each served repository's Manifest declares, by root.
     pub(crate) fn land_checks(&self) -> Vec<(String, Vec<String>)> {
         self.repositories()
@@ -424,6 +447,14 @@ where
             )
         };
         let store = self.store().lock().await;
+        let session_titled = |id: &str| HubSession {
+            id: id.to_string(),
+            title: store
+                .session(id)
+                .ok()
+                .flatten()
+                .and_then(|found| found.title),
+        };
         let titled = |job: &JobId| {
             store.load_job(job).ok().map(|found| HubJob {
                 id: ipc::JobId::from(job),
@@ -441,6 +472,7 @@ where
                     runs.get(&root),
                     queues.get(&root),
                     &titled,
+                    &session_titled,
                 )?;
                 hub.fixing = main
                     .as_ref()
@@ -460,6 +492,7 @@ pub(crate) fn hub_of(
     runs: Option<&BTreeMap<String, MergedRun>>,
     queue: Option<&Vec<QueueEntry>>,
     titled: &dyn Fn(&JobId) -> Option<HubJob>,
+    session_titled: &dyn Fn(&str) -> HubSession,
 ) -> Option<MergeLineHub> {
     let no_runs = BTreeMap::new();
     let runs = runs.unwrap_or(&no_runs);
@@ -473,7 +506,16 @@ pub(crate) fn hub_of(
         _ => Vec::new(),
     };
     Some(MergeLineHub {
-        main: main.map(|it| standing(it, red, merged.map_or(&[][..], Vec::as_slice), runs, titled)),
+        main: main.map(|it| {
+            standing(
+                it,
+                red,
+                merged.map_or(&[][..], Vec::as_slice),
+                runs,
+                titled,
+                session_titled,
+            )
+        }),
         pull_requests: pulls
             .map(|read| {
                 read.iter()
@@ -506,6 +548,7 @@ fn standing(
     merged: &[MergedPulled],
     runs: &BTreeMap<String, MergedRun>,
     titled: &dyn Fn(&JobId) -> Option<HubJob>,
+    session_titled: &dyn Fn(&str) -> HubSession,
 ) -> MainStanding {
     MainStanding {
         state: match (red, main.state) {
@@ -537,6 +580,7 @@ fn standing(
             url: merge.url.clone(),
             branch: merge.branch.clone(),
             job: merge.job.as_ref().and_then(titled),
+            session: merge.session.as_deref().map(session_titled),
         }),
         red_commit: main
             .red_commit
@@ -572,6 +616,7 @@ fn checking(
         url: Some(one.pull.url.as_written().to_string()),
         branch: Some(one.pull.branch.as_written().to_string()),
         job: one.job.as_ref().and_then(titled),
+        session: None,
     };
     let head = (main.commit != decided && running(&main.commit)).then(|| MainChecking {
         commit: main.commit.clone(),

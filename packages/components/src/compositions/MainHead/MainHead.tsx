@@ -49,6 +49,8 @@ export type MainRed = {
     branchUrl?: string;
     /** The Job whose pull request it was. Absent for a person's. */
     job?: HubJob;
+    /** The Session that held the pull request, where no Job did. */
+    session?: { id: string; title: string };
   };
 };
 
