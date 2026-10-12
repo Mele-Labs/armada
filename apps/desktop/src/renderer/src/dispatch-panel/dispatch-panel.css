@@ -36,7 +36,7 @@
   position: absolute;
   top: var(--hung-top, 20vh);
   left: var(--hung-left, 50%);
-  width: max(var(--hung-width, 0px), min(var(--palette-width), calc(100vw - var(--space-6))));
+  width: max(var(--hung-width),min(var(--palette-width), calc(100vw - var(--space-6))));
   max-width: calc(100vw - var(--space-6));
 }
 

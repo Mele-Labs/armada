@@ -6,6 +6,7 @@ import type { FleetHandle } from "@armada/bridge-api";
 import { refusedWith } from "@armada/protocol";
 import type {
   HeldWorktrees,
+  Holdings,
   JobDetail,
   JobRetro,
   JobSummary,
@@ -13,6 +14,7 @@ import type {
   Lesson,
   LessonAnswer,
   Outcome,
+  ProposalInFlight,
   RetroItem,
   WorkPlan,
   WorktreesHeld,
@@ -23,7 +25,9 @@ import type { PlanEditAnswer } from "@armada/screens/src/plan-edits";
 
 import type { JobsApi, JobsState } from "../api";
 import type { ArcDraft } from "../fixtures/build/arc";
+import { PROPOSER_BUDGET_MS } from "../fixtures/build/proposing";
 import type { GroupView } from "../draft/group";
+import { READ_MS, requestRepositoryRead } from "./request-repository-fleet";
 import { isOutcome, parked, pausedRefusal, resumed } from "./pause-fleet";
 import { accepted, askedAgain } from "./undecided-fleet";
 import { answered, askedAbout, listed, reviewed } from "./lessons-fleet";
@@ -46,7 +50,7 @@ import {
 const nothing = { state: "none" } as const;
 
 /** The state Jobs' members read and write: the Board's Jobs, and what the pool holds. */
-export type JobsHeld = JobsState & { jobs: JobSummary[]; held: HeldWorktrees };
+export type JobsHeld = JobsState & { jobs: JobSummary[]; held: HeldWorktrees; holds: Holdings };
 
 /** What a scenario holds that Jobs' members answer from: each Job's reads, retros and Lessons. */
 export type JobsScenario = {
@@ -135,13 +139,26 @@ export const jobsApi = (scenario: JobsScenario, fleet: JobsFleet): JobsApi => {
       proposeFromRequest: (request) => {
         const at = new Date().toISOString();
         const row = proposingRow(request, at, state().jobs);
-        publish({ jobs: [...state().jobs, row] });
+        // The call is named with the Job it is reading for, as main's arrival carries it, so the
+        // window that dispatched learns the Job before anything answers.
+        const proposing: ProposalInFlight = {
+          proposal_id: `01M2E0PROPOSAL${row.id.slice(-8)}`,
+          job_id: row.id,
+          model: row.model,
+          since: at,
+          budget_ms: PROPOSER_BUDGET_MS,
+          reached: "starting",
+        };
+        publish({ jobs: [...state().jobs, row], proposing });
         return new Promise(() => {});
       },
       stopProposal: async () => OK,
       stageAttachment: async (_bytes, filename) => ({ path: filename }),
       searchFiles: async () => [],
-      readRequestRepository: async () => ({ manifest_id: null, likely: [] }),
+      readRequestRepository: async (words) => {
+        await new Promise((resume) => setTimeout(resume, READ_MS));
+        return requestRepositoryRead(words, state().holds.repositories ?? [], state().jobs);
+      },
 
       // The body applied as Fleet applies it (23.8), on the Job open; a row not
       // open only moves to `queued`, which is all the Board draws of it.

@@ -3,7 +3,7 @@
 // Both read this and neither owns a word of it, so what was typed in one is in the other, and leaving
 // either (Esc, a press outside) loses nothing. A Job, a Session and an Autopilot are the kinds:
 //
-//   Job        needs a repository: read from the words, else asked inline. Sends `proposeFrom`.
+//   Job        needs a repository: read from the words by Fleet, else asked inline. Sends `proposeFrom`.
 //   Session    the repository is optional and nothing is asked. Starts and opens the Session.
 //   Autopilot  needs a repository, as a Job does. The act reads the words as settings, shown in the
 //              panel's body for the person to edit; the act again starts it. Nothing leaves the panel.
@@ -45,8 +45,10 @@ type Sent = {
   kind: "job" | "autopilot";
   entry: Entry;
   title: string;
-  /** The Jobs on the Board before the send: the Job it made is the first row that was not here. */
+  /** The Jobs on the Board before the send. The Job the send made is not among them. */
   before: ReadonlySet<string>;
+  /** The Job it made, once Fleet has named it on the call. */
+  jobId?: string;
   /** An Autopilot's repository. */
   root?: string;
   refused?: string;
@@ -115,18 +117,22 @@ export function useDispatch({ state, repositories, proposeFrom, openSession, ope
   // Bumped whenever the words change, so an answer to words no longer there is let go.
   const stamp = useRef(0);
 
-  const options = optionsFor(words, repositories, state.jobs);
-  const found = useReading(words, options.filter((one) => one.named).map((one) => one.root));
+  const { reading: found, likely } = useReading(words);
+  const options = optionsFor(repositories, likely);
   const by = (root: string | null | undefined) => options.find((one) => one.root === root);
-  const root = by(picked)?.root ?? by(state.repository)?.root ?? (found.state === "detected" ? found.root : undefined);
+  // Fleet names the repository by its Manifest's id, and the panel works in roots.
+  const detected = found.state === "detected" ? by(repositories.find((one) => one.manifest?.id === found.manifestId)?.root) : undefined;
+  const root = by(picked)?.root ?? by(state.repository)?.root ?? detected?.root;
   const reading: PanelReading =
     by(picked) !== undefined
       ? { state: "picked", name: by(picked)!.name }
       : by(state.repository) !== undefined
         ? { state: "scoped", name: by(state.repository)!.name }
-        : found.state === "detected"
-          ? { state: "detected", name: by(found.root)!.name }
-          : found;
+        : detected !== undefined
+          ? { state: "detected", name: detected.name }
+          : found.state === "detected"
+            ? { state: "unresolved" }
+            : found;
 
   // The title bar's panel is the line first and grows a frame later, so it comes in the way the bar grows.
   useEffect(() => {
@@ -163,8 +169,14 @@ export function useDispatch({ state, repositories, proposeFrom, openSession, ope
     return token;
   }
 
-  // The Job a send made is a row on the Board from the proposer's first move, well before it answers.
-  const made = latest?.kind === "job" ? state.jobs.find((job) => !latest.before.has(job.id)) : undefined;
+  // Fleet names the Job on the call from its first move, well before the proposer answers. A call
+  // still standing from an earlier send names a Job that was on the Board before this one.
+  const proposed = state.proposing?.job_id;
+  useEffect(() => {
+    if (proposed === undefined) return;
+    setLatest((now) => (now?.kind === "job" && now.jobId === undefined && !now.before.has(proposed) ? { ...now, jobId: proposed } : now));
+  }, [proposed, latest?.token]);
+  const made = latest?.kind === "job" && latest.jobId !== undefined ? state.jobs.find((job) => job.id === latest.jobId) : undefined;
   const sentView: (SentView & { entry: Entry }) | undefined =
     latest === undefined
       ? undefined
@@ -172,16 +184,16 @@ export function useDispatch({ state, repositories, proposeFrom, openSession, ope
           id: latest.token,
           kind: latest.kind,
           entry: latest.entry,
-          title: latest.title,
-          ready: latest.kind === "autopilot" || made !== undefined,
+          title: made === undefined ? latest.title : firstLine(made.title),
+          ready: latest.kind === "autopilot" || latest.jobId !== undefined,
           ...(latest.refused === undefined ? {} : { refused: latest.refused }),
         };
 
   function openSent() {
     if (latest === undefined) return;
     if (latest.kind === "job") {
-      if (made === undefined) return;
-      openJob(made.id);
+      if (latest.jobId === undefined) return;
+      openJob(latest.jobId);
     } else if (latest.root !== undefined) openAutopilot(latest.root);
     setLatest(undefined);
   }
