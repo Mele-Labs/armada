@@ -1,4 +1,4 @@
-//! Giving one Job more of a ceiling, and who is giving it.
+//! Giving one Job more of a ceiling, and who may.
 //!
 //! **A Job over either cap waits at `queued` reading `over_budget` until
 //! somebody raises that cap** — `docs/concepts/machine.md`, Budget, says so and
@@ -6,11 +6,12 @@
 //! remedy was a number, the number was a machine-wide setting, and raising it
 //! for one Job meant raising it for every Job or restarting Fleet.
 //!
-//! **Two numbers cross and neither is a verdict**, which is
-//! [`JobSpend`](crate::JobSpend)'s rule one route over: the new ceiling, and
-//! which surface a person acted through. Whether the Job is then inside its
-//! budget is the pair being compared, and the answer comes back on the summary
-//! as `queued_reason`.
+//! **One number crosses and it is not a verdict**, which is
+//! [`JobSpend`](crate::JobSpend)'s rule one route over: the new ceiling.
+//! Whether the Job is then inside its budget is the pair being compared, and
+//! the answer comes back on the summary as `queued_reason`. **Who is asking is
+//! not in the body**: Fleet places the caller from the connection, and a body
+//! that says otherwise is a body with an extra key ([`RaisedBy`]).
 
 use serde::{Deserialize, Serialize};
 
@@ -32,8 +33,6 @@ pub struct CapRaise {
     /// [`JobSpend`](crate::JobSpend) reads in, so the figure a person typed and
     /// the figure they were shown are the same integer.
     pub cost_cap_micros: u64,
-    /// Which surface the raise came through. See [`RaisedBy`].
-    pub raised_by: RaisedBy,
 }
 
 /// A new turn ceiling for one Job.
@@ -54,29 +53,24 @@ pub struct TurnRaise {
     /// [`JobSpend`](crate::JobSpend) counts them — summed across every
     /// terminating line of every Drone of the Job.
     pub turn_cap: u64,
-    /// Which surface the raise came through. See [`RaisedBy`].
-    pub raised_by: RaisedBy,
 }
 
-/// Which surface a raise came through, and therefore what it is allowed to ask
-/// for.
+/// Who a raise was placed as, and therefore what it is allowed to ask for.
 ///
-/// **A statement of provenance, not a credential.** Nothing on this seam
-/// authenticates anybody — Fleet and Bridge share a machine, and
-/// `docs/practices/protocol.md` is explicit that the lifeboat and the protocol
-/// alike carry no auth concept. So this field says which surface composed the
-/// request, and it is filled in by that surface rather than by whoever is using
-/// it: Bridge sends [`Person`](RaisedBy::Person) because a person pressed a
-/// control, and the Helm tool adapter will send [`Helm`](RaisedBy::Helm)
-/// because it is Fleet's own code wrapping a model's request. **The model has
-/// no field for this**, exactly as a Drone has no argument that widens its own
-/// allowlist.
+/// **Placed by Fleet from the connection and never read from the body.** The
+/// field used to ride in the request, so a Helm call that sent `person` met no
+/// ceiling at all (`#2165`). It is not on [`CapRaise`] or [`TurnRaise`] any
+/// more, so there is no spelling of the claim to send, and an old client that
+/// still sends one is ignored because no DTO here denies unknown fields.
+///
+/// A Helm session is Helm, a Commander is the Commander, and a call that came
+/// through no door Fleet placed is a person's. Nothing on this seam
+/// authenticates anybody: this is which door the request arrived by.
 ///
 /// The one vocabulary in this crate besides [`Claim`](crate::Claim) that spells
 /// no domain value, and for that type's reason: nothing in `core-model` decides
 /// it, because it is not a state anything is in.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum RaisedBy {
     /// Somebody pressed a control. **Unbounded** — the budget is theirs, and a
     /// ceiling on what its owner may set is a setting arguing with the person
@@ -86,17 +80,23 @@ pub enum RaisedBy {
     /// `crates/fleet/src/raising.rs` carries the bound and the argument for its
     /// shape: an agent that can lift its own budget has no budget.
     Helm,
+    /// A Job's Commander, steering that Job. **Bounded, wider than Helm**: three
+    /// times what the workflow's caps allow rather than two, for turns and for
+    /// cost.
+    Commander,
 }
 
 impl RaisedBy {
     /// Every variant, in the order a picker would offer them.
-    pub const ALL: &'static [RaisedBy] = &[RaisedBy::Person, RaisedBy::Helm];
+    pub const ALL: &'static [RaisedBy] =
+        &[RaisedBy::Person, RaisedBy::Helm, RaisedBy::Commander];
 
     /// The wire value.
     pub fn as_wire(&self) -> &'static str {
         match self {
             RaisedBy::Person => "person",
             RaisedBy::Helm => "helm",
+            RaisedBy::Commander => "commander",
         }
     }
 
