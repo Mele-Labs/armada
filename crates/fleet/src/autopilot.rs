@@ -52,7 +52,15 @@ pub(crate) struct Remembered {
     published: std::sync::Mutex<std::collections::BTreeMap<String, ipc::Autopilot>>,
     /// Per repository, why the last pass picked nothing. **In memory**: the next pass says again.
     faults: std::sync::Mutex<std::collections::BTreeMap<String, String>>,
+    /// Per repository, the picker calls failed in a row and the epoch millisecond before which it
+    /// is not asked again. A failing call was asked again every pass, a call every few seconds.
+    resting: std::sync::Mutex<std::collections::BTreeMap<String, (u32, i64)>>,
 }
+
+/// How long the picker rests after its first failure in a row; each further one doubles it.
+const FIRST_REST_MS: i64 = 30_000;
+/// The longest rest, so a picker that comes back is asked again within this.
+const LONGEST_REST_MS: i64 = 15 * 60_000;
 
 impl Remembered {
     pub(crate) fn declined(&self, manifest: &str, offered: &[String]) -> bool {
@@ -80,6 +88,27 @@ impl Remembered {
     /// Clear what the picker declined, for a start whose instruction may cover it.
     pub(crate) fn forget(&self, manifest: &str) {
         held(&self.declined).remove(manifest);
+    }
+
+    /// True while the picker rests after failing.
+    pub(crate) fn picker_resting(&self, manifest: &str, now_ms: i64) -> bool {
+        held(&self.resting)
+            .get(manifest)
+            .is_some_and(|(_, until)| now_ms < *until)
+    }
+
+    /// A picker call failed: rest, twice as long as the last time where the one before failed too.
+    pub(crate) fn picker_failed(&self, manifest: &str, now_ms: i64) {
+        let mut resting = held(&self.resting);
+        let failed = resting.get(manifest).map_or(1, |(failed, _)| failed + 1);
+        let rest = FIRST_REST_MS
+            .saturating_mul(1 << (failed - 1).min(10))
+            .min(LONGEST_REST_MS);
+        resting.insert(manifest.to_string(), (failed, now_ms.saturating_add(rest)));
+    }
+
+    pub(crate) fn picker_answered(&self, manifest: &str) {
+        held(&self.resting).remove(manifest);
     }
 
     /// True where `now` differs from what was last published for its repository.
