@@ -72,6 +72,24 @@ export const WaitingOnYou: Story = {
   },
 };
 
+const replied = fn();
+/** An item with no act and a reply: its glyph is Reply, a press opens a box under the row, and a send hands over the line. */
+export const WaitingReply: Story = {
+  args: {
+    entries: [
+      { key: "w5", kind: "waiting", name: "Keep the old fixture or drop it?", text: "Keep the old fixture or drop it?", onReply: replied, onOpen: open },
+    ],
+  },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("img", { name: "Reply" })).toBeInTheDocument();
+    await userEvent.click(canvas.getByRole("button", { name: "Open Keep the old fixture or drop it?" }));
+    await expect(canvas.getByRole("button", { name: "Send" })).toBeDisabled();
+    await userEvent.type(canvas.getByRole("textbox", { name: "Reply to Keep the old fixture or drop it?" }), "Drop it{Enter}");
+    await expect(replied).toHaveBeenCalledWith("Drop it");
+    await expect(canvas.queryByRole("textbox")).not.toBeInTheDocument();
+  },
+};
+
 /** Nothing attached: no section is drawn, only the small picture, and no sentence. */
 export const Blank: Story = {
   args: { entries: [] },

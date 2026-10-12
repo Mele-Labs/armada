@@ -1,8 +1,10 @@
 import { useState, type ReactNode } from "react";
-import { AppWindow, BellRing, Box, GitPullRequestArrow, MessageSquare, Check, CircleDot, Files, Globe, Hand, Image, Megaphone, MoveRight, NotebookText, Search, Terminal, GitBranch, GitPullRequest, KeyRound, Presentation, PencilRuler, ShieldCheck, ShieldEllipsis, ShieldX, Split } from "lucide-react";
+import { AppWindow, BellRing, Box, GitPullRequestArrow, MessageSquare, Check, CircleDot, Files, Globe, Hand, Image, Megaphone, MoveRight, NotebookText, Reply, Search, Terminal, GitBranch, GitPullRequest, KeyRound, Presentation, PencilRuler, ShieldCheck, ShieldEllipsis, ShieldX, Split } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
+import { forgetKept } from "../../keep";
 import { Button } from "../../primitives/Button/Button";
+import { Textarea } from "../../primitives/Textarea/Textarea";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 
 /**
@@ -50,6 +52,13 @@ export type LedgerEntry = {
   act?: WaitingActKind;
   /** A `waiting` row for a question with choices: each a numbered press under the row. */
   options?: readonly { label: string; onPick: () => void }[];
+  /**
+   * A `waiting` row with no `act`: what the person types under it, sent as his answer. With this and no
+   * `act` the row's press opens a reply box in place of doing something, and its glyph is Reply.
+   */
+  onReply?: (text: string) => void;
+  /** What the reply box's draft is about (the Session and the item), so it survives closing the box and leaving the panel. */
+  replyKeep?: string;
   onOpen: () => void;
 };
 
@@ -62,6 +71,8 @@ const WAITING_ACT: Record<WaitingActKind | "none", { Glyph: LucideIcon; said: st
   run: { Glyph: Terminal, said: "Copies the command" },
   none: { Glyph: BellRing, said: "Waiting on you" },
 };
+
+const REPLY = { Glyph: Reply, said: "Reply" };
 
 const SECTIONS: { kind: LedgerKind; label: string; Glyph: LucideIcon }[] = [
   { kind: "waiting", label: "Waiting on you", Glyph: BellRing },
@@ -183,6 +194,7 @@ function LedgerSection({ kind, label, Glyph, all }: { kind: LedgerKind; label: s
   const [show, setShow] = useShow(kind);
   const [kinds, setKinds] = useKinds();
   const [more, setMore] = useState(false);
+  const [replying, setReplying] = useState<string>();
   if (all.length === 0) return null;
   const toggles = all.some((one) => one.finished === true);
   const filtered = kind === "artifact";
@@ -223,11 +235,18 @@ function LedgerSection({ kind, label, Glyph, all }: { kind: LedgerKind; label: s
             <ul className="armada-session-ledger__rows">
               {rows.map((row) => {
                 const Mark = row.mark === undefined ? undefined : MARK[row.mark.glyph];
-                const waiting = kind === "waiting" ? WAITING_ACT[row.act ?? "none"] : undefined;
+                const replies = kind === "waiting" && row.act === undefined && row.onReply !== undefined;
+                const waiting = kind === "waiting" ? (replies ? REPLY : WAITING_ACT[row.act ?? "none"]) : undefined;
                 const form = row.artifact === undefined ? undefined : ARTIFACT[row.artifact];
                 return (
                   <li key={row.key} className="armada-session-ledger__row" aria-label={row.name} data-mark={row.mark?.glyph}>
-                    <button type="button" className="armada-session-ledger__open" aria-label={`Open ${row.name}`} onClick={row.onOpen}>
+                    <button
+                      type="button"
+                      className="armada-session-ledger__open"
+                      aria-label={`Open ${row.name}`}
+                      aria-expanded={replies ? replying === row.key : undefined}
+                      onClick={replies ? () => setReplying(replying === row.key ? undefined : row.key) : row.onOpen}
+                    >
                       {waiting !== undefined ? (
                         <Tooltip label={waiting.said}>
                           <span className="armada-session-mark" role="img" aria-label={waiting.said}>
@@ -288,6 +307,9 @@ function LedgerSection({ kind, label, Glyph, all }: { kind: LedgerKind; label: s
                         ))}
                       </div>
                     )}
+                    {replies && replying === row.key && row.onReply !== undefined ? (
+                      <ReplyBox name={row.name} keep={row.replyKeep} onSend={row.onReply} onClose={() => setReplying(undefined)} />
+                    ) : null}
                   </li>
                 );
               })}
@@ -299,6 +321,45 @@ function LedgerSection({ kind, label, Glyph, all }: { kind: LedgerKind; label: s
         </button>
       ) : null}
     </section>
+  );
+}
+
+/**
+ * The box under a waiting row that has no act: a textarea and Send. Enter sends, Shift+Enter breaks the
+ * line, Escape closes and keeps the draft; a send closes it and clears the draft.
+ */
+function ReplyBox({ name, keep, onSend, onClose }: { name: string; keep: string | undefined; onSend: (text: string) => void; onClose: () => void }) {
+  const [text, setText] = useState("");
+  const send = () => {
+    const said = text.trim();
+    if (said === "") return;
+    onSend(said);
+    if (keep !== undefined) forgetKept(keep);
+    onClose();
+  };
+  return (
+    <div className="armada-session-ledger__reply">
+      <Textarea
+        autoFocus
+        rows={2}
+        keep={keep ?? false}
+        aria-label={`Reply to ${name}`}
+        value={text}
+        onChange={(event) => setText(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Escape") {
+            event.preventDefault();
+            onClose();
+          } else if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
+            event.preventDefault();
+            send();
+          }
+        }}
+      />
+      <Button variant="secondary" size="sm" disabled={text.trim() === ""} onClick={send}>
+        Send
+      </Button>
+    </div>
   );
 }
 

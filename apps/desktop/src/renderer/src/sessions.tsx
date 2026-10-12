@@ -612,7 +612,7 @@ function entriesOf(
   sessions: readonly Session[],
   open: (id: string) => void,
   openWindow: (url: string) => void,
-  answerWaiting: ((itemId: string, choice: number) => void) | undefined,
+  answerWaiting: ((itemId: string, answer: { choice: number } | { text: string }) => void) | undefined,
   scrollToAsk: () => void,
 ): LedgerEntry[] {
   const waiting = (session.waitingFor ?? []).map((one): LedgerEntry => {
@@ -625,7 +625,10 @@ function entriesOf(
       ...(act === undefined ? {} : { act: act.kind }),
       ...(one.options === undefined || answerWaiting === undefined
         ? {}
-        : { options: one.options.map((option, at) => ({ label: option.label, onPick: () => answerWaiting(one.id, at) })) }),
+        : { options: one.options.map((option, at) => ({ label: option.label, onPick: () => answerWaiting(one.id, { choice: at }) })) }),
+      ...(act !== undefined || one.source !== "agent" || answerWaiting === undefined
+        ? {}
+        : { onReply: (text: string) => answerWaiting(one.id, { text }), replyKeep: `waiting:${session.id}:${one.id}` }),
       onOpen: () => {
         if (act === undefined) return;
         if (act.kind === "walk") openWindow(act.target);
@@ -815,7 +818,7 @@ function SessionView({ session, goes, onOpen, held, lines }: { session: Session;
     sessions,
     narrow ? fold(onOpen) : onOpen,
     (url) => draft.openWindow?.(id, url),
-    draft.answerWaiting === undefined ? undefined : (itemId, choice) => draft.answerWaiting?.(id, itemId, { choice }),
+    draft.answerWaiting === undefined ? undefined : (itemId, answer) => draft.answerWaiting?.(id, itemId, answer),
     narrow
       ? () => {
           setLedgerOpen(false);
