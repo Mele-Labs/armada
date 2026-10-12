@@ -108,7 +108,7 @@ import {
   readBrief,
   readRetro,
   agreeLesson,
-  disagreeLesson,
+  disagreeLesson, startLessonSession,
   followCheckOutput,
   readFrame,
   frameSrc,
@@ -143,7 +143,7 @@ import { LessonsSurface } from "./lessons";
 import { useSleepMode } from "./sleep";
 import { ChecksSurface, useAsked } from "./checks-surface";
 import { SessionsOwnership, SessionsSurface, sessionsHidden } from "./sessions"; import { useSessionsDraft } from "./sessions-draft";
-import { useOpenSessionAsked } from "./open-session"; import { useOpenRetroAsked } from "./open-retro";
+import { openSessionWithDraft, useOpenSessionAsked } from "./open-session"; import { useOpenRetroAsked } from "./open-retro";
 import { useTellAsked } from "./tell";
 import { openingOf, useHistory, useJobTab } from "./history"; import { showingOf } from "./showing"; import { WorkflowCreatorSurface, workflowsWarned } from "./workflow-creator";
 import { useWhereOpen } from "./where-open";
@@ -730,7 +730,7 @@ export function App({ draft }: AppProps = {}) {
                   onReadBrief={readBrief}
                   onReadRetro={readRetro}
                   onAgreeLesson={agreeLesson}
-                  onDisagreeLesson={disagreeLesson}
+                  onDisagreeLesson={disagreeLesson} onStartSession={startLessonSession} onOpenSession={openSessionWithDraft}
                   onReadFrame={readFrame}
                   onFrameSrc={frameSrc}
                   onNeedMaterial={readEvidence}

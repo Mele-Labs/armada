@@ -14,7 +14,7 @@ export * from "./RaiseCap";
 export * from "./RaiseTurnCap";
 export * from "./Redirect";
 export * from "./Lessons";
-export type { AnswerLesson, LessonsSource, LessonsTab, LessonsView, ReadLessons, ReadRetro } from "./retro";
+export type { AnswerLesson, LessonsSource, LessonsTab, LessonsView, ReadLessons, ReadRetro, StartLessonSession } from "./retro";
 export type { AskLesson, ReviewLessons } from "./LessonsReview";
 export { lessonsSourceNamed, lessonsTabNamed, sessionOf } from "./retro";
 export * from "./Sheets";

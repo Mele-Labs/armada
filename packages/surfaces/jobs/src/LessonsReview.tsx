@@ -32,6 +32,7 @@ import {
   type AnswerLesson,
   type ListedRow,
   type ReadRetro,
+  type SessionStarts,
 } from "./retro";
 import { resolved, type QueueEntry } from "./lesson-review";
 import type { AskLessonRead, AskTurn, LessonReview, LessonReviewRead } from "./review-wire";
@@ -48,6 +49,8 @@ export type LessonsReviewProps = {
   onReadRetro: ReadRetro;
   onAgreeLesson: AnswerLesson;
   onDisagreeLesson: AnswerLesson;
+  /** Start Session beside Create Job, as the list has it. */
+  sessions?: SessionStarts;
   onOpenJob?: (jobId: string) => void;
   /** A press on the Job a card came from. The page opens that retro over itself. */
   onOpenRetro: (subject: RetroSubject, label: string) => void;
@@ -70,6 +73,7 @@ export function LessonsReview({
   onReadRetro,
   onAgreeLesson,
   onDisagreeLesson,
+  sessions,
   onOpenJob,
   onOpenRetro,
   onList,
@@ -125,7 +129,7 @@ export function LessonsReview({
     setTwinsFailure(refused[0]);
     return answer;
   };
-  const answered = useAnswers(onAgreeLesson, disagree, onOpenJob);
+  const answered = useAnswers(onAgreeLesson, disagree, onOpenJob, sessions);
   const retros = useJobRetros(onReadRetro);
   const [pressed, setPressed] = useState<ReadonlySet<string>>(new Set());
 

@@ -3,10 +3,22 @@
 
 import { useEffect } from "react";
 
+import { seedSessionDraft } from "@armada/components";
+
 const OPEN_SESSION = "armada:open-session";
 
 export function askToOpenSession(id: string): void {
   window.dispatchEvent(new CustomEvent<string>(OPEN_SESSION, { detail: id }));
+}
+
+/**
+ * Open a Session, with a first message already in its message box and not sent. **Start Session on
+ * a retro item**: Fleet started the Session and drafted the message, and the person reads it, edits
+ * it and sends it. The draft is written before the page is asked to open, so the box finds it.
+ */
+export function openSessionWithDraft(id: string, draft?: string): void {
+  if (draft !== undefined && draft !== "") seedSessionDraft(id, draft);
+  askToOpenSession(id);
 }
 
 export function useOpenSessionAsked(open: (id: string) => void): void {

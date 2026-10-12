@@ -34,6 +34,8 @@ import {
   type LessonsView,
   type ReadLessons,
   type ReadRetro,
+  type SessionStarts,
+  type StartLessonSession,
 } from "./retro";
 import type { RetroSubject } from "@armada/protocol";
 import { LessonsReview, type AskLesson, type ReviewLessons } from "./LessonsReview";
@@ -50,6 +52,13 @@ export type LessonsProps = {
   /** Agree with one item, and disagree with one. */
   onAgreeLesson: AnswerLesson;
   onDisagreeLesson: AnswerLesson;
+  /**
+   * Start Session beside Create Job on an Armada or Manifest item: the call to Fleet, and the
+   * host's way of opening the Session it started with the first message in its message box.
+   * **Both or neither**; absent, and no card offers Start Session.
+   */
+  onStartSession?: StartLessonSession;
+  onOpenSession?: (sessionId: string, draft?: string) => void;
   /**
    * The guided review, `Review` beside the tabs: Fleet's model orders the open items, and a
    * question about one is put to it. Absent, and the page offers no Review.
@@ -83,6 +92,8 @@ export function Lessons({
   onReadRetro,
   onAgreeLesson,
   onDisagreeLesson,
+  onStartSession,
+  onOpenSession,
   onReviewLessons,
   onAskLesson,
   onOpenJob,
@@ -108,7 +119,8 @@ export function Lessons({
   const [open, setOpen] = useState<{ subject: RetroSubject; job: string } | null>(
     opening === undefined ? null : { subject: { kind: "session", id: opening.id }, job: opening.label },
   );
-  const answered = useAnswers(onAgreeLesson, onDisagreeLesson, onOpenJob);
+  const sessions = sessionStartsOf(onStartSession, onOpenSession);
+  const answered = useAnswers(onAgreeLesson, onDisagreeLesson, onOpenJob, sessions);
   const retros = useJobRetros(onReadRetro);
   // The items whose Evidence was pressed, so a read shared by a Job's cards speaks on the one that asked.
   const [pressed, setPressed] = useState<ReadonlySet<string>>(new Set());
@@ -180,6 +192,7 @@ export function Lessons({
             onReadRetro={onReadRetro}
             onAgreeLesson={onAgreeLesson}
             onDisagreeLesson={onDisagreeLesson}
+            {...(sessions === undefined ? {} : { sessions })}
             {...(onOpenJob === undefined ? {} : { onOpenJob })}
             onOpenRetro={(subject, label) => setOpen({ subject, job: label })}
             onList={leaveReview}
@@ -239,6 +252,7 @@ export function Lessons({
           read={onReadRetro}
           onAgreeLesson={onAgreeLesson}
           onDisagreeLesson={onDisagreeLesson}
+          {...(sessions === undefined ? {} : { sessions })}
           {...(onOpenJob === undefined ? {} : { onOpenJob })}
           floor={floor}
           onClose={() => setOpen(null)}
@@ -246,6 +260,23 @@ export function Lessons({
       )}
     </div>
   );
+}
+
+/** Start Session's two halves as one, or nothing where the host gave only one of them. */
+export function sessionStartsOf(
+  start: StartLessonSession | undefined,
+  open: ((sessionId: string, draft?: string) => void) | undefined,
+): SessionStarts | undefined {
+  return start === undefined || open === undefined ? undefined : { start, open };
+}
+
+/** `sessionStartsOf` as a prop to spread, for a host that passes the halves separately. */
+export function withSessions(
+  start: StartLessonSession | undefined,
+  open: ((sessionId: string, draft?: string) => void) | undefined,
+): { sessions?: SessionStarts } {
+  const sessions = sessionStartsOf(start, open);
+  return sessions === undefined ? {} : { sessions };
 }
 
 /**
@@ -258,6 +289,7 @@ export function JobRetroSheet({
   read,
   onAgreeLesson,
   onDisagreeLesson,
+  sessions,
   onOpenJob,
   floor,
   onClose,
@@ -268,18 +300,21 @@ export function JobRetroSheet({
   read: ReadRetro;
   onAgreeLesson: AnswerLesson;
   onDisagreeLesson: AnswerLesson;
+  /** Start Session on an item of this retro; absent, and the sheet offers none. */
+  sessions?: SessionStarts;
   onOpenJob?: (jobId: string) => void;
   floor: boolean;
   onClose: () => void;
 }) {
   const answer = useReadOnFocus(() => read(subject), retroKeyOf(subject));
-  const answered = useAnswers(onAgreeLesson, onDisagreeLesson, onOpenJob);
+  const answered = useAnswers(onAgreeLesson, onDisagreeLesson, onOpenJob, sessions);
   const retro = answer?.ok === true ? answer.retro : null;
   const status = retro === null ? undefined : statusOf(retro);
   const items = (retro === null ? [] : itemsOf(retro)).flatMap((item) => {
     const shown = answered(item.id ?? "", item.landsIn, {
       ...(item.state === undefined ? {} : { state: item.state }),
       ...(item.jobProposed === undefined ? {} : { jobProposed: item.jobProposed }),
+      ...(item.sessionProposed === undefined ? {} : { sessionProposed: item.sessionProposed }),
       ...(item.change === undefined ? {} : { change: item.change }),
       ...(item.applied === undefined ? {} : { applied: item.applied }),
     });

@@ -8,8 +8,9 @@ import { Lessons } from "@armada/jobs";
 import { Boundary, useAtFloor } from "@armada/shell";
 
 import type { BridgeState } from "../../shared/bridge";
-import { agreeLesson, askLesson, disagreeLesson, readLessons, readRetro, reviewLessons } from "./commands";
+import { agreeLesson, askLesson, disagreeLesson, readLessons, readRetro, reviewLessons, startLessonSession } from "./commands";
 import { takeRetroAsked } from "./open-retro";
+import { openSessionWithDraft } from "./open-session";
 import { useLessonsSource, useLessonsTab } from "./remembered-views";
 
 export function LessonsSurface({
@@ -39,6 +40,8 @@ export function LessonsSurface({
         onReadRetro={readRetro}
         onAgreeLesson={agreeLesson}
         onDisagreeLesson={disagreeLesson}
+        onStartSession={startLessonSession}
+        onOpenSession={openSessionWithDraft}
         onReviewLessons={reviewLessons}
         onAskLesson={askLesson}
         onOpenJob={onOpenJob}
