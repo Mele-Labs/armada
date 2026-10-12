@@ -666,7 +666,8 @@ function entriesOf(
   scrollToAsk: () => void,
   known: Known,
 ): LedgerEntry[] {
-  const waiting = (session.waitingFor ?? []).map((one): LedgerEntry => {
+  // An ended Session waits on nobody: its ledger is what it made, to be read.
+  const waiting = (session.dead === "ended" ? [] : (session.waitingFor ?? [])).map((one): LedgerEntry => {
     // An `answer` with no choices and no question in the thread has nowhere to go, so it takes words as no act does.
     const act = one.act?.kind === "answer" && one.options === undefined && session.asked === undefined ? undefined : one.act;
     return {
@@ -738,6 +739,7 @@ function entriesOf(
             </>
           ),
           mark: { glyph: one.state === "merged" ? "passed" : one.checks.state, said: one.state === "merged" ? "Merged" : checksSaid(one.checks) },
+          pr: { merged: one.state === "merged", checks: one.checks.state === "failed" ? "failed" : one.checks.state === "pending" ? "running" : "passed", checksSaid: checksSaid(one.checks) },
           ...(one.state === "merged" ? { finished: true } : {}),
           onOpen: () => read({ kind: "pull_request", number: one.number }),
         };
@@ -895,6 +897,9 @@ function SessionView({ session, goes, onOpen, held, board, lines }: { session: S
       : () => askCard.current?.scrollIntoView({ block: "center", behavior: "smooth" }),
     { board, slots: held.held.state === "read" ? (held.held.held.slots ?? []) : [] },
   );
+  // What the done callout lists: every pull request, merged first then open, else the pages, files and Docs made. Pictures looked at and windows shown were not made.
+  const prRows = entries.filter((one) => one.kind === "pull_request").sort((a, b) => Number(b.pr?.merged === true) - Number(a.pr?.merged === true));
+  const made = prRows.length > 0 ? prRows : entries.filter((one) => one.kind === "artifact" && (one.artifact === "page" || one.artifact === "file" || one.artifact === "doc"));
   return (
     <>
       <SessionFrame
@@ -977,6 +982,7 @@ function SessionView({ session, goes, onOpen, held, board, lines }: { session: S
               : {
                   done: {
                     onEnd: () => draft.close?.(session.id),
+                    made,
                     onKeep: () => {
                       setKept(session.done?.since);
                       centre.current?.querySelector<HTMLElement>('[role="textbox"][aria-label="Message"]')?.focus();
