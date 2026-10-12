@@ -833,7 +833,9 @@ pub trait Delivery {
 
     /// The CI jobs the forge ran on one commit. **`None` is silence; an empty
     /// list is a commit nothing ran on**, which a caller must not read as a
-    /// pass.
+    /// pass. **One job a name, its newest run**: a commit the queue and then the
+    /// base branch both ran has each job twice, and a caller comparing the failed
+    /// names of two commits would see a job that one run failed and the next passed.
     fn ci_runs_on(&self, in_repo: &str, commit: &str) -> Option<crate::CiRuns>;
 
     /// The text of one CI job's log, **its tail and bounded**: a failure is
