@@ -32,6 +32,7 @@ impl Sessions for FakeDaemon {
             terminal: None,
             mod_out_of_date: false,
             waiting_for: Vec::new(),
+            done_since: None,
         })
     }
 
@@ -165,6 +166,19 @@ impl Sessions for FakeDaemon {
                     detail: Default::default(),
                 },
             },
+        })
+        .await
+    }
+
+    async fn all_done(
+        &self,
+        _caller: Option<crate::Caller>,
+        done: ipc::AllDone,
+    ) -> Result<SessionRecord, Refusal> {
+        self.report_session(SessionReport {
+            harness: String::new(),
+            session_id: done.session_id.unwrap_or_else(|| ipc::SessionId::carried("session")),
+            fact: ipc::SessionFact::TurnCompleted,
         })
         .await
     }

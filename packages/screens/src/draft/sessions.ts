@@ -190,7 +190,7 @@ export type Session = {
   asked?: SessionAsk;
   /** What the Session waits on the person for: the agent's list with Fleet's own items merged in. Absent or empty is nothing. */
   waitingFor?: readonly WaitingItem[];
-  /** The agent says it has nothing left to work on, since when. Draft only: the wire owes it. A message from the person clears it. */
+  /** The agent says it has nothing left to work on, since when. `SessionRecord.done_since`. A message from the person clears it. */
   done?: { since: string };
   /** Tags chosen and not yet sent: they wait in the message box as chips. */
   pendingTags?: readonly SessionTag[];
