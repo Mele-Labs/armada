@@ -168,6 +168,13 @@
   color: var(--fg-muted);
 }
 
+/* The door an act came through, beside who: a glyph and no sentence. */
+.armada-ledger__door {
+  display: inline-flex;
+  margin-left: var(--space-2);
+  vertical-align: middle;
+}
+
 /* The keyboard's path into a row. It carries the row's sentence, so it is
    styled as that sentence rather than as a control — the row's hover and the
    selected fill are the affordance, which is the Job Board's own rule for a

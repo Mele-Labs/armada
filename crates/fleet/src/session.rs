@@ -24,7 +24,9 @@
 use std::future::Future;
 use std::io;
 use std::num::NonZeroU32;
+use std::process::ExitStatus;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::OnceLock;
 
 use serde::Serialize;
 use tokio::io::AsyncWriteExt;
@@ -38,7 +40,6 @@ use crate::fixing::FixReported;
 use crate::group::{end_the_group, run_is_over};
 use crate::peers::PeersChanged;
 use crate::permitting::Permitted;
-use crate::questioning::Answer;
 use crate::resume::Redirection;
 use crate::silence::Poke;
 use crate::terms::{Declaring, Redeclaring};
@@ -161,20 +162,6 @@ pub trait LiveSession {
         &self,
         directive: &ReportNow,
     ) -> impl Future<Output = Result<(), Self::Error>> + Send;
-
-    /// Hand the waiting Drone a person's answer to the question it asked.
-    ///
-    /// **A separate method from [`redirect`](LiveSession::redirect) because the
-    /// two carry different authorship**, the same argument that keeps `redirect`
-    /// apart from [`tell`](LiveSession::tell). A redirect is a person's own
-    /// words and Fleet adds none; this is Fleet's own sentence built around a
-    /// label the Drone itself offered, and there is no way to send other text
-    /// under it — [`Answer`] has no constructor taking one.
-    ///
-    /// One method taking either would let a person's free text arrive as though
-    /// it were an answer to a closed question, which is the conversation
-    /// `crate::questioning` exists instead of.
-    fn answer(&self, answer: &Answer) -> impl Future<Output = Result<(), Self::Error>> + Send;
 
     /// Hand the Drone a person's answer to a permission question, after the
     /// call it was about has returned.
@@ -301,16 +288,6 @@ impl Turn {
         Turn::of(directive.text())
     }
 
-    /// A person's answer to the question this Drone asked, injected into a
-    /// session already running.
-    ///
-    /// The wording is [`Answer`]'s and there is no way to send other text
-    /// under it — which is the difference from [`redirection`](Turn::redirection),
-    /// where a person's own words are exactly what travels.
-    pub fn answering(answer: &Answer) -> Turn {
-        Turn::of(answer.text())
-    }
-
     /// A person's answer to a permission question, injected after the call
     /// it was about has returned. The wording is [`Permitted`]'s and there is
     /// no way to send other text under it.
@@ -412,6 +389,11 @@ pub struct DroneSession {
     /// `child` lock**, which is what orders it, so the accesses below are
     /// relaxed rather than carrying an ordering the mutex already gives.
     reaped: AtomicBool,
+    /// How the process ended, from the `wait` that collected it. **Kept
+    /// because the collecting is the only moment the operating system says**:
+    /// a Drone that died with no terminating event is otherwise a Drone nobody
+    /// can say anything about. Set once, under the `child` lock.
+    ended_as: OnceLock<ExitStatus>,
 }
 
 impl DroneSession {
@@ -423,6 +405,7 @@ impl DroneSession {
             input: Mutex::new(input),
             child: Mutex::new(child),
             reaped: AtomicBool::new(false),
+            ended_as: OnceLock::new(),
         }
     }
 
@@ -463,14 +446,23 @@ impl DroneSession {
                 end_the_group(group);
             }
         }
-        let ended = child.try_wait()?.is_some();
-        if ended {
+        let ended = child.try_wait()?;
+        if let Some(status) = ended {
             // Collecting it hands the pid back to the operating system, so from
             // here the group it named is no longer this Drone's to signal. See
             // [`DroneSession::group`].
             self.reaped.store(true, Ordering::Relaxed);
+            let _ = self.ended_as.set(status);
         }
-        Ok(ended)
+        Ok(ended.is_some())
+    }
+
+    /// How the process ended, once [`exited`](DroneSession::exited) or
+    /// [`terminate`](LiveSession::terminate) has collected it. A signal or an
+    /// exit code, which is the one thing that tells a Drone killed from
+    /// outside from one that stopped by itself.
+    pub(crate) fn how_it_ended(&self) -> Option<ExitStatus> {
+        self.ended_as.get().copied()
     }
 
     /// The process group to signal, while it is still certainly this Drone's.
@@ -550,10 +542,6 @@ impl LiveSession for DroneSession {
         self.say(&Turn::reporting(directive)).await
     }
 
-    async fn answer(&self, answer: &Answer) -> Result<(), io::Error> {
-        self.say(&Turn::answering(answer)).await
-    }
-
     async fn permit(&self, permitted: &Permitted) -> Result<(), io::Error> {
         self.say(&Turn::permitting(permitted)).await
     }
@@ -591,6 +579,9 @@ impl LiveSession for DroneSession {
         child.start_kill()?;
         let ended = child.wait().await;
         self.reaped.store(true, Ordering::Relaxed);
+        if let Ok(status) = &ended {
+            let _ = self.ended_as.set(*status);
+        }
         ended.map(|_| ())
     }
 }

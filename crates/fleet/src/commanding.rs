@@ -17,8 +17,8 @@ use api::{Commands, Refusal};
 use ipc::{
     AddTask, CapRaise, CaptureWalkNote, ChangesRequested, DropTask, FindingDismissed,
     FindingQueued, IssueFiled, JobExamined, JobForgotten, JobId, JobSummary, Overruled,
-    Preferences, ProposeJob, Redirection, Redispatched, RemarksTakenUp, RemoveWalkNote,
-    SavePreference, TurnRaise, WalkNotes, WorkPlan, WorktreeReclaimed,
+    ProposeJob, Redirection, Redispatched, RemarksTakenUp, RemoveWalkNote,
+    TurnRaise, WalkNotes, WorkPlan, WorktreeReclaimed,
 };
 
 use crate::adrift::Adrift;
@@ -447,19 +447,6 @@ where
         self.change_fleet_build_now(&asked)
     }
 
-    /// A person's limits, saved and put in force for the next admission —
-    /// [`crate::limits`]. **Not `budgeted`**: it waits on the roster at most
-    /// for one admission, and then writes one row.
-    async fn save_limits(&self, save: ipc::SaveLimits) -> Result<ipc::FleetLimits, Refusal> {
-        self.save_limits_now(save)
-            .await
-            .map_err(|why| self.refusal(why))
-    }
-
-    async fn save_preferences(&self, save: SavePreference) -> Result<Preferences, Refusal> {
-        self.save_preference_now(save).await
-    }
-
     /// Take back a rule a person always-allowed for this Manifest's
     /// repository — `crate::permitting::repository`. **Not `budgeted`**, for
     /// `save_limits`' reason: no Job is touched.
@@ -772,7 +759,9 @@ where
         self: Arc<Self>,
         job_id: JobId,
     ) -> Result<WorktreeReclaimed, Refusal> {
-        Fleet::reclaim_answered(self, job_id).await
+        let reclaimed = Fleet::reclaim_answered(Arc::clone(&self), job_id).await?;
+        self.worktrees_changed().await;
+        Ok(reclaimed)
     }
 
     /// The pool reshaped on this machine — `crate::leasing`.
@@ -781,7 +770,9 @@ where
         change: ipc::ChangeSlotPool,
         manifest_id: Option<ipc::ManifestId>,
     ) -> Result<ipc::SlotPoolChanged, Refusal> {
-        Fleet::change_slot_pool(self, change, manifest_id.as_ref())
+        let changed = Fleet::change_slot_pool(self, change, manifest_id.as_ref())?;
+        self.worktrees_changed().await;
+        Ok(changed)
     }
 
     /// A stranded slot read, scrapped or stashed — `crate::rescuing`.
@@ -790,7 +781,9 @@ where
         asked: ipc::RescueSlot,
         manifest_id: Option<ipc::ManifestId>,
     ) -> Result<ipc::SlotRescued, Refusal> {
-        Fleet::rescue_slot(self, asked, manifest_id.as_ref()).await
+        let rescued = Fleet::rescue_slot(Arc::clone(&self), asked, manifest_id.as_ref()).await?;
+        self.worktrees_changed().await;
+        Ok(rescued)
     }
 
     async fn delete_branch(
@@ -901,10 +894,11 @@ where
         reported(&filed).map_err(|why| self.refusal(why))
     }
 
-    /// A person's answer to the question a waiting Drone asked. **Nothing
-    /// moves** — the Job was `running` while it waited and is now, and the
-    /// summary comes back because a caller folds the row rather than re-reading
-    /// the board. The four refusals are `crate::questioning::NotAnswered`'s.
+    /// A person's answer to the question a Drone asked before it stood down.
+    /// **Nothing moves** — the Job is `queued` before and after, and admission
+    /// takes it in its turn. The summary comes back because a caller folds the
+    /// row rather than re-reading the board. The refusals are
+    /// `crate::questioning::NotAnswered`'s.
     async fn answer_question(
         self: Arc<Self>,
         job_id: JobId,

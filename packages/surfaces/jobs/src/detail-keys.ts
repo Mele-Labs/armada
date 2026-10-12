@@ -28,6 +28,8 @@
 
 import { useEffect, useRef } from "react";
 
+import { isPressed } from "@armada/components";
+
 import { holdsText } from "@armada/screens/src/keys";
 
 /* `FLEET_LOG` was here, naming the region that drew what Fleet did to the Job
@@ -64,43 +66,27 @@ export type DetailPress =
  * defect `answersEnter` exists to prevent one key over.
  */
 export function detailPressOf(event: KeyboardEvent): DetailPress | null {
-  // A modifier means a different tier is being addressed — the palette's `⌘K`,
-  // the rail's `⌘1`–`⌘5`, and `⌘[` `⌘]` for back and forward.
-  if (event.metaKey || event.ctrlKey || event.altKey) return null;
   if (holdsText(event.target)) return null;
-  // A held key repeats, and nothing here accepts one — a repeat that opened
-  // fourteen diffs is a repeat nobody asked for.
   if (event.repeat) return null;
 
-  switch (event.key) {
-    case "f":
-      return { act: "diff" };
-    case "o":
-      return { act: "output" };
-    case "b":
-      return { act: "report" };
-    // Shifted, because plain `b` is the report above: the lowercase mnemonic is
-    // spent, and a mistyped filing key must not open a dialog about money.
-    case "B":
-      return { act: "raise" };
-    // Shifted, on `B`'s terms: plain `t` is unbound today and a lowercase key
-    // that opened a dialog about a ceiling would be a mistype away from one.
-    case "T":
-      return { act: "raiseTurns" };
-    // Plain, freed by `actions.toml`'s narrowing of `review` to scope `list` —
-    // #624. `Journey 9` and the Board's `r` never contend: one is the list's
-    // key on a row, this is detail's on the whole screen.
-    case "r":
-      return { act: "run" };
-    // `new_job`'s scope is `anywhere`, not `detail` — the one contextual key
-    // that acts on nothing on screen, so detail answers it exactly as the
-    // Board does rather than leaving it for a surface with a cursor on it.
-    case "n":
-      return { act: "compose" };
-    default:
-      return null;
+  // Each act's keys are `keymap`'s, which compares modifiers exactly — so a bare
+  // key never fires under a ⌘ chord, and one a person rebound answers here.
+  for (const [id, press] of DETAIL_ACTS) {
+    if (isPressed(id, event)) return press;
   }
+  return null;
 }
+
+/** The registry's act for each press, in the order a shared key would be decided. */
+const DETAIL_ACTS: readonly (readonly [string, DetailPress])[] = [
+  ["open_diff", { act: "diff" }],
+  ["open_output", { act: "output" }],
+  ["report_job", { act: "report" }],
+  ["raise_cost_cap", { act: "raise" }],
+  ["raise_turn_cap", { act: "raiseTurns" }],
+  ["run", { act: "run" }],
+  ["new_job", { act: "compose" }],
+];
 
 /**
  * What the keyboard can name on the screen, as the surface built it.

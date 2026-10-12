@@ -47,6 +47,7 @@ mod pull_watch;
 mod secret;
 mod setup;
 mod slots;
+mod tracker;
 mod under_review;
 mod work_product;
 mod worktree;
@@ -78,13 +79,14 @@ pub use main_ci::{
 pub use pull_request::{PullRequestFacts, PullRequestStanding};
 pub use pull_watch::{PullQueue, WatchedCheck, WatchedPull, WatchedPulls};
 pub use secret::Secret;
+pub use tracker::{NotTracked, OpenIssue, Tracker};
 pub use setup::{
     HarnessSetup, Inventory, KindRead, SetupFiles, SetupItem, SetupKind, Unreadable, WhatWasRead,
 };
 pub use slots::{
     BranchKept, CommitHome, RescueRefused, SlotChange, SlotCommit, SlotHeld, SlotKept, SlotLeased,
     SlotParkRefused, SlotParked, SlotPool, SlotReading, SlotRefused, SlotRescue, SlotRescued,
-    SlotStanding, StrandedWork,
+    SlotStanding, StrandedWork, WorkShown,
 };
 pub use under_review::{
     FromOutside, InlineContext, PullRequestDiff, Remark, ReviewVerdict, ReviewedBy, UnderReview,
@@ -475,6 +477,17 @@ pub trait Vcs {
         slot: u32,
         rescue: SlotRescue,
     ) -> Result<SlotRescued, RescueRefused>;
+
+    /// How many times this adapter has changed a slot, a checkout or a branch
+    /// the pool holds, since the process began. Only ever larger.
+    ///
+    /// **A tick for a reader that keeps a copy of what the pool shows**, so it
+    /// can notice the pool moved without having been told by whichever caller
+    /// moved it. An adapter that does not count answers 0 for ever, and that
+    /// reader then falls back to its timer.
+    fn changes(&self) -> u64 {
+        0
+    }
 }
 
 /// Credential access, brokered. A Drone never holds a secret directly, and what

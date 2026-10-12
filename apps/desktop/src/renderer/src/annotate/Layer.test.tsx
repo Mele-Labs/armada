@@ -18,7 +18,7 @@ const OWNER = { width: 1324, height: 922 };
 const SHORT = { width: 1324, height: 700 };
 
 /** Notes the layer reads, saves back to and deletes from, held in memory. */
-function sinkOf(notes: Annotation[] = []): Sink {
+function sinkOf(notes: Annotation[] = [], shots = new Map<string, ArrayBuffer>()): Sink {
   const held = new Map(notes.map((note) => [note.id, note]));
   return {
     via: "dev server",
@@ -28,9 +28,14 @@ function sinkOf(notes: Annotation[] = []): Sink {
     },
     remove: async (id) => {
       held.delete(id);
+      shots.delete(id);
     },
     root: async () => null,
     capture: async () => null,
+    saveShot: async (id, png) => {
+      shots.set(id, png);
+    },
+    shot: async (id) => shots.get(id) ?? null,
   };
 }
 
@@ -324,9 +329,113 @@ test("a note pressed to save twice while its save is out is saved once", async (
   expect(saved).toHaveLength(1);
 });
 
+// The picture a note keeps, taken once as it is saved, of the app under the layer.
+
+/** The eight bytes a PNG starts with, and one more: what a capture answers here. */
+const PNG = Uint8Array.from([137, 80, 78, 71, 13, 10, 26, 10, 0]).buffer;
+
+/** A sink in Bridge, which captures, keeping its pictures in `shots`. */
+const capturing = (shots: Map<string, ArrayBuffer>, capture: Sink["capture"] = async () => PNG): Sink => ({ ...sinkOf([], shots), via: "main", capture });
+
+async function writeOn(target: string, text: string): Promise<void> {
+  document.querySelector<HTMLElement>(target)?.click();
+  const card = page.getByRole("dialog", { name: "New note" });
+  await card.getByRole("textbox", { name: "Note" }).fill(text);
+  await card.getByRole("button", { name: "Save note" }).click();
+  await expect.element(card).not.toBeInTheDocument();
+}
+
+test("a note's first save captures its element and keeps the picture beside it, named on the note", async () => {
+  const shots = new Map<string, ArrayBuffer>();
+  const capture = vi.fn(async () => PNG);
+  const held = capturing(shots, capture);
+  await annotating(held);
+  const target = noted("target", 20);
+  await writeOn(target, "Keep a picture of me");
+
+  const [saved] = await held.list();
+  expect(saved?.screenshot).toBe(`${saved?.id}.png`);
+  expect(shots.get(saved!.id)).toBe(PNG);
+  expect(capture).toHaveBeenCalledTimes(1);
+  const rect = document.querySelector(target)!.getBoundingClientRect();
+  expect(capture).toHaveBeenCalledWith({ x: rect.x, y: rect.y, width: rect.width, height: rect.height });
+
+  // Marking it done rewrites the file and keeps the picture it named, taking no other.
+  await countOf().click();
+  await rowOf("Keep a picture of me").getByRole("button", { name: "Mark done" }).click();
+  await vi.waitFor(async () => expect((await held.list())[0]?.status).toBe("done"));
+  expect((await held.list())[0]?.screenshot).toBe(`${saved?.id}.png`);
+  expect(capture).toHaveBeenCalledTimes(1);
+});
+
+test("a note whose picture is not kept is told, and saved without one", async () => {
+  const told = vi.fn();
+  const held: Sink = { ...capturing(new Map()), saveShot: async () => Promise.reject(new Error("disk full")) };
+  await annotating(held, undefined, undefined, told);
+  await writeOn(noted("target", 20), "Save me anyway");
+  expect(told).toHaveBeenCalledWith("Saving the screenshot failed through main: disk full");
+  const [saved] = await held.list();
+  expect(saved?.text).toBe("Save me anyway");
+  expect(saved).not.toHaveProperty("screenshot");
+});
+
+test("in a browser, where nothing captures, a note is saved with no picture and none is asked for", async () => {
+  const capture = vi.fn(async () => null);
+  const held: Sink = { ...sinkOf(), capture };
+  await annotating(held);
+  await writeOn(noted("target", 20), "No picture here");
+  expect(capture).not.toHaveBeenCalled();
+  expect((await held.list())[0]).not.toHaveProperty("screenshot");
+});
+
+/** Pixels of a PNG that are not the colour the app under the layer is painted. */
+async function strayPixels(png: Blob): Promise<number> {
+  const bitmap = await createImageBitmap(png);
+  const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+  const context = canvas.getContext("2d")!;
+  context.drawImage(bitmap, 0, 0);
+  const { data } = context.getImageData(0, 0, bitmap.width, bitmap.height);
+  let stray = 0;
+  for (let at = 0; at < data.length; at += 4) {
+    if (Math.abs(data[at]! - 0) > 8 || Math.abs(data[at + 1]! - 128) > 8 || Math.abs(data[at + 2]! - 0) > 8) stray += 1;
+  }
+  return stray;
+}
+
+const pngOf = (base64: string): Blob => new Blob([Uint8Array.from(atob(base64), (c) => c.charCodeAt(0))], { type: "image/png" });
+
+// A real screenshot of the page stands in for main's capturePage, which shoots the window as
+// painted, the layer with it. The app is one flat colour under the card and the bar, so a
+// picture that holds any other pixel holds the layer.
+test("the picture kept at save is of the app under the note, with none of the layer drawn over it", async () => {
+  await page.viewport(800, 600);
+  const app = document.createElement("div");
+  app.setAttribute("data-noted", "app");
+  app.style.cssText = "position:fixed;inset:0;background:rgb(0,128,0)";
+  document.body.append(app);
+  const shot = async (): Promise<ArrayBuffer> => (await pngOf(await page.screenshot({ element: app, save: false })).arrayBuffer());
+  const shots = new Map<string, ArrayBuffer>();
+  await annotating(capturing(shots, shot));
+
+  app.click();
+  const card = page.getByRole("dialog", { name: "New note" });
+  await card.getByRole("textbox", { name: "Note" }).fill("The whole window is wrong");
+  // The same shot with the layer up holds the card, the outline and the bar: the check can see them.
+  expect(await strayPixels(new Blob([await shot()]))).toBeGreaterThan(1000);
+
+  await card.getByRole("button", { name: "Save note" }).click();
+  await expect.element(card).not.toBeInTheDocument();
+  const [kept] = [...shots.values()];
+  expect(kept).toBeDefined();
+  expect(await strayPixels(new Blob([kept!]))).toBe(0);
+  // And the layer is back once it is taken.
+  await expect.element(page.getByRole("status")).toBeVisible();
+  expect(getComputedStyle(document.querySelector(".armada-annotate")!).opacity).toBe("1");
+});
+
 // The bar's two sends: a Job at the gate, and the notes as a message to a Session.
 
-const sendable = (notes: Annotation[]): Sink => ({ ...sinkOf(notes), via: "main", root: async () => "/Users/user/armada" });
+const sendable = (notes: Annotation[], shots?: Map<string, ArrayBuffer>): Sink => ({ ...sinkOf(notes, shots), via: "main", root: async () => "/Users/user/armada" });
 
 const record = (id: string, title: string | undefined, change: object = {}) =>
   ({ id, title, state: "live", origin: "bridge", ...change }) as never;
@@ -629,4 +738,323 @@ test("where a row cannot be sent at all, the reason and the missing screenshot a
   const said = description.split(" ").map((id) => document.getElementById(id)?.textContent ?? "").join(" ");
   expect(said).toContain("Sending needs Bridge and its Fleet");
   expect(said).toContain("No screenshot: on another screen");
+});
+
+/** A note off this screen that kept its picture as it was saved, and the store holding it. */
+function keptAway(name: string, at: string): { note: Annotation; shots: Map<string, ArrayBuffer> } {
+  const one = away(name, at);
+  return { note: { ...one, screenshot: `${one.id}.png` }, shots: new Map([[one.id, PNG]]) };
+}
+
+test("a note that kept its picture is sent with it from another screen, to a Job and to a Session, and its row says nothing is missing", async () => {
+  const { fleet, sent } = served();
+  const capture = vi.fn(async () => new Uint8Array([137, 80, 78, 71]).buffer);
+  const first = keptAway("kept", "6");
+  const second = keptAway("also", "7");
+  const held = { ...sendable([first.note, second.note], new Map([...first.shots, ...second.shots])), capture };
+  await annotating(held, fleet);
+  await countOf().click();
+
+  await expect.element(rowOf("kept:").getByRole("button", { name: "Dispatch job" })).toHaveAccessibleDescription("Send this note as a Job");
+  await expect.element(rowOf("kept:").getByRole("button", { name: "Start session" })).not.toHaveAccessibleDescription(expect.stringContaining("screenshot"));
+
+  await rowOf("kept:").getByRole("button", { name: "Dispatch job" }).click();
+  await vi.waitFor(() => expect(fleet.proposeFromRequest).toHaveBeenCalledTimes(1));
+  expect(fleet.stageAttachment).toHaveBeenCalledWith(PNG, `annotation-${first.note.id}.png`, "image/png");
+  expect((fleet.proposeFromRequest.mock.calls[0] as unknown as [string, unknown[]])[1]).toHaveLength(1);
+
+  await rowOf("also:").getByRole("button", { name: "Start session" }).click();
+  await vi.waitFor(() => expect(sent).toHaveLength(1));
+  expect((sent[0] as unknown as { attachments: { name: string }[] }).attachments.map((one) => one.name)).toEqual([`annotation-${second.note.id}.png`]);
+  expect(capture).not.toHaveBeenCalled();
+});
+
+test("a screenshot taken at send, of an older note on this screen, is taken with the layer out of it", async () => {
+  const { fleet } = served();
+  const seen: boolean[] = [];
+  const capture = vi.fn(async () => {
+    seen.push(document.querySelector(".armada-annotate")!.hasAttribute("data-shooting"));
+    return PNG;
+  });
+  await annotating({ ...sendable([note("here", "open", "5", 15)]), capture }, fleet);
+  await countOf().click();
+  await rowOf("here:").getByRole("button", { name: "Dispatch job" }).click();
+  await vi.waitFor(() => expect(fleet.proposeFromRequest).toHaveBeenCalledTimes(1));
+  expect(seen).toEqual([true]);
+  expect(document.querySelector(".armada-annotate")!.hasAttribute("data-shooting")).toBe(false);
+});
+
+// Several notes ticked in the panel and acted on at once. Every act here takes
+// the ticked notes and no others, which the bar's own sends cannot: they take
+// every open note on this screen.
+
+/** Four open notes, each on a live element, in the order they were written. */
+const four = (): Annotation[] => [
+  note("first", "open", "5", 15),
+  note("second", "open", "6", 30),
+  note("third", "open", "7", 45),
+  note("fourth", "open", "8", 60),
+];
+
+const selection = () => panel().getByRole("group", { name: "Selected notes" });
+const tickOf = (text: string) => panel().getByRole("checkbox", { name: `Select ${text}` });
+const ticked = () =>
+  panel()
+    .getByRole("checkbox", { name: /^Select (?!all)/ })
+    .elements()
+    .filter((one) => (one as HTMLInputElement).checked)
+    .map((one) => (one.getAttribute("aria-label") ?? "").replace(/^Select /, "").replace(/: what the owner said$/, ""));
+const textsOf = async (sink: Sink, which: (one: Annotation) => boolean) => (await sink.list()).filter(which).map((one) => one.text.replace(/: what the owner said$/, ""));
+
+async function panelOn(sink: Sink, fleet?: LayerFleet, openSession?: (id: string) => void, tell?: (sentence: string) => void): Promise<void> {
+  await annotating(sink, fleet, openSession, tell);
+  await countOf().click();
+  await expect.element(panel()).toBeVisible();
+}
+
+test("ticking rows selects them, and the head says how many with the acts on them", async () => {
+  await panelOn(sendable(four()), served().fleet);
+  // Nothing is ticked, so the head offers Select all and no act.
+  await expect.element(selection().getByRole("checkbox", { name: "Select all" })).not.toBeChecked();
+  expect(selection().getByRole("button").elements()).toHaveLength(0);
+
+  await tickOf("first:").click();
+  await tickOf("third:").click();
+  expect(ticked()).toEqual(["first", "third"]);
+  await expect.element(selection()).toHaveTextContent("2 selected");
+  for (const name of ["Dispatch job", "Start session", "Mark done", "Delete"]) {
+    await expect.element(selection().getByRole("button", { name, exact: true })).toBeVisible();
+  }
+  expect(rowOf("first:").element().hasAttribute("data-selected")).toBe(true);
+  expect(rowOf("second:").element().hasAttribute("data-selected")).toBe(false);
+
+  await tickOf("first:").click();
+  expect(ticked()).toEqual(["third"]);
+  await expect.element(selection()).toHaveTextContent("1 selected");
+});
+
+test("Select all ticks every listed note, and pressed again clears them", async () => {
+  await panelOn(sendable(four()), served().fleet);
+  const all = selection().getByRole("checkbox", { name: "Select all" });
+  await all.click();
+  expect(ticked()).toEqual(["first", "second", "third", "fourth"]);
+  await expect.element(all).toBeChecked();
+  await all.click();
+  expect(ticked()).toEqual([]);
+  expect(selection().getByRole("button").elements()).toHaveLength(0);
+});
+
+test("Select all takes only what is listed: a done note stays out until the done notes are shown", async () => {
+  await panelOn(sendable(batch()), served().fleet);
+  await selection().getByRole("checkbox", { name: "Select all" }).click();
+  expect(ticked()).toEqual(["first", "third"]);
+  await expect.element(selection()).toHaveTextContent("2 selected");
+});
+
+test("a shift-press ticks every row between it and the last one ticked", async () => {
+  await panelOn(sendable(four()), served().fleet);
+  await tickOf("first:").click();
+  await tickOf("third:").click({ modifiers: ["Shift"] });
+  expect(ticked()).toEqual(["first", "second", "third"]);
+});
+
+test("Dispatch job on the selection proposes one Job per ticked note and no other, then clears the selection", async () => {
+  const { fleet } = served();
+  const held = sendable(four());
+  await panelOn(held, fleet);
+  await tickOf("second:").click();
+  await tickOf("fourth:").click();
+  await selection().getByRole("button", { name: "Dispatch job" }).click();
+
+  await vi.waitFor(() => expect(fleet.proposeFromRequest).toHaveBeenCalledTimes(2));
+  const asked = fleet.proposeFromRequest.mock.calls.map((call) => (call as unknown as [string])[0]);
+  expect(asked[0]).toContain("second: what the owner said");
+  expect(asked[1]).toContain("fourth: what the owner said");
+  expect(asked.join()).not.toContain("first: what the owner said");
+  expect(asked.join()).not.toContain("third: what the owner said");
+  await vi.waitFor(async () => expect(await textsOf(held, (one) => one.sent !== undefined)).toEqual(["second", "fourth"]));
+  await vi.waitFor(() => expect(ticked()).toEqual([]));
+});
+
+test("Dispatch job on the selection stops at the first Fleet refuses, and keeps the selection", async () => {
+  const { fleet } = served();
+  fleet.proposeFromRequest.mockResolvedValueOnce({ ok: false, outcome: { ok: false, why: "refused", error: { code: "fleet.x", message: "No" } } } as never);
+  const told = vi.fn();
+  const held = sendable(four());
+  await panelOn(held, fleet, undefined, told);
+  await tickOf("first:").click();
+  await tickOf("third:").click();
+  await selection().getByRole("button", { name: "Dispatch job" }).click();
+
+  await vi.waitFor(() => expect(told).toHaveBeenCalled());
+  expect(fleet.proposeFromRequest).toHaveBeenCalledTimes(1);
+  expect(await textsOf(held, (one) => one.sent !== undefined)).toEqual([]);
+  expect(ticked()).toEqual(["first", "third"]);
+});
+
+test("Start session on the selection sends the ticked notes alone as one message, and clears the selection", async () => {
+  const { fleet, sent } = served();
+  const held = sendable(four());
+  const opened = vi.fn();
+  await panelOn(held, fleet, opened);
+  await tickOf("first:").click();
+  await tickOf("third:").click();
+  await selection().getByRole("button", { name: "Start session" }).click();
+
+  await vi.waitFor(() => expect(opened).toHaveBeenCalledWith("01NEWSESSION0000"));
+  expect(sent).toHaveLength(1);
+  expect(sent[0]!.text).toContain("first: what the owner said");
+  expect(sent[0]!.text).toContain("third: what the owner said");
+  expect(sent[0]!.text).not.toContain("second: what the owner said");
+  expect(sent[0]!.text).not.toContain("fourth: what the owner said");
+  expect(await textsOf(held, (one) => one.sent !== undefined)).toEqual(["first", "third"]);
+  await vi.waitFor(() => expect(ticked()).toEqual([]));
+});
+
+test("the selection's caret sends the ticked notes to a live Session", async () => {
+  const { fleet, sent } = served();
+  const held = sendable(four());
+  await panelOn(held, fleet, vi.fn());
+  await tickOf("fourth:").click();
+  await selection().getByRole("button", { name: "Send to a Session" }).click();
+  await page.getByRole("menu", { name: "Send to a Session" }).getByRole("menuitem", { name: "Fix the flaky store test" }).click();
+
+  await vi.waitFor(() => expect(sent).toHaveLength(1));
+  expect(fleet.startSession).not.toHaveBeenCalled();
+  expect(sent[0]!.session_id).toBe("01HOSTEDAAAAAAAA");
+  expect(sent[0]!.text).toContain("fourth: what the owner said");
+  expect(sent[0]!.text).not.toContain("first: what the owner said");
+  await vi.waitFor(async () => expect(await textsOf(held, (one) => one.sent !== undefined)).toEqual(["fourth"]));
+});
+
+test("Mark done and Reopen on the selection change the ticked notes alone", async () => {
+  const held = sinkOf(four());
+  await panelOn(held);
+  await tickOf("second:").click();
+  await tickOf("third:").click();
+  await selection().getByRole("button", { name: "Mark done" }).click();
+
+  await vi.waitFor(async () => expect(await textsOf(held, (one) => one.status === "done")).toEqual(["second", "third"]));
+  await expect.element(page.getByRole("status")).toHaveTextContent("2 open, 2 done");
+  expect(ticked()).toEqual([]);
+
+  await page.getByRole("status").getByRole("button", { name: "Show done notes" }).click();
+  await tickOf("first:").click();
+  await tickOf("third:").click();
+  // One open and one done: both acts are offered, each for the ticked notes it applies to.
+  await selection().getByRole("button", { name: "Reopen" }).click();
+  await vi.waitFor(async () => expect(await textsOf(held, (one) => one.status === "done")).toEqual(["second"]));
+  expect(ticked()).toEqual([]);
+});
+
+test("Delete on the selection asks once for the batch, then deletes the ticked notes alone", async () => {
+  const held = sinkOf(four());
+  await panelOn(held);
+  await tickOf("first:").click();
+  await tickOf("fourth:").click();
+  const remove = selection().getByRole("button", { name: "Delete" });
+  await remove.click();
+  await expect.element(remove).toHaveTextContent("Press again to delete");
+  expect(await textsOf(held, () => true)).toEqual(["first", "second", "third", "fourth"]);
+
+  await remove.click();
+  await vi.waitFor(async () => expect(await textsOf(held, () => true)).toEqual(["second", "third"]));
+  expect(rowOf("first:").elements()).toHaveLength(0);
+  expect(ticked()).toEqual([]);
+  expect(selection().getByRole("button").elements()).toHaveLength(0);
+});
+
+test("a change to the selection takes back an armed Delete", async () => {
+  await panelOn(sinkOf(four()));
+  await tickOf("first:").click();
+  await selection().getByRole("button", { name: "Delete" }).click();
+  await expect.element(selection().getByRole("button", { name: "Press again to delete" })).toBeVisible();
+  await tickOf("second:").click();
+  await expect.element(selection().getByRole("button", { name: "Delete", exact: true })).toBeVisible();
+});
+
+test("a ticked note deleted from its own row leaves the selection", async () => {
+  await panelOn(sinkOf(four()));
+  await tickOf("first:").click();
+  await tickOf("second:").click();
+  const remove = rowOf("first:").getByRole("button", { name: "Delete" });
+  await remove.click();
+  await rowOf("first:").getByRole("button", { name: "Press again to delete" }).click();
+  await expect.element(rowOf("first:")).not.toBeInTheDocument();
+  expect(ticked()).toEqual(["second"]);
+  await expect.element(selection()).toHaveTextContent("1 selected");
+});
+
+test("a selection holding sent and done notes sends only the open unsent ones, and says how many it leaves out", async () => {
+  const { fleet } = served();
+  const forwarded = note("second", "open", "6", 30);
+  const held = sendable([note("first", "open", "5", 15), { ...forwarded, sent: { jobId: "01OLD", handle: "8-old", at: forwarded.createdAt } }, note("third", "done", "7", 45)]);
+  await panelOn(held, fleet);
+  await page.getByRole("status").getByRole("button", { name: "Show done notes" }).click();
+  await selection().getByRole("checkbox", { name: "Select all" }).click();
+  await expect.element(selection()).toHaveTextContent("3 selected. Sends leave out 2: 1 already sent, 1 done");
+
+  await selection().getByRole("button", { name: "Dispatch job" }).click();
+  await vi.waitFor(() => expect(fleet.proposeFromRequest).toHaveBeenCalledTimes(1));
+  expect((fleet.proposeFromRequest.mock.calls[0] as unknown as [string])[0]).toContain("first: what the owner said");
+  await vi.waitFor(() => expect(ticked()).toEqual([]));
+});
+
+test("a selection of only sent and done notes offers no send, and still offers the rest", async () => {
+  const forwarded = note("second", "open", "6", 30);
+  await panelOn(sendable([{ ...forwarded, sent: { jobId: "01OLD", handle: "8-old", at: forwarded.createdAt } }, note("third", "done", "7", 45)]), served().fleet);
+  await page.getByRole("status").getByRole("button", { name: "Show done notes" }).click();
+  await selection().getByRole("checkbox", { name: "Select all" }).click();
+  await expect.element(selection()).toHaveTextContent("2 selected");
+  expect(selection().element().textContent).not.toContain("Sends leave out");
+  for (const name of ["Dispatch job", "Start session"]) expect(selection().getByRole("button", { name }).elements()).toHaveLength(0);
+  for (const name of ["Mark done", "Reopen", "Delete"]) await expect.element(selection().getByRole("button", { name, exact: true })).toBeVisible();
+});
+
+test("where sending is not possible, the selection's Dispatch job is off and says why, and Start session is not offered", async () => {
+  await panelOn(sinkOf(four()));
+  await tickOf("first:").click();
+  const dispatch = selection().getByRole("button", { name: "Dispatch job" });
+  await expect.element(dispatch).toBeDisabled();
+  await expect.element(dispatch).toHaveAccessibleDescription(expect.stringContaining("Sending needs Bridge and its Fleet"));
+  expect(selection().getByRole("button", { name: "Start session" }).elements()).toHaveLength(0);
+});
+
+test("a selection reaching off this screen is sent, and its acts say how many go without a screenshot", async () => {
+  const { fleet } = served();
+  const capture = vi.fn(async () => new Uint8Array([137, 80, 78, 71]).buffer);
+  const held = { ...sendable([note("here", "open", "5", 15), away("gone", "6")]), capture };
+  await panelOn(held, fleet);
+  await tickOf("here:").click();
+  await tickOf("gone:").click();
+  await expect.element(selection().getByRole("button", { name: "Dispatch job" })).toHaveAccessibleDescription(
+    "Send each note as a Job. No screenshot for 1 of 2: on another screen",
+  );
+  await expect.element(selection().getByRole("button", { name: "Start session" })).toHaveAccessibleDescription("No screenshot for 1 of 2: on another screen");
+
+  await selection().getByRole("button", { name: "Dispatch job" }).click();
+  await vi.waitFor(() => expect(fleet.proposeFromRequest).toHaveBeenCalledTimes(2));
+  // One screenshot, of the note on this screen.
+  expect(capture).toHaveBeenCalledTimes(1);
+  await vi.waitFor(async () => expect(await textsOf(held, (one) => one.sent !== undefined)).toEqual(["here", "gone"]));
+});
+
+test("a selection counts as going without a screenshot only the notes off this screen that kept none", async () => {
+  const kept = keptAway("kept", "7");
+  await panelOn(sendable([note("here", "open", "5", 15), away("gone", "6"), kept.note], kept.shots), served().fleet);
+  await selection().getByRole("checkbox", { name: "Select all" }).click();
+  await expect.element(selection().getByRole("button", { name: "Dispatch job" })).toHaveAccessibleDescription(
+    "Send each note as a Job. No screenshot for 1 of 3: on another screen",
+  );
+  await expect.element(selection().getByRole("button", { name: "Start session" })).toHaveAccessibleDescription("No screenshot for 1 of 3: on another screen");
+});
+
+test("turning the layer off and on again comes back with nothing selected", async () => {
+  await panelOn(sinkOf(four()));
+  await tickOf("first:").click();
+  await pressToggle();
+  await pressToggle();
+  await countOf().click();
+  await expect.element(panel()).toBeVisible();
+  expect(ticked()).toEqual([]);
 });

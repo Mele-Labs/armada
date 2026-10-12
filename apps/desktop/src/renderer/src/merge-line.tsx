@@ -6,10 +6,10 @@
 // every one on All, named once there is more than one. With none served for the pick, neither the
 // panels nor the rail row draws, rather than a sentence about an absence or a row opening nothing.
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import type { FixMain, LandCheckAt, RepositorySummary } from "@armada/protocol";
-import { MergeLine } from "@armada/components";
+import { MergeLine, useTileGrid } from "@armada/components";
 import { mergeLineViews, type MergeLineView } from "@armada/screens";
 import { LandCheckLogSheet } from "@armada/jobs";
 import { Boundary, SURFACE, useAtFloor } from "@armada/shell";
@@ -146,9 +146,20 @@ export function MergeLineSurface({
   onFix?: (fix: FixMain) => void;
   focus?: string;
 }) {
+  // One Tab stop for every repository's tiles, the arrows across them all. Enter on a tile, and `o`
+  // anywhere in one, open the Job it came from; a tile with no Job leaves the press alone.
+  const scope = useRef<HTMLDivElement>(null);
+  useTileGrid(scope, {
+    tile: "[data-merge-item]",
+    onOpen: (tile) => {
+      const job = tile.dataset.job;
+      if (job === undefined || onOpenJob === undefined) return false;
+      onOpenJob(job);
+    },
+  });
   return (
     <Boundary region="Merge line" bridge={bridge} onCopied={onCopied}>
-      <div className="armada-screen__overview">
+      <div className="armada-screen__overview" ref={scope}>
         <MergeLinePanel
           state={state}
           onOpenLink={onOpenLink}

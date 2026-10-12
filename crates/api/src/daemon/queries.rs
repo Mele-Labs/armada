@@ -8,7 +8,7 @@
 //! one block per surface and a handler names the one surface it uses.
 //!
 //! The expensive reads are here on purpose and each says why. `get_diff`
-//! spends the patch and `get_call` spends one argument, and both are their own
+//! spends the patch and `get_check_output` a Check's streams, and both are their own
 //! operation so that the reads made on every refresh do not pay for them.
 
 use std::future::Future;
@@ -17,7 +17,7 @@ use crate::daemon::Refusal;
 use crate::observing::Observed;
 use crate::reference::Resolved;
 use ipc::{
-    AlertList, BriefContents, CallArguments, CheckOutput, CheckoutRunList, CheckoutRunSheet,
+    AlertList, BriefContents, CheckOutput, CheckoutRunList, CheckoutRunSheet,
     CommandExplained, DroneDetail, DroneId, DroneList, FilesFound, FleetCapacity, FleetHealth,
     FleetUsage, JobDetail, JobDiff, JobDrones, JobEvidence, JobHistory, JobId, JobList, JobRemarks,
     JobResources, KeptFrame, ManifestChecks, ManifestConfig, ManifestDrift, ManifestFile,
@@ -247,21 +247,6 @@ pub trait Queries: Send + Sync + 'static {
     /// checkout that can be restarted from, and a Fleet in that state has no
     /// build to choose.
     fn get_fleet_build(&self) -> impl Future<Output = Result<ipc::FleetBuildReport, Refusal>> + Send;
-
-    /// `get_limits` — the Drones-at-once bound, the memory share and the disk
-    /// floor in force, and the values Fleet shipped with.
-    ///
-    /// **What `get_capacity` is measured against**, read on its own because it
-    /// changes only when a person saves. The only `Refusal` is a fault.
-    fn get_limits(&self) -> impl Future<Output = Result<ipc::FleetLimits, Refusal>> + Send;
-
-    /// `get_preferences` — every preference a person has saved in Bridge, and
-    /// what is in force for each.
-    ///
-    /// **Fleet-wide, `get_limits`' shape one table over**, read once per
-    /// connection because nothing but a save changes it. The only `Refusal` is
-    /// a fault.
-    fn get_preferences(&self) -> impl Future<Output = Result<ipc::Preferences, Refusal>> + Send;
 
     /// `get_repository_allowed_commands` — every rule a person always-allowed
     /// for this Manifest's repository, oldest first. **Since `#836`.**
@@ -495,29 +480,6 @@ pub trait Queries: Send + Sync + 'static {
         job_id: JobId,
     ) -> impl Future<Output = Result<JobResources, Refusal>> + Send;
 
-    /// `get_call` — one tool call's arguments, as the record holds them.
-    ///
-    /// **The other end of a cut row.** `Saw::Called` carries a line and how
-    /// many characters the argument had; this carries the argument. The split
-    /// is [`Queries::get_diff`]'s against `job.files_changed`, made for the same
-    /// reason: `observe_job` is bounded and lossy under backpressure by design,
-    /// so an unbounded payload on it would evict the rows a person is reading.
-    ///
-    /// **A person's gesture is what pays for it.** Opening a row asks about one
-    /// call, so an implementation looks for one call id rather than
-    /// materialising a history.
-    ///
-    /// [`Refusal::NoSuchJob`] where the id names no Job.
-    /// [`Refusal::Unacceptable`] where the Job is there and nothing in its
-    /// transcripts carries that call — a well-formed request naming something
-    /// that is not in the record, which is not the same answer as the Job being
-    /// absent and must not be drawn as one.
-    fn get_call(
-        &self,
-        job_id: JobId,
-        call_id: String,
-    ) -> impl Future<Output = Result<CallArguments, Refusal>> + Send;
-
     /// `explain_command` — what one command a Drone was not granted does, read
     /// by a model for the person who has to decide about it.
     ///
@@ -547,7 +509,7 @@ pub trait Queries: Send + Sync + 'static {
     /// to the operating system — so the surface built to audit a suite that
     /// went green for the wrong reason sent a person out of the app to do it.
     ///
-    /// The split is [`Queries::get_call`]'s, for the same reason: output is up
+    /// The split is [`Queries::get_diff`]'s, for the same reason: output is up
     /// to two 64 KiB streams, `get_job` is re-read on every event naming the
     /// open Job, and `/events` is one drop-oldest channel carrying every Job.
     /// The cheap fact rides the row and the bytes are fetched, once, by the
@@ -898,6 +860,23 @@ pub trait Queries: Send + Sync + 'static {
     /// **Empty by default**, for a daemon that reads no forge.
     fn merge_hubs(&self) -> impl Future<Output = Vec<(String, ipc::MergeLineHub)>> + Send {
         async { Vec::new() }
+    }
+
+    /// Every Job's branch, id and handle, which names the Jobs on a merge line.
+    /// **The default reads the whole list**; a daemon that can answer without
+    /// summarising each Job should, since this is asked every few seconds.
+    fn job_branches(&self) -> impl Future<Output = Vec<(String, ipc::JobId, String)>> + Send {
+        async {
+            self.list_jobs(None)
+                .await
+                .map(|list| {
+                    list.jobs
+                        .into_iter()
+                        .filter_map(|job| Some((job.branch?, job.id, job.handle)))
+                        .collect()
+                })
+                .unwrap_or_default()
+        }
     }
 
     /// The Checks each served repository's Manifest declares, by root: what a

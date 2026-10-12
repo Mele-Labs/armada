@@ -91,15 +91,18 @@ where
                     .iter()
                     .map(|commit| (commit.sha.clone(), commit.subject.clone()))
                     .collect();
-                let (told, cut) = crate::scout::told_a_rescue(&crate::scout::Stranded {
-                    root: &root,
-                    branch: work.branch.as_deref(),
-                    commit: &work.commit,
-                    base: pool.base(),
-                    uncommitted: &work.uncommitted,
-                    commits: &commits,
-                    diff: &diff,
-                });
+                let (told, cut) = crate::scout::told_a_rescue(
+                    &self.prompts(),
+                    &crate::scout::Stranded {
+                        root: &root,
+                        branch: work.branch.as_deref(),
+                        commit: &work.commit,
+                        base: pool.base(),
+                        uncommitted: &work.uncommitted,
+                        commits: &commits,
+                        diff: &diff,
+                    },
+                );
                 let reading = KeptRescue {
                     manifest_id: manifest,
                     slot,
@@ -243,7 +246,9 @@ where
             .lock()
             .await
             .keep_rescue(rescue)
-            .map_err(|why| self.refusal(crate::adrift::Adrift::Writing(why)))
+            .map_err(|why| self.refusal(crate::adrift::Adrift::Writing(why)))?;
+        self.worktrees_memory().changed();
+        Ok(())
     }
 
     /// Every Finding a restart left reading, ended as failed and keeping what

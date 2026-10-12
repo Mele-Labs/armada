@@ -48,7 +48,7 @@ pub fn group_end(ruling: &Ruling) -> GroupEnd {
         Ruling::Advanced { .. } | Ruling::Finished { .. } | Ruling::HeldForReview { .. } => {
             GroupEnd::Passed
         }
-        Ruling::HandedBack { .. } => GroupEnd::Round,
+        Ruling::HandedBack { .. } | Ruling::JudgesAgreed { .. } => GroupEnd::Round,
         Ruling::Failed { .. } => GroupEnd::Failed,
         Ruling::Refused { .. }
         | Ruling::Questioned { .. }
@@ -68,7 +68,9 @@ pub fn verdict_of(ruling: &Ruling) -> StepVerdict {
         Ruling::Advanced { .. } | Ruling::Finished { .. } | Ruling::HeldForReview { .. } => {
             StepVerdict::Passed
         }
-        Ruling::HandedBack { retrying, .. } => StepVerdict::Failed(*retrying),
+        Ruling::HandedBack { retrying, .. } | Ruling::JudgesAgreed { retrying, .. } => {
+            StepVerdict::Failed(*retrying)
+        }
         Ruling::NotWhatTheStepAsked(_) => StepVerdict::NotReached,
         other => StepVerdict::Failed(stopping(other).unwrap_or_else(gate_failure)),
     }
@@ -517,7 +519,7 @@ where
         let Some(plan) = self.plan_of(job_id).await? else {
             return Ok(());
         };
-        let note = PlanChanged::round(group, &plan);
+        let note = PlanChanged::round(&self.prompts(), group, &plan);
         at_work.instructed(Occasion::Plan, note.text());
         let _ = at_work.session().plan_changed(&note).await;
         Ok(())

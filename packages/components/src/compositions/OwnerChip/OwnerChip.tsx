@@ -246,3 +246,20 @@ export function OwnerChip({ chip, children, plain }: OwnerChipProps) {
     </span>
   );
 }
+
+/**
+ * Who ran something in a slot, as the owner chip draws it: the Session's title, hover for its card.
+ * Where no Session owns the slot the slot's chip is drawn plain.
+ */
+export function SlotOwner({ slot }: { slot: number }) {
+  const chip: OwnerChipRef = { kind: "slot", slot };
+  const owner = useChipOwner(chip);
+  return (
+    <OwnerChip chip={chip} plain={<Chip chip={chip} />}>
+      <span className="armada-slot-owner">
+        <SquareTerminal size={12} strokeWidth={2} aria-hidden />
+        <span className="armada-slot-owner__name">{owner?.title ?? owner?.address ?? owner?.id}</span>
+      </span>
+    </OwnerChip>
+  );
+}

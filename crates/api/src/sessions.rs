@@ -63,6 +63,41 @@ pub(crate) async fn show_window<D: Sessions>(
     }
 }
 
+/// A session asks the person about a place on its walk. 200 with the row; 422 for an address on no
+/// window the session showed, a blank question or selector, or a call that places no session.
+pub(crate) async fn ask_in_window<D: Sessions>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let ask: ipc::AskInWindow = match ipc::decode("a question to ask in the window", &body) {
+        Ok(ask) => ask,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served
+        .daemon()
+        .ask_in_window(crate::acting::asking(), ask)
+        .await
+    {
+        Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// The person closed a session's window. 200 with the row; 422 for a session Fleet does not know.
+pub(crate) async fn window_closed<D: Sessions>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let closed: ipc::WindowClosed = match ipc::decode("a closed window", &body) {
+        Ok(closed) => closed,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().window_closed(closed).await {
+        Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// The agent sets what it is waiting on the person for. 200 with the row; 422 for a call that
 /// places no session. **The session is placed by the connection**, as `show_window`'s is.
 pub(crate) async fn waiting_for<D: Sessions>(
@@ -148,6 +183,33 @@ pub(crate) async fn claim_pull_request<D: Sessions>(
         .await
     {
         Ok(claimed) => answer(StatusCode::OK, &claimed, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// `armada check` tells Fleet a Session's run began or ended. 200 with the run, or none where no
+/// Session holds the slot; 422 for a call that names neither a Check nor a run.
+pub(crate) async fn report_session_check<D: Sessions>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let call: ipc::SessionCheckCall = match ipc::decode("a Session's Check run", &body) {
+        Ok(call) => call,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().report_session_check(call).await {
+        Ok(answered) => answer(StatusCode::OK, &answered, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// One Session run's log. 200 with the window; 422 for a run no Session kept.
+pub(crate) async fn get_session_check_output<D: Sessions>(
+    State(served): State<Served<D>>,
+    axum::extract::Path(run): axum::extract::Path<u64>,
+) -> Response {
+    match served.daemon().get_session_check_output(run).await {
+        Ok(output) => answer(StatusCode::OK, &output, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }

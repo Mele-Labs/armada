@@ -440,6 +440,33 @@ span.armada-view__dot { cursor: default; }
   color: var(--fg-default);
 }
 
+/* An answer waiting on Fleet carries the loop of a control waiting on Fleet, the bar along its bottom edge
+   (`Button.css`, `data-pending`): the one pressed keeps its look, every other is held and cannot be pressed.
+   A reply in words is the same line under its field. Held still under reduced motion, full width. */
+.armada-callcard__answer { position: relative; overflow: clip; }
+/* The tooltip a pending answer gains wraps it in a span the grid then sizes; the answer keeps filling its cell, as it did bare. */
+.armada-callcard__answers:not([data-standing]) > .armada-tooltip > .armada-callcard__answer { flex: 1 1 auto; }
+.armada-callcard__answer:disabled { color: var(--fg-subtle); border-color: var(--border-strong); background: var(--bg-sunken); box-shadow: none; cursor: default; }
+.armada-callcard__answer[data-pending] { cursor: default; }
+.armada-callcard__reply { position: relative; }
+.armada-callcard__answer[data-pending]::after,
+.armada-callcard__reply[data-pending]::after {
+  content: "";
+  position: absolute;
+  inset-inline-start: 0;
+  bottom: 0;
+  width: 40%;
+  height: var(--pending-bar);
+  background: var(--status-running);
+  pointer-events: none;
+  animation: armada-button-waiting var(--duration-pulse) linear infinite;
+}
+.armada-callcard__reply[data-pending] textarea { color: var(--fg-muted); }
+@media (prefers-reduced-motion: reduce) {
+  .armada-callcard__answer[data-pending]::after,
+  .armada-callcard__reply[data-pending]::after { width: 100%; animation: none; }
+}
+
 .armada-callcard__acts { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
 .armada-callcard__acts > :last-child { margin-left: auto; }
 
@@ -522,3 +549,102 @@ span.armada-view__dot { cursor: default; }
 /* The acts of the star under the cursor, as the tile carries them. */
 .armada-view__picked { position: absolute; left: 50%; bottom: var(--space-3); transform: translateX(-50%); display: flex; align-items: center; gap: var(--space-2); padding: var(--space-1) var(--space-3); border: var(--border-width) solid var(--border-default); border-radius: var(--radius-md); background: var(--bg-raised); font-size: var(--text-sm); color: var(--fg-default); white-space: nowrap; }
 .armada-view__picked > span:first-child { min-width: 0; max-width: calc(var(--space-12) * 5); overflow: hidden; text-overflow: ellipsis; }
+
+/* Bays: the work in every bay, and what waits for one, as metro lines through the same stations. The
+   line is the work's status colour; a stop it reached is the state at that station; the stop it is at
+   now is large, says what to know inside it, and fills its ring with the Job's steps. */
+.armada-view__bays { position: relative; display: flex; min-width: 0; min-height: 0; overflow: hidden; }
+.armada-metro__empty { margin: auto; color: var(--fg-subtle); font-size: var(--text-sm); }
+.armada-metro { --label: calc(var(--space-12) * 7); position: relative; display: grid; flex: 1 1 auto; grid-template-rows: auto minmax(0, 1fr) auto; min-width: 0; min-height: 0; }
+
+.armada-metro__head, .armada-metro__row { display: grid; grid-template-columns: var(--label) repeat(6, minmax(0, 1fr)); align-items: center; padding: 0 var(--space-4); }
+.armada-metro__head { min-height: calc(var(--space-12) + var(--space-1)); border-bottom: var(--border-width) solid var(--border-subtle); }
+.armada-metro__label { color: var(--fg-subtle); font-size: var(--text-2xs); }
+.armada-metro__station-name { display: flex; flex-direction: column; align-items: center; gap: var(--space-1); color: var(--fg-default); font-size: var(--text-xs); font-weight: var(--weight-heading); }
+.armada-metro__counts { display: flex; gap: var(--space-1); }
+.armada-metro__counts > span { min-width: var(--space-4); padding: 0 var(--space-1); border-radius: var(--radius-lg); background: color-mix(in srgb, var(--tone) 16%, transparent); color: var(--tone); font-family: var(--font-mono); font-size: var(--text-2xs); font-weight: var(--weight-medium); line-height: var(--leading-2xs); text-align: center; }
+
+.armada-metro__lines { min-height: 0; overflow-y: auto; }
+.armada-metro__block { margin: 0; padding: 0; list-style: none; }
+.armada-metro__part { display: flex; align-items: center; min-height: var(--space-6); padding: 0 var(--space-4); border-top: var(--border-width) solid var(--border-subtle); color: var(--fg-subtle); font-family: var(--font-mono); font-size: var(--text-2xs); letter-spacing: 0.08em; text-transform: uppercase; }
+.armada-metro__row { min-height: calc(var(--space-8) + var(--space-1)); }
+.armada-metro__row[data-wants="you"] { background: linear-gradient(90deg, color-mix(in srgb, var(--status-awaiting-review) 12%, transparent), transparent 70%); }
+.armada-metro__row[data-wants="fixing"] { background: linear-gradient(90deg, color-mix(in srgb, var(--status-completed-failed) 11%, transparent), transparent 70%); }
+.armada-metro__row[data-selected] { box-shadow: inset calc(var(--border-width) * 3) 0 0 var(--accent); }
+
+.armada-metro__who { display: flex; align-items: center; gap: var(--space-2); min-width: 0; padding: 0; border: 0; background: none; color: var(--fg-default); font: inherit; font-size: var(--text-sm); text-align: left; cursor: default; }
+.armada-metro__who[data-opens] { cursor: pointer; }
+.armada-metro__who[data-opens]:hover .armada-metro__title { text-decoration: underline; text-underline-offset: calc(var(--border-width) * 3); }
+.armada-metro__who:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); border-radius: var(--radius-sm); }
+.armada-metro__bay { flex: none; width: 2.5ch; color: var(--fg-subtle); font-family: var(--font-mono); font-size: var(--text-2xs); }
+.armada-metro__mark { flex: none; width: var(--space-2); height: var(--space-2); border-radius: 50%; background: var(--line); box-shadow: 0 0 0 calc(var(--space-1) * 0.75) color-mix(in srgb, var(--line) 20%, transparent); }
+.armada-metro__mark[data-session] { border-radius: var(--radius-sm); transform: rotate(45deg); }
+.armada-metro__title { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+
+/* A station: the line through it, solid in the work's colour where it has been, dashed where it has not. */
+.armada-metro__station { position: relative; display: grid; place-items: center; align-self: stretch; }
+.armada-metro__station::before { content: ""; position: absolute; top: 50%; right: 0; left: 0; border-top: calc(var(--border-width) * 2) dashed var(--border-subtle); transform: translateY(-50%); }
+.armada-metro__station[data-first]::before { left: 50%; }
+.armada-metro__station[data-last]::before { right: 50%; }
+.armada-metro__station[data-state="past"]::before { border-top: calc(var(--border-width) * 3) solid var(--line); opacity: 0.8; }
+.armada-metro__station[data-state="now"]::before { right: 50%; border-top: calc(var(--border-width) * 3) solid var(--line); opacity: 0.8; }
+/* The track on from where it is now, dashed, so the line runs unbroken from the stop to the next station. */
+.armada-metro__station[data-state="now"]:not([data-last])::after { content: ""; position: absolute; top: 50%; right: 0; left: 50%; border-top: calc(var(--border-width) * 2) dashed var(--border-subtle); transform: translateY(-50%); }
+.armada-metro__station[data-state="now"][data-first]::before { display: none; }
+
+.armada-metro__stop { position: relative; z-index: 1; width: var(--space-2); height: var(--space-2); padding: 0; border: calc(var(--border-width) * 2) solid var(--border-strong); border-radius: 50%; background: var(--bg-base); }
+button.armada-metro__stop { cursor: pointer; }
+.armada-metro__station[data-state="past"] .armada-metro__stop { width: calc(var(--space-2) + var(--border-width) * 2); height: calc(var(--space-2) + var(--border-width) * 2); border-color: var(--tone); background: var(--tone); }
+.armada-metro__stop[data-session] { border-radius: var(--radius-sm); transform: rotate(45deg); }
+button.armada-metro__stop:hover, button.armada-metro__stop:focus-visible { outline: calc(var(--border-width) * 2) solid var(--fg-default); outline-offset: calc(var(--border-width) * 2); }
+/* Where it is now: large, in the station's state, its ring filled with the Job's steps, what to know inside. */
+.armada-metro__station[data-state="now"] .armada-metro__stop {
+  display: grid;
+  place-items: center;
+  width: var(--space-6);
+  height: var(--space-6);
+  border: 0;
+  background: conic-gradient(var(--tone) calc(var(--p) * 1%), color-mix(in srgb, var(--tone) 22%, transparent) 0);
+  box-shadow: 0 0 var(--space-3) color-mix(in srgb, var(--tone) 55%, transparent);
+}
+.armada-metro__station[data-state="now"] .armada-metro__stop::after { content: ""; position: absolute; inset: calc(var(--border-width) * 3); border-radius: inherit; background: radial-gradient(circle, var(--tone) 0 60%, var(--bg-base) 62%); }
+.armada-metro__station[data-state="now"] .armada-metro__stop[data-session]::after { background: var(--tone); box-shadow: inset 0 0 0 calc(var(--border-width) * 2) var(--bg-base); }
+.armada-metro__stop b { position: relative; z-index: 1; color: var(--bg-sunken); font-family: var(--font-mono); font-size: var(--text-2xs); font-weight: var(--weight-heading); line-height: 1; }
+.armada-metro__stop[data-session] b { transform: rotate(-45deg); }
+
+.armada-metro__foot { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-4); padding: var(--space-2) var(--space-4); border-top: var(--border-width) solid var(--border-subtle); color: var(--fg-muted); font-size: var(--text-2xs); }
+.armada-metro__strip { display: inline-flex; gap: calc(var(--border-width) * 3); }
+.armada-metro__strip i { width: var(--space-4); height: var(--space-2); border-radius: var(--radius-sm); background: var(--fg-muted); }
+.armada-metro__strip i[data-kind="free"] { border: var(--border-width) solid var(--fg-muted); background: transparent; box-shadow: 0 0 var(--space-2) color-mix(in srgb, var(--fg-default) 25%, transparent); }
+.armada-metro__strip i[data-kind="closed"] { border: var(--border-width) solid var(--border-subtle); background: repeating-linear-gradient(135deg, var(--border-subtle) 0 calc(var(--border-width) * 2), transparent calc(var(--border-width) * 2) var(--space-1)); }
+.armada-metro__legend { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-left: auto; }
+.armada-metro__legend > span { display: inline-flex; align-items: center; gap: var(--space-1); }
+.armada-metro__legend i { width: var(--space-2); height: var(--space-2); border-radius: 50%; background: var(--tone); }
+
+/* A stop's card: opened by hover or focus, kept by a press. */
+.armada-metro__card {
+  position: absolute;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  width: calc(var(--space-12) * 6);
+  padding: var(--space-2) var(--space-3) var(--space-3);
+  border: var(--border-width) solid var(--border-default);
+  border-top: calc(var(--border-width) * 3) solid var(--tone);
+  border-radius: var(--radius-md);
+  background: var(--bg-overlay);
+  box-shadow: var(--shadow-overlay);
+  font-size: var(--text-xs);
+}
+.armada-metro__card-head { display: flex; align-items: center; gap: var(--space-2); }
+.armada-metro__pill { padding: 0 var(--space-2); border-radius: var(--radius-lg); background: color-mix(in srgb, var(--tone) 16%, transparent); color: var(--tone); font-family: var(--font-mono); font-size: var(--text-2xs); line-height: var(--leading-2xs); }
+.armada-metro__where { flex: none; margin-left: auto; color: var(--fg-subtle); font-size: var(--text-2xs); white-space: nowrap; }
+.armada-metro__card-title { color: var(--fg-default); font-weight: var(--weight-heading); line-height: var(--leading-xs); }
+.armada-metro__facts { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: calc(var(--border-width) * 2) var(--space-3); margin: var(--space-1) 0 0; font-size: var(--text-2xs); line-height: var(--leading-2xs); }
+.armada-metro__facts > div { display: contents; }
+.armada-metro__facts dt { color: var(--fg-subtle); }
+.armada-metro__facts dd { margin: 0; color: var(--fg-default); overflow-wrap: anywhere; }
+.armada-metro__facts dd[data-mono] { font-family: var(--font-mono); }
+.armada-metro__acts { display: flex; flex-wrap: wrap; gap: var(--space-1); margin-top: var(--space-2); }
+.armada-metro__hint { margin-top: var(--space-1); color: var(--fg-subtle); font-size: var(--text-2xs); }

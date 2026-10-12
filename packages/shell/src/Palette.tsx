@@ -37,8 +37,8 @@
 import { useEffect, useState } from "react";
 import type { LucideIcon } from "lucide-react";
 
-import { actsIn, ALIASES, globalActs, CommandPalette } from "@armada/components";
-import type { Action, ActionContext, PaletteEntry, PaletteSection } from "@armada/components";
+import { actsIn, ALIASES, globalActs, CommandPalette, isPressed, keyFor } from "@armada/components";
+import type { Action, ActionContext, PaletteDispatch, PaletteEntry, PaletteSection } from "@armada/components";
 
 /** A Job as a search result. It carries no binding, and that is not a gap. */
 export type PaletteJob = { id: string; label: string };
@@ -103,7 +103,7 @@ export type PaletteRunnable = {
  * standing configuration lives, whether that configuration is read here or
  * changed behind its own screen.
  */
-export type PaletteSetting = { id: string; label: string; value?: string };
+export type PaletteSetting = { id: string; label: string; value?: string; aliases?: readonly string[] };
 
 /**
  * One of the Board's state filters, with the digit that sets it.
@@ -178,6 +178,10 @@ export type PaletteProps = {
    */
   onChoose: (choice: PaletteChoice) => void;
   onConfirmAct: (actionId: string) => void;
+  /** The one bar's dispatch row: what was typed, sent as a Job or a Session. */
+  dispatch?: PaletteDispatch;
+  /** The title bar's field, which the palette opens over. */
+  anchor?: string;
 };
 
 /** The section ids. Their order is the contract's contents order. */
@@ -211,8 +215,7 @@ export function useCommandPalette(): {
 
   useEffect(() => {
     function pressed(event: KeyboardEvent): void {
-      if (event.key !== "k" && event.key !== "K") return;
-      if (!(event.metaKey || event.ctrlKey)) return;
+      if (!isPressed("command_palette", event)) return;
       event.preventDefault();
       // Toggled, not opened. ⌘K twice is how a person closes something they
       // opened by reflex, and `Esc` is not what they reach for while their
@@ -241,6 +244,8 @@ export function Palette({
   absent = [],
   onChoose,
   onConfirmAct,
+  dispatch,
+  anchor,
 }: PaletteProps) {
   const sections: PaletteSection[] = [
     { id: CONTEXT, title: on ?? NOTHING_FOCUSED },
@@ -315,6 +320,7 @@ export function Palette({
       section: SETTINGS,
       label: setting.label,
       ...(setting.value === undefined ? {} : { value: setting.value }),
+      ...(setting.aliases === undefined ? {} : { aliases: setting.aliases }),
     })),
   ];
 
@@ -325,6 +331,8 @@ export function Palette({
       entries={entries}
       searched={searchedSentence(jobs.length, settings.length, runnables.length)}
       onClose={onClose}
+      {...(dispatch === undefined ? {} : { dispatch })}
+      {...(anchor === undefined ? {} : { anchor })}
       onSelect={(entry) => onChoose(choiceOf(entry.id))}
       // A destructive board row opens its own confirmation, so it is a choice.
       onConfirm={(entry) =>
@@ -349,7 +357,7 @@ function entryOf(
     id: `act:${action.id}`,
     section,
     label: action.verb,
-    shortcut: action.shortcut,
+    shortcut: keyFor(action.id),
     ...(action.icon === null ? {} : { icon: action.icon }),
     ...(ALIASES[action.id] === undefined ? {} : { aliases: ALIASES[action.id] }),
     ...(action.destructive ? { destructive: true } : {}),

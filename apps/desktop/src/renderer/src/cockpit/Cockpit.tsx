@@ -6,12 +6,12 @@
 
 import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Box, CircleDashed, GitMerge, LayoutGrid, Orbit, SquareTerminal } from "lucide-react";
-import { Button, Kbd, Tabs, Tooltip, actionOf, keyFor } from "@armada/components";
+import { Button, Kbd, Tabs, Tooltip, actionOf, isPressed, keyFor, pressedDigit, pressedSlot } from "@armada/components";
 import type { RepositorySummary } from "@armada/protocol";
 import type { Session } from "@armada/screens/src/draft/sessions";
 import type { CallView } from "@armada/jobs/draft/calls";
 import type { NowView } from "@armada/jobs/draft/now";
-import { nowPanelOf } from "@armada/jobs";
+import { nowPanelOf, type NowActed } from "@armada/jobs";
 import { isTerminal, titleOf } from "@armada/screens";
 import { overviewListsOf, type DashboardTab } from "@armada/overview";
 import { holdsText } from "@armada/screens/src/keys";
@@ -24,15 +24,28 @@ import { FleetTile } from "../FleetTile";
 import { viewsOf } from "../merge-line";
 import { useSessions } from "../sessions-draft";
 import { CallCard, type CardKeys } from "./CallCard";
+import { Bays } from "./BaysView"; import { useAutopilotLane } from "./AutopilotLane";
+import { baysOf } from "./bays";
+import { metroOf, orderOf } from "./metro";
 import { FleetMap } from "./FleetMap";
 import { useLayout } from "@armada/shell";
-import { TAB_KEYS, useFilters } from "./keys";
-import { dismissItem } from "./dismissed";
+import { tabKeys, useFilters } from "./keys";
 import { dotsOf, type Dot } from "./horizon";
 import { sessionIdOf } from "./waiting";
 import { nearest, skyOf } from "./map-layout";
 import { useCockpitView } from "./view";
 import "./cockpit.css";
+
+/**
+ * How long an answered call is held out of the deck if Fleet still carries it. **Fleet answers the POST
+ * before it has re-derived what a Session waits on or whether a Job asks**, so the next update can carry
+ * the call again; a call is held gone until an update stops carrying it, and this is the longest that
+ * holds before the call is allowed back (with no word, since nothing was refused). An object so a
+ * test can shorten it.
+ */
+export const holdFor = { ms: 30_000 };
+
+const NONE: ReadonlySet<string> = new Set();
 
 /** Whether motion is off: nothing waits for an exit that will not play. */
 const stillness = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -145,14 +158,12 @@ function Behind({ edge, put, recall }: { edge: readonly Item[]; put: readonly st
 
 /** The acts of the tile under the cursor, each with the key that does it. */
 function TileActs({ item, hosts }: { item: Item; hosts: Hosts }) {
+  if (item.job === undefined && sessionIdOf(item.key) === undefined) return <>{item.acts(() => {})}</>;
   const open = () => (item.job === undefined ? hosts.onOpenSession(sessionIdOf(item.key)!) : hosts.onOpen(item.job.id));
   const stoppable = item.job !== undefined && !isTerminal(item.job) && hosts.onKill !== undefined;
   return (
     <>
-      <Button variant="ghost" size="sm" onClick={open}>
-        {actionOf("open").verb}
-        <Kbd>↵</Kbd>
-      </Button>
+      <Button variant="ghost" size="sm" onClick={open}>{actionOf("open").verb}<Kbd>↵</Kbd></Button>
       {stoppable ? (
         <Button variant="ghost" size="sm" onClick={() => hosts.onKill!(item.job!.id)}>
           {actionOf("kill").verb}
@@ -171,8 +182,14 @@ export function Cockpit({
   picked,
   nowViews,
   nows,
+  bring,
+  onBrought,
   ...hosts
 }: Hosts & {
+  /** A call an alert asked for, brought to the front once this is on screen. `at` makes a second press land. */
+  bring?: { key: string; at: number } | null | undefined;
+  /** Taken, so the token is not acted on twice. */
+  onBrought?: (() => void) | undefined;
   /** Which of the three the panel shows. */
   filter: DashboardTab;
   onFilter: (filter: DashboardTab) => void;
@@ -182,15 +199,59 @@ export function Cockpit({
   nowViews?: Readonly<Record<string, CallView>> | undefined;
   nows?: Readonly<Record<string, NowView>> | undefined;
 }) {
-  const [answered, setAnswered] = useState<ReadonlySet<string>>(new Set());
-  const calls = useItems("command-central", state, picked, nowViews, hosts, answered);
-  const running = useItems("running", state, picked, nowViews, hosts, answered);
-  const over = useItems("done", state, picked, nowViews, hosts, answered);
+  // Calls answered or dismissed, by key and when: held out of every list until the data stops carrying them.
+  const [holds, setHolds] = useState<ReadonlyMap<string, number>>(new Map());
+  const hold = (key: string) => setHolds((was) => new Map(was).set(key, Date.now()));
   const sessions = useSessions();
+  const autopilot = useAutopilotLane({ picked, state, now });
+  const carriedCalls = useItems("command-central", state, picked, nowViews, hosts, NONE);
+  const carriedRunning = useItems("running", state, picked, nowViews, hosts, NONE);
+  const carriedOver = useItems("done", state, picked, nowViews, hosts, NONE);
+  const calls = useMemo(() => carriedCalls.filter((one) => !holds.has(one.key)), [carriedCalls, holds]);
+  const running = useMemo(() => carriedRunning.filter((one) => !holds.has(one.key)), [carriedRunning, holds]);
+  const over = useMemo(() => carriedOver.filter((one) => !holds.has(one.key)), [carriedOver, holds]);
+  // A hold lets go when an update no longer carries its call, or after `holdFor`. Not while the Board is
+  // empty: a resync carries nothing, and letting go then would bring the call back to be dropped again.
+  const board = state.jobs.length > 0 || viewsOf(state).length > 0 || sessions.length > 0;
+  useEffect(() => {
+    if (holds.size === 0) return;
+    const carried = new Set([...carriedCalls, ...carriedRunning, ...carriedOver].map((one) => one.key));
+    const expired = (since: number) => Date.now() - since >= holdFor.ms;
+    const gone = [...holds].filter(([key, since]) => expired(since) || (board && !carried.has(key)));
+    if (gone.length > 0) return setHolds((was) => new Map([...was].filter(([key]) => !gone.some(([one]) => one === key))));
+    const next = Math.min(...holds.values()) + holdFor.ms - Date.now();
+    const timer = window.setTimeout(() => setHolds((was) => new Map(was)), Math.max(0, next));
+    return () => window.clearTimeout(timer);
+  }, [holds, carriedCalls, carriedRunning, carriedOver, board]);
+  // The bays read every tile the Cockpit holds, whatever the filter: a bay is held whether or not its Job is your move.
+  const everything = useMemo(() => [...calls, ...running, ...over], [calls, running, over]);
+  const onWantHeld = hosts.onWantHeld;
+  useEffect(() => {
+    if (filter !== "bays" || onWantHeld === undefined) return;
+    onWantHeld(true);
+    return () => onWantHeld(false);
+  }, [filter, onWantHeld]);
+  const bays = useMemo(
+    () =>
+      baysOf({
+        slots: state.held.state === "read" ? (state.held.held.slots ?? []).filter((one) => picked?.manifest === undefined || one.manifest_id === picked.manifest.id) : [],
+        jobs: state.jobs,
+        sessions,
+        items: everything,
+        ended: over,
+        views: viewsOf(state),
+        lines: state.mergeLines,
+        manifestOf: (root) => state.holds.repositories?.find((one) => one.root === root)?.manifest?.id,
+        nameOf: (manifest) => state.holds.repositories?.find((one) => one.manifest?.id === manifest)?.manifest?.repository ?? manifest,
+      }),
+    [state, sessions, everything, picked],
+  );
   // Your move is what needs the owner; Active leads with that, then what runs, a call standing in for
   // the Job or Session it is about; Done is what is over, and what landed on the merge line is no tile.
+  // Bays is the work in the bays, down each hull, then what waits for one: the order the keys step in.
   const instruments = useMemo(() => {
-    if (filter === "command-central") return calls;
+    if (filter === "command-central") return [...calls, ...autopilot.asides];
+    if (filter === "bays") return orderOf(metroOf(bays, now));
     if (filter === "done") return over.filter((one) => !one.key.startsWith("line:"));
     const read = overviewListsOf(state.jobs, picked);
     const unknown = read.undrawable.map(
@@ -198,7 +259,7 @@ export function Cockpit({
     );
     const owned = new Set(calls.flatMap((one) => (one.owner === undefined ? [] : [one.owner])));
     return [...calls, ...running.filter((one) => !one.key.startsWith("line:") && !owned.has(one.owner ?? one.key)), ...unknown];
-  }, [filter, state, picked, calls, running, over]);
+  }, [filter, state, picked, calls, running, over, bays, now, autopilot.asides]);
   const [view, setView] = useCockpitView();
   const [field, setField] = useState({ width: 900, height: 560 });
   const sky = useMemo(
@@ -214,6 +275,12 @@ export function Cockpit({
     [instruments, sessions, state, field],
   );
   const nowsHeld = useContext(Nows);
+  // A quick act on a Now panel goes to the host, which holds the commands and says a refusal in its toast.
+  const nowHost = (jobId: string) => ({
+    onOpenJob: hosts.onOpen,
+    onSaid: () => {},
+    ...(hosts.onNowAct === undefined ? {} : { onAct: (acted: NowActed) => hosts.onNowAct!(jobId, acted) }),
+  });
 
   // Calls put off for later, in the order they were; and one brought back to the front by choice.
   const [put, setPut] = useState<readonly string[]>([]);
@@ -242,15 +309,7 @@ export function Cockpit({
     front === undefined
       ? undefined
       : leave("sent", () => {
-          setAnswered((was) => new Set([...was, front.key]));
-          setForward(undefined);
-        });
-  /** Gone for good: the card leaves as an answered one does, and what it was about is remembered as dismissed. */
-  const dismiss = () =>
-    front === undefined
-      ? undefined
-      : leave("sent", () => {
-          void dismissItem(front, hosts.onTell);
+          hold(front.key);
           setForward(undefined);
         });
   const later = () =>
@@ -264,6 +323,14 @@ export function Cockpit({
     setPut((was) => was.filter((one) => one !== key));
     setForward(key);
   };
+
+  // An alert's press: the call it spoke of comes to the front, out of the back if it was put off.
+  useEffect(() => {
+    if (bring === undefined || bring === null) return;
+    recall(bring.key);
+    onBrought?.();
+    // `at` alone: the same call pressed twice is two landings.
+  }, [bring?.at]);
 
   // The cursor on the glass.
   const [selected, setSelected] = useState<string>();
@@ -282,13 +349,17 @@ export function Cockpit({
   useBoardKeys(instruments, at, setSelected, hosts, front === undefined && leaving === undefined);
   const answering = useRef<CardKeys | undefined>(undefined);
   useListKeydown((event) => {
-    if (event.metaKey || event.ctrlKey || event.altKey) return;
-    const moves = ["j", "k", "ArrowDown", "ArrowUp", "ArrowLeft", "ArrowRight"].includes(event.key);
+    // Every act's keys are the keymap's, which reads modifiers exactly. The arrows that move across the
+    // glass are spatial rather than an act, and stay bare keys.
+    const bare = !(event.metaKey || event.ctrlKey || event.altKey);
+    const arrow = bare && ["ArrowDown", "ArrowUp", "ArrowLeft", "ArrowRight"].includes(event.key);
+    const step = pressedSlot("move_focus", event);
+    const moves = step !== -1 || arrow;
     if (event.repeat && !moves) return;
     if (holdsText(event.target)) {
-      // The dispatch bar is always empty: Escape or Down hands the keys back to the glass.
+      // An empty field hands the keys back to the glass on Escape or Down.
       const field = event.target;
-      if (field instanceof HTMLInputElement && field.value === "" && (event.key === "Escape" || event.key === "ArrowDown")) {
+      if (field instanceof HTMLInputElement && field.value === "" && (isPressed("close", event) || (bare && event.key === "ArrowDown"))) {
         event.preventDefault();
         field.blur();
       }
@@ -296,7 +367,7 @@ export function Cockpit({
     }
     if (leaving !== undefined) {
       // Enter is not said again: a second press must never send the next call.
-      if (event.key !== "Enter") typed.current.push({ key: event.key, code: event.code, shiftKey: event.shiftKey });
+      if (bare && !isPressed("call_send", event)) typed.current.push({ key: event.key, code: event.code, shiftKey: event.shiftKey });
       return;
     }
     const claim = () => event.preventDefault();
@@ -304,38 +375,30 @@ export function Cockpit({
     if (front !== undefined) {
       const card = answering.current;
       if (card === undefined) return;
-      if (/^[1-9]$/.test(event.key)) return claim(), card.pickNumber(Number(event.key));
-      if (card.pickKey(event.key)) return claim();
-      switch (event.key) {
-        case keyFor("call_reply"): {
-          const field = document.querySelector<HTMLTextAreaElement>(".armada-callcard__reply textarea");
-          return field === null ? undefined : (claim(), field.focus());
-        }
-        case keyFor("call_expand"):
-          return card.expand === undefined ? undefined : (claim(), card.expand());
-        case "ArrowDown":
-        case "j":
-          return claim(), card.step(1);
-        case "ArrowUp":
-        case "k":
-          return claim(), card.step(-1);
-        case "Enter":
-          // A button on the card fires itself on Enter; one elsewhere (the filter just pressed) is not the answer.
-          if ((event.target as HTMLElement).tagName === "BUTTON" && document.querySelector(".armada-callcard")?.contains(event.target as Node) === true) return;
-          return card.canSend ? (claim(), card.send()) : undefined;
-        case keyFor("call_later"):
-        case "Escape":
-          return claim(), later();
-        case keyFor("call_dismiss"):
-          return claim(), dismiss();
-        case "o":
-          return card.open === undefined ? undefined : (claim(), card.open());
+      const digit = pressedDigit("call_pick", event);
+      if (digit !== null) return claim(), card.pickNumber(digit);
+      if (card.pickKey(event)) return claim();
+      if (isPressed("call_reply", event)) {
+        const field = document.querySelector<HTMLTextAreaElement>(".armada-callcard__reply textarea");
+        return field === null ? undefined : (claim(), field.focus());
       }
+      if (isPressed("call_expand", event)) return card.expand === undefined ? undefined : (claim(), card.expand());
+      if (step === 0 || step === 2) return claim(), card.step(1);
+      if (step === 1 || step === 3) return claim(), card.step(-1);
+      if (isPressed("call_send", event)) {
+        // A button on the card fires itself on Enter; one elsewhere (the filter just pressed) is not the answer.
+        if ((event.target as HTMLElement).tagName === "BUTTON" && document.querySelector(".armada-callcard")?.contains(event.target as Node) === true) return;
+        return card.canSend ? (claim(), card.send()) : undefined;
+      }
+      // Nothing else on the card acts while an answer is out, or the answer would clear the wrong one.
+      if (isPressed("call_later", event) || isPressed("close", event)) return claim(), card.pending === undefined ? later() : undefined;
+      if (isPressed("call_dismiss", event)) return claim(), card.dismiss();
+      if (isPressed("open", event)) return card.open === undefined ? undefined : (claim(), card.open());
       return;
     }
 
-    if (event.key === keyFor("dashboard_view")) return claim(), setView(view === "map" ? "grid" : "map");
-    if (view === "map" && ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) {
+    if (isPressed("dashboard_view", event)) return claim(), setView(view === "map" ? "grid" : "map");
+    if (view === "map" && arrow && filter !== "bays") {
       const next = nearest(sky.stars, current?.key ?? "", event.key as "ArrowLeft");
       return next === undefined ? undefined : (claim(), setSelected(next));
     }
@@ -344,18 +407,19 @@ export function Cockpit({
       const next = instruments[Math.min(instruments.length - 1, Math.max(0, at + by))];
       if (next !== undefined) setSelected(next.key);
     };
-    switch (event.key) {
-      case "ArrowRight":
-        return claim(), to(1);
-      case "ArrowLeft":
-        return claim(), to(-1);
-      case "ArrowDown":
-        return claim(), to(cols);
-      case "ArrowUp":
-        return claim(), to(-cols);
-      case keyFor("call_recall"):
-        return edge[0] === undefined ? undefined : (claim(), recall(edge[0].key));
+    if (arrow) {
+      switch (event.key) {
+        case "ArrowRight":
+          return claim(), to(1);
+        case "ArrowLeft":
+          return claim(), to(-1);
+        case "ArrowDown":
+          return claim(), to(cols);
+        case "ArrowUp":
+          return claim(), to(-cols);
+      }
     }
+    if (isPressed("call_recall", event)) return edge[0] === undefined ? undefined : (claim(), recall(edge[0].key));
   });
 
   // Calls that have stood behind another: when one comes to the front it slides up from there.
@@ -368,8 +432,9 @@ export function Cockpit({
       ? undefined
       : current.job === undefined
         ? undefined
-        : nowPanelOf(nowsHeld?.[current.job.id], { onOpenJob: hosts.onOpen, onSaid: () => {} });
-  const pane = filter !== "command-central" && current !== undefined;
+        : nowPanelOf(nowsHeld?.[current.job.id], nowHost(current.job.id));
+  // Bays draws the picked one's acts in its own bay, and keeps the glass for the ship.
+  const pane = filter !== "command-central" && filter !== "bays" && current !== undefined;
   const filters = useFilters(filter);
   const mergeLine = useLayout("dashboard.panels").shown.some((one) => one.id === "merge-line");
 
@@ -379,29 +444,31 @@ export function Cockpit({
         <header className="armada-view__band">
           <span className="armada-view__filters">
             <Tooltip label="Previous filter">
-              <Kbd>{TAB_KEYS.previous}</Kbd>
+              <Kbd>{tabKeys().previous}</Kbd>
             </Tooltip>
             <Tabs items={filters} value={filter} onChange={(id) => onFilter(id as DashboardTab)} />
             <Tooltip label="Next filter">
-              <Kbd>{TAB_KEYS.next}</Kbd>
+              <Kbd>{tabKeys().next}</Kbd>
             </Tooltip>
           </span>
           <span className="armada-view__keys">
-            <span className="armada-view__toggle" role="group" aria-label="View">
-              <Tooltip label="Grid">
-                <Button variant="ghost" size="sm" iconOnly aria-label="Grid" aria-pressed={view === "grid"} onClick={() => setView("grid")}>
-                  <LayoutGrid size={16} aria-hidden="true" />
-                </Button>
-              </Tooltip>
-              <Tooltip label="Map">
-                <Button variant="ghost" size="sm" iconOnly aria-label="Map" aria-pressed={view === "map"} onClick={() => setView("map")}>
-                  <Orbit size={16} aria-hidden="true" />
-                </Button>
-              </Tooltip>
-              <Tooltip label={actionOf("dashboard_view").verb}>
-                <Kbd>{keyFor("dashboard_view")}</Kbd>
-              </Tooltip>
-            </span>
+            {filter === "bays" ? null : (
+              <span className="armada-view__toggle" role="group" aria-label="View">
+                <Tooltip label="Grid">
+                  <Button variant="ghost" size="sm" iconOnly aria-label="Grid" aria-pressed={view === "grid"} onClick={() => setView("grid")}>
+                    <LayoutGrid size={16} aria-hidden="true" />
+                  </Button>
+                </Tooltip>
+                <Tooltip label="Map">
+                  <Button variant="ghost" size="sm" iconOnly aria-label="Map" aria-pressed={view === "map"} onClick={() => setView("map")}>
+                    <Orbit size={16} aria-hidden="true" />
+                  </Button>
+                </Tooltip>
+                <Tooltip label={actionOf("dashboard_view").verb}>
+                  <Kbd>{keyFor("dashboard_view")}</Kbd>
+                </Tooltip>
+              </span>
+            )}
             <Tooltip label={actionOf("move_focus").verb}>
               <span>
                 <Kbd>j</Kbd> <Kbd>k</Kbd>
@@ -412,9 +479,14 @@ export function Cockpit({
             </Tooltip>
           </span>
         </header>
+        {autopilot.bar}
         <div className="armada-view__stage">
           <div className="armada-view__body" data-pane={pane || undefined} data-view={view} style={front === undefined && edge.length > 0 ? { paddingBottom: `calc(var(--space-6) * ${Math.min(3, edge.length)} + var(--space-8))` } : undefined}>
-            {view === "map" ? (
+            {filter === "bays" ? (
+              <div className="armada-view__bays" data-recessed={front === undefined || leaving !== undefined ? undefined : ""}>
+                <Bays autopilot={autopilot.bays} read={bays} reading={state.held.state !== "read" && state.held.state !== "failed"} now={now} selected={selected === undefined ? undefined : current?.key} onSelect={setSelected} onOpenJob={hosts.onOpen} onOpenSession={hosts.onOpenSession} onOpenLink={hosts.onOpenLink} />
+              </div>
+            ) : view === "map" ? (
               <div className="armada-view__map" data-recessed={front === undefined || leaving !== undefined ? undefined : ""}>
                 <FleetMap sky={sky} field={field} onField={setField} selected={current?.key} onSelect={setSelected} />
                 {current === undefined ? null : (
@@ -433,7 +505,7 @@ export function Cockpit({
             )}
             {pane ? (
               <div className="armada-view__pane">
-                <CallPane item={current} now={now} workflows={state.holds.workflows} {...(panel === undefined ? {} : { nowPanel: panel })} onDone={() => setAnswered((was) => new Set([...was, current.key]))} onOpenSession={hosts.onOpenSession} onOpenJob={hosts.onOpen} onOpenLink={hosts.onOpenLink} />
+                <CallPane item={current} now={now} workflows={state.holds.workflows} {...(panel === undefined ? {} : { nowPanel: panel })} onDone={() => hold(current.key)} onOpenSession={hosts.onOpenSession} onOpenJob={hosts.onOpen} onOpenLink={hosts.onOpenLink} />
               </div>
             ) : null}
           </div>
@@ -441,7 +513,7 @@ export function Cockpit({
             <div className="armada-cockpit__scrim" data-hue={front.hue}>
               <div className="armada-stack" style={{ ["--behind" as string]: Math.min(3, edge.length) }}>
                 <Behind edge={edge} put={waiting} recall={recall} />
-                <CallCard key={front.key} item={front} now={now} nowing={front.job === undefined ? undefined : nowPanelOf(nows?.[front.job.id], { onOpenJob: hosts.onOpen, onSaid: () => {} })} state={state} hosts={hosts} finish={finish} later={later} dismiss={dismiss} leaving={leaving} from={seen.current.has(front.key) ? "stack" : undefined} answering={answering} />
+                <CallCard key={front.key} item={front} now={now} nowing={front.job === undefined ? undefined : nowPanelOf(nows?.[front.job.id], nowHost(front.job.id))} state={state} hosts={hosts} finish={finish} later={later} dismiss={finish} leaving={leaving} from={seen.current.has(front.key) ? "stack" : undefined} answering={answering} />
               </div>
             </div>
           ) : edge.length === 0 ? null : (
@@ -452,7 +524,7 @@ export function Cockpit({
             </div>
           )}
         </div>
-        {mergeLine ? <Horizon state={state} sessions={sessions} hosts={hosts} /> : null}
+        {mergeLine && filter !== "bays" ? <Horizon state={state} sessions={sessions} hosts={hosts} /> : null}
       </section>
     </div>
   );

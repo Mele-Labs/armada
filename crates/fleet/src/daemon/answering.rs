@@ -359,7 +359,7 @@ where
     /// took the cold install and the timeout watching it away together.
     /// [`Fleet::admit_next`] holds the rule that came out of it. The wire's
     /// shape is unchanged and the move to `running` follows on the turn that
-    /// dispatches, within one `PROVISIONAL_TURN_INTERVAL`.
+    /// dispatches, within one `timeouts.turnIntervalMs`.
     pub async fn approve(&self, job_id: &JobId) -> Result<Job, Adrift> {
         let job = self.load(job_id).await?;
         // **The gate is `awaiting_approval` and nothing else, said here rather
@@ -557,6 +557,11 @@ where
     /// This task waits for the Job's kept Drone, not one beside it.
     pub(crate) fn left_for_kept(&self, job: &JobId, task: core_model::TaskId) {
         self.held_drones().leave_for_kept(job, task);
+    }
+
+    /// Whether this is the first vanish of a Drone on this task.
+    pub(crate) fn first_vanish_of(&self, job: &JobId, task: core_model::TaskId) -> bool {
+        self.held_drones().first_vanish(job, task)
     }
 
     /// Whether this task waits for the Job's kept Drone.

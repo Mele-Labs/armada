@@ -21,7 +21,9 @@
 //! is refused rather than dropped: a silently ignored entry is a gate the
 //! author believes is watching and nothing is.
 
-use core_model::{EvidenceRef, GamingCheck, GamingPattern, JudgeCheck, JudgeCriterion, OnRefusal};
+use core_model::{
+    EvidenceRef, GamingCheck, GamingPattern, JudgeCheck, JudgeCriterion, ModelName, OnRefusal,
+};
 use serde_yaml_ng::Value;
 
 use crate::error::{Fault, Refusal};
@@ -29,7 +31,14 @@ use crate::roster::{self, Roster};
 use crate::yaml::{self, Table};
 
 /// The keys read inside one `judge_checks` entry.
-const JUDGE_KEYS: &[&str] = &["enabled", "model", "panel_size", "criteria", "gaming_check"];
+const JUDGE_KEYS: &[&str] = &[
+    "enabled",
+    "model",
+    "panel_size",
+    "panel_models",
+    "criteria",
+    "gaming_check",
+];
 /// The keys read inside one criterion.
 const CRITERION_KEYS: &[&str] = &["criterion_id", "question", "on_refusal"];
 /// The legal values of `on_refusal`.
@@ -92,6 +101,39 @@ fn check(at: &str, value: &Value, roster: &Roster, out: &mut Vec<Refusal>) -> Op
         .optional("panel_size")
         .and_then(|value| yaml::positive(&table.at("panel_size"), value, out))
         .unwrap_or(1);
+    // One model per member, each refused unless the roster offers it, for
+    // `model`'s reason. **A panel of one model is not a second opinion**, so
+    // this is what lets an agreed refusal go back to the Drone — #206.
+    let members: Vec<ModelName> = table
+        .optional("panel_models")
+        .and_then(|value| yaml::list(&table.at("panel_models"), value, out))
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(|(at, item)| {
+                    yaml::text(at, item, out)
+                        .and_then(|named| roster::offered(at, named, roster, out))
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    // The list sizes the panel, so a `panel_size` beside it is either the same
+    // number twice or two answers to one question.
+    if let Some(declared) = table.optional("panel_size").and_then(Value::as_u64) {
+        let named = table
+            .optional("panel_models")
+            .and_then(Value::as_sequence)
+            .map(Vec::len);
+        if let Some(named) = named.filter(|named| *named as u64 != declared) {
+            out.push(Refusal::new(
+                table.at("panel_size"),
+                Fault::PanelSizeAndModelsDisagree {
+                    size: declared,
+                    models: named,
+                },
+            ));
+        }
+    }
     let criteria: Vec<JudgeCriterion> = table
         .optional("criteria")
         .and_then(|value| yaml::list(&table.at("criteria"), value, out))
@@ -111,7 +153,9 @@ fn check(at: &str, value: &Value, roster: &Roster, out: &mut Vec<Refusal>) -> Op
     // some it will not ask — one representation, so nothing downstream has two
     // ways to be off.
     match enabled {
-        true => Some(JudgeCheck::declared(model, panel_size, criteria, gaming)),
+        true => {
+            Some(JudgeCheck::declared(model, panel_size, criteria, gaming).with_members(members))
+        }
         false => Some(JudgeCheck::declared(model, panel_size, Vec::new(), None)),
     }
 }

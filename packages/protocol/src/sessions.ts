@@ -82,13 +82,39 @@ export type SessionRecord = {
 /** What a press on a waiting item does. `target` is an address, a call, a pull request number or a command. */
 export type WaitingAct = { kind: "walk" | "answer" | "approve_pr" | "run"; target: string };
 
-/** Who put an item on the list: the agent, or Fleet from an open card, a permission or an unapproved walk window. */
-export type WaitingSource = "agent" | "ask_card" | "walk" | "permission";
+/**
+ * Who put an item on the list: the agent, or Fleet from an open card, a permission, an unapproved walk
+ * window, or a question the session asked in its walk window (`ask_in_window`).
+ */
+export type WaitingSource = "agent" | "ask_card" | "walk" | "permission" | "window_ask";
+
+/** One choice of an item or a question, with what choosing it means where the asker said. */
+export type WaitingOption = { label: string; description?: string };
+
+/**
+ * Where on a walked page a question points: the address, on the origin of a window the session showed,
+ * a CSS selector for the element, and text it shows that picks one where the selector finds several.
+ */
+export type WindowPlace = { url: string; selector: string; text?: string };
+
+/**
+ * `POST /sessions/window/ask`, the agent's: a question about a place on the page its walk window shows.
+ * Answered at once with the `SessionRecord`; the person's answer comes back as their message.
+ */
+export type AskInWindow = {
+  question: string;
+  options?: WaitingOption[];
+  url: string;
+  selector: string;
+  text?: string;
+  session_id?: string;
+};
 
 /**
  * One thing a session waits on the person for. `id` is stable across updates: the agent's own, or
- * `ask:<call>`, `perm:<call>`, `walk:<url>` where Fleet derived it. `options` is present only on an
- * `answer` item that has choices, and `answer_waiting`'s `choice` indexes it.
+ * `ask:<call>`, `perm:<call>`, `walk:<url>`, `window_ask:<row>` where Fleet derived it. `options` is
+ * present only on an item that has choices, and `answer_waiting`'s `choice` indexes it. `place` is
+ * present only on a `window_ask` item, whose `act` is a walk of the window it was asked in.
  */
 export type WaitingItem = {
   id: string;
@@ -96,7 +122,8 @@ export type WaitingItem = {
   since: string;
   source: WaitingSource;
   act?: WaitingAct;
-  options?: { label: string }[];
+  options?: WaitingOption[];
+  place?: WindowPlace;
 };
 
 /**
@@ -128,6 +155,12 @@ export type PullRequestClaimed = { number: number; branch: string; url: string; 
  * it (`ask:`, `perm:`, `walk:`) or the agent stated it, and nothing is sent to the agent.
  */
 export type DismissWaiting = { session_id: string; item_id: string };
+
+/**
+ * `POST /sessions/window/closed`: the person closed the window a session showed, by its `url` as
+ * `show_window` named it. It ends the session's walk and settles nothing on Waiting on you.
+ */
+export type WindowClosed = { session_id: string; url: string };
 
 /** A command a terminal session lists, for `/` to offer. Since 23.53. */
 export type TerminalCommand = { name: string; says: string };
@@ -187,3 +220,21 @@ export type SessionReport = {
   session_id: string;
   fact: SessionFact;
 };
+
+/**
+ * `POST /sessions/checks`: `armada check` tells Fleet a run began or ended in `cwd`. Fleet places the
+ * Session by the slot the directory is in. `run`, `outcome` and `log` ride the `end`. Since 23.75.
+ * Bridge never sends it; it is here so the wire reads whole.
+ */
+export type SessionCheckCall = {
+  act: "start" | "end";
+  cwd: string;
+  name: string;
+  run?: number;
+  outcome?: "passed" | "failed";
+  took_ms?: number;
+  log?: string;
+};
+
+/** What it answers. `run` is absent where no Session holds the slot, which is a person's own run. */
+export type SessionCheckAnswer = { run?: number };

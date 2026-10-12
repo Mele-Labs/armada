@@ -26,6 +26,7 @@ use crate::daemon::Fleet;
 use crate::permitting::{
     always_allow_rules, first, Answered, First, Permitted, Refusing, Waiting, Withheld,
 };
+use crate::prompts::Prompts;
 use crate::resume::{Redirection, Steer};
 use crate::session::{LiveSession, Occasion};
 
@@ -188,11 +189,15 @@ fn said_of(answered: &Answered) -> &'static str {
 /// **The note rides the reject and nothing else can read it**: [`Answered`] has
 /// no field for one on an allow, so there is no arm here that could carry a
 /// person's words into a sentence about a command that was permitted.
-fn permitted(command: &str, answered: &Answered) -> Permitted {
+fn permitted(prompts: &Prompts, command: &str, answered: &Answered) -> Permitted {
     match answered {
-        Answered::Allowed(reach, rule) => Permitted::allowed(command, *reach, rule.as_deref()),
-        Answered::AllowedInKit(rule) => Permitted::allowed_in_kit(command, rule.as_deref()),
-        Answered::Rejected(note) => Permitted::rejected(command, note.as_ref()),
+        Answered::Allowed(reach, rule) => {
+            Permitted::allowed(prompts, command, *reach, rule.as_deref())
+        }
+        Answered::AllowedInKit(rule) => {
+            Permitted::allowed_in_kit(prompts, command, rule.as_deref())
+        }
+        Answered::Rejected(note) => Permitted::rejected(prompts, command, note.as_ref()),
     }
 }
 
@@ -720,7 +725,7 @@ where
             None => Some(answered),
         };
         if let Some(answered) = as_a_turn {
-            let told = permitted(&command, &answered);
+            let told = permitted(&self.prompts(), &command, &answered);
             at_work.instructed(Occasion::Permission, told.text());
             at_work
                 .session()
@@ -731,12 +736,11 @@ where
                 })?;
             at_work.waiting(self.now());
         }
-        if let Some(mode) = mode {
-            let deciding = crate::questioning::Answer::deciding(mode);
-            at_work.instructed(Occasion::Answer, deciding.text());
+        if let Some(deciding) = mode.and_then(|mode| Redirection::saying(mode_line(mode))) {
+            at_work.instructed(Occasion::Redirect, deciding.text());
             at_work
                 .session()
-                .answer(&deciding)
+                .redirect(&deciding)
                 .await
                 .map_err(|cause| NotPermitted::NotDelivered {
                     cause: cause.to_string(),
@@ -787,7 +791,7 @@ where
         }
         let step = crate::stuck::stopped_step(&job).cloned();
         let delivered = if self.drone_speakable(job_id).await {
-            let told = permitted(&command, &answered);
+            let told = permitted(&self.prompts(), &command, &answered);
             let told = match mode {
                 Some(mode) => told.deciding(mode),
                 None => told,
@@ -836,9 +840,7 @@ where
             return Some((refusal.tool.clone(), None));
         }
         let command = if refusal.truncated {
-            crate::transcript::arguments(records, &handle, call)
-                .await
-                .map(|whole| whole.arguments)
+            crate::transcript::arguments(records, &handle, call).await
         } else {
             Some(refusal.detail.clone())
         };

@@ -6,7 +6,9 @@
 //! # Four acts arrive here and none of them spawned for itself
 //!
 //! `approve_review`, `request_changes`, `restart_step` and `override_verdict`
-//! each end with the Job at `queued` and no Drone. That is the whole of what
+//! each end with the Job at `queued` and no Drone. So does a Drone asking a
+//! person something (`crate::questioning`), and the answer is what lets
+//! admission take it again. That is the whole of what
 //! `settings.concurrency-cap` bounding Drones means: **a person's act is
 //! accepted whatever the cap holds, and admission is the only thing that starts
 //! one.** The first two always took `awaiting_review -> queued`; the second two
@@ -45,13 +47,15 @@ use crate::working::Working;
 /// | The current step reads | What put it back | The Drone gets |
 /// |---|---|---|
 /// | `running` | an approval, or changes asked for | the next step, or the same one again |
+/// | `running`, a question on the Job | its Drone asked, and a person answered | the same step, told the answer |
 /// | `stopped` | a restart | the same step, told what stopped it |
 /// | `advanced`, no dispatch | an override | the step after it, told a person cleared this one |
 /// | `advanced`, it dispatched | Fleet, once the children finished | the step after it, told what they came to |
 /// | `advanced` and `passed`, no dispatch | Fleet, once a freeze lifted | the step after it, told the gate cleared this one |
 ///
-/// The two `running` cases are told apart by the waiting note, which is
-/// `request_changes`'s alone — that test predates this file and is unchanged.
+/// The first two `running` cases are told apart by the waiting note, which is
+/// `request_changes`'s alone; the third by the question on the record, which
+/// only `crate::questioning` writes.
 /// The two `advanced` cases are told apart by the frozen workflow, which is the
 /// only thing that knows whether a step was allowed to create Jobs.
 ///
@@ -85,6 +89,10 @@ pub(crate) enum Owed {
     /// The step is `advanced` and `passed` — the machine cleared it — and a
     /// freeze stood the Job down before the next one started. Fleet's doing.
     AfterAFreeze { advanced: StepId, next: StepId },
+    /// The step is `running` and the Job holds a question — its Drone asked a
+    /// person and stood down. The step is already entered, and the run it
+    /// began goes on: `crate::spawning` folds the answer into the brief.
+    Answered { step: StepId },
 }
 
 impl Owed {
@@ -109,15 +117,16 @@ impl Owed {
     /// place. A variant added here that is Fleet's own doing, rather than a
     /// person's, wants `None` for the same reason.
     ///
-    /// A Drone waiting on an answer never reaches this at all: its Job stays
-    /// `running` and is never re-queued, so `crate::questioning` is the second
-    /// case this rule covers and it covers it by not arriving.
+    /// **A Job whose Drone asked is `None` too**, though a person's answer is
+    /// what lets it go. While it waits the row reads `awaiting_answer`, which
+    /// already says it; after the answer it is back in the line in moments,
+    /// and a fourth word would be bought for that span.
     pub(crate) fn resumption(&self) -> Option<Resumption> {
         match self {
             Owed::Standing { .. } => Some(Resumption::Reviewed),
             Owed::Restarted { .. } => Some(Resumption::Restarted),
             Owed::Overruled { .. } => Some(Resumption::Overruled),
-            Owed::AfterADispatch { .. } | Owed::AfterAFreeze { .. } => None,
+            Owed::AfterADispatch { .. } | Owed::AfterAFreeze { .. } | Owed::Answered { .. } => None,
         }
     }
 }
@@ -283,6 +292,9 @@ where
                 step: Some(step.clone()),
             })?;
         match state {
+            // Asked before the note, because a Job holding a question was put
+            // here by its own Drone and not by a person at a gate.
+            StepState::Running if job.question().is_some() => Ok(Owed::Answered { step }),
             StepState::Running => Ok(Owed::Standing {
                 cleared: job.redirect_waiting().is_none(),
                 step,
@@ -343,7 +355,7 @@ where
     /// arrive with a step still to move: see the module header.
     async fn entered(&self, job: Job, owed: &Owed) -> Result<(Job, StepId), Adrift> {
         match owed {
-            Owed::Standing { step, .. } => Ok((job, step.clone())),
+            Owed::Standing { step, .. } | Owed::Answered { step } => Ok((job, step.clone())),
             Owed::Restarted { step } => {
                 let job = self.move_step(&job, step, StepTarget::Running).await?;
                 Ok((job, step.clone()))
@@ -393,10 +405,13 @@ fn carried_across(
         // left out for the opposite reason: the part before it *was* cleared, by
         // the machine, and that is `Cleared::checked` two arms down rather than
         // `Cleared::reviewed`.
+        // An answered question continues the same part, so nothing before it
+        // was just cleared by anybody.
         Owed::Standing { .. }
         | Owed::Restarted { .. }
         | Owed::AfterADispatch { .. }
-        | Owed::AfterAFreeze { .. } => None,
+        | Owed::AfterAFreeze { .. }
+        | Owed::Answered { .. } => None,
     };
     if let Owed::AfterADispatch { dispatched, .. }
     | Owed::AfterAFreeze {

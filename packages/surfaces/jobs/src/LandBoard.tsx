@@ -5,7 +5,7 @@
 // run, the plan and the record are the destinations under it — a board that
 // redrew them would be a second copy of each, one tab away from the first.
 
-import { actionOf, Button, JobOutcome, Kbd, ProducedGroups, ProducedPanel, Tooltip } from "@armada/components";
+import { actionOf, Button, keyFor, JobOutcome, Kbd, ProducedGroups, ProducedPanel, Tooltip } from "@armada/components";
 import type { JobOutcomePart } from "@armada/components";
 import { File, Folder, GitBranch, GitCommitHorizontal, GitPullRequest } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -66,7 +66,7 @@ export function LandBoard({ read, onOpenPullRequest, onCompose, onCopied }: Land
         <Tooltip asChild label="A new Job, from an empty composer">
           <Button variant="secondary" ground="sunken" onClick={onCompose}>
             {dispatch.verb}
-            <Kbd aria-hidden>{dispatch.shortcut}</Kbd>
+            <Kbd aria-hidden>{keyFor("new_job")}</Kbd>
           </Button>
         </Tooltip>
       </div>

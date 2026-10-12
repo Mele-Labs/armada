@@ -3,7 +3,7 @@
 use std::sync::Arc;
 
 use api::{HostedSessions, Sessions};
-use ipc::{OverrideSleep, SessionRow, SessionVoice, SetSleep, ShowWindow, TuneSession, SessionMode};
+use ipc::{OverrideSleep, ReviewSleep, SessionRow, SessionVoice, SetSleep, ShowWindow, TuneSession, SessionMode};
 use store::KeptWaiting;
 
 use super::session_host::{eventually, rig_placing, Rig};
@@ -179,12 +179,30 @@ async fn an_override_sends_the_session_the_correction_and_marks_the_row() {
     assert!(matches!(blank, Err(api::Refusal::Unacceptable(_))));
     let ghost = Arc::clone(&rig.fleet).override_sleep(OverrideSleep { id: "nope".into(), text: "x".into() }).await;
     assert!(matches!(ghost, Err(api::Refusal::IllegalMove(_))));
+    let row_id = row.clone();
     let state = Arc::clone(&rig.fleet)
         .override_sleep(OverrideSleep { id: row, text: "Use the frozen one".into() })
         .await
         .unwrap();
-    assert_eq!(state.decided[0].corrected.as_deref(), Some("Use the frozen one"));
+    assert!(state.decided.is_empty(), "a changed decision is reviewed and leaves the review");
+    let kept = rig.fleet.store().lock().await.sleep_row(&row_id).unwrap().unwrap();
+    assert_eq!(kept.corrected.as_deref(), Some("Use the frozen one"));
     assert_eq!(said(&rig, &id).await.last().unwrap(), "Re: Which clock?\nUse the frozen one");
+}
+
+#[tokio::test]
+async fn a_kept_decision_leaves_decided_and_a_ghost_is_refused() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    on(&rig).await;
+    keep(&rig, &id, &[item("a", "Which clock?", &["Fake"], OLD)]).await;
+    pass(&rig).await;
+    let row = night(&rig).await.decided[0].id.clone();
+    let ghost = Arc::clone(&rig.fleet).review_sleep(ReviewSleep { id: "nope".into() }).await;
+    assert!(matches!(ghost, Err(api::Refusal::IllegalMove(_))));
+    let state = Arc::clone(&rig.fleet).review_sleep(ReviewSleep { id: row }).await.unwrap();
+    assert!(state.decided.is_empty());
+    assert!(night(&rig).await.decided.is_empty());
 }
 
 #[test]
@@ -195,7 +213,8 @@ fn what_counts_as_destructive_reads_the_text_and_the_options() {
         since: ipc::Instant::carried(OLD),
         source: ipc::WaitingSource::Agent,
         act: None,
-        options: options.iter().map(|label| ipc::WaitingOption { label: (*label).into() }).collect(),
+        options: options.iter().map(|label| ipc::WaitingOption { label: (*label).into(), description: None }).collect(),
+        place: None,
     };
     assert!(crate::sleeping::destructive(&one("Close PR 12?", &[])));
     assert!(crate::sleeping::destructive(&one("Which?", &["Overwrite it", "Keep"])));

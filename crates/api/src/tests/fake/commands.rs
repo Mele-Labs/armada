@@ -289,45 +289,6 @@ impl Commands for FakeDaemon {
         Ok(ipc::FleetBuildChanging { build })
     }
 
-    /// Each field the save names replaces the fake's value. What a save does to
-    /// admission is `fleet::limits`' and tested there.
-    async fn save_limits(&self, save: ipc::SaveLimits) -> Result<ipc::FleetLimits, Refusal> {
-        let mut limits = self.limits.lock().expect("not poisoned");
-        if let Some(v) = save.concurrency {
-            limits.values.concurrency = v.get();
-        }
-        if let Some(v) = save.memory_spare_percent {
-            limits.values.memory_spare_percent = v.get();
-        }
-        if let Some(v) = save.disk_floor_gib {
-            limits.values.disk_floor_gib = v.get();
-        }
-        if let Some(v) = save.checks_at_once {
-            limits.values.checks_at_once = v.get();
-        }
-        Ok(*limits)
-    }
-
-    /// The one preference name this fake knows; anything else is the 422 a
-    /// route test tells apart from a missing route by its code.
-    async fn save_preferences(
-        &self,
-        save: ipc::SavePreference,
-    ) -> Result<ipc::Preferences, Refusal> {
-        let mut preferences = self.preferences.lock().expect("not poisoned");
-        match save.name.as_str() {
-            "where_things_are_open" => {
-                preferences.where_things_are_open = save.value;
-                Ok(preferences.clone())
-            }
-            other => Err(Refusal::Unacceptable(ipc::WireError::raised(
-                "fleet.unknown_preference",
-                format!("`{other}` is not a preference this build reads"),
-                crate::tests::shapes::run_id(),
-            ))),
-        }
-    }
-
     /// The named row goes, by its exact text; one absent is the 409 every
     /// fake give a name that names nothing.
     async fn add_repository(

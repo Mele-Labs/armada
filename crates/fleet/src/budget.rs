@@ -15,7 +15,7 @@ use crate::adrift::Adrift;
 
 /// How long Fleet gives a plain command before answering
 /// [`Adrift::CommandTimedOut`]. Paired with Bridge's `COMMAND_MS` — see
-/// `PROVISIONAL_COMMAND_BUDGET` in `crates/armada/src/serve.rs`.
+/// `timeouts.commandSeconds` in settings.json.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct CommandBudget(Duration);
 

@@ -1,4 +1,4 @@
-import { mkdtemp, mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -10,9 +10,10 @@ import {
   isAnnotation,
   isAnnotationId,
   serializeAnnotation,
+  ANNOTATION_CHANNELS,
   type Annotation,
 } from "../shared/annotations";
-import { listAnnotations, removeAnnotation, repositoryRoot, saveAnnotation } from "./annotations";
+import { handleAnnotations, listAnnotations, readShot, removeAnnotation, repositoryRoot, saveAnnotation, saveShot } from "./annotations";
 import { answer } from "./annotations-server";
 
 function note(overrides: Partial<Annotation> = {}): Annotation {
@@ -72,6 +73,19 @@ describe("the note", () => {
   });
 });
 
+describe("the note's picture", () => {
+  it("is named on the note as its own id's PNG, and a note without one still reads", () => {
+    const shot = note({ screenshot: `${note().id}.png` });
+    expect(isAnnotation(shot)).toBe(true);
+    expect(JSON.parse(serializeAnnotation(shot))).toEqual(shot);
+    expect(Object.keys(JSON.parse(serializeAnnotation(note())))).not.toContain("screenshot");
+    for (const screenshot of ["other.png", "../x.png", `${note().id}.jpg`, 1]) expect(isAnnotation({ ...note(), screenshot })).toBe(false);
+  });
+});
+
+/** The eight bytes a PNG starts with, and one more. */
+const PNG = Uint8Array.from([137, 80, 78, 71, 13, 10, 26, 10, 0]);
+
 describe("the files", () => {
   let dir = "";
   beforeEach(async () => {
@@ -126,6 +140,62 @@ describe("the files", () => {
     expect((await listAnnotations(dir)).map((n) => n.id)).toEqual([note().id]);
   });
 
+  it("keeps a note's picture beside it, reads it back, and never lists it as a note", async () => {
+    await saveAnnotation(dir, note({ screenshot: `${note().id}.png` }));
+    await saveShot(dir, note().id, PNG.buffer);
+    expect((await readdir(dir)).sort()).toEqual([`${note().id}.json`, `${note().id}.png`]);
+    expect(new Uint8Array((await readShot(dir, note().id))!)).toEqual(PNG);
+    expect((await listAnnotations(dir)).map((n) => n.id)).toEqual([note().id]);
+    expect(await readShot(dir, "absent")).toBeNull();
+    // Not even a `.png` holding a note's text, which only a hand could write.
+    await writeFile(join(dir, "20260916-222106-zzzz.png"), serializeAnnotation(note({ id: "20260916-222106-zzzz" })));
+    expect((await listAnnotations(dir)).map((n) => n.id)).toEqual([note().id]);
+  });
+
+  it("deletes the picture with the note", async () => {
+    await saveAnnotation(dir, note({ screenshot: `${note().id}.png` }));
+    await saveShot(dir, note().id, PNG);
+    await removeAnnotation(dir, note().id);
+    expect(await readdir(dir)).toEqual([]);
+  });
+
+  it("writes a picture through a rename, so a reader holds the old file or the new one and never half of one", async () => {
+    await saveShot(dir, note().id, PNG);
+    const before = (await stat(join(dir, `${note().id}.png`))).ino;
+    await saveShot(dir, note().id, PNG);
+    // A rename lands a new file where the old one was; a write in place keeps the inode.
+    expect((await stat(join(dir, `${note().id}.png`))).ino).not.toBe(before);
+    const other = Uint8Array.from([...PNG, 1, 2, 3]);
+    await Promise.all([saveShot(dir, note().id, PNG), saveShot(dir, note().id, other)]);
+    expect(await readdir(dir)).toEqual([`${note().id}.png`]);
+    expect([PNG.length, other.length]).toContain((await readFile(join(dir, `${note().id}.png`))).length);
+  });
+
+  it("writes no picture that is not a PNG, or under an id that could leave the directory", async () => {
+    await expect(saveShot(dir, note().id, new TextEncoder().encode("<svg/>"))).rejects.toThrow("not a PNG");
+    await expect(saveShot(dir, note().id, "iVBORw0KGgo=")).rejects.toThrow("not a PNG");
+    await expect(saveShot(dir, "../../etc", PNG)).rejects.toThrow("not an annotation id");
+    await expect(readShot(dir, "../x")).rejects.toThrow("not an annotation id");
+    expect(await listAnnotations(dir)).toEqual([]);
+    await expect(readdir(dir)).rejects.toThrow();
+  });
+
+  it("answers the picture channels from main, refusing what is not an id or a PNG", async () => {
+    const root = join(dir, "..", "..");
+    await writeFile(join(root, "pnpm-workspace.yaml"), "");
+    await writeFile(join(root, "Cargo.toml"), "");
+    const handlers = new Map<string, (event: unknown, ...args: unknown[]) => unknown>();
+    expect(handleAnnotations({ handle: (channel, listener) => void handlers.set(channel, listener) }, root, async () => null)).toBe(dir);
+    const call = (channel: string, ...args: unknown[]) => Promise.resolve(handlers.get(channel)!({}, ...args));
+
+    await expect(call(ANNOTATION_CHANNELS.saveShot, "../x", PNG)).rejects.toThrow();
+    await expect(call(ANNOTATION_CHANNELS.saveShot, note().id, { length: 9 })).rejects.toThrow();
+    await call(ANNOTATION_CHANNELS.saveShot, note().id, PNG.buffer);
+    expect(new Uint8Array((await call(ANNOTATION_CHANNELS.shot, note().id)) as ArrayBuffer)).toEqual(PNG);
+    await call(ANNOTATION_CHANNELS.remove, note().id);
+    expect(await call(ANNOTATION_CHANNELS.shot, note().id)).toBeNull();
+  });
+
   it("lists nothing when the directory does not exist yet", async () => {
     expect(await listAnnotations(join(dir, "absent"))).toEqual([]);
   });
@@ -140,7 +210,7 @@ describe("the files", () => {
 });
 
 /** A request as connect hands it to the middleware, with the mount path stripped. */
-function request(method: string, url: string, body?: string): IncomingMessage {
+function request(method: string, url: string, body?: string | Uint8Array): IncomingMessage {
   const stream = Readable.from(body === undefined ? [] : [Buffer.from(body)]) as unknown as IncomingMessage;
   return Object.assign(stream, { method, url });
 }
@@ -153,8 +223,8 @@ function response(): ServerResponse & { status: () => number; body: () => string
       status = value;
     },
     setHeader: () => undefined,
-    end: (chunk?: string) => {
-      body = chunk ?? "";
+    end: (chunk?: string | Buffer) => {
+      body = typeof chunk === "string" ? chunk : chunk === undefined ? "" : chunk.toString("latin1");
     },
     status: () => status,
     body: () => body,
@@ -184,6 +254,35 @@ describe("the dev server's routes", () => {
     const del = response();
     await answer(dir, request("DELETE", `/${note().id}`), del);
     expect(del.status()).toBe(204);
+    expect(await readdir(dir)).toEqual([]);
+  });
+
+  it("keeps a note's picture on PUT, serves it on GET, and deletes it with the note", async () => {
+    await answer(dir, request("PUT", `/${note().id}`, JSON.stringify(note({ screenshot: `${note().id}.png` }))), response());
+    const put = response();
+    await answer(dir, request("PUT", `/${note().id}.png`, PNG), put);
+    expect(put.status()).toBe(204);
+
+    const get = response();
+    await answer(dir, request("GET", `/${note().id}.png`), get);
+    expect(get.status()).toBe(200);
+    expect(Buffer.from(get.body(), "latin1")).toEqual(Buffer.from(PNG));
+
+    const list = response();
+    await answer(dir, request("GET", "/"), list);
+    expect(JSON.parse(list.body()).map((one: Annotation) => one.id)).toEqual([note().id]);
+
+    await answer(dir, request("DELETE", `/${note().id}`), response());
+    expect(await readdir(dir)).toEqual([]);
+    const gone = response();
+    await answer(dir, request("GET", `/${note().id}.png`), gone);
+    expect(gone.status()).toBe(404);
+  });
+
+  it("refuses a picture that is not a PNG", async () => {
+    const res = response();
+    await answer(dir, request("PUT", `/${note().id}.png`, "<svg/>"), res);
+    expect(res.status()).toBe(400);
     expect(await readdir(dir)).toEqual([]);
   });
 

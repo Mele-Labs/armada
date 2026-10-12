@@ -90,7 +90,7 @@ export function nowViewOf({ whole, drones, board = [], at = Date.now() }: NowRea
   const asks: NowAskView[] = [];
   const judging = whole.judge_question;
   if (judging !== undefined) {
-    asks.push({ key: `judge:${judging.step_id}:${judging.criterion_id}`, kind: "judge", name: `Judge on ${stepOf(judging.step_id)?.label ?? judging.step_id}`, text: judging.question });
+    asks.push({ key: `judge:${judging.step_id}:${judging.criterion_id}`, kind: "judge", name: `Judge on ${stepOf(judging.step_id)?.label ?? judging.step_id}`, text: judging.question, asked: { kind: "judge", at: judging.asked_at } });
   }
   const asking = whole.asking;
   if (asking !== undefined) {
@@ -100,6 +100,7 @@ export function nowViewOf({ whole, drones, board = [], at = Date.now() }: NowRea
       kind: "drone",
       name: asker === undefined ? `${stepOf(asking.step_id)?.label ?? asking.step_id} Drone` : droneName(asker),
       text: asking.question,
+      asked: { kind: "question", id: asking.question_id },
       ...(asker === undefined ? {} : { target: asker.id }),
     });
   }
@@ -111,6 +112,7 @@ export function nowViewOf({ whole, drones, board = [], at = Date.now() }: NowRea
       kind: "drone",
       name: asker === undefined ? `${stepOf(command.step_id)?.label ?? command.step_id} Drone` : droneName(asker),
       text: command.detail === "" ? command.tool : `${command.tool} ${command.detail}`,
+      asked: { kind: "command" },
       ...(asker === undefined ? {} : { target: asker.id }),
     });
   }

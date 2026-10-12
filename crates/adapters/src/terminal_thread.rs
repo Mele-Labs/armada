@@ -6,9 +6,12 @@
 //! and a line this does not draw is skipped. The row's id is the line's own
 //! `uuid`, so a line read twice replaces itself.
 
+use std::collections::BTreeMap;
 use std::fs::File;
 use std::io::{Read as _, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
+use std::sync::Mutex;
+use std::time::SystemTime;
 
 use ipc::{Instant, SessionRow, SessionVoice};
 use serde::Deserialize;
@@ -17,6 +20,9 @@ use adapter_traits::{DroneEvent, Speaker};
 
 use crate::reading_in::SESSIONS;
 use crate::transcript;
+
+mod follow;
+pub use follow::Followed;
 
 /// Where a read got to, and what it drew.
 pub struct Thread {
@@ -68,9 +74,9 @@ pub fn bring_conversation_to(home: &str, id: &str, directory: &str) -> std::io::
     Ok(())
 }
 
-/// The rows of the whole lines written from `offset` on. A line still being
-/// written is left for the next read.
-pub fn read_from(file: &Path, offset: u64) -> std::io::Result<Thread> {
+/// The whole lines written from `offset` on, as text, with the offset they were read from (0 where
+/// the file is shorter than `offset`) and the offset of the first byte not read.
+fn whole_lines(file: &Path, offset: u64) -> std::io::Result<(String, u64, u64)> {
     let mut open = File::open(file)?;
     let length = open.metadata()?.len();
     let from = if offset > length { 0 } else { offset };
@@ -78,12 +84,16 @@ pub fn read_from(file: &Path, offset: u64) -> std::io::Result<Thread> {
     let mut bytes = Vec::new();
     open.read_to_end(&mut bytes)?;
     let whole = bytes.iter().rposition(|byte| *byte == b'\n').map_or(0, |at| at + 1);
-    let text = String::from_utf8_lossy(&bytes[..whole]);
+    let text = String::from_utf8_lossy(&bytes[..whole]).into_owned();
+    Ok((text, from, from + whole as u64))
+}
+
+/// The rows of the whole lines written from `offset` on. A line still being
+/// written is left for the next read.
+pub fn read_from(file: &Path, offset: u64) -> std::io::Result<Thread> {
+    let (text, _, next) = whole_lines(file, offset)?;
     let rows = text.lines().flat_map(|line| drawn(line, false)).collect();
-    Ok(Thread {
-        rows,
-        next: from + whole as u64,
-    })
+    Ok(Thread { rows, next })
 }
 
 /// A subagent's own transcript, drawn as a thread is.
@@ -102,9 +112,21 @@ pub fn find_subagent(home: &str, id: &str, agent: &str) -> Option<PathBuf> {
     if agent.is_empty() || !agent.chars().all(|c| c.is_ascii_alphanumeric() || c == '-') {
         return None;
     }
+    let key = (home.to_string(), id.to_string(), agent.to_string());
+    let kept = FOUND.lock().ok().and_then(|seen| seen.get(&key).cloned());
+    if let Some(file) = kept.filter(|file| file.is_file()) {
+        return Some(file);
+    }
     let file = find(home, id)?.with_extension("").join("subagents").join(format!("agent-{agent}.jsonl"));
-    file.is_file().then_some(file)
+    let found = file.is_file().then_some(file)?;
+    if let Ok(mut seen) = FOUND.lock() {
+        seen.insert(key, found.clone());
+    }
+    Some(found)
 }
+
+/// Where a subagent's file was found, so a repeat is a `stat` and not a listing of every project.
+static FOUND: Mutex<BTreeMap<(String, String, String), PathBuf>> = Mutex::new(BTreeMap::new());
 
 /// The whole of a subagent's transcript. It is small beside a session's, and a read from the start
 /// keeps the answer one value.
@@ -113,30 +135,36 @@ pub fn read_subagent(file: &Path) -> std::io::Result<Subagent> {
     let whole = bytes.iter().rposition(|byte| *byte == b'\n').map_or(0, |at| at + 1);
     let text = String::from_utf8_lossy(&bytes[..whole]);
     let mut rows = Vec::new();
+    let mut done = None;
+    fold_subagent(&text, &mut rows, &mut done);
+    Ok(match done {
+        Some(report) => Subagent { rows, finished: true, report },
+        None => Subagent { rows, finished: false, report: None },
+    })
+}
+
+/// Draw the whole lines of a subagent's transcript onto `rows`, carrying `done` from one call to
+/// the next: it is the only thing that crosses a line.
+fn fold_subagent(text: &str, rows: &mut Vec<SessionRow>, done: &mut Option<Option<String>>) {
     // **Finished where the last thing it did was finish**: a turn ended, or a hand-back. A
     // background subagent ends on `SubagentHandback` and never on `end_turn`, so a ledger read
     // only the one kept every finished subagent "running" (8 Oct 2026). Work after either, a
     // resumed subagent, makes it running again.
-    let mut done: Option<Option<String>> = None;
     for line in text.lines() {
         let drew = drawn(line, true);
         if let Some(said) = handed_back(line) {
-            done = Some(Some(said));
+            *done = Some(Some(said));
         } else if ended(line) {
             let report = drew.iter().rev().find_map(|row| match row {
                 SessionRow::Message { from: SessionVoice::Agent, text, .. } => Some(text.clone()),
                 _ => None,
             });
-            done = Some(report);
+            *done = Some(report);
         } else if worked(line) {
-            done = None;
+            *done = None;
         }
         rows.extend(drew);
     }
-    Ok(match done {
-        Some(report) => Subagent { rows, finished: true, report },
-        None => Subagent { rows, finished: false, report: None },
-    })
 }
 
 #[derive(Deserialize)]
@@ -185,9 +213,64 @@ fn worked(line: &str) -> bool {
 
 /// Whether subagent `agent` of session `id` has ended its turn, by the file the CLI keeps for it.
 pub fn subagent_ended(home: &str, id: &str, agent: &str) -> bool {
-    find_subagent(home, id, agent)
-        .and_then(|file| read_subagent(&file).ok())
-        .is_some_and(|one| one.finished)
+    find_subagent(home, id, agent).is_some_and(|file| finished_cached(&file))
+}
+
+/// What a file said last time, keyed by its length and modified time: an unchanged file costs a
+/// `stat`. A transcript is only ever appended to, so a file that grew has a new length.
+static FINISHED: Mutex<BTreeMap<PathBuf, (u64, SystemTime, bool)>> = Mutex::new(BTreeMap::new());
+
+pub(crate) fn finished_cached(file: &Path) -> bool {
+    let Ok(meta) = std::fs::metadata(file) else {
+        return false;
+    };
+    let Ok(modified) = meta.modified() else {
+        return finished_at_the_end(file).unwrap_or(false);
+    };
+    let key = (meta.len(), modified);
+    let kept = FINISHED.lock().ok().and_then(|seen| seen.get(file).copied());
+    if let Some((len, at, finished)) = kept {
+        if (len, at) == key {
+            return finished;
+        }
+    }
+    let Ok(finished) = finished_at_the_end(file) else {
+        return false;
+    };
+    if let Ok(mut seen) = FINISHED.lock() {
+        seen.insert(file.to_path_buf(), (key.0, key.1, finished));
+    }
+    finished
+}
+
+/// What [`read_subagent`] decides `finished` by, found from the end: the last line that is a
+/// hand-back, an ended turn or more work decides, and a read stops at it. Rows are not drawn.
+pub(crate) fn finished_at_the_end(file: &Path) -> std::io::Result<bool> {
+    let mut file = File::open(file)?;
+    let end = file.metadata()?.len();
+    let mut width = 64 * 1024_u64;
+    loop {
+        let from = end.saturating_sub(width);
+        file.seek(SeekFrom::Start(from))?;
+        let mut bytes = Vec::with_capacity((end - from) as usize);
+        (&mut file).take(end - from).read_to_end(&mut bytes)?;
+        let whole = bytes.iter().rposition(|byte| *byte == b'\n').map_or(0, |at| at + 1);
+        // A read that starts mid-file begins in the middle of a line, which is not one to decide by.
+        let first = if from == 0 { 0 } else { bytes.iter().position(|byte| *byte == b'\n').map_or(whole, |at| at + 1) };
+        let text = String::from_utf8_lossy(&bytes[first.min(whole)..whole]);
+        for line in text.lines().rev() {
+            if handed_back(line).is_some() || ended(line) {
+                return Ok(true);
+            }
+            if worked(line) {
+                return Ok(false);
+            }
+        }
+        if from == 0 {
+            return Ok(false);
+        }
+        width *= 4;
+    }
 }
 
 #[derive(Deserialize)]

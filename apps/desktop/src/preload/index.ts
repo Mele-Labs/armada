@@ -1,11 +1,13 @@
 import { contextBridge, ipcRenderer, webUtils } from "electron";
 
 import { CHANNELS } from "../shared/bridge";
+import { autopilotPreload } from "./autopilot";
+import type { AskLessonRead, AskTurn, LessonReviewRead } from "@armada/jobs/review-wire";
 import { ANNOTATE_FLAG, ANNOTATION_CHANNELS } from "../shared/annotations";
 import type { Annotation, AnnotationsDevApi, Box } from "../shared/annotations";
 import { frameStreamUrl } from "../shared/streaming";
 import type { BridgeState, HistoryStep, Summons } from "../shared/bridge";
-import type { CaptureAimed, CaptureHeld, CaptureWheel, CaptureWindowState } from "../shared/capture-window";
+import type { CaptureAimed, CaptureAnswer, CaptureHeld, CaptureWheel, CaptureWindowState } from "../shared/capture-window";
 import type { CaptureOpened, ChooseTriggerFix, FixMain, HoldAct } from "@armada/protocol";
 import type { ChangeSlotPool, RescueSlot, SketchToKeep } from "@armada/protocol";
 import type { BridgeApi, CommandExplainedRead } from "../shared/api";
@@ -32,6 +34,7 @@ import type { AnswerSessionAsk, AnswerWaiting, ClaimPullRequest, DismissWaiting,
 import type { ArtifactRead, PageBounds } from "@armada/screens/src/draft/sessions";
 import type { PilotExit, PullRequestPress, SessionActed } from "../shared/api/sessions";
 import type { SleepActed } from "../shared/api/sleep";
+import type { IssuesRead } from "../shared/api/issues";
 import type { HelmContext, HelmDebugRead } from "@armada/protocol";
 import type { StudioCapture, StudioNodeByHand, StudioPosition, StudioPromotion } from "@armada/protocol";
 import type { StudioAnswer } from "@armada/screens/src/studio-reads";
@@ -65,7 +68,7 @@ import type {
 import type { AddingStep, AddStepAnswer, EditingStep, EditStepAnswer, ReadingRepairDiff, RemovingStep, RemoveStepAnswer, RepairDiffAnswer } from "../shared/added-steps";
 import type { SavingWorkflow, WorkflowDefinitionRead, WorkflowSaveAnswer, WorkflowsRead } from "../shared/workflows";
 import type { AddKitServer, ManifestReach, ReachesDrones } from "@armada/protocol";
-import type { PhoneAnswer, PhoneRequest } from "@armada/settings/api";
+import type { PhoneAnswer, PhoneRequest, SettingsFileOpened } from "@armada/settings/api";
 import type { LocateAnswer } from "@armada/screens/src/locate-reads";
 import type { ComposingRead } from "@armada/screens/src/composing-reads";
 import type { EditManifestProposal, WriteManifestProposal } from "@armada/protocol";
@@ -80,8 +83,8 @@ import type {
   CommandAnswer,
   HelmCallAnswer,
   JudgeAnswer,
-  SaveLimits,
   SavePreference,
+  SaveSettings,
   WhenBlocked,
   WhenRefused,
 } from "@armada/protocol";
@@ -209,13 +212,11 @@ const api: BridgeApi = {
   rescueSlot: (manifestId: string, rescue: RescueSlot): Promise<RescueOutcome> =>
     ipcRenderer.invoke(CHANNELS.rescueSlot, manifestId, rescue),
 
-  // A force, unlike the reclaim above — Fleet's 409 is the safety net a
-  // stale confirmation needs.
+  // A force, unlike the reclaim above — Fleet's 409 is the safety net a stale confirmation needs.
   deleteBranch: (jobId: string, tip: string): Promise<Outcome> =>
     ipcRenderer.invoke(CHANNELS.deleteBranch, jobId, tip),
 
-  // The per-Job half of `forgetTerminalJobs` above. Real deletion, and there
-  // is no undo.
+  // The per-Job half of `forgetTerminalJobs` above. Real deletion, and there is no undo.
   forgetJob: (jobId: string): Promise<Outcome> =>
     ipcRenderer.invoke(CHANNELS.forgetJob, jobId),
 
@@ -326,14 +327,16 @@ const api: BridgeApi = {
   raiseTurnCap: (jobId: string, turnCap: number): Promise<Outcome> =>
     ipcRenderer.invoke(CHANNELS.raiseTurnCap, jobId, turnCap),
 
-  // Fleet's three admission limits. **Fleet-wide, and no Job id crosses this
+  // A person's Bridge preferences. **Fleet-wide, and no Job id crosses this
   // channel** — the only act on this surface that names none.
-  saveLimits: (values: SaveLimits): Promise<Outcome> =>
-    ipcRenderer.invoke(CHANNELS.saveLimits, values),
-
-  // A person's Bridge preferences. **Fleet-wide**, `saveLimits`' reason.
   savePreference: (save: SavePreference): Promise<Outcome> =>
     ipcRenderer.invoke(CHANNELS.savePreference, save),
+
+  // settings.json, by key; `null` removes one. **Fleet-wide**, `savePreference`'s reason.
+  saveSettings: (changes: SaveSettings["changes"]): Promise<Outcome> =>
+    ipcRenderer.invoke(CHANNELS.saveSettings, changes),
+  // The file in the configured editor. **No path crosses**: main opens the one Fleet named.
+  openSettingsFile: (): Promise<SettingsFileOpened> => ipcRenderer.invoke(CHANNELS.openSettingsFile),
 
   // The Phone Gateway, on loopback, one named operation at a time. Main makes the call.
   phone: (request: PhoneRequest): Promise<PhoneAnswer> => ipcRenderer.invoke(CHANNELS.phone, request),
@@ -598,6 +601,8 @@ const api: BridgeApi = {
 
   readCheckOutput: (jobId: string, kept: string): Promise<CheckOutputRead> =>
     ipcRenderer.invoke(CHANNELS.readCheckOutput, jobId, kept),
+  readSessionCheckOutput: (run: number): Promise<CheckOutputRead> =>
+    ipcRenderer.invoke(CHANNELS.readSessionCheckOutput, run),
   readBrief: (jobId: string, name: string): Promise<BriefRead> =>
     ipcRenderer.invoke(CHANNELS.readBrief, jobId, name),
   // A Job's retro and the Lessons listing, read when a surface opens and on focus.
@@ -609,6 +614,11 @@ const api: BridgeApi = {
   agreeLesson: (lessonId: string): Promise<LessonAnswer> => ipcRenderer.invoke(CHANNELS.agreeLesson, lessonId),
   disagreeLesson: (lessonId: string): Promise<LessonAnswer> =>
     ipcRenderer.invoke(CHANNELS.disagreeLesson, lessonId),
+  // The guided review: the model's queue over the open items, and one question about one item.
+  // Neither names a manifest or a port: main narrows the first to this window's pick.
+  reviewLessons: (): Promise<LessonReviewRead> => ipcRenderer.invoke(CHANNELS.reviewLessons),
+  askLesson: (lessonId: string, question: string, history: AskTurn[]): Promise<AskLessonRead> =>
+    ipcRenderer.invoke(CHANNELS.askLesson, lessonId, question, history),
   readFrame: (jobId: string, kept: string): Promise<FrameRead> =>
     ipcRenderer.invoke(CHANNELS.readFrame, jobId, kept),
   // New job's own reads on All — #959: `leftOut` and the Manifest reading for
@@ -636,8 +646,12 @@ const api: BridgeApi = {
   // repository a new one starts in is the window's own pick, read in main, and a pull request is
   // named by its number against the session that holds it. No path and no port crosses.
   getSleep: (): Promise<SleepActed> => ipcRenderer.invoke(CHANNELS.getSleep),
+  // A repository's open issues, by its Manifest (#91), and the Autopilot that works them (#2092).
+  listIssues: (manifestId: string, refresh: boolean): Promise<IssuesRead> => ipcRenderer.invoke(CHANNELS.listIssues, manifestId, refresh),
+  ...autopilotPreload,
   setSleep: (on: boolean): Promise<SleepActed> => ipcRenderer.invoke(CHANNELS.setSleep, on),
   overrideSleep: (id: string, text: string): Promise<SleepActed> => ipcRenderer.invoke(CHANNELS.overrideSleep, id, text),
+  reviewSleep: (id: string): Promise<SleepActed> => ipcRenderer.invoke(CHANNELS.reviewSleep, id),
   onSleepChanged: (onChanged: (state: SleepState) => void): (() => void) => {
     const handler = (_event: unknown, state: SleepState): void => onChanged(state);
     ipcRenderer.on(CHANNELS.sleepChanged, handler);
@@ -764,6 +778,15 @@ const api: BridgeApi = {
     followRefused: (): Promise<void> => ipcRenderer.invoke(CHANNELS.captureWindowFollowRefused),
     approve: (): Promise<Outcome> => ipcRenderer.invoke(CHANNELS.captureWindowApprove),
     scroll: (wheel: CaptureWheel): void => ipcRenderer.send(CHANNELS.captureWindowScroll, wheel),
+    showAsk: (on: boolean): Promise<void> => ipcRenderer.invoke(CHANNELS.captureWindowShowAsk, on),
+    answerAsk: (answer: CaptureAnswer): Promise<Outcome> => ipcRenderer.invoke(CHANNELS.captureWindowAnswerAsk, answer),
+    panel: (open: boolean): Promise<void> => ipcRenderer.invoke(CHANNELS.captureWindowPanel, open),
+    openOwner: (): Promise<void> => ipcRenderer.invoke(CHANNELS.captureWindowOpenOwner),
+  },
+  // The panel beside a walk window's page — `capture-window.md`, *The panel beside the page*. The call
+  // names nothing: main answers for the panel the call came from, and refuses any other document.
+  walkPanel: {
+    openInBridge: (): Promise<void> => ipcRenderer.invoke(CHANNELS.walkPanelOpenInBridge),
   },
 
   // The three decisions on the work, and they are three entries for the reason
@@ -823,6 +846,8 @@ const api: BridgeApi = {
   // only in which file and none of them changes anything about the Job.
   openArtifact: (jobId: string, what: Artifact): Promise<Opened> =>
     ipcRenderer.invoke(CHANNELS.openArtifact, jobId, what),
+  // A Job's worktree in the terminal `terminal.app` names. A Job id and nothing else, `openArtifact`'s rule.
+  openInTerminal: (jobId: string): Promise<Opened> => ipcRenderer.invoke(CHANNELS.openInTerminal, jobId),
 
   // The second entry that reaches outside the app, and the only one that
   // leaves the machine. **A Job id and nothing else** — narrower than the one
@@ -889,6 +914,8 @@ if (process.argv.includes(ANNOTATE_FLAG)) {
     remove: (id: string): Promise<void> => ipcRenderer.invoke(ANNOTATION_CHANNELS.remove, id),
     root: (): Promise<string | null> => ipcRenderer.invoke(ANNOTATION_CHANNELS.root),
     capture: (box: Box): Promise<ArrayBuffer | null> => ipcRenderer.invoke(ANNOTATION_CHANNELS.capture, box),
+    saveShot: (id: string, png: ArrayBuffer): Promise<void> => ipcRenderer.invoke(ANNOTATION_CHANNELS.saveShot, id, png),
+    shot: (id: string): Promise<ArrayBuffer | null> => ipcRenderer.invoke(ANNOTATION_CHANNELS.shot, id),
   };
   contextBridge.exposeInMainWorld("armadaDev", annotations);
 }

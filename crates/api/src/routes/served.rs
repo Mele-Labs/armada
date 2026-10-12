@@ -5,16 +5,20 @@
 //! and the file named for the router now holds the router. The gate rule reads
 //! both halves as one text — `xtask/src/rules_protocol.rs`.
 //!
-//! **Split again at the 1200-line rule**, into five tables joined at compile
-//! time: Studios' in [`studios`](mod@studios), the published event kinds in
-//! [`events`](mod@events), a pilot's in [`piloting`](mod@piloting), workflows' and Triggers' in
-//! [`authoring`](mod@authoring), and every other row here. Each is a subject a
-//! reader opens on its own, and [`SERVED`] stays one slice to every caller. The
-//! gate rule reads all three files — `xtask/src/rules_protocol.rs`.
+//! **Split again at the 1200-line rule**, into tables joined at compile time: Studios' in
+//! [`studios`](mod@studios), the published event kinds in [`events`](mod@events), a pilot's in
+//! [`piloting`](mod@piloting), workflows' and Triggers' in [`authoring`](mod@authoring), the
+//! Machine's settings in [`settings`](mod@settings), Autopilot's in [`autopilot`](mod@autopilot),
+//! and every other row here. Each is a subject a reader opens on its own, and [`SERVED`] stays one
+//! slice to every caller. The gate rule reads every file — `xtask/src/rules_protocol.rs`.
 
 mod authoring;
+mod autopilot;
 mod events;
+mod hosted_sessions;
+mod outside;
 mod piloting;
+mod settings;
 mod studios;
 
 /// One operation, and where it is served.
@@ -46,6 +50,10 @@ pub const SERVED: &[Route] = &joined::<
             + events::ROUTES.len()
             + piloting::ROUTES.len()
             + authoring::ROUTES.len()
+            + settings::ROUTES.len()
+            + outside::ROUTES.len()
+            + hosted_sessions::ROUTES.len()
+            + autopilot::ROUTES.len()
     },
 >([
     ROUTES,
@@ -53,13 +61,15 @@ pub const SERVED: &[Route] = &joined::<
     events::ROUTES,
     piloting::ROUTES,
     authoring::ROUTES,
+    settings::ROUTES,
+    outside::ROUTES,
+    hosted_sessions::ROUTES,
+    autopilot::ROUTES,
 ]);
 
-/// The five tables as one, in order. A count that disagrees with `N` fails
-/// the build rather than serving a short table.
-const fn joined<const N: usize>(tables: [&[Route]; 5]) -> [Route; N] {
-    // Filled from the first row and overwritten below: a literal `Route` here
-    // would read as a row to the gate rule, which parses this file as text.
+/// The nine tables as one, in order. A count that disagrees with `N` fails the build.
+const fn joined<const N: usize>(tables: [&[Route]; 9]) -> [Route; N] {
+    // Filled from the first row: a literal `Route` here would read as a row to the gate rule.
     let mut out = [tables[0][0]; N];
     let (mut table, mut at) = (0, 0);
     while table < tables.len() {
@@ -75,7 +85,7 @@ const fn joined<const N: usize>(tables: [&[Route]; 5]) -> [Route; N] {
     out
 }
 
-/// Every row that is neither a Studio's, a pilot's, a workflow's, a Trigger's nor a published event kind.
+/// Every row no other table here holds.
 const ROUTES: &[Route] = &[
     Route {
         operation: "list_jobs",
@@ -107,32 +117,6 @@ const ROUTES: &[Route] = &[
         operation: "change_fleet_build",
         method: "POST",
         path: "/fleet/build/change",
-    },
-    // The three numbers `/capacity` is measured against, beside it and for its
-    // reason: they are Fleet's, not a Job's. The save spells its act in the last
-    // segment the way `/manifest/save_file` does, so the read stays the noun.
-    Route {
-        operation: "get_limits",
-        method: "GET",
-        path: "/limits",
-    },
-    Route {
-        operation: "save_limits",
-        method: "POST",
-        path: "/limits/save",
-    },
-    // A person's Bridge preferences, `get_limits`/`save_limits`'s shape one
-    // table over: Fleet-wide, not a Job's, and the save spells its act in the
-    // last segment the way `/limits/save` does.
-    Route {
-        operation: "get_preferences",
-        method: "GET",
-        path: "/preferences",
-    },
-    Route {
-        operation: "save_preferences",
-        method: "POST",
-        path: "/preferences/save",
     },
     // One repository's Helm conversation, named by `?manifest_id=`.
     Route {
@@ -397,6 +381,18 @@ const ROUTES: &[Route] = &[
         method: "POST",
         path: "/lessons/:lesson_id/disagree",
     },
+    // Two model calls over the open items, neither of which stores anything.
+    // `review` is a literal segment beside `:lesson_id`, which axum ranks first.
+    Route {
+        operation: "review_lessons",
+        method: "POST",
+        path: "/lessons/review",
+    },
+    Route {
+        operation: "ask_lesson",
+        method: "POST",
+        path: "/lessons/:lesson_id/ask",
+    },
     // What Fleet did to the Job, settled: the socket's backfill, answered once.
     // **The one row whose last segment is not its key**, and the reason is the
     // route next door. Elsewhere a log has two routes — `<noun>/output` for the
@@ -457,18 +453,9 @@ const ROUTES: &[Route] = &[
         method: "POST",
         path: "/jobs/:job_id/ask_person_to_approve",
     },
-    // One call's arguments, and a member read rather than an act — the same
-    // shape as `get_job` under `/jobs`, which is why the last segment is the id
-    // and not the key. The socket sends the line and the size; this is what a
-    // person opening that row asks for, once, about one call.
-    Route {
-        operation: "get_call",
-        method: "GET",
-        path: "/jobs/:job_id/calls/:call_id",
-    },
-    // What that call would do, read by a model for the person deciding whether
-    // to allow it. Under the call and not beside it: it is a second reading of
-    // the one call above, on the same id `answer_command` takes. A query,
+    // What one call would do, read by a model for the person deciding whether
+    // to allow it. Under the call: the segment before `explain` is the call id,
+    // the same id `answer_command` takes. A query,
     // because it decides nothing — the offers are unchanged and the Drone stays
     // held whatever it says.
     Route {
@@ -568,6 +555,26 @@ const ROUTES: &[Route] = &[
         path: "/sessions/window",
     },
     Route {
+        operation: "report_session_check",
+        method: "POST",
+        path: "/sessions/checks",
+    },
+    Route {
+        operation: "get_session_check_output",
+        method: "GET",
+        path: "/sessions/checks/:run/output",
+    },
+    Route {
+        operation: "ask_in_window",
+        method: "POST",
+        path: "/sessions/window/ask",
+    },
+    Route {
+        operation: "window_closed",
+        method: "POST",
+        path: "/sessions/window/closed",
+    },
+    Route {
         operation: "claim_pull_request",
         method: "POST",
         path: "/sessions/claim_pull_request",
@@ -586,78 +593,6 @@ const ROUTES: &[Route] = &[
         operation: "dismiss_waiting",
         method: "POST",
         path: "/sessions/waiting/dismiss",
-    },
-    // Sleep mode: the switch, the night it keeps, and a correction of one decision.
-    Route {
-        operation: "get_sleep",
-        method: "GET",
-        path: "/sleep",
-    },
-    Route {
-        operation: "set_sleep",
-        method: "POST",
-        path: "/sleep",
-    },
-    Route {
-        operation: "override_sleep",
-        method: "POST",
-        path: "/sleep/override",
-    },
-    // A session Fleet hosts for Bridge. Since 23.49.
-    Route {
-        operation: "start_session",
-        method: "POST",
-        path: "/sessions/start",
-    },
-    Route {
-        operation: "send_session_message",
-        method: "POST",
-        path: "/sessions/message",
-    },
-    Route {
-        operation: "answer_session_ask",
-        method: "POST",
-        path: "/sessions/ask/answer",
-    },
-    Route {
-        operation: "tune_session",
-        method: "POST",
-        path: "/sessions/tune",
-    },
-    Route {
-        operation: "close_session",
-        method: "POST",
-        path: "/sessions/close",
-    },
-    Route {
-        operation: "get_session",
-        method: "GET",
-        path: "/sessions/one",
-    },
-    Route {
-        operation: "get_session_subagent",
-        method: "GET",
-        path: "/sessions/subagent",
-    },
-    Route {
-        operation: "get_session_file",
-        method: "GET",
-        path: "/sessions/file",
-    },
-    Route {
-        operation: "gate_session_call",
-        method: "POST",
-        path: "/sessions/gate",
-    },
-    Route {
-        operation: "ask_from_terminal",
-        method: "POST",
-        path: "/sessions/ask/terminal",
-    },
-    Route {
-        operation: "take_held_messages",
-        method: "POST",
-        path: "/sessions/held",
     },
     Route {
         operation: "list_manifests",

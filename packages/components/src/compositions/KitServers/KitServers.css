@@ -1,15 +1,30 @@
-/* Kit's MCP servers — #1275. The add row, and the one word that says what a
-   drone here is handed. Heights, rules and cell padding are `Table`'s.
+/* Kit's MCP servers — #1275, drawn as the cockpit draws its viewscreen: the lead and the add row a
+   controls strip under the band its screen gives it, and every server framed on a sunken, ruled
+   glass. Heights and cell padding are `Table`'s.
 
-   No column tracks. Every cell but the address is a short fixed thing, so the
-   table's own layout settles them; naming four widths here would be four
-   tokens invented for one table. Reported. */
+   No column tracks. Every cell but the address is a short fixed thing, so the table's own layout
+   settles them; naming four widths here would be four tokens invented for one table. Reported.
+
+   No hue. Whether a drone here gets a server is no Job state and `tokens/status.css` declares
+   none for it, so state is the frame's weight alone: a server a drone here is handed is framed
+   solid and bright, one it is not is dashed. */
 
 .armada-kit-servers {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
   min-width: 0;
+}
+
+/* ---- The controls strip --------------------------------------------------------------------- */
+
+.armada-kit-servers__controls {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-3) var(--space-4);
+  border-bottom: var(--border-width) solid var(--border-default);
+  background: var(--bg-raised);
 }
 
 .armada-kit-servers__lead,
@@ -29,8 +44,6 @@
   align-items: flex-end;
   gap: var(--space-3);
   min-width: 0;
-  padding-bottom: var(--space-4);
-  border-bottom: var(--border-width) solid var(--border-subtle);
 }
 
 /* The address is the only field with anything long in it, so it takes the
@@ -38,6 +51,104 @@
 .armada-kit-servers__add > :nth-child(3) {
   flex: 1 1 auto;
   min-width: 0;
+}
+
+/* ---- The glass: a faint ruled grid, so the servers read as standing on something -------------- */
+
+.armada-kit-servers__glass {
+  min-width: 0;
+  padding: var(--space-2) var(--space-4) var(--space-4);
+  background:
+    linear-gradient(
+      color-mix(in srgb, var(--border-subtle) 55%, transparent)
+        var(--border-width),
+      transparent var(--border-width)
+    ),
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--border-subtle) 55%, transparent)
+        var(--border-width),
+      transparent var(--border-width)
+    );
+  background-size: var(--space-6) var(--space-6);
+}
+
+.armada-kit-servers__glass:empty {
+  display: none;
+}
+
+.armada-kit-servers__reading {
+  padding-top: var(--space-2);
+  color: var(--fg-subtle);
+}
+
+/* The table stands on the glass rather than painting over it: no ground of its own, and rows held
+   apart so each is a framed instrument. `separate` drops the row's own left focus edge, which this
+   table never draws. */
+.armada-kit-servers__table {
+  border-collapse: separate;
+  border-spacing: 0 var(--space-2);
+  background: transparent;
+}
+
+.armada-kit-servers__table .armada-table-header-cell {
+  height: auto;
+  padding-bottom: 0;
+  border-bottom: 0;
+  background: transparent;
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+}
+
+/* ---- A server as a framed row --------------------------------------------------------------- */
+
+.armada-kit-servers__table tbody tr {
+  --hue: var(--fg-subtle);
+  border: 0;
+}
+
+.armada-kit-servers__table tbody td {
+  border-block: calc(var(--border-width) * 2) dashed
+    color-mix(in srgb, var(--hue) 40%, var(--border-subtle));
+  background: color-mix(in srgb, var(--hue) 5%, var(--bg-raised));
+  transition:
+    border-color var(--duration-fast) var(--ease),
+    background var(--duration-fast) var(--ease);
+}
+
+.armada-kit-servers__table tbody td:first-child {
+  border-inline-start: calc(var(--border-width) * 2) dashed
+    color-mix(in srgb, var(--hue) 40%, var(--border-subtle));
+  border-start-start-radius: var(--radius-md);
+  border-end-start-radius: var(--radius-md);
+}
+
+.armada-kit-servers__table tbody td:last-child {
+  border-inline-end: calc(var(--border-width) * 2) dashed
+    color-mix(in srgb, var(--hue) 40%, var(--border-subtle));
+  border-start-end-radius: var(--radius-md);
+  border-end-end-radius: var(--radius-md);
+}
+
+.armada-kit-servers__table tbody tr:hover td {
+  background: color-mix(in srgb, var(--hue) 10%, var(--bg-raised));
+}
+
+/* The cursor on the glass, drawn round the whole row. */
+.armada-kit-servers__table tbody tr:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+  border-radius: var(--radius-md);
+}
+
+/* A drone here is handed it: framed solid, its edge brought up to the hue. */
+.armada-kit-servers__table tbody tr:has([data-resolves]) {
+  --hue: var(--fg-muted);
+}
+
+.armada-kit-servers__table tbody tr:has([data-resolves]) td {
+  border-style: solid;
+  border-color: var(--hue);
 }
 
 /* An address has no spaces to break at, and a URL that overflows takes the
@@ -54,4 +165,5 @@
 
 .armada-kit-servers__resolves[data-resolves] {
   color: var(--fg-default);
+  font-weight: var(--weight-medium);
 }

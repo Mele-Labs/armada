@@ -50,7 +50,6 @@ import type {
   CommandAnswer,
   HelmCallAnswer,
   JudgeAnswer,
-  SaveLimits,
   StartCheckoutRun,
   StartRun,
   WhenBlocked,
@@ -59,6 +58,7 @@ import type {
 import type { HelmContext, JobSummary, PullRequestState } from "@armada/protocol";
 import type { StudioCapture, StudioNodeByHand } from "@armada/protocol";
 import type { Confirming } from "./ConfirmAct";
+import type { AskTurn } from "@armada/jobs/review-wire";
 import type { PauseAct, Taken, TakenAct } from "@armada/screens";
 import type { ActAnswer, ActingAct, ConfirmableAct, DecidingAct, TaskAct } from "@armada/jobs";
 import { pauseRefusal, refusedAsPaused, said, takenNotice, takenStands } from "@armada/screens";
@@ -156,6 +156,7 @@ export const readRemarks = (jobId: string | null): void => void window.armada.re
 export const watchPulse = (jobId: string | null): void => void window.armada.watchPulse(jobId);
 export const readCheckOutput = (jobId: string, kept: string) =>
   window.armada.readCheckOutput(jobId, kept);
+export const readSessionCheckOutput = (run: number) => window.armada.readSessionCheckOutput(run);
 export const readBrief = (jobId: string, name: string) => window.armada.readBrief(jobId, name);
 /** A Job's retro and the Lessons listing, read on open and on focus — `docs/concepts/retro.md`. */
 export const readRetro = (subject: RetroSubject) => window.armada.readRetro(subject);
@@ -163,6 +164,9 @@ export const readLessons = (state: "open" | "accepted") => window.armada.readLes
 /** The owner's answer to one retro item. */
 export const agreeLesson = (lessonId: string) => window.armada.agreeLesson(lessonId);
 export const disagreeLesson = (lessonId: string) => window.armada.disagreeLesson(lessonId);
+export const reviewLessons = () => window.armada.reviewLessons();
+export const askLesson = (lessonId: string, question: string, history: AskTurn[]) =>
+  window.armada.askLesson(lessonId, question, history);
 /** A repository's branches for a branch field (#1605). A refusal is nothing to offer, never a toast. */
 export const listBranches = async (manifestId: string) => {
   const read = await window.armada.listBranches(manifestId);
@@ -180,6 +184,7 @@ export const frameSrc = (jobId: string, kept: string) => window.armada.frameStre
 /** Ask a Job to show its work again. Answered to the screen that pressed it. */
 export const showAgain = (jobId: string, spec?: string) => window.armada.showAgain(jobId, spec);
 export const openArtifact = (jobId: string, what: Artifact) => window.armada.openArtifact(jobId, what);
+export const openInTerminal = (jobId: string) => window.armada.openInTerminal(jobId);
 export const openPullRequest = (jobId: string) => window.armada.openPullRequest(jobId);
 export const openRemarkLink = (jobId: string, remarkId: string) =>
   window.armada.openRemarkLink(jobId, remarkId);
@@ -874,18 +879,6 @@ export function useCommands(sending: Sending) {
    * back is what the dialog shows next — held there rather than in app state,
    * where it would outlive the dialog that produced it.
    */
-  /**
-   * Change one or more of Fleet's three admission limits. **Not through
-   * `setActing`**, `report`'s reason: there is no Job here for that state to
-   * key on, and the sheet that sends this is off on its own while a save is
-   * out.
-   */
-  async function saveLimits(values: SaveLimits): Promise<Outcome> {
-    const answer = await window.armada.saveLimits(values);
-    setOutcome(answer);
-    return answer;
-  }
-
   async function report(jobId: string, filing: FileReport): Promise<Outcome> {
     const answer = await window.armada.fileReport(jobId, filing);
     // Published as well as returned: a refusal belongs in the one place this
@@ -1117,7 +1110,6 @@ export function useCommands(sending: Sending) {
     rerunningChecks,
     raiseCap,
     raiseTurns,
-    saveLimits,
     report,
     addTask,
     dropTask,

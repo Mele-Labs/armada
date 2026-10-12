@@ -19,6 +19,7 @@ import {
   LoaderCircle,
   Megaphone,
   MessageSquare,
+  Moon,
   OctagonAlert,
   Scale,
   ShieldCheck,
@@ -32,7 +33,8 @@ import {
 import { Button, Radio, RadioGroup, Textarea } from "@armada/components";
 import type { FixMain, JobSummary, RepositorySummary, WaitingItem } from "@armada/protocol";
 import type { AboutFiles, AboutLink, CallAskView, CallView } from "@armada/jobs/draft/calls";
-import type { NowView } from "@armada/jobs/draft/now";
+import type { AskedOf, NowView } from "@armada/jobs/draft/now";
+import type { NowActed } from "@armada/jobs";
 import type { Session } from "@armada/screens/src/draft/sessions";
 import { overviewListsOf, type DashboardTab } from "@armada/overview";
 import { JobActs, isTerminal, titleOf, type PauseAct } from "@armada/screens";
@@ -42,6 +44,7 @@ import { useListKeydown } from "@armada/screens/src/list-keyboard";
 import type { BridgeState } from "../../shared/bridge";
 import { viewsOf } from "./merge-line";
 import { useSessions } from "./sessions-draft";
+import { useSleepDecided, type MorningDecided } from "./sleep";
 import { forgetCleared, identityOf, useDismissed } from "./cockpit/dismissed";
 import { callsFromWaiting, sessionIdOf, type WaitingCall } from "./cockpit/waiting";
 
@@ -88,13 +91,21 @@ export type Item = {
   /** The Job's workflow steps and the index it is at, for the tile's pips. */
   steps?: readonly { id: string; label: string }[];
   stepAt?: number;
+  /** The Job is being proposed and its workflow has not landed: the tile holds the steps' place with the settling mark. */
+  settling?: true;
   /** A Session's recent cadence, each bar 0 to 1: a message tall, a tool call short. */
   spark?: readonly number[];
+  /** The decision Sleep made, where the item is one: the call keeps it or changes it. */
+  sleep?: MorningDecided;
   /** What a Session's call waits on: the item, which is what the call answers. */
   waiting?: { sessionId: string; item: WaitingItem };
+  /** What a Job's ask is answered through, where Fleet served it: the question or Judge call, or a command. */
+  asked?: AskedOf;
+  /** Drawn from what Fleet serves, so its acts are real ones: Open Job, and no mock stub. */
+  served?: true;
 };
 
-/** What the Dashboard knows of each Job's Now, by Job id. Mock only: Fleet serves none. */
+/** What the Dashboard knows of each Job's Now, by Job id: the draft's, else what Fleet serves for the active Jobs. */
 export const Nows = createContext<Readonly<Record<string, NowView>> | undefined>(undefined);
 
 const WAITING = {
@@ -155,6 +166,10 @@ export type Hosts = {
   onPausing?: ((act: PauseAct, jobId: string) => void) | undefined;
   /** Says a sentence as a toast: a refusal the panel has to name. */
   onTell?: ((sentence: string) => void) | undefined;
+  /** A quick act pressed on a Job's Now panel. Absent, the panel says what the act would do. */
+  onNowAct?: ((jobId: string, acted: NowActed) => void) | undefined;
+  /** Asks Fleet for the worktree pool while the bays are drawn, and lets go after. */
+  onWantHeld?: ((want: boolean) => void) | undefined;
   /** Where the cursor is, for Helm's footer: the Job picked, or null. */
   onCursor?: ((jobId: string | null) => void) | undefined;
 };
@@ -333,6 +348,7 @@ function jobItems(job: JobSummary, view: CallView | undefined, hosts: Hosts): It
         where,
         body: [["From", ask.name]],
         said: [ask.text],
+        ...(ask.asked === undefined ? {} : { asked: ask.asked }),
         acts: () => <Button variant="primary" onClick={open}>Open Job</Button>,
       });
     }
@@ -354,8 +370,11 @@ function jobItems(job: JobSummary, view: CallView | undefined, hosts: Hosts): It
       where,
       body: [["On", issue.name]],
       said: [issue.text],
+      ...(view?.served === true ? { served: true as const } : {}),
       acts: (done) =>
-        issue.of === "drone" ? (
+        view?.served === true ? (
+          <Button variant="primary" onClick={open}>Open Job</Button>
+        ) : issue.of === "drone" ? (
           <StuckDrone onDone={done} onOpen={open} />
         ) : (
           <>
@@ -414,7 +433,7 @@ function waitingItem({ session, item }: WaitingCall, hosts: Hosts): Item {
     key: `session:${session.id}:${item.id}`,
     owner: `session:${session.id}`,
     icon: SquareTerminal,
-    kind: item.source === "ask_card" ? "Session question" : item.source === "walk" ? "Session walk" : "Session",
+    kind: item.source === "ask_card" || item.source === "window_ask" ? "Session question" : item.source === "walk" ? "Session walk" : "Session",
     session: true,
     mark: Eye,
     state: item.source === "permission" ? "Waiting on a command" : "Waiting on you",
@@ -431,6 +450,24 @@ function waitingItem({ session, item }: WaitingCall, hosts: Hosts): Item {
     contextHead: "Last messages",
     waiting: { sessionId: session.id, item },
     acts: () => <Button variant="secondary" onClick={() => hosts.onOpenSession(session.id)}>Open Session</Button>,
+  };
+}
+
+/** One thing Sleep decided for the owner, as a call: he keeps it or changes it. */
+function sleepItem(one: MorningDecided): Item {
+  return {
+    key: `sleep:${one.id}`,
+    icon: Moon,
+    kind: "Sleep",
+    title: one.who,
+    fact: one.asked,
+    hue: "ask",
+    where: "",
+    body: [],
+    context: [one.chose, ...(one.corrected === undefined ? [] : [`Changed to ${one.corrected}`])],
+    contextHead: "Chose",
+    sleep: one,
+    acts: () => null,
   };
 }
 
@@ -515,12 +552,6 @@ function lineItems(state: BridgeState, tab: DashboardTab, hosts: Hosts, rehearse
   return items;
 }
 
-/** Whether the owner is wanted anywhere: the quick box shows only where this is false. */
-export function useNeedsYou(state: BridgeState, picked: RepositorySummary | null, nowViews: Readonly<Record<string, CallView>> | undefined): boolean {
-  const items = useItems("command-central", state, picked, nowViews, { onOpen: () => {}, onOpenSession: () => {}, onOpenLink: () => {} }, new Set());
-  return items.length > 0;
-}
-
 export function useItems(
   tab: DashboardTab,
   state: BridgeState,
@@ -532,6 +563,7 @@ export function useItems(
   const sessions = useSessions();
   const nows = useContext(Nows);
   const dismissed = useDismissed();
+  const slept = useSleepDecided();
   const calls = tab === "command-central";
   const items = useMemo(() => {
     const read = overviewListsOf(state.jobs, picked);
@@ -560,6 +592,7 @@ export function useItems(
           });
       }
       items.push(...callsFromWaiting(sessions).map((one) => waitingItem(one, hosts)));
+      items.push(...slept.map(sleepItem));
     } else {
       const jobs = tab === "running" ? of(["running", "queued", "other"]) : of(["recently-ended", "done"]);
       for (const job of jobs) {
@@ -595,7 +628,7 @@ export function useItems(
           .map((one) => sessionItem(one, hosts)),
       );
     }
-    items.push(...lineItems(state, tab, hosts, nowViews !== undefined));
+    items.push(...lineItems(state, tab, hosts, nowViews !== undefined && !Object.values(nowViews).some((view) => view.served === true)));
     // A Job's pips come from its workflow and its icon from the first thing active on it.
     const drawn = items.map((item): Item => {
       if (item.job === undefined || tab === "command-central") return item;
@@ -603,10 +636,12 @@ export function useItems(
       const steps = (state.holds.workflows.find((one) => one.id === job.workflow_id)?.steps ?? []).map((step) => ({ id: step.step_id, label: step.label }));
       const at = tab === "done" && item.hue !== "bad" ? steps.length : Math.max(0, steps.findIndex((step) => step.id === job.current_step_id));
       const active = tab === "done" ? undefined : activeOf(nows?.[job.id]);
-      return { ...item, ...(steps.length === 0 ? {} : { steps, stepAt: at }), ...(active === undefined ? {} : { ...active, live: true }) };
+      // The workflow is the proposer's to settle: until it lands there is nothing to draw pips from.
+      const settling = job.status === "proposing" && job.workflow_id === "";
+      return { ...item, ...(steps.length === 0 ? {} : { steps, stepAt: at }), ...(settling ? { settling: true as const } : {}), ...(active === undefined ? {} : { ...active, live: true }) };
     });
     return drawn.filter((item) => !answered.has(item.key));
-  }, [tab, state, picked, nowViews, nows, sessions, answered, dismissed]);
+  }, [tab, state, picked, nowViews, nows, sessions, slept, answered, dismissed]);
   // A call dismissed for good stays gone while its state stands; once the state clears, the next one shows.
   const standing = useMemo(() => new Set(items.map(identityOf)), [items]);
   const board = state.jobs.length > 0 || viewsOf(state).length > 0;

@@ -74,9 +74,10 @@ const JUDGED: JudgeQuestion = {
 function fakeHost(
   jobs: JobSummary[],
   questionsOver: BridgeState["questions"] = [],
-): { host: ArrivalHost; refresh: ReturnType<typeof vi.fn>; questions: Questions; state: () => BridgeState } {
+): { host: ArrivalHost; refresh: ReturnType<typeof vi.fn>; questions: Questions; state: () => BridgeState; autopilots: ReturnType<typeof vi.fn> } {
   let state: BridgeState = { ...NOTHING_YET, jobs, questions: questionsOver };
   const refresh = vi.fn();
+  const autopilots = vi.fn();
   const questions = new Questions({
     current: () => state,
     publish: (change) => (state = { ...state, ...change }),
@@ -94,11 +95,13 @@ function fakeHost(
     repositories: {} as unknown as RepositoryReads,
     rehearsal: {} as unknown as RehearsalConnection,
     sleep: { changed: () => {} },
+    issues: { autopilotChanged: autopilots, autopilotsAgain: async () => {} },
     overviewAgain: async () => {},
     questions,
     helm: { reconnected: () => {} },
     studios: { again: async () => {}, changed: () => {}, deleted: () => {} },
     sessions: { again: async () => {}, changed: () => {}, row: () => {} },
+    held: { warm: async () => {} },
     fleetBuild: { watch: () => {} },
     mods,
     material: {} as unknown as ReviewMaterial,
@@ -110,7 +113,7 @@ function fakeHost(
     refresh,
     takeAgain: async () => {},
   };
-  return { host, refresh, questions, state: () => state };
+  return { host, refresh, questions, state: () => state, autopilots };
 }
 
 describe("a Drone's question, on the dock and on the open Job's detail together", () => {
@@ -328,5 +331,17 @@ describe("the mods on this machine, off `mods.changed`", () => {
     const { host, state } = fakeHost([job()]);
     applyArrival(host, changed([row("calm")]), FLEET);
     expect(state().jobs).toEqual([job()]);
+  });
+});
+
+describe("a repository's Autopilot, changed in Fleet", () => {
+  it("is told on whole, without its kind, and moves no Job", () => {
+    const { host, refresh, state, autopilots } = fakeHost([job()]);
+    const autopilot = { manifest_id: "armada", instruction: "work the backlog", at_once: 2, state: "paused", started_at: "2026-10-12T03:00:00Z", spent_micros: 0, jobs_started: 0, at_work: 0, picks: [] };
+    applyArrival(host, JSON.stringify({ message: "event", cursor: 3, event: { kind: "autopilot.changed", ...autopilot } }), FLEET);
+    expect(autopilots).toHaveBeenCalledWith(autopilot);
+    expect(refresh).not.toHaveBeenCalled();
+    expect(state().jobs).toEqual([job()]);
+    expect(state().connection).toMatchObject({ state: "connected" });
   });
 });

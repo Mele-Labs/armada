@@ -308,6 +308,7 @@ impl FakeSlots {
                             .and(slot.stranded.as_ref())
                             .map(|(work, _)| format!("{} uncommitted", work.uncommitted.len())),
                         completed: false,
+                        work: None,
                     }
                 })
                 .collect()
@@ -509,16 +510,19 @@ impl FakeVcs {
     /// Hand slot `slot` at `root` to somebody else, as an agent's lease would.
     pub fn hold_slot(&self, root: &str, slot: u32, by: &str) {
         self.slots.hold(root, slot, Some(by), true);
+        self.noted(());
     }
 
     /// Give slot `slot` at `root` back, as an agent's release would.
     pub fn free_slot(&self, root: &str, slot: u32) {
         self.slots.hold(root, slot, None, true);
+        self.noted(());
     }
 
     /// Take slot `slot` at `root` off the disk, as a person removing it would.
     pub fn lose_slot(&self, root: &str, slot: u32) {
         self.slots.hold(root, slot, None, false);
+        self.noted(());
     }
 
     /// Make the next release refuse, as the pool does for a dirty tree or

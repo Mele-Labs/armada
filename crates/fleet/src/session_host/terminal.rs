@@ -14,12 +14,16 @@ use std::time::{Duration, Instant};
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
-use ipc::{HeldCommand, MessagesHeld, SendSessionMessage, TerminalFacts, TuneSession, SessionId, SessionRecord, SessionRow, SessionRowChanged};
+use ipc::{
+    HeldCommand, MessagesHeld, SendSessionMessage, SessionId, SessionRecord, SessionRow,
+    SessionRowChanged, TerminalFacts, TuneSession,
+};
 use ipc::{TakeHeld, WireError};
 use store::{KeptSession, SessionState};
 
 use super::rows::{mention_line, SESSION_THREAD_UNREADABLE as THREAD_UNREADABLE};
 use super::serving::MESSAGE_EMPTY;
+use super::thread_cache::ThreadCache;
 use crate::daemon::Fleet;
 
 /// A send to a session whose mod has not asked lately. A 409.
@@ -49,6 +53,8 @@ pub struct Terminals {
     polled: Mutex<HashMap<String, Instant>>,
     /// Rung when a question is answered or closed, for the polls holding on it.
     pub(crate) rung: tokio::sync::Notify,
+    /// The threads Bridge has opened, kept drawn.
+    threads: Arc<ThreadCache>,
 }
 
 impl Terminals {
@@ -87,7 +93,10 @@ impl Terminals {
     }
 
     pub(crate) fn forget_polls(&self, call: &str) {
-        self.polled.lock().expect("held across no panic").remove(call);
+        self.polled
+            .lock()
+            .expect("held across no panic")
+            .remove(call);
     }
 
     /// Keep a command for the mod, or say nobody is listening.
@@ -159,6 +168,11 @@ impl Terminals {
             .lock()
             .expect("held across no panic")
             .remove(session);
+        self.threads.forget(session);
+    }
+
+    pub(super) fn threads(&self) -> Arc<ThreadCache> {
+        Arc::clone(&self.threads)
     }
 }
 
@@ -180,18 +194,10 @@ where
     ) -> Result<Vec<SessionRow>, Refusal> {
         let home = self.host().home.clone();
         let id = session.id.clone();
-        let (file, rows, next) = tokio::task::spawn_blocking(move || {
-            let file = adapters::terminal_thread::find(&home, &id);
-            match file {
-                Some(file) => match adapters::terminal_thread::read_from(&file, 0) {
-                    Ok(thread) => (Some(file), thread.rows, thread.next),
-                    Err(_) => (Some(file), Vec::new(), 0),
-                },
-                None => (None, Vec::new(), 0),
-            }
-        })
-        .await
-        .map_err(|why| self.hosted_fault(THREAD_UNREADABLE, &why.to_string()))?;
+        let threads = self.hosts().terminals().threads();
+        let (file, rows, next) = tokio::task::spawn_blocking(move || threads.thread(&home, &id))
+            .await
+            .map_err(|why| self.hosted_fault(THREAD_UNREADABLE, &why.to_string()))?;
         if self.hosts().terminals().begin_watching(&session.id) {
             let fleet = Arc::clone(self);
             let id = session.id.clone();
@@ -275,8 +281,17 @@ where
         {
             return Err(self.terminal_unreachable());
         }
-        let store = self.store().lock().await;
-        self.ledger_row(&store, session)
+        // A terminal's messages are its transcript, never rows, so the walk the person has now
+        // written after (an approval included) is settled here or it would wait for good.
+        let mut store = self.store().lock().await;
+        let shown = self.ledger_row(&store, session)?;
+        for walk in shown.waiting_for.iter().filter(|one| one.source == ipc::WaitingSource::Walk) {
+            store.dismiss_waiting(&session.id, &walk.id).map_err(|why| self.ledger_fault(why))?;
+        }
+        let record = self.ledger_row(&store, session)?;
+        drop(store);
+        self.publish(ipc::Event::SessionChanged(record.clone()));
+        Ok(record)
     }
 
     /// The mod's ask. A session that is not a terminal one is handed nothing
@@ -317,13 +332,18 @@ where
         if session.state == SessionState::Ended {
             return Err(self.closed(&session.id));
         }
-        let now = self.hosts().terminals().facts_of(&session.id).unwrap_or_default();
+        let now = self
+            .hosts()
+            .terminals()
+            .facts_of(&session.id)
+            .unwrap_or_default();
         let wanted = [
             ("model", tuned.model, now.model),
             ("effort", tuned.effort, now.effort),
         ];
         for (command, asked, has) in wanted {
-            let Some(args) = asked.filter(|one| !one.trim().is_empty() && Some(one) != has.as_ref())
+            let Some(args) =
+                asked.filter(|one| !one.trim().is_empty() && Some(one) != has.as_ref())
             else {
                 continue;
             };

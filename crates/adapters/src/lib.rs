@@ -44,6 +44,7 @@ mod build_standing;
 mod ci_workflows;
 mod cloning;
 mod commit;
+mod concurrently;
 /// A Helm conversation's process: one message, resumed by id.
 mod conversing;
 mod delivery;
@@ -57,6 +58,8 @@ mod harness;
 mod hosted_session;
 mod inline_comments;
 mod issue_lookup;
+/// Reading a repository's open issues and writing back on one. #91.
+mod issue_tracker;
 mod judge;
 mod keeping_current;
 mod landing;
@@ -99,6 +102,7 @@ mod tests;
 
 pub use build_standing::{fetch_main, position_against_main};
 pub use ci_workflows::ActionsWorkflows;
+pub use concurrently::concurrently;
 pub use conversing::{
     door_tools, path_written, wrote_the_checkout, ConversationRefused, Conversing,
     CHANGES_THE_CHECKOUT,
@@ -111,6 +115,7 @@ pub use harness::{
 };
 pub use hosted_session::{reads_only, HostedLaunch, HostedRefused, HOSTED_HARNESS, MOD_INSTALLED_MANIFEST, MOD_MANIFEST};
 pub use issue_lookup::IssueLookup;
+pub use issue_tracker::IssueTracker;
 pub use mcp::{publish_the_agents_door, the_drones_servers, Published, REPOSITORY_CONFIG};
 pub use reading_in::{
     bounded, fetching, forge_facts, forge_node, milestone_read, source_of, text_of_a_page,

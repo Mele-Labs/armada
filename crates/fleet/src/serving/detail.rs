@@ -292,7 +292,7 @@ where
                 .as_ref()
                 .map(|(footprint, plans)| kept(footprint, plans)),
             self.redirect_awaited(job.id()).await,
-            self.question_awaited(job.id()).await,
+            crate::questioning::question_awaited(&job),
             stuck.as_ref(),
             overlaps,
             delivery,

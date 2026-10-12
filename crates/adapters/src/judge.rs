@@ -179,6 +179,7 @@ fn asking(ask: &Ask, watched: Watched) -> Vec<String> {
         // No `--mcp-config` beside it, which is what makes the set empty.
         "--strict-mcp-config".into(),
     ]);
+    crate::harness::thinking(&mut args, ask.model().effort());
     match ask.reads() {
         None => fenced(&mut args),
         Some(reading) => reading_only(&mut args, reading),

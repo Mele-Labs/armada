@@ -5,6 +5,9 @@
 
 import type { Item } from "../Dashboard";
 
-export function asksAnAgent(item: Pick<Item, "decisions" | "kind" | "key" | "waiting">): boolean {
+// **A command a Drone is held on is not one**: it is answered by one of its offers, and best and quick
+// are not among them.
+export function asksAnAgent(item: Pick<Item, "decisions" | "kind" | "key" | "waiting" | "asked">): boolean {
+  if (item.asked?.kind === "command") return false;
   return item.decisions !== undefined || item.kind === "Drone question" || item.kind === "Judge question" || (item.waiting !== undefined && item.waiting.item.source !== "walk");
 }

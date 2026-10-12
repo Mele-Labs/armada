@@ -103,123 +103,130 @@ export function KitServers({
 
   return (
     <div className="armada-kit-servers">
-      <p className="armada-kit-servers__lead">
-A server reaches no drone until you allow it — in Kit, for every repository, or in this one
-        alone. A drone already running keeps what it started with.
-      </p>
-
-      {refused === undefined ? null : (
-        <Alert tone="caution" title="That was refused">
-          {refused}
-        </Alert>
-      )}
-
-      <form className="armada-kit-servers__add" onSubmit={add}>
-        <Input
-          id={`${group}-name`}
-          label="Name"
-          value={name}
-          placeholder="tracker"
-          onChange={(event) => setName(event.target.value)}
-        />
-        <Select
-          id={`${group}-kind`}
-          label="Kind"
-          value={kind}
-          onChange={(event) => setKind(event.target.value as KitServerKind)}
-        >
-          <option value="stdio">Program</option>
-          <option value="http">Address</option>
-        </Select>
-        <Input
-          id={`${group}-address`}
-          label={KIND_LABEL[kind]}
-          value={address}
-          placeholder={kind === "stdio" ? "npx -y @scope/server" : "https://example.com/mcp"}
-          onChange={(event) => setAddress(event.target.value)}
-        />
-        <Button type="submit" variant="secondary" size="sm">
-          Add
-        </Button>
-      </form>
-
-      {servers === undefined ? null : servers.length === 0 ? (
-        <p className="armada-kit-servers__reading">
-          Nothing in your Kit yet. A drone here gets Armada&rsquo;s own tool and nothing else.
+      {/* The controls strip under the band: what allowing means, and the add row. */}
+      <div className="armada-kit-servers__controls">
+        <p className="armada-kit-servers__lead">
+          A server reaches no drone until you allow it — in Kit, for every repository, or in this one
+          alone. A drone already running keeps what it started with.
         </p>
-      ) : (
-        <Table className="armada-kit-servers__table">
-          <TableHead>
-            <TableRow>
-              <TableHeaderCell>Server</TableHeaderCell>
-              <TableHeaderCell>Where it is</TableHeaderCell>
-              <TableHeaderCell>In Kit</TableHeaderCell>
-              <TableHeaderCell>{here}</TableHeaderCell>
-              <TableHeaderCell>A drone here</TableHeaderCell>
-              <TableHeaderCell>{""}</TableHeaderCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {servers.map((server) => (
-              <TableRow key={server.name}>
-                <TableCell variant="primary">{server.name}</TableCell>
-                <TableCell variant="mono">{server.address}</TableCell>
-                <TableCell variant="secondary">
-                  <Select
-                    aria-label={`In Kit: ${server.name}`}
-                    value={server.reachesByDefault ? "yes" : "no"}
-                    onChange={(event) => onKitReach?.(server.name, event.target.value === "yes")}
-                  >
-                    <option value="no">Off</option>
-                    <option value="yes">On everywhere</option>
-                  </Select>
-                </TableCell>
-                <TableCell variant="secondary">
-                  <Select
-                    aria-label={`Here: ${server.name}`}
-                    value={server.here ?? "kit"}
-                    onChange={(event) =>
-                      onHereReach?.(
-                        server.name,
-                        event.target.value === "kit"
-                          ? null
-                          : (event.target.value as "extended" | "restricted"),
-                      )
-                    }
-                  >
-                    <option value="kit">{HERE_LABEL.kit}</option>
-                    <option value="extended">{HERE_LABEL.extended}</option>
-                    <option value="restricted">{HERE_LABEL.restricted}</option>
-                  </Select>
-                </TableCell>
-                {/* Fleet's own resolution, said plainly. Not a badge: the
-                    badge roster is the Job state machine's. */}
-                <TableCell variant="secondary">
-                  <span
-                    className="armada-kit-servers__resolves"
-                    data-resolves={server.resolves || undefined}
-                  >
-                    {server.resolves ? "Gets it" : "Does not"}
-                  </span>
-                </TableCell>
-                <TableCell variant="secondary">
-                  {onForget === undefined ? null : (
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      ground="sunken"
-                      aria-label={`Remove ${server.name}`}
-                      onClick={() => onForget(server.name)}
-                    >
-                      Remove
-                    </Button>
-                  )}
-                </TableCell>
+
+        {refused === undefined ? null : (
+          <Alert tone="caution" title="That was refused">
+            {refused}
+          </Alert>
+        )}
+
+        <form className="armada-kit-servers__add" onSubmit={add}>
+          <Input
+            id={`${group}-name`}
+            label="Name"
+            value={name}
+            placeholder="tracker"
+            onChange={(event) => setName(event.target.value)}
+          />
+          <Select
+            id={`${group}-kind`}
+            label="Kind"
+            value={kind}
+            onChange={(event) => setKind(event.target.value as KitServerKind)}
+          >
+            <option value="stdio">Program</option>
+            <option value="http">Address</option>
+          </Select>
+          <Input
+            id={`${group}-address`}
+            label={KIND_LABEL[kind]}
+            value={address}
+            placeholder={kind === "stdio" ? "npx -y @scope/server" : "https://example.com/mcp"}
+            onChange={(event) => setAddress(event.target.value)}
+          />
+          <Button type="submit" variant="secondary" size="sm">
+            Add
+          </Button>
+        </form>
+      </div>
+
+      {/* The glass, with every server framed on it. Empty, and hidden, until the list is read. */}
+      <div className="armada-kit-servers__glass">
+        {servers === undefined ? null : servers.length === 0 ? (
+          <p className="armada-kit-servers__reading">
+            Nothing in your Kit yet. A drone here gets Armada&rsquo;s own tool and nothing else.
+          </p>
+        ) : (
+          <Table className="armada-kit-servers__table">
+            <TableHead>
+              <TableRow>
+                <TableHeaderCell>Server</TableHeaderCell>
+                <TableHeaderCell>Where it is</TableHeaderCell>
+                <TableHeaderCell>In Kit</TableHeaderCell>
+                <TableHeaderCell>{here}</TableHeaderCell>
+                <TableHeaderCell>A drone here</TableHeaderCell>
+                <TableHeaderCell>{""}</TableHeaderCell>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      )}
+            </TableHead>
+            <TableBody>
+              {servers.map((server) => (
+                // A tile on the glass, reached by the keys as the kinds above are.
+                <TableRow key={server.name} tabIndex={0} data-kit-tile="">
+                  <TableCell variant="primary">{server.name}</TableCell>
+                  <TableCell variant="mono">{server.address}</TableCell>
+                  <TableCell variant="secondary">
+                    <Select
+                      aria-label={`In Kit: ${server.name}`}
+                      value={server.reachesByDefault ? "yes" : "no"}
+                      onChange={(event) => onKitReach?.(server.name, event.target.value === "yes")}
+                    >
+                      <option value="no">Off</option>
+                      <option value="yes">On everywhere</option>
+                    </Select>
+                  </TableCell>
+                  <TableCell variant="secondary">
+                    <Select
+                      aria-label={`Here: ${server.name}`}
+                      value={server.here ?? "kit"}
+                      onChange={(event) =>
+                        onHereReach?.(
+                          server.name,
+                          event.target.value === "kit"
+                            ? null
+                            : (event.target.value as "extended" | "restricted"),
+                        )
+                      }
+                    >
+                      <option value="kit">{HERE_LABEL.kit}</option>
+                      <option value="extended">{HERE_LABEL.extended}</option>
+                      <option value="restricted">{HERE_LABEL.restricted}</option>
+                    </Select>
+                  </TableCell>
+                  {/* Fleet's own resolution, said plainly. Not a badge: the
+                      badge roster is the Job state machine's. */}
+                  <TableCell variant="secondary">
+                    <span
+                      className="armada-kit-servers__resolves"
+                      data-resolves={server.resolves || undefined}
+                    >
+                      {server.resolves ? "Gets it" : "Does not"}
+                    </span>
+                  </TableCell>
+                  <TableCell variant="secondary">
+                    {onForget === undefined ? null : (
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        ground="sunken"
+                        aria-label={`Remove ${server.name}`}
+                        onClick={() => onForget(server.name)}
+                      >
+                        Remove
+                      </Button>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </div>
     </div>
   );
 }

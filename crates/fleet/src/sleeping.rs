@@ -7,7 +7,8 @@
 //!
 //! **An escalated Job** whose trigger words can carry past ([`ANSWERABLE`]) and whose title is not
 //! destructive is told to decide for itself, by the owner's own act: a redirect to its Drone, or a
-//! restart of the step with the same words where the Drone is gone. Any other escalation is held.
+//! restart of the step with the same words where the Drone is gone. One whose trigger a second run
+//! may well clear ([`RETRIED`]) has its step restarted, with no words. Any other escalation is held.
 //!
 //! **Each thing is left once.** A row's id is `<session>:<item>`, so a pass over an item already
 //! decided or held changes nothing.
@@ -19,7 +20,7 @@ use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{HostedSessions, Refusal};
 use core_model::{Actor, EscalationTrigger, JobStatus, TransitionReason};
 use ipc::{
-    AnswerWaiting, OverrideSleep, SendSessionMessage, SleepBlocked, SleepDecided, SleepLanded, SleepState,
+    AnswerWaiting, OverrideSleep, ReviewSleep, SendSessionMessage, SleepBlocked, SleepDecided, SleepLanded, SleepState,
     SleepWalk, WaitingItem, WaitingMode, WaitingSource, WireError,
 };
 use store::{SessionState, SleepRow};
@@ -51,8 +52,9 @@ const DESTRUCTIVE: &[&str] = &[
 /// Whole words that are too short to match inside another.
 const DESTRUCTIVE_WORDS: &[&str] = &["rm", "kill", "undo"];
 
-/// The escalations a person's words can carry a Job past: a Drone that stopped, went quiet, looped or
-/// failed a gate. The rest (a dependency that failed, no worktree, a cap) are not cured by a sentence.
+/// The escalations a person's words can carry a Job past: a Drone that stopped, went quiet, looped,
+/// failed a gate, asked and went unanswered, or was refused a hatch, its scope or its evidence. The rest
+/// (a dependency that failed, no worktree, a cap, a policy) are not cured by a sentence.
 const ANSWERABLE: &[EscalationTrigger] = &[
     EscalationTrigger::Stalled,
     EscalationTrigger::Silent,
@@ -61,6 +63,25 @@ const ANSWERABLE: &[EscalationTrigger] = &[
     EscalationTrigger::Interrupted,
     EscalationTrigger::LoopCap,
     EscalationTrigger::GateFailure,
+    EscalationTrigger::AskUnanswered,
+    EscalationTrigger::HatchUnbidden,
+    EscalationTrigger::ScopeRefused,
+    EscalationTrigger::EvidenceTooLarge,
+];
+
+/// The escalations a plain second run may clear, with nothing to say: the Drone or run ended, was not
+/// heard, would not start, or the gate or proposer gave no answer. The step is restarted, once a night
+/// (the Job's `job:` row stops a second restart); an undecided gate is asked again instead, the work
+/// being fine. `Unheard`, `WouldNotStart`, `NotPrepared` and `ProposerFailed` are Job-level, with no
+/// stopped step to restart, so they usually end as a blocked row carrying the refusal.
+const RETRIED: &[EscalationTrigger] = &[
+    EscalationTrigger::DroneGone,
+    EscalationTrigger::RunEnded,
+    EscalationTrigger::Unheard,
+    EscalationTrigger::WouldNotStart,
+    EscalationTrigger::NotPrepared,
+    EscalationTrigger::GateUndecided,
+    EscalationTrigger::ProposerFailed,
 ];
 
 /// How much of the agent's next words the review shows.
@@ -96,6 +117,7 @@ fn wire_of(switch: &store::SleepSwitch, rows: Vec<SleepRow>) -> SleepState {
     let mut state = SleepState { on: switch.on, ..SleepState::default() };
     for row in rows {
         match row.kind.as_str() {
+            "decided" if row.reviewed => {}
             "decided" => state.decided.push(SleepDecided {
                 id: row.id,
                 who: row.who,
@@ -118,7 +140,7 @@ fn wire_of(switch: &store::SleepSwitch, rows: Vec<SleepRow>) -> SleepState {
 }
 
 fn row(kind: &str, id: String, who: String, text: String) -> SleepRow {
-    SleepRow { id, kind: kind.into(), who, text, session_id: None, chose: None, corrected: None, pr: None }
+    SleepRow { id, kind: kind.into(), who, text, session_id: None, chose: None, corrected: None, pr: None, reviewed: false }
 }
 
 impl<H, V, W> Fleet<H, V, W>
@@ -197,6 +219,19 @@ where
         self.sleep_published().await
     }
 
+    /// `review_sleep`: the owner kept a decision, so it leaves the review.
+    pub(crate) async fn review_a_decision(&self, review: ReviewSleep) -> Result<SleepState, Refusal> {
+        let kept = self.store().lock().await.review_sleep_row(&review.id).map_err(|why| self.ledger_fault(why))?;
+        if !kept {
+            return Err(Refusal::IllegalMove(WireError::raised(
+                SLEEP_NO_DECISION,
+                "no decision of the night holds that id",
+                self.run_id(),
+            )));
+        }
+        self.sleep_published().await
+    }
+
     /// Leave a row once, and say so on the stream where it was new.
     async fn leave(&self, one: SleepRow) -> Result<(), Refusal> {
         let new = self.store().lock().await.add_sleep_row(&one).map_err(|why| self.ledger_fault(why))?;
@@ -225,7 +260,7 @@ where
         }
         let (id, title) = (job.id().as_str(), job.title().as_str());
         let answerable = match self.last_reason(job.id()).await {
-            Ok(Some(TransitionReason::Escalation(trigger))) => ANSWERABLE.contains(&trigger),
+            Ok(Some(TransitionReason::Escalation(trigger))) => ANSWERABLE.contains(&trigger) || RETRIED.contains(&trigger),
             _ => false,
         };
         if !answerable || destructive_text(title) {
@@ -247,8 +282,26 @@ where
             };
             let (who, title) = (job.handle(), job.title().as_str());
             let asked = format!("{title} ({})", trigger.as_wire());
-            if !ANSWERABLE.contains(&trigger) || destructive_text(title) {
+            let retried = RETRIED.contains(&trigger);
+            if !(ANSWERABLE.contains(&trigger) || retried) || destructive_text(title) {
                 self.leave(row("blocked", id, who, format!("Escalated, waiting on you: {title}"))).await?;
+                continue;
+            }
+            if retried {
+                let (ran, said) = match trigger {
+                    EscalationTrigger::GateUndecided => (self.rerun_gate(job.id()).await, "Ran the gate again"),
+                    _ => (
+                        self.restart_step_by(job.id(), None, Ending::Unheard, Actor::Fleet).await,
+                        "Restarted the step",
+                    ),
+                };
+                let done = match ran {
+                    Ok(_) => row("decided", id, who, format!("{said}: {asked}")),
+                    Err(why) => {
+                        row("blocked", id, who, format!("Escalated, could not carry on ({why}): {title}"))
+                    }
+                };
+                self.leave(done).await?;
                 continue;
             }
             let Some(words) = Redirection::saying(&format!("{}\n\n{asked}", mode_line(ipc::AnswerMode::Best))) else {
@@ -337,7 +390,9 @@ where
                     continue;
                 }
                 match item.source {
-                    WaitingSource::Walk => {
+                    // A question asked in the walk is about what is on the page, so it waits for
+                    // his eyes as the walk does rather than being decided for him.
+                    WaitingSource::Walk | WaitingSource::WindowAsk => {
                         self.leave(row("walk", id, who.clone(), item.text.clone())).await?;
                     }
                     WaitingSource::Permission => {

@@ -169,6 +169,7 @@
   --spacing-run-column-min: var(--w-run-column-min);
   --spacing-step-panel-min: var(--w-step-panel-min);
   --spacing-proposal-settings: var(--w-proposal-settings);
+  --spacing-settings-index: var(--w-settings-index);
   --spacing-dock: var(--w-dock);
   --spacing-dock-min: var(--w-dock-min);
   --spacing-work-min: var(--w-work-min);

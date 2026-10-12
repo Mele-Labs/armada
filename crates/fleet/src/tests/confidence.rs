@@ -69,6 +69,7 @@ async fn settled(fleet: &Fixture) {
         last = seen;
         tokio::time::sleep(std::time::Duration::from_millis(5)).await;
     }
+    panic!("the Drone never stopped turning");
 }
 
 async fn started(fleet: &Fixture, home: &TempDir) -> JobId {

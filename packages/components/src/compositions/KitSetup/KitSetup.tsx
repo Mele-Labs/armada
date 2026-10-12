@@ -120,9 +120,12 @@ export function KitSetup({ setup, onRemoveAllowed }: KitSetupProps) {
         </p>
       </header>
 
-      {setup.kinds.map((kind) => (
-        <Kind key={kind.kind} home={setup.home} onRemoveAllowed={onRemoveAllowed} {...kind} />
-      ))}
+      {/* The glass the kinds stand on, each a tile. */}
+      <div className="armada-kit-setup__glass">
+        {setup.kinds.map((kind) => (
+          <Kind key={kind.kind} home={setup.home} onRemoveAllowed={onRemoveAllowed} {...kind} />
+        ))}
+      </div>
     </section>
   );
 }
@@ -136,7 +139,8 @@ function Kind({
   // The allowlist draws no count: a count beside the list it counts is design-system hard rule 7.
   const counted = read.what === "read" && kind !== "allowlist" ? read.items.length : undefined;
   return (
-    <section className="armada-kit-setup__kind" aria-label={KIND_LABEL[kind]}>
+    // A tile on the glass: focusable, so a reading with no control in it is still reached by the keys.
+    <section className="armada-kit-setup__kind" aria-label={KIND_LABEL[kind]} tabIndex={0} data-kit-tile="">
       <h4 className="armada-kit-setup__kind-name">
         {KIND_LABEL[kind]}
         {counted === undefined ? null : (

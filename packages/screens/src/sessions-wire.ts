@@ -250,8 +250,20 @@ export function rowsOfThread(sessionId: string, rows: readonly WireRow[], pictur
       case "lease":
         out.push({ id: row.id, at, kind: "lease", slot: row.slot, branch: row.branch });
         break;
+      case "check":
+        out.push({ id: row.id, at, kind: "check", name: row.name, run: row.run, state: row.state });
+        break;
       case "window":
         out.push({ id: row.id, at, kind: "window", title: row.title, url: row.url });
+        break;
+      // The open question is on the window's bar and under Waiting on you, so the thread keeps a line.
+      case "window_ask":
+        out.push({
+          id: row.id,
+          at,
+          kind: "tool",
+          text: `Asked in the window: ${row.question}${row.answer === undefined ? "" : ` — ${row.answer.replace(/\n/g, " · ")}`}`,
+        });
         break;
       case "handoff":
         out.push({

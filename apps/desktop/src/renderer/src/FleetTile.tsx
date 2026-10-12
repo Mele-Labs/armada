@@ -1,12 +1,13 @@
 // One Job or Session as a tile: the state icon at the top left naming what is active, the kind as a
 // small glyph at the right, the title wrapping to two lines, and a bottom strip of the Job's step
 // pips or a Session's activity, with the age. The state is in the frame: a tile that needs the owner
-// is lit. A Session never draws pips, and a Job draws them only from two steps. Props are plain so
-// any grid can lay tiles out.
+// is lit. A Session never draws pips, and a Job draws them only from two steps. A Job whose workflow
+// is still being settled holds the pips' place with the blinking caret, and no step stands in for it.
+// Props are plain so any grid can lay tiles out.
 
 import { useEffect, useRef, type ReactNode } from "react";
 import { LoaderCircle, SquareTerminal, Workflow } from "lucide-react";
-import { Tooltip } from "@armada/components";
+import { SettlingMark, Tooltip } from "@armada/components";
 
 import { age, type Item } from "./Dashboard";
 
@@ -28,7 +29,9 @@ export function FleetTile({
   useEffect(() => {
     if (selected) ref.current?.scrollIntoView({ block: "nearest" });
   }, [selected]);
-  const spins = item.mark === undefined && item.live === true;
+  // One loop per tile: the caret blinking in the steps' place is the one that says it is still working.
+  const alive = item.live === true && item.settling !== true;
+  const spins = item.mark === undefined && alive;
   const State = item.mark ?? (spins ? LoaderCircle : item.icon);
   const said = item.state ?? item.kind;
   const lit = item.hue === "ask" || item.hue === "issue";
@@ -49,7 +52,7 @@ export function FleetTile({
     >
       <div className="armada-tile__head">
         <Tooltip label={said}>
-          <span className="armada-tile__mark" role="img" aria-label={said} data-spin={spins || undefined} data-live={(!spins && item.live === true) || undefined}>
+          <span className="armada-tile__mark" role="img" aria-label={said} data-spin={spins || undefined} data-live={(!spins && alive) || undefined}>
             <State size={20} aria-hidden="true" />
           </span>
         </Tooltip>
@@ -73,6 +76,8 @@ export function FleetTile({
               </li>
             ))}
           </ol>
+        ) : item.settling === true ? (
+          <SettlingMark field="Workflow" />
         ) : item.spark !== undefined && item.spark.length > 0 ? (
           <Tooltip label="Recent activity">
             <span className="armada-tile__spark" role="img" aria-label="Recent activity">

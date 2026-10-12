@@ -473,7 +473,8 @@ where
             // attempt* wrote something rather than whether the step did, and a
             // second `declare_plan_at` would spend a turn asking a Drone to
             // restate a plan it never left.
-            Ruling::HandedBack { tell, retrying, .. } => {
+            Ruling::HandedBack { tell, retrying, .. }
+            | Ruling::JudgesAgreed { tell, retrying, .. } => {
                 let job = self.load(job_id).await?;
                 let job = self
                     .move_step_by(
@@ -497,7 +498,9 @@ where
             // sends a step back to its Drone is a check that ran and said no.
             // A refusal says the work runs and is not what was asked for,
             // which is a person's to answer — resubmitting under the same
-            // instructions would produce the same work. **The refusal
+            // instructions would produce the same work. The exception is a
+            // refusal a panel of different models agreed on, which takes the
+            // hand-back's arm above with the Judges' findings: #206. **The refusal
             // reprompt the contract specifies is not injected here and no
             // longer waits to be** — the step stopping is what ends the
             // Drone, so `expected` and `produced` reach the opening brief of
@@ -604,6 +607,14 @@ where
         if self.between_tasks(at_work).await? {
             return Ok(None);
         }
+        // A task's Drone whose process vanished gets one replacement, on the
+        // same task, and the Job goes on. `crate::vanished`.
+        if self.healed_task_drone(working).await? {
+            return Ok(None);
+        }
+        let Some(at_work) = working.as_ref() else {
+            return Ok(None);
+        };
         // The step the Drone was **put on**, which is where its pointer is —
         // not the step the slot has advanced to beneath it.
         let (job_id, spawned_on, drone_id) = at_work.drone();
@@ -621,6 +632,12 @@ where
         // move the machine refuses.
         let standing = self.load(&job_id).await?;
         let after = aftermath(standing.status(), &Ending::of(&heard), self.left(&job_id));
+        // The one line that says why, where the escalation alone says
+        // `interrupted` and nothing else.
+        if matches!(Ending::of(&heard), Ending::Vanished) && !matches!(after, Aftermath::TheGateDecides)
+        {
+            self.noted_vanished(&job_id, &spawned_on, &drone_id, at_work.how_it_ended(), &heard, false);
+        }
         match &after {
             Aftermath::JobMoves(target) => {
                 // The departure first, so the Job's move is published over a
@@ -849,6 +866,7 @@ where
             let seq = store.record_transition(&moved).map_err(Adrift::Writing)?;
             crate::retro::kept_via(&mut store, moved.job.id(), seq, via);
         }
+        self.worktrees_memory().changed();
         if moved.job.status().is_terminal() {
             self.kept_footprint(&moved.job).await;
             // **After teardown, never on a timer.** `docs/concepts/fleet.md`,

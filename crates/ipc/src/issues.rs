@@ -1,61 +1,38 @@
-//! What is wrong with a Job, and what a quiet one is waiting on: the two
-//! lists a Job's Now draws under Issues and Waiting.
-//!
-//! **Pointers, not copies.** An issue names the thing it is about and the
-//! reader finds the rest where it already lives: a breakage in
-//! [`JobDetail::breakages`](crate::JobDetail::breakages), an overlap in
-//! `write_scope_overlaps`, a verdict on its step. Restating them here would
-//! be a second place for the same fact to disagree with itself.
-//!
-//! **A closed set Bridge draws one row from, per kind.** Both are tagged
-//! enums, so a kind added later is a change every reader is told about.
+//! A repository's open issues, as Fleet read them from its tracker. #91,
+//! `docs/concepts/tracker.md`.
 
 use serde::{Deserialize, Serialize};
 
-use crate::ids::{DroneId, Instant, JobId, StepId};
+use crate::{Instant, JobId, ManifestId};
 
-/// One thing wrong with a Job right now, once each.
+/// One open issue. Every string is the tracker's own, unedited.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "snake_case")]
-pub enum JobIssue {
-    /// A test broken on main that this Job reported or is fixing. The claim is
-    /// [`ClaimedBreakage`](crate::ClaimedBreakage), found by these two names.
-    Breakage { check: String, test: String },
-    /// Another Job claiming to write where this one does. The paths are
-    /// [`ScopeOverlap`](crate::ScopeOverlap), found by the Job.
-    WriteScopeOverlap { job_id: JobId },
-    /// The latest ruling on a step was `failed`, with the trigger it carried.
-    FailedVerdict {
-        step_id: StepId,
-        attempt: u32,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        trigger: Option<String>,
-    },
-    /// A working Drone that has written nothing for longer than Fleet's quiet
-    /// threshold. **Never a Drone at rest or waiting on an answer**, which are
-    /// quiet by design.
-    StuckDrone {
-        drone_id: DroneId,
-        step_id: StepId,
-        /// When it last wrote anything.
-        quiet_since: Instant,
-    },
+pub struct TrackedIssue {
+    pub number: u64,
+    pub title: String,
+    /// The tracker's address for it: what a dispatch from it sends as the request.
+    pub url: String,
+    pub labels: Vec<String>,
+    pub assignees: Vec<String>,
+    pub updated_at: Instant,
+    /// The start of its body, whitespace folded.
+    pub excerpt: String,
+    /// The tracker says a pull request already closes it.
+    pub linked_pull_request: bool,
+    /// A Job dispatched from it that has not ended, where there is one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub job_id: Option<JobId>,
 }
 
-/// What a Job with nothing running is waiting on.
+/// `list_issues`' answer.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "snake_case")]
-pub enum JobWaiting {
-    /// A named resource: the capacity cap, a budget hold, or whatever the
-    /// queued reason names. The same spelling `JobSummary::queued_reason`
-    /// carries, which is rendered and never matched on.
-    Resource { name: String },
-    /// Another Job it depends on that has not ended.
-    Job {
-        job_id: JobId,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        title: Option<String>,
-    },
-    /// A step between two states, with no Drone on it yet.
-    Transition { step_id: StepId },
+pub struct IssueList {
+    pub manifest_id: ManifestId,
+    /// When the tracker was read for this list.
+    pub fetched_at: Instant,
+    pub issues: Vec<TrackedIssue>,
+    /// Why this list is older than asked for: the tracker would not answer the
+    /// read just tried, in its own words. Absent on a fresh list.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stale: Option<String>,
 }

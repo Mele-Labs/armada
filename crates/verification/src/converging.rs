@@ -31,6 +31,7 @@ use core_model::{DeclaredPaths, RepoPath, StepCheck, Timestamp};
 use crate::judge::{field, Unreadable};
 use crate::product::Delivered;
 use crate::standing::Standing;
+use crate::wording::{Piece, Wording};
 
 /// The three words the look may answer with, and the citation the last owes.
 ///
@@ -38,9 +39,9 @@ use crate::standing::Standing;
 /// step told to write a file may change nothing tracked, and a finding required
 /// to name something in a diff that does not exist is a finding nobody can
 /// write.
-fn answer_format(cited: &str) -> String {
-    format!(
-        "\
+pub const JUDGE_CONVERGE_ANSWER: Piece = Piece {
+    id: "judgeConvergeAnswer",
+    shipped: "\
 Answer with nothing but the lines below.
 
 If what has been produced is moving towards the step:
@@ -64,9 +65,8 @@ If none of the above is true from what is shown here:
 
 Every state but the last names something in {cited}. A finding that could be \
 written about any other change is not a finding, and a guess is not a finding \
-either."
-    )
-}
+either.",
+};
 
 /// Where a step's work stands part-way through it.
 ///
@@ -180,14 +180,38 @@ impl ConvergenceBrief {
         precedent: &[StepCheck],
         standing: &Standing,
     ) -> ConvergenceBrief {
+        ConvergenceBrief::worded(
+            step,
+            patch,
+            declared,
+            off_plan,
+            held,
+            precedent,
+            standing,
+            &Wording::shipped(),
+        )
+    }
+
+    /// The same question in `wording`, the material laid where
+    /// [`ConvergenceBrief::about`] lays it.
+    #[allow(clippy::too_many_arguments)]
+    pub fn worded(
+        step: &ResolvedStep,
+        patch: &Patch,
+        declared: Option<&DeclaredPaths>,
+        off_plan: &[RepoPath],
+        held: Option<&str>,
+        precedent: &[StepCheck],
+        standing: &Standing,
+        wording: &Wording,
+    ) -> ConvergenceBrief {
         let mut question = String::new();
-        question.push_str(
-            "You are looking at a change somebody else is part-way through. \
-             Answer only the question at the end.\n\n",
-        );
+        question.push_str(wording.get(JUDGE_CONVERGE_OPENING));
+        question.push_str("\n\n");
         question.push_str(&format!("Step: {}\n\n", step.label()));
-        question.push_str(&standing.told());
-        question.push_str("Where the step said its work would be:\n");
+        question.push_str(&standing.told(wording));
+        question.push_str(wording.get(JUDGE_CONVERGE_DECLARED));
+        question.push('\n');
         match declared {
             Some(paths) if !paths.is_empty() => {
                 for path in paths.paths() {
@@ -198,32 +222,30 @@ impl ConvergenceBrief {
             None => question.push_str("  (it declared nothing)\n"),
         }
         if !off_plan.is_empty() {
-            question.push_str("\nWhat has been changed outside that:\n");
+            question.push_str(&format!("\n{}\n", wording.get(JUDGE_CONVERGE_OFF_PLAN)));
             for path in off_plan {
                 question.push_str(&format!("  {}\n", path.as_str()));
             }
         }
         if !precedent.is_empty() {
-            question.push_str(&last_time(precedent));
+            question.push_str(&last_time(precedent, wording));
         }
         match step.deliverable() {
             None => {
-                question.push_str("\nWhat has been produced so far, as a diff:\n\n");
+                question.push_str(&format!("\n{}\n\n", wording.get(JUDGE_CONVERGE_DIFF)));
                 question.push_str(patch.as_str());
             }
             Some(target) => {
-                question.push_str(&produced(target, held.unwrap_or_default()));
-                question.push_str(&alongside(patch));
+                question.push_str(&produced(target, held.unwrap_or_default(), wording));
+                question.push_str(&alongside(patch, wording));
             }
         }
-        question.push_str(
-            "\n\nThe question: is this converging on the step, is the work \
-             outside the plan justified by the step, or is it thrashing?\n\n",
-        );
-        question.push_str(&answer_format(match step.deliverable() {
-            None => "the diff above",
-            Some(_) => "the file above or the diff",
-        }));
+        question.push_str(&format!("\n\n{}\n\n", wording.get(JUDGE_CONVERGE_QUESTION)));
+        let cited = match step.deliverable() {
+            None => wording.get(JUDGE_CONVERGE_CITES_DIFF),
+            Some(_) => wording.get(JUDGE_CONVERGE_CITES_FILE),
+        };
+        question.push_str(&wording.fill(JUDGE_CONVERGE_ANSWER, &[("cited", cited)]));
         ConvergenceBrief { question }
     }
 
@@ -260,8 +282,8 @@ impl ConvergenceBrief {
 
 /// What this step's own last attempt did not pass, as the look is shown it.
 /// Non-empty only past a first attempt — see [`ConvergenceBrief::about`].
-fn last_time(precedent: &[StepCheck]) -> String {
-    let mut said = String::from("\nWhat failed the last time this step ran:\n");
+fn last_time(precedent: &[StepCheck], wording: &Wording) -> String {
+    let mut said = format!("\n{}\n", wording.get(JUDGE_CONVERGE_LAST_TIME));
     for check in precedent {
         let why = check
             .produced
@@ -270,10 +292,10 @@ fn last_time(precedent: &[StepCheck]) -> String {
             .unwrap_or("(nothing recorded)");
         said.push_str(&format!("  {}: {why}\n", check.name));
     }
-    said.push_str(
-        "\nAnswer converging only if what is shown below plainly changes why. \
-         If you cannot tell, answer cannot_tell rather than converging.\n",
-    );
+    said.push_str(&format!(
+        "\n{}\n",
+        wording.get(JUDGE_CONVERGE_LAST_TIME_RULE)
+    ));
     said
 }
 
@@ -288,21 +310,20 @@ fn last_time(precedent: &[StepCheck]) -> String {
 /// stated once and a document over it is named rather than passed off as
 /// empty — the one wording that would produce a false `thrashing` against a
 /// step that has written a great deal.
-fn produced(target: &str, held: &str) -> String {
+fn produced(target: &str, held: &str, wording: &Wording) -> String {
     match Delivered::read(target, held) {
         Ok(delivered) if !delivered.contents().trim().is_empty() => format!(
-            "\nWhat has been written to `{target}` so far. That file is this \
-             step's product, and the diff below is not:\n\n{}\n",
+            "\n{}\n\n{}\n",
+            wording.fill(JUDGE_CONVERGE_WRITTEN, &[("file", target)]),
             delivered.contents()
         ),
         Ok(_) => format!(
-            "\nThe file this step was asked to produce is `{target}`, and \
-             nothing has been written to it yet. That file is this step's \
-             product, and the diff below is not.\n"
+            "\n{}\n",
+            wording.fill(JUDGE_CONVERGE_NOTHING_WRITTEN, &[("file", target)])
         ),
         Err(too_big) => format!(
-            "\nThe file this step was asked to produce is not shown here: \
-             {too_big}. It is not empty.\n"
+            "\n{}\n",
+            wording.fill(JUDGE_CONVERGE_TOO_BIG, &[("why", &too_big.to_string())])
         ),
     }
 }
@@ -313,16 +334,106 @@ fn produced(target: &str, held: &str) -> String {
 /// changes nothing git tracks, and a bare empty diff under a heading is what
 /// let the look read "produced nothing" off a step that had produced its whole
 /// deliverable.
-fn alongside(patch: &Patch) -> String {
+fn alongside(patch: &Patch, wording: &Wording) -> String {
     match patch.as_str().trim().is_empty() {
-        true => String::from(
-            "\nNothing else has changed on disk. A step whose product is a \
-             written file commonly changes nothing tracked, so an empty diff \
-             here is not itself the observable.\n",
-        ),
+        true => format!("\n{}\n", wording.get(JUDGE_CONVERGE_NOTHING_ELSE)),
         false => format!(
-            "\nWhat has changed alongside it, as a diff:\n\n{}",
+            "\n{}\n\n{}",
+            wording.get(JUDGE_CONVERGE_ALONGSIDE),
             patch.as_str()
         ),
     }
 }
+
+/// What a convergence look is told it is doing.
+pub const JUDGE_CONVERGE_OPENING: Piece = Piece {
+    id: "judgeConvergeOpening",
+    shipped: "You are looking at a change somebody else is part-way through. \
+              Answer only the question at the end.",
+};
+
+/// The line the declared paths follow.
+pub const JUDGE_CONVERGE_DECLARED: Piece = Piece {
+    id: "judgeConvergeDeclared",
+    shipped: "Where the step said its work would be:",
+};
+
+/// The line the paths changed outside the plan follow.
+pub const JUDGE_CONVERGE_OFF_PLAN: Piece = Piece {
+    id: "judgeConvergeOffPlan",
+    shipped: "What has been changed outside that:",
+};
+
+/// The line what failed last time follows.
+pub const JUDGE_CONVERGE_LAST_TIME: Piece = Piece {
+    id: "judgeConvergeLastTime",
+    shipped: "What failed the last time this step ran:",
+};
+
+/// What the look is told about answering past a failed attempt.
+pub const JUDGE_CONVERGE_LAST_TIME_RULE: Piece = Piece {
+    id: "judgeConvergeLastTimeRule",
+    shipped: "Answer converging only if what is shown below plainly changes why. \
+              If you cannot tell, answer cannot_tell rather than converging.",
+};
+
+/// The line the diff follows, where the diff is the product.
+pub const JUDGE_CONVERGE_DIFF: Piece = Piece {
+    id: "judgeConvergeDiff",
+    shipped: "What has been produced so far, as a diff:",
+};
+
+/// The line the written deliverable follows.
+pub const JUDGE_CONVERGE_WRITTEN: Piece = Piece {
+    id: "judgeConvergeWritten",
+    shipped: "What has been written to `{file}` so far. That file is this \
+              step's product, and the diff below is not:",
+};
+
+/// What the look is told where the deliverable is still empty.
+pub const JUDGE_CONVERGE_NOTHING_WRITTEN: Piece = Piece {
+    id: "judgeConvergeNothingWritten",
+    shipped: "The file this step was asked to produce is `{file}`, and \
+              nothing has been written to it yet. That file is this step's \
+              product, and the diff below is not.",
+};
+
+/// What the look is told where the deliverable is too big to show.
+pub const JUDGE_CONVERGE_TOO_BIG: Piece = Piece {
+    id: "judgeConvergeTooBig",
+    shipped: "The file this step was asked to produce is not shown here: \
+              {why}. It is not empty.",
+};
+
+/// What the look is told where nothing beside the deliverable changed.
+pub const JUDGE_CONVERGE_NOTHING_ELSE: Piece = Piece {
+    id: "judgeConvergeNothingElse",
+    shipped: "Nothing else has changed on disk. A step whose product is a \
+              written file commonly changes nothing tracked, so an empty diff \
+              here is not itself the observable.",
+};
+
+/// The line the diff beside a deliverable follows.
+pub const JUDGE_CONVERGE_ALONGSIDE: Piece = Piece {
+    id: "judgeConvergeAlongside",
+    shipped: "What has changed alongside it, as a diff:",
+};
+
+/// The convergence question.
+pub const JUDGE_CONVERGE_QUESTION: Piece = Piece {
+    id: "judgeConvergeQuestion",
+    shipped: "The question: is this converging on the step, is the work \
+              outside the plan justified by the step, or is it thrashing?",
+};
+
+/// What a finding must name, where the diff is the product.
+pub const JUDGE_CONVERGE_CITES_DIFF: Piece = Piece {
+    id: "judgeConvergeCitesDiff",
+    shipped: "the diff above",
+};
+
+/// What a finding must name, where a file is the product.
+pub const JUDGE_CONVERGE_CITES_FILE: Piece = Piece {
+    id: "judgeConvergeCitesFile",
+    shipped: "the file above or the diff",
+};

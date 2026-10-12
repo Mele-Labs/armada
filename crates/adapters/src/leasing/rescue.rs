@@ -5,13 +5,14 @@
 //! **Under the slot's own lock**, as a take or a release is, and the slot is
 //! asked again under it whether it is still stranded.
 
+use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
 use adapter_traits::{
     CommitHome, RescueRefused, SlotCommit, SlotRescue, SlotRescued, StrandedWork,
 };
 
-use super::git::{count, dirty, git, git_ok};
+use super::git::{count, dirty, git, git_ok, read};
 use super::{Holder, Pool, Record, SlotState};
 
 /// How many of a branch's commits a reading lists. The rest are still counted
@@ -22,7 +23,7 @@ impl Pool {
     /// What stranded slot `number` holds.
     pub fn stranded_work(&self, number: usize) -> Result<StrandedWork, RescueRefused> {
         let path = self.stranded(number)?;
-        self.work_at(&path)
+        self.work_at(&path, None)
     }
 
     /// What slot `number` holds while an agent session holds it. **Read only**:
@@ -36,26 +37,35 @@ impl Pool {
             SlotState::Held {
                 holder: Holder::Process { .. },
                 ..
-            } => self.work_at(&self.path_of(number)),
+            } => self.work_at(&self.path_of(number), None),
             other => Err(RescueRefused::NotStranded(word(&other).to_string())),
         }
     }
 
-    fn work_at(&self, path: &Path) -> Result<StrandedWork, RescueRefused> {
+    /// What the checkout at `path` holds. `status` is the `git status` the
+    /// caller already ran on it, where it ran one.
+    pub(super) fn work_at(
+        &self,
+        path: &Path,
+        status: Option<Result<Vec<String>, String>>,
+    ) -> Result<StrandedWork, RescueRefused> {
         let path = path.to_path_buf();
-        let commit = git(&path, &["rev-parse", "HEAD"]).map_err(RescueRefused::Vcs)?;
-        let uncommitted = dirty(&path).map_err(RescueRefused::Vcs)?;
+        let commit = read(&path, &["rev-parse", "HEAD"]).map_err(RescueRefused::Vcs)?;
+        let uncommitted = status
+            .unwrap_or_else(|| dirty(&path))
+            .map_err(RescueRefused::Vcs)?;
         let range = format!("{}..HEAD", self.base_ref());
         let listed = COMMITS_LISTED.to_string();
         let log =
-            git(&path, &["log", "--format=%H%x1f%s", "-n", &listed, &range]).unwrap_or_default();
+            read(&path, &["log", "--format=%H%x1f%s", "-n", &listed, &range]).unwrap_or_default();
+        let (not_on_remote, not_on_main) = self.homes_of(&path, &range);
         let commits = log
             .lines()
             .filter_map(|line| line.split_once('\u{1f}'))
             .map(|(sha, subject)| SlotCommit {
                 sha: sha.to_string(),
                 subject: subject.to_string(),
-                home: self.home_of(&path, sha),
+                home: home_of(sha, &not_on_remote, &not_on_main),
             })
             .collect();
         Ok(StrandedWork {
@@ -67,28 +77,30 @@ impl Pool {
         })
     }
 
-    /// Where else `sha` exists, asked the way `unlanded` counts: a remote
-    /// branch first, then the local base. A question git cannot answer reads
-    /// as only here, because unknown is not landed.
-    fn home_of(&self, at: &Path, sha: &str) -> CommitHome {
-        if git(at, &["branch", "--remotes", "--contains", sha]).is_ok_and(|named| !named.is_empty())
-        {
-            return CommitHome::OnRemote;
-        }
+    /// The commits of `range` that no remote branch holds, and that the local
+    /// base does not, each from one question rather than one per commit. A
+    /// question git cannot answer is `None`, which [`home_of`] reads as only
+    /// here, because unknown is not landed.
+    fn homes_of(&self, at: &Path, range: &str) -> (Option<HashSet<String>>, Option<HashSet<String>>) {
+        let shas = |args: &[&str]| {
+            read(at, args)
+                .ok()
+                .map(|said| said.lines().map(str::to_string).collect::<HashSet<_>>())
+        };
         let local = format!("refs/heads/{}", self.base);
-        if git_ok(at, &["merge-base", "--is-ancestor", sha, &local]) {
-            return CommitHome::OnMain;
-        }
-        CommitHome::OnlyHere
+        (
+            shas(&["rev-list", range, "--not", "--remotes"]),
+            shas(&["rev-list", range, "--not", &local]),
+        )
     }
 
     /// Stranded slot `number`'s change against where it left the base,
     /// uncommitted changes to tracked files included.
     pub fn stranded_diff(&self, number: usize) -> Result<String, RescueRefused> {
         let path = self.stranded(number)?;
-        let since = git(&path, &["merge-base", "HEAD", &self.base_ref()])
+        let since = read(&path, &["merge-base", "HEAD", &self.base_ref()])
             .unwrap_or_else(|_| String::from("HEAD"));
-        git(&path, &["diff", &since]).map_err(RescueRefused::Vcs)
+        read(&path, &["diff", &since]).map_err(RescueRefused::Vcs)
     }
 
     /// Scrap or stash stranded slot `number`'s work, and free it.
@@ -207,9 +219,25 @@ impl Pool {
     }
 }
 
+/// Where else `sha` exists: a remote branch first, then the local base.
+fn home_of(
+    sha: &str,
+    not_on_remote: &Option<HashSet<String>>,
+    not_on_main: &Option<HashSet<String>>,
+) -> CommitHome {
+    let held_by = |missing: &Option<HashSet<String>>| missing.as_ref().is_some_and(|m| !m.contains(sha));
+    if held_by(not_on_remote) {
+        return CommitHome::OnRemote;
+    }
+    if held_by(not_on_main) {
+        return CommitHome::OnMain;
+    }
+    CommitHome::OnlyHere
+}
+
 /// The branch checked out, or `None` for a detached checkout.
 fn on_branch(path: &Path) -> Option<String> {
-    git(path, &["branch", "--show-current"])
+    read(path, &["branch", "--show-current"])
         .ok()
         .filter(|name| !name.is_empty())
 }

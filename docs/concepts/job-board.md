@@ -18,17 +18,17 @@ The owner: *"Overview now supersedes the job board. We should delete this page."
 
 ## Overview became the Dashboard on 8 Oct 2026, and the Cockpit on 9 Oct
 
-The owner asked for a live view of what needs him now, with quick dispatch when nothing does. Overview's panels became tabs on 8 Oct, and on 9 Oct the tabs went and the page became one panel, called the Cockpit in the rail. Its top bar filters by **Your move**, **Active** and **Done**, and Jobs, Sessions and merge line items each sort into one of them. A filter carries no count. `[` and `]` step the filters and `⌥1` and up jump to one.
+The owner asked for a live view of what needs him now, with quick dispatch when nothing does; on 10 Oct 2026 that moved into the title row's one bar. Overview's panels became tabs on 8 Oct, and on 9 Oct the tabs went and the page became one panel, called the Cockpit in the rail. Its top bar filters by **Your move**, **Active** and **Done**, and Jobs, Sessions and merge line items each sort into one of them. A filter carries no count. `[` and `]` step the filters and `⌥1` and up jump to one.
 
 **Your move** is what needs him. It is empty with nothing waiting, and says nothing. **Active** is every live Job and Session. **Done** is the Jobs and Sessions that are over; what landed stays on the merge line. Every filter draws the same tiles. A tile's icon names what is active on it, a Drone, a Check or a Judge, or that it waits on him, and a tile that needs him is lit. Its bottom strip is a Job's steps, drawn from two steps up, or a Session's recent cadence. On Active and Done the tile picked opens in a pane beside the grid, and a Job's pane says what is running now.
 
-**A call comes forward over the panel whatever the filter**, because it is what needs him. It says what the Job is and what he asked it for, where the question came from and what is active now; a Session's call is a few messages of its thread. It is answered from the keyboard: a digit picks, `Enter` sends, `l` puts it at the back of the stack, `o` opens what it is about. The calls behind it stand like a deck, and `w` brings one back when none is in front. The standing answers, `b` and `g`, hand the decision to the agent, and they stand only on a question an agent asked, never on a call Fleet raises about a state.
+**A call comes forward over the panel whatever the filter**, because it is what needs him. It says what the Job is and what he asked it for, where the question came from and what is active now; a Session's call is a few messages of its thread. It is answered from the keyboard: a digit picks, `Enter` sends, `l` puts it at the back of the stack, `o` opens what it is about. The calls behind it stand like a deck, and `w` brings one back when none is in front. The standing answers, `b` and `g`, hand the decision to the agent, and they stand only on a question an agent asked, never on a call Fleet raises about a state. On a Job's question they send `best` or `quick` as the answer's `mode`, and the Drone is told to decide for itself ([Job](job.md), *A Job whose Drone asks a question*). What a tile and a call say is active comes from Fleet for every live Job.
 
 **A pull request or main's red that a Job or a Session already owns sends him to the owner**, to open it or to poke it, and offers no new Drone. One nobody owns offers a Drone, or to attach it to a Job or a Session that is on it.
 
 **The grid has a map.** `m` flips the tiles into a map of stars, one for each Job and Session, clustered by repository and joined by what connects them: a parent to its child, a Job to what it waits on, a Session to its Job, a branch to main. The map offers the same acts as the grid. The choice is remembered.
 
-A slim dispatch bar sits over the panel and takes the cursor when nothing needs him. `n`, or `⌘N` from anywhere, brings the cursor to it, and a Job or a Session is chosen beside it, Tab switching between them.
+Work is dispatched from the title row's one bar, which searches and dispatches in one field. `n`, or `⌘N` from anywhere, opens it ready for the work, and Tab chooses a Job or a Session. See `../contracts/design-system.md`, Command palette.
 
 **The row's acts and marks moved into the pane beside the list.** Pilot, Open in a Session, Pause, Kill, Redispatch and Clear are the same control a Board row drew (`JobActs`), and the paused, fixing-main, alert and piloted marks sit beside the title (`JobMarks`). The Board's keys work on whichever list is in front: j and k move, Enter or the row's verb key opens, and x asks to kill. n composes.
 
@@ -137,12 +137,11 @@ and this tab is where a reclaimed Job goes so the act reads as what it did
 rather than as nothing.
 
 **One of the five registry-partitioned rules is not a lifecycle row.** A
-[Drone](drone.md) that has asked a person a question is on a Job that is
-`running`, with `who_is_acting = "Drone"`, and nothing about the Job or its
-step moves while it waits — which is deliberate, and is why there is no
-seventh step state for it. So `job-statuses.toml` has nothing to say about
-this and cannot: it is a fact about a live working slot rather than about a
-status, and it rides on the Job row as `asking`. `Cleared`'s rule is the same
+[Drone](drone.md) that has asked a person a question stands down, and its Job
+waits at `queued` reading `awaiting_answer`, with `who_is_acting = "Drone"` —
+the same status as every Job waiting for a place. A Drone waiting on a command
+it reached for is on a `running` Job. So `job-statuses.toml` cannot place
+either, and it rides on the Job row as `asking`. `Cleared`'s rule is the same
 shape one level up — `reclaimed_at` is a fact about the row rather than the
 registry — but it sits outside the five-way partition entirely rather than
 inside it, which is why it is read first rather than fitted among them.

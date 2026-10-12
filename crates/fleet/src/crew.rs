@@ -20,6 +20,7 @@ use crate::adrift::Adrift;
 use crate::briefing::Opening;
 use crate::crossing::{Crossed, Produced, ThePlan};
 use crate::daemon::Fleet;
+use crate::drone::Ending;
 use crate::process::{holder_of, Holder};
 use crate::tasking::next_task_beside;
 use crate::work_plan::plan_not_kept;
@@ -241,6 +242,7 @@ where
             Crossed::nothing().and_produced(Produced::before(job.workflow(), step, &recorded));
         // No catch-up onto the base: the kept Drone is working in this copy.
         let opening = Opening::fresh()
+            .worded(self.prompts())
             .carrying(crossed)
             .holding_off(&self.held_off(&job_id).await)
             .carrying_the_plan(Some(ThePlan::for_task(plan, task)))
@@ -334,6 +336,16 @@ where
             } else if !running {
                 ExtraEnded::Failed
             } else if at_work.transcript_ended() && at_work.exited().await.unwrap_or(true) {
+                let heard = at_work.heard();
+                if matches!(Ending::of(&heard), Ending::Vanished) {
+                    // Its task goes back to the kept Drone below, which is this
+                    // road's one replacement: a second vanish is not retried.
+                    if let Some(task) = at_work.task() {
+                        self.first_vanish_of(job_id, task);
+                    }
+                    let step = at_work.standing().1;
+                    self.noted_vanished(job_id, &step, &drone, at_work.how_it_ended(), &heard, true);
+                }
                 ExtraEnded::Failed
             } else {
                 continue;
@@ -421,7 +433,7 @@ where
     }
 
     /// A task back to `open`, where its Drone did not hand it in.
-    async fn reopened(
+    pub(crate) async fn reopened(
         &self,
         job_id: &JobId,
         step: &StepId,

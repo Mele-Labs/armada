@@ -44,12 +44,14 @@ mod limits;
 mod mcp;
 mod merge_hub;
 mod layout;
+mod key_bindings;
 mod mods;
 mod needing;
 /// The one tool the harness calls rather than the model, and the two answers.
 mod permission;
 mod planning;
 mod preferences;
+mod settings;
 /// The one DTO on this seam a peer *writes*, and what it refuses.
 mod proposals;
 mod protocol_id;
@@ -78,6 +80,7 @@ mod triggers;
 mod turns;
 /// Walk notes: absent where empty, so a 23.17 peer sees nothing new.
 mod walk_notes;
+mod window_asks;
 /// An Epic's wave: each pass's line, and each member's waits-on edges.
 mod waves;
 mod work_plan;

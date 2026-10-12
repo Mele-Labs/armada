@@ -25,9 +25,15 @@ export type NowAskerDraft = {
   checks?: readonly { name: string; state: "passed" | "failed" | "running"; tail?: readonly string[] }[];
 };
 
+/**
+ * What a real ask is answered through. **A command is answered by one of its offers**, which best
+ * and quick are not, so it takes no mode. The mock's asks name none.
+ */
+export type AskedOf = { kind: "question"; id: string } | { kind: "judge"; at: string } | { kind: "command" };
+
 export type NowAskView =
   | { key: string; kind: "plan"; decisions: readonly { id: string; question: string; options: readonly { id: string; label: string; sketch?: NowSketchDraft }[]; sketch?: NowSketchDraft }[]; asker?: NowAskerDraft }
-  | { key: string; kind: "judge" | "drone"; name: string; text: string; target?: string; sketch?: NowSketchDraft; asker?: NowAskerDraft };
+  | { key: string; kind: "judge" | "drone"; name: string; text: string; target?: string; asked?: AskedOf; sketch?: NowSketchDraft; asker?: NowAskerDraft };
 
 /** A quick act on a row. The host's handler is a stub on the mock. */
 export type NowActView = { key: string; glyph: "retry" | "skip" | "skip_all" | "redirect" | "retry_step"; said: string };

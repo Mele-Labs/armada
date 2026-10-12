@@ -17,12 +17,14 @@ assuming it is restated here.
 | [bridge.md](bridge.md) | The Electron command-center shell — Armada's only engineer-facing surface |
 | [doctor.md](doctor.md) | The health-check surface — a passive per-module grid and the first-run hard gate |
 | [drone.md](drone.md) | The execution runtime for a single Job — a confined Claude Code process with its own worktree |
+| [autopilot.md](autopilot.md) | A repository working its own backlog: one instruction, caps, and every issue it picked, started or set aside |
 | [fleet.md](fleet.md) | The Rust daemon — the only actor that writes a state transition on a Job or a Drone |
 | [helm.md](helm.md) | The conversational orchestrator agent that reasons across a Fleet |
 | [job-board.md](job-board.md) | Every Job on one Manifest, and what a row of them says. Read on the Cockpit |
 | [job-proposer.md](job-proposer.md) | The model call that reads a dispatch request and proposes a Job |
 | [job.md](job.md) | The unit of work Fleet dispatches to a Drone — data, not an actor |
 | [judge.md](judge.md) | The semantic, veto-only tier of evidence verification |
+| [key-bindings.md](key-bindings.md) | The keys each act answers as this person has them: the registry's, with Settings → Keyboard shortcuts laid over them and kept by Fleet |
 | [kit.md](kit.md) | The tool set you bring — Skills, MCP, sub agents, Commands, the allowlist |
 | [landing.md](landing.md) | How a Job's work reaches its target — one pull request, or members landing in order |
 | [layout-mods.md](layout-mods.md) | A mod whose `layout.json` reorders, hides and sets the opening choice of Bridge's Dashboard, Job tabs and rail, by id |
@@ -41,5 +43,6 @@ assuming it is restated here.
 | [sketch-pane.md](sketch-pane.md) | What the Overview draws beside the Now panel while something asks: a Drone's sketch, the asker's view or the canvas |
 | [studio.md](studio.md) | A typed graph of what one stretch of work produced, kept per repository |
 | [themes.md](themes.md) | The colours Bridge is drawn in: Dark, Light, a catalogue of terminal colour schemes, and the themes mods add |
+| [tracker.md](tracker.md) | The adapter through which Fleet lists a repository's open issues and writes back on the one a Job came from |
 | [trigger.md](trigger.md) | Something that runs at a moment in a Job — a Command or a skill, set by Armada, a repository or this machine |
 | [workflow.md](workflow.md) | The template a Job runs against — ordered steps, gates and retry policy |

@@ -1,0 +1,127 @@
+/* One act and its keys: the verb and its glyph, then a control per key and the act's own Reset. */
+.armada-key-binding-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  min-width: 0;
+  padding: var(--space-2) 0;
+  border-bottom: var(--border-width) solid var(--border-subtle);
+}
+
+.armada-key-binding-row__act {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.armada-key-binding-row__mark {
+  flex: none;
+  width: var(--space-4);
+  color: var(--fg-muted);
+}
+
+.armada-key-binding-row__verb {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  color: var(--fg-default);
+  font-size: var(--text-sm);
+}
+
+.armada-key-binding-row__note,
+.armada-key-binding-row__conflict {
+  font-size: var(--text-xs);
+  color: var(--fg-muted);
+}
+
+.armada-key-binding-row__conflict {
+  color: var(--status-escalated);
+}
+
+.armada-key-binding-row__keys {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* A key is a control: the cap inside a quiet box that takes the press. */
+.armada-key-binding-row__key {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--space-8);
+  padding: 0 var(--space-2);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--surface-well);
+  color: var(--fg-default);
+  font: inherit;
+  font-size: var(--text-xs);
+  cursor: pointer;
+}
+
+.armada-key-binding-row__key:hover {
+  border-color: var(--border-strong);
+}
+
+.armada-key-binding-row__key:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.armada-key-binding-row__key[data-listening] {
+  border-color: var(--accent);
+  background: var(--accent-faint);
+}
+
+.armada-key-binding-row__key[data-conflict] {
+  border-color: var(--status-escalated);
+}
+
+.armada-key-binding-row__slot,
+.armada-key-binding-row__unbound {
+  color: var(--fg-muted);
+}
+
+.armada-key-binding-row__waiting {
+  color: var(--accent);
+}
+
+/* Reset keeps its place whether or not it is drawn, so the keys of every row line up. */
+.armada-key-binding-row__reset {
+  min-width: var(--space-12);
+}
+
+/* Settings → Keyboard: a caption over each place a person might be standing. */
+.armada-keyboard-settings {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.armada-keyboard-settings__group {
+  display: flex;
+  flex-direction: column;
+}
+
+.armada-keyboard-settings__caption {
+  margin: 0 0 var(--space-1);
+  color: var(--fg-muted);
+  font-size: var(--text-xs);
+}
+
+.armada-keyboard-settings__lead {
+  margin: 0;
+  color: var(--fg-muted);
+  font-size: var(--text-sm);
+}
+
+.armada-keyboard-settings__foot {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}

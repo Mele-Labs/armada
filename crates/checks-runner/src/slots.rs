@@ -13,6 +13,8 @@ use std::fmt;
 use std::fs::{File, OpenOptions, TryLockError};
 use std::io;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
 use std::time::Duration;
 
 /// Set on everything a slot-holding Check starts. A Check started inside one —
@@ -37,10 +39,13 @@ pub const AHEAD_ENV: &str = "ARMADA_CHECK_AHEAD";
 const AHEAD: &str = "ahead";
 
 /// `count` slots in `dir`.
+///
+/// **The count is shared by every clone**, so [`CheckSlots::resize`] on the
+/// one a Fleet holds reaches every place handing them out.
 #[derive(Clone, Debug)]
 pub struct CheckSlots {
     dir: PathBuf,
-    count: usize,
+    count: Arc<AtomicUsize>,
     ahead: bool,
 }
 
@@ -84,7 +89,7 @@ impl CheckSlots {
     pub fn at(dir: impl AsRef<Path>, count: usize) -> CheckSlots {
         CheckSlots {
             dir: dir.as_ref().to_path_buf(),
-            count: count.max(1),
+            count: Arc::new(AtomicUsize::new(count.max(1))),
             ahead: false,
         }
     }
@@ -98,7 +103,14 @@ impl CheckSlots {
     }
 
     pub fn count(&self) -> usize {
-        self.count
+        self.count.load(Ordering::Relaxed)
+    }
+
+    /// Put a new count in force, at least one, from the next ask. **A holder
+    /// keeps what it holds**: past a smaller count its slot is simply never
+    /// offered again once it is given back, so nothing running is stopped.
+    pub fn resize(&self, count: usize) {
+        self.count.store(count.max(1), Ordering::Relaxed);
     }
 
     /// Take `wants` slots now, or say how many are in use and hold none.
@@ -107,19 +119,20 @@ impl CheckSlots {
     /// takes every one rather than waiting for room that never comes. The
     /// error is the filesystem refusing, never contention.
     pub fn try_take(&self, wants: usize) -> io::Result<Result<Held, InUse>> {
-        let wants = wants.clamp(1, self.count);
+        let count = self.count();
+        let wants = wants.clamp(1, count);
         std::fs::create_dir_all(&self.dir)?;
         if !self.ahead && self.someone_waits_ahead()? {
             return Ok(Err(InUse {
-                in_use: self.count,
-                of: self.count,
+                in_use: count,
+                of: count,
                 wants,
                 behind_the_line: true,
             }));
         }
         let mut files = Vec::with_capacity(wants);
         let mut in_use = 0;
-        for slot in 0..self.count {
+        for slot in 0..count {
             let file = OpenOptions::new()
                 .create(true)
                 .truncate(false)
@@ -136,7 +149,7 @@ impl CheckSlots {
         }
         Ok(Err(InUse {
             in_use,
-            of: self.count,
+            of: count,
             wants,
             behind_the_line: false,
         }))

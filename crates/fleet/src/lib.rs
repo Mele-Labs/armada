@@ -42,6 +42,8 @@ mod answer_mode;
 /// serves it. Spike 022, slice 4.
 mod approved;
 pub mod approving;
+/// A repository working its own backlog. #2092.
+pub mod autopilot;
 /// Merge pressed while the forge's checks run: auto-merge asked for, and the Job taken when it lands.
 mod auto_merging;
 pub mod asked;
@@ -230,7 +232,7 @@ pub mod policy;
 pub mod ports;
 mod pr_mode;
 mod precedent;
-/// A person's Bridge preferences, `limits`'s shape one table over.
+/// A person's Bridge preferences, five keys of settings.json in their older shape.
 mod preferences;
 pub mod preparing;
 /// The probes Fleet can run on itself, and the Doctor modules it cannot.
@@ -239,6 +241,8 @@ mod probing;
 pub mod process;
 /// Starting a scout on a Studio, recording what it read, and stopping it.
 mod promoting;
+/// The prompts a person may override in settings.json: what ships, and what is in force.
+pub mod prompts;
 pub mod proposal;
 pub mod proposals;
 mod proposing;
@@ -330,6 +334,7 @@ pub mod serving;
 pub mod session;
 /// The session ledger: what a harness says of an agent session. `docs/concepts/session.md`.
 pub mod session_host;
+mod session_checking;
 mod sessioning;
 mod settling;
 /// Running the repository's own harness, and keeping what it produced.
@@ -346,6 +351,8 @@ mod snapshotting;
 pub mod spawning;
 /// What the fleet has spent, and which Jobs a ceiling is holding.
 mod spending;
+/// The lock on the store, which names a holder past a quarter second.
+mod store_lock;
 mod stuck;
 /// A Picture a person pastes onto a Studio, kept as a Note's frame is.
 mod studio_pictures;
@@ -360,6 +367,10 @@ pub mod sub_dispatch;
 mod summarising;
 mod superseding;
 pub use orphans::keep_ending_orphans;
+pub use worktrees_kept::keep_worktrees_warm;
+/// settings.json: the file, its watch's re-read, its save, and the move of the
+/// store's saved rows into it. `docs/concepts/machine.md`, *settings.json*.
+pub mod settings;
 pub mod sweeping;
 /// Edit this task, and a Job's tier map. Spike 022, slice 3.
 /// The merge line Fleet runs for each repository, and its turn.
@@ -369,6 +380,8 @@ pub mod task_edits;
 pub mod tasking;
 pub mod terms;
 mod tooling;
+/// A repository's open issues, read from its tracker. #91.
+mod tracking;
 pub mod transcript;
 mod trigger_authoring;
 mod trigger_hold;
@@ -380,9 +393,14 @@ pub mod trigger_repair;
 pub mod triggering;
 /// A step's tuning at the approval press. 23.20.
 pub mod tuned;
+/// The live dials settings.json moves, shipped and overlaid by saved.
+pub mod tuning;
 pub mod turning;
 /// The one vigil whose subject is a Job with no Drone to watch.
 mod unattended;
+/// Why a Drone's process ended on its own, in the Job's log, and the one
+/// replacement a task's Drone gets for it.
+mod vanished;
 /// What the forge says about a pull request nobody has merged yet, read on the
 /// sweep `noticing` already runs.
 mod under_review;
@@ -395,6 +413,7 @@ pub mod watch;
 /// An Epic's wave: proposed, released by one press, and the members a parent
 /// that finishes on their merges waits for. Spike 022, slice 6.
 pub mod waving;
+mod worktrees_kept;
 pub mod widening;
 /// The redactions the `Queries` and `Commands` impls call by hand. Split out to
 /// keep those files, rather than their helpers, the thing that grows.
@@ -402,6 +421,8 @@ mod wire;
 mod work_plan;
 pub mod working;
 pub mod workspaces;
+/// What Fleet writes on the issue a Job came from. #91.
+mod writing_back;
 
 #[cfg(test)]
 mod tests;
@@ -443,7 +464,7 @@ pub use ports::{detect_ceiling, BindConnectProbe, PortRange, PortsRefused};
 pub use process::{holder_of, Holder, ProbeFailed, StartedAt};
 pub use proposal::{proposed, Proposing};
 pub use proposing::{Brief, NotProposed, Proposal, ProposedJob, Unresolved};
-pub use questioning::{Answer, NotAnswered, NotAsked, Question, Told};
+pub use questioning::{NotAnswered, NotAsked, Told};
 pub use readopting::Recovered;
 pub use rechecking::Unrecheckable;
 pub use reconciled::Reconciled;

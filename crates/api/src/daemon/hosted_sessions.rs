@@ -75,6 +75,12 @@ pub trait HostedSessions: Send + Sync + 'static {
         over: ipc::OverrideSleep,
     ) -> impl Future<Output = Result<ipc::SleepState, Refusal>> + Send;
 
+    /// `review_sleep`: the owner kept a decision. [`Refusal::IllegalMove`] where no decision holds the id.
+    fn review_sleep(
+        self: Arc<Self>,
+        review: ipc::ReviewSleep,
+    ) -> impl Future<Output = Result<ipc::SleepState, Refusal>> + Send;
+
     /// `tune_session`.
     fn tune_session(
         &self,

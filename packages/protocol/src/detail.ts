@@ -22,7 +22,7 @@
 // a field moves, and every closed set is left as `string`.
 
 import type { AddedStep } from "./added-steps";
-import type { JobIssue, JobWaiting } from "./issues";
+import type { JobIssue, JobWaiting } from "./job-issues";
 import type { JobTrigger } from "./triggers";
 import type { WalkNote } from "./walk-notes";
 import type { JobConfidence } from "./confidence";
@@ -535,8 +535,7 @@ export type Stuck = {
  *
  * **The whole argument stays in fleet's file.** A heredoc is a whole file and
  * this crosses on every open of a stopped job, so `detail` is one line of it
- * and `truncated` and `length` are how a row says so. `get_call` is the
- * operation that serves the rest.
+ * and `truncated` and `length` are how a row says so.
  */
 export type Refusal = {
   /** The tool that was reached for, in the harness's own spelling. */
@@ -544,8 +543,8 @@ export type Refusal = {
   /**
    * The call id the transcript rows carried.
    *
-   * **What makes a cut `detail` openable**: `get_call` serves the whole argument
-   * by this id, so a refused heredoc shown to its bound is not a dead end.
+   * **The id `answer_command` and `explain_command` take**, and the one Fleet
+   * reads the whole argument back by when it explains a cut command.
    */
   call: string;
   /**

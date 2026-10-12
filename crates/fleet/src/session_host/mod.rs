@@ -8,20 +8,28 @@
 //! permission door and `rows` writes the thread.
 
 mod asking;
+pub(crate) mod asking_in_window;
 pub(crate) mod following;
 mod forking;
 mod gate;
 mod hearing;
 pub mod keeper;
 pub(crate) mod kept;
+mod pilot_words;
 mod piloting;
+pub(crate) use pilot_words::{
+    PILOT_CHANGED, PILOT_CHECKS_FAILED, PILOT_FOR_GOOD, PILOT_JUDGE_REFUSED, PILOT_NARRATIVE,
+    PILOT_OPENING, PILOT_OUTSIDE_PLAN, PILOT_RECORD, PILOT_RESTART, PILOT_STOPPED, PILOT_WORKTREE,
+};
 mod places;
 mod process;
 mod rows;
 mod serving;
+mod thread_cache;
 pub(crate) use serving::NO_SUCH_SESSION;
 mod terminal;
 pub(crate) mod waiting;
+pub(crate) mod walking;
 
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};

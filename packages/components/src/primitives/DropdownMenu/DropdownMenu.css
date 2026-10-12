@@ -151,6 +151,42 @@
   background: var(--border-subtle);
 }
 
+/* The filter field at the panel's head. Its own padding, so the field sits
+ * inside the panel's edge the way a row's text does. */
+.armada-dropdown-menu__search {
+  padding: var(--space-1) var(--space-2) var(--space-2);
+}
+
+/* A menu with a filter field is a long one, so it scrolls under the field rather than off the
+ * window. No height token is a menu's: the palette's is reused, and the report says so. */
+.armada-dropdown-menu__panel[data-searchable] {
+  max-height: var(--palette-max-height);
+  overflow-y: auto;
+}
+
+.armada-dropdown-menu__panel[data-searchable] > .armada-dropdown-menu__search {
+  position: sticky;
+  top: calc(-1 * var(--space-1));
+  z-index: 1;
+  background: var(--bg-overlay);
+}
+
+.armada-dropdown-menu__empty {
+  margin: 0;
+  padding: 0 var(--space-2);
+  color: var(--fg-subtle);
+  font-size: var(--text-sm);
+}
+
+.armada-dropdown-menu__item[aria-disabled="true"] {
+  color: var(--fg-subtle);
+  cursor: default;
+}
+
+.armada-dropdown-menu__item[aria-disabled="true"]:hover {
+  background: transparent;
+}
+
 .armada-dropdown-menu__label {
   display: flex;
   align-items: center;

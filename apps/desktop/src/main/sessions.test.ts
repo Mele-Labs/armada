@@ -9,7 +9,7 @@ import { afterEach, expect, it } from "vitest";
 
 import type { SessionRecord, SessionRow } from "@armada/protocol";
 import type { BridgeState } from "../shared/bridge";
-import { SessionsHost, withRow, withSession } from "./sessions";
+import { SessionsHost, THREADS_HELD, withRow, withSession } from "./sessions";
 
 let listening: Server | null = null;
 
@@ -143,6 +143,35 @@ it("opens a window when a Session shows a page, once, and never for a row a thre
   expect(opened).toEqual([["a", "Findings", "http://localhost:5173/"]]);
 });
 
+it("brings the walk forward when a Session asks in it, once, and never for an answered question or one a read brought", async () => {
+  const sent: Sent[] = [];
+  const walk = "http://localhost:5173/";
+  const asked = {
+    kind: "window_ask",
+    id: "q1",
+    at: AT,
+    question: "Beside or under?",
+    place: { url: `${walk}findings`, selector: "main > h1" },
+    window: walk,
+  } as const;
+  const port = await fleet(
+    sent,
+    [record("a", { attachments: [{ kind: "artifact", target: walk, state: "standing", detail: { form: "window", title: "Findings" }, since: AT, changed_at: AT }] })],
+    { a: [asked] },
+  );
+  const { sessions } = host(port);
+  const forward: string[][] = [];
+  sessions.onAsked((id, title, window, place) => forward.push([id, title, window, place]));
+  await sessions.again(port);
+  await sessions.watch("a");
+  sessions.row({ session_id: "a", row: asked });
+  sessions.row({ session_id: "a", row: { ...asked, id: "q2", answer: "Under" } });
+  expect(forward).toEqual([]);
+  sessions.row({ session_id: "a", row: { ...asked, id: "q3" } });
+  sessions.row({ session_id: "a", row: { ...asked, id: "q3" } });
+  expect(forward).toEqual([["a", "Findings", walk, `${walk}findings`]]);
+});
+
 it("reopens only an address the ledger shows as a window", async () => {
   const sent: Sent[] = [];
   const url = "http://localhost:5173/";
@@ -175,6 +204,7 @@ it("sends each act to its own route with the session named, and folds what Fleet
   await sessions.answerWaiting({ session_id: "a", item_id: "ask:c1", choice: 1 });
   await sessions.tune({ session_id: "a", mode: "plan", effort: "high" });
   await sessions.end("a");
+  await sessions.windowClosed({ session_id: "a", url: "http://localhost:5173/" });
   expect(sent.map((one) => `${one.method} ${one.path}`)).toEqual([
     "POST /sessions/start",
     "POST /sessions/message",
@@ -182,11 +212,13 @@ it("sends each act to its own route with the session named, and folds what Fleet
     "POST /sessions/waiting/answer",
     "POST /sessions/tune",
     "POST /sessions/close",
+    "POST /sessions/window/closed",
   ]);
   expect(sent[1]!.body).toEqual({ session_id: "a", text: "hi", attachments: [{ name: "n.png", media_type: "image/png", data: "AAAA" }] });
   expect(sent[2]!.body).toEqual({ session_id: "a", call: "c1", answer: "allow_and_remember" });
   expect(sent[3]!.body).toEqual({ session_id: "a", item_id: "ask:c1", choice: 1 });
   expect(sent[5]!.body).toEqual({ session_id: "a" });
+  expect(sent[6]!.body).toEqual({ session_id: "a", url: "http://localhost:5173/" });
   expect(last("sessions")).toMatchObject({ sessions: [{ id: "a", title: "Fleet's answer" }] });
 });
 
@@ -255,4 +287,24 @@ it("replaces a row by its id and appends one it has not seen, and puts a new ses
   expect(withRow([said("1", "a")], said("2", "b")).map((one) => one.id)).toEqual(["1", "2"]);
   expect(withRow([said("1", "a"), said("2", "b")], said("1", "c"))[0]).toEqual(said("1", "c"));
   expect(withSession([record("a")], record("b")).map((one) => one.id)).toEqual(["b", "a"]);
+});
+
+it("holds the twenty threads opened last, and reads one let go again when it is reopened", async () => {
+  const sent: Sent[] = [];
+  const ids = Array.from({ length: THREADS_HELD + 1 }, (_, at) => `s${at}`);
+  const port = await fleet(sent, ids.map((id) => record(id)), Object.fromEntries(ids.map((id) => [id, [said(`${id}r`, id)]])));
+  const { sessions, last } = host(port);
+  await sessions.again(port);
+  for (const id of ids) await sessions.watch(id);
+  const held = last("sessionThreads") as Record<string, SessionRow[]>;
+  expect(Object.keys(held)).toEqual(ids.slice(1));
+  // A thread still held is drawn from here, and a row for the one let go is dropped.
+  const reads = sent.filter((one) => one.path.startsWith("/sessions/one")).length;
+  await sessions.watch("s5");
+  expect(sent.filter((one) => one.path.startsWith("/sessions/one")).length).toBe(reads);
+  sessions.row({ session_id: "s0", row: said("late", "after it went") });
+  expect(Object.keys(last("sessionThreads") as object)).toEqual(ids.slice(1));
+  await sessions.watch("s0");
+  expect(sent.filter((one) => one.path.startsWith("/sessions/one")).length).toBe(reads + 1);
+  expect(Object.keys(last("sessionThreads") as object)).toHaveLength(THREADS_HELD);
 });

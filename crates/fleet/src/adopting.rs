@@ -35,7 +35,6 @@ use crate::converging::ReportNow;
 use crate::group::end_the_group;
 use crate::permitting::Permitted;
 use crate::process::{holder_of, Holder, StartedAt};
-use crate::questioning::Answer;
 use crate::resume::Redirection;
 use crate::session::{DroneSession, LiveSession};
 use crate::silence::Poke;
@@ -270,6 +269,15 @@ impl Session {
             Session::Adopted(adopted) => adopted.exited(),
         }
     }
+
+    /// How the process ended, where Fleet collected it. An adopted Drone is
+    /// not Fleet's child, so nothing says.
+    pub(crate) fn how_it_ended(&self) -> Option<std::process::ExitStatus> {
+        match self {
+            Session::Spawned(session) => session.how_it_ended(),
+            Session::Adopted(_) => None,
+        }
+    }
 }
 
 /// **Every turn refused, and one act.** Nothing an adopted Drone is asked to
@@ -334,13 +342,6 @@ impl LiveSession for Session {
     async fn interrupt(&self, directive: &ReportNow) -> Result<(), io::Error> {
         match self {
             Session::Spawned(session) => session.interrupt(directive).await,
-            Session::Adopted(_) => Err(io::Error::other(NOTHING_TO_SPEAK_INTO)),
-        }
-    }
-
-    async fn answer(&self, answer: &Answer) -> Result<(), io::Error> {
-        match self {
-            Session::Spawned(session) => session.answer(answer).await,
             Session::Adopted(_) => Err(io::Error::other(NOTHING_TO_SPEAK_INTO)),
         }
     }

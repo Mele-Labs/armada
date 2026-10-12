@@ -17,7 +17,7 @@ use adapter_traits::{
 use core_model::{Component, Envelope, FieldValue, Job, JobId, Level, StepId};
 use tokio::io::{AsyncBufReadExt, BufReader};
 
-pub(crate) use finding::{Finding, Kind};
+pub(crate) use finding::{Finding, Kind, INDEX, INSTALL};
 
 use crate::daemon::Fleet;
 use crate::drone::{self, Started};
@@ -182,7 +182,7 @@ where
                 .and(Grant::ReadTheRepository),
             |belt, repair| belt.and(Grant::RepairTheWorktree(repair)),
         );
-        let prompt = Prompt::assembled(&finding.told(&bootstrap))
+        let prompt = Prompt::assembled(&finding.told(&self.prompts(), &bootstrap))
             .map_err(|why| not(format!("the brief would not render: {why:?}")))?;
         let config = self
             .spawn_config_with(job, step, worktree, prompt, None, belt)

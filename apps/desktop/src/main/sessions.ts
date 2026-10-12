@@ -6,7 +6,8 @@
 // scoped to a surface: the ledger answers who owns a branch or a pull request for a chip anywhere in
 // the window, so the list is read on every connection and never dropped.
 //
-// **Threads are held for the window's life once opened.** A row that arrives before the read of its
+// **Threads are held once opened, the twenty opened last.** Reopening one draws it at once from here,
+// and the stream has kept it current since; only the one opened longest ago is let go. A row that arrives before the read of its
 // thread has answered is kept and merged after it, by id, so the gap between asking and hearing loses
 // none; a row for a thread nobody opened is dropped, since the read that opens it brings every row.
 
@@ -31,6 +32,7 @@ import type {
   SessionThread,
   StartSession,
   TuneSession,
+  WindowClosed,
 } from "@armada/protocol";
 import type { BridgeState } from "../shared/bridge";
 import type { ArtifactRead } from "@armada/screens/src/draft/sessions";
@@ -61,13 +63,20 @@ export function withSession(sessions: readonly SessionRecord[], record: SessionR
     : [record, ...sessions];
 }
 
+/** How many opened threads are held. Each is every row of a conversation, which runs to hundreds. */
+export const THREADS_HELD = 20;
+
 export class SessionsHost {
   private readonly publish: Publish;
   private readonly port: () => number | null;
   private sessions: SessionRecord[] | null = null;
   private threads: Record<string, SessionRow[]> = {};
+  /** The ids of the threads held, least recently opened first. */
+  private opening: string[] = [];
   /** Opens a window on a page a Session showed. Set once by main, which owns windows. */
   private shown: (sessionId: string, title: string, url: string) => void = () => {};
+  /** Brings a Session's window forward for a question asked in it. Set once by main, as `shown` is. */
+  private askedIn: (sessionId: string, title: string, window: string, place: string) => void = () => {};
   /** The window rows already acted on, so a row met again opens nothing. */
   private readonly opened = new Set<string>();
   /** Threads whose read has not answered, with the rows that arrived meanwhile. */
@@ -101,6 +110,11 @@ export class SessionsHost {
     this.shown = shown;
   }
 
+  /** Say what brings a window forward for a question the Session asked in it: main's, as `onWindow` is. */
+  onAsked(asked: (sessionId: string, title: string, window: string, place: string) => void): void {
+    this.askedIn = asked;
+  }
+
   /**
    * A press on a window the Session showed, or on its row. **Only an address the Session's ledger shows
    * as a window**, so the renderer names a session and an address and main loads nothing else.
@@ -120,6 +134,13 @@ export class SessionsHost {
       this.opened.add(change.row.id);
       this.shown(change.session_id, change.row.title, change.row.url);
     }
+    // A question asked in the walk takes the person there, once, when it is asked.
+    if (change.row.kind === "window_ask" && change.row.answer === undefined && !this.opened.has(change.row.id)) {
+      this.opened.add(change.row.id);
+      const record = this.sessions?.find((one) => one.id === change.session_id);
+      const title = titleOfWindow(record, change.row.window) ?? change.row.window;
+      this.askedIn(change.session_id, title, change.row.window, change.row.place.url);
+    }
     const waiting = this.reading.get(change.session_id);
     if (waiting !== undefined) {
       this.reading.set(change.session_id, withRow(waiting, change.row));
@@ -133,9 +154,22 @@ export class SessionsHost {
 
   /** Open a thread: read it once, then it follows the stream. */
   async watch(sessionId: string): Promise<void> {
+    this.touch(sessionId);
     const port = this.port();
     if (port === null || this.threads[sessionId] !== undefined || this.reading.has(sessionId)) return;
     await this.read(port, sessionId);
+  }
+
+  /** Note a thread as the one opened last, and let the one opened longest ago go where more than `THREADS_HELD` are held. */
+  private touch(sessionId: string): void {
+    this.opening = [...this.opening.filter((one) => one !== sessionId), sessionId];
+    const gone = this.opening.slice(0, -THREADS_HELD);
+    if (gone.length === 0) return;
+    this.opening = this.opening.slice(-THREADS_HELD);
+    const held = Object.fromEntries(Object.entries(this.threads).filter(([id]) => !gone.includes(id)));
+    if (Object.keys(held).length === Object.keys(this.threads).length) return;
+    this.threads = held;
+    this.publish({ sessionThreads: this.threads });
   }
 
   private async read(port: number, sessionId: string): Promise<void> {
@@ -143,9 +177,10 @@ export class SessionsHost {
     const answer = await ask(port, "GET", `/sessions/one?session_id=${encodeURIComponent(sessionId)}`);
     const meanwhile = this.reading.get(sessionId) ?? [];
     this.reading.delete(sessionId);
-    if (answer.ok !== true) return;
+    // A thread let go while it was being read is not put back: that would hold more than `THREADS_HELD`.
+    if (answer.ok !== true || !this.opening.includes(sessionId)) return;
     const thread = answer.body as SessionThread;
-    for (const row of thread.rows) if (row.kind === "window") this.opened.add(row.id);
+    for (const row of thread.rows) if (row.kind === "window" || row.kind === "window_ask") this.opened.add(row.id);
     this.threads = { ...this.threads, [sessionId]: meanwhile.reduce(withRow, thread.rows) };
     this.fold(thread.session);
     this.publish({ sessionThreads: this.threads });
@@ -193,6 +228,11 @@ export class SessionsHost {
 
   async dismissWaiting(dismiss: DismissWaiting): Promise<SessionActed> {
     return await this.act("POST", "/sessions/waiting/dismiss", dismiss);
+  }
+
+  /** The person closed a window a Session showed: its walk is over, and its waiting item stands. */
+  async windowClosed(closed: WindowClosed): Promise<SessionActed> {
+    return await this.act("POST", "/sessions/window/closed", closed);
   }
 
   async tune(tune: TuneSession): Promise<SessionActed> {
@@ -281,6 +321,7 @@ export class SessionsHost {
   close(): void {
     this.sessions = null;
     this.threads = {};
+    this.opening = [];
     this.reading.clear();
   }
 }

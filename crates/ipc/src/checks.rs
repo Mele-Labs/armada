@@ -266,8 +266,8 @@ impl CheckRun {
 /// hands that path to the operating system; nothing read a byte of it into a
 /// surface, so a person auditing a suite that went green had to leave the app
 /// to do it. This is what a reader asks for, once, about the one Check they
-/// opened — [`CallArguments`](crate::CallArguments)'s split, made against the
-/// same measurement: the cheap fact rides the record and the bytes are fetched.
+/// opened — `get_diff`'s split against `job.files_changed`: the cheap fact
+/// rides the record and the bytes are fetched.
 ///
 /// **Never on the event stream.** A Check's output is up to two 64 KiB streams,
 /// and `/events` is one drop-oldest channel carrying every Job — a payload that
@@ -308,8 +308,7 @@ pub struct CheckOutput {
     pub bytes: u64,
     /// Whether [`lines`](CheckOutput::lines) is all of it.
     ///
-    /// **Stated rather than inferred from `from_line == 1`**, which is
-    /// [`CallArguments::whole`](crate::CallArguments)'s reason: a surface that
+    /// **Stated rather than inferred from `from_line == 1`**: a surface that
     /// derived completeness from another field would call a partial answer
     /// whole the first time that field's meaning moved.
     pub whole: bool,

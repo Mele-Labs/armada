@@ -37,7 +37,22 @@ export const ANNOTATION_CHANNELS = {
   remove: "annotations:remove",
   root: "annotations:root",
   capture: "annotations:capture",
+  saveShot: "annotations:save-shot",
+  shot: "annotations:shot",
 } as const;
+
+/** A note's picture is `<id>.png`, beside its `<id>.json`. */
+export const shotName = (id: string): string => `${id}.png`;
+
+/** Larger than a whole Retina window's PNG; a body past it is not a capture. */
+export const SHOT_LIMIT = 32 * 1024 * 1024;
+
+const PNG_SIGNATURE = [137, 80, 78, 71, 13, 10, 26, 10];
+
+/** Whether these bytes start as a PNG does and fit under `SHOT_LIMIT`. Main and the vite plugin write nothing else. */
+export function isPng(bytes: Uint8Array): boolean {
+  return bytes.length > PNG_SIGNATURE.length && bytes.length <= SHOT_LIMIT && PNG_SIGNATURE.every((byte, at) => bytes[at] === byte);
+}
 
 export type AnnotationStatus = "open" | "done";
 
@@ -100,11 +115,17 @@ export type Annotation = {
   /** The element's box in the window, in CSS pixels. */
   box: Box;
   window: { width: number; height: number };
+  /**
+   * The picture of the element taken as the note was saved, the layer left out of it: always
+   * `shotName(id)`, beside this file. **Absent** on a note written before pictures were kept, and
+   * where nothing could capture one, as in a browser.
+   */
+  screenshot?: string;
   createdAt: string;
   updatedAt: string;
 };
 
-/** What `window.armadaDev` carries: three operations on one note, and two a Send needs. */
+/** What `window.armadaDev` carries: operations on one note and its picture, and two a Send needs. */
 export type AnnotationsDevApi = {
   list: () => Promise<Annotation[]>;
   save: (note: Annotation) => Promise<void>;
@@ -113,6 +134,10 @@ export type AnnotationsDevApi = {
   root: () => Promise<string | null>;
   /** A PNG of this part of the window, or null where nothing can capture it. */
   capture: (box: Box) => Promise<ArrayBuffer | null>;
+  /** Keeps a PNG as the note's picture, `shotName(id)`. */
+  saveShot: (id: string, png: ArrayBuffer) => Promise<void>;
+  /** The note's picture, or null where it has none. */
+  shot: (id: string) => Promise<ArrayBuffer | null>;
 };
 
 /** An id is a file name, so it is held to what cannot leave the directory. */
@@ -181,6 +206,7 @@ export function isAnnotation(value: unknown): value is Annotation {
     isRecord(window) &&
     isNumber(window["width"]) &&
     isNumber(window["height"]) &&
+    (value["screenshot"] === undefined || value["screenshot"] === shotName(value["id"] as string)) &&
     isString(value["createdAt"]) &&
     isString(value["updatedAt"])
   );
@@ -209,6 +235,7 @@ export function serializeAnnotation(note: Annotation): string {
     ...(note.openJobId === undefined ? {} : { openJobId: note.openJobId }),
     box: note.box,
     window: note.window,
+    ...(note.screenshot === undefined ? {} : { screenshot: note.screenshot }),
     createdAt: note.createdAt,
     updatedAt: note.updatedAt,
   };

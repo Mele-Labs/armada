@@ -194,6 +194,26 @@ describe("the thread", () => {
     expect(drawn).toMatchObject([{ kind: "command", text: "/reload-plugins" }, { kind: "compaction", text: "This session is being continued" }]);
   });
 
+  it("keeps an armada check the agent ran as a row with its run and where it stands", () => {
+    const drawn = rowsOfThread("a", [{ kind: "check", id: "check-7", at: AT, name: "components_test", run: 7, state: "failed" }], () => undefined);
+    expect(drawn).toMatchObject([{ kind: "check", name: "components_test", run: 7, state: "failed" }]);
+  });
+
+  it("keeps a question asked in the window as a line, with how it was answered once it is", () => {
+    const asked = {
+      kind: "window_ask",
+      id: "q",
+      at: AT,
+      question: "Beside or under?",
+      place: { url: "http://localhost:5173/", selector: "main > h1" },
+      window: "http://localhost:5173/",
+    } as const;
+    expect(rowsOfThread("a", [asked], () => undefined)).toMatchObject([{ kind: "tool", text: "Asked in the window: Beside or under?" }]);
+    expect(rowsOfThread("a", [{ ...asked, answer: "Under\nand smaller" }], () => undefined)).toMatchObject([
+      { kind: "tool", text: "Asked in the window: Beside or under? — Under · and smaller" },
+    ]);
+  });
+
   it("keeps a window the Session showed as a row with its address, and its ledger entry as a window", () => {
     const drawn = rowsOfThread("a", [{ kind: "window", id: "w", at: AT, title: "Findings", url: "http://localhost:5173/" }], () => undefined);
     expect(drawn).toMatchObject([{ kind: "window", title: "Findings", url: "http://localhost:5173/" }]);

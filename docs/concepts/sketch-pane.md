@@ -10,7 +10,7 @@ The pane is drawn by `packages/surfaces/jobs/src/OverviewBoard.tsx`. Its views a
 
 ## Status
 
-**Rule.** Nothing here is served by Fleet yet: the Now panel's asks, sketches and askers are mock data, and a real Fleet draws no panel.
+**Rule.** The Now panel's Drones, Checks, Judge, asks, issues and waiting are served by Fleet ([Job](job.md), *A Job's Now*). Its Plan interview, sketches and askers are still mock data, and a real Fleet draws none of them.
 Why: Fleet publishes no plan interview. The shapes are in `packages/surfaces/jobs/src/draft/now.ts`.
 
 **Rule.** What the owner marks on a sketch lives for the window and is lost on reload.

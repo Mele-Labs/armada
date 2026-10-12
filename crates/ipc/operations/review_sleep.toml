@@ -1,0 +1,8 @@
+[operations.review_sleep]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Keep one decision sleep mode made, so it leaves the review"
+notes = """
+`POST /sleep/review`, body `ReviewSleep`: `id` of a decided row. Marks the row reviewed, answers with `SleepState` and publishes `SleepChanged`. A row nothing holds, or one that is not a decision, is a 409. A reviewed row is left out of `decided`, and `override_sleep` marks its row reviewed too.
+"""

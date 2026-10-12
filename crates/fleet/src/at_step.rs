@@ -45,6 +45,9 @@ pub struct AtStep<'a> {
     /// Which manifests the change reached, where the repository has
     /// workspaces. `None` is the root alone, as every repository was.
     gated: Option<&'a Gated>,
+    /// How many times this pass has gone back to its Drone on a refusal the
+    /// Judges agreed on, off the store. Zero until a caller says otherwise.
+    sent_back: u32,
 }
 
 /// Whether a pass puts the work to the Judge.
@@ -67,6 +70,7 @@ impl<'a> AtStep<'a> {
             looks: Looks::Asked,
             handoff_held: false,
             gated: None,
+            sent_back: 0,
         })
     }
 
@@ -86,6 +90,7 @@ impl<'a> AtStep<'a> {
             looks: Looks::Asked,
             handoff_held: false,
             gated: None,
+            sent_back: 0,
         })
     }
 
@@ -101,6 +106,21 @@ impl<'a> AtStep<'a> {
             spent,
             ..self
         }
+    }
+
+    /// The same position, having gone back to its Drone `times` on refusals
+    /// the Judges agreed on. `store::Store::step_sent_back_by_judges`.
+    pub fn sent_back(self, times: u32) -> AtStep<'a> {
+        AtStep {
+            sent_back: times,
+            ..self
+        }
+    }
+
+    /// What [`sent_back`](Self::sent_back) was told. What
+    /// `core_model::AGREED_RETRIES` is asked against.
+    pub fn judges_sent_back(&self) -> u32 {
+        self.sent_back
     }
 
     /// The same position, on a pass Fleet opened to clear conflicts with the
@@ -188,6 +208,7 @@ impl<'a> AtStep<'a> {
             looks: Looks::Asked,
             handoff_held: false,
             gated: None,
+            sent_back: 0,
         })
     }
 

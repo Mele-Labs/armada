@@ -47,6 +47,26 @@ impl Sessions for FakeDaemon {
         .await
     }
 
+    async fn report_session_check(
+        &self,
+        call: ipc::SessionCheckCall,
+    ) -> Result<ipc::SessionCheckAnswer, Refusal> {
+        Ok(ipc::SessionCheckAnswer { run: call.run.or(Some(1)) })
+    }
+
+    async fn get_session_check_output(&self, run: u64) -> Result<ipc::CheckOutput, Refusal> {
+        Ok(ipc::CheckOutput {
+            attempt: 1,
+            name: String::from("suite"),
+            path: format!("session-check/{run}"),
+            lines: vec![String::from("ok")],
+            from_line: 1,
+            total_lines: 1,
+            bytes: 3,
+            whole: true,
+        })
+    }
+
     async fn claim_pull_request(
         &self,
         _caller: Option<crate::Caller>,
@@ -73,6 +93,34 @@ impl Sessions for FakeDaemon {
                 attachment: ipc::AttachmentReport {
                     kind: String::from("artifact"),
                     target: show.url,
+                    detail: Default::default(),
+                },
+            },
+        })
+        .await
+    }
+
+    async fn ask_in_window(
+        &self,
+        _caller: Option<crate::Caller>,
+        ask: ipc::AskInWindow,
+    ) -> Result<SessionRecord, Refusal> {
+        self.report_session(SessionReport {
+            harness: String::new(),
+            session_id: ask.session_id.unwrap_or_else(|| ipc::SessionId::carried("session")),
+            fact: ipc::SessionFact::TurnCompleted,
+        })
+        .await
+    }
+
+    async fn window_closed(&self, closed: ipc::WindowClosed) -> Result<SessionRecord, Refusal> {
+        self.report_session(SessionReport {
+            harness: String::new(),
+            session_id: closed.session_id,
+            fact: ipc::SessionFact::Attached {
+                attachment: ipc::AttachmentReport {
+                    kind: String::from("artifact"),
+                    target: closed.url,
                     detail: Default::default(),
                 },
             },

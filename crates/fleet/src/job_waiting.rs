@@ -42,8 +42,8 @@ fn queued(detail: &JobDetail, awaited: Awaited) -> Vec<JobWaiting> {
         return Vec::new();
     };
     match reason {
-        // A person's to lift, and the row already says which.
-        QueuedReason::Paused | QueuedReason::Frozen => Vec::new(),
+        // A person's to lift, and the row or the ask already says which.
+        QueuedReason::Paused | QueuedReason::AwaitingAnswer | QueuedReason::Frozen => Vec::new(),
         QueuedReason::BlockedByDependency if !awaited.is_empty() => awaited
             .into_iter()
             .map(|(job_id, title)| JobWaiting::Job { job_id, title })

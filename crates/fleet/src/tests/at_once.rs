@@ -482,3 +482,59 @@ async fn a_drift_a_crew_drone_may_have_made_is_not_told_to_the_kept_drone() {
         "the kept Drone was told of an edit it did not make: {line}"
     );
 }
+
+/// The kept Drone hands in first and waits for the one beside it; when that one
+/// hands in, the kept slot moves to T3 and T2's Drone is ended. Job 14's ninth
+/// task lost its Drone 33 seconds into exactly this handover, so the new kept
+/// Drone is watched for a few turns after the one beside it is gone.
+#[tokio::test]
+async fn the_kept_drone_the_handover_starts_outlives_the_one_beside_it() {
+    use crate::process::{holder_of, Holder};
+    let home = TempDir::new();
+    let (fleet, job) = at_implement(&home, FakeHarness::that_listens(), None).await;
+    let extra = beside(&fleet, &job).pop().expect("T2's Drone");
+    let kept = crate::tests::drone_per_task::on_implement(&fleet, &job)
+        .await
+        .expect("T1's Drone");
+
+    submitted_by_the_one(&fleet, diff("The reader is bounded."))
+        .await
+        .expect("T1's hand-in");
+    fleet.turn().await.expect("a turn");
+    assert_eq!(
+        crate::tests::drone_per_task::on_implement(&fleet, &job).await,
+        Some(kept.clone()),
+        "T3 is not safe beside T2, so the kept Drone waits for it"
+    );
+
+    handed_in_beside(&fleet, &job, &extra, "The session is bounded.")
+        .await
+        .expect("T2's hand-in");
+    fleet.turn().await.expect("the handover");
+    let next = crate::tests::drone_per_task::on_implement(&fleet, &job)
+        .await
+        .expect("T3's Drone");
+    assert_ne!(next, kept, "the kept slot moved to T3");
+
+    let pid = {
+        let slot = fleet.slot_of(&job).await.expect("the Job's slot");
+        let held = slot.lock().await;
+        held.as_ref().expect("T3's Drone").session().pid()
+    };
+    for _ in 0..20 {
+        fleet.turn().await.expect("a turn");
+        tokio::time::sleep(std::time::Duration::from_millis(25)).await;
+        assert!(
+            beside(&fleet, &job).is_empty(),
+            "T2's Drone is ended and nothing replaces it"
+        );
+        assert!(
+            matches!(holder_of(pid), Ok(Holder::Held(_))),
+            "T3's process is still running"
+        );
+        assert_eq!(
+            fleet.load(&job).await.expect("reads").status(),
+            JobStatus::Running
+        );
+    }
+}

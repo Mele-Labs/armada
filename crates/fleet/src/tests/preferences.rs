@@ -1,7 +1,7 @@
 //! A preference a person saves survives a restart, and a name outside the
 //! closed set is refused by name on the wire code `fleet.unknown_preference`.
 
-use api::{Commands, Queries, Refusal};
+use api::{Refusal, Settings};
 use ipc::{Preferences, SavePreference};
 use testkit::FakeWorkProduct;
 
@@ -69,4 +69,24 @@ async fn an_unknown_name_is_refused_by_name_and_saves_nothing() {
         Preferences::default(),
         "nothing was saved"
     );
+}
+
+#[tokio::test]
+async fn the_owners_key_bindings_are_a_preference_that_survives_a_restart() {
+    // As settings.json gives JSON back: compact, its keys in order.
+    const MINE: &str = r#"{"bindings":{"kill":["q"]},"version":1}"#;
+    let home = TempDir::new();
+    let fleet = Fleet::assembled(fittings(&home, FakeWorkProduct::changed(&[])));
+    let save = |text: Option<&str>| SavePreference { name: "key_bindings".into(), value: false, text: text.map(str::to_string) };
+    assert_eq!(fleet.save_preferences(save(Some(MINE))).await.expect("saved").key_bindings, MINE);
+    drop(fleet);
+
+    let fleet = Fleet::assembled(fittings(&home, FakeWorkProduct::changed(&[])));
+    assert_eq!(fleet.get_preferences().await.expect("reads").key_bindings, MINE);
+
+    let refused = fleet.save_preferences(save(Some(r#"{"version":1,"bindings":{"kill":"q"}}"#))).await.expect_err("not a list");
+    assert_eq!((refused.status(), refused.error().code.clone()), (422, "fleet.unacceptable_key_bindings".to_string()));
+    assert_eq!(fleet.get_preferences().await.expect("reads").key_bindings, MINE, "nothing moved");
+
+    assert_eq!(fleet.save_preferences(save(Some(""))).await.expect("empty takes them back").key_bindings, "");
 }

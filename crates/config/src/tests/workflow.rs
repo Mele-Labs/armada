@@ -9,6 +9,7 @@
 
 mod gated;
 mod mechanical;
+mod panel;
 mod places;
 mod plan;
 mod resolving;

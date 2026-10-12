@@ -42,6 +42,37 @@ pub trait Sessions: Send + Sync + 'static {
         show: ipc::ShowWindow,
     ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
 
+    /// `report_session_check` — `armada check` tells Fleet a run began or ended in a directory.
+    /// Answers the run, or none where no Session holds the slot that directory is in.
+    /// [`Refusal::Unacceptable`] for a start with no name or an end with no run or outcome.
+    fn report_session_check(
+        &self,
+        call: ipc::SessionCheckCall,
+    ) -> impl Future<Output = Result<ipc::SessionCheckAnswer, Refusal>> + Send;
+
+    /// `get_session_check_output` — one Session run's log. [`Refusal::Unacceptable`] for a run no
+    /// Session kept.
+    fn get_session_check_output(
+        &self,
+        run: u64,
+    ) -> impl Future<Output = Result<ipc::CheckOutput, Refusal>> + Send;
+    /// `ask_in_window` — a session asks the person about a place on the page its walk window shows.
+    /// `caller` places a hosted session as `show_window`'s does. Answers with the row at once.
+    /// [`Refusal::Unacceptable`] for an address on no window the session showed, a blank question
+    /// or selector, or a call that places no session.
+    fn ask_in_window(
+        &self,
+        caller: Option<crate::Caller>,
+        ask: ipc::AskInWindow,
+    ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
+
+    /// `window_closed` — the person closed a session's window, which ends its walk. Answers with
+    /// the row. [`Refusal::Unacceptable`] for a session Fleet does not know.
+    fn window_closed(
+        &self,
+        closed: ipc::WindowClosed,
+    ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
+
     /// `claim_pull_request` — the caller takes an open pull request no live Session or Job holds,
     /// or whose holder has ended. [`Refusal::Unacceptable`] with the reason for a pull request
     /// that is not open, a live holder, or a call that places no holder.

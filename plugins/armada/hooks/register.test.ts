@@ -12,7 +12,7 @@ type Posted = { url: string; body: any }
 
 function world(
   on: On,
-  options: { running?: () => boolean; hangs?: boolean; held?: string[]; heldCommands?: { command: string; args: string }[]; model?: () => string; onCommand?: () => void; transcript?: string; env?: Record<string, string>; pullRequest?: string; polls?: (string | Promise<string> | Error)[] } = {},
+  options: { running?: () => boolean; hangs?: boolean; held?: string[]; heldCommands?: { command: string; args: string }[]; model?: () => string; onCommand?: () => void; transcript?: string; env?: Record<string, string>; pullRequest?: string; polls?: (string | Promise<string> | Error)[]; asks?: string } = {},
 ) {
   const running = options.running ?? (() => true)
   const posts: Posted[] = []
@@ -43,7 +43,7 @@ function world(
     if (e.url.endsWith('/sessions/ask/terminal')) {
       const body = JSON.parse(e.init?.body ?? '{}')
       questions.push(body)
-      if (body.kind === 'asks') return { value: { status: 200, ok: true, headers: {}, text: '{"outcome":"asked","call":"helm-1"}' } }
+      if (body.kind === 'asks') return { value: { status: 200, ok: true, headers: {}, text: options.asks ?? '{"outcome":"asked","call":"helm-1"}' } }
       // Each poll takes the next answer the test queued: a string, a poll that never ends, or a failure.
       if (body.kind === 'wait') {
         const poll = options.polls?.shift() ?? new Promise<string>(() => undefined)
@@ -428,6 +428,7 @@ test('the model is told its Armada session id, and a Drone is not', async ($, on
   expect(out.blocks.map(one => one.name)).toEqual(['armadaSession'])
   expect(out.blocks[0].text).toContain('S1')
   expect(out.blocks[0].text).toContain('waiting_for')
+  expect(out.blocks[0].text).toContain('do not ask with AskUserQuestion')
 })
 
 test('a Drone is told no session id', async ($, on) => {
@@ -442,6 +443,14 @@ test('the session id is told again at every session start, and not to a Drone', 
     const out = await $.classic.SessionStart({ source })
     expect(out.additionalContext?.[0]).toContain('S1')
   }
+})
+
+test('the first-message note says a question waits during a walk, and one about the page is asked in the window', async ($, on) => {
+  world(on)
+  const out = await $.classic.SessionStart({ source: 'startup' })
+  const note = out.additionalContext?.[0] ?? ''
+  expect(note).toContain('do not ask with AskUserQuestion')
+  expect(note).toContain('call ask_in_window')
 })
 
 test('a Drone is told no session id at a start', async ($, on) => {
@@ -577,6 +586,21 @@ test('a terminal question refused in Bridge is told to the agent', async ($, on)
   expect(out.deny).toBe('The person refused this.')
 })
 
+test('a terminal question Fleet refuses while a walk is open is denied before the terminal prompt opens', async ($, on) => {
+  const refused = 'Refused: the owner is walking a page you showed him. Put the question in your waiting_for list and end your turn.'
+  const { questions } = world(on, { asks: JSON.stringify({ outcome: 'refused', message: refused }) })
+  let prompted = false
+  on('tool.call', { tool: 'AskUserQuestion' }, () => {
+    prompted = true
+    return new Promise(() => undefined)
+  })
+  const out = await $.tool.call({ tool: 'AskUserQuestion', questions: SIZE })
+
+  expect(out.deny).toBe(refused)
+  expect(prompted).toBe(false)
+  expect(questions).toEqual([{ kind: 'asks', session_id: 'S1', input: { questions: SIZE } }])
+})
+
 test('a terminal question answered in the terminal first tells Fleet it was settled', async ($, on) => {
   const { questions, clock } = world(on)
   const typed = { questions: SIZE, answers: { 'Which size?': 'S' } }
@@ -587,7 +611,8 @@ test('a terminal question answered in the terminal first tells Fleet it was sett
   expect(out.result).toEqual(typed)
   expect(questions[0]).toEqual({ kind: 'asks', session_id: 'S1', input: { questions: SIZE } })
   expect(questions.at(-1)).toEqual({ kind: 'settled', session_id: 'S1', answered: true })
-  expect(questions.filter(q => q.kind === 'wait')).toHaveLength(0)
+  // The call is known before the prompt opens, so one poll may already be out when it is answered.
+  expect(questions.filter(q => q.kind === 'wait').length).toBeLessThanOrEqual(1)
 })
 
 test('a Drone does not put its question to Bridge', async ($, on) => {

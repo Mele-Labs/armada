@@ -625,12 +625,6 @@ impl fmt::Display for Adrift {
                  worked and lets it go when the step ends, so an id from a step that has \
                  finished reaches nothing — what it did is on the Job"
             ),
-            Adrift::NoSuchCall { named } => write!(
-                out,
-                "nothing in this Job's transcripts is the call `{named}`. The record holds \
-                 what a Drone did while a Fleet was writing it down, so an id from a row \
-                 whose transcript has since been reclaimed reaches nothing"
-            ),
             Adrift::NothingToExplain { call, .. } => write!(
                 out,
                 "this job is neither waiting on nor refused the call `{call}`, so there is no \
@@ -920,7 +914,6 @@ impl Adrift {
             | Adrift::ManifestUnwritable { .. }
             | Adrift::ManifestMovedUnderTheEdit { .. }
             | Adrift::NoSuchPeer { .. }
-            | Adrift::NoSuchCall { .. }
             | Adrift::NoSuchDrone { .. }
             | Adrift::NoSuchCheckOutput { .. }
             | Adrift::Unresolvable(_)
@@ -1008,7 +1001,6 @@ impl Error for Adrift {
             | Adrift::NoSuchManifest { .. }
             | Adrift::NotServed { .. }
             | Adrift::NoSuchPeer { .. }
-            | Adrift::NoSuchCall { .. }
             | Adrift::NoSuchDrone { .. }
             | Adrift::NoSuchCheckOutput { .. }
             | Adrift::NoSuchFrame { .. }

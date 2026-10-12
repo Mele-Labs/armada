@@ -20,9 +20,10 @@ use ipc::{
 
 use super::conversation::{Conversation, ConversationKey};
 use super::hosting::{Carried, Carry, Heard};
-use super::{brief, recording, unanswered, Authority};
+use super::{recording, unanswered, worded, Authority};
 use crate::clock::Clock;
 use crate::daemon::Fleet;
+use crate::prompts::Prompts;
 use crate::repositories::Served;
 
 /// Start fresh, pressed while a reply is being written.
@@ -107,7 +108,7 @@ where
             model: self.helm().host().model(),
             // The brief this session was sent, assembled the one way
             // `carrying` assembles it — never a second wording of it.
-            brief: brief(served.manifest(), authority, None)
+            brief: worded(&self.prompts(), authority, served.manifest(), None)
                 .as_str()
                 .to_string(),
             door: ipc::door::SERVER.to_string(),
@@ -282,10 +283,11 @@ where
             .helm_session(key.as_str())
             .map_err(unanswered::session_would_not_read)?;
         let host = self.helm().host();
+        let prompts = self.prompts();
         let authority = self.helm_authority();
         let mut carried = host
             .carry(
-                carrying(served, text, context, stored.clone(), authority),
+                carrying(served, text, context, stored.clone(), &prompts, authority),
                 heard,
             )
             .await;
@@ -300,7 +302,10 @@ where
                 because: Freshness::SessionNotFound,
             }));
             carried = host
-                .carry(carrying(served, text, context, None, authority), heard)
+                .carry(
+                    carrying(served, text, context, None, &prompts, authority),
+                    heard,
+                )
                 .await;
         }
         match carried {
@@ -324,6 +329,7 @@ fn carrying(
     text: &str,
     context: Option<&HelmContext>,
     resuming: Option<String>,
+    prompts: &Prompts,
     authority: Authority,
 ) -> Carry {
     let said = context.map(where_they_are);
@@ -335,7 +341,7 @@ fn carrying(
         Some(_) => with_where,
         None => format!(
             "{}\n\n{with_where}",
-            brief(served.manifest(), authority, None).as_str()
+            worded(prompts, authority, served.manifest(), None).as_str()
         ),
     };
     Carry {

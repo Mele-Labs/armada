@@ -53,7 +53,7 @@ use crate::limiting::{get_limits, save_limits};
 use crate::preferring::{get_preferences, save_preferences};
 use crate::processes::{kill_process, kill_processes};
 use crate::queries::{
-    explain_command, get_brief, get_call, get_capacity, get_check_output, get_diff, get_evidence,
+    explain_command, get_brief, get_capacity, get_check_output, get_diff, get_evidence,
     get_frame, get_job, get_job_events, get_job_log, get_job_resources, get_manifest_drift,
     get_manifest_reading, get_remarks, list_job_drones, list_jobs, list_manifest_checks,
     list_manifests, list_models, list_reports, list_workflows, list_worktrees, search_files,
@@ -195,6 +195,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             "/pull_requests/:repository/:number/auto_merge",
             post(crate::pull_requests::enable_auto_merge::<D>),
         )
+        .merge(crate::issues::mounted::<D>())
         .route(
             "/pull_request_reviews/:repository",
             post(crate::pull_requests::review_pull_request::<D>),
@@ -214,8 +215,17 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             "/sessions/window",
             post(crate::sessions::show_window::<D>),
         )
+        .route(
+            "/sessions/window/ask",
+            post(crate::sessions::ask_in_window::<D>),
+        )
+        .route(
+            "/sessions/window/closed",
+            post(crate::sessions::window_closed::<D>),
+        )
         .route("/sleep", get(crate::hosted_sessions::get_sleep::<D>).post(crate::hosted_sessions::set_sleep::<D>))
         .route("/sleep/override", post(crate::hosted_sessions::override_sleep::<D>))
+        .route("/sleep/review", post(crate::hosted_sessions::review_sleep::<D>))
         .route("/sessions/waiting", post(crate::sessions::waiting_for::<D>))
         .route(
             "/sessions/waiting/answer",
@@ -224,6 +234,14 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route(
             "/sessions/waiting/dismiss",
             post(crate::hosted_sessions::dismiss_waiting::<D>),
+        )
+        .route(
+            "/sessions/checks",
+            post(crate::sessions::report_session_check::<D>),
+        )
+        .route(
+            "/sessions/checks/:run/output",
+            get(crate::sessions::get_session_check_output::<D>),
         )
         .route(
             "/sessions/claim_pull_request",
@@ -292,6 +310,8 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/limits/save", post(save_limits::<D>))
         .route("/preferences", get(get_preferences::<D>))
         .route("/preferences/save", post(save_preferences::<D>))
+        .route("/settings", get(crate::settling::get_settings::<D>))
+        .route("/settings/save", post(crate::settling::save_settings::<D>))
         .route("/health", get(get_health::<D>))
         .route("/usage", get(get_usage::<D>))
         .route("/alerts", get(list_alerts::<D>))
@@ -367,6 +387,11 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             get(crate::retros::get_session_retro::<D>).post(crate::retros::write_session_retro::<D>),
         )
         .route("/lessons", get(crate::retros::list_lessons::<D>))
+        .route("/lessons/review", post(crate::retros::review_lessons::<D>))
+        .route(
+            "/lessons/:lesson_id/ask",
+            post(crate::retros::ask_lesson::<D>),
+        )
         .route(
             "/lessons/:lesson_id/agree",
             post(crate::retros::agree_lesson::<D>),
@@ -385,7 +410,6 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             "/jobs/:job_id/ask_person_to_approve",
             post(ask_person_to_approve::<D>),
         )
-        .route("/jobs/:job_id/calls/:call_id", get(get_call::<D>))
         .route(
             "/jobs/:job_id/calls/:call_id/explain",
             get(explain_command::<D>),

@@ -155,7 +155,6 @@ function boardOn(port: number, picked: Picked): Board {
     publish: () => {},
     watchProposal: () => {},
     proposalOut: () => null,
-    rereadCapacity: async () => {},
   };
 }
 

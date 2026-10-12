@@ -54,9 +54,9 @@ export type CommandAnswer = "allow_for_job" | "always_allow" | "reject";
  * waits, and a person answers a `Refusal` on a stopped job instead.
  *
  * **`detail` is one line of the argument**, as a `Refusal`'s is. `truncated`
- * and `length` say how much was cut, and `get_call` serves the rest by `call`
- * — which matters more here, because what a person allows is the whole
- * command.
+ * and `length` say how much was cut, and Fleet reads the rest by `call` when
+ * it explains the command — which matters more here, because what a person
+ * allows is the whole command.
  */
 export type CommandInFlight = {
   /** The harness's id for the call, and what an answer names. */

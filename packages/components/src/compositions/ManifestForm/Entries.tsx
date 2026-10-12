@@ -7,7 +7,8 @@ import { Input } from "../../primitives/Input/Input";
 
 export function Section({ title, says, children }: { title: string; says: string; children: ReactNode }) {
   return (
-    <section className="armada-manifest-form__section" aria-label={title}>
+    // A tile on the glass, and a stop on the keys: Enter goes in to its entries or its first field.
+    <section className="armada-manifest-form__section" aria-label={title} data-tile="" tabIndex={0}>
       <h2 className="armada-manifest-form__title">{title}</h2>
       <p className="armada-manifest-form__says">{says}</p>
       {children}
@@ -22,7 +23,7 @@ export function Section({ title, says, children }: { title: string; says: string
 export function Entry({ name, onRemove, children }: { name: string; onRemove: () => void; children: ReactNode }) {
   const id = useId();
   return (
-    <fieldset className="armada-manifest-form__entry" aria-labelledby={id}>
+    <fieldset className="armada-manifest-form__entry" aria-labelledby={id} data-tile="" tabIndex={0}>
       <div className="armada-manifest-form__entry-head">
         <span id={id} className="armada-manifest-form__name">
           {name}

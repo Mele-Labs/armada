@@ -594,6 +594,25 @@ where
                         policies,
                     }
                 }
+                // Back to the Drone, ahead of the gaming look for the reason
+                // above. A trigger that is not step-level falls through to a
+                // refusal a person sees, as `handed_back` falls through. #206.
+                Ok((judged, JudgeFold::SentBack(refusals))) => {
+                    match StepLevelTrigger::of(EscalationTrigger::GateFailure) {
+                        Some(retrying) => {
+                            return Ruling::JudgesAgreed {
+                                tell: OutcomeTurn::sent_back(step, &refusals, &judging.wording),
+                                refusals,
+                                checks,
+                                output,
+                                judged,
+                                retrying,
+                                policies,
+                            }
+                        }
+                        None => (judged, mechanical.but_for(Some(refusals))),
+                    }
+                }
                 Ok((judged, JudgeFold::Refused(refusals))) => {
                     (judged, mechanical.but_for(Some(refusals)))
                 }
@@ -674,7 +693,12 @@ where
                 },
                 false => match at.next() {
                     Some(next) => Ruling::Advanced {
-                        tell: OutcomeTurn::advanced(step, Some(next), Verified::of(&ran)),
+                        tell: OutcomeTurn::advanced(
+                            step,
+                            Some(next),
+                            Verified::of(&ran),
+                            &judging.wording,
+                        ),
                         checks,
                         output,
                         judged,
@@ -682,7 +706,12 @@ where
                         policies,
                     },
                     None => Ruling::Finished {
-                        tell: OutcomeTurn::advanced(step, None, Verified::of(&ran)),
+                        tell: OutcomeTurn::advanced(
+                            step,
+                            None,
+                            Verified::of(&ran),
+                            &judging.wording,
+                        ),
                         checks,
                         output,
                         judged,
@@ -692,22 +721,24 @@ where
                 },
             }
         }
-        Verdict::Failed(failures) => match handed_back(step, at.spent(), &failures, &printed) {
-            Some((tell, retrying)) => Ruling::HandedBack {
-                failures,
-                checks,
-                output,
-                tell,
-                retrying,
-                policies,
-            },
-            None => Ruling::Failed {
-                failures,
-                checks,
-                output,
-                policies,
-            },
-        },
+        Verdict::Failed(failures) => {
+            match handed_back(step, at.spent(), &failures, &printed, &judging.wording) {
+                Some((tell, retrying)) => Ruling::HandedBack {
+                    failures,
+                    checks,
+                    output,
+                    tell,
+                    retrying,
+                    policies,
+                },
+                None => Ruling::Failed {
+                    failures,
+                    checks,
+                    output,
+                    policies,
+                },
+            }
+        }
         Verdict::Refused(refusals) => Ruling::Refused {
             refusals,
             checks,
@@ -784,6 +815,7 @@ fn handed_back(
     spent: core_model::Spent,
     failures: &[CheckFailed],
     printed: &[Printed<'_>],
+    wording: &verification::Wording,
 ) -> Option<(OutcomeTurn, StepLevelTrigger)> {
     if !failures.iter().all(CheckFailed::the_drone_can_answer) {
         return None;
@@ -797,7 +829,10 @@ fn handed_back(
     // reattempted for a reason no step row could hold — and falling through to
     // a failure that a person sees is the safe direction to be wrong in.
     let retrying = StepLevelTrigger::of(EscalationTrigger::GateFailure)?;
-    Some((OutcomeTurn::handed_back(step, failures, printed), retrying))
+    Some((
+        OutcomeTurn::handed_back(step, failures, printed, wording),
+        retrying,
+    ))
 }
 
 /// Where a `request_changes` at a step's human gate sends the Job.
@@ -935,9 +970,10 @@ impl Ruling {
     /// one: its evidence was a signal, never the decision.
     pub fn signed_by(&self) -> Actor {
         match self {
-            Ruling::Refused { .. } | Ruling::Questioned { .. } | Ruling::Suspect { .. } => {
-                Actor::Judge
-            }
+            Ruling::Refused { .. }
+            | Ruling::JudgesAgreed { .. }
+            | Ruling::Questioned { .. }
+            | Ruling::Suspect { .. } => Actor::Judge,
             Ruling::Failed { .. } | Ruling::HandedBack { .. } => Actor::Check,
             _ => Actor::Fleet,
         }

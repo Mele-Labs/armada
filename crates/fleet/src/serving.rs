@@ -28,7 +28,7 @@ use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{FramePart, FrameSpan, Observed, ObservedCheckoutRun, Queries, Refusal, Resolved};
 use core_model::JobReference;
 use ipc::{
-    AlertList, CallArguments, DroneDetail, DroneId, DroneList, FleetCapacity, FleetHealth,
+    AlertList, DroneDetail, DroneId, DroneList, FleetCapacity, FleetHealth,
     FleetUsage, JobDetail, JobDiff, JobDrones, JobEvidence, JobHistory, JobId, JobList, JobRemarks,
     JobResources, ManifestConfig, ManifestDrift, ManifestFile, ManifestId, ManifestReading,
     ManifestSummary, ModelChoices, Work, WorkflowSummary, WorktreesHeld,
@@ -42,7 +42,7 @@ mod detail;
 use crate::adrift::Adrift;
 use crate::daemon::Fleet;
 use crate::wire::{
-    manifest_summary, recorded, redacted, reported, submitted, workflow_summary, worktree_held,
+    manifest_summary, recorded, redacted, reported, submitted, workflow_summary,
 };
 
 impl<H, V, W> Queries for Fleet<H, V, W>
@@ -235,18 +235,6 @@ where
     /// The build Fleet runs on — [`crate::building`].
     async fn get_fleet_build(&self) -> Result<ipc::FleetBuildReport, Refusal> {
         self.fleet_build().await
-    }
-
-    /// The limits in force and what shipped — [`crate::limits`].
-    async fn get_limits(&self) -> Result<ipc::FleetLimits, Refusal> {
-        Ok(self.limits_in_force().await)
-    }
-
-    /// Every preference in force — [`crate::preferences`].
-    async fn get_preferences(&self) -> Result<ipc::Preferences, Refusal> {
-        self.preferences_in_force()
-            .await
-            .map_err(|why| self.refusal(why))
     }
 
     /// Every rule a person always-allowed for this Manifest's repository —
@@ -535,28 +523,6 @@ where
 
     async fn get_repair_diff(&self, job_id: JobId, of: ipc::RepairOf) -> Result<JobDiff, Refusal> {
         self.repair_diff(job_id, of).await
-    }
-
-    /// One tool call's arguments, read back out of the Job's transcripts.
-    ///
-    /// **The other end of a row that was cut.** A `called` row on the socket
-    /// carries a line and the argument's true size, so opening it can say how
-    /// much there is; this is where the rest comes from, fetched once by the
-    /// person who opened it rather than streamed to everyone watching.
-    ///
-    /// The Job is loaded first, so an id naming nothing is a 404 before any
-    /// file is opened. A call the record does not carry is a different answer
-    /// and says so: [`Adrift::NoSuchCall`], which is a 422 — the Job is there,
-    /// and the id names nothing in it.
-    async fn get_call(&self, job_id: JobId, call_id: String) -> Result<CallArguments, Refusal> {
-        let job = self
-            .load(&job_id.to_domain())
-            .await
-            .map_err(|why| self.refusal(why))?;
-        let served = self.served_by(&job).map_err(|why| self.refusal(why))?;
-        crate::transcript::arguments(served.records_root(), &job.handle(), &call_id)
-            .await
-            .ok_or_else(|| self.refusal(Adrift::NoSuchCall { named: call_id }))
     }
 
     /// What one command a Drone was not granted does, read by a model.
@@ -943,6 +909,21 @@ where
         Fleet::merge_hubs(self).await
     }
 
+    /// The Jobs as loaded, without the per-Job reads a summary makes.
+    async fn job_branches(&self) -> Vec<(String, JobId, String)> {
+        let Ok((loaded, _)) = self.every_job().await else {
+            return Vec::new();
+        };
+        loaded
+            .jobs
+            .iter()
+            .filter_map(|job| {
+                let branch = job.branch()?;
+                Some((branch.as_str().to_string(), JobId::from(job.id()), job.handle()))
+            })
+            .collect()
+    }
+
     async fn land_checks(&self) -> Vec<(String, Vec<String>)> {
         Fleet::land_checks(self)
     }
@@ -976,35 +957,14 @@ where
         Ok(self.models().clone())
     }
 
-    /// Every worktree Fleet is holding disk for, and the test each one failed.
-    ///
-    /// **`Fleet::worktrees_held` is the derivation and this only redacts it.**
-    /// The five tests are written once, in `crate::holding`, and the sweep and
-    /// `armada clean` already read that same answer; a filter here that decided
-    /// for itself what is safe would be the third opinion the sharing exists to
-    /// prevent.
-    ///
-    /// **The one thing dropped is a piloted Job's checkout**, and it is dropped
-    /// through `Holding::offerable` rather than by matching a status here —
-    /// `#367`, and the predicate belongs beside the tests it reads.
+    /// Every worktree Fleet is holding disk for, and the test each one failed,
+    /// and every slot of each pool. From memory where `crate::worktrees_kept`
+    /// holds a true list; the derivation is `worktrees_live`.
     async fn list_worktrees(
         &self,
         manifest_id: Option<ManifestId>,
     ) -> Result<WorktreesHeld, Refusal> {
-        let holding = Fleet::worktrees_held(self)
-            .await
-            .map_err(|why| self.refusal(why))?;
-        let slots = Fleet::pool_slots(self)
-            .await
-            .map_err(|why| self.refusal(why))?;
-        let held = WorktreesHeld {
-            worktrees: holding
-                .iter()
-                .filter(|one| one.offerable())
-                .map(worktree_held)
-                .collect(),
-            slots: slots.iter().map(crate::wire::worktree_slot).collect(),
-        };
+        let held = self.worktrees_answer().await?;
         self.worktrees_within(held, manifest_id)
     }
 

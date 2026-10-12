@@ -22,6 +22,11 @@
   --annotate-pin-inset: var(--space-3);
 }
 
+/* Out of the picture while main captures the window under it (`shoot.ts`). */
+.armada-annotate[data-shooting] {
+  opacity: 0;
+}
+
 .armada-annotate__outline {
   position: fixed;
   left: var(--annotate-x);
@@ -238,6 +243,40 @@
   color: var(--fg-subtle);
 }
 
+/* A ticked row takes the selected-row fill the focus model names. */
+.armada-annotate__row[data-selected] {
+  background: var(--accent-muted);
+}
+
+/* The panel's head: Select all, and what is ticked with the acts on it. It
+ * stays put over the rows as they scroll, edge to edge across the panel's
+ * padding, so the acts are in reach of a row ticked at the bottom. */
+.armada-annotate__selection {
+  position: sticky;
+  top: calc(var(--space-3) * -1);
+  z-index: 1;
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin: calc(var(--space-3) * -1) calc(var(--space-3) * -1) 0;
+  padding: var(--space-3);
+  border-bottom: var(--border-width) solid var(--border-default);
+  background: var(--bg-overlay);
+}
+
+.armada-annotate__selection-said {
+  color: var(--fg-muted);
+  font-size: var(--text-xs);
+}
+
+.armada-annotate__selection .armada-annotate__actions {
+  flex-basis: 100%;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+}
+
 .armada-annotate__row-main {
   display: flex;
   flex-direction: column;
@@ -288,6 +327,7 @@
 .armada-annotate__row .armada-annotate__actions {
   flex-wrap: wrap;
   justify-content: flex-start;
+  align-items: center;
 }
 
 /* The bar's count, pressed to open the all-notes panel: plain text until hovered. */

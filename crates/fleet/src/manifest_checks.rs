@@ -39,10 +39,11 @@ pub(crate) fn rows_of(
             rows.push(ManifestCheckRow {
                 source: ipc::SOURCE_GATE.to_string(),
                 requester: ipc::Requester::gate(&job_id, &step).with_handle(&handle),
-                job_id: job_id.clone(),
-                job_handle: handle.clone(),
-                job_title: job.title().as_str().to_string(),
-                step: step.clone(),
+                job_id: Some(job_id.clone()),
+                job_handle: Some(handle.clone()),
+                job_title: Some(job.title().as_str().to_string()),
+                step: Some(step.clone()),
+                session_id: None,
                 attempt: group.attempt.number(),
                 group: group.group.map(|(group, _)| group.to_string()),
                 name: check.name.clone(),
@@ -71,10 +72,11 @@ pub(crate) fn rows_of(
         rows.push(ManifestCheckRow {
             source: ipc::SOURCE_ASKED_RUN.to_string(),
             requester: wired.requester,
-            job_id: job_id.clone(),
-            job_handle: handle.clone(),
-            job_title: job.title().as_str().to_string(),
-            step: ipc::StepId::from(&run.step),
+            job_id: Some(job_id.clone()),
+            job_handle: Some(handle.clone()),
+            job_title: Some(job.title().as_str().to_string()),
+            step: Some(ipc::StepId::from(&run.step)),
+            session_id: None,
             attempt: run.attempt,
             group: None,
             name: run.checks.join(", "),
@@ -130,10 +132,11 @@ pub(crate) fn waiting_rows(
         .map(|check| ManifestCheckRow {
             source: ipc::SOURCE_GATE.to_string(),
             requester: gate.requester.clone(),
-            job_id: job_id.clone(),
-            job_handle: handle.to_string(),
-            job_title: title.to_string(),
-            step: step.clone(),
+            job_id: Some(job_id.clone()),
+            job_handle: Some(handle.to_string()),
+            job_title: Some(title.to_string()),
+            step: Some(step.clone()),
+            session_id: None,
             attempt: gate.attempt,
             group: None,
             name: check.name.clone(),
@@ -206,6 +209,10 @@ where
         manifest_id: Option<ipc::ManifestId>,
     ) -> Result<ManifestChecks, Refusal> {
         let owned = self.owned_by(manifest_id.as_ref())?;
+        let within = match manifest_id.as_ref() {
+            Some(named) => Some(self.served_named(Some(named))?.manifest().id().as_str().to_string()),
+            None => None,
+        };
         let (mut loaded, _) = self.every_job().await.map_err(|why| self.refusal(why))?;
         loaded.jobs.retain(|job| owned(job));
         let mut rows = Vec::new();
@@ -221,6 +228,7 @@ where
             let live = self.underway().live(&ipc::JobId::from(job.id()));
             rows.extend(rows_of(job, &ran, &asked, &live));
         }
+        rows.extend(self.session_check_rows(within.as_deref()).await?);
         Ok(newest(rows, ManifestChecks::MOST))
     }
 }

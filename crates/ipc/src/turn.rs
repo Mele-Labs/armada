@@ -207,8 +207,7 @@ pub enum Saw {
         ///
         /// **What `truncated` on its own could not say.** A flag makes a row
         /// report an absence; a size makes it report a proportion, so an opened
-        /// row reads *showing 200 of 14,320 characters* and offers the rest
-        /// through `get_call`.
+        /// row reads *showing 200 of 14,320 characters*.
         ///
         /// **`None` is a row written before this field existed**, whose true
         /// size nobody can recover — the same absence
@@ -439,39 +438,6 @@ impl Shown {
     pub fn row(&self) -> &TranscriptRow {
         &self.0
     }
-}
-
-/// One tool call's arguments, as the record holds them.
-///
-/// **The other half of [`Saw::Called`], and the reason a cut row is not a dead
-/// end.** The socket carries a line and a size; this carries the argument, and
-/// it is asked for once, by a person who opened one row. The split is the one
-/// `get_diff` already makes against `job.files_changed`: the cheap fact streams
-/// and the bytes are fetched.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct CallArguments {
-    /// The tool, as its own vocabulary spells it.
-    pub tool: String,
-    /// The call id the row carried, which is what was asked for.
-    pub call: String,
-    /// The argument, as the Drone sent it — whitespace and newlines intact,
-    /// because a heredoc read as one line is not the thing that was run.
-    pub arguments: String,
-    /// Whether [`arguments`](CallArguments::arguments) is all of it.
-    ///
-    /// **False only where the record itself is short**: a row written before
-    /// the file kept the whole carries the bounded line and nothing behind it.
-    /// It is stated rather than inferred from the two lengths agreeing, because
-    /// a surface that inferred it would call a partial answer complete on any
-    /// row where the count was also missing.
-    pub whole: bool,
-    /// How many characters the argument had, where the record knows.
-    ///
-    /// `None` is an old row again — not an argument of no length. A surface
-    /// holding `whole: false` and `length: None` has what there is and no way
-    /// to say how much is missing, and says that rather than inventing a size.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub length: Option<usize>,
 }
 
 /// A row that is recorded and not shown.

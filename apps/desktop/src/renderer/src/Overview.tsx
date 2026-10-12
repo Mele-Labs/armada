@@ -1,6 +1,6 @@
 // The Dashboard, as the window mounts it, out of `App.tsx`, which is at the length the gate refuses.
-// Three tabs over the panels: Command Central (what needs the owner, or a quick dispatch box when
-// nothing does), Running, and Done. Each reads Jobs, Sessions and the merge line alike. #921 mounted
+// Three tabs over the panels: Command Central (what needs the owner), Running, and Done. Work is
+// dispatched from the title bar's one bar (`one-bar.tsx`). Each reads Jobs, Sessions and the merge line alike. #921 mounted
 // the tile band here first; Overview 27 (#1091) gave every panel a fold, and the tabs replaced the strip.
 //
 // `.armada-screen__overview` is the one child `.armada-screen__mounted` gets — the surface's own
@@ -9,6 +9,7 @@
 
 import { useEffect, useState } from "react";
 import type { FixMain, RepositorySummary } from "@armada/protocol";
+import type { NowActed } from "@armada/jobs";
 import type { CallView } from "@armada/jobs/draft/calls";
 import type { NowView } from "@armada/jobs/draft/now";
 import type { BoardSection, PauseAct } from "@armada/screens";
@@ -16,13 +17,11 @@ import { OverviewLists, dashboardTabOf, overviewPanelId, type DashboardTab } fro
 import { Boundary, useLayout } from "@armada/shell";
 
 import type { BridgeState } from "../../shared/bridge";
-import { Nows, useNeedsYou } from "./Dashboard";
+import { Nows } from "./Dashboard";
 import { CommandCentral } from "./CommandCentral";
 import { KeySheet, useDashboardKeys } from "./cockpit/keys";
 import { proposeRequest } from "./dispatch";
-import { QuickDispatch, useDispatchBarDrawn } from "./QuickDispatch";
 
-export { useDispatchBarKeys } from "./QuickDispatch";
 import { usePanelOpen } from "./panel-open";
 import { useDashboardTab } from "./remembered-views";
 
@@ -51,8 +50,14 @@ export function Overview({
   nowViews,
   nows,
   onTell,
-  onQuickCompose,
+  onNowAct,
+  bring,
+  onBrought,
+  onWantHeld,
 }: {
+  /** A call an alert asked for, handed to the cockpit once it is mounted. */
+  bring?: { key: string; at: number } | null;
+  onBrought?: () => void;
   state: BridgeState;
   now: number;
   live: boolean;
@@ -89,14 +94,16 @@ export function Overview({
   onOpenSession: (sessionId: string) => void;
   /** Hands main's red to a Job, from the merge line's band. */
   onFix?: (fix: FixMain) => void;
-  /** What each Job asks and has gone wrong in, by Job id. Mock only: Fleet serves none, and then only Jobs flagged as asking are listed. */
+  /** What each Job asks and has gone wrong in, by Job id: the draft's, else what Fleet serves for the active Jobs. */
   nowViews?: Readonly<Record<string, CallView>>;
-  /** What each Job is doing now, by Job id: the Running tab's pane and its tiles' icons. Mock only. */
+  /** What each Job is doing now, by Job id: the Running tab's pane and its tiles' icons. The draft's, else what Fleet serves. */
   nows?: Readonly<Record<string, NowView>>;
   /** Says a sentence as a toast: a refusal the panel has to name. */
   onTell?: (sentence: string) => void;
-  /** Words typed into the quick dispatch box, handed to the composer. */
-  onQuickCompose: (words: string) => void;
+  /** A quick act pressed on a Job's Now panel, by Job id. */
+  onNowAct?: (jobId: string, acted: NowActed) => void;
+  /** Asks Fleet for the worktree pool while the Cockpit's bays are drawn. */
+  onWantHeld?: (want: boolean) => void;
 }) {
   const guarded = { bridge: state.bridge, onCopied };
 
@@ -133,7 +140,6 @@ export function Overview({
   // A press names a section; opening it (if folded) and scrolling to it happen once that open
   // state has committed, which is what the effect below waits for.
   const [jump, setJump] = useState<{ section: StripSection; at: number } | null>(null);
-  const panels = useLayout("dashboard.panels").shown;
   const [tab, setTab] = useDashboardTab(useLayout("dashboard.tabs").first as DashboardTab);
   const onJump = (section: StripSection) => {
     setters[section](true);
@@ -160,10 +166,8 @@ export function Overview({
   const propose = (request: string) => void proposeRequest(request, [], state.repository);
 
   const pickedRepository = repositories.find((one) => one.root === state.repository) ?? null;
-  const needsYou = useNeedsYou(state, pickedRepository, nowViews);
   // Fleet unreachable, still starting, or nothing served: the lists say so, as they always did.
   const fault = disconnected !== null || state.connection.state === "starting" || repositories.length === 0;
-  useDispatchBarDrawn(!fault);
 
   // `[` `]` and Option with a digit switch filters, `?` lists the keys. Where Fleet cannot be reached the lists draw instead.
   const keys = useDashboardKeys(tab, setTab, !fault);
@@ -172,8 +176,6 @@ export function Overview({
     <Boundary region="the overview" {...guarded}>
       <Nows.Provider value={nows}>
       <div className="armada-screen__overview">
-        {/* n and ⌘N reach the bar from every surface (`useDispatchBarKeys`). Where Fleet cannot be reached the Board's own lists draw, and bind n themselves. */}
-        {fault || !panels.some((one) => one.id === "quick-dispatch") ? null : <QuickDispatch onType={onQuickCompose} focused={!needsYou} onOpenSession={onOpenSession} />}
         {fault ? (
           <OverviewLists
             jobs={state.jobs}
@@ -205,7 +207,10 @@ export function Overview({
             picked={pickedRepository}
             nowViews={nowViews}
             nows={nows}
+            bring={bring}
+            onBrought={onBrought}
             onTell={onTell}
+            onNowAct={onNowAct}
             onOpen={onOpen}
             onOpenSession={onOpenSession}
             onOpenLink={onOpenLink}
@@ -216,6 +221,7 @@ export function Overview({
             onClear={onClear}
             onPausing={onPausing}
             onCursor={onCursor}
+            onWantHeld={onWantHeld}
           />
         )}
         <KeySheet open={keys.sheet} onClose={keys.closeSheet} />

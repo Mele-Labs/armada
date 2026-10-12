@@ -3363,6 +3363,33 @@ Bridge's half is in `packages/protocol/src/hosted-sessions.ts`, written by hand 
 
 **`repair` is ignored**, as for a Skill: a file with `brief:` and `repair: true` loads with it off.
 
+## Protocol 23.75: a Session's Checks
+
+`docs/concepts/session.md`, *A Session's Checks*. **Additive, with one loosening**: two operations, a requester kind and a thread row, and `ManifestCheckRow`'s Job fields become optional.
+
+| Where | Carries | Notes |
+| --- | --- | --- |
+| `report_session_check` (`POST /sessions/checks`) | `SessionCheckCall`: `act` (`start` or `end`), `cwd`, `name`; on `end` also `run`, `outcome`, `took_ms`, `log`. Answers `SessionCheckAnswer`: `run?` | `armada check` is the caller. No `run` where no Session holds the slot |
+| `get_session_check_output` (`GET /sessions/checks/:run/output`) | Answers `CheckOutput` | Keyed by run id, since a Session's run has no Job |
+| `Requester` kind `session` | `session_id`, `slot` | |
+| `SessionRow` kind `check` | `name`, `run`, `state` | Replaced by id as the run ends |
+| `ManifestCheckRow.job_id`, `job_handle`, `job_title`, `step` | Now optional | Absent on a Session's run, which carries `session_id` and its run id in `asked_run_id` |
+
+**Skew.** A Bridge before 23.75 reads a row with no `job_id` as a Job row with a missing id, so it draws that row badly; it never asks for the new routes. A Fleet before it sends neither the rows nor the thread row.
+
+## Protocol 23.74: a guided review of the open retro items
+
+`docs/concepts/retro.md`, *Reviewing*. **Additive only**: two operations, both `Helm only` like `agree_lesson`, and no change to a type that exists. Neither stores anything.
+
+| Where | Carries | Notes |
+| --- | --- | --- |
+| `review_lessons` (`POST /lessons/review`) | `ReviewLessons`: `manifest_id?`; the body may be left out. Answers `LessonReview`: `model`, `entries[]`, `set_aside[]` | One model call over the open items, read as `list_lessons` reads them (up to 200). `entries` are best first and carry no rank. `ReviewEntry`: `lesson_id`, `merged_ids[]`, `reason`. `SetAside`: `lesson_id`, `why`. No open item answers empty with `model` empty and makes no call. 500 `fleet.lesson_review_failed` |
+| `ask_lesson` (`POST /lessons/:lesson_id/ask`) | `LessonAsk`: `question`, `history[]` of `AskTurn` `role` (`person` or `fleet`), `text`. Answers `AskLessonAnswer`: `answer` | One model call, answered from the item and the record rows it cites. 404 `fleet.no_such_lesson`; 422 `fleet.lesson_question_refused` for an empty question, one over 2000 characters, more than 20 turns or a turn over 4000 characters; 500 `fleet.lesson_ask_failed` |
+
+**The answer of a review is held to the open items.** An id the model invented is dropped. An id that leads an entry is kept once, so it is taken out of every `merged_ids` and out of `set_aside`. An item set aside needs a `why`. **An open item the model named nowhere is appended to `entries` with the reason `not ranked`**, so nothing a person has not answered goes missing from the queue. Bridge keeps the conversation, because Fleet holds no thread.
+
+**Skew.** A Fleet before 23.74 has neither route and answers 404, so a Bridge that offers the review has nothing to call and shows the plain list. A Bridge before it never calls them. Bridge's half is `packages/protocol/src/retro-review.ts`, written by hand like the rest.
+
 ## Protocol 23.73: Skill and Drone steps run
 
 `docs/concepts/trigger.md`, *A Skill or a Drone step*. **Additive only**: one optional field on `JobTrigger`. A Skill Trigger, a Skill added step and a Drone added step now run on a side Drone, on a branch cut from the Job's, and no state, operation or error is new.
@@ -3439,10 +3466,67 @@ Bridge's half is in `packages/protocol/src/helm-calls.ts` and `hosted-sessions.t
 | `validate_mod` (`GET /mods/validate?name=`) | `ModChecked`: `name`, `valid`, `problems[]`, `css?`, `layout?` | `css` is a theme's checked text and `layout` a layout mod's, each present only when `valid` and never both |
 | `promote_mod` (`POST /mods/promote`) | `PromoteMod`: `name`, `manifest_id?`; answers `ModPromoted`: `name`, `branch`, `commit` | 409 `fleet.mod_not_promotable`. `agent_access` is `No` |
 | `mods.changed` (event) | `ModList`, whole | Names no Job. A resync does not carry it |
-| `get_preferences` | `Preferences.theme?`, `Preferences.layout_choices?` | `theme` is left out while `dark`, and absent is `dark`. `layout_choices` is the text of the owner's `layout.json`, left out while he has made none |
-| `save_preferences` | `SavePreference.text?`, read for the names `theme` and `layout_choices` | 422 `fleet.unacceptable_theme`, and 422 `fleet.unacceptable_layout` for text `layout.json`'s rules refuse. An empty `layout_choices` takes the choices back |
+| `get_preferences` | `Preferences.theme?`, `Preferences.layout_choices?`, `Preferences.key_bindings?` | `theme` is left out while `dark`, and absent is `dark`. `layout_choices` is the text of the owner's `layout.json`, left out while he has made none. `key_bindings` is the owner's own keys, left out while he has changed none |
+| `save_preferences` | `SavePreference.text?`, read for the names `theme`, `layout_choices` and `key_bindings` | 422 `fleet.unacceptable_theme`, 422 `fleet.unacceptable_layout` for text `layout.json`'s rules refuse, and 422 `fleet.unacceptable_key_bindings`. An empty `layout_choices` or `key_bindings` takes the choices back |
 
 **The event stream gets no new queue.** `mods.changed` is one message per change, found by a rescan every two seconds, and goes through the shared drop-oldest backlog; a Bridge that missed it reads `list_mods` after the resync. It does not touch the unbounded-sink risk above.
+
+## settings.json: every Machine setting, described and saved
+
+`docs/concepts/machine.md`, *settings.json*. **Additive only**: two operations and one event; `get_limits`, `save_limits`, `get_preferences` and `save_preferences` keep their shape and read and write the same file.
+
+| Where | Carries | Notes |
+| --- | --- | --- |
+| `get_settings` (`GET /settings`) | `SettingsList`: `path`, `refused?` (`key?`, `reason`), `settings[]` | Each `Setting`: `key`, `group`, `section`, `title`, `description`, `kind` (tagged on `kind`: `integer` `min` `max` `unit`, `seconds` `min` `max`, `boolean`, `choice` `options`, `text`, `prompt`, `text_list`, `json`), `default`, `value`, `saved` (`null` where absent), `applies` (`live` or `at_restart`), `pending_restart`, `overridden_by_env` (`null` where none) |
+| `save_settings` (`POST /settings/save`) | `SaveSettings`: `changes`, a key to a value or `null`, which removes it | 422 `fleet.unacceptable_settings` naming the key, and nothing written; 500 `fleet.settings_not_written`. `agent_access` is `No` |
+| `settings.changed` (event) | `SettingsList`, whole | After a save, a hand edit, or a hand edit refused. A resync does not carry it |
+
+Bridge's half is `packages/protocol/src/settings.ts`, written by hand like the rest.
+
+## A call's arguments are no longer served
+
+`#1774`. **A removal**: `get_call` (`GET /jobs/:job_id/calls/:call_id`) and `CallArguments` are gone, from `crates/ipc` and from `packages/protocol`. Bridge stopped reading it when the activity log's sheet went (`#1761`, `#1773`), so no Bridge on this side of the ID asks for it.
+
+| Where | Carries | Notes |
+| --- | --- | --- |
+| `explain_command` (`GET /jobs/:job_id/calls/:call_id/explain`) | unchanged | Still under the call. Fleet reads a cut command whole from the transcript for it, and that read no longer crosses the wire |
+| `Saw.called`, `Refusal`, `CommandInFlight` | unchanged | `truncated` and `length` still say how much was cut. Nothing serves the rest |
+
+## Autopilot: a repository works its own backlog
+
+`#2092`, `docs/concepts/autopilot.md`. **Additive only**: nine operations, one event kind, the DTOs of `ipc::autopilot`, and `origin` gains `autopilot_picked` (*Picked by Autopilot*), a string on the wire like the rest. Bridge's half is `packages/protocol/src/autopilot.ts`, written by hand.
+
+| Operation | Carries | Notes |
+| --- | --- | --- |
+| `list_autopilots` (`GET /autopilots`) | nothing | Answers `AutopilotList`, every repository's, stopped ones included |
+| `get_autopilot` (`GET /autopilots/:repository`) | nothing | Answers `Autopilot`: the settings, `state`, `capped_by`, the figures `spent_micros`, `jobs_started` and `at_work` read now, and `picks`. 409 `fleet.no_autopilot` |
+| `propose_autopilot` (`POST /autopilots/:repository/proposal`) | `ProposeAutopilot`: `sentence`, `local_now?` | Answers `AutopilotSettings`. One model call; **starts and keeps nothing**. 500 `fleet.autopilot_not_read` |
+| `start_autopilot` (`POST /autopilots/:repository`) | `AutopilotSettings`: `instruction`, `at_once`, `until?`, `spend_cap_micros?`, `job_cap?` | A 201 with `Autopilot`. 409 `fleet.autopilot_running`, 422 `fleet.autopilot_unsettable` |
+| `pause_autopilot`, `resume_autopilot`, `stop_autopilot` (`POST /autopilots/:repository/pause`, `/resume`, `/stop`) | nothing | Answer `Autopilot`. 409 `fleet.autopilot_not_running`, `fleet.autopilot_not_paused`, `fleet.autopilot_stopped`. Stop kills each picked Job that never had a Drone and marks its pick `withdrawn` |
+| `dispatch_set_aside`, `dismiss_set_aside` (`POST /autopilots/:repository/picks/:pick_id/dispatch`, `/dismiss`) | nothing | Answer `Autopilot`. Dispatch proposes the issue to the approval gate as `propose_from_request` would. 409 `fleet.pick_not_set_aside` |
+| `autopilot.changed` (event) | `Autopilot` | On each act, each pick, a cap reached, and a pass that finds the figures moved. Whole, so a reconnecting Bridge replaces what it holds |
+
+**A Job a sure pick starts is an ordinary `job.created` and `job.state_changed`**, its last move by `fleet` rather than `human`: no new kind says a Job skipped the gate, since the origin on its row does.
+
+## A Job's Now: what runs, what is wrong, what it waits on
+
+`docs/concepts/job.md`, *A Job's Now*. **Additive only**: two fields on `JobDetail`, one on `JobDrone`, a `mode` on three answers and three operations. Every new field is optional, `serde(default, skip_serializing_if)`, so an older reader carries on and an older Fleet sends none. Bridge's half is `packages/protocol/src/issues.ts` and the `drones`, `detail` and `asking` files beside it, written by hand.
+
+| Where | Carries | Notes |
+| --- | --- | --- |
+| `JobDrone.activity` | `DroneActivity`: `line`, `tail[]` | The latest action and the few before it, off the transcript pass that yields `turns` and `cost_micros`. Absent on a Drone that has said nothing, never an empty line |
+| `JobDetail.issues` | `JobIssue[]`, tagged by `kind` | `breakage` (`check`, `test`), `write_scope_overlap` (`job_id`), `failed_verdict` (`step_id`, `attempt`, `trigger?`), `stuck_drone` (`drone_id`, `step_id`, `quiet_since`). Each is a pointer to a fact `get_job` already holds; empty is none |
+| `JobDetail.waiting` | `JobWaiting[]`, tagged by `kind` | `resource` (`name`), `job` (`job_id`, `title?`), `transition` (`step_id`). Empty on a Job that works and on one that waits on a person |
+| `answer_question`, `answer_command`, `answer_judge` | `mode?`: `best` or `quick` | Fleet words the instruction to the Drone. A mode alone is an answer, so `chose` is then absent; with a label the label is the answer and the mode rides with it. A stale question id is still refused |
+| `retry_check` (`POST /jobs/:job_id/retry_check`) | `check` | Runs that one Check again. 409 where no gate is running Checks, or the gate has no Check of that name |
+| `skip_check` (`POST /jobs/:job_id/skip_check`) | `check` | Ends one Check as `skipped`, which advances the step and is not a pass. 409 as `retry_check`, and where that Check has finished |
+| `skip_checks` (`POST /jobs/:job_id/skip_checks`) | nothing | Skips every Check not yet finished. 409 where no gate is running Checks |
+
+**A `stuck_drone` is only ever a working Drone.** One at rest or waiting on an answer is quiet by design and yields no issue. The threshold is the one Fleet already pokes at (`quiet_after`), so a Drone is named stuck at the moment Fleet would first poke it, and not on a second clock.
+
+**Redirecting a stuck Drone and retrying a step add no operation**: they are `redirect_one_drone` and `restart_step`, pressed from the issue row.
+
+**Skew.** A Bridge before this draws a Job with no issues and nothing waited on, and a Drone row with no line beyond what its transcript gives. A Fleet before it sends none of the fields and refuses the three Check routes as unknown.
 
 ## Open questions
 

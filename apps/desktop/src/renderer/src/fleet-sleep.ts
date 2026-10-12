@@ -14,6 +14,7 @@ export type FleetSleep = {
   getSleep: () => Promise<SleepActed>;
   setSleep: (on: boolean) => Promise<SleepActed>;
   overrideSleep: (id: string, text: string) => Promise<SleepActed>;
+  reviewSleep: (id: string) => Promise<SleepActed>;
   onSleepChanged: (on: (state: SleepState) => void) => () => void;
 };
 
@@ -64,5 +65,6 @@ export function createFleetSleep(fleet: FleetSleep): SleepSource {
     },
     toggle: () => void fleet.setSleep(!state.on).then(took),
     override: (id, text) => void fleet.overrideSleep(id, text).then(took),
+    review: (id) => void fleet.reviewSleep(id).then(took),
   };
 }
