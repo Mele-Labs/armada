@@ -59,8 +59,10 @@ async fn left_pending(home: &TempDir) -> core_model::JobId {
     job.id().clone()
 }
 
+/// A restart that interrupted a Job's gate must not hold every command for as
+/// long as the gate takes to run again.
 #[tokio::test(flavor = "multi_thread")]
-async fn health_answers_while_the_boot_ruling_runs_and_a_command_waits_for_it() {
+async fn a_command_is_answered_while_the_boot_ruling_runs_and_the_ruling_still_lands() {
     let home = TempDir::new();
     let job_id = left_pending(&home).await;
 
@@ -71,49 +73,42 @@ async fn health_answers_while_the_boot_ruling_runs_and_a_command_waits_for_it() 
             .reconciling(&reconciliation),
     );
     let started = Instant::now();
-    let reconciling = tokio::spawn({
-        let fleet = Arc::clone(&fleet);
-        let reconciliation = reconciliation.clone();
-        async move {
-            let reconciled = fleet.reconcile().await;
-            reconciliation.finished();
-            reconciled
-        }
-    });
-
-    let (status, _) = call(&app, "GET", "/health", "").await;
-    assert_eq!(status, StatusCode::OK);
+    let reconciled = fleet.reconcile().await.expect("the boot read");
     assert!(
         started.elapsed() < THE_RULING,
-        "health took {:?}, which is the length of the ruling",
+        "reconciliation took {:?}, which is the length of the ruling",
         started.elapsed()
     );
-    assert!(
-        !reconciling.is_finished(),
-        "the ruling was over before health asked"
-    );
-
-    let waiting = tokio::time::timeout(
-        Duration::from_millis(300),
-        call(&app, "POST", "/preferences/save", "{}"),
-    )
-    .await;
-    assert!(
-        waiting.is_err(),
-        "a command was answered mid-reconciliation"
-    );
-
-    let reconciled = reconciling.await.expect("the task").expect("the boot read");
-    assert_eq!(reconciled.recovered_evidence, vec![job_id.clone()]);
+    assert_eq!(reconciled.awaiting_evidence, vec![job_id.clone()]);
     assert!(
         reconciled.interrupted.is_empty()
             && reconciled.restarted.is_empty()
             && reconciled.adopted.is_empty(),
-        "the ruled Job was also interrupted, restarted or adopted: {reconciled:?}"
+        "the pending Job was also interrupted, restarted or adopted: {reconciled:?}"
     );
 
-    let (status, _) = call(&app, "POST", "/preferences/save", "{}").await;
+    let ruling = fleet
+        .rule_on_pending_evidence(&reconciled.awaiting_evidence)
+        .await
+        .expect("the rows are held");
+    reconciliation.finished();
+
+    let (status, _) = tokio::time::timeout(
+        Duration::from_millis(1500),
+        call(&app, "POST", "/preferences/save", "{}"),
+    )
+    .await
+    .expect("a command waited for the ruling");
     assert_ne!(status, StatusCode::SERVICE_UNAVAILABLE);
+    assert!(!ruling.is_finished(), "the ruling was over before the command");
+    assert!(
+        fleet.rechecking().holds(&job_id),
+        "nothing kept an act off the Job while its gate ran"
+    );
+
+    let ruled = ruling.await.expect("the task");
+    assert_eq!(ruled.recovered_evidence, vec![job_id.clone()]);
+    assert!(!fleet.rechecking().holds(&job_id), "given back");
 
     let ruled = fleet.load(&job_id).await.unwrap();
     assert_eq!(
@@ -143,7 +138,7 @@ async fn with_nothing_pending_a_command_passes_once_reconciliation_is_over() {
             .reconciling(&reconciliation),
     );
     let reconciled = fleet.reconcile().await.expect("the boot read");
-    assert!(reconciled.recovered_evidence.is_empty());
+    assert!(reconciled.awaiting_evidence.is_empty());
     reconciliation.finished();
     let answered = tokio::time::timeout(
         Duration::from_secs(1),
