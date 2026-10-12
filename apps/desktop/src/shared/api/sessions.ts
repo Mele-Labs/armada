@@ -52,6 +52,12 @@ export type SessionsApi = {
    * from the Session**, so the renderer sends the Session and nothing else.
    */
   forkSession: (sessionId: string) => Promise<SessionActed>;
+  /**
+   * Starts a new Session as a copy of a Session's conversation up to and including the message `at`, live
+   * or not; the Session it came from goes on untouched. **Mock only for now**: main serves no such route,
+   * and where the preload lacks it the window offers no Fork from a selection.
+   */
+  forkSessionAt?: (sessionId: string, at: string) => Promise<SessionActed>;
   /** One of the three ways out of a pilot. `note` is the person's words on an attestation or a supersede. */
   exitPilot: (jobId: string, exit: PilotExit, note?: string) => Promise<Outcome>;
   /** A message, with the pictures and files sent beside it and what it names with `@`. */

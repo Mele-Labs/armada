@@ -159,7 +159,11 @@ export function attachmentsOfRecord(record: SessionRecord, beside: Pick<Beside, 
         break;
       case "forked_to":
       case "forked_from":
-        out.push(one.kind === "forked_to" ? { kind: "forked_to", id: one.target } : { kind: "forked_from", id: one.target });
+        out.push(
+          one.kind === "forked_to"
+            ? { kind: "forked_to", id: one.target }
+            : { kind: "forked_from", id: one.target, ...(detail["at"] === undefined ? {} : { at: detail["at"] }) },
+        );
         break;
       case "subagent":
         out.push({

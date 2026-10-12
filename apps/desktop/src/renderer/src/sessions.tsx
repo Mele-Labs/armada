@@ -31,10 +31,12 @@ import {
   SketchPreview,
   TileSheet,
   pressedSlot,
+  seedDraft,
   useKept,
 } from "@armada/components";
 import type {
   ChipOwnershipValue,
+  ForkPick,
   OpenInSessionValue,
   PilotValue,
   LedgerEntry,
@@ -420,6 +422,12 @@ export function SessionsListing({ onOpen }: { onOpen: (id: string) => void }) {
 
 export function threadRowsOf(session: Session): SessionThreadRow[] {
   return threadRowsFrom(session.rows);
+}
+
+/** The rows up to and including the one with this id; all of them where it names none. */
+function upTo<T extends { id: string }>(rows: readonly T[], at: string | undefined): readonly T[] {
+  const end = at === undefined ? -1 : rows.findIndex((one) => one.id === at);
+  return end < 0 ? rows : rows.slice(0, end + 1);
 }
 
 function threadRowsFrom(rows: Session["rows"]): SessionThreadRow[] {
@@ -853,6 +861,8 @@ function SessionView({ session, goes, onOpen, held, board, lines }: { session: S
   const [drawn, setDrawn] = useKept<DrawnSketch[]>(`session:${session.id}:drawn`, NO_SKETCHES);
   const narrow = useNarrow();
   const [ledgerOpen, setLedgerOpen] = useState(false);
+  // The Session a fork from a selection opened, whose message box takes focus when it shows.
+  const [focusFor, setFocusFor] = useState<string | undefined>();
   const askCard = useRef<HTMLDivElement>(null);
   const [minimized, minimize] = useMinimized();
   const retro = useRetroPress();
@@ -884,6 +894,8 @@ function SessionView({ session, goes, onOpen, held, board, lines }: { session: S
   // The conversation a fork began as a copy of, which is the other Session's own rows.
   const forkedFrom = session.attachments.find((one): one is Extract<SessionAttachment, { kind: "forked_from" }> => one.kind === "forked_from");
   const origin = forkedFrom === undefined ? undefined : sessions.find((one) => one.id === forkedFrom.id);
+  // **Up to and including the message it was forked at**, and not what was said after it.
+  const originRows = origin === undefined ? NO_ROWS : upTo(threadRowsOf(origin), forkedFrom?.at);
   if (draft === undefined) return null;
   const slot = held.held.state === "read" ? (held.held.held.slots ?? []).find((one) => one.slot === slotOpen) : undefined;
   const mode: SessionMode = session.mode ?? (session.terminal === true ? "ask" : "auto");
@@ -974,13 +986,29 @@ function SessionView({ session, goes, onOpen, held, board, lines }: { session: S
         <div className="armada-session-frame__centre">
           {origin === undefined ? null : (
             <ForkedFrom title={origin.title ?? origin.id} onOpen={() => draft.watch?.(origin.id)}>
-              <SessionThread sessionId={origin.id} rows={threadRowsOf(origin)} onAnswer={() => undefined} onOpenSession={onOpen} />
+              <SessionThread sessionId={origin.id} rows={originRows} onAnswer={() => undefined} onOpenSession={onOpen} />
             </ForkedFrom>
           )}
           <SessionThread
             sessionId={session.id}
             rows={thread}
             onOpenRetro={openRetro}
+            {...(draft.forkAt === undefined
+              ? {}
+              : {
+                  onForkAt: ({ rowId, quote }: ForkPick) =>
+                    opening(
+                      Promise.resolve(draft.forkAt!(session.id, rowId)).then((forked) => {
+                        // The words are in the new Session's box before it opens, with the caret behind them.
+                        if (forked !== undefined) {
+                          seedDraft(forked, quote);
+                          setFocusFor(forked);
+                        }
+                        return forked;
+                      }),
+                      onOpen,
+                    ),
+                })}
             askRef={askCard}
             onOpenWindow={(url) => draft.openWindow?.(id, url)}
             onOpenCheck={(run) => goes.onOpenCheck(session.id, run)}
@@ -1021,6 +1049,7 @@ function SessionView({ session, goes, onOpen, held, board, lines }: { session: S
               ]}
               tags={session.pendingTags ?? []}
               draftKey={session.id}
+              focusFor={focusFor}
               onTags={(tags) => draft.setTags(session.id, tags)}
               drawn={drawn.map(({ id, title }) => ({ id, title }))}
               onDraw={() => setPadOpen(true)}
