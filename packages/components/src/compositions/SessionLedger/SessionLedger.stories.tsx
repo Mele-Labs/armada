@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, fn, userEvent, within } from "storybook/test";
+import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 
 import { SessionLedger, type LedgerEntry } from "./SessionLedger";
 
@@ -197,5 +197,73 @@ export const PullRequestChecks: Story = {
       { key: "p2", kind: "pull_request", name: "Pull request #2113, checks failed", text: "#2113 Pin the store clock", mark: { glyph: "failed", said: "Checks failed: store: 2 failed" }, onOpen: open },
       { key: "p3", kind: "pull_request", name: "Pull request #2115, checks running", text: "#2115 Address the cards", mark: { glyph: "pending", said: "Checks running" }, onOpen: open },
     ],
+  },
+};
+
+const pressed = fn();
+const CARDS: LedgerEntry[] = [
+  {
+    key: "pc",
+    kind: "pull_request",
+    name: "Pull request #2113, checks failed",
+    text: "#2113 Pin the store clock",
+    mark: { glyph: "failed", said: "Checks failed: store: 2 failed" },
+    card: {
+      title: "#2113 Pin the store clock",
+      facts: [
+        { label: "Checks", value: "Failed: store: 2 failed", tone: "failed" },
+        { label: "State", value: "Open, Auto-merge on" },
+        { label: "Branch", value: "fix/flaky-store", mono: true },
+      ],
+    },
+    onOpen: open,
+  },
+  {
+    key: "jc",
+    kind: "job",
+    name: "Job 52",
+    text: "52 Pin the store clock",
+    mark: { glyph: "running", said: "Running" },
+    slot: 4,
+    card: {
+      title: "52 Pin the store clock",
+      facts: [
+        { label: "State", value: "Running", tone: "running" },
+        { label: "Step", value: "implement", mono: true },
+        { label: "Branch", value: "52-pin-the-store-clock", mono: true },
+      ],
+    },
+    onOpen: pressed,
+  },
+  { key: "wc", kind: "waiting", act: "answer", name: "Which clock?", text: "Which clock should the store pin, the fake or the frozen one?", card: { title: "Which clock should the store pin, the fake or the frozen one?", facts: [] }, onOpen: open },
+];
+
+/**
+ * Hovering a row, or reaching it by Tab, shows its card beside it after the tooltip's delay: what the row is, one
+ * fact a line. The row stays the one stop and the one press; the marks inside it take no stop of their own.
+ */
+export const PreviewCards: Story = {
+  name: "Preview cards",
+  args: { entries: CARDS },
+  play: async ({ canvas, userEvent }) => {
+    const pr = canvas.getByRole("button", { name: "Open Pull request #2113, checks failed" });
+    await expect(canvas.getByText("Failed: store: 2 failed")).not.toBeVisible();
+    await userEvent.hover(pr);
+    await waitFor(() => expect(canvas.getByText("Failed: store: 2 failed")).toBeVisible());
+    await expect(pr).toHaveAccessibleDescription(/Checks Failed: store: 2 failed/);
+    await userEvent.unhover(pr);
+    await waitFor(() => expect(canvas.getByText("Failed: store: 2 failed")).not.toBeVisible());
+    // By keyboard: one stop a row, Waiting on you first, so nothing inside the pull request's row took one.
+    await userEvent.tab();
+    await expect(canvas.getByRole("button", { name: "Open Which clock?" })).toHaveFocus();
+    await userEvent.tab();
+    await expect(pr).toHaveFocus();
+    await userEvent.tab();
+    const job = canvas.getByRole("button", { name: "Open Job 52" });
+    await expect(job).toHaveFocus();
+    await waitFor(() => expect(canvas.getByText("implement")).toBeVisible());
+    // The card does not take the press.
+    await userEvent.keyboard("{Enter}");
+    await expect(pressed).toHaveBeenCalledTimes(1);
   },
 };

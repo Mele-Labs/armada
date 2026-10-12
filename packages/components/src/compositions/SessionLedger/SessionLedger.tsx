@@ -23,6 +23,19 @@ export type LedgerKind = "waiting" | "slot" | "branch" | "pull_request" | "job" 
 /** What an artifact is: a page published, a file written outside the code, a picture looked at, a Doc, or a page shown in a window. */
 export type ArtifactForm = "page" | "file" | "image" | "doc" | "window";
 
+/** A hue a ledger row or a card's fact carries: the Checks or the turn it stands for, never a chosen colour. */
+export type SessionLedgerTone = "pending" | "passed" | "failed" | "running" | "done" | "escalated" | "piloted";
+
+/**
+ * What hovering or focusing a row shows beside it: what the row is, one fact a line. **Built by the host
+ * from what it already holds**, so the card draws nothing the window would have to go and read.
+ */
+export type SessionLedgerCard = {
+  title: string;
+  /** `mono` is a machine value, a branch or a path. `tone` is drawn in the hue the row's mark takes. */
+  facts: readonly { label: string; value: string; tone?: SessionLedgerTone; mono?: boolean }[];
+};
+
 export type LedgerEntry = {
   key: string;
   kind: LedgerKind;
@@ -30,7 +43,9 @@ export type LedgerEntry = {
   name: string;
   text: ReactNode;
   /** A pull request's Checks, or a subagent's turn, as the one mark at the row's end. */
-  mark?: { glyph: "pending" | "passed" | "failed" | "running" | "done" | "escalated" | "piloted"; said: string };
+  mark?: { glyph: SessionLedgerTone; said: string };
+  /** The preview a hover or a focus shows beside the row. Absent draws none. */
+  card?: SessionLedgerCard;
   /** Which of the four an `artifact` row is, and so its glyph and what its tooltip names. */
   artifact?: ArtifactForm;
   /** A Job the person tagged, which the Session is looking at and did not dispatch. */
@@ -225,59 +240,68 @@ function LedgerSection({ kind, label, Glyph, all }: { kind: LedgerKind; label: s
                 const Mark = row.mark === undefined ? undefined : MARK[row.mark.glyph];
                 const waiting = kind === "waiting" ? WAITING_ACT[row.act ?? "none"] : undefined;
                 const form = row.artifact === undefined ? undefined : ARTIFACT[row.artifact];
+                const opener = (
+                  <button type="button" className="armada-session-ledger__open" aria-label={`Open ${row.name}`} onClick={row.onOpen}>
+                    {waiting !== undefined ? (
+                      <Tooltip label={waiting.said}>
+                        <span className="armada-session-mark" role="img" aria-label={waiting.said}>
+                          <waiting.Glyph size={12} strokeWidth={2} aria-hidden />
+                        </span>
+                      </Tooltip>
+                    ) : form === undefined ? (
+                      <Glyph size={12} strokeWidth={2} aria-hidden />
+                    ) : (
+                      <Tooltip label={form.said}>
+                        <span className="armada-session-mark" role="img" aria-label={form.said}>
+                          <form.Glyph size={12} strokeWidth={2} aria-hidden />
+                        </span>
+                      </Tooltip>
+                    )}
+                    <span className="armada-session-ledger__text">{row.text}</span>
+                    {row.handed === undefined ? null : (
+                      <Tooltip label={row.handed}>
+                        <span className="armada-session-mark" role="img" aria-label={row.handed}>
+                          <Hand size={12} strokeWidth={2} aria-hidden />
+                        </span>
+                      </Tooltip>
+                    )}
+                    {row.looking !== true ? null : (
+                      <Tooltip label="Looking at it, not dispatched from here">
+                        <span className="armada-session-mark" role="img" aria-label="Looking at it, not dispatched from here">
+                          <Search size={12} strokeWidth={2} aria-hidden />
+                        </span>
+                      </Tooltip>
+                    )}
+                    {row.slot === undefined ? null : (
+                      <span className="armada-ref-chip" role="img" aria-label={`Worktree slot ${row.slot}`}>
+                        <KeyRound size={12} strokeWidth={2} aria-hidden />
+                        {row.slot}
+                      </span>
+                    )}
+                    {Mark === undefined || row.mark === undefined ? null : (
+                      <Tooltip label={row.mark.said}>
+                        <span
+                          className="armada-session-mark"
+                          role="img"
+                          aria-label={row.mark.said}
+                          data-state-mark
+                          data-pulsing={row.mark.glyph === "running" || undefined}
+                        >
+                          <Mark size={12} strokeWidth={2} aria-hidden />
+                        </span>
+                      </Tooltip>
+                    )}
+                  </button>
+                );
                 return (
                   <li key={row.key} className="armada-session-ledger__row" aria-label={row.name} data-mark={row.mark?.glyph}>
-                    <button type="button" className="armada-session-ledger__open" aria-label={`Open ${row.name}`} onClick={row.onOpen}>
-                      {waiting !== undefined ? (
-                        <Tooltip label={waiting.said}>
-                          <span className="armada-session-mark" role="img" aria-label={waiting.said}>
-                            <waiting.Glyph size={12} strokeWidth={2} aria-hidden />
-                          </span>
-                        </Tooltip>
-                      ) : form === undefined ? (
-                        <Glyph size={12} strokeWidth={2} aria-hidden />
-                      ) : (
-                        <Tooltip label={form.said}>
-                          <span className="armada-session-mark" role="img" aria-label={form.said}>
-                            <form.Glyph size={12} strokeWidth={2} aria-hidden />
-                          </span>
-                        </Tooltip>
-                      )}
-                      <span className="armada-session-ledger__text">{row.text}</span>
-                      {row.handed === undefined ? null : (
-                        <Tooltip label={row.handed}>
-                          <span className="armada-session-mark" role="img" aria-label={row.handed}>
-                            <Hand size={12} strokeWidth={2} aria-hidden />
-                          </span>
-                        </Tooltip>
-                      )}
-                      {row.looking !== true ? null : (
-                        <Tooltip label="Looking at it, not dispatched from here">
-                          <span className="armada-session-mark" role="img" aria-label="Looking at it, not dispatched from here">
-                            <Search size={12} strokeWidth={2} aria-hidden />
-                          </span>
-                        </Tooltip>
-                      )}
-                      {row.slot === undefined ? null : (
-                        <span className="armada-ref-chip" role="img" aria-label={`Worktree slot ${row.slot}`}>
-                          <KeyRound size={12} strokeWidth={2} aria-hidden />
-                          {row.slot}
-                        </span>
-                      )}
-                      {Mark === undefined || row.mark === undefined ? null : (
-                        <Tooltip label={row.mark.said}>
-                          <span
-                            className="armada-session-mark"
-                            role="img"
-                            aria-label={row.mark.said}
-                            data-state-mark
-                            data-pulsing={row.mark.glyph === "running" || undefined}
-                          >
-                            <Mark size={12} strokeWidth={2} aria-hidden />
-                          </span>
-                        </Tooltip>
-                      )}
-                    </button>
+                    {row.card === undefined ? (
+                      opener
+                    ) : (
+                      <Tooltip label={<LedgerPreview card={row.card} />} card beside asChild>
+                        {opener}
+                      </Tooltip>
+                    )}
                     {row.exits}
                     {row.options === undefined ? null : (
                       <div className="armada-session-ledger__options" role="group" aria-label={`Choices for ${row.name}`}>
@@ -299,6 +323,23 @@ function LedgerSection({ kind, label, Glyph, all }: { kind: LedgerKind; label: s
         </button>
       ) : null}
     </section>
+  );
+}
+
+/** A row's preview: its title, then one fact a line, each labelled. Spans, because it is drawn inside the row's press. */
+function LedgerPreview({ card }: { card: SessionLedgerCard }) {
+  return (
+    <span className="armada-ledger-card">
+      <span className="armada-ledger-card__title">{card.title}</span>
+      {card.facts.map((fact) => (
+        <span key={fact.label} className="armada-ledger-card__fact" data-tone={fact.tone}>
+          <span className="armada-ledger-card__label">{fact.label}</span>
+          <span className="armada-ledger-card__value" data-mono={fact.mono || undefined}>
+            {fact.value}
+          </span>
+        </span>
+      ))}
+    </span>
   );
 }
 

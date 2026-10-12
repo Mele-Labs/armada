@@ -68,10 +68,11 @@ import {
   withoutShapes,
 } from "@armada/screens/src/draft/sketch";
 import type { Drawing } from "@armada/screens/src/draft/sketch";
-import type { HeldWorktrees } from "@armada/protocol";
+import type { HeldWorktrees, JobSummary } from "@armada/protocol";
 import { SURFACE, useAtFloor, useNarrow } from "@armada/shell";
 
 import { proposeRequest } from "./dispatch";
+import { ARTIFACT_SAID, cardOf, factsOf, type Known } from "./session-cards";
 import { useSessions, useSessionsDraft, useSessionsSaid } from "./sessions-draft";
 
 /** The surfaces the rail and the palette leave off: Sessions, until something serves them. */
@@ -378,12 +379,6 @@ const readingOf = (session: Session, open: Reading | undefined): SessionAttachme
           : one.kind === open.kind && "id" in one && one.id === open.id,
       );
 
-/** What is true of a pull request beyond its Checks, as bare facts. */
-const factsOf = (one: Extract<SessionAttachment, { kind: "pull_request" }>): string[] =>
-  [one.state === "draft" ? "Draft" : undefined, one.queued === true ? "In merge queue" : one.auto && one.state !== "merged" ? "Auto-merge on" : undefined].filter(
-    (fact): fact is string => fact !== undefined,
-  );
-
 /** How often a running subagent's transcript is read again. */
 const SUBAGENT_EVERY_MS = 1500;
 
@@ -559,8 +554,6 @@ function SketchSheet({ open, onClose, onAttach }: { open: boolean; onClose: () =
   );
 }
 
-const ARTIFACT_SAID = { page: "Published page", file: "File written", image: "Looked at", doc: "Doc", window: "Shown in a window" } as const;
-
 function entriesOf(
   session: Session,
   goes: LedgerGoes,
@@ -571,6 +564,7 @@ function entriesOf(
   openWindow: (url: string) => void,
   answerWaiting: ((itemId: string, choice: number) => void) | undefined,
   scrollToAsk: () => void,
+  known: Known,
 ): LedgerEntry[] {
   const waiting = (session.waitingFor ?? []).map((one): LedgerEntry => {
     const act = one.act;
@@ -579,6 +573,10 @@ function entriesOf(
       kind: "waiting",
       name: one.text,
       text: act?.kind === "run" ? <code>{act.target}</code> : one.text,
+      card: {
+        title: one.text,
+        facts: act?.kind === "run" ? [{ label: "Command", value: act.target, mono: true }] : act?.kind === "walk" ? [{ label: "Page", value: act.target, mono: true }] : [],
+      },
       ...(act === undefined ? {} : { act: act.kind }),
       ...(one.options === undefined || answerWaiting === undefined
         ? {}
@@ -597,7 +595,9 @@ function entriesOf(
       },
     };
   });
-  return [...waiting, ...session.attachments.map((one): LedgerEntry => {
+  return [...waiting, ...session.attachments.map((one): LedgerEntry => ({ ...entryOf(one), card: cardOf(one, session, sessions, known) }))];
+
+  function entryOf(one: SessionAttachment): Omit<LedgerEntry, "card"> {
     switch (one.kind) {
       case "forked_to":
       case "forked_from": {
@@ -685,7 +685,7 @@ function entriesOf(
           onOpen: () => read({ kind: "subagent", id: one.id }),
         };
     }
-  })];
+  }
 }
 
 /** What Cleanup holds, read here for a slot's panel. */
@@ -715,8 +715,9 @@ function useMinimized(): [boolean, (minimized: boolean) => void] {
 }
 
 const NO_SKETCHES: DrawnSketch[] = [];
+const NO_JOBS: JobSummary[] = [];
 
-function SessionView({ session, goes, onOpen, held }: { session: Session; goes: LedgerGoes; onOpen: (id: string) => void; held: HeldReads }) {
+function SessionView({ session, goes, onOpen, held, board }: { session: Session; goes: LedgerGoes; onOpen: (id: string) => void; held: HeldReads; board: readonly JobSummary[] }) {
   const draft = useSessionsDraft();
   const sessions = useSessions();
   const floor = useAtFloor();
@@ -777,6 +778,7 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
           askCard.current?.scrollIntoView({ block: "center", behavior: "smooth" });
         }
       : () => askCard.current?.scrollIntoView({ block: "center", behavior: "smooth" }),
+    { board, slots: held.held.state === "read" ? (held.held.held.slots ?? []) : [] },
   );
   return (
     <>
@@ -1003,7 +1005,20 @@ export function listed(sessions: readonly Session[]): string[] {
 const typing = (target: EventTarget | null): boolean =>
   target instanceof HTMLElement && (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName));
 
-export function SessionsSurface({ openId, onOpen, goes, held }: { openId: string | null; onOpen: (id: string) => void; goes: LedgerGoes; held: HeldReads }) {
+export function SessionsSurface({
+  openId,
+  onOpen,
+  goes,
+  held,
+  board = NO_JOBS,
+}: {
+  openId: string | null;
+  onOpen: (id: string) => void;
+  goes: LedgerGoes;
+  held: HeldReads;
+  /** The Board's Jobs, for what a Job row's card says beyond the Session's own record of it. */
+  board?: readonly JobSummary[];
+}) {
   const sessions = useSessions();
   const open = sessions.find((one) => one.id === openId);
   // j goes to the next Session down the list and k to the one above, opening each. Local to this page.
@@ -1024,7 +1039,7 @@ export function SessionsSurface({ openId, onOpen, goes, held }: { openId: string
   }, [sessions, openId, onOpen]);
   return (
     <div className="armada-screen__overview">
-      {open === undefined ? <SessionsListing onOpen={onOpen} /> : <SessionView session={open} goes={goes} onOpen={onOpen} held={held} />}
+      {open === undefined ? <SessionsListing onOpen={onOpen} /> : <SessionView session={open} goes={goes} onOpen={onOpen} held={held} board={board} />}
     </div>
   );
 }
