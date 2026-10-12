@@ -75,6 +75,8 @@ export type MergeLineEntry = {
   state: MergeLineState;
   /** The Job the branch came from, where one is known. A Session that owns it is found through `ChipOwnership`. */
   job?: { id: string; title: string };
+  /** The Session whose pull request it was, where the forge's record names one and the window's own registry does not. */
+  session?: { id: string; title: string };
   /** Waiting only: why it is not in the running turn. Absent draws nothing. */
   why?: MergeLineWaiting;
   /** What the runner is doing to it now, in the runner's own words. Read while gating or merging. */
@@ -214,6 +216,7 @@ export function MergeLine(props: MergeLineProps) {
     onOpenPullRequest,
     ...(onOpenCheck === undefined ? {} : { onOpenCheck }),
     ...(onOpenJob === undefined ? {} : { onOpenJob }),
+    ...(onOpenSession === undefined ? {} : { onOpenSession }),
     ...(focus === undefined ? {} : { focus }),
   };
   const named = name === undefined ? HEADING : `${HEADING}, ${name}`;
@@ -586,12 +589,14 @@ function Entry({
   onOpenPullRequest,
   onOpenCheck,
   onOpenJob,
+  onOpenSession,
   focus,
 }: {
   entry: MergeLineEntry;
   onOpenPullRequest: (url: string) => void;
   onOpenCheck?: (branch: string, check: string) => void;
   onOpenJob?: (jobId: string) => void;
+  onOpenSession?: (sessionId: string) => void;
   focus?: string;
 }) {
   const row = useRef<HTMLLIElement>(null);
@@ -655,7 +660,7 @@ function Entry({
             {entry.pr.settled.label}
           </Badge>
         )}
-        <EntryOwner entry={entry} {...(onOpenJob === undefined ? {} : { onOpenJob })} />
+        <EntryOwner entry={entry} {...(onOpenJob === undefined ? {} : { onOpenJob })} {...(onOpenSession === undefined ? {} : { onOpenSession })} />
       </span>
       <span className="armada-merge-line__detail">
         <Detail entry={entry} {...(onOpenCheck === undefined ? {} : { onOpenCheck })} />
@@ -669,7 +674,15 @@ function Entry({
  * chip draws it everywhere (hover for the card, press to keep it), else the Job whose branch it
  * is. Nobody known draws nothing.
  */
-function EntryOwner({ entry, onOpenJob }: { entry: Pick<MergeLineEntry, "branch" | "pr" | "job">; onOpenJob?: (jobId: string) => void }) {
+function EntryOwner({
+  entry,
+  onOpenJob,
+  onOpenSession,
+}: {
+  entry: Pick<MergeLineEntry, "branch" | "pr" | "job" | "session">;
+  onOpenJob?: (jobId: string) => void;
+  onOpenSession?: (sessionId: string) => void;
+}) {
   const branch: OwnerChipRef = { kind: "branch", name: entry.branch };
   const pull: OwnerChipRef | undefined = entry.pr === undefined ? undefined : { kind: "pull_request", number: entry.pr.number };
   const byBranch = useChipOwner(branch);
@@ -685,20 +698,21 @@ function EntryOwner({ entry, onOpenJob }: { entry: Pick<MergeLineEntry, "branch"
       </OwnerChip>
     );
   }
-  const job = entry.job;
-  if (job === undefined) return null;
+  const named = entry.session !== undefined ? { kind: "Session", Icon: SquareTerminal, one: entry.session, open: onOpenSession } : entry.job !== undefined ? { kind: "Job", Icon: Box, one: entry.job, open: onOpenJob } : undefined;
+  if (named === undefined) return null;
+  const { kind, Icon, one, open } = named;
   const said = (
     <>
-      <Box size={MARK} strokeWidth={STROKE} aria-hidden />
-      <span className="armada-merge-line__owner-name">{job.title}</span>
+      <Icon size={MARK} strokeWidth={STROKE} aria-hidden />
+      <span className="armada-merge-line__owner-name">{one.title}</span>
     </>
   );
   return (
-    <Tooltip label={`Job: ${job.title}`}>
-      {onOpenJob === undefined ? (
+    <Tooltip label={`${kind}: ${one.title}`}>
+      {open === undefined ? (
         <span className="armada-merge-line__owner">{said}</span>
       ) : (
-        <button type="button" className="armada-merge-line__owner armada-merge-line__owner--press" onClick={() => onOpenJob(job.id)}>
+        <button type="button" className="armada-merge-line__owner armada-merge-line__owner--press" onClick={() => open(one.id)}>
           {said}
         </button>
       )}

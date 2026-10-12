@@ -103,6 +103,7 @@ function mergedEntryOf(pull: HubMerged): MergeLineEntry {
   return {
     branch: pull.branch,
     ...(pull.job === undefined ? {} : { job: { id: pull.job.id, title: pull.job.title } }),
+    ...(pull.session === undefined ? {} : { session: { id: pull.session.id, title: pull.session.title } }),
     pr: { number: pull.number, url: pull.url },
     state: "landed",
     ...(pull.commit === undefined ? {} : { merge: pull.commit.slice(0, SHORT) }),

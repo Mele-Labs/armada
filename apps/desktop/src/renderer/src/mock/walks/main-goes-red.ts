@@ -11,6 +11,7 @@ const MERGE = region("Merge line");
 const RED = inside(MERGE, role("status", "Main is red"));
 const PULLS = inside(MERGE, role("list", "Open pull requests"));
 const LOG = dialog("Check log");
+const LANDED = inside(MERGE, role("list", "Recently landed"));
 const SEND = dialog("Send the work back");
 const DISPATCH = dialog("Dispatch a Job to fix main");
 
@@ -34,6 +35,7 @@ export const mainGoesRed = walk("main-red-hub", [
   { look: inside(RED, text(/^manifest-read\.test\.ts/)), say: "Test: the failing one, labelled" },
   { look: inside(RED, role("link", "#1812")), say: "Broke in: the pull request that merged" },
   { look: inside(RED, text("armada/60-cache")), say: "And its branch" },
+  { look: inside(LANDED, role("listitem", /^armada\/60-cache, landed/)), say: "And in Recently landed, with the run on main that failed" },
   { press: inside(RED, button("screens_test")), say: "The Check's log opens from the head, as a strip's segment does" },
   { look: inside(LOG, text("AssertionError: expected 'cached' to be 'changed'")), say: "Main's run, whole" },
   { press: inside(LOG, button("Close")), say: "Put it away" },

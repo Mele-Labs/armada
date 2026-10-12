@@ -57,6 +57,8 @@ export type HubMerged = {
   commit?: string;
   /** The Job that opened it. Absent for a person's. */
   job?: HubJob;
+  /** The Session that opened it. Absent for a Job's or a person's. Not served yet. */
+  session?: HubSession;
   /** The CI run on its merge commit, on main itself, apart from the pull request's own checks. Absent where nothing ran or none was read yet. Since 23.44. */
   main_run?: MainRun;
 };

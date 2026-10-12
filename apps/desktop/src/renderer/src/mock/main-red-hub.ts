@@ -12,7 +12,7 @@
 // Each ends with the fix landing: main green, and the Job that fixed it says so on its row.
 
 import type { HubJob, HubPull, HubSession, MainRed, MainState, RecentSession } from "@armada/components";
-import type { FollowedLandLog, HubPullRequest, JobSummary, LandCheckAt, MainStanding, MergeLine, MergeLineHub, MergeLines } from "@armada/protocol";
+import type { FollowedLandLog, HubMerged, HubPullRequest, JobSummary, LandCheckAt, MainStanding, MergeLine, MergeLineHub, MergeLines } from "@armada/protocol";
 import type { FixesMain } from "@armada/screens/src/main-red";
 import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
 import { completedSuccess, queued, review, running } from "@armada/jobs/fixtures/build/index";
@@ -246,17 +246,59 @@ const requestOf = (one: HubPull): HubPullRequest => ({
   ...(one.job === undefined ? {} : { job: one.job }),
 });
 
+/**
+ * A pull request that merged, as the forge lists it, with the CI run on its merge commit. `at` is the
+ * moment it lands; a list is every one that has, newest first, up to what the panel keeps.
+ */
+type Landing = { at: number; number: number; branch: string; owner?: { job: HubJob } | { session: HubSession }; run: "passed" | "failed"; failed?: string };
+
+const KEPT = 5;
+const hex = (n: number) => n.toString(16).padStart(40, "0");
+
+function mergedAt(landings: readonly Landing[], n: number): HubMerged[] {
+  return landings
+    .filter((one) => one.at <= n)
+    .sort((a, b) => b.at - a.at || b.number - a.number)
+    .slice(0, KEPT)
+    .map((one) => ({
+      number: one.number,
+      title: one.branch,
+      branch: one.branch,
+      url: `${PULL}${one.number}`,
+      merged_at: READ_AT,
+      commit: hex(one.number),
+      ...(one.owner === undefined ? {} : one.owner),
+      main_run: { state: one.run, ...(one.failed === undefined ? {} : { failed: [one.failed] }) },
+    }));
+}
+
 /** The line a moment serves for the repository, with the hub on it. */
-function lineAt(root: string, at: number, moments: readonly Moment[] = MOMENTS, sessions: readonly RecentSession[] = []): MergeLines {
+function lineAt(root: string, at: number, moments: readonly Moment[] = MOMENTS, sessions: readonly RecentSession[] = [], landings: readonly Landing[] = LANDINGS): MergeLines {
   const { main, pulls } = moments[at]!;
   const hub: MergeLineHub = {
     main: standing(main),
     pull_requests: pulls.map(requestOf),
     ...(main.state === "red" && main.taken !== undefined ? { fixing: main.taken } : {}),
     ...(sessions.length === 0 ? {} : { recent_sessions: [...sessions] }),
+    merged: mergedAt(landings, at),
   };
   return { lines: [{ root, line: [], off: [], landed: [], sent_back: [], hub } as MergeLine] };
 }
+
+/** What merged before the story and during it, in the order the moments land it. */
+const LANDINGS: Landing[] = [
+  { at: 0, number: 1799, branch: "nick/ports-cleanup", run: "passed" },
+  { at: 0, number: 1803, branch: branchOf(NOTIFY), owner: { job: hubJob(NOTIFY) }, run: "passed" },
+  { at: 0, number: 1808, branch: "fleet/pause-markers-read", run: "passed" },
+  { at: 1, number: 1812, branch: branchOf(CACHE), owner: { job: hubJob(CACHE) }, run: "failed", failed: "screens_test" },
+  { at: 2, number: 1821, branch: `${branchOf(CACHE)}-fix`, owner: { job: hubJob(CACHE) }, run: "passed" },
+  { at: 3, number: 1816, branch: branchOf(DEBOUNCE), owner: { job: hubJob(DEBOUNCE) }, run: "failed", failed: "desktop_test" },
+  { at: 5, number: 1822, branch: `${branchOf(DEBOUNCE)}-fix`, owner: { job: hubJob(DEBOUNCE) }, run: "passed" },
+  { at: 6, number: 1815, branch: "nick/theme-tokens", run: "failed", failed: "components_test" },
+  { at: 8, number: 1823, branch: branchOf(FIX), owner: { job: hubJob(FIX) }, run: "passed" },
+  { at: 9, number: 1814, branch: "studio/zone-proposal", owner: { job: hubJob(ZONE) }, run: "failed", failed: "test-all" },
+  { at: 10, number: 1824, branch: `${branchOf(ZONE)}-fix`, owner: { job: hubJob(ZONE) }, run: "passed" },
+];
 
 /** The state at the first moment, and each moment after as the change a walk publishes. */
 export function mainRed(root: string): { first: Partial<BridgeState>; later: Partial<BridgeState>[] } {
@@ -314,9 +356,21 @@ const SESSION_MOMENTS: Moment[] = [
   },
 ];
 
+const OTHER_SESSION: HubSession = { id: "session-3d90b1a2", title: "Rework the Cockpit deck cards" };
+
+/** Five landed before and during: the culprit Session's among them, then its fix at the top. */
+const SESSION_LANDINGS: Landing[] = [
+  { at: 0, number: 1820, branch: branchOf(NOTIFY), owner: { job: hubJob(NOTIFY) }, run: "passed" },
+  { at: 0, number: 1824, branch: "nick/ports-cleanup", run: "passed" },
+  { at: 0, number: 1826, branch: "armada/session-3d90b1a2", owner: { session: OTHER_SESSION }, run: "passed" },
+  { at: 0, number: 1828, branch: branchOf(CACHE), owner: { job: hubJob(CACHE) }, run: "passed" },
+  { at: 1, number: 1830, branch: SESSION_BRANCH, owner: { session: SESSION }, run: "failed", failed: "screens_test" },
+  { at: 2, number: 1831, branch: `${SESSION_BRANCH}-fix`, owner: { session: SESSION }, run: "passed" },
+];
+
 /** The same story told when a Session's pull request is the one that turned main red. */
 export function sessionRed(root: string): { first: Partial<BridgeState>; later: Partial<BridgeState>[] } {
-  const at = (n: number): Partial<BridgeState> => ({ mergeLines: lineAt(root, n, SESSION_MOMENTS, RECENT_SESSIONS), jobs: SESSION_MOMENTS[n]!.jobs });
+  const at = (n: number): Partial<BridgeState> => ({ mergeLines: lineAt(root, n, SESSION_MOMENTS, RECENT_SESSIONS, SESSION_LANDINGS), jobs: SESSION_MOMENTS[n]!.jobs });
   return { first: at(0), later: SESSION_MOMENTS.slice(1).map((_, n) => at(n + 1)) };
 }
 
