@@ -349,3 +349,19 @@ export const RetroInTheThread: Story = {
     await expect(args.onOpenRetro).toHaveBeenCalledWith(2);
   },
 };
+
+/** A Session this one's agent started, or forked itself into, is a press in the thread that opens it. */
+export const StartedSessionOpens: Story = {
+  args: {
+    rows: [
+      { id: "s1", at: "14:06:00", kind: "started", session: { id: "new-1", title: "Port the clock" }, fork: false },
+      { id: "s2", at: "14:07:00", kind: "started", session: { id: "new-2", title: "Try the other store" }, fork: true },
+    ],
+  },
+  play: async ({ canvas, args }) => {
+    await userEvent.click(canvas.getByRole("button", { name: "Port the clock" }));
+    await expect(args.onOpenSession).toHaveBeenLastCalledWith("new-1");
+    await userEvent.click(canvas.getByRole("button", { name: "Try the other store" }));
+    await expect(args.onOpenSession).toHaveBeenLastCalledWith("new-2");
+  },
+};

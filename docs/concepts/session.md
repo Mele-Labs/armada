@@ -72,6 +72,8 @@ A holder is `{ kind: session | job, id }` and points at neither table, so a Job 
 | `message` | `to:<who>` or `from:<who>`, with a count in `detail` | |
 | `studio` | the Studio's id | not reported by anything yet |
 | `forked_to`, `forked_from` | the other session's id | `spent` when written, so the old session ending does not give the link back |
+| `started_to`, `started_by` | the other session's id | `spent` when written, as a fork's links are. The caller holds `started_to` and the Session its agent started holds `started_by` |
+| `unsent` | the words of the first message another session's agent wrote | `standing` until the person's next send, which spends it; ending the session gives it back |
 | `artifact` | a page's or document's address, or a file's absolute path; `detail.form` is `page`, `file`, `image`, `doc` or `window`, `detail.title` its name | nothing: it stays on the ledger after the session ends |
 
 **An artifact is something a person would open, and a code edit is never one.** Edits are Branches and Pull requests. Five forms:
@@ -376,6 +378,26 @@ The agent side is spike 30. A cut at a message the agent is part way through a t
 **Bridge** keeps every session that ended in the last seven days (by when it was last seen) beside the live ones, under an Ended heading (a terminal session that has not ended but whose mod is not asking is Quiet, its own heading above it, and still offers Fork), and finds an older one by search, and draws a dead session without a message box and with Fork in its head. It owns nothing: its slots, branches and pull requests are not offered to a chip, and it is not offered to `@`. A press on Fork asks Fleet, and Bridge opens the new session once it holds it. The ledger draws a Forks section only where a session has a row for it.
 
 **A terminal that comes back is live again.** The mod asking again flips `listening`, which Fleet publishes as `session.changed` while a window has the thread open. Fork on a session whose terminal woke between the press and Fleet is refused as live. After a Fleet restart every terminal session reads dead until its mod's next ask, about two seconds.
+
+## A Session an agent started
+
+A Session's agent may start a Session, or fork its own conversation into one, through two tools on its door (23.80). The owner approved it on 12 Oct 2026 on the condition that **the new Session waits for him**.
+
+| | |
+|---|---|
+| `start_another_session` | `manifest_id`, `title`, `message`. A new Session in any repository Fleet serves |
+| `fork_this_session` | `title`, `message`, optional `at`. A copy of the caller's own conversation, to the row `at` or to its latest message of its own that the transcript holds. Allowed while the caller is live, since it is a fork at a message |
+| The caller | Placed by the connection of its hosted process, as `show_window` places it. **No call names a Session**, so an agent cannot fork another's conversation, and a call from no hosted Session is refused 422 `fleet.agent_start_unplaced` |
+| Not offered | Tune, close, send and every other hosted-session command stay `agent_access` No |
+
+> **Rule.** An agent's Session is created and listed at once, and nothing runs until the owner sends its first message.
+> Why: a Session that started itself is a model spending tokens in a repository nobody chose to open. Holding the message makes the start a proposal he reads and may edit.
+
+**The first message is kept as an `unsent` attachment** on the new Session, and read back on every read as a waiting item: id `unsent:<session id>`, text *First message*, source `first_message`, act `message` on the Session. It has its own source and act so the Dashboard and the Cockpit draw no reply box for it and a press opens the Session. Bridge puts the words in the new Session's message box once, where the box is empty. His ordinary send (`send_session_message`) sends what the box holds, starts the first turn, and spends the attachment and so the item; editing first is the same call. `answer_waiting` refuses the item, since sending is the answer. Ending the Session discards both. While sleep is on, the item is left on the list and not decided for him.
+
+**Both ledgers record it.** A start writes `started_by` on the new Session and `started_to` on the caller; a fork writes the `forked_from` and `forked_to` of *A forked session*, with `at` and `cut`. The caller's thread gets a `started` row naming the Session and whether it is a fork, which Bridge draws as the press that opens it. The new Session's thread opens under a line naming the Session whose agent started it.
+
+**Nothing bounds how many an agent starts.** Each waits for him, so none spends anything, but a loop would fill the list. A limit waits for one being seen.
 
 ## In Bridge
 

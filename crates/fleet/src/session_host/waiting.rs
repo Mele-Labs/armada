@@ -27,6 +27,7 @@ use store::{KeptSession, KeptWaiting, Store};
 
 use crate::daemon::Fleet;
 use crate::session_host::asking_in_window::WINDOW_ASK_PREFIX;
+use crate::session_host::UNSENT_ITEM;
 
 const SESSION_WAITING_UNNAMED: &str = "fleet.session_waiting_unnamed";
 const SESSION_WAITING_EMPTY: &str = "fleet.session_waiting_empty";
@@ -82,6 +83,7 @@ fn act_kind_text(kind: WaitingActKind) -> &'static str {
         WaitingActKind::Answer => "answer",
         WaitingActKind::ApprovePr => "approve_pr",
         WaitingActKind::Run => "run",
+        WaitingActKind::Message => "message",
     }
 }
 
@@ -91,6 +93,7 @@ fn act_kind_of(text: &str) -> Option<WaitingActKind> {
         "answer" => Some(WaitingActKind::Answer),
         "approve_pr" => Some(WaitingActKind::ApprovePr),
         "run" => Some(WaitingActKind::Run),
+        "message" => Some(WaitingActKind::Message),
         _ => None,
     }
 }
@@ -279,6 +282,27 @@ where
         let ended = session.state == store::SessionState::Ended;
         let mut items = merged(kept, asked.as_ref(), &windows, &dismissed, ended);
         if !ended {
+            // The first message another Session's agent wrote for the person, until he sends it.
+            let id = format!("{UNSENT_ITEM}{}", session.id);
+            if !dismissed.contains(&id) {
+                items.extend(
+                    attachments
+                        .iter()
+                        .filter(|one| one.kind == "unsent" && one.state == ipc::AttachmentState::Standing)
+                        .map(|one| WaitingItem {
+                            id: id.clone(),
+                            text: String::from("First message"),
+                            since: one.since.clone(),
+                            source: WaitingSource::FirstMessage,
+                            act: Some(WaitingAct {
+                                kind: WaitingActKind::Message,
+                                target: session.id.clone(),
+                            }),
+                            options: Vec::new(),
+                            place: None,
+                        }),
+                );
+            }
             items.extend(rows.into_iter().filter_map(|row| match row {
                 SessionRow::WindowAsk {
                     id,
@@ -536,6 +560,10 @@ where
                 let body = reply(&item.text, picked.as_deref().or(words), line);
                 self.send_known(terminal.then_some(session), message(body)).await
             }
+            WaitingSource::FirstMessage => Err(self.hosted_refusal(
+                SESSION_WAITING_EMPTY,
+                "the first message is settled by sending it, from the Session's message box",
+            )),
         }
     }
 

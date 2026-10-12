@@ -85,13 +85,15 @@ export type SessionRecord = {
 };
 
 /** What a press on a waiting item does. `target` is an address, a call, a pull request number or a command. */
-export type WaitingAct = { kind: "walk" | "answer" | "approve_pr" | "run"; target: string };
+export type WaitingAct = { kind: "walk" | "answer" | "approve_pr" | "run" | "message"; target: string };
 
 /**
  * Who put an item on the list: the agent, or Fleet from an open card, a permission, an unapproved walk
- * window, or a question the session asked in its walk window (`ask_in_window`).
+ * window, a question the session asked in its walk window (`ask_in_window`), or `first_message`: another
+ * Session's agent started this one and the person has not sent its first message. A `first_message` item
+ * has no reply and its `act` is a `message` on the Session, so a press opens it.
  */
-export type WaitingSource = "agent" | "ask_card" | "walk" | "permission" | "window_ask";
+export type WaitingSource = "agent" | "ask_card" | "walk" | "permission" | "window_ask" | "first_message";
 
 /** One choice of an item or a question, with what choosing it means where the asker said. */
 export type WaitingOption = { label: string; description?: string };
@@ -117,7 +119,7 @@ export type AskInWindow = {
 
 /**
  * One thing a session waits on the person for. `id` is stable across updates: the agent's own, or
- * `ask:<call>`, `perm:<call>`, `walk:<url>`, `window_ask:<row>` where Fleet derived it. `options` is
+ * `ask:<call>`, `perm:<call>`, `walk:<url>`, `window_ask:<row>`, `unsent:<session>` where Fleet derived it. `options` is
  * present only on an item that has choices, and `answer_waiting`'s `choice` indexes it. `place` is
  * present only on a `window_ask` item, whose `act` is a walk of the window it was asked in.
  */
@@ -143,6 +145,22 @@ export type AnswerWaiting = {
   text?: string;
   mode?: "best" | "quick";
 };
+
+/**
+ * `POST /sessions/start_another`, the agent's: a new Session in `manifest_id`'s repository. Its `message` is
+ * held unsent and nothing runs until the person sends it. The caller is placed by its connection.
+ */
+export type StartAnotherSession = { manifest_id: string; title: string; message: string };
+
+/**
+ * `POST /sessions/fork_this`, the agent's: a new Session that starts as a copy of the caller's own
+ * conversation, ending at the row `at` (included) or, absent, at its latest message of its own that the
+ * transcript holds. `message` is held unsent as `StartAnotherSession`'s is.
+ */
+export type ForkThisSession = { title: string; message: string; at?: string };
+
+/** What both answer: the Session exists and is listed, and no process has started. */
+export type SessionHeld = { session_id: string; title: string; fork: boolean };
 
 /**
  * `POST /sessions/claim_pull_request`: the caller takes an open pull request no live Session or Job holds.

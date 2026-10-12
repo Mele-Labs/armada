@@ -448,7 +448,7 @@ export class FakeSessionsFleet {
     const record = hosted(id, {
       title: how.title,
       attachments: [link, held("unsent", how.message)],
-      waiting_for: [{ id: `unsent:${id}`, text: "First message", since: new Date().toISOString(), source: "agent" }],
+      waiting_for: [{ id: `unsent:${id}`, text: "First message", since: new Date().toISOString(), source: "first_message", act: { kind: "message", target: id } }],
     });
     const back = how.fork === undefined ? held("started_to", id, {}, "spent") : held("forked_to", id, {}, "spent");
     this.set([record, ...this.records.map((one) => (one.id === fromId ? { ...one, attachments: [...one.attachments, back] } : one))]);

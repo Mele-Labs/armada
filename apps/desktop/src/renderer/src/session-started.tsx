@@ -8,8 +8,8 @@ import type { LedgerEntry } from "@armada/components";
 import type { WaitingItem } from "@armada/protocol";
 import type { Session, SessionAttachment } from "@armada/screens/src/draft/sessions";
 
-/** The id Fleet gives the item that waits on the person sending the first message. */
-export const isUnsentItem = (item: WaitingItem): boolean => item.id.startsWith("unsent:");
+/** The item that waits on the person sending the first message: Fleet gives it the source `first_message`. */
+export const isUnsentItem = (item: WaitingItem): boolean => item.source === "first_message";
 
 /** The row for the item that waits on the first message: a press goes to the box. */
 export function unsentEntry(item: WaitingItem, goToBox: () => void): LedgerEntry {

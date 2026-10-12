@@ -478,6 +478,22 @@ where
         Ok(record)
     }
 
+    async fn start_another_session(
+        &self,
+        caller: Option<api::Caller>,
+        start: ipc::StartAnotherSession,
+    ) -> Result<ipc::SessionHeld, Refusal> {
+        self.another_session_started(caller, start).await
+    }
+
+    async fn fork_this_session(
+        &self,
+        caller: Option<api::Caller>,
+        fork: ipc::ForkThisSession,
+    ) -> Result<ipc::SessionHeld, Refusal> {
+        self.this_session_forked(caller, fork).await
+    }
+
     async fn claim_pull_request(
         &self,
         caller: Option<api::Caller>,
