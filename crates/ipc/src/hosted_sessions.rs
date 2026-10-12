@@ -155,6 +155,14 @@ pub struct TuneSession {
     pub mode: SessionMode,
 }
 
+/// `run_session_command`: a slash command, written whole (`/update-armada`, `/model opus`), that a
+/// terminal session's mod runs as typed.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RunSessionCommand {
+    pub session_id: SessionId,
+    pub command: String,
+}
+
 /// `close_session`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CloseSession {
@@ -513,6 +521,10 @@ pub struct MessagesHeld {
     /// Commands to run as if typed, in order with the messages' own turns.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub commands: Vec<HeldCommand>,
+    /// End the session: a person pressed End session in Bridge. The mod runs
+    /// it after this answer's messages, as `/exit`. Left out when not asked.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub end: bool,
 }
 
 /// A slash command a person chose in Bridge for a terminal session: `model` or

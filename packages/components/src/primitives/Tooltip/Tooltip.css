@@ -94,6 +94,14 @@
   box-shadow: none;
 }
 
+/* Beside the trigger, before it on the inline axis, top edges aligned: the
+ * fallback placement, as the rule above is for below. */
+.armada-tooltip__bubble[data-beside] {
+  top: 0;
+  right: calc(100% + var(--space-2));
+  left: auto;
+}
+
 /* The bubble is hidden rather than unmounted, so `aria-describedby` names an
  * element that exists from the first render. `display: inline-flex` above beats
  * the attribute's own rule, so it is restated here. */
@@ -184,6 +192,14 @@
     position-try-fallbacks: flip-inline, flip-block, flip-block flip-inline;
     inset: auto;
     margin-block-start: var(--space-1);
+  }
+
+  .armada-tooltip__bubble[data-beside] {
+    position-area: inline-start span-block-end;
+    inset: auto;
+    position-try-fallbacks: flip-inline, flip-block, flip-block flip-inline;
+    margin-block-start: 0;
+    margin-inline-end: var(--space-2);
   }
 }
 

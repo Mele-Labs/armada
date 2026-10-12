@@ -40,11 +40,21 @@ export function waitingOf(session: Session): WaitingItem[] {
   return [{ id: `perm:${asked.call ?? session.id}`, text: asked.command, since, source: "permission", options: offers.map((one) => ({ label: PERMISSION[one] })) }];
 }
 
-/** Every item every live Session waits on, the one that began first leading. */
+/** What holds a turn open on the owner: an agent mid-turn on one of these is waiting, not at work. */
+const BLOCKING = new Set(["ask_card", "permission", "window_ask"]);
+
+/**
+ * Every item every live Session waits on, the one that began first leading. A Session at work shows
+ * only what its turn is stopped on: its question or permission reads `working` until it is answered.
+ */
 export function callsFromWaiting(sessions: readonly Session[]): WaitingCall[] {
   return sessions
-    .filter((session) => session.dead === undefined && session.turn.state !== "working")
-    .flatMap((session) => waitingOf(session).map((item) => ({ session, item })))
+    .filter((session) => session.dead === undefined)
+    .flatMap((session) =>
+      waitingOf(session)
+        .filter((item) => session.turn.state !== "working" || BLOCKING.has(item.source))
+        .map((item) => ({ session, item })),
+    )
     .sort((a, b) => Date.parse(a.item.since) - Date.parse(b.item.since) || a.item.id.localeCompare(b.item.id));
 }
 

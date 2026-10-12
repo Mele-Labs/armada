@@ -12,7 +12,7 @@ use std::sync::Arc;
 
 use ipc::{
     AnswerHelmCall, AskHelm, AskingToRun, EventsSince, HelmCallsWaiting, HelmConversation,
-    HelmDebugInfo, ManifestId, RunOrNot,
+    HelmDebugInfo, ManifestId, ReadThought, RunOrNot, ThoughtReading, ThoughtSent,
 };
 
 use crate::conversing::ObservedHelm;
@@ -66,6 +66,20 @@ pub trait Conversations: Send + Sync + 'static {
     /// would leave its answer nowhere.
     fn start_helm_fresh(
         &self,
+        manifest_id: Option<ManifestId>,
+    ) -> impl Future<Output = Result<HelmConversation, Refusal>> + Send;
+
+    /// `read_thought` — words typed into Helm's box, read for where they belong.
+    /// **Total**: a reading that cannot be made is [`ThoughtReading::Question`], so the words
+    /// go to Helm and are never lost.
+    fn read_thought(&self, read: ReadThought) -> impl Future<Output = ThoughtReading> + Send;
+
+    /// `record_thought_sent` — the words were delivered to a Session or a Job: keep a row in
+    /// the thread and publish `helm.thought_routed`. **Nothing is sent to Helm's session.**
+    /// [`Refusal::Unacceptable`] where Fleet serves no such Manifest.
+    fn record_thought_sent(
+        &self,
+        sent: ThoughtSent,
         manifest_id: Option<ManifestId>,
     ) -> impl Future<Output = Result<HelmConversation, Refusal>> + Send;
 

@@ -1,0 +1,109 @@
+/* A thought on its way to running work, in Helm's dock: the words, then where they may go. */
+.armada-thought-card {
+  gap: var(--space-2);
+  min-width: 0;
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+}
+
+/* The owner's own words, held to two lines: what is being placed, not a second copy of it. */
+.armada-thought-card__words {
+  margin: 0;
+  min-width: 0;
+  color: var(--fg-muted);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  overflow-wrap: anywhere;
+  text-wrap: pretty;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+.armada-thought-card[data-stage="routing"] {
+  flex-direction: row;
+  align-items: center;
+}
+
+.armada-thought-card__finding {
+  display: inline-flex;
+  flex: none;
+  color: var(--helm);
+}
+
+.armada-thought-card__finding > svg {
+  animation: armada-thought-card-turn var(--duration-pulse) linear infinite;
+}
+
+@keyframes armada-thought-card-turn {
+  to { transform: rotate(1turn); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .armada-thought-card__finding > svg {
+    animation: none;
+  }
+}
+
+.armada-thought-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+/* The kind of the question, a plain head; a rule beside it read as a quote. */
+.armada-thought-card__label {
+  align-self: flex-start;
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-muted);
+}
+
+.armada-thought-card__acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.armada-thought-card__keys {
+  display: inline-flex;
+  gap: var(--space-1);
+  margin-inline-start: var(--space-1);
+}
+
+/* Where it goes: the kind's glyph and the title, over the repository. */
+.armada-thought-target-line {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--space-1) / 2);
+  min-width: 0;
+}
+
+.armada-thought-target {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+  color: var(--fg-default);
+}
+
+.armada-thought-target__kind {
+  display: inline-flex;
+  flex: none;
+  color: var(--fg-muted);
+}
+
+.armada-thought-target__title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.armada-thought-target__repository {
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  color: var(--fg-muted);
+}

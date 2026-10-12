@@ -103,6 +103,8 @@ function Fields({ fields, onChange, quoted }: { fields: AutopilotFields; onChang
   );
 }
 
+export { Fields as AutopilotFieldInputs };
+
 function StartForm({ sentence, onSentence, reading, onRead, onStart, pending }: Pick<AutopilotBarProps, "sentence" | "onSentence" | "reading" | "onRead" | "onStart" | "pending">) {
   const [fields, setFields] = useState<AutopilotFields | undefined>(reading?.fields);
   // A new reading replaces whatever was typed over the last one.

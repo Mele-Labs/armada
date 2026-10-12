@@ -141,6 +141,20 @@ pub(crate) async fn tune_session<D: HostedSessions>(
     }
 }
 
+pub(crate) async fn run_session_command<D: HostedSessions>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let run: ipc::RunSessionCommand = match ipc::decode("a session's command", &body) {
+        Ok(run) => run,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().run_session_command(run).await {
+        Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 pub(crate) async fn close_session<D: HostedSessions>(
     State(served): State<Served<D>>,
     body: Bytes,

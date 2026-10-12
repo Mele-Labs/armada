@@ -7,7 +7,7 @@
 // `by` on the wire is read for nothing here and every reply row draws as
 // `helm`.
 
-import type { HelmThreadItem } from "@armada/protocol";
+import type { HelmThreadItem, ThoughtTarget } from "@armada/protocol";
 import type { HelmThreadRow } from "@armada/components";
 import { clock } from "@armada/screens/src/duration";
 import { money } from "@armada/screens/src/facts";
@@ -36,8 +36,11 @@ function isApprovalAsk(tool: string): boolean {
  */
 export type HelmApprovalAsk = { id: string; jobId: string };
 
-/** `helmRowsOf`'s own row shape: `HelmThreadRow` with `cards` — which only a caller holding `BridgeState.jobs` can resolve — replaced by the bare asks it would resolve into. */
-export type HelmFoldedRow = Omit<HelmThreadRow, "cards"> & { asks?: HelmApprovalAsk[] };
+/**
+ * `helmRowsOf`'s own row shape: `HelmThreadRow` with `cards` — which only a caller holding `BridgeState.jobs` can resolve — replaced by the bare asks it would resolve into,
+ * and `sent`, whose repository's name and whose opening are the dock's, replaced by the wire's target.
+ */
+export type HelmFoldedRow = Omit<HelmThreadRow, "cards" | "sent"> & { asks?: HelmApprovalAsk[]; sent?: ThoughtTarget };
 
 /**
  * Every item, folded to rows — or nothing, for what a chat has no use for.
@@ -75,6 +78,13 @@ export function helmRowsOf(items: readonly HelmThreadItem[]): HelmFoldedRow[] {
     if (item.kind === "asked") {
       flush();
       rows.push({ id: item.id, at: clock(item.ts), actor: "you", message: item.text });
+      continue;
+    }
+    if (item.kind === "sent") {
+      // Words that went to other work, in the place they were sent. The same actor as a question, so
+      // the thread reads as what the person said; the target is what makes it a row of its own kind.
+      flush();
+      rows.push({ id: item.id, at: clock(item.ts), actor: "you", message: item.text, sent: item.target });
       continue;
     }
     if (item.kind === "fresh") {

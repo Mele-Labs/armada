@@ -24,6 +24,7 @@ import type {
   PullRequestClaimed,
   PullRequestState,
   RenameSession,
+  RunSessionCommand,
   ReviewDispatched,
   SendSessionMessage,
   SessionList,
@@ -301,6 +302,10 @@ export class SessionsHost {
 
   async tune(tune: TuneSession): Promise<SessionActed> {
     return await this.act("POST", "/sessions/tune", tune);
+  }
+
+  async runCommand(run: RunSessionCommand): Promise<SessionActed> {
+    return await this.act("POST", "/sessions/command", run);
   }
 
   async rename(rename: RenameSession): Promise<SessionActed> {

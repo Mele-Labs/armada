@@ -8,6 +8,7 @@
 //! permission door and `rows` writes the thread.
 
 mod asking;
+pub(crate) mod ending;
 pub(crate) mod asking_in_window;
 pub(crate) mod following;
 mod forking;

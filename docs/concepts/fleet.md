@@ -280,6 +280,10 @@ The remedy needs no new state: `depends_on` already sequences Jobs and already p
 
 **Nothing is created and nothing is discarded.** A rebase is not a new worktree: `Vcs` has no removal at all, a Job's earlier steps' work lives on the worktree it is on, and a restart exists precisely so that work survives. "Bring the branch up to date" and "keep the worktree" are the same sentence, not two competing ones.
 
+**The base is the remote's, fetched first.** A catch-up merges `origin/<base>` after fetching it, never the local branch of the same name. That branch is checked out in the owner's own checkout and is rarely fast-forwarded, so merging it reported a branch up to date (`behind its base by 0 commit(s)`) while the pull request conflicted on the forge (Job 14, 12 Oct 2026). Fleet owns the fetch and takes it under the merge lock, before every catch-up: a spawn's, the one that sends the branch out, and the sweep that keeps an open pull request current. A repository with no remote, and a base the remote has never had, read the local branch, as there is no second copy to be stale against.
+
+**A fetch that fails stops the catch-up.** Nothing is merged: not the local branch, and not the copy an earlier fetch left, which would be a stale base reported as current. The Job's log gets a `Warn` naming the remote, the base and git's own error. At a spawn the step is stopped before a Drone is put on the tree, as for any catch-up git could not make. The sweep records nothing and tries the base again on its next turn. An unreachable remote refuses the push as well, so this stops the Job where the reason is named and not at a pull request that conflicts.
+
 **Every moment that starts, resumes or advances a step catches up first.** There are seven, and **six of them are a spawn**:
 
 | | who is told, and how |
@@ -425,6 +429,8 @@ Fleet asks about **one** pull request per sweep and rotates, because the turn in
 **One mechanism.** A finding names what is wrong, a repair Drone is started on the worktree with a toolbelt of exactly that repair (`Grant::RepairTheWorktree`), and the Job carries on from where it was: the Drone about to be put on is put on, or the gate runs again. It holds no slot, takes no place under the concurrency cap and spends no retry. It runs inside the turn that found the fault, for at most one Check's budget, and what it last said is a line in the Job's log. No grant commits, resets, checks out or pushes: Fleet commits, and the deny that stops every other Drone staging is lifted only for a launch carrying the index repair.
 
 **Fleet decides whether it worked.** The index is read again. The install is answered by the Check that named it, run again by the gate. What the Drone says is a signal.
+
+**An index repair at the gate on a delivering step goes back to the delivery.** A delivering step commits and pushes as it is entered, and a catch-up that left conflicts refuses that commit over the unmerged paths. The step then runs, its Drone resolves the paths, and the repair stages them. Fleet then commits (concluding the merge where `MERGE_HEAD` stands), pushes and opens or updates the pull request, as the entry would have, before the gate's ruling is read. Without it the Job reached review with nothing pushed and no pull request (Job 14, 12 Oct 2026). A repair that did not clear the index does not retry anything. A Job sent back from review re-enters the step and delivers on entry, and the commit concludes a merge already staged.
 
 **Bounded at two repairs of one kind per Job**, counted in memory. A repair that fails, or a fault that comes back, goes to a person: before a Drone, the Job escalates as `no_worktree`; at the gate, the ruling is `gate_undecided` on the index; for an install, the Check's failure stands and goes back to the step's Drone as it would have. Each says what was found and what was tried in the Job's log.
 

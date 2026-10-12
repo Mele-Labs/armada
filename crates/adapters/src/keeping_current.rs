@@ -17,13 +17,16 @@ use adapter_traits::{KeptCurrent, NotDelivered, Pushed, Worktree, WorktreeSpec};
 use git2::{BranchType, Repository, WorktreeAddOptions, WorktreePruneOptions};
 
 use crate::delivery::{a_remote, git, last_line, open, pushed, run_in, said, unmerged_files};
+use crate::fetching_the_base::base_ref;
 use crate::merging_in::{merge_in_progress, merged_in, rev_parsed, MergedIn, OnConflict};
 
-/// The local commit a base branch is on, asked from the repository every
+/// The commit a base branch is on — the remote's copy as the last fetch left
+/// it, else the local branch — asked from the repository every
 /// worktree is cut from — never a worktree, so a Job whose worktree is gone
 /// is asked exactly as cheaply as one whose worktree is still there.
 pub(crate) fn base_tip(in_repo: &str, base: &str) -> Option<String> {
-    let run = run_in(in_repo, "git", &["rev-parse", base]).ok()?;
+    let read = base_ref(&Repository::open(in_repo).ok()?, base);
+    let run = run_in(in_repo, "git", &["rev-parse", &read]).ok()?;
     let line = last_line(&run);
     (run.status.success() && !line.is_empty()).then_some(line)
 }
@@ -121,15 +124,20 @@ fn detached(repo: &Repository, spec: &WorktreeSpec) {
     // worktree, not through this one's best effort.
 }
 
-/// Take what the remote's copy of the branch holds, merge the base in, push.
+/// Take what the remote's copy of the branch holds, merge the base in (the
+/// remote's copy of it — `crate::fetching_the_base`), push.
 ///
 /// `KeptCurrent::Rebased` is the trait's name for a branch brought current,
 /// and what it now reports is a merge.
 fn merged(worktree: &Worktree, base: &str) -> KeptCurrent {
-    let Some(onto) = rev_parsed(worktree, base) else {
+    let read = match open(worktree) {
+        Ok(repo) => base_ref(&repo, base),
+        Err(cause) => return KeptCurrent::NotDelivered(cause),
+    };
+    let Some(onto) = rev_parsed(worktree, &read) else {
         return KeptCurrent::NotDelivered(NotDelivered::of(
             "reading the base",
-            format!("`{base}` points at no commit"),
+            format!("`{read}` points at no commit"),
         ));
     };
     // A Drone's merge, part-way through clearing its markers: answered as it
@@ -143,7 +151,7 @@ fn merged(worktree: &Worktree, base: &str) -> KeptCurrent {
     if let Err(cause) = taken_from_the_remote(worktree) {
         return KeptCurrent::NotDelivered(cause);
     }
-    match merged_in(worktree, base, OnConflict::PutItBack) {
+    match merged_in(worktree, &read, OnConflict::PutItBack) {
         Ok(MergedIn::Clean { commits }) => match pushed(worktree) {
             Ok(_) => KeptCurrent::Rebased { onto, commits },
             Err(cause) => KeptCurrent::NotDelivered(cause),

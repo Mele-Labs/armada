@@ -111,11 +111,18 @@ const scale = (root: HTMLElement) => {
   return Number(/scale\(([\d.]+)\)/.exec(transform)?.[1] ?? "0");
 };
 
+/** The first fit lands after the boxes are measured, not with them, so until then the view is where React Flow opens it: at no offset and scale 1. */
+const fitted = (root: HTMLElement) => {
+  const transform = root.querySelector<HTMLElement>(".react-flow__viewport")?.style.transform ?? "";
+  return transform !== "" && !/^translate\(0(px)?, ?0(px)?\) scale\(1\)$/.test(transform);
+};
+
 /** Zoom in, zoom out and fit are on the rail, and the keys do the same. */
 export const ZoomAndFit: Story = {
   args: { scene: FLOW },
   play: async ({ canvas, canvasElement }) => {
     await waitFor(() => expect(nodes(canvasElement).length).toBe(5));
+    await waitFor(() => expect(fitted(canvasElement)).toBe(true));
     const start = scale(canvasElement);
     await userEvent.click(canvas.getByRole("button", { name: "Zoom in" }));
     await waitFor(() => expect(scale(canvasElement)).toBeGreaterThan(start));

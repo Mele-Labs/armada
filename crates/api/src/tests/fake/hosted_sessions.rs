@@ -5,7 +5,7 @@
 use std::sync::Arc;
 
 use ipc::{
-    AnswerSessionAsk, CloseSession, GateAnswer, MessagesHeld, SendSessionMessage, SessionGate, SessionId, TakeHeld,
+    AnswerSessionAsk, CloseSession, GateAnswer, MessagesHeld, RunSessionCommand, SendSessionMessage, SessionGate, SessionId, TakeHeld,
     SessionRecord, SessionSubagent, SessionThread, StartSession, TuneSession,
 };
 
@@ -68,6 +68,10 @@ impl HostedSessions for FakeDaemon {
     }
 
     async fn tune_session(&self, _tuned: TuneSession) -> Result<SessionRecord, Refusal> {
+        Err(nothing_hosted())
+    }
+
+    async fn run_session_command(&self, _run: RunSessionCommand) -> Result<SessionRecord, Refusal> {
         Err(nothing_hosted())
     }
 

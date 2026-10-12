@@ -87,6 +87,9 @@ pub(super) struct FakeSlots {
     /// What every release answers, where a case's Jobs end holding work.
     keep_every: Mutex<Option<String>>,
     released: Mutex<Vec<(u32, String)>>,
+    /// Holders whose process has ended, so a slot they hold may be parked
+    /// for the session that stood in it.
+    gone: Mutex<std::collections::BTreeSet<String>>,
     completed: Mutex<Vec<(u32, String)>>,
     rescued: Mutex<Vec<(u32, SlotRescue)>>,
     /// The branch each Job's lease was cut on, so a park can name it.
@@ -218,6 +221,38 @@ impl FakeSlots {
         Ok(SlotParked {
             branch,
             commit: Some(format!("wip-{job}")),
+            files: vec![String::from("wip.txt")],
+        })
+    }
+
+    /// Park a slot whose holder has ended, for `session`; a holder still
+    /// running is refused, as the real pool refuses a live process.
+    pub(super) fn park_left(
+        &self,
+        pool: &SlotPool,
+        slot: u32,
+        session: &str,
+    ) -> Result<SlotParked, SlotParkRefused> {
+        let gone = self.gone.lock().expect("not poisoned").clone();
+        let freed = self.with(pool, |slots| match slots.get_mut(slot as usize - 1) {
+            Some(at) => match at.held_by.clone() {
+                Some(by) if gone.contains(&by) => {
+                    at.held_by = None;
+                    Ok(())
+                }
+                Some(by) => Err(SlotParkRefused::HeldByAnother(by)),
+                None => Err(SlotParkRefused::NotLeased),
+            },
+            None => Err(SlotParkRefused::NotLeased),
+        });
+        freed?;
+        self.parked
+            .lock()
+            .expect("not poisoned")
+            .push((slot, session.to_string()));
+        Ok(SlotParked {
+            branch: String::new(),
+            commit: Some(format!("wip-{session}")),
             files: vec![String::from("wip.txt")],
         })
     }
@@ -511,6 +546,12 @@ impl FakeVcs {
     pub fn hold_slot(&self, root: &str, slot: u32, by: &str) {
         self.slots.hold(root, slot, Some(by), true);
         self.noted(());
+    }
+
+    /// The process holding as `by` has ended, as a terminal's agent does
+    /// when its session ends.
+    pub fn holder_gone(&self, by: &str) {
+        self.slots.gone.lock().expect("not poisoned").insert(by.to_string());
     }
 
     /// Give slot `slot` at `root` back, as an agent's release would.

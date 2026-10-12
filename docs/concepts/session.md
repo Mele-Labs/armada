@@ -44,7 +44,7 @@ The harness sends Fleet facts in Armada's own shape and nothing past the adapter
 | `measured` | `usage`: `context_tokens?`, `context_window?`, `cost_micros?` | Keeps what was reported |
 | `tuned` | `model?`, `effort?`, `mode?`, `commands?`, `mod_version?` | Held in memory as the terminal's `terminal` facts: model, effort, mode and the commands it lists |
 | `turn_completed` | nothing | Stamps the last turn |
-| `ended` | `reason` | Ends it and gives back everything it still holds |
+| `ended` | `reason` | Ends it and gives back everything it still holds. A terminal's slot is parked unless the reason is `clear` or `resume` (*Ending a terminal session*) |
 
 **No instant is reported**: Fleet stamps each fact on arrival. **A repeated fact publishes nothing**, so a harness may report on every turn.
 
@@ -206,7 +206,7 @@ a multi-select's labels joined with `, `. [Spike 29](../spikes/029-why-a-session
 | `send_session_message` | Text, pictures and files stored by Fleet, and the sessions, Jobs, pull requests and branches it names; takes a turn |
 | `answer_session_ask` | One of the offers on the ask the agent is held on, with an answer for each question where it asked some |
 | `tune_session` | Model, effort and mode |
-| `close_session` | Ends the process, parks the slot, ends the row |
+| `close_session` | Ends the process, parks the slot, ends the row. For a terminal session, the end is held for its mod (*Ending a terminal session*) |
 | `get_session`, `get_session_file` | The row with its thread, and what a message carried |
 | `session.row` | One row of the thread, appended or replaced by its id |
 
@@ -410,6 +410,8 @@ A fenced shell block in a Session's thread shows Run when the block is hovered o
 
 The output is not kept past the run. Closing the window, or the Session, ends the reading; a reopened thread shows the block without it.
 
+**A block with no language is a shell block when it reads as one** (`readsAsShell`): every line opens like a command, after an optional `$ `, and none reads as code, JSON, prose or a diagram. A doubt is no Run. In a **terminal** Session, inline code that is exactly a command the terminal lists (`` `/update-armada` ``, `` `/model opus` ``) is pressable instead: it is run in the terminal as typed with `run_session_command` (`POST /sessions/command`), no output comes back, and a check says Sent. A Fleet-hosted Session has no terminal, so the code stays plain.
+
 ## A terminal session's thread
 
 Open a session a person runs in a terminal and Bridge draws its conversation and a message box. `get_session` reads the transcript file the agent CLI keeps for it (`adapters::terminal_thread`, found by session id under the person's home) and answers rows in the shape a hosted thread has: what the person typed, what the agent said, and one line per tool call. Fleet then watches the file for as long as the session is live and publishes each new line as `session.row`, so the thread follows the terminal. A row's id is the transcript line's own, so a line read twice replaces itself.
@@ -420,7 +422,45 @@ A subagent has a thread of its own. `get_session_subagent` reads `<project>/<ses
 
 A slash command the person ran is one `command` row, as typed, and the summary the CLI writes where it compacted a long conversation is one `compaction` row, so neither reads as the person's words. What is not drawn: the agent's reasoning, a tool's answer, a command's output, a subagent's own turns, the CLI's bookkeeping (a caveat, a reminder, a task notification) and a message from another session. No wrapper tag the CLI writes for itself reaches a row.
 
-**A message reaches a terminal by its own mod.** Fleet cannot push into a terminal. `send_session_message` to a terminal session holds the text, and the `armada` mod in that session holds an ask for `take_held_messages` open (`wait_ms`, up to 25 seconds, one at a time), which Fleet answers the moment something is held, and submits each text as the person's own prompt, which starts a turn whether the session is idle or busy (spike 27). The ask is also how Fleet knows the session is listening: a send to one with no ask open that has not asked within ten seconds is refused as `fleet.terminal_session_unreachable`, so the person is told at once. A file or picture is saved by Fleet as for a hosted session and sent as `Attached file: <path>` in the text. The mod reports what the terminal runs on (`tuned`: its model, effort, permission mode and the commands it lists) and Bridge draws those in the composer. A model or effort chosen in Bridge is held as a command, and the mod runs it as `/model <x>` or `/effort <x>`; the engine refuses a slash command submitted as text, so it goes through the mods API's command call (spike 27). **The permission mode is shown and not set**: nothing in the mods API switches a live session's, and it is read from the settings-hook inputs at each turn, so it is stale between a change in the terminal and the next turn. There is no End session in Bridge for a terminal session. The sent text shows in the thread when the transcript has it, which is when the turn starts.
+**A message reaches a terminal by its own mod.** Fleet cannot push into a terminal. `send_session_message` to a terminal session holds the text, and the `armada` mod in that session holds an ask for `take_held_messages` open (`wait_ms`, up to 25 seconds, one at a time), which Fleet answers the moment something is held, and submits each text as the person's own prompt, which starts a turn whether the session is idle or busy (spike 27). The ask is also how Fleet knows the session is listening: a send to one with no ask open that has not asked within ten seconds is refused as `fleet.terminal_session_unreachable`, so the person is told at once. A file or picture is saved by Fleet as for a hosted session and sent as `Attached file: <path>` in the text. The mod reports what the terminal runs on (`tuned`: its model, effort, permission mode and the commands it lists) and Bridge draws those in the composer. A model or effort chosen in Bridge is held as a command, and the mod runs it as `/model <x>` or `/effort <x>`; the engine refuses a slash command submitted as text, so it goes through the mods API's command call (spike 27). **The permission mode is shown and not set**: nothing in the mods API switches a live session's, and it is read from the settings-hook inputs at each turn, so it is stale between a change in the terminal and the next turn. End session works on a terminal session too: *Ending a terminal session*, below. The sent text shows in the thread when the transcript has it, which is when the turn starts.
+
+### Ending a terminal session
+
+**End session ends a terminal session everywhere**: the agent's process in the
+person's terminal ends, the slot it stood in is parked, and the row ends as a
+hosted close does, `end_reason` `closed`. Fleet cannot end a process it does not
+host, so `close_session` on a terminal session holds an `end` for its mod, in
+the answer to the ask it already holds open (`take_held_messages`). The mod runs
+it as `/exit` through the mods API's command call, behind any message held with
+it, and the engine runs a command only once the session is idle, so a turn
+under way, or one a message just started, finishes first. Measured on 12 Oct
+2026 against the harness at 2.1.296: `$.command.run({ command: "exit" })` from a
+mod ended an interactive `claude` (exit status 0) and fired `session.end` with
+`reason` `prompt_input_exit`.
+
+| Moment | What happens |
+|---|---|
+| The press, mod listening | The end is held and the press is answered with the row, still live |
+| The press, mod not listening | Refused as `fleet.terminal_session_unreachable`. Nothing is held, ended or parked |
+| The press, mod older than 0.3.10 | Refused the same way: an older mod would drop the end unread. `/reload-plugins` in the terminal fixes it |
+| The mod's next answer | The messages, then `end`. The mod runs `/exit` after them |
+| The terminal ends | The mod reports `ended`; the row ends with `end_reason` `closed` |
+| The slot | Parked once the process holding its lease has gone. The mod reports from inside the exit, so Fleet asks the pool again for up to ten seconds. A holder still running then (a person's own terminal, another session's lease) is left alone |
+
+**A terminal that ends on its own is parked too**, the same way and with the
+same wait for its process, and its row keeps the terminal's reason:
+
+| Reason the mod reports | Slot |
+|---|---|
+| `prompt_input_exit`: `/exit`, ctrl+c, ctrl+d | Parked |
+| `other`: the window closed (a hangup), another signal, a `-p` run done | Parked |
+| `logout` | Parked, once the process has gone |
+| `clear`, `resume` | Kept. The same process goes on under another session id, in the same directory |
+| None: a crash or a kill no hook outlives | Kept. The session reads Quiet and its slot is held for a resume |
+
+What Fleet remembers about a press is held in memory only, so a Fleet restarted
+between the press and the end ends the row with the terminal's reason, and parks
+by the table above.
 
 **A terminal's question is an ask in its thread too.** The `armada` mod hooks `AskUserQuestion` (a Drone skips it) and posts the question once with `ask_from_terminal`, which Fleet keeps in its store as the same `ask` row a hosted session writes, so Bridge draws the same card, and answers with the call's id. The terminal's own prompt opens once Fleet has answered that post, or after a second and a half without an answer, and not at all where Fleet refused the question because a walk is open (*Showing a window*). The mod then polls the same route with `wait`, each poll held about 25 seconds, so no one request has to outlast the question: a poll that fails or times out is asked again, and a Fleet that restarts finds the question where it was. A person answering in Bridge has the answer kept until the mod's next poll collects it, and the mod returns it as the tool's result, which drops the terminal's prompt. A person answering in the terminal first makes the mod send `settled`, which closes the card. A card whose session ended, or whose mod has not polled for three minutes, is closed too, so Bridge never offers one that cannot be answered. Fleet out of reach leaves the terminal's prompt alone.
 

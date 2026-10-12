@@ -1,11 +1,11 @@
-import { useLayoutEffect, useRef } from "react";
+import { useLayoutEffect, useMemo, useRef } from "react";
 import type { ReactNode, Ref } from "react";
 import { AppWindow, Box, ChevronRight, GitBranch, KeyRound, Layers, Smartphone, SquareTerminal, Wrench } from "lucide-react";
 
 import { AttachmentChip } from "../../primitives/AttachmentChip/AttachmentChip";
 import { Button } from "../../primitives/Button/Button";
 import { Card } from "../../primitives/Card/Card";
-import { Prose, ProseRunner } from "../../primitives/Prose/Prose";
+import { Prose, ProseCommand, ProseRunner } from "../../primitives/Prose/Prose";
 import type { CodeRunner } from "../../primitives/Prose/Prose";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { SessionMark } from "../SessionFrame/SessionFrame";
@@ -117,6 +117,13 @@ export type SessionThreadProps = {
    * own act, so nothing is sent to the agent. Absent, a block draws without Run.
    */
   runner?: CodeRunner;
+  /**
+   * Sends a slash command written as inline code to the Session's terminal, to run as typed. Only a
+   * terminal Session has one; absent, such code is drawn plain.
+   */
+  onCommand?: (command: string) => void;
+  /** The names of the commands that terminal lists. Inline code is a command only where its name is one of these. */
+  commandNames?: readonly string[];
 };
 
 const TAG_KIND = { session: "Session", job: "Job", pull_request: "Pull request", branch: "Branch" } as const;
@@ -421,7 +428,9 @@ function Row({
         ) : row.from === "you" ? (
           // Run is on what the agent wrote, not on what the person did.
           <ProseRunner.Provider value={null}>
-            <Prose text={row.text} />
+            <ProseCommand.Provider value={null}>
+              <Prose text={row.text} />
+            </ProseCommand.Provider>
           </ProseRunner.Provider>
         ) : (
           <Prose text={row.text} />
@@ -435,7 +444,8 @@ function Row({
 /** How far from the end still counts as being at it, so a rounding or a half row does not unpin. */
 const NEAR_END = 24;
 
-export function SessionThread({ rows, asked, askRef, onAnswer, onOpenSession, onOpenWindow, onOpenCheck, onOpenRetro, sessionId, working, runner }: SessionThreadProps) {
+export function SessionThread({ rows, asked, askRef, onAnswer, onOpenSession, onOpenWindow, onOpenCheck, onOpenRetro, sessionId, working, runner, onCommand, commandNames }: SessionThreadProps) {
+  const slash = useMemo(() => (onCommand === undefined ? null : { send: onCommand, names: new Set(commandNames ?? []) }), [onCommand, commandNames]);
   const scroller = useRef<HTMLDivElement>(null);
   const pinned = useRef(true);
   // **Opens at the newest row, with no animation, and stays there while the person is at the end.**
@@ -462,6 +472,7 @@ export function SessionThread({ rows, asked, askRef, onAnswer, onOpenSession, on
         }}
       >
         <ProseRunner.Provider value={runner ?? null}>
+        <ProseCommand.Provider value={slash}>
         <ol className="armada-helm-thread__rows">
           {items.map((item, at) =>
             item.kind === "calls" ? (
@@ -476,6 +487,7 @@ export function SessionThread({ rows, asked, askRef, onAnswer, onOpenSession, on
             </li>
           ) : null}
         </ol>
+        </ProseCommand.Provider>
         </ProseRunner.Provider>
       </div>
       {asked === undefined ? null : (

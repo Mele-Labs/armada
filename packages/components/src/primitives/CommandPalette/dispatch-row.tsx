@@ -12,7 +12,7 @@ export type PaletteDispatch = {
   kind: DispatchKind;
   /** Tab switches the kind. Absent while there is no other kind to offer, and the row stays a Job's. */
   onKind?: (kind: DispatchKind) => void;
-  /** The kinds Tab steps through, in order: a Job and a Session where absent. Autopilot is offered on a picked repository (#2092). */
+  /** The kinds Tab steps through, in order: a Job and a Session where absent. Autopilot is one when the host serves it (#2092). */
   kinds?: readonly DispatchKind[];
   onDispatch: (words: string, kind: DispatchKind) => void;
   /** ⇧↵: the full composer, holding the words, for a file, a sketch or a long request. */

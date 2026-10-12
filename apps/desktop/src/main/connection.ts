@@ -17,7 +17,7 @@ import { identifying, NOTHING_YET } from "../shared/bridge";
 import type { PilotOutcome } from "@armada/protocol";
 import type { SessionActed } from "../shared/api/sessions";
 import type { BridgeState, PickedView } from "../shared/bridge";
-import type { Connection, HelmContext, HelmDebugRead, JobSummary, Outcome } from "@armada/protocol";
+import type { Connection, HelmContext, HelmDebugRead, JobSummary, Outcome, ThoughtRead, ThoughtTarget } from "@armada/protocol";
 import type { BriefRead, CheckOutputRead, FrameRead, LandCheckAt, LessonsRead, RetroRead, RetroSubject } from "@armada/protocol";
 import type { AskLessonRead, AskTurn, LessonReviewRead } from "@armada/jobs/review-wire";
 import type { ComposingRead } from "@armada/screens/src/composing-reads";
@@ -481,6 +481,16 @@ export class FleetConnection {
   /** The Helm session Bridge is pointed at, as one quotable record — #1367. */
   helmDebugInfo(): Promise<HelmDebugRead> {
     return this.helm.debugInfo();
+  }
+
+  /** What Helm makes of words typed into its box: a question for itself, or a thought for other work. */
+  readThought(text: string): Promise<ThoughtRead> {
+    return this.helm.readThought(text);
+  }
+
+  /** The words reached a Session or a Job: Fleet keeps a row for them in `manifestId`'s thread. */
+  recordThoughtSent(manifestId: string, text: string, target: ThoughtTarget): Promise<Outcome> {
+    return this.helm.recordThoughtSent(manifestId, text, target);
   }
 
   /** Forget Helm's stored session and the thread. Refused while a reply is being written. */

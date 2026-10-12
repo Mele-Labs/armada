@@ -82,6 +82,8 @@ import type {
   Holds,
   HeldWorktrees,
   HelmThread,
+  ThoughtRead,
+  ThoughtTarget,
   History,
   Holdings,
   FollowedLog,
@@ -183,6 +185,7 @@ import type { AnswerSessionAsk, AnswerWaiting, ClaimPullRequest, DismissWaiting,
 import type { PilotExit, PullRequestPress, SessionActed, SessionsRead } from "./api/sessions";
 import type { SleepActed } from "./api/sleep";
 import type { IssuesRead } from "./api/issues";
+import type { RequestRepositoryRead } from "./api/jobs";
 import { AUTOPILOT_CHANNELS, type AutopilotApi } from "./api/autopilot";
 import type { SleepState } from "@armada/protocol";
 import type { BridgeApi } from "./api";
@@ -253,6 +256,7 @@ type OldBridgeApi = {
         path: string;
     }>;
     searchFiles: (query: string) => Promise<string[]>;
+    readRequestRepository: (words: string) => Promise<RequestRepositoryRead>;
     approveDispatch: (jobId: string, approval?: ApproveDispatch) => Promise<Outcome>;
     listBranches: (manifestId: string) => Promise<BranchesRead>;
     redispatchJob: (jobId: string) => Promise<Outcome>;
@@ -453,6 +457,8 @@ type OldBridgeApi = {
     onHistory: (onStep: (step: HistoryStep) => void) => () => void;
     askHelm: (text: string, context?: HelmContext) => Promise<Outcome>;
     helmDebugInfo: () => Promise<HelmDebugRead>;
+    readThought: (text: string) => Promise<ThoughtRead>;
+    recordThoughtSent: (manifestId: string, text: string, target: ThoughtTarget) => Promise<Outcome>;
     startHelmFresh: () => Promise<Outcome>;
     pointHelm: (manifestId: string) => Promise<void>;
     tap: (pattern: Pattern) => void;
@@ -471,6 +477,7 @@ type OldBridgeApi = {
     reviewSleep: (id: string) => Promise<SleepActed>;
     onSleepChanged: (onChanged: (state: SleepState) => void) => () => void;
     tuneSession: (tune: TuneSession) => Promise<SessionActed>;
+    runSessionCommand: (sessionId: string, command: string) => Promise<SessionActed>;
     renameSession: (rename: RenameSession) => Promise<SessionActed>;
     forkSession: (sessionId: string) => Promise<SessionActed>;
     retroSession: (sessionId: string) => Promise<Outcome>;
@@ -550,6 +557,7 @@ const OLD_CHANNELS = {
     stopProposal: "bridge:stop-proposal",
     stageAttachment: "bridge:stage-attachment",
     searchFiles: "bridge:search-files",
+    readRequestRepository: "bridge:read-request-repository",
     approveDispatch: "bridge:approve-dispatch",
     listBranches: "bridge:list-branches",
     redispatchJob: "bridge:redispatch-job",
@@ -711,6 +719,8 @@ const OLD_CHANNELS = {
     readComposing: "bridge:read-composing",
     askHelm: "bridge:ask-helm",
     helmDebugInfo: "bridge:helm-debug-info",
+    readThought: "bridge:read-thought",
+    recordThoughtSent: "bridge:record-thought-sent",
     startHelmFresh: "bridge:start-helm-fresh",
     pointHelm: "bridge:point-helm",
     watchStudios: "bridge:watch-studios",
@@ -764,6 +774,7 @@ const OLD_CHANNELS = {
     reviewSleep: "bridge:review-sleep",
     sleepChanged: "bridge:sleep-changed",
     tuneSession: "bridge:tune-session",
+    runSessionCommand: "bridge:run-session-command",
     renameSession: "bridge:rename-session",
     retroSession: "bridge:retro-session",
     closeSession: "bridge:close-session",

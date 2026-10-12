@@ -383,7 +383,12 @@ export function applyArrival(host: ArrivalHost, text: string, fleet: BridgeState
     // proposer writes rather than all at once at the answer.
     const filling = settledOnto(host.current(), event);
     if (event.client_ref !== undefined && event.client_ref === host.proposalRef()) {
-      const proposing = event.proposing ?? null;
+      // The Job rides the envelope; it is carried on the call so the window learns which Job its
+      // press made, and kept from the first message that named it.
+      const held = host.current().proposing;
+      const jobId = event.job_id ?? (held?.proposal_id === event.proposal_id ? held.job_id : undefined);
+      const proposing =
+        event.proposing === undefined ? null : jobId === undefined ? event.proposing : { ...event.proposing, job_id: jobId };
       if (event.job_id !== undefined) host.setProposalJob(event.job_id);
       if (proposing === null) host.setProposalRef(null);
       host.publish({ connection, proposing, ...filling });

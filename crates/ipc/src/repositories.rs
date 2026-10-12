@@ -9,7 +9,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::ManifestSummary;
+use crate::{ManifestId, ManifestSummary};
 
 /// A folder to serve, as a person chose it.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -46,4 +46,17 @@ pub struct RepositorySummary {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RepositoryList {
     pub repositories: Vec<RepositorySummary>,
+}
+
+/// Which served repository a request's words are about —
+/// `read_request_repository` in `crates/ipc/operations/`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RequestRepository {
+    /// Set only where exactly one repository is clearly meant. **Absent is
+    /// "could not tell", and Bridge asks the person before anything is built.**
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub manifest_id: Option<ManifestId>,
+    /// Every served repository with a Manifest, best first: the ones the words
+    /// pointed at, then the rest by how many Jobs each has.
+    pub likely: Vec<ManifestId>,
 }

@@ -215,6 +215,12 @@ pub(super) const ROUTES: &[Route] = &[
         method: "GET",
         path: "/events",
     },
+    // Helm's reading sent a person's words to a Session or a Job instead of to Helm.
+    Route {
+        operation: "helm.thought_routed",
+        method: "GET",
+        path: "/events",
+    },
     // A person's run ending. It names a Job and moves nothing on it; what the
     // run prints is `observe_run`'s, never this stream's.
     Route {

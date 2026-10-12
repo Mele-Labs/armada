@@ -17,16 +17,69 @@ export const ProseRunner = createContext<CodeRunner | null>(null);
 
 const SHELLS = new Set(["sh", "bash", "zsh", "shell", "console"]);
 
-/** The command a fenced block holds, or null where it is not a shell block. A `console` block loses its `$ ` prompts. */
+const COMMON = new Set([
+  "cd", "ls", "git", "gh", "pnpm", "npm", "npx", "yarn", "cargo", "armada", "make", "docker", "kubectl", "brew", "node",
+  "python", "python3", "pip", "curl", "cat", "echo", "grep", "rg", "rm", "mv", "cp", "mkdir", "touch", "chmod", "sudo",
+  "tail", "head", "find", "sed", "awk", "xargs", "kill", "ps", "sh", "bash", "zsh", "source", "export",
+]);
+/** A first word that opens a line of code, not of a command. `export` stays: it is shell too. */
+const CODE_WORDS = new Set([
+  "const", "let", "var", "function", "def", "class", "import", "from", "return", "fn", "pub", "use", "struct", "enum",
+  "impl", "interface", "package", "public", "private", "type", "async", "await",
+]);
+
+/**
+ * Whether a block with no language reads as shell. Conservative: it is a run button on the person's
+ * machine, so a doubt is no button. Every non-empty line must open like a command, after an optional
+ * `$ `: a path with arguments or plainly executable, an assignment, or a lower-case word that is a
+ * common command or carries a flag, path or quote. A line after `\`, `&&`, `||` or `|` is a
+ * continuation and is let through. Code, JSON, prose (a capital, or a letter then `.`/`?`/`!` at the
+ * end) and diagrams (box-drawing, arrows) fail.
+ */
+export function readsAsShell(source: string): boolean {
+  if (/[\u2190-\u21ff\u2500-\u257f\u25a0-\u25ff]|=>|->|<-/.test(source)) return false;
+  const lines = source.split("\n").filter((line) => line.trim() !== "");
+  if (lines.length === 0) return false;
+  let continued = false;
+  for (const raw of lines) {
+    const line = raw.trim().replace(/^\$ /, "");
+    const was = continued;
+    continued = /(\\|&&|\|\||\|)$/.test(line);
+    if (line.startsWith("#")) continue;
+    if (/(^|[^\\]);$|[{},]$|^[{}[\]"]/.test(line)) return false;
+    if (/[A-Za-z0-9)]\.$|[?!]$/.test(line)) return false;
+    if (was) continue;
+    if (/^\S+ = /.test(line)) return false;
+    const [first = "", ...rest] = line.split(/\s+/);
+    if (/^[A-Za-z_][A-Za-z0-9_]*=/.test(first)) continue;
+    // A path opens a command with arguments, or on its own is one that is plainly run: a list of files is not.
+    if (/^(\.{0,2}\/|~\/|\/|[\w.@-]+\/)[\w./@~-]+$/.test(first)) {
+      if (rest.length > 0 || /^\.\/|^(scripts|bin)\/|\.sh$/.test(first)) continue;
+      return false;
+    }
+    if (!/^[a-z][a-z0-9._+-]*$/.test(first) || CODE_WORDS.has(first)) return false;
+    if (COMMON.has(first)) continue;
+    if (!rest.some((word) => /^-|[/.~=$"'*@]/.test(word))) return false;
+  }
+  return !continued;
+}
+
+/**
+ * The command a fenced block holds, or null where it is not a shell block. A `console` block loses
+ * its `$ ` prompts. A block with no language is one where `readsAsShell`; any other language is not.
+ */
 export function commandOf(language: string | undefined, source: string): string | null {
-  if (language === undefined || !SHELLS.has(language)) return null;
   const body = source.replace(/\n$/, "");
-  if (language !== "console") return body;
-  return body
+  if (language === undefined) return readsAsShell(body) ? stripPrompts(body) : null;
+  if (!SHELLS.has(language)) return null;
+  return language === "console" ? stripPrompts(body) : body;
+}
+
+const stripPrompts = (body: string) =>
+  body
     .split("\n")
     .map((line) => line.replace(/^\$ ?/, ""))
     .join("\n");
-}
 
 type Phase = { state: "idle" } | { state: "running" } | { state: "ended"; code: number | null };
 

@@ -40,7 +40,7 @@ use crate::commands::{
 };
 use crate::conversing::{
     answer_helm_call, ask_helm, ask_the_person, get_helm_debug_info, list_helm_calls, observe_helm,
-    start_helm_fresh,
+    read_thought, record_thought_sent, start_helm_fresh,
 };
 use crate::daemon::Daemon;
 use crate::editing::{get_manifest_file, save_manifest_file};
@@ -64,7 +64,9 @@ use crate::rehearsing::{
     start_checkout_run, start_checkout_verify, start_run, stop_checkout_run, stop_run,
     undo_checkout_run, undo_run,
 };
-use crate::repositories::{add_repository, clone_repository, get_merge_lines, list_repositories};
+use crate::repositories::{
+    add_repository, clone_repository, get_merge_lines, list_repositories, read_request_repository,
+};
 use crate::repository_allow::{get_repository_allowed_commands, remove_repository_allowed_command};
 use crate::served::Served;
 use crate::servers::{list_servers, observe_server, start_server, stop_server};
@@ -276,6 +278,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(crate::hosted_sessions::tune_session::<D>),
         )
         .route(
+            "/sessions/command",
+            post(crate::hosted_sessions::run_session_command::<D>),
+        )
+        .route(
             "/sessions/close",
             post(crate::hosted_sessions::close_session::<D>),
         )
@@ -309,6 +315,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         )
         .route("/manifests", get(list_manifests::<D>))
         .route("/repositories", get(list_repositories::<D>))
+        .route("/repositories/of_request", get(read_request_repository::<D>))
         .route("/repositories/add", post(add_repository::<D>))
         .route("/repositories/clone", post(clone_repository::<D>))
         .route("/merge_lines", get(get_merge_lines::<D>))
@@ -626,6 +633,8 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/helm/ask", post(ask_helm::<D>))
         .route("/helm/debug", get(get_helm_debug_info::<D>))
         .route("/helm/start_fresh", post(start_helm_fresh::<D>))
+        .route("/helm/read_thought", post(read_thought::<D>))
+        .route("/helm/thought_sent", post(record_thought_sent::<D>))
         .route("/helm/permission", post(ask_the_person::<D>))
         .route("/helm/calls", get(list_helm_calls::<D>))
         .route("/helm/calls/answer", post(answer_helm_call::<D>))

@@ -320,6 +320,45 @@ async fn what_the_terminal_runs_on_is_what_its_mod_said_and_a_model_is_run_there
     assert_eq!(held.commands.len(), 2);
 }
 
+/// **A slash command pressed in the thread is held for the mod as a command**, its name without the
+/// slash and the rest as arguments. Text that is not one slash command, a session that is not a
+/// terminal one and one that ended are refused.
+#[tokio::test]
+async fn a_slash_command_is_held_for_the_mod_and_anything_else_is_refused() {
+    let rig = rig();
+    rig.started().await;
+    rig.mod_asks().await;
+    let run = |text: &str| ipc::RunSessionCommand {
+        session_id: SessionId::carried(ID),
+        command: text.into(),
+    };
+
+    Arc::clone(&rig.fleet).run_session_command(run("/update-armada")).await.expect("held");
+    Arc::clone(&rig.fleet).run_session_command(run("/model opus")).await.expect("held");
+    let held = rig
+        .fleet
+        .take_held_messages(TakeHeld { session_id: ID.into(), wait_ms: None })
+        .await
+        .unwrap();
+    let said: Vec<(String, String)> = held.commands.into_iter().map(|one| (one.command, one.args)).collect();
+    assert_eq!(
+        said,
+        vec![("update-armada".to_string(), String::new()), ("model".to_string(), "opus".to_string())]
+    );
+
+    for text in ["update-armada", "/", "/Update", "/tmp/x y", "rm -rf /", "/model opus\n/clear", ""] {
+        let refused = Arc::clone(&rig.fleet).run_session_command(run(text)).await.unwrap_err();
+        assert!(format!("{refused:?}").contains("fleet.session_command_refused"), "{text}: {refused:?}");
+    }
+    let nobody = ipc::RunSessionCommand { session_id: SessionId::carried("zzzz"), command: "/clear".into() };
+    let refused = Arc::clone(&rig.fleet).run_session_command(nobody).await.unwrap_err();
+    assert!(format!("{refused:?}").contains("fleet.session_command_refused"), "{refused:?}");
+
+    rig.reports(SessionFact::Ended { reason: "prompt_input_exit".into() }).await;
+    let closed = Arc::clone(&rig.fleet).run_session_command(run("/clear")).await.unwrap_err();
+    assert!(format!("{closed:?}").contains("fleet.session_closed"), "{closed:?}");
+}
+
 /// A terminal session whose mod is older than the repository's, or says none, is marked.
 #[tokio::test]
 async fn a_session_whose_mod_is_older_than_the_repositorys_is_marked() {
@@ -723,4 +762,219 @@ async fn a_terminal_walk_stops_waiting_once_the_person_has_written_to_it() {
         "{:?}",
         after.waiting_for
     );
+}
+
+impl Rig {
+    async fn ends(&self) -> Result<ipc::SessionRecord, String> {
+        self.fleet
+            .close_session(ipc::CloseSession {
+                session_id: SessionId::carried(ID),
+            })
+            .await
+            .map_err(|why| format!("{why:?}"))
+    }
+
+    async fn mod_takes(&self) -> ipc::MessagesHeld {
+        self.fleet
+            .take_held_messages(TakeHeld {
+                session_id: ID.into(),
+                wait_ms: None,
+            })
+            .await
+            .unwrap()
+    }
+
+    async fn started_with_mod(&self, version: &str) {
+        self.reports(SessionFact::Started {
+            cwd: self.root.clone(),
+            title: None,
+            origin: SessionOrigin::Terminal,
+            mod_version: Some(version.into()),
+        })
+        .await;
+    }
+
+    async fn row(&self) -> ipc::SessionRecord {
+        Arc::clone(&self.fleet)
+            .get_session(SessionId::carried(ID))
+            .await
+            .unwrap()
+            .session
+    }
+}
+
+/// **End session on a listening terminal holds an end for its mod**, in the
+/// same answer as a message held ahead of it, and once. Nothing ends in Fleet
+/// until the terminal says it ended, and then the row reads as a hosted close.
+#[tokio::test]
+async fn ending_a_listening_terminal_holds_an_end_for_its_mod_behind_its_messages() {
+    let rig = rig();
+    rig.started_with_mod("0.3.10").await;
+    rig.mod_asks().await;
+
+    rig.sends("one last thing").await.expect("held");
+    let record = rig.ends().await.expect("held for the mod");
+    assert!(record.ended_at.is_none(), "nothing ends until the terminal does");
+
+    let held = rig.mod_takes().await;
+    assert_eq!(held.messages, vec!["one last thing"]);
+    assert!(held.end, "the end goes with the messages, which the mod runs first");
+    assert!(!rig.mod_takes().await.end, "handed over once");
+
+    rig.reports(SessionFact::Ended {
+        reason: "prompt_input_exit".into(),
+    })
+    .await;
+    let record = rig.row().await;
+    assert!(record.ended_at.is_some());
+    assert_eq!(record.end_reason.as_deref(), Some("closed"));
+    assert!(rig.ends().await.is_ok(), "ending an ended session changes nothing");
+}
+
+/// An ask held open is answered by the end the moment it is held.
+#[tokio::test]
+async fn an_ask_held_open_is_answered_by_an_end() {
+    let rig = rig();
+    rig.started_with_mod("0.3.10").await;
+    let fleet = Arc::clone(&rig.fleet);
+    let waiting = tokio::spawn(async move {
+        fleet
+            .take_held_messages(TakeHeld {
+                session_id: ID.into(),
+                wait_ms: Some(20_000),
+            })
+            .await
+            .unwrap()
+    });
+    eventually(|| async { rig.fleet.hosts().terminals().listening(ID) }).await;
+    rig.ends().await.expect("held");
+    let held = tokio::time::timeout(Duration::from_secs(5), waiting)
+        .await
+        .expect("answered long before its wait was up")
+        .unwrap();
+    assert!(held.end);
+}
+
+/// **A terminal whose mod is not listening is refused**, and nothing is ended or
+/// held, so a mod that asks later is not ended by a press it never heard.
+#[tokio::test]
+async fn ending_a_terminal_that_is_not_listening_is_refused_and_ends_nothing() {
+    let rig = rig();
+    rig.started_with_mod("0.3.10").await;
+
+    let refused = rig.ends().await.unwrap_err();
+    assert!(refused.contains("fleet.terminal_session_unreachable"), "{refused}");
+    assert!(rig.row().await.ended_at.is_none());
+    assert!(!rig.mod_takes().await.end, "nothing was held");
+
+    rig.reports(SessionFact::Ended {
+        reason: "prompt_input_exit".into(),
+    })
+    .await;
+    assert_eq!(
+        rig.row().await.end_reason.as_deref(),
+        Some("prompt_input_exit"),
+        "an end nobody asked for from Bridge reads as the terminal's own"
+    );
+}
+
+/// **The slot is parked only once the terminal's process has gone**: not at the
+/// press, not when the mod reports the end from inside the exit, and only then,
+/// for the session, committing what it held.
+#[tokio::test]
+async fn a_terminals_slot_is_parked_only_after_its_process_has_ended() {
+    let rig = rig();
+    let slot = adapter_traits::slot_path(&rig.root, 1);
+    std::fs::create_dir_all(&slot).unwrap();
+    let holder = "agent (pid 7)";
+    rig.fleet.vcs().hold_slot(&rig.root, 1, holder);
+    rig.reports(SessionFact::Started {
+        cwd: slot.clone(),
+        title: None,
+        origin: SessionOrigin::Terminal,
+        mod_version: Some("0.3.10".into()),
+    })
+    .await;
+    rig.mod_asks().await;
+
+    rig.ends().await.expect("held");
+    assert!(rig.fleet.vcs().parked_slots().is_empty(), "not at the press");
+    assert!(rig.mod_takes().await.end);
+
+    rig.reports(SessionFact::Ended {
+        reason: "prompt_input_exit".into(),
+    })
+    .await;
+    tokio::time::sleep(Duration::from_millis(600)).await;
+    assert!(
+        rig.fleet.vcs().parked_slots().is_empty(),
+        "its process is still there, and may still be writing"
+    );
+
+    rig.fleet.vcs().holder_gone(holder);
+    eventually(|| async { rig.fleet.vcs().parked_slots() == vec![(1, ID.to_string())] }).await;
+    assert_eq!(rig.fleet.vcs().slot_holders(&rig.root)[0], None);
+}
+
+impl Rig {
+    /// A terminal session standing in slot 1, held by its agent's process.
+    async fn in_slot(&self, holder: &str) {
+        let slot = adapter_traits::slot_path(&self.root, 1);
+        std::fs::create_dir_all(&slot).unwrap();
+        self.fleet.vcs().hold_slot(&self.root, 1, holder);
+        self.reports(SessionFact::Started {
+            cwd: slot,
+            title: None,
+            origin: SessionOrigin::Terminal,
+            mod_version: Some("0.3.10".into()),
+        })
+        .await;
+    }
+}
+
+/// **A terminal the person ends themselves is parked as End session parks**, by
+/// `/exit` or a closed window, once its process has gone, and its row keeps the
+/// terminal's own reason.
+#[tokio::test]
+async fn a_terminal_ending_on_its_own_parks_its_slot_once_its_process_has_gone() {
+    for reason in ["prompt_input_exit", "other"] {
+        let rig = rig();
+        rig.in_slot("agent (pid 7)").await;
+        rig.reports(SessionFact::Ended { reason: reason.into() }).await;
+        tokio::time::sleep(Duration::from_millis(400)).await;
+        assert!(rig.fleet.vcs().parked_slots().is_empty(), "{reason}: its process is still there");
+
+        rig.fleet.vcs().holder_gone("agent (pid 7)");
+        eventually(|| async { rig.fleet.vcs().parked_slots() == vec![(1, ID.to_string())] }).await;
+        assert_eq!(rig.row().await.end_reason.as_deref(), Some(reason));
+    }
+}
+
+/// **A `/clear` or a resume keeps the slot**: the same process goes on in it under
+/// another session id, so nothing is parked even once a holder reads as gone.
+#[tokio::test]
+async fn a_clear_or_a_resume_keeps_the_slot() {
+    for reason in ["clear", "resume"] {
+        let rig = rig();
+        rig.in_slot("agent (pid 7)").await;
+        rig.fleet.vcs().holder_gone("agent (pid 7)");
+        rig.reports(SessionFact::Ended { reason: reason.into() }).await;
+        tokio::time::sleep(Duration::from_millis(600)).await;
+        assert!(rig.fleet.vcs().parked_slots().is_empty(), "{reason}");
+        assert_eq!(rig.fleet.vcs().slot_holders(&rig.root)[0].as_deref(), Some("agent (pid 7)"));
+    }
+}
+
+/// **A mod from before ends were held is refused, not held**: it would drop the
+/// end unread and the press would do nothing.
+#[tokio::test]
+async fn ending_a_terminal_whose_mod_predates_ends_is_refused() {
+    let rig = rig();
+    rig.started_with_mod("0.3.9").await;
+    rig.mod_asks().await;
+
+    let refused = rig.ends().await.unwrap_err();
+    assert!(refused.contains("fleet.terminal_session_unreachable"), "{refused}");
+    assert!(refused.contains("too old"), "{refused}");
+    assert!(!rig.mod_takes().await.end, "nothing was held");
 }

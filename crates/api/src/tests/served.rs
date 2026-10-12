@@ -1009,6 +1009,29 @@ async fn manifest_files_is_narrowed_by_q_and_answers_everything_with_none() {
     );
 }
 
+/// The dispatch panel's repository chip. **A pick is the field, and no pick is
+/// the field left out** — Bridge types it `manifest_id?: string`, and a `null`
+/// would pass for a repository the words never named.
+#[tokio::test]
+async fn repositories_of_request_names_a_repository_or_leaves_the_field_out() {
+    let events = Broadcaster::new();
+    let app = wired(FakeDaemon::new(events.clone()), events);
+
+    let (status, body) = call(&app, "GET", "/repositories/of_request?q=fix%20storefront%20totals", "").await;
+    assert_eq!(status, StatusCode::OK);
+    let read: ipc::RequestRepository = ipc::decode("a request's repository", &body).expect("a reading");
+    assert_eq!(read, shapes::request_repository("storefront"));
+
+    let (status, body) = call(&app, "GET", "/repositories/of_request?q=make%20it%20faster", "").await;
+    assert_eq!(status, StatusCode::OK);
+    let text = String::from_utf8_lossy(&body);
+    assert!(!text.contains("manifest_id"), "absent, not null: {text}");
+    assert!(text.contains(r#""likely":["pocket","storefront"]"#), "{text}");
+
+    let (status, _) = call(&app, "GET", "/repositories/of_request", "").await;
+    assert_eq!(status, StatusCode::OK, "no `q` reads as no words");
+}
+
 fn a_transition() -> ipc::Event {
     let message: StreamMessage = ipc::decode(
         "stream message",

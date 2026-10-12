@@ -306,6 +306,28 @@ describe("a proposal filling in, on the Job its message names", () => {
     expect(state().jobs[0]?.workflow_id).toBe("bug");
   });
 
+  it("carries the Job its message names onto this window's own wait, and keeps it on the messages after", () => {
+    const { host, state } = fakeHost([proposingJob()]);
+    const mine = { ...host, proposalRef: () => "someone-else" };
+    applyArrival(mine, moved(undefined), FLEET);
+    expect(state().proposing?.job_id).toBe(JOB_ID);
+    applyArrival(mine, moved({ workflow_id: "bug" }, { job_id: undefined }), FLEET);
+    expect(state().proposing?.job_id).toBe(JOB_ID);
+    expect(state().proposing?.settled).toEqual({ workflow_id: "bug" });
+  });
+
+  it("does not hand one call's Job to the next call, and clears with the call", () => {
+    const { host, state } = fakeHost([proposingJob()]);
+    const mine = { ...host, proposalRef: () => "someone-else" };
+    applyArrival(mine, moved(undefined), FLEET);
+    const next = JSON.parse(moved(undefined, { proposal_id: "01OTHER", job_id: undefined })) as { event: { proposing: object } };
+    next.event.proposing = { ...next.event.proposing, proposal_id: "01OTHER" };
+    applyArrival(mine, JSON.stringify(next), FLEET);
+    expect(state().proposing?.job_id).toBeUndefined();
+    applyArrival(mine, moved(undefined, { proposing: undefined }), FLEET);
+    expect(state().proposing).toBeNull();
+  });
+
   it("moves nothing on a message that names no Job, which is a Fleet older than 21.6", () => {
     const { host, state } = fakeHost([proposingJob()]);
     applyArrival(host, moved({ workflow_id: "bug" }, { job_id: undefined }), FLEET);

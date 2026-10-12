@@ -4,7 +4,10 @@
 //! **One writer for every column**, for `crate::pausing`'s reason: a question
 //! half written reads as a different question.
 
-use core_model::{DroneQuestion, GivenAnswer, Job, OfferedAnswer, StepId, Timestamp, Ulid};
+use core_model::{
+    Decision, DroneQuestion, GivenAnswer, Job, OfferedAnswer, StepId, Timestamp, Ulid,
+};
+use serde_json::{json, Value};
 use rusqlite::Row;
 
 use crate::error::{fault, RowError, WriteError};
@@ -40,6 +43,11 @@ pub(crate) fn read_question(row: &Row<'_>, job: Job) -> Result<Job, RowError> {
         (None, None) => None,
         _ => return Err(malformed("question_chose", "an answer with no instant")),
     };
+    let decisions = match maybe(row, "question_decisions")? {
+        Some(held) => decisions_held(&held)
+            .ok_or_else(|| malformed("question_decisions", "not a list of decisions"))?,
+        None => Vec::new(),
+    };
     Ok(job.asking(DroneQuestion {
         id: Ulid::carried(id),
         step: StepId::new(held("question_step")?),
@@ -50,7 +58,58 @@ pub(crate) fn read_question(row: &Row<'_>, job: Job) -> Result<Job, RowError> {
             .map(|(label, consequence)| OfferedAnswer { label, consequence })
             .collect(),
         answer,
+        decisions,
     }))
+}
+
+/// The column's JSON: `[{id, question, options: [[label, consequence]], chose}]`.
+fn decisions_json(decisions: &[Decision]) -> String {
+    let held: Vec<Value> = decisions
+        .iter()
+        .map(|decision| {
+            let options: Vec<(&str, &str)> = decision
+                .options
+                .iter()
+                .map(|option| (option.label.as_str(), option.consequence.as_str()))
+                .collect();
+            json!({
+                "id": decision.id,
+                "question": decision.question,
+                "options": options,
+                "chose": decision.chose,
+            })
+        })
+        .collect();
+    Value::Array(held).to_string()
+}
+
+/// The decisions as [`decisions_json`] wrote them, or `None` where the column
+/// is not that shape.
+fn decisions_held(column: &str) -> Option<Vec<Decision>> {
+    let text = |value: &Value, key: &str| value.get(key)?.as_str().map(str::to_string);
+    serde_json::from_str::<Vec<Value>>(column)
+        .ok()?
+        .iter()
+        .map(|held| {
+            let options = held
+                .get("options")?
+                .as_array()?
+                .iter()
+                .map(|pair| {
+                    Some(OfferedAnswer {
+                        label: pair.get(0)?.as_str()?.to_string(),
+                        consequence: pair.get(1)?.as_str()?.to_string(),
+                    })
+                })
+                .collect::<Option<Vec<_>>>()?;
+            Some(Decision {
+                id: text(held, "id")?,
+                question: text(held, "question")?,
+                options,
+                chose: text(held, "chose"),
+            })
+        })
+        .collect()
 }
 
 impl Store {
@@ -66,13 +125,16 @@ impl Store {
                 .collect();
             serde_json::to_string(&pairs).unwrap_or_else(|_| String::from("[]"))
         });
+        let decisions = question
+            .filter(|question| !question.decisions.is_empty())
+            .map(|question| decisions_json(&question.decisions));
         let answer = question.and_then(|question| question.answer.as_ref());
         let updated = self
             .conn
             .execute(
                 "UPDATE jobs SET question_id = ?2, question_step = ?3, question_asked_at = ?4,
                         question_text = ?5, question_options = ?6, question_chose = ?7,
-                        question_answered_at = ?8
+                        question_answered_at = ?8, question_decisions = ?9
                  WHERE job_id = ?1",
                 (
                     job.id().as_str(),
@@ -83,6 +145,7 @@ impl Store {
                     options,
                     answer.map(|given| given.label.as_str()),
                     answer.map(|given| given.at.as_str()),
+                    decisions,
                 ),
             )
             .map_err(fault("recording a drone's question"))

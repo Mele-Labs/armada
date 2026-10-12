@@ -94,6 +94,8 @@ mod helm;
 mod helm_call;
 /// One repository's Helm session as one quotable record. `#1367`.
 mod helm_debug;
+/// Helm reading a thought for where it belongs, and recording where it went.
+mod thought;
 mod history;
 /// What Fleet is holding disk for, and the test each one did not pass.
 /// **A piloted worktree is not on this wire at all** — `#367`.
@@ -302,6 +304,10 @@ pub use helm::{
     HelmConversation, HelmFresh, HelmMessage, HelmOpened, HelmScreen, HelmSilence, HelmText,
     HelmUnanswered,
 };
+pub use thought::{
+    HelmSent, HelmThoughtRouted, ReadThought, ThoughtKind, ThoughtReading, ThoughtSent,
+    ThoughtTarget,
+};
 pub use helm_call::{
     AnswerHelmCall, AskedChoice, AskedQuestion, AskingToRun, HelmAskingToRun, HelmCallAnswer,
     HelmCallAnswered, HelmCallInFlight, HelmCallSettled, HelmCallsWaiting, QuestionAnswer,
@@ -316,7 +322,7 @@ pub use holding::{
 };
 pub use hosted_sessions::{
     AnswerSessionAsk, CloseSession, ForkFrom, GateAnswer, GateHold, HandoffPlan, HandoffStep,
-    HeldCommand, HostedFacts, MessagesHeld, PilotFrom, SendSessionMessage, SentFile,
+    HeldCommand, HostedFacts, MessagesHeld, PilotFrom, RunSessionCommand, SendSessionMessage, SentFile,
     SessionAskState, SessionGate, SessionMode, SessionRow, SessionRowChanged, SessionTag,
     SessionSubagent, SessionThread, SessionTurn, SessionUpload, SessionVoice, SessionVoiceNamed, StartSession,
     TagKind, TaggedJob, TakeHeld, TerminalAsk, TerminalAsked, TuneSession,
@@ -406,7 +412,9 @@ pub use rehearsal::{
 };
 pub use remarks::{InlineContext, JobRemarks, Remark, RemarksTakenUp};
 pub use report::{Calibration, Claim, FileReport, Report, ReportId, ReportList, ReportOrigin};
-pub use repositories::{AddRepository, CloneRepository, RepositoryList, RepositorySummary};
+pub use repositories::{
+    AddRepository, CloneRepository, RepositoryList, RepositorySummary, RequestRepository,
+};
 pub use requester::Requester;
 pub use resources::{
     Asked, BriefContents, Finding, Held, JobExamined, JobProcess, JobResources, LogFile, LogKind,
@@ -496,7 +504,10 @@ pub use underway::{
 };
 pub use usage::{FleetUsage, ManifestSpend, Overspending};
 pub use protocol_id::ProtocolId;
-pub use waiting::{AskedOption, ChosenAnswer, QuestionInFlight, RedirectInFlight, RedirectWaiting};
+pub use waiting::{
+    AskedOption, ChosenAnswer, ChosenDecision, DecisionInFlight, QuestionInFlight, RedirectInFlight,
+    RedirectWaiting,
+};
 pub use walk_notes::{CaptureWalkNote, RemoveWalkNote, WalkNote, WalkNotes};
 pub use work::{
     ChangesRequested, DeclaredPlan, JobDiff, JobEvidence, JobFootprint, LineCount, Overruled,

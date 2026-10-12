@@ -46,6 +46,7 @@ export const ALIASES: Readonly<Record<string, readonly string[] | undefined>> = 
   // and an alias identical to the label it finds teaches nothing.
   new_job: ["start", "compose"],
   copy_debug_info: ["clipboard", "support", "envelope"],
+  debug_bridge: ["screenshot", "diagnose", "state"],
   report_job: ["bug", "file", "wrong"],
   observe: ["watch", "transcript", "terminal"],
   open_diff: ["patch", "changes", "files"],

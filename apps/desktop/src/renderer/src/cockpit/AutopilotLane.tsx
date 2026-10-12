@@ -15,7 +15,6 @@ import type { Item } from "../Dashboard";
 import type { BaysAutopilot } from "./BaysView";
 import { withAutopilot } from "./autopilot-metro";
 import { cappedOf, capsOf, fieldsOf, isOn, localNow, nextUpOf, readingOf, settingsFrom, setAsideOf, stoppingOf } from "./autopilot";
-import { takeSeed, useAutopilotSeed } from "./autopilot-seed";
 import { AsideActs, AutopilotSidings, type SidingPress } from "./AutopilotSidings";
 import "./autopilot.css";
 
@@ -112,16 +111,6 @@ export function useAutopilotLane({ picked, state, now }: { picked: RepositorySum
     [act],
   );
 
-  // The one bar's Autopilot choice: the form opens holding the words, and reads them.
-  const seed = useAutopilotSeed();
-  useEffect(() => {
-    if (seed === null || manifestId === null) return;
-    takeSeed();
-    if (isOn(held.get(manifestId))) return setRefused({ manifest: manifestId, why: "Autopilot is already on for this repository. Stop it before starting another." });
-    setStarting(true);
-    setSentence(seed.words);
-    read(manifestId, seed.words);
-  }, [seed?.at, manifestId]);
   // Another repository, another form.
   useEffect(() => {
     setStarting(false);

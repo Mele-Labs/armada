@@ -1,17 +1,14 @@
 // The title bar's one bar: search and dispatch in one field, proposal D (the owner, 10 Oct 2026). It
 // replaced the Dashboard's dispatch bar and the title bar's Dispatch button. The palette is the field,
-// and this is what it sends: a Job goes straight to the proposer where one repository is picked, and
-// to the composer on All, which asks which. A Session starts as the dispatch bar started one. On a picked
-// repository the third kind is Autopilot (#2092): the words open the Cockpit's start form, which reads
-// them and starts nothing until the person presses Start.
+// and a dispatch row chosen in it (↵ on the row, ⌘↵, a pasted link) does not send: it grows the dispatch
+// panel down from the field, holding the words, in the kind Tab chose. The panel, its draft and the
+// sends are `dispatch-panel/`; the Cockpit's bar is the same panel in place.
 
 import { useEffect, useRef, useState } from "react";
-import { isPressed, type DispatchKind, type PaletteDispatch } from "@armada/components";
+import { isPressed, type PaletteDispatch } from "@armada/components";
 import { holdsText } from "@armada/screens/src/keys";
 
-import { seedAutopilot } from "./cockpit/autopilot-seed";
-import { useSessionsDraft } from "./sessions-draft";
-import { useDispatchKind } from "./remembered-views";
+import type { Dispatching } from "./dispatch-panel/dispatching";
 
 /** The title bar's field, which the palette opens over. */
 export const ONE_BAR = ".armada-title-bar__search";
@@ -19,55 +16,27 @@ export const ONE_BAR = ".armada-title-bar__search";
 export function useOneBar({
   palette,
   live,
-  repository,
   compose,
-  openSession,
-  said,
-  proposeFrom,
-  showCockpit,
+  dispatching,
 }: {
   palette: { open: boolean; onOpen: () => void };
   /** Off the line, `n` keeps the Board's own meaning, as it did beside the dispatch bar. */
   live: boolean;
-  /** The picked repository, or `null` on All. */
-  repository: string | null;
   /** The full composer, holding the words. */
   compose: (words: string) => void;
-  openSession: (sessionId: string) => void;
-  said: (sentence: string) => void;
-  proposeFrom: (request: string, attachments: readonly [], repository: null) => Promise<string | null>;
-  /** The Cockpit, where Autopilot's start form is. */
-  showCockpit: () => void;
+  dispatching: Dispatching;
 }): PaletteDispatch {
-  const draft = useSessionsDraft();
-  const [chosen, choose] = useDispatchKind();
-  // Autopilot is chosen for this opening only and never remembered: the next `n` is for a Job again.
-  const [autopilot, setAutopilot] = useState(false);
-  const kinds: DispatchKind[] = ["job", ...(draft === undefined ? [] : ["session" as const]), ...(repository === null ? [] : ["autopilot" as const])];
-  const kind: DispatchKind = autopilot && repository !== null ? "autopilot" : draft === undefined ? "job" : chosen;
   const [leads, setLeads] = useOpenedToDispatch(palette, live);
 
-  useEffect(() => void (palette.open || (setLeads(false), setAutopilot(false))), [palette.open, setLeads]);
+  useEffect(() => void (palette.open || setLeads(false)), [palette.open, setLeads]);
 
   return {
-    kind,
-    kinds,
-    ...(kinds.length < 2 ? {} : { onKind: (next: DispatchKind) => (setAutopilot(next === "autopilot"), next === "autopilot" || choose(next)) }),
+    kind: dispatching.kind,
+    kinds: dispatching.kinds,
+    ...(dispatching.kinds.length < 2 ? {} : { onKind: dispatching.choose }),
     leads,
     onCompose: compose,
-    onDispatch: (words, as) => {
-      if (as === "autopilot") {
-        seedAutopilot(words);
-        showCockpit();
-      } else if (as === "session" && draft !== undefined) {
-        void Promise.resolve(draft.start()).then((id) => {
-          if (id === undefined) return;
-          draft.send(id, { text: words, files: [], sketches: [], tags: [] });
-          openSession(id);
-        });
-      } else if (repository === null) compose(words);
-      else void proposeFrom(words, [], null).then((told) => told === null || said(told));
-    },
+    onDispatch: (words) => dispatching.openTitled(words),
   };
 }
 
