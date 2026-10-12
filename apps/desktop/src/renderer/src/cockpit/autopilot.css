@@ -38,3 +38,6 @@
 .armada-autopilot-aside__why { grid-column: 2; color: var(--fg-muted); font-size: var(--text-xs); line-height: var(--leading-xs); }
 .armada-autopilot-aside__acts { display: flex; gap: var(--space-1); }
 .armada-autopilot-aside__row > .armada-autopilot-aside__acts { grid-column: 3; grid-row: 1 / span 2; }
+
+/* All, with no Autopilot on anywhere: one quiet line where the bars would be. #2105. */
+.armada-autopilot-lane__none { margin: 0; color: var(--fg-subtle); font-size: var(--text-xs); line-height: var(--leading-xs); }
