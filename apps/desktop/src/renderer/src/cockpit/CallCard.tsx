@@ -374,6 +374,7 @@ export function CallCard({
             )}
           </>
         )}
+        {item.issue?.failing !== undefined ? null : (
         <p className="armada-callcard__ask" data-quiet={(item.waiting !== undefined ? item.waiting.item.source !== "permission" : item.hue === "ask") || answer.decision !== undefined ? undefined : ""}>
           {answer.ask}
           {answer.decision === undefined ? null : (
@@ -384,6 +385,7 @@ export function CallCard({
             </span>
           )}
         </p>
+        )}
         {sleep === undefined || item.context === undefined ? null : (
           <section aria-label={item.contextHead ?? "Chose"}>
             <pre className="armada-callcard__why">{item.context.slice(0, 1).join("\n")}</pre>

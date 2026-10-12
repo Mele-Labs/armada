@@ -13,6 +13,7 @@ const clash = region(/^Overlap: Shorten the reconnect wait/);
 const jobCallFixes = walk("job-call-fixes", [
   { look: check, say: "A Check failed: which Check, the tests that failed by name, and the end of its output" },
   { look: inside(check, role("list", "Failing tests")), say: "The failing tests, by name" },
+  { press: inside(check, button(/caps_at_thirty_seconds/)), say: "A test pressed finds its line in the output and marks it" },
   { look: inside(check, text("left: 64s")), say: "The output scrolls from its last lines" },
   { hover: inside(check, button(/^Skip$|^Skip \d/)), say: "Skip says it ends the Check as skipped, not passed" },
   { look: inside(check, button(/^Skip all/)), say: "Skip all is there because more than one Check is unfinished" },

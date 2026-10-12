@@ -33,7 +33,7 @@ const calls: Record<string, CallView> = {
         key: "i1",
         of: "check",
         name: "store",
-        text: "store: 3 failed",
+        text: "The store Check failed",
         said: "Check failed",
         unfinished: 2,
         failing: ["store::retry::caps_at_thirty_seconds", "store::retry::resets_after_success", "store::retry::jitter_stays_inside_the_cap"],

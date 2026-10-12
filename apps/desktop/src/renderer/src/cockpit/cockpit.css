@@ -358,10 +358,32 @@ span.armada-view__dot { cursor: default; }
 }
 
 /* What went wrong on a Job: the failure itself, in mono under the frame's hue, so the card needs no opening. */
-.armada-failure { display: flex; flex-direction: column; gap: var(--space-2); }
+.armada-failure { display: flex; flex-direction: column; gap: var(--space-4); }
 .armada-failure__list { display: flex; flex-direction: column; gap: var(--space-1); margin: 0; padding: 0; list-style: none; font-family: var(--font-mono); font-size: var(--text-xs); line-height: var(--leading-xs); color: var(--fg-default); }
 .armada-failure__list > li { overflow-wrap: anywhere; }
 .armada-failure__list > li::before { content: "·"; margin-right: var(--space-2); color: var(--hue); }
+
+/* The tests a Check failed: one row each in the body face, the name alone in mono, pressed to find it in the output. */
+.armada-failure__tests { display: flex; flex-direction: column; gap: var(--space-1); margin: 0; padding: 0; list-style: none; }
+.armada-failure__test {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-width) solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--fg-default);
+  font: inherit;
+  font-size: var(--text-sm);
+  text-align: left;
+  cursor: pointer;
+}
+.armada-failure__test:hover { border-color: var(--status-completed-failed); }
+.armada-failure__test:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
+.armada-failure__test code { font-family: var(--font-mono); font-size: var(--text-xs); overflow-wrap: anywhere; }
+.armada-failure__mark { display: inline-flex; flex: none; color: var(--status-completed-failed); }
 .armada-failure__output {
   margin: 0;
   padding: var(--space-2) var(--space-3);
@@ -375,6 +397,11 @@ span.armada-view__dot { cursor: default; }
   color: var(--fg-muted);
   white-space: pre;
 }
+.armada-failure__output { position: relative; }
+.armada-failure__line { display: block; }
+.armada-failure__line[data-marked] { background: color-mix(in srgb, var(--status-completed-failed) 18%, transparent); box-shadow: inset 2px 0 0 var(--status-completed-failed); animation: armada-failure-mark 1.2s var(--ease); }
+@keyframes armada-failure-mark { 0% { background: color-mix(in srgb, var(--status-completed-failed) 50%, transparent); } }
+@media (prefers-reduced-motion: reduce) { .armada-failure__line[data-marked] { animation: none; } }
 .armada-failure__output:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
 .armada-failure__facts { display: flex; gap: var(--space-6); margin: 0; font-family: var(--font-mono); font-size: var(--text-xs); line-height: var(--leading-xs); }
 .armada-failure__facts dt { color: var(--fg-subtle); }
@@ -503,7 +530,7 @@ span.armada-view__dot { cursor: default; }
 .armada-callcard__quiet { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
 .armada-callcard__quiet { margin-left: auto; gap: var(--space-1); }
 .armada-callcard__decide .armada-kbd,
-.armada-callcard__quiet .armada-kbd { margin-left: var(--space-2); }
+.armada-callcard__quiet .armada-kbd { margin-left: var(--space-1); }
 
 /* A Session's own box under the acts, as the Session draws it. */
 .armada-callcard__composer { display: flex; flex-direction: column; min-height: 0; }
