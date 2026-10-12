@@ -5,6 +5,7 @@
 import { describe, expect, it } from "vitest";
 import type { PhoneAnswer, PhoneRequest, SettingsFileOpened } from "@armada/settings/api";
 import type { AskLessonRead, AskTurn, LessonReviewRead } from "@armada/jobs/review-wire";
+import type { LessonSessionRead } from "@armada/jobs/session-wire";
 import type {
   AddTask,
   FixMain,
@@ -384,6 +385,7 @@ type OldBridgeApi = {
     readLessons: (state: "open" | "accepted") => Promise<LessonsRead>;
     agreeLesson: (lessonId: string) => Promise<LessonAnswer>;
     disagreeLesson: (lessonId: string) => Promise<LessonAnswer>;
+    startLessonSession: (lessonId: string) => Promise<LessonSessionRead>;
     reviewLessons: () => Promise<LessonReviewRead>;
     askLesson: (lessonId: string, question: string, history: AskTurn[]) => Promise<AskLessonRead>;
     readFrame: (jobId: string, kept: string) => Promise<FrameRead>;
@@ -678,6 +680,7 @@ const OLD_CHANNELS = {
     readLessons: "bridge:read-lessons",
     agreeLesson: "bridge:agree-lesson",
     disagreeLesson: "bridge:disagree-lesson",
+    startLessonSession: "bridge:start-lesson-session",
     reviewLessons: "bridge:review-lessons",
     askLesson: "bridge:ask-lesson",
     readFrame: "bridge:read-frame",

@@ -128,3 +128,40 @@ it("sends nothing where no Fleet is connected", async () => {
   const answer = await new JobCommands(board).agreeLesson(LESSON.id);
   expect(answer).toEqual({ ok: false, outcome: { ok: false, why: "not_connected" } });
 });
+
+it("starts a Session for an item on its own route, with no body, and reads nothing again", async () => {
+  const asked: Asked[] = [];
+  const rereads: number[] = [];
+  const started = { lesson: { ...LESSON, session_proposed: "s-01J8ZQ4M" }, session_id: "s-01J8ZQ4M", draft: "Compare against origin/main." };
+  const port = await fleetAnswering(200, started, asked);
+  const commands = new JobCommands(boardOn(port, rereads));
+
+  const answer = await commands.startLessonSession(LESSON.id);
+
+  expect(answer).toEqual({ ok: true, started });
+  expect(asked).toEqual([{ method: "POST", path: "/lessons/01K7LESSON/session", body: "", caller: "bridge" }]);
+  // A Session is no Board row.
+  expect(rereads).toEqual([]);
+});
+
+it("answers a refused Session start as the refusal", async () => {
+  const port = await fleetAnswering(422, { code: "fleet.lesson_session_nothing_to_work_on", message: "Kit is no repository." }, []);
+  const answer = await new JobCommands(boardOn(port)).startLessonSession(LESSON.id);
+  expect(answer.ok).toBe(false);
+});
+
+it("sends one answer per item at a time, a Session start included", async () => {
+  const asked: Asked[] = [];
+  let release: () => void = () => {};
+  const hold = new Promise<void>((done) => (release = done));
+  const port = await fleetAnswering(200, LESSON, asked, hold);
+  const commands = new JobCommands(boardOn(port));
+
+  const first = commands.startLessonSession(LESSON.id);
+  await expect.poll(() => asked.length).toBe(1);
+  const second = await commands.agreeLesson(LESSON.id);
+  expect(second).toEqual({ ok: false, outcome: { ok: false, why: "already_answering_lesson" } });
+  release();
+  await first;
+  expect(asked).toHaveLength(1);
+});
