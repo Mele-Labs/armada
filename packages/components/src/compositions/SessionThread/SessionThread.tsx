@@ -1,6 +1,6 @@
 import { useLayoutEffect, useMemo, useRef } from "react";
 import type { ReactNode, Ref } from "react";
-import { AppWindow, Box, Check, ChevronRight, CircleCheck, CircleX, GitBranch, GitMerge, GitPullRequest, KeyRound, Layers, LoaderCircle, Server, Smartphone, SquareTerminal, Wrench } from "lucide-react";
+import { AppWindow, Box, Check, ChevronRight, GitBranch, GitPullRequest, KeyRound, Layers, Server, Smartphone, SquareTerminal, Wrench } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { AttachmentChip } from "../../primitives/AttachmentChip/AttachmentChip";
@@ -10,7 +10,7 @@ import { Prose, ProseCommand, ProseRunner } from "../../primitives/Prose/Prose";
 import type { CodeRunner } from "../../primitives/Prose/Prose";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { SessionMark } from "../SessionFrame/SessionFrame";
-import { ARTIFACT, type LedgerEntry } from "../SessionLedger/SessionLedger";
+import { ARTIFACT, PullRequestChecksMark, PullRequestStateMark, type LedgerEntry } from "../SessionLedger/SessionLedger";
 import { StepActivityMark, type StepActivity } from "../StepActivityMark/StepActivityMark";
 import { InlineTag } from "../SessionComposer/InlineTag";
 import { SessionRetroRow, type SessionRetroRowData } from "../SessionRetroRow/SessionRetroRow";
@@ -96,10 +96,6 @@ export type AskedQuestion = {
 /** What was chosen for one question: option labels, and the person's own words where they chose Other. */
 export type QuestionAnswer = { question: string; chosen: string[] };
 
-export type DoneMade = LedgerEntry & { pr?: { merged: boolean; checks: "passed" | "running" | "failed"; checksSaid: string } };
-
-const DONE_CHECKS = { passed: CircleCheck, running: LoaderCircle, failed: CircleX } as const;
-
 export type SessionThreadProps = {
   rows: readonly SessionThreadRow[];
   /**
@@ -113,7 +109,7 @@ export type SessionThreadProps = {
    * `made` are ledger entries (pull requests, or artifacts), listed under the band as presses; none draws no body.
    * A pull request's entry carries `pr`: its state and Checks, each a bare mark with a tooltip.
    */
-  done?: { onEnd: () => void; onKeep: () => void; made?: readonly DoneMade[] };
+  done?: { onEnd: () => void; onKeep: () => void; made?: readonly LedgerEntry[] };
   /** The ask's card, so a host can scroll to it. */
   askRef?: Ref<HTMLDivElement>;
   /** Opens the Session a message came from. */
@@ -586,16 +582,11 @@ export function SessionThread({ rows, asked, askRef, onAnswer, done, onOpenSessi
             <ul className="armada-session-done__made" aria-label={done.made[0]!.kind === "pull_request" ? "Pull requests" : "Artifacts"}>
               {done.made.map((row) => {
                 const form = row.artifact === undefined ? undefined : ARTIFACT[row.artifact];
-                const CheckGlyph = DONE_CHECKS[row.pr?.checks ?? "passed"];
                 return (
                   <li key={row.key} className="armada-session-ledger__row" aria-label={row.name}>
                     <button type="button" className="armada-session-ledger__open" aria-label={`Open ${row.name}`} onClick={row.onOpen}>
                       {row.pr !== undefined ? (
-                        <Tooltip label={row.pr.merged ? "Merged" : "Open"}>
-                          <span className="armada-session-done__state" data-state={row.pr.merged ? "merged" : "open"} role="img" aria-label={row.pr.merged ? "Merged" : "Open"}>
-                            {row.pr.merged ? <GitMerge size={12} strokeWidth={2} aria-hidden /> : <GitPullRequest size={12} strokeWidth={2} aria-hidden />}
-                          </span>
-                        </Tooltip>
+                        <PullRequestStateMark merged={row.pr.merged} />
                       ) : form === undefined ? (
                         <GitPullRequest size={12} strokeWidth={2} aria-hidden />
                       ) : (
@@ -606,13 +597,7 @@ export function SessionThread({ rows, asked, askRef, onAnswer, done, onOpenSessi
                         </Tooltip>
                       )}
                       <span className="armada-session-ledger__text">{row.text}</span>
-                      {row.pr === undefined ? null : (
-                        <Tooltip label={row.pr.checksSaid}>
-                          <span className="armada-pr-card__check" data-checks={row.pr.checks} role="img" aria-label={row.pr.checksSaid}>
-                            <CheckGlyph size={12} strokeWidth={2} aria-hidden />
-                          </span>
-                        </Tooltip>
-                      )}
+                      {row.pr === undefined ? null : <PullRequestChecksMark checks={row.pr.checks} said={row.pr.checksSaid} />}
                     </button>
                   </li>
                 );

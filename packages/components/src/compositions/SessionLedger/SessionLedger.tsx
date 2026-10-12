@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { AppWindow, BellRing, Box, GitPullRequestArrow, MessageSquare, Check, CircleDot, Files, Globe, Hand, Image, Megaphone, MoveRight, NotebookText, Reply, Search, Terminal, GitBranch, GitPullRequest, KeyRound, Presentation, PencilRuler, ShieldCheck, ShieldEllipsis, ShieldX, Split } from "lucide-react";
+import { AppWindow, BellRing, Box, CircleCheck, CircleX, GitMerge, GitPullRequestArrow, LoaderCircle, MessageSquare, Check, CircleDot, Files, Globe, Hand, Image, Megaphone, MoveRight, NotebookText, Reply, Search, Terminal, GitBranch, GitPullRequest, KeyRound, Presentation, PencilRuler, ShieldCheck, ShieldEllipsis, ShieldX, Split } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { forgetKept } from "../../keep";
@@ -38,12 +38,42 @@ export type SessionLedgerCard = {
   facts: readonly { label: string; value: string; tone?: SessionLedgerTone; mono?: boolean }[];
 };
 
+export type LedgerPullRequest = { merged: boolean; checks: "passed" | "running" | "failed"; checksSaid: string };
+
+const PR_CHECKS = { passed: CircleCheck, running: LoaderCircle, failed: CircleX } as const;
+
+/** A pull request's state as one bare mark: merged or open, in its hue, its tooltip naming it. */
+export function PullRequestStateMark({ merged }: { merged: boolean }) {
+  const said = merged ? "Merged" : "Open";
+  return (
+    <Tooltip label={said}>
+      <span className="armada-pr-state" data-state={merged ? "merged" : "open"} role="img" aria-label={said}>
+        {merged ? <GitMerge size={12} strokeWidth={2} aria-hidden /> : <GitPullRequest size={12} strokeWidth={2} aria-hidden />}
+      </span>
+    </Tooltip>
+  );
+}
+
+/** A pull request's Checks as one bare mark, the PR card's: spinning while they run. */
+export function PullRequestChecksMark({ checks, said }: { checks: LedgerPullRequest["checks"]; said: string }) {
+  const Glyph = PR_CHECKS[checks];
+  return (
+    <Tooltip label={said}>
+      <span className="armada-pr-card__check" data-checks={checks} role="img" aria-label={said}>
+        <Glyph size={12} strokeWidth={2} aria-hidden />
+      </span>
+    </Tooltip>
+  );
+}
+
 export type LedgerEntry = {
   key: string;
   kind: LedgerKind;
   /** The row's accessible name: what it is, and for a pull request how its Checks stand. */
   name: string;
   text: ReactNode;
+  /** A `pull_request` row's state and Checks, drawn as the two bare marks the done callout draws too. */
+  pr?: LedgerPullRequest;
   /** A pull request's Checks, or a subagent's turn, as the one mark at the row's end. */
   mark?: { glyph: SessionLedgerTone; said: string };
   /** The preview a hover or a focus shows beside the row. Absent draws none. */
@@ -262,7 +292,9 @@ function LedgerSection({ kind, label, Glyph, all }: { kind: LedgerKind; label: s
                     aria-expanded={replies ? replying === row.key : undefined}
                     onClick={replies ? () => setReplying(replying === row.key ? undefined : row.key) : row.onOpen}
                   >
-                    {waiting !== undefined ? (
+                    {row.pr !== undefined ? (
+                      <PullRequestStateMark merged={row.pr.merged} />
+                    ) : waiting !== undefined ? (
                       <Tooltip label={waiting.said}>
                         <span className="armada-session-mark" role="img" aria-label={waiting.said}>
                           <waiting.Glyph size={12} strokeWidth={2} aria-hidden />
@@ -298,7 +330,9 @@ function LedgerSection({ kind, label, Glyph, all }: { kind: LedgerKind; label: s
                         {row.slot}
                       </span>
                     )}
-                    {Mark === undefined || row.mark === undefined ? null : (
+                    {row.pr !== undefined ? (
+                      <PullRequestChecksMark checks={row.pr.checks} said={row.pr.checksSaid} />
+                    ) : Mark === undefined || row.mark === undefined ? null : (
                       <Tooltip label={row.mark.said}>
                         <span
                           className="armada-session-mark"

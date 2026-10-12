@@ -37,7 +37,6 @@ import type {
   ChipOwnershipValue,
   OpenInSessionValue,
   PilotValue,
-  DoneMade,
   LedgerEntry,
   OwnerChipRef,
   OwnerSummary,
@@ -762,6 +761,7 @@ function entriesOf(
             </>
           ),
           mark: { glyph: one.state === "merged" ? "passed" : one.checks.state, said: one.state === "merged" ? "Merged" : checksSaid(one.checks) },
+          pr: { merged: one.state === "merged", checks: one.checks.state === "failed" ? "failed" : one.checks.state === "pending" ? "running" : "passed", checksSaid: checksSaid(one.checks) },
           ...(one.state === "merged" ? { finished: true } : {}),
           onOpen: () => read({ kind: "pull_request", number: one.number }),
         };
@@ -916,15 +916,8 @@ function SessionView({ session, goes, onOpen, held, board, lines }: { session: S
     { board, slots: held.held.state === "read" ? (held.held.held.slots ?? []) : [] },
   );
   // What the done callout lists: every pull request, merged first then open, else the pages, files and Docs made. Pictures looked at and windows shown were not made.
-  const doneRows = attachmentsOf(session, "pull_request")
-    .sort((a, b) => Number(b.state === "merged") - Number(a.state === "merged"))
-    .flatMap((one): DoneMade[] => {
-      const entry = entries.find((row) => row.kind === "pull_request" && row.key === String(one.number));
-      return entry === undefined
-        ? []
-        : [{ ...entry, pr: { merged: one.state === "merged", checks: one.checks.state === "failed" ? "failed" : one.checks.state === "pending" ? "running" : "passed", checksSaid: checksSaid(one.checks) } }];
-    });
-  const made: DoneMade[] = doneRows.length > 0 ? doneRows : entries.filter((one) => one.kind === "artifact" && (one.artifact === "page" || one.artifact === "file" || one.artifact === "doc"));
+  const prRows = entries.filter((one) => one.kind === "pull_request").sort((a, b) => Number(b.pr?.merged === true) - Number(a.pr?.merged === true));
+  const made = prRows.length > 0 ? prRows : entries.filter((one) => one.kind === "artifact" && (one.artifact === "page" || one.artifact === "file" || one.artifact === "doc"));
   return (
     <>
       <SessionFrame

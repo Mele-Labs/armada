@@ -23,12 +23,16 @@ function opened(title: RegExp): Step[] {
 const prs = inside(callout, role("list", "Pull requests"));
 const artifacts = inside(callout, role("list", "Artifacts"));
 
-const keep: Step[] = [
-  ...opened(/Pin the store clock/),
-  { look: prs, say: "Each pull request with its state and checks" },
-  { press: inside(callout, button("Keep going")), say: "Keep going hides it" },
-  { look: kit(false).message, say: "The cursor is in the message box" },
-];
+function keep(narrow: boolean): Step[] {
+  const { ledger, opened: inLedger, message } = kit(narrow);
+  return [
+    ...opened(/Pin the store clock/),
+    { look: prs, say: "Each pull request with its state and checks" },
+    ...inLedger([{ look: inside(ledger, region("Pull requests")), say: "The ledger's pull requests, with state and checks" }]),
+    { press: inside(callout, button("Keep going")), say: "Keep going hides it" },
+    { look: message, say: "The cursor is in the message box" },
+  ];
+}
 
 const made: Step[] = [
   ...opened(/Write up the store clock/),
@@ -45,8 +49,8 @@ function end(narrow: boolean): Step[] {
   ];
 }
 
-const wide = walk("session-all-done", keep);
-const narrow = walk("session-all-done", keep, NARROW);
+const wide = walk("session-all-done", keep(false));
+const narrow = walk("session-all-done", keep(true), NARROW);
 const wideMade = walk("session-all-done-artifacts", made);
 const narrowMade = walk("session-all-done-artifacts", made, NARROW);
 const wideEnd = walk("session-all-done", end(false));

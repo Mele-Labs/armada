@@ -188,18 +188,6 @@
   list-style: none;
 }
 
-.armada-session-done__state {
-  display: inline-flex;
-}
-
-.armada-session-done__state[data-state="merged"] {
-  color: var(--status-completed-success);
-}
-
-.armada-session-done__state[data-state="open"] {
-  color: var(--status-awaiting-review);
-}
-
 .armada-session-done__acts {
   display: flex;
   gap: var(--space-2);
