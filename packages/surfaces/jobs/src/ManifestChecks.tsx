@@ -160,16 +160,20 @@ export function ManifestChecks(props: ManifestChecksProps) {
       )}</>;
   return (
     <div className="armada-screen__overview">
-      {only ? null : (
-      <CheckFilters
-        value={filter}
-        onChange={(next) => {
-          setFilter(next);
-          setOpenId(null);
-        }}
+      <CheckList
+        rows={shown.map((one) => rowOf(one, jobLabel))}
+        openRow={open?.id ?? null}
+        onOpenRow={setOpenId}
+        controls={
+          <CheckFilters
+            value={filter}
+            onChange={(next) => {
+              setFilter(next);
+              setOpenId(null);
+            }}
+          />
+        }
       />
-      )}
-      {only ? null : <CheckList rows={shown.map((one) => rowOf(one, jobLabel))} openRow={open?.id ?? null} onOpenRow={setOpenId} />}
       {open === undefined ? null : open.land !== undefined ? (
         <LandCheckLogSheet
           key={open.id}
