@@ -55,10 +55,10 @@
   --helm-faint: color-mix(in srgb, var(--helm) 6%, transparent);  /* the canvas's pool, and the dock's wash */
 
   /* You. The owner's own messages in a Session thread, and nothing else.
-     Chartreuse, hue 100, which no status, kind or tool family sits near: the
-     nearest are the diff green at 144 and --kind-delivery at 82, a muted tint
-     on the approval canvas alone. --fg-inverse reads 10.26:1 on it as a band. */
-  --you: #8CD369;
+     Gold, hue 47: brighter and more yellow than --status-awaiting-review at 39,
+     and only ever the band of his message, never on or beside a Job row.
+     --fg-inverse reads 11.03:1 on it as a band. */
+  --you: #E8C547;
   --you-edge: color-mix(in srgb, var(--you) 55%, transparent); /* the message card's border */
 
   /* Diff */

@@ -278,19 +278,19 @@ on its own chip.
 ### You
 
 ```
---you        #8CD369   the message band's fill
-                       light: #356B19
+--you        #E8C547   the message band's fill
+                       light: #8F7000
 --you-edge   55%       the message card's border
 ```
 
 The owner's own messages in a Session thread need to read as his at a glance,
-apart from the agent's row, another Session's band and the lease. **Chartreuse
-sits at hue 100**, clear of the diff green at 144, `--status-completed-success`
-at 148 and `--kind-delivery`, a muted tint on the approval canvas alone, at 82.
-No status, tool family or node kind is near it, so it never appears on or
-beside a Job row. His acts, Approved and Answered, stay the inverse neutral
-and do not take it. `--fg-inverse` on `--you` as the band's text reads 10.26:1
-in dark and 6.42:1 in light.
+apart from the agent's row, another Session's band and the lease. **Gold sits at
+hue 47**, brighter and more yellow than `--status-awaiting-review` amber at 39,
+which is a state and reads as one. `--you` is only ever the band of his message
+in a Session thread, never on or beside a Job row, so the two do not meet. His
+acts, Approved and Answered, stay the inverse neutral and do not take it.
+`--fg-inverse` on `--you` as the band's text reads 11.03:1 in dark and 4.68:1 in
+light.
 
 ### Status — derived from the state machine
 
