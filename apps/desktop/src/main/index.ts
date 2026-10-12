@@ -747,6 +747,10 @@ void app.whenReady().then(() => {
   ipcMain.handle(CHANNELS.disagreeLesson, (_event, lessonId: string) =>
     connection?.commands.disagreeLesson(lessonId),
   );
+  // Agreeing by a Session instead of a Job: Fleet starts it and drafts the first message, and sends nothing.
+  ipcMain.handle(CHANNELS.startLessonSession, (_event, lessonId: string) =>
+    connection?.commands.startLessonSession(lessonId),
+  );
   ipcMain.handle(CHANNELS.restartStep, (_event, jobId: string, note?: string) =>
     connection?.commands.restartStep(jobId, note),
   );

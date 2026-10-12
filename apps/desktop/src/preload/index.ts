@@ -3,6 +3,7 @@ import { contextBridge, ipcRenderer, webUtils } from "electron";
 import { CHANNELS } from "../shared/bridge";
 import { autopilotPreload } from "./autopilot";
 import type { AskLessonRead, AskTurn, LessonReviewRead } from "@armada/jobs/review-wire";
+import type { LessonSessionRead } from "@armada/jobs/session-wire";
 import { ANNOTATE_FLAG, ANNOTATION_CHANNELS } from "../shared/annotations";
 import type { Annotation, AnnotationsDevApi, Box } from "../shared/annotations";
 import { frameStreamUrl } from "../shared/streaming";
@@ -598,6 +599,8 @@ const api: BridgeApi = {
     ipcRenderer.invoke(CHANNELS.disagreeLesson, lessonId),
   // The guided review: the model's queue over the open items, and one question about one item.
   // Neither names a manifest or a port: main narrows the first to this window's pick.
+  startLessonSession: (lessonId: string): Promise<LessonSessionRead> =>
+    ipcRenderer.invoke(CHANNELS.startLessonSession, lessonId),
   reviewLessons: (): Promise<LessonReviewRead> => ipcRenderer.invoke(CHANNELS.reviewLessons),
   askLesson: (lessonId: string, question: string, history: AskTurn[]): Promise<AskLessonRead> =>
     ipcRenderer.invoke(CHANNELS.askLesson, lessonId, question, history),

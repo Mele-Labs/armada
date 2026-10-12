@@ -28,8 +28,8 @@ use std::path::Path;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct, Worktree};
 use core_model::{
-    Actor, Component, Envelope, EscalationTrigger, Job, JobId, JobStatus, Level, StepId, StepState,
-    StepTarget, Target, TransitionReason,
+    Actor, Component, Envelope, Job, JobId, JobStatus, Level, StepId, StepState,
+    StepTarget, Stuck, Target, TransitionReason,
 };
 
 use crate::adrift::Adrift;
@@ -396,28 +396,25 @@ where
         // is offered an act and refused it is the defect #442 closed. #452.
         //
         // **An empty slot with no stopped step still refuses, unless the Job
-        // is `stalled` or `no_worktree` over a step still `running`.** The
-        // first is a Drone that was genuinely there when the Job escalated and
-        // has since gone; the second is a catch-up that failed after the step
-        // re-entered and before any Drone, over a worktree that
-        // `surviving_worktree` below still finds. —
-        // `core_model::job::stuck::abandoned_mid_step` reads the same three
-        // facts, gated the same way, so the offer and this refusal agree.
-        // Every other empty-slot Job hears the sentence it always did: there
-        // is no process to end and no step to run again, which is
-        // `interrupted`, `would_not_start`, `not_configurable` and
-        // `resource_exhausted`. `#1034`.
+        // escalated over a Drone that was there, or over a spawn a restart had
+        // already entered the step for.** The step is still `running` and
+        // nothing stands in the slot; `core_model::Stuck::abandoned_by` names
+        // the triggers (`stalled`, `interrupted`, `no_worktree`) and
+        // `core_model::job::stuck::abandoned_mid_step` reads the same facts,
+        // so the offer and this refusal agree. `no_worktree` is taken on the
+        // disk and not the name: `surviving_worktree` below still refuses a
+        // tree that is gone. Every other empty-slot Job hears the sentence it
+        // always did — `would_not_start`, `not_configurable` and
+        // `resource_exhausted` had no Drone to lose. `#1034`.
         let abandoned = !stopped
             && standing.is_none()
             && job
                 .current_step()
                 .is_some_and(|row| row.state() == StepState::Running)
-            && matches!(
-                self.last_reason(job_id).await?,
-                Some(TransitionReason::Escalation(
-                    EscalationTrigger::Stalled | EscalationTrigger::NoWorktree
-                ))
-            );
+            && Stuck::abandoned_by(match self.last_reason(job_id).await? {
+                Some(TransitionReason::Escalation(trigger)) => Some(trigger),
+                _ => None,
+            });
         if !stopped && standing != Some(true) && !abandoned {
             return Err(Adrift::NoStepStopped {
                 job: job_id.clone(),
@@ -581,10 +578,11 @@ where
     /// **A step-level escalation is what makes a restart coherent.** Only a
     /// step-level trigger reaches a step's `last_verdict`, so only a step-level
     /// escalation leaves a `stopped` row naming which step to run again — and a
-    /// Job escalated on `interrupted`, `resource_exhausted` or `stalled` has
-    /// none. For the first two the Drone is gone as well, which leaves
-    /// redispatch and Pilot; for the third it is alive, and a redirect is what
-    /// answers it.
+    /// Job escalated on `resource_exhausted` or `stalled` has none. For the
+    /// first the Drone is gone as well, which leaves redispatch and Pilot; for
+    /// the second it is alive, and a redirect is what answers it. `interrupted`
+    /// and `no_worktree` may leave a step `running` with no Drone, which
+    /// `restart_step` takes through `Stuck::abandoned_by` and not through here.
     ///
     /// **A redirect does not call this to decide whether it applies.** It calls
     /// it to learn whether anything has to be unfrozen, which is a different

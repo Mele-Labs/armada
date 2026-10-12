@@ -108,7 +108,7 @@ import {
   readBrief,
   readRetro,
   agreeLesson,
-  disagreeLesson,
+  disagreeLesson, startLessonSession,
   followCheckOutput,
   readFrame,
   frameSrc,
@@ -730,7 +730,7 @@ export function App({ draft }: AppProps = {}) {
                   onReadBrief={readBrief}
                   onReadRetro={readRetro}
                   onAgreeLesson={agreeLesson}
-                  onDisagreeLesson={disagreeLesson}
+                  onDisagreeLesson={disagreeLesson} onStartSession={startLessonSession} onOpenSession={openSession}
                   onReadFrame={readFrame}
                   onFrameSrc={frameSrc}
                   onNeedMaterial={readEvidence}

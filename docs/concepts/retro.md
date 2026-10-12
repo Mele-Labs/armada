@@ -80,7 +80,7 @@ Every item starts `open`.
 | State | Means |
 | --- | --- |
 | `open` | Nobody has answered it. What the Retros page lists by default |
-| `agreed` | A Job was proposed for it at the approval gate, and `job_proposed` names it |
+| `agreed` | A Job was proposed for it at the approval gate and `job_proposed` names it, or a Session was started for it and `session_proposed` names that. Never both |
 | `accepted` | A Kit item the person agreed with. Nothing to dispatch: an item with a `change` has it applied to Kit and answers with `applied`, and one without is kept as it is. The person's saved Kit items |
 | `discarded` | Disagreed with. The row stays |
 
@@ -101,6 +101,22 @@ proposed.
 
 An item kept before `lands_in` names no place, so agreeing with it is refused:
 where its Job would go is not Fleet's to guess.
+
+**Start Session agrees by starting a Session instead of proposing a Job**, and
+`start_lesson_session` keeps `agree_lesson`'s rules: the same ids for a Job's item
+and a Session's, the same place a `manifest` or `armada` fix goes (a Session's own
+item goes to the repository its Session was started in), the same refusals
+(`fleet.no_such_lesson`, `fleet.lesson_names_no_place`,
+`fleet.lesson_armada_not_served`), and the same first press wins: the write that
+moves the item off `open` is the claim, so two presses make one Session and send
+one message. A `kit` item is refused with `fleet.lesson_session_nothing_to_work_on`.
+The brief is the item as `propose_from_request` would read it, written to the agent
+who will do the work. **It is sent at once**, so the process starts and the turn
+runs. A Session that starts and refuses the message cannot be taken back, so the
+item stays `agreed` with the Session on it and the answer is still a 200, with
+`send_failed` holding Fleet's words for why; pressing again answers with that
+Session, sets `send_failed` again, and sends nothing. An item already answered with a Job, or accepted or
+discarded, answers 409 `fleet.lesson_not_open`.
 
 ## The record it is read from
 
@@ -253,22 +269,40 @@ allowed commands, and `Accept` where it carries none, since nothing is dispatche
 and the item is saved. The other reads `Reject change`. The acts are still
 `agree` and `disagree` on the wire.
 
+**An Armada or Manifest item has a second way to agree, `Start Session`, beside
+`Create Job`.** The owner's request, 12 Oct 2026: a person who wants to talk the
+fix through with an agent could only dispatch a Job. It sits between `Create Job`
+and `Reject change` on the list, on a Job's retro sheet and in the review, and a
+Kit item has none, since Kit is no repository. **It begins work at once**, and its
+tooltip says so: `start_lesson_session` starts a hosted Session on the item's
+repository and Fleet sends the item's request as the Session's first message (the
+owner's decision, 12 Oct 2026, over a draft left in the message box). Bridge
+opens that Session in Sessions, which shows the sent message and the running
+turn, and puts nothing in the composer. Where the Session started and the send
+failed, Bridge still opens it and the card says so in Fleet's words.
+
 **What a press leaves on screen.** Create Job keeps the card as `Agreed` with a
 link to the proposed Job until the list is read again, when Fleet no longer
 lists it as open. Update Kit keeps it the same way as `Updated Kit`, with the
-command from `applied` beside it in monospace. Accept and Reject change take the
-card off at once. A refused Update Kit (`fleet.kit_change_refused`) draws the
-card's alert in Fleet's own words and keeps both buttons. There is
+command from `applied` beside it in monospace. Start Session opens the Session
+(see above) and leaves the card as `Session started` with an `Open Session` link,
+until the list is read again, when Fleet no longer lists it as open; in the review
+it advances like any answer. Accept and Reject change take the card off at once.
+A refused Update Kit (`fleet.kit_change_refused`) or Start Session
+(`fleet.lesson_armada_not_served` and the like) draws the card's alert in Fleet's
+own words and keeps every button, and opens nothing. There is
 no confirmation: a mistaken Create Job proposes a Job that waits for the
-owner's approval, and a mistaken Reject change discards one item. **An item
+owner's approval, a mistaken Start Session starts an agent working on the request, and a
+mistaken Reject change discards one item. **An item
 answered already stands as its `state` says**, on the sheet as on the list:
-`Agreed` with the link, or `Accepted`, or `Updated Kit` with its command where
+`Agreed` with the link, or `Session started` with its link where `session_proposed`
+is present, or `Accepted`, or `Updated Kit` with its command where
 `applied` is present, or nothing where discarded, and no
 buttons. **An item with no `state`, or kept before `lands_in`, is drawn without
 the buttons**: Fleet refuses both acts on one with no place.
 
 **Review is a button beside Open and Accepted, and it shows one item at a
-time.** Pressing it reads `review_lessons` and draws the best item first, with
+time.** Pressing it reads `review_lessons`, unless this window already holds a review for the pick, and draws the best item first, with
 how far through the person is, the model's one sentence on why it is worth their
 time, and the same card and answers as the list. An item that stands for repeats
 says so and lists them; rejecting it rejects the repeats only where the person
@@ -277,7 +311,23 @@ arrow keys do the same. Each item keeps its own thread of questions to
 `ask_lesson`, kept as the person moves between items. The items the model set
 aside are folded away with their reasons, and each can be put back in the queue.
 Leaving Review reads the list again, since the review answered items the list
-still held. `packages/surfaces/jobs/src/LessonsReview.tsx`.
+still held.
+
+**A review is kept for as long as the window is open, and leaving Retros does not
+end it.** The owner's request, 12 Oct 2026: the page unmounted with the rail, and
+returning asked the model again from the first card. Bridge holds the answer, the
+place in it, each item's thread and half-typed question, what was put back and the
+duplicate boxes, per repository pick, and whether the page was on Review or the
+list. Returning to Review resumes at the same card and makes no model call. **The
+hold makes the call itself**, so a person who leaves while Fleet is reading finds
+the answer on return. **What was answered meanwhile is gone on return**: the page
+reads the list fresh and drops what is no longer open, and does not rank again.
+Another repository pick starts its own review. The review says how old it is,
+`Reviewed 12 minutes ago`, beside `Review again`, the one way to ask the model
+again; it throws the held place and threads away and has no confirmation. Nothing
+is written to disk, so a restart starts a review again, which is also why Review
+mode is held and not remembered like the tab: stored, it would start a model call
+as Retros opened. `packages/surfaces/jobs/src/LessonsReview.tsx`.
 
 ## Where it is served
 
@@ -289,6 +339,7 @@ still held. `packages/surfaces/jobs/src/LessonsReview.tsx`.
 | `write_session_retro` | `POST /sessions/:session_id/retro` | The same, once the retro is written |
 | `agree_lesson` | `POST /lessons/:lesson_id/agree` | The `Lesson` as it now stands, with `job_proposed` where a Job was proposed |
 | `disagree_lesson` | `POST /lessons/:lesson_id/disagree` | The `Lesson`, `discarded` |
+| `start_lesson_session` | `POST /lessons/:lesson_id/session` | `{ lesson, session_id, brief }`: the item `agreed` with `session_proposed` set, the Session started, and the `brief` Fleet sent as its first message. No body. Helm only |
 | `review_lessons` | `POST /lessons/review` | `LessonReview`: the open items grouped, ordered and set aside, from one model call. Body `{ manifest_id? }` |
 | `ask_lesson` | `POST /lessons/:lesson_id/ask` | `{ answer }`, from one model call over the item and the record rows it cites. Body `{ question, history }` |
 
@@ -307,8 +358,9 @@ Helm may when a person asks. So are the two calls under *Reviewing*.
 together.** The owner's decision, 10 Oct 2026, after the page listed every open
 item with its repeats and its stale ones. `review_lessons` reads the open items
 as `list_lessons` does, with the same narrowing by repository, and asks the
-retro model once. Nothing is stored: a review is made again on every press, and
-Bridge holds the answer for as long as the page is open.
+retro model once. Fleet stores nothing: Bridge holds the answer for as long as
+the window is open (*Where Bridge draws it*), and asks again only on `Review
+again`.
 
 | Part | Is |
 | --- | --- |
