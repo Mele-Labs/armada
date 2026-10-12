@@ -165,14 +165,17 @@ async fn said(fleet: &Arc<Hosted>, id: &ipc::SessionId) -> Vec<String> {
         .collect()
 }
 
+/// The bound is a hang guard, not a timing claim: a real keeper process on a
+/// loaded CI runner missed five seconds twice on 12 Oct 2026, and a check that
+/// comes true returns at once whatever the bound.
 async fn eventually<F: std::future::Future<Output = bool>>(mut check: impl FnMut() -> F) {
-    for _ in 0..500 {
+    for _ in 0..3000 {
         if check().await {
             return;
         }
         tokio::time::sleep(Duration::from_millis(10)).await;
     }
-    panic!("it did not come true within five seconds");
+    panic!("it did not come true within thirty seconds");
 }
 
 fn pid_in(text: &str) -> String {
