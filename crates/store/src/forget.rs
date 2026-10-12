@@ -208,7 +208,8 @@ impl Forgotten {
             | "job_issue_writeback" => {
                 &mut self.approval
             }
-            "job_retros" | "job_retro_items" | "job_drone_notes" | "job_event_via" => {
+            "job_retros" | "job_retro_items" | "job_drone_notes" | "job_event_via"
+            | "job_event_phone" => {
                 &mut self.retros
             }
             "job_walk_notes" => &mut self.walk_notes,

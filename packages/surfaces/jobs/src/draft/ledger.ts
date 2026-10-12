@@ -62,6 +62,8 @@ export type LedgerRow = {
    */
   coord: RunCoord | null;
   actor: LedgerActor;
+  /** Set where a person took the act on their phone. Absent is Bridge or no one. */
+  fromPhone?: true;
   /** An opaque string. A surface renders the spelling where it has no word. */
   kind: string;
   /** What happened, in words. */
@@ -205,6 +207,7 @@ export function ledgerRowOf(move: Recorded): LedgerRow {
     at: move.at,
     coord: coordOf(move),
     actor: actorOf(move.actor),
+    ...(move.via === "phone" ? { fromPhone: true as const } : {}),
     kind: kindOf(move),
     what: whatOf(move),
     outcome: outcomeOf(move),

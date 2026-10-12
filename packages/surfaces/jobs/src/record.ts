@@ -15,7 +15,7 @@ import {
 import type { JobDetail } from "@armada/protocol";
 
 import { absoluteOf, clock } from "@armada/screens/src/duration";
-import { markFor, outcomeCellOf, whatCellOf } from "./record-cells";
+import { markFor, phoneDoor, outcomeCellOf, whatCellOf } from "./record-cells";
 import { taskGroupsOf } from "./draft/group";
 import {
   countsOf,
@@ -154,6 +154,7 @@ export function ledgerRowsFor(
       whoSays: WHO_SAYS[row.actor],
       what: whatCellOf(row),
     };
+    if (row.fromPhone === true) drawn.door = phoneDoor();
     const mark = markFor(row.kind);
     if (mark !== undefined) drawn.mark = mark;
     const exact = absoluteOf(row.at);
