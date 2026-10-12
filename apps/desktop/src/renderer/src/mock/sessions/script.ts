@@ -53,7 +53,8 @@ const drawing = (boxes: [string, number, number, string][], lines: [string, stri
 });
 
 /** The Sessions already open beside the walk's own. */
-function others(): Session[] {
+/** The Sessions every walk over the store opens with. */
+export function others(): Session[] {
   return [
     {
       id: "s2",
@@ -104,6 +105,9 @@ function others(): Session[] {
   ];
 }
 
+/** How long the mock's pull request act takes to come back from the forge. */
+const ACT_MS = 1500;
+
 /** What every subagent the mock holds does, in order: the brief, its calls, and the report it ends on. */
 const SUBAGENT_SCRIPT: readonly (readonly ["message" | "tool", string])[] = [
   ["message", "Read the CI history of store_flaky and say when it fails."],
@@ -135,6 +139,14 @@ const PICTURE = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 200"><
 
 const NOTE = "# Store clock\n\nThe store reads the clock once per write.\n\n- Pinned in tests\n- Read through `Clock::now`\n";
 
+/** What the fake runner prints for a command containing the first of each pair. */
+const RUN_OUTPUT: readonly (readonly [string, readonly string[]])[] = [
+  ["typecheck", ["> @armada/desktop typecheck", "> tsc --noEmit -p tsconfig.web.json", "Found 0 errors."]],
+  ["vitest", ["RUN  v3.2.4 packages/components", "✓ Prose.test.tsx (14)", "✗ SessionThread.test.tsx (1)", "AssertionError: expected 3 to equal 4", "Tests  1 failed | 41 passed"]],
+  ["tail -f", ["build.log: compiling", "build.log: 212 modules"]],
+];
+const RUN_DEFAULT = ["done"];
+
 export function sessionsStore(
   jobs: readonly [DispatchedJob, DispatchedJob],
   review: DispatchedJob,
@@ -147,7 +159,8 @@ export function sessionsStore(
   /** What an agent says to a Session, one message each time a walk lets time pass, before the usual turns. */
   arrivals: readonly (readonly [id: string, text: string])[] = [],
 ): SessionsStore {
-  let now: readonly Session[] = [...others(), ...more];
+  // A Session in `more` with a usual one's id stands in for it.
+  let now: readonly Session[] = [...others().filter((one) => !more.some((it) => it.id === one.id)), ...more];
   let clock = 0;
   let rowId = 0;
   let moment = 0;
@@ -536,7 +549,9 @@ export function sessionsStore(
         void effort;
         return { ...rest, mode: tuning.mode, ...(tuning.model === null ? {} : { model: tuning.model }), ...(tuning.effort === null ? {} : { effort: tuning.effort }) };
       }),
-    act(id, number, what) {
+    // Fleet asks the forge, which takes a moment: long enough to see the press underway.
+    async act(id, number, what) {
+      await new Promise<void>((resolve) => after(ACT_MS, resolve));
       const change = (one: SessionAttachment): SessionAttachment => {
         if (one.kind !== "pull_request" || one.number !== number) return one;
         if (what === "ready") return { ...one, state: "open" };
@@ -552,6 +567,7 @@ export function sessionsStore(
           ...(what === "review" ? [{ kind: "job", ...review, title: `Code review of #${number}`, state: "running" } as const] : []),
         ],
       }));
+      return true;
     },
     openWindow,
     // What the mock's files hold, since none is on this machine: a picture for an image, text for the rest.
@@ -572,6 +588,34 @@ export function sessionsStore(
         return { ...rest, waitingFor: (one.waitingFor ?? []).filter((it) => it.id !== itemId) };
       });
       addTo(id, [said(`Going with ${chosen ?? "my own call"}.`)]);
+    },
+    run: (_id, command, on) => {
+      // A fake runner: a few timed lines. `vitest` fails, `tail -f` never ends until it is stopped.
+      const lines = RUN_OUTPUT.find(([match]) => command.includes(match))?.[1] ?? RUN_DEFAULT;
+      const forever = command.includes("tail -f");
+      let at = 0;
+      let handle = 0;
+      const step = () => {
+        if (at < lines.length) {
+          on({ kind: "out", text: `${lines[at]}\n` });
+          at += 1;
+        } else if (forever) on({ kind: "out", text: `build.log ${new Date().toLocaleTimeString("en-GB")} waiting\n` });
+        else {
+          on({ kind: "end", code: command.includes("vitest") ? 1 : 0 });
+          return;
+        }
+        handle = window.setTimeout(step, forever ? 700 : 450);
+        timers.add(handle);
+      };
+      handle = window.setTimeout(step, 250);
+      timers.add(handle);
+      return {
+        stop: () => {
+          window.clearTimeout(handle);
+          timers.delete(handle);
+          on({ kind: "end", code: null });
+        },
+      };
     },
     answer: (id, answer, answers) => {
       const questioned = now.find((one) => one.id === id)?.asked?.questions !== undefined;

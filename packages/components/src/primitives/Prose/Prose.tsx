@@ -1,9 +1,13 @@
-import { createContext, useContext, type ReactNode } from "react";
+import { Children, createContext, isValidElement, useContext, type ReactNode } from "react";
 import Markdown, { type Components } from "react-markdown";
 import remarkBreaks from "remark-breaks";
 import remarkGfm from "remark-gfm";
 import remarkParse from "remark-parse";
 import { unified } from "unified";
+
+import { commandOf, ProseRunner, RunnableBlock } from "./RunnableBlock";
+export type { CodeRunEvent, CodeRunner } from "./RunnableBlock";
+export { ProseRunner } from "./RunnableBlock";
 
 /**
  * Text a model wrote, drawn as the markdown it is written in, with the GFM extensions,
@@ -73,6 +77,24 @@ function Link({ href, children }: { href: string | undefined; children: ReactNod
   );
 }
 
+/** A fenced block; one in a shell language gains Run where a runner is provided. */
+function Block({ children }: { children?: ReactNode }) {
+  const runner = useContext(ProseRunner);
+  const pre = <pre className="armada-prose__block">{children}</pre>;
+  if (runner === null) return pre;
+  const code = Children.toArray(children)[0];
+  if (!isValidElement<{ className?: string; children?: ReactNode }>(code)) return pre;
+  const language = /language-(\S+)/.exec(code.props.className ?? "")?.[1];
+  const source = typeof code.props.children === "string" ? code.props.children : null;
+  const command = source === null ? null : commandOf(language, source);
+  if (command === null) return pre;
+  return (
+    <RunnableBlock command={command} runner={runner}>
+      {pre}
+    </RunnableBlock>
+  );
+}
+
 /** A heading of any level is a paragraph: a model's `#` inside a card is not the card's title. */
 function said(level: number) {
   return function Said({ children }: { children?: ReactNode }) {
@@ -95,7 +117,7 @@ const DRAWN: Components = {
   h6: said(6),
   strong: ({ children }) => <strong className="armada-prose__strong">{children}</strong>,
   code: ({ children }) => <code className="armada-prose__code">{children}</code>,
-  pre: ({ children }) => <pre className="armada-prose__block">{children}</pre>,
+  pre: Block,
   ul: ({ children }) => <ul className="armada-prose__list">{children}</ul>,
   ol: ({ children, start }) => (
     <ol className="armada-prose__list armada-prose__list--ordered" start={start}>

@@ -17,6 +17,8 @@ import type {
   SendSessionMessage,
   SessionRecord,
   SessionRow,
+  SessionRunMessage,
+  SessionRunUnderway,
   SessionSubagent,
   TuneSession,
 } from "@armada/protocol";
@@ -102,6 +104,12 @@ export type SessionsApi = {
     number: number,
     press: PullRequestPress,
   ) => Promise<SessionActed<PullRequestState | ReviewDispatched>>;
+  /** Runs a shell block from a Session's thread. Answers with the run's id, or Fleet's refusal; its output arrives on `onSessionRunMessage`. */
+  startSessionRun: (sessionId: string, command: string) => Promise<SessionActed<SessionRunUnderway>>;
+  /** Ends a run's process group. */
+  stopSessionRun: (runId: string) => Promise<SessionActed<SessionRunUnderway>>;
+  /** What every run this window started prints, by run id, ending with `exited`. Returns its remover. */
+  onSessionRunMessage: (on: (runId: string, message: SessionRunMessage) => void) => () => void;
 };
 
 /** Every session on the machine, as `list_sessions` answers and `session.changed` keeps current. */
@@ -147,4 +155,7 @@ export const SESSIONS_CHANNELS = {
   hideSessionPage: "bridge:hide-session-page",
   sessionPageEscape: "bridge:session-page-escape",
   pressPullRequest: "bridge:press-pull-request",
+  startSessionRun: "bridge:start-session-run",
+  stopSessionRun: "bridge:stop-session-run",
+  sessionRunMessage: "bridge:session-run-message",
 } as const;

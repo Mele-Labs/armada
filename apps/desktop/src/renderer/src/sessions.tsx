@@ -10,6 +10,7 @@ import {
   Alert,
   Button,
   ChipOwnership,
+  MergeLinePlace,
   ForkedFrom,
   OpenInSession,
   PilotAct,
@@ -68,7 +69,8 @@ import {
   withoutShapes,
 } from "@armada/screens/src/draft/sketch";
 import type { Drawing } from "@armada/screens/src/draft/sketch";
-import type { HeldWorktrees } from "@armada/protocol";
+import type { HeldWorktrees, MergeLines } from "@armada/protocol";
+import { placeOf } from "@armada/screens";
 import { SURFACE, useAtFloor, useNarrow } from "@armada/shell";
 
 import { proposeRequest } from "./dispatch";
@@ -451,6 +453,7 @@ function ReadingSheet({
   readSubagent,
   one,
   draft,
+  lines,
   onClose,
   onOpenLink,
   onAct,
@@ -459,11 +462,24 @@ function ReadingSheet({
   readSubagent: SessionsDraft["subagent"];
   one: SessionAttachment | undefined;
   draft: SessionsDraft | undefined;
+  /** What Fleet serves of the merge lines, for the place a pull request holds in one. */
+  lines: MergeLines | null;
   onClose: () => void;
   onOpenLink: (address: string) => void;
-  onAct: (number: number, act: PullRequestAct) => void;
+  onAct: (number: number, act: PullRequestAct) => Promise<boolean>;
 }) {
   const floor = useAtFloor();
+  const [pressed, setPressed] = useState<{ number: number; act: PullRequestAct } | undefined>(undefined);
+  // A Review Fleet accepted, kept for the Session and pull request it was asked of.
+  const [reviewed, setReviewed] = useState<ReadonlySet<string>>(new Set());
+  const press = (number: number, act: PullRequestAct) => {
+    setPressed({ number, act });
+    void onAct(number, act)
+      .then((accepted) => {
+        if (accepted && act === "review") setReviewed((was) => new Set(was).add(`${sessionId}#${number}`));
+      })
+      .finally(() => setPressed(undefined));
+  };
   const title =
     one === undefined
       ? ""
@@ -476,6 +492,7 @@ function ReadingSheet({
             : one.kind === "artifact"
               ? one.title
               : "";
+  const place = one?.kind === "pull_request" ? placeOf(lines, one) : undefined;
   const artifact = one?.kind === "artifact" ? one : undefined;
   const Glyph = artifact === undefined ? undefined : ARTIFACT_GLYPH[artifact.form];
   return (
@@ -517,8 +534,17 @@ function ReadingSheet({
               <span key={fact}>{fact}</span>
             ))}
           </PullRequestCard>
+          {place === undefined ? null : <MergeLinePlace rows={place} onOpenPullRequest={onOpenLink} />}
           <Refused />
-          <PullRequestActs state={one.state} checks={one.checks.state} auto={one.auto} queued={one.queued === true} onAct={(act) => onAct(one.number, act)} />
+          <PullRequestActs
+            state={one.state}
+            checks={one.checks.state}
+            auto={one.auto}
+            queued={one.queued === true}
+            {...(pressed?.number === one.number ? { pending: pressed.act } : {})}
+            reviewed={reviewed.has(`${sessionId}#${one.number}`)}
+            onAct={(act) => press(one.number, act)}
+          />
         </div>
       ) : one?.kind === "sketch" ? (
         <SketchPreview label={one.title} boxes={one.drawing.boxes} lines={one.drawing.lines} strokes={one.drawing.strokes ?? []} pictures={[]} />
@@ -734,7 +760,7 @@ function useMinimized(): [boolean, (minimized: boolean) => void] {
 const NO_SKETCHES: DrawnSketch[] = [];
 const NO_ROWS: SessionThreadRow[] = [];
 
-function SessionView({ session, goes, onOpen, held }: { session: Session; goes: LedgerGoes; onOpen: (id: string) => void; held: HeldReads }) {
+function SessionView({ session, goes, onOpen, held, lines }: { session: Session; goes: LedgerGoes; onOpen: (id: string) => void; held: HeldReads; lines: MergeLines | null }) {
   const draft = useSessionsDraft();
   const sessions = useSessions();
   const floor = useAtFloor();
@@ -872,6 +898,7 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
             onOpenWindow={(url) => draft.openWindow?.(id, url)}
             onOpenCheck={(run) => goes.onOpenCheck(session.id, run)}
             working={session.turn.state === "working"}
+            {...(draft.run === undefined ? {} : { runner: (command, on) => draft.run!(session.id, command, on) })}
             {...(session.asked === undefined
               ? {}
               : {
@@ -928,14 +955,24 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
         readSubagent={draft.subagent}
         one={readingOf(session, reading)}
         draft={draft}
+        lines={lines}
         onClose={() => setReading(undefined)}
         onOpenLink={goes.onOpenLink}
         onAct={(number, act) => {
-          draft.act(session.id, number, act);
+          const done = draft.act(session.id, number, act);
           // Review is a request: the link is the whole of it, and the proposer picks the code review workflow.
           // Where Fleet dispatches it, `act` did, and a second request beside it would review it twice.
           const address = session.attachments.find((one) => one.kind === "pull_request" && one.number === number);
           if (act === "review" && address?.kind === "pull_request" && draft.reviews !== "fleet") void proposeRequest(address.address, []);
+          // A merge asked for here settles the Session's own item asking for it, and that tells the agent.
+          const asked = (session.waitingFor ?? []).find(
+            (one) => one.source === "agent" && one.act?.kind === "approve_pr" && one.act.target.replace(/^#/, "") === String(number),
+          );
+          if ((act === "merge" || act === "auto_merge") && asked !== undefined)
+            void done.then((accepted) => {
+              if (accepted) draft.answerWaiting?.(session.id, asked.id, { text: act === "merge" ? `Merged #${number}` : `Auto-merge is on for #${number}` });
+            });
+          return done;
         }}
       />
       <SketchSheet
@@ -971,6 +1008,7 @@ export function SessionMini({ sessionId, onOpen, fill = false }: { sessionId: st
         <SessionThread
           sessionId={session.id}
           rows={thread}
+          {...(draft.run === undefined ? {} : { runner: (command, on) => draft.run!(session.id, command, on) })}
           {...(session.asked === undefined
             ? {}
             : {
@@ -1023,7 +1061,7 @@ export function listed(sessions: readonly Session[]): string[] {
 const typing = (target: EventTarget | null): boolean =>
   target instanceof HTMLElement && (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName));
 
-export function SessionsSurface({ openId, onOpen, goes, held }: { openId: string | null; onOpen: (id: string) => void; goes: LedgerGoes; held: HeldReads }) {
+export function SessionsSurface({ openId, onOpen, goes, held, lines = null }: { openId: string | null; onOpen: (id: string) => void; goes: LedgerGoes; held: HeldReads; lines?: MergeLines | null }) {
   const sessions = useSessions();
   const open = sessions.find((one) => one.id === openId);
   // j goes to the next Session down the list and k to the one above, opening each. Local to this page.
@@ -1044,7 +1082,7 @@ export function SessionsSurface({ openId, onOpen, goes, held }: { openId: string
   }, [sessions, openId, onOpen]);
   return (
     <div className="armada-screen__overview">
-      {open === undefined ? <SessionsListing onOpen={onOpen} /> : <SessionView session={open} goes={goes} onOpen={onOpen} held={held} />}
+      {open === undefined ? <SessionsListing onOpen={onOpen} /> : <SessionView session={open} goes={goes} onOpen={onOpen} held={held} lines={lines} />}
     </div>
   );
 }

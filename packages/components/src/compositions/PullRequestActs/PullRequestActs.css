@@ -3,3 +3,18 @@
   flex-wrap: wrap;
   gap: var(--space-2);
 }
+
+/* An open ring turning is an act Fleet has not answered, and holds still under reduced motion. */
+.armada-pr-acts__spin {
+  animation: armada-pr-acts-spin var(--duration-pulse) linear infinite;
+}
+
+@keyframes armada-pr-acts-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .armada-pr-acts__spin {
+    animation: none;
+  }
+}

@@ -97,6 +97,8 @@ pub async fn execute(
     let (manifest, name) = manifests.named(key);
     let run_in = root.join(manifest.dir());
     let root = run_in.as_path();
+    // A change was named, as against an empty one, which runs the Check whole.
+    let named = matches!(asked, Asked::Changed(changed) if !changed.is_empty());
     // A workspace's Check reads the paths its manifest owns, relative to it.
     let owned;
     let asked = match asked {
@@ -132,6 +134,12 @@ pub async fn execute(
             })?,
     };
     let (command, narrowed) = match (asked, manifest.check(name)) {
+        // **A change that reaches none of the Check runs nothing.** Otherwise the
+        // empty set it narrows over reads as no change at all, and a TypeScript
+        // change ran the root's whole Rust suite.
+        (Asked::Changed(changed), Some(check)) if named && !check.covers(changed) => {
+            return Ok(crate::reaching::ran_nothing(key))
+        }
         (Asked::Changed(changed), Some(check)) => match crate::reaching::reached(check, changed) {
             (_, Reached::Nothing) => return Ok(crate::reaching::ran_nothing(key)),
             (narrowed, reached) => (narrowed.unwrap_or(command), Some(reached)),
