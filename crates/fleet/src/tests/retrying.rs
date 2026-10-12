@@ -228,7 +228,7 @@ async fn a_spent_budget_frees_the_slot_and_leaves_a_restart_as_the_answer() {
     assert!(
         matches!(
             fleet
-                .redirect(job.id(), &said, api::Redirector::Person)
+                .redirect(job.id(), &said, api::Steerer::Person)
                 .await,
             Err(Adrift::NoDroneToRedirect { .. })
         ),

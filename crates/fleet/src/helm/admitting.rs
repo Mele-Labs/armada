@@ -7,7 +7,7 @@
 //! the brief and the door read one answer.
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
-use api::{Admitting, Caller, HelmReach};
+use api::{Admitting, Caller, CommanderReach, HelmReach};
 
 use super::{may, Authority};
 use crate::daemon::Fleet;
@@ -34,6 +34,14 @@ where
             |row| may(authority, row),
             otherwise(authority),
         ))
+    }
+
+    /// **No connection is a Commander's yet**: its host is `#2166`, which
+    /// returns [`CommanderReach::of_the_allowlist`] for a caller that host's
+    /// processes hold, as `helm_holds` does for Helm. Until then this grants
+    /// nothing, and a Commander-shaped call from anywhere is any agent's.
+    fn commander_at(&self, _caller: Caller) -> Option<CommanderReach> {
+        None
     }
 }
 

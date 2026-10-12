@@ -10,8 +10,9 @@ use ipc::{DroneId, Redirection};
 use serde::Deserialize;
 
 use crate::answers::{answer, refused, undecodable};
-use crate::daemon::{Commands, Redirector};
+use crate::daemon::Commands;
 use crate::door::HelmCalled;
+use crate::placed::{steered_by, CommanderCalled};
 use crate::reference::Resolved;
 use crate::served::Served;
 
@@ -43,16 +44,14 @@ pub(crate) async fn redirect_one_drone<D: Commands>(
     job: Resolved,
     Path(OneDrone { drone_id }): Path<OneDrone>,
     helm: Option<Extension<HelmCalled>>,
+    commander: Option<Extension<CommanderCalled>>,
     body: Bytes,
 ) -> Response {
     let instruction: Redirection = match ipc::decode("a redirect", &body) {
         Ok(instruction) => instruction,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
-    let by = match helm {
-        Some(_) => Redirector::Helm,
-        None => Redirector::Person,
-    };
+    let by = steered_by(helm, commander);
     match served
         .shared()
         .redirect_one_drone(job.id(), DroneId::carried(drone_id), instruction, by)

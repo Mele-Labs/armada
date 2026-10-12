@@ -656,7 +656,7 @@ where
         job_id: JobId,
         drone_id: ipc::DroneId,
         instruction: Redirection,
-        by: api::Redirector,
+        by: api::Steerer,
     ) -> Result<JobSummary, Refusal> {
         let said = Instruction::saying(&instruction.instruction)
             .ok_or_else(|| self.refusal(Adrift::Unnameable))?;
@@ -793,7 +793,7 @@ where
         self: Arc<Self>,
         job_id: JobId,
         instruction: Redirection,
-        by: api::Redirector,
+        by: api::Steerer,
     ) -> Result<JobSummary, Refusal> {
         let said = Instruction::saying(&instruction.instruction)
             .ok_or_else(|| self.refusal(Adrift::Unnameable))?;

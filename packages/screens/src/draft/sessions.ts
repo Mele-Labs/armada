@@ -434,7 +434,8 @@ function names(attachment: SessionAttachment, ref: ChipRef): boolean {
 
 /** The Session that owns what a chip names, or none. **At most one**: a slot, a branch and a PR each belong to one. */
 export function ownerOf(sessions: readonly Session[], ref: ChipRef): Session | undefined {
-  return sessions.find((session) => session.attachments.some((one) => names(one, ref)));
+  // An ended Session keeps what it made on its ledger, but holds nothing.
+  return sessions.find((session) => session.dead !== "ended" && session.attachments.some((one) => names(one, ref)));
 }
 
 /** A Session found by a search, and what in it matched, so a list can say why it is there. */

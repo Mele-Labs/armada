@@ -25,7 +25,8 @@ use ipc::door::{self, Answer, Answered, Asked, Reachable, Shape};
 use ipc::ManifestId;
 use tower::ServiceExt;
 
-use crate::daemon::{offerable, Admitting, HelmReach, Queries};
+use crate::daemon::{offerable, Admitting, Queries};
+use crate::placed::Placed;
 use crate::routes::SERVED;
 use crate::scoped::InManifest;
 use crate::served::Served;
@@ -211,25 +212,25 @@ async fn called<D: Queries + Admitting>(
         .ok()
         .and_then(|Query(scope)| scope.manifest());
     let caller = crate::mcp::who_called(&parts);
-    let helm = doorway.served.daemon().helm_at(caller);
+    let placed = Placed::of(doorway.served.daemon(), caller);
     let body = match axum::body::to_bytes(body, MOST_A_CALL_MAY_BE).await {
         Ok(body) => body,
         // Answered as unreadable bytes, `crate::mcp`'s shape for the same case.
         Err(_) => Bytes::new(),
     };
-    // **A Helm session reads against everything it could be offered**, so a
-    // call outside its reach is refused by name below rather than answered
-    // as a tool that does not exist.
-    let shapes = match &helm {
-        None => offered(),
-        Some(_) => shaped(offerable()),
+    // **A Helm session or a Commander reads against everything it could be
+    // offered**, so a call outside its reach is refused by name below rather
+    // than answered as a tool that does not exist.
+    let shapes = match placed.is_narrowed() {
+        false => offered(),
+        true => shaped(offerable()),
     };
     let answered = match door::read(&body, &shapes) {
         Asked::Nothing => return StatusCode::ACCEPTED.into_response(),
         Asked::Ping { id } => Answered::Ping { id },
         Asked::Tools { id } => Answered::Tools {
             id,
-            shapes: within(shapes, helm.as_ref()),
+            shapes: within(shapes, &placed),
         },
         Asked::NoSuchMethod { id, named } => Answered::NoSuchMethod { id, named },
         Asked::Unreadable { why } => Answered::Unreadable { why },
@@ -245,24 +246,16 @@ async fn called<D: Queries + Admitting>(
             },
             Err(why) => Answered::Refused { id, why },
         },
-        Asked::Call { id, call } => match (doorway.scope(named).await, &helm) {
-            (Err(why), _) => Answered::Refused { id, why },
-            (Ok(_), Some(reach)) if !reach.may(call.operation) => Answered::Refused {
+        Asked::Call { id, call } => match doorway.scope(named).await {
+            Err(why) => Answered::Refused { id, why },
+            Ok(_) if !placed.may(call.operation) => Answered::Refused {
                 id,
-                why: reach.refusing(call.operation),
+                why: placed.refusing(call.operation),
             },
-            (Ok(scope), _) => match within_scope(&call, &scope) {
+            Ok(scope) => match within_scope(&call, &scope) {
                 Ok(call) => Answered::Served {
                     id,
-                    answer: doorway
-                        .through(
-                            &call,
-                            helm.as_ref()
-                                .is_some_and(|reach| !reach.is_a_hosted_session()),
-                            &scope,
-                            caller,
-                        )
-                        .await,
+                    answer: doorway.through(&call, &placed, &scope, caller).await,
                 },
                 Err(why) => Answered::Refused { id, why },
             },
@@ -282,15 +275,12 @@ async fn called<D: Queries + Admitting>(
 }
 
 /// The tools a caller is listed: every shape for any agent, and only what the
-/// daemon decided for a Helm session.
-fn within(shapes: Vec<Shape>, helm: Option<&HelmReach>) -> Vec<Shape> {
-    match helm {
-        None => shapes,
-        Some(reach) => shapes
-            .into_iter()
-            .filter(|shape| reach.may(shape.operation))
-            .collect(),
-    }
+/// reach decided for a Helm session or a Commander.
+fn within(shapes: Vec<Shape>, placed: &Placed) -> Vec<Shape> {
+    shapes
+        .into_iter()
+        .filter(|shape| placed.may(shape.operation))
+        .collect()
 }
 
 impl<D: Queries> Doorway<D> {
@@ -310,12 +300,12 @@ impl<D: Queries> Doorway<D> {
         }
     }
 
-    /// One tool call, made against the surface inside `scope`. `by_helm`
+    /// One tool call, made against the surface inside `scope`. `placed`
     /// marks it for the route that records who acted.
     async fn through(
         &self,
         call: &door::Call,
-        by_helm: bool,
+        placed: &Placed,
         scope: &Scope,
         caller: crate::mcp::Caller,
     ) -> Answer {
@@ -333,9 +323,7 @@ impl<D: Queries> Doorway<D> {
         let Ok(mut request) = request else {
             return unanswerable(call, "that call did not make a request");
         };
-        if by_helm {
-            request.extensions_mut().insert(HelmCalled);
-        }
+        placed.mark(&mut request);
         request.extensions_mut().insert(DoorCalled);
         request
             .extensions_mut()

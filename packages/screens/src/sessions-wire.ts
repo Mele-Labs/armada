@@ -334,9 +334,9 @@ export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] 
   const mode = hosted?.mode ?? terminal?.mode;
   const asked = hosted?.asked ?? terminal?.asked;
   const ended = record.state === "ended";
-  // A session that ended holds nothing, so it owns nothing: what it keeps is the link to its forks.
+  // A session that ended holds nothing, so it owns nothing: what it keeps is the link to its forks and starts, and what it made, to be read.
   const attachments = attachmentsOfRecord(record, beside).filter(
-    (one) => !ended || one.kind === "forked_to" || one.kind === "forked_from" || one.kind === "started_to" || one.kind === "started_by",
+    (one) => !ended || one.kind === "forked_to" || one.kind === "forked_from" || one.kind === "started_to" || one.kind === "started_by" || one.kind === "pull_request" || one.kind === "artifact",
   );
   // The first message an agent wrote for a Session it started, held by Fleet until the person sends it.
   const unsent = ended ? undefined : record.attachments.find((one) => one.kind === "unsent" && one.state === "standing")?.target;
