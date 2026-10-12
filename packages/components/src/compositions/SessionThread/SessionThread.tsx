@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef } from "react";
 import type { ReactNode, Ref } from "react";
-import { AppWindow, Box, ChevronRight, GitBranch, KeyRound, Layers, SquareTerminal, Wrench } from "lucide-react";
+import { AppWindow, Box, ChevronRight, GitBranch, KeyRound, Layers, Smartphone, SquareTerminal, Wrench } from "lucide-react";
 
 import { AttachmentChip } from "../../primitives/AttachmentChip/AttachmentChip";
 import { Button } from "../../primitives/Button/Button";
@@ -39,8 +39,8 @@ export type SessionThreadRow =
       tags?: readonly { kind: "session" | "job" | "pull_request" | "branch"; id: string; title: string }[];
     }
   | { id: string; at: string; kind: "message"; from: "session"; sender: { id: string; title: string }; text: string }
-  /** A tool call, mono. */
-  | { id: string; at: string; kind: "tool"; text: string }
+  /** A tool call, mono. `fromPhone` is an ask the person answered on their phone: a glyph beside it. */
+  | { id: string; at: string; kind: "tool"; text: string; fromPhone?: true }
   /** A command the person ran in the terminal, as typed, mono. */
   | { id: string; at: string; kind: "command"; text: string }
   /** The summary the CLI wrote where it compacted the conversation. Not the person's words: a quiet row that opens to its text. */
@@ -268,7 +268,7 @@ function namesOf(rows: readonly { text: string }[]): string[] {
  * **Calls that ran one after another are one row, closed.** It names the tools it holds and draws no
  * count; pressing it shows each call. A lone call is a group of one.
  */
-function Calls({ rows, working }: { rows: readonly { id: string; text: string }[]; working?: boolean }) {
+function Calls({ rows, working }: { rows: readonly { id: string; text: string; fromPhone?: true }[]; working?: boolean }) {
   const names = namesOf(rows);
   return (
     <li className="armada-session-fold armada-session-fold--calls">
@@ -282,6 +282,13 @@ function Calls({ rows, working }: { rows: readonly { id: string; text: string }[
           {rows.map((one) => (
             <li key={one.id} className="armada-session-command">
               <code className="armada-session-command__text">{one.text}</code>
+              {one.fromPhone === true ? (
+                <Tooltip label="From phone">
+                  <span className="armada-session-command__door">
+                    <Smartphone size={12} strokeWidth={2} aria-hidden />
+                  </span>
+                </Tooltip>
+              ) : null}
             </li>
           ))}
         </ol>

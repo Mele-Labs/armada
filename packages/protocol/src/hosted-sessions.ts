@@ -218,7 +218,7 @@ export type SessionRow =
       narrative?: DroneNarrative;
     }
   /** A call put to the person. Replaced as it is answered. */
-  | { kind: "ask"; id: string; at: string; ask: HelmCallInFlight; state: SessionAskState };
+  | { kind: "ask"; id: string; at: string; ask: HelmCallInFlight; state: SessionAskState; via?: string };
 
 /** `get_session`: the row and its thread, oldest first. */
 export type SessionThread = { session: SessionRecord; rows: SessionRow[] };

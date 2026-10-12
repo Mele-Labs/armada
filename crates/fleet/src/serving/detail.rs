@@ -384,6 +384,13 @@ where
             .additions_served(job.id())
             .await
             .map_err(|why| self.refusal(why))?;
+        let phoned = self
+            .store()
+            .lock()
+            .await
+            .created_from_phone(job.id())
+            .map_err(|why| self.refusal(Adrift::Reading(store::LoadJobError::Unreadable(why))))?;
+        detail.created_via = phoned.then(|| core_model::Via::Phone.into());
         let reviewed = self
             .store()
             .lock()

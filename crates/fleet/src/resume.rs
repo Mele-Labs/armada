@@ -695,7 +695,7 @@ where
         };
         let sent = match speech {
             Steer::Words(instruction, _) => {
-                at_work.instructed(Occasion::Redirect, instruction.text());
+                at_work.instructed_through(Occasion::Redirect, instruction.text(), api::via());
                 at_work.session().redirect(instruction).await
             }
             Steer::Permission(permitted) => {

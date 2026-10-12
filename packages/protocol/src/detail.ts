@@ -72,6 +72,8 @@ export type JobDetail = {
   triggers?: JobTrigger[];
   /** The steps added to this Job, beside its frozen workflow and never in it. Since 23.68. */
   additions?: AddedStep[];
+  /** The door the request that created this Job came through, kept only for `phone`. Absent is Bridge or an agent. */
+  created_via?: string;
   /** Where the frozen workflow came from, off the Job's record. Absent from an older Fleet. */
   workflow_source?: string;
   /** The Job's plan whole. Absent is a Job no plan was recorded for. Since 13.21. */

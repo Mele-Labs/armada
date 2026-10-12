@@ -343,6 +343,11 @@ pub enum Saw {
         /// carried across.
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
         kinds: Vec<BlockKind>,
+        /// The door the request that made this turn came through, kept for a
+        /// person's redirect. Absent on every other turn, and on any row
+        /// written before this field existed.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        via: Option<crate::Via>,
     },
     /// One declared Check, as Fleet ran it.
     ///

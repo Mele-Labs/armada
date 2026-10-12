@@ -129,14 +129,15 @@ where
             &self.now(),
         );
         let row_id = format!("ask-{}-{id}", waiting.call);
-        let put = |state: SessionAskState| SessionRow::Ask {
+        let put = |state: SessionAskState, via: Option<ipc::Via>| SessionRow::Ask {
             id: row_id.clone(),
             at: self.instant(),
             ask: waiting.clone(),
             state,
+            via,
         };
         self.hosts().of(id).state().asked = Some(waiting.clone());
-        self.row_put(id, put(SessionAskState::Waiting)).await;
+        self.row_put(id, put(SessionAskState::Waiting, None)).await;
         let _ = self.published_hosted(&session.id).await;
 
         let held = asks.hold();
@@ -161,8 +162,13 @@ where
                 (unanswered(held.as_secs()), SessionAskState::Unanswered)
             }
         };
-        self.hosts().of(id).state().asked = None;
-        self.row_put(id, put(state)).await;
+        let via = {
+            let host = self.hosts().of(id);
+            let mut held = host.state();
+            held.asked = None;
+            held.answered_via.take()
+        };
+        self.row_put(id, put(state, via)).await;
         let _ = self.published_hosted(id).await;
         Ok(decided)
     }
@@ -211,7 +217,7 @@ where
             .map_err(|why| self.ledger_fault(why))?;
         self.hosts().terminals().polled(&waiting.call);
         self.hosts().of(id).state().asked = Some(waiting.clone());
-        self.row_put(id, self.ask_row(id, &waiting, SessionAskState::Waiting))
+        self.row_put(id, self.ask_row(id, &waiting, SessionAskState::Waiting, None))
             .await;
         let _ = self.published_hosted(id).await;
         Ok(TerminalAsked::Asked { call: waiting.call })
@@ -296,9 +302,14 @@ where
             .await
             .answer_terminal_ask(id, &waiting.call, &body)
             .map_err(|why| self.ledger_fault(why))?;
-        self.hosts().of(id).state().asked = None;
+        let via = {
+            let host = self.hosts().of(id);
+            let mut held = host.state();
+            held.asked = None;
+            held.answered_via.take()
+        };
         self.hosts().terminals().forget_polls(&waiting.call);
-        self.row_put(id, self.ask_row(id, waiting, state)).await;
+        self.row_put(id, self.ask_row(id, waiting, state, via)).await;
         self.hosts().terminals().rung.notify_waiters();
         Ok(())
     }
@@ -321,7 +332,7 @@ where
         let _ = self.hosts().asks().withdraw(&kept.call);
         // An answered one already closed its card.
         if let (Some(waiting), None) = (waiting, kept.answer) {
-            self.row_put(id, self.ask_row(id, &waiting, state)).await;
+            self.row_put(id, self.ask_row(id, &waiting, state, None)).await;
             let _ = self.published_hosted(id).await;
         }
     }
@@ -376,7 +387,7 @@ where
                 ..
             } = &row
             {
-                self.row_put(id, self.ask_row(id, ask, SessionAskState::Unanswered))
+                self.row_put(id, self.ask_row(id, ask, SessionAskState::Unanswered, None))
                     .await;
             }
         }
@@ -396,12 +407,19 @@ where
             .map_err(|why| self.ledger_fault(why))
     }
 
-    fn ask_row(&self, id: &str, waiting: &HelmCallInFlight, state: SessionAskState) -> SessionRow {
+    fn ask_row(
+        &self,
+        id: &str,
+        waiting: &HelmCallInFlight,
+        state: SessionAskState,
+        via: Option<ipc::Via>,
+    ) -> SessionRow {
         SessionRow::Ask {
             id: format!("ask-{}-{id}", waiting.call),
             at: self.instant(),
             ask: waiting.clone(),
             state,
+            via,
         }
     }
 }
