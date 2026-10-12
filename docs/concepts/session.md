@@ -335,6 +335,8 @@ A pull request a session holds is a `pr` row, and a person can act on it without
 
 **A review is at the approval gate**, like every dispatch, with `origin` `session_dispatched` (*From a Session, by you*) and the pull request as the Job's subject. The workflow is `code_review`, named by Fleet and never read off a link by the proposer. Where a Session pressed it, the Session holds a `job` row whose `detail.origin` says *dispatched from Session <id>*, which is how the Board row and `who_owns` name it.
 
+**A press is drawn as underway until Fleet has answered and the pull request has been read again.** The pressed button takes Button's pending rendering with a turning ring before its label, the other acts are disabled so a second cannot start, and a refusal is said above them and the button returns. A Review Fleet accepted reads "Review dispatched", disabled, for as long as Bridge holds that Session's pull request open, since a second one would review it twice. Merge, Enable auto-merge and Ready for review show the state the re-read brings.
+
 ## Started on a piloted Job
 
 `start_session` takes an optional `pilot` (`job_id`, `outcome`), and that one call is the whole of taking a Job over from a Session: Fleet runs `take_over` first, which is the only thing that can refuse, then writes the Session already holding the Job's slot and branch (`detail.handed`), with the Job as its own `job` row. **It runs in the Job's worktree from its first message and takes no lease on a first write**; its thread opens with a `handoff` row, the bundle's structured fields. The bundle as the agent reads it goes ahead of the person's first message and starts no turn of its own, so a piloted Session nobody has spoken in has spent nothing.

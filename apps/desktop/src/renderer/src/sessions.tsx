@@ -461,9 +461,20 @@ function ReadingSheet({
   draft: SessionsDraft | undefined;
   onClose: () => void;
   onOpenLink: (address: string) => void;
-  onAct: (number: number, act: PullRequestAct) => void;
+  onAct: (number: number, act: PullRequestAct) => Promise<boolean>;
 }) {
   const floor = useAtFloor();
+  const [pressed, setPressed] = useState<{ number: number; act: PullRequestAct } | undefined>(undefined);
+  // A Review Fleet accepted, kept for the Session and pull request it was asked of.
+  const [reviewed, setReviewed] = useState<ReadonlySet<string>>(new Set());
+  const press = (number: number, act: PullRequestAct) => {
+    setPressed({ number, act });
+    void onAct(number, act)
+      .then((accepted) => {
+        if (accepted && act === "review") setReviewed((was) => new Set(was).add(`${sessionId}#${number}`));
+      })
+      .finally(() => setPressed(undefined));
+  };
   const title =
     one === undefined
       ? ""
@@ -518,7 +529,15 @@ function ReadingSheet({
             ))}
           </PullRequestCard>
           <Refused />
-          <PullRequestActs state={one.state} checks={one.checks.state} auto={one.auto} queued={one.queued === true} onAct={(act) => onAct(one.number, act)} />
+          <PullRequestActs
+            state={one.state}
+            checks={one.checks.state}
+            auto={one.auto}
+            queued={one.queued === true}
+            {...(pressed?.number === one.number ? { pending: pressed.act } : {})}
+            reviewed={reviewed.has(`${sessionId}#${one.number}`)}
+            onAct={(act) => press(one.number, act)}
+          />
         </div>
       ) : one?.kind === "sketch" ? (
         <SketchPreview label={one.title} boxes={one.drawing.boxes} lines={one.drawing.lines} strokes={one.drawing.strokes ?? []} pictures={[]} />
@@ -932,11 +951,20 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
         onClose={() => setReading(undefined)}
         onOpenLink={goes.onOpenLink}
         onAct={(number, act) => {
-          draft.act(session.id, number, act);
+          const done = draft.act(session.id, number, act);
           // Review is a request: the link is the whole of it, and the proposer picks the code review workflow.
           // Where Fleet dispatches it, `act` did, and a second request beside it would review it twice.
           const address = session.attachments.find((one) => one.kind === "pull_request" && one.number === number);
           if (act === "review" && address?.kind === "pull_request" && draft.reviews !== "fleet") void proposeRequest(address.address, []);
+          // A merge asked for here settles the Session's own item asking for it, and that tells the agent.
+          const asked = (session.waitingFor ?? []).find(
+            (one) => one.source === "agent" && one.act?.kind === "approve_pr" && one.act.target.replace(/^#/, "") === String(number),
+          );
+          if ((act === "merge" || act === "auto_merge") && asked !== undefined)
+            void done.then((accepted) => {
+              if (accepted) draft.answerWaiting?.(session.id, asked.id, { text: act === "merge" ? `Merged #${number}` : `Auto-merge is on for #${number}` });
+            });
+          return done;
         }}
       />
       <SketchSheet
