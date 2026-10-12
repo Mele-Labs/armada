@@ -440,7 +440,7 @@ pub use sessions::{
     AnswerWaiting, Attachment, AttachmentNamed, AttachmentReport, AttachmentState, DismissWaiting,
     ClaimPullRequest, Holder, HolderKind, Owners, Ownership, PullRequestClaimed, RenameSession,
     SessionFact, SessionId, SessionList, SessionOrigin, SessionRecord, SessionReport, SessionState,
-    SessionUsage, SetWaitingFor, ShowWindow, AskInWindow, WindowPlace, TerminalCommand, TerminalFacts, WaitingAct,
+    SessionRunMessage, SessionRunUnderway, StartSessionRun, StopSessionRun, SessionUsage, SetWaitingFor, ShowWindow, AskInWindow, WindowPlace, TerminalCommand, TerminalFacts, WaitingAct,
     WaitingActKind, WaitingInput, WaitingItem, WaitingMode, WaitingOption, WaitingSource,
     WindowClosed,
 };

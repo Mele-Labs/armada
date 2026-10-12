@@ -32,6 +32,28 @@ pub trait Sessions: Send + Sync + 'static {
         rename: RenameSession,
     ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
 
+    /// `start_session_run` — run a shell block from a Session's thread. Answers at once with the
+    /// run underway. [`Refusal::Unacceptable`] for a blank command, a Session Fleet has no row
+    /// for, or one that has ended.
+    fn start_session_run(
+        &self,
+        start: ipc::StartSessionRun,
+    ) -> impl Future<Output = Result<ipc::SessionRunUnderway, Refusal>> + Send;
+
+    /// `stop_session_run` — end a run's process group. [`Refusal::Unacceptable`] for a run that
+    /// is not in flight.
+    fn stop_session_run(
+        &self,
+        stop: ipc::StopSessionRun,
+    ) -> impl Future<Output = Result<ipc::SessionRunUnderway, Refusal>> + Send;
+
+    /// `observe_session_run` — a run's output on a socket of its own. [`Refusal::Unacceptable`]
+    /// for a run Fleet does not hold.
+    fn observe_session_run(
+        &self,
+        run_id: String,
+    ) -> impl Future<Output = Result<crate::ObservedSessionRun, Refusal>> + Send;
+
     /// `show_window` — a session shows the person a page. `caller` is the connection the call
     /// arrived on, where it came through the agent's door: it places a hosted session. Answers with
     /// the row. [`Refusal::Unacceptable`] for an address that is not `http` or `https`, or a call

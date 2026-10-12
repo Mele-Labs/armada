@@ -536,6 +536,24 @@ where
         self.set_waiting(caller, set).await
     }
 
+    async fn start_session_run(
+        &self,
+        start: ipc::StartSessionRun,
+    ) -> Result<ipc::SessionRunUnderway, Refusal> {
+        self.begin_session_run(start).await
+    }
+
+    async fn stop_session_run(
+        &self,
+        stop: ipc::StopSessionRun,
+    ) -> Result<ipc::SessionRunUnderway, Refusal> {
+        self.end_session_run(stop)
+    }
+
+    async fn observe_session_run(&self, run_id: String) -> Result<api::ObservedSessionRun, Refusal> {
+        self.watch_session_run(&run_id)
+    }
+
     async fn rename_session(&self, rename: ipc::RenameSession) -> Result<SessionRecord, Refusal> {
         let title = rename
             .title

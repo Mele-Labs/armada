@@ -406,6 +406,7 @@ where
             turns: turns.clone(),
             helm,
             sessions,
+            session_runs: Default::default(),
             scouts,
             inbox: EvidenceInbox::new(),
             delivered: Mutex::new(BTreeMap::new()),
@@ -473,6 +474,10 @@ where
     ) -> Fleet<H, V, W> {
         self.sessions = crate::session_host::Hosts::hosted_by(processes, quiet, self.helm.hold());
         self
+    }
+
+    pub(crate) fn session_runs(&self) -> &crate::session_running::SessionRuns {
+        &self.session_runs
     }
 
     pub(crate) fn scouts(&self) -> &crate::scout::Scouts {

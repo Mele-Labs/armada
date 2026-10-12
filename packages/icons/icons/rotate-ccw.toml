@@ -2,13 +2,13 @@
   means = "A single arrow turning back on itself - run the same command again"
   group = "Run"
   size = "16px"
-  status = "Proposed"
+  status = "Specified"
   reserved = "Run again on a command the person ran from a code block. Redispatch of a Job stays `rotate-cw`."
-  notes = "Proposed 11 Oct 2026 for the mock walk `runCodeBlock`. Mirror of `rotate-cw`, so a re-run does not read as a Redispatch."
+  notes = "Proposed 11 Oct 2026 for the mock walk `runCodeBlock`. Mirror of `rotate-cw`, so a re-run does not read as a Redispatch. Approved 11 Oct 2026."
 
   [[icons.rotate-ccw.usage]]
     means = "Run a code block's command again after it ended"
     group = "Run"
     size = "16px"
-    status = "Proposed"
-    notes = "Tooltip `Run again`. Shown beside the result mark."
+    status = "Specified"
+    notes = "Tooltip `Run again`. Shown beside the result mark. Approved 11 Oct 2026."

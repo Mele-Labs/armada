@@ -17,5 +17,5 @@
     means = "Run a code block from a Session's thread, in the Session's directory"
     group = "Run"
     size = "16px"
-    status = "Proposed"
-    notes = "Proposed 11 Oct 2026 for the mock walk `runCodeBlock`. Tooltip `Run`, no text. Appears on hover and on keyboard focus of the block. The person's own act: nothing is sent to the agent."
+    status = "Specified"
+    notes = "Proposed 11 Oct 2026 for the mock walk `runCodeBlock`. Tooltip `Run`, no text. Appears on hover and on keyboard focus of the block. The person's own act: nothing is sent to the agent. Approved 11 Oct 2026."
