@@ -3378,6 +3378,16 @@ Bridge's half is in `packages/protocol/src/hosted-sessions.ts`, written by hand 
 
 **Skew.** A Fleet before 23.77 has no route and answers 404, and never sends `session_proposed`, which Bridge reads as absent. A Bridge before it never calls the route and ignores the field. Bridge's half is `packages/protocol/src/retro-session.ts`, written by hand.
 
+## Protocol 23.78: a slash command run in a terminal Session
+
+`docs/concepts/session.md`, *Running a block*. **Additive only**: one operation, `agent_access: No`, and its type. No type that exists changes.
+
+| Where | Carries | Notes |
+| --- | --- | --- |
+| `run_session_command` (`POST /sessions/command`) | `RunSessionCommand`: `session_id`, `command`. Answers 200 `SessionRecord` | Holds the command for the Session's own mod as a `HeldCommand` (name without the slash, the rest as `args`), the path `tune_session` takes for `/model`; the mod runs it as typed on its next ask and nothing comes back. 422 `fleet.session_command_refused` where the Session is unknown or not a terminal one, or the text is not one slash command on one line (`/name` or `/name args`, a name of lower-case letters, digits, `:` and `-`); 409 `fleet.session_closed` where it ended, and `fleet.terminal_session_unreachable` where its mod is not listening |
+
+**Skew.** A Fleet before 23.78 answers 404 and Bridge shows the refusal as for any act on a Session. A Bridge before it never calls the route. Bridge's half is `packages/protocol/src/hosted-sessions.ts`, written by hand like the rest.
+
 ## Protocol 23.76: a shell block run from a Session's thread
 
 `docs/concepts/session.md`. **Additive only**: three operations, all `agent_access: No`, and their types. No type that exists changes.

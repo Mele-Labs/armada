@@ -210,6 +210,37 @@
   border-bottom: var(--border-width) solid var(--border-subtle);
 }
 
+/* A slash command in inline code: plain code until hovered or focused, then a small play. The
+   space for it is held, so the line does not shift. The press sends it to the terminal. */
+.armada-prose__command {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  cursor: pointer;
+  font-size: inherit;
+  line-height: inherit;
+}
+
+.armada-prose__command-play {
+  opacity: 0;
+  color: var(--fg-muted);
+}
+
+.armada-prose__command:hover .armada-prose__command-play,
+.armada-prose__command:focus-visible .armada-prose__command-play {
+  opacity: 1;
+}
+
+.armada-prose__command:hover,
+.armada-prose__command:focus-visible {
+  border-color: var(--border-strong);
+}
+
+.armada-prose__command-mark {
+  display: inline-flex;
+  color: var(--run-passed);
+}
+
 /* Run on a shell block: a button over the block's corner on hover or focus, and the
    output right under it. The run is the person's own, so nothing here is sent anywhere. */
 .armada-prose__run-block {

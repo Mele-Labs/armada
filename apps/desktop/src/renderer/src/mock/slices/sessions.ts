@@ -20,6 +20,7 @@ export const sessions: Slice<SessionsApi, SessionsState> = {
     claimPullRequest: async () => ({ ok: false, outcome: unanswered("/sessions/claim_pull_request") }),
     dismissWaiting: async () => ({ ok: false, outcome: unanswered("/sessions/waiting/dismiss") }),
     tuneSession: async () => ({ ok: false, outcome: unanswered("/sessions/tune") }),
+    runSessionCommand: async () => ({ ok: false, outcome: unanswered("/sessions/command") }),
     renameSession: async () => ({ ok: false, outcome: unanswered("/sessions/rename") }),
     forkSession: async () => ({ ok: false, outcome: unanswered("/sessions/start") }),
     retroSession: async () => unanswered("/sessions/:session_id/retro"),

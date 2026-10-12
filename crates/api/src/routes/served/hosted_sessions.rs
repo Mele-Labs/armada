@@ -25,6 +25,11 @@ pub(super) const ROUTES: &[Route] = &[
         path: "/sessions/tune",
     },
     Route {
+        operation: "run_session_command",
+        method: "POST",
+        path: "/sessions/command",
+    },
+    Route {
         operation: "close_session",
         method: "POST",
         path: "/sessions/close",
