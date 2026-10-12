@@ -15,7 +15,9 @@
 //! refusing in the same three ways and saying which ceiling every time.
 //!
 //! This file owns the acts: whether a Job may be given more, whether the figure
-//! is a raise, and whether the surface asking may ask for that much. It owns no
+//! is a raise, and whether the caller asking may ask for that much. **The
+//! caller is placed by the transport and handed in** (`by`), never read from the
+//! request, so a body cannot talk its way past the ceiling (`#2165`). It owns no
 //! tier — what a Job is held to when nobody raises anything is
 //! [`allowance`](mod@crate::allowance)'s, and [`Fleet::overspent`] stays the one
 //! predicate comparing a spend to a ceiling.
@@ -42,12 +44,19 @@ use crate::daemon::Fleet;
 /// nothing about what the ceiling counts.
 const HELM_MULTIPLE: u64 = 2;
 
+/// How much more than the tier it would inherit a Job's Commander may raise it
+/// to. **Three, the owner's figure (12 Oct 2026)**, for turns and for cost
+/// alike, and wider than Helm's two because the Commander steers one Job it was
+/// placed on. Past it the Commander puts a card to the owner (`#2166`).
+const COMMANDER_MULTIPLE: u64 = 3;
+
 /// The most this raise may ask for, or that it may ask for anything.
 ///
-/// **A person is unbounded and Helm is not.** The budget belongs to whoever
+/// **A person is unbounded and an agent is not.** The budget belongs to whoever
 /// installed Armada, and a ceiling on what its owner may set is a setting
-/// arguing with the person who set it. Helm is the other case for one reason:
-/// an agent that can lift its own budget has no budget.
+/// arguing with the person who set it. Helm and a Job's Commander are the other
+/// case for one reason: an agent that can lift its own budget has no budget.
+/// Helm reaches twice the inherited tier and the Commander three times.
 ///
 /// **The bound is a multiple of the tier the Job would inherit, never of the
 /// cap in force**, and that detail is what makes it hold: a second raise lands
@@ -68,14 +77,14 @@ const HELM_MULTIPLE: u64 = 2;
 /// [`Ceiling::admits`] the half that refuses.
 ///
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) struct Ceiling {
+pub struct Ceiling {
     /// `None` is unbounded, which is a person. Never zero — a ceiling of
     /// nothing would be a surface that may ask and may never be answered.
     most: Option<u64>,
 }
 
 impl Ceiling {
-    /// What this surface may raise a Job to, given what the Job would inherit
+    /// What this caller may raise a Job to, given what the Job would inherit
     /// if nobody had raised anything.
     ///
     /// `inherited` is deliberately not the cap in force. See the module note.
@@ -83,17 +92,20 @@ impl Ceiling {
     /// **A bare count, and the unit is the caller's** — micros for a cost
     /// raise, turns for a turn raise. The bound is a multiple of a tier, and a
     /// multiple has no unit.
-    pub(crate) fn on(raised_by: RaisedBy, inherited: u64) -> Ceiling {
+    pub fn on(raised_by: RaisedBy, inherited: u64) -> Ceiling {
         match raised_by {
             RaisedBy::Person => Ceiling { most: None },
             RaisedBy::Helm => Ceiling {
                 most: Some(inherited.saturating_mul(HELM_MULTIPLE)),
             },
+            RaisedBy::Commander => Ceiling {
+                most: Some(inherited.saturating_mul(COMMANDER_MULTIPLE)),
+            },
         }
     }
 
     /// The figure a surface may display beside its control, where there is one.
-    pub(crate) fn most(&self) -> Option<u64> {
+    pub fn most(&self) -> Option<u64> {
         self.most
     }
 
@@ -105,7 +117,7 @@ impl Ceiling {
     /// start a Drone with. This asks whether a *ceiling* may be set, and a
     /// ceiling set exactly at the bound is the bound being reached rather than
     /// passed.
-    pub(crate) fn admits(&self, asked: u64) -> bool {
+    pub fn admits(&self, asked: u64) -> bool {
         self.most.is_none_or(|most| asked <= most)
     }
 }
@@ -136,7 +148,12 @@ where
     /// **The order is Job, then figure, then authority**, and it is not
     /// arbitrary: a caller told its figure was too small for a Job that is
     /// finished anyway has been told the least useful of the two true things.
-    pub async fn raise_cost_cap(&self, job_id: &JobId, raise: &CapRaise) -> Result<Job, Adrift> {
+    pub async fn raise_cost_cap(
+        &self,
+        job_id: &JobId,
+        raise: &CapRaise,
+        by: RaisedBy,
+    ) -> Result<Job, Adrift> {
         let job = self.load(job_id).await?;
         if job.status().is_terminal() {
             return Err(Adrift::NotCappable {
@@ -159,7 +176,7 @@ where
                 in_force: in_force.count(),
             });
         }
-        let ceiling = Ceiling::on(raise.raised_by, inherited.count());
+        let ceiling = Ceiling::on(by, inherited.count());
         if !ceiling.admits(asked.count()) {
             return Err(Adrift::CapAboveCeiling {
                 job: job_id.clone(),
@@ -177,7 +194,7 @@ where
             .await
             .record_cost_cap(&raised)
             .map_err(Adrift::Writing)?;
-        self.noted_raise(job_id, in_force, asked, raise.raised_by);
+        self.noted_raise(job_id, in_force, asked, by);
         Ok(raised)
     }
 
@@ -205,7 +222,12 @@ where
     /// **It is a second method rather than a second argument**, for the reason
     /// this module opens with. The refusals it returns name turns, so a caller
     /// that raised the wrong ceiling is told which one it moved.
-    pub async fn raise_turn_cap(&self, job_id: &JobId, raise: &TurnRaise) -> Result<Job, Adrift> {
+    pub async fn raise_turn_cap(
+        &self,
+        job_id: &JobId,
+        raise: &TurnRaise,
+        by: RaisedBy,
+    ) -> Result<Job, Adrift> {
         let job = self.load(job_id).await?;
         if job.status().is_terminal() {
             return Err(Adrift::NotTurnCappable {
@@ -223,7 +245,7 @@ where
                 in_force,
             });
         }
-        let ceiling = Ceiling::on(raise.raised_by, inherited);
+        let ceiling = Ceiling::on(by, inherited);
         if !ceiling.admits(asked) {
             return Err(Adrift::TurnCapAboveCeiling {
                 job: job_id.clone(),
@@ -237,7 +259,7 @@ where
             .await
             .record_turn_cap(&raised)
             .map_err(Adrift::Writing)?;
-        self.noted_turn_raise(job_id, in_force, asked, raise.raised_by);
+        self.noted_turn_raise(job_id, in_force, asked, by);
         Ok(raised)
     }
 

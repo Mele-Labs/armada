@@ -83,7 +83,6 @@ export type Overruled = {
  */
 export type CapRaise = {
   cost_cap_micros: number;
-  raised_by: RaisedBy;
 };
 
 /**
@@ -102,21 +101,4 @@ export type CapRaise = {
  */
 export type TurnRaise = {
   turn_cap: number;
-  raised_by: RaisedBy;
 };
-
-/**
- * Which surface a raise came through, and therefore what it may ask for.
- *
- * **Provenance, never a credential.** Nothing on this seam authenticates
- * anybody, so the field says which surface composed the request and is filled
- * in by that surface — bridge sends `person` because somebody pressed a
- * control, and Helm's tool adapter will send `helm` because it is Fleet's own
- * code wrapping a model's request. A person is unbounded; Helm is not, because
- * an agent that can lift its own budget has no budget.
- *
- * **Bridge only ever sends `person`.** The other value is here because the type
- * is the wire's and the wire carries both — not because anything in this app
- * chooses between them.
- */
-export type RaisedBy = "person" | "helm";
