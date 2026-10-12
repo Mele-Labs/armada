@@ -32,3 +32,18 @@ test("Reply: a no-act item opens a box, keeps its draft, and a send answers it",
   await expect.element(page.getByRole("region", { name: "Thread" }).getByText(/Pin it to the first of March/).first()).toBeVisible();
   await expect.element(row).not.toBeInTheDocument();
 });
+
+test("Reply: an answer item with no choices and no question in the thread opens a box too", async () => {
+  mount("session-reply");
+  await onScreen();
+  await userEvent.click(page.getByRole("button", { name: "Sessions", exact: true }));
+  await userEvent.click(page.getByRole("region", { name: "Sessions" }).getByRole("button", { name: /Pin the store clock/ }));
+
+  const section = page.getByRole("region", { name: "Attachments" }).getByRole("region", { name: "Waiting on you" });
+  const row = section.getByRole("button", { name: "Open Name the helper eventually, or settle?" });
+  await userEvent.click(row);
+  await userEvent.type(section.getByRole("textbox", { name: /^Reply to Name the helper/ }), "Call it settle");
+  await userEvent.keyboard("{Enter}");
+  await expect.element(page.getByRole("region", { name: "Thread" }).getByText(/Call it settle/).first()).toBeVisible();
+  await expect.element(row).not.toBeInTheDocument();
+});
