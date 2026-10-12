@@ -36,6 +36,8 @@ use crate::tests::daemon::{a_proposal, fitted_with, one, worktree_directory};
 use crate::tests::restarting::{on_it, the_handle, until_spoken};
 use crate::tests::tmp::TempDir;
 
+mod interview;
+
 type Fixture = Fleet<FakeHarness, FakeVcs, FakeWorkProduct>;
 
 const IMPLEMENT: &str = "implement";
@@ -93,6 +95,7 @@ fn a_question() -> AskQuestion {
                 consequence: "the first Job that needs the column adds it".to_string(),
             },
         ],
+        decisions: Vec::new(),
     }
 }
 

@@ -25,6 +25,7 @@ pub const PROMPT_CROSSING_REDIRECT: Words = Words("prompts.crossingRedirect");
 pub const PROMPT_CROSSING_OVERTAKEN: Words = Words("prompts.crossingOvertaken");
 pub const PROMPT_CROSSING_CONFLICTS: Words = Words("prompts.crossingConflicts");
 pub const PROMPT_CROSSING_ANSWERED: Words = Words("prompts.crossingAnswered");
+pub const PROMPT_CROSSING_DECIDED: Words = Words("prompts.crossingDecided");
 pub const PROMPT_HELM: Words = Words("prompts.helm");
 pub const PROMPT_HELM_READ_ONLY: Words = Words("prompts.helmReadOnly");
 pub const PROMPT_TRIGGER_REPAIR: Words = Words("prompts.triggerRepair");
@@ -292,6 +293,13 @@ pub(super) const PROMPTS: &[Entry] = &[
         "A person answered",
         "The block a new Drone reads when the Drone before it on this part asked a person and stood down for the answer. {question} is the question, {label} the answer they chose and {consequence} what the asking Drone said that answer means.",
         &["question", "label", "consequence"],
+    ),
+    prompt(
+        PromptSection::Crossing,
+        PROMPT_CROSSING_DECIDED,
+        "A person decided several things",
+        "The block a new Drone reads when the Drone before it on this part asked several decisions in one ask and stood down for the answers. {answers} lists each decision with the answer chosen and what the asking Drone said that answer means.",
+        &["answers"],
     ),
     prompt(
         PromptSection::Helm,
