@@ -469,6 +469,7 @@ type OldBridgeApi = {
     reviewSleep: (id: string) => Promise<SleepActed>;
     onSleepChanged: (onChanged: (state: SleepState) => void) => () => void;
     tuneSession: (tune: TuneSession) => Promise<SessionActed>;
+    runSessionCommand: (sessionId: string, command: string) => Promise<SessionActed>;
     renameSession: (rename: RenameSession) => Promise<SessionActed>;
     forkSession: (sessionId: string) => Promise<SessionActed>;
     retroSession: (sessionId: string) => Promise<Outcome>;
@@ -761,6 +762,7 @@ const OLD_CHANNELS = {
     reviewSleep: "bridge:review-sleep",
     sleepChanged: "bridge:sleep-changed",
     tuneSession: "bridge:tune-session",
+    runSessionCommand: "bridge:run-session-command",
     renameSession: "bridge:rename-session",
     retroSession: "bridge:retro-session",
     closeSession: "bridge:close-session",

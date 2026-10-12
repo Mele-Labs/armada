@@ -2,7 +2,8 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn } from "storybook/test";
 import { Clamped } from "../../compositions/Clamped/Clamped";
 import { Card } from "../Card/Card";
-import { Prose, ProseLinks, ProseRunner } from "./Prose";
+import { Prose, ProseCommand, ProseLinks, ProseRunner, isSlashCommand } from "./Prose";
+import { readsAsShell } from "./RunnableBlock";
 import type { CodeRunner } from "./Prose";
 
 /** What a click hands over. Bridge's is `window.armada.openLink`. */
@@ -412,5 +413,139 @@ export const NoRunnerNoRun: Story = {
   args: { text: SHELL_BLOCK },
   play: async ({ canvas }) => {
     await expect(canvas.queryByRole("button", { name: "Run" })).toBeNull();
+  },
+};
+
+const UNTAGGED = [
+  "```",
+  "cd ~/Development/armada && \\",
+  "  rm -r .armada/slots/slot-3/target && \\",
+  "  armada worktree release slot-3 && \\",
+  "  git branch -D sessions/old-spike",
+  "```",
+  "",
+  "```",
+  "src/a.ts",
+  "src/b.ts",
+  "```",
+  "",
+  "```",
+  "const rows = items.filter((it) => it.ok);",
+  "```",
+  "",
+  "```",
+  "┌────────┐     ┌───────┐",
+  "│ Bridge │────▶│ Fleet │",
+  "└────────┘     └───────┘",
+  "```",
+  "",
+  "```",
+  "Run the tests and check the output.",
+  "```",
+].join("\n");
+
+/** **A block with no language gets Run where it reads as shell**, and a file list, code, a diagram and prose do not. */
+export const AnUntaggedBlockThatReadsAsShell: Story = {
+  args: { text: UNTAGGED },
+  decorators: [
+    (Story) => (
+      <ProseRunner.Provider value={runnerOf(0)}>
+        <Story />
+      </ProseRunner.Provider>
+    ),
+  ],
+  play: async ({ canvas, userEvent }) => {
+    await expect(canvas.getAllByRole("button", { name: "Run" })).toHaveLength(1);
+    await userEvent.click(canvas.getByRole("button", { name: "Run" }));
+    await expect(canvas.getByRole("img", { name: "Passed" })).toBeVisible();
+  },
+};
+
+/** What `readsAsShell` takes for shell and what it does not. A doubt is no Run. */
+export const ReadsAsShell: Story = {
+  args: { text: "" },
+  play: async () => {
+    const shell = [
+      "cd ~/Development/armada && \\\n  rm -r x && \\\n  git branch -D y",
+      "scripts/quick --changed",
+      "./run.sh",
+      "scripts/quick",
+      "~/bin/tool --x",
+      "/usr/bin/env node a",
+      "$ pnpm install",
+      "git status",
+      "pnpm -C apps/desktop typecheck | tail -5",
+      "cargo test -p x\ncargo clippy",
+      "git add .",
+      "cd ..",
+      "FOO=1 node x.js",
+      "ls | wc -l",
+      "# note\nls -la",
+    ];
+    const not = [
+      "const rows = items.filter((it) => it.ok);",
+      '{\n  "a": 1\n}',
+      "┌──┐\n│ a │\n└──┘",
+      "Bridge -> Fleet",
+      "A --> B",
+      "foo --> bar",
+      "Run the tests and check.",
+      "run the tests",
+      "see the docs.",
+      "fn main() {\n}",
+      "import os",
+      "def f():\n  return 1",
+      "x = 1",
+      "pwd",
+      "cd x &&",
+      "src/foo.ts\nsrc/bar.ts",
+      "/etc/hosts",
+      "~/x/y",
+      "",
+    ];
+    for (const one of shell) await expect(readsAsShell(one), one).toBe(true);
+    for (const one of not) await expect(readsAsShell(one), one).toBe(false);
+  },
+};
+
+/** Which inline code is a command the Session lists: its name, with or without arguments, and nothing that is only shaped like one. */
+export const WhichCodeIsASlashCommand: Story = {
+  args: { text: "" },
+  play: async () => {
+    const names = new Set(["update-armada", "reload-plugins", "model", "claude-md-management:revise-claude-md"]);
+    for (const one of ["/update-armada", "/reload-plugins", "/model opus", "/claude-md-management:revise-claude-md"]) {
+      await expect(isSlashCommand(one, names), one).toBe(true);
+    }
+    for (const one of ["/tmp", "/usr/bin", "/Update-armada", "/update-armada/x", "update-armada", "/", "/model\nx"]) {
+      await expect(isSlashCommand(one, names), one).toBe(false);
+    }
+  },
+};
+
+const SLASH = "Run `/update-armada`, then `/reload-plugins`, and keep scratch in `/tmp`.\n\n```\n/update-armada\n```";
+
+/** **A listed slash command in inline code is pressable**, says Sent, and sends what is written; `/tmp` and a fenced one are not. */
+export const ASlashCommandInTheThread: Story = {
+  args: { text: SLASH },
+  decorators: [
+    (Story) => (
+      <ProseCommand.Provider value={{ send: opened, names: new Set(["update-armada", "reload-plugins"]) }}>
+        <Story />
+      </ProseCommand.Provider>
+    ),
+  ],
+  play: async ({ canvas, userEvent }) => {
+    await expect(canvas.getAllByRole("button")).toHaveLength(2);
+    await userEvent.click(canvas.getByRole("button", { name: "/update-armada" }));
+    await expect(opened).toHaveBeenCalledWith("/update-armada");
+    await expect(canvas.getByRole("img", { name: "Sent" })).toBeVisible();
+  },
+};
+
+/** Where the Session is not a terminal one there is no command to send to, and the code is plain. */
+export const NoTerminalNoSlashCommand: Story = {
+  args: { text: SLASH },
+  play: async ({ canvas }) => {
+    await expect(canvas.queryByRole("button")).toBeNull();
   },
 };

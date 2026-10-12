@@ -4,13 +4,21 @@ import { Check, Play } from "lucide-react";
 import { Tooltip } from "../Tooltip/Tooltip";
 
 /**
- * Sends a Claude Code slash command to the Session's terminal, to run as typed. Bridge provides one
- * for a terminal Session only; absent, inline code is drawn as plain code.
+ * What a terminal Session's thread can send: the command to its terminal, to run as typed, and the
+ * names it lists (its skills and commands, the built-ins among them). Bridge provides it for a terminal
+ * Session only; absent, inline code is drawn as plain code.
  */
-export const ProseCommand = createContext<((command: string) => void) | null>(null);
+export type SlashCommands = { send: (command: string) => void; names: ReadonlySet<string> };
 
-/** Inline code that is exactly a slash command: `/update-armada`, `/model opus`. */
-export const SLASH_COMMAND = /^\/[a-z][a-z0-9:-]*( .*)?$/;
+export const ProseCommand = createContext<SlashCommands | null>(null);
+
+const SLASH_COMMAND = /^\/([a-z][a-z0-9:-]*)( .*)?$/;
+
+/** Whether inline code is exactly a slash command the Session lists: `/update-armada`, `/model opus`, and not `/tmp`. */
+export function isSlashCommand(text: string, names: ReadonlySet<string>): boolean {
+  const name = SLASH_COMMAND.exec(text)?.[1];
+  return name !== undefined && names.has(name);
+}
 
 /** How long the sent mark stays before Run is offered again. */
 const SENT_MS = 2400;

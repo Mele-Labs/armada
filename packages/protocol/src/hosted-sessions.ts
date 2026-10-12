@@ -105,6 +105,9 @@ export type HeldCommand = { command: string; args: string };
 
 export type MessagesHeld = { messages: string[]; commands?: HeldCommand[] };
 
+/** `POST /sessions/command`: a slash command written whole, run in a terminal session as typed. */
+export type RunSessionCommand = { session_id: string; command: string };
+
 /** `POST /sessions/close`. */
 export type CloseSession = { session_id: string };
 

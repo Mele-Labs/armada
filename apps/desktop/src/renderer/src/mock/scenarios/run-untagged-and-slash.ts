@@ -34,7 +34,7 @@ const TEXT = [
   "└────────┘     └───────┘     └───────┘",
   "```",
   "",
-  "Then run `/update-armada` and, once it is done, `/reload-plugins`.",
+  "Then run `/update-armada` and, once it is done, `/reload-plugins`. Scratch files live in `/tmp`.",
 ].join("\n");
 
 const running: Session[] = [
@@ -50,6 +50,12 @@ const running: Session[] = [
       { id: "r2", at: "14:40:02", kind: "message", from: { kind: "agent" }, text: TEXT },
     ],
     attachments: [],
+    // What the terminal lists: `/tmp` is not one, so it is drawn as plain code.
+    commands: [
+      { name: "update-armada", says: "Move Fleet, Bridge and the mod onto latest main" },
+      { name: "reload-plugins", says: "Reload the plugins" },
+      { name: "model", says: "Set the model" },
+    ],
   },
 ];
 

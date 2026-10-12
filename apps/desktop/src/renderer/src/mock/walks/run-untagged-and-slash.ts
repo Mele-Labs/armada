@@ -1,5 +1,5 @@
 // A block with no language that reads as shell gets Run like a tagged one; code and a diagram get none.
-// A slash command in inline code, in a terminal Session, is sent to its terminal. Over the
+// A slash command the terminal lists, in inline code, is sent to its terminal. Over the
 // `run-untagged-and-slash` scenario.
 
 import { kit, toSessions } from "../sessions/walk-kit";
@@ -23,6 +23,7 @@ const steps: Step[] = [
   { press: role("button", "/update-armada"), say: "A press types it into this Session's terminal" },
   { look: role("img", "Sent"), say: "Sent. The command runs in the terminal, so nothing comes back here" },
   { look: role("button", "/reload-plugins"), say: "The next one waits to be run when its turn comes" },
+  { hover: text("/tmp"), say: "/tmp is not a command the terminal lists, so it stays plain code" },
 ];
 
 const runUntaggedAndSlash = walk("run-untagged-and-slash", [toSessions, ...steps]);

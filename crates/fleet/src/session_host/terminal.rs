@@ -22,7 +22,7 @@ use ipc::{TakeHeld, WireError};
 use store::{KeptSession, SessionState};
 
 use super::rows::{mention_line, SESSION_THREAD_UNREADABLE as THREAD_UNREADABLE};
-use super::serving::MESSAGE_EMPTY;
+use super::serving::{MESSAGE_EMPTY, SESSION_COMMAND_REFUSED};
 use super::thread_cache::ThreadCache;
 use crate::daemon::Fleet;
 
@@ -462,6 +462,33 @@ where
         self.ledger_row(&store, session)
     }
 
+    /// A slash command a person pressed in the thread, held for the mod to run as typed. **One slash
+    /// command on one line**: anything else is refused, so the mod is never handed free text to run.
+    pub(crate) async fn run_terminal_command(
+        &self,
+        session: &KeptSession,
+        text: &str,
+    ) -> Result<SessionRecord, Refusal> {
+        if session.state == SessionState::Ended {
+            return Err(self.closed(&session.id));
+        }
+        let Some(held) = slash_command(text) else {
+            return Err(self.hosted_refusal(
+                SESSION_COMMAND_REFUSED,
+                "that is not one slash command. It starts with / and a command's name, and is one line",
+            ));
+        };
+        if !self
+            .hosts()
+            .terminals()
+            .hold_command(&session.id, held, LISTENING_FOR)
+        {
+            return Err(self.terminal_unreachable());
+        }
+        let store = self.store().lock().await;
+        self.ledger_row(&store, session)
+    }
+
     pub(crate) fn terminal_unreachable(&self) -> Refusal {
         Refusal::IllegalMove(WireError::raised(
             TERMINAL_UNREACHABLE,
@@ -470,4 +497,22 @@ where
             self.run_id(),
         ))
     }
+}
+
+/// `/name` or `/name args` on one line, as the mod runs it: the command's name without the slash,
+/// and the rest as its arguments. A name is lower-case letters, digits, `:` and `-`.
+fn slash_command(text: &str) -> Option<HeldCommand> {
+    let text = text.trim();
+    let rest = text.strip_prefix('/')?;
+    if rest.contains(['\n', '\r']) {
+        return None;
+    }
+    let (name, args) = rest.split_once(' ').unwrap_or((rest, ""));
+    let mut chars = name.chars();
+    let named = chars.next().is_some_and(|c| c.is_ascii_lowercase())
+        && chars.all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == ':' || c == '-');
+    named.then(|| HeldCommand {
+        command: name.to_string(),
+        args: args.trim().to_string(),
+    })
 }

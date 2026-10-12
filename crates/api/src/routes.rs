@@ -276,6 +276,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(crate::hosted_sessions::tune_session::<D>),
         )
         .route(
+            "/sessions/command",
+            post(crate::hosted_sessions::run_session_command::<D>),
+        )
+        .route(
             "/sessions/close",
             post(crate::hosted_sessions::close_session::<D>),
         )

@@ -70,6 +70,9 @@ export function handleSessions({ ipc, connection, windowIdOf, pages }: Hosts): v
     if (!text(tune?.session_id) || !MODES.includes(tune.mode)) return unsent;
     return connection()?.sessions.tune(tune) ?? unsent;
   });
+  ipc.handle(CHANNELS.runSessionCommand, (_event, sessionId: string, command: string) =>
+    text(sessionId) && text(command) ? (connection()?.sessions.runCommand({ session_id: sessionId, command }) ?? unsent) : unsent,
+  );
   ipc.handle(CHANNELS.forkSession, (_event, sessionId: string) =>
     text(sessionId) ? (connection()?.sessions.fork(sessionId) ?? unsent) : unsent,
   );

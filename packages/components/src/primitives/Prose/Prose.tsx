@@ -6,10 +6,11 @@ import remarkParse from "remark-parse";
 import { unified } from "unified";
 
 import { commandOf, ProseRunner, RunnableBlock } from "./RunnableBlock";
-import { ProseCommand, SLASH_COMMAND, SlashCommand } from "./SlashCommand";
+import { isSlashCommand, ProseCommand, SlashCommand } from "./SlashCommand";
 export type { CodeRunEvent, CodeRunner } from "./RunnableBlock";
 export { ProseRunner } from "./RunnableBlock";
-export { ProseCommand } from "./SlashCommand";
+export { isSlashCommand, ProseCommand } from "./SlashCommand";
+export type { SlashCommands } from "./SlashCommand";
 
 /**
  * Text a model wrote, drawn as the markdown it is written in, with the GFM extensions,
@@ -82,14 +83,14 @@ function Link({ href, children }: { href: string | undefined; children: ReactNod
 /** Set inside a fenced block, whose `code` is its text and never a command to send. */
 const InBlock = createContext(false);
 
-/** Inline code; one that is exactly a slash command gains Run where a terminal Session provides it. */
+/** Inline code; one that is exactly a command the Session lists gains Run where a terminal Session provides it. */
 function Code({ children }: { children?: ReactNode }) {
   const inBlock = useContext(InBlock);
-  const send = useContext(ProseCommand);
-  if (inBlock || send === null || typeof children !== "string" || !SLASH_COMMAND.test(children)) {
+  const commands = useContext(ProseCommand);
+  if (inBlock || commands === null || typeof children !== "string" || !isSlashCommand(children, commands.names)) {
     return <code className="armada-prose__code">{children}</code>;
   }
-  return <SlashCommand text={children} send={send} />;
+  return <SlashCommand text={children} send={commands.send} />;
 }
 
 /** A fenced block; one in a shell language, or with none that reads as shell, gains Run where a runner is provided. */

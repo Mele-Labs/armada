@@ -314,7 +314,7 @@ pub use holding::{
 };
 pub use hosted_sessions::{
     AnswerSessionAsk, CloseSession, ForkFrom, GateAnswer, GateHold, HandoffPlan, HandoffStep,
-    HeldCommand, HostedFacts, MessagesHeld, PilotFrom, SendSessionMessage, SentFile,
+    HeldCommand, HostedFacts, MessagesHeld, PilotFrom, RunSessionCommand, SendSessionMessage, SentFile,
     SessionAskState, SessionGate, SessionMode, SessionRow, SessionRowChanged, SessionTag,
     SessionSubagent, SessionThread, SessionTurn, SessionUpload, SessionVoice, SessionVoiceNamed, StartSession,
     TagKind, TaggedJob, TakeHeld, TerminalAsk, TerminalAsked, TuneSession,

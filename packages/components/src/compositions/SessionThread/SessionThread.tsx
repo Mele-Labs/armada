@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef } from "react";
+import { useLayoutEffect, useMemo, useRef } from "react";
 import type { ReactNode, Ref } from "react";
 import { AppWindow, Box, ChevronRight, GitBranch, KeyRound, Layers, Smartphone, SquareTerminal, Wrench } from "lucide-react";
 
@@ -117,6 +117,8 @@ export type SessionThreadProps = {
    * terminal Session has one; absent, such code is drawn plain.
    */
   onCommand?: (command: string) => void;
+  /** The names of the commands that terminal lists. Inline code is a command only where its name is one of these. */
+  commandNames?: readonly string[];
 };
 
 const TAG_KIND = { session: "Session", job: "Job", pull_request: "Pull request", branch: "Branch" } as const;
@@ -434,7 +436,8 @@ function Row({
 /** How far from the end still counts as being at it, so a rounding or a half row does not unpin. */
 const NEAR_END = 24;
 
-export function SessionThread({ rows, asked, askRef, onAnswer, onOpenSession, onOpenWindow, onOpenCheck, sessionId, working, runner, onCommand }: SessionThreadProps) {
+export function SessionThread({ rows, asked, askRef, onAnswer, onOpenSession, onOpenWindow, onOpenCheck, sessionId, working, runner, onCommand, commandNames }: SessionThreadProps) {
+  const slash = useMemo(() => (onCommand === undefined ? null : { send: onCommand, names: new Set(commandNames ?? []) }), [onCommand, commandNames]);
   const scroller = useRef<HTMLDivElement>(null);
   const pinned = useRef(true);
   // **Opens at the newest row, with no animation, and stays there while the person is at the end.**
@@ -461,7 +464,7 @@ export function SessionThread({ rows, asked, askRef, onAnswer, onOpenSession, on
         }}
       >
         <ProseRunner.Provider value={runner ?? null}>
-        <ProseCommand.Provider value={onCommand ?? null}>
+        <ProseCommand.Provider value={slash}>
         <ol className="armada-helm-thread__rows">
           {items.map((item, at) =>
             item.kind === "calls" ? (
