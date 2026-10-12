@@ -375,6 +375,18 @@ Bridge reads every live session from `list_sessions` once per connection and kee
 | A sketch the person drew | The picture it was sent as, and the drawing Bridge kept for the ledger. The wire holds only the picture |
 | An ask from the phone | A hosted session's held ask is answered through Pocket, with the same `answer_session_ask`. A terminal session shows there as waiting, and while Fleet holds its question the phone answers it the same way; after the hold it is answered in its terminal. [Pocket](pocket.md) |
 
+## A Session's Checks
+
+**An `armada check` run in a slot a Session holds is the Session's run.** The CLI keeps no record of its own, so it tells Fleet when the run begins and when it ends with the log (`report_session_check`, `POST /sessions/checks`, 23.75). Fleet places the Session by the slot the directory is in, never by what the call says. A directory no Session holds is a person's own run and is not recorded, and neither is a Fleet that is not running.
+
+| Where it shows | What |
+|---|---|
+| A hosted Session's thread | One `check` row per run: the Check's key, its run id and `running`, `passed` or `failed`. The row is replaced by id as the run ends, and the Session is published whole each time |
+| The Checks page | A row with the `session` requester (`session_id`, `slot`), no Job, drawn with the slot's owner chip. Pressing the thread row opens the run's log over the Session |
+| The log | `get_session_check_output`, `GET /sessions/checks/:run/output`, answered as `get_check_output` answers a Job's. Kept up to 256 KiB, the newest end when cut |
+
+A terminal Session's thread is its transcript and carries no `check` row; its runs are on the Checks page. A run whose `armada check` process is killed stays `running` until its Session ends, when Fleet ends it as failed with "the Session ended" as its log.
+
 ## A terminal session's thread
 
 Open a session a person runs in a terminal and Bridge draws its conversation and a message box. `get_session` reads the transcript file the agent CLI keeps for it (`adapters::terminal_thread`, found by session id under the person's home) and answers rows in the shape a hosted thread has: what the person typed, what the agent said, and one line per tool call. Fleet then watches the file for as long as the session is live and publishes each new line as `session.row`, so the thread follows the terminal. A row's id is the transcript line's own, so a line read twice replaces itself.
@@ -424,7 +436,9 @@ While it is on, a pass over every live session's waiting items (`crates/fleet/sr
 | A Job that escalates because its Drone or run ended, was not heard, would not start, was not prepared, or its gate or proposer gave no answer, with a title that is not destructive | Its step restarted once, with no words (an undecided gate is run again instead). Recorded under decided; one with no stopped step to restart is recorded under blocked with the reason; if it escalates again the same night it stays as it is. |
 | Any other escalation, or a destructive title | Recorded under blocked. |
 
-`override_sleep` sends the session `Re: <asked>` and the owner's words, and marks the row corrected. Every change publishes `sleep.changed` with the night whole.
+**The review is cards in the Cockpit's call deck**, not a panel of its own: each decided row is a call. Enter keeps it (`review_sleep`), and typing a change sends it to the agent (`override_sleep`). Either marks the row reviewed, and `get_sleep` leaves a reviewed row out of `decided`. Blocked and walk rows are already calls: escalated Jobs and waiting items.
+
+`override_sleep` sends the session `Re: <asked>` and the owner's words, marks the row corrected and reviewed. Every change publishes `sleep.changed` with the night whole.
 
 ## A mod that is out of date
 

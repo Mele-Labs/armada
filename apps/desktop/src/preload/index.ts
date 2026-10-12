@@ -583,6 +583,8 @@ const api: BridgeApi = {
 
   readCheckOutput: (jobId: string, kept: string): Promise<CheckOutputRead> =>
     ipcRenderer.invoke(CHANNELS.readCheckOutput, jobId, kept),
+  readSessionCheckOutput: (run: number): Promise<CheckOutputRead> =>
+    ipcRenderer.invoke(CHANNELS.readSessionCheckOutput, run),
   readBrief: (jobId: string, name: string): Promise<BriefRead> =>
     ipcRenderer.invoke(CHANNELS.readBrief, jobId, name),
   // A Job's retro and the Lessons listing, read when a surface opens and on focus.
@@ -631,6 +633,7 @@ const api: BridgeApi = {
   ...autopilotPreload,
   setSleep: (on: boolean): Promise<SleepActed> => ipcRenderer.invoke(CHANNELS.setSleep, on),
   overrideSleep: (id: string, text: string): Promise<SleepActed> => ipcRenderer.invoke(CHANNELS.overrideSleep, id, text),
+  reviewSleep: (id: string): Promise<SleepActed> => ipcRenderer.invoke(CHANNELS.reviewSleep, id),
   onSleepChanged: (onChanged: (state: SleepState) => void): (() => void) => {
     const handler = (_event: unknown, state: SleepState): void => onChanged(state);
     ipcRenderer.on(CHANNELS.sleepChanged, handler);
@@ -760,6 +763,7 @@ const api: BridgeApi = {
     showAsk: (on: boolean): Promise<void> => ipcRenderer.invoke(CHANNELS.captureWindowShowAsk, on),
     answerAsk: (answer: CaptureAnswer): Promise<Outcome> => ipcRenderer.invoke(CHANNELS.captureWindowAnswerAsk, answer),
     panel: (open: boolean): Promise<void> => ipcRenderer.invoke(CHANNELS.captureWindowPanel, open),
+    openOwner: (): Promise<void> => ipcRenderer.invoke(CHANNELS.captureWindowOpenOwner),
   },
   // The panel beside a walk window's page — `capture-window.md`, *The panel beside the page*. The call
   // names nothing: main answers for the panel the call came from, and refuses any other document.

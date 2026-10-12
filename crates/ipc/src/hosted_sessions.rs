@@ -336,6 +336,15 @@ pub enum SessionRow {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         answer: Option<String>,
     },
+    /// An `armada check` the agent ran in its slot. **The row is replaced by id** as the run ends,
+    /// so a client holds one row per run. `run` is the id the Checks page opens it by. Since 23.75.
+    Check {
+        id: String,
+        at: Instant,
+        name: String,
+        run: u64,
+        state: crate::SessionCheckState,
+    },
     /// A call put to the person. **The row is replaced by id** as the ask is
     /// answered, so a client holds one row per ask.
     Ask {
@@ -378,6 +387,7 @@ impl SessionRow {
             | SessionRow::Compaction { id, .. }
             | SessionRow::Lease { id, .. }
             | SessionRow::Window { id, .. }
+            | SessionRow::Check { id, .. }
             | SessionRow::WindowAsk { id, .. }
             | SessionRow::Ask { id, .. } => id,
         }

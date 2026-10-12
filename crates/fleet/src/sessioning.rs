@@ -452,6 +452,7 @@ where
         if ended {
             // Its terminal prompt went with it, so Bridge must not offer the card.
             self.terminal_ask_closed(&session.id, ipc::SessionAskState::Unanswered).await;
+            self.session_checks_ended(&session.id).await;
         }
         if changed {
             self.publish(ipc::Event::SessionChanged(record.clone()));
@@ -465,6 +466,17 @@ where
         claim: ipc::ClaimPullRequest,
     ) -> Result<ipc::PullRequestClaimed, Refusal> {
         self.pull_request_claimed(caller, claim).await
+    }
+
+    async fn report_session_check(
+        &self,
+        call: ipc::SessionCheckCall,
+    ) -> Result<ipc::SessionCheckAnswer, Refusal> {
+        self.session_check_reported(call).await
+    }
+
+    async fn get_session_check_output(&self, run: u64) -> Result<ipc::CheckOutput, Refusal> {
+        self.session_check_output(run).await
     }
 
     async fn show_window(

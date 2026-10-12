@@ -23,6 +23,10 @@ export type WalkWindowOptions = {
   job: string;
   /** Which of the two it is, as the note's Send says. Absent is a Job. */
   into?: "Job" | "Session";
+  /** What the bar's name says: the window's own title. Absent is the `run`; `null` is a window titled by its address. */
+  title?: string | null;
+  /** The press on the owner's name, after Bridge comes forward. Absent: Bridge comes forward on what it shows. */
+  onOpenOwner?: () => void;
   onNote: (said: string, picked: Picked) => void;
   /** Approve, pressed on the page at `address`: what the Job or the Session is told. */
   onApprove?: (address: string) => Promise<{ ok: true } | { ok: false; said: string }>;
@@ -92,7 +96,7 @@ if (typeof window !== "undefined") {
   );
 }
 
-function WalkWindow({ run, url, host, job, into = "Job", onNote, onApprove }: { run: string; url: string; host: HTMLElement } & WalkWindowOptions) {
+function WalkWindow({ run, url, host, job, into = "Job", title, onOpenOwner, onNote, onApprove }: { run: string; url: string; host: HTMLElement } & WalkWindowOptions) {
   const testing = (import.meta as { env?: { MODE?: string } }).env?.MODE === "test";
   const frame = useRef<HTMLIFrameElement>(null);
   const [armed, setArmed] = useState(false);
@@ -190,10 +194,15 @@ function WalkWindow({ run, url, host, job, into = "Job", onNote, onApprove }: { 
         </Button>
       </div>
       <CaptureBar
-        run={run}
-        address={new URL(url).origin}
+        run={title === null ? undefined : (title ?? run)}
+        address={title === null ? url : new URL(url).origin}
         studio={null}
-        job={job}
+        {...(into === "Session" ? { session: job } : { job })}
+        // Bridge comes forward, as main raises its window over this one.
+        onOpenOwner={() => {
+          document.documentElement.removeAttribute("data-walking");
+          onOpenOwner?.();
+        }}
         serving
         armed={armed}
         framesRefused={0}

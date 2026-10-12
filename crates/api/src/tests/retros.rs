@@ -79,6 +79,7 @@ async fn a_request_is_named_by_the_door_it_came_through() {
         get("/lessons", Some(BRIDGE)),
         get("/lessons", None),
         get("/lessons", Some("something-else")),
+        get("/lessons", Some(crate::PHONE)),
         through_the_door(ANYONE, "list_lessons"),
         through_the_door(HELM, "list_lessons"),
     ] {
@@ -99,6 +100,7 @@ async fn a_request_is_named_by_the_door_it_came_through() {
             Some("bridge"),
             Some("http"),
             Some("http"),
+            Some("phone"),
             Some("door"),
             Some("helm"),
         ]

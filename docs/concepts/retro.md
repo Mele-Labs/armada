@@ -196,6 +196,7 @@ on `get_job_events`.
 | `bridge` | Carried `x-armada-caller: bridge`, which Bridge sends on every request |
 | `helm` | Came through the agent door from a Helm session Fleet placed |
 | `door` | Came through the agent door from any other session, such as `armada mcp` |
+| `phone` | Carried `x-armada-caller: phone`, which the phone's Gateway sends on every request it forwards. A person's press, so the move is signed `human` and Bridge's Record draws a phone glyph beside who |
 | `http` | Named no caller: a script, `curl`, an agent's shell, the `armada` CLI |
 
 **The header is attribution, not authentication.** Any process can send it,

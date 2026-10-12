@@ -210,6 +210,10 @@ where
         self.switch_sleep(set.on).await
     }
 
+    async fn review_sleep(self: Arc<Self>, review: ipc::ReviewSleep) -> Result<ipc::SleepState, Refusal> {
+        self.review_a_decision(review).await
+    }
+
     async fn override_sleep(
         self: Arc<Self>,
         over: ipc::OverrideSleep,
@@ -294,6 +298,7 @@ where
                 .give_back(&Holder::session(&id), None, &now)
                 .map_err(|why| self.ledger_fault(why))?;
         }
+        self.session_checks_ended(&id).await;
         self.published_hosted(&id).await
     }
 

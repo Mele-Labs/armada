@@ -156,6 +156,7 @@ export const readRemarks = (jobId: string | null): void => void window.armada.re
 export const watchPulse = (jobId: string | null): void => void window.armada.watchPulse(jobId);
 export const readCheckOutput = (jobId: string, kept: string) =>
   window.armada.readCheckOutput(jobId, kept);
+export const readSessionCheckOutput = (run: number) => window.armada.readSessionCheckOutput(run);
 export const readBrief = (jobId: string, name: string) => window.armada.readBrief(jobId, name);
 /** A Job's retro and the Lessons listing, read on open and on focus — `docs/concepts/retro.md`. */
 export const readRetro = (subject: RetroSubject) => window.armada.readRetro(subject);

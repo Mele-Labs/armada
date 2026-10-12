@@ -1,4 +1,4 @@
-import { Check, Menu, MessageSquare, Moon, Plus, Search, Sunrise, type LucideIcon } from "lucide-react";
+import { Check, Menu, MessageSquare, Moon, Plus, Search, type LucideIcon } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { ArmadaLockupHorizontal, ArmadaMark } from "@armada/brand";
 import { FLEET_DOT_TONE, FleetStarting, fleetSaid, type FleetState } from "../FleetPanel/FleetPanel";
@@ -58,13 +58,11 @@ export type TitleBarProps = {
   /**
    * Sleep mode, beside Helm: the machine keeps working until it is blocked on
    * the owner. **Absent draws no control**, so a Bridge with no sleep to offer
-   * shows none. `morning` is the way back to the review while there is one
-   * to read and sleep is off.
+   * shows none.
    */
   sleep?: {
     on: boolean;
     onToggle: () => void;
-    morning?: { onOpen: () => void };
   };
   /**
    * Fleet's liveness, as one dot on the bar's trailing edge. **Drawn at every
@@ -119,11 +117,6 @@ export function TitleBar({
       <div className="armada-title-bar__end">
         {sleep === undefined ? null : (
           <div className="armada-title-bar__sleep">
-            {sleep.morning === undefined ? null : (
-              <Button variant="ghost" size="sm" iconOnly aria-label="Morning review" title="Morning review" onClick={sleep.morning.onOpen}>
-                <Sunrise size={16} strokeWidth={2} aria-hidden />
-              </Button>
-            )}
             <Button
               variant="ghost"
               size="sm"

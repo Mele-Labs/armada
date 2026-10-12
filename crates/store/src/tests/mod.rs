@@ -65,6 +65,7 @@ mod review_model;
 mod review_record;
 mod revision;
 mod roundtrip;
+mod session_checks;
 mod sent_back;
 mod session_ledger;
 mod settings_file;

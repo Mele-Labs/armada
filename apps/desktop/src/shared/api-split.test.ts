@@ -378,6 +378,7 @@ type OldBridgeApi = {
     readEvidence: (jobId: string | null) => Promise<void>;
     readDiff: (jobId: string | null) => Promise<void>;
     readCheckOutput: (jobId: string, kept: string) => Promise<CheckOutputRead>;
+    readSessionCheckOutput: (run: number) => Promise<CheckOutputRead>;
     readBrief: (jobId: string, name: string) => Promise<BriefRead>;
     readRetro: (subject: RetroSubject) => Promise<RetroRead>;
     readLessons: (state: "open" | "accepted") => Promise<LessonsRead>;
@@ -423,6 +424,7 @@ type OldBridgeApi = {
         showAsk: (on: boolean) => Promise<void>;
         answerAsk: (answer: CaptureAnswer) => Promise<Outcome>;
         panel: (open: boolean) => Promise<void>;
+        openOwner: () => Promise<void>;
     };
     walkPanel: {
         openInBridge: () => Promise<void>;
@@ -464,6 +466,7 @@ type OldBridgeApi = {
     listIssues: (manifestId: string, refresh: boolean) => Promise<IssuesRead>;
     setSleep: (on: boolean) => Promise<SleepActed>;
     overrideSleep: (id: string, text: string) => Promise<SleepActed>;
+    reviewSleep: (id: string) => Promise<SleepActed>;
     onSleepChanged: (onChanged: (state: SleepState) => void) => () => void;
     tuneSession: (tune: TuneSession) => Promise<SessionActed>;
     renameSession: (rename: RenameSession) => Promise<SessionActed>;
@@ -669,6 +672,7 @@ const OLD_CHANNELS = {
     readDiff: "bridge:read-diff",
     readRemarks: "bridge:read-remarks",
     readCheckOutput: "bridge:read-check-output",
+    readSessionCheckOutput: "bridge:read-session-check-output",
     readBrief: "bridge:read-brief",
     readRetro: "bridge:read-retro",
     readLessons: "bridge:read-lessons",
@@ -735,6 +739,7 @@ const OLD_CHANNELS = {
     captureWindowShowAsk: "bridge:capture-window-show-ask",
     captureWindowAnswerAsk: "bridge:capture-window-answer-ask",
     captureWindowPanel: "bridge:capture-window-panel",
+    captureWindowOpenOwner: "bridge:capture-window-open-owner",
     walkPanelOpenInBridge: "bridge:walk-panel-open-in-bridge",
     tap: "bridge:tap",
     startSession: "bridge:start-session",
@@ -750,6 +755,7 @@ const OLD_CHANNELS = {
     listIssues: "bridge:list-issues",
     setSleep: "bridge:set-sleep",
     overrideSleep: "bridge:override-sleep",
+    reviewSleep: "bridge:review-sleep",
     sleepChanged: "bridge:sleep-changed",
     tuneSession: "bridge:tune-session",
     renameSession: "bridge:rename-session",

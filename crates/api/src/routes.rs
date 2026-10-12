@@ -225,6 +225,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         )
         .route("/sleep", get(crate::hosted_sessions::get_sleep::<D>).post(crate::hosted_sessions::set_sleep::<D>))
         .route("/sleep/override", post(crate::hosted_sessions::override_sleep::<D>))
+        .route("/sleep/review", post(crate::hosted_sessions::review_sleep::<D>))
         .route("/sessions/waiting", post(crate::sessions::waiting_for::<D>))
         .route(
             "/sessions/waiting/answer",
@@ -233,6 +234,14 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route(
             "/sessions/waiting/dismiss",
             post(crate::hosted_sessions::dismiss_waiting::<D>),
+        )
+        .route(
+            "/sessions/checks",
+            post(crate::sessions::report_session_check::<D>),
+        )
+        .route(
+            "/sessions/checks/:run/output",
+            get(crate::sessions::get_session_check_output::<D>),
         )
         .route(
             "/sessions/claim_pull_request",

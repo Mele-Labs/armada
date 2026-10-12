@@ -30,6 +30,7 @@ export function studiosApi(seeded: readonly Studio[] | undefined, fleet: FleetHa
       showAsk: async () => {},
       answerAsk: async () => ({ ok: true }) as Outcome,
       panel: async () => {},
+      openOwner: async () => {},
     },
     // The panel beside a walk window's page, which the mock has no window for either.
     walkPanel: {

@@ -359,11 +359,33 @@ where
         {
             return Err(self.terminal_unreachable());
         }
+        // A terminal's messages are its transcript, never rows, so the walk the person has now
+        // written after (an approval included) is settled here or it would wait for good.
         let reads = {
             let store = self.store().lock().await;
             self.ledger_reads(&store, session)?
         };
-        Ok(self.ledger_built(session, reads))
+        let shown = self.ledger_built(session, reads);
+        let walks: Vec<String> = shown
+            .waiting_for
+            .iter()
+            .filter(|one| one.source == ipc::WaitingSource::Walk)
+            .map(|one| one.id.clone())
+            .collect();
+        let record = if walks.is_empty() {
+            shown
+        } else {
+            let reads = {
+                let mut store = self.store().lock().await;
+                for walk in &walks {
+                    store.dismiss_waiting(&session.id, walk).map_err(|why| self.ledger_fault(why))?;
+                }
+                self.ledger_reads(&store, session)?
+            };
+            self.ledger_built(session, reads)
+        };
+        self.publish(ipc::Event::SessionChanged(record.clone()));
+        Ok(record)
     }
 
     /// The mod's ask. A session that is not a terminal one is handed nothing

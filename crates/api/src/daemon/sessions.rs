@@ -42,6 +42,20 @@ pub trait Sessions: Send + Sync + 'static {
         show: ipc::ShowWindow,
     ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
 
+    /// `report_session_check` — `armada check` tells Fleet a run began or ended in a directory.
+    /// Answers the run, or none where no Session holds the slot that directory is in.
+    /// [`Refusal::Unacceptable`] for a start with no name or an end with no run or outcome.
+    fn report_session_check(
+        &self,
+        call: ipc::SessionCheckCall,
+    ) -> impl Future<Output = Result<ipc::SessionCheckAnswer, Refusal>> + Send;
+
+    /// `get_session_check_output` — one Session run's log. [`Refusal::Unacceptable`] for a run no
+    /// Session kept.
+    fn get_session_check_output(
+        &self,
+        run: u64,
+    ) -> impl Future<Output = Result<ipc::CheckOutput, Refusal>> + Send;
     /// `ask_in_window` — a session asks the person about a place on the page its walk window shows.
     /// `caller` places a hosted session as `show_window`'s does. Answers with the row at once.
     /// [`Refusal::Unacceptable`] for an address on no window the session showed, a blank question

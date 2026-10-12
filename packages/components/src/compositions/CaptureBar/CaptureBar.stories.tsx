@@ -62,6 +62,35 @@ export const WalkingAJob: Story = {
   },
 };
 
+/** The Job's handle opens the Job in Bridge where the window offers it. */
+export const WalkingAJobLinked: Story = {
+  args: { run: "mock", address: "http://localhost:41311", studio: null, job: "44-try-a-stacked-run-beside-the-canvas", onOpenOwner: fn() },
+  play: async ({ args, canvas }) => {
+    await userEvent.click(canvas.getByRole("button", { name: "44-try-a-stacked-run-beside-the-canvas" }));
+    await expect(args.onOpenOwner).toHaveBeenCalledOnce();
+  },
+};
+
+/**
+ * A page a Session showed with no title of its own: the address is drawn once, in full, and no name
+ * repeats it. The Session is named by its own name and opens it.
+ */
+export const ShownBySession: Story = {
+  args: {
+    run: undefined,
+    address: "http://localhost:47342/?walk=cockpit-pending",
+    studio: null,
+    session: "Capture Window Titlebar",
+    onOpenOwner: fn(),
+    onApprove: fn(),
+  },
+  play: async ({ args, canvas }) => {
+    await expect(canvas.getAllByText("http://localhost:47342/?walk=cockpit-pending")).toHaveLength(1);
+    await userEvent.click(canvas.getByRole("button", { name: "Capture Window Titlebar" }));
+    await expect(args.onOpenOwner).toHaveBeenCalledOnce();
+  },
+};
+
 /** Armed: a press on the page points rather than acts. */
 export const Capturing: Story = {
   args: { armed: true },

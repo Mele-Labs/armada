@@ -35,6 +35,15 @@ export type Pinned = {
 };
 
 /**
+ * What the bar and the OS title say of a pinned page. **A window with no title of its own is
+ * titled by its address**, so the name is dropped and the address drawn in full: the full address
+ * holds the origin the window is pinned to, and the same words are not said twice.
+ */
+export function shown(pin: Pinned): { name: string | null; address: string } {
+  return pin.name === pin.url ? { name: null, address: pin.url } : { name: pin.name, address: pin.origin };
+}
+
+/**
  * The address for a server id and one of its own links, or why there is none.
  *
  * **Three tests and the order matters.** A server Fleet no longer holds is not

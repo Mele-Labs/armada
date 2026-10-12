@@ -42,7 +42,7 @@ const LAYOUT = skipsMods() ? createLayoutSource() : createFleetLayout(window.arm
 wireFleetKeymap(window.armada);
 /** Settings → Phone, over the Gateway through the main process. Reads nothing until Settings draws it. */
 const PHONE = createPhoneGatewaySource((request) => window.armada.phone(request));
-/** The moon in the title row and the Morning review, over Fleet. */
+/** The moon in the title row and the night's decisions as Cockpit calls, over Fleet. */
 const SLEEP = createFleetSleep(window.armada);
 
 /**
