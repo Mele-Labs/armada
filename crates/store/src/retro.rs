@@ -153,6 +153,9 @@ pub struct KeptLesson {
     pub state: LessonState,
     /// The Job proposed for it, once one was.
     pub job_proposed: Option<JobId>,
+    /// The Session started for it, once one was. **At most one of this and
+    /// `job_proposed` is set.**
+    pub session_proposed: Option<String>,
     /// Whether Accept applied the item's change. **Never true of an item with
     /// none.** Since V110.
     pub applied: bool,
@@ -478,6 +481,25 @@ impl Store {
         Ok(())
     }
 
+    /// Keep the Session started for an agreed item.
+    pub fn keep_lesson_session(
+        &mut self,
+        job_id: &JobId,
+        ordinal: u32,
+        session_id: &str,
+    ) -> Result<(), WriteError> {
+        self.conn
+            .execute(
+                "UPDATE job_retro_items SET session_proposed = ?3 \
+                 WHERE job_id = ?1 AND ordinal = ?2 AND state = 'agreed' \
+                 AND job_proposed IS NULL",
+                (job_id.as_str(), i64::from(ordinal), session_id),
+            )
+            .map_err(fault("keeping the Session started for a lesson"))
+            .map_err(WriteError::Database)?;
+        Ok(())
+    }
+
     /// Give an agreed item back to `open`, where no Job could be proposed for
     /// it. **Only one that has none**: a Job that exists is never forgotten.
     pub fn reopen_lesson(&mut self, job_id: &JobId, ordinal: u32) -> Result<(), WriteError> {
@@ -485,7 +507,7 @@ impl Store {
             .execute(
                 "UPDATE job_retro_items SET state = 'open' \
                  WHERE job_id = ?1 AND ordinal = ?2 AND state = 'agreed' \
-                 AND job_proposed IS NULL",
+                 AND job_proposed IS NULL AND session_proposed IS NULL",
                 (job_id.as_str(), i64::from(ordinal)),
             )
             .map_err(fault("giving a lesson back"))
@@ -523,6 +545,7 @@ impl Store {
                     state: row.get(10)?,
                     proposed: row.get(11)?,
                     applied: row.get::<_, i64>(14)? == 1,
+                    session: row.get(15)?,
                 })
             })
             .map_err(fault("reading the lessons"))
@@ -552,6 +575,7 @@ impl Store {
                 job_proposed: stored
                     .proposed
                     .map(|id| JobId::carried(core_model::Ulid::carried(id))),
+                session_proposed: stored.session,
                 applied: stored.applied,
             });
         }
@@ -624,7 +648,7 @@ impl Store {
 /// [`Store::lessons_where`] reads them.
 const LESSON_COLUMNS: &str = "i.job_id, i.ordinal, r.at, i.whose, i.said, i.evidence, \
      i.lands_in, i.title, i.what, i.fix, i.state, i.job_proposed, i.change_kind, \
-     i.change_command, i.applied";
+     i.change_command, i.applied, i.session_proposed";
 
 /// The three texts V105 added, which are all absent on an older item.
 pub(crate) struct Texts {
@@ -648,6 +672,7 @@ struct Stored {
     state: String,
     proposed: Option<String>,
     applied: bool,
+    session: Option<String>,
 }
 
 pub(crate) fn line_of(
