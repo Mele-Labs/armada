@@ -1,5 +1,6 @@
-//! A session started as a copy of an ended or dead one's conversation. Since
-//! 23.69. `docs/concepts/session.md`, *A forked session*.
+//! A session started as a copy of an ended or dead one's conversation, or of
+//! any one's up to a message. Since 23.69, 23.79. `docs/concepts/session.md`,
+//! *A forked session*.
 //!
 //! **The fork is a new session.** It has its own id and ledger, holds no slot
 //! and no branch of the old one's, and takes a slot on its first write like any
@@ -22,6 +23,10 @@ const FORK_LIVE: &str = "fleet.session_fork_live";
 pub(crate) const FORKED_TO: &str = "forked_to";
 /// On the fork's ledger, naming the session it came from.
 pub(crate) const FORKED_FROM: &str = "forked_from";
+/// On `forked_from`'s detail: the thread row the fork ends at, which Bridge cuts the old rows by.
+const AT: &str = "at";
+/// On `forked_from`'s detail: the transcript line that row is, which the first process is told.
+const CUT: &str = "cut";
 
 impl<H, V, W> Fleet<H, V, W>
 where
@@ -33,6 +38,16 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
+    /// The transcript line a fork's first process ends its copy at, where the fork was taken at a
+    /// message. Kept on the ledger, so a Fleet that restarted before that process started has it.
+    pub(crate) async fn fork_cut_of(&self, id: &str) -> Option<String> {
+        let store = self.store().lock().await;
+        let held = store.attachments_of(&Holder::session(id)).ok()?;
+        held.into_iter()
+            .find(|one| one.kind == FORKED_FROM)
+            .and_then(|one| one.detail.get(CUT).cloned())
+    }
+
     pub(crate) async fn start_forked(
         &self,
         start: StartSession,
@@ -40,6 +55,11 @@ where
     ) -> Result<SessionRecord, Refusal> {
         let old_id = from.session_id.as_str().to_string();
         let served = self.served_named(Some(&start.manifest_id))?;
+        // **Before anything is written**: a message that has no line leaves no session behind.
+        let cut = match &from.at {
+            Some(at) => Some(self.fork_cut(&old_id, at).await?),
+            None => None,
+        };
         let manifest = served.manifest().id().as_str().to_string();
         let id = new_id();
         let now = self.now().as_str().to_string();
@@ -59,7 +79,9 @@ where
             // session that is not closed is live whatever its process does.
             let dead = old.state == store::SessionState::Ended
                 || (!hosted && !self.hosts().terminals().listening(&old_id));
-            if !dead {
+            // A fork at a message copies what is written and takes nothing from the old session,
+            // so it may be live.
+            if !dead && cut.is_none() {
                 return Err(Refusal::IllegalMove(WireError::raised(
                     FORK_LIVE,
                     format!("session {old_id} is still running, and only an ended one is forked"),
@@ -105,6 +127,12 @@ where
             // `spent`, not `standing`: the old session ending gives back what
             // it holds, and the link is a fact that stays.
             for (holder, kind, target) in [(&id, FORKED_FROM, &old_id), (&old_id, FORKED_TO, &id)] {
+                let detail = match (&from.at, &cut) {
+                    (Some(at), Some(cut)) if kind == FORKED_FROM => {
+                        [(AT.to_string(), at.clone()), (CUT.to_string(), cut.clone())].into()
+                    }
+                    _ => Default::default(),
+                };
                 store
                     .attach(
                         &KeptAttachment {
@@ -113,7 +141,7 @@ where
                             manifest_id: manifest.clone(),
                             target: target.clone(),
                             state: AttachmentState::Spent,
-                            detail: Default::default(),
+                            detail,
                             since: now.clone(),
                             changed_at: now.clone(),
                         },

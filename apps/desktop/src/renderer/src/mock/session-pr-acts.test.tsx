@@ -23,7 +23,7 @@ test("PR acts: pending while underway, auto-merge settles the Merge item, Review
   await userEvent.click(card.getByRole("button", { name: "Enable auto-merge" }));
   await expect.element(card.getByRole("button", { name: "Review", exact: true })).toBeDisabled();
   await expect.element(card.getByRole("button", { name: "Auto-merge on" })).toBeVisible();
-  await expect.element(page.getByRole("region", { name: "Thread" }).getByText(/Auto-merge is on for #1850/)).toBeVisible();
+  await expect.element(page.getByRole("region", { name: "Thread" }).getByText(/^Re: Merge #1850 once ci is green\s+Auto-merge is on for #1850/)).toBeVisible();
   await expect.element(page.getByRole("button", { name: "Open Merge #1850 once ci is green" })).not.toBeInTheDocument();
 
   await userEvent.click(card.getByRole("button", { name: "Review", exact: true }));
