@@ -15,6 +15,7 @@ import { age, type Hosts, type Item } from "../Dashboard";
 import { useSessions } from "../sessions-draft";
 import { threadRowsOf } from "../sessions";
 import { useAnswering, type Answer, type Answering } from "./answers";
+import { useJudgesRisk } from "./judges-risk";
 import { sessionIdOf } from "./waiting";
 
 /** What `Enter` does where a call has no answer of its own: it opens the thing. */
@@ -193,6 +194,8 @@ export function CallCard({
 
   const sessionId = sessionIdOf(item.key);
   const session = useSessions().find((one) => one.id === sessionId);
+  // A Job's call that asks a person, where a risky refusal is what brought it: the Judges' reason.
+  const risk = useJudgesRisk(item.job, item.hue === "ask" && item.decisions === undefined);
   const Icon = item.icon;
   const lone = answer.answers.length === 0;
   const held = answer.pending !== undefined;
@@ -262,6 +265,11 @@ export function CallCard({
                 </Tooltip>
                 {doing}
               </p>
+            )}
+            {risk === undefined ? null : (
+              <section aria-label="Why the Judges brought it to you">
+                <p className="armada-callcard__why">{risk}</p>
+              </section>
             )}
             {item.context === undefined || item.context.length === 0 ? null : (
               <section aria-label={item.contextHead ?? "Why it asks"}>

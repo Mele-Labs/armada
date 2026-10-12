@@ -100,7 +100,7 @@ const refused = (message: string): { ok: false; outcome: Outcome } => ({
 export const autopilot: Slice<AutopilotApi, Record<string, never>> = {
   name: "autopilot",
   state: {},
-  api: () => {
+  api: (scenario) => {
     const kept = new Map<string, Autopilot>();
     const told = new Set<(autopilot: Autopilot) => void>();
     const of = (manifestId: string): Autopilot => kept.get(manifestId) ?? (manifestId === "pocket" ? capped(manifestId) : running(manifestId));
@@ -138,6 +138,10 @@ export const autopilot: Slice<AutopilotApi, Record<string, never>> = {
       getAutopilot: async (manifestId) => ({ ok: true, value: of(manifestId) }),
       dispatchSetAside: async (manifestId, pickId) => picked(manifestId, pickId, "started"),
       dismissSetAside: async (manifestId, pickId) => picked(manifestId, pickId, "dismissed"),
+      readJob: async (jobId) => {
+        const watched = scenario.reads[jobId]?.watched;
+        return watched?.state === "read" ? { ok: true, value: watched.detail } : { ok: false, outcome: { ok: false, why: "not_connected" } };
+      },
       onAutopilotChanged: (onChanged) => {
         told.add(onChanged);
         return () => void told.delete(onChanged);

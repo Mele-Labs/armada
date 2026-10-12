@@ -2,7 +2,7 @@
 // #2092, `docs/concepts/autopilot.md`. A slice imports protocol, never another slice; `../api.ts` and
 // `../bridge.ts` compose them.
 
-import type { Autopilot, AutopilotList, AutopilotProposal, AutopilotSettings, Outcome } from "@armada/protocol";
+import type { Autopilot, AutopilotList, AutopilotProposal, AutopilotSettings, JobDetail, Outcome } from "@armada/protocol";
 
 /** What an Autopilot act came to: Fleet's answer, or the refusal to word. */
 export type AutopilotActed<T = Autopilot> = { ok: true; value: T } | { ok: false; outcome: Outcome };
@@ -27,9 +27,15 @@ export type AutopilotApi = {
   dismissSetAside: (manifestId: string, pickId: string) => Promise<AutopilotActed>;
   /** `autopilot.changed`: one repository's Autopilot, whole, whenever Fleet changes it. */
   onAutopilotChanged: (onChanged: (autopilot: Autopilot) => void) => () => void;
+  /**
+   * One Job's `get_job`, once, for the call card: the Judges' risk reason on a refusal that reached a
+   * person (`Judged.risky`, #2105). Kept nothing of, unlike `watchJob`'s, which is the open Job's alone.
+   */
+  readJob: (jobId: string) => Promise<AutopilotActed<JobDetail>>;
 };
 
 export const AUTOPILOT_CHANNELS = {
+  readJob: "bridge:read-job",
   proposeAutopilot: "bridge:propose-autopilot",
   startAutopilot: "bridge:start-autopilot",
   updateAutopilot: "bridge:update-autopilot",
