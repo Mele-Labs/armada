@@ -399,6 +399,7 @@
 @import "./compositions/Pilot/Pilot.css";
 @import "./compositions/PullRequestActs/PullRequestActs.css";
 @import "./compositions/ForkedFrom/ForkedFrom.css";
+@import "./compositions/StartedBy/StartedBy.css";
 @import "./compositions/ForkFromSelection/ForkFromSelection.css";
 @import "./compositions/SessionLedger/SessionLedger.css";
 @import "./compositions/NowPanel/NowPanel.css";

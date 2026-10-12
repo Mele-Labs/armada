@@ -54,6 +54,7 @@ import { sessionOf } from "@armada/jobs";
 import { askToOpenRetro } from "./open-retro";
 import { readRetro } from "./commands";
 import { ArtifactBody, ARTIFACT_GLYPH, isAddress } from "./session-artifact";
+import { isUnsentItem, linkEntry, unsentEntry, useStartedBy } from "./session-started";
 import { forkAtPick, threadRowsFrom, threadRowsOf, upTo } from "./session-thread-rows";
 import { helmOfferedOf } from "@armada/screens/src/copy";
 import { attachmentsOf, isBlank, ownerOf, sessionsMatching } from "@armada/screens/src/draft/sessions";
@@ -667,6 +668,7 @@ function entriesOf(
   known: Known,
 ): LedgerEntry[] {
   const waiting = (session.waitingFor ?? []).map((one): LedgerEntry => {
+    if (isUnsentItem(one)) return unsentEntry(one, scrollToAsk);
     // An `answer` with no choices and no question in the thread has nowhere to go, so it takes words as no act does.
     const act = one.act?.kind === "answer" && one.options === undefined && session.asked === undefined ? undefined : one.act;
     return {
@@ -704,11 +706,10 @@ function entriesOf(
   function entryOf(one: SessionAttachment): Omit<LedgerEntry, "card"> {
     switch (one.kind) {
       case "forked_to":
-      case "forked_from": {
-        const title = sessions.find((other) => other.id === one.id)?.title ?? one.id;
-        const way = one.kind === "forked_to" ? "Forked to" : "Forked from";
-        return { key: `${one.kind}${one.id}`, kind: "fork", name: `${way} ${title}`, text: `${way} ${title}`, onOpen: () => open(one.id) };
-      }
+      case "forked_from":
+      case "started_to":
+      case "started_by":
+        return linkEntry(one, sessions, open);
       case "slot":
         return {
           key: `slot${one.slot}`,
@@ -869,6 +870,7 @@ function SessionView({ session, goes, onOpen, held, board, lines }: { session: S
   const forkedFrom = session.attachments.find((one): one is Extract<SessionAttachment, { kind: "forked_from" }> => one.kind === "forked_from");
   const origin = forkedFrom === undefined ? undefined : sessions.find((one) => one.id === forkedFrom.id);
   // **Up to and including the message it was forked at**, and not what was said after it.
+  const startedBy = useStartedBy(session, sessions, onOpen);
   const originRows = origin === undefined ? NO_ROWS : upTo(threadRowsOf(origin), forkedFrom?.at);
   if (draft === undefined) return null;
   const slot = held.held.state === "read" ? (held.held.held.slots ?? []).find((one) => one.slot === slotOpen) : undefined;
@@ -963,6 +965,7 @@ function SessionView({ session, goes, onOpen, held, board, lines }: { session: S
               <SessionThread sessionId={origin.id} rows={originRows} onAnswer={() => undefined} onOpenSession={onOpen} />
             </ForkedFrom>
           )}
+          {startedBy}
           <SessionThread
             sessionId={session.id}
             rows={thread}
