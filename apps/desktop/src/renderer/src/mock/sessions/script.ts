@@ -135,6 +135,14 @@ const PICTURE = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 200"><
 
 const NOTE = "# Store clock\n\nThe store reads the clock once per write.\n\n- Pinned in tests\n- Read through `Clock::now`\n";
 
+/** What the fake runner prints for a command containing the first of each pair. */
+const RUN_OUTPUT: readonly (readonly [string, readonly string[]])[] = [
+  ["typecheck", ["> @armada/desktop typecheck", "> tsc --noEmit -p tsconfig.web.json", "Found 0 errors."]],
+  ["vitest", ["RUN  v3.2.4 packages/components", "✓ Prose.test.tsx (14)", "✗ SessionThread.test.tsx (1)", "AssertionError: expected 3 to equal 4", "Tests  1 failed | 41 passed"]],
+  ["tail -f", ["build.log: compiling", "build.log: 212 modules"]],
+];
+const RUN_DEFAULT = ["done"];
+
 export function sessionsStore(
   jobs: readonly [DispatchedJob, DispatchedJob],
   review: DispatchedJob,
@@ -572,6 +580,34 @@ export function sessionsStore(
         return { ...rest, waitingFor: (one.waitingFor ?? []).filter((it) => it.id !== itemId) };
       });
       addTo(id, [said(`Going with ${chosen ?? "my own call"}.`)]);
+    },
+    run: (_id, command, on) => {
+      // A fake runner: a few timed lines. `vitest` fails, `tail -f` never ends until it is stopped.
+      const lines = RUN_OUTPUT.find(([match]) => command.includes(match))?.[1] ?? RUN_DEFAULT;
+      const forever = command.includes("tail -f");
+      let at = 0;
+      let handle = 0;
+      const step = () => {
+        if (at < lines.length) {
+          on({ kind: "out", text: `${lines[at]}\n` });
+          at += 1;
+        } else if (forever) on({ kind: "out", text: `build.log ${new Date().toLocaleTimeString("en-GB")} waiting\n` });
+        else {
+          on({ kind: "end", code: command.includes("vitest") ? 1 : 0 });
+          return;
+        }
+        handle = window.setTimeout(step, forever ? 700 : 450);
+        timers.add(handle);
+      };
+      handle = window.setTimeout(step, 250);
+      timers.add(handle);
+      return {
+        stop: () => {
+          window.clearTimeout(handle);
+          timers.delete(handle);
+          on({ kind: "end", code: null });
+        },
+      };
     },
     answer: (id, answer, answers) => {
       const questioned = now.find((one) => one.id === id)?.asked?.questions !== undefined;

@@ -200,6 +200,9 @@ a multi-select's labels joined with `, `. [Spike 29](../spikes/029-why-a-session
 |---|---|
 | `start_session` | A row for one repository, with optional title, model, effort and mode |
 | `rename_session` | A person's name for a Session, hosted or in a terminal; stands until the next terminal `/rename` |
+| `start_session_run` | A shell block run from a Session's thread, in its slot worktree or directory; output is held in memory only |
+| `stop_session_run` | Ends a run's process group |
+| `observe_session_run` | A run's output, then how it ended, on a socket of its own |
 | `send_session_message` | Text, pictures and files stored by Fleet, and the sessions, Jobs, pull requests and branches it names; takes a turn |
 | `answer_session_ask` | One of the offers on the ask the agent is held on, with an answer for each question where it asked some |
 | `tune_session` | Model, effort and mode |
@@ -386,6 +389,14 @@ Bridge reads every live session from `list_sessions` once per connection and kee
 | The log | `get_session_check_output`, `GET /sessions/checks/:run/output`, answered as `get_check_output` answers a Job's. Kept up to 256 KiB, the newest end when cut |
 
 A terminal Session's thread is its transcript and carries no `check` row; its runs are on the Checks page. A run whose `armada check` process is killed stays `running` until its Session ends, when Fleet ends it as failed with "the Session ended" as its log.
+
+## Running a block
+
+A fenced shell block in a Session's thread shows Run when the block is hovered or focused. Pressing it runs the command in the Session's working directory, its slot if it has one, and the output prints under the block as it arrives. A finished run carries a mark with the exit code on its tooltip, and Run again sits where Run was. A run that goes on shows Stop in Run's place, and a stopped run ends with no exit code.
+
+**It is the person's own act.** Nothing is sent to the agent, no row is added to the thread, and the Session's record does not change. Bridge starts the run with `start_session_run` (`POST /sessions/run/start`) and reads what it prints on `observe_session_run`, a socket of its own, until `exited`. A Session that has ended, or a run Fleet does not know, is refused in the same words as any other act on a Session.
+
+The output is not kept past the run. Closing the window, or the Session, ends the reading; a reopened thread shows the block without it.
 
 ## A terminal session's thread
 
