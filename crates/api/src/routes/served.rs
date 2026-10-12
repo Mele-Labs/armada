@@ -388,6 +388,11 @@ const ROUTES: &[Route] = &[
         path: "/lessons/:lesson_id/agree",
     },
     Route {
+        operation: "start_lesson_session",
+        method: "POST",
+        path: "/lessons/:lesson_id/session",
+    },
+    Route {
         operation: "disagree_lesson",
         method: "POST",
         path: "/lessons/:lesson_id/disagree",

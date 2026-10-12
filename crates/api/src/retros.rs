@@ -126,6 +126,18 @@ pub(crate) async fn agree_lesson<D: Retros>(
     }
 }
 
+/// Agree with an item by starting a Session on it. **Nothing is sent**: the
+/// answer carries the Session and the draft of its first message.
+pub(crate) async fn start_lesson_session<D: Retros>(
+    State(served): State<Served<D>>,
+    Path(NamedLesson { lesson_id }): Path<NamedLesson>,
+) -> Response {
+    match served.shared().start_lesson_session(lesson_id).await {
+        Ok(started) => answer(StatusCode::OK, &started, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// Disagree with an item. The row stays, `discarded`.
 pub(crate) async fn disagree_lesson<D: Retros>(
     State(served): State<Served<D>>,

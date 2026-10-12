@@ -559,6 +559,18 @@ destructive = false
 confirms = false
 notes = "Opens the whole of what the owner dispatched the Job with, on a call whose request is longer than its clamp. `e` is redispatch on a list; a call is not a list, and the card says it beside its own button."
 
+[actions.call_open_walk]
+kind = "Action"
+tier = "Contextual"
+verb = "Open walk"
+icon = ""
+icon_absent = "undecided"
+shortcut = "v"
+scope = "call"
+destructive = false
+confirms = false
+notes = "Opens the walk a Session is waiting on the owner's approval of, from the call in front, where `o` opens the Session. Only a call whose waiting item acts on a walk offers it. Opening the walk does not clear the call; Approve still does. `w` is `call_recall` and stays so, and `v` is Observe on a Job detail, a different scope. Added 9 Oct 2026 on the owner's *\"Where there is a walk waiting for my approval, the card should give me the option to open the walk, not just the session.\"*"
+
 [actions.call_best]
 kind = "Action"
 tier = "Contextual"

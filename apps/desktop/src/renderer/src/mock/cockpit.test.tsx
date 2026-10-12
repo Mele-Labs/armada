@@ -198,6 +198,8 @@ test("Bays is a filter of its own: each piece of work in a bay, and each waiting
   await expect.element(line(/^Bay 01: Debounce the Job Board/)).toBeVisible();
   // A bay a Session holds is drawn under the Session's own name, not the process the pool reads.
   await expect.element(line(/^Bay 03: Flaky store test$/)).toBeVisible();
+  // A pull request no bay holds is on the lines too, from Pull request on: the merge line is all here.
+  await expect.element(page.getByRole("list", { name: /pull requests outside a bay$/ }).getByRole("button", { name: "Pull request: chore/bump-the-lockfile" })).toBeVisible();
   // Waiting work is a line too, at the first station.
   await expect.element(page.getByRole("list", { name: "Waiting for a bay" }).getByRole("button", { name: /^Waiting: Store a pause marker/ })).toBeVisible();
   // The stop where work is now says its place in the merge queue inside it.
@@ -359,6 +361,32 @@ test("a permission is the only Session call that offers Allow once and Refuse, a
   await reach(/^Session: Flaky/);
   await expect.element(radio(/Allow once/)).toBeVisible();
   await expect.element(radio(/Refuse/)).toBeVisible();
+});
+
+test("a walk waiting on approval offers Open walk on v, which opens its page and leaves the card, and a Session question does not", async () => {
+  localStorage.removeItem(FILTER);
+  mount("dashboard-needs-you");
+  await onScreen();
+  await userEvent.keyboard("{Escape}");
+  const window = page.getByRole("dialog", { name: "Bridge's window on Docs for the pairing screen" });
+
+  await reach(/^Session question/);
+  expect(call(/^Session question/).getByRole("button", { name: /Open walk/ }).query()).toBeNull();
+  await userEvent.keyboard("v");
+  expect(window.query()).toBeNull();
+
+  await reach(/^Session walk/);
+  const open = call(/^Session walk/).getByRole("button", { name: "Open walk v" });
+  await expect.element(open).toBeVisible();
+  await expect.element(call(/^Session walk/).getByRole("button", { name: /Open Session/ })).toBeVisible();
+  await userEvent.keyboard("v");
+  await expect.element(window).toHaveTextContent(/git\.example/);
+  await userEvent.click(page.getByRole("button", { name: "Close window" }));
+  await expect.element(window).not.toBeInTheDocument();
+  await userEvent.click(open);
+  await expect.element(window).toBeVisible();
+  // Opening it answers nothing: Approve still does.
+  await expect.element(call(/^Session walk/)).toBeVisible();
 });
 
 test("a Session's answer goes to Fleet as an index, its words as text, and a mode alone as the mode", async () => {
