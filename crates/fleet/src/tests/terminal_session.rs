@@ -877,27 +877,53 @@ async fn a_terminals_slot_is_parked_only_after_its_process_has_ended() {
     assert_eq!(rig.fleet.vcs().slot_holders(&rig.root)[0], None);
 }
 
-/// A terminal that ends on its own leaves its slot as it was: only End session parks.
+impl Rig {
+    /// A terminal session standing in slot 1, held by its agent's process.
+    async fn in_slot(&self, holder: &str) {
+        let slot = adapter_traits::slot_path(&self.root, 1);
+        std::fs::create_dir_all(&slot).unwrap();
+        self.fleet.vcs().hold_slot(&self.root, 1, holder);
+        self.reports(SessionFact::Started {
+            cwd: slot,
+            title: None,
+            origin: SessionOrigin::Terminal,
+            mod_version: Some("0.3.10".into()),
+        })
+        .await;
+    }
+}
+
+/// **A terminal the person ends themselves is parked as End session parks**, by
+/// `/exit` or a closed window, once its process has gone, and its row keeps the
+/// terminal's own reason.
 #[tokio::test]
-async fn a_terminal_ending_on_its_own_parks_nothing() {
-    let rig = rig();
-    let slot = adapter_traits::slot_path(&rig.root, 1);
-    std::fs::create_dir_all(&slot).unwrap();
-    rig.fleet.vcs().hold_slot(&rig.root, 1, "agent (pid 7)");
-    rig.reports(SessionFact::Started {
-        cwd: slot,
-        title: None,
-        origin: SessionOrigin::Terminal,
-        mod_version: Some("0.3.10".into()),
-    })
-    .await;
-    rig.fleet.vcs().holder_gone("agent (pid 7)");
-    rig.reports(SessionFact::Ended {
-        reason: "prompt_input_exit".into(),
-    })
-    .await;
-    tokio::time::sleep(Duration::from_millis(600)).await;
-    assert!(rig.fleet.vcs().parked_slots().is_empty());
+async fn a_terminal_ending_on_its_own_parks_its_slot_once_its_process_has_gone() {
+    for reason in ["prompt_input_exit", "other"] {
+        let rig = rig();
+        rig.in_slot("agent (pid 7)").await;
+        rig.reports(SessionFact::Ended { reason: reason.into() }).await;
+        tokio::time::sleep(Duration::from_millis(400)).await;
+        assert!(rig.fleet.vcs().parked_slots().is_empty(), "{reason}: its process is still there");
+
+        rig.fleet.vcs().holder_gone("agent (pid 7)");
+        eventually(|| async { rig.fleet.vcs().parked_slots() == vec![(1, ID.to_string())] }).await;
+        assert_eq!(rig.row().await.end_reason.as_deref(), Some(reason));
+    }
+}
+
+/// **A `/clear` or a resume keeps the slot**: the same process goes on in it under
+/// another session id, so nothing is parked even once a holder reads as gone.
+#[tokio::test]
+async fn a_clear_or_a_resume_keeps_the_slot() {
+    for reason in ["clear", "resume"] {
+        let rig = rig();
+        rig.in_slot("agent (pid 7)").await;
+        rig.fleet.vcs().holder_gone("agent (pid 7)");
+        rig.reports(SessionFact::Ended { reason: reason.into() }).await;
+        tokio::time::sleep(Duration::from_millis(600)).await;
+        assert!(rig.fleet.vcs().parked_slots().is_empty(), "{reason}");
+        assert_eq!(rig.fleet.vcs().slot_holders(&rig.root)[0].as_deref(), Some("agent (pid 7)"));
+    }
 }
 
 /// **A mod from before ends were held is refused, not held**: it would drop the

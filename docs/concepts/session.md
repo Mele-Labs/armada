@@ -44,7 +44,7 @@ The harness sends Fleet facts in Armada's own shape and nothing past the adapter
 | `measured` | `usage`: `context_tokens?`, `context_window?`, `cost_micros?` | Keeps what was reported |
 | `tuned` | `model?`, `effort?`, `mode?`, `commands?`, `mod_version?` | Held in memory as the terminal's `terminal` facts: model, effort, mode and the commands it lists |
 | `turn_completed` | nothing | Stamps the last turn |
-| `ended` | `reason` | Ends it and gives back everything it still holds |
+| `ended` | `reason` | Ends it and gives back everything it still holds. A terminal's slot is parked unless the reason is `clear` or `resume` (*Ending a terminal session*) |
 
 **No instant is reported**: Fleet stamps each fact on arrival. **A repeated fact publishes nothing**, so a harness may report on every turn.
 
@@ -435,11 +435,20 @@ mod ended an interactive `claude` (exit status 0) and fired `session.end` with
 | The terminal ends | The mod reports `ended`; the row ends with `end_reason` `closed` |
 | The slot | Parked once the process holding its lease has gone. The mod reports from inside the exit, so Fleet asks the pool again for up to ten seconds. A holder still running then (a person's own terminal, another session's lease) is left alone |
 
-**Only End session parks.** A terminal that ends on its own, by `/exit` or a closed
-window, ends its row with the terminal's reason and leaves its slot as it was.
+**A terminal that ends on its own is parked too**, the same way and with the
+same wait for its process, and its row keeps the terminal's reason:
+
+| Reason the mod reports | Slot |
+|---|---|
+| `prompt_input_exit`: `/exit`, ctrl+c, ctrl+d | Parked |
+| `other`: the window closed (a hangup), another signal, a `-p` run done | Parked |
+| `logout` | Parked, once the process has gone |
+| `clear`, `resume` | Kept. The same process goes on under another session id, in the same directory |
+| None: a crash or a kill no hook outlives | Kept. The session reads Quiet and its slot is held for a resume |
+
 What Fleet remembers about a press is held in memory only, so a Fleet restarted
-between the press and the end ends the row as the terminal reports it and parks
-nothing.
+between the press and the end ends the row with the terminal's reason, and parks
+by the table above.
 
 **A terminal's question is an ask in its thread too.** The `armada` mod hooks `AskUserQuestion` (a Drone skips it) and posts the question once with `ask_from_terminal`, which Fleet keeps in its store as the same `ask` row a hosted session writes, so Bridge draws the same card, and answers with the call's id. The terminal's own prompt opens once Fleet has answered that post, or after a second and a half without an answer, and not at all where Fleet refused the question because a walk is open (*Showing a window*). The mod then polls the same route with `wait`, each poll held about 25 seconds, so no one request has to outlast the question: a poll that fails or times out is asked again, and a Fleet that restarts finds the question where it was. A person answering in Bridge has the answer kept until the mod's next poll collects it, and the mod returns it as the tool's result, which drops the terminal's prompt. A person answering in the terminal first makes the mod send `settled`, which closes the card. A card whose session ended, or whose mod has not polled for three minutes, is closed too, so Bridge never offers one that cannot be answered. Fleet out of reach leaves the terminal's prompt alone.
 

@@ -441,18 +441,18 @@ where
                 changed |= session.state != store::SessionState::Ended;
                 session.state = store::SessionState::Ended;
                 session.ended_at = Some(now.clone());
-                // Ended from Bridge, it reads as a hosted close does, and its slot is parked.
-                if self.hosts().terminals().was_ended_from_bridge(&id) {
-                    session.end_reason = Some(String::from("closed"));
+                // Ended from Bridge, it reads as a hosted close does. Either way its slot is
+                // parked, unless its process goes on under another id.
+                let asked = self.hosts().terminals().was_ended_from_bridge(&id);
+                if asked || crate::session_host::ending::parks_on_end(&reason) {
                     parking = store
                         .attachments_of(&holder)
                         .map_err(fault)?
                         .into_iter()
                         .find(|one| one.kind == "slot" && one.state == AttachmentState::Standing)
                         .and_then(|one| Some((one.manifest_id, one.target.parse().ok()?)));
-                } else {
-                    session.end_reason = Some(reason);
                 }
+                session.end_reason = Some(if asked { String::from("closed") } else { reason });
                 store.give_back(&holder, None, &now).map_err(fault)?;
             }
         }

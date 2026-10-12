@@ -1,5 +1,5 @@
-//! End session on a terminal session: an end held for its mod, and the slot
-//! parked once the terminal's process has gone. `docs/concepts/session.md`,
+//! A terminal session ending: End session held for its mod, and the slot
+//! parked once the terminal's process has gone, however it ended. `docs/concepts/session.md`,
 //! *Ending a terminal session*.
 
 use std::sync::Arc;
@@ -23,6 +23,19 @@ const ENDS_FROM: &str = "0.3.10";
 /// the engine's exit, so the process is still there when the report lands.
 const PARK_WITHIN: Duration = Duration::from_secs(10);
 const PARK_EVERY: Duration = Duration::from_millis(250);
+
+/// The end reasons after which the terminal's process goes on, under another
+/// session id and in the same directory: a `/clear` and a resume. Its slot is
+/// its own still, so it is not parked.
+const GOES_ON: [&str; 2] = ["clear", "resume"];
+
+/// Whether a terminal session that ended for `reason` has its slot parked:
+/// the person left (`prompt_input_exit`), the window closed or the process was
+/// signalled (`other`), or a logout. A crash reports no end at all, so its slot
+/// stays held for a resume. The park still waits for the process to be gone.
+pub(crate) fn parks_on_end(reason: &str) -> bool {
+    !GOES_ON.contains(&reason)
+}
 
 impl<H, V, W> Fleet<H, V, W>
 where
