@@ -16,3 +16,12 @@ export function useOpenSessionAsked(open: (id: string) => void): void {
     return () => window.removeEventListener(OPEN_SESSION, heard);
   }, [open]);
 }
+
+/** The attribute the Sessions page carries the open Session's id on, as Job detail carries `data-armada-open-job`. */
+export const OPEN_SESSION_ATTRIBUTE = "data-armada-open-session";
+
+/** The id of the Session whose page is drawn, or `undefined` where none is. */
+export function openSessionIn(doc: Document): string | undefined {
+  const id = doc.querySelector(`[${OPEN_SESSION_ATTRIBUTE}]`)?.getAttribute(OPEN_SESSION_ATTRIBUTE);
+  return id === null || id === undefined || id === "" ? undefined : id;
+}

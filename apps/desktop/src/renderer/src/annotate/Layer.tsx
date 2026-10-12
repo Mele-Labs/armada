@@ -18,9 +18,11 @@ import { openJobIn } from "@armada/jobs";
 
 import type { BridgeApi } from "../../../shared/api";
 import { byCreation, sentAs, shotName, type Annotation, type Box } from "../../../shared/annotations";
+import { useDebugBridgeAsked } from "../debug-bridge";
 import { askToOpenSession } from "../open-session";
 import { askToTell } from "../tell";
-import { capture, locate } from "./capture";
+import { capture, captureWindow, currentScreen, locate, windowBox } from "./capture";
+import { contextOf, type ContextState } from "./context";
 import { componentsOf, fiberOf } from "./fiber";
 import {
   metricsOf,
@@ -34,7 +36,7 @@ import {
   type Viewport,
 } from "./place";
 import { sendToFleet, sendToSession, unsendable, type SessionTarget } from "./send";
-import { withoutLayer } from "./shoot";
+import { painted, withoutLayer } from "./shoot";
 import type { Sink } from "./sink";
 import "./annotate.css";
 
@@ -43,13 +45,23 @@ export function isToggle(event: Pick<globalThis.KeyboardEvent, "code" | "metaKey
   return event.code === "KeyA" && event.metaKey && event.altKey && !event.ctrlKey && !event.shiftKey;
 }
 
+/** ⌥⌘S while the layer is on: a note on the whole window, its picture taken as the keys are pressed. */
+export function isShootWindow(event: Pick<globalThis.KeyboardEvent, "code" | "metaKey" | "altKey" | "ctrlKey" | "shiftKey">): boolean {
+  return event.code === "KeyS" && event.metaKey && event.altKey && !event.ctrlKey && !event.shiftKey;
+}
+
+/** What a Debug Bridge note says: the screen it was taken on, then what is asked of the Session. */
+export const debugText = (screen: string | null): string =>
+  `Debug Bridge${screen === null ? "" : ` on ${screen}`}\n\nWork out what is going on in Bridge from the screenshot and the state below. I will tell you what looks wrong.`;
+
 /** Survives a reload, so pins are still drawn after one. Per window, not per machine. */
 export const ON_KEY = "armada.annotate.on";
 
 /** Pointer events the layer takes from the app while it is on, so a click annotates rather than acts. */
 const SWALLOWED = ["pointerdown", "pointerup", "mousedown", "mouseup", "click", "dblclick", "contextmenu"] as const;
 
-type Draft = { note: Annotation; element: Element; text: string };
+/** `png` is a whole-window note's picture, taken as it was begun so it shows the state the person saw. */
+type Draft = { note: Annotation; element: Element; text: string; png?: ArrayBuffer | null };
 
 const boxOf = (element: Element): Box => {
   const r = element.getBoundingClientRect();
@@ -125,6 +137,8 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSession, tell
   const anchorRef = useRef<string | null>(null);
   const shiftRef = useRef(false);
   const cannotSend = unsendable(sink);
+  // Bridge's state as Fleet last published it, which a whole-window note records.
+  const stateRef = useRef<ContextState | null>(null);
   const draftRef = useRef(draft);
   draftRef.current = draft;
   const barRef = useRef<HTMLDivElement | null>(null);
@@ -150,6 +164,18 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSession, tell
     return () => window.removeEventListener("keydown", pressed, true);
   }, []);
 
+  useEffect(() => {
+    if (!on) return undefined;
+    function pressed(event: globalThis.KeyboardEvent): void {
+      if (!isShootWindow(event)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      void shootWindow();
+    }
+    window.addEventListener("keydown", pressed, true);
+    return () => window.removeEventListener("keydown", pressed, true);
+  });
+
   // Read the files again every time the layer comes on, so a note an agent marked done shows as done.
   useEffect(() => {
     sessionStorage.setItem(ON_KEY, on ? "1" : "0");
@@ -167,15 +193,26 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSession, tell
     sink.list().then((read) => setNotes([...read].sort(byCreation)), (cause) => fail("Reading notes", cause));
   }, [on, sink, fail]);
 
+  // Bridge's state, held with the layer off too, since Debug Bridge records it from anywhere.
+  useEffect(() => {
+    if (fleet === undefined) return;
+    const held = (state: Awaited<ReturnType<LayerFleet["state"]>>): void => {
+      stateRef.current = state;
+    };
+    void fleet.state().then(held, () => undefined);
+    return fleet.subscribe(held);
+  }, [fleet]);
+
   // Every live Session, hosted and terminal, as the dropdown offers them.
   useEffect(() => {
     if (!on || fleet === undefined) return;
-    const read = (state: Awaited<ReturnType<LayerFleet["state"]>>): void =>
+    const read = (state: Awaited<ReturnType<LayerFleet["state"]>>): void => {
       setLive(
         state.sessions.state === "read"
           ? state.sessions.sessions.filter((one) => one.state === "live").map((one) => ({ id: one.id, title: titled(one) }))
           : [],
       );
+    };
     void fleet.state().then(read, () => undefined);
     return fleet.subscribe(read);
   }, [on, fleet]);
@@ -212,12 +249,18 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSession, tell
     let last = "";
     const tick = (): void => {
       const next: Record<string, Box | null> = {};
+      const screen = currentScreen(document);
       for (const note of notes) {
+        // A whole-window note is on this screen where it was left on it, and is the window there.
+        if (note.scope === "window") {
+          next[note.id] = note.screen === screen ? windowBox() : null;
+          continue;
+        }
         const element = locate(note);
         next[note.id] = element === null ? null : boxOf(element);
       }
       if (hovered !== null) next["hovered"] = hovered.isConnected ? boxOf(hovered) : null;
-      if (draft !== null) next["draft"] = draft.element.isConnected ? boxOf(draft.element) : draft.note.box;
+      if (draft !== null) next["draft"] = draft.note.scope === "window" ? windowBox() : draft.element.isConnected ? boxOf(draft.element) : draft.note.box;
       // The window is a frame the card is placed against, so a resize that moves
       // no element still has to re-place it. Read here rather than on a listener
       // of its own: this loop already decides when the layer redraws. The bar
@@ -240,10 +283,10 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSession, tell
    * A picture of `box`, kept as note `id`'s, or null where none was taken or kept. A picture
    * that fails to keep is told, and the note is saved without one rather than lost to it.
    */
-  async function keepShot(id: string, box: Box): Promise<string | null> {
+  async function keepShot(id: string, box: Box, taken?: ArrayBuffer | null): Promise<string | null> {
     // In a browser nothing captures, so the layer is not blinked out for a picture that never comes.
     if (sink.via !== "main") return null;
-    const png = await shooter.capture(box).catch(() => null);
+    const png = taken !== undefined ? taken : await shooter.capture(box).catch(() => null);
     if (png === null) return null;
     try {
       await sink.saveShot(id, png);
@@ -254,6 +297,76 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSession, tell
     }
   }
 
+  /**
+   * A note on the whole window: its picture and Bridge's state taken now, as the person saw them,
+   * and the card opened for what they say. A note half written is not thrown away for it.
+   */
+  async function shootWindow(): Promise<void> {
+    if (draftRef.current !== null && draftRef.current.text.trim() !== "") return;
+    const now = new Date();
+    const png = sink.via === "main" ? await shooter.capture(windowBox()).catch(() => null) : null;
+    const note = captureWindow(now);
+    let context: Annotation["context"];
+    try {
+      context = stateRef.current === null ? undefined : contextOf(stateRef.current);
+    } catch {
+      // A state read half-published is no reason to lose the picture; the note goes without it.
+      context = undefined;
+    }
+    setOpened(null);
+    setDraft({ note: context === undefined ? note : { ...note, context }, element: document.body, text: "", png });
+  }
+
+  // A Debug Bridge out. A ref, so a second ⇧⌘D before the first has answered starts no second Session.
+  const debuggingRef = useRef(false);
+
+  /**
+   * Debug Bridge, from the palette or ⇧⌘D, with the layer on or off: shoot the window once the
+   * palette has gone from it, keep it as a whole-window note, and start a Session with the note as
+   * its first message. The note is written before the send, so a Fleet that refuses leaves it a file.
+   */
+  async function debugBridge(): Promise<void> {
+    if (debuggingRef.current || fleet === undefined) return;
+    debuggingRef.current = true;
+    try {
+      await painted(requestAnimationFrame);
+      const now = new Date();
+      const box = windowBox();
+      const begun = captureWindow(now);
+      let context: Annotation["context"];
+      try {
+        context = stateRef.current === null ? undefined : contextOf(stateRef.current);
+      } catch {
+        context = undefined;
+      }
+      const openJobId = openJobIn(document);
+      const screenshot = await keepShot(begun.id, box);
+      const note: Annotation = {
+        ...begun,
+        text: debugText(begun.screen),
+        ...(openJobId === undefined ? {} : { openJobId }),
+        ...(context === undefined ? {} : { context }),
+        ...(screenshot === null ? {} : { screenshot }),
+      };
+      await sink.save(note);
+      setNotes((was) => [...was.filter((n) => n.id !== note.id), note].sort(byCreation));
+      const answer = await sendToSession([{ note, box }], null, sink, fleet, new Date());
+      if (!answer.ok) {
+        tell(answer.saying);
+        return;
+      }
+      const sent = { ...note, sent: answer.sent, updatedAt: answer.sent.at };
+      await sink.save(sent);
+      setNotes((was) => was.map((n) => (n.id === sent.id ? sent : n)));
+      if ("sessionId" in answer.sent) openSession(answer.sent.sessionId);
+    } catch (cause) {
+      fail("Debug Bridge", cause);
+    } finally {
+      debuggingRef.current = false;
+    }
+  }
+  useDebugBridgeAsked(() => void debugBridge());
+
   async function save(): Promise<void> {
     if (draft === null || draft.text.trim() === "" || savingRef.current) return;
     savingRef.current = true;
@@ -263,7 +376,7 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSession, tell
     const openJobId = openJobIn(document);
     try {
       // Taken here, once: a draft is always a new note, and nothing rewrites a saved note's text.
-      const screenshot = await keepShot(begun.id, draft.element.isConnected ? boxOf(draft.element) : draft.note.box);
+      const screenshot = await keepShot(begun.id, draft.element.isConnected ? boxOf(draft.element) : draft.note.box, draft.png);
       const note: Annotation = {
         ...begun,
         text: draft.text.trim(),
@@ -477,7 +590,8 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSession, tell
 
       {drawn.map((note) => {
         const box = frames[note.id];
-        if (box == null) return null;
+        // A whole-window note has no element to pin; the panel lists it.
+        if (box == null || note.scope === "window") return null;
         // A done note carries no number, here or in its label, so nothing a
         // person reads on the screen counts work that is finished.
         const number = numbers.get(note.id);
@@ -726,6 +840,11 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSession, tell
 
       <div ref={barRef} className="armada-annotate__bar" role="status">
         <span>Annotating</span>
+        <Tooltip label="A note on the whole window, with the page, the open Job or Session and Doctor's read" shortcut="⌥⌘S" asChild>
+          <Button variant="secondary" size="sm" onClick={() => void shootWindow()}>
+            Screenshot window
+          </Button>
+        </Tooltip>
         <button type="button" className="armada-annotate__status" aria-expanded={listing} onClick={() => setListing(!listing)}>
           {open} open, {done} done
           {offScreen > 0 ? `, ${offScreen} not on this screen` : ""}
@@ -834,6 +953,7 @@ function Source({ note }: { note: Annotation }) {
 
 /** `JobRowStacked ← ActiveJobsList ← Board`, then the selector, for the person checking what was picked. */
 function chain(note: Annotation): string {
+  if (note.scope === "window") return `Whole window · ${note.screen ?? "no screen marked"}`;
   const names = [note.component, ...note.owners].filter((n): n is string => n !== null).slice(0, 4);
   return `${names.length > 0 ? names.join(" ← ") : note.element.tag} · ${note.selector}`;
 }

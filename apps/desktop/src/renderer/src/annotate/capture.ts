@@ -1,6 +1,6 @@
 // What a note records about the element it was left on, read from the page.
 
-import { annotationId, SOURCE_ATTRIBUTE, type Annotation, type Source } from "../../../shared/annotations";
+import { annotationId, SOURCE_ATTRIBUTE, type Annotation, type Box, type Source } from "../../../shared/annotations";
 import { componentsOf, fiberOf } from "./fiber";
 import { selectorFor } from "./selector";
 
@@ -13,7 +13,7 @@ export function shortText(text: string | null | undefined): string {
 }
 
 /** The accessible name the rail marks as current: `Sidebar` sets `aria-current="page"`. */
-function currentScreen(doc: Document): string | null {
+export function currentScreen(doc: Document): string | null {
   const current = doc.querySelector('[aria-current="page"]');
   if (current === null) return null;
   const label = current.getAttribute("aria-label");
@@ -94,6 +94,29 @@ export function capture(element: Element, now: Date, win: Window = window): Anno
     window: { width: win.innerWidth, height: win.innerHeight },
     createdAt: at,
     updatedAt: at,
+  };
+}
+
+/** The window's own box, which a whole-window note is placed against and pictured by. */
+export const windowBox = (win: Window = window): Box => ({ x: 0, y: 0, width: win.innerWidth, height: win.innerHeight });
+
+/**
+ * A new, open note on the whole window: the page's body stands in for an element, so the note
+ * names the screen and the dialog that was up rather than one thing on it.
+ */
+export function captureWindow(now: Date, win: Window = window): Annotation {
+  const doc = win.document;
+  // The layer's own card is a dialog too, and never the app's.
+  const top = [...doc.querySelectorAll('[role="dialog"], [role="alertdialog"], dialog[open]')].find((one) => one.closest("[data-armada-annotate]") === null) ?? null;
+  return {
+    ...capture(doc.body, now, win),
+    scope: "window",
+    component: null,
+    owners: [],
+    selector: "body",
+    element: { tag: "body", text: "", label: null },
+    layer: top === null ? null : layerOf(top),
+    box: windowBox(win),
   };
 }
 
