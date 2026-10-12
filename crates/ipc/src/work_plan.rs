@@ -64,13 +64,38 @@ pub struct PlanGroupRun {
     pub commit: Option<String>,
 }
 
-/// Who made a change: a run of a step, a person, or the Job's Commander.
+/// Who made a change: a run of a step, a person, a Helm session acting for
+/// one, or the Job's Commander.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "by", rename_all = "snake_case")]
 pub enum ChangedBy {
     Step { step_id: StepId, attempt: u32 },
     Person,
+    Helm,
     Commander,
+}
+
+/// Whose hand a task wears, where it was not a step's: who last added, edited,
+/// moved, dropped or reopened it. **Never a step**, so a task only steps have
+/// touched has none, and `ChangedBy` is where a step is named.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "who", rename_all = "snake_case")]
+pub enum TaskBy {
+    Person,
+    Helm,
+    Commander,
+}
+
+impl TaskBy {
+    /// The hand a plan author leaves on a task; a step leaves none.
+    pub fn of(author: &core_model::PlanAuthor) -> Option<TaskBy> {
+        match author {
+            core_model::PlanAuthor::Step { .. } => None,
+            core_model::PlanAuthor::Person => Some(TaskBy::Person),
+            core_model::PlanAuthor::Helm => Some(TaskBy::Helm),
+            core_model::PlanAuthor::Commander => Some(TaskBy::Commander),
+        }
+    }
 }
 
 /// One line of the plan.
@@ -133,6 +158,12 @@ pub struct PlanTask {
     /// false. Since 23.10.
     #[serde(default, skip_serializing_if = "is_false")]
     pub touched_after_done: bool,
+    /// Who last changed it, where that was a person, Helm or the Commander.
+    /// **Left out for a task only steps and Fleet have touched.** The owner's
+    /// own change reads `person`. Since the plan was signed by its caller
+    /// (`#2168`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub by: Option<TaskBy>,
 }
 
 fn is_false(flag: &bool) -> bool {
@@ -413,6 +444,7 @@ impl From<&core_model::PlanAuthor> for ChangedBy {
                 attempt: attempt.number(),
             },
             core_model::PlanAuthor::Person => ChangedBy::Person,
+            core_model::PlanAuthor::Helm => ChangedBy::Helm,
             core_model::PlanAuthor::Commander => ChangedBy::Commander,
         }
     }
@@ -466,6 +498,7 @@ impl WorkPlan {
                         .map(ToString::to_string)
                         .collect(),
                     touched_after_done: false,
+                    by: task.by().and_then(TaskBy::of),
                 })
                 .collect(),
             groups: plan
