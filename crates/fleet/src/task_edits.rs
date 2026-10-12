@@ -49,13 +49,14 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    /// Edit this task, from Bridge. A model `list_models` does not offer is
+    /// Edit this task, for whoever `by` places. A model `list_models` does not offer is
     /// refused before anything else is read, as `set_model` refuses one.
-    pub(crate) async fn edit_task_by_person(
+    pub(crate) async fn edit_task_by(
         self: Arc<Self>,
         job_id: ipc::JobId,
         task: String,
         body: ipc::EditTask,
+        by: api::Steerer,
     ) -> Result<ipc::WorkPlan, Refusal> {
         let job = job_id.to_domain();
         let task = TaskId::read(task.trim()).ok_or_else(|| self.refusal(Adrift::Unnameable))?;
@@ -68,7 +69,7 @@ where
         let plan = budgeted_for(self.command_budget(), job_id.clone(), {
             let fleet = Arc::clone(&self);
             let job = job.clone();
-            async move { fleet.changed_by_person(&job, &change).await }
+            async move { fleet.changed_by(&job, &change, by).await }
         })
         .await
         .map_err(|why| self.refusal(why))?;

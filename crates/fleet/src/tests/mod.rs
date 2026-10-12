@@ -161,6 +161,8 @@ mod piloting_exits;
 mod places;
 mod plan_person;
 mod plan_person_told;
+mod plan_signed;
+mod plan_signed_by_helm;
 mod plan_tools;
 mod planning;
 mod planted;

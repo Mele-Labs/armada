@@ -4,7 +4,7 @@ transport = "HTTP"
 agent_access = "Helm only"
 description = "A person drops a task from the Job's plan, with a reason, and answers with the plan it leaves"
 notes = """
-`#897`. `task` and a required `reason` — the same two fields the Drone-facing `update_task` MCP tool takes for a drop. The change is kept under `store::PlanHand::Person`.
+`#897`. `task` and a required `reason` — the same two fields the Drone-facing `update_task` MCP tool takes for a drop. The change is kept under the hand of whoever made it. **Signed as the caller the daemon placed, never as the body says** (`#2168`): Bridge is a person's (`PlanHand::Person`, `actor` `human`), a Helm session's door call is Helm's (`PlanHand::Helm`, `helm`), and a Job's Commander's is the Commander's (`PlanHand::Commander`, `commander`). The same refusals apply to all three.
 
 **Refused by name.** A 422 where the plan holds no such task (`fleet.no_such_task`) or none was ever recorded (`fleet.no_plan`); a 422 where the reason is blank, `redirect_drone`'s reuse of a value that cannot work; a 409 where the task is already `done` or already `dropped` (`fleet.task_already_settled`) — a person's drop is not repeating a decision already made, where a Drone's own retry of `update_task` may.
 

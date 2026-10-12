@@ -515,5 +515,5 @@ pub use work::{
 };
 pub use work_plan::{
     AddTask, ChangedBy, DropTask, EditTask, JobPlanChanged, MovePlan, PlanGroup, PlanGroupRun,
-    PlanTask, RestartTask, SetTiers, TaskCounts, TierModels, WorkPlan, WorkingWindow,
+    PlanTask, RestartTask, SetTiers, TaskBy, TaskCounts, TierModels, WorkPlan, WorkingWindow,
 };

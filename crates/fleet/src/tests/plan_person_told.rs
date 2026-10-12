@@ -111,7 +111,7 @@ async fn a_working_drone_mid_step_is_told_a_persons_add() {
         expects: String::new(),
         after: String::new(),
     };
-    Fleet::add_task_by_person(Arc::clone(&fleet), ipc::JobId::from(&job_id), add)
+    Fleet::add_task_by(Arc::clone(&fleet), ipc::JobId::from(&job_id), add, api::Steerer::Person)
         .await
         .expect("a plan with no rule against this add");
 
@@ -154,7 +154,7 @@ async fn a_working_drone_mid_step_is_told_a_persons_drop() {
         task: "T3".to_string(),
         reason: "the writer's bound was never inclusive".to_string(),
     };
-    Fleet::drop_task_by_person(Arc::clone(&fleet), ipc::JobId::from(&job_id), drop)
+    Fleet::drop_task_by(Arc::clone(&fleet), ipc::JobId::from(&job_id), drop, api::Steerer::Person)
         .await
         .expect("a plan with no rule against this drop");
 
@@ -202,7 +202,7 @@ async fn with_no_live_session_nothing_is_sent_and_nothing_respawns() {
         expects: String::new(),
         after: String::new(),
     };
-    let plan = Fleet::add_task_by_person(Arc::clone(&fleet), ipc::JobId::from(&job_id), add)
+    let plan = Fleet::add_task_by(Arc::clone(&fleet), ipc::JobId::from(&job_id), add, api::Steerer::Person)
         .await
         .expect("the plan itself has no rule against this add");
     assert_eq!(plan.tasks.len(), 5, "the change keeps regardless");
