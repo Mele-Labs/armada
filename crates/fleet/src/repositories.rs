@@ -20,6 +20,7 @@ use core_model::WorkflowId;
 
 mod adding;
 mod cloning;
+pub(crate) mod reading;
 
 pub use cloning::{folder_named_by, CLONE_BUDGET};
 

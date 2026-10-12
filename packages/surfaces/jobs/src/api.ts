@@ -58,6 +58,13 @@ import type { PlanEditAnswer } from "@armada/screens/src/plan-edits";
 import type { ComposingRead } from "@armada/screens/src/composing-reads";
 import type { AskLessonRead, AskTurn, LessonReviewRead } from "./review-wire";
 
+/**
+ * Which repository a request's words are about (`read_request_repository`). `manifest_id` is set only
+ * where exactly one repository is clearly meant, and `null` is "could not tell": ask the person before
+ * anything is built. `likely` is every set-up repository, best first, and empty where nothing could be read.
+ */
+export type RequestRepositoryRead = { manifest_id: string | null; likely: string[] };
+
 export type JobsApi = {
   /**
    * Describe the work and let the Job proposer decide what it is: which
@@ -115,6 +122,13 @@ export type JobsApi = {
    * to hear about.
    */
   searchFiles: (query: string) => Promise<string[]>;
+  /**
+   * Which repository the words typed so far are about, with no model call: a ticket link, a name, a
+   * path, or the only repository there is. **Never a fault**, for `searchFiles`' reason — it runs on a
+   * pause in typing — so nothing connected, or a Fleet that would not answer, reads as no pick and no
+   * ranking. Only the first 16 000 characters are read, since the words ride the query string.
+   */
+  readRequestRepository: (words: string) => Promise<RequestRepositoryRead>;
   /**
    * Release a Job at its approval gate, with the proposal as the person left
    * it (`approve_dispatch`, since 23.8). **Absent is the proposal as it
@@ -874,6 +888,7 @@ export const JOBS_CHANNELS = {
   stopProposal: "bridge:stop-proposal",
   stageAttachment: "bridge:stage-attachment",
   searchFiles: "bridge:search-files",
+  readRequestRepository: "bridge:read-request-repository",
   approveDispatch: "bridge:approve-dispatch",
   listBranches: "bridge:list-branches",
   redispatchJob: "bridge:redispatch-job",

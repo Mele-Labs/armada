@@ -19,6 +19,24 @@ pub(crate) async fn list_repositories<D: Queries>(State(served): State<Served<D>
     }
 }
 
+/// `?q=` on `read_request_repository`: the words typed so far, absent reading as none.
+#[derive(serde::Deserialize)]
+pub(crate) struct OfRequest {
+    #[serde(default)]
+    q: String,
+}
+
+/// Which served repository a request's words are about. Never refuses.
+pub(crate) async fn read_request_repository<D: Queries>(
+    State(served): State<Served<D>>,
+    Query(OfRequest { q }): Query<OfRequest>,
+) -> Response {
+    match served.daemon().read_request_repository(q).await {
+        Ok(read) => answer(StatusCode::OK, &read, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// Each served repository's merge line, where it has one.
 pub(crate) async fn get_merge_lines<D: Queries>(State(served): State<Served<D>>) -> Response {
     match served.daemon().get_merge_lines().await {

@@ -141,6 +141,7 @@ export const jobsApi = (scenario: JobsScenario, fleet: JobsFleet): JobsApi => {
       stopProposal: async () => OK,
       stageAttachment: async (_bytes, filename) => ({ path: filename }),
       searchFiles: async () => [],
+      readRequestRepository: async () => ({ manifest_id: null, likely: [] }),
 
       // The body applied as Fleet applies it (23.8), on the Job open; a row not
       // open only moves to `queued`, which is all the Board draws of it.

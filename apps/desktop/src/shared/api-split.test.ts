@@ -182,6 +182,7 @@ import type { AnswerSessionAsk, AnswerWaiting, ClaimPullRequest, DismissWaiting,
 import type { PilotExit, PullRequestPress, SessionActed, SessionsRead } from "./api/sessions";
 import type { SleepActed } from "./api/sleep";
 import type { IssuesRead } from "./api/issues";
+import type { RequestRepositoryRead } from "./api/jobs";
 import { AUTOPILOT_CHANNELS, type AutopilotApi } from "./api/autopilot";
 import type { SleepState } from "@armada/protocol";
 import type { BridgeApi } from "./api";
@@ -252,6 +253,7 @@ type OldBridgeApi = {
         path: string;
     }>;
     searchFiles: (query: string) => Promise<string[]>;
+    readRequestRepository: (words: string) => Promise<RequestRepositoryRead>;
     approveDispatch: (jobId: string, approval?: ApproveDispatch) => Promise<Outcome>;
     listBranches: (manifestId: string) => Promise<BranchesRead>;
     redispatchJob: (jobId: string) => Promise<Outcome>;
@@ -548,6 +550,7 @@ const OLD_CHANNELS = {
     stopProposal: "bridge:stop-proposal",
     stageAttachment: "bridge:stage-attachment",
     searchFiles: "bridge:search-files",
+    readRequestRepository: "bridge:read-request-repository",
     approveDispatch: "bridge:approve-dispatch",
     listBranches: "bridge:list-branches",
     redispatchJob: "bridge:redispatch-job",

@@ -40,6 +40,7 @@ import type { StudioCapture, StudioNodeByHand, StudioPosition, StudioPromotion }
 import type { StudioAnswer } from "@armada/screens/src/studio-reads";
 import type { AddTask, ApproveWave, DropTask, EditJob, EditTask, MovePlan } from "@armada/protocol";
 import type { ApproveDispatch, BranchesRead, ToProposer } from "@armada/protocol";
+import type { RequestRepositoryRead } from "../shared/api/jobs";
 import type { PlanEditAnswer } from "@armada/screens/src/plan-edits";
 import type { Artifact, BuildSource, Followed, FleetRestart, LandCheckAt, Opened } from "@armada/protocol";
 import type { RunListRead, RunOutputRead, StartRun } from "@armada/protocol";
@@ -141,6 +142,9 @@ const api: BridgeApi = {
 
   searchFiles: (query: string): Promise<string[]> =>
     ipcRenderer.invoke(CHANNELS.searchFiles, query),
+
+  readRequestRepository: (words: string): Promise<RequestRepositoryRead> =>
+    ipcRenderer.invoke(CHANNELS.readRequestRepository, words),
 
   approveDispatch: (jobId: string, approval?: ApproveDispatch): Promise<Outcome> =>
     ipcRenderer.invoke(CHANNELS.approveDispatch, jobId, approval),
