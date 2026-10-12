@@ -19,6 +19,7 @@ import type { Connection, JobSummary, ProposalMoved, ServerState, StreamMessage 
 import { movedOnto } from "@armada/screens/src/filling";
 import type { BridgeState } from "../shared/bridge";
 import type { FleetBuilds } from "./fleet-build";
+import type { HeldReader } from "./holding";
 import type { IssuesHost } from "./issues";
 import type { Modding } from "./mods";
 import type { Questions } from "./questions";
@@ -55,6 +56,8 @@ export interface ArrivalHost {
   readonly mods: Pick<Modding, "read" | "listed">;
   /** Every session and the threads a window opened — `sessions.ts`. */
   readonly sessions: Pick<SessionsHost, "again" | "changed" | "row">;
+  /** What Fleet holds disk for, read once for nobody so the first surface to open has a list — `holding.ts`. */
+  readonly held: Pick<HeldReader, "warm">;
   /** Sleep mode, told when Fleet changes the night — `sleep.ts`. */
   readonly sleep: Pick<SleepHost, "changed">;
   /** Every repository's Autopilot, told to the windows — `issues.ts`. #2092. */
@@ -205,6 +208,8 @@ export function applyArrival(host: ArrivalHost, text: string, fleet: BridgeState
     void host.studios.again();
     // And every session, with the threads a window holds: a row published while the stream was down was never folded.
     void host.sessions.again(fleet.port);
+    // And the pool's held worktrees, once, for nobody: the first open after a restart then has a list to draw.
+    void host.held.warm(fleet.port);
     // And every Autopilot, `sessions.again`'s reason.
     void host.issues.autopilotsAgain();
     return;

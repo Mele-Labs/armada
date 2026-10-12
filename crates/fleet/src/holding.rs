@@ -311,6 +311,7 @@ where
             .inspect_err(|cause| self.noted_unreclaimed(job, &cause.why))
             .ok()?;
         self.noted_reclaimed(job, &reclaimed);
+        self.worktrees_memory().changed();
         Some(GaveBack {
             job: job.clone(),
             reclaimed,

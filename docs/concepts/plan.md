@@ -100,6 +100,8 @@ them is still on the branch, so the plan does not reset with the step.
 
 **The group's last task's Drone stays for the outcome.** Its hand-in is what fills the inbox, so a red Check hands the work back to it, as a step retry is one Drone today. **A Drone that exits without handing in stops the step**, as any Drone does. A step restarted with every task of its group already handed in gets one Drone for the step.
 
+**A task's Drone whose process vanishes is replaced once** (12 Oct 2026, Job 14). A Drone that ends with no terminating row and had not handed in, killed from outside or crashed, puts its task back to `open` and has the next-task spawn put a fresh Drone on it; the Job's log names how the process ended (`ended`, a signal or an exit code). A second vanish on the same task stops the step as `interrupted`, with the same line. The count is held in memory, so a Fleet restart gives each task its one replacement again.
+
 **What crosses from one task's Drone to the next** is the step's baseline and every path declared so far, so the gate measures the step's whole diff against every task's declaration rather than the last one's. Which Drone worked which task, and what each handed in, is kept beside the plan (store V92), so `list_job_drones` names each Drone's task.
 
 **`failed` is a task whose group's Checks were still red when the step's retries ran out** (answer 9). It is not `open`, not `working`, not `done` and not `dropped`. Restart this task puts a Drone on it again, and a green gate over its group is what clears it.
