@@ -52,6 +52,12 @@ impl Working {
     /// drops it, which is why the brief a step opened with was recoverable from
     /// nowhere once the process had gone.
     pub(crate) fn instructed(&self, occasion: Occasion, text: &str) {
+        self.instructed_through(occasion, text, None);
+    }
+
+    /// [`instructed`](Working::instructed), keeping the door the request that
+    /// made the turn came through.
+    pub(crate) fn instructed_through(&self, occasion: Occasion, text: &str, via: Option<ipc::Via>) {
         self.owed_a_turn();
         self.told(
             ipc::Voice::Armada,
@@ -62,6 +68,7 @@ impl Working {
                 // occasion but the opening brief is one of these.
                 headings: Vec::new(),
                 kinds: Vec::new(),
+                via,
             },
         );
     }
@@ -89,6 +96,7 @@ impl Working {
                 text: text.to_string(),
                 headings,
                 kinds,
+                via: None,
             },
         );
     }

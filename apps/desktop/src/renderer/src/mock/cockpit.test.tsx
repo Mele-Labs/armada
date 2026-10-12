@@ -196,6 +196,8 @@ test("Bays is a filter of its own: each piece of work in a bay, and each waiting
   await expect.element(line(/^Bay 01: Debounce the Job Board/)).toBeVisible();
   // A bay a Session holds is drawn under the Session's own name, not the process the pool reads.
   await expect.element(line(/^Bay 03: Flaky store test$/)).toBeVisible();
+  // A pull request no bay holds is on the lines too, from Pull request on: the merge line is all here.
+  await expect.element(page.getByRole("list", { name: /pull requests outside a bay$/ }).getByRole("button", { name: "Pull request: chore/bump-the-lockfile" })).toBeVisible();
   // Waiting work is a line too, at the first station.
   await expect.element(page.getByRole("list", { name: "Waiting for a bay" }).getByRole("button", { name: /^Waiting: Store a pause marker/ })).toBeVisible();
   // The stop where work is now says its place in the merge queue inside it.

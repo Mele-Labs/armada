@@ -1,5 +1,7 @@
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, Smartphone } from "lucide-react";
 import type { ReactNode } from "react";
+
+import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 
 /**
  * One line of the activity log, and the payload it opens to.
@@ -48,6 +50,8 @@ export type LogEntryProps = {
   /** `14:29:40`. Mono, fixed width, and the column never moves. */
   at: string;
   actor: LogActor;
+  /** Set where a person made the turn on their phone: a glyph beside who, no sentence. */
+  fromPhone?: boolean;
   /**
    * The line. A tool call is mono because it is a command; a message and a
    * heartbeat are sans because they are sentences. `mono` says which, and the
@@ -101,6 +105,7 @@ const STROKE = 2;
 export function LogEntry({
   at,
   actor,
+  fromPhone,
   message,
   mono,
   sized,
@@ -116,7 +121,16 @@ export function LogEntry({
   const row = (
     <>
       <span className="armada-entry__t">{at}</span>
-      <span className="armada-entry__who">{who}</span>
+      <span className="armada-entry__who">
+        {who}
+        {fromPhone === true ? (
+          <Tooltip label="From phone">
+            <span className="armada-entry__door">
+              <Smartphone size={GLYPH} strokeWidth={STROKE} aria-hidden />
+            </span>
+          </Tooltip>
+        ) : null}
+      </span>
       <span className="armada-entry__msg" data-mono={mono || undefined}>
         {working ? <span className="armada-entry__working" aria-hidden /> : null}
         {/* The line is what gives up characters at a narrow width. The counts
