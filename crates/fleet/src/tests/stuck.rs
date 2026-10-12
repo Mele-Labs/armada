@@ -142,6 +142,20 @@ async fn stalled(fleet: &Fixture, home: &TempDir) -> JobId {
     job
 }
 
+/// A Job escalated on a Job-level `trigger` with its step still `running` and
+/// the Drone in the slot, until it leaves: what a stranded submission leaves
+/// (`interrupted`), and what a spawn that failed after a restart entered the
+/// step leaves (`no_worktree`).
+async fn escalated_over(fleet: &Fixture, home: &TempDir, trigger: EscalationTrigger) -> JobId {
+    let job = started(fleet, home).await;
+    let record = fleet.load(&job).await.unwrap();
+    fleet
+        .move_job(&record, Target::Escalated(trigger), Actor::Fleet)
+        .await
+        .unwrap();
+    job
+}
+
 /// A Job whose **step** stopped: the gate refused it, then the status moved,
 /// which is the only order the machines admit.
 async fn refused(fleet: &Fixture, home: &TempDir) -> JobId {
@@ -575,6 +589,100 @@ async fn a_stalled_jobs_drone_that_leaves_on_its_own_turns_the_redirect_into_a_r
          claiming a person killed a Drone that had already left"
     );
     assert_eq!(record.status(), JobStatus::Queued);
+}
+
+/// A Job escalated `interrupted` with its step still `running` and no Drone
+/// on it is restartable, as `stalled` over a gone Drone is: the process was
+/// there, which is what separates it from the triggers raised before a spawn.
+#[tokio::test]
+async fn an_interrupted_jobs_step_left_running_is_restarted() {
+    let home = TempDir::new();
+    let fleet = a_fleet_with(&home, a_drone_that_leaves());
+    let job = escalated_over(&fleet, &home, EscalationTrigger::Interrupted).await;
+    until_reaped(&fleet).await;
+
+    let stuck = detail(&fleet, &job).await.stuck.expect("it stopped");
+    assert_eq!(spelled(&stuck), ["restart_step", "redispatch_job"]);
+
+    fleet
+        .restart_step(&job, None)
+        .await
+        .expect("the act the classification named");
+
+    let record = fleet.load(&job).await.unwrap();
+    let row = record.step(&StepId::new(IMPLEMENT)).expect("the step");
+    assert_eq!(
+        row.last_verdict(),
+        Some(StepVerdict::Failed(
+            StepLevelTrigger::of(EscalationTrigger::DroneGone).expect("a step-level trigger")
+        ))
+    );
+    assert_eq!(record.status(), JobStatus::Queued);
+}
+
+/// The worktree is still what the restart needs: reclaimed, it is refused and
+/// only the redispatch is offered.
+#[tokio::test]
+async fn an_interrupted_job_whose_worktree_was_reclaimed_is_still_refused() {
+    let home = TempDir::new();
+    let fleet = a_fleet_with(&home, a_drone_that_leaves());
+    let job = escalated_over(&fleet, &home, EscalationTrigger::Interrupted).await;
+    until_reaped(&fleet).await;
+    delete_the_worktree(&home, &fleet.load(&job).await.expect("the Job"));
+
+    let stuck = detail(&fleet, &job).await.stuck.expect("it stopped");
+    assert_eq!(spelled(&stuck), ["redispatch_job"]);
+    assert!(matches!(
+        fleet.restart_step(&job, None).await,
+        Err(Adrift::WorktreeGone { .. })
+    ));
+    assert_eq!(
+        fleet.load(&job).await.unwrap().status(),
+        JobStatus::Escalated,
+        "the Job is where the person found it"
+    );
+}
+
+/// **Job 14 on 12 Oct.** A restart entered the step and the spawn then failed
+/// on a git lock, so the Job is `no_worktree` over a step left `running`. The
+/// disk is what says whether that is true: the worktree is there, so the
+/// restart is offered and lands.
+#[tokio::test]
+async fn a_no_worktree_job_whose_worktree_is_on_disk_is_restarted() {
+    let home = TempDir::new();
+    let fleet = a_fleet_with(&home, a_drone_that_leaves());
+    let job = escalated_over(&fleet, &home, EscalationTrigger::NoWorktree).await;
+    until_reaped(&fleet).await;
+
+    let stuck = detail(&fleet, &job).await.stuck.expect("it stopped");
+    assert!(stuck.worktree_on_disk);
+    assert_eq!(spelled(&stuck), ["restart_step", "redispatch_job"]);
+
+    fleet
+        .restart_step(&job, None)
+        .await
+        .expect("the worktree is there, whatever the reason says");
+    assert_eq!(
+        fleet.load(&job).await.unwrap().status(),
+        JobStatus::Queued
+    );
+}
+
+/// And where the disk agrees with the reason, it is still only a redispatch.
+#[tokio::test]
+async fn a_no_worktree_job_whose_worktree_is_gone_is_still_refused() {
+    let home = TempDir::new();
+    let fleet = a_fleet_with(&home, a_drone_that_leaves());
+    let job = escalated_over(&fleet, &home, EscalationTrigger::NoWorktree).await;
+    until_reaped(&fleet).await;
+    delete_the_worktree(&home, &fleet.load(&job).await.expect("the Job"));
+
+    let stuck = detail(&fleet, &job).await.stuck.expect("it stopped");
+    assert_eq!(spelled(&stuck), ["redispatch_job"]);
+    assert!(matches!(
+        fleet.restart_step(&job, None).await,
+        Err(Adrift::WorktreeGone { .. })
+    ));
 }
 
 /// The half the issue is actually about: **the step that already passed

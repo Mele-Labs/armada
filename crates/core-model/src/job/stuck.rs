@@ -399,6 +399,21 @@ impl Stuck {
         })
     }
 
+    /// The Job-level triggers a restart may answer over a step left `running`
+    /// with no Drone. **One list for the offer and the refusal**:
+    /// `fleet::resume::restart_step` asks it too, so neither can drift from
+    /// the other.
+    pub fn abandoned_by(trigger: Option<EscalationTrigger>) -> bool {
+        matches!(
+            trigger,
+            Some(
+                EscalationTrigger::Stalled
+                    | EscalationTrigger::Interrupted
+                    | EscalationTrigger::NoWorktree
+            )
+        )
+    }
+
     /// Whether this is a Job a person opens asking why it stopped, and so
     /// whether [`of`](Stuck::of) will answer at all.
     ///
@@ -513,18 +528,23 @@ fn unheard_mid_step(job: &Job, standing: &Standing) -> bool {
 }
 
 /// A step still `running`, with nothing standing in the slot, on a Job
-/// escalated specifically as `stalled` — the Drone that was there when the
-/// Job escalated has since gone, ended on its own or lost to a Fleet restart.
+/// escalated as `stalled`, `interrupted` or `no_worktree` — the Drone that was
+/// there when the Job escalated has since gone, ended on its own or lost to a
+/// Fleet restart, or a spawn failed after a restart had entered the step.
 ///
-/// **`stalled` and not the shape alone**, because `would_not_start`,
-/// `not_configurable`, one path of `no_worktree` and `resource_exhausted`
-/// reach the identical four facts with no Drone ever having existed.
+/// **A trigger and not the shape alone**, because `would_not_start`,
+/// `not_configurable` and `resource_exhausted` reach the identical four facts
+/// with no Drone ever having existed. `interrupted` is a process that was there
+/// and is not, and a stranded submission leaves its step `running`.
+/// `no_worktree` is the one that names a fact the disk answers: this is only
+/// read where `Standing` found the worktree on disk, so a lock that cleared
+/// is a restart and a tree that is gone is still only a redispatch.
 /// `fleet::resume::restart_step` reads this same predicate and stops the step
 /// under `EscalationTrigger::DroneGone`. `#1034`.
 fn abandoned_mid_step(job: &Job, reason: Option<&TransitionReason>, standing: &Standing) -> bool {
     standing.drone == DroneStanding::Gone
         && job.status() == JobStatus::Escalated
-        && escalated_by(reason) == Some(EscalationTrigger::Stalled)
+        && Stuck::abandoned_by(escalated_by(reason))
         && job
             .current_step()
             .is_some_and(|step| step.state() == StepState::Running)

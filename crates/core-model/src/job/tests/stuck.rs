@@ -157,7 +157,7 @@ fn an_unheard_drone_mid_step_is_restarted_and_never_redirected() {
 
 /// **The widening is the Drone and not the missing stopped step**, which is the
 /// whole of what could have gone wrong here. Every other Job-level escalation —
-/// `interrupted`, `would_not_start`, `resource_exhausted` — has no process to
+/// `would_not_start`, `resource_exhausted` — has no process to
 /// end and no step to run again, and a rule relaxed to "no step stopped" would
 /// have offered all of them a restart that then refused.
 #[test]
@@ -223,8 +223,66 @@ fn a_stalled_jobs_drone_that_left_on_its_own_is_restarted() {
     );
 }
 
+/// `interrupted` is the other trigger raised over a Drone that was there: a
+/// submission arrived for a Job outside the slot, and the step it left is
+/// still `running`.
+#[test]
+fn an_interrupted_jobs_step_left_running_is_restarted() {
+    let job = drive(&created(), &[Target::Queued, Target::Running])
+        .transition_step(
+            &StepId::new("repro"),
+            StepTarget::Running,
+            Actor::Fleet,
+            at("2026-08-26T09:02:00.000Z"),
+        )
+        .expect("not_started -> running")
+        .job;
+    let job = drive(&job, &[Target::Escalated(EscalationTrigger::Interrupted)]);
+    let reason = TransitionReason::Escalation(EscalationTrigger::Interrupted);
+
+    let stuck =
+        Stuck::of(&job, Some(&reason), drone_gone(), Refusals::none(), None).expect("escalated");
+
+    assert_eq!(
+        stuck.recourse(),
+        [Recourse::RestartStep, Recourse::Redispatch]
+    );
+}
+
+/// `no_worktree` over a step left `running` is restartable too: a restart that
+/// entered the step and then met a git lock leaves exactly this, and the
+/// worktree being on disk (`Standing`) is the fact that decides, not the name.
+#[test]
+fn a_no_worktree_jobs_step_left_running_is_restarted_while_the_worktree_stands() {
+    let job = drive(&created(), &[Target::Queued, Target::Running])
+        .transition_step(
+            &StepId::new("repro"),
+            StepTarget::Running,
+            Actor::Fleet,
+            at("2026-08-26T09:02:00.000Z"),
+        )
+        .expect("not_started -> running")
+        .job;
+    let job = drive(&job, &[Target::Escalated(EscalationTrigger::NoWorktree)]);
+    let reason = TransitionReason::Escalation(EscalationTrigger::NoWorktree);
+
+    let stuck =
+        Stuck::of(&job, Some(&reason), drone_gone(), Refusals::none(), None).expect("escalated");
+    assert_eq!(
+        stuck.recourse(),
+        [Recourse::RestartStep, Recourse::Redispatch]
+    );
+
+    let gone = Standing {
+        worktree_on_disk: false,
+        ..drone_gone()
+    };
+    let stuck = Stuck::of(&job, Some(&reason), gone, Refusals::none(), None).expect("escalated");
+    assert_eq!(stuck.recourse(), [Recourse::Redispatch]);
+}
+
 /// **The trigger is what tells this apart from a Drone that never existed.**
-/// `would_not_start`, `not_configurable`, `no_worktree` and
+/// `would_not_start`, `not_configurable` and
 /// `resource_exhausted` reach the identical four facts — step running, no
 /// Drone, worktree on disk — with no Drone ever having been assigned, and
 /// offering a restart there is the redispatch dressed up as a cheaper act.
@@ -233,7 +291,6 @@ fn the_same_shape_under_a_different_trigger_offers_no_restart() {
     for trigger in [
         EscalationTrigger::WouldNotStart,
         EscalationTrigger::NotConfigurable,
-        EscalationTrigger::NoWorktree,
         EscalationTrigger::ResourceExhausted,
     ] {
         let working = drive(&created(), &[Target::Queued, Target::Running])
