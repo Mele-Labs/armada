@@ -7,6 +7,7 @@ import tokens from "@armada/tokens/tokens.json";
 
 import type { BridgeState } from "../../shared/bridge";
 import type { CaptureOpened, SessionRecord } from "@armada/protocol";
+import { addressOf, cleanTitle } from "@armada/screens/src/sessions-wire";
 import { isPinned, pinned, webOrigin } from "./address";
 import type { PanelSubject } from "./layout";
 import { CaptureWindow, type CaptureBoard, type LandsOn, type PanelKept, type WalkSizes, type WindowQuestion } from "./window";
@@ -97,7 +98,10 @@ export class CaptureWindows {
       standing.close();
     }
     const pin = { run: key, name: title, origin, url, manifestId: null };
-    const landsOn = { session: { id: sessionId, title } };
+    // The Session by its own name, as the Sessions list calls it: `title` is the window's, and a
+    // window shown with no title is titled by its address.
+    const record = this.sessions?.find((one) => one.id === sessionId);
+    const landsOn = { session: { id: sessionId, title: cleanTitle(record?.title) ?? addressOf(sessionId) } };
     const window = new CaptureWindow(pin, landsOn, this.board, sizes(), this.kept(landsOn));
     this.open.set(key, window);
     // A window opened by a press on a waiting question shows it as one opened by its arrival does.

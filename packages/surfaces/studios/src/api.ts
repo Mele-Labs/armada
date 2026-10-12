@@ -184,6 +184,8 @@ export type StudiosApi = {
     answerAsk: (answer: CaptureAnswer) => Promise<Outcome>;
     /** Draw the Session's or the Job's panel beside the page, or fold it away. */
     panel: (open: boolean) => Promise<void>;
+    /** Bring Bridge's window forward on the Job or the Session the bar names. Main reads which off the window. */
+    openOwner: () => Promise<void>;
   };
   /**
    * What the panel beside a walk window's page may ask that Bridge's own window does not. **Answered for
@@ -260,5 +262,6 @@ export const STUDIOS_CHANNELS = {
   captureWindowShowAsk: "bridge:capture-window-show-ask",
   captureWindowAnswerAsk: "bridge:capture-window-answer-ask",
   captureWindowPanel: "bridge:capture-window-panel",
+  captureWindowOpenOwner: "bridge:capture-window-open-owner",
   walkPanelOpenInBridge: "bridge:walk-panel-open-in-bridge",
 } as const;
