@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { AppWindow, BellRing, Box, GitPullRequestArrow, MessageSquare, Check, CircleDot, Files, Globe, Hand, Image, Megaphone, MoveRight, NotebookText, Reply, Search, Terminal, GitBranch, GitPullRequest, KeyRound, Presentation, PencilRuler, ShieldCheck, ShieldEllipsis, ShieldX, Split } from "lucide-react";
+import { AppWindow, BellRing, Box, CircleCheck, CircleX, GitMerge, GitPullRequestArrow, LoaderCircle, MessageSquare, Check, CircleDot, Files, Globe, Hand, Image, Megaphone, MoveRight, NotebookText, Reply, Search, Terminal, GitBranch, GitPullRequest, KeyRound, Presentation, PencilRuler, ShieldCheck, ShieldEllipsis, ShieldX, Split } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { forgetKept } from "../../keep";
@@ -38,12 +38,42 @@ export type SessionLedgerCard = {
   facts: readonly { label: string; value: string; tone?: SessionLedgerTone; mono?: boolean }[];
 };
 
+export type LedgerPullRequest = { merged: boolean; checks: "passed" | "running" | "failed"; checksSaid: string };
+
+const PR_CHECKS = { passed: CircleCheck, running: LoaderCircle, failed: CircleX } as const;
+
+/** A pull request's state as one bare mark: merged or open, in its hue, its tooltip naming it. */
+export function PullRequestStateMark({ merged }: { merged: boolean }) {
+  const said = merged ? "Merged" : "Open";
+  return (
+    <Tooltip label={said}>
+      <span className="armada-pr-state" data-state={merged ? "merged" : "open"} role="img" aria-label={said}>
+        {merged ? <GitMerge size={12} strokeWidth={2} aria-hidden /> : <GitPullRequest size={12} strokeWidth={2} aria-hidden />}
+      </span>
+    </Tooltip>
+  );
+}
+
+/** A pull request's Checks as one bare mark, the PR card's: spinning while they run. */
+export function PullRequestChecksMark({ checks, said }: { checks: LedgerPullRequest["checks"]; said: string }) {
+  const Glyph = PR_CHECKS[checks];
+  return (
+    <Tooltip label={said}>
+      <span className="armada-pr-card__check" data-checks={checks} role="img" aria-label={said}>
+        <Glyph size={12} strokeWidth={2} aria-hidden />
+      </span>
+    </Tooltip>
+  );
+}
+
 export type LedgerEntry = {
   key: string;
   kind: LedgerKind;
   /** The row's accessible name: what it is, and for a pull request how its Checks stand. */
   name: string;
   text: ReactNode;
+  /** A `pull_request` row's state and Checks, drawn as the two bare marks the done callout draws too. */
+  pr?: LedgerPullRequest;
   /** A pull request's Checks, or a subagent's turn, as the one mark at the row's end. */
   mark?: { glyph: SessionLedgerTone; said: string };
   /** The preview a hover or a focus shows beside the row. Absent draws none. */
@@ -102,7 +132,8 @@ const SECTIONS: { kind: LedgerKind; label: string; Glyph: LucideIcon }[] = [
   { kind: "fork", label: "Forks", Glyph: MoveRight },
 ];
 
-const ARTIFACT: Record<ArtifactForm, { Glyph: LucideIcon; said: string }> = {
+/** Also the glyphs of the rows a Session's done callout lists, so a page reads the same there as here. */
+export const ARTIFACT: Record<ArtifactForm, { Glyph: LucideIcon; said: string }> = {
   page: { Glyph: Globe, said: "Published page" },
   file: { Glyph: Files, said: "File written" },
   image: { Glyph: Image, said: "Looked at" },
@@ -209,7 +240,6 @@ function LedgerSection({ kind, label, Glyph, all }: { kind: LedgerKind; label: s
   const [show, setShow] = useShow(kind);
   const [kinds, setKinds] = useKinds();
   const [more, setMore] = useState(false);
-  const [replying, setReplying] = useState<string>();
   if (all.length === 0) return null;
   const toggles = all.some((one) => one.finished === true);
   const filtered = kind === "artifact";
@@ -246,105 +276,120 @@ function LedgerSection({ kind, label, Glyph, all }: { kind: LedgerKind; label: s
           </div>
         ) : null}
       </div>
-      {rows.length === 0 ? null : (
-            <ul className="armada-session-ledger__rows">
-              {rows.map((row) => {
-                const Mark = row.mark === undefined ? undefined : MARK[row.mark.glyph];
-                const replies = kind === "waiting" && row.act === undefined && row.onReply !== undefined;
-                const waiting = kind === "waiting" ? (replies ? REPLY : WAITING_ACT[row.act ?? "none"]) : undefined;
-                const form = row.artifact === undefined ? undefined : ARTIFACT[row.artifact];
-                const opener = (
-                  <button
-                    type="button"
-                    className="armada-session-ledger__open"
-                    aria-label={`Open ${row.name}`}
-                    aria-expanded={replies ? replying === row.key : undefined}
-                    onClick={replies ? () => setReplying(replying === row.key ? undefined : row.key) : row.onOpen}
-                  >
-                    {waiting !== undefined ? (
-                      <Tooltip label={waiting.said}>
-                        <span className="armada-session-mark" role="img" aria-label={waiting.said}>
-                          <waiting.Glyph size={12} strokeWidth={2} aria-hidden />
-                        </span>
-                      </Tooltip>
-                    ) : form === undefined ? (
-                      <Glyph size={12} strokeWidth={2} aria-hidden />
-                    ) : (
-                      <Tooltip label={form.said}>
-                        <span className="armada-session-mark" role="img" aria-label={form.said}>
-                          <form.Glyph size={12} strokeWidth={2} aria-hidden />
-                        </span>
-                      </Tooltip>
-                    )}
-                    <span className="armada-session-ledger__text">{row.text}</span>
-                    {row.handed === undefined ? null : (
-                      <Tooltip label={row.handed}>
-                        <span className="armada-session-mark" role="img" aria-label={row.handed}>
-                          <Hand size={12} strokeWidth={2} aria-hidden />
-                        </span>
-                      </Tooltip>
-                    )}
-                    {row.looking !== true ? null : (
-                      <Tooltip label="Looking at it, not dispatched from here">
-                        <span className="armada-session-mark" role="img" aria-label="Looking at it, not dispatched from here">
-                          <Search size={12} strokeWidth={2} aria-hidden />
-                        </span>
-                      </Tooltip>
-                    )}
-                    {row.slot === undefined ? null : (
-                      <span className="armada-ref-chip" role="img" aria-label={`Worktree slot ${row.slot}`}>
-                        <KeyRound size={12} strokeWidth={2} aria-hidden />
-                        {row.slot}
-                      </span>
-                    )}
-                    {Mark === undefined || row.mark === undefined ? null : (
-                      <Tooltip label={row.mark.said}>
-                        <span
-                          className="armada-session-mark"
-                          role="img"
-                          aria-label={row.mark.said}
-                          data-state-mark
-                          data-pulsing={row.mark.glyph === "running" || undefined}
-                        >
-                          <Mark size={12} strokeWidth={2} aria-hidden />
-                        </span>
-                      </Tooltip>
-                    )}
-                  </button>
-                );
-                return (
-                  <li key={row.key} className="armada-session-ledger__row" aria-label={row.name} data-mark={row.mark?.glyph}>
-                    {row.card === undefined ? (
-                      opener
-                    ) : (
-                      <Tooltip label={<LedgerPreview card={row.card} />} card beside asChild>
-                        {opener}
-                      </Tooltip>
-                    )}
-                    {row.exits}
-                    {row.options === undefined ? null : (
-                      <div className="armada-session-ledger__options" role="group" aria-label={`Choices for ${row.name}`}>
-                        {row.options.map((one, at) => (
-                          <Button key={one.label} variant="secondary" size="sm" aria-label={`Choice ${at + 1} ${one.label}`} onClick={one.onPick}>
-                            {at + 1} {one.label}
-                          </Button>
-                        ))}
-                      </div>
-                    )}
-                    {replies && replying === row.key && row.onReply !== undefined ? (
-                      <ReplyBox name={row.name} keep={row.replyKeep} onSend={row.onReply} onClose={() => setReplying(undefined)} />
-                    ) : null}
-                  </li>
-                );
-              })}
-            </ul>
-      )}
+      {rows.length === 0 ? null : <LedgerRows kind={kind} Glyph={Glyph} rows={rows} />}
       {filtered && passed.length > NEWEST ? (
         <button type="button" className="armada-session-ledger__more" onClick={() => setMore(!more)}>
           {more ? "Less" : "More"}
         </button>
       ) : null}
     </section>
+  );
+}
+
+/** What a waiting row's glyph is and what its tooltip names: Reply where its press opens a box, else its act's. */
+export function waitingMark(row: LedgerEntry): { Glyph: LucideIcon; said: string } {
+  return row.act === undefined && row.onReply !== undefined ? REPLY : WAITING_ACT[row.act ?? "none"];
+}
+
+/** A section's rows, also drawn by the thread's Needs you panel so a waiting item reads and acts the same in both. */
+export function LedgerRows({ kind, Glyph, rows }: { kind: LedgerKind; Glyph: LucideIcon; rows: readonly LedgerEntry[] }) {
+  const [replying, setReplying] = useState<string>();
+  return (
+    <ul className="armada-session-ledger__rows">
+      {rows.map((row) => {
+        const Mark = row.mark === undefined ? undefined : MARK[row.mark.glyph];
+        const replies = kind === "waiting" && row.act === undefined && row.onReply !== undefined;
+        const waiting = kind === "waiting" ? waitingMark(row) : undefined;
+        const form = row.artifact === undefined ? undefined : ARTIFACT[row.artifact];
+        const opener = (
+          <button
+            type="button"
+            className="armada-session-ledger__open"
+            aria-label={`Open ${row.name}`}
+            aria-expanded={replies ? replying === row.key : undefined}
+            onClick={replies ? () => setReplying(replying === row.key ? undefined : row.key) : row.onOpen}
+          >
+            {row.pr !== undefined ? (
+              <PullRequestStateMark merged={row.pr.merged} />
+            ) : waiting !== undefined ? (
+              <Tooltip label={waiting.said}>
+                <span className="armada-session-mark" role="img" aria-label={waiting.said}>
+                  <waiting.Glyph size={12} strokeWidth={2} aria-hidden />
+                </span>
+              </Tooltip>
+            ) : form === undefined ? (
+              <Glyph size={12} strokeWidth={2} aria-hidden />
+            ) : (
+              <Tooltip label={form.said}>
+                <span className="armada-session-mark" role="img" aria-label={form.said}>
+                  <form.Glyph size={12} strokeWidth={2} aria-hidden />
+                </span>
+              </Tooltip>
+            )}
+            <span className="armada-session-ledger__text">{row.text}</span>
+            {row.handed === undefined ? null : (
+              <Tooltip label={row.handed}>
+                <span className="armada-session-mark" role="img" aria-label={row.handed}>
+                  <Hand size={12} strokeWidth={2} aria-hidden />
+                </span>
+              </Tooltip>
+            )}
+            {row.looking !== true ? null : (
+              <Tooltip label="Looking at it, not dispatched from here">
+                <span className="armada-session-mark" role="img" aria-label="Looking at it, not dispatched from here">
+                  <Search size={12} strokeWidth={2} aria-hidden />
+                </span>
+              </Tooltip>
+            )}
+            {row.slot === undefined ? null : (
+              <span className="armada-ref-chip" role="img" aria-label={`Worktree slot ${row.slot}`}>
+                <KeyRound size={12} strokeWidth={2} aria-hidden />
+                {row.slot}
+              </span>
+            )}
+            {row.pr !== undefined ? (
+              <PullRequestChecksMark checks={row.pr.checks} said={row.pr.checksSaid} />
+            ) : Mark === undefined || row.mark === undefined ? null : (
+              <Tooltip label={row.mark.said}>
+                <span
+                  className="armada-session-mark"
+                  role="img"
+                  aria-label={row.mark.said}
+                  data-state-mark
+                  data-pulsing={row.mark.glyph === "running" || undefined}
+                >
+                  <Mark size={12} strokeWidth={2} aria-hidden />
+                </span>
+              </Tooltip>
+            )}
+          </button>
+        );
+        return (
+          <li key={row.key} className="armada-session-ledger__row" aria-label={row.name} data-mark={row.mark?.glyph}>
+            {row.card === undefined ? (
+              opener
+            ) : (
+              <Tooltip label={<LedgerPreview card={row.card} />} card beside asChild>
+                {opener}
+              </Tooltip>
+            )}
+            {row.exits}
+            {row.options === undefined ? null : (
+              <div className="armada-session-ledger__options" role="group" aria-label={`Choices for ${row.name}`}>
+                {row.options.map((one, at) => (
+                  <Button key={one.label} variant="secondary" size="sm" aria-label={`Choice ${at + 1} ${one.label}`} onClick={one.onPick}>
+                    {at + 1} {one.label}
+                  </Button>
+                ))}
+              </div>
+            )}
+            {replies && replying === row.key && row.onReply !== undefined ? (
+              <ReplyBox name={row.name} keep={row.replyKeep} onSend={row.onReply} onClose={() => setReplying(undefined)} />
+            ) : null}
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 
