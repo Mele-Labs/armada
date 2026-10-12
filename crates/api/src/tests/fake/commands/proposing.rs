@@ -115,7 +115,6 @@ impl FakeDaemon {
         let actor = match by {
             crate::Redirector::Person => "human",
             crate::Redirector::Helm => "helm",
-            crate::Redirector::Commander => "commander",
         };
         self.events.publish(Event::JobCreated(JobCreated {
             job: job.clone(),

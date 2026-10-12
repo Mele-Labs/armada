@@ -15,7 +15,8 @@ test("PR acts: pending while underway, auto-merge settles the Merge item, Review
   await userEvent.click(page.getByRole("button", { name: "Sessions", exact: true }));
   await userEvent.click(page.getByRole("region", { name: "Sessions" }).getByRole("button", { name: /Store migration spike/ }));
 
-  const waiting = page.getByRole("region", { name: "Attachments" }).getByRole("region", { name: "Waiting on you" });
+  const waiting = page.getByRole("region", { name: "Needs you" });
+  await userEvent.click(waiting.getByRole("button", { name: /^Needs you/ }));
   await expect.element(waiting.getByRole("button", { name: "Open Merge #1850 once ci is green" })).toBeVisible();
   await userEvent.click(page.getByRole("region", { name: "Attachments" }).getByRole("button", { name: "Open Pull request #1850" }));
 

@@ -255,12 +255,10 @@ where
         let stated = match by {
             api::Redirector::Person => StatedBy::APerson,
             api::Redirector::Helm => StatedBy::AHelmSession,
-            api::Redirector::Commander => unreachable!("a Commander does not draft a Job"),
         };
         let actor = match by {
             api::Redirector::Person => Actor::Human,
             api::Redirector::Helm => Actor::Helm,
-            api::Redirector::Commander => Actor::Commander,
         };
         self.proposed_job(proposal, stated, None, actor).await
     }

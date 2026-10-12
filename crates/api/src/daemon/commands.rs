@@ -17,12 +17,12 @@
 
 use std::future::Future;
 
-use crate::daemon::{Redirector, Refusal};
+use crate::daemon::{Redirector, Refusal, Steerer};
 use ipc::{
     AddTask, AnswerCommand, CapRaise, CaptureWalkNote, ChangesRequested, ChosenAnswer, DropTask,
     FileReport, FindingDismissed, FindingQueued, IssueFiled, JobExamined, JobForgotten, JobId,
     JobSummary, JudgeAnswered, ManifestSaved, ProposeJob, Redirection, Redispatched,
-    RemarksTakenUp, RemoveWalkNote, Report, RestartRequested, SaveManifestFile, SetWhenBlocked,
+    RaisedBy, RemarksTakenUp, RemoveWalkNote, Report, RestartRequested, SaveManifestFile, SetWhenBlocked,
     SetWhenRefused, TurnRaise, WalkNotes, WorktreeReclaimed,
 };
 
@@ -203,7 +203,7 @@ pub trait Commands: Send + Sync + 'static {
         job_id: JobId,
         drone_id: ipc::DroneId,
         instruction: Redirection,
-        by: Redirector,
+        by: Steerer,
     ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
 
     /// `kill_process` — ends one process the Job holds, and everything under
@@ -356,13 +356,14 @@ pub trait Commands: Send + Sync + 'static {
     /// and the two are separate methods so that neither can quietly become the
     /// other.
     ///
-    /// `by` is the transport's word, never the body's: [`Redirector::Helm`]
-    /// only where the door placed the call in a Helm session.
+    /// `by` is the transport's word, never the body's: [`Steerer::Helm`] only
+    /// where the door placed the call in a Helm session, and
+    /// [`Steerer::Commander`] only where it placed it as a Job's Commander.
     fn redirect_drone(
         self: std::sync::Arc<Self>,
         job_id: JobId,
         instruction: Redirection,
-        by: Redirector,
+        by: Steerer,
     ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
 
     /// `restart_step` — a fresh Drone on the worktree the last one left, at the
@@ -725,12 +726,16 @@ pub trait Commands: Send + Sync + 'static {
     /// [`Refusal::IllegalMove`] on a terminal Job. [`Refusal::Unacceptable`] on
     /// a figure at or under the cap in force — answering 200 while leaving the
     /// work stopped is what this route was built against — and again where the
-    /// surface asked past its ceiling, which a person has none of.
+    /// caller asked past its ceiling, which a person has none of.
     /// `crates/fleet/src/raising.rs` carries that ceiling and defends it.
+    ///
+    /// **`by` is placed by the transport and is never in the body**, so a
+    /// caller cannot name its own ceiling (`#2165`).
     fn raise_cost_cap(
         self: std::sync::Arc<Self>,
         job_id: JobId,
         raise: CapRaise,
+        by: RaisedBy,
     ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
 
     /// `raise_turn_cap` — let this Job take more turns than the tier above it
@@ -748,6 +753,7 @@ pub trait Commands: Send + Sync + 'static {
         self: std::sync::Arc<Self>,
         job_id: JobId,
         raise: TurnRaise,
+        by: RaisedBy,
     ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
 
     /// `answer_question` — a person picks one of the answers a waiting Drone
