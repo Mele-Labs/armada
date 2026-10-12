@@ -1,6 +1,6 @@
 // Start Session beside Create Job (`docs/concepts/retro.md`, *Where Bridge draws it*): on the list, on
 // a Job's retro sheet and in the guided review. A press asks Fleet to start the Session and opens it
-// with the first message drafted and unsent; a refusal is the card's alert, in Fleet's words, with
+// running, Fleet having sent the brief; a refusal is the card's alert, in Fleet's words, with
 // the buttons kept.
 //
 // Browser tests, `Lessons.test.tsx`'s reason.
@@ -49,10 +49,10 @@ const MANIFEST = lesson({
   fix: "Run only xtask's tests.",
 });
 
-const DRAFT = "The gate blamed the Drone for Fleet's own mistake\n\nCompare against origin/main.";
+const BRIEF = "The gate blamed the Drone for Fleet's own mistake\n\nCompare against origin/main.";
 const started = (id: string): LessonSessionRead => ({
   ok: true,
-  started: { lesson: { ...ARMADA, id, state: "agreed", session_proposed: "s-01J8ZQ4M" } as Lesson, session_id: "s-01J8ZQ4M", draft: DRAFT },
+  started: { lesson: { ...ARMADA, id, state: "agreed", session_proposed: "s-01J8ZQ4M" } as Lesson, session_id: "s-01J8ZQ4M", brief: BRIEF },
 });
 const refusal: Outcome = {
   ok: false,
@@ -110,15 +110,14 @@ test("the page offers no Start Session where the host gave it no Session to open
   expect(page.getByRole("button", { name: "Start Session" }).elements()).toHaveLength(0);
 });
 
-test("pressing it starts the Session, opens it with the draft, and leaves the card as Session started with a link", async () => {
+test("pressing it starts the Session, opens it, and leaves the card as Session started with a link", async () => {
   const { startSession, openSession } = opened([ARMADA]);
   await page.getByRole("button", { name: "Start Session" }).click();
   expect(startSession).toHaveBeenCalledWith("l-armada");
-  await vi.waitFor(() => expect(openSession).toHaveBeenCalledWith("s-01J8ZQ4M", DRAFT));
+  await vi.waitFor(() => expect(openSession).toHaveBeenCalledWith("s-01J8ZQ4M"));
   const one = card(/blamed the Drone/);
   await expect.element(one.getByText("Session started", { exact: true })).toBeVisible();
   expect(buttonsOf(/blamed the Drone/)).toEqual([]);
-  // The link opens the Session again, with no draft: whatever its box holds now.
   await one.getByRole("button", { name: "Open Session" }).click();
   expect(openSession).toHaveBeenLastCalledWith("s-01J8ZQ4M");
 });
@@ -204,7 +203,7 @@ test("the retro sheet offers Start Session on an open Armada item and starts it"
   );
   const sheet = page.getByRole("dialog", { name: "Retro" });
   await sheet.getByRole("button", { name: "Start Session" }).click();
-  await vi.waitFor(() => expect(openSession).toHaveBeenCalledWith("s-01J8ZQ4M", DRAFT));
+  await vi.waitFor(() => expect(openSession).toHaveBeenCalledWith("s-01J8ZQ4M"));
 });
 
 test("in the review a started Session advances like any answer", async () => {
@@ -240,5 +239,24 @@ test("in the review a started Session advances like any answer", async () => {
   expect(startSession).toHaveBeenCalledWith("l-armada");
   await expect.element(page.getByText("2 of 2")).toBeVisible();
   await expect.element(page.getByRole("heading", { name: /set off every Rust test/ })).toBeVisible();
-  expect(openSession).toHaveBeenCalledWith("s-01J8ZQ4M", DRAFT);
+  expect(openSession).toHaveBeenCalledWith("s-01J8ZQ4M");
+});
+
+test("a Session that started but whose brief did not go is opened, and the card says why in Fleet's words", async () => {
+  const { openSession } = opened([ARMADA], async (id) => {
+    const ok = started(id);
+    return ok.ok ? { ok: true, started: { ...ok.started, send_failed: "The agent could not be reached." } } : ok;
+  });
+  await page.getByRole("button", { name: "Start Session" }).click();
+  await vi.waitFor(() => expect(openSession).toHaveBeenCalledWith("s-01J8ZQ4M"));
+  await expect.element(page.getByText("The Session started, but the request was not sent")).toBeVisible();
+  await expect.element(page.getByText("The agent could not be reached.")).toBeVisible();
+  await expect.element(page.getByText("Session started", { exact: true })).toBeVisible();
+});
+
+test("the button says plainly that it begins work now", async () => {
+  opened([ARMADA]);
+  await expect.element(page.getByRole("button", { name: "Start Session" })).toBeVisible();
+  await page.getByRole("button", { name: "Start Session" }).hover();
+  await expect.element(page.getByText(/begins work at once/)).toBeVisible();
 });

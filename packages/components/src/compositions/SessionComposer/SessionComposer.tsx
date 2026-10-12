@@ -3,7 +3,7 @@ import type { ClipboardEvent, DragEvent, FormEvent, KeyboardEvent, ReactNode } f
 import { Cpu, Paperclip, PencilRuler, Send, Shield, Zap } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
-import { useKept, writeKept } from "../../keep";
+import { useKept } from "../../keep";
 import { AttachmentChip } from "../../primitives/AttachmentChip/AttachmentChip";
 import { Button } from "../../primitives/Button/Button";
 import { Select } from "../../primitives/Select/Select";
@@ -102,15 +102,6 @@ export type SessionComposerProps = {
 /** The message: its text holds a CHIP where each tag stands, and `tags` lists them in order. */
 type Draft = { text: string; tags: ComposerTag[]; files: ComposerFile[] };
 const BLANK: Draft = { text: "", tags: [], files: [] };
-
-/**
- * Put `text` in the message box of a Session that has not been opened yet, unsent. **The box keeps
- * its draft by Session** (`draftKey`), so a host that has a first message for a Session it just
- * started writes it here before opening the Session, and the box finds it there.
- */
-export function seedSessionDraft(sessionId: string, text: string): void {
-  writeKept<Draft>(`session:${sessionId}`, { text, tags: [], files: [] }, { text, tags: [] });
-}
 
 /** The commands a `/` query keeps: names that start with it first, then names that hold it. */
 function matching<T extends { name: string }>(commands: readonly T[], query: string): T[] {

@@ -353,7 +353,7 @@ export type JobDetailProps = {
   onDisagreeLesson: AnswerLesson;
   /** Start Session on an item of that sheet, and how the host opens the Session it started. Both or neither. */
   onStartSession?: StartLessonSession;
-  onOpenSession?: (sessionId: string, draft?: string) => void;
+  onOpenSession?: (sessionId: string) => void;
   /**
    * Read one frame a step's harness produced. **`onReadCheckOutput`'s shape one
    * record over** — the bytes come from the process that can reach Fleet, and

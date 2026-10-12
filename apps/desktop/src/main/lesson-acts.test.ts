@@ -132,7 +132,7 @@ it("sends nothing where no Fleet is connected", async () => {
 it("starts a Session for an item on its own route, with no body, and reads nothing again", async () => {
   const asked: Asked[] = [];
   const rereads: number[] = [];
-  const started = { lesson: { ...LESSON, session_proposed: "s-01J8ZQ4M" }, session_id: "s-01J8ZQ4M", draft: "Compare against origin/main." };
+  const started = { lesson: { ...LESSON, session_proposed: "s-01J8ZQ4M" }, session_id: "s-01J8ZQ4M", brief: "Compare against origin/main." };
   const port = await fleetAnswering(200, started, asked);
   const commands = new JobCommands(boardOn(port, rereads));
 

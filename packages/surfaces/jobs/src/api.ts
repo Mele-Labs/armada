@@ -551,9 +551,9 @@ export type JobsApi = {
   /** Disagree with one retro item: it is discarded. */
   disagreeLesson: (lessonId: string) => Promise<LessonAnswer>;
   /**
-   * Agree with an Armada or Manifest item by starting a Session on its repository. **Nothing is
-   * sent**: the answer carries the first message, for the person to read in the Session's
-   * message box. Answers the item as it now stands, the Session and that draft.
+   * Agree with an Armada or Manifest item by starting a Session on its repository. **Fleet sends
+   * the brief as the Session's first message**, so the Session begins work at once. Answers the
+   * item as it now stands, the Session and the brief sent.
    */
   startLessonSession: (lessonId: string) => Promise<LessonSessionRead>;
   /**

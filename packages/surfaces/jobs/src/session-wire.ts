@@ -13,13 +13,18 @@ export type WithSession<T> = T & {
   session_proposed?: string;
 };
 
-/** What `start_lesson_session` answers: the item as it stands, the Session, and the unsent first message. */
+/** What `start_lesson_session` answers: the item as it stands, the Session, and the brief Fleet sent it. */
 export type LessonSessionStarted = {
   lesson: WithSession<Lesson>;
   /** The Session started. It holds no process until a message is sent. */
   session_id: string;
-  /** The first message, for the person to read in the Session's message box and send. */
-  draft: string;
+  /** The text Fleet sent as the Session's first message. The Session starts work at once. */
+  brief: string;
+  /**
+   * **A guess at the wire, to be checked against the Rust type.** Fleet's words where the Session
+   * started and sending the brief failed; the Session is still opened, and the card says it.
+   */
+  send_failed?: string;
 };
 
 /** `LessonAnswer`'s shape for starting a Session. */

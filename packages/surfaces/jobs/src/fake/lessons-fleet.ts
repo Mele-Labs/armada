@@ -64,7 +64,7 @@ export function answered(
 
 /**
  * Agreeing by a Session: `answered`'s sibling. A Kit item is refused as Fleet refuses it, an item that is not open
- * answers with the Session it already started, and the first message is the item's request, drafted and not sent.
+ * answers with the Session it already started, and the brief is the item's request, sent as the first message.
  * The Session itself is not minted: this mock holds no Sessions, so the id names one Sessions would hold.
  */
 export function sessionStarted(lessons: readonly Lesson[], id: string): { lessons: Lesson[]; read: LessonSessionRead } {
@@ -93,12 +93,12 @@ export function sessionStarted(lessons: readonly Lesson[], id: string): { lesson
   }
   const session_id = was.session_proposed ?? `s-${id.replace(/[^a-z0-9]/gi, "").slice(0, 8).toUpperCase().padEnd(8, "0")}`;
   const now: WithSession<Lesson> = { ...was, state: "agreed", session_proposed: session_id };
-  const draft = [was.title ?? was.statement, was.what, was.fix === undefined ? undefined : `Change: ${was.fix}`]
+  const brief = [was.title ?? was.statement, was.what, was.fix === undefined ? undefined : `Change: ${was.fix}`]
     .filter((one): one is string => one !== undefined && one !== "")
     .join("\n\n");
   return {
     lessons: lessons.map((one) => (one.id === id ? now : one)),
-    read: { ok: true, started: { lesson: now, session_id, draft } },
+    read: { ok: true, started: { lesson: now, session_id, brief } },
   };
 }
 

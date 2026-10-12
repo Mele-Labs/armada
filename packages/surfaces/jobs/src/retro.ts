@@ -74,12 +74,12 @@ export type StartLessonSession = (lessonId: string) => Promise<LessonSessionRead
 
 /**
  * What Start Session needs of the host: the call to Fleet, and how to open the Session it
- * started with the first message already in its message box, unsent. **`draft` is absent where
- * the press opens a Session that was started before**, whose box holds whatever it holds.
+ * started. **Fleet has already sent the brief**, so the Session opens running, and nothing is
+ * put in its message box.
  */
 export type SessionStarts = {
   start: StartLessonSession;
-  open: (sessionId: string, draft?: string) => void;
+  open: (sessionId: string) => void;
 };
 
 /** A record row as one line: what it is about, what it came to, and when. */
@@ -352,7 +352,7 @@ export function agreeTipOf(landsIn: LandsIn, changes = false): string {
 
 /** What Start Session does: the other way to agree with an Armada or Manifest item. */
 export const START_SESSION_TIP =
-  "Start a Session on this repository with the request written in its message box. Nothing is sent until you send it.";
+  "Starts a Session on this repository and sends it this request now. It begins work at once.";
 
 /** What the button that disagrees does, the same for every place. */
 export const DISAGREE_TIP = "Discards it.";
@@ -392,6 +392,8 @@ export function useAnswers(
 ): (lessonId: string, landsIn: LandsIn | undefined, standing: Standing) => AnswerView {
   const [pressing, setPressing] = useState<Record<string, "agree" | "disagree" | "session">>({});
   const [started, setStarted] = useState<Record<string, string>>({});
+  // Fleet's words where the Session started and the brief did not go.
+  const [notSent, setNotSent] = useState<Record<string, string>>({});
   // Read when the answer lands, not when the press was made: the host may have been rebuilt between.
   const latestSessions = useRef(sessions);
   latestSessions.current = sessions;
@@ -433,13 +435,18 @@ export function useAnswers(
       return;
     }
     setStarted((was) => ({ ...was, [lessonId]: answer.started.session_id }));
-    latestSessions.current?.open(answer.started.session_id, answer.started.draft);
+    if (answer.started.send_failed !== undefined) {
+      const why = answer.started.send_failed;
+      setNotSent((was) => ({ ...was, [lessonId]: why }));
+    }
+    latestSessions.current?.open(answer.started.session_id);
   }
 
-  const startedAs = (sessionId: string): AnswerView => ({
+  const startedAs = (sessionId: string, note?: string): AnswerView => ({
     gone: false,
     settled: {
       said: SESSION_STARTED,
+      ...(note === undefined ? {} : { note }),
       ...(sessions === undefined ? {} : { session: { label: OPEN_SESSION, onOpen: () => sessions.open(sessionId) } }),
     },
   });
@@ -463,7 +470,7 @@ export function useAnswers(
     if (gone.has(lessonId)) return { gone: true };
     if (lessonId in agreed) return agreedAs(agreed[lessonId]);
     const startedId = started[lessonId];
-    if (startedId !== undefined) return startedAs(startedId);
+    if (startedId !== undefined) return startedAs(startedId, notSent[lessonId]);
     const was = updated[lessonId];
     if (was !== undefined) return updatedAs(was);
     // **An item answered before this read stands as Fleet says**: its state, and no buttons.

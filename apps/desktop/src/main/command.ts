@@ -852,8 +852,8 @@ export class JobCommands {
 
   /**
    * Agree with one retro item by starting a Session on its repository (`start_lesson_session`).
-   * **Nothing is sent to the Session**: Fleet answers the item, the Session's id and the first
-   * message drafted, and the renderer puts that draft in the Session's message box. The Board is
+   * **Fleet sends the brief as the Session's first message**, so the Session is running when this
+   * answers: the item, the Session's id and the brief sent. The Board is
    * not read again, since a Session is no Board row. Shares `answerLesson`'s one-press guard, so a
    * Session and a Job cannot both be started from one item.
    */

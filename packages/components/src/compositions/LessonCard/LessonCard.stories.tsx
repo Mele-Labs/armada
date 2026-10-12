@@ -25,7 +25,7 @@ type Story = StoryObj<typeof LessonCard>;
 
 const JOB_TIP = "Turn this into a Job that applies the change. It waits for your approval on the Board.";
 
-const SESSION_TIP = "Start a Session on this repository with the request drafted in its message box. Nothing is sent until you send it.";
+const SESSION_TIP = "Starts a Session on this repository and sends it this request now. It begins work at once.";
 
 const answers = (agreeLabel: string, agreeTip: string, session = false): LessonAnswers => ({
   agreeLabel,
@@ -203,6 +203,19 @@ export const SessionStarted: Story = {
     await expect(canvas.getByRole("button", { name: "Open Session" })).toBeVisible();
     await expect(canvas.queryByRole("button", { name: "Start Session" })).toBeNull();
     await expect(canvas.queryByRole("button", { name: "Create Job" })).toBeNull();
+  },
+};
+
+/** **Started, but the request did not go.** Fleet's words, and the link to the Session still there. */
+export const SessionNotSent: Story = {
+  name: "A Session started whose request was not sent",
+  args: {
+    item: { who: "fleet", landsIn: "armada", statement: "s", title: "The gate blamed the Drone for Fleet's own mistake" },
+    settled: { said: "Session started", session: { label: "Open Session", onOpen: fn() }, note: "The agent could not be reached." },
+  },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByText("The agent could not be reached.")).toBeVisible();
+    await expect(canvas.getByRole("button", { name: "Open Session" })).toBeVisible();
   },
 };
 

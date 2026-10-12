@@ -59,7 +59,7 @@ export type LessonsProps = {
    * **Both or neither**; absent, and no card offers Start Session.
    */
   onStartSession?: StartLessonSession;
-  onOpenSession?: (sessionId: string, draft?: string) => void;
+  onOpenSession?: (sessionId: string) => void;
   /**
    * The guided review, `Review` beside the tabs: Fleet's model orders the open items, and a
    * question about one is put to it. Absent, and the page offers no Review.
@@ -278,7 +278,7 @@ export function Lessons({
 /** Start Session's two halves as one, or nothing where the host gave only one of them. */
 export function sessionStartsOf(
   start: StartLessonSession | undefined,
-  open: ((sessionId: string, draft?: string) => void) | undefined,
+  open: ((sessionId: string) => void) | undefined,
 ): SessionStarts | undefined {
   return start === undefined || open === undefined ? undefined : { start, open };
 }
@@ -286,7 +286,7 @@ export function sessionStartsOf(
 /** `sessionStartsOf` as a prop to spread, for a host that passes the halves separately. */
 export function withSessions(
   start: StartLessonSession | undefined,
-  open: ((sessionId: string, draft?: string) => void) | undefined,
+  open: ((sessionId: string) => void) | undefined,
 ): { sessions?: SessionStarts } {
   const sessions = sessionStartsOf(start, open);
   return sessions === undefined ? {} : { sessions };

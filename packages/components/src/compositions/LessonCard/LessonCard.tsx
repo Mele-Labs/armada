@@ -44,8 +44,8 @@ export type LessonAnswers = {
   onDisagree: () => void;
   /**
    * Agree by a Session instead of a Job, `Start Session` beside the agree button. Absent on a Kit
-   * item, which has no repository to start one on. **A press sends nothing to the Session**: the
-   * host opens it with the first message drafted, for the person to send.
+   * item, which has no repository to start one on. **A press begins work at once**: Fleet sends
+   * the request as the Session's first message, and the host opens the Session running.
    */
   startSession?: { tip: string; onStart: () => void };
   /** The answer sent and not yet answered: its button sweeps and the others are held. */
@@ -64,6 +64,8 @@ export type LessonSettled = {
   job?: { label: string; onOpen: () => void };
   /** The Session the item started, where the surface can open one. */
   session?: { label: string; onOpen: () => void };
+  /** Fleet's words where the Session started and its first message did not go. */
+  note?: string;
 };
 
 /**
@@ -152,6 +154,11 @@ export function LessonCard({ item, evidence, answers, settled, from }: LessonCar
       {answers?.refusal === undefined ? null : (
         <Alert tone="escalated" title="The answer was not taken">
           {answers.refusal}
+        </Alert>
+      )}
+      {settled?.note === undefined ? null : (
+        <Alert tone="escalated" title="The Session started, but the request was not sent">
+          {settled.note}
         </Alert>
       )}
       {evidence?.failure === undefined ? null : (
