@@ -7,7 +7,7 @@
 import type { JobSummary, Lesson, LessonAnswer, LessonState } from "@armada/protocol";
 
 import type { AskLessonRead, LessonAsk, LessonReview, LessonReviewRead } from "../review-wire";
-import type { LessonSessionRead, WithSession } from "../session-wire";
+import type { LessonSessionRead } from "../session-wire";
 
 /** The Job an agreed Armada or Manifest item proposes, at the approval gate. */
 function proposedFor(lesson: Lesson, jobs: readonly JobSummary[], at: string): JobSummary {
@@ -68,7 +68,7 @@ export function answered(
  * The Session itself is not minted: this mock holds no Sessions, so the id names one Sessions would hold.
  */
 export function sessionStarted(lessons: readonly Lesson[], id: string): { lessons: Lesson[]; read: LessonSessionRead } {
-  const was = lessons.find((one) => one.id === id) as WithSession<Lesson> | undefined;
+  const was = lessons.find((one) => one.id === id) as Lesson | undefined;
   if (was === undefined) {
     return { lessons: [...lessons], read: { ok: false, outcome: { ok: false, why: "not_connected" } } };
   }
@@ -92,7 +92,7 @@ export function sessionStarted(lessons: readonly Lesson[], id: string): { lesson
     };
   }
   const session_id = was.session_proposed ?? `s-${id.replace(/[^a-z0-9]/gi, "").slice(0, 8).toUpperCase().padEnd(8, "0")}`;
-  const now: WithSession<Lesson> = { ...was, state: "agreed", session_proposed: session_id };
+  const now: Lesson = { ...was, state: "agreed", session_proposed: session_id };
   const brief = [was.title ?? was.statement, was.what, was.fix === undefined ? undefined : `Change: ${was.fix}`]
     .filter((one): one is string => one !== undefined && one !== "")
     .join("\n\n");

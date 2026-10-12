@@ -47,7 +47,8 @@ import type {
 } from "@armada/protocol";
 import type { ProposalInFlight, Proposed, ShownAgain } from "@armada/protocol";
 import type { Lesson, LessonAnswer } from "@armada/protocol";
-import type { LessonSessionRead, LessonSessionStarted } from "@armada/jobs/session-wire";
+import type { LessonSessionStarted } from "@armada/protocol";
+import type { LessonSessionRead } from "@armada/jobs/session-wire";
 import { ask, CHECKS_MS, COMMAND_MS, isJobSummary, MODEL_CALL_MS, NO_WAIT, route, type Answer } from "./request";
 import type { Picked } from "./picked";
 import { Clearing } from "./clearing";

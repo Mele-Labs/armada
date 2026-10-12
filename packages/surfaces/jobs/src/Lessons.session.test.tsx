@@ -52,7 +52,7 @@ const MANIFEST = lesson({
 const BRIEF = "The gate blamed the Drone for Fleet's own mistake\n\nCompare against origin/main.";
 const started = (id: string): LessonSessionRead => ({
   ok: true,
-  started: { lesson: { ...ARMADA, id, state: "agreed", session_proposed: "s-01J8ZQ4M" } as Lesson, session_id: "s-01J8ZQ4M", brief: BRIEF },
+  started: { lesson: { ...ARMADA, id, state: "agreed", session_proposed: "s-01J8ZQ4M" }, session_id: "s-01J8ZQ4M", brief: BRIEF },
 });
 const refusal: Outcome = {
   ok: false,
