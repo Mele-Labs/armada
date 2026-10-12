@@ -134,6 +134,9 @@ pub fn write_workflow(workflow: &FrozenWorkflow) -> String {
             "judge_checks": step.judge_checks().iter().map(|judge| json!({
                 "model": judge.model().map(|model| model.as_str()),
                 "panel_size": judge.panel_size(),
+                // Absent where the step named none, as every older row reads.
+                "panel_models": (!judge.members().is_empty()).then(|| judge.members().iter()
+                    .map(ModelName::as_str).collect::<Vec<&str>>()),
                 "criteria": judge.criteria().iter().map(|criterion| json!({
                     "criterion_id": criterion.criterion_id.as_str(),
                     "question": criterion.question,
@@ -718,12 +721,19 @@ fn read_judge(judge: &Map<String, Value>) -> Result<JudgeCheck, Malformed> {
             on_refusal,
         });
     }
-    Ok(JudgeCheck::declared(
-        model,
-        panel_size,
-        criteria,
-        read_gaming_check(judge)?,
-    ))
+    let mut members = Vec::new();
+    if let Some(Value::Array(named)) = judge.get("panel_models") {
+        for model in named {
+            let model = model.as_str().unwrap_or_default();
+            members.push(
+                ModelName::new(model).map_err(|blank| format!("`judge.panel_models` {blank}"))?,
+            );
+        }
+    }
+    Ok(
+        JudgeCheck::declared(model, panel_size, criteria, read_gaming_check(judge)?)
+            .with_members(members),
+    )
 }
 
 /// The second look, where the step declared one. **Absent reads as none**, for

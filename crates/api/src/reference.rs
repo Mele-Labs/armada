@@ -67,7 +67,7 @@ impl Resolved {
 /// A path with a `:job_id` in it.
 ///
 /// **Named rather than positional**, so a route carrying a second segment —
-/// `/jobs/:job_id/calls/:call_id` — extracts this and its own without either
+/// `/jobs/:job_id/calls/:call_id/explain` — extracts this and its own without either
 /// having to know the other is there.
 #[derive(Deserialize)]
 struct Named {

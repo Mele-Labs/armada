@@ -337,6 +337,8 @@ impl Store {
 
         // Read back for `branch`'s reason. Null on every Job nobody has paused.
         let created = crate::pausing::read_pause(row, created)?;
+        // Null on every Job whose Drone asked nothing. `crate::questioning`.
+        let created = crate::questioning::read_question(row, created)?;
 
         Ok((replay(created, events)?, cached))
     }
@@ -454,7 +456,7 @@ impl Store {
         let rows = self
             .collect(
                 "SELECT step_id, criterion, verdict, expected, produced, consequence,
-                        brief_path, member, cited, given
+                        brief_path, member, cited, given, risky
                  FROM job_step_judgments AS j WHERE job_id = ?1
                    AND attempt = (SELECT max(attempt) FROM job_step_judgments
                                   WHERE job_id = j.job_id AND step_id = j.step_id)
@@ -481,6 +483,7 @@ impl Store {
                             produced: maybe(row, "produced")?,
                             consequence: maybe(row, "consequence")?,
                             brief_path: maybe(row, "brief_path")?,
+                            risky: maybe(row, "risky")?,
                         },
                     ))
                 },

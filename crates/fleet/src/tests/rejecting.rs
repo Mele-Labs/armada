@@ -108,7 +108,7 @@ fn a_reject_with_no_note_is_the_refusal_it_always_was() {
         THE_BARE_REFUSAL
     );
     assert_eq!(
-        Permitted::rejected("npm publish", None).text(),
+        Permitted::rejected(&crate::prompts::Prompts::shipped(), "npm publish", None).text(),
         THE_BARE_REFUSAL,
         "the turn a late answer becomes is the same sentence"
     );
@@ -119,7 +119,11 @@ fn a_reject_with_no_note_is_the_refusal_it_always_was() {
 #[test]
 fn a_reject_answered_after_the_hold_ended_carries_the_note_too() {
     let note = Note::saying("we publish from CI").expect("a note with something in it");
-    let told = Permitted::rejected("npm publish", Some(&note));
+    let told = Permitted::rejected(
+        &crate::prompts::Prompts::shipped(),
+        "npm publish",
+        Some(&note),
+    );
     assert!(told.text().starts_with(THE_BARE_REFUSAL));
     assert!(told.text().contains("we publish from CI"));
 }

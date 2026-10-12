@@ -6,18 +6,39 @@ use std::path::Path;
 use std::process::{Command, Output};
 
 fn run(at: &Path, args: &[&str]) -> std::io::Result<Output> {
-    Command::new("git")
+    command(at, args).output()
+}
+
+fn command(at: &Path, args: &[&str]) -> Command {
+    let mut command = Command::new("git");
+    command
         .arg("-C")
         .arg(at)
         .args(args)
         // Nobody is at a terminal to answer a credential prompt.
-        .env("GIT_TERMINAL_PROMPT", "0")
-        .output()
+        .env("GIT_TERMINAL_PROMPT", "0");
+    command
+}
+
+/// [`run`] for a command that only reads. **`GIT_OPTIONAL_LOCKS=0`**: a
+/// `git status` otherwise takes the index lock to refresh it, and an agent's
+/// `git commit` in the same slot is then refused for it.
+fn run_reading(at: &Path, args: &[&str]) -> std::io::Result<Output> {
+    command(at, args).env("GIT_OPTIONAL_LOCKS", "0").output()
 }
 
 /// What git printed, trimmed, or what it said when it refused.
 pub(super) fn git(at: &Path, args: &[&str]) -> Result<String, String> {
-    let ran = run(at, args).map_err(|why| format!("git would not run: {why}"))?;
+    said(at, args, run(at, args))
+}
+
+/// [`git`] for a command that only reads, which leaves the index lock alone.
+pub(super) fn read(at: &Path, args: &[&str]) -> Result<String, String> {
+    said(at, args, run_reading(at, args))
+}
+
+fn said(at: &Path, args: &[&str], ran: std::io::Result<Output>) -> Result<String, String> {
+    let ran = ran.map_err(|why| format!("git would not run: {why}"))?;
     if !ran.status.success() {
         return Err(format!(
             "`git {}` in {}: {}",
@@ -31,13 +52,13 @@ pub(super) fn git(at: &Path, args: &[&str]) -> Result<String, String> {
 
 /// Whether git answered at all.
 pub(super) fn git_ok(at: &Path, args: &[&str]) -> bool {
-    run(at, args).is_ok_and(|ran| ran.status.success())
+    run_reading(at, args).is_ok_and(|ran| ran.status.success())
 }
 
 /// Whether `path` is the top of a checkout of its own, rather than a directory
 /// inside the repository's main one.
 pub(super) fn is_checkout(path: &Path) -> bool {
-    let Ok(top) = git(path, &["rev-parse", "--show-toplevel"]) else {
+    let Ok(top) = read(path, &["rev-parse", "--show-toplevel"]) else {
         return false;
     };
     let path = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
@@ -49,7 +70,7 @@ pub(super) fn is_checkout(path: &Path) -> bool {
 pub(super) fn count(at: &Path, revs: &[&str]) -> usize {
     let mut args = vec!["rev-list", "--count"];
     args.extend_from_slice(revs);
-    git(at, &args)
+    read(at, &args)
         .ok()
         .and_then(|count| count.parse().ok())
         .unwrap_or(1)
@@ -58,7 +79,7 @@ pub(super) fn count(at: &Path, revs: &[&str]) -> usize {
 /// Every path `git status` reports, untracked included and ignored not.
 pub(super) fn dirty(at: &Path) -> Result<Vec<String>, String> {
     let said =
-        run(at, &["status", "--porcelain"]).map_err(|why| format!("git would not run: {why}"))?;
+        run_reading(at, &["status", "--porcelain"]).map_err(|why| format!("git would not run: {why}"))?;
     if !said.status.success() {
         return Err(String::from_utf8_lossy(&said.stderr).trim().to_string());
     }

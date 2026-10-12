@@ -92,6 +92,11 @@ pub use fields::{
 pub use gaming::{
     CitedAt, ClearedFlag, DecidedBy, EvidenceRef, GamingCheck, GamingFlag, GamingPattern,
 };
+/// What the Judge is asked about each judged pattern, as Armada ships it.
+pub use gaming::{
+    ASSERTION_WEAKENED_QUESTION, FINDINGS_GENERIC_QUESTION, FINDINGS_NOT_TIED_QUESTION,
+    NO_FINDINGS_QUESTION, TAUTOLOGICAL_TEST_QUESTION, TEST_SCOPE_NARROWED_QUESTION,
+};
 pub use guard::Guard;
 pub use handle::{handle_of, names_a_credential, JobNumber, JobReference, CREDENTIAL_NAMES};
 pub(crate) use ids::id_newtype;
@@ -99,7 +104,9 @@ pub use ids::{
     BlankModel, BlankTitle, CriterionId, DroneId, JobId, ManifestId, ModelName, ProposalId,
     RepoPath, StepId, Title, WorkflowId,
 };
-pub use judge::{Citation, Given, JudgeCheck, JudgeCriterion, JudgeVerdict, Judgment, OnRefusal};
+pub use judge::{
+    Citation, Given, JudgeCheck, JudgeCriterion, JudgeVerdict, Judgment, OnRefusal, AGREED_RETRIES,
+};
 pub use narrowing::Narrowing;
 pub use note::{RedirectAlreadyWaiting, RedirectWaiting};
 pub use phase::StepPhase;
@@ -107,7 +114,8 @@ pub use plan_group::{Apart, GroupAttempt, GroupEnded, GroupId, GroupMove, GroupR
 pub use policy::{AutoMerge, PolicyOverrides, ResolvedPolicies, ReviewGate};
 pub use prerequisite::Prerequisite;
 pub use record::{
-    Answered, Job, NewJob, NewProposal, Pause, PausedBy, StepTransitioned, Transitioned,
+    Answered, DroneQuestion, GivenAnswer, Job, NewJob, NewProposal, OfferedAnswer, Pause, PausedBy,
+    StepTransitioned, Transitioned,
 };
 pub use review::{
     Area, Became, Bucket, ChangedTest, Confidence, Dismissal, Finding, FollowUp, Proves,

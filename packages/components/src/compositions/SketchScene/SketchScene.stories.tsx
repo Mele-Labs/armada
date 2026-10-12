@@ -132,7 +132,8 @@ export const FlowAndSteps: Story = {
   args: { scene: FLOW },
   play: async ({ canvas, canvasElement }) => {
     await waitFor(() => expect(nodes(canvasElement).length).toBe(5));
-    await expect(canvasElement.querySelector(".armada-scene-edge[data-flow]")).not.toBeNull();
+    // Edges are drawn after their nodes are measured, so the nodes being there is not the edges being there.
+    await waitFor(() => expect(canvasElement.querySelector(".armada-scene-edge[data-flow]")).not.toBeNull());
     await userEvent.click(canvas.getByRole("button", { name: /Play the steps|Next step/ }));
     await waitFor(() => expect(canvasElement.querySelector('[data-current] .armada-scene-node__title, [data-current]')?.textContent).toContain("Caller"));
   },

@@ -34,6 +34,8 @@ export type CaptureRefusal = {
 export type CaptureWindowState = {
   /** The Run, as the Note will record it. */
   served: CaptureServed;
+  /** What the bar says of the page: its name and the origin, or no name and the address whole where the window was titled by its address. */
+  shown: { name: string | null; address: string };
   /**
    * The Studio a Note lands on, decided when the window opened. A `null` name
    * is an untitled one. **`null` whole: a Job's server, walked rather than
@@ -42,6 +44,10 @@ export type CaptureWindowState = {
   studio: { id: string; name: string | null } | null;
   /** The Job a note lands on where there is no Studio: the one whose server this walks. */
   job?: { id: string; handle: string };
+  /** The Session a note goes to, where it showed this page. **Never folded into `job`**: the two are told apart to the panel. */
+  session?: { id: string; title: string };
+  /** The panel beside the page: which kind it holds, and whether it is drawn. Absent: a Studio's window, which has none. */
+  panel?: CapturePanel;
   /**
    * Whether the Run is still serving. **Capture is refused from the moment it
    * is not**, and the window loads nothing further.
@@ -53,7 +59,35 @@ export type CaptureWindowState = {
   framesRefused: number;
   /** The last address refused, or absent. */
   refused?: CaptureRefusal;
+  /** A question the Session that opened this window asked about a place on its page. Absent: none open. */
+  ask?: CaptureAsk;
 };
+
+/**
+ * A question a Session asked in its walk window — `ask_in_window`, `docs/concepts/session.md`. **The
+ * selector stays in main**, as a capture's does: the bar gets the box to outline and the words to draw.
+ */
+export type CaptureAsk = {
+  /** The waiting item it settles. */
+  id: string;
+  question: string;
+  options: { label: string; description?: string }[];
+  /** Who asks: the Session's title. */
+  from: string;
+  /**
+   * Drawn over the page with the place outlined, or folded into the bar's second row so the page can
+   * be used. Folded, the page takes presses again.
+   */
+  shown: boolean;
+  /** The place, in the page's viewport. Absent while it is being looked for; `null` where nothing on the page matched. */
+  box?: CaptureRect | null;
+};
+
+/** The Session's thread or the Job's view beside the page — `capture-window.md`, *The panel beside the page*. */
+export type CapturePanel = { kind: "session" | "job"; open: boolean };
+
+/** An answer from the bar: an option by its index, words of the person's own, or both. */
+export type CaptureAnswer = { choice?: number; text?: string };
 
 /** What the bar draws over the element under the pointer while capture is armed. */
 export type CaptureAimed = { box: CaptureRect; named: string };

@@ -11,136 +11,115 @@
 //!
 //! # Three things it is not, each settled elsewhere
 //!
-//! **Not a state** — `ipc::QuestionInFlight` carries that argument, and neither
-//! registry moves. **Not a conversation** — one question per Job, asked once and
-//! answered once from a closed set the Drone offered, specified by
-//! `operations/`'s `answer_question` row. **Not blocking** — a person's wait
-//! has no budget an HTTP call could bound, and a Drone blocked inside the call
-//! would swallow every redirect sent to unstick it.
+//! **Not a status** — the Job waits at `queued` reading `awaiting_answer`, the
+//! shape `over_budget` and a parent waiting on its children already have.
+//! **Not a conversation** — one question per Job, asked once and answered once
+//! from a closed set the Drone offered, specified by `operations/`'s
+//! `answer_question` row. **Not blocking** — a person's wait has no budget an
+//! HTTP call could bound.
 //!
-//! **A waiting Drone is not a stalled one.** `crate::silence` and
-//! `crate::converging` decline on it as they decline on evidence at the gate.
-//! What it still costs is a place under the concurrency bound.
+//! # The asking Drone gives its place back
+//!
+//! The owner's decision of 11 Oct 2026 (#2094):
+//! a Drone that asks stands down at once, its branch and worktree stay, and
+//! admission gives its place to the next Job. The question is stored on the Job
+//! so a restart in the hours before the answer loses nothing. Answering writes
+//! the record, not a session, and the fresh Drone `crate::readmitting` puts
+//! back on the same step opens with [`Answered`]. **The cost he took**: the
+//! asking Drone's own context is gone, and the new one starts from the branch
+//! and the question.
 use core_model::{
-    Actor, Component, Envelope, FieldValue, JobId, JobStatus, Level, StepId, Timestamp,
+    Actor, Component, DroneQuestion, Envelope, FieldValue, GivenAnswer, JobId, JobStatus, Level,
+    OfferedAnswer, StepId, Target, Timestamp,
 };
+use store::ExtraEnded;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
-use ipc::mcp::{AskQuestion, AskedOption};
+use ipc::mcp::AskQuestion;
 
 use crate::adrift::Adrift;
 use crate::daemon::Fleet;
-use crate::session::{LiveSession, Occasion};
-use crate::working::Working;
 
-/// One question a Drone asked, while it is still unanswered.
+/// A question Fleet has just taken, on the step whose Drone asked it.
 ///
-/// **Held on the working slot and written to no column.** It is only ever true
-/// now: a Fleet that restarts loses the Drone that asked, so a stored question
-/// would outlive the only process that could act on the answer.
-/// `ipc::JudgeInFlight` is kept the same way and says the same about it.
-///
-/// **No constructor takes a `String` for the id.** Fleet mints it, because an
-/// answer naming an id a peer invented joins to nothing — and the cost of a
-/// join that silently succeeds against the wrong question is a dispatched Job.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Question {
+/// **No caller names the id.** Fleet mints it, because an answer naming an id a
+/// peer invented joins to nothing — and the cost of a join that silently
+/// succeeds against the wrong question is a dispatched Job.
+fn minted(
     id: core_model::Ulid,
     step: StepId,
     asked_at: Timestamp,
-    question: String,
-    options: Vec<AskedOption>,
-}
-
-impl Question {
-    /// A question Fleet has just taken, on the step whose Drone asked it.
-    pub(crate) fn minted(
-        id: core_model::Ulid,
-        step: StepId,
-        asked_at: Timestamp,
-        asking: AskQuestion,
-    ) -> Question {
-        Question {
-            id,
-            step,
-            asked_at,
-            question: asking.question,
-            options: asking.options,
-        }
-    }
-
-    pub(crate) fn id(&self) -> &core_model::Ulid {
-        &self.id
-    }
-
-    pub(crate) fn step(&self) -> &StepId {
-        &self.step
-    }
-
-    pub(crate) fn question(&self) -> &str {
-        &self.question
-    }
-
-    /// The option with this label, or `None` where none has it.
-    ///
-    /// **The whole of what an answer is matched on.** Labels are unique because
-    /// `ipc::mcp::question` refuses a question whose two options share one, so
-    /// there is exactly one match or none.
-    pub(crate) fn offering(&self, label: &str) -> Option<&AskedOption> {
-        self.options.iter().find(|option| option.label == label)
-    }
-
-    /// Every label offered, for a refusal that names them.
-    pub(crate) fn labels(&self) -> Vec<&str> {
-        self.options.iter().map(|o| o.label.as_str()).collect()
-    }
-
-    /// The wire shape, for `get_job` and for the event. **No step parameter**:
-    /// a question belongs to the step whose Drone asked it.
-    pub(crate) fn in_flight(&self) -> ipc::QuestionInFlight {
-        ipc::QuestionInFlight {
-            question_id: ipc::QuestionId::from(&self.id),
-            step_id: ipc::StepId::from(&self.step),
-            asked_at: (&self.asked_at).into(),
-            question: self.question.clone(),
-            options: self
-                .options
-                .iter()
-                .map(|option| ipc::AskedOption {
-                    label: option.label.clone(),
-                    consequence: option.consequence.clone(),
-                })
-                .collect(),
-        }
+    asking: AskQuestion,
+) -> DroneQuestion {
+    DroneQuestion {
+        id,
+        step,
+        asked_at,
+        question: asking.question,
+        options: asking
+            .options
+            .into_iter()
+            .map(|option| OfferedAnswer {
+                label: option.label,
+                consequence: option.consequence,
+            })
+            .collect(),
+        answer: None,
     }
 }
 
-/// Fleet's own wording for the turn that carries an answer.
+/// The wire shape, for `get_job` and for the event. **No step parameter**: a
+/// question belongs to the step whose Drone asked it.
+pub(crate) fn in_flight(asked: &DroneQuestion) -> ipc::QuestionInFlight {
+    ipc::QuestionInFlight {
+        question_id: ipc::QuestionId::from(&asked.id),
+        step_id: ipc::StepId::from(&asked.step),
+        asked_at: (&asked.asked_at).into(),
+        question: asked.question.clone(),
+        options: asked
+            .options
+            .iter()
+            .map(|option| ipc::AskedOption {
+                label: option.label.clone(),
+                consequence: option.consequence.clone(),
+            })
+            .collect(),
+    }
+}
+
+/// [`Answered`]'s frame as it ships. Not yet a `prompts.crossing` key: that
+/// key is `crates/config/settings.toml`'s to add.
+pub(crate) const ANSWERED: &str =
+    "WHAT A PERSON ANSWERED\n\nThe Drone before you on this part asked a person:\n\n  \
+     \"{question}\"\n\nThey answered: {label}\nWhich that Drone said means: {consequence}\n\n\
+     It stood down to wait for the answer, and its work so far is on the branch you are in. \
+     Carry on this part from there and from the answer. The question is answered and closed \
+     — do not ask it again.";
+
+/// A person's answer, carried into the opening brief of the Drone that takes
+/// the part over.
 ///
-/// **There is no constructor taking a bare string**, the property [`Poke`] and
-/// [`ReportNow`] have and for their reason. What varies is the question and the
-/// option, and both came from the Drone itself.
-///
-/// **It restates the question**, because the answer may arrive hours later in a
-/// session that has done other things since and a bare label would be a word
-/// with no antecedent. The consequence is echoed because it is the Drone's own
-/// reading of what that option commits to.
-///
-/// [`Poke`]: crate::Poke
-/// [`ReportNow`]: crate::ReportNow
+/// **It restates the question**, because the Drone reading it is not the one
+/// that asked, and a bare label would be a word with no antecedent. The
+/// consequence is echoed because it is the asking Drone's own reading of what
+/// that option commits to. There is no constructor taking free text: what
+/// varies is the question and the option, and both came from a Drone.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Answer(String);
+pub struct Answered(String);
 
-impl Answer {
-    pub(crate) fn to(question: &str, chose: &AskedOption) -> Answer {
-        Answer(format!(
-            "You asked: {question}\n\n\
-             The answer is: {}\n\
-             Which you said means: {}\n\n\
-             Carry on from here. This question is answered and closed — do not \
-             ask it again.",
-            chose.label, chose.consequence
-        ))
+impl Answered {
+    /// The block for a Job whose question has been answered. `None` while it
+    /// is unanswered and where nothing was asked.
+    pub(crate) fn of(asked: &DroneQuestion) -> Option<Answered> {
+        let chosen = asked.chosen()?;
+        Some(Answered(crate::prompts::fill(
+            ANSWERED,
+            &[
+                ("question", &asked.question),
+                ("label", &chosen.label),
+                ("consequence", &chosen.consequence),
+            ],
+        )))
     }
 
     pub fn text(&self) -> &str {
@@ -165,6 +144,9 @@ pub enum NotAsked {
     /// be holding a conversation**, and a queue is a thing a person answers out
     /// of order.
     AlreadyAsking { question: String },
+    /// The question would not go onto the record, or the Drone would not stand
+    /// down. A question kept nowhere is one nobody could answer.
+    NotKept { cause: String },
 }
 
 impl core::fmt::Display for NotAsked {
@@ -187,6 +169,10 @@ impl core::fmt::Display for NotAsked {
                  question at a time — wait for that answer before asking \
                  another"
             ),
+            NotAsked::NotKept { cause } => write!(
+                out,
+                "the question could not be kept for a person to answer: {cause}"
+            ),
         }
     }
 }
@@ -195,7 +181,7 @@ impl std::error::Error for NotAsked {}
 
 /// Why an answer was not taken. **A person's refusal, not a Drone's**, so it
 /// carries the acts a person has instead.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Debug)]
 pub enum NotAnswered {
     /// No question is outstanding on this Job.
     NothingIsAsking { job: JobId },
@@ -206,8 +192,9 @@ pub enum NotAnswered {
     Superseded { job: JobId },
     /// The label is not one the Drone offered.
     NotOffered { chose: String, offered: Vec<String> },
-    /// The answer would not go down the pipe.
-    NotDelivered { job: JobId, cause: String },
+    /// The answer would not go onto the record. **The question stays
+    /// outstanding**, so a person can answer again.
+    NotKept(store::WriteError),
 }
 
 impl core::fmt::Display for NotAnswered {
@@ -229,12 +216,7 @@ impl core::fmt::Display for NotAnswered {
                  offered {}",
                 offered.join(", ")
             ),
-            NotAnswered::NotDelivered { job, cause } => write!(
-                out,
-                "the answer could not be written into the drone's session on \
-                 job {}: {cause}",
-                job.as_str()
-            ),
+            NotAnswered::NotKept(cause) => write!(out, "the answer was not kept: {cause}"),
         }
     }
 }
@@ -260,59 +242,70 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    /// Take a question from the working Drone.
-    ///
-    /// **It moves nothing.** The Job and the step stay `running`; what changes
-    /// is that the slot now holds a question, which is what `get_job` serves and
-    /// what the vigils read as waiting rather than silent.
+    /// Take a question from the working Drone, keep it on the Job, and stand
+    /// every Drone on the Job down.
     ///
     /// The Drone names no Job and no step; both are read out of **its own** slot
     /// under that slot's lock, exactly as `declare_scope` reads them, so a
     /// question cannot be aimed at some other step.
+    ///
+    /// **The question is written before the Job moves**, `crate::pausing`'s
+    /// order: admission reads it, and a `queued` Job without it is a Job it
+    /// would start again at once.
     pub async fn ask_question(
         &self,
         caller: &JobId,
         asking: AskQuestion,
-    ) -> Result<Question, NotAsked> {
+    ) -> Result<DroneQuestion, NotAsked> {
         let Some(slot) = self.slot_of(caller).await else {
             return Err(NotAsked::NothingIsWorking);
         };
         let mut working = slot.lock().await;
-        let Some(at_work) = working.as_mut() else {
+        let Some(at_work) = working.as_ref() else {
             return Err(NotAsked::NothingIsWorking);
         };
-        if let Some(held) = at_work.asked() {
-            return Err(NotAsked::AlreadyAsking {
-                question: held.question().to_string(),
-            });
-        }
         let (job, step, _) = at_work.standing();
-        // The status is read after the slot, and it is read at all because a
-        // Job can be escalated over a live Drone — `stalled` is exactly that —
-        // and a question outstanding on a Job a person has already stopped is a
-        // second thing for them to answer about a Job they have taken over.
         let record = self
             .load(&job)
             .await
             .map_err(|_| NotAsked::NothingIsWorking)?;
+        if let Some(held) = record.question().filter(|_| record.waiting_on_an_answer()) {
+            return Err(NotAsked::AlreadyAsking {
+                question: held.question.clone(),
+            });
+        }
+        // Read at all because a Job can be escalated over a live Drone —
+        // `stalled` is exactly that — and a question on a Job a person has
+        // already stopped is a second thing to answer about a Job they own.
         if record.status() != JobStatus::Running {
             return Err(NotAsked::NotRunning {
                 status: record.status(),
             });
         }
         let now = self.now();
-        let asked = Question::minted(self.mint().ulid(), step.clone(), now.clone(), asking);
-        at_work.asks(asked.clone());
-        // **Restarted here, not when the answer lands.** The clock a poke is
-        // measured from is the moment the Drone was last spoken to or last
-        // spoke, and asking is speaking.
-        at_work.waiting(now.clone());
-        drop(working);
+        let asked = minted(self.mint().ulid(), step.clone(), now.clone(), asking);
+        let not_kept = |cause: String| NotAsked::NotKept { cause };
+        self.store()
+            .lock()
+            .await
+            .record_question(&record.asking(asked.clone()))
+            .map_err(|why| not_kept(why.to_string()))?;
         self.noted_asked(&job, &step, &asked);
+        // A Drone beside the kept one ends in its own slot, while its lock is
+        // held, so the crew sweep below finds it already empty.
+        if let Some(drone) = crate::crew::calling() {
+            self.end_one_beside(&job, &drone, &mut working, ExtraEnded::Killed)
+                .await
+                .map_err(|why| not_kept(why.to_string()))?;
+        }
+        drop(working);
+        self.stood_down_to_wait(&job)
+            .await
+            .map_err(|why| not_kept(why.to_string()))?;
         self.events().publish(ipc::Event::JobAsking(ipc::JobAsking {
             job_id: ipc::JobId::from(&job),
             step_id: ipc::StepId::from(&step),
-            asking: Some(asked.in_flight()),
+            asking: Some(in_flight(&asked)),
             // **The Drone, not Fleet.** Fleet caused nothing here; it took
             // a question a Drone chose to ask.
             actor: Actor::Drone.into(),
@@ -321,13 +314,31 @@ where
         Ok(asked)
     }
 
-    /// Give the waiting Drone a person's answer.
+    /// Put the Job back in the queue and end every Drone on it. The step
+    /// stays `running`: the run is not over, it is waiting, and the Drone
+    /// re-admission puts back continues it rather than starting a new one.
+    async fn stood_down_to_wait(&self, job_id: &JobId) -> Result<(), Adrift> {
+        let job = self.load(job_id).await?;
+        self.move_job(&job, Target::Queued, Actor::Fleet).await?;
+        self.end_the_crew(job_id, ExtraEnded::Killed).await;
+        // The kept slot by name: a beside Drone's call is answered under its
+        // own name, and `slot_of` would hand back its slot.
+        let kept = self.slots().lock().await.slot_of(job_id);
+        match kept {
+            Some(slot) => {
+                let mut working = slot.lock().await;
+                self.stood_down(job_id, &mut working).await?;
+            }
+            None => self.every_exit_recorded(job_id).await?,
+        }
+        Ok(())
+    }
+
+    /// Keep a person's answer on the Job.
     ///
-    /// The answer goes into the session as a turn, the delivery half
-    /// `redirect_drone` already uses. **Nothing waits for the Drone to prove it
-    /// read it**, unlike a redirect on an escalated Job: that one defers the
-    /// move to `running` because sending it would otherwise read as recovery.
-    /// Here the Job never left `running`, so there is no move to defer.
+    /// **It starts nothing.** The Job is `queued` and was held there for want
+    /// of this; with it on the record admission takes the Job in its turn, and
+    /// `crate::spawning` folds the answer into the fresh Drone's brief.
     ///
     /// The actor is **human**. Fleet answers nothing of its own accord.
     pub async fn answer_question(
@@ -336,47 +347,20 @@ where
         question_id: &str,
         chose: &str,
     ) -> Result<Told, NotAnswered> {
-        // Whichever of the Job's live Drones asked it: slice 5.
-        let mut answered = Err(NotAnswered::NothingIsAsking {
+        let nothing = || NotAnswered::NothingIsAsking {
             job: job_id.clone(),
-        });
-        for drone in self.each_live(job_id).await {
-            answered =
-                crate::crew::as_caller(drone, self.answer_question_of(job_id, question_id, chose))
-                    .await;
-            if !matches!(answered, Err(NotAnswered::NothingIsAsking { .. })) {
-                break;
-            }
-        }
-        answered
-    }
-
-    async fn answer_question_of(
-        &self,
-        job_id: &JobId,
-        question_id: &str,
-        chose: &str,
-    ) -> Result<Told, NotAnswered> {
-        let Some(slot) = self.slot_of(job_id).await else {
-            return Err(NotAnswered::NothingIsAsking {
-                job: job_id.clone(),
-            });
         };
-        let mut working = slot.lock().await;
-        let Some(at_work) = working.as_ref().filter(|at_work| at_work.is(job_id)) else {
-            return Err(NotAnswered::NothingIsAsking {
-                job: job_id.clone(),
-            });
+        let job = self.load(job_id).await.map_err(|_| nothing())?;
+        let Some(asked) = job.question() else {
+            return Err(nothing());
         };
-        let Some(asked) = at_work.asked() else {
-            return Err(NotAnswered::NothingIsAsking {
-                job: job_id.clone(),
-            });
-        };
-        if asked.id().as_str() != question_id {
+        if asked.id.as_str() != question_id {
             return Err(NotAnswered::Superseded {
                 job: job_id.clone(),
             });
+        }
+        if !job.waiting_on_an_answer() {
+            return Err(nothing());
         }
         let Some(chosen) = asked.offering(chose) else {
             return Err(NotAnswered::NotOffered {
@@ -384,33 +368,17 @@ where
                 offered: asked.labels().iter().map(|held| held.to_string()).collect(),
             });
         };
-        let step = asked.step().clone();
-        let told = Answer::to(asked.question(), chosen);
+        let step = asked.step.clone();
         let label = chosen.label.clone();
-        // **The write before the clear.** A session that will not take the
-        // answer leaves the question outstanding, so a person can try again
-        // rather than being told the question is gone and the Drone never heard
-        // it. That is the opposite of `crate::silence`'s poke, which counts a
-        // failed write as spent — a poke is Fleet's patience and this is a
-        // person's decision, and losing one of those is not the same as losing
-        // the other.
-        at_work.instructed(Occasion::Answer, told.text());
-        at_work
-            .session()
-            .answer(&told)
-            .await
-            .map_err(|cause| NotAnswered::NotDelivered {
-                job: job_id.clone(),
-                cause: cause.to_string(),
-            })?;
         let now = self.now();
-        if let Some(at_work) = working.as_mut() {
-            at_work.answered_question();
-            // The Drone has just been spoken to, so the silence it is measured
-            // against starts now. `crate::resume`'s redirect does the same.
-            at_work.waiting(now.clone());
-        }
-        drop(working);
+        self.store()
+            .lock()
+            .await
+            .record_question(&job.question_answered(GivenAnswer {
+                label: label.clone(),
+                at: now.clone(),
+            }))
+            .map_err(NotAnswered::NotKept)?;
         self.noted_answered(job_id, &step, question_id, &label);
         self.events().publish(ipc::Event::JobAsking(ipc::JobAsking {
             job_id: ipc::JobId::from(job_id),
@@ -429,37 +397,10 @@ where
         })
     }
 
-    /// The question this Job's Drone is waiting on, for `get_job`.
-    ///
-    /// **The third part of the act, and the one a person reads.** Between the
-    /// ask and the answer the Job sits `running`, looking exactly like a Job
-    /// whose Drone is busy; this is what tells the two apart. It is on the wire
-    /// rather than in a window because no window was open when the Drone asked.
-    ///
-    /// `None` where nothing is outstanding and where the slot holds another Job.
-    pub(crate) async fn question_awaited(&self, job: &JobId) -> Option<ipc::QuestionInFlight> {
-        for drone in self.each_live(job).await {
-            let slot = crate::crew::as_caller(drone, self.slot_of(job)).await;
-            let Some(slot) = slot else {
-                continue;
-            };
-            let working = slot.lock().await;
-            let asked = working
-                .as_ref()
-                .filter(|at_work| at_work.is(job))
-                .and_then(|at_work| at_work.asked())
-                .map(Question::in_flight);
-            if asked.is_some() {
-                return asked;
-            }
-        }
-        None
-    }
-
     /// Write the question into the Job's own log. **Fields, never an
     /// interpolated message**, so a query can find every step that had to ask
     /// — which is the number that says whether a workflow's brief is enough.
-    fn noted_asked(&self, job: &JobId, step: &StepId, asked: &Question) {
+    fn noted_asked(&self, job: &JobId, step: &StepId, asked: &DroneQuestion) {
         let envelope = Envelope::new(
             self.now(),
             Level::Info,
@@ -471,13 +412,13 @@ where
         .at_step(step.as_str())
         .with_field(
             "question_id",
-            FieldValue::Str(asked.id().as_str().to_string()),
+            FieldValue::Str(asked.id.as_str().to_string()),
         )
-        .with_field("question", FieldValue::Str(asked.question().to_string()))
+        .with_field("question", FieldValue::Str(asked.question.clone()))
         .with_field("offered", FieldValue::Str(asked.labels().join(" | ")));
         // A log line that will not write does not fail the ask, for
-        // `crate::silence::noted_quiet`'s reason: what happened is on the slot,
-        // and the event is published either way.
+        // `crate::silence::noted_quiet`'s reason: what happened is on the
+        // record, and the event is published either way.
         self.noted_in_the_log(job, &envelope);
     }
 
@@ -501,13 +442,13 @@ where
     }
 }
 
-/// A question outstanding on this Drone's slot, whatever else is true: its own,
-/// or a permission question a person was asked about a call it made.
-///
-/// **Free, and read before anything that costs.** A field on the slot the caller
-/// already holds, which is why both vigils can afford to ask.
-pub(crate) fn waiting_on_an_answer(at_work: &Working) -> bool {
-    at_work.asked().is_some() || at_work.permission().is_some()
+/// The question this Job is waiting on, for `get_job` and the Board row.
+/// `None` once it is answered, though the answer waits on the record for the
+/// next Drone's brief.
+pub(crate) fn question_awaited(job: &core_model::Job) -> Option<ipc::QuestionInFlight> {
+    job.question()
+        .filter(|_| job.waiting_on_an_answer())
+        .map(in_flight)
 }
 
 /// The refusal a Drone reads, from the tool's own error.
@@ -519,13 +460,16 @@ impl From<NotAsked> for ipc::mcp::NotRecorded {
     }
 }
 
-/// The Adrift a person's refusal crosses as. `IllegalMove` in all four cases:
-/// the Job exists and the act does not apply to it as it stands.
+/// The Adrift a person's refusal crosses as. `IllegalMove` in the three a
+/// person can act on; a record that would not write is the store's.
 impl NotAnswered {
     pub(crate) fn about(self, job: &JobId) -> Adrift {
-        Adrift::NotAnswerable {
-            job: job.clone(),
-            because: self.to_string(),
+        match self {
+            NotAnswered::NotKept(cause) => Adrift::Writing(cause),
+            refused => Adrift::NotAnswerable {
+                job: job.clone(),
+                because: refused.to_string(),
+            },
         }
     }
 }

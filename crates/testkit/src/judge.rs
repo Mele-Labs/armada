@@ -400,5 +400,6 @@ pub fn refusal(
         brief_path: None,
         cited: None,
         given: None,
+        risky: None,
     }
 }

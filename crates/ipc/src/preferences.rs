@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 
 /// Every preference Fleet knows, and what is in force for each.
 ///
-/// **Flat, one field per known preference** — `store::Preferences`' shape,
+/// **Flat, one field per known preference** — the five settings.json keys it reads,
 /// carried across the wire rather than restated as a map: a name outside this
 /// struct cannot be read, which is the closed set on this side of the seam.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -31,6 +31,10 @@ pub struct Preferences {
     /// holds, so one parser reads both.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub layout_choices: String,
+    /// The owner's own key bindings, as the JSON Settings → Keyboard wrote: an act's id to the
+    /// keys it answers in place of the registry's. Left out while he has changed none.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub key_bindings: String,
 }
 
 /// The theme nobody has chosen away from.
@@ -51,6 +55,7 @@ impl Default for Preferences {
             draft_pull_requests: false,
             theme: dark(),
             layout_choices: String::new(),
+            key_bindings: String::new(),
         }
     }
 }
@@ -71,8 +76,9 @@ pub struct SavePreference {
     pub name: String,
     pub value: bool,
     /// The value of a preference that is text rather than a switch, which is
-    /// `theme` and `layout_choices`. `value` is read for every other name and this is
-    /// read for none of them. An empty `layout_choices` takes the owner's choices back.
+    /// `theme`, `layout_choices` and `key_bindings`. `value` is read for every other name and
+    /// this is read for none of them. An empty `layout_choices` or `key_bindings` takes the
+    /// owner's choices back.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub text: Option<String>,
 }

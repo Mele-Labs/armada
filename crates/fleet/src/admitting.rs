@@ -345,6 +345,11 @@ where
             {
                 continue;
             }
+            // Its Drone asked a person and stood down; only the answer starts
+            // it. `crate::questioning`.
+            if job.waiting_on_an_answer() {
+                continue;
+            }
             // A frozen repository starts nothing, whoever put the Job here —
             // `crate::freezing`. First, because only a person lifts it.
             if !self.frozen_by(&job).is_empty() {

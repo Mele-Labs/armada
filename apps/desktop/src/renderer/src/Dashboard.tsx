@@ -157,6 +157,8 @@ export type Hosts = {
   onPausing?: ((act: PauseAct, jobId: string) => void) | undefined;
   /** Says a sentence as a toast: a refusal the panel has to name. */
   onTell?: ((sentence: string) => void) | undefined;
+  /** Asks Fleet for the worktree pool while the bays are drawn, and lets go after. */
+  onWantHeld?: ((want: boolean) => void) | undefined;
   /** Where the cursor is, for Helm's footer: the Job picked, or null. */
   onCursor?: ((jobId: string | null) => void) | undefined;
 };
@@ -416,7 +418,7 @@ function waitingItem({ session, item }: WaitingCall, hosts: Hosts): Item {
     key: `session:${session.id}:${item.id}`,
     owner: `session:${session.id}`,
     icon: SquareTerminal,
-    kind: item.source === "ask_card" ? "Session question" : item.source === "walk" ? "Session walk" : "Session",
+    kind: item.source === "ask_card" || item.source === "window_ask" ? "Session question" : item.source === "walk" ? "Session walk" : "Session",
     session: true,
     mark: Eye,
     state: item.source === "permission" ? "Waiting on a command" : "Waiting on you",
@@ -515,12 +517,6 @@ function lineItems(state: BridgeState, tab: DashboardTab, hosts: Hosts, rehearse
     }
   }
   return items;
-}
-
-/** Whether the owner is wanted anywhere: the quick box shows only where this is false. */
-export function useNeedsYou(state: BridgeState, picked: RepositorySummary | null, nowViews: Readonly<Record<string, CallView>> | undefined): boolean {
-  const items = useItems("command-central", state, picked, nowViews, { onOpen: () => {}, onOpenSession: () => {}, onOpenLink: () => {} }, new Set());
-  return items.length > 0;
 }
 
 export function useItems(

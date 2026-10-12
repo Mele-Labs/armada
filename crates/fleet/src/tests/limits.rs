@@ -7,7 +7,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use api::{Commands, Queries};
+use api::{Queries, Settings};
 use core_model::JobId;
 use ipc::{DiskFloorGib, DronesAtOnce, LimitValues, MemorySparePercent, SaveLimits};
 use testkit::{FakeHarness, FakeJudge, FakeVcs, FakeWorkProduct, Sketch};

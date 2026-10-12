@@ -48,6 +48,10 @@ pub use job::{
     IssueSource, Landing, NotAtApproval, PolicyOverrides, PrMode, PrModeTiers, ProposalEdit,
 };
 pub use job::{collisions, under};
+pub use job::{DroneQuestion, GivenAnswer, OfferedAnswer};
+pub use job::{
+    ASSERTION_WEAKENED_QUESTION, FINDINGS_GENERIC_QUESTION, FINDINGS_NOT_TIED_QUESTION, NO_FINDINGS_QUESTION, TAUTOLOGICAL_TEST_QUESTION, TEST_SCOPE_NARROWED_QUESTION,
+};
 pub use job::{
     handle_of, names_a_credential, AcceptanceCriterion, AdmissionHold, AdvanceGate, AllowedCommand,
     Answered, Area, Attachment, Attempt, AutoMerge, BadPattern, Became, BlankBranch, BlankModel,
@@ -60,6 +64,7 @@ pub use job::{
     GateManifest, GateOutcome, GateVerdict, Given, Guard, IllegalDroneMove, IllegalStepTransition,
     IllegalTransition, Iteration, Job, JobEvent, JobId, JobNumber, JobReference, JobStatus,
     JobStep, JudgeCheck, JudgeCriterion, JudgeVerdict, Judgment, LandedHold, ManifestId, ModelName,
+    AGREED_RETRIES,
     Narrowing, NewJob, NewProposal, NotRunDisposition, NotRunReason, OnRefusal, Origin,
     PathPattern, Pause, PausedBy, PilotReason, Prerequisite, ProposalId, Proves, QueuedReason,
     Reach, Recourse, RedirectAlreadyWaiting, RedirectWaiting, Refusal, Refusals, RepoPath,

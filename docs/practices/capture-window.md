@@ -266,14 +266,159 @@ this window, and that is another security review. `#1294`.
 
 > **Rule.** A refusal is said on the bar, naming the address that was refused.
 
+> **Rule.** A Session's window names the Session by the Session's own name, as the Sessions
+> list does, never by the window's title. On a Job's or a Session's window that name opens it in
+> Bridge's main window, and main reads which one off the window, never off the bar.
+> Why: a window shown with no title is titled by its address, and the bar said the address
+> three times and named the Session by it.
+
+> **Rule.** A window with no title of its own draws no name: the address is drawn in full in
+> its place, since the full address holds the origin the window is pinned to. The OS title
+> follows the same rule.
+
 > **Rule.** A window a Job or a Session opened offers Approve. On a Job it is
 > the act JobDetail's Approve sends; on a Session it is a message from the
 > person, `Approved: <address>`, which wakes it. Nothing closes.
 > Why: the person walked the page and it is right, and the one who opened the
 > window is the one waiting to hear it. A Studio's window has nobody to tell.
 
-> **Rule.** The window draws no rail and reaches no Armada surface. A Studio is
-> read on Bridge's window.
+> **Rule.** A Session's window that closes, whoever closed it, is told to
+> Fleet as `window_closed` with the address it opened on.
+> Why: it ends the Session's walk, and a Session refuses its own questions
+> while one is open (`docs/concepts/session.md`, *Showing a window*).
+
+> **Rule.** The window draws no rail and reaches two Armada surfaces: the card
+> of a question its Session asked about the page, drawn on the bar, and the
+> Session or the Job that opened the window, drawn in a panel beside the page.
+> A Studio is read on Bridge's window, and a Studio's window has no panel.
+> Why: the owner, 11 Oct 2026, "a question about the walk should open in the
+> walk. In fact it should take me where the agent is asking me about. Highlight
+> it like an annotation and show a card with the question and my options to
+> answer. If the question is not related to the walk it should wait." And the
+> same day: "When walks are open in the new window, I wish if they were
+> connected to a session or a job that session or job somehow had a panel off
+> to the side of the window. Going back and forth between the session and the
+> walk is painful right now." Asked how, he chose a panel inside the walk
+> window, over opening the walk inside Bridge or placing two windows side by
+> side, knowing it is a capability added to this window and so another review;
+> asked what it does, read and reply. *A question asked in the window* and *The
+> panel beside the page* have what each adds.
+
+## A question asked in the window
+
+A Session's `ask_in_window` names a page on the origin of its window and a
+selector for a place on it. `docs/concepts/session.md`, *Asking in the window*,
+has the tool. This is what the window does with it, and what that adds to the
+review above.
+
+| Step | Held by | What happens |
+|---|---|---|
+| The question arrives | Main, off Fleet's row | The window comes forward, opening on the address the Session showed if it is closed |
+| The page moves | Main | `loadURL` of the question's address, **only on the pinned origin**, and not when the page is already there |
+| The place is found | One ask, `apps/desktop/src/main/capture/locate.ts` | The element the selector finds, its box, and one scroll that brings it into view |
+| It is drawn | The bar's view, over the whole frame | An outline at the box and the card beside it, as capture's are |
+| It is answered | Main names the Session and the item | `answer_waiting`; the bar sends only an option's index and words |
+
+> **Rule.** The locate ask is the injected layer's kind: its source travels with
+> the ask, it leaves no global and no listener, and its answer is a box that
+> main re-bounds against the viewport.
+> Why: the page then holds nothing it did not hold before, which is what every
+> rule under *What the page can reach back into* rests on.
+
+> **Rule.** The one thing it moves is the page's scroll, once per question, as a
+> person's own scroll would. It writes no node, no attribute and no style.
+> Why: taking him where the agent is asking about is the decision. Scrolling is
+> the least that does it, and the outline stays Bridge's.
+
+> **Rule.** While the card is drawn over the page, the bar's view covers the
+> frame and the page takes no press, as under armed capture. The card folds into
+> the bar's second row, and the page takes presses again.
+> Why: a card the page could draw over, or a press that reached the page through
+> it, is the forgery *The injected layer* exists to rule out.
+
+> **Rule.** The selector, the address and the Session's id stay in main. The bar
+> gets the question, its options, who asks and a box.
+
+**What it does not add.** No preload on the page, no channel from the page to
+main, no address off the origin, and no Armada record named to the page. The
+selector comes from the Session, not the page, and a selector that matches
+nothing draws the card without an outline.
+
+## The panel beside the page
+
+A window a Session or a Job opened draws that Session or Job in a third view, on
+the window's right edge at full height. A Session's panel is its thread, the
+cards it waits on and the box to answer it. A Job's is JobDetail's own reading of
+it, live: its state, its brief, and the verdict at the gate with its evidence,
+its pull request, the comments on it, Merge, and the decision with this walk's
+notes — or a redirect to a Drone still working. A Studio's window has no panel.
+
+**Focusing a Job's walk window makes its Job Bridge's open Job.** The owner,
+11 Oct 2026: *"Right now I see a window with a walk in it with no context to the
+job/session that walk stemmed from."*
+
+| Step | Held by | What happens |
+|---|---|---|
+| The window opens | Main, `apps/desktop/src/main/capture/layout.ts` | A Session's window gets a Session panel and a Job's a Job panel, never the other kind |
+| A Job's window opens or takes focus | Main, `apps/desktop/src/main/capture/follow.ts` | Main watches the Job and tells Bridge's window to open it, raising nothing |
+| The panel loads | `apps/desktop/src/main/capture/views.ts` | `walk-panel.html` from disk, with Bridge's preload, Bridge's CSP and the default session; its subject is the query it is loaded with |
+| It reads | Main's publish | The state every Bridge window is sent, with no repository picked; a Job panel draws Bridge's open Job, its claims and its comments from it |
+| It acts | Bridge's preload | A message, an answer, a decision, a merge or a redirect, on the channels Bridge's window sends each on |
+| It folds | The bar | One press hides it and the page takes the width; the next window of its kind opens as this one was left, while Bridge runs |
+
+> **Rule.** The panel is a Bridge document in a view of its own, never the
+> page's: loaded from disk, Bridge's preload, Bridge's CSP, Bridge's default
+> session. It navigates nowhere and opens no window, as the bar.
+> Why: everything under *What the page can reach back into* rests on the page
+> holding nothing of Armada's, and a panel in the page's view or the page's
+> partition would end that.
+
+> **Rule.** Main places the panel beside the page and never over it. Armed
+> capture and a question's card cover the page's column, not the panel.
+> Why: the two views share no pixels, so a press on the panel cannot reach the
+> page and nothing the page draws can sit over the panel; and the thread stays
+> answerable while a question is drawn over the page.
+
+> **Rule.** The panel's preload is Bridge's whole surface, as the bar's is.
+> Two entries are answered for a walk window and no other document: the bar's
+> `captureWindow.panel` and the panel's `walkPanel.openInBridge`. Neither takes
+> an id. Main reads the Job or the Session off the view the call came from.
+> Why: a panel that named its subject could name another.
+
+> **Rule.** A Job's walk window opening or taking focus makes its Job Bridge's
+> open Job. Main watches it, then sends Bridge's window a summons marked
+> `follow`, which opens the Job without raising the window. With the composer
+> up, Bridge's window keeps it and opens nothing. A Studio's window and a
+> Session's move nothing.
+> Why: the owner chose one open Job that follows the walk in front of him over
+> a second open Job per window (11 Oct 2026). The summons keeps Bridge's own
+> open Job the same one, so main never swaps the watch out from under it.
+
+> **Rule.** A Job panel reads only what Bridge's window reads: the open Job,
+> its claims and its pull request's comments. It asks for the claims and the
+> comments by Bridge's own calls, and never lets either go.
+> Why: Bridge's window holds the same reads for the same Job, and a panel
+> closing with its window would drop them from under that window.
+
+> **Rule.** Nothing from the page reaches the panel but what capture already
+> sends. A note taken here reaches the Session as a message, or waits on the
+> Job as a walk note, and the panel shows it because it reads Fleet's record of
+> it. Saving a walk note re-reads the open Job, which is this Job.
+
+| Reach | The page | The panel |
+|---|---|---|
+| Armada's IPC | None, no preload | Bridge's preload, as the bar |
+| Session partition | Its own, per repository | Bridge's default |
+| CSP | Whatever its server sends | `default-src 'self'; img-src 'self' blob:` |
+| The other view | None | None: no channel, no shared document, no shared origin |
+| A press | Taken by the bar while covered | Its own, beside the page |
+
+**What it does not add.** No preload on the page, no channel between the page
+and the panel, no address the page can make the panel load, and no Armada
+record named to the page. The page cannot read the panel: they are two
+documents in two sessions on two origins, and main passes nothing from one to
+the other. **The page's posture is unchanged by this section**; what changed
+is that a second Bridge document sits beside it, with the bar's grant.
 
 ## Refused outright
 

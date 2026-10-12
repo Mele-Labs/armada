@@ -16,7 +16,8 @@
 //! them, because a truncated history nobody was told about reads as the whole
 //! one. Each row is narrowed as it is read, so that window is a window of
 //! *lines* rather than of arguments. [`arguments`] is the other read of the
-//! same file: one call, for a person who opened its row.
+//! same file: one call's whole argument, for the command a person is deciding
+//! about.
 //!
 //! # Missing is ordinary
 //!
@@ -28,7 +29,7 @@ use std::collections::VecDeque;
 use std::path::{Path, PathBuf};
 
 use core_model::{DroneId, Refusal, Refusals, StepId, Timestamp};
-use ipc::{CallArguments, Saw, TranscriptRow};
+use ipc::{Saw, TranscriptRow};
 use serde::Deserialize;
 use tokio::fs;
 use tokio::io::{AsyncBufReadExt, BufReader};
@@ -124,21 +125,19 @@ pub async fn of_one(
 
 /// One call's arguments, out of the file that kept them.
 ///
-/// **The read a person's gesture pays for.** Opening a row asks about one call,
-/// so this scans for one call id rather than materialising a history — the same
-/// trade `get_diff` makes against `job.files_changed`, on the other side of the
-/// same argument.
+/// **Read for one call**, so this scans for one call id rather than
+/// materialising a history — the same trade `get_diff` makes against
+/// `job.files_changed`, on the other side of the same argument.
 ///
 /// `None` where nothing in the Job's transcripts carries that id: a Job whose
 /// transcripts were reclaimed, or an id that was never in them. Not an error,
 /// and not an empty argument either — those are different answers and the
 /// caller decides what to say about each.
 ///
-/// **A row written before the file kept the whole answers with what it has**,
-/// says so, and does not guess a size. That is the one case where what comes
-/// back is less than the argument, and it is a fact about the record rather
-/// than about the transport.
-pub async fn arguments(records_root: &str, handle: &str, call: &str) -> Option<CallArguments> {
+/// **A row written before the file kept the whole answers with what it has.**
+/// That is the one case where what comes back is less than the argument, and
+/// it is a fact about the record rather than about the transport.
+pub async fn arguments(records_root: &str, handle: &str, call: &str) -> Option<String> {
     for at in transcripts(records_root, handle).await {
         let Ok(file) = fs::File::open(&at).await else {
             continue;
@@ -149,12 +148,10 @@ pub async fn arguments(records_root: &str, handle: &str, call: &str) -> Option<C
                 continue;
             };
             let Saw::Called {
-                tool,
                 call: id,
                 detail,
-                truncated,
-                detail_length,
                 whole: kept,
+                ..
             } = row.saw
             else {
                 continue;
@@ -162,15 +159,9 @@ pub async fn arguments(records_root: &str, handle: &str, call: &str) -> Option<C
             if id != call {
                 continue;
             }
-            return Some(CallArguments {
-                tool,
-                call: id,
-                // All of it two ways: the file kept the rest, or the row was
-                // never cut and the line is already the argument.
-                whole: kept.is_some() || !truncated,
-                arguments: kept.unwrap_or(detail),
-                length: detail_length,
-            });
+            // All of it where the file kept the rest; otherwise the line, which
+            // is the argument where the row was never cut.
+            return Some(kept.unwrap_or(detail));
         }
     }
     None
@@ -302,7 +293,7 @@ async fn against(files: &[PathBuf], kept: &mut [Refusal]) {
                 continue;
             };
             // The bounded line and never the whole: this is read on every open
-            // of a stopped Job, and the whole of a heredoc is what `get_call`
+            // of a stopped Job, and the whole of a heredoc is what [`arguments`]
             // is for. An empty one is a call whose arguments the decoder had no
             // name for, and it stays owed rather than being counted as answered.
             if detail.is_empty() {

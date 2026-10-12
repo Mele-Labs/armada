@@ -215,3 +215,50 @@ export const RetroPress: Story = {
     await expect(canvas.getByRole("button", { name: "Writing the retro" })).toBeDisabled();
   },
 };
+
+/** The keys alone: the glass is one Tab stop, Down or Escape leaves the search for its tile, the arrows move across the glass and down each column, and Enter opens the tile with focus. */
+export const Keyboard: Story = {
+  args: {
+    groups: [
+      { label: "Needs you", rows: [FLAKY, NOTES] },
+      { label: "Running", rows: [LIVE] },
+    ],
+  },
+  // Wide enough for two columns, so across is a move of its own.
+  render: (args) => (
+    <div style={{ width: "calc(var(--space-12) * 14)" }}>
+      <SessionList {...args} />
+    </div>
+  ),
+  play: async ({ canvas, args }) => {
+    const flaky = canvas.getByRole("button", { name: /Flaky store test/ });
+    const notes = canvas.getByRole("button", { name: /Release notes script/ });
+    const docs = canvas.getByRole("button", { name: /Docs pass/ });
+    const search = canvas.getByRole("searchbox", { name: "Search Sessions" });
+    // One Tab stop: Tab from the search lands on a tile, and Tab on from there never reaches another.
+    await userEvent.click(search);
+    await userEvent.tab();
+    await expect(flaky).toHaveFocus();
+    const reached = new Set<Element | null>();
+    for (let at = 0; at < 8; at++) {
+      await userEvent.tab();
+      reached.add(document.activeElement);
+    }
+    await expect(reached.has(notes)).toBe(false);
+    await expect(reached.has(docs)).toBe(false);
+    await userEvent.click(search);
+    await userEvent.keyboard("{ArrowDown}");
+    await expect(flaky).toHaveFocus();
+    await userEvent.keyboard("{ArrowDown}");
+    await expect(notes).toHaveFocus();
+    await userEvent.keyboard("{ArrowRight}");
+    await expect(docs).toHaveFocus();
+    await userEvent.keyboard("{ArrowLeft}");
+    await expect(flaky).toHaveFocus();
+    await userEvent.keyboard("{Enter}");
+    await expect(args.onOpen).toHaveBeenCalledWith("s7");
+    await userEvent.click(search);
+    await userEvent.keyboard("{Escape}");
+    await expect(flaky).toHaveFocus();
+  },
+};

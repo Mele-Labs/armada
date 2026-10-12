@@ -11,6 +11,8 @@
 //! reaches SQL, and the constraint is what keeps a second writer — a hand-edited
 //! file, a Store built without this check — from putting one there anyway.
 
+use rusqlite::OptionalExtension;
+
 use crate::error::{fault, DatabaseFault, WriteError};
 use crate::open::Store;
 
@@ -48,6 +50,8 @@ pub struct Preferences {
     pub theme: String,
     /// The text of the owner's `layout.json`, or empty where he has made no choice.
     pub layout_choices: String,
+    /// The text of the owner's key bindings, or empty where he has changed none.
+    pub key_bindings: String,
 }
 
 /// The theme nobody has chosen away from.
@@ -60,8 +64,22 @@ impl Default for Preferences {
             draft_pull_requests: false,
             theme: SHIPPED_THEME.to_string(),
             layout_choices: String::new(),
+            key_bindings: String::new(),
         }
     }
+}
+
+/// What a person saved for each preference, **`None` where nobody did** —
+/// unlike [`Preferences`], which answers a default for a row that is not there.
+/// The one reader is the move into `settings.json`, which carries a saved value
+/// and must not write a default down as if somebody had chosen it.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct SavedPreferences {
+    pub where_things_are_open: Option<bool>,
+    pub draft_pull_requests: Option<bool>,
+    pub theme: Option<String>,
+    pub layout_choices: Option<String>,
+    pub key_bindings: Option<String>,
 }
 
 impl Store {
@@ -115,7 +133,48 @@ impl Store {
             Err(rusqlite::Error::QueryReturnedNoRows) => {}
             Err(other) => return Err(fault("reading the saved preferences")(other)),
         }
+        match self.conn.query_row(
+            "SELECT value FROM key_bindings_preference WHERE id = 1",
+            [],
+            |row| row.get::<_, String>(0),
+        ) {
+            Ok(bindings) => preferences.key_bindings = bindings,
+            Err(rusqlite::Error::QueryReturnedNoRows) => {}
+            Err(other) => return Err(fault("reading the saved preferences")(other)),
+        }
         Ok(preferences)
+    }
+
+    /// Every preference row there is, and nothing for a row that is not.
+    pub fn saved_preferences(&self) -> Result<SavedPreferences, DatabaseFault> {
+        let reading = fault("reading the saved preferences");
+        let mut saved = SavedPreferences::default();
+        let flag: Result<Option<i64>, _> = self
+            .conn
+            .query_row(
+                "SELECT value FROM preferences WHERE name = ?1",
+                (WHERE_THINGS_ARE_OPEN,),
+                |row| row.get(0),
+            )
+            .optional();
+        saved.where_things_are_open = flag.map_err(fault("reading the saved preferences"))?.map(|v| v != 0);
+        let one = |table: &str| -> Result<Option<rusqlite::types::Value>, rusqlite::Error> {
+            self.conn
+                .query_row(&format!("SELECT value FROM {table} WHERE id = 1"), [], |row| row.get(0))
+                .optional()
+        };
+        let text = |value: Option<rusqlite::types::Value>| match value {
+            Some(rusqlite::types::Value::Text(text)) => Some(text),
+            _ => None,
+        };
+        saved.draft_pull_requests = match one(DRAFT_PULL_REQUESTS).map_err(fault("reading the saved preferences"))? {
+            Some(rusqlite::types::Value::Integer(value)) => Some(value != 0),
+            _ => None,
+        };
+        saved.theme = text(one("theme_preference").map_err(fault("reading the saved preferences"))?);
+        saved.layout_choices = text(one("layout_preference").map_err(fault("reading the saved preferences"))?);
+        saved.key_bindings = text(one("key_bindings_preference").map_err(reading)?);
+        Ok(saved)
     }
 
     /// Save the theme's id, and answer with every preference now in force.
@@ -146,6 +205,23 @@ impl Store {
         };
         saved
             .map_err(fault("saving the layout choices"))
+            .map_err(WriteError::Database)?;
+        self.preferences().map_err(WriteError::Database)
+    }
+
+    /// Save the owner's key bindings, and answer with every preference now in force.
+    /// **Empty takes them back**, `save_layout_choices`' terms.
+    pub fn save_key_bindings(&mut self, text: &str) -> Result<Preferences, WriteError> {
+        let saved = match text.is_empty() {
+            true => self.conn.execute("DELETE FROM key_bindings_preference WHERE id = 1", []),
+            false => self.conn.execute(
+                "INSERT INTO key_bindings_preference (id, value) VALUES (1, ?1)
+                 ON CONFLICT (id) DO UPDATE SET value = excluded.value",
+                (text,),
+            ),
+        };
+        saved
+            .map_err(fault("saving the key bindings"))
             .map_err(WriteError::Database)?;
         self.preferences().map_err(WriteError::Database)
     }

@@ -72,7 +72,6 @@ function boardOn(port: number, forgotten: string[]): Board {
     publish: () => {},
     watchProposal: () => {},
     proposalOut: () => null,
-    rereadCapacity: async () => {},
   };
 }
 

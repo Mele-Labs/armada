@@ -204,10 +204,12 @@ impl Forgotten {
             "job_task_drones" | "job_task_edits" => &mut self.task_drones,
             "job_group_runs" | "job_group_apart" => &mut self.group_runs,
             "job_tier_models" | "job_drone_models" => &mut self.models,
-            "job_landing" | "job_drone_caps" | "job_policy_overrides" | "job_issue_sources" => {
+            "job_landing" | "job_drone_caps" | "job_policy_overrides" | "job_issue_sources"
+            | "job_issue_writeback" => {
                 &mut self.approval
             }
-            "job_retros" | "job_retro_items" | "job_drone_notes" | "job_event_via" => {
+            "job_retros" | "job_retro_items" | "job_drone_notes" | "job_event_via"
+            | "job_event_phone" => {
                 &mut self.retros
             }
             "job_walk_notes" => &mut self.walk_notes,

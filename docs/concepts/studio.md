@@ -217,7 +217,7 @@ flowchart LR
 > **Rule.** A source file path is kept only where the build gives one, and absent otherwise.
 > Why: React 19 fibers carry no `_debugSource`, and a guessed path sends a reader to the wrong file.
 
-A Note carries what the annotation layer records, in `apps/desktop/src/shared/annotations.ts`, and four fields that layer does not record.
+A Note carries what the annotation layer records, in `apps/desktop/src/shared/annotations.ts`, and the fields below that layer does not record.
 
 | Field | Recorded by the annotation layer today |
 |---|---|
@@ -228,7 +228,7 @@ A Note carries what the annotation layer records, in `apps/desktop/src/shared/an
 | Box and window size | Yes |
 | Computed styles | No |
 | Markup | No |
-| A frame of the screen | No |
+| A frame of the screen | Yes, of the element as the note is saved, in Bridge only |
 | Source file path | No |
 
 ## Promotion

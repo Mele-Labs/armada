@@ -12,8 +12,8 @@
 # screen rather than as a stale binary. Rebuilding one side and not the other
 # is the mistake this script exists to make impossible.
 #
-# `--debug` because this is the development loop. A release build is a minute
-# every time and buys nothing here; the debug binary is the same program.
+# `--profile installed` because this is the development loop: the dev profile, with only the
+# dependencies optimised. A release build is a minute every time and buys nothing here.
 #
 # Fleet goes to the background and Bridge to the foreground, so Ctrl-C lands on
 # Bridge and the trap takes Fleet down with it. Quitting the window leaves no
@@ -52,7 +52,7 @@ fi
 # the one worth knowing: `cargo install` refuses a binary name another package
 # owns, which is what a leftover install from a renamed crate looks like.
 say "Installing armada from $root"
-cargo install --path crates/armada --debug --locked --quiet "$@"
+cargo install --path crates/armada --profile installed --locked --quiet "$@"
 
 # 3. Start Fleet, and wait for it to publish before starting anything that
 #    reads what it publishes. Bridge started first has nothing to read.

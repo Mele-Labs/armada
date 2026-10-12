@@ -30,6 +30,13 @@ use core_model::{AllowedCommand, DroneId, Reach, StepId, Timestamp, WhenBlocked}
 use ipc::{AlwaysAllowScope, CommandAnswer};
 use tokio::sync::oneshot;
 
+use config::settings as keys;
+
+use crate::prompts::Prompts;
+
+mod words;
+pub(crate) use words::*;
+
 /// How long a question is held open for a person: a minute under what the
 /// harness waits, so the answer the Drone gets is Fleet's and says why.
 pub const HOLD: Duration = Duration::from_secs(PERMISSION_WAIT.as_secs() - 60);
@@ -83,9 +90,9 @@ impl UnansweredAskLimit {
 /// A permission question a person has been asked, about a call this Drone
 /// made, and not answered yet.
 ///
-/// **Held on the slot and written to no column**, for
-/// `crate::questioning::Question`'s reason: a Fleet that restarts loses the
-/// Drone whose call it was.
+/// **Held on the slot and written to no column**: a Fleet that restarts loses
+/// the Drone whose call it was, and the call is answered in that Drone's
+/// session or not at all.
 pub struct Waiting {
     /// The harness's id for the call. What a person's answer names, so an
     /// answer from a window left open across a newer question joins to nothing.
@@ -566,7 +573,7 @@ fn rejected(what: &str, note: Option<&Note>) -> String {
 /// call it was about has returned.
 ///
 /// **One constructor takes free text, and only on a reject.** It did not until
-/// 11.5, on `crate::questioning::Answer`'s property and for its reason — the
+/// 11.5, on the property a Drone's answered question had and for its reason — the
 /// words were Fleet's, around a command the Drone itself ran. What changed is
 /// where the reason lives: it is in a person's head exactly when they press
 /// reject, and telling them to reject here and redirect from another box spends
@@ -584,34 +591,42 @@ impl Permitted {
     /// now differ: what is kept may be a cut of what the Drone ran, and a
     /// Drone told only the cut would have nothing telling it to run the
     /// command it actually reached for.
-    pub fn allowed(command: &str, reach: Reach, rule: Option<&str>) -> Permitted {
+    pub fn allowed(
+        prompts: &Prompts,
+        command: &str,
+        reach: Reach,
+        rule: Option<&str>,
+    ) -> Permitted {
         Permitted(match reach {
-            Reach::Job => format!(
-                "A person allowed `{command}` for this Job. Run it again now; it will not be \
-                 refused."
+            Reach::Job => prompts.fill(keys::PROMPT_PERMIT_JOB, &[("command", command)]),
+            Reach::Repository => prompts.fill(
+                keys::PROMPT_PERMIT_REPOSITORY,
+                &[("rule", rule.unwrap_or(command)), ("command", command)],
             ),
-            Reach::Repository => {
-                let declared = rule.unwrap_or(command);
-                format!(
-                    "A person allowed `{declared}` in this repository. Run `{command}` again \
-                     now; it will not be refused."
-                )
-            }
         })
     }
 
     /// [`Permitted::allowed`] for an Always allow kept in Kit, which reaches
     /// every Job on this machine rather than this repository's.
-    pub fn allowed_in_kit(command: &str, rule: Option<&str>) -> Permitted {
-        Permitted(format!(
-            "A person allowed `{}` on this machine. Run `{command}` again now; it will not be \
-             refused.",
-            rule.unwrap_or(command)
+    pub fn allowed_in_kit(prompts: &Prompts, command: &str, rule: Option<&str>) -> Permitted {
+        Permitted(prompts.fill(
+            keys::PROMPT_PERMIT_MACHINE,
+            &[("rule", rule.unwrap_or(command)), ("command", command)],
         ))
     }
 
-    pub fn rejected(command: &str, note: Option<&Note>) -> Permitted {
-        Permitted(rejected(command, note))
+    /// The person's words go after the line saying they are theirs, and are
+    /// never a placeholder: a note is material, not a prompt.
+    pub fn rejected(prompts: &Prompts, command: &str, note: Option<&Note>) -> Permitted {
+        let refusal = prompts.fill(keys::PROMPT_PERMIT_REJECTED, &[("command", command)]);
+        Permitted(match note {
+            None => refusal,
+            Some(note) => format!(
+                "{refusal}\n\n{}\n\n{}",
+                prompts.get(keys::PROMPT_PERMIT_REJECTED_NOTE),
+                note.text()
+            ),
+        })
     }
 
     pub fn text(&self) -> &str {

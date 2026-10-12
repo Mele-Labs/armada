@@ -1,4 +1,5 @@
 import { ArmadaMark } from "@armada/brand";
+import { ChevronRight } from "lucide-react";
 import type { ReactNode } from "react";
 import { FigureList, type Figure } from "../FigureList/FigureList";
 import { Panel } from "../Panel/Panel";
@@ -9,7 +10,7 @@ export type FleetState = "running" | "not-running" | "starting" | "unreachable" 
 
 /**
  * A rollup of the probes Fleet itself can answer for — never Doctor's own
- * grid, which is unbuilt (`docs/concepts/doctor.md`, #99). Worst of the probes
+ * grid, which the row opens (`docs/concepts/doctor.md`, #99). Worst of the probes
  * `GET /health` returned, the same reading the status bar was heading toward
  * before this panel replaced it.
  */
@@ -46,6 +47,12 @@ export type FleetPanelProps = {
    */
   detail?: ReactNode;
   doctor?: DoctorLine;
+  /**
+   * Opens Doctor's own grid. **Present makes the Doctor row a control**, drawn
+   * whether or not a reading is in yet: the grid is where a person goes to see
+   * why, and that is most true while nothing has answered.
+   */
+  onOpenDoctor?: () => void;
   /**
    * The build Fleet runs on and where it stands against main, with the choice
    * between them and the one act on the preview. **Absent draws none**: a
@@ -104,7 +111,7 @@ export function FleetStarting({ className, size = 16, phrase }: { className: str
 /** What the Board's card says under the mark while Fleet starts. */
 export const STARTING_PHRASE = "Armada activating";
 
-export function FleetPanel({ state, label, rows, detail, doctor, build, open, onOpenChange, narrow }: FleetPanelProps) {
+export function FleetPanel({ state, label, rows, detail, doctor, onOpenDoctor, build, open, onOpenChange, narrow }: FleetPanelProps) {
   // **The state is the head's dot; the body is what the head cannot carry** —
   // the owner, 28 Sep 2026: *"Delete this row and just put the status dot next
   // to the 'Fleet' title in the panel header."* The row said in words what the
@@ -115,7 +122,7 @@ export function FleetPanel({ state, label, rows, detail, doctor, build, open, on
   // A state with no figure, no sentence and no Doctor reading now has an empty
   // body — `reading`, Bridge's first moment. `Panel` draws its head alone
   // rather than a chevron onto an empty box.
-  const bodyless = figures === null && detail === undefined && doctor === undefined && build === undefined;
+  const bodyless = figures === null && detail === undefined && doctor === undefined && onOpenDoctor === undefined && build === undefined;
   return (
     <Panel
       label="Fleet"
@@ -151,19 +158,38 @@ export function FleetPanel({ state, label, rows, detail, doctor, build, open, on
           {build === undefined ? null : <FleetBuildSection build={build} />}
           {figures}
           {detail === undefined ? null : <div className="armada-fleet-panel__mono">{detail}</div>}
-          {doctor === undefined ? null : (
+          {onOpenDoctor !== undefined ? (
+            <button type="button" className="armada-fleet-panel__doctor" data-link onClick={onOpenDoctor} aria-label="Open Doctor">
+              <DoctorFace doctor={doctor} />
+              <ChevronRight size={12} strokeWidth={2} aria-hidden className="armada-fleet-panel__doctor-go" />
+            </button>
+          ) : doctor === undefined ? null : (
             <div className="armada-fleet-panel__doctor">
-              <span className="armada-fleet-panel__dot" data-tone={DOCTOR_TONE[doctor.outcome]} aria-hidden />
-              <span>Doctor</span>
-              <b className="armada-fleet-panel__doctor-outcome" data-tone={DOCTOR_TONE[doctor.outcome]}>
-                {doctor.outcome}
-              </b>
-              <span className="armada-fleet-panel__meta">{doctor.checked}</span>
+              <DoctorFace doctor={doctor} />
             </div>
           )}
         </div>
       )}
     </Panel>
+  );
+}
+
+/** The Doctor row's words: its dot, its name, the worst result and the modules it read. */
+function DoctorFace({ doctor }: { doctor: DoctorLine | undefined }) {
+  const tone = DOCTOR_TONE[doctor?.outcome ?? "reading"];
+  return (
+    <>
+      <span className="armada-fleet-panel__dot" data-tone={tone} aria-hidden />
+      <span>Doctor</span>
+      {doctor === undefined ? null : (
+        <>
+          <b className="armada-fleet-panel__doctor-outcome" data-tone={tone}>
+            {doctor.outcome}
+          </b>
+          <span className="armada-fleet-panel__meta">{doctor.checked}</span>
+        </>
+      )}
+    </>
   );
 }
 

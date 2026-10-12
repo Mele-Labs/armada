@@ -429,9 +429,7 @@ async fn a_cut_argument_is_sized_on_the_wire_and_whole_in_the_file() {
     let served = crate::transcript::arguments(&root, HANDLE, "toolu_01Haa")
         .await
         .expect("the file kept what the row did not");
-    assert_eq!(served.arguments, heredoc, "the argument, as it was sent");
-    assert!(served.whole);
-    assert_eq!(served.length, Some(heredoc.chars().count()));
+    assert_eq!(served, heredoc, "the argument, as it was sent");
 }
 
 /// An id from a row whose transcript is gone reaches nothing, and that is a

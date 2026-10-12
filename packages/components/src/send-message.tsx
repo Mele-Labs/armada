@@ -1,6 +1,7 @@
 import type { KeyboardEvent } from "react";
 
 import { keyFor } from "./actions";
+import { isPressed } from "./keymap";
 import { KbdCmd } from "./primitives/Kbd/Kbd";
 import { useShortcutReveal } from "./shortcut-reveal";
 
@@ -24,7 +25,8 @@ export const SEND_MESSAGE = "send_message";
  * as `StudioAddNode` and `⌘K` already take it; nothing renders it.
  */
 export function sendsOn(event: KeyboardEvent<HTMLElement>): boolean {
-  return event.key === "Enter" && (event.metaKey || event.ctrlKey) && !event.altKey;
+  // `keymap` takes Ctrl for ⌘ the way this always has, and reads a rebound send as this person has it.
+  return isPressed(SEND_MESSAGE, event);
 }
 
 /**

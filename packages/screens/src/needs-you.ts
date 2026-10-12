@@ -68,12 +68,12 @@ export function tabOf(job: JobSummary): StateTab | null {
   if (life === undefined) return null;
   if (life.terminal) return "finished";
   // **The one rule here that is not a lifecycle row, and it is first among the
-  // rest for a reason.** A drone waiting on an answer is on a `running` job
+  // rest for a reason.** A job whose drone asked a question waits at `queued`,
   // whose `who_is_acting` is `Drone`, so every rule below would put it under
-  // Running — and a question on a job nobody has open would be invisible
-  // until somebody opened it. The registry cannot say this: it is a fact
-  // about a live slot rather than about a status, which is exactly why it
-  // rides on the row.
+  // Queued — and a question on a job nobody has open would be invisible until
+  // somebody opened it. The registry cannot say this: `queued` is also every
+  // job waiting for a place, which is exactly why it rides on the row. A
+  // command a drone is waiting on is the same rule, on a `running` job.
   //
   // It is above `terminal` in intent and below it in code because a terminal
   // job has no drone left to be waiting, so the two can never both be true.

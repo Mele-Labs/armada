@@ -26,7 +26,6 @@ use adapters::UnmergedWork;
 use armada::clean::Scope;
 use armada::cli::{self, NeedAct, Usage, Verb, WorktreeAct};
 use armada::declared::{Asked, Registry};
-use armada::serve::PROVISIONAL_CHECK_BUDGET;
 use armada::{clean, declared, leasing, say, serve};
 
 #[tokio::main]
@@ -166,7 +165,7 @@ async fn declared_by_the_manifest(
         registry,
         name,
         asked,
-        PROVISIONAL_CHECK_BUDGET,
+        armada::settings::now_or_shipped().get(config::settings::CHECK_SECONDS),
         slots.as_ref(),
         // Agent priority unless `ARMADA_CHECK_PRIORITY=normal`, which the
         // merge line sets on every Check it runs.

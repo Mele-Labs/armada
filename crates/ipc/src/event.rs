@@ -33,7 +33,9 @@ use crate::reading::ManifestReading;
 use crate::rehearsal::{CheckoutRunRecord, RunRecord};
 use crate::repositories::RepositoryList;
 use crate::servers::ServerState;
+use crate::settings::SettingsList;
 use crate::sleep::SleepState;
+use crate::autopilot::Autopilot;
 use crate::sessions::SessionRecord;
 use crate::studio::{Studio, StudioDeleted, StudioHelmActed};
 use crate::triggers::JobTriggerChanged;
@@ -172,12 +174,13 @@ pub enum Event {
     // What `get_merge_lines` answers, whole, whenever a line moved on disk.
     #[serde(rename = "merge_lines.changed")]
     MergeLinesChanged(MergeLines),
-    // The mods on this machine, whole, whenever one was added, changed or
-    // switched.
+    // The mods on this machine, whole, whenever one was added, changed or switched.
     #[serde(rename = "mods.changed")]
     ModsChanged(ModList),
-    // A Studio after any write to it, whole, so an open whiteboard replaces
-    // what it holds. `#1285`.
+    // settings.json, whole, after a save or a hand edit — or a refusal of one.
+    #[serde(rename = "settings.changed")]
+    SettingsChanged(SettingsList),
+    // A Studio after any write to it, whole, so an open whiteboard replaces what it holds. `#1285`.
     #[serde(rename = "studio.changed")]
     StudioChanged(Studio),
     #[serde(rename = "studio.deleted")]
@@ -201,13 +204,14 @@ pub enum Event {
     // holds. `docs/concepts/session.md`.
     #[serde(rename = "session.changed")]
     SessionChanged(SessionRecord),
-    // One row of a hosted session's thread, appended or replaced by its id.
-    // Since 23.49.
+    // One row of a hosted session's thread, appended or replaced by its id. Since 23.49.
     #[serde(rename = "session.row")]
     SessionRow(SessionRowChanged),
-    // Sleep mode after any change to it, whole, so a client replaces what it holds.
+    // Sleep mode, or a repository's Autopilot (#2092), after any change to it, whole.
     #[serde(rename = "sleep.changed")]
     SleepChanged(SleepState),
+    #[serde(rename = "autopilot.changed")]
+    AutopilotChanged(Autopilot),
 }
 
 impl Event {
@@ -792,15 +796,15 @@ pub struct EvidenceSubmitted {
 /// out it is [`Actor::Drone`] and coming back [`Actor::Human`], because those
 /// are the two ends of the act. Fleet caused neither.
 ///
-/// **It names no [`JobSummary`](crate::JobSummary).** Nothing on the Board's
-/// row changes when a question goes out, and this is read by a detail view
-/// somebody has open on one Job — [`JobFilesChanged`]'s terms exactly.
+/// **It names no [`JobSummary`](crate::JobSummary).** The row changes through
+/// the `job.state_changed` the stand-down publishes, and this is read by a
+/// detail view somebody has open on one Job — [`JobFilesChanged`]'s terms.
 ///
 /// # What it costs the channel, stated
 ///
 /// The bound is `api::stream::BACKLOG`, shared by every kind. This one produces
 /// at the rate a **person answers**, the slowest rate anything here produces at,
-/// and it holds no queue of its own — the question lives on the working slot. It
+/// and it holds no queue of its own — the question lives on the Job's record. It
 /// adds nothing measurable to the unbounded-sink risk
 /// `docs/practices/protocol.md` names.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

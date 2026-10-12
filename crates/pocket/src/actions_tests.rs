@@ -132,3 +132,27 @@ async fn fleet_being_down_says_what_to_do() {
     assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
     assert_eq!(body, "Armada is not answering on your Mac. Open it there, then try again.");
 }
+
+#[tokio::test]
+async fn every_request_to_fleet_names_the_phone_as_its_caller() {
+    let callers: Arc<Mutex<Vec<Option<String>>>> = Arc::default();
+    let log = callers.clone();
+    let fleet = Router::new().fallback(move |headers: HeaderMap| {
+        let log = log.clone();
+        async move {
+            let said = headers.get("x-armada-caller").map(|v| v.to_str().unwrap().to_string());
+            log.lock().unwrap().push(said);
+            (StatusCode::OK, "{}")
+        }
+    });
+    let listener = crate::bind(0).await.unwrap();
+    let port = listener.local_addr().unwrap().port();
+    tokio::spawn(async move { axum::serve(listener, fleet).await });
+    let app = on(Arc::new(move || Ok(port))).await;
+    for (gateway, _, sent, _) in ROUTES {
+        post(&app, &format!("/api/jobs/j-1/{gateway}"), sent).await;
+    }
+    let seen = callers.lock().unwrap();
+    assert_eq!(seen.len(), 7);
+    assert!(seen.iter().all(|c| c.as_deref() == Some("phone")), "{seen:?}");
+}

@@ -239,6 +239,13 @@ where
             .await
             .step_spent(&job_id, &step)
             .map_err(|cause| Adrift::Reading(store::LoadJobError::Unreadable(cause)))?;
+        // How often this pass already went back on an agreed refusal. #206.
+        let sent_back = self
+            .store()
+            .lock()
+            .await
+            .step_sent_back_by_judges(&job_id, &step)
+            .map_err(|cause| Adrift::Reading(store::LoadJobError::Unreadable(cause)))?;
         // A plan's group counts its own runs against the budget, and one with
         // a group after it leaves handoff's Checks to the last. `crate::grouping`.
         let at_group = self.group_at_gate(&job, &step).await?;
@@ -312,6 +319,7 @@ where
             None => loop {
                 let ruling = rule_on(
                     at.on_attempt(attempt, spent)
+                        .sent_back(sent_back)
                         .holding_handoff(at_group.is_some_and(|g| g.follows))
                         .over(gated.as_ref()),
                     request,

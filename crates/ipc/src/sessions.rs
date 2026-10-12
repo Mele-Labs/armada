@@ -227,6 +227,15 @@ pub struct ShowWindow {
     pub session_id: Option<SessionId>,
 }
 
+/// `window_closed`: the person closed the window a session showed. Bridge tells it; nothing is
+/// closed by it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WindowClosed {
+    pub session_id: SessionId,
+    /// The address the window was opened on, as `show_window` named it.
+    pub url: String,
+}
+
 /// What a press on a waiting item does.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -251,6 +260,42 @@ pub struct WaitingAct {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WaitingOption {
     pub label: String,
+    /// What choosing it means, where the asker said. Drawn under the label.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+}
+
+/// Where on a walked page a question points: the address, and the element as a note taken in the
+/// window names one.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WindowPlace {
+    /// On the origin of a window the session showed.
+    pub url: String,
+    /// A CSS selector for the element.
+    pub selector: String,
+    /// Text the element shows, which picks one where the selector finds several.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub text: Option<String>,
+}
+
+/// `ask_in_window`: a session asks the person about a place on the page its walk window shows. Fleet
+/// answers at once; the answer comes back later as a message from the person.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AskInWindow {
+    pub question: String,
+    /// The choices to offer. The person may always answer in words of their own instead.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub options: Vec<WaitingOption>,
+    /// The page to take the person to, on the origin of a window this session showed.
+    pub url: String,
+    /// The element to highlight there, as a CSS selector.
+    pub selector: String,
+    /// Text the element shows, to pick one where the selector finds several.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub text: Option<String>,
+    /// Which session asks. **Read only where the connection places no hosted session**, as `ShowWindow`'s.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<SessionId>,
 }
 
 /// Who put an item on the list.
@@ -265,12 +310,15 @@ pub enum WaitingSource {
     Walk,
     /// Fleet: a permission card is open.
     Permission,
+    /// Fleet: a question the session asked in its walk window, `ask_in_window`, is unanswered.
+    WindowAsk,
 }
 
 /// One thing a session is waiting on the person for.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WaitingItem {
-    /// Stable across updates: the agent's own, or `ask:<call>`, `walk:<url>`, `perm:<call>`.
+    /// Stable across updates: the agent's own, or `ask:<call>`, `walk:<url>`, `perm:<call>`,
+    /// `window_ask:<row>`.
     pub id: String,
     pub text: String,
     /// When it began to wait.
@@ -281,6 +329,9 @@ pub struct WaitingItem {
     /// Present only on an `answer` item that has choices.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub options: Vec<WaitingOption>,
+    /// Where a question asked in the walk window points. Present only on a `window_ask` item.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub place: Option<WindowPlace>,
 }
 
 /// One item as the agent states it. Fleet stamps `since` and `source`.

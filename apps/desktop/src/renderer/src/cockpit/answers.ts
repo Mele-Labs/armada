@@ -9,7 +9,7 @@
 // of the card is held, and a second press is not a second send.
 
 import { useEffect, useRef, useState } from "react";
-import { actionOf, keyFor } from "@armada/components";
+import { actionOf, isPressed, keyFor, type Press } from "@armada/components";
 import type { AnswerWaiting } from "@armada/protocol";
 import { isTerminal, titleOf } from "@armada/screens";
 import { refusalWords } from "@armada/screens/src/refusal-words";
@@ -26,7 +26,7 @@ import { sessionIdOf } from "./waiting";
 import type { Hosts, Item } from "../Dashboard";
 
 /** `key` is a standing answer's own key; the others are picked by their number. `says` is what it tells the agent. */
-export type Answer = { id: string; label: string; run: () => void; key?: string; says?: string; description?: string; recommended?: boolean };
+export type Answer = { id: string; label: string; run: () => void; key?: string; act?: string; says?: string; description?: string; recommended?: boolean };
 
 /** The picker an Attach opens: who a pull request can be attached to. */
 export type Attaching = { candidates: readonly Owner[]; choose: (owner: Owner) => void; close: () => void };
@@ -38,8 +38,8 @@ export type Answering = {
   /** Which answer is picked, where one is. A lone answer starts picked. */
   picked: number | undefined;
   pick: (index: number) => void;
-  /** Picks the standing answer a key names, where there is one. */
-  pickKey: (key: string) => boolean;
+  /** Picks the standing answer a press names, where there is one — by its act, so a rebound key picks it. */
+  pickKey: (press: Press) => boolean;
   /** Picks the answer a digit names among the numbered ones. */
   pickNumber: (digit: number) => void;
   /** Moves the pick down or up the list, from nothing to the first or last. */
@@ -103,6 +103,7 @@ function standingOf(send: (mode: "best" | "quick") => void, permission: boolean)
     {
       id: "best",
       key: keyFor("call_best"),
+      act: "call_best",
       label: actionOf("call_best").verb,
       says: permission ? "Tells the agent to weigh the command carefully and decide for itself whether to run it" : "Tells the agent to weigh the options and choose the best solution itself",
       run: () => send("best"),
@@ -110,6 +111,7 @@ function standingOf(send: (mode: "best" | "quick") => void, permission: boolean)
     {
       id: "quick",
       key: keyFor("call_quick"),
+      act: "call_quick",
       label: actionOf("call_quick").verb,
       says: permission ? "Tells the agent to run the command if it is reasonable and keep moving" : "Tells the agent to take the quickest reasonable path and keep moving",
       run: () => send("quick"),
@@ -260,8 +262,8 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
   const held = pending !== undefined;
   const pick = (index: number) => !held && answers[index] !== undefined && setPicked(index);
   const pickNumber = (digit: number) => digit <= numbered.length && pick(digit - 1);
-  const pickKey = (key: string) => {
-    const index = answers.findIndex((one) => one.key === key);
+  const pickKey = (press: Press) => {
+    const index = answers.findIndex((one) => one.act !== undefined && isPressed(one.act, press));
     if (index < 0) return false;
     if (!held) setPicked(index);
     return true;

@@ -21,7 +21,9 @@ import {
   byCreation,
   isAnnotation,
   isAnnotationId,
+  isPng,
   serializeAnnotation,
+  shotName,
   type Annotation,
   type Box,
 } from "../shared/annotations";
@@ -101,9 +103,42 @@ export async function saveAnnotation(dir: string, note: unknown): Promise<void> 
   await rename(partial, path);
 }
 
+/** The note and its picture, where it has one. */
 export async function removeAnnotation(dir: string, id: unknown): Promise<void> {
   if (!isAnnotationId(id)) throw new Error("not an annotation id");
   await rm(join(dir, `${id}.json`), { force: true });
+  await rm(join(dir, shotName(id)), { force: true });
+}
+
+/** Bytes as IPC or a request hands them over: an `ArrayBuffer`, or a view of one such as a `Buffer`. */
+function bytesOf(value: unknown): Uint8Array | null {
+  if (value instanceof ArrayBuffer) return new Uint8Array(value);
+  if (ArrayBuffer.isView(value)) return new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
+  return null;
+}
+
+/** Writes a note's picture to `<id>.png`, through a rename as `saveAnnotation` writes the note. */
+export async function saveShot(dir: string, id: unknown, png: unknown): Promise<void> {
+  if (!isAnnotationId(id)) throw new Error("not an annotation id");
+  const bytes = bytesOf(png);
+  if (bytes === null || !isPng(bytes)) throw new Error("not a PNG");
+  await mkdir(dir, { recursive: true });
+  const path = join(dir, shotName(id));
+  const partial = `${path}.${randomUUID()}.partial`;
+  await writeFile(partial, bytes);
+  await rename(partial, path);
+}
+
+/** A note's picture, or null where it has none. */
+export async function readShot(dir: string, id: unknown): Promise<ArrayBuffer | null> {
+  if (!isAnnotationId(id)) throw new Error("not an annotation id");
+  try {
+    const bytes = await readFile(join(dir, shotName(id)));
+    return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
+    throw error;
+  }
 }
 
 /** The part of `ipcMain` this uses, so the module needs no Electron to load. */
@@ -131,6 +166,8 @@ export function handleAnnotations(ipc: Handles, appPath: string, capture: Captur
   ipc.handle(ANNOTATION_CHANNELS.remove, (_event, id) => removeAnnotation(dir, id));
   ipc.handle(ANNOTATION_CHANNELS.root, () => servedRoot(root));
   ipc.handle(ANNOTATION_CHANNELS.capture, (event, box) => (isBoxOf(box) ? capture(event, box) : null));
+  ipc.handle(ANNOTATION_CHANNELS.saveShot, (_event, id, png) => saveShot(dir, id, png));
+  ipc.handle(ANNOTATION_CHANNELS.shot, (_event, id) => readShot(dir, id));
   return dir;
 }
 

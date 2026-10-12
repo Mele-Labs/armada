@@ -39,6 +39,8 @@ mod resolve;
 mod roster;
 mod runners;
 mod scope;
+/// The Machine's settings: `settings.json`'s keys, checked and resolved.
+pub mod settings;
 mod triggers;
 mod widening;
 mod workflow;

@@ -168,6 +168,9 @@ export * from "./concepts";
 // aliases and the context filter, which are Bridge's readings of it and not
 // the registry's.
 export * from "./actions";
+// The keys each act answers now, with a person's own bindings laid over the registry's.
+export * from "./keymap";
+export * from "./tile-grid";
 
 // Whether Cmd is held, for a control that carries a Global-tier binding to
 // show its own `Kbd` badge. `TheShell` is the one provider; any control
@@ -291,10 +294,8 @@ export * from "./compositions/PlanGroupSheet/PlanGroupSheet";
 // Every setting a person can change on a running Job, on the same layer, and
 // the header's way into it.
 export * from "./compositions/JobSettings/JobSettings";
-export * from "./compositions/FleetSettings/FleetSettings";
 export * from "./compositions/KitServers/KitServers";
 export * from "./compositions/KitSetup/KitSetup";
-export * from "./compositions/MachineSettings/MachineSettings";
 
 // Asking a Job to show its work again, and every set a press kept beside the
 // step's own frames. Each set is an unchanged `FramesShown`.
@@ -338,6 +339,7 @@ export * from "./compositions/GraphCanvas/GraphCanvasRail";
 // A Studio's nodes, and the whiteboard React Flow draws them on. #1286.
 export * from "./compositions/StudioCapture/StudioCapture";
 export * from "./compositions/CaptureBar/CaptureBar";
+export * from "./compositions/WindowQuestion/WindowQuestion";
 export * from "./compositions/StudioAddNode/StudioAddNode";
 export * from "./compositions/StudioName/StudioName";
 export * from "./compositions/StudioPicked/StudioPicked";
@@ -430,6 +432,7 @@ export * from "./compositions/RetroPress/RetroPress";
 export * from "./compositions/LandsMark/LandsMark";
 export * from "./compositions/LessonCard/LessonCard";
 export * from "./compositions/LessonList/LessonList";
+export * from "./compositions/LessonReview/LessonReview";
 export * from "./compositions/RetroSheet/RetroSheet";
 export * from "./compositions/MorningReview/MorningReview";
 
@@ -451,4 +454,11 @@ export * from "./compositions/PullRequestActs/PullRequestActs";
 export * from "./compositions/Pilot/Pilot";
 export * from "./compositions/ModRow/ModRow";
 export * from "./compositions/LayoutRow/LayoutRow";
+export * from "./compositions/SettingsIndex/SettingsIndex";
+export * from "./compositions/KeyBindingRow/KeyBindingRow";
 export * from "./compositions/PhonePairing/PhonePairing";
+// One setting from settings.json, drawn from its kind.
+export * from "./compositions/SettingField/SettingField";
+export * from "./compositions/WalkPanel/WalkPanel";
+// One repository's Autopilot on the Cockpit: its switch, caps, Pause and Stop, and the start form. #2092.
+export * from "./compositions/AutopilotBar/AutopilotBar";

@@ -67,7 +67,7 @@ where
 {
     /// A Job as a Board row, with the reason its last transition stored and
     /// whether its Drone is waiting on somebody. **The slot read is free on
-    /// every row but the working ones** — `question_awaited` answers `None`
+    /// every row but the working ones** — `command_awaited` answers `None`
     /// without touching the store for a Job that holds no slot.
     pub(crate) async fn summarised(&self, job: &Job) -> Result<JobSummary, Refusal> {
         let reason = self
@@ -77,9 +77,9 @@ where
         let queued = self.queued_reason(job).await?;
         // **A command a person is being asked about waits on them too**, and
         // the Board says so the same way: the Drone holds its session and its
-        // spend until somebody answers.
-        let asking = self.question_awaited(job.id()).await.is_some()
-            || self.command_awaited(job.id()).await.is_some();
+        // spend until somebody answers. A Drone's own question is the record's,
+        // and `JobSummary::of` reads it there.
+        let asking = self.command_awaited(job.id()).await.is_some();
         let started_at = self
             .job_started_at(job.id())
             .await
@@ -153,6 +153,11 @@ where
         // predicate, in `next_queued`.
         if job.pause().is_some_and(|pause| !pause.resuming) {
             return Ok(Waiting::on(Some(CoreQueuedReason::Paused)));
+        }
+        // **Next, and for the pause's reason**: the question is the Job's own,
+        // and only the answer starts it. Admission's own predicate.
+        if job.waiting_on_an_answer() {
+            return Ok(Waiting::on(Some(CoreQueuedReason::AwaitingAnswer)));
         }
         // **First, because nothing below would start the Job while it holds**,
         // and only a person lifts it. Admission's own predicate.

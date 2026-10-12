@@ -5,7 +5,8 @@
 use std::sync::Arc;
 
 use ipc::{
-    JobId, JobRetro, LandsIn, Lesson, LessonState, Lessons, ManifestId, RetroRecord, RetroState,
+    AskLessonAnswer, JobId, JobRetro, LandsIn, Lesson, LessonAsk, LessonReview, LessonState,
+    Lessons, ManifestId, RetroRecord, RetroState,
 };
 
 use super::FakeDaemon;
@@ -76,6 +77,26 @@ impl Retros for FakeDaemon {
     }
 
     async fn disagree_lesson(&self, lesson_id: String) -> Result<Lesson, Refusal> {
+        Err(self.refusing_lesson(&lesson_id))
+    }
+
+    /// The fake holds no open items, so a review of them is empty.
+    async fn review_lessons(
+        &self,
+        _manifest_id: Option<ManifestId>,
+    ) -> Result<LessonReview, Refusal> {
+        Ok(LessonReview {
+            model: String::new(),
+            entries: Vec::new(),
+            set_aside: Vec::new(),
+        })
+    }
+
+    async fn ask_lesson(
+        &self,
+        lesson_id: String,
+        _ask: LessonAsk,
+    ) -> Result<AskLessonAnswer, Refusal> {
         Err(self.refusing_lesson(&lesson_id))
     }
 }

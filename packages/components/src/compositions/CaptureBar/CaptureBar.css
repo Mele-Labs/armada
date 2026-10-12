@@ -59,6 +59,25 @@
   white-space: nowrap;
 }
 
+/* The Job's or the Session's name where it opens it: `MainHead.css`'s inline link. */
+.armada-capture-bar__owner {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--accent);
+  cursor: pointer;
+}
+
+.armada-capture-bar__owner:hover {
+  text-decoration: underline;
+}
+
+.armada-capture-bar__owner:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
 .armada-capture-bar__said {
   background: var(--bg-overlay);
 }
@@ -81,4 +100,14 @@
 .armada-capture-bar__frames {
   flex: none;
   color: var(--fg-subtle);
+}
+
+/* A folded question takes the row's slack, as a refusal does, and gives way to the acts beside it. */
+.armada-capture-bar__question {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--fg-default);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }

@@ -376,7 +376,9 @@ where
                     continue;
                 }
                 match item.source {
-                    WaitingSource::Walk => {
+                    // A question asked in the walk is about what is on the page, so it waits for
+                    // his eyes as the walk does rather than being decided for him.
+                    WaitingSource::Walk | WaitingSource::WindowAsk => {
                         self.leave(row("walk", id, who.clone(), item.text.clone())).await?;
                     }
                     WaitingSource::Permission => {

@@ -50,7 +50,7 @@ Everything in the flow above except the approval card. Named here so the journey
 | A status meaning waiting on an answer | A Drone that asks looks the same as one that stopped |
 | Fleet calling `create_sub_dispatched` | The model has the constructor and nothing reaches it |
 | Several Jobs at once, `#50` | A waiting parent holds the only working slot its children need |
-| The tracker listed in Bridge, `#91` | Step 1 is done by reading the tracker yourself |
+| A milestone's issues listed in Bridge | `#91` lists a repository's open issues, not one milestone's, so step 1 is still done by reading the tracker yourself |
 
 ## What it must not become
 

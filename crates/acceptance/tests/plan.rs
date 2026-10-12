@@ -508,7 +508,7 @@ fn a_person_adds_a_fifth_task_and_the_working_drone_is_told() {
         "an add is not a recording, so the plan's last whole recording is still the plan step's"
     );
 
-    let note = fleet::PlanChanged::added(fifth.id(), &task);
+    let note = fleet::PlanChanged::added(&fleet::prompts::Prompts::shipped(), fifth.id(), &task);
     let turn = fleet::session::Turn::plan_changed(&note);
     let wire = ipc::encode(&turn).expect("a turn that serialises");
     for expected in [
@@ -560,6 +560,7 @@ fn a_person_drops_a_task_with_a_reason_and_it_shows_struck_through() {
     );
 
     let note = fleet::PlanChanged::dropped(
+        &fleet::prompts::Prompts::shipped(),
         third,
         dropped.title(),
         "the writer's bound was never inclusive",

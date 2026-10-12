@@ -1,0 +1,72 @@
+//! A repository's open issues, read from its tracker. #91,
+//! `docs/concepts/tracker.md`.
+//!
+//! **Its own surface**, for [`PullRequests`](super::PullRequests)' reason: a
+//! handler that takes only this cannot reach for a Job.
+
+use std::future::Future;
+
+use ipc::{Autopilot, AutopilotList, AutopilotSettings, IssueList, ManifestId, ProposeAutopilot};
+
+use crate::daemon::Refusal;
+
+pub trait Issues: Send + Sync + 'static {
+    /// `list_issues` — the open issues Fleet last read, or a fresh read where
+    /// `refresh` asks for one or what is held is old. [`Refusal::Fault`] where
+    /// the tracker would not answer and nothing is held.
+    fn list_issues(
+        &self,
+        manifest_id: ManifestId,
+        refresh: bool,
+    ) -> impl Future<Output = Result<IssueList, Refusal>> + Send;
+}
+
+/// A repository working its own backlog. #2092, `docs/concepts/autopilot.md`.
+///
+/// **Beside [`Issues`] because it picks from that list**, and like it takes no Job: a pick that
+/// starts one goes through Fleet's own drafting, never through a handler.
+pub trait Autopilots: Send + Sync + 'static {
+    /// `propose_autopilot`: one sentence read as settings. **Starts nothing.**
+    fn propose_autopilot(
+        &self,
+        manifest_id: ManifestId,
+        propose: ProposeAutopilot,
+    ) -> impl Future<Output = Result<AutopilotSettings, Refusal>> + Send;
+
+    /// `start_autopilot`, with what the person confirmed. [`Refusal::IllegalMove`] where one is
+    /// running or paused, [`Refusal::Unacceptable`] for settings nothing could run under.
+    fn start_autopilot(
+        &self,
+        manifest_id: ManifestId,
+        settings: AutopilotSettings,
+    ) -> impl Future<Output = Result<Autopilot, Refusal>> + Send;
+
+    /// `pause_autopilot`: no new picks; started Jobs finish.
+    fn pause_autopilot(&self, manifest_id: ManifestId) -> impl Future<Output = Result<Autopilot, Refusal>> + Send;
+
+    /// `resume_autopilot`.
+    fn resume_autopilot(&self, manifest_id: ManifestId) -> impl Future<Output = Result<Autopilot, Refusal>> + Send;
+
+    /// `stop_autopilot`: no new picks, picks whose Job has not started withdrawn, and the end.
+    fn stop_autopilot(&self, manifest_id: ManifestId) -> impl Future<Output = Result<Autopilot, Refusal>> + Send;
+
+    /// `list_autopilots`.
+    fn list_autopilots(&self) -> impl Future<Output = Result<AutopilotList, Refusal>> + Send;
+
+    /// `get_autopilot`. [`Refusal::IllegalMove`] where the repository has never had one.
+    fn get_autopilot(&self, manifest_id: ManifestId) -> impl Future<Output = Result<Autopilot, Refusal>> + Send;
+
+    /// `dispatch_set_aside`: a person dispatches a set-aside pick, to the approval gate.
+    fn dispatch_set_aside(
+        &self,
+        manifest_id: ManifestId,
+        pick_id: String,
+    ) -> impl Future<Output = Result<Autopilot, Refusal>> + Send;
+
+    /// `dismiss_set_aside`.
+    fn dismiss_set_aside(
+        &self,
+        manifest_id: ManifestId,
+        pick_id: String,
+    ) -> impl Future<Output = Result<Autopilot, Refusal>> + Send;
+}

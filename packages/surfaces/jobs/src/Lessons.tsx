@@ -10,7 +10,7 @@
 
 import { useState } from "react";
 
-import { Alert, LessonList, RetroSheet, Tabs, type LessonRow } from "@armada/components";
+import { Alert, Button, LessonList, RetroSheet, Tabs, type LessonRow } from "@armada/components";
 
 import { said } from "@armada/screens/src/copy";
 import {
@@ -36,6 +36,7 @@ import {
   type ReadRetro,
 } from "./retro";
 import type { RetroSubject } from "@armada/protocol";
+import { LessonsReview, type AskLesson, type ReviewLessons } from "./LessonsReview";
 
 /** Open and Accepted, the two lists an item can be on. */
 const VIEWS = [
@@ -49,6 +50,12 @@ export type LessonsProps = {
   /** Agree with one item, and disagree with one. */
   onAgreeLesson: AnswerLesson;
   onDisagreeLesson: AnswerLesson;
+  /**
+   * The guided review, `Review` beside the tabs: Fleet's model orders the open items, and a
+   * question about one is put to it. Absent, and the page offers no Review.
+   */
+  onReviewLessons?: ReviewLessons;
+  onAskLesson?: AskLesson;
   /** Open the Job an agreed item proposed. The shell's own navigation. */
   onOpenJob?: (jobId: string) => void;
   /**
@@ -76,6 +83,8 @@ export function Lessons({
   onReadRetro,
   onAgreeLesson,
   onDisagreeLesson,
+  onReviewLessons,
+  onAskLesson,
   onOpenJob,
   repository,
   floor,
@@ -91,7 +100,10 @@ export function Lessons({
   const showing = tab ?? held;
   const showingSource = source ?? heldSource;
   // Keyed by the pick and the list, so another of either is another read.
-  const read = useReadOnFocus(() => onReadLessons(view), `${repository ?? ""}:${view}`);
+  // Leaving the review reads the list again: it answered items the list's own read still holds.
+  const [reviewing, setReviewing] = useState(false);
+  const [reads, setReads] = useState(0);
+  const read = useReadOnFocus(() => onReadLessons(view), `${repository ?? ""}:${view}:${reads}`);
   // A Session's Retro press opens the newest of that Session's retros: `n` absent.
   const [open, setOpen] = useState<{ subject: RetroSubject; job: string } | null>(
     opening === undefined ? null : { subject: { kind: "session", id: opening.id }, job: opening.label },
@@ -102,6 +114,10 @@ export function Lessons({
   const [pressed, setPressed] = useState<ReadonlySet<string>>(new Set());
   const cited = new Map((read?.ok === true ? read.lessons : []).map((lesson) => [lesson.id, lesson.evidence]));
   const subjects = new Map((read?.ok === true ? read.lessons : []).map((lesson) => [lesson.id, retroSubjectOf(lesson)]));
+  const leaveReview = () => {
+    setReviewing(false);
+    setReads((was) => was + 1);
+  };
   const rows = underTab(read?.ok === true ? lessonRowsOf(underSource(read.lessons, showingSource)) : [], showing).flatMap((row) => {
     // **The list holds the ids a row cites; its Job's retro holds the rows.** Read once per Job, on the first press.
     const ids = cited.get(row.id) ?? [];
@@ -150,6 +166,26 @@ export function Lessons({
         <Alert tone="escalated" title="Retros could not be read">
           {said(read.outcome)}
         </Alert>
+      ) : reviewing && onReviewLessons !== undefined && onAskLesson !== undefined ? (
+        <>
+          <div className="armada-lessons__bar">
+            <Button variant="ghost" size="sm" onClick={leaveReview}>
+              Back to the list
+            </Button>
+          </div>
+          <LessonsReview
+            lessons={read?.ok === true ? read.lessons : undefined}
+            onReview={onReviewLessons}
+            onAsk={onAskLesson}
+            onReadRetro={onReadRetro}
+            onAgreeLesson={onAgreeLesson}
+            onDisagreeLesson={onDisagreeLesson}
+            {...(onOpenJob === undefined ? {} : { onOpenJob })}
+            onOpenRetro={(subject, label) => setOpen({ subject, job: label })}
+            onList={leaveReview}
+            paused={open !== null}
+          />
+        </>
       ) : (
         <>
           <div className="armada-lessons__bar">
@@ -173,6 +209,18 @@ export function Lessons({
               }}
             />
             <Tabs items={VIEWS} value={view} onChange={(id) => setView(id as LessonsView)} />
+            {onReviewLessons === undefined || onAskLesson === undefined ? null : (
+              <Button
+                size="sm"
+                onClick={() => {
+                  // The review is of the open items, so the list it resolves them from is the open one.
+                  setView("open");
+                  setReviewing(true);
+                }}
+              >
+                Review
+              </Button>
+            )}
           </div>
           {/* Before the read answers, and with nothing under the tab, nothing is drawn. */}
           <LessonList

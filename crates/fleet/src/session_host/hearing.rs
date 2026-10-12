@@ -57,7 +57,12 @@ where
                     (working, complaint, lost)
                 };
                 if working {
-                    self.kept_restart(id, "ended", Some("the session's process ended while a turn ran")).await;
+                    self.kept_restart(
+                        id,
+                        "ended",
+                        Some("the session's process ended while a turn ran"),
+                    )
+                    .await;
                 }
                 // A death that said something is shown even between turns.
                 if working || !complaint.is_empty() {
@@ -107,7 +112,12 @@ where
 
     /// Start a replacement for a process that was gone before it took these
     /// lines, which resumes the conversation, and write them to it.
-    pub(crate) async fn send_again(self: &Arc<Self>, id: &str, runtime: &Arc<Runtime>, lines: Vec<String>) {
+    pub(crate) async fn send_again(
+        self: &Arc<Self>,
+        id: &str,
+        runtime: &Arc<Runtime>,
+        lines: Vec<String>,
+    ) {
         let started = match self.session_and_hosting(id).await {
             Ok((_, hosting)) => self.ensure_process(id, &hosting).await,
             Err(_) => Err(String::from("the session could not be read")),

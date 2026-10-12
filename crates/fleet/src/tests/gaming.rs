@@ -84,6 +84,7 @@ fn judging() -> Judging {
         asked: Asked::nowhere(),
         standing: verification::Standing::unstated(),
         reading: None,
+        wording: verification::Wording::shipped(),
     }
 }
 
@@ -345,6 +346,7 @@ async fn a_flagged_step_keeps_what_the_judge_said_about_its_criteria() {
         asked: Asked::nowhere(),
         standing: verification::Standing::unstated(),
         reading: None,
+        wording: verification::Wording::shipped(),
     };
     let ruling = rule_on(
         at,
@@ -509,6 +511,7 @@ async fn a_judged_flag_carries_the_question_it_answered_and_the_call_it_came_fro
             asked: Asked::under(root, HANDLE.to_string()),
             standing: verification::Standing::unstated(),
             reading: None,
+            wording: verification::Wording::shipped(),
         },
         &keeping_nowhere(),
         Policies::unstated(),

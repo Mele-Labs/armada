@@ -1,6 +1,6 @@
-/* The Manifest as a file — Journey 9's *Editing*. A head carrying the path, the
-   save's receipt and Save; whatever the save came to; and the text, filling
-   what is left of the panel.
+/* The Manifest as a file — Journey 9's *Editing*, on the cockpit's glass. A
+   controls strip carrying the path, the save's receipt and Save; whatever the
+   save came to; and the text, a framed screen filling what is left.
 
    **It fills the mount and scrolls inside the well**, so a long file does not
    make the page as tall as the file. */
@@ -14,18 +14,24 @@
   padding: var(--space-4);
 }
 
+/* Edge to edge across the glass, the form's own strip, so the two edit views
+   change under one band without the controls moving. */
 .armada-manifest-file__head {
   display: flex;
   align-items: center;
   gap: var(--space-4);
   min-width: 0;
+  margin: calc(var(--space-4) * -1) calc(var(--space-4) * -1) 0;
+  padding: var(--space-2) var(--space-4);
+  border-bottom: var(--border-width) solid var(--border-default);
+  background: var(--bg-raised);
 }
 
 /* A path is a fact the system reported, so it is mono. */
 .armada-manifest-file__path {
   font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  line-height: var(--leading-xs);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
   color: var(--fg-default);
   overflow-wrap: anywhere;
   /* The path takes the slack and wraps anywhere, so Save stays at the trailing
@@ -68,11 +74,20 @@
    the element keeps a long `run:` line on its own line for the same reason. */
 .armada-manifest-file__well .armada-textarea {
   flex: 1 1 auto;
+  border: calc(var(--border-width) * 2) solid color-mix(in srgb, var(--fg-subtle) 30%, var(--border-subtle));
+  border-radius: var(--radius-md);
+  background: var(--bg-base);
   min-height: 0;
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   line-height: var(--leading-xs);
   overflow: auto;
+}
+
+/* The lift on focus is the primitive's, kept over the screen's own ground. */
+.armada-manifest-file__well .armada-textarea:focus-visible {
+  border-color: var(--accent);
+  background: var(--bg-raised);
 }
 
 /* Two texts, side by side, at equal widths — neither is the one that matters
