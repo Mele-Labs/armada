@@ -517,7 +517,7 @@ export const MainHeld: Story = {
     const band = canvas.getByRole("status", { name: "New checks are running on main" });
     await expect(within(band).getByText(/New checks are running on main:/)).toBeVisible();
     await expect(canvas.queryByRole("button", { name: "Dispatch a new Job" })).toBeNull();
-    await expect(canvas.queryByRole("button", { name: /^Send back to/ })).toBeNull();
+    await expect(canvas.queryByRole("button", { name: /^Send back/ })).toBeNull();
     await userEvent.click(canvas.getByRole("button", { name: "screens_test" }));
     await expect(args.onOpenCheck).toHaveBeenCalledWith("main", "screens_test");
   },

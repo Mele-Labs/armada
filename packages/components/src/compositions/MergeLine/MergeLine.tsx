@@ -694,7 +694,7 @@ function EntryOwner({ entry, onOpenJob }: { entry: Pick<MergeLineEntry, "branch"
     </>
   );
   return (
-    <Tooltip label="Job">
+    <Tooltip label={`Job: ${job.title}`}>
       {onOpenJob === undefined ? (
         <span className="armada-merge-line__owner">{said}</span>
       ) : (

@@ -1,5 +1,6 @@
-/* Main's state at the head of the merge line. Green is a mark and nothing more; red is a frame in the
-   system-failure hue, so the state is read off the panel before a word of it is. */
+/* Main's state at the head of the merge line. Green is a mark and nothing more; red is a band across
+   the panel in the system-failure hue, flush to its edges, so the state is read off the panel before
+   a word of it is. The panel's own frame carries the red outline: the band draws none of its own. */
 .armada-main-mark {
   display: inline-flex;
   align-items: center;
@@ -17,16 +18,19 @@
   }
 }
 
+/* The one rule between the band and what follows it. A folded panel is only its heading and this band,
+   so the panel's own edge closes it. */
 .armada-main-red {
-  padding: 0 var(--space-4) var(--space-3);
+  border-bottom: var(--border-width) solid var(--border-default);
+}
+
+.armada-main-red:last-child {
+  border-bottom: 0;
 }
 
 .armada-main-red__frame {
   display: flex;
   flex-direction: column;
-  border: var(--border-width) solid var(--status-completed-failed);
-  border-radius: var(--radius-md);
-  background: var(--bg-sunken);
   color: var(--fg-default);
   font-size: var(--text-sm);
   line-height: var(--leading-sm);
@@ -40,9 +44,8 @@
   justify-content: space-between;
   flex-wrap: wrap;
   gap: var(--space-2) var(--space-3);
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-2) var(--space-3) var(--space-2) var(--space-4);
   background: var(--status-completed-failed-bg);
-  border-bottom: var(--border-width) solid var(--status-completed-failed);
 }
 
 .armada-main-red__title {
@@ -50,14 +53,9 @@
   color: var(--status-completed-failed);
 }
 
-/* Held: a newer commit's CI is running, so the frame is the caution hue, not the failure's. */
-.armada-main-red[data-held] .armada-main-red__frame {
-  border-color: var(--notice-caution);
-}
-
+/* Held: a newer commit's CI is running, so the band is the caution hue, not the failure's. */
 .armada-main-red[data-held] .armada-main-red__head {
   background: var(--notice-caution-bg);
-  border-bottom-color: var(--notice-caution);
 }
 
 .armada-main-red[data-held] .armada-main-red__title {
@@ -70,7 +68,7 @@
   grid-template-columns: max-content minmax(0, 1fr);
   gap: var(--space-1) var(--space-4);
   margin: 0;
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-2) var(--space-4);
   font-size: var(--text-xs);
   line-height: var(--leading-xs);
 }
@@ -88,16 +86,8 @@
 .armada-main-red__merge {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: var(--space-1) var(--space-3);
-}
-
-/* The owner's title in the Send back act, cut short. */
-.armada-main-red__send-title {
-  display: inline-block;
-  max-width: var(--w-menu);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  vertical-align: bottom;
 }
 
 .armada-main-red__owner {

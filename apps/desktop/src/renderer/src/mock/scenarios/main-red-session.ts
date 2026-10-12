@@ -10,7 +10,13 @@ import type { Scenario } from "../moment";
 function goesRed(): Scenario {
   const base = holding("main-red-session", "Main green, then red from a Session's pull request, sent back to that Session", FIXTURES);
   const { first, later } = sessionRed(repository().root);
-  return { ...base, state: { ...base.state, ...first }, later, behaves: writingMainsLogs };
+  // Sending to the Session is Fleet's `/sessions/message`, which takes it.
+  return {
+    ...base,
+    state: { ...base.state, ...first },
+    later,
+    behaves: (fleet) => ({ ...writingMainsLogs(fleet), sendSessionMessage: async () => ({ ok: true, value: {} as never }) }),
+  };
 }
 
 export const s234MainRedSession: Scenario = goesRed();

@@ -158,6 +158,8 @@ export function MainRedBand({ main, recent, recentSessions = [], onOpenLink, onO
   const { red, taken } = main;
   const checking = main.checking ?? [];
   const held = checking.length > 0;
+  // The acts draw only where something listens, and not where a held red or a Job on it makes them moot.
+  const asks = !held && taken === undefined && onFix !== undefined;
   const [asking, setAsking] = useState<"new" | "back" | null>(null);
   const link = (url: string) => (event: { preventDefault: () => void }) => {
     event.preventDefault();
@@ -188,12 +190,16 @@ export function MainRedBand({ main, recent, recentSessions = [], onOpenLink, onO
           ) : (
             <span className="armada-main-red__title">Main is red</span>
           )}
-          {held || taken !== undefined || onFix === undefined ? null : (
+          {!asks ? null : (
             <span className="armada-main-red__ask">
               <Button variant="secondary" size="sm" ground="sunken" onClick={() => setAsking("new")}>
                 Dispatch a new Job
               </Button>
-              <SendBack merge={red.merge} onClick={() => setAsking("back")} />
+              {red.merge !== undefined ? null : (
+                <Button variant="secondary" size="sm" ground="sunken" onClick={() => setAsking("back")}>
+                  Send back to…
+                </Button>
+              )}
             </span>
           )}
         </div>
@@ -247,6 +253,11 @@ export function MainRedBand({ main, recent, recentSessions = [], onOpenLink, onO
                   </a>
                 )}
                 <MergeOwner merge={red.merge} {...(onOpenJob === undefined ? {} : { onOpenJob })} {...(onOpenSession === undefined ? {} : { onOpenSession })} />
+                {!asks ? null : (
+                  <Button variant="secondary" size="sm" ground="sunken" onClick={() => setAsking("back")}>
+                    {red.merge.session !== undefined || red.merge.job !== undefined ? "Send back" : "Send back to…"}
+                  </Button>
+                )}
               </dd>
             </>
           )}
@@ -285,31 +296,6 @@ export function MainRedBand({ main, recent, recentSessions = [], onOpenLink, onO
         />
       )}
     </div>
-  );
-}
-
-/**
- * The act of sending the work back, naming who it goes back to: the owner's icon and title, the title
- * cut short with its full text in the tooltip. With no owner it opens the picker with nothing chosen.
- */
-function SendBack({ merge, onClick }: { merge: MainRed["merge"]; onClick: () => void }) {
-  const owner = merge?.session !== undefined ? { Icon: SquareTerminal, title: merge.session.title } : merge?.job !== undefined ? { Icon: Box, title: merge.job.title } : undefined;
-  if (owner === undefined) {
-    return (
-      <Button variant="secondary" size="sm" ground="sunken" onClick={onClick}>
-        Send back to…
-      </Button>
-    );
-  }
-  return (
-    <Tooltip label={owner.title} asChild>
-      <Button variant="secondary" size="sm" ground="sunken" onClick={onClick}>
-        <owner.Icon size={SMALL} strokeWidth={STROKE} aria-hidden />
-        <span>
-          Send back to <span className="armada-main-red__send-title">{owner.title}</span>
-        </span>
-      </Button>
-    </Tooltip>
   );
 }
 

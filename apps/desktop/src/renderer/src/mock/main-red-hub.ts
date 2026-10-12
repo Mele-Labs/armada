@@ -286,20 +286,30 @@ const SESSION_RED: MainRed = {
   merge: { number: 1830, url: `${PULL}1830`, branch: SESSION_BRANCH, session: SESSION },
 };
 
+/** A pull request whose branch and owner's title are both longer than its row: both are cut short. */
+const LONG_JOB: HubJob = { id: "job-wire-the-cockpit", title: "Wire the Cockpit's Job detail panel and Job Board" };
+const longPull = (ci: HubPull["ci"]): HubPull => ({
+  number: 2158,
+  url: `${PULL}2158`,
+  branch: "armada/14-wire-the-cockpit-s-job-detail-panel-and-job-board",
+  ci,
+  job: LONG_JOB,
+});
+
 const SESSION_MOMENTS: Moment[] = [
   {
     main: { state: "green" },
-    pulls: [pull(1830, SESSION_BRANCH, "passed"), ...BYSTANDING("passed", "running").pulls],
+    pulls: [pull(1830, SESSION_BRANCH, "passed"), longPull("passed"), ...BYSTANDING("passed", "running").pulls],
     jobs: [rowOf(CACHE, "completed_success"), rowOf(DEBOUNCE, "awaiting_review"), ...BYSTANDING("passed", "running").jobs],
   },
   {
     main: { state: "red", red: SESSION_RED },
-    pulls: BYSTANDING("waiting_on_main", "failed").pulls,
+    pulls: [longPull("waiting_on_main"), ...BYSTANDING("waiting_on_main", "failed").pulls],
     jobs: [rowOf(CACHE, "completed_success"), rowOf(DEBOUNCE, "awaiting_review"), ...BYSTANDING("waiting_on_main", "failed").jobs],
   },
   {
     main: { state: "green" },
-    pulls: BYSTANDING("passed", "failed").pulls,
+    pulls: [longPull("passed"), ...BYSTANDING("passed", "failed").pulls],
     jobs: [rowOf(CACHE, "completed_success"), rowOf(DEBOUNCE, "awaiting_review"), ...BYSTANDING("passed", "failed").jobs],
   },
 ];

@@ -76,8 +76,6 @@ export type FixMain = {
   root: string;
   /** An earlier Job to send the work back to. Absent dispatches a new one. */
   job?: string;
-  /** A Session to send the work to as a message, with `brief` as the message. Not served yet. */
-  session?: string;
   /** What the Job is told. Absent is the facts Fleet read. */
   brief?: string;
 };

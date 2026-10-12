@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, within } from "storybook/test";
 
-import { FixingMainMark, MainMark, MainRedBand, type MainRed, type RecentJob } from "./MainHead";
+import { FixingMainMark, MainMark, MainRedBand, type MainRed, type RecentJob, type RecentSession } from "./MainHead";
 
 /**
  * Main's state at the head of the merge line. Green is a mark and its tooltip. Red is a frame with
@@ -41,12 +41,20 @@ const RECENT: RecentJob[] = [
   { id: "job-2", title: "Fold the two notification routes into one", branch: "armada/2-notify" },
 ];
 
+const SESSION = { id: "session-1", title: "Show who merged on the head" };
+
+const RECENT_SESSIONS: RecentSession[] = [
+  { id: "session-2", title: "Rework the Cockpit deck cards", branch: "armada/session-2" },
+  { ...SESSION, branch: "armada/session-1" },
+];
+
 const args = {
   main: { state: "red", red: RED } as const,
   recent: RECENT,
   onOpenLink: fn(),
   onOpenCheck: fn(),
   onOpenJob: fn(),
+  onOpenSession: fn(),
   onFix: fn(),
 };
 
@@ -82,9 +90,12 @@ export const RedWithAJobOnIt: Story = {
   args: { ...args, main: { state: "red", red: { ...RED, merge: { ...MERGE, job: JOB } }, taken: JOB } },
   play: async ({ args, canvas, userEvent }) => {
     await expect(canvas.queryByRole("button", { name: "Dispatch a new Job" })).toBeNull();
-    await expect(canvas.queryByRole("button", { name: /^Send back to/ })).toBeNull();
+    await expect(canvas.queryByRole("button", { name: /^Send back/ })).toBeNull();
     await expect(canvas.getByRole("img", { name: "Working on it" })).toBeVisible();
-    await userEvent.click(canvas.getByRole("button", { name: JOB.title }));
+    // The Job is named twice: as the merge's owner, and as the one fixing.
+    const named = canvas.getAllByRole("button", { name: JOB.title });
+    await expect(named).toHaveLength(2);
+    await userEvent.click(named[1]!);
     await expect(args.onOpenJob).toHaveBeenCalledWith("job-1");
   },
 };
@@ -114,14 +125,38 @@ export const DispatchANewJob: Story = {
 export const SendBackToAJob: Story = {
   args: { ...args, main: { state: "red", red: { ...RED, merge: { ...MERGE, job: JOB } } } },
   play: async ({ args, canvas, userEvent }) => {
-    await userEvent.click(canvas.getByRole("button", { name: /^Send back to/ }));
+    await userEvent.click(canvas.getByRole("button", { name: "Send back" }));
     const dialog = within(document.body).getByRole("dialog", { name: "Send the work back" });
     const jobs = within(dialog).getAllByRole("radio");
     await expect(jobs[0]).toHaveAccessibleName(/^Cache the manifest read between dispatches/);
     await expect(within(dialog).getByRole("img", { name: "Merged #1812" })).toBeVisible();
     await expect(jobs[0]).toBeChecked();
+    await expect(within(dialog).queryByRole("textbox", { name: "Message" })).toBeNull();
     await userEvent.click(within(dialog).getByRole("button", { name: "Send back" }));
     await expect(args.onFix).toHaveBeenCalledWith({ kind: "back", job: "job-1" });
+  },
+};
+
+/**
+ * A Session's pull request merged: the row names it by its icon, the Send back beside it goes back
+ * to that Session, the culprit first in its group and chosen, and the brief is the message sent.
+ */
+export const SendBackToASession: Story = {
+  args: { ...args, recentSessions: RECENT_SESSIONS, main: { state: "red", red: { ...RED, merge: { ...MERGE, session: SESSION } } } },
+  play: async ({ args, canvas, userEvent }) => {
+    await expect(canvas.getByRole("img", { name: "Session" })).toBeVisible();
+    await userEvent.click(canvas.getByRole("button", { name: SESSION.title }));
+    await expect(args.onOpenSession).toHaveBeenCalledWith("session-1");
+    await userEvent.click(canvas.getByRole("button", { name: "Send back" }));
+    const dialog = within(document.body).getByRole("dialog", { name: "Send the work back" });
+    const sessions = within(within(dialog).getByRole("radiogroup", { name: "Sessions" })).getAllByRole("radio");
+    await expect(sessions[0]).toHaveAccessibleName(/^Show who merged on the head/);
+    await expect(sessions[0]).toBeChecked();
+    await expect(within(dialog).getByRole("textbox", { name: "Message" })).toHaveValue(
+      "screens_test fails on main.\nTest: merge-line.test.ts > folds a line's failed Check onto the panel\nMerged in #1812 (nick/ports-cleanup).",
+    );
+    await userEvent.click(within(dialog).getByRole("button", { name: "Send back" }));
+    await expect(args.onFix).toHaveBeenCalledWith({ kind: "session", session: "session-1", message: expect.stringContaining("screens_test fails on main.") });
   },
 };
 
@@ -135,6 +170,7 @@ export const SendBackToAPersonsPullRequest: Story = {
     await expect(jobs[0]).toHaveAccessibleName(/^Debounce the Job Board's resize handler/);
     await expect(within(dialog).queryByRole("img", { name: /^Merged/ })).toBeNull();
     await expect(within(dialog).getByRole("button", { name: "Send back" })).toBeDisabled();
+    await expect(within(dialog).getAllByRole("radio").filter((one) => (one as HTMLInputElement).checked)).toHaveLength(0);
   },
 };
 
@@ -197,7 +233,22 @@ export const RedFromCiAlone: Story = {
     await expect(canvas.queryByRole("link")).toBeNull();
     await expect(canvas.queryByText("Broke in")).toBeNull();
     await expect(canvas.queryByRole("button", { name: "Dispatch a new Job" })).toBeNull();
-    await expect(canvas.queryByRole("button", { name: /^Send back to/ })).toBeNull();
+    await expect(canvas.queryByRole("button", { name: /^Send back/ })).toBeNull();
+  },
+};
+
+/**
+ * A direct push: no pull request, so no row of its own, and the head offers Send back to… beside
+ * Dispatch, with nothing chosen.
+ */
+export const DirectPush: Story = {
+  args: { ...args, main: { state: "red", red: { check: "screens_test" } } },
+  play: async ({ canvas, userEvent }) => {
+    await expect(canvas.queryByText("Broke in")).toBeNull();
+    await expect(canvas.getByRole("button", { name: "Dispatch a new Job" })).toBeVisible();
+    await userEvent.click(canvas.getByRole("button", { name: "Send back to…" }));
+    const dialog = within(document.body).getByRole("dialog", { name: "Send the work back" });
+    await expect(within(dialog).getByRole("button", { name: "Send back" })).toBeDisabled();
   },
 };
 
@@ -217,7 +268,7 @@ export const HeldWhileChecksRun: Story = {
     await expect(canvas.getByRole("button", { name: "screens_test" })).toBeVisible();
     await expect(canvas.getByRole("link", { name: "#1812" })).toBeVisible();
     await expect(canvas.queryByRole("button", { name: "Dispatch a new Job" })).toBeNull();
-    await expect(canvas.queryByRole("button", { name: /^Send back to/ })).toBeNull();
+    await expect(canvas.queryByRole("button", { name: /^Send back/ })).toBeNull();
   },
 };
 
