@@ -577,6 +577,53 @@ async fn a_stalled_jobs_drone_that_leaves_on_its_own_turns_the_redirect_into_a_r
     assert_eq!(record.status(), JobStatus::Queued);
 }
 
+/// **A catch-up that fails after the step re-entered `running` must not strand
+/// the Job.** `put_a_drone_on` stops the Job on `no_worktree` there, with no
+/// Drone ever put on the step and the worktree on disk. That used to offer a
+/// redispatch alone, which discards the work in the tree for a git lock that
+/// was gone seconds later (2026-10-11).
+#[tokio::test]
+async fn a_job_stopped_on_no_worktree_over_a_worktree_on_disk_can_restart_its_step() {
+    let home = TempDir::new();
+    let fleet = a_fleet_with(&home, a_drone_that_leaves());
+    let job = started(&fleet, &home).await;
+    let record = fleet.load(&job).await.unwrap();
+    fleet
+        .move_job(
+            &record,
+            Target::Escalated(EscalationTrigger::NoWorktree),
+            Actor::Fleet,
+        )
+        .await
+        .unwrap();
+    until_reaped(&fleet).await;
+
+    let record = fleet.load(&job).await.unwrap();
+    assert_eq!(
+        record.step(&StepId::new(IMPLEMENT)).map(|row| row.state()),
+        Some(StepState::Running)
+    );
+    let stuck = detail(&fleet, &job).await.stuck.expect("it stopped");
+    assert_eq!(stuck.stopped_by.as_deref(), Some("no_worktree"));
+    assert_eq!(
+        spelled(&stuck),
+        ["restart_step", "redispatch_job"],
+        "the worktree is on disk, so the step it was on can be taken again"
+    );
+
+    fleet
+        .restart_step(&job, None)
+        .await
+        .expect("the act the classification named");
+
+    let record = fleet.load(&job).await.unwrap();
+    assert_eq!(
+        record.step(&StepId::new(IMPLEMENT)).map(|row| row.state()),
+        Some(StepState::Stopped)
+    );
+    assert_eq!(record.status(), JobStatus::Queued);
+}
+
 /// The half the issue is actually about: **the step that already passed
 /// survives the recovery.**
 ///

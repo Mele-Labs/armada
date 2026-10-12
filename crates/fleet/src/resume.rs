@@ -396,14 +396,17 @@ where
         // is offered an act and refused it is the defect #442 closed. #452.
         //
         // **An empty slot with no stopped step still refuses, unless the Job
-        // is `stalled` over a step still `running`.** That shape is a Drone
-        // that was genuinely there when the Job escalated and has since gone
-        // — `core_model::job::stuck::abandoned_mid_step` reads the same three
+        // is `stalled` or `no_worktree` over a step still `running`.** The
+        // first is a Drone that was genuinely there when the Job escalated and
+        // has since gone; the second is a catch-up that failed after the step
+        // re-entered and before any Drone, over a worktree that
+        // `surviving_worktree` below still finds. —
+        // `core_model::job::stuck::abandoned_mid_step` reads the same three
         // facts, gated the same way, so the offer and this refusal agree.
         // Every other empty-slot Job hears the sentence it always did: there
         // is no process to end and no step to run again, which is
-        // `interrupted`, `would_not_start`, `not_configurable`, `no_worktree`
-        // and `resource_exhausted`. `#1034`.
+        // `interrupted`, `would_not_start`, `not_configurable` and
+        // `resource_exhausted`. `#1034`.
         let abandoned = !stopped
             && standing.is_none()
             && job
@@ -411,7 +414,9 @@ where
                 .is_some_and(|row| row.state() == StepState::Running)
             && matches!(
                 self.last_reason(job_id).await?,
-                Some(TransitionReason::Escalation(EscalationTrigger::Stalled))
+                Some(TransitionReason::Escalation(
+                    EscalationTrigger::Stalled | EscalationTrigger::NoWorktree
+                ))
             );
         if !stopped && standing != Some(true) && !abandoned {
             return Err(Adrift::NoStepStopped {
