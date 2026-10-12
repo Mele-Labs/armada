@@ -77,6 +77,10 @@ fn shipped_texts() -> Vec<(Words, String)> {
             crate::questioning::ANSWERED.to_string(),
         ),
         (
+            keys::PROMPT_CROSSING_DECIDED,
+            crate::interviewing::DECIDED.to_string(),
+        ),
+        (
             keys::PROMPT_AUTOPILOT_SENTENCE,
             crate::autopilot::sentence::QUESTION.to_string(),
         ),

@@ -114,7 +114,7 @@ pub use plan_group::{Apart, GroupAttempt, GroupEnded, GroupId, GroupMove, GroupR
 pub use policy::{AutoMerge, PolicyOverrides, ResolvedPolicies, ReviewGate};
 pub use prerequisite::Prerequisite;
 pub use record::{
-    Answered, DroneQuestion, GivenAnswer, Job, NewJob, NewProposal, OfferedAnswer, Pause, PausedBy,
+    Answered, Decision, DroneQuestion, GivenAnswer, Job, NewJob, NewProposal, OfferedAnswer, Pause, PausedBy,
     StepTransitioned, Transitioned,
 };
 pub use review::{

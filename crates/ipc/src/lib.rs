@@ -502,7 +502,10 @@ pub use underway::{
 };
 pub use usage::{FleetUsage, ManifestSpend, Overspending};
 pub use protocol_id::ProtocolId;
-pub use waiting::{AskedOption, ChosenAnswer, QuestionInFlight, RedirectInFlight, RedirectWaiting};
+pub use waiting::{
+    AskedOption, ChosenAnswer, ChosenDecision, DecisionInFlight, QuestionInFlight, RedirectInFlight,
+    RedirectWaiting,
+};
 pub use walk_notes::{CaptureWalkNote, RemoveWalkNote, WalkNote, WalkNotes};
 pub use work::{
     ChangesRequested, DeclaredPlan, JobDiff, JobEvidence, JobFootprint, LineCount, Overruled,

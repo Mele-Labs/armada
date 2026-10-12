@@ -282,6 +282,7 @@ fn autopilots_prompts_and_the_answered_block_ship_as_they_were_and_take_a_saved_
             label: "Rename it".to_string(),
             at: now.clone(),
         }),
+        decisions: Vec::new(),
     };
     let answered = Answered::of(&asked).expect("answered");
     assert!(answered
