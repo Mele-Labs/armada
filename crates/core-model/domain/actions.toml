@@ -569,7 +569,7 @@ shortcut = "b"
 scope = "call"
 destructive = false
 confirms = false
-notes = "A standing answer, after the numbered ones, on a question an agent asked and could answer itself: a Plan question, a Drone's or a Judge's, a Session's ask. It tells the agent to weigh the options and choose the best solution itself; on a Session's permission, to weigh the command and decide whether to run it. **Never on a call Fleet raises about a state** — a failing pull request, main red, a failed Check, a stuck Drone. Needs a Fleet command: an answer to the ask carrying `mode: "best"`. Settled with the owner on 9 Oct 2026."
+notes = "A standing answer, after the numbered ones, on a question an agent asked and could answer itself: a Plan question, a Drone's or a Judge's, a Session's permission or a Session's question with options. **Never on a Session's plain line**, which is an errand for the owner (a command to run, a pull request to approve, a page to open): that gets its own act and a text box. It tells the agent to weigh the options and choose the best solution itself; on a Session's permission, to weigh the command and decide whether to run it. **Never on a call Fleet raises about a state** — a failing pull request, main red, a failed Check, a stuck Drone. Needs a Fleet command: an answer to the ask carrying `mode: "best"`. Settled with the owner on 9 Oct 2026."
 
 [actions.call_quick]
 kind = "Action"

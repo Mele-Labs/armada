@@ -74,10 +74,8 @@ function AnswerTile({ one, mark, picked, pending, held, onPick }: { one: Answer;
 /** What a reply in words has been given and not yet sent, kept by call so leaving the card keeps it. */
 const DRAFTS = new Map<string, string>();
 
-/** A reply in words: the Session's own "type something". Enter sends it. */
-function Reply({ itemKey, label, send, pending, held }: { itemKey: string; label: string; send: (text: string, accepted: () => void) => void; pending: boolean; held: boolean }) {
-  const [text, setText] = useState(DRAFTS.get(itemKey) ?? "");
-  const change = (next: string) => (DRAFTS.set(itemKey, next), setText(next));
+/** A reply in words: the Session's own "type something". Enter sends it, as Send does. */
+function Reply({ label, text, change, send, pending, held }: { label: string; text: string; change: (next: string) => void; send: () => void; pending: boolean; held: boolean }) {
   return (
     <label className="armada-callcard__reply" data-pending={pending || undefined}>
       <Kbd>{keyFor("call_reply")}</Kbd>
@@ -93,8 +91,7 @@ function Reply({ itemKey, label, send, pending, held }: { itemKey: string; label
             event.preventDefault();
             event.nativeEvent.stopPropagation();
             if (held) return;
-            // Kept until Fleet takes it: a refusal leaves what was typed where it was.
-            send(text.trim(), () => DRAFTS.delete(itemKey));
+            send();
           } else if (event.key === "Escape") {
             event.currentTarget.blur();
           }
@@ -182,6 +179,8 @@ export function CallCard({
   answering: MutableRefObject<CardKeys | undefined>;
 }) {
   const answer = useAnswering(item, hosts, state, finish, dismiss);
+  const [text, setText] = useState(() => DRAFTS.get(item.key) ?? "");
+  const change = (next: string) => (DRAFTS.set(item.key, next), setText(next));
   const [whole, setWhole] = useState(false);
   const [long, setLong] = useState(false);
   const request = useRef<HTMLParagraphElement>(null);
@@ -189,13 +188,19 @@ export function CallCard({
     const one = request.current;
     if (one !== null && !whole) setLong(one.scrollHeight > one.clientHeight + 1);
   }, [item.request, whole]);
-  answering.current = { ...answer, ...(long ? { expand: () => setWhole((was) => !was) } : {}) };
+  // Words in the box are what he just typed, so they win over a picked answer: Send and Enter send them.
+  const held = answer.pending !== undefined;
+  const words = answer.reply !== undefined && text.trim() !== "";
+  // Kept until Fleet takes it: a refusal leaves what was typed where it was.
+  const sendWords = () => !held && answer.reply?.(text.trim(), () => DRAFTS.delete(item.key));
+  const canSend = words ? !held : answer.canSend;
+  const send = words ? () => void sendWords() : answer.send;
+  answering.current = { ...answer, canSend, send, ...(long ? { expand: () => setWhole((was) => !was) } : {}) };
 
   const sessionId = sessionIdOf(item.key);
   const session = useSessions().find((one) => one.id === sessionId);
   const Icon = item.icon;
   const lone = answer.answers.length === 0;
-  const held = answer.pending !== undefined;
   const numbered = answer.answers.filter((one) => one.key === undefined);
   const standing = answer.answers.filter((one) => one.key !== undefined);
 
@@ -297,10 +302,10 @@ export function CallCard({
             )}
           </div>
         )}
-        {answer.reply === undefined ? null : <Reply itemKey={item.key} label={item.sleep === undefined ? "Type something" : "Change"} send={answer.reply} pending={answer.pending === "reply"} held={held} />}
+        {answer.reply === undefined ? null : <Reply label={item.sleep === undefined ? "Type something" : "Change"} text={text} change={change} send={sendWords} pending={answer.pending === "reply"} held={held} />}
         <div className="armada-callcard__acts">
-          <Button variant="primary" disabled={!answer.canSend} onClick={answer.send}>
-            {lone ? OPENS(item) : "Send"}
+          <Button variant="primary" disabled={!canSend} onClick={send}>
+            {lone && !words ? OPENS(item) : "Send"}
             <Kbd>↵</Kbd>
           </Button>
           {lone || answer.open === undefined ? null : (
