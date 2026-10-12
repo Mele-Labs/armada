@@ -3,7 +3,7 @@
 
 import type { IpcMain } from "electron";
 
-import type { AutopilotSettings } from "@armada/protocol";
+import type { AutopilotSettings, JobDetail } from "@armada/protocol";
 
 import { CHANNELS } from "../shared/bridge";
 import type { FleetConnection } from "./connection";
@@ -39,8 +39,16 @@ function handleAutopilot({ ipc, connection }: Hosts): void {
       ? on(manifestId, (host, id) => host.autopilot("POST", of(id), settings as AutopilotSettings))
       : unsent,
   );
+  ipc.handle(CHANNELS.updateAutopilot, (_event, manifestId: unknown, settings: unknown) =>
+    typeof settings === "object" && settings !== null
+      ? on(manifestId, (host, id) => host.autopilot("POST", of(id, "/settings"), settings as AutopilotSettings))
+      : unsent,
+  );
   ipc.handle(CHANNELS.pauseAutopilot, (_event, manifestId: unknown) => on(manifestId, (host, id) => host.autopilot("POST", of(id, "/pause"))));
   ipc.handle(CHANNELS.resumeAutopilot, (_event, manifestId: unknown) => on(manifestId, (host, id) => host.autopilot("POST", of(id, "/resume"))));
+  ipc.handle(CHANNELS.readJob, (_event, jobId: unknown) =>
+    named(jobId) ? (connection()?.issues.autopilot<JobDetail>("GET", `/jobs/${encodeURIComponent(jobId)}`) ?? unsent) : unsent,
+  );
   ipc.handle(CHANNELS.stopAutopilot, (_event, manifestId: unknown) => on(manifestId, (host, id) => host.autopilot("POST", of(id, "/stop"))));
   ipc.handle(CHANNELS.getAutopilot, (_event, manifestId: unknown) => on(manifestId, (host, id) => host.autopilot("GET", of(id))));
   ipc.handle(CHANNELS.listAutopilots, () => connection()?.issues.autopilot("GET", "/autopilots") ?? unsent);
