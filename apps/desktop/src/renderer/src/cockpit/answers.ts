@@ -89,6 +89,8 @@ function pullOf(item: Item, state: BridgeState): { number: number; branch: strin
 /** Where `o` goes: the Job, the Session, or the pull request the call is about. */
 function opener(item: Item, hosts: Hosts, state: BridgeState): (() => void) | undefined {
   if (item.job !== undefined) return () => hosts.onOpen(item.job!.id);
+  const slept = item.sleep?.sessionId;
+  if (slept !== undefined) return () => hosts.onOpenSession(slept);
   const session = sessionIdOf(item.key);
   if (session !== undefined) return () => hosts.onOpenSession(session);
   const pull = pullOf(item, state);
@@ -217,7 +219,7 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
     ...sessions.filter((one) => one.dead === undefined).map((one): Owner => ({ kind: "session", id: one.id, title: one.title ?? one.id })),
   ];
 
-  // A Sleep decision is kept, or changed in words; either way it is reviewed and the call leaves.
+  // A Sleep decision is marked done, or changed in words; either way it is reviewed and the call leaves.
   const slept = useSleepSource();
   const sleep = item.sleep;
   const reviewed = (id: string) => slept?.review(id);
@@ -239,7 +241,13 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
 
   const answer = (label: string, run: () => void, extra: Partial<Answer> = {}): Answer => ({ id: label, label, run, ...extra });
   const actsOf = (): Answer[] => {
-    if (sleep !== undefined) return [answer("Keep", () => (reviewed(sleep.id), finish()))];
+    if (sleep !== undefined) {
+      const there = sleep.sessionId;
+      return [
+        answer("Done", () => (reviewed(sleep.id), finish())),
+        ...(there === undefined ? [] : [answer("Open the Session", () => hosts.onOpenSession(there))]),
+      ];
+    }
     if (waiting !== undefined) {
       const given = waiting.item;
       // A walk needs no choice: approving is what Fleet does with an answer that names none.
@@ -298,8 +306,8 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
   const standing = asksAnAgent(item) ? standingOf(waiting === undefined ? () => finish() : (mode) => sendWaiting(mode, { mode }), permission) : [];
   const answers = [...numbered, ...standing];
 
-  // One answer is the answer: Enter sends it without a number first.
-  const chosen = picked ?? (answers.length === 1 ? 0 : undefined);
+  // One answer is the answer: Enter sends it without a number first. A Sleep decision starts on Done.
+  const chosen = picked ?? (answers.length === 1 || sleep !== undefined ? 0 : undefined);
   const held = pending !== undefined;
   const pick = (index: number) => !held && answers[index] !== undefined && setPicked(index);
   const pickNumber = (digit: number) => digit <= numbered.length && pick(digit - 1);
@@ -339,6 +347,7 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
     ...(replies ? { reply: (text: string, accepted?: () => void) => sendWaiting("reply", { text }, accepted) } : {}),
     ...(attaching ? { attaching: { candidates, choose: attach, close: () => setAttaching(false) } } : {}),
     pending,
-    dismiss: () => wait("dismiss", () => dismissItem(item), dismissed),
+    // A Sleep decision is dismissed by reviewing it on Fleet, so it never comes back.
+    dismiss: () => (sleep === undefined ? wait("dismiss", () => dismissItem(item), dismissed) : (reviewed(sleep.id), dismissed())),
   };
 }

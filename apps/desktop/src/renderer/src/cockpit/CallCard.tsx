@@ -322,7 +322,8 @@ export function CallCard({
               <Kbd>{keyFor("call_open_walk")}</Kbd>
             </Button>
           )}
-          {lone || answer.open === undefined ? null : (
+          {/* A Sleep decision's Open the Session is already one of its answers. */}
+          {lone || answer.open === undefined || item.sleep !== undefined ? null : (
             <Button variant="ghost" disabled={held} onClick={answer.open}>
               {OPENS(item)}
               <Kbd>{keyFor("open")}</Kbd>
