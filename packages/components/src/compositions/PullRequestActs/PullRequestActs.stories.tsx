@@ -39,6 +39,23 @@ export const ChecksRunning: Story = {
   },
 };
 
+/** Auto-merge pressed and not yet answered: that button is pending, and no other act can start. */
+export const AutoMergeUnderway: Story = {
+  args: { state: "open", checks: "pending", pending: "auto_merge" },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("button", { name: "Enable auto-merge" })).toHaveAttribute("aria-busy", "true");
+    await expect(canvas.getByRole("button", { name: "Review", exact: true })).toBeDisabled();
+  },
+};
+
+/** A Review Fleet accepted: the fact, and no second one. */
+export const ReviewDispatched: Story = {
+  args: { state: "open", checks: "pending", reviewed: true },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("button", { name: "Review dispatched" })).toBeDisabled();
+  },
+};
+
 /** Auto-merge asked for: the fact, and no second ask. */
 export const AutoMergeOn: Story = {
   args: { state: "open", checks: "pending", auto: true },

@@ -100,6 +100,7 @@ function others(): Session[] {
         },
         { kind: "studio", id: "st1", title: "Migration shapes" },
       ],
+      waitingFor: [{ id: "merge-1850", text: "Merge #1850 once ci is green", since: minutesAgo(130), source: "agent", act: { kind: "approve_pr", target: "#1850" } }],
     },
   ];
 }

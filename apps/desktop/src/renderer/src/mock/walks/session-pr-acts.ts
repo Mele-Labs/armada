@@ -1,7 +1,8 @@
 // A press on a pull request in its panel is seen to be underway. Enable auto-merge shows the travelling
 // bar on the pressed button while Fleet asks the forge, the other act is disabled, and the settled
-// state replaces it. Review settles as the fact: "Review dispatched". Over the `sessions`
-// scenario, whose mock takes a beat to answer. Told twice: wide, and below the breakpoint.
+// state replaces it. The Session's own item asking for the merge is settled, which tells it. Review
+// settles as the fact: "Review dispatched". Over the `sessions` scenario, whose mock takes a beat to
+// answer. Told twice: wide, and below the breakpoint.
 
 import { kit, NARROW, toSessions } from "../sessions/walk-kit";
 import { button, inside, region, walk } from "../walk";
@@ -18,6 +19,7 @@ function steps(narrow: boolean): Step[] {
     { press: inside(card, button("Enable auto-merge")), say: "Press it" },
     { look: inside(card, button("Enable auto-merge")), say: "Underway: the travelling bar on its edge, and Review disabled while Fleet asks the forge" },
     { look: inside(card, button("Auto-merge on")), say: "The forge answered: auto-merge is on" },
+    { look: region("Thread"), say: "The Session is told, and its Merge #1850 item leaves Waiting on you" },
     { press: inside(card, button("Review", { exact: true })), say: "Press Review" },
     { look: inside(card, button("Review", { exact: true })), say: "Underway: the same bar, and the other button disabled" },
     { look: inside(card, button("Review dispatched")), say: "Dispatched, drawn as the fact and not pressable again" },

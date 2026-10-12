@@ -936,6 +936,14 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
           // Where Fleet dispatches it, `act` did, and a second request beside it would review it twice.
           const address = session.attachments.find((one) => one.kind === "pull_request" && one.number === number);
           if (act === "review" && address?.kind === "pull_request" && draft.reviews !== "fleet") void proposeRequest(address.address, []);
+          // A merge asked for here settles the Session's own item asking for it, and that tells the agent.
+          const asked = (session.waitingFor ?? []).find(
+            (one) => one.source === "agent" && one.act?.kind === "approve_pr" && one.act.target.replace(/^#/, "") === String(number),
+          );
+          if ((act === "merge" || act === "auto_merge") && asked !== undefined)
+            void done.then((accepted) => {
+              if (accepted) draft.answerWaiting?.(session.id, asked.id, { text: act === "merge" ? `Merged #${number}` : `Auto-merge is on for #${number}` });
+            });
           return done;
         }}
       />
