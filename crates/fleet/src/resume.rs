@@ -28,7 +28,7 @@ use std::path::Path;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct, Worktree};
 use core_model::{
-    Actor, Component, Envelope, EscalationTrigger, Job, JobId, JobStatus, Level, StepId, StepState,
+    Actor, Component, Envelope, Job, JobId, JobStatus, Level, StepId, StepState,
     StepTarget, Stuck, Target, TransitionReason,
 };
 
