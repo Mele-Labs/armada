@@ -610,3 +610,33 @@ a.armada-merge-line__queue-title:focus-visible {
   outline-offset: var(--focus-ring-offset);
   border-radius: var(--radius-sm);
 }
+
+/* The line drawn under a pull request elsewhere: an eyebrow names it the merge line, and the rows
+   other than this pull request's are set back until pointed at. */
+.armada-merge-line__placed {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.armada-merge-line__placed-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-family: var(--font-sans);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-medium);
+  line-height: var(--leading-2xs);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+
+/* Dimmed by token, never by alpha (design-system.md): the text and the number go to muted. */
+.armada-merge-line__placed .armada-merge-line__row:not([aria-current]) :is(.armada-merge-line__queue-title, .armada-merge-line__queue-number, .armada-merge-line__place) {
+  color: var(--fg-muted);
+  transition: color var(--duration-fast) ease;
+}
+
+.armada-merge-line__placed .armada-merge-line__row:not([aria-current]):is(:hover, :focus-within) .armada-merge-line__queue-title {
+  color: var(--fg);
+}
