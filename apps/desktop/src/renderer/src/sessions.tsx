@@ -853,6 +853,7 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
             onOpenWindow={(url) => draft.openWindow?.(id, url)}
             onOpenCheck={(run) => goes.onOpenCheck(session.id, run)}
             working={session.turn.state === "working"}
+            {...(draft.run === undefined ? {} : { runner: (command, on) => draft.run!(session.id, command, on) })}
             {...(session.asked === undefined
               ? {}
               : {
@@ -951,6 +952,7 @@ export function SessionMini({ sessionId, onOpen, fill = false }: { sessionId: st
         <SessionThread
           sessionId={session.id}
           rows={threadRowsOf(session)}
+          {...(draft.run === undefined ? {} : { runner: (command, on) => draft.run!(session.id, command, on) })}
           {...(session.asked === undefined
             ? {}
             : {

@@ -344,6 +344,14 @@ export type SessionsDraft = {
   commands: readonly SessionCommand[];
   /** Answers one waiting item: a numbered choice, words, or leave it to the agent (`best` thinks it through, `quick` takes the reasonable path). Absent where nothing serves it. */
   answerWaiting?: (id: string, itemId: string, answer: { choice?: number; text?: string; mode?: "best" | "quick" }) => void;
+  /**
+   * Runs a command from a code block in a Session's thread, in the Session's working directory (its
+   * slot if it has one), and reports output and the exit as they come. The person's own act: nothing
+   * is sent to the agent. Absent where nothing serves it, and the block is left without Run.
+   * A real Fleet would answer it with a checkout run (`start_checkout_run`, `observe_checkout_run`,
+   * `stop_checkout_run`).
+   */
+  run?: (id: string, command: string, on: (event: { kind: "out"; text: string } | { kind: "end"; code: number | null }) => void) => { stop: () => void };
   /** Answers the permission a Session is held on. The mock offers two and names none. */
   answer: (id: string, answer?: SessionAnswer, answers?: SessionQuestionAnswer[]) => void;
 };

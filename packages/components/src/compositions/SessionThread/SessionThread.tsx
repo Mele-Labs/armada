@@ -5,7 +5,8 @@ import { AppWindow, Box, ChevronRight, GitBranch, KeyRound, Layers, SquareTermin
 import { AttachmentChip } from "../../primitives/AttachmentChip/AttachmentChip";
 import { Button } from "../../primitives/Button/Button";
 import { Card } from "../../primitives/Card/Card";
-import { Prose } from "../../primitives/Prose/Prose";
+import { Prose, ProseRunner } from "../../primitives/Prose/Prose";
+import type { CodeRunner } from "../../primitives/Prose/Prose";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { SessionMark } from "../SessionFrame/SessionFrame";
 import { StepActivityMark, type StepActivity } from "../StepActivityMark/StepActivityMark";
@@ -106,6 +107,11 @@ export type SessionThreadProps = {
   sessionId?: string;
   /** The turn is running: a live mark sits at the end, on the last tool group's row if that is the last row. */
   working?: boolean;
+  /**
+   * Runs a shell block's command where the Session works, from the Run on the block. The person's
+   * own act, so nothing is sent to the agent. Absent, a block draws without Run.
+   */
+  runner?: CodeRunner;
 };
 
 const TAG_KIND = { session: "Session", job: "Job", pull_request: "Pull request", branch: "Branch" } as const;
@@ -394,7 +400,18 @@ function Row({
         <span className="armada-helm-thread__who">{row.from === "you" ? "You" : "Agent"}</span>
         <span className="armada-helm-thread__at">{row.at}</span>
       </div>
-      <div className="armada-helm-thread__message">{placed.parts === null ? <Prose text={row.text} /> : <p className="armada-session-said">{placed.parts}</p>}</div>
+      <div className="armada-helm-thread__message">
+        {placed.parts !== null ? (
+          <p className="armada-session-said">{placed.parts}</p>
+        ) : row.from === "you" ? (
+          // Run is on what the agent wrote, not on what the person did.
+          <ProseRunner.Provider value={null}>
+            <Prose text={row.text} />
+          </ProseRunner.Provider>
+        ) : (
+          <Prose text={row.text} />
+        )}
+      </div>
       <Sent row={row} tags={placed.loose} />
     </li>
   );
@@ -403,7 +420,7 @@ function Row({
 /** How far from the end still counts as being at it, so a rounding or a half row does not unpin. */
 const NEAR_END = 24;
 
-export function SessionThread({ rows, asked, askRef, onAnswer, onOpenSession, onOpenWindow, onOpenCheck, sessionId, working }: SessionThreadProps) {
+export function SessionThread({ rows, asked, askRef, onAnswer, onOpenSession, onOpenWindow, onOpenCheck, sessionId, working, runner }: SessionThreadProps) {
   const scroller = useRef<HTMLDivElement>(null);
   const pinned = useRef(true);
   // **Opens at the newest row, with no animation, and stays there while the person is at the end.**
@@ -429,6 +446,7 @@ export function SessionThread({ rows, asked, askRef, onAnswer, onOpenSession, on
           pinned.current = one.scrollHeight - one.scrollTop - one.clientHeight <= NEAR_END;
         }}
       >
+        <ProseRunner.Provider value={runner ?? null}>
         <ol className="armada-helm-thread__rows">
           {items.map((item, at) =>
             item.kind === "calls" ? (
@@ -443,6 +461,7 @@ export function SessionThread({ rows, asked, askRef, onAnswer, onOpenSession, on
             </li>
           ) : null}
         </ol>
+        </ProseRunner.Provider>
       </div>
       {asked === undefined ? null : (
         <Card flat ref={askRef} className="armada-session-thread__ask" role="article" aria-label="Waiting on you">

@@ -25,8 +25,8 @@
 }
 
 /* A block of evidence (code, a table, a quote) takes more room than a paragraph. */
-.armada-prose > * + :is(.armada-prose__block, .armada-prose__table, .armada-prose__quote, .armada-prose__rule),
-.armada-prose > :is(.armada-prose__block, .armada-prose__table, .armada-prose__quote, .armada-prose__rule) + * {
+.armada-prose > * + :is(.armada-prose__block, .armada-prose__run, .armada-prose__table, .armada-prose__quote, .armada-prose__rule),
+.armada-prose > :is(.armada-prose__block, .armada-prose__run, .armada-prose__table, .armada-prose__quote, .armada-prose__rule) + * {
   margin-top: var(--space-3);
 }
 
@@ -208,4 +208,89 @@
 
 .armada-prose__td {
   border-bottom: var(--border-width) solid var(--border-subtle);
+}
+
+/* Run on a shell block: a button over the block's corner on hover or focus, and the
+   output right under it. The run is the person's own, so nothing here is sent anywhere. */
+.armada-prose__run-block {
+  position: relative;
+}
+
+.armada-prose__run-acts {
+  position: absolute;
+  top: var(--space-1);
+  right: var(--space-1);
+  opacity: 0;
+}
+
+.armada-prose__run-block:hover .armada-prose__run-acts,
+.armada-prose__run-block:focus-within .armada-prose__run-acts,
+.armada-prose__run[data-state="running"] .armada-prose__run-acts {
+  opacity: 1;
+}
+
+.armada-prose__run-panel {
+  margin-top: var(--space-1);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-sunken);
+}
+
+.armada-prose__run-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--space-1) 0 var(--space-2);
+}
+
+.armada-prose__run-mark {
+  display: inline-flex;
+}
+
+.armada-prose__run-mark[data-result="running"] {
+  color: var(--run-running);
+  animation: armada-prose-run-pulse var(--duration-pulse) var(--ease) infinite;
+}
+
+.armada-prose__run-mark[data-result="passed"] {
+  color: var(--run-passed);
+}
+
+.armada-prose__run-mark[data-result="failed"] {
+  color: var(--run-failed);
+}
+
+.armada-prose__run-chevron {
+  transform: rotate(-90deg);
+}
+
+.armada-prose__run-chevron[data-open] {
+  transform: none;
+}
+
+.armada-prose__run-out {
+  margin: 0;
+  max-height: 10rem;
+  overflow: auto;
+  padding: var(--space-1) var(--space-3) var(--space-2);
+  font-family: var(--font-mono);
+  color: var(--fg-default);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+@keyframes armada-prose-run-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .armada-prose__run-mark[data-result="running"] {
+    animation: none;
+  }
 }
