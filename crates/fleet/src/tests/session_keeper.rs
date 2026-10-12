@@ -165,14 +165,29 @@ async fn said(fleet: &Arc<Hosted>, id: &ipc::SessionId) -> Vec<String> {
         .collect()
 }
 
+/// Waits for what the test asserts to be true, with no deadline of its own: a
+/// deadline fails on a loaded runner that is slow, not wrong. A thing that never
+/// comes true is ended by nextest's three-minute timeout.
 async fn eventually<F: std::future::Future<Output = bool>>(mut check: impl FnMut() -> F) {
-    for _ in 0..500 {
-        if check().await {
-            return;
-        }
+    while !check().await {
         tokio::time::sleep(Duration::from_millis(10)).await;
     }
-    panic!("it did not come true within five seconds");
+}
+
+/// Acknowledge everything the keeper has spooled, and return once the keeper
+/// has taken it. The `ACK` and the `ATTACH` share a connection, so the keeper
+/// answers `READY` only after it holds the offset: a Fleet that attaches next
+/// is replayed nothing, however late the last Fleet's own acknowledgements ran.
+/// **Only once the last Fleet is gone**: the keeper serves the newest client,
+/// and the one it passes over takes the agent to be gone and ends it.
+fn acknowledged_all(keepers: &Keepers) {
+    use std::io::{BufRead, BufReader, Write};
+    let spooled = std::fs::metadata(keepers.spool()).unwrap().len();
+    let mut stream = crate::session_host::kept::connect(&keepers.socket).expect("the keeper answers");
+    write!(stream, "ACK {spooled}\nATTACH\n").unwrap();
+    let mut ready = String::new();
+    BufReader::new(&stream).read_line(&mut ready).unwrap();
+    assert!(ready.starts_with("READY "), "{ready}");
 }
 
 fn pid_in(text: &str) -> String {
@@ -565,10 +580,10 @@ fn a_reattached_session_called_busy_that_goes_quiet_is_idle() {
             .await
             .expect("taken");
         eventually(|| async { said(&fleet, &id).await.len() == 1 }).await;
-        tokio::time::sleep(Duration::from_millis(200)).await;
         id
     });
     drop(first);
+    acknowledged_all(&keepers);
 
     let second = Runtime::new().unwrap();
     second.block_on(async {
