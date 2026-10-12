@@ -156,6 +156,8 @@ pub struct KeptLesson {
     /// The Session started for it, once one was. **At most one of this and
     /// `job_proposed` is set.**
     pub session_proposed: Option<String>,
+    /// Why the brief was not sent to that Session, where it was not.
+    pub session_send_failed: Option<String>,
     /// Whether Accept applied the item's change. **Never true of an item with
     /// none.** Since V110.
     pub applied: bool,
@@ -500,6 +502,24 @@ impl Store {
         Ok(())
     }
 
+    /// Keep why the brief was not sent to an item's Session.
+    pub fn keep_lesson_send_failed(
+        &mut self,
+        job_id: &JobId,
+        ordinal: u32,
+        why: &str,
+    ) -> Result<(), WriteError> {
+        self.conn
+            .execute(
+                "UPDATE job_retro_items SET session_send_failed = ?3 \
+                 WHERE job_id = ?1 AND ordinal = ?2 AND session_proposed IS NOT NULL",
+                (job_id.as_str(), i64::from(ordinal), why),
+            )
+            .map_err(fault("keeping why a lesson's brief was not sent"))
+            .map_err(WriteError::Database)?;
+        Ok(())
+    }
+
     /// Give an agreed item back to `open`, where no Job could be proposed for
     /// it. **Only one that has none**: a Job that exists is never forgotten.
     pub fn reopen_lesson(&mut self, job_id: &JobId, ordinal: u32) -> Result<(), WriteError> {
@@ -546,6 +566,7 @@ impl Store {
                     proposed: row.get(11)?,
                     applied: row.get::<_, i64>(14)? == 1,
                     session: row.get(15)?,
+                    send_failed: row.get(16)?,
                 })
             })
             .map_err(fault("reading the lessons"))
@@ -576,6 +597,7 @@ impl Store {
                     .proposed
                     .map(|id| JobId::carried(core_model::Ulid::carried(id))),
                 session_proposed: stored.session,
+                session_send_failed: stored.send_failed,
                 applied: stored.applied,
             });
         }
@@ -648,7 +670,8 @@ impl Store {
 /// [`Store::lessons_where`] reads them.
 const LESSON_COLUMNS: &str = "i.job_id, i.ordinal, r.at, i.whose, i.said, i.evidence, \
      i.lands_in, i.title, i.what, i.fix, i.state, i.job_proposed, i.change_kind, \
-     i.change_command, i.applied, i.session_proposed";
+     i.change_command, i.applied, i.session_proposed, \
+     i.session_send_failed";
 
 /// The three texts V105 added, which are all absent on an older item.
 pub(crate) struct Texts {
@@ -673,6 +696,7 @@ struct Stored {
     proposed: Option<String>,
     applied: bool,
     session: Option<String>,
+    send_failed: Option<String>,
 }
 
 pub(crate) fn line_of(

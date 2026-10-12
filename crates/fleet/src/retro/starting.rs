@@ -30,10 +30,6 @@ const NOTHING_TO_WORK_ON: &str = "fleet.lesson_session_nothing_to_work_on";
 /// An item that stands answered with no Session started for it, so there is
 /// none to hand back. A 409.
 const NOT_OPEN: &str = "fleet.lesson_not_open";
-/// The Session was started and the item agreed with it, and the first message
-/// was refused. A 422 whose message names the Session, so it can be opened and
-/// the brief sent by hand.
-const BRIEF_UNSENT: &str = "fleet.lesson_session_brief_unsent";
 
 /// Which item, by the id's two spellings.
 enum Item {
@@ -46,6 +42,8 @@ struct Held {
     state: LessonState,
     line: store::RetroLine,
     lesson: Lesson,
+    /// Why the brief was not sent, as kept.
+    send_failed: Option<String>,
 }
 
 impl<H, V, W> Fleet<H, V, W>
@@ -73,7 +71,7 @@ where
         };
         let held = self.held_item(lesson_id, &item).await?;
         if held.state != LessonState::Open {
-            return self.standing_session(held);
+            return self.standing_session(held).await;
         }
         let Some(place) = held.line.lands_in else {
             return Err(Refusal::Unacceptable(WireError::raised(
@@ -100,7 +98,7 @@ where
         if !self.claim_lesson_item(&item).await? {
             // Somebody pressed first. Their answer stands.
             let held = self.held_item(lesson_id, &item).await?;
-            return self.standing_session(held);
+            return self.standing_session(held).await;
         }
         let start = StartSession {
             manifest_id: manifest,
@@ -133,35 +131,32 @@ where
                 mentions: Vec::new(),
             })
             .await;
-        if let Err(refused) = sent {
-            return Err(Refusal::Unacceptable(WireError::raised(
-                BRIEF_UNSENT,
-                format!(
-                    "Session {started} was started for {lesson_id}, and its first message was \
-                     refused: {}. Open the Session and send the brief by hand",
-                    refused.error().message
-                ),
-                self.run_id(),
-            )));
+        // **Not an error**: the Session exists and the item is agreed with it, so
+        // the answer is 200 and `send_failed` says why nothing was sent.
+        let send_failed = sent.err().map(|refused| refused.error().message.clone());
+        if let Some(why) = &send_failed {
+            self.keep_lesson_item_send_failed(&item, why).await?;
         }
-        Ok(LessonSessionStarted { brief, session_id: started, lesson: held.lesson })
+        Ok(LessonSessionStarted { brief, session_id: started, lesson: held.lesson, send_failed })
     }
 
     async fn held_item(&self, lesson_id: &str, item: &Item) -> Result<Held, Refusal> {
         match item {
             Item::Job(job, ordinal) => {
                 let kept = self.lesson_held(lesson_id, job, *ordinal).await?;
-                let (state, line) = (kept.state, kept.line.clone());
+                let (state, line, send_failed) =
+                    (kept.state, kept.line.clone(), kept.session_send_failed.clone());
                 let lesson = self.lesson_standing(kept).await?;
-                Ok(Held { state, line, lesson })
+                Ok(Held { state, line, lesson, send_failed })
             }
             Item::Session(session, retro, ordinal) => {
                 let kept = self
                     .session_lesson_held(lesson_id, session, *retro, *ordinal)
                     .await?;
-                let (state, line) = (kept.state, kept.line.clone());
+                let (state, line, send_failed) =
+                    (kept.state, kept.line.clone(), kept.session_send_failed.clone());
                 let lesson = self.session_lesson_standing(kept).await?;
-                Ok(Held { state, line, lesson })
+                Ok(Held { state, line, lesson, send_failed })
             }
         }
     }
@@ -218,6 +213,17 @@ where
         };
     }
 
+    async fn keep_lesson_item_send_failed(&self, item: &Item, why: &str) -> Result<(), Refusal> {
+        let mut store = self.store().lock().await;
+        match item {
+            Item::Job(job, ordinal) => store.keep_lesson_send_failed(job, *ordinal, why),
+            Item::Session(_, retro, ordinal) => {
+                store.keep_session_lesson_send_failed(*retro, *ordinal, why)
+            }
+        }
+        .map_err(|why| self.refusal(Adrift::Writing(why)))
+    }
+
     async fn keep_lesson_item_session(&self, item: &Item, started: &str) -> Result<(), Refusal> {
         let mut store = self.store().lock().await;
         match item {
@@ -232,7 +238,7 @@ where
     /// An item already answered. **Where a Session was started for it, that is
     /// the answer, and nothing starts**; any other answer has no Session to
     /// hand back.
-    fn standing_session(&self, held: Held) -> Result<LessonSessionStarted, Refusal> {
+    async fn standing_session(&self, held: Held) -> Result<LessonSessionStarted, Refusal> {
         let Some(session_id) = held.lesson.session_proposed.clone() else {
             return Err(Refusal::IllegalMove(WireError::raised(
                 NOT_OPEN,
@@ -244,8 +250,10 @@ where
                 self.run_id(),
             )));
         };
+        // **Never resent**: what was kept is read back, and nothing is sent.
         Ok(LessonSessionStarted {
             brief: brief_of(&held.line, &source_of(&held.lesson)),
+            send_failed: held.send_failed,
             session_id,
             lesson: held.lesson,
         })

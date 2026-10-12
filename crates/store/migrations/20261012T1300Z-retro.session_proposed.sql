@@ -4,3 +4,8 @@
 -- writes keep (a Session is only recorded where no Job is).
 ALTER TABLE job_retro_items ADD COLUMN session_proposed TEXT;
 ALTER TABLE session_retro_items ADD COLUMN session_proposed TEXT;
+
+-- Why the brief was not sent to that Session, where the send was refused.
+-- Null when it was sent. Kept so a second press can say so again.
+ALTER TABLE job_retro_items ADD COLUMN session_send_failed TEXT;
+ALTER TABLE session_retro_items ADD COLUMN session_send_failed TEXT;

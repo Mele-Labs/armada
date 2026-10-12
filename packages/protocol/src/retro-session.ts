@@ -14,4 +14,10 @@ export type LessonSessionStarted = {
   session_id: string;
   /** The first message, as it was sent. */
   brief: string;
+  /**
+   * Why `brief` was not sent, where the Session started and the send was
+   * refused. The item is still `agreed` with the Session; open it and send by
+   * hand. Absent when it was sent.
+   */
+  send_failed?: string;
 };

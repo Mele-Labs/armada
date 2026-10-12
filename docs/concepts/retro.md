@@ -113,9 +113,9 @@ one message. A `kit` item is refused with `fleet.lesson_session_nothing_to_work_
 The brief is the item as `propose_from_request` would read it, written to the agent
 who will do the work. **It is sent at once**, so the process starts and the turn
 runs. A Session that starts and refuses the message cannot be taken back, so the
-item stays `agreed` with the Session on it and the answer is a 422
-`fleet.lesson_session_brief_unsent` naming it; pressing again answers with that
-Session and sends nothing. An item already answered with a Job, or accepted or
+item stays `agreed` with the Session on it and the answer is still a 200, with
+`send_failed` holding Fleet's words for why; pressing again answers with that
+Session, sets `send_failed` again, and sends nothing. An item already answered with a Job, or accepted or
 discarded, answers 409 `fleet.lesson_not_open`.
 
 ## The record it is read from

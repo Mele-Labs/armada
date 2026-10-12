@@ -3369,10 +3369,10 @@ Bridge's half is in `packages/protocol/src/hosted-sessions.ts`, written by hand 
 
 | Where | Carries | Notes |
 | --- | --- | --- |
-| `start_lesson_session` (`POST /lessons/:lesson_id/session`) | No body. Answers `LessonSessionStarted`: `lesson`, `session_id`, `brief` | `agree_lesson`'s sibling: a hosted Session on the item's repository, started as `start_session` starts one, and the brief sent to it as its first message at once, so the Session runs. `brief` is the text that was sent |
+| `start_lesson_session` (`POST /lessons/:lesson_id/session`) | No body. Answers `LessonSessionStarted`: `lesson`, `session_id`, `brief`, `send_failed?` | `agree_lesson`'s sibling: a hosted Session on the item's repository, started as `start_session` starts one, and the brief sent to it as its first message at once, so the Session runs. `brief` is the text that was sent. `send_failed` is Fleet's words for why it was not, where the send was refused, and is absent otherwise |
 | `Lesson.session_proposed`, `RetroItem.session_proposed` | The Session id, optional | State `agreed`. At most one of it and `job_proposed` is set. Absent from the wire when none |
 
-**Refusals.** As `agree_lesson`: 404 `fleet.no_such_lesson`; 422 `fleet.lesson_names_no_place`, `fleet.lesson_armada_not_served`, `fleet.lesson_session_names_no_repository`. 422 `fleet.lesson_session_nothing_to_work_on` for a `kit` item. 409 `fleet.lesson_not_open` for an item answered with no Session to hand back. **422 `fleet.lesson_session_brief_unsent` when the Session started and its first message was refused**: the item is `agreed` with the Session on it and the message names the Session, so Bridge can open it and the person can send by hand. A second press answers 200 with that Session and sends nothing.
+**Refusals.** As `agree_lesson`: 404 `fleet.no_such_lesson`; 422 `fleet.lesson_names_no_place`, `fleet.lesson_armada_not_served`, `fleet.lesson_session_names_no_repository`. 422 `fleet.lesson_session_nothing_to_work_on` for a `kit` item. 409 `fleet.lesson_not_open` for an item answered with no Session to hand back. **A Session that started and whose first message was refused is a 200 with `send_failed` set**: the item is `agreed` with the Session on it, so Bridge can open it and the person can send by hand. A second press answers 200 with that Session, sets `send_failed` again, and sends nothing.
 
 **One press makes one Session and one message.** The write that moves the item off `open` is the claim. An item already agreed with a Session answers 200 with it.
 

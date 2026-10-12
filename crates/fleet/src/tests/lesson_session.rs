@@ -42,7 +42,7 @@ fn refused(body: &[u8], code: &str) {
 }
 
 /// **A brief the Session refuses leaves the item agreed with the Session**,
-/// named in the error so Bridge can open it. This Fleet runs no agent
+/// answered with `send_failed` so Bridge can open it. This Fleet runs no agent
 /// process, so its first message is refused; a second press then answers 200
 /// with that Session and sends nothing. The sent case is the Session-item test
 /// below, which has a process to send to.
@@ -56,15 +56,16 @@ async fn a_brief_the_session_refuses_leaves_the_item_agreed_with_the_session() {
 
     let (status, body) = started(&app, &ids[0]).await;
 
-    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
-    refused(&body, "fleet.lesson_session_brief_unsent");
+    assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&body));
+    let first = begun(&body);
+    assert!(first.send_failed.is_some(), "Fleet says why nothing was sent");
     let now = sessions(&app).await;
     assert_eq!(now.len(), before.len() + 1, "the Session exists");
     let agreed = listed(&app, "?state=agreed").await;
     let [item] = agreed.as_slice() else { panic!("one agreed: {agreed:?}") };
     let session = item.session_proposed.clone().expect("the Session is on the item");
     assert!(now.contains(&session));
-    assert!(String::from_utf8_lossy(&body).contains(&session), "the error names it");
+    assert_eq!(first.session_id, session);
     assert_eq!(item.job_proposed, None, "a Session and not a Job");
     assert_eq!(job_count(&app).await, jobs, "no Job");
     assert_eq!(judge.asked().len(), asked, "no model call");
@@ -73,6 +74,7 @@ async fn a_brief_the_session_refuses_leaves_the_item_agreed_with_the_session() {
     assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&again));
     let again = begun(&again);
     assert_eq!(again.session_id, session);
+    assert!(again.send_failed.is_some(), "still says the brief was not sent");
     for carried in [
         "Browser tests wait a fixed time",
         "desktop_test timed out after 15 seconds on three attempts.",
