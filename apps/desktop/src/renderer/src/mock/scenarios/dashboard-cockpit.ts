@@ -36,7 +36,14 @@ function live(fixture: JobFixture, minutes: number, id?: string, asking = false,
   return { ...fixture, job, watched: { ...fixture.watched, detail: { ...fixture.watched.detail, job: detailJob } } };
 }
 
-const debounce = live(asRow(featureRunning(), 80, "debounce", "Debounce the Job Board's resize handler"), 41, "implement", false, { branch: "fleet/gate-policy-every-run" });
+/** The Judges agreed `step` needs redoing and sent it back to its Drone once, of the two times they may. #2105. */
+function sentBack(fixture: JobFixture, step: string): JobFixture {
+  if (fixture.watched.state !== "read") return fixture;
+  const steps = fixture.watched.detail.steps.map((one) => (one.step_id === step ? { ...one, sent_back: { times: 1, of: 2 } } : one));
+  return { ...fixture, watched: { ...fixture.watched, detail: { ...fixture.watched.detail, steps } } };
+}
+
+const debounce = sentBack(live(asRow(featureRunning(), 80, "debounce", "Debounce the Job Board's resize handler"), 41, "implement", false, { branch: "fleet/gate-policy-every-run" }), "implement");
 const cache = live(asRow(featureRunning(), 81, "cache", "Cache the manifest read between dispatches"), 17, "tests", false, { branch: "fleet/read-in-cluster-membership" });
 const mainChecks = live(asRow(running(), 82, "fix-main", "Fix components_test on main"), 9);
 const migrate = live(asRow(featureRunning(), 83, "migrate", "Order the store migrations"), 3, "scope", false, { branch: "armada/83-migrate" });

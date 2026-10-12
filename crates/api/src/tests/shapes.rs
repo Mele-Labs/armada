@@ -111,9 +111,8 @@ pub const A_PROPOSAL: &str = r#"{
 
 /// One step of the rail, declared and not yet run.
 ///
-/// **Built out of `ipc` and nothing else**, which is this module's whole claim:
-/// a gate and a judge declaration a Bridge can construct are a gate and a judge
-/// declaration a Bridge can read.
+/// **Built out of `ipc` and nothing else**, which is this module's whole claim: a gate and a judge
+/// declaration a Bridge can construct are a gate and a judge declaration a Bridge can read.
 fn step_rail(
     step_id: &str,
     ordinal: u32,
@@ -136,6 +135,7 @@ fn step_rail(
         may_dispatch_jobs: false,
         held_for_handoff: Vec::new(),
         pass: None,
+        sent_back: None,
         verdict_routing_target: None,
         last_verdict: None,
         overridden: false,
@@ -407,6 +407,7 @@ pub fn detail(job: JobSummary) -> JobDetail {
         // and nothing waited on.
         issues: Vec::new(),
         waiting: Vec::new(),
+        created_via: None,
     }
 }
 

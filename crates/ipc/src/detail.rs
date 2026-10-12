@@ -395,6 +395,11 @@ pub struct JobDetail {
     /// one that waits on a person. Filled after [`JobDetail::of`].
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub waiting: Vec<crate::JobWaiting>,
+    /// The door the request that created this Job came through, kept only where
+    /// it was the phone. Absent is Bridge, an agent, or a Job older than the
+    /// column. Filled after [`JobDetail::of`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub created_via: Option<crate::Via>,
 }
 
 /// The Studio a Job came off: what to call it, and where on it to land.
@@ -828,6 +833,7 @@ impl JobDetail {
             additions: Vec::new(),
             issues: Vec::new(),
             waiting: Vec::new(),
+            created_via: None,
         }
     }
 }

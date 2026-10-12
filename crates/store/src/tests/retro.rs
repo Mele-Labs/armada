@@ -77,6 +77,20 @@ fn a_phone_act_is_kept_and_read_back_as_the_phone() {
     );
 }
 
+/// A Job dispatched from the phone is kept as that, and one that was not is not.
+#[test]
+fn a_job_dispatched_from_the_phone_is_kept_as_that() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    let phoned = ended(&mut store, "01CREATEDPHONE", "2026-08-26T10:05:00.000Z");
+    let bridged = ended(&mut store, "01CREATEDBRIDGE", "2026-08-26T10:06:00.000Z");
+
+    store.record_created_from_phone(phoned.id()).expect("kept");
+
+    assert!(store.created_from_phone(phoned.id()).expect("read"));
+    assert!(!store.created_from_phone(bridged.id()).expect("read"));
+}
+
 /// What a Drone said got in its way, in the order it said it, under the step
 /// it said it on.
 #[test]

@@ -42,6 +42,54 @@ pub(crate) async fn rename_session<D: Sessions>(
     }
 }
 
+/// 202: the run is underway. 422 for a Session that has ended or that Fleet does not know.
+pub(crate) async fn start_session_run<D: Sessions>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let start: ipc::StartSessionRun = match ipc::decode("a session run to start", &body) {
+        Ok(start) => start,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().start_session_run(start).await {
+        Ok(underway) => answer(StatusCode::ACCEPTED, &underway, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// 200 with the run's id; 422 for a run that is not in flight.
+pub(crate) async fn stop_session_run<D: Sessions>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let stop: ipc::StopSessionRun = match ipc::decode("a session run to stop", &body) {
+        Ok(stop) => stop,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().stop_session_run(stop).await {
+        Ok(stopped) => answer(StatusCode::OK, &stopped, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+#[derive(Deserialize)]
+pub(crate) struct SessionRunPath {
+    run_id: String,
+}
+
+/// A Session run's output, as it prints, on a socket of its own.
+pub(crate) async fn observe_session_run<D: Sessions>(
+    State(served): State<Served<D>>,
+    axum::extract::Path(SessionRunPath { run_id }): axum::extract::Path<SessionRunPath>,
+    upgrade: axum::extract::WebSocketUpgrade,
+) -> Response {
+    match served.daemon().observe_session_run(run_id).await {
+        Ok(observed) => upgrade
+            .on_upgrade(move |socket| crate::watching_session_run::relay_session_run(socket, observed)),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// A session shows the person a page. 200 with the row; 422 for an address that is not `http` or
 /// `https`, or a call that places no session. **The session is placed by the connection** where the
 /// call arrived through the agent's door.

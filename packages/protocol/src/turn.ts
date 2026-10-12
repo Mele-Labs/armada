@@ -210,6 +210,8 @@ export type Saw =
       text: string;
       headings?: number[];
       kinds?: BlockKind[];
+      /** The door a person's redirect came through: `bridge`, `http`, `phone`. Absent on any other turn. */
+      via?: string;
     }
   /**
    * One declared Check, as Fleet ran it. **The Drone never runs these** — a

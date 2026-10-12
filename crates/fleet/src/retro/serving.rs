@@ -59,6 +59,7 @@ pub(crate) fn item_named(id: String, line: RetroLine) -> RetroItem {
         lands_in: line.lands_in.map(LandsIn::from),
         state: None,
         job_proposed: None,
+        session_proposed: None,
         change: line.change.as_ref().map(RetroChange::from),
         applied: None,
     }
@@ -86,6 +87,7 @@ pub(crate) fn session_lesson_of(
         lands_in: line.lands_in,
         state: LessonState::from(lesson.state),
         job_proposed: lesson.job_proposed.as_ref().map(JobId::from),
+        session_proposed: lesson.session_proposed,
         session: Some(session),
         applied: lesson.applied.then(|| line.change.clone()).flatten(),
         change: line.change,
@@ -109,6 +111,7 @@ pub(crate) fn lesson_of(lesson: KeptLesson, handle: String) -> Lesson {
         lands_in: line.lands_in,
         state: LessonState::from(lesson.state),
         job_proposed: lesson.job_proposed.as_ref().map(JobId::from),
+        session_proposed: lesson.session_proposed,
         session: None,
         applied: lesson.applied.then(|| line.change.clone()).flatten(),
         change: line.change,
@@ -168,6 +171,7 @@ where
                             if let Some(answer) = answer {
                                 item.state = Some(LessonState::from(answer.state));
                                 item.job_proposed = answer.job_proposed.as_ref().map(JobId::from);
+                                item.session_proposed = answer.session_proposed;
                                 item.applied =
                                     answer.applied.then(|| item.change.clone()).flatten();
                             }
@@ -280,6 +284,14 @@ where
         by: Redirector,
     ) -> Result<Lesson, Refusal> {
         self.agreed_with(&lesson_id, by).await
+    }
+
+    /// Start a Session for an item. `starting` has it.
+    async fn start_lesson_session(
+        self: Arc<Self>,
+        lesson_id: String,
+    ) -> Result<ipc::LessonSessionStarted, Refusal> {
+        self.started_from(&lesson_id).await
     }
 
     /// Disagree with an item. `agreeing` has it.

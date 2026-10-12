@@ -20,6 +20,8 @@ The second of the four acts that reach an escalated Job — `docs/concepts/job.m
 
 **A second note is refused by quoting the first back**, which is `core_model::RedirectAlreadyWaiting` and not a rule invented here — a restart carrying a note onto a Job already holding an undelivered one would overwrite somebody's own instruction without saying so. A restart carrying *no* note over a held one is not that: it lands, and the note waiting goes into the Drone it asks for.
 
+**A step left `running` is restartable too, on three Job-level triggers.** `stalled` and `interrupted` escalate over a Drone that was there and has since gone, and `no_worktree` is what a restart leaves when its spawn failed after the step was entered (a git lock, say). The step is stopped under `drone_gone` on the way through. The disk answers `no_worktree`, not its name: with the worktree on disk the act lands, and with it reclaimed it is refused. A task that was `working` under the Drone that went is taken up again by the step's next Drone. `would_not_start`, `not_configurable` and `resource_exhausted` still have no step to restart.
+
 Its refusals are answered at the moment it is asked, not deferred: a Drone still standing on the Job, a worktree already reclaimed, an exit the record has not taken down, or a note already waiting. Each is a question about now.
 
 `agent_access` is `Helm only`. It carries no Intervention Ladder rung, but the ladder no longer bounds Helm's reach on its own — Helm may restart a step the same way it may redirect or redispatch, when asked to.

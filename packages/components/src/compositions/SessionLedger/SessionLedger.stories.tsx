@@ -72,6 +72,24 @@ export const WaitingOnYou: Story = {
   },
 };
 
+const replied = fn();
+/** An item with no act and a reply: its glyph is Reply, a press opens a box under the row, and a send hands over the line. */
+export const WaitingReply: Story = {
+  args: {
+    entries: [
+      { key: "w5", kind: "waiting", name: "Keep the old fixture or drop it?", text: "Keep the old fixture or drop it?", onReply: replied, onOpen: open },
+    ],
+  },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("img", { name: "Reply" })).toBeInTheDocument();
+    await userEvent.click(canvas.getByRole("button", { name: "Open Keep the old fixture or drop it?" }));
+    await expect(canvas.getByRole("button", { name: "Send" })).toBeDisabled();
+    await userEvent.type(canvas.getByRole("textbox", { name: "Reply to Keep the old fixture or drop it?" }), "Drop it{Enter}");
+    await expect(replied).toHaveBeenCalledWith("Drop it");
+    await expect(canvas.queryByRole("textbox")).not.toBeInTheDocument();
+  },
+};
+
 /** Nothing attached: no section is drawn, only the small picture, and no sentence. */
 export const Blank: Story = {
   args: { entries: [] },
@@ -186,5 +204,16 @@ export const OpenAndAll: Story = {
     await userEvent.click(within(agents).getByRole("radio", { name: "All" }));
     await expect(canvas.getByRole("button", { name: /Read the logs/ })).toBeInTheDocument();
     localStorage.clear();
+  },
+};
+
+/** Each pull request's Checks in their hue, on the mark and on the row's leading edge, so a red one is seen down the ledger. */
+export const PullRequestChecks: Story = {
+  args: {
+    entries: [
+      { key: "p1", kind: "pull_request", name: "Pull request #2112, checks passed", text: "#2112 Wire the cockpit panel", mark: { glyph: "passed", said: "Checks passed" }, onOpen: open },
+      { key: "p2", kind: "pull_request", name: "Pull request #2113, checks failed", text: "#2113 Pin the store clock", mark: { glyph: "failed", said: "Checks failed: store: 2 failed" }, onOpen: open },
+      { key: "p3", kind: "pull_request", name: "Pull request #2115, checks running", text: "#2115 Address the cards", mark: { glyph: "pending", said: "Checks running" }, onOpen: open },
+    ],
   },
 };

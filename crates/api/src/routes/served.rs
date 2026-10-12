@@ -377,6 +377,11 @@ const ROUTES: &[Route] = &[
         path: "/lessons/:lesson_id/agree",
     },
     Route {
+        operation: "start_lesson_session",
+        method: "POST",
+        path: "/lessons/:lesson_id/session",
+    },
+    Route {
         operation: "disagree_lesson",
         method: "POST",
         path: "/lessons/:lesson_id/disagree",
@@ -548,6 +553,21 @@ const ROUTES: &[Route] = &[
         operation: "rename_session",
         method: "POST",
         path: "/sessions/rename",
+    },
+    Route {
+        operation: "start_session_run",
+        method: "POST",
+        path: "/sessions/run/start",
+    },
+    Route {
+        operation: "stop_session_run",
+        method: "POST",
+        path: "/sessions/run/stop",
+    },
+    Route {
+        operation: "observe_session_run",
+        method: "GET",
+        path: "/sessions/run/:run_id/observe",
     },
     Route {
         operation: "show_window",

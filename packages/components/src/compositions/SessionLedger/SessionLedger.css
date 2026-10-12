@@ -268,7 +268,32 @@ path.armada-session-ledger__picture-later {
   padding: 0 var(--space-3) var(--space-2);
 }
 
+/* The reply box under a waiting row with no act: the field, and Send at its end. */
+.armada-session-ledger__reply {
+  display: flex;
+  flex-basis: 100%;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-2);
+  padding: 0 var(--space-3) var(--space-2);
+}
+
+.armada-session-ledger__reply > .armada-textarea-field {
+  align-self: stretch;
+}
+
 /* The section that needs the person carries the awaiting-review edge the list's rows do. */
 .armada-session-ledger__group[aria-label="Waiting on you"] .armada-session-ledger__row {
   border-inline-start: var(--space-1) solid var(--status-awaiting-review);
 }
+
+/* A row's mark is in its state's hue, as the PR chip's Checks are, and the row carries that hue on its
+   leading edge: a pull request's Checks, or a subagent's turn, read at a glance down the ledger. */
+.armada-session-ledger__row[data-mark] { --mark: var(--fg-subtle); border-inline-start: var(--space-1) solid var(--mark); }
+.armada-session-ledger__row[data-mark="passed"] { --mark: var(--status-completed-success); }
+.armada-session-ledger__row[data-mark="failed"] { --mark: var(--status-completed-failed); }
+.armada-session-ledger__row[data-mark="pending"] { --mark: var(--status-awaiting-review); }
+.armada-session-ledger__row[data-mark="running"],
+.armada-session-ledger__row[data-mark="piloted"] { --mark: var(--status-running); }
+.armada-session-ledger__row[data-mark="escalated"] { --mark: var(--status-escalated); }
+.armada-session-ledger__row[data-mark] [data-state-mark] { color: var(--mark); }

@@ -89,8 +89,8 @@ pub(crate) fn in_flight(asked: &DroneQuestion) -> ipc::QuestionInFlight {
     }
 }
 
-/// [`Answered`]'s frame as it ships. Not yet a `prompts.crossing` key: that
-/// key is `crates/config/settings.toml`'s to add.
+/// [`Answered`]'s frame as it ships, `prompts.crossingAnswered`'s default.
+/// What fills it is filled where the brief is laid out, as a note's is.
 pub(crate) const ANSWERED: &str =
     "WHAT A PERSON ANSWERED\n\nThe Drone before you on this part asked a person:\n\n  \
      \"{question}\"\n\nThey answered: {label}\nWhich that Drone said means: {consequence}\n\n\
@@ -114,22 +114,42 @@ pub(crate) const ANSWERED_TO_THE_DRONE: &str =
 /// that option commits to. There is no constructor taking free text: what
 /// varies is the question and the option, and both came from a Drone.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Answered(String);
+pub struct Answered {
+    question: String,
+    label: Option<String>,
+    consequence: Option<String>,
+    /// The line that left the choice to the Drone. **The label wins where both are named**: the
+    /// line rides with it.
+    deciding: Option<String>,
+}
 
 impl Answered {
     /// The block for a Job whose question has been answered. `None` while it
     /// is unanswered and where nothing was asked.
     pub(crate) fn of(asked: &DroneQuestion) -> Option<Answered> {
-        let deciding = asked.answer.as_ref()?.deciding.as_deref();
-        let text = match (asked.chosen(), deciding) {
-            // **The label wins where both are named**: the line rides with it.
-            (Some(chosen), line) => {
-                let text = crate::prompts::fill(
-                    ANSWERED,
+        let deciding = asked.answer.as_ref()?.deciding.clone();
+        let chosen = asked.chosen();
+        if chosen.is_none() && deciding.is_none() {
+            return None;
+        }
+        Some(Answered {
+            question: asked.question.clone(),
+            label: chosen.map(|chosen| chosen.label.clone()),
+            consequence: chosen.map(|chosen| chosen.consequence.clone()),
+            deciding,
+        })
+    }
+
+    /// The block, in the words of `prompts.crossingAnswered`.
+    pub fn text(&self, prompts: &crate::prompts::Prompts) -> String {
+        match (&self.label, &self.consequence, &self.deciding) {
+            (Some(label), Some(consequence), line) => {
+                let text = prompts.fill(
+                    config::settings::PROMPT_CROSSING_ANSWERED,
                     &[
-                        ("question", &asked.question),
-                        ("label", &chosen.label),
-                        ("consequence", &chosen.consequence),
+                        ("question", &self.question),
+                        ("label", label),
+                        ("consequence", consequence),
                     ],
                 );
                 match line {
@@ -137,17 +157,12 @@ impl Answered {
                     None => text,
                 }
             }
-            (None, Some(line)) => crate::prompts::fill(
+            (_, _, Some(line)) => crate::prompts::fill(
                 ANSWERED_TO_THE_DRONE,
-                &[("question", &asked.question), ("deciding", line)],
+                &[("question", &self.question), ("deciding", line)],
             ),
-            (None, None) => return None,
-        };
-        Some(Answered(text))
-    }
-
-    pub fn text(&self) -> &str {
-        &self.0
+            _ => String::new(),
+        }
     }
 }
 

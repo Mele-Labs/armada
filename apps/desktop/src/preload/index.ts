@@ -3,6 +3,7 @@ import { contextBridge, ipcRenderer, webUtils } from "electron";
 import { CHANNELS } from "../shared/bridge";
 import { autopilotPreload } from "./autopilot";
 import type { AskLessonRead, AskTurn, LessonReviewRead } from "@armada/jobs/review-wire";
+import type { LessonSessionRead } from "@armada/jobs/session-wire";
 import { ANNOTATE_FLAG, ANNOTATION_CHANNELS } from "../shared/annotations";
 import type { Annotation, AnnotationsDevApi, Box } from "../shared/annotations";
 import { frameStreamUrl } from "../shared/streaming";
@@ -30,7 +31,7 @@ import type {
 import type { FileReport } from "@armada/protocol";
 import type { ModChecked } from "@armada/protocol";
 import type { SleepState } from "@armada/protocol";
-import type { AnswerSessionAsk, AnswerWaiting, ClaimPullRequest, DismissWaiting, PilotOutcome, PullRequestClaimed, PullRequestState, RenameSession, ReviewDispatched, SendSessionMessage, SessionSubagent, TuneSession } from "@armada/protocol";
+import type { AnswerSessionAsk, AnswerWaiting, ClaimPullRequest, DismissWaiting, PilotOutcome, PullRequestClaimed, PullRequestState, RenameSession, ReviewDispatched, SendSessionMessage, SessionRunMessage, SessionRunUnderway, SessionSubagent, TuneSession } from "@armada/protocol";
 import type { ArtifactRead, PageBounds } from "@armada/screens/src/draft/sessions";
 import type { PilotExit, PullRequestPress, SessionActed } from "../shared/api/sessions";
 import type { SleepActed } from "../shared/api/sleep";
@@ -616,6 +617,8 @@ const api: BridgeApi = {
     ipcRenderer.invoke(CHANNELS.disagreeLesson, lessonId),
   // The guided review: the model's queue over the open items, and one question about one item.
   // Neither names a manifest or a port: main narrows the first to this window's pick.
+  startLessonSession: (lessonId: string): Promise<LessonSessionRead> =>
+    ipcRenderer.invoke(CHANNELS.startLessonSession, lessonId),
   reviewLessons: (): Promise<LessonReviewRead> => ipcRenderer.invoke(CHANNELS.reviewLessons),
   askLesson: (lessonId: string, question: string, history: AskTurn[]): Promise<AskLessonRead> =>
     ipcRenderer.invoke(CHANNELS.askLesson, lessonId, question, history),
@@ -702,6 +705,18 @@ const api: BridgeApi = {
     press: PullRequestPress,
   ): Promise<SessionActed<PullRequestState | ReviewDispatched>> =>
     ipcRenderer.invoke(CHANNELS.pressPullRequest, sessionId, number, press),
+  // A shell block run from a Session's thread: one call to run, one to stop, one subscription for what runs print.
+  startSessionRun: (sessionId: string, command: string): Promise<SessionActed<SessionRunUnderway>> =>
+    ipcRenderer.invoke(CHANNELS.startSessionRun, sessionId, command),
+  stopSessionRun: (runId: string): Promise<SessionActed<SessionRunUnderway>> =>
+    ipcRenderer.invoke(CHANNELS.stopSessionRun, runId),
+  onSessionRunMessage: (on: (runId: string, message: SessionRunMessage) => void): (() => void) => {
+    const handler = (_: unknown, runId: string, message: SessionRunMessage): void => on(runId, message);
+    ipcRenderer.on(CHANNELS.sessionRunMessage, handler);
+    return () => {
+      ipcRenderer.removeListener(CHANNELS.sessionRunMessage, handler);
+    };
+  },
 
   // What fleet is holding disk for, and the test each one did not pass. The
   // second read here with no job id, and for a different reason: what is being

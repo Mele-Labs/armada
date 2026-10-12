@@ -497,9 +497,11 @@ void app.whenReady().then(() => {
   // A Session asked about a place on its walk: the window comes forward and goes there.
   connection.sessions.onAsked((sessionId, title, window, place) => void captureWindows.askedFor(sessionId, title, window, place));
   // Sleep mode or a repository's Autopilot changed in Fleet: every window gets the night, or it, whole.
-  const everyWindow = (channel: string, value: unknown): void => {
-    for (const window of BrowserWindow.getAllWindows()) if (!window.isDestroyed()) window.webContents.send(channel, value);
+  const everyWindow = (channel: string, ...values: unknown[]): void => {
+    for (const window of BrowserWindow.getAllWindows()) if (!window.isDestroyed()) window.webContents.send(channel, ...values);
   };
+  // What a shell block run from a Session prints, to every window: only the one that started it holds the id.
+  connection.sessions.onRun((runId, message) => everyWindow(CHANNELS.sessionRunMessage, runId, message));
   connection.sleep.onChanged((state) => everyWindow(CHANNELS.sleepChanged, state));
   connection.issues.onAutopilotChanged((autopilot) => everyWindow(CHANNELS.autopilotChanged, autopilot));
   handleTaps({ ipc: ipcMain, app });
@@ -748,6 +750,10 @@ void app.whenReady().then(() => {
   ipcMain.handle(CHANNELS.agreeLesson, (_event, lessonId: string) => connection?.commands.agreeLesson(lessonId));
   ipcMain.handle(CHANNELS.disagreeLesson, (_event, lessonId: string) =>
     connection?.commands.disagreeLesson(lessonId),
+  );
+  // Agreeing by a Session instead of a Job: Fleet starts it and drafts the first message, and sends nothing.
+  ipcMain.handle(CHANNELS.startLessonSession, (_event, lessonId: string) =>
+    connection?.commands.startLessonSession(lessonId),
   );
   ipcMain.handle(CHANNELS.restartStep, (_event, jobId: string, note?: string) =>
     connection?.commands.restartStep(jobId, note),

@@ -91,6 +91,8 @@ export type LogRow = {
    * kind so none of them claims one.
    */
   kind: Turn["saw"]["event"] | "note";
+  /** Set where a person's redirect came from their phone. */
+  fromPhone?: true;
   /** The one line the row shows closed. */
   message: string;
   /** Whether `message` is machine-derived. Sans names work, mono names machinery. */
@@ -360,6 +362,7 @@ function rowOf(row: Turn): LogRow {
         kind,
         message: opening(saw.occasion),
         payload: lines(saw.text, saw.headings, saw.kinds),
+        ...(saw.via === "phone" ? { fromPhone: true as const } : {}),
       };
     case "checked":
       return {

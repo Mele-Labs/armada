@@ -212,6 +212,18 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(crate::sessions::rename_session::<D>),
         )
         .route(
+            "/sessions/run/start",
+            post(crate::sessions::start_session_run::<D>),
+        )
+        .route(
+            "/sessions/run/stop",
+            post(crate::sessions::stop_session_run::<D>),
+        )
+        .route(
+            "/sessions/run/:run_id/observe",
+            get(crate::sessions::observe_session_run::<D>),
+        )
+        .route(
             "/sessions/window",
             post(crate::sessions::show_window::<D>),
         )
@@ -395,6 +407,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route(
             "/lessons/:lesson_id/agree",
             post(crate::retros::agree_lesson::<D>),
+        )
+        .route(
+            "/lessons/:lesson_id/session",
+            post(crate::retros::start_lesson_session::<D>),
         )
         .route(
             "/lessons/:lesson_id/disagree",

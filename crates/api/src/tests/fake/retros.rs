@@ -5,7 +5,8 @@
 use std::sync::Arc;
 
 use ipc::{
-    AskLessonAnswer, JobId, JobRetro, LandsIn, Lesson, LessonAsk, LessonReview, LessonState,
+    AskLessonAnswer, JobId, JobRetro, LandsIn, Lesson, LessonAsk, LessonReview,
+    LessonSessionStarted, LessonState,
     Lessons, ManifestId, RetroRecord, RetroState,
 };
 
@@ -73,6 +74,13 @@ impl Retros for FakeDaemon {
         lesson_id: String,
         _by: Redirector,
     ) -> Result<Lesson, Refusal> {
+        Err(self.refusing_lesson(&lesson_id))
+    }
+
+    async fn start_lesson_session(
+        self: Arc<Self>,
+        lesson_id: String,
+    ) -> Result<LessonSessionStarted, Refusal> {
         Err(self.refusing_lesson(&lesson_id))
     }
 

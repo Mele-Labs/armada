@@ -13,6 +13,7 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 
 use crate::ids::{Instant, JobId, ManifestId};
+use crate::protocol_id::ProtocolId;
 
 /// A session, by the id its harness knows it by.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -211,6 +212,56 @@ pub struct SessionReport {
 pub struct RenameSession {
     pub session_id: SessionId,
     pub title: String,
+}
+
+/// `start_session_run`: the person ran a shell block from a Session's thread. `POST /sessions/run/start`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct StartSessionRun {
+    pub session_id: SessionId,
+    pub command: String,
+}
+
+/// `start_session_run`, answered 202: the run is underway; what it prints is on `observe_session_run`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SessionRunUnderway {
+    pub run_id: String,
+}
+
+/// `stop_session_run`: end a run's process group. `POST /sessions/run/stop`. Answered 200 with the same body.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct StopSessionRun {
+    pub run_id: String,
+}
+
+/// One message on `observe_session_run`'s socket, `GET /sessions/run/:run_id/observe`. What the run
+/// printed so far and then what it prints next as `lines`, then `exited` once, then the socket closes.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum SessionRunMessage {
+    Opened {
+        protocol_id: ProtocolId,
+        run_id: String,
+    },
+    Lines {
+        lines: Vec<String>,
+    },
+    /// This many messages were dropped before this viewer read them: it must read the run again.
+    Missed {
+        dropped: u64,
+    },
+    /// `code` is `null` where the process group was stopped or killed by a signal.
+    Exited {
+        #[serde(deserialize_with = "stated")]
+        code: Option<i32>,
+    },
+}
+
+/// An `Option` whose key must be present: `null` is the answer, a run a signal ended.
+fn stated<'de, D>(input: D) -> Result<Option<i32>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    Option::<i32>::deserialize(input)
 }
 
 /// `show_window`: a session shows the person a web page in a window of Bridge's own.

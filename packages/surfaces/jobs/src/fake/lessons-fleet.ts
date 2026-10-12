@@ -7,6 +7,7 @@
 import type { JobSummary, Lesson, LessonAnswer, LessonState } from "@armada/protocol";
 
 import type { AskLessonRead, LessonAsk, LessonReview, LessonReviewRead } from "../review-wire";
+import type { LessonSessionRead } from "../session-wire";
 
 /** The Job an agreed Armada or Manifest item proposes, at the approval gate. */
 function proposedFor(lesson: Lesson, jobs: readonly JobSummary[], at: string): JobSummary {
@@ -58,6 +59,46 @@ export function answered(
     lessons: lessons.map((one) => (one.id === id ? now : one)),
     answer: { ok: true, lesson: now },
     ...(job === undefined ? {} : { job }),
+  };
+}
+
+/**
+ * Agreeing by a Session: `answered`'s sibling. A Kit item is refused as Fleet refuses it, an item that is not open
+ * answers with the Session it already started, and the brief is the item's request, sent as the first message.
+ * The Session itself is not minted: this mock holds no Sessions, so the id names one Sessions would hold.
+ */
+export function sessionStarted(lessons: readonly Lesson[], id: string): { lessons: Lesson[]; read: LessonSessionRead } {
+  const was = lessons.find((one) => one.id === id) as Lesson | undefined;
+  if (was === undefined) {
+    return { lessons: [...lessons], read: { ok: false, outcome: { ok: false, why: "not_connected" } } };
+  }
+  if (was.lands_in === "kit" || was.lands_in === undefined) {
+    return {
+      lessons: [...lessons],
+      read: {
+        ok: false,
+        outcome: {
+          ok: false,
+          why: "refused",
+          error: {
+            code: "fleet.lesson_session_nothing_to_work_on",
+            message: "Kit is no repository, so there is nothing for a Session to work on. Accept it instead.",
+            run_id: "mock",
+            fields: {},
+            chain: [],
+          },
+        },
+      },
+    };
+  }
+  const session_id = was.session_proposed ?? `s-${id.replace(/[^a-z0-9]/gi, "").slice(0, 8).toUpperCase().padEnd(8, "0")}`;
+  const now: Lesson = { ...was, state: "agreed", session_proposed: session_id };
+  const brief = [was.title ?? was.statement, was.what, was.fix === undefined ? undefined : `Change: ${was.fix}`]
+    .filter((one): one is string => one !== undefined && one !== "")
+    .join("\n\n");
+  return {
+    lessons: lessons.map((one) => (one.id === id ? now : one)),
+    read: { ok: true, started: { lesson: now, session_id, brief } },
   };
 }
 

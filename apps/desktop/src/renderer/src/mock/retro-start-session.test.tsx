@@ -1,0 +1,43 @@
+// Start Session on a retro item, through `App` (`docs/concepts/retro.md`, *Where Bridge draws it*):
+// the press asks Fleet to start the Session and the app goes to Sessions. Fleet sends the brief
+// itself, so nothing is put in a message box. The mock Fleet mints no Session (the jobs fake holds
+// none), so only the move to Sessions is checked here.
+
+import { beforeEach, expect, test } from "vitest";
+import { page, userEvent } from "vitest/browser";
+import { forgetAllKept } from "@armada/components";
+
+import { s205SessionRetro } from "./scenarios/session-retro";
+import { mount, onScreen, unmountAfterEach } from "./testing";
+
+unmountAfterEach();
+
+beforeEach(() => {
+  window.localStorage.clear();
+  forgetAllKept();
+});
+
+const toRetros = () => userEvent.click(page.getByRole("button", { name: "Retros", exact: true }));
+
+test("Start Session on an Armada item goes to Sessions and writes nothing in a message box", async () => {
+  mount(s205SessionRetro);
+  await onScreen();
+  await toRetros();
+
+  const item = page.getByRole("listitem").filter({ has: page.getByRole("button", { name: "Start Session" }) }).first();
+  await expect.element(item).toBeVisible();
+  await userEvent.click(item.getByRole("button", { name: "Start Session" }));
+
+  await expect.element(page.getByRole("region", { name: "Sessions" })).toBeVisible();
+  expect(Object.keys(window.localStorage).filter((one) => one.startsWith("armada:kept:session:"))).toEqual([]);
+});
+
+test("a Kit item offers no Start Session", async () => {
+  mount(s205SessionRetro);
+  await onScreen();
+  await toRetros();
+
+  const kit = page.getByRole("listitem", { name: "A Drone had to wait for grep to be allowed" });
+  await expect.element(kit).toBeVisible();
+  expect(kit.getByRole("button", { name: "Start Session" }).elements()).toHaveLength(0);
+});

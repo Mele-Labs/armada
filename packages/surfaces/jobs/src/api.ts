@@ -59,6 +59,7 @@ import type {
 import type { PlanEditAnswer } from "@armada/screens/src/plan-edits";
 import type { ComposingRead } from "@armada/screens/src/composing-reads";
 import type { AskLessonRead, AskTurn, LessonReviewRead } from "./review-wire";
+import type { LessonSessionRead } from "./session-wire";
 
 export type JobsApi = {
   /**
@@ -589,6 +590,12 @@ export type JobsApi = {
   /** Disagree with one retro item: it is discarded. */
   disagreeLesson: (lessonId: string) => Promise<LessonAnswer>;
   /**
+   * Agree with an Armada or Manifest item by starting a Session on its repository. **Fleet sends
+   * the brief as the Session's first message**, so the Session begins work at once. Answers the
+   * item as it now stands, the Session and the brief sent.
+   */
+  startLessonSession: (lessonId: string) => Promise<LessonSessionRead>;
+  /**
    * The model's reading of the open items for the guided review: the order to read them in, which
    * stand for duplicates, and which it set aside. **Narrowed to this window's pick in main**, as
    * `readLessons` is, so the renderer names no manifest.
@@ -992,6 +999,7 @@ export const JOBS_CHANNELS = {
   readLessons: "bridge:read-lessons",
   agreeLesson: "bridge:agree-lesson",
   disagreeLesson: "bridge:disagree-lesson",
+  startLessonSession: "bridge:start-lesson-session",
   reviewLessons: "bridge:review-lessons",
   askLesson: "bridge:ask-lesson",
   readFrame: "bridge:read-frame",

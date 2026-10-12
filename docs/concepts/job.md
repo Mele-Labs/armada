@@ -378,7 +378,15 @@ stopped — and naming it is what makes restarting or *that step* coherent. A
 Job-level escalation names no step to resume, which is why `resource_exhausted`
 leaves redispatch and Pilot as the only moves. `interrupted` is the exception: a
 restart leaves the step it stopped stopped, so Fleet restarts that step itself
-at the next boot, and a person's restart is accepted on it as well.
+at the next boot, and a person's restart is accepted on it as well. **It is
+accepted where the step was left `running` too** — a submission for a Job
+outside the slot escalates it with the step untouched — and so is a Job
+escalated `no_worktree` over a step a restart had already entered, when the
+spawn then failed on something that has since cleared (a git lock held for a
+moment). **The disk decides, not the name**: the restart is offered and taken
+while the Job's worktree is there, and refused as a redispatch when it is not.
+A task that was `working` under the Drone that went goes back to the step's
+next Drone as it would after any restart.
 
 **Two Job-level triggers answer that differently, and each for its own reason.**
 `stalled` has a Drone holding its session, and a redirect operates on the Job

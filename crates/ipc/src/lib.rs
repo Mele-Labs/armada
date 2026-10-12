@@ -155,17 +155,15 @@ mod protocol_id;
 mod pull_requests;
 /// A new cost ceiling for one Job, and which surface asked for it.
 mod raising;
-/// Fleet's last read of `armada.yml`, held rather than announced. **The one
-/// shape here about the fleet and not about a Job**, beside `capacity`.
-/// What a scout answers a read-in with. `#1293`.
+/// Fleet's last read of `armada.yml`, held rather than announced. **The one shape here about the
+/// fleet and not about a Job**, beside `capacity`. What a scout answers a read-in with. `#1293`.
 mod read_in;
 mod reading;
 /// What giving one Job's worktree and branch back did, half by half.
 /// **Two halves, because half of it happening is a real outcome.**
 mod reclaimed;
-/// A person's run of one Manifest entry, in a Job's worktree or in the main
-/// checkout. **A rehearsal, never a verdict** — nothing in it is a Check row
-/// or Evidence.
+/// A person's run of one Manifest entry, in a Job's worktree or in the main checkout. **A
+/// rehearsal, never a verdict** — nothing in it is a Check row or Evidence.
 mod rehearsal;
 /// What people wrote on a Job's pull request, and which of it a person picks.
 /// **The one place this seam carries text from outside this machine.**
@@ -185,6 +183,7 @@ mod retro;
 /// A guided review of the open retro items, and a question about one. Since
 /// 23.74.
 mod retro_review;
+mod retro_session;
 /// What Scan found in a repository nobody set up for Armada. **Evidence,
 /// never a proposal** — every finding carries the file it came from.
 mod scan;
@@ -336,7 +335,9 @@ pub use job::{
 pub use journal::{
     JobLog, JournalClosed, JournalMessage, JournalOpened, LogNote, NoteLevel, NotedField, Quiet,
 };
-pub use judged::{Citation, CitedAt, Cleared, Flagged, Given, Judged, KeptDeliverable};
+pub use judged::{
+    Citation, CitedAt, Cleared, Flagged, Given, Judged, JudgesSentBack, KeptDeliverable,
+};
 pub use kit::{
     AddKitServer, ForgetKitServer, KitAllowedCommand, KitAllowedCommands, KitAllowedSource,
     KitInventory, KitServerRow, KitServers, RemoveKitAllowedCommand, ServerAddress,
@@ -419,6 +420,7 @@ pub use retro::{
     RetroAnswered, RetroChange, RetroChangeAnswered, RetroItem, RetroRecord, RetroSession,
     RetroState, RetroWritten,
 };
+pub use retro_session::LessonSessionStarted;
 pub use retro_review::{
     AskLessonAnswer, AskRole, AskTurn, LessonAsk, LessonReview, ReviewEntry, ReviewLessons, SetAside,
 };
@@ -443,13 +445,13 @@ pub use sessions::{
     AnswerWaiting, Attachment, AttachmentNamed, AttachmentReport, AttachmentState, DismissWaiting,
     ClaimPullRequest, Holder, HolderKind, Owners, Ownership, PullRequestClaimed, RenameSession,
     SessionFact, SessionId, SessionList, SessionOrigin, SessionRecord, SessionReport, SessionState,
-    SessionUsage, SetWaitingFor, ShowWindow, AskInWindow, WindowPlace, TerminalCommand, TerminalFacts, WaitingAct,
+    SessionRunMessage, SessionRunUnderway, StartSessionRun, StopSessionRun, SessionUsage, SetWaitingFor, ShowWindow, AskInWindow, WindowPlace, TerminalCommand, TerminalFacts, WaitingAct,
     WaitingActKind, WaitingInput, WaitingItem, WaitingMode, WaitingOption, WaitingSource,
     WindowClosed,
 };
 pub use autopilot::{
-    Autopilot, AutopilotCap, AutopilotList, AutopilotPick, AutopilotPickState, AutopilotSettings,
-    AutopilotState, ProposeAutopilot,
+    Autopilot, AutopilotCap, AutopilotList, AutopilotPick, AutopilotPickState, AutopilotProposal,
+    AutopilotQuoted, AutopilotSettings, AutopilotState, ProposeAutopilot,
 };
 pub use sleep::{OverrideSleep, ReviewSleep, SetSleep, SleepBlocked, SleepDecided, SleepLanded, SleepState, SleepWalk};
 pub use setup::{

@@ -186,6 +186,26 @@ export type SessionList = { sessions: SessionRecord[] };
 /** `rename_session`: a person's name for a session, hosted or in a terminal. `POST /sessions/rename`. Since 23.52. */
 export type RenameSession = { session_id: string; title: string };
 
+/** `start_session_run`: the person ran a shell block from a Session's thread. `POST /sessions/run/start`. */
+export type StartSessionRun = { session_id: string; command: string };
+
+/** `start_session_run`, answered 202: the run is underway; what it prints is on `observe_session_run`. */
+export type SessionRunUnderway = { run_id: string };
+
+/** `stop_session_run`: end a run's process group. `POST /sessions/run/stop`. Answered 200 with the same body. */
+export type StopSessionRun = { run_id: string };
+
+/**
+ * `observe_session_run`, `GET /sessions/run/:run_id/observe` on a socket of its own. What the run
+ * printed so far and then what it prints next as `lines`, then `exited` once, then the socket closes.
+ * `code` is null where the process group was stopped or killed by a signal.
+ */
+export type SessionRunMessage =
+  | { kind: "opened"; protocol_id: string; run_id: string }
+  | { kind: "lines"; lines: string[] }
+  | { kind: "missed"; dropped: number }
+  | { kind: "exited"; code: number | null };
+
 /** One holder of what `who_owns` was asked about, with its row. */
 export type Ownership = {
   holder: Holder;

@@ -55,7 +55,11 @@ can take well over 30 minutes. Leaving the queue unmerged (`OPEN`,
 `gh run list -e merge_group` and `gh run view --log-failed`, fix on the same
 branch, push and queue it again. A conflict with what is ahead of it shows as
 `UNMERGEABLE`: merge `origin/main` in once that has landed, never rebase, push and
-requeue. Stop and tell him only where the failure is not yours to fix: the same
+requeue. **A job that failed while its run is still going has no log in
+`gh run view`**: read it with `gh api --allow-escape-sequences
+repos/Mele-Labs/armada/actions/jobs/<job id>/logs`, colour codes stripped, and
+rerun only once the run is `completed`. Confirmed 11 Oct 2026: four calls on
+#2107 before the failing story showed. Stop and tell him only where the failure is not yours to fix: the same
 failure on `main`, a decision that is his, or one that survives two fixes.
 
 **A queue run can die without failing a job.** Confirmed 7 Oct 2026, in a GitHub

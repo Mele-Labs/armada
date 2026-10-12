@@ -7,19 +7,23 @@
 // the list, and a refusal (`fleet.kit_change_refused`) draws the card's alert.
 // What this adds is the order, Skip and Back, a thread of questions per item,
 // and the items the review set aside.
+//
+// **It holds nothing of its own that must outlive it.** The order, the place in it, the threads,
+// what was put back and the duplicate boxes are a `ReviewHold`'s, per repository pick, so leaving
+// Retros and coming back resumes the same card and asks the model nothing.
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 import {
   LessonList,
   LessonReviewEnd,
   LessonReviewStep,
   LessonReviewWait,
+  ReviewHeld,
   ReviewSetAside,
   type LessonRow,
-  type ReviewTurn,
 } from "@armada/components";
-import type { Lesson, Outcome, RetroSubject } from "@armada/protocol";
+import type { Lesson, RetroSubject } from "@armada/protocol";
 import { refusalWords } from "@armada/screens/src/refusal-words";
 import { said } from "@armada/screens/src/copy";
 
@@ -32,9 +36,11 @@ import {
   type AnswerLesson,
   type ListedRow,
   type ReadRetro,
+  type SessionStarts,
 } from "./retro";
-import { resolved, type QueueEntry } from "./lesson-review";
-import type { AskLessonRead, AskTurn, LessonReview, LessonReviewRead } from "./review-wire";
+import { ageWords, resolved, type QueueEntry } from "./lesson-review";
+import type { Thread, ReviewHold } from "./review-hold";
+import type { AskLessonRead, AskTurn, LessonReviewRead } from "./review-wire";
 
 /** Ask Fleet for the review of the open items, and put one question about one item. */
 export type ReviewLessons = () => Promise<LessonReviewRead>;
@@ -45,9 +51,14 @@ export type LessonsReviewProps = {
   lessons: readonly Lesson[] | undefined;
   onReview: ReviewLessons;
   onAsk: AskLesson;
+  /** What the review keeps while the window is open, and the pick it is kept under. */
+  hold: ReviewHold;
+  holdKey: string;
   onReadRetro: ReadRetro;
   onAgreeLesson: AnswerLesson;
   onDisagreeLesson: AnswerLesson;
+  /** Start Session beside Create Job, as the list has it. */
+  sessions?: SessionStarts;
   onOpenJob?: (jobId: string) => void;
   /** A press on the Job a card came from. The page opens that retro over itself. */
   onOpenRetro: (subject: RetroSubject, label: string) => void;
@@ -57,46 +68,52 @@ export type LessonsReviewProps = {
   paused?: boolean;
 };
 
-type Made = { state: "loading" } | { state: "failed"; outcome: Outcome } | { state: "ready"; review: LessonReview };
-
-/** One item's thread, kept by id so moving between cards loses nothing. */
-type Thread = { turns: ReviewTurn[]; draft: string; pending: boolean; failure?: string };
 const NONE: Thread = { turns: [], draft: "", pending: false };
+/** Re-draw this often so `Reviewed 12 minutes ago` does not stand still while the page is open. */
+const AGE_TICK_MS = 30_000;
 
 export function LessonsReview({
   lessons,
   onReview,
   onAsk,
+  hold,
+  holdKey,
   onReadRetro,
   onAgreeLesson,
   onDisagreeLesson,
+  sessions,
   onOpenJob,
   onOpenRetro,
   onList,
   paused = false,
 }: LessonsReviewProps) {
-  const [made, setMade] = useState<Made>({ state: "loading" });
-  const [attempt, setAttempt] = useState(0);
+  const held = useSyncExternalStore(hold.subscribe, () => hold.get(holdKey));
   const latest = useRef(onReview);
   latest.current = onReview;
-  // Asked on entering, and again on Retry. The page does not ask again on focus: a model call is not free.
+  // Asked on entering unless this pick already has a review, held or on its way. The page does not
+  // ask again on focus: a model call is not free.
   useEffect(() => {
-    let live = true;
-    setMade({ state: "loading" });
-    void latest.current().then((answer) => {
-      if (live) setMade(answer.ok ? { state: "ready", review: answer.review } : { state: "failed", outcome: answer.outcome });
-    });
-    return () => {
-      live = false;
-    };
-  }, [attempt]);
+    hold.begin(holdKey, () => latest.current());
+  }, [hold, holdKey]);
+  const again = () => hold.again(holdKey, () => latest.current());
 
   // Where the person is in the remaining queue, the ones put back, the threads and the duplicates to reject.
-  const [at, setAt] = useState(0);
-  const [putBack, setPutBack] = useState<string[]>([]);
-  const [threads, setThreads] = useState<Record<string, Thread>>({});
-  const [also, setAlso] = useState<ReadonlySet<string>>(new Set());
+  const made = held?.made ?? { state: "loading" as const };
+  const at = held?.at ?? 0;
+  const putBack = held?.putBack ?? [];
+  const threads = held?.threads ?? {};
+  const also: ReadonlySet<string> = new Set(held?.also ?? []);
+  const generation = held?.generation;
+  const keep = (change: (was: NonNullable<typeof held>) => NonNullable<typeof held>) => hold.update(holdKey, change, generation);
+  const setAt = (next: number) => keep((was) => ({ ...was, at: next }));
   const [twinsFailure, setTwinsFailure] = useState<string | undefined>(undefined);
+
+  // The age is read off the clock when drawn, so it is drawn again now and then.
+  const [, setTicks] = useState(0);
+  useEffect(() => {
+    const tick = window.setInterval(() => setTicks((was) => was + 1), AGE_TICK_MS);
+    return () => window.clearInterval(tick);
+  }, []);
 
   const { queue, aside } = made.state === "ready" ? resolved(made.review, lessons ?? []) : { queue: [], aside: [] };
   const back = putBack.flatMap((id) => {
@@ -125,7 +142,7 @@ export function LessonsReview({
     setTwinsFailure(refused[0]);
     return answer;
   };
-  const answered = useAnswers(onAgreeLesson, disagree, onOpenJob);
+  const answered = useAnswers(onAgreeLesson, disagree, onOpenJob, sessions);
   const retros = useJobRetros(onReadRetro);
   const [pressed, setPressed] = useState<ReadonlySet<string>>(new Set());
 
@@ -164,8 +181,13 @@ export function LessonsReview({
 
   if (made.state === "loading" || (made.state === "ready" && lessons === undefined)) return <LessonReviewWait />;
   if (made.state === "failed") {
-    return <LessonReviewWait failure={said(made.outcome)} onRetry={() => setAttempt((was) => was + 1)} />;
+    return <LessonReviewWait failure={said(made.outcome)} onRetry={again} />;
   }
+
+  // How old the review is and the way to make it again, over whichever of the three endings below is drawn.
+  const heldBar = (
+    <ReviewHeld age={ageWords(Date.now() - (held?.reviewedAt ?? Date.now()))} onAgain={again} />
+  );
 
   const setAsideList = (
     <ReviewSetAside
@@ -173,17 +195,23 @@ export function LessonsReview({
         id: one.lesson.id,
         title: one.lesson.title ?? one.lesson.statement,
         why: one.why,
-        onPutBack: () => setPutBack((was) => [...was, one.lesson.id]),
+        onPutBack: () => keep((was) => ({ ...was, putBack: [...was.putBack, one.lesson.id] })),
       }))}
     />
   );
 
   if (entries.length === 0 && away.length === 0) {
-    return <LessonReviewEnd title="Nothing to review" onList={onList} />;
+    return (
+      <>
+        {heldBar}
+        <LessonReviewEnd title="Nothing to review" onList={onList} />
+      </>
+    );
   }
   if (current === undefined) {
     return (
       <>
+        {heldBar}
         <LessonReviewEnd
           title={remaining.length === 0 ? "Nothing left to review" : "That was the last one"}
           skipped={remaining.length}
@@ -199,7 +227,7 @@ export function LessonsReview({
   const id = current.entry.lesson.id;
   const thread = threads[id] ?? NONE;
   const change = (id: string, next: (was: Thread) => Thread) =>
-    setThreads((was) => ({ ...was, [id]: next(was[id] ?? NONE) }));
+    keep((was) => ({ ...was, threads: { ...was.threads, [id]: next(was.threads[id] ?? NONE) } }));
 
   async function send() {
     const question = thread.draft.trim();
@@ -218,6 +246,7 @@ export function LessonsReview({
   const twins = current.entry.merged;
   return (
     <>
+      {heldBar}
       <LessonReviewStep
         // Keyed by the item, so the fold of its duplicates closes on a new card.
         key={id}
@@ -231,12 +260,7 @@ export function LessonsReview({
               duplicates: {
                 checked: also.has(id),
                 onChange: (on: boolean) =>
-                  setAlso((was) => {
-                    const next = new Set(was);
-                    if (on) next.add(id);
-                    else next.delete(id);
-                    return next;
-                  }),
+                  keep((was) => ({ ...was, also: on ? [...new Set([...was.also, id])] : was.also.filter((one) => one !== id) })),
               },
             })}
         {...(twinsFailure === undefined ? {} : { duplicatesFailure: twinsFailure })}

@@ -402,6 +402,7 @@ where
                     );
                     item.state = Some(answer.state.into());
                     item.job_proposed = answer.job_proposed.as_ref().map(JobId::from);
+                    item.session_proposed = answer.session_proposed;
                     item.applied = answer.applied.then(|| item.change.clone()).flatten();
                     item
                 })

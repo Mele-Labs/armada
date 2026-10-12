@@ -15,7 +15,7 @@ use crate::daemon::Fleet;
 use crate::session_host::{Heard, Process, Processes, Sink, Start};
 use crate::tests::tmp::TempDir;
 
-type Hosted = Fleet<FakeHarness, FakeVcs, FakeWorkProduct>;
+pub(super) type Hosted = Fleet<FakeHarness, FakeVcs, FakeWorkProduct>;
 
 struct Quiet;
 
@@ -42,7 +42,7 @@ const TWO_ITEMS: &str = r#"{"items":[
   {"who":"agent","lands_in":"kit","title":"Cites nothing real","what":"It cites a row that is not there.","fix":"Drop it.","evidence":["correction:9"]}
 ]}"#;
 
-async fn rig(judge: FakeJudge) -> (Arc<Hosted>, SessionId, TempDir) {
+pub(super) async fn rig(judge: FakeJudge) -> (Arc<Hosted>, SessionId, TempDir) {
     let home = TempDir::new();
     let mut fittings = crate::tests::daemon::fittings(&home, FakeWorkProduct::changed(&[]));
     fittings.judge = Arc::new(judge);
@@ -74,7 +74,7 @@ async fn rig(judge: FakeJudge) -> (Arc<Hosted>, SessionId, TempDir) {
     (fleet, id, home)
 }
 
-async fn said(fleet: &Arc<Hosted>, id: &SessionId, text: &str) {
+pub(super) async fn said(fleet: &Arc<Hosted>, id: &SessionId, text: &str) {
     Arc::clone(fleet)
         .send_session_message(SendSessionMessage {
             session_id: id.clone(),
