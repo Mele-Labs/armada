@@ -8,7 +8,8 @@ use std::future::Future;
 use std::sync::Arc;
 
 use ipc::{
-    AskLessonAnswer, JobId, JobRetro, LandsIn, Lesson, LessonAsk, LessonReview, LessonState,
+    AskLessonAnswer, JobId, JobRetro, LandsIn, Lesson, LessonAsk, LessonReview, LessonSessionStarted,
+    LessonState,
     Lessons, ManifestId,
 };
 
@@ -64,6 +65,18 @@ pub trait Retros: Send + Sync + 'static {
         lesson_id: String,
         by: Redirector,
     ) -> impl Future<Output = Result<Lesson, Refusal>> + Send;
+
+    /// `start_lesson_session`. `agree_lesson`'s sibling: agreeing by starting a
+    /// hosted Session on the item's repository, and its first message sent
+    /// at once, so the Session runs. The same rules as `agree_lesson`; a `kit` item is
+    /// [`Refusal::Unacceptable`]. An item already answered answers with the
+    /// Session started for it, and an answered item with none is
+    /// [`Refusal::IllegalMove`]. A send that is refused leaves the item agreed
+    /// with the Session, and is [`Refusal::Unacceptable`] naming it.
+    fn start_lesson_session(
+        self: Arc<Self>,
+        lesson_id: String,
+    ) -> impl Future<Output = Result<LessonSessionStarted, Refusal>> + Send;
 
     /// `disagree_lesson`. The item is kept, `discarded`.
     fn disagree_lesson(
