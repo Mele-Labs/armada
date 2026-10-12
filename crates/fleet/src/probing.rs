@@ -172,7 +172,7 @@ where
             "cpu {}% in use, memory {}% in use, {} KiB free on the volume",
             reading.cpu().percentage(),
             reading.memory().percentage(),
-            reading.disk_free().count()
+            reading.disk_free().count() / 1024
         );
         match self.headroom().short_of(&reading) {
             None => probe("System stats", PASS, said),

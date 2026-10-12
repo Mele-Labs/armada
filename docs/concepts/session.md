@@ -489,8 +489,9 @@ While it is on, a pass over every live session's waiting items (`crates/fleet/sr
 
 | Item | What the night does |
 |---|---|
-| `ask:` or agent item waiting under two minutes | Nothing. The agent carries on by itself first. |
-| `ask:` or agent item past two minutes | Answers with the option labelled "(Recommended)", else `mode: best`. Recorded under decided; with `mode: best` the review shows the first line of the agent's next message as what it chose, filled in by a later pass. |
+| `ask:` or agent item with a "(Recommended)" option, waiting under two minutes | Nothing. The agent carries on by itself first. |
+| `ask:` or agent item with an option labelled "(Recommended)", past two minutes | Answers with that option. Recorded under decided, with the option as what it chose and the session it came from. |
+| `ask:` or agent item with no such option: a question with other options, an open question, an errand with an act | Nothing, unless it reads as destructive (next row). It stays in the session's Waiting on you list for the owner, and is not recorded under decided or blocked. |
 | Destructive or irreversible (delete, drop, remove, force, reset, rm, overwrite, discard, close PR and the like, read from the text and the options; unsure holds) | Never answered. Recorded under blocked. |
 | `perm:` permission | Never allowed. Recorded under blocked. |
 | `walk:` | Recorded under walks. |
