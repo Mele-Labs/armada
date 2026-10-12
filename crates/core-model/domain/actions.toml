@@ -160,6 +160,18 @@ destructive = false
 confirms = false
 notes = "Re-reads everything Fleet holds over the connection Bridge already has; it does not reconnect. The owner's note of 1 Oct 2026 took it off Overview's menu and put it on a key, and he chose ⇧⌘R over ⌘R: ⌘R stays Electron's own View > Reload, which reloads the whole window, and a hand that presses it out of habit still gets that. ⇧⌘R was Electron's Force Reload in the same default menu. Bridge's handler takes the press first and prevents it, which stops the menu ever seeing it — measured against Electron 40 on 1 Oct 2026. Spelled in Apple's modifier order, ⇧ before ⌘, as `capture_note`'s ⌥⌘C is. No glyph: `rotate-cw` means Redispatch and `refresh-cw` is reserved to churning, so both rotation silhouettes are spoken for."
 
+[actions.debug_bridge]
+kind = "Action"
+tier = "Global"
+verb = "Debug Bridge"
+icon = ""
+icon_absent = "undecided"
+shortcut = "⇧⌘D"
+scope = "anywhere"
+destructive = false
+confirms = false
+notes = "Shoots the whole window, records the page, the open Job or Session, the connection and Doctor's read as a whole-window annotation, and starts a Session on Bridge's own repository with all of it as the first message, then opens that Session. The owner asked for it on 12 Oct 2026, to report the state of the app in one keystroke rather than through the annotation layer. Dev only, like the layer: a packaged Bridge has no capture and no repository of its own source, so the palette draws it dormant there. ⇧⌘D and not ⌥⌘D, which macOS takes to hide the Dock."
+
 # -------------------------------------------------------------- contextual
 
 [actions.move_focus]

@@ -18,6 +18,7 @@ import { openJobIn } from "@armada/jobs";
 
 import type { BridgeApi } from "../../../shared/api";
 import { byCreation, sentAs, shotName, type Annotation, type Box } from "../../../shared/annotations";
+import { useDebugBridgeAsked } from "../debug-bridge";
 import { askToOpenSession } from "../open-session";
 import { askToTell } from "../tell";
 import { capture, captureWindow, currentScreen, locate, windowBox } from "./capture";
@@ -35,7 +36,7 @@ import {
   type Viewport,
 } from "./place";
 import { sendToFleet, sendToSession, unsendable, type SessionTarget } from "./send";
-import { withoutLayer } from "./shoot";
+import { painted, withoutLayer } from "./shoot";
 import type { Sink } from "./sink";
 import "./annotate.css";
 
@@ -48,6 +49,10 @@ export function isToggle(event: Pick<globalThis.KeyboardEvent, "code" | "metaKey
 export function isShootWindow(event: Pick<globalThis.KeyboardEvent, "code" | "metaKey" | "altKey" | "ctrlKey" | "shiftKey">): boolean {
   return event.code === "KeyS" && event.metaKey && event.altKey && !event.ctrlKey && !event.shiftKey;
 }
+
+/** What a Debug Bridge note says: the screen it was taken on, then what is asked of the Session. */
+export const debugText = (screen: string | null): string =>
+  `Debug Bridge${screen === null ? "" : ` on ${screen}`}\n\nWork out what is going on in Bridge from the screenshot and the state below. I will tell you what looks wrong.`;
 
 /** Survives a reload, so pins are still drawn after one. Per window, not per machine. */
 export const ON_KEY = "armada.annotate.on";
@@ -188,11 +193,20 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSession, tell
     sink.list().then((read) => setNotes([...read].sort(byCreation)), (cause) => fail("Reading notes", cause));
   }, [on, sink, fail]);
 
+  // Bridge's state, held with the layer off too, since Debug Bridge records it from anywhere.
+  useEffect(() => {
+    if (fleet === undefined) return;
+    const held = (state: Awaited<ReturnType<LayerFleet["state"]>>): void => {
+      stateRef.current = state;
+    };
+    void fleet.state().then(held, () => undefined);
+    return fleet.subscribe(held);
+  }, [fleet]);
+
   // Every live Session, hosted and terminal, as the dropdown offers them.
   useEffect(() => {
     if (!on || fleet === undefined) return;
     const read = (state: Awaited<ReturnType<LayerFleet["state"]>>): void => {
-      stateRef.current = state;
       setLive(
         state.sessions.state === "read"
           ? state.sessions.sessions.filter((one) => one.state === "live").map((one) => ({ id: one.id, title: titled(one) }))
@@ -302,6 +316,56 @@ export function Layer({ sink, fleet: given, openSession = askToOpenSession, tell
     setOpened(null);
     setDraft({ note: context === undefined ? note : { ...note, context }, element: document.body, text: "", png });
   }
+
+  // A Debug Bridge out. A ref, so a second ⇧⌘D before the first has answered starts no second Session.
+  const debuggingRef = useRef(false);
+
+  /**
+   * Debug Bridge, from the palette or ⇧⌘D, with the layer on or off: shoot the window once the
+   * palette has gone from it, keep it as a whole-window note, and start a Session with the note as
+   * its first message. The note is written before the send, so a Fleet that refuses leaves it a file.
+   */
+  async function debugBridge(): Promise<void> {
+    if (debuggingRef.current || fleet === undefined) return;
+    debuggingRef.current = true;
+    try {
+      await painted(requestAnimationFrame);
+      const now = new Date();
+      const box = windowBox();
+      const begun = captureWindow(now);
+      let context: Annotation["context"];
+      try {
+        context = stateRef.current === null ? undefined : contextOf(stateRef.current);
+      } catch {
+        context = undefined;
+      }
+      const openJobId = openJobIn(document);
+      const screenshot = await keepShot(begun.id, box);
+      const note: Annotation = {
+        ...begun,
+        text: debugText(begun.screen),
+        ...(openJobId === undefined ? {} : { openJobId }),
+        ...(context === undefined ? {} : { context }),
+        ...(screenshot === null ? {} : { screenshot }),
+      };
+      await sink.save(note);
+      setNotes((was) => [...was.filter((n) => n.id !== note.id), note].sort(byCreation));
+      const answer = await sendToSession([{ note, box }], null, sink, fleet, new Date());
+      if (!answer.ok) {
+        tell(answer.saying);
+        return;
+      }
+      const sent = { ...note, sent: answer.sent, updatedAt: answer.sent.at };
+      await sink.save(sent);
+      setNotes((was) => was.map((n) => (n.id === sent.id ? sent : n)));
+      if ("sessionId" in answer.sent) openSession(answer.sent.sessionId);
+    } catch (cause) {
+      fail("Debug Bridge", cause);
+    } finally {
+      debuggingRef.current = false;
+    }
+  }
+  useDebugBridgeAsked(() => void debugBridge());
 
   async function save(): Promise<void> {
     if (draft === null || draft.text.trim() === "" || savingRef.current) return;

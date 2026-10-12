@@ -1440,6 +1440,7 @@ is the back-fill by hand that this section existed to prevent.
 ⌥1–3     filter by number  (dashboard only)
 Esc      close an overlay, or return to the list from a detail route
 ⇧⌘R      refresh, re-reading everything Fleet holds
+⇧⌘D      debug Bridge: shoot the window and start a Session on it  (pnpm dev only)
 ```
 
 **`⌘Enter` is the one Global binding that needs a focused field**, and it is
