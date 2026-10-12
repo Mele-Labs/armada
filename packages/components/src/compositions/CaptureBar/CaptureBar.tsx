@@ -89,7 +89,18 @@ export type CaptureBarProps = {
    * a Studio's window, which has none.** One press draws it or folds it away.
    */
   panel?: CaptureBarPanel;
+  /**
+   * The takes a Session showed of one change, each a page of its own. One is drawn at a time; a
+   * press swaps the page, and Approve and every note name the one on screen. **Absent: one page.**
+   */
+  variations?: CaptureBarVariations;
 };
+
+/** Each take's name in the order shown, which is on screen, and the press that swaps it. */
+export type CaptureBarVariations = { names: readonly string[]; at: number; onPick: (at: number) => void };
+
+/** A take's letter: A for the first. */
+export const variationLetter = (at: number): string => String.fromCharCode(65 + at);
 
 /** Which panel the window has, whether it is drawn, and the press that changes that. */
 export type CaptureBarPanel = { kind: "session" | "job"; open: boolean; onToggle: (open: boolean) => void };
@@ -102,7 +113,8 @@ export function hasASecondRow(
 }
 
 export function CaptureBar(props: CaptureBarProps) {
-  const { run, address, studio, job, session, serving, armed, framesRefused, refused, binding, approval, question, panel } = props;
+  const { run, address, studio, job, session, serving, armed, framesRefused, refused, binding, approval, question, panel, variations } = props;
+  const taking = variations === undefined ? "" : ` ${variationLetter(variations.at)}`;
   const owner = job ?? session;
   const landsOn = studio !== null ? `Notes land on ${studio}` : owner !== undefined ? `Notes go to ${owner}` : null;
   const aim =
@@ -160,7 +172,7 @@ export function CaptureBar(props: CaptureBarProps) {
             onClick={props.onApprove}
           >
             <Check size={12} strokeWidth={2} aria-hidden />
-            {approval?.state === "approved" ? "Approved" : "Approve"}
+            {approval?.state === "approved" ? `Approved${taking}` : `Approve${taking}`}
           </Button>
         )}
         {panel === undefined ? null : (
@@ -169,6 +181,24 @@ export function CaptureBar(props: CaptureBarProps) {
           </Button>
         )}
       </div>
+      {/* A row of their own, so the takes never push the acts off a narrow window's bar. */}
+      {variations === undefined ? null : (
+        <div role="radiogroup" aria-label="Variations" className="armada-capture-bar__row armada-capture-bar__takes">
+          {variations.names.map((name, at) => (
+            <button
+              key={at}
+              type="button"
+              role="radio"
+              aria-checked={at === variations.at}
+              className="armada-capture-bar__take"
+              onClick={() => variations.onPick(at)}
+            >
+              <span className="armada-capture-bar__take-letter">{variationLetter(at)}</span>
+              {name}
+            </button>
+          ))}
+        </div>
+      )}
       {hasASecondRow(props) ? (
         <div className="armada-capture-bar__said" role="status">
           {serving ? null : (

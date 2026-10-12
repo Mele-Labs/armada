@@ -6,7 +6,7 @@
 // Session would do next, applied when a walk's `later` step lets time pass or,
 // for the first, when the person sends a message.
 
-import { closeWalkWindow, mockPage, openWalkWindow } from "@armada/jobs/fake";
+import { closeWalkWindow, mockPage, openWalkWindow, type Variation } from "@armada/jobs/fake";
 import { askToOpenSession } from "../../open-session";
 import type { Session, SessionTag, SessionAttachment, SessionCommand, SessionRow, SessionSketch, SessionsDraft } from "@armada/screens/src/draft/sessions";
 
@@ -124,6 +124,20 @@ export const MINE = "s7";
 /** The Session that shows a page in a window when it is next spoken to. */
 export const SHOWER = "s11";
 const SHOWN = "Clock read report";
+/** The Session that shows three takes of one page in a window when it is next spoken to. */
+export const VARIER = "s12";
+const VARIED = "Board layouts";
+/** Its takes: the mock itself on three scenarios, the way a Session would serve three branches of one page. */
+const takes = (): Variation[] =>
+  [
+    { name: "Every state", scenario: "every-state" },
+    { name: "Needs you first", scenario: "dashboard-needs-you" },
+    { name: "Sessions beside", scenario: "sessions" },
+  ].map(({ name, scenario }) => {
+    const url = new URL(mockPage());
+    url.searchParams.set("scenario", scenario);
+    return { name, url: url.toString() };
+  });
 
 /** A Job on the Board that a person can tag: where it stands, and how the Session would hold it. */
 export type TaggableJob = DispatchedJob & { state: "escalated" | "review" };
@@ -212,12 +226,18 @@ export function sessionsStore(
       job: session.title ?? id,
       into: "Session",
       onOpenOwner: () => askToOpenSession(id),
-      onNote: (note, picked) => store.send(id, { text: `${note}\nOn ${picked.element}, ${picked.location}`, files: [], sketches: [], tags: [] }),
+      // A note taken on one of several takes names it first, so the Session knows which page it is about.
+      onNote: (note, picked) => {
+        const on = picked.variation === undefined ? "" : `${picked.variation.letter}, ${picked.variation.name}: `;
+        return store.send(id, { text: `${note}\nOn ${on}${picked.element}, ${picked.location}`, files: [], sketches: [], tags: [] });
+      },
       // Approve is a message from the person too, and wakes the Session the same way.
-      onApprove: async (address) => {
-        await store.send(id, { text: `Approved: ${address}`, files: [], sketches: [], tags: [] });
+      onApprove: async (address, variation) => {
+        const which = variation === undefined ? "" : ` ${variation.letter}, ${variation.name}`;
+        await store.send(id, { text: `Approved${which}: ${address}`, files: [], sketches: [], tags: [] });
         return { ok: true };
       },
+      ...(id === VARIER ? { variations: takes() } : {}),
     });
   };
   /** The Session shows a page: its window opens by itself, and the ledger and the thread keep it. */
@@ -516,6 +536,18 @@ export function sessionsStore(
             addTo(id, [said("Noted. I will change that.")]);
           }
           finishOf(id, "14:40");
+        });
+      } else if (id === VARIER) {
+        const had = asked.get(id) ?? 0;
+        asked.set(id, had + 1);
+        after(900, () => {
+          if (had === 0) {
+            addTo(id, [tool(`show_window ${VARIED}, 3 variations`), said("Three layouts are in a window.")]);
+            showWindow(id, takes()[0]!.url, VARIED);
+          } else {
+            addTo(id, [said("Noted. I will change that.")]);
+          }
+          finishOf(id, "14:44");
         });
       } else if (id === MINE && !started) {
         started = true;

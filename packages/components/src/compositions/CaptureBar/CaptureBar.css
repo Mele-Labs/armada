@@ -48,6 +48,47 @@
   font-size: var(--text-2xs);
 }
 
+/* The takes of one change, a row under the bar's own: the one on screen is filled. Each scrolls
+   into reach rather than wrapping, so the row keeps the bar's height. */
+.armada-capture-bar__takes {
+  gap: var(--space-1);
+  overflow-x: auto;
+}
+
+.armada-capture-bar__take {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--fg-muted);
+  font: inherit;
+  line-height: var(--leading-xs);
+  cursor: pointer;
+}
+
+.armada-capture-bar__take:hover {
+  color: var(--fg-default);
+}
+
+.armada-capture-bar__take[aria-checked="true"] {
+  background: var(--accent);
+  color: var(--text-on-accent);
+}
+
+.armada-capture-bar__take:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.armada-capture-bar__take-letter {
+  font-family: var(--font-mono);
+  font-weight: var(--weight-medium);
+}
+
 /* The one track that gives: the Studio's name is what shortens on a narrow
    window, because the address and the acts are not the parts to lose. */
 .armada-capture-bar__aim {

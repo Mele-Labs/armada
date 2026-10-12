@@ -13,10 +13,16 @@
 
 import { StrictMode, useEffect, useRef, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { Button, CaptureBar, type CaptureBarApproval } from "@armada/components";
+import { Button, CaptureBar, variationLetter, type CaptureBarApproval } from "@armada/components";
 
 /** What a press inside the page picked, as a walk note describes it. */
-export type Picked = { element: string; selector: string; location: string };
+export type Picked = { element: string; selector: string; location: string; variation?: Taken };
+
+/** One take of a change, a page of its own. */
+export type Variation = { name: string; url: string };
+
+/** The take on screen, as a note and an Approve name it: `B, Cards`. */
+export type Taken = { letter: string; name: string };
 
 export type WalkWindowOptions = {
   /** What a note goes to, as the bar names it: a Job's handle, or a Session's title. */
@@ -29,7 +35,9 @@ export type WalkWindowOptions = {
   onOpenOwner?: () => void;
   onNote: (said: string, picked: Picked) => void;
   /** Approve, pressed on the page at `address`: what the Job or the Session is told. */
-  onApprove?: (address: string) => Promise<{ ok: true } | { ok: false; said: string }>;
+  onApprove?: (address: string, variation?: Taken) => Promise<{ ok: true } | { ok: false; said: string }>;
+  /** The takes shown, the first on screen. **Absent: the one page at `url`.** */
+  variations?: readonly Variation[];
 };
 
 let held: { root: Root; host: HTMLElement } | null = null;
@@ -96,14 +104,18 @@ if (typeof window !== "undefined") {
   );
 }
 
-function WalkWindow({ run, url, host, job, into = "Job", title, onOpenOwner, onNote, onApprove }: { run: string; url: string; host: HTMLElement } & WalkWindowOptions) {
+function WalkWindow({ run, url: first, host, job, into = "Job", title, onOpenOwner, onNote, onApprove, variations }: { run: string; url: string; host: HTMLElement } & WalkWindowOptions) {
   const testing = (import.meta as { env?: { MODE?: string } }).env?.MODE === "test";
   const frame = useRef<HTMLIFrameElement>(null);
   const [armed, setArmed] = useState(false);
   const [picked, setPicked] = useState<Picked | null>(null);
   const [said, setSaid] = useState("");
   const [kept, setKept] = useState(0);
-  const [approval, setApproval] = useState<CaptureBarApproval | undefined>(undefined);
+  // Approving one take approves it alone: another on screen is Approve again, and pressing it moves the approval.
+  const [approval, setApproval] = useState<{ at: number; state: CaptureBarApproval } | undefined>(undefined);
+  const [at, setAt] = useState(0);
+  const url = variations?.[at]?.url ?? first;
+  const taken: Taken | undefined = variations?.[at] === undefined ? undefined : { letter: variationLetter(at), name: variations[at].name };
 
   // **Bridge dims behind the window while it has focus**, as main dims its own
   // windows behind a focused walk window: a press here or in its page takes
@@ -162,7 +174,12 @@ function WalkWindow({ run, url, host, job, into = "Job", title, onOpenOwner, onN
       event.preventDefault();
       event.stopPropagation();
       const target = event.target as HTMLElement;
-      setPicked({ element: described(target), selector: selectorOf(target), location: page.location.pathname + page.location.search });
+      setPicked({
+        element: described(target),
+        selector: selectorOf(target),
+        location: page.location.pathname + page.location.search,
+        ...(taken === undefined ? {} : { variation: taken }),
+      });
       setArmed(false);
     };
     page.addEventListener("mouseover", over, true);
@@ -172,7 +189,7 @@ function WalkWindow({ run, url, host, job, into = "Job", title, onOpenOwner, onN
       page.removeEventListener("mouseover", over, true);
       page.removeEventListener("click", press, true);
     };
-  }, [armed]);
+  }, [armed, at]);
 
   function save(): void {
     if (picked === null || said.trim() === "") return;
@@ -216,13 +233,15 @@ function WalkWindow({ run, url, host, job, into = "Job", title, onOpenOwner, onN
           ? {}
           : {
               onApprove: () => {
-                setApproval({ state: "pending" });
-                void onApprove(url).then((answer) =>
-                  setApproval(answer.ok ? { state: "approved" } : { state: "refused", said: answer.said }),
+                const pressed = at;
+                setApproval({ at: pressed, state: { state: "pending" } });
+                void onApprove(url, taken).then((answer) =>
+                  setApproval({ at: pressed, state: answer.ok ? { state: "approved" } : { state: "refused", said: answer.said } }),
                 );
               },
             })}
-        {...(approval === undefined ? {} : { approval })}
+        {...(approval?.at !== at ? {} : { approval: approval.state })}
+        {...(variations === undefined ? {} : { variations: { names: variations.map((one) => one.name), at, onPick: setAt } })}
       />
       {picked === null ? null : (
         <form
@@ -233,7 +252,10 @@ function WalkWindow({ run, url, host, job, into = "Job", title, onOpenOwner, onN
             save();
           }}
         >
-          <span>On {picked.element}</span>
+          <span>
+            On {picked.variation === undefined ? "" : `${picked.variation.letter}, `}
+            {picked.element}
+          </span>
           <textarea
             aria-label="What is wrong here"
             value={said}
