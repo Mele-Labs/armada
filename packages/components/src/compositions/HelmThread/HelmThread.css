@@ -137,6 +137,52 @@
   text-wrap: pretty;
 }
 
+/* Where a thought went instead of to Helm: one line, the target a chip that opens it. */
+.armada-helm-sent {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  font-size: var(--text-2xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-muted);
+}
+
+.armada-helm-sent__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+  padding: 0 var(--space-2);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+  color: var(--fg-default);
+  font: inherit;
+  cursor: pointer;
+}
+
+.armada-helm-sent__chip:hover {
+  border-color: var(--helm-edge);
+}
+
+.armada-helm-sent__chip > svg {
+  flex: none;
+  color: var(--fg-muted);
+}
+
+.armada-helm-sent__title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.armada-helm-sent__repository {
+  flex: none;
+  color: var(--fg-muted);
+}
+
 .armada-helm-thread__replying {
   display: flex;
   align-items: center;

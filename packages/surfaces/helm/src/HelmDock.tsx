@@ -6,8 +6,9 @@
 // and a Judge's stay in the block above, and an ask that stopped this
 // conversation is drawn in it.
 
-import { useState } from "react";
-import { copyHelmRecord, DockQuestions, HelmComposer, HelmRecord, HelmThread } from "@armada/components";
+import { useRef, useState, type KeyboardEvent } from "react";
+import { copyHelmRecord, DockQuestions, HelmComposer, HelmRecord, HelmThread, ThoughtCard } from "@armada/components";
+import { clock } from "@armada/screens/src/duration";
 import { useRecentRepositories } from "@armada/shell";
 import type {
   DockQuestion,
@@ -28,6 +29,7 @@ import { helmRowsOf, type HelmApprovalAsk, type HelmFoldedRow } from "./helm-thr
 import type { HelmState } from "./api";
 import { locationOf, type StudioNamed } from "./helm-context";
 import { recentManifestIds } from "./recent-manifests";
+import type { RouteTarget, ThoughtRouting } from "./thought-routing";
 
 export type HelmDockProps = {
   helm: HelmState["helm"];
@@ -60,7 +62,23 @@ export type HelmDockProps = {
    * looking. Oldest first, and empty draws nothing.
    */
   asks?: readonly DockQuestion[];
+  /**
+   * Where a thought may go. **Present, Helm reads every message first**: a question is asked as
+   * ever, and a thought for other work gets a card over the message box. Absent, every message is
+   * an ask. Mock-only for now (`thought-routing.ts`).
+   */
+  routing?: ThoughtRouting;
 };
+
+/** The thought in front of the person: being read, matched to running work, or offered a new home. */
+type Thought = { id: number; text: string } & (
+  | { stage: "routing" }
+  | { stage: "match"; match: RouteTarget }
+  | { stage: "new" }
+);
+
+/** Words sent to running work instead of Helm, kept in the thread at the place they were sent. */
+type Placed = { id: number; after: number; at: string; text: string; target: RouteTarget };
 
 /**
  * A card's own press, held for this dock's lifetime alone — a reload starts
@@ -85,8 +103,13 @@ export function HelmDock({
   onSaid,
   onApprove,
   asks = [],
+  routing,
 }: HelmDockProps) {
   const [draft, setDraft] = useState("");
+  const [thought, setThought] = useState<Thought>();
+  const [placed, setPlaced] = useState<Placed[]>([]);
+  // Bumped by every message and every dismissal, so a reading for words no longer in front is let go.
+  const latest = useRef(0);
   const [record, setRecord] = useState<Read>({ open: false });
   const [pressed, setPressed] = useState<Record<string, Pressed>>({});
   const current = helm.state === "none" ? undefined : helm.manifestId;
@@ -103,7 +126,25 @@ export function HelmDock({
     onSwitch(manifestId);
   }
   const folded = helm.state === "open" || helm.state === "failed" ? helmRowsOf(helm.items) : [];
-  const rows = folded.map((row) => withCards(row, jobs, workflows, pressed, onApprove, setPressed));
+  const asked = folded.map((row) => withCards(row, jobs, workflows, pressed, onApprove, setPressed));
+  const rows: HelmThreadRow[] = [];
+  const inPlace = (at: (after: number) => boolean) =>
+    placed
+      .filter((one) => at(one.after))
+      .forEach((one) =>
+        rows.push({
+          id: `thought-${one.id}`,
+          at: one.at,
+          actor: "you",
+          message: one.text,
+          sent: { target: one.target, onOpen: () => routing?.open(one.target) },
+        }),
+      );
+  asked.forEach((row, index) => {
+    inPlace((after) => after === index);
+    rows.push(row);
+  });
+  inPlace((after) => after >= asked.length);
   const replying = helmReplying(helm);
 
   const notice = !live
@@ -143,18 +184,106 @@ export function HelmDock({
   function send(): void {
     const text = draft.trim();
     if (text === "") return;
-    onAsk(text, context);
     setDraft("");
+    if (routing === undefined) return onAsk(text, context);
+    const id = (latest.current += 1);
+    setThought({ id, text, stage: "routing" });
+    void routing.read(text).then((reading) => {
+      if (latest.current !== id) return;
+      if (reading.kind === "question") {
+        setThought(undefined);
+        onAsk(text, context);
+      } else {
+        setThought(reading.match === undefined ? { id, text, stage: "new" } : { id, text, stage: "match", match: reading.match });
+      }
+    });
+  }
+
+  function dismiss(): void {
+    latest.current += 1;
+    setThought(undefined);
+  }
+
+  /** The words go to Helm as an ordinary message, since the guess at where they belong can be wrong. */
+  function askHelm(text: string): void {
+    dismiss();
+    onAsk(text, context);
+  }
+
+  function place(one: Thought & { stage: "match" }): void {
+    routing?.send(one.match, one.text);
+    setPlaced((was) => [
+      ...was,
+      { id: one.id, after: folded.length, at: clock(new Date().toISOString()), text: one.text, target: one.match },
+    ]);
+    dismiss();
+  }
+
+  function startNew(kind: "session" | "job", text: string): void {
+    dismiss();
+    routing?.startNew(kind, text);
+  }
+
+  /**
+   * The card's keys, while the message box is empty: from then on a letter is an answer and not a
+   * word. A button that has focus keeps ↵ for itself, so pressing it never answers twice.
+   */
+  function keyed(event: KeyboardEvent<HTMLDivElement>): void {
+    if (thought === undefined || thought.stage === "routing" || draft !== "") return;
+    if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return;
+    const key = event.key.toLowerCase();
+    const onButton = event.target instanceof HTMLElement && event.target.closest("button") !== null;
+    const act =
+      key === "escape"
+        ? dismiss
+        : key === "h"
+          ? () => askHelm(thought.text)
+          : thought.stage === "match"
+            ? key === "y" || (key === "enter" && !onButton)
+              ? () => place(thought)
+              : key === "n"
+                ? () => setThought({ id: thought.id, text: thought.text, stage: "new" })
+                : undefined
+            : key === "s"
+              ? () => startNew("session", thought.text)
+              : key === "j"
+                ? () => startNew("job", thought.text)
+                : undefined;
+    if (act === undefined) return;
+    event.preventDefault();
+    event.stopPropagation();
+    act();
   }
 
   return (
-    <div className="armada-helm-dock">
+    <div className="armada-helm-dock" onKeyDownCapture={keyed}>
       <HelmThread rows={rows} replying={replying} notice={notice} />
       {/* Between the thread and the message box: the reply is held open above
           it and the person is typing below it, so the ask is in the one place
           neither of them has to be left to find it — #1519. The same
           `DockQuestions` the dock draws, so there is one card and not two. */}
       <DockQuestions questions={asks} />
+      {thought === undefined ? null : thought.stage === "routing" ? (
+        <ThoughtCard stage="routing" words={thought.text} />
+      ) : thought.stage === "match" ? (
+        <ThoughtCard
+          stage="match"
+          words={thought.text}
+          target={thought.match}
+          onSend={() => place(thought)}
+          onNo={() => setThought({ id: thought.id, text: thought.text, stage: "new" })}
+          onAskHelm={() => askHelm(thought.text)}
+        />
+      ) : (
+        <ThoughtCard
+          stage="new"
+          words={thought.text}
+          onSession={() => startNew("session", thought.text)}
+          onJob={() => startNew("job", thought.text)}
+          onAskHelm={() => askHelm(thought.text)}
+          onDismiss={dismiss}
+        />
+      )}
       <HelmComposer
         current={current}
         repositories={options}

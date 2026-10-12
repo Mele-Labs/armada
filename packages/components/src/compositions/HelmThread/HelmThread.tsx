@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
 import { Button } from "../../primitives/Button/Button";
 import { Prose } from "../../primitives/Prose/Prose";
+import { THOUGHT_KIND } from "../ThoughtCard/ThoughtCard";
+import type { ThoughtTarget } from "../ThoughtCard/ThoughtCard";
 
 /**
  * Helm's own conversation, under the dock's questions — #944.
@@ -57,6 +59,8 @@ export type HelmThreadRow = {
   meta?: ReactNode;
   /** An approval Helm asked for, placed within this reply. */
   cards?: HelmApprovalCard[];
+  /** Where these words went instead of to Helm: the Session or Job, pressed to open it. */
+  sent?: { target: ThoughtTarget; onOpen: () => void };
 };
 
 function ApprovalCard({ jobHandle, workflow, stepCount, state, onApprove, onDismiss }: HelmApprovalCard) {
@@ -79,6 +83,21 @@ function ApprovalCard({ jobHandle, workflow, stepCount, state, onApprove, onDism
       ) : (
         <p className="armada-helm-approval-card__state">{STATE_SAID[state]}</p>
       )}
+    </div>
+  );
+}
+
+/** One compact line under the owner's words: where they went. Pressing it opens that Session or Job. */
+function SentTo({ target, onOpen }: { target: ThoughtTarget; onOpen: () => void }) {
+  const { Glyph, said } = THOUGHT_KIND[target.kind];
+  return (
+    <div className="armada-helm-sent">
+      <span className="armada-helm-sent__label">Sent to</span>
+      <button type="button" className="armada-helm-sent__chip" aria-label={`Sent to ${said} ${target.title}`} onClick={onOpen}>
+        <Glyph size={12} strokeWidth={2} aria-hidden />
+        <span className="armada-helm-sent__title">{target.title}</span>
+        <span className="armada-helm-sent__repository mono">{target.repository}</span>
+      </button>
     </div>
   );
 }
@@ -141,6 +160,7 @@ export function HelmThread({
               {row.cards === undefined
                 ? null
                 : row.cards.map((card) => <ApprovalCard key={card.id} {...card} />)}
+              {row.sent === undefined ? null : <SentTo {...row.sent} />}
               {row.meta === undefined ? null : <p className="armada-helm-thread__meta">{row.meta}</p>}
             </li>
           ))}
