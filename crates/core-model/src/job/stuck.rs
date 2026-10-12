@@ -506,7 +506,8 @@ impl Stuck {
 /// Drone, and no others.** Every other Job-level escalation is untouched:
 /// `interrupted` and `would_not_start` have no process to end, `stalled` has
 /// one Fleet can speak to and is answered by the redirect, and
-/// `resource_exhausted` and `no_worktree` fail the worktree test one line up.
+/// `resource_exhausted` is not read as a Drone that left. `no_worktree` is the
+/// one other that is, and only over a worktree still on disk.
 /// Relaxing this to `stopped.is_none()` would offer a restart on all of them —
 /// a rule about every stuck Job, changed to fix one.
 ///
