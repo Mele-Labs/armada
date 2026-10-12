@@ -4,7 +4,9 @@
 //! reaches the index, whether the branch a linked worktree has checked out is
 //! what moves. Every crate above this one fakes the whole trait.
 
-use adapter_traits::{CommitTime, Committed, Vcs, Worktree, WorktreeSpec};
+use adapter_traits::{
+    Base, BroughtUpToDate, CommitTime, Committed, Delivery, Vcs, Worktree, WorktreeSpec,
+};
 use git2::Repository;
 
 use crate::tests::repo::TempRepo;
@@ -445,4 +447,66 @@ fn a_merge_whose_markers_were_cleared_commits_with_the_base_as_second_parent() {
         "nothing is left mid-merge"
     );
     assert!(status(&worktree).is_empty(), "and nothing left unstaged");
+}
+
+/// **Job 14, 12 Oct 2026: a merge already resolved and staged, never
+/// committed.** A repair Drone ran `git add`, so the index holds no unmerged
+/// path and `MERGE_HEAD` is still there. The catch-up a re-entered step makes
+/// leaves it as it stands, and Fleet's commit then concludes the merge with
+/// the base as second parent.
+#[test]
+fn a_merge_resolved_and_staged_but_never_committed_is_left_by_the_catch_up_and_concluded_by_the_commit(
+) {
+    let repo = TempRepo::with_a_commit();
+    repo.write("shared.txt", "the original\n");
+    repo.commit_everything("a file both sides touch");
+
+    let worktree = worktree_for(&repo);
+    wrote(&worktree, "shared.txt", "what the job wrote\n");
+    GitVcs::new()
+        .commit_all(&worktree, "the job's work", NINE)
+        .expect("a commit");
+    repo.commit_one(
+        "shared.txt",
+        "what somebody else merged\n",
+        "somebody else got there first",
+    );
+    let merge = std::process::Command::new("git")
+        .args(["-C", worktree.path(), "merge", "main"])
+        .output()
+        .expect("git on PATH");
+    assert!(!merge.status.success(), "the merge was meant to conflict");
+    let job_tip = tip(&worktree);
+    let base_tip = repo.git(&["rev-parse", "main"]);
+    wrote(&worktree, "shared.txt", "both, reconciled\n");
+    git_in(&worktree, &["add", "shared.txt"]);
+
+    let base = Base::Inferred(String::from("main"));
+    let moved = GitVcs::new()
+        .bring_up_to_date(&worktree, &base)
+        .expect("the catch-up answers");
+    assert_eq!(
+        moved,
+        BroughtUpToDate::PutBack {
+            base: String::from("main"),
+            files: Vec::new()
+        },
+        "the merge in progress is not started over"
+    );
+    assert_eq!(tip(&worktree), job_tip, "and the branch did not move");
+
+    let made = GitVcs::new()
+        .commit_all(&worktree, "Merge main", NINE)
+        .expect("nothing is unmerged and no marker is left, so the merge commits");
+    assert!(matches!(made, Committed::Made { .. }), "{made:?}");
+    let opened = Repository::open(worktree.path()).expect("the worktree");
+    let commit = opened.find_commit(tip(&worktree)).expect("the commit");
+    assert_eq!(commit.parent_count(), 2, "a merge, not a squash");
+    assert_eq!(commit.parent_id(0).expect("a first parent"), job_tip);
+    assert_eq!(
+        commit.parent_id(1).expect("a second parent").to_string(),
+        base_tip
+    );
+    assert_eq!(opened.state(), git2::RepositoryState::Clean);
+    assert!(status(&worktree).is_empty());
 }

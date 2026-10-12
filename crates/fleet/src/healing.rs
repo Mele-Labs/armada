@@ -79,20 +79,24 @@ where
     ///
     /// `conflicted` is what a catch-up has just reported and a Drone is still
     /// to resolve: those paths are the Drone's work and are left alone.
+    ///
+    /// **`true` means a repair Drone ran and Fleet read the index clean after
+    /// it.** The caller then owes whatever the unmerged paths stopped: a
+    /// delivery that could not commit does not run again by itself.
     pub(crate) async fn index_healed(
         &self,
         job: &Job,
         step: &StepId,
         worktree: &Worktree,
         conflicted: &[String],
-    ) -> Result<(), NotHealed> {
+    ) -> Result<bool, NotHealed> {
         let Some(finding) = self.unstaged_in(worktree, conflicted) else {
-            return Ok(());
+            return Ok(false);
         };
         self.healed(job, step, worktree, &finding).await?;
         // Read again by Fleet: a Drone saying it staged them is a signal.
         match self.unstaged_in(worktree, conflicted) {
-            None => Ok(()),
+            None => Ok(true),
             Some(left) => Err(NotHealed {
                 found: finding.said(),
                 tried: format!("a repair Drone ran and {} is still unmerged", left.said()),
