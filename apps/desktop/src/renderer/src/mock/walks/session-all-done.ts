@@ -1,5 +1,5 @@
 // A Session whose agent says it has nothing left: the thread ends in a callout. Under its band it lists
-// the pull requests that landed, and where none did, the pages, files and Docs it made; each is a press.
+// the pull requests, merged first and each with its state and checks, and where there are none, the pages, files and Docs it made; each is a press.
 // Keep going hides it and puts the cursor in the message box; End session ends the Session, and its
 // ledger stays to be read. Over the `session-all-done` and `session-all-done-artifacts` scenarios.
 // Told twice each: wide, and below the breakpoint.
@@ -25,7 +25,7 @@ const artifacts = inside(callout, role("list", "Artifacts"));
 
 const keep: Step[] = [
   ...opened(/Pin the store clock/),
-  { look: prs, say: "The two merged pull requests, and not the open one" },
+  { look: prs, say: "Each pull request with its state and checks" },
   { press: inside(callout, button("Keep going")), say: "Keep going hides it" },
   { look: kit(false).message, say: "The cursor is in the message box" },
 ];

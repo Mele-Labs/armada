@@ -1,6 +1,6 @@
 // A Session whose agent says it has nothing left to work on: its thread ends in a callout with End
-// session and Keep going, over a list of the pull requests it landed. Over the `sessions` scenario. The
-// walk `session-all-done` plays it. An open pull request is held too, and is not listed.
+// session and Keep going, over a list of the pull requests it opened. Over the `sessions` scenario. The
+// walk `session-all-done` plays it. An open pull request with its Checks running is listed after the merged ones.
 
 import type { Session } from "@armada/screens/src/draft/sessions";
 
@@ -46,7 +46,7 @@ const finished: Session = {
       title: "Drop the retry shim",
       branch: "fix/drop-retry-shim",
       address: "https://example.com/pull/1845",
-      checks: { state: "passed" },
+      checks: { state: "pending" },
       state: "open",
       auto: false,
     },
