@@ -4,7 +4,16 @@
 // mock's is `mock/sleep.ts`.
 
 import { createContext, useContext, useSyncExternalStore } from "react";
-import type { MorningBlocked, MorningDecided, MorningLanded, TheShellProps } from "@armada/components";
+import type { TheShellProps } from "@armada/components";
+
+/** A question Sleep answered for the owner. */
+export type MorningDecided = { id: string; who: string; asked: string; chose: string; corrected?: string };
+
+/** Something only the owner can settle. */
+export type MorningBlocked = { id: string; who: string; text: string };
+
+/** A pull request that merged during the night. */
+export type MorningLanded = { id: string; who: string; title: string; pr: string };
 
 export type SleepState = {
   on: boolean;

@@ -31,7 +31,6 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { Button, Radio, RadioGroup, Textarea } from "@armada/components";
-import type { MorningDecided } from "@armada/components";
 import type { FixMain, JobSummary, RepositorySummary, WaitingItem } from "@armada/protocol";
 import type { AboutFiles, AboutLink, CallAskView, CallView } from "@armada/jobs/draft/calls";
 import type { NowView } from "@armada/jobs/draft/now";
@@ -44,7 +43,7 @@ import { useListKeydown } from "@armada/screens/src/list-keyboard";
 import type { BridgeState } from "../../shared/bridge";
 import { viewsOf } from "./merge-line";
 import { useSessions } from "./sessions-draft";
-import { useSleepDecided } from "./sleep";
+import { useSleepDecided, type MorningDecided } from "./sleep";
 import { forgetCleared, identityOf, useDismissed } from "./cockpit/dismissed";
 import { callsFromWaiting, sessionIdOf, type WaitingCall } from "./cockpit/waiting";
 

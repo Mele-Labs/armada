@@ -37,6 +37,10 @@ export class SleepHost {
     return await this.act("POST", "/sleep/override", { id, text });
   }
 
+  async review(id: string): Promise<SleepActed> {
+    return await this.act("POST", "/sleep/review", { id });
+  }
+
   private async act(method: "GET" | "POST", path: string, body?: unknown): Promise<SleepActed> {
     const port = this.port();
     if (port === null) return { ok: false, outcome: NOT_CONNECTED };

@@ -228,6 +228,10 @@ where
         self.switch_sleep(set.on).await
     }
 
+    async fn review_sleep(self: Arc<Self>, review: ipc::ReviewSleep) -> Result<ipc::SleepState, Refusal> {
+        self.review_a_decision(review).await
+    }
+
     async fn override_sleep(
         self: Arc<Self>,
         over: ipc::OverrideSleep,

@@ -1,7 +1,7 @@
 // Mock-only: sleep mode with no Fleet behind it. Turning it on starts a night — the grace here is a
-// second or so, where the proposal is two minutes — and each event lands in turn: a question answered
-// for the owner, a pull request merged, a walk held. Turning it off lets the rest of the night pass at
-// once, so a walk reads the same review every time. Keeping or changing a decision takes its row off, which is what takes its call off the Cockpit.
+// second or so, where the proposal is two minutes — and each decision lands in turn as a call in the
+// Cockpit. Turning it off lets the rest of the night pass at once, so a walk reads the same deck every
+// time. Keeping or changing a decision takes its row off, which takes its call off the Cockpit.
 
 import type { SleepSource, SleepState } from "../sleep";
 
@@ -17,17 +17,7 @@ const decide = (id: string, who: string, asked: string, chose: string): Night =>
 const NIGHT: readonly Night[] = [
   decide("d1", "Order the lunch", "Which size?", "Large"),
   decide("d2", "Name the branch", "fix or feat?", "fix"),
-  (state) => ({ ...state, landed: [...state.landed, { id: "l1", who: "Job 41", title: "Retire the sleep calls", pr: "#2031" }] }),
   decide("d3", "Job 44", "The check timed out twice", "Retried with the larger timeout"),
-  (state) => ({ ...state, walks: [...state.walks, { id: "w1", who: "Job 47", title: "Dispatch panel spacing" }] }),
-  (state) => ({
-    ...state,
-    blocked: [
-      ...state.blocked,
-      { id: "b1", who: "Job 52", text: "Pull request #2044 waits on your approval" },
-      { id: "b2", who: "Order the lunch", text: "Refused: a write outside its slot" },
-    ],
-  }),
 ];
 
 const EMPTY: SleepState = { on: false, decided: [], blocked: [], landed: [], walks: [] };
