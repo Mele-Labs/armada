@@ -363,11 +363,12 @@ impl Approach {
     }
 }
 
-/// Who made a change: a run of a step, or a person.
+/// Who made a change: a run of a step, a person, or the Job's Commander.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum PlanAuthor {
     Step { step_id: StepId, attempt: Attempt },
     Person,
+    Commander,
 }
 
 /// One change to a Job's plan, as it is appended.

@@ -38,7 +38,7 @@ contract.
   record carrying `Attestation` must render distinctly from one verified
   mechanically, and its criterion verdicts read `confirmed` / `withheld`
   rather than either mechanical vocabulary.
-- **Actor:** `human`, `Helm`, `Drone`, `Fleet`, `Judge`, `Check`. Audit
+- **Actor:** `human`, `Helm`, `Drone`, `Fleet`, `Judge`, `Check`, `Commander`. Audit
   attribution. Answers who did this, and is what the three-way separation
   (human / Helm / Drone) depends on at the point a person actually reads it.
   A Judge and a Check sign the rows their own answer wrote, since protocol

@@ -43,8 +43,9 @@ export type Recorded = {
   status: string;
   moved: Movement;
   /**
-   * Who caused it: `human`, `fleet`, `drone` or `helm`, and since 22.0 `judge`
-   * or `check` on the rows their own answer wrote.
+   * Who caused it: `human`, `fleet`, `drone` or `helm`, since 22.0 `judge`
+   * or `check` on the rows their own answer wrote, and `commander` on what a
+   * Job's Commander did.
    */
   actor: string;
   at: string;
@@ -57,7 +58,7 @@ export type Recorded = {
   group_attempt?: number;
   /**
    * Which door the request that made this move came through: `bridge`, `helm`,
-   * `door`, `http` or `phone`. Absent on a move Fleet made on its own, and on every move
+   * `door`, `http`, `phone` or `commander`. Absent on a move Fleet made on its own, and on every move
    * older than 23.12. A person's act from anywhere but Bridge reads
    * `actor: "helm"` beside it.
    */

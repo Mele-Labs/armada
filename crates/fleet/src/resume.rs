@@ -122,6 +122,7 @@ where
         let by = match by {
             api::Redirector::Person => Actor::Human,
             api::Redirector::Helm => Actor::Helm,
+            api::Redirector::Commander => Actor::Commander,
         };
         self.steer(job_id, Steer::Words(instruction, by)).await
     }

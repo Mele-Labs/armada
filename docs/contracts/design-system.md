@@ -3135,7 +3135,7 @@ should not have to guess which.
   behind.
 - **Actor** is audit attribution, and the field the three-way
   separation depends on. Vocabulary: **human**, **Helm**, **Drone**,
-  **Fleet**. It answers who did this.
+  **Fleet**, and **commander** for a Job's Commander. It answers who did this.
 
 They are orthogonal, and events may carry one, both or neither. A
 manual change during Pilot is actor=human with no verification source.
