@@ -11,6 +11,8 @@ export type NowHost = {
   onOpenDrone?: ((droneId: string) => void) | undefined;
   onOpenCheckLog?: ((log: JobCheckLog) => void) | undefined;
   onOpenJob?: ((jobId: string) => void) | undefined;
+  /** The owner's answer to the Commander's card: the card's key, then the answer. */
+  onAnswerCommander?: ((key: string, option: string) => void) | undefined;
   onSaid: (sentence: string) => void;
 };
 
@@ -24,7 +26,9 @@ export function nowPanelOf(view: NowView | undefined, host: NowHost): Omit<NowPa
   const acts = (name: string, given: readonly NowActView[] | undefined): NowAct[] =>
     (given ?? []).map((act) => ({ ...act, onAct: () => host.onSaid(`${act.said}: ${name}`) }));
   const asks: NowAsk[] = (view.asks ?? []).map((ask) =>
-    ask.kind === "plan"
+    ask.kind === "commander"
+      ? { ...ask, onAnswer: (option: string) => host.onAnswerCommander?.(ask.key, option) }
+      : ask.kind === "plan"
       ? { ...ask, onAnswer: () => host.onSaid("Answer sent") }
       : { key: ask.key, kind: ask.kind, name: ask.name, text: ask.text, ...(ask.sketch === undefined ? {} : { sketch: ask.sketch }), ...(ask.asker === undefined ? {} : { asker: ask.asker }), onOpen: opens(ask.kind, ask.target) },
   );

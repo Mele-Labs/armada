@@ -314,6 +314,7 @@ function taskRowOf(task: TaskView, touchedBy: Map<string, string>): PlanBoardTas
     id: task.id,
     title: task.title,
     mark: markOf(task.state),
+    ...(task.by === undefined ? {} : { by: task.by }),
     ...(awaiting === undefined ? {} : { statusSays: awaiting }),
     ...(task.tier === undefined ? {} : { tier: task.tier }),
     ...(task.model === undefined ? {} : { model: task.model }),

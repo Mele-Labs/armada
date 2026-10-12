@@ -21,7 +21,7 @@ const SLICES = { slices: ["core", "jobs"] } as const;
 
 const approving = () => page.getByRole("region", { name: "What you are approving" });
 
-test("Job 1 at its gate reads what counts as done and how each step gates, under the lead", async () => {
+test("Job 1 at its gate reads what counts as done and how each step gates, beside the approval", async () => {
   mount(onJob(refactorAtApproval()), SLICES);
   await expect.element(page.getByRole("heading", { name: "Waiting for your approval" })).toBeVisible();
 
@@ -67,10 +67,12 @@ test("Job 1 at its gate reads what counts as done and how each step gates, under
   const land = await openNode("Land");
   await expect.element(land.getByRole("textbox", { name: "Lands in" })).toBeVisible();
 
-  // Straight under the lead.
-  const lead = document.querySelector(".armada-lead");
+  // First in the board's own column, with the approval itself a card in the Now panel beside it.
   const region = document.querySelector('[aria-label="What you are approving"]');
-  expect(lead?.nextElementSibling).toBe(region);
+  expect(document.querySelector(".armada-overview-board__main")?.firstElementChild).toBe(region);
+  await expect
+    .element(page.getByRole("region", { name: "Now" }).getByRole("button", { name: "Approve dispatch" }))
+    .toBeVisible();
 });
 
 // The owner, 3 Oct 2026: the panel holds the request, editable, so the Brief

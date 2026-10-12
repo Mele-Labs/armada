@@ -285,7 +285,7 @@ describe("the strip, and the header above it", () => {
 // all four of them were a press that changed nothing on screen. The owner
 // pressed `Read what it produced` and said so. A claim here is that the press
 // arrives somewhere: the destination, and the row it was sent to open.
-describe("the lead's act — what the press reaches", () => {
+describe("the Now card's act — what the press reaches", () => {
   test(
     "arc/group-failed: Read what it produced opens the Record on the failed Check's own row",
     async () => {
@@ -331,9 +331,9 @@ describe("the lead's act — what the press reaches", () => {
   });
 
   // **The review gate keeps its own arrangement.** What `Review it` would point
-  // at is already under the lead, so the lead offers no button over it — the
+  // at is already in the review card, so the card offers no button over it — the
   // suppression that has held since the gate was given a home.
-  test("job/reviewAtDelivery: the decision is under the lead, and no act is offered over it", async () => {
+  test("job/reviewAtDelivery: the decision is in the review card, and no act is offered over it", async () => {
     mount("job/reviewAtDelivery", SLICES);
     await onScreen();
     await expect
@@ -348,27 +348,26 @@ describe("the lead's act — what the press reaches", () => {
   // Fleet offers `rerun_checks` and `restart_step` in `stuck.recourse`, and the
   // reframe of 29 Sep 2026 unmounted the only control that drew them — so the
   // owner's Job read *Out of retries* with nothing anywhere to press.
-  test("job/awaitingRepair: the lead offers Run Checks again and Restart step", async () => {
-    await drawn("job/awaitingRepair", ".armada-lead");
+  test("job/awaitingRepair: the Now panel's card offers Run Checks again and Restart step", async () => {
+    await drawn("job/awaitingRepair", ".armada-now .armada-callcard");
     await expect.element(page.getByRole("heading", { name: "Out of retries" })).toBeVisible();
-    const lead = document.querySelector(".armada-lead");
+    const card = document.querySelector(".armada-now .armada-callcard");
     const rerun = page.getByRole("button", { name: "Run Checks again" });
     await expect.element(rerun).toBeVisible();
-    expect(lead?.contains(await rerun.element())).toBe(true);
+    expect(card?.contains(await rerun.element())).toBe(true);
     const restart = page.getByRole("button", { name: "Restart step" });
     await expect.element(restart).toBeVisible();
-    expect(lead?.contains(await restart.element())).toBe(true);
+    expect(card?.contains(await restart.element())).toBe(true);
   });
 
-  // **Nothing to press where nothing is built.** Fleet serves no attestation,
-  // so the sentence is all there is — `#1675` found four buttons reaching
-  // nothing and the owner kept one route of the four.
-  test("job/awaitingAttestation offers a sentence and no act", async () => {
-    await drawn("job/awaitingAttestation", ".armada-lead");
-    await expect
-      .element(page.getByRole("heading", { name: "A criterion needs your attestation" }))
-      .toBeVisible();
-    expect(document.querySelectorAll(".armada-lead button")).toHaveLength(0);
+  // **Nothing to press where nothing is built.** Fleet serves no attestation, so there is nothing to
+  // answer and Overview draws no card for it — `#1675` found four buttons reaching nothing and the
+  // owner kept one route of the four. The sentence the lead said was a status, and left with it.
+  test("job/awaitingAttestation offers no card and no act", async () => {
+    await drawn("job/awaitingAttestation", ".armada-overview-board");
+    await expect.element(page.getByRole("region", { name: "Now" })).toBeVisible();
+    expect(document.querySelectorAll(".armada-callcard")).toHaveLength(0);
+    expect(page.getByRole("heading", { name: "A criterion needs your attestation" }).query()).toBeNull();
   });
 });
 
@@ -378,44 +377,50 @@ describe("the lead's act — what the press reaches", () => {
 // -D reselect@5.1.1*: *"This panel duplicates what is shown in the panel
 // below. Why can't we just have one panel?"*
 //
-// Measured by containment and by box, never off a sentence: the copy can be
-// right while the controls are still a sibling of the panel that names them.
-describe("the lead and what it is about are one panel", () => {
-  test("job/runningWaitingOnACommand: the answers are inside the lead, not beside it", async () => {
+// The lead left Overview on 11 Oct 2026 and its panel is a card in the Now panel, the Cockpit's own
+// call card, so the claim keeps its shape: the answers are inside the one card that says why.
+// Measured by containment and by box, never off a sentence: the copy can be right while the controls
+// are still a sibling of the card that names them.
+const CARD = ".armada-now .armada-callcard";
+
+describe("the card and what it is about are one panel", () => {
+  test("job/runningWaitingOnACommand: the answers are inside the card, not beside it", async () => {
     await drawn("job/runningWaitingOnACommand", ".armada-question");
 
-    const lead = document.querySelector(".armada-lead");
+    const card = document.querySelector(CARD);
     const answers = document.querySelector(".armada-question");
-    expect(lead, "no lead on screen").not.toBeNull();
-    expect(lead?.contains(answers as Node)).toBe(true);
+    expect(card, "no card in the Now panel").not.toBeNull();
+    expect(card?.contains(answers as Node)).toBe(true);
     // One panel: nothing answering sits outside the one that says why.
     expect(document.querySelectorAll(".armada-overview-board > .armada-question")).toHaveLength(0);
     // And the radios themselves, not merely the section around them.
     const radio = page.getByRole("radio", { name: "Allow for this job" });
     await expect.element(radio).toBeVisible();
-    expect(lead?.contains(await radio.element())).toBe(true);
+    expect(card?.contains(await radio.element())).toBe(true);
     // Inside the panel's border, which is what a reader sees as one thing.
-    const box = boxOf(".armada-lead");
+    const box = boxOf(CARD);
     const send = boxOf(".armada-question button[type='button']:last-of-type");
     expect(send.bottom).toBeLessThanOrEqual(box.bottom);
   });
 
-  test("job/runningWaitingOnACommand: the box no longer restates what the lead said", async () => {
+  test("job/runningWaitingOnACommand: the box no longer restates what the card said", async () => {
     await drawn("job/runningWaitingOnACommand", ".armada-question");
 
     expect(page.getByText("The drone is waiting on you").query()).toBeNull();
     expect(page.getByText(/^The drone wants to run/).query()).toBeNull();
-    // The command is said once, on the lead's own second line.
-    expect(saidBy(".armada-lead__because")).toContain("pnpm add -D reselect@5.1.1");
+    // The command is said once, on the card's own second line.
+    expect(document.querySelector(`${CARD}__origin`)?.textContent ?? "").toContain("pnpm add -D reselect@5.1.1");
+    const said = document.querySelector(CARD)?.textContent ?? "";
+    expect(said.split("pnpm add -D reselect@5.1.1")).toHaveLength(2);
   });
 
   test("markdown/agent-text: the Drone's question draws as markdown, and Armada's line stays plain", async () => {
-    await drawn("markdown/agent-text", ".armada-lead__asked");
+    await drawn("markdown/agent-text", ".armada-callcard__asked");
 
     await expect
       .element(page.getByRole("heading", { name: "A Drone asked you something" }))
       .toBeVisible();
-    const said = document.querySelector(".armada-lead__said") as HTMLElement;
+    const said = document.querySelector(".armada-now .armada-callcard__asked") as HTMLElement;
     // Weight, a list and a name in code, drawn rather than spelled.
     expect(said.querySelector("strong")?.textContent).toBe("heading");
     expect([...said.querySelectorAll("li")].map((item) => item.textContent)).toEqual([
@@ -426,63 +431,85 @@ describe("the lead and what it is about are one panel", () => {
     expect(said.textContent).not.toMatch(/\*\*|`/);
   });
 
-  test("job/runningWaitingOnACommand: the elapsed is the lead's, at its top right", async () => {
-    await drawn("job/runningWaitingOnACommand", ".armada-lead__elapsed");
+  test("job/runningWaitingOnACommand: the elapsed is the card's, at its band's trailing edge", async () => {
+    await drawn("job/runningWaitingOnACommand", ".armada-callcard__age");
 
     expect(document.querySelectorAll(".armada-question__waiting")).toHaveLength(0);
-    const elapsed = boxOf(".armada-lead__elapsed");
-    const headline = boxOf(".armada-lead__headline");
-    expect(elapsed.left).toBeGreaterThanOrEqual(headline.right);
-    expect(elapsed.top).toBeLessThan(headline.bottom);
+    const elapsed = boxOf(`${CARD}__age`);
+    const band = boxOf(`${CARD}__band`);
+    const kind = boxOf(`${CARD}__band > span:first-of-type`);
+    expect(elapsed.left).toBeGreaterThanOrEqual(kind.right);
+    expect(elapsed.right).toBeLessThanOrEqual(band.right);
+    expect(elapsed.top).toBeGreaterThanOrEqual(band.top);
+    expect(elapsed.bottom).toBeLessThanOrEqual(band.bottom);
   });
 
-  test("job/reviewAtDelivery: the review gate is inside the lead, and its record is open", async () => {
+  // **Awaiting review, the review is the screen** (owner, 11 Oct 2026): its card spans the board
+  // rather than waiting in Now's column.
+  test("job/reviewAtDelivery: the review gate is inside the wide card, and its record is open", async () => {
     await drawn("job/reviewAtDelivery", ".armada-verdict");
 
-    const lead = document.querySelector(".armada-lead");
-    expect(lead?.contains(document.querySelector(".armada-verdict") as Node)).toBe(true);
+    const card = document.querySelector(".armada-overview-board__wide .armada-callcard");
+    expect(card, "no review card over the board").not.toBeNull();
+    expect(card?.contains(document.querySelector(".armada-verdict") as Node)).toBe(true);
     // **The face, not the entry.** `Approve the work` was a button of its own
     // until the review gate took two split buttons on 30 Sep 2026; it is
     // behind Merge's caret now and is not in the document until the caret is
     // opened. What this claim is about is where the decision sits, and the
     // face is the part of it a person sees without pressing anything.
     const merge = await page.getByRole("button", { name: "Merge pull request" }).element();
-    expect(lead?.contains(merge)).toBe(true);
+    expect(card?.contains(merge)).toBe(true);
     // Open since the owner took the fold away, 2 Oct 2026 (#1680).
     const proves = await page.getByRole("region", { name: "What proves it" }).element();
-    expect(lead?.contains(proves)).toBe(true);
+    expect(card?.contains(proves)).toBe(true);
+    // And nowhere else: the Now panel holds no second copy of the gate.
+    expect(document.querySelectorAll(".armada-now .armada-verdict")).toHaveLength(0);
+  });
+
+  test("job/reviewAtDelivery: the review card spans the board, with the canvas and Now below it", async () => {
+    await drawn("job/reviewAtDelivery", ".armada-overview-board__wide .armada-callcard");
+
+    const board = boxOf(".armada-overview-board");
+    const wide = boxOf(".armada-overview-board__wide");
+    const card = boxOf(".armada-overview-board__wide .armada-callcard");
+    expect(wide.width).toBeGreaterThanOrEqual(board.width - 2);
+    expect(card.width).toBeGreaterThanOrEqual(board.width - 2);
+    // Over the work area, not beside it.
+    expect(wide.bottom).toBeLessThanOrEqual(boxOf(".armada-overview-board__with-now").top + 1);
   });
 });
 
 // **The second line is a line or it is not there**, which is the part only the
 // screen can say: `job/reviewAtDelivery` drew the headline over nothing at all
 // until the lead counted the whole Job, and an element with an empty string in
-// it would have passed every sentence claim in `lead.test.ts`.
-describe("what the gates found, on the lead's own second line", () => {
-  test("job/reviewAtDelivery: the review gate says what the whole Job's evidence came to", async () => {
-    await drawn("job/reviewAtDelivery", ".armada-lead__because");
+// it would have passed every sentence claim in `lead.test.ts`. It is the card's own line now.
+const SECOND = ".armada-callcard__body > .armada-callcard__origin";
 
-    expect(saidBy(".armada-lead__because")).toBe(
+describe("what the gates found, on the card's own second line", () => {
+  test("job/reviewAtDelivery: the review gate says what the whole Job's evidence came to", async () => {
+    await drawn("job/reviewAtDelivery", `.armada-overview-board__wide ${SECOND}`);
+
+    expect(document.querySelector(`.armada-overview-board__wide ${SECOND}`)?.textContent).toBe(
       "All 3 Checks passed and the Judge met both criteria",
     );
-    // Under the headline it belongs to, and inside the one panel.
-    const because = boxOf(".armada-lead__because");
-    expect(because.top).toBeGreaterThanOrEqual(boxOf(".armada-lead__headline").top);
-    expect(because.bottom).toBeLessThanOrEqual(boxOf(".armada-lead").bottom);
+    // Under the title it belongs to, and inside the one card.
+    const because = boxOf(`.armada-overview-board__wide ${SECOND}`);
+    expect(because.top).toBeGreaterThanOrEqual(boxOf(".armada-overview-board__wide .armada-callcard__title").bottom);
+    expect(because.bottom).toBeLessThanOrEqual(boxOf(".armada-overview-board__wide .armada-callcard").bottom);
   });
 
   test("job/reviewAfterAnOverrule: a refusal somebody overruled is counted, not laundered", async () => {
-    await drawn("job/reviewAfterAnOverrule", ".armada-lead__because");
+    await drawn("job/reviewAfterAnOverrule", `.armada-overview-board__wide ${SECOND}`);
 
-    expect(saidBy(".armada-lead__because")).toBe(
+    expect(document.querySelector(`.armada-overview-board__wide ${SECOND}`)?.textContent).toBe(
       "All 3 Checks passed and the Judge met 1 of 2 criteria",
     );
   });
 
-  test("job/awaitingApproval: a lead with no fact under it draws no second line", async () => {
-    await drawn("job/awaitingApproval", ".armada-lead");
+  test("job/awaitingApproval: a card with no fact under it draws no second line", async () => {
+    await drawn("job/awaitingApproval", CARD);
 
-    expect(document.querySelectorAll(".armada-lead__because")).toHaveLength(0);
+    expect(document.querySelectorAll(`.armada-now ${SECOND}`)).toHaveLength(0);
   });
 });
 

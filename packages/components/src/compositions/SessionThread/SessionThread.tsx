@@ -1,6 +1,7 @@
 import { useLayoutEffect, useMemo, useRef } from "react";
 import type { ReactNode, Ref } from "react";
-import { AppWindow, Box, ChevronRight, GitBranch, KeyRound, Layers, Smartphone, SquareTerminal, Wrench } from "lucide-react";
+import { AppWindow, Box, ChevronRight, GitBranch, KeyRound, Layers, Server, Smartphone, SquareTerminal, Wrench } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
 import { AttachmentChip } from "../../primitives/AttachmentChip/AttachmentChip";
 import { Button } from "../../primitives/Button/Button";
@@ -43,6 +44,10 @@ export type SessionThreadRow =
   | { id: string; at: string; kind: "message"; from: "session"; sender: { id: string; title: string }; text: string }
   /** A tool call, mono. `fromPhone` is an ask the person answered on their phone: a glyph beside it. */
   | { id: string; at: string; kind: "tool"; text: string; fromPhone?: true }
+  /** Fleet woke the agent, and why: a quiet row where the turn it started begins. */
+  | { id: string; at: string; kind: "woke"; why: string }
+  /** What the agent did on its own, mono, with the mark and the tooltip that name which act it was. */
+  | { id: string; at: string; kind: "act"; icon: LucideIcon; said: string; text: string }
   /** A command the person ran in the terminal, as typed, mono. */
   | { id: string; at: string; kind: "command"; text: string }
   /** The summary the CLI wrote where it compacted the conversation. Not the person's words: a quiet row that opens to its text. */
@@ -112,6 +117,8 @@ export type SessionThreadProps = {
   sessionId?: string;
   /** The turn is running: a live mark sits at the end, on the last tool group's row if that is the last row. */
   working?: boolean;
+  /** What the agent's own rows are labelled. Absent reads `Agent`. */
+  agentName?: string;
   /**
    * Runs a shell block's command where the Session works, from the Run on the block. The person's
    * own act, so nothing is sent to the agent. Absent, a block draws without Run.
@@ -320,15 +327,44 @@ function Row({
   onOpenSession,
   onOpenWindow,
   onOpenCheck,
+  agentName = "Agent",
   onOpenRetro,
 }: {
   row: Exclude<SessionThreadRow, { kind: "tool" }>;
   onOpenSession: (id: string) => void;
   onOpenWindow?: (url: string) => void;
   onOpenCheck?: (run: number) => void;
+  agentName?: string;
   onOpenRetro?: (retro: number) => void;
 }) {
   if (row.kind === "retro") return <SessionRetroRow row={row} {...(onOpenRetro === undefined ? {} : { onOpen: onOpenRetro })} />;
+  if (row.kind === "woke") {
+    return (
+      <li className="armada-session-woke">
+        <Tooltip label="Fleet woke it">
+          <span className="armada-session-woke__mark" role="img" aria-label="Fleet woke it">
+            <Server size={12} strokeWidth={2} aria-hidden />
+          </span>
+        </Tooltip>
+        <span className="armada-session-woke__why">{row.why}</span>
+        <span className="armada-session-woke__at">{row.at}</span>
+      </li>
+    );
+  }
+  if (row.kind === "act") {
+    const Glyph = row.icon;
+    return (
+      <li className="armada-session-act">
+        <Tooltip label={row.said}>
+          <span className="armada-session-act__mark" role="img" aria-label={row.said}>
+            <Glyph size={12} strokeWidth={2} aria-hidden />
+          </span>
+        </Tooltip>
+        <code className="armada-session-act__text">{row.text}</code>
+        <span className="armada-session-act__at">{row.at}</span>
+      </li>
+    );
+  }
   if (row.kind === "check") {
     const mark = <StepActivityMark activity={CHECK_MARK[row.state]} label={row.state} says={row.state} pulsing={row.state === "running"} />;
     return (
@@ -419,7 +455,7 @@ function Row({
   return (
     <li className="armada-helm-thread__row" data-actor={row.from === "you" ? "you" : "helm"} data-from={row.from}>
       <div className="armada-helm-thread__head">
-        <span className="armada-helm-thread__who">{row.from === "you" ? "You" : "Agent"}</span>
+        <span className="armada-helm-thread__who">{row.from === "you" ? "You" : agentName}</span>
         <span className="armada-helm-thread__at">{row.at}</span>
       </div>
       <div className="armada-helm-thread__message">
@@ -444,7 +480,7 @@ function Row({
 /** How far from the end still counts as being at it, so a rounding or a half row does not unpin. */
 const NEAR_END = 24;
 
-export function SessionThread({ rows, asked, askRef, onAnswer, onOpenSession, onOpenWindow, onOpenCheck, onOpenRetro, sessionId, working, runner, onCommand, commandNames }: SessionThreadProps) {
+export function SessionThread({ rows, asked, askRef, onAnswer, onOpenSession, onOpenWindow, onOpenCheck, onOpenRetro, sessionId, working, agentName, runner, onCommand, commandNames }: SessionThreadProps) {
   const slash = useMemo(() => (onCommand === undefined ? null : { send: onCommand, names: new Set(commandNames ?? []) }), [onCommand, commandNames]);
   const scroller = useRef<HTMLDivElement>(null);
   const pinned = useRef(true);
@@ -478,7 +514,7 @@ export function SessionThread({ rows, asked, askRef, onAnswer, onOpenSession, on
             item.kind === "calls" ? (
               <Calls key={item.id} rows={item.rows} working={working === true && at === items.length - 1} />
             ) : (
-              <Row key={item.row.id} row={item.row} onOpenSession={onOpenSession} onOpenWindow={onOpenWindow} onOpenCheck={onOpenCheck} onOpenRetro={onOpenRetro} />
+              <Row key={item.row.id} row={item.row} onOpenSession={onOpenSession} onOpenWindow={onOpenWindow} onOpenCheck={onOpenCheck} onOpenRetro={onOpenRetro} {...(agentName === undefined ? {} : { agentName })} />
             ),
           )}
           {working === true && !endsInCalls ? (

@@ -85,13 +85,15 @@ export function fakeBridge(scenario: Scenario, options: FakeOptions = {}): Bridg
     },
   };
   const sessions = scenario.draft?.sessions?.(board);
+  const commanding = scenario.draft?.commanding?.(fleet);
   onTimePassing(
-    scenario.later === undefined && sessions === undefined
+    scenario.later === undefined && sessions === undefined && commanding === undefined
       ? undefined
       : () => {
           const change = scenario.later?.[passed++];
           if (change !== undefined) fleet.publish(change);
           sessions?.later();
+          commanding?.later();
         },
   );
   if (sessions !== undefined) {

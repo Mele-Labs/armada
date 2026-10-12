@@ -13,6 +13,7 @@ import { GroupShape } from "../GroupShape/GroupShape";
 import { GuideMark } from "../GuideMark/GuideMark";
 import { GUIDE_GROUP_ORDER, GUIDE_PLAN_ASKS } from "../../guides";
 import { TaskMark, type TaskMarkState } from "../TaskMark/TaskMark";
+import { WhoMark } from "../WhoMark/WhoMark";
 import { Textarea } from "../../primitives/Textarea/Textarea";
 import { PlanDropForm } from "./PlanDropForm";
 
@@ -51,6 +52,8 @@ export type PlanBoardTask = {
   id: string;
   title: string;
   mark: TaskMarkState;
+  /** Who put it in the plan, where it was the Commander: a mark after the title, its act on hover. */
+  by?: { who: "commander"; said: string };
   /**
    * What the task is waiting on, written by the caller: `Submitted · awaiting
    * checks` on a handed-in task, which read as a working one by its hue
@@ -485,7 +488,10 @@ function TaskRow({
     <>
       <TaskMark state={task.mark} />
       <span className="armada-plan-board__task-id">{task.id}</span>
-      <span className="armada-plan-board__task-title">{task.title}</span>
+      <span className="armada-plan-board__task-title">
+        {task.title}
+        {task.by === undefined ? null : <WhoMark who={task.by.who} said={task.by.said} />}
+      </span>
       {/* One cell for whichever notes a row has, so a handed-in task in a group
           running at once holds its status and its `beside` on one line. */}
       {task.statusSays === undefined && task.besideSays === undefined && task.touchedSays === undefined ? null : (

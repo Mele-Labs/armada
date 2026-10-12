@@ -438,6 +438,7 @@ export function ApprovalCanvas({
           {...(node.faceMono === true ? { faceMono: true } : {})}
           {...((node.opensJob !== undefined && onOpenJob !== undefined) || node.opensStudio === true ? { links: true } : {})}
           {...(node.bandId === undefined ? {} : { id: node.bandId })}
+          {...(node.life?.by === undefined ? {} : { by: node.life.by })}
           {...(node.line === undefined || node.line === "" ? {} : { line: node.line })}
           traits={node.traits}
           meta={node.meta}

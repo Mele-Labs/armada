@@ -29,7 +29,8 @@ test("Overview says the Judge did not answer, in plain words, with both ways on"
   await expect.element(page.getByRole("heading", { name: "The Judge did not answer" })).toBeVisible();
   await expect.element(page.getByText("The work was not judged. Ask again, or accept the step yourself.")).toBeVisible();
   expect(document.body.textContent).not.toMatch(/\bgate\b/i);
-  const lead = document.querySelector(".armada-lead");
+  // The lead is gone (11 Oct 2026): what it offered is the card in the Now panel.
+  const lead = document.querySelector(".armada-now .armada-callcard");
   for (const name of ["Accept this step", "Ask the Judge again", "Redirect drone", "Read what stopped it"]) {
     const act = page.getByRole("button", { name, exact: true });
     await expect.element(act).toBeVisible();

@@ -70,7 +70,8 @@ button.armada-run-node {
 }
 
 /* The step mark keeps its glyph and drops its own hue on the band: the band is the hue. */
-.armada-run-node__band .armada-step-mark {
+.armada-run-node__band .armada-step-mark,
+.armada-run-node__band .armada-who-mark {
   color: inherit;
 }
 

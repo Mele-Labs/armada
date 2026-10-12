@@ -19,7 +19,7 @@ import type { LucideIcon } from "lucide-react";
 import type { DeclaredCheck, DeclaredJudge, JobDetail as JobWhole, StepDetail, StepPass, StepPhase, WorkflowStep } from "@armada/protocol";
 
 import type { GateView } from "./draft/proposal";
-import type { TaskView } from "./draft/task";
+import type { TaskBy, TaskView } from "./draft/task";
 import { TASK_ACTIVITY, taskNodeId } from "./plan-canvas";
 import { checkNameOf, deliveryOf } from "./draft/tuning";
 import type { ApprovalTuning } from "./draft/tuning";
@@ -73,6 +73,8 @@ export type NodeLife = {
   current?: boolean;
   /** A gate stage's run so far. */
   run?: GateRun;
+  /** Who put a task in the plan, where it was the Commander. */
+  by?: TaskBy;
 };
 
 /** One of the plan's groups, as the canvas draws it in the Groups node's place. */
@@ -670,6 +672,7 @@ export function chainOf(tasks: readonly TaskView[], groupName: string) {
         activity: TASK_ACTIVITY[task.state],
         said: TASK_STATE[task.state]?.verb ?? task.state,
         ...(task.state === "working" ? { current: true } : {}),
+        ...(task.by === undefined ? {} : { by: task.by }),
       } satisfies NodeLife,
       more: undefined as number | undefined,
     })),
