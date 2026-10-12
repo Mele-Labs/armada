@@ -39,6 +39,8 @@ import { StepActs } from "./StepActs";
 import type { NowView } from "./draft/now";
 import { nowPanelOf } from "./now-panel";
 import { commanderThreadOf } from "./commander-rows";
+import { LEAD_SLOTS, leadAskOf } from "./lead-ask";
+import type { LeadSlot } from "./lead-ask";
 import { OverviewBoard } from "./OverviewBoard";
 import { walkAct } from "./walked";
 import type { DetailTab } from "./detail-tabs";
@@ -633,14 +635,9 @@ export function OverviewTab(props: OverviewTabProps) {
     onExplainCommand === undefined ? undefined : (call: string) => onExplainCommand(job.id, call);
   // The step Fleet's own record of the stop names, which is the one a flag holds.
   const heldStep = whole?.steps.find((one) => one.step_id === whole.stuck?.step_id);
-  const waiting = waitingOf(
-    questionOf(whole, job.id, stale, acting, onAnswer, actingAct),
-    commandOf(whole, answering, explain),
-    // A step the gaming check holds, answered where the lead names it — the
-    // block the Workflow step panel draws too (owner, 2 Oct 2026, #1672).
-    // Only where a flag holds it: an element is a slot drawn, even one that
-    // renders nothing, and a drawn slot takes the lead's act away.
-    !heldByAFlag(whole, heldStep) ? undefined : (
+  const questionNode = questionOf(whole, job.id, stale, acting, onAnswer, actingAct);
+  const commandNode = commandOf(whole, answering, explain);
+  const gamingNode = !heldByAFlag(whole, heldStep) ? undefined : (
       <GamingHeld
         job={job}
         whole={whole}
@@ -655,12 +652,11 @@ export function OverviewTab(props: OverviewTabProps) {
         onRedirect={onRedirect}
         underTheLead
       />
-    ),
-    verdictSlot,
-    // The proposer's own call, on the one status where the thing the lead names
-    // is a model reading rather than anything a step holds. #1159.
-    proposerWaitOf(job, props.proposing ?? null, now, props.onStopProposer),
-  );
+    );
+  // The proposer's own call, on the one status where the thing the lead names
+  // is a model reading rather than anything a step holds. #1159.
+  const proposerNode = proposerWaitOf(job, props.proposing ?? null, now, props.onStopProposer);
+  const waiting = waitingOf(questionNode, commandNode, gamingNode, verdictSlot, proposerNode);
 
   // **What leads the screen, before the run a person would have to read to
   // find it.** The owner's 29 September call: Overview shows what needs you,
@@ -747,58 +743,48 @@ export function OverviewTab(props: OverviewTabProps) {
   // Reopens Bridge's window on this Job's review server, as often as wanted.
   const unsent = (whole?.walk_notes ?? []).filter((one) => one.sent !== true).length;
   const walking = walkAct(job.id, rehearsal.servers, rehearsal.onWalkInBridge, onSaid, unsent);
+  // **What the lead held, as a card in the Now panel** (owner, 11 Oct 2026): `lead-ask.tsx`.
+  const actsHeld = [stepActs, walking, leadAct].filter((one) => one !== undefined && one !== null && one !== false);
+  const slots: LeadSlot[] = [
+    { ...LEAD_SLOTS.question, node: questionNode },
+    { ...LEAD_SLOTS.command, node: commandNode },
+    { ...LEAD_SLOTS.gaming, node: gamingNode },
+    { ...LEAD_SLOTS.verdict, band: lead.tone === "awaiting-review" ? "Review" : "Outcome", node: verdictSlot },
+    { ...LEAD_SLOTS.proposer, node: proposerNode },
+  ].filter((one) => one.node !== undefined && one.node !== null && one.node !== false);
+  const leadAsk = leadAskOf({
+    lead,
+    slots,
+    acts: actsHeld.length === 0 ? undefined : <>{actsHeld}</>,
+    // One row for each Job Fleet lists as waiting on a Trigger, opened at the step it fired at.
+    alerts: (props.alerts ?? []).map((one) => ({
+      ...one,
+      ...(props.onOpenAlert === undefined
+        ? {}
+        : { onOpen: () => props.onOpenAlert?.(one.job, { tab: "workflow", ...(one.alert.step === "" ? {} : { step: one.alert.step }) }) }),
+    })),
+    // Each Job parked on this one's fix, by the wire's title or the Board's, and a press that opens it. #1673.
+    parked: (lead.parkedOnIt ?? []).map((one) => ({
+      job: one.job,
+      title: one.title ?? props.board?.find((row) => row.id === one.job)?.title ?? one.job,
+      ...(openJob === undefined ? {} : { onOpen: () => openJob(one.job) }),
+    })),
+    // The fix's title opens that Job, where the shell can open one. #1673.
+    ...(lead.fix === undefined ? {} : { fix: { ...lead.fix, ...(openFix === undefined ? {} : { onOpen: openFix }) } }),
+    // The quiet line stood in while the read was out; any other lead is the Board row's to say at once (owner, 1 Oct 2026).
+    reading: lead.quiet === true && stillReading(watched, job.id),
+  });
+  const nowRead = nowPanelOf(props.nowView, {
+    onOpenDrone: props.onOpenDrone,
+    onOpenCheckLog: props.onOpenCheckLog,
+    onOpenJob: openJob,
+    onSaid,
+    onAnswerCommander: (key, option) => props.draft?.commander?.answer(job.id, key, option),
+  });
+  const nowHeld = leadAsk === undefined ? nowRead : { ...(nowRead ?? {}), asks: [leadAsk, ...(nowRead?.asks ?? [])] };
   const inside = (
     <OverviewBoard
-      // The quiet line stands in while the read is out; any other lead is
-      // the Board row's to say at once (owner, 1 Oct 2026).
-      lead={{
-        ...lead,
-        act:
-          stepActs === undefined && walking === null ? (
-            leadAct
-          ) : (
-            <>
-              {stepActs}
-              {walking}
-              {leadAct}
-            </>
-          ),
-        reading: lead.quiet === true && stillReading(watched, job.id),
-        // The fix's title opens that Job, where the shell can open one. #1673.
-        ...(lead.fix === undefined
-          ? {}
-          : { fix: { ...lead.fix, ...(openFix === undefined ? {} : { onOpen: openFix }) } }),
-        // One row for each Job Fleet lists as waiting on a Trigger, opened at the step it fired at.
-        ...(props.alerts === undefined || props.alerts.length === 0
-          ? {}
-          : {
-              alerts: props.alerts.map((one) => ({
-                ...one,
-                ...(props.onOpenAlert === undefined
-                  ? {}
-                  : { onOpen: () => props.onOpenAlert?.(one.job, { tab: "workflow", ...(one.alert.step === "" ? {} : { step: one.alert.step }) }) }),
-              })),
-            }),
-        // Each Job parked on this one's fix, by the wire's title or the
-        // Board's, and a press that opens it. #1673.
-        ...(lead.parkedOnIt === undefined
-          ? {}
-          : {
-              parked: lead.parkedOnIt.map((one) => ({
-                job: one.job,
-                title: one.title ?? props.board?.find((row) => row.id === one.job)?.title ?? one.job,
-                ...(openJob === undefined ? {} : { onOpen: () => openJob(one.job) }),
-              })),
-            }),
-      }}
-      waiting={waiting}
-      now={nowPanelOf(props.nowView, {
-        onOpenDrone: props.onOpenDrone,
-        onOpenCheckLog: props.onOpenCheckLog,
-        onOpenJob: openJob,
-        onSaid,
-        onAnswerCommander: (key, option) => props.draft?.commander?.answer(job.id, key, option),
-      })}
+      {...(nowHeld === undefined ? {} : { now: nowHeld })}
       {...(props.draft?.commander?.views[job.id] === undefined
         ? {}
         : {

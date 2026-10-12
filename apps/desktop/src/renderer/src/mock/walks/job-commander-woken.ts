@@ -9,7 +9,7 @@ const commander = role("region", "Commander", { exact: true });
 const now = region("Now");
 
 const w = walk("job-commander-woken", [
-  { look: commander, say: "The Job's Commander, under what it is doing now" },
+  { look: commander, say: "The Job's Commander, across the top where the lead was" },
   { look: inside(now, text(/Edit crates\/ipc\/src\/asks.rs/)), say: "T7's Drone at work" },
   { later: commander, say: "T7's Drone ends at the turn cap with nothing handed in" },
   { look: inside(commander, text("Drone on T7 ended with nothing handed in")), say: "Fleet wakes it, in a row of its own that names what woke it" },

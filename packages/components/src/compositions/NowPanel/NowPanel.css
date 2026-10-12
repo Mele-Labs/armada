@@ -84,8 +84,7 @@
   list-style: none;
 }
 
-.armada-now__row,
-.armada-now__ask {
+.armada-now__row {
   min-width: 0;
   border-top: var(--border-width) solid var(--border-subtle);
 }
@@ -174,15 +173,6 @@
   }
 }
 
-/* A Plan decision: the question over its radios, and the one act under them. */
-.armada-now__ask {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
-}
-
 /* A running row's second line: the canvas step it belongs to, and the fold for its output. */
 .armada-now__sub {
   display: flex;
@@ -240,33 +230,6 @@ button.armada-now__step[aria-pressed="true"] {
   line-height: var(--leading-2xs);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-}
-
-/* Where the decision stands among the others, as marks and not a figure. */
-.armada-now__dots {
-  display: flex;
-  gap: var(--space-2);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.armada-now__dot {
-  display: block;
-  inline-size: var(--space-2);
-  block-size: var(--space-2);
-  border: var(--border-width) solid var(--border-strong);
-  border-radius: 50%;
-}
-
-.armada-now__dot[data-state="answered"] {
-  border-color: var(--step-advanced);
-  background: var(--step-advanced);
-}
-
-.armada-now__dot[data-state="current"] {
-  border-color: var(--status-escalated);
-  background: var(--status-escalated);
 }
 
 .armada-now__band-title {
@@ -371,33 +334,18 @@ button.armada-now__step[aria-pressed="true"] {
   text-transform: uppercase;
 }
 
-/* The Commander's card: the fact in the head beside its mark, whose act the fix is under it, then
-   the answers. The head is mono and weighted so the card reads before the radios do. */
-.armada-now__ask-head {
+/* The asks, each the Cockpit's call card (`AskCard`), stacked over the panel's own ground. */
+.armada-now__cards {
   display: flex;
-  align-items: flex-start;
-  gap: var(--space-2);
+  flex-direction: column;
+  gap: var(--space-3);
   min-width: 0;
-  width: 100%;
+  padding: var(--space-3);
+  border-top: var(--border-width) solid var(--border-strong);
 }
 
-.armada-now__ask-head > .armada-who-mark {
-  flex: none;
-  padding-block-start: var(--space-1);
-  color: var(--status-escalated);
-}
-
-.armada-now__ask-fact {
-  flex: 1;
-  min-width: 0;
-  font-weight: var(--weight-heading);
-  overflow-wrap: anywhere;
-}
-
-.armada-now__ask-reach {
-  margin: 0;
-  color: var(--fg-muted);
-  font-size: var(--text-2xs);
-  line-height: var(--leading-2xs);
-  overflow-wrap: anywhere;
+.armada-now__cards > .armada-now__rows {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
 }

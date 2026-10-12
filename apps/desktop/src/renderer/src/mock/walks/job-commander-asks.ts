@@ -7,7 +7,7 @@ import { button, inside, region, role, text, walk } from "../walk";
 
 const commander = role("region", "Commander", { exact: true });
 const now = region("Now");
-const card = role("listitem", "Commander asks you");
+const card = role("region", /^Commander asks: desktop_test/);
 
 const w = walk("job-commander-asks", [
   { press: role("button", "Cockpit", { exact: true }), say: "The Dashboard" },

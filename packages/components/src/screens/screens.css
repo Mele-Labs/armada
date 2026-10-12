@@ -2794,7 +2794,7 @@
   min-width: 0;
 }
 
-/* What sits beside the canvas, stacked: the Now panel, then the Commander. */
+/* What sits beside the canvas. */
 .armada-overview-board__side {
   display: flex;
   flex: none;

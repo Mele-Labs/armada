@@ -3,7 +3,7 @@
 import { inside, region, role, walk } from "../walk";
 
 const w = walk("job-sketch-judge", [
-  { look: inside(region("Now"), role("img", "Asks you")), say: "The Judge asks, and its sketch stands where the canvas was" },
+  { look: inside(region("Now"), role("region", /^Judge question/)), say: "The Judge asks, and its sketch stands where the canvas was" },
   { look: role("group", "Sketch", { exact: true }), say: "Waiting, Retrying, Capped, Failed" },
 ]);
 

@@ -13,8 +13,6 @@ import { mount } from "@armada/screens/src/mounted";
 test("the fallback cards draw no raw comment text", async () => {
   mount(
     <OverviewBoard
-      lead={{ said: "Waiting for your approval", because: "" }}
-      waiting={undefined}
       briefAbsent="Fleet did not answer"
       workflowAbsent="Fleet did not answer"
       planAbsent="Fleet did not answer"

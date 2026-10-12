@@ -40,7 +40,6 @@ import type { DetailTab } from "./detail-tabs";
 import { litSteps } from "./draft/now";
 import { useNowHidden } from "./now-hidden";
 import { marksKey, useMarked, useMarks } from "./sketch-marks";
-import { JobLead, type JobLeadProps } from "./JobLead";
 import { studioName } from "@armada/screens/src/studio";
 import type { OpenStudioFrom } from "@armada/screens/src/open-studio";
 
@@ -81,21 +80,10 @@ export type OverviewPlan = {
 };
 
 export type OverviewBoardProps = {
-  lead: JobLeadProps;
   /**
-   * The thing the lead is about, where a person answers it: a Drone's question
-   * and its answers, or the Allow / Always allow / Reject choice for a command
-   * it was not given.
-   *
-   * **Inside the lead, because the lead is its sentence.** Under it until
-   * 30 Sep 2026, when the owner read the two and saw one thing said twice:
-   * *"This panel duplicates what is shown in the panel below. Why can't we
-   * just have one panel?"*
-   */
-  waiting?: ReactNode;
-  /**
-   * What the lead's Approve dispatch approves, under it and over the Brief —
-   * `approving.tsx`. Absent on every Job not waiting to be dispatched.
+   * What the approval approves, over the Brief — `approving.tsx`. Absent on every Job not waiting to
+   * be dispatched. **The lead is gone from this tab** (owner, 11 Oct 2026: *now that we have the Now
+   * panel, the lead panel is not as useful*): what it held to answer is a card in the Now panel.
    */
   approving?: ReactNode;
   /**
@@ -144,8 +132,6 @@ export type OverviewBoardProps = {
 };
 
 export function OverviewBoard({
-  lead,
-  waiting,
   approving,
   run,
   workflow,
@@ -164,7 +150,10 @@ export function OverviewBoard({
   now,
   commander,
 }: OverviewBoardProps) {
-  const [hidden, hide] = useNowHidden();
+  const [hiddenByHand, hide] = useNowHidden();
+  // **The panel cannot be put away while it holds an ask**: the asks the lead held are drawn there now,
+  // and a hidden panel would hide what a person came to answer.
+  const hidden = hiddenByHand && (now?.asks ?? []).length === 0;
   // **An open ask's sketch stands in for the canvas** until the owner switches back, the panel is
   // hidden or the ask is answered. The panel reports the sketch; this keeps only which is shown.
   const [sketch, setSketch] = useState<NowSketchShow | undefined>(undefined);
@@ -375,16 +364,16 @@ export function OverviewBoard({
   );
   return (
     <div className="armada-detail-tab armada-overview-board" role="tabpanel" aria-label="Overview">
-      <JobLead {...lead} waiting={waiting} />
-      {now === undefined && commander === undefined ? (
+      {/* **The Commander leads across the whole board, where the lead was**, over the canvas it
+          steers and the Now panel beside it. */}
+      {commander === undefined ? null : <CommanderPanel {...commander} />}
+      {now === undefined ? (
         main
       ) : (
         <div className="armada-overview-board__with-now">
           <div className="armada-overview-board__main">{main}</div>
-          {/* **One column for what is beside the canvas**: the Now panel over the Commander, so what
-              a Job is doing and the agent steering it are read together. */}
           <div className="armada-overview-board__side">
-            {now === undefined ? null : hidden ? (
+            {hidden ? (
               <Tooltip label="Show now">
                 <Button variant="ghost" size="sm" aria-label="Show now" onClick={() => hide(false)}>
                   <PanelRightOpen size={16} strokeWidth={2} aria-hidden />
@@ -393,7 +382,7 @@ export function OverviewBoard({
             ) : (
               <NowPanel
                 {...now}
-                onHide={() => hide(true)}
+                {...((now.asks ?? []).length === 0 ? { onHide: () => hide(true) } : {})}
                 onSketch={setSketch}
                 onAsker={setAsker}
                 sketchView={sketchView}
@@ -402,7 +391,6 @@ export function OverviewBoard({
                 {...(Object.keys(marked).length === 0 ? {} : { edits: marked })}
               />
             )}
-            {commander === undefined ? null : <CommanderPanel {...commander} />}
           </div>
         </div>
       )}

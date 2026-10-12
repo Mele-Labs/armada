@@ -1,11 +1,11 @@
-import { Fragment, useEffect, useMemo, useState, type ReactNode } from "react";
-import { Activity, Bot, Box, ChevronDown, ChevronRight, CircleDot, CornerUpRight, Cpu, DraftingCompass, Megaphone, Network, OctagonAlert, PanelRightClose, RotateCw, Scale, ShieldCheck, ShieldOff, ShieldX, SkipForward, Waypoints, Workflow } from "lucide-react";
+import { Fragment, useEffect, useMemo, useState, type KeyboardEvent, type ReactNode } from "react";
+import { Activity, Bot, Box, ChevronDown, ChevronRight, CircleDot, Compass, CornerUpRight, Cpu, DraftingCompass, MessageSquare, Network, OctagonAlert, PanelRightClose, RotateCw, Scale, ShieldCheck, ShieldOff, ShieldX, SkipForward, Waypoints, Workflow } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
 import { WhoMark } from "../WhoMark/WhoMark";
 import type { NowAsker } from "../AskerView/AskerView";
-import { Radio, RadioGroup } from "../../primitives/Radio/Radio";
+import { AskActs, AskAnswer, AskAnswers, AskCard, AskChoices, AskPips, AskQuestion } from "../AskCard/AskCard";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 
 /**
@@ -87,7 +87,25 @@ export type NowCommanderAsk = {
   onAnswer: (optionId: string) => void;
 };
 
-export type NowAsk = NowPlanAsk | NowOpenAsk | NowCommanderAsk;
+/**
+ * Whatever a Job held under its lead that a person answers: the approval, the review gate, a Drone's
+ * question, a held command, a Trigger's alert. **The host draws what is inside**, since each is an
+ * act of its own; this draws the card they stand in, the Cockpit's own (`AskCard`).
+ */
+export type NowSlotAsk = {
+  key: string;
+  kind: "slot";
+  /** The band's word: `Review`, `Drone question`. */
+  band: string;
+  icon: LucideIcon;
+  /** What it is about, over the body. */
+  title: string;
+  /** How long it has waited, already worded. */
+  age?: string;
+  children: ReactNode;
+};
+
+export type NowAsk = NowPlanAsk | NowOpenAsk | NowCommanderAsk | NowSlotAsk;
 
 /**
  * A quick act on a row, as an icon with a tooltip: retry a Check, skip it, redirect a stuck Drone,
@@ -207,17 +225,17 @@ const STATE: Record<NowRunning["state"], { Glyph: LucideIcon; said: string }> = 
   failed: { Glyph: ShieldX, said: "Failed" },
 };
 
-const ASK_ORDER = ["plan", "commander", "judge", "drone"] as const;
+const ASK_ORDER = ["slot", "plan", "commander", "judge", "drone"] as const;
 const RUN_ORDER = ["drone", "check", "judge"] as const;
 
 export function NowPanel({ asks = [], issues = [], running = [], waiting = [], onSkipAll, onHide, onStep, focusedStep, onSketch, onAsker, sketchView, onSketchView, thread = [], edits }: NowPanelProps) {
   // The plan decision asked now reports its own sketch; a Judge's or Drone's is read off the asks.
   const [planSketch, setPlanSketch] = useState<NowSketchShow | undefined>(undefined);
-  const openSketch = asks.flatMap((ask) => (ask.kind === "plan" || ask.kind === "commander" || ask.sketch === undefined ? [] : [ask.sketch]))[0];
+  const openSketch = asks.flatMap((ask) => (ask.kind === "plan" || ask.kind === "commander" || ask.kind === "slot" || ask.sketch === undefined ? [] : [ask.sketch]))[0];
   const openShow = useMemo<NowSketchShow | undefined>(() => (openSketch === undefined ? undefined : { sketch: openSketch }), [openSketch]);
   const asked = planSketch ?? openShow;
   const [planAsker, setPlanAsker] = useState<NowAsker | undefined>(undefined);
-  const openAsker = asks.flatMap((ask) => (ask.kind === "plan" || ask.kind === "commander" || ask.asker === undefined ? [] : [ask.asker]))[0];
+  const openAsker = asks.flatMap((ask) => (ask.kind === "plan" || ask.kind === "commander" || ask.kind === "slot" || ask.asker === undefined ? [] : [ask.asker]))[0];
   const askerNow = planAsker ?? openAsker;
   const shownView = sketchView ?? (asked !== undefined ? "sketch" : "asker");
   useEffect(() => {
@@ -272,7 +290,8 @@ export function NowPanel({ asks = [], issues = [], running = [], waiting = [], o
           owner reads it as a bug in whatever left the Job with nothing to say (8 Oct 2026). */}
       {!nothing ? null : <p className="armada-now__nothing">Nothing is actively running on this job</p>}
       {asks.length === 0 ? null : (
-        <Section tone="asks" label="Asks you">
+        // **Each ask is the Cockpit's call card**, so it looks the same here as where it is also asked.
+        <div className="armada-now__cards" role="group" aria-label="Asks you">
           {ASK_ORDER.map((kind) => {
             const of = asks.filter((ask) => ask.kind === kind);
             return of.length === 0 ? null : (
@@ -282,6 +301,10 @@ export function NowPanel({ asks = [], issues = [], running = [], waiting = [], o
                     <PlanAsk key={ask.key} ask={ask} onSketch={setPlanSketch} onAsker={setPlanAsker} {...(edits === undefined ? {} : { edits })} />
                   ) : ask.kind === "commander" ? (
                     <CommanderAsk key={ask.key} ask={ask} />
+                  ) : ask.kind === "slot" ? (
+                    <AskCard key={ask.key} flow icon={ask.icon} kind={ask.band} title={ask.title} {...(ask.age === undefined ? {} : { age: ask.age })}>
+                      {ask.children}
+                    </AskCard>
                   ) : (
                     <AskRow key={ask.key} ask={ask} />
                   ),
@@ -289,13 +312,17 @@ export function NowPanel({ asks = [], issues = [], running = [], waiting = [], o
               </Fragment>
             );
           })}
-          {thread.map((one) => (
-            <li key={one.key} className="armada-now__remark">
-              <span className="armada-now__remark-about">{one.about}</span>
-              <span className="armada-now__text">{one.said}</span>
-            </li>
-          ))}
-        </Section>
+          {thread.length === 0 ? null : (
+            <ul className="armada-now__rows">
+              {thread.map((one) => (
+                <li key={one.key} className="armada-now__remark">
+                  <span className="armada-now__remark-about">{one.about}</span>
+                  <span className="armada-now__text">{one.said}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       )}
       {issues.length === 0 ? null : (
         <Section tone="issues" label="Issues">
@@ -510,50 +537,60 @@ function RunningRow({ one, onStep, focused, open }: { one: NowRunning; onStep?: 
   );
 }
 
+/** What the digit keys do on a card's answers: the number on a tile picks it, as it does in the Cockpit. */
+function picksByDigit(count: number, pick: (index: number) => void) {
+  return (event: KeyboardEvent<HTMLDivElement>) => {
+    const digit = Number(event.key);
+    if (!Number.isInteger(digit) || digit < 1 || digit > count) return;
+    event.preventDefault();
+    pick(digit - 1);
+  };
+}
+
 /** The Commander's one card: the fact, whose act the fix is, and the answers, sent together. */
 function CommanderAsk({ ask }: { ask: NowCommanderAsk }) {
-  const [picked, setPicked] = useState<string | undefined>(undefined);
+  const [picked, setPicked] = useState<number | undefined>(undefined);
   const [sent, setSent] = useState(false);
   return (
-    <li className="armada-now__ask" data-by="commander" aria-label="Commander asks you">
-      <div className="armada-now__ask-head">
-        <WhoMark who="commander" said="Commander asks you" />
-        <span className="armada-now__ask-fact">{ask.text}</span>
-      </div>
-      <p className="armada-now__ask-reach">{ask.reach}</p>
-      <RadioGroup label={ask.question}>
-        {ask.options.map((option) => (
-          <Radio key={option.id} name={`${ask.key}-answer`} value={option.id} checked={picked === option.id} disabled={sent} onChange={() => setPicked(option.id)}>
-            {option.label}
-          </Radio>
-        ))}
-      </RadioGroup>
-      <Button
-        size="sm"
-        disabled={picked === undefined || sent}
-        onClick={() => {
-          if (picked === undefined) return;
-          setSent(true);
-          ask.onAnswer(picked);
-        }}
-      >
-        Answer
-      </Button>
-    </li>
+    <AskCard flow icon={Compass} kind="Commander asks" title={ask.text}>
+      <p className="armada-callcard__origin">{ask.reach}</p>
+      <AskQuestion>{ask.question}</AskQuestion>
+      <AskChoices label={ask.question} onKeyDown={picksByDigit(ask.options.length, (index) => !sent && setPicked(index))}>
+        <AskAnswers>
+          {ask.options.map((option, index) => (
+            <AskAnswer key={option.id} one={{ label: option.label }} mark={String(index + 1)} picked={picked === index} held={sent} onPick={() => setPicked(index)} />
+          ))}
+        </AskAnswers>
+      </AskChoices>
+      <AskActs>
+        <Button
+          variant="primary"
+          disabled={picked === undefined || sent}
+          onClick={() => {
+            const one = picked === undefined ? undefined : ask.options[picked];
+            if (one === undefined) return;
+            setSent(true);
+            ask.onAnswer(one.id);
+          }}
+        >
+          Answer
+        </Button>
+      </AskActs>
+    </AskCard>
   );
 }
 
+/** A Judge's or a Drone's question: what it asks, and the press that opens it where it is answered. */
 function AskRow({ ask }: { ask: NowOpenAsk }) {
   return (
-    <Row name={`${ask.name}, asks you`} onOpen={ask.onOpen}>
-      <Kind of={ask.kind} />
-      <span className="armada-now__text">{ask.text}</span>
-      <Tooltip label="Asks you">
-        <span className="armada-now__mark" data-tone="asks" role="img" aria-label="Asks you">
-          <Megaphone size={12} strokeWidth={2} aria-hidden />
-        </span>
-      </Tooltip>
-    </Row>
+    <AskCard flow icon={ask.kind === "judge" ? Scale : Bot} kind={ask.kind === "judge" ? "Judge question" : "Drone question"} title={ask.text}>
+      <p className="armada-callcard__origin">{ask.name}</p>
+      <AskActs>
+        <Button variant="primary" aria-label={`Open ${ask.name}, asks you`} onClick={ask.onOpen}>
+          Open
+        </Button>
+      </AskActs>
+    </AskCard>
   );
 }
 
@@ -590,6 +627,7 @@ function PlanAsk({ ask, onSketch, onAsker, edits }: { ask: NowPlanAsk; onSketch:
   if (decision === undefined) return null;
   const last = at === ask.decisions.length - 1;
   const picked = picks[decision.id];
+  const pick = (id: string) => !sent && setPicks({ ...picks, [decision.id]: id });
   const next = () => {
     const open = ask.decisions.findIndex((one, index) => index > at && picks[one.id] === undefined);
     setHovered(undefined);
@@ -597,59 +635,47 @@ function PlanAsk({ ask, onSketch, onAsker, edits }: { ask: NowPlanAsk; onSketch:
     setAt(open === -1 ? at + 1 : open);
   };
   return (
-    <li className="armada-now__ask">
-      {ask.decisions.length < 2 ? null : (
-        <ol className="armada-now__dots" aria-label="Decisions">
-          {ask.decisions.map((one, index) => (
-            <li key={one.id}>
-              <Tooltip label={one.question}>
-                <span
-                  className="armada-now__dot"
-                  role="img"
-                  aria-label={one.question}
-                  aria-current={index === at ? "step" : undefined}
-                  data-state={index === at ? "current" : picks[one.id] === undefined ? "open" : "answered"}
-                />
-              </Tooltip>
-            </li>
+    <AskCard flow icon={MessageSquare} kind="Plan question">
+      <AskQuestion>
+        {decision.question}
+        {ask.decisions.length < 2 ? null : <AskPips decisions={ask.decisions} at={at} />}
+      </AskQuestion>
+      <AskChoices key={decision.id} label={decision.question} onKeyDown={picksByDigit(decision.options.length, (index) => pick(decision.options[index]!.id))}>
+        <AskAnswers>
+          {decision.options.map((option, index) => (
+            <AskAnswer
+              key={option.id}
+              one={{ label: option.label }}
+              mark={String(index + 1)}
+              picked={picked === option.id}
+              held={sent}
+              onPick={() => pick(option.id)}
+              onHover={(on) => setHovered(on ? option.id : undefined)}
+              onFocusing={(on) => setFocused(on ? option.id : undefined)}
+            />
           ))}
-        </ol>
-      )}
-      <RadioGroup label={decision.question} key={decision.id}>
-        {decision.options.map((option) => (
-          <div key={option.id} onMouseEnter={() => setHovered(option.id)} onMouseLeave={() => setHovered(undefined)}>
-            <Radio
-              name={`${ask.key}-${decision.id}`}
-              value={option.id}
-              checked={picked === option.id}
-              disabled={sent}
-              onChange={() => setPicks({ ...picks, [decision.id]: option.id })}
-              onFocus={() => setFocused(option.id)}
-              onBlur={() => setFocused(undefined)}
-            >
-              {option.label}
-            </Radio>
-          </div>
-        ))}
-      </RadioGroup>
-      {last ? (
-        <Button
-          size="sm"
-          disabled={picked === undefined || sent}
-          onClick={() => {
-            setSent(true);
-            // A caller with nothing marked sees the one-argument call it always has.
-            if (edits === undefined) ask.onAnswer(picks);
-            else ask.onAnswer(picks, edits);
-          }}
-        >
-          Answer
-        </Button>
-      ) : (
-        <Button size="sm" disabled={picked === undefined} onClick={next}>
-          Next
-        </Button>
-      )}
-    </li>
+        </AskAnswers>
+      </AskChoices>
+      <AskActs>
+        {last ? (
+          <Button
+            variant="primary"
+            disabled={picked === undefined || sent}
+            onClick={() => {
+              setSent(true);
+              // A caller with nothing marked sees the one-argument call it always has.
+              if (edits === undefined) ask.onAnswer(picks);
+              else ask.onAnswer(picks, edits);
+            }}
+          >
+            Answer
+          </Button>
+        ) : (
+          <Button variant="primary" disabled={picked === undefined} onClick={next}>
+            Next
+          </Button>
+        )}
+      </AskActs>
+    </AskCard>
   );
 }

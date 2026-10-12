@@ -1,6 +1,6 @@
-/* A Job's Commander under its Now panel: a band over a mono thread and one box. State is carried by
+/* A Job's Commander, over its canvas where the lead was: a band over a thread and one box. State is carried by
    the frame, as the Now panel's is: the band's hue is the state's, the body a faint wash of it. The
-   hues are the status tokens the Now panel's bands already read, so the two stack as one column. */
+   hues are the status tokens the Now panel's bands already read. */
 
 .armada-commander {
   --commander-hue: var(--status-not-started);
@@ -10,10 +10,9 @@
   border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--commander-hue) var(--row-tint), var(--bg-raised));
   overflow: hidden;
-  width: var(--w-dock);
+  width: 100%;
   min-width: 0;
   min-height: 0;
-  align-self: start;
 }
 
 .armada-commander[data-state="working"] {
