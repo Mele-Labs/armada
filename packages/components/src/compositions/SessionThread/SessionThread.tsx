@@ -1,6 +1,6 @@
-import { useLayoutEffect, useMemo, useRef } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode, Ref } from "react";
-import { AppWindow, Box, Check, ChevronRight, GitBranch, GitPullRequest, KeyRound, Layers, Server, Smartphone, SquareTerminal, Wrench } from "lucide-react";
+import { AppWindow, BellRing, Box, Check, ChevronDown, ChevronRight, ChevronUp, GitBranch, GitPullRequest, KeyRound, Layers, Server, Smartphone, SquareTerminal, Wrench } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { AttachmentChip } from "../../primitives/AttachmentChip/AttachmentChip";
@@ -10,7 +10,7 @@ import { Prose, ProseCommand, ProseRunner } from "../../primitives/Prose/Prose";
 import type { CodeRunner } from "../../primitives/Prose/Prose";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { SessionMark } from "../SessionFrame/SessionFrame";
-import { ARTIFACT, PullRequestChecksMark, PullRequestStateMark, type LedgerEntry } from "../SessionLedger/SessionLedger";
+import { ARTIFACT, LedgerRows, PullRequestChecksMark, PullRequestStateMark, waitingMark, type LedgerEntry } from "../SessionLedger/SessionLedger";
 import { StepActivityMark, type StepActivity } from "../StepActivityMark/StepActivityMark";
 import { InlineTag } from "../SessionComposer/InlineTag";
 import { FORK_ROW, ForkFromSelection } from "../ForkFromSelection/ForkFromSelection";
@@ -112,6 +112,11 @@ export type SessionThreadProps = {
    * A pull request's entry carries `pr`: its state and Checks, each a bare mark with a tooltip.
    */
   done?: { onEnd: () => void; onKeep: () => void; made?: readonly LedgerEntry[] };
+  /**
+   * What the Session waits on the person for, in the done callout's place while it has not said it is done:
+   * a band of one glyph per item, which a press opens to the ledger's own rows. Empty or absent draws none.
+   */
+  waiting?: readonly LedgerEntry[];
   /** The ask's card, so a host can scroll to it. */
   askRef?: Ref<HTMLDivElement>;
   /** Opens the Session a message came from. */
@@ -496,7 +501,7 @@ function Row({
 /** How far from the end still counts as being at it, so a rounding or a half row does not unpin. */
 const NEAR_END = 24;
 
-export function SessionThread({ rows, asked, askRef, onAnswer, done, onOpenSession, onOpenWindow, onOpenCheck, onOpenRetro, sessionId, working, agentName, runner, onCommand, commandNames, onForkAt }: SessionThreadProps) {
+export function SessionThread({ rows, asked, askRef, onAnswer, done, waiting, onOpenSession, onOpenWindow, onOpenCheck, onOpenRetro, sessionId, working, agentName, runner, onCommand, commandNames, onForkAt }: SessionThreadProps) {
   const whole = useRef<HTMLDivElement>(null);
   const slash = useMemo(() => (onCommand === undefined ? null : { send: onCommand, names: new Set(commandNames ?? []) }), [onCommand, commandNames]);
   const scroller = useRef<HTMLDivElement>(null);
@@ -579,6 +584,7 @@ export function SessionThread({ rows, asked, askRef, onAnswer, done, onOpenSessi
           )}
         </Card>
       )}
+      {done !== undefined || waiting === undefined || waiting.length === 0 ? null : <NeedsYou rows={waiting} />}
       {done === undefined ? null : (
         <div className="armada-session-done" role="article" aria-label="Nothing left to do">
           <div className="armada-session-done__head">
@@ -626,5 +632,39 @@ export function SessionThread({ rows, asked, askRef, onAnswer, done, onOpenSessi
         </div>
       )}
     </div>
+  );
+}
+
+/** Folded, the band shows a glyph per item, named on hover; a press on the band opens the rows. */
+function NeedsYou({ rows }: { rows: readonly LedgerEntry[] }) {
+  const [open, setOpen] = useState(false);
+  const Fold = open ? ChevronDown : ChevronUp;
+  return (
+    <section className="armada-session-needs" aria-label="Needs you">
+      <button type="button" className="armada-session-needs__band" aria-expanded={open} onClick={() => setOpen(!open)}>
+        <BellRing size={12} strokeWidth={2} aria-hidden />
+        <span className="armada-session-needs__label">Needs you</span>
+        {open ? null : (
+          <span className="armada-session-needs__glyphs">
+            {rows.map((row) => {
+              const { Glyph } = waitingMark(row);
+              return (
+                <Tooltip key={row.key} label={row.name}>
+                  <span className="armada-session-mark" role="img" aria-label={row.name}>
+                    <Glyph size={12} strokeWidth={2} aria-hidden />
+                  </span>
+                </Tooltip>
+              );
+            })}
+          </span>
+        )}
+        <Fold className="armada-session-needs__fold" size={12} strokeWidth={2} aria-hidden />
+      </button>
+      {open ? (
+        <div className="armada-session-needs__rows">
+          <LedgerRows kind="waiting" Glyph={BellRing} rows={rows} />
+        </div>
+      ) : null}
+    </section>
   );
 }
