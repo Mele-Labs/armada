@@ -1,15 +1,16 @@
-// Settings: Fleet's admission limits and a person's preferences.
+// Settings: settings.json, Fleet's admission limits and a person's preferences.
 // Types and values only, no React. A slice imports protocol and screens, never another slice;
 // desktop's `shared/api/settings.ts` re-exports it and `shared/api.ts` composes it.
 
 import type {
   Outcome,
-  SaveLimits,
   SavePreference,
   FleetLimits,
   ModChecked,
   ModList,
   Preferences,
+  SaveSettings,
+  SettingsList,
 } from "@armada/protocol";
 
 /**
@@ -31,22 +32,30 @@ export type PhoneAnswer =
   | { ok: false; why: "unreachable" }
   | { ok: false; why: "refused"; said: string };
 
+/**
+ * What happened to a press of "Open settings.json". `not_read` is Fleet not having said where the
+ * file is yet; `refused` carries the sentence the editor or the OS gave.
+ */
+export type SettingsFileOpened =
+  | { ok: true }
+  | { ok: false; why: "not_read" }
+  | { ok: false; why: "refused"; detail: string };
+
 export type SettingsApi = {
   /**
-   * Change one or more of Fleet's three admission limits: drones at once, the
-   * memory and the disk Fleet keeps free before starting another. **Fleet-wide
-   * and never a Job's own act.**
-   *
-   * Applies the next time a Job is ready to start; nothing running stops. An
-   * omitted field keeps its value. Fleet refuses a figure out of range in the
-   * API's own error shape, and nothing here saves any of the three.
+   * Change settings in settings.json, by key. `null` removes a key, so its shipped default is back.
+   * **Every change in one save or none**: Fleet refuses a value out of range whole. `settings` is
+   * republished with Fleet's answer.
    */
-  saveLimits: (values: SaveLimits) => Promise<Outcome>;
+  saveSettings: (changes: SaveSettings["changes"]) => Promise<Outcome>;
   /**
-   * Save one preference by name. **Fleet-wide and never a Job's own act**,
-   * `saveLimits`' reason — and one preference at a time, unlike `saveLimits`,
-   * which sends every field it has an opinion on in one request: a preference
-   * is a row keyed by name, so saving one leaves every other one untouched.
+   * Open settings.json in the editor `editor.command` names. **No path crosses this**: main opens the
+   * one `settings.path` named, so the renderer cannot ask for any other file.
+   */
+  openSettingsFile: () => Promise<SettingsFileOpened>;
+  /**
+   * Save one preference by name. **Fleet-wide and never a Job's own act**, and
+   * one preference at a time: saving one leaves every other one untouched.
    *
    * What comes back is every preference now in force, and `BridgeState.preferences`
    * is republished with it — `readPreferences`' terms otherwise.
@@ -67,12 +76,17 @@ export type SettingsApi = {
 
 export type SettingsState = {
   /**
+   * Every setting in settings.json and what is in force for each, or `null` before the first read.
+   * Read once per connection and replaced whole by every `settings.changed` and every save.
+   */
+  settings: SettingsList | null;
+  /**
    * Fleet's three admission limits, and what Armada ships them at, or `null`
    * before the first read.
    *
-   * **Read once per connection and republished on every save** — `capacity`'s
+   * **Read once per connection and again on every `settings.changed`** — `capacity`'s
    * reason for `null` rather than a stale figure, and `manifestReading`'s for
-   * not re-reading on a timer: nothing but a save changes it.
+   * not re-reading on a timer: nothing but a change to settings.json moves it.
    */
   limits: FleetLimits | null;
   /**
@@ -94,13 +108,15 @@ export type SettingsState = {
 };
 
 export const SETTINGS_NOTHING_YET: SettingsState = {
+  settings: null,
   limits: null,
   preferences: { where_things_are_open: false },
   mods: null,
 };
 
 export const SETTINGS_CHANNELS = {
-  saveLimits: "bridge:save-limits",
+  saveSettings: "bridge:save-settings",
+  openSettingsFile: "bridge:open-settings-file",
   savePreference: "bridge:save-preference",
   validateMod: "bridge:validate-mod",
   setModEnabled: "bridge:set-mod-enabled",

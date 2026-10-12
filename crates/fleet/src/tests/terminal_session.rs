@@ -607,3 +607,42 @@ async fn an_ended_session_closes_its_terminal_question() {
     ));
     assert!(rig.bridge_answers(&call, "L").await.is_err());
 }
+
+/// **A terminal's question while its walk is open is refused before any card goes up**, with the
+/// reason the mod hands the model; once the person closes the window, a question is put again.
+#[tokio::test]
+async fn a_terminal_question_while_a_walk_is_open_is_refused_until_the_window_closes() {
+    let rig = rig();
+    rig.started().await;
+    let url = "http://localhost:5173/";
+    rig.fleet
+        .show_window(None, ipc::ShowWindow { url: url.into(), title: None, session_id: Some(SessionId::carried(ID)) })
+        .await
+        .expect("shown");
+
+    let ask = format!(r#"{{"kind":"asks","session_id":"{ID}","input":{QUESTION}}}"#);
+    let ipc::TerminalAsked::Refused { message } = rig.mod_says(ask.clone()).await.unwrap() else {
+        panic!("a question during a walk is refused");
+    };
+    assert!(message.contains("waiting_for"), "{message}");
+    assert!(
+        !rig.opened().await.iter().any(|row| matches!(row, SessionRow::Ask { .. })),
+        "no card was put up"
+    );
+
+    rig.fleet
+        .window_closed(ipc::WindowClosed { session_id: SessionId::carried(ID), url: url.into() })
+        .await
+        .expect("told");
+    assert!(matches!(rig.mod_says(ask).await.unwrap(), ipc::TerminalAsked::Asked { .. }));
+
+    // Approve in the window is a message the mod is holding for, and it ends the walk too.
+    rig.fleet
+        .show_window(None, ipc::ShowWindow { url: url.into(), title: None, session_id: Some(SessionId::carried(ID)) })
+        .await
+        .expect("shown again");
+    assert_eq!(rig.fleet.walk_open(ID).await.as_deref(), Some(url));
+    rig.mod_asks().await;
+    rig.sends(&format!("Approved: {url}")).await.expect("held for the mod");
+    assert_eq!(rig.fleet.walk_open(ID).await, None);
+}

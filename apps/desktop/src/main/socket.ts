@@ -23,8 +23,18 @@ import { PROTOCOL_ID, speaksOurProtocol } from "@armada/protocol";
 import type { Connection } from "@armada/protocol";
 import { HOST, machinePath, read } from "./runtime-file";
 
-/** How long to wait before reading the runtime file again. */
-const RETRY_MS = 2000;
+/**
+ * How long to wait before reading the runtime file again: `timeouts.bridgeReconnectMs`, as shipped
+ * until the first read of settings.json says otherwise. **Bridge does not read the file itself**, so
+ * a Bridge that has not reached Fleet since it opened waits the shipped interval.
+ */
+let retryMs = 2000;
+
+/** Follow `timeouts.bridgeReconnectMs`. A figure that is not a positive number leaves it as it was. */
+export function followReconnectMs(ms: number): void {
+  if (!Number.isFinite(ms) || ms <= 0) return;
+  retryMs = ms;
+}
 
 /**
  * How long a socket may sit without a first message before Bridge says so. A
@@ -242,6 +252,6 @@ export class FleetSocket {
     this.retry = setTimeout(() => {
       this.retry = null;
       void this.attach();
-    }, RETRY_MS);
+    }, retryMs);
   }
 }

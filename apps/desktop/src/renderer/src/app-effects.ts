@@ -2,7 +2,9 @@
 // elapsed figures read, Escape out of a Job, the cursor's way back to its row, and where a pressed
 // notification lands. Each is App's, and each says why it is the way it is.
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { isPressed } from "@armada/components";
+import { askToOpenSession } from "./open-session";
 
 /** How often the elapsed figures are redrawn. They are read, so they must move. */
 const TICK_MS = 1000;
@@ -30,7 +32,7 @@ export function useEscapeLeavesJob(openJob: string | null, close: () => void): v
       // One view to leave, since the turns stopped being a screen of their own:
       // Escape returns to the list from anywhere inside a Job.
       // A press a layer above already answered — the palette, a sheet — is not a second exit.
-      if (event.key !== "Escape" || event.defaultPrevented) return;
+      if (event.defaultPrevented || !isPressed("close", event)) return;
       close();
     };
     window.addEventListener("keydown", pressed);
@@ -60,7 +62,43 @@ export function useReturnToRow(returning: string | null, done: () => void): void
  * One Job opens that Job. Several open the set they came from — the Needs-you tab — because
  * picking one of four for somebody is choosing on their behalf. Either way the overlays come down
  * first: the press asked for the Board or a Job, not for the composer that happened to be up.
+ *
+ * **A Job's walk window taking focus is followed, not pressed** (owner, 11 Oct 2026): `follow` opens
+ * that Job over whatever is showing, so Escape goes back to it, and leaves the composer standing —
+ * nobody asked to lose what they were typing by clicking into another window.
  */
-export function useSummoned(go: (jobId: string | null) => void): void {
-  useEffect(() => window.armada.onSummoned((to) => go(to.jobId)), []);
+export function useSummoned(go: (jobId: string | null) => void, follow: (jobId: string) => void): void {
+  // The latest of each, because the follow reads whether the composer is up and the listener is installed once.
+  const latest = useRef({ go, follow });
+  latest.current = { go, follow };
+  useEffect(
+    () =>
+      window.armada.onSummoned((to) =>
+        to.follow === true && to.jobId !== null
+          ? latest.current.follow(to.jobId)
+          : to.sessionId === undefined
+            ? latest.current.go(to.jobId)
+            : askToOpenSession(to.sessionId),
+      ),
+    [],
+  );
+}
+
+/**
+ * Where a press asked the Dashboard to land: a section (a system notification's press), or one call
+ * (an in-app alert's). **A token rather than a call**: the press may have arrived over the composer or
+ * over a Job, so Overview is not mounted yet, and it acts once it is. `at` is what makes a second press
+ * of the same thing land, and the taker clears the token so it is not acted on twice.
+ */
+export function useLandings() {
+  const [landing, setLanding] = useState<{ section: "needs-you"; at: number } | null>(null);
+  const [bringing, setBringing] = useState<{ key: string; at: number } | null>(null);
+  return {
+    landing,
+    bringing,
+    landOn: () => setLanding({ section: "needs-you", at: Date.now() }),
+    bring: (key: string) => setBringing({ key, at: Date.now() }),
+    landed: () => setLanding(null),
+    brought: () => setBringing(null),
+  };
 }

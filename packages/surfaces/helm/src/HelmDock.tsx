@@ -8,6 +8,7 @@
 
 import { useState } from "react";
 import { copyHelmRecord, DockQuestions, HelmComposer, HelmRecord, HelmThread } from "@armada/components";
+import { useRecentRepositories } from "@armada/shell";
 import type {
   DockQuestion,
   HelmApprovalCard,
@@ -26,6 +27,7 @@ import type {
 import { helmRowsOf, type HelmApprovalAsk, type HelmFoldedRow } from "./helm-thread";
 import type { HelmState } from "./api";
 import { locationOf, type StudioNamed } from "./helm-context";
+import { recentManifestIds } from "./recent-manifests";
 
 export type HelmDockProps = {
   helm: HelmState["helm"];
@@ -88,11 +90,18 @@ export function HelmDock({
   const [record, setRecord] = useState<Read>({ open: false });
   const [pressed, setPressed] = useState<Record<string, Pressed>>({});
   const current = helm.state === "none" ? undefined : helm.manifestId;
+  const [recentRoots, remember] = useRecentRepositories();
   const options = repositories
     .filter((one): one is RepositorySummary & { manifest: NonNullable<RepositorySummary["manifest"]> } =>
       one.manifest !== undefined,
     )
     .map((one) => ({ id: one.manifest.id, label: one.manifest.repository }));
+  const recent = recentManifestIds(repositories, recentRoots);
+  function switchTo(manifestId: string): void {
+    const picked = repositories.find((one) => one.manifest?.id === manifestId);
+    if (picked !== undefined) remember(picked.root);
+    onSwitch(manifestId);
+  }
   const folded = helm.state === "open" || helm.state === "failed" ? helmRowsOf(helm.items) : [];
   const rows = folded.map((row) => withCards(row, jobs, workflows, pressed, onApprove, setPressed));
   const replying = helmReplying(helm);
@@ -149,6 +158,7 @@ export function HelmDock({
       <HelmComposer
         current={current}
         repositories={options}
+        recent={recent}
         chip={chip}
         onRemoveChip={onRemoveChip}
         location={locationOf(context, jobs, studio)}
@@ -158,7 +168,7 @@ export function HelmDock({
         // drawing no control under a sentence naming one. A specific pick
         // does not hide it either — Discuss, or the switch itself, points
         // Helm away from the picked repository without moving the rail.
-        onSwitch={onSwitch}
+        onSwitch={switchTo}
         onCopyRecord={current === undefined ? undefined : copyRecord}
         onOpenRecord={current === undefined ? undefined : openRecord}
         value={draft}

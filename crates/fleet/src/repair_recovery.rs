@@ -81,6 +81,7 @@ where
             };
             let told = side.map(|side| {
                 crate::side_run::brief(
+                    &self.prompts(),
                     &side,
                     job.title().as_str(),
                     job.branch().map(|branch| branch.as_str()),

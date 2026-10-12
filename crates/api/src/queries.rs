@@ -7,8 +7,9 @@
 //! machine would not admit the move.
 //!
 //! The expensive reads are here on purpose and each says why in its own doc.
-//! `get_diff` spends the patch, `get_call` spends one argument, and both are
-//! separate routes so that the reads made on every refresh do not pay for them.
+//! `get_diff` spends the patch and `get_check_output` a Check's streams, and
+//! both are separate routes so that the reads made on every refresh do not pay
+//! for them.
 
 use axum::extract::{Path, Query, State};
 use axum::http::{header, HeaderMap, StatusCode};
@@ -23,11 +24,10 @@ use crate::reference::Resolved;
 use crate::scoped::{InManifest, InRepository};
 use crate::served::Served;
 
-/// The second segment of `/jobs/:job_id/calls/:call_id`.
+/// The second segment of `/jobs/:job_id/calls/:call_id/explain`.
 ///
 /// **Its own struct rather than a tuple**, because the Job is extracted beside
-/// it and a tuple would make each of the two handlers state a segment it does
-/// not use.
+/// it and a tuple would make the handler state a segment it does not use.
 #[derive(Deserialize)]
 pub(crate) struct Called {
     call_id: String,
@@ -294,40 +294,12 @@ pub(crate) async fn get_job_resources<D: Queries>(
     }
 }
 
-/// One tool call's arguments, whole. **The rest of a row that was cut**, on a
-/// route rather than in the row itself.
-///
-/// A `called` row carries a line and how many characters the argument had, so a
-/// person opening it reads *showing 200 of 14,320 characters* — and this is
-/// where the other fourteen thousand come from. The split is `get_diff`'s: the
-/// cheap fact streams to everyone watching, and the bytes are fetched once, by
-/// the one person who asked.
-///
-/// **It is not the socket's job.** `observe_job` is bounded and lossy under
-/// backpressure by design, and a row large enough to evict its neighbours would
-/// take the short form down with it.
-///
-/// 404 where the Job is unknown. 422 where the Job is known and nothing in its
-/// transcripts carries that call id — the request is well-formed and the value
-/// in it names nothing, which is a different thing from the Job not existing.
-pub(crate) async fn get_call<D: Queries>(
-    State(served): State<Served<D>>,
-    job: Resolved,
-    Path(Called { call_id }): Path<Called>,
-) -> Response {
-    match served.daemon().get_call(job.id(), call_id).await {
-        Ok(call) => answer(StatusCode::OK, &call, served.run_id()),
-        Err(refusal) => refused(refusal),
-    }
-}
-
 /// What one command a Drone was not granted does, read by a model for the
 /// person deciding about it. **It decides nothing**: the offers stay, the Drone
 /// stays held, nothing is recorded, and a person who never asks is answered
 /// exactly as they were before this route existed.
 ///
-/// Under the call rather than beside it, because it is a second reading of the
-/// one call `get_call` answers about.
+/// Under the call, because it is a reading of one call a Drone made.
 ///
 /// 404 where the Job is unknown, and 404 again where the id names nothing this
 /// Job is waiting on or refused — the reading exists only while that command is
@@ -352,7 +324,7 @@ pub(crate) async fn explain_command<D: Queries>(
 /// hand it to the operating system. This is what a person who pressed the row
 /// asks for, once, so the reading happens on the screen the Check is on.
 ///
-/// **It is not the socket's job**, for the reason `get_call` is not: `/events`
+/// **It is not the socket's job**, for the reason `get_diff` is not: `/events`
 /// is one drop-oldest channel carrying every Job, and a test runner's output on
 /// it would evict the state changes the Board is drawn from.
 ///

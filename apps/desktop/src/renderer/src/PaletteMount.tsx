@@ -7,9 +7,11 @@
 // thing; the object is the shape that function already agrees on.
 
 import { Palette, type PaletteBoardRow, type PaletteSurface } from "@armada/shell";
+import type { PaletteDispatch } from "@armada/components";
 import type { JobSummary } from "@armada/protocol";
 import type { BridgeState } from "../../shared/bridge";
 import { checkoutRunnablesOf } from "@armada/manifest";
+import { SETTINGS_PALETTE } from "@armada/settings";
 import { studioName, titleOf } from "@armada/screens";
 import { askStudioAdd, askStudioRun, useStudioAddOff, useStudioRunOff } from "@armada/studios";
 import { absentIn, carryOut, dormantIn } from "./palette";
@@ -43,6 +45,9 @@ export type PaletteMountProps = {
   acts: Omit<Parameters<typeof carryOut>[2], "studioRun" | "studioAdd">;
   /** A destructive act chosen from the palette, handed on to confirm. */
   onConfirmAct: (id: string, jobId: string) => void;
+  /** The one bar's dispatch row, and the title bar's field it opens over. `one-bar.tsx`. */
+  dispatch: PaletteDispatch;
+  anchor: string;
 };
 
 /**
@@ -64,6 +69,8 @@ export function PaletteMount({
   board,
   acts,
   onConfirmAct,
+  dispatch,
+  anchor,
 }: PaletteMountProps) {
   const studioRun = useStudioRunOff();
   const studioAdd = useStudioAddOff();
@@ -71,6 +78,8 @@ export function PaletteMount({
     <Palette
       open={open}
       onClose={onClose}
+      dispatch={dispatch}
+      anchor={anchor}
       // Three places, not two: a Studio open on its whiteboard is neither the
       // Board nor a job read whole, and the acts scoped to it act on the board
       // rather than on anything focused — #1364.
@@ -95,9 +104,10 @@ export function PaletteMount({
       runnables={checkoutRunnablesOf(checkoutRunSheet)}
       board={board}
       jobs={jobs.map((job) => ({ id: job.id, label: `${job.handle} — ${titleOf(job)}` }))}
-      // Fleet settings is the section's first row. It carries no value, because
-      // choosing it opens the sheet rather than stating a field.
-      settings={[{ id: "fleet_settings", label: "Fleet settings" }]}
+      // One row per category of Settings, each opening Settings at it — Fleet
+      // settings first. None carries a value: each opens a screen rather than
+      // stating a field.
+      settings={SETTINGS_PALETTE}
       dormant={dormantIn({ reading: reading !== null, cursor, failing: failing !== null, live, studioRun, studioAdd })}
       absent={absentIn({ reading: reading !== null, cursor })}
       onChoose={(choice: Parameters<typeof carryOut>[0]) =>

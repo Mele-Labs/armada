@@ -124,3 +124,21 @@ fn a_mod_switch_is_a_row_and_a_second_one_replaces_it() {
     assert_eq!(switches["calm"], true);
     assert_eq!(switches["loud"], true);
 }
+
+/// What `settings.json` carries over: a saved row, and nothing for a row nobody
+/// wrote — not the default that `preferences()` answers in its place.
+#[test]
+fn the_saved_rows_are_told_apart_from_the_defaults() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    assert_eq!(store.saved_preferences().expect("reads"), crate::SavedPreferences::default());
+    store.save_preference("draft_pull_requests", false).expect("saved");
+    store.save_theme("calm").expect("saved");
+    store.save_layout_choices(r#"{"version":1}"#).expect("saved");
+    let saved = store.saved_preferences().expect("reads");
+    assert_eq!(saved.draft_pull_requests, Some(false), "a saved false is still saved");
+    assert_eq!(saved.theme.as_deref(), Some("calm"));
+    assert_eq!(saved.layout_choices.as_deref(), Some(r#"{"version":1}"#));
+    assert_eq!(saved.where_things_are_open, None);
+    assert_eq!(saved.key_bindings, None);
+}

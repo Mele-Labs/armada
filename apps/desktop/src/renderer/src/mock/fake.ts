@@ -57,7 +57,8 @@ export function fakeBridge(scenario: Scenario, options: FakeOptions = {}): Bridg
   const listed = options.slices;
   const kept = listed === undefined ? SLICES : SLICES.filter((one) => one.name === "core" || listed.includes(one.name));
   const left = SLICES.filter((one) => !kept.includes(one));
-  const initial: BridgeState = left.length === 0 ? scenario.state : { ...scenario.state, ...Object.assign({}, ...left.map((one) => one.state)) };
+  const unseeded: BridgeState = left.length === 0 ? scenario.state : { ...scenario.state, ...Object.assign({}, ...left.map((one) => one.state)) };
+  const initial: BridgeState = Object.assign({}, unseeded, ...kept.map((one) => one.seeded?.(unseeded) ?? {}));
   const fleet = fleetOf(scenario, initial);
   const api = compose(kept, left, scenario, fleet);
   const own = scenario.behaves?.({ state: fleet.state, publish: fleet.publish });

@@ -93,7 +93,11 @@ pub fn because_in_a_session(asking: &AskingToRun, directory: &str) -> Option<Bec
     if tool == "Bash" {
         let line = flattened(asking.detail().unwrap_or_default());
         // An escaped space is part of the path, as in `Application\ Support`.
-        if line.replace("\\ ", "\u{0}").split_whitespace().any(reaches_outside) {
+        if line
+            .replace("\\ ", "\u{0}")
+            .split_whitespace()
+            .any(reaches_outside)
+        {
             return Some(Because::ReachesOutside);
         }
         return shell(&line, slot_of(directory));
@@ -188,7 +192,12 @@ fn in_the_slot(word: &str, slot: &str, relative: bool) -> bool {
 }
 
 /// Where a session may write and remove besides its slot.
-const SCRATCH: &[&str] = &["/tmp/", "/private/tmp/", "/var/folders/", "/private/var/folders/"];
+const SCRATCH: &[&str] = &[
+    "/tmp/",
+    "/private/tmp/",
+    "/var/folders/",
+    "/private/var/folders/",
+];
 
 /// Whether `path` is under `directory`, a relative path being read against it.
 /// A `..` anywhere makes it unreadable as inside.
@@ -604,9 +613,26 @@ fn git(arguments: &[&str], own_slot: bool) -> Option<Because> {
     // made (the owner, 8 Oct 2026). Pointed elsewhere with `-C`, it is read as
     // before; the stash is every worktree's, and a push, a deleted branch and
     // a pruned repository are everyone's.
-    const OWN_BRANCH: &[&str] = &["reset", "clean", "checkout", "restore", "rebase", "am", "cherry-pick", "revert", "merge", "tag"];
-    let elsewhere = arguments.iter().any(|word| *word == "-C" || word.starts_with("--git-dir") || word.starts_with("--work-tree"));
-    if own_slot && !elsewhere && OWN_BRANCH.contains(subcommand) && !(*subcommand == "tag" && arguments.iter().any(|w| matches!(*w, "-d" | "--delete"))) {
+    const OWN_BRANCH: &[&str] = &[
+        "reset",
+        "clean",
+        "checkout",
+        "restore",
+        "rebase",
+        "am",
+        "cherry-pick",
+        "revert",
+        "merge",
+        "tag",
+    ];
+    let elsewhere = arguments.iter().any(|word| {
+        *word == "-C" || word.starts_with("--git-dir") || word.starts_with("--work-tree")
+    });
+    if own_slot
+        && !elsewhere
+        && OWN_BRANCH.contains(subcommand)
+        && !(*subcommand == "tag" && arguments.iter().any(|w| matches!(*w, "-d" | "--delete")))
+    {
         return None;
     }
     const GONE: &[&str] = &[

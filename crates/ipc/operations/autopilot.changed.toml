@@ -1,0 +1,8 @@
+[operations."autopilot.changed"]
+kind = "event"
+transport = "WebSocket"
+agent_access = "Bridge only"
+description = "A repository's Autopilot after any change to it, whole: its settings, state, figures and picks"
+notes = """
+Carries `Autopilot`, as `get_autopilot` answers it. #2092. Published on each act, on each pick, when a cap stops it, and when a pass finds `at_work` or the spend moved. It is rare: a pick is a model call, at most a few a pass, and a pass is the noticing interval, so it adds nothing to the unbounded-sink risk `docs/practices/protocol.md` names. A reconnecting Bridge replaces what it holds.
+"""

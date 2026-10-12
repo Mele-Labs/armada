@@ -1,0 +1,221 @@
+//! A repository's Autopilot and what it picked. #2092, `docs/concepts/autopilot.md`.
+//!
+//! **Words, not enums.** The states are Fleet's vocabulary (`fleet::autopilot`); this keeps what
+//! it was handed, as `sleep_night` does, and Fleet refuses a word it does not know when it reads.
+
+use rusqlite::{params, OptionalExtension};
+
+use crate::error::{fault, WriteError};
+use crate::open::Store;
+
+/// One repository's Autopilot. `run_id` names this start, and its picks carry it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct KeptAutopilot {
+    pub manifest_id: String,
+    pub run_id: String,
+    pub instruction: String,
+    pub at_once: u32,
+    pub until: Option<String>,
+    pub spend_cap_micros: Option<u64>,
+    pub job_cap: Option<u32>,
+    /// `running`, `paused` or `stopped`.
+    pub state: String,
+    pub started_at: String,
+    pub ended_at: Option<String>,
+    /// `until`, `spend` or `jobs`: the cap that stopped it. Absent where a person did, or nothing has.
+    pub capped_by: Option<String>,
+}
+
+/// One pick. `started_job` is the Job it started, where it started one.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct KeptPick {
+    pub pick_id: String,
+    pub run_id: String,
+    pub manifest_id: String,
+    pub issue_number: u64,
+    pub issue_title: String,
+    pub issue_url: String,
+    pub workflow_id: Option<String>,
+    pub started_job: Option<String>,
+    /// `started`, `set_aside`, `withdrawn` or `dismissed`.
+    pub state: String,
+    pub reason: String,
+    pub at: String,
+}
+
+const AUTOPILOT: &str =
+    "manifest_id, run_id, instruction, at_once, until, spend_cap_micros, job_cap, \
+                         state, started_at, ended_at, capped_by";
+const PICK: &str =
+    "pick_id, run_id, manifest_id, issue_number, issue_title, issue_url, workflow_id, \
+                    started_job, state, reason, at";
+
+fn autopilot_of(row: &rusqlite::Row<'_>) -> rusqlite::Result<KeptAutopilot> {
+    Ok(KeptAutopilot {
+        manifest_id: row.get(0)?,
+        run_id: row.get(1)?,
+        instruction: row.get(2)?,
+        at_once: row.get(3)?,
+        until: row.get(4)?,
+        spend_cap_micros: row
+            .get::<_, Option<i64>>(5)?
+            .map(|micros| micros.max(0) as u64),
+        job_cap: row.get(6)?,
+        state: row.get(7)?,
+        started_at: row.get(8)?,
+        ended_at: row.get(9)?,
+        capped_by: row.get(10)?,
+    })
+}
+
+fn pick_of(row: &rusqlite::Row<'_>) -> rusqlite::Result<KeptPick> {
+    Ok(KeptPick {
+        pick_id: row.get(0)?,
+        run_id: row.get(1)?,
+        manifest_id: row.get(2)?,
+        issue_number: row.get::<_, i64>(3)?.max(0) as u64,
+        issue_title: row.get(4)?,
+        issue_url: row.get(5)?,
+        workflow_id: row.get(6)?,
+        started_job: row.get(7)?,
+        state: row.get(8)?,
+        reason: row.get(9)?,
+        at: row.get(10)?,
+    })
+}
+
+fn failed(doing: &'static str) -> impl FnOnce(rusqlite::Error) -> WriteError {
+    move |cause| WriteError::Database(fault(doing)(cause))
+}
+
+impl Store {
+    /// Every repository's Autopilot, stopped ones included, by repository.
+    pub fn autopilots(&self) -> Result<Vec<KeptAutopilot>, WriteError> {
+        let doing = "reading every Autopilot";
+        let mut statement = self
+            .conn
+            .prepare(&format!(
+                "SELECT {AUTOPILOT} FROM autopilots ORDER BY manifest_id"
+            ))
+            .map_err(failed(doing))?;
+        let rows = statement
+            .query_map([], autopilot_of)
+            .map_err(failed(doing))?;
+        rows.collect::<Result<_, _>>().map_err(failed(doing))
+    }
+
+    pub fn autopilot(&self, manifest_id: &str) -> Result<Option<KeptAutopilot>, WriteError> {
+        self.conn
+            .query_row(
+                &format!("SELECT {AUTOPILOT} FROM autopilots WHERE manifest_id = ?1"),
+                [manifest_id],
+                autopilot_of,
+            )
+            .optional()
+            .map_err(failed("reading a repository's Autopilot"))
+    }
+
+    /// Keep a new start, replacing whatever the repository held. **Fleet refuses one that is not
+    /// stopped before this is reached**; the store does not know what stopped means.
+    pub fn start_autopilot(&mut self, kept: &KeptAutopilot) -> Result<(), WriteError> {
+        self.conn
+            .execute(
+                &format!(
+                    "INSERT OR REPLACE INTO autopilots ({AUTOPILOT})
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)"
+                ),
+                params![
+                    kept.manifest_id,
+                    kept.run_id,
+                    kept.instruction,
+                    kept.at_once,
+                    kept.until,
+                    kept.spend_cap_micros.map(|micros| micros as i64),
+                    kept.job_cap,
+                    kept.state,
+                    kept.started_at,
+                    kept.ended_at,
+                    kept.capped_by,
+                ],
+            )
+            .map(|_| ())
+            .map_err(failed("starting an Autopilot"))
+    }
+
+    /// Move one run to `state`. **False where the repository holds no such run**, so an act racing
+    /// a new start does not move the new one.
+    pub fn move_autopilot(
+        &mut self,
+        run_id: &str,
+        state: &str,
+        ended_at: Option<&str>,
+        capped_by: Option<&str>,
+    ) -> Result<bool, WriteError> {
+        self.conn
+            .execute(
+                "UPDATE autopilots SET state = ?2, ended_at = ?3, capped_by = ?4 WHERE run_id = ?1",
+                params![run_id, state, ended_at, capped_by],
+            )
+            .map(|changed| changed > 0)
+            .map_err(failed("moving an Autopilot"))
+    }
+
+    /// One run's picks, oldest first: a pick id is a ULID, minted in order.
+    pub fn autopilot_picks(&self, run_id: &str) -> Result<Vec<KeptPick>, WriteError> {
+        let doing = "reading an Autopilot's picks";
+        let mut statement = self
+            .conn
+            .prepare(&format!(
+                "SELECT {PICK} FROM autopilot_picks WHERE run_id = ?1 ORDER BY pick_id"
+            ))
+            .map_err(failed(doing))?;
+        let rows = statement
+            .query_map([run_id], pick_of)
+            .map_err(failed(doing))?;
+        rows.collect::<Result<_, _>>().map_err(failed(doing))
+    }
+
+    pub fn add_autopilot_pick(&mut self, pick: &KeptPick) -> Result<(), WriteError> {
+        self.conn
+            .execute(
+                &format!(
+                    "INSERT INTO autopilot_picks ({PICK})
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)"
+                ),
+                params![
+                    pick.pick_id,
+                    pick.run_id,
+                    pick.manifest_id,
+                    pick.issue_number as i64,
+                    pick.issue_title,
+                    pick.issue_url,
+                    pick.workflow_id,
+                    pick.started_job,
+                    pick.state,
+                    pick.reason,
+                    pick.at,
+                ],
+            )
+            .map(|_| ())
+            .map_err(failed("keeping an Autopilot's pick"))
+    }
+
+    /// Move one pick from `from` to `to`, naming the Job it started where it started one. **False
+    /// where the pick is not at `from`**, which is how two presses on one pick start one Job.
+    pub fn move_autopilot_pick(
+        &mut self,
+        pick_id: &str,
+        from: &str,
+        to: &str,
+        started_job: Option<&str>,
+    ) -> Result<bool, WriteError> {
+        self.conn
+            .execute(
+                "UPDATE autopilot_picks SET state = ?3, started_job = COALESCE(?4, started_job)
+                 WHERE pick_id = ?1 AND state = ?2",
+                params![pick_id, from, to, started_job],
+            )
+            .map(|changed| changed > 0)
+            .map_err(failed("moving an Autopilot's pick"))
+    }
+}

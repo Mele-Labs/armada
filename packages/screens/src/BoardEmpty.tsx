@@ -1,7 +1,7 @@
 // What the Board says when it draws no row. Out of `Jobs.tsx`, which reached the 500 lines the gate
 // warns at when a fourth case joined these three: Fleet serving no repository yet.
 
-import { actionOf, BoardEmptyState, Button, fleetSaid, FleetStarting, Kbd, STARTING_PHRASE } from "@armada/components";
+import { actionOf, BoardEmptyState, keyFor, Button, fleetSaid, FleetStarting, Kbd, STARTING_PHRASE } from "@armada/components";
 
 import { NOTHING_SERVED } from "./locate-reads";
 
@@ -25,7 +25,7 @@ export function OverviewEmpty({ onCompose }: { onCompose: () => void }) {
       action={
         <Button variant="primary" onClick={onCompose}>
           {dispatch.verb}
-          <Kbd aria-hidden>{dispatch.shortcut}</Kbd>
+          <Kbd aria-hidden>{keyFor("new_job")}</Kbd>
         </Button>
       }
     >

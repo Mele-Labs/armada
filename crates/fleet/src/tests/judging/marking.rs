@@ -49,6 +49,7 @@ async fn while_judging(judge: FakeJudge, worktree: &Worktree) -> (Vec<ipc::JobJu
         asked: Asked::nowhere(),
         standing: verification::Standing::unstated(),
         reading: None,
+        wording: verification::Wording::shipped(),
     };
     rule_on(
         at,

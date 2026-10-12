@@ -9,7 +9,7 @@
 //! `ipc` alone.
 
 use ipc::{
-    AlertList, BriefContents, CallArguments, CheckOutput, CommandExplained, DroneDetail, DroneId,
+    AlertList, BriefContents, CheckOutput, CommandExplained, DroneDetail, DroneId,
     DroneList, FilesFound, FleetCapacity, FleetHealth, FleetUsage, JobDetail, JobDiff, JobDrones,
     JobEvidence, JobHistory, JobId, JobList, JobRemarks, JobResources, KeptFrame, ManifestConfig,
     ManifestDrift, ManifestFile, ManifestId, ManifestReading, ManifestSummary, ModelChoices,
@@ -287,17 +287,6 @@ impl Queries for FakeDaemon {
         Ok(report)
     }
 
-    /// Whatever the fake's own saves have left, so a route test can read back
-    /// what it saved.
-    async fn get_limits(&self) -> Result<ipc::FleetLimits, Refusal> {
-        Ok(*self.limits.lock().expect("not poisoned"))
-    }
-
-    /// Whatever the fake's own saves have left, `get_limits`' reason.
-    async fn get_preferences(&self) -> Result<ipc::Preferences, Refusal> {
-        Ok(self.preferences.lock().expect("not poisoned").clone())
-    }
-
     /// Whatever a test planted, unfiltered — `#836`.
     async fn get_repository_allowed_commands(
         &self,
@@ -482,27 +471,9 @@ impl Queries for FakeDaemon {
         self.get_diff(job_id).await
     }
 
-    /// **The two refusals are what this side holds**: a Job that is not there,
-    /// and an id the record does not carry, which are different answers.
-    /// [`shapes::THE_CALL`] is the one id it does carry.
-    async fn get_call(&self, job_id: JobId, call_id: String) -> Result<CallArguments, Refusal> {
-        let jobs = self.jobs.lock().expect("not poisoned");
-        if !jobs.iter().any(|job| job.id == job_id) {
-            return Err(self.no_such_job(&job_id));
-        }
-        if call_id != shapes::THE_CALL {
-            return Err(Refusal::Unacceptable(ipc::WireError::raised(
-                "fleet.no_such_call",
-                format!("nothing in this Job's transcripts is the call `{call_id}`"),
-                run_id(),
-            )));
-        }
-        Ok(shapes::call(call_id))
-    }
-
     /// **Two refusals again, and both are 404s here**: a Job that is not there,
     /// and a call this fake holds no open command for. The second is a 404
-    /// rather than the 422 `get_call` answers, because the id is only nameable
+    /// rather than a 422, because the id is only nameable
     /// while the command is open — `crates/ipc/operations/`. No model is
     /// reached; what the route has to prove is the shape and the two answers.
     async fn explain_command(

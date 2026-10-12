@@ -41,10 +41,10 @@
 // four all along; the codegen just was not carrying it.
 //
 // **`asking` is the one rule that is not a lifecycle row, and still a positive
-// one.** A drone waiting on an answer is on a `running` job and its status does
-// not move while it waits, so the registry cannot say this. Without the row's
-// own fact a question would sit under Running, invisible until somebody opened
-// that job — the failure `Needs you` exists to prevent.
+// one.** A job whose drone asked a question waits at `queued`, beside every job
+// waiting for a place, so the registry cannot say this. Without the row's own
+// fact a question would sit under Queued, invisible until somebody opened that
+// job — the failure `Needs you` exists to prevent.
 //
 // **The order of the two mode-and-actor tests is the one thing to read
 // carefully.** `piloted` is `Working` and its actor is a `Person`, so `Working`

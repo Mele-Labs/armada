@@ -19,7 +19,7 @@
 // clears it with everything else, since `JobDetail` remounts per Job.
 
 import { useEffect, useRef, useState } from "react";
-import type { SheetBack } from "@armada/components";
+import { pressedSlot, type SheetBack } from "@armada/components";
 
 import { TAB_LABEL, type DetailTab } from "./detail-tabs";
 
@@ -64,7 +64,8 @@ export function useTrail(restore: (to: Place) => void) {
   useEffect(() => {
     if (!live) return;
     function onKey(event: KeyboardEvent) {
-      if (event.defaultPrevented || !event.metaKey || event.key !== "[") return;
+      // `history`'s back slot, `⌘[` unless Settings → Keyboard moved it.
+      if (event.defaultPrevented || pressedSlot("history", event) !== 0) return;
       event.preventDefault();
       backRef.current();
     }

@@ -27,6 +27,7 @@ import type { ActAnswer, ActingAct, DecidingAct } from "./pending";
 import type { PlanView } from "./plan-view";
 
 import type {
+  Opened,
   AlwaysAllowScope,
   CommandAnswer,
   CommandExplainedRead,
@@ -287,6 +288,11 @@ export type JobDetailProps = {
    * could not be rendered anywhere but inside the app.
    */
   onOpenArtifact: OpenArtifact;
+  /**
+   * Open the Job's worktree in the terminal settings.json names. Absent draws no control. The answer
+   * is `onOpenArtifact`'s, so a failure is worded by the same sentences.
+   */
+  onOpenInTerminal?: (jobId: string) => Promise<Opened>;
   /**
    * Open the pull request this Job opened, in whatever browses the web here.
    *

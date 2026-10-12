@@ -1,28 +1,45 @@
-/* The setup a person already has — #1491. A reading and not a control: no
-   button, no field, nothing that changes anything. Every value is a token. */
+/* The setup a person already has — #1491, drawn as the cockpit draws its viewscreen: a sunken glass
+   under a header band, every kind a tile standing on it. A reading and not a control: no button, no
+   field, nothing that changes anything. Every value is a token.
+
+   No kind carries a hue. Nothing here is a Job state and `tokens/status.css` declares none for a
+   kind, so the tiles are neutral and state is the frame's shape alone: a kind that holds nothing,
+   or was not read, is dashed and receded. */
 
 .armada-kit-setup {
   display: flex;
   flex-direction: column;
-  gap: var(--space-6);
   min-width: 0;
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--bg-sunken);
+  overflow: hidden;
 }
+
+/* ---- The band ------------------------------------------------------------------------------- */
 
 .armada-kit-setup__head {
   display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
-  gap: var(--space-3);
+  gap: var(--space-2) var(--space-4);
   min-width: 0;
+  min-height: calc(var(--h-row) * 1.25);
+  padding: var(--space-1) var(--space-4);
+  border-bottom: var(--border-width) solid var(--border-default);
+  background: var(--bg-raised);
 }
 
 .armada-kit-setup__title {
   margin: 0;
-  font-size: var(--text-base);
-  line-height: var(--leading-base);
-  font-weight: var(--weight-medium);
-  color: var(--fg-default);
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  font-weight: var(--weight-heading);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
 }
 
 .armada-kit-setup__where {
@@ -30,41 +47,116 @@
   flex-wrap: wrap;
   align-items: baseline;
   gap: var(--space-2);
+  min-width: 0;
   margin: 0;
-  font-size: var(--text-sm);
-  line-height: var(--leading-sm);
   color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
 }
 
 .armada-kit-setup__home {
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
   color: var(--fg-subtle);
   overflow-wrap: anywhere;
 }
 
+/* ---- The glass: a faint ruled grid, so the tiles read as standing on something ---------------- */
+
+/* Never `dense`: a tile packed into an earlier hole would put Tab's order and the eye's apart. */
+.armada-kit-setup__glass {
+  display: grid;
+  grid-template-columns: repeat(
+    auto-fill,
+    minmax(calc(var(--space-12) * 6), 1fr)
+  );
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-4);
+  background:
+    linear-gradient(
+      color-mix(in srgb, var(--border-subtle) 55%, transparent)
+        var(--border-width),
+      transparent var(--border-width)
+    ),
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--border-subtle) 55%, transparent)
+        var(--border-width),
+      transparent var(--border-width)
+    );
+  background-size: var(--space-6) var(--space-6);
+}
+
+/* ---- A kind as a tile ----------------------------------------------------------------------- */
+
 .armada-kit-setup__kind {
+  --hue: var(--fg-subtle);
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
   min-width: 0;
+  padding: var(--space-3);
+  border: calc(var(--border-width) * 2) solid
+    color-mix(in srgb, var(--hue) 40%, var(--border-subtle));
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--hue) 5%, var(--bg-raised));
 }
 
+/* The cursor on the glass. */
+.armada-kit-setup__kind:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+/* A long set takes the glass's whole width and lays its rows out in columns of their own, so one
+   tile twenty rows deep never stretches a row of empty ones beside it. */
+.armada-kit-setup__kind:has(.armada-kit-setup__items > li:nth-child(5)) {
+  grid-column: 1 / -1;
+}
+
+.armada-kit-setup__kind:has(.armada-kit-setup__items > li:nth-child(5)) .armada-kit-setup__items {
+  display: grid;
+  grid-template-columns: repeat(
+    auto-fill,
+    minmax(calc(var(--space-12) * 6), 1fr)
+  );
+  column-gap: var(--space-4);
+}
+
+/* Holding nothing, or not read: still on the glass, receded. */
+.armada-kit-setup__kind:not(:has(li)) {
+  border-style: dashed;
+  background: var(--bg-raised);
+}
+
+/* The tile's head: the kind's name as the band names its glass, and the count as the instrument's
+   reading. */
 .armada-kit-setup__kind-name {
   display: flex;
   align-items: baseline;
+  justify-content: space-between;
   gap: var(--space-2);
   margin: 0;
-  font-size: var(--text-sm);
-  line-height: var(--leading-sm);
-  font-weight: var(--weight-medium);
-  color: var(--fg-default);
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  font-weight: var(--weight-heading);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
 }
 
 /* The count, which is the answer to the question this surface was opened with. */
 .armada-kit-setup__count {
+  color: var(--fg-default);
+  font-size: var(--text-lg);
+  line-height: var(--leading-lg);
   font-variant-numeric: tabular-nums;
-  font-weight: var(--weight-body);
+  font-weight: var(--weight-medium);
+  letter-spacing: normal;
+}
+
+.armada-kit-setup__kind:not(:has(li)) .armada-kit-setup__count {
   color: var(--fg-subtle);
 }
 
@@ -72,8 +164,8 @@
 .armada-kit-setup__none,
 .armada-kit-setup__not-read {
   margin: 0;
-  font-size: var(--text-sm);
-  line-height: var(--leading-sm);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
   color: var(--fg-muted);
   text-wrap: pretty;
 }
@@ -87,52 +179,66 @@
 .armada-kit-setup__unreadable {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
   margin: 0;
   padding: 0;
   list-style: none;
   min-width: 0;
 }
 
-/* One row, one line. A person's own set runs to twenty rows and more, and a
-   row three lines deep turns the count at the top into the only thing read. */
+/* One item, ruled off from the next: its name and where it came from on the first line, what it
+   says for itself on the second, one line and cut. A tile is too narrow to hold all three abreast
+   and a row three lines deep turns the count at the top into the only thing read. */
 .armada-kit-setup__item,
 .armada-kit-setup__unreadable > li {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, auto) minmax(0, 1fr);
   align-items: baseline;
-  gap: var(--space-2);
+  column-gap: var(--space-2);
   min-width: 0;
+  padding: var(--space-1) 0;
+  border-top: var(--border-width) solid
+    color-mix(in srgb, var(--hue) 25%, var(--border-subtle));
   font-size: var(--text-sm);
   line-height: var(--leading-sm);
 }
 
+/* The name is the row, so it shrinks last and only past a readable measure. */
 .armada-kit-setup__item-name {
-  flex: 0 0 auto;
+  grid-column: 1;
+  grid-row: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
   color: var(--fg-default);
   font-weight: var(--weight-medium);
 }
 
-/* The description carries the line's slack and is cut with an ellipsis; the
-   whole of it is on the row's own `title`. */
+/* The description is cut with an ellipsis; the whole of it is on the row's own `title`. */
 .armada-kit-setup__item-says {
-  flex: 1 1 auto;
+  grid-column: 1 / -1;
+  grid-row: 2;
   min-width: 0;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
   color: var(--fg-muted);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
 }
 
-/* Where it came from, kept quiet and under the home the head names: it is
+/* Where it came from, kept quiet at the line's end and under the home the band names: it is
    provenance rather than the row.
 
-   It shrinks and is cut, and never widens the row: a synced skill's folder
-   carries the id of the set it arrived in, and a row that grew to fit one ran
-   off the panel. The whole path is on its own `title`. */
+   It shrinks and is cut, and never widens the row: a synced skill's folder carries the id of the
+   set it arrived in, and a row that grew to fit one ran off the panel. The whole path is on its
+   own `title`. */
 .armada-kit-setup__item-source {
-  flex: 0 1 auto;
+  grid-column: 2;
+  grid-row: 1;
+  justify-self: end;
+  max-width: 100%;
   min-width: 0;
-  max-width: 34ch;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
@@ -141,18 +247,26 @@
   color: var(--fg-subtle);
 }
 
-/* Where an allowlist command came from, in words and not a path. The Remove
-   after it sits at the end of the line. */
-.armada-kit-setup__item-from {
-  flex: 1 1 auto;
-  min-width: 0;
-  color: var(--fg-muted);
+/* An allowlist command: the command and its Remove on the first line, where it came from, in
+   words and not a path, under them. */
+.armada-kit-setup__item > .armada-button {
+  grid-column: 2;
+  grid-row: 1;
+  justify-self: end;
+  align-self: center;
 }
 
-/* The name is the row, so it shrinks last and only past a readable measure. */
-.armada-kit-setup__item-name {
+.armada-kit-setup__item-from {
+  grid-column: 1 / -1;
+  grid-row: 2;
   min-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
+  color: var(--fg-muted);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+
+.armada-kit-setup__item-name.mono {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
 }

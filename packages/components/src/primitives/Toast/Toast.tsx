@@ -19,9 +19,14 @@ export type ToastProps = {
   /** One trailing link at most. Never a second decision. */
   actionLabel?: string;
   onAction?: () => void;
+  /**
+   * Pressing the sentence itself. For a toast that is about a thing somebody can go to: the whole
+   * toast is the way there, and `actionLabel` is not needed to say so.
+   */
+  onPress?: () => void;
 };
 
-export function Toast({ status, children, actionLabel, onAction }: ToastProps) {
+export function Toast({ status, children, actionLabel, onAction, onPress }: ToastProps) {
   return (
     <div className="armada-toast" role="status">
       {status ? (
@@ -31,7 +36,13 @@ export function Toast({ status, children, actionLabel, onAction }: ToastProps) {
           aria-hidden="true"
         />
       ) : null}
-      <span className="armada-toast__text">{children}</span>
+      {onPress ? (
+        <button type="button" className="armada-toast__text armada-toast__press" onClick={onPress}>
+          {children}
+        </button>
+      ) : (
+        <span className="armada-toast__text">{children}</span>
+      )}
       {actionLabel ? (
         <button type="button" className="armada-toast__action" onClick={onAction}>
           {actionLabel}

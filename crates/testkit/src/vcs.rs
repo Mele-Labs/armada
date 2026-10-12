@@ -31,7 +31,7 @@ use adapter_traits::{
     Base, BaseCheckout, BaseMergedIn, BaseOnTheRemote, BaseSpec, BranchMerged, BroughtUpToDate,
     Change, CommitStatus, CommitTime, Committed, Delivery, FromOutside, KeptCurrent, Landable,
     Landing, Mergeable, Merged, NotCloned, NotDelivered, NotMerged, Opened, Pushed, PushedOntoBase,
-    Remark, RepositoryStanding, Review, SlotKept, SlotLeased, SlotPool, SlotReading, SlotStanding,
+    Remark, RepositoryStanding, Review, SlotKept, SlotLeased, SlotPool, SlotReading, SlotStanding, WorkShown,
     Standing, UncheckedHead, UnderReview, Vcs, WhatBecameOfIt, Worktree, WorktreeSpec,
 };
 
@@ -1115,7 +1115,17 @@ impl Vcs for FakeVcs {
     }
 
     fn slot_pool(&self, pool: &SlotPool) -> Vec<SlotReading> {
-        self.slots.readings(pool)
+        self.slots
+            .readings(pool)
+            .into_iter()
+            .map(|reading| {
+                let slot = reading.slot;
+                reading.with_work(|shown| match shown {
+                    WorkShown::Stranded => self.stranded_work(pool, slot).ok(),
+                    WorkShown::Session => self.session_work(pool, slot).ok(),
+                })
+            })
+            .collect()
     }
 
     fn change_slot_pool(

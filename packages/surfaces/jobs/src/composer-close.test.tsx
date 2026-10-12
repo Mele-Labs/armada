@@ -47,18 +47,20 @@ const INSET = 16;
  */
 const LEVEL = 2;
 
-/** The composer, opened the way a person opens it: the title row's Dispatch. */
+/** The composer, opened the way a person opens it: the title row's one bar, and ⇧↵ for the full composer. */
 async function composing(): Promise<void> {
   mount("every-state", SLICES);
-  await page.getByRole("button", { name: "Dispatch", exact: true }).first().click();
+  await page.getByRole("button", { name: /^Search, or describe work/ }).click();
+  await userEvent.keyboard("{Shift>}{Enter}{/Shift}");
   await expect.element(page.getByText(ASK)).toBeVisible();
 }
 
 /** Answer the ask, which is what draws the composer itself. */
 async function answered(): Promise<void> {
-  const select = page.getByLabelText("Repository", { exact: true }).element() as HTMLSelectElement;
-  const offered = [...select.options].find((one) => !one.disabled && one.value !== "");
-  await userEvent.selectOptions(select, offered!.value);
+  await page.getByRole("button", { name: "Choose a repository", exact: true }).click();
+  // The first row that can be pressed: a repository nobody set up is listed greyed and takes none.
+  const offered = page.getByRole("menuitem").elements().find((one) => one.getAttribute("aria-disabled") !== "true");
+  await userEvent.click(offered!);
   await expect.element(page.getByRole("heading", { name: "Dispatch a job" })).toBeVisible();
 }
 

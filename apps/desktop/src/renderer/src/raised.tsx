@@ -12,7 +12,7 @@
 // back. A copy confirmation still goes on its own, below them.
 // A press the form would not send is one toast per kind, replaced, not five.
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import type { BridgeIdentity, Outcome } from "@armada/protocol";
 import { CopiedToast, FailureToast, GuidanceToast, SaidToast, ToastRegion, watchUncaught } from "@armada/shell";
 import type { Raised } from "./failing";
@@ -62,10 +62,12 @@ export type ToastsProps = {
   copied: string | null;
   said: string | null;
   onCopied: (value: string) => void;
+  /** Toasts of another owner's that stand in this column too, so two never sit on one spot. */
+  children?: ReactNode;
 };
 
 /** Every toast in the window, in one column. */
-export function Toasts({ raised, bridge, onLower, copied, said, onCopied }: ToastsProps) {
+export function Toasts({ raised, bridge, onLower, copied, said, onCopied, children }: ToastsProps) {
   return (
     <ToastRegion>
       {raised.map((one) => {
@@ -85,6 +87,7 @@ export function Toasts({ raised, bridge, onLower, copied, said, onCopied }: Toas
       })}
       <CopiedToast copied={copied} />
       <SaidToast said={said} />
+      {children}
     </ToastRegion>
   );
 }

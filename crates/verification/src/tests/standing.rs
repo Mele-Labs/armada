@@ -14,7 +14,7 @@ fn stated() -> Standing {
 
 /// The section `stated` adds, exactly.
 fn section() -> String {
-    stated().told()
+    stated().told(&crate::Wording::shipped())
 }
 
 /// Every brief that is not `Brief::about`'s, which Fleet's own suite reads
@@ -78,7 +78,7 @@ fn every_brief_carries_the_section_and_nothing_else_changes() {
 #[test]
 fn a_file_with_nothing_in_it_says_nothing() {
     assert_eq!(Standing::read("RULES.md", "\n  \n"), Standing::unstated());
-    assert_eq!(Standing::unstated().told(), "");
+    assert_eq!(Standing::unstated().told(&crate::Wording::shipped()), "");
 }
 
 /// A cut that fell inside a character would panic the assembler; this one
@@ -87,7 +87,7 @@ fn a_file_with_nothing_in_it_says_nothing() {
 fn a_cut_lands_on_a_whole_line_and_never_inside_a_character() {
     let line = "é".repeat(30) + "\n";
     let text = line.repeat(STANDING_RULES / line.len() + 5);
-    let told = Standing::read("RULES.md", &text).told();
+    let told = Standing::read("RULES.md", &text).told(&crate::Wording::shipped());
     assert!(told.contains("(Cut here. RULES.md is"), "{told}");
     for shown in told.lines().filter(|shown| shown.contains('é')) {
         assert_eq!(shown.trim(), line.trim_end(), "a whole line");

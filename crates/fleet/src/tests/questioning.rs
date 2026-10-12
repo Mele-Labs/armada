@@ -1,27 +1,17 @@
-//! A Drone asking a person a question, and the answer coming back.
+//! A Drone asking a person a question, giving its place back, and a fresh
+//! Drone carrying on from the answer.
 //!
 //! # What these prove, and what they deliberately do not
 //!
-//! The ask, the four refusals, the answer reaching the pipe, and — the two that
-//! matter most — that neither vigil counts a waiting Drone as a stopped one. **A
-//! Drone blocked on an unanswered question must not escalate as `stalled` or
-//! `thrashing`**: the wait is a person's and has no budget, so a Job escalated
-//! for having a question outstanding is a Job that stopped for doing the right
-//! thing.
+//! The owner's decision of 11 Oct 2026, as cases: the asking Drone stands
+//! down and the Job waits at `queued` reading `awaiting_answer`; its place
+//! goes to the next queued Job; the question survives a Fleet restart; and
+//! the answer reaches the next Drone's opening brief. Then the refusals.
 //!
 //! Not proved here: that the Drone *acts* on the answer — nothing in this
 //! workspace reads what a Drone said. `Fleet::ask_question` is called with the
 //! Job id the peer lookup would have produced, so what is skipped is the socket
 //! and nothing about the binding.
-//!
-//! # Over 500 lines, and left as one file
-//!
-//! `crate::tests::headroom`'s argument. The ask, the refusals, the answer and
-//! the two vigils are one act proved at four depths, and a split would put "a
-//! label never offered is refused" in a different file from "the Drone waiting
-//! for that answer is not read as stalled" — the same Drone, one turn apart.
-//! Sixty of the lines are the pushed clock and the production thresholds, which
-//! are the fixture; `crate::tests::silence`'s clock is private to it.
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
@@ -40,8 +30,10 @@ use crate::converging::StepNorms;
 use crate::daemon::Fleet;
 use crate::questioning::{NotAnswered, NotAsked};
 use crate::silence::Liveness;
-use crate::tests::admitted::dispatched;
+use crate::slots::Concurrency;
+use crate::tests::admitted::{dispatched, started};
 use crate::tests::daemon::{a_proposal, fitted_with, one, worktree_directory};
+use crate::tests::restarting::{on_it, the_handle, until_spoken};
 use crate::tests::tmp::TempDir;
 
 type Fixture = Fleet<FakeHarness, FakeVcs, FakeWorkProduct>;
@@ -124,43 +116,14 @@ fn called() -> Vec<DroneEvent> {
     }]
 }
 
-/// A Drone that says one thing and then reads whatever is written to it. The
-/// pipe stays open, which is what an answer needs.
-fn a_drone_that_listens() -> FakeHarness {
-    FakeHarness::running(
-        "/bin/sh",
-        &[
-            "-c",
-            "echo BUSY; while IFS= read -r line; do echo ANSWERED; done",
-        ],
-    )
-    .reading("BUSY", called())
-    .reading("ANSWERED", called())
-}
-
-/// A Drone that takes the write and never speaks again — the shape a Drone
-/// waiting on an answer has, from the outside.
-fn a_drone_that_waits() -> FakeHarness {
+/// A Drone that says one thing and then works on, for as long as it is let.
+fn a_drone_that_works() -> FakeHarness {
     FakeHarness::running("/bin/sh", &["-c", "echo BUSY; sleep 30"]).reading("BUSY", called())
 }
 
-/// A Fleet on one step. **The Judge fails every call**: nothing here may ask a
-/// model anything, and the thrashing test below turns on that — a look that ran
-/// would fail loudly rather than silently pass.
-fn a_fleet_with(home: &TempDir, harness: FakeHarness) -> Fixture {
-    watching(home, harness, Arc::new(Held::started()))
-}
-
-/// The same Fleet, with a clock a test can push and **both vigils armed**.
-///
-/// The default fittings carry `NEVER_QUIET` and `UNTRIPPABLE`, which is right
-/// for every fixture whose Drone is legitimately silent for a short run — and
-/// wrong here, because it would make the two cases below pass whether or not
-/// the guards exist. So the thresholds are the production ones: 120 seconds of
-/// silence and two pokes, and the wall clock and call count `armada::serve`
-/// ships. **Both were verified to fire on this fixture with the guards
-/// removed**, which is the only thing that makes them evidence.
-fn watching(home: &TempDir, harness: FakeHarness, clock: Arc<Held>) -> Fixture {
+/// A Fleet on one step, bounded at `places`. **The Judge fails every call**:
+/// nothing here may ask a model anything.
+fn watching(home: &TempDir, harness: FakeHarness, clock: Arc<Held>, places: usize) -> Fixture {
     let mut fittings = fitted_with(
         home,
         FakeWorkProduct::changed(&["src/parse.rs"]).showing("+    panic!();\n"),
@@ -171,95 +134,141 @@ fn watching(home: &TempDir, harness: FakeHarness, clock: Arc<Held>) -> Fixture {
     fittings.liveness = Liveness::of(QUIET_AFTER, 2);
     fittings.norms = StepNorms::of(60, Duration::from_secs(1_500), Duration::from_secs(120));
     fittings.judge = Arc::new(FakeJudge::that_fails("no model is asked about a question"));
+    fittings.concurrency = Concurrency::of(places);
     Fleet::assembled(fittings)
 }
 
-async fn started(fleet: &Fixture, home: &TempDir) -> JobId {
-    let job = fleet
-        .propose(a_proposal("make the parser take it"))
-        .await
-        .unwrap();
+fn a_fleet(home: &TempDir) -> Fixture {
+    watching(home, a_drone_that_works(), Arc::new(Held::started()), 2)
+}
+
+/// Approve a Job, let it take a place, and wait for its Drone to speak.
+async fn started_one(fleet: &Fixture, home: &TempDir, title: &str) -> JobId {
+    let job = fleet.propose(a_proposal(title)).await.unwrap();
     worktree_directory(home, &job);
-    dispatched(&fleet, job.id()).await.unwrap();
-    settled(fleet).await;
+    dispatched(fleet, job.id()).await.unwrap();
+    assert_eq!(
+        fleet.load(job.id()).await.unwrap().status(),
+        JobStatus::Running,
+        "the Job took a place"
+    );
     job.id().clone()
 }
 
-/// Wait until nothing more is arriving.
-async fn settled(fleet: &Fixture) {
-    let mut steady = 0;
-    let mut last = usize::MAX;
-    for _ in 0..400 {
-        let now = heard(fleet).await;
-        steady = if now == last { steady + 1 } else { 0 };
-        if steady == 10 && now > 0 {
-            return;
-        }
-        last = now;
-        tokio::time::sleep(Duration::from_millis(5)).await;
+/// Whether any Drone is still held on this Job.
+async fn holds_a_drone(fleet: &Fixture, job: &JobId) -> bool {
+    match fleet.slot_of(job).await {
+        Some(slot) => slot.lock().await.is_some(),
+        None => false,
     }
-    panic!("the Drone never stopped talking");
 }
 
-async fn heard(fleet: &Fixture) -> usize {
-    let held = fleet.the_only_slot().await;
-    let slot = held.lock().await;
-    slot.as_ref().map(|at| at.heard().len()).unwrap_or_default()
+/// What the Board says about a Job that has not started.
+async fn queued_reason(fleet: &Fixture, job: &JobId) -> Option<String> {
+    fleet
+        .get_job(ipc::JobId::from(job))
+        .await
+        .expect("the Job reads")
+        .job
+        .queued_reason
+        .map(|why| why.as_wire().to_string())
 }
 
-/// Whether the slot is holding an unanswered question.
-async fn is_waiting(fleet: &Fixture, job: &JobId) -> bool {
-    let held = fleet.slot_of(job).await.expect("a slot for this Job");
-    let slot = held.lock().await;
-    slot.as_ref()
-        .map(|at| at.asked().is_some())
-        .unwrap_or_default()
-}
-
-/// **The requirement, as a case.** A working Drone asks, the question is held,
-/// and nothing about the Job or the step moved.
+/// **The requirement, as a case.** A working Drone asks: the question is on
+/// the Job, the Drone is gone, and the Job waits at `queued` saying why. The
+/// step is still `running`, because the run is not over.
 #[tokio::test]
-async fn a_question_is_held_and_nothing_moves() {
+async fn a_drone_that_asks_stands_down_and_the_job_waits_on_the_answer() {
     let home = TempDir::new();
-    let fleet = a_fleet_with(&home, a_drone_that_waits());
-    let job = started(&fleet, &home).await;
+    let fleet = a_fleet(&home);
+    let job = started_one(&fleet, &home, "make the parser take it").await;
 
     let asked = fleet
         .ask_question(&job, a_question())
         .await
         .expect("a working Drone may ask");
 
-    assert_eq!(
-        asked.question(),
-        "Should the store schema change be its own Job?"
-    );
     let record = fleet.load(&job).await.unwrap();
     assert_eq!(
         record.status(),
-        JobStatus::Running,
-        "a Job with a question outstanding is still running — nothing mints a status for waiting"
+        JobStatus::Queued,
+        "the Drone gave its place back"
     );
     assert_eq!(
         record.step(&StepId::new(IMPLEMENT)).unwrap().state(),
         StepState::Running,
-        "and the step is still running, which is the whole `job.judging` argument applied here"
+        "and the step is still running: no new status and no new step state"
     );
-    assert!(is_waiting(&fleet, &job).await);
+    assert_eq!(
+        record.question(),
+        Some(&asked),
+        "the question is on the record"
+    );
+    assert!(
+        record.assigned_drone().is_none(),
+        "no Drone is recorded on it"
+    );
+    assert!(!holds_a_drone(&fleet, &job).await, "and none is held");
+    assert_eq!(
+        queued_reason(&fleet, &job).await.as_deref(),
+        Some("awaiting_answer")
+    );
+    let board = Queries::list_jobs(&fleet, None).await.expect("a board");
+    assert!(
+        board
+            .jobs
+            .iter()
+            .any(|row| row.id.as_str() == job.as_str() && row.asking),
+        "the row says it is waiting on a person, which puts it under Needs you"
+    );
+}
+
+/// **The point of the decision.** At a bound of one, a Job that asks lets the
+/// next queued Job start at once, and is not started again itself.
+#[tokio::test]
+async fn its_place_goes_to_the_next_queued_job() {
+    let home = TempDir::new();
+    let fleet = watching(&home, a_drone_that_works(), Arc::new(Held::started()), 1);
+    let asking = started_one(&fleet, &home, "make the parser take it").await;
+    let waiting = fleet.propose(a_proposal("and the writer")).await.unwrap();
+    worktree_directory(&home, &waiting);
+    dispatched(&fleet, waiting.id()).await.unwrap();
+    assert_eq!(
+        fleet.load(waiting.id()).await.unwrap().status(),
+        JobStatus::Queued,
+        "the one place is taken"
+    );
+
+    fleet.ask_question(&asking, a_question()).await.unwrap();
+    started(&fleet, waiting.id()).await.unwrap();
+
+    assert_eq!(
+        fleet.load(waiting.id()).await.unwrap().status(),
+        JobStatus::Running,
+        "the place went to the Job waiting for it"
+    );
+    assert_eq!(
+        fleet.load(&asking).await.unwrap().status(),
+        JobStatus::Queued,
+        "and the asking Job was not started again"
+    );
 }
 
 /// The wire says so too: `get_job` carries the question, its options and the
-/// instant, and a client can draw the controls from it without asking anything
+/// step, and a client can draw the controls from it without asking anything
 /// else.
 #[tokio::test]
 async fn the_question_reaches_the_wire_whole() {
     let home = TempDir::new();
-    let fleet = a_fleet_with(&home, a_drone_that_waits());
-    let job = started(&fleet, &home).await;
+    let fleet = a_fleet(&home);
+    let job = started_one(&fleet, &home, "make the parser take it").await;
     fleet.ask_question(&job, a_question()).await.unwrap();
 
     let served = fleet
-        .question_awaited(&job)
+        .get_job(ipc::JobId::from(&job))
         .await
+        .expect("the Job reads")
+        .asking
         .expect("a question outstanding is served");
     assert_eq!(served.options.len(), 2);
     assert_eq!(served.options[0].label, "Its own Job");
@@ -270,73 +279,88 @@ async fn the_question_reaches_the_wire_whole() {
     assert_eq!(served.step_id.as_str(), IMPLEMENT);
 }
 
-/// **The Board row says so, which is what puts the Job under Needs you.**
-///
-/// `who_is_acting` on `running` is `Drone`, so without this flag a Job waiting
-/// on a person sits under Running and a question on a Job nobody has open is
-/// invisible. `packages/screens/src/board.ts` reads it, and
-/// `docs/concepts/job-board.md` is the rule; this is the half of that pair Rust
-/// can prove, because Bridge has no test runner.
+/// **The definition of done.** A Drone asks, Fleet restarts, the person
+/// answers hours later, and a fresh Drone picks up from the answer.
 #[tokio::test]
-async fn the_board_row_says_the_drone_is_waiting_and_stops_saying_it() {
+async fn the_question_survives_a_restart_and_the_answer_opens_the_next_drones_brief() {
     let home = TempDir::new();
-    let fleet = a_fleet_with(&home, a_drone_that_listens());
-    let job = started(&fleet, &home).await;
+    let first = a_fleet(&home);
+    let job = started_one(&first, &home, "make the parser take it").await;
+    let asked = first.ask_question(&job, a_question()).await.unwrap();
+    drop(first);
 
-    let before = Queries::list_jobs(&fleet, None).await.expect("a board");
-    assert!(
-        before.jobs.iter().all(|row| !row.asking),
-        "a Drone that has asked nothing is not waiting on anybody"
+    let second = watching(
+        &home,
+        FakeHarness::that_echoes_its_first_turn(),
+        Arc::new(Held::started()),
+        2,
+    );
+    second.reconcile().await.expect("the boot read");
+    let record = second.load(&job).await.unwrap();
+    assert_eq!(
+        record.status(),
+        JobStatus::Queued,
+        "nothing escalated it as interrupted"
+    );
+    assert_eq!(
+        record.question(),
+        Some(&asked),
+        "the question outlived the Fleet"
+    );
+    assert_eq!(
+        queued_reason(&second, &job).await.as_deref(),
+        Some("awaiting_answer"),
+        "and nothing started it while it waited"
     );
 
-    let asked = fleet.ask_question(&job, a_question()).await.unwrap();
-    let waiting = Queries::list_jobs(&fleet, None).await.expect("a board");
-    assert!(
-        waiting
-            .jobs
-            .iter()
-            .any(|row| row.id.as_str() == job.as_str() && row.asking),
-        "the row a Board draws has to carry it — the question itself does not"
-    );
-
-    fleet
-        .answer_question(&job, asked.id().as_str(), "Fold it in")
+    second
+        .answer_question(&job, asked.id.as_str(), "Fold it in")
         .await
-        .unwrap();
-    let after = Queries::list_jobs(&fleet, None).await.expect("a board");
+        .expect("a label the Drone offered");
+    started(&second, &job).await.unwrap();
+
+    let record = second.load(&job).await.unwrap();
+    assert_eq!(
+        record.status(),
+        JobStatus::Running,
+        "a fresh Drone is on it"
+    );
+    assert_eq!(
+        record.current_step_id().map(StepId::as_str),
+        Some(IMPLEMENT),
+        "on the same step"
+    );
+    let said = until_spoken(
+        &home,
+        &the_handle(&second, &job).await,
+        &on_it(&second, &job).await,
+    )
+    .await;
     assert!(
-        after.jobs.iter().all(|row| !row.asking),
-        "answered once, so the row stops claiming it — there is no badge to go stale"
+        said.contains("WHAT A PERSON ANSWERED"),
+        "no answer block: {said}"
+    );
+    assert!(
+        said.contains("Should the store schema change be its own Job?"),
+        "the question was not restated: {said}"
+    );
+    assert!(
+        said.contains("Fold it in"),
+        "the answer was dropped: {said}"
+    );
+    assert!(
+        second.load(&job).await.unwrap().question().is_none(),
+        "delivered once, and gone from the record"
     );
 }
 
-/// **One at a time.** A Drone that could stack questions would be holding a
-/// conversation, and a queue is a thing a person answers out of order.
-#[tokio::test]
-async fn a_second_question_is_refused_while_one_is_outstanding() {
-    let home = TempDir::new();
-    let fleet = a_fleet_with(&home, a_drone_that_waits());
-    let job = started(&fleet, &home).await;
-    fleet.ask_question(&job, a_question()).await.unwrap();
-
-    let refused = fleet
-        .ask_question(&job, a_question())
-        .await
-        .expect_err("the first is still outstanding");
-    assert!(matches!(refused, NotAsked::AlreadyAsking { .. }));
-    assert!(
-        refused.to_string().contains("Should the store schema"),
-        "and it quotes the one being waited on: {refused}"
-    );
-}
-
-/// A question on a Job a person has already stopped is a second thing to answer
-/// about a Job they have taken over.
+/// A question on a Job a person has already stopped is a second thing to
+/// answer about a Job they have taken over.
 #[tokio::test]
 async fn a_job_that_is_not_running_takes_no_question() {
     let home = TempDir::new();
-    let fleet = a_fleet_with(&home, a_drone_that_waits());
-    let job = started(&fleet, &home).await;
+    let fleet = a_fleet(&home);
+    let job = started_one(&fleet, &home, "make the parser take it").await;
     let record = fleet.load(&job).await.unwrap();
     fleet
         .move_job(
@@ -352,46 +376,23 @@ async fn a_job_that_is_not_running_takes_no_question() {
         .await
         .expect_err("an escalated Job is a person's");
     assert!(matches!(refused, NotAsked::NotRunning { .. }));
-    assert!(!is_waiting(&fleet, &job).await, "and nothing was held");
-}
-
-/// The answer goes down the pipe and the question stops being outstanding.
-#[tokio::test]
-async fn an_answer_reaches_the_drone_and_closes_the_question() {
-    let home = TempDir::new();
-    let fleet = a_fleet_with(&home, a_drone_that_listens());
-    let job = started(&fleet, &home).await;
-    let asked = fleet.ask_question(&job, a_question()).await.unwrap();
-
-    let told = fleet
-        .answer_question(&job, asked.id().as_str(), "Fold it in")
-        .await
-        .expect("a label the Drone offered");
-
-    assert_eq!(told.chose, "Fold it in");
     assert!(
-        !is_waiting(&fleet, &job).await,
-        "answered once — the question is gone, not marked"
-    );
-    assert_eq!(
-        fleet.load(&job).await.unwrap().status(),
-        JobStatus::Running,
-        "and the Job never left running, so there is no move to wait for"
+        fleet.load(&job).await.unwrap().question().is_none(),
+        "and nothing was kept"
     );
 }
 
 /// **A label the Drone never offered is refused rather than passed through.**
-/// There is no free-text answer, and this is where that is enforced: prose
-/// reaches a Drone through `redirect_drone` and through nothing else.
+/// There is no free-text answer, and this is where that is enforced.
 #[tokio::test]
 async fn a_label_that_was_not_offered_is_refused() {
     let home = TempDir::new();
-    let fleet = a_fleet_with(&home, a_drone_that_listens());
-    let job = started(&fleet, &home).await;
+    let fleet = a_fleet(&home);
+    let job = started_one(&fleet, &home, "make the parser take it").await;
     let asked = fleet.ask_question(&job, a_question()).await.unwrap();
 
     let refused = fleet
-        .answer_question(&job, asked.id().as_str(), "do whatever you think best")
+        .answer_question(&job, asked.id.as_str(), "do whatever you think best")
         .await
         .expect_err("that is not one of the answers");
     assert!(matches!(refused, NotAnswered::NotOffered { .. }));
@@ -399,33 +400,52 @@ async fn a_label_that_was_not_offered_is_refused() {
         refused.to_string().contains("Its own Job"),
         "and the refusal names what was offered: {refused}"
     );
-    assert!(is_waiting(&fleet, &job).await, "the question still stands");
+    assert!(
+        fleet.load(&job).await.unwrap().waiting_on_an_answer(),
+        "the question still stands"
+    );
 }
 
-/// **A window left open across an answer names a question that is gone.**
-/// Refused rather than applied to whatever is outstanding now: a label that
-/// matched the newer question by coincidence would dispatch work nobody chose.
+/// **A window left open names a question that is not the one on the Job.**
+/// Refused rather than applied to whatever is outstanding: a label matching by
+/// coincidence would start work nobody chose.
 #[tokio::test]
 async fn an_answer_to_a_question_that_is_not_the_one_outstanding_is_refused() {
     let home = TempDir::new();
-    let fleet = a_fleet_with(&home, a_drone_that_listens());
-    let job = started(&fleet, &home).await;
-    let first = fleet.ask_question(&job, a_question()).await.unwrap();
-    fleet
-        .answer_question(&job, first.id().as_str(), "Fold it in")
-        .await
-        .unwrap();
-    let second = fleet.ask_question(&job, a_question()).await.unwrap();
-    assert_ne!(first.id().as_str(), second.id().as_str());
+    let fleet = a_fleet(&home);
+    let job = started_one(&fleet, &home, "make the parser take it").await;
+    fleet.ask_question(&job, a_question()).await.unwrap();
 
     let refused = fleet
-        .answer_question(&job, first.id().as_str(), "Fold it in")
+        .answer_question(&job, "01SOMEOTHERQUESTION", "Fold it in")
         .await
-        .expect_err("that question has been answered");
+        .expect_err("that is not the question on the Job");
     assert!(matches!(refused, NotAnswered::Superseded { .. }));
-    assert!(
-        is_waiting(&fleet, &job).await,
-        "and the one that is outstanding is untouched"
+    assert!(fleet.load(&job).await.unwrap().waiting_on_an_answer());
+}
+
+/// Answered once: a second answer, from a second window, finds nothing to
+/// answer, and the first stands.
+#[tokio::test]
+async fn a_question_is_answered_once() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home);
+    let job = started_one(&fleet, &home, "make the parser take it").await;
+    let asked = fleet.ask_question(&job, a_question()).await.unwrap();
+    fleet
+        .answer_question(&job, asked.id.as_str(), "Fold it in")
+        .await
+        .unwrap();
+
+    let refused = fleet
+        .answer_question(&job, asked.id.as_str(), "Its own Job")
+        .await
+        .expect_err("already answered");
+    assert!(matches!(refused, NotAnswered::NothingIsAsking { .. }));
+    assert_ne!(
+        queued_reason(&fleet, &job).await.as_deref(),
+        Some("awaiting_answer"),
+        "and the Job is no longer held for it"
     );
 }
 
@@ -433,8 +453,8 @@ async fn an_answer_to_a_question_that_is_not_the_one_outstanding_is_refused() {
 #[tokio::test]
 async fn a_job_with_nothing_outstanding_takes_no_answer() {
     let home = TempDir::new();
-    let fleet = a_fleet_with(&home, a_drone_that_listens());
-    let job = started(&fleet, &home).await;
+    let fleet = a_fleet(&home);
+    let job = started_one(&fleet, &home, "make the parser take it").await;
 
     let refused = fleet
         .answer_question(&job, "01WHATEVER", "Fold it in")
@@ -443,72 +463,25 @@ async fn a_job_with_nothing_outstanding_takes_no_answer() {
     assert!(matches!(refused, NotAnswered::NothingIsAsking { .. }));
 }
 
-/// **The one that matters most.** A Drone waiting on an answer says nothing for
-/// as long as the person takes, and the vigil must not read that as silence:
-/// three pokes and the Job escalates as `stalled` for having asked a question.
-///
-/// The clock is pushed past the real threshold once per poke the step has, plus
-/// one — which is exactly what `crate::tests::silence` does to reach the
-/// escalation. So what this proves is the guard and not a timing accident.
+/// **A person's wait has no budget.** Turn after turn with the clock pushed
+/// well past every vigil's threshold, the Job waits at `queued` and nothing
+/// starts or escalates it.
 #[tokio::test]
-async fn a_waiting_drone_is_never_poked_and_never_stalls() {
+async fn a_job_waiting_on_an_answer_is_left_waiting_by_every_turn() {
     let home = TempDir::new();
     let clock = Arc::new(Held::started());
-    let fleet = watching(&home, a_drone_that_waits(), Arc::clone(&clock));
-    let job = started(&fleet, &home).await;
-    fleet.ask_question(&job, a_question()).await.unwrap();
-
-    // Four thresholds: three pokes and the escalation that follows them.
-    for _ in 0..4 {
-        clock.on(QUIET_AFTER.as_secs() + 60);
-        for _ in 0..20 {
-            let turned = fleet.turn().await.expect("a turn");
-            assert!(
-                turned.each.iter().all(|worked| worked.quiet.is_none()),
-                "a waiting Drone is not a quiet one"
-            );
-        }
-    }
-
-    assert_eq!(
-        fleet.load(&job).await.unwrap().status(),
-        JobStatus::Running,
-        "waiting on a person is not `stalled`"
-    );
-    assert!(
-        is_waiting(&fleet, &job).await,
-        "and the question is still there to be answered"
-    );
-}
-
-/// The other vigil, and the reason it needs its own guard: the wall clock runs
-/// while a person thinks, so without this the tripwire fires the moment the
-/// answer lands — buying a Judge call on a step that has just been unblocked.
-///
-/// **The Judge fails every call in this fixture**, so a look that ran would show
-/// up as a stage rather than passing silently.
-#[tokio::test]
-async fn a_waiting_drone_is_never_read_as_thrashing() {
-    let home = TempDir::new();
-    let clock = Arc::new(Held::started());
-    let fleet = watching(&home, a_drone_that_waits(), Arc::clone(&clock));
-    let job = started(&fleet, &home).await;
+    let fleet = watching(&home, a_drone_that_works(), Arc::clone(&clock), 2);
+    let job = started_one(&fleet, &home, "make the parser take it").await;
     fleet.ask_question(&job, a_question()).await.unwrap();
 
     for _ in 0..4 {
         clock.on(QUIET_AFTER.as_secs() * 20);
-        for _ in 0..20 {
-            let turned = fleet.turn().await.expect("a turn");
-            assert!(
-                turned.each.iter().all(|worked| worked.wandering.is_none()),
-                "the chain looked at a Drone that is not working at all"
-            );
-        }
+        fleet.turn().await.expect("a turn");
     }
 
+    assert_eq!(fleet.load(&job).await.unwrap().status(), JobStatus::Queued);
     assert_eq!(
-        fleet.load(&job).await.unwrap().status(),
-        JobStatus::Running,
-        "and nothing escalated it as `thrashing`"
+        queued_reason(&fleet, &job).await.as_deref(),
+        Some("awaiting_answer")
     );
 }

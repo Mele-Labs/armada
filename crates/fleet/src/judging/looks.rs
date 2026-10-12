@@ -53,6 +53,10 @@ pub(crate) enum JudgeFold {
     /// At least one refusal must stop the step, exactly as before this
     /// existed.
     Refused(Refusals),
+    /// Every criterion that refused was refused by a whole panel of more than
+    /// one model, none called the work risky, and the step has retries left:
+    /// the work goes back to its Drone. `super::agreeing`, #206.
+    SentBack(Refusals),
     /// Nothing must stop the step yet, and a person is being asked about this
     /// one. The plain question text rides alongside the judgment: neither
     /// `Judgment` nor its citations carry it.
@@ -196,9 +200,8 @@ pub(crate) async fn judged(
     let of = passes(step) + u32::from(!off_plan.is_empty());
     let mut nth = 0;
     for check in step.judge_checks() {
-        let model = model_for(check, &judging.default_model)?;
         for criterion in check.criteria() {
-            let brief = Brief::about(
+            let brief = Brief::worded(
                 step,
                 criterion,
                 request,
@@ -206,7 +209,13 @@ pub(crate) async fn judged(
                 &product,
                 &references,
                 answered,
+                &judging.wording,
             );
+            // Only a panel's agreement can skip a person, so only it is asked about risk.
+            let brief = match check.panel_size() > 1 {
+                true => brief.on_a_panel(&judging.wording),
+                false => brief,
+            };
             // Once, outside the panel loop, because the panel answers one
             // brief. See `crate::asked`: the file is not a summary of the
             // members' briefs, it is the brief all of them were given.
@@ -224,6 +233,9 @@ pub(crate) async fn judged(
             // criterion can be told apart. Without it they carry an identical
             // key and Bridge draws one of them.
             for member in 1..=check.panel_size() {
+                // Each member on its own model where the step named one, so a
+                // panel can be more than one model agreeing with itself.
+                let model = member_model(check, member, &judging.default_model)?;
                 let ask = judging
                     .ask(&model, brief.question())
                     .map_err(|_| CallFailed::NothingToAsk)?;
@@ -264,7 +276,7 @@ pub(crate) async fn judged(
     // step's own rigour dial bill it for drift.
     if let Some(criterion) = verification::drift_criterion(off_plan) {
         let model = fleets_model(step, &judging.default_model)?;
-        let brief = Brief::about(
+        let brief = Brief::worded(
             step,
             &criterion,
             request,
@@ -272,6 +284,7 @@ pub(crate) async fn judged(
             &product,
             &references,
             answered,
+            &judging.wording,
         );
         // Kept like any other, and this is the one whose brief nobody could
         // reconstruct: `drift_criterion` assembles a question out of the paths
@@ -307,6 +320,14 @@ pub(crate) async fn judged(
         // would make an absent value mean two things.
         judgment.given = Some(handed(&ask));
         judgments.push(judgment);
+    }
+    if let Some(refusals) = super::agreeing::agreed(
+        &judgments,
+        step.judge_checks(),
+        tolerated,
+        at.judges_sent_back(),
+    ) {
+        return Ok((judgments, JudgeFold::SentBack(refusals)));
     }
     let folded = fold(&judgments, step, off_plan, refusal_policy, tolerated);
     Ok((judgments, folded))
@@ -373,7 +394,7 @@ pub(crate) async fn converging(
     judging: &Judging,
 ) -> Result<Convergence, CallFailed> {
     let model = fleets_model(step, &judging.default_model)?;
-    let brief = ConvergenceBrief::about(
+    let brief = ConvergenceBrief::worded(
         step,
         patch,
         declared,
@@ -381,6 +402,7 @@ pub(crate) async fn converging(
         held,
         precedent,
         &judging.told(),
+        &judging.wording,
     );
     let ask = judging
         .ask(&model, brief.question())
@@ -457,6 +479,14 @@ fn passes(step: &ResolvedStep) -> u32 {
 fn fleets_model(step: &ResolvedStep, default: &Model) -> Result<Model, CallFailed> {
     match step.judge_checks().first() {
         Some(check) => model_for(check, default),
+        None => Ok(default.clone()),
+    }
+}
+
+/// What one panel member runs on: its own model, the check's, or the default.
+fn member_model(check: &JudgeCheck, member: u32, default: &Model) -> Result<Model, CallFailed> {
+    match check.member_model(member) {
+        Some(named) => Model::named(named.as_str()).map_err(|_| CallFailed::NothingToAsk),
         None => Ok(default.clone()),
     }
 }

@@ -9,7 +9,7 @@ import { join } from "node:path";
 import { STUDIO_PROMOTIONS } from "@armada/protocol";
 import type { StagedFrame, StudioCapture, StudioNodeByHand, StudioPosition, StudioPromotion } from "@armada/protocol";
 import { CHANNELS } from "../shared/bridge";
-import type { BridgeState } from "../shared/bridge";
+import type { BridgeState, Summons } from "../shared/bridge";
 import type { CaptureWindows } from "./capture/windows";
 import type { FleetConnection } from "./connection";
 import { handleSketches } from "./sketches";
@@ -22,6 +22,8 @@ type Hosts = {
   /** What main last published — `index.ts`'s `published`. */
   published: () => BridgeState;
   captureWindows: CaptureWindows;
+  /** Bring Bridge's window forward on a Job or a Session — `index.ts`'s, as a pressed notification does. */
+  summon: (to: Summons) => void;
 };
 
 /** Enough of a capture to be worth sending. The rest is Fleet's to refuse. */
@@ -48,7 +50,7 @@ async function stagedFrame(event: Electron.IpcMainInvokeEvent): Promise<StagedFr
   return { staged_path: staged, width: size.width, height: size.height };
 }
 
-export function handleStudios({ ipc, connection, published, captureWindows }: Hosts): void {
+export function handleStudios({ ipc, connection, published, captureWindows, summon }: Hosts): void {
   // A repository's Studios and the one open — #1287. An id that is not a string, or a position that
   // is not two whole numbers, is not put on a route: the call answers nothing, as a typo would.
   const text = (value: unknown): value is string => typeof value === "string" && value !== "";
@@ -190,6 +192,31 @@ export function handleStudios({ ipc, connection, published, captureWindows }: Ho
     await barred(event)?.followRefused();
   });
   ipc.handle(CHANNELS.captureWindowApprove, async (event) => (await barred(event)?.approve()) ?? unsent);
+  ipc.handle(CHANNELS.captureWindowShowAsk, (event, on: unknown) => {
+    if (typeof on === "boolean") barred(event)?.showAsk(on);
+  });
+  // The Session's question, answered: an index into its options, words of the person's own, or both.
+  ipc.handle(CHANNELS.captureWindowAnswerAsk, async (event, answer: unknown) => {
+    const said = (answer ?? {}) as Record<string, unknown>;
+    const choice = typeof said["choice"] === "number" && Number.isInteger(said["choice"]) ? said["choice"] : undefined;
+    const words = typeof said["text"] === "string" && said["text"].trim() !== "" ? said["text"] : undefined;
+    if (choice === undefined && words === undefined) return undefined;
+    return (
+      (await barred(event)?.answerAsk({
+        ...(choice === undefined ? {} : { choice }),
+        ...(words === undefined ? {} : { text: words }),
+      })) ?? unsent
+    );
+  });
+  ipc.handle(CHANNELS.captureWindowPanel, (event, open: unknown) => {
+    if (typeof open === "boolean") barred(event)?.showPanel(open);
+  });
+  // The panel beside the page. **Main names the Job or the Session**, off the panel that asked; the
+  // call carries nothing, so a panel cannot name another and no other document is answered.
+  ipc.handle(CHANNELS.walkPanelOpenInBridge, (event) => {
+    const subject = captureWindows.panelFrom(event.sender);
+    if (subject !== null) summon(subject.kind === "job" ? { jobId: subject.id } : { jobId: null, sessionId: subject.id });
+  });
   ipc.on(CHANNELS.captureWindowScroll, (event, wheel: unknown) => {
     const said = (wheel ?? {}) as Record<string, unknown>;
     const at = (key: string): number => (typeof said[key] === "number" ? (said[key] as number) : 0);

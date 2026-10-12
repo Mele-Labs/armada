@@ -17,10 +17,13 @@
 //! to raise it. There are two, and the modules below hold none of their own.
 
 mod authoring;
+mod autopilots;
 mod commands;
 mod conversing;
 mod hosted_sessions;
+mod issues;
 mod mods;
+mod settings;
 mod needs;
 mod piloting;
 mod pull_requests;
@@ -95,6 +98,8 @@ pub struct FakeDaemon {
     builds: Mutex<Vec<ipc::ChangeFleetBuild>>,
     /// The preferences in force, which the fake's own saves change.
     preferences: Mutex<ipc::Preferences>,
+    /// settings.json as the fake holds it, which its own saves change.
+    settings: Mutex<ipc::SettingsList>,
     /// Every rule a person always-allowed for the repository. Set by a test,
     /// and changed by the fake's own removes — `#836`.
     pub repository_allowed: Mutex<Vec<ipc::AllowedCommandRow>>,
@@ -157,6 +162,7 @@ impl FakeDaemon {
             limits: Mutex::new(shapes::limits()),
             builds: Mutex::new(Vec::new()),
             preferences: Mutex::new(shapes::preferences()),
+            settings: Mutex::new(settings::settings()),
             repository_allowed: Mutex::new(Vec::new()),
             kit_servers: Mutex::new(Vec::new()),
             helm: crate::HelmFeed::new(),

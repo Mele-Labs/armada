@@ -5,7 +5,7 @@
  * cheap fact — that there is a frame, what it is called, what it weighs, where
  * it is — and it rides `StepDetail`, which is re-read on every event naming the
  * open Job. The image is fetched over HTTP, once, by whoever opens one. That is
- * the split `CheckOutput` and `CallArguments` were made on, against the same
+ * the split `CheckOutput` and `JobDiff` were made on, against the same
  * measurement: a frame is hundreds of kilobytes and `/events` is one
  * drop-oldest channel carrying every Job, so a payload that size would evict
  * the state changes the Board is drawn from. **Nothing here is published, and

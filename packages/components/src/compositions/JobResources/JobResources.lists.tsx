@@ -286,9 +286,12 @@ export function worktreesTotal(worktrees: PulseWorktreeRow[]): string {
 export function Worktrees({
   worktrees,
   onOpen,
+  onOpenTerminal,
 }: {
   worktrees: PulseWorktreeRow[];
   onOpen?: (what: Artifact) => void;
+  /** The Job's worktree in a terminal. Drawn on the row whose `Open` opens the worktree. */
+  onOpenTerminal?: () => void;
 }) {
   if (worktrees.length === 0) return null;
   return (
@@ -325,7 +328,14 @@ export function Worktrees({
               </Tooltip>
             )}
           </span>
-          <Opens open={one.open} onOpen={onOpen} />
+          <span className="armada-holds__opens">
+            <Opens open={one.open} onOpen={onOpen} />
+            {one.open === "worktree" && onOpenTerminal !== undefined ? (
+              <Button variant="ghost" size="sm" onClick={onOpenTerminal}>
+                Open in terminal
+              </Button>
+            ) : null}
+          </span>
         </li>
       ))}
     </ul>

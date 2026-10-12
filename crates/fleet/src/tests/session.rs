@@ -81,6 +81,7 @@ fn the_gate_s_outcome_and_the_first_turn_take_the_same_shape() {
         step(&workflow),
         workflow.steps().get(1),
         every_check_ran(&workflow),
+        &verification::Wording::shipped(),
     );
 
     let injected = encoded(&Turn::outcome(&outcome, None));
@@ -105,7 +106,12 @@ fn a_turn_carries_no_counter_and_no_check_name() {
     // than do the work. Whatever `OutcomeTurn` says, this is the shape of the
     // envelope around it and it adds nothing.
     let workflow = workflow();
-    let outcome = OutcomeTurn::advanced(step(&workflow), None, every_check_ran(&workflow));
+    let outcome = OutcomeTurn::advanced(
+        step(&workflow),
+        None,
+        every_check_ran(&workflow),
+        &verification::Wording::shipped(),
+    );
     let injected = encoded(&Turn::outcome(&outcome, None));
 
     let added = injected.len() - outcome.text().len();
@@ -136,8 +142,14 @@ fn the_ask_the_next_step_makes_rides_on_the_same_turn_as_the_verdict() {
         gaming: None,
     }]);
     let next = step(&workflow);
-    let asked = Declaring::at(next).expect("a scoped step asks");
-    let outcome = OutcomeTurn::advanced(next, Some(next), every_check_ran(&workflow));
+    let asked =
+        Declaring::at(&crate::prompts::Prompts::shipped(), next).expect("a scoped step asks");
+    let outcome = OutcomeTurn::advanced(
+        next,
+        Some(next),
+        every_check_ran(&workflow),
+        &verification::Wording::shipped(),
+    );
 
     let injected = encoded(&Turn::outcome(&outcome, Some(&asked)));
     assert!(!injected.contains('\n'), "still one line: {injected}");
@@ -157,11 +169,19 @@ fn a_step_that_asks_for_no_plan_leaves_the_outcome_turn_alone() {
         step(&workflow),
         workflow.steps().get(1),
         every_check_ran(&workflow),
+        &verification::Wording::shipped(),
     );
     let none = workflow.steps().get(1).expect("a second step");
-    assert_eq!(Declaring::at(none), None, "the fixture asks for nothing");
     assert_eq!(
-        encoded(&Turn::outcome(&outcome, Declaring::at(none).as_ref())),
+        Declaring::at(&crate::prompts::Prompts::shipped(), none),
+        None,
+        "the fixture asks for nothing"
+    );
+    assert_eq!(
+        encoded(&Turn::outcome(
+            &outcome,
+            Declaring::at(&crate::prompts::Prompts::shipped(), none).as_ref()
+        )),
         encoded(&Turn::outcome(&outcome, None))
     );
 }

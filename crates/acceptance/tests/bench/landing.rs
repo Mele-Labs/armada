@@ -21,7 +21,7 @@
 
 use config::{EvidenceType, ResolvedWorkflow};
 use core_model::Job;
-use testkit::{Gate, Sketch, handing_off};
+use testkit::{handing_off, Gate, Sketch};
 use verification::{Claimed, NotClaimed, ShownBy, Submission};
 
 /// The three steps a Job that hands its work over has: work out the cause,

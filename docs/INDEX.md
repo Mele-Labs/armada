@@ -131,6 +131,9 @@ approximations.
   worth keeping, each bound by its frontmatter to the issue that tracks it,
   indexed in its own `INDEX.md`. The roadmap itself is GitHub issues; these hold
   the reasoning an issue body buries when it closes.
+  - [`capabilities/autopilot.md`](capabilities/autopilot.md) — a repository
+    works its own backlog from one plain-language instruction, within caps a
+    person sets, until they pause or stop it.
   - [`capabilities/merge-line.md`](capabilities/merge-line.md) — merges taking
     turns onto `main`, 
     `armada need` (numbers land in the order they were declared), and where each

@@ -155,6 +155,13 @@ where
             .await
             .step_spent(job_id, &step)
             .map_err(|cause| Adrift::Reading(store::LoadJobError::Unreadable(cause)))?;
+        // How often this pass already went back on an agreed refusal. #206.
+        let sent_back = self
+            .store()
+            .lock()
+            .await
+            .step_sent_back_by_judges(job_id, &step)
+            .map_err(|cause| Adrift::Reading(store::LoadJobError::Unreadable(cause)))?;
         // The same call `crate::settling` makes, with the same arguments read
         // off the same places. Nothing here is assembled differently, because
         // an easier reading would not be the reading that failed — and that
@@ -181,6 +188,7 @@ where
         let held_off = self.held_off(job_id).await.paths();
         let ruling = rule_on(
             at.on_attempt(attempt, spent)
+                .sent_back(sent_back)
                 .holding_handoff(at_group.is_some_and(|g| g.follows))
                 .over(gated.as_ref()),
             Request::of(&job),
@@ -375,6 +383,7 @@ pub(crate) fn came_to(ruling: &Ruling) -> &'static str {
         Ruling::Finished { .. } => "finished",
         Ruling::HeldForReview { .. } => "held_for_review",
         Ruling::HandedBack { .. } => "handed_back",
+        Ruling::JudgesAgreed { .. } => "judges_agreed",
         Ruling::Failed { .. } => "failed",
         Ruling::Refused { .. } => "refused",
         Ruling::Questioned { .. } => "questioned",

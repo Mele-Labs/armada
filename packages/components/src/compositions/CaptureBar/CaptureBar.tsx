@@ -48,6 +48,8 @@ export type CaptureBarProps = {
    * Job until it is sent back.
    */
   job?: string;
+  /** The Session a note goes to, where a Session showed this page. Its own prop, never `job`'s. */
+  session?: string;
   /** Whether the Run is still serving. Capture ends with it. */
   serving: boolean;
   /** Whether capture is armed. */
@@ -68,16 +70,33 @@ export type CaptureBarProps = {
    */
   onApprove?: () => void;
   approval?: CaptureBarApproval;
+  /**
+   * A question the Session asked about this page, folded out of the way so the page can be used. The
+   * second row says it is waiting and `onShowQuestion` draws it over the page again.
+   */
+  question?: string;
+  onShowQuestion?: () => void;
+  /**
+   * The panel beside the page, holding the Session's thread or the Job that opened this window. **Absent:
+   * a Studio's window, which has none.** One press draws it or folds it away.
+   */
+  panel?: CaptureBarPanel;
 };
 
-/** Whether the bar has a second row to draw — a refusal, or the run having ended. */
-export function hasASecondRow(props: Pick<CaptureBarProps, "serving" | "refused" | "framesRefused">): boolean {
-  return !props.serving || props.refused !== undefined || props.framesRefused > 0;
+/** Which panel the window has, whether it is drawn, and the press that changes that. */
+export type CaptureBarPanel = { kind: "session" | "job"; open: boolean; onToggle: (open: boolean) => void };
+
+/** Whether the bar has a second row to draw — a refusal, the run having ended, or a folded question. */
+export function hasASecondRow(
+  props: Pick<CaptureBarProps, "serving" | "refused" | "framesRefused" | "question">,
+): boolean {
+  return !props.serving || props.refused !== undefined || props.framesRefused > 0 || props.question !== undefined;
 }
 
 export function CaptureBar(props: CaptureBarProps) {
-  const { run, address, studio, job, serving, armed, framesRefused, refused, binding, approval } = props;
-  const landsOn = studio !== null ? `Notes land on ${studio}` : job !== undefined ? `Notes go to ${job}` : null;
+  const { run, address, studio, job, session, serving, armed, framesRefused, refused, binding, approval, question, panel } = props;
+  const owner = job ?? session;
+  const landsOn = studio !== null ? `Notes land on ${studio}` : owner !== undefined ? `Notes go to ${owner}` : null;
   return (
     <div className="armada-capture-bar" data-armed={armed ? "" : undefined}>
       <div className="armada-capture-bar__row">
@@ -118,6 +137,11 @@ export function CaptureBar(props: CaptureBarProps) {
             {approval?.state === "approved" ? "Approved" : "Approve"}
           </Button>
         )}
+        {panel === undefined ? null : (
+          <Button variant="ghost" size="sm" aria-expanded={panel.open} onClick={() => panel.onToggle(!panel.open)}>
+            {`${panel.open ? "Hide" : "Show"} ${panel.kind === "session" ? "Session" : "Job"}`}
+          </Button>
+        )}
       </div>
       {hasASecondRow(props) ? (
         <div className="armada-capture-bar__said" role="status">
@@ -137,6 +161,14 @@ export function CaptureBar(props: CaptureBarProps) {
                   Open in browser
                 </Button>
               ) : null}
+            </>
+          )}
+          {question === undefined ? null : (
+            <>
+              <span className="armada-capture-bar__question">Question waiting: {question}</span>
+              <Button variant="secondary" ground="sunken" size="sm" onClick={props.onShowQuestion}>
+                Show question
+              </Button>
             </>
           )}
           {framesRefused > 0 ? (

@@ -95,14 +95,12 @@ impl RedirectWaiting {
 
 /// One question a Drone asked a person, while it is still unanswered.
 ///
-/// # It is not a status, and neither registry is touched
+/// # It is not a status, and no status or step state was added for it
 ///
-/// `step-states.toml` declares six and `job-statuses.toml` eleven; a variant
-/// added to either is one the other side matches on, which is a **major** bump
-/// by this seam's own table. It would be the wrong fact anyway: a step whose
-/// Drone is waiting is `running` in exactly the way a step whose gate is asking
-/// a Judge is `running`, and it stops waiting without moving. So this rides
-/// beside the state, as [`JudgeInFlight`] does.
+/// The asking Drone stands down and the Job waits at `queued` reading
+/// `awaiting_answer`, its step still `running` — the shape a parent waiting on
+/// its children already has. The question is kept on the Job, so it survives a
+/// Fleet restart, and this rides beside the state, as [`JudgeInFlight`] does.
 ///
 /// # A question is an event on a Job, not a conversation
 ///
