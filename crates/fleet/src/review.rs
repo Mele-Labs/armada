@@ -22,9 +22,16 @@
 //!
 //! Risks come before evidence: a body ending on its passes reads as a claim
 //! that everything is fine.
+//!
+//! # The pull request is told less than the review area
+//!
+//! **The body names no file and no Check that passed or was skipped**: lists
+//! that long buried the one line that needed a reviewer (#2161). The forge has
+//! the files, and the Job in Armada has every Check, so [`StructuredReview`]
+//! keeps every row and only the Markdown counts them.
 
 use adapter_traits::{how_the_base_was_found, Base, BaseOnTheRemote, Changed, Review};
-use core_model::{Job, StepCheck, StepId, StepState};
+use core_model::{CheckOutcome, Job, StepCheck, StepId, StepState};
 
 /// What Fleet composed, in the four parts it is made of. No heading is baked
 /// into any of them — a heading is how one reader draws a part, not what the
@@ -96,11 +103,11 @@ pub(crate) fn review_of(
     let mut body = String::new();
     body.push_str(&why_and_satisfies(job, &structured.why));
     body.push_str("## What is the outcome of the change\n\n");
-    body.push_str(&structured.outcome);
+    body.push_str(&outcome_counted(changed));
     body.push_str("## Risks\n\n");
     body.push_str(&structured.risks);
     body.push_str("## Checks Evidence\n\n");
-    body.push_str(&structured.evidence);
+    body.push_str(&evidence_counted(job, checks));
     body.push_str(&the_record(job, base));
     (Review::assembled(job.title().as_str(), body), structured)
 }
@@ -164,6 +171,58 @@ fn outcome_of(changed: &Changed) -> String {
         "\nWhat the change *does* is in the commits. Nothing in this repository reads a \
          diff for meaning, so Fleet does not describe one.\n\n",
     );
+    out
+}
+
+/// [`outcome_of`] for the forge: how many files, and none of their names. The
+/// pull request's own Files tab lists them, and better.
+fn outcome_counted(changed: &Changed) -> String {
+    match changed.len() {
+        0 => outcome_of(changed),
+        1 => String::from("One file changed. What the change does is in the commits.\n\n"),
+        many => format!("{many} files changed. What the change does is in the commits.\n\n"),
+    }
+}
+
+/// [`evidence_of`] for the forge: every step with its verdict and a count of
+/// its Checks, naming only those that did not pass. **A skip is counted and
+/// not named** — it is the gate declining a Check that covers nothing the step
+/// changed, which a reviewer has no use for.
+fn evidence_counted(job: &Job, checks: &[(StepId, Vec<StepCheck>)]) -> String {
+    let mut out = String::new();
+    for row in job.steps() {
+        let label = job
+            .workflow()
+            .step(row.step_id())
+            .map(|step| step.label())
+            .unwrap_or_else(|| row.step_id().as_str());
+        let ran = checks
+            .iter()
+            .find(|(step, _)| step == row.step_id())
+            .map(|(_, ran)| ran.as_slice())
+            .unwrap_or(&[]);
+        out.push_str(&format!("- **{label}** — {}", said(row.state())));
+        let passed = ran.iter().filter(|check| check.outcome.passed()).count();
+        let skipped = ran
+            .iter()
+            .filter(|check| check.outcome == CheckOutcome::Skipped)
+            .count();
+        let mut counts = Vec::new();
+        if passed > 0 {
+            counts.push(format!("{passed} passed"));
+        }
+        if skipped > 0 {
+            counts.push(format!("{skipped} skipped"));
+        }
+        if !counts.is_empty() {
+            out.push_str(&format!(", Checks {}", counts.join(", ")));
+        }
+        out.push('\n');
+        for check in ran.iter().filter(|check| !check.outcome.advances()) {
+            out.push_str(&format!("  {}", one_check(check)));
+        }
+    }
+    out.push_str("\nEvery Check, with its output, is on the Job in Armada.\n\n");
     out
 }
 
