@@ -176,6 +176,16 @@ export type MergeLineProps = {
   id?: string;
   /** A branch a press elsewhere asked for: its row is marked and scrolled into view. */
   focus?: string;
+  /**
+   * On a surface of its own, what stays put while the tiles scroll. Absent, the panel is as tall as
+   * its tiles and everything scrolls with the page around it, as Overview draws it.
+   *
+   * - `glass`: the panel takes the column's height, and only its glass scrolls, under the band and
+   *   the horizon. The one panel of a picked repository.
+   * - `page`: the page scrolls, and the band and horizon hold at its top while the panel's tiles pass
+   *   under them, until the next panel's push them off. One of several, on All.
+   */
+  pinned?: "glass" | "page";
 };
 
 const HEADING = "Merge line";
@@ -194,7 +204,7 @@ const LEFT = [
 ] as const;
 
 export function MergeLine(props: MergeLineProps) {
-  const { name, line, notice, hub, open, onOpenChange, onOpenPullRequest, onOpenCheck, onOpenJob, onFix, id, focus } = props;
+  const { name, line, notice, hub, open, onOpenChange, onOpenPullRequest, onOpenCheck, onOpenJob, onFix, id, focus, pinned } = props;
   const acts = {
     onOpenPullRequest,
     ...(onOpenCheck === undefined ? {} : { onOpenCheck }),
@@ -208,59 +218,63 @@ export function MergeLine(props: MergeLineProps) {
   // The tile under the cursor, so its dot on the horizon lights with it.
   const [on, setOn] = useState<string>();
   const lane = notice !== undefined || line.length > 0 || (hub?.pulls.length ?? 0) > 0;
+  const empty = !lane && left.length === 0;
   return (
     <section
       className="armada-merge-line"
       id={id}
       aria-label={named}
       data-red={hub?.main?.state === "red" || undefined}
+      data-pinned={open ? pinned : undefined}
       onFocus={(event: FocusEvent) => setOn((event.target as HTMLElement).closest<HTMLElement>("[data-branch]")?.dataset.branch)}
       onBlur={() => setOn(undefined)}
     >
-      <header className="armada-merge-line__head">
-        <div className="armada-merge-line__title">
-          <h2 className="armada-merge-line__heading">
-            {HEADING}
-            {name === undefined ? null : (
-              <Tooltip label="Repository" asChild>
-                <span className="armada-merge-line__repository">{name}</span>
-              </Tooltip>
+      <div className="armada-merge-line__top">
+        <header className="armada-merge-line__head">
+          <div className="armada-merge-line__title">
+            <h2 className="armada-merge-line__heading">
+              {HEADING}
+              {name === undefined ? null : (
+                <Tooltip label="Repository" asChild>
+                  <span className="armada-merge-line__repository">{name}</span>
+                </Tooltip>
+              )}
+            </h2>
+            <GuideMark guide={GUIDE_MERGE_LINE} />
+            {hub?.main === undefined ? null : <MainMark main={hub.main} />}
+          </div>
+          <button
+            type="button"
+            className="armada-merge-line__fold"
+            aria-expanded={open}
+            aria-label={`${open ? "Collapse" : "Expand"} ${named}`}
+            onClick={() => onOpenChange(!open)}
+          >
+            {open ? (
+              <ChevronUp size={14} strokeWidth={2} aria-hidden />
+            ) : (
+              <ChevronRight size={14} strokeWidth={2} aria-hidden />
             )}
-          </h2>
-          <GuideMark guide={GUIDE_MERGE_LINE} />
-          {hub?.main === undefined ? null : <MainMark main={hub.main} />}
-        </div>
-        <button
-          type="button"
-          className="armada-merge-line__fold"
-          aria-expanded={open}
-          aria-label={`${open ? "Collapse" : "Expand"} ${named}`}
-          onClick={() => onOpenChange(!open)}
-        >
-          {open ? (
-            <ChevronUp size={14} strokeWidth={2} aria-hidden />
-          ) : (
-            <ChevronRight size={14} strokeWidth={2} aria-hidden />
-          )}
-        </button>
-      </header>
-      {hub?.main?.state !== "red" ? null : (
-        <MainRedBand
-          main={hub.main}
-          recent={hub.recent}
-          onOpenLink={onOpenPullRequest}
-          {...(onOpenCheck === undefined ? {} : { onOpenCheck: (check: string) => onOpenCheck("main", check) })}
-          {...(onOpenJob === undefined ? {} : { onOpenJob })}
-          {...(onFix === undefined ? {} : { onFix })}
-        />
-      )}
-      {!open ? null : line.length === 0 && left.length === 0 && notice === undefined && (hub?.pulls.length ?? 0) === 0 ? (
+          </button>
+        </header>
+        {hub?.main?.state !== "red" ? null : (
+          <MainRedBand
+            main={hub.main}
+            recent={hub.recent}
+            onOpenLink={onOpenPullRequest}
+            {...(onOpenCheck === undefined ? {} : { onOpenCheck: (check: string) => onOpenCheck("main", check) })}
+            {...(onOpenJob === undefined ? {} : { onOpenJob })}
+            {...(onFix === undefined ? {} : { onFix })}
+          />
+        )}
+        {!open || empty || (line.length === 0 && hub?.main === undefined) ? null : <Horizon line={line} main={hub?.main} on={on ?? focus} />}
+      </div>
+      {!open ? null : empty ? (
         <div className="armada-merge-line__empty">
           <EmptyLine />
         </div>
       ) : (
         <>
-          {line.length === 0 && hub?.main === undefined ? null : <Horizon line={line} main={hub?.main} on={on ?? focus} />}
           <div className="armada-merge-line__body">
             {!lane ? null : (
               <div className="armada-merge-line__lane">
@@ -432,26 +446,103 @@ function hueOf(token: string | null | undefined): CSSProperties | undefined {
 
 /**
  * The cockpit's horizon, the width of the page: the line's branches as dots on a belt, moving toward
- * main's light at the right end, place 1 nearest it. A picture of the rows under it, so it is hidden
- * from a screen reader and takes no focus; the tile under the cursor lights its dot.
+ * main's light at the right end, place 1 nearest it. The belt is a picture of the rows under it, so
+ * it is hidden from a screen reader and takes no focus; the tile under the cursor lights its dot.
+ *
+ * **With nobody in line there is no belt**, only main's light: a dashed line with nothing on it was
+ * a static rule ending in a dot, and the owner asked for it to move or go (12 Oct 2026). Where there
+ * are dots, the dashes flow toward main. **The light is main's one stop on the horizon**, its card what the panel holds of it.
  */
 function Horizon({ line, main, on }: { line: readonly MergeLineEntry[]; main: MainState | undefined; on: string | undefined }) {
   return (
-    <div className="armada-merge-line__horizon" aria-hidden>
-      <ol className="armada-merge-line__belt">
-        {line.map((entry) => (
-          <li
-            key={entry.branch}
-            className="armada-merge-line__dot"
-            data-state={entry.state}
-            data-queued={IN_TURN.has(entry.state) || undefined}
-            data-on={entry.branch === on || undefined}
-            style={hueOf(LAND_STATE[entry.state]?.statusToken)}
-          />
-        ))}
-      </ol>
-      <span className="armada-merge-line__main" data-state={main?.state} />
+    <div className="armada-merge-line__horizon" data-empty={line.length === 0 || undefined}>
+      {line.length === 0 ? null : (
+        <ol className="armada-merge-line__belt" aria-hidden>
+          {line.map((entry) => (
+            <li
+              key={entry.branch}
+              className="armada-merge-line__dot"
+              data-state={entry.state}
+              data-queued={IN_TURN.has(entry.state) || undefined}
+              data-on={entry.branch === on || undefined}
+              style={hueOf(LAND_STATE[entry.state]?.statusToken)}
+            />
+          ))}
+        </ol>
+      )}
+      <MainLight main={main} />
     </div>
+  );
+}
+
+/** Main's state in words, as its light's name and its card's first line say it. */
+function mainSays(main: MainState | undefined): string {
+  if (main === undefined) return "not read yet";
+  const checking = (main.checking?.length ?? 0) > 0;
+  return checking ? `${main.state}, new checks are running` : main.state;
+}
+
+/**
+ * Main's light, and on hover or focus a card naming it: its state in words, then what the panel
+ * already holds about it. Red adds the failing Checks, the test, the merge that broke it and the
+ * Job on the fix, as the red band does; checks running on main name the merges they run for.
+ * **Only what is in memory**: nothing here asks Fleet for more.
+ */
+function MainLight({ main }: { main: MainState | undefined }) {
+  const said = mainSays(main);
+  const reading = main === undefined ? undefined : CHECK_OUTCOME[main.state === "green" ? "passed" : "failed"];
+  const Icon = reading?.icon ?? null;
+  const red = main?.state === "red" ? main : undefined;
+  const failed = red === undefined ? [] : [red.red, ...(red.red.also ?? [])];
+  const card = (
+    <span className="armada-merge-line__card" data-state={main?.state}>
+      <span className="armada-merge-line__card-head mono">main</span>
+      <span className="armada-merge-line__card-state">
+        {Icon === null ? null : (
+          <Icon size={MARK} strokeWidth={STROKE} aria-hidden style={reading?.statusToken ? { color: `var(${reading.statusToken})` } : undefined} />
+        )}
+        {said}
+      </span>
+      {failed.length === 0 && red?.red.merge === undefined && red?.taken === undefined && (main?.checking?.length ?? 0) === 0 ? null : (
+        <span className="armada-merge-line__card-rows">
+          {failed.map((one, at) => (
+            <Fragment key={`${one.check}:${at}`}>
+              <span>{one.unmapped === true ? "CI job" : "Check"}</span>
+              <span className="mono">{one.check}</span>
+              {one.test === undefined ? null : (
+                <>
+                  <span>Test</span>
+                  <span className="mono">{one.test}</span>
+                </>
+              )}
+            </Fragment>
+          ))}
+          {red?.red.merge === undefined ? null : (
+            <>
+              <span>Broke in</span>
+              <span className="mono">{[`#${red.red.merge.number}`, red.red.merge.branch].filter(Boolean).join(" ")}</span>
+            </>
+          )}
+          {red?.taken === undefined ? null : (
+            <>
+              <span>Fixing</span>
+              <span>{red.taken.title}</span>
+            </>
+          )}
+          {(main?.checking?.length ?? 0) === 0 ? null : (
+            <>
+              <span>Checking</span>
+              <span className="mono">{main!.checking!.map((one) => (one.number === undefined ? one.commit.slice(0, 10) : `#${one.number}`)).join(" ")}</span>
+            </>
+          )}
+        </span>
+      )}
+    </span>
+  );
+  return (
+    <Tooltip label={card} card asChild>
+      <span className="armada-merge-line__main" data-state={main?.state} role="img" aria-label={`main: ${said}`} />
+    </Tooltip>
   );
 }
 
