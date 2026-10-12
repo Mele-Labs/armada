@@ -269,6 +269,15 @@ impl Session {
             Session::Adopted(adopted) => adopted.exited(),
         }
     }
+
+    /// How the process ended, where Fleet collected it. An adopted Drone is
+    /// not Fleet's child, so nothing says.
+    pub(crate) fn how_it_ended(&self) -> Option<std::process::ExitStatus> {
+        match self {
+            Session::Spawned(session) => session.how_it_ended(),
+            Session::Adopted(_) => None,
+        }
+    }
 }
 
 /// **Every turn refused, and one act.** Nothing an adopted Drone is asked to

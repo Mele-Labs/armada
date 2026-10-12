@@ -73,6 +73,7 @@ mod dispatched;
 mod door_per_repository;
 mod drifting;
 mod drone;
+mod drone_died;
 mod drone_per_task;
 mod drones_had;
 mod editing;
