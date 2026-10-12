@@ -191,9 +191,9 @@ export class CaptureWindow {
     return this.opened;
   }
 
-  /** The origin of the page on screen, which is what a question about a place on it is matched to. */
-  get origin(): string {
-    return this.pin.origin;
+  /** The origins a question about a place may be on: the page on screen's, and every take's. */
+  get origins(): string[] {
+    return [this.pin.origin, ...this.takes.flatMap((one) => webOrigin(one.url) ?? [])];
   }
 
   /** Whether this window shows exactly these takes, so a Session that shows them again is raising it. */
@@ -329,6 +329,10 @@ export class CaptureWindow {
       return;
     }
     if (this.asked?.id === question.id || this.settled.has(question.id)) return;
+    // A place on another take's origin takes the window to that take first.
+    const placed = webOrigin(question.place.url);
+    const there = onOrigin(this.pin.origin, question.place.url) ? -1 : this.takes.findIndex((one) => webOrigin(one.url) === placed);
+    if (there >= 0) this.pick(there);
     this.asked = question;
     this.askShown = true;
     this.askBox = undefined;

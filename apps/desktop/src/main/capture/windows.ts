@@ -106,7 +106,7 @@ export class CaptureWindows {
     const window = new CaptureWindow(pin, landsOn, this.board, sizes(), this.kept(landsOn), takes);
     this.open.set(key, window);
     // A window opened by a press on a waiting question shows it as one opened by its arrival does.
-    if (this.sessions !== null) window.question(questionOf(this.sessions.find((one) => one.id === sessionId), origin));
+    if (this.sessions !== null) window.question(questionOf(this.sessions.find((one) => one.id === sessionId), window.origins));
     return { ok: true };
   }
 
@@ -117,7 +117,7 @@ export class CaptureWindows {
    */
   askedFor(sessionId: string, title: string, window: string, place: string): CaptureOpened {
     const standing = this.open.get(`${SESSION_KEY}${sessionId}`);
-    const here = standing !== undefined && standing.open && standing.origin === webOrigin(place);
+    const here = standing !== undefined && standing.open && standing.origins.includes(webOrigin(place) ?? "");
     const opened = here ? ({ ok: true } as const) : this.openForSession(sessionId, title, window);
     this.ask();
     return opened;
@@ -129,7 +129,7 @@ export class CaptureWindows {
     for (const [key, window] of this.open) {
       if (!key.startsWith(SESSION_KEY) || !window.open) continue;
       const record = this.sessions.find((one) => one.id === key.slice(SESSION_KEY.length));
-      window.question(questionOf(record, window.origin));
+      window.question(questionOf(record, window.origins));
     }
   }
 
@@ -188,13 +188,13 @@ export class CaptureWindows {
 }
 
 /**
- * The question a Session's window shows: its oldest open `window_ask` item on that window's origin.
+ * The question a Session's window shows: its oldest open `window_ask` item on the origin of its page or of any of its takes.
  * Pure, so the rule is tested without a window.
  */
-export function questionOf(record: SessionRecord | undefined, origin: string | null): WindowQuestion | null {
+export function questionOf(record: SessionRecord | undefined, origins: readonly string[]): WindowQuestion | null {
   for (const item of record?.waiting_for ?? []) {
     if (item.source !== "window_ask" || item.place === undefined) continue;
-    if (origin === null || webOrigin(item.place.url) !== origin) continue;
+    if (!origins.includes(webOrigin(item.place.url) ?? "")) continue;
     return { id: item.id, question: item.text, options: item.options ?? [], place: item.place };
   }
   return null;

@@ -158,3 +158,31 @@ async fn approving_any_take_ends_the_walk_and_a_sentence_that_only_begins_with_t
     assert_eq!(walking(&rig, &id).await, None, "the take on screen was approved");
     assert_eq!(waiting().await, 0, "and the walk no longer waits on him");
 }
+
+#[tokio::test]
+async fn a_question_may_be_about_a_take_on_another_origin_than_the_first() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    let other = "http://localhost:6006/two";
+    let takes = vec![
+        WindowTake { name: "A".into(), url: ONE.into() },
+        WindowTake { name: "B".into(), url: other.into() },
+    ];
+    let shown = ShowWindow { url: ONE.into(), title: None, session_id: Some(id.clone()), variations: takes };
+    rig.fleet.show_window(None, shown).await.expect("shown");
+    let ask = |url: &str| ipc::AskInWindow {
+        question: "Beside or under?".into(),
+        options: Vec::new(),
+        url: url.into(),
+        selector: "main > h1".into(),
+        text: None,
+        session_id: Some(id.clone()),
+    };
+    rig.fleet.ask_in_window(None, ask(other)).await.expect("on a take's origin");
+    assert!(rig.fleet.ask_in_window(None, ask("http://localhost:7000/")).await.is_err(), "on no take's origin");
+    let window = rig.rows(&id).await.into_iter().find_map(|row| match row {
+        SessionRow::WindowAsk { window, .. } => Some(window),
+        _ => None,
+    });
+    assert_eq!(window.as_deref(), Some(ONE), "the window it is asked in is the one the Session showed");
+}

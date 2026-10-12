@@ -280,7 +280,7 @@ The mod's first-message note and `show_window`'s description tell the agent the 
 
 | | |
 |---|---|
-| What it may ask about | An address on the origin of a window the session showed, whether or not its walk is still open: a closed window is opened again. Anything else is refused with a reason that names `waiting_for`, where a question about something else waits |
+| What it may ask about | An address on the origin of a window the session showed, or of any of its takes (the window swaps to that take), whether or not its walk is still open: a closed window is opened again. Anything else is refused with a reason that names `waiting_for`, where a question about something else waits |
 | What the call does | Keeps a `window_ask` row on the thread and answers at once. **It does not wait**: the session ends its turn, and the answer arrives as a message from the person |
 | What Bridge does | Brings the session's walk window forward, opening it if it is closed, moves the page to the address, scrolls the place into view, outlines it, and draws the question on a card of the window's own bar. `docs/practices/capture-window.md` |
 | How it waits | `window_ask:<row>` under Waiting on you, with its options and its `place`. Its act is a walk of the window it was asked in, so a press there opens the window with the card |
