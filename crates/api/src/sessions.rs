@@ -166,6 +166,19 @@ pub(crate) async fn waiting_for<D: Sessions>(
     }
 }
 
+/// The agent says it has nothing left to work on. 200 with the row; 422 for a call that places no
+/// session. **The session is placed by the connection**, as `waiting_for`'s is.
+pub(crate) async fn all_done<D: Sessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let done: ipc::AllDone = match ipc::decode("that a session is done", &body) {
+        Ok(done) => done,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().all_done(crate::acting::asking(), done).await {
+        Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// `?manifest_id=`, `?q=` and `?state=` on `list_sessions`.
 #[derive(Deserialize)]
 pub(crate) struct Listing {
