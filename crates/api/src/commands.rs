@@ -24,6 +24,7 @@ use ipc::{
 use crate::answers::{answer, refused, undecodable};
 use crate::daemon::{Commands, Queries, Redirector};
 use crate::door::HelmCalled;
+use crate::placed::{steered_by, CommanderCalled};
 use crate::reference::Resolved;
 use crate::scoped::InManifest;
 use crate::served::Served;
@@ -800,16 +801,14 @@ pub(crate) async fn redirect_drone<D: Commands>(
     State(served): State<Served<D>>,
     job: Resolved,
     helm: Option<Extension<HelmCalled>>,
+    commander: Option<Extension<CommanderCalled>>,
     body: Bytes,
 ) -> Response {
     let instruction: Redirection = match ipc::decode("a redirect", &body) {
         Ok(instruction) => instruction,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
-    let by = match helm {
-        Some(_) => Redirector::Helm,
-        None => Redirector::Person,
-    };
+    let by = steered_by(helm, commander);
     match served
         .shared()
         .redirect_drone(job.id(), instruction, by)

@@ -13,7 +13,6 @@
 //!
 //! | Step of the claim | Carried by |
 //! |---|---|
-//! | It reaches a Job, and is offered nothing it may not do (a Check, the Manifest, a gate, attest, merge, push) | #2164 |
 //! | A cap it raises stops at three times the workflow's caps, and a raise cannot claim a person made it | #2165 |
 //! | The owner writes to it and gets an answer, a message queues, and one card goes to him | #2166 |
 //! | A Drone with nothing handed in, or a red group, wakes it; three wakes on one problem stop it | #2167 |
@@ -23,13 +22,17 @@
 
 //! What is asserted today is the fourth signer: the record a Commander's act
 //! would leave, made by moving the machines as `Actor::Commander`, through
-//! `ipc::encode` and back. The fake hosting that scripts its tool calls comes
-//! with #2164, the first issue with a tool to call.
+//! `ipc::encode` and back, and the reach: what the door grants a Commander,
+//! read off the list the door itself enforces. That a call from a placed
+//! connection is refused, answered and recorded as the Commander's is `api`'s
+//! `tests::commander_reach`, through the real router; the process that hosts a
+//! Commander, and so the first real connection to place, comes with #2166.
 
 // Shared with the other milestones' tests, and none of them uses all of it.
 #[allow(dead_code)]
 mod bench;
 
+use api::{offerable, CommanderReach, COMMANDER_ALLOWED};
 use core_model::{Actor, Attempt, JobStatus, PlanAuthor, StepId, Via};
 use testkit::FakeWorkProduct;
 
@@ -119,4 +122,64 @@ fn the_commander_is_one_more_signer_and_one_more_door_and_not_a_person() {
     assert_eq!(Via::from_wire("commander"), Some(Via::Commander));
     assert!(!Via::Commander.is_a_person());
     assert_ne!(Via::Commander, Via::Helm, "Helm's door is not the Commander's");
+}
+
+/// Every act the claim says a Commander never takes. All are offered by the
+/// door to Helm, so a refusal here is the allowlist's and not an absence.
+const NEVER_THE_COMMANDERS: &[&str] = &[
+    // Pass a gate.
+    "override_verdict",
+    "rerun_gate",
+    "rerun_failed_checks",
+    "set_when_blocked",
+    "submit_for_verification",
+    "approve_dispatch",
+    // Attest, merge, push.
+    "attest_complete",
+    "merge_pull_request",
+    "merge_pull_request_by_number",
+    "enable_auto_merge",
+    "enable_job_auto_merge",
+    "delete_branch",
+    // A Check, the Manifest.
+    "edit_manifest",
+    "write_manifest_proposal",
+    "save_manifest_file",
+];
+
+#[test]
+fn a_commander_is_offered_every_read_and_ten_acts_and_nothing_that_passes_a_gate() {
+    let reach = CommanderReach::of_the_allowlist();
+
+    let mut granted: Vec<&str> = offerable()
+        .filter(|row| row.kind == "command" && reach.may(row.operation))
+        .map(|row| row.operation)
+        .collect();
+    granted.sort_unstable();
+    let mut settled = vec![
+        "raise_turn_cap",
+        "raise_cost_cap",
+        "redirect_drone",
+        "redirect_one_drone",
+        "restart_step",
+        "restart_task",
+        "edit_task",
+        "add_task",
+        "drop_task",
+        "move_plan",
+    ];
+    settled.sort_unstable();
+    assert_eq!(granted, settled, "the acts a Commander may take, and no more");
+    assert_eq!(COMMANDER_ALLOWED.len(), settled.len());
+
+    for row in offerable().filter(|row| row.kind == "query") {
+        assert!(reach.may(row.operation), "every read is its: {}", row.operation);
+    }
+    for operation in NEVER_THE_COMMANDERS {
+        assert!(
+            offerable().any(|row| row.operation == *operation),
+            "`{operation}` is offered to someone, so refusing it is the allowlist's doing"
+        );
+        assert!(!reach.may(operation), "`{operation}` is not a Commander's");
+    }
 }

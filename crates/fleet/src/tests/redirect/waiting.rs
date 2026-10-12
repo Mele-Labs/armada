@@ -42,7 +42,7 @@ async fn a_waiting_redirect_is_on_the_wire_and_a_reread_finds_it() {
     );
 
     fleet
-        .redirect(&job, &advice(), api::Redirector::Person)
+        .redirect(&job, &advice(), api::Steerer::Person)
         .await
         .unwrap();
 
@@ -71,7 +71,7 @@ async fn a_redirect_onto_a_stopped_step_leaves_nothing_waiting() {
     let job = refused(&fleet, &home).await;
 
     fleet
-        .redirect(&job, &advice(), api::Redirector::Person)
+        .redirect(&job, &advice(), api::Steerer::Person)
         .await
         .unwrap();
 
@@ -93,7 +93,7 @@ async fn the_wait_is_over_when_the_drone_turns() {
     let job = stalled(&fleet, &home).await;
 
     fleet
-        .redirect(&job, &advice(), api::Redirector::Person)
+        .redirect(&job, &advice(), api::Steerer::Person)
         .await
         .unwrap();
     assert!(detail(&fleet, &job).await.redirecting.is_some());
@@ -120,7 +120,7 @@ async fn a_healthy_job_carries_the_wait_and_moves_nothing_when_it_is_answered() 
     let moved = job_moves(&fleet, &job).await;
 
     fleet
-        .redirect(&job, &advice(), api::Redirector::Person)
+        .redirect(&job, &advice(), api::Steerer::Person)
         .await
         .unwrap();
     assert!(detail(&fleet, &job).await.redirecting.is_some());
@@ -157,7 +157,7 @@ async fn a_job_that_was_not_redirected_carries_no_wait() {
         .clone();
 
     fleet
-        .redirect(&job, &advice(), api::Redirector::Person)
+        .redirect(&job, &advice(), api::Steerer::Person)
         .await
         .unwrap();
 

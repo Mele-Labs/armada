@@ -76,7 +76,6 @@ pub(crate) fn author(by: Redirector) -> StudioAuthor {
     match by {
         Redirector::Person => StudioAuthor::Person,
         Redirector::Helm => StudioAuthor::Helm,
-        Redirector::Commander => unreachable!("a Commander does not work a Studio"),
     }
 }
 

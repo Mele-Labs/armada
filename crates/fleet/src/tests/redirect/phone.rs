@@ -30,7 +30,7 @@ async fn redirected_through(door: &str) -> Option<ipc::Via> {
     let job = started(&fleet, &home).await;
     api::carrying(ipc::Via::from_wire(door), async {
         fleet
-            .redirect(&job, &advice(), api::Redirector::Person)
+            .redirect(&job, &advice(), api::Steerer::Person)
             .await
             .expect("a Drone that is working can be told something")
     })
