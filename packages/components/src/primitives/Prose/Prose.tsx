@@ -6,8 +6,10 @@ import remarkParse from "remark-parse";
 import { unified } from "unified";
 
 import { commandOf, ProseRunner, RunnableBlock } from "./RunnableBlock";
+import { ProseCommand, SLASH_COMMAND, SlashCommand } from "./SlashCommand";
 export type { CodeRunEvent, CodeRunner } from "./RunnableBlock";
 export { ProseRunner } from "./RunnableBlock";
+export { ProseCommand } from "./SlashCommand";
 
 /**
  * Text a model wrote, drawn as the markdown it is written in, with the GFM extensions,
@@ -77,10 +79,27 @@ function Link({ href, children }: { href: string | undefined; children: ReactNod
   );
 }
 
-/** A fenced block; one in a shell language gains Run where a runner is provided. */
+/** Set inside a fenced block, whose `code` is its text and never a command to send. */
+const InBlock = createContext(false);
+
+/** Inline code; one that is exactly a slash command gains Run where a terminal Session provides it. */
+function Code({ children }: { children?: ReactNode }) {
+  const inBlock = useContext(InBlock);
+  const send = useContext(ProseCommand);
+  if (inBlock || send === null || typeof children !== "string" || !SLASH_COMMAND.test(children)) {
+    return <code className="armada-prose__code">{children}</code>;
+  }
+  return <SlashCommand text={children} send={send} />;
+}
+
+/** A fenced block; one in a shell language, or with none that reads as shell, gains Run where a runner is provided. */
 function Block({ children }: { children?: ReactNode }) {
   const runner = useContext(ProseRunner);
-  const pre = <pre className="armada-prose__block">{children}</pre>;
+  const pre = (
+    <InBlock.Provider value>
+      <pre className="armada-prose__block">{children}</pre>
+    </InBlock.Provider>
+  );
   if (runner === null) return pre;
   const code = Children.toArray(children)[0];
   if (!isValidElement<{ className?: string; children?: ReactNode }>(code)) return pre;
@@ -116,7 +135,7 @@ const DRAWN: Components = {
   h5: said(5),
   h6: said(6),
   strong: ({ children }) => <strong className="armada-prose__strong">{children}</strong>,
-  code: ({ children }) => <code className="armada-prose__code">{children}</code>,
+  code: Code,
   pre: Block,
   ul: ({ children }) => <ul className="armada-prose__list">{children}</ul>,
   ol: ({ children, start }) => (

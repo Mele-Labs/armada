@@ -589,6 +589,8 @@ export function sessionsStore(
       });
       addTo(id, [said(`Going with ${chosen ?? "my own call"}.`)]);
     },
+    // A fake terminal: the command is typed there and nothing comes back to the thread.
+    command: () => undefined,
     run: (_id, command, on) => {
       // A fake runner: a few timed lines. `vitest` fails, `tail -f` never ends until it is stopped.
       const lines = RUN_OUTPUT.find(([match]) => command.includes(match))?.[1] ?? RUN_DEFAULT;
