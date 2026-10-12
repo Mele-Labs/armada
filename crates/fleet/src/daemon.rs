@@ -115,6 +115,8 @@ pub struct Fleet<H, V, W> {
     helm: crate::helm::Conversations,
     /// The sessions Fleet hosts for Bridge. See [`crate::session_host`].
     sessions: crate::session_host::Hosts,
+    /// Shell blocks run from a Session's thread. Never written down — `crate::session_running`.
+    session_runs: crate::session_running::SessionRuns,
     /// Every scout running, and the host that starts one. Outside `slots`:
     /// a scout takes no place under the concurrency cap. See [`crate::scout`].
     scouts: crate::scout::Scouts,

@@ -1,0 +1,14 @@
+[icons.square]
+  means = "A filled square - stop what is running"
+  group = "Run"
+  size = "16px"
+  status = "Specified"
+  reserved = "Stop on a run the person started. Never a Job or a Drone stopping, which Fleet owns."
+  notes = "Proposed 11 Oct 2026 for running a code block from a Session's thread, the mock walk `runCodeBlock`. Approved 11 Oct 2026."
+
+  [[icons.square.usage]]
+    means = "Stop a command the person ran from a code block in a Session's thread"
+    group = "Run"
+    size = "16px"
+    status = "Specified"
+    notes = "Tooltip `Stop`. Shown in place of Run while the command runs. Approved 11 Oct 2026."

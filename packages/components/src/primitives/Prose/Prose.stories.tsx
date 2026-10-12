@@ -2,7 +2,8 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn } from "storybook/test";
 import { Clamped } from "../../compositions/Clamped/Clamped";
 import { Card } from "../Card/Card";
-import { Prose, ProseLinks } from "./Prose";
+import { Prose, ProseLinks, ProseRunner } from "./Prose";
+import type { CodeRunner } from "./Prose";
 
 /** What a click hands over. Bridge's is `window.armada.openLink`. */
 const opened = fn();
@@ -354,5 +355,62 @@ export const AJudgesVerdict: Story = {
     // The link hands its address over.
     await userEvent.click(canvas.getByRole("link", { name: "the M4 acceptance test" }));
     await expect(opened).toHaveBeenCalledWith("https://forge.invalid/armada/blob/main/docs/m4.md");
+  },
+};
+
+const SHELL_BLOCK = "Check it:\n\n```sh\npnpm -C apps/desktop typecheck\n```\n\n```ts\nconst unrelated = 1;\n```";
+
+/** A runner that prints two lines and exits with `code`, or never exits where `code` is `"hang"`. */
+const runnerOf = (code: number | "hang"): CodeRunner => (_command, on) => {
+  on({ kind: "out", text: "checking\n" });
+  if (code === "hang") return { stop: () => on({ kind: "end", code: null }) };
+  on({ kind: "out", text: "done\n" });
+  on({ kind: "end", code });
+  return { stop: () => {} };
+};
+
+/** **Run on a shell block only**, and its output under the block, with the exit on a mark. */
+export const ARunnableShellBlock: Story = {
+  args: { text: SHELL_BLOCK },
+  decorators: [
+    (Story) => (
+      <ProseRunner.Provider value={runnerOf(0)}>
+        <Story />
+      </ProseRunner.Provider>
+    ),
+  ],
+  play: async ({ canvas, userEvent }) => {
+    // One block is a shell block; the TypeScript one has no Run.
+    await expect(canvas.getAllByRole("button", { name: "Run" })).toHaveLength(1);
+    await userEvent.click(canvas.getByRole("button", { name: "Run" }));
+    await expect(canvas.getByRole("log", { name: "Output" })).toHaveTextContent("done");
+    await expect(canvas.getByRole("img", { name: "Passed" })).toBeVisible();
+    await expect(canvas.getByRole("button", { name: "Run again" })).toBeVisible();
+  },
+};
+
+/** A run that does not end offers Stop, and a stopped run reads as failed with no exit code. */
+export const AStoppedRun: Story = {
+  args: { text: SHELL_BLOCK },
+  decorators: [
+    (Story) => (
+      <ProseRunner.Provider value={runnerOf("hang")}>
+        <Story />
+      </ProseRunner.Provider>
+    ),
+  ],
+  play: async ({ canvas, userEvent }) => {
+    await userEvent.click(canvas.getByRole("button", { name: "Run" }));
+    await userEvent.click(canvas.getByRole("button", { name: "Stop" }));
+    await expect(canvas.getByRole("img", { name: "Failed" })).toBeVisible();
+    await expect(canvas.getByRole("button", { name: "Run again" })).toBeVisible();
+  },
+};
+
+/** Without a runner a shell block draws as any other block. */
+export const NoRunnerNoRun: Story = {
+  args: { text: SHELL_BLOCK },
+  play: async ({ canvas }) => {
+    await expect(canvas.queryByRole("button", { name: "Run" })).toBeNull();
   },
 };

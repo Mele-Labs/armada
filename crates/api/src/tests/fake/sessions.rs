@@ -47,6 +47,28 @@ impl Sessions for FakeDaemon {
         .await
     }
 
+    /// **The fake runs nothing**: what a run is, and its process group, are `fleet::session_running`'s.
+    async fn start_session_run(
+        &self,
+        _start: ipc::StartSessionRun,
+    ) -> Result<ipc::SessionRunUnderway, Refusal> {
+        self.runs_nothing_here()
+    }
+
+    async fn stop_session_run(
+        &self,
+        _stop: ipc::StopSessionRun,
+    ) -> Result<ipc::SessionRunUnderway, Refusal> {
+        self.runs_nothing_here()
+    }
+
+    async fn observe_session_run(
+        &self,
+        _run_id: String,
+    ) -> Result<crate::ObservedSessionRun, Refusal> {
+        self.runs_nothing_here()
+    }
+
     async fn report_session_check(
         &self,
         call: ipc::SessionCheckCall,
