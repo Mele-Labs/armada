@@ -1,14 +1,14 @@
 import { describe, expect, it } from "vitest";
 
+import type { RetroRow } from "@armada/protocol";
 import { retroRowIsNewer, retroRowOf, withThreadRow } from "./retro-row";
-import type { RetroRowWire } from "./retro-row";
 import { rowsOfThread } from "./sessions-wire";
 
 const T0 = "2026-10-12T14:00:00Z";
 const T1 = "2026-10-12T14:00:05Z";
 const T2 = "2026-10-12T14:00:20Z";
 
-const frame = (over: Partial<RetroRowWire> = {}): RetroRowWire => ({
+const frame = (over: Partial<RetroRow> = {}): RetroRow => ({
   kind: "retro",
   id: "retro-1",
   at: T0,
@@ -61,7 +61,7 @@ describe("a retro row replaced by id", () => {
     const rows = withThreadRow([first], second);
     expect(rows.map((one) => one.id)).toEqual(["retro-1", "retro-2"]);
     const next = withThreadRow(rows, { ...second, stage: "reading_record", stage_since: "2026-10-12T14:00:30Z" });
-    expect(next.map((one) => (one as RetroRowWire).stage)).toEqual(["written", "reading_record"]);
+    expect(next.map((one) => (one as RetroRow).stage)).toEqual(["written", "reading_record"]);
   });
 
   it("leaves other kinds of row to be replaced as before", () => {
@@ -88,7 +88,7 @@ describe("a retro row as the thread draws it", () => {
   });
 
   it("leaves off an end of the route it does not know, rather than drawing a word nobody chose", () => {
-    const drawn = retroRowOf(frame({ stage: "writing", items: [{ title: "T", who: "robot", lands_in: "moon" }] }), "14:00:00");
+    const drawn = retroRowOf(frame({ stage: "writing", items: [{ title: "T", who: "robot" as never, lands_in: "moon" as never }] }), "14:00:00");
     expect(drawn.items).toEqual([{ title: "T" }]);
   });
 
