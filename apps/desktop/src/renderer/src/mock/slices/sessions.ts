@@ -30,6 +30,8 @@ export const sessions: Slice<SessionsApi, SessionsState> = {
     readSessionSubagent: async () => ({ ok: false, outcome: unanswered("/sessions/subagent") }),
     openSessionFile: async () => ({ ok: true }),
     openSessionWindow: async () => ({ ok: true }),
+    getSessionWindows: async () => [],
+    onSessionWindows: () => () => {},
     readSessionArtifact: async () => ({ ok: false, why: "unreadable" }),
     showSessionPage: async () => ({ ok: true }),
     moveSessionPage: async () => undefined,

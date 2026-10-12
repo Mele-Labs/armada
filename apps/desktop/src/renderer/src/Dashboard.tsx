@@ -45,6 +45,7 @@ import { viewsOf } from "./merge-line";
 import { useSessions } from "./sessions-draft";
 import { useSleepDecided, type MorningDecided } from "./sleep";
 import { forgetCleared, identityOf, useDismissed } from "./cockpit/dismissed";
+import { useOpenWalks } from "./cockpit/open-walks";
 import { callsFromWaiting, sessionIdOf, type WaitingCall } from "./cockpit/waiting";
 
 /** The frame's hue: what the row wants of the owner, or how it stands. */
@@ -529,6 +530,7 @@ export function useItems(
   const nows = useContext(Nows);
   const dismissed = useDismissed();
   const slept = useSleepDecided();
+  const walking = useOpenWalks();
   const calls = tab === "command-central";
   const items = useMemo(() => {
     const read = overviewListsOf(state.jobs, picked);
@@ -556,7 +558,9 @@ export function useItems(
             acts: () => <JobActs job={job} stale={false} onOpen={hosts.onOpen} onKill={hosts.onKill ?? noop} onRedispatch={hosts.onRedispatch ?? noop} onClear={hosts.onClear ?? noop} {...(hosts.onPausing === undefined ? {} : { onPausing: hosts.onPausing })} />,
           });
       }
-      items.push(...callsFromWaiting(sessions).map((one) => waitingItem(one, hosts)));
+      // A walk whose window is open is being looked at, so it is not a call yet.
+      const unseen = (one: WaitingCall) => !(one.item.source === "walk" && one.item.act !== undefined && walking.has(one.item.act.target));
+      items.push(...callsFromWaiting(sessions).filter(unseen).map((one) => waitingItem(one, hosts)));
       items.push(...slept.map(sleepItem));
     } else {
       const jobs = tab === "running" ? of(["running", "queued", "other"]) : of(["recently-ended", "done"]);
@@ -606,7 +610,7 @@ export function useItems(
       return { ...item, ...(steps.length === 0 ? {} : { steps, stepAt: at }), ...(settling ? { settling: true as const } : {}), ...(active === undefined ? {} : { ...active, live: true }) };
     });
     return drawn.filter((item) => !answered.has(item.key));
-  }, [tab, state, picked, nowViews, nows, sessions, slept, answered, dismissed]);
+  }, [tab, state, picked, nowViews, nows, sessions, slept, walking, answered, dismissed]);
   // A call dismissed for good stays gone while its state stands; once the state clears, the next one shows.
   const standing = useMemo(() => new Set(items.map(identityOf)), [items]);
   const board = state.jobs.length > 0 || viewsOf(state).length > 0;
