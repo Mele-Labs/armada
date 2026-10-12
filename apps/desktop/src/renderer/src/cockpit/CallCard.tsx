@@ -6,7 +6,7 @@
 // `Cockpit`'s, on the window; this draws them and takes the press. While an act waits on Fleet the
 // control pressed carries the loop and the rest of the card is held. Mock only, as the Dashboard is.
 
-import { useLayoutEffect, useRef, useState, type MutableRefObject } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type MutableRefObject, type ReactNode } from "react";
 import { Bot, Box, ChevronDown, ChevronUp, Cpu, Scale, ShieldCheck, SquareTerminal, Waypoints, Workflow, type LucideIcon } from "lucide-react";
 import { Button, Kbd, SessionThread, Tooltip, actionOf, keyFor, type NowPanelProps } from "@armada/components";
 
@@ -15,6 +15,7 @@ import { age, type Hosts, type Item } from "../Dashboard";
 import { useSessions } from "../sessions-draft";
 import { SessionBox, threadRowsOf } from "../sessions";
 import { useAnswering, type Answer, type Answering } from "./answers";
+import { CoveredKeycap, Keycap, useConsoles, useCover } from "./consoles";
 import { Failure, hasFailure } from "./Failure";
 import { JobBox } from "./JobBox";
 import { useJudgesRisk } from "./judges-risk";
@@ -164,6 +165,7 @@ export function CallCard({
   leaving,
   from,
   answering,
+  queue,
 }: {
   item: Item;
   now: number;
@@ -182,6 +184,8 @@ export function CallCard({
   from: "stack" | undefined;
   /** Where the card hands its answers up to, for the keys. */
   answering: MutableRefObject<CardKeys | undefined>;
+  /** The calls behind this one, drawn as a strip in the console on its left where the acts are in consoles. */
+  queue?: ReactNode;
 }) {
   const answer = useAnswering(item, hosts, state, finish, dismiss);
   const [text, setText] = useState(() => DRAFTS.get(item.key) ?? "");
@@ -204,6 +208,14 @@ export function CallCard({
   // A Job's call that says what went wrong ends in a box whose words go to its Drone.
   const jobBoxed = item.issue !== undefined && answer.reply !== undefined;
   const boxed = composed || jobBoxed;
+  // The acts are in consoles beside the card, or in a row under it where the mock offers no consoles.
+  const { layout } = useConsoles();
+  const consoled = layout !== "inline";
+  // A Job's box, like a Sleep decision from a Job, is hidden until the owner asks for it; a Session's is always there.
+  const openChange = () => (changing || composed ? focusReply() : setChanging(true));
+  useEffect(() => {
+    if (changing && jobBoxed) focusReply();
+  }, [changing, jobBoxed]);
   // Words in the box are what he just typed, so they win over a picked answer: Send and Enter send them.
   const held = answer.pending !== undefined;
   const words = !boxed && answer.reply !== undefined && text.trim() !== "";
@@ -211,12 +223,15 @@ export function CallCard({
   const sendWords = () => !held && answer.reply?.(text.trim(), () => DRAFTS.delete(item.key));
   const canSend = words ? !held : answer.canSend;
   const send = words ? () => void sendWords() : answer.send;
+  const cover = useCover(() => answer.dismiss());
   answering.current = {
     ...answer,
     canSend,
     send,
     ...(long ? { expand: () => setWhole((was) => !was) } : {}),
-    ...(sleep === undefined ? {} : { change: () => (changing || composed ? focusReply() : setChanging(true)) }),
+    ...(sleep === undefined && !jobBoxed ? {} : { change: openChange }),
+    // Under consoles, a key cannot dismiss for good by itself: the cover lifts first.
+    ...(consoled ? { dismiss: cover.press } : {}),
   };
 
   const sessionId = sessionIdOf(item.key);
@@ -252,6 +267,9 @@ export function CallCard({
     else if (words.trim() !== "") answer.reply?.(words.trim());
   };
 
+  const changeLabel = sleep === undefined ? "Redirect" : sleep.corrected === undefined ? "Change" : "Change again";
+  const openLabel = sleep === undefined ? OPENS(item) : sleep.sessionId !== undefined ? "Open the Session" : "Open the Job";
+
   // A card made only of acts is split: the decision on the left, a quiet group of ghosts on the right.
   // The first act is the primary and Enter runs it, until there are words in the box, which Enter sends.
   const decide = (
@@ -269,9 +287,9 @@ export function CallCard({
             );
             return one.says === undefined ? button : <Tooltip key={one.id} label={one.says}>{button}</Tooltip>;
           })}
-      {sleep === undefined ? null : (
-        <Button variant="secondary" disabled={held} onClick={() => (changing || composed ? focusReply() : setChanging(true))}>
-          {sleep.corrected === undefined ? "Change" : "Change again"}
+      {sleep === undefined && !jobBoxed ? null : (
+        <Button variant="secondary" disabled={held} onClick={openChange}>
+          {changeLabel}
           <Kbd>{keyFor("call_reply")}</Kbd>
         </Button>
       )}
@@ -293,7 +311,7 @@ export function CallCard({
       )}
       {lone || answer.open === undefined ? null : (
         <Button variant="ghost" disabled={held} onClick={answer.open}>
-          {sleep === undefined ? OPENS(item) : sleep.sessionId !== undefined ? "Open the Session" : "Open the Job"}
+          {openLabel}
           <Kbd>{keyFor("open")}</Kbd>
         </Button>
       )}
@@ -310,7 +328,42 @@ export function CallCard({
     </>
   );
 
-  return (
+  // The same acts as keycaps, for the consoles: the decision, where it goes next, and the one under a cover.
+  const decideKeys = (
+    <>
+      {answer.attaching !== undefined
+        ? null
+        : acts.map((one) => {
+            const at = answer.answers.indexOf(one);
+            const first = actsOnly && answer.picked === at && !words;
+            return (
+              <Keycap key={one.id} label={one.label} keys={first ? "↵" : String(at + 1)} primary={first} pending={answer.pending === one.id} disabled={held && answer.pending !== one.id} {...(one.says === undefined ? {} : { says: one.says })} onPress={() => one.run()} />
+            );
+          })}
+      {sleep === undefined && !jobBoxed ? null : <Keycap label={changeLabel} keys={keyFor("call_reply")} disabled={held} onPress={openChange} />}
+      {actsOnly && !words ? null : <Keycap primary label={lone && !words ? openLabel : "Send"} keys="↵" disabled={!canSend} onPress={send} />}
+    </>
+  );
+  const navKeys = (
+    <>
+      {answer.openWalk === undefined ? null : <Keycap label={actionOf("call_open_walk").verb} keys={keyFor("call_open_walk")} disabled={held} onPress={answer.openWalk} />}
+      {lone || answer.open === undefined ? null : <Keycap label={openLabel} keys={keyFor("open")} disabled={held} onPress={answer.open} />}
+      <Keycap label={actionOf("call_later").verb} keys={keyFor("call_later")} disabled={held} onPress={later} />
+    </>
+  );
+  const coveredKey = (
+    <CoveredKeycap
+      label={actionOf("call_dismiss").verb}
+      keys={keyFor("call_dismiss")}
+      lifted={cover.lifted}
+      pending={answer.pending === "dismiss"}
+      disabled={held && answer.pending !== "dismiss"}
+      says={answer.pending === "dismiss" ? OUT : "Never show this again"}
+      onPress={cover.press}
+    />
+  );
+
+  const card = (
     <section className="armada-callcard" data-hue={item.hue} data-leaving={leaving} data-from={from} aria-label={`${item.kind}: ${item.title}`}>
       <header className="armada-callcard__band">
         <Icon size={16} aria-hidden="true" />
@@ -411,12 +464,20 @@ export function CallCard({
         {boxed || answer.reply === undefined || (sleep !== undefined && !changing) ? null : (
           <Reply label={sleep === undefined ? "Type something" : "Change"} text={text} change={change} send={sendWords} pending={answer.pending === "reply"} held={held} {...(sleep === undefined ? {} : { focus: true, close: () => setChanging(false) })} />
         )}
-        <div className="armada-callcard__acts" data-split={actsOnly || undefined}>
+        <div className="armada-callcard__acts" data-split={actsOnly || undefined} data-consoled={consoled || undefined}>
           {actsOnly ? <div className="armada-callcard__decide">{decide}</div> : decide}
           {actsOnly ? <div className="armada-callcard__quiet">{quiet}</div> : quiet}
         </div>
-        {!jobBoxed ? null : (
-          <div className="armada-callcard__composer">
+        {!jobBoxed || !changing ? null : (
+          <div
+            className="armada-callcard__composer"
+            onKeyDown={(event) => {
+              // Esc puts the box away, and is not the card's Later.
+              if (event.key !== "Escape") return;
+              event.stopPropagation();
+              setChanging(false);
+            }}
+          >
             <JobBox draftKey={`job-${item.key}`} onSend={sendComposed} />
           </div>
         )}
@@ -427,5 +488,28 @@ export function CallCard({
         )}
       </div>
     </section>
+  );
+  if (!consoled) return card;
+  return (
+    <>
+      <aside className="armada-console armada-console--left" data-hue={item.hue}>
+        {queue}
+        {layout === "sides" ? <div className="armada-console__plate armada-console__nav">{navKeys}</div> : null}
+      </aside>
+      {card}
+      <aside className="armada-console armada-console--right" data-hue={item.hue} data-layout={layout}>
+        <div className="armada-console__plate">
+          {decideKeys}
+          {layout === "rail" ? (
+            <>
+              <hr className="armada-console__rule" />
+              {navKeys}
+            </>
+          ) : null}
+          <hr className="armada-console__rule" />
+          {coveredKey}
+        </div>
+      </aside>
+    </>
   );
 }
