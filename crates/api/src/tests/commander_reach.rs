@@ -139,6 +139,7 @@ const ANSWERS_FOR_OR_REACHES_THE_PERSON: &[&str] = &[
     "show_again",
     "ask_in_window",
     "waiting_for",
+    "all_done",
 ];
 
 /// The person's own checkout, runs, servers and mods.
