@@ -586,6 +586,7 @@ span.armada-view__dot { cursor: default; }
 .armada-metro__station { position: relative; display: grid; place-items: center; align-self: stretch; }
 .armada-metro__station::before { content: ""; position: absolute; top: 50%; right: 0; left: 0; border-top: calc(var(--border-width) * 2) dashed var(--border-subtle); transform: translateY(-50%); }
 .armada-metro__station[data-first]::before { left: 50%; }
+.armada-metro__station[data-state="none"]::before { display: none; }
 .armada-metro__station[data-last]::before { right: 50%; }
 .armada-metro__station[data-state="past"]::before { border-top: calc(var(--border-width) * 3) solid var(--line); opacity: 0.8; }
 .armada-metro__station[data-state="now"]::before { right: 50%; border-top: calc(var(--border-width) * 3) solid var(--line); opacity: 0.8; }

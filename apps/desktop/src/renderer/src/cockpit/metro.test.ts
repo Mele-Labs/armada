@@ -89,6 +89,21 @@ describe("the metro lines", () => {
     expect(lines[2]!.stops[1]?.card.rows).toContainEqual(["Held by", "A terminal, pid 9"]);
   });
 
+  test("a pull request no bay holds is a line of its own, from Pull request on, titled by its branch and opening on the forge", () => {
+    const inBay = dot({ key: "pull:1" });
+    const loose = { ...dot({ key: "pull:7", queued: true, place: 1, state: "queued" }), card: { ...dot({}).card, heading: "#7", branch: "feat/by-hand", place: 1, title: "Fix by hand" } } as Dot;
+    const open = { ...dot({ key: "pull:8", state: "failing" }), card: { ...dot({}).card, heading: "#8", branch: "check/other" } } as Dot;
+    const harbour = { manifest: "armada", name: "armada", bays: [bay(1, job("a"), { dot: inBay })], line: [inBay, open, loose], main: "green" as const };
+    const outside = metroOf({ harbours: [harbour], waiting: [] }, NOW).harbours[0]!.outside;
+    expect(outside.map((line) => [line.title, line.from, line.reach, line.stops[line.reach]?.glyph])).toEqual([
+      ["feat/by-hand", 3, 4, "1"],
+      ["check/other", 3, 3, "!"],
+    ]);
+    expect(outside[0]!.stops.slice(0, 3)).toEqual([undefined, undefined, undefined]);
+    expect(outside[0]!.stops[3]?.card.rows).toContainEqual(["Title", "Fix by hand"]);
+    expect(outside[0]!.open).toEqual({ kind: "link", url: "https://git.example/pull/1", label: "Open #7" });
+  });
+
   test("main is the last station, and the keys step down the lines in the order they are drawn", () => {
     const metro = metroOf(read([bay(1, job("a")), bay(2, job("b"), { dot: dot({}) })], [tile("w", { hue: "queued", job: { id: "w" } as Item["job"] })]), NOW);
     expect(MAIN).toBe(5);
