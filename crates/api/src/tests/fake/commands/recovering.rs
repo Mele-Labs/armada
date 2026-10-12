@@ -51,7 +51,9 @@ impl FakeDaemon {
         &self,
         job_id: JobId,
         _raise: ipc::CapRaise,
+        by: ipc::RaisedBy,
     ) -> Result<JobSummary, Refusal> {
+        self.raised_by.lock().expect("not poisoned").push(by);
         let jobs = self.jobs.lock().expect("not poisoned");
         let Some(job) = jobs.iter().find(|job| job.id == job_id) else {
             return Err(self.no_such_job(&job_id));
@@ -75,7 +77,9 @@ impl FakeDaemon {
         &self,
         job_id: JobId,
         _raise: ipc::TurnRaise,
+        by: ipc::RaisedBy,
     ) -> Result<JobSummary, Refusal> {
+        self.raised_by.lock().expect("not poisoned").push(by);
         let jobs = self.jobs.lock().expect("not poisoned");
         let Some(job) = jobs.iter().find(|job| job.id == job_id) else {
             return Err(self.no_such_job(&job_id));

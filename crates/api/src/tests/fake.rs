@@ -130,6 +130,8 @@ pub struct FakeDaemon {
     /// Who each proposal that reached this daemon was recorded against.
     /// `#943`.
     pub proposed_by: Mutex<Vec<crate::Redirector>>,
+    /// Who each cap raise that reached this daemon was placed as. `#2165`.
+    pub raised_by: Mutex<Vec<ipc::RaisedBy>>,
     /// Every Studio held, starting with [`THE_STUDIO`]. `#1285`.
     pub studios: Mutex<Vec<ipc::Studio>>,
     /// Who each Studio act that says who acted — add a node, propose an edge,
@@ -179,6 +181,7 @@ impl FakeDaemon {
             redirected_via: Mutex::new(Vec::new()),
             commander_on: Mutex::new(None),
             proposed_by: Mutex::new(Vec::new()),
+            raised_by: Mutex::new(Vec::new()),
             studios: Mutex::new(vec![studios::the_studio()]),
             added_by: Mutex::new(Vec::new()),
             checkout_runs_named: Mutex::new(Vec::new()),

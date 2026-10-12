@@ -265,7 +265,7 @@ it("sends an allow exactly as it did before a note existed", async () => {
  * unchanged — a raise sent in dollars would be a cap below a hundredth of a
  * cent, refused as no raise at all.
  */
-it("sends the new cost cap in micros, with the surface that asked", async () => {
+it("sends the new cost cap in micros", async () => {
   const asked: Asked[] = [];
   const commands = new JobCommands(boardOn(await fleetRecording(asked)));
 
@@ -275,22 +275,20 @@ it("sends the new cost cap in micros, with the surface that asked", async () => 
   expect(asked[0]?.path).toBe(`/jobs/${A_JOB.id}/raise_cost_cap`);
   expect(JSON.parse(asked[0]?.body ?? "null")).toEqual({
     cost_cap_micros: 20_000_000,
-    raised_by: "person",
   });
 });
 
 /**
- * **Bridge never sends the other value.** `raised_by` is provenance rather than
- * a credential, filled in by the surface that composed the request — and this
- * app is the one a person presses, so nothing here chooses.
+ * **Bridge names no raiser.** Fleet places the caller from the connection
+ * (`#2165`), so the body carries the figure and nothing that claims who sent it.
  */
-it("never claims to be Helm", async () => {
+it("never claims to be anybody", async () => {
   const asked: Asked[] = [];
   const commands = new JobCommands(boardOn(await fleetRecording(asked)));
 
   await commands.raiseCostCap(A_JOB.id, 12_500_000);
 
-  expect(JSON.parse(asked[0]?.body ?? "null").raised_by).toBe("person");
+  expect(JSON.parse(asked[0]?.body ?? "null")).not.toHaveProperty("raised_by");
 });
 
 /**
@@ -325,7 +323,6 @@ it("sends the new turn cap as a turn count, on its own route", async () => {
   expect(asked[0]?.path).toBe(`/jobs/${A_JOB.id}/raise_turn_cap`);
   expect(JSON.parse(asked[0]?.body ?? "null")).toEqual({
     turn_cap: 600,
-    raised_by: "person",
   });
 });
 

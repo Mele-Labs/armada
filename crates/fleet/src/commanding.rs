@@ -17,7 +17,7 @@ use api::{Commands, Refusal};
 use ipc::{
     AddTask, CapRaise, CaptureWalkNote, ChangesRequested, DropTask, FindingDismissed,
     FindingQueued, IssueFiled, JobExamined, JobForgotten, JobId, JobSummary, Overruled,
-    ProposeJob, Redirection, Redispatched, RemarksTakenUp, RemoveWalkNote,
+    ProposeJob, RaisedBy, Redirection, Redispatched, RemarksTakenUp, RemoveWalkNote,
     TurnRaise, WalkNotes, WorkPlan, WorktreeReclaimed,
 };
 
@@ -564,10 +564,11 @@ where
         self: Arc<Self>,
         job_id: JobId,
         raise: CapRaise,
+        by: RaisedBy,
     ) -> Result<JobSummary, Refusal> {
         let job = budgeted_for(self.command_budget(), job_id.clone(), {
             let fleet = Arc::clone(&self);
-            async move { Fleet::raise_cost_cap(&fleet, &job_id.to_domain(), &raise).await }
+            async move { Fleet::raise_cost_cap(&fleet, &job_id.to_domain(), &raise, by).await }
         })
         .await
         .map_err(|why| self.refusal(why))?;
@@ -580,10 +581,11 @@ where
         self: Arc<Self>,
         job_id: JobId,
         raise: TurnRaise,
+        by: RaisedBy,
     ) -> Result<JobSummary, Refusal> {
         let job = budgeted_for(self.command_budget(), job_id.clone(), {
             let fleet = Arc::clone(&self);
-            async move { Fleet::raise_turn_cap(&fleet, &job_id.to_domain(), &raise).await }
+            async move { Fleet::raise_turn_cap(&fleet, &job_id.to_domain(), &raise, by).await }
         })
         .await
         .map_err(|why| self.refusal(why))?;

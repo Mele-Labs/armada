@@ -452,15 +452,17 @@ impl Commands for FakeDaemon {
         self: std::sync::Arc<Self>,
         job_id: JobId,
         raise: ipc::CapRaise,
+        by: ipc::RaisedBy,
     ) -> Result<JobSummary, Refusal> {
-        self.fake_raise_cost_cap(job_id, raise).await
+        self.fake_raise_cost_cap(job_id, raise, by).await
     }
     async fn raise_turn_cap(
         self: std::sync::Arc<Self>,
         job_id: JobId,
         raise: ipc::TurnRaise,
+        by: ipc::RaisedBy,
     ) -> Result<JobSummary, Refusal> {
-        self.fake_raise_turn_cap(job_id, raise).await
+        self.fake_raise_turn_cap(job_id, raise, by).await
     }
     async fn file_report(
         self: std::sync::Arc<Self>,
