@@ -10,9 +10,11 @@
 // State is carried by the frame (its edge and hue) and by the chip's icon, not by a phrase.
 
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode, type Ref } from "react";
-import { FolderGit2, LoaderCircle, Plane, Send, SquareTerminal, type LucideIcon } from "lucide-react";
+import { FolderGit2, LoaderCircle } from "lucide-react";
 import { Button, Kbd, SendKbd, Tabs, Tooltip, sendsOn, type DispatchKind } from "@armada/components";
 
+import { DispatchedStrip, type SentView } from "./DispatchedStrip";
+import { KIND_ICON, KIND_LABEL } from "./kinds";
 import "./dispatch-panel.css";
 
 /** What the chip says about the repository. A name is a repository; the rest are the ways there is none yet. */
@@ -38,12 +40,6 @@ const WHAT: Record<PanelReading["state"], { name: string; tip: string }> = {
   picked: { name: "Repository", tip: "Picked by you. Press to change" },
   scoped: { name: "Repository", tip: "The one the rail is on. Press to change" },
 };
-
-/** The kinds, by the word that names them. Tab steps through the ones offered. */
-export const KIND_LABEL: Record<DispatchKind, string> = { job: "Job", session: "Session", autopilot: "Autopilot" };
-
-/** Each kind's mark on the line: the registry's Dispatch, Session and Autopilot glyphs. */
-const KIND_ICON: Record<DispatchKind, LucideIcon> = { job: Send, session: SquareTerminal, autopilot: Plane };
 
 export type PanelProps = {
   /** In the Cockpit's slot, or grown down from the title bar's field. */
@@ -82,6 +78,10 @@ export type PanelProps = {
   onFieldKeyDown?: (event: KeyboardEvent<HTMLTextAreaElement>) => void;
   /** Under the band: a Job's Settings, an Autopilot's read settings. Absent for a Session. */
   body?: ReactNode;
+  /** The latest send from this bar: the frame is a strip holding it until the next draft or a dismiss. */
+  sent?: SentView;
+  onOpenSent?: () => void;
+  onDismissSent?: () => void;
   fieldRef?: Ref<HTMLTextAreaElement>;
   autoFocus?: boolean;
   disabled?: boolean;
@@ -111,6 +111,9 @@ export function DispatchPanel({
   onDismiss,
   onFieldKeyDown,
   body,
+  sent,
+  onOpenSent,
+  onDismissSent,
   fieldRef,
   autoFocus = false,
   disabled = false,
@@ -127,6 +130,11 @@ export function DispatchPanel({
     else if (asked.current) field.current?.focus();
     asked.current = asking;
   }, [asking]);
+
+  // The cursor goes back to the request after a send, so ↵ opens what was sent and typing starts the next one.
+  useEffect(() => {
+    if (sent !== undefined) field.current?.focus();
+  }, [sent?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // A docked frame is over the Cockpit, whose tiles are under it: a press out there puts it back.
   useEffect(() => {
@@ -189,6 +197,8 @@ export function DispatchPanel({
       data-kind={kind}
       data-reading={reading.state}
       data-asking={asking || undefined}
+      data-sent={sent === undefined ? undefined : ""}
+      data-refused={sent?.refused === undefined ? undefined : ""}
       style={place}
       onKeyDown={keys}
       onClick={() => open || onOpen()}
@@ -229,6 +239,8 @@ export function DispatchPanel({
           <Kbd>N</Kbd>
         </Tooltip>
       </div>
+
+      {sent === undefined ? null : <DispatchedStrip sent={sent} layout="docked" onOpen={() => onOpenSent?.()} onDismiss={() => onDismissSent?.()} />}
 
       <div className="armada-dispatch-panel__drawer" inert={!open}>
         <div className="armada-dispatch-panel__drawer-body">
@@ -295,12 +307,12 @@ export function DispatchPanel({
 }
 
 /** Where an anchored frame hangs: the box of the field it grew from, read once as the panel opens. */
-function useHung(on: boolean, anchor: string | undefined): CSSProperties | undefined {
+export function useHung(on: boolean, anchor: string | undefined): CSSProperties | undefined {
   const [place, setPlace] = useState<CSSProperties>();
   useLayoutEffect(() => {
     const box = !on || anchor === undefined ? undefined : document.querySelector(anchor)?.getBoundingClientRect();
     if (box === undefined || box.width === 0) return setPlace(undefined);
-    setPlace({ ["--hung-top" as string]: `${box.top}px`, ["--hung-left" as string]: `${box.left}px`, ["--hung-width" as string]: `${box.width}px` });
+    setPlace({ ["--hung-top" as string]: `${box.top}px`, ["--hung-left" as string]: `${box.left}px`, ["--hung-width" as string]: `${box.width}px`, ["--hung-height" as string]: `${box.height}px` });
   }, [on, anchor]);
   return place;
 }

@@ -1,7 +1,7 @@
 // The Cockpit on All repositories with nothing waiting on the owner, three set-up repositories served
 // (armada with a Job at work and one done, storefront and billing with none) and Sessions served. No
 // repository is picked, so the dispatch panel reads one from the words, from the Cockpit's bar and
-// from the title bar alike. The walk `dispatch-panel-from-either-bar` plays it.
+// from the title bar alike. The walks `dispatch-panel-from-either-bar` and `dispatched-strip-opens-it` play it.
 
 import type { RepositorySummary } from "@armada/protocol";
 import { repository } from "@armada/screens/src/fixtures/build/base";

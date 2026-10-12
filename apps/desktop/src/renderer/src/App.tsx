@@ -46,7 +46,7 @@ import { PaletteMount } from "./PaletteMount";
 import { FLEET_DOWN } from "./palette";
 import { Overview } from "./Overview"; import { ONE_BAR, useOneBar } from "./one-bar";
 import { DispatchingProvider, useDispatch } from "./dispatch-panel/dispatching";
-import { TitleDispatchPanel } from "./dispatch-panel/entries";
+import { TitleDispatchedStrip, TitleDispatchPanel } from "./dispatch-panel/entries";
 import { CaptureLayer, type CaptureAim } from "./capture/Layer";
 import { StudiosSurface } from "./StudiosSurface";
 import type { SketchOpening } from "@armada/screens/src/draft/sketch";
@@ -423,7 +423,7 @@ export function App({ draft }: AppProps = {}) {
   // Overview's cursor. In that order, because a Job open on screen is
   // unambiguously what is in front of you.
   const onWhat = reading ?? state.jobs.find((job) => job.id === cursor);
-  const live = state.connection.state === "connected"; const dispatching = useDispatch({ state, repositories, proposeFrom: commands.proposeFrom, openSession, said: setTelling }); // One draft for the Cockpit's bar and the panel grown from the title bar.
+  const live = state.connection.state === "connected"; const dispatching = useDispatch({ state, repositories, proposeFrom: commands.proposeFrom, openSession, openJob: (jobId) => (goTo(SURFACE.overview), setOpenJob(jobId)), openAutopilot: (root) => (state.repository !== root && pickRepository(root), goTo(SURFACE.overview)), said: setTelling }); // One draft for the Cockpit's bar and the panel grown from the title bar.
   const oneBar = useOneBar({ palette, live, compose: (words) => (setSeed(words), setComposing(true)), dispatching }); // `n`, ⌘N and ⌘K: the title bar's one bar.
   const firstContact = firstContactOf(state.settings); // Whether a guide opens itself, once Fleet has answered.
   // Which failure is on screen, and which one `Copy debug info` would copy.
@@ -1138,6 +1138,7 @@ export function App({ draft }: AppProps = {}) {
         <Locate locating={locate} />
 
         <TitleDispatchPanel anchor={ONE_BAR} />
+        <TitleDispatchedStrip anchor={ONE_BAR} />
 
         <PaletteMount
           open={palette.open} onClose={palette.onClose} dispatch={oneBar} anchor={ONE_BAR}
