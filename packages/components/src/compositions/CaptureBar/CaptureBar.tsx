@@ -32,9 +32,12 @@ export type CaptureBarRefusal = {
 };
 
 export type CaptureBarProps = {
-  /** What the Manifest calls the server this window is on. */
-  run: string;
-  /** Scheme, host and port, drawn in full and never abbreviated. */
+  /**
+   * What the Manifest calls the server this window is on. **Absent where the window has no name of
+   * its own** and was titled by its address: the address says it, and the bar does not say it twice.
+   */
+  run?: string | undefined;
+  /** Scheme, host and port, drawn in full and never abbreviated. The whole address where there is no `run`. */
   address: string;
   /**
    * The Studio a Note lands on, by name. **`null`: a Job's server, opened to be
@@ -50,6 +53,11 @@ export type CaptureBarProps = {
   job?: string;
   /** The Session a note goes to, where a Session showed this page. Its own prop, never `job`'s. */
   session?: string;
+  /**
+   * Open the Job or the Session named in "Notes go to", in Bridge's main window. **Absent: the name
+   * is plain text.**
+   */
+  onOpenOwner?: () => void;
   /** Whether the Run is still serving. Capture ends with it. */
   serving: boolean;
   /** Whether capture is armed. */
@@ -97,15 +105,33 @@ export function CaptureBar(props: CaptureBarProps) {
   const { run, address, studio, job, session, serving, armed, framesRefused, refused, binding, approval, question, panel } = props;
   const owner = job ?? session;
   const landsOn = studio !== null ? `Notes land on ${studio}` : owner !== undefined ? `Notes go to ${owner}` : null;
+  const aim =
+    studio === null && owner !== undefined && props.onOpenOwner !== undefined ? (
+      <>
+        Notes go to{" "}
+        <button
+          type="button"
+          className="armada-capture-bar__owner"
+          title={job === undefined ? "Open this Session in Bridge" : "Open this Job in Bridge"}
+          onClick={props.onOpenOwner}
+        >
+          {owner}
+        </button>
+      </>
+    ) : (
+      landsOn
+    );
   return (
     <div className="armada-capture-bar" data-armed={armed ? "" : undefined}>
       <div className="armada-capture-bar__row">
-        <span className="armada-capture-bar__run" title="This window shows a server, not Armada">
-          {run}
-        </span>
+        {run === undefined ? null : (
+          <span className="armada-capture-bar__run" title="This window shows a server, not Armada">
+            {run}
+          </span>
+        )}
         <span className="armada-capture-bar__address">{address}</span>
         <span className="armada-capture-bar__aim">
-          {!serving ? "The run ended" : (landsOn ?? "Walking a Job's server")}
+          {!serving ? "The run ended" : (aim ?? "Walking a Job's server")}
         </span>
         <Button variant="ghost" size="sm" disabled={!serving} onClick={props.onReload}>
           Reload

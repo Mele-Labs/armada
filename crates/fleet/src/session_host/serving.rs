@@ -228,6 +228,10 @@ where
         self.switch_sleep(set.on).await
     }
 
+    async fn review_sleep(self: Arc<Self>, review: ipc::ReviewSleep) -> Result<ipc::SleepState, Refusal> {
+        self.review_a_decision(review).await
+    }
+
     async fn override_sleep(
         self: Arc<Self>,
         over: ipc::OverrideSleep,
@@ -312,6 +316,7 @@ where
                 .give_back(&Holder::session(&id), None, &now)
                 .map_err(|why| self.ledger_fault(why))?;
         }
+        self.session_checks_ended(&id).await;
         self.published_hosted(&id).await
     }
 
@@ -357,9 +362,10 @@ where
         let home = self.host().home.clone();
         let session = id.as_str().to_string();
         let subagent_id = subagent.clone();
+        let threads = self.hosts().terminals().threads();
         let read = tokio::task::spawn_blocking(move || {
             adapters::terminal_thread::find_subagent(&home, &session, &subagent)
-                .map(|file| adapters::terminal_thread::read_subagent(&file))
+                .map(|file| threads.subagent(&file, &session, &subagent))
         })
         .await
         .map_err(|why| self.hosted_fault(ATTACHMENT_REFUSED, &why.to_string()))?;

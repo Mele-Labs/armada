@@ -34,6 +34,8 @@ export type CaptureRefusal = {
 export type CaptureWindowState = {
   /** The Run, as the Note will record it. */
   served: CaptureServed;
+  /** What the bar says of the page: its name and the origin, or no name and the address whole where the window was titled by its address. */
+  shown: { name: string | null; address: string };
   /**
    * The Studio a Note lands on, decided when the window opened. A `null` name
    * is an untitled one. **`null` whole: a Job's server, walked rather than

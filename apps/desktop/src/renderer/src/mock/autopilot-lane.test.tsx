@@ -1,7 +1,8 @@
 // Autopilot's lane on the Cockpit, through `App` on the `dashboard-cockpit` mock Fleet with its own
 // repository picked and the mock's Autopilot mid-run: the bar on every filter, Pause and Stop, the
 // start form, each set-aside pick in Your move, its marks and sidings on the Bays metro, and the one
-// bar's third kind. #2092.
+// bar's third kind. #2092. Then #2105's: the second repository's paused by its Job cap and raised,
+// All with none on, and a step the Judges sent back.
 
 import { beforeEach, expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
@@ -128,4 +129,48 @@ test("the one bar's third kind is Autopilot: Tab steps to it, and the words open
   await userEvent.keyboard("{Meta>}{Enter}{/Meta}");
   await expect.element(bar().getByRole("alert")).toHaveTextContent("Autopilot is already on for this repository.");
   await expect.element(bar().getByRole("textbox", { name: /Tell Autopilot what to work on/ })).not.toBeInTheDocument();
+});
+
+/** The Cockpit on the second repository, whose Autopilot its Job cap paused. */
+function onPocket(): Scenario {
+  const base = scenarioNamed("dashboard-cockpit")!;
+  return { ...base, name: "dashboard-cockpit-pocket", state: { ...base.state, repository: "/Users/user/pocket" } };
+}
+
+test("a cap paused it: the bar names the cap, Resume is refused while it holds, and raising it lets Resume through", async () => {
+  localStorage.removeItem("armada.bridge.dashboard-tab");
+  mount(onPocket());
+  await onScreen();
+  await expect.element(bar().getByRole("status")).toHaveTextContent("Paused · Job cap reached");
+  await expect.element(bar().getByText("3 of 3 started")).toHaveTextContent("3 of 3 started · reached");
+
+  await bar().getByRole("button", { name: "Resume" }).click();
+  await expect.element(bar().getByRole("alert")).toHaveTextContent("Autopilot stays paused: the Job cap is reached. Raise it, then resume");
+  await expect.element(bar().getByRole("status")).toHaveTextContent("Paused · Job cap reached");
+
+  await bar().getByRole("button", { name: "Edit caps" }).click();
+  await bar().getByRole("textbox", { name: "Jobs" }).fill("5");
+  await bar().getByRole("button", { name: "Save caps" }).click();
+  await expect.element(bar().getByText("3 of 5 started")).toBeVisible();
+  expect(bar().getByRole("form", { name: "Edit caps" }).query()).toBeNull();
+  await bar().getByRole("button", { name: "Resume" }).click();
+  await expect.element(bar().getByRole("status")).toHaveTextContent("Running");
+});
+
+test("on All with no Autopilot on anywhere, one quiet line says where to start one", async () => {
+  localStorage.removeItem("armada.bridge.dashboard-tab");
+  mount(scenarioNamed("dashboard-cockpit")!);
+  await onScreen();
+  await expect.element(page.getByText("Pick a repository to start Autopilot")).toBeVisible();
+  expect(page.getByRole("region", { name: "Autopilot" }).query()).toBeNull();
+  expect(page.getByRole("switch", { name: "Autopilot" }).query()).toBeNull();
+});
+
+test("a step the Judges sent back to its Drone says so on its card", async () => {
+  const base = scenarioNamed("dashboard-cockpit")!;
+  const job = base.state.jobs.find((one) => one.title === "Debounce the Job Board's resize handler")!;
+  mount({ ...base, name: "dashboard-cockpit-sent-back", opens: job.id });
+  await onScreen();
+  await page.getByRole("tab", { name: "Workflow" }).click();
+  await expect.element(page.getByText(/Sent back by the Judges · 1 of 2/)).toBeVisible();
 });

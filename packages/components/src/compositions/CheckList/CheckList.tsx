@@ -34,7 +34,7 @@ export type CheckListRow = {
   /** The state, spelled: the mark's tooltip and accessible name. */
   says: string;
   /** Who asked for it, in a line. */
-  by?: string;
+  by?: ReactNode;
   /** When it started. Absent on a Check still waiting. */
   started?: string;
   /** The full instant, for the pointer. */

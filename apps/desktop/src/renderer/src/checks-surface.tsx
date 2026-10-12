@@ -15,6 +15,7 @@ import {
   listCheckoutRuns,
   observeCheckoutRun,
   readCheckOutput,
+  readSessionCheckOutput,
   readManifestChecks,
 } from "./commands";
 
@@ -29,6 +30,7 @@ import {
 export function useAsked(openJob: string | null, state: ChecksState, toMergeLine: () => void) {
   const [opening, setOpening] = useState<{ jobId: string; to: JobOpening } | null>(null);
   const [mergeFocus, setMergeFocus] = useState<string | undefined>(undefined);
+  const [checkFocus, setCheckFocus] = useState<string | undefined>(undefined);
   useEffect(() => {
     if (openJob === null) setOpening(null);
   }, [openJob]);
@@ -36,7 +38,7 @@ export function useAsked(openJob: string | null, state: ChecksState, toMergeLine
     toMergeLine();
     setMergeFocus(branch);
   });
-  return { opening, setOpening, mergeFocus, setMergeFocus, host };
+  return { opening, setOpening, mergeFocus, setMergeFocus, checkFocus, setCheckFocus, host };
 }
 
 type ChecksState = Pick<
@@ -65,6 +67,7 @@ export function useChecksHost(
     onGetRunOutput: getCheckoutRunOutput,
     onReadChecks: readManifestChecks,
     onReadCheckOutput: readCheckOutput,
+    onReadSessionCheckOutput: readSessionCheckOutput,
     onFollowCheckOutput: followCheckOutput,
     followedLog: state.followed,
     lines,
@@ -80,7 +83,13 @@ export function ChecksSurface({
   onCopied,
   onOpenJob,
   onOpenMergeLine,
+  focus,
+  only,
+  onClosed,
 }: {
+  focus?: string;
+  only?: boolean;
+  onClosed?: () => void;
   state: ChecksState;
   bridge: BridgeState["bridge"];
   onCopied: (value: string) => void;
@@ -90,14 +99,22 @@ export function ChecksSurface({
   const floor = useAtFloor();
   const { jobs } = state;
   const host = useChecksHost(state, onOpenMergeLine);
-  return (
-    <Boundary region="Checks" bridge={bridge} onCopied={onCopied}>
+  const checks = (
       <ManifestChecks
         {...host}
         jobLabel={(jobId) => jobs.find((one) => one.id === jobId)?.handle ?? jobId}
         onOpenJob={onOpenJob}
         floor={floor}
+        {...(focus === undefined ? {} : { focus })}
+        {...(only === true ? { only } : {})}
+        {...(onClosed === undefined ? {} : { onClosed })}
       />
+  );
+  // Only the panel, over a Session: no Checks region laid out beside it.
+  if (only === true) return checks;
+  return (
+    <Boundary region="Checks" bridge={bridge} onCopied={onCopied}>
+      {checks}
     </Boundary>
   );
 }

@@ -24,9 +24,12 @@ pub const PROMPT_RETRO_ASK: Words = Words("prompts.retroAsk");
 pub const PROMPT_CROSSING_REDIRECT: Words = Words("prompts.crossingRedirect");
 pub const PROMPT_CROSSING_OVERTAKEN: Words = Words("prompts.crossingOvertaken");
 pub const PROMPT_CROSSING_CONFLICTS: Words = Words("prompts.crossingConflicts");
+pub const PROMPT_CROSSING_ANSWERED: Words = Words("prompts.crossingAnswered");
 pub const PROMPT_HELM: Words = Words("prompts.helm");
 pub const PROMPT_HELM_READ_ONLY: Words = Words("prompts.helmReadOnly");
 pub const PROMPT_TRIGGER_REPAIR: Words = Words("prompts.triggerRepair");
+pub const PROMPT_AUTOPILOT_SENTENCE: Words = Words("prompts.autopilotSentence");
+pub const PROMPT_AUTOPILOT_PICKER: Words = Words("prompts.autopilotPicker");
 
 /// Every prompt handle in the table, so a caller supplying or reading them
 /// all cannot miss one.
@@ -62,13 +65,14 @@ pub enum PromptSection {
     JudgeWidening,
     Scouts,
     Proposer,
+    Autopilot,
     Helm,
     Retros,
 }
 
 impl PromptSection {
     /// Every section, in the order Bridge draws them.
-    pub const ORDER: [PromptSection; 20] = [
+    pub const ORDER: [PromptSection; 21] = [
         PromptSection::DroneBrief,
         PromptSection::Crossing,
         PromptSection::AnotherJobsFix,
@@ -87,6 +91,7 @@ impl PromptSection {
         PromptSection::JudgeWidening,
         PromptSection::Scouts,
         PromptSection::Proposer,
+        PromptSection::Autopilot,
         PromptSection::Helm,
         PromptSection::Retros,
     ];
@@ -113,8 +118,9 @@ impl PromptSection {
             PromptSection::JudgeWidening => 15,
             PromptSection::Scouts => 16,
             PromptSection::Proposer => 17,
-            PromptSection::Helm => 18,
-            PromptSection::Retros => 19,
+            PromptSection::Autopilot => 18,
+            PromptSection::Helm => 19,
+            PromptSection::Retros => 20,
         }
     }
 
@@ -139,6 +145,7 @@ impl PromptSection {
             PromptSection::JudgeWidening => "Judge: widening",
             PromptSection::Scouts => "Scouts",
             PromptSection::Proposer => "Proposer",
+            PromptSection::Autopilot => "Autopilot",
             PromptSection::Helm => "Helm",
             PromptSection::Retros => "Retros",
         }
@@ -203,6 +210,20 @@ pub(super) const PROMPTS: &[Entry] = &[
         &["request", "workflows", "models"],
     ),
     prompt(
+        PromptSection::Autopilot,
+        PROMPT_AUTOPILOT_SENTENCE,
+        "Reading the sentence",
+        "What Autopilot's reader is asked when a person types the one sentence that starts it. {sentence} is the sentence, {now} the time in UTC and {local_now} the person's own clock. Its answer is read by field name, so keep the field names.",
+        &["sentence", "now", "local_now"],
+    ),
+    prompt(
+        PromptSection::Autopilot,
+        PROMPT_AUTOPILOT_PICKER,
+        "Choosing the next issue",
+        "What Autopilot's picker is asked for each pick. {instruction} is the person's instruction, {issues} the open issues nothing is working on and {workflows} the workflows the repository holds. Its answer is read by field name, so keep the field names.",
+        &["instruction", "issues", "workflows"],
+    ),
+    prompt(
         PromptSection::Retros,
         PROMPT_RETRO_JOB,
         "The retro of a Job",
@@ -264,6 +285,13 @@ pub(super) const PROMPTS: &[Entry] = &[
         "Sent back for conflicts",
         "The block a Drone reads when Fleet sent the work back because the base moved and the branch conflicts with it.",
         &[],
+    ),
+    prompt(
+        PromptSection::Crossing,
+        PROMPT_CROSSING_ANSWERED,
+        "A person answered",
+        "The block a new Drone reads when the Drone before it on this part asked a person and stood down for the answer. {question} is the question, {label} the answer they chose and {consequence} what the asking Drone said that answer means.",
+        &["question", "label", "consequence"],
     ),
     prompt(
         PromptSection::Helm,

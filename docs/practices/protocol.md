@@ -3363,6 +3363,20 @@ Bridge's half is in `packages/protocol/src/hosted-sessions.ts`, written by hand 
 
 **`repair` is ignored**, as for a Skill: a file with `brief:` and `repair: true` loads with it off.
 
+## Protocol 23.75: a Session's Checks
+
+`docs/concepts/session.md`, *A Session's Checks*. **Additive, with one loosening**: two operations, a requester kind and a thread row, and `ManifestCheckRow`'s Job fields become optional.
+
+| Where | Carries | Notes |
+| --- | --- | --- |
+| `report_session_check` (`POST /sessions/checks`) | `SessionCheckCall`: `act` (`start` or `end`), `cwd`, `name`; on `end` also `run`, `outcome`, `took_ms`, `log`. Answers `SessionCheckAnswer`: `run?` | `armada check` is the caller. No `run` where no Session holds the slot |
+| `get_session_check_output` (`GET /sessions/checks/:run/output`) | Answers `CheckOutput` | Keyed by run id, since a Session's run has no Job |
+| `Requester` kind `session` | `session_id`, `slot` | |
+| `SessionRow` kind `check` | `name`, `run`, `state` | Replaced by id as the run ends |
+| `ManifestCheckRow.job_id`, `job_handle`, `job_title`, `step` | Now optional | Absent on a Session's run, which carries `session_id` and its run id in `asked_run_id` |
+
+**Skew.** A Bridge before 23.75 reads a row with no `job_id` as a Job row with a missing id, so it draws that row badly; it never asks for the new routes. A Fleet before it sends neither the rows nor the thread row.
+
 ## Protocol 23.74: a guided review of the open retro items
 
 `docs/concepts/retro.md`, *Reviewing*. **Additive only**: two operations, both `Helm only` like `agree_lesson`, and no change to a type that exists. Neither stores anything.
@@ -3493,6 +3507,18 @@ Bridge's half is `packages/protocol/src/settings.ts`, written by hand like the r
 | `autopilot.changed` (event) | `Autopilot` | On each act, each pick, a cap reached, and a pass that finds the figures moved. Whole, so a reconnecting Bridge replaces what it holds |
 
 **A Job a sure pick starts is an ordinary `job.created` and `job.state_changed`**, its last move by `fleet` rather than `human`: no new kind says a Job skipped the gate, since the origin on its row does.
+
+## Autopilot's follow-ups
+
+`#2105`. **Additive only**: one operation, one answer type, three fields. Bridge's half is `packages/protocol/src/autopilot.ts`, `judged.ts` and `detail.ts`, written by hand.
+
+| Where | Carries | Notes |
+| --- | --- | --- |
+| `propose_autopilot` | answers `AutopilotProposal` | The `AutopilotSettings` fields flattened in, and `quoted`: per setting, keyed as the settings are, the words of the sentence it was read from. A client that read the answer as `AutopilotSettings` still does |
+| `update_autopilot` (`POST /autopilots/:repository/settings`) | `AutopilotSettings` | Answers `Autopilot` in the state it was in: it never resumes one. 409 `fleet.autopilot_stopped`, 422 `fleet.autopilot_unsettable` |
+| `resume_autopilot` | unchanged | 409 `fleet.autopilot_capped` while any cap is reached, naming it. A reached cap now **pauses** with `capped_by` set, where it ended the run; Resume clears `capped_by` |
+| `StepDetail.sent_back` | `JudgesSentBack`: `times`, `of` | How many times the Judges' agreed refusal sent this pass of the step back to its Drone, of `AGREED_RETRIES`. Absent where none did |
+| `Judged.risky` | a string | What this member said makes the refused work risky, which is what brings an agreed refusal to a person. Absent where it said only that the work needs redoing, or was not asked |
 
 ## Open questions
 

@@ -367,7 +367,9 @@ span.armada-view__dot { cursor: default; }
 .armada-metro__row[data-wants="fixing"] { background: linear-gradient(90deg, color-mix(in srgb, var(--status-completed-failed) 11%, transparent), transparent 70%); }
 .armada-metro__row[data-selected] { box-shadow: inset calc(var(--border-width) * 3) 0 0 var(--accent); }
 
-.armada-metro__who { display: flex; align-items: center; gap: var(--space-2); min-width: 0; padding: 0; border: 0; background: none; color: var(--fg-default); font: inherit; font-size: var(--text-sm); text-align: left; cursor: pointer; }
+.armada-metro__who { display: flex; align-items: center; gap: var(--space-2); min-width: 0; padding: 0; border: 0; background: none; color: var(--fg-default); font: inherit; font-size: var(--text-sm); text-align: left; cursor: default; }
+.armada-metro__who[data-opens] { cursor: pointer; }
+.armada-metro__who[data-opens]:hover .armada-metro__title { text-decoration: underline; text-underline-offset: calc(var(--border-width) * 3); }
 .armada-metro__who:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); border-radius: var(--radius-sm); }
 .armada-metro__bay { flex: none; width: 2.5ch; color: var(--fg-subtle); font-family: var(--font-mono); font-size: var(--text-2xs); }
 .armada-metro__mark { flex: none; width: var(--space-2); height: var(--space-2); border-radius: 50%; background: var(--line); box-shadow: 0 0 0 calc(var(--space-1) * 0.75) color-mix(in srgb, var(--line) 20%, transparent); }
@@ -381,6 +383,8 @@ span.armada-view__dot { cursor: default; }
 .armada-metro__station[data-last]::before { right: 50%; }
 .armada-metro__station[data-state="past"]::before { border-top: calc(var(--border-width) * 3) solid var(--line); opacity: 0.8; }
 .armada-metro__station[data-state="now"]::before { right: 50%; border-top: calc(var(--border-width) * 3) solid var(--line); opacity: 0.8; }
+/* The track on from where it is now, dashed, so the line runs unbroken from the stop to the next station. */
+.armada-metro__station[data-state="now"]:not([data-last])::after { content: ""; position: absolute; top: 50%; right: 0; left: 50%; border-top: calc(var(--border-width) * 2) dashed var(--border-subtle); transform: translateY(-50%); }
 .armada-metro__station[data-state="now"][data-first]::before { display: none; }
 
 .armada-metro__stop { position: relative; z-index: 1; width: var(--space-2); height: var(--space-2); padding: 0; border: calc(var(--border-width) * 2) solid var(--border-strong); border-radius: 50%; background: var(--bg-base); }
@@ -405,7 +409,7 @@ button.armada-metro__stop:hover, button.armada-metro__stop:focus-visible { outli
 
 .armada-metro__foot { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-4); padding: var(--space-2) var(--space-4); border-top: var(--border-width) solid var(--border-subtle); color: var(--fg-muted); font-size: var(--text-2xs); }
 .armada-metro__strip { display: inline-flex; gap: calc(var(--border-width) * 3); }
-.armada-metro__strip i { width: var(--space-4); height: var(--space-2); border-radius: var(--radius-sm); background: var(--tone, var(--border-default)); }
+.armada-metro__strip i { width: var(--space-4); height: var(--space-2); border-radius: var(--radius-sm); background: var(--fg-muted); }
 .armada-metro__strip i[data-kind="free"] { border: var(--border-width) solid var(--fg-muted); background: transparent; box-shadow: 0 0 var(--space-2) color-mix(in srgb, var(--fg-default) 25%, transparent); }
 .armada-metro__strip i[data-kind="closed"] { border: var(--border-width) solid var(--border-subtle); background: repeating-linear-gradient(135deg, var(--border-subtle) 0 calc(var(--border-width) * 2), transparent calc(var(--border-width) * 2) var(--space-1)); }
 .armada-metro__legend { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-left: auto; }
@@ -427,9 +431,7 @@ button.armada-metro__stop:hover, button.armada-metro__stop:focus-visible { outli
   background: var(--bg-overlay);
   box-shadow: var(--shadow-overlay);
   font-size: var(--text-xs);
-  pointer-events: none;
 }
-.armada-metro__card[data-pinned] { pointer-events: auto; }
 .armada-metro__card-head { display: flex; align-items: center; gap: var(--space-2); }
 .armada-metro__pill { padding: 0 var(--space-2); border-radius: var(--radius-lg); background: color-mix(in srgb, var(--tone) 16%, transparent); color: var(--tone); font-family: var(--font-mono); font-size: var(--text-2xs); line-height: var(--leading-2xs); }
 .armada-metro__where { flex: none; margin-left: auto; color: var(--fg-subtle); font-size: var(--text-2xs); white-space: nowrap; }

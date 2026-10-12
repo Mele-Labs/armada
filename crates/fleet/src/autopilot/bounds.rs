@@ -4,6 +4,9 @@
 //! > **Rule.** Each cap stops the next pick and never a running Job.
 //! > Why: a Job's cost arrives when its Drone ends, the reason #51's cap refuses the next
 //! > dispatch. Autopilot can overshoot a cap by as many Jobs as it runs at once.
+//!
+//! **A reached cap pauses, and Resume waits for it to be raised.** The owner's *fix the gaps*,
+//! 12 Oct 2026: a cap that ended the run made a person start it again to carry on.
 
 use std::fmt;
 
@@ -88,6 +91,16 @@ impl Cap {
         [Cap::Until, Cap::Spend, Cap::Jobs]
             .into_iter()
             .find(|cap| cap.as_stored() == word)
+    }
+}
+
+impl fmt::Display for Cap {
+    fn fmt(&self, out: &mut fmt::Formatter<'_>) -> fmt::Result {
+        out.write_str(match self {
+            Cap::Until => "the time to stop has passed",
+            Cap::Spend => "the spend cap is reached",
+            Cap::Jobs => "the Job cap is reached",
+        })
     }
 }
 
@@ -194,6 +207,14 @@ pub struct NotNow {
     pub from: State,
 }
 
+/// Why a Resume was refused.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum NotResumed {
+    NotNow(NotNow),
+    /// A cap is still reached: resuming would pick once and pause again.
+    Capped(Cap),
+}
+
 impl State {
     pub fn picks(self) -> bool {
         self == State::Running
@@ -210,6 +231,21 @@ impl State {
         match self {
             State::Paused => Ok(State::Running),
             from => Err(NotNow { from }),
+        }
+    }
+
+    /// Resumed, where no cap is reached now. **Any cap, not only the one that paused it**: a
+    /// Resume past another cap would pause again at the next pass, having said nothing.
+    pub fn resumed_under(
+        self,
+        caps: &Caps,
+        now: &Timestamp,
+        spent: &Spent,
+    ) -> Result<State, NotResumed> {
+        let to = self.resumed().map_err(NotResumed::NotNow)?;
+        match caps.first_reached(now, spent) {
+            Some(cap) => Err(NotResumed::Capped(cap)),
+            None => Ok(to),
         }
     }
 

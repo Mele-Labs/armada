@@ -25,6 +25,16 @@ const BASE: AutopilotBarProps = {
   onSentence: fn(),
   onRead: fn(),
   onStart: fn(),
+  editing: false,
+  onEditing: fn(),
+  current: { atOnce: "2", until: "07:00", spend: "30", jobs: "" },
+  onSave: fn(),
+};
+
+/** Fleet's reading of the sentence below, with the words it read each setting from. Jobs it did not say. */
+const READING: NonNullable<AutopilotBarProps["reading"]> = {
+  fields: { atOnce: "2", until: "07:00", spend: "30", jobs: "" },
+  quoted: { atOnce: "two at a time", until: "until 7am", spend: "$30 max" },
 };
 
 const meta: Meta<typeof AutopilotBar> = {
@@ -69,17 +79,58 @@ export const Paused: Story = {
   },
 };
 
-/** A cap ended it: the bar says which, and that cap stays lit. */
-export const EndedByACap: Story = {
+/** Edit caps, driven as Bridge drives it: open, saved, and closed once Fleet takes it. */
+function Capped(props: AutopilotBarProps) {
+  const [editing, setEditing] = useState(false);
+  return (
+    <AutopilotBar
+      {...props}
+      editing={editing}
+      onEditing={setEditing}
+      onSave={(fields) => {
+        props.onSave(fields);
+        setEditing(false);
+      }}
+    />
+  );
+}
+
+/**
+ * A cap paused it: the state names the cap, that cap stays lit, and Edit caps raises it in the start
+ * form's fields. Resume stays pressable, and Fleet's refusal is said in the bar while the cap holds.
+ */
+export const PausedByACap: Story = {
   args: {
-    state: "off",
-    ended: "Stopped when it reached its spend cap of $30. The Jobs it started finished.",
+    state: "paused",
+    capped: "Job cap reached",
+    current: { atOnce: "2", until: "07:00", spend: "30", jobs: "6" },
     caps: [
-      { label: "At once", value: "0 of 2 running", fill: 0, reached: false },
-      { label: "Spend", value: "$30.20 of $30", fill: 1, reached: true },
-      { label: "Jobs", value: "6 started · no cap", fill: 0, reached: false },
-      { label: "Until", value: "07:00", fill: 0.9, reached: false },
+      { label: "At once", value: "1 of 2 running", fill: 0.5, reached: false },
+      { label: "Spend", value: "$18.60 of $30", fill: 0.62, reached: false },
+      { label: "Jobs", value: "6 of 6 started", fill: 1, reached: true },
+      { label: "Until", value: "07:00 · 2h 10m left", fill: 0.7, reached: false },
     ],
+  },
+  render: (args) => <Capped {...args} />,
+  play: async ({ args, canvas, userEvent }) => {
+    await expect(canvas.getByRole("status")).toHaveTextContent("Paused · Job cap reached");
+    await expect(canvas.getByText("6 of 6 started")).toHaveTextContent("6 of 6 started · reached");
+    await userEvent.click(canvas.getByRole("button", { name: "Edit caps" }));
+    const form = canvas.getByRole("form", { name: "Edit caps" });
+    await expect(form).toHaveTextContent("Raise the cap that paused it and save, then resume.");
+    await userEvent.clear(canvas.getByLabelText("Jobs"));
+    await userEvent.type(canvas.getByLabelText("Jobs"), "10");
+    await userEvent.click(canvas.getByRole("button", { name: "Save caps" }));
+    await expect(args.onSave).toHaveBeenCalledWith({ atOnce: "2", until: "07:00", spend: "30", jobs: "10" });
+    await expect(canvas.queryByRole("form", { name: "Edit caps" })).toBeNull();
+  },
+};
+
+/** Resume pressed while the cap still holds: Fleet's refusal, said where the press was. */
+export const ResumeRefusedWhileCapped: Story = {
+  args: {
+    ...PausedByACap.args,
+    refused: "Autopilot stays paused: the Job cap is reached. Raise it, then resume",
   },
 };
 
@@ -109,14 +160,15 @@ function Starting(props: AutopilotBarProps) {
         props.onRead();
         setRead(true);
       }}
-      reading={read ? { fields: { atOnce: "2", until: "07:00", spend: "30", jobs: "" }, said: { atOnce: true, until: true, spend: true, jobs: false } } : undefined}
+      reading={read ? READING : undefined}
     />
   );
 }
 
 /**
  * Turned on: the sentence first, and Fleet's reading of it before anything can start. Each setting is
- * editable, says whether the sentence named it, and Start sends what is in the fields.
+ * editable, quotes the words it was read from or says the sentence did not say it, and Start sends what
+ * is in the fields.
  */
 export const StartForm: Story = {
   args: { state: "off", instruction: undefined },
@@ -126,10 +178,22 @@ export const StartForm: Story = {
     await userEvent.click(canvas.getByRole("button", { name: "Read it" }));
     await expect(args.onRead).toHaveBeenCalledOnce();
     await expect(canvas.getByLabelText("At once")).toHaveValue("2");
+    await expect(canvas.getByText("“two at a time”")).toBeInTheDocument();
     await expect(canvas.getByText("not said")).toBeInTheDocument();
     await userEvent.type(canvas.getByLabelText("Jobs"), "5");
     await userEvent.click(canvas.getByRole("button", { name: "Start Autopilot" }));
     await expect(args.onStart).toHaveBeenCalledWith({ atOnce: "2", until: "07:00", spend: "30", jobs: "5" });
+  },
+};
+
+/** Fleet's reading, as it stands before anything is changed: each setting over the words it came from. */
+export const QuotedStartForm: Story = {
+  args: {
+    state: "off",
+    instruction: undefined,
+    starting: true,
+    sentence: "Work through the open issues that don't need design decisions. No more than two at a time, until 7am, $30 max.",
+    reading: READING,
   },
 };
 

@@ -27,5 +27,8 @@ export type SleepState = {
 /** `POST /sleep`: turn the mode on, which starts a new night, or off. */
 export type SetSleep = { on: boolean };
 
+/** `POST /sleep/review`: the owner kept one decision as it was. */
+export type ReviewSleep = { id: string };
+
 /** `POST /sleep/override`: the owner's correction of one decision, sent to the session it answered. */
 export type OverrideSleep = { id: string; text: string };

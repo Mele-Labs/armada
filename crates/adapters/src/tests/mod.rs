@@ -48,6 +48,7 @@ mod rerunning;
 mod scouting;
 mod snapshot;
 mod standing;
+mod terminal_follow;
 mod terminal_thread;
 mod transcript;
 mod trigger_files;

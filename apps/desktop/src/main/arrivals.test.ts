@@ -101,6 +101,7 @@ function fakeHost(
     helm: { reconnected: () => {} },
     studios: { again: async () => {}, changed: () => {}, deleted: () => {} },
     sessions: { again: async () => {}, changed: () => {}, row: () => {} },
+    held: { warm: async () => {} },
     fleetBuild: { watch: () => {} },
     mods,
     material: {} as unknown as ReviewMaterial,

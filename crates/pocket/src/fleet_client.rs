@@ -13,6 +13,11 @@ use hyper::header::{CONNECTION, CONTENT_TYPE, HOST, UPGRADE};
 use hyper::{Request, StatusCode};
 use hyper_util::rt::TokioIo;
 use tokio::net::TcpStream;
+
+/// The header Fleet reads to place a request's door; its value here is the
+/// phone's. Fleet's own spelling is `api::CALLER_HEADER`, which this crate
+/// does not depend on.
+const CALLER: &str = "x-armada-caller";
 use tokio::time::timeout;
 
 /// Fleet answered on a port the runtime file named, or it did not.
@@ -68,7 +73,8 @@ pub async fn send(
     let mut request = Request::builder()
         .method(method)
         .uri(path)
-        .header(HOST, format!("127.0.0.1:{port}"));
+        .header(HOST, format!("127.0.0.1:{port}"))
+        .header(CALLER, "phone");
     if body.is_some() {
         request = request.header(CONTENT_TYPE, "application/json");
     }

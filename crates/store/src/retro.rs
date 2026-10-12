@@ -169,11 +169,17 @@ pub struct DroneNote {
 impl Store {
     /// Keep the door the move at `seq` came through.
     pub fn record_via(&mut self, job_id: &JobId, seq: i64, via: Via) -> Result<(), WriteError> {
-        self.conn
-            .execute(
-                "INSERT INTO job_event_via (seq, job_id, via) VALUES (?1, ?2, ?3)",
-                (seq, job_id.as_str(), via.as_wire()),
-            )
+        // A phone is its own table: widening `job_event_via`'s CHECK is a
+        // rebuild, which would make the migration breaking.
+        let sql = match via {
+            Via::Phone => "INSERT INTO job_event_phone (seq, job_id) VALUES (?1, ?2)",
+            _ => "INSERT INTO job_event_via (seq, job_id, via) VALUES (?1, ?2, ?3)",
+        };
+        let written = match via {
+            Via::Phone => self.conn.execute(sql, (seq, job_id.as_str())),
+            _ => self.conn.execute(sql, (seq, job_id.as_str(), via.as_wire())),
+        };
+        written
             .map_err(fault("keeping the door a move came through"))
             .map_err(WriteError::Database)?;
         Ok(())
@@ -183,7 +189,9 @@ impl Store {
     /// Fleet's own, or older than the column.
     pub fn vias_for(&self, job_id: &JobId) -> Result<Vec<(i64, Via)>, RowError> {
         self.rows(
-            "SELECT seq, via FROM job_event_via WHERE job_id = ?1 ORDER BY seq",
+            "SELECT seq, via FROM job_event_via WHERE job_id = ?1 \
+             UNION ALL SELECT seq, 'phone' FROM job_event_phone WHERE job_id = ?1 \
+             ORDER BY seq",
             job_id,
             |row| {
                 let seq: i64 = row.get("seq").map_err(column("job_event_via", "seq"))?;

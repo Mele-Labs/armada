@@ -16,6 +16,7 @@
 mod allowing;
 mod asked_runs;
 pub(crate) mod attempt;
+mod board_memo;
 mod breakages;
 mod carrying_on;
 mod check_runs;
@@ -65,6 +66,7 @@ mod review_model;
 mod review_record;
 mod revision;
 mod roundtrip;
+mod session_checks;
 mod sent_back;
 mod session_ledger;
 mod settings_file;

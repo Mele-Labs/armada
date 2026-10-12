@@ -117,6 +117,35 @@ pub struct Judged {
     /// can make.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub given: Option<Given>,
+    /// What this member said makes the refused work risky, where it said so. #2105.
+    ///
+    /// **What brings an agreed refusal to a person**: a panel that agrees sends
+    /// the work back to its Drone unless a member calls it risky, so on a
+    /// refusal that reached a person this is the reason a call card gives.
+    /// Absent where the member said it only needs redoing, or was not asked.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub risky: Option<String>,
+}
+
+/// How many times the Judges sent one pass of a step back to its Drone on a
+/// refusal they agreed on, and how many they may before a person hears it.
+/// `docs/concepts/judge.md`, *When the Judges agree*. #2105.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct JudgesSentBack {
+    /// Counted from one. A step never sent back carries no value at all.
+    pub times: u32,
+    /// `core_model::AGREED_RETRIES`.
+    pub of: u32,
+}
+
+impl JudgesSentBack {
+    /// `times` against the limit, or `None` where the Judges sent nothing back.
+    pub fn of(times: u32) -> Option<JudgesSentBack> {
+        (times > 0).then_some(JudgesSentBack {
+            times,
+            of: core_model::AGREED_RETRIES,
+        })
+    }
 }
 
 /// One quotation a verdict made, placed in the brief the call was shown.
@@ -190,6 +219,7 @@ impl Judged {
                 .as_ref()
                 .map(|cited| cited.iter().map(Citation::from).collect()),
             given: judgment.given.as_ref().map(Given::from),
+            risky: judgment.risky.clone(),
         }
     }
 }

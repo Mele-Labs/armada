@@ -20,6 +20,11 @@ pub(super) const ROUTES: &[Route] = &[
         method: "POST",
         path: "/sleep/override",
     },
+    Route {
+        operation: "review_sleep",
+        method: "POST",
+        path: "/sleep/review",
+    },
     // A repository's open issues, read from its tracker. #91.
     Route {
         operation: "list_issues",

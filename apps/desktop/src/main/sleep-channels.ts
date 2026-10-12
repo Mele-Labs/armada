@@ -13,6 +13,7 @@ const text = (value: unknown): value is string => typeof value === "string" && v
 export function handleSleep({ ipc, connection }: Hosts): void {
   ipc.handle(CHANNELS.getSleep, () => connection()?.sleep.get() ?? unsent);
   ipc.handle(CHANNELS.setSleep, (_event, on: unknown) => (typeof on === "boolean" ? (connection()?.sleep.set(on) ?? unsent) : unsent));
+  ipc.handle(CHANNELS.reviewSleep, (_event, id: unknown) => (text(id) ? (connection()?.sleep.review(id) ?? unsent) : unsent));
   ipc.handle(CHANNELS.overrideSleep, (_event, id: unknown, words: unknown) =>
     text(id) && text(words) ? (connection()?.sleep.override(id, words.trim()) ?? unsent) : unsent,
   );
