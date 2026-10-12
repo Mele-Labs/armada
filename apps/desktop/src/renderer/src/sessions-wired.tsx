@@ -160,7 +160,7 @@ export class WiredStore {
     return id;
   }
 
-  private async sending(id: string, sent: Parameters<SessionsDraft["send"]>[1]): Promise<void> {
+  private async sending(id: string, sent: Parameters<SessionsDraft["send"]>[1]): Promise<boolean> {
     this.say(undefined);
     const tags = this.pending.get(id) ?? NONE;
     this.tagged(id, NONE);
@@ -175,13 +175,15 @@ export class WiredStore {
     });
     if (!done.ok) {
       this.tagged(id, tags);
-      return this.tell(done.outcome);
+      this.tell(done.outcome);
+      return false;
     }
     // The wire holds a sketch only as the picture it went as, so the ledger keeps what was drawn here.
     if (sent.sketches.length > 0) {
       this.sketches.set(id, [...(this.sketches.get(id) ?? NONE), ...sent.sketches.map((one): Sketch => ({ kind: "sketch", id: one.id, title: one.title, by: "you", drawing: one.drawing }))]);
       this.recompute();
     }
+    return true;
   }
 
   /** One call: the Job is taken over and a Session starts on its worktree. Resolves to the Session once the window holds it. */
@@ -346,7 +348,7 @@ export class WiredStore {
       ];
     },
     setTags: (id, tags) => this.tagged(id, tags),
-    send: (id, sent) => void this.sending(id, sent),
+    send: (id, sent) => this.sending(id, sent),
     tune: (id, tuning) =>
       void this.plain(
         this.api.tuneSession({

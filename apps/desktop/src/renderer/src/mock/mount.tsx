@@ -16,8 +16,6 @@ import { App } from "../App";
 import { DraftedFrom } from "../drafted";
 import { SessionsFrom } from "../sessions-draft";
 import { WiredSessions } from "../sessions-wired";
-import { ThoughtReadingFrom } from "../thought-routing";
-import { mockReader } from "./thought-reading";
 import { skipsMods } from "../theme-loader";
 import { Themed } from "../theme";
 import { mountAnnotating } from "./annotating";
@@ -126,10 +124,7 @@ export function mountApp(
                 <PhoneSourceProvider value={mockPhone}>
                   <SleepSourceProvider value={mockSleep}>
                     <SessionsHere held={heldSessions(api)}>
-                      {/* Helm reads a thought for where it belongs in the one scenario that is about it. */}
-                      <ThoughtReadingFrom reader={chosen.name === "route-a-thought" ? mockReader : undefined}>
-                        <Drafted draft={liveDraft(api) ?? HELD(chosen.draft)} />
-                      </ThoughtReadingFrom>
+                      <Drafted draft={liveDraft(api) ?? HELD(chosen.draft)} />
                     </SessionsHere>
                   </SleepSourceProvider>
                 </PhoneSourceProvider>

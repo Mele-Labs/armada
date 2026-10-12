@@ -81,6 +81,8 @@ import type {
   Holds,
   HeldWorktrees,
   HelmThread,
+  ThoughtRead,
+  ThoughtTarget,
   History,
   Holdings,
   FollowedLog,
@@ -453,6 +455,8 @@ type OldBridgeApi = {
     onHistory: (onStep: (step: HistoryStep) => void) => () => void;
     askHelm: (text: string, context?: HelmContext) => Promise<Outcome>;
     helmDebugInfo: () => Promise<HelmDebugRead>;
+    readThought: (text: string) => Promise<ThoughtRead>;
+    recordThoughtSent: (manifestId: string, text: string, target: ThoughtTarget) => Promise<Outcome>;
     startHelmFresh: () => Promise<Outcome>;
     pointHelm: (manifestId: string) => Promise<void>;
     tap: (pattern: Pattern) => void;
@@ -711,6 +715,8 @@ const OLD_CHANNELS = {
     readComposing: "bridge:read-composing",
     askHelm: "bridge:ask-helm",
     helmDebugInfo: "bridge:helm-debug-info",
+    readThought: "bridge:read-thought",
+    recordThoughtSent: "bridge:record-thought-sent",
     startHelmFresh: "bridge:start-helm-fresh",
     pointHelm: "bridge:point-helm",
     watchStudios: "bridge:watch-studios",

@@ -618,7 +618,7 @@ export function App({ draft }: AppProps = {}) {
           helm={
             <HelmDock
               asks={asks}
-              {...(routing === undefined ? {} : { routing })}
+              routing={routing}
               helm={state.helm}
               repositories={repositories}
               jobs={state.jobs}

@@ -1,0 +1,12 @@
+[operations.record_thought_sent]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Say that words typed into Helm's box were delivered to a Session or a Job, so the thread keeps where they went"
+notes = """
+`POST /helm/thought_sent?manifest_id=`, body `{ text, target }` with `target` as `read_thought` answers it. Answers 200 `HelmConversation`, as `start_helm_fresh` does. The manifest names the conversation whose thread keeps the row, absent is the one Fleet started in.
+
+**Said by Bridge after the delivery went through**, with the Session or Job act that already exists (`send_session_message`, `redirect_drone`). A refused delivery records nothing. Fleet appends a `sent` message to the Helm thread, which survives a restart and arrives on `observe_helm` to every viewer and in the backfill, and publishes `helm.thought_routed`. **Nothing is sent to Helm's own session**: the thread is Fleet's record and the session is told only what is asked of it.
+
+`agent_access` is `No`, for `ask_helm`'s reason.
+"""

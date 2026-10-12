@@ -35,7 +35,7 @@ import type { ArtifactRead, PageBounds } from "@armada/screens/src/draft/session
 import type { PilotExit, PullRequestPress, SessionActed } from "../shared/api/sessions";
 import type { SleepActed } from "../shared/api/sleep";
 import type { IssuesRead } from "../shared/api/issues";
-import type { HelmContext, HelmDebugRead } from "@armada/protocol";
+import type { HelmContext, HelmDebugRead, ThoughtRead, ThoughtTarget } from "@armada/protocol";
 import type { StudioCapture, StudioNodeByHand, StudioPosition, StudioPromotion } from "@armada/protocol";
 import type { StudioAnswer } from "@armada/screens/src/studio-reads";
 import type { AddTask, ApproveWave, DropTask, EditJob, EditTask, MovePlan } from "@armada/protocol";
@@ -895,6 +895,9 @@ const api: BridgeApi = {
   askHelm: (text: string, context?: HelmContext): Promise<Outcome> =>
     ipcRenderer.invoke(CHANNELS.askHelm, text, context),
   helmDebugInfo: (): Promise<HelmDebugRead> => ipcRenderer.invoke(CHANNELS.helmDebugInfo),
+  readThought: (text: string): Promise<ThoughtRead> => ipcRenderer.invoke(CHANNELS.readThought, text),
+  recordThoughtSent: (manifestId: string, text: string, target: ThoughtTarget): Promise<Outcome> =>
+    ipcRenderer.invoke(CHANNELS.recordThoughtSent, manifestId, text, target),
   startHelmFresh: (): Promise<Outcome> => ipcRenderer.invoke(CHANNELS.startHelmFresh),
   pointHelm: (manifestId: string): Promise<void> => ipcRenderer.invoke(CHANNELS.pointHelm, manifestId),
 

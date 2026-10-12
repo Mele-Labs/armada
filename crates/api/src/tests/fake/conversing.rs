@@ -6,7 +6,8 @@
 use std::sync::Arc;
 
 use ipc::{
-    AskHelm, HelmAsked, HelmClosed, HelmConversation, HelmMessage, HelmSilence, Instant, ManifestId,
+    AskHelm, HelmAsked, HelmClosed, HelmConversation, HelmMessage, HelmSent, HelmSilence, Instant,
+    ManifestId, ReadThought, ThoughtKind, ThoughtReading, ThoughtSent, ThoughtTarget,
 };
 
 use super::FakeDaemon;
@@ -63,6 +64,41 @@ impl Conversations for FakeDaemon {
         Ok(HelmConversation {
             manifest_id,
             replying: true,
+            resumes: false,
+        })
+    }
+
+    /// **A question, unless the words ask to be routed**: then a thought for the one Session the
+    /// fake knows. What reads the words is Fleet's.
+    async fn read_thought(&self, read: ReadThought) -> ThoughtReading {
+        if !read.text.contains("route") {
+            return ThoughtReading::Question;
+        }
+        ThoughtReading::Thought {
+            target: Some(ThoughtTarget {
+                kind: ThoughtKind::Session,
+                id: String::from("01SESSION000000000000000001"),
+                title: String::from("Sessions list views"),
+                manifest_id: Some(ManifestId::carried(SERVED_MANIFEST)),
+                slot: Some(3),
+            }),
+        }
+    }
+
+    async fn record_thought_sent(
+        &self,
+        sent: ThoughtSent,
+        manifest_id: Option<ManifestId>,
+    ) -> Result<HelmConversation, Refusal> {
+        let manifest_id = self.serving(manifest_id)?;
+        self.helm.offer(HelmMessage::Sent(HelmSent {
+            ts: Instant::carried("2026-09-13T09:00:00.000Z"),
+            text: sent.text,
+            target: sent.target,
+        }));
+        Ok(HelmConversation {
+            manifest_id,
+            replying: false,
             resumes: false,
         })
     }

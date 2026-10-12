@@ -1,17 +1,21 @@
-// Helm's reading of a thought, as the mock has it. **A keyword scorer, not a model**: it reads the
-// words against every live Session and running Job the window holds, whatever repository, and names
-// the best match if one clears the bar. Mock-only; a Fleet that reads would replace all of it.
+// Helm's reading of a thought, as the mock Fleet answers `read_thought`. **A keyword scorer, not a
+// model**: it reads the words against every live Session and running Job a scenario holds, whatever
+// repository, and names the best match if one clears the bar. Only a scenario about routing a thought
+// answers with it; every other mock Fleet reads everything as a question (`helm-api.ts`).
 //
 // A Session is read by its title (weighted) and its ledger: the branch and pull request titles it holds.
 // A Job is read by its title.
 
-import type { JobSummary, SessionRecord } from "@armada/protocol";
-import type { RouteTarget, ThoughtReading } from "@armada/helm";
+import type { JobSummary, SessionRecord, ThoughtRead, ThoughtReading, ThoughtTarget } from "@armada/protocol";
 
-import type { ThoughtReader, ThoughtWorld } from "../thought-routing";
+/** What a scenario holds that a thought could go to. */
+export type ThoughtWorld = {
+  sessions: readonly SessionRecord[];
+  jobs: readonly JobSummary[];
+};
 
 /** How long Helm takes to read, so the mark turning can be seen. */
-const READING_MS = 1400;
+export const READING_MS = 1400;
 
 /** A match needs this much overlap: two words of a title, or a title word and two of the ledger. */
 const BAR = 4;
@@ -60,9 +64,7 @@ function slotOf(session: SessionRecord): number | undefined {
 export function readThought(text: string, world: ThoughtWorld): ThoughtReading {
   if (QUESTION.test(text)) return { kind: "question" };
   const thought = words(text);
-  const repositoryOf = (manifestId: string | undefined): string =>
-    world.repositories.find((one) => one.manifest?.id === manifestId)?.manifest?.repository ?? manifestId ?? "";
-  const candidates: { target: RouteTarget; score: number }[] = [
+  const candidates: { target: ThoughtTarget; score: number }[] = [
     ...world.sessions
       .filter((one) => one.state === "live" && one.title !== undefined)
       .map((one) => ({
@@ -70,21 +72,27 @@ export function readThought(text: string, world: ThoughtWorld): ThoughtReading {
           kind: "session" as const,
           id: one.id,
           title: one.title!,
-          repository: repositoryOf(one.manifest_id),
+          ...(one.manifest_id === undefined ? {} : { manifest_id: one.manifest_id }),
           ...(slotOf(one) === undefined ? {} : { slot: slotOf(one)! }),
         },
         score: score(thought, one.title!, ledgerOf(one)),
       })),
     ...world.jobs
-      .filter((one: JobSummary) => one.status === "running")
+      .filter((one) => one.status === "running")
       .map((one) => ({
-        target: { kind: "job" as const, id: one.id, title: one.title, repository: repositoryOf(one.owner_manifest_id) },
+        target: {
+          kind: "job" as const,
+          id: one.id,
+          title: one.title,
+          manifest_id: one.owner_manifest_id,
+        },
         score: score(thought, one.title, ""),
       })),
   ];
   const best = candidates.sort((a, b) => b.score - a.score)[0];
-  return best !== undefined && best.score >= BAR ? { kind: "thought", match: best.target } : { kind: "thought" };
+  return best !== undefined && best.score >= BAR ? { kind: "thought", target: best.target } : { kind: "thought" };
 }
 
-export const mockReader: ThoughtReader = (text, world) =>
-  new Promise((resolve) => setTimeout(() => resolve(readThought(text, world)), READING_MS));
+/** The scenario's answer to `read_thought`, after the pause a real reading takes. */
+export const readAfterPause = (text: string, world: ThoughtWorld): Promise<ThoughtRead> =>
+  new Promise((resolve) => setTimeout(() => resolve({ ok: true, reading: readThought(text, world) }), READING_MS));

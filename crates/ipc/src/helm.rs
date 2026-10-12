@@ -149,6 +149,9 @@ pub enum HelmMessage {
     Fresh(HelmFresh),
     /// No reply came, and why.
     Unanswered(HelmUnanswered),
+    /// These words went to a Session or a Job and never to Helm's session. Since a thought was
+    /// routed: `crate::thought`.
+    Sent(crate::thought::HelmSent),
     /// This viewer fell behind and lost messages.
     Missed(Missed),
     /// Nothing more on this connection, and why.

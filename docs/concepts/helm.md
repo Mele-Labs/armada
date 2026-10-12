@@ -37,11 +37,21 @@ The dock's upper zone lists every question waiting on a person, from every repos
 
 **Every ask names where the person is.** Bridge sends the screen, the picked repository, the open Job chipped above the message box, and the Board or Cockpit cursor row with each message; Fleet hands the session one line naming it ahead of what was typed, and the thread keeps only what the person wrote. `#1075`.
 
-**Fleet-wide reasoning is not a Helm capability.** Why: a conversation belongs to the repository it is pointed at, so a Fleet-wide Helm would be the only thing in the product ignoring that.
+**Fleet-wide reasoning is not a Helm capability, with one exception.** Why: a conversation belongs to the repository it is pointed at, so a Fleet-wide Helm would be the only thing in the product ignoring that. The exception is the read that routes a thought (*Routing a thought*, below), which looks at every repository's live Sessions and running Jobs whatever repository Helm points at. The owner chose it on 12 Oct 2026, because the work a thought belongs to is often in another repository. It reads and answers where the words belong. It does not reason about them, and nothing else in Helm becomes Fleet-wide.
 
-Anything genuinely cross-Manifest stays a Bridge job.
+Anything else that is genuinely cross-Manifest stays a Bridge job.
 
 **Built to change.** Conversations are looked up by a key that is a repository today, and Helm's host sits behind one interface — a key per topic, or a host inside Bridge instead of Fleet, is a switch on either, not a rebuild.
+
+## Routing a thought
+
+**Every message typed in Helm's box is read before it is asked.** Helm decides whether it is a question for Helm or a thought meant for work that is already running, and there is no key to say which. A question goes to Helm as it always did. A thought gets a card over the box: a match names the Session or Job, with Send (`↵`), No (`N`) and Ask Helm (`H`); no match, or No, offers a new Session (`S`) or Job (`J`) in the Dispatch panel, holding the words, with Ask Helm (`H`) and Esc beside them. The keys act only while the box is empty. The look is the walk `route-a-thought`.
+
+**Fleet reads, Bridge delivers.** `read_thought` hands the words and every live Session and running Job in every repository to the model the Job proposer uses, with each one's title, repository and ledger (branch and pull request titles) and, for a Job, what it must meet and the approach of its plan, cut short. A Session that has ended, or has no title, is not offered, and neither is a Job that is paused, escalated or over. The model answers one line of JSON. An id it names that was not offered is no match, and anything it answers that is not that JSON is a question. **If anything fails, the words go to Helm.** A message that opens on a wh-word and ends in a question mark skips the call, since it is plainly Helm's, and a request in a question's clothes, such as "can you make the spike cover the jobs table?", still goes to the model. A read measures about three seconds, most of it the model's CLI starting.
+
+**Send is the acts that already exist.** A Session gets a message as the composer sends one, and a Job a redirect to its Drone. A refusal, such as a terminal Session that is not listening, is said in Fleet's words and nothing is recorded, and the card stays for another try.
+
+**The thread keeps where the words went.** Once they arrived, Bridge says so (`record_thought_sent`) and Fleet appends a `sent` row to the conversation's thread, which draws as the person's words with a "Sent to" chip that opens the Session or Job. It is a row of the thread's file, so it outlives the window and a restart, and it is never fed to Helm's session: the session hears only what is asked of it. The audit trail has it as `helm.thought_routed`, naming where and never the words.
 
 ## Tools
 
@@ -125,6 +135,8 @@ Rung 3 carries no MCP operation for Helm to reach for, ladder or no. A Job Helm 
 **Every Helm-initiated action is logged as its own distinct event type**, never conflated with your manual actions or with Drone self-reports. Manual actions are already distinguished from Drone evidence, per the Debug/Pilot design. Three-way separation: Drone evidence, human manual action, Helm-initiated action.
 
 **A Helm write to your checkout is `helm.changed_checkout`**, naming the repository, the tool and the path, published as the session's stream says it happened. A person who finds a file changed and did not change it reads this to see that Helm did. It names writes Armada can name: a shell line Helm ran may have written something too and nothing says whether it did, so those calls are on the conversation's own thread and produce no event.
+
+**Words Helm's reading sent to a Session or a Job are `helm.thought_routed`**, naming the repository whose thread holds them, the kind and the id it went to. A person who finds a message in a Session or a Job that they typed into Helm reads this to see where it was sent from. A person's press delivers it and Helm's reading chose the target.
 
 **Every ask and every answer is `helm.asking_to_run` and `helm.call_answered`**, naming the repository, the tool, the one-line argument and the rule. The second says which of the seven ends it was — ran unasked, allowed once, allowed and remembered, allowed where the rule would not write, refused, unanswered, or the session gone — so a person who finds a command was run can see that they allowed it, and a person who finds one was not can see that the hold ran out.
 

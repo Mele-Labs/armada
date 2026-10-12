@@ -329,8 +329,11 @@ export type SessionsDraft = {
   taggable: () => readonly SessionTag[];
   /** Puts a Session's waiting tags where the person left them. */
   setTags: (id: string, tags: readonly SessionTag[]) => void;
-  /** A message from the person, with what they sent along. It takes a turn. */
-  send: (id: string, sent: SentMessage) => void;
+  /**
+   * A message from the person, with what they sent along. It takes a turn. **A promise on a real
+   * Fleet**, which resolves to whether the message arrived; a refusal is already said as a toast.
+   */
+  send: (id: string, sent: SentMessage) => void | Promise<boolean>;
   /** Sets the model, effort and permission mode a Session's next turn runs on. `null` is Auto. */
   tune: (id: string, tuning: { model: string | null; effort: string | null; mode: SessionMode }) => void;
   /**

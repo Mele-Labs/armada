@@ -3,7 +3,8 @@
 // all of them. The Session "Sessions list views" holds Sessions-page work, "Retry failed invoice
 // charges with backoff" is running in billing, and nothing anywhere is about the merge line. Job 12
 // stopped on a gate, so a plain question about it gets Helm's reply. The walk `route-a-thought`
-// plays it. The reading is the mock's own (`mock/thought-reading.ts`).
+// plays it. The reading is the mock's own (`mock/thought-reading.ts`), and the words sent on are
+// kept in Helm's thread as Fleet keeps them.
 
 import type { HelmThreadItem, RepositorySummary } from "@armada/protocol";
 import { repository } from "@armada/screens/src/fixtures/build/base";
@@ -12,8 +13,9 @@ import { featureRunning } from "@armada/jobs/fake";
 import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
 
 import { asRow, holding } from "../holding";
-import type { Scenario } from "../moment";
+import type { FleetHandle, Scenario } from "../moment";
 import { FakeSessionsFleet, held, hosted, pullRequest } from "../sessions-fleet";
+import { readAfterPause } from "../thought-reading";
 
 const ARMADA: RepositorySummary = { ...repository(), manifest: { ...repository().manifest!, id: "armada" } };
 
@@ -95,6 +97,26 @@ const REPLY = [
   "Produced — exit 101 — 3 of 2034 tests failed",
 ].join("\n\n");
 
+/** Items added to Helm's thread, after the ones it holds: each takes the next id. */
+function appended(
+  handle: FleetHandle,
+  manifestId: string,
+  ...items: ((id: string) => HelmThreadItem)[]
+): void {
+  const held = handle.state().helm;
+  const was = held.state === "open" ? held.items : [];
+  handle.publish({
+    helm: {
+      state: "open",
+      manifestId,
+      replying: false,
+      skipped: 0,
+      missed: 0,
+      items: [...was, ...items.map((item, at) => item(String(was.length + at)))],
+    },
+  });
+}
+
 function build(): Scenario {
   const base = holding(
     "route-a-thought",
@@ -115,15 +137,26 @@ function build(): Scenario {
     ...served,
     behaves: (handle) => ({
       ...served.behaves!(handle),
+      // Fleet's reading of a thought: the mock's keyword scorer over this scenario's own Sessions and Jobs.
+      readThought: (text) => {
+        const state = handle.state();
+        return readAfterPause(text, { sessions: state.sessions.state === "read" ? state.sessions.sessions : [], jobs: state.jobs });
+      },
+      // Fleet keeps the row for words sent on, after the fact, in the thread that was asked about.
+      recordThoughtSent: async (manifestId, text, target) => {
+        appended(handle, manifestId, (id) => ({ kind: "sent", id, ts: now(), text, target }));
+        return { ok: true };
+      },
       // Helm's reply is Fleet's to write; the mock gives the one answer the walk asks for.
       askHelm: async (text) => {
         const at = now();
-        const items: HelmThreadItem[] = [
-          { kind: "asked", id: "1", ts: at, text },
-          { kind: "row", id: "2", turn: { ts: at, seq: 2, by: "drone", saw: { event: "said", text: REPLY } } },
-          { kind: "row", id: "3", turn: { ts: at, seq: 3, by: "drone", saw: { event: "ended", turns: 2, cost_micros: 14_200, refusals: 0 } } },
-        ];
-        handle.publish({ helm: { state: "open", manifestId: "armada", replying: false, skipped: 0, missed: 0, items } });
+        appended(
+          handle,
+          "armada",
+          (id) => ({ kind: "asked", id, ts: at, text }),
+          (id) => ({ kind: "row", id, turn: { ts: at, seq: Number(id), by: "drone", saw: { event: "said", text: REPLY } } }),
+          (id) => ({ kind: "row", id, turn: { ts: at, seq: Number(id), by: "drone", saw: { event: "ended", turns: 2, cost_micros: 14_200, refusals: 0 } } }),
+        );
         return { ok: true };
       },
     }),

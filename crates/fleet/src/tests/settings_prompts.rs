@@ -317,3 +317,36 @@ fn autopilots_prompts_and_the_answered_block_ship_as_they_were_and_take_a_saved_
         "Keep the old name? Rename it: every caller changes"
     );
 }
+
+/// The words that read a thought for Helm are a setting (`prompts.helmRoute`): what ships is what
+/// the router always asked, filled with the person's words and the candidates, and a saved one is
+/// what the next read says.
+#[test]
+fn helms_routing_prompt_ships_as_written_and_takes_a_saved_one() {
+    use config::settings::{Resolved, Saved};
+
+    use crate::helm::routing::{question, QUESTION};
+
+    let shipped = crate::prompts::Prompts::shipped();
+    assert_eq!(shipped.get(keys::PROMPT_HELM_ROUTE), QUESTION);
+    let asked = question(&shipped, "  group them by repository ", &[]).expect("encodes");
+    assert!(
+        asked.contains("-----BEGIN CANDIDATES-----\n[]\n-----END CANDIDATES-----"),
+        "{asked}"
+    );
+    assert!(
+        asked.contains("-----BEGIN MESSAGE-----\ngroup them by repository\n-----END MESSAGE-----"),
+        "{asked}"
+    );
+
+    let document = BTreeMap::from([(
+        keys::PROMPT_HELM_ROUTE.name().to_string(),
+        settings_file::SettingValue::Text("Route {message} among {candidates}.".into()),
+    )]);
+    let saved: Saved = checked(&document, &supplied(), &Env::none()).expect("taken");
+    let prompts = shipped.overlaid_by(&Resolved::new(saved, supplied(), Env::none()));
+    assert_eq!(
+        question(&prompts, "group them", &[]).expect("encodes"),
+        "Route group them among []."
+    );
+}

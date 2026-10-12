@@ -94,6 +94,8 @@ mod helm;
 mod helm_call;
 /// One repository's Helm session as one quotable record. `#1367`.
 mod helm_debug;
+/// Helm reading a thought for where it belongs, and recording where it went.
+mod thought;
 mod history;
 /// What Fleet is holding disk for, and the test each one did not pass.
 /// **A piloted worktree is not on this wire at all** — `#367`.
@@ -299,6 +301,10 @@ pub use helm::{
     AskHelm, Blank, Freshness, HelmAsked, HelmChangedCheckout, HelmClosed, HelmContext,
     HelmConversation, HelmFresh, HelmMessage, HelmOpened, HelmScreen, HelmSilence, HelmText,
     HelmUnanswered,
+};
+pub use thought::{
+    HelmSent, HelmThoughtRouted, ReadThought, ThoughtKind, ThoughtReading, ThoughtSent,
+    ThoughtTarget,
 };
 pub use helm_call::{
     AnswerHelmCall, AskedChoice, AskedQuestion, AskingToRun, HelmAskingToRun, HelmCallAnswer,

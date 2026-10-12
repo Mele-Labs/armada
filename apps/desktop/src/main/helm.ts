@@ -21,7 +21,12 @@ import type {
   HelmThread,
   HelmThreadItem,
   Outcome,
+  ReadThought,
   RepositorySummary,
+  ThoughtRead,
+  ThoughtReading,
+  ThoughtSent,
+  ThoughtTarget,
 } from "@armada/protocol";
 import { helmArrived, NO_HELM_ITEMS } from "@armada/protocol";
 import { ask } from "./request";
@@ -186,6 +191,33 @@ export class HelmSocket {
       : { ok: false, outcome: answer.outcome };
   }
 
+  /**
+   * `POST /helm/read_thought`. **Answered to the caller and never published**, as `debugInfo` is:
+   * it is the dock's gesture on one message. No repository in the path, since a thought is read
+   * against everything Fleet serves.
+   */
+  async readThought(text: string): Promise<ThoughtRead> {
+    if (this.port === null) return { ok: false, outcome: { ok: false, why: "not_connected" } };
+    const body: ReadThought = { text };
+    const answer = await ask(this.port, "POST", "/helm/read_thought", body);
+    return answer.ok === true
+      ? { ok: true, reading: answer.body as ThoughtReading }
+      : { ok: false, outcome: answer.outcome };
+  }
+
+  /** `POST /helm/thought_sent`. Said after the words were delivered; the row arrives on the socket. */
+  async recordThoughtSent(manifestId: string, text: string, target: ThoughtTarget): Promise<Outcome> {
+    if (this.port === null) return { ok: false, why: "not_connected" };
+    const body: ThoughtSent = { text, target };
+    const answer = await ask(
+      this.port,
+      "POST",
+      `/helm/thought_sent?manifest_id=${encodeURIComponent(manifestId)}`,
+      body,
+    );
+    return answer.ok === true ? { ok: true } : answer.outcome;
+  }
+
   /** `POST /helm/start_fresh`. Refused while a reply is being written. */
   async startFresh(manifestId: string): Promise<Outcome> {
     if (this.port === null) return { ok: false, why: "not_connected" };
@@ -274,6 +306,16 @@ export class HelmConnection {
     const manifestId = this.targetManifestId();
     if (manifestId === null) return { ok: false, why: "not_connected" };
     return await this.socket.startFresh(manifestId);
+  }
+
+  /** What Helm makes of words typed into its box. */
+  async readThought(text: string): Promise<ThoughtRead> {
+    return await this.socket.readThought(text);
+  }
+
+  /** The words reached a Session or a Job: Fleet keeps a row for them in `manifestId`'s thread. */
+  async recordThoughtSent(manifestId: string, text: string, target: ThoughtTarget): Promise<Outcome> {
+    return await this.socket.recordThoughtSent(manifestId, text, target);
   }
 
   /** The record for whichever repository Helm answers for right now. */

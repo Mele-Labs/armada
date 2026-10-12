@@ -36,6 +36,7 @@ mod events;
 mod fixtures;
 mod gates;
 mod helm;
+mod thought;
 /// A Job's timeline, in the three shapes a row can be.
 mod history;
 mod journal;
