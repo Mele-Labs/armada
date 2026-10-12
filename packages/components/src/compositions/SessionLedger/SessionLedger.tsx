@@ -242,7 +242,8 @@ function LedgerSection({ kind, label, Glyph, all }: { kind: LedgerKind; label: s
                   <li key={row.key} className="armada-session-ledger__row" aria-label={row.name}>
                     <button
                       type="button"
-                      className="armada-session-ledger__open" aria-label={`Open ${row.name}`}
+                      className="armada-session-ledger__open"
+                      aria-label={`Open ${row.name}`}
                       aria-expanded={replies ? replying === row.key : undefined}
                       onClick={replies ? () => setReplying(replying === row.key ? undefined : row.key) : row.onOpen}
                     >
