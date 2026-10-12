@@ -218,6 +218,7 @@ mod session_retro;
 mod retro_review;
 mod session_waiting;
 mod sleeping;
+mod session_checking;
 mod sessioning;
 mod settling;
 mod terminal_session;

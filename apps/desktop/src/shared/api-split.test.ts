@@ -378,6 +378,7 @@ type OldBridgeApi = {
     readEvidence: (jobId: string | null) => Promise<void>;
     readDiff: (jobId: string | null) => Promise<void>;
     readCheckOutput: (jobId: string, kept: string) => Promise<CheckOutputRead>;
+    readSessionCheckOutput: (run: number) => Promise<CheckOutputRead>;
     readBrief: (jobId: string, name: string) => Promise<BriefRead>;
     readRetro: (subject: RetroSubject) => Promise<RetroRead>;
     readLessons: (state: "open" | "accepted") => Promise<LessonsRead>;
@@ -670,6 +671,7 @@ const OLD_CHANNELS = {
     readDiff: "bridge:read-diff",
     readRemarks: "bridge:read-remarks",
     readCheckOutput: "bridge:read-check-output",
+    readSessionCheckOutput: "bridge:read-session-check-output",
     readBrief: "bridge:read-brief",
     readRetro: "bridge:read-retro",
     readLessons: "bridge:read-lessons",

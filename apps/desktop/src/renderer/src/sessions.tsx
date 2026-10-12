@@ -341,7 +341,7 @@ export function threadRowsOf(session: Session): SessionThreadRow[] {
 
 function threadRowsFrom(rows: Session["rows"]): SessionThreadRow[] {
   return rows.map((row): SessionThreadRow => {
-    if (row.kind === "lease" || row.kind === "tool" || row.kind === "handoff" || row.kind === "command" || row.kind === "compaction" || row.kind === "window") return row;
+    if (row.kind === "lease" || row.kind === "tool" || row.kind === "handoff" || row.kind === "command" || row.kind === "compaction" || row.kind === "window" || row.kind === "check") return row;
     if (row.from.kind === "session") {
       return { id: row.id, at: row.at, kind: "message", from: "session", sender: { id: row.from.id, title: row.from.title }, text: row.text };
     }
@@ -363,6 +363,7 @@ export type LedgerGoes = {
   onOpenJob: (jobId: string) => void;
   onGoTo: (surfaceId: string) => void;
   onOpenLink: (address: string) => void;
+  onOpenCheck: (sessionId: string, run: number) => void;
 };
 
 /** What the ledger opens beside it, where no surface of Bridge's draws the thing: a pull request, a sketch, a subagent, an artifact. */
@@ -850,6 +851,7 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
             rows={threadRowsOf(session)}
             askRef={askCard}
             onOpenWindow={(url) => draft.openWindow?.(id, url)}
+            onOpenCheck={(run) => goes.onOpenCheck(session.id, run)}
             working={session.turn.state === "working"}
             {...(session.asked === undefined
               ? {}

@@ -194,6 +194,11 @@ describe("the thread", () => {
     expect(drawn).toMatchObject([{ kind: "command", text: "/reload-plugins" }, { kind: "compaction", text: "This session is being continued" }]);
   });
 
+  it("keeps an armada check the agent ran as a row with its run and where it stands", () => {
+    const drawn = rowsOfThread("a", [{ kind: "check", id: "check-7", at: AT, name: "components_test", run: 7, state: "failed" }], () => undefined);
+    expect(drawn).toMatchObject([{ kind: "check", name: "components_test", run: 7, state: "failed" }]);
+  });
+
   it("keeps a question asked in the window as a line, with how it was answered once it is", () => {
     const asked = {
       kind: "window_ask",

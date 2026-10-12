@@ -11,7 +11,7 @@ import type { ComposingRead } from "@armada/screens/src/composing-reads";
 import type { HeldReader } from "./holding";
 import type { Picked } from "./picked";
 import type { AskLessonRead, AskTurn, LessonReviewRead } from "@armada/jobs/review-wire";
-import { askOf, briefOf, checkOutputOf, composingOf, frameOf, lessonsOf, retroOf, reviewOf } from "./request";
+import { askOf, briefOf, checkOutputOf, composingOf, frameOf, lessonsOf, retroOf, reviewOf, sessionCheckOutputOf } from "./request";
 import type { ReportsReader } from "./reports";
 import type { ReviewMaterial } from "./review";
 
@@ -73,6 +73,13 @@ export class JobReads {
     const port = this.wiring.port();
     if (port === null) return { ok: false, outcome: { ok: false, why: "not_connected" } };
     return await checkOutputOf(port, jobId, kept);
+  }
+
+  /** One Check a Session's agent ran, by its run id. `readCheckOutput`'s shape: it answers the caller and publishes nothing. */
+  async readSessionCheckOutput(run: number): Promise<CheckOutputRead> {
+    const port = this.wiring.port();
+    if (port === null) return { ok: false, outcome: { ok: false, why: "not_connected" } };
+    return await sessionCheckOutputOf(port, run);
   }
 
   /**

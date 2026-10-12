@@ -312,6 +312,7 @@ where
                 .give_back(&Holder::session(&id), None, &now)
                 .map_err(|why| self.ledger_fault(why))?;
         }
+        self.session_checks_ended(&id).await;
         self.published_hosted(&id).await
     }
 

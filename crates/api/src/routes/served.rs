@@ -555,6 +555,16 @@ const ROUTES: &[Route] = &[
         path: "/sessions/window",
     },
     Route {
+        operation: "report_session_check",
+        method: "POST",
+        path: "/sessions/checks",
+    },
+    Route {
+        operation: "get_session_check_output",
+        method: "GET",
+        path: "/sessions/checks/:run/output",
+    },
+    Route {
         operation: "ask_in_window",
         method: "POST",
         path: "/sessions/window/ask",
