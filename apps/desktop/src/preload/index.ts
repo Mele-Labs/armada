@@ -633,6 +633,7 @@ const api: BridgeApi = {
   ...autopilotPreload,
   setSleep: (on: boolean): Promise<SleepActed> => ipcRenderer.invoke(CHANNELS.setSleep, on),
   overrideSleep: (id: string, text: string): Promise<SleepActed> => ipcRenderer.invoke(CHANNELS.overrideSleep, id, text),
+  reviewSleep: (id: string): Promise<SleepActed> => ipcRenderer.invoke(CHANNELS.reviewSleep, id),
   onSleepChanged: (onChanged: (state: SleepState) => void): (() => void) => {
     const handler = (_event: unknown, state: SleepState): void => onChanged(state);
     ipcRenderer.on(CHANNELS.sleepChanged, handler);

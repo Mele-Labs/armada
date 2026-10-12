@@ -20,7 +20,7 @@ use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{HostedSessions, Refusal};
 use core_model::{Actor, EscalationTrigger, JobStatus, TransitionReason};
 use ipc::{
-    AnswerWaiting, OverrideSleep, SendSessionMessage, SleepBlocked, SleepDecided, SleepLanded, SleepState,
+    AnswerWaiting, OverrideSleep, ReviewSleep, SendSessionMessage, SleepBlocked, SleepDecided, SleepLanded, SleepState,
     SleepWalk, WaitingItem, WaitingMode, WaitingSource, WireError,
 };
 use store::{SessionState, SleepRow};
@@ -117,6 +117,7 @@ fn wire_of(switch: &store::SleepSwitch, rows: Vec<SleepRow>) -> SleepState {
     let mut state = SleepState { on: switch.on, ..SleepState::default() };
     for row in rows {
         match row.kind.as_str() {
+            "decided" if row.reviewed => {}
             "decided" => state.decided.push(SleepDecided {
                 id: row.id,
                 who: row.who,
@@ -139,7 +140,7 @@ fn wire_of(switch: &store::SleepSwitch, rows: Vec<SleepRow>) -> SleepState {
 }
 
 fn row(kind: &str, id: String, who: String, text: String) -> SleepRow {
-    SleepRow { id, kind: kind.into(), who, text, session_id: None, chose: None, corrected: None, pr: None }
+    SleepRow { id, kind: kind.into(), who, text, session_id: None, chose: None, corrected: None, pr: None, reviewed: false }
 }
 
 impl<H, V, W> Fleet<H, V, W>
@@ -215,6 +216,19 @@ where
             .await
             .correct_sleep_row(&over.id, &words)
             .map_err(|why| self.ledger_fault(why))?;
+        self.sleep_published().await
+    }
+
+    /// `review_sleep`: the owner kept a decision, so it leaves the review.
+    pub(crate) async fn review_a_decision(&self, review: ReviewSleep) -> Result<SleepState, Refusal> {
+        let kept = self.store().lock().await.review_sleep_row(&review.id).map_err(|why| self.ledger_fault(why))?;
+        if !kept {
+            return Err(Refusal::IllegalMove(WireError::raised(
+                SLEEP_NO_DECISION,
+                "no decision of the night holds that id",
+                self.run_id(),
+            )));
+        }
         self.sleep_published().await
     }
 

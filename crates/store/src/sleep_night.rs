@@ -17,6 +17,8 @@ pub struct SleepRow {
     pub chose: Option<String>,
     pub corrected: Option<String>,
     pub pr: Option<String>,
+    /// The owner kept or changed this decision: it leaves the review.
+    pub reviewed: bool,
 }
 
 /// Whether sleep is on, and since when (RFC3339).
@@ -26,7 +28,7 @@ pub struct SleepSwitch {
     pub since: Option<String>,
 }
 
-const COLUMNS: &str = "id, kind, who, text, session_id, chose, corrected, pr";
+const COLUMNS: &str = "id, kind, who, text, session_id, chose, corrected, pr, reviewed";
 
 fn row_of(row: &rusqlite::Row<'_>) -> rusqlite::Result<SleepRow> {
     Ok(SleepRow {
@@ -38,6 +40,7 @@ fn row_of(row: &rusqlite::Row<'_>) -> rusqlite::Result<SleepRow> {
         chose: row.get(5)?,
         corrected: row.get(6)?,
         pr: row.get(7)?,
+        reviewed: row.get::<_, i64>(8)? != 0,
     })
 }
 
@@ -96,21 +99,30 @@ impl Store {
         self.conn
             .execute(
                 "INSERT OR IGNORE INTO sleep_rows
-                 (id, kind, who, text, session_id, chose, corrected, pr)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
-                params![row.id, row.kind, row.who, row.text, row.session_id, row.chose, row.corrected, row.pr],
+                 (id, kind, who, text, session_id, chose, corrected, pr, reviewed)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+                params![row.id, row.kind, row.who, row.text, row.session_id, row.chose, row.corrected, row.pr, row.reviewed],
             )
             .map(|changed| changed > 0)
             .map_err(fault("leaving a row of the night"))
             .map_err(WriteError::Database)
     }
 
-    /// Mark a decision corrected with the owner's words. False where no row has the id.
+    /// Mark a decision corrected with the owner's words, and reviewed. False where no row has the id.
     pub fn correct_sleep_row(&mut self, id: &str, text: &str) -> Result<bool, WriteError> {
         self.conn
-            .execute("UPDATE sleep_rows SET corrected = ?2 WHERE id = ?1 AND kind = 'decided'", params![id, text])
+            .execute("UPDATE sleep_rows SET corrected = ?2, reviewed = 1 WHERE id = ?1 AND kind = 'decided'", params![id, text])
             .map(|changed| changed > 0)
             .map_err(fault("correcting a decision of the night"))
+            .map_err(WriteError::Database)
+    }
+
+    /// Mark a decision reviewed: the owner kept it. False where no row has the id.
+    pub fn review_sleep_row(&mut self, id: &str) -> Result<bool, WriteError> {
+        self.conn
+            .execute("UPDATE sleep_rows SET reviewed = 1 WHERE id = ?1 AND kind = 'decided'", [id])
+            .map(|changed| changed > 0)
+            .map_err(fault("reviewing a decision of the night"))
             .map_err(WriteError::Database)
     }
 

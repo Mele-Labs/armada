@@ -38,7 +38,7 @@ pub struct SleepWalk {
     pub title: String,
 }
 
-/// `get_sleep`, and what `set_sleep` and `override_sleep` answer: the switch and the night's rows.
+/// `get_sleep`, and what `set_sleep`, `override_sleep` and `review_sleep` answer: the switch and the night's rows.
 /// Also published whole as `sleep.changed`.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SleepState {
@@ -60,4 +60,10 @@ pub struct SetSleep {
 pub struct OverrideSleep {
     pub id: String,
     pub text: String,
+}
+
+/// `review_sleep`: the owner kept one decision as it was.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ReviewSleep {
+    pub id: String,
 }

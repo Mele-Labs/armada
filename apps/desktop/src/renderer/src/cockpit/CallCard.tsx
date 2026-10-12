@@ -75,14 +75,14 @@ function AnswerTile({ one, mark, picked, pending, held, onPick }: { one: Answer;
 const DRAFTS = new Map<string, string>();
 
 /** A reply in words: the Session's own "type something". Enter sends it. */
-function Reply({ itemKey, send, pending, held }: { itemKey: string; send: (text: string, accepted: () => void) => void; pending: boolean; held: boolean }) {
+function Reply({ itemKey, label, send, pending, held }: { itemKey: string; label: string; send: (text: string, accepted: () => void) => void; pending: boolean; held: boolean }) {
   const [text, setText] = useState(DRAFTS.get(itemKey) ?? "");
   const change = (next: string) => (DRAFTS.set(itemKey, next), setText(next));
   return (
     <label className="armada-callcard__reply" data-pending={pending || undefined}>
       <Kbd>{keyFor("call_reply")}</Kbd>
       <textarea
-        aria-label="Type something"
+        aria-label={label}
         rows={1}
         value={text}
         readOnly={held}
@@ -297,7 +297,7 @@ export function CallCard({
             )}
           </div>
         )}
-        {answer.reply === undefined ? null : <Reply itemKey={item.key} send={answer.reply} pending={answer.pending === "reply"} held={held} />}
+        {answer.reply === undefined ? null : <Reply itemKey={item.key} label={item.sleep === undefined ? "Type something" : "Change"} send={answer.reply} pending={answer.pending === "reply"} held={held} />}
         <div className="armada-callcard__acts">
           <Button variant="primary" disabled={!answer.canSend} onClick={answer.send}>
             {lone ? OPENS(item) : "Send"}

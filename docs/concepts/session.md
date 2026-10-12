@@ -436,7 +436,9 @@ While it is on, a pass over every live session's waiting items (`crates/fleet/sr
 | A Job that escalates because its Drone or run ended, was not heard, would not start, was not prepared, or its gate or proposer gave no answer, with a title that is not destructive | Its step restarted once, with no words (an undecided gate is run again instead). Recorded under decided; one with no stopped step to restart is recorded under blocked with the reason; if it escalates again the same night it stays as it is. |
 | Any other escalation, or a destructive title | Recorded under blocked. |
 
-`override_sleep` sends the session `Re: <asked>` and the owner's words, and marks the row corrected. Every change publishes `sleep.changed` with the night whole.
+**The review is cards in the Cockpit's call deck**, not a panel of its own: each decided row is a call. Enter keeps it (`review_sleep`), and typing a change sends it to the agent (`override_sleep`). Either marks the row reviewed, and `get_sleep` leaves a reviewed row out of `decided`. Blocked and walk rows are already calls: escalated Jobs and waiting items.
+
+`override_sleep` sends the session `Re: <asked>` and the owner's words, marks the row corrected and reviewed. Every change publishes `sleep.changed` with the night whole.
 
 ## A mod that is out of date
 

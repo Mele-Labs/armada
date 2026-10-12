@@ -63,6 +63,10 @@ impl HostedSessions for FakeDaemon {
         Err(nothing_hosted())
     }
 
+    async fn review_sleep(self: Arc<Self>, _review: ipc::ReviewSleep) -> Result<ipc::SleepState, Refusal> {
+        Err(nothing_hosted())
+    }
+
     async fn tune_session(&self, _tuned: TuneSession) -> Result<SessionRecord, Refusal> {
         Err(nothing_hosted())
     }
