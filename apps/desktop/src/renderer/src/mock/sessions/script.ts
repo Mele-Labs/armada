@@ -53,7 +53,8 @@ const drawing = (boxes: [string, number, number, string][], lines: [string, stri
 });
 
 /** The Sessions already open beside the walk's own. */
-function others(): Session[] {
+/** The Sessions every walk over the store opens with. */
+export function others(): Session[] {
   return [
     {
       id: "s2",
@@ -100,7 +101,6 @@ function others(): Session[] {
         },
         { kind: "studio", id: "st1", title: "Migration shapes" },
       ],
-      waitingFor: [{ id: "merge-1850", text: "Merge #1850 once ci is green", since: minutesAgo(130), source: "agent", act: { kind: "approve_pr", target: "#1850" } }],
     },
   ];
 }
@@ -151,7 +151,8 @@ export function sessionsStore(
   /** What an agent says to a Session, one message each time a walk lets time pass, before the usual turns. */
   arrivals: readonly (readonly [id: string, text: string])[] = [],
 ): SessionsStore {
-  let now: readonly Session[] = [...others(), ...more];
+  // A Session in `more` with a usual one's id stands in for it.
+  let now: readonly Session[] = [...others().filter((one) => !more.some((it) => it.id === one.id)), ...more];
   let clock = 0;
   let rowId = 0;
   let moment = 0;
