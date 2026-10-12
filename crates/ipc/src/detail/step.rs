@@ -126,10 +126,9 @@ pub struct StepDetail {
     pub step_id: StepId,
     /// What a person reads — `Plan the change`, not `plan`.
     ///
-    /// **Never absent and never blank**: where the workflow declares no label,
-    /// or Fleet cannot say which workflow this is, the id stands in. A client
-    /// that had to choose would make that choice differently in each place it
-    /// draws a step, and the id is already on the row above.
+    /// **Never absent and never blank**: where the workflow declares no label, or Fleet cannot say
+    /// which workflow this is, the id stands in. A client that had to choose would make that choice
+    /// differently in each place it draws a step, and the id is already on the row above.
     pub label: String,
     /// Position in the frozen WorkflowDef, so a rail draws past, current and
     /// future without reading the workflow.
@@ -176,14 +175,12 @@ pub struct StepDetail {
     pub advance_gate: Option<AdvanceGate>,
     /// Whether this is the step the frozen workflow sends the work out on.
     ///
-    /// **Absent means "Fleet cannot say", exactly as `checks` above it does**
-    /// — a Job named a workflow Fleet does not hold, or one that no longer
-    /// declares the step. Present is always the frozen workflow's own answer,
-    /// so `Some(false)` is as certain as `Some(true)`: a client can say "this
-    /// workflow never opens a pull request" from this field alone, before the
-    /// step it would have delivered on is even reached — `crate::JobDelivery`
-    /// only answers once the branch has actually gone out, which for a
-    /// workflow declaring no delivering step is never.
+    /// **Absent means "Fleet cannot say", exactly as `checks` above it does** — a Job named a
+    /// workflow Fleet does not hold, or one that no longer declares the step. Present is always the
+    /// frozen workflow's own answer, so `Some(false)` is as certain as `Some(true)`: a client can
+    /// say "this workflow never opens a pull request" from this field alone, before the step it
+    /// would have delivered on is even reached — `crate::JobDelivery` only answers once the branch
+    /// has actually gone out, which for a workflow declaring no delivering step is never.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub delivers: Option<bool>,
     /// Whether this step works the plan's tasks one at a time, each by a Drone
@@ -208,6 +205,9 @@ pub struct StepDetail {
     /// a linear workflow — and absent where Fleet cannot say, as `checks` is.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pass: Option<StepPass>,
+    /// How often the Judges sent this pass back to its Drone, and the limit. Absent at none. #2105.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sent_back: Option<crate::JudgesSentBack>,
     /// Where this step goes on a verdict that neither advances nor ends,
     /// naming the step name rather than the verdict. **On the step that sends
     /// the work back**, [`pass`](Self::pass)'s own step — the pair are two
@@ -470,6 +470,7 @@ impl StepDetail {
                     number: facts.map_or(0, |facts| facts.returns) + 1,
                     of,
                 }),
+            sent_back: None,
             verdict_routing_target: declared
                 .and_then(|declared| declared.verdict_routing().values().next())
                 .map(StepId::from),
@@ -526,9 +527,8 @@ fn latest_closed_attempt(facts: Option<&StepFacts>) -> u32 {
 
 /// The last ruling against a step.
 ///
-/// Two fields rather than one string, for the reason
-/// [`Reason`](crate::Reason) has two: `failed` carries the trigger that
-/// failed it, and the other two carry nothing.
+/// Two fields rather than one string, for the reason [`Reason`](crate::Reason) has two: `failed`
+/// carries the trigger that failed it, and the other two carry nothing.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Verdict {
     /// Which run of the step this ruling was made on, counted from one. **On
