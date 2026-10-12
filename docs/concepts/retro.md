@@ -420,9 +420,9 @@ it is pressed for rather than owed when work ends.
 | An item's id | The Job's id, a hyphen and its place | The Session's id, `-r`, the retro's number, a hyphen and its place |
 | Where `manifest` fixes go | The Job's repository | The repository the Session was started in |
 
-A press writes the retro and answers when it is written, so Bridge shows the
-writing mark until then and opens it, and for a hosted Session draws the
-retro as it is written (below). **A second press while one is writing is
+A press writes the retro and answers when it is written. For a terminal Session
+Bridge shows the writing mark until then and opens it; for a hosted Session it
+draws the retro as it is written, below and in *A Session's retro, in its thread*. **A second press while one is writing is
 refused** (409), and **a Session with nothing since its last retro answers with
 that retro**, or is refused (422) where it has none. A Session that ends is
 written one on the road a Job's takes, and one with nothing new, or whose call
