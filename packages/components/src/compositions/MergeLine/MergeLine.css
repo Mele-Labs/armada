@@ -638,5 +638,5 @@ a.armada-merge-line__queue-title:focus-visible {
 }
 
 .armada-merge-line__placed .armada-merge-line__row:not([aria-current]):is(:hover, :focus-within) .armada-merge-line__queue-title {
-  color: var(--fg);
+  color: var(--fg-default);
 }
