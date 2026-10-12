@@ -12,6 +12,7 @@
 
 mod basing;
 mod build_standing;
+mod catching_up_to_the_remote;
 mod ci_workflows;
 mod cloning;
 mod commit;

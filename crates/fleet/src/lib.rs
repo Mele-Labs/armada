@@ -120,6 +120,8 @@ mod examining;
 /// Asking a cheap model what one blocked command does, for the person deciding
 /// whether to allow it. It decides nothing and moves nothing.
 pub mod explaining;
+/// Fetching a Job's base from the remote before a catch-up reads it.
+mod fetching_the_base;
 /// Walking the checkout for `search_files`, the `@` mention popup's read.
 mod files;
 /// A Drone asking for the fix to a test broken on main. #999.

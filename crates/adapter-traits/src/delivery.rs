@@ -91,6 +91,28 @@ pub enum BaseOnTheRemote {
     },
 }
 
+/// What fetching the base from the remote came to.
+///
+/// **A catch-up merges what the remote holds, never the local branch of the
+/// same name.** The branch a person has checked out is rarely fast-forwarded,
+/// so merging it reports a branch up to date while the forge's pull request
+/// conflicts (Job 14, 12 Oct 2026). This is the one answer that says whether
+/// the remote's copy is the one now on this machine.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum BaseFetched {
+    /// `remote`'s copy of the base was fetched just now, and is what a catch-up
+    /// reads.
+    Fetched { remote: String },
+    /// There is no remote copy to prefer: the repository has no remote, or the
+    /// remote has never had this branch. **Ordinary**, and the local branch is
+    /// the only reading there is.
+    Local,
+    /// The remote has a copy and it could not be fetched. **Never a licence to
+    /// read the local branch or an older fetch**: either is a stale base
+    /// presented as a current one. `said` is git's own sentence.
+    Failed { remote: String, said: String },
+}
+
 /// What catching up to the base came to.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum BroughtUpToDate {
@@ -684,14 +706,25 @@ pub trait Delivery {
     /// Where the base branch stands against the one the forge would merge into.
     ///
     /// **Asked at the pull request and nowhere else.** It changes nothing about
-    /// what is rebased — the base on this machine is the branch a person merges
-    /// into, which is why `Nothing here fetches` is the adapter's own rule —
-    /// and it is read so that the pull request can say what it is carrying.
+    /// what is merged in — that is the remote's copy of the base, see
+    /// [`fetch_base`](Delivery::fetch_base) — and it is read so that the pull
+    /// request can say what it is carrying.
     fn base_on_the_remote(
         &self,
         worktree: &Worktree,
         base: &Base,
     ) -> Result<BaseOnTheRemote, NotDelivered>;
+
+    /// Fetch the base from the remote, so that [`standing`](Delivery::standing),
+    /// [`ahead`](Delivery::ahead), [`bring_up_to_date`](Delivery::bring_up_to_date)
+    /// and [`kept_current`](Delivery::kept_current) read what the remote holds.
+    ///
+    /// **Asked first by every caller of those four.** They read the remote's
+    /// copy of the base where this machine has one and the local branch where it
+    /// has none, and none of them fetches: this is the one call that touches the
+    /// network, so the one place a failure is seen and a caller decides what it
+    /// costs. `in_repo` is the repository or any worktree of it.
+    fn fetch_base(&self, in_repo: &str, base: &str) -> BaseFetched;
 
     /// Put the branch on top of the base, carrying uncommitted work across.
     ///
@@ -1003,7 +1036,9 @@ pub trait Delivery {
     /// as what this merges into.
     fn kept_current(&self, spec: &WorktreeSpec, base: &str) -> KeptCurrent;
 
-    /// The local commit a base branch is on, read without a worktree.
+    /// The commit a base branch is on, read without a worktree: the remote's
+    /// copy as [`fetch_base`](Delivery::fetch_base) last left it, and the local
+    /// branch only where the repository has no remote copy.
     ///
     /// **The cheap half of [`kept_current`](Delivery::kept_current)**, asked
     /// first so that a base which has not moved past what was already tried

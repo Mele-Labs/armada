@@ -29,7 +29,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
 
 use adapter_traits::{
-    Base, BaseCheckout, BaseMergedIn, BaseOnTheRemote, BaseSpec, BranchMerged, BroughtUpToDate,
+    Base, BaseCheckout, BaseFetched, BaseMergedIn, BaseOnTheRemote, BaseSpec, BranchMerged, BroughtUpToDate,
     Change, CommitStatus, CommitTime, Committed, Delivery, FromOutside, KeptCurrent, Landable,
     Landing, Mergeable, Merged, NotCloned, NotDelivered, NotMerged, Opened, Pushed, PushedOntoBase,
     Remark, RepositoryStanding, Review, SlotKept, SlotLeased, SlotPool, SlotReading, SlotStanding, WorkShown,
@@ -95,6 +95,11 @@ pub struct FakeVcs {
     /// what keeps this fake's `Default` and the domain type's lack of one both
     /// intact.
     base_on_the_remote: Mutex<Option<BaseOnTheRemote>>,
+    /// What fetching the base from the remote came to. **Its own field**, for
+    /// [`base_on_the_remote`](FakeVcs::base_on_the_remote)'s reason. Absent is
+    /// `Local`: a repository with no remote, which is what every test that does
+    /// not care about the fetch means.
+    base_fetch: Mutex<Option<BaseFetched>>,
     /// What the forge answers a merge with. **Its own field rather than a tenth
     /// on [`Delivering`]**, for [`base_on_the_remote`](FakeVcs::base_on_the_remote)'s
     /// reason and with a second: a merge only ever happens after the Fleet
@@ -420,6 +425,15 @@ impl FakeVcs {
         self
     }
 
+    /// Say that the remote cannot be fetched from: `said` is git's sentence.
+    /// `&self`, for [`now_landed`](FakeVcs::now_landed)'s reason.
+    pub fn now_unable_to_fetch(&self, remote: &str, said: &str) {
+        *self.base_fetch.lock().expect("not poisoned") = Some(BaseFetched::Failed {
+            remote: remote.to_string(),
+            said: said.to_string(),
+        });
+    }
+
     pub fn writing_into(self, holding: Holding, files: &[&str]) -> FakeVcs {
         *self.rebase_writes.lock().expect("not poisoned") =
             Some((holding, files.iter().map(|path| path.to_string()).collect()));
@@ -429,7 +443,20 @@ impl FakeVcs {
     /// Everything this fake was asked to do to a branch, in order. **Nothing
     /// removes an entry**, so a test asserting that no push happened is
     /// asserting on the whole run rather than on the last call.
+    ///
+    /// **Without the fetches**, which come before every catch-up and would put
+    /// a call in front of each one a test is about. `delivered_with_fetches`
+    /// is the order they came in.
     pub fn delivered(&self) -> Vec<Delivered> {
+        self.delivered_with_fetches()
+            .into_iter()
+            .filter(|it| !matches!(it, Delivered::FetchedBase { .. }))
+            .collect()
+    }
+
+    /// [`delivered`](FakeVcs::delivered), and each fetch of a base in the
+    /// place it was asked.
+    pub fn delivered_with_fetches(&self) -> Vec<Delivered> {
         self.delivered.lock().expect("not poisoned").clone()
     }
 }
@@ -454,6 +481,20 @@ impl Delivery for FakeVcs {
 
     fn ahead(&self, _worktree: &Worktree, _base: &Base) -> Result<usize, NotDelivered> {
         Ok(*self.ahead.lock().expect("not poisoned"))
+    }
+
+    fn fetch_base(&self, _in_repo: &str, base: &str) -> BaseFetched {
+        self.delivered
+            .lock()
+            .expect("not poisoned")
+            .push(Delivered::FetchedBase {
+                base: base.to_string(),
+            });
+        self.base_fetch
+            .lock()
+            .expect("not poisoned")
+            .clone()
+            .unwrap_or(BaseFetched::Local)
     }
 
     fn base_on_the_remote(
