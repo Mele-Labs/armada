@@ -8,6 +8,7 @@
 
 import type { HelmCallAnswer, HelmCallInFlight, QuestionAnswer } from "./helm-calls";
 import type { DroneNarrative, PilotOutcome } from "./piloting";
+import type { LandsIn, Whose } from "./retro";
 import type { SessionRecord, WaitingOption, WindowPlace } from "./sessions";
 
 /** The permission mode a session runs in. `auto` is the default. */
@@ -153,6 +154,28 @@ export type SessionAskState =
   | "unanswered"
   | "session_gone";
 
+/**
+ * Where the writing of a Session's retro has got to. `asking_agent` is absent from a retro written where
+ * no live, idle agent was asked. Since 23.78.
+ */
+export type RetroStage = "asking_agent" | "reading_record" | "writing" | "written" | "failed";
+
+/**
+ * One item of a retro as it settles while the model writes: a field is present once its value has ended,
+ * in the order the model writes them. The model's items before Fleet holds them to the record, so the
+ * kept retro can have fewer. Since 23.78.
+ */
+export type PartialRetroItem = {
+  title?: string;
+  what?: string;
+  fix?: string;
+  who?: Whose;
+  lands_in?: LandsIn;
+};
+
+/** The `retro` row of a hosted Session's thread. Since 23.78. */
+export type RetroRow = Extract<SessionRow, { kind: "retro" }>;
+
 /** One row of a hosted session's thread. A row is replaced by its `id`. */
 export type SessionRow =
   | {
@@ -174,6 +197,25 @@ export type SessionRow =
   | { kind: "lease"; id: string; at: string; slot: number; branch: string }
   /** An `armada check` the agent ran in its slot, replaced by id as it ends. `run` is the id `GET /sessions/checks/:run/output` reads. Since 23.75. */
   | { kind: "check"; id: string; at: string; name: string; run: number; state: "running" | "passed" | "failed" }
+  /**
+   * A Session's retro being written, replaced by id as it goes and kept when done. `items` settle while
+   * the model writes (`stage` `writing`) and are empty otherwise; `retro` is the kept retro's number for
+   * `get_session_retro n`, on `written`; `why` is Fleet's words, on `failed`. Since 23.78.
+   */
+  | {
+      kind: "retro";
+      id: string;
+      /** When the press was accepted. */
+      at: string;
+      stage: RetroStage;
+      /** When it reached `stage`. */
+      stage_since: string;
+      /** How much of the model's answer has arrived. */
+      characters: number;
+      items: PartialRetroItem[];
+      retro?: number;
+      why?: string;
+    }
   /**
    * The session showed the person a page in a window. `ended_at` is when the walk ended, by an
    * approval or the window closing; absent while it is open.

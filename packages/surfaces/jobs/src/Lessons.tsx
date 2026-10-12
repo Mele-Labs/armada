@@ -90,8 +90,8 @@ export type LessonsProps = {
    * window; absent, and the page keeps its own for as long as it is mounted.
    */
   hold?: ReviewHold;
-  /** A retro to open over the list as the page opens: the one a Session's Retro press asked for. */
-  opening?: { id: string; label: string };
+  /** A retro to open over the list as the page opens: the one a Session's retro card asked for, by its number, or the newest. */
+  opening?: { id: string; label: string; n?: number };
 };
 
 export function Lessons({
@@ -128,7 +128,7 @@ export function Lessons({
   const read = useReadOnFocus(() => onReadLessons(view), `${repository ?? ""}:${view}:${reads}`);
   // A Session's Retro press opens the newest of that Session's retros: `n` absent.
   const [open, setOpen] = useState<{ subject: RetroSubject; job: string } | null>(
-    opening === undefined ? null : { subject: { kind: "session", id: opening.id }, job: opening.label },
+    opening === undefined ? null : { subject: { kind: "session", id: opening.id, ...(opening.n === undefined ? {} : { n: opening.n }) }, job: opening.label },
   );
   const sessions = sessionStartsOf(onStartSession, onOpenSession);
   const answered = useAnswers(onAgreeLesson, onDisagreeLesson, onOpenJob, sessions);

@@ -329,6 +329,27 @@ is written to disk, so a restart starts a review again, which is also why Review
 mode is held and not remembered like the tab: stored, it would start a model call
 as Retros opened. `packages/surfaces/jobs/src/LessonsReview.tsx`.
 
+### A Session's retro, in its thread
+
+The owner's request, 12 Oct 2026: a person who pressed Retro should see it being
+written in the Session's thread. **The `retro` row is one card that stays**
+(`SessionRetroRow`, drawn from the latest frame only, since Fleet replaces the row
+by id and frames can cross). Running, it names the stage in a line (`Asking the
+agent what got in the way`, `Reading what Fleet kept of the Session`, `Writing the
+retro`) beside the time since `stage_since`; during `writing` the items settle in
+as cards in LessonCard's route (whose way, an arrow, where it lands), headline,
+what happened and `What would change`, a field at a time, the last marked `Still
+being written` with room held for what is still to come, and a quiet count of
+`characters`. Written, it folds to `Retro 3 written · 4 items` with the titles, and
+`Open retro` opens that retro by its number on the Retros page; the row's `items`
+are empty by then, so Bridge reads the kept retro once for the count and titles.
+Failed, Fleet's `why` is the card's alert. **The press moves nobody and does not
+wait on the answer**: the mark holds while the press is out and while the row
+runs, a second press is refused in Fleet's words and the card goes on, and the
+Retros page opens only from the link. Two answers have no card to watch and still
+open the retro as the press did: a terminal Session's, whose thread is a
+transcript, and a press answered with the last retro, which adds no row.
+
 ## Where it is served
 
 | Operation | Route | Answers |
@@ -406,12 +427,46 @@ it is pressed for rather than owed when work ends.
 | An item's id | The Job's id, a hyphen and its place | The Session's id, `-r`, the retro's number, a hyphen and its place |
 | Where `manifest` fixes go | The Job's repository | The repository the Session was started in |
 
-A press writes the retro and answers when it is written, so Bridge shows the
-writing mark until then and opens it. **A second press while one is writing is
+A press writes the retro and answers when it is written. For a terminal Session
+Bridge shows the writing mark until then and opens it; for a hosted Session it
+draws the retro as it is written, below and in *A Session's retro, in its thread*. **A second press while one is writing is
 refused** (409), and **a Session with nothing since its last retro answers with
 that retro**, or is refused (422) where it has none. A Session that ends is
 written one on the road a Job's takes, and one with nothing new, or whose call
 failed, is given up on and not tried again.
+
+**A hosted Session shows its retro being written, in its thread.** The owner's
+request, 12 Oct 2026: after the press, a person should see the retro come, and
+not a mark until it is done. Once Fleet accepts a press it puts a `retro` row on
+the thread and replaces it by id as the writing goes. A refused press adds none,
+and nor does a press that is answered with the last retro. The row stays when it
+is done, so a Session reopened later shows it.
+
+| `stage` | Means | What else moves |
+| --- | --- | --- |
+| `asking_agent` | The live, idle agent was asked what got in its way, and Fleet is waiting up to 90 seconds. **Absent where no agent is asked** | |
+| `reading_record` | Fleet is gathering what it kept of the Session | |
+| `writing` | The model is writing | `characters`, the answer so far, and `items`, as they settle |
+| `written` | Kept | `retro` is its number, for `get_session_retro`. `items` are empty: the kept retro's are the ones to read |
+| `failed` | Not kept | `why` is Fleet's words, the refusal's message |
+
+`stage_since` is when it reached the stage and `at` when the press was accepted.
+**An item's field appears once its value has ended**, in the order the model
+writes them, so a title is never half a sentence (`PartialRetroItem`: `title`,
+`what`, `fix`, `who`, `lands_in`, each absent until then). They are the model's
+items **before Fleet holds them to the record**, so the kept retro can have fewer:
+an item citing nothing the record holds, or with a dash in its text, is drawn
+while the model writes and not kept. A row is replaced at most four times a
+second; a stage change and the last state are never held back.
+
+**The row is a courtesy and no part of the retro.** The call is the same, the
+budget and the model are the same, and a call that fails fails as it did. A row
+that was never updated, or a client that missed every frame, keeps the same retro.
+A row a Fleet restart left in `asking_agent`, `reading_record` or `writing` is
+read as `failed` with "Fleet restarted while it was written", and kept so.
+The retro written when a hosted Session ends gets a row the same way. **A terminal
+Session has no rows of Fleet's**, so it is written as before, with the writing
+mark until the press answers.
 
 **The record is mechanical, as a Job's is**, read from what Fleet keeps of the
 Session since the last retro ended.

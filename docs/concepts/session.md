@@ -392,6 +392,16 @@ Bridge reads every live session from `list_sessions` once per connection and kee
 
 A terminal Session's thread is its transcript and carries no `check` row; its runs are on the Checks page. A run whose `armada check` process is killed stays `running` until its Session ends, when Fleet ends it as failed with "the Session ended" as its log.
 
+## A Session's retro in its thread
+
+**A retro being written is a `retro` row on a hosted Session's thread** (23.78). Fleet adds it when it accepts a press, replaces it by id as the writing goes (`stage`, `stage_since`, `characters`, the `items` that have settled) and leaves it when the retro is kept (`retro`, the number `get_session_retro` takes) or has failed (`why`). `docs/concepts/retro.md`, *A Session's retro*, has the stages.
+
+| Where it shows | What |
+|---|---|
+| A hosted Session's thread | One `retro` row per retro, in the order the presses came. It is a progress report: it holds no retro, and `has_news` and the retro's own record never read it |
+| `get_session` | The row as it last stood. One left going by a Fleet that has restarted is returned and kept as `failed`, "Fleet restarted while it was written" |
+| A terminal Session | No row. Its thread is its transcript |
+
 ## Running a block
 
 A fenced shell block in a Session's thread shows Run when the block is hovered or focused. Pressing it runs the command in the Session's working directory, its slot if it has one, and the output prints under the block as it arrives. A finished run carries a mark with the exit code on its tooltip, and Run again sits where Run was. A run that goes on shows Stop in Run's place, and a stopped run ends with no exit code.

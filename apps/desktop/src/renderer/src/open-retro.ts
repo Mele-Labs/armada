@@ -1,4 +1,4 @@
-// A Session's Retro press asks the app for the Retros page with that Session's retro open. A
+// A Session's retro card, in its thread, asks the app for the Retros page with that retro open. A
 // window event, as `open-session.ts` is, because the press sits in lists that do not hold the
 // app's navigation. The ask is kept until the page mounts and takes it.
 
@@ -6,8 +6,11 @@ import { useEffect } from "react";
 
 const OPEN_RETRO = "armada:open-retro";
 
-/** The Session whose retro the Retros page opens on: its id, and the name it is read by. */
-export type RetroAsked = { id: string; label: string };
+/**
+ * The Session whose retro the Retros page opens on: its id, and the name it is read by. **`n` names
+ * the retro** from the Session's thread card, which is one of several; absent, the newest.
+ */
+export type RetroAsked = { id: string; label: string; n?: number };
 
 let waiting: RetroAsked | undefined;
 

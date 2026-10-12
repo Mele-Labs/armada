@@ -43,6 +43,7 @@ import type {
 } from "@armada/protocol";
 import type { BridgeState } from "../shared/bridge";
 import type { ArtifactRead } from "@armada/screens/src/draft/sessions";
+import { withThreadRow } from "@armada/screens/src/retro-row";
 import type { PullRequestPress, SessionActed } from "../shared/api/sessions";
 import { openSessionFile, readSessionArtifact, titleOfWindow } from "./session-file";
 import { ask, MODEL_CALL_MS, sessionFileOf } from "./request";
@@ -59,10 +60,11 @@ const PRESS_ROUTE: Readonly<Record<"ready" | "merge" | "auto_merge", string>> = 
   auto_merge: "auto_merge",
 };
 
-/** A row replaced where its id is held, appended where it is not. */
-export function withRow(rows: readonly SessionRow[], row: SessionRow): SessionRow[] {
-  return rows.some((one) => one.id === row.id) ? rows.map((one) => (one.id === row.id ? row : one)) : [...rows, row];
-}
+/**
+ * A row replaced where its id is held, appended where it is not. **A retro row is replaced only by
+ * a later frame of itself**, since Fleet replaces it many times as it is written.
+ */
+export const withRow = withThreadRow<SessionRow>;
 
 /** A session replaced where its id is held, put first where it is not: the list is most recently seen first. */
 export function withSession(sessions: readonly SessionRecord[], record: SessionRecord): SessionRecord[] {

@@ -11,6 +11,7 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { SessionMark } from "../SessionFrame/SessionFrame";
 import { StepActivityMark, type StepActivity } from "../StepActivityMark/StepActivityMark";
 import { InlineTag } from "../SessionComposer/InlineTag";
+import { SessionRetroRow, type SessionRetroRowData } from "../SessionRetroRow/SessionRetroRow";
 import { QuestionDeck } from "./QuestionDeck";
 import type { ComposerTag } from "../SessionComposer/InlineTag";
 
@@ -51,6 +52,8 @@ export type SessionThreadRow =
   | { id: string; at: string; kind: "check"; name: string; run: number; state: CheckRunState }
   /** The Session showed a page in a window: a quiet row, a press that opens the window again. */
   | { id: string; at: string; kind: "window"; title: string; url: string }
+  /** A retro being written for this Session, then the one that was: a card that stays in the thread. */
+  | SessionRetroRowData
   | {
       id: string;
       at: string;
@@ -103,6 +106,8 @@ export type SessionThreadProps = {
   onOpenWindow?: (url: string) => void;
   /** Opens a Check run the agent made on the Checks page. Absent, its row is not a press. */
   onOpenCheck?: (run: number) => void;
+  /** Opens a retro this Session wrote, by its number, on the Retros page. Absent, the card has no link. Keep it stable: the card is memoised. */
+  onOpenRetro?: (retro: number) => void;
   /** Which Session this is. A change of it opens the thread at its newest row again. */
   sessionId?: string;
   /** The turn is running: a live mark sits at the end, on the last tool group's row if that is the last row. */
@@ -315,12 +320,15 @@ function Row({
   onOpenSession,
   onOpenWindow,
   onOpenCheck,
+  onOpenRetro,
 }: {
   row: Exclude<SessionThreadRow, { kind: "tool" }>;
   onOpenSession: (id: string) => void;
   onOpenWindow?: (url: string) => void;
   onOpenCheck?: (run: number) => void;
+  onOpenRetro?: (retro: number) => void;
 }) {
+  if (row.kind === "retro") return <SessionRetroRow row={row} {...(onOpenRetro === undefined ? {} : { onOpen: onOpenRetro })} />;
   if (row.kind === "check") {
     const mark = <StepActivityMark activity={CHECK_MARK[row.state]} label={row.state} says={row.state} pulsing={row.state === "running"} />;
     return (
@@ -436,7 +444,7 @@ function Row({
 /** How far from the end still counts as being at it, so a rounding or a half row does not unpin. */
 const NEAR_END = 24;
 
-export function SessionThread({ rows, asked, askRef, onAnswer, onOpenSession, onOpenWindow, onOpenCheck, sessionId, working, runner, onCommand, commandNames }: SessionThreadProps) {
+export function SessionThread({ rows, asked, askRef, onAnswer, onOpenSession, onOpenWindow, onOpenCheck, onOpenRetro, sessionId, working, runner, onCommand, commandNames }: SessionThreadProps) {
   const slash = useMemo(() => (onCommand === undefined ? null : { send: onCommand, names: new Set(commandNames ?? []) }), [onCommand, commandNames]);
   const scroller = useRef<HTMLDivElement>(null);
   const pinned = useRef(true);
@@ -470,7 +478,7 @@ export function SessionThread({ rows, asked, askRef, onAnswer, onOpenSession, on
             item.kind === "calls" ? (
               <Calls key={item.id} rows={item.rows} working={working === true && at === items.length - 1} />
             ) : (
-              <Row key={item.row.id} row={item.row} onOpenSession={onOpenSession} onOpenWindow={onOpenWindow} onOpenCheck={onOpenCheck} />
+              <Row key={item.row.id} row={item.row} onOpenSession={onOpenSession} onOpenWindow={onOpenWindow} onOpenCheck={onOpenCheck} onOpenRetro={onOpenRetro} />
             ),
           )}
           {working === true && !endsInCalls ? (

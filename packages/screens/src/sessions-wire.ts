@@ -9,6 +9,7 @@
 import type { Attachment, HelmCallInFlight, JobSummary, SessionRecord, SessionRow as WireRow, SessionTag as WireTag } from "@armada/protocol";
 
 import { clock } from "./duration";
+import { retroRowOf } from "./retro-row";
 import type {
   Session,
   SessionAsk,
@@ -255,6 +256,9 @@ export function rowsOfThread(sessionId: string, rows: readonly WireRow[], pictur
         break;
       case "window":
         out.push({ id: row.id, at, kind: "window", title: row.title, url: row.url });
+        break;
+      case "retro":
+        out.push(retroRowOf(row, at));
         break;
       // The open question is on the window's bar and under Waiting on you, so the thread keeps a line.
       case "window_ask":

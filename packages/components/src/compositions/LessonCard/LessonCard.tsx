@@ -92,6 +92,33 @@ export type LessonCardProps = {
 };
 
 /**
+ * Whose way it got in, an arrow, and where the fix lands: each end a word with its mark and its
+ * own hue. **One arrow, one component**, so the Lessons list, a retro sheet and the retro a
+ * Session is writing in its thread draw the same pair. An end that is absent is not drawn.
+ */
+export function LessonRoute({ who, landsIn }: { who?: Who; landsIn?: Lands }) {
+  return (
+    <span className="armada-lesson__route">
+      {who === undefined ? null : (
+        <span className="armada-lesson__label" data-hue={who === "owner" ? "you" : who}>
+          <WhoMark who={who} />
+          <span className="armada-lesson__word">{whoWord(who)}</span>
+        </span>
+      )}
+      {landsIn === undefined ? null : (
+        <>
+          {who === undefined ? null : <MoveRight className="armada-lesson__arrow" size={14} strokeWidth={2} aria-hidden />}
+          <span className="armada-lesson__label" data-hue={landsIn}>
+            <LandsMark lands={landsIn} />
+            <span className="armada-lesson__word">{landsWord(landsIn)}</span>
+          </span>
+        </>
+      )}
+    </span>
+  );
+}
+
+/**
  * One retro item, top to bottom: whose way it got in and where its fix lands as
  * words, the headline, what happened, the fix, and the two answers. The record
  * rows it cites are behind a small control.
@@ -115,22 +142,7 @@ export function LessonCard({ item, evidence, answers, settled, from }: LessonCar
     // reader and by a walk alike.
     <li className="armada-lesson" aria-label={headed ? item.title : item.statement}>
       <div className="armada-lesson__labels">
-        {/* One arrow, from whose way it got in to where the fix lands. Each end is its own hue. */}
-        <span className="armada-lesson__route">
-          <span className="armada-lesson__label" data-hue={item.who === "owner" ? "you" : item.who}>
-            <WhoMark who={item.who} />
-            <span className="armada-lesson__word">{whoWord(item.who)}</span>
-          </span>
-          {item.landsIn === undefined ? null : (
-            <>
-              <MoveRight className="armada-lesson__arrow" size={14} strokeWidth={2} aria-hidden />
-              <span className="armada-lesson__label" data-hue={item.landsIn}>
-                <LandsMark lands={item.landsIn} />
-                <span className="armada-lesson__word">{landsWord(item.landsIn)}</span>
-              </span>
-            </>
-          )}
-        </span>
+        <LessonRoute who={item.who} landsIn={item.landsIn} />
         {from === undefined ? null : (
           <Tooltip label={from.exact ?? from.label}>
             <button type="button" className="armada-lesson__from" onClick={from.onOpen}>

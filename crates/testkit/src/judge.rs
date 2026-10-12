@@ -42,6 +42,9 @@ pub struct FakeJudge {
     /// How long the rendered program takes before it answers. Zero on every
     /// judge but one a test asked for [`FakeJudge::taking`].
     taking: Duration,
+    /// How many characters of the answer each streamed frame carries; zero streams none.
+    /// A watched call only: see [`FakeJudge::streamed_in`].
+    streaming: usize,
     /// One answer per call, in order, for [`FakeJudge::answering_in_turn`].
     /// `None` on every other constructor — a call past the end of the list
     /// keeps drawing the last entry, which is what lets a test script two
@@ -61,6 +64,7 @@ impl FakeJudge {
             models: Mutex::new(Vec::new()),
             directories: Mutex::new(Vec::new()),
             taking: Duration::ZERO,
+            streaming: 0,
             sequence: None,
         }
     }
@@ -94,6 +98,7 @@ impl FakeJudge {
             models: Mutex::new(Vec::new()),
             directories: Mutex::new(Vec::new()),
             taking: Duration::ZERO,
+            streaming: 0,
             sequence: None,
         }
     }
@@ -110,6 +115,7 @@ impl FakeJudge {
             models: Mutex::new(Vec::new()),
             directories: Mutex::new(Vec::new()),
             taking: Duration::ZERO,
+            streaming: 0,
             sequence: None,
         }
     }
@@ -127,6 +133,7 @@ impl FakeJudge {
             models: Mutex::new(Vec::new()),
             directories: Mutex::new(Vec::new()),
             taking: Duration::ZERO,
+            streaming: 0,
             sequence: None,
         }
     }
@@ -147,6 +154,7 @@ impl FakeJudge {
             models: Mutex::new(Vec::new()),
             directories: Mutex::new(Vec::new()),
             taking: Duration::ZERO,
+            streaming: 0,
             sequence: Some(Mutex::new((
                 0,
                 replies.iter().map(|reply| reply.to_string()).collect(),
@@ -159,6 +167,14 @@ impl FakeJudge {
     /// here is about the answer, so every other constructor stays instant.
     pub fn taking(mut self, taking: Duration) -> FakeJudge {
         self.taking = taking;
+        self
+    }
+
+    /// The same judge, whose watched call streams its answer `characters` at a time before the
+    /// whole turn arrives, as the real client's frames do. **For a test of what a person
+    /// watching sees as the answer is written.** The unwatched call is unchanged.
+    pub fn streamed_in(mut self, characters: usize) -> FakeJudge {
+        self.streaming = characters;
         self
     }
 
@@ -298,6 +314,12 @@ impl ModelClient for FakeJudge {
         ];
         if self.failing.is_none() {
             if let Some(answer) = self.answer(ask.question()) {
+                if self.streaming > 0 {
+                    let letters: Vec<char> = answer.chars().collect();
+                    lines.extend(letters.chunks(self.streaming).map(|frame| {
+                        frame_of(&frame.iter().collect::<String>())
+                    }));
+                }
                 lines.push(assistant(&answer));
             }
         }
@@ -342,6 +364,14 @@ fn assistant(answer: &str) -> String {
     format!(
         r#"{{"type":"assistant","message":{{"content":[{{"type":"text","text":"{}"}}]}}}}"#,
         escaped(answer)
+    )
+}
+
+/// One streamed frame of an answer, as the real stream carries one.
+fn frame_of(text: &str) -> String {
+    format!(
+        r#"{{"type":"stream_event","event":{{"delta":{{"text":"{}"}}}}}}"#,
+        escaped(text)
     )
 }
 
