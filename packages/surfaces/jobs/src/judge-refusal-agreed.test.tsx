@@ -27,12 +27,13 @@ async function opened(): Promise<void> {
   await expect.element(page.getByRole("button", { name: fixture.job.handle })).toBeVisible();
 }
 
-test("Overview's lead asks nothing, and offers what Fleet's recourse does", async () => {
+test("Overview's Now card asks nothing, and offers what Fleet's recourse does", async () => {
   await opened();
   await expect.element(page.getByRole("heading", { name: "Stopped on a Judge refusal" })).toBeVisible();
   expect(page.getByRole("button", { name: "Answer it" }).query()).toBeNull();
   expect(page.getByText(/until you answer/).query()).toBeNull();
-  const lead = document.querySelector(".armada-lead");
+  // The lead is gone (11 Oct 2026): what it offered is the card in the Now panel.
+  const lead = document.querySelector(".armada-now .armada-callcard");
   for (const name of ["Overrule the verdict", "Restart step"]) {
     const act = page.getByRole("button", { name });
     await expect.element(act).toBeVisible();

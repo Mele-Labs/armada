@@ -3453,6 +3453,18 @@ Bridge's half is in `packages/protocol/src/hosted-sessions.ts`, written by hand 
 
 **Skew.** A Fleet before 23.74 has neither route and answers 404, so a Bridge that offers the review has nothing to call and shows the plain list. A Bridge before it never calls them. Bridge's half is `packages/protocol/src/retro-review.ts`, written by hand like the rest.
 
+## Protocol 23.79: a Session forked at a message
+
+`docs/concepts/session.md`, *A fork at a message*. **Additive only**: one optional field on `ForkFrom`, one 422 and one key in an existing detail. No new operation.
+
+| Where | Carries | Notes |
+| --- | --- | --- |
+| `ForkFrom.at?` (`start_session` `fork`) | The id of a thread row | The copy ends at that message, included. Left out, the fork is the whole conversation and is made of an ended or dead session only, as since 23.69 |
+| `start_session` with `fork.at` | | **The old session may be live** and is left as it was: no 409 `fleet.session_fork_live`. 422 `fleet.fork_point_unwritten` where no message of the thread has that id or the agent's conversation does not hold it; nothing is written |
+| `Attachment.detail` of `forked_from` | `at`, `cut` | `at` is the row id as sent, which Bridge cuts the folded old rows at. `cut` is the transcript line the agent is told to end at and Bridge does not read it. Both absent for a whole-conversation fork |
+
+**Skew.** A Fleet before 23.79 reads a `fork` with an `at` as it reads one without and refuses a live session 409, so a Bridge that sends `at` to it shows the refusal. Bridge's half is `packages/protocol/src/hosted-sessions.ts`, written by hand like the rest; the part that offers the act is `forkSessionAt` on the preload.
+
 ## Protocol 23.73: Skill and Drone steps run
 
 `docs/concepts/trigger.md`, *A Skill or a Drone step*. **Additive only**: one optional field on `JobTrigger`. A Skill Trigger, a Skill added step and a Drone added step now run on a side Drone, on a branch cut from the Job's, and no state, operation or error is new.

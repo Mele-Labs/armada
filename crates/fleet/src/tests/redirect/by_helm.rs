@@ -34,7 +34,7 @@ async fn a_stalled_job_helm_redirected_is_moved_back_by_helm_when_the_drone_turn
     let job = stalled(&fleet, &home).await;
 
     fleet
-        .redirect(&job, &advice(), api::Redirector::Helm)
+        .redirect(&job, &advice(), api::Steerer::Helm)
         .await
         .expect("a Drone to redirect");
     until_roused(&fleet).await;
@@ -49,7 +49,7 @@ async fn a_stopped_step_helm_redirected_is_handed_back_by_helm() {
     let job = refused(&fleet, &home).await;
 
     fleet
-        .redirect(&job, &advice(), api::Redirector::Helm)
+        .redirect(&job, &advice(), api::Steerer::Helm)
         .await
         .expect("a Drone to redirect");
 
@@ -64,7 +64,7 @@ async fn a_persons_redirect_is_still_recorded_as_theirs() {
     let job = refused(&fleet, &home).await;
 
     fleet
-        .redirect(&job, &advice(), api::Redirector::Person)
+        .redirect(&job, &advice(), api::Steerer::Person)
         .await
         .expect("a Drone to redirect");
 

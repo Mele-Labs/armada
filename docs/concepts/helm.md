@@ -75,7 +75,7 @@ Helm's advantage is not more access than you have. It is reasoning over results 
 
 **Helm polls instead.** `get_events_since(cursor)` runs at the start of each turn, returning a count plus one line per event kind rather than the events themselves. Helm is never more than one turn stale, and fetches detail through the other queries only when it bears on what was asked.
 
-**Fleet never wakes the session.** Why: it would make Helm a second notification channel alongside Alerts.
+**Fleet never wakes the session.** Why: it would make Helm a second notification channel alongside Alerts. A Job's Commander is the exception, a conversation on Helm's host keyed by the Job that Fleet wakes on that Job's events (`.claude/decisions/2026-10-11-a-job-has-a-commander.md`).
 
 **Every call is scoped to the selected Manifest, except Doctor, which Helm reads machine-wide.** Doctor's modules are machine-level by nature — the Fleet daemon, disk, Armada API reachability — and cannot be Manifest-scoped, so under strict scoping Helm could not answer whether the daemon is healthy.
 
@@ -135,6 +135,12 @@ Rung 3 carries no MCP operation for Helm to reach for, ladder or no. A Job Helm 
 ## Audit trail
 
 **Every Helm-initiated action is logged as its own distinct event type**, never conflated with your manual actions or with Drone self-reports. Manual actions are already distinguished from Drone evidence, per the Debug/Pilot design. Three-way separation: Drone evidence, human manual action, Helm-initiated action.
+
+**A Job's Commander is a fourth signer, `commander`, and is never recorded as Helm or as a person.** It signs the move, the plan change and the door (`Via`) of what it did on its Job, so a person filtering a Job's thread for Helm's acts does not get the Commander's, and one filtering for their own does not either. The variant exists and nothing signs with it yet: the acts that do are built one at a time, and each says so where it lands.
+
+**A Commander's reach is an allowlist, and Helm's is not.** Helm may call any act the door offers it except the one named in `fleet::helm`'s `RESERVED`, so a new operation is Helm's the day it is written. A Commander is placed by the connection it calls on, never by a header or a field, and may call every query and the acts in `api`'s `daemon/commander.rs` and nothing else: a cap, the plan, a restart, a Drone's next words. A new operation is refused until someone adds it there, and `api`'s `commander_reach` tests fail until it is either on that list or reviewed and refused.
+
+**Helm may raise a Job's turn or cost cap to twice what its workflow allows, and a Job's Commander to three times; a person has no ceiling.** Fleet decides which of the three is asking from the connection the call arrived on, and never from the request: the body of `raise_cost_cap` and `raise_turn_cap` carries a figure and nothing that says who sent it. Why: the field used to be read from the body, so a Helm call that sent `person` was a person's raise and met no ceiling (#2165). The ceiling is a multiple of the cap the Job would inherit and not of the cap in force, so asking again reaches no further. Past it the call is refused with a line that names the ceiling.
 
 **A Helm write to your checkout is `helm.changed_checkout`**, naming the repository, the tool and the path, published as the session's stream says it happened. A person who finds a file changed and did not change it reads this to see that Helm did. It names writes Armada can name: a shell line Helm ran may have written something too and nothing says whether it did, so those calls are on the conversation's own thread and produce no event.
 

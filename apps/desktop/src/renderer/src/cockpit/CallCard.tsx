@@ -8,12 +8,13 @@
 
 import { useEffect, useLayoutEffect, useRef, useState, type MutableRefObject, type ReactNode } from "react";
 import { Bot, Box, ChevronDown, ChevronUp, Cpu, Scale, ShieldCheck, SquareTerminal, Waypoints, Workflow, type LucideIcon } from "lucide-react";
-import { Button, Kbd, SessionThread, Tooltip, actionOf, keyFor, type NowPanelProps } from "@armada/components";
+import { AskAnswer, AskAnswers, AskCard, AskChoices, AskQuestion, Button, Kbd, SessionThread, Tooltip, actionOf, keyFor, type NowPanelProps } from "@armada/components";
 
 import type { BridgeState } from "../../../shared/bridge";
 import { age, type Hosts, type Item } from "../Dashboard";
 import { useSessions } from "../sessions-draft";
-import { SessionBox, threadRowsOf } from "../sessions";
+import { SessionBox } from "../sessions";
+import { threadRowsOf } from "../session-thread-rows";
 import { useAnswering, type Answer, type Answering } from "./answers";
 import { CoveredKeycap, Keycap, useCover } from "./consoles";
 import { Failure, hasFailure } from "./Failure";
@@ -49,30 +50,17 @@ const OUT = "Waiting on Fleet";
  * is every other while one is, which cannot be pressed.
  */
 function AnswerTile({ one, mark, picked, pending, held, onPick }: { one: Answer; mark: string; picked: boolean; pending: boolean; held: boolean; onPick: () => void }) {
-  const tile = (
-    <button
-      type="button"
-      role="radio"
-      aria-checked={picked}
-      className="armada-callcard__answer"
-      data-standing={one.key === undefined ? undefined : ""}
-      data-pending={pending || undefined}
-      aria-busy={pending || undefined}
-      disabled={held && !pending}
-      onClick={onPick}
-    >
-      <Kbd>{mark}</Kbd>
-      <span className="armada-callcard__option">
-        <span className="armada-callcard__label">
-          {one.label}
-          {one.recommended === true ? <span className="armada-callcard__recommended">Recommended</span> : null}
-        </span>
-        {one.description === undefined ? null : <span className="armada-callcard__description">{one.description}</span>}
-      </span>
-    </button>
+  return (
+    <AskAnswer
+      one={{ label: one.label, ...(one.description === undefined ? {} : { description: one.description }), ...(one.recommended === true ? { recommended: true } : {}), ...(one.says === undefined ? {} : { says: one.says }), standing: one.key !== undefined }}
+      mark={mark}
+      picked={picked}
+      pending={pending}
+      held={held}
+      pendingSays={OUT}
+      onPick={onPick}
+    />
   );
-  const said = pending ? OUT : one.says;
-  return said === undefined ? tile : <Tooltip label={said}>{tile}</Tooltip>;
 }
 
 /** What a reply in words has been given and not yet sent, kept by call so leaving the card keeps it. */
@@ -362,15 +350,7 @@ export function CallCard({
   );
 
   const card = (
-    <section className="armada-callcard" data-hue={item.hue} data-leaving={leaving} data-from={from} aria-label={`${item.kind}: ${item.title}`}>
-      <header className="armada-callcard__band">
-        <Icon size={16} aria-hidden="true" />
-        <span>{item.kind}</span>
-        <span className="armada-callcard__where">{item.where}</span>
-        <span className="armada-callcard__age">{age(item.at, now)}</span>
-      </header>
-      <div className="armada-callcard__body">
-        <h2 className="armada-callcard__title">{item.title}</h2>
+    <AskCard icon={Icon} kind={item.kind} where={item.where} age={age(item.at, now)} title={item.title} hue={item.hue} leaving={leaving} from={from}>
         {session !== undefined ? (
           <div className="armada-callcard__thread">
             <SessionThread sessionId={session.id} rows={threadRowsOf(session)} onAnswer={() => {}} onOpenSession={hosts.onOpenSession} />
@@ -426,7 +406,7 @@ export function CallCard({
           </>
         )}
         {item.issue?.failing !== undefined ? null : (
-        <p className="armada-callcard__ask" data-quiet={(item.waiting !== undefined ? item.waiting.item.source !== "permission" : item.hue === "ask") || answer.decision !== undefined ? undefined : ""}>
+        <AskQuestion quiet={!((item.waiting !== undefined ? item.waiting.item.source !== "permission" : item.hue === "ask") || answer.decision !== undefined)}>
           {answer.ask}
           {answer.decision === undefined ? null : (
             <span className="armada-callcard__pips" aria-hidden="true">
@@ -435,7 +415,7 @@ export function CallCard({
               ))}
             </span>
           )}
-        </p>
+        </AskQuestion>
         )}
         {sleep === undefined || item.context === undefined ? null : (
           <section aria-label={item.contextHead ?? "Chose"}>
@@ -444,20 +424,20 @@ export function CallCard({
         )}
         {answer.attaching === undefined ? null : <AttachPicker attaching={answer.attaching} />}
         {numbered.length === 0 && standing.length === 0 || answer.attaching !== undefined ? null : (
-          <div role="radiogroup" aria-label={answer.ask} className="armada-callcard__choices">
-            <div className="armada-callcard__answers">
+          <AskChoices label={answer.ask}>
+            <AskAnswers>
               {numbered.map((one, index) => (
                 <AnswerTile key={one.id} one={one} mark={String(index + 1)} picked={answer.picked === answer.answers.indexOf(one)} pending={answer.pending === one.id} held={held} onPick={() => answer.pick(answer.answers.indexOf(one))} />
               ))}
-            </div>
+            </AskAnswers>
             {standing.length === 0 ? null : (
-              <div className="armada-callcard__answers" data-standing>
+              <AskAnswers standing>
                 {standing.map((one) => (
                   <AnswerTile key={one.id} one={one} mark={one.key!} picked={answer.picked === answer.answers.indexOf(one)} pending={answer.pending === one.id} held={held} onPick={() => answer.pick(answer.answers.indexOf(one))} />
                 ))}
-              </div>
+              </AskAnswers>
             )}
-          </div>
+          </AskChoices>
         )}
         {boxed || answer.reply === undefined || (sleep !== undefined && !changing) ? null : (
           <Reply label={sleep === undefined ? "Type something" : "Change"} text={text} change={change} send={sendWords} pending={answer.pending === "reply"} held={held} {...(sleep === undefined ? {} : { focus: true, close: () => setChanging(false) })} />
@@ -484,8 +464,7 @@ export function CallCard({
             <SessionBox session={home} onOpen={hosts.onOpenSession} onSend={sendComposed} />
           </div>
         )}
-      </div>
-    </section>
+    </AskCard>
   );
   return (
     <>

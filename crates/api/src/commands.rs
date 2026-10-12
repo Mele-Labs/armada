@@ -17,13 +17,14 @@ use axum::response::Response;
 use axum::Extension;
 use ipc::{
     AddTask, AnswerCommand, AskedApproval, CapRaise, ChangesRequested, ChosenAnswer, DropTask,
-    FileReport, JobRequest, JudgeAnswered, Overruled, ProposeJob, Redirection, RemarksTakenUp,
-    RestartRequested, SetWhenBlocked, SetWhenRefused, StopProposal, TurnRaise,
+    FileReport, JobRequest, JudgeAnswered, Overruled, ProposeJob, RaisedBy, Redirection,
+    RemarksTakenUp, RestartRequested, SetWhenBlocked, SetWhenRefused, StopProposal, TurnRaise,
 };
 
 use crate::answers::{answer, refused, undecodable};
 use crate::daemon::{Commands, Queries, Redirector};
 use crate::door::HelmCalled;
+use crate::placed::{steered_by, CommanderCalled};
 use crate::reference::Resolved;
 use crate::scoped::InManifest;
 use crate::served::Served;
@@ -432,6 +433,16 @@ pub(crate) async fn show_again<D: Commands>(
     }
 }
 
+/// Who a raise is placed as, from the marks the door left on the request.
+/// **The body is never asked** (`#2165`): `raised_by` used to ride in it, and a
+/// Helm call that sent `person` met no ceiling.
+fn raised_by(helm: Option<Extension<HelmCalled>>) -> RaisedBy {
+    match helm {
+        Some(_) => RaisedBy::Helm,
+        None => RaisedBy::Person,
+    }
+}
+
 /// Give this Job a higher cost ceiling than the tier above it allows. **The
 /// Job comes back exactly where it was** — the raise moves a number and nothing
 /// else, and the field a caller reads it for is `queued_reason`: `over_budget`
@@ -439,17 +450,22 @@ pub(crate) async fn show_again<D: Commands>(
 ///
 /// 409 on a terminal Job, where nothing is left to spend. 422 on a figure at or
 /// under the cap in force — the act only ever raises — and 422 again where the
-/// surface asked past its own ceiling, which a person never meets.
+/// caller asked past its own ceiling, which a person never meets.
 pub(crate) async fn raise_cost_cap<D: Commands>(
     State(served): State<Served<D>>,
     job: Resolved,
+    helm: Option<Extension<HelmCalled>>,
     body: Bytes,
 ) -> Response {
     let raise: CapRaise = match ipc::decode("a cost cap", &body) {
         Ok(raise) => raise,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
-    match served.shared().raise_cost_cap(job.id(), raise).await {
+    match served
+        .shared()
+        .raise_cost_cap(job.id(), raise, raised_by(helm))
+        .await
+    {
         Ok(job) => answer(StatusCode::OK, &job, served.run_id()),
         Err(refusal) => refused(refusal),
     }
@@ -465,13 +481,18 @@ pub(crate) async fn raise_cost_cap<D: Commands>(
 pub(crate) async fn raise_turn_cap<D: Commands>(
     State(served): State<Served<D>>,
     job: Resolved,
+    helm: Option<Extension<HelmCalled>>,
     body: Bytes,
 ) -> Response {
     let raise: TurnRaise = match ipc::decode("a turn cap", &body) {
         Ok(raise) => raise,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
-    match served.shared().raise_turn_cap(job.id(), raise).await {
+    match served
+        .shared()
+        .raise_turn_cap(job.id(), raise, raised_by(helm))
+        .await
+    {
         Ok(job) => answer(StatusCode::OK, &job, served.run_id()),
         Err(refusal) => refused(refusal),
     }
@@ -800,16 +821,14 @@ pub(crate) async fn redirect_drone<D: Commands>(
     State(served): State<Served<D>>,
     job: Resolved,
     helm: Option<Extension<HelmCalled>>,
+    commander: Option<Extension<CommanderCalled>>,
     body: Bytes,
 ) -> Response {
     let instruction: Redirection = match ipc::decode("a redirect", &body) {
         Ok(instruction) => instruction,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
-    let by = match helm {
-        Some(_) => Redirector::Helm,
-        None => Redirector::Person,
-    };
+    let by = steered_by(helm, commander);
     match served
         .shared()
         .redirect_drone(job.id(), instruction, by)

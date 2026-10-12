@@ -27,6 +27,9 @@ pub mod autopilot;
 /// Board's own apparatus: the record-to-wire conversions, and the round trip
 /// every assertion in `board.rs` is made through. See its own header.
 pub mod board;
+/// Commander's own apparatus: the record as a Commander's act would leave it,
+/// and the wire as a Bridge receives it. See its own header.
+pub mod commander;
 /// Focus's own apparatus, which reaches this module's private seams rather
 /// than making a second copy of them. See its own header.
 pub mod focus;

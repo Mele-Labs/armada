@@ -1,9 +1,9 @@
-import { Bot, Server, UserCheck } from "lucide-react";
+import { Bot, Compass, Server, UserCheck } from "lucide-react";
 
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 
 /** Whose way a retro item got in — `Whose` on the wire. `docs/concepts/retro.md`. */
-export type Who = "drone" | "agent" | "owner" | "fleet";
+export type Who = "drone" | "agent" | "owner" | "fleet" | "commander";
 
 /**
  * Whose way one retro item got in, as a 12px mark named by its tooltip.
@@ -13,8 +13,9 @@ export type Who = "drone" | "agent" | "owner" | "fleet";
  * `usage` row in `packages/icons/icons/` — `bot` a Drone, `user-check` the
  * person, `server` Fleet, the last Proposed.
  */
-export function WhoMark({ who }: { who: Who }) {
-  const { Glyph, says } = MARKS[who];
+export function WhoMark({ who, said }: { who: Who; /** What the tooltip says in place of the actor's name: the act, beside who did it. */ said?: string }) {
+  const { Glyph, says: name } = MARKS[who];
+  const says = said ?? name;
   // Named as an image, the merge line's marks' way, so a reader without a
   // pointer hears whose way it was; the tooltip is what a pointer reads.
   return (
@@ -36,4 +37,5 @@ const MARKS: Record<Who, { Glyph: typeof Bot; says: string }> = {
   agent: { Glyph: Bot, says: "Agent" },
   owner: { Glyph: UserCheck, says: "You" },
   fleet: { Glyph: Server, says: "Fleet" },
+  commander: { Glyph: Compass, says: "Commander" },
 };

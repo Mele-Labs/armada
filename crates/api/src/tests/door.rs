@@ -14,12 +14,13 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 
 use ipc::door::Reachable;
+use ipc::RaisedBy;
 
 use crate::tests::fake::{running, FakeDaemon};
 use crate::tests::shapes::{
     run_id, A_PROPOSAL, THE_CALL, THE_DRONE, THE_FRAME, THE_MANIFEST, THE_OUTPUT,
 };
-use crate::{offerable, offered, router, Broadcaster, Redirector, Served, DOOR_PATH, SERVED};
+use crate::{offerable, offered, router, Broadcaster, Redirector, Served, Steerer, DOOR_PATH, SERVED};
 
 fn wired(daemon: FakeDaemon) -> Router {
     let events = Broadcaster::new();
@@ -356,7 +357,7 @@ async fn a_redirect_from_helm_is_recorded_as_helm_and_anyone_elses_as_a_person()
     from(&app, ANYONE, &redirect).await;
     assert_eq!(
         *daemon.redirected_by.lock().expect("not poisoned"),
-        vec![Redirector::Helm, Redirector::Person]
+        vec![Steerer::Helm, Steerer::Person]
     );
 }
 
@@ -379,6 +380,39 @@ async fn a_proposal_from_helm_is_recorded_as_helm() {
     assert_eq!(
         *daemon.proposed_by.lock().expect("not poisoned"),
         vec![Redirector::Helm]
+    );
+}
+
+/// **A raise is placed by the door it came through, and its body has no say.**
+/// `#2165`: both routes read `raised_by` out of the body, so Helm's call could
+/// say `person` and meet no ceiling. The same bytes from the session the daemon
+/// placed as Helm and from any other agent are now two different raisers.
+#[tokio::test]
+async fn a_raise_is_helms_whatever_its_body_claims_and_anyone_elses_is_a_persons() {
+    let daemon = helm_holding(acting);
+    let app = shared(&daemon);
+    let cost = calling(
+        "raise_cost_cap",
+        r#"{"job_id":"1","body":{"cost_cap_micros":9000000,"raised_by":"person"}}"#,
+    );
+    let turns = calling(
+        "raise_turn_cap",
+        r#"{"job_id":"1","body":{"turn_cap":500,"raised_by":"person"}}"#,
+    );
+    for raise in [&cost, &turns] {
+        let body = from(&app, HELM, raise).await;
+        assert!(!body.contains("\"isError\":true"), "{body}");
+        from(&app, ANYONE, raise).await;
+    }
+    assert_eq!(
+        *daemon.raised_by.lock().expect("not poisoned"),
+        vec![
+            RaisedBy::Helm,
+            RaisedBy::Person,
+            RaisedBy::Helm,
+            RaisedBy::Person
+        ],
+        "cost then turns, each from Helm and then from anyone"
     );
 }
 

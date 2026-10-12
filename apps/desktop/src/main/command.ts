@@ -1014,11 +1014,9 @@ export class JobCommands {
       return { ok: false, why: "cap_not_raised" };
     }
     const body: CapRaise = {
+      // **No raiser in the body, because the body has no say.** Fleet places
+      // the caller from the connection: this app's own calls are a person's.
       cost_cap_micros: Math.round(costCapMicros),
-      // **Always `person`, and never a choice this app makes.** The field says
-      // which surface composed the request; Helm's tool adapter is the only
-      // thing that will ever send the other value, and it is Fleet's own code.
-      raised_by: "person",
     };
     return this.act(jobId, this.raising, "already_raising", (port) =>
       ask(port, "POST", route(jobId, "raise_cost_cap"), body),
@@ -1051,9 +1049,6 @@ export class JobCommands {
     }
     const body: TurnRaise = {
       turn_cap: Math.round(turnCap),
-      // Always `person`, for `raiseCostCap`'s reason: the field says which
-      // surface composed the request, and this app is only ever the one.
-      raised_by: "person",
     };
     return this.act(jobId, this.raisingTurns, "already_raising_turns", (port) =>
       ask(port, "POST", route(jobId, "raise_turn_cap"), body),

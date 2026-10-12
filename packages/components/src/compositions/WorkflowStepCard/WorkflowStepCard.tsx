@@ -6,6 +6,7 @@ import { FactChip, type FactChipNamed } from "../FactChip/FactChip";
 import { StepActivityMark, type StepActivity } from "../StepActivityMark/StepActivityMark";
 import { StepBar, type TaskBarSegment } from "../StepBar/StepBar";
 import { StepPhaseTrack, type StepPhasePart } from "../StepPhaseTrack/StepPhaseTrack";
+import { WhoMark } from "../WhoMark/WhoMark";
 
 /**
  * One node of a Job's graphs — a step, a group inside a plan, or a task
@@ -132,6 +133,8 @@ export type WorkflowStepCardProps = {
   returns?: boolean;
   /** A step added to this Job alone: a dashed accent edge, so it reads apart from the workflow's own. */
   added?: boolean;
+  /** Who put a task in the plan, where it was the Commander: a mark after the name, its act on hover. */
+  by?: { who: "commander"; said: string };
 };
 
 export function WorkflowStepCard({
@@ -157,6 +160,7 @@ export function WorkflowStepCard({
   action,
   returns = false,
   added = false,
+  by,
 }: WorkflowStepCardProps) {
   // **What is still working sweeps** — `design-system.md`, Motion: *what
   // animates on a loop is what is still working*, and the running node was the
@@ -224,6 +228,7 @@ export function WorkflowStepCard({
         <span className="armada-wf-card__name" data-identifier={nameIsAnIdentifier || undefined}>
           {name}
         </span>
+        {by === undefined ? null : <WhoMark who={by.who} said={by.said} />}
       </span>}
       {band === undefined || details.length === 0 ? null : (
         <span className="armada-wf-card__details">

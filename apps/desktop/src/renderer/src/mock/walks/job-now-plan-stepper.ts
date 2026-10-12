@@ -13,7 +13,7 @@ const w = walk("job-now-plan", [
   { press: inside(now, button("Next")), say: "and the third" },
   { press: inside(now, role("radio", "Take it here")), say: "The last carries the answer" },
   { press: inside(now, button("Answer")), say: "and sends all three" },
-  { look: inside(now, role("img", "Judge")), say: "A Judge's question and a Drone's sit under it, each marked by its icon" },
+  { look: inside(now, role("region", /^Judge question/)), say: "A Judge's question and a Drone's sit under it, each a card of its own" },
 ]);
 
 export { w as "job-now-plan-stepper" };
