@@ -7,6 +7,8 @@ import type {
   HelmContext,
   HelmDebugRead,
   HelmThread,
+  ThoughtRead,
+  ThoughtTarget,
 } from "@armada/protocol";
 import type { Outstanding } from "@armada/screens/src/outstanding";
 
@@ -34,6 +36,19 @@ export type HelmApi = {
    * in `BridgeState` would redraw every surface each time a reply arrived.
    */
   helmDebugInfo: () => Promise<HelmDebugRead>;
+  /**
+   * What Helm makes of words typed into its box: a question for itself, or a thought for other
+   * running work, with the best match if any. **`helmDebugInfo`'s shape, for its reason**: asked
+   * once by the dock and the dock's alone. A read that failed is the dock's cue to ask Helm, so
+   * the words are never lost.
+   */
+  readThought: (text: string) => Promise<ThoughtRead>;
+  /**
+   * Said after the words were delivered to a Session or a Job: Fleet keeps a row for them in the
+   * thread of `manifestId`, the conversation the dock shows, and it arrives on `BridgeState.helm`.
+   * **Never sent before the delivery succeeded**, and never to Helm's own session.
+   */
+  recordThoughtSent: (manifestId: string, text: string, target: ThoughtTarget) => Promise<Outcome>;
   /** Forget Helm's stored session and the thread. Refused while a reply is being written. */
   startHelmFresh: () => Promise<Outcome>;
   /**
@@ -72,6 +87,9 @@ export const HELM_CHANNELS = {
   askHelm: "bridge:ask-helm",
   // The session as one record, read once when a person opens it — #1367.
   helmDebugInfo: "bridge:helm-debug-info",
+  // Helm reading a thought for where it belongs, and recording where it went.
+  readThought: "bridge:read-thought",
+  recordThoughtSent: "bridge:record-thought-sent",
   startHelmFresh: "bridge:start-helm-fresh",
   pointHelm: "bridge:point-helm",
 } as const;

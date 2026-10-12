@@ -87,7 +87,7 @@ test("every filter draws its own: what needs you comes forward, what is live and
   await expect.element(page.getByRole("listbox", { name: "Tiles" })).toBeVisible();
 });
 
-test("no jobs: n opens the one bar, and the work typed there dispatches through the composer on All", async () => {
+test("no jobs: n opens the one bar, and the work typed there grows the dispatch panel, which asks the repository on All", async () => {
   mount(onOverview([]));
   await onScreen();
   await userEvent.keyboard("n");
@@ -95,8 +95,11 @@ test("no jobs: n opens the one bar, and the work typed there dispatches through 
   await userEvent.keyboard("Cap the retry backoff");
   await expect.element(page.getByRole("option", { name: /^Dispatch “Cap the retry backoff” as a Job/ })).toHaveAttribute("aria-selected", "true");
   await userEvent.keyboard("{Enter}");
-  // On All, the composer opens on its one question first.
-  await expect.element(page.getByText("Pick the repository this Job is for")).toBeVisible();
+  // The panel grows down from the bar holding the words, and nothing is built until a repository is named.
+  const panel = page.getByRole("dialog", { name: "Dispatch" });
+  await expect.element(panel.getByRole("textbox", { name: "Request" })).toHaveValue("Cap the retry backoff");
+  await panel.getByRole("button", { name: "Dispatch", exact: true }).click();
+  await expect.element(panel.getByRole("listbox", { name: "Repository" })).toBeInTheDocument();
 });
 
 test("the filter picked is kept, and a filter draws no count", async () => {
@@ -176,6 +179,6 @@ test("a search that matches keeps ↵ on the match, and ⌘↵ still dispatches"
   await expect.element(page.getByRole("option", { name: /^Dispatch “Settings”/ })).toHaveAttribute("aria-selected", "false");
   await userEvent.keyboard("{Meta>}{Enter}{/Meta}");
   await expect.element(page.getByRole("dialog", { name: "Command palette" })).not.toBeInTheDocument();
-  // On All, the Job goes to the composer, which asks for the repository.
-  await expect.element(page.getByText("Pick the repository this Job is for")).toBeVisible();
+  // The dispatch panel grows from the title bar's field holding the words, as a Job.
+  await expect.element(page.getByRole("dialog", { name: "Dispatch" }).getByRole("textbox", { name: "Request" })).toHaveValue("Settings");
 });

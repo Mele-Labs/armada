@@ -107,6 +107,7 @@ async fn a_drone_waiting_on_an_answer_is_not_stuck() {
                         consequence: "the first Job that needs it adds it".to_string(),
                     },
                 ],
+                decisions: Vec::new(),
             },
         )
         .await

@@ -35,10 +35,42 @@ pub struct GivenAnswer {
     pub at: Timestamp,
 }
 
+/// One of several things a Drone asked in a single ask, with the pick once
+/// there is one. The Plan interview's unit.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Decision {
+    /// Fleet's, `d1` onward in the order asked. Scoped to the question it is on.
+    pub id: String,
+    pub question: String,
+    pub options: Vec<OfferedAnswer>,
+    /// The label picked. `None` until the question is answered.
+    pub chose: Option<String>,
+}
+
+impl Decision {
+    pub fn offering(&self, label: &str) -> Option<&OfferedAnswer> {
+        self.options.iter().find(|option| option.label == label)
+    }
+
+    pub fn labels(&self) -> Vec<&str> {
+        self.options.iter().map(|o| o.label.as_str()).collect()
+    }
+
+    /// The option picked, once it is.
+    pub fn chosen(&self) -> Option<&OfferedAnswer> {
+        self.chose.as_deref().and_then(|label| self.offering(label))
+    }
+}
+
 /// A question a Drone asked on one step, and the answer once there is one.
 ///
 /// **`answer` is `None` while the Job waits on a person**, and `Some` from the
 /// answer until the next Drone opens with it, when the whole value is cleared.
+///
+/// **Two shapes, one filled.** A single question fills `question` and `options`
+/// and leaves `decisions` empty. An interview fills `decisions` and leaves
+/// `question` blank and `options` empty; its answer is each decision's `chose`,
+/// and `answer` then carries the instant with an empty label.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct DroneQuestion {
     /// Fleet's, never the Drone's: an answer naming an id a peer invented would
@@ -49,6 +81,7 @@ pub struct DroneQuestion {
     pub question: String,
     pub options: Vec<OfferedAnswer>,
     pub answer: Option<GivenAnswer>,
+    pub decisions: Vec<Decision>,
 }
 
 impl DroneQuestion {
@@ -61,6 +94,20 @@ impl DroneQuestion {
     /// Every label offered, for a refusal that names them.
     pub fn labels(&self) -> Vec<&str> {
         self.options.iter().map(|o| o.label.as_str()).collect()
+    }
+
+    /// The decision with this id, on an interview.
+    pub fn decision(&self, id: &str) -> Option<&Decision> {
+        self.decisions.iter().find(|decision| decision.id == id)
+    }
+
+    /// What was asked, for a sentence naming it: the question, or an
+    /// interview's first.
+    pub fn headline(&self) -> &str {
+        match self.decisions.first() {
+            Some(first) if self.question.is_empty() => &first.question,
+            _ => &self.question,
+        }
     }
 
     /// The option the person picked, once they have.
@@ -86,6 +133,26 @@ impl Job {
         let mut job = self.clone();
         if let Some(question) = job.question.as_mut() {
             question.answer = Some(given);
+        }
+        job
+    }
+
+    /// An interview answered: each decision's pick, and when. **Nothing changes
+    /// where none is held**, as [`question_answered`](Job::question_answered).
+    pub fn question_decided(&self, picks: &[(String, String)], at: Timestamp) -> Job {
+        let mut job = self.clone();
+        if let Some(question) = job.question.as_mut() {
+            for decision in question.decisions.iter_mut() {
+                decision.chose = picks
+                    .iter()
+                    .find(|(id, _)| *id == decision.id)
+                    .map(|(_, label)| label.clone());
+            }
+            question.answer = Some(GivenAnswer {
+                label: None,
+                deciding: None,
+                at,
+            });
         }
         job
     }

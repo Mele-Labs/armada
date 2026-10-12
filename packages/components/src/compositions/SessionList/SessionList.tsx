@@ -1,6 +1,6 @@
-import { useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { BellRing, Search } from "lucide-react";
+import { BellRing, LoaderCircle, Search } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
 import { Input } from "../../primitives/Input/Input";
@@ -182,10 +182,51 @@ function itemsOf(row: SessionRowView): Item[] {
 
 
 
+/** How many rows are drawn at first, and how many more each time the end of the list scrolls into view. */
+export const SESSION_PAGE = 50;
+
+/** The first `count` rows, taken across the groups in order. A group left with no row is not drawn. */
+function firstRows(groups: readonly SessionGroup[], count: number): SessionGroup[] {
+  let left = count;
+  return groups
+    .map((group) => {
+      const rows = group.rows.slice(0, Math.max(0, left));
+      left -= rows.length;
+      return { ...group, rows };
+    })
+    .filter((group) => group.rows.length > 0);
+}
+
+/** Draws `SESSION_PAGE` more rows each time it comes into view. */
+function MoreRows({ onMore }: { onMore: () => void }) {
+  const mark = useRef<HTMLDivElement>(null);
+  const more = useRef(onMore);
+  more.current = onMore;
+  useEffect(() => {
+    const at = mark.current;
+    if (at === null || typeof IntersectionObserver === "undefined") return;
+    const seen = new IntersectionObserver((entries) => {
+      if (entries.some((one) => one.isIntersecting)) more.current();
+    });
+    seen.observe(at);
+    return () => seen.disconnect();
+  }, []);
+  return (
+    <div className="armada-session-list__more-rows" ref={mark} role="status" aria-label="Loading more Sessions">
+      <LoaderCircle size={14} strokeWidth={2} aria-hidden />
+    </div>
+  );
+}
+
 export function SessionList({ groups, query, onQuery, onOpen, onStart, onRetro, views, view, onView, now = Date.now() }: SessionListProps) {
   const list = useRef<HTMLElement>(null);
   // One Tab stop for the glass, the arrows across it. j and k are the surface's, which opens the next Session with them.
   useTileGrid(list, { tile: ".armada-session-list__row", cursor: ".armada-session-list__open", steps: false });
+  const [count, setCount] = useState(SESSION_PAGE);
+  // A new view or search starts from the first page again.
+  useEffect(() => setCount(SESSION_PAGE), [view, query]);
+  const total = groups.reduce((sum, group) => sum + group.rows.length, 0);
+  const drawn = firstRows(groups, count);
   return (
     <section className="armada-session-list" aria-label="Sessions" ref={list}>
       <div className="armada-session-list__head">
@@ -206,7 +247,7 @@ export function SessionList({ groups, query, onQuery, onOpen, onStart, onRetro, 
         {views === undefined || view === undefined || onView === undefined ? null : <Tabs items={[...views]} value={view} onChange={onView} />}
       </div>
       <div className="armada-session-list__glass">
-        {groups.map((group) => (
+        {drawn.map((group) => (
           <div className="armada-session-list__group" key={group.label}>
             <h3 className="armada-session-list__eyebrow">{group.label}</h3>
             <ul className="armada-session-list__rows">
@@ -245,6 +286,7 @@ export function SessionList({ groups, query, onQuery, onOpen, onStart, onRetro, 
             </ul>
           </div>
         ))}
+        {count < total ? <MoreRows key={count} onMore={() => setCount((was) => was + SESSION_PAGE)} /> : null}
       </div>
     </section>
   );

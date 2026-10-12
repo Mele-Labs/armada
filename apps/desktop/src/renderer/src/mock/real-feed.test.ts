@@ -9,7 +9,6 @@ import type { Active } from "@armada/protocol";
 import { sampleDetail, sampleJob, sampleStep } from "@armada/screens/src/draft/sample";
 
 import { answerJobAsk } from "../cockpit/answer-job";
-import { asksAnAgent } from "../cockpit/standing";
 import { feedOf } from "../real-feed";
 
 const DRONE = "01M3WJ6FGZ003DCX123T7W6YP1";
@@ -110,8 +109,6 @@ describe("best and quick on a Job's ask", () => {
   test("a command takes neither, and an ask the mock drew only clears", () => {
     expect(answerJobAsk(JOB, { kind: "command" }, "best")).toBeUndefined();
     expect(answerJobAsk(JOB, undefined, "best")).toBeUndefined();
-    const command = { kind: "Drone question", key: `${JOB}:command:c1`, asked: { kind: "command" } } as unknown as Parameters<typeof asksAnAgent>[0];
-    expect(asksAnAgent(command)).toBe(false);
   });
 
   test("a refusal comes back in Fleet's words", async () => {

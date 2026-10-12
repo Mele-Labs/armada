@@ -567,6 +567,7 @@ long as a viewer holds it, and `closed` is sent only when a person starts fresh.
 | A person asked | `asked`, then the session's own `row`s, ending in `ended` with what the reply cost |
 | The stored session was gone | `fresh` / `session_not_found`, then the rows of the new session |
 | No reply came | `unanswered`, with why |
+| Words were delivered to a Session or a Job | `sent`, the words and the target, in the thread like any other message |
 | A person started fresh | `closed` / `started_fresh` |
 | The Manifest is not served | **422 before the upgrade** |
 
@@ -3378,6 +3379,16 @@ Bridge's half is in `packages/protocol/src/hosted-sessions.ts`, written by hand 
 
 **Skew.** A Fleet before 23.77 has no route and answers 404, and never sends `session_proposed`, which Bridge reads as absent. A Bridge before it never calls the route and ignores the field. Bridge's half is `packages/protocol/src/retro-session.ts`, written by hand.
 
+## Protocol 23.78: a slash command run in a terminal Session
+
+`docs/concepts/session.md`, *Running a block*. **Additive only**: one operation, `agent_access: No`, and its type. No type that exists changes.
+
+| Where | Carries | Notes |
+| --- | --- | --- |
+| `run_session_command` (`POST /sessions/command`) | `RunSessionCommand`: `session_id`, `command`. Answers 200 `SessionRecord` | Holds the command for the Session's own mod as a `HeldCommand` (name without the slash, the rest as `args`), the path `tune_session` takes for `/model`; the mod runs it as typed on its next ask and nothing comes back. 422 `fleet.session_command_refused` where the Session is unknown or not a terminal one, or the text is not one slash command on one line (`/name` or `/name args`, a name of lower-case letters, digits, `:` and `-`); 409 `fleet.session_closed` where it ended, and `fleet.terminal_session_unreachable` where its mod is not listening |
+
+**Skew.** A Fleet before 23.78 answers 404 and Bridge shows the refusal as for any act on a Session. A Bridge before it never calls the route. Bridge's half is `packages/protocol/src/hosted-sessions.ts`, written by hand like the rest.
+
 ## Protocol 23.76: a shell block run from a Session's thread
 
 `docs/concepts/session.md`. **Additive only**: three operations, all `agent_access: No`, and their types. No type that exists changes.
@@ -3541,7 +3552,7 @@ Bridge's half is `packages/protocol/src/settings.ts`, written by hand like the r
 
 ## A Job's Now: what runs, what is wrong, what it waits on
 
-`docs/concepts/job.md`, *A Job's Now*. **Additive only**: two fields on `JobDetail`, one on `JobDrone`, a `mode` on three answers and three operations. Every new field is optional, `serde(default, skip_serializing_if)`, so an older reader carries on and an older Fleet sends none. Bridge's half is `packages/protocol/src/issues.ts` and the `drones`, `detail` and `asking` files beside it, written by hand.
+`docs/concepts/job.md`, *A Job's Now*. **Additive only**: two fields on `JobDetail`, one on `JobDrone`, a `mode` on three answers and three operations. Every new field is optional, `serde(default, skip_serializing_if)`, so an older reader carries on and an older Fleet sends none. Bridge's half is `packages/protocol/src/job-issues.ts` and the `drones`, `detail` and `asking` files beside it, written by hand.
 
 | Where | Carries | Notes |
 | --- | --- | --- |
@@ -3570,6 +3581,32 @@ Bridge's half is `packages/protocol/src/settings.ts`, written by hand like the r
 | `resume_autopilot` | unchanged | 409 `fleet.autopilot_capped` while any cap is reached, naming it. A reached cap now **pauses** with `capped_by` set, where it ended the run; Resume clears `capped_by` |
 | `StepDetail.sent_back` | `JudgesSentBack`: `times`, `of` | How many times the Judges' agreed refusal sent this pass of the step back to its Drone, of `AGREED_RETRIES`. Absent where none did |
 | `Judged.risky` | a string | What this member said makes the refused work risky, which is what brings an agreed refusal to a person. Absent where it said only that the work needs redoing, or was not asked |
+
+A Drone can ask several decisions in one ask, and a person answers them all at once. **Additive**: the single question is unchanged, and `answer_question` keeps its route. Bridge's half is `packages/protocol/src/waiting.ts`, written by hand. The ID moved with `ipc`, `operations/` and the mirror; no number was bumped.
+
+| Where | Carries | Notes |
+| --- | --- | --- |
+| `ask_question` (Drone tool, not a route) | `decisions`, in place of `question` and `options` | Two to six, each `{question, options}` with a single question's option rules. Both forms at once, or one decision, is refused to the Drone by name. Any step may ask this way |
+| `QuestionInFlight.decisions` (on `JobDetail.asking`, `job.asking`) | `DecisionInFlight`: `decision_id`, `question`, `options` | Absent is a single question. Where present, `question` is blank and `options` empty. Fleet mints `decision_id` as `d1`, `d2`... |
+| `answer_question` (`POST /jobs/:job_id/answer_question`) | `ChosenAnswer.decisions`: `ChosenDecision`, `decision_id` and `chose` | One pick per decision, all in one call, with no `chose`. `ChosenAnswer.chose` is now optional: absent on an interview. 409 `fleet.illegal_move`, the reason in `message`, for a missing, unknown or doubled decision, a label the decision did not offer, a label sent for an interview, or picks sent for a single question. Nothing is kept on a refusal |
+
+## Routing a thought: Helm reads words for where they belong
+
+`docs/concepts/helm.md`, *Routing a thought*. **Additive only**: two operations, one event kind and one message on the Helm socket, all of Bridge's (`agent_access` `No`, `Bridge only` for the event). No type that exists changes. Bridge's half is `packages/protocol/src/thought.ts`, `helm.ts` and `helm-thread.ts`, written by hand. There is no number to take: the protocol ID moves with the wire files, and `armada need` has nothing to order.
+
+| Where | Carries | Notes |
+| --- | --- | --- |
+| `read_thought` (`POST /helm/read_thought`) | `ReadThought`: `text`. Answers `ThoughtReading`, tagged by `kind`: `question`, or `thought` with `target?` | One model call on the proposer's model, over every live Session and running Job in every repository. Always 200: a call that fails, runs past 8 seconds or answers what was not asked is `question`. An id the model names that was not offered is `thought` with no `target`. A message opening on a wh-word and ending in `?` is `question` with no call |
+| `ThoughtTarget` | `kind` (`session` or `job`), `id`, `title`, `manifest_id?`, `slot?` | `slot` is the slot a Session holds. `manifest_id` is absent for a Session in no repository Fleet serves. A plain enum rather than a `wire_enum!`: no registry declares the set, and a third kind would be a new act Bridge has to learn |
+| `record_thought_sent` (`POST /helm/thought_sent?manifest_id=`) | `ThoughtSent`: `text`, `target`. Answers 200 `HelmConversation` | Said after the delivery went through, so a refused delivery records nothing. Appends the row below and publishes `helm.thought_routed`. The manifest names the conversation, absent is the first served |
+| `observe_helm` message `sent` | `HelmSent`: `ts`, `text`, `target` | A row of the thread's file, so it is in the backfill after a restart. Never delivered to Helm's session |
+| `helm.thought_routed` (event) | `HelmThoughtRouted`: `manifest_id`, `to` (`session` or `job`), `id`, `at` | The audit event of *Audit trail*. Names where and never the words. Rust only: Bridge mirrors no `helm.*` audit kind |
+
+**This reads across repositories, which `helm.md` otherwise says Helm does not do.** The owner decided it on 12 Oct 2026 for this one read. `read_thought` takes no `manifest_id`, so what it can see does not depend on where Helm points.
+
+**The event stream.** One small event per delivery, a person's press apart, on the shared drop-oldest channel. It adds no queue and assumes no delivery is complete, so it leaves the unmeasured sink risk where it was. The `sent` message rides the conversation's own bounded channel, which is drop-oldest with a `missed` count, and the thread's file keeps what a slow viewer lost.
+
+**Skew.** A refusal on an ID mismatch means no peer meets this change half built. A Fleet without the routes would answer 404 to a Bridge that has them, and Bridge treats a read that fails as `question`, so the words still reach Helm.
 
 ## Open questions
 

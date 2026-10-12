@@ -10,7 +10,7 @@ use std::future::Future;
 use std::sync::Arc;
 
 use ipc::{
-    AnswerSessionAsk, CloseSession, GateAnswer, MessagesHeld, SendSessionMessage, SessionGate, SessionId, TakeHeld,
+    AnswerSessionAsk, CloseSession, GateAnswer, MessagesHeld, RunSessionCommand, SendSessionMessage, SessionGate, SessionId, TakeHeld,
     SessionRecord, SessionSubagent, SessionThread, StartSession, TuneSession,
 };
 
@@ -85,6 +85,12 @@ pub trait HostedSessions: Send + Sync + 'static {
     fn tune_session(
         &self,
         tuned: TuneSession,
+    ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
+
+    /// `run_session_command`: a slash command a terminal session's mod runs as typed.
+    fn run_session_command(
+        &self,
+        run: RunSessionCommand,
     ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
 
     /// `close_session`: ends the process, gives back what the session holds.

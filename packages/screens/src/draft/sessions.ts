@@ -329,8 +329,11 @@ export type SessionsDraft = {
   taggable: () => readonly SessionTag[];
   /** Puts a Session's waiting tags where the person left them. */
   setTags: (id: string, tags: readonly SessionTag[]) => void;
-  /** A message from the person, with what they sent along. It takes a turn. */
-  send: (id: string, sent: SentMessage) => void;
+  /**
+   * A message from the person, with what they sent along. It takes a turn. **A promise on a real
+   * Fleet**, which resolves to whether the message arrived; a refusal is already said as a toast.
+   */
+  send: (id: string, sent: SentMessage) => void | Promise<boolean>;
   /** Sets the model, effort and permission mode a Session's next turn runs on. `null` is Auto. */
   tune: (id: string, tuning: { model: string | null; effort: string | null; mode: SessionMode }) => void;
   /**
@@ -356,6 +359,14 @@ export type SessionsDraft = {
    * `stop_session_run`).
    */
   run?: (id: string, command: string, on: (event: { kind: "out"; text: string } | { kind: "end"; code: number | null }) => void) => { stop: () => void };
+  /**
+   * Types a slash command into a **terminal** Session's terminal, to run as typed, from inline code in
+   * its thread. No output comes back: the command runs in the terminal. Absent where nothing serves it,
+   * and in a Bridge-hosted Session, where there is no terminal. Fleet answers it as `tune_terminal`
+   * does for `/model`: the Session's mod runs `held.commands` as typed (`tune_session` in
+   * `session_host/serving.rs`).
+   */
+  command?: (id: string, text: string) => void;
   /** Answers the permission a Session is held on. The mock offers two and names none. */
   answer: (id: string, answer?: SessionAnswer, answers?: SessionQuestionAnswer[]) => void;
 };

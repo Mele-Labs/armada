@@ -33,7 +33,7 @@ pub enum CommitScope {
 }
 
 /// What the fake does when asked to commit.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub(super) enum Willing {
     /// The ordinary case: a commit is made and recorded.
     #[default]
@@ -42,6 +42,9 @@ pub(super) enum Willing {
     NothingChanged,
     /// git refused. The work is still there and the caller has to say so.
     No(&'static str),
+    /// git refuses for as long as the file exists, as it does a worktree whose
+    /// index holds unmerged paths until something stages them.
+    NotWhile(std::path::PathBuf),
 }
 
 impl FakeVcs {
@@ -91,6 +94,15 @@ impl FakeVcs {
         self
     }
 
+    /// Make every commit fail as git does a worktree holding unmerged paths,
+    /// until `flag` is gone. **The same file
+    /// [`FakeWorkProduct::unmerged_until_gone`](crate::FakeWorkProduct::unmerged_until_gone)
+    /// is given**, so one repair clears both readings of the index.
+    pub fn refusing_to_commit_while(self, flag: &std::path::Path) -> FakeVcs {
+        *self.commits.lock().expect("not poisoned") = Willing::NotWhile(flag.to_path_buf());
+        self
+    }
+
     /// Every commit this fake said it made, in order.
     pub fn committed(&self) -> Vec<FakeCommit> {
         self.committed.lock().expect("not poisoned").clone()
@@ -105,10 +117,14 @@ impl FakeVcs {
         message: &str,
         at: CommitTime,
     ) -> Result<Committed, FakeVcsError> {
-        match *self.commits.lock().expect("not poisoned") {
+        let willing = self.commits.lock().expect("not poisoned").clone();
+        match willing {
             Willing::NothingChanged => Ok(Committed::NothingToCommit),
             Willing::No(standing_in_for) => Err(FakeVcsError::NotCommitted { standing_in_for }),
-            Willing::Yes => {
+            Willing::NotWhile(flag) if flag.exists() => Err(FakeVcsError::NotCommitted {
+                standing_in_for: "the worktree holds unmerged paths",
+            }),
+            Willing::Yes | Willing::NotWhile(_) => {
                 let mut made = self.committed.lock().expect("not poisoned");
                 made.push(FakeCommit {
                     branch: worktree.branch().to_string(),

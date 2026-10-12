@@ -36,8 +36,14 @@ pub fn position_against_main(root: &str, commit: &str) -> Option<(u32, u32)> {
 /// `git fetch origin main` in `root`, stopped if it is still running after
 /// `within`. **No prompt**: Fleet has no terminal to answer one on.
 pub fn fetch_main(root: &str, within: Duration) -> Result<(), String> {
+    fetch_within(root, &["fetch", "--quiet", "origin", "main"], within)
+}
+
+/// Run `git` with these arguments (a fetch) in `root`, stopped if it is still
+/// running after `within`. Errors with git's own sentence. **No prompt.**
+pub(crate) fn fetch_within(root: &str, args: &[&str], within: Duration) -> Result<(), String> {
     let mut child = Command::new("git")
-        .args(["fetch", "--quiet", "origin", "main"])
+        .args(args)
         .current_dir(root)
         .stdin(Stdio::null())
         .stdout(Stdio::null())

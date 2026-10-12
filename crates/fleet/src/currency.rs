@@ -3,7 +3,8 @@
 //!
 //! **Once per base, remembered durably.** `Store::kept_current_for` is read
 //! before every attempt and compared with the base's tip now
-//! ([`Delivery::base_tip`]); where they agree nothing runs, clean or conflicted,
+//! ([`Delivery::base_tip`], read after the remote's copy of it is fetched); where
+//! they agree nothing runs, clean or conflicted,
 //! and a restart reads the same answer back.
 //!
 //! **A conflict at the review gate sends a Drone.** Where the Job waits at its
@@ -65,7 +66,24 @@ where
         let Ok(spec) = self.reclaimed_spec(&served, &job) else {
             return;
         };
-        // **The cheap read, asked first.** A local `git rev-parse` against no
+        // **One Job at a time from the fetch on**, `caught_up_onto`'s own
+        // reason: the fetch and the merge write into the one `.git` every
+        // worktree shares, and this must never run beside a spawn's own
+        // catch-up or a delivery's commit and push. No Check reads the merge,
+        // under `merge_by: push` too: the push refuses its head until they pass
+        // on it, `crate::pushing_onto_base`.
+        let _at_the_merge_end = self.merge_end().lock().await;
+        // **The remote's base first**, so the read below and the merge after it
+        // are of what the forge holds. A fetch that fails is a `Warn` line and
+        // nothing more: nothing was recorded, so the next sweep tries again.
+        if self
+            .base_fetched(job_id, served.root(), base)
+            .await
+            .is_err()
+        {
+            return;
+        }
+        // **The cheap read, asked next.** A local `git rev-parse` against no
         // worktree, so a base that has not moved past what was already tried
         // costs one process rather than a scratch checkout and a merge. Read
         // failing is not a licence to skip — an unreadable tip is
@@ -91,13 +109,7 @@ where
                 return;
             }
         }
-        // **One Job at a time from here**, `caught_up_onto`'s own reason: a
-        // merge writes into the one `.git` every worktree shares, and this
-        // must never run beside a spawn's own catch-up or a delivery's commit
-        // and push. No Check reads the merge, under `merge_by: push` too: the
-        // push refuses its head until they pass on it, `crate::pushing_onto_base`.
         let outcome = {
-            let _at_the_merge_end = self.merge_end().lock().await;
             let (vcs, owned_base) = (Arc::clone(self.vcs()), base.to_string());
             tokio::task::spawn_blocking(move || vcs.kept_current(&spec, &owned_base))
                 .await

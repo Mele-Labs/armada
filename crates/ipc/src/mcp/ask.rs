@@ -26,8 +26,18 @@ use super::tools::{closed, filled, NotAnArgument};
 /// Drone's opening brief rather than this call's return value.
 pub const ASK_TOOL: &str = "ask_question";
 
-/// The two fields the asking tool takes. Public for [`EVIDENCE_FIELDS`]' reason.
-pub const ASK_FIELDS: &[&str] = &["question", "options"];
+/// The fields the asking tool takes: `question` with `options`, or `decisions`.
+/// Public for [`EVIDENCE_FIELDS`]' reason.
+pub const ASK_FIELDS: &[&str] = &["question", "options", "decisions"];
+
+/// How few decisions one ask may carry. **One is the plain form** — `question`
+/// and `options` — so an ask of one decision is refused rather than accepted
+/// as a second way to write it.
+pub const FEWEST_DECISIONS: usize = 2;
+
+/// How many decisions one ask may carry. A person answers them all in one
+/// sitting, one after another, and past six it is a form and not a question.
+pub const MOST_DECISIONS: usize = 6;
 
 /// How few answers a question may offer.
 ///
@@ -71,6 +81,18 @@ pub struct AskQuestion {
     /// [`MOST_OPTIONS`], each with a distinct non-blank label and a non-blank
     /// consequence.
     pub options: Vec<AskedOption>,
+    /// Several decisions asked together, in place of `question` and `options`:
+    /// **either this is filled and those are blank, or the reverse.** Between
+    /// [`FEWEST_DECISIONS`] and [`MOST_DECISIONS`], each its own question with
+    /// the same rules for its answers. Fleet gives each an id.
+    pub decisions: Vec<AskedDecision>,
+}
+
+/// One decision in an ask of several.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AskedDecision {
+    pub question: String,
+    pub options: Vec<AskedOption>,
 }
 
 /// One answer the Drone said it would accept.
@@ -92,7 +114,43 @@ pub struct AskedOption {
 /// Fleet deciding what a person is asked.
 pub(super) fn question(arguments: &Map<String, Value>) -> Result<AskQuestion, NotAnArgument> {
     closed(arguments, ASK_TOOL, ASK_FIELDS)?;
-    let question = filled(arguments, "question")?;
+    if let Some(listed) = arguments.get("decisions") {
+        if arguments.contains_key("question") || arguments.contains_key("options") {
+            return Err(NotAnArgument::AskedTwoWays);
+        }
+        let field = "decisions";
+        let listed = listed.as_array().ok_or(NotAnArgument::NotOptions { field })?;
+        if listed.len() < FEWEST_DECISIONS || listed.len() > MOST_DECISIONS {
+            return Err(NotAnArgument::WrongDecisionCount {
+                offered: listed.len(),
+            });
+        }
+        let mut decisions = Vec::with_capacity(listed.len());
+        for decision in listed {
+            let decision = decision
+                .as_object()
+                .ok_or(NotAnArgument::NotOptions { field })?;
+            closed(decision, ASK_TOOL, DECISION_FIELDS)?;
+            decisions.push(AskedDecision {
+                question: filled(decision, "question")?,
+                options: options_of(decision)?,
+            });
+        }
+        return Ok(AskQuestion {
+            question: String::new(),
+            options: Vec::new(),
+            decisions,
+        });
+    }
+    Ok(AskQuestion {
+        question: filled(arguments, "question")?,
+        options: options_of(arguments)?,
+        decisions: Vec::new(),
+    })
+}
+
+/// The `options` of a question, or of one decision.
+fn options_of(arguments: &Map<String, Value>) -> Result<Vec<AskedOption>, NotAnArgument> {
     let field = "options";
     let listed = arguments
         .get(field)
@@ -121,8 +179,11 @@ pub(super) fn question(arguments: &Map<String, Value>) -> Result<AskQuestion, No
         }
         options.push(option);
     }
-    Ok(AskQuestion { question, options })
+    Ok(options)
 }
+
+/// What one decision's object may carry.
+const DECISION_FIELDS: &[&str] = &["question", "options"];
 
 /// What one answer's object may carry. **Not public**: it is refused through
 /// [`NotAnArgument::NotAField`] naming the tool, so no second reader spells it.
@@ -140,6 +201,36 @@ const OPTION_FIELDS: &[&str] = &["label", "consequence"];
 /// way: a tool described only by what it does gets called for everything. The
 /// bar is stated here and again in the briefing.
 pub(super) fn ask_tool() -> Value {
+    let option = json!({
+        "type": "object",
+        "properties": {
+            "label": {
+                "type": "string",
+                "description":
+                    "What the person picks, short enough to read \
+                     at a glance. Distinct from every other label.",
+            },
+            "consequence": {
+                "type": "string",
+                "description":
+                    "What you will do if they pick it. This is \
+                     what they are actually deciding, so say the \
+                     effect and not the reasoning.",
+            },
+        },
+        "required": ["label", "consequence"],
+        "additionalProperties": false,
+    });
+    let options = json!({
+        "type": "array",
+        "minItems": FEWEST_OPTIONS,
+        "maxItems": MOST_OPTIONS,
+        "items": option,
+        "description":
+            "The answers you will accept. Two to four. There is no \
+             free-text reply — everything you want to be told has to \
+             be one of these.",
+    });
     json!({
         "name": ASK_TOOL,
         "description":
@@ -152,7 +243,9 @@ pub(super) fn ask_tool() -> Value {
              is. Your work stays in the worktree, and once they answer a fresh \
              agent carries this part on from it and from their answer, so \
              bring your notes up to date with where you stopped before you \
-             ask.",
+             ask. Ask one question with `question` and `options`, or two to \
+             six that belong together with `decisions` — one ask, one \
+             interview, answered all at once. Never both.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -163,37 +256,31 @@ pub(super) fn ask_tool() -> Value {
                          that make it decidable. Not what you would like an \
                          opinion on.",
                 },
-                "options": {
+                "options": options,
+                "decisions": {
                     "type": "array",
-                    "minItems": FEWEST_OPTIONS,
-                    "maxItems": MOST_OPTIONS,
+                    "minItems": FEWEST_DECISIONS,
+                    "maxItems": MOST_DECISIONS,
                     "items": {
                         "type": "object",
                         "properties": {
-                            "label": {
+                            "question": {
                                 "type": "string",
                                 "description":
-                                    "What the person picks, short enough to read \
-                                     at a glance. Distinct from every other label.",
+                                    "One decision, in one sentence, with the facts \
+                                     that make it decidable.",
                             },
-                            "consequence": {
-                                "type": "string",
-                                "description":
-                                    "What you will do if they pick it. This is \
-                                     what they are actually deciding, so say the \
-                                     effect and not the reasoning.",
-                            },
+                            "options": options,
                         },
-                        "required": ["label", "consequence"],
+                        "required": ["question", "options"],
                         "additionalProperties": false,
                     },
                     "description":
-                        "The answers you will accept. Two to four. There is no \
-                         free-text reply — everything you want to be told has to \
-                         be one of these.",
+                        "Several decisions asked together, in place of \
+                         `question` and `options`. Each is answered; none \
+                         can be skipped.",
                 },
             },
-            "required": ["question", "options"],
             "additionalProperties": false,
         },
     })

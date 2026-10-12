@@ -134,6 +134,7 @@ fn an_answer_to_a_question_may_be_a_mode_alone() {
         question_id: QuestionId::carried("01Q"),
         chose: None,
         mode: Some(AnswerMode::Quick),
+        decisions: Vec::new(),
     };
     let json = encode(&quick).expect("plain data");
     assert_eq!(json, r#"{"question_id":"01Q","mode":"quick"}"#);

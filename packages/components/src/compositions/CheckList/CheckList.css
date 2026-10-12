@@ -1,36 +1,222 @@
-/* Check list — a bordered panel holding one table, and the facts of the open
-   Check as a labelled grid above its log. min-width: 0 so a long name wraps
-   its cell rather than scrolling the page sideways. */
+/* Check list as the cockpit draws its viewscreen: a sunken glass under a raised band holding the
+   filters, every Check a tile standing on it. State is carried in the frame (its hue, its edge, its
+   glass), from the run tokens a Check started by hand already takes: running --run-running, passed
+   --run-passed, stopped --run-stopped (a person's act, not an error), and failed --run-failed and
+   lit, because a refusal is what the owner opened the page for. Waiting has no hue declared, so it
+   stays neutral and dashed. Only the tile is lit, never the frame: a list of everything ever run
+   nearly always holds a refusal, and a frame lit for good says nothing. Tokens only.
+
+   The table keeps its rows and cells; every part of it is a grid, the rows sharing one track list
+   through subgrid, so a row has a box to frame and the columns still line up down the glass.
+
+   **The frame fills its column and the glass scrolls inside it**, the band and the column heads
+   standing still. A frame that clips without something inside it scrolling is what took Sessions'
+   last rows off a short window (#2122). */
 .armada-check-list {
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
   min-width: 0;
+  min-height: calc(var(--h-row) * 6);
+  border: var(--border-width) solid var(--border-default);
   border-radius: var(--radius-lg);
+  background: var(--bg-sunken);
   overflow: hidden;
 }
 
-.armada-check-list .armada-table-header-cell {
+/* ---- The band ------------------------------------------------------------------------------- */
+
+.armada-check-list__band {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-4);
+  min-width: 0;
+  min-height: calc(var(--h-row) * 1.25);
+  padding: var(--space-1) var(--space-3) var(--space-1) var(--space-2);
+  border-bottom: var(--border-width) solid var(--border-default);
+  background: var(--bg-raised);
+}
+
+/* ---- The glass: a faint ruled grid, so the tiles read as standing on something ---------------- */
+
+.armada-check-list__scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  background:
+    linear-gradient(color-mix(in srgb, var(--border-subtle) 55%, transparent) var(--border-width), transparent var(--border-width)),
+    linear-gradient(90deg, color-mix(in srgb, var(--border-subtle) 55%, transparent) var(--border-width), transparent var(--border-width));
+  background-size: var(--space-6) var(--space-6);
+  background-attachment: local;
+}
+
+.armada-check-list__table {
+  display: grid;
+  grid-template-columns:
+    max-content
+    minmax(calc(var(--space-12) * 2), max-content)
+    minmax(calc(var(--space-12) * 3), 1fr)
+    max-content
+    max-content;
+  column-gap: 0;
+  width: 100%;
+  min-width: calc(var(--space-12) * 12);
+  padding: 0 var(--space-4) var(--space-4);
+  border-collapse: separate;
   background: transparent;
-  border-bottom-color: var(--border-subtle);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+
+.armada-check-list__table > thead,
+.armada-check-list__table > tbody,
+.armada-check-list__table tr {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+}
+
+.armada-check-list__table > tbody {
+  row-gap: var(--space-2);
+}
+
+.armada-check-list__table th,
+.armada-check-list__table td {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  height: auto;
+}
+
+/* The column heads: a readout strip along the top of the glass, mono, standing still as it scrolls. */
+.armada-check-list__table > thead {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  margin: 0 calc(var(--space-4) * -1) var(--space-3);
+  padding: 0 var(--space-4);
+  border-bottom: var(--border-width) solid var(--border-subtle);
+  background: color-mix(in srgb, var(--bg-raised) 85%, var(--bg-sunken));
+}
+
+.armada-check-list__table > thead tr {
+  border: 0;
+}
+
+.armada-check-list .armada-table-header-cell {
+  height: auto;
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  background: transparent;
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-weight: var(--weight-medium);
   white-space: nowrap;
 }
 
-.armada-check-list .armada-table-row:last-child {
-  border-bottom: 0;
+/* Started and Took read as figures, set to the column's trailing edge like the values under them. */
+.armada-check-list .armada-table-header-cell:nth-child(n + 4) {
+  justify-content: flex-end;
 }
 
-/* Sideways inside the panel on a narrow window; inside, because the panel's
-   own `overflow: hidden` is what clips it to its rounded corners. */
-.armada-check-list__scroll {
-  overflow-x: auto;
+/* ---- A Check as a tile ---------------------------------------------------------------------- */
+
+.armada-check-list__row {
+  --hue: var(--fg-subtle);
+  position: relative;
+  min-height: calc(var(--h-row) * 1.25);
+  border: calc(var(--border-width) * 2) solid color-mix(in srgb, var(--hue) 40%, var(--border-subtle));
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--hue) 5%, var(--bg-raised));
+  transition:
+    border-color var(--duration-fast) var(--ease),
+    background var(--duration-fast) var(--ease),
+    box-shadow var(--duration-fast) var(--ease);
+}
+
+/* The hue, from the run tokens: each aliases its Job counterpart. */
+.armada-check-list__row[data-status="running"] { --hue: var(--run-running); }
+.armada-check-list__row[data-status="passed"] { --hue: var(--run-passed); }
+.armada-check-list__row[data-status="failed"] { --hue: var(--run-failed); }
+.armada-check-list__row[data-status="stopped"] { --hue: var(--run-stopped); }
+
+.armada-check-list__row .armada-table-cell {
+  padding: var(--space-2) var(--space-3);
+}
+
+/* The state's mark in its hue. */
+.armada-check-list__row[data-status] .armada-step-mark {
+  color: var(--hue);
+}
+
+.armada-check-list__row:hover,
+.armada-check-list__row[data-selected] {
+  background: color-mix(in srgb, var(--hue) 10%, var(--bg-raised));
+}
+
+/* Out now: a full edge in its hue, steady, so the eye finds what is moving without a light. */
+.armada-check-list__row[data-status="running"] {
+  border-color: color-mix(in srgb, var(--hue) 70%, var(--border-subtle));
+}
+
+/* Failed: the frame in full and lit, as a tile that needs the owner is on the cockpit's glass. */
+.armada-check-list__row[data-status="failed"] {
+  border-color: var(--hue);
+  background: color-mix(in srgb, var(--hue) 14%, var(--bg-raised));
+  box-shadow:
+    0 0 var(--space-4) color-mix(in srgb, var(--hue) 40%, transparent),
+    inset 0 0 var(--space-6) color-mix(in srgb, var(--hue) 12%, transparent);
+}
+
+/* Asked for and not started: an open dashed outline the glass shows through. */
+.armada-check-list__row[data-status="waiting"] {
+  border-style: dashed;
+  background: color-mix(in srgb, var(--bg-raised) 55%, transparent);
+}
+
+/* Ended by a person: still on the glass, receded. */
+.armada-check-list__row[data-status="stopped"] {
+  border-style: dashed;
+}
+
+/* The open Check's tile: its full edge, and the ring. */
+.armada-check-list__row[data-selected] {
+  border-color: var(--hue);
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.armada-check-list__row .armada-table-cell[data-variant="mono"] {
+  color: var(--fg-default);
+  font-weight: var(--weight-medium);
+}
+
+.armada-check-list__row[data-status="waiting"] .armada-table-cell[data-variant="mono"],
+.armada-check-list__row[data-status="stopped"] .armada-table-cell[data-variant="mono"] {
+  color: var(--fg-muted);
+  font-weight: var(--weight-body);
+}
+
+.armada-check-list__row .armada-table-cell[data-variant="secondary"] {
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+
+.armada-check-list__row .armada-table-cell[data-variant="metadata"] {
+  justify-content: flex-end;
+  font-family: var(--font-mono);
+  white-space: nowrap;
 }
 
 .armada-check-list__state {
   white-space: nowrap;
 }
 
-/* The name opens the row. Styled as the name: the row's hover and selected
-   fill are the affordance. */
+/* The name opens the tile. Its hit area is stretched over the whole tile, so a press anywhere on it
+   opens the Check, under anything else pressable in the row. */
 .armada-check-list__open {
   display: block;
   width: 100%;
@@ -44,10 +230,28 @@
   cursor: pointer;
 }
 
+.armada-check-list__open::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-md);
+}
+
+.armada-check-list__row .armada-tooltip,
+.armada-check-list__row .armada-slot-owner {
+  position: relative;
+  z-index: 1;
+}
+
+/* The keyboard's cursor is the name, and the ring is drawn round the whole tile it opens. */
 .armada-check-list__open:focus-visible {
+  outline: none;
+}
+
+.armada-check-list__row:has(.armada-check-list__open:focus-visible) {
+  border-color: var(--hue);
   outline: var(--focus-ring);
   outline-offset: var(--focus-ring-offset);
-  border-radius: var(--radius-sm);
 }
 
 .armada-check-details {

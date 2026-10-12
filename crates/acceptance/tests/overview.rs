@@ -340,6 +340,7 @@ fn every_kind_of_question_is_served_on_the_job_it_belongs_to_across_two_manifest
                 consequence: "fixes the reader and the writer".to_string(),
             },
         ],
+        decisions: Vec::new(),
     };
     let detail = detail_of(&job, Some(question.clone()));
     let received = round_trip_detail(&detail);
@@ -415,6 +416,7 @@ fn each_answer_names_the_id_it_was_served_with_and_the_route_is_served() {
         question_id: QuestionId::carried("01QUESTIONOVERVIEWDRONEA"),
         chose: Some("the read cursor".to_string()),
         mode: None,
+        decisions: Vec::new(),
     };
     let received = round_trip_chosen_answer(&chosen);
     assert_eq!(received.question_id, chosen.question_id);

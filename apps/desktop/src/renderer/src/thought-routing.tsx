@@ -1,0 +1,74 @@
+// Helm routes a thought into running work. Fleet reads where the words belong (`read_thought`);
+// delivering them is the paths that already exist. A Session gets a message, a Job a redirect to
+// its Drone, and a new one opens the Dispatch panel. Once the words have arrived Fleet is told, and
+// keeps a row for them in Helm's thread, which is where the dock draws it from.
+
+import type { RepositorySummary } from "@armada/protocol";
+import { routeTargetOf, wireTargetOf } from "@armada/helm";
+import type { RouteTarget, ThoughtReading, ThoughtRouting } from "@armada/helm";
+import { refusalWords } from "@armada/screens/src/refusal-words";
+
+import type { BridgeState } from "../../shared/bridge";
+import type { Dispatching } from "./dispatch-panel/dispatching";
+import { useSessionsDraft } from "./sessions-draft";
+import { askToTell } from "./tell";
+
+type Host = {
+  state: BridgeState;
+  repositories: readonly RepositorySummary[];
+  dispatching: Dispatching;
+  openSession: (id: string) => void;
+  openJob: (jobId: string) => void;
+};
+
+/** The dock's routing: Fleet's reading, and the acts the words may go through. */
+export function useThoughtRouting({ state, repositories, dispatching, openSession, openJob }: Host): ThoughtRouting {
+  const draft = useSessionsDraft();
+  // The conversation the dock shows, whose thread keeps the row for words sent on.
+  const manifestId = state.helm.state === "none" ? undefined : state.helm.manifestId;
+
+  /** The words reached the Session or Job: Fleet keeps a row for them. A refusal is said, the words having arrived. */
+  async function recorded(target: RouteTarget, text: string): Promise<void> {
+    if (manifestId === undefined) return;
+    try {
+      const outcome = await window.armada.recordThoughtSent(manifestId, text, wireTargetOf(target));
+      if (!outcome.ok) askToTell(refusalWords(outcome));
+    } catch {
+      askToTell(`Sent to "${target.title}", but the thread could not record it`);
+    }
+  }
+
+  return {
+    read: async (text): Promise<ThoughtReading> => {
+      const read = await window.armada.readThought(text);
+      // A read that failed is a question: the words go to Helm and are never lost.
+      if (!read.ok || read.reading.kind === "question") return { kind: "question" };
+      const { target } = read.reading;
+      return target === undefined ? { kind: "thought" } : { kind: "thought", match: routeTargetOf(target, repositories) };
+    },
+    send: async (target, text) => {
+      if (target.kind === "session") {
+        if (draft === undefined) {
+          askToTell(`Not sent to "${target.title}": Sessions are not served`);
+          return false;
+        }
+        // The composer's own send: a refusal is already a toast, in Fleet's words.
+        const arrived = await draft.send(target.id, { text, files: [], sketches: [], tags: [] });
+        if (arrived === false) return false;
+      } else {
+        const outcome = await window.armada.redirectDrone(target.id, text);
+        if (!outcome.ok) {
+          askToTell(refusalWords(outcome));
+          return false;
+        }
+      }
+      await recorded(target, text);
+      return true;
+    },
+    open: (target) => (target.kind === "session" ? openSession(target.id) : openJob(target.id)),
+    startNew: (kind, text) => {
+      dispatching.choose(kind);
+      dispatching.openTitled(text);
+    },
+  };
+}

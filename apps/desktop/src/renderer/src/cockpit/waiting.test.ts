@@ -60,16 +60,29 @@ describe("what a Session waits on", () => {
     expect(waitingOf(served)[0]?.source).toBe("walk");
   });
 
-  test("one card per item, the item that began first leading, and none for a Session at work or ended", () => {
+  test("one card per item, the item that began first leading, and none for an ended Session", () => {
     const two = session("two", {
       waitingFor: [
         { id: "ask:later", text: "b", since: "2026-10-09T09:30:00.000Z", source: "agent" },
         { id: "walk:first", text: "a", since: "2026-10-09T09:00:00.000Z", source: "walk" },
       ],
     });
-    const working = session("busy", { turn: { state: "working" }, asked: { command: "x" } });
     const ended = session("gone", { dead: "ended", asked: { command: "y" } });
-    expect(callsFromWaiting([two, working, ended]).map((one) => one.item.id)).toEqual(["walk:first", "ask:later"]);
+    expect(callsFromWaiting([two, ended]).map((one) => one.item.id)).toEqual(["walk:first", "ask:later"]);
+  });
+
+  // The owner, 12 Oct: "why the fuck are call cards from sessions not showing in cockpit". An agent
+  // stopped on its question is mid-turn, so the Session reads `working` until he answers.
+  test("a Session at work shows what its turn is stopped on, and nothing else", () => {
+    const asking = session("asking", {
+      turn: { state: "working" },
+      waitingFor: [
+        { id: "ask:q:0", text: "Two thoughts?", since: "2026-10-09T09:00:00.000Z", source: "ask_card" },
+        { id: "walk:w", text: "a walk", since: "2026-10-09T09:10:00.000Z", source: "walk" },
+      ],
+    });
+    const permission = session("perm", { turn: { state: "working" }, asked: { command: "rm -r x" } });
+    expect(callsFromWaiting([asking, permission]).map((one) => one.item.id)).toEqual(["ask:q:0", "perm:perm"]);
   });
 
   test("a call's key names its Session, as the Session's own tile does", () => {

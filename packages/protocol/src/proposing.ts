@@ -27,6 +27,12 @@ export type ProposalInFlight = {
    * wrong call when two people dispatch the same words.
    */
   client_ref?: string;
+  /**
+   * The Job this call is reading for. **Not in Fleet's body**: it rides the `proposal.moved`
+   * envelope (`ProposalMoved.job_id`), and Bridge's main process puts it here so the window that
+   * dispatched learns which Job its press made before the proposer has answered.
+   */
+  job_id?: string;
   /** Which model is reading the request. What the wait costs, roughly. */
   model: string;
   /** When the call went out. A surface subtracts for itself. */

@@ -8,10 +8,7 @@
 
 import type { Item } from "../Dashboard";
 
-// **A command a Drone is held on is not one**: it is answered by one of its offers, and best and quick
-// are not among them.
-export function asksAnAgent(item: Pick<Item, "decisions" | "kind" | "key" | "waiting" | "asked">): boolean {
-  if (item.asked?.kind === "command") return false;
+export function asksAnAgent(item: Pick<Item, "decisions" | "kind" | "key" | "waiting">): boolean {
   if (item.waiting !== undefined) {
     const { source, options } = item.waiting.item;
     return source === "permission" || source === "ask_card" || source === "window_ask" || (options?.length ?? 0) > 0;

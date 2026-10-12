@@ -101,6 +101,22 @@ export type QuestionInFlight = {
    * checking.
    */
   options: AskedOption[];
+  /**
+   * The several decisions of an interview, in the order asked. `crates/ipc/src/waiting.rs`.
+   * **Absent is a single question**, drawn from `question` and `options`. Where
+   * this is present those two are blank and every decision is answered, all at
+   * once, through `ChosenAnswer.decisions`. Two to six.
+   */
+  decisions?: DecisionInFlight[];
+};
+
+/** One decision of an interview, while it is unanswered. */
+export type DecisionInFlight = {
+  /** Fleet's, `d1` onward, unique within the question. What an answer to it names. */
+  decision_id: string;
+  question: string;
+  /** Two to four, labels distinct, as `QuestionInFlight.options`. */
+  options: AskedOption[];
 };
 
 /**
@@ -126,11 +142,24 @@ export type AskedOption = {
  */
 export type ChosenAnswer = {
   question_id: string;
-  /** The `AskedOption.label` chosen, verbatim. Absent when the answer is a `mode` alone. */
+  /** The `AskedOption.label` chosen, verbatim. Absent when the answer is a `mode` alone or the question is an interview. */
   chose?: string;
   /**
    * Leave the choice to the drone, and how hard to think about it. With a label
    * too, the label is the answer and the mode rides with it.
    */
   mode?: AnswerMode;
+  /**
+   * The pick for each decision of an interview: every decision, once each, and
+   * no `chose`. A partial set, an unknown decision or a label the decision did
+   * not offer is refused, and nothing is kept.
+   */
+  decisions?: ChosenDecision[];
+};
+
+/** A person's pick for one decision of an interview. */
+export type ChosenDecision = {
+  decision_id: string;
+  /** The `AskedOption.label` chosen, verbatim. */
+  chose: string;
 };

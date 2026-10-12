@@ -21,7 +21,6 @@ describe("the standing answers", () => {
     ["main gone red", call("Main", "main:/repo")],
     ["a failed Check", call("Check failed", "job:c")],
     ["a stuck Drone", call("Drone stuck", "job:s")],
-    ["a command a Drone is held on, answered by one of its offers", { ...call("Drone question", "job:c:command:c1"), asked: { kind: "command" } } as unknown as Parameters<typeof asksAnAgent>[0]],
     ["a Job at its review", call("Job", "job:r")],
     ["a page a Session asks him to look at", call("Session walk", "session:s9:walk:u", undefined, "walk")],
     ["a Session's plain line, an errand for him", call("Session", "session:s9:ask:y", undefined, "agent")],

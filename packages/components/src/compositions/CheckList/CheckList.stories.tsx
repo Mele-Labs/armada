@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, within } from "storybook/test";
 
+import { Tabs } from "../../primitives/Tabs/Tabs";
 import { CheckDetails, CheckList, type CheckListRow } from "./CheckList";
 
 /**
@@ -34,6 +35,20 @@ export const EveryStatus: Story = {
 };
 
 export const NoRows: Story = { args: { rows: [] } };
+
+/** The host's filters in the band over the glass, as the Checks page draws them. */
+const filters = (
+  <Tabs
+    items={["All", "Active", "Waiting", "Completed", "Passed", "Failed", "Skipped"].map((label) => ({ id: label, label }))}
+    value="All"
+    onChange={fn()}
+  />
+);
+
+export const WithFilters: Story = { args: { rows, openRow: "c", onOpenRow: fn(), controls: filters } };
+
+/** A filter that holds nothing: the band stays, so the filter can be changed back. */
+export const FilteredToNothing: Story = { args: { rows: [], onOpenRow: fn(), controls: filters } };
 
 export const Details: Story = {
   render: () => (

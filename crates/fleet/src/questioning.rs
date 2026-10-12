@@ -13,10 +13,12 @@
 //!
 //! **Not a status** — the Job waits at `queued` reading `awaiting_answer`, the
 //! shape `over_budget` and a parent waiting on its children already have.
-//! **Not a conversation** — one question per Job, asked once and answered once
+//! **Not a conversation** — one ask per Job, asked once and answered once
 //! from a closed set the Drone offered, specified by `operations/`'s
-//! `answer_question` row. **Not blocking** — a person's wait has no budget an
-//! HTTP call could bound.
+//! `answer_question` row. The ask is one question, or several decisions
+//! together (`crate::interviewing`, the Plan interview): still one ask, and the
+//! answer to all of them comes in one call. **Not blocking** — a person's wait
+//! has no budget an HTTP call could bound.
 //!
 //! # The asking Drone gives its place back
 //!
@@ -29,7 +31,7 @@
 //! asking Drone's own context is gone, and the new one starts from the branch
 //! and the question.
 use core_model::{
-    Actor, Component, DroneQuestion, Envelope, FieldValue, GivenAnswer, JobId, JobStatus, Level,
+    Actor, Component, Decision, DroneQuestion, Envelope, FieldValue, GivenAnswer, JobId, JobStatus, Level,
     OfferedAnswer, StepId, Target, Timestamp,
 };
 use store::ExtraEnded;
@@ -67,6 +69,24 @@ fn minted(
             })
             .collect(),
         answer: None,
+        decisions: asking
+            .decisions
+            .into_iter()
+            .enumerate()
+            .map(|(at, decision)| Decision {
+                id: format!("d{}", at + 1),
+                question: decision.question,
+                options: decision
+                    .options
+                    .into_iter()
+                    .map(|option| OfferedAnswer {
+                        label: option.label,
+                        consequence: option.consequence,
+                    })
+                    .collect(),
+                chose: None,
+            })
+            .collect(),
     }
 }
 
@@ -84,6 +104,22 @@ pub(crate) fn in_flight(asked: &DroneQuestion) -> ipc::QuestionInFlight {
             .map(|option| ipc::AskedOption {
                 label: option.label.clone(),
                 consequence: option.consequence.clone(),
+            })
+            .collect(),
+        decisions: asked
+            .decisions
+            .iter()
+            .map(|decision| ipc::DecisionInFlight {
+                decision_id: decision.id.clone(),
+                question: decision.question.clone(),
+                options: decision
+                    .options
+                    .iter()
+                    .map(|option| ipc::AskedOption {
+                        label: option.label.clone(),
+                        consequence: option.consequence.clone(),
+                    })
+                    .collect(),
             })
             .collect(),
     }
@@ -121,12 +157,24 @@ pub struct Answered {
     /// The line that left the choice to the Drone. **The label wins where both are named**: the
     /// line rides with it.
     deciding: Option<String>,
+    /// Every decision of an interview with its answer, where it was one. The
+    /// fields above are then blank. `crate::interviewing`.
+    decisions: Vec<crate::interviewing::Decided>,
 }
 
 impl Answered {
     /// The block for a Job whose question has been answered. `None` while it
     /// is unanswered and where nothing was asked.
     pub(crate) fn of(asked: &DroneQuestion) -> Option<Answered> {
+        if !asked.decisions.is_empty() {
+            return Some(Answered {
+                question: String::new(),
+                label: None,
+                consequence: None,
+                deciding: None,
+                decisions: crate::interviewing::decided(asked)?,
+            });
+        }
         let deciding = asked.answer.as_ref()?.deciding.clone();
         let chosen = asked.chosen();
         if chosen.is_none() && deciding.is_none() {
@@ -137,11 +185,15 @@ impl Answered {
             label: chosen.map(|chosen| chosen.label.clone()),
             consequence: chosen.map(|chosen| chosen.consequence.clone()),
             deciding,
+            decisions: Vec::new(),
         })
     }
 
     /// The block, in the words of `prompts.crossingAnswered`.
     pub fn text(&self, prompts: &crate::prompts::Prompts) -> String {
+        if !self.decisions.is_empty() {
+            return crate::interviewing::text(&self.decisions, prompts);
+        }
         match (&self.label, &self.consequence, &self.deciding) {
             (Some(label), Some(consequence), line) => {
                 let text = prompts.fill(
@@ -233,6 +285,24 @@ pub enum NotAnswered {
     NothingChosen { job: JobId },
     /// The label is not one the Drone offered.
     NotOffered { chose: String, offered: Vec<String> },
+    /// A label sent for a question that is several decisions. It answers none
+    /// of them by itself.
+    AnInterview { job: JobId },
+    /// Per-decision picks sent for a question that is one.
+    NotAnInterview { job: JobId },
+    /// Decisions the answer left out. **The whole answer is refused**, not
+    /// the part that was sent.
+    Unanswered { decisions: Vec<String> },
+    /// A pick for a decision the question does not have.
+    NoSuchDecision { decision: String },
+    /// Two picks for one decision.
+    DecidedTwice { decision: String },
+    /// The label is not one this decision offered.
+    NotOfferedFor {
+        decision: String,
+        chose: String,
+        offered: Vec<String>,
+    },
     /// The answer would not go onto the record. **The question stays
     /// outstanding**, so a person can answer again.
     NotKept(store::WriteError),
@@ -259,6 +329,39 @@ impl core::fmt::Display for NotAnswered {
             NotAnswered::NotOffered { chose, offered } => write!(
                 out,
                 "`{chose}` is not one of the answers the drone offered. It \
+                 offered {}",
+                offered.join(", ")
+            ),
+            NotAnswered::AnInterview { job } => write!(
+                out,
+                "job {} asked several decisions, so answer each by its id rather \
+                 than with one label",
+                job.as_str()
+            ),
+            NotAnswered::NotAnInterview { job } => write!(
+                out,
+                "job {} asked one question, so answer it with the label chosen \
+                 rather than a pick for each decision",
+                job.as_str()
+            ),
+            NotAnswered::Unanswered { decisions } => write!(
+                out,
+                "every decision needs an answer in one go. Still open: {}",
+                decisions.join(", ")
+            ),
+            NotAnswered::NoSuchDecision { decision } => {
+                write!(out, "`{decision}` is not one of the decisions asked")
+            }
+            NotAnswered::DecidedTwice { decision } => {
+                write!(out, "`{decision}` was answered twice. Send one pick for each")
+            }
+            NotAnswered::NotOfferedFor {
+                decision,
+                chose,
+                offered,
+            } => write!(
+                out,
+                "`{chose}` is not one of the answers offered for `{decision}`. It \
                  offered {}",
                 offered.join(", ")
             ),
@@ -317,7 +420,7 @@ where
             .map_err(|_| NotAsked::NothingIsWorking)?;
         if let Some(held) = record.question().filter(|_| record.waiting_on_an_answer()) {
             return Err(NotAsked::AlreadyAsking {
-                question: held.question.clone(),
+                question: held.headline().to_string(),
             });
         }
         // Read at all because a Job can be escalated over a live Drone —
@@ -409,6 +512,11 @@ where
         if !job.waiting_on_an_answer() {
             return Err(nothing());
         }
+        if !asked.decisions.is_empty() {
+            return Err(NotAnswered::AnInterview {
+                job: job_id.clone(),
+            });
+        }
         let chosen = match chose {
             Some(chose) => Some(asked.offering(chose).ok_or_else(|| NotAnswered::NotOffered {
                 chose: chose.to_string(),
@@ -464,8 +572,9 @@ where
             "question_id",
             FieldValue::Str(asked.id.as_str().to_string()),
         )
-        .with_field("question", FieldValue::Str(asked.question.clone()))
-        .with_field("offered", FieldValue::Str(asked.labels().join(" | ")));
+        .with_field("question", FieldValue::Str(asked.headline().to_string()))
+        .with_field("offered", FieldValue::Str(asked.labels().join(" | ")))
+        .with_field("decisions", FieldValue::Int(asked.decisions.len() as i64));
         // A log line that will not write does not fail the ask, for
         // `crate::silence::noted_quiet`'s reason: what happened is on the
         // record, and the event is published either way.
@@ -475,7 +584,7 @@ where
     /// Write the answer into the Job's own log. **Where a person's decision is
     /// recorded, beside the verdicts** — readable afterwards by somebody working
     /// out why a Job was split the way it was.
-    fn noted_answered(
+    pub(crate) fn noted_answered(
         &self,
         job: &JobId,
         step: &StepId,

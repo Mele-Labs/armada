@@ -908,14 +908,23 @@ where
             let fleet = Arc::clone(&self);
             async move {
                 let id = job_id.to_domain();
-                Fleet::answer_question(
-                    &fleet,
-                    &id,
-                    answer.question_id.as_str(),
-                    answer.chose.as_deref(),
-                    answer.mode,
-                )
-                .await
+                let question = answer.question_id.as_str();
+                // A label or a mode answers a single question and picks answer
+                // an interview. Anything else goes the interview's way, where
+                // the missing picks are refused by name.
+                if answer.decisions.is_empty() && (answer.chose.is_some() || answer.mode.is_some())
+                {
+                    Fleet::answer_question(
+                        &fleet,
+                        &id,
+                        question,
+                        answer.chose.as_deref(),
+                        answer.mode,
+                    )
+                    .await
+                } else {
+                    Fleet::answer_decisions(&fleet, &id, question, &answer.decisions).await
+                }
                 .map_err(|why| why.about(&id))?;
                 fleet.load(&id).await
             }
