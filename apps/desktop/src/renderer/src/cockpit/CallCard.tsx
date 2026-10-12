@@ -267,7 +267,7 @@ export function CallCard({
     else if (words.trim() !== "") answer.reply?.(words.trim());
   };
 
-  const changeLabel = sleep === undefined ? "Redirect" : sleep.corrected === undefined ? "Change" : "Change again";
+  const changeLabel = sleep === undefined ? "Message" : sleep.corrected === undefined ? "Change" : "Change again";
   const openLabel = sleep === undefined ? OPENS(item) : sleep.sessionId !== undefined ? "Open the Session" : "Open the Job";
 
   // A card made only of acts is split: the decision on the left, a quiet group of ghosts on the right.
