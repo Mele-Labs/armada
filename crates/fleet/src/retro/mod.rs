@@ -16,18 +16,22 @@ mod agreeing;
 mod asking;
 mod changing;
 pub(crate) mod gathering;
+pub(crate) mod live;
 pub(crate) mod record;
 mod reviewing;
 mod serving;
 mod session_agreeing;
+mod session_files;
+mod session_question;
 mod session_record;
 mod session_writing;
 mod starting;
+pub(crate) mod streamed;
 mod writing;
 
 pub(crate) use asking::ASK;
 pub(crate) use reviewing::REVIEW;
-pub(crate) use session_writing::SESSION_QUESTION;
+pub(crate) use session_question::SESSION_QUESTION;
 pub(crate) use writing::{LANDS_IN, QUESTION, TEXTS};
 
 use std::sync::atomic::AtomicBool;

@@ -8,7 +8,7 @@ import type { AddressInfo } from "node:net";
 import { afterEach, expect, it } from "vitest";
 import { WebSocketServer } from "ws";
 
-import type { SessionRecord, SessionRow, SessionRunMessage } from "@armada/protocol";
+import type { RetroRow, SessionRecord, SessionRow, SessionRunMessage } from "@armada/protocol";
 import type { BridgeState } from "../shared/bridge";
 import { SessionsHost, THREADS_HELD, withRow, withSession } from "./sessions";
 
@@ -126,6 +126,48 @@ it("keeps a row that arrives while the thread is being read", async () => {
   sessions.row({ session_id: "a", row: said("r2", "arrived mid-read") });
   await reading;
   expect(last("sessionThreads")).toEqual({ a: [said("r1", "first"), said("r2", "arrived mid-read")] });
+});
+
+const retroFrame = (change: Partial<RetroRow> = {}): RetroRow => ({
+  kind: "retro",
+  id: "retro-1",
+  at: AT,
+  stage: "asking_agent",
+  stage_since: "2026-10-12T14:00:00Z",
+  characters: 0,
+  items: [],
+  ...change,
+});
+
+it("holds one retro row for the press and draws only its latest frame, however they cross", async () => {
+  const sent: Sent[] = [];
+  const port = await fleet(sent, [record("a")], { a: [said("r1", "first")] });
+  const { sessions, last } = host(port);
+  await sessions.again(port);
+  await sessions.watch("a");
+  const reading = retroFrame({ stage: "reading_record", stage_since: "2026-10-12T14:00:03Z" });
+  const writing = retroFrame({ stage: "writing", stage_since: "2026-10-12T14:00:09Z", characters: 300, items: [{ title: "A" }] });
+  sessions.row({ session_id: "a", row: retroFrame() });
+  sessions.row({ session_id: "a", row: writing });
+  // Frames cross: an earlier one reaches main after a later one.
+  sessions.row({ session_id: "a", row: reading });
+  expect(last("sessionThreads")).toEqual({ a: [said("r1", "first"), writing] });
+  const written = retroFrame({ stage: "written", stage_since: "2026-10-12T14:00:30Z", characters: 900, retro: 3 });
+  sessions.row({ session_id: "a", row: written });
+  sessions.row({ session_id: "a", row: writing });
+  expect(last("sessionThreads")).toEqual({ a: [said("r1", "first"), written] });
+});
+
+it("draws a thread opened later from the row Fleet kept, and an older frame that arrives mid-read does not replace it", async () => {
+  const sent: Sent[] = [];
+  const kept = retroFrame({ stage: "written", stage_since: "2026-10-12T14:00:30Z", retro: 2 });
+  const port = await fleet(sent, [record("a")], { a: [kept] });
+  const { sessions, last } = host(port);
+  await sessions.again(port);
+  const reading = sessions.watch("a");
+  sessions.row({ session_id: "a", row: retroFrame({ stage: "writing", stage_since: "2026-10-12T14:00:09Z", characters: 40 }) });
+  await reading;
+  expect(last("sessionThreads")).toEqual({ a: [kept] });
 });
 
 it("opens a window when a Session shows a page, once, and never for a row a thread read brought", async () => {

@@ -353,6 +353,26 @@ pub enum SessionRow {
         run: u64,
         state: crate::SessionCheckState,
     },
+    /// A Session's retro being written. **The row is replaced by id** as the writing goes
+    /// and stays when it is done. `items` settle while the model writes and are empty once
+    /// `written`, when `retro` names the kept one for `get_session_retro`. Since 23.78.
+    Retro {
+        id: String,
+        /// When the press was accepted.
+        at: Instant,
+        stage: crate::RetroStage,
+        /// When it reached this stage.
+        stage_since: Instant,
+        /// How much of the model's answer has arrived.
+        characters: u64,
+        items: Vec<crate::PartialRetroItem>,
+        /// The kept retro's number, on `written`.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        retro: Option<i64>,
+        /// Fleet's words for why it was not kept, on `failed`.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        why: Option<String>,
+    },
     /// A call put to the person. **The row is replaced by id** as the ask is
     /// answered, so a client holds one row per ask.
     Ask {
@@ -400,6 +420,7 @@ impl SessionRow {
             | SessionRow::Lease { id, .. }
             | SessionRow::Window { id, .. }
             | SessionRow::Check { id, .. }
+            | SessionRow::Retro { id, .. }
             | SessionRow::WindowAsk { id, .. }
             | SessionRow::Ask { id, .. } => id,
         }
