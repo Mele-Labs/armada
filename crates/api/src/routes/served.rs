@@ -611,16 +611,6 @@ const ROUTES: &[Route] = &[
         path: "/sessions/claim_pull_request",
     },
     Route {
-        operation: "start_another_session",
-        method: "POST",
-        path: "/sessions/start_another",
-    },
-    Route {
-        operation: "fork_this_session",
-        method: "POST",
-        path: "/sessions/fork_this",
-    },
-    Route {
         operation: "waiting_for",
         method: "POST",
         path: "/sessions/waiting",
