@@ -303,7 +303,20 @@ where
         // A resolution nothing staged is repaired before the gate reads the
         // diff, and an install a Check named is repaired and the gate run
         // again. `crate::healing`.
-        let unstaged = self.index_healed(&job, &step, &worktree, &[]).await.err();
+        let unstaged = match self.index_healed(&job, &step, &worktree, &[]).await {
+            Ok(repaired) => {
+                // **Back to where it stopped.** A delivering step's commit on
+                // entry is refused over unmerged paths, and the repair that
+                // staged them cannot know that: nothing else would ever try
+                // the commit again, and the Job would reach review with no
+                // push and no pull request. `crate::landing`.
+                if repaired {
+                    self.sent_out_on_entry(&job, &step, &worktree).await;
+                }
+                None
+            }
+            Err(not) => Some(not),
+        };
         let mut reinstalled = false;
         let ruling = match unstaged {
             Some(not) => {
