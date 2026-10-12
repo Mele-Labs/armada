@@ -1,5 +1,5 @@
 import { Fragment, useState } from "react";
-import { GitMerge, Hammer } from "lucide-react";
+import { Box, GitMerge, Hammer, SquareTerminal } from "lucide-react";
 
 import { CHECK_OUTCOME } from "../../generated/vocabulary";
 import { AttachmentChip } from "../../primitives/AttachmentChip/AttachmentChip";
@@ -23,6 +23,12 @@ export type HubJob = { id: string; title: string };
 
 /** A Job the work can be sent back to. */
 export type RecentJob = HubJob & { branch: string };
+
+/** A Session, by its id and what it is called. */
+export type HubSession = { id: string; title: string };
+
+/** A Session the work can be sent back to, as a message. */
+export type RecentSession = HubSession & { branch?: string };
 
 /** What turned main red. */
 export type MainRed = {
@@ -49,8 +55,8 @@ export type MainRed = {
     branchUrl?: string;
     /** The Job whose pull request it was. Absent for a person's. */
     job?: HubJob;
-    /** The Session that held the pull request, where no Job did. */
-    session?: { id: string; title: string };
+    /** The Session whose pull request it was. Absent for a Job's or a person's. Wins over `job` where both are named. */
+    session?: HubSession;
   };
 };
 
@@ -67,8 +73,14 @@ export type MainState =
    */
   | { state: "red"; red: MainRed; taken?: HubJob; checking?: readonly MainChecking[] };
 
-/** What the owner chose: a new Job with this brief, or an earlier Job to send the work back to. */
-export type FixChoice = { kind: "new"; request: string } | { kind: "back"; job: string };
+/**
+ * What the owner chose: a new Job with this brief, an earlier Job to send the work back to, or a
+ * Session to send it to as a message.
+ */
+export type FixChoice =
+  | { kind: "new"; request: string }
+  | { kind: "back"; job: string }
+  | { kind: "session"; session: string; message: string };
 
 const MARK = 16;
 const SMALL = 12;
@@ -127,10 +139,14 @@ export type MainRedBandProps = {
   main: Extract<MainState, { state: "red" }>;
   /** Earlier Jobs, newest first. The culprit's own is drawn first wherever it is among them. */
   recent: readonly RecentJob[];
+  /** Earlier Sessions, newest first. The culprit's own is drawn first wherever it is among them. Absent is none. */
+  recentSessions?: readonly RecentSession[];
   onOpenLink: (url: string) => void;
   /** Opens the failed Check's log. Absent, the Check is not a press. */
   onOpenCheck?: (check: string) => void;
   onOpenJob?: (jobId: string) => void;
+  /** Opens the Session that merged. Absent, its title is not a press. */
+  onOpenSession?: (sessionId: string) => void;
   /**
    * Told the owner's choice. **The two ways to hand the red to a Job draw only where something
    * listens**: a Fleet that cannot take one offers none, and a button that does nothing is worse.
@@ -138,10 +154,12 @@ export type MainRedBandProps = {
   onFix?: (choice: FixChoice) => void;
 };
 
-export function MainRedBand({ main, recent, onOpenLink, onOpenCheck, onOpenJob, onFix }: MainRedBandProps) {
+export function MainRedBand({ main, recent, recentSessions = [], onOpenLink, onOpenCheck, onOpenJob, onOpenSession, onFix }: MainRedBandProps) {
   const { red, taken } = main;
   const checking = main.checking ?? [];
   const held = checking.length > 0;
+  // The acts draw only where something listens, and not where a held red or a Job on it makes them moot.
+  const asks = !held && taken === undefined && onFix !== undefined;
   const [asking, setAsking] = useState<"new" | "back" | null>(null);
   const link = (url: string) => (event: { preventDefault: () => void }) => {
     event.preventDefault();
@@ -172,14 +190,16 @@ export function MainRedBand({ main, recent, onOpenLink, onOpenCheck, onOpenJob, 
           ) : (
             <span className="armada-main-red__title">Main is red</span>
           )}
-          {held || taken !== undefined || onFix === undefined ? null : (
+          {!asks ? null : (
             <span className="armada-main-red__ask">
               <Button variant="secondary" size="sm" ground="sunken" onClick={() => setAsking("new")}>
                 Dispatch a new Job
               </Button>
-              <Button variant="secondary" size="sm" ground="sunken" onClick={() => setAsking("back")}>
-                Send back to a Job
-              </Button>
+              {red.merge !== undefined ? null : (
+                <Button variant="secondary" size="sm" ground="sunken" onClick={() => setAsking("back")}>
+                  Send back to…
+                </Button>
+              )}
             </span>
           )}
         </div>
@@ -232,6 +252,12 @@ export function MainRedBand({ main, recent, onOpenLink, onOpenCheck, onOpenJob, 
                     {red.merge.branch}
                   </a>
                 )}
+                <MergeOwner merge={red.merge} {...(onOpenJob === undefined ? {} : { onOpenJob })} {...(onOpenSession === undefined ? {} : { onOpenSession })} />
+                {!asks ? null : (
+                  <Button variant="secondary" size="sm" ground="sunken" onClick={() => setAsking("back")}>
+                    {red.merge.session !== undefined || red.merge.job !== undefined ? "Send back" : "Send back to…"}
+                  </Button>
+                )}
               </dd>
             </>
           )}
@@ -261,6 +287,7 @@ export function MainRedBand({ main, recent, onOpenLink, onOpenCheck, onOpenJob, 
           kind={asking}
           red={red}
           recent={recent}
+          recentSessions={recentSessions}
           onCancel={() => setAsking(null)}
           onFix={(choice) => {
             setAsking(null);
@@ -269,6 +296,40 @@ export function MainRedBand({ main, recent, onOpenLink, onOpenCheck, onOpenJob, 
         />
       )}
     </div>
+  );
+}
+
+/**
+ * Who merged: the Session that owns the pull request, else the Job. Its registry icon says which,
+ * as a pull request row on the line draws it, and its title opens it. Nobody known draws nothing.
+ */
+function MergeOwner({
+  merge,
+  onOpenJob,
+  onOpenSession,
+}: {
+  merge: NonNullable<MainRed["merge"]>;
+  onOpenJob?: (jobId: string) => void;
+  onOpenSession?: (sessionId: string) => void;
+}) {
+  const owner = merge.session !== undefined ? { kind: "Session", Icon: SquareTerminal, one: merge.session, open: onOpenSession } : merge.job !== undefined ? { kind: "Job", Icon: Box, one: merge.job, open: onOpenJob } : undefined;
+  if (owner === undefined) return null;
+  const { kind, Icon, one, open } = owner;
+  return (
+    <span className="armada-main-red__owner">
+      <Tooltip label={kind} asChild>
+        <span className="armada-main-red__owner-mark" role="img" aria-label={kind}>
+          <Icon size={SMALL} strokeWidth={STROKE} aria-hidden />
+        </span>
+      </Tooltip>
+      {open === undefined ? (
+        <span>{one.title}</span>
+      ) : (
+        <button type="button" className="armada-main-red__link" onClick={() => open(one.id)}>
+          {one.title}
+        </button>
+      )}
+    </span>
   );
 }
 
@@ -308,28 +369,41 @@ export function briefOf(red: MainRed): string {
   ].join("\n");
 }
 
-/** The culprit's own Job first, then the rest as they came. */
-export function culpritFirst(recent: readonly RecentJob[], culprit: HubJob | undefined): RecentJob[] {
+/** The culprit's own Job or Session first, then the rest as they came. */
+export function culpritFirst<T extends { id: string }>(recent: readonly T[], culprit: { id: string } | undefined): T[] {
   const own = recent.filter((one) => one.id === culprit?.id);
   return [...own, ...recent.filter((one) => one.id !== culprit?.id)];
 }
+
+/** The one picked in the send-back dialog: a Session or a Job. */
+type Picked = { kind: "session" | "job"; id: string } | null;
 
 function FixDialog({
   kind,
   red,
   recent,
+  recentSessions,
   onCancel,
   onFix,
 }: {
   kind: "new" | "back";
   red: MainRed;
   recent: readonly RecentJob[];
+  recentSessions: readonly RecentSession[];
   onCancel: () => void;
   onFix: (choice: FixChoice) => void;
 }) {
   const [request, setRequest] = useState(() => briefOf(red));
-  const [job, setJob] = useState<string | null>(null);
   const jobs = culpritFirst(recent, red.merge?.job);
+  const sessions = culpritFirst(recentSessions, red.merge?.session);
+  // The culprit is chosen before the owner looks: the Session if one merged it, else the Job.
+  const [picked, setPicked] = useState<Picked>(() =>
+    red.merge?.session !== undefined && sessions[0]?.id === red.merge.session.id
+      ? { kind: "session", id: red.merge.session.id }
+      : red.merge?.job !== undefined && jobs[0]?.id === red.merge.job.id
+        ? { kind: "job", id: red.merge.job.id }
+        : null,
+  );
   if (kind === "new") {
     return (
       <Dialog
@@ -347,35 +421,56 @@ function FixDialog({
       </Dialog>
     );
   }
+  const mark = (id: string, owner: { id: string } | undefined) =>
+    red.merge === undefined || owner === undefined || id !== owner.id ? null : (
+      <Tooltip label={`Merged #${red.merge.number}, the pull request that turned main red`} asChild>
+        <span className="armada-main-fix__culprit" role="img" aria-label={`Merged #${red.merge.number}`}>
+          <GitMerge size={SMALL} strokeWidth={STROKE} aria-hidden />
+        </span>
+      </Tooltip>
+    );
   return (
     <Dialog
       open
       tone="neutral"
       width="wide"
-      title="Send the work back to a Job"
+      title="Send the work back"
       confirmLabel="Send back"
-      confirmDisabled={job === null}
+      confirmDisabled={picked === null || (picked.kind === "session" && request.trim() === "")}
       onCancel={onCancel}
-      onConfirm={() => job !== null && onFix({ kind: "back", job })}
+      onConfirm={() => {
+        if (picked === null) return;
+        onFix(picked.kind === "session" ? { kind: "session", session: picked.id, message: request } : { kind: "back", job: picked.id });
+      }}
     >
       <Attached red={red} />
-      <RadioGroup label="Job">
-        {jobs.map((one) => (
-          <Radio key={one.id} name="main-fix-job" value={one.id} checked={job === one.id} onChange={() => setJob(one.id)}>
-            <span className="armada-main-fix__job">
-              <span>{one.title}</span>
-              <span className="mono armada-main-fix__branch">{one.branch}</span>
-              {red.merge?.job !== undefined && one.id === red.merge.job.id ? (
-                <Tooltip label={`Merged #${red.merge.number}, the pull request that turned main red`} asChild>
-                  <span className="armada-main-fix__culprit" role="img" aria-label={`Merged #${red.merge.number}`}>
-                    <GitMerge size={SMALL} strokeWidth={STROKE} aria-hidden />
-                  </span>
-                </Tooltip>
-              ) : null}
-            </span>
-          </Radio>
-        ))}
-      </RadioGroup>
+      {sessions.length === 0 ? null : (
+        <RadioGroup label="Sessions">
+          {sessions.map((one) => (
+            <Radio key={one.id} name="main-fix-session" value={one.id} checked={picked?.kind === "session" && picked.id === one.id} onChange={() => setPicked({ kind: "session", id: one.id })}>
+              <span className="armada-main-fix__job">
+                <span>{one.title}</span>
+                {one.branch === undefined ? null : <span className="mono armada-main-fix__branch">{one.branch}</span>}
+                {mark(one.id, red.merge?.session)}
+              </span>
+            </Radio>
+          ))}
+        </RadioGroup>
+      )}
+      {jobs.length === 0 ? null : (
+        <RadioGroup label="Jobs">
+          {jobs.map((one) => (
+            <Radio key={one.id} name="main-fix-job" value={one.id} checked={picked?.kind === "job" && picked.id === one.id} onChange={() => setPicked({ kind: "job", id: one.id })}>
+              <span className="armada-main-fix__job">
+                <span>{one.title}</span>
+                <span className="mono armada-main-fix__branch">{one.branch}</span>
+                {mark(one.id, red.merge?.job)}
+              </span>
+            </Radio>
+          ))}
+        </RadioGroup>
+      )}
+      {picked?.kind === "session" ? <Textarea label="Message" rows={5} value={request} onChange={(event) => setRequest(event.target.value)} /> : null}
     </Dialog>
   );
 }
