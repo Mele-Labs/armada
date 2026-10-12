@@ -850,7 +850,7 @@ function SessionView({ session, goes, onOpen, held, lines }: { session: Session;
                   {draft.close === undefined || session.terminal === true || session.dead !== undefined ? null : (
                     <Tooltip label="End this Session and park its slot">
                       <Button variant="ghost" size="sm" onClick={() => draft.close?.(session.id)}>
-                        Close
+                        End session
                       </Button>
                     </Tooltip>
                   )}
