@@ -19,7 +19,15 @@ use ipc::{
 use store::{AttachmentState, Holder, KeptAttachment, KeptSession, SessionSearch, Store};
 
 use crate::adrift::Adrift;
+use crate::session_host::waiting::{waiting_reads, WaitingReads};
 use crate::daemon::Fleet;
+
+/// What a session's row reads from the store, taken under the lock.
+pub(crate) struct LedgerReads {
+    held: Vec<KeptAttachment>,
+    hosting: Option<store::KeptHosting>,
+    waiting: WaitingReads,
+}
 
 /// A report that names nothing it can be kept against. A 422.
 const SESSION_UNNAMED: &str = "fleet.session_unnamed";
@@ -128,10 +136,43 @@ where
         store: &Store,
         session: &KeptSession,
     ) -> Result<SessionRecord, Refusal> {
-        let held = store
-            .attachments_of(&Holder::session(&session.id))
-            .map_err(|why| self.ledger_fault(why))?;
-        let mut record = session_wire(session, &held);
+        Ok(self.ledger_built(session, self.ledger_reads(store, session)?))
+    }
+
+    /// Everything [`ledger_built`](Self::ledger_built) needs from the store, and nothing else:
+    /// a caller that holds the lock takes this and lets go before the row is drawn.
+    pub(crate) fn ledger_reads(
+        &self,
+        store: &Store,
+        session: &KeptSession,
+    ) -> Result<LedgerReads, Refusal> {
+        let fault = |why| self.ledger_fault(why);
+        Ok(LedgerReads {
+            held: store.attachments_of(&Holder::session(&session.id)).map_err(fault)?,
+            hosting: if session.origin == "bridge" {
+                store.hosting(&session.id).map_err(fault)?
+            } else {
+                None
+            },
+            waiting: waiting_reads(store, session).map_err(fault)?,
+        })
+    }
+
+    /// What the session waits on, off what [`ledger_reads`](Self::ledger_reads) took, for a caller that
+    /// wants no more of the row than that.
+    pub(crate) fn ledger_waiting(
+        &self,
+        session: &KeptSession,
+        reads: LedgerReads,
+    ) -> Vec<ipc::WaitingItem> {
+        let attachments: Vec<ipc::Attachment> = reads.held.iter().map(attachment_wire).collect();
+        self.waiting_from(reads.waiting, session, &attachments)
+    }
+
+    /// The row off what [`ledger_reads`](Self::ledger_reads) took: the disk is read here, not
+    /// under the store lock.
+    pub(crate) fn ledger_built(&self, session: &KeptSession, reads: LedgerReads) -> SessionRecord {
+        let mut record = session_wire(session, &reads.held);
         // A subagent the mod never settles is done once its own transcript shows its turn ended.
         let home = &self.host().home;
         for one in record.attachments.iter_mut().filter(|one| {
@@ -156,15 +197,11 @@ where
             };
             record.mod_out_of_date = self.mod_out_of_date(session);
         }
-        if session.origin == "bridge" {
-            record.hosted = self
-                .hosted_facts(store, &session.id)
-                .map_err(|why| self.ledger_fault(why))?;
-        }
-        record.waiting_for = self
-            .waiting_items(store, session, &record.attachments)
-            .map_err(|why| self.ledger_fault(why))?;
-        Ok(record)
+        record.hosted = reads
+            .hosting
+            .map(|hosting| self.hosted_facts_of(&session.id, hosting));
+        record.waiting_for = self.waiting_from(reads.waiting, session, &record.attachments);
+        record
     }
 
     /// Keep the version a mod reported. A fact that carries none leaves what is kept.
