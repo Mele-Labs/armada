@@ -64,8 +64,8 @@ pauses Autopilot and says which one it was; raising it lets Resume carry on (#21
 | The picker is sure | The Job starts with no approval (`2026-10-11-autopilots-clear-picks-start-unasked.md`) |
 | The picker is unsure, for instance whether it needs a design call | Set aside with the reason, and the next issue is taken. The queue never waits on it |
 | The Job's Drone asks a question | The Job gives its place back and waits for the answer (`2026-10-11-a-job-waiting-on-him-gives-its-place-back.md`) |
-| The Judges agree it needs redoing | It goes back to the Drone, twice at most (#206) |
-| The Judges call it risky, or the retries are spent | A call card, as any refusal is today |
+| The Judges agree it needs redoing | It goes back to the Drone, twice at most (#206). The step reads *Sent back by the Judges · 1 of 2* |
+| The Judges call it risky, or the retries are spent | A call card, as any refusal is today, giving the Judges' risk reason where a member called it risky |
 
 > **Rule.** The dispatch gate is skipped for Autopilot's sure picks and nowhere else.
 > Why: the owner reads every plan he dispatches (3 Sep 2026), and narrowed that
@@ -94,7 +94,7 @@ Neither one stops a Job that is spending. That is the Job's own Pause.
 | The Autopilot record, caps, picker, Pause and Stop | Built, #2092's Fleet half: [`../concepts/autopilot.md`](../concepts/autopilot.md). The picker is one model call made the way the Job proposer's is, not a Drone. A Job waiting on a person holds no place |
 | The set-aside pile's acts | Built: a person dispatches a pick to the approval gate, or dismisses it |
 | The acceptance test | `crates/acceptance/tests/autopilot.rs`, passing |
-| The Cockpit lane | Built, #2092's Bridge half: [`../concepts/autopilot.md`](../concepts/autopilot.md), *In Bridge* |
+| The Cockpit lane | Built, #2092's Bridge half, and #2105's quotes, cap pause, Edit caps and All line: [`../concepts/autopilot.md`](../concepts/autopilot.md), *In Bridge* |
 
 ## What it depends on
 

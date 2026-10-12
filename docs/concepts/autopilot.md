@@ -71,10 +71,4 @@ Its two prompts are settings, `prompts.autopilotSentence` and `prompts.autopilot
 
 ## In Bridge
 
-The Cockpit draws it: a bar on every filter with the switch, the caps used of their limit, Pause, Resume and Stop, and the start form; on Bays a Next up station before Waiting, its lines marked with `plane`, a dashed stop for a pick not started, Next up as a numbered list and the Set aside siding; and each set-aside pick as a tile in Your move. The one bar offers Autopilot as a third kind on a picked repository. `autopilot.changed` reaches every window through main, which keeps no copy. The code is `apps/desktop/src/renderer/src/cockpit/AutopilotLane.tsx` and the composition `AutopilotBar`.
-
-## What it does not do yet
-
-| Missing | Where |
-|---|---|
-| The start form quoting each setting's words, the bar naming the cap that paused it, and an edit of the settings | Bridge. The wire carries all three since #2105 |
+The Cockpit draws it: a bar on every filter with the switch, the caps used of their limit, Pause, Resume and Stop, Edit caps, and the start form, which quotes under each setting the words Fleet read it from and says *not said* where it quoted none. A cap that paused it is named in the bar's state, *Paused · Job cap reached*, and lit; Edit caps raises it in the start form's fields, and Resume stays pressable and says Fleet's refusal while the cap holds. On **All** with none on anywhere, the bar's place reads *Pick a repository to start Autopilot*. On Bays a Next up station before Waiting, its lines marked with `plane`, a dashed stop for a pick not started, Next up as a numbered list and the Set aside siding; and each set-aside pick as a tile in Your move. The one bar offers Autopilot as a third kind on a picked repository. `autopilot.changed` reaches every window through main, which keeps no copy. The code is `apps/desktop/src/renderer/src/cockpit/AutopilotLane.tsx` and the composition `AutopilotBar`.
