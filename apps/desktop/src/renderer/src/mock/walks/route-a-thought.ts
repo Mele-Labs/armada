@@ -1,7 +1,8 @@
 // Helm routes a thought into running work. Every message typed in the dock is read first: a question
 // gets Helm's reply, and a thought meant for other work gets a card. A match offers Send (↵), No
 // (N) and Ask Helm (H); nothing matched, or No, offers a new Session (S) or Job (J) in the Dispatch
-// panel, holding the words. Sessions and Jobs of every repository are searched. Over `route-a-thought`.
+// panel, holding the words. Sessions and Jobs of every repository are searched. Thoughts sent while
+// another is showing queue behind it, one card at a time in the order typed. Over `route-a-thought`.
 
 import { button, dialog, inside, role, tab, text, walk } from "../walk";
 
@@ -41,7 +42,17 @@ const routeAThought = walk("route-a-thought", [
   { look: panel(tab("Job")), say: "The Dispatch panel opens holding the words, with Job picked" },
   { key: "Escape", on: panel(role("textbox", "Request")), say: "Esc puts the panel away" },
 
-  // (d) A question: Helm answers, and no card is drawn.
+  // (d) Two thoughts back to back: the second waits behind the first, and shows once the first is answered.
+  { type: "retries should back off longer after the third failed charge", into: box, say: "A thought a running Job in billing is about" },
+  { key: "Meta+Enter", on: box, say: "Sent" },
+  { type: "the merge line page should group PRs by repository", into: box, say: "A second thought, typed while the first is still being read" },
+  { key: "Meta+Enter", on: box, say: "Sent. It is read as well, and waits its turn" },
+  { look: card("Send to"), say: "The first card shows first, in the order typed" },
+  { key: "Escape", on: box, say: "Esc puts the first away" },
+  { look: card("Start new"), say: "The second card shows now" },
+  { key: "Escape", on: box, say: "Esc puts it away too" },
+
+  // (e) A question: Helm answers, and no card is drawn.
   { type: "why did Job 12 fail?", into: box, say: "A question for Helm" },
   { key: "Meta+Enter", on: box, say: "Sent" },
   { look: inside(helm, text("Job 12 stopped on step 4 of 6")), say: "Helm's reply, as for any ask. No card" },

@@ -293,3 +293,69 @@ test("a sent row for a repository Fleet does not serve falls back to its id", as
   dock({ items: [item] });
   await expect.element(page.getByRole("button", { name: "Sent to Job Retry failed charges" })).toHaveTextContent("billing");
 });
+
+const FIRST = "retries should back off longer after the third failed charge";
+const SECOND = "the merge line page should group pull requests by repository";
+
+/** A reading that answers by the words, so two thoughts sent back to back can read differently. */
+const byWords =
+  (answers: Record<string, ThoughtReading>): ThoughtRouting["read"] =>
+  async (text) =>
+    answers[text] ?? { kind: "question" };
+
+test("thoughts sent while one is showing queue in the order typed, and answering one shows the next", async () => {
+  const { send, onAsk } = dock({ read: byWords({ [FIRST]: { kind: "thought", match: MATCH }, [SECOND]: { kind: "thought" } }) });
+  await say(FIRST);
+  await say(SECOND);
+
+  await expect.element(sendCard()).toBeVisible();
+  await expect.element(page.getByText(FIRST, { exact: true })).toBeVisible();
+  expect(newCard().elements()).toHaveLength(0);
+
+  await userEvent.keyboard("{Enter}");
+  expect(send).toHaveBeenCalledWith(MATCH, FIRST);
+  await expect.element(newCard()).toBeVisible();
+  await expect.element(page.getByText(SECOND, { exact: true })).toBeVisible();
+
+  await userEvent.keyboard("h");
+  expect(onAsk).toHaveBeenCalledWith(SECOND, CONTEXT);
+  expect(newCard().elements()).toHaveLength(0);
+});
+
+test("the cards come in the order typed even when the later reading lands first", async () => {
+  const slow: { [text: string]: (reading: ThoughtReading) => void } = {};
+  const { onAsk } = dock({
+    read: (text) => new Promise<ThoughtReading>((resolve) => (slow[text] = resolve)),
+  });
+  await say(FIRST);
+  await say(SECOND);
+  slow[SECOND]?.({ kind: "thought" });
+  await expect.element(page.getByRole("status", { name: "Finding where this goes" })).toBeVisible();
+  expect(newCard().elements()).toHaveLength(0);
+
+  slow[FIRST]?.({ kind: "thought", match: MATCH });
+  await expect.element(sendCard()).toBeVisible();
+  await userEvent.keyboard("{Escape}");
+  await expect.element(newCard()).toBeVisible();
+  expect(onAsk).not.toHaveBeenCalled();
+});
+
+test("a queued message that reads as a question goes to Helm at once and does not wait behind a card", async () => {
+  const { onAsk } = dock({ read: byWords({ [FIRST]: { kind: "thought", match: MATCH } }) });
+  await say(FIRST);
+  await expect.element(sendCard()).toBeVisible();
+
+  await say("why did Job 12 fail?");
+
+  await vi.waitFor(() => expect(onAsk).toHaveBeenCalledWith("why did Job 12 fail?", CONTEXT));
+  await expect.element(sendCard()).toBeVisible();
+});
+
+test("nothing marks how many are waiting behind the card", async () => {
+  dock({ read: byWords({ [FIRST]: { kind: "thought", match: MATCH }, [SECOND]: { kind: "thought" } }) });
+  await say(FIRST);
+  await say(SECOND);
+  await expect.element(sendCard()).toBeVisible();
+
+  expect(sendCard().element().textContent).not.toMatch(/\b2\b|\+1|more|waiting/i);
+});

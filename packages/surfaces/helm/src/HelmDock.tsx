@@ -69,7 +69,10 @@ export type HelmDockProps = {
   routing?: ThoughtRouting;
 };
 
-/** The thought in front of the person: being read, matched to running work, or offered a new home. */
+/**
+ * A thought the person sent: being read, matched to running work, or offered a new home. **They
+ * queue in the order typed**, and the first one is the card in front.
+ */
 type Thought = { id: number; text: string } & (
   | { stage: "routing" }
   | { stage: "match"; match: RouteTarget }
@@ -102,11 +105,14 @@ export function HelmDock({
   routing,
 }: HelmDockProps) {
   const [draft, setDraft] = useState("");
-  const [thought, setThought] = useState<Thought>();
+  const [thoughts, setThoughts] = useState<Thought[]>([]);
+  // The thought in front is the oldest one still held; the rest wait their turn behind it.
+  const thought = thoughts[0];
   // Held while words are being delivered, so a second press of ↵ cannot send them twice.
   const delivering = useRef(false);
-  // Bumped by every message and every dismissal, so a reading for words no longer in front is let go.
-  const latest = useRef(0);
+  // A thought's number is its place in the queue; one answered or dismissed leaves `held`, so its reading is let go.
+  const counted = useRef(0);
+  const held = useRef(new Set<number>());
   const [record, setRecord] = useState<Read>({ open: false });
   const [pressed, setPressed] = useState<Record<string, Pressed>>({});
   const current = helm.state === "none" ? undefined : helm.manifestId;
@@ -165,33 +171,40 @@ export function HelmDock({
     if (text === "") return;
     setDraft("");
     if (routing === undefined) return onAsk(text, context);
-    const id = (latest.current += 1);
-    setThought({ id, text, stage: "routing" });
+    const id = (counted.current += 1);
+    held.current.add(id);
+    setThoughts((was) => [...was, { id, text, stage: "routing" }]);
     // A read that cannot be had is a question: the words go to Helm and are never lost.
     const asQuestion = (): ThoughtReading => ({ kind: "question" });
     void Promise.resolve()
       .then(() => routing.read(text))
       .catch(asQuestion)
       .then((reading) => {
-        if (latest.current !== id) return;
+        if (!held.current.has(id)) return;
+        // **A question never waits behind a card.** It goes to Helm as soon as it is read.
         if (reading.kind === "question") {
-          setThought(undefined);
+          leave(id);
           onAsk(text, context);
         } else {
-          setThought(reading.match === undefined ? { id, text, stage: "new" } : { id, text, stage: "match", match: reading.match });
+          change(id, reading.match === undefined ? { id, text, stage: "new" } : { id, text, stage: "match", match: reading.match });
         }
       });
   }
 
-  function dismiss(): void {
-    latest.current += 1;
-    setThought(undefined);
+  function change(id: number, next: Thought): void {
+    setThoughts((was) => was.map((one) => (one.id === id ? next : one)));
+  }
+
+  /** A thought is answered or let go: the next one, if any, is the card in front. */
+  function leave(id: number): void {
+    held.current.delete(id);
+    setThoughts((was) => was.filter((one) => one.id !== id));
   }
 
   /** The words go to Helm as an ordinary message, since the guess at where they belong can be wrong. */
-  function askHelm(text: string): void {
-    dismiss();
-    onAsk(text, context);
+  function askHelm(one: Thought): void {
+    leave(one.id);
+    onAsk(one.text, context);
   }
 
   /**
@@ -207,13 +220,13 @@ export function HelmDock({
       .catch(() => false)
       .then((delivered) => {
         delivering.current = false;
-        if (delivered && latest.current === one.id) dismiss();
+        if (delivered && held.current.has(one.id)) leave(one.id);
       });
   }
 
-  function startNew(kind: "session" | "job", text: string): void {
-    dismiss();
-    routing?.startNew(kind, text);
+  function startNew(kind: "session" | "job", one: Thought): void {
+    leave(one.id);
+    routing?.startNew(kind, one.text);
   }
 
   /**
@@ -227,19 +240,19 @@ export function HelmDock({
     const onButton = event.target instanceof HTMLElement && event.target.closest("button") !== null;
     const act =
       key === "escape"
-        ? dismiss
+        ? () => leave(thought.id)
         : key === "h"
-          ? () => askHelm(thought.text)
+          ? () => askHelm(thought)
           : thought.stage === "match"
             ? key === "enter" && !onButton
               ? () => place(thought)
               : key === "n"
-                ? () => setThought({ id: thought.id, text: thought.text, stage: "new" })
+                ? () => change(thought.id, { id: thought.id, text: thought.text, stage: "new" })
                 : undefined
             : key === "s"
-              ? () => startNew("session", thought.text)
+              ? () => startNew("session", thought)
               : key === "j"
-                ? () => startNew("job", thought.text)
+                ? () => startNew("job", thought)
                 : undefined;
     if (act === undefined) return;
     event.preventDefault();
@@ -256,24 +269,26 @@ export function HelmDock({
           `DockQuestions` the dock draws, so there is one card and not two. */}
       <DockQuestions questions={asks} />
       {thought === undefined ? null : thought.stage === "routing" ? (
-        <ThoughtCard stage="routing" words={thought.text} />
+        <ThoughtCard key={thought.id} stage="routing" words={thought.text} />
       ) : thought.stage === "match" ? (
         <ThoughtCard
+          key={thought.id}
           stage="match"
           words={thought.text}
           target={thought.match}
           onSend={() => place(thought)}
-          onNo={() => setThought({ id: thought.id, text: thought.text, stage: "new" })}
-          onAskHelm={() => askHelm(thought.text)}
+          onNo={() => change(thought.id, { id: thought.id, text: thought.text, stage: "new" })}
+          onAskHelm={() => askHelm(thought)}
         />
       ) : (
         <ThoughtCard
+          key={thought.id}
           stage="new"
           words={thought.text}
-          onSession={() => startNew("session", thought.text)}
-          onJob={() => startNew("job", thought.text)}
-          onAskHelm={() => askHelm(thought.text)}
-          onDismiss={dismiss}
+          onSession={() => startNew("session", thought)}
+          onJob={() => startNew("job", thought)}
+          onAskHelm={() => askHelm(thought)}
+          onDismiss={() => leave(thought.id)}
         />
       )}
       <HelmComposer
