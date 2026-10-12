@@ -239,7 +239,7 @@ export function HelmDock({
         : key === "h"
           ? () => askHelm(thought.text)
           : thought.stage === "match"
-            ? key === "y" || (key === "enter" && !onButton)
+            ? key === "enter" && !onButton
               ? () => place(thought)
               : key === "n"
                 ? () => setThought({ id: thought.id, text: thought.text, stage: "new" })

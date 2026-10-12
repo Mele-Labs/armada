@@ -53,11 +53,9 @@
   gap: var(--space-2);
 }
 
-/* The kind of the question, on the waiting tone's rule, as the dock's other asks draw theirs. */
+/* The kind of the question, a plain head; a rule beside it read as a quote. */
 .armada-thought-card__label {
   align-self: flex-start;
-  padding-inline-start: var(--space-2);
-  border-inline-start: var(--border-width) solid var(--step-waiting);
   font-size: var(--text-xs);
   line-height: var(--leading-xs);
   color: var(--fg-muted);

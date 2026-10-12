@@ -101,7 +101,7 @@ export function ThoughtCard(props: ThoughtCardProps) {
         <span className="armada-thought-card__label">Send to</span>
         <ThoughtTargetLine target={props.target} />
         <div className="armada-thought-card__acts" role="group" aria-label="Answers">
-          <Act label="Send" keys={["↵", "Y"]} onPress={props.onSend} />
+          <Act label="Send" keys={["↵"]} onPress={props.onSend} />
           <Act label="No" keys={["N"]} onPress={props.onNo} />
           <Act label="Ask Helm" keys={["H"]} onPress={props.onAskHelm} tooltip="Put the words to Helm as they are" />
         </div>
