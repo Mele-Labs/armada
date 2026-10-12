@@ -64,6 +64,18 @@ export type Sent = { at: string } & ({ jobId: string; handle: string } | { sessi
 /** What a sent note is called where it went: a Job's handle, a Session's title. */
 export const sentAs = (sent: Sent): string => ("jobId" in sent ? sent.handle : sent.title);
 
+/** What a whole-window note carries about what Bridge held as it was taken, for debugging that state. */
+export type AppContext = {
+  /** Bridge's connection to Fleet, as its `state` word. */
+  connection: string;
+  /** Doctor's read: its one-line summary and each module's result. */
+  doctor: { summary: string; rows: { module: string; result: string; detail: string }[] };
+  /** The Job whose detail was open, as Fleet last said it. */
+  job?: { id: string; handle: string; title: string; status: string; reason?: string; step?: string; drone?: string; workflow: string };
+  /** The Session whose page was open, as Fleet last said it. */
+  session?: { id: string; title?: string; state: string; harness: string; cwd: string; endReason?: string };
+};
+
 /** Where an element's JSX is: a path from the repository root, and a line. #1584. */
 export type Source = { file: string; line: number };
 
@@ -75,6 +87,11 @@ export type Annotation = {
   /** Also the file name, less `.json`. Sorts by when it was written. */
   id: string;
   status: AnnotationStatus;
+  /**
+   * `window` where the note is on the whole window rather than one element: its picture is the
+   * window, and `selector`, `element` and the component chain are the page's body. Absent otherwise.
+   */
+  scope?: "window";
   /** Where it went, once sent to Fleet. Absent until then. */
   sent?: Sent;
   /** What the person said. */
@@ -112,6 +129,8 @@ export type Annotation = {
    * one from the time a note was left (`docs/concepts/retro.md`, *The owner's annotations*).
    */
   openJobId?: string;
+  /** What Bridge held as a whole-window note was taken. Absent on a note on one element. */
+  context?: AppContext;
   /** The element's box in the window, in CSS pixels. */
   box: Box;
   window: { width: number; height: number };
@@ -170,6 +189,18 @@ function isSent(v: unknown): v is Sent {
   return (isString(v["jobId"]) && isString(v["handle"])) || (isString(v["sessionId"]) && isString(v["title"]));
 }
 
+function isContext(v: unknown): v is AppContext {
+  if (!isRecord(v) || !isString(v["connection"]) || !isRecord(v["doctor"])) return false;
+  const doctor = v["doctor"];
+  return (
+    isString(doctor["summary"]) &&
+    Array.isArray(doctor["rows"]) &&
+    doctor["rows"].every((row) => isRecord(row) && isString(row["module"]) && isString(row["result"]) && isString(row["detail"])) &&
+    (v["job"] === undefined || (isRecord(v["job"]) && isString(v["job"]["id"]) && isString(v["job"]["status"]))) &&
+    (v["session"] === undefined || (isRecord(v["session"]) && isString(v["session"]["id"]) && isString(v["session"]["state"])))
+  );
+}
+
 function isBox(v: unknown): v is Box {
   return isRecord(v) && isNumber(v["x"]) && isNumber(v["y"]) && isNumber(v["width"]) && isNumber(v["height"]);
 }
@@ -185,6 +216,7 @@ export function isAnnotation(value: unknown): value is Annotation {
   return (
     isAnnotationId(value["id"]) &&
     (value["status"] === "open" || value["status"] === "done") &&
+    (value["scope"] === undefined || value["scope"] === "window") &&
     (value["sent"] === undefined || isSent(value["sent"])) &&
     isString(value["text"]) &&
     isNullableString(value["component"]) &&
@@ -202,6 +234,7 @@ export function isAnnotation(value: unknown): value is Annotation {
     isString(value["location"]) &&
     isNullableString(value["scenario"]) &&
     (value["openJobId"] === undefined || isString(value["openJobId"])) &&
+    (value["context"] === undefined || isContext(value["context"])) &&
     isBox(value["box"]) &&
     isRecord(window) &&
     isNumber(window["width"]) &&
@@ -220,6 +253,7 @@ export function serializeAnnotation(note: Annotation): string {
   const ordered: Annotation = {
     id: note.id,
     status: note.status,
+    ...(note.scope === undefined ? {} : { scope: note.scope }),
     ...(note.sent === undefined ? {} : { sent: note.sent }),
     text: note.text,
     component: note.component,
@@ -233,6 +267,7 @@ export function serializeAnnotation(note: Annotation): string {
     location: note.location,
     scenario: note.scenario,
     ...(note.openJobId === undefined ? {} : { openJobId: note.openJobId }),
+    ...(note.context === undefined ? {} : { context: note.context }),
     box: note.box,
     window: note.window,
     ...(note.screenshot === undefined ? {} : { screenshot: note.screenshot }),
@@ -253,6 +288,7 @@ export function byCreation(a: Annotation, b: Annotation): number {
  * Drone can find the code without the person there to ask.
  */
 export function requestOf(note: Annotation): string {
+  if (note.scope === "window") return windowRequestOf(note);
   const components = [note.component, ...note.owners].filter((name): name is string => name !== null);
   const lines = [
     note.text,
@@ -267,5 +303,31 @@ export function requestOf(note: Annotation): string {
   if (note.layer !== null) lines.push(`- Inside: ${note.layer}`);
   if (note.scenario !== null) lines.push(`- Mock scenario: ${note.scenario}`);
   lines.push(`- Window: ${note.window.width}×${note.window.height}`, `- Note file: .armada/annotations/${note.id}.json`);
+  return lines.join("\n");
+}
+
+/** A whole-window note's request: what the person said, the page, and the state Bridge held. */
+function windowRequestOf(note: Annotation): string {
+  const lines = [note.text, "", "This is feedback on the state of Bridge's whole window, left with the annotation layer. The screenshot is the window."];
+  lines.push(`- Screen: ${note.screen ?? "none marked"}`);
+  if (note.layer !== null) lines.push(`- Inside: ${note.layer}`);
+  lines.push(`- Location: ${note.location}`);
+  if (note.scenario !== null) lines.push(`- Mock scenario: ${note.scenario}`);
+  lines.push(`- Window: ${note.window.width}×${note.window.height}`);
+  const context = note.context;
+  if (context !== undefined) {
+    const { job, session, doctor } = context;
+    if (job !== undefined) {
+      const facts = [`status ${job.status}`, job.reason === undefined ? null : `reason ${job.reason}`, job.step === undefined ? null : `step ${job.step}`, job.drone === undefined ? null : `Drone ${job.drone}`, `workflow ${job.workflow}`];
+      lines.push(`- Job open: ${job.handle} "${job.title}" (${job.id}) — ${facts.filter((f) => f !== null).join(", ")}`);
+    } else if (note.openJobId !== undefined) lines.push(`- Job open: ${note.openJobId}`);
+    if (session !== undefined) {
+      const facts = [`state ${session.state}`, `harness ${session.harness}`, `cwd ${session.cwd}`, session.endReason === undefined ? null : `ended: ${session.endReason}`];
+      lines.push(`- Session open: ${session.title === undefined ? "" : `"${session.title}" `}(${session.id}) — ${facts.filter((f) => f !== null).join(", ")}`);
+    }
+    lines.push(`- Connection to Fleet: ${context.connection}`, `- Doctor: ${doctor.summary}`);
+    for (const row of doctor.rows) lines.push(`  - ${row.module}: ${row.result}${row.detail === "" ? "" : ` — ${row.detail}`}`);
+  }
+  lines.push(`- Note file: .armada/annotations/${note.id}.json`);
   return lines.join("\n");
 }

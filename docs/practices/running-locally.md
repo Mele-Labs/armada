@@ -654,6 +654,13 @@ screenshot of the element beside it, as `<id>.png`, taken with the layer out of
 the picture; in a browser nothing can capture the window, so a note there has
 none.
 
+**Screenshot window, or ⌥⌘S while the layer is on, leaves a note on the whole
+window** — for when what is wrong is the state of the app rather than one thing
+on it. The picture is the window, taken as the keys are pressed, and the note
+carries `scope: "window"` and a `context`: the connection to Fleet, Doctor's
+read, and the Job or Session whose page was open, as Fleet last said them. It
+draws no pin; the panel lists it under the screen it was left on.
+
 **A note reaches work one of two ways.**
 
 | Way | What happens |

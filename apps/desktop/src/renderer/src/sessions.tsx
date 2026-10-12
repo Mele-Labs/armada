@@ -72,6 +72,7 @@ import type { HeldWorktrees } from "@armada/protocol";
 import { SURFACE, useAtFloor, useNarrow } from "@armada/shell";
 
 import { proposeRequest } from "./dispatch";
+import { OPEN_SESSION_ATTRIBUTE } from "./open-session";
 import { useSessions, useSessionsDraft, useSessionsSaid } from "./sessions-draft";
 
 /** The surfaces the rail and the palette leave off: Sessions, until something serves them. */
@@ -1021,7 +1022,7 @@ export function SessionsSurface({ openId, onOpen, goes, held }: { openId: string
     return () => window.removeEventListener("keydown", press);
   }, [sessions, openId, onOpen]);
   return (
-    <div className="armada-screen__overview">
+    <div className="armada-screen__overview" {...(open === undefined ? {} : { [OPEN_SESSION_ATTRIBUTE]: open.id })}>
       {open === undefined ? <SessionsListing onOpen={onOpen} /> : <SessionView session={open} goes={goes} onOpen={onOpen} held={held} />}
     </div>
   );
