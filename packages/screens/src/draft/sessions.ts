@@ -356,6 +356,14 @@ export type SessionsDraft = {
    * `stop_session_run`).
    */
   run?: (id: string, command: string, on: (event: { kind: "out"; text: string } | { kind: "end"; code: number | null }) => void) => { stop: () => void };
+  /**
+   * Types a slash command into a **terminal** Session's terminal, to run as typed, from inline code in
+   * its thread. No output comes back: the command runs in the terminal. Absent where nothing serves it,
+   * and in a Bridge-hosted Session, where there is no terminal. Fleet answers it as `tune_terminal`
+   * does for `/model`: the Session's mod runs `held.commands` as typed (`tune_session` in
+   * `session_host/serving.rs`).
+   */
+  command?: (id: string, text: string) => void;
   /** Answers the permission a Session is held on. The mock offers two and names none. */
   answer: (id: string, answer?: SessionAnswer, answers?: SessionQuestionAnswer[]) => void;
 };

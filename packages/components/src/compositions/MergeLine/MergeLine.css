@@ -17,6 +17,41 @@
   overflow: hidden;
 }
 
+/* On a surface of its own, the band and the horizon stay put while the tiles scroll. `glass`, as the
+   Sessions list does: the frame takes the column's height and the glass scrolls inside it. `page`,
+   one of several: the page scrolls and the top holds at its edge until the next panel's pushes it
+   off. **`clip` and not `hidden`**: a frame that hides its overflow is a scroll container, and a
+   sticky child would hold against the frame, which never scrolls, rather than against the page. */
+.armada-merge-line[data-pinned="glass"] {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.armada-merge-line[data-pinned="glass"] > .armada-merge-line__top {
+  flex: none;
+}
+
+.armada-merge-line[data-pinned="glass"] > .armada-merge-line__body,
+.armada-merge-line[data-pinned="glass"] > .armada-merge-line__empty {
+  flex: 1 1 auto;
+  align-content: flex-start;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.armada-merge-line[data-pinned="page"] {
+  overflow: clip;
+}
+
+/* Over the tiles passing under it, and opaque so none shows through. */
+.armada-merge-line[data-pinned="page"] > .armada-merge-line__top {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--bg-sunken);
+}
+
 /* Main is red: the frame takes its hue and glows, as the cockpit's does when something waits on the owner. */
 .armada-merge-line[data-red] {
   border-color: var(--status-completed-failed);
@@ -38,8 +73,14 @@
   background: var(--bg-raised);
 }
 
+/* The band, main's red and the horizon: what stays put on a surface of its own. */
+.armada-merge-line__top {
+  display: flex;
+  flex-direction: column;
+}
+
 /* Folded, the band is the whole panel: no rule under it. */
-.armada-merge-line__head:last-child {
+.armada-merge-line__top:last-child > .armada-merge-line__head:last-child {
   border-bottom: 0;
 }
 
@@ -106,7 +147,14 @@
   background: var(--bg-raised);
 }
 
-/* Reversed, so place 1 is the dot nearest main and a belt that overflows rests there. */
+/* Nobody in line: main's light alone at the end, on a strip only as tall as the light. */
+.armada-merge-line__horizon[data-empty] {
+  justify-content: flex-end;
+  padding-block: var(--space-2);
+}
+
+/* Reversed, so place 1 is the dot nearest main and a belt that overflows rests there. The dashes
+   repeat a dash and its gap at a time, so shifting them one period loops without a seam. */
 .armada-merge-line__belt {
   display: flex;
   flex-direction: row-reverse;
@@ -118,7 +166,19 @@
   padding: var(--space-1) 0;
   overflow: hidden;
   list-style: none;
-  background: repeating-linear-gradient(90deg, var(--border-strong) 0 var(--space-1), transparent var(--space-1) var(--space-3)) center / 100% calc(var(--border-width) * 2) no-repeat;
+  background: linear-gradient(90deg, var(--border-strong) var(--space-1), transparent var(--space-1)) 0 center / var(--space-3) calc(var(--border-width) * 2) repeat-x;
+  animation: armada-merge-line-flow var(--duration-pulse) linear infinite;
+}
+
+/* The belt moving toward main: the dashes alone travel, one period a loop, linear so the flow never
+   surges. The dots ride on top and hold still. */
+@keyframes armada-merge-line-flow {
+  from {
+    background-position-x: 0;
+  }
+  to {
+    background-position-x: var(--space-3);
+  }
 }
 
 /* A branch on the horizon: a ring where it waits, solid where the turn holds it. */
@@ -160,6 +220,11 @@
   border-radius: 50%;
 }
 
+.armada-merge-line__main:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
 .armada-merge-line__main[data-state="green"] {
   border-color: var(--status-completed-success);
   background: var(--status-completed-success);
@@ -170,6 +235,50 @@
   border-color: var(--status-completed-failed);
   background: var(--status-completed-failed);
   box-shadow: 0 0 var(--space-4) var(--status-completed-failed);
+}
+
+/* What main's light says on hover, on the tooltip's own bubble, as the cockpit's horizon cards do:
+   an overlay surface, its name, its state, then a fact a row. */
+.armada-merge-line__card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: calc(var(--space-12) * 4);
+  max-width: calc(var(--space-12) * 8);
+  padding: var(--space-3);
+  border: var(--border-width) solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--bg-overlay);
+  box-shadow: var(--shadow-overlay);
+  color: var(--fg-default);
+}
+
+.armada-merge-line__card-head {
+  font-weight: var(--weight-medium);
+}
+
+.armada-merge-line__card-state {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.armada-merge-line__card-state > svg {
+  flex: none;
+}
+
+/* Each fact's name, then its value, in two tracks so the values line up. */
+.armada-merge-line__card-rows {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--space-1) var(--space-3);
+  margin-top: var(--space-1);
+  color: var(--fg-muted);
+}
+
+.armada-merge-line__card-rows > :nth-child(even) {
+  color: var(--fg-default);
+  overflow-wrap: anywhere;
 }
 
 /* ---- The glass: a faint ruled grid, each column of the board standing on it ---------------------- */
@@ -511,11 +620,12 @@
   }
 }
 
-/* The pulse stops. The running hue still carries the reading. */
+/* The pulse stops, and the belt holds still. The running hue and the dots still carry the reading. */
 @media (prefers-reduced-motion: reduce) {
   .armada-merge-line__mark[data-pulsing] > svg > circle + circle,
   .armada-merge-line__mark[data-pulsing][data-state="preparing"] > svg,
-  .armada-merge-line__dot {
+  .armada-merge-line__dot,
+  .armada-merge-line__belt {
     animation: none;
   }
 }

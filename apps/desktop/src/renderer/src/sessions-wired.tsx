@@ -356,6 +356,7 @@ export class WiredStore {
           mode: tuning.mode,
         }),
       ),
+    command: (id, text) => void this.plain(this.api.runSessionCommand(id, text)),
     act: (id, number, act) => this.acting(id, number, act),
     reviews: "fleet",
     get models() {

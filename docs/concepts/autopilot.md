@@ -42,6 +42,7 @@ On Fleet's noticing interval, in a task of its own so a landing never waits behi
 | Is unsure | Set aside with its reason, and the next issue is asked about in the same pass |
 | Finds none that fits | Nothing is picked, and it is not asked again until the list it was offered changes |
 | Names an issue or workflow it was not offered | Refused. Nothing starts and nothing is set aside |
+| Fails, or answers in a shape that cannot be read | The fault is kept, and it is not asked again for 30 seconds, twice as long after each further failure in a row, up to 15 minutes. An answer ends the rest |
 
 Its two prompts are settings, `prompts.autopilotSentence` and `prompts.autopilotPicker`, under Prompts: Autopilot. A pass makes at most four calls per Autopilot, and asks again before keeping each answer, so a Pause pressed while a call was out wins.
 

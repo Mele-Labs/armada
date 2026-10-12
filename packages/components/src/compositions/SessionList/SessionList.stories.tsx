@@ -1,8 +1,8 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useState } from "react";
-import { expect, fn, userEvent } from "storybook/test";
+import { expect, fn, userEvent, waitFor } from "storybook/test";
 
-import { SessionList, type SessionRowView } from "./SessionList";
+import { SESSION_PAGE, SessionList, type SessionRowView } from "./SessionList";
 
 /**
  * Sessions, searchable by PR number, branch, Job id, slot or title, under
@@ -260,5 +260,21 @@ export const Keyboard: Story = {
     await userEvent.click(search);
     await userEvent.keyboard("{Escape}");
     await expect(flaky).toHaveFocus();
+  },
+};
+
+const ENDED: SessionRowView[] = Array.from({ length: SESSION_PAGE * 2 + 10 }, (_, n) => ({ id: `e${n}`, title: `Ended ${n + 1}`, state: "ended", said: "Ended", slots: [], pullRequests: [] }));
+
+/** A long list draws one page of rows; the turning mark at its end draws the next page as it scrolls into view, until every row is drawn. */
+export const ManyEnded: Story = {
+  args: { groups: [{ label: "Ended", rows: ENDED }] },
+  decorators: [(Story) => <div style={{ height: "calc(var(--space-12) * 6)", display: "flex", flexDirection: "column" }}><Story /></div>],
+  play: async ({ canvas }) => {
+    await expect(canvas.getAllByRole("listitem")).toHaveLength(SESSION_PAGE);
+    canvas.getByRole("status", { name: "Loading more Sessions" }).scrollIntoView();
+    await waitFor(() => expect(canvas.getAllByRole("listitem")).toHaveLength(SESSION_PAGE * 2));
+    canvas.getByRole("status", { name: "Loading more Sessions" }).scrollIntoView();
+    await waitFor(() => expect(canvas.getAllByRole("listitem")).toHaveLength(ENDED.length));
+    await expect(canvas.queryByRole("status", { name: "Loading more Sessions" })).toBeNull();
   },
 };

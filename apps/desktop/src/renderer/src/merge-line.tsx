@@ -40,6 +40,7 @@ export function MergeLinePanel({
   onOpenJob,
   onFix,
   focus,
+  surface = false,
 }: {
   state: Lined;
   onOpenLink: (address: string) => void;
@@ -48,15 +49,22 @@ export function MergeLinePanel({
   /** Hands main's red to a Job. Absent, the band offers no way to. */
   onFix?: (fix: FixMain) => void;
   focus?: string;
+  /** On the rail's own page, where the band and horizon stay put while the tiles scroll. */
+  surface?: boolean;
 }) {
   const [reading, setReading] = useState<LandCheckAt | null>(null);
   const floor = useAtFloor();
+  const views = viewsOf(state);
+  // One panel fills the page and scrolls its glass; several share the page's scroll, each band
+  // holding at the top while its own tiles pass, so no panel is squeezed into a slot of its own.
+  const pinned = !surface ? undefined : views.length === 1 ? "glass" : "page";
   return (
     <>
-      {viewsOf(state).map((view) => (
+      {views.map((view) => (
         <OneLine
           key={view.root}
           view={view}
+          {...(pinned === undefined ? {} : { pinned })}
           {...(focus === undefined ? {} : { focus })}
           {...(onOpenJob === undefined ? {} : { onOpenJob })}
           {...(onFix === undefined ? {} : { onFix })}
@@ -85,8 +93,10 @@ function OneLine({
   onOpenJob,
   onFix,
   onOpenCheck,
+  pinned,
 }: {
   view: MergeLineView;
+  pinned?: "glass" | "page";
   /** A branch another surface asked for. The panel opens if it holds it. */
   focus?: string;
   onOpenLink: (address: string) => void;
@@ -111,6 +121,7 @@ function OneLine({
       {...(view.hub === undefined ? {} : { hub: view.hub })}
       {...(onOpenJob === undefined ? {} : { onOpenJob })}
       open={open}
+      {...(pinned === undefined ? {} : { pinned })}
       {...(holds ? { focus } : {})}
       {...(onFix === undefined
         ? {}
@@ -161,6 +172,7 @@ export function MergeLineSurface({
     <Boundary region="Merge line" bridge={bridge} onCopied={onCopied}>
       <div className="armada-screen__overview" ref={scope}>
         <MergeLinePanel
+          surface
           state={state}
           onOpenLink={onOpenLink}
           {...(onOpenJob === undefined ? {} : { onOpenJob })}

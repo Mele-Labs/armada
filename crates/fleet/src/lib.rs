@@ -256,6 +256,8 @@ mod pull_requesting;
 /// `merge_by: push` over a base that moved: brought up, gated again, pushed.
 mod pushing_onto_base;
 pub mod questioning;
+/// A Drone asking several decisions in one ask, and the answers to all of them.
+mod interviewing;
 /// Giving one Job more money than the tier above it allows, and the ceiling on
 /// which surface may give it. **The act `over_budget` has always pointed at.**
 pub mod raising;

@@ -75,6 +75,7 @@ import { SURFACE, useAtFloor, useNarrow } from "@armada/shell";
 
 import { proposeRequest } from "./dispatch";
 import { useBackfilled } from "./backfilled";
+import { OPEN_SESSION_ATTRIBUTE } from "./open-session";
 import { ARTIFACT_SAID, cardOf, factsOf, type Known } from "./session-cards";
 import { useSessions, useSessionsDraft, useSessionsSaid } from "./sessions-draft";
 
@@ -904,6 +905,7 @@ function SessionView({ session, goes, onOpen, held, board, lines }: { session: S
             onOpenCheck={(run) => goes.onOpenCheck(session.id, run)}
             working={session.turn.state === "working"}
             {...(draft.run === undefined ? {} : { runner: (command, on) => draft.run!(session.id, command, on) })}
+            {...(session.terminal === true && draft.command !== undefined ? { onCommand: (text) => draft.command!(session.id, text), commandNames: (session.commands ?? []).map((one) => one.name) } : {})}
             {...(session.asked === undefined
               ? {}
               : {
@@ -1014,6 +1016,7 @@ export function SessionMini({ sessionId, onOpen, fill = false }: { sessionId: st
           sessionId={session.id}
           rows={thread}
           {...(draft.run === undefined ? {} : { runner: (command, on) => draft.run!(session.id, command, on) })}
+          {...(session.terminal === true && draft.command !== undefined ? { onCommand: (text) => draft.command!(session.id, text), commandNames: (session.commands ?? []).map((one) => one.name) } : {})}
           {...(session.asked === undefined
             ? {}
             : {
@@ -1101,7 +1104,7 @@ export function SessionsSurface({
     return () => window.removeEventListener("keydown", press);
   }, [sessions, openId, onOpen]);
   return (
-    <div className="armada-screen__overview">
+    <div className="armada-screen__overview" {...(open === undefined ? {} : { [OPEN_SESSION_ATTRIBUTE]: open.id })}>
       {open === undefined ? <SessionsListing onOpen={onOpen} /> : <SessionView session={open} goes={goes} onOpen={onOpen} held={held} board={board} lines={lines} />}
     </div>
   );

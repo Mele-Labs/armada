@@ -23,8 +23,9 @@
 // owner settled it on 2026-09-17: six dimmed rows all saying "no job focused"
 // were the first thing the palette showed and said nothing a person could act
 // on. The shortcuts are still learned, just once a Job is focused, where every
-// one of those rows can act. Every other dormant row is still drawn and still
-// says why.
+// one of those rows can act. Copy debug info with no failure on screen is left
+// out too (12 Oct 2026), so "debug" ↵ lands on Debug Bridge. Every other
+// dormant row is still drawn and still says why.
 //
 // # What is dormant here is a to-do list, not a design
 //
@@ -46,15 +47,21 @@ const NO_STUDIO = "open a Studio first";
 /** What the palette says when the act reads from or sends to Fleet and nothing is connected. */
 export const FLEET_DOWN = "Fleet is not connected";
 
+/** What the palette says of Debug Bridge where the annotation layer is not loaded, as in a packaged app. */
+const NOT_DEV = "needs Bridge under pnpm dev";
+
 /** The acts that need a Job to act on. With none focused, the palette leaves them out. */
 const ON_ONE_JOB = ["open", "review", "attest", "redirect", "kill", "redispatch", "restart_step"] as const;
 
 /**
  * The acts the palette leaves out rather than dims: an act on one Job, where
- * no Job is open and the Board's cursor is on none.
+ * no Job is open and the Board's cursor is on none; and Copy debug info with no
+ * failure on screen, which the owner had out of the way on 12 Oct 2026 so that
+ * "debug" ↵ is Debug Bridge.
  */
-export function absentIn(where: { reading: boolean; cursor: string | null }): readonly string[] {
-  return !where.reading && where.cursor === null ? ON_ONE_JOB : [];
+export function absentIn(where: { reading: boolean; cursor: string | null; failing?: boolean }): readonly string[] {
+  const onOneJob = !where.reading && where.cursor === null ? ON_ONE_JOB : [];
+  return where.failing === false ? [...onOneJob, "copy_debug_info"] : onOneJob;
 }
 
 /**
@@ -74,6 +81,8 @@ export function dormantIn(where: {
   failing: boolean;
   /** Whether Fleet is connected, which is what Refresh reads from. */
   live: boolean;
+  /** Whether this Bridge runs the annotation layer, which is what Debug Bridge shoots and sends through. Absent is no. */
+  debuggable?: boolean;
   /**
    * Why the open Studio's Run is off, `undefined` where it is on, `null` with
    * no Studio's rail drawn — `@armada/screens`' `useStudioRunOff`.
@@ -157,6 +166,7 @@ export function dormantIn(where: {
     // to it, and there is no forward yet.
     history: "⌘[ goes back after a jump inside a job; no forward yet",
     refresh: where.live ? undefined : FLEET_DOWN,
+    debug_bridge: where.debuggable !== true ? NOT_DEV : where.live ? undefined : FLEET_DOWN,
   };
 }
 
@@ -195,6 +205,8 @@ export type PaletteHands = {
    * answers for it.
    */
   openSetting: (id: string) => void;
+  /** Shoot the window and start a Session debugging it — `⇧⌘D`'s act, carried out by the annotation layer. */
+  debugBridge: () => void;
   /** Re-read everything Fleet holds — `⇧⌘R`'s act. */
   refresh: () => void;
   /** A row about every Job at once, by the id `PaletteBoardRow` was given. */
@@ -267,6 +279,9 @@ function act(id: string, job: string | null, hands: PaletteHands): void {
       return;
     case "refresh":
       hands.refresh();
+      return;
+    case "debug_bridge":
+      hands.debugBridge();
       return;
     case "start_studio_run":
       hands.studioRun();

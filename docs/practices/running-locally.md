@@ -654,6 +654,20 @@ screenshot of the element beside it, as `<id>.png`, taken with the layer out of
 the picture; in a browser nothing can capture the window, so a note there has
 none.
 
+**Screenshot window, or ⌥⌘S while the layer is on, leaves a note on the whole
+window** — for when what is wrong is the state of the app rather than one thing
+on it. The picture is the window, taken as the keys are pressed, and the note
+carries `scope: "window"` and a `context`: the connection to Fleet, Doctor's
+read, and the Job or Session whose page was open, as Fleet last said them. It
+draws no pin; the panel lists it under the screen it was left on.
+
+**Debug Bridge does all of that in one press**, with the layer off: ⌘K
+`debug` ↵, or ⇧⌘D. It shoots the window once the palette has gone, keeps it as a
+whole-window note, starts a Session on Bridge's repository with the note and the
+picture as its first message, and opens it. A Fleet that refuses the Session is
+told in a toast, and the note stays a file for `/annotations`. Like the layer it
+is dev only: a packaged app draws the row dormant.
+
 **A note reaches work one of two ways.**
 
 | Way | What happens |

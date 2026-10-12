@@ -1,0 +1,141 @@
+// Debug Bridge, from the palette or ⇧⌘D, with the annotation layer off: one press shoots the
+// window, keeps it as a whole-window note with Bridge's state, starts a Session with all of it, and
+// opens that Session.
+
+import { StrictMode } from "react";
+import { createRoot, type Root } from "react-dom/client";
+import { afterEach, expect, test, vi } from "vitest";
+import { page } from "vitest/browser";
+
+import type { Annotation } from "../../../shared/annotations";
+import { askToDebugBridge } from "../debug-bridge";
+import "../styles/index.css";
+import { Layer, type LayerFleet } from "./Layer";
+import type { Sink } from "./sink";
+
+const PNG = Uint8Array.from([137, 80, 78, 71, 13, 10, 26, 10, 0]).buffer;
+const JOB = "01M22TYSAE0023MADDP5ZQEYGW";
+
+function capturing() {
+  const notes = new Map<string, Annotation>();
+  const shots = new Map<string, ArrayBuffer>();
+  const capture = vi.fn(async () => PNG);
+  const sink: Sink = {
+    via: "main",
+    list: async () => [...notes.values()],
+    save: async (note) => void notes.set(note.id, note),
+    remove: async (id) => void notes.delete(id),
+    root: async () => "/repo",
+    capture,
+    saveShot: async (id, png) => void shots.set(id, png),
+    shot: async (id) => shots.get(id) ?? null,
+  };
+  return { sink, notes, capture };
+}
+
+function fleetWith(refuse = false) {
+  const sent: { session_id: string; text: string; attachments?: { name: string }[] }[] = [];
+  const fleet = {
+    stageAttachment: vi.fn(async () => ({ path: "/tmp/x.png" })),
+    proposeFromRequest: vi.fn(async () => ({ ok: true, jobs: [] }) as never),
+    startSession: vi.fn(async (title?: string) =>
+      (refuse ? { ok: false, outcome: { ok: false, why: "not_connected" } } : { ok: true, value: { id: "01DEBUGSESSION00", title, state: "live" } }) as never,
+    ),
+    sendSessionMessage: vi.fn(async (send: (typeof sent)[number]) => {
+      sent.push(send);
+      return { ok: true, value: { id: send.session_id } } as never;
+    }),
+    state: vi.fn(async () => ({
+      connection: { state: "connected", fleet: { protocolId: "23.62", pid: 4242, port: 7421, startedAt: "Mon Oct 12 09:00:00 2026" }, cursor: 0 },
+      health: { state: "read", health: { probes: [], not_probed: [], helm_action_authority: "read_only" } },
+      jobs: [{ id: JOB, handle: "12-the-drone-count-is-wrong", title: "The Drone count is wrong", status: "running", workflow_id: "default" }],
+      sessions: { state: "read", sessions: [] },
+    }) as never),
+    subscribe: () => () => undefined,
+  } satisfies LayerFleet;
+  return { fleet, sent };
+}
+
+let mounted: { root: Root; host: HTMLElement }[] = [];
+
+afterEach(() => {
+  for (const one of mounted) {
+    one.root.unmount();
+    one.host.remove();
+  }
+  mounted = [];
+  document.querySelectorAll("[data-noted]").forEach((one) => one.remove());
+  sessionStorage.removeItem("armada.annotate.on");
+});
+
+/** The layer mounted and off, as Bridge under `pnpm dev` runs it until ⌥⌘A. */
+async function layerOff(sink: Sink, fleet: LayerFleet, openSession = vi.fn(), tell = vi.fn()) {
+  const host = document.createElement("div");
+  host.setAttribute("data-armada-annotate", "");
+  document.body.append(host);
+  const root = createRoot(host);
+  root.render(
+    <StrictMode>
+      <Layer sink={sink} fleet={fleet} openSession={openSession} tell={tell} />
+    </StrictMode>,
+  );
+  mounted.push({ root, host });
+  await vi.waitFor(() => expect(fleet.state).toHaveBeenCalled());
+  return { openSession, tell };
+}
+
+function onJob(): void {
+  const rail = document.createElement("a");
+  rail.setAttribute("data-noted", "");
+  rail.setAttribute("aria-current", "page");
+  rail.setAttribute("aria-label", "Overview");
+  const detail = document.createElement("div");
+  detail.setAttribute("data-noted", "");
+  detail.setAttribute("data-armada-open-job", JOB);
+  document.body.append(rail, detail);
+}
+
+test("the palette's Debug Bridge shoots the window and opens a Session holding the picture and the state", async () => {
+  const { sink, notes, capture } = capturing();
+  const { fleet, sent } = fleetWith();
+  onJob();
+  const { openSession } = await layerOff(sink, fleet);
+  askToDebugBridge();
+
+  await vi.waitFor(() => expect(openSession).toHaveBeenCalledWith("01DEBUGSESSION00"));
+  expect(capture).toHaveBeenCalledWith({ x: 0, y: 0, width: window.innerWidth, height: window.innerHeight });
+  expect(fleet.startSession).toHaveBeenCalledWith("Debug Bridge on Overview", "/repo");
+  expect(sent).toHaveLength(1);
+  expect(sent[0]!.text).toContain("Work out what is going on in Bridge");
+  expect(sent[0]!.text).toContain(`- Job open: 12-the-drone-count-is-wrong "The Drone count is wrong" (${JOB}) — status running`);
+  expect(sent[0]!.text).toContain("- Doctor: ");
+  expect(sent[0]!.attachments?.map((one) => one.name)).toEqual([expect.stringMatching(/^annotation-.*\.png$/)]);
+
+  const [note] = [...notes.values()];
+  expect(note).toMatchObject({ scope: "window", openJobId: JOB, screenshot: `${note?.id}.png`, sent: { sessionId: "01DEBUGSESSION00" } });
+  // Nothing of the layer was drawn: it stayed off.
+  expect(page.getByRole("status").query()).toBeNull();
+});
+
+test("⇧⌘D does the same from anywhere, and a second press while the first is out starts no second Session", async () => {
+  const { sink } = capturing();
+  const { fleet } = fleetWith();
+  const { openSession } = await layerOff(sink, fleet);
+  const press = () => window.dispatchEvent(new KeyboardEvent("keydown", { key: "d", code: "KeyD", metaKey: true, shiftKey: true, bubbles: true }));
+  press();
+  press();
+  await vi.waitFor(() => expect(openSession).toHaveBeenCalledTimes(1));
+  expect(fleet.startSession).toHaveBeenCalledTimes(1);
+});
+
+test("a Session Fleet refuses is told, and the note is kept unsent for /annotations", async () => {
+  const { sink, notes } = capturing();
+  const { fleet } = fleetWith(true);
+  const { openSession, tell } = await layerOff(sink, fleet);
+  askToDebugBridge();
+  await vi.waitFor(() => expect(tell).toHaveBeenCalledWith(expect.stringMatching(/^Session not started: /)));
+  expect(openSession).not.toHaveBeenCalled();
+  const [note] = [...notes.values()];
+  expect(note?.scope).toBe("window");
+  expect(note?.sent).toBeUndefined();
+});

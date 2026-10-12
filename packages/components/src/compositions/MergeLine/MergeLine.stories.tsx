@@ -393,6 +393,13 @@ export const MainRed: Story = {
   },
   play: async ({ args, canvas, userEvent }) => {
     await expect(canvas.getByRole("img", { name: "Main is red" })).toBeVisible();
+    // Main's light carries what the red band holds: the Check, and the Job already on the fix.
+    const light = canvas.getByRole("img", { name: "main: red" });
+    await userEvent.hover(light);
+    await waitFor(() => expect(within(light).getByText("Cache the manifest read between dispatches")).toBeVisible());
+    await expect(within(light).getByText("red")).toBeVisible();
+    await expect(within(light).getByText("screens_test")).toBeVisible();
+    await userEvent.unhover(light);
     const waiting = canvas.getByRole("listitem", { name: /^studio\/zone-proposal, ci red because main is/ });
     // The fix is named on the mark, and the failure is not charged to the branch.
     await expect(within(waiting).getByRole("img", { name: /waiting on the fix: Cache the manifest read between dispatches/ })).toBeVisible();
@@ -418,9 +425,23 @@ export const MainGreen: Story = {
       ],
     },
   },
-  play: async ({ canvas }) => {
+  play: async ({ canvas, userEvent }) => {
     await expect(canvas.getByRole("img", { name: "Main is green" })).toBeVisible();
     await expect(canvas.queryByRole("status", { name: "Main is red" })).toBeNull();
+    // The light at the horizon's end names main and says its state, on hover and on focus.
+    const light = canvas.getByRole("img", { name: "main: green" });
+    const card = () => within(light).queryByText("main");
+    await expect(card()).not.toBeVisible();
+    await userEvent.hover(light);
+    await waitFor(() => expect(card()).toBeVisible());
+    await expect(within(light).getByText("green")).toBeVisible();
+    await userEvent.unhover(light);
+    await waitFor(() => expect(card()).not.toBeVisible());
+    // One stop, straight after the band, and focus opens the same card.
+    canvas.getByRole("button", { name: "Collapse Merge line" }).focus();
+    await userEvent.tab();
+    await expect(light).toHaveFocus();
+    await waitFor(() => expect(card()).toBeVisible());
   },
 };
 

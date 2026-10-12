@@ -165,6 +165,7 @@ mod row;
 mod schema;
 /// Every agent session a person runs and what each holds. `docs/concepts/session.md`.
 mod session_ledger;
+mod blank_sessions;
 mod session_retro;
 /// The frames a step's harness produced, and where each one was kept.
 mod showing;

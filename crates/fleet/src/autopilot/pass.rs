@@ -148,6 +148,12 @@ where
             self.told_if_moved(&gathered);
             return Ok(0);
         }
+        let memory = &self.tracking().autopilot;
+        let now_ms = || self.now().epoch_millis().unwrap_or_default();
+        // Resting after a failed call: the fault it left stays on the record.
+        if memory.picker_resting(&gathered.kept.manifest_id, now_ms()) {
+            return memory.fault(&gathered.kept.manifest_id).map_or(Ok(0), Err);
+        }
         let asking = self.asking().map_err(|why| format!("{why:?}"))?;
         let workflows = served.workflows();
         let mut made = 0;
@@ -157,10 +163,18 @@ where
             }
             let pick = match picked(&gathered.kept.instruction, &offered, &workflows, &asking).await
             {
-                Ok(pick) => pick,
-                // Kept as the pass's fault, so the person reads why it picked nothing.
-                Err(why) if made == 0 => return Err(why.to_string()),
-                Err(_) => break,
+                Ok(pick) => {
+                    memory.picker_answered(&gathered.kept.manifest_id);
+                    pick
+                }
+                Err(why) => {
+                    memory.picker_failed(&gathered.kept.manifest_id, now_ms());
+                    // Kept as the pass's fault, so the person reads why it picked nothing.
+                    if made == 0 {
+                        return Err(why.to_string());
+                    }
+                    break;
+                }
             };
             // A Pause or a Stop pressed while the call was out wins over its answer.
             if !self.still_picking(&gathered.kept).await.map_err(said)? {
