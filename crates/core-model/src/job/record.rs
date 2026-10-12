@@ -53,7 +53,7 @@ mod proposing;
 mod questioning;
 pub use pausing::{Pause, PausedBy};
 pub use proposing::{Answered, NewProposal};
-pub use questioning::{DroneQuestion, GivenAnswer, OfferedAnswer};
+pub use questioning::{Decision, DroneQuestion, GivenAnswer, OfferedAnswer};
 
 /// Everything creation decides, and nothing it does not.
 ///

@@ -356,6 +356,64 @@ async fn two_answers_with_one_label_are_refused() {
     );
 }
 
+/// Two decisions in one ask are taken whole, and the Drone's `decisions` reach
+/// the daemon as two, each with its own options.
+#[tokio::test]
+async fn an_ask_of_two_decisions_is_taken_whole() {
+    let daemon = FakeDaemon::new(Broadcaster::new());
+    running(&daemon, "01JOB0");
+    let app = wired(daemon);
+
+    let answered = call(
+        &app,
+        r#"{"jsonrpc":"2.0","id":12,"method":"tools/call",
+            "params":{"name":"ask_question","arguments":{"decisions":[
+                {"question":"Split by crate?","options":[
+                    {"label":"Yes","consequence":"one Job per crate"},
+                    {"label":"No","consequence":"one Job for all of them"}]},
+                {"question":"Which first?","options":[
+                    {"label":"Reader","consequence":"the reader lands first"},
+                    {"label":"Writer","consequence":"the writer lands first"}]}]}}}"#,
+    )
+    .await;
+    assert!(!answered.is_error(), "{}", answered.text());
+    assert_eq!(answered.text(), "asked");
+}
+
+/// One decision is the plain form written another way, and `decisions` beside
+/// `question` is Fleet choosing which the Drone meant: both are refused by name.
+#[tokio::test]
+async fn one_decision_or_both_forms_at_once_are_refused() {
+    let daemon = FakeDaemon::new(Broadcaster::new());
+    running(&daemon, "01JOB0");
+    let app = wired(daemon);
+
+    let one = call(
+        &app,
+        r#"{"jsonrpc":"2.0","id":13,"method":"tools/call",
+            "params":{"name":"ask_question","arguments":{"decisions":[
+                {"question":"Split by crate?","options":[
+                    {"label":"Yes","consequence":"one Job per crate"},
+                    {"label":"No","consequence":"one Job for all of them"}]}]}}}"#,
+    )
+    .await;
+    assert!(one.is_error());
+    assert!(one.text().contains("Ask between 2 and 6"), "{}", one.text());
+
+    let both = call(
+        &app,
+        r#"{"jsonrpc":"2.0","id":14,"method":"tools/call",
+            "params":{"name":"ask_question","arguments":{
+                "question":"Split by crate?",
+                "decisions":[
+                    {"question":"a","options":[{"label":"Yes","consequence":"c"},{"label":"No","consequence":"d"}]},
+                    {"question":"b","options":[{"label":"Yes","consequence":"c"},{"label":"No","consequence":"d"}]}]}}}"#,
+    )
+    .await;
+    assert!(both.is_error());
+    assert!(both.text().contains("`decisions` came with"), "{}", both.text());
+}
+
 /// One well-formed question, reused by the cases above.
 const QUESTION: &str = r#"{"jsonrpc":"2.0","id":8,"method":"tools/call",
     "params":{"name":"ask_question","arguments":{
