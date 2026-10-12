@@ -53,16 +53,20 @@ function fleet(): FakeSessionsFleet {
       void served.agentTurn(DEBUG, [
         { kind: "tool", id: "a1", at: AT, text: "Start session Settings loader and the cap" },
         () => {
-          started.add(served.agentStarts(DEBUG, { title: "Settings loader and the cap", message: START }));
-          return { kind: "message", id: "a2", at: AT, from: { kind: "agent" }, text: "Started Settings loader and the cap." };
+          const title = "Settings loader and the cap";
+          const id = served.agentStarts(DEBUG, { title, message: START });
+          started.add(id);
+          return { kind: "started", id: "a2", at: AT, session: { id, title }, fork: false };
         },
       ]);
     } else if (send.session_id === DEBUG && said.includes("fork")) {
       void served.agentTurn(DEBUG, [
         { kind: "tool", id: "a3", at: AT, text: "Fork session at the cap finding" },
         () => {
-          started.add(served.agentStarts(DEBUG, { title: "Debug Job 14, cap per attempt", message: FORK, fork: { at: "m2" } }));
-          return { kind: "message", id: "a4", at: AT, from: { kind: "agent" }, text: "Forked Debug Job 14, cap per attempt." };
+          const title = "Debug Job 14, cap per attempt";
+          const id = served.agentStarts(DEBUG, { title, message: FORK, fork: { at: "m2" } });
+          started.add(id);
+          return { kind: "started", id: "a4", at: AT, session: { id, title }, fork: true };
         },
       ]);
     }

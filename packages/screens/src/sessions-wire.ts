@@ -265,6 +265,9 @@ export function rowsOfThread(sessionId: string, rows: readonly WireRow[], pictur
       case "window":
         out.push({ id: row.id, at, kind: "window", title: row.title, url: row.url });
         break;
+      case "started":
+        out.push({ id: row.id, at, kind: "started", session: row.session, fork: row.fork });
+        break;
       case "retro":
         out.push(retroRowOf(row, at));
         break;

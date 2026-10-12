@@ -156,6 +156,8 @@ export type SessionRow =
   | { id: string; at: string; kind: "check"; name: string; run: number; state: "running" | "passed" | "failed" }
   /** The Session showed a page in a window: where in the thread it did, and the address to open again. */
   | { id: string; at: string; kind: "window"; title: string; url: string }
+  /** This Session's agent started a Session, or forked itself into one: the new Session, to open from the thread. */
+  | { id: string; at: string; kind: "started"; session: { id: string; title: string }; fork: boolean }
   /** A retro being written for the Session, then the one that was: the latest frame of one press's row. */
   | RetroRowDrawn;
 

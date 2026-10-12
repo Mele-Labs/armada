@@ -224,6 +224,11 @@ export type SessionRow =
    */
   | { kind: "window"; id: string; at: string; title: string; url: string; ended_at?: string }
   /**
+   * This session's agent started a session, or forked its own conversation into one, when the person
+   * asked it to. Written in the starting session's thread; `session` is the new one.
+   */
+  | { kind: "started"; id: string; at: string; session: { id: string; title: string }; fork: boolean }
+  /**
    * A question the session asked in its walk window, `ask_in_window`. `window` is the address it was
    * asked in. **Replaced by id once answered**, with `answer` set to what the person chose and said.
    */

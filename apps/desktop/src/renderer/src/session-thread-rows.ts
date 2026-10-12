@@ -16,7 +16,7 @@ export function upTo<T extends { id: string }>(rows: readonly T[], at: string | 
 
 export function threadRowsFrom(rows: Session["rows"]): SessionThreadRow[] {
   return rows.map((row): SessionThreadRow => {
-    if (row.kind === "lease" || row.kind === "tool" || row.kind === "handoff" || row.kind === "command" || row.kind === "compaction" || row.kind === "window" || row.kind === "check" || row.kind === "retro") return row;
+    if (row.kind === "lease" || row.kind === "tool" || row.kind === "handoff" || row.kind === "command" || row.kind === "compaction" || row.kind === "window" || row.kind === "started" ||row.kind === "check" || row.kind === "retro") return row;
     if (row.from.kind === "session") {
       return { id: row.id, at: row.at, kind: "message", from: "session", sender: { id: row.from.id, title: row.from.title }, text: row.text };
     }
