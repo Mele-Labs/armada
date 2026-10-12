@@ -91,6 +91,8 @@ export type SessionComposerProps = {
   modeLocked?: boolean;
   /** A terminal's mode is not drawn until its mod has reported one. */
   modeHidden?: boolean;
+  /** The box and its Send alone: no mode, model, effort, attachments or sketch, for words that go to something other than a turn. */
+  bare?: boolean;
   /**
    * What the message is about, the Session's id. Its text, its tags and its files are kept under it, so leaving
    * the Session and coming back, or reloading Bridge, finds them (the text; a file's bytes do not
@@ -142,6 +144,7 @@ export function SessionComposer({
   onSend,
   modeLocked = false,
   modeHidden = false,
+  bare = false,
   draftKey,
 }: SessionComposerProps) {
   const [draft, setDraft, forget] = useKept<Draft>(draftKey === undefined ? undefined : `session:${draftKey}`, BLANK, {
@@ -322,7 +325,7 @@ export function SessionComposer({
 
   const said = MODES.find((one) => one.id === mode)!.says;
   return (
-    <form className="armada-session-composer" onSubmit={submit} onDragOver={(event) => event.preventDefault()} onDrop={onDrop}>
+    <form className="armada-session-composer" data-bare={bare || undefined} onSubmit={submit} onDragOver={(event) => event.preventDefault()} onDrop={onDrop}>
       {!open ? null : (
         <div className="armada-mention armada-session-composer__offer" id={listId} role="listbox" aria-label={token?.trigger === "/" ? "Skills and commands" : "Tag a Session, Job, pull request or branch"}>
           {token?.trigger === "/"
@@ -359,6 +362,8 @@ export function SessionComposer({
         />
       </div>
       <div className="armada-session-composer__bar">
+        {bare ? null : (
+          <>
         {modeHidden ? null : (
           <Pick Glyph={Shield} compact={compact} label={modeLocked ? `${said} The terminal holds it.` : said}>
             <Select aria-label="Permission mode" disabled={modeLocked} value={mode} onChange={(event) => onMode(event.target.value as ComposerMode)}>
@@ -419,6 +424,8 @@ export function SessionComposer({
             <AttachmentChip key={one.id} filename={one.title} from="Sketch" onRemove={() => onRemoveDrawn(one.id)} />
           ))}
         </div>
+          </>
+        )}
         <Button type="submit" variant="primary" size="sm" disabled={text.trim() === "" && !held}>
           <Send size={12} strokeWidth={2} aria-hidden />
           Send

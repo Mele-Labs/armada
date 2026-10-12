@@ -15,6 +15,8 @@ import { age, type Hosts, type Item } from "../Dashboard";
 import { useSessions } from "../sessions-draft";
 import { SessionBox, threadRowsOf } from "../sessions";
 import { useAnswering, type Answer, type Answering } from "./answers";
+import { Failure, hasFailure } from "./Failure";
+import { JobBox } from "./JobBox";
 import { useJudgesRisk } from "./judges-risk";
 import { sessionIdOf } from "./waiting";
 
@@ -199,9 +201,12 @@ export function CallCard({
   const sleep = item.sleep;
   const home = sessions.find((one) => one.id === (sleep?.sessionId ?? sessionIdOf(item.key)));
   const composed = home !== undefined && home.dead === undefined && answer.reply !== undefined;
+  // A Job's call that says what went wrong ends in a box whose words go to its Drone.
+  const jobBoxed = item.issue !== undefined && answer.reply !== undefined;
+  const boxed = composed || jobBoxed;
   // Words in the box are what he just typed, so they win over a picked answer: Send and Enter send them.
   const held = answer.pending !== undefined;
-  const words = !composed && answer.reply !== undefined && text.trim() !== "";
+  const words = !boxed && answer.reply !== undefined && text.trim() !== "";
   // Kept until Fleet takes it: a refusal leaves what was typed where it was.
   const sendWords = () => !held && answer.reply?.(text.trim(), () => DRAFTS.delete(item.key));
   const canSend = words ? !held : answer.canSend;
@@ -256,12 +261,13 @@ export function CallCard({
         : acts.map((one) => {
             const at = answer.answers.indexOf(one);
             const first = actsOnly && answer.picked === at && !words;
-            return (
+            const button = (
               <Button key={one.id} variant={first ? "primary" : "secondary"} pending={answer.pending === one.id} disabled={held && answer.pending !== one.id} onClick={() => one.run()}>
                 {one.label}
                 <Kbd>{first ? "↵" : String(at + 1)}</Kbd>
               </Button>
             );
+            return one.says === undefined ? button : <Tooltip key={one.id} label={one.says}>{button}</Tooltip>;
           })}
       {sleep === undefined ? null : (
         <Button variant="secondary" disabled={held} onClick={() => (changing || composed ? focusReply() : setChanging(true))}>
@@ -360,7 +366,8 @@ export function CallCard({
                 <p className="armada-callcard__why">{risk}</p>
               </section>
             )}
-            {sleep !== undefined || item.context === undefined || item.context.length === 0 ? null : (
+            {item.issue !== undefined && hasFailure(item.issue) ? <Failure issue={item.issue} /> : null}
+            {sleep !== undefined || (item.issue !== undefined && hasFailure(item.issue)) || item.context === undefined || item.context.length === 0 ? null : (
               <section aria-label={item.contextHead ?? "Why it asks"}>
                 <pre className="armada-callcard__why">{item.context.slice(0, 3).join("\n")}</pre>
               </section>
@@ -399,13 +406,18 @@ export function CallCard({
             )}
           </div>
         )}
-        {composed || answer.reply === undefined || (sleep !== undefined && !changing) ? null : (
+        {boxed || answer.reply === undefined || (sleep !== undefined && !changing) ? null : (
           <Reply label={sleep === undefined ? "Type something" : "Change"} text={text} change={change} send={sendWords} pending={answer.pending === "reply"} held={held} {...(sleep === undefined ? {} : { focus: true, close: () => setChanging(false) })} />
         )}
         <div className="armada-callcard__acts" data-split={actsOnly || undefined}>
           {actsOnly ? <div className="armada-callcard__decide">{decide}</div> : decide}
           {actsOnly ? <div className="armada-callcard__quiet">{quiet}</div> : quiet}
         </div>
+        {!jobBoxed ? null : (
+          <div className="armada-callcard__composer">
+            <JobBox draftKey={`job-${item.key}`} onSend={sendComposed} />
+          </div>
+        )}
         {!composed || home === undefined ? null : (
           <div className="armada-callcard__composer">
             <SessionBox session={home} onOpen={hosts.onOpenSession} onSend={sendComposed} />

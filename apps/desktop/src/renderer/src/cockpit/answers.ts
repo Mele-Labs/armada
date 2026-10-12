@@ -22,6 +22,7 @@ import { useSleepSource } from "../sleep";
 import { attachPr } from "./claims";
 import { answerWaiting } from "./answer-waiting";
 import { dismissItem } from "./dismissed";
+import { fixJob, type JobFix } from "./fix-job";
 import { mainOwner, pullOwner, type Owner } from "./owner";
 import { asksAnAgent } from "./standing";
 import { sessionIdOf } from "./waiting";
@@ -245,8 +246,34 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
     }
   };
 
+  // What went wrong on a Job is fixed from its card: each fix is one press, out to Fleet until it answers.
+  const issue = item.issue;
+  const jobId = item.job?.id;
+  const fix = (request: JobFix): Promise<Told> =>
+    fixJob(request).then((done): Told => (done.ok ? { kind: "answered" } : { kind: "refused", said: done.said }));
+  /** The words go to the Drone that is live, or start the step again with them where none is. */
+  const redirect = (words: string): JobFix | undefined =>
+    jobId === undefined ? undefined : issue?.of === "drone" ? { kind: "redirect_one_drone", jobId, words } : { kind: "restart_step", jobId, words };
+
   const answer = (label: string, run: (words?: string) => void, extra: Partial<Answer> = {}): Answer => ({ id: label, label, run, ...extra });
   const oneTap = (label: string, run: () => void): Answer => answer(label, run, { once: true });
+  const fixesOf = (one: NonNullable<typeof issue>, id: string): Answer[] => {
+    const tap = (label: string, request: JobFix, says?: string): Answer =>
+      answer(label, () => wait(label, () => fix(request), finish), { once: true, ...(says === undefined ? {} : { says }) });
+    if (one.of === "check") {
+      const check = one.target ?? one.name;
+      return [
+        tap("Retry", { kind: "retry_check", jobId: id, check }),
+        tap("Skip", { kind: "skip_check", jobId: id, check }, "Ends it as skipped, not passed"),
+        ...((one.unfinished ?? 0) > 1 ? [tap("Skip all", { kind: "skip_checks", jobId: id }, "Ends every unfinished Check as skipped, not passed")] : []),
+      ];
+    }
+    if (one.of === "clash") {
+      const other = one.clash?.other;
+      return other === undefined ? [] : [oneTap("Open the other Job", () => hosts.onOpen(other.jobId))];
+    }
+    return [tap("Retry step", { kind: "restart_step", jobId: id })];
+  };
   const actsOf = (): Answer[] => {
     // Agreeing is the whole answer; where it was decided opens from the card's own Open.
     if (sleep !== undefined) return [oneTap("Agree", () => (reviewed(sleep.id), finish()))];
@@ -291,8 +318,7 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
         : oneTap("Send a Drone", () => (hosts.onPropose?.(`The checks on pull request #${pull.number} failed. Read the failure, say what you would change, and push only once I agree.`), finish()));
       return [drone, oneTap("Attach", () => setAttaching(true))];
     }
-    if (item.kind === "Check failed") return [oneTap("Retry", finish)];
-    if (item.kind === "Drone stuck") return [oneTap("Restart the step", finish), oneTap("Fresh Drone", finish)];
+    if (issue !== undefined && jobId !== undefined) return fixesOf(issue, jobId);
     return [];
   };
 
@@ -351,6 +377,14 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
     ...(owner === undefined ? {} : { owner }),
     ...(sleep !== undefined
       ? { reply: (text: string, accepted?: () => void) => (slept?.override(sleep.id, text), reviewed(sleep.id), accepted?.(), finish()) }
+      : {}),
+    ...(issue !== undefined && jobId !== undefined
+      ? {
+          reply: (text: string, accepted?: () => void) => {
+            const request = redirect(text);
+            if (request !== undefined) wait("reply", () => fix(request), () => (accepted?.(), finish()));
+          },
+        }
       : {}),
     ...(replies ? { reply: (text: string, accepted?: () => void) => sendWaiting("reply", { text }, accepted) } : {}),
     ...(attaching ? { attaching: { candidates, choose: attach, close: () => setAttaching(false) } } : {}),

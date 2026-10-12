@@ -357,6 +357,32 @@ span.armada-view__dot { cursor: default; }
   overflow-wrap: anywhere;
 }
 
+/* What went wrong on a Job: the failure itself, in mono under the frame's hue, so the card needs no opening. */
+.armada-failure { display: flex; flex-direction: column; gap: var(--space-2); }
+.armada-failure__list { display: flex; flex-direction: column; gap: var(--space-1); margin: 0; padding: 0; list-style: none; font-family: var(--font-mono); font-size: var(--text-xs); line-height: var(--leading-xs); color: var(--fg-default); }
+.armada-failure__list > li { overflow-wrap: anywhere; }
+.armada-failure__list > li::before { content: "·"; margin-right: var(--space-2); color: var(--hue); }
+.armada-failure__output {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  max-height: calc(var(--space-12) * 2.5);
+  overflow: auto;
+  border-left: calc(var(--border-width) * 2) solid var(--hue);
+  background: var(--bg-sunken);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: 1.5;
+  color: var(--fg-muted);
+  white-space: pre;
+}
+.armada-failure__output:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); }
+.armada-failure__facts { display: flex; gap: var(--space-6); margin: 0; font-family: var(--font-mono); font-size: var(--text-xs); line-height: var(--leading-xs); }
+.armada-failure__facts dt { color: var(--fg-subtle); }
+.armada-failure__facts dd { margin: 0; color: var(--fg-default); }
+.armada-failure__reason { margin: 0; font-size: var(--text-sm); line-height: var(--leading-sm); color: var(--fg-default); }
+.armada-failure__quiet { display: flex; margin: 0; font-family: var(--font-mono); font-size: var(--text-sm); color: var(--fg-default); }
+.armada-failure__quiet [role="img"] { display: inline-flex; align-items: center; gap: var(--space-2); color: var(--hue); white-space: nowrap; }
+
 /* A Session's call: a few messages of its thread, from the newest. */
 .armada-callcard__thread { display: flex; flex-direction: column; max-height: calc(var(--space-12) * 4); min-height: 0; padding-right: var(--space-2); overflow-y: auto; }
 
@@ -473,7 +499,6 @@ span.armada-view__dot { cursor: default; }
 
 /* A card made only of acts: the decision on the left, the quiet ghosts on the right, one row that wraps as a pair. */
 .armada-callcard__acts[data-split] { justify-content: space-between; row-gap: var(--space-2); }
-.armada-callcard__acts[data-split] > :last-child { margin-left: 0; }
 .armada-callcard__decide,
 .armada-callcard__quiet { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
 .armada-callcard__quiet { margin-left: auto; gap: var(--space-1); }

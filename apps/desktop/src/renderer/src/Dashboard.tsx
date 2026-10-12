@@ -30,9 +30,9 @@ import {
   Workflow,
   type LucideIcon,
 } from "lucide-react";
-import { Button, Radio, RadioGroup, Textarea } from "@armada/components";
+import { Button, Radio, RadioGroup } from "@armada/components";
 import type { FixMain, JobSummary, RepositorySummary, WaitingItem } from "@armada/protocol";
-import type { AboutFiles, AboutLink, CallAskView, CallView } from "@armada/jobs/draft/calls";
+import type { AboutFiles, AboutLink, CallAskView, CallIssueView, CallView } from "@armada/jobs/draft/calls";
 import type { NowView } from "@armada/jobs/draft/now";
 import type { Session } from "@armada/screens/src/draft/sessions";
 import { overviewListsOf, type DashboardTab } from "@armada/overview";
@@ -94,6 +94,8 @@ export type Item = {
   settling?: true;
   /** A Session's recent cadence, each bar 0 to 1: a message tall, a tool call short. */
   spark?: readonly number[];
+  /** What went wrong on the Job, where the call is that: the card shows it and offers the fixes. */
+  issue?: CallIssueView;
   /** The decision Sleep made, where the item is one: the call keeps it or changes it. */
   sleep?: MorningDecided;
   /** What a Session's call waits on: the item, which is what the call answers. */
@@ -204,25 +206,6 @@ function PullFix({ number, onOpen, onDone, onSend }: { number: number; onOpen: (
       <div className="armada-call__acts">
         <Button variant="primary" onClick={onDone}>Push to #{number}</Button>
         <Button variant="secondary" onClick={() => setStage("idle")}>Not now</Button>
-      </div>
-    </div>
-  );
-}
-
-/**
- * A Drone gone quiet: tell it something and it picks up from there, start the step again on a
- * fresh Drone, or open the Job. Mock only: each press clears the call.
- */
-function StuckDrone({ onDone, onOpen }: { onDone: () => void; onOpen: () => void }) {
-  const [words, setWords] = useState("");
-  return (
-    <div className="armada-stuck">
-      <Textarea label="Tell the Drone" rows={2} value={words} onChange={(event) => setWords(event.target.value)} />
-      <div className="armada-call__acts">
-        <Button variant="primary" disabled={words.trim() === ""} onClick={onDone}>Send</Button>
-        <Button variant="secondary" onClick={onDone}>Restart the step</Button>
-        <Button variant="secondary" onClick={onDone}>Fresh Drone</Button>
-        <Button variant="ghost" onClick={onOpen}>Open Job</Button>
       </div>
     </div>
   );
@@ -350,10 +333,11 @@ function jobItems(job: JobSummary, view: CallView | undefined, hosts: Hosts): It
       key: `${job.id}:${issue.key}`,
       owner: job.id,
       job,
+      issue,
       ...(view?.request === undefined ? {} : { request: view.request }),
-        ...(view?.about === undefined ? {} : { about: view.about }),
+      ...(view?.about === undefined ? {} : { about: view.about }),
       ...(issue.context === undefined ? {} : { context: issue.context, contextHead: issue.of === "check" ? "Check output" : "The Drone's last steps" }),
-      icon: issue.of === "check" ? ShieldX : Bot,
+      icon: issue.of === "check" ? ShieldX : issue.of === "judge" ? Scale : issue.of === "clash" ? GitMerge : Bot,
       kind: issue.said,
       title: titleOf(job),
       fact: issue.text,
@@ -362,15 +346,7 @@ function jobItems(job: JobSummary, view: CallView | undefined, hosts: Hosts): It
       where,
       body: [["On", issue.name]],
       said: [issue.text],
-      acts: (done) =>
-        issue.of === "drone" ? (
-          <StuckDrone onDone={done} onOpen={open} />
-        ) : (
-          <>
-            <Button variant="primary" onClick={done}>Retry</Button>
-            <Button variant="secondary" onClick={open}>Open Job</Button>
-          </>
-        ),
+      acts: () => null,
     });
   }
   return items;
