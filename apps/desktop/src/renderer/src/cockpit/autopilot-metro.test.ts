@@ -17,6 +17,7 @@ function line(key: string, of: JobSummary, reach: number): Line {
     tone: reach === 0 ? "idle" : "run",
     reach,
     stops: reach === 0 ? [{ tone: "idle", card: { tone: "idle", pill: "waiting", title: "Waiting for a bay", rows: [], acts: [] } }] : [],
+    open: undefined,
     wants: undefined,
   };
 }
@@ -25,7 +26,7 @@ const METRO: Metro = {
   harbours: [{ manifest: "armada", name: "armada", lines: [line("mine", job("j2"), 2), line("by-hand", job("j9"), 2)] }],
   waiting: [line("picked", job("j1", { status: "queued", started_at: undefined }), 0), line("queued-by-hand", job("j8", { status: "queued", started_at: undefined }), 0)],
   counts: [[["idle", 2]], [], [["run", 2]], [], [], []],
-  bays: { held: 2, free: 0, closed: 0, strip: [], tones: [] },
+  bays: { held: 2, free: 0, closed: 0, strip: [], names: [] },
   main: undefined,
 };
 

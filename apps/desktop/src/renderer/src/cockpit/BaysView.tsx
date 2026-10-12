@@ -50,10 +50,25 @@ function AutopilotKey() {
 /** What an Autopilot that is on adds: its marks on the lines, and its sidings under them (`AutopilotSidings.tsx`). */
 export type BaysAutopilot = { mark: (metro: Metro) => Metro; sidings: ReactNode };
 
-function Row({ line, selected, onSelect, onCard, nextUp = false }: { line: Line; selected: boolean; onSelect: () => void; onCard: (id: string, card: Card, station: string, at: HTMLElement, pin: boolean) => void; nextUp?: boolean }) {
+function Row({ line, selected, onSelect, onOpen, onCard, onLeave, nextUp = false }: {
+  line: Line;
+  selected: boolean;
+  onSelect: () => void;
+  onOpen: (act: Act) => void;
+  onCard: (id: string, card: Card, station: string, at: HTMLElement, pin: boolean) => void;
+  onLeave: () => void;
+  nextUp?: boolean;
+}) {
   return (
     <li className="armada-metro__row" data-wants={line.wants} data-selected={selected || undefined} style={{ ["--line" as string]: TONE[line.tone] } as CSSProperties}>
-      <button type="button" className="armada-metro__who" aria-label={line.bay === undefined ? `Waiting: ${line.title}` : `Bay ${two(line.bay)}: ${line.title}`} aria-pressed={selected} onClick={onSelect}>
+      <button type="button" className="armada-metro__who" aria-label={line.bay === undefined ? `Waiting: ${line.title}` : `Bay ${two(line.bay)}: ${line.title}`} aria-pressed={selected}
+        title={line.open === undefined ? "A terminal outside Armada holds this bay: nothing to open" : line.open.label}
+        data-opens={line.open === undefined ? undefined : ""}
+        onClick={() => {
+          onSelect();
+          if (line.open !== undefined) onOpen(line.open);
+        }}
+      >
         <span className="armada-metro__bay">{line.bay === undefined ? "—" : two(line.bay)}</span>
         <span className="armada-metro__mark" data-session={line.session || undefined} />
         {line.autopilot === true ? <Plane className="armada-metro__autopilot" size={12} aria-label="Picked by Autopilot" /> : null}
@@ -66,7 +81,7 @@ function Row({ line, selected, onSelect, onCard, nextUp = false }: { line: Line;
           {line.nextUp === undefined ? (
             <span className="armada-metro__stop" aria-hidden="true" />
           ) : (
-            <button type="button" className="armada-metro__stop" data-picked aria-label={`${line.title}: Next up, ${line.nextUp.card.pill}`} style={{ ["--tone" as string]: TONE[line.nextUp.tone] } as CSSProperties} onMouseEnter={(event) => onCard(`${line.key}:next`, line.nextUp!.card, "Next up", event.currentTarget, false)} onFocus={(event) => onCard(`${line.key}:next`, line.nextUp!.card, "Next up", event.currentTarget, false)} onClick={(event) => onCard(`${line.key}:next`, line.nextUp!.card, "Next up", event.currentTarget, true)} />
+            <button type="button" className="armada-metro__stop" data-picked aria-label={`${line.title}: Next up, ${line.nextUp.card.pill}`} style={{ ["--tone" as string]: TONE[line.nextUp.tone] } as CSSProperties} onMouseEnter={(event) => onCard(`${line.key}:next`, line.nextUp!.card, "Next up", event.currentTarget, false)} onMouseLeave={onLeave} onFocus={(event) => onCard(`${line.key}:next`, line.nextUp!.card, "Next up", event.currentTarget, false)} onClick={(event) => onCard(`${line.key}:next`, line.nextUp!.card, "Next up", event.currentTarget, true)} />
           )}
         </span>
       )}
@@ -86,6 +101,7 @@ function Row({ line, selected, onSelect, onCard, nextUp = false }: { line: Line;
                 aria-label={`${line.title}: ${station}, ${stop.card.pill}`}
                 style={{ ["--tone" as string]: TONE[stop.tone], ["--p" as string]: stop.progress ?? 100 } as CSSProperties}
                 onMouseEnter={(event) => onCard(id, stop.card, station, event.currentTarget, false)}
+                onMouseLeave={onLeave}
                 onFocus={(event) => onCard(id, stop.card, station, event.currentTarget, false)}
                 onClick={(event) => onCard(id, stop.card, station, event.currentTarget, true)}
               >
@@ -134,7 +150,18 @@ export function Bays({ read, reading, now, selected, onSelect, onOpenJob, onOpen
     };
   }, [open?.pinned]);
 
+  // A hovered card closes a moment after the pointer leaves its stop, so the pointer can cross to it and
+  // press its acts; on the card, it stays.
+  const closing = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const hold = () => clearTimeout(closing.current);
+  const leave = () => {
+    hold();
+    closing.current = setTimeout(() => setOpen((one) => (one?.pinned === true ? one : undefined)), 250);
+  };
+  useEffect(() => hold, []);
+
   const onCard = (id: string, card: Card, station: string, at: HTMLElement, pin: boolean) => {
+    hold();
     if (open?.pinned === true && !pin) return;
     if (pin && open?.pinned === true && open.id === id) return setOpen(undefined);
     const base = host.current?.getBoundingClientRect();
@@ -166,7 +193,7 @@ export function Bays({ read, reading, now, selected, onSelect, onOpenJob, onOpen
   }
   const named = metro.harbours.length > 1;
   return (
-    <div ref={host} className="armada-metro" data-next-up={nextUp || undefined} onMouseLeave={() => (open?.pinned === true ? undefined : setOpen(undefined))}>
+    <div ref={host} className="armada-metro" data-next-up={nextUp || undefined} onMouseLeave={leave}>
       <div className="armada-metro__head" role="presentation">
         <span className="armada-metro__label">Work</span>
         {nextUp ? <span className="armada-metro__station-name" data-next-up>Next up</span> : null}
@@ -192,7 +219,7 @@ export function Bays({ read, reading, now, selected, onSelect, onOpenJob, onOpen
           <ol key={harbour.manifest} className="armada-metro__block" aria-label={named ? `${harbour.name} bays` : "Bays"}>
             {named ? <li className="armada-metro__part">{harbour.name}</li> : null}
             {harbour.lines.map((line) => (
-              <Row key={line.key} line={line} nextUp={nextUp} selected={line.item !== undefined && line.item.key === selected} onSelect={() => (line.item === undefined ? undefined : onSelect(line.item.key))} onCard={onCard} />
+              <Row key={line.key} line={line} nextUp={nextUp} selected={line.item !== undefined && line.item.key === selected} onSelect={() => (line.item === undefined ? undefined : onSelect(line.item.key))} onOpen={act} onCard={onCard} onLeave={leave} />
             ))}
           </ol>
         ))}
@@ -200,7 +227,7 @@ export function Bays({ read, reading, now, selected, onSelect, onOpenJob, onOpen
           <ol className="armada-metro__block" aria-label="Picked by Autopilot, not started">
             <li className="armada-metro__part">Picked by Autopilot, not started</li>
             {metro.nextUp!.map((line) => (
-              <Row key={line.key} line={line} nextUp selected={line.item !== undefined && line.item.key === selected} onSelect={() => (line.item === undefined ? undefined : onSelect(line.item.key))} onCard={onCard} />
+              <Row key={line.key} line={line} nextUp selected={line.item !== undefined && line.item.key === selected} onSelect={() => (line.item === undefined ? undefined : onSelect(line.item.key))} onOpen={act} onCard={onCard} onLeave={leave} />
             ))}
           </ol>
         )}
@@ -208,7 +235,7 @@ export function Bays({ read, reading, now, selected, onSelect, onOpenJob, onOpen
           <ol className="armada-metro__block" aria-label="Waiting for a bay">
             <li className="armada-metro__part">Waiting for a bay</li>
             {metro.waiting.map((line) => (
-              <Row key={line.key} line={line} nextUp={nextUp} selected={line.item !== undefined && line.item.key === selected} onSelect={() => (line.item === undefined ? undefined : onSelect(line.item.key))} onCard={onCard} />
+              <Row key={line.key} line={line} nextUp={nextUp} selected={line.item !== undefined && line.item.key === selected} onSelect={() => (line.item === undefined ? undefined : onSelect(line.item.key))} onOpen={act} onCard={onCard} onLeave={leave} />
             ))}
           </ol>
         )}
@@ -218,7 +245,7 @@ export function Bays({ read, reading, now, selected, onSelect, onOpenJob, onOpen
         <span>Bays</span>
         <span className="armada-metro__strip" role="img" aria-label={`${metro.bays.held} held, ${metro.bays.free} free, ${metro.bays.closed} closed`}>
           {metro.bays.strip.map((kind, at) => (
-            <i key={at} data-kind={kind} style={{ ["--tone" as string]: metro.bays.tones[at] === undefined ? undefined : TONE[metro.bays.tones[at]!] } as CSSProperties} />
+            <i key={at} data-kind={kind} title={metro.bays.names[at]} />
           ))}
         </span>
         <span>
@@ -241,6 +268,8 @@ export function Bays({ read, reading, now, selected, onSelect, onOpenJob, onOpen
           role="dialog"
           aria-label={open.card.title}
           data-pinned={open.pinned || undefined}
+          onMouseEnter={hold}
+          onMouseLeave={leave}
           style={{ ["--tone" as string]: TONE[open.card.tone], left: open.left, ...(above ? { bottom: (host.current?.clientHeight ?? 0) - open.top + 40 } : { top: open.top }) } as CSSProperties}
         >
           <span className="armada-metro__card-head">
