@@ -26,7 +26,7 @@ import type { JobTrigger } from "./triggers";
 import type { WalkNote } from "./walk-notes";
 import type { JobConfidence } from "./confidence";
 import type { JobFootprint } from "./footprint";
-import type { Flagged, Judged, KeptDeliverable } from "./judged";
+import type { Flagged, Judged, JudgesSentBack, KeptDeliverable } from "./judged";
 import type { KeptFrame, ShowAgain } from "./showing";
 import type { StepAttempt } from "./attempt";
 import type { ChecksUnderway } from "./underway";
@@ -794,7 +794,6 @@ export type Currency = {
  */
 export type Settled = "merged" | "closed_unmerged";
 
-/** One step: which, where in the order, and where it got to. */
 /** Which pass a looping step is on, counted from one, of its `iteration_cap`. */
 export type StepPass = {
   number: number;
@@ -876,6 +875,7 @@ export type StepDetail = {
    * Absent on every step that sends nothing back, and where Fleet cannot say.
    */
   pass?: StepPass;
+  sent_back?: JudgesSentBack;
   /**
    * Where this step goes on a verdict that neither advances nor ends, naming
    * the step rather than the verdict. **On the step that sends the work

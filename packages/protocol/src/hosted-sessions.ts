@@ -75,8 +75,11 @@ export type TuneSession = {
   mode: SessionMode;
 };
 
-/** `POST /sessions/held`. The mod in a terminal session asks what a person sent it. Since 23.53. */
-export type TakeHeld = { session_id: string };
+/**
+ * `POST /sessions/held`. The mod in a terminal session asks what a person sent it. Since 23.53.
+ * `wait_ms` lets Fleet hold the ask while nothing is held, up to 25 seconds; left out, it is answered at once.
+ */
+export type TakeHeld = { session_id: string; wait_ms?: number };
 
 /**
  * `POST /sessions/ask/terminal`. The mod in a terminal session puts its `AskUserQuestion` to Bridge (`asks`,

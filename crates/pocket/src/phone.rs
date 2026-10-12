@@ -134,7 +134,7 @@ impl PhoneJob {
     }
 }
 
-/// Bridge's Needs you tab, `packages/screens/src/needs-you.ts` `tabOf`, in
+/// The Cockpit's Your move filter, `packages/screens/src/needs-you.ts` `tabOf`, in
 /// Rust: not cleared, not over, and a Drone waiting on an answer or a status
 /// whose `who_is_acting` is `Person` in `job-statuses.toml`.
 ///

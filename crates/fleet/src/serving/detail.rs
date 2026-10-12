@@ -17,6 +17,8 @@ use crate::daemon::Fleet;
 use crate::footprint::kept;
 use crate::wire::{step_facts, step_moves};
 
+mod sent_back;
+
 impl<H, V, W> Fleet<H, V, W>
 where
     H: AgentHarness + Send + Sync + 'static,
@@ -328,6 +330,7 @@ where
         detail.review_model_override = self.review_model_override_of(job.id()).await;
         detail.tiers = ipc::TierModels::from(&self.tiers_of(job.id()).await);
         self.approval_served(&job, &mut detail).await;
+        self.sent_back_served(&job, &mut detail).await;
         detail.review_step = job
             .workflow()
             .steps()

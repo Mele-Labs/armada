@@ -25,6 +25,7 @@
 //! worktree wants the real one.
 
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
 
 use adapter_traits::{
@@ -130,6 +131,11 @@ pub struct FakeVcs {
     cut_from: Mutex<Vec<String>>,
     /// Every repair branch this fake was asked to delete, in order.
     deleted_branches: Mutex<Vec<String>>,
+    /// What [`Vcs::changes`] counts: every act on a slot or a checkout.
+    changed: AtomicU64,
+    /// How many times a pool was read. A snapshot that answers from memory
+    /// leaves this where it was.
+    pool_reads: AtomicU64,
 }
 
 /// What the fake's version control looks like from the delivery side.
@@ -197,6 +203,17 @@ pub struct Delivering {
 impl FakeVcs {
     pub fn new() -> FakeVcs {
         FakeVcs::default()
+    }
+
+    /// How many times a pool has been read — [`Vcs::slot_pool`].
+    pub fn pool_reads(&self) -> u64 {
+        self.pool_reads.load(Ordering::Relaxed)
+    }
+
+    /// `done`, after counting it for [`Vcs::changes`].
+    fn noted<T>(&self, done: T) -> T {
+        self.changed.fetch_add(1, Ordering::Relaxed);
+        done
     }
 
     /// Seed a branch somebody else already made, so a collision can be
@@ -1038,7 +1055,7 @@ impl Vcs for FakeVcs {
         spec: &WorktreeSpec,
         job_id: &str,
     ) -> Result<SlotLeased, Self::Error> {
-        self.leased(pool, spec, job_id)
+        self.noted(self.leased(pool, spec, job_id))
     }
 
     fn park_slot(
@@ -1047,7 +1064,7 @@ impl Vcs for FakeVcs {
         slot: u32,
         job_id: &str,
     ) -> Result<adapter_traits::SlotParked, adapter_traits::SlotParkRefused> {
-        self.slots.park(pool, slot, job_id)
+        self.noted(self.slots.park(pool, slot, job_id))
     }
 
     fn delete_repair_branch(
@@ -1067,7 +1084,7 @@ impl Vcs for FakeVcs {
         slot: u32,
         session_id: &str,
     ) -> Result<adapter_traits::SlotParked, adapter_traits::SlotParkRefused> {
-        self.slots.park(pool, slot, session_id)
+        self.noted(self.slots.park(pool, slot, session_id))
     }
 
     fn release_session_slot(
@@ -1076,8 +1093,7 @@ impl Vcs for FakeVcs {
         slot: u32,
         holder: &str,
     ) -> Result<adapter_traits::SlotParked, adapter_traits::SlotParkRefused> {
-        self.slots
-            .park(pool, slot, holder)
+        self.noted(self.slots.park(pool, slot, holder))
             .map_err(|refused| match refused {
                 adapter_traits::SlotParkRefused::HeldByAnother(now) => {
                     adapter_traits::SlotParkRefused::HolderChanged(now)
@@ -1095,7 +1111,7 @@ impl Vcs for FakeVcs {
         branch: &str,
         job_id: &str,
     ) -> Result<SlotLeased, Self::Error> {
-        self.leased_existing(pool, branch, job_id)
+        self.noted(self.leased_existing(pool, branch, job_id))
     }
 
     fn slot_open(&self, pool: &SlotPool, job_id: &str) -> bool {
@@ -1107,14 +1123,16 @@ impl Vcs for FakeVcs {
     }
 
     fn release_slot(&self, pool: &SlotPool, slot: u32, job_id: &str) -> Result<(), SlotKept> {
-        self.slots.release(pool, slot, job_id)
+        self.noted(self.slots.release(pool, slot, job_id))
     }
 
     fn mark_slot_completed(&self, _pool: &SlotPool, slot: u32, job_id: &str) {
-        self.slots.completed(slot, job_id)
+        self.slots.completed(slot, job_id);
+        self.noted(());
     }
 
     fn slot_pool(&self, pool: &SlotPool) -> Vec<SlotReading> {
+        self.pool_reads.fetch_add(1, Ordering::Relaxed);
         self.slots
             .readings(pool)
             .into_iter()
@@ -1133,7 +1151,7 @@ impl Vcs for FakeVcs {
         pool: &SlotPool,
         change: adapter_traits::SlotChange,
     ) -> Result<u32, adapter_traits::SlotRefused> {
-        self.slots.change(pool, change)
+        self.noted(self.slots.change(pool, change))
     }
 
     fn stranded_work(
@@ -1158,7 +1176,11 @@ impl Vcs for FakeVcs {
         slot: u32,
         rescue: adapter_traits::SlotRescue,
     ) -> Result<adapter_traits::SlotRescued, adapter_traits::RescueRefused> {
-        self.slots.rescue(pool, slot, rescue)
+        self.noted(self.slots.rescue(pool, slot, rescue))
+    }
+
+    fn changes(&self) -> u64 {
+        self.changed.load(Ordering::Relaxed)
     }
 }
 
