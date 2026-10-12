@@ -195,6 +195,7 @@ function redOf(main: MainStanding): MainRed | undefined {
             ...(merge.url === undefined ? {} : { url: merge.url }),
             ...(merge.branch === undefined ? {} : { branch: merge.branch }),
             ...(merge.job === undefined ? {} : { job: merge.job }),
+            ...(merge.session === undefined ? {} : { session: { id: merge.session.id, title: merge.session.title ?? merge.branch ?? merge.session.id } }),
           },
         }),
   };

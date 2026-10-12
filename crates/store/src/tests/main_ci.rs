@@ -37,6 +37,7 @@ fn red_main() -> MainCi {
             url: Some("https://forge.invalid/r/pull/1812".to_string()),
             branch: Some("armada/cache".to_string()),
             job: Some(job_id("01MAINCI0000000000000001")),
+            session: Some("c279e883-d316-4202-8134-76ea8b531835".to_string()),
         }),
     }
 }

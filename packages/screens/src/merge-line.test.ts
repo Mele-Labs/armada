@@ -299,6 +299,25 @@ describe("the hub Fleet serves beside the line", () => {
     expect(hub?.main).toEqual({ state: "red", red: { check: "test-all", unmapped: true } });
   });
 
+  test("a red a Session merged names the Session, by its branch where it has no title", () => {
+    const red = (session: { id: string; title?: string }) =>
+      hubOf({
+        main: {
+          state: "red",
+          commit: COMMIT,
+          read_at: "x",
+          failed: [{ name: "ci" }],
+          merge: { number: 2175, branch: "armada/session-c279e883", session },
+        },
+      })?.main;
+    const merge = (session: { id: string; title?: string }) => {
+      const main = red(session);
+      return main?.state === "red" ? main.red.merge : undefined;
+    };
+    expect(merge({ id: "c279", title: "Session Messages Fail to Send" })?.session).toEqual({ id: "c279", title: "Session Messages Fail to Send" });
+    expect(merge({ id: "c279" })?.session).toEqual({ id: "c279", title: "armada/session-c279e883" });
+  });
+
   test("a main still running, one nothing ran on, and one not read draw no mark", () => {
     for (const state of ["running", "nothing_ran"]) {
       expect(hubOf({ main: { state, commit: COMMIT, read_at: "x" } })).toEqual({ pulls: [], recent: [] });
