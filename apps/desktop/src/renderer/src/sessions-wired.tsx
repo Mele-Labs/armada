@@ -234,12 +234,13 @@ export class WiredStore {
     return this.commandsAre;
   }
 
-  private async acting(id: string, number: number, act: "ready" | "merge" | "auto_merge" | "review"): Promise<void> {
+  private async acting(id: string, number: number, act: "ready" | "merge" | "auto_merge" | "review"): Promise<boolean> {
     this.say(undefined);
     const done = await this.api.pressPullRequest(id, number, act);
     if (!done.ok) this.say(done.outcome);
     // Whatever the answer, the sheet shows the pull request as the forge has it now.
     if (act !== "review") await this.api.pressPullRequest(id, number, "read");
+    return done.ok;
   }
 
   private async plain(act: Promise<{ ok: true } | { ok: false; outcome: Parameters<typeof refusalWords>[0] }>): Promise<void> {
@@ -312,7 +313,7 @@ export class WiredStore {
           mode: tuning.mode,
         }),
       ),
-    act: (id, number, act) => void this.acting(id, number, act),
+    act: (id, number, act) => this.acting(id, number, act),
     reviews: "fleet",
     get models() {
       return store.inputs?.holds.models?.models ?? NONE;

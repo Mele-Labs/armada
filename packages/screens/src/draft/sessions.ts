@@ -333,8 +333,12 @@ export type SessionsDraft = {
   send: (id: string, sent: SentMessage) => void;
   /** Sets the model, effort and permission mode a Session's next turn runs on. `null` is Auto. */
   tune: (id: string, tuning: { model: string | null; effort: string | null; mode: SessionMode }) => void;
-  /** An act on one of a Session's pull requests. `review` dispatches a Job on the code review workflow against it. */
-  act: (id: string, number: number, act: PullRequestAct) => void;
+  /**
+   * An act on one of a Session's pull requests. `review` dispatches a Job on the code review workflow against it.
+   * **Settles when the act and the re-read after it are done**, with whether it was accepted, so the sheet can
+   * draw the press as underway until then. A refusal is `said`, not thrown.
+   */
+  act: (id: string, number: number, act: PullRequestAct) => Promise<boolean>;
   /** Set where `act` dispatches the review itself, so the window does not propose one beside it. */
   reviews?: "fleet";
   /** The models and efforts a Session may be set to, as Dispatch offers them. */
