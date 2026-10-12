@@ -135,6 +135,15 @@ export function baysOf({
   return { harbours, waiting };
 }
 
+/**
+ * A Session not yet named, or a terminal Armada does not know, is called by the branch it is on:
+ * a process path or a Session id says nothing of the work.
+ */
+function sessionHolder(slot: WorktreeSlot, items: readonly Item[], session: Session | undefined, served: string | undefined, last: string | undefined, by: string | undefined): Holder {
+  const title = session?.title ?? served ?? slot.branch ?? session?.address ?? last ?? "A Session";
+  return { kind: "session", title, session, item: session === undefined ? undefined : tileOf(items, `session:${session.id}`), by };
+}
+
 function holderOf(slot: WorktreeSlot, jobs: readonly JobSummary[], sessions: readonly Session[], items: readonly Item[]): Holder {
   if (slot.closed === true && (slot.held.state === "free" || slot.held.state === "unmade")) return { kind: "closed" };
   switch (slot.held.state) {
@@ -146,13 +155,17 @@ function holderOf(slot: WorktreeSlot, jobs: readonly JobSummary[], sessions: rea
       return { kind: "job", id, title, item: tileOf(items, id) };
     }
     case "session": {
-      // A Session not yet named, or a terminal Armada does not know, is called by the branch it is on:
-      // a process path or a Session id says nothing of the work.
-      const session = sessionIn(slot, sessions);
+      // The pool names a process: Fleet names the Session it began from where a hosted one started it, and
+      // otherwise a Session is found by its own slot or branch.
+      const named = slot.held.session_id;
+      const session = named !== undefined ? sessions.find((one) => one.id === named) : sessionIn(slot, sessions);
       const pid = /\(pid (\d+)\)/.exec(slot.held.holder)?.[1];
-      const by = session !== undefined ? undefined : pid === undefined ? slot.held.holder : `A terminal, pid ${pid}`;
-      const title = session?.title ?? slot.branch ?? session?.address ?? by ?? slot.held.holder;
-      return { kind: "session", title, session, item: session === undefined ? undefined : tileOf(items, `session:${session.id}`), by };
+      const by = session !== undefined || named !== undefined ? undefined : pid === undefined ? slot.held.holder : `A terminal, pid ${pid}`;
+      return sessionHolder(slot, items, session, slot.held.session_title, by ?? slot.held.holder, by);
+    }
+    case "hosted_session": {
+      const named = slot.held.session_id;
+      return sessionHolder(slot, items, sessions.find((one) => one.id === named), slot.held.session_title, undefined, undefined);
     }
     case "stranded":
       return { kind: "other", said: `Stranded: ${slot.held.why}` };

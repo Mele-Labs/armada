@@ -2887,6 +2887,14 @@ the slot) and `completed`, all optional or defaulted. A kept slot carries `stran
 `rescue_slot` acts on it as on a stranded one; each act ends the Job's claim, so the slot is free
 after.
 
+**A bay a hosted Session holds is on the wire as that Session.** A Session's lease is written as a Job of
+its own id, so `WorktreeSlot.held` was `job` with a Session id and Bridge drew the id. Fleet now serves it as
+`SlotHolding::HostedSession { session_id, session_title? }`, and gives a process holder
+(`SlotHolding::Session`) the optional `session_id` and `session_title` of the hosted Session whose agent started
+it, found by walking down from each Session's agent (or its `session-keep`) to the holder's pid. Both are
+additive or a new state; a Bridge that matches `held.state` without a default would miss the new one, which is
+the major-bump rule above. A pid that no hosted Session started is served as before.
+
 **Each refusal has its own code**, all 409s: `fleet.slot_not_stranded`, `fleet.slot_busy`,
 `fleet.rescue_reading`, `fleet.rescue_not_running`, `fleet.rescue_on_no_branch`,
 `fleet.rescue_on_the_base` and `fleet.rescue_no_remote`. `fleet.no_such_slot` is a 422.

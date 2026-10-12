@@ -73,6 +73,38 @@ describe("the bays", () => {
     expect(unnamed).toMatchObject({ kind: "session", title: "fix/blank", by: undefined });
   });
 
+  test("a bay a hosted Session holds under its own id draws that Session's title, never the id", () => {
+    const id = "5a21fab8-f110-4b34-b646-ff5d322e7e0f";
+    const s = session(id, [], { title: "Debug Bridge on Merge line" });
+    const { harbours } = read([slot(1, { state: "hosted_session", session_id: id, session_title: "Served title" }, { branch: "armada/session-5a21fab8" })], [s], [tile(`session:${id}`, { owner: `session:${id}`, session: true })]);
+    const holder = harbours[0]!.bays[0]!.holder;
+    expect(holder).toMatchObject({ kind: "session", title: "Debug Bridge on Merge line", by: undefined });
+    expect(holder.kind === "session" ? holder.session?.id : undefined).toBe(id);
+    expect(holder.kind === "session" ? holder.item?.key : undefined).toBe(`session:${id}`);
+  });
+
+  test("a Session Bridge has not listed is drawn by the title Fleet served, else by its branch, and never by its id", () => {
+    const id = "5a21fab8-f110-4b34-b646-ff5d322e7e0f";
+    const { harbours } = read([
+      slot(1, { state: "hosted_session", session_id: id, session_title: "Debug Bridge on Merge line" }, { branch: "armada/session-5a21fab8" }),
+      slot(2, { state: "hosted_session", session_id: id }, { branch: "armada/session-5a21fab8" }),
+      slot(3, { state: "hosted_session", session_id: id }),
+    ]);
+    expect(harbours[0]!.bays.map((bay) => (bay.holder.kind === "session" ? bay.holder.title : undefined))).toEqual(["Debug Bridge on Merge line", "armada/session-5a21fab8", "A Session"]);
+  });
+
+  test("a bay a hosted Session's subagent holds by a pid shows the Session it started from, not the pid", () => {
+    const id = "5a21fab8-f110-4b34-b646-ff5d322e7e0f";
+    const s = session(id, [{ kind: "branch", name: "armada/session-5a21fab8", slot: 8 }], { title: "Debug Bridge on Merge line" });
+    const { harbours } = read([slot(10, { state: "session", holder: "claude (pid 2838)", session_id: id, session_title: "Debug Bridge on Merge line" }, { branch: "fleet/main-red-session-culprit" })], [s]);
+    expect(harbours[0]!.bays[0]!.holder).toMatchObject({ kind: "session", title: "Debug Bridge on Merge line", by: undefined });
+  });
+
+  test("a Session a pid names that Bridge has not listed is drawn by Fleet's title, with no terminal line", () => {
+    const { harbours } = read([slot(10, { state: "session", holder: "claude (pid 2838)", session_id: "gone", session_title: "Debug Bridge on Merge line" }, { branch: "fleet/x" })]);
+    expect(harbours[0]!.bays[0]!.holder).toMatchObject({ kind: "session", title: "Debug Bridge on Merge line", session: undefined, by: undefined });
+  });
+
   test("a Session working on a bay's Job rides with it, and is not listed as without a bay", () => {
     const s = session("s2", [{ kind: "job", id: "j1", number: 1, title: "Job one", state: "running", branch: "feat/a" }]);
     const { harbours, waiting } = read([slot(1, { state: "job", job_id: "j1" }, { branch: "feat/a" })], [s], [tile("j1"), tile("session:s2", { owner: "session:s2", session: true })]);
