@@ -3363,6 +3363,21 @@ Bridge's half is in `packages/protocol/src/hosted-sessions.ts`, written by hand 
 
 **`repair` is ignored**, as for a Skill: a file with `brief:` and `repair: true` loads with it off.
 
+## Protocol 23.76: Start Session on a retro item
+
+`docs/concepts/retro.md`, *Agree and disagree*. **Additive only**: one operation, `Helm only` like `agree_lesson`, and one optional field on two types.
+
+| Where | Carries | Notes |
+| --- | --- | --- |
+| `start_lesson_session` (`POST /lessons/:lesson_id/session`) | No body. Answers `LessonSessionStarted`: `lesson`, `session_id`, `brief` | `agree_lesson`'s sibling: a hosted Session on the item's repository, started as `start_session` starts one, and the brief sent to it as its first message at once, so the Session runs. `brief` is the text that was sent |
+| `Lesson.session_proposed`, `RetroItem.session_proposed` | The Session id, optional | State `agreed`. At most one of it and `job_proposed` is set. Absent from the wire when none |
+
+**Refusals.** As `agree_lesson`: 404 `fleet.no_such_lesson`; 422 `fleet.lesson_names_no_place`, `fleet.lesson_armada_not_served`, `fleet.lesson_session_names_no_repository`. 422 `fleet.lesson_session_nothing_to_work_on` for a `kit` item. 409 `fleet.lesson_not_open` for an item answered with no Session to hand back. **422 `fleet.lesson_session_brief_unsent` when the Session started and its first message was refused**: the item is `agreed` with the Session on it and the message names the Session, so Bridge can open it and the person can send by hand. A second press answers 200 with that Session and sends nothing.
+
+**One press makes one Session and one message.** The write that moves the item off `open` is the claim. An item already agreed with a Session answers 200 with it.
+
+**Skew.** A Fleet before 23.76 has no route and answers 404, and never sends `session_proposed`, which Bridge reads as absent. A Bridge before it never calls the route and ignores the field. Bridge's half is `packages/protocol/src/retro-session.ts`, written by hand.
+
 ## Protocol 23.75: a Session's Checks
 
 `docs/concepts/session.md`, *A Session's Checks*. **Additive, with one loosening**: two operations, a requester kind and a thread row, and `ManifestCheckRow`'s Job fields become optional.

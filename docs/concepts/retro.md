@@ -80,7 +80,7 @@ Every item starts `open`.
 | State | Means |
 | --- | --- |
 | `open` | Nobody has answered it. What the Retros page lists by default |
-| `agreed` | A Job was proposed for it at the approval gate, and `job_proposed` names it |
+| `agreed` | A Job was proposed for it at the approval gate and `job_proposed` names it, or a Session was started for it and `session_proposed` names that. Never both |
 | `accepted` | A Kit item the person agreed with. Nothing to dispatch: an item with a `change` has it applied to Kit and answers with `applied`, and one without is kept as it is. The person's saved Kit items |
 | `discarded` | Disagreed with. The row stays |
 
@@ -101,6 +101,22 @@ proposed.
 
 An item kept before `lands_in` names no place, so agreeing with it is refused:
 where its Job would go is not Fleet's to guess.
+
+**Start Session agrees by starting a Session instead of proposing a Job**, and
+`start_lesson_session` keeps `agree_lesson`'s rules: the same ids for a Job's item
+and a Session's, the same place a `manifest` or `armada` fix goes (a Session's own
+item goes to the repository its Session was started in), the same refusals
+(`fleet.no_such_lesson`, `fleet.lesson_names_no_place`,
+`fleet.lesson_armada_not_served`), and the same first press wins: the write that
+moves the item off `open` is the claim, so two presses make one Session and send
+one message. A `kit` item is refused with `fleet.lesson_session_nothing_to_work_on`.
+The brief is the item as `propose_from_request` would read it, written to the agent
+who will do the work. **It is sent at once**, so the process starts and the turn
+runs. A Session that starts and refuses the message cannot be taken back, so the
+item stays `agreed` with the Session on it and the answer is a 422
+`fleet.lesson_session_brief_unsent` naming it; pressing again answers with that
+Session and sends nothing. An item already answered with a Job, or accepted or
+discarded, answers 409 `fleet.lesson_not_open`.
 
 ## The record it is read from
 
