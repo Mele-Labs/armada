@@ -160,6 +160,28 @@ impl Store {
             .map_err(failed("moving an Autopilot"))
     }
 
+    /// Change one run's instruction, at once and caps, and nothing else: its state, `capped_by`
+    /// and picks stay. **False where the repository holds no such run**, as
+    /// [`move_autopilot`](Store::move_autopilot) answers.
+    pub fn update_autopilot(&mut self, kept: &KeptAutopilot) -> Result<bool, WriteError> {
+        self.conn
+            .execute(
+                "UPDATE autopilots SET instruction = ?2, at_once = ?3, until = ?4,
+                     spend_cap_micros = ?5, job_cap = ?6
+                 WHERE run_id = ?1",
+                params![
+                    kept.run_id,
+                    kept.instruction,
+                    kept.at_once,
+                    kept.until,
+                    kept.spend_cap_micros.map(|micros| micros as i64),
+                    kept.job_cap,
+                ],
+            )
+            .map(|changed| changed > 0)
+            .map_err(failed("changing an Autopilot's settings"))
+    }
+
     /// One run's picks, oldest first: a pick id is a ULID, minted in order.
     pub fn autopilot_picks(&self, run_id: &str) -> Result<Vec<KeptPick>, WriteError> {
         let doing = "reading an Autopilot's picks";

@@ -7,14 +7,14 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react
 import { Plane } from "lucide-react";
 import { AutopilotBar, type AutopilotFields, type AutopilotPress, type AutopilotReading } from "@armada/components";
 import type { Autopilot, AutopilotPick, IssueList, Outcome, RepositorySummary } from "@armada/protocol";
-import { said } from "@armada/screens/src/copy";
+import { refusalWords } from "@armada/screens/src/refusal-words";
 
 import type { AutopilotActed } from "../../../shared/api/autopilot";
 import type { BridgeState } from "../../../shared/bridge";
 import type { Item } from "../Dashboard";
 import type { BaysAutopilot } from "./BaysView";
 import { withAutopilot } from "./autopilot-metro";
-import { capsOf, endedOf, isOn, localNow, nextUpOf, readingOf, settingsFrom, setAsideOf, stoppingOf } from "./autopilot";
+import { cappedOf, capsOf, fieldsOf, isOn, localNow, nextUpOf, readingOf, settingsFrom, setAsideOf, stoppingOf } from "./autopilot";
 import { takeSeed, useAutopilotSeed } from "./autopilot-seed";
 import { AsideActs, AutopilotSidings, type SidingPress } from "./AutopilotSidings";
 import "./autopilot.css";
@@ -86,6 +86,8 @@ export function useAutopilotLane({ picked, state, now }: { picked: RepositorySum
   const [starting, setStarting] = useState(false);
   const [sentence, setSentence] = useState("");
   const [reading, setReading] = useState<AutopilotReading>();
+  /** The repository whose Edit caps is open. */
+  const [editing, setEditing] = useState<string>();
 
   /** Sends one act, folds Fleet's answer, and says a refusal where the press was. */
   const act = useCallback(
@@ -94,7 +96,8 @@ export function useAutopilotLane({ picked, state, now }: { picked: RepositorySum
       setRefused(undefined);
       const answer = await send();
       setPressing(undefined);
-      if (!answer.ok) return void setRefused({ manifest, why: said(answer.outcome as Outcome) });
+      // Fleet's own words for a refusal: a held cap's names the cap.
+      if (!answer.ok) return void setRefused({ manifest, why: refusalWords(answer.outcome as Outcome) });
       return answer.value;
     },
     [],
@@ -124,6 +127,7 @@ export function useAutopilotLane({ picked, state, now }: { picked: RepositorySum
     setStarting(false);
     setReading(undefined);
     setRefused(undefined);
+    setEditing(undefined);
   }, [manifestId]);
 
   const start = (manifest: string, fields: AutopilotFields) => {
@@ -134,6 +138,17 @@ export function useAutopilotLane({ picked, state, now }: { picked: RepositorySum
       fold(value);
       setStarting(false);
       setReading(undefined);
+    });
+  };
+
+  /** New settings for one that is on, in its state: raising the cap that paused it is what lets Resume through. */
+  const save = (manifest: string, autopilot: Autopilot, fields: AutopilotFields) => {
+    const settings = settingsFrom(autopilot.instruction, fields, Date.now());
+    if (!settings.ok) return setRefused({ manifest, why: settings.why });
+    void act(manifest, "save", () => window.armada.updateAutopilot(manifest, settings.settings)).then((value) => {
+      if (value === undefined) return;
+      fold(value);
+      setEditing(undefined);
     });
   };
 
@@ -155,7 +170,7 @@ export function useAutopilotLane({ picked, state, now }: { picked: RepositorySum
         repository={named ? nameOf(manifest) : undefined}
         state={!live ? "off" : autopilot.state === "paused" ? "paused" : "running"}
         instruction={autopilot?.instruction}
-        ended={autopilot === undefined ? undefined : endedOf(autopilot)}
+        capped={autopilot === undefined ? undefined : cappedOf(autopilot)}
         fault={autopilot?.fault}
         caps={autopilot === undefined ? [] : capsOf(autopilot, now)}
         stopping={autopilot === undefined ? "" : stoppingOf(autopilot, state.jobs)}
@@ -175,6 +190,13 @@ export function useAutopilotLane({ picked, state, now }: { picked: RepositorySum
         reading={reading}
         onRead={() => read(manifest, sentence)}
         onStart={(fields) => start(manifest, fields)}
+        editing={editing === manifest}
+        onEditing={(open) => {
+          setEditing(open ? manifest : undefined);
+          setRefused(undefined);
+        }}
+        current={live ? fieldsOf(autopilot) : undefined}
+        onSave={(fields) => live && save(manifest, autopilot, fields)}
       />
     );
   };
@@ -205,7 +227,11 @@ export function useAutopilotLane({ picked, state, now }: { picked: RepositorySum
   }));
   const marks = useMemo(() => (metro: Parameters<BaysAutopilot["mark"]>[0]) => withAutopilot(metro, on), [on]);
 
-  if (!served() || (manifestId === null && on.length === 0)) return { bar: null, bays: undefined, asides: NO_ASIDES };
+  if (!served()) return { bar: null, bays: undefined, asides: NO_ASIDES };
+  // All, with none on anywhere: one quiet line where the bars would be, since an Autopilot is one repository's.
+  if (manifestId === null && on.length === 0) {
+    return { bar: <p className="armada-autopilot-lane armada-autopilot-lane__none">Pick a repository to start Autopilot</p>, bays: undefined, asides: NO_ASIDES };
+  }
   return {
     bar: <div className="armada-autopilot-lane">{manifestId === null ? on.map((one) => barOf(one.manifest_id, one, true)) : barOf(manifestId, held.get(manifestId), false)}</div>,
     bays: on.length === 0 ? undefined : { mark: marks, sidings: <AutopilotSidings sidings={sidings} pending={aside} onRun={(manifest, pick) => onAside(manifest, pick, "run")} onDismiss={(manifest, pick) => onAside(manifest, pick, "dismiss")} /> },

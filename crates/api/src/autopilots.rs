@@ -55,6 +55,23 @@ pub(crate) async fn start_autopilot<D: Autopilots>(
     answered(StatusCode::CREATED, started, served.run_id())
 }
 
+/// New settings for one running or paused. 200 with the Autopilot, in the state it was in.
+pub(crate) async fn update_autopilot<D: Autopilots>(
+    State(served): State<Served<D>>,
+    Path(repository): Path<String>,
+    body: Bytes,
+) -> Response {
+    let settings: ipc::AutopilotSettings = match ipc::decode("Autopilot's settings", &body) {
+        Ok(settings) => settings,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    let updated = served
+        .daemon()
+        .update_autopilot(ManifestId::carried(repository), settings)
+        .await;
+    answered(StatusCode::OK, updated, served.run_id())
+}
+
 pub(crate) async fn pause_autopilot<D: Autopilots>(
     State(served): State<Served<D>>,
     Path(repository): Path<String>,

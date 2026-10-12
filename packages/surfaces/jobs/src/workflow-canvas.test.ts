@@ -170,6 +170,15 @@ describe("a step's card", () => {
     expect(card("advanced").line).toMatch(/ · advanced$/);
   });
 
+  it("says where the Judges sent the step back to its Drone, and nothing where they sent none", () => {
+    const { whole, groups } = arc("executingSequential");
+    const step = whole.steps.find((one) => one.state === "advanced")!;
+    const sent = { ...whole, steps: whole.steps.map((one) => (one === step ? { ...one, sent_back: { times: 1, of: 2 } } : one)) };
+    const line = (of: typeof whole) => workflowRunOf({ whole: of, groups }).nodes.find((node) => node.id === stepNodeId(step.step_id))!.card.line;
+    expect(line(sent)).toMatch(/ · Sent back by the Judges · 1 of 2$/);
+    expect(line(whole)).not.toMatch(/Sent back/);
+  });
+
   it("leads with a failed Check, and then says only how long", () => {
     const { whole, groups } = arc("groupFailed");
     const works = stepThatWorksTheGroups(whole)!;

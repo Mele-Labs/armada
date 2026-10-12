@@ -10,9 +10,11 @@ import { CHANNELS } from "../shared/bridge";
 export const autopilotPreload: AutopilotApi = {
   proposeAutopilot: (manifestId, sentence, localNow) => ipcRenderer.invoke(CHANNELS.proposeAutopilot, manifestId, sentence, localNow),
   startAutopilot: (manifestId, settings: AutopilotSettings) => ipcRenderer.invoke(CHANNELS.startAutopilot, manifestId, settings),
+  updateAutopilot: (manifestId, settings: AutopilotSettings) => ipcRenderer.invoke(CHANNELS.updateAutopilot, manifestId, settings),
   pauseAutopilot: (manifestId) => ipcRenderer.invoke(CHANNELS.pauseAutopilot, manifestId),
   resumeAutopilot: (manifestId) => ipcRenderer.invoke(CHANNELS.resumeAutopilot, manifestId),
   stopAutopilot: (manifestId) => ipcRenderer.invoke(CHANNELS.stopAutopilot, manifestId),
+  readJob: (jobId) => ipcRenderer.invoke(CHANNELS.readJob, jobId),
   listAutopilots: () => ipcRenderer.invoke(CHANNELS.listAutopilots),
   getAutopilot: (manifestId) => ipcRenderer.invoke(CHANNELS.getAutopilot, manifestId),
   dispatchSetAside: (manifestId, pickId) => ipcRenderer.invoke(CHANNELS.dispatchSetAside, manifestId, pickId),

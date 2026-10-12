@@ -16,3 +16,5 @@ each stops what would start next and not what is already running, so
 Autopilot can overshoot by as many Jobs as it runs at once.
 
 **Where it landed:** not built.
+
+**Changed 2026-10-12.** The owner's *"Fix the gaps"* made a reached cap pause Autopilot rather than end it. Raising the cap, or moving the time later, lets Resume carry on, and Resume is refused while a cap still holds. #2105.
