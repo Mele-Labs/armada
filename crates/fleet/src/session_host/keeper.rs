@@ -155,7 +155,13 @@ pub async fn keep(keeper: Keeper) -> io::Result<()> {
                 line = reading.next_line() => match line {
                     Ok(Some(line)) => {
                         let whole = line + "\n";
-                        if spool.write_all(whole.as_bytes()).await.is_err() {
+                        // `write_all` returns once the bytes are queued: the
+                        // write itself finishes on another thread. The flush
+                        // waits for it, so a pump told of this line finds it
+                        // in the spool and not a short read it then waits on.
+                        if spool.write_all(whole.as_bytes()).await.is_err()
+                            || spool.flush().await.is_err()
+                        {
                             break;
                         }
                         written += whole.len() as u64;

@@ -7,7 +7,7 @@ export const SHOOTING = "data-shooting";
 const out = new WeakMap<Element, number>();
 
 /** Two frames: the first runs before the paint that drops the layer, the second after it. */
-const painted = (frame: (done: () => void) => unknown): Promise<void> =>
+export const painted = (frame: (done: () => void) => unknown): Promise<void> =>
   new Promise((done) => frame(() => frame(() => done())));
 
 /**

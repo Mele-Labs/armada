@@ -38,7 +38,9 @@
 
 use serde_json::{json, Map, Value};
 
-use super::ask::{ASK_FIELDS, ASK_TOOL, FEWEST_OPTIONS, MOST_OPTIONS};
+use super::ask::{
+    ASK_FIELDS, ASK_TOOL, FEWEST_DECISIONS, FEWEST_OPTIONS, MOST_DECISIONS, MOST_OPTIONS,
+};
 use super::dispatch::{DISPATCH_FIELDS, DISPATCH_TOOL};
 use super::fixing::FIX_TOOL;
 use super::noting::NOTE_TOOL;
@@ -217,6 +219,14 @@ pub enum NotAnArgument {
     WrongCount {
         offered: usize,
     },
+    /// An ask of several decisions with the wrong number. **Refused rather than
+    /// trimmed**, for [`WrongCount`](Self::WrongCount)'s reason.
+    WrongDecisionCount {
+        offered: usize,
+    },
+    /// `decisions` given beside `question` or `options`. Fleet would be choosing
+    /// which one the Drone meant.
+    AskedTwoWays,
     /// Two answers a person could not tell apart. An answer names its label, so
     /// two the same is an answer that means either.
     SameTwice {
@@ -344,6 +354,20 @@ impl core::fmt::Display for NotAnArgument {
                      person reads badly"
                 )
             }
+            NotAnArgument::WrongDecisionCount { offered } => {
+                let (fewest, most) = (FEWEST_DECISIONS, MOST_DECISIONS);
+                write!(
+                    out,
+                    "you asked {offered} decisions. Ask between {fewest} and {most} \
+                     together; for one, use `question` and `options` instead"
+                )
+            }
+            NotAnArgument::AskedTwoWays => write!(
+                out,
+                "`decisions` came with `question` or `options`. Ask one question \
+                 with `question` and `options`, or several with `decisions` \
+                 alone — call again with one of them"
+            ),
             NotAnArgument::SameTwice { label } => write!(
                 out,
                 "two answers are both labelled `{label}`. An answer names its \

@@ -1,4 +1,4 @@
-// Helm's members as a mock Fleet answers them: asking, debugging and pointing the dock.
+// Helm's members as a mock Fleet answers them: asking, reading a thought, debugging and pointing the dock.
 
 import type { FleetHandle } from "@armada/bridge-api";
 import type { Outcome } from "@armada/protocol";
@@ -19,6 +19,10 @@ export function helmApi({ publish, refused }: HelmFleet): HelmApi {
     // No session behind a mock Fleet, so the record is the refusal a window
     // with nothing connected already draws — never an invented record.
     helmDebugInfo: async () => refused("/helm/debug"),
+    // A mock Fleet reads every message as a question for Helm, at once, so only a scenario about
+    // routing a thought changes what a dock does with its words.
+    readThought: async () => ({ ok: true, reading: { kind: "question" } }),
+    recordThoughtSent: async () => OK,
     startHelmFresh: async () => OK,
     /**
      * The dock's own switch, and *Discuss with Helm* on a card. **Which

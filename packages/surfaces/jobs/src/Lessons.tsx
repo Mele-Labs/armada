@@ -8,7 +8,7 @@
 // Kit. Disagree discards it. A row's Job
 // label opens that Job's retro.
 
-import { useState } from "react";
+import { useRef, useState, useSyncExternalStore } from "react";
 
 import { Alert, Button, LessonList, RetroSheet, Tabs, type LessonRow } from "@armada/components";
 
@@ -34,9 +34,12 @@ import {
   type LessonsView,
   type ReadLessons,
   type ReadRetro,
+  type SessionStarts,
+  type StartLessonSession,
 } from "./retro";
 import type { RetroSubject } from "@armada/protocol";
 import { LessonsReview, type AskLesson, type ReviewLessons } from "./LessonsReview";
+import { createReviewHold, type ReviewHold } from "./review-hold";
 
 /** Open and Accepted, the two lists an item can be on. */
 const VIEWS = [
@@ -50,6 +53,13 @@ export type LessonsProps = {
   /** Agree with one item, and disagree with one. */
   onAgreeLesson: AnswerLesson;
   onDisagreeLesson: AnswerLesson;
+  /**
+   * Start Session beside Create Job on an Armada or Manifest item: the call to Fleet, and the
+   * host's way of opening the Session it started with the first message in its message box.
+   * **Both or neither**; absent, and no card offers Start Session.
+   */
+  onStartSession?: StartLessonSession;
+  onOpenSession?: (sessionId: string) => void;
   /**
    * The guided review, `Review` beside the tabs: Fleet's model orders the open items, and a
    * question about one is put to it. Absent, and the page offers no Review.
@@ -74,8 +84,14 @@ export type LessonsProps = {
   /** Whose retros are listed, Sessions' or Jobs', on the same terms as `tab`. */
   source?: LessonsSource;
   onSource?: (source: LessonsSource) => void;
-  /** A retro to open over the list as the page opens: the one a Session's Retro press asked for. */
-  opening?: { id: string; label: string };
+  /**
+   * What the review keeps while the window is open, so leaving the page and coming back resumes at
+   * the same card and asks the model nothing (`review-hold.ts`). **The host's**, made once for the
+   * window; absent, and the page keeps its own for as long as it is mounted.
+   */
+  hold?: ReviewHold;
+  /** A retro to open over the list as the page opens: the one a Session's retro card asked for, by its number, or the newest. */
+  opening?: { id: string; label: string; n?: number };
 };
 
 export function Lessons({
@@ -83,6 +99,8 @@ export function Lessons({
   onReadRetro,
   onAgreeLesson,
   onDisagreeLesson,
+  onStartSession,
+  onOpenSession,
   onReviewLessons,
   onAskLesson,
   onOpenJob,
@@ -92,8 +110,13 @@ export function Lessons({
   onTab,
   source,
   onSource,
+  hold,
   opening,
 }: LessonsProps) {
+  const own = useRef<ReviewHold | undefined>(undefined);
+  const reviews = hold ?? (own.current ??= createReviewHold());
+  // Review or the list is remembered with the review, the way the tab is remembered for the viewer.
+  const reviewing = useSyncExternalStore(reviews.subscribe, reviews.reviewing);
   const [held, setHeld] = useState<LessonsTab>("all");
   const [view, setView] = useState<LessonsView>("open");
   const [heldSource, setHeldSource] = useState<LessonsSource>("all");
@@ -101,21 +124,21 @@ export function Lessons({
   const showingSource = source ?? heldSource;
   // Keyed by the pick and the list, so another of either is another read.
   // Leaving the review reads the list again: it answered items the list's own read still holds.
-  const [reviewing, setReviewing] = useState(false);
   const [reads, setReads] = useState(0);
   const read = useReadOnFocus(() => onReadLessons(view), `${repository ?? ""}:${view}:${reads}`);
   // A Session's Retro press opens the newest of that Session's retros: `n` absent.
   const [open, setOpen] = useState<{ subject: RetroSubject; job: string } | null>(
-    opening === undefined ? null : { subject: { kind: "session", id: opening.id }, job: opening.label },
+    opening === undefined ? null : { subject: { kind: "session", id: opening.id, ...(opening.n === undefined ? {} : { n: opening.n }) }, job: opening.label },
   );
-  const answered = useAnswers(onAgreeLesson, onDisagreeLesson, onOpenJob);
+  const sessions = sessionStartsOf(onStartSession, onOpenSession);
+  const answered = useAnswers(onAgreeLesson, onDisagreeLesson, onOpenJob, sessions);
   const retros = useJobRetros(onReadRetro);
   // The items whose Evidence was pressed, so a read shared by a Job's cards speaks on the one that asked.
   const [pressed, setPressed] = useState<ReadonlySet<string>>(new Set());
   const cited = new Map((read?.ok === true ? read.lessons : []).map((lesson) => [lesson.id, lesson.evidence]));
   const subjects = new Map((read?.ok === true ? read.lessons : []).map((lesson) => [lesson.id, retroSubjectOf(lesson)]));
   const leaveReview = () => {
-    setReviewing(false);
+    reviews.setReviewing(false);
     setReads((was) => was + 1);
   };
   const rows = underTab(read?.ok === true ? lessonRowsOf(underSource(read.lessons, showingSource)) : [], showing).flatMap((row) => {
@@ -177,9 +200,12 @@ export function Lessons({
             lessons={read?.ok === true ? read.lessons : undefined}
             onReview={onReviewLessons}
             onAsk={onAskLesson}
+            hold={reviews}
+            holdKey={repository ?? ""}
             onReadRetro={onReadRetro}
             onAgreeLesson={onAgreeLesson}
             onDisagreeLesson={onDisagreeLesson}
+            {...(sessions === undefined ? {} : { sessions })}
             {...(onOpenJob === undefined ? {} : { onOpenJob })}
             onOpenRetro={(subject, label) => setOpen({ subject, job: label })}
             onList={leaveReview}
@@ -215,7 +241,7 @@ export function Lessons({
                 onClick={() => {
                   // The review is of the open items, so the list it resolves them from is the open one.
                   setView("open");
-                  setReviewing(true);
+                  reviews.setReviewing(true);
                 }}
               >
                 Review
@@ -239,6 +265,7 @@ export function Lessons({
           read={onReadRetro}
           onAgreeLesson={onAgreeLesson}
           onDisagreeLesson={onDisagreeLesson}
+          {...(sessions === undefined ? {} : { sessions })}
           {...(onOpenJob === undefined ? {} : { onOpenJob })}
           floor={floor}
           onClose={() => setOpen(null)}
@@ -246,6 +273,23 @@ export function Lessons({
       )}
     </div>
   );
+}
+
+/** Start Session's two halves as one, or nothing where the host gave only one of them. */
+export function sessionStartsOf(
+  start: StartLessonSession | undefined,
+  open: ((sessionId: string) => void) | undefined,
+): SessionStarts | undefined {
+  return start === undefined || open === undefined ? undefined : { start, open };
+}
+
+/** `sessionStartsOf` as a prop to spread, for a host that passes the halves separately. */
+export function withSessions(
+  start: StartLessonSession | undefined,
+  open: ((sessionId: string) => void) | undefined,
+): { sessions?: SessionStarts } {
+  const sessions = sessionStartsOf(start, open);
+  return sessions === undefined ? {} : { sessions };
 }
 
 /**
@@ -258,6 +302,7 @@ export function JobRetroSheet({
   read,
   onAgreeLesson,
   onDisagreeLesson,
+  sessions,
   onOpenJob,
   floor,
   onClose,
@@ -268,18 +313,21 @@ export function JobRetroSheet({
   read: ReadRetro;
   onAgreeLesson: AnswerLesson;
   onDisagreeLesson: AnswerLesson;
+  /** Start Session on an item of this retro; absent, and the sheet offers none. */
+  sessions?: SessionStarts;
   onOpenJob?: (jobId: string) => void;
   floor: boolean;
   onClose: () => void;
 }) {
   const answer = useReadOnFocus(() => read(subject), retroKeyOf(subject));
-  const answered = useAnswers(onAgreeLesson, onDisagreeLesson, onOpenJob);
+  const answered = useAnswers(onAgreeLesson, onDisagreeLesson, onOpenJob, sessions);
   const retro = answer?.ok === true ? answer.retro : null;
   const status = retro === null ? undefined : statusOf(retro);
   const items = (retro === null ? [] : itemsOf(retro)).flatMap((item) => {
     const shown = answered(item.id ?? "", item.landsIn, {
       ...(item.state === undefined ? {} : { state: item.state }),
       ...(item.jobProposed === undefined ? {} : { jobProposed: item.jobProposed }),
+      ...(item.sessionProposed === undefined ? {} : { sessionProposed: item.sessionProposed }),
       ...(item.change === undefined ? {} : { change: item.change }),
       ...(item.applied === undefined ? {} : { applied: item.applied }),
     });

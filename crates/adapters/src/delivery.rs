@@ -6,20 +6,26 @@
 //! `crate::merging_in` is how. Every catch-up here comes before a Drone is put
 //! on the worktree, so a conflict's markers stay for that Drone to clear.
 //!
-//! **Nothing here fetches.** The base is the local branch: a catch-up that
-//! fetched would put the network, and a credential, in the middle of a step
-//! boundary — and the branch a person merges into is the one on their machine.
+//! **The base is the remote's copy of it**, not the local branch of the same
+//! name: that one is checked out in a person's own checkout and is rarely
+//! fast-forwarded, so a catch-up that merged it left a pull request conflicting
+//! while reporting the branch up to date (Job 14, 12 Oct 2026). Nothing here
+//! fetches: [`Delivery::fetch_base`] is its own call, so a failure to reach the
+//! remote is seen by the caller and not buried in a step boundary. Where there
+//! is no remote copy — no remote, or a base never pushed — the local branch is
+//! the only reading there is. `crate::fetching_the_base`.
 
 use std::process::{Command, Output};
 
 use adapter_traits::{
-    Base, BaseOnTheRemote, BranchMerged, BroughtUpToDate, Delivery, KeptCurrent, Landable, Merged,
+    Base, BaseFetched, BaseOnTheRemote, BranchMerged, BroughtUpToDate, Delivery, KeptCurrent, Landable, Merged,
     NotDelivered, NotMerged, Opened, Pushed, PushedOntoBase, RepositoryStanding, Review,
     UncheckedHead, UnderReview, WhatBecameOfIt,
 };
 use adapter_traits::{Standing, Worktree, WorktreeSpec};
 use git2::{BranchType, Repository};
 
+use crate::fetching_the_base;
 use crate::merging_in::{self, MergedIn, OnConflict};
 use crate::worktree::GitVcs;
 
@@ -40,7 +46,7 @@ impl Delivery for GitVcs {
     fn standing(&self, worktree: &Worktree, base: &Base) -> Result<Standing, NotDelivered> {
         let repo = open(worktree)?;
         let tip = head_of(&repo, worktree)?;
-        let base_tip = tip_of(&repo, base.name())?;
+        let base_tip = the_base_tip(&repo, base.name())?;
         // A merge part-way through stands where it is merging to once its
         // markers are cleared, so the next Drone is not told of it again.
         // Until then it reads behind, so the Drone put on it is.
@@ -61,7 +67,7 @@ impl Delivery for GitVcs {
     fn ahead(&self, worktree: &Worktree, base: &Base) -> Result<usize, NotDelivered> {
         let repo = open(worktree)?;
         let tip = head_of(&repo, worktree)?;
-        let base_tip = tip_of(&repo, base.name())?;
+        let base_tip = the_base_tip(&repo, base.name())?;
         repo.graph_ahead_behind(tip, base_tip)
             .map(|(ahead, _)| ahead)
             .map_err(|cause| {
@@ -97,13 +103,18 @@ impl Delivery for GitVcs {
         }
     }
 
+    fn fetch_base(&self, in_repo: &str, base: &str) -> BaseFetched {
+        fetching_the_base::fetched(in_repo, base)
+    }
+
     fn bring_up_to_date(
         &self,
         worktree: &Worktree,
         base: &Base,
     ) -> Result<BroughtUpToDate, NotDelivered> {
         let base_name = base.name().to_string();
-        let merged = merging_in::merged_in(worktree, base.name(), OnConflict::LeaveTheMarkers)?;
+        let onto = fetching_the_base::base_ref(&open(worktree)?, base.name());
+        let merged = merging_in::merged_in(worktree, &onto, OnConflict::LeaveTheMarkers)?;
         Ok(match merged {
             MergedIn::Clean { commits } => BroughtUpToDate::Clean {
                 base: base_name,
@@ -502,6 +513,21 @@ fn the_upstream_of(repo: &Repository, name: &str) -> Option<(String, git2::Oid)>
         .ok()?;
     let tip = upstream.get().target()?;
     Some((upstream.name().ok()??.to_string(), tip))
+}
+
+/// The commit a catch-up measures against: the remote's copy of `name` where
+/// this machine has fetched one, else the local branch.
+fn the_base_tip(repo: &Repository, name: &str) -> Result<git2::Oid, NotDelivered> {
+    let read = fetching_the_base::base_ref(repo, name);
+    repo.revparse_single(&read)
+        .and_then(|found| found.peel_to_commit())
+        .map(|commit| commit.id())
+        .map_err(|_| {
+            NotDelivered::of(
+                "reading the base branch",
+                format!("`{read}` points at no commit"),
+            )
+        })
 }
 
 fn tip_of(repo: &Repository, name: &str) -> Result<git2::Oid, NotDelivered> {

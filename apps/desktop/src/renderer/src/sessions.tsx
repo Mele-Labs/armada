@@ -3,7 +3,7 @@
 // What is drawn is `@armada/components`'; this reads the draft
 // (`packages/screens/src/draft/sessions.ts`) into it.
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 import { ExternalLink, GitMerge, PanelRightClose, PanelRightOpen } from "lucide-react";
 import {
@@ -48,9 +48,11 @@ import type {
   SketchStroke,
   SessionState,
   SessionThreadRow,
+  RetroRowItem,
 } from "@armada/components";
 import { sessionOf } from "@armada/jobs";
 import { askToOpenRetro } from "./open-retro";
+import { readRetro } from "./commands";
 import { ArtifactBody, ARTIFACT_GLYPH, isAddress } from "./session-artifact";
 import { helmOfferedOf } from "@armada/screens/src/copy";
 import { attachmentsOf, isBlank, ownerOf, sessionsMatching } from "@armada/screens/src/draft/sessions";
@@ -69,12 +71,14 @@ import {
   withoutShapes,
 } from "@armada/screens/src/draft/sketch";
 import type { Drawing } from "@armada/screens/src/draft/sketch";
-import type { HeldWorktrees, MergeLines } from "@armada/protocol";
+import type { HeldWorktrees, JobSummary, MergeLines } from "@armada/protocol";
 import { placeOf } from "@armada/screens";
 import { SURFACE, useAtFloor, useNarrow } from "@armada/shell";
 
 import { proposeRequest } from "./dispatch";
 import { useBackfilled } from "./backfilled";
+import { OPEN_SESSION_ATTRIBUTE } from "./open-session";
+import { ARTIFACT_SAID, cardOf, factsOf, type Known } from "./session-cards";
 import { useSessions, useSessionsDraft, useSessionsSaid } from "./sessions-draft";
 
 /** The surfaces the rail and the palette leave off: Sessions, until something serves them. */
@@ -280,25 +284,101 @@ function Refused() {
   return said === undefined || said === "" ? null : <Alert tone="escalated">{said}</Alert>;
 }
 
+/** The Sessions a Retro press is out for, shared by every place that draws the press so a second view is held too. */
+const pressing = new Set<string>();
+let pressingNow: ReadonlySet<string> = new Set();
+const pressingHeard = new Set<() => void>();
+
+function pressed(id: string, on: boolean): void {
+  if (on) pressing.add(id);
+  else pressing.delete(id);
+  pressingNow = new Set(pressing);
+  pressingHeard.forEach((one) => one());
+}
+
+const hearPressing = (one: () => void) => {
+  pressingHeard.add(one);
+  return () => void pressingHeard.delete(one);
+};
+
+/** Whether the retro in this Session's thread is still being written. A Session that ended or went quiet is not writing one. */
+const writingIn = (session: Session): boolean =>
+  session.dead === undefined && session.rows.some((row) => row.kind === "retro" && row.stage !== "written" && row.stage !== "failed");
+
 /**
- * The Retro press: which Sessions have a retro being written, and the press. When it is written the
- * Retros page opens on it, named by the Session's title and address.
+ * The Retro press: which Sessions have a retro being written, and the press. **It does not wait on
+ * the answer and it moves nobody.** The retro is a card in the Session's thread, written there as
+ * Fleet goes (`SessionRetroRow`), and its `Open retro` link is the one way it opens on the Retros
+ * page, so a person watching the thread is not taken from it. A terminal Session's thread is a
+ * transcript with no such row, so its press keeps the mark and opens the retro when Fleet answers.
+ * The mark holds while the press is out
+ * and while the thread's own row says Fleet is still at it; Fleet's refusal, a second press while one
+ * is being written, is worded by the Sessions page and the row carries on.
  */
-function useRetroPress(): { writing: ReadonlySet<string>; press?: (session: { id: string; title?: string }) => void } {
+function useRetroPress(): { writing: ReadonlySet<string>; press?: (session: { id: string; title?: string; terminal?: true }, watching?: boolean) => void } {
   const draft = useSessionsDraft();
-  const [writing, setWriting] = useState<ReadonlySet<string>>(new Set());
+  const sessions = useSessions();
+  const out = useSyncExternalStore(hearPressing, () => pressingNow);
+  const writing = useMemo(() => new Set([...out, ...sessions.filter(writingIn).map((one) => one.id)]), [out, sessions]);
+  // What the thread holds when the answer comes, not when the press was made.
+  const latest = useRef(sessions);
+  latest.current = sessions;
   const retro = draft?.retro;
   if (retro === undefined) return { writing };
+  const retroIds = (id: string) => new Set(latest.current.find((one) => one.id === id)?.rows.flatMap((row) => (row.kind === "retro" ? [row.id] : [])));
   return {
     writing,
-    press: ({ id, title }) => {
-      setWriting((was) => new Set(was).add(id));
-      void retro(id).then((written) => {
-        setWriting((was) => new Set([...was].filter((one) => one !== id)));
-        if (written) askToOpenRetro({ id, label: sessionOf({ id, ...(title === undefined ? {} : { title }) }) });
-      });
+    press: ({ id, title, terminal }, watching = false) => {
+      const before = retroIds(id);
+      pressed(id, true);
+      void retro(id)
+        .then((written) => {
+          // **Nothing else says it is written** where there is no card to watch: a terminal Session's thread is a
+          // transcript, and a press answered with the last retro (nothing new since) adds no row. Then the answer
+          // opens the retro, as the press always did. A thread this window is not watching has no card to look at either way.
+          const card = [...retroIds(id)].some((one) => !before.has(one));
+          if (written && (terminal === true || (watching && !card))) askToOpenRetro({ id, label: sessionOf({ id, ...(title === undefined ? {} : { title }) }) });
+        })
+        .finally(() => pressed(id, false));
     },
   };
+}
+
+/**
+ * A thread's rows, with each written retro's items filled in. **The row Fleet keeps says only which
+ * retro was written**, so the count and the titles under `Retro 3 written` are read from the retro
+ * itself, once, the first time this thread draws it.
+ */
+function useThreadRows(session: Session): SessionThreadRow[] {
+  const [kept, setKept] = useState<ReadonlyMap<string, readonly RetroRowItem[]>>(new Map());
+  const asked = useRef(new Set<string>());
+  const { id } = session;
+  const rows = threadRowsOf(session);
+  const wanted = rows.flatMap((row) => (row.kind === "retro" && row.stage === "written" && row.retro !== undefined && row.items.length === 0 ? [row.retro] : []));
+  const key = wanted.join(",");
+  useEffect(() => {
+    for (const n of key === "" ? [] : key.split(",").map(Number)) {
+      const at = `${id}:${n}`;
+      if (asked.current.has(at)) continue;
+      asked.current.add(at);
+      void readRetro({ kind: "session", id, n }).then((read) => {
+        if (!read.ok) return void asked.current.delete(at);
+        const items = (read.retro.items ?? []).map((one): RetroRowItem => ({ ...(one.title === undefined ? {} : { title: one.title }), ...(one.what === undefined ? {} : { what: one.what }) }));
+        setKept((was) => new Map(was).set(at, items));
+      });
+    }
+  }, [id, key]);
+  if (kept.size === 0) return rows;
+  return rows.map((row) => {
+    const items = row.kind === "retro" && row.retro !== undefined && row.items.length === 0 ? kept.get(`${id}:${row.retro}`) : undefined;
+    return items === undefined ? row : { ...row, items };
+  });
+}
+
+/** Opens a retro this Session wrote on the Retros page: its number, named by the Session's title and address. Stable while the Session's name is. */
+function useOpenRetro(session: Session): (retro: number) => void {
+  const { id, title } = session;
+  return useCallback((n) => askToOpenRetro({ id, n, label: sessionOf({ id, ...(title === undefined ? {} : { title }) }) }), [id, title]);
 }
 
 /** Every Session, searchable, with the act that starts one. On Overview and on the rail surface alike. */
@@ -344,7 +424,7 @@ export function threadRowsOf(session: Session): SessionThreadRow[] {
 
 function threadRowsFrom(rows: Session["rows"]): SessionThreadRow[] {
   return rows.map((row): SessionThreadRow => {
-    if (row.kind === "lease" || row.kind === "tool" || row.kind === "handoff" || row.kind === "command" || row.kind === "compaction" || row.kind === "window" || row.kind === "check") return row;
+    if (row.kind === "lease" || row.kind === "tool" || row.kind === "handoff" || row.kind === "command" || row.kind === "compaction" || row.kind === "window" || row.kind === "check" || row.kind === "retro") return row;
     if (row.from.kind === "session") {
       return { id: row.id, at: row.at, kind: "message", from: "session", sender: { id: row.from.id, title: row.from.title }, text: row.text };
     }
@@ -380,12 +460,6 @@ const readingOf = (session: Session, open: Reading | undefined): SessionAttachme
           ? one.kind === "pull_request" && one.number === open.number
           : one.kind === open.kind && "id" in one && one.id === open.id,
       );
-
-/** What is true of a pull request beyond its Checks, as bare facts. */
-const factsOf = (one: Extract<SessionAttachment, { kind: "pull_request" }>): string[] =>
-  [one.state === "draft" ? "Draft" : undefined, one.queued === true ? "In merge queue" : one.auto && one.state !== "merged" ? "Auto-merge on" : undefined].filter(
-    (fact): fact is string => fact !== undefined,
-  );
 
 /** How often a running subagent's transcript is read again. */
 const SUBAGENT_EVERY_MS = 1500;
@@ -602,8 +676,6 @@ function SketchSheet({ open, onClose, onAttach }: { open: boolean; onClose: () =
   );
 }
 
-const ARTIFACT_SAID = { page: "Published page", file: "File written", image: "Looked at", doc: "Doc", window: "Shown in a window" } as const;
-
 function entriesOf(
   session: Session,
   goes: LedgerGoes,
@@ -614,6 +686,7 @@ function entriesOf(
   openWindow: (url: string) => void,
   answerWaiting: ((itemId: string, answer: { choice: number } | { text: string }) => void) | undefined,
   scrollToAsk: () => void,
+  known: Known,
 ): LedgerEntry[] {
   const waiting = (session.waitingFor ?? []).map((one): LedgerEntry => {
     const act = one.act;
@@ -622,6 +695,10 @@ function entriesOf(
       kind: "waiting",
       name: one.text,
       text: act?.kind === "run" ? <code>{act.target}</code> : one.text,
+      card: {
+        title: one.text,
+        facts: act?.kind === "run" ? [{ label: "Command", value: act.target, mono: true }] : act?.kind === "walk" ? [{ label: "Page", value: act.target, mono: true }] : [],
+      },
       ...(act === undefined ? {} : { act: act.kind }),
       ...(one.options === undefined || answerWaiting === undefined
         ? {}
@@ -643,7 +720,9 @@ function entriesOf(
       },
     };
   });
-  return [...waiting, ...session.attachments.map((one): LedgerEntry => {
+  return [...waiting, ...session.attachments.map((one): LedgerEntry => ({ ...entryOf(one), card: cardOf(one, session, sessions, known) }))];
+
+  function entryOf(one: SessionAttachment): Omit<LedgerEntry, "card"> {
     switch (one.kind) {
       case "forked_to":
       case "forked_from": {
@@ -731,7 +810,7 @@ function entriesOf(
           onOpen: () => read({ kind: "subagent", id: one.id }),
         };
     }
-  })];
+  }
 }
 
 /** What Cleanup holds, read here for a slot's panel. */
@@ -761,9 +840,10 @@ function useMinimized(): [boolean, (minimized: boolean) => void] {
 }
 
 const NO_SKETCHES: DrawnSketch[] = [];
+const NO_JOBS: JobSummary[] = [];
 const NO_ROWS: SessionThreadRow[] = [];
 
-function SessionView({ session, goes, onOpen, held, lines }: { session: Session; goes: LedgerGoes; onOpen: (id: string) => void; held: HeldReads; lines: MergeLines | null }) {
+function SessionView({ session, goes, onOpen, held, board, lines }: { session: Session; goes: LedgerGoes; onOpen: (id: string) => void; held: HeldReads; board: readonly JobSummary[]; lines: MergeLines | null }) {
   const draft = useSessionsDraft();
   const sessions = useSessions();
   const floor = useAtFloor();
@@ -776,9 +856,11 @@ function SessionView({ session, goes, onOpen, held, lines }: { session: Session;
   const askCard = useRef<HTMLDivElement>(null);
   const [minimized, minimize] = useMinimized();
   const retro = useRetroPress();
+  const threadRows = useThreadRows(session);
+  const openRetro = useOpenRetro(session);
   const { onWant } = held;
   const { id } = session;
-  const thread = useBackfilled(threadRowsOf(session), id);
+  const thread = useBackfilled(threadRows, id);
   const watch = draft?.watch;
   const refresh = draft?.refresh;
   // A real Fleet reads a thread when it is opened and follows it from there.
@@ -825,6 +907,7 @@ function SessionView({ session, goes, onOpen, held, lines }: { session: Session;
           askCard.current?.scrollIntoView({ block: "center", behavior: "smooth" });
         }
       : () => askCard.current?.scrollIntoView({ block: "center", behavior: "smooth" }),
+    { board, slots: held.held.state === "read" ? (held.held.held.slots ?? []) : [] },
   );
   return (
     <>
@@ -846,8 +929,8 @@ function SessionView({ session, goes, onOpen, held, lines }: { session: Session;
                       </Button>
                     </Tooltip>
                   )}
-                  {retro.press === undefined ? null : <RetroPress writing={retro.writing.has(session.id)} onPress={() => retro.press?.(session)} />}
-                  {draft.close === undefined || session.terminal === true || session.dead !== undefined ? null : (
+                  {retro.press === undefined ? null : <RetroPress writing={retro.writing.has(session.id)} onPress={() => retro.press?.(session, true)} />}
+                  {draft.close === undefined || session.dead !== undefined ? null : (
                     <Tooltip label="End this Session and park its slot">
                       <Button variant="ghost" size="sm" onClick={() => draft.close?.(session.id)}>
                         End session
@@ -897,11 +980,13 @@ function SessionView({ session, goes, onOpen, held, lines }: { session: Session;
           <SessionThread
             sessionId={session.id}
             rows={thread}
+            onOpenRetro={openRetro}
             askRef={askCard}
             onOpenWindow={(url) => draft.openWindow?.(id, url)}
             onOpenCheck={(run) => goes.onOpenCheck(session.id, run)}
             working={session.turn.state === "working"}
             {...(draft.run === undefined ? {} : { runner: (command, on) => draft.run!(session.id, command, on) })}
+            {...(session.terminal === true && draft.command !== undefined ? { onCommand: (text) => draft.command!(session.id, text), commandNames: (session.commands ?? []).map((one) => one.name) } : {})}
             {...(session.asked === undefined
               ? {}
               : {
@@ -1012,6 +1097,7 @@ export function SessionMini({ sessionId, onOpen, fill = false }: { sessionId: st
           sessionId={session.id}
           rows={thread}
           {...(draft.run === undefined ? {} : { runner: (command, on) => draft.run!(session.id, command, on) })}
+          {...(session.terminal === true && draft.command !== undefined ? { onCommand: (text) => draft.command!(session.id, text), commandNames: (session.commands ?? []).map((one) => one.name) } : {})}
           {...(session.asked === undefined
             ? {}
             : {
@@ -1064,7 +1150,22 @@ export function listed(sessions: readonly Session[]): string[] {
 const typing = (target: EventTarget | null): boolean =>
   target instanceof HTMLElement && (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName));
 
-export function SessionsSurface({ openId, onOpen, goes, held, lines = null }: { openId: string | null; onOpen: (id: string) => void; goes: LedgerGoes; held: HeldReads; lines?: MergeLines | null }) {
+export function SessionsSurface({
+  openId,
+  onOpen,
+  goes,
+  held,
+  board = NO_JOBS,
+  lines = null,
+}: {
+  openId: string | null;
+  onOpen: (id: string) => void;
+  goes: LedgerGoes;
+  held: HeldReads;
+  /** The Board's Jobs, for what a Job row's card says beyond the Session's own record of it. */
+  board?: readonly JobSummary[];
+  lines?: MergeLines | null;
+}) {
   const sessions = useSessions();
   const open = sessions.find((one) => one.id === openId);
   // j goes to the next Session down the list and k to the one above, opening each. Local to this page.
@@ -1084,8 +1185,8 @@ export function SessionsSurface({ openId, onOpen, goes, held, lines = null }: { 
     return () => window.removeEventListener("keydown", press);
   }, [sessions, openId, onOpen]);
   return (
-    <div className="armada-screen__overview">
-      {open === undefined ? <SessionsListing onOpen={onOpen} /> : <SessionView session={open} goes={goes} onOpen={onOpen} held={held} lines={lines} />}
+    <div className="armada-screen__overview" {...(open === undefined ? {} : { [OPEN_SESSION_ATTRIBUTE]: open.id })}>
+      {open === undefined ? <SessionsListing onOpen={onOpen} /> : <SessionView session={open} goes={goes} onOpen={onOpen} held={held} board={board} lines={lines} />}
     </div>
   );
 }

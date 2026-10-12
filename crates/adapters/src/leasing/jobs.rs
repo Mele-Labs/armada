@@ -9,7 +9,7 @@ use adapter_traits::{
     WorktreeSpec,
 };
 
-use super::{Holder, LeaseRefused, Leased, ParkRefused, Pool, SlotState, Unshaped};
+use super::{Holder, LeaseRefused, Leased, ParkRefused, Parked, Pool, SlotState, Unshaped};
 
 fn pool(slots: &SlotPool) -> Pool {
     Pool::at(
@@ -108,16 +108,29 @@ pub(crate) fn release_session(
     }
 }
 
+/// [`park_hosted`] for a slot a terminal session stood in, once the process
+/// that leased it has ended. Refused while that process still runs.
+pub(crate) fn park_ended_session(
+    slots: &SlotPool,
+    slot: u32,
+    session: &str,
+) -> Result<SlotParked, SlotParkRefused> {
+    answered(pool(slots).park_left(slot as usize, &format!("session {session}")))
+}
+
 fn parked_as(
     slots: &SlotPool,
     slot: u32,
     holder: &Holder,
     whose: Option<&str>,
 ) -> Result<SlotParked, SlotParkRefused> {
-    let parked = match whose {
+    answered(match whose {
         Some(whose) => pool(slots).park_named(slot as usize, holder, whose),
         None => pool(slots).park(slot as usize, holder),
-    };
+    })
+}
+
+fn answered(parked: Result<Parked, ParkRefused>) -> Result<SlotParked, SlotParkRefused> {
     match parked {
         Ok(parked) => {
             let (commit, files) = match parked.committed {

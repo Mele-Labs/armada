@@ -12,7 +12,7 @@ use api::{HostedSessions, Refusal, Sessions, StoredFile};
 use base64::Engine as _;
 use ipc::{
     AnswerHelmCall, AnswerSessionAsk, CloseSession, GateAnswer, HostedFacts, ManifestId,
-    SendSessionMessage, SentFile, SessionGate, SessionId, SessionMode, SessionRecord, SessionRow,
+    RunSessionCommand, SendSessionMessage, SentFile, SessionGate, SessionId, SessionMode, SessionRecord, SessionRow,
     SessionSubagent, SessionThread, SessionTurn, SessionVoice, StartSession, TuneSession,
     WireError,
 };
@@ -29,6 +29,8 @@ use crate::repositories::Served;
 pub(crate) const NO_SUCH_SESSION: &str = "fleet.no_such_session";
 /// A message or a tune to a session that was closed. A 409.
 const SESSION_CLOSED: &str = "fleet.session_closed";
+/// A command that is not one slash command, or a session that is not a terminal one. A 422.
+pub(super) const SESSION_COMMAND_REFUSED: &str = "fleet.session_command_refused";
 /// A message with neither words nor a file. A 422.
 pub(super) const MESSAGE_EMPTY: &str = "fleet.session_message_empty";
 /// An attachment that would not decode, or is too large. A 422.
@@ -169,6 +171,7 @@ where
             note: said.note,
             answers: said.answers,
         };
+        self.hosts().of(&id).state().answered_via = api::via();
         let waiting = self
             .hosts()
             .asks()
@@ -253,8 +256,22 @@ where
         self.published_hosted(&id).await
     }
 
+    async fn run_session_command(&self, run: RunSessionCommand) -> Result<SessionRecord, Refusal> {
+        let id = run.session_id.as_str().to_string();
+        let Some(session) = self.terminal_session(&id).await? else {
+            return Err(self.hosted_refusal(
+                SESSION_COMMAND_REFUSED,
+                &format!("session {id} is not a terminal session, and only a terminal runs a slash command"),
+            ));
+        };
+        self.run_terminal_command(&session, &run.command).await
+    }
+
     async fn close_session(&self, closed: CloseSession) -> Result<SessionRecord, Refusal> {
         let id = closed.session_id.as_str().to_string();
+        if let Some(session) = self.terminal_session(&id).await? {
+            return self.end_terminal(&session).await;
+        }
         let (session, hosting) = self.session_and_hosting(&id).await?;
         if session.state == store::SessionState::Ended {
             return self.published_hosted(&id).await;
@@ -330,9 +347,10 @@ where
             let store = self.store().lock().await;
             self.ledger_row(&store, &session)?
         };
+        let rows = self.rows_of(id.as_str()).await?;
         Ok(SessionThread {
             session: record,
-            rows: self.rows_of(id.as_str()).await?,
+            rows: self.retro_rows_settled(id.as_str(), rows).await,
         })
     }
 

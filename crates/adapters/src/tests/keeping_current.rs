@@ -6,6 +6,9 @@
 //! `crate::tests::delivery`'s own reason: a push under test needs somewhere to
 //! land that is not a real account, and a bare repository on the filesystem is
 //! exactly what `git push` treats a remote as.
+//!
+//! **A base that moves is pushed**, because the base a catch-up merges is the
+//! remote's: `crate::tests::catching_up_to_the_remote`.
 
 use std::path::Path;
 
@@ -108,6 +111,7 @@ fn a_behind_branch_is_rebased_and_pushed_in_the_jobs_own_worktree() {
     let worktree = a_delivered_worktree(&repo);
 
     repo.commit_one("elsewhere.txt", "moved on", "something else landed");
+    repo.git(&["push", "origin", "main"]);
     let onto = repo.git(&["rev-parse", "main"]);
 
     let outcome = GitVcs::new().kept_current(&spec_for(&repo), "main");
@@ -149,6 +153,7 @@ fn a_behind_branch_is_rebased_through_a_scratch_worktree_where_its_own_is_gone()
     );
 
     repo.commit_one("elsewhere.txt", "moved on", "something else landed");
+    repo.git(&["push", "origin", "main"]);
 
     let outcome = GitVcs::new().kept_current(&spec_for(&repo), "main");
     assert!(
@@ -176,6 +181,7 @@ fn a_slotted_jobs_branch_is_kept_current_in_its_slot() {
     let worktree = a_delivered_slot(&repo);
 
     repo.commit_one("elsewhere.txt", "moved on", "something else landed");
+    repo.git(&["push", "origin", "main"]);
 
     let outcome = GitVcs::new().kept_current(&spec_for(&repo).in_slot(1), "main");
     assert!(
@@ -228,6 +234,7 @@ fn a_conflicting_rebase_leaves_the_branch_exactly_as_it_was_and_pushes_nothing()
         "what somebody else merged\n",
         "somebody else got there first",
     );
+    repo.git(&["push", "origin", "main"]);
 
     let outcome = GitVcs::new().kept_current(&spec_for(&repo), "main");
     let KeptCurrent::Conflicted { files, .. } = &outcome else {
@@ -285,6 +292,7 @@ fn a_conflicting_rebase_through_a_scratch_worktree_leaves_the_branch_untouched()
         "what somebody else merged\n",
         "somebody else got there first",
     );
+    repo.git(&["push", "origin", "main"]);
 
     let outcome = GitVcs::new().kept_current(&spec_for(&repo), "main");
     assert!(
@@ -347,6 +355,7 @@ fn an_autostash_that_wont_reapply_leaves_the_branch_and_the_worktree_as_they_wer
         "what somebody else merged\n",
         "somebody else got there first",
     );
+    repo.git(&["push", "origin", "main"]);
 
     let outcome = GitVcs::new().kept_current(&spec_for(&repo), "main");
     let KeptCurrent::Conflicted { files, .. } = &outcome else {
@@ -401,6 +410,7 @@ fn keeping_current_never_takes_another_worktrees_stash_entry() {
     .expect("the file");
 
     repo.commit_one("elsewhere.txt", "moved on", "something else landed");
+    repo.git(&["push", "origin", "main"]);
     let onto = repo.git(&["rev-parse", "main"]);
 
     let outcome = GitVcs::new().kept_current(&spec_for(&repo), "main");
@@ -480,6 +490,7 @@ fn a_commit_pushed_to_the_branch_by_hand_is_taken_before_the_push() {
     let by_hand = remote_tip(&bare, &branch);
 
     repo.commit_one("elsewhere.txt", "moved on", "something else landed");
+    repo.git(&["push", "origin", "main"]);
     let outcome = GitVcs::new().kept_current(&spec_for(&repo), "main");
     assert!(
         matches!(outcome, KeptCurrent::Rebased { .. }),

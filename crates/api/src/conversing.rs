@@ -16,7 +16,10 @@ use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
 use axum::extract::{Query, State};
 use axum::http::StatusCode;
 use axum::response::Response;
-use ipc::{AskHelm, AskingToRun, HelmMessage, HelmOpened, ManifestId, Missed, ProtocolId};
+use ipc::{
+    AskHelm, AskingToRun, HelmMessage, HelmOpened, ManifestId, Missed, ProtocolId, ReadThought,
+    ThoughtSent,
+};
 use tokio::sync::broadcast;
 
 use crate::answers::{answer, refused, undecodable};
@@ -192,6 +195,36 @@ pub(crate) async fn ask_helm<D: Conversations>(
     };
     match served.shared().ask_helm(asked, scope.manifest()).await {
         Ok(conversation) => answer(StatusCode::ACCEPTED, &conversation, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// Read words for where they belong. **Always 200**: a reading that could not be made is the
+/// answer `question`, so the words go to Helm and are never lost.
+pub(crate) async fn read_thought<D: Conversations>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let read: ReadThought = match ipc::decode("words to read", &body) {
+        Ok(read) => read,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    let reading = served.daemon().read_thought(read).await;
+    answer(StatusCode::OK, &reading, served.run_id())
+}
+
+/// Say that words were delivered to a Session or a Job, so the thread keeps where they went.
+pub(crate) async fn record_thought_sent<D: Conversations>(
+    State(served): State<Served<D>>,
+    Query(scope): Query<InManifest>,
+    body: Bytes,
+) -> Response {
+    let sent: ThoughtSent = match ipc::decode("where words went", &body) {
+        Ok(sent) => sent,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().record_thought_sent(sent, scope.manifest()).await {
+        Ok(conversation) => answer(StatusCode::OK, &conversation, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }

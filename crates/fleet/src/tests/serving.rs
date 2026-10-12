@@ -127,6 +127,31 @@ async fn search_files_reads_the_repository_fleet_serves() {
     assert_eq!(found.paths, vec!["README.md".to_string()]);
 }
 
+/// `read_request_repository` served from a real Fleet: the repository it serves
+/// is the one meant, by the route Bridge calls, with the words in the query.
+#[tokio::test]
+async fn a_request_is_read_against_the_repositories_fleet_serves() {
+    let home = TempDir::new();
+    let fleet = Arc::new(a_fleet(&home, FakeWorkProduct::changed(&["src/log.rs"])));
+    let events = fleet.events();
+    let app = api::router(api::Served::sharing(
+        Arc::clone(&fleet),
+        RunId::carried("01RUN"),
+        events,
+    ));
+
+    let (status, body) = call(&app, "GET", "/repositories/of_request?q=fix%20the%20reader", "").await;
+
+    assert_eq!(status, StatusCode::OK);
+    let read: ipc::RequestRepository = ipc::decode("a request's repository", &body).expect("a reading");
+    assert_eq!(
+        read.manifest_id.as_ref().map(|id| id.as_str()),
+        Some("01FIXTUREMANIFEST"),
+        "the only repository served"
+    );
+    assert_eq!(read.likely.len(), 1);
+}
+
 /// The one Job on the Board, read back the way Bridge reads it.
 async fn only_job(app: &Router) -> JobSummary {
     let (status, body) = call(app, "GET", "/jobs", "").await;

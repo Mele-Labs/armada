@@ -8,10 +8,10 @@
 
 use std::path::{Path, PathBuf};
 
-use adapter_traits::{Grant, Repair};
+use adapter_traits::{BroughtUpToDate, Grant, Repair, Standing};
 use config::{Manifest, ResolvedWorkflow};
 use core_model::{EscalationTrigger, Job, JobStatus, TransitionReason};
-use testkit::{FakeHarness, FakeVcs, FakeWorkProduct, Gate, Sketch};
+use testkit::{Delivered, FakeHarness, FakeVcs, FakeWorkProduct, Gate, Sketch};
 
 use crate::daemon::Fleet;
 use crate::tests::admitted::dispatched;
@@ -50,11 +50,20 @@ fn gated_on(check: Gate<'static>) -> ResolvedWorkflow {
 }
 
 fn a_fleet(home: &TempDir, harness: FakeHarness, workflow: ResolvedWorkflow) -> Fixture {
+    a_fleet_committing_through(home, harness, workflow, FakeVcs::new())
+}
+
+fn a_fleet_committing_through(
+    home: &TempDir,
+    harness: FakeHarness,
+    workflow: ResolvedWorkflow,
+    vcs: FakeVcs,
+) -> Fixture {
     let mut fittings = fitted_over(
         home,
         FakeWorkProduct::changed(&["src/lead.ts"]),
         harness,
-        FakeVcs::new(),
+        vcs,
     );
     fittings.starting().workflows = one(workflow);
     fittings.starting().manifest = Manifest::parse(
@@ -99,6 +108,13 @@ fn left_unmerged(work: &FakeWorkProduct, worktree: &Path) -> PathBuf {
     std::fs::write(worktree.join("lead.ts"), "export const lead = 1;\n").expect("resolved file");
     work.unmerged_until_gone(&flag, &["lead.ts"]);
     flag
+}
+
+/// [`left_unmerged`] with the flag at a place the caller chose, because a Fleet
+/// built before the worktree existed already holds that path.
+fn left_unmerged_by(work: &FakeWorkProduct, worktree: &Path, flag: &Path) {
+    std::fs::write(worktree.join("lead.ts"), "export const lead = 1;\n").expect("resolved file");
+    work.unmerged_until_gone(flag, &["lead.ts"]);
 }
 
 /// **Case 1, at the gate.** The Judge refused Job 13's step on "a mode change
@@ -227,5 +243,99 @@ async fn a_check_naming_a_broken_install_is_run_again_after_a_repair() {
         repairs_granted(&fleet),
         vec![Repair::TheInstall(String::from("/usr/bin/true"))],
         "granted the repository's own bootstrap and nothing else"
+    );
+}
+
+/// Whether the branch was pushed and a pull request opened for it.
+fn gone_out(fleet: &Fixture) -> bool {
+    let did = fleet.vcs().delivered();
+    did.iter().any(|it| matches!(it, Delivered::Pushed { .. }))
+        && did
+            .iter()
+            .any(|it| matches!(it, Delivered::OpenedForReview { .. }))
+}
+
+/// A Fleet whose catch-up conflicts in `lead.ts` on the step's entry and whose
+/// commit is refused while the index holds it unmerged: Job 14, 12 Oct 2026.
+///
+/// The repair is whatever `repair` does to the flag file that stands for the
+/// index. The path conflicted by the catch-up is the Drone's to resolve, so
+/// the repair on entry leaves it alone and the delivery on entry cannot commit.
+fn a_delivery_that_cannot_commit(home: &TempDir, repair: &str) -> (Fixture, PathBuf) {
+    let flag = home.path().join(".unmerged");
+    let fleet = a_fleet_committing_through(
+        home,
+        a_harness_repairing_by(&repair.replace("FLAG", &flag.to_string_lossy())),
+        gated_on(Gate::DiffNonempty),
+        FakeVcs::new().refusing_to_commit_while(&flag),
+    );
+    fleet.vcs().now_behind(
+        Standing::Behind { commits: 1 },
+        Some(BroughtUpToDate::Conflicted {
+            base: String::from("main"),
+            files: vec![String::from("lead.ts")],
+        }),
+    );
+    (fleet, flag)
+}
+
+/// **Job 14.** The step delivers, its catch-up left `lead.ts` conflicted, and
+/// the commit on entry was refused. The Drone resolved it, the gate found the
+/// index unmerged, and a repair Drone staged it. Fleet goes back to where it
+/// stopped: the commit is made and the branch goes out.
+#[tokio::test]
+async fn a_delivery_the_index_stopped_goes_out_once_a_repair_has_staged_the_resolution() {
+    let home = TempDir::new();
+    let (fleet, flag) = a_delivery_that_cannot_commit(&home, "rm -f 'FLAG'");
+    let (job, worktree) = proposed(&home, &fleet).await;
+    left_unmerged_by(fleet.work(), &worktree, &flag);
+
+    dispatched(&fleet, job.id()).await.expect("dispatched");
+    assert!(
+        fleet.vcs().committed().is_empty(),
+        "the commit on entry was refused over the unmerged path"
+    );
+    assert!(!gone_out(&fleet), "and nothing went out");
+    // The Drone resolved the conflict, so the base is held now and the retry
+    // is not caught up over it again.
+    fleet.vcs().now_behind(Standing::UpToDate, None);
+
+    submitted_by_the_one(&fleet, diff_evidence())
+        .await
+        .expect("submitted");
+    let turned = fleet.turn().await.expect("the gate runs");
+
+    assert!(
+        turned.ruled().is_some_and(|ruling| ruling.advanced()),
+        "the gate passes: {:?}",
+        turned.ruled()
+    );
+    assert!(!flag.exists(), "the index no longer holds the path unmerged");
+    assert_eq!(repairs_granted(&fleet), vec![Repair::TheIndex]);
+    assert_eq!(fleet.vcs().committed().len(), 1, "the work is committed");
+    assert!(gone_out(&fleet), "pushed and opened for review");
+}
+
+/// **A repair that did not clear the index delivers nothing**, and the gate
+/// escalates as it did before.
+#[tokio::test]
+async fn a_repair_that_leaves_the_index_unmerged_does_not_retry_the_delivery() {
+    let home = TempDir::new();
+    let (fleet, flag) = a_delivery_that_cannot_commit(&home, "true");
+    let (job, worktree) = proposed(&home, &fleet).await;
+    left_unmerged_by(fleet.work(), &worktree, &flag);
+
+    dispatched(&fleet, job.id()).await.expect("dispatched");
+    submitted_by_the_one(&fleet, diff_evidence())
+        .await
+        .expect("submitted");
+    fleet.turn().await.expect("the gate runs");
+
+    assert!(flag.exists(), "the repair did not stage it");
+    assert!(fleet.vcs().committed().is_empty());
+    assert!(!gone_out(&fleet));
+    assert_eq!(
+        fleet.load(job.id()).await.unwrap().status(),
+        JobStatus::Escalated
     );
 }

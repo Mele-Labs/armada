@@ -447,6 +447,7 @@ export * from "./compositions/SessionFrame/SessionFrame";
 export * from "./compositions/SessionThread/SessionThread";
 export * from "./compositions/CommanderPanel/CommanderPanel";
 export * from "./compositions/AskCard/AskCard";
+export * from "./compositions/SessionRetroRow/SessionRetroRow";
 export * from "./compositions/ForkedFrom/ForkedFrom";
 export * from "./compositions/SessionLedger/SessionLedger";
 export * from "./compositions/SessionList/SessionList";
@@ -463,3 +464,5 @@ export * from "./compositions/SettingField/SettingField";
 export * from "./compositions/WalkPanel/WalkPanel";
 // One repository's Autopilot on the Cockpit: its switch, caps, Pause and Stop, and the start form. #2092.
 export * from "./compositions/AutopilotBar/AutopilotBar";
+// A thought typed into Helm, on its way to running work: the match, the choice to start new.
+export * from "./compositions/ThoughtCard/ThoughtCard";

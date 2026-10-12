@@ -332,3 +332,20 @@ export const AgentNamedByTheHost: Story = {
     await expect(canvas.queryByText("Agent")).toBeNull();
   },
 };
+
+/** A retro the person pressed for stays in the thread where it was pressed, and its link opens the kept one. */
+export const RetroInTheThread: Story = {
+  args: {
+    onOpenRetro: fn(),
+    rows: [
+      ...WORKED.slice(0, 1),
+      { id: "r1", at: "14:05:00", kind: "retro", stage: "written", characters: 0, retro: 2, items: [{ title: "A reset waited 40 minutes for an answer" }, { title: "Walks opened in your browser" }] },
+      { id: "r2", at: "14:09:00", kind: "retro", stage: "writing", stageSince: Date.parse("2026-10-12T14:09:00Z"), characters: 240, items: [{ who: "agent", landsIn: "armada", title: "A restart of Fleet killed the subagents" }] },
+    ],
+  },
+  play: async ({ canvas, args }) => {
+    await expect(canvas.getAllByRole("region", { name: "Retro" })).toHaveLength(2);
+    await userEvent.click(canvas.getByRole("button", { name: "Open retro" }));
+    await expect(args.onOpenRetro).toHaveBeenCalledWith(2);
+  },
+};

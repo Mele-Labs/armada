@@ -20,7 +20,7 @@ use crate::adrift::Adrift;
 use crate::daemon::Fleet;
 
 /// A `manifest` fix, and the Session was started in no repository Fleet knows.
-const SESSION_NAMES_NO_REPOSITORY: &str = "fleet.lesson_session_names_no_repository";
+pub(super) const SESSION_NAMES_NO_REPOSITORY: &str = "fleet.lesson_session_names_no_repository";
 
 impl<H, V, W> Fleet<H, V, W>
 where
@@ -153,7 +153,7 @@ where
     }
 
     /// The item, only if the retro it names is the Session's.
-    async fn session_lesson_held(
+    pub(super) async fn session_lesson_held(
         &self,
         lesson_id: &str,
         session: &str,
@@ -175,7 +175,7 @@ where
             })
     }
 
-    async fn session_lesson_standing(&self, held: KeptSessionLesson) -> Result<Lesson, Refusal> {
+    pub(super) async fn session_lesson_standing(&self, held: KeptSessionLesson) -> Result<Lesson, Refusal> {
         let kept = self
             .store()
             .lock()

@@ -1,17 +1,18 @@
-import { useLayoutEffect, useRef } from "react";
+import { useLayoutEffect, useMemo, useRef } from "react";
 import type { ReactNode, Ref } from "react";
-import { AppWindow, Box, ChevronRight, GitBranch, KeyRound, Layers, Server, SquareTerminal, Wrench } from "lucide-react";
+import { AppWindow, Box, ChevronRight, GitBranch, KeyRound, Layers, Server, Smartphone, SquareTerminal, Wrench } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { AttachmentChip } from "../../primitives/AttachmentChip/AttachmentChip";
 import { Button } from "../../primitives/Button/Button";
 import { Card } from "../../primitives/Card/Card";
-import { Prose, ProseRunner } from "../../primitives/Prose/Prose";
+import { Prose, ProseCommand, ProseRunner } from "../../primitives/Prose/Prose";
 import type { CodeRunner } from "../../primitives/Prose/Prose";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { SessionMark } from "../SessionFrame/SessionFrame";
 import { StepActivityMark, type StepActivity } from "../StepActivityMark/StepActivityMark";
 import { InlineTag } from "../SessionComposer/InlineTag";
+import { SessionRetroRow, type SessionRetroRowData } from "../SessionRetroRow/SessionRetroRow";
 import { QuestionDeck } from "./QuestionDeck";
 import type { ComposerTag } from "../SessionComposer/InlineTag";
 
@@ -41,8 +42,8 @@ export type SessionThreadRow =
       tags?: readonly { kind: "session" | "job" | "pull_request" | "branch"; id: string; title: string }[];
     }
   | { id: string; at: string; kind: "message"; from: "session"; sender: { id: string; title: string }; text: string }
-  /** A tool call, mono. */
-  | { id: string; at: string; kind: "tool"; text: string }
+  /** A tool call, mono. `fromPhone` is an ask the person answered on their phone: a glyph beside it. */
+  | { id: string; at: string; kind: "tool"; text: string; fromPhone?: true }
   /** Fleet woke the agent, and why: a quiet row where the turn it started begins. */
   | { id: string; at: string; kind: "woke"; why: string }
   /** What the agent did on its own, mono, with the mark and the tooltip that name which act it was. */
@@ -56,6 +57,8 @@ export type SessionThreadRow =
   | { id: string; at: string; kind: "check"; name: string; run: number; state: CheckRunState }
   /** The Session showed a page in a window: a quiet row, a press that opens the window again. */
   | { id: string; at: string; kind: "window"; title: string; url: string }
+  /** A retro being written for this Session, then the one that was: a card that stays in the thread. */
+  | SessionRetroRowData
   | {
       id: string;
       at: string;
@@ -108,6 +111,8 @@ export type SessionThreadProps = {
   onOpenWindow?: (url: string) => void;
   /** Opens a Check run the agent made on the Checks page. Absent, its row is not a press. */
   onOpenCheck?: (run: number) => void;
+  /** Opens a retro this Session wrote, by its number, on the Retros page. Absent, the card has no link. Keep it stable: the card is memoised. */
+  onOpenRetro?: (retro: number) => void;
   /** Which Session this is. A change of it opens the thread at its newest row again. */
   sessionId?: string;
   /** The turn is running: a live mark sits at the end, on the last tool group's row if that is the last row. */
@@ -119,6 +124,13 @@ export type SessionThreadProps = {
    * own act, so nothing is sent to the agent. Absent, a block draws without Run.
    */
   runner?: CodeRunner;
+  /**
+   * Sends a slash command written as inline code to the Session's terminal, to run as typed. Only a
+   * terminal Session has one; absent, such code is drawn plain.
+   */
+  onCommand?: (command: string) => void;
+  /** The names of the commands that terminal lists. Inline code is a command only where its name is one of these. */
+  commandNames?: readonly string[];
 };
 
 const TAG_KIND = { session: "Session", job: "Job", pull_request: "Pull request", branch: "Branch" } as const;
@@ -281,7 +293,7 @@ function namesOf(rows: readonly { text: string }[]): string[] {
  * **Calls that ran one after another are one row, closed.** It names the tools it holds and draws no
  * count; pressing it shows each call. A lone call is a group of one.
  */
-function Calls({ rows, working }: { rows: readonly { id: string; text: string }[]; working?: boolean }) {
+function Calls({ rows, working }: { rows: readonly { id: string; text: string; fromPhone?: true }[]; working?: boolean }) {
   const names = namesOf(rows);
   return (
     <li className="armada-session-fold armada-session-fold--calls">
@@ -295,6 +307,13 @@ function Calls({ rows, working }: { rows: readonly { id: string; text: string }[
           {rows.map((one) => (
             <li key={one.id} className="armada-session-command">
               <code className="armada-session-command__text">{one.text}</code>
+              {one.fromPhone === true ? (
+                <Tooltip label="From phone">
+                  <span className="armada-session-command__door">
+                    <Smartphone size={12} strokeWidth={2} aria-hidden />
+                  </span>
+                </Tooltip>
+              ) : null}
             </li>
           ))}
         </ol>
@@ -309,13 +328,16 @@ function Row({
   onOpenWindow,
   onOpenCheck,
   agentName = "Agent",
+  onOpenRetro,
 }: {
   row: Exclude<SessionThreadRow, { kind: "tool" }>;
   onOpenSession: (id: string) => void;
   onOpenWindow?: (url: string) => void;
   onOpenCheck?: (run: number) => void;
   agentName?: string;
+  onOpenRetro?: (retro: number) => void;
 }) {
+  if (row.kind === "retro") return <SessionRetroRow row={row} {...(onOpenRetro === undefined ? {} : { onOpen: onOpenRetro })} />;
   if (row.kind === "woke") {
     return (
       <li className="armada-session-woke">
@@ -442,7 +464,9 @@ function Row({
         ) : row.from === "you" ? (
           // Run is on what the agent wrote, not on what the person did.
           <ProseRunner.Provider value={null}>
-            <Prose text={row.text} />
+            <ProseCommand.Provider value={null}>
+              <Prose text={row.text} />
+            </ProseCommand.Provider>
           </ProseRunner.Provider>
         ) : (
           <Prose text={row.text} />
@@ -456,7 +480,8 @@ function Row({
 /** How far from the end still counts as being at it, so a rounding or a half row does not unpin. */
 const NEAR_END = 24;
 
-export function SessionThread({ rows, asked, askRef, onAnswer, onOpenSession, onOpenWindow, onOpenCheck, sessionId, working, agentName, runner }: SessionThreadProps) {
+export function SessionThread({ rows, asked, askRef, onAnswer, onOpenSession, onOpenWindow, onOpenCheck, onOpenRetro, sessionId, working, agentName, runner, onCommand, commandNames }: SessionThreadProps) {
+  const slash = useMemo(() => (onCommand === undefined ? null : { send: onCommand, names: new Set(commandNames ?? []) }), [onCommand, commandNames]);
   const scroller = useRef<HTMLDivElement>(null);
   const pinned = useRef(true);
   // **Opens at the newest row, with no animation, and stays there while the person is at the end.**
@@ -483,12 +508,13 @@ export function SessionThread({ rows, asked, askRef, onAnswer, onOpenSession, on
         }}
       >
         <ProseRunner.Provider value={runner ?? null}>
+        <ProseCommand.Provider value={slash}>
         <ol className="armada-helm-thread__rows">
           {items.map((item, at) =>
             item.kind === "calls" ? (
               <Calls key={item.id} rows={item.rows} working={working === true && at === items.length - 1} />
             ) : (
-              <Row key={item.row.id} row={item.row} onOpenSession={onOpenSession} onOpenWindow={onOpenWindow} onOpenCheck={onOpenCheck} {...(agentName === undefined ? {} : { agentName })} />
+              <Row key={item.row.id} row={item.row} onOpenSession={onOpenSession} onOpenWindow={onOpenWindow} onOpenCheck={onOpenCheck} onOpenRetro={onOpenRetro} {...(agentName === undefined ? {} : { agentName })} />
             ),
           )}
           {working === true && !endsInCalls ? (
@@ -497,6 +523,7 @@ export function SessionThread({ rows, asked, askRef, onAnswer, onOpenSession, on
             </li>
           ) : null}
         </ol>
+        </ProseCommand.Provider>
         </ProseRunner.Provider>
       </div>
       {asked === undefined ? null : (

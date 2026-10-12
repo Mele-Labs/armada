@@ -51,7 +51,10 @@ mod delivery;
 mod error;
 /// The setup a person already has, read to be shown. `#1491`.
 mod existing_setup;
+mod fetching_the_base;
 mod filing;
+/// Where a repository lives on its forge, and what a request's links name.
+mod forge_address;
 mod git_guard;
 mod harness;
 /// A session Bridge hosts: a live process, resumed by id. Since 23.49.
@@ -109,6 +112,7 @@ pub use conversing::{
 };
 pub use error::{CommitWorkError, CreateWorktreeError, ReadWorkProductError};
 pub use existing_setup::{ExistingSetup, Home};
+pub use forge_address::{linked_in, remote_of, ForgeAddress};
 pub use harness::{
     ask_tool, checks_tool, dispatch_tool, evidence_server, evidence_tool, fix_tool, note_tool,
     permission_tool, scope_tool, server_tool, widen_tool, HarnessRefused, HeadlessAgent,

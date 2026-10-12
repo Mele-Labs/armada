@@ -25,8 +25,10 @@ pub const PROMPT_CROSSING_REDIRECT: Words = Words("prompts.crossingRedirect");
 pub const PROMPT_CROSSING_OVERTAKEN: Words = Words("prompts.crossingOvertaken");
 pub const PROMPT_CROSSING_CONFLICTS: Words = Words("prompts.crossingConflicts");
 pub const PROMPT_CROSSING_ANSWERED: Words = Words("prompts.crossingAnswered");
+pub const PROMPT_CROSSING_DECIDED: Words = Words("prompts.crossingDecided");
 pub const PROMPT_HELM: Words = Words("prompts.helm");
 pub const PROMPT_HELM_READ_ONLY: Words = Words("prompts.helmReadOnly");
+pub const PROMPT_HELM_ROUTE: Words = Words("prompts.helmRoute");
 pub const PROMPT_TRIGGER_REPAIR: Words = Words("prompts.triggerRepair");
 pub const PROMPT_AUTOPILOT_SENTENCE: Words = Words("prompts.autopilotSentence");
 pub const PROMPT_AUTOPILOT_PICKER: Words = Words("prompts.autopilotPicker");
@@ -294,6 +296,13 @@ pub(super) const PROMPTS: &[Entry] = &[
         &["question", "label", "consequence"],
     ),
     prompt(
+        PromptSection::Crossing,
+        PROMPT_CROSSING_DECIDED,
+        "A person decided several things",
+        "The block a new Drone reads when the Drone before it on this part asked several decisions in one ask and stood down for the answers. {answers} lists each decision with the answer chosen and what the asking Drone said that answer means.",
+        &["answers"],
+    ),
+    prompt(
         PromptSection::Helm,
         PROMPT_HELM,
         "Helm",
@@ -306,6 +315,13 @@ pub(super) const PROMPTS: &[Entry] = &[
         "Helm, read only",
         "What a Helm session is told when it starts, where Helm only reads. {manifest} and {folder} name the repository, and {workflow_fields} and {workflow_sample} what a workflow is written in.",
         &["manifest", "folder", "workflow_fields", "workflow_sample"],
+    ),
+    prompt(
+        PromptSection::Helm,
+        PROMPT_HELM_ROUTE,
+        "Routing a thought",
+        "What the model is asked when a person types into Helm's message box, to decide whether it is a question for Helm or a thought for running work. {candidates} is the live Sessions and running Jobs as a list and {message} the person's words. Its answer is read by field name, so keep the field names.",
+        &["candidates", "message"],
     ),
     prompt(
         PromptSection::Triggers,

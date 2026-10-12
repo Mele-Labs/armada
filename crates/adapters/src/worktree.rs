@@ -191,6 +191,15 @@ impl Vcs for GitVcs {
         noted(crate::leasing::jobs::park_hosted(pool, slot, session_id))
     }
 
+    fn park_ended_session_slot(
+        &self,
+        pool: &SlotPool,
+        slot: u32,
+        session_id: &str,
+    ) -> Result<SlotParked, SlotParkRefused> {
+        noted(crate::leasing::jobs::park_ended_session(pool, slot, session_id))
+    }
+
     fn release_session_slot(
         &self,
         pool: &SlotPool,

@@ -900,6 +900,12 @@ where
         Ok(self.repository_list())
     }
 
+    /// Which served repository a request's words are about —
+    /// `crate::repositories::reading`.
+    async fn read_request_repository(&self, words: String) -> Result<ipc::RequestRepository, Refusal> {
+        Ok(self.request_repository(words).await)
+    }
+
     /// Each served repository's merge line — [`crate::merge_lines`].
     async fn get_merge_lines(&self) -> Result<ipc::MergeLines, Refusal> {
         Ok(crate::merge_lines::answer(self).await)

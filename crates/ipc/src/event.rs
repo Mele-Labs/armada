@@ -21,6 +21,7 @@ use crate::detail::{JudgeInFlight, Settled};
 use crate::enums::{Actor, EvidenceType, JobStatus, StepState};
 use crate::helm::HelmChangedCheckout;
 use crate::helm_call::{HelmAskingToRun, HelmCallAnswered};
+use crate::thought::HelmThoughtRouted;
 use crate::hosted_sessions::SessionRowChanged;
 use crate::ids::ProposalId;
 use crate::ids::{CriterionId, DroneId, Instant, JobId, StepId};
@@ -193,6 +194,9 @@ pub enum Event {
     // person's ask and in no worktree. `#1373`.
     #[serde(rename = "helm.changed_checkout")]
     HelmChangedCheckout(HelmChangedCheckout),
+    // Helm's reading sent a person's words to a Session or a Job instead of to Helm.
+    #[serde(rename = "helm.thought_routed")]
+    HelmThoughtRouted(HelmThoughtRouted),
     // A Helm session reached for something the person's own settings do not
     // cover, and is held inside the call until they answer. `#1389`.
     #[serde(rename = "helm.asking_to_run")]

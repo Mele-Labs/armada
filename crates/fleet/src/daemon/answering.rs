@@ -80,6 +80,8 @@ where
         // A scout does not outlive the Fleet reading it. `crate::scouting`.
         self.scouts_left_gathering().await;
         self.rescues_left_reading().await;
+        // Housekeeping: a store that will not delete now leaves them listed.
+        let _ = self.store().lock().await.forget_blank_sessions();
         // Before any Studio is read: the Links this build reads as an Issue, a
         // Pull request or an Epic. `crate::recognising`.
         let recognised = self.links_recognised().await;
@@ -332,6 +334,7 @@ where
             None => Job::create_top_level(new, origin, at.clone()),
         };
         store.insert_job(&job, &at).map_err(Adrift::Writing)?;
+        crate::retro::kept_created_via(&mut store, job.id());
         crate::approved::continuing_from(&mut store, job.id(), continuing.as_deref())?;
         self.learn_the_name(&job);
         self.manifest_snapshotted(&mut store, &job).await;

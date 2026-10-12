@@ -194,6 +194,20 @@ describe("the thread", () => {
     expect(drawn).toMatchObject([{ kind: "command", text: "/reload-plugins" }, { kind: "compaction", text: "This session is being continued" }]);
   });
 
+  it("marks an answered ask only where the phone answered it", () => {
+    const ask = { call: "c", manifest_id: "armada", asked_at: AT, tool: "Bash", detail: "rm -rf build", truncated: false, rule: "Bash(rm:*)", offers: [], holding_for_seconds: 600 };
+    const drawn = rowsOfThread(
+      "a",
+      [
+        { kind: "ask", id: "p", at: AT, ask, state: "allowed_once", via: "phone" },
+        { kind: "ask", id: "b", at: AT, ask, state: "allowed_once", via: "bridge" },
+        { kind: "ask", id: "n", at: AT, ask, state: "refused" },
+      ] as SessionRow[],
+      () => undefined,
+    );
+    expect(drawn.map((row) => ("fromPhone" in row ? row.fromPhone : undefined))).toEqual([true, undefined, undefined]);
+  });
+
   it("keeps an armada check the agent ran as a row with its run and where it stands", () => {
     const drawn = rowsOfThread("a", [{ kind: "check", id: "check-7", at: AT, name: "components_test", run: 7, state: "failed" }], () => undefined);
     expect(drawn).toMatchObject([{ kind: "check", name: "components_test", run: 7, state: "failed" }]);

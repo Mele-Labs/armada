@@ -14,6 +14,7 @@ mod hosting;
 mod permitting;
 mod reach;
 mod recording;
+pub(crate) mod routing;
 mod serving;
 mod thread;
 pub(crate) mod unanswered;

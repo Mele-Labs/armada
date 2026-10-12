@@ -12,6 +12,7 @@
 
 mod basing;
 mod build_standing;
+mod catching_up_to_the_remote;
 mod ci_workflows;
 mod cloning;
 mod commit;
@@ -21,6 +22,7 @@ mod delivery;
 mod edited;
 mod existing_setup;
 mod filing;
+mod forge_address;
 mod git_guard_gaps;
 mod harness;
 mod held_off;

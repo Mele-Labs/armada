@@ -57,6 +57,14 @@ import type {
 import type { PlanEditAnswer } from "@armada/screens/src/plan-edits";
 import type { ComposingRead } from "@armada/screens/src/composing-reads";
 import type { AskLessonRead, AskTurn, LessonReviewRead } from "./review-wire";
+import type { LessonSessionRead } from "./session-wire";
+
+/**
+ * Which repository a request's words are about (`read_request_repository`). `manifest_id` is set only
+ * where exactly one repository is clearly meant, and `null` is "could not tell": ask the person before
+ * anything is built. `likely` is every set-up repository, best first, and empty where nothing could be read.
+ */
+export type RequestRepositoryRead = { manifest_id: string | null; likely: string[] };
 
 export type JobsApi = {
   /**
@@ -115,6 +123,13 @@ export type JobsApi = {
    * to hear about.
    */
   searchFiles: (query: string) => Promise<string[]>;
+  /**
+   * Which repository the words typed so far are about, with no model call: a ticket link, a name, a
+   * path, or the only repository there is. **Never a fault**, for `searchFiles`' reason — it runs on a
+   * pause in typing — so nothing connected, or a Fleet that would not answer, reads as no pick and no
+   * ranking. Only the first 16 000 characters are read, since the words ride the query string.
+   */
+  readRequestRepository: (words: string) => Promise<RequestRepositoryRead>;
   /**
    * Release a Job at its approval gate, with the proposal as the person left
    * it (`approve_dispatch`, since 23.8). **Absent is the proposal as it
@@ -550,6 +565,12 @@ export type JobsApi = {
   /** Disagree with one retro item: it is discarded. */
   disagreeLesson: (lessonId: string) => Promise<LessonAnswer>;
   /**
+   * Agree with an Armada or Manifest item by starting a Session on its repository. **Fleet sends
+   * the brief as the Session's first message**, so the Session begins work at once. Answers the
+   * item as it now stands, the Session and the brief sent.
+   */
+  startLessonSession: (lessonId: string) => Promise<LessonSessionRead>;
+  /**
    * The model's reading of the open items for the guided review: the order to read them in, which
    * stand for duplicates, and which it set aside. **Narrowed to this window's pick in main**, as
    * `readLessons` is, so the renderer names no manifest.
@@ -874,6 +895,7 @@ export const JOBS_CHANNELS = {
   stopProposal: "bridge:stop-proposal",
   stageAttachment: "bridge:stage-attachment",
   searchFiles: "bridge:search-files",
+  readRequestRepository: "bridge:read-request-repository",
   approveDispatch: "bridge:approve-dispatch",
   listBranches: "bridge:list-branches",
   redispatchJob: "bridge:redispatch-job",
@@ -938,6 +960,7 @@ export const JOBS_CHANNELS = {
   readLessons: "bridge:read-lessons",
   agreeLesson: "bridge:agree-lesson",
   disagreeLesson: "bridge:disagree-lesson",
+  startLessonSession: "bridge:start-lesson-session",
   reviewLessons: "bridge:review-lessons",
   askLesson: "bridge:ask-lesson",
   readFrame: "bridge:read-frame",

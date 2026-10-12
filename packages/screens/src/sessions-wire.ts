@@ -9,6 +9,7 @@
 import type { Attachment, HelmCallInFlight, JobSummary, SessionRecord, SessionRow as WireRow, SessionTag as WireTag } from "@armada/protocol";
 
 import { clock } from "./duration";
+import { retroRowOf } from "./retro-row";
 import type {
   Session,
   SessionAsk,
@@ -256,6 +257,9 @@ export function rowsOfThread(sessionId: string, rows: readonly WireRow[], pictur
       case "window":
         out.push({ id: row.id, at, kind: "window", title: row.title, url: row.url });
         break;
+      case "retro":
+        out.push(retroRowOf(row, at));
+        break;
       // The open question is on the window's bar and under Waiting on you, so the thread keeps a line.
       case "window_ask":
         out.push({
@@ -284,7 +288,13 @@ export function rowsOfThread(sessionId: string, rows: readonly WireRow[], pictur
         break;
       case "ask":
         if (row.state !== "waiting") {
-          out.push({ id: row.id, at, kind: "tool", text: `${askOf(row.ask).command}: ${SETTLED[row.state] ?? row.state}` });
+          out.push({
+            id: row.id,
+            at,
+            kind: "tool",
+            text: `${askOf(row.ask).command}: ${SETTLED[row.state] ?? row.state}`,
+            ...(row.via === "phone" ? { fromPhone: true as const } : {}),
+          });
         }
         break;
     }

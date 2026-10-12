@@ -4,7 +4,7 @@
 // conversation recorded off a real Fleet replays through the same function a
 // live one draws through.
 //
-// **A `HelmThreadItem` is one of four things a viewer is shown, and only one
+// **A `HelmThreadItem` is one of five things a viewer is shown, and only one
 // of them is a `Turn`.** `asked`, `fresh` and `unanswered` are facts about the
 // conversation itself that a Drone's transcript never has to carry — nobody
 // ever typed into a Job. Where a message *is* a Drone-shaped row, it becomes
@@ -13,6 +13,7 @@
 
 import type { HelmMessage } from "./helm";
 import type { Turn } from "./reads";
+import type { ThoughtTarget } from "./thought";
 
 /** One thing a viewer of a Helm conversation is shown, in order. */
 export type HelmThreadItem =
@@ -23,7 +24,9 @@ export type HelmThreadItem =
   /** The stored session could not be resumed; a new one wrote what follows. */
   | { kind: "fresh"; id: string; ts: string; because: string }
   /** No reply came, and why. */
-  | { kind: "unanswered"; id: string; ts: string; why: string };
+  | { kind: "unanswered"; id: string; ts: string; why: string }
+  /** Words that went to a Session or a Job and never to Helm's session. */
+  | { kind: "sent"; id: string; ts: string; text: string; target: ThoughtTarget };
 
 /**
  * One repository's Helm conversation, as a viewer holds it.
@@ -142,6 +145,20 @@ export function helmArrived(
         ...held,
         replying: false,
         items: [...held.items, { kind: "unanswered", id: String(seq), ts: message.ts, why: message.why }],
+      },
+      added: true,
+    };
+  }
+
+  if (message.message === "sent") {
+    // Said to other work, not to Helm: nothing is being written in reply, so `replying` stays as it was.
+    return {
+      held: {
+        ...held,
+        items: [
+          ...held.items,
+          { kind: "sent", id: String(seq), ts: message.ts, text: message.text, target: message.target },
+        ],
       },
       added: true,
     };

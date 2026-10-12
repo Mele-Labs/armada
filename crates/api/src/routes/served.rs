@@ -142,6 +142,17 @@ const ROUTES: &[Route] = &[
         method: "POST",
         path: "/helm/start_fresh",
     },
+    // A thought typed into Helm's box, read for where it belongs and then recorded where it went.
+    Route {
+        operation: "read_thought",
+        method: "POST",
+        path: "/helm/read_thought",
+    },
+    Route {
+        operation: "record_thought_sent",
+        method: "POST",
+        path: "/helm/thought_sent",
+    },
     // The permission path, `#1389`: the door calls the first, a person answers
     // the third, and the second is what a Bridge started mid-wait reads.
     Route {
@@ -375,6 +386,11 @@ const ROUTES: &[Route] = &[
         operation: "agree_lesson",
         method: "POST",
         path: "/lessons/:lesson_id/agree",
+    },
+    Route {
+        operation: "start_lesson_session",
+        method: "POST",
+        path: "/lessons/:lesson_id/session",
     },
     Route {
         operation: "disagree_lesson",

@@ -8,6 +8,7 @@
 //! permission door and `rows` writes the thread.
 
 mod asking;
+pub(crate) mod ending;
 pub(crate) mod asking_in_window;
 pub(crate) mod following;
 mod forking;
@@ -181,6 +182,9 @@ pub(crate) struct State {
     /// turn.
     pub woken_by: Vec<ipc::SessionVoiceNamed>,
     pub asked: Option<HelmCallInFlight>,
+    /// The door the answer to `asked` came through, set by the request that
+    /// answers and taken by the ask that was waiting, which is another task.
+    pub answered_via: Option<ipc::Via>,
     pub last_active: Instant,
     /// A tune arrived while a turn was running: end the process after it.
     pub restart_after_turn: bool,
@@ -220,6 +224,7 @@ impl State {
             moving: None,
             woken_by: Vec::new(),
             asked: None,
+            answered_via: None,
             last_active: Instant::now(),
             restart_after_turn: false,
             directory: String::new(),

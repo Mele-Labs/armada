@@ -73,7 +73,7 @@ import { litSteps } from "./draft/now";
 import { nowViewOf } from "./now-real";
 import { useNowHidden } from "./now-hidden";
 import { useTrail, type TrailProps } from "./trail";
-import { JobRetroSheet } from "./Lessons";
+import { JobRetroSheet, withSessions } from "./Lessons";
 import { jobOf } from "./retro";
 import { OPEN_JOB_ATTRIBUTE } from "./open-job";
 import { useWalkedOnOpen } from "./walked";
@@ -822,6 +822,7 @@ function OneJob(props: JobDetailProps) {
           read={props.onReadRetro}
           onAgreeLesson={props.onAgreeLesson}
           onDisagreeLesson={props.onDisagreeLesson}
+          {...withSessions(props.onStartSession, props.onOpenSession)}
           {...(props.onOpenJob === undefined ? {} : { onOpenJob: props.onOpenJob })}
           floor={floor}
           onClose={() => setRetroOpen(false)}

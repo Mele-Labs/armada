@@ -656,6 +656,8 @@ export type {
 export type {
   AskedOption,
   ChosenAnswer,
+  ChosenDecision,
+  DecisionInFlight,
   QuestionInFlight,
   RedirectInFlight,
   RedirectWaiting,

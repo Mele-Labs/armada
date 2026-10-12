@@ -39,7 +39,10 @@ use serde_json::{json, Value};
 
 use crate::codec::{encode, Unencodable};
 
-pub use ask::{AskQuestion, AskedOption, ASK_FIELDS, ASK_TOOL, FEWEST_OPTIONS, MOST_OPTIONS};
+pub use ask::{
+    AskQuestion, AskedDecision, AskedOption, ASK_FIELDS, ASK_TOOL, FEWEST_DECISIONS, FEWEST_OPTIONS,
+    MOST_DECISIONS, MOST_OPTIONS,
+};
 pub use dispatch::{DispatchJob, DISPATCH_FIELDS, DISPATCH_TOOL};
 pub use fixing::{DraftFix, FIX_FIELDS, FIX_TOOL};
 pub use needing::{NeedClaim, NEED_FIELDS};

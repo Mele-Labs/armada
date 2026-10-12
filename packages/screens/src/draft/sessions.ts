@@ -9,6 +9,7 @@
 // and from then on accumulates what it touches.
 
 import type { WaitingItem } from "@armada/protocol";
+import type { RetroRowDrawn } from "../retro-row";
 
 /** What a Session has attached, by kind. A Session holds several of each. */
 export type SessionAttachment =
@@ -122,8 +123,8 @@ export type SessionRow =
       /** Sessions tagged with `@`, so the agent knows to talk to them. */
       tags?: readonly SessionTag[];
     }
-  /** A tool call, mono. */
-  | { id: string; at: string; kind: "tool"; text: string }
+  /** A tool call, mono. `fromPhone` is an ask the person answered on their phone. */
+  | { id: string; at: string; kind: "tool"; text: string; fromPhone?: true }
   /** A command the person ran in the terminal, as typed. */
   | { id: string; at: string; kind: "command"; text: string }
   /** The summary the CLI wrote where it compacted the conversation: not the person's words. */
@@ -150,7 +151,9 @@ export type SessionRow =
   /** An `armada check` the agent ran in its slot: the Check's key, its run on the Checks page, and where it stands. */
   | { id: string; at: string; kind: "check"; name: string; run: number; state: "running" | "passed" | "failed" }
   /** The Session showed a page in a window: where in the thread it did, and the address to open again. */
-  | { id: string; at: string; kind: "window"; title: string; url: string };
+  | { id: string; at: string; kind: "window"; title: string; url: string }
+  /** A retro being written for the Session, then the one that was: the latest frame of one press's row. */
+  | RetroRowDrawn;
 
 /** A turn running, or none. A message from another Session starts one, so `working` has no author. */
 export type SessionTurn = { state: "idle" } | { state: "working"; wokenBy?: { id: string; title: string } };
@@ -329,8 +332,11 @@ export type SessionsDraft = {
   taggable: () => readonly SessionTag[];
   /** Puts a Session's waiting tags where the person left them. */
   setTags: (id: string, tags: readonly SessionTag[]) => void;
-  /** A message from the person, with what they sent along. It takes a turn. */
-  send: (id: string, sent: SentMessage) => void;
+  /**
+   * A message from the person, with what they sent along. It takes a turn. **A promise on a real
+   * Fleet**, which resolves to whether the message arrived; a refusal is already said as a toast.
+   */
+  send: (id: string, sent: SentMessage) => void | Promise<boolean>;
   /** Sets the model, effort and permission mode a Session's next turn runs on. `null` is Auto. */
   tune: (id: string, tuning: { model: string | null; effort: string | null; mode: SessionMode }) => void;
   /**
@@ -356,6 +362,14 @@ export type SessionsDraft = {
    * `stop_session_run`).
    */
   run?: (id: string, command: string, on: (event: { kind: "out"; text: string } | { kind: "end"; code: number | null }) => void) => { stop: () => void };
+  /**
+   * Types a slash command into a **terminal** Session's terminal, to run as typed, from inline code in
+   * its thread. No output comes back: the command runs in the terminal. Absent where nothing serves it,
+   * and in a Bridge-hosted Session, where there is no terminal. Fleet answers it as `tune_terminal`
+   * does for `/model`: the Session's mod runs `held.commands` as typed (`tune_session` in
+   * `session_host/serving.rs`).
+   */
+  command?: (id: string, text: string) => void;
   /** Answers the permission a Session is held on. The mock offers two and names none. */
   answer: (id: string, answer?: SessionAnswer, answers?: SessionQuestionAnswer[]) => void;
 };

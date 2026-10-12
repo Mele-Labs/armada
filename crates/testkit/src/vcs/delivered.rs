@@ -15,6 +15,8 @@ pub enum Delivered {
     MarkedReady { pull_request: String },
     /// `branch` was merged into the one `into` has checked out.
     MergedBranch { branch: String, into: String },
+    /// The remote was asked for its copy of `base`.
+    FetchedBase { base: String },
     /// The branch was pushed.
     Pushed { branch: String },
     /// The branch was pushed `--force-with-lease`, over history this fake was

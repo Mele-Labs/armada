@@ -236,17 +236,28 @@
 
 /* A command or a tool call: one mono line, with no fill of its own. */
 .armada-session-command {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
   min-width: 0;
 }
 
 .armada-session-command__text {
   display: block;
+  min-width: 0;
   font-family: var(--font-mono);
   font-size: var(--text-2xs);
   line-height: var(--leading-2xs);
   color: var(--fg-muted);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+}
+
+/* The door an ask was answered through, beside its line: a glyph and no sentence. */
+.armada-session-command__door {
+  display: inline-flex;
+  flex: none;
+  color: var(--fg-muted);
 }
 
 /* A quiet row that opens: the tool calls folded into one, and a compaction. */

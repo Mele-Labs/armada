@@ -7,7 +7,7 @@ import { CHANNELS, NOTHING_YET } from "../shared/bridge";
 import type { BridgeState, PickedView, Summons } from "../shared/bridge";
 import type { BuildSource, ChangeSlotPool, Outcome, RescueSlot, RetroSubject } from "@armada/protocol";
 import type { AskTurn } from "@armada/jobs/review-wire";
-import type { HelmContext, LandCheckAt, StagedAttachment } from "@armada/protocol";
+import type { HelmContext, LandCheckAt, StagedAttachment, ThoughtTarget } from "@armada/protocol";
 import { landCheckAt } from "./land-following";
 import type { ToProposer, AddTask, ApproveWave, DropTask, EditJob, EditTask, FileReport, MovePlan } from "@armada/protocol";
 import type { ApproveDispatch, FixMain } from "@armada/protocol";
@@ -552,6 +552,9 @@ void app.whenReady().then(() => {
   ipcMain.handle(CHANNELS.searchFiles, (event, query: string) =>
     connection?.commands.searchFiles(query, connection.repositories.pickedByWindow.of(windowIdOf(event))),
   );
+  ipcMain.handle(CHANNELS.readRequestRepository, (_event, words: unknown) =>
+    connection?.commands.readRequestRepository(typeof words === "string" ? words : ""),
+  );
   ipcMain.handle(CHANNELS.approveDispatch, (_event, jobId: string, approval?: ApproveDispatch) =>
     connection?.commands.approveDispatch(jobId, approval),
   );
@@ -747,6 +750,10 @@ void app.whenReady().then(() => {
   ipcMain.handle(CHANNELS.disagreeLesson, (_event, lessonId: string) =>
     connection?.commands.disagreeLesson(lessonId),
   );
+  // Agreeing by a Session instead of a Job: Fleet starts it and drafts the first message, and sends nothing.
+  ipcMain.handle(CHANNELS.startLessonSession, (_event, lessonId: string) =>
+    connection?.commands.startLessonSession(lessonId),
+  );
   ipcMain.handle(CHANNELS.restartStep, (_event, jobId: string, note?: string) =>
     connection?.commands.restartStep(jobId, note),
   );
@@ -874,6 +881,10 @@ void app.whenReady().then(() => {
     connection?.askHelm(text, context),
   );
   ipcMain.handle(CHANNELS.helmDebugInfo, () => connection?.helmDebugInfo());
+  ipcMain.handle(CHANNELS.readThought, (_event, text: string) => connection?.readThought(text));
+  ipcMain.handle(CHANNELS.recordThoughtSent, (_event, manifestId: string, text: string, target: ThoughtTarget) =>
+    connection?.recordThoughtSent(manifestId, text, target),
+  );
   ipcMain.handle(CHANNELS.startHelmFresh, () => connection?.startHelmFresh());
   ipcMain.handle(CHANNELS.pointHelm, (_event, manifestId: string) => connection?.pointHelm(manifestId));
   handleRepositories({ ipc: ipcMain, connection: () => connection, windowIdOf });
