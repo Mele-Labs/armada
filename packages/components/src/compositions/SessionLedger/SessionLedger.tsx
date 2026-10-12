@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { AppWindow, BellRing, Box, GitPullRequestArrow, MessageSquare, Check, CircleDot, Files, Globe, Hand, Image, Megaphone, MoveRight, NotebookText, Reply, Search, Terminal, GitBranch, GitPullRequest, KeyRound, Presentation, PencilRuler, ShieldCheck, ShieldEllipsis, ShieldX, Split } from "lucide-react";
+import { AppWindow, BellRing, Box, GitPullRequestArrow, MessageSquare, Check, CircleDot, Files, Globe, Hand, Image, Megaphone, MoveRight, NotebookText, Reply, Search, Terminal, GitBranch, GitPullRequest, KeyRound, CornerUpRight, SquarePen, Presentation, PencilRuler, ShieldCheck, ShieldEllipsis, ShieldX, Split } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { forgetKept } from "../../keep";
@@ -20,7 +20,7 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
  * first asked for every section dim and then took it back: once some filled,
  * the empty ones only took room).
  */
-export type LedgerKind = "waiting" | "slot" | "branch" | "pull_request" | "job" | "studio" | "sketch" | "subagent" | "artifact" | "fork";
+export type LedgerKind = "waiting" | "slot" | "branch" | "pull_request" | "job" | "studio" | "sketch" | "subagent" | "artifact" | "fork" | "start";
 
 /** What an artifact is: a page published, a file written outside the code, a picture looked at, a Doc, or a page shown in a window. */
 export type ArtifactForm = "page" | "file" | "image" | "doc" | "window";
@@ -77,13 +77,15 @@ export type LedgerEntry = {
   onOpen: () => void;
 };
 
-export type WaitingActKind = "walk" | "answer" | "approve_pr" | "run";
+/** `message` is an item that waits on the person sending the message in the box. */
+export type WaitingActKind = "walk" | "answer" | "approve_pr" | "run" | "message";
 
 const WAITING_ACT: Record<WaitingActKind | "none", { Glyph: LucideIcon; said: string }> = {
   walk: { Glyph: AppWindow, said: "Opens the walk" },
   answer: { Glyph: MessageSquare, said: "Goes to the question" },
   approve_pr: { Glyph: GitPullRequestArrow, said: "Opens the pull request" },
   run: { Glyph: Terminal, said: "Copies the command" },
+  message: { Glyph: SquarePen, said: "Goes to the message" },
   none: { Glyph: BellRing, said: "Waiting on you" },
 };
 
@@ -100,6 +102,7 @@ const SECTIONS: { kind: LedgerKind; label: string; Glyph: LucideIcon }[] = [
   { kind: "subagent", label: "Subagents", Glyph: Split },
   { kind: "artifact", label: "Artifacts", Glyph: Files },
   { kind: "fork", label: "Forks", Glyph: MoveRight },
+  { kind: "start", label: "Started", Glyph: CornerUpRight },
 ];
 
 const ARTIFACT: Record<ArtifactForm, { Glyph: LucideIcon; said: string }> = {
