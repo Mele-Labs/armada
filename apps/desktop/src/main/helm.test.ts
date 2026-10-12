@@ -11,7 +11,7 @@ import type { AddressInfo } from "node:net";
 import { afterEach, describe, expect, it } from "vitest";
 import { WebSocketServer, type WebSocket as Client } from "ws";
 
-import type { HelmContext, HelmThread, RepositorySummary } from "@armada/protocol";
+import type { HelmContext, HelmThread, RepositorySummary, ThoughtTarget } from "@armada/protocol";
 import { HelmConnection, HelmSocket } from "./helm";
 
 const MANIFEST = "01M2ARMADA0000000000000000";
@@ -31,6 +31,7 @@ afterEach(() => {
 async function serving(
   requests: { url: string; method: string }[] = [],
   bodies: string[] = [],
+  answer: unknown = { manifest_id: MANIFEST, replying: true, resumes: true },
 ): Promise<{ port: number; helmSide: () => Promise<Client>; server: Server }> {
   const socket = new WebSocketServer({ noServer: true });
   const server = createServer((request, response) => {
@@ -40,7 +41,7 @@ async function serving(
     request.on("end", () => {
       bodies.push(Buffer.concat(chunks).toString("utf8"));
       response.writeHead(202, { "content-type": "application/json" });
-      response.end(JSON.stringify({ manifest_id: MANIFEST, replying: true, resumes: true }));
+      response.end(JSON.stringify(answer));
     });
   });
   server.on("upgrade", (request: IncomingMessage, raw: Socket, head: Buffer) => {
@@ -176,6 +177,64 @@ describe("Helm's socket", () => {
 
     expect(JSON.parse(bodies[0]!)).toEqual({ text: "what is this stuck on?", context });
     expect(JSON.parse(bodies[1]!)).toEqual({ text: "and this one?" });
+  });
+});
+
+describe("Helm reading a thought", () => {
+  const TARGET: ThoughtTarget = { kind: "session", id: "01SESSION", title: "Sessions list views", manifest_id: MANIFEST, slot: 3 };
+
+  it("posts the words to read_thought and answers what Fleet read, naming no repository", async () => {
+    const requests: { url: string; method: string }[] = [];
+    const bodies: string[] = [];
+    const reading = { kind: "thought", target: TARGET };
+    const fleet = await serving(requests, bodies, reading);
+    const helm = new HelmSocket(() => {});
+    opened.push(() => helm.close());
+    helm.open(fleet.port, MANIFEST);
+    await fleet.helmSide();
+
+    expect(await helm.readThought("the sessions page should say waiting")).toEqual({ ok: true, reading });
+    expect(requests).toEqual([{ url: "/helm/read_thought", method: "POST" }]);
+    expect(JSON.parse(bodies[0]!)).toEqual({ text: "the sessions page should say waiting" });
+  });
+
+  it("says a read that could not be made was not, so the dock asks Helm", async () => {
+    const helm = new HelmSocket(() => {});
+    expect(await helm.readThought("anything")).toEqual({ ok: false, outcome: { ok: false, why: "not_connected" } });
+  });
+
+  it("records the words that were delivered against the conversation the dock shows", async () => {
+    const requests: { url: string; method: string }[] = [];
+    const bodies: string[] = [];
+    const fleet = await serving(requests, bodies);
+    const helm = new HelmSocket(() => {});
+    opened.push(() => helm.close());
+    helm.open(fleet.port, MANIFEST);
+    await fleet.helmSide();
+
+    expect(await helm.recordThoughtSent(MANIFEST, "the words", TARGET)).toEqual({ ok: true });
+    expect(requests).toEqual([{ url: `/helm/thought_sent?manifest_id=${MANIFEST}`, method: "POST" }]);
+    expect(JSON.parse(bodies[0]!)).toEqual({ text: "the words", target: TARGET });
+    expect(await new HelmSocket(() => {}).recordThoughtSent(MANIFEST, "x", TARGET)).toEqual({ ok: false, why: "not_connected" });
+  });
+
+  it("folds the sent message Fleet publishes into the thread without a reply being written", async () => {
+    const fleet = await serving();
+    const published = watching();
+    const helm = new HelmSocket((state) => published.publish(state));
+    opened.push(() => helm.close());
+
+    helm.open(fleet.port, MANIFEST);
+    const fleetSide = await fleet.helmSide();
+    fleetSide.send(JSON.stringify(OPENED));
+    fleetSide.send(JSON.stringify({ message: "sent", ts: "2026-10-12T10:00:00.000Z", text: "the words", target: TARGET }));
+
+    const held = await published.until((state) => state.state === "open" && state.items.length === 1);
+    expect(held).toMatchObject({
+      state: "open",
+      replying: false,
+      items: [{ kind: "sent", text: "the words", target: TARGET }],
+    });
   });
 });
 

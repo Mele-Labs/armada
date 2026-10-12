@@ -165,14 +165,29 @@ async fn said(fleet: &Arc<Hosted>, id: &ipc::SessionId) -> Vec<String> {
         .collect()
 }
 
+/// Waits for what the test asserts to be true, with no deadline of its own: a
+/// deadline fails on a loaded runner that is slow, not wrong. A thing that never
+/// comes true is ended by nextest's three-minute timeout.
 async fn eventually<F: std::future::Future<Output = bool>>(mut check: impl FnMut() -> F) {
-    for _ in 0..500 {
-        if check().await {
-            return;
-        }
+    while !check().await {
         tokio::time::sleep(Duration::from_millis(10)).await;
     }
-    panic!("it did not come true within five seconds");
+}
+
+/// Acknowledge everything the keeper has spooled, and return once the keeper
+/// has taken it. The `ACK` and the `ATTACH` share a connection, so the keeper
+/// answers `READY` only after it holds the offset: a Fleet that attaches next
+/// is replayed nothing, however late the last Fleet's own acknowledgements ran.
+/// **Only once the last Fleet is gone**: the keeper serves the newest client,
+/// and the one it passes over takes the agent to be gone and ends it.
+fn acknowledged_all(keepers: &Keepers) {
+    use std::io::{BufRead, BufReader, Write};
+    let spooled = std::fs::metadata(keepers.spool()).unwrap().len();
+    let mut stream = crate::session_host::kept::connect(&keepers.socket).expect("the keeper answers");
+    write!(stream, "ACK {spooled}\nATTACH\n").unwrap();
+    let mut ready = String::new();
+    BufReader::new(&stream).read_line(&mut ready).unwrap();
+    assert!(ready.starts_with("READY "), "{ready}");
 }
 
 fn pid_in(text: &str) -> String {
@@ -565,10 +580,10 @@ fn a_reattached_session_called_busy_that_goes_quiet_is_idle() {
             .await
             .expect("taken");
         eventually(|| async { said(&fleet, &id).await.len() == 1 }).await;
-        tokio::time::sleep(Duration::from_millis(200)).await;
         id
     });
     drop(first);
+    acknowledged_all(&keepers);
 
     let second = Runtime::new().unwrap();
     second.block_on(async {
@@ -583,4 +598,50 @@ fn a_reattached_session_called_busy_that_goes_quiet_is_idle() {
         assert!(matches!(runtime.state().turn, SessionTurn::Idle));
     });
     std::fs::write(&keepers.go, "").unwrap();
+}
+
+/// A line is published to the pump once it is in the spool, not once it is
+/// queued to be: tokio's file writes finish on another thread, so a pump that
+/// read the spool as the count moved could find the line not there yet, stop
+/// at the short read, and wait for a change that never came. Only a line the
+/// agent follows with silence shows it, so each is sent after the last came
+/// back.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_keeper_hands_over_a_line_the_agent_then_says_nothing_after() {
+    use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+
+    let home = TempDir::new();
+    let socket = std::env::temp_dir().join(format!(
+        "ak-{}-{}.sock",
+        std::process::id(),
+        SOCKETS.fetch_add(1, Ordering::SeqCst)
+    ));
+    tokio::spawn(keep(Keeper {
+        socket: socket.clone(),
+        spool: home.path().join("spool"),
+        log: home.path().join("spool.log"),
+        program: String::from("cat"),
+        args: Vec::new(),
+        directory: None,
+        alone_for: Duration::from_secs(60),
+        ends_turn: ends_turn(),
+    }));
+    let stream = loop {
+        match tokio::net::UnixStream::connect(&socket).await {
+            Ok(stream) => break stream,
+            Err(_) => tokio::time::sleep(Duration::from_millis(10)).await,
+        }
+    };
+    let (read, mut write) = stream.into_split();
+    write.write_all(b"ATTACH\n").await.unwrap();
+    let mut lines = BufReader::new(read).lines();
+    assert!(lines.next_line().await.unwrap().unwrap().starts_with("READY "));
+    for n in 0..3000 {
+        write.write_all(format!("IN {n}\n").as_bytes()).await.unwrap();
+        let heard = tokio::time::timeout(Duration::from_secs(10), lines.next_line()).await;
+        let Ok(Ok(Some(line))) = heard else {
+            panic!("line {n} was written by the agent and never handed over");
+        };
+        assert!(line.ends_with(&format!(" {n}")), "{line}");
+    }
 }

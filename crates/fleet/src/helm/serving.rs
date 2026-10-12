@@ -15,7 +15,8 @@ use core_model::StepId;
 use ipc::{
     AnswerHelmCall, AskHelm, AskingToRun, EventsSince, Freshness, HelmAsked, HelmCallsWaiting,
     HelmChangedCheckout, HelmContext, HelmConversation, HelmDebugInfo, HelmFresh, HelmMessage,
-    HelmScreen, HelmUnanswered, Instant, ManifestId, RunOrNot, Shown, WireError,
+    HelmScreen, HelmUnanswered, Instant, ManifestId, ReadThought, RunOrNot, Shown, ThoughtReading,
+    ThoughtSent, WireError,
 };
 
 use super::conversation::{Conversation, ConversationKey};
@@ -161,6 +162,18 @@ where
         self.helm_call_answered(said)
     }
 
+    async fn read_thought(&self, read: ReadThought) -> ThoughtReading {
+        self.thought_read(read).await
+    }
+
+    async fn record_thought_sent(
+        &self,
+        sent: ThoughtSent,
+        manifest_id: Option<ManifestId>,
+    ) -> Result<HelmConversation, Refusal> {
+        self.thought_sent(sent, manifest_id).await
+    }
+
     async fn start_helm_fresh(
         &self,
         manifest_id: Option<ManifestId>,
@@ -204,13 +217,13 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    fn helm_of(&self, named: Option<&ManifestId>) -> Result<(Served, ConversationKey), Refusal> {
+    pub(super) fn helm_of(&self, named: Option<&ManifestId>) -> Result<(Served, ConversationKey), Refusal> {
         let served = self.served_named(named)?;
         let key = ConversationKey::of_repository(served.manifest().id());
         Ok((served, key))
     }
 
-    fn helm_fault(&self, why: impl std::fmt::Display) -> Refusal {
+    pub(super) fn helm_fault(&self, why: impl std::fmt::Display) -> Refusal {
         Refusal::Fault(WireError::raised(
             HELM_SESSION_UNREADABLE,
             unanswered::stored_session_unreachable(why),
@@ -393,7 +406,7 @@ fn screen_phrase(screen: HelmScreen) -> &'static str {
     }
 }
 
-fn on_the_wire(served: &Served) -> ManifestId {
+pub(super) fn on_the_wire(served: &Served) -> ManifestId {
     ManifestId::carried(served.manifest().id().as_str())
 }
 

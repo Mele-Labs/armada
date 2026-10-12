@@ -60,14 +60,21 @@ export type TooltipProps = {
   /**
    * Whether `label` is a card rather than a sentence.
    *
-   * **The card is `PhaseCard`, and there is no second one.** A value like a
-   * step's `not run` is answered by the commands that will run, which is a
-   * reading and not a line of prose — so the bubble drops its own surface and
-   * its prose width cap, and the card inside draws the floating surface it
-   * already draws off the phase strip. A hover card primitive of its own would
-   * be a second answer to a question `PhaseCard` settles.
+   * A value like a step's `not run` is answered by the commands that will run,
+   * which is a reading and not a line of prose — so the bubble drops its own
+   * surface and its prose width cap, and the card inside draws the floating
+   * surface itself (`PhaseCard`, the horizon's dot card, a Session ledger
+   * row's preview). **This is the one hover card**; a popover primitive of its
+   * own would be a second answer to the same question.
    */
   card?: boolean;
+  /**
+   * Beside the trigger, on its inline-start side and top edges aligned, rather
+   * than below it; flipped to the other side where there is no room. For a row
+   * in a column, whose card below would cover the next rows a reader is moving
+   * down to.
+   */
+  beside?: boolean;
   /**
    * The child is a mark that repeats words already on screen, and is hidden
    * from assistive technology. **Pointer only**: no tab stop and no
@@ -119,6 +126,7 @@ export function Tooltip({
   defaultOpen = false,
   asChild = false,
   card = false,
+  beside = false,
   decorative = false,
 }: TooltipProps) {
   const [open, setOpen] = useState(defaultOpen);
@@ -196,6 +204,7 @@ export function Tooltip({
       aria-hidden
       id={bubbleId}
       data-card={card || undefined}
+      data-beside={beside || undefined}
       hidden={!open}
     >
       <span className="armada-tooltip__label">{label}</span>

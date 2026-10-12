@@ -297,3 +297,31 @@ path.armada-session-ledger__picture-later {
 .armada-session-ledger__row[data-mark="piloted"] { --mark: var(--status-running); }
 .armada-session-ledger__row[data-mark="escalated"] { --mark: var(--status-escalated); }
 .armada-session-ledger__row[data-mark] [data-state-mark] { color: var(--mark); }
+
+/* A row's preview, on the tooltip's own bubble beside the row: an overlay surface, its title, then one
+   fact a line, labelled. A fact with a tone takes its hue from the same status tokens the row's mark does. */
+.armada-ledger-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: calc(var(--space-12) * 4);
+  max-width: calc(var(--space-12) * 7);
+  padding: var(--space-3);
+  border: var(--border-width) solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--bg-overlay);
+  box-shadow: var(--shadow-overlay);
+  color: var(--fg-default);
+}
+
+.armada-ledger-card__title { font-weight: var(--weight-medium); overflow-wrap: anywhere; }
+.armada-ledger-card__fact { --tone: var(--fg-default); display: flex; gap: var(--space-2); min-width: 0; }
+.armada-ledger-card__label { flex: none; color: var(--fg-muted); }
+.armada-ledger-card__value { min-width: 0; color: var(--tone); overflow-wrap: anywhere; }
+.armada-ledger-card__value[data-mono] { font-family: var(--font-mono); }
+.armada-ledger-card__fact[data-tone="passed"] { --tone: var(--status-completed-success); }
+.armada-ledger-card__fact[data-tone="failed"] { --tone: var(--status-completed-failed); }
+.armada-ledger-card__fact[data-tone="pending"] { --tone: var(--status-awaiting-review); }
+.armada-ledger-card__fact[data-tone="running"],
+.armada-ledger-card__fact[data-tone="piloted"] { --tone: var(--status-running); }
+.armada-ledger-card__fact[data-tone="escalated"] { --tone: var(--status-escalated); }

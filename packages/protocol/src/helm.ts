@@ -13,6 +13,7 @@
 import type { Missed } from "./events";
 import type { Saw, Voice } from "./turn";
 import type { ProtocolId } from "./connection";
+import type { HelmSent } from "./thought";
 
 /** `POST /helm/ask` — what a person says to Helm. Blank is refused before this is sent. */
 export type AskHelm = {
@@ -78,6 +79,8 @@ export type HelmMessage =
   | ({ message: "row"; ts: string; step?: string; by?: Voice } & Saw)
   | ({ message: "fresh" } & HelmFresh)
   | ({ message: "unanswered" } & HelmUnanswered)
+  /** These words went to a Session or a Job and never to Helm's session. Since a thought was routed: `thought.ts`. */
+  | ({ message: "sent" } & HelmSent)
   | ({ message: "missed" } & Missed)
   | ({ message: "closed" } & HelmClosed);
 

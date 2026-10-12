@@ -426,6 +426,8 @@ Fleet asks about **one** pull request per sweep and rotates, because the turn in
 
 **Fleet decides whether it worked.** The index is read again. The install is answered by the Check that named it, run again by the gate. What the Drone says is a signal.
 
+**An index repair at the gate on a delivering step goes back to the delivery.** A delivering step commits and pushes as it is entered, and a catch-up that left conflicts refuses that commit over the unmerged paths. The step then runs, its Drone resolves the paths, and the repair stages them. Fleet then commits (concluding the merge where `MERGE_HEAD` stands), pushes and opens or updates the pull request, as the entry would have, before the gate's ruling is read. Without it the Job reached review with nothing pushed and no pull request (Job 14, 12 Oct 2026). A repair that did not clear the index does not retry anything. A Job sent back from review re-enters the step and delivers on entry, and the commit concludes a merge already staged.
+
 **Bounded at two repairs of one kind per Job**, counted in memory. A repair that fails, or a fault that comes back, goes to a person: before a Drone, the Job escalates as `no_worktree`; at the gate, the ruling is `gate_undecided` on the index; for an install, the Check's failure stands and goes back to the step's Drone as it would have. Each says what was found and what was tried in the Job's log.
 
 **Not yet covered.** A broken install is found only where a Check's output names one, and the signature list is one phrase. There is no check after preparing a reused slot, because no general cheap test of one exists. A rebase left half done, and a worktree on the wrong branch, are not found.
