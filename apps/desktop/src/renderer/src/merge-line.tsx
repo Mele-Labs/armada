@@ -6,17 +6,18 @@
 // every one on All, named once there is more than one. With none served for the pick, neither the
 // panels nor the rail row draws, rather than a sentence about an absence or a row opening nothing.
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { FixMain, LandCheckAt, RepositorySummary } from "@armada/protocol";
 import { MergeLine, useTileGrid } from "@armada/components";
-import { mergeLineViews, type MergeLineView } from "@armada/screens";
+import { mergeLineViews, recentSessionsOf, type MergeLineView } from "@armada/screens";
 import { LandCheckLogSheet } from "@armada/jobs";
 import { Boundary, SURFACE, useAtFloor } from "@armada/shell";
 
 import type { BridgeState } from "../../shared/bridge";
 import { followLandCheck } from "./commands";
 import { usePanelOpen } from "./panel-open";
+import { useSessions } from "./sessions-draft";
 
 type Lined = Pick<BridgeState, "mergeLines" | "repository" | "holds" | "landFollowed" | "jobs">;
 
@@ -117,6 +118,10 @@ function OneLine({
   onOpenCheck: (branch: string, check: string) => void;
 }) {
   const [open, setOpen] = usePanelOpen(`merge-line:${view.root}`);
+  // The Sessions work can be sent back to are the ones the window already holds, the one that merged among them.
+  const sessions = useSessions();
+  const culprit = view.hub?.main?.state === "red" ? view.hub.main.red.merge?.session : undefined;
+  const hub = useMemo(() => (view.hub === undefined ? undefined : { ...view.hub, recentSessions: recentSessionsOf(sessions, culprit) }), [view.hub, sessions, culprit]);
   const holds = focus !== undefined && [...view.line, ...view.landed, ...view.sentBack].some((one) => one.branch === focus);
   useEffect(() => {
     // Only when the ask arrives: `setOpen` is not stable, and a fold the person closes stays closed.
@@ -130,7 +135,7 @@ function OneLine({
       landed={view.landed}
       sentBack={view.sentBack}
       notice={view.notice}
-      {...(view.hub === undefined ? {} : { hub: view.hub })}
+      {...(hub === undefined ? {} : { hub })}
       {...(onOpenJob === undefined ? {} : { onOpenJob })}
       {...(onOpenSession === undefined ? {} : { onOpenSession })}
       open={open}

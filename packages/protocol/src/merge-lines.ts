@@ -41,8 +41,6 @@ export type MergeLineHub = {
   merged?: HubMerged[];
   /** The Job working on main's red. Since 23.42. */
   fixing?: HubJob;
-  /** The Sessions main's red can be sent back to, newest first. Not served yet. */
-  recent_sessions?: HubSession[];
 };
 
 /** One pull request recently merged. Since 23.42. */
@@ -57,8 +55,6 @@ export type HubMerged = {
   commit?: string;
   /** The Job that opened it. Absent for a person's. */
   job?: HubJob;
-  /** The Session that opened it. Absent for a Job's or a person's. Not served yet. */
-  session?: HubSession;
   /** The CI run on its merge commit, on main itself, apart from the pull request's own checks. Absent where nothing ran or none was read yet. Since 23.44. */
   main_run?: MainRun;
 };
@@ -96,9 +92,6 @@ export type FixesMain = {
 
 /** A Job, by its id and what it is called. */
 export type HubJob = { id: string; title: string };
-
-/** A Session, by its id and what it is called. */
-export type HubSession = { id: string; title: string };
 
 /**
  * `main_ci_state` is `green`, `red`, `running` or `nothing_ran`. A red a fix is still running for
@@ -142,13 +135,16 @@ export type MainFailedJob = {
   tests?: string[];
 };
 
+/** A Session, by its id and the title the ledger holds for it. Since 23.80. */
+export type HubSession = { id: string; title?: string };
+
 export type MainMerge = {
   number: number;
   url?: string;
   branch?: string;
   /** The Job whose pull request that is. Absent for a person's. */
   job?: HubJob;
-  /** The Session whose pull request that is. Absent for a Job's or a person's. Not served yet. */
+  /** The Session that held the pull request or its branch, where no Job owns it. Since 23.80. */
   session?: HubSession;
 };
 

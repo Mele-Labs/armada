@@ -11,7 +11,8 @@
 //
 // Each ends with the fix landing: main green, and the Job that fixed it says so on its row.
 
-import type { HubJob, HubPull, HubSession, MainRed, MainState, RecentSession } from "@armada/components";
+import type { HubJob, HubPull, HubSession, MainRed, MainState } from "@armada/components";
+import type { Session } from "@armada/screens/src/draft/sessions";
 import type { FollowedLandLog, HubMerged, HubPullRequest, JobSummary, LandCheckAt, MainStanding, MergeLine, MergeLineHub, MergeLines } from "@armada/protocol";
 import type { FixesMain } from "@armada/screens/src/main-red";
 import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
@@ -250,7 +251,7 @@ const requestOf = (one: HubPull): HubPullRequest => ({
  * A pull request that merged, as the forge lists it, with the CI run on its merge commit. `at` is the
  * moment it lands; a list is every one that has, newest first, up to what the panel keeps.
  */
-type Landing = { at: number; number: number; branch: string; owner?: { job: HubJob } | { session: HubSession }; run: "passed" | "failed"; failed?: string };
+type Landing = { at: number; number: number; branch: string; owner?: { job: HubJob }; run: "passed" | "failed"; failed?: string };
 
 const KEPT = 5;
 const hex = (n: number) => n.toString(16).padStart(40, "0");
@@ -273,13 +274,12 @@ function mergedAt(landings: readonly Landing[], n: number): HubMerged[] {
 }
 
 /** The line a moment serves for the repository, with the hub on it. */
-function lineAt(root: string, at: number, moments: readonly Moment[] = MOMENTS, sessions: readonly RecentSession[] = [], landings: readonly Landing[] = LANDINGS): MergeLines {
+function lineAt(root: string, at: number, moments: readonly Moment[] = MOMENTS, landings: readonly Landing[] = LANDINGS): MergeLines {
   const { main, pulls } = moments[at]!;
   const hub: MergeLineHub = {
     main: standing(main),
     pull_requests: pulls.map(requestOf),
     ...(main.state === "red" && main.taken !== undefined ? { fixing: main.taken } : {}),
-    ...(sessions.length === 0 ? {} : { recent_sessions: [...sessions] }),
     merged: mergedAt(landings, at),
   };
   return { lines: [{ root, line: [], off: [], landed: [], sent_back: [], hub } as MergeLine] };
@@ -316,12 +316,6 @@ export function mainRed(root: string): { first: Partial<BridgeState>; later: Par
 const SESSION: HubSession = { id: "session-c279e883", title: "Show who merged on the head" };
 const SESSION_BRANCH = "armada/session-c279e883";
 
-/** Newest first, the culprit not first, so the dialog has to put it there. */
-const RECENT_SESSIONS: RecentSession[] = [
-  { id: "session-3d90b1a2", title: "Rework the Cockpit deck cards", branch: "armada/session-3d90b1a2" },
-  { ...SESSION, branch: SESSION_BRANCH },
-];
-
 const SESSION_RED: MainRed = {
   check: "screens_test",
   test: "merge-line.test.ts > folds a Session's pull request onto the head",
@@ -356,21 +350,47 @@ const SESSION_MOMENTS: Moment[] = [
   },
 ];
 
-const OTHER_SESSION: HubSession = { id: "session-3d90b1a2", title: "Rework the Cockpit deck cards" };
+/** The Sessions the window holds, the one that merged among them: the registry owns the chips and fills the picker. */
+const pull_request = (number: number, branch: string, title: string) =>
+  ({ kind: "pull_request", number, title, branch, address: `${PULL}${number}`, checks: { state: "passed" }, state: "merged", auto: false }) as const;
+export const SESSION_REGISTRY: Session[] = [
+  {
+    id: "session-3d90b1a2",
+    title: "Rework the Cockpit deck cards",
+    turn: { state: "idle" },
+    lastTurn: "10:02",
+    lastTurnAt: "2026-10-12T10:02:00Z",
+    rows: [],
+    attachments: [{ kind: "branch", name: "armada/session-3d90b1a2", slot: 3 }, pull_request(1826, "armada/session-3d90b1a2", "Rework the Cockpit deck cards")],
+  },
+  {
+    id: SESSION.id,
+    title: SESSION.title,
+    turn: { state: "idle" },
+    lastTurn: "10:20",
+    lastTurnAt: "2026-10-12T10:20:00Z",
+    rows: [],
+    attachments: [
+      { kind: "branch", name: SESSION_BRANCH, slot: 2 },
+      pull_request(1830, SESSION_BRANCH, SESSION.title),
+      pull_request(1831, `${SESSION_BRANCH}-fix`, SESSION.title),
+    ],
+  },
+];
 
 /** Five landed before and during: the culprit Session's among them, then its fix at the top. */
 const SESSION_LANDINGS: Landing[] = [
   { at: 0, number: 1820, branch: branchOf(NOTIFY), owner: { job: hubJob(NOTIFY) }, run: "passed" },
   { at: 0, number: 1824, branch: "nick/ports-cleanup", run: "passed" },
-  { at: 0, number: 1826, branch: "armada/session-3d90b1a2", owner: { session: OTHER_SESSION }, run: "passed" },
+  { at: 0, number: 1826, branch: "armada/session-3d90b1a2", run: "passed" },
   { at: 0, number: 1828, branch: branchOf(CACHE), owner: { job: hubJob(CACHE) }, run: "passed" },
-  { at: 1, number: 1830, branch: SESSION_BRANCH, owner: { session: SESSION }, run: "failed", failed: "screens_test" },
-  { at: 2, number: 1831, branch: `${SESSION_BRANCH}-fix`, owner: { session: SESSION }, run: "passed" },
+  { at: 1, number: 1830, branch: SESSION_BRANCH, run: "failed", failed: "screens_test" },
+  { at: 2, number: 1831, branch: `${SESSION_BRANCH}-fix`, run: "passed" },
 ];
 
 /** The same story told when a Session's pull request is the one that turned main red. */
 export function sessionRed(root: string): { first: Partial<BridgeState>; later: Partial<BridgeState>[] } {
-  const at = (n: number): Partial<BridgeState> => ({ mergeLines: lineAt(root, n, SESSION_MOMENTS, RECENT_SESSIONS, SESSION_LANDINGS), jobs: SESSION_MOMENTS[n]!.jobs });
+  const at = (n: number): Partial<BridgeState> => ({ mergeLines: lineAt(root, n, SESSION_MOMENTS, SESSION_LANDINGS), jobs: SESSION_MOMENTS[n]!.jobs });
   return { first: at(0), later: SESSION_MOMENTS.slice(1).map((_, n) => at(n + 1)) };
 }
 

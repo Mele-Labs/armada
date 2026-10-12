@@ -4,8 +4,9 @@
 import { repository } from "@armada/screens/src/fixtures/build/base";
 
 import { holding } from "../holding";
-import { FIXTURES, sessionRed, writingMainsLogs } from "../main-red-hub";
+import { FIXTURES, SESSION_REGISTRY, sessionRed, writingMainsLogs } from "../main-red-hub";
 import type { Scenario } from "../moment";
+import { s200Sessions } from "./sessions";
 
 function goesRed(): Scenario {
   const base = holding("main-red-session", "Main green, then red from a Session's pull request, sent back to that Session", FIXTURES);
@@ -15,6 +16,7 @@ function goesRed(): Scenario {
     ...base,
     state: { ...base.state, ...first },
     later,
+    draft: { sessions: (board) => s200Sessions.draft!.sessions!(board, SESSION_REGISTRY) },
     behaves: (fleet) => ({ ...writingMainsLogs(fleet), sendSessionMessage: async () => ({ ok: true, value: {} as never }) }),
   };
 }
