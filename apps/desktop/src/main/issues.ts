@@ -1,7 +1,7 @@
 // A repository's open issues, as main asks Fleet for them: one request, and nothing kept here, since
 // Fleet holds the list. #91. And the Autopilot that works them (#2092), which Fleet holds too.
 
-import type { Autopilot, AutopilotList, AutopilotSettings, IssueList, Outcome } from "@armada/protocol";
+import type { Autopilot, AutopilotList, AutopilotProposal, IssueList, Outcome } from "@armada/protocol";
 import type { AutopilotActed } from "../shared/api/autopilot";
 import type { IssuesRead } from "../shared/api/issues";
 import { ask, MODEL_CALL_MS } from "./request";
@@ -39,9 +39,9 @@ export class IssuesHost {
     return `/autopilots/${encodeURIComponent(manifestId)}${rest}`;
   }
 
-  async proposeAutopilot(manifestId: string, sentence: string, localNow: string): Promise<AutopilotActed<AutopilotSettings>> {
+  async proposeAutopilot(manifestId: string, sentence: string, localNow: string): Promise<AutopilotActed<AutopilotProposal>> {
     const body = { sentence, local_now: localNow };
-    return await this.autopilot<AutopilotSettings>("POST", IssuesHost.autopilotOf(manifestId, "/proposal"), body, true);
+    return await this.autopilot<AutopilotProposal>("POST", IssuesHost.autopilotOf(manifestId, "/proposal"), body, true);
   }
 
   /** Say where a changed Autopilot goes: main's, which owns the windows. */

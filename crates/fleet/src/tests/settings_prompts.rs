@@ -238,3 +238,82 @@ fn a_saved_turn_prompt_is_what_the_next_turn_says() {
         verification::pieces::OUTCOME_GO_ON.shipped
     );
 }
+
+/// Autopilot's two prompts and the answered block are settings (#2105): what
+/// ships is the text each module always held, filled as it always was, and a
+/// saved one is what the next call or brief says.
+#[test]
+fn autopilots_prompts_and_the_answered_block_ship_as_they_were_and_take_a_saved_one() {
+    use config::settings::{Resolved, Saved};
+    use core_model::{DroneQuestion, GivenAnswer, OfferedAnswer, StepId, Timestamp, Ulid};
+
+    use crate::autopilot::{picking, sentence};
+    use crate::questioning::{Answered, ANSWERED};
+
+    let shipped = crate::prompts::Prompts::shipped();
+    assert_eq!(
+        shipped.get(keys::PROMPT_AUTOPILOT_SENTENCE),
+        sentence::QUESTION
+    );
+    assert_eq!(
+        shipped.get(keys::PROMPT_AUTOPILOT_PICKER),
+        picking::QUESTION
+    );
+    assert_eq!(shipped.get(keys::PROMPT_CROSSING_ANSWERED), ANSWERED);
+    let now = Timestamp::from_rfc3339("2026-10-12T03:00:00Z");
+    assert_eq!(
+        sentence::settings_question(&shipped, " fix the flakes ", &now, None),
+        sentence::QUESTION
+            .replace("{sentence}", "fix the flakes")
+            .replace("{now}", now.as_str())
+            .replace("{local_now}", now.as_str()),
+        "the words the reader was always asked"
+    );
+    let asked = DroneQuestion {
+        id: Ulid::carried("01JQUESTION0000000000000001"),
+        step: StepId::new("implement"),
+        asked_at: now.clone(),
+        question: "Keep the old name?".to_string(),
+        options: vec![OfferedAnswer {
+            label: "Rename it".to_string(),
+            consequence: "every caller changes".to_string(),
+        }],
+        answer: Some(GivenAnswer {
+            label: "Rename it".to_string(),
+            at: now.clone(),
+        }),
+    };
+    let answered = Answered::of(&asked).expect("answered");
+    assert!(answered
+        .text(&shipped)
+        .starts_with("WHAT A PERSON ANSWERED"));
+
+    let document = BTreeMap::from([
+        (
+            keys::PROMPT_AUTOPILOT_SENTENCE.name().to_string(),
+            settings_file::SettingValue::Text("Read {sentence} at {now}, {local_now}.".into()),
+        ),
+        (
+            keys::PROMPT_AUTOPILOT_PICKER.name().to_string(),
+            settings_file::SettingValue::Text("Pick for {instruction}: {issues}{workflows}".into()),
+        ),
+        (
+            keys::PROMPT_CROSSING_ANSWERED.name().to_string(),
+            settings_file::SettingValue::Text("{question} {label}: {consequence}".into()),
+        ),
+    ]);
+    let saved: Saved = checked(&document, &supplied(), &Env::none()).expect("taken");
+    let prompts = shipped.overlaid_by(&Resolved::new(saved, supplied(), Env::none()));
+    assert_eq!(
+        sentence::settings_question(&prompts, "fix the flakes", &now, Some("11pm")),
+        format!("Read fix the flakes at {}, 11pm.", now.as_str())
+    );
+    assert_eq!(
+        picking::pick_question(&prompts, "fix the flakes", &[], &BTreeMap::new()),
+        "Pick for fix the flakes: "
+    );
+    assert_eq!(
+        answered.text(&prompts),
+        "Keep the old name? Rename it: every caller changes"
+    );
+}

@@ -44,7 +44,8 @@ gate's `prompts.outcome…` and `prompts.base…`; a piloted session's preface a
 `prompts.pilot…`; `prompts.helm`,
 `prompts.helmReadOnly` and `prompts.helmVoice` (5a); `prompts.scoutAsk`
 (5b), `prompts.scoutReadIn` (5c), `prompts.scoutRescue` (5d);
-`prompts.proposer`; `prompts.retro…`; and the Judge's briefs as
+`prompts.proposer`; Autopilot's reader and picker as `prompts.autopilot…`;
+`prompts.retro…`; and the Judge's briefs as
 `prompts.judge…`, which Fleet hands `verification` as its wording. The table
 and every key's placeholders are `crates/config/src/settings/prompts.rs`,
 `crates/config/src/settings/prompts_drone.rs` and

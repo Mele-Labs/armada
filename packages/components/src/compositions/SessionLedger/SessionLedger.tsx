@@ -239,7 +239,7 @@ function LedgerSection({ kind, label, Glyph, all }: { kind: LedgerKind; label: s
                 const waiting = kind === "waiting" ? (replies ? REPLY : WAITING_ACT[row.act ?? "none"]) : undefined;
                 const form = row.artifact === undefined ? undefined : ARTIFACT[row.artifact];
                 return (
-                  <li key={row.key} className="armada-session-ledger__row" aria-label={row.name}>
+                  <li key={row.key} className="armada-session-ledger__row" aria-label={row.name} data-mark={row.mark?.glyph}>
                     <button
                       type="button"
                       className="armada-session-ledger__open"
@@ -289,6 +289,7 @@ function LedgerSection({ kind, label, Glyph, all }: { kind: LedgerKind; label: s
                             className="armada-session-mark"
                             role="img"
                             aria-label={row.mark.said}
+                            data-state-mark
                             data-pulsing={row.mark.glyph === "running" || undefined}
                           >
                             <Mark size={12} strokeWidth={2} aria-hidden />

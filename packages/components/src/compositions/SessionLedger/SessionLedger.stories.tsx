@@ -206,3 +206,14 @@ export const OpenAndAll: Story = {
     localStorage.clear();
   },
 };
+
+/** Each pull request's Checks in their hue, on the mark and on the row's leading edge, so a red one is seen down the ledger. */
+export const PullRequestChecks: Story = {
+  args: {
+    entries: [
+      { key: "p1", kind: "pull_request", name: "Pull request #2112, checks passed", text: "#2112 Wire the cockpit panel", mark: { glyph: "passed", said: "Checks passed" }, onOpen: open },
+      { key: "p2", kind: "pull_request", name: "Pull request #2113, checks failed", text: "#2113 Pin the store clock", mark: { glyph: "failed", said: "Checks failed: store: 2 failed" }, onOpen: open },
+      { key: "p3", kind: "pull_request", name: "Pull request #2115, checks running", text: "#2115 Address the cards", mark: { glyph: "pending", said: "Checks running" }, onOpen: open },
+    ],
+  },
+};

@@ -5,4 +5,6 @@ agent_access = "No"
 description = "Resume a paused Autopilot where it was"
 notes = """
 `POST /autopilots/:repository/resume`. Answers the `Autopilot`, `running`, and publishes `autopilot.changed`; it picks again from the next noticing interval. #2092. A 409 `fleet.autopilot_not_paused` where it is not paused; a stopped Autopilot is started again, not resumed.
+
+**A cap paused it, and Resume clears that.** Where any cap is still reached, a 409 `fleet.autopilot_capped` names it and nothing moves: resuming would pick once and pause again. `update_autopilot` raising the cap, or moving `until` later, is what lets it through, and the answer then carries no `capped_by`. #2105.
 """
