@@ -18,6 +18,7 @@ import {
   type HubJob,
   type MainState,
   type RecentJob,
+  type RecentSession,
 } from "../MainHead/MainHead";
 
 /**
@@ -145,12 +146,16 @@ export type MergeLineHub = {
   main?: MainState;
   pulls: readonly HubPull[];
   recent: readonly RecentJob[];
+  /** The Sessions work can go back to, as a message. Absent is none. */
+  recentSessions?: readonly RecentSession[];
 };
 
 export type MergeLineProps = {
   /** Main's state and the open pull requests. Absent draws the line alone. */
   hub?: MergeLineHub;
   onOpenJob?: (jobId: string) => void;
+  /** A Session the head names as having merged. Absent, its title is not a press. */
+  onOpenSession?: (sessionId: string) => void;
   /** Told the owner's choice of a Job for red main. */
   onFix?: (choice: FixChoice) => void;
   /** The repository, where more than one line draws. Beside the heading. */
@@ -204,7 +209,7 @@ const LEFT = [
 ] as const;
 
 export function MergeLine(props: MergeLineProps) {
-  const { name, line, notice, hub, open, onOpenChange, onOpenPullRequest, onOpenCheck, onOpenJob, onFix, id, focus, pinned } = props;
+  const { name, line, notice, hub, open, onOpenChange, onOpenPullRequest, onOpenCheck, onOpenJob, onOpenSession, onFix, id, focus, pinned } = props;
   const acts = {
     onOpenPullRequest,
     ...(onOpenCheck === undefined ? {} : { onOpenCheck }),
@@ -261,9 +266,11 @@ export function MergeLine(props: MergeLineProps) {
           <MainRedBand
             main={hub.main}
             recent={hub.recent}
+            {...(hub.recentSessions === undefined ? {} : { recentSessions: hub.recentSessions })}
             onOpenLink={onOpenPullRequest}
             {...(onOpenCheck === undefined ? {} : { onOpenCheck: (check: string) => onOpenCheck("main", check) })}
             {...(onOpenJob === undefined ? {} : { onOpenJob })}
+            {...(onOpenSession === undefined ? {} : { onOpenSession })}
             {...(onFix === undefined ? {} : { onFix })}
           />
         )}
@@ -687,7 +694,7 @@ function EntryOwner({ entry, onOpenJob }: { entry: Pick<MergeLineEntry, "branch"
     </>
   );
   return (
-    <Tooltip label="Job">
+    <Tooltip label={`Job: ${job.title}`}>
       {onOpenJob === undefined ? (
         <span className="armada-merge-line__owner">{said}</span>
       ) : (

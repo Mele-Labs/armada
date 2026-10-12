@@ -210,6 +210,7 @@ async fn a_red_group_goes_round_twice_then_its_tasks_fail_and_restart_answers() 
             ipc::JobId::from(&job),
             "T1".to_string(),
             ipc::RestartTask::default(),
+            api::Steerer::Person,
         )
         .await
         .expect_err("Restart this task waits for the retries to run out");
@@ -292,6 +293,7 @@ async fn a_red_group_goes_round_twice_then_its_tasks_fail_and_restart_answers() 
         ipc::RestartTask {
             note: Some("Cover the row past the end too.".to_string()),
         },
+        api::Steerer::Person,
     )
     .await
     .expect("a failed task restarts");
@@ -381,6 +383,7 @@ async fn a_move_places_by_after_and_waits_for_a_task_in_its_run() {
             task: Some("T1".to_string()),
             after: None,
         },
+        api::Steerer::Person,
     )
     .await
     .expect_err("T1 is working");
@@ -394,6 +397,7 @@ async fn a_move_places_by_after_and_waits_for_a_task_in_its_run() {
             task: Some("T2".to_string()),
             after: Some("T3".to_string()),
         },
+        api::Steerer::Person,
     )
     .await
     .expect("an open task moves");
@@ -414,6 +418,7 @@ async fn a_move_places_by_after_and_waits_for_a_task_in_its_run() {
             task: None,
             after: None,
         },
+        api::Steerer::Person,
     )
     .await
     .expect_err("no group G9");
@@ -440,6 +445,7 @@ async fn restart_answers_a_task_in_a_group_the_judge_refused() {
         ipc::JobId::from(&job),
         "T5".to_string(),
         ipc::RestartTask::default(),
+        api::Steerer::Person,
     )
     .await
     .expect("a task in a refused group restarts");
@@ -471,6 +477,7 @@ async fn restart_answers_a_task_in_a_group_the_judge_refused() {
         ipc::JobId::from(&job),
         "T4".to_string(),
         ipc::RestartTask::default(),
+        api::Steerer::Person,
     )
     .await
     .expect_err("G1's run is open again, so T4 is its group's");
@@ -494,6 +501,7 @@ async fn restart_refuses_a_task_in_a_group_the_judge_only_questioned() {
         ipc::JobId::from(&job),
         "T5".to_string(),
         ipc::RestartTask::default(),
+        api::Steerer::Person,
     )
     .await
     .expect_err("a question waits for a person's answer");
@@ -503,7 +511,7 @@ async fn restart_refuses_a_task_in_a_group_the_judge_only_questioned() {
 
 /// Five tasks in one group, each handed in by its own Drone, green Checks and
 /// a Judge that refuses, then G1's gate, saying what it ruled.
-async fn five_judged(home: &TempDir, when: WhenRefused) -> (Arc<Fixture>, JobId, String) {
+pub(super) async fn five_judged(home: &TempDir, when: WhenRefused) -> (Arc<Fixture>, JobId, String) {
     let mut fittings = fittings(home, FakeWorkProduct::changed(&["src/read.rs"]));
     fittings.starting().workflows = one(groups_judged());
     fittings.judge = Arc::new(FakeJudge::refusing(

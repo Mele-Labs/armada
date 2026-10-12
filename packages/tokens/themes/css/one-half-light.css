@@ -1,6 +1,6 @@
 /* Derived from the One Half Light terminal scheme by packages/tokens/themes/generate.mjs. Do not hand-edit.
    Tone light. foreground 9.8:1, accent 5.3:1 at the worst ground.
-   Lightness moved to reach 4.5:1: failed, success, review, running, escalated, rejected, not-started, killed. */
+   Lightness moved to reach 4.5:1: failed, success, review, running, escalated, rejected, not-started, killed, you. */
 [data-theme="catalogue:one-half-light"] {
   color-scheme: light;
   /* Ground */
@@ -38,8 +38,9 @@
   --status-rejected: #A321A1;
   --status-killed: #5F6166;
   --status-handed-in: #006C64;
-  /* Helm, tools, diff */
+  /* Helm, you, tools, diff */
   --helm: #A321A1;
+  --you: #8A7300;
   --tool-look: #007590;
   --tool-change: #A626A4;
   --tool-run: #975C00;

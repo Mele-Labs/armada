@@ -27,6 +27,7 @@ mod limits;
 mod settings;
 mod mcp;
 mod observing;
+mod plan_signing;
 mod preferences;
 mod processes;
 mod reconciling;

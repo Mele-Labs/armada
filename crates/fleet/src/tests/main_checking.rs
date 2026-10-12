@@ -128,6 +128,7 @@ async fn while_held_the_fix_route_refuses_and_fleet_does_not_pick_the_red_up_unt
             url: None,
             branch: None,
             job: Some(culprit.id().clone()),
+            session: None,
         });
         fleet.store().lock().await.record_main_ci(&main).unwrap();
     }

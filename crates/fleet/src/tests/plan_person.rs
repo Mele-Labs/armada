@@ -86,7 +86,7 @@ async fn adding_to_a_job_with_no_plan_is_refused_by_name() {
         expects: String::new(),
         after: String::new(),
     };
-    let refusal = Fleet::add_task_by_person(Arc::clone(&fleet), job_id, add)
+    let refusal = Fleet::add_task_by(Arc::clone(&fleet), job_id, add, api::Steerer::Person)
         .await
         .expect_err("no plan is recorded yet");
     assert_eq!(code(&refusal), "fleet.no_plan");
@@ -102,7 +102,7 @@ async fn dropping_from_a_job_with_no_plan_is_refused_by_name() {
         task: "T1".to_string(),
         reason: "not needed".to_string(),
     };
-    let refusal = Fleet::drop_task_by_person(Arc::clone(&fleet), job_id, drop)
+    let refusal = Fleet::drop_task_by(Arc::clone(&fleet), job_id, drop, api::Steerer::Person)
         .await
         .expect_err("no plan is recorded yet");
     assert_eq!(code(&refusal), "fleet.no_plan");
@@ -119,7 +119,7 @@ async fn dropping_a_task_the_plan_does_not_hold_is_refused_by_name() {
         task: "T9".to_string(),
         reason: "not needed".to_string(),
     };
-    let refusal = Fleet::drop_task_by_person(Arc::clone(&fleet), job_id, drop)
+    let refusal = Fleet::drop_task_by(Arc::clone(&fleet), job_id, drop, api::Steerer::Person)
         .await
         .expect_err("the plan holds no T9");
     assert_eq!(code(&refusal), "fleet.no_such_task");
@@ -139,7 +139,7 @@ async fn adding_after_a_task_the_plan_does_not_hold_is_refused_by_name() {
         expects: String::new(),
         after: "T9".to_string(),
     };
-    let refusal = Fleet::add_task_by_person(Arc::clone(&fleet), job_id, add)
+    let refusal = Fleet::add_task_by(Arc::clone(&fleet), job_id, add, api::Steerer::Person)
         .await
         .expect_err("the plan holds no T9 to add after");
     assert_eq!(code(&refusal), "fleet.no_such_task");
@@ -189,7 +189,7 @@ async fn dropping_a_done_task_is_refused_by_name_and_a_dropped_one_is_too() {
         task: "T1".to_string(),
         reason: "not needed after all".to_string(),
     };
-    let refusal = Fleet::drop_task_by_person(Arc::clone(&fleet), job_id.clone(), drop_done)
+    let refusal = Fleet::drop_task_by(Arc::clone(&fleet), job_id.clone(), drop_done, api::Steerer::Person)
         .await
         .expect_err("T1 is already done");
     assert_eq!(code(&refusal), "fleet.task_already_settled");
@@ -198,7 +198,7 @@ async fn dropping_a_done_task_is_refused_by_name_and_a_dropped_one_is_too() {
         task: "T2".to_string(),
         reason: "still not needed".to_string(),
     };
-    let refusal = Fleet::drop_task_by_person(Arc::clone(&fleet), job_id, drop_dropped)
+    let refusal = Fleet::drop_task_by(Arc::clone(&fleet), job_id, drop_dropped, api::Steerer::Person)
         .await
         .expect_err("T2 is already dropped");
     assert_eq!(code(&refusal), "fleet.task_already_settled");
@@ -218,7 +218,7 @@ async fn a_blank_title_or_reason_is_refused() {
         expects: String::new(),
         after: String::new(),
     };
-    Fleet::add_task_by_person(Arc::clone(&fleet), job_id.clone(), blank_title)
+    Fleet::add_task_by(Arc::clone(&fleet), job_id.clone(), blank_title, api::Steerer::Person)
         .await
         .expect_err("a blank title makes no task");
 
@@ -226,7 +226,7 @@ async fn a_blank_title_or_reason_is_refused() {
         task: "T1".to_string(),
         reason: "  ".to_string(),
     };
-    Fleet::drop_task_by_person(Arc::clone(&fleet), job_id, blank_reason)
+    Fleet::drop_task_by(Arc::clone(&fleet), job_id, blank_reason, api::Steerer::Person)
         .await
         .expect_err("a blank reason cannot drop anything");
 }
@@ -249,7 +249,7 @@ async fn a_kept_change_records_the_person_and_publishes_the_event() {
         expects: String::new(),
         after: String::new(),
     };
-    let plan = Fleet::add_task_by_person(Arc::clone(&fleet), job_id.clone(), add)
+    let plan = Fleet::add_task_by(Arc::clone(&fleet), job_id.clone(), add, api::Steerer::Person)
         .await
         .expect("a plan with no rule against this add");
     assert_eq!(plan.tasks.len(), 5, "the fifth task");

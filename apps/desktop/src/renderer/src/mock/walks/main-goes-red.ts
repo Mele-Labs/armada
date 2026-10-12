@@ -11,7 +11,8 @@ const MERGE = region("Merge line");
 const RED = inside(MERGE, role("status", "Main is red"));
 const PULLS = inside(MERGE, role("list", "Open pull requests"));
 const LOG = dialog("Check log");
-const SEND = dialog("Send the work back to a Job");
+const LANDED = inside(MERGE, role("list", "Recently landed"));
+const SEND = dialog("Send the work back");
 const DISPATCH = dialog("Dispatch a Job to fix main");
 
 const CACHE = "Cache the manifest read between dispatches";
@@ -34,6 +35,7 @@ export const mainGoesRed = walk("main-red-hub", [
   { look: inside(RED, text(/^manifest-read\.test\.ts/)), say: "Test: the failing one, labelled" },
   { look: inside(RED, role("link", "#1812")), say: "Broke in: the pull request that merged" },
   { look: inside(RED, text("armada/60-cache")), say: "And its branch" },
+  { look: inside(LANDED, role("listitem", /^armada\/60-cache, landed/)), say: "And in Recently landed, with the run on main that failed" },
   { press: inside(RED, button("screens_test")), say: "The Check's log opens from the head, as a strip's segment does" },
   { look: inside(LOG, text("AssertionError: expected 'cached' to be 'changed'")), say: "Main's run, whole" },
   { press: inside(LOG, button("Close")), say: "Put it away" },
@@ -73,12 +75,12 @@ export const mainGoesRed = walk("main-red-hub", [
   { look: inside(RED, button("desktop_test")), say: "The Check, the test, the merge and its branch, as before" },
   { look: inside(RED, role("link", "#1816")), say: "The pull request that merged" },
   { look: inside(RED, button("Dispatch a new Job")), say: "Two ways: a new Job" },
-  { press: inside(RED, button("Send back to a Job")), say: "Or an earlier one" },
+  { press: inside(RED, button("Send back", { exact: true })), say: "Or back to the Job that merged it: beside its name" },
   { look: inside(SEND, role("list", "Attached")), say: "What goes with it: the Check, the test, the log and the pull request" },
-  { look: inside(SEND, role("img", "Merged #1816")), say: "The Job whose pull request it was comes first, marked" },
+  { look: inside(SEND, role("img", "Merged #1816")), say: "The Job whose pull request it was comes first in Jobs, marked, and is already chosen" },
   { press: inside(SEND, role("radio", new RegExp(`^${DEBOUNCE}`))), say: "Choose it" },
   { press: inside(SEND, button("Send back", { exact: true })), say: "Send the work back" },
-  { later: inside(RED, button("Send back to a Job")), say: "Fleet takes it up" },
+  { later: inside(RED, button("Send back", { exact: true })), say: "Fleet takes it up" },
   { look: inside(RED, button(DEBOUNCE)), say: "The Job has it: the two ways are gone" },
   { hover: inside(RED, role("img", "Working on it")), say: "Working on it" },
   { press: inside(RED, button(DEBOUNCE)), say: "Open the Job" },

@@ -211,3 +211,38 @@ fn a_task_state_crosses_as_its_registry_spelling() {
         );
     }
 }
+
+#[test]
+fn a_task_a_caller_changed_carries_its_hand_and_one_a_step_wrote_carries_none() {
+    let sent = WorkPlan::from(&a_plan());
+    let body = encode(&sent).expect("plain data");
+
+    // `a_plan` has T2 dropped by a person and T1 written by a step.
+    assert_eq!(sent.tasks[0].by, None);
+    assert_eq!(sent.tasks[1].by, Some(crate::TaskBy::Person));
+    assert!(body.contains(r#""by":{"who":"person"}"#), "{body}");
+    assert_eq!(body.matches(r#""who""#).count(), 1, "T1 sends no key: {body}");
+}
+
+#[test]
+fn a_hand_is_spelled_the_way_a_client_dispatches_on_it() {
+    for (hand, spelled) in [
+        (crate::TaskBy::Person, "person"),
+        (crate::TaskBy::Helm, "helm"),
+        (crate::TaskBy::Commander, "commander"),
+    ] {
+        assert_eq!(encode(&hand).expect("plain data"), format!(r#"{{"who":"{spelled}"}}"#));
+    }
+    assert_eq!(
+        encode(&ChangedBy::from(&PlanAuthor::Helm)).expect("plain data"),
+        r#"{"by":"helm"}"#
+    );
+    assert_eq!(crate::TaskBy::of(&PlanAuthor::Helm), Some(crate::TaskBy::Helm));
+    assert_eq!(
+        crate::TaskBy::of(&PlanAuthor::Step {
+            step_id: StepId::new("plan"),
+            attempt: Attempt::FIRST
+        }),
+        None
+    );
+}
