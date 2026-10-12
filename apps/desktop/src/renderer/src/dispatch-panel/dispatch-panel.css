@@ -7,10 +7,10 @@
 /* ---- Where the frame sits ------------------------------------------------------------------ */
 
 /* Docked, the slot keeps the bar's height and the frame is laid over what follows it, so growing
-   reflows nothing under it. */
+   reflows nothing under it. Over a hovered card, under Helm's dock. */
 .armada-dispatch-panel[data-layout="docked"] {
   position: relative;
-  z-index: var(--z-menu);
+  z-index: calc(var(--z-dock) - 1);
   min-height: calc(var(--h-row) * 2);
 }
 

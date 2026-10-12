@@ -2,7 +2,8 @@
 
 import { describe, expect, it } from "vitest";
 
-import type { HelmThreadItem } from "@armada/protocol";
+import type { HelmMessage, HelmThreadItem } from "@armada/protocol";
+import { helmArrived, NO_HELM_ITEMS } from "@armada/protocol";
 import { helmRowsOf } from "./helm-thread";
 
 const ASKED: HelmThreadItem = { kind: "asked", id: "0", ts: "2026-09-13T10:00:00.000Z", text: "Why did job 12 stall?" };
@@ -236,5 +237,47 @@ describe("helmRowsOf", () => {
     const rows = helmRowsOf([ASKED, first, tool, second]);
     expect(rows).toHaveLength(2);
     expect(rows[1]?.message).toBe("Checking the Job now.\n\nIt is waiting on a command.");
+  });
+});
+
+/** Words that went to a Session instead of to Helm, as Fleet keeps them. */
+const SENT: Extract<HelmThreadItem, { kind: "sent" }> = {
+  kind: "sent",
+  id: "6",
+  ts: "2026-09-13T10:00:06.000Z",
+  text: "the sessions page should say they are waiting for work to land",
+  target: { kind: "session", id: "01SESSION", title: "Sessions list views", manifest_id: "01M1", slot: 3 },
+};
+
+describe("words sent to other work", () => {
+  it("folds a sent item to a row of the person's own, carrying the wire's target", () => {
+    const [row] = helmRowsOf([SENT]);
+    expect(row).toMatchObject({
+      id: "6",
+      actor: "you",
+      message: "the sessions page should say they are waiting for work to land",
+      sent: { kind: "session", id: "01SESSION", title: "Sessions list views", manifest_id: "01M1", slot: 3 },
+    });
+  });
+
+  it("keeps the row where the thread has it, between the asks and replies around it", () => {
+    const rows = helmRowsOf([ASKED, SAID, ENDED, SENT, { ...ASKED, id: "7", text: "and why did 12?" }]);
+    expect(rows.map((row) => row.actor)).toEqual(["you", "helm", "you", "you"]);
+    expect(rows.map((row) => row.sent === undefined)).toEqual([true, true, false, true]);
+  });
+
+  it("closes the reply that was open before it, so a later reply is not folded into it", () => {
+    const rows = helmRowsOf([ASKED, SAID, SENT, { ...SAID, id: "8" }, ENDED]);
+    expect(rows.map((row) => row.actor)).toEqual(["you", "helm", "you", "helm"]);
+  });
+
+  it("is added to the thread by the socket's fold, and leaves a reply being written as it was", () => {
+    const message: HelmMessage = { message: "sent", ts: SENT.ts, text: SENT.text, target: SENT.target };
+    for (const replying of [true, false]) {
+      const next = helmArrived({ ...NO_HELM_ITEMS, replying }, message, 6);
+      expect(next.added).toBe(true);
+      expect(next.held.replying).toBe(replying);
+      expect(next.held.items).toEqual([SENT]);
+    }
   });
 });

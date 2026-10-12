@@ -40,7 +40,7 @@ use crate::commands::{
 };
 use crate::conversing::{
     answer_helm_call, ask_helm, ask_the_person, get_helm_debug_info, list_helm_calls, observe_helm,
-    start_helm_fresh,
+    read_thought, record_thought_sent, start_helm_fresh,
 };
 use crate::daemon::Daemon;
 use crate::editing::{get_manifest_file, save_manifest_file};
@@ -633,6 +633,8 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/helm/ask", post(ask_helm::<D>))
         .route("/helm/debug", get(get_helm_debug_info::<D>))
         .route("/helm/start_fresh", post(start_helm_fresh::<D>))
+        .route("/helm/read_thought", post(read_thought::<D>))
+        .route("/helm/thought_sent", post(record_thought_sent::<D>))
         .route("/helm/permission", post(ask_the_person::<D>))
         .route("/helm/calls", get(list_helm_calls::<D>))
         .route("/helm/calls/answer", post(answer_helm_call::<D>))
