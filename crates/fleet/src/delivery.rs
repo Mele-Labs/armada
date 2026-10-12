@@ -110,7 +110,10 @@ where
     /// `None` is a repository that names no base, or a branch that is not
     /// behind one. Both are silence rather than an event.
     ///
-    /// **One Job at a time from the rebase onward.** Dispatch and the work run
+    /// **The base is the remote's, fetched first**, `crate::fetching_the_base`;
+    /// a fetch that fails stops the catch-up and the spawn with it.
+    ///
+    /// **One Job at a time from the fetch onward.** Dispatch and the work run
     /// N-wide; this does not, because every worktree is cut from one `.git` and
     /// `Fleet::merge_end` — taken here and in `crate::landing` — lets one Job
     /// touch it at a time. That field carries the argument and the cost.
@@ -122,14 +125,15 @@ where
         let Some(base) = self.the_base(job_id, worktree).await? else {
             return Ok(None);
         };
+        // **One Job at a time from here.** The fetch writes the one `.git`
+        // every worktree shares, as the merge after it does. See
+        // `Fleet::merge_end`.
+        let _at_the_merge_end = self.merge_end().lock().await;
+        self.base_fetched(job_id, worktree.path(), base.name())
+            .await?;
         if self.behind(job_id, worktree, &base)? == 0 {
             return Ok(None);
         }
-        // **One Job at a time from here**, and only from here: the two reads
-        // above open the repository and change nothing, and a rebase is the
-        // first thing on this path that writes into the `.git` every worktree
-        // shares. See `Fleet::merge_end`.
-        let _at_the_merge_end = self.merge_end().lock().await;
         let moved = self
             .vcs()
             .bring_up_to_date(worktree, &base)
@@ -172,6 +176,9 @@ where
             ..Delivered::default()
         };
         if let Some(base) = delivered.base.clone() {
+            // Under the `merge_end` lock `land_and_deliver` holds.
+            self.base_fetched(&job_id, worktree.path(), base.name())
+                .await?;
             if self.behind(&job_id, worktree, &base)? > 0 {
                 let moved = self
                     .vcs()
@@ -290,9 +297,9 @@ where
             .step_checks(job.id())
             .map_err(Adrift::Reading)?;
         // **Read here and nowhere earlier.** It changes nothing about what was
-        // rebased — the base on this machine is the branch a person merges into
-        // — and it is the pull request, not the Job, that is wrong when the two
-        // disagree.
+        // merged in — that is the remote's copy of the base, fetched — and it
+        // is the pull request, not the Job, that is wrong when the local branch
+        // of that name is ahead of or behind it.
         let remote = self
             .vcs()
             .base_on_the_remote(worktree, base)

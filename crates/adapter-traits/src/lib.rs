@@ -59,7 +59,7 @@ pub use ci::{
 pub use cloning::NotCloned;
 pub use commit::{CommitTime, Committed};
 pub use delivery::{
-    how_the_base_was_found, Base, BaseMergedIn, BaseOnTheRemote, BranchMerged, BroughtUpToDate,
+    how_the_base_was_found, Base, BaseFetched, BaseMergedIn, BaseOnTheRemote, BranchMerged, BroughtUpToDate,
     Delivery, FiledIssue, KeptCurrent, Landing, Mergeable, Merged, NotDelivered, NotFiled,
     NotMerged, NotRerun, Opened, Pushed, PushedOntoBase, Rendering, RepositoryStanding, Rerun,
     Review, Standing, WhatBecameOfIt,

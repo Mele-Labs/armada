@@ -51,6 +51,7 @@ mod delivery;
 mod error;
 /// The setup a person already has, read to be shown. `#1491`.
 mod existing_setup;
+mod fetching_the_base;
 mod filing;
 /// Where a repository lives on its forge, and what a request's links name.
 mod forge_address;
