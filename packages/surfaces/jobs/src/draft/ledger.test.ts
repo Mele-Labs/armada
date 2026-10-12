@@ -35,6 +35,19 @@ describe("the door an act came through", () => {
   });
 });
 
+describe("the door a Job was dispatched through", () => {
+  const createdOf = (created_via?: string) =>
+    ledgerOf({ detail: { ...arcDetail(), ...(created_via === undefined ? {} : { created_via }) } }).find(
+      (one) => one.kind === "created",
+    );
+
+  it("marks a Job dispatched from the phone on its created row, and no other door", () => {
+    expect(createdOf("phone")?.fromPhone).toBe(true);
+    expect(createdOf("bridge")?.fromPhone).toBeUndefined();
+    expect(createdOf()?.fromPhone).toBeUndefined();
+  });
+});
+
 describe("where a row happened", () => {
   it("names no step for the Job's own machine moving, which is a fact not a gap", () => {
     expect(ledgerRowOf(moved()).coord).toBeNull();

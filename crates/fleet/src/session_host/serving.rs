@@ -169,6 +169,7 @@ where
             note: said.note,
             answers: said.answers,
         };
+        self.hosts().of(&id).state().answered_via = api::via();
         let waiting = self
             .hosts()
             .asks()
