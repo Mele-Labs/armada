@@ -178,6 +178,8 @@ export type Session = {
   commands?: readonly SessionCommand[];
   /** Set where the rows are not all held, so a session whose thread was never opened is not taken for a blank one. */
   blank?: boolean;
+  /** How full its context window is, as last reported. Absent until it has reported one. */
+  context?: { tokens: number; window: number };
   /** Absent until the first turn has named it; a blank Session is known by its id alone. */
   title?: string;
   attachments: readonly SessionAttachment[];

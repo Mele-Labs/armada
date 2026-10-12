@@ -54,6 +54,24 @@
   font-weight: var(--weight-medium);
 }
 
+/* The context window's fill: a bare mono figure, weighted, coloured by how full. No gauge. */
+.armada-session-frame__context {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  font-weight: var(--weight-medium);
+  color: var(--fg-muted);
+}
+
+.armada-session-frame__context[data-level="warning"] {
+  color: var(--status-awaiting-review);
+}
+
+.armada-session-frame__context[data-level="danger"] {
+  color: var(--status-completed-failed);
+}
+
 /* A title that can be renamed is a button that looks like the text it holds. */
 button.armada-session-frame__title {
   padding: 0;

@@ -8,7 +8,9 @@ import { Input } from "../../primitives/Input/Input";
 import { keyFor } from "../../actions";
 import { Kbd, KbdCmd } from "../../primitives/Kbd/Kbd";
 import { Popover } from "../../primitives/Popover/Popover";
+import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { useShortcutReveal } from "../../shortcut-reveal";
+import { usageLevel } from "../../usage";
 
 /**
  * The title row — what used to be macOS's grey bar saying only "Armada".
@@ -25,6 +27,47 @@ import { useShortcutReveal } from "../../shortcut-reveal";
  * its options are Bridge's own reading of what Fleet serves, and this row only
  * has room for it, the way `TheShell`'s `railHeader` used to.
  */
+/**
+ * One limit of the Claude plan, as the mod's `session.measure` carries it. `five_hour` draws as `5h`
+ * and `seven_day` as `wk`; any other kind is not drawn.
+ */
+export type PlanUsage = { kind: string; percentUsed: number; resetsAt?: string };
+
+const LIMITS: Record<string, { short: string; name: string; weekly: boolean } | undefined> = {
+  five_hour: { short: "5h", name: "5-hour limit", weekly: false },
+  seven_day: { short: "wk", name: "Weekly limit", weekly: true },
+};
+
+/** "5-hour limit · resets 6:40 PM", in local time; the weekly limit adds the day. */
+function limitSaid(name: string, weekly: boolean, resetsAt: string | undefined): string {
+  const at = resetsAt === undefined ? undefined : new Date(resetsAt);
+  if (at === undefined || Number.isNaN(at.getTime())) return name;
+  const time = at.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+  return `${name} · resets ${weekly ? `${at.toLocaleDateString("en-US", { weekday: "short" })} ` : ""}${time}`;
+}
+
+function PlanUsageFigures({ usage }: { usage: readonly PlanUsage[] }) {
+  const drawn = usage.flatMap((one) => {
+    const limit = LIMITS[one.kind];
+    return limit === undefined ? [] : [{ one, limit }];
+  });
+  if (drawn.length === 0) return null;
+  return (
+    <div className="armada-title-bar__usage">
+      {drawn.map(({ one, limit }) => {
+        const percent = Math.round(one.percentUsed);
+        return (
+          <Tooltip key={one.kind} label={limitSaid(limit.name, limit.weekly, one.resetsAt)}>
+            <span className="armada-title-bar__usage-figure" role="img" aria-label={`${limit.name} ${percent}%`} data-level={usageLevel(percent)}>
+              {limit.short} {percent}%
+            </span>
+          </Tooltip>
+        );
+      })}
+    </div>
+  );
+}
+
 export type TitleBarProps = {
   /** The repository picker. Absent draws none — a bare bar until Bridge has one to offer. */
   repositoryPicker?: ReactNode;
@@ -65,6 +108,11 @@ export type TitleBarProps = {
     onToggle: () => void;
   };
   /**
+   * The Claude plan's limits, as bare figures beside Sleep. **Absent, or with no limit this row
+   * knows, draws nothing.** Not Fleet's dot: that stays liveness and nothing else.
+   */
+  planUsage?: readonly PlanUsage[];
+  /**
    * Fleet's liveness, as one dot on the bar's trailing edge. **Drawn at every
    * width**, settled by the owner on 18 Sep 2026. #1438 drew it only while the
    * left column was absent; both that condition and removing the dot outright
@@ -93,6 +141,7 @@ export function TitleBar({
   dispatchDisabled = false,
   helm,
   sleep,
+  planUsage,
   fleet,
 }: TitleBarProps) {
   const revealing = useShortcutReveal();
@@ -115,6 +164,8 @@ export function TitleBar({
       </div>
 
       <div className="armada-title-bar__end">
+        {planUsage === undefined ? null : <PlanUsageFigures usage={planUsage} />}
+
         {sleep === undefined ? null : (
           <div className="armada-title-bar__sleep">
             <Button

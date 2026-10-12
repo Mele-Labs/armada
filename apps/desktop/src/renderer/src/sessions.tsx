@@ -905,6 +905,7 @@ function SessionView({ session, goes, onOpen, held, board, lines }: { session: S
         {...(session.title === undefined ? {} : { title: session.title })}
         {...(draft.rename === undefined ? {} : { onRename: (title: string) => draft.rename?.(session.id, title) })}
         {...(session.modOutOfDate === true ? { modOutOfDate: true } : {})}
+        {...(session.context === undefined ? {} : { context: session.context })}
         {...{
               actions: (
                 <>

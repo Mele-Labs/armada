@@ -44,6 +44,8 @@ export type TheShellProps = {
   dispatchDisabled?: boolean;
   /** Sleep mode's control in the title row, beside Helm's. Absent draws none. */
   sleep?: TitleBarProps["sleep"];
+  /** The Claude plan's limits, as figures in the title row. Absent draws none. */
+  planUsage?: TitleBarProps["planUsage"];
   /**
    * The rail's panels, each its own rounded panel in the column — the owner
    * split Navigation in two on 28 Sep 2026. **The roster and the grouping are
@@ -164,6 +166,7 @@ export function TheShell({
   onDispatch,
   dispatchDisabled,
   sleep,
+  planUsage,
   panels,
   activeId,
   collapsed,
@@ -191,6 +194,7 @@ export function TheShell({
           dispatchDisabled={dispatchDisabled}
           helm={helmButtonOf(dock)}
           {...(sleep === undefined ? {} : { sleep })}
+          {...(planUsage === undefined ? {} : { planUsage })}
           // Every width. The panel carries the same state from the same two
           // fields; the owner settled the duplication on 18 Sep 2026 — keep
           // it, drawn always, rather than mounting chrome on a resize.

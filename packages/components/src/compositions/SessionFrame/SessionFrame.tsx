@@ -7,6 +7,7 @@ import { Button } from "../../primitives/Button/Button";
 import { Card } from "../../primitives/Card/Card";
 import { Input } from "../../primitives/Input/Input";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
+import { usageLevel } from "../../usage";
 
 /**
  * A Session open, in the glass panel a Job's detail and Overview's panels are
@@ -54,6 +55,28 @@ export function ModMark({ size = 16 }: { size?: 12 | 16 }) {
   );
 }
 
+/** How full the Session's context window is, as it last reported. */
+export type ContextFill = { tokens: number; window: number };
+
+/** 53840 as "53.8k", 1000000 as "1M". */
+function tokensSaid(n: number): string {
+  const short = (value: number, unit: string) => `${Number(value.toFixed(1))}${unit}`;
+  return n >= 1_000_000 ? short(n / 1_000_000, "M") : n >= 1_000 ? short(n / 1_000, "k") : String(n);
+}
+
+/** The fill as a bare figure, coloured by how full. Nothing is drawn without a window to fill. */
+function ContextFigure({ fill }: { fill: ContextFill }) {
+  if (fill.window <= 0) return null;
+  const percent = Math.round((fill.tokens / fill.window) * 100);
+  return (
+    <Tooltip label={`Context · ${tokensSaid(fill.tokens)} of ${tokensSaid(fill.window)} tokens`}>
+      <span className="armada-session-frame__context" role="img" aria-label={`Context ${percent}%`} data-level={usageLevel(percent)}>
+        {percent}%
+      </span>
+    </Tooltip>
+  );
+}
+
 export type SessionFrameProps = {
   state: SessionState;
   /** What the state's mark says on hover. */
@@ -70,6 +93,8 @@ export type SessionFrameProps = {
   onRename?: (title: string) => void;
   /** The Session's mod is older than the repository's: marked beside the state. */
   modOutOfDate?: boolean;
+  /** The context window's fill, drawn beside `actions`. Absent draws nothing. */
+  context?: ContextFill;
   /** Beside the state mark, at the head's trailing edge: the ledger's button where it has folded. */
   actions?: ReactNode;
   /** The ledger, as a panel of its own beside the conversation: a sibling card the height of the first, scrolling on its own. */
@@ -126,7 +151,7 @@ function SessionTitle({ title, onRename }: { title?: string; onRename?: (title: 
   );
 }
 
-export function SessionFrame({ state, said, id, address, title, onRename, modOutOfDate = false, actions, aside, children }: SessionFrameProps) {
+export function SessionFrame({ state, said, id, address, title, onRename, modOutOfDate = false, context, actions, aside, children }: SessionFrameProps) {
   return (
     <div className="armada-session-panels">
     <Card className="armada-session-frame" role="region" aria-label={`Session ${address ?? id}`}>
@@ -135,6 +160,7 @@ export function SessionFrame({ state, said, id, address, title, onRename, modOut
         <span className="armada-session-frame__id">{address ?? id}</span>
         <SessionTitle {...(title === undefined ? {} : { title })} {...(onRename === undefined ? {} : { onRename })} />
         {actions}
+        {context === undefined ? null : <ContextFigure fill={context} />}
         {modOutOfDate && state !== "quiet" ? <ModMark /> : null}
         {state === "quiet" && modOutOfDate ? <ModMark /> : <SessionMark state={state} said={said} />}
       </header>

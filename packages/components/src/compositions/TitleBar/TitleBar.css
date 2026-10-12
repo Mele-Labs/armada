@@ -42,6 +42,7 @@
 .armada-title-bar__search,
 .armada-title-bar__helm,
 .armada-title-bar__sleep,
+.armada-title-bar__usage,
 /* Not interactive, but it opts out for the same reason the rest do: a drag
    region swallows the pointer, and a `title` tooltip inside one never opens.
    The dot carries pid, port and protocol nowhere, so being hovered for its
@@ -134,6 +135,31 @@
   gap: var(--space-3);
   justify-self: end;
   min-width: 0;
+}
+
+/* The plan's limits: bare mono figures, weighted, coloured by how full. No gauge. */
+.armada-title-bar__usage {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex: none;
+}
+
+.armada-title-bar__usage-figure {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  font-weight: var(--weight-medium);
+  color: var(--fg-muted);
+  white-space: nowrap;
+}
+
+.armada-title-bar__usage-figure[data-level="warning"] {
+  color: var(--status-awaiting-review);
+}
+
+.armada-title-bar__usage-figure[data-level="danger"] {
+  color: var(--status-completed-failed);
 }
 
 .armada-title-bar__helm {
