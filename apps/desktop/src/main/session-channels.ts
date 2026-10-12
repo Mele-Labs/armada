@@ -76,6 +76,9 @@ export function handleSessions({ ipc, connection, windowIdOf, pages }: Hosts): v
   ipc.handle(CHANNELS.forkSession, (_event, sessionId: string) =>
     text(sessionId) ? (connection()?.sessions.fork(sessionId) ?? unsent) : unsent,
   );
+  ipc.handle(CHANNELS.forkSessionAt, (_event, sessionId: string, at: string) =>
+    text(sessionId) && text(at) ? (connection()?.sessions.fork(sessionId, at) ?? unsent) : unsent,
+  );
   ipc.handle(CHANNELS.closeSession, (_event, sessionId: string) =>
     text(sessionId) ? (connection()?.sessions.end(sessionId) ?? unsent) : unsent,
   );

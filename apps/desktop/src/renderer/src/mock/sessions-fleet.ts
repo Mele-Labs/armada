@@ -106,6 +106,8 @@ export type Calls = {
   renamed: RenameSession[];
   closed: string[];
   forked: string[];
+  /** The Sessions forked from one message, and the message. */
+  forkedAt: { sessionId: string; at: string }[];
   /** The Sessions the Retro press was pressed on. */
   retroed: string[];
   pressed: { sessionId: string; number: number; press: string }[];
@@ -122,7 +124,7 @@ export class FakeSessionsFleet {
   pageEscape(): void {
     this.escape.forEach((on) => on());
   }
-  readonly calls: Calls = { started: 0, piloted: [], exited: [], sent: [], answered: [], waited: [], claimed: [], dismissed: [], tuned: [], renamed: [], closed: [], forked: [], retroed: [], pressed: [], watched: [], pages: [], pagesHidden: 0 };
+  readonly calls: Calls = { started: 0, piloted: [], exited: [], sent: [], answered: [], waited: [], claimed: [], dismissed: [], tuned: [], renamed: [], closed: [], forked: [], forkedAt: [], retroed: [], pressed: [], watched: [], pages: [], pagesHidden: 0 };
   private records: SessionRecord[];
   private threads: Record<string, SessionRow[]>;
   private fleet: FleetHandle | undefined;
@@ -293,6 +295,16 @@ export class FakeSessionsFleet {
             }
             const id = `01FORK${String((this.minted += 1)).padStart(8, "0")}ABCDEFGHIJ`;
             const record = hosted(id, { ...(old.title === undefined ? {} : { title: old.title }), attachments: [held("forked_from", sessionId, {}, "spent")] });
+            this.set([record, ...this.records.map((one) => (one.id === sessionId ? { ...one, attachments: [...one.attachments, held("forked_to", id, {}, "spent")] } : one))]);
+            return { ok: true, value: record };
+          },
+          forkSessionAt: async (sessionId, at) => {
+            this.calls.forkedAt.push({ sessionId, at });
+            const old = this.records.find((one) => one.id === sessionId);
+            if (old === undefined) return { ok: false, outcome: { ok: false, why: "not_connected" } };
+            // **Live or not**: the Session it came from is left as it was, and keeps taking messages.
+            const id = `01FORK${String((this.minted += 1)).padStart(8, "0")}ABCDEFGHIJ`;
+            const record = hosted(id, { ...(old.title === undefined ? {} : { title: old.title }), attachments: [held("forked_from", sessionId, { at }, "spent")] });
             this.set([record, ...this.records.map((one) => (one.id === sessionId ? { ...one, attachments: [...one.attachments, held("forked_to", id, {}, "spent")] } : one))]);
             return { ok: true, value: record };
           },

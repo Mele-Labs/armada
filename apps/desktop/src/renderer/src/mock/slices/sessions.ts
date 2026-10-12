@@ -23,6 +23,7 @@ export const sessions: Slice<SessionsApi, SessionsState> = {
     runSessionCommand: async () => ({ ok: false, outcome: unanswered("/sessions/command") }),
     renameSession: async () => ({ ok: false, outcome: unanswered("/sessions/rename") }),
     forkSession: async () => ({ ok: false, outcome: unanswered("/sessions/start") }),
+    forkSessionAt: async () => ({ ok: false, outcome: unanswered("/sessions/start") }),
     retroSession: async () => unanswered("/sessions/:session_id/retro"),
     closeSession: async () => ({ ok: false, outcome: unanswered("/sessions/close") }),
     watchSession: async () => undefined,
