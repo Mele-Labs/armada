@@ -764,6 +764,7 @@ export const register: Register = on => {
 
   on('session.end', async ($, e, next) => {
     const out = await next(e)
+    if (await $.env.get('ARMADA_DRONE')) return out
     await ended($, e.sessionId, e.reason).catch(() => undefined)
     return out
   })

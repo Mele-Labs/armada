@@ -248,3 +248,24 @@
   display: inline-flex;
   align-items: center;
 }
+
+/* The end of what is drawn: across every column, turning while the next rows come in. */
+.armada-session-list__more-rows {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: center;
+  padding: var(--space-2);
+  color: var(--fg-muted);
+}
+
+.armada-session-list__more-rows > svg {
+  animation: armada-session-list-spin var(--duration-pulse) linear infinite;
+}
+
+@keyframes armada-session-list-spin {
+  to { transform: rotate(1turn); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .armada-session-list__more-rows > svg { animation: none; }
+}

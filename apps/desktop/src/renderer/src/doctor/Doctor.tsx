@@ -10,17 +10,9 @@ import type { Connection } from "@armada/protocol";
 import type { HealthRead } from "@armada/screens/src/overview-reads";
 
 import { age } from "../Dashboard";
-import { gridOf, MEANS, readingOf, worstOf, type Grid, type Row } from "./grid";
+import { gridOf, MEANS, readingOf, summaryOf, worstOf, type Row } from "./grid";
 import "../cockpit/cockpit.css";
 import "./doctor.css";
-
-/** What the band says: every row that did not pass named beside its word, never a blended score. */
-function summaryOf(grid: Grid): string {
-  if (grid.unread !== undefined) return `Not read — ${grid.unread}`;
-  if (grid.rows.some((row) => row.result === "reading")) return "Reading";
-  const flagged = grid.rows.filter((row) => row.result !== "pass");
-  return flagged.length === 0 ? "Every probed module passes" : flagged.map((row) => `${row.module}: ${row.result}`).join(" · ");
-}
 
 /** `age`'s spelling, with its zero said in words. */
 const checkedSaid = (ago: string) => (ago === "0m" ? "checked just now" : `checked ${ago} ago`);

@@ -138,6 +138,23 @@ pub struct QuestionInFlight {
     /// The whole of "structured answers" is here. A person picks one of these
     /// and types nothing.
     pub options: Vec<AskedOption>,
+    /// The several decisions of an interview, in the order asked. **Empty is a
+    /// single question**, drawn from `question` and `options`; where this is
+    /// filled, those two are blank and each decision is answered, all at once.
+    /// Two to six, every one with the same rules for its options.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub decisions: Vec<DecisionInFlight>,
+}
+
+/// One decision of an interview a Drone asked, while it is unanswered.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DecisionInFlight {
+    /// Fleet's, `d1` onward, unique within the question. **What an answer to
+    /// this decision names.**
+    pub decision_id: String,
+    pub question: String,
+    /// Two to four, labels distinct, as [`QuestionInFlight::options`].
+    pub options: Vec<AskedOption>,
 }
 
 /// One answer a Drone said it would accept.
@@ -173,6 +190,22 @@ pub struct ChosenAnswer {
     /// Which question is being answered. A window that has been open across an
     /// answered question names an id Fleet no longer holds, and is told so.
     pub question_id: QuestionId,
+    /// The [`AskedOption::label`] chosen, verbatim. **Absent when the question
+    /// is an interview**, which is answered by `decisions`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub chose: Option<String>,
+    /// The pick for each decision of an interview. **Every decision, once each,
+    /// and no `chose`**; a question with no decisions is answered by `chose`
+    /// and sends none of these. Fleet refuses the other mixes by name.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub decisions: Vec<ChosenDecision>,
+}
+
+/// A person's pick for one decision of an interview.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ChosenDecision {
+    /// The [`DecisionInFlight::decision_id`] answered.
+    pub decision_id: String,
     /// The [`AskedOption::label`] chosen, verbatim.
     pub chose: String,
 }

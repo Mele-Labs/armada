@@ -155,6 +155,14 @@ pub struct TuneSession {
     pub mode: SessionMode,
 }
 
+/// `run_session_command`: a slash command, written whole (`/update-armada`, `/model opus`), that a
+/// terminal session's mod runs as typed.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RunSessionCommand {
+    pub session_id: SessionId,
+    pub command: String,
+}
+
 /// `close_session`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CloseSession {

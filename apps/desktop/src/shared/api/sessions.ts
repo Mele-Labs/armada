@@ -66,6 +66,8 @@ export type SessionsApi = {
   dismissWaiting: (dismiss: DismissWaiting) => Promise<SessionActed>;
   /** The model, effort and permission mode the next turn runs on. */
   tuneSession: (tune: TuneSession) => Promise<SessionActed>;
+  /** A slash command written in a terminal Session's thread, run in its terminal as typed. Nothing comes back. */
+  runSessionCommand: (sessionId: string, command: string) => Promise<SessionActed>;
   /** A name the person gave a session, hosted or in a terminal. It stands until the next `/rename` in a terminal. */
   renameSession: (rename: RenameSession) => Promise<SessionActed>;
   /**
@@ -141,6 +143,7 @@ export const SESSIONS_CHANNELS = {
   claimPullRequest: "bridge:claim-pull-request",
   dismissWaiting: "bridge:dismiss-waiting",
   tuneSession: "bridge:tune-session",
+  runSessionCommand: "bridge:run-session-command",
   renameSession: "bridge:rename-session",
   retroSession: "bridge:retro-session",
   closeSession: "bridge:close-session",

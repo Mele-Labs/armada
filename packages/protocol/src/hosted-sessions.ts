@@ -106,6 +106,9 @@ export type HeldCommand = { command: string; args: string };
 /** `end`: Close pressed in Bridge; the mod runs `/exit` after the messages. Absent when not asked. */
 export type MessagesHeld = { messages: string[]; commands?: HeldCommand[]; end?: true };
 
+/** `POST /sessions/command`: a slash command written whole, run in a terminal session as typed. */
+export type RunSessionCommand = { session_id: string; command: string };
+
 /** `POST /sessions/close`. A terminal session is ended by its mod, and the row ends when the terminal says so. */
 export type CloseSession = { session_id: string };
 

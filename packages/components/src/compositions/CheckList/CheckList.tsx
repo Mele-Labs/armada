@@ -1,5 +1,6 @@
-import type { ReactNode } from "react";
+import { useRef, type ReactNode } from "react";
 
+import { useTileGrid } from "../../tile-grid";
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "../../primitives/Table/Table";
 import { StepActivityMark, type StepActivity } from "../StepActivityMark/StepActivityMark";
 
@@ -11,6 +12,10 @@ import { StepActivityMark, type StepActivity } from "../StepActivityMark/StepAct
  * tooltip. Running is the step mark's pulsing circle-dot, and it stops under
  * reduced motion with the rest. No count is drawn over the rows: they are the
  * count.
+ *
+ * **Drawn as the cockpit's glass**: a sunken glass under a raised band holding
+ * the host's filters, each Check a tile framed in its run token's hue, and a
+ * failed one lit. The rows are one Tab stop, walked by `useTileGrid`.
  */
 
 /** Where a Check is: asked for and not started, out now, or ended. */
@@ -47,13 +52,20 @@ export type CheckListProps = {
   rows: readonly CheckListRow[];
   openRow?: string | null;
   onOpenRow?: (id: string) => void;
+  /** What the band over the glass holds: the host's filters. With it, the band and glass are drawn though no row is. */
+  controls?: ReactNode;
 };
 
-export function CheckList({ rows, openRow = null, onOpenRow }: CheckListProps) {
-  if (rows.length === 0) return null;
+export function CheckList({ rows, openRow = null, onOpenRow, controls }: CheckListProps) {
+  const list = useRef<HTMLElement>(null);
+  // One Tab stop for the rows; the arrows and j/k choose one, and Enter or o opens it.
+  useTileGrid(list, { tile: ".armada-check-list__row", cursor: ".armada-check-list__open" });
+  if (rows.length === 0 && controls === undefined) return null;
   return (
-    <section className="armada-check-list armada-glass" aria-label="Checks">
+    <section className="armada-check-list" aria-label="Checks" ref={list}>
+      {controls === undefined ? null : <div className="armada-check-list__band">{controls}</div>}
       <div className="armada-check-list__scroll">
+        {rows.length === 0 ? null : (
         <Table className="armada-check-list__table">
           <TableHead>
             <TableRow>
@@ -68,7 +80,10 @@ export function CheckList({ rows, openRow = null, onOpenRow }: CheckListProps) {
             {rows.map((row) => (
               <TableRow
                 key={row.id}
+                className="armada-check-list__row"
                 selected={row.id === openRow}
+                aria-current={row.id === openRow || undefined}
+                data-status={row.status}
                 data-row-id={row.id}
                 onClick={onOpenRow === undefined ? undefined : () => onOpenRow(row.id)}
               >
@@ -108,6 +123,7 @@ export function CheckList({ rows, openRow = null, onOpenRow }: CheckListProps) {
             ))}
           </TableBody>
         </Table>
+        )}
       </div>
     </section>
   );

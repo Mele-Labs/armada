@@ -443,3 +443,35 @@ async fn a_pass_that_could_not_pick_says_why_on_the_autopilot_until_one_goes_thr
         None
     );
 }
+
+#[tokio::test]
+async fn a_picker_that_fails_rests_longer_each_time_and_keeps_its_fault_meanwhile() {
+    let home = TempDir::new();
+    let mut fittings = fittings(&home, FakeWorkProduct::changed(&["src/read.rs"]));
+    fittings.starting().workflows = a_catalogue()
+        .into_iter()
+        .map(|workflow| (workflow.id().clone(), workflow))
+        .collect();
+    let model = Arc::new(FakeJudge::that_fails("the network"));
+    fittings.judge = model.clone();
+    fittings.tracker = Arc::new(FakeTracker::listing(vec![FakeTracker::issue(12, "A wrong label")]));
+    let clock = Arc::new(crate::tests::planted::Held::started());
+    fittings.clock = clock.clone();
+    let fleet: Fixture = Fleet::assembled(fittings);
+    started(&fleet, 1, None).await;
+
+    fleet.autopilot_pass().await.expect("a pass");
+    fleet.autopilot_pass().await.expect("a pass");
+    assert_eq!(model.asked().len(), 1);
+    assert!(fleet.get_autopilot(here(&fleet)).await.expect("held").fault.is_some());
+
+    clock.on(30);
+    fleet.autopilot_pass().await.expect("a pass");
+    clock.on(30);
+    fleet.autopilot_pass().await.expect("a pass");
+    assert_eq!(model.asked().len(), 2, "the second rest is a minute");
+
+    clock.on(30);
+    fleet.autopilot_pass().await.expect("a pass");
+    assert_eq!(model.asked().len(), 3);
+}

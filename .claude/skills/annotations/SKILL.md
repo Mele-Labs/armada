@@ -10,6 +10,9 @@ description: Work through the notes the owner left on Bridge with the annotation
 `.armada/annotations/` at the repository root, gitignored. In a worktree it is
 that worktree's root, so read the checkout the owner ran Bridge from — usually
 the main one. The shape is `Annotation` in `apps/desktop/src/shared/annotations.ts`.
+A note with `scope: "window"` is on the whole window rather than one element:
+its `<id>.png` is the window, and its `context` names the open Job or Session and
+Doctor's read — start from those, not from `selector`, which is just `body`.
 
 **Two ways a note reaches work.** In the layer, *Send to Fleet* proposes it as a
 Job at the approval gate, and the note carries `sent` with that Job's handle.

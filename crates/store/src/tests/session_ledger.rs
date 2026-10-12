@@ -369,3 +369,45 @@ fn what_a_holder_held_is_spent_or_given_back_in_one_move() {
         )
         .expect("settled"));
 }
+
+#[test]
+fn only_an_ended_session_that_was_never_anything_is_forgotten_as_blank() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    let blank = |id: &str| KeptSession {
+        manifest_id: None,
+        cwd: String::new(),
+        title: None,
+        state: SessionState::Ended,
+        ..session(id)
+    };
+    store.keep_session(&blank("blank")).expect("kept");
+    store
+        .keep_session(&KeptSession {
+            state: SessionState::Live,
+            ..blank("live")
+        })
+        .expect("kept");
+    store
+        .keep_session(&KeptSession {
+            title: Some("named".into()),
+            ..blank("titled")
+        })
+        .expect("kept");
+    store
+        .keep_session(&KeptSession {
+            last_turn_at: Some("2026-10-06T09:01:00.000Z".into()),
+            ..blank("turned")
+        })
+        .expect("kept");
+    store.keep_session(&blank("holding")).expect("kept");
+    store
+        .attach(&attachment(Holder::session("holding"), "branch", "main", "t1"), false)
+        .expect("held");
+
+    assert_eq!(store.forget_blank_sessions().expect("forgets"), 1);
+    assert_eq!(store.session("blank").expect("reads"), None);
+    for kept in ["live", "titled", "turned", "holding"] {
+        assert!(store.session(kept).expect("reads").is_some(), "{kept} is kept");
+    }
+}

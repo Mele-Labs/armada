@@ -118,6 +118,7 @@ test('a Drone, Judge call or scout is not told to Fleet', async ($, on) => {
   on('tool.call', { tool: 'Bash' }, () => ({ result: { stdout: URL, stderr: '', interrupted: false }, text: URL }))
   await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
   await $.tool.call({ tool: 'Bash', command: 'gh pr create --base main' })
+  await $.session.end({ reason: 'other', sessionId: 'S1', resume: {} as never })
   await clock.settle()
 
   expect(posts).toEqual([])

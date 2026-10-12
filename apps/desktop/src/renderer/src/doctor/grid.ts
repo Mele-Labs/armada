@@ -179,3 +179,11 @@ export function readingOf(detail: string): Reading {
 function unread(read: Extract<HealthRead, { state: "failed" }>): string {
   return saidOf(read.outcome) || "Fleet did not answer";
 }
+
+/** What the band says: every row that did not pass named beside its word, never a blended score. */
+export function summaryOf(grid: Grid): string {
+  if (grid.unread !== undefined) return `Not read — ${grid.unread}`;
+  if (grid.rows.some((row) => row.result === "reading")) return "Reading";
+  const flagged = grid.rows.filter((row) => row.result !== "pass");
+  return flagged.length === 0 ? "Every probed module passes" : flagged.map((row) => `${row.module}: ${row.result}`).join(" · ");
+}

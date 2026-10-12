@@ -400,6 +400,8 @@ A fenced shell block in a Session's thread shows Run when the block is hovered o
 
 The output is not kept past the run. Closing the window, or the Session, ends the reading; a reopened thread shows the block without it.
 
+**A block with no language is a shell block when it reads as one** (`readsAsShell`): every line opens like a command, after an optional `$ `, and none reads as code, JSON, prose or a diagram. A doubt is no Run. In a **terminal** Session, inline code that is exactly a command the terminal lists (`` `/update-armada` ``, `` `/model opus` ``) is pressable instead: it is run in the terminal as typed with `run_session_command` (`POST /sessions/command`), no output comes back, and a check says Sent. A Fleet-hosted Session has no terminal, so the code stays plain.
+
 ## A terminal session's thread
 
 Open a session a person runs in a terminal and Bridge draws its conversation and a message box. `get_session` reads the transcript file the agent CLI keeps for it (`adapters::terminal_thread`, found by session id under the person's home) and answers rows in the shape a hosted thread has: what the person typed, what the agent said, and one line per tool call. Fleet then watches the file for as long as the session is live and publishes each new line as `session.row`, so the thread follows the terminal. A row's id is the transcript line's own, so a line read twice replaces itself.

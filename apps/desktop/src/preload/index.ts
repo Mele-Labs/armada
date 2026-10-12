@@ -659,6 +659,8 @@ const api: BridgeApi = {
   claimPullRequest: (claim: ClaimPullRequest): Promise<SessionActed<PullRequestClaimed>> => ipcRenderer.invoke(CHANNELS.claimPullRequest, claim),
   dismissWaiting: (dismiss: DismissWaiting): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.dismissWaiting, dismiss),
   tuneSession: (tune: TuneSession): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.tuneSession, tune),
+  runSessionCommand: (sessionId: string, command: string): Promise<SessionActed> =>
+    ipcRenderer.invoke(CHANNELS.runSessionCommand, sessionId, command),
   renameSession: (rename: RenameSession): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.renameSession, rename),
   forkSession: (sessionId: string): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.forkSession, sessionId),
   closeSession: (sessionId: string): Promise<SessionActed> => ipcRenderer.invoke(CHANNELS.closeSession, sessionId),

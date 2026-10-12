@@ -320,6 +320,45 @@ async fn what_the_terminal_runs_on_is_what_its_mod_said_and_a_model_is_run_there
     assert_eq!(held.commands.len(), 2);
 }
 
+/// **A slash command pressed in the thread is held for the mod as a command**, its name without the
+/// slash and the rest as arguments. Text that is not one slash command, a session that is not a
+/// terminal one and one that ended are refused.
+#[tokio::test]
+async fn a_slash_command_is_held_for_the_mod_and_anything_else_is_refused() {
+    let rig = rig();
+    rig.started().await;
+    rig.mod_asks().await;
+    let run = |text: &str| ipc::RunSessionCommand {
+        session_id: SessionId::carried(ID),
+        command: text.into(),
+    };
+
+    Arc::clone(&rig.fleet).run_session_command(run("/update-armada")).await.expect("held");
+    Arc::clone(&rig.fleet).run_session_command(run("/model opus")).await.expect("held");
+    let held = rig
+        .fleet
+        .take_held_messages(TakeHeld { session_id: ID.into(), wait_ms: None })
+        .await
+        .unwrap();
+    let said: Vec<(String, String)> = held.commands.into_iter().map(|one| (one.command, one.args)).collect();
+    assert_eq!(
+        said,
+        vec![("update-armada".to_string(), String::new()), ("model".to_string(), "opus".to_string())]
+    );
+
+    for text in ["update-armada", "/", "/Update", "/tmp/x y", "rm -rf /", "/model opus\n/clear", ""] {
+        let refused = Arc::clone(&rig.fleet).run_session_command(run(text)).await.unwrap_err();
+        assert!(format!("{refused:?}").contains("fleet.session_command_refused"), "{text}: {refused:?}");
+    }
+    let nobody = ipc::RunSessionCommand { session_id: SessionId::carried("zzzz"), command: "/clear".into() };
+    let refused = Arc::clone(&rig.fleet).run_session_command(nobody).await.unwrap_err();
+    assert!(format!("{refused:?}").contains("fleet.session_command_refused"), "{refused:?}");
+
+    rig.reports(SessionFact::Ended { reason: "prompt_input_exit".into() }).await;
+    let closed = Arc::clone(&rig.fleet).run_session_command(run("/clear")).await.unwrap_err();
+    assert!(format!("{closed:?}").contains("fleet.session_closed"), "{closed:?}");
+}
+
 /// A terminal session whose mod is older than the repository's, or says none, is marked.
 #[tokio::test]
 async fn a_session_whose_mod_is_older_than_the_repositorys_is_marked() {
