@@ -145,6 +145,7 @@ function hubOf(hub: WireHub, recent: readonly RecentJob[], owners: ReadonlyMap<s
       ...(pull.queue === undefined ? {} : { queue: { state: pull.queue.state as NonNullable<HubPull["queue"]>["state"], ...(pull.queue.position === undefined ? {} : { position: pull.queue.position }) } }),
     })),
     recent,
+    ...(hub.recent_sessions === undefined ? {} : { recentSessions: hub.recent_sessions }),
   };
 }
 
@@ -195,6 +196,7 @@ function redOf(main: MainStanding): MainRed | undefined {
             ...(merge.url === undefined ? {} : { url: merge.url }),
             ...(merge.branch === undefined ? {} : { branch: merge.branch }),
             ...(merge.job === undefined ? {} : { job: merge.job }),
+            ...(merge.session === undefined ? {} : { session: merge.session }),
           },
         }),
   };

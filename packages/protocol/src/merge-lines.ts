@@ -41,6 +41,8 @@ export type MergeLineHub = {
   merged?: HubMerged[];
   /** The Job working on main's red. Since 23.42. */
   fixing?: HubJob;
+  /** The Sessions main's red can be sent back to, newest first. Not served yet. */
+  recent_sessions?: HubSession[];
 };
 
 /** One pull request recently merged. Since 23.42. */
@@ -74,6 +76,8 @@ export type FixMain = {
   root: string;
   /** An earlier Job to send the work back to. Absent dispatches a new one. */
   job?: string;
+  /** A Session to send the work to as a message, with `brief` as the message. Not served yet. */
+  session?: string;
   /** What the Job is told. Absent is the facts Fleet read. */
   brief?: string;
 };
@@ -92,6 +96,9 @@ export type FixesMain = {
 
 /** A Job, by its id and what it is called. */
 export type HubJob = { id: string; title: string };
+
+/** A Session, by its id and what it is called. */
+export type HubSession = { id: string; title: string };
 
 /**
  * `main_ci_state` is `green`, `red`, `running` or `nothing_ran`. A red a fix is still running for
@@ -141,6 +148,8 @@ export type MainMerge = {
   branch?: string;
   /** The Job whose pull request that is. Absent for a person's. */
   job?: HubJob;
+  /** The Session whose pull request that is. Absent for a Job's or a person's. Not served yet. */
+  session?: HubSession;
 };
 
 /** `ci` is `passed`, `running`, `failed` or `waiting_on_main`: failed only on the jobs main is failing. */

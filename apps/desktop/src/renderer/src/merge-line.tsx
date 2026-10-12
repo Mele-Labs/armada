@@ -38,6 +38,7 @@ export function MergeLinePanel({
   state,
   onOpenLink,
   onOpenJob,
+  onOpenSession,
   onFix,
   focus,
   surface = false,
@@ -46,6 +47,8 @@ export function MergeLinePanel({
   onOpenLink: (address: string) => void;
   /** A Job the head or a pull request names. Absent, it is not a press. */
   onOpenJob?: (jobId: string) => void;
+  /** A Session the head names. Absent, it is not a press. */
+  onOpenSession?: (sessionId: string) => void;
   /** Hands main's red to a Job. Absent, the band offers no way to. */
   onFix?: (fix: FixMain) => void;
   focus?: string;
@@ -67,6 +70,7 @@ export function MergeLinePanel({
           {...(pinned === undefined ? {} : { pinned })}
           {...(focus === undefined ? {} : { focus })}
           {...(onOpenJob === undefined ? {} : { onOpenJob })}
+          {...(onOpenSession === undefined ? {} : { onOpenSession })}
           {...(onFix === undefined ? {} : { onFix })}
           onOpenLink={onOpenLink}
           onOpenCheck={(branch, check) => setReading({ root: view.root, branch, check })}
@@ -91,6 +95,7 @@ function OneLine({
   focus,
   onOpenLink,
   onOpenJob,
+  onOpenSession,
   onFix,
   onOpenCheck,
   pinned,
@@ -101,6 +106,7 @@ function OneLine({
   focus?: string;
   onOpenLink: (address: string) => void;
   onOpenJob?: (jobId: string) => void;
+  onOpenSession?: (sessionId: string) => void;
   onFix?: (fix: FixMain) => void;
   onOpenCheck: (branch: string, check: string) => void;
 }) {
@@ -120,6 +126,7 @@ function OneLine({
       notice={view.notice}
       {...(view.hub === undefined ? {} : { hub: view.hub })}
       {...(onOpenJob === undefined ? {} : { onOpenJob })}
+      {...(onOpenSession === undefined ? {} : { onOpenSession })}
       open={open}
       {...(pinned === undefined ? {} : { pinned })}
       {...(holds ? { focus } : {})}
@@ -129,7 +136,11 @@ function OneLine({
             onFix: (choice) =>
               onFix({
                 root: view.root,
-                ...(choice.kind === "back" ? { job: choice.job } : { brief: choice.request }),
+                ...(choice.kind === "back"
+                  ? { job: choice.job }
+                  : choice.kind === "session"
+                    ? { session: choice.session, brief: choice.message }
+                    : { brief: choice.request }),
               }),
           })}
       onOpenChange={setOpen}
@@ -146,6 +157,7 @@ export function MergeLineSurface({
   onCopied,
   onOpenLink,
   onOpenJob,
+  onOpenSession,
   onFix,
   focus,
 }: {
@@ -154,6 +166,7 @@ export function MergeLineSurface({
   onCopied: (value: string) => void;
   onOpenLink: (address: string) => void;
   onOpenJob?: (jobId: string) => void;
+  onOpenSession?: (sessionId: string) => void;
   onFix?: (fix: FixMain) => void;
   focus?: string;
 }) {
@@ -176,6 +189,7 @@ export function MergeLineSurface({
           state={state}
           onOpenLink={onOpenLink}
           {...(onOpenJob === undefined ? {} : { onOpenJob })}
+          {...(onOpenSession === undefined ? {} : { onOpenSession })}
           {...(onFix === undefined ? {} : { onFix })}
           {...(focus === undefined ? {} : { focus })}
         />

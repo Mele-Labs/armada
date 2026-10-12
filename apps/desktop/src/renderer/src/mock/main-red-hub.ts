@@ -11,7 +11,7 @@
 //
 // Each ends with the fix landing: main green, and the Job that fixed it says so on its row.
 
-import type { HubJob, HubPull, MainRed, MainState } from "@armada/components";
+import type { HubJob, HubPull, HubSession, MainRed, MainState, RecentSession } from "@armada/components";
 import type { FollowedLandLog, HubPullRequest, JobSummary, LandCheckAt, MainStanding, MergeLine, MergeLineHub, MergeLines } from "@armada/protocol";
 import type { FixesMain } from "@armada/screens/src/main-red";
 import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
@@ -223,7 +223,17 @@ function standing(main: MainState): MainStanding {
         ...(red.test === undefined ? {} : { tests: [red.test] }),
       },
     ],
-    ...(merge === undefined ? {} : { merge: { number: merge.number, url: merge.url, branch: merge.branch, ...(merge.job === undefined ? {} : { job: merge.job }) } }),
+    ...(merge === undefined
+      ? {}
+      : {
+          merge: {
+            number: merge.number,
+            url: merge.url,
+            branch: merge.branch,
+            ...(merge.job === undefined ? {} : { job: merge.job }),
+            ...(merge.session === undefined ? {} : { session: merge.session }),
+          },
+        }),
   };
 }
 
@@ -237,12 +247,13 @@ const requestOf = (one: HubPull): HubPullRequest => ({
 });
 
 /** The line a moment serves for the repository, with the hub on it. */
-function lineAt(root: string, at: number): MergeLines {
-  const { main, pulls } = MOMENTS[at]!;
+function lineAt(root: string, at: number, moments: readonly Moment[] = MOMENTS, sessions: readonly RecentSession[] = []): MergeLines {
+  const { main, pulls } = moments[at]!;
   const hub: MergeLineHub = {
     main: standing(main),
     pull_requests: pulls.map(requestOf),
     ...(main.state === "red" && main.taken !== undefined ? { fixing: main.taken } : {}),
+    ...(sessions.length === 0 ? {} : { recent_sessions: [...sessions] }),
   };
   return { lines: [{ root, line: [], off: [], landed: [], sent_back: [], hub } as MergeLine] };
 }
@@ -251,6 +262,52 @@ function lineAt(root: string, at: number): MergeLines {
 export function mainRed(root: string): { first: Partial<BridgeState>; later: Partial<BridgeState>[] } {
   const at = (n: number): Partial<BridgeState> => ({ mergeLines: lineAt(root, n), jobs: MOMENTS[n]!.jobs });
   return { first: at(0), later: MOMENTS.slice(1).map((_, n) => at(n + 1)) };
+}
+
+// A Session's pull request turned main red. Fleet names the Session that owns the pull request, and
+// the send-back dialog lists Sessions beside Jobs. `main-red-session` walks it.
+//
+//   0  The Session's pull request is open and green.
+//   1  It merged and main is red: the head names the Session, and the owner is asked.
+//   2  The owner sent the work back to the Session, and its fix landed.
+
+const SESSION: HubSession = { id: "session-c279e883", title: "Show who merged on the head" };
+const SESSION_BRANCH = "armada/session-c279e883";
+
+/** Newest first, the culprit not first, so the dialog has to put it there. */
+const RECENT_SESSIONS: RecentSession[] = [
+  { id: "session-3d90b1a2", title: "Rework the Cockpit deck cards", branch: "armada/session-3d90b1a2" },
+  { ...SESSION, branch: SESSION_BRANCH },
+];
+
+const SESSION_RED: MainRed = {
+  check: "screens_test",
+  test: "merge-line.test.ts > folds a Session's pull request onto the head",
+  merge: { number: 1830, url: `${PULL}1830`, branch: SESSION_BRANCH, session: SESSION },
+};
+
+const SESSION_MOMENTS: Moment[] = [
+  {
+    main: { state: "green" },
+    pulls: [pull(1830, SESSION_BRANCH, "passed"), ...BYSTANDING("passed", "running").pulls],
+    jobs: [rowOf(CACHE, "completed_success"), rowOf(DEBOUNCE, "awaiting_review"), ...BYSTANDING("passed", "running").jobs],
+  },
+  {
+    main: { state: "red", red: SESSION_RED },
+    pulls: BYSTANDING("waiting_on_main", "failed").pulls,
+    jobs: [rowOf(CACHE, "completed_success"), rowOf(DEBOUNCE, "awaiting_review"), ...BYSTANDING("waiting_on_main", "failed").jobs],
+  },
+  {
+    main: { state: "green" },
+    pulls: BYSTANDING("passed", "failed").pulls,
+    jobs: [rowOf(CACHE, "completed_success"), rowOf(DEBOUNCE, "awaiting_review"), ...BYSTANDING("passed", "failed").jobs],
+  },
+];
+
+/** The same story told when a Session's pull request is the one that turned main red. */
+export function sessionRed(root: string): { first: Partial<BridgeState>; later: Partial<BridgeState>[] } {
+  const at = (n: number): Partial<BridgeState> => ({ mergeLines: lineAt(root, n, SESSION_MOMENTS, RECENT_SESSIONS), jobs: SESSION_MOMENTS[n]!.jobs });
+  return { first: at(0), later: SESSION_MOMENTS.slice(1).map((_, n) => at(n + 1)) };
 }
 
 /** A failed Check's log on main, as the run on the forge printed it. */

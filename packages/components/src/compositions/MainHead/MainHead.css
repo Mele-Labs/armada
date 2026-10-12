@@ -91,6 +91,19 @@
   gap: var(--space-1) var(--space-3);
 }
 
+.armada-main-red__owner {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.armada-main-red__owner-mark {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  color: var(--fg-muted);
+}
+
 .armada-main-red__link {
   padding: 0;
   border: 0;

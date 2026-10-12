@@ -55,8 +55,8 @@ test("Send back lists the Board's Jobs at their review or over, and sends the on
   // The merge line has its own page; the Dashboard reads main's red as one of its calls.
   await page.getByRole("button", { name: "Merge line", exact: true }).click();
 
-  await band().getByRole("button", { name: "Send back to a Job" }).click();
-  const dialog = page.getByRole("dialog", { name: "Send the work back to a Job" });
+  await band().getByRole("button", { name: "Send back", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Send the work back" });
   await expect.element(dialog.getByRole("radio", { name: /Debounce the Job Board/ })).toBeVisible();
   // A Job still running is not one the work can go back to.
   expect(dialog.getByRole("radio", { name: /Store a pause marker/ }).query()).toBeNull();
