@@ -101,6 +101,7 @@ fn door_of(request: &Request) -> Via {
     } else {
         "http"
     };
-    // Total: the five spellings are the domain's own.
+    // Total: these spellings are the domain's own, and none is `commander`: no
+    // request is placed as a Commander's by what it carries.
     Via::from_wire(spelled).unwrap_or_else(|| unreachable!("`{spelled}` is a door"))
 }

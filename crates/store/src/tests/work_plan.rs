@@ -90,6 +90,35 @@ fn a_plan_and_every_change_to_it_survive_the_process_that_kept_them() {
 }
 
 #[test]
+fn a_change_the_commander_made_is_kept_as_the_commanders_and_not_a_persons() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    on_its_first_run(&mut store, "01COMMANDERPLAN");
+    let step = step_id();
+    kept(&mut store, "01COMMANDERPLAN", recorded(&["one", "two"]), PlanHand::Step(&step));
+    kept(
+        &mut store,
+        "01COMMANDERPLAN",
+        updated("T1", TaskUpdate::Done),
+        PlanHand::Commander,
+    );
+    kept(
+        &mut store,
+        "01COMMANDERPLAN",
+        updated("T2", TaskUpdate::Done),
+        PlanHand::Person,
+    );
+    drop(store);
+
+    let history = open(&dir)
+        .plan_history(&job_id("01COMMANDERPLAN"))
+        .expect("the history reads");
+
+    assert_eq!(history[1].by, PlanAuthor::Commander);
+    assert_eq!(history[2].by, PlanAuthor::Person);
+}
+
+#[test]
 fn nothing_recorded_reads_as_no_plan() {
     let dir = TempDir::new();
     let mut store = open(&dir);

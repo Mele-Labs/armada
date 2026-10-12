@@ -86,7 +86,8 @@ export type SessionComposerProps = {
   /** Opens the pad. */
   onDraw: () => void;
   onRemoveDrawn: (id: string) => void;
-  onSend: (sent: SentFromComposer) => void;
+  /** Resolving to `false` says the message did not go, and the box is given it back. */
+  onSend: (sent: SentFromComposer) => void | Promise<boolean>;
   /** The permission mode is shown and not set: a session in a terminal holds it, and nothing outside can switch it. */
   modeLocked?: boolean;
   /** A terminal's mode is not drawn until its mod has reported one. */
@@ -310,9 +311,14 @@ export function SessionComposer({
 
   const send = () => {
     if (text.trim() === "" && !held) return;
-    onSend({ text: sentText(text, draft.tags).trim(), files, tags: draft.tags });
+    const sent = draft;
+    const done = onSend({ text: sentText(text, draft.tags).trim(), files, tags: draft.tags });
     forget();
     setHead("");
+    // A refused message comes back, unless something new has been typed since.
+    void done?.then((went) => {
+      if (!went) setDraft((now) => (now.text === "" && now.tags.length === 0 && now.files.length === 0 ? sent : now));
+    });
   };
 
   const submit = (event: FormEvent) => {

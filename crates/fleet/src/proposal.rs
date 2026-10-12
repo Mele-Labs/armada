@@ -289,6 +289,7 @@ pub(crate) fn requested(by: api::Redirector) -> core_model::TopLevelOrigin {
     match by {
         api::Redirector::Person => core_model::TopLevelOrigin::Manual,
         api::Redirector::Helm => core_model::TopLevelOrigin::HelmDrafted,
+        api::Redirector::Commander => unreachable!("a Commander does not draft a Job"),
     }
 }
 
@@ -391,6 +392,7 @@ where
         let actor = match by {
             api::Redirector::Person => core_model::Actor::Human,
             api::Redirector::Helm => core_model::Actor::Helm,
+            api::Redirector::Commander => core_model::Actor::Commander,
         };
         // Refused before any Job exists: with no proposer to ask, nothing
         // could ever move the Job, and a row at `proposing` would wait forever.

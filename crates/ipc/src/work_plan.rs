@@ -64,12 +64,13 @@ pub struct PlanGroupRun {
     pub commit: Option<String>,
 }
 
-/// Who made a change: a run of a step, or a person.
+/// Who made a change: a run of a step, a person, or the Job's Commander.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "by", rename_all = "snake_case")]
 pub enum ChangedBy {
     Step { step_id: StepId, attempt: u32 },
     Person,
+    Commander,
 }
 
 /// One line of the plan.
@@ -412,6 +413,7 @@ impl From<&core_model::PlanAuthor> for ChangedBy {
                 attempt: attempt.number(),
             },
             core_model::PlanAuthor::Person => ChangedBy::Person,
+            core_model::PlanAuthor::Commander => ChangedBy::Commander,
         }
     }
 }

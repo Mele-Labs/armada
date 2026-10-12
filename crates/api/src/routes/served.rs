@@ -616,6 +616,11 @@ const ROUTES: &[Route] = &[
         path: "/sessions/waiting",
     },
     Route {
+        operation: "all_done",
+        method: "POST",
+        path: "/sessions/done",
+    },
+    Route {
         operation: "answer_waiting",
         method: "POST",
         path: "/sessions/waiting/answer",
