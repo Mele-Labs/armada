@@ -552,6 +552,9 @@ void app.whenReady().then(() => {
   ipcMain.handle(CHANNELS.searchFiles, (event, query: string) =>
     connection?.commands.searchFiles(query, connection.repositories.pickedByWindow.of(windowIdOf(event))),
   );
+  ipcMain.handle(CHANNELS.readRequestRepository, (_event, words: unknown) =>
+    connection?.commands.readRequestRepository(typeof words === "string" ? words : ""),
+  );
   ipcMain.handle(CHANNELS.approveDispatch, (_event, jobId: string, approval?: ApproveDispatch) =>
     connection?.commands.approveDispatch(jobId, approval),
   );
@@ -746,6 +749,10 @@ void app.whenReady().then(() => {
   ipcMain.handle(CHANNELS.agreeLesson, (_event, lessonId: string) => connection?.commands.agreeLesson(lessonId));
   ipcMain.handle(CHANNELS.disagreeLesson, (_event, lessonId: string) =>
     connection?.commands.disagreeLesson(lessonId),
+  );
+  // Agreeing by a Session instead of a Job: Fleet starts it and drafts the first message, and sends nothing.
+  ipcMain.handle(CHANNELS.startLessonSession, (_event, lessonId: string) =>
+    connection?.commands.startLessonSession(lessonId),
   );
   ipcMain.handle(CHANNELS.restartStep, (_event, jobId: string, note?: string) =>
     connection?.commands.restartStep(jobId, note),

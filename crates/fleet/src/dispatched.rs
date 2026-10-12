@@ -130,6 +130,7 @@ where
         };
         let job = Job::create_proposing(new, dispatched_as, at.clone());
         store.insert_job(&job, &at).map_err(Adrift::Writing)?;
+        crate::retro::kept_created_via(&mut store, job.id());
         self.learn_the_name(&job);
         self.manifest_snapshotted(&mut store, &job).await;
         drop(store);

@@ -117,7 +117,7 @@ test("on Bays: a Next up station before Waiting, its lines marked, its numbered 
   await expect.element(aside).toHaveTextContent("Nothing set aside.");
 });
 
-test("the one bar's third kind is Autopilot: Tab steps to it, and the words open the start form read", async () => {
+test("the one bar's third kind is Autopilot: Tab steps to it, and the panel reads the words and starts it", async () => {
   await cockpit();
   await page.getByRole("tab", { name: "Active" }).click();
   await userEvent.keyboard("n");
@@ -125,10 +125,13 @@ test("the one bar's third kind is Autopilot: Tab steps to it, and the words open
   const row = () => document.getElementById("armada-palette-row-dispatch")?.textContent ?? "";
   for (let tries = 0; tries < 3 && !row().startsWith("Start Autopilot"); tries += 1) await userEvent.keyboard("{Tab}");
   expect(row()).toBe("Start Autopilot with “Work the open bugs until 7am”⌘↵");
-  // Off first, since this one is running and only one runs per repository.
   await userEvent.keyboard("{Meta>}{Enter}{/Meta}");
-  await expect.element(bar().getByRole("alert")).toHaveTextContent("Autopilot is already on for this repository.");
-  await expect.element(bar().getByRole("textbox", { name: /Tell Autopilot what to work on/ })).not.toBeInTheDocument();
+  // The panel grows from the bar. Its act reads the words as settings, and nothing starts until the next press.
+  const panel = page.getByRole("dialog", { name: "Dispatch" });
+  await panel.getByRole("button", { name: "Read it" }).click();
+  await expect.element(panel.getByRole("textbox", { name: "At once" })).toBeVisible();
+  await panel.getByRole("button", { name: "Start Autopilot" }).click();
+  await expect.element(panel).not.toBeInTheDocument();
 });
 
 /** The Cockpit on the second repository, whose Autopilot its Job cap paused. */

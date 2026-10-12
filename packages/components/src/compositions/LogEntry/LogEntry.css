@@ -69,6 +69,13 @@ button.armada-entry:focus-visible {
   white-space: nowrap;
 }
 
+/* The door a turn came through, beside who: a glyph and no sentence. */
+.armada-entry__door {
+  display: inline-flex;
+  margin-left: var(--space-1);
+  vertical-align: middle;
+}
+
 .armada-entry[data-open] .armada-entry__who {
   color: var(--fg-default);
 }

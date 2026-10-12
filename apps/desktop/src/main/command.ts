@@ -15,6 +15,8 @@
 // what makes "kill the Drone" a request to the daemon that spawned it.
 
 import type { CommandExplainedRead } from "../shared/api";
+import type { RequestRepositoryRead } from "../shared/api/jobs";
+import { readRequestRepository as readRequest } from "./request-repository";
 import type { RescueOutcome } from "@armada/cleanup/api";
 import type { BridgeState } from "../shared/bridge";
 import type {
@@ -47,6 +49,8 @@ import type {
 } from "@armada/protocol";
 import type { ProposalInFlight, Proposed, ShownAgain } from "@armada/protocol";
 import type { Lesson, LessonAnswer } from "@armada/protocol";
+import type { LessonSessionStarted } from "@armada/protocol";
+import type { LessonSessionRead } from "@armada/jobs/session-wire";
 import { ask, CHECKS_MS, COMMAND_MS, isJobSummary, MODEL_CALL_MS, NO_WAIT, route, type Answer } from "./request";
 import type { Picked } from "./picked";
 import { Clearing } from "./clearing";
@@ -369,6 +373,11 @@ export class JobCommands {
     if (port === null || path === null) return [];
     const answer = await ask(port, "GET", path);
     return answer.ok === true ? (answer.body as FilesFound).paths : [];
+  }
+
+  /** Which repository the words typed so far are about — `request-repository.ts`. */
+  async readRequestRepository(words: string): Promise<RequestRepositoryRead> {
+    return readRequest(this.board, words);
   }
 
   /**
@@ -847,6 +856,29 @@ export class JobCommands {
   /** Disagree with one retro item: Fleet discards it. */
   async disagreeLesson(lessonId: string): Promise<LessonAnswer> {
     return this.answerLesson(lessonId, "disagree");
+  }
+
+  /**
+   * Agree with one retro item by starting a Session on its repository (`start_lesson_session`).
+   * **Fleet sends the brief as the Session's first message**, so the Session is running when this
+   * answers: the item, the Session's id and the brief sent. The Board is
+   * not read again, since a Session is no Board row. Shares `answerLesson`'s one-press guard, so a
+   * Session and a Job cannot both be started from one item.
+   */
+  async startLessonSession(lessonId: string): Promise<LessonSessionRead> {
+    if (this.answeringLesson.has(lessonId)) {
+      return { ok: false, outcome: { ok: false, why: "already_answering_lesson" } };
+    }
+    const port = this.board.port();
+    if (port === null) return { ok: false, outcome: { ok: false, why: "not_connected" } };
+    this.answeringLesson.add(lessonId);
+    try {
+      const sent = await ask(port, "POST", `/lessons/${encodeURIComponent(lessonId)}/session`);
+      if (sent.ok !== true) return { ok: false, outcome: sent.outcome };
+      return { ok: true, started: sent.body as LessonSessionStarted };
+    } finally {
+      this.answeringLesson.delete(lessonId);
+    }
   }
 
   /**

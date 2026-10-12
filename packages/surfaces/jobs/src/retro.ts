@@ -37,6 +37,8 @@ import { refusalWords } from "@armada/screens/src/refusal-words";
 import { absoluteOf, lasting } from "@armada/screens/src/duration";
 import { addressOf } from "@armada/screens/src/sessions-wire";
 
+import { sessionProposedOf, type LessonSessionRead } from "./session-wire";
+
 /** Ask main for one retro: a Job's, or a Session's (the newest, or the numbered one). */
 export type ReadRetro = (subject: RetroSubject) => Promise<RetroRead>;
 
@@ -67,6 +69,18 @@ export type ReadLessons = (state: LessonsView) => Promise<LessonsRead>;
 export type LessonsView = "open" | "accepted";
 /** One answer on one item, by its id. */
 export type AnswerLesson = (lessonId: string) => Promise<LessonAnswer>;
+/** Agree with one item by starting a Session on its repository. Nothing is sent to it. */
+export type StartLessonSession = (lessonId: string) => Promise<LessonSessionRead>;
+
+/**
+ * What Start Session needs of the host: the call to Fleet, and how to open the Session it
+ * started. **Fleet has already sent the brief**, so the Session opens running, and nothing is
+ * put in its message box.
+ */
+export type SessionStarts = {
+  start: StartLessonSession;
+  open: (sessionId: string) => void;
+};
 
 /** A record row as one line: what it is about, what it came to, and when. */
 function when(at: string | undefined): { when?: string } {
@@ -175,6 +189,8 @@ export function commandOf(change: RetroChange | undefined): string | undefined {
 export type SheetItem = RetroSheetItem & {
   state?: LessonState;
   jobProposed?: string;
+  /** The Session started for it, where Start Session answered it. */
+  sessionProposed?: string;
   /** What Update Kit would add, and what it added. */
   change?: string;
   applied?: string;
@@ -192,6 +208,7 @@ export function itemsOf(retro: JobRetro): SheetItem[] {
     id: item.id,
     ...(item.state === undefined ? {} : { state: item.state }),
     ...(item.job_proposed === undefined ? {} : { jobProposed: item.job_proposed }),
+    ...(sessionProposedOf(item) === undefined ? {} : { sessionProposed: sessionProposedOf(item)! }),
     ...changed(item),
     who: item.who,
     ...(item.lands_in === undefined ? {} : { landsIn: item.lands_in }),
@@ -333,6 +350,10 @@ export function agreeTipOf(landsIn: LandsIn, changes = false): string {
     : "Saves it under Accepted.";
 }
 
+/** What Start Session does: the other way to agree with an Armada or Manifest item. */
+export const START_SESSION_TIP =
+  "Starts a Session on this repository and sends it this request now. It begins work at once.";
+
 /** What the button that disagrees does, the same for every place. */
 export const DISAGREE_TIP = "Discards it.";
 
@@ -341,9 +362,11 @@ const AGREED = "Agreed";
 const ACCEPTED = "Accepted";
 const UPDATED_KIT = "Updated Kit";
 const PROPOSED_JOB = "Proposed Job";
+const SESSION_STARTED = "Session started";
+const OPEN_SESSION = "Open Session";
 
 /** Where an item stands on the wire, where the surface knows it. Absent on an item kept before it was written. */
-export type Standing = { state?: LessonState; jobProposed?: string; change?: string; applied?: string };
+export type Standing = { state?: LessonState; jobProposed?: string; sessionProposed?: string; change?: string; applied?: string };
 
 /** What an item shows of its own answer: the buttons, what it settled as, or that it has gone. */
 export type AnswerView = { answers?: LessonAnswers; settled?: LessonSettled; gone: boolean };
@@ -354,7 +377,9 @@ export type AnswerView = { answers?: LessonAnswers; settled?: LessonSettled; gon
  * **An answer sends once per item** and the item's buttons hold while it is out.
  * Agreed for an Armada or Manifest item stays, reading `Agreed` with a link to
  * the Job it proposed, until the surface is read again, when Fleet no longer
- * lists it as open. A Kit item that updated Kit stays the same way, reading
+ * lists it as open. **Start Session answers the same two kinds** and stays as
+ * `Session started` with a link that opens the Session; the host opens it at
+ * once, with its first message in the message box. A Kit item that updated Kit stays the same way, reading
  * `Updated Kit` with the command Fleet says it applied. Agreeing any other Kit
  * item and disagreeing with any item take it off at once. A refusal stays on
  * the item, in Fleet's own words, with both answers.
@@ -363,8 +388,15 @@ export function useAnswers(
   agree: AnswerLesson | undefined,
   disagree: AnswerLesson | undefined,
   openJob: ((jobId: string) => void) | undefined,
+  sessions?: SessionStarts,
 ): (lessonId: string, landsIn: LandsIn | undefined, standing: Standing) => AnswerView {
-  const [pressing, setPressing] = useState<Record<string, "agree" | "disagree">>({});
+  const [pressing, setPressing] = useState<Record<string, "agree" | "disagree" | "session">>({});
+  const [started, setStarted] = useState<Record<string, string>>({});
+  // Fleet's words where the Session started and the brief did not go.
+  const [notSent, setNotSent] = useState<Record<string, string>>({});
+  // Read when the answer lands, not when the press was made: the host may have been rebuilt between.
+  const latestSessions = useRef(sessions);
+  latestSessions.current = sessions;
   const [refused, setRefused] = useState<Record<string, string>>({});
   const [gone, setGone] = useState<ReadonlySet<string>>(new Set());
   const [agreed, setAgreed] = useState<Record<string, string | undefined>>({});
@@ -391,6 +423,34 @@ export function useAnswers(
     }
   }
 
+  async function startSession(lessonId: string) {
+    const starts = latestSessions.current;
+    if (starts === undefined) return;
+    setPressing((was) => ({ ...was, [lessonId]: "session" }));
+    setRefused(({ [lessonId]: _, ...rest }) => rest);
+    const answer = await starts.start(lessonId);
+    setPressing(({ [lessonId]: _, ...rest }) => rest);
+    if (!answer.ok) {
+      setRefused((was) => ({ ...was, [lessonId]: refusalWords(answer.outcome) }));
+      return;
+    }
+    setStarted((was) => ({ ...was, [lessonId]: answer.started.session_id }));
+    if (answer.started.send_failed !== undefined) {
+      const why = answer.started.send_failed;
+      setNotSent((was) => ({ ...was, [lessonId]: why }));
+    }
+    latestSessions.current?.open(answer.started.session_id);
+  }
+
+  const startedAs = (sessionId: string, note?: string): AnswerView => ({
+    gone: false,
+    settled: {
+      said: SESSION_STARTED,
+      ...(note === undefined ? {} : { note }),
+      ...(sessions === undefined ? {} : { session: { label: OPEN_SESSION, onOpen: () => sessions.open(sessionId) } }),
+    },
+  });
+
   const agreedAs = (job: string | undefined): AnswerView => ({
     gone: false,
     settled: {
@@ -409,11 +469,15 @@ export function useAnswers(
   return (lessonId, landsIn, standing) => {
     if (gone.has(lessonId)) return { gone: true };
     if (lessonId in agreed) return agreedAs(agreed[lessonId]);
+    const startedId = started[lessonId];
+    if (startedId !== undefined) return startedAs(startedId, notSent[lessonId]);
     const was = updated[lessonId];
     if (was !== undefined) return updatedAs(was);
     // **An item answered before this read stands as Fleet says**: its state, and no buttons.
     // Discarded draws nothing. One with no state is read and left alone.
-    if (standing.state === "agreed") return agreedAs(standing.jobProposed);
+    if (standing.state === "agreed") {
+      return standing.sessionProposed === undefined ? agreedAs(standing.jobProposed) : startedAs(standing.sessionProposed);
+    }
     if (standing.state === "accepted") {
       return standing.applied === undefined ? { gone: false, settled: { said: ACCEPTED } } : updatedAs(standing.applied);
     }
@@ -431,6 +495,10 @@ export function useAnswers(
         disagreeTip: DISAGREE_TIP,
         onAgree: () => void press(lessonId, "agree", landsIn),
         onDisagree: () => void press(lessonId, "disagree", landsIn),
+        // Kit is no repository, so a Kit item has no Session to start.
+        ...(sessions === undefined || landsIn === "kit"
+          ? {}
+          : { startSession: { tip: START_SESSION_TIP, onStart: () => void startSession(lessonId) } }),
         ...(held === undefined ? {} : { pressing: held }),
         ...(why === undefined ? {} : { refusal: why }),
       },

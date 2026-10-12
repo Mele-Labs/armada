@@ -25,6 +25,14 @@ pub(super) const ROUTES: &[Route] = &[
         method: "POST",
         path: "/sleep/review",
     },
+    // Which served repository a request's words are about: typed text, so a
+    // query string for `search_files`' reason, and under `/repositories`
+    // beside the list it picks from.
+    Route {
+        operation: "read_request_repository",
+        method: "GET",
+        path: "/repositories/of_request",
+    },
     // A repository's open issues, read from its tracker. #91.
     Route {
         operation: "list_issues",

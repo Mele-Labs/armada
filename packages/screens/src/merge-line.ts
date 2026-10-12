@@ -5,7 +5,7 @@
 // `merge_lines.changed` — reading what `armada land` keeps on disk. `landed` and `sent_back` since
 // 23.1. This is the one fold from that wire onto the composition's rows.
 
-import type { HubPull, MainRed, MainState, MergeLineCheck, MergeLineEntry, MergeLineHub, MergeLineNotice, MergeLineState, MergeLineWaiting, RecentJob } from "@armada/components";
+import type { HubPull, MainRed, PlaceRow, MainState, MergeLineCheck, MergeLineEntry, MergeLineHub, MergeLineNotice, MergeLineState, MergeLineWaiting, RecentJob } from "@armada/components";
 import type { HubMerged, JobSummary, MainRun, MainStanding, MergeLine, MergeLineHub as WireHub, MergeLineRow, MergeLines, RepositorySummary } from "@armada/protocol";
 import { repositoryLabel } from "@armada/shell";
 
@@ -241,4 +241,47 @@ function entryOf(row: MergeLineRow, held = false): MergeLineEntry {
     conflicts: row.conflicts,
     checks: row.checks?.map((check) => ({ name: check.name, state: check.state as MergeLineCheck["state"] })),
   };
+}
+
+/** The pull request a panel is drawn for: how a hub names it, and how a land line's row does. */
+export type PlacedPull = { number: number; address: string; branch: string };
+
+/**
+ * The line that holds a pull request, as the rows to draw: its place first, the others in order.
+ * **The forge's merge queue is preferred**, found by the pull request's address (the number and
+ * branch where the address differs); `armada land`'s own line is read when the queue does not hold
+ * it. A pull request waiting for ci to join the queue has no place, and neither does one in no line,
+ * so both give `undefined` and nothing is drawn.
+ */
+export function placeOf(lines: MergeLines | null, pull: PlacedPull): readonly PlaceRow[] | undefined {
+  const served = lines?.lines ?? [];
+  for (const one of served) {
+    const placed = (one.hub?.pull_requests ?? []).filter((row) => row.queue?.position !== undefined);
+    const mine = placed.find((row) => row.url === pull.address || (row.number === pull.number && row.branch === pull.branch));
+    if (mine === undefined) continue;
+    return placed
+      .sort((a, b) => a.queue!.position! - b.queue!.position!)
+      .map((row) => ({
+        place: row.queue!.position!,
+        title: row.title === "" ? row.branch : row.title,
+        number: row.number,
+        url: row.url,
+        mark: { line: "queue" as const, state: row.queue!.state as NonNullable<HubPull["queue"]>["state"] },
+        ...(row === mine ? { current: true as const } : {}),
+      }));
+  }
+  for (const view of mergeLineViews(lines, null, [])) {
+    const mine = view.line.find((row) => row.place !== undefined && (row.pr?.url === pull.address || row.pr?.number === pull.number || row.branch === pull.branch));
+    if (mine === undefined) continue;
+    return view.line
+      .filter((row) => row.place !== undefined)
+      .map((row) => ({
+        place: row.place!,
+        title: row.branch,
+        ...(row.pr === undefined ? {} : { number: row.pr.number, url: row.pr.url }),
+        mark: { line: "land" as const, state: row.state },
+        ...(row === mine ? { current: true as const } : {}),
+      }));
+  }
+  return undefined;
 }

@@ -33,7 +33,9 @@ export type Line = {
   reach: number;
   /** One per station; absent where the work has no stop there. */
   stops: readonly (Stop | undefined)[];
-  /** What a press on its title opens: its Job, or its Session. None for a terminal Armada does not know. */
+  /** The first station it has a stop at: a pull request opened outside a bay starts at Pull request. */
+  from?: number;
+  /** What a press on its title opens: its Job, or its Session, or a pull request on the forge. None for a terminal Armada does not know. */
   open: Act | undefined;
   /** A row tinted for what it wants: the owner's answer, or its failing checks. */
   wants: "you" | "fixing" | undefined;
@@ -45,7 +47,8 @@ export type Line = {
 
 export type Metro = {
   /** One block of lines per repository with bays, furthest along first. */
-  harbours: readonly { manifest: string; name: string; lines: readonly Line[] }[];
+  /** `outside` is the pull requests on the repository's merge line that no bay holds: opened by hand, or from another machine. */
+  harbours: readonly { manifest: string; name: string; lines: readonly Line[]; outside: readonly Line[] }[];
   waiting: readonly Line[];
   /** Autopilot's picks not started, at Next up before Waiting: only while an Autopilot is on. */
   nextUp?: readonly Line[];
@@ -60,6 +63,9 @@ const PULL: Record<Dot["state"], Tone> = { running: "run", failing: "bad", ready
 
 const two = (n: number) => String(n).padStart(2, "0");
 const ordinal = (place: number) => `${place}${place === 1 ? "st" : place === 2 ? "nd" : place === 3 ? "rd" : "th"}`;
+
+/** Where a line stands in the merge queue, for ordering: one with no place sorts after those with one. */
+const placeOf = (line: Line) => Number(line.stops[4]?.glyph ?? Infinity);
 
 /** How long ago `since` was, in the Board's words: 41m, 2h 05m. */
 export function heldFor(since: string | undefined, now: number): string | undefined {
@@ -85,6 +91,56 @@ function opensIn(holder: Bay["holder"]): Act[] {
   return [];
 }
 
+/** A pull request's link to the forge, where its dot has one. */
+const linkOf = (dot: Dot): Act[] => (dot.act?.kind === "link" ? [{ kind: "link", url: dot.act.url, label: `Open ${dot.card.heading}` }] : []);
+
+/** Its stops at Pull request and, while it holds a place there, Merge queue. */
+function pullStops(dot: Dot): [Stop, Stop | undefined] {
+  const link = linkOf(dot);
+  const owner = dot.card.owner;
+  const place = dot.queued ? dot.card.place : undefined;
+  return [
+    {
+      tone: PULL[dot.state],
+      ...(dot.state === "failing" ? { glyph: "!" } : {}),
+      card: {
+        tone: PULL[dot.state],
+        pill: dot.card.says,
+        title: dot.card.heading.startsWith("#") ? `Pull request ${dot.card.heading}` : "Landing",
+        rows: [...(dot.card.title === undefined ? [] : [["Title", dot.card.title] as const]), ["Branch", dot.card.branch, true], ...(dot.card.check === undefined ? [] : [["Checks", dot.card.check] as const]), ...(owner === undefined ? [] : [[owner.kind === "job" ? "Job" : "Session", owner.title] as const])],
+        acts: [...link, ...(owner === undefined ? [] : [{ kind: owner.kind, id: owner.id, label: owner.kind === "job" ? "Open Job" : "Open Session" } as Act])],
+      },
+    },
+    place === undefined
+      ? undefined
+      : {
+          tone: dot.state === "running" ? "run" : "idle",
+          glyph: String(place),
+          card: { tone: dot.state === "running" ? "run" : "idle", pill: dot.card.says, title: `${ordinal(place)} in the merge queue`, rows: [["Pull request", dot.card.heading]], acts: link },
+        },
+  ];
+}
+
+/** A pull request no bay holds: it joins the lines at Pull request, and its title opens it on the forge. */
+function lineOfPull(dot: Dot): Line {
+  const [pull, queue] = pullStops(dot);
+  const tone = PULL[dot.state];
+  return {
+    key: dot.key,
+    item: undefined,
+    bay: undefined,
+    // Its branch, as the Merge line page names it; the forge's title is on its card.
+    title: dot.card.branch,
+    session: false,
+    tone,
+    reach: queue === undefined ? 3 : 4,
+    from: 3,
+    stops: [undefined, undefined, undefined, pull, queue, undefined],
+    open: linkOf(dot)[0],
+    wants: dot.state === "failing" ? "fixing" : undefined,
+  };
+}
+
 function lineOfBay(bay: Bay, now: number): Line | undefined {
   const { holder } = bay;
   if (holder.kind !== "job" && holder.kind !== "session") return undefined;
@@ -100,7 +156,6 @@ function lineOfBay(bay: Bay, now: number): Line | undefined {
   const at = item?.stepAt;
   const stepped = steps !== undefined && at !== undefined && steps.length > 0;
   const riders = bay.riders.map((one) => one.session.title ?? one.session.id);
-  const link: Act[] = dot?.act?.kind === "link" ? [{ kind: "link", url: dot.act.url, label: `Open ${dot.card.heading}` }] : [];
   const stops: (Stop | undefined)[] = [
     { tone: "ok", card: { tone: "ok", pill: "in", title: `Took bay ${two(bay.slot)}`, rows: held === undefined ? [] : [["Since", `${held} ago`]], acts: [] } },
     {
@@ -131,20 +186,7 @@ function lineOfBay(bay: Bay, now: number): Line | undefined {
         acts: own,
       },
     },
-    dot === undefined
-      ? undefined
-      : {
-          tone: PULL[dot.state],
-          ...(dot.state === "failing" ? { glyph: "!" } : {}),
-          card: { tone: PULL[dot.state], pill: dot.card.says, title: dot.card.heading.startsWith("#") ? `Pull request ${dot.card.heading}` : "Landing", rows: [["Branch", dot.card.branch, true], ...(dot.card.check === undefined ? [] : [["Checks", dot.card.check] as const])], acts: link },
-        },
-    queued
-      ? {
-          tone: dot.state === "running" ? "run" : "idle",
-          glyph: String(dot.card.place),
-          card: { tone: dot.state === "running" ? "run" : "idle", pill: dot.card.says, title: `${ordinal(dot.card.place!)} in the merge queue`, rows: [["Pull request", dot.card.heading]], acts: link },
-        }
-      : undefined,
+    ...(dot === undefined ? [undefined, undefined] : pullStops(dot)),
     undefined,
   ];
   return {
@@ -188,10 +230,14 @@ export function metroOf(read: BaysRead, now: number): Metro {
         return line === undefined ? [] : [line];
       })
       .sort((a, b) => b.reach - a.reach || (a.bay ?? 0) - (b.bay ?? 0)),
+    outside: harbour.line
+      .filter((dot) => dot.key.startsWith("pull:") && !harbour.bays.some((bay) => bay.dot?.key === dot.key))
+      .map(lineOfPull)
+      .sort((a, b) => b.reach - a.reach || placeOf(a) - placeOf(b)),
   }));
   const free = (manifest: string | undefined) => read.harbours.find((one) => one.manifest === manifest)?.bays.find((bay) => bay.holder.kind === "free");
   const waiting = read.waiting.map((item) => lineOfWaiting(item, free(item.job?.owner_manifest_id)));
-  const every = [...harbours.flatMap((one) => one.lines), ...waiting];
+  const every = [...harbours.flatMap((one) => [...one.lines, ...one.outside]), ...waiting];
   const counts = STATIONS.map((_, station) => {
     const at = every.filter((line) => line.reach === station);
     const tally = new Map<Tone, number>();

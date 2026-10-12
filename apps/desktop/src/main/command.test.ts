@@ -433,6 +433,53 @@ it("asks search_files with the typed query, encoded, and answers its paths", asy
   expect(asked[0]?.path).toBe(`/manifest/files?q=${encodeURIComponent("a query/with slashes")}`);
 });
 
+/** A listener that answers `read_request_repository` with `reading`, and records the path asked. */
+async function fleetReading(reading: object, into: Asked[]): Promise<number> {
+  const server = createServer((request: IncomingMessage, response) => {
+    into.push({ path: request.url ?? "", body: "" });
+    response.writeHead(200, { "content-type": "application/json" });
+    response.end(JSON.stringify(reading));
+  });
+  listening = server;
+  await new Promise<void>((up) => server.listen(0, "127.0.0.1", up));
+  return (server.address() as AddressInfo).port;
+}
+
+/** The words ride the querystring, encoded, and Fleet's pick comes back as the id it named. */
+it("asks read_request_repository with the words, encoded, and answers the pick and the ranking", async () => {
+  const asked: Asked[] = [];
+  const commands = new JobCommands(boardOn(await fleetReading({ manifest_id: "01STORE", likely: ["01STORE", "01POCKET"] }, asked)));
+
+  const read = await commands.readRequestRepository("fix the cart in @src/cart.rs");
+
+  expect(read).toEqual({ manifest_id: "01STORE", likely: ["01STORE", "01POCKET"] });
+  expect(asked[0]?.path).toBe(`/repositories/of_request?q=${encodeURIComponent("fix the cart in @src/cart.rs")}`);
+});
+
+/** Fleet leaves `manifest_id` out where it could not tell; the renderer compares against `null`. */
+it("answers a null pick where Fleet left manifest_id out", async () => {
+  const commands = new JobCommands(boardOn(await fleetReading({ likely: ["01POCKET", "01STORE"] }, [])));
+
+  const read = await commands.readRequestRepository("make it faster");
+
+  expect(read).toEqual({ manifest_id: null, likely: ["01POCKET", "01STORE"] });
+});
+
+/** A read that fires on a pause in typing is never a fault: no pick, no ranking, and the panel asks. */
+it("answers no pick and no ranking where there is nowhere to ask or Fleet would not answer", async () => {
+  const unconnected = new JobCommands({ ...boardOn(0), port: () => null });
+  expect(await unconnected.readRequestRepository("anything")).toEqual({ manifest_id: null, likely: [] });
+
+  const server = createServer((_request, response) => {
+    response.writeHead(500, { "content-type": "application/json" });
+    response.end("{}");
+  });
+  listening = server;
+  await new Promise<void>((up) => server.listen(0, "127.0.0.1", up));
+  const refused = new JobCommands(boardOn((server.address() as AddressInfo).port));
+  expect(await refused.readRequestRepository("anything")).toEqual({ manifest_id: null, likely: [] });
+});
+
 /**
  * Fires on every keystroke against a form that may not be connected to
  * anything yet — see `JobCommands.searchFiles`'s own note. Nowhere to ask is
