@@ -77,6 +77,11 @@ export type SessionRecord = {
    * agent's first. Absent is nothing, and always absent for an ended session.
    */
   waiting_for?: WaitingItem[];
+  /**
+   * When the agent said, through `all_done`, that it has nothing left to work on. Absent when it has not,
+   * or has been given work since: the person's message, a non-empty `waiting_for`, a hosted turn starting.
+   */
+  done_since?: string;
 };
 
 /** What a press on a waiting item does. `target` is an address, a call, a pull request number or a command. */

@@ -428,6 +428,17 @@ describe("a session nothing can be said to", () => {
   });
 });
 
+describe("when the agent said it was done", () => {
+  it("carries done_since onto the session as done", () => {
+    expect(sessionOfRecord(record("a", { done_since: AT }), undefined, beside()).done).toEqual({ since: AT });
+  });
+
+  it("carries none for a session that has not said it, or one that ended", () => {
+    expect(sessionOfRecord(record("a"), undefined, beside()).done).toBeUndefined();
+    expect(sessionOfRecord(record("a", { state: "ended", done_since: AT }), undefined, beside()).done).toBeUndefined();
+  });
+});
+
 describe("what a session waits on", () => {
   const items: NonNullable<SessionRecord["waiting_for"]> = [
     { id: "a1", text: "Run the tests", since: AT, source: "agent", act: { kind: "run", target: "cargo test" } },

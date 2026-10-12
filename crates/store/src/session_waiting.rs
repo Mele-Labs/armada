@@ -4,7 +4,7 @@
 //! **Only the agent's items live here.** Fleet's own, an open card or an
 //! unapproved walk, are derived on every read and never kept.
 
-use rusqlite::params;
+use rusqlite::{params, OptionalExtension};
 
 use crate::error::{fault, WriteError};
 use crate::open::Store;
@@ -97,6 +97,41 @@ impl Store {
             .map_err(WriteError::Database)?;
         rows.collect::<Result<_, _>>()
             .map_err(fault(doing))
+            .map_err(WriteError::Database)
+    }
+
+    /// When the session's agent said it was done, if it still stands. RFC3339.
+    pub fn done_since(&self, session_id: &str) -> Result<Option<String>, WriteError> {
+        self.conn
+            .query_row(
+                "SELECT since FROM session_done WHERE session_id = ?1",
+                [session_id],
+                |row| row.get(0),
+            )
+            .optional()
+            .map_err(fault("reading when a session said it was done"))
+            .map_err(WriteError::Database)
+    }
+
+    /// Keep that the agent said it was done at `since`. **A second call keeps the first**, so the
+    /// callout does not move under the person.
+    pub fn keep_done(&mut self, session_id: &str, since: &str) -> Result<(), WriteError> {
+        self.conn
+            .execute(
+                "INSERT OR IGNORE INTO session_done (session_id, since) VALUES (?1, ?2)",
+                params![session_id, since],
+            )
+            .map(|_| ())
+            .map_err(fault("keeping that a session said it was done"))
+            .map_err(WriteError::Database)
+    }
+
+    /// Forget that the agent said it was done. Whether there was anything to forget.
+    pub fn clear_done(&mut self, session_id: &str) -> Result<bool, WriteError> {
+        self.conn
+            .execute("DELETE FROM session_done WHERE session_id = ?1", [session_id])
+            .map(|gone| gone > 0)
+            .map_err(fault("clearing that a session said it was done"))
             .map_err(WriteError::Database)
     }
 
