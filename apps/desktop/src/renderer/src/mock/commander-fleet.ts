@@ -1,6 +1,6 @@
 // A Job's Commander on the mock Fleet: its thread, what it changes in the plan and on the Now panel,
 // and the two ways it hears from the owner. Mock only: Fleet serves no Commander, and the decision
-// that makes one is `.claude/decisions/2026-10-11-a-job-has-a-commander.md`.
+// that makes one is the record of 11 Oct 2026, "a Job has a Commander".
 //
 // **The agent is a script, not a model**, as the Sessions mock's is. A scenario names what the
 // Commander does at each moment: a walk's `later` takes the next, the owner's message takes the next

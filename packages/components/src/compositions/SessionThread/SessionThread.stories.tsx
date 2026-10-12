@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useState } from "react";
 import { expect, fn, userEvent, within } from "storybook/test";
+import { ArrowUpToLine, Split } from "lucide-react";
 
 import { SessionThread, type SessionThreadRow } from "./SessionThread";
 
@@ -297,5 +298,37 @@ export const ChecksTheAgentRan: Story = {
     await expect(canvas.getByRole("button", { name: "Check components_test, failed" })).toBeInTheDocument();
     await userEvent.click(canvas.getByRole("button", { name: "Check app_smoke, running" }));
     await expect(args.onOpenCheck).toHaveBeenCalledWith(31);
+  },
+};
+
+const COMMANDED: SessionThreadRow[] = [
+  { id: "m1", at: "14:20:02", kind: "woke", why: "Check store failed" },
+  { id: "m2", at: "14:20:05", kind: "tool", text: "Read crates/store/tests/flaky.rs" },
+  { id: "m3", at: "14:20:12", kind: "act", icon: ArrowUpToLine, said: "Raised cap", text: "Turn cap 40 \u2192 60" },
+  { id: "m4", at: "14:20:13", kind: "act", icon: Split, said: "Split task", text: "T4 split into T4a, T4b" },
+  { id: "m5", at: "14:20:15", kind: "message", from: "agent", text: "The Drone ran out of turns." },
+];
+
+/** Fleet's wake is a quiet row naming why, and each thing the agent did on its own is a row marked by which act it was. */
+export const WakeAndActRows: Story = {
+  args: { rows: COMMANDED, agentName: "Commander" },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("img", { name: "Fleet woke it" })).toBeVisible();
+    await expect(canvas.getByText("Check store failed")).toBeVisible();
+    await expect(canvas.getByRole("img", { name: "Raised cap" })).toBeVisible();
+    await expect(canvas.getByText("Turn cap 40 \u2192 60")).toBeVisible();
+    await expect(canvas.getByRole("img", { name: "Split task" })).toBeVisible();
+    // A wake and an act are not the person's or the agent's words: no message head is drawn for them.
+    await expect(canvas.getAllByText("Commander")).toHaveLength(1);
+    await expect(canvas.queryByText("You")).toBeNull();
+  },
+};
+
+/** The agent's own rows carry the name the host gives, and read `Agent` where it gives none. */
+export const AgentNamedByTheHost: Story = {
+  args: { rows: [{ id: "n1", at: "14:20:15", kind: "message", from: "agent", text: "Done." }], agentName: "Commander" },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByText("Commander")).toBeVisible();
+    await expect(canvas.queryByText("Agent")).toBeNull();
   },
 };

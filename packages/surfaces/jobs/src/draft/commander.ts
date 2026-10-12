@@ -1,5 +1,5 @@
 // A Job's Commander, as the boards draw it. **Mock only**: Fleet serves no Commander, and the
-// decision that makes one is `.claude/decisions/2026-10-11-a-job-has-a-commander.md`. The draft
+// record that decides one is "a Job has a Commander", 11 Oct 2026. The draft
 // carries what the Overview's panel reads and the acts on it, as `SessionsDraft` does for Sessions.
 //
 // A Commander claims nothing: it steers Drones, the plan and the caps, and cannot pass a gate,

@@ -153,7 +153,7 @@ describe("every arc moment loads", () => {
 // sentence, and the frozen values are Settings'.
 describe("what Overview opens on", () => {
   test.for(PAST_THE_PRESS)(
-    "%s: Overview leads with one sentence saying where the Job is, and draws none of what " +
+    "%s: Overview opens on the Now panel with no lead sentence over it, and draws none of what " +
       "froze at approval",
     async (name) => {
       expect(ARC, `${name} is not one of the arc's scenarios`).toContain(name);
@@ -164,9 +164,10 @@ describe("what Overview opens on", () => {
       // sheet's panel and passed against the defect.
       const overview = page.getByRole("tabpanel", { name: "Overview" });
       await expect.element(overview).toBeVisible();
-      // The lead, whatever it says: every one of these moments has a sentence
-      // and it is the first thing in the panel.
-      await expect.element(overview.getByRole("heading", { level: 2 }).first()).toBeVisible();
+      // **The lead is gone** (owner, 11 Oct 2026): the header's badge says where the Job is, and what
+      // needed him is an ask in the Now panel. Nothing but a card there draws a sentence over the board.
+      await expect.element(overview.getByRole("region", { name: "Now" })).toBeVisible();
+      expect(overview.element().querySelector(".armada-lead")).toBeNull();
       // The two sentences only the frozen board says, and it is not here.
       await expect.element(overview).not.toHaveTextContent(/Frozen\. This is what every Drone is given\./);
       expect(overview.getByRole("region", { name: "Done when" }).all()).toHaveLength(0);

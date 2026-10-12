@@ -1,6 +1,9 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, userEvent, waitFor } from "storybook/test";
 
+import { Eye } from "lucide-react";
+
+import { Button } from "../../primitives/Button/Button";
 import type { NowAsker } from "../AskerView/AskerView";
 import { NowPanel, type NowAct, type NowAsk, type NowSketch, type NowIssue, type NowRunning, type NowWaiting } from "./NowPanel";
 
@@ -157,26 +160,27 @@ export const Running: Story = {
 export const PlanQuestion: Story = {
   args: { asks: [PLAN, JUDGE_ASK, DRONE_ASK] },
   play: async ({ canvas }) => {
-    await expect(canvas.queryByText("Plan question")).toBeNull();
-    await expect(canvas.getByRole("img", { name: "Judge" })).toBeInTheDocument();
-    await expect(canvas.getByRole("img", { name: "Drone" })).toBeInTheDocument();
+    // Each ask is a card in the call card's frame, named by its band; a Plan question has no title.
+    await expect(canvas.getByRole("region", { name: "Plan question" })).toBeInTheDocument();
+    await expect(canvas.getByRole("region", { name: "Judge question: Is the retry cap in scope?" })).toBeInTheDocument();
+    await expect(canvas.getByRole("region", { name: "Drone question: Which clock does the fixture pin?" })).toBeInTheDocument();
     await expect(canvas.queryByRole("button", { name: "Answer" })).toBeNull();
     const next = canvas.getByRole("button", { name: "Next" });
     await expect(next).toBeDisabled();
-    await expect(canvas.getByRole("radio", { name: "Wrap it in place" })).not.toBeChecked();
-    await expect(canvas.queryByRole("radio", { name: "Add a fake clock" })).toBeNull();
+    await expect(canvas.getByRole("radio", { name: /Wrap it in place/ })).not.toBeChecked();
+    await expect(canvas.queryByRole("radio", { name: /Add a fake clock/ })).toBeNull();
     await expect(canvas.getByRole("img", { name: "Split the store clock out of the writer, or wrap it?" })).toHaveAttribute("aria-current", "step");
-    await userEvent.click(canvas.getByRole("radio", { name: "Wrap it in place" }));
+    await userEvent.click(canvas.getByRole("radio", { name: /Wrap it in place/ }));
     await userEvent.click(next);
-    await expect(canvas.queryByRole("radio", { name: "Wrap it in place" })).toBeNull();
-    await expect(canvas.getByRole("radio", { name: "Add a fake clock" })).not.toBeChecked();
+    await expect(canvas.queryByRole("radio", { name: /Wrap it in place/ })).toBeNull();
+    await expect(canvas.getByRole("radio", { name: /Add a fake clock/ })).not.toBeChecked();
     await expect(canvas.queryByRole("button", { name: "Next" })).toBeNull();
     const send = canvas.getByRole("button", { name: "Answer" });
     await expect(send).toBeDisabled();
-    await userEvent.click(canvas.getByRole("radio", { name: "Add a fake clock" }));
+    await userEvent.click(canvas.getByRole("radio", { name: /Add a fake clock/ }));
     await userEvent.click(send);
     await expect(answer).toHaveBeenCalledWith({ shape: "wrap", tests: "fake" });
-    await expect(canvas.getByRole("radio", { name: "Add a fake clock" })).toBeDisabled();
+    await expect(canvas.getByRole("radio", { name: /Add a fake clock/ })).toBeDisabled();
     await userEvent.click(canvas.getByRole("button", { name: "Open Judge on Review the change, asks you" }));
     await expect(open).toHaveBeenCalled();
   },
@@ -278,9 +282,9 @@ export const OptionPreviewsItsSketch: Story = {
 export const FocusPreviewsItsSketch: Story = {
   args: { asks: [SKETCHED], onSketch: fn() },
   play: async ({ canvas, args }) => {
-    canvas.getByRole("radio", { name: "Wrap it in place" }).focus();
+    canvas.getByRole("radio", { name: /Wrap it in place/ }).focus();
     await waitFor(() => expect(args.onSketch).toHaveBeenLastCalledWith({ sketch: WRAP, against: NOW }));
-    canvas.getByRole("radio", { name: "Wrap it in place" }).blur();
+    canvas.getByRole("radio", { name: /Wrap it in place/ }).blur();
     await waitFor(() => expect(args.onSketch).toHaveBeenLastCalledWith({ sketch: NOW }));
   },
 };
@@ -375,5 +379,100 @@ export const PlanReportsItsAsker: Story = {
     await userEvent.click(canvas.getByText("Take it here"));
     await userEvent.click(canvas.getByRole("button", { name: "Answer" }));
     await expect(args.onAsker).toHaveBeenLastCalledWith(undefined);
+  },
+};
+
+// Asks are cards in the Cockpit's own call-card frame (owner, 11 Oct 2026), so an ask looks the same
+// on a Job's page as in Your move. What a Job's lead held to be answered is a `slot` ask the host fills.
+
+const REVIEW_SLOT: NowAsk = {
+  key: "lead",
+  kind: "slot",
+  band: "Review",
+  icon: Eye,
+  title: "Ready for review",
+  age: "4m",
+  children: <Button variant="primary">Merge pull request</Button>,
+};
+
+const COMMANDER_ASK: NowAsk = {
+  key: "ca",
+  kind: "commander",
+  text: "The store Check fails on a fixture it does not own",
+  reach: "Skipping a Check is your act",
+  question: "What should the Commander do?",
+  options: [
+    { id: "skip", label: "Skip the Check" },
+    { id: "edit", label: "Edit the Check" },
+  ],
+  onAnswer: answer,
+};
+
+/** What the host fills is drawn in the call card's frame: the band names the ask, the title leads, and its act is in the card. */
+export const SlotAskInTheCallCardFrame: Story = {
+  args: { asks: [REVIEW_SLOT], onHide: fn() },
+  play: async ({ canvas }) => {
+    const card = canvas.getByRole("region", { name: "Review: Ready for review" });
+    await expect(card).toBeVisible();
+    await expect(canvas.getByRole("heading", { name: "Ready for review" })).toBeVisible();
+    await expect(canvas.getByText("4m")).toBeVisible();
+    await expect(card.contains(canvas.getByRole("button", { name: "Merge pull request" }))).toBe(true);
+    await expect(canvas.queryByText("Nothing is actively running on this job")).toBeNull();
+  },
+};
+
+/** A Job's own ask stands before the Plan's, the Commander's and a Drone's. */
+export const SlotAskStandsFirst: Story = {
+  args: { asks: [DRONE_ASK, COMMANDER_ASK, PLAN, REVIEW_SLOT] },
+  play: async ({ canvas }) => {
+    const names = canvas.getAllByRole("region").map((one) => one.getAttribute("aria-label"));
+    await expect(names.slice(1)).toEqual(["Review: Ready for review", "Plan question", "Commander asks: The store Check fails on a fixture it does not own", "Drone question: Which clock does the fixture pin?"]);
+  },
+};
+
+/** The Commander asks once: the fact, whose act the fix is, and answers a number picks. The answer goes only when pressed, and then holds. */
+export const CommanderAsks: Story = {
+  args: { asks: [COMMANDER_ASK] },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("region", { name: /^Commander asks/ })).toBeVisible();
+    await expect(canvas.getByText("Skipping a Check is your act")).toBeVisible();
+    const send = canvas.getByRole("button", { name: "Answer" });
+    await expect(send).toBeDisabled();
+    const skip = canvas.getByRole("radio", { name: /Skip the Check/ });
+    const edit = canvas.getByRole("radio", { name: /Edit the Check/ });
+    skip.focus();
+    // The number on a tile picks it; a number with no tile picks nothing.
+    await userEvent.keyboard("2");
+    await expect(edit).toBeChecked();
+    await userEvent.keyboard("7");
+    await expect(edit).toBeChecked();
+    await expect(answer).not.toHaveBeenCalledWith("edit");
+    await userEvent.click(send);
+    await expect(answer).toHaveBeenLastCalledWith("edit");
+    await expect(skip).toBeDisabled();
+    await expect(send).toBeDisabled();
+    await userEvent.keyboard("1");
+    await expect(skip).not.toBeChecked();
+  },
+};
+
+/** A Plan question answers from the keyboard too: the number picks the decision's option. */
+export const PlanAnswersByNumber: Story = {
+  args: { asks: [PLAN] },
+  play: async ({ canvas }) => {
+    canvas.getByRole("radio", { name: /Split it out/ }).focus();
+    await userEvent.keyboard("2");
+    await expect(canvas.getByRole("radio", { name: /Wrap it in place/ })).toBeChecked();
+    await expect(canvas.getByRole("button", { name: "Next" })).toBeEnabled();
+  },
+};
+
+/** Work the Commander put in motion carries its mark beside the name, and what it did on hover. */
+export const RunningByTheCommander: Story = {
+  args: {
+    running: [{ key: "rc", of: "drone", name: "Implement Drone", state: "running", by: { who: "commander", said: "Commander restarted it" }, onOpen: open }],
+  },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("img", { name: "Commander restarted it" })).toBeVisible();
   },
 };

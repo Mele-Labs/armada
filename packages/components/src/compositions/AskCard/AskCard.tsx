@@ -120,10 +120,11 @@ export function AskAnswer({
 
 /** The question the card puts, over a rule. `quiet` is a fact in mono where the ask is a state and not a question. */
 export function AskQuestion({ quiet = false, children }: { quiet?: boolean; children: ReactNode }) {
+  // A `div`, not a `p`: it holds the decisions' pips, a list, which a paragraph cannot contain.
   return (
-    <p className="armada-callcard__ask" data-quiet={quiet ? "" : undefined}>
+    <div className="armada-callcard__ask" data-quiet={quiet ? "" : undefined}>
       {children}
-    </p>
+    </div>
   );
 }
 
@@ -152,7 +153,7 @@ export function AskPips({ decisions, at }: { decisions: readonly { id: string; q
       {decisions.map((one, index) => (
         <li key={one.id}>
           <Tooltip label={one.question}>
-            <span className="armada-callcard__pip" role="img" aria-label={one.question} data-here={index === at || undefined} />
+            <span className="armada-callcard__pip" role="img" aria-label={one.question} aria-current={index === at ? "step" : undefined} data-here={index === at || undefined} />
           </Tooltip>
         </li>
       ))}

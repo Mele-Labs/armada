@@ -1,6 +1,6 @@
 // What stands in for the canvas on the left while something asks: the sketch where the ask drew one,
-// else the asker's own view, else the canvas. The owner's switch offers what applies, and answering or
-// hiding the panel gives the canvas back.
+// else the asker's own view, else the canvas. The owner's switch offers what applies, and answering gives
+// the canvas back, and a panel holding an ask cannot be hidden.
 
 import { describe, expect, test } from "vitest";
 import { page } from "vitest/browser";
@@ -92,16 +92,28 @@ describe("job asker", () => {
     await expect.poll(canvasNodes).toBeGreaterThan(5);
   });
 
-  test("hiding the panel gives the canvas back", async () => {
+  // The panel cannot be put away while it holds an ask (owner, 11 Oct 2026): what the lead held is
+  // answered there now, and a hidden panel would hide what he came to answer.
+  test("the panel cannot be hidden while it holds an ask, so the asker stays", async () => {
     mount("job-asker-drone");
     await onScreen();
     await settled();
     await expect.poll(asker).not.toBeNull();
+    await expect.element(page.getByRole("button", { name: "Hide now" })).not.toBeInTheDocument();
+    await expect.element(page.getByRole("button", { name: "Show now" })).not.toBeInTheDocument();
+    expect(asker()).not.toBeNull();
+  });
+
+  test("with nothing asking the panel hides and shows, and the canvas stays", async () => {
+    mount("job-now-drone");
+    await onScreen();
+    await settled();
     await page.getByRole("button", { name: "Hide now" }).click();
-    await expect.poll(asker).toBeNull();
+    await expect.element(page.getByRole("region", { name: "Now" })).not.toBeInTheDocument();
     await expect.poll(canvasNodes).toBeGreaterThan(5);
     // Hidden is the window's to remember, so leave it as found.
     await page.getByRole("button", { name: "Show now" }).click();
+    await settled();
   });
 
   test("an ask with a sketch shows the sketch, and no ask leaves the canvas", async () => {
