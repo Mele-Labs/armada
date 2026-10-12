@@ -29,6 +29,7 @@ export function studiosApi(seeded: readonly Studio[] | undefined, fleet: FleetHa
       scroll: () => {},
       showAsk: async () => {},
       answerAsk: async () => ({ ok: true }) as Outcome,
+      pick: async () => {},
       panel: async () => {},
       openOwner: async () => {},
     },

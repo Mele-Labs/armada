@@ -6,7 +6,7 @@
 import tokens from "@armada/tokens/tokens.json";
 
 import type { BridgeState } from "../../shared/bridge";
-import type { CaptureOpened, SessionRecord } from "@armada/protocol";
+import type { CaptureOpened, SessionRecord, WindowTake } from "@armada/protocol";
 import { addressOf, cleanTitle } from "@armada/screens/src/sessions-wire";
 import { isPinned, pinned, webOrigin } from "./address";
 import type { PanelSubject } from "./layout";
@@ -84,14 +84,15 @@ export class CaptureWindows {
    * replaces its window rather than opening a second. **Any `http` or `https` address**, unlike a
    * server's window; the origin it is pinned to is the address's own, since the
    * Session named it and there is no live holder to resolve it against as a server's link has.
+   * **`takes` are several pages of one change**, the first at `url`: the window swaps among exactly those.
    */
-  openForSession(sessionId: string, title: string, url: string): CaptureOpened {
+  openForSession(sessionId: string, title: string, url: string, takes: readonly WindowTake[] = []): CaptureOpened {
     const origin = webOrigin(url);
-    if (origin === null) return { ok: false, why: "no_address" };
+    if (origin === null || takes.some((one) => webOrigin(one.url) === null)) return { ok: false, why: "no_address" };
     const key = `${SESSION_KEY}${sessionId}`;
     const standing = this.open.get(key);
     if (standing !== undefined && standing.open) {
-      if (standing.address === url) {
+      if (standing.address === url && standing.showing(takes)) {
         standing.raise();
         return { ok: true };
       }
@@ -102,7 +103,7 @@ export class CaptureWindows {
     // window shown with no title is titled by its address.
     const record = this.sessions?.find((one) => one.id === sessionId);
     const landsOn = { session: { id: sessionId, title: cleanTitle(record?.title) ?? addressOf(sessionId) } };
-    const window = new CaptureWindow(pin, landsOn, this.board, sizes(), this.kept(landsOn));
+    const window = new CaptureWindow(pin, landsOn, this.board, sizes(), this.kept(landsOn), takes);
     this.open.set(key, window);
     // A window opened by a press on a waiting question shows it as one opened by its arrival does.
     if (this.sessions !== null) window.question(questionOf(this.sessions.find((one) => one.id === sessionId), origin));
@@ -116,7 +117,7 @@ export class CaptureWindows {
    */
   askedFor(sessionId: string, title: string, window: string, place: string): CaptureOpened {
     const standing = this.open.get(`${SESSION_KEY}${sessionId}`);
-    const here = standing !== undefined && standing.open && webOrigin(standing.address) === webOrigin(place);
+    const here = standing !== undefined && standing.open && standing.origin === webOrigin(place);
     const opened = here ? ({ ok: true } as const) : this.openForSession(sessionId, title, window);
     this.ask();
     return opened;
@@ -128,7 +129,7 @@ export class CaptureWindows {
     for (const [key, window] of this.open) {
       if (!key.startsWith(SESSION_KEY) || !window.open) continue;
       const record = this.sessions.find((one) => one.id === key.slice(SESSION_KEY.length));
-      window.question(questionOf(record, webOrigin(window.address)));
+      window.question(questionOf(record, window.origin));
     }
   }
 

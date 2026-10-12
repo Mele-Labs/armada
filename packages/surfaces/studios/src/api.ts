@@ -182,6 +182,8 @@ export type StudiosApi = {
     showAsk: (on: boolean) => Promise<void>;
     /** Answer the Session's open question. It reaches the Session as the person's message. */
     answerAsk: (answer: CaptureAnswer) => Promise<Outcome>;
+    /** Swap the page to another take the Session showed, by its index. Main reads the address off what the Session sent. */
+    pick: (at: number) => Promise<void>;
     /** Draw the Session's or the Job's panel beside the page, or fold it away. */
     panel: (open: boolean) => Promise<void>;
     /** Bring Bridge's window forward on the Job or the Session the bar names. Main reads which off the window. */
@@ -261,6 +263,7 @@ export const STUDIOS_CHANNELS = {
   captureWindowScroll: "bridge:capture-window-scroll",
   captureWindowShowAsk: "bridge:capture-window-show-ask",
   captureWindowAnswerAsk: "bridge:capture-window-answer-ask",
+  captureWindowPick: "bridge:capture-window-pick",
   captureWindowPanel: "bridge:capture-window-panel",
   captureWindowOpenOwner: "bridge:capture-window-open-owner",
   walkPanelOpenInBridge: "bridge:walk-panel-open-in-bridge",

@@ -276,6 +276,27 @@ pub struct ShowWindow {
     /// hosted session is the one whose process holds the call, whatever this says.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub session_id: Option<SessionId>,
+    /// Several takes of one change, each a page of its own, which the window swaps between. **When
+    /// present, `url` is the first take's.** Each is `http` or `https` as `url` is.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub variations: Vec<WindowTake>,
+}
+
+/// One take of a change the session shows in its window.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WindowTake {
+    /// What the bar calls it, beside its letter.
+    pub name: String,
+    /// `http` or `https`; anything else refuses the whole call.
+    pub url: String,
+}
+
+impl WindowTake {
+    /// The takes as the window's artifact on the ledger keeps them, one string in its `detail`,
+    /// which holds strings only. Bridge reads it back to reopen the window with its takes.
+    pub fn as_detail(takes: &[WindowTake]) -> String {
+        serde_json::to_string(takes).unwrap_or_default()
+    }
 }
 
 /// `window_closed`: the person closed the window a session showed. Bridge tells it; nothing is

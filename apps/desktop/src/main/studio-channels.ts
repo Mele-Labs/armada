@@ -208,6 +208,10 @@ export function handleStudios({ ipc, connection, published, captureWindows, summ
       })) ?? unsent
     );
   });
+  // A take of several the Session showed, by its index: main reads the address off what the Session sent.
+  ipc.handle(CHANNELS.captureWindowPick, (event, at: unknown) => {
+    if (typeof at === "number" && Number.isInteger(at)) barred(event)?.pick(at);
+  });
   ipc.handle(CHANNELS.captureWindowPanel, (event, open: unknown) => {
     if (typeof open === "boolean") barred(event)?.showPanel(open);
   });

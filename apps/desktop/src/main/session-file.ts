@@ -5,7 +5,7 @@
 // make every capability the sandbox holds back reachable through one row; the record main already
 // holds is the set the string has to be a member of, as `open.ts` does for a Job's records.
 
-import type { Followed, SessionRecord } from "@armada/protocol";
+import type { Followed, SessionRecord, WindowTake } from "@armada/protocol";
 import type { ArtifactRead } from "@armada/screens/src/draft/sessions";
 import { extname } from "node:path";
 
@@ -21,6 +21,28 @@ export function titleOfWindow(record: SessionRecord | undefined, url: string): s
     (one) => one.kind === "artifact" && one.target === url && one.detail?.["form"] === "window",
   );
   return shown === undefined ? null : (shown.detail?.["title"] ?? url);
+}
+
+/**
+ * The takes the Session showed at `url`, as its ledger keeps them in the window's `detail`, or none.
+ * **Anything that is not a list of `{name, url}` reads as none**: the ledger is Fleet's, but a
+ * window opens on what it says, so each address is held to the web here as it was there.
+ */
+export function takesOfWindow(record: SessionRecord | undefined, url: string): WindowTake[] {
+  const kept = record?.attachments.find(
+    (one) => one.kind === "artifact" && one.target === url && one.detail?.["form"] === "window",
+  )?.detail?.["variations"];
+  if (kept === undefined) return [];
+  try {
+    const read: unknown = JSON.parse(kept);
+    if (!Array.isArray(read)) return [];
+    const takes = read.map((one: unknown) => one as Partial<WindowTake> | null);
+    return takes.every((one) => typeof one?.name === "string" && typeof one.url === "string" && /^https?:\/\//.test(one.url))
+      ? (takes as WindowTake[])
+      : [];
+  } catch {
+    return [];
+  }
 }
 
 export async function openSessionFile(

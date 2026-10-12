@@ -831,11 +831,7 @@ where
         sent: SendSessionMessage,
     ) -> Result<SessionRecord, Refusal> {
         let id = sent.session_id.as_str().to_string();
-        let approved = sent
-            .text
-            .trim()
-            .strip_prefix(super::walking::APPROVED)
-            .map(|url| url.trim().to_string());
+        let approved = super::walking::approved_address(&sent.text).map(str::to_string);
         let record = if let Some(session) = terminal {
             let addressed = self.addressed(&sent.mentions).await?;
             let kept = self.keep_uploads(&id, &sent.attachments)?;

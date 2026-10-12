@@ -50,6 +50,25 @@ fn shows_a_page(url: &str) -> bool {
     !name.is_empty() && !url.contains(char::is_whitespace)
 }
 
+/// The takes a call named, trimmed, or why they cannot be shown. **Each address is held to the one
+/// `url` is**, and a call that names takes shows the first: `url` must be that same page.
+fn takes_shown(url: &str, named: Vec<ipc::WindowTake>) -> Result<Vec<ipc::WindowTake>, &'static str> {
+    let takes: Vec<_> = named
+        .into_iter()
+        .map(|one| ipc::WindowTake { name: one.name.trim().to_string(), url: one.url.trim().to_string() })
+        .collect();
+    if takes.iter().any(|one| one.name.is_empty()) {
+        return Err("a name on every variation");
+    }
+    if takes.iter().any(|one| !shows_a_page(&one.url)) {
+        return Err("an `http` or `https` address on every variation");
+    }
+    if takes.first().is_some_and(|first| first.url != url) {
+        return Err("`url` to be the first variation's address");
+    }
+    Ok(takes)
+}
+
 /// The two kinds a session holds one of at a time. Every other kind is kept as
 /// the open word it arrived as.
 const ONE_AT_A_TIME: [&str; 2] = ["branch", "slot"];
@@ -506,6 +525,7 @@ where
         if !shows_a_page(&url) {
             return Err(self.ledger_unnamed("an `http` or `https` address to show"));
         }
+        let variations = takes_shown(&url, show.variations).map_err(|what| self.ledger_unnamed(what))?;
         let hosted = caller.and_then(|caller| self.session_holding(&caller));
         let id = hosted
             .or_else(|| show.session_id.map(|named| named.as_str().trim().to_string()))
@@ -538,7 +558,9 @@ where
                             ("form".to_string(), "window".to_string()),
                             ("title".to_string(), title.clone()),
                         ]
-                        .into(),
+                        .into_iter()
+                        .chain((!variations.is_empty()).then(|| ("variations".to_string(), ipc::WindowTake::as_detail(&variations))))
+                        .collect(),
                     },
                 },
             })
@@ -550,6 +572,7 @@ where
                 at: self.instant(),
                 title,
                 url,
+                variations,
                 ended_at: None,
             },
         )

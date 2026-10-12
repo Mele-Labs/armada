@@ -51,6 +51,7 @@ export type CaptureWindowApi = {
   scroll: (wheel: { x: number; y: number; deltaX: number; deltaY: number }) => void;
   showAsk: (on: boolean) => Promise<void>;
   answerAsk: (answer: CaptureAnswer) => Promise<{ ok: boolean } & Record<string, unknown>>;
+  pick: (at: number) => Promise<void>;
   panel: (open: boolean) => Promise<void>;
   openOwner: () => Promise<void>;
 };
@@ -62,7 +63,8 @@ export function CaptureWindow({ api }: { api: CaptureWindowApi }) {
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
   const [refused, setRefused] = useState<string | undefined>(undefined);
-  const [approval, setApproval] = useState<CaptureBarApproval | undefined>(undefined);
+  // Approving one take approves it alone: another on screen is Approve again, and pressing it moves the approval.
+  const [approval, setApproval] = useState<{ at: number; state: CaptureBarApproval } | undefined>(undefined);
   const [reply, setReply] = useState("");
   const [replying, setReplying] = useState(false);
   const [replyRefused, setReplyRefused] = useState<string | undefined>(undefined);
@@ -203,11 +205,13 @@ export function CaptureWindow({ api }: { api: CaptureWindowApi }) {
   const words = (): { text?: string } => (reply.trim() === "" ? {} : { text: reply.trim() });
 
   async function approve(): Promise<void> {
-    setApproval({ state: "pending" });
+    const pressed = state?.variations?.at ?? 0;
+    setApproval({ at: pressed, state: { state: "pending" } });
     const outcome = await api.approve();
-    setApproval(
-      outcome.ok ? { state: "approved" } : { state: "refused", said: said(outcome as Parameters<typeof said>[0]) },
-    );
+    setApproval({
+      at: pressed,
+      state: outcome.ok ? { state: "approved" } : { state: "refused", said: said(outcome as Parameters<typeof said>[0]) },
+    });
   }
 
   if (state === null) return null;
@@ -247,7 +251,8 @@ export function CaptureWindow({ api }: { api: CaptureWindowApi }) {
           binding={BINDING}
           // A Studio's window has nobody to tell; a Job's or a Session's has its owner.
           {...(state.studio === null && (state.job !== undefined || state.session !== undefined) ? { onApprove: () => void approve() } : {})}
-          {...(approval === undefined ? {} : { approval })}
+          {...(approval === undefined || approval.at !== (state.variations?.at ?? 0) ? {} : { approval: approval.state })}
+          {...(state.variations === undefined ? {} : { variations: { names: state.variations.names, at: state.variations.at, onPick: (at: number) => void api.pick(at) } })}
           {...(ask === undefined || ask.shown ? {} : { question: ask.question, onShowQuestion: () => void api.showAsk(true) })}
           {...(panel === undefined ? {} : { panel: { kind: panel.kind, open: panel.open, onToggle: (open: boolean) => void api.panel(open) } })}
         />

@@ -12,7 +12,7 @@
 
 import { BaseWindow, screen, shell, type WebContentsView } from "electron";
 
-import type { Outcome, StagedFrame, StudioCapture, WindowPlace } from "@armada/protocol";
+import type { Outcome, StagedFrame, StudioCapture, WindowPlace, WindowTake } from "@armada/protocol";
 import type {
   CaptureAimed,
   CaptureAnswer,
@@ -23,10 +23,11 @@ import type {
   CaptureWindowState,
 } from "../../shared/capture-window";
 import { CHANNELS } from "../../shared/bridge";
-import { isPinned, offerable, onOrigin, shown, type Pinned } from "./address";
+import { isPinned, offerable, onOrigin, shown, webOrigin, type Pinned } from "./address";
 import { aimed, bounded, chainOf, rectOf } from "./bounds";
 import { panelFor, walkLayout, type LandsOn, type PanelSubject } from "./layout";
 import { followedBy } from "./follow";
+import type { Take } from "./session-note";
 import { askSource } from "./layer";
 import { locateSource } from "./locate";
 import { barView, pageView, panelView } from "./views";
@@ -39,11 +40,11 @@ export type CaptureBoard = {
   /** A note kept on the Job whose server this window walks — protocol 23.18. */
   walkNote: (jobId: string, said: string, capture: StudioCapture, frame: StagedFrame | null) => Promise<Outcome>;
   /** A note taken on a page a Session showed: a message from the person, which wakes the Session. */
-  sessionNote: (sessionId: string, said: string, capture: StudioCapture, address: string) => Promise<Outcome>;
+  sessionNote: (sessionId: string, said: string, capture: StudioCapture, address: string, take?: Take) => Promise<Outcome>;
   /** Approve on the bar, for a Job: the act JobDetail's own Approve sends. */
   walkApproved: (jobId: string) => Promise<Outcome>;
-  /** Approve on the bar, for a Session: a message from the person naming the address, which wakes it. */
-  sessionApproved: (sessionId: string, address: string) => Promise<Outcome>;
+  /** Approve on the bar, for a Session: a message from the person naming the address, and the take on screen, which wakes it. */
+  sessionApproved: (sessionId: string, address: string, take?: Take) => Promise<Outcome>;
   /** The Session's question, answered from the bar: `answer_waiting` on its item, which wakes it. */
   answerAsk: (sessionId: string, itemId: string, answer: CaptureAnswer) => Promise<Outcome>;
   /** A Session's window closed, whoever closed it: its walk is over, so the Session may ask again. */
@@ -89,7 +90,13 @@ export class CaptureWindow {
   private readonly page: WebContentsView;
   private readonly bar: WebContentsView;
   private readonly board: CaptureBoard;
-  private readonly pin: Pinned;
+  /** What the page is pinned to: **the take on screen's**, which moves only to another the Session declared. */
+  private pin: Pinned;
+  /** The address the window was opened on, which a Session knows it by whichever take is on screen. */
+  private readonly opened: string;
+  /** The takes the Session declared, the first the one opened on. Empty: one page. */
+  private readonly takes: readonly WindowTake[];
+  private at = 0;
   private readonly landsOn: LandsOn;
   private readonly sizes: WalkSizes;
   /** The Session or the Job beside the page, and the view it is drawn in. `null`: a Studio's window. */
@@ -116,8 +123,10 @@ export class CaptureWindow {
   /** Questions answered from this bar, so a publish from before the answer cannot raise one again. */
   private readonly settled = new Set<string>();
 
-  constructor(pin: Pinned, landsOn: LandsOn, board: CaptureBoard, sizes: WalkSizes, kept: PanelKept | null) {
+  constructor(pin: Pinned, landsOn: LandsOn, board: CaptureBoard, sizes: WalkSizes, kept: PanelKept | null, takes: readonly WindowTake[] = []) {
     this.pin = pin;
+    this.opened = pin.url;
+    this.takes = takes;
     this.landsOn = landsOn;
     this.board = board;
     this.sizes = sizes;
@@ -154,7 +163,7 @@ export class CaptureWindow {
     this.window.on("blur", () => this.board.focused(pin.run, false));
     this.window.on("closed", () => {
       this.board.focused(pin.run, false);
-      if ("session" in landsOn) this.board.sessionClosed(landsOn.session.id, pin.url);
+      if ("session" in landsOn) this.board.sessionClosed(landsOn.session.id, this.opened);
       // A view's document outlives a closed `BaseWindow` unless it is closed with it.
       for (const view of [this.page, this.bar, this.panel]) if (view !== null && !view.webContents.isDestroyed()) view.webContents.close();
     });
@@ -177,9 +186,45 @@ export class CaptureWindow {
     return !this.window.isDestroyed();
   }
 
-  /** The address the window was opened on. */
+  /** The address the window was opened on, whichever take is on screen. */
   get address(): string {
-    return this.pin.url;
+    return this.opened;
+  }
+
+  /** The origin of the page on screen, which is what a question about a place on it is matched to. */
+  get origin(): string {
+    return this.pin.origin;
+  }
+
+  /** Whether this window shows exactly these takes, so a Session that shows them again is raising it. */
+  showing(takes: readonly WindowTake[]): boolean {
+    return takes.length === this.takes.length && takes.every((one, at) => one.url === this.takes[at]?.url && one.name === this.takes[at]?.name);
+  }
+
+  /**
+   * Swap the page to another take the Session declared. **The bar names an index and main reads the
+   * address off what the Session sent**, so the origin the page is pinned to moves only to one the
+   * Session chose. What was pointed at on the page left is dropped.
+   */
+  pick(at: number): void {
+    const take = this.takes[at];
+    const origin = take === undefined ? null : webOrigin(take.url);
+    if (take === undefined || origin === null || at === this.at || !this.serving || this.page.webContents.isDestroyed()) return;
+    this.at = at;
+    this.pin = { ...this.pin, origin, url: take.url };
+    this.armed = false;
+    this.holding = null;
+    this.refusedAddress = undefined;
+    this.framesRefused = 0;
+    this.window.setTitle(titled(this.pin));
+    this.tell();
+    void this.page.webContents.loadURL(take.url);
+  }
+
+  /** The take on screen as a note and an Approve name it, or `undefined` where the window shows one page. */
+  private taken(): Take | undefined {
+    const take = this.takes[this.at];
+    return take === undefined ? undefined : { letter: String.fromCharCode(65 + this.at), name: take.name };
   }
 
   get runId(): string {
@@ -250,6 +295,7 @@ export class CaptureWindow {
       ...("job" in this.landsOn ? { job: this.landsOn.job } : {}),
       ...("session" in this.landsOn ? { session: this.landsOn.session } : {}),
       ...(this.subject === null ? {} : { panel: { kind: this.subject.kind, open: this.panelOpen } }),
+      ...(this.takes.length === 0 ? {} : { variations: { names: this.takes.map((one) => one.name), at: this.at } }),
       serving: this.serving,
       armed: this.armed,
       framesRefused: this.framesRefused,
@@ -366,7 +412,7 @@ export class CaptureWindow {
       "studio" in this.landsOn
         ? await this.board.capture(this.landsOn.studio.id, said, capture, frame)
         : "session" in this.landsOn
-          ? await this.board.sessionNote(this.landsOn.session.id, said, capture, this.pin.url)
+          ? await this.board.sessionNote(this.landsOn.session.id, said, capture, this.pin.url, this.taken())
           : await this.board.walkNote(this.landsOn.job.id, said, capture, frame);
     if (outcome.ok) {
       this.holding = null;
@@ -382,7 +428,7 @@ export class CaptureWindow {
    */
   async approve(): Promise<Outcome> {
     if ("job" in this.landsOn) return this.board.walkApproved(this.landsOn.job.id);
-    if ("session" in this.landsOn) return this.board.sessionApproved(this.landsOn.session.id, this.pin.url);
+    if ("session" in this.landsOn) return this.board.sessionApproved(this.landsOn.session.id, this.pin.url, this.taken());
     return { ok: false, why: "no_owner" };
   }
 
@@ -502,7 +548,8 @@ export class CaptureWindow {
     const { width, height } = this.window.getContentBounds();
     const folded = this.asked !== null && !this.askShown;
     const said = !this.serving || this.refusedAddress !== undefined || this.framesRefused > 0 || folded;
-    const strip = this.sizes.bar * (said ? 2 : 1);
+    // The takes are a row of their own, under the bar's, and the second row follows them.
+    const strip = this.sizes.bar * (1 + (this.takes.length === 0 ? 0 : 1) + (said ? 1 : 0));
     const shown = this.panel !== null && this.panelOpen;
     const at = walkLayout({ width, height, strip, covered: this.covered(), panel: shown ? this.sizes.panel : 0 }, this.sizes.floor);
     this.page.setBounds(at.page);

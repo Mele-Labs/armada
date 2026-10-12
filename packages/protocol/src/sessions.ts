@@ -161,6 +161,15 @@ export type PullRequestClaimed = { number: number; branch: string; url: string; 
  */
 export type DismissWaiting = { session_id: string; item_id: string };
 
+/** One take of a change a session shows in its window. `url` is `http` or `https`. */
+export type WindowTake = { name: string; url: string };
+
+/**
+ * `POST /sessions/window`, the agent's: a page to show. `variations` offers several takes of one
+ * change in the one window, each a page of its own, and `url` is the first's. Absent: one page.
+ */
+export type ShowWindow = { url: string; title?: string; session_id?: string; variations?: WindowTake[] };
+
 /**
  * `POST /sessions/window/closed`: the person closed the window a session showed, by its `url` as
  * `show_window` named it. It ends the session's walk and settles nothing on Waiting on you.

@@ -2,11 +2,13 @@
 kind = "command"
 transport = "HTTP"
 agent_access = "Yes"
-description = "Show the person a web page in a window of Bridge's own, which opens by itself and which a note taken in is answered by a message to this session. While he walks it, AskUserQuestion is refused: ask a question about the page with ask_in_window, put any other in waiting_for, and end your turn, so his notes reach you"
+description = "Show the person a web page in a window of Bridge's own, which opens by itself and which a note taken in is answered by a message to this session. While he walks it, AskUserQuestion is refused: ask a question about the page with ask_in_window, put any other in waiting_for, and end your turn, so his notes reach you. To offer several takes of one change, pass variations, a list of {name, url}, with url the first's: he swaps between them on the window's bar and a note or an Approve names the take"
 notes = """
-`POST /sessions/window`, body `ShowWindow`: `url`, an optional `title` and an optional `session_id`. Answered with the `SessionRecord`.
+`POST /sessions/window`, body `ShowWindow`: `url`, an optional `title`, an optional `session_id` and optional `variations`. Answered with the `SessionRecord`.
 
 **Any `http` or `https` address**; any other scheme is refused with 422 and nothing written. **The session is the one whose process holds the connection** when Fleet hosts it, whatever the body says; `session_id` is read only for a session in a terminal, whose connection Fleet cannot place; the mod tells the model its own id at the start of the conversation (`prompt.context`), and the model passes it. A call that places no session and names none is refused.
+
+**`variations` is a list of `{name, url}`, several takes of one change in one window.** Each `url` is held to the rule `url` is, a take with no name is refused, and `url` must be the first take's: 422, nothing written. They ride the `window` row and the artifact's `detail.variations` (a JSON string, as `detail` holds strings only), so reopening the window from the ledger or the thread brings them back. Bridge draws a letter and name per take on the bar; a note names the take it was taken on (`On B, Needs you first: …`) and Approve names the one on screen (`Approved B, Needs you first: <address>`). The walk ends on an Approve of any take.
 
 **Fleet records it twice and publishes it once.** An `artifact` attachment of form `window` with the address as its target, kept once however often the address is shown, and a `window` row on the thread, appended on every call; the row is `session.row`. Bridge opens the window when that row arrives, and raises it where it is already open. A note taken in the window is sent to the session as `send_session_message` from the person, which wakes it.
 

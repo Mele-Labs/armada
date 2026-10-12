@@ -49,6 +49,16 @@ around `nodeIntegration: false`.
 > Why: the Session chose the page to show the person, and there is no Run's
 > link to resolve it against.
 
+> **Rule.** A Session may show several takes of one change in its window
+> (`variations`). The window is pinned to the origin of the take on screen, and
+> that moves only on a press of a take on the bar, which names an index: main
+> reads the address off the list the Session sent, so no address the page or the
+> bar composed is loaded. A refusal, and the count of refused frames, belong to
+> the page left and are cleared with it.
+> Why: the takes are pages the Session chose to show, as its first address is,
+> and swapping among them is no wider than showing them. Navigation by the page
+> itself stays held to the origin on screen.
+
 > **Rule.** One window per Run. Opening again raises the one that is open.
 
 > **Rule.** The Studio is the Run's own, decided when the window opens. Capture
@@ -278,7 +288,10 @@ this window, and that is another security review. `#1294`.
 
 > **Rule.** A window a Job or a Session opened offers Approve. On a Job it is
 > the act JobDetail's Approve sends; on a Session it is a message from the
-> person, `Approved: <address>`, which wakes it. Nothing closes.
+> person, `Approved: <address>`, which wakes it. Nothing closes. **Of several
+> takes** the bar draws a row of them under its own, and Approve and every note
+> name the one on screen (`Approved B, Needs you first: <address>`); approving
+> one approves it alone, and another on screen offers Approve again.
 > Why: the person walked the page and it is right, and the one who opened the
 > window is the one waiting to hear it. A Studio's window has nobody to tell.
 

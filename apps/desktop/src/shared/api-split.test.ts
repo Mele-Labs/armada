@@ -429,6 +429,7 @@ type OldBridgeApi = {
         scroll: (wheel: CaptureWheel) => void;
         showAsk: (on: boolean) => Promise<void>;
         answerAsk: (answer: CaptureAnswer) => Promise<Outcome>;
+        pick: (at: number) => Promise<void>;
         panel: (open: boolean) => Promise<void>;
         openOwner: () => Promise<void>;
     };
@@ -754,6 +755,7 @@ const OLD_CHANNELS = {
     captureWindowScroll: "bridge:capture-window-scroll",
     captureWindowShowAsk: "bridge:capture-window-show-ask",
     captureWindowAnswerAsk: "bridge:capture-window-answer-ask",
+    captureWindowPick: "bridge:capture-window-pick",
     captureWindowPanel: "bridge:capture-window-panel",
     captureWindowOpenOwner: "bridge:capture-window-open-owner",
     walkPanelOpenInBridge: "bridge:walk-panel-open-in-bridge",

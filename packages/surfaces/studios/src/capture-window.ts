@@ -61,6 +61,8 @@ export type CaptureWindowState = {
   refused?: CaptureRefusal;
   /** A question the Session that opened this window asked about a place on its page. Absent: none open. */
   ask?: CaptureAsk;
+  /** The takes of one change the Session showed, in the order the bar draws them, and the one on screen. Absent: one page. */
+  variations?: { names: string[]; at: number };
 };
 
 /**

@@ -4,9 +4,10 @@
 //! end its turn. `docs/concepts/session.md`, *Showing a window*.
 
 use std::sync::Arc;
+use std::time::Duration;
 
-use api::{HostedSessions, Sessions};
-use ipc::{RunOrNot, SessionId, SessionRow, ShowWindow, WindowClosed};
+use api::{HostedSessions, Next, Sessions};
+use ipc::{Event, RunOrNot, SessionId, SessionRow, ShowWindow, WindowClosed, WindowTake};
 
 use super::session_host::{rig_placing, Rig};
 
@@ -19,7 +20,7 @@ const TWO: &str = "http://localhost:5173/two";
 
 async fn show(rig: &Rig, id: &SessionId, url: &str) {
     rig.fleet
-        .show_window(None, ShowWindow { url: url.into(), title: None, session_id: Some(id.clone()) })
+        .show_window(None, ShowWindow { url: url.into(), title: None, session_id: Some(id.clone()), variations: Vec::new() })
         .await
         .expect("shown");
 }
@@ -83,4 +84,77 @@ async fn a_walk_is_open_until_it_is_approved_its_window_is_closed_or_a_newer_one
         .filter(|row| matches!(row, SessionRow::Window { ended_at: Some(_), .. }))
         .count();
     assert_eq!(ended, 3, "each walk that ended says so on its row: {rows:?}");
+}
+
+fn takes() -> Vec<WindowTake> {
+    [("Every state", ONE), ("Needs you first", TWO)]
+        .map(|(name, url)| WindowTake { name: name.into(), url: url.into() })
+        .into()
+}
+
+#[tokio::test]
+async fn takes_reach_the_row_bridge_opens_and_the_ledger_a_reopen_reads_and_a_take_that_is_no_page_shows_nothing() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    let mut watching = rig.fleet.events().subscribe();
+    let shown = ShowWindow { url: ONE.into(), title: None, session_id: Some(id.clone()), variations: takes() };
+    let record = rig.fleet.show_window(None, shown).await.expect("shown");
+
+    let kept = record
+        .attachments
+        .iter()
+        .find(|one| one.detail.get("form").map(String::as_str) == Some("window"))
+        .expect("the window is on the ledger");
+    let on_ledger = kept.detail.get("variations").expect("and its takes with it");
+    assert!(on_ledger.contains("Needs you first") && on_ledger.contains(TWO), "{on_ledger}");
+
+    let arrived = tokio::time::timeout(Duration::from_secs(5), async {
+        loop {
+            match watching.next().await {
+                Some(Next::Send(delivered)) => {
+                    if let Event::SessionRow(ipc::SessionRowChanged { row: SessionRow::Window { variations, .. }, .. }) = delivered.event {
+                        return variations;
+                    }
+                }
+                other => panic!("the stream ended or dropped: {other:?}"),
+            }
+        }
+    })
+    .await
+    .expect("the window row arrives");
+    assert_eq!(arrived, takes(), "Bridge opens the window on the row, with the takes it carries");
+
+    let refused = |url: &str, variations: Vec<WindowTake>| ShowWindow {
+        url: url.into(),
+        title: None,
+        session_id: Some(id.clone()),
+        variations,
+    };
+    let bad = |name: &str, url: &str| WindowTake { name: name.into(), url: url.into() };
+    for (url, variations) in [
+        (ONE, vec![bad("A", ONE), bad("B", "file:///etc/passwd")]),
+        (ONE, vec![bad("A", ONE), bad("B", "javascript:alert(1)")]),
+        (ONE, vec![bad("A", ONE), bad("  ", TWO)]),
+        (TWO, vec![bad("A", ONE), bad("B", TWO)]),
+    ] {
+        assert!(rig.fleet.show_window(None, refused(url, variations.clone())).await.is_err(), "{variations:?}");
+    }
+    let windows = rig.rows(&id).await.into_iter().filter(|row| matches!(row, SessionRow::Window { .. })).count();
+    assert_eq!(windows, 1, "a refused call writes no row");
+}
+
+#[tokio::test]
+async fn approving_any_take_ends_the_walk_and_a_sentence_that_only_begins_with_the_word_does_not() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    let shown = ShowWindow { url: ONE.into(), title: None, session_id: Some(id.clone()), variations: takes() };
+    rig.fleet.show_window(None, shown).await.expect("shown");
+
+    let waiting = || async { Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap().session.waiting_for.len() };
+    assert_eq!(waiting().await, 1, "the walk waits on him");
+    rig.send(&id, &format!("Approved the second one: {TWO}")).await;
+    assert_eq!(walking(&rig, &id).await.as_deref(), Some(ONE), "his own words are not an Approve");
+    rig.send(&id, &format!("Approved B, Needs you first: {TWO}")).await;
+    assert_eq!(walking(&rig, &id).await, None, "the take on screen was approved");
+    assert_eq!(waiting().await, 0, "and the walk no longer waits on him");
 }
