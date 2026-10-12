@@ -1,29 +1,12 @@
-// The call card's acts, moved out to the gutters beside it as keycap switches. Two layouts, which the
-// mock switches between so the owner can pick: side consoles (navigation on the left, the decision on the
-// right) and one Helm rail on the right with everything stacked. A Bridge with no provider draws the card
-// with its acts in a row under it, as it always has.
-//
-// **Mock only**: the choice is held in memory, and only the mock mounts a provider.
+// The call card's acts, moved out to the Helm rail beside it as keycap switches: the decision on top, a
+// rule, where to go next, a rule, and Dismiss under a cover. What waits behind the card is a strip on its
+// other side. Under about 1100px the rail folds into the split row under the card.
 
-import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Lock, LockOpen, Radar } from "lucide-react";
 import { Button, Kbd, Tooltip } from "@armada/components";
 
 import type { Item } from "../Dashboard";
-
-export type ConsoleLayout = "inline" | "sides" | "rail";
-
-type Choice = { layout: ConsoleLayout; set?: (layout: ConsoleLayout) => void };
-
-const Consoles = createContext<Choice>({ layout: "inline" });
-
-/** What the mock mounts: the layout held in a state of its own, and the way to change it. */
-export function ConsolesProvider({ children }: { children: ReactNode }) {
-  const [layout, set] = useState<ConsoleLayout>("sides");
-  return <Consoles.Provider value={{ layout, set }}>{children}</Consoles.Provider>;
-}
-
-export const useConsoles = (): Choice => useContext(Consoles);
 
 /** How long a lifted cover stays lifted. */
 const COVER_MS = 3000;

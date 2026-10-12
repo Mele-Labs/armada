@@ -9,7 +9,7 @@ const sessionCallComposer = walk("session-call-composer", [
   { key: "l", on: region("Dashboard"), say: "The Jobs in front are put away" },
   { key: "l", on: region("Dashboard"), say: "And the next" },
   { look: card, say: "A Session's question, with the end of its thread" },
-  { look: inside(card, button(/^Open Session/)), say: "The acts sit in a row above the box, the quiet ones on the right" },
+  { look: button(/Open Session/), say: "The acts are on the rail beside the card, the box under the thread" },
   { look: inside(card, role("textbox", "Message")), say: "The Session's own box, as the Session draws it" },
   { type: "On the client, 30s\n", into: inside(card, role("textbox", "Message")), say: "Enter sends the words to the Session, and the call leaves" },
 ]);

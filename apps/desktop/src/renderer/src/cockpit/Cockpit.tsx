@@ -24,7 +24,7 @@ import { FleetTile } from "../FleetTile";
 import { viewsOf } from "../merge-line";
 import { useSessions } from "../sessions-draft";
 import { CallCard, type CardKeys } from "./CallCard";
-import { Queue, useConsoles } from "./consoles";
+import { Queue } from "./consoles";
 import { Bays } from "./BaysView"; import { useAutopilotLane } from "./AutopilotLane";
 import { baysOf } from "./bays";
 import { metroOf, orderOf } from "./metro";
@@ -289,8 +289,6 @@ export function Cockpit({
   const deck = filter === "command-central";
   const front = deck ? (ahead.find((one) => one.key === forward) ?? ahead[0]) : undefined;
   const edge: Item[] = deck ? [...ahead.filter((one) => one !== front), ...waiting.map((key) => calls.find((one) => one.key === key)!)] : [];
-  const { layout, set: setLayout } = useConsoles();
-  const consoled = layout !== "inline";
 
   /** Keys pressed while a card is leaving, said again once it has gone. */
   const typed = useRef<KeyboardEventInit[]>([]);
@@ -473,20 +471,6 @@ export function Cockpit({
                 </Tooltip>
               </span>
             )}
-            {setLayout === undefined ? null : (
-              <span className="armada-view__toggle" role="group" aria-label="Acts">
-                <Tooltip label="Side consoles">
-                  <Button variant="ghost" size="sm" aria-label="Side consoles" aria-pressed={layout === "sides"} onClick={() => setLayout("sides")}>
-                    A
-                  </Button>
-                </Tooltip>
-                <Tooltip label="Helm rail">
-                  <Button variant="ghost" size="sm" aria-label="Helm rail" aria-pressed={layout === "rail"} onClick={() => setLayout("rail")}>
-                    B
-                  </Button>
-                </Tooltip>
-              </span>
-            )}
             <Tooltip label={actionOf("move_focus").verb}>
               <span>
                 <Kbd>j</Kbd> <Kbd>k</Kbd>
@@ -529,9 +513,8 @@ export function Cockpit({
           </div>
           {front !== undefined ? (
             <div className="armada-cockpit__scrim" data-hue={front.hue}>
-              <div className="armada-stack" data-layout={consoled ? layout : undefined} style={{ ["--behind" as string]: consoled ? 0 : Math.min(3, edge.length) }}>
-                {consoled ? null : <Behind edge={edge} put={waiting} recall={recall} />}
-                <CallCard key={front.key} {...(consoled ? { queue: <Queue edge={edge} put={waiting} recall={recall} first={keyFor("call_recall")} /> } : {})} item={front} now={now} nowing={front.job === undefined ? undefined : nowPanelOf(nows?.[front.job.id], { onOpenJob: hosts.onOpen, onSaid: () => {} })} state={state} hosts={hosts} finish={finish} later={later} dismiss={finish} leaving={leaving} from={seen.current.has(front.key) ? "stack" : undefined} answering={answering} />
+              <div className="armada-stack" data-consoled style={{ ["--behind" as string]: 0 }}>
+                <CallCard key={front.key} queue={<Queue edge={edge} put={waiting} recall={recall} first={keyFor("call_recall")} />} item={front} now={now} nowing={front.job === undefined ? undefined : nowPanelOf(nows?.[front.job.id], { onOpenJob: hosts.onOpen, onSaid: () => {} })} state={state} hosts={hosts} finish={finish} later={later} dismiss={finish} leaving={leaving} from={seen.current.has(front.key) ? "stack" : undefined} answering={answering} />
               </div>
             </div>
           ) : edge.length === 0 ? null : (

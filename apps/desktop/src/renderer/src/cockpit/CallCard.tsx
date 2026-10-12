@@ -15,7 +15,7 @@ import { age, type Hosts, type Item } from "../Dashboard";
 import { useSessions } from "../sessions-draft";
 import { SessionBox, threadRowsOf } from "../sessions";
 import { useAnswering, type Answer, type Answering } from "./answers";
-import { CoveredKeycap, Keycap, useConsoles, useCover } from "./consoles";
+import { CoveredKeycap, Keycap, useCover } from "./consoles";
 import { Failure, hasFailure } from "./Failure";
 import { JobBox } from "./JobBox";
 import { useJudgesRisk } from "./judges-risk";
@@ -208,9 +208,7 @@ export function CallCard({
   // A Job's call that says what went wrong ends in a box whose words go to its Drone.
   const jobBoxed = item.issue !== undefined && answer.reply !== undefined;
   const boxed = composed || jobBoxed;
-  // The acts are in consoles beside the card, or in a row under it where the mock offers no consoles.
-  const { layout } = useConsoles();
-  const consoled = layout !== "inline";
+  // The acts are on the rail beside the card; the row under it is for the glass too narrow to hold the rail.
   // A Job's box, like a Sleep decision from a Job, is hidden until the owner asks for it; a Session's is always there.
   const openChange = () => (changing || composed ? focusReply() : setChanging(true));
   useEffect(() => {
@@ -230,8 +228,8 @@ export function CallCard({
     send,
     ...(long ? { expand: () => setWhole((was) => !was) } : {}),
     ...(sleep === undefined && !jobBoxed ? {} : { change: openChange }),
-    // Under consoles, a key cannot dismiss for good by itself: the cover lifts first.
-    ...(consoled ? { dismiss: cover.press } : {}),
+    // A key cannot dismiss for good by itself: the cover lifts first.
+    dismiss: cover.press,
   };
 
   const sessionId = sessionIdOf(item.key);
@@ -464,7 +462,7 @@ export function CallCard({
         {boxed || answer.reply === undefined || (sleep !== undefined && !changing) ? null : (
           <Reply label={sleep === undefined ? "Type something" : "Change"} text={text} change={change} send={sendWords} pending={answer.pending === "reply"} held={held} {...(sleep === undefined ? {} : { focus: true, close: () => setChanging(false) })} />
         )}
-        <div className="armada-callcard__acts" data-split={actsOnly || undefined} data-consoled={consoled || undefined}>
+        <div className="armada-callcard__acts" data-split={actsOnly || undefined} data-consoled>
           {actsOnly ? <div className="armada-callcard__decide">{decide}</div> : decide}
           {actsOnly ? <div className="armada-callcard__quiet">{quiet}</div> : quiet}
         </div>
@@ -489,23 +487,17 @@ export function CallCard({
       </div>
     </section>
   );
-  if (!consoled) return card;
   return (
     <>
       <aside className="armada-console armada-console--left" data-hue={item.hue}>
         {queue}
-        {layout === "sides" ? <div className="armada-console__plate armada-console__nav">{navKeys}</div> : null}
       </aside>
       {card}
-      <aside className="armada-console armada-console--right" data-hue={item.hue} data-layout={layout}>
+      <aside className="armada-console armada-console--right" data-hue={item.hue}>
         <div className="armada-console__plate">
           {decideKeys}
-          {layout === "rail" ? (
-            <>
-              <hr className="armada-console__rule" />
-              {navKeys}
-            </>
-          ) : null}
+          <hr className="armada-console__rule" />
+          {navKeys}
           <hr className="armada-console__rule" />
           {coveredKey}
         </div>

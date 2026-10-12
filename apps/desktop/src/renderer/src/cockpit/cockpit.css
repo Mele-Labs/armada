@@ -717,11 +717,11 @@ button.armada-metro__stop:hover, button.armada-metro__stop:focus-visible { outli
 .armada-metro__acts { display: flex; flex-wrap: wrap; gap: var(--space-1); margin-top: var(--space-2); }
 .armada-metro__hint { margin-top: var(--space-1); color: var(--fg-subtle); font-size: var(--text-2xs); }
 
-/* ---- Consoles: the card's acts in the gutters beside it, as keycap switches ------------------------ */
+/* ---- The Helm rail: the card's acts beside it, as keycap switches ------------------------ */
 /* The frame carries the state (its hue, its edge); nothing glows and nothing is a gradient. A plate is a
    solid panel the keycaps stand on, a keycap a heavy key whose bottom edge goes down when it is pressed. */
 
-.armada-stack[data-layout] {
+.armada-stack[data-consoled] {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, calc(var(--space-12) * 14)) minmax(0, 1fr);
   align-items: start;
@@ -729,8 +729,8 @@ button.armada-metro__stop:hover, button.armada-metro__stop:focus-visible { outli
   width: 100%;
   padding-top: 0;
 }
-.armada-stack[data-layout] > .armada-callcard { grid-column: 2; grid-row: 1; border-width: calc(var(--border-width) * 2); box-shadow: none; }
-.armada-stack[data-layout] .armada-callcard__band span:first-of-type { font-family: var(--font-mono); letter-spacing: var(--tracking-caps); text-transform: uppercase; }
+.armada-stack[data-consoled] > .armada-callcard { grid-column: 2; grid-row: 1; border-width: calc(var(--border-width) * 2); box-shadow: none; }
+.armada-stack[data-consoled] .armada-callcard__band span:first-of-type { font-family: var(--font-mono); letter-spacing: var(--tracking-caps); text-transform: uppercase; }
 
 .armada-console { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; width: min(100%, calc(var(--space-12) * 4.2)); }
 .armada-console--left { grid-column: 1; grid-row: 1; justify-self: end; }
@@ -750,7 +750,7 @@ button.armada-metro__stop:hover, button.armada-metro__stop:focus-visible { outli
 /* The last rule takes whatever height is left, so the covered act sits at the foot of the plate. */
 .armada-console__plate > .armada-console__rule:last-of-type { margin-top: auto; }
 
-.armada-keycap { display: flex; }
+.armada-keycap { display: flex; min-width: 0; }
 .armada-keycap > .armada-button[data-variant] {
   flex: 1 1 auto;
   justify-content: flex-start;
@@ -766,6 +766,10 @@ button.armada-metro__stop:hover, button.armada-metro__stop:focus-visible { outli
   font-weight: var(--weight-heading);
   letter-spacing: var(--tracking-caps);
   text-transform: uppercase;
+  /* A long verb wraps inside the cap rather than pushing the rail wider. */
+  min-width: 0;
+  white-space: normal;
+  line-height: var(--leading-xs);
 }
 .armada-keycap > .armada-button[data-variant]:active:not(:disabled) { transform: translateY(calc(var(--border-width) * 3)); border-bottom-width: calc(var(--border-width) * 2); }
 .armada-keycap .armada-kbd { flex: none; min-width: var(--space-6); height: var(--space-6); margin: 0; font-size: var(--text-sm); }
@@ -813,9 +817,8 @@ button.armada-metro__stop:hover, button.armada-metro__stop:focus-visible { outli
 /* With consoles, the row under the card is only for the glass too narrow to hold them. */
 .armada-callcard__acts[data-consoled] { display: none; }
 @container scrim (max-width: 1100px) {
-  .armada-stack[data-layout] { display: block; width: min(100%, calc(var(--space-12) * 14)); }
-  .armada-console--right,
-  .armada-console__nav { display: none; }
+  .armada-stack[data-consoled] { display: block; width: min(100%, calc(var(--space-12) * 14)); }
+  .armada-console--right { display: none; }
   .armada-console--left { width: 100%; margin-bottom: var(--space-3); }
   .armada-queue__list { flex-direction: row; overflow-x: auto; }
   .armada-queue__strip { width: auto; max-width: calc(var(--space-12) * 4); }
