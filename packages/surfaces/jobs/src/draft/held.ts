@@ -17,6 +17,7 @@ import type { GroupView } from "./group";
 import type { LandingRule } from "./landing";
 import type { LedgerRow } from "./ledger";
 import type { CallView } from "./calls";
+import type { CommanderDraft } from "./commander";
 import type { JobMembersView } from "./members";
 import type { NowView } from "./now";
 import type { ProposalView } from "./proposal";
@@ -96,4 +97,9 @@ export type JobDraft = {
    * adds what the wire cannot: the Plan interview, issues and sketches.
    */
   now?: Readonly<Record<string, NowView>>;
+  /**
+   * A Job's Commander and the acts on it, by Job id. **Mock only**: Fleet serves no Commander, so a
+   * Job absent here draws no panel and no mark on its plan.
+   */
+  commander?: CommanderDraft;
 };

@@ -4,6 +4,7 @@ import { Ellipsis, Eye, Scale, ShieldEllipsis, type LucideIcon } from "lucide-re
 import { CHECK_OUTCOME, CRITERION_VERDICT_JUDGE, STEP_STATE } from "../../generated/vocabulary";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { StepActivityMark, type StepActivity } from "../StepActivityMark/StepActivityMark";
+import { WhoMark } from "../WhoMark/WhoMark";
 
 // One node of a Job's run on the approval canvas: a band naming its kind in
 // its state's hue, then a body of three lines (the owner's worktree-slot card,
@@ -78,6 +79,8 @@ export type RunNodeProps = {
   links?: boolean;
   /** Its id, right-aligned in the band: a step's id, a group's. */
   id?: string;
+  /** Who put it in the plan, where it was the Commander: a mark in the band, its act on hover. */
+  by?: { who: "commander"; said: string };
   /** The body's second line, in words. Absent draws `traits` there. */
   line?: string;
   traits?: readonly RunNodeTrait[];
@@ -271,6 +274,7 @@ export function RunNode({
   faceMono = false,
   links = false,
   id,
+  by,
   line,
   traits = [],
   meta = [],
@@ -324,6 +328,7 @@ export function RunNode({
           {KIND[kind]}
         </span>
         {id === undefined ? null : <span className="armada-run-node__id">{id}</span>}
+        {by === undefined ? null : <WhoMark who={by.who} said={by.said} />}
       </span>
       <span className="armada-run-node__body">
         {/* A node with items is its items: the band already names it. */}

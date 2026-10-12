@@ -38,6 +38,7 @@ import { GamingHeld } from "./gaming-held";
 import { StepActs } from "./StepActs";
 import type { NowView } from "./draft/now";
 import { nowPanelOf } from "./now-panel";
+import { commanderThreadOf } from "./commander-rows";
 import { OverviewBoard } from "./OverviewBoard";
 import { walkAct } from "./walked";
 import type { DetailTab } from "./detail-tabs";
@@ -791,7 +792,23 @@ export function OverviewTab(props: OverviewTabProps) {
             }),
       }}
       waiting={waiting}
-      now={nowPanelOf(props.nowView, { onOpenDrone: props.onOpenDrone, onOpenCheckLog: props.onOpenCheckLog, onOpenJob: openJob, onSaid })}
+      now={nowPanelOf(props.nowView, {
+        onOpenDrone: props.onOpenDrone,
+        onOpenCheckLog: props.onOpenCheckLog,
+        onOpenJob: openJob,
+        onSaid,
+        onAnswerCommander: (key, option) => props.draft?.commander?.answer(job.id, key, option),
+      })}
+      {...(props.draft?.commander?.views[job.id] === undefined
+        ? {}
+        : {
+            commander: {
+              jobId: job.id,
+              state: props.draft.commander.views[job.id]!.state,
+              rows: commanderThreadOf(props.draft.commander.views[job.id]!.rows),
+              onSend: (text: string) => props.draft?.commander?.send(job.id, text),
+            },
+          })}
       // **What the approval approves, only while the lead offers it.** The
       // owner approved Job 1 on 1 Oct 2026 without seeing what counted as
       // done or how its steps gate, and the Judge refused the plan for it.

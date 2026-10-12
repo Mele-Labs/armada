@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef } from "react";
 import type { ReactNode, Ref } from "react";
-import { AppWindow, Box, ChevronRight, GitBranch, KeyRound, Layers, SquareTerminal, Wrench } from "lucide-react";
+import { AppWindow, Box, ChevronRight, GitBranch, KeyRound, Layers, Server, SquareTerminal, Wrench } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
 import { AttachmentChip } from "../../primitives/AttachmentChip/AttachmentChip";
 import { Button } from "../../primitives/Button/Button";
@@ -40,6 +41,10 @@ export type SessionThreadRow =
   | { id: string; at: string; kind: "message"; from: "session"; sender: { id: string; title: string }; text: string }
   /** A tool call, mono. */
   | { id: string; at: string; kind: "tool"; text: string }
+  /** Fleet woke the agent, and why: a quiet row where the turn it started begins. */
+  | { id: string; at: string; kind: "woke"; why: string }
+  /** What the agent did on its own, mono, with the mark and the tooltip that name which act it was. */
+  | { id: string; at: string; kind: "act"; icon: LucideIcon; said: string; text: string }
   /** A command the person ran in the terminal, as typed, mono. */
   | { id: string; at: string; kind: "command"; text: string }
   /** The summary the CLI wrote where it compacted the conversation. Not the person's words: a quiet row that opens to its text. */
@@ -96,6 +101,8 @@ export type SessionThreadProps = {
   sessionId?: string;
   /** The turn is running: a live mark sits at the end, on the last tool group's row if that is the last row. */
   working?: boolean;
+  /** What the agent's own rows are labelled. Absent reads `Agent`. */
+  agentName?: string;
 };
 
 const TAG_KIND = { session: "Session", job: "Job", pull_request: "Pull request", branch: "Branch" } as const;
@@ -284,11 +291,40 @@ function Row({
   row,
   onOpenSession,
   onOpenWindow,
+  agentName = "Agent",
 }: {
   row: Exclude<SessionThreadRow, { kind: "tool" }>;
   onOpenSession: (id: string) => void;
   onOpenWindow?: (url: string) => void;
+  agentName?: string;
 }) {
+  if (row.kind === "woke") {
+    return (
+      <li className="armada-session-woke">
+        <Tooltip label="Fleet woke it">
+          <span className="armada-session-woke__mark" role="img" aria-label="Fleet woke it">
+            <Server size={12} strokeWidth={2} aria-hidden />
+          </span>
+        </Tooltip>
+        <span className="armada-session-woke__why">{row.why}</span>
+        <span className="armada-session-woke__at">{row.at}</span>
+      </li>
+    );
+  }
+  if (row.kind === "act") {
+    const Glyph = row.icon;
+    return (
+      <li className="armada-session-act">
+        <Tooltip label={row.said}>
+          <span className="armada-session-act__mark" role="img" aria-label={row.said}>
+            <Glyph size={12} strokeWidth={2} aria-hidden />
+          </span>
+        </Tooltip>
+        <code className="armada-session-act__text">{row.text}</code>
+        <span className="armada-session-act__at">{row.at}</span>
+      </li>
+    );
+  }
   if (row.kind === "window") {
     return (
       <li className="armada-session-fold">
@@ -361,7 +397,7 @@ function Row({
   return (
     <li className="armada-helm-thread__row" data-actor={row.from === "you" ? "you" : "helm"} data-from={row.from}>
       <div className="armada-helm-thread__head">
-        <span className="armada-helm-thread__who">{row.from === "you" ? "You" : "Agent"}</span>
+        <span className="armada-helm-thread__who">{row.from === "you" ? "You" : agentName}</span>
         <span className="armada-helm-thread__at">{row.at}</span>
       </div>
       <div className="armada-helm-thread__message">{placed.parts === null ? <Prose text={row.text} /> : <p className="armada-session-said">{placed.parts}</p>}</div>
@@ -373,7 +409,7 @@ function Row({
 /** How far from the end still counts as being at it, so a rounding or a half row does not unpin. */
 const NEAR_END = 24;
 
-export function SessionThread({ rows, asked, askRef, onAnswer, onOpenSession, onOpenWindow, sessionId, working }: SessionThreadProps) {
+export function SessionThread({ rows, asked, askRef, onAnswer, onOpenSession, onOpenWindow, sessionId, working, agentName }: SessionThreadProps) {
   const scroller = useRef<HTMLDivElement>(null);
   const pinned = useRef(true);
   // **Opens at the newest row, with no animation, and stays there while the person is at the end.**
@@ -404,7 +440,7 @@ export function SessionThread({ rows, asked, askRef, onAnswer, onOpenSession, on
             item.kind === "calls" ? (
               <Calls key={item.id} rows={item.rows} working={working === true && at === items.length - 1} />
             ) : (
-              <Row key={item.row.id} row={item.row} onOpenSession={onOpenSession} onOpenWindow={onOpenWindow} />
+              <Row key={item.row.id} row={item.row} onOpenSession={onOpenSession} onOpenWindow={onOpenWindow} {...(agentName === undefined ? {} : { agentName })} />
             ),
           )}
           {working === true && !endsInCalls ? (

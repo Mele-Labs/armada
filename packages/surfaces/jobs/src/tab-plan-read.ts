@@ -15,7 +15,7 @@ import { criterionViewsOf, type CriterionView } from "./draft/criterion";
 import { taskGroupsOf, type GroupState, type GroupView } from "./draft/group";
 import type { JobDraft } from "./draft/held";
 import { planRevisionsOf, type PlanRevisionView } from "./draft/revision";
-import type { TaskView } from "./draft/task";
+import type { TaskBy, TaskView } from "./draft/task";
 import { money } from "@armada/screens/src/facts";
 
 /**
@@ -24,8 +24,15 @@ import { money } from "@armada/screens/src/facts";
  * built here renders against the real Fleet thinner rather than empty.
  */
 export function groupsOf(whole: JobDetail | null, draft?: JobDraft): GroupView[] {
-  if (draft?.groups !== undefined) return [...draft.groups];
-  return whole === null ? [] : taskGroupsOf(whole);
+  const groups = draft?.groups !== undefined ? [...draft.groups] : whole === null ? [] : taskGroupsOf(whole);
+  // The tasks the Commander touched wear its mark, whichever way the plan was read.
+  return whole === null ? groups : markedBy(groups, draft?.commander?.views[whole.job.id]?.marks);
+}
+
+/** The groups with each task the Commander touched carrying its mark. */
+export function markedBy(groups: GroupView[], marks: Readonly<Record<string, TaskBy>> | undefined): GroupView[] {
+  if (marks === undefined) return groups;
+  return groups.map((group) => ({ ...group, tasks: group.tasks.map((task) => (marks[task.id] === undefined ? task : { ...task, by: marks[task.id]! })) }));
 }
 
 /** The cases, on the same terms: the draft's, or the specs the Job's Drones named. */

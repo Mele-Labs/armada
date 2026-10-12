@@ -11,3 +11,10 @@
   size = "12px"
   status = "Proposed"
   notes = "Proposed 6 Oct 2026 for the walk `sessions`. One line becoming two is what dispatching a subagent is; `split` carries no reservation, and `bot` does (a Drone's Record row), so a subagent could not take it."
+
+[[icons.split.usage]]
+  means = "The Commander split one task of a plan into two"
+  group = "Now"
+  size = "12px"
+  status = "Proposed"
+  notes = "Proposed 11 Oct 2026 with the Commander's act rows. One line becoming two is what a split is; the Commander also has a Drone to restart, which is `rotate-cw`. Tooltip `Split task`."

@@ -30,6 +30,12 @@ export type TaskTreatment = "step_drone" | "own_drone" | "job";
  */
 export type TaskTier = "difficult" | "medium" | "easy";
 
+/**
+ * Who put a task in the plan, where it was not the planner: the Commander's split or add. **Mock
+ * only**: the wire's `PlanTask` holds no such field, so Fleet would owe one. The words are the act's.
+ */
+export type TaskBy = { who: "commander"; said: string };
+
 /** One task of a plan, with everything the boards draw. */
 export type TaskView = {
   /** `T1`, `T2`, … Stable for the life of the plan, as on the wire. */
@@ -54,6 +60,8 @@ export type TaskView = {
    * not what a person is being asked to decide.
    */
   touched_after_done: boolean;
+  /** Who put it in the plan, where that was the Commander. Absent on a task the planner wrote. */
+  by?: TaskBy;
   /** The group holding it. A stable id — see `RunCoord`. */
   group: string;
   /** The other tasks of that group running at the same time, by id. */

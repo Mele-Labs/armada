@@ -3,6 +3,7 @@ import { Activity, Bot, Box, ChevronDown, ChevronRight, CircleDot, CornerUpRight
 import type { LucideIcon } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
+import { WhoMark } from "../WhoMark/WhoMark";
 import type { NowAsker } from "../AskerView/AskerView";
 import { Radio, RadioGroup } from "../../primitives/Radio/Radio";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
@@ -69,7 +70,24 @@ export type NowOpenAsk = {
   onOpen: () => void;
 };
 
-export type NowAsk = NowPlanAsk | NowOpenAsk;
+/**
+ * What the Job's Commander cannot do itself, asked once as one card: the fact that stopped it, whose
+ * act the fix is, and the answers it takes. **The answer is the owner's act**, never the Commander's:
+ * a Check is skipped or edited by a person, and the Commander is woken by the answer.
+ */
+export type NowCommanderAsk = {
+  key: string;
+  kind: "commander";
+  /** The fact, bare. */
+  text: string;
+  /** Whose act the fix is, said as a fact. */
+  reach: string;
+  question: string;
+  options: readonly { id: string; label: string }[];
+  onAnswer: (optionId: string) => void;
+};
+
+export type NowAsk = NowPlanAsk | NowOpenAsk | NowCommanderAsk;
 
 /**
  * A quick act on a row, as an icon with a tooltip: retry a Check, skip it, redirect a stuck Drone,
@@ -136,6 +154,8 @@ export type NowRunning = {
   line?: string;
   /** The canvas step this belongs to. Pressing it asks the host to highlight that step. */
   step?: { id: string; name: string };
+  /** Who put it to work, where it was the Commander: a mark beside the name, its act on hover. */
+  by?: { who: "commander"; said: string };
   /** The last few lines of its output, oldest first. Folded until pressed. Absent draws no toggle. */
   tail?: readonly string[];
   /** A Check lands as `passed` or `failed`; the rest are `running` until they leave the list. */
@@ -187,17 +207,17 @@ const STATE: Record<NowRunning["state"], { Glyph: LucideIcon; said: string }> = 
   failed: { Glyph: ShieldX, said: "Failed" },
 };
 
-const ASK_ORDER = ["plan", "judge", "drone"] as const;
+const ASK_ORDER = ["plan", "commander", "judge", "drone"] as const;
 const RUN_ORDER = ["drone", "check", "judge"] as const;
 
 export function NowPanel({ asks = [], issues = [], running = [], waiting = [], onSkipAll, onHide, onStep, focusedStep, onSketch, onAsker, sketchView, onSketchView, thread = [], edits }: NowPanelProps) {
   // The plan decision asked now reports its own sketch; a Judge's or Drone's is read off the asks.
   const [planSketch, setPlanSketch] = useState<NowSketchShow | undefined>(undefined);
-  const openSketch = asks.flatMap((ask) => (ask.kind === "plan" || ask.sketch === undefined ? [] : [ask.sketch]))[0];
+  const openSketch = asks.flatMap((ask) => (ask.kind === "plan" || ask.kind === "commander" || ask.sketch === undefined ? [] : [ask.sketch]))[0];
   const openShow = useMemo<NowSketchShow | undefined>(() => (openSketch === undefined ? undefined : { sketch: openSketch }), [openSketch]);
   const asked = planSketch ?? openShow;
   const [planAsker, setPlanAsker] = useState<NowAsker | undefined>(undefined);
-  const openAsker = asks.flatMap((ask) => (ask.kind === "plan" || ask.asker === undefined ? [] : [ask.asker]))[0];
+  const openAsker = asks.flatMap((ask) => (ask.kind === "plan" || ask.kind === "commander" || ask.asker === undefined ? [] : [ask.asker]))[0];
   const askerNow = planAsker ?? openAsker;
   const shownView = sketchView ?? (asked !== undefined ? "sketch" : "asker");
   useEffect(() => {
@@ -257,7 +277,15 @@ export function NowPanel({ asks = [], issues = [], running = [], waiting = [], o
             const of = asks.filter((ask) => ask.kind === kind);
             return of.length === 0 ? null : (
               <Fragment key={kind}>
-                {of.map((ask) => (ask.kind === "plan" ? <PlanAsk key={ask.key} ask={ask} onSketch={setPlanSketch} onAsker={setPlanAsker} {...(edits === undefined ? {} : { edits })} /> : <AskRow key={ask.key} ask={ask} />))}
+                {of.map((ask) =>
+                  ask.kind === "plan" ? (
+                    <PlanAsk key={ask.key} ask={ask} onSketch={setPlanSketch} onAsker={setPlanAsker} {...(edits === undefined ? {} : { edits })} />
+                  ) : ask.kind === "commander" ? (
+                    <CommanderAsk key={ask.key} ask={ask} />
+                  ) : (
+                    <AskRow key={ask.key} ask={ask} />
+                  ),
+                )}
               </Fragment>
             );
           })}
@@ -472,12 +500,46 @@ function RunningRow({ one, onStep, focused, open }: { one: NowRunning; onStep?: 
         {one.name}
         {one.line === undefined ? null : <span className="armada-now__line">{one.line}</span>}
       </span>
+      {one.by === undefined ? null : <WhoMark who={one.by.who} said={one.by.said} />}
       <Tooltip label={state.said}>
         <span className="armada-now__mark" data-state={one.state} data-pulsing={one.state === "running" || undefined} role="img" aria-label={state.said}>
           <state.Glyph size={12} strokeWidth={2} aria-hidden />
         </span>
       </Tooltip>
     </Row>
+  );
+}
+
+/** The Commander's one card: the fact, whose act the fix is, and the answers, sent together. */
+function CommanderAsk({ ask }: { ask: NowCommanderAsk }) {
+  const [picked, setPicked] = useState<string | undefined>(undefined);
+  const [sent, setSent] = useState(false);
+  return (
+    <li className="armada-now__ask" data-by="commander" aria-label="Commander asks you">
+      <div className="armada-now__ask-head">
+        <WhoMark who="commander" said="Commander asks you" />
+        <span className="armada-now__ask-fact">{ask.text}</span>
+      </div>
+      <p className="armada-now__ask-reach">{ask.reach}</p>
+      <RadioGroup label={ask.question}>
+        {ask.options.map((option) => (
+          <Radio key={option.id} name={`${ask.key}-answer`} value={option.id} checked={picked === option.id} disabled={sent} onChange={() => setPicked(option.id)}>
+            {option.label}
+          </Radio>
+        ))}
+      </RadioGroup>
+      <Button
+        size="sm"
+        disabled={picked === undefined || sent}
+        onClick={() => {
+          if (picked === undefined) return;
+          setSent(true);
+          ask.onAnswer(picked);
+        }}
+      >
+        Answer
+      </Button>
+    </li>
   );
 }
 

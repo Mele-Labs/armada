@@ -14,6 +14,7 @@
 
 import {
   Button,
+  CommanderPanel,
   DestinationCard,
   FigureList,
   GroupShape,
@@ -30,7 +31,7 @@ import {
   Tooltip,
   WorkflowCanvas,
 } from "@armada/components";
-import type { Figure, NowAsker, NowPanelProps, NowRemark, NowSketchShow, NowSketchView, PlanGroupState, WorkflowCanvasEdge, WorkflowCanvasNode } from "@armada/components";
+import type { CommanderPanelProps, Figure, NowAsker, NowPanelProps, NowRemark, NowSketchShow, NowSketchView, PlanGroupState, WorkflowCanvasEdge, WorkflowCanvasNode } from "@armada/components";
 import type { FromStudio } from "@armada/protocol";
 import { PanelRightOpen } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
@@ -135,6 +136,11 @@ export type OverviewBoardProps = {
    * its own head and shows again from a button beside the cards.
    */
   now?: Omit<NowPanelProps, "onHide">;
+  /**
+   * The Job's Commander, under the Now panel: its thread and the box that talks to it. **Absent
+   * draws none**, as every Job has none until Fleet serves one (the decision of 11 Oct 2026).
+   */
+  commander?: CommanderPanelProps;
 };
 
 export function OverviewBoard({
@@ -156,6 +162,7 @@ export function OverviewBoard({
   reading = false,
   onOpenTab,
   now,
+  commander,
 }: OverviewBoardProps) {
   const [hidden, hide] = useNowHidden();
   // **An open ask's sketch stands in for the canvas** until the owner switches back, the panel is
@@ -369,29 +376,34 @@ export function OverviewBoard({
   return (
     <div className="armada-detail-tab armada-overview-board" role="tabpanel" aria-label="Overview">
       <JobLead {...lead} waiting={waiting} />
-      {now === undefined ? (
+      {now === undefined && commander === undefined ? (
         main
       ) : (
         <div className="armada-overview-board__with-now">
           <div className="armada-overview-board__main">{main}</div>
-          {hidden ? (
-            <Tooltip label="Show now">
-              <Button variant="ghost" size="sm" aria-label="Show now" onClick={() => hide(false)}>
-                <PanelRightOpen size={16} strokeWidth={2} aria-hidden />
-              </Button>
-            </Tooltip>
-          ) : (
-            <NowPanel
-              {...now}
-              onHide={() => hide(true)}
-              onSketch={setSketch}
-              onAsker={setAsker}
-              sketchView={sketchView}
-              onSketchView={setChosen}
-              thread={thread}
-              {...(Object.keys(marked).length === 0 ? {} : { edits: marked })}
-            />
-          )}
+          {/* **One column for what is beside the canvas**: the Now panel over the Commander, so what
+              a Job is doing and the agent steering it are read together. */}
+          <div className="armada-overview-board__side">
+            {now === undefined ? null : hidden ? (
+              <Tooltip label="Show now">
+                <Button variant="ghost" size="sm" aria-label="Show now" onClick={() => hide(false)}>
+                  <PanelRightOpen size={16} strokeWidth={2} aria-hidden />
+                </Button>
+              </Tooltip>
+            ) : (
+              <NowPanel
+                {...now}
+                onHide={() => hide(true)}
+                onSketch={setSketch}
+                onAsker={setAsker}
+                sketchView={sketchView}
+                onSketchView={setChosen}
+                thread={thread}
+                {...(Object.keys(marked).length === 0 ? {} : { edits: marked })}
+              />
+            )}
+            {commander === undefined ? null : <CommanderPanel {...commander} />}
+          </div>
         </div>
       )}
     </div>

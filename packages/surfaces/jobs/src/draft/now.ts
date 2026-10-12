@@ -25,7 +25,22 @@ export type NowAskerDraft = {
   checks?: readonly { name: string; state: "passed" | "failed" | "running"; tail?: readonly string[] }[];
 };
 
+/**
+ * What the Commander cannot do itself, asked once as one card. **Mock only**: Fleet serves no
+ * Commander. The answer is the owner's act, and the host hands it to the Commander, which Fleet
+ * wakes on it.
+ */
+export type NowCommanderAskView = {
+  key: string;
+  kind: "commander";
+  text: string;
+  reach: string;
+  question: string;
+  options: readonly { id: string; label: string }[];
+};
+
 export type NowAskView =
+  | NowCommanderAskView
   | { key: string; kind: "plan"; decisions: readonly { id: string; question: string; options: readonly { id: string; label: string; sketch?: NowSketchDraft }[]; sketch?: NowSketchDraft }[]; asker?: NowAskerDraft }
   | { key: string; kind: "judge" | "drone"; name: string; text: string; target?: string; sketch?: NowSketchDraft; asker?: NowAskerDraft };
 
@@ -59,6 +74,8 @@ export type NowRunningView = {
   line?: string;
   /** The canvas step it belongs to. */
   step?: { id: string; name: string };
+  /** Who put it to work, where it was the Commander. */
+  by?: { who: "commander"; said: string };
   /** The last few lines of its output, oldest first. */
   tail?: readonly string[];
   state: "running" | "passed" | "failed";

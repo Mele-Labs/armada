@@ -1,0 +1,81 @@
+/* A Job's Commander under its Now panel: a band over a mono thread and one box. State is carried by
+   the frame, as the Now panel's is: the band's hue is the state's, the body a faint wash of it. The
+   hues are the status tokens the Now panel's bands already read, so the two stack as one column. */
+
+.armada-commander {
+  --commander-hue: var(--status-not-started);
+  display: flex;
+  flex-direction: column;
+  border: var(--border-width) solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--commander-hue) var(--row-tint), var(--bg-raised));
+  overflow: hidden;
+  width: var(--w-dock);
+  min-width: 0;
+  min-height: 0;
+  align-self: start;
+}
+
+.armada-commander[data-state="working"] {
+  --commander-hue: var(--status-running);
+}
+
+.armada-commander[data-state="waiting"] {
+  --commander-hue: var(--status-escalated);
+}
+
+.armada-commander__band {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  background: var(--commander-hue);
+  color: var(--fg-inverse);
+}
+
+.armada-commander__title {
+  flex: 1;
+  margin: 0;
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  font-weight: var(--weight-heading);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+
+/* A mark and a button on the band: the inverse text, so neither reads as a control on a ground of its own. */
+.armada-commander__band .armada-session-mark,
+.armada-commander__band .armada-button {
+  color: var(--fg-inverse);
+}
+
+/* The thread is as tall as what it holds, up to a ceiling, and scrolls inside it: a Commander that
+   has said nothing is the band and the box. */
+.armada-commander__thread {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(var(--space-12) * 7);
+  min-height: 0;
+  padding: var(--space-3);
+}
+
+.armada-commander__composer {
+  padding: var(--space-2) var(--space-3) var(--space-3);
+  border-top: var(--border-width) solid var(--border-subtle);
+}
+
+/* The field with Send inside it, at its trailing foot: the room Send takes is the field's own bottom padding. */
+.armada-commander__field {
+  position: relative;
+  min-width: 0;
+}
+
+.armada-commander__field .armada-textarea {
+  padding-block-end: calc(var(--h-control-sm) + var(--space-4));
+}
+
+.armada-commander__field > .armada-button {
+  position: absolute;
+  inset-block-end: var(--space-2);
+  inset-inline-end: var(--space-2);
+}

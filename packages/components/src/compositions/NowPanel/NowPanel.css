@@ -370,3 +370,34 @@ button.armada-now__step[aria-pressed="true"] {
   letter-spacing: var(--tracking-caps);
   text-transform: uppercase;
 }
+
+/* The Commander's card: the fact in the head beside its mark, whose act the fix is under it, then
+   the answers. The head is mono and weighted so the card reads before the radios do. */
+.armada-now__ask-head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  min-width: 0;
+  width: 100%;
+}
+
+.armada-now__ask-head > .armada-who-mark {
+  flex: none;
+  padding-block-start: var(--space-1);
+  color: var(--status-escalated);
+}
+
+.armada-now__ask-fact {
+  flex: 1;
+  min-width: 0;
+  font-weight: var(--weight-heading);
+  overflow-wrap: anywhere;
+}
+
+.armada-now__ask-reach {
+  margin: 0;
+  color: var(--fg-muted);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  overflow-wrap: anywhere;
+}

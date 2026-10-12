@@ -440,3 +440,62 @@
 @media (prefers-reduced-motion: reduce) {
   .armada-question-deck__card { animation: none; }
 }
+
+/* Fleet woke the agent: a quiet ruled line where the turn it started begins, so the turn reads
+   as Fleet's cause and not the person's word. */
+.armada-session-woke {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  padding-block: var(--space-1);
+  border-block: var(--border-width) dashed var(--border-default);
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-xs);
+}
+
+.armada-session-woke__mark,
+.armada-session-act__mark {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+}
+
+.armada-session-woke__why {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.armada-session-woke__at,
+.armada-session-act__at {
+  flex: none;
+  color: var(--fg-subtle);
+}
+
+/* What the agent did on its own: one mono row in a frame of its own, so an act stands apart from
+   what was said and from the tool calls it read with. */
+.armada-session-act {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-1) var(--space-2);
+  border: var(--border-width) solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--bg-sunken);
+  color: var(--fg-default);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-xs);
+}
+
+.armada-session-act__text {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  overflow-wrap: anywhere;
+}

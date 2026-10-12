@@ -393,6 +393,7 @@
 @import "./compositions/OwnerChip/OwnerChip.css";
 @import "./compositions/SessionFrame/SessionFrame.css";
 @import "./compositions/SessionThread/SessionThread.css";
+@import "./compositions/CommanderPanel/CommanderPanel.css";
 @import "./compositions/SessionComposer/SessionComposer.css";
 @import "./compositions/Pilot/Pilot.css";
 @import "./compositions/PullRequestActs/PullRequestActs.css";
