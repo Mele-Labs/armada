@@ -1,7 +1,7 @@
 // A press on a pull request in its panel is seen to be underway. Enable auto-merge shows the travelling
 // bar on the pressed button while Fleet asks the forge, the other act is disabled, and the settled
 // state replaces it. The Session's own item asking for the merge is settled, which tells it. Review
-// settles as the fact: "Review dispatched". Over the `sessions` scenario, whose mock takes a beat to
+// settles as the fact: "Review dispatched". Over the `session-pr-acts` scenario, whose mock takes a beat to
 // answer. Told twice: wide, and below the breakpoint.
 
 import { kit, NARROW, toSessions } from "../sessions/walk-kit";
@@ -27,7 +27,7 @@ function steps(narrow: boolean): Step[] {
   ];
 }
 
-const wide = walk("sessions", [toSessions, ...steps(false)]);
-const narrow = walk("sessions", [toSessions, ...steps(true)], NARROW);
+const wide = walk("session-pr-acts", [toSessions, ...steps(false)]);
+const narrow = walk("session-pr-acts", [toSessions, ...steps(true)], NARROW);
 
 export { wide as "session-pr-acts", narrow as "session-pr-acts-narrow" };

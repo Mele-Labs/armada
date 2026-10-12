@@ -10,7 +10,7 @@ import { mount, onScreen, unmountAfterEach } from "./testing";
 unmountAfterEach();
 
 test("PR acts: pending while underway, auto-merge settles the Merge item, Review dispatched", async () => {
-  mount("sessions");
+  mount("session-pr-acts");
   await onScreen();
   await userEvent.click(page.getByRole("button", { name: "Sessions", exact: true }));
   await userEvent.click(page.getByRole("region", { name: "Sessions" }).getByRole("button", { name: /Store migration spike/ }));
