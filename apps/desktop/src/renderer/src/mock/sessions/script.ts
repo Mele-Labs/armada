@@ -472,8 +472,9 @@ export function sessionsStore(
       if (sent.text.trim() === "" && sent.files.length + sent.sketches.length + sent.tags.length === 0) return;
       const taggedJobs = sent.tags.filter((t): t is SessionTag & { job: NonNullable<SessionTag["job"]> } => t.kind === "job" && t.job !== undefined);
       edit(id, (one) => {
-        const { pendingTags, ...rest } = one;
+        const { pendingTags, done, ...rest } = one;
         void pendingTags;
+        void done;
         const looking = taggedJobs
           .filter((t) => !one.attachments.some((a) => a.kind === "job" && a.id === t.id))
           .map((t): SessionAttachment => ({ kind: "job", id: t.id, number: t.job.number, title: t.title.replace(/^\d+ /, ""), state: t.job.state, branch: t.job.branch, slot: t.job.slot, looking: true }));
@@ -542,6 +543,7 @@ export function sessionsStore(
       }
     },
     rename: (id, title) => edit(id, (one) => ({ ...one, title })),
+    close: (id) => edit(id, (one) => ({ ...one, dead: "ended" as const })),
     tune: (id, tuning) =>
       edit(id, (one) => {
         const { model, effort, ...rest } = one;
