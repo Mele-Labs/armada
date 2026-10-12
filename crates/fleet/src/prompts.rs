@@ -68,6 +68,18 @@ fn shipped_texts() -> Vec<(Words, String)> {
             keys::PROMPT_TRIGGER_REPAIR,
             crate::trigger_repair::SHIPPED.to_string(),
         ),
+        (
+            keys::PROMPT_CROSSING_ANSWERED,
+            crate::questioning::ANSWERED.to_string(),
+        ),
+        (
+            keys::PROMPT_AUTOPILOT_SENTENCE,
+            crate::autopilot::sentence::QUESTION.to_string(),
+        ),
+        (
+            keys::PROMPT_AUTOPILOT_PICKER,
+            crate::autopilot::picking::QUESTION.to_string(),
+        ),
     ]
     .into_iter()
     .chain(

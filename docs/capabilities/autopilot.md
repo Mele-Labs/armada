@@ -55,7 +55,7 @@ does. Work whose shape is unknown gets a workflow that plans first.
 > next dispatch. A cap that read as "spending stops here" would be believed.
 
 The per-Job ceilings of #51 still hold under all of these. The first cap reached
-stops Autopilot picking and says which one it was.
+pauses Autopilot and says which one it was; raising it lets Resume carry on (#2105).
 
 ## What happens to a pick
 
@@ -77,6 +77,7 @@ stops Autopilot picking and says which one it was.
 | Act | New picks | Started Jobs | Picked, not started | Autopilot |
 |---|---|---|---|---|
 | Pause | None | Finish | Stay | Resumes where it was |
+| A cap reached | None | Finish | Stay | Paused, naming the cap. Resumes once the cap is raised |
 | Stop | None | Finish | Withdrawn | Ends |
 
 Neither one stops a Job that is spending. That is the Job's own Pause.

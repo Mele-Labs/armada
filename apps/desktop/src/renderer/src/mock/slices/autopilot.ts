@@ -2,7 +2,7 @@
 // Two picks started, one set aside with its reason, and one withdrawn by an earlier Stop. The acts
 // move it as Fleet would; what Fleet keeps and picks is `fleet::autopilot`'s. #2092.
 
-import type { Autopilot, AutopilotSettings } from "@armada/protocol";
+import type { Autopilot, AutopilotProposal } from "@armada/protocol";
 
 import type { AutopilotApi } from "../../../../shared/api/autopilot";
 import type { Slice } from "../fake-context";
@@ -75,13 +75,20 @@ export const autopilot: Slice<AutopilotApi, Record<string, never>> = {
       });
     return {
       proposeAutopilot: async (_manifestId: string, sentence: string) => {
-        const settings: AutopilotSettings = { instruction: sentence, at_once: 2, until: "2026-10-12T11:00:00.000Z", spend_cap_micros: 30_000_000 };
-        return { ok: true, value: settings };
+        const proposal: AutopilotProposal = {
+          instruction: sentence,
+          at_once: 2,
+          until: "2026-10-12T11:00:00.000Z",
+          spend_cap_micros: 30_000_000,
+          quoted: { instruction: sentence, at_once: "two at a time", until: "until 7am", spend_cap_micros: "$30 max" },
+        };
+        return { ok: true, value: proposal };
       },
       startAutopilot: async (manifestId, settings) =>
         moved(manifestId, { ...settings, state: "running", picks: [], spent_micros: 0, jobs_started: 0, at_work: 0, ended_at: undefined, capped_by: undefined }),
+      updateAutopilot: async (manifestId, settings) => moved(manifestId, { until: undefined, spend_cap_micros: undefined, job_cap: undefined, ...settings }),
       pauseAutopilot: async (manifestId) => moved(manifestId, { state: "paused" }),
-      resumeAutopilot: async (manifestId) => moved(manifestId, { state: "running" }),
+      resumeAutopilot: async (manifestId) => moved(manifestId, { state: "running", capped_by: undefined }),
       stopAutopilot: async (manifestId) => moved(manifestId, { state: "stopped", ended_at: "2026-10-12T07:12:00.000Z" }),
       listAutopilots: async () => ({ ok: true, value: { autopilots: [...held.values()] } }),
       getAutopilot: async (manifestId) => ({ ok: true, value: of(manifestId) }),

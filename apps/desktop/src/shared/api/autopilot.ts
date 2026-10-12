@@ -2,18 +2,21 @@
 // #2092, `docs/concepts/autopilot.md`. A slice imports protocol, never another slice; `../api.ts` and
 // `../bridge.ts` compose them.
 
-import type { Autopilot, AutopilotList, AutopilotSettings, Outcome } from "@armada/protocol";
+import type { Autopilot, AutopilotList, AutopilotProposal, AutopilotSettings, Outcome } from "@armada/protocol";
 
 /** What an Autopilot act came to: Fleet's answer, or the refusal to word. */
 export type AutopilotActed<T = Autopilot> = { ok: true; value: T } | { ok: false; outcome: Outcome };
 
 export type AutopilotApi = {
-  /** One sentence read as settings, for the person to confirm or change. **Starts nothing.** */
-  proposeAutopilot: (manifestId: string, sentence: string, localNow: string) => Promise<AutopilotActed<AutopilotSettings>>;
+  /** One sentence read as settings, with the words each came from, for the person to confirm or change. **Starts nothing.** */
+  proposeAutopilot: (manifestId: string, sentence: string, localNow: string) => Promise<AutopilotActed<AutopilotProposal>>;
   /** Start with what the person confirmed. */
   startAutopilot: (manifestId: string, settings: AutopilotSettings) => Promise<AutopilotActed>;
+  /** New settings for one running or paused, in its state: never a resume. Raising the cap that paused it lets Resume through. */
+  updateAutopilot: (manifestId: string, settings: AutopilotSettings) => Promise<AutopilotActed>;
   /** No new picks; the Jobs it started finish. */
   pauseAutopilot: (manifestId: string) => Promise<AutopilotActed>;
+  /** Refused (409 `fleet.autopilot_capped`) while a cap it reached still holds, naming the cap. */
   resumeAutopilot: (manifestId: string) => Promise<AutopilotActed>;
   /** No new picks, what it picked and has not started withdrawn, and the end. */
   stopAutopilot: (manifestId: string) => Promise<AutopilotActed>;
@@ -29,6 +32,7 @@ export type AutopilotApi = {
 export const AUTOPILOT_CHANNELS = {
   proposeAutopilot: "bridge:propose-autopilot",
   startAutopilot: "bridge:start-autopilot",
+  updateAutopilot: "bridge:update-autopilot",
   pauseAutopilot: "bridge:pause-autopilot",
   resumeAutopilot: "bridge:resume-autopilot",
   stopAutopilot: "bridge:stop-autopilot",

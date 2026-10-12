@@ -441,8 +441,8 @@ pub use sessions::{
     WindowClosed,
 };
 pub use autopilot::{
-    Autopilot, AutopilotCap, AutopilotList, AutopilotPick, AutopilotPickState, AutopilotSettings,
-    AutopilotState, ProposeAutopilot,
+    Autopilot, AutopilotCap, AutopilotList, AutopilotPick, AutopilotPickState, AutopilotProposal,
+    AutopilotQuoted, AutopilotSettings, AutopilotState, ProposeAutopilot,
 };
 pub use sleep::{OverrideSleep, SetSleep, SleepBlocked, SleepDecided, SleepLanded, SleepState, SleepWalk};
 pub use setup::{

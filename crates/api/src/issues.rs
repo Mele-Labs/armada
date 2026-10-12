@@ -46,10 +46,26 @@ pub(crate) fn mounted<D: Issues + Autopilots>() -> Router<Served<D>> {
             "/autopilots/:repository",
             get(ap::get_autopilot::<D>).post(ap::start_autopilot::<D>),
         )
-        .route("/autopilots/:repository/proposal", post(ap::propose_autopilot::<D>))
-        .route("/autopilots/:repository/pause", post(ap::pause_autopilot::<D>))
-        .route("/autopilots/:repository/resume", post(ap::resume_autopilot::<D>))
-        .route("/autopilots/:repository/stop", post(ap::stop_autopilot::<D>))
+        .route(
+            "/autopilots/:repository/proposal",
+            post(ap::propose_autopilot::<D>),
+        )
+        .route(
+            "/autopilots/:repository/settings",
+            post(ap::update_autopilot::<D>),
+        )
+        .route(
+            "/autopilots/:repository/pause",
+            post(ap::pause_autopilot::<D>),
+        )
+        .route(
+            "/autopilots/:repository/resume",
+            post(ap::resume_autopilot::<D>),
+        )
+        .route(
+            "/autopilots/:repository/stop",
+            post(ap::stop_autopilot::<D>),
+        )
         .route(
             "/autopilots/:repository/picks/:pick_id/dispatch",
             post(ap::dispatch_set_aside::<D>),

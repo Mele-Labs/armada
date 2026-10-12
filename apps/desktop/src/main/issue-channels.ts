@@ -39,6 +39,11 @@ function handleAutopilot({ ipc, connection }: Hosts): void {
       ? on(manifestId, (host, id) => host.autopilot("POST", of(id), settings as AutopilotSettings))
       : unsent,
   );
+  ipc.handle(CHANNELS.updateAutopilot, (_event, manifestId: unknown, settings: unknown) =>
+    typeof settings === "object" && settings !== null
+      ? on(manifestId, (host, id) => host.autopilot("POST", of(id, "/settings"), settings as AutopilotSettings))
+      : unsent,
+  );
   ipc.handle(CHANNELS.pauseAutopilot, (_event, manifestId: unknown) => on(manifestId, (host, id) => host.autopilot("POST", of(id, "/pause"))));
   ipc.handle(CHANNELS.resumeAutopilot, (_event, manifestId: unknown) => on(manifestId, (host, id) => host.autopilot("POST", of(id, "/resume"))));
   ipc.handle(CHANNELS.stopAutopilot, (_event, manifestId: unknown) => on(manifestId, (host, id) => host.autopilot("POST", of(id, "/stop"))));
