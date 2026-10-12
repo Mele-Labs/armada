@@ -20,7 +20,8 @@ export const mainRedSession = walk("main-red-session", [
   { hover: inside(RED, role("img", "Session")), say: "Whose it was: a Session, by its icon" },
   { look: inside(RED, button(SESSION)), say: "Its title opens the Session" },
   { look: inside(RED, button("Dispatch a new Job")), say: "Two acts" },
-  { press: inside(RED, button("Send back", { exact: true })), say: "Send back" },
+  { hover: inside(RED, button(/^Send back to /)), say: "Send back names who it goes back to: the Session that merged" },
+  { press: inside(RED, button(/^Send back to /)), say: "Send back" },
   { look: inside(SEND, role("list", "Attached")), say: "What goes with it" },
   { look: inside(SEND, role("radiogroup", "Sessions")), say: "Sessions first, then Jobs" },
   { look: inside(SEND, role("img", "Merged #1830")), say: "The Session that merged comes first in its group, marked" },
@@ -28,6 +29,6 @@ export const mainRedSession = walk("main-red-session", [
   { look: inside(SEND, role("radiogroup", "Jobs")), say: "Jobs below" },
   { look: inside(SEND, role("textbox", "Message")), say: "The brief, there to edit: it goes to the Session as a message" },
   { press: inside(SEND, button("Send back", { exact: true })), say: "Send it" },
-  { later: inside(RED, button("Send back", { exact: true })), say: "The Session fixes it" },
+  { later: inside(RED, button(/^Send back to /)), say: "The Session fixes it" },
   { look: inside(MERGE, role("img", "Main is green")), say: "Main is green again" },
 ]);

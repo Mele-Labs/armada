@@ -91,6 +91,15 @@
   gap: var(--space-1) var(--space-3);
 }
 
+/* The owner's title in the Send back act, cut short. */
+.armada-main-red__send-title {
+  display: inline-block;
+  max-width: var(--w-menu);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: bottom;
+}
+
 .armada-main-red__owner {
   display: inline-flex;
   align-items: center;

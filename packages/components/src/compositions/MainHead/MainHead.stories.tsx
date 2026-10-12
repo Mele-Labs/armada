@@ -73,7 +73,7 @@ export const RedWithNobodyOnIt: Story = {
     await userEvent.click(canvas.getByRole("link", { name: "nick/ports-cleanup" }));
     await expect(args.onOpenLink).toHaveBeenCalledWith("https://git.example/armada/tree/nick/ports-cleanup");
     await expect(canvas.getByRole("button", { name: "Dispatch a new Job" })).toBeVisible();
-    await expect(canvas.getByRole("button", { name: "Send back" })).toBeVisible();
+    await expect(canvas.getByRole("button", { name: /^Send back to/ })).toBeVisible();
   },
 };
 
@@ -82,7 +82,7 @@ export const RedWithAJobOnIt: Story = {
   args: { ...args, main: { state: "red", red: { ...RED, merge: { ...MERGE, job: JOB } }, taken: JOB } },
   play: async ({ args, canvas, userEvent }) => {
     await expect(canvas.queryByRole("button", { name: "Dispatch a new Job" })).toBeNull();
-    await expect(canvas.queryByRole("button", { name: "Send back" })).toBeNull();
+    await expect(canvas.queryByRole("button", { name: /^Send back to/ })).toBeNull();
     await expect(canvas.getByRole("img", { name: "Working on it" })).toBeVisible();
     await userEvent.click(canvas.getByRole("button", { name: JOB.title }));
     await expect(args.onOpenJob).toHaveBeenCalledWith("job-1");
@@ -114,7 +114,7 @@ export const DispatchANewJob: Story = {
 export const SendBackToAJob: Story = {
   args: { ...args, main: { state: "red", red: { ...RED, merge: { ...MERGE, job: JOB } } } },
   play: async ({ args, canvas, userEvent }) => {
-    await userEvent.click(canvas.getByRole("button", { name: "Send back" }));
+    await userEvent.click(canvas.getByRole("button", { name: /^Send back to/ }));
     const dialog = within(document.body).getByRole("dialog", { name: "Send the work back" });
     const jobs = within(dialog).getAllByRole("radio");
     await expect(jobs[0]).toHaveAccessibleName(/^Cache the manifest read between dispatches/);
@@ -129,7 +129,7 @@ export const SendBackToAJob: Story = {
 export const SendBackToAPersonsPullRequest: Story = {
   args,
   play: async ({ canvas, userEvent }) => {
-    await userEvent.click(canvas.getByRole("button", { name: "Send back" }));
+    await userEvent.click(canvas.getByRole("button", { name: /^Send back to/ }));
     const dialog = within(document.body).getByRole("dialog", { name: "Send the work back" });
     const jobs = within(dialog).getAllByRole("radio");
     await expect(jobs[0]).toHaveAccessibleName(/^Debounce the Job Board's resize handler/);
@@ -197,7 +197,7 @@ export const RedFromCiAlone: Story = {
     await expect(canvas.queryByRole("link")).toBeNull();
     await expect(canvas.queryByText("Broke in")).toBeNull();
     await expect(canvas.queryByRole("button", { name: "Dispatch a new Job" })).toBeNull();
-    await expect(canvas.queryByRole("button", { name: "Send back" })).toBeNull();
+    await expect(canvas.queryByRole("button", { name: /^Send back to/ })).toBeNull();
   },
 };
 
@@ -217,7 +217,7 @@ export const HeldWhileChecksRun: Story = {
     await expect(canvas.getByRole("button", { name: "screens_test" })).toBeVisible();
     await expect(canvas.getByRole("link", { name: "#1812" })).toBeVisible();
     await expect(canvas.queryByRole("button", { name: "Dispatch a new Job" })).toBeNull();
-    await expect(canvas.queryByRole("button", { name: "Send back" })).toBeNull();
+    await expect(canvas.queryByRole("button", { name: /^Send back to/ })).toBeNull();
   },
 };
 

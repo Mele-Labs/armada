@@ -193,9 +193,7 @@ export function MainRedBand({ main, recent, recentSessions = [], onOpenLink, onO
               <Button variant="secondary" size="sm" ground="sunken" onClick={() => setAsking("new")}>
                 Dispatch a new Job
               </Button>
-              <Button variant="secondary" size="sm" ground="sunken" onClick={() => setAsking("back")}>
-                Send back
-              </Button>
+              <SendBack merge={red.merge} onClick={() => setAsking("back")} />
             </span>
           )}
         </div>
@@ -287,6 +285,31 @@ export function MainRedBand({ main, recent, recentSessions = [], onOpenLink, onO
         />
       )}
     </div>
+  );
+}
+
+/**
+ * The act of sending the work back, naming who it goes back to: the owner's icon and title, the title
+ * cut short with its full text in the tooltip. With no owner it opens the picker with nothing chosen.
+ */
+function SendBack({ merge, onClick }: { merge: MainRed["merge"]; onClick: () => void }) {
+  const owner = merge?.session !== undefined ? { Icon: SquareTerminal, title: merge.session.title } : merge?.job !== undefined ? { Icon: Box, title: merge.job.title } : undefined;
+  if (owner === undefined) {
+    return (
+      <Button variant="secondary" size="sm" ground="sunken" onClick={onClick}>
+        Send back to…
+      </Button>
+    );
+  }
+  return (
+    <Tooltip label={owner.title} asChild>
+      <Button variant="secondary" size="sm" ground="sunken" onClick={onClick}>
+        <owner.Icon size={SMALL} strokeWidth={STROKE} aria-hidden />
+        <span>
+          Send back to <span className="armada-main-red__send-title">{owner.title}</span>
+        </span>
+      </Button>
+    </Tooltip>
   );
 }
 
