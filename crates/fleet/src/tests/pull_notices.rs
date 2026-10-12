@@ -176,6 +176,7 @@ impl Rig {
         self.fleet
             .take_held_messages(TakeHeld {
                 session_id: id.into(),
+                wait_ms: None,
             })
             .await
             .unwrap()

@@ -147,6 +147,8 @@ export type SessionRow =
     }
   /** The agent's first write: the slot leased and the branch cut, drawn in the thread where it happened. */
   | { id: string; at: string; kind: "lease"; slot: number; branch: string }
+  /** An `armada check` the agent ran in its slot: the Check's key, its run on the Checks page, and where it stands. */
+  | { id: string; at: string; kind: "check"; name: string; run: number; state: "running" | "passed" | "failed" }
   /** The Session showed a page in a window: where in the thread it did, and the address to open again. */
   | { id: string; at: string; kind: "window"; title: string; url: string };
 
@@ -342,6 +344,14 @@ export type SessionsDraft = {
   commands: readonly SessionCommand[];
   /** Answers one waiting item: a numbered choice, words, or leave it to the agent (`best` thinks it through, `quick` takes the reasonable path). Absent where nothing serves it. */
   answerWaiting?: (id: string, itemId: string, answer: { choice?: number; text?: string; mode?: "best" | "quick" }) => void;
+  /**
+   * Runs a command from a code block in a Session's thread, in the Session's working directory (its
+   * slot if it has one), and reports output and the exit as they come. The person's own act: nothing
+   * is sent to the agent. Absent where nothing serves it, and the block is left without Run.
+   * Fleet answers it with a Session run (`start_session_run`, `observe_session_run`,
+   * `stop_session_run`).
+   */
+  run?: (id: string, command: string, on: (event: { kind: "out"; text: string } | { kind: "end"; code: number | null }) => void) => { stop: () => void };
   /** Answers the permission a Session is held on. The mock offers two and names none. */
   answer: (id: string, answer?: SessionAnswer, answers?: SessionQuestionAnswer[]) => void;
 };

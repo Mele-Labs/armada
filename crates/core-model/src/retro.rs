@@ -22,10 +22,13 @@ pub enum Via {
     /// An HTTP request that named no caller: a script, `curl`, or an agent's
     /// shell. **Not Bridge**, which is all that absence can say.
     Http,
+    /// The phone's Gateway, which names itself with the same header as Bridge.
+    /// A person's own press, from their phone.
+    Phone,
 }
 
 impl Via {
-    pub const ALL: &'static [Via] = &[Via::Bridge, Via::Helm, Via::Door, Via::Http];
+    pub const ALL: &'static [Via] = &[Via::Bridge, Via::Helm, Via::Door, Via::Http, Via::Phone];
 
     pub fn as_wire(&self) -> &'static str {
         match self {
@@ -33,6 +36,7 @@ impl Via {
             Via::Helm => "helm",
             Via::Door => "door",
             Via::Http => "http",
+            Via::Phone => "phone",
         }
     }
 
@@ -44,6 +48,11 @@ impl Via {
     /// agent acting, on a person's ask or not, and Fleet cannot tell which.
     pub fn is_a_person_in_bridge(&self) -> bool {
         matches!(self, Via::Bridge)
+    }
+
+    /// Whether a person pressed it themselves, in Bridge or on their phone.
+    pub fn is_a_person(&self) -> bool {
+        matches!(self, Via::Bridge | Via::Phone)
     }
 }
 

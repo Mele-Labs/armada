@@ -178,7 +178,7 @@ import type { HealthRead } from "@armada/screens/src/overview-reads";
 import type {
   Outstanding,
 } from "@armada/screens/src/outstanding";
-import type { AnswerSessionAsk, AnswerWaiting, ClaimPullRequest, DismissWaiting, PilotOutcome, PullRequestClaimed, PullRequestState, RenameSession, ReviewDispatched, SendSessionMessage, SessionRow, SessionSubagent, TuneSession } from "@armada/protocol";
+import type { AnswerSessionAsk, AnswerWaiting, ClaimPullRequest, DismissWaiting, PilotOutcome, PullRequestClaimed, PullRequestState, RenameSession, ReviewDispatched, SendSessionMessage, SessionRow, SessionRunMessage, SessionRunUnderway, SessionSubagent, TuneSession } from "@armada/protocol";
 import type { PilotExit, PullRequestPress, SessionActed, SessionsRead } from "./api/sessions";
 import type { SleepActed } from "./api/sleep";
 import type { IssuesRead } from "./api/issues";
@@ -378,6 +378,7 @@ type OldBridgeApi = {
     readEvidence: (jobId: string | null) => Promise<void>;
     readDiff: (jobId: string | null) => Promise<void>;
     readCheckOutput: (jobId: string, kept: string) => Promise<CheckOutputRead>;
+    readSessionCheckOutput: (run: number) => Promise<CheckOutputRead>;
     readBrief: (jobId: string, name: string) => Promise<BriefRead>;
     readRetro: (subject: RetroSubject) => Promise<RetroRead>;
     readLessons: (state: "open" | "accepted") => Promise<LessonsRead>;
@@ -423,6 +424,7 @@ type OldBridgeApi = {
         showAsk: (on: boolean) => Promise<void>;
         answerAsk: (answer: CaptureAnswer) => Promise<Outcome>;
         panel: (open: boolean) => Promise<void>;
+        openOwner: () => Promise<void>;
     };
     walkPanel: {
         openInBridge: () => Promise<void>;
@@ -464,6 +466,7 @@ type OldBridgeApi = {
     listIssues: (manifestId: string, refresh: boolean) => Promise<IssuesRead>;
     setSleep: (on: boolean) => Promise<SleepActed>;
     overrideSleep: (id: string, text: string) => Promise<SleepActed>;
+    reviewSleep: (id: string) => Promise<SleepActed>;
     onSleepChanged: (onChanged: (state: SleepState) => void) => () => void;
     tuneSession: (tune: TuneSession) => Promise<SessionActed>;
     renameSession: (rename: RenameSession) => Promise<SessionActed>;
@@ -481,6 +484,9 @@ type OldBridgeApi = {
     hideSessionPage: () => Promise<void>;
     onSessionPageEscape: (on: () => void) => () => void;
     pressPullRequest: (sessionId: string, number: number, press: PullRequestPress) => Promise<SessionActed<PullRequestState | ReviewDispatched>>;
+    startSessionRun: (sessionId: string, command: string) => Promise<SessionActed<SessionRunUnderway>>;
+    stopSessionRun: (runId: string) => Promise<SessionActed<SessionRunUnderway>>;
+    onSessionRunMessage: (on: (runId: string, message: SessionRunMessage) => void) => () => void;
 } & AutopilotApi;
 
 const OLD_NOTHING_YET: OldBridgeState = {
@@ -669,6 +675,7 @@ const OLD_CHANNELS = {
     readDiff: "bridge:read-diff",
     readRemarks: "bridge:read-remarks",
     readCheckOutput: "bridge:read-check-output",
+    readSessionCheckOutput: "bridge:read-session-check-output",
     readBrief: "bridge:read-brief",
     readRetro: "bridge:read-retro",
     readLessons: "bridge:read-lessons",
@@ -735,6 +742,7 @@ const OLD_CHANNELS = {
     captureWindowShowAsk: "bridge:capture-window-show-ask",
     captureWindowAnswerAsk: "bridge:capture-window-answer-ask",
     captureWindowPanel: "bridge:capture-window-panel",
+    captureWindowOpenOwner: "bridge:capture-window-open-owner",
     walkPanelOpenInBridge: "bridge:walk-panel-open-in-bridge",
     tap: "bridge:tap",
     startSession: "bridge:start-session",
@@ -750,6 +758,7 @@ const OLD_CHANNELS = {
     listIssues: "bridge:list-issues",
     setSleep: "bridge:set-sleep",
     overrideSleep: "bridge:override-sleep",
+    reviewSleep: "bridge:review-sleep",
     sleepChanged: "bridge:sleep-changed",
     tuneSession: "bridge:tune-session",
     renameSession: "bridge:rename-session",
@@ -766,6 +775,9 @@ const OLD_CHANNELS = {
     hideSessionPage: "bridge:hide-session-page",
     sessionPageEscape: "bridge:session-page-escape",
     pressPullRequest: "bridge:press-pull-request",
+    startSessionRun: "bridge:start-session-run",
+    stopSessionRun: "bridge:stop-session-run",
+    sessionRunMessage: "bridge:session-run-message",
     ...AUTOPILOT_CHANNELS,
 } as const;
 

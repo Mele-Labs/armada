@@ -23,7 +23,7 @@ import type {
   CaptureWindowState,
 } from "../../shared/capture-window";
 import { CHANNELS } from "../../shared/bridge";
-import { isPinned, offerable, onOrigin, type Pinned } from "./address";
+import { isPinned, offerable, onOrigin, shown, type Pinned } from "./address";
 import { aimed, bounded, chainOf, rectOf } from "./bounds";
 import { panelFor, walkLayout, type LandsOn, type PanelSubject } from "./layout";
 import { followedBy } from "./follow";
@@ -62,6 +62,12 @@ function isCaptureBinding(input: Electron.Input): boolean {
   // into a worktree nothing reads.
   const chord = input.code === "KeyC" || input.code === "KeyA";
   return input.type === "keyDown" && chord && input.meta && input.alt && !input.control && !input.shift;
+}
+
+/** The OS title: the name and the origin, or the address alone where the window has no name of its own. */
+function titled(pin: Pinned): string {
+  const on = shown(pin);
+  return on.name === null ? on.address : `${on.name} — ${on.address}`;
 }
 
 /** A question the Session asked about a place on this window's page — `ask_in_window`. */
@@ -124,7 +130,7 @@ export class CaptureWindow {
       // The OS frame and its title, where Bridge's own window is frameless and
       // draws its own: two windows that are not the same kind of thing do not
       // have the same chrome.
-      title: `${pin.name} — ${pin.origin}`,
+      title: titled(pin),
       show: false,
     });
 
@@ -195,6 +201,14 @@ export class CaptureWindow {
     return !this.bar.webContents.isDestroyed() && contents.id === this.bar.webContents.id;
   }
 
+  /**
+   * The Job or the Session that opened this window, for the bar's link to it. **Read off the
+   * window's own record**, never from the bar: a document that names what to open can name any.
+   */
+  get owner(): PanelSubject | null {
+    return this.subject;
+  }
+
   /** Whether an IPC call came from this window's own panel, and what it holds if it did. Never the page or the bar. */
   panelOf(contents: Electron.WebContents): PanelSubject | null {
     if (this.panel === null || this.panel.webContents.isDestroyed()) return null;
@@ -231,6 +245,7 @@ export class CaptureWindow {
   state(): CaptureWindowState {
     return {
       served: { run: this.pin.run, name: this.pin.name, address: this.pin.origin },
+      shown: shown(this.pin),
       studio: "studio" in this.landsOn ? this.landsOn.studio : null,
       ...("job" in this.landsOn ? { job: this.landsOn.job } : {}),
       ...("session" in this.landsOn ? { session: this.landsOn.session } : {}),

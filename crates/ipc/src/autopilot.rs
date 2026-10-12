@@ -114,3 +114,32 @@ pub struct AutopilotSettings {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub job_cap: Option<u32>,
 }
+
+/// `propose_autopilot`'s answer: the settings, and the words each was read from. #2105.
+///
+/// **The settings are flattened in**, so a client that reads a proposal as [`AutopilotSettings`]
+/// still reads it, and the start form sends back the settings alone.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AutopilotProposal {
+    #[serde(flatten)]
+    pub settings: AutopilotSettings,
+    #[serde(default)]
+    pub quoted: AutopilotQuoted,
+}
+
+/// Per setting, the person's own words it was read from, keyed as [`AutopilotSettings`] keys
+/// them. **Absent where the sentence said nothing about it**, and where the reader quoted words
+/// the sentence does not hold.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AutopilotQuoted {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub instruction: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub at_once: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub until: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub spend_cap_micros: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub job_cap: Option<String>,
+}

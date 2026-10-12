@@ -62,6 +62,17 @@ describe("the bays", () => {
     expect(holder.kind === "session" ? holder.title : undefined).toBe("Session s1");
   });
 
+  test("a bay held by a terminal Armada does not know, or a Session not yet named, is called by its branch", () => {
+    const blank = session("s4", [{ kind: "branch", name: "fix/blank", slot: 2 }], { title: undefined });
+    const { harbours } = read(
+      [slot(1, { state: "session", holder: "/Users/user/.local/bin/agent (pid 7123)" }, { branch: "feat/terminal" }), slot(2, { state: "session", holder: "agent (pid 2)" }, { branch: "fix/blank" })],
+      [blank],
+    );
+    const [terminal, unnamed] = harbours[0]!.bays.map((bay) => bay.holder);
+    expect(terminal).toMatchObject({ kind: "session", title: "feat/terminal", session: undefined, by: "A terminal, pid 7123" });
+    expect(unnamed).toMatchObject({ kind: "session", title: "fix/blank", by: undefined });
+  });
+
   test("a Session working on a bay's Job rides with it, and is not listed as without a bay", () => {
     const s = session("s2", [{ kind: "job", id: "j1", number: 1, title: "Job one", state: "running", branch: "feat/a" }]);
     const { harbours, waiting } = read([slot(1, { state: "job", job_id: "j1" }, { branch: "feat/a" })], [s], [tile("j1"), tile("session:s2", { owner: "session:s2", session: true })]);

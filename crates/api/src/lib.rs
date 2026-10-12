@@ -109,11 +109,12 @@ mod studios;
 mod walking;
 /// A person's run's output, on a socket of its own per run — never `/events`.
 mod watching_run;
+mod watching_session_run;
 
 #[cfg(test)]
 mod tests;
 
-pub use acting::{asked_by, asking, carrying, via, BRIDGE, CALLER_HEADER};
+pub use acting::{asked_by, asking, carrying, via, BRIDGE, CALLER_HEADER, PHONE};
 pub use conversing::{HelmFeed, HelmSeen, HelmWatch, ObservedHelm, HELM_BACKLOG};
 pub use daemon::{
     offerable, Admitting, Authoring, Commands, Conversations, Daemon, FramePart, FrameSpan,
@@ -132,6 +133,7 @@ pub use served::Served;
 pub use stream::{
     tally_every, Broadcaster, Next, Subscription, Tally, BACKLOG, TALLIED, TALLY_EVERY,
 };
+pub use watching_session_run::{ObservedSessionRun, SessionRunEvent, SESSION_RUN_BACKLOG};
 pub use watching_run::{
     ObservedCheckoutRun, ObservedRun, ObservedServer, RunChunk, RunFeed, RunSeen, RunWatch,
     RUN_BACKLOG,

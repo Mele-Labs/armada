@@ -1,7 +1,7 @@
 import type { FormEvent, KeyboardEvent } from "react";
 import { AttachmentChip } from "../../primitives/AttachmentChip/AttachmentChip";
 import { Button } from "../../primitives/Button/Button";
-import { DropdownMenu } from "../../primitives/DropdownMenu/DropdownMenu";
+import { DropdownMenu, type DropdownMenuEntry } from "../../primitives/DropdownMenu/DropdownMenu";
 import { SplitButton } from "../../primitives/SplitButton/SplitButton";
 import { Textarea } from "../../primitives/Textarea/Textarea";
 import { SendKbd, sendsOn } from "../../send-message";
@@ -9,6 +9,34 @@ import { COPY_DEBUG_INFO } from "../../errors/ErrorNotice/payload";
 
 /** One repository the switch may point Helm at — id is the Manifest id. */
 export type HelmRepositoryOption = { id: string; label: string };
+
+/** A recent row's id prefix: a repository listed twice must not repeat an id, and the prefix says which row. */
+const RECENT = "recent:";
+
+/** The switch's rows: the recent few under their own heading, then every repository. */
+function switchEntries(
+  repositories: readonly HelmRepositoryOption[],
+  recent: readonly string[],
+  current: string | undefined,
+): DropdownMenuEntry[] {
+  const row = (one: HelmRepositoryOption, id = one.id): DropdownMenuEntry => ({
+    kind: "item",
+    id,
+    label: one.label,
+    selected: one.id === current,
+  });
+  const led = recent.flatMap((id) => repositories.filter((one) => one.id === id));
+  return [
+    ...(led.length === 0
+      ? []
+      : [
+          { kind: "label", id: "recent", label: "Recent" } as const,
+          ...led.map((one) => row(one, `${RECENT}${one.id}`)),
+          { kind: "separator", id: "recent-rule" } as const,
+        ]),
+    ...repositories.map((one) => row(one)),
+  ];
+}
 
 /** The open Job chipped above the message box — `#1075`. */
 export type HelmComposerChip = { jobHandle: string; title: string };
@@ -27,6 +55,12 @@ export type HelmComposerProps = {
    * nothing, one is enough: it is somewhere to go. None is still nothing.
    */
   repositories?: HelmRepositoryOption[];
+  /**
+   * The few repositories picked last, by Manifest id, newest first — led with under a *Recent*
+   * heading above the full list. The dock decides whether the list is long enough to want it and
+   * passes none otherwise. An id naming no repository in `repositories` is left out.
+   */
+  recent?: readonly string[];
   /** The dock's own switch, on All repositories. The rail's pick never moves for it. */
   onSwitch?: (manifestId: string) => void;
   /**
@@ -66,6 +100,7 @@ export type HelmComposerProps = {
 export function HelmComposer({
   current,
   repositories = [],
+  recent = [],
   onSwitch,
   onCopyRecord,
   onOpenRecord,
@@ -136,13 +171,8 @@ export function HelmComposer({
             // `<select>` had, since a value matching no `<option>` displays the first one.
             triggerLabel={repositories.find((one) => one.id === current)?.label ?? "Choose a repository"}
             searchLabel="Find a repository"
-            entries={repositories.map((one) => ({
-              kind: "item" as const,
-              id: one.id,
-              label: one.label,
-              selected: one.id === current,
-            }))}
-            onSelect={onSwitch}
+            entries={switchEntries(repositories, recent, current)}
+            onSelect={(picked) => onSwitch(picked.startsWith(RECENT) ? picked.slice(RECENT.length) : picked)}
           />
         )}
         {/* The record's two acts as one control — the owner's note of

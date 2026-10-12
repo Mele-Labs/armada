@@ -39,6 +39,16 @@ export const PlaceNotFound: Story = {
   },
 };
 
+/** A place too tall for room above or below it, starting near the top: the card stands at the top of the page, inside the window. */
+export const TallPlace: Story = {
+  args: { box: { x: 40, y: 60, width: 600, height: 2000 } },
+  play: async ({ canvas }) => {
+    const card = canvas.getByRole("dialog", { name: "Question from Findings page" });
+    await expect(card.getAttribute("data-side")).toBe("top");
+    await expect(card.getBoundingClientRect().top).toBeGreaterThanOrEqual(0);
+  },
+};
+
 /** No options: the question is answered in words alone. */
 export const InWordsOnly: Story = {
   args: { options: [] },

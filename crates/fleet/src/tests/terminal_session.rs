@@ -95,6 +95,7 @@ impl Rig {
         self.fleet
             .take_held_messages(TakeHeld {
                 session_id: ID.into(),
+                wait_ms: None,
             })
             .await
             .unwrap()
@@ -169,6 +170,59 @@ async fn a_message_is_held_for_the_mod_that_is_asking_and_handed_over_once() {
     rig.sends("then lint").await.expect("held");
     assert_eq!(rig.mod_asks().await, vec!["run the tests", "then lint"]);
     assert!(rig.mod_asks().await.is_empty(), "handed over once");
+}
+
+impl Rig {
+    /// The mod asking and willing to wait, as a task, so the test can send while it holds.
+    fn mod_holds(&self, wait_ms: u64) -> tokio::task::JoinHandle<Vec<String>> {
+        let fleet = Arc::clone(&self.fleet);
+        tokio::spawn(async move {
+            fleet
+                .take_held_messages(TakeHeld {
+                    session_id: ID.into(),
+                    wait_ms: Some(wait_ms),
+                })
+                .await
+                .unwrap()
+                .messages
+        })
+    }
+}
+
+/// **An ask held open is listening, and a message answers it the moment it is held.** The send
+/// is refused until something asks; once an ask is held it is accepted, and the ask returns long
+/// before its own wait is up.
+#[tokio::test]
+async fn an_ask_held_open_is_answered_the_moment_a_message_is_held() {
+    let rig = rig();
+    rig.started().await;
+    assert!(rig.sends("early").await.is_err(), "nothing is asking yet");
+
+    let waiting = rig.mod_holds(20_000);
+    eventually(|| async { rig.fleet.hosts().terminals().listening(ID) }).await;
+    rig.sends("now").await.expect("held, since an ask is open");
+
+    let held = tokio::time::timeout(Duration::from_secs(5), waiting)
+        .await
+        .expect("answered long before its wait was up")
+        .unwrap();
+    assert_eq!(held, vec!["now"]);
+}
+
+/// A wait that runs out answers empty, and one with no wait never held anything.
+#[tokio::test]
+async fn an_ask_with_nothing_held_answers_empty_at_its_wait_and_at_once_without_one() {
+    let rig = rig();
+    rig.started().await;
+
+    let began = std::time::Instant::now();
+    let held = rig.mod_holds(300).await.unwrap();
+    assert!(held.is_empty());
+    assert!(began.elapsed() >= Duration::from_millis(300), "{:?}", began.elapsed());
+
+    let began = std::time::Instant::now();
+    assert!(rig.mod_asks().await.is_empty());
+    assert!(began.elapsed() < Duration::from_millis(250), "{:?}", began.elapsed());
 }
 
 /// A file is saved by Fleet and the terminal is told its path, in the words a
@@ -251,7 +305,7 @@ async fn what_the_terminal_runs_on_is_what_its_mod_said_and_a_model_is_run_there
     Arc::clone(&rig.fleet).tune_session(tune("haiku")).await.expect("held");
     let held = rig
         .fleet
-        .take_held_messages(TakeHeld { session_id: ID.into() })
+        .take_held_messages(TakeHeld { session_id: ID.into(), wait_ms: None })
         .await
         .unwrap();
     let said: Vec<(String, String)> = held.commands.into_iter().map(|one| (one.command, one.args)).collect();
@@ -260,7 +314,7 @@ async fn what_the_terminal_runs_on_is_what_its_mod_said_and_a_model_is_run_there
     Arc::clone(&rig.fleet).tune_session(tune("opus")).await.expect("held");
     let held = rig
         .fleet
-        .take_held_messages(TakeHeld { session_id: ID.into() })
+        .take_held_messages(TakeHeld { session_id: ID.into(), wait_ms: None })
         .await
         .unwrap();
     assert_eq!(held.commands.len(), 2);
@@ -645,4 +699,28 @@ async fn a_terminal_question_while_a_walk_is_open_is_refused_until_the_window_cl
     rig.mod_asks().await;
     rig.sends(&format!("Approved: {url}")).await.expect("held for the mod");
     assert_eq!(rig.fleet.walk_open(ID).await, None);
+}
+
+/// **A terminal's approval settles its walk for good.** Its messages are its transcript and never
+/// rows, so before this the walk waited on after every Approve.
+#[tokio::test]
+async fn a_terminal_walk_stops_waiting_once_the_person_has_written_to_it() {
+    let rig = rig();
+    rig.started().await;
+    let url = "http://localhost:5173/";
+    let shown = rig
+        .fleet
+        .show_window(None, ipc::ShowWindow { url: url.into(), title: None, session_id: Some(SessionId::carried(ID)) })
+        .await
+        .expect("shown");
+    assert!(shown.waiting_for.iter().any(|one| one.id == format!("walk:{url}")), "{:?}", shown.waiting_for);
+
+    rig.mod_asks().await;
+    rig.sends(&format!("Approved: {url}")).await.expect("held for the mod");
+    let after = Arc::clone(&rig.fleet).get_session(SessionId::carried(ID)).await.unwrap().session;
+    assert!(
+        !after.waiting_for.iter().any(|one| one.source == ipc::WaitingSource::Walk),
+        "{:?}",
+        after.waiting_for
+    );
 }

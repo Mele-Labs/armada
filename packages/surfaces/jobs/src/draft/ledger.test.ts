@@ -26,6 +26,15 @@ function moved(over: Partial<Recorded> = {}): Recorded {
   };
 }
 
+describe("the door an act came through", () => {
+  it("marks a person's act taken on the phone, and no other door", () => {
+    expect(ledgerRowOf(moved({ actor: "human", via: "phone" })).fromPhone).toBe(true);
+    expect(ledgerRowOf(moved({ actor: "human", via: "phone" })).actor).toBe("person");
+    expect(ledgerRowOf(moved({ actor: "human", via: "bridge" })).fromPhone).toBeUndefined();
+    expect(ledgerRowOf(moved({ actor: "human" })).fromPhone).toBeUndefined();
+  });
+});
+
 describe("where a row happened", () => {
   it("names no step for the Job's own machine moving, which is a fact not a gap", () => {
     expect(ledgerRowOf(moved()).coord).toBeNull();

@@ -607,6 +607,14 @@ where
         if self.between_tasks(at_work).await? {
             return Ok(None);
         }
+        // A task's Drone whose process vanished gets one replacement, on the
+        // same task, and the Job goes on. `crate::vanished`.
+        if self.healed_task_drone(working).await? {
+            return Ok(None);
+        }
+        let Some(at_work) = working.as_ref() else {
+            return Ok(None);
+        };
         // The step the Drone was **put on**, which is where its pointer is —
         // not the step the slot has advanced to beneath it.
         let (job_id, spawned_on, drone_id) = at_work.drone();
@@ -624,6 +632,12 @@ where
         // move the machine refuses.
         let standing = self.load(&job_id).await?;
         let after = aftermath(standing.status(), &Ending::of(&heard), self.left(&job_id));
+        // The one line that says why, where the escalation alone says
+        // `interrupted` and nothing else.
+        if matches!(Ending::of(&heard), Ending::Vanished) && !matches!(after, Aftermath::TheGateDecides)
+        {
+            self.noted_vanished(&job_id, &spawned_on, &drone_id, at_work.how_it_ended(), &heard, false);
+        }
         match &after {
             Aftermath::JobMoves(target) => {
                 // The departure first, so the Job's move is published over a
@@ -852,6 +866,7 @@ where
             let seq = store.record_transition(&moved).map_err(Adrift::Writing)?;
             crate::retro::kept_via(&mut store, moved.job.id(), seq, via);
         }
+        self.worktrees_memory().changed();
         if moved.job.status().is_terminal() {
             self.kept_footprint(&moved.job).await;
             // **After teardown, never on a timer.** `docs/concepts/fleet.md`,

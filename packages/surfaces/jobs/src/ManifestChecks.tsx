@@ -10,8 +10,9 @@
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
-import { Button, CheckDetails, CheckList, ConsoleOutput, Tabs, type ConsoleRow } from "@armada/components";
+import { Button, CheckDetails, CheckList, ConsoleOutput, SlotOwner, Tabs, type ConsoleRow } from "@armada/components";
 import type {
+  CheckOutputRead,
   CheckoutRunFollowed,
   CheckoutRunListRead,
   CheckoutRunRecord,
@@ -44,6 +45,10 @@ import { useCheckOutputs, useFollowing, type FollowCheckOutput, type ReadCheckOu
 import { LogSheet } from "./log-sheet";
 
 export type ManifestChecksProps = {
+  /** Draw only the focused run's panel, over whatever surface asked; the list and filters are left out. */
+  only?: boolean;
+  /** The panel closed. */
+  onClosed?: () => void;
   /** `GET /manifest/run_sheet`, held open while this page is showing. */
   sheet: CheckoutRunSheetRead;
   /** The run being read, as it prints. */
@@ -61,6 +66,8 @@ export type ManifestChecksProps = {
   onReadChecks: () => Promise<ManifestChecksRead>;
   /** A Job's Check log, read whole or followed while it is written. */
   onReadCheckOutput: ReadCheckOutput;
+  /** A Session's run, read by its id: it has no Job to read under. */
+  onReadSessionCheckOutput: (run: number) => Promise<CheckOutputRead>;
   onFollowCheckOutput: FollowCheckOutput;
   followedLog: FollowedLog;
   /** A Job as a person names it, for the link to it. */
@@ -72,6 +79,8 @@ export type ManifestChecksProps = {
   floor: boolean;
   /** Narrows the list to one Job's Checks, which is the Job detail's Checks tab. */
   job?: string;
+  /** A Check to have open on arriving: a Session's thread row names its run. */
+  focus?: string;
 };
 
 /** The filter row, a panel's filters as filled tabs. All on opening, no figure on any. */
@@ -111,17 +120,47 @@ export function ManifestChecks(props: ManifestChecksProps) {
     };
   }, [onListRuns, onReadChecks, runningId, verifyId, verifyEnded]);
 
-  const { job } = props;
+  const { job, focus } = props;
   const entries = useMemo(() => {
     const all = checkEntriesOf(data, runs, lines, reported);
     return job === undefined ? all : ofJob(all, job);
   }, [data, runs, lines, reported, job]);
+  useEffect(() => {
+    if (focus === undefined) return;
+    setFilter("all");
+    setOpenId(focus);
+  }, [focus]);
   const shown = useMemo(() => entries.filter((one) => heldBy(filter, one)), [entries, filter]);
-  const open = shown.find((one) => one.id === openId);
+  // **Only the panel**, over the surface it was pressed from: a Session's Check opens here and
+  // closing it leaves the person where they were (owner, 8 Oct 2026).
+  const only = props.only === true;
+  const open = (only ? entries : shown).find((one) => one.id === openId);
+  const close = () => {
+    setOpenId(null);
+    props.onClosed?.();
+  };
   const bands = open === undefined ? undefined : <FactsOf entry={open} {...props} />;
 
+  // Panel-only takes no room of its own: the sheet floats over the surface that asked, and the
+  // page around it would be laid out beside that surface and squeeze it.
+  if (only) return <>{open === undefined ? null : open.land !== undefined ? (
+        <LandCheckLogSheet
+          key={open.id}
+          at={open.land}
+          followed={props.landFollowed}
+          onFollow={props.onFollowLand}
+          bands={bands}
+          floor={floor}
+          onClose={close}
+        />
+      ) : (open.job ?? open.session) !== undefined && open.logs !== undefined ? (
+        <ReportedLogPanel key={open.id} entry={open} job={(open.job ?? open.session)!.id} logs={open.logs} {...props} onClose={close} />
+      ) : (
+        <CheckLogPanel key={open.id} entry={open} bands={bands} {...props} onClose={close} />
+      )}</>;
   return (
     <div className="armada-screen__overview">
+      {only ? null : (
       <CheckFilters
         value={filter}
         onChange={(next) => {
@@ -129,7 +168,8 @@ export function ManifestChecks(props: ManifestChecksProps) {
           setOpenId(null);
         }}
       />
-      <CheckList rows={shown.map((one) => checkRowOf(one, jobLabel))} openRow={open?.id ?? null} onOpenRow={setOpenId} />
+      )}
+      {only ? null : <CheckList rows={shown.map((one) => rowOf(one, jobLabel))} openRow={open?.id ?? null} onOpenRow={setOpenId} />}
       {open === undefined ? null : open.land !== undefined ? (
         <LandCheckLogSheet
           key={open.id}
@@ -138,15 +178,21 @@ export function ManifestChecks(props: ManifestChecksProps) {
           onFollow={props.onFollowLand}
           bands={bands}
           floor={floor}
-          onClose={() => setOpenId(null)}
+          onClose={close}
         />
-      ) : open.job !== undefined && open.logs !== undefined ? (
-        <ReportedLogPanel key={open.id} entry={open} job={open.job.id} logs={open.logs} {...props} onClose={() => setOpenId(null)} />
+      ) : (open.job ?? open.session) !== undefined && open.logs !== undefined ? (
+        <ReportedLogPanel key={open.id} entry={open} job={(open.job ?? open.session)!.id} logs={open.logs} {...props} onClose={close} />
       ) : (
-        <CheckLogPanel key={open.id} entry={open} bands={bands} {...props} onClose={() => setOpenId(null)} />
+        <CheckLogPanel key={open.id} entry={open} bands={bands} {...props} onClose={close} />
       )}
     </div>
   );
+}
+
+/** A list row, with a Session's run asked by its owner chip where the line would say who. */
+function rowOf(entry: CheckEntry, jobLabel: (jobId: string) => string) {
+  const row = checkRowOf(entry, jobLabel);
+  return entry.session?.slot === undefined ? row : { ...row, by: <SlotOwner slot={entry.session.slot} /> };
 }
 
 /**
@@ -158,9 +204,17 @@ function ReportedLogPanel(
 ) {
   const { entry, job, logs, floor, onClose } = props;
   const [at, setAt] = useState(0);
-  const outputs = useCheckOutputs(props.onReadCheckOutput, job);
+  const run = entry.session?.run;
+  const { onReadCheckOutput, onReadSessionCheckOutput } = props;
+  const read = useMemo<ReadCheckOutput>(
+    () => (run === undefined ? onReadCheckOutput : () => onReadSessionCheckOutput(run)),
+    [run, onReadCheckOutput, onReadSessionCheckOutput],
+  );
+  const outputs = useCheckOutputs(read, job);
   const following = useFollowing(props.onFollowCheckOutput, props.followedLog, job);
-  const log = logs[Math.min(at, logs.length - 1)]!;
+  const one = logs[Math.min(at, logs.length - 1)]!;
+  // A Session's log is kept when its run ends, so the key moves with the state and a log read while the run was out is read again.
+  const log = run === undefined ? one : { ...one, kept: `${one.kept}.${entry.status}` };
   return (
     <JobCheckLogSheet
       log={{ name: log.check, kept: log.kept, live: entry.status === "running" }}

@@ -6,9 +6,12 @@
 // scoped to a surface: the ledger answers who owns a branch or a pull request for a chip anywhere in
 // the window, so the list is read on every connection and never dropped.
 //
-// **Threads are held for the window's life once opened.** A row that arrives before the read of its
+// **Threads are held once opened, the twenty opened last.** Reopening one draws it at once from here,
+// and the stream has kept it current since; only the one opened longest ago is let go. A row that arrives before the read of its
 // thread has answered is kept and merged after it, by id, so the gap between asking and hearing loses
 // none; a row for a thread nobody opened is dropped, since the read that opens it brings every row.
+
+import WebSocket from "ws";
 
 import type {
   AnswerSessionAsk,
@@ -27,9 +30,13 @@ import type {
   SessionRecord,
   SessionRow,
   SessionRowChanged,
+  SessionRunMessage,
+  SessionRunUnderway,
   SessionSubagent,
   SessionThread,
   StartSession,
+  StartSessionRun,
+  StopSessionRun,
   TuneSession,
   WindowClosed,
 } from "@armada/protocol";
@@ -38,6 +45,7 @@ import type { ArtifactRead } from "@armada/screens/src/draft/sessions";
 import type { PullRequestPress, SessionActed } from "../shared/api/sessions";
 import { openSessionFile, readSessionArtifact, titleOfWindow } from "./session-file";
 import { ask, MODEL_CALL_MS, sessionFileOf } from "./request";
+import { HOST } from "./runtime-file";
 
 type Publish = (change: Partial<BridgeState>) => void;
 
@@ -62,17 +70,26 @@ export function withSession(sessions: readonly SessionRecord[], record: SessionR
     : [record, ...sessions];
 }
 
+/** How many opened threads are held. Each is every row of a conversation, which runs to hundreds. */
+export const THREADS_HELD = 20;
+
 export class SessionsHost {
   private readonly publish: Publish;
   private readonly port: () => number | null;
   private sessions: SessionRecord[] | null = null;
   private threads: Record<string, SessionRow[]> = {};
+  /** The ids of the threads held, least recently opened first. */
+  private opening: string[] = [];
   /** Opens a window on a page a Session showed. Set once by main, which owns windows. */
   private shown: (sessionId: string, title: string, url: string) => void = () => {};
   /** Brings a Session's window forward for a question asked in it. Set once by main, as `shown` is. */
   private askedIn: (sessionId: string, title: string, window: string, place: string) => void = () => {};
   /** The window rows already acted on, so a row met again opens nothing. */
   private readonly opened = new Set<string>();
+  /** Where a run's messages go: main's, set once, since windows are not a thing this host holds. */
+  private ran: (runId: string, message: SessionRunMessage) => void = () => {};
+  /** The socket each running block is read on, by run id. */
+  private readonly runs = new Map<string, WebSocket>();
   /** Threads whose read has not answered, with the rows that arrived meanwhile. */
   private reading = new Map<string, SessionRow[]>();
 
@@ -97,6 +114,57 @@ export class SessionsHost {
   /** `session.changed`: the session, whole. */
   changed(record: SessionRecord): void {
     this.fold(record);
+  }
+
+  /** Say where a run's messages go: main's, as `onWindow` is. */
+  onRun(ran: (runId: string, message: SessionRunMessage) => void): void {
+    this.ran = ran;
+  }
+
+  /**
+   * A shell block run from a Session's thread. Fleet starts it and answers 202 with a run id; its
+   * output is then read on a socket of its own, opened here so no line is missed between the answer
+   * and the renderer hearing the id. Nothing is folded: a run is not part of the Session's record.
+   */
+  async startRun(start: StartSessionRun): Promise<SessionActed<SessionRunUnderway>> {
+    const port = this.port();
+    if (port === null) return { ok: false, outcome: NOT_CONNECTED };
+    const answer = await ask(port, "POST", "/sessions/run/start", start);
+    if (answer.ok !== true) return { ok: false, outcome: answer.outcome };
+    const underway = answer.body as SessionRunUnderway;
+    this.observeRun(port, underway.run_id);
+    return { ok: true, value: underway };
+  }
+
+  async stopRun(stop: StopSessionRun): Promise<SessionActed<SessionRunUnderway>> {
+    const port = this.port();
+    if (port === null) return { ok: false, outcome: NOT_CONNECTED };
+    const answer = await ask(port, "POST", "/sessions/run/stop", stop);
+    return answer.ok === true ? { ok: true, value: answer.body as SessionRunUnderway } : { ok: false, outcome: answer.outcome };
+  }
+
+  private observeRun(port: number, runId: string): void {
+    const socket = new WebSocket(`ws://${HOST}:${port}/sessions/run/${encodeURIComponent(runId)}/observe`);
+    this.runs.set(runId, socket);
+    let exited = false;
+    // A socket that goes without `exited` ends the run for the reader all the same, as a stop does.
+    const finish = (): void => {
+      if (this.runs.get(runId) === socket) this.runs.delete(runId);
+      if (!exited) this.ran(runId, { kind: "exited", code: null });
+      exited = true;
+    };
+    socket.on("message", (data: WebSocket.RawData) => {
+      let message: SessionRunMessage;
+      try {
+        message = JSON.parse(String(data)) as SessionRunMessage;
+      } catch {
+        return;
+      }
+      if (message.kind === "exited") exited = true;
+      this.ran(runId, message);
+    });
+    socket.on("error", () => {});
+    socket.on("close", finish);
   }
 
   /** Say what opens a window: main's, since a window is not a thing this host holds. */
@@ -148,9 +216,22 @@ export class SessionsHost {
 
   /** Open a thread: read it once, then it follows the stream. */
   async watch(sessionId: string): Promise<void> {
+    this.touch(sessionId);
     const port = this.port();
     if (port === null || this.threads[sessionId] !== undefined || this.reading.has(sessionId)) return;
     await this.read(port, sessionId);
+  }
+
+  /** Note a thread as the one opened last, and let the one opened longest ago go where more than `THREADS_HELD` are held. */
+  private touch(sessionId: string): void {
+    this.opening = [...this.opening.filter((one) => one !== sessionId), sessionId];
+    const gone = this.opening.slice(0, -THREADS_HELD);
+    if (gone.length === 0) return;
+    this.opening = this.opening.slice(-THREADS_HELD);
+    const held = Object.fromEntries(Object.entries(this.threads).filter(([id]) => !gone.includes(id)));
+    if (Object.keys(held).length === Object.keys(this.threads).length) return;
+    this.threads = held;
+    this.publish({ sessionThreads: this.threads });
   }
 
   private async read(port: number, sessionId: string): Promise<void> {
@@ -158,7 +239,8 @@ export class SessionsHost {
     const answer = await ask(port, "GET", `/sessions/one?session_id=${encodeURIComponent(sessionId)}`);
     const meanwhile = this.reading.get(sessionId) ?? [];
     this.reading.delete(sessionId);
-    if (answer.ok !== true) return;
+    // A thread let go while it was being read is not put back: that would hold more than `THREADS_HELD`.
+    if (answer.ok !== true || !this.opening.includes(sessionId)) return;
     const thread = answer.body as SessionThread;
     for (const row of thread.rows) if (row.kind === "window" || row.kind === "window_ask") this.opened.add(row.id);
     this.threads = { ...this.threads, [sessionId]: meanwhile.reduce(withRow, thread.rows) };
@@ -301,6 +383,9 @@ export class SessionsHost {
   close(): void {
     this.sessions = null;
     this.threads = {};
+    this.opening = [];
     this.reading.clear();
+    for (const socket of this.runs.values()) socket.close();
+    this.runs.clear();
   }
 }

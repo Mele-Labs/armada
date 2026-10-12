@@ -115,6 +115,18 @@ pub(crate) async fn override_sleep<D: HostedSessions>(State(served): State<Serve
     }
 }
 
+/// The owner keeps one decision. 200 with the night; 409 where no decision holds the id.
+pub(crate) async fn review_sleep<D: HostedSessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let review: ipc::ReviewSleep = match ipc::decode("a kept sleep decision", &body) {
+        Ok(review) => review,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().review_sleep(review).await {
+        Ok(state) => answer(StatusCode::OK, &state, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 pub(crate) async fn tune_session<D: HostedSessions>(
     State(served): State<Served<D>>,
     body: Bytes,

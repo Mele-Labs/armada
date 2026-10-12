@@ -528,6 +528,11 @@ impl Working {
         self.session.exited().await
     }
 
+    /// How the process ended, once `exited` has collected it.
+    pub(crate) fn how_it_ended(&self) -> Option<std::process::ExitStatus> {
+        self.session.how_it_ended()
+    }
+
     pub(crate) fn session(&self) -> &Session {
         &self.session
     }

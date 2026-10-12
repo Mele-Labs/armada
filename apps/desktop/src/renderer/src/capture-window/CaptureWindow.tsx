@@ -52,6 +52,7 @@ export type CaptureWindowApi = {
   showAsk: (on: boolean) => Promise<void>;
   answerAsk: (answer: CaptureAnswer) => Promise<{ ok: boolean } & Record<string, unknown>>;
   panel: (open: boolean) => Promise<void>;
+  openOwner: () => Promise<void>;
 };
 
 export function CaptureWindow({ api }: { api: CaptureWindowApi }) {
@@ -222,11 +223,12 @@ export function CaptureWindow({ api }: { api: CaptureWindowApi }) {
     <>
       <div ref={bar}>
         <CaptureBar
-          run={state.served.name}
-          address={state.served.address}
+          {...(state.shown.name === null ? {} : { run: state.shown.name })}
+          address={state.shown.address}
           studio={studio}
           {...(state.job === undefined ? {} : { job: state.job.handle })}
           {...(state.session === undefined ? {} : { session: state.session.title })}
+          {...(state.job === undefined && state.session === undefined ? {} : { onOpenOwner: () => void api.openOwner() })}
           serving={state.serving}
           armed={armed}
           framesRefused={state.framesRefused}

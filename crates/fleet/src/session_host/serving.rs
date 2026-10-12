@@ -16,7 +16,7 @@ use ipc::{
     SessionSubagent, SessionThread, SessionTurn, SessionVoice, StartSession, TuneSession,
     WireError,
 };
-use store::{AttachmentState, Holder, KeptAttachment, KeptHosting, KeptSession, Store};
+use store::{AttachmentState, Holder, KeptAttachment, KeptHosting, KeptSession};
 
 use super::address_of;
 use super::process::{Heard, Start};
@@ -141,26 +141,8 @@ where
         self: Arc<Self>,
         sent: SendSessionMessage,
     ) -> Result<SessionRecord, Refusal> {
-        let id = sent.session_id.as_str().to_string();
-        let approved = sent
-            .text
-            .trim()
-            .strip_prefix(super::walking::APPROVED)
-            .map(|url| url.trim().to_string());
-        let record = if let Some(session) = self.terminal_session(&id).await? {
-            let addressed = self.addressed(&sent.mentions).await?;
-            let kept = self.keep_uploads(&id, &sent.attachments)?;
-            let mut paths = kept.paths;
-            paths.extend(kept.picture_paths);
-            self.send_to_terminal(&session, sent, addressed, paths)
-                .await?
-        } else {
-            Arc::clone(&self).send_hosted(sent, SessionVoice::You).await?
-        };
-        if let Some(url) = approved {
-            self.walk_ended(&id, &url).await;
-        }
-        Ok(record)
+        let terminal = self.terminal_session(sent.session_id.as_str()).await?;
+        self.send_known(terminal, sent).await
     }
 
     async fn answer_session_ask(&self, said: AnswerSessionAsk) -> Result<SessionRecord, Refusal> {
@@ -226,6 +208,10 @@ where
 
     async fn set_sleep(self: Arc<Self>, set: ipc::SetSleep) -> Result<ipc::SleepState, Refusal> {
         self.switch_sleep(set.on).await
+    }
+
+    async fn review_sleep(self: Arc<Self>, review: ipc::ReviewSleep) -> Result<ipc::SleepState, Refusal> {
+        self.review_a_decision(review).await
     }
 
     async fn override_sleep(
@@ -312,6 +298,7 @@ where
                 .give_back(&Holder::session(&id), None, &now)
                 .map_err(|why| self.ledger_fault(why))?;
         }
+        self.session_checks_ended(&id).await;
         self.published_hosted(&id).await
     }
 
@@ -357,9 +344,10 @@ where
         let home = self.host().home.clone();
         let session = id.as_str().to_string();
         let subagent_id = subagent.clone();
+        let threads = self.hosts().terminals().threads();
         let read = tokio::task::spawn_blocking(move || {
             adapters::terminal_thread::find_subagent(&home, &session, &subagent)
-                .map(|file| adapters::terminal_thread::read_subagent(&file))
+                .map(|file| threads.subagent(&file, &session, &subagent))
         })
         .await
         .map_err(|why| self.hosted_fault(ATTACHMENT_REFUSED, &why.to_string()))?;
@@ -817,18 +805,40 @@ where
         Ok(())
     }
 
-    /// What a hosted session carries beyond a terminal's row.
-    pub(crate) fn hosted_facts(
-        &self,
-        store: &Store,
-        id: &str,
-    ) -> Result<Option<HostedFacts>, store::WriteError> {
-        let Some(hosting) = store.hosting(id)? else {
-            return Ok(None);
+    /// A message to a session whose kind the caller has already read: `terminal` is the session
+    /// where it is a terminal one.
+    pub(crate) async fn send_known(
+        self: Arc<Self>,
+        terminal: Option<KeptSession>,
+        sent: SendSessionMessage,
+    ) -> Result<SessionRecord, Refusal> {
+        let id = sent.session_id.as_str().to_string();
+        let approved = sent
+            .text
+            .trim()
+            .strip_prefix(super::walking::APPROVED)
+            .map(|url| url.trim().to_string());
+        let record = if let Some(session) = terminal {
+            let addressed = self.addressed(&sent.mentions).await?;
+            let kept = self.keep_uploads(&id, &sent.attachments)?;
+            let mut paths = kept.paths;
+            paths.extend(kept.picture_paths);
+            self.send_to_terminal(&session, sent, addressed, paths)
+                .await?
+        } else {
+            Arc::clone(&self).send_hosted(sent, SessionVoice::You).await?
         };
+        if let Some(url) = approved {
+            self.walk_ended(&id, &url).await;
+        }
+        Ok(record)
+    }
+
+    /// What a hosted session carries beyond a terminal's row.
+    pub(crate) fn hosted_facts_of(&self, id: &str, hosting: KeptHosting) -> HostedFacts {
         let runtime = self.hosts().of(id);
         let state = runtime.state();
-        Ok(Some(HostedFacts {
+        HostedFacts {
             turn: state.turn.clone(),
             asked: state.asked.clone(),
             model: hosting.model,
@@ -840,7 +850,7 @@ where
             } else {
                 state.commands.clone()
             },
-        }))
+        }
     }
 
     /// The row as it stands, published whole, and answered.

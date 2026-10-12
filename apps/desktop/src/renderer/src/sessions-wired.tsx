@@ -16,7 +16,7 @@ import { useEffect, useMemo, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 
 import { EFFORTS } from "@armada/jobs/draft/tuning";
-import type { SessionTag as WireTag } from "@armada/protocol";
+import type { SessionRunMessage, SessionTag as WireTag } from "@armada/protocol";
 import type { SessionCommand } from "@armada/screens/src/draft/sessions";
 import { refusalWords } from "@armada/screens/src/refusal-words";
 import { askToTell, NOT_REACHABLE } from "./tell";
@@ -252,6 +252,48 @@ export class WiredStore {
 
   readonly draft: SessionsDraft = this.build();
 
+  /**
+   * A shell block run. Messages are listened for before the run starts and held until its id is
+   * known, so lines that beat the answer are not lost. A refusal ends the run with code 1 and its words
+   * as one line; a stop ends it with `null`, which is how Fleet reports a stopped process group.
+   */
+  private running(id: string, command: string, on: (event: { kind: "out"; text: string } | { kind: "end"; code: number | null }) => void): { stop: () => void } {
+    let runId: string | null = null;
+    let over = false;
+    const held: { runId: string; message: SessionRunMessage }[] = [];
+    const finish = (code: number | null): void => {
+      if (over) return;
+      over = true;
+      off();
+      on({ kind: "end", code });
+    };
+    const take = (from: string, message: SessionRunMessage): void => {
+      if (over || from !== runId) return;
+      if (message.kind === "lines") for (const text of message.lines) on({ kind: "out", text: `${text}\n` });
+      else if (message.kind === "exited") finish(message.code);
+    };
+    const off = this.api.onSessionRunMessage((from, message) => {
+      if (runId === null) held.push({ runId: from, message });
+      else take(from, message);
+    });
+    void this.api.startSessionRun(id, command).then((started) => {
+      if (over) return;
+      if (!started.ok) {
+        on({ kind: "out", text: `${refusalWords(started.outcome)}\n` });
+        finish(1);
+        return;
+      }
+      runId = started.value.run_id;
+      for (const one of held.splice(0)) take(one.runId, one.message);
+    });
+    return {
+      stop: () => {
+        if (runId === null) return finish(null);
+        void this.api.stopSessionRun(runId);
+      },
+    };
+  }
+
   private build(): SessionsDraft {
     // A getter's `this` is the object it is on, so the models read through the store.
     const store = this;
@@ -282,6 +324,7 @@ export class WiredStore {
       hide: () => void this.api.hideSessionPage(),
       onEscape: (on) => this.api.onSessionPageEscape(on),
     },
+    run: (id, command, on) => this.running(id, command, on),
     said: () => this.refusal,
     taggable: () => {
       const sessions = this.mapped;

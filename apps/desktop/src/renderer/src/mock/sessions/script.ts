@@ -7,6 +7,7 @@
 // for the first, when the person sends a message.
 
 import { closeWalkWindow, mockPage, openWalkWindow } from "@armada/jobs/fake";
+import { askToOpenSession } from "../../open-session";
 import type { Session, SessionTag, SessionAttachment, SessionCommand, SessionRow, SessionSketch, SessionsDraft } from "@armada/screens/src/draft/sessions";
 
 /** The draft the window reads, and what only the mock does: take the next turn, stop, and take a claim Fleet would have put in the ledger. */
@@ -118,7 +119,7 @@ const SUBAGENT_SCRIPT: readonly (readonly ["message" | "tool", string])[] = [
 export const MINE = "s7";
 /** The Session that shows a page in a window when it is next spoken to. */
 export const SHOWER = "s11";
-const SHOWN = "Store clock findings";
+const SHOWN = "Clock read report";
 
 /** A Job on the Board that a person can tag: where it stands, and how the Session would hold it. */
 export type TaggableJob = DispatchedJob & { state: "escalated" | "review" };
@@ -133,6 +134,14 @@ export type BoardControl = {
 const PICTURE = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 200"><rect width="320" height="200" fill="#2a3340"/><rect x="24" y="24" width="272" height="28" rx="4" fill="#4b5a6e"/><rect x="24" y="68" width="120" height="108" rx="4" fill="#4b5a6e"/><rect x="160" y="68" width="136" height="48" rx="4" fill="#6b7f99"/><rect x="160" y="128" width="136" height="48" rx="4" fill="#4b5a6e"/></svg>`;
 
 const NOTE = "# Store clock\n\nThe store reads the clock once per write.\n\n- Pinned in tests\n- Read through `Clock::now`\n";
+
+/** What the fake runner prints for a command containing the first of each pair. */
+const RUN_OUTPUT: readonly (readonly [string, readonly string[]])[] = [
+  ["typecheck", ["> @armada/desktop typecheck", "> tsc --noEmit -p tsconfig.web.json", "Found 0 errors."]],
+  ["vitest", ["RUN  v3.2.4 packages/components", "✓ Prose.test.tsx (14)", "✗ SessionThread.test.tsx (1)", "AssertionError: expected 3 to equal 4", "Tests  1 failed | 41 passed"]],
+  ["tail -f", ["build.log: compiling", "build.log: 212 modules"]],
+];
+const RUN_DEFAULT = ["done"];
 
 export function sessionsStore(
   jobs: readonly [DispatchedJob, DispatchedJob],
@@ -191,9 +200,13 @@ export function sessionsStore(
   const openWindow = (id: string, url: string) => {
     const session = now.find((one) => one.id === id);
     if (session === undefined) return;
+    // The window's own title, apart from the Session's name. One titled by its address has none.
+    const shown = session.attachments.find((one) => one.kind === "artifact" && one.form === "window" && one.id === url);
     openWalkWindow(session.title ?? id, url, {
+      title: shown?.kind === "artifact" && shown.title !== undefined && shown.title !== url ? shown.title : null,
       job: session.title ?? id,
       into: "Session",
+      onOpenOwner: () => askToOpenSession(id),
       onNote: (note, picked) => store.send(id, { text: `${note}\nOn ${picked.element}, ${picked.location}`, files: [], sketches: [], tags: [] }),
       // Approve is a message from the person too, and wakes the Session the same way.
       onApprove: async (address) => {
@@ -567,6 +580,34 @@ export function sessionsStore(
         return { ...rest, waitingFor: (one.waitingFor ?? []).filter((it) => it.id !== itemId) };
       });
       addTo(id, [said(`Going with ${chosen ?? "my own call"}.`)]);
+    },
+    run: (_id, command, on) => {
+      // A fake runner: a few timed lines. `vitest` fails, `tail -f` never ends until it is stopped.
+      const lines = RUN_OUTPUT.find(([match]) => command.includes(match))?.[1] ?? RUN_DEFAULT;
+      const forever = command.includes("tail -f");
+      let at = 0;
+      let handle = 0;
+      const step = () => {
+        if (at < lines.length) {
+          on({ kind: "out", text: `${lines[at]}\n` });
+          at += 1;
+        } else if (forever) on({ kind: "out", text: `build.log ${new Date().toLocaleTimeString("en-GB")} waiting\n` });
+        else {
+          on({ kind: "end", code: command.includes("vitest") ? 1 : 0 });
+          return;
+        }
+        handle = window.setTimeout(step, forever ? 700 : 450);
+        timers.add(handle);
+      };
+      handle = window.setTimeout(step, 250);
+      timers.add(handle);
+      return {
+        stop: () => {
+          window.clearTimeout(handle);
+          timers.delete(handle);
+          on({ kind: "end", code: null });
+        },
+      };
     },
     answer: (id, answer, answers) => {
       const questioned = now.find((one) => one.id === id)?.asked?.questions !== undefined;

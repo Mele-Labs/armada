@@ -1,6 +1,7 @@
 // What a call can be answered with, from the keyboard: its answers as a numbered list, one picked,
 // and Send. A Plan question is its decisions' options; a Session's call is the options of the item it
-// waits on, or a reply in words; a pull request or main's red is Open and Poke where somebody owns it,
+// waits on, else what its act says (run a command, open a pull request or a page), and a reply in
+// words beside either; a pull request or main's red is Open and Poke where somebody owns it,
 // and Send a Drone and Attach where nobody does. A call with no answer of its own opens what it is
 // about. A Session's call is answered through Fleet (`answerWaiting`) and clears when Fleet takes it
 // or says nothing holds it; a refusal stays on the card and goes to a toast. The rest do what their
@@ -17,6 +18,7 @@ import { refusalWords } from "@armada/screens/src/refusal-words";
 import type { BridgeState } from "../../../shared/bridge";
 import { viewsOf } from "../merge-line";
 import { useSessions, useSessionsDraft } from "../sessions-draft";
+import { useSleepSource } from "../sleep";
 import { attachPr } from "./claims";
 import { answerWaiting } from "./answer-waiting";
 import { dismissItem } from "./dismissed";
@@ -92,8 +94,8 @@ function opener(item: Item, hosts: Hosts, state: BridgeState): (() => void) | un
 }
 
 /**
- * Two answers that stand after the numbered ones on a question an agent asked: the best solution,
- * thought through, or the quickest reasonable path. **On a Session's permission they hand the
+ * Two answers that stand after the numbered ones on a question an agent asked (`asksAnAgent`, so
+ * never on a Session's errand line): the best solution, thought through, or the quickest reasonable path. **On a Session's permission they hand the
  * decision to run the command to the agent** (owner, 9 Oct 2026), so they say that. On a Session's
  * call each is an answer carrying `mode: "best" | "quick"`, which Fleet tells the agent as an
  * instruction; on a Plan question or a state Fleet raised, they only clear the card for now.
@@ -213,18 +215,55 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
     ...sessions.filter((one) => one.dead === undefined).map((one): Owner => ({ kind: "session", id: one.id, title: one.title ?? one.id })),
   ];
 
+  // A Sleep decision is kept, or changed in words; either way it is reviewed and the call leaves.
+  const slept = useSleepSource();
+  const sleep = item.sleep;
+  const reviewed = (id: string) => slept?.review(id);
+
+  /** Where a pull request the Session names is, from its own attachments or the repository's open ones. */
+  const pullAddress = (number: number): string | undefined => {
+    const attached = sessions.find((one) => one.id === waiting?.sessionId)?.attachments.find((one) => one.kind === "pull_request" && one.number === number);
+    if (attached?.kind === "pull_request") return attached.address;
+    return views.flatMap((view) => view.hub?.pulls ?? []).find((one) => one.number === number)?.url;
+  };
+  const copy = (command: string) => {
+    try {
+      void navigator.clipboard.writeText(command);
+      hosts.onTell?.("Copied");
+    } catch {
+      // Not copied: the command stays on the card to be read.
+    }
+  };
+
   const answer = (label: string, run: () => void, extra: Partial<Answer> = {}): Answer => ({ id: label, label, run, ...extra });
   const actsOf = (): Answer[] => {
+    if (sleep !== undefined) return [answer("Keep", () => (reviewed(sleep.id), finish()))];
     if (waiting !== undefined) {
       const given = waiting.item;
       // A walk needs no choice: approving is what Fleet does with an answer that names none.
       if (given.source === "walk") return [answer("Approve", () => sendWaiting("Approve", {}))];
-      return (given.options ?? []).map((option, at) =>
-        answer(plainLabel(option.label), () => sendWaiting(plainLabel(option.label), { choice: at }), {
-          ...("description" in option && typeof option.description === "string" ? { description: option.description } : {}),
-          ...(RECOMMENDED.test(option.label) ? { recommended: true } : {}),
-        }),
-      );
+      if (given.options !== undefined && given.options.length > 0) {
+        return given.options.map((option, at) =>
+          answer(plainLabel(option.label), () => sendWaiting(plainLabel(option.label), { choice: at }), {
+            ...("description" in option && typeof option.description === "string" ? { description: option.description } : {}),
+            ...(RECOMMENDED.test(option.label) ? { recommended: true } : {}),
+          }),
+        );
+      }
+      // An errand for him follows its act. A line with none is a word to the agent, in the text box.
+      const act = given.act;
+      if (act?.kind === "run") {
+        // A slash command is the session's own: it is told, as a reply. Anything else he runs himself.
+        if (act.target.startsWith("/")) return [answer(`Run ${act.target}`, () => sendWaiting(`Run ${act.target}`, { text: act.target }))];
+        return [answer(`Copy ${act.target}`, () => copy(act.target))];
+      }
+      if (act?.kind === "approve_pr") {
+        const number = act.target.replace(/^#/, "");
+        const address = pullAddress(Number(number));
+        return [answer(`Open #${number}`, () => (address === undefined ? hosts.onOpenSession(waiting.sessionId) : hosts.onOpenLink(address)))];
+      }
+      if (act?.kind === "walk") return [answer("Open the page", () => (draft?.openWindow === undefined ? hosts.onOpenLink(act.target) : draft.openWindow(waiting.sessionId, act.target)))];
+      return [];
     }
     // Somebody is already on it: go and see that they are addressing it, or nudge them. No new Drone.
     if ((item.key.startsWith("main:") || item.key.startsWith("pull:")) && pull !== undefined) {
@@ -291,6 +330,9 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
     ...(decisions === undefined || decisions.length < 2 ? {} : { decision: { at, of: decisions.length } }),
     open,
     ...(owner === undefined ? {} : { owner }),
+    ...(sleep !== undefined
+      ? { reply: (text: string, accepted?: () => void) => (slept?.override(sleep.id, text), reviewed(sleep.id), accepted?.(), finish()) }
+      : {}),
     ...(replies ? { reply: (text: string, accepted?: () => void) => sendWaiting("reply", { text }, accepted) } : {}),
     ...(attaching ? { attaching: { candidates, choose: attach, close: () => setAttaching(false) } } : {}),
     pending,

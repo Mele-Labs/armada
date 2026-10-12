@@ -510,3 +510,43 @@ export const GrowsToHalf: Story = {
     await expect(field.getBoundingClientRect().height).toBeCloseTo(rest, 0);
   },
 };
+
+/**
+ * A long list leads with the few picked last. **The recent row and the row in the full list are
+ * one repository**, so the full list still has every repository and picking either calls
+ * `onSwitch` with the plain id, never the recent row's prefixed one.
+ */
+export const RecentLeads: Story = {
+  args: {
+    current: "01M2ARMADA",
+    repositories: [
+      ...repositories,
+      { id: "01M2BILLING", label: "billing-api" },
+      { id: "01M2CHECKOUT", label: "checkout" },
+    ],
+    recent: ["01M2CHECKOUT", "01M2SHOP"],
+    onSwitch: fn(),
+  },
+  play: async ({ args, canvas, userEvent }) => {
+    await userEvent.click(canvas.getByRole("button", { name: REPOINT }));
+    await expect(await screen.findByText("Recent")).toBeVisible();
+
+    // Newest first, then the full list with its own copy of each.
+    const rows = (await screen.findAllByRole("menuitem")).map((one) => one.textContent);
+    await expect(rows).toEqual(["checkout", "shop-01", "armada", "shop-01", "billing-api", "checkout"]);
+
+    // A recent row picks the repository by its own id.
+    await userEvent.click((await screen.findAllByRole("menuitem", { name: "checkout" }))[0]!);
+    await expect(args.onSwitch).toHaveBeenCalledWith("01M2CHECKOUT");
+  },
+};
+
+/** No recent list given: no heading, and the rows are just the repositories. */
+export const NoRecentNoHeading: Story = {
+  args: { current: "01M2ARMADA", repositories, onSwitch: fn() },
+  play: async ({ canvas, userEvent }) => {
+    await userEvent.click(canvas.getByRole("button", { name: REPOINT }));
+    await expect(await screen.findAllByRole("menuitem")).toHaveLength(repositories.length);
+    await expect(screen.queryByText("Recent")).not.toBeInTheDocument();
+  },
+};

@@ -550,9 +550,34 @@ const ROUTES: &[Route] = &[
         path: "/sessions/rename",
     },
     Route {
+        operation: "start_session_run",
+        method: "POST",
+        path: "/sessions/run/start",
+    },
+    Route {
+        operation: "stop_session_run",
+        method: "POST",
+        path: "/sessions/run/stop",
+    },
+    Route {
+        operation: "observe_session_run",
+        method: "GET",
+        path: "/sessions/run/:run_id/observe",
+    },
+    Route {
         operation: "show_window",
         method: "POST",
         path: "/sessions/window",
+    },
+    Route {
+        operation: "report_session_check",
+        method: "POST",
+        path: "/sessions/checks",
+    },
+    Route {
+        operation: "get_session_check_output",
+        method: "GET",
+        path: "/sessions/checks/:run/output",
     },
     Route {
         operation: "ask_in_window",

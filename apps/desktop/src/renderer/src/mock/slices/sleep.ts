@@ -12,6 +12,7 @@ export const sleep: Slice<SleepApi, Record<string, never>> = {
     getSleep: async () => ({ ok: false, outcome: unanswered("/sleep") }),
     setSleep: async () => ({ ok: false, outcome: unanswered("/sleep") }),
     overrideSleep: async () => ({ ok: false, outcome: unanswered("/sleep/override") }),
+    reviewSleep: async () => ({ ok: false, outcome: unanswered("/sleep/review") }),
     onSleepChanged: () => () => {},
   }),
 };

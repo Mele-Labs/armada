@@ -30,7 +30,7 @@ import type {
 import type { FileReport } from "@armada/protocol";
 import type { ModChecked } from "@armada/protocol";
 import type { SleepState } from "@armada/protocol";
-import type { AnswerSessionAsk, AnswerWaiting, ClaimPullRequest, DismissWaiting, PilotOutcome, PullRequestClaimed, PullRequestState, RenameSession, ReviewDispatched, SendSessionMessage, SessionSubagent, TuneSession } from "@armada/protocol";
+import type { AnswerSessionAsk, AnswerWaiting, ClaimPullRequest, DismissWaiting, PilotOutcome, PullRequestClaimed, PullRequestState, RenameSession, ReviewDispatched, SendSessionMessage, SessionRunMessage, SessionRunUnderway, SessionSubagent, TuneSession } from "@armada/protocol";
 import type { ArtifactRead, PageBounds } from "@armada/screens/src/draft/sessions";
 import type { PilotExit, PullRequestPress, SessionActed } from "../shared/api/sessions";
 import type { SleepActed } from "../shared/api/sleep";
@@ -583,6 +583,8 @@ const api: BridgeApi = {
 
   readCheckOutput: (jobId: string, kept: string): Promise<CheckOutputRead> =>
     ipcRenderer.invoke(CHANNELS.readCheckOutput, jobId, kept),
+  readSessionCheckOutput: (run: number): Promise<CheckOutputRead> =>
+    ipcRenderer.invoke(CHANNELS.readSessionCheckOutput, run),
   readBrief: (jobId: string, name: string): Promise<BriefRead> =>
     ipcRenderer.invoke(CHANNELS.readBrief, jobId, name),
   // A Job's retro and the Lessons listing, read when a surface opens and on focus.
@@ -631,6 +633,7 @@ const api: BridgeApi = {
   ...autopilotPreload,
   setSleep: (on: boolean): Promise<SleepActed> => ipcRenderer.invoke(CHANNELS.setSleep, on),
   overrideSleep: (id: string, text: string): Promise<SleepActed> => ipcRenderer.invoke(CHANNELS.overrideSleep, id, text),
+  reviewSleep: (id: string): Promise<SleepActed> => ipcRenderer.invoke(CHANNELS.reviewSleep, id),
   onSleepChanged: (onChanged: (state: SleepState) => void): (() => void) => {
     const handler = (_event: unknown, state: SleepState): void => onChanged(state);
     ipcRenderer.on(CHANNELS.sleepChanged, handler);
@@ -681,6 +684,18 @@ const api: BridgeApi = {
     press: PullRequestPress,
   ): Promise<SessionActed<PullRequestState | ReviewDispatched>> =>
     ipcRenderer.invoke(CHANNELS.pressPullRequest, sessionId, number, press),
+  // A shell block run from a Session's thread: one call to run, one to stop, one subscription for what runs print.
+  startSessionRun: (sessionId: string, command: string): Promise<SessionActed<SessionRunUnderway>> =>
+    ipcRenderer.invoke(CHANNELS.startSessionRun, sessionId, command),
+  stopSessionRun: (runId: string): Promise<SessionActed<SessionRunUnderway>> =>
+    ipcRenderer.invoke(CHANNELS.stopSessionRun, runId),
+  onSessionRunMessage: (on: (runId: string, message: SessionRunMessage) => void): (() => void) => {
+    const handler = (_: unknown, runId: string, message: SessionRunMessage): void => on(runId, message);
+    ipcRenderer.on(CHANNELS.sessionRunMessage, handler);
+    return () => {
+      ipcRenderer.removeListener(CHANNELS.sessionRunMessage, handler);
+    };
+  },
 
   // What fleet is holding disk for, and the test each one did not pass. The
   // second read here with no job id, and for a different reason: what is being
@@ -760,6 +775,7 @@ const api: BridgeApi = {
     showAsk: (on: boolean): Promise<void> => ipcRenderer.invoke(CHANNELS.captureWindowShowAsk, on),
     answerAsk: (answer: CaptureAnswer): Promise<Outcome> => ipcRenderer.invoke(CHANNELS.captureWindowAnswerAsk, answer),
     panel: (open: boolean): Promise<void> => ipcRenderer.invoke(CHANNELS.captureWindowPanel, open),
+    openOwner: (): Promise<void> => ipcRenderer.invoke(CHANNELS.captureWindowOpenOwner),
   },
   // The panel beside a walk window's page — `capture-window.md`, *The panel beside the page*. The call
   // names nothing: main answers for the panel the call came from, and refuses any other document.

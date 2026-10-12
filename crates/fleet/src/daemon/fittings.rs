@@ -406,6 +406,7 @@ where
             turns: turns.clone(),
             helm,
             sessions,
+            session_runs: Default::default(),
             scouts,
             inbox: EvidenceInbox::new(),
             delivered: Mutex::new(BTreeMap::new()),
@@ -423,6 +424,7 @@ where
             ),
             shipped,
             swept: Mutex::new(None),
+            kept: crate::worktrees_kept::Kept::default(),
             sweeping: Mutex::new(Sweep::default()),
             issue_sweeping: Mutex::new(crate::issue_noticing::IssueSweep::default()),
             cut_from: crate::approved::CutFrom::default(),
@@ -473,6 +475,10 @@ where
     ) -> Fleet<H, V, W> {
         self.sessions = crate::session_host::Hosts::hosted_by(processes, quiet, self.helm.hold());
         self
+    }
+
+    pub(crate) fn session_runs(&self) -> &crate::session_running::SessionRuns {
+        &self.session_runs
     }
 
     pub(crate) fn scouts(&self) -> &crate::scout::Scouts {

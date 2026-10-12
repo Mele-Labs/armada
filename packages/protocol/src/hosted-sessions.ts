@@ -75,8 +75,11 @@ export type TuneSession = {
   mode: SessionMode;
 };
 
-/** `POST /sessions/held`. The mod in a terminal session asks what a person sent it. Since 23.53. */
-export type TakeHeld = { session_id: string };
+/**
+ * `POST /sessions/held`. The mod in a terminal session asks what a person sent it. Since 23.53.
+ * `wait_ms` lets Fleet hold the ask while nothing is held, up to 25 seconds; left out, it is answered at once.
+ */
+export type TakeHeld = { session_id: string; wait_ms?: number };
 
 /**
  * `POST /sessions/ask/terminal`. The mod in a terminal session puts its `AskUserQuestion` to Bridge (`asks`,
@@ -165,6 +168,8 @@ export type SessionRow =
   | { kind: "compaction"; id: string; at: string; text: string }
   /** The first write: the slot leased and the branch cut. */
   | { kind: "lease"; id: string; at: string; slot: number; branch: string }
+  /** An `armada check` the agent ran in its slot, replaced by id as it ends. `run` is the id `GET /sessions/checks/:run/output` reads. Since 23.75. */
+  | { kind: "check"; id: string; at: string; name: string; run: number; state: "running" | "passed" | "failed" }
   /**
    * The session showed the person a page in a window. `ended_at` is when the walk ended, by an
    * approval or the window closing; absent while it is open.
