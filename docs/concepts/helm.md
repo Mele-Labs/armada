@@ -63,7 +63,7 @@ Helm's advantage is not more access than you have. It is reasoning over results 
 
 **Helm polls instead.** `get_events_since(cursor)` runs at the start of each turn, returning a count plus one line per event kind rather than the events themselves. Helm is never more than one turn stale, and fetches detail through the other queries only when it bears on what was asked.
 
-**Fleet never wakes the session.** Why: it would make Helm a second notification channel alongside Alerts.
+**Fleet never wakes the session.** Why: it would make Helm a second notification channel alongside Alerts. A Job's Commander is the exception, a conversation on Helm's host keyed by the Job that Fleet wakes on that Job's events (`.claude/decisions/2026-10-11-a-job-has-a-commander.md`).
 
 **Every call is scoped to the selected Manifest, except Doctor, which Helm reads machine-wide.** Doctor's modules are machine-level by nature — the Fleet daemon, disk, Armada API reachability — and cannot be Manifest-scoped, so under strict scoping Helm could not answer whether the daemon is healthy.
 
