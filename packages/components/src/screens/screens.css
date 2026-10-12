@@ -2794,6 +2794,20 @@
   min-width: 0;
 }
 
+/* An ask that takes the board's whole width, under the Commander: flush with it, and a card like the rest. */
+.armada-overview-board__wide {
+  min-width: 0;
+}
+
+/* What sits beside the canvas. */
+.armada-overview-board__side {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
 /* A canvas node standing back while the Now panel's rows belong to other steps: the ground's own
    scrim, twice, since a node is already close to the ground it sits on. */
 .armada-now-dimmed {

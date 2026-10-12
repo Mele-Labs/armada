@@ -39,3 +39,10 @@
     size = "16px"
     status = "Specified"
     notes = "Proposed 8 Oct 2026 for the walk `fleetBuildPreviewAhead`, approved by the owner the same day. A refresh is the same act a reload is, which the entries above already give this glyph. Tooltips `Merge in-flight branches and restart on the preview` and `Restart on latest main`. The button follows the selection, and on Main it is disabled with `On latest main` once Fleet is level with main."
+
+  [[icons.rotate-cw.usage]]
+    means = "The Commander restarted a task, on a Drone of its own"
+    group = "Now"
+    size = "12px"
+    status = "Proposed"
+    notes = "Proposed 11 Oct 2026 with the Commander's act rows. Redispatch is this glyph's own meaning above, and a restarted task is a task dispatched again. Tooltip `Restarted task`."

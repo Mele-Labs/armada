@@ -31,7 +31,9 @@ describe("job now real", () => {
   test("a Drone held on a command is asking, by the step it works", async () => {
     mount("job/runningWaitingOnACommand");
     await onScreen();
-    await expect.element(now().getByText("pnpm add", { exact: false })).toBeVisible();
+    // Its command is the card's title and again in the card's own line.
+    await expect.element(now().getByRole("region", { name: /^Command held/ })).toBeVisible();
+    await expect.element(now().getByText("pnpm add", { exact: false }).first()).toBeVisible();
   });
 
   test("a queued Job waits on the reason Fleet gives, and does not read as idle", async () => {
@@ -42,9 +44,16 @@ describe("job now real", () => {
   });
 
   test("a live Job with nothing running says so", async () => {
-    mount("job/awaitingRepair");
+    mount("job/awaitingAttestation");
     await onScreen();
     await expect.element(now().getByText("Nothing is actively running on this job")).toBeVisible();
+  });
+
+  test("a Job holding an ask does not say nothing is running", async () => {
+    mount("job/awaitingRepair");
+    await onScreen();
+    await expect.element(now().getByRole("region", { name: /Out of retries/ })).toBeVisible();
+    expect(now().element().textContent).not.toContain("Nothing is actively running");
   });
 
   test("a Job that is over draws no panel", async () => {

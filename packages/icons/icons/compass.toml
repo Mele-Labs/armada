@@ -1,0 +1,14 @@
+[icons.compass]
+  means = "A circle holding a diamond needle, one point lit - the instrument a ship is steered by"
+  group = "Now"
+  size = "12 and 16px"
+  status = "Proposed"
+  reserved = "A Job's Commander, as the mark of who acted and whose panel it is. Never a direction, a map or a Drone, which is `bot`, and never Helm, which is `message-square`. `drafting-compass` is the sketch toggle, two legs on a hinge, and the two outlines do not share a reading."
+  notes = "Proposed 11 Oct 2026 with the walk `job-commander-woken`, for the Commander the owner decided on that day (`.claude/decisions/2026-10-11-a-job-has-a-commander.md`). Acts on a Job now come from four hands: a Drone, a person, Fleet, and the Commander, and the Commander needed a mark that is none of the other three. A compass steers and claims nothing, which is the Commander's reach. Refused: `bot`, a Drone's alone; `crown` and `star`, which read as rank a Drone has to answer to, where the Commander is steered by Checks and the Judge; `ship-wheel`, too close to Helm. Tooltip `Commander`, and beside an act the act's own words."
+
+  [[icons.compass.usage]]
+    means = "The Commander's own panel on a Job, its head and its state"
+    group = "Now"
+    size = "16px"
+    status = "Proposed"
+    notes = "Proposed 11 Oct 2026 with the Commander panel under the Now panel. The head carries the mark, and the state beside it is the Session mark set (working, waiting, idle)."

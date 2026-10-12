@@ -16,6 +16,7 @@ import {
   Eye,
   GitMerge,
   GitPullRequest,
+  Compass,
   LoaderCircle,
   Megaphone,
   MessageSquare,
@@ -56,6 +57,8 @@ export type Item = {
   owner?: string;
   /** The Plan decisions, where the item is one: the call answers them as tiles. */
   decisions?: Extract<CallAskView, { kind: "plan" }>["decisions"];
+  /** Told the option picked at the last decision, where somebody besides the card hears the answer. */
+  onDecision?: (optionId: string) => void;
   icon: LucideIcon;
   /** The icon's tooltip: what kind of thing the row is. */
   kind: string;
@@ -276,7 +279,7 @@ export function useCursor(job: JobSummary | undefined, onCursor: Hosts["onCursor
 }
 
 /** A Plan decision, answered in place: one question at a time, the answer sent at the last. */
-function PlanAnswer({ decisions, done }: { decisions: Extract<CallAskView, { kind: "plan" }>["decisions"]; done: () => void }) {
+function PlanAnswer({ decisions, done, told }: { decisions: Extract<CallAskView, { kind: "plan" }>["decisions"]; done: () => void; told?: (option: string) => void }) {
   const [at, setAt] = useState(0);
   const [picked, setPicked] = useState<string>();
   const decision = decisions[at]!;
@@ -292,7 +295,7 @@ function PlanAnswer({ decisions, done }: { decisions: Extract<CallAskView, { kin
       <Button
         variant="primary"
         disabled={picked === undefined}
-        onClick={() => (at + 1 < decisions.length ? (setAt(at + 1), setPicked(undefined)) : done())}
+        onClick={() => (at + 1 < decisions.length ? (setAt(at + 1), setPicked(undefined)) : (told?.(picked!), done()))}
       >
         Answer
       </Button>
@@ -305,7 +308,8 @@ function jobItems(job: JobSummary, view: CallView | undefined, hosts: Hosts): It
   const where = job.handle;
   const items: Item[] = [];
   for (const ask of view?.asks ?? []) {
-    if (ask.kind === "plan") {
+    if (ask.kind === "plan" || ask.kind === "commander") {
+      const commander = ask.kind === "commander";
       items.push({
         key: `${job.id}:${ask.key}`,
         owner: job.id,
@@ -314,15 +318,16 @@ function jobItems(job: JobSummary, view: CallView | undefined, hosts: Hosts): It
         ...(view?.about === undefined ? {} : { about: view.about }),
         ...(ask.context === undefined ? {} : { context: ask.context, contextHead: "Why it asks" }),
         decisions: ask.decisions,
-        icon: MessageSquare,
-        kind: "Plan question",
+        ...(ask.kind === "commander" ? { onDecision: ask.onAnswer } : {}),
+        icon: commander ? Compass : MessageSquare,
+        kind: commander ? "Commander asks" : "Plan question",
         title: titleOf(job),
         fact: ask.decisions[0]?.question ?? "",
         at: job.started_at,
         hue: "ask",
         where,
-        body: [["Step", "Plan"]],
-        acts: (done) => <PlanAnswer decisions={ask.decisions} done={done} />,
+        body: commander ? [["From", "Commander"]] : [["Step", "Plan"]],
+        acts: (done) => <PlanAnswer decisions={ask.decisions} done={done} {...(ask.kind === "commander" ? { told: ask.onAnswer } : {})} />,
       });
     } else {
       items.push({
