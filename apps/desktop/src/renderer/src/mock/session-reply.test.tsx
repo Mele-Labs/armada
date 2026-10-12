@@ -44,6 +44,6 @@ test("Reply: an answer item with no choices and no question in the thread opens 
   await userEvent.click(row);
   await userEvent.type(section.getByRole("textbox", { name: /^Reply to Name the helper/ }), "Call it settle");
   await userEvent.keyboard("{Enter}");
-  await expect.element(page.getByRole("region", { name: "Thread" }).getByText(/Re: Name the helper eventually, or settle\?/)).toBeVisible();
+  await expect.element(page.getByRole("region", { name: "Thread" }).getByRole("region", { name: "You answered" }).getByRole("img", { name: "Answered: Name the helper eventually, or settle?" })).toBeVisible();
   await expect.element(row).not.toBeInTheDocument();
 });
