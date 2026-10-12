@@ -322,6 +322,27 @@ is written to disk, so a restart starts a review again, which is also why Review
 mode is held and not remembered like the tab: stored, it would start a model call
 as Retros opened. `packages/surfaces/jobs/src/LessonsReview.tsx`.
 
+### A Session's retro, in its thread
+
+The owner's request, 12 Oct 2026: a person who pressed Retro should see it being
+written in the Session's thread. **The `retro` row is one card that stays**
+(`SessionRetroRow`, drawn from the latest frame only, since Fleet replaces the row
+by id and frames can cross). Running, it names the stage in a line (`Asking the
+agent what got in the way`, `Reading what Fleet kept of the Session`, `Writing the
+retro`) beside the time since `stage_since`; during `writing` the items settle in
+as cards in LessonCard's route (whose way, an arrow, where it lands), headline,
+what happened and `What would change`, a field at a time, the last marked `Still
+being written` with room held for what is still to come, and a quiet count of
+`characters`. Written, it folds to `Retro 3 written · 4 items` with the titles, and
+`Open retro` opens that retro by its number on the Retros page; the row's `items`
+are empty by then, so Bridge reads the kept retro once for the count and titles.
+Failed, Fleet's `why` is the card's alert. **The press moves nobody and does not
+wait on the answer**: the mark holds while the press is out and while the row
+runs, a second press is refused in Fleet's words and the card goes on, and the
+Retros page opens only from the link. Two answers have no card to watch and still
+open the retro as the press did: a terminal Session's, whose thread is a
+transcript, and a press answered with the last retro, which adds no row.
+
 ## Where it is served
 
 | Operation | Route | Answers |
