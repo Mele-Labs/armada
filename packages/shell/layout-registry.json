@@ -3,10 +3,10 @@
     "dashboard.tabs": { "ordered": true, "firstable": true, "entries": [
       { "id": "command-central", "hideable": false },
       { "id": "running", "hideable": true },
-      { "id": "done", "hideable": true }
+      { "id": "done", "hideable": true },
+      { "id": "bays", "hideable": true }
     ] },
     "dashboard.panels": { "ordered": true, "firstable": false, "entries": [
-      { "id": "quick-dispatch", "hideable": true },
       { "id": "fleet", "hideable": false },
       { "id": "merge-line", "hideable": true }
     ] },

@@ -1,0 +1,40 @@
+/* Autopilot on the Cockpit, #2092: the bar's place above the glass on every filter, and its additions
+   to the Bays metro — the faint Next up station, the glyph on its lines, the dashed stop of a pick not
+   started, and the two sidings under the lines. A file of its own so `cockpit.css` is not touched. */
+
+.armada-autopilot-lane { display: grid; flex: none; gap: var(--space-2); padding: var(--space-2) var(--space-4) 0; }
+
+/* One more station, before Waiting, only while an Autopilot is on. */
+.armada-metro[data-next-up] .armada-metro__head,
+.armada-metro[data-next-up] .armada-metro__row { grid-template-columns: var(--label) repeat(7, minmax(0, 1fr)); }
+.armada-metro__head > [data-next-up] { color: var(--fg-subtle); font-weight: var(--weight-body); }
+.armada-metro__station[data-next-up]::before { display: none; }
+.armada-metro__stop[data-picked] { border-style: dashed; border-color: var(--border-strong); background: var(--bg-base); }
+.armada-metro__station[data-next-up][data-state="now"] .armada-metro__stop[data-picked] { width: calc(var(--space-2) + var(--border-width) * 4); height: calc(var(--space-2) + var(--border-width) * 4); box-shadow: none; }
+.armada-metro__station[data-next-up][data-state="now"] .armada-metro__stop[data-picked]::after { display: none; }
+.armada-metro__autopilot { flex: none; color: var(--status-running); }
+.armada-metro__legend i[data-picked] { border: calc(var(--border-width) * 2) dashed var(--border-strong); background: transparent; }
+
+.armada-autopilot-sidings { display: grid; }
+.armada-autopilot-next, .armada-autopilot-aside { display: grid; gap: var(--space-1); padding: 0 0 var(--space-2); }
+.armada-autopilot-next h3, .armada-autopilot-aside h3 { margin: 0; font-weight: var(--weight-body); }
+
+/* Next up: one list, its columns sized once for every row. */
+.armada-autopilot-next__list { display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto; column-gap: var(--space-3); margin: 0; padding: 0 var(--space-4); list-style: none; }
+.armada-autopilot-next__row { display: grid; grid-column: 1 / -1; grid-template-columns: subgrid; align-items: baseline; padding: var(--space-1) 0; border-bottom: var(--border-width) solid var(--border-subtle); font-size: var(--text-sm); }
+.armada-autopilot-next__order { color: var(--fg-subtle); font-family: var(--font-mono); font-size: var(--text-2xs); text-align: right; }
+.armada-autopilot-next__number { color: var(--fg-muted); font-family: var(--font-mono); font-size: var(--text-xs); }
+.armada-autopilot-next__title { overflow: hidden; color: var(--fg-default); text-overflow: ellipsis; white-space: nowrap; }
+.armada-autopilot-next__note { color: var(--fg-subtle); font-size: var(--text-2xs); white-space: nowrap; }
+.armada-autopilot-next__row[data-passed] .armada-autopilot-next__title,
+.armada-autopilot-next__row[data-passed] .armada-autopilot-next__number { color: var(--fg-subtle); }
+
+/* Set aside: a siding, each pick with its reason and its two acts. */
+.armada-autopilot-aside__empty { margin: 0; padding: 0 var(--space-4); color: var(--fg-subtle); font-size: var(--text-xs); }
+.armada-autopilot-aside__list { display: grid; gap: var(--space-2); margin: 0; padding: 0 var(--space-4); list-style: none; }
+.armada-autopilot-aside__row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: var(--space-1) var(--space-3); align-items: center; padding: var(--space-2) var(--space-3); border: var(--border-width) dashed var(--border-strong); border-radius: var(--radius-sm); background: var(--bg-raised); font-size: var(--text-sm); }
+.armada-autopilot-aside__number { color: var(--status-awaiting-review); font-family: var(--font-mono); font-size: var(--text-xs); }
+.armada-autopilot-aside__title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.armada-autopilot-aside__why { grid-column: 2; color: var(--fg-muted); font-size: var(--text-xs); line-height: var(--leading-xs); }
+.armada-autopilot-aside__acts { display: flex; gap: var(--space-1); }
+.armada-autopilot-aside__row > .armada-autopilot-aside__acts { grid-column: 3; grid-row: 1 / span 2; }

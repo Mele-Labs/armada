@@ -97,6 +97,71 @@ fn a_stranded_slot_says_what_it_holds_and_its_change_against_the_base() {
     assert!(diff.contains("+fn kept() { 1 }"), "{diff}");
 }
 
+/// The pool's reading carries what a stranded slot holds, the same as asking
+/// the slot, and a slot that shows no work carries none.
+#[test]
+fn the_pools_reading_carries_what_a_stranded_slot_holds() {
+    let repo = a_repository();
+    let (pool, _) = a_stranded_slot(&repo);
+
+    let read = pool.readings();
+    assert_eq!(read.len(), 1);
+    assert_eq!(read[0].work, Some(pool.stranded_work(1).expect("stranded")));
+
+    let other = a_repository();
+    let held_pool = Pool::at(other.root(), 1, "main", Vec::new());
+    held_pool
+        .try_lease("x", &here(), 0, &no_seed)
+        .expect("a slot");
+    let held = held_pool.readings();
+    assert_eq!(held[0].work, None, "a live holder's slot shows no work");
+}
+
+/// Which readings show work is one rule, and a read that fails shows none.
+#[test]
+fn only_a_stranded_a_kept_or_a_dirty_session_slot_shows_work() {
+    use adapter_traits::{SlotHeld, SlotReading, StrandedWork};
+
+    let work = |files: &[&str]| StrandedWork {
+        branch: None,
+        commit: String::from("abc"),
+        uncommitted: files.iter().map(|one| one.to_string()).collect(),
+        commits: Vec::new(),
+        unpushed: 0,
+    };
+    let reading = |held, kept: Option<&str>| SlotReading {
+        slot: 1,
+        path: String::new(),
+        held,
+        branch: None,
+        since: None,
+        warm: false,
+        behind: None,
+        closed: false,
+        kept: kept.map(str::to_string),
+        completed: false,
+        work: None,
+    };
+    let job = || SlotHeld::Job(String::from("01J"));
+
+    assert!(reading(SlotHeld::Stranded(String::new()), None)
+        .with_work(|_| Some(work(&[])))
+        .work
+        .is_some());
+    assert!(reading(job(), Some("dirty"))
+        .with_work(|_| Some(work(&[])))
+        .work
+        .is_some());
+    assert!(reading(job(), None)
+        .with_work(|_| panic!("a Job's live slot is not read"))
+        .work
+        .is_none());
+    let session = || reading(SlotHeld::Session(String::from("zsh")), None);
+    assert!(session().with_work(|_| Some(work(&[]))).work.is_none());
+    assert!(session().with_work(|_| Some(work(&["a.rs"]))).work.is_some());
+    assert!(session().with_work(|_| None).work.is_none());
+}
+
 /// **Each commit says where else it exists**: on a remote branch, on the local
 /// base, or only in the slot, which is what a Scrap would lose. The base here
 /// is `origin/main`, so a commit local `main` has and the remote does not is

@@ -146,10 +146,12 @@ describe("where the press leaves you", () => {
     await onRunning();
     const before = rows().length;
 
-    await page.getByRole("button", { name: "Dispatch", exact: true }).first().click();
-    const select = page.getByLabelText("Repository", { exact: true }).element() as HTMLSelectElement;
-    const offered = [...select.options].find((one) => !one.disabled && one.value !== "");
-    await userEvent.selectOptions(select, offered!.value);
+    await page.getByRole("button", { name: /^Search, or describe work/ }).click();
+    await userEvent.keyboard("{Shift>}{Enter}{/Shift}");
+    await page.getByRole("button", { name: "Choose a repository", exact: true }).click();
+    // The first row that can be pressed: a repository nobody set up is listed greyed and takes none.
+    const offered = page.getByRole("menuitem").elements().find((one) => one.getAttribute("aria-disabled") !== "true");
+    await userEvent.click(offered!);
     await expect.element(page.getByRole("heading", { name: "Dispatch a job" })).toBeVisible();
 
     const asked = "Say on the Cleared tab whether the branch was kept";

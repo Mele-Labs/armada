@@ -149,6 +149,12 @@ pub(super) const ROUTES: &[Route] = &[
         method: "GET",
         path: "/events",
     },
+    // settings.json, whole, after a save, a hand edit, or a hand edit refused.
+    Route {
+        operation: "settings.changed",
+        method: "GET",
+        path: "/events",
+    },
     // A session after any fact about it, whole.
     Route {
         operation: "session.changed",
@@ -158,6 +164,12 @@ pub(super) const ROUTES: &[Route] = &[
     // Sleep mode after any change, whole.
     Route {
         operation: "sleep.changed",
+        method: "GET",
+        path: "/events",
+    },
+    // A repository's Autopilot after any change to it, whole. #2092.
+    Route {
+        operation: "autopilot.changed",
         method: "GET",
         path: "/events",
     },

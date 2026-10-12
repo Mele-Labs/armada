@@ -13,6 +13,7 @@ import {
   envelopeOf,
   FailureNotice,
   FileAnIssue,
+  isPressed,
   NOT_OFFERED,
   Toast,
 } from "@armada/components";
@@ -233,7 +234,7 @@ export function GuidanceToast({ said, onDismiss }: { said: string; onDismiss: ()
 }
 
 function escDismisses(event: KeyboardEvent<HTMLDivElement>, onDismiss: () => void): void {
-  if (event.key !== "Escape" || event.defaultPrevented) return;
+  if (event.defaultPrevented || !isPressed("close", event)) return;
   event.preventDefault();
   // File an issue opens its review inside this element, and Esc there
   // cancels the review: the dialog's own listener, on the window, still

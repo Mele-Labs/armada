@@ -21,7 +21,7 @@ export const fourStudioFixes = walk("studio-zone-proposal", [
   { type: "Pressed inside the Zone, so it is in the Zone", into: role("textbox", "Note", { exact: true }), say: "Write it" },
   { press: button("Add note"), say: "Add it" },
   { look: role("group", /^Note: Pressed inside the Zone/), say: "It sits in the Zone, and moves with it" },
-  { press: button("Search jobs"), say: "The palette, as ⌘K opens it" },
+  { press: button("Search, or describe work"), say: "The palette, as ⌘K opens it" },
   { look: role("option", /^Add a note/), say: "Add a note, link and sketch draw the rail's icons" },
   { look: role("option", /^Run\b/), say: "Run has a row, with R beside it" },
   { press: role("option", /^Run\b/), say: "Choose it" },

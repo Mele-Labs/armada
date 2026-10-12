@@ -147,7 +147,7 @@ where
             // Nothing is owed a Drone, so nothing waits on the bound. The Job
             // takes the edge it has always taken from here, and `completed`
             // lands the work through the slot above and ends the Drone.
-            let told = OutcomeTurn::approved(&passed, None);
+            let told = OutcomeTurn::approved(&passed, None, &self.prompts().wording());
             let job = self.move_job(&job, Target::Running, Actor::Human).await?;
             let done = self
                 .completed(&job, &told, job_id, &mut working, Actor::Human)

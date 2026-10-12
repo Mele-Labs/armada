@@ -326,15 +326,18 @@ async function postAsk($: Door, port: number, body: unknown, bound: number): Pro
  * and any answer from Bridge, so a request that times out, a dropped connection or a Fleet that
  * restarts costs one poll and never the question. Resolves with the answer, or nothing where Fleet
  * says the card is gone. A Fleet that is out of reach is waited out quietly; the terminal's own
- * prompt is all there is meanwhile. `over` ends the loop once the terminal's prompt has.
+ * prompt is all there is meanwhile. `over` ends the loop once the terminal's prompt has. `first` is
+ * Fleet's answer to the post the hook made before the prompt opened, where it came in time.
  */
-async function putToBridge($: Door, id: string, questions: unknown, over: { done: boolean }): Promise<Asked | undefined> {
+async function putToBridge($: Door, id: string, questions: unknown, over: { done: boolean }, first?: Asked): Promise<Asked | undefined> {
   try {
-    let call: string | undefined
+    if (first !== undefined && first.outcome !== 'asked') return undefined
+    let call = first?.outcome === 'asked' ? first.call : undefined
     while (call === undefined && !over.done) {
       const port = await portOf($).catch(() => undefined)
       const put = port === undefined ? undefined : await postAsk($, port, { kind: 'asks', session_id: id, input: { questions } }, POLL_FETCH_MS).catch(() => undefined)
       if (put?.outcome === 'asked') call = put.call
+      else if (put?.outcome === 'refused') return put
       else if (put !== undefined) return undefined
       else await $.clock.sleep(POLL_RETRY_MS)
     }
@@ -345,6 +348,21 @@ async function putToBridge($: Door, id: string, questions: unknown, over: { done
       else if (polled.outcome !== 'waiting') return polled
     }
     return undefined
+  } catch {
+    return undefined
+  }
+}
+
+/**
+ * The question's first post, bounded short: it runs before the terminal's prompt opens, so a question
+ * Fleet refuses (a walk is open) never opens one. A Fleet slow or out of reach answers nothing here,
+ * and `putToBridge` posts again.
+ */
+async function firstPut($: Door, id: string, questions: unknown): Promise<Asked | undefined> {
+  try {
+    const port = await portOf($).catch(() => undefined)
+    if (port === undefined) return undefined
+    return await postAsk($, port, { kind: 'asks', session_id: id, input: { questions } }, WAIT_MS)
   } catch {
     return undefined
   }
@@ -368,8 +386,11 @@ async function settledInTerminal($: Door, id: string, answered: boolean): Promis
   }
 }
 
+/** `ask_in_window`, for a question about the page the walk shows; any other question waits. */
+const ASK_IN_WINDOW = "To ask the owner about something on a page you showed him, call ask_in_window with the question, its options, the page's url and a CSS selector for the place, passing session_id, then end your turn.";
+
 function idNote(id: string): string {
-  return `Your Armada session id is ${id}. Pass it as session_id to the armada show_window tool. To show the owner a web page (a walk, a mock, a dev server), call show_window. Never run \`open\`. Keep the armada waiting_for tool current: whenever you need the owner for something (a decision, a page to look at, a pull request to approve, a command only he can run), put it in the list with one short line each and call waiting_for with the whole list, passing session_id. Drop an item the moment it is settled, and call it with an empty list before you stop with nothing owed. Do not wait to be asked what is outstanding.`
+  return `Your Armada session id is ${id}. Pass it as session_id to the armada show_window tool. To show the owner a web page (a walk, a mock, a dev server), call show_window. Never run \`open\`. Keep the armada waiting_for tool current: whenever you need the owner for something (a decision, a page to look at, a pull request to approve, a command only he can run), put it in the list with one short line each and call waiting_for with the whole list, passing session_id. Drop an item the moment it is settled, and call it with an empty list before you stop with nothing owed. Do not wait to be asked what is outstanding. While the owner is walking a page you showed, do not ask with AskUserQuestion: an open question holds back his notes and his Approve until he answers it, so Armada refuses it. Put the question in waiting_for and end your turn instead. ${ASK_IN_WINDOW}`
 }
 
 async function begin($: Dollar, id: string, cwd?: string): Promise<void> {
@@ -628,15 +649,18 @@ export const register: Register = on => {
     return ran
   })
 
-  // A question asked in the terminal is also put to Bridge, and the first answer wins. The terminal's
+  // A question asked in the terminal is also put to Bridge, and the first answer wins; Fleet refusing it
+  // (the owner is walking a page) stops it before the terminal's prompt opens. The terminal's
   // prompt opens beneath (`next`) while Fleet holds the question; returning before `next` does aborts
   // the prompt, so an answer from Bridge is the tool's own result and the terminal never keeps it.
   on('tool.call', { tool: 'AskUserQuestion' }, async ($, e, next) => {
     if (await $.env.get('ARMADA_DRONE')) return next(e)
     const id = await $.session.id()
+    const put = await firstPut($, id, e.questions)
+    if (put?.outcome === 'refused') return { deny: put.message }
     const over = { done: false }
     const terminal = next(e).then(ran => ({ ran }))
-    const bridge = putToBridge($, id, e.questions, over).then(asked =>
+    const bridge = putToBridge($, id, e.questions, over, put).then(asked =>
       asked?.outcome === 'answered' || asked?.outcome === 'refused'
         ? { asked }
         : new Promise<never>(() => undefined),

@@ -3,7 +3,8 @@
 // Kept, not deleted: a slice-by-slice equality cannot be asserted against anything but the whole.
 
 import { describe, expect, it } from "vitest";
-import type { PhoneAnswer, PhoneRequest } from "@armada/settings/api";
+import type { PhoneAnswer, PhoneRequest, SettingsFileOpened } from "@armada/settings/api";
+import type { AskLessonRead, AskTurn, LessonReviewRead } from "@armada/jobs/review-wire";
 import type {
   AddTask,
   FixMain,
@@ -42,8 +43,9 @@ import type {
   RunListRead,
   RunOutputRead,
   CheckoutRunListRead,
-  SaveLimits,
   SavePreference,
+  SaveSettings,
+  SettingsList,
   StagedAttachment,
   StartCheckoutRun,
   StartRun,
@@ -110,6 +112,7 @@ import type {
 } from "@armada/protocol";
 import type {
   CaptureAimed,
+  CaptureAnswer,
   CaptureHeld,
   CaptureWheel,
   CaptureWindowState,
@@ -171,15 +174,15 @@ import type {
   ProposalAnswer,
   RepositoryScanRead,
 } from "@armada/screens/src/setup-reads";
-import type {
-  HealthRead,
-} from "@armada/screens/src/overview-reads";
+import type { HealthRead } from "@armada/screens/src/overview-reads";
 import type {
   Outstanding,
 } from "@armada/screens/src/outstanding";
 import type { AnswerSessionAsk, AnswerWaiting, ClaimPullRequest, DismissWaiting, PilotOutcome, PullRequestClaimed, PullRequestState, RenameSession, ReviewDispatched, SendSessionMessage, SessionRow, SessionSubagent, TuneSession } from "@armada/protocol";
 import type { PilotExit, PullRequestPress, SessionActed, SessionsRead } from "./api/sessions";
 import type { SleepActed } from "./api/sleep";
+import type { IssuesRead } from "./api/issues";
+import { AUTOPILOT_CHANNELS, type AutopilotApi } from "./api/autopilot";
 import type { SleepState } from "@armada/protocol";
 import type { BridgeApi } from "./api";
 import { CHANNELS, NOTHING_YET } from "./bridge";
@@ -194,6 +197,7 @@ type OldBridgeState = {
     fleetBuild: FleetBuildReport | null;
     limits: FleetLimits | null;
     preferences: Preferences;
+    settings: SettingsList | null;
     mods: ModList | null;
     manifestReading: ManifestReading | null;
     missed: number;
@@ -291,8 +295,9 @@ type OldBridgeApi = {
     showAgain: (jobId: string, spec?: string) => Promise<Outcome>;
     raiseCostCap: (jobId: string, costCapMicros: number) => Promise<Outcome>;
     raiseTurnCap: (jobId: string, turnCap: number) => Promise<Outcome>;
-    saveLimits: (values: SaveLimits) => Promise<Outcome>;
     savePreference: (save: SavePreference) => Promise<Outcome>;
+    saveSettings: (changes: SaveSettings["changes"]) => Promise<Outcome>;
+    openSettingsFile: () => Promise<SettingsFileOpened>;
     validateMod: (name: string) => Promise<ModChecked | null>;
     setModEnabled: (name: string, enabled: boolean) => Promise<Outcome>;
     promoteMod: (name: string) => Promise<Outcome>;
@@ -378,6 +383,8 @@ type OldBridgeApi = {
     readLessons: (state: "open" | "accepted") => Promise<LessonsRead>;
     agreeLesson: (lessonId: string) => Promise<LessonAnswer>;
     disagreeLesson: (lessonId: string) => Promise<LessonAnswer>;
+    reviewLessons: () => Promise<LessonReviewRead>;
+    askLesson: (lessonId: string, question: string, history: AskTurn[]) => Promise<AskLessonRead>;
     readFrame: (jobId: string, kept: string) => Promise<FrameRead>;
     readComposing: (repository: string) => Promise<ComposingRead>;
     frameStreamUrl: (jobId: string, kept: string) => string;
@@ -413,6 +420,12 @@ type OldBridgeApi = {
         followRefused: () => Promise<void>;
         approve: () => Promise<Outcome>;
         scroll: (wheel: CaptureWheel) => void;
+        showAsk: (on: boolean) => Promise<void>;
+        answerAsk: (answer: CaptureAnswer) => Promise<Outcome>;
+        panel: (open: boolean) => Promise<void>;
+    };
+    walkPanel: {
+        openInBridge: () => Promise<void>;
     };
     approveReview: (jobId: string) => Promise<Outcome>;
     mergePullRequest: (jobId: string) => Promise<Outcome>;
@@ -429,6 +442,7 @@ type OldBridgeApi = {
     takeUpRemarks: (jobId: string, remarks: string[]) => Promise<Outcome>;
     dismissFinding: (jobId: string, finding: string, reason: string) => Promise<Outcome>;
     openArtifact: (jobId: string, what: Artifact) => Promise<Opened>;
+    openInTerminal: (jobId: string) => Promise<Opened>;
     openPullRequest: (jobId: string) => Promise<Followed>;
     openRemarkLink: (jobId: string, remarkId: string) => Promise<Followed>;
     onSummoned: (onGo: (to: Summons) => void) => () => void;
@@ -447,6 +461,7 @@ type OldBridgeApi = {
     claimPullRequest: (claim: ClaimPullRequest) => Promise<SessionActed<PullRequestClaimed>>;
     dismissWaiting: (dismiss: DismissWaiting) => Promise<SessionActed>;
     getSleep: () => Promise<SleepActed>;
+    listIssues: (manifestId: string, refresh: boolean) => Promise<IssuesRead>;
     setSleep: (on: boolean) => Promise<SleepActed>;
     overrideSleep: (id: string, text: string) => Promise<SleepActed>;
     onSleepChanged: (onChanged: (state: SleepState) => void) => () => void;
@@ -466,7 +481,7 @@ type OldBridgeApi = {
     hideSessionPage: () => Promise<void>;
     onSessionPageEscape: (on: () => void) => () => void;
     pressPullRequest: (sessionId: string, number: number, press: PullRequestPress) => Promise<SessionActed<PullRequestState | ReviewDispatched>>;
-};
+} & AutopilotApi;
 
 const OLD_NOTHING_YET: OldBridgeState = {
     connection: { state: "reading" },
@@ -477,6 +492,7 @@ const OLD_NOTHING_YET: OldBridgeState = {
     fleetBuild: null,
     limits: null,
     preferences: { where_things_are_open: false },
+    settings: null,
     mods: null,
     manifestReading: null,
     missed: 0,
@@ -569,8 +585,9 @@ const OLD_CHANNELS = {
     showAgain: "bridge:show-again",
     raiseCostCap: "bridge:raise-cost-cap",
     raiseTurnCap: "bridge:raise-turn-cap",
-    saveLimits: "bridge:save-limits",
     savePreference: "bridge:save-preference",
+    saveSettings: "bridge:save-settings",
+    openSettingsFile: "bridge:open-settings-file",
     validateMod: "bridge:validate-mod",
     setModEnabled: "bridge:set-mod-enabled",
     promoteMod: "bridge:promote-mod",
@@ -657,6 +674,8 @@ const OLD_CHANNELS = {
     readLessons: "bridge:read-lessons",
     agreeLesson: "bridge:agree-lesson",
     disagreeLesson: "bridge:disagree-lesson",
+    reviewLessons: "bridge:review-lessons",
+    askLesson: "bridge:ask-lesson",
     readFrame: "bridge:read-frame",
     readReports: "bridge:read-reports",
     readHeld: "bridge:read-held",
@@ -674,6 +693,7 @@ const OLD_CHANNELS = {
     takeUpRemarks: "bridge:take-up-remarks",
     dismissFinding: "bridge:dismiss-finding",
     openArtifact: "bridge:open-artifact",
+    openInTerminal: "bridge:open-in-terminal",
     openPullRequest: "bridge:open-pull-request",
     openRemarkLink: "bridge:open-remark-link",
     summoned: "bridge:summoned",
@@ -712,6 +732,10 @@ const OLD_CHANNELS = {
     captureWindowFollowRefused: "bridge:capture-window-follow-refused",
     captureWindowApprove: "bridge:capture-window-approve",
     captureWindowScroll: "bridge:capture-window-scroll",
+    captureWindowShowAsk: "bridge:capture-window-show-ask",
+    captureWindowAnswerAsk: "bridge:capture-window-answer-ask",
+    captureWindowPanel: "bridge:capture-window-panel",
+    walkPanelOpenInBridge: "bridge:walk-panel-open-in-bridge",
     tap: "bridge:tap",
     startSession: "bridge:start-session",
     pilotJob: "bridge:pilot-job",
@@ -723,6 +747,7 @@ const OLD_CHANNELS = {
     claimPullRequest: "bridge:claim-pull-request",
     dismissWaiting: "bridge:dismiss-waiting",
     getSleep: "bridge:get-sleep",
+    listIssues: "bridge:list-issues",
     setSleep: "bridge:set-sleep",
     overrideSleep: "bridge:override-sleep",
     sleepChanged: "bridge:sleep-changed",
@@ -741,6 +766,7 @@ const OLD_CHANNELS = {
     hideSessionPage: "bridge:hide-session-page",
     sessionPageEscape: "bridge:session-page-escape",
     pressPullRequest: "bridge:press-pull-request",
+    ...AUTOPILOT_CHANNELS,
 } as const;
 
 type Same<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;

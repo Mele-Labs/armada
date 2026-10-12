@@ -1,0 +1,114 @@
+/* A Session's question about a place on its walk, `ask_in_window`. Every value a token; the place
+ * arrives from main as `--question-*`, measured off the element in the page.
+ *
+ * Drawn in the capture window's bar view, which covers the whole frame while the card is up, so
+ * this stacks as Studio capture's layer does and on the same token. */
+.armada-window-question {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-palette);
+  pointer-events: none;
+  color: var(--fg-default);
+  font-family: var(--font-sans);
+}
+
+.armada-window-question__catch {
+  position: fixed;
+  inset: 0;
+  pointer-events: auto;
+}
+
+/* Solid where capture's held outline is dashed: this one is a place somebody else pointed at. */
+.armada-window-question__outline {
+  position: fixed;
+  left: var(--question-x);
+  top: var(--question-y);
+  width: var(--question-w);
+  height: var(--question-h);
+  outline: calc(var(--border-width) * 2) solid var(--accent);
+  outline-offset: calc(var(--border-width) * 2);
+  border-radius: var(--radius-sm);
+  pointer-events: none;
+}
+
+.armada-window-question__card {
+  position: fixed;
+  left: clamp(var(--space-2), var(--question-x), calc(100vw - var(--w-tooltip) - var(--space-2)));
+  top: var(--question-y);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: var(--w-tooltip);
+  max-height: calc(100vh - var(--space-6));
+  margin: var(--space-2) 0;
+  padding: var(--space-3);
+  overflow-y: auto;
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--bg-overlay);
+  box-shadow: var(--shadow-overlay);
+  font-size: var(--text-sm);
+  pointer-events: auto;
+}
+
+.armada-window-question__card[data-side="above"] {
+  transform: translateY(-100%);
+  margin-top: calc(var(--space-2) * -1);
+}
+
+/* Nowhere to stand against: the top of the page, in the middle. */
+.armada-window-question__card[data-side="top"] {
+  left: 50%;
+  top: var(--space-3);
+  transform: translateX(-50%);
+}
+
+.armada-window-question__from {
+  margin: 0;
+  color: var(--fg-muted);
+  font-size: var(--text-xs);
+}
+
+.armada-window-question__question {
+  margin: 0;
+  font-weight: var(--weight-medium);
+  overflow-wrap: anywhere;
+}
+
+.armada-window-question__lost {
+  margin: 0;
+  color: var(--fg-subtle);
+  font-size: var(--text-xs);
+}
+
+.armada-window-question__options {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.armada-window-question__options .armada-button {
+  flex-direction: column;
+  align-items: flex-start;
+  height: auto;
+  padding-block: var(--space-1);
+  text-align: left;
+  white-space: normal;
+}
+
+.armada-window-question__says {
+  color: var(--fg-muted);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-body);
+}
+
+.armada-window-question__refused {
+  margin: 0;
+  color: var(--error);
+}
+
+.armada-window-question__acts {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}

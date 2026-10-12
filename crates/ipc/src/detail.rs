@@ -165,15 +165,12 @@ pub struct JobDetail {
     pub breakages: Vec<crate::ClaimedBreakage>,
     /// The question this Job's Drone asked and nobody has answered yet.
     ///
-    /// **Absent is the ordinary case.** A Drone that never asked, a Drone whose
-    /// question has been answered and a Job with no Drone on it are all this
-    /// field absent, and the Job's own status tells them apart — a Job that is
-    /// not `running` has nothing waiting on an answer.
+    /// **Absent is the ordinary case**: a Drone that never asked, and one whose
+    /// question has been answered.
     ///
-    /// **It is not a status and there is no seventh one.** The Job is `running`
-    /// and its step is `running`, exactly as they are while a Judge call is
-    /// out, and the question stops being outstanding without either moving. See
-    /// [`QuestionInFlight`].
+    /// **It is not a status.** The Job is `queued` while it waits, reading
+    /// `awaiting_answer`, and its step `running`; the answer lets admission
+    /// take it again. See [`QuestionInFlight`].
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub asking: Option<QuestionInFlight>,
     /// What kind of stuck this Job is, and what moves it.
@@ -542,7 +539,7 @@ pub struct Stuck {
     /// How many calls were refused altogether, counting the ones
     /// [`refused`](Stuck::refused) left out.
     ///
-    /// **A size rather than a flag**, which is `CallArguments::length`'s
+    /// **A size rather than a flag**, which is `Saw::Called::detail_length`'s
     /// reason: a surface can say *showing 50 of 137* instead of reporting that
     /// something was taken away. Equal to `refused.len()` on every Job whose
     /// refusals all fit, which is the ordinary case.
@@ -572,8 +569,7 @@ pub struct Stuck {
 /// leaves it: a heredoc is a whole file and this crosses on every open of a
 /// stopped Job. What crosses instead is that the line was cut and how long the
 /// argument was — enough for a surface to say so, which is what a person about
-/// to paste a command into an allowlist needs. `get_call` is the operation that
-/// serves the rest.
+/// to paste a command into an allowlist needs.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Refusal {
     /// The tool that was reached for, in the harness's own spelling.
@@ -583,9 +579,8 @@ pub struct Refusal {
     pub tool: String,
     /// The call id the transcript rows carried.
     ///
-    /// **What makes a cut detail openable**: `get_call` serves the whole
-    /// argument by this id, so a refused heredoc shown to its bound is not a
-    /// dead end.
+    /// **The id `answer_command` and `explain_command` take**, and the one
+    /// Fleet reads the whole argument back by when it explains a cut command.
     pub call: String,
     /// The argument as the transcript recorded it — the command, the path.
     ///
@@ -604,7 +599,7 @@ pub struct Refusal {
     /// How many characters the argument had, before anything was cut.
     ///
     /// **A size rather than only a flag**, which is
-    /// [`CallArguments::length`](crate::CallArguments)'s reason: a surface says
+    /// `Saw::Called::detail_length`'s reason: a surface says
     /// *showing 200 of 14,320 characters* instead of reporting that something
     /// was taken away.
     ///

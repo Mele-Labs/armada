@@ -22,6 +22,7 @@ mod helm_pauses;
 mod journal;
 mod building;
 mod limits;
+mod settings;
 mod mcp;
 mod observing;
 mod preferences;

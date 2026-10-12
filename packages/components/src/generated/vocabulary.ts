@@ -51,6 +51,7 @@ export const JOB_STATUS: Readonly<Record<string, Rendering | undefined>> = {
 /** `queued_reason`, keyed by the wire value. */
 export const QUEUED_REASON: Readonly<Record<string, Rendering | undefined>> = {
   "paused": { verb: "paused", icon: null, badgeStatus: "not-started", statusToken: "--status-not-started", hint: null },
+  "awaiting_answer": { verb: "waiting on your answer", icon: null, badgeStatus: "not-started", statusToken: "--status-not-started", hint: null },
   "frozen": { verb: "frozen", icon: Pause, badgeStatus: "not-started", statusToken: "--status-not-started", hint: null },
   "blocked_by_dependency": { verb: "blocked", icon: Link, badgeStatus: "not-started", statusToken: "--status-not-started", hint: null },
   "over_budget": { verb: "over budget", icon: null, badgeStatus: "not-started", statusToken: "--status-not-started", hint: null },
@@ -261,6 +262,7 @@ export const ORIGIN: Readonly<Record<string, Rendering | undefined>> = {
   "studio_dispatched": { verb: "From a Studio, by you", icon: null, badgeStatus: null, statusToken: null, hint: null },
   "studio_helm_drafted": { verb: "From a Studio, via Helm", icon: null, badgeStatus: null, statusToken: null, hint: null },
   "session_dispatched": { verb: "From a Session, by you", icon: null, badgeStatus: null, statusToken: null, hint: null },
+  "autopilot_picked": { verb: "Picked by Autopilot", icon: null, badgeStatus: null, statusToken: null, hint: null },
 };
 
 /**
@@ -347,6 +349,7 @@ export const GAPS: readonly Gap[] = [
   { vocabulary: "step_state", variant: "running", missing: ["token"] },
   { vocabulary: "step_state", variant: "stopped", missing: ["token"] },
   { vocabulary: "queued_reason", variant: "paused", missing: ["icon"] },
+  { vocabulary: "queued_reason", variant: "awaiting_answer", missing: ["icon"] },
   { vocabulary: "queued_reason", variant: "over_budget", missing: ["icon"] },
   { vocabulary: "admission_hold", variant: "concurrency_bound", missing: ["icon"] },
   { vocabulary: "admission_hold", variant: "memory", missing: ["icon"] },
@@ -429,4 +432,5 @@ export const GAPS: readonly Gap[] = [
   { vocabulary: "origin", variant: "studio_dispatched", missing: ["icon", "token"] },
   { vocabulary: "origin", variant: "studio_helm_drafted", missing: ["icon", "token"] },
   { vocabulary: "origin", variant: "session_dispatched", missing: ["icon", "token"] },
+  { vocabulary: "origin", variant: "autopilot_picked", missing: ["icon", "token"] },
 ];

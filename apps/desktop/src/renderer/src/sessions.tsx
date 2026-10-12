@@ -29,6 +29,7 @@ import {
   SketchPad,
   SketchPreview,
   TileSheet,
+  pressedSlot,
   useKept,
 } from "@armada/components";
 import type {
@@ -930,10 +931,11 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
 }
 
 /**
- * A Session in miniature, for the Dashboard's pane: its thread, what it is held on, and the box to
- * answer it, as its own page draws them. No ledger, no frame; Open goes to the whole Session.
+ * A Session in miniature, for the Dashboard's pane and a walk window's panel: its thread, what it is
+ * held on, and the box to answer it, as its own page draws them. No ledger, no frame; Open goes to the
+ * whole Session. `fill`: the thread takes the height it is given rather than the pane's cap.
  */
-export function SessionMini({ sessionId, onOpen }: { sessionId: string; onOpen: (id: string) => void }) {
+export function SessionMini({ sessionId, onOpen, fill = false }: { sessionId: string; onOpen: (id: string) => void; fill?: boolean }) {
   const draft = useSessionsDraft();
   const sessions = useSessions();
   const session = sessions.find((one) => one.id === sessionId);
@@ -942,7 +944,7 @@ export function SessionMini({ sessionId, onOpen }: { sessionId: string; onOpen: 
   if (draft === undefined || session === undefined) return null;
   const mode: SessionMode = session.mode ?? (session.terminal === true ? "ask" : "auto");
   return (
-    <div className="armada-session-mini">
+    <div className="armada-session-mini" data-fill={fill ? "" : undefined}>
       <div className="armada-session-mini__thread">
         <SessionThread
           sessionId={session.id}
@@ -1005,11 +1007,13 @@ export function SessionsSurface({ openId, onOpen, goes, held }: { openId: string
   // j goes to the next Session down the list and k to the one above, opening each. Local to this page.
   useEffect(() => {
     const press = (event: KeyboardEvent) => {
-      if ((event.key !== "j" && event.key !== "k") || event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey || typing(event.target)) return;
+      // `move_focus`' first two slots, down and up, as this person has them.
+      const slot = pressedSlot("move_focus", event);
+      if ((slot !== 0 && slot !== 1) || event.defaultPrevented || typing(event.target)) return;
       const ids = listed(sessions);
       const at = openId === null ? -1 : ids.indexOf(openId);
-      const next = ids[event.key === "j" ? at + 1 : at - 1];
-      if (next === undefined || (at === -1 && event.key === "k")) return;
+      const next = ids[slot === 0 ? at + 1 : at - 1];
+      if (next === undefined || (at === -1 && slot === 1)) return;
       event.preventDefault();
       onOpen(next);
     };

@@ -8,7 +8,7 @@ import { OwnerChip } from "../OwnerChip/OwnerChip";
 import { PausedMark } from "../PausedMark/PausedMark";
 import { Mark } from "./SlotFinding";
 import { holdsSaid } from "./TileHolds";
-import { nameOf } from "./tiles";
+import { keyOf, nameOf } from "./tiles";
 import type { TileRow } from "./tiles";
 
 /** How a tile is drawn. */
@@ -161,7 +161,7 @@ export function PoolTile({
     if (event.target instanceof Element && event.target.closest("button, a") !== null) return;
     onOpen();
   };
-  const common = { "aria-label": name, "aria-busy": row.acting || undefined, "data-open": open || undefined, onClick: press };
+  const common = { "data-tile": keyOf(row), "aria-label": name, "aria-busy": row.acting || undefined, "data-open": open || undefined, onClick: press };
 
   if (state.bay === "free" || state.bay === "ghost") {
     // Closed, an open bay is shuttered: the shut door is its state, and what

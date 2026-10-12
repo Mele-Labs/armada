@@ -102,6 +102,8 @@ mod holding;
 /// write goes through. `docs/concepts/session.md`.
 mod hosted_sessions;
 mod ids;
+/// A repository's open issues, as Fleet read them. #91.
+mod issues;
 mod job;
 /// What Fleet did to a Job, out of the Job's own log. **The third voice the
 /// activity log was designed around and nothing produced.**
@@ -125,6 +127,9 @@ mod merge_hub;
 mod merge_line;
 /// `layout.json`: what a layout mod or the owner's own choice may say. `docs/concepts/layout-mods.md`.
 pub mod layout;
+
+/// The owner's key bindings: which keys an act answers in place of the registry's. `docs/concepts/key-bindings.md`.
+pub mod key_bindings;
 /// Mods: a directory on this machine that changes how Bridge looks.
 mod mods;
 /// `armada need`: a checkout says what it needs on a path, and Fleet answers from
@@ -139,6 +144,8 @@ mod piloting;
 /// out of the closed set does not save**, `limits`' reason one field over.
 mod preferences;
 mod proposing;
+/// settings.json: every setting as Fleet resolved it, the save, and a refusal.
+mod settings;
 /// Which wire a build speaks: a hash `build.rs` takes of the wire surface.
 mod protocol_id;
 /// A pull request, by repository and number, and the acts a Session takes on one.
@@ -173,6 +180,9 @@ mod resources;
 /// A Job's retro and the record it was read from, and the Lessons listing.
 /// Since 23.12.
 mod retro;
+/// A guided review of the open retro items, and a question about one. Since
+/// 23.74.
+mod retro_review;
 /// What Scan found in a repository nobody set up for Armada. **Evidence,
 /// never a proposal** — every finding carries the file it came from.
 mod scan;
@@ -187,6 +197,8 @@ mod sessions;
 mod setup;
 /// What a step's harness produced, as a client is told about it.
 mod showing;
+/// Autopilot: a repository working its own backlog. #2092.
+mod autopilot;
 /// Sleep mode: the switch and the night it keeps.
 mod sleep;
 /// What crossed the stream since a cursor, counted rather than carried.
@@ -312,6 +324,7 @@ pub use ids::{
     CriterionId, DroneId, Instant, JobId, ManifestId, ProposalId, QuestionId, StepId, StudioEdgeId,
     StudioId, StudioNodeId, WorkflowId,
 };
+pub use issues::{IssueList, TrackedIssue};
 pub use job::{
     AttachmentRef, DependencyEdge, JobForgotten, JobList, JobRequest, JobSummary, Paused,
     ProposeJob, ProposedCriterion, ProposedPlan, Redirection, Redispatched, RestartRequested,
@@ -359,6 +372,9 @@ pub use piloting::{
     TakeOver,
 };
 pub use preferences::{Preferences, SavePreference, DEFAULT_THEME};
+pub use settings::{
+    SaveSettings, Setting, SettingApplies, SettingKind, SettingValue, SettingsList, SettingsRefused,
+};
 pub use proposing::{
     ProposalInFlight, ProposalReach, ProposalSettings, ProposalSettled, ProposalStopped,
     StopProposal,
@@ -399,6 +415,9 @@ pub use retro::{
     RetroAnswered, RetroChange, RetroChangeAnswered, RetroItem, RetroRecord, RetroSession,
     RetroState, RetroWritten,
 };
+pub use retro_review::{
+    AskLessonAnswer, AskRole, AskTurn, LessonAsk, LessonReview, ReviewEntry, ReviewLessons, SetAside,
+};
 pub use scan::{
     CiCommand, ComposeService, DeclaredPort, EvidenceStrength, MissingName, NotRead,
     PackageWorkspaces, RepositoryScan, Runnable, ScannedWorkspace, ToolFile, ToolSection,
@@ -417,8 +436,13 @@ pub use sessions::{
     AnswerWaiting, Attachment, AttachmentNamed, AttachmentReport, AttachmentState, DismissWaiting,
     ClaimPullRequest, Holder, HolderKind, Owners, Ownership, PullRequestClaimed, RenameSession,
     SessionFact, SessionId, SessionList, SessionOrigin, SessionRecord, SessionReport, SessionState,
-    SessionUsage, SetWaitingFor, ShowWindow, TerminalCommand, TerminalFacts, WaitingAct,
+    SessionUsage, SetWaitingFor, ShowWindow, AskInWindow, WindowPlace, TerminalCommand, TerminalFacts, WaitingAct,
     WaitingActKind, WaitingInput, WaitingItem, WaitingMode, WaitingOption, WaitingSource,
+    WindowClosed,
+};
+pub use autopilot::{
+    Autopilot, AutopilotCap, AutopilotList, AutopilotPick, AutopilotPickState, AutopilotSettings,
+    AutopilotState, ProposeAutopilot,
 };
 pub use sleep::{OverrideSleep, SetSleep, SleepBlocked, SleepDecided, SleepLanded, SleepState, SleepWalk};
 pub use setup::{
@@ -455,7 +479,7 @@ pub use triggers::{
     TriggerSummary,
 };
 pub use turn::{
-    BlockKind, CallArguments, Closed, Opened, Saw, Shown, Silence, TranscriptRow, TurnMessage,
+    BlockKind, Closed, Opened, Saw, Shown, Silence, TranscriptRow, TurnMessage,
     Voice, Withheld,
 };
 pub use underway::{

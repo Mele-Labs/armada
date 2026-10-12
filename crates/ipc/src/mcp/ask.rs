@@ -9,10 +9,10 @@
 //!
 //! **The one tool whose answer is not in the reply.** Every other tool on
 //! this seam is answered from something Fleet already holds. This one is
-//! answered when a person picks an option, which may be hours later and
-//! arrives as a turn injected into the Drone's session rather than as this
-//! call's return value. `crates/fleet/src/questioning.rs` is where that
-//! happens and why it does not block.
+//! answered when a person picks an option, which may be hours later, and the
+//! asking Drone stands down at once: the answer reaches the fresh Drone that
+//! takes the part over, in its opening brief. `crates/fleet/src/questioning.rs`
+//! is where that happens and why.
 
 use serde_json::{json, Map, Value};
 
@@ -22,8 +22,8 @@ use super::tools::{closed, filled, NotAnArgument};
 ///
 /// **The one tool whose answer comes from a person.** Every other tool here is
 /// answered by Fleet out of what it already knows; this one is answered when
-/// somebody picks an option, which may be hours later and arrives as an
-/// injected turn rather than as this call's return value.
+/// somebody picks an option, which may be hours later and reaches the next
+/// Drone's opening brief rather than this call's return value.
 pub const ASK_TOOL: &str = "ask_question";
 
 /// The two fields the asking tool takes. Public for [`EVIDENCE_FIELDS`]' reason.
@@ -131,9 +131,9 @@ const OPTION_FIELDS: &[&str] = &["label", "consequence"];
 /// The asking tool.
 ///
 /// **The description says what happens after the call returns**, because that
-/// is the part no other tool here has: the receipt is not the answer, the answer
-/// arrives as a later turn, and a Drone that treats the receipt as a refusal
-/// will guess — which is the exact failure this tool was built to remove.
+/// is the part no other tool here has: the session ends, and the answer goes to
+/// the Drone that takes the part over. A Drone that does not know that leaves
+/// nothing behind for its successor to start from.
 ///
 /// It also says what asking is *not* for. Spike 6 measured that a description
 /// alone does not make a Drone call a tool, and the same finding cuts the other
@@ -147,10 +147,12 @@ pub(super) fn ask_tool() -> Value {
              from the repository, and offer them the answers you would accept. \
              Use it when guessing would change what gets built, not when you \
              merely have a preference — you were given this Job because the \
-             ordinary decisions are yours. You get back a receipt, not an \
-             answer: the answer arrives later as a turn in this session, and it \
-             may be a while. Stop and wait for it. One question at a time, and \
-             asking again before this one is answered is refused.",
+             ordinary decisions are yours. Asking ends this session: the \
+             answer may be hours away and nobody holds your place while it \
+             is. Your work stays in the worktree, and once they answer a fresh \
+             agent carries this part on from it and from their answer, so \
+             bring your notes up to date with where you stopped before you \
+             ask.",
         "inputSchema": {
             "type": "object",
             "properties": {

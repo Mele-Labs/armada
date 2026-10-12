@@ -18,11 +18,13 @@ mod refusal;
 mod repeated;
 mod running;
 mod waiting;
+mod words;
 
 pub use holding_off::HeldOff;
 pub use refusal::NotFixed;
 pub(crate) use repeated::Repeat;
 pub(crate) use waiting::{failures_said, FixStands};
+pub(crate) use words::*;
 
 use std::sync::atomic::Ordering;
 use std::sync::Arc;

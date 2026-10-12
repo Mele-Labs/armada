@@ -6,6 +6,8 @@ description = "The Drones-at-once bound, the memory share, the disk floor and Ch
 notes = """
 What `get_capacity` is measured against. A route of its own because the four change only when a person saves, where capacity moves every time a Drone starts or finishes.
 
+**Read from settings.json since the file replaced the store** — `limits.dronesAtOnce`, `limits.memorySparePercent`, `limits.diskFloorGib` and `limits.checksAtOnce`, the same four `get_settings` describes among the rest. The shape is unchanged, so a Bridge that reads only this still reads what is in force.
+
 `shipped` rides beside the values in force so a surface can say which of them somebody changed, and offer the way back, without a second read.
 
 `agent_access` is `No`: nothing a Helm session does turns on these numbers that `get_capacity` does not already say, and adding a tool to every session is a decision of its own.

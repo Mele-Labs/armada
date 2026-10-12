@@ -10,7 +10,8 @@ import type { BriefRead, CheckOutputRead, FrameRead, LessonsRead, RetroRead, Ret
 import type { ComposingRead } from "@armada/screens/src/composing-reads";
 import type { HeldReader } from "./holding";
 import type { Picked } from "./picked";
-import { briefOf, checkOutputOf, composingOf, frameOf, lessonsOf, retroOf } from "./request";
+import type { AskLessonRead, AskTurn, LessonReviewRead } from "@armada/jobs/review-wire";
+import { askOf, briefOf, checkOutputOf, composingOf, frameOf, lessonsOf, retroOf, reviewOf } from "./request";
 import type { ReportsReader } from "./reports";
 import type { ReviewMaterial } from "./review";
 
@@ -100,6 +101,20 @@ export class JobReads {
     const port = this.wiring.port();
     if (port === null) return { ok: false, outcome: { ok: false, why: "not_connected" } };
     return await lessonsOf(port, picked, state);
+  }
+
+  /** The guided review over the open items, narrowed to the calling window's pick as `readLessons` is. */
+  async reviewLessons(picked: Picked): Promise<LessonReviewRead> {
+    const port = this.wiring.port();
+    if (port === null) return { ok: false, outcome: { ok: false, why: "not_connected" } };
+    return await reviewOf(port, picked);
+  }
+
+  /** One question about one item. Answered to the card that asked and held nowhere. */
+  async askLesson(lessonId: string, question: string, history: AskTurn[]): Promise<AskLessonRead> {
+    const port = this.wiring.port();
+    if (port === null) return { ok: false, outcome: { ok: false, why: "not_connected" } };
+    return await askOf(port, lessonId, question, history);
   }
 
   /**

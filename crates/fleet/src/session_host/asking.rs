@@ -18,6 +18,7 @@ use ipc::{
 };
 
 use super::serving::mode_of;
+use super::walking::walk_open_refusal;
 use crate::daemon::Fleet;
 use crate::helm::{answering, because_in_a_session, pages_opened, unanswered, Because, Said};
 
@@ -56,6 +57,12 @@ where
         id: &str,
         asking: AskingToRun,
     ) -> Result<RunOrNot, Refusal> {
+        // A question held open during a walk would hold back every note and the Approve.
+        if asking.tool_name == ipc::ASKS_A_QUESTION && self.walk_open(id).await.is_some() {
+            return Ok(RunOrNot::Deny {
+                message: walk_open_refusal(),
+            });
+        }
         // The owner's browser is never opened by a session: the page goes to
         // Bridge's window, and the session is told so.
         if asking.tool_name == "Bash" {
@@ -180,7 +187,13 @@ where
             )
         })?;
         // One at a time: a new question means the last one's prompt is gone.
-        self.terminal_ask_closed(id, SessionAskState::Unanswered).await;
+        self.terminal_ask_closed(id, SessionAskState::Unanswered)
+            .await;
+        if self.walk_open(id).await.is_some() {
+            return Ok(TerminalAsked::Refused {
+                message: walk_open_refusal(),
+            });
+        }
         let asks = self.hosts().asks();
         let manifest = ManifestId::carried(session.manifest_id.as_deref().unwrap_or_default());
         // The channel is not waited on; the answer is kept by whoever gives it.
@@ -259,17 +272,23 @@ where
         waiting: &HelmCallInFlight,
         said: &Said,
     ) -> Result<(), Refusal> {
-        let Some(kept) = self.terminal_ask_kept(id).await?.filter(|k| k.call == waiting.call)
+        let Some(kept) = self
+            .terminal_ask_kept(id)
+            .await?
+            .filter(|k| k.call == waiting.call)
         else {
             return Ok(());
         };
         let asking: AskingToRun = ipc::decode("a kept question", kept.asking.as_bytes())
             .map_err(|why| self.hosted_fault(TERMINAL_ASK_UNREADABLE, &why.why))?;
         let (state, asked) = match answering(&asking, said) {
-            RunOrNot::Allow { updated_input } => {
-                (SessionAskState::AllowedOnce, TerminalAsked::Answered { updated_input })
+            RunOrNot::Allow { updated_input } => (
+                SessionAskState::AllowedOnce,
+                TerminalAsked::Answered { updated_input },
+            ),
+            RunOrNot::Deny { message } => {
+                (SessionAskState::Refused, TerminalAsked::Refused { message })
             }
-            RunOrNot::Deny { message } => (SessionAskState::Refused, TerminalAsked::Refused { message }),
         };
         let body = self.kept_text(&asked)?;
         self.store()
@@ -320,16 +339,25 @@ where
         }
         self.terminal_ask_revived(id, &kept);
         if self.hosts().terminals().since_polled(&kept.call) > POLL_LAPSE {
-            self.terminal_ask_closed(id, SessionAskState::Unanswered).await;
+            self.terminal_ask_closed(id, SessionAskState::Unanswered)
+                .await;
         }
     }
 
     fn terminal_ask_revived(&self, id: &str, kept: &store::KeptTerminalAsk) {
-        let standing = self.hosts().of(id).state().asked.as_ref().map(|a| a.call == kept.call);
+        let standing = self
+            .hosts()
+            .of(id)
+            .state()
+            .asked
+            .as_ref()
+            .map(|a| a.call == kept.call);
         if standing == Some(true) {
             return;
         }
-        if let Ok(waiting) = ipc::decode::<HelmCallInFlight>("a kept call", kept.in_flight.as_bytes()) {
+        if let Ok(waiting) =
+            ipc::decode::<HelmCallInFlight>("a kept call", kept.in_flight.as_bytes())
+        {
             self.hosts().asks().restore(waiting.clone());
             self.hosts().of(id).state().asked = Some(waiting);
         }
@@ -342,8 +370,14 @@ where
             return;
         };
         for row in rows {
-            if let SessionRow::Ask { ask, state: SessionAskState::Waiting, .. } = &row {
-                self.row_put(id, self.ask_row(id, ask, SessionAskState::Unanswered)).await;
+            if let SessionRow::Ask {
+                ask,
+                state: SessionAskState::Waiting,
+                ..
+            } = &row
+            {
+                self.row_put(id, self.ask_row(id, ask, SessionAskState::Unanswered))
+                    .await;
             }
         }
         self.hosts().of(id).state().asked = None;

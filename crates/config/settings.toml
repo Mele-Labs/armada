@@ -33,11 +33,13 @@ notes = """
 
 **Memory only, and never CPU.** The key still says `cpu` because Bridge reads it by that name; the check does not. On 12 Sep 2026 the owner's other agents held the one-minute load near 27 on 10 cores, and Fleet was the only thing on the machine that yielded — the operating system schedules CPU, so Fleet no longer holds a Job back for it. Doctor still prints CPU in use. Disk is the other signal the same predicate reads, against a floor rather than a share — `disk-headroom-floor-for-spawning` below.
 
-**Changed while Fleet runs.** Bridge saves it through `save_limits` (0 to 50 percent); the store keeps it across restarts and the next admission turn applies it. Nothing already running is stopped. `get_limits` reads it back beside the shipped value.
+**Changed while Fleet runs.** Bridge saves it through `save_limits` (0 to 50 percent); settings.json keeps it across restarts, a hand edit to the file counts the same, and the next admission turn applies it. Nothing already running is stopped. `get_limits` reads it back beside the shipped value.
 
 Machine constraint. Also sets Doctor's System stats warn boundary — below threshold is warn, since Drones queue rather than spawn. System stats is the one Doctor module whose warn is live degradation rather than "works now, will break later".
 
-Where nothing is saved, `crates/armada/src/serve.rs` supplies it as part of `PROVISIONAL_HEADROOM` and carries the argument for the number. It ships at 15 percent: nothing has measured what a Drone costs in memory, and what the number is for is refusing to start work on a machine that is already full.
+Where nothing is saved, `config::settings`' table supplies it and carries the argument for the number beside its entry. It ships at 15 percent: nothing has measured what a Drone costs in memory, and what the number is for is refusing to start work on a machine that is already full.
+
+**The value lives in settings.json under `limits.memorySparePercent`** (live), since the owner's decision of 10 Oct 2026 — `docs/concepts/machine.md`, *settings.json*.
 """
 
 [settings.checks-at-once]
@@ -53,7 +55,9 @@ notes = """
 
 **A step's gate runs its own Checks one at a time**, so this bounds how many Jobs' gates and Drones' runs share the machine, never one gate's Checks beside each other. The owner's decision of 4 Oct 2026, after Job 3's gate ran its own `desktop_test` beside its own `components_test` and Rust `test`. `docs/concepts/manifest.md`, *How many Checks run at once*.
 
-**Machine, not Manifest.** How many Checks a repository declares is the Manifest's; how many one machine can host is not. Shipped at half the cores, from one to eight — `armada::serve::provisional_checks_at_once` says why.
+**Machine, not Manifest.** How many Checks a repository declares is the Manifest's; how many one machine can host is not. Shipped at half the cores, from one to eight — `limits.checksAtOnce`'s entry in `config::settings` says why.
+
+**The value lives in settings.json under `limits.checksAtOnce`** (live), since the owner's decision of 10 Oct 2026 — `docs/concepts/machine.md`, *settings.json*. A save moves Fleet's places and the machine's Check slots it holds (`checks_runner::CheckSlots::resize`) from the next Check; one running keeps its slot. An `armada check` already running counts by the number it started with.
 """
 
 [settings.disk-headroom-floor-for-spawning]
@@ -71,9 +75,11 @@ notes = """
 
 **It exists because of a measured failure, not for symmetry with memory.** On 31 Aug 2026 a volume filled during a parallel agent run: 220 GB across 74 worktrees, roughly three gigabytes each, and three agents died at zero bytes free holding uncommitted work. Nothing saw it coming, nothing reported it, and the first symptom was tool calls failing with `ENOSPC`.
 
-**Changed while Fleet runs.** Bridge saves it through `save_limits` (0 to 100 GiB); the store keeps it across restarts and the next admission turn applies it. Nothing already running is stopped. A floor of zero is allowed and is a person accepting the 31 Aug failure back.
+**Changed while Fleet runs.** Bridge saves it through `save_limits` (0 to 100 GiB); settings.json keeps it across restarts, a hand edit to the file counts the same, and the next admission turn applies it. Nothing already running is stopped. A floor of zero is allowed and is a person accepting the 31 Aug failure back.
 
-Where nothing is saved, `crates/armada/src/serve.rs` supplies it as part of `PROVISIONAL_HEADROOM` and carries the argument for the number. It ships at ten gibibytes, which is about three worktrees' worth: enough that the Job being started can finish and a person has warning before the next one.
+Where nothing is saved, `config::settings`' table supplies it and carries the argument for the number beside its entry. It ships at ten gibibytes, which is about three worktrees' worth: enough that the Job being started can finish and a person has warning before the next one.
+
+**The value lives in settings.json under `limits.diskFloorGib`** (live), since the owner's decision of 10 Oct 2026 — `docs/concepts/machine.md`, *settings.json*.
 """
 
 [settings.slot-build-trim-after-days]
@@ -89,6 +95,8 @@ notes = """
 **Enforced**, as `adapters::leasing::TRIM_AFTER_DAYS`. A release of a pool slot, `armada clean` giving back a Job's slot, and Fleet's sweep each drop every file under a `target/` that no build has written for this long, and the incremental session directories that leave empty. Cargo never deletes a stale artifact, and on 6 Oct 2026 24 checkouts grew `target/` to 50 GB each, about 800 GB in all, until the disk filled. A slot stays warm: what a recent build wrote is kept.
 
 **Not yet a value a person can change**: it is a constant, and the next step is a machine file read at start, as the pool's shape is.
+
+**The value lives in settings.json under `limits.slotBuildTrimAfterDays`** (read at start), since the owner's decision of 10 Oct 2026 — `docs/concepts/machine.md`, *settings.json*.
 """
 
 [settings.slot-build-ceiling-gib]
@@ -104,6 +112,8 @@ notes = """
 **Enforced**, as `adapters::leasing::CEILING_GIB`. When a `target/` is still larger than this after its stale files are dropped, the whole directory is removed. That costs a cold rebuild, which is why it is the second step and not the first, and Fleet says so on its console each time.
 
 **A `target/` with a cargo build running in it is never touched.** Cargo holds a lock on each profile directory for the length of a build; the trim takes every one first and keeps them until it is done, so a build that starts meanwhile waits on the trim rather than losing files under it.
+
+**The value lives in settings.json under `limits.slotBuildCeilingGib`** (read at start), since the owner's decision of 10 Oct 2026 — `docs/concepts/machine.md`, *settings.json*.
 """
 
 [settings.build-sweep-interval-minutes]
@@ -116,7 +126,9 @@ peer_polarity = "n/a — single layer"
 owner = "Fleet"
 read_by = "adapters"
 notes = """
-**Enforced**, as `PROVISIONAL_SWEEP_INTERVAL` in `crates/armada/src/serve.rs`. Every interval `fleet::sweeping::keep_sweeping` applies the same trim to the `target/` of every checkout of each served repository: the main checkout, each pool slot held or free, `.armada/bases`, `.armada/land`, `.armada/preview`, `.armada/worktrees` and `.claude/worktrees`. It reaches the checkouts nothing releases or cleans. The first sweep is one interval after Fleet starts.
+**Enforced**, as `timeouts.buildSweepSeconds` in settings.json, read at start. Every interval `fleet::sweeping::keep_sweeping` applies the same trim to the `target/` of every checkout of each served repository: the main checkout, each pool slot held or free, `.armada/bases`, `.armada/land`, `.armada/preview`, `.armada/worktrees` and `.claude/worktrees`. It reaches the checkouts nothing releases or cleans. The first sweep is one interval after Fleet starts.
+
+**The value lives in settings.json under `timeouts.buildSweepSeconds`** (read at start), since the owner's decision of 10 Oct 2026 — `docs/concepts/machine.md`, *settings.json*.
 """
 
 [settings.fleet-health-check-resource-poll-interval]
@@ -133,6 +145,8 @@ notes = """
 A reading is three short-lived processes and about eighty milliseconds, so taking one on every turn — four a second — would be a measurable share of a core spent on a number that does not move that fast. It ships at five seconds, which is twenty turns.
 
 Daemon-level. Distinct from Drone silence threshold (quiet_after), which is per-Drone silence rather than Fleet's own polling.
+
+**The value lives in settings.json under `timeouts.resourcePollSeconds`** (live), since the owner's decision of 10 Oct 2026 — `docs/concepts/machine.md`, *settings.json*.
 """
 
 [settings.sqlite-wal-checkpoint-interval]
@@ -162,9 +176,11 @@ notes = """
 
 **It counts Drones, not Jobs**, since spike 022's slice 5 (answer 2): each running Job's kept Drone, from its admission to its end, and each Drone running beside one on a task marked safe to run at once. A Job's own Drone cap, set at its approval, sits inside it. A Drone beside a kept one gives way to a Job waiting to start; the kept one is never asked again.
 
-**Changed while Fleet runs.** Bridge saves it through `save_limits` (1 to 8); the store keeps it across restarts and the next admission turn applies it. A lower number stops nothing already running — new starts wait until enough finish.
+**Changed while Fleet runs.** Bridge saves it through `save_limits` (1 to 8); settings.json keeps it across restarts, a hand edit to the file counts the same, and the next admission turn applies it. A lower number stops nothing already running — new starts wait until enough finish.
 
-Where nothing is saved, `crates/armada/src/serve.rs` supplies it as `PROVISIONAL_CONCURRENCY` and carries the argument for the number. It ships at two: the attribution beneath it was measured at five, and what is unbuilt above two is write-scope reservation.
+Where nothing is saved, `config::settings`' table supplies it and carries the argument for the number beside its entry. It ships at two: the attribution beneath it was measured at five, and what is unbuilt above two is write-scope reservation.
+
+**The value lives in settings.json under `limits.dronesAtOnce`** (live), since the owner's decision of 10 Oct 2026 — `docs/concepts/machine.md`, *settings.json*.
 """
 
 [settings.budget-cost-cap-per-job]
@@ -190,7 +206,9 @@ notes = """
 
 Verification does not read this row — a budget refusal is a Job state, decided by Fleet at admission, and never a gate verdict.
 
-It has no value here for the reason none of Fleet's other dials does — `crates/armada/src/serve.rs` resolves the machine tier, as part of `PROVISIONAL_ALLOWANCE`, and carries the argument for the number. That tier is still a constant and still needs a rebuild to change; what the two tiers under it buy is that nobody has to. It ships at five dollars, which is roughly fifty of the dearest Job spike 5 measured: not a Job going slightly over, but one that has stopped making progress and kept paying.
+It has no value here for the reason none of Fleet's other dials does — settings.json resolves the machine tier, `limits.costCapDollarsPerJob`, and `config::settings` carries the argument for the number. That tier is still a constant and still needs a rebuild to change; what the two tiers under it buy is that nobody has to. It ships at five dollars, which is roughly fifty of the dearest Job spike 5 measured: not a Job going slightly over, but one that has stopped making progress and kept paying.
+
+**The value lives in settings.json under `limits.costCapDollarsPerJob`** (live), since the owner's decision of 10 Oct 2026 — `docs/concepts/machine.md`, *settings.json*.
 """
 
 [settings.budget-turn-cap-per-job]
@@ -218,7 +236,9 @@ So `armada.yml` now carries `drone.turn_cap_per_job`, a Job carries `jobs.turn_c
 
 **The two ceilings stay two acts.** `raise_cost_cap` and `raise_turn_cap` are separate routes with separate refusals, because a caller told the wrong one moved has been told nothing it can act on. They still resolve into one `fleet::Allowance` and one `exceeded_by` — what tiers is each value, not the pair — and `queued_reason = over_budget` still folds them both, with `budget_hold` beside it saying which.
 
-It has no value here for the reason the row above does not — `crates/armada/src/serve.rs` resolves the machine tier, as part of `PROVISIONAL_ALLOWANCE`, and that tier still needs a rebuild to change; what the two tiers under it buy is that nobody has to wait for one. It ships at three hundred: a four-step Job at a generous thirty turns a step is 120, so three hundred leaves room for a workflow twice that long and still stops a Drone that has been going round for hours.
+It has no value here for the reason the row above does not — settings.json resolves the machine tier, `limits.turnCapPerJob`, and that tier no longer needs a rebuild to change; what the two tiers under it buy is that nobody has to wait for one. It ships at three hundred: a four-step Job at a generous thirty turns a step is 120, so three hundred leaves room for a workflow twice that long and still stops a Drone that has been going round for hours.
+
+**The value lives in settings.json under `limits.turnCapPerJob`** (live), since the owner's decision of 10 Oct 2026 — `docs/concepts/machine.md`, *settings.json*.
 """
 
 [settings.budget-quota-floor-for-interactive-use]
@@ -453,9 +473,11 @@ read_by = "config, core-model, fleet, store"
 notes = """
 **Five tiers, the most specific winning**: the Job's own choice at approval, the delivering step's `draft_pr` in its WorkflowDef, the repository's top-level `pr_mode:`, this machine's `draft_pull_requests` preference, then ready. `core_model::PrModeTiers::resolve` is the one place the order is written, and `fleet::approving::decided_under` reads it at the approval.
 
-**Filed Kit → Manifest by `budget-cost-cap-per-job`'s precedent, and there is no Kit tier.** The machine's is a Machine preference kept in Fleet's store (`save_preferences`), the bottom of the order, and it does not travel. Absent is deferring in every tier: a repository writing `pr_mode: ready` beats a machine that drafts, which absent would not.
+**Filed Kit → Manifest by `budget-cost-cap-per-job`'s precedent, and there is no Kit tier.** The machine's is a Machine setting in settings.json (`features.draftPullRequests`), the bottom of the order, and it does not travel. Absent is deferring in every tier: a repository writing `pr_mode: ready` beats a machine that drafts, which absent would not.
 
 **Only a step with `delivers: true` may carry `draft_pr`**, since any other step opens no pull request. The loader refuses it elsewhere. The step's value freezes onto the Job with the workflow; the repository's and the machine's are read at the approval, and the result is kept in the Job's landing. A Job approved before a default moved keeps what it opened as. `docs/concepts/landing.md`, *Pull request mode*.
+
+**The value lives in settings.json under `features.draftPullRequests`** (live), since the owner's decision of 10 Oct 2026 — `docs/concepts/machine.md`, *settings.json*.
 """
 
 [settings.default-model-per-job-type]
@@ -468,6 +490,8 @@ owner = "Manifest"
 read_by = "adapters, fleet"
 notes = """
 Feeds spike #3 (model-selection resolution). The one Manifest-only row still related to a Kit value: it selects from Kit-level allowed/default models list, so its polarity is membership. Previously that membership was checked at config load rather than assumed, on the strength of the config direction rule; the rule was withdrawn Aug 22 2026 and nothing enforces the membership now. Filed as an open finding.
+
+**The value lives in settings.json under `models.default`** (read at start; `ARMADA_MODEL` still wins), since the owner's decision of 10 Oct 2026 — `docs/concepts/machine.md`, *settings.json*.
 """
 
 [settings.model-selection-heuristic-parameters]
@@ -595,6 +619,8 @@ owner = "Helm"
 read_by = "fleet"
 notes = """
 Helm acts on Tier 1 Redirect by default per the concept design; this is the switch to disable that per project. Read from `#943`: `Fleet::helm_authority` (`crates/fleet/src/daemon/seams.rs`) answers this rather than the `Authority::Acting` constant it returned before, and both the brief (`crates/fleet/src/helm/brief.rs`) and the agent door's reach (`crates/fleet/src/helm/admitting.rs`, `reach.rs`) follow that one answer. Resolved once at daemon start by the composition root (`HELM_ACTION_AUTHORITY` in `crates/armada/src/serve.rs`), corrected from this row's earlier `Live` — nothing saves an override while Fleet runs, so there is no live path to a changed value yet.
+
+**The value lives in settings.json under `features.helmCanAct`** (live), since the owner's decision of 10 Oct 2026 — `docs/concepts/machine.md`, *settings.json*.
 """
 
 [settings.helm-ask-hold]
@@ -611,7 +637,9 @@ How long one call a Helm session made is held open for a person to answer in the
 
 **Five, and it is the smallest of three bounds rather than a preference.** A reply's whole process ends at `fleet::helm::hosting::REPLY_BUDGET`, fifteen minutes, so five leaves room for a reply that is asked about more than once; `docs/spikes/015-can-a-person-answer-a-blocked-command.md` measured a stdio permission tool abandoned near thirty minutes, and the door a Helm session holds is stdio; and `docs/spikes/019-is-auto-mode-reachable-for-a-helm-session.md` measured a two-minute hold surviving intact. Beyond that it is a person's patience rather than a process's.
 
-**Silence answers deny, never allow.** Resolved once at daemon start (`HELM_ASK_HOLD` in `crates/armada/src/serve.rs`), and carried as `fleet::helm::HelmAskHold` — a fitting rather than a constant, for `PermissionHold`'s reason: a test can plant a bound it can outlive.
+**Silence answers deny, never allow.** Resolved once at daemon start (`timeouts.helmAskHoldSeconds` in settings.json), and carried as `fleet::helm::HelmAskHold` — a fitting rather than a constant, for `PermissionHold`'s reason: a test can plant a bound it can outlive.
+
+**The value lives in settings.json under `timeouts.helmAskHoldSeconds`** (read at start), since the owner's decision of 10 Oct 2026 — `docs/concepts/machine.md`, *settings.json*.
 """
 
 [settings.session-quiet-timeout]
@@ -627,6 +655,8 @@ notes = """
 How long the process of a session Fleet hosts may sit with no turn running before Fleet ends it. The next message resumes the session by its id, so nothing is lost; what is lost is that another session's message cannot wake a session whose process is gone, which Fleet answers by resuming it for a hosted sender. `docs/concepts/session.md`, *A session Fleet hosts*.
 
 **Ten, and nothing measured it.** Long enough to cover a person reading a reply and typing the next, short enough that a dozen open sessions are not a dozen idle processes. Carried as `fleet::session_host::SHIPPED_QUIET_TIMEOUT`, and a fitting on `Hosts` for `HelmAskHold`'s reason: a test plants a bound it can outlive. Not yet resolved from a user setting.
+
+**The value lives in settings.json under `timeouts.sessionQuietSeconds`** (read at start), since the owner's decision of 10 Oct 2026 — `docs/concepts/machine.md`, *settings.json*.
 """
 
 [settings.helm-budget-soft-warning-threshold]
@@ -654,7 +684,9 @@ read_by = "fleet, store"
 notes = """
 Session-per-topic model — how long closed Helm sessions are kept before cleanup. Same shape as Job retention / archival window, applied to Helm rather than to Jobs. Owner corrected from Helm to Fleet in the Aug 2026 spot-check: nothing in Helm sweeps expired sessions, and the reaper that does is the same one Job retention names. Helm is what the setting is about, which is provenance, not ownership.
 
-Read from `#943`: resolved once at daemon start (`HELM_SESSION_RETENTION` in `crates/armada/src/serve.rs`, `Fleet::helm_session_retention` in `crates/fleet/src/daemon/seams.rs`) and swept by `Store::forget_stale_helm_sessions` (`crates/store/src/helm_sessions.rs`) on every Helm reply rather than on a timer — `crate::rehearsing::records::swept`'s reason: a conversation still in use refreshes `kept_at` on that same reply, so it is never the row being swept.
+Read from `#943`: resolved once at daemon start (`retention.helmSessionDays` in settings.json, `Fleet::helm_session_retention` in `crates/fleet/src/daemon/seams.rs`) and swept by `Store::forget_stale_helm_sessions` (`crates/store/src/helm_sessions.rs`) on every Helm reply rather than on a timer — `crate::rehearsing::records::swept`'s reason: a conversation still in use refreshes `kept_at` on that same reply, so it is never the row being swept.
+
+**The value lives in settings.json under `retention.helmSessionDays`** (live), since the owner's decision of 10 Oct 2026 — `docs/concepts/machine.md`, *settings.json*.
 """
 
 [settings.job-detail-where-things-are-open]
@@ -670,6 +702,8 @@ notes = """
 Whether Job detail's *Where things are* chapter opens collapsed (`false`) or expanded (`true`) — `docs/journeys/monitor-active-work.md` wants it to "open with one click and remember the choice", which had nowhere to be remembered until this. `#927`.
 
 **Delivered, not orphaned — the first row of this shape to say so.** Not through the two rows above's own gap, though: those are Kit/Machine values `config` resolves from `armada.yml`/`machine.yml` with no crate carrying the resolved figure to Bridge, and this preference is never in either file — a person sets it in Bridge and Fleet is where it is kept, the way `fleet_limits` keeps the four Fleet limits. `get_preferences`/`save_preferences` (`crates/ipc/operations/`, protocol 13.24) read and save a `preferences` table (`crates/store/src/preferences.rs`, V60) keyed by name; `apps/desktop/src/main/preferences.ts` loads it when Fleet connects and saves on change, and it reaches the renderer on `BridgeState.preferences`. The other two Bridge-scoped rows above stay orphaned, and so does `[bridge-notification-routing-path]` — this is a different path, not that one closed.
+
+**The value lives in settings.json under `bridge.whereThingsAreOpen`** (live), since the owner's decision of 10 Oct 2026 — `docs/concepts/machine.md`, *settings.json*.
 """
 
 [settings.landing-manifest-last-opened-project]
@@ -694,6 +728,8 @@ owner = "Kit"
 read_by = "adapters, fleet"
 notes = """
 Named in the original concept notes ("Settings: Models…") but never had a row. The set that Default model per Job type and Judge model select from, which is what makes their Member of the Kit set polarity checkable. Retitled from Guild-level Aug 22 2026 with the split. It was described as a ceiling; it is not one any more. With the config direction rule withdrawn, nothing enforces that a Manifest's selection is a member of this set — a repo may name a model the machine has no access to or no budget for. Filed as an open finding.
+
+**The value lives in settings.json under `models.roster`** (read at start), since the owner's decision of 10 Oct 2026 — `docs/concepts/machine.md`, *settings.json*.
 """
 
 [settings.ai-assisted-prompt-toggle]
@@ -822,6 +858,8 @@ How long a Drone may say nothing before Fleet pokes it, and — once `poke_limit
 **Armada's own `armada.yml` sets it to 300, and that is a measurement rather than a preference.** Spike 009's 79s maximum was one repository, a warm cache and small changes, and it says so; the shipped 120 is one and a half times it. Measured in this workspace on 3 September 2026, into an empty target directory: `cargo build --workspace --locked` is 37.6s and `cargo nextest run --workspace --exclude acceptance` is 41s — each one tool call producing no Drone output, each already a third of the shipped threshold on its own, and that file's own `drone` comment records the Bridge tests at 6s then 40s before a browser starts. A Drone that runs two of them before it says anything is silent past 120s on work that is going fine. 300 is the top of the band the spike named as separating every case it saw, so it is still a tripwire and not a switch.
 
 Documented on Drone; Fleet is what notices the silence. Distinct from Fleet health-check / resource-poll interval, and from the heartbeat interval, which is how often a Drone is expected to speak rather than how long Fleet waits before speaking to it.
+
+**The value lives in settings.json under `timeouts.droneQuietAfterSeconds`** (live), since the owner's decision of 10 Oct 2026 — `docs/concepts/machine.md`, *settings.json*.
 """
 
 [settings.drone-scope-exclusions-exclude-paths]
@@ -871,6 +909,8 @@ owner = "Fleet"
 read_by = "api, bridge (TS)"
 notes = """
 How long Bridge waits, and how many attempts, before deciding Fleet is unreachable and triggering auto-restart. Distinct from the resource-poll interval.
+
+**The value lives in settings.json under `timeouts.bridgeReconnectMs`** (live, read by Bridge), since the owner's decision of 10 Oct 2026 — `docs/concepts/machine.md`, *settings.json*.
 """
 
 [settings.fleet-daemon-level-log-location-retention]
@@ -906,6 +946,8 @@ Why it must be a floor and not a middle. Model is a deliberate per-step dial and
 Latency, not money, is what the value is chosen against. The calls sit at a gate a person is waiting behind, and criteria x panel_size multiplies them: four criteria at panel_size 3 is twelve calls in series at one gate. v1 measured a judgment at roughly 4k input / 300 output tokens, which is under a cent at this tier, so twelve of them is cents either way — the difference the default makes is seconds of wait, and it is paid on every gate of every Job.
 
 Member of the Kit set is load-bearing here, and is why the value lives where it does. The alias is a vendor's spelling, so gate rule six keeps it inside adapters; the adapter reads it as the last entry of the model roster it already states, the roster running strongest-first, so the default is a member of the offered set by construction rather than by a check. A test pins that derivation to this row's value, so a roster reordering breaks the build rather than silently redeciding this setting.
+
+**The value lives in settings.json under `models.judge`** (live; `ARMADA_JUDGE_MODEL` still wins), since the owner's decision of 10 Oct 2026 — `docs/concepts/machine.md`, *settings.json*.
 """
 
 [settings.job-proposer-model]
@@ -919,6 +961,8 @@ owner = "Fleet"
 read_by = "adapters, fleet"
 notes = """
 Added with the Job proposer. Its own row rather than a second reading of judge-model: the two are the same shape of call and are raised for opposite reasons, and a machine that raised one by raising the other would pay the raise on every dispatch as well as on every criterion. One turn, no tools, no directory — the shape a Judge call had until it was let read the repository on 2 Oct 2026. Overridden by ARMADA_PROPOSER_MODEL, resolved at the composition root, and nothing below Fleet reads it. Carries no value yet, so the default is the adapter's own stand-in. judge-model was in the same arrangement until 28 Aug 2026 and is now decided; this row was left where it was rather than being carried along, because the two are raised for different reasons and the proposer's own reasons have not been worked through.
+
+**The value lives in settings.json under `models.proposer`** (live; `ARMADA_PROPOSER_MODEL` still wins), since the owner's decision of 10 Oct 2026 — `docs/concepts/machine.md`, *settings.json*.
 """
 
 [settings.retro-model]
@@ -936,6 +980,8 @@ DECIDED 4 Oct 2026 (owner): sonnet. A Job's retro is written on the middle tier 
 The model is a stronger writer, and the prompt does the rest: it names no cause the record does not show, and the record hands it, as a fact, whether a Drone's own tool calls name a file a gate failure is about. A stronger model does not make the cause visible where the record has none.
 
 Overridden by ARMADA_RETRO_MODEL, resolved at the composition root, and nothing below Fleet reads it. The adapter states the default and a test holds it to the roster and above the Judge's. The call goes through the Judge's client and budget, so it counts against nothing: an unwatched call emits no cost readout, which is why judge-cost-cap-per-check is open, and it is not part of a Job's spend. It is one call per Job that had a Drone, made after the Job ended, so no Job waits on it.
+
+**The value lives in settings.json under `models.retro`** (live; `ARMADA_RETRO_MODEL` still wins), since the owner's decision of 10 Oct 2026 — `docs/concepts/machine.md`, *settings.json*.
 """
 
 [settings.judge-confidence-threshold]
@@ -987,6 +1033,8 @@ The most of the file `armada.yml`'s `standing_rules` names that one Judge brief 
 **The Judge is its only reader.** It was `judge-brief-standing-rules-cap` until 1 Oct 2026, when the Drone's opening brief began carrying the same file; that block was removed on 2 Oct 2026, because a Drone reads the repository itself (owner, 2 Oct 2026).
 
 **A judgement, not a measurement.** The text rides every Judge call, times `panel_size`, beside a brief already carrying the request, the Check tails and often the whole diff, so it must stay a small part of one. Four kibibytes is roughly a thousand tokens and nearly three times `docs/instructions/every-change.md`, the file Armada's own `armada.yml` names. It is a list of what every change carries, and a file that needs more is a contract to point at rather than to paste.
+
+**The value lives in settings.json under `limits.standingRulesKib`** (live), since the owner's decision of 10 Oct 2026 — `docs/concepts/machine.md`, *settings.json*.
 """
 
 [settings.judge-read-turns]
@@ -1006,6 +1054,8 @@ How many turns one Judge call may take, its reads of the repository's checkout a
 **Eight, a judgement and not a measurement.** A lookup is reading the repository's instructions for agents, a search or two for the doc it points at, reading one to three of them, and answering: five to seven turns, and reads asked together in one turn count once. Eight leaves one spare. Fewer would cut a Judge off mid-lookup, and a call that runs out of turns fails rather than answers — `CallFailed::Refused`, which is never a verdict. More is a Judge exploring rather than looking something up, and every turn is paid on every criterion times `panel_size` at a gate a person is waiting behind, under `PROVISIONAL_JUDGE_BUDGET`'s 120 seconds.
 
 **Not measured on a real gate.** How many turns Judges actually take, and how much a reading call adds to a gate's wait, are the numbers that would move this.
+
+**The value lives in settings.json under `limits.judgeReadTurns`** (live), since the owner's decision of 10 Oct 2026 — `docs/concepts/machine.md`, *settings.json*.
 """
 
 [settings.judge-trigger-set-which-mechanical-results-fire-a-judge-check]
@@ -1045,6 +1095,8 @@ owner = "Fleet"
 read_by = "adapters"
 notes = """
 Added by the Aug 2026 config review. ModelClient appears nowhere in the original table — it was added to the crate design after the configuration page was written, which is the exact shape of a setting read by code and defined by nothing.
+
+**The value lives in settings.json under `timeouts.judgeSeconds`** (live), since the owner's decision of 10 Oct 2026 — `docs/concepts/machine.md`, *settings.json*.
 """
 
 [settings.agentharness-binary-path-and-version-pin]
@@ -1058,6 +1110,8 @@ owner = "Fleet"
 read_by = "adapters, fleet"
 notes = """
 Added by the Aug 2026 config review. Adapter config: which binary, and which flag-compatible version. See the Adapters doc for why this lives with the adapter rather than in a central schema.
+
+**The value lives in settings.json under `harness.agent` and `harness.binaryPath`** (read at start; `ARMADA_AGENT_BINARY` still wins), since the owner's decision of 10 Oct 2026 — `docs/concepts/machine.md`, *settings.json*.
 """
 
 [settings.secrets-provider-selection]
@@ -1189,13 +1243,15 @@ How many nudge prompts a silent Drone gets before the Job escalates as stalled. 
 
 **Overridable per step, defaulted from `default_gate_policy.poke_limit`**, and the budget resets at each step boundary because the slot that counts spent pokes is per step. A Drone poked twice on step one starts step two with two pokes in hand.
 
-**All three tiers are wired**, exactly as for the duration it travels with. `crates/armada/src/serve.rs` still names the number, as the second half of `PROVISIONAL_LIVENESS`, and that is now what an `armada.yml` and a step both fall back to rather than what every step gets. A repository or a step declaring `poke_limit` and nothing else keeps the duration it inherited, which is what two rows buy: `fleet::Liveness::at` resolves the halves separately at both overriding tiers.
+**All three tiers are wired**, exactly as for the duration it travels with. `config::settings` names the number, as `timeouts.dronePokeLimit`, and that is now what an `armada.yml` and a step both fall back to rather than what every step gets. A repository or a step declaring `poke_limit` and nothing else keeps the duration it inherited, which is what two rows buy: `fleet::Liveness::at` resolves the halves separately at both overriding tiers.
 
 **And the Manifest tier is live to the file, since `#430`**, exactly as for the duration it travels with — the row above carries what is watched, what a save that will not parse does, and why a change to `checks:` in the same file is not adopted with it. The two keys are adopted together because they are read together, and each still falls back on its own.
 
 **`poke_limit: 0` is legal wherever it is written**, at `drone.poke_limit` in an `armada.yml` or on a step, and it is not an absent key. It says the Drone gets no nudge at all and the first silence past the threshold escalates — the one place the two keys disagree about zero, since a `quiet_after_seconds: 0` is refused where it is written.
 
 **This repository sets neither key**, and the row above says why it sets the duration and not this. Two nudges is what Armada's own Drones get.
+
+**The value lives in settings.json under `timeouts.dronePokeLimit`** (live), since the owner's decision of 10 Oct 2026 — `docs/concepts/machine.md`, *settings.json*.
 """
 
 [settings.drone-heartbeat-interval-heartbeat-interval-minutes]
@@ -1247,6 +1303,8 @@ peer_polarity = "n/a — single layer"
 read_by = "bridge (TS), fleet"
 notes = """
 Added 2026-08-21 from the Run and edit a Manifest journey. How long a Check or Command run fired by hand from the Manifest surface keeps its log. Those runs write to ./.armada in their own run directory, one per run — the same tree as Job logs, a separate subtree, so a sweep can take them without touching Job history. Machine-scoped rather than two-tier because the logs are on your disk, and how long you keep them is a fact about your machine, not about a repo a teammate also clones. That reasoning is the Kit/Machine test stated before the split existed. 30 days rather than reusing the Job retention window, because the two age out for different reasons — a Job log is kept as long as its history is worth reading, a rehearsal only as long as you might still be debugging what you just ran.
+
+**The value lives in settings.json under `retention.runLogDays`** (live), since the owner's decision of 10 Oct 2026 — `docs/concepts/machine.md`, *settings.json*.
 """
 
 [settings.judge-call-count-ceiling-default-gate-policy]
@@ -1285,6 +1343,8 @@ owner = "Fleet"
 read_by = "fleet, store"
 notes = """
 The rounding unit a claim's width is raised to, giving a mid-Job widening headroom to extend in place. Machine-only knowingly against the tiering rule — a project-level version does parse, since a monorepo of compose stacks wants a larger granule than a repo of libraries, but the preference is unfelt: demand already drives width, and the headroom is spent on scope revision, which is rare. Recorded so it need not be re-derived if it moves: resolution across a Job's several gating Manifests is highest-wins, since most-restrictive would take the smallest granule, which is backwards for a floor. The signal to move it is a repo where mid-Job widenings routinely fail to extend in place and re-claim, changing port numbers under a running worktree.
+
+**The value lives in settings.json under `limits.portBlockGranule`** (read at start), since the owner's decision of 10 Oct 2026 — `docs/concepts/machine.md`, *settings.json*.
 """
 
 [settings.check-timeout]
@@ -1294,6 +1354,8 @@ owner = "Manifest"
 read_by = "checks-runner, config"
 notes = """
 Bounds every Check, narrowed by an optional per-Check field in armada.yml. Both, because a Check ranges from a seconds-long lint to a half-hour suite: one number has to accommodate the slowest and so never fires on the fast ones that hang, and a field alone means every repo writes it on every Check or gets no bound at all. A timeout escalates rather than failing the gate — the Check did not fail, it did not finish. Scope, Default, Merge strategy and Peer polarity are blank because the deciding question did not state them, and whether the per-Check field may raise this value or only lower it is open.
+
+**The value lives in settings.json under `timeouts.checkSeconds`** (live), since the owner's decision of 10 Oct 2026 — `docs/concepts/machine.md`, *settings.json*.
 """
 
 [settings.port-range-ceiling]
@@ -1319,6 +1381,8 @@ owner = "Fleet"
 read_by = "fleet, store"
 notes = """
 The low end of the range a Job's port span is claimed from. Paired with Port range ceiling, which is detected rather than fixed.
+
+**The value lives in settings.json under `limits.portRangeBase`** (read at start), since the owner's decision of 10 Oct 2026 — `docs/concepts/machine.md`, *settings.json*.
 """
 
 [settings.held-span-reminder-threshold]
@@ -1348,4 +1412,6 @@ How many times in a row Fleet sends a Job back from its review gate to clear its
 **Only passes that came back unpushed count.** A pass whose delivery pushed a clean merge starts the count again, so a Job that cleared one conflict and waits at review while main moves is sent again; a base that keeps conflicting pass after pass is not. The count is a column on the Job's delivery record, raised by each send and zeroed by a delivery that pushed.
 
 **Not `iteration_cap`**, which bounds a verdict's loop and reads zero where a step declares none. `crates/fleet/src/conflict_resolution.rs` hard-codes this as `CLEARING_SENDS` and carries the argument for the number: three passes that each still conflicted is a base moving faster than a Drone can follow.
+
+**The value lives in settings.json under `limits.conflictClearingSends`** (live), since the owner's decision of 10 Oct 2026 — `docs/concepts/machine.md`, *settings.json*.
 """

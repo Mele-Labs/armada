@@ -50,8 +50,10 @@ use crate::job::workflow::{FrozenWorkflow, ResolvedStep};
 mod approving;
 mod pausing;
 mod proposing;
+mod questioning;
 pub use pausing::{Pause, PausedBy};
 pub use proposing::{Answered, NewProposal};
+pub use questioning::{DroneQuestion, GivenAnswer, OfferedAnswer};
 
 /// Everything creation decides, and nothing it does not.
 ///
@@ -192,6 +194,10 @@ pub struct Job {
     /// across a gate, and on every Job whose note has been delivered — see
     /// [`note`](mod@crate::job::note) for why those two are one value.
     redirect_waiting: Option<RedirectWaiting>,
+    /// What its Drone asked a person, held after that Drone stood down. See
+    /// [`questioning`](mod@questioning). Boxed, because a `Job` is held across
+    /// a great many awaits and this is the largest field it would carry.
+    question: Option<alloc::boxed::Box<DroneQuestion>>,
     /// What this one Job may spend, in millionths of a dollar. **`None` is
     /// unset and defers to the tier above**, which is not the same answer as
     /// `Some(0)` — a cap of zero says this Job starts nothing. `fleet::
@@ -294,6 +300,7 @@ impl Job {
             reclaimed_at: None,
             // Nothing has been said to a Job that does not exist yet.
             redirect_waiting: None,
+            question: None,
             // Unset, which is this Job taking whatever the repository and the
             // machine say. A number here at creation would be a ceiling
             // nobody chose.

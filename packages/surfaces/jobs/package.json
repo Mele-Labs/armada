@@ -8,6 +8,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./api": "./src/api.ts",
+    "./review-wire": "./src/review-wire.ts",
     "./fake": "./src/fake.ts",
     "./sketch-marks": "./src/sketch-marks.ts",
     "./draft/*": "./src/draft/*.ts",

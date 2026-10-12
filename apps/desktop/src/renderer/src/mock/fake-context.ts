@@ -56,7 +56,9 @@ export type SliceName =
   | "reports"
   | "jobs"
   | "sessions"
-  | "sleep";
+  | "sleep"
+  | "issues"
+  | "autopilot";
 
 /**
  * One surface's part of a fake. `api` is the members its `shared/api/<name>.ts` declares, answered
@@ -69,6 +71,11 @@ export type Slice<A, S> = {
   api: (scenario: Scenario, fleet: Fleet) => A;
   state: S;
   scenarios?: () => Scenario[];
+  /**
+   * What this surface's Fleet would have answered on connecting, where the scenario's own state
+   * says nothing — a read main makes once per connection. Applied only when the slice is mounted.
+   */
+  seeded?: (state: BridgeState) => Partial<S>;
 };
 
 /** The fixed answers a read with nothing behind it gives. */

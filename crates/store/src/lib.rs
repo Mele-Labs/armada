@@ -66,8 +66,11 @@ mod groups;
 mod helm_sessions;
 /// What a session Fleet hosts keeps beside its ledger row, and its thread.
 mod hosted_sessions;
+mod issue_writeback;
 mod session_waiting;
 mod sleep_night;
+/// A repository's Autopilot and what it picked. #2092.
+mod autopilot;
 /// Where a verdict's own question was kept, and the column that points at it.
 mod judged;
 /// Kit's MCP servers, and each Manifest's word over one. `#1275`.
@@ -116,6 +119,9 @@ mod plan;
 mod ports;
 /// A person's preferences, one row per name, kept beside `limits`.
 mod preferences;
+/// `settings.json`, the Machine's settings file: parsed and written here, read
+/// against `config`'s registry everywhere else.
+pub mod settings_file;
 /// Which operating-system process is working a Job, so a restart can ask.
 mod process;
 mod proposing;
@@ -126,6 +132,7 @@ mod proving;
 mod pull_notice;
 /// A pull request's title and comment count, kept past the merge.
 mod pull_request_kept;
+mod questioning;
 mod read;
 /// Giving a Job's resources back without giving up its record.
 mod rechecking;
@@ -212,7 +219,9 @@ pub use forget::Forgotten;
 pub use groups::GroupCoord;
 pub use hosted_sessions::{KeptHosting, KeptTerminalAsk};
 pub use session_waiting::KeptWaiting;
+pub use issue_writeback::{WriteBackOwed, WrittenBack};
 pub use sleep_night::{SleepRow, SleepSwitch};
+pub use autopilot::{KeptAutopilot, KeptPick};
 pub use limits::SavedLimits;
 pub use lineage::{ReplacedBy, Replaces};
 pub use main_ci::{MainCi, MainFailedJob, MainMerge, MainState};
@@ -224,7 +233,7 @@ pub use pending_evidence::PendingEvidence;
 pub use piloting::{KeptPilot, Narrative, PilotExit};
 pub use plan::DeclaredPlan;
 pub use ports::{PortClaim, PortClaimant};
-pub use preferences::{Preferences, SHIPPED_THEME};
+pub use preferences::{Preferences, SavedPreferences, SHIPPED_THEME};
 pub use process::DroneProcess;
 pub use proving::Proved;
 pub use pull_request_kept::KeptPullRequest;

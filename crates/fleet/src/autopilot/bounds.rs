@@ -1,0 +1,267 @@
+//! What Fleet decides about an Autopilot, deterministically: whether it has room, which cap it
+//! has reached, and what Pause and Stop may do. **Pure**, so each is a case a test names.
+//!
+//! > **Rule.** Each cap stops the next pick and never a running Job.
+//! > Why: a Job's cost arrives when its Drone ends, the reason #51's cap refuses the next
+//! > dispatch. Autopilot can overshoot a cap by as many Jobs as it runs at once.
+
+use std::fmt;
+
+use core_model::{Job, JobStatus, Timestamp};
+
+/// One of its Jobs, as much as room and Stop read of it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Standing {
+    pub status: JobStatus,
+    /// Its Drone asked and the answer has not come, or it is paused.
+    pub waiting_on_a_person: bool,
+    /// A Drone has started on it at some point.
+    pub ever_ran: bool,
+}
+
+impl Standing {
+    pub fn of(job: &Job, ever_ran: bool) -> Standing {
+        Standing {
+            status: job.status(),
+            waiting_on_a_person: job.waiting_on_an_answer()
+                || job.pause().is_some_and(|pause| !pause.resuming),
+            ever_ran,
+        }
+    }
+
+    /// **Running, or ready to run and not waiting on a person.** Escalated, at review, awaiting
+    /// repair or attestation, piloted, and a queued Job waiting on an answer or paused all hold
+    /// none: the owner's *doesn't block the queue*.
+    pub fn holds_a_place(&self) -> bool {
+        match self.status {
+            JobStatus::Running => true,
+            JobStatus::Queued => !self.waiting_on_a_person,
+            _ => false,
+        }
+    }
+
+    /// Picked and not started: queued, and no Drone has ever been on it. Stop withdraws these.
+    pub fn withdrawn_at_stop(&self) -> bool {
+        self.status == JobStatus::Queued && !self.ever_ran
+    }
+}
+
+/// How many more Jobs it may start now: `at_once` less those holding a place.
+pub fn room(at_once: u32, standing: &[Standing]) -> u32 {
+    let holding = standing.iter().filter(|one| one.holds_a_place()).count();
+    at_once.saturating_sub(u32::try_from(holding).unwrap_or(u32::MAX))
+}
+
+/// The three caps, each optional.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Caps {
+    pub until: Option<Timestamp>,
+    pub spend_cap_micros: Option<u64>,
+    pub job_cap: Option<u32>,
+}
+
+/// What its Jobs have spent and how many it started, which the caps are held to.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Spent {
+    pub micros: u64,
+    pub started: u32,
+}
+
+/// Which cap stopped it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Cap {
+    Until,
+    Spend,
+    Jobs,
+}
+
+impl Cap {
+    pub fn as_stored(self) -> &'static str {
+        match self {
+            Cap::Until => "until",
+            Cap::Spend => "spend",
+            Cap::Jobs => "jobs",
+        }
+    }
+
+    pub fn from_stored(word: &str) -> Option<Cap> {
+        [Cap::Until, Cap::Spend, Cap::Jobs]
+            .into_iter()
+            .find(|cap| cap.as_stored() == word)
+    }
+}
+
+impl Caps {
+    /// The cap reached, where one is: the time first, then the money, then the count, so a
+    /// morning that arrives with the money spent says the morning.
+    pub fn first_reached(&self, now: &Timestamp, spent: &Spent) -> Option<Cap> {
+        let past = |until: &Timestamp| match (now.epoch_millis(), until.epoch_millis()) {
+            (Some(now), Some(until)) => now >= until,
+            // An instant that does not read is not a cap anything could keep.
+            _ => true,
+        };
+        if self.until.as_ref().is_some_and(past) {
+            return Some(Cap::Until);
+        }
+        if self.spend_cap_micros.is_some_and(|cap| spent.micros >= cap) {
+            return Some(Cap::Spend);
+        }
+        if self.job_cap.is_some_and(|cap| spent.started >= cap) {
+            return Some(Cap::Jobs);
+        }
+        None
+    }
+}
+
+/// Settings a person confirmed. **Only [`Settings::confirmed`] makes one**, and a start takes
+/// nothing else, so a sentence's reading never starts anything by itself.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Settings {
+    instruction: String,
+    at_once: u32,
+    caps: Caps,
+}
+
+/// Why settings were refused at start.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Unsettable {
+    NoInstruction,
+    NoRoom,
+    AlreadyOver(Cap),
+}
+
+impl fmt::Display for Unsettable {
+    fn fmt(&self, out: &mut fmt::Formatter<'_>) -> fmt::Result {
+        out.write_str(match self {
+            Unsettable::NoInstruction => "Autopilot needs an instruction to pick by",
+            Unsettable::NoRoom => "Autopilot needs room for at least one Job at once",
+            Unsettable::AlreadyOver(Cap::Until) => "the time to stop has already passed",
+            Unsettable::AlreadyOver(Cap::Spend) => "a spend cap of nothing would start nothing",
+            Unsettable::AlreadyOver(Cap::Jobs) => "a Job cap of none would start nothing",
+        })
+    }
+}
+
+impl Settings {
+    pub fn confirmed(
+        instruction: &str,
+        at_once: u32,
+        caps: Caps,
+        now: &Timestamp,
+    ) -> Result<Settings, Unsettable> {
+        let instruction = instruction.trim();
+        if instruction.is_empty() {
+            return Err(Unsettable::NoInstruction);
+        }
+        if at_once == 0 {
+            return Err(Unsettable::NoRoom);
+        }
+        if let Some(cap) = caps.first_reached(now, &Spent::default()) {
+            return Err(Unsettable::AlreadyOver(cap));
+        }
+        Ok(Settings {
+            instruction: instruction.to_string(),
+            at_once,
+            caps,
+        })
+    }
+
+    pub fn instruction(&self) -> &str {
+        &self.instruction
+    }
+
+    pub fn at_once(&self) -> u32 {
+        self.at_once
+    }
+
+    pub fn caps(&self) -> &Caps {
+        &self.caps
+    }
+}
+
+/// Whether it picks. `Stopped` is the end.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum State {
+    Running,
+    Paused,
+    Stopped,
+}
+
+/// An act the state does not admit: pausing what is not running, resuming what is not paused,
+/// stopping what is stopped.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct NotNow {
+    pub from: State,
+}
+
+impl State {
+    pub fn picks(self) -> bool {
+        self == State::Running
+    }
+
+    pub fn paused(self) -> Result<State, NotNow> {
+        match self {
+            State::Running => Ok(State::Paused),
+            from => Err(NotNow { from }),
+        }
+    }
+
+    pub fn resumed(self) -> Result<State, NotNow> {
+        match self {
+            State::Paused => Ok(State::Running),
+            from => Err(NotNow { from }),
+        }
+    }
+
+    pub fn stopped(self) -> Result<State, NotNow> {
+        match self {
+            State::Running | State::Paused => Ok(State::Stopped),
+            from => Err(NotNow { from }),
+        }
+    }
+
+    pub fn as_stored(self) -> &'static str {
+        match self {
+            State::Running => "running",
+            State::Paused => "paused",
+            State::Stopped => "stopped",
+        }
+    }
+
+    pub fn from_stored(word: &str) -> Option<State> {
+        [State::Running, State::Paused, State::Stopped]
+            .into_iter()
+            .find(|state| state.as_stored() == word)
+    }
+}
+
+/// What became of a pick, by the word the store keeps.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum PickState {
+    Started,
+    SetAside,
+    Withdrawn,
+    Dismissed,
+}
+
+impl PickState {
+    pub(crate) fn as_stored(self) -> &'static str {
+        match self {
+            PickState::Started => "started",
+            PickState::SetAside => "set_aside",
+            PickState::Withdrawn => "withdrawn",
+            PickState::Dismissed => "dismissed",
+        }
+    }
+
+    pub(crate) fn from_stored(word: &str) -> Option<PickState> {
+        [
+            PickState::Started,
+            PickState::SetAside,
+            PickState::Withdrawn,
+            PickState::Dismissed,
+        ]
+        .into_iter()
+        .find(|state| state.as_stored() == word)
+    }
+}

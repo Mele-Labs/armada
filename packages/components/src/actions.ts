@@ -14,6 +14,7 @@
 
 import { ACTIONS } from "./generated/actions";
 import type { Action, ActionScope } from "./generated/actions";
+import { boundKeyFor } from "./keymap";
 
 // The map, its types and `ACTION` reach `@armada/components`' consumers through
 // here, so an importer neither knows nor cares which half of this pair a name
@@ -158,11 +159,13 @@ export function actionOf(id: string): Action {
 }
 
 /**
- * The key an act answers to, for drawing beside it.
+ * The key an act answers to now, for drawing beside it — the registry's, or what this person
+ * rebound it to in Settings → Keyboard (`./keymap.ts`). `""` where they unbound it.
  *
  * A string rather than a `Kbd`, so the caller decides where it renders and
  * this decides only what it says.
  */
 export function keyFor(id: string): string {
-  return actionOf(id).shortcut;
+  actionOf(id);
+  return boundKeyFor(id);
 }

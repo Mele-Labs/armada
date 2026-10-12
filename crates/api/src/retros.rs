@@ -1,13 +1,14 @@
 //! `get_job_retro`, `list_lessons`, and the two acts on a Lesson. Since 23.12;
 //! the acts and `?state=` since 23.26. `docs/concepts/retro.md`.
 
+use axum::body::Bytes;
 use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::response::Response;
 use axum::Extension;
 use serde::Deserialize;
 
-use crate::answers::{answer, refused};
+use crate::answers::{answer, refused, undecodable};
 use crate::daemon::{Queries, Redirector, Retros};
 use crate::door::HelmCalled;
 use crate::reference::Resolved;
@@ -132,6 +133,43 @@ pub(crate) async fn disagree_lesson<D: Retros>(
 ) -> Response {
     match served.daemon().disagree_lesson(lesson_id).await {
         Ok(lesson) => answer(StatusCode::OK, &lesson, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// Read the open items together and say which are worth a person's time.
+/// **One model call, nothing stored.** The body may be left out.
+pub(crate) async fn review_lessons<D: Retros>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let review: ipc::ReviewLessons = if body.is_empty() {
+        ipc::ReviewLessons::default()
+    } else {
+        match ipc::decode("a lesson review", &body) {
+            Ok(review) => review,
+            Err(why) => return undecodable(&why.to_string(), served.run_id()),
+        }
+    };
+    let manifest = review.manifest_id.map(ipc::ManifestId::carried);
+    match served.daemon().review_lessons(manifest).await {
+        Ok(review) => answer(StatusCode::OK, &review, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// Ask a question about one item, answered from its record.
+pub(crate) async fn ask_lesson<D: Retros>(
+    State(served): State<Served<D>>,
+    Path(NamedLesson { lesson_id }): Path<NamedLesson>,
+    body: Bytes,
+) -> Response {
+    let ask: ipc::LessonAsk = match ipc::decode("a question about an item", &body) {
+        Ok(ask) => ask,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().ask_lesson(lesson_id, ask).await {
+        Ok(answered) => answer(StatusCode::OK, &answered, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }
