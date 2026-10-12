@@ -12,6 +12,8 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { SessionMark } from "../SessionFrame/SessionFrame";
 import { StepActivityMark, type StepActivity } from "../StepActivityMark/StepActivityMark";
 import { InlineTag } from "../SessionComposer/InlineTag";
+import { FORK_ROW, ForkFromSelection } from "../ForkFromSelection/ForkFromSelection";
+import type { ForkPick } from "../ForkFromSelection/ForkFromSelection";
 import { SessionRetroRow, type SessionRetroRowData } from "../SessionRetroRow/SessionRetroRow";
 import { QuestionDeck } from "./QuestionDeck";
 import type { ComposerTag } from "../SessionComposer/InlineTag";
@@ -133,6 +135,11 @@ export type SessionThreadProps = {
   onCommand?: (command: string) => void;
   /** The names of the commands that terminal lists. Inline code is a command only where its name is one of these. */
   commandNames?: readonly string[];
+  /**
+   * Forks the Session from the message the person selected words in: a bar over the selection offers it.
+   * Absent where nothing serves it, and the bar is left off.
+   */
+  onForkAt?: (pick: ForkPick) => void;
 };
 
 const TAG_KIND = { session: "Session", job: "Job", pull_request: "Pull request", branch: "Branch" } as const;
@@ -331,8 +338,10 @@ function Row({
   onOpenCheck,
   agentName = "Agent",
   onOpenRetro,
+  forkable,
 }: {
   row: Exclude<SessionThreadRow, { kind: "tool" }>;
+  forkable: boolean;
   onOpenSession: (id: string) => void;
   onOpenWindow?: (url: string) => void;
   onOpenCheck?: (run: number) => void;
@@ -447,7 +456,7 @@ function Row({
           <span className="armada-session-from__title">{sender.title}</span>
           <span className="armada-session-from__at">{row.at}</span>
         </button>
-        <div className="armada-session-from__body">
+        <div className="armada-session-from__body" {...(forkable ? { [FORK_ROW]: row.id } : {})}>
           <Prose text={row.text} />
         </div>
       </li>
@@ -460,7 +469,7 @@ function Row({
         <span className="armada-helm-thread__who">{row.from === "you" ? "You" : agentName}</span>
         <span className="armada-helm-thread__at">{row.at}</span>
       </div>
-      <div className="armada-helm-thread__message">
+      <div className="armada-helm-thread__message" {...(forkable ? { [FORK_ROW]: row.id } : {})}>
         {placed.parts !== null ? (
           <p className="armada-session-said">{placed.parts}</p>
         ) : row.from === "you" ? (
@@ -482,7 +491,8 @@ function Row({
 /** How far from the end still counts as being at it, so a rounding or a half row does not unpin. */
 const NEAR_END = 24;
 
-export function SessionThread({ rows, asked, askRef, onAnswer, done, onOpenSession, onOpenWindow, onOpenCheck, onOpenRetro, sessionId, working, agentName, runner, onCommand, commandNames }: SessionThreadProps) {
+export function SessionThread({ rows, asked, askRef, onAnswer, done, onOpenSession, onOpenWindow, onOpenCheck, onOpenRetro, sessionId, working, agentName, runner, onCommand, commandNames, onForkAt }: SessionThreadProps) {
+  const whole = useRef<HTMLDivElement>(null);
   const slash = useMemo(() => (onCommand === undefined ? null : { send: onCommand, names: new Set(commandNames ?? []) }), [onCommand, commandNames]);
   const scroller = useRef<HTMLDivElement>(null);
   const pinned = useRef(true);
@@ -498,7 +508,8 @@ export function SessionThread({ rows, asked, askRef, onAnswer, done, onOpenSessi
   const items = itemsOf(rows);
   const endsInCalls = items[items.length - 1]?.kind === "calls";
   return (
-    <div className="armada-session-thread">
+    <div className="armada-session-thread" ref={whole}>
+      {onForkAt === undefined ? null : <ForkFromSelection scope={whole} onFork={onForkAt} />}
       <div
         ref={scroller}
         className="armada-session-thread__rows"
@@ -516,7 +527,7 @@ export function SessionThread({ rows, asked, askRef, onAnswer, done, onOpenSessi
             item.kind === "calls" ? (
               <Calls key={item.id} rows={item.rows} working={working === true && at === items.length - 1} />
             ) : (
-              <Row key={item.row.id} row={item.row} onOpenSession={onOpenSession} onOpenWindow={onOpenWindow} onOpenCheck={onOpenCheck} onOpenRetro={onOpenRetro} {...(agentName === undefined ? {} : { agentName })} />
+              <Row key={item.row.id} row={item.row} onOpenSession={onOpenSession} onOpenWindow={onOpenWindow} onOpenCheck={onOpenCheck} onOpenRetro={onOpenRetro} forkable={onForkAt !== undefined} {...(agentName === undefined ? {} : { agentName })} />
             ),
           )}
           {working === true && !endsInCalls ? (

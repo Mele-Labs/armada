@@ -247,6 +247,9 @@ approximations.
   — what a Session's `auto` asked that it should not have, the permission tool
   answering `AskUserQuestion` with an `answers` map, and the write gate placing a
   slot the agent leased.
+- [`spikes/030-can-a-session-be-forked-at-one-of-its-messages.md`](spikes/030-can-a-session-be-forked-at-one-of-its-messages.md)
+  — `--resume-session-at <line uuid>` cuts a fork at a message, with `--fork-session`,
+  in stream-json mode; an unknown uuid exits 1.
 
 Raw transcripts sit beside each record. A negative result is a result and stays.
 

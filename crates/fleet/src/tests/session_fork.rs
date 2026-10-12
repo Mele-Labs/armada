@@ -1,6 +1,7 @@
 //! A session forked from one that is ended or dead: the new one starts as a
 //! copy of the old conversation under its own id, and the two ledgers point at
-//! each other. Since 23.69. The stand-in process is `session_host`'s.
+//! each other. Since 23.69. A fork at a message may be taken of a live one,
+//! since 23.79. The stand-in process is `session_host`'s.
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -8,7 +9,7 @@ use std::time::Duration;
 use api::{HostedSessions, Refusal, Sessions};
 use ipc::{
     CloseSession, ForkFrom, ManifestId, SendSessionMessage, SessionFact, SessionId, SessionOrigin,
-    SessionRecord, SessionReport, StartSession, TakeHeld,
+    SessionRecord, SessionReport, SessionRow, SessionVoice, StartSession, TakeHeld,
 };
 use testkit::{FakeHarness, FakeVcs, FakeWorkProduct};
 
@@ -77,6 +78,10 @@ impl Rig {
     }
 
     async fn forks(&self, id: &str) -> Result<SessionRecord, Refusal> {
+        self.forks_at(id, None).await
+    }
+
+    async fn forks_at(&self, id: &str, at: Option<&str>) -> Result<SessionRecord, Refusal> {
         self.fleet
             .start_session(StartSession {
                 manifest_id: self.manifest.clone(),
@@ -87,6 +92,7 @@ impl Rig {
                 pilot: None,
                 fork: Some(ForkFrom {
                     session_id: SessionId::carried(id),
+                    at: at.map(str::to_string),
                 }),
             })
             .await
@@ -98,6 +104,85 @@ impl Rig {
             .await
             .expect("read")
             .session
+    }
+}
+
+/// A transcript line the agent CLI wrote: `kind` is `user` or `assistant`.
+fn line(kind: &str, uuid: &str, text: &str) -> String {
+    let origin = if kind == "user" { r#""origin":{"kind":"human"},"# } else { "" };
+    format!(
+        r#"{{"type":"{kind}","uuid":"{uuid}","timestamp":"2026-10-12T08:48:10.000Z",{origin}"message":{{"role":"x","content":[{{"type":"text","text":"{text}"}}]}}}}"#
+    )
+}
+
+impl Rig {
+    /// The transcript the CLI keeps for session `id`, from these lines.
+    fn transcript(&self, id: &str, lines: &[String]) {
+        let dir = self._home.path().join(adapters::SESSIONS).join("-somewhere");
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join(format!("{id}.jsonl")), lines.join("\n") + "\n").unwrap();
+    }
+
+    async fn the_mod_asks(&self) {
+        Arc::clone(&self.fleet)
+            .take_held_messages(TakeHeld {
+                session_id: OLD.into(),
+                wait_ms: None,
+            })
+            .await
+            .expect("the mod asks");
+    }
+
+    /// A hosted session started and sent its first message, so its process is up.
+    async fn a_hosted_session(&self) -> SessionId {
+        let hosted = self
+            .fleet
+            .start_session(StartSession {
+                manifest_id: self.manifest.clone(),
+                title: None,
+                model: None,
+                effort: None,
+                mode: None,
+                pilot: None,
+                fork: None,
+            })
+            .await
+            .expect("started");
+        self.first_message(&hosted.id).await;
+        self.stand_in.init(0);
+        hosted.id
+    }
+
+    /// The ids of the agent's messages in the session's thread, once there are `count`.
+    async fn agent_rows(&self, id: &SessionId, count: usize) -> Vec<String> {
+        for _ in 0..500 {
+            let rows = Arc::clone(&self.fleet).get_session(id.clone()).await.expect("read").rows;
+            let ids: Vec<String> = rows
+                .iter()
+                .filter_map(|row| match row {
+                    SessionRow::Message { id, from: SessionVoice::Agent, .. } => Some(id.clone()),
+                    _ => None,
+                })
+                .collect();
+            if ids.len() == count {
+                return ids;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+        panic!("the agent's {count} messages did not reach the thread within five seconds");
+    }
+
+    /// The fork's first message, so its first process starts.
+    async fn first_message(&self, id: &SessionId) {
+        Arc::clone(&self.fleet)
+            .send_session_message(SendSessionMessage {
+                session_id: id.clone(),
+                text: "go on".into(),
+                attachments: Vec::new(),
+                mentions: Vec::new(),
+            })
+            .await
+            .expect("taken");
     }
 }
 
@@ -233,4 +318,116 @@ async fn a_terminal_record_says_whether_its_mod_is_asking() {
         .expect("the mod asks");
     let asking = rig.record(OLD).await.terminal.expect("facts");
     assert!(asking.listening);
+}
+
+fn conversation() -> Vec<String> {
+    vec![
+        line("user", "u1", "Why does the reader drop lines"),
+        line("assistant", "a1", "It stops at the first blank one."),
+        line("user", "u2", "Fix it"),
+        line("assistant", "a2", "Done."),
+    ]
+}
+
+#[tokio::test]
+async fn a_live_terminal_session_is_forked_at_a_message_and_goes_on_untouched() {
+    let rig = rig();
+    rig.a_terminal_session().await;
+    rig.transcript(OLD, &conversation());
+    rig.the_mod_asks().await;
+    assert!(rig.forks(OLD).await.is_err(), "the whole of a live one is still refused");
+
+    let forked = rig.forks_at(OLD, Some("a1")).await.expect("a live session forks at a message");
+    assert_ne!(forked.id.as_str(), OLD);
+    assert!(forked.hosted.is_some(), "Bridge hosts the fork");
+
+    let new = rig.record(forked.id.as_str()).await;
+    let from = row_of(&new, "forked_from").expect("the fork links back");
+    assert_eq!(from.target, OLD);
+    assert_eq!(from.detail.get("at").map(String::as_str), Some("a1"), "the row Bridge cuts by");
+
+    let old = rig.record(OLD).await;
+    assert_eq!(row_of(&old, "forked_to").expect("the old one links to the fork").target, forked.id.as_str());
+    assert!(old.terminal.expect("facts").listening, "the old one is still taking messages");
+
+    rig.first_message(&forked.id).await;
+    let starts = rig.stand_in.starts();
+    assert_eq!(starts[0].forking.as_deref(), Some(OLD));
+    assert_eq!(starts[0].fork_cut.as_deref(), Some("a1"), "the copy ends at that line");
+}
+
+#[tokio::test]
+async fn a_second_row_of_one_line_cuts_at_the_line() {
+    let rig = rig();
+    rig.a_terminal_session().await;
+    let both = r#"{"type":"assistant","uuid":"a9","timestamp":"2026-10-12T08:48:10.000Z","message":{"role":"x","content":[{"type":"text","text":"First."},{"type":"tool_use","id":"t","name":"Bash","input":{"command":"ls"}},{"type":"text","text":"Second."}]}}"#;
+    rig.transcript(OLD, &[line("user", "u1", "Look"), both.to_string()]);
+    rig.the_mod_asks().await;
+
+    let forked = rig.forks_at(OLD, Some("a9.2")).await.expect("forks");
+    rig.first_message(&forked.id).await;
+    assert_eq!(rig.stand_in.starts()[0].fork_cut.as_deref(), Some("a9"));
+}
+
+#[tokio::test]
+async fn a_message_that_is_not_in_the_conversation_is_refused_and_nothing_is_written() {
+    let rig = rig();
+    rig.a_terminal_session().await;
+    rig.transcript(OLD, &conversation());
+    rig.the_mod_asks().await;
+
+    for at in ["nowhere", ""] {
+        let refused = format!("{:?}", rig.forks_at(OLD, Some(at)).await.unwrap_err());
+        assert!(refused.contains("fleet.fork_point_unwritten"), "{refused}");
+    }
+    let old = rig.record(OLD).await;
+    assert!(row_of(&old, "forked_to").is_none(), "no fork was made: {:?}", old.attachments);
+    let nobody = format!("{:?}", rig.forks_at("nobody", Some("a1")).await.unwrap_err());
+    assert!(nobody.contains("fleet.no_such_session"), "{nobody}");
+}
+
+/// A hosted session's rows are Fleet's own, so the line is found by the words.
+#[tokio::test]
+async fn a_live_hosted_session_is_forked_at_the_line_its_row_was_written_as() {
+    let rig = rig();
+    let hosted = rig.a_hosted_session().await;
+    rig.stand_in.finishes(0, "Looking now.");
+    rig.first_message(&hosted).await;
+    rig.stand_in.finishes(0, "Fixed.");
+    let agent = rig.agent_rows(&hosted, 2).await;
+    let id = hosted.as_str();
+    // The CLI also wrote a line the thread never showed, and a copied opening.
+    rig.transcript(
+        id,
+        &[
+            line("user", "c0", "go on"),
+            line("assistant", "c1", "Looking now."),
+            line("user", "u1", "go on"),
+            line("assistant", "a0", "Standing down."),
+            line("assistant", "a1", "Looking now."),
+            line("user", "u2", "The person named: x.\\n\\ngo on"),
+            line("assistant", "a2", "Fixed."),
+        ],
+    );
+
+    let first = rig.forks_at(id, Some(&agent[0])).await.expect("a live hosted session forks at a message");
+    rig.first_message(&first.id).await;
+    let second = rig.forks_at(id, Some(&agent[1])).await.expect("and at the next");
+    rig.first_message(&second.id).await;
+    let starts = rig.stand_in.starts();
+    assert_eq!(starts[1].fork_cut.as_deref(), Some("a1"), "not the copied line with the same words");
+    assert_eq!(starts[2].fork_cut.as_deref(), Some("a2"));
+    let from = row_of(&rig.record(first.id.as_str()).await, "forked_from").expect("link").clone();
+    assert_eq!(from.detail.get("at").map(String::as_str), Some(agent[0].as_str()));
+}
+
+#[tokio::test]
+async fn a_hosted_row_the_transcript_does_not_hold_is_refused() {
+    let rig = rig();
+    let hosted = rig.a_hosted_session().await;
+    rig.stand_in.finishes(0, "Looking now.");
+    let agent = rig.agent_rows(&hosted, 1).await;
+    rig.transcript(hosted.as_str(), &[line("user", "u1", "go on"), line("assistant", "a1", "Something else.")]);
+    let refused = format!("{:?}", rig.forks_at(hosted.as_str(), Some(&agent[0])).await.unwrap_err());
+    assert!(refused.contains("fleet.fork_point_unwritten"), "{refused}");
 }
