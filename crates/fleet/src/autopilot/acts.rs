@@ -7,11 +7,14 @@
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Autopilots, Redirector, Refusal};
 use core_model::TopLevelOrigin;
-use ipc::{Autopilot, AutopilotList, AutopilotSettings, ManifestId, ProposeAutopilot, WireError};
+use ipc::{
+    Autopilot, AutopilotList, AutopilotProposal, AutopilotQuoted, AutopilotSettings, ManifestId,
+    ProposeAutopilot, WireError,
+};
 use store::KeptAutopilot;
 
-use super::bounds::{Caps, NotNow, PickState, Settings, State};
-use super::sentence::{settings_from, utc};
+use super::bounds::{NotNow, NotResumed, PickState, State};
+use super::sentence::settings_from;
 use super::wire::job_id;
 use crate::daemon::Fleet;
 
@@ -19,8 +22,9 @@ const NO_AUTOPILOT: &str = "fleet.no_autopilot";
 const RUNNING: &str = "fleet.autopilot_running";
 const NOT_RUNNING: &str = "fleet.autopilot_not_running";
 const NOT_PAUSED: &str = "fleet.autopilot_not_paused";
-const STOPPED: &str = "fleet.autopilot_stopped";
-const UNSETTABLE: &str = "fleet.autopilot_unsettable";
+const CAPPED: &str = "fleet.autopilot_capped";
+pub(super) const STOPPED: &str = "fleet.autopilot_stopped";
+pub(super) const UNSETTABLE: &str = "fleet.autopilot_unsettable";
 const NOT_READ: &str = "fleet.autopilot_not_read";
 const NOT_SET_ASIDE: &str = "fleet.pick_not_set_aside";
 
@@ -34,15 +38,18 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    fn refused_as(&self, code: &str, said: impl Into<String>) -> WireError {
+    pub(super) fn refused_as(&self, code: &str, said: impl Into<String>) -> WireError {
         WireError::raised(code, said.into(), self.run_id())
     }
 
-    fn faulted(&self, why: impl std::fmt::Debug) -> Refusal {
+    pub(super) fn faulted(&self, why: impl std::fmt::Debug) -> Refusal {
         Refusal::Fault(self.refused_as("fleet.autopilot_unreadable", format!("{why:?}")))
     }
 
-    async fn kept_autopilot(&self, manifest_id: &ManifestId) -> Result<KeptAutopilot, Refusal> {
+    pub(super) async fn kept_autopilot(
+        &self,
+        manifest_id: &ManifestId,
+    ) -> Result<KeptAutopilot, Refusal> {
         self.served_named(Some(manifest_id))?;
         let kept = self
             .store()
@@ -55,7 +62,7 @@ where
         })
     }
 
-    async fn answered(&self, kept: KeptAutopilot) -> Result<Autopilot, Refusal> {
+    pub(super) async fn answered(&self, kept: KeptAutopilot) -> Result<Autopilot, Refusal> {
         let gathered = self
             .autopilot_gathered(kept)
             .await
@@ -68,7 +75,7 @@ where
         Ok(now)
     }
 
-    fn not_now(&self, refused: NotNow) -> Refusal {
+    pub(super) fn not_now(&self, refused: NotNow) -> Refusal {
         let (code, said) = match refused.from {
             State::Running => (RUNNING, "Autopilot is running"),
             State::Paused => (NOT_RUNNING, "Autopilot is paused"),
@@ -167,7 +174,7 @@ where
         &self,
         manifest_id: ManifestId,
         propose: ProposeAutopilot,
-    ) -> Result<AutopilotSettings, Refusal> {
+    ) -> Result<AutopilotProposal, Refusal> {
         self.served_named(Some(&manifest_id))?;
         if propose.sentence.trim().is_empty() {
             return Err(Refusal::Unacceptable(
@@ -183,12 +190,21 @@ where
         )
         .await
         .map_err(|why| Refusal::Fault(self.refused_as(NOT_READ, why.to_string())))?;
-        Ok(AutopilotSettings {
-            instruction: read.instruction,
-            at_once: read.at_once,
-            until: read.until.as_ref().map(ipc::Instant::from),
-            spend_cap_micros: read.spend_cap_micros,
-            job_cap: read.job_cap,
+        Ok(AutopilotProposal {
+            settings: AutopilotSettings {
+                instruction: read.instruction,
+                at_once: read.at_once,
+                until: read.until.as_ref().map(ipc::Instant::from),
+                spend_cap_micros: read.spend_cap_micros,
+                job_cap: read.job_cap,
+            },
+            quoted: AutopilotQuoted {
+                instruction: read.quoted.instruction,
+                at_once: read.quoted.at_once,
+                until: read.quoted.until,
+                spend_cap_micros: read.quoted.spend,
+                job_cap: read.quoted.jobs,
+            },
         })
     }
 
@@ -210,22 +226,8 @@ where
             let from = State::from_stored(&held.state).unwrap_or(State::Running);
             return Err(self.not_now(NotNow { from }));
         }
-        let until = match settings.until.as_ref() {
-            None => None,
-            Some(said) => Some(utc(said.as_str()).ok_or_else(|| {
-                Refusal::Unacceptable(
-                    self.refused_as(UNSETTABLE, format!("`{}` is not a time", said.as_str())),
-                )
-            })?),
-        };
-        let caps = Caps {
-            until,
-            spend_cap_micros: settings.spend_cap_micros,
-            job_cap: settings.job_cap,
-        };
         let now = self.now();
-        let confirmed = Settings::confirmed(&settings.instruction, settings.at_once, caps, &now)
-            .map_err(|why| Refusal::Unacceptable(self.refused_as(UNSETTABLE, why.to_string())))?;
+        let confirmed = self.confirmed(&settings, &now)?;
         let kept = KeptAutopilot {
             manifest_id: manifest_id.as_str().to_string(),
             run_id: self.mint().ulid().as_str().to_string(),
@@ -270,18 +272,39 @@ where
             .await
     }
 
+    /// **Refused while a cap is reached**, naming it: a Resume past one would pick once and pause
+    /// again. Moving to running clears `capped_by`, as every person's act does.
     async fn resume_autopilot(&self, manifest_id: ManifestId) -> Result<Autopilot, Refusal> {
         let kept = self.kept_autopilot(&manifest_id).await?;
-        let from = State::from_stored(&kept.state).unwrap_or(State::Stopped);
-        let to = from.resumed().map_err(|refused| match refused.from {
-            State::Running => {
-                Refusal::IllegalMove(self.refused_as(NOT_PAUSED, "Autopilot is not paused"))
-            }
-            _ => self.not_now(refused),
+        let gathered = self
+            .autopilot_gathered(kept)
+            .await
+            .map_err(|why| self.refusal(why))?;
+        let resumed =
+            gathered
+                .state()
+                .resumed_under(&gathered.caps(), &self.now(), &gathered.spent);
+        let to = resumed.map_err(|refused| match refused {
+            NotResumed::NotNow(NotNow {
+                from: State::Running,
+            }) => Refusal::IllegalMove(self.refused_as(NOT_PAUSED, "Autopilot is not paused")),
+            NotResumed::NotNow(refused) => self.not_now(refused),
+            NotResumed::Capped(cap) => Refusal::IllegalMove(self.refused_as(
+                CAPPED,
+                format!("Autopilot stays paused: {cap}. {}", lifted_by(cap)),
+            )),
         })?;
-        self.moved_to(&kept, to).await?;
+        self.moved_to(&gathered.kept, to).await?;
         self.answered(self.kept_autopilot(&manifest_id).await?)
             .await
+    }
+
+    async fn update_autopilot(
+        &self,
+        manifest_id: ManifestId,
+        settings: AutopilotSettings,
+    ) -> Result<Autopilot, Refusal> {
+        self.autopilot_updated(&manifest_id, &settings).await
     }
 
     async fn stop_autopilot(&self, manifest_id: ManifestId) -> Result<Autopilot, Refusal> {
@@ -396,5 +419,13 @@ where
             ));
         }
         self.answered(kept).await
+    }
+}
+
+/// What a person does to lift `cap`, said after it.
+fn lifted_by(cap: super::bounds::Cap) -> &'static str {
+    match cap {
+        super::bounds::Cap::Until => "Move it later, then resume",
+        super::bounds::Cap::Spend | super::bounds::Cap::Jobs => "Raise it, then resume",
     }
 }

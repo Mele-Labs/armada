@@ -2,10 +2,14 @@
    Session a tile standing on it, each heading a column of the board. State is carried in the frame
    (its hue, its edge, its glass), and a Session waiting on the owner is lit. Tokens only. */
 
+/* In a column of fixed height (the rail surface) the frame takes what is left and the glass scrolls
+   under the band, as the cockpit's does; anywhere else the glass is as tall as its tiles. */
 .armada-session-list {
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
   min-width: 0;
+  min-height: 0;
   border: var(--border-width) solid var(--border-default);
   border-radius: var(--radius-lg);
   background: var(--bg-sunken);
@@ -52,8 +56,13 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(calc(var(--space-12) * 6), 1fr));
   align-items: start;
+  align-content: start;
+  flex: 1 1 auto;
   gap: var(--space-4);
   min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: var(--space-4);
   background:
     linear-gradient(color-mix(in srgb, var(--border-subtle) 55%, transparent) var(--border-width), transparent var(--border-width)),

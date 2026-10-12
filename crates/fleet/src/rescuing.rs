@@ -246,7 +246,9 @@ where
             .lock()
             .await
             .keep_rescue(rescue)
-            .map_err(|why| self.refusal(crate::adrift::Adrift::Writing(why)))
+            .map_err(|why| self.refusal(crate::adrift::Adrift::Writing(why)))?;
+        self.worktrees_memory().changed();
+        Ok(())
     }
 
     /// Every Finding a restart left reading, ended as failed and keeping what

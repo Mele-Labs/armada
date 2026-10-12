@@ -720,7 +720,7 @@ fn assemble(
     }
     // Beside the note, and for its reason: it is what this part is resumed for.
     if let Some(answered) = crossed.answered() {
-        blocks.headed(answered.text(), ipc::BlockKind::AboutThisJob);
+        blocks.headed(&answered.text(prompts), ipc::BlockKind::AboutThisJob);
     }
     // **Before the step block, with the other things the boundary carried.**
     // It is what the part is about rather than a footnote to it: a Drone after

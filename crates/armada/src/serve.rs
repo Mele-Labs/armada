@@ -363,6 +363,8 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
                 events.clone(),
                 fleet::merge_lines::EVERY,
             );
+            // `GET /worktrees` kept in memory and read again behind its requests.
+            fleet::keep_worktrees_warm(Arc::clone(&fleet));
             // The mods folder, rescanned so a mod a session wrote reaches Bridge.
             fleet::mods::keep_reading(Arc::clone(&fleet), fleet::mods::EVERY);
             // Stale build output, trimmed in every checkout of each served repository.

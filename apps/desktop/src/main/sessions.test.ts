@@ -9,7 +9,7 @@ import { afterEach, expect, it } from "vitest";
 
 import type { SessionRecord, SessionRow } from "@armada/protocol";
 import type { BridgeState } from "../shared/bridge";
-import { SessionsHost, withRow, withSession } from "./sessions";
+import { SessionsHost, THREADS_HELD, withRow, withSession } from "./sessions";
 
 let listening: Server | null = null;
 
@@ -287,4 +287,24 @@ it("replaces a row by its id and appends one it has not seen, and puts a new ses
   expect(withRow([said("1", "a")], said("2", "b")).map((one) => one.id)).toEqual(["1", "2"]);
   expect(withRow([said("1", "a"), said("2", "b")], said("1", "c"))[0]).toEqual(said("1", "c"));
   expect(withSession([record("a")], record("b")).map((one) => one.id)).toEqual(["b", "a"]);
+});
+
+it("holds the twenty threads opened last, and reads one let go again when it is reopened", async () => {
+  const sent: Sent[] = [];
+  const ids = Array.from({ length: THREADS_HELD + 1 }, (_, at) => `s${at}`);
+  const port = await fleet(sent, ids.map((id) => record(id)), Object.fromEntries(ids.map((id) => [id, [said(`${id}r`, id)]])));
+  const { sessions, last } = host(port);
+  await sessions.again(port);
+  for (const id of ids) await sessions.watch(id);
+  const held = last("sessionThreads") as Record<string, SessionRow[]>;
+  expect(Object.keys(held)).toEqual(ids.slice(1));
+  // A thread still held is drawn from here, and a row for the one let go is dropped.
+  const reads = sent.filter((one) => one.path.startsWith("/sessions/one")).length;
+  await sessions.watch("s5");
+  expect(sent.filter((one) => one.path.startsWith("/sessions/one")).length).toBe(reads);
+  sessions.row({ session_id: "s0", row: said("late", "after it went") });
+  expect(Object.keys(last("sessionThreads") as object)).toEqual(ids.slice(1));
+  await sessions.watch("s0");
+  expect(sent.filter((one) => one.path.startsWith("/sessions/one")).length).toBe(reads + 1);
+  expect(Object.keys(last("sessionThreads") as object)).toHaveLength(THREADS_HELD);
 });

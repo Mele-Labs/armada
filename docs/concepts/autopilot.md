@@ -16,7 +16,7 @@
 | Spend | A dollar total across its Jobs, in millionths. Optional |
 | Jobs | How many it may start. Optional |
 | State | `running`, `paused` or `stopped`, with when it started and ended |
-| Capped by | `until`, `spend` or `jobs`, where a cap rather than a person stopped it |
+| Capped by | `until`, `spend` or `jobs`, where a cap rather than a person paused it. A Resume clears it |
 | Picks | Each issue it picked, the workflow, the Job it started, the picker's reason, and `started`, `set_aside`, `withdrawn` or `dismissed` |
 | Fault | Why the last pass picked nothing: the tracker would not answer, or the picker's answer was refused. In memory, and gone once a pass goes through. The only place a pass's failure is told |
 
@@ -24,14 +24,14 @@
 
 ## How a start happens
 
-1. The person types one sentence. One model call, made the way the [Job proposer](job-proposer.md)'s is, reads it as the five settings. **It starts nothing.**
+1. The person types one sentence. One model call, made the way the [Job proposer](job-proposer.md)'s is, reads it as the five settings, each with the words of the sentence it was read from. A quote the sentence does not hold is dropped rather than shown as the person's. **It starts nothing.**
 2. The person confirms or changes them, and the start takes what they confirmed. A blank instruction, no room, or a cap already reached is refused.
 
 ## How a pick happens
 
 On Fleet's noticing interval, in a task of its own so a landing never waits behind it, each running Autopilot with room is asked for picks:
 
-1. **The caps first.** The first one reached stops it, and says which.
+1. **The caps first.** The first one reached pauses it, and says which.
 2. **The room.** Its Jobs that hold a place are counted against *at once*.
 3. **What it may pick.** The open issues Fleet holds for the [tracker](tracker.md), less any a pull request already closes, any a Job not yet ended came from, and any this run already picked.
 4. **One call per pick**, a Policy rather than a Drone, so it holds no place. It names an issue it was offered, a workflow the repository holds, whether it is sure, and why.
@@ -43,7 +43,7 @@ On Fleet's noticing interval, in a task of its own so a landing never waits behi
 | Finds none that fits | Nothing is picked, and it is not asked again until the list it was offered changes |
 | Names an issue or workflow it was not offered | Refused. Nothing starts and nothing is set aside |
 
-A pass makes at most four calls per Autopilot, and asks again before keeping each answer, so a Pause pressed while a call was out wins.
+Its two prompts are settings, `prompts.autopilotSentence` and `prompts.autopilotPicker`, under Prompts: Autopilot. A pass makes at most four calls per Autopilot, and asks again before keeping each answer, so a Pause pressed while a call was out wins.
 
 ## Rules
 
@@ -56,6 +56,9 @@ A pass makes at most four calls per Autopilot, and asks again before keeping eac
 > **Rule.** Each cap stops the next pick and never a running Job.
 > Why: a Job's cost arrives when its Drone ends, the reason #51's cap refuses the next dispatch. Autopilot can overshoot a cap by as many Jobs as it runs at once. The per-Job ceilings of #51 still hold under it.
 
+> **Rule.** A reached cap pauses Autopilot, and Resume waits for it to be raised.
+> Why: the owner's *fix the gaps*, 12 Oct 2026, `.claude/decisions/2026-10-11-autopilot-carries-time-money-and-job-caps.md`. A cap that ended it made a person start it again to carry on. `update_autopilot` changes the instruction, at once and the caps of one running or paused, in its state; Resume is refused, naming the cap, while any cap is still reached, since it would pick once and pause again.
+
 > **Rule.** Pause and Stop never stop a Job that is spending.
 > Why: `.claude/decisions/2026-10-11-pause-drains-stop-withdraws.md`. That is the Job's own Pause. Pause stops the picks and Resume carries on. Stop also withdraws every pick whose Job has never had a Drone, killing that Job as the person's act, and ends it.
 
@@ -64,15 +67,8 @@ A pass makes at most four calls per Autopilot, and asks again before keeping eac
 
 ## On the wire
 
-`list_autopilots`, `get_autopilot`, `propose_autopilot`, `start_autopilot`, `pause_autopilot`, `resume_autopilot`, `stop_autopilot`, `dispatch_set_aside`, `dismiss_set_aside`, and the event `autopilot.changed`. `crates/ipc/operations/` has each, and `../practices/protocol.md` has the section.
+`list_autopilots`, `get_autopilot`, `propose_autopilot`, `start_autopilot`, `update_autopilot`, `pause_autopilot`, `resume_autopilot`, `stop_autopilot`, `dispatch_set_aside`, `dismiss_set_aside`, and the event `autopilot.changed`. `crates/ipc/operations/` has each, and `../practices/protocol.md` has the section.
 
 ## In Bridge
 
-The Cockpit draws it: a bar on every filter with the switch, the caps used of their limit, Pause, Resume and Stop, and the start form; on Bays a Next up station before Waiting, its lines marked with `plane`, a dashed stop for a pick not started, Next up as a numbered list and the Set aside siding; and each set-aside pick as a tile in Your move. The one bar offers Autopilot as a third kind on a picked repository. `autopilot.changed` reaches every window through main, which keeps no copy. The code is `apps/desktop/src/renderer/src/cockpit/AutopilotLane.tsx` and the composition `AutopilotBar`.
-
-## What it does not do yet
-
-| Missing | Where |
-|---|---|
-| The words each setting was read from | A proposal answers the settings alone, so the start form can say only which ones the sentence left out |
-| Its two prompts in settings.json | Both are shipped text in `crates/fleet/src/autopilot/` |
+The Cockpit draws it: a bar on every filter with the switch, the caps used of their limit, Pause, Resume and Stop, Edit caps, and the start form, which quotes under each setting the words Fleet read it from and says *not said* where it quoted none. A cap that paused it is named in the bar's state, *Paused · Job cap reached*, and lit; Edit caps raises it in the start form's fields, and Resume stays pressable and says Fleet's refusal while the cap holds. On **All** with none on anywhere, the bar's place reads *Pick a repository to start Autopilot*. On Bays a Next up station before Waiting, its lines marked with `plane`, a dashed stop for a pick not started, Next up as a numbered list and the Set aside siding; and each set-aside pick as a tile in Your move. The one bar offers Autopilot as a third kind on a picked repository. `autopilot.changed` reaches every window through main, which keeps no copy. The code is `apps/desktop/src/renderer/src/cockpit/AutopilotLane.tsx` and the composition `AutopilotBar`.

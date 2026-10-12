@@ -24,6 +24,12 @@ pub(super) const ROUTES: &[Route] = &[
         method: "POST",
         path: "/autopilots/:repository",
     },
+    // New settings for one running or paused. A raised cap is what lets Resume through.
+    Route {
+        operation: "update_autopilot",
+        method: "POST",
+        path: "/autopilots/:repository/settings",
+    },
     Route {
         operation: "pause_autopilot",
         method: "POST",
