@@ -142,10 +142,12 @@ async fn a_press_draws_its_stages_and_the_items_as_they_settle() {
     said(&fleet, &id, "no, show walks with show_window").await;
     let seen = collecting(&fleet);
 
+    let started = std::time::Instant::now();
     let retro = Arc::clone(&fleet)
         .write_session_retro(id.as_str().to_string())
         .await
         .expect("written");
+    let took = started.elapsed();
     settle().await;
 
     // The agent was mid-turn, so it was not asked.
@@ -177,7 +179,11 @@ async fn a_press_draws_its_stages_and_the_items_as_they_settle() {
     }
     assert!(counts.windows(2).all(|pair| pair[0] <= pair[1]), "{counts:?}");
     assert!(counts.len() >= 2, "the count moved: {counts:?}");
-    assert!(counts.len() <= 12, "throttled: {} rows for a 1.5 second answer", counts.len());
+    // Throttled against the clock the answer actually took: a loaded machine stretches the
+    // streamed answer, and more rows for a longer answer is the throttle working. `GAP` itself is
+    // pinned on a fixed clock above.
+    let allowed = (took.as_millis() / GAP.as_millis()) as usize + 2;
+    assert!(counts.len() <= allowed, "throttled: {} rows in {took:?}, at most {allowed}", counts.len());
     // The last frames may have come inside the gap before the row that replaced it, so what was
     // drawn is the front of the model's items, in order.
     let all = [
@@ -229,7 +235,11 @@ async fn a_call_that_streams_nothing_keeps_the_same_retro() {
 
 #[tokio::test]
 async fn watched_and_unwatched_calls_say_the_same() {
-    let (fleet, id, _home) = rig(FakeJudge::saying(TWO_ITEMS).streamed_in(9)).await;
+    // The fake prints a frame per `sleep 0.05`, and a `sleep` costs about twice that on a loaded
+    // Mac: 61 frames of 9 characters ran past the call's 5 second budget, and `TimedOut` was the
+    // call doing what it is for. Fewer, larger frames still make the watched path select over
+    // frames.
+    let (fleet, id, _home) = rig(FakeJudge::saying(TWO_ITEMS).streamed_in(60)).await;
     let explaining = fleet.writing_retros().expect("a call can be made");
     let ask = Ask::put(explaining.model.clone(), "question", explaining.environment.clone())
         .expect("an ask");

@@ -1,0 +1,13 @@
+/* The bar over a selection in a message: one floating surface, so the overlay ground and shadow are legal. */
+
+.armada-fork-from-selection {
+  position: fixed;
+  z-index: var(--z-menu);
+  display: flex;
+  align-items: center;
+  padding: var(--space-1);
+  border: var(--border-width) solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-overlay);
+  box-shadow: var(--shadow-overlay);
+}

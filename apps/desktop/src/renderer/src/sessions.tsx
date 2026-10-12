@@ -54,6 +54,7 @@ import { sessionOf } from "@armada/jobs";
 import { askToOpenRetro } from "./open-retro";
 import { readRetro } from "./commands";
 import { ArtifactBody, ARTIFACT_GLYPH, isAddress } from "./session-artifact";
+import { forkAtPick, threadRowsFrom, threadRowsOf, upTo } from "./session-thread-rows";
 import { helmOfferedOf } from "@armada/screens/src/copy";
 import { attachmentsOf, isBlank, ownerOf, sessionsMatching } from "@armada/screens/src/draft/sessions";
 import type { ChipRef, DrawnSketch, PullRequestAct, Session, SessionAnswer, SessionAttachment, SessionMode, SessionsDraft, SessionTag, SubagentThread as Subagent } from "@armada/screens/src/draft/sessions";
@@ -416,29 +417,6 @@ export function SessionsListing({ onOpen }: { onOpen: (id: string) => void }) {
       <SessionList groups={groups} query={query} onQuery={setQuery} views={VIEWS} view={view} onView={(next) => setView(next as ViewId)} onOpen={onOpen} onStart={() => opening(draft.start(), onOpen)} {...(retro.press === undefined ? {} : { onRetro: (id: string) => retro.press?.(sessions.find((one) => one.id === id) ?? { id }) })} />
     </>
   );
-}
-
-export function threadRowsOf(session: Session): SessionThreadRow[] {
-  return threadRowsFrom(session.rows);
-}
-
-function threadRowsFrom(rows: Session["rows"]): SessionThreadRow[] {
-  return rows.map((row): SessionThreadRow => {
-    if (row.kind === "lease" || row.kind === "tool" || row.kind === "handoff" || row.kind === "command" || row.kind === "compaction" || row.kind === "window" || row.kind === "check" || row.kind === "retro") return row;
-    if (row.from.kind === "session") {
-      return { id: row.id, at: row.at, kind: "message", from: "session", sender: { id: row.from.id, title: row.from.title }, text: row.text };
-    }
-    return {
-      id: row.id,
-      at: row.at,
-      kind: "message",
-      from: row.from.kind,
-      text: row.text,
-      ...(row.files === undefined ? {} : { files: row.files }),
-      ...(row.sketches === undefined ? {} : { sketches: row.sketches }),
-      ...(row.tags === undefined ? {} : { tags: row.tags }),
-    };
-  });
 }
 
 /** Where a ledger row goes: the surface that already shows the thing. */
@@ -856,6 +834,8 @@ function SessionView({ session, goes, onOpen, held, board, lines }: { session: S
   const [drawn, setDrawn] = useKept<DrawnSketch[]>(`session:${session.id}:drawn`, NO_SKETCHES);
   const narrow = useNarrow();
   const [ledgerOpen, setLedgerOpen] = useState(false);
+  // The Session a fork from a selection opened, whose message box takes focus when it shows.
+  const [focusFor, setFocusFor] = useState<string | undefined>();
   const askCard = useRef<HTMLDivElement>(null);
   const centre = useRef<HTMLDivElement>(null);
   // Keep going hides the callout for the `done` it answered; a later `done` is a new one.
@@ -890,6 +870,8 @@ function SessionView({ session, goes, onOpen, held, board, lines }: { session: S
   // The conversation a fork began as a copy of, which is the other Session's own rows.
   const forkedFrom = session.attachments.find((one): one is Extract<SessionAttachment, { kind: "forked_from" }> => one.kind === "forked_from");
   const origin = forkedFrom === undefined ? undefined : sessions.find((one) => one.id === forkedFrom.id);
+  // **Up to and including the message it was forked at**, and not what was said after it.
+  const originRows = origin === undefined ? NO_ROWS : upTo(threadRowsOf(origin), forkedFrom?.at);
   if (draft === undefined) return null;
   const slot = held.held.state === "read" ? (held.held.held.slots ?? []).find((one) => one.slot === slotOpen) : undefined;
   const mode: SessionMode = session.mode ?? (session.terminal === true ? "ask" : "auto");
@@ -983,13 +965,14 @@ function SessionView({ session, goes, onOpen, held, board, lines }: { session: S
         <div ref={centre} className="armada-session-frame__centre">
           {origin === undefined ? null : (
             <ForkedFrom title={origin.title ?? origin.id} onOpen={() => draft.watch?.(origin.id)}>
-              <SessionThread sessionId={origin.id} rows={threadRowsOf(origin)} onAnswer={() => undefined} onOpenSession={onOpen} />
+              <SessionThread sessionId={origin.id} rows={originRows} onAnswer={() => undefined} onOpenSession={onOpen} />
             </ForkedFrom>
           )}
           <SessionThread
             sessionId={session.id}
             rows={thread}
             onOpenRetro={openRetro}
+            {...(draft.forkAt === undefined ? {} : { onForkAt: (pick) => opening(forkAtPick(draft.forkAt!, session.id, pick, setFocusFor), onOpen) })}
             askRef={askCard}
             onOpenWindow={(url) => draft.openWindow?.(id, url)}
             onOpenCheck={(run) => goes.onOpenCheck(session.id, run)}
@@ -1042,6 +1025,7 @@ function SessionView({ session, goes, onOpen, held, board, lines }: { session: S
               ]}
               tags={session.pendingTags ?? []}
               draftKey={session.id}
+              focusFor={focusFor}
               onTags={(tags) => draft.setTags(session.id, tags)}
               drawn={drawn.map(({ id, title }) => ({ id, title }))}
               onDraw={() => setPadOpen(true)}

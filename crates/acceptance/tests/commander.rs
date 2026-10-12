@@ -14,14 +14,13 @@
 //! | Step of the claim | Carried by |
 //! |---|---|
 //! | It reaches a Job, and is offered nothing it may not do (a Check, the Manifest, a gate, attest, merge, push) | #2164 |
-//! | A cap it raises stops at three times the workflow's caps, and a raise cannot claim a person made it | #2165 |
 //! | The owner writes to it and gets an answer, a message queues, and one card goes to him | #2166 |
 //! | A Drone with nothing handed in, or a red group, wakes it; three wakes on one problem stop it | #2167 |
 //! | Every change to a plan is signed by whoever made it | #2168 |
 //! | The owner sees in the thread and on each task's mark that it acted, and answers a card | #2169 |
 //! | A repair Drone goes onto the Job's own branch | #2170 |
 
-//! What is asserted today is the fourth signer: the record a Commander's act
+//! What is asserted today is the fourth signer, and the ceiling on a cap it raises: the record a Commander's act
 //! would leave, made by moving the machines as `Actor::Commander`, through
 //! `ipc::encode` and back. The fake hosting that scripts its tool calls comes
 //! with #2164, the first issue with a tool to call.
@@ -119,4 +118,24 @@ fn the_commander_is_one_more_signer_and_one_more_door_and_not_a_person() {
     assert_eq!(Via::from_wire("commander"), Some(Via::Commander));
     assert!(!Via::Commander.is_a_person());
     assert_ne!(Via::Commander, Via::Helm, "Helm's door is not the Commander's");
+}
+
+/// #2165. The ceiling is a multiple of what the workflow would inherit, one
+/// for each raiser, and a raise has no field to say which it is.
+#[test]
+fn a_cap_a_commander_raises_stops_at_three_times_the_workflows_and_names_no_raiser() {
+    let inherited = 300;
+    let most = |raiser| fleet::raising::Ceiling::on(raiser, inherited).most();
+    assert_eq!(most(ipc::RaisedBy::Commander), Some(900), "three times");
+    assert_eq!(most(ipc::RaisedBy::Helm), Some(600), "Helm keeps two");
+    assert_eq!(most(ipc::RaisedBy::Person), None, "a person has none");
+    assert!(fleet::raising::Ceiling::on(ipc::RaisedBy::Commander, inherited).admits(900));
+    assert!(!fleet::raising::Ceiling::on(ipc::RaisedBy::Commander, inherited).admits(901));
+
+    // A body that says it is a person's decodes to a raise that says nothing
+    // of the kind: Fleet places the raiser, and nothing in the bytes can.
+    let claimed = br#"{"turn_cap":900,"raised_by":"person"}"#;
+    let raise: ipc::TurnRaise = ipc::decode("a turn cap", claimed).expect("decodes");
+    let carried = ipc::encode(&raise).expect("encodes");
+    assert!(!carried.contains("raised_by"), "{carried}");
 }
