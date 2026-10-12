@@ -355,8 +355,21 @@ A session that is **ended or dead** offers Fork, in place of its message box. `s
 | First process | Resumes the old id as a fork under the new one, so the conversation is copied and the new id is Fleet's. Once it has run, the session resumes by its own id |
 | Ledger | A `forked_from` row on the fork and a `forked_to` row on the old session, both `spent` |
 
-> **Rule.** Only an ended or dead session is forked.
-> Why: two live processes writing copies of one conversation is the thing Fork is not for, and a session that can still be spoken to needs no copy.
+> **Rule.** The whole of a session is forked only once it is ended or dead. A live one is forked at a message, below.
+> Why: a copy of the whole of a conversation still being written is two sessions racing to the same next message, and a session that can still be spoken to needs no copy.
+
+### A fork at a message
+
+**Words selected inside one message offer Fork from here**, on a live session as well as a dead one. `fork { session_id, at }` (23.79) copies the conversation up to and including the message whose thread row id is `at`, and nothing after it. The old session is not touched: it keeps its process, its slot and its next turn, and gains only the `forked_to` row. The fork is hosted by Bridge as any fork is.
+
+| | |
+|---|---|
+| Refused | An `at` no message of the thread has, or one the agent's conversation does not hold, 422 `fleet.fork_point_unwritten`. Nothing is written, and the line is looked for before the fork is made |
+| Ledger | The `forked_from` row's detail carries `at`, the row Bridge cuts the folded old rows at, and `cut`, the transcript line Fleet gives the agent. The detail is the ledger's, so a Fleet that restarts before the fork's first process still has the cut |
+| First process | As above, with `--resume-session-at <cut>`. Only that process is told it; the fork's own file holds the cut after |
+| The line | A terminal session's row ids are its transcript lines' `uuid`s (`<uuid>.<n>` for a later row of one line), so the cut is the row id without its suffix. **A hosted session's rows carry no `uuid`**: Fleet minted their ids and the `Said` events the stream is read into drop the line's. Fleet lays the thread's messages over the transcript's from the end, matching the agent's by its words and a person's by being inside the line Fleet wrote (it adds a mention line and attachment paths), and the cut is where `at` lands. A message with no words, or none that lands, is refused: it is not guessed |
+
+The agent side is spike 30. A cut at a message the agent is part way through a tool call on is repaired by the CLI.
 
 **Bridge** keeps every session that ended in the last seven days (by when it was last seen) beside the live ones, under an Ended heading (a terminal session that has not ended but whose mod is not asking is Quiet, its own heading above it, and still offers Fork), and finds an older one by search, and draws a dead session without a message box and with Fork in its head. It owns nothing: its slots, branches and pull requests are not offered to a chip, and it is not offered to `@`. A press on Fork asks Fleet, and Bridge opens the new session once it holds it. The ledger draws a Forks section only where a session has a row for it.
 

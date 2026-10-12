@@ -53,11 +53,11 @@ export type SessionsApi = {
    */
   forkSession: (sessionId: string) => Promise<SessionActed>;
   /**
-   * Starts a new Session as a copy of a Session's conversation up to and including the message `at`, live
-   * or not; the Session it came from goes on untouched. **Mock only for now**: main serves no such route,
-   * and where the preload lacks it the window offers no Fork from a selection.
+   * Starts a new Session as a copy of a Session's conversation up to and including the thread row `at`,
+   * live or not; the Session it came from goes on untouched. Like `forkSession`, only the ids are sent:
+   * the repository is the Session's own, read in main (23.79).
    */
-  forkSessionAt?: (sessionId: string, at: string) => Promise<SessionActed>;
+  forkSessionAt: (sessionId: string, at: string) => Promise<SessionActed>;
   /** One of the three ways out of a pilot. `note` is the person's words on an attestation or a supersede. */
   exitPilot: (jobId: string, exit: PilotExit, note?: string) => Promise<Outcome>;
   /** A message, with the pictures and files sent beside it and what it names with `@`. */
@@ -142,6 +142,7 @@ export const SESSIONS_CHANNELS = {
   startSession: "bridge:start-session",
   pilotJob: "bridge:pilot-job",
   forkSession: "bridge:fork-session",
+  forkSessionAt: "bridge:fork-session-at",
   exitPilot: "bridge:exit-pilot",
   sendSessionMessage: "bridge:send-session-message",
   answerSessionAsk: "bridge:answer-session-ask",

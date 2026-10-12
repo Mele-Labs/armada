@@ -207,7 +207,7 @@ export class WiredStore {
   /** As `forking`, from one message of a Session that may still be running. */
   private async forkingAt(id: string, at: string): Promise<string | undefined> {
     this.say(undefined);
-    const done = await this.api.forkSessionAt!(id, at);
+    const done = await this.api.forkSessionAt(id, at);
     if (!done.ok) return void this.say(done.outcome);
     await this.held(done.value.id);
     return done.value.id;
@@ -315,10 +315,7 @@ export class WiredStore {
     start: (tag) => this.starting(tag),
     pilot: (jobId, outcome) => this.piloting(jobId, outcome),
     fork: (id) => this.forking(id),
-    // Read when asked: the capability is the window's, and this literal is built before it is held.
-    get forkAt() {
-      return store.api.forkSessionAt === undefined ? undefined : (id: string, at: string) => store.forkingAt(id, at);
-    },
+    forkAt: (id, at) => this.forkingAt(id, at),
     retro: (id) => this.retroing(id),
     exit: (jobId, exit) => void this.exiting(jobId, exit),
     watch: (id) => void this.api.watchSession(id),

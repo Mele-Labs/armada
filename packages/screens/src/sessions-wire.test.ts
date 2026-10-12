@@ -425,6 +425,9 @@ describe("a session nothing can be said to", () => {
     expect(sessionOfRecord(ended, undefined, beside()).attachments).toEqual([{ kind: "forked_to", id: "new" }]);
     const fork = record("new", { attachments: [held("forked_from", "old", {}, "spent")] });
     expect(sessionOfRecord(fork, undefined, beside()).attachments).toEqual([{ kind: "forked_from", id: "old" }]);
+    // A fork at a message carries the row it was taken at, which cuts the old rows shown; `cut` is Fleet's.
+    const at = record("new", { attachments: [held("forked_from", "old", { at: "m2", cut: "7d0a52c4" }, "spent")] });
+    expect(sessionOfRecord(at, undefined, beside()).attachments).toEqual([{ kind: "forked_from", id: "old", at: "m2" }]);
   });
 });
 

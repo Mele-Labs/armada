@@ -96,6 +96,28 @@ fn a_fork_that_has_run_resumes_itself_and_not_the_one_it_came_from() {
     assert!(!args.iter().any(|arg| arg == "--session-id"));
 }
 
+const LINE: &str = "7d0a52c4-91be-4f3a-8c26-0b5e1f47a9d3";
+
+#[test]
+fn a_fork_at_a_message_ends_the_copy_at_that_line() {
+    let launch = launching(false, SessionMode::Auto).forking(OLD).expect("portable").cut_at(LINE).expect("portable");
+    let args = rendered(&launch);
+    assert_eq!(value_after(&args, "--resume-session-at").as_deref(), Some(LINE));
+    assert_eq!(value_after(&args, "--resume").as_deref(), Some(OLD));
+    assert!(args.iter().any(|arg| arg == "--fork-session"));
+}
+
+#[test]
+fn a_fork_that_has_run_is_not_cut_again() {
+    let launch = launching(true, SessionMode::Auto).forking(OLD).expect("portable").cut_at(LINE).expect("portable");
+    assert!(!rendered(&launch).iter().any(|arg| arg == "--resume-session-at"));
+}
+
+#[test]
+fn a_cut_that_would_be_read_as_a_flag_is_refused() {
+    assert!(launching(false, SessionMode::Auto).forking(OLD).expect("portable").cut_at("--dangerous").is_err());
+}
+
 #[test]
 fn a_fork_of_something_that_would_be_read_as_a_flag_is_refused() {
     assert!(launching(false, SessionMode::Auto).forking("--dangerous").is_err());

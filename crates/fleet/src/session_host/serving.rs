@@ -968,6 +968,10 @@ where
                     // (s-c271bfe5, 8 Oct 2026). Started fresh under the same id instead.
                     resuming: hosting.ran && self.has_a_conversation(id).await,
                     forking: hosting.fork_of.clone(),
+                    fork_cut: match hosting.fork_of {
+                        Some(_) => self.fork_cut_of(id).await,
+                        None => None,
+                    },
                     name: address_of(id),
                     model: hosting.model.clone(),
                     effort: hosting.effort.clone(),
