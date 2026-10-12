@@ -689,7 +689,8 @@ function entriesOf(
   known: Known,
 ): LedgerEntry[] {
   const waiting = (session.waitingFor ?? []).map((one): LedgerEntry => {
-    const act = one.act;
+    // An `answer` with no choices and no question in the thread has nowhere to go, so it takes words as no act does.
+    const act = one.act?.kind === "answer" && one.options === undefined && session.asked === undefined ? undefined : one.act;
     return {
       key: `waiting${one.id}`,
       kind: "waiting",
