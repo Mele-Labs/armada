@@ -9,6 +9,11 @@
 //! ones, and a window stops waiting once it is approved or the person has sent the session a
 //! message after it opened. A window closed without either still waits: that is his call.
 //!
+//! **An agent item that points at a page the session showed is dropped.** The window is the one
+//! record of that page, whether it still waits or not, so the agent's `walk` item for the same
+//! address (compared without a trailing slash) is never a second call, and does not return once
+//! the window is approved.
+//!
 //! **A question asked in the walk window waits until answered**, read off its row as `window_ask:<row>`.
 //!
 //! **A dismissed id never comes back.** `dismiss_waiting` keeps the id; a derived item with it is
@@ -141,12 +146,19 @@ fn card_item(asked: &HelmCallInFlight) -> WaitingItem {
     }
 }
 
+/// Two addresses of one page: equal once a trailing slash is let go.
+fn same_page(a: &str, b: &str) -> bool {
+    a.trim_end_matches('/') == b.trim_end_matches('/')
+}
+
 /// The agent's items, then Fleet's: the open card, then each walk window. **Where an agent item
-/// names the same act and target as one of Fleet's, Fleet's stands** and the agent's is left off.
+/// names the same act and target as one of Fleet's, Fleet's stands** and the agent's is left off,
+/// and so is a `walk` item for any address in `shown`, the pages this session has shown in a window.
 pub(crate) fn merged(
     kept: Vec<KeptWaiting>,
     asked: Option<&HelmCallInFlight>,
     windows: &[Window],
+    shown: &[&str],
     dismissed: &[String],
     ended: bool,
 ) -> Vec<WaitingItem> {
@@ -174,6 +186,8 @@ pub(crate) fn merged(
         .into_iter()
         .filter(|one| {
             !dismissed.contains(&one.item_id)
+                && !matches!(&one.act, Some((kind, target))
+                    if kind == "walk" && shown.iter().any(|url| same_page(url, target)))
                 && !derived
                     .iter()
                     .any(|fleet| fleet.id == one.item_id || same(fleet, &one.act))
@@ -273,8 +287,15 @@ where
             })
             .into_iter()
             .collect();
+        let shown: Vec<&str> = attachments
+            .iter()
+            .filter(|one| {
+                one.kind == "artifact" && one.detail.get("form").map(String::as_str) == Some("window")
+            })
+            .map(|one| one.target.as_str())
+            .collect();
         let ended = session.state == store::SessionState::Ended;
-        let mut items = merged(kept, asked.as_ref(), &windows, &dismissed, ended);
+        let mut items = merged(kept, asked.as_ref(), &windows, &shown, &dismissed, ended);
         if !ended {
             items.extend(rows.into_iter().filter_map(|row| match row {
                 SessionRow::WindowAsk {
