@@ -1,0 +1,83 @@
+/* The strip a send leaves where the bar was: the cockpit's band (raised, mono, ruled) as one slim row.
+   Docked it fills the Cockpit bar's frame; anchored it is laid over the title bar's field. The refusal
+   hue fills it as a held bay's is filled. Tokens only. */
+
+.armada-dispatch-strip {
+  --hue: var(--status-completed-failed);
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+  min-height: calc(var(--h-row) * 1.25);
+  padding: var(--space-1) var(--space-3) var(--space-1) var(--space-4);
+  background: var(--bg-raised);
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  animation: armada-dispatch-strip-in var(--duration-base) var(--ease);
+}
+
+.armada-dispatch-strip[data-openable] { cursor: pointer; }
+
+@keyframes armada-dispatch-strip-in {
+  from { opacity: 0; transform: translateY(calc(var(--space-2) * -1)); }
+}
+
+.armada-dispatch-strip__mark {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  color: var(--accent);
+}
+
+.armada-dispatch-strip__mark[data-turning] > svg { animation: armada-dispatch-strip-spin var(--duration-pulse) linear infinite; }
+
+@keyframes armada-dispatch-strip-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .armada-dispatch-strip__mark[data-turning] > svg { animation: none; }
+}
+
+.armada-dispatch-strip__title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--fg-default);
+}
+
+/* The hint is for a bar that has the cursor, which is where ↵ lands. */
+.armada-dispatch-strip__enter { visibility: hidden; }
+.armada-dispatch-strip:focus-within .armada-dispatch-strip__enter,
+.armada-dispatch-panel__frame:focus-within .armada-dispatch-strip__enter { visibility: visible; }
+
+.armada-dispatch-strip[data-refused] {
+  background: var(--hue);
+  color: var(--fg-inverse);
+}
+
+.armada-dispatch-strip[data-refused] .armada-dispatch-strip__mark,
+.armada-dispatch-strip[data-refused] .armada-dispatch-strip__title { color: var(--fg-inverse); }
+
+/* Over the title bar's field: its box, read when the strip appears. The row is a drag region and the strip opts out. */
+.armada-dispatch-strip[data-layout="anchored"] {
+  position: fixed;
+  top: var(--hung-top);
+  left: var(--hung-left);
+  width: var(--hung-width);
+  height: var(--hung-height);
+  min-height: 0;
+  padding-block: 0;
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-lg);
+  z-index: var(--z-menu);
+  -webkit-app-region: no-drag;
+}
+
+.armada-dispatch-strip[data-layout="anchored"][data-refused] { border-color: var(--hue); }
+.armada-dispatch-strip[data-layout="anchored"]:focus-within { border-color: var(--accent); }

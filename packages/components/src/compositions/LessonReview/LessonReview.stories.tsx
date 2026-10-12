@@ -6,6 +6,7 @@ import {
   LessonReviewEnd,
   LessonReviewStep,
   LessonReviewWait,
+  ReviewHeld,
   ReviewSetAside,
   type LessonReviewStepProps,
 } from "./LessonReview";
@@ -173,5 +174,14 @@ export const SetAside: StoryObj<typeof ReviewSetAside> = {
     await userEvent.click(fold);
     await expect(canvas.getByText(/Already allowed/)).toBeVisible();
     await expect(canvas.getAllByRole("button", { name: "Put back in the queue" })).toHaveLength(2);
+  },
+};
+
+export const Held: StoryObj<typeof ReviewHeld> = {
+  name: "A review left standing",
+  render: () => <ReviewHeld age="12 minutes ago" onAgain={fn()} />,
+  play: async ({ canvas }) => {
+    await expect(canvas.getByText("Reviewed 12 minutes ago")).toBeVisible();
+    await expect(canvas.getByRole("button", { name: "Review again" })).toBeVisible();
   },
 };

@@ -915,7 +915,8 @@ picker, the one bar and Helm's reopen control (#1087 moved them off the left
 column and into this row), and Fleet's status dot. **The one bar searches and
 dispatches** (the owner, 10 Oct 2026): it opens the palette over itself, and
 the palette offers what was typed as the work too, so the row draws no
-Dispatch button and the Cockpit no dispatch box. The row sits flush on
+Dispatch button. Dispatching grows a panel, down from the bar's field, and the
+Cockpit's own bar grows the same panel in place (`docs/journeys/dispatch-a-job.md`). The row sits flush on
 `--bg-base` with no rule under it, so the panels below carry the frames. **The dot is
 permanent chrome**, corrected on 18 Sep 2026 from the conditional one #1438
 shipped — see Left column, below. Costs a custom drag region: the whole row is
@@ -1710,12 +1711,12 @@ vertically as the result count changes, and a target that moves while
 you type is a target you misclick.
 
 **What is typed can be dispatched as well as searched.** Once there is a
-query, a row offers it as a Job, or as a Session where Sessions are served,
-and Tab switches between the two. That row leads when nothing else matches, when the words are a link, or when
+query, a row offers it as a Job, as a Session where Sessions are served, or as
+an Autopilot where it is, and Tab steps through them. That row leads when nothing else matches, when the words are a link, or when
 `n` or `⌘N` opened the bar; otherwise it waits at the foot, so ↵ still opens
-the match — a Job is searched by its title, and a title is a sentence. `⌘↵` dispatches whatever row is picked, and `⇧↵` opens the full
-composer holding the words, for a file, a sketch or a long request. A Job on
-All goes to the composer, which asks for the repository.
+the match — a Job is searched by its title, and a title is a sentence. `⌘↵` dispatches the words whichever row is picked, by growing the dispatch panel down from the bar's field. The panel reads the repository from them and asks in its own frame when there is none
+(`docs/journeys/dispatch-a-job.md`). `⇧↵` opens the full
+composer holding the words, for a file, a sketch or a long request.
 
 **Contents, in order:** actions available on the current context,
 navigation, jobs by id or name, settings.

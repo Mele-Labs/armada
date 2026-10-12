@@ -1,0 +1,7 @@
+[icons.reply]
+  means = "An arrow turned back on itself - an answer going back to whoever asked"
+  group = "Session"
+  size = "12px"
+  status = "Specified"
+  reserved = "Not a reply in a review thread and not a retry."
+  notes = "Owner's choice 11 Oct 2026 for a Waiting on you row the agent gave no act: the row's press opens a box under it and what he types goes to the Session as his answer. Tooltip is Reply."

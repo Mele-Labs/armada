@@ -5,6 +5,7 @@
 import { describe, expect, it } from "vitest";
 import type { PhoneAnswer, PhoneRequest, SettingsFileOpened } from "@armada/settings/api";
 import type { AskLessonRead, AskTurn, LessonReviewRead } from "@armada/jobs/review-wire";
+import type { LessonSessionRead } from "@armada/jobs/session-wire";
 import type {
   AddTask,
   FixMain,
@@ -178,10 +179,11 @@ import type { HealthRead } from "@armada/screens/src/overview-reads";
 import type {
   Outstanding,
 } from "@armada/screens/src/outstanding";
-import type { AnswerSessionAsk, AnswerWaiting, ClaimPullRequest, DismissWaiting, PilotOutcome, PullRequestClaimed, PullRequestState, RenameSession, ReviewDispatched, SendSessionMessage, SessionRow, SessionSubagent, TuneSession } from "@armada/protocol";
+import type { AnswerSessionAsk, AnswerWaiting, ClaimPullRequest, DismissWaiting, PilotOutcome, PullRequestClaimed, PullRequestState, RenameSession, ReviewDispatched, SendSessionMessage, SessionRow, SessionRunMessage, SessionRunUnderway, SessionSubagent, TuneSession } from "@armada/protocol";
 import type { PilotExit, PullRequestPress, SessionActed, SessionsRead } from "./api/sessions";
 import type { SleepActed } from "./api/sleep";
 import type { IssuesRead } from "./api/issues";
+import type { RequestRepositoryRead } from "./api/jobs";
 import { AUTOPILOT_CHANNELS, type AutopilotApi } from "./api/autopilot";
 import type { SleepState } from "@armada/protocol";
 import type { BridgeApi } from "./api";
@@ -252,6 +254,7 @@ type OldBridgeApi = {
         path: string;
     }>;
     searchFiles: (query: string) => Promise<string[]>;
+    readRequestRepository: (words: string) => Promise<RequestRepositoryRead>;
     approveDispatch: (jobId: string, approval?: ApproveDispatch) => Promise<Outcome>;
     listBranches: (manifestId: string) => Promise<BranchesRead>;
     redispatchJob: (jobId: string) => Promise<Outcome>;
@@ -384,6 +387,7 @@ type OldBridgeApi = {
     readLessons: (state: "open" | "accepted") => Promise<LessonsRead>;
     agreeLesson: (lessonId: string) => Promise<LessonAnswer>;
     disagreeLesson: (lessonId: string) => Promise<LessonAnswer>;
+    startLessonSession: (lessonId: string) => Promise<LessonSessionRead>;
     reviewLessons: () => Promise<LessonReviewRead>;
     askLesson: (lessonId: string, question: string, history: AskTurn[]) => Promise<AskLessonRead>;
     readFrame: (jobId: string, kept: string) => Promise<FrameRead>;
@@ -484,6 +488,9 @@ type OldBridgeApi = {
     hideSessionPage: () => Promise<void>;
     onSessionPageEscape: (on: () => void) => () => void;
     pressPullRequest: (sessionId: string, number: number, press: PullRequestPress) => Promise<SessionActed<PullRequestState | ReviewDispatched>>;
+    startSessionRun: (sessionId: string, command: string) => Promise<SessionActed<SessionRunUnderway>>;
+    stopSessionRun: (runId: string) => Promise<SessionActed<SessionRunUnderway>>;
+    onSessionRunMessage: (on: (runId: string, message: SessionRunMessage) => void) => () => void;
 } & AutopilotApi;
 
 const OLD_NOTHING_YET: OldBridgeState = {
@@ -545,6 +552,7 @@ const OLD_CHANNELS = {
     stopProposal: "bridge:stop-proposal",
     stageAttachment: "bridge:stage-attachment",
     searchFiles: "bridge:search-files",
+    readRequestRepository: "bridge:read-request-repository",
     approveDispatch: "bridge:approve-dispatch",
     listBranches: "bridge:list-branches",
     redispatchJob: "bridge:redispatch-job",
@@ -678,6 +686,7 @@ const OLD_CHANNELS = {
     readLessons: "bridge:read-lessons",
     agreeLesson: "bridge:agree-lesson",
     disagreeLesson: "bridge:disagree-lesson",
+    startLessonSession: "bridge:start-lesson-session",
     reviewLessons: "bridge:review-lessons",
     askLesson: "bridge:ask-lesson",
     readFrame: "bridge:read-frame",
@@ -772,6 +781,9 @@ const OLD_CHANNELS = {
     hideSessionPage: "bridge:hide-session-page",
     sessionPageEscape: "bridge:session-page-escape",
     pressPullRequest: "bridge:press-pull-request",
+    startSessionRun: "bridge:start-session-run",
+    stopSessionRun: "bridge:stop-session-run",
+    sessionRunMessage: "bridge:session-run-message",
     ...AUTOPILOT_CHANNELS,
 } as const;
 

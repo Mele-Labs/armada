@@ -107,7 +107,7 @@ test("a late clone is heard in another window on the same main, and neither wind
   await expect.element(inAsked.getByText("storefront is ready to set up")).toBeInTheDocument();
   for (const window of [inAsked, inOther]) {
     // Hidden, not absent: each window is narrow, and the picker is behind its menu.
-    await expect.element(window.getByRole("button", { name: MANIFEST_NAME, includeHidden: true })).toBeInTheDocument();
+    await expect.element(window.getByRole("button", { name: MANIFEST_NAME, exact: true, includeHidden: true })).toBeInTheDocument();
     expect(window.getByRole("region", { name: "Workspaces" }).query()).toBeNull();
   }
   (inOther.getByRole("button", { name: "Open Setup" }).element() as HTMLElement).click();

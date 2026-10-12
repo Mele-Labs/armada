@@ -171,3 +171,49 @@ async fn a_task_drone_that_vanishes_twice_escalates_the_job() {
         "once replaced, once not: {log}"
     );
 }
+
+/// The Job that escalated on the second vanish is one a person can restart:
+/// the step stopped under `run_ended`, the worktree is on disk, and the task
+/// the gone Drone held is worked again by the step's next Drone.
+#[tokio::test]
+async fn a_job_interrupted_by_a_task_drone_vanishing_twice_restarts_its_step() {
+    let home = TempDir::new();
+    let fitted = fitted_with(
+        &home,
+        FakeWorkProduct::changed(&["src/read.rs"]),
+        dying_on_request(home.path()),
+    );
+    let (fleet, job) = at_implement_over(&home, fitted).await;
+    let first = on_implement(&fleet, &job).await.expect("T1's Drone");
+
+    let_one_die(home.path(), 1);
+    let second = replaced(&fleet, &job, &first).await;
+    let_one_die(home.path(), 2);
+    until("the Job never escalated", 300, Duration::from_millis(20), || async {
+        fleet.turn().await.expect("a turn");
+        (fleet.load(&job).await.unwrap().status() == JobStatus::Escalated).then_some(())
+    })
+    .await;
+
+    fleet
+        .restart_step(&job, None)
+        .await
+        .expect("the step stopped and the worktree is there, so the restart lands");
+    let third = replaced(&fleet, &job, &second).await;
+
+    assert_ne!(second, third);
+    let states: Vec<TaskState> = fleet
+        .plan_of(&job)
+        .await
+        .unwrap()
+        .unwrap()
+        .tasks()
+        .iter()
+        .map(|task| task.state())
+        .collect();
+    assert_eq!(
+        states,
+        [TaskState::Working, TaskState::Open, TaskState::Open],
+        "the task the gone Drone held is worked again"
+    );
+}

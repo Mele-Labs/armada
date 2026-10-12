@@ -352,6 +352,10 @@ pub enum SessionRow {
         at: Instant,
         ask: HelmCallInFlight,
         state: SessionAskState,
+        /// The door the answer came through. Absent while the ask waits, and
+        /// where nobody answered it.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        via: Option<crate::Via>,
     },
 }
 

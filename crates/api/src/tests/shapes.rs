@@ -403,6 +403,7 @@ pub fn detail(job: JobSummary) -> JobDetail {
         walk_notes: Vec::new(),
         triggers: Vec::new(),
         additions: Vec::new(),
+        created_via: None,
     }
 }
 
@@ -801,6 +802,25 @@ pub fn files_found(query: &str) -> Vec<String> {
         .filter(|path| needle.is_empty() || path.to_lowercase().contains(needle.as_str()))
         .map(|path| path.to_string())
         .collect()
+}
+
+/// Two repositories, and `storefront` clearly meant where the words say so.
+/// Enough for a route test to prove the words reach the daemon and that an
+/// answer with no pick leaves `manifest_id` out rather than sending `null`.
+pub fn request_repository(words: &str) -> ipc::RequestRepository {
+    let storefront = ipc::ManifestId::carried("storefront");
+    let pocket = ipc::ManifestId::carried("pocket");
+    if words.contains("storefront") {
+        ipc::RequestRepository {
+            manifest_id: Some(storefront.clone()),
+            likely: vec![storefront, pocket],
+        }
+    } else {
+        ipc::RequestRepository {
+            manifest_id: None,
+            likely: vec![pocket, storefront],
+        }
+    }
 }
 
 /// Two models and a default, which is the shape a picker draws from.

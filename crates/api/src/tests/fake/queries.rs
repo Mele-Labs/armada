@@ -841,6 +841,13 @@ impl Queries for FakeDaemon {
         })
     }
 
+    async fn read_request_repository(
+        &self,
+        words: String,
+    ) -> Result<ipc::RequestRepository, Refusal> {
+        Ok(shapes::request_repository(&words))
+    }
+
     async fn get_merge_lines(&self) -> Result<ipc::MergeLines, Refusal> {
         Ok(ipc::MergeLines::default())
     }

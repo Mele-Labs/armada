@@ -1,0 +1,12 @@
+[operations.observe_session_run]
+kind = "query"
+transport = "WebSocket"
+agent_access = "No"
+description = "What a Session's run printed, then what it prints next, then how it ended, on a socket of its own"
+notes = """
+`GET /sessions/run/:run_id/observe`. Messages are `SessionRunMessage`, tagged by `kind`: `opened` (`protocol_id`, `run_id`), `lines` (what the run printed so far, then what follows), `missed` (`dropped`: this viewer fell behind and lost that many messages), and `exited` (`code`, `null` where the group was stopped or killed by a signal) exactly once, last. The socket then closes.
+
+A run that has ended replays its output and then `exited`. Output is held in memory only, the last 2000 lines, so a run unknown to Fleet (never started, or forgotten after its end) is refused with 422.
+
+`agent_access` is `No`, as `start_session_run`'s.
+"""

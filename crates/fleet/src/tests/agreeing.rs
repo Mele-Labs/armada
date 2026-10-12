@@ -39,7 +39,7 @@ fn judge() -> Arc<FakeJudge> {
 
 /// A Fleet with an ended Job and its retro written, and the three items' ids in
 /// the order they were written: manifest, kit, armada.
-async fn retro_written(
+pub(super) async fn retro_written(
     home: &TempDir,
 ) -> (
     Arc<super::retro::Fixture>,
@@ -66,11 +66,11 @@ async fn answered(app: &Router, id: &str, act: &str) -> (StatusCode, Vec<u8>) {
     .await
 }
 
-fn lesson(body: &[u8]) -> Lesson {
+pub(super) fn lesson(body: &[u8]) -> Lesson {
     ipc::decode("a lesson", body).expect("a Lesson")
 }
 
-async fn listed(app: &Router, query: &str) -> Vec<Lesson> {
+pub(super) async fn listed(app: &Router, query: &str) -> Vec<Lesson> {
     let (status, body) = sent(app, "GET", &format!("/lessons{query}"), "", From::Bridge).await;
     assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&body));
     ipc::decode::<Lessons>("the lessons", &body)
@@ -78,14 +78,14 @@ async fn listed(app: &Router, query: &str) -> Vec<Lesson> {
         .lessons
 }
 
-async fn jobs(app: &Router) -> Vec<JobSummary> {
+pub(super) async fn jobs(app: &Router) -> Vec<JobSummary> {
     let (_, body) = sent(app, "GET", "/jobs", "", From::Bridge).await;
     ipc::decode::<JobList>("the jobs", &body)
         .expect("a JobList")
         .jobs
 }
 
-async fn job_count(app: &Router) -> usize {
+pub(super) async fn job_count(app: &Router) -> usize {
     jobs(app).await.len()
 }
 

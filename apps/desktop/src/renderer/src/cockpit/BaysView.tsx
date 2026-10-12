@@ -61,7 +61,7 @@ function Row({ line, selected, onSelect, onOpen, onCard, onLeave, nextUp = false
 }) {
   return (
     <li className="armada-metro__row" data-wants={line.wants} data-selected={selected || undefined} style={{ ["--line" as string]: TONE[line.tone] } as CSSProperties}>
-      <button type="button" className="armada-metro__who" aria-label={line.bay === undefined ? `Waiting: ${line.title}` : `Bay ${two(line.bay)}: ${line.title}`} aria-pressed={selected}
+      <button type="button" className="armada-metro__who" aria-label={line.from !== undefined ? `Pull request: ${line.title}` : line.bay === undefined ? `Waiting: ${line.title}` : `Bay ${two(line.bay)}: ${line.title}`} aria-pressed={selected}
         title={line.open === undefined ? "A terminal outside Armada holds this bay: nothing to open" : line.open.label}
         data-opens={line.open === undefined ? undefined : ""}
         onClick={() => {
@@ -87,11 +87,12 @@ function Row({ line, selected, onSelect, onOpen, onCard, onLeave, nextUp = false
       )}
       {STATIONS.map((station, at) => {
         const stop = line.stops[at];
-        const state = at < line.reach ? "past" : at === line.reach ? "now" : "ahead";
+        // Before the station a line starts at, it has no track: a pull request opened outside a bay was never in one.
+        const state = at < (line.from ?? 0) ? "none" : at < line.reach ? "past" : at === line.reach ? "now" : "ahead";
         const id = `${line.key}:${at}`;
         return (
-          <span key={station} className="armada-metro__station" data-state={state} data-first={at === 0 || undefined} data-last={at === MAIN || undefined}>
-            {stop === undefined || state === "ahead" ? (
+          <span key={station} className="armada-metro__station" data-state={state} data-first={at === (line.from ?? 0) || undefined} data-last={at === MAIN || undefined}>
+            {state === "none" ? null : stop === undefined || state === "ahead" ? (
               <span className="armada-metro__stop" aria-hidden="true" />
             ) : (
               <button
@@ -223,6 +224,16 @@ export function Bays({ read, reading, now, selected, onSelect, onOpenJob, onOpen
             ))}
           </ol>
         ))}
+        {metro.harbours.map((harbour) =>
+          harbour.outside.length === 0 ? null : (
+            <ol key={`${harbour.manifest}:outside`} className="armada-metro__block" aria-label={named ? `${harbour.name} pull requests outside a bay` : "Pull requests outside a bay"}>
+              <li className="armada-metro__part">{named ? `${harbour.name}: pull requests outside a bay` : "Pull requests outside a bay"}</li>
+              {harbour.outside.map((line) => (
+                <Row key={line.key} line={line} nextUp={nextUp} selected={false} onSelect={() => undefined} onOpen={act} onCard={onCard} onLeave={leave} />
+              ))}
+            </ol>
+          ),
+        )}
         {(metro.nextUp ?? []).length === 0 ? null : (
           <ol className="armada-metro__block" aria-label="Picked by Autopilot, not started">
             <li className="armada-metro__part">Picked by Autopilot, not started</li>

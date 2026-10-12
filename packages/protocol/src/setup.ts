@@ -240,6 +240,16 @@ export type RepositoryList = {
   repositories: RepositorySummary[];
 };
 
+/**
+ * Which served repository a request's words are about (`read_request_repository`). Mirrors
+ * `ipc::RequestRepository`. `manifest_id` is absent, never `null`, where Fleet could not tell.
+ */
+export type RequestRepository = {
+  manifest_id?: string;
+  /** Every served repository with a Manifest, best first. */
+  likely: string[];
+};
+
 /** The models a Job may name, and the one it gets when it names none. */
 export type ModelChoices = {
   models: string[];

@@ -164,6 +164,7 @@ export const readLessons = (state: "open" | "accepted") => window.armada.readLes
 /** The owner's answer to one retro item. */
 export const agreeLesson = (lessonId: string) => window.armada.agreeLesson(lessonId);
 export const disagreeLesson = (lessonId: string) => window.armada.disagreeLesson(lessonId);
+export const startLessonSession = (lessonId: string) => window.armada.startLessonSession(lessonId);
 export const reviewLessons = () => window.armada.reviewLessons();
 export const askLesson = (lessonId: string, question: string, history: AskTurn[]) =>
   window.armada.askLesson(lessonId, question, history);

@@ -697,7 +697,7 @@ async fn the_record_carries_what_armada_said_and_what_fleet_did_beside_the_drone
     assert!(
         opening.iter().any(|saw| matches!(
             saw,
-            ipc::Saw::Instructed { occasion, text, headings, kinds }
+            ipc::Saw::Instructed { occasion, text, headings, kinds, .. }
                 if occasion == "opening"
                     && !text.is_empty()
                     && !headings.is_empty()

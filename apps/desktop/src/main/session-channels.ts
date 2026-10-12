@@ -104,6 +104,12 @@ export function handleSessions({ ipc, connection, windowIdOf, pages }: Hosts): v
   );
   ipc.handle(CHANNELS.moveSessionPage, (event, bounds: unknown) => pages.move(event.sender, bounds));
   ipc.handle(CHANNELS.hideSessionPage, (event) => pages.hide(event.sender));
+  ipc.handle(CHANNELS.startSessionRun, (_event, sessionId: string, command: string) =>
+    text(sessionId) && text(command) ? (connection()?.sessions.startRun({ session_id: sessionId, command }) ?? unsent) : unsent,
+  );
+  ipc.handle(CHANNELS.stopSessionRun, (_event, runId: string) =>
+    text(runId) ? (connection()?.sessions.stopRun({ run_id: runId }) ?? unsent) : unsent,
+  );
   ipc.handle(CHANNELS.pressPullRequest, (_event, sessionId: string, number: number, press: PullRequestPress) =>
     text(sessionId) && Number.isInteger(number) && PRESSES.includes(press) ? (connection()?.sessions.press(sessionId, number, press) ?? unsent) : unsent,
   );

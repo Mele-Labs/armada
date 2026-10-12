@@ -165,6 +165,17 @@ async fn a_workspace_checks_narrowing_is_relative_to_its_directory() {
     assert_eq!(ran.narrowed, Some(Reached::To("-p api".to_string())));
 }
 
+/// A change wholly inside a workspace reaches none of the root's Check, which
+/// once ran it whole over the empty set the root owned.
+#[tokio::test]
+async fn a_change_the_root_does_not_own_runs_none_of_its_check() {
+    let dir = a_repository();
+    let paths = ["a/src/x.ts".to_string()];
+    let ran = check(&dir, "rust", Asked::Changed(&paths)).await;
+    assert_eq!(ran.narrowed, Some(Reached::Nothing));
+    assert!(!dir.path().join("ran-rust").exists());
+}
+
 #[tokio::test]
 async fn a_key_for_a_workspace_that_is_not_there_is_not_declared() {
     let dir = a_repository();

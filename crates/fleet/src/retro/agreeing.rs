@@ -215,7 +215,7 @@ where
         ))
     }
 
-    async fn lesson_held(
+    pub(super) async fn lesson_held(
         &self,
         lesson_id: &str,
         job_id: &core_model::JobId,
@@ -230,7 +230,7 @@ where
     }
 
     /// The item as it stands, with its Job's handle.
-    async fn lesson_standing(&self, held: KeptLesson) -> Result<Lesson, Refusal> {
+    pub(super) async fn lesson_standing(&self, held: KeptLesson) -> Result<Lesson, Refusal> {
         let handle = self.lesson_handle(&held.job_id).await;
         Ok(lesson_of(held, handle))
     }
