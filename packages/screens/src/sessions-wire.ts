@@ -6,9 +6,10 @@
 // Job read off the Board — so the pairing and the reading happen here, once, where a test can hold
 // them. Nothing here reads a transcript: a row is drawn as it arrived and nothing is inferred from it.
 
-import type { Attachment, HelmCallInFlight, JobSummary, SessionRecord, SessionRow as WireRow, SessionTag as WireTag } from "@armada/protocol";
+import type { Attachment, HelmCallInFlight, JobSummary, SessionRecord, SessionTag as WireTag } from "@armada/protocol";
 
 import { clock } from "./duration";
+import { retroRowOf, type ThreadWireRow } from "./retro-row";
 import type {
   Session,
   SessionAsk,
@@ -215,7 +216,7 @@ const linesOf = (text: string): string[] =>
     .filter((line) => line !== "");
 
 /** The thread, row by row. **A waiting ask is the card under the thread, so it is no row**; one answered is a line of what was decided. */
-export function rowsOfThread(sessionId: string, rows: readonly WireRow[], picture: Beside["picture"]): SessionRow[] {
+export function rowsOfThread(sessionId: string, rows: readonly ThreadWireRow[], picture: Beside["picture"]): SessionRow[] {
   const out: SessionRow[] = [];
   for (const row of rows) {
     const at = clock(row.at);
@@ -255,6 +256,9 @@ export function rowsOfThread(sessionId: string, rows: readonly WireRow[], pictur
         break;
       case "window":
         out.push({ id: row.id, at, kind: "window", title: row.title, url: row.url });
+        break;
+      case "retro":
+        out.push(retroRowOf(row, at));
         break;
       // The open question is on the window's bar and under Waiting on you, so the thread keeps a line.
       case "window_ask":
@@ -305,7 +309,7 @@ export function cleanTitle(title: string | undefined): string | undefined {
 }
 
 /** A session, whole. `rows` are the thread where it was opened and none where it was not. */
-export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] | undefined, beside: Beside): Session {
+export function sessionOfRecord(record: SessionRecord, rows: readonly ThreadWireRow[] | undefined, beside: Beside): Session {
   const hosted = record.hosted;
   const terminal = record.terminal;
   const model = hosted?.model ?? terminal?.model;
@@ -354,7 +358,7 @@ export const ENDED_LISTED_DAYS = 7;
  */
 export function sessionsOfRecords(
   records: readonly SessionRecord[],
-  threads: Readonly<Record<string, readonly WireRow[]>>,
+  threads: Readonly<Record<string, readonly ThreadWireRow[]>>,
   beside: (id: string) => Beside,
   now: number = Date.now(),
 ): Session[] {

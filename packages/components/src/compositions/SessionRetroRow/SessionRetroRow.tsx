@@ -64,6 +64,15 @@ export function itemsWords(count: number): string {
   return count === 1 ? "1 item" : `${count} items`;
 }
 
+/**
+ * Whether a redraw would change nothing. **By value, not by reference**: a window that hears the
+ * thread over IPC receives every row as a new object each time any of them moves, so the row's own
+ * reference says nothing, and a frame that is not this row's must not redraw its card.
+ */
+function sameProps(was: SessionRetroRowProps, now: SessionRetroRowProps): boolean {
+  return was.onOpen === now.onOpen && was.now === now.now && (was.row === now.row || JSON.stringify(was.row) === JSON.stringify(now.row));
+}
+
 /** The clock, ticking once a second while `running`, unless a story fixed it. */
 function useNow(running: boolean, fixed: number | undefined): number {
   const [now, setNow] = useState(() => fixed ?? Date.now());
@@ -110,7 +119,7 @@ function Settling({ item, last }: { item: RetroRowItem; last: boolean }) {
  * retro and the items by title; when it fails Fleet's words are its alert.
  *
  * **Drawn from the latest row only**: Fleet replaces the row by id as it goes, so nothing here
- * reads an earlier frame, and the card is memoised on its row so a frame of it redraws it alone.
+ * reads an earlier frame, and the card is memoised on the row's value so a frame of another row leaves it alone.
  * The host passes `onOpen` stable, or the memo is spent. The space a field will fill is held while it is awaited, and under
  * reduced motion a field simply lands.
  */
@@ -184,4 +193,4 @@ export const SessionRetroRow = memo(function SessionRetroRow({ row, onOpen, now 
       ) : null}
     </li>
   );
-});
+}, sameProps);
