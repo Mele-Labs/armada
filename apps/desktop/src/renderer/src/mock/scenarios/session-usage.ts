@@ -24,29 +24,17 @@ const records = () => [
   hosted("01CTXHIGCCCCCCCCCCCCCCCCCC", { title: "Cart totals rounding", last_turn_at: now(), usage: used(188_000, 200_000) }),
 ];
 
-/** Today at this local hour and minute, as the mod would send it. */
-function today(hour: number, minute: number): string {
-  const at = new Date();
-  at.setHours(hour, minute, 0, 0);
-  return at.toISOString();
-}
+/** This long from now, as the mod would send it: the card's clock time and its countdown agree. */
+const fromNow = (hours: number, minutes: number): string => new Date(Date.now() + (hours * 60 + minutes) * 60_000 + 30_000).toISOString();
 
-/** The coming Thursday at this local hour and minute. */
-function thursday(hour: number, minute: number): string {
-  const at = new Date();
-  at.setDate(at.getDate() + ((4 - at.getDay() + 7) % 7 || 7));
-  at.setHours(hour, minute, 0, 0);
-  return at.toISOString();
-}
-
-const ROOMY: PlanUsage[] = [
-  { kind: "five_hour", percentUsed: 34.2, resetsAt: today(18, 40) },
-  { kind: "seven_day", percentUsed: 61.4, resetsAt: thursday(9, 0) },
+const roomy = (): PlanUsage[] => [
+  { kind: "five_hour", percentUsed: 34.2, resetsAt: fromNow(2, 14) },
+  { kind: "seven_day", percentUsed: 61.4, resetsAt: fromNow(2 * 24 + 17, 0) },
 ];
 
-const FULL: PlanUsage[] = [
-  { kind: "five_hour", percentUsed: 86.1, resetsAt: today(18, 40) },
-  { kind: "seven_day", percentUsed: 97.3, resetsAt: thursday(9, 0) },
+const full = (): PlanUsage[] => [
+  { kind: "five_hour", percentUsed: 86.1, resetsAt: fromNow(2, 14) },
+  { kind: "seven_day", percentUsed: 97.3, resetsAt: fromNow(2 * 24 + 17, 0) },
 ];
 
 function build(): Scenario {
@@ -63,8 +51,8 @@ function build(): Scenario {
       const fleet = new FakeSessionsFleet(records(), {}).scenario(board).behaves!(handle);
       // After the window has mounted and registered its own hook, and the latest wins.
       queueMicrotask(() => {
-        mockPlanUsage.set(ROOMY);
-        onTimePassing(() => mockPlanUsage.set(FULL));
+        mockPlanUsage.set(roomy());
+        onTimePassing(() => mockPlanUsage.set(full()));
       });
       return fleet;
     },

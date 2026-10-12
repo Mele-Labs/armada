@@ -1,5 +1,5 @@
 import { Check, Menu, MessageSquare, Moon, Plus, Search, type LucideIcon } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { useState, type CSSProperties, type ReactNode } from "react";
 import { ArmadaLockupHorizontal, ArmadaMark } from "@armada/brand";
 import { FLEET_DOT_TONE, FleetStarting, fleetSaid, type FleetState } from "../FleetPanel/FleetPanel";
 import { Button } from "../../primitives/Button/Button";
@@ -38,12 +38,33 @@ const LIMITS: Record<string, { short: string; name: string; weekly: boolean } | 
   seven_day: { short: "wk", name: "Weekly limit", weekly: true },
 };
 
-/** "5-hour limit · resets 6:40 PM", in local time; the weekly limit adds the day. */
-function limitSaid(name: string, weekly: boolean, resetsAt: string | undefined): string {
-  const at = resetsAt === undefined ? undefined : new Date(resetsAt);
-  if (at === undefined || Number.isNaN(at.getTime())) return name;
+/** "Resets 6:40 PM", in local time; the weekly limit adds the day. Absent where there is no time to say. */
+function resetsSaid(weekly: boolean, at: Date): string {
   const time = at.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
-  return `${name} · resets ${weekly ? `${at.toLocaleDateString("en-US", { weekday: "short" })} ` : ""}${time}`;
+  return `Resets ${weekly ? `${at.toLocaleDateString("en-US", { weekday: "short" })} ` : ""}${time}`;
+}
+
+/** "in 2h 14m", "in 2d 17h", "in 9m": the two largest units left. */
+function countdown(ms: number): string {
+  const minutes = Math.max(0, Math.floor(ms / 60_000));
+  const days = Math.floor(minutes / 1_440);
+  const hours = Math.floor((minutes % 1_440) / 60);
+  if (days > 0) return `in ${days}d ${hours}h`;
+  if (hours > 0) return `in ${hours}h ${minutes % 60}m`;
+  return `in ${minutes}m`;
+}
+
+/** The hover card's lines: the limit, how much is used, and when it resets. */
+function LimitCard({ name, weekly, percent, resetsAt }: { name: string; weekly: boolean; percent: number; resetsAt: string | undefined }) {
+  const at = resetsAt === undefined ? undefined : new Date(resetsAt);
+  const known = at !== undefined && !Number.isNaN(at.getTime());
+  return (
+    <span className="armada-title-bar__usage-card">
+      <span className="armada-title-bar__usage-card-title">{name}</span>
+      <span>{percent}% used</span>
+      {known ? <span>{`${resetsSaid(weekly, at)} · ${countdown(at.getTime() - Date.now())}`}</span> : null}
+    </span>
+  );
 }
 
 function PlanUsageFigures({ usage }: { usage: readonly PlanUsage[] }) {
@@ -57,9 +78,17 @@ function PlanUsageFigures({ usage }: { usage: readonly PlanUsage[] }) {
       {drawn.map(({ one, limit }) => {
         const percent = Math.round(one.percentUsed);
         return (
-          <Tooltip key={one.kind} label={limitSaid(limit.name, limit.weekly, one.resetsAt)}>
-            <span className="armada-title-bar__usage-figure" role="img" aria-label={`${limit.name} ${percent}%`} data-level={usageLevel(percent)}>
-              {limit.short} {percent}%
+          <Tooltip key={one.kind} card label={<LimitCard name={limit.name} weekly={limit.weekly} percent={percent} resetsAt={one.resetsAt} />}>
+            <span
+              className="armada-title-bar__usage-meter"
+              role="img"
+              aria-label={`${limit.name} ${percent}%`}
+              data-level={usageLevel(percent)}
+              style={{ "--fill": `${Math.min(100, Math.max(0, percent))}%` } as CSSProperties}
+            >
+              <span className="armada-title-bar__usage-label">{limit.short}</span>
+              <span className="armada-title-bar__usage-track" />
+              <span className="armada-title-bar__usage-percent">{percent}%</span>
             </span>
           </Tooltip>
         );
@@ -108,7 +137,7 @@ export type TitleBarProps = {
     onToggle: () => void;
   };
   /**
-   * The Claude plan's limits, as bare figures beside Sleep. **Absent, or with no limit this row
+   * The Claude plan's limits, as two fill meters beside Sleep. **Absent, or with no limit this row
    * knows, draws nothing.** Not Fleet's dot: that stays liveness and nothing else.
    */
   planUsage?: readonly PlanUsage[];
@@ -123,8 +152,7 @@ export type TitleBarProps = {
    * is one the contract does not describe.
    *
    * **Liveness and nothing else.** pid, port, protocol and uptime stay in the
-   * Fleet panel; a dot cannot carry a figure and this row is not where one is
-   * read.
+   * Fleet panel; a dot cannot carry a figure.
    */
   fleet: {
     state: FleetState;

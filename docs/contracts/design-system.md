@@ -1051,7 +1051,7 @@ mapped, never chosen; see [Iconography](iconography.md).
 
 **pid, port, protocol and uptime do not follow it.** They stay in the panel,
 and at the rail they are behind the column's own expansion. A dot cannot carry
-a figure, and the title row is not where a person reads one.
+a figure; Fleet's own figures are read in the panel.
 
 **The cost, taken knowingly.** A surface that resizes on its own is
 disorienting the first time, and at the rail Fleet is a dot
@@ -3022,7 +3022,7 @@ first-class.
 **Spend and quota render on the row and on `JobDetail` only.** Bridge/1088
 removed both from the shell chrome along with the status bar — the left
 column's Fleet panel carries neither, and nothing in the shell
-states a running total any more.
+states a running total any more. **The one exception, the owner's, 12 Oct 2026**: plan usage, the Claude plan's 5-hour and weekly limits, is two fill meters (`5h`, `wk`) in the title bar, each opening a hover card.
 
 **Repetition.** A second stall at step 3 reads "stalled at step 3, 2nd
 time", and the detail view surfaces the prior attempt. Presentation
@@ -3119,7 +3119,7 @@ value and no merge, so no Manifest is party to it.
 **Fleet**, present in the left column on every surface, reads "Fleet running"
 when idle, and pid, port, protocol and up as rows under it; it carries neither
 spend nor quota, which left the shell chrome entirely with the status bar
-Bridge/1088 replaced.
+Bridge/1088 replaced. The title bar draws the plan's limits as two fill meters, beside Sleep and not in Fleet.
 
 **Two separate fields, not one.** These do different jobs and a reader
 should not have to guess which.

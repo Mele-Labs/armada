@@ -137,29 +137,79 @@
   min-width: 0;
 }
 
-/* The plan's limits: bare mono figures, weighted, coloured by how full. No gauge. */
+/* The plan's limits: two small fill meters, a mono label then the track then the figure, coloured by how
+ * full. The fill is the tokens' own status hues; the width is handed in as `--fill`. */
 .armada-title-bar__usage {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-4);
   flex: none;
 }
 
-.armada-title-bar__usage-figure {
+.armada-title-bar__usage-meter {
+  --level: var(--fg-muted);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--h-control-sm);
   font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  line-height: var(--leading-xs);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
   font-weight: var(--weight-medium);
   color: var(--fg-muted);
   white-space: nowrap;
 }
 
-.armada-title-bar__usage-figure[data-level="warning"] {
-  color: var(--status-awaiting-review);
+.armada-title-bar__usage-meter[data-level="warning"] {
+  --level: var(--status-awaiting-review);
 }
 
-.armada-title-bar__usage-figure[data-level="danger"] {
-  color: var(--status-completed-failed);
+.armada-title-bar__usage-meter[data-level="danger"] {
+  --level: var(--status-completed-failed);
+}
+
+.armada-title-bar__usage-track {
+  position: relative;
+  width: calc(var(--space-12) + var(--space-1));
+  height: var(--space-2);
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  background: var(--bg-hover);
+}
+
+.armada-title-bar__usage-track::after {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--fill);
+  background: var(--level);
+}
+
+.armada-title-bar__usage-percent {
+  min-width: var(--space-6);
+  color: var(--level);
+  text-align: end;
+}
+
+/* The hover card's lines, on the tooltip's own bubble: an overlay surface, as the ledger's card is. */
+.armada-title-bar__usage-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  border: var(--border-width) solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--bg-overlay);
+  box-shadow: var(--shadow-overlay);
+  color: var(--fg-default);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  white-space: nowrap;
+}
+
+.armada-title-bar__usage-card-title {
+  font-weight: var(--weight-medium);
 }
 
 .armada-title-bar__helm {
