@@ -15,6 +15,8 @@
 // what makes "kill the Drone" a request to the daemon that spawned it.
 
 import type { CommandExplainedRead } from "../shared/api";
+import type { RequestRepositoryRead } from "../shared/api/jobs";
+import { readRequestRepository as readRequest } from "./request-repository";
 import type { RescueOutcome } from "@armada/cleanup/api";
 import type { BridgeState } from "../shared/bridge";
 import type {
@@ -371,6 +373,11 @@ export class JobCommands {
     if (port === null || path === null) return [];
     const answer = await ask(port, "GET", path);
     return answer.ok === true ? (answer.body as FilesFound).paths : [];
+  }
+
+  /** Which repository the words typed so far are about — `request-repository.ts`. */
+  async readRequestRepository(words: string): Promise<RequestRepositoryRead> {
+    return readRequest(this.board, words);
   }
 
   /**

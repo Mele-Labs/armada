@@ -851,6 +851,13 @@ pub trait Queries: Send + Sync + 'static {
         &self,
     ) -> impl Future<Output = Result<ipc::RepositoryList, Refusal>> + Send;
 
+    /// `read_request_repository` — which served repository the words of a
+    /// request are about, before any Job exists. It never refuses.
+    fn read_request_repository(
+        &self,
+        words: String,
+    ) -> impl Future<Output = Result<ipc::RequestRepository, Refusal>> + Send;
+
     /// `get_merge_lines` — each served repository's merge line: the hub
     /// Fleet read off the forge, with the queue lists empty. It never refuses.
     fn get_merge_lines(&self) -> impl Future<Output = Result<ipc::MergeLines, Refusal>> + Send;

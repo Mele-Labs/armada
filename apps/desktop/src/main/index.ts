@@ -552,6 +552,9 @@ void app.whenReady().then(() => {
   ipcMain.handle(CHANNELS.searchFiles, (event, query: string) =>
     connection?.commands.searchFiles(query, connection.repositories.pickedByWindow.of(windowIdOf(event))),
   );
+  ipcMain.handle(CHANNELS.readRequestRepository, (_event, words: unknown) =>
+    connection?.commands.readRequestRepository(typeof words === "string" ? words : ""),
+  );
   ipcMain.handle(CHANNELS.approveDispatch, (_event, jobId: string, approval?: ApproveDispatch) =>
     connection?.commands.approveDispatch(jobId, approval),
   );

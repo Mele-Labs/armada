@@ -21,6 +21,7 @@ mod delivery;
 mod edited;
 mod existing_setup;
 mod filing;
+mod forge_address;
 mod git_guard_gaps;
 mod harness;
 mod held_off;

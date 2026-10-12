@@ -1,12 +1,13 @@
 // The title bar's one bar and the Dashboard's tiles. n and ⌘N open the bar from any filter and from
-// another page; Tab chooses a Job or a Session. Active and Done are one grid of tiles: a
+// another page; Tab chooses a Job, a Session or an Autopilot, and the dispatch row grows the panel. Active and Done are one grid of tiles: a
 // Job's icon names what is active on it, a Session carries its cadence, a tile that needs the owner
 // is lit, and the tile picked opens beside the grid. A Session's thread opens at its newest message
 // and follows a new one. Done lists Jobs and Sessions only. Over `dashboard-dispatch-rows`.
 
-import { button, inside, region, role, tab, walk } from "../walk";
+import { button, dialog, inside, region, role, tab, walk } from "../walk";
 
 const bar = role("combobox");
+const request = inside(dialog("Dispatch"), role("textbox", "Request"));
 const tiles = role("listbox", "Tiles");
 const thread = region("Thread");
 
@@ -18,6 +19,8 @@ const dashboardDispatchRows = walk("dashboard-dispatch-rows", [
   { type: "Check the migration order", into: bar, say: "Words typed" },
   { look: role("option", /^Start a Session with “Check the migration order”/), say: "They lead as a Session to start" },
   { key: "Enter", on: bar, say: "Press Enter" },
+  { look: request, say: "The dispatch panel grows down from the bar, a Session chosen, holding what was typed" },
+  { key: "Enter", on: request, say: "Press Enter in it" },
   { look: role("textbox", "Message"), say: "The Session started and opened, holding what was typed" },
   { key: "Meta+n", on: role("textbox", "Message"), say: "Press ⌘N from inside the Session's message box" },
   { look: bar, say: "The one bar again, Session still chosen" },

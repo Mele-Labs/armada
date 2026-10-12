@@ -28,7 +28,7 @@ The owner asked for a live view of what needs him now, with quick dispatch when 
 
 **The grid has a map.** `m` flips the tiles into a map of stars, one for each Job and Session, clustered by repository and joined by what connects them: a parent to its child, a Job to what it waits on, a Session to its Job, a branch to main. The map offers the same acts as the grid. The choice is remembered.
 
-Work is dispatched from the title row's one bar, which searches and dispatches in one field. `n`, or `⌘N` from anywhere, opens it ready for the work, and Tab chooses a Job or a Session. See `../contracts/design-system.md`, Command palette.
+Work is dispatched from the title row's one bar, which searches and dispatches in one field, or from the Cockpit's own bar. Both grow the same dispatch panel over one draft: in place on the Cockpit, and down from the title row's field once the one bar chose to dispatch. `n`, or `⌘N` from anywhere, opens the one bar ready for the work, and Tab chooses a Job, a Session or an Autopilot. A Job and an Autopilot need a repository, which the panel reads from the words and asks for when there is none. See `../contracts/design-system.md`, Command palette.
 
 **The row's acts and marks moved into the pane beside the list.** Pilot, Open in a Session, Pause, Kill, Redispatch and Clear are the same control a Board row drew (`JobActs`), and the paused, fixing-main, alert and piloted marks sit beside the title (`JobMarks`). The Board's keys work on whichever list is in front: j and k move, Enter or the row's verb key opens, and x asks to kill. n composes.
 

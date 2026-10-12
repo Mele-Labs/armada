@@ -405,7 +405,9 @@ pub use rehearsal::{
 };
 pub use remarks::{InlineContext, JobRemarks, Remark, RemarksTakenUp};
 pub use report::{Calibration, Claim, FileReport, Report, ReportId, ReportList, ReportOrigin};
-pub use repositories::{AddRepository, CloneRepository, RepositoryList, RepositorySummary};
+pub use repositories::{
+    AddRepository, CloneRepository, RepositoryList, RepositorySummary, RequestRepository,
+};
 pub use requester::Requester;
 pub use resources::{
     Asked, BriefContents, Finding, Held, JobExamined, JobProcess, JobResources, LogFile, LogKind,
