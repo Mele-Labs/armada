@@ -8,7 +8,6 @@
 
 import { afterEach, expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
-import { repository } from "@armada/screens/src/fixtures/build/base";
 
 import { mountApp, type Mounted, studying, entered, openHelm, whenFleet } from "@armada/desktop/mock";
 
@@ -269,7 +268,8 @@ test("on All repositories the surface asks for one, since a Studio belongs to on
 /** Studios from the rail, answering the surface's own ask for a repository. */
 async function openStudios(): Promise<void> {
   await page.getByRole("button", { name: "Studios", exact: true }).first().click();
-  await userEvent.selectOptions(page.getByLabelText("Repository", { exact: true }), repository().root);
+  await page.getByRole("button", { name: "Choose a repository", exact: true }).click();
+  await page.getByRole("menuitem", { name: "armada", exact: true }).first().click();
 }
 
 const FAILED = "This repository's Studios could not be read";

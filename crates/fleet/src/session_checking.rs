@@ -193,6 +193,24 @@ where
         Ok(())
     }
 
+    /// A Session ended: the runs still out will never be ended by their CLI, so they end failed.
+    pub(crate) async fn session_checks_ended(&self, session: &str) {
+        let at = self.clock().now().as_str().to_string();
+        let Ok(runs) = self
+            .store()
+            .lock()
+            .await
+            .fail_running_session_checks(session, &at, "the Session ended")
+        else {
+            return;
+        };
+        for run in runs {
+            let _ = self
+                .session_check_row(session, &run.name, run.id, &run.started_at, SessionCheckState::Failed)
+                .await;
+        }
+    }
+
     /// `get_session_check_output`: one run's log, as the Job's Check output read answers it.
     pub(crate) async fn session_check_output(&self, run: u64) -> Result<ipc::CheckOutput, Refusal> {
         let no_such = || self.session_check_refusal(NO_SUCH_RUN, "no Session ran a Check under that id");

@@ -98,6 +98,12 @@ pub struct Host {
     /// Where the mods are: one folder each, written by a person or a session
     /// and never by Fleet but at `scaffold_mod`. `docs/concepts/mods.md`.
     pub mods_dir: String,
+    /// How long one Helm reply may take before its process is ended.
+    /// `timeouts.helmReplySeconds`, read at start.
+    pub helm_reply_budget: std::time::Duration,
+    /// How hard Helm thinks. `effort.helm`, read at start; `None` passes no
+    /// effort, the harness's own.
+    pub helm_effort: Option<adapter_traits::Effort>,
 }
 
 /// [`Host`] without the repository: what is true of the machine whichever
@@ -289,6 +295,9 @@ pub struct Fittings<H, V, W> {
     /// `facts`. **A pointer rather than a type parameter**, for `judge`'s
     /// reason: rendering cannot fail, so nothing about it needs to be generic.
     pub links: Arc<dyn LinkLookup + Send + Sync>,
+    /// The tracker a repository's open issues are read from and written back
+    /// on. A pointer, for `links`' reason — `crate::tracking`. #91.
+    pub tracker: Arc<dyn adapter_traits::Tracker + Send + Sync>,
     /// What reads a repository's CI configuration for Scan. **A seam so Fleet
     /// names no provider**, and so a test can plant what a reader answers.
     pub ci_configuration: Arc<dyn CiConfiguration + Send + Sync>,
@@ -301,6 +310,12 @@ pub struct Fittings<H, V, W> {
     /// rather than at spawn.
     pub models: ipc::ModelChoices,
     pub events: api::Broadcaster,
+    /// settings.json, already read. Every live dial above is what ships, and
+    /// what the file chose is put over it here and at every save or hand edit.
+    pub settings: crate::settings::MachineSettings,
+    /// How long a hosted session's process may sit with no turn before Fleet
+    /// ends it. `timeouts.sessionQuietSeconds`, read at start.
+    pub session_quiet: std::time::Duration,
 }
 
 impl<H, V, W> Fleet<H, V, W>
@@ -323,7 +338,7 @@ where
             Arc::new(crate::session_host::ProcessHost::on_this_machine(
                 &fittings.host,
             )),
-            crate::session_host::SHIPPED_QUIET_TIMEOUT,
+            fittings.session_quiet,
             fittings.helm_ask_hold,
         );
         let scouts = crate::scout::Scouts::hosted_by(Arc::new(
@@ -334,13 +349,16 @@ where
             headroom: fittings.headroom,
             checks_at_once: fittings.checks_at_once,
         };
-        // **A row that will not read is the shipped limits**, not a Fleet that
-        // will not start: `Store::open` already refused a damaged file, and the
-        // next save writes the whole row again.
-        let in_force = shipped.overlaid_by(&fittings.store.saved_limits().unwrap_or_default());
+        // **settings.json, not the store's row**, since the file replaced it:
+        // a file that was refused at start left nothing saved, so this is the
+        // shipped limits and the refusal is served.
+        let settings_now = fittings.settings.now();
+        let in_force = shipped.overlaid_by(&settings_now);
+        let shipped_tuning = fittings.shipped_tuning();
+        let tuning = shipped_tuning.overlaid_by(&settings_now);
         let turns = api::Turns::new();
         Fleet {
-            store: Mutex::new(fittings.store),
+            store: crate::store_lock::StoreLock::new(fittings.store),
             harness: Arc::new(fittings.harness),
             vcs: Arc::new(fittings.vcs),
             work: fittings.work,
@@ -372,28 +390,16 @@ where
                 mods_dir: fittings.host.mods_dir,
             },
             port_range: fittings.port_range,
-            run_log_retention: fittings.run_log_retention,
-            helm_authority: fittings.helm_authority,
-            helm_session_retention: fittings.helm_session_retention,
-            budget: fittings.budget,
-            norms: fittings.norms,
-            liveness: fittings.liveness,
-            asked_runs: fittings.asked_runs,
-            fixes: fittings.fixes,
+            tuning: std::sync::RwLock::new(tuning),
+            shipped_tuning,
+            settings: fittings.settings,
             judge: fittings.judge,
-            judge_budget: fittings.judge_budget,
-            proposer_budget: fittings.proposer_budget,
-            command_budget: fittings.command_budget,
             permission_hold: fittings.permission_hold,
-            unanswered_ask_limit: fittings.unanswered_ask_limit,
             aloft: Aloft::default(),
             underway: Underway::default(),
             proposals: Proposals::new(),
-            judge_model: fittings.judge_model,
-            second_opinion_model: fittings.second_opinion_model,
-            proposer_model: fittings.proposer_model,
-            retro_model: fittings.retro_model,
             links: fittings.links,
+            tracking: crate::tracking::Tracking::with(fittings.tracker),
             ci_configuration: fittings.ci_configuration,
             models: fittings.models,
             events: fittings.events,
@@ -416,9 +422,6 @@ where
                 fittings.check_slots,
             ),
             shipped,
-            polling: fittings.polling,
-            noticing: fittings.noticing,
-            reclaiming: fittings.reclaiming,
             swept: Mutex::new(None),
             sweeping: Mutex::new(Sweep::default()),
             issue_sweeping: Mutex::new(crate::issue_noticing::IssueSweep::default()),
@@ -435,7 +438,6 @@ where
             rehearsals: crate::rehearsing::Rehearsals::default(),
             servers: crate::servers::Servers::default(),
             sizes: crate::resources::Sizes::default(),
-            allowance: fittings.allowance,
             polled: Mutex::new(None),
             drones: std::sync::Mutex::new(Drones::default()),
             peers: fittings.peers,

@@ -25,6 +25,8 @@
 
 use core_model::StepCheck;
 
+use crate::wording::{Piece, Wording};
+
 /// How much of one Check's output travels, in characters.
 ///
 /// `checks_runner` captures 64KB per stream and keeps the tail, which is the
@@ -67,15 +69,15 @@ impl Printed<'_> {
     /// **Empty output renders as nothing at all**, rather than as an empty
     /// fence. A Check that printed nothing has said nothing, and a fence around
     /// it invites a reader to wonder what it swallowed.
-    pub(crate) fn quoted(&self) -> String {
+    pub(crate) fn quoted(&self, wording: &Wording) -> String {
         let said = self.said.trim();
         if said.is_empty() {
             return String::new();
         }
         let (cut, kept) = tail(said);
         let opening = match cut {
-            false => format!("What `{}` printed:", self.check),
-            true => format!("The last of what `{}` printed:", self.check),
+            false => wording.fill(JUDGE_PRINTED, &[("check", self.check)]),
+            true => wording.fill(JUDGE_PRINTED_TAIL, &[("check", self.check)]),
         };
         format!("{opening}\n\n```\n{kept}\n```\n\n")
     }
@@ -134,8 +136,8 @@ impl<'a> Answered<'a> {
     /// output and leave them to find the one that was quoted.
     ///
     /// Concatenated, this is byte for byte what it was when it was one string.
-    pub(crate) fn parts(&self) -> Vec<(String, String)> {
-        let mut rows = String::from("Checks that already ran, and what they answered:\n");
+    pub(crate) fn parts(&self, wording: &Wording) -> Vec<(String, String)> {
+        let mut rows = format!("{}\n", wording.get(JUDGE_CHECKS_RAN));
         if self.checks.is_empty() {
             rows.push_str("  (the step declared none)\n");
         }
@@ -159,7 +161,10 @@ impl<'a> Answered<'a> {
                 .iter()
                 .find(|printed| printed.check == check.name);
             if let Some(printed) = printed {
-                parts.push((format!("{ONE_CHECK}:{}", check.name), printed.quoted()));
+                parts.push((
+                    format!("{ONE_CHECK}:{}", check.name),
+                    printed.quoted(wording),
+                ));
             }
         }
         parts
@@ -173,3 +178,21 @@ const THE_TIER: &str = "checks";
 /// What one Check's output is called, singular because it is one Check:
 /// `check:test_suite`.
 const ONE_CHECK: &str = "check";
+
+/// The line the Checks that already ran follow.
+pub const JUDGE_CHECKS_RAN: Piece = Piece {
+    id: "judgeChecksRan",
+    shipped: "Checks that already ran, and what they answered:",
+};
+
+/// The line what one Check printed follows, where it is all there.
+pub const JUDGE_PRINTED: Piece = Piece {
+    id: "judgePrinted",
+    shipped: "What `{check}` printed:",
+};
+
+/// The same, where only the end of it is kept.
+pub const JUDGE_PRINTED_TAIL: Piece = Piece {
+    id: "judgePrintedTail",
+    shipped: "The last of what `{check}` printed:",
+};

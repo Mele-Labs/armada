@@ -415,6 +415,7 @@ where
         if ended {
             // Its terminal prompt went with it, so Bridge must not offer the card.
             self.terminal_ask_closed(&session.id, ipc::SessionAskState::Unanswered).await;
+            self.session_checks_ended(&session.id).await;
         }
         if changed {
             self.publish(ipc::Event::SessionChanged(record.clone()));
@@ -494,10 +495,37 @@ where
                 at: self.instant(),
                 title,
                 url,
+                ended_at: None,
             },
         )
         .await;
         Ok(record)
+    }
+
+    async fn ask_in_window(
+        &self,
+        caller: Option<api::Caller>,
+        ask: ipc::AskInWindow,
+    ) -> Result<SessionRecord, Refusal> {
+        self.window_asked(caller, ask).await
+    }
+
+    async fn window_closed(&self, closed: ipc::WindowClosed) -> Result<SessionRecord, Refusal> {
+        let id = closed.session_id.as_str().trim().to_string();
+        let known = {
+            let store = self.store().lock().await;
+            store.session(&id).map_err(|why| self.ledger_fault(why))?.is_some()
+        };
+        if !known {
+            return Err(self.ledger_unnamed("a session Fleet knows"));
+        }
+        self.walk_ended(&id, closed.url.trim()).await;
+        let store = self.store().lock().await;
+        let session = store
+            .session(&id)
+            .map_err(|why| self.ledger_fault(why))?
+            .ok_or_else(|| self.ledger_unnamed("a session Fleet knows"))?;
+        self.ledger_row(&store, &session)
     }
 
     async fn waiting_for(

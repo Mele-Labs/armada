@@ -103,6 +103,38 @@ impl Store {
         spent_now(&self.conn, job_id, step_id).map_err(RowError::Database)
     }
 
+    /// How many times the pass a step is on has gone back to its Drone on a
+    /// refusal the Judges agreed on — what `core_model::AGREED_RETRIES` bounds.
+    ///
+    /// **Told apart from a failed Check's hand-back by who signed it**: both
+    /// walk `running -> retrying`, and only the Judge's carries `judge`. The
+    /// pass boundary is [`step_spent`](Store::step_spent)'s, so a loop return
+    /// opens a fresh count as it opens a fresh retry budget.
+    pub fn step_sent_back_by_judges(
+        &self,
+        job_id: &JobId,
+        step_id: &StepId,
+    ) -> Result<u32, RowError> {
+        let sent: i64 = self
+            .conn
+            .query_row(
+                "SELECT count(*) FROM job_events
+                 WHERE job_id = ?1 AND step_id = ?2
+                   AND kind = 'step_transition' AND state_to = 'retrying' AND actor = 'judge'
+                   AND seq >= coalesce(
+                       (SELECT max(seq) FROM job_events
+                        WHERE job_id = ?1 AND step_id = ?2
+                          AND kind = 'step_transition'
+                          AND state_from IN ('advanced', 'running', 'awaiting_human')
+                          AND state_to = 'running'), 0)",
+                (job_id.as_str(), step_id.as_str()),
+                |row| row.get(0),
+            )
+            .map_err(fault("counting the refusals sent back to a step's Drone"))
+            .map_err(RowError::Database)?;
+        Ok(sent.max(0) as u32)
+    }
+
     /// What each of a Job's declared Checks did, **every run of every step**,
     /// oldest run first.
     ///
@@ -141,7 +173,7 @@ impl Store {
         let rows = self
             .collect(
                 "SELECT step_id, attempt, judged_at, criterion, verdict, expected, produced,
-                        consequence, brief_path, member, cited, given
+                        consequence, brief_path, member, cited, given, risky
                  FROM job_step_judgments WHERE job_id = ?1 ORDER BY step_id, attempt, ordinal",
                 job_id,
                 "reading judgments",
@@ -437,6 +469,7 @@ fn judgment(row: &Row<'_>) -> Result<Judgment, RowError> {
         produced: maybe(row, "produced")?,
         consequence: maybe(row, "consequence")?,
         brief_path: maybe(row, "brief_path")?,
+        risky: maybe(row, "risky")?,
     })
 }
 

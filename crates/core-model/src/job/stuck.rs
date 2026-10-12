@@ -180,9 +180,8 @@ pub struct Refusal {
     pub tool: String,
     /// The call id both rows carried, which is what joined them.
     ///
-    /// **It is what makes a cut detail openable.** `get_call` serves the whole
-    /// argument by this id, so a refused heredoc shown to its bound is not a
-    /// dead end.
+    /// **It is what Fleet reads the whole argument back by**, when it explains
+    /// a refused command whose detail was cut.
     pub call: String,
     /// The argument as the transcript recorded it — the command, the path.
     ///

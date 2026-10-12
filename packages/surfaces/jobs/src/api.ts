@@ -56,6 +56,7 @@ import type {
 } from "@armada/protocol";
 import type { PlanEditAnswer } from "@armada/screens/src/plan-edits";
 import type { ComposingRead } from "@armada/screens/src/composing-reads";
+import type { AskLessonRead, AskTurn, LessonReviewRead } from "./review-wire";
 
 export type JobsApi = {
   /**
@@ -548,6 +549,14 @@ export type JobsApi = {
   agreeLesson: (lessonId: string) => Promise<LessonAnswer>;
   /** Disagree with one retro item: it is discarded. */
   disagreeLesson: (lessonId: string) => Promise<LessonAnswer>;
+  /**
+   * The model's reading of the open items for the guided review: the order to read them in, which
+   * stand for duplicates, and which it set aside. **Narrowed to this window's pick in main**, as
+   * `readLessons` is, so the renderer names no manifest.
+   */
+  reviewLessons: () => Promise<LessonReviewRead>;
+  /** Put one question about one item to Fleet, with the thread so far. Answered, and held nowhere. */
+  askLesson: (lessonId: string, question: string, history: AskTurn[]) => Promise<AskLessonRead>;
   readFrame: (jobId: string, kept: string) => Promise<FrameRead>;
   /**
    * `leftOut` and the Manifest reading for the repository New job's ask
@@ -653,6 +662,11 @@ export type JobsApi = {
    * than derived, and it is not a path.
    */
   openArtifact: (jobId: string, what: Artifact) => Promise<Opened>;
+  /**
+   * Open this Job's worktree in the terminal `terminal.app` names in settings.json. **A Job id and
+   * nothing else**, `openArtifact`'s rule: main derives the directory.
+   */
+  openInTerminal: (jobId: string) => Promise<Opened>;
   /**
    * Open the pull request Fleet opened for this Job, in whatever browses the
    * web on this machine.
@@ -924,6 +938,8 @@ export const JOBS_CHANNELS = {
   readLessons: "bridge:read-lessons",
   agreeLesson: "bridge:agree-lesson",
   disagreeLesson: "bridge:disagree-lesson",
+  reviewLessons: "bridge:review-lessons",
+  askLesson: "bridge:ask-lesson",
   readFrame: "bridge:read-frame",
   approveReview: "bridge:approve-review",
   mergePullRequest: "bridge:merge-pull-request",
@@ -939,6 +955,7 @@ export const JOBS_CHANNELS = {
   takeUpRemarks: "bridge:take-up-remarks",
   dismissFinding: "bridge:dismiss-finding",
   openArtifact: "bridge:open-artifact",
+  openInTerminal: "bridge:open-in-terminal",
   openPullRequest: "bridge:open-pull-request",
   openRemarkLink: "bridge:open-remark-link",
   // New job's own reads for the repository its ask answered, on All — #959.

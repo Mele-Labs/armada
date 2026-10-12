@@ -21,14 +21,26 @@ function refusal(outcome: Outcome): string {
   return !outcome.ok && outcome.why === "refused" && outcome.error.message.trim() !== "" ? outcome.error.message.trim() : "Fleet refused it";
 }
 
+/**
+ * The note's picture: the one kept as it was saved, else one taken now where its element is on
+ * this screen, else none. Only a note saved before pictures were kept, or whose file is gone, falls back.
+ */
+async function pictureOf(note: Annotation, box: Box | null, sink: Sink): Promise<ArrayBuffer | null> {
+  if (note.screenshot !== undefined) {
+    const kept = await sink.shot(note.id).catch(() => null);
+    if (kept !== null) return kept;
+  }
+  // A null box is a note whose element is not on this screen: a shot of the screen would be of the wrong thing.
+  return box === null ? null : sink.capture(box).catch(() => null);
+}
+
 /** Why Send is not offered here, or null where it is. */
 export function unsendable(sink: Sink): string | null {
   return sink.via === "main" ? null : "Sending needs Bridge and its Fleet; in the mock the note stays a file";
 }
 
 /**
- * Stage a screenshot of where the note points, where one can be taken, and
- * propose the note's request against the repository the notes are about.
+ * Stage the note's picture, where it has one (`pictureOf`), and propose the note's request against the repository the notes are about.
  * **Nothing is saved here**: the caller writes `sent` onto the note, so a send
  * that fails leaves the note exactly as it was.
  */
@@ -37,8 +49,7 @@ export async function sendToFleet(note: Annotation, box: Box | null, sink: Sink,
   if (root === null) return { ok: false, saying: "Job not sent: no repository found above Bridge" };
 
   const attachments: StagedAttachment[] = [];
-  // A null box is a note whose element is not on this screen: a shot of the screen would be of the wrong thing.
-  const png = box === null ? null : await sink.capture(box).catch(() => null);
+  const png = await pictureOf(note, box, sink);
   if (png !== null) {
     const filename = `annotation-${note.id}.png`;
     const { path } = await fleet.stageAttachment(png, filename, "image/png");
@@ -69,7 +80,7 @@ const base64 = (bytes: ArrayBuffer): string => {
 export const titleOf = (notes: readonly Annotation[]): string => (notes[0]?.text.split("\n")[0] ?? "").trim().slice(0, 60);
 
 /**
- * The notes as one message to a Session, each with its screenshot attached: to `target`, or to a
+ * The notes as one message to a Session, each with its picture attached (`pictureOf`): to `target`, or to a
  * Session started for them where `target` is null. **Nothing is saved here**, as `sendToFleet`.
  * A Session Fleet refuses, a terminal one among them, comes back as its words.
  */
@@ -82,7 +93,7 @@ export async function sendToSession(
 ): Promise<SendAnswer> {
   const attachments: { name: string; media_type: string; data: string }[] = [];
   for (const { note, box } of notes) {
-    const png = box === null ? null : await sink.capture(box).catch(() => null);
+    const png = await pictureOf(note, box, sink);
     if (png !== null) attachments.push({ name: `annotation-${note.id}.png`, media_type: "image/png", data: base64(png) });
   }
 

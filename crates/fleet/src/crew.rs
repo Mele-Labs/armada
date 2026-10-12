@@ -241,6 +241,7 @@ where
             Crossed::nothing().and_produced(Produced::before(job.workflow(), step, &recorded));
         // No catch-up onto the base: the kept Drone is working in this copy.
         let opening = Opening::fresh()
+            .worded(self.prompts())
             .carrying(crossed)
             .holding_off(&self.held_off(&job_id).await)
             .carrying_the_plan(Some(ThePlan::for_task(plan, task)))

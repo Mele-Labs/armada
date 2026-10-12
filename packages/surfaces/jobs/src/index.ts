@@ -15,6 +15,7 @@ export * from "./RaiseTurnCap";
 export * from "./Redirect";
 export * from "./Lessons";
 export type { AnswerLesson, LessonsSource, LessonsTab, LessonsView, ReadLessons, ReadRetro } from "./retro";
+export type { AskLesson, ReviewLessons } from "./LessonsReview";
 export { lessonsSourceNamed, lessonsTabNamed, sessionOf } from "./retro";
 export * from "./Sheets";
 export * from "./pending";
@@ -54,3 +55,7 @@ export * from "./open-job";
 export type { AddedBinding } from "./added-steps";
 export * from "./alert-rows";
 export { nowPanelOf } from "./now-panel";
+// JobDetail's own read of the open Job and its verdict slot, for the panel beside a walk window's page
+// to draw the same Job the same way — `docs/practices/capture-window.md`, *The panel beside the page*.
+export { detailOf } from "./mine";
+export { verdictSlotOf, type VerdictSlotOfArgs } from "./verdict-answered";

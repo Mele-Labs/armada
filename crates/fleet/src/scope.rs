@@ -243,7 +243,8 @@ where
         // log has the finding; nobody is told what nobody can be shown to have
         // done.
         let crewed = !self.slots().lock().await.crew_of(&job).is_empty();
-        let told = match Redeclaring::at(declared_step, &fresh).filter(|_| !crewed) {
+        let told = match Redeclaring::at(&self.prompts(), declared_step, &fresh).filter(|_| !crewed)
+        {
             // `watches_live_edits` is true above, so this is always `Some`.
             // Matched rather than unwrapped: the switch belongs to the block
             // and a narrowing added there is this check going quiet, never a

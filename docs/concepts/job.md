@@ -505,6 +505,19 @@ The full transition table — every legal edge, its trigger and its guard — is
 
 **Once for each pull request, commit and cause**, so one failure never sends a Job back twice. **A merge is only a note in the Job's log**, and no Drone is sent.
 
+## A Job whose Drone asks a question
+
+**Asking gives the Job's place back, and is not a status.** A Drone that asks a
+person something stands down at once: the Job goes `running -> queued`, its step
+stays `running`, and its branch and worktree stay. The question is kept on the
+Job, so it survives a Fleet restart, and the Job reads `queued` with reason
+`awaiting_answer` and `asking` on its row, which puts it under Needs you.
+Admission skips it until the answer, and then a fresh Drone resumes the same
+step with the question and the answer in its opening brief, delivered once and
+cleared there. The asking Drone's own context is the cost. `awaiting_answer`
+reads after `paused` and before every other queued reason. The owner's decision
+of 11 Oct 2026, #2094.
+
 ## Pausing a Job
 
 **A pause is a marker on the Job, not a status.** A person pauses a Job to kill

@@ -26,7 +26,7 @@ use std::time::Duration;
 
 use core_model::{EscalationTrigger, JobStatus, StepState};
 use store::Store;
-use testkit::FakeWorkProduct;
+use testkit::{FakeHarness, FakeVcs, FakeWorkProduct};
 
 use crate::daemon::Fleet;
 use crate::gate::Ruling;
@@ -35,6 +35,7 @@ use crate::tests::planted::the_drone_it_holds_is_gone;
 pub use crate::tests::planted::{Counted, Ticking};
 use crate::tests::tmp::TempDir;
 use crate::tests::tools::submitted_by_the_one;
+use crate::tests::waiting::until;
 
 mod fleets;
 mod handed_in;
@@ -380,6 +381,20 @@ async fn killing_a_job_ends_it_and_frees_the_slot() {
     assert!(fleet.working_on().await.is_empty());
 }
 
+/// Turn until the reaper says what a Drone's leaving did to its Job.
+async fn until_moved(fleet: &Fleet<FakeHarness, FakeVcs, FakeWorkProduct>) -> crate::Aftermath {
+    until(
+        "the reaper never said what the Drone's leaving did",
+        200,
+        Duration::from_millis(10),
+        || async {
+            let turned = fleet.turn().await.unwrap();
+            turned.each.into_iter().find_map(|worked| worked.after)
+        },
+    )
+    .await
+}
+
 /// **No aftermath leaves a Job running.** A Drone that finished having
 /// submitted nothing pauses the Job for a person, and the slot comes free.
 ///
@@ -397,17 +412,9 @@ async fn a_drone_that_leaves_without_submitting_does_not_leave_the_job_running()
     worktree_directory(&home, &job);
     dispatched(&fleet, job.id()).await.unwrap();
 
-    let mut after = None;
-    for _ in 0..200 {
-        let turned = fleet.turn().await.unwrap();
-        if let Some(aftermath) = turned.each.into_iter().find_map(|worked| worked.after) {
-            after = Some(aftermath);
-            break;
-        }
-        tokio::time::sleep(Duration::from_millis(10)).await;
-    }
+    let after = until_moved(&fleet).await;
 
-    let Some(crate::Aftermath::JobMoves(target)) = after else {
+    let crate::Aftermath::JobMoves(target) = after else {
         panic!("a Drone that is gone having left nothing moves the Job");
     };
     assert_eq!(target.status(), JobStatus::Escalated);
@@ -439,17 +446,9 @@ async fn a_drone_that_ends_its_run_on_its_own_leaves_a_step_restart_step_accepts
     worktree_directory(&home, &job);
     dispatched(&fleet, job.id()).await.unwrap();
 
-    let mut after = None;
-    for _ in 0..200 {
-        let turned = fleet.turn().await.unwrap();
-        if let Some(aftermath) = turned.each.into_iter().find_map(|worked| worked.after) {
-            after = Some(aftermath);
-            break;
-        }
-        tokio::time::sleep(Duration::from_millis(10)).await;
-    }
+    let after = until_moved(&fleet).await;
     assert!(
-        matches!(after, Some(crate::Aftermath::JobMoves(_))),
+        matches!(after, crate::Aftermath::JobMoves(_)),
         "a Drone that is gone having left nothing moves the Job"
     );
 

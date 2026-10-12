@@ -1,10 +1,11 @@
 import { Check, Menu, MessageSquare, Moon, Plus, Search, Sunrise, type LucideIcon } from "lucide-react";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { ArmadaLockupHorizontal, ArmadaMark } from "@armada/brand";
 import { FLEET_DOT_TONE, FleetStarting, fleetSaid, type FleetState } from "../FleetPanel/FleetPanel";
 import { Button } from "../../primitives/Button/Button";
-import type { DropdownMenuEntry } from "../../primitives/DropdownMenu/DropdownMenu";
-import { actionOf } from "../../actions";
+import { filterEntries, type DropdownMenuEntry } from "../../primitives/DropdownMenu/DropdownMenu";
+import { Input } from "../../primitives/Input/Input";
+import { keyFor } from "../../actions";
 import { Kbd, KbdCmd } from "../../primitives/Kbd/Kbd";
 import { Popover } from "../../primitives/Popover/Popover";
 import { useShortcutReveal } from "../../shortcut-reveal";
@@ -16,9 +17,9 @@ import { useShortcutReveal } from "../../shortcut-reveal";
  * control in it opts out with its own no-drag rule. #1087.
  *
  * **Three regions, not one flex row with a trailing spacer.** Left carries the
- * repository picker, centered carries search and Dispatch as a group, right
- * carries Helm's reopen control and the logo — `TitleBar.css`'s grid keeps the
- * center group on the bar's true midpoint however wide the two sides measure.
+ * repository picker, centered carries the one bar, right carries Helm's reopen
+ * control and the logo — `TitleBar.css`'s grid keeps the one bar on the bar's
+ * true midpoint however wide the two sides measure. The one bar also dispatches.
  *
  * **A slot, not a decision.** `repositoryPicker` arrives built: the Select and
  * its options are Bridge's own reading of what Fleet serves, and this row only
@@ -40,11 +41,8 @@ export type TitleBarProps = {
   /** Opens the command palette. The same surface ⌘K opens; this is the other way in. */
   onSearch?: () => void;
   /**
-   * Opens the composer.
-   *
-   * Dispatch here is a plain button, not a split one. #1156: a
-   * `SplitButton` with nothing behind its caret still drew a caret, so a
-   * person saw a menu that was not there.
+   * Opens the composer, from the narrow menu. The full row has no Dispatch:
+   * its one bar dispatches what is typed in it.
    */
   onDispatch?: () => void;
   /** Disabled while nothing is connected to dispatch into. */
@@ -112,21 +110,9 @@ export function TitleBar({
         {onSearch === undefined ? null : (
           <button type="button" className="armada-title-bar__search" onClick={onSearch}>
             <Search size={16} strokeWidth={2} aria-hidden />
-            <span className="armada-title-bar__search-label">Search jobs, commands, settings…</span>
+            <span className="armada-title-bar__search-label">Search, or describe work to dispatch</span>
             <KbdCmd shortcut="⌘K" />
           </button>
-        )}
-
-        {onDispatch === undefined ? null : (
-          // Wrapped, not styled directly: `Button` takes no `className` to
-          // carry a title-bar-only no-drag hook on, same reasoning as the
-          // picker below. #1156.
-          <div className="armada-title-bar__dispatch">
-            <Button variant="tonal" size="sm" onClick={onDispatch} disabled={dispatchDisabled}>
-              <Plus size={16} strokeWidth={2} aria-hidden />
-              Dispatch
-            </Button>
-          </div>
         )}
       </div>
 
@@ -246,7 +232,7 @@ export function TitleBar({
                   >
                     <Plus size={16} strokeWidth={2} aria-hidden />
                     <span>Dispatch</span>
-                    <Kbd aria-hidden>{actionOf("new_job").shortcut}</Kbd>
+                    <Kbd aria-hidden>{keyFor("new_job")}</Kbd>
                   </button>
                 )}
                 {helm === undefined ? null : (
@@ -270,9 +256,18 @@ export function TitleBar({
 
 /** The picker's list, flat: the same entries its dropdown draws, one row each. */
 function RepositoryRows({ entries, onSelect, manifest }: NonNullable<TitleBarProps["repositoryMenu"]>) {
+  // The wide picker's filter field, in the narrow menu too: a list of twenty is a scroll here as well.
+  const [query, setQuery] = useState("");
+  const shown = filterEntries(entries, query);
   return (
     <div className="armada-title-bar__menu-repositories" role="group" aria-label="Repositories">
-      {entries.map((entry) =>
+      <div className="armada-title-bar__menu-search">
+        <Input aria-label="Find a repository" role="searchbox" autoComplete="off" value={query} onChange={(event) => setQuery(event.target.value)} />
+      </div>
+      {query.trim() !== "" && shown.length === 0 ? (
+        <p className="armada-title-bar__menu-empty" role="status">{`Nothing matches “${query.trim()}”.`}</p>
+      ) : null}
+      {shown.map((entry) =>
         entry.kind === "separator" ? (
           <div key={entry.id} className="armada-title-bar__menu-rule" aria-hidden />
         ) : entry.kind === "label" ? (

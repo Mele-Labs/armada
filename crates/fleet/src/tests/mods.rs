@@ -334,7 +334,7 @@ async fn the_rescan_publishes_a_mod_a_session_wrote_and_is_quiet_otherwise() {
 
 #[tokio::test]
 async fn the_theme_is_a_preference_that_defaults_to_dark_and_refuses_what_a_mod_could_not_be_called() {
-    use api::{Commands, Queries};
+    use api::Settings;
     let home = TempDir::new();
     let fleet = a_fleet(&home, FakeWorkProduct::changed(&[]));
     assert_eq!(fleet.get_preferences().await.expect("reads").theme, "dark");

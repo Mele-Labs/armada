@@ -105,7 +105,7 @@ async fn a_second_segment_is_read_beside_the_job() {
     assert_eq!(
         status(
             &app,
-            &format!("/jobs/1-a-job/calls/{}", crate::tests::shapes::THE_CALL)
+            &format!("/jobs/1-a-job/calls/{}/explain", crate::tests::shapes::THE_CALL)
         )
         .await,
         StatusCode::OK

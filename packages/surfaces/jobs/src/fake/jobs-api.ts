@@ -26,7 +26,7 @@ import type { ArcDraft } from "../fixtures/build/arc";
 import type { GroupView } from "../draft/group";
 import { isOutcome, parked, pausedRefusal, resumed } from "./pause-fleet";
 import { accepted, askedAgain } from "./undecided-fleet";
-import { answered, listed } from "./lessons-fleet";
+import { answered, askedAbout, listed, reviewed } from "./lessons-fleet";
 import { approvedAs, edited, landingRefusal, landingTargetSet, sentBack, tuningRefusal, waveJobEdited } from "./approval-fleet";
 import {
   groupsAdding,
@@ -395,6 +395,8 @@ export const jobsApi = (scenario: JobsScenario, fleet: JobsFleet): JobsApi => {
       readLessons: async (view) => ({ ok: true, lessons: listed(lessons, view) }),
       agreeLesson: async (id) => answerLesson(id, "agree"),
       disagreeLesson: async (id) => answerLesson(id, "disagree"),
+      reviewLessons: async () => reviewed(lessons),
+      askLesson: async (id, question, history) => askedAbout(lessons, id, { question, history }),
       readFrame: async (jobId, kept) => readsOf(jobId)?.frames[kept] ?? refused(path(jobId, `/frames/${kept}`)),
       readComposing: async (repository) => refused(`/composing?repository=${encodeURIComponent(repository)}`),
       // The app's own spelling, which a browser has no handler for — `props.ts`' reason.
@@ -443,6 +445,7 @@ export const jobsApi = (scenario: JobsScenario, fleet: JobsFleet): JobsApi => {
       takeUpRemarks: async () => OK,
       dismissFinding: async () => OK,
       openArtifact: async () => ({ ok: false, why: "no_repository" }),
+      openInTerminal: async () => ({ ok: false, why: "no_repository" }),
       openPullRequest: async () => ({ ok: false, why: "no_address" }),
       openRemarkLink: async () => ({ ok: false, why: "no_address" }),
     };

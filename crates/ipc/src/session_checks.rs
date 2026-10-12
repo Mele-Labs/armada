@@ -1,4 +1,4 @@
-//! The Checks a Session's agent runs with `armada check` in the slot it holds. Since 23.74.
+//! The Checks a Session's agent runs with `armada check` in the slot it holds. Since 23.75.
 //!
 //! **`armada check` runs in the caller's own process and writes no record**, so it tells Fleet
 //! twice: when a run begins and when it ends, with the log. Fleet places the run by the directory

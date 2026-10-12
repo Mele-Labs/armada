@@ -37,6 +37,10 @@ pub enum JudgeVerdict {
     NotMet,
 }
 
+/// How many times an agreed refusal may send a step back to its Drone before
+/// the next one goes to a person. The owner's number, #206.
+pub const AGREED_RETRIES: u32 = 2;
+
 impl JudgeVerdict {
     /// Every variant, in the order the registry lists them.
     pub const ALL: &'static [JudgeVerdict] = &[JudgeVerdict::Met, JudgeVerdict::NotMet];
@@ -122,6 +126,9 @@ pub struct JudgeCriterion {
 pub struct JudgeCheck {
     model: Option<ModelName>,
     panel_size: u32,
+    /// One model per member, in member order, where the step names them.
+    /// **Empty on most checks**, where every member runs [`model`](Self::model).
+    members: Vec<ModelName>,
     criteria: Vec<JudgeCriterion>,
     /// The second look, which asks whether the evidence was gamed rather than
     /// whether it satisfies the step. It does not gate — see
@@ -142,9 +149,38 @@ impl JudgeCheck {
         JudgeCheck {
             model,
             panel_size: panel_size.max(1),
+            members: Vec::new(),
             criteria,
             gaming,
         }
+    }
+
+    /// The same check with a model named for each member, which sizes the
+    /// panel. An empty list changes nothing.
+    ///
+    /// **What makes a panel a second opinion.** Three calls to one model agree
+    /// with each other more than two models would, so an agreed refusal only
+    /// goes back to the Drone where the members differ — #206.
+    pub fn with_members(mut self, members: Vec<ModelName>) -> JudgeCheck {
+        if !members.is_empty() {
+            self.panel_size = members.len() as u32;
+            self.members = members;
+        }
+        self
+    }
+
+    /// The models named per member. Empty where the step named none.
+    pub fn members(&self) -> &[ModelName] {
+        &self.members
+    }
+
+    /// What member `member`, counted from one, runs on: its own model where
+    /// the step named one, else the check's. `None` leaves the fleet default.
+    pub fn member_model(&self, member: u32) -> Option<&ModelName> {
+        let own = (member as usize)
+            .checked_sub(1)
+            .and_then(|at| self.members.get(at));
+        own.or(self.model.as_ref())
     }
 
     /// The per-step model dial. `None` leaves the fleet default standing.
@@ -269,6 +305,13 @@ pub struct Judgment {
     /// **Absent means it was not recorded**, which is every row written before
     /// this existed. It is not "the input was empty" — there is no such call.
     pub given: Option<Given>,
+    /// What this member said makes the work risky, where it said so.
+    ///
+    /// **Asked only of a panel's members, and only on a refusal.** A panel
+    /// that agrees sends the work back to its Drone unless a member calls it
+    /// risky, so this is what still brings a person in — #206. Absent is a
+    /// member that said it only needs redoing, or one nobody asked.
+    pub risky: Option<String>,
 }
 
 /// One quotation an answer made, placed in the brief the call was shown.

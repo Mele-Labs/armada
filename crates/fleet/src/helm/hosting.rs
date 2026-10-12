@@ -102,8 +102,9 @@ impl Drop for Listed<'_> {
     }
 }
 
-/// How long one reply may take before its process is ended. A reply that reads
-/// a dozen Jobs is a dozen tool calls, so it is generous.
+/// How long one reply may take before its process is ended, as it ships;
+/// `timeouts.helmReplySeconds` moves it. A reply that reads a dozen Jobs is a
+/// dozen tool calls, so it is generous.
 ///
 /// **Not an idle timeout, and `#943` found none to add.** [`ProcessHost`]
 /// starts one process per message and closes its input the moment the message
@@ -134,6 +135,8 @@ pub struct ProcessHost {
     home: String,
     user: String,
     budget: Duration,
+    /// How hard the model thinks. `None` passes no effort, the harness's own.
+    effort: Option<adapter_traits::Effort>,
     /// Every session process started and not yet ended. See [`Hosting::running`].
     running: Mutex<Vec<u32>>,
 }
@@ -153,6 +156,7 @@ impl ProcessHost {
             home: host.home.to_string(),
             user: host.user.to_string(),
             budget: REPLY_BUDGET,
+            effort: None,
             running: Mutex::new(Vec::new()),
         }
     }
@@ -179,7 +183,7 @@ impl ProcessHost {
     /// one of them, so this is a constant until a row exists to say
     /// otherwise.
     pub(crate) fn on_this_machine(host: &Host) -> ProcessHost {
-        ProcessHost::new(
+        let mut process = ProcessHost::new(
             HeadlessAgent::at(host.agent_binary.clone()),
             HeadlessAgent::default_model(),
             Path::new(&host.mcp_config).with_file_name(DOOR_FILE),
@@ -188,14 +192,18 @@ impl ProcessHost {
                 home: &host.home,
                 user: &host.user,
             },
-        )
+        );
+        // `timeouts.helmReplySeconds` and `effort.helm`, read at start.
+        process.budget = host.helm_reply_budget;
+        process.effort = host.helm_effort;
+        process
     }
 
     fn launch(&self, carry: &Carry) -> Result<Launch, Carried> {
         let failed = |why: String| Carried::Failed {
             why: unanswered::no_session_started(why),
         };
-        let model = Model::named(&self.model).map_err(|why| failed(why.said()))?;
+        let model = Model::named_at(&self.model, self.effort).map_err(|why| failed(why.said()))?;
         let door = McpConfig::only_these(&self.door.to_string_lossy())
             .map_err(|why| failed(why.said()))?;
         let paths = HostPaths {

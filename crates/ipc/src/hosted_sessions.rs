@@ -317,9 +317,27 @@ pub enum SessionRow {
         at: Instant,
         title: String,
         url: String,
+        /// When the walk ended: the person approved the page or closed its window. Absent while
+        /// it is open. **The row is replaced by id** when it is set.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        ended_at: Option<Instant>,
+    },
+    /// A question the session asked in its walk window. **Replaced by id once answered**, with
+    /// `answer` set to what the person chose and said.
+    WindowAsk {
+        id: String,
+        at: Instant,
+        question: String,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        options: Vec<crate::sessions::WaitingOption>,
+        place: crate::sessions::WindowPlace,
+        /// The address of the window the session showed that the question is asked in.
+        window: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        answer: Option<String>,
     },
     /// An `armada check` the agent ran in its slot. **The row is replaced by id** as the run ends,
-    /// so a client holds one row per run. `run` is the id the Checks page opens it by. Since 23.74.
+    /// so a client holds one row per run. `run` is the id the Checks page opens it by. Since 23.75.
     Check {
         id: String,
         at: Instant,
@@ -370,6 +388,7 @@ impl SessionRow {
             | SessionRow::Lease { id, .. }
             | SessionRow::Window { id, .. }
             | SessionRow::Check { id, .. }
+            | SessionRow::WindowAsk { id, .. }
             | SessionRow::Ask { id, .. } => id,
         }
     }

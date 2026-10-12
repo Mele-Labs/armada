@@ -437,7 +437,7 @@ fn the_turn_says_which_of_the_three_things_happened() {
 
     // All ran. The sentence that was always told, unchanged.
     let all = Ran::of(step, &[PASSED, PASSED]).expect("two observations");
-    let told = OutcomeTurn::advanced(step, None, Verified::of(&all))
+    let told = OutcomeTurn::advanced(step, None, Verified::of(&all), &crate::Wording::shipped())
         .text()
         .to_string();
     assert!(
@@ -448,7 +448,7 @@ fn the_turn_says_which_of_the_three_things_happened() {
     // One ran, one did not. The Drone is told both halves, and neither is a
     // number it could try to satisfy.
     let some = Ran::of(step, &[PASSED, skip.clone()]).expect("two observations");
-    let told = OutcomeTurn::advanced(step, None, Verified::of(&some))
+    let told = OutcomeTurn::advanced(step, None, Verified::of(&some), &crate::Wording::shipped())
         .text()
         .to_string();
     assert!(
@@ -463,7 +463,7 @@ fn the_turn_says_which_of_the_three_things_happened() {
 
     // None ran. The sentence that must never be "it passed".
     let none = Ran::of(step, &[skip.clone(), skip]).expect("two observations");
-    let told = OutcomeTurn::advanced(step, None, Verified::of(&none))
+    let told = OutcomeTurn::advanced(step, None, Verified::of(&none), &crate::Wording::shipped())
         .text()
         .to_string();
     assert!(!told.contains("passed"), "nothing passed: {told}");

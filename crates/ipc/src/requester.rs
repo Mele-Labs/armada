@@ -12,7 +12,7 @@
 //! | `drone_task` | A Drone asking for the Checks on a plan task | `job_id`, `step`, `task_id`, `drone_id` |
 //! | `drone_step` | A Drone asking on a step with no task | `job_id`, `step`, `drone_id` |
 //! | `merge_line` | The merge line, for one branch | `branch`, and `job_id` with `handle` where a Job owns the branch. Since 23.64 |
-//! | `session` | A Session's agent running `armada check` in the slot it holds. Since 23.74 | `session_id`, `slot` |
+//! | `session` | A Session's agent running `armada check` in the slot it holds. Since 23.75 | `session_id`, `slot` |
 //! | `outside` | Nothing in Armada: a person's press, a bare `armada check` | none |
 //!
 //! **`outside` is a value and never an absence.** A record written before this
@@ -48,10 +48,10 @@ pub struct Requester {
     /// its id. Present on every kind that names a Job, where Fleet knows it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub handle: Option<String>,
-    /// The Session whose agent ran it. Since 23.74.
+    /// The Session whose agent ran it. Since 23.75.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub session_id: Option<String>,
-    /// The pool slot it ran in. Since 23.74.
+    /// The pool slot it ran in. Since 23.75.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub slot: Option<u32>,
 }

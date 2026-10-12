@@ -424,7 +424,7 @@ Rules that follow:
 
 - **`outside` is a value and never an absence.** A record from before the field reads as it.
 - **An agent's `start_run` names the Drone that asked** where a Drone made the call: `drone_task` or `drone_step`, with the step, task and Drone the caller is at. Fleet places the connection against the Drones it holds, never by anything the call says, so a caller no Drone holds reads `outside`.
-- **A bare `armada check` writes no record**, so there is nothing to name: only what Fleet shows is stamped. **One exception, 23.74**: run in a slot a Session holds, it tells Fleet at both ends and the run is kept as that Session's (`docs/concepts/session.md`, *A Session's Checks*). The merge line's rows carry the entry's branch, which Fleet reads from the line's own state.
+- **A bare `armada check` writes no record**, so there is nothing to name: only what Fleet shows is stamped. **One exception, 23.75**: run in a slot a Session holds, it tells Fleet at both ends and the run is kept as that Session's (`docs/concepts/session.md`, *A Session's Checks*). The merge line's rows carry the entry's branch, which Fleet reads from the line's own state.
 
 ### At what priority a Check runs
 

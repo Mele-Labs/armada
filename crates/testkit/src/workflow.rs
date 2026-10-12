@@ -166,6 +166,30 @@ pub fn modelled(steps: &[Sketch<'_>], models: &[(&str, &str)]) -> ResolvedWorkfl
     built(steps, 0, models)
 }
 
+/// The same fixture with every judged step putting its criteria to a panel,
+/// one member per model in `panel`, in order. #206.
+///
+/// **Written into the text rather than as a field on [`Sketch`]**, for
+/// [`retried`]'s reason: a panel is the whole subject of the tests that want
+/// one and noise on every other.
+pub fn panelled(steps: &[Sketch<'_>], panel: &[&str]) -> ResolvedWorkflow {
+    let roster = Roster::of(panel.iter().copied());
+    let checks = "    judge_checks:\n      -\n";
+    let text = workflow_text(steps, 0, &[], &[], Sends::TheLastStep, Held::NoStep).replace(
+        checks,
+        &format!("{checks}        panel_models: [{}]\n", panel.join(", ")),
+    );
+    let def = WorkflowDef::parse(Path::new("fixture-workflow.yml"), &text, &roster)
+        .unwrap_or_else(|refused| panic!("the fixture workflow did not parse: {refused}"));
+    let manifest = Manifest::parse(
+        Path::new("fixture-armada.yml"),
+        &manifest_text(steps, &[], &[], &[], &[]),
+    )
+    .unwrap_or_else(|refused| panic!("the fixture manifest did not parse: {refused}"));
+    ResolvedWorkflow::resolve(&def, &manifest)
+        .unwrap_or_else(|refused| panic!("the fixture did not resolve: {refused}"))
+}
+
 /// The same fixture with a Commands registry, and some Checks requiring from
 /// it.
 ///

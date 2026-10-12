@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { CHANNELS, NOTHING_YET } from "../shared/bridge";
 import type { BridgeState, PickedView, Summons } from "../shared/bridge";
 import type { BuildSource, ChangeSlotPool, Outcome, RescueSlot, RetroSubject } from "@armada/protocol";
+import type { AskTurn } from "@armada/jobs/review-wire";
 import type { HelmContext, LandCheckAt, StagedAttachment } from "@armada/protocol";
 import { landCheckAt } from "./land-following";
 import type { ToProposer, AddTask, ApproveWave, DropTask, EditJob, EditTask, FileReport, MovePlan } from "@armada/protocol";
@@ -16,8 +17,8 @@ import type {
   CommandAnswer,
   HelmCallAnswer,
   JudgeAnswer,
-  SaveLimits,
   SavePreference,
+  SaveSettings,
   WhenBlocked,
   WhenRefused,
 } from "@armada/protocol";
@@ -25,12 +26,13 @@ import { ANNOTATE_FLAG } from "../shared/annotations";
 import { handleAnnotations } from "./annotations";
 import { sessionNoteText } from "./capture/session-note";
 import { CaptureWindows } from "./capture/windows";
+import { follow } from "./capture/follow";
 import { coalesce } from "./coalesce";
 import { stagePng } from "./staging";
 import { FleetConnection } from "./connection";
 import { handleTaps } from "./haptics";
 import { installSounds } from "./dev-sounds";
-import { openArtifact } from "./open";
+import { openArtifact, openInTerminal, openSettingsFile } from "./open";
 import { openFindingIssue, openPullRequest, openRemarkLink, openStudioNode } from "./forge";
 import { RemarksPoll } from "./remarks-poll";
 import { ResourcesPoll } from "./resources-poll";
@@ -45,6 +47,7 @@ import { handleRehearsal } from "./rehearsal-channels";
 import { handleRepositories } from "./repository-channels";
 import { handleSessions } from "./session-channels";
 import { handleSleep } from "./sleep-channels";
+import { handleIssues } from "./issue-channels";
 import { SessionPages } from "./session-page";
 import { handleStudios } from "./studio-channels";
 
@@ -165,6 +168,14 @@ const captureWindows = new CaptureWindows({
     const sent = await connection?.sessions.send({ session_id: sessionId, text: `Approved: ${address}` });
     return sent === undefined ? UNSENT : sent.ok ? { ok: true } : sent.outcome;
   },
+  // The Session's question in its window settles as the item it is under Waiting on you.
+  answerAsk: async (sessionId, itemId, answer) => {
+    const sent = await connection?.sessions.answerWaiting({ session_id: sessionId, item_id: itemId, ...answer });
+    return sent === undefined ? UNSENT : sent.ok ? { ok: true } : sent.outcome;
+  },
+  sessionClosed: (sessionId, address) => {
+    void connection?.sessions.windowClosed({ session_id: sessionId, url: address });
+  },
   stage: stagePng,
   focused: (serverId, on) => {
     if (on) walkFocused.add(serverId);
@@ -173,6 +184,7 @@ const captureWindows = new CaptureWindows({
       if (!window.isDestroyed()) window.webContents.send(CHANNELS.walkFocused, walkFocused.size > 0);
     }
   },
+  follow: (jobId) => follow(jobId, { watch: (id) => void connection?.watchJob(id), bridge: bridgeWindow }),
 });
 
 /** Whether any window is on screen and not minimized. A closed one is neither. */
@@ -338,6 +350,8 @@ const toWindows = coalesce((state: BridgeState) => {
   for (const window of BrowserWindow.getAllWindows()) {
     if (!window.isDestroyed()) window.webContents.send(CHANNELS.changed, withView(state, viewFor(window.id)));
   }
+  // A walk window's panel reads what Bridge's windows read, and picks no repository of its own.
+  for (const panel of captureWindows.panels()) panel.send(CHANNELS.changed, withView(state, NO_PICK));
 });
 
 /**
@@ -404,6 +418,12 @@ function summon(to: Summons): void {
   window.show();
   window.focus();
   hand(window);
+}
+
+/** Bridge's own window, where one is open. A walk window is a `BaseWindow`, never listed here. */
+function bridgeWindow(): Electron.WebContents | null {
+  const [window] = BrowserWindow.getAllWindows();
+  return window === undefined || window.isDestroyed() ? null : window.webContents;
 }
 
 /** Hand over a held press, if there is one. Nothing is handed twice. */
@@ -473,12 +493,14 @@ void app.whenReady().then(() => {
   });
   // A Session showed a page: its window opens by itself, and opens again where it is already open.
   connection.sessions.onWindow((sessionId, title, url) => void captureWindows.openForSession(sessionId, title, url));
-  // Sleep mode changed in Fleet: every window gets the night whole.
-  connection.sleep.onChanged((state) => {
-    for (const window of BrowserWindow.getAllWindows()) {
-      if (!window.isDestroyed()) window.webContents.send(CHANNELS.sleepChanged, state);
-    }
-  });
+  // A Session asked about a place on its walk: the window comes forward and goes there.
+  connection.sessions.onAsked((sessionId, title, window, place) => void captureWindows.askedFor(sessionId, title, window, place));
+  // Sleep mode or a repository's Autopilot changed in Fleet: every window gets the night, or it, whole.
+  const everyWindow = (channel: string, value: unknown): void => {
+    for (const window of BrowserWindow.getAllWindows()) if (!window.isDestroyed()) window.webContents.send(channel, value);
+  };
+  connection.sleep.onChanged((state) => everyWindow(CHANNELS.sleepChanged, state));
+  connection.issues.onAutopilotChanged((autopilot) => everyWindow(CHANNELS.autopilotChanged, autopilot));
   handleTaps({ ipc: ipcMain, app });
   if (!app.isPackaged) installSounds(join(app.getAppPath(), "sounds"), join(app.getPath("home"), "Library", "Sounds"));
 
@@ -760,16 +782,17 @@ void app.whenReady().then(() => {
   ipcMain.handle(CHANNELS.raiseTurnCap, (_event, jobId: string, turnCap: number) =>
     connection?.commands.raiseTurnCap(jobId, turnCap),
   );
-  // Fleet's three admission limits. Fleet-wide, so no Job id rides this
-  // channel — the only one among the acts above that names none.
-  ipcMain.handle(CHANNELS.saveLimits, (_event, values: SaveLimits) =>
-    connection?.commands.saveLimits(values),
-  );
   // A person's Bridge preferences. Fleet-wide, so no Job id rides this
-  // channel either.
+  // channel — the only one among the acts above that names none.
   ipcMain.handle(CHANNELS.savePreference, (_event, save: SavePreference) =>
     connection?.commands.savePreference(save),
   );
+  // settings.json. Fleet-wide, so no Job id rides this either — `settings.ts`.
+  ipcMain.handle(CHANNELS.saveSettings, async (_event, changes: SaveSettings["changes"]): Promise<Outcome> =>
+    (await connection?.commands.saveSettings(changes)) ?? { ok: false, why: "not_connected" },
+  );
+  // The file itself, in the configured editor. No path crosses: main opens the one Fleet named.
+  ipcMain.handle(CHANNELS.openSettingsFile, () => openSettingsFile(published));
   // The Phone Gateway, one named operation at a time — `phone-gateway.ts` makes the call.
   ipcMain.handle(CHANNELS.phone, (_event, request: PhoneRequest) => askGateway(request));
   // The mods on this machine. Fleet-wide, so no Job id rides these either — `mods.ts`.
@@ -910,6 +933,13 @@ void app.whenReady().then(() => {
       state === "accepted" ? "accepted" : "open",
     ),
   );
+  // The guided review of the open items, narrowed to the asking window's pick, and one question about one item.
+  ipcMain.handle(CHANNELS.reviewLessons, (event) =>
+    connection?.reviewLessons(connection.repositories.pickedByWindow.of(windowIdOf(event))),
+  );
+  ipcMain.handle(CHANNELS.askLesson, (_event, lessonId: string, question: string, history: AskTurn[]) =>
+    connection?.askLesson(lessonId, question, history),
+  );
   // New job's own reads for the repository its ask answered, on All — #959.
   ipcMain.handle(CHANNELS.readComposing, (event, repository: string) =>
     connection?.readComposing(repository, connection.repositories.pickedByWindow.of(windowIdOf(event))),
@@ -929,7 +959,8 @@ void app.whenReady().then(() => {
   );
   handleSessions({ ipc: ipcMain, connection: () => connection, windowIdOf, pages: new SessionPages() });
   handleSleep({ ipc: ipcMain, connection: () => connection });
-  handleStudios({ ipc: ipcMain, connection: () => connection, published: () => published, captureWindows });
+  handleIssues({ ipc: ipcMain, connection: () => connection });
+  handleStudios({ ipc: ipcMain, connection: () => connection, published: () => published, captureWindows, summon });
   // The four decisions on the work, and they stay four channels. Merging lands
   // the branch and then takes the work, approving takes it and leaves the pull
   // request open, requesting changes sends the drone back to the same step, and
@@ -985,6 +1016,7 @@ void app.whenReady().then(() => {
   // request at all. **The path is built here** from the Job and the repository
   // its Manifest was read from; what crosses is a Job id and one of three
   // words, so no string the renderer composed reaches `shell.openPath`.
+  ipcMain.handle(CHANNELS.openInTerminal, (_event, jobId: string) => openInTerminal(published, jobId));
   ipcMain.handle(CHANNELS.openArtifact, (_event, jobId: string, what: Artifact) =>
     openArtifact(published, jobId, what),
   );

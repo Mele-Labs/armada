@@ -15,7 +15,7 @@ use tower::ServiceExt;
 use crate::tests::fake::{at, running, FakeDaemon, THE_STUDIO};
 use crate::tests::shapes;
 use crate::tests::shapes::{
-    run_id, A_PROPOSAL, THE_ARGUMENT, THE_BRIEF, THE_CALL, THE_DRONE, THE_FRAME, THE_LESSON,
+    run_id, A_PROPOSAL, THE_BRIEF, THE_CALL, THE_DRONE, THE_FRAME, THE_LESSON,
     THE_MANIFEST, THE_OUTPUT, THE_RECORDING,
 };
 use crate::{router, Broadcaster, Next, Served, Subscription, SERVED};
@@ -496,43 +496,6 @@ async fn a_terminal_job_can_be_forgotten_and_then_is_really_gone() {
     assert_eq!(status, StatusCode::NOT_FOUND, "the row is really gone");
 }
 
-/// **The gesture that opens a row gets the argument.** The socket sends a line
-/// and a size; this is the route the rest comes back on, and it comes back
-/// uncollapsed — a heredoc read as one line is not the thing that was run.
-#[tokio::test]
-async fn one_calls_arguments_come_back_whole_and_keep_their_newlines() {
-    let events = Broadcaster::new();
-    let daemon = FakeDaemon::new(events.clone());
-    running(&daemon, "01RUNNING");
-    let app = wired(daemon, events);
-
-    let uri = format!("/jobs/01RUNNING/calls/{THE_CALL}");
-    let (status, body) = call(&app, "GET", &uri, "").await;
-    assert_eq!(status, StatusCode::OK);
-    let served: ipc::CallArguments = ipc::decode("a call", &body).expect("a call");
-    assert_eq!(served.arguments, THE_ARGUMENT);
-    assert!(served.arguments.contains('\n'), "not collapsed to a row");
-    assert!(served.whole);
-    assert_eq!(served.length, Some(THE_ARGUMENT.chars().count()));
-}
-
-/// A call the record does not hold is **not** the Job being absent, and the two
-/// answers must not be one: a person told the Job is gone goes looking for the
-/// wrong thing.
-#[tokio::test]
-async fn a_call_the_record_does_not_hold_is_not_a_missing_job() {
-    let events = Broadcaster::new();
-    let daemon = FakeDaemon::new(events.clone());
-    running(&daemon, "01RUNNING");
-    let app = wired(daemon, events);
-
-    let (status, _) = call(&app, "GET", "/jobs/01RUNNING/calls/toolu_never", "").await;
-    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
-
-    let (status, _) = call(&app, "GET", "/jobs/01NOTHERE/calls/toolu_never", "").await;
-    assert_eq!(status, StatusCode::NOT_FOUND, "and a missing Job still is");
-}
-
 /// **The gesture that opens a Check gets its output.** The row carries where
 /// the file is; this is the route the lines come back on, verbatim and with the
 /// file's own numbering — a window that renumbered from one would send a reader
@@ -562,10 +525,10 @@ async fn a_checks_output_comes_back_as_a_window_that_says_it_is_one() {
     assert_eq!(served.attempt, 1, "joins back to the row that was pressed");
 }
 
-/// An output the record does not hold is **not** the Job being absent, which is
-/// `get_call`'s distinction one record over — and it is also what a caller
-/// naming anything but a row's own file gets, because the rows are the only
-/// thing that resolves this id to a file at all.
+/// An output the record does not hold is **not** the Job being absent: a person
+/// told the Job is gone goes looking for the wrong thing. It is also what a
+/// caller naming anything but a row's own file gets, because the rows are the
+/// only thing that resolves this id to a file at all.
 #[tokio::test]
 async fn a_check_output_the_record_does_not_hold_is_not_a_missing_job() {
     let events = Broadcaster::new();

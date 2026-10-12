@@ -35,15 +35,16 @@ import { jobFailure } from "@armada/shell";
 import { SweepButtons, SweepDialogs, sweepsOf, useRefreshKey, type Sweep } from "@armada/shell";
 import { repositoryLabel } from "@armada/shell";
 import { AskRepository } from "@armada/screens";
-import { BridgeSettings, ModsSurface } from "@armada/settings";
+import { ModsSurface, openSettingsAt } from "@armada/settings";
 import { Kit } from "@armada/manifest";
 import { Reports } from "@armada/screens";
 import { Composing } from "./Composing";
-import { useEscapeLeavesJob, useNow, useReturnToRow, useSummoned } from "./app-effects";
+import { useEscapeLeavesJob, useLandings, useNow, useReturnToRow, useSummoned } from "./app-effects";
+import { CallAlerts } from "./cockpit/CallAlerts";
 import { aJobAct, ConfirmAct, type Confirming } from "./ConfirmAct";
 import { PaletteMount } from "./PaletteMount";
 import { FLEET_DOWN } from "./palette";
-import { Overview, useDispatchBarKeys } from "./Overview";
+import { Overview } from "./Overview"; import { ONE_BAR, useOneBar } from "./one-bar";
 import { CaptureLayer, type CaptureAim } from "./capture/Layer";
 import { StudiosSurface } from "./StudiosSurface";
 import type { SketchOpening } from "@armada/screens/src/draft/sketch";
@@ -60,6 +61,7 @@ import { Toasts, useRaised } from "./raised";
 import {
   examine,
   openArtifact,
+  openInTerminal,
   openPullRequest,
   openFindingIssue,
   openRemarkLink,
@@ -149,6 +151,8 @@ import { usePlanView } from "./remembered-views";
 import { usePanelOpen } from "./panel-open";
 import { useGuideListWidth } from "./guide-list-width";
 import { fleetPanelOf } from "./left-column";
+import { DoctorSurface } from "./doctor/Doctor";
+import { firstContactOf, SettingsSurface } from "./settings-surface";
 import { fleetBuildOf, useFleetBuild } from "./fleet-build";
 import { copyDebugInfoFor, useCommandPalette } from "@armada/shell";
 import { Shell, SURFACE, SURFACES, useAtFloor, useNarrow, useSurfaceKeys } from "@armada/shell";
@@ -192,11 +196,7 @@ export function App({ draft }: AppProps = {}) {
   // it and Escape is what clears it.
   const [openJob, setOpenJob] = useState<string | null>(null);
   const asked = useAsked(openJob, state, () => goTo(SURFACE.mergeLine)); // Where the Checks page's requester links sent a person. `checks-surface.tsx`.
-  // The section a pressed notification asked for. **A token rather than a
-  // call**: the press may have arrived over the composer or over a Job, so
-  // Overview is not mounted yet, and it opens and scrolls to the section once
-  // it is. `at` is what makes a second press of the same section land.
-  const [landing, setLanding] = useState<{ section: "needs-you"; at: number } | null>(null);
+  const lands = useLandings(); // The section a pressed notification asked for, and the call an alert did.
   // Whether the composer is open. It used to sit permanently above the list;
   // `New job` is what opens it now, so the surface is the list until somebody
   // asks for the form — **or until a moment being replayed hands the window a
@@ -204,7 +204,7 @@ export function App({ draft }: AppProps = {}) {
   // before anybody has pressed anything. `drafted.tsx`.
   const [composing, setComposing] = useState(useDrafted().prompt !== undefined);
   const [composedFrom, setComposedFrom] = useState<SketchOpening>(); // A Sketch dispatched from a Studio.
-  const [seed, setSeed] = useState<string>(); // Words typed into the Dashboard's quick box.
+  const [seed, setSeed] = useState<string>(); // Words typed into the title bar's one bar.
   useEffect(() => void (composing || (setComposedFrom(undefined), setSeed(undefined))), [composing]);
   // What has been reported against the Judge. Its own view: a report is filed
   // about one Job and the rate is read across all of them.
@@ -229,7 +229,7 @@ export function App({ draft }: AppProps = {}) {
   // readable without the screen that raised any of them.
   const [guiding, setGuiding] = useState(false);
   const [lining, setLining] = useState(false); // The merge line's own surface. `merge-line.tsx`.
-  const [learning, setLearning] = useState(false); const [checking, setChecking] = useState(false); const [workflowing, setWorkflowing] = useState(false); // Lessons, every Job's retro items (`lessons.tsx`), and the Workflow creator (`workflow-creator.tsx`).
+  const [learning, setLearning] = useState(false); const [checking, setChecking] = useState(false); const [doctoring, setDoctoring] = useState(false); const [workflowing, setWorkflowing] = useState(false); // Lessons, every Job's retro items (`lessons.tsx`), and the Workflow creator (`workflow-creator.tsx`).
   const [sessioning, setSessioning] = useState(false); const [sessionOpen, setSessionOpen] = useState<string | null>(null); // Sessions (`sessions.tsx`), and the one open on it.
   const hidden = [...hiddenSurfaces(state), ...sessionsHidden(useSessionsDraft() !== undefined)]; // Left off the rail and the palette.
   // Whether the Manifest surface is open — Journey 9's *Running one*. **Its
@@ -336,7 +336,7 @@ export function App({ draft }: AppProps = {}) {
   // `⌘1`…`⌘n`, the binding the contract publishes and nothing answered until
   // the Manifest surface needed `⌘5`. One roster, read by the rail, the
   // palette and now the keyboard.
-  useSurfaceKeys(goTo); useDispatchBarKeys(() => goTo(SURFACE.overview)); // `n` and ⌘N: the Dashboard's dispatch bar.
+  useSurfaceKeys(goTo);
 
   // What this repository's Manifest declares, held open while the surface that
   // draws it is showing, **the palette is up** or a Studio is open, whose Run
@@ -411,13 +411,7 @@ export function App({ draft }: AppProps = {}) {
     onWriteProposal: writeManifestProposal,
   });
 
-  useSummoned((jobId) => {
-    setComposing(false);
-    setAuditing(false);
-    setClearing(false);
-    setOpenJob(jobId);
-    if (jobId === null) setLanding({ section: "needs-you", at: Date.now() });
-  });
+  useSummoned((jobId) => (setComposing(false), setAuditing(false), setClearing(false), setOpenJob(jobId), jobId === null && lands.landOn()), (jobId) => void (composing && reading === null ? null : setOpenJob(jobId)));
 
   useEscapeLeavesJob(openJob, close);
 
@@ -427,7 +421,8 @@ export function App({ draft }: AppProps = {}) {
   // Overview's cursor. In that order, because a Job open on screen is
   // unambiguously what is in front of you.
   const onWhat = reading ?? state.jobs.find((job) => job.id === cursor);
-  const live = state.connection.state === "connected";
+  const live = state.connection.state === "connected"; const oneBar = useOneBar({ palette, live, repository: state.repository, compose: (words) => (setSeed(words), setComposing(true)), openSession, said: setTelling, proposeFrom: commands.proposeFrom, showCockpit: () => goTo(SURFACE.overview) }); // `n`, ⌘N and ⌘K: the title bar's one bar.
+  const firstContact = firstContactOf(state.settings); // Whether a guide opens itself, once Fleet has answered.
   // Which failure is on screen, and which one `Copy debug info` would copy.
   // The order between them, and the reason there is one, are `failing.ts`.
   const { raised, lower, tell } = useRaised(commands.outcome);
@@ -481,7 +476,7 @@ export function App({ draft }: AppProps = {}) {
     setGuiding(surfaceId === SURFACE.guides);
     setLining(surfaceId === SURFACE.mergeLine);
     asked.setMergeFocus(undefined); asked.setCheckFocus(undefined);
-    setLearning(surfaceId === SURFACE.lessons); setWorkflowing(surfaceId === SURFACE.workflows); setChecking(surfaceId === SURFACE.checks);
+    setLearning(surfaceId === SURFACE.lessons); setWorkflowing(surfaceId === SURFACE.workflows); setChecking(surfaceId === SURFACE.checks); setDoctoring(surfaceId === SURFACE.doctor);
     setStudying(surfaceId === SURFACE.studios);
     setSessioning(surfaceId === SURFACE.sessions);
     setSessionOpen(null);
@@ -569,10 +564,11 @@ export function App({ draft }: AppProps = {}) {
     () => dockCardsOf(state.questions, state.jobs, repositories, now, { ...dockAnswering, onDiscuss: onDiscussHelm }),
     [state.questions, state.jobs, repositories, now, dockAnswering, onDiscussHelm],
   );
+  const atCockpit = openJob === null && !composing && !auditing && showingOf({ clearing, manifesting, settingsShowing, modding, kitting, guiding, studying, lining, learning, workflowing, checking, sessioning, doctoring }) === SURFACE.overview; // Its call is already in front.
   // Back and forward are keys and nothing on screen — `history.ts`.
   const [jobAt, onJobWhere] = useJobTab(openJob);
   useHistory(
-    { surface: showingOf({ clearing, manifesting, settingsShowing, modding, kitting, guiding, studying, lining, learning, workflowing, checking, sessioning }), job: openJob, ...jobAt, session: sessionOpen, studio: openStudio, studioNode },
+    { surface: showingOf({ clearing, manifesting, settingsShowing, modding, kitting, guiding, studying, lining, learning, workflowing, checking, sessioning, doctoring }), job: openJob, ...jobAt, session: sessionOpen, studio: openStudio, studioNode },
     (place) => { goTo(place.surface); setOpenJob(place.job); if (place.job !== null) asked.setOpening({ jobId: place.job, to: openingOf(place) }); setSessionOpen(place.session); setOpenStudio(place.studio); setStudioNode(place.studioNode); },
     (place) => place.job === null || state.jobs.some((job) => job.id === place.job),
   );
@@ -597,7 +593,7 @@ export function App({ draft }: AppProps = {}) {
        has been met, and the card it opens is a framed layer, so it belongs
        above every surface rather than inside the one that raised it. */
     <ProseLinks.Provider value={openProseLink}>
-      <GuidanceProvider onReadAll={() => goTo(SURFACE.guides)}>
+      <GuidanceProvider onReadAll={() => goTo(SURFACE.guides)} {...(firstContact === undefined ? {} : { firstContact })}>
         <SessionsOwnership onOpen={openSession}>
         <Shell
           hidden={hidden} warned={workflowsWarned(state.health)}
@@ -661,13 +657,13 @@ export function App({ draft }: AppProps = {}) {
           }
           fleet={{
             ...fleetPanelOf(state.connection, statement, state.health, now, state.readAt),
-            ...(fleetBuild === undefined ? {} : { build: fleetBuild }),
+            ...(fleetBuild === undefined ? {} : { build: fleetBuild }), onOpenDoctor: () => goTo(SURFACE.doctor),
             open: fleetOpen,
             onOpenChange: setFleetOpen,
           }}
           // Which row the rail marks — `showing.ts`.
           showing={showingOf({
-            clearing, manifesting, settingsShowing, modding, kitting, guiding, studying, lining, learning, workflowing, checking, sessioning,
+            clearing, manifesting, settingsShowing, modding, kitting, guiding, studying, lining, learning, workflowing, checking, sessioning, doctoring,
           })}
           onSurface={goTo}
         >
@@ -721,6 +717,7 @@ export function App({ draft }: AppProps = {}) {
                   onStopProposer={() => void commands.stopProposal()}
                   onReadDiff={readDiff}
                   onOpenArtifact={openArtifact}
+                  onOpenInTerminal={openInTerminal}
                   onOpenPullRequest={openPullRequest}
                   // The replacement opens over the board, the way a Studio's Job
                   // node does — the same state, so Escape still returns here.
@@ -886,7 +883,7 @@ export function App({ draft }: AppProps = {}) {
                   onCopied={setCopied}
                 />
               </Boundary>
-            ) : lining ? (<MergeLineSurface state={state} {...guarded} onOpenLink={openProseLink} onOpenJob={setOpenJob} onFix={(fix) => void commands.fixMain(fix)} {...(asked.mergeFocus === undefined ? {} : { focus: asked.mergeFocus })} />) : workflowing ? (<WorkflowCreatorSurface state={state} {...guarded} />) : checking ? (<ChecksSurface state={state} onOpenJob={(jobId, to) => { asked.setOpening(to === undefined ? null : { jobId, to }); setOpenJob(jobId); }} onOpenMergeLine={(branch) => { goTo(SURFACE.mergeLine); asked.setMergeFocus(branch); }} {...(asked.checkFocus === undefined ? {} : { focus: asked.checkFocus })} {...guarded} />) : sessioning ? (<><SessionsSurface openId={sessionOpen} onOpen={openSession} goes={{ onOpenJob: setOpenJob, onGoTo: goTo, onOpenLink: openProseLink, onOpenCheck: (sessionId, run) => asked.setCheckFocus(sessionCheckId(sessionId, run)) }} held={{ held: state.held, onWant: readHeld }} />{asked.checkFocus === undefined ? null : (<ChecksSurface state={state} only focus={asked.checkFocus} onClosed={() => asked.setCheckFocus(undefined)} onOpenJob={setOpenJob} onOpenMergeLine={(branch) => { goTo(SURFACE.mergeLine); asked.setMergeFocus(branch); }} {...guarded} />)}</>) : learning ? (
+            ) : doctoring ? (<Boundary region="Doctor" {...guarded}><DoctorSurface health={state.health} connection={state.connection} said={statement.headline} now={now} onCheck={() => watchOverview(true)} /></Boundary>) : lining ? (<MergeLineSurface state={state} {...guarded} onOpenLink={openProseLink} onOpenJob={setOpenJob} onFix={(fix) => void commands.fixMain(fix)} {...(asked.mergeFocus === undefined ? {} : { focus: asked.mergeFocus })} />) : workflowing ? (<WorkflowCreatorSurface state={state} {...guarded} />) : checking ? (<ChecksSurface state={state} onOpenJob={(jobId, to) => { asked.setOpening(to === undefined ? null : { jobId, to }); setOpenJob(jobId); }} onOpenMergeLine={(branch) => { goTo(SURFACE.mergeLine); asked.setMergeFocus(branch); }} {...(asked.checkFocus === undefined ? {} : { focus: asked.checkFocus })} {...guarded} />) : sessioning ? (<><SessionsSurface openId={sessionOpen} onOpen={openSession} goes={{ onOpenJob: setOpenJob, onGoTo: goTo, onOpenLink: openProseLink, onOpenCheck: (sessionId, run) => asked.setCheckFocus(sessionCheckId(sessionId, run)) }} held={{ held: state.held, onWant: readHeld }} />{asked.checkFocus === undefined ? null : (<ChecksSurface state={state} only focus={asked.checkFocus} onClosed={() => asked.setCheckFocus(undefined)} onOpenJob={setOpenJob} onOpenMergeLine={(branch) => { goTo(SURFACE.mergeLine); asked.setMergeFocus(branch); }} {...guarded} />)}</>) : learning ? (
               <LessonsSurface repository={state.repository} onOpenJob={setOpenJob} {...guarded} />
             ) : clearing ? (
               /* What Fleet is holding disk for, read across every Job at once.
@@ -1059,17 +1056,7 @@ export function App({ draft }: AppProps = {}) {
                 <GuideCatalogue narrow={narrow} floor={floor} listWidth={guideList} onResizeList={resizeGuideList} />
               </Boundary>
             ) : modding ? (<Boundary region="Mods" {...guarded}><ModsSurface /></Boundary>) : settingsShowing ? (
-              <Boundary region="Settings" {...guarded}>
-                <BridgeSettings
-                  limits={state.limits}
-                  live={live}
-                  health={state.health}
-                  onSave={commands.saveLimits}
-                  preferences={state.preferences} onSavePreference={(save) => window.armada.savePreference(save)}
-                  onReadGuides={() => goTo(SURFACE.guides)}
-                  onCopied={setCopied}
-                />
-              </Boundary>
+              <SettingsSurface settings={state.settings} live={live} guarded={guarded} onReadGuides={() => goTo(SURFACE.guides)} />
             ) : (
               <>
                 <Overview
@@ -1090,12 +1077,14 @@ export function App({ draft }: AppProps = {}) {
                   onCompose={() => setComposing(true)}
                   onCopied={setCopied}
                   onCursor={setCursor}
-                  land={landing}
-                  onLanded={() => setLanding(null)}
+                  land={lands.landing}
+                  onLanded={lands.landed}
+                  bring={lands.bringing}
+                  onBrought={lands.brought}
                   onOpenLink={openProseLink} onFix={(fix) => void commands.fixMain(fix)}
                   onOpenSession={openSession}
+                  onWantHeld={readHeld}
                   nowViews={draft?.calls} nows={draft?.now} onTell={tell}
-                  onQuickCompose={(words) => (setSeed(words), setComposing(true))}
                 />
 
                 {/* Never merged into the lists as a placeholder: a surface that
@@ -1146,8 +1135,7 @@ export function App({ draft }: AppProps = {}) {
         <Locate locating={locate} />
 
         <PaletteMount
-          open={palette.open}
-          onClose={palette.onClose}
+          open={palette.open} onClose={palette.onClose} dispatch={oneBar} anchor={ONE_BAR}
           reading={reading}
           shownStudio={shownStudio}
           on={onWhat}
@@ -1171,9 +1159,7 @@ export function App({ draft }: AppProps = {}) {
               if (failing !== null) copyDebugInfoFor(failing, setCopied);
             },
             confirm: (what, jobId) => setConfirming({ act: what, jobId }),
-            openSetting: (id) => {
-              if (id === "fleet_settings") goTo(SURFACE.settings);
-            },
+            openSetting: (id) => openSettingsAt(id, () => goTo(SURFACE.settings)),
             refresh: () => void commands.refresh(),
             board: (id) => {
               if (id !== "reports") return setSweep(id === "clear" ? "clear" : "forget");
@@ -1194,7 +1180,9 @@ export function App({ draft }: AppProps = {}) {
           copied={copied}
           said={telling}
           onCopied={setCopied}
-        />
+        >
+          <CallAlerts state={state} picked={pickedRepository} nowViews={draft?.calls} onCockpit={atCockpit} onShow={(key) => (goTo(SURFACE.overview), lands.bring(key))} />
+        </Toasts>
         </SessionsOwnership>
       </GuidanceProvider>
     </ProseLinks.Provider>

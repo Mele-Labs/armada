@@ -754,13 +754,14 @@ pub trait Commands: Send + Sync + 'static {
     /// offered.
     ///
     /// **The Bridge half of the Drone's [`ask_question`](Tools::ask_question)**,
-    /// and one act seen from its two ends: a Drone asked and stopped, and this
-    /// starts it again. The answer goes into the live session as a turn, the
-    /// delivery half `redirect_drone` already uses.
+    /// and one act seen from its two ends: a Drone asked and stood down, and
+    /// this lets the Job go again. The answer is kept on the Job, and the fresh
+    /// Drone admission puts back on the step opens with it.
     ///
-    /// **It moves nothing.** The Job is `running` before and after, and it comes
-    /// back for the reason every other command answers with one — a caller folds
-    /// the row rather than re-reading the board.
+    /// **It moves nothing.** The Job is `queued` before and after, reading
+    /// `awaiting_answer` and then not, and it comes back for the reason every
+    /// other command answers with one — a caller folds the row rather than
+    /// re-reading the board.
     ///
     /// **There is no field for prose.** [`ChosenAnswer::chose`] is one of the labels
     /// the Drone offered and a label matching none is refused, which keeps this from
@@ -976,31 +977,6 @@ pub trait Commands: Send + Sync + 'static {
         &self,
         asked: ipc::ChangeFleetBuild,
     ) -> impl Future<Output = Result<ipc::FleetBuildChanging, Refusal>> + Send;
-
-    /// `save_limits` — save any of the three limits and answer with what is
-    /// now in force. **An omitted field keeps its value.**
-    ///
-    /// **Nothing out of range reaches this.** `ipc::SaveLimits` cannot hold
-    /// one, so the route refuses it as undecodable. It changes the next
-    /// admission and stops nothing already running; [`Refusal::Fault`] where
-    /// the save would not be written, and then nothing changed.
-    fn save_limits(
-        &self,
-        save: ipc::SaveLimits,
-    ) -> impl Future<Output = Result<ipc::FleetLimits, Refusal>> + Send;
-
-    /// `save_preferences` — save one preference by name, and answer with what
-    /// is now in force. **`limits`' shape one table over, one field at a
-    /// time**: a save names a preference rather than the whole set, and every
-    /// other preference is untouched.
-    ///
-    /// [`Refusal::Unacceptable`] where `name` is outside the closed set —
-    /// refused by name, since `SavePreference.name` is a plain string and
-    /// always decodes.
-    fn save_preferences(
-        &self,
-        save: ipc::SavePreference,
-    ) -> impl Future<Output = Result<ipc::Preferences, Refusal>> + Send;
 
     /// `remove_repository_allowed_command` — take back a rule a person
     /// always-allowed for this Manifest's repository. **Since `#836`.**

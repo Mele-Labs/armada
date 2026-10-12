@@ -394,7 +394,7 @@ fn the_dispatched_block_names_every_child_and_where_it_ended() {
     ])
     .expect("two children render a block");
 
-    let said = rolled.text();
+    let said = rolled.text(&crate::prompts::Prompts::shipped());
     assert!(said.contains("01CHILDONE"), "{said}");
     assert!(said.contains("port the parser"), "{said}");
     assert!(

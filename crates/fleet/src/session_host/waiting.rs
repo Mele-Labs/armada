@@ -9,6 +9,8 @@
 //! ones, and a window stops waiting once it is approved or the person has sent the session a
 //! message after it opened. A window closed without either still waits: that is his call.
 //!
+//! **A question asked in the walk window waits until answered**, read off its row as `window_ask:<row>`.
+//!
 //! **A dismissed id never comes back.** `dismiss_waiting` keeps the id; a derived item with it is
 //! left off every read and an agent item with it is dropped from the kept list.
 
@@ -17,13 +19,14 @@ use std::sync::Arc;
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{HostedSessions, Refusal};
 use ipc::{
-    AnswerSessionAsk, AnswerWaiting, DismissWaiting, HelmCallAnswer, HelmCallInFlight, Instant, QuestionAnswer,
-    SendSessionMessage, SessionRecord, SessionRow, SessionVoice, SetWaitingFor, WaitingAct,
-    WaitingActKind, WaitingItem, WaitingMode, WaitingOption, WaitingSource, WireError,
+    AnswerSessionAsk, AnswerWaiting, DismissWaiting, HelmCallAnswer, HelmCallInFlight, Instant,
+    QuestionAnswer, SendSessionMessage, SessionRecord, SessionRow, SessionVoice, SetWaitingFor,
+    WaitingAct, WaitingActKind, WaitingItem, WaitingMode, WaitingOption, WaitingSource, WireError,
 };
 use store::{KeptSession, KeptWaiting, Store};
 
 use crate::daemon::Fleet;
+use crate::session_host::asking_in_window::WINDOW_ASK_PREFIX;
 
 const SESSION_WAITING_UNNAMED: &str = "fleet.session_waiting_unnamed";
 const SESSION_WAITING_EMPTY: &str = "fleet.session_waiting_empty";
@@ -91,16 +94,20 @@ fn card_item(asked: &HelmCallInFlight) -> WaitingItem {
                     .iter()
                     .map(|one| WaitingOption {
                         label: one.label.clone(),
+                        description: None,
                     })
                     .collect()
             } else {
                 Vec::new()
             },
+            place: None,
         };
     }
     WaitingItem {
         id: format!("perm:{}", asked.call),
-        text: format!("{} {}", asked.tool, asked.detail).trim().to_string(),
+        text: format!("{} {}", asked.tool, asked.detail)
+            .trim()
+            .to_string(),
         since: asked.asked_at.clone(),
         source: WaitingSource::Permission,
         act,
@@ -109,8 +116,10 @@ fn card_item(asked: &HelmCallInFlight) -> WaitingItem {
             .iter()
             .map(|one| WaitingOption {
                 label: offer_label(one).to_string(),
+                description: None,
             })
             .collect(),
+        place: None,
     }
 }
 
@@ -137,6 +146,7 @@ pub(crate) fn merged(
             target: one.url.clone(),
         }),
         options: Vec::new(),
+        place: None,
     }));
     let same = |item: &WaitingItem, act: &Option<(String, String)>| {
         matches!((&item.act, act), (Some(a), Some((kind, target)))
@@ -161,11 +171,19 @@ pub(crate) fn merged(
             options: one
                 .options
                 .into_iter()
-                .map(|label| WaitingOption { label })
+                .map(|label| WaitingOption {
+                    label,
+                    description: None,
+                })
                 .collect(),
+            place: None,
         })
         .collect();
-    items.extend(derived.into_iter().filter(|one| !dismissed.contains(&one.id)));
+    items.extend(
+        derived
+            .into_iter()
+            .filter(|one| !dismissed.contains(&one.id)),
+    );
     items
 }
 
@@ -200,7 +218,9 @@ where
                     from: SessionVoice::You,
                     text,
                     ..
-                } => text.strip_prefix("Approved: ").map(|url| url.trim().to_string()),
+                } => text
+                    .strip_prefix("Approved: ")
+                    .map(|url| url.trim().to_string()),
                 _ => None,
             })
             .collect();
@@ -236,13 +256,37 @@ where
             .into_iter()
             .collect();
         let dismissed = store.dismissed_waiting(&session.id)?;
-        Ok(merged(
-            kept,
-            asked.as_ref(),
-            &windows,
-            &dismissed,
-            session.state == store::SessionState::Ended,
-        ))
+        let ended = session.state == store::SessionState::Ended;
+        let mut items = merged(kept, asked.as_ref(), &windows, &dismissed, ended);
+        if !ended {
+            items.extend(rows.into_iter().filter_map(|row| match row {
+                SessionRow::WindowAsk {
+                    id,
+                    at,
+                    question,
+                    options,
+                    place,
+                    window,
+                    answer: None,
+                } => {
+                    let id = format!("{WINDOW_ASK_PREFIX}{id}");
+                    (!dismissed.contains(&id)).then_some(WaitingItem {
+                        id,
+                        text: question,
+                        since: at,
+                        source: WaitingSource::WindowAsk,
+                        act: Some(WaitingAct {
+                            kind: WaitingActKind::Walk,
+                            target: window,
+                        }),
+                        options,
+                        place: Some(place),
+                    })
+                }
+                _ => None,
+            }));
+        }
+        Ok(items)
     }
 
     /// `waiting_for`: replace the agent's list. An item keeps the `since` its id first had.
@@ -253,13 +297,19 @@ where
     ) -> Result<SessionRecord, Refusal> {
         let id = caller
             .and_then(|caller| self.session_holding(&caller))
-            .or_else(|| set.session_id.map(|named| named.as_str().trim().to_string()))
+            .or_else(|| {
+                set.session_id
+                    .map(|named| named.as_str().trim().to_string())
+            })
             .filter(|id| !id.is_empty())
-            .ok_or_else(|| self.hosted_refusal(SESSION_WAITING_UNNAMED, "a session to set it for"))?;
+            .ok_or_else(|| {
+                self.hosted_refusal(SESSION_WAITING_UNNAMED, "a session to set it for")
+            })?;
         let mut seen = std::collections::HashSet::new();
         for item in &set.items {
             if item.id.trim().is_empty() || item.text.trim().is_empty() {
-                return Err(self.hosted_refusal(SESSION_WAITING_EMPTY, "every item needs an id and its text"));
+                return Err(self
+                    .hosted_refusal(SESSION_WAITING_EMPTY, "every item needs an id and its text"));
             }
             if !seen.insert(item.id.trim().to_string()) {
                 return Err(self.hosted_refusal(SESSION_WAITING_EMPTY, "two items share an id"));
@@ -271,8 +321,12 @@ where
             let session = store
                 .session(&id)
                 .map_err(|why| self.ledger_fault(why))?
-                .ok_or_else(|| self.hosted_refusal(SESSION_WAITING_UNNAMED, "a session Fleet knows"))?;
-            let before = store.waiting_for(&id).map_err(|why| self.ledger_fault(why))?;
+                .ok_or_else(|| {
+                    self.hosted_refusal(SESSION_WAITING_UNNAMED, "a session Fleet knows")
+                })?;
+            let before = store
+                .waiting_for(&id)
+                .map_err(|why| self.ledger_fault(why))?;
             let items: Vec<KeptWaiting> = set
                 .items
                 .into_iter()
@@ -333,15 +387,24 @@ where
             && said.mode.is_none()
             && said.text.as_deref().map_or(true, |t| t.trim().is_empty());
         if nothing && item.source != WaitingSource::Walk {
-            return Err(self.hosted_refusal(SESSION_WAITING_EMPTY, "an answer needs a choice, words or a mode"));
+            return Err(self.hosted_refusal(
+                SESSION_WAITING_EMPTY,
+                "an answer needs a choice, words or a mode",
+            ));
         }
-        let words = said.text.as_deref().map(str::trim).filter(|t| !t.is_empty());
+        let words = said
+            .text
+            .as_deref()
+            .map(str::trim)
+            .filter(|t| !t.is_empty());
         let picked = match said.choice {
             Some(at) => Some(
                 item.options
                     .get(at as usize)
                     .map(|one| one.label.clone())
-                    .ok_or_else(|| self.hosted_refusal(SESSION_WAITING_EMPTY, "that item has no such choice"))?,
+                    .ok_or_else(|| {
+                        self.hosted_refusal(SESSION_WAITING_EMPTY, "that item has no such choice")
+                    })?,
             ),
             None => None,
         };
@@ -354,13 +417,9 @@ where
         };
         match item.source {
             WaitingSource::AskCard | WaitingSource::Permission => {
-                let asked = self
-                    .hosts()
-                    .of(&id)
-                    .state()
-                    .asked
-                    .clone()
-                    .ok_or_else(|| self.hosted_refusal(SESSION_WAITING_UNHELD, "no card is open"))?;
+                let asked = self.hosts().of(&id).state().asked.clone().ok_or_else(|| {
+                    self.hosted_refusal(SESSION_WAITING_UNHELD, "no card is open")
+                })?;
                 let answer = if item.source == WaitingSource::AskCard {
                     match (picked.as_deref().or(words), asked.questions.first()) {
                         (Some(chosen), Some(first)) => AnswerSessionAsk {
@@ -398,15 +457,34 @@ where
                 };
                 self.send_session_message(message(body)).await
             }
-            WaitingSource::Agent => {
-                self.send_session_message(message(reply(&item.text, picked.as_deref().or(words), line)))
+            WaitingSource::WindowAsk => {
+                let answer = [picked.as_deref(), words, line]
+                    .into_iter()
+                    .flatten()
+                    .collect::<Vec<_>>()
+                    .join("\n");
+                if let Some(row) = item.id.strip_prefix(WINDOW_ASK_PREFIX) {
+                    self.window_ask_answered(&id, row, answer.clone()).await;
+                }
+                self.send_session_message(message(format!("Re: {}\n{answer}", item.text)))
                     .await
+            }
+            WaitingSource::Agent => {
+                self.send_session_message(message(reply(
+                    &item.text,
+                    picked.as_deref().or(words),
+                    line,
+                )))
+                .await
             }
         }
     }
 
     /// `dismiss_waiting`: drop one item for good. Nothing is sent to the agent.
-    pub(crate) async fn dismiss_waited(&self, dismiss: DismissWaiting) -> Result<SessionRecord, Refusal> {
+    pub(crate) async fn dismiss_waited(
+        &self,
+        dismiss: DismissWaiting,
+    ) -> Result<SessionRecord, Refusal> {
         let id = dismiss.session_id.as_str().to_string();
         if self.terminal_session(&id).await?.is_some() {
             self.terminal_ask_standing(&id).await;
@@ -416,7 +494,9 @@ where
             let session = store
                 .session(&id)
                 .map_err(|why| self.ledger_fault(why))?
-                .ok_or_else(|| self.hosted_refusal(SESSION_WAITING_UNNAMED, "a session Fleet knows"))?;
+                .ok_or_else(|| {
+                    self.hosted_refusal(SESSION_WAITING_UNNAMED, "a session Fleet knows")
+                })?;
             let held = self
                 .ledger_row(&store, &session)?
                 .waiting_for

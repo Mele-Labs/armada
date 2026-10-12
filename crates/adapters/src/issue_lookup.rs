@@ -82,7 +82,7 @@ impl LinkLookup for IssueLookup {
 /// Scans for the host literally rather than parsing a URL: the shape this
 /// looks for is narrow enough that a `/`-split answers it, and a full URL
 /// parser would be a dependency bought for one path segment.
-fn issue_reference(request: &str) -> Option<(String, String, String)> {
+pub(crate) fn issue_reference(request: &str) -> Option<(String, String, String)> {
     const HOST: &str = "github.com/";
     let after_host = &request[request.find(HOST)? + HOST.len()..];
     let mut segments = after_host.split(['/', '?', '#', ' ', '\n']);

@@ -785,6 +785,17 @@ vanishing to nothing:
 A refusal is told from an acceptance by the line's colour and direction
 before the label is read. The control never moves in any of the four.
 
+**The Cockpit's call answers are such controls too.** The answer pressed,
+Poke, Attach or Dismiss sweeps the same bar along its edge until Fleet
+answers, with the tooltip *Waiting on Fleet* and no label of its own; every
+other control on the card is held, and a second press is not a second send.
+A refusal stops the line and the card stays, with Fleet's words in the toast.
+The five-second sentence is not drawn there: past it nothing new appears and
+the line keeps going (owner, 9 Oct 2026). **An answered or dismissed call is
+held out of the deck until Fleet stops carrying it**, because Fleet takes the
+POST before it has re-derived what the Session waits on; the hold lets go
+after thirty seconds if Fleet still carries it, with nothing said.
+
 **The live phase sweeps a bar along its top edge**, the same line on the
 same clock: `--pending-bar` tall, `--status-running`, one segment
 travelling at `--duration-pulse`, linear rather than `--ease` for the
@@ -900,8 +911,12 @@ breakpoint.
 
 Frameless, `titleBarStyle: 'hiddenInset'`, macOS traffic lights inset over
 the **title row** — the bar across the window's top carrying the repository
-picker, search, Dispatch and Helm's reopen control (#1087 moved all four off
-the left column and into this row), and Fleet's status dot. **The dot is
+picker, the one bar and Helm's reopen control (#1087 moved them off the left
+column and into this row), and Fleet's status dot. **The one bar searches and
+dispatches** (the owner, 10 Oct 2026): it opens the palette over itself, and
+the palette offers what was typed as the work too, so the row draws no
+Dispatch button and the Cockpit no dispatch box. The row sits flush on
+`--bg-base` with no rule under it, so the panels below carry the frames. **The dot is
 permanent chrome**, corrected on 18 Sep 2026 from the conditional one #1438
 shipped — see Left column, below. Costs a custom drag region: the whole row is
 a drag region, and every control inside it opts out by hand — the dot included,
@@ -1291,7 +1306,7 @@ These have no trigger, so flip and alignment do not apply to them.
 | Guide card | Centred in the window on both axes |
 | Sheet | Full height, flush to one side edge, trailing by default. **Floating**: under the title row and held `--space-4` off every edge, rounded and bordered — Helm's dock as a layer. A screen's own reading takes it where a sheet contained in the content column read as cut off (the owner, 29 Sep 2026) |
 | Toast | Bottom trailing corner, inset `--space-6` |
-| Command palette | Horizontally centred, top-anchored |
+| Command palette | Over the title row's one bar, its field on the bar's own. Horizontally centred and top-anchored where the bar is not drawn |
 
 **A guide card is framed even though a `?` raised it.** It is the one layer
 that can also open with no trigger at all — the first time a person meets a
@@ -1680,7 +1695,8 @@ A floating layer, so `--bg-overlay` and a shadow.
 ```
 surface    --bg-overlay · --border-default · --radius-lg · shadow
 width      560px · max-height 400px · scroll-area beyond
-anchor     top-aligned at 20% of viewport height, never centered
+anchor     over the title row's one bar; top-aligned at 20% of viewport
+           height where the bar is not drawn; never centered
 input      --text-base · no border · --fg-default · placeholder --fg-subtle
            bottom rule --border-subtle
 row        32px · 12px padding · --text-sm · --fg-default
@@ -1692,6 +1708,14 @@ section    --text-2xs · --fg-subtle
 Top-anchored rather than centered because a centered dialog shifts
 vertically as the result count changes, and a target that moves while
 you type is a target you misclick.
+
+**What is typed can be dispatched as well as searched.** Once there is a
+query, a row offers it as a Job, or as a Session where Sessions are served,
+and Tab switches between the two. That row leads when nothing else matches, when the words are a link, or when
+`n` or `⌘N` opened the bar; otherwise it waits at the foot, so ↵ still opens
+the match — a Job is searched by its title, and a title is a sentence. `⌘↵` dispatches whatever row is picked, and `⇧↵` opens the full
+composer holding the words, for a file, a sketch or a long request. A Job on
+All goes to the composer, which asks for the repository.
 
 **Contents, in order:** actions available on the current context,
 navigation, jobs by id or name, settings.
@@ -1900,7 +1924,7 @@ one claim.
 | Secondary | `--bg-sunken`, `--border-strong`, `--fg-default` | `--bg-hover` | Everything ordinary |
 | Ghost | transparent, `--fg-muted` | `--bg-hover` • `--fg-default` | Row actions, icon buttons, toolbars |
 | Destructive | transparent, `--status-completed-failed` text and border | fill at 12% | Kill, and Send it back on a step the gaming check holds — it sends work back rather than forward (owner, 2 Oct 2026). Never a filled red button |
-| Tonal | `--accent-muted` fill, `--accent-hover` text, no border | 24% `--accent` mixed into `--accent-muted` | Chrome present on every screen, carrying the app's main entry. The title bar's Dispatch. Never the one solid accent of a view |
+| Tonal | `--accent-muted` fill, `--accent-hover` text, no border | 24% `--accent` mixed into `--accent-muted` | Chrome present on every screen, carrying the app's main entry. Never the one solid accent of a view |
 
 ```
 height   36px default · 32px sm (use sm inside table rows)
@@ -2160,9 +2184,9 @@ line     "No jobs." --text-base weight 600, then "Propose one." --fg-muted
 action   Dispatch, Primary — the view's one solid accent
 ```
 
-**No icon.** Iconography's empty-state rule holds. **The title row's Dispatch
-stays Tonal** while this one is Primary, so the view still carries one solid
-accent, and it is the one beside the empty space.
+**No icon.** Iconography's empty-state rule holds. The title row carries no
+Dispatch button since its one bar took the act (10 Oct 2026), so this is the
+view's one solid accent, beside the empty space.
 
 ### Helm dock
 
@@ -2445,7 +2469,7 @@ nothing but the edge.
 | Placement | Where | Rule |
 | --- | --- | --- |
 | Inline | In the row, or beside the act | Contained to the thing you touched |
-| Toast | Bottom trailing, inset `--space-6`, shadowed | A confirmation, which may carry no act and goes on its own; or a press that failed or was not sent, which carries its acts and stays until dismissed |
+| Toast | Bottom trailing, inset `--space-6`, shadowed | A confirmation, which may carry no act and goes on its own; or a press that failed or was not sent, which carries its acts and stays until dismissed; or a call that has come for the owner while he is away from the cockpit, which is pressable as a whole, opens that call's card, and goes when the call is dealt with or after fifteen seconds |
 | Banner | Above the surface, inside it | Persistent. The surface works beneath |
 | Full-surface | Replaces the surface | The one placement that takes the screen |
 

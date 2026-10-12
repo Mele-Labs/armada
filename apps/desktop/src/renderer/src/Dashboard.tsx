@@ -88,6 +88,8 @@ export type Item = {
   /** The Job's workflow steps and the index it is at, for the tile's pips. */
   steps?: readonly { id: string; label: string }[];
   stepAt?: number;
+  /** The Job is being proposed and its workflow has not landed: the tile holds the steps' place with the settling mark. */
+  settling?: true;
   /** A Session's recent cadence, each bar 0 to 1: a message tall, a tool call short. */
   spark?: readonly number[];
   /** What a Session's call waits on: the item, which is what the call answers. */
@@ -155,6 +157,8 @@ export type Hosts = {
   onPausing?: ((act: PauseAct, jobId: string) => void) | undefined;
   /** Says a sentence as a toast: a refusal the panel has to name. */
   onTell?: ((sentence: string) => void) | undefined;
+  /** Asks Fleet for the worktree pool while the bays are drawn, and lets go after. */
+  onWantHeld?: ((want: boolean) => void) | undefined;
   /** Where the cursor is, for Helm's footer: the Job picked, or null. */
   onCursor?: ((jobId: string | null) => void) | undefined;
 };
@@ -414,7 +418,7 @@ function waitingItem({ session, item }: WaitingCall, hosts: Hosts): Item {
     key: `session:${session.id}:${item.id}`,
     owner: `session:${session.id}`,
     icon: SquareTerminal,
-    kind: item.source === "ask_card" ? "Session question" : item.source === "walk" ? "Session walk" : "Session",
+    kind: item.source === "ask_card" || item.source === "window_ask" ? "Session question" : item.source === "walk" ? "Session walk" : "Session",
     session: true,
     mark: Eye,
     state: item.source === "permission" ? "Waiting on a command" : "Waiting on you",
@@ -515,12 +519,6 @@ function lineItems(state: BridgeState, tab: DashboardTab, hosts: Hosts, rehearse
   return items;
 }
 
-/** Whether the owner is wanted anywhere: the quick box shows only where this is false. */
-export function useNeedsYou(state: BridgeState, picked: RepositorySummary | null, nowViews: Readonly<Record<string, CallView>> | undefined): boolean {
-  const items = useItems("command-central", state, picked, nowViews, { onOpen: () => {}, onOpenSession: () => {}, onOpenLink: () => {} }, new Set());
-  return items.length > 0;
-}
-
 export function useItems(
   tab: DashboardTab,
   state: BridgeState,
@@ -603,7 +601,9 @@ export function useItems(
       const steps = (state.holds.workflows.find((one) => one.id === job.workflow_id)?.steps ?? []).map((step) => ({ id: step.step_id, label: step.label }));
       const at = tab === "done" && item.hue !== "bad" ? steps.length : Math.max(0, steps.findIndex((step) => step.id === job.current_step_id));
       const active = tab === "done" ? undefined : activeOf(nows?.[job.id]);
-      return { ...item, ...(steps.length === 0 ? {} : { steps, stepAt: at }), ...(active === undefined ? {} : { ...active, live: true }) };
+      // The workflow is the proposer's to settle: until it lands there is nothing to draw pips from.
+      const settling = job.status === "proposing" && job.workflow_id === "";
+      return { ...item, ...(steps.length === 0 ? {} : { steps, stepAt: at }), ...(settling ? { settling: true as const } : {}), ...(active === undefined ? {} : { ...active, live: true }) };
     });
     return drawn.filter((item) => !answered.has(item.key));
   }, [tab, state, picked, nowViews, nows, sessions, answered, dismissed]);

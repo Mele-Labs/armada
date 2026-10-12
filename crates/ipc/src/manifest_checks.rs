@@ -38,7 +38,7 @@ pub struct ManifestCheckRow {
     /// Drone asked for. An opaque string, as `Requester::kind` is.
     pub source: String,
     pub requester: Requester,
-    /// **Absent on a Session's run**, which belongs to no Job, along with the three below. Since 23.74.
+    /// **Absent on a Session's run**, which belongs to no Job, along with the three below. Since 23.75.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub job_id: Option<JobId>,
     /// What a person calls the Job.
@@ -48,7 +48,7 @@ pub struct ManifestCheckRow {
     pub job_title: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub step: Option<StepId>,
-    /// The Session whose agent ran it, on a row with no Job. Since 23.74.
+    /// The Session whose agent ran it, on a row with no Job. Since 23.75.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub session_id: Option<String>,
     /// Which run of the step.

@@ -129,6 +129,10 @@ def checkout_has_base(path: str) -> bool:
     it is must not refuse a merge.
     """
     here = os.path.abspath(path)
+    # A path that is not there (a `cd "$(…)"` the hook cannot expand, a slot not
+    # yet cut) names no checkout; walking up from it would land on the one above.
+    if "$" in path or "`" in path or not os.path.isdir(here):
+        return False
     while not os.path.exists(os.path.join(here, ".git")):
         parent = os.path.dirname(here)
         if parent == here:

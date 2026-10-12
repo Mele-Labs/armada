@@ -352,7 +352,7 @@ export type CheckRun = {
  * **The other half of `CheckRun.output_path`.** The row says where the output
  * was written and `main/open.ts` hands that path to the operating system; this
  * is the read that brings the lines into the app, asked for once by the person
- * who opened one Check. The split is `CallArguments`', made against the same
+ * who opened one Check. The split is `JobDiff`'s, made against the same
  * measurement: output is up to two 64 KiB streams, so the cheap fact rides the
  * row and the bytes are fetched. **Never on the event stream.**
  *
@@ -386,7 +386,8 @@ export type CheckOutput = {
   bytes: number;
   /**
    * Whether `lines` is all of it. **Stated rather than inferred from
-   * `from_line === 1`**, which is `CallArguments.whole`'s reason.
+   * `from_line === 1`**, because a surface that derived it would call a
+   * partial answer whole the first time that field's meaning moved.
    */
   whole: boolean;
 };

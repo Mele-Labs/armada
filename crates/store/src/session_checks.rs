@@ -79,6 +79,36 @@ impl Store {
             .map_err(WriteError::Database)
     }
 
+    /// Every run of `session_id` still running ends as failed, with `log`. Answers those runs.
+    pub fn fail_running_session_checks(
+        &mut self,
+        session_id: &str,
+        at: &str,
+        log: &str,
+    ) -> Result<Vec<KeptSessionCheck>, WriteError> {
+        let doing = "ending a Session's Check runs";
+        let running: Vec<KeptSessionCheck> = {
+            let mut statement = self
+                .conn
+                .prepare(&format!(
+                    "SELECT {COLUMNS} FROM session_check_runs WHERE session_id = ?1 AND state = 'running'"
+                ))
+                .map_err(fault(doing))
+                .map_err(WriteError::Database)?;
+            let rows = statement
+                .query_map([session_id], kept)
+                .map_err(fault(doing))
+                .map_err(WriteError::Database)?;
+            rows.collect::<Result<_, _>>()
+                .map_err(fault(doing))
+                .map_err(WriteError::Database)?
+        };
+        for run in &running {
+            self.end_session_check(run.id, "failed", at, 0, log)?;
+        }
+        Ok(running)
+    }
+
     pub fn session_check(&self, run: i64) -> Result<Option<KeptSessionCheck>, WriteError> {
         self.conn
             .query_row(

@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "../../primitives/Card/
 import { Prose } from "../../primitives/Prose/Prose";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { keyFor } from "../../actions";
+import { pressedSlot } from "../../keymap";
 import { Clamped } from "../Clamped/Clamped";
 import { GroupBoundary, type GroupBoundaryProps } from "../GroupBoundary/GroupBoundary";
 import { GroupShape } from "../GroupShape/GroupShape";
@@ -346,10 +347,12 @@ export function usePlanMover(groups: readonly PlanBoardGroup[], move: PlanBoardM
 
   /** `⌥↑` / `⌥↓`: one place. A task at a group's edge crosses into the next group. */
   const keyed = (event: KeyboardEvent, target: Dragging) => {
-    if (!live || !event.altKey || (event.key !== "ArrowUp" && event.key !== "ArrowDown")) return;
+    // `move_in_plan`'s two slots, up then down, as this person has them.
+    const slot = live ? pressedSlot("move_in_plan", event) : -1;
+    if (slot === -1) return;
     event.preventDefault();
     event.stopPropagation();
-    const by = event.key === "ArrowUp" ? -1 : 1;
+    const by = slot === 0 ? -1 : 1;
     const g = groups.findIndex((one) => one.id === target.group);
     if (target.task === undefined) {
       const to = g + by;

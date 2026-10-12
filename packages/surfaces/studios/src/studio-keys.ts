@@ -11,29 +11,22 @@
 // open three more fields, and a modifier means another tier is being addressed.
 
 import { useEffect } from "react";
-import { ACTION, type StudioNodeByHandKind } from "@armada/components";
+import { isPressed, type Press, type StudioNodeByHandKind } from "@armada/components";
 
 import { holdsText } from "@armada/screens/src/keys";
 
 /** Each kind's binding, from the registry. The one place a key is written is there. */
 const ADD: readonly (readonly [string, StudioNodeByHandKind])[] = [
-  [ACTION.add_note?.shortcut ?? "", "note"],
-  [ACTION.add_link?.shortcut ?? "", "link"],
-  [ACTION.add_sketch?.shortcut ?? "", "sketch"],
-  [ACTION.add_zone?.shortcut ?? "", "zone"],
+  ["add_note", "note"],
+  ["add_link", "link"],
+  ["add_sketch", "sketch"],
+  ["add_zone", "zone"],
 ];
 
 /** What a press means on an open Studio, or `null` where it means nothing here. */
-export function addPressOf(event: {
-  key: string;
-  metaKey: boolean;
-  ctrlKey: boolean;
-  altKey: boolean;
-  target: EventTarget | null;
-}): StudioNodeByHandKind | null {
-  if (event.metaKey || event.ctrlKey || event.altKey) return null;
+export function addPressOf(event: Press & { target: EventTarget | null }): StudioNodeByHandKind | null {
   if (holdsText(event.target)) return null;
-  return ADD.find(([key]) => key === event.key)?.[1] ?? null;
+  return ADD.find(([id]) => isPressed(id, event))?.[1] ?? null;
 }
 
 /**
@@ -57,7 +50,6 @@ export function useAddNodeKeys(editable: boolean, onAdding: (kind: StudioNodeByH
 }
 
 /** Run's binding, from the registry. */
-const RUN = ACTION.start_studio_run?.shortcut ?? "";
 
 /**
  * `R` on an open Studio opens the rail's Run menu — the owner, 2 Oct 2026.
@@ -69,8 +61,8 @@ export function useRunKey(on: boolean, onRun: () => void): void {
   useEffect(() => {
     if (!on) return;
     function pressed(event: KeyboardEvent): void {
-      if (event.metaKey || event.ctrlKey || event.altKey || holdsText(event.target)) return;
-      if (event.key !== RUN) return;
+      if (holdsText(event.target)) return;
+      if (!isPressed("start_studio_run", event)) return;
       event.preventDefault();
       onRun();
     }

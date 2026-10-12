@@ -92,3 +92,44 @@ async fn a_session_check_where_no_session_holds_the_slot_is_nobodys_run() {
     assert!(fleet.manifest_checks(None).await.expect("lists").rows.is_empty());
     assert!(fleet.session_check_output(99).await.is_err());
 }
+
+#[tokio::test]
+async fn a_session_check_still_out_when_the_session_ends_fails_with_that_said() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home, FakeWorkProduct::changed(&[]));
+    let root = fleet.repositories().first().expect("served").root().to_string();
+    let slot = adapter_traits::slot_path(&root, 2);
+    let report = |fact| SessionReport {
+        harness: "a_harness".into(),
+        session_id: SessionId::carried("s1"),
+        fact,
+    };
+    fleet
+        .report_session(report(SessionFact::Started {
+            cwd: slot.clone(),
+            title: None,
+            origin: ipc::SessionOrigin::Terminal,
+            mod_version: None,
+        }))
+        .await
+        .expect("kept");
+    let SessionCheckAnswer { run: Some(run) } = fleet
+        .session_check_reported(call(SessionCheckAct::Start, &slot))
+        .await
+        .expect("begins")
+    else {
+        panic!("held");
+    };
+
+    fleet
+        .report_session(report(SessionFact::Ended { reason: "exit".into() }))
+        .await
+        .expect("ends");
+
+    let out = fleet.manifest_checks(None).await.expect("lists");
+    assert_eq!(out.rows[0].state, "failed");
+    let log = fleet.session_check_output(run).await.expect("reads");
+    assert_eq!(log.lines, ["the Session ended"]);
+    let rows = fleet.rows_of("s1").await.expect("the thread");
+    assert!(matches!(&rows[..], [ipc::SessionRow::Check { state: SessionCheckState::Failed, .. }]));
+}

@@ -14,13 +14,14 @@ import {
   ACTION,
   CaptureBar,
   StudioCapture as CaptureOverlay,
+  WindowQuestion,
   type CaptureBarApproval,
   type CaptureBox,
 } from "@armada/components";
 import { said } from "@armada/screens/src/copy";
 import { UNTITLED_STUDIO } from "@armada/screens/src/studio";
 
-import type { CaptureAimed, CaptureHeld, CaptureWindowState } from "../../../shared/capture-window";
+import type { CaptureAimed, CaptureAnswer, CaptureHeld, CaptureWindowState } from "../../../shared/capture-window";
 
 /** The binding, from the action registry rather than retyped. `⌥⌘C`. */
 const BINDING = [...(ACTION.capture_note?.shortcut ?? "")];
@@ -48,6 +49,9 @@ export type CaptureWindowApi = {
   followRefused: () => Promise<void>;
   approve: () => Promise<{ ok: boolean } & Record<string, unknown>>;
   scroll: (wheel: { x: number; y: number; deltaX: number; deltaY: number }) => void;
+  showAsk: (on: boolean) => Promise<void>;
+  answerAsk: (answer: CaptureAnswer) => Promise<{ ok: boolean } & Record<string, unknown>>;
+  panel: (open: boolean) => Promise<void>;
 };
 
 export function CaptureWindow({ api }: { api: CaptureWindowApi }) {
@@ -58,6 +62,9 @@ export function CaptureWindow({ api }: { api: CaptureWindowApi }) {
   const [saving, setSaving] = useState(false);
   const [refused, setRefused] = useState<string | undefined>(undefined);
   const [approval, setApproval] = useState<CaptureBarApproval | undefined>(undefined);
+  const [reply, setReply] = useState("");
+  const [replying, setReplying] = useState(false);
+  const [replyRefused, setReplyRefused] = useState<string | undefined>(undefined);
   const bar = useRef<HTMLDivElement>(null);
   const pointer = useRef<Pointer | null>(null);
 
@@ -65,9 +72,30 @@ export function CaptureWindow({ api }: { api: CaptureWindowApi }) {
 
   const armed = state?.armed === true;
   const heldNow = held !== null;
+  const ask = state?.ask;
+  const askId = ask?.id;
+  // Over the page while it is shown and capture is not armed: capture takes the page while it is.
+  const asking = ask !== undefined && ask.shown && !armed;
+
+  // A new question starts with nothing typed against it.
+  useEffect(() => {
+    setReply("");
+    setReplyRefused(undefined);
+  }, [askId]);
+
 
   /** The page's viewport, which starts where the bar ends. Measured, never assumed. */
   const strip = useCallback((): number => bar.current?.offsetHeight ?? 0, []);
+  // The page still scrolls under the outline while the question is drawn over it, as under capture's.
+  useEffect(() => {
+    if (!asking) return undefined;
+    function wheeled(event: WheelEvent): void {
+      if (event.clientY < strip()) return;
+      api.scroll({ x: event.clientX, y: event.clientY - strip(), deltaX: -event.deltaX, deltaY: -event.deltaY });
+    }
+    window.addEventListener("wheel", wheeled, { capture: true, passive: true });
+    return () => window.removeEventListener("wheel", wheeled, true);
+  }, [api, asking, strip]);
 
   const close = useCallback(() => {
     setHeld(null);
@@ -158,6 +186,21 @@ export function CaptureWindow({ api }: { api: CaptureWindowApi }) {
     setRefused(`Not captured: ${said(outcome as Parameters<typeof said>[0])}`);
   }
 
+  async function answer(given: CaptureAnswer): Promise<void> {
+    setReplying(true);
+    const outcome = await api.answerAsk(given);
+    setReplying(false);
+    if (outcome.ok) {
+      setReply("");
+      setReplyRefused(undefined);
+      return;
+    }
+    setReplyRefused(`Not sent: ${said(outcome as Parameters<typeof said>[0])}`);
+  }
+
+  /** Words typed beside an option go with it. */
+  const words = (): { text?: string } => (reply.trim() === "" ? {} : { text: reply.trim() });
+
   async function approve(): Promise<void> {
     setApproval({ state: "pending" });
     const outcome = await api.approve();
@@ -172,7 +215,8 @@ export function CaptureWindow({ api }: { api: CaptureWindowApi }) {
   // that much lower in this document.
   const lowered = (box: CaptureBox): CaptureBox => ({ ...box, y: box.y + strip() });
   const studio = state.studio === null ? null : (state.studio.name ?? UNTITLED_STUDIO);
-  const aim = state.serving ? `Onto ${studio ?? state.job?.handle ?? ""}` : "The run ended — nothing more is captured";
+  const aim = state.serving ? `Onto ${studio ?? state.job?.handle ?? state.session?.title ?? ""}` : "The run ended — nothing more is captured";
+  const panel = state.panel;
 
   return (
     <>
@@ -182,6 +226,7 @@ export function CaptureWindow({ api }: { api: CaptureWindowApi }) {
           address={state.served.address}
           studio={studio}
           {...(state.job === undefined ? {} : { job: state.job.handle })}
+          {...(state.session === undefined ? {} : { session: state.session.title })}
           serving={state.serving}
           armed={armed}
           framesRefused={state.framesRefused}
@@ -199,10 +244,27 @@ export function CaptureWindow({ api }: { api: CaptureWindowApi }) {
           onFollowRefused={() => void api.followRefused()}
           binding={BINDING}
           // A Studio's window has nobody to tell; a Job's or a Session's has its owner.
-          {...(state.studio === null && state.job !== undefined ? { onApprove: () => void approve() } : {})}
+          {...(state.studio === null && (state.job !== undefined || state.session !== undefined) ? { onApprove: () => void approve() } : {})}
           {...(approval === undefined ? {} : { approval })}
+          {...(ask === undefined || ask.shown ? {} : { question: ask.question, onShowQuestion: () => void api.showAsk(true) })}
+          {...(panel === undefined ? {} : { panel: { kind: panel.kind, open: panel.open, onToggle: (open: boolean) => void api.panel(open) } })}
         />
       </div>
+      {ask === undefined || !asking ? null : (
+        <WindowQuestion
+          from={ask.from}
+          question={ask.question}
+          options={ask.options}
+          {...(ask.box === undefined ? {} : { box: ask.box === null ? null : lowered(ask.box) })}
+          answer={reply}
+          onAnswer={setReply}
+          onChoose={(choice) => void answer({ choice, ...words() })}
+          onSend={() => void answer(words())}
+          onFold={() => void api.showAsk(false)}
+          sending={replying}
+          {...(replyRefused === undefined ? {} : { refused: replyRefused })}
+        />
+      )}
       {armed ? (
         <CaptureOverlay
           aim={aim}

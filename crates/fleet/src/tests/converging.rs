@@ -836,11 +836,14 @@ async fn a_drone_that_writes_nothing_more_is_still_stopped() {
 /// is the same field selection the refusal reprompt makes.
 #[test]
 fn the_directive_carries_two_of_the_three_fields() {
-    let told = ReportNow::about(&NotConverging::cited(
-        "the parser accepts a trailing comma",
-        "the same panic on the same input",
-        "every caller still crashes on the same file",
-    ));
+    let told = ReportNow::about(
+        &crate::prompts::Prompts::shipped(),
+        &NotConverging::cited(
+            "the parser accepts a trailing comma",
+            "the same panic on the same input",
+            "every caller still crashes on the same file",
+        ),
+    );
     let text = told.text().to_string();
     assert!(
         text.starts_with("Stop and report your current state now."),

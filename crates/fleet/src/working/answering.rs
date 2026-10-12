@@ -1,11 +1,12 @@
-//! What is outstanding: the question the Drone asked, and the redirect a
-//! person sent it.
+//! What is outstanding: a permission question a person was asked for the
+//! Drone, and the redirect a person sent it.
 //!
 //! **Two directions of one fact.** A question outstanding is Fleet owing the
 //! Drone an answer; a redirect that has gone down the pipe is the Drone owing
-//! Fleet proof that it heard. Neither is on the record and both are held here,
-//! for the reason the `asked` field gives: each is only ever true now, and a
-//! Fleet that restarted lost the process the answer would have gone to.
+//! Fleet proof that it heard. Neither is on the record and both are held here:
+//! each is only ever true now, and a Fleet that restarted lost the process the
+//! answer would have gone to. A Drone's own question is the exception, and is
+//! on the Job — `crate::questioning`.
 //!
 //! What a person's word lands as is here too — [`Working::resumed`] where a
 //! step had stopped, [`Working::steered`] where it never did — because which
@@ -21,7 +22,6 @@ use tokio::sync::oneshot;
 
 use crate::converging::Chain;
 use crate::permitting::{Answered, Waiting};
-use crate::questioning::Question;
 use crate::working::Working;
 
 /// A redirect that has gone into the session and has not been answered: what
@@ -93,30 +93,6 @@ impl Working {
         self.pokes = 0;
     }
 
-    /// The question this Drone is waiting on, where there is one.
-    pub(crate) fn asked(&self) -> Option<&Question> {
-        self.asked.as_ref()
-    }
-
-    /// Hold the question the Drone just asked.
-    ///
-    /// **Nothing here checks that none is held.** `Fleet::ask_question` does,
-    /// under this slot's lock and before it mints an id, because the refusal it
-    /// answers with names the question already outstanding — which is a value
-    /// this method has no way to return.
-    pub(crate) fn asks(&mut self, asked: Question) {
-        self.asked = Some(asked);
-    }
-
-    /// The question has been answered and the answer is down the pipe.
-    ///
-    /// **After the write, never before.** A session that would not take the
-    /// answer leaves the question standing, so a person can answer again rather
-    /// than being told there is nothing to answer on a Drone that never heard.
-    pub(crate) fn answered_question(&mut self) {
-        self.asked = None;
-    }
-
     /// The permission question a person has been asked on this Drone's
     /// behalf, where there is one.
     pub(crate) fn permission(&self) -> Option<&Waiting> {
@@ -124,7 +100,8 @@ impl Working {
     }
 
     /// Hold a permission question for a person. **One at a time**, checked by
-    /// the caller under this slot's lock, for `asks`' reason.
+    /// the caller under this slot's lock, because the refusal names the one
+    /// already held — a value this method has no way to return.
     pub(crate) fn waits_for_permission(&mut self, waiting: Waiting) {
         self.permission = Some(waiting);
     }

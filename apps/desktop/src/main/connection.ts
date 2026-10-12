@@ -19,8 +19,9 @@ import type { SessionActed } from "../shared/api/sessions";
 import type { BridgeState, PickedView } from "../shared/bridge";
 import type { Connection, HelmContext, HelmDebugRead, JobSummary, Outcome } from "@armada/protocol";
 import type { BriefRead, CheckOutputRead, FrameRead, LandCheckAt, LessonsRead, RetroRead, RetroSubject } from "@armada/protocol";
+import type { AskLessonRead, AskTurn, LessonReviewRead } from "@armada/jobs/review-wire";
 import type { ComposingRead } from "@armada/screens/src/composing-reads";
-import { applyArrival, readCapacity, reread } from "./arrivals";
+import { applyArrival, reread } from "./arrivals";
 import type { ArrivalHost } from "./arrivals";
 import { JobCommands } from "./command";
 import { PilotExits } from "./pilot-exits";
@@ -52,6 +53,7 @@ import { FleetSocket, type BridgeStateFleet } from "./socket";
 import { Modding } from "./mods";
 import { SessionsHost } from "./sessions";
 import { SleepHost } from "./sleep";
+import { IssuesHost } from "./issues";
 import { StudioReads } from "./studios";
 
 /** Time is injected, never read: a connection that calls the clock cannot be replayed. */
@@ -193,6 +195,8 @@ export class FleetConnection {
   );
   /** Sleep mode — `sleep.ts`. */
   readonly sleep: SleepHost = new SleepHost(() => this.connected()?.port ?? null);
+  /** A repository's open issues — `issues.ts`. #91. */
+  readonly issues: IssuesHost = new IssuesHost(() => this.connected()?.port ?? null);
   /**
    * Every act on a Job — see `command.ts`. Reached through this rather than
    * re-exported one method at a time: a delegator carries no reasoning, and
@@ -282,7 +286,6 @@ export class FleetConnection {
       },
       proposalOut: () => this.current.proposing,
       proposalJob: () => this.proposalJobId,
-      rereadCapacity: (port) => readCapacity(port, (change) => this.publish(change)),
     });
     this.pilotExits = new PilotExits({
       port,
@@ -303,9 +306,7 @@ export class FleetConnection {
       current: () => this.current,
       now: () => this.wiring.now(),
       greeted: () => this.greeted,
-      setGreeted: (value) => {
-        this.greeted = value;
-      },
+      setGreeted: (value) => void (this.greeted = value),
       proposalRef: () => this.proposalRef,
       setProposalJob: (value) => {
         this.proposalJobId = value;
@@ -323,6 +324,8 @@ export class FleetConnection {
       mods: this.mods,
       sessions: this.sessions,
       sleep: this.sleep,
+      // Autopilot's changes, which main/index.ts passes to every window.
+      issues: this.issues,
       fleetBuild: this.fleetBuild,
       material: this.material,
       socket: this.socket,
@@ -586,6 +589,14 @@ export class FleetConnection {
 
   async readLessons(picked: Picked, state: "open" | "accepted"): Promise<LessonsRead> {
     return await this.jobReads.readLessons(picked, state);
+  }
+
+  async reviewLessons(picked: Picked): Promise<LessonReviewRead> {
+    return await this.jobReads.reviewLessons(picked);
+  }
+
+  async askLesson(lessonId: string, question: string, history: AskTurn[]): Promise<AskLessonRead> {
+    return await this.jobReads.askLesson(lessonId, question, history);
   }
 
   /** `leftOut` and the Manifest reading for the repository New job's ask answered, on All — #959.

@@ -31,13 +31,16 @@ use crate::product::{Product, Reference};
 use crate::request::Request;
 use crate::shown::{placed, Laid, Region};
 use crate::standing::Standing;
+use crate::wording::{Piece, Wording};
 
 /// The two words a Judge may answer with, and the three fields a refusal owes.
 ///
 /// Spelled from the registry's own `criterion_verdict_judge` keys rather than
 /// invented here, so the answer a model writes, the value stored and the word
 /// rendered are one vocabulary.
-const ANSWER_FORMAT: &str = "\
+pub const JUDGE_ANSWER: Piece = Piece {
+    id: "judgeAnswer",
+    shipped: "\
 Answer with nothing but the lines below.
 
 If the evidence satisfies the criterion:
@@ -64,7 +67,42 @@ material in your own words — write the line with no quotation marks at all. \
 That is a complete answer and not a lesser one. Never put quotation marks \
 around words you assembled or reworded to stand in for words above. An answer \
 that quotes words which are not above is discarded, and the work is neither \
-passed nor refused.";
+passed nor refused.",
+};
+
+/// What a panel's member is asked beside its verdict: whether the work is
+/// risky. **Only a panel is asked**, because only a panel's agreed refusal can
+/// go back to the Drone without a person reading it — #206.
+pub const JUDGE_RISK: Piece = Piece {
+    id: "judgeRisk",
+    shipped: "\
+Other Judges are answering this same question, each on their own. If your \
+verdict is not_met, add one more line saying whether the work is risky:
+
+    risky: no
+
+when it is unfinished or wrong and redoing it is the whole of the fix. Or:
+
+    risky: <what in the work above could break, lose or expose something>
+
+when it could do harm that redoing it would not undo, or a person should see it \
+before anyone tries again: data lost or rewritten, a secret exposed, a \
+migration or a public interface changed, a check weakened, something done \
+outside what was asked.",
+};
+
+/// What a Judge is told it is doing, before anything else.
+pub const JUDGE_OPENING: Piece = Piece {
+    id: "judgeOpening",
+    shipped: "You are verifying one condition on work somebody else did. Answer only the \
+              question at the end.",
+};
+
+/// The line the criterion's question follows.
+pub const JUDGE_QUESTION: Piece = Piece {
+    id: "judgeQuestion",
+    shipped: "The question, which is yes or no:",
+};
 
 /// What one call is asked, assembled.
 ///
@@ -78,6 +116,9 @@ pub struct Brief {
     /// the brief rather than only on a line of it. See
     /// [`shown`](mod@crate::shown).
     regions: Vec<Region>,
+    /// Whether a refusal must say if the work is risky. Set by
+    /// [`on_a_panel`](Brief::on_a_panel) and nowhere else.
+    asks_risk: bool,
 }
 
 impl Brief {
@@ -103,51 +144,89 @@ impl Brief {
         references: &[Reference<'_>],
         answered: Answered<'_>,
     ) -> Brief {
+        Brief::worded(
+            step,
+            criterion,
+            request,
+            standing,
+            product,
+            references,
+            answered,
+            &Wording::shipped(),
+        )
+    }
+
+    /// The same brief in `wording`: the pieces a caller replaced, every other
+    /// as it ships. Material is laid exactly where [`Brief::about`] lays it.
+    #[allow(clippy::too_many_arguments)]
+    pub fn worded(
+        step: &ResolvedStep,
+        criterion: &JudgeCriterion,
+        request: Request<'_>,
+        standing: &Standing,
+        product: &Product<'_>,
+        references: &[Reference<'_>],
+        answered: Answered<'_>,
+        wording: &Wording,
+    ) -> Brief {
         // **Laid in labelled parts, and the text is byte for byte what it
         // was.** The labels are what a citation says it landed in, and they
         // are recorded at assembly rather than recognised afterwards — see
         // [`shown`](mod@crate::shown).
         let mut laid = Laid::new();
-        laid.loose(
-            "You are verifying one condition on work somebody else did. \
-             Answer only the question at the end.\n\n",
-        );
+        laid.loose(wording.get(JUDGE_OPENING));
+        laid.loose("\n\n");
         laid.loose(&format!("Step: {}\n\n", step.label()));
         // **First, and above the step's own evidence.** The request is the
         // outermost yardstick — an earlier step's note is measured against it
         // too — so it is read before anything it is the standard for, which is
         // the ordering `Reference::parts` already argues for one level down.
-        laid.part(REQUEST, &request.told());
+        laid.part(REQUEST, &request.told(wording));
         // Beside the request and for its reason: a standard, not the work.
-        laid.part(STANDING, &standing.told());
+        laid.part(STANDING, &standing.told(wording));
         // **The deterministic facts, and the whole of them.** A name and an
         // outcome word is what this rendered until #205, which dropped the two
         // parts a criterion is actually answered from: why a Check that did not
         // run did not, and what a Check that ran observed. A Judge asked
         // whether a suite covers a case was answering off the diff while the
         // suite's own output sat unread.
-        for (label, part) in answered.parts() {
+        for (label, part) in answered.parts(wording) {
             laid.part(&label, &part);
         }
         // The yardstick before the product, the way the gaming brief puts its
         // baseline first: what the work is measured against is context for
         // reading it, and it is labelled as not being the thing under judgment.
-        for (label, part) in Reference::parts(references) {
+        for (label, part) in Reference::parts(references, wording) {
             laid.part(&label, &part);
         }
-        for (label, part) in product.parts() {
+        for (label, part) in product.parts(wording) {
             laid.part(&label, &part);
         }
-        laid.loose("\nThe question, which is yes or no:\n\n");
+        laid.loose("\n");
+        laid.loose(wording.get(JUDGE_QUESTION));
+        laid.loose("\n\n");
         laid.loose(&criterion.question);
         laid.loose("\n\n");
-        laid.loose(ANSWER_FORMAT);
+        laid.loose(wording.get(JUDGE_ANSWER));
         let (question, regions) = laid.done();
         Brief {
             criterion: criterion.criterion_id.clone(),
             question,
             regions,
+            asks_risk: false,
         }
+    }
+
+    /// The same brief, put to a panel: it ends by asking whether the work is
+    /// risky, and a refusal that does not say is unreadable.
+    ///
+    /// **Appended rather than laid**, so every region keeps its place, and a
+    /// brief for one Judge is byte for byte what it was.
+    pub fn on_a_panel(mut self, wording: &Wording) -> Brief {
+        self.question.push_str("\n\n");
+        self.question.push_str(wording.get(JUDGE_RISK));
+        self.asks_risk = true;
+        self
     }
 
     /// Which criterion this call is about. A citation names the criterion and
@@ -201,6 +280,7 @@ impl Brief {
                 brief_path: None,
                 cited: Some(Vec::new()),
                 given: None,
+                risky: None,
             });
         }
         // Constitutional rule 4: a refusal must cite. An uncited one is
@@ -215,7 +295,23 @@ impl Brief {
         // stricter refusal — it is one nobody can check, which is the only
         // kind that cannot be argued with. `self.question` is the whole of
         // what the call was shown, so this is containment and costs no call.
-        for cited in [&expected, &produced, &consequence] {
+        // Absent where the brief did not ask. Where it did, an answer that does
+        // not say is unreadable rather than safe: read as `no`, a member's
+        // silence would send the work back without a person.
+        let risky = match self.asks_risk {
+            false => None,
+            true => {
+                let said = field(answer, "risky").ok_or(Unreadable::RefusalWeighsNoRisk)?;
+                let no = said
+                    .trim_matches(|c: char| !c.is_alphanumeric())
+                    .eq_ignore_ascii_case("no");
+                (!no).then_some(said)
+            }
+        };
+        for cited in [&expected, &produced, &consequence]
+            .into_iter()
+            .chain(risky.as_ref())
+        {
             if let Some(span) = crate::quoted::invented(cited, &self.question) {
                 return Err(Unreadable::RefusalQuotesWhatIsNotThere { span });
             }
@@ -241,6 +337,7 @@ impl Brief {
             brief_path: None,
             cited,
             given: None,
+            risky,
         })
     }
 }
@@ -281,6 +378,8 @@ pub enum Unreadable {
     NoVerdict,
     /// A refusal with no `expected`, `produced` or `consequence`.
     RefusalCitesNothing,
+    /// A panel member's refusal with no `risky:` line.
+    RefusalWeighsNoRisk,
     /// A refusal quoting a run of words that is in none of what the call was
     /// shown. See [`quoted`](mod@crate::quoted) for the defect, and for what
     /// is deliberately not checked.
@@ -313,6 +412,10 @@ impl core::fmt::Display for Unreadable {
             Unreadable::RefusalCitesNothing => f.write_str(
                 "the answer refuses and cites nothing, and an uncited refusal is \
                  unactionable for the Drone and for the person",
+            ),
+            Unreadable::RefusalWeighsNoRisk => f.write_str(
+                "the answer refuses and does not say whether the work is risky, \
+                 so it cannot be sent back without a person",
             ),
             Unreadable::RefusalQuotesWhatIsNotThere { span } => write!(
                 f,

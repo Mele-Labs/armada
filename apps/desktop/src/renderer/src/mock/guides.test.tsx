@@ -97,6 +97,7 @@ test("the switch on the first card turns all of them off, and Settings is where 
   await closeCard();
 
   await page.getByRole("button", { name: "Settings", exact: true }).first().click();
+  await page.getByRole("tab", { name: "Guides" }).click();
   const setting = page.getByRole("switch", { name: /Open a guide the first time/ });
   await expect.element(setting).toBeVisible();
   await expect.element(setting).not.toBeChecked();
