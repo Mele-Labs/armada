@@ -129,7 +129,8 @@ export const ElapsedReadsInTheUnitAbove: Story = {
 export const ElapsedKeepsCounting: Story = {
   args: { row: { ...base, stage: "reading_record", stageSince: Date.now() }, now: undefined },
   play: async ({ canvas }) => {
-    await expect(canvas.getByRole("timer")).toHaveTextContent("0s");
-    await waitFor(() => expect(canvas.getByRole("timer")).not.toHaveTextContent(/^0s$/), { timeout: 3000 });
+    // `stageSince` is stamped when the file loads, so a slow runner can already read 1s here.
+    const first = canvas.getByRole("timer").textContent;
+    await waitFor(() => expect(canvas.getByRole("timer").textContent).not.toBe(first), { timeout: 3000 });
   },
 };
