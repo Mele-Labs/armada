@@ -563,3 +563,80 @@
   outline: var(--focus-ring);
   outline-offset: var(--focus-ring-offset);
 }
+
+/* The line one pull request is in, on its own: place, mark, then number and title. The rows are
+   the merge line's tiles, on three tracks of their own in place of the lane's. */
+.armada-merge-line__queue {
+  display: grid;
+  grid-template-columns: min-content var(--space-4) minmax(0, 1fr);
+  column-gap: var(--space-3);
+  row-gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.armada-merge-line__queue > .armada-merge-line__row {
+  grid-column: 1 / -1;
+}
+
+.armada-merge-line__queue-title {
+  display: flex;
+  gap: var(--space-2);
+  min-width: 0;
+  color: inherit;
+  text-decoration: none;
+}
+
+.armada-merge-line__queue-title > span:last-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.armada-merge-line__queue-number {
+  flex: none;
+  font-size: var(--text-xs);
+  color: var(--accent);
+}
+
+a.armada-merge-line__queue-title:hover > span:last-child {
+  text-decoration: underline;
+}
+
+a.armada-merge-line__queue-title:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+  border-radius: var(--radius-sm);
+}
+
+/* The line drawn under a pull request elsewhere: an eyebrow names it the merge line, and the rows
+   other than this pull request's are set back until pointed at. */
+.armada-merge-line__placed {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.armada-merge-line__placed-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-family: var(--font-sans);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-medium);
+  line-height: var(--leading-2xs);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+
+/* Dimmed by token, never by alpha (design-system.md): the text and the number go to muted. */
+.armada-merge-line__placed .armada-merge-line__row:not([aria-current]) :is(.armada-merge-line__queue-title, .armada-merge-line__queue-number, .armada-merge-line__place) {
+  color: var(--fg-muted);
+  transition: color var(--duration-fast) ease;
+}
+
+.armada-merge-line__placed .armada-merge-line__row:not([aria-current]):is(:hover, :focus-within) .armada-merge-line__queue-title {
+  color: var(--fg-default);
+}
