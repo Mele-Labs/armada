@@ -114,6 +114,11 @@ outcome says what the record proves, because it admits no Drone sentence.
 Same rule as a commit message — say what the diff cannot — with one job a
 commit message does not have: telling a reviewer what needs them.
 
+**It names no file and no Check that passed or was skipped.** The outcome
+counts the files and the evidence counts each step's Checks, naming only those
+that did not pass. The forge already lists the files, and the Job in Armada
+holds every Check (#2161).
+
 ### Four headings, in this order, always
 
 `.github/PULL_REQUEST_TEMPLATE.md` is the shape and this is why it has one.
