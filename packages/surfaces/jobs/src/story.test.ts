@@ -165,6 +165,19 @@ describe("prose, and who said it", () => {
   });
 });
 
+describe("the door a redirect came through", () => {
+  const redirect = (via?: string): Turn => {
+    const turn = instructed("Read the failing test first.");
+    return { ...turn, saw: { ...turn.saw, occasion: "redirect", ...(via === undefined ? {} : { via }) } as Turn["saw"] };
+  };
+
+  it("marks a redirect from the phone, and one from Bridge or no door not at all", () => {
+    expect(drawn(redirect("phone")).fromPhone).toBe(true);
+    expect(drawn(redirect("bridge")).fromPhone).toBeUndefined();
+    expect(drawn(redirect()).fromPhone).toBeUndefined();
+  });
+});
+
 describe("the echo of a turn fleet already sent", () => {
   const BRIEFED = "JOB BRIEF\n\nDispatching two Jobs against the same repo collides.";
 

@@ -418,6 +418,7 @@ function jobRowsOf(detail: JobDetail, mint: () => number): LedgerRow[] {
       at: detail.created_at,
       coord: null,
       actor: job.origin === "manual" ? "person" : "fleet",
+      ...(detail.created_via === "phone" ? { fromPhone: true as const } : {}),
       kind: "created",
       what: "Job created",
       outcome: "",

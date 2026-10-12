@@ -387,6 +387,7 @@ export function Cockpit({
       // Nothing else on the card acts while an answer is out, or the answer would clear the wrong one.
       if (isPressed("call_later", event) || isPressed("close", event)) return claim(), card.pending === undefined ? later() : undefined;
       if (isPressed("call_dismiss", event)) return claim(), card.dismiss();
+      if (isPressed("call_open_walk", event)) return card.openWalk === undefined ? undefined : (claim(), card.openWalk());
       if (isPressed("open", event)) return card.open === undefined ? undefined : (claim(), card.open());
       return;
     }

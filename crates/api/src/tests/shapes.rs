@@ -403,6 +403,7 @@ pub fn detail(job: JobSummary) -> JobDetail {
         walk_notes: Vec::new(),
         triggers: Vec::new(),
         additions: Vec::new(),
+        created_via: None,
     }
 }
 

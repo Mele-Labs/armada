@@ -202,6 +202,13 @@ on `get_job_events`.
 **The header is attribution, not authentication.** Any process can send it,
 and what it buys is that an agent's `curl` stops reading as a person's press.
 
+**Three phone acts make no move to keep the door against**, so each keeps it
+where it is written. A Job dispatched from the phone is a row in
+`job_created_phone`, read as `created_via` on the Job's detail. A Session ask
+answered there carries `via` on its thread row. A redirect into a Drone that is
+not stuck carries `via` on the `instructed` turn in the Drone's transcript.
+Bridge draws the phone glyph on each, and nothing on the same act taken in Bridge.
+
 ## The owner's annotations
 
 **An annotation attaches to a Job's retro by the Job id it carries.** A note

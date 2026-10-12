@@ -204,6 +204,34 @@ impl Store {
         )
     }
 
+    /// Keep that a person dispatched this Job from their phone. Creation is no
+    /// move, so it has no `seq` to hang a door on.
+    pub fn record_created_from_phone(&mut self, job_id: &JobId) -> Result<(), WriteError> {
+        self.conn
+            .execute(
+                "INSERT OR IGNORE INTO job_created_phone (job_id) VALUES (?1)",
+                (job_id.as_str(),),
+            )
+            .map_err(fault("keeping that a Job was dispatched from the phone"))
+            .map_err(WriteError::Database)?;
+        Ok(())
+    }
+
+    /// Whether the Job was dispatched from the phone. Absent is Bridge, an
+    /// agent, or a Job older than the table.
+    pub fn created_from_phone(&self, job_id: &JobId) -> Result<bool, RowError> {
+        Ok(!self
+            .rows(
+                "SELECT job_id FROM job_created_phone WHERE job_id = ?1",
+                job_id,
+                |row| {
+                    row.get::<_, String>("job_id")
+                        .map_err(column("job_created_phone", "job_id"))
+                },
+            )?
+            .is_empty())
+    }
+
     /// Keep what a Drone said got in its way. Blank is not kept: the field is
     /// optional and an empty one said nothing.
     pub fn record_drone_note(

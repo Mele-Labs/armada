@@ -491,7 +491,8 @@ impl Stuck {
 /// Drone, and no others.** Every other Job-level escalation is untouched:
 /// `interrupted` and `would_not_start` have no process to end, `stalled` has
 /// one Fleet can speak to and is answered by the redirect, and
-/// `resource_exhausted` and `no_worktree` fail the worktree test one line up.
+/// `resource_exhausted` is not read as a Drone that left. `no_worktree` is the
+/// one other that is, and only over a worktree still on disk.
 /// Relaxing this to `stopped.is_none()` would offer a restart on all of them —
 /// a rule about every stuck Job, changed to fix one.
 ///
@@ -513,18 +514,25 @@ fn unheard_mid_step(job: &Job, standing: &Standing) -> bool {
 }
 
 /// A step still `running`, with nothing standing in the slot, on a Job
-/// escalated specifically as `stalled` — the Drone that was there when the
-/// Job escalated has since gone, ended on its own or lost to a Fleet restart.
+/// escalated as `stalled` or `no_worktree`: the Drone that was there has since
+/// gone, or the step was entered and git would not bring its worktree up to
+/// date before any Drone was put on it.
 ///
-/// **`stalled` and not the shape alone**, because `would_not_start`,
-/// `not_configurable`, one path of `no_worktree` and `resource_exhausted`
-/// reach the identical four facts with no Drone ever having existed.
+/// **Those two and not the shape alone**, because `would_not_start`,
+/// `not_configurable` and `resource_exhausted` reach the same four facts with
+/// no Drone ever having existed. `no_worktree` is raised after the step
+/// re-entered `running`, and `of` asks for the worktree on disk first, so one
+/// that is gone stays a redispatch. A catch-up that failed on a lock otherwise
+/// left only a redispatch, which throws away the work in the tree.
 /// `fleet::resume::restart_step` reads this same predicate and stops the step
 /// under `EscalationTrigger::DroneGone`. `#1034`.
 fn abandoned_mid_step(job: &Job, reason: Option<&TransitionReason>, standing: &Standing) -> bool {
     standing.drone == DroneStanding::Gone
         && job.status() == JobStatus::Escalated
-        && escalated_by(reason) == Some(EscalationTrigger::Stalled)
+        && matches!(
+            escalated_by(reason),
+            Some(EscalationTrigger::Stalled | EscalationTrigger::NoWorktree)
+        )
         && job
             .current_step()
             .is_some_and(|step| step.state() == StepState::Running)

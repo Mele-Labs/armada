@@ -173,6 +173,7 @@ mod preview;
 mod process;
 mod promoting;
 mod proposing;
+mod phone_door;
 mod proving;
 mod pull_notices;
 mod pull_request_card;

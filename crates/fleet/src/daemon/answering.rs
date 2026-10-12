@@ -332,6 +332,7 @@ where
             None => Job::create_top_level(new, origin, at.clone()),
         };
         store.insert_job(&job, &at).map_err(Adrift::Writing)?;
+        crate::retro::kept_created_via(&mut store, job.id());
         crate::approved::continuing_from(&mut store, job.id(), continuing.as_deref())?;
         self.learn_the_name(&job);
         self.manifest_snapshotted(&mut store, &job).await;

@@ -224,16 +224,15 @@ fn a_stalled_jobs_drone_that_left_on_its_own_is_restarted() {
 }
 
 /// **The trigger is what tells this apart from a Drone that never existed.**
-/// `would_not_start`, `not_configurable`, `no_worktree` and
-/// `resource_exhausted` reach the identical four facts — step running, no
-/// Drone, worktree on disk — with no Drone ever having been assigned, and
-/// offering a restart there is the redispatch dressed up as a cheaper act.
+/// `would_not_start`, `not_configurable` and `resource_exhausted` reach the
+/// identical four facts — step running, no Drone, worktree on disk — with no
+/// Drone ever having been assigned, and offering a restart there is the
+/// redispatch dressed up as a cheaper act.
 #[test]
 fn the_same_shape_under_a_different_trigger_offers_no_restart() {
     for trigger in [
         EscalationTrigger::WouldNotStart,
         EscalationTrigger::NotConfigurable,
-        EscalationTrigger::NoWorktree,
         EscalationTrigger::ResourceExhausted,
     ] {
         let working = drive(&created(), &[Target::Queued, Target::Running])
@@ -257,6 +256,41 @@ fn the_same_shape_under_a_different_trigger_offers_no_restart() {
             trigger.as_wire()
         );
     }
+}
+
+/// **`no_worktree` with the worktree on disk is a step that can be taken
+/// again.** The catch-up before a restart's Drone failed — git was held by a
+/// lock for a moment — and the Job escalated with the step it had just
+/// re-entered still `running`. Offering only a redispatch there threw away
+/// ninety files of passing work for a lock that was gone seconds later. A
+/// worktree that is gone fails `worktree_on_disk` and is still a redispatch.
+#[test]
+fn no_worktree_over_a_worktree_on_disk_offers_the_restart() {
+    let working = drive(&created(), &[Target::Queued, Target::Running])
+        .transition_step(
+            &StepId::new("repro"),
+            StepTarget::Running,
+            Actor::Fleet,
+            at("2026-08-26T09:02:00.000Z"),
+        )
+        .expect("not_started -> running")
+        .job;
+    let job = drive(&working, &[Target::Escalated(EscalationTrigger::NoWorktree)]);
+    let reason = TransitionReason::Escalation(EscalationTrigger::NoWorktree);
+
+    let stuck =
+        Stuck::of(&job, Some(&reason), drone_gone(), Refusals::none(), None).expect("escalated");
+    assert_eq!(
+        stuck.recourse(),
+        [Recourse::RestartStep, Recourse::Redispatch]
+    );
+
+    let gone = Standing {
+        worktree_on_disk: false,
+        ..drone_gone()
+    };
+    let stuck = Stuck::of(&job, Some(&reason), gone, Refusals::none(), None).expect("escalated");
+    assert_eq!(stuck.recourse(), [Recourse::Redispatch]);
 }
 
 /// The trigger a Job-level escalation carries is on the transition and nowhere
