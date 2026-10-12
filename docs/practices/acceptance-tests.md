@@ -45,6 +45,7 @@ the gate asserts about it.
 | Auto-release | When other work waits for a worktree slot and the pool is full, Fleet frees one by pausing the parked Job that has waited longest, leaves alone one a person may be looking at, and gives nothing back on its own | `crates/acceptance/tests/auto_release.rs` |
 | Triggers | A Trigger runs at a moment in a Job from a file in the repository or on this machine, the machine's wins, and a file that does not fit is named while the rest stand | `crates/acceptance/tests/triggers.rs` |
 | Autopilot | I start Autopilot on a repository with one sentence and a cap, leave it, and come back to Jobs that ran, picks it was unsure of set aside with their reason, and nothing past the caps I set; Pause and Stop do what they say | `crates/acceptance/tests/autopilot.rs` |
+| Commander | When a Job's Drone ends with nothing handed in, or a group is red with its retries spent, the Job's Commander steers it without the owner: it raises the cap inside its ceiling, splits or restarts a task, redirects a Drone, or sends a repair Drone onto the Job's branch. The owner sees in the thread and on each task's mark that it did, and can write to it and get an answer. Where the fix is out of its reach it puts one card to him. The Job never advances on anything the Commander said | `crates/acceptance/tests/commander.rs` |
 
 The apparatus is `crates/acceptance/tests/bench/`, shared, with a file per
 milestone. Claim and apparatus are separated so that what a milestone claims and

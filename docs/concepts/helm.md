@@ -136,6 +136,8 @@ Rung 3 carries no MCP operation for Helm to reach for, ladder or no. A Job Helm 
 
 **Every Helm-initiated action is logged as its own distinct event type**, never conflated with your manual actions or with Drone self-reports. Manual actions are already distinguished from Drone evidence, per the Debug/Pilot design. Three-way separation: Drone evidence, human manual action, Helm-initiated action.
 
+**A Job's Commander is a fourth signer, `commander`, and is never recorded as Helm or as a person.** It signs the move, the plan change and the door (`Via`) of what it did on its Job, so a person filtering a Job's thread for Helm's acts does not get the Commander's, and one filtering for their own does not either. The variant exists and nothing signs with it yet: the acts that do are built one at a time, and each says so where it lands.
+
 **A Helm write to your checkout is `helm.changed_checkout`**, naming the repository, the tool and the path, published as the session's stream says it happened. A person who finds a file changed and did not change it reads this to see that Helm did. It names writes Armada can name: a shell line Helm ran may have written something too and nothing says whether it did, so those calls are on the conversation's own thread and produce no event.
 
 **Words Helm's reading sent to a Session or a Job are `helm.thought_routed`**, naming the repository whose thread holds them, the kind and the id it went to. A person who finds a message in a Session or a Job that they typed into Helm reads this to see where it was sent from. A person's press delivers it and Helm's reading chose the target.

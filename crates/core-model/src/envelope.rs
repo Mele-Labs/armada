@@ -177,6 +177,11 @@ pub enum Actor {
     /// Signs the rows a Check's own answer wrote: a failure's stop and hold.
     /// Fleet still signs a move decided on more than one answer.
     Check,
+    /// Signs what a Job's Commander did on its own say-so: a cap it raised, a
+    /// task it restarted. **A fourth signer beside the owner, Fleet and Helm**,
+    /// so a Commander act is never recorded as Helm's or a person's
+    /// (`docs/concepts/helm.md`).
+    Commander,
 }
 
 impl Actor {
@@ -190,6 +195,7 @@ impl Actor {
         Actor::Helm,
         Actor::Judge,
         Actor::Check,
+        Actor::Commander,
     ];
 
     /// The wire value. `job_events.actor` and `scope_revisions[].approved_by`
@@ -202,10 +208,11 @@ impl Actor {
             Actor::Helm => "helm",
             Actor::Judge => "judge",
             Actor::Check => "check",
+            Actor::Commander => "commander",
         }
     }
 
-    /// Read a stored value back. `None` where it is not one of the six,
+    /// Read a stored value back. `None` where it is not one of the seven,
     /// which is a row written by something that did not share this enum.
     pub fn from_wire(value: &str) -> Option<Actor> {
         Actor::ALL.iter().copied().find(|a| a.as_wire() == value)
