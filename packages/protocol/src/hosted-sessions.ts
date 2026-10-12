@@ -32,8 +32,10 @@ export type StartSession = {
   /**
    * Start as a copy of an ended or dead session's conversation. Since 23.69. A new session with its own
    * id and ledger, holding none of the old one's. Refused 409 `fleet.session_fork_live` for a live one.
+   * `at`, since 23.79, is the thread row the copy ends at, included; with it the old session may be live and
+   * is left as it was. Refused 422 `fleet.fork_point_unwritten` where no message has that id.
    */
-  fork?: { session_id: string };
+  fork?: { session_id: string; at?: string };
 };
 
 export type TagKind = "session" | "job" | "pull_request" | "branch";

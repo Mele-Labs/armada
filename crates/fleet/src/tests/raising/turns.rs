@@ -51,20 +51,10 @@ async fn budget_hold(fleet: &Fixture, job: &core_model::JobId) -> Option<String>
         .map(|hold| hold.as_wire().to_string())
 }
 
-/// A person's raise, in turns.
-fn person(turns: u64) -> TurnRaise {
-    TurnRaise {
-        turn_cap: turns,
-        raised_by: RaisedBy::Person,
-    }
-}
-
-/// Helm's raise, in turns.
-fn helm(turns: u64) -> TurnRaise {
-    TurnRaise {
-        turn_cap: turns,
-        raised_by: RaisedBy::Helm,
-    }
+/// A raise to this many turns. **It names no raiser**, for `super::dollars`'s
+/// reason.
+fn turns_to(turns: u64) -> TurnRaise {
+    TurnRaise { turn_cap: turns }
 }
 
 /// **The act, end to end, and the incident it was built from.** One Job
@@ -92,7 +82,7 @@ async fn raising_the_turn_cap_starts_a_job_the_turns_were_holding() {
     );
 
     fleet
-        .raise_turn_cap(&held, &person(600))
+        .raise_turn_cap(&held, &turns_to(600), RaisedBy::Person)
         .await
         .expect("a person gives this Job more turns");
     fleet.turn().await.expect("the loop turns again");
@@ -155,7 +145,7 @@ async fn a_turn_cap_that_does_not_raise_is_refused_and_names_the_one_in_force() 
     let job = approved(&fleet, &home, "a change at exactly the turn cap").await;
 
     let refused = fleet
-        .raise_turn_cap(&job, &person(300))
+        .raise_turn_cap(&job, &turns_to(300), RaisedBy::Person)
         .await
         .expect_err("the shipped cap is three hundred, so three hundred raises nothing");
 
@@ -180,7 +170,7 @@ async fn helm_may_double_the_inherited_turn_cap_and_no_more() {
     let job = approved(&fleet, &home, "a change Helm is watching turn").await;
 
     let refused = fleet
-        .raise_turn_cap(&job, &helm(601))
+        .raise_turn_cap(&job, &turns_to(601), RaisedBy::Helm)
         .await
         .expect_err("twice three hundred is six hundred, and six hundred and one is past it");
     assert!(
@@ -189,9 +179,37 @@ async fn helm_may_double_the_inherited_turn_cap_and_no_more() {
     );
 
     fleet
-        .raise_turn_cap(&job, &helm(600))
+        .raise_turn_cap(&job, &turns_to(600), RaisedBy::Helm)
         .await
         .expect("exactly the ceiling is the ceiling reached, not passed");
+}
+
+/// **The Commander reaches three times what the Job would inherit**, on the
+/// same `Ceiling` as the dollars. `#2165`.
+#[tokio::test]
+async fn the_commander_may_triple_the_inherited_turn_cap_and_no_more() {
+    let home = TempDir::new();
+    let fleet = capped(&home);
+    let job = approved(&fleet, &home, "a change its Commander is steering").await;
+
+    let refused = fleet
+        .raise_turn_cap(&job, &turns_to(901), RaisedBy::Commander)
+        .await
+        .expect_err("three times three hundred is nine hundred, and one more is past it");
+    assert!(
+        refused.to_string().contains("900"),
+        "the refusal names the ceiling: {refused}"
+    );
+
+    fleet
+        .raise_turn_cap(&job, &turns_to(900), RaisedBy::Commander)
+        .await
+        .expect("exactly the ceiling is the ceiling reached, not passed");
+    let again = fleet
+        .raise_turn_cap(&job, &turns_to(2_700), RaisedBy::Commander)
+        .await
+        .expect_err("and a second raise does not compound it");
+    assert!(again.to_string().contains("900"), "{again}");
 }
 
 /// **The figure is written down and read back off the column**, not folded from
@@ -202,7 +220,7 @@ async fn a_raised_turn_cap_survives_a_reload() {
     let fleet = capped(&home);
     let job = approved(&fleet, &home, "a change that outlives this Fleet").await;
     fleet
-        .raise_turn_cap(&job, &person(900))
+        .raise_turn_cap(&job, &turns_to(900), RaisedBy::Person)
         .await
         .expect("a person gives this Job more turns");
 

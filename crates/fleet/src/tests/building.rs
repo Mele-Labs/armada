@@ -192,9 +192,13 @@ async fn a_failure_is_reported_only_for_the_build_it_failed_on() {
 }
 
 async fn wait_for(path: &Path) -> String {
+    // The wrapper's `>` creates the file before `echo` writes its line, so a read can land
+    // between the two on a busy machine: wait for the whole line.
     for _ in 0..100 {
         if let Ok(text) = fs::read_to_string(path) {
-            return text;
+            if text.ends_with('\n') {
+                return text;
+            }
         }
         tokio::time::sleep(Duration::from_millis(50)).await;
     }

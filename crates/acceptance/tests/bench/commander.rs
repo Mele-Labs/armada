@@ -7,8 +7,8 @@
 //! **No Commander exists yet to drive.** What this builds is the record as a
 //! Commander's act would leave it, by moving the machines with
 //! [`Actor::Commander`] as the signer, and the wire as a Bridge receives it.
-//! The hosting that scripts a Commander's tool calls arrives with #2164, the
-//! first issue that gives it something to call; it is added here then.
+//! The hosting that runs a Commander, and so scripts its tool calls, arrives
+//! with #2166; it is added here then.
 
 use core_model::{
     Actor, EscalationTrigger, PlanAuthor, PlanEntry, StepId, StepLevelTrigger,

@@ -60,7 +60,8 @@ export type SessionAttachment =
   | { kind: "artifact"; form: SessionArtifactForm; id: string; title: string }
   /** The Session this one was forked to, and the one it was forked from. `id` is the other Session's. */
   | { kind: "forked_to"; id: string }
-  | { kind: "forked_from"; id: string };
+  /** `at` is the message the fork was taken from: the old conversation is shown up to and including it. Absent, the whole of it. */
+  | { kind: "forked_from"; id: string; at?: string };
 
 /** A `window` is a page the Session showed in a window of Bridge's own; `id` is its address. */
 export type SessionArtifactForm = "page" | "file" | "image" | "doc" | "window";
@@ -283,6 +284,12 @@ export type SessionsDraft = {
    * Absent where nothing serves it, and Fork is left off rather than drawn dead.
    */
   fork?: (id: string) => string | Promise<string | undefined>;
+  /**
+   * Starts a new Session as a copy of a Session's conversation up to and including one message, live or
+   * not, and returns its id as `fork` does. The Session it came from is untouched. Absent where nothing
+   * serves it, and selecting words in a message offers no Fork.
+   */
+  forkAt?: (id: string, at: string) => string | Promise<string | undefined>;
   /** One of the three ways out of a pilot. Absent with `pilot`. A refusal is said in `said`. */
   exit?: (jobId: string, exit: "submit" | "attest" | "supersede") => void;
   /**
@@ -417,7 +424,8 @@ function names(attachment: SessionAttachment, ref: ChipRef): boolean {
 
 /** The Session that owns what a chip names, or none. **At most one**: a slot, a branch and a PR each belong to one. */
 export function ownerOf(sessions: readonly Session[], ref: ChipRef): Session | undefined {
-  return sessions.find((session) => session.attachments.some((one) => names(one, ref)));
+  // An ended Session keeps what it made on its ledger, but holds nothing.
+  return sessions.find((session) => session.dead !== "ended" && session.attachments.some((one) => names(one, ref)));
 }
 
 /** A Session found by a search, and what in it matched, so a list can say why it is there. */

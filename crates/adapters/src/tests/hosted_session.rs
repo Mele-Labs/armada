@@ -7,7 +7,7 @@ use ipc::SessionMode;
 use super::harness::value_after;
 use crate::harness::HeadlessAgent;
 use crate::hosted_session::{reads_only, HostedLaunch, HostedRefused};
-use crate::{init_commands, sent_message, viewed_image, written_document};
+use crate::{init_commands, inside_a_subagent, sent_message, viewed_image, written_document};
 
 const ID: &str = "7b1f3c52-9a40-4d27-8c1e-3f0d5a6b9e11";
 
@@ -94,6 +94,28 @@ fn a_fork_that_has_run_resumes_itself_and_not_the_one_it_came_from() {
     assert_eq!(value_after(&args, "--resume").as_deref(), Some(ID));
     assert!(!args.iter().any(|arg| arg == "--fork-session"));
     assert!(!args.iter().any(|arg| arg == "--session-id"));
+}
+
+const LINE: &str = "7d0a52c4-91be-4f3a-8c26-0b5e1f47a9d3";
+
+#[test]
+fn a_fork_at_a_message_ends_the_copy_at_that_line() {
+    let launch = launching(false, SessionMode::Auto).forking(OLD).expect("portable").cut_at(LINE).expect("portable");
+    let args = rendered(&launch);
+    assert_eq!(value_after(&args, "--resume-session-at").as_deref(), Some(LINE));
+    assert_eq!(value_after(&args, "--resume").as_deref(), Some(OLD));
+    assert!(args.iter().any(|arg| arg == "--fork-session"));
+}
+
+#[test]
+fn a_fork_that_has_run_is_not_cut_again() {
+    let launch = launching(true, SessionMode::Auto).forking(OLD).expect("portable").cut_at(LINE).expect("portable");
+    assert!(!rendered(&launch).iter().any(|arg| arg == "--resume-session-at"));
+}
+
+#[test]
+fn a_cut_that_would_be_read_as_a_flag_is_refused() {
+    assert!(launching(false, SessionMode::Auto).forking(OLD).expect("portable").cut_at("--dangerous").is_err());
 }
 
 #[test]
@@ -215,6 +237,29 @@ fn the_init_line_names_the_commands_the_agent_has_and_no_other_line_does() {
     assert_eq!(init_commands(other), None);
     assert_eq!(init_commands(r#"{"type":"result","num_turns":1}"#), None);
     assert_eq!(init_commands("not json, slash_commands"), None);
+}
+
+/// Measured: a haiku run that started a background subagent. The subagent's
+/// lines carried the id of the `Agent` call; the agent's own carried `null`.
+#[test]
+fn a_subagents_own_message_is_told_from_the_agents_by_the_call_that_started_it() {
+    let inside = r#"{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"Clean. Run the walk."}]},"parent_tool_use_id":"toolu_011Ke1eATFaYcZ1Fyz5jBx8S","session_id":"s"}"#;
+    let own = r#"{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"done"}]},"parent_tool_use_id":null,"session_id":"s"}"#;
+    let inside_result = r#"{"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"t1","content":"ok"}]},"parent_tool_use_id":"toolu_011Ke1eATFaYcZ1Fyz5jBx8S"}"#;
+    assert!(inside_a_subagent(inside));
+    assert!(inside_a_subagent(inside_result));
+    assert!(!inside_a_subagent(own));
+    // No key at all, a Bash call's heartbeat, and a line that is not JSON.
+    assert!(!inside_a_subagent(r#"{"type":"assistant","message":{"content":[]}}"#));
+    assert!(!inside_a_subagent(
+        r#"{"type":"tool_progress","tool_name":"Bash","parent_tool_use_id":"toolu_1"}"#
+    ));
+    assert!(!inside_a_subagent("not json, parent_tool_use_id"));
+    // `read` still hears the subagent's line: a Drone's evidence needs it.
+    assert!(matches!(
+        crate::transcript::read(inside).as_slice(),
+        [adapter_traits::DroneEvent::Said { text, .. }] if text == "Clean. Run the walk."
+    ));
 }
 
 #[test]

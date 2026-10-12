@@ -54,7 +54,7 @@ where
         job_id: &JobId,
         drone: &DroneId,
         instruction: &Redirection,
-        by: api::Redirector,
+        by: api::Steerer,
     ) -> Result<Job, Adrift> {
         let named = match self.which_live(job_id, drone).await? {
             Named::Kept => None,

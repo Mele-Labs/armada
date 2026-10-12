@@ -265,7 +265,7 @@ async fn a_stalled_job_is_told_it_is_redirected_and_the_redirect_lands() {
 
     let said = Redirection::saying("read tests/parse.rs first").expect("something to act on");
     fleet
-        .redirect(&job, &said, api::Redirector::Person)
+        .redirect(&job, &said, api::Steerer::Person)
         .await
         .expect("the act the classification named");
     assert!(
@@ -416,7 +416,7 @@ async fn a_drone_that_left_turns_the_redirect_into_a_restart() {
                 .redirect(
                     &job,
                     &Redirection::saying("anything").unwrap(),
-                    api::Redirector::Person
+                    api::Steerer::Person
                 )
                 .await,
             Err(Adrift::NoDroneToRedirect { .. })

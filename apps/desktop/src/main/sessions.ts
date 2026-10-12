@@ -314,11 +314,11 @@ export class SessionsHost {
     return await this.act("POST", "/sessions/rename", rename);
   }
 
-  /** A new session as a copy of an ended or dead one. **The repository is the old session's own**, read off the record main holds. */
-  async fork(sessionId: string): Promise<SessionActed> {
+  /** A new session as a copy of an ended or dead one, or of any one up to the row `at`. **The repository is the old session's own**, read off the record main holds. */
+  async fork(sessionId: string, at?: string): Promise<SessionActed> {
     const manifestId = this.sessions?.find((one) => one.id === sessionId)?.manifest_id;
     if (manifestId === undefined) return { ok: false, outcome: { ok: false, why: "no_manifest" } };
-    return await this.start({ manifest_id: manifestId, fork: { session_id: sessionId } });
+    return await this.start({ manifest_id: manifestId, fork: at === undefined ? { session_id: sessionId } : { session_id: sessionId, at } });
   }
 
   async end(sessionId: string): Promise<SessionActed> {

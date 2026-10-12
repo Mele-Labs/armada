@@ -54,6 +54,7 @@ import { sessionOf } from "@armada/jobs";
 import { askToOpenRetro } from "./open-retro";
 import { readRetro } from "./commands";
 import { ArtifactBody, ARTIFACT_GLYPH, isAddress } from "./session-artifact";
+import { forkAtPick, threadRowsFrom, threadRowsOf, upTo } from "./session-thread-rows";
 import { helmOfferedOf } from "@armada/screens/src/copy";
 import { attachmentsOf, isBlank, ownerOf, sessionsMatching } from "@armada/screens/src/draft/sessions";
 import type { ChipRef, DrawnSketch, PullRequestAct, Session, SessionAnswer, SessionAttachment, SessionMode, SessionsDraft, SessionTag, SubagentThread as Subagent } from "@armada/screens/src/draft/sessions";
@@ -418,29 +419,6 @@ export function SessionsListing({ onOpen }: { onOpen: (id: string) => void }) {
   );
 }
 
-export function threadRowsOf(session: Session): SessionThreadRow[] {
-  return threadRowsFrom(session.rows);
-}
-
-function threadRowsFrom(rows: Session["rows"]): SessionThreadRow[] {
-  return rows.map((row): SessionThreadRow => {
-    if (row.kind === "lease" || row.kind === "tool" || row.kind === "handoff" || row.kind === "command" || row.kind === "compaction" || row.kind === "window" || row.kind === "check" || row.kind === "retro") return row;
-    if (row.from.kind === "session") {
-      return { id: row.id, at: row.at, kind: "message", from: "session", sender: { id: row.from.id, title: row.from.title }, text: row.text };
-    }
-    return {
-      id: row.id,
-      at: row.at,
-      kind: "message",
-      from: row.from.kind,
-      text: row.text,
-      ...(row.files === undefined ? {} : { files: row.files }),
-      ...(row.sketches === undefined ? {} : { sketches: row.sketches }),
-      ...(row.tags === undefined ? {} : { tags: row.tags }),
-    };
-  });
-}
-
 /** Where a ledger row goes: the surface that already shows the thing. */
 export type LedgerGoes = {
   onOpenJob: (jobId: string) => void;
@@ -688,7 +666,8 @@ function entriesOf(
   scrollToAsk: () => void,
   known: Known,
 ): LedgerEntry[] {
-  const waiting = (session.waitingFor ?? []).map((one): LedgerEntry => {
+  // An ended Session waits on nobody: its ledger is what it made, to be read.
+  const waiting = (session.dead === "ended" ? [] : (session.waitingFor ?? [])).map((one): LedgerEntry => {
     // An `answer` with no choices and no question in the thread has nowhere to go, so it takes words as no act does.
     const act = one.act?.kind === "answer" && one.options === undefined && session.asked === undefined ? undefined : one.act;
     return {
@@ -760,6 +739,7 @@ function entriesOf(
             </>
           ),
           mark: { glyph: one.state === "merged" ? "passed" : one.checks.state, said: one.state === "merged" ? "Merged" : checksSaid(one.checks) },
+          pr: { merged: one.state === "merged", checks: one.checks.state === "failed" ? "failed" : one.checks.state === "pending" ? "running" : "passed", checksSaid: checksSaid(one.checks) },
           ...(one.state === "merged" ? { finished: true } : {}),
           onOpen: () => read({ kind: "pull_request", number: one.number }),
         };
@@ -854,6 +834,8 @@ function SessionView({ session, goes, onOpen, held, board, lines }: { session: S
   const [drawn, setDrawn] = useKept<DrawnSketch[]>(`session:${session.id}:drawn`, NO_SKETCHES);
   const narrow = useNarrow();
   const [ledgerOpen, setLedgerOpen] = useState(false);
+  // The Session a fork from a selection opened, whose message box takes focus when it shows.
+  const [focusFor, setFocusFor] = useState<string | undefined>();
   const askCard = useRef<HTMLDivElement>(null);
   const centre = useRef<HTMLDivElement>(null);
   // Keep going hides the callout for the `done` it answered; a later `done` is a new one.
@@ -888,6 +870,8 @@ function SessionView({ session, goes, onOpen, held, board, lines }: { session: S
   // The conversation a fork began as a copy of, which is the other Session's own rows.
   const forkedFrom = session.attachments.find((one): one is Extract<SessionAttachment, { kind: "forked_from" }> => one.kind === "forked_from");
   const origin = forkedFrom === undefined ? undefined : sessions.find((one) => one.id === forkedFrom.id);
+  // **Up to and including the message it was forked at**, and not what was said after it.
+  const originRows = origin === undefined ? NO_ROWS : upTo(threadRowsOf(origin), forkedFrom?.at);
   if (draft === undefined) return null;
   const slot = held.held.state === "read" ? (held.held.held.slots ?? []).find((one) => one.slot === slotOpen) : undefined;
   const mode: SessionMode = session.mode ?? (session.terminal === true ? "ask" : "auto");
@@ -913,6 +897,14 @@ function SessionView({ session, goes, onOpen, held, board, lines }: { session: S
       : () => askCard.current?.scrollIntoView({ block: "center", behavior: "smooth" }),
     { board, slots: held.held.state === "read" ? (held.held.held.slots ?? []) : [] },
   );
+  // What the done callout lists: every pull request, merged first then open, else the pages, files and Docs made. Pictures looked at and windows shown were not made.
+  const prRows = entries.filter((one) => one.kind === "pull_request").sort((a, b) => Number(b.pr?.merged === true) - Number(a.pr?.merged === true));
+  const made = prRows.length > 0 ? prRows : entries.filter((one) => one.kind === "artifact" && (one.artifact === "page" || one.artifact === "file" || one.artifact === "doc"));
+  const doneShown = !(session.done === undefined || session.done.since === kept || session.turn.state !== "idle" || session.asked !== undefined || session.dead !== undefined || draft.close === undefined);
+  // Until the done callout shows, what waits on the person sits at the foot of the thread and not in the ledger, less a question or permission its own card already shows.
+  const carded = new Set((session.waitingFor ?? []).filter((one) => one.source === "ask_card" || one.source === "permission").map((one) => `waiting${one.id}`));
+  const needs = doneShown ? [] : entries.filter((one) => one.kind === "waiting" && !carded.has(one.key));
+  const ledger = doneShown ? entries : entries.filter((one) => one.kind !== "waiting");
   return (
     <>
       <SessionFrame
@@ -970,7 +962,7 @@ function SessionView({ session, goes, onOpen, held, board, lines }: { session: S
                       </Button>
                     </Tooltip>
                   </div>
-                  <SessionLedger entries={entries} />
+                  <SessionLedger entries={ledger} />
                 </>
               ),
             })}
@@ -978,22 +970,25 @@ function SessionView({ session, goes, onOpen, held, board, lines }: { session: S
         <div ref={centre} className="armada-session-frame__centre">
           {origin === undefined ? null : (
             <ForkedFrom title={origin.title ?? origin.id} onOpen={() => draft.watch?.(origin.id)}>
-              <SessionThread sessionId={origin.id} rows={threadRowsOf(origin)} onAnswer={() => undefined} onOpenSession={onOpen} />
+              <SessionThread sessionId={origin.id} rows={originRows} onAnswer={() => undefined} onOpenSession={onOpen} />
             </ForkedFrom>
           )}
           <SessionThread
             sessionId={session.id}
             rows={thread}
             onOpenRetro={openRetro}
+            {...(draft.forkAt === undefined ? {} : { onForkAt: (pick) => opening(forkAtPick(draft.forkAt!, session.id, pick, setFocusFor), onOpen) })}
             askRef={askCard}
             onOpenWindow={(url) => draft.openWindow?.(id, url)}
             onOpenCheck={(run) => goes.onOpenCheck(session.id, run)}
             working={session.turn.state === "working"}
-            {...(session.done === undefined || session.done.since === kept || session.turn.state !== "idle" || session.asked !== undefined || session.dead !== undefined || draft.close === undefined
+            waiting={needs}
+            {...(!doneShown
               ? {}
               : {
                   done: {
                     onEnd: () => draft.close?.(session.id),
+                    made,
                     onKeep: () => {
                       setKept(session.done?.since);
                       centre.current?.querySelector<HTMLElement>('[role="textbox"][aria-label="Message"]')?.focus();
@@ -1036,6 +1031,7 @@ function SessionView({ session, goes, onOpen, held, board, lines }: { session: S
               ]}
               tags={session.pendingTags ?? []}
               draftKey={session.id}
+              focusFor={focusFor}
               onTags={(tags) => draft.setTags(session.id, tags)}
               drawn={drawn.map(({ id, title }) => ({ id, title }))}
               onDraw={() => setPadOpen(true)}
@@ -1055,7 +1051,7 @@ function SessionView({ session, goes, onOpen, held, board, lines }: { session: S
       </SessionFrame>
       {narrow ? (
         <Sheet kind="session-ledger" open={ledgerOpen} floating floor={floor} title="Attachments" closeLabel="Close" closeBinding="Esc" onClose={() => setLedgerOpen(false)}>
-          <SessionLedger entries={entries} folded />
+          <SessionLedger entries={ledger} folded />
         </Sheet>
       ) : null}
       <ReadingSheet
