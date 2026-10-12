@@ -57,16 +57,7 @@ pub(crate) type JobBranch = (String, ipc::JobId, String);
 
 /// Every Job's branch, for [`naming_jobs`]. A Job with no worktree has none.
 pub(crate) async fn job_branches<D: Queries>(daemon: &D) -> Vec<JobBranch> {
-    daemon
-        .list_jobs(None)
-        .await
-        .map(|list| {
-            list.jobs
-                .into_iter()
-                .filter_map(|job| Some((job.branch?, job.id, job.handle)))
-                .collect()
-        })
-        .unwrap_or_default()
+    daemon.job_branches().await
 }
 
 /// Each Check's requester on a branch some Job owns, carrying that Job's id and

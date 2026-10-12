@@ -87,8 +87,8 @@ pub(crate) fn in_flight(asked: &DroneQuestion) -> ipc::QuestionInFlight {
     }
 }
 
-/// [`Answered`]'s frame as it ships. Not yet a `prompts.crossing` key: that
-/// key is `crates/config/settings.toml`'s to add.
+/// [`Answered`]'s frame as it ships, `prompts.crossingAnswered`'s default.
+/// What fills it is filled where the brief is laid out, as a note's is.
 pub(crate) const ANSWERED: &str =
     "WHAT A PERSON ANSWERED\n\nThe Drone before you on this part asked a person:\n\n  \
      \"{question}\"\n\nThey answered: {label}\nWhich that Drone said means: {consequence}\n\n\
@@ -105,25 +105,34 @@ pub(crate) const ANSWERED: &str =
 /// that option commits to. There is no constructor taking free text: what
 /// varies is the question and the option, and both came from a Drone.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Answered(String);
+pub struct Answered {
+    question: String,
+    label: String,
+    consequence: String,
+}
 
 impl Answered {
     /// The block for a Job whose question has been answered. `None` while it
     /// is unanswered and where nothing was asked.
     pub(crate) fn of(asked: &DroneQuestion) -> Option<Answered> {
         let chosen = asked.chosen()?;
-        Some(Answered(crate::prompts::fill(
-            ANSWERED,
-            &[
-                ("question", &asked.question),
-                ("label", &chosen.label),
-                ("consequence", &chosen.consequence),
-            ],
-        )))
+        Some(Answered {
+            question: asked.question.clone(),
+            label: chosen.label.clone(),
+            consequence: chosen.consequence.clone(),
+        })
     }
 
-    pub fn text(&self) -> &str {
-        &self.0
+    /// The block, in the words of `prompts.crossingAnswered`.
+    pub fn text(&self, prompts: &crate::prompts::Prompts) -> String {
+        prompts.fill(
+            config::settings::PROMPT_CROSSING_ANSWERED,
+            &[
+                ("question", &self.question),
+                ("label", &self.label),
+                ("consequence", &self.consequence),
+            ],
+        )
     }
 }
 

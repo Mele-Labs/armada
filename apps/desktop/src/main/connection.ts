@@ -323,6 +323,7 @@ export class FleetConnection {
       studios: this.studios,
       mods: this.mods,
       sessions: this.sessions,
+      held: this.held,
       sleep: this.sleep,
       // Autopilot's changes, which main/index.ts passes to every window.
       issues: this.issues,

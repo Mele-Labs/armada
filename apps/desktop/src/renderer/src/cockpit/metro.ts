@@ -33,6 +33,8 @@ export type Line = {
   reach: number;
   /** One per station; absent where the work has no stop there. */
   stops: readonly (Stop | undefined)[];
+  /** What a press on its title opens: its Job, or its Session. None for a terminal Armada does not know. */
+  open: Act | undefined;
   /** A row tinted for what it wants: the owner's answer, or its failing checks. */
   wants: "you" | "fixing" | undefined;
   /** Autopilot's: the line wears its glyph. Set by `autopilot-metro.ts`, only while one is on. */
@@ -49,7 +51,7 @@ export type Metro = {
   nextUp?: readonly Line[];
   /** How many lines are at each station, by tone, for the station's header. */
   counts: readonly (readonly (readonly [Tone, number])[])[];
-  bays: { held: number; free: number; closed: number; strip: readonly ("held" | "free" | "closed")[]; tones: readonly (Tone | undefined)[] };
+  bays: { held: number; free: number; closed: number; strip: readonly ("held" | "free" | "closed")[]; names: readonly string[] };
   main: "green" | "red" | undefined;
 };
 
@@ -76,10 +78,18 @@ function opens(item: Item | undefined): Act[] {
   return session === undefined ? [] : [{ kind: "session", id: session, label: "Open Session" }];
 }
 
+/** What the work in a bay opens: the Job by its id, the Session by its own, whether or not it has a tile. */
+function opensIn(holder: Bay["holder"]): Act[] {
+  if (holder.kind === "job") return [{ kind: "job", id: holder.id, label: "Open Job" }];
+  if (holder.kind === "session" && holder.session !== undefined) return [{ kind: "session", id: holder.session.id, label: "Open Session" }];
+  return [];
+}
+
 function lineOfBay(bay: Bay, now: number): Line | undefined {
   const { holder } = bay;
   if (holder.kind !== "job" && holder.kind !== "session") return undefined;
   const item = holder.item;
+  const own = opensIn(holder);
   const tone = item === undefined ? "idle" : HUE[item.hue];
   const dot = bay.dot;
   const queued = dot !== undefined && dot.queued && dot.card.place !== undefined;
@@ -103,9 +113,10 @@ function lineOfBay(bay: Bay, now: number): Line | undefined {
           ...(bay.branch === undefined ? [] : [["Branch", bay.branch, true] as const]),
           ...(bay.behind === undefined ? [] : [["Behind main", bay.behind === 0 ? "level" : `${bay.behind} commits`] as const]),
           ...(held === undefined ? [] : [["Held", held] as const]),
+          ...(holder.kind === "session" && holder.by !== undefined ? [["Held by", holder.by] as const] : []),
           ...(riders.length === 0 ? [] : [["Sessions", riders.join(", ")] as const]),
         ],
-        acts: [...opens(item), ...bay.riders.flatMap((one): Act[] => [{ kind: "session", id: one.session.id, label: `Open ${one.session.title ?? "Session"}` }]).slice(0, 2)],
+        acts: [...own, ...bay.riders.flatMap((one): Act[] => [{ kind: "session", id: one.session.id, label: `Open ${one.session.title ?? "Session"}` }]).slice(0, 2)],
       },
     },
     {
@@ -117,7 +128,7 @@ function lineOfBay(bay: Bay, now: number): Line | undefined {
         pill: asks ? "asks you" : holder.kind === "session" ? "working" : "building",
         title: stepped ? `${steps[at]?.label ?? "Working"}, step ${at + 1} of ${steps.length}` : holder.title,
         rows: [["Now", item?.fact ?? "—"]],
-        acts: opens(item),
+        acts: own,
       },
     },
     dot === undefined
@@ -145,6 +156,7 @@ function lineOfBay(bay: Bay, now: number): Line | undefined {
     tone,
     reach,
     stops,
+    open: own[0],
     wants: dot?.state === "failing" ? "fixing" : tone === "ask" ? "you" : undefined,
   };
 }
@@ -161,6 +173,7 @@ function lineOfWaiting(item: Item, bay: Bay | undefined): Line {
     stops: [
       { tone: "idle", card: { tone: "idle", pill: "waiting", title: "Waiting for a bay", rows: [["Goes to", bay === undefined ? "the next bay that frees" : `bay ${two(bay.slot)}, the first free one`]], acts: opens(item) } },
     ],
+    open: opens(item)[0],
     wants: undefined,
   };
 }
@@ -199,7 +212,8 @@ export function metroOf(read: BaysRead, now: number): Metro {
       free: all.filter((bay) => kind(bay) === "free").length,
       closed: all.filter((bay) => kind(bay) === "closed").length,
       strip: all.map(kind),
-      tones: all.map((bay) => (bay.holder.kind === "job" || bay.holder.kind === "session" ? (bay.holder.item === undefined ? "idle" : HUE[bay.holder.item.hue]) : undefined)),
+      // One colour for every held bay: the strip says held, free or closed, and the lines say the rest.
+      names: all.map((bay) => `Bay ${two(bay.slot)}: ${bay.holder.kind === "job" || bay.holder.kind === "session" ? bay.holder.title : bay.holder.kind === "other" ? bay.holder.said : bay.holder.kind}`),
     },
     main: read.harbours[0]?.main,
   };

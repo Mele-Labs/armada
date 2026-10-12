@@ -82,6 +82,24 @@ export type Judged = {
    * 8.3 produced. Never "the input was empty".
    */
   given?: Given;
+  /**
+   * What this member said makes the refused work risky, where it said so. Since #2105.
+   *
+   * **What brings an agreed refusal to a person**: a panel that agrees sends the work back to its
+   * Drone unless a member calls it risky, so on a refusal that reached a person this is the reason
+   * the call card gives. Absent where the member said it only needs redoing, or was not asked.
+   */
+  risky?: string;
+};
+
+/**
+ * How many times the Judges sent one pass of a step back to its Drone on a refusal they agreed
+ * on, counted from one, and how many they may (`AGREED_RETRIES`) before a person hears it.
+ * `StepDetail.sent_back`, absent where they sent nothing back. Since #2105.
+ */
+export type JudgesSentBack = {
+  times: number;
+  of: number;
 };
 
 /**

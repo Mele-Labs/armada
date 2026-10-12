@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Autopilot, IssueList, JobSummary } from "@armada/protocol";
 
-import { capsOf, clockOf, dollars, endedOf, localNow, nextUpOf, readingOf, settingsFrom, setAsideOf, stoppingOf } from "./autopilot";
+import { capsOf, clockOf, dollars, cappedOf, localNow, nextUpOf, readingOf, settingsFrom, setAsideOf, stoppingOf } from "./autopilot";
 
 const NOW = Date.parse("2026-10-12T05:00:00.000Z");
 
@@ -47,18 +47,20 @@ describe("the caps row", () => {
     expect(caps[3]!.fill).toBe(0.5);
   });
 
-  it("says a cap that is not set, and lights the one that ended it", () => {
-    const caps = capsOf(autopilot({ state: "stopped", capped_by: "jobs", job_cap: 3, until: undefined, spend_cap_micros: undefined, at_work: 1 }), NOW);
+  it("says a cap that is not set, and lights the one that paused it", () => {
+    const caps = capsOf(autopilot({ state: "paused", capped_by: "jobs", job_cap: 3, until: undefined, spend_cap_micros: undefined, at_work: 1 }), NOW);
     expect(caps.map((cap) => cap.value)).toEqual(["1 of 2 running", "$12.40 · no cap", "3 of 3 started", "no time set"]);
     expect(caps.map((cap) => cap.reached)).toEqual([false, false, true, false]);
   });
 });
 
-describe("how it ended", () => {
-  it("names the cap that stopped it, and says nothing of a person's own Stop", () => {
-    expect(endedOf(autopilot({ state: "stopped", capped_by: "spend" }))).toBe("Stopped at its spend cap of $30. The Jobs it started carry on to the end.");
-    expect(endedOf(autopilot({ state: "stopped" }))).toBeUndefined();
-    expect(endedOf(autopilot())).toBeUndefined();
+describe("which cap paused it", () => {
+  it("names the cap that paused it, and says nothing of a person's own Pause", () => {
+    expect(cappedOf(autopilot({ state: "paused", capped_by: "jobs" }))).toBe("Job cap reached");
+    expect(cappedOf(autopilot({ state: "paused", capped_by: "spend" }))).toBe("spend cap reached");
+    expect(cappedOf(autopilot({ state: "paused", capped_by: "until" }))).toBe("time to stop passed");
+    expect(cappedOf(autopilot({ state: "paused" }))).toBeUndefined();
+    expect(cappedOf(autopilot())).toBeUndefined();
   });
 });
 
@@ -104,10 +106,13 @@ describe("Next up", () => {
 });
 
 describe("the start form", () => {
-  it("draws Fleet's reading, blank where the sentence said nothing", () => {
-    const reading = readingOf({ instruction: "x", at_once: 2, spend_cap_micros: 30_000_000, until: "2026-10-12T07:00:00.000Z" });
+  it("draws Fleet's reading over the words each setting came from, blank where the sentence said nothing", () => {
+    const quoted = { instruction: "x", at_once: "two at a time", spend_cap_micros: "$30 max", until: " " };
+    const reading = readingOf({ instruction: "x", at_once: 2, spend_cap_micros: 30_000_000, until: "2026-10-12T07:00:00.000Z", quoted });
     expect(reading.fields).toEqual({ atOnce: "2", until: clockOf("2026-10-12T07:00:00.000Z"), spend: "30", jobs: "" });
-    expect(reading.said).toEqual({ atOnce: true, until: true, spend: true, jobs: false });
+    // A blank quote is no quote: the form says the sentence did not say it.
+    expect(reading.quoted).toEqual({ atOnce: "two at a time", spend: "$30 max" });
+    expect(readingOf({ instruction: "x", at_once: 1 }).quoted).toEqual({});
   });
 
   it("takes what the person confirmed, and refuses a field it cannot read", () => {

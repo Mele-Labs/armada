@@ -149,7 +149,7 @@ async fn a_full_autopilot_asks_nothing_and_a_job_waiting_on_a_person_gives_its_p
 }
 
 #[tokio::test]
-async fn the_first_cap_reached_stops_it_and_says_which_and_the_started_job_carries_on() {
+async fn the_first_cap_reached_pauses_it_and_says_which_and_the_started_job_carries_on() {
     let home = TempDir::new();
     let (fleet, model) = a_fleet(&home, &[SURE_12, SURE_13]);
     started(&fleet, 2, Some(1)).await;
@@ -158,7 +158,8 @@ async fn the_first_cap_reached_stops_it_and_says_which_and_the_started_job_carri
     fleet.autopilot_pass().await.expect("a pass");
 
     let now = fleet.get_autopilot(here(&fleet)).await.expect("held");
-    assert_eq!(now.state, AutopilotState::Stopped);
+    assert_eq!(now.state, AutopilotState::Paused, "paused, not ended");
+    assert_eq!(now.ended_at, None);
     assert_eq!(now.capped_by, Some(AutopilotCap::Jobs));
     assert_eq!(model.asked().len(), 1, "the cap stopped the next pick");
     let job = fleet.load(&job_of(&now.picks[0])).await.expect("the Job");
@@ -167,6 +168,92 @@ async fn the_first_cap_reached_stops_it_and_says_which_and_the_started_job_carri
         JobStatus::Queued,
         "and not the Job it started"
     );
+}
+
+/// The owner's *fix the gaps*, 12 Oct 2026: a cap pauses, Resume waits for it to be raised, and
+/// a raised cap lets it carry on from where it was.
+#[tokio::test]
+async fn a_capped_autopilot_resumes_only_once_a_person_raises_the_cap() {
+    let home = TempDir::new();
+    let (fleet, model) = a_fleet(&home, &[SURE_12, SURE_13]);
+    started(&fleet, 2, Some(1)).await;
+    fleet.autopilot_pass().await.expect("a pass");
+    fleet.autopilot_pass().await.expect("a pass");
+    assert_eq!(
+        fleet.get_autopilot(here(&fleet)).await.expect("held").state,
+        AutopilotState::Paused
+    );
+
+    let refused = fleet.resume_autopilot(here(&fleet)).await;
+    let Err(Refusal::IllegalMove(why)) = refused else {
+        panic!("refused while the cap holds, not {refused:?}");
+    };
+    assert_eq!(why.code, "fleet.autopilot_capped");
+    assert!(why.message.contains("Job cap"), "{}", why.message);
+    let still = fleet.get_autopilot(here(&fleet)).await.expect("held");
+    assert_eq!(still.state, AutopilotState::Paused);
+    assert_eq!(still.capped_by, Some(AutopilotCap::Jobs), "nothing moved");
+
+    let raised = fleet
+        .update_autopilot(here(&fleet), settings(2, Some(2)))
+        .await
+        .expect("the cap is raised");
+    assert_eq!(
+        raised.state,
+        AutopilotState::Paused,
+        "a change never resumes it"
+    );
+    assert_eq!(raised.job_cap, Some(2));
+    assert_eq!(raised.capped_by, Some(AutopilotCap::Jobs));
+    assert_eq!(raised.jobs_started, 1, "the run's picks are kept");
+
+    let resumed = fleet.resume_autopilot(here(&fleet)).await.expect("resumes");
+    assert_eq!(resumed.state, AutopilotState::Running);
+    assert_eq!(resumed.capped_by, None);
+    assert_eq!(
+        fleet.autopilot_pass().await.expect("a pass"),
+        1,
+        "it picks again"
+    );
+    assert_eq!(model.asked().len(), 2);
+    let now = fleet.get_autopilot(here(&fleet)).await.expect("held");
+    assert_eq!(now.jobs_started, 2);
+    fleet.autopilot_pass().await.expect("a pass");
+    assert_eq!(
+        fleet
+            .get_autopilot(here(&fleet))
+            .await
+            .expect("held")
+            .capped_by,
+        Some(AutopilotCap::Jobs),
+        "and pauses again at the raised cap"
+    );
+}
+
+#[tokio::test]
+async fn a_stopped_autopilot_takes_no_new_settings() {
+    let home = TempDir::new();
+    let (fleet, _) = a_fleet(&home, &[]);
+    started(&fleet, 1, None).await;
+    fleet.stop_autopilot(here(&fleet)).await.expect("stops");
+
+    let refused = fleet
+        .update_autopilot(here(&fleet), settings(1, Some(3)))
+        .await;
+
+    assert!(
+        matches!(&refused, Err(Refusal::IllegalMove(why)) if why.code == "fleet.autopilot_stopped"),
+        "{refused:?}"
+    );
+    let blank = AutopilotSettings {
+        instruction: " ".to_string(),
+        ..settings(1, None)
+    };
+    started(&fleet, 1, None).await;
+    assert!(matches!(
+        fleet.update_autopilot(here(&fleet), blank).await,
+        Err(Refusal::Unacceptable(_))
+    ));
 }
 
 #[tokio::test]
@@ -268,7 +355,11 @@ async fn one_sentence_is_proposed_and_nothing_starts() {
     let home = TempDir::new();
     let (fleet, _) = a_fleet(
         &home,
-        &["instruction: fix the flaky tests\nat_once: 2\nuntil: none\nspend: 30\njobs: none"],
+        &[
+            "instruction: fix the flaky tests\ninstruction_from: fix the flaky tests\nat_once: 2\n\
+           at_once_from: two at a time\nuntil: none\nuntil_from: none\nspend: 30\n\
+           spend_from: $30 max\njobs: none",
+        ],
     );
 
     let proposed = fleet
@@ -282,8 +373,12 @@ async fn one_sentence_is_proposed_and_nothing_starts() {
         .await
         .expect("read");
 
-    assert_eq!(proposed.at_once, 2);
-    assert_eq!(proposed.spend_cap_micros, Some(30_000_000));
+    assert_eq!(proposed.settings.at_once, 2);
+    assert_eq!(proposed.settings.spend_cap_micros, Some(30_000_000));
+    assert_eq!(proposed.quoted.at_once.as_deref(), Some("two at a time"));
+    assert_eq!(proposed.quoted.spend_cap_micros.as_deref(), Some("$30 max"));
+    assert_eq!(proposed.quoted.until, None, "the sentence named no time");
+    assert_eq!(proposed.quoted.job_cap, None, "no `jobs_from` line at all");
     assert!(fleet
         .list_autopilots()
         .await
