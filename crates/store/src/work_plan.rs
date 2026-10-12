@@ -197,6 +197,7 @@ END;
 pub enum PlanHand<'a> {
     Step(&'a StepId),
     Person,
+    Commander,
 }
 
 /// Why a change to a plan was not kept.
@@ -241,6 +242,7 @@ impl Store {
                 attempt: attempt_now(&tx, job_id, step_id).map_err(PlanNotKept::Database)?,
             },
             PlanHand::Person => PlanAuthor::Person,
+            PlanHand::Commander => PlanAuthor::Commander,
         };
         let history = history_in(&tx, job_id).map_err(PlanNotKept::Unreadable)?;
         let current = WorkPlan::fold(&history)
@@ -296,8 +298,9 @@ fn appended(conn: &Connection, job_id: &JobId, entry: &PlanEntry) -> Result<(), 
         .map_err(fault("numbering a plan change"))?;
     let (by_step, by_attempt) = match &entry.by {
         PlanAuthor::Step { step_id, attempt } => (Some(step_id.as_str()), Some(attempt.number())),
-        PlanAuthor::Person => (None, None),
+        PlanAuthor::Person | PlanAuthor::Commander => (None, None),
     };
+    let by_commander = i64::from(entry.by == PlanAuthor::Commander);
     let added_scope = match &entry.change {
         PlanChange::Added { task, .. } => Some(packed(task.scope())),
         PlanChange::Edited { edit, .. } => edit.scope().map(packed),
@@ -392,9 +395,9 @@ fn appended(conn: &Connection, job_id: &JobId, entry: &PlanEntry) -> Result<(), 
     conn.execute(
         "INSERT INTO job_work_plan_changes (job_id, seq, change, by_step, by_attempt, at, \
          approach, task_id, title, detail, after_task, state, reason, scope, expects, shown, \
-         grp, after_grp, model) \
+         grp, after_grp, model, by_commander) \
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, \
-         ?19)",
+         ?19, ?20)",
         rusqlite::params![
             job_id.as_str(),
             seq,
@@ -415,6 +418,7 @@ fn appended(conn: &Connection, job_id: &JobId, entry: &PlanEntry) -> Result<(), 
             group,
             after_group,
             model,
+            by_commander,
         ],
     )
     .map_err(fault("appending a plan change"))?;
@@ -512,12 +516,14 @@ fn history_in(conn: &Connection, job_id: &JobId) -> Result<Vec<PlanEntry>, RowEr
 
 fn entry_of(row: &Row<'_>, recorded: &[(i64, NewTask)]) -> Result<PlanEntry, RowError> {
     let seq: i64 = row.get("seq").map_err(column(CHANGES, "seq"))?;
+    let commander = maybe_number(row, "by_commander")? == Some(1);
     let by = match (maybe(row, "by_step")?, maybe_number(row, "by_attempt")?) {
         (Some(step), Some(number)) => PlanAuthor::Step {
             step_id: StepId::new(step),
             attempt: Attempt::stored(number)
                 .ok_or_else(|| malformed("by_attempt", "an attempt is one-based"))?,
         },
+        (None, None) if commander => PlanAuthor::Commander,
         (None, None) => PlanAuthor::Person,
         _ => {
             return Err(malformed(

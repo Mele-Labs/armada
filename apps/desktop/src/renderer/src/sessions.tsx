@@ -697,7 +697,8 @@ function entriesOf(
   known: Known,
 ): LedgerEntry[] {
   const waiting = (session.waitingFor ?? []).map((one): LedgerEntry => {
-    const act = one.act;
+    // An `answer` with no choices and no question in the thread has nowhere to go, so it takes words as no act does.
+    const act = one.act?.kind === "answer" && one.options === undefined && session.asked === undefined ? undefined : one.act;
     return {
       key: `waiting${one.id}`,
       kind: "waiting",
@@ -864,6 +865,9 @@ function SessionView({ session, goes, onOpen, held, board, lines }: { session: S
   // The Session a fork from a selection opened, whose message box takes focus when it shows.
   const [focusFor, setFocusFor] = useState<string | undefined>();
   const askCard = useRef<HTMLDivElement>(null);
+  const centre = useRef<HTMLDivElement>(null);
+  // Keep going hides the callout for the `done` it answered; a later `done` is a new one.
+  const [kept, setKept] = useState<string | undefined>();
   const [minimized, minimize] = useMinimized();
   const retro = useRetroPress();
   const threadRows = useThreadRows(session);
@@ -983,7 +987,7 @@ function SessionView({ session, goes, onOpen, held, board, lines }: { session: S
               ),
             })}
       >
-        <div className="armada-session-frame__centre">
+        <div ref={centre} className="armada-session-frame__centre">
           {origin === undefined ? null : (
             <ForkedFrom title={origin.title ?? origin.id} onOpen={() => draft.watch?.(origin.id)}>
               <SessionThread sessionId={origin.id} rows={originRows} onAnswer={() => undefined} onOpenSession={onOpen} />
@@ -1013,6 +1017,17 @@ function SessionView({ session, goes, onOpen, held, board, lines }: { session: S
             onOpenWindow={(url) => draft.openWindow?.(id, url)}
             onOpenCheck={(run) => goes.onOpenCheck(session.id, run)}
             working={session.turn.state === "working"}
+            {...(session.done === undefined || session.done.since === kept || session.turn.state !== "idle" || session.asked !== undefined || session.dead !== undefined || draft.close === undefined
+              ? {}
+              : {
+                  done: {
+                    onEnd: () => draft.close?.(session.id),
+                    onKeep: () => {
+                      setKept(session.done?.since);
+                      centre.current?.querySelector<HTMLElement>('[role="textbox"][aria-label="Message"]')?.focus();
+                    },
+                  },
+                })}
             {...(draft.run === undefined ? {} : { runner: (command, on) => draft.run!(session.id, command, on) })}
             {...(session.terminal === true && draft.command !== undefined ? { onCommand: (text) => draft.command!(session.id, text), commandNames: (session.commands ?? []).map((one) => one.name) } : {})}
             {...(session.asked === undefined

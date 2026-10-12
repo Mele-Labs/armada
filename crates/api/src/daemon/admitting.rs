@@ -87,7 +87,7 @@ impl HelmReach {
 /// the door lets a Helm session draft a Job, and what Fleet records for the
 /// draft has to say so.
 ///
-/// **Two, because nothing else places a call this way**, so Fleet or a Drone
+/// **Three, because nothing else places a call this way**, so Fleet or a Drone
 /// recorded as having redirected or drafted is not a value this can carry.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Redirector {
@@ -95,6 +95,9 @@ pub enum Redirector {
     Person,
     /// A Helm session Fleet is hosting, placed by its connection.
     Helm,
+    /// A Job's Commander, acting on that Job. **Never placed by a connection**:
+    /// the transport yields `Person` or `Helm`, and Fleet names this one itself.
+    Commander,
 }
 
 /// Every row a Helm session could be offered before its daemon decides: what

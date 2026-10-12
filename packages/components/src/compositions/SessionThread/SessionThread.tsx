@@ -1,6 +1,6 @@
 import { useLayoutEffect, useMemo, useRef } from "react";
 import type { ReactNode, Ref } from "react";
-import { AppWindow, Box, ChevronRight, GitBranch, KeyRound, Layers, Server, Smartphone, SquareTerminal, Wrench } from "lucide-react";
+import { AppWindow, Box, Check, ChevronRight, GitBranch, KeyRound, Layers, Server, Smartphone, SquareTerminal, Wrench } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { AttachmentChip } from "../../primitives/AttachmentChip/AttachmentChip";
@@ -105,6 +105,8 @@ export type SessionThreadProps = {
    */
   asked?: { command: string; offers?: readonly AskOffer[]; questions?: readonly AskedQuestion[] };
   onAnswer: (answer?: string, answers?: QuestionAnswer[]) => void;
+  /** The agent says it has nothing left: a callout ends the thread, with the two ways on. Absent draws none. */
+  done?: { onEnd: () => void; onKeep: () => void };
   /** The ask's card, so a host can scroll to it. */
   askRef?: Ref<HTMLDivElement>;
   /** Opens the Session a message came from. */
@@ -489,7 +491,7 @@ function Row({
 /** How far from the end still counts as being at it, so a rounding or a half row does not unpin. */
 const NEAR_END = 24;
 
-export function SessionThread({ rows, asked, askRef, onAnswer, onOpenSession, onOpenWindow, onOpenCheck, onOpenRetro, sessionId, working, agentName, runner, onCommand, commandNames, onForkAt }: SessionThreadProps) {
+export function SessionThread({ rows, asked, askRef, onAnswer, done, onOpenSession, onOpenWindow, onOpenCheck, onOpenRetro, sessionId, working, agentName, runner, onCommand, commandNames, onForkAt }: SessionThreadProps) {
   const whole = useRef<HTMLDivElement>(null);
   const slash = useMemo(() => (onCommand === undefined ? null : { send: onCommand, names: new Set(commandNames ?? []) }), [onCommand, commandNames]);
   const scroller = useRef<HTMLDivElement>(null);
@@ -571,6 +573,26 @@ export function SessionThread({ rows, asked, askRef, onAnswer, onOpenSession, on
           </div>
           )}
         </Card>
+      )}
+      {done === undefined ? null : (
+        <div className="armada-session-done" role="article" aria-label="Nothing left to do">
+          <div className="armada-session-done__head">
+            <Tooltip label="The agent has nothing left to work on">
+              <span className="armada-session-done__mark" role="img" aria-label="Nothing left to work on">
+                <Check size={12} strokeWidth={2} aria-hidden />
+              </span>
+            </Tooltip>
+            <span className="armada-session-done__label">Nothing left to do</span>
+          </div>
+          <div className="armada-session-done__acts">
+            <Button size="sm" variant="secondary" onClick={done.onEnd}>
+              End session
+            </Button>
+            <Button size="sm" variant="ghost" onClick={done.onKeep}>
+              Keep going
+            </Button>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -148,6 +148,8 @@ where
     async fn hear(self: &Arc<Self>, id: &str, runtime: &Arc<Runtime>, event: DroneEvent) {
         match event {
             DroneEvent::Started { .. } => {
+                // A turn begun again is work the agent had said was over.
+                self.done_cleared(id).await;
                 {
                     let mut state = runtime.state();
                     state.last_active = std::time::Instant::now();

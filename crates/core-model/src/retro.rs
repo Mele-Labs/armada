@@ -25,10 +25,19 @@ pub enum Via {
     /// The phone's Gateway, which names itself with the same header as Bridge.
     /// A person's own press, from their phone.
     Phone,
+    /// A Job's Commander acting on its Job.
+    Commander,
 }
 
 impl Via {
-    pub const ALL: &'static [Via] = &[Via::Bridge, Via::Helm, Via::Door, Via::Http, Via::Phone];
+    pub const ALL: &'static [Via] = &[
+        Via::Bridge,
+        Via::Helm,
+        Via::Door,
+        Via::Http,
+        Via::Phone,
+        Via::Commander,
+    ];
 
     pub fn as_wire(&self) -> &'static str {
         match self {
@@ -37,6 +46,7 @@ impl Via {
             Via::Door => "door",
             Via::Http => "http",
             Via::Phone => "phone",
+            Via::Commander => "commander",
         }
     }
 

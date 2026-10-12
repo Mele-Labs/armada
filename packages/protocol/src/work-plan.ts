@@ -58,10 +58,11 @@ export type PlanGroupRun = {
   commit?: string;
 };
 
-/** A run of a step, or a person. */
+/** A run of a step, a person, or the Job's Commander. */
 export type ChangedBy =
   | { by: "step"; step_id: string; attempt: number }
-  | { by: "person" };
+  | { by: "person" }
+  | { by: "commander" };
 
 /** One line of the plan. */
 export type PlanTask = {
