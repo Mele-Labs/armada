@@ -116,6 +116,13 @@
   --helm-edge: color-mix(in srgb, var(--helm) 38%, transparent);  /* the dock's top edge, Send's border */
   --helm-faint: color-mix(in srgb, var(--helm) 6%, transparent);  /* the canvas's pool, and the dock's wash */
 
+  /* You. The owner's own messages in a Session thread, and nothing else.
+     Gold, hue 47: brighter and more yellow than --status-awaiting-review at 39,
+     and only ever the band of his message, never on or beside a Job row.
+     --fg-inverse reads 11.03:1 on it as a band. */
+  --you: #E8C547;
+  --you-edge: color-mix(in srgb, var(--you) 55%, transparent); /* the message card's border */
+
   /* Diff */
   --diff-add-bg: #14301F;
   --diff-add-fg: #6FD196;
@@ -1164,6 +1171,9 @@
 
   /* Helm */
   --helm: #4048D0;
+
+  /* You. --fg-inverse reads 4.68:1 on it as a band. */
+  --you: #8F7000;
 
   /* Tool families, on --bg-sunken and --bg-hover */
   --tool-look: #3B5AAE;

@@ -74,6 +74,7 @@ A scheme has 16 palette colours, a background and a foreground. Colours are mixe
 | `--status-escalated` | Palette 1 and 3, half and half |
 | `--status-not-started`, `--status-killed` | The foreground mixed toward the background |
 | `--helm` | The accent and palette 5, half and half |
+| `--you` | Palette 3 and 2, seven parts to three, moved in lightness until `--fg-inverse` reads on it |
 | `--tool-look`, `--tool-change`, `--tool-run` | Palette 6, 5, 3 |
 | `--diff-*` | Palette 2 and 1 on a tint of the background |
 
@@ -86,6 +87,7 @@ A scheme has 16 palette colours, a background and a foreground. Colours are mixe
 | `--fg-default`, `--fg-muted`, `--fg-subtle`, `--accent` on each of five grounds | 4.5:1 |
 | Each status hue as text on its own 12% tint, on each ground | 4.5:1 |
 | Tool colours on the well and on hover | 4.5:1 |
+| `--fg-inverse` on `--you` | 4.5:1 |
 | A scheme's foreground on its own background | 3:1, under which the theme is flagged and not shipped |
 
 A colour moved to pass is listed in its theme's header comment. A flagged theme fails `--check` and `apps/desktop/src/main/themes.test.ts`.
