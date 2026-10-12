@@ -217,6 +217,11 @@ export function handleStudios({ ipc, connection, published, captureWindows, summ
     const subject = captureWindows.panelFrom(event.sender);
     if (subject !== null) summon(subject.kind === "job" ? { jobId: subject.id } : { jobId: null, sessionId: subject.id });
   });
+  // The owner named on the bar, the same act as the panel's: main reads it off the window, never the bar.
+  ipc.handle(CHANNELS.captureWindowOpenOwner, (event) => {
+    const owner = barred(event)?.owner ?? null;
+    if (owner !== null) summon(owner.kind === "job" ? { jobId: owner.id } : { jobId: null, sessionId: owner.id });
+  });
   ipc.on(CHANNELS.captureWindowScroll, (event, wheel: unknown) => {
     const said = (wheel ?? {}) as Record<string, unknown>;
     const at = (key: string): number => (typeof said[key] === "number" ? (said[key] as number) : 0);
