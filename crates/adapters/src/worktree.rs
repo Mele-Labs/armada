@@ -25,6 +25,7 @@
 
 use std::fs;
 use std::path::Path;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use adapter_traits::{
     BaseCheckout, BaseSpec, CommitTime, Committed, SlotKept, SlotLeased, SlotParkRefused,
@@ -43,6 +44,16 @@ use crate::leasing::LeaseRefused;
 /// been constructed against one earlier.
 #[derive(Debug, Default, Clone, Copy)]
 pub struct GitVcs;
+
+/// What [`Vcs::changes`] counts. **Process-wide, not per value**: `GitVcs`
+/// holds nothing, so every copy of it is the same adapter.
+static CHANGES: AtomicU64 = AtomicU64::new(0);
+
+/// `done`, after counting it as a change.
+fn noted<T>(done: T) -> T {
+    CHANGES.fetch_add(1, Ordering::Relaxed);
+    done
+}
 
 impl GitVcs {
     pub fn new() -> GitVcs {
@@ -117,7 +128,7 @@ impl Vcs for GitVcs {
         message: &str,
         at: CommitTime,
     ) -> Result<Committed, Self::CommitError> {
-        crate::commit::commit_all(worktree, message, at)
+        noted(crate::commit::commit_all(worktree, message, at))
     }
 
     fn commit_paths(
@@ -127,7 +138,7 @@ impl Vcs for GitVcs {
         message: &str,
         at: CommitTime,
     ) -> Result<Committed, Self::CommitError> {
-        crate::commit::commit_paths(worktree, paths, message, at)
+        noted(crate::commit::commit_paths(worktree, paths, message, at))
     }
 
     fn clone_repository(
@@ -145,7 +156,7 @@ impl Vcs for GitVcs {
         spec: &WorktreeSpec,
         job_id: &str,
     ) -> Result<SlotLeased, Self::Error> {
-        crate::leasing::jobs::lease(pool, spec, job_id).map_err(|refused| {
+        noted(crate::leasing::jobs::lease(pool, spec, job_id)).map_err(|refused| {
             CreateWorktreeError::SlotNotLeased {
                 repo: pool.repo_root().to_string(),
                 why: match refused {
@@ -168,7 +179,7 @@ impl Vcs for GitVcs {
         slot: u32,
         job_id: &str,
     ) -> Result<SlotParked, SlotParkRefused> {
-        crate::leasing::jobs::park(pool, slot, job_id)
+        noted(crate::leasing::jobs::park(pool, slot, job_id))
     }
 
     fn park_hosted_slot(
@@ -177,7 +188,7 @@ impl Vcs for GitVcs {
         slot: u32,
         session_id: &str,
     ) -> Result<SlotParked, SlotParkRefused> {
-        crate::leasing::jobs::park_hosted(pool, slot, session_id)
+        noted(crate::leasing::jobs::park_hosted(pool, slot, session_id))
     }
 
     fn release_session_slot(
@@ -186,7 +197,7 @@ impl Vcs for GitVcs {
         slot: u32,
         holder: &str,
     ) -> Result<SlotParked, SlotParkRefused> {
-        crate::leasing::jobs::release_session(pool, slot, holder)
+        noted(crate::leasing::jobs::release_session(pool, slot, holder))
     }
 
     fn lease_existing_slot(
@@ -195,7 +206,7 @@ impl Vcs for GitVcs {
         branch: &str,
         job_id: &str,
     ) -> Result<SlotLeased, Self::Error> {
-        crate::leasing::jobs::lease_existing(pool, branch, job_id).map_err(|refused| {
+        noted(crate::leasing::jobs::lease_existing(pool, branch, job_id)).map_err(|refused| {
             CreateWorktreeError::SlotNotLeased {
                 repo: pool.repo_root().to_string(),
                 why: refused.said(),
@@ -212,18 +223,18 @@ impl Vcs for GitVcs {
     }
 
     fn release_slot(&self, pool: &SlotPool, slot: u32, job_id: &str) -> Result<(), SlotKept> {
-        crate::leasing::jobs::release(pool, slot, job_id)
+        noted(crate::leasing::jobs::release(pool, slot, job_id))
     }
 
     fn delete_repair_branch(
         &self,
         spec: &WorktreeSpec,
     ) -> Result<bool, adapter_traits::BranchKept> {
-        crate::reclaim::delete_repair_branch(spec).map_err(adapter_traits::BranchKept)
+        noted(crate::reclaim::delete_repair_branch(spec)).map_err(adapter_traits::BranchKept)
     }
 
     fn mark_slot_completed(&self, pool: &SlotPool, slot: u32, job_id: &str) {
-        crate::leasing::jobs::completed(pool, slot, job_id)
+        noted(crate::leasing::jobs::completed(pool, slot, job_id))
     }
 
     fn slot_pool(&self, pool: &SlotPool) -> Vec<SlotReading> {
@@ -235,7 +246,7 @@ impl Vcs for GitVcs {
         pool: &SlotPool,
         change: adapter_traits::SlotChange,
     ) -> Result<u32, adapter_traits::SlotRefused> {
-        crate::leasing::jobs::change(pool, change)
+        noted(crate::leasing::jobs::change(pool, change))
     }
 
     fn session_work(
@@ -268,7 +279,11 @@ impl Vcs for GitVcs {
         slot: u32,
         rescue: adapter_traits::SlotRescue,
     ) -> Result<adapter_traits::SlotRescued, adapter_traits::RescueRefused> {
-        crate::leasing::jobs::rescue(pool, slot, rescue)
+        noted(crate::leasing::jobs::rescue(pool, slot, rescue))
+    }
+
+    fn changes(&self) -> u64 {
+        CHANGES.load(Ordering::Relaxed)
     }
 }
 

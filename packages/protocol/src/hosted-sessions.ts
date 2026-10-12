@@ -76,8 +76,11 @@ export type TuneSession = {
   mode: SessionMode;
 };
 
-/** `POST /sessions/held`. The mod in a terminal session asks what a person sent it. Since 23.53. */
-export type TakeHeld = { session_id: string };
+/**
+ * `POST /sessions/held`. The mod in a terminal session asks what a person sent it. Since 23.53.
+ * `wait_ms` lets Fleet hold the ask while nothing is held, up to 25 seconds; left out, it is answered at once.
+ */
+export type TakeHeld = { session_id: string; wait_ms?: number };
 
 /**
  * `POST /sessions/ask/terminal`. The mod in a terminal session puts its `AskUserQuestion` to Bridge (`asks`,
@@ -149,14 +152,14 @@ export type SessionAskState =
 
 /**
  * Where the writing of a Session's retro has got to. `asking_agent` is absent from a retro written where
- * no live, idle agent was asked. Since 23.77.
+ * no live, idle agent was asked. Since 23.78.
  */
 export type RetroStage = "asking_agent" | "reading_record" | "writing" | "written" | "failed";
 
 /**
  * One item of a retro as it settles while the model writes: a field is present once its value has ended,
  * in the order the model writes them. The model's items before Fleet holds them to the record, so the
- * kept retro can have fewer. Since 23.77.
+ * kept retro can have fewer. Since 23.78.
  */
 export type PartialRetroItem = {
   title?: string;
@@ -166,7 +169,7 @@ export type PartialRetroItem = {
   lands_in?: LandsIn;
 };
 
-/** The `retro` row of a hosted Session's thread. Since 23.77. */
+/** The `retro` row of a hosted Session's thread. Since 23.78. */
 export type RetroRow = Extract<SessionRow, { kind: "retro" }>;
 
 /** One row of a hosted session's thread. A row is replaced by its `id`. */
@@ -193,7 +196,7 @@ export type SessionRow =
   /**
    * A Session's retro being written, replaced by id as it goes and kept when done. `items` settle while
    * the model writes (`stage` `writing`) and are empty otherwise; `retro` is the kept retro's number for
-   * `get_session_retro n`, on `written`; `why` is Fleet's words, on `failed`. Since 23.77.
+   * `get_session_retro n`, on `written`; `why` is Fleet's words, on `failed`. Since 23.78.
    */
   | {
       kind: "retro";
@@ -260,7 +263,7 @@ export type SessionRow =
       narrative?: DroneNarrative;
     }
   /** A call put to the person. Replaced as it is answered. */
-  | { kind: "ask"; id: string; at: string; ask: HelmCallInFlight; state: SessionAskState };
+  | { kind: "ask"; id: string; at: string; ask: HelmCallInFlight; state: SessionAskState; via?: string };
 
 /** `get_session`: the row and its thread, oldest first. */
 export type SessionThread = { session: SessionRecord; rows: SessionRow[] };

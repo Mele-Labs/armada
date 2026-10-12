@@ -6,10 +6,11 @@ import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 
 import { afterEach, expect, it } from "vitest";
+import { WebSocketServer } from "ws";
 
-import type { RetroRow, SessionRecord, SessionRow } from "@armada/protocol";
+import type { RetroRow, SessionRecord, SessionRow, SessionRunMessage } from "@armada/protocol";
 import type { BridgeState } from "../shared/bridge";
-import { SessionsHost, withRow, withSession } from "./sessions";
+import { SessionsHost, THREADS_HELD, withRow, withSession } from "./sessions";
 
 let listening: Server | null = null;
 
@@ -329,4 +330,68 @@ it("replaces a row by its id and appends one it has not seen, and puts a new ses
   expect(withRow([said("1", "a")], said("2", "b")).map((one) => one.id)).toEqual(["1", "2"]);
   expect(withRow([said("1", "a"), said("2", "b")], said("1", "c"))[0]).toEqual(said("1", "c"));
   expect(withSession([record("a")], record("b")).map((one) => one.id)).toEqual(["b", "a"]);
+});
+
+it("starts a run, reads its socket to the exit, and hands a refusal back", async () => {
+  const sent: Sent[] = [];
+  const sockets = new WebSocketServer({ noServer: true });
+  const server = createServer((request, response) => {
+    let raw = "";
+    request.on("data", (chunk) => (raw += String(chunk)));
+    request.on("end", () => {
+      sent.push({ method: request.method ?? "", path: request.url ?? "", body: raw === "" ? undefined : JSON.parse(raw) });
+      const refused = (JSON.parse(raw) as { session_id?: string }).session_id === "ended";
+      response.writeHead(refused ? 409 : 202, { "content-type": "application/json" });
+      response.end(JSON.stringify(refused ? { code: "fleet.session_ended", message: "That Session has ended." } : { run_id: "r1" }));
+    });
+  });
+  server.on("upgrade", (request, socket, head) => {
+    sent.push({ method: "UPGRADE", path: request.url ?? "", body: undefined });
+    sockets.handleUpgrade(request, socket, head, (ws) => {
+      ws.send(JSON.stringify({ kind: "opened", protocol_id: "p", run_id: "r1" }));
+      ws.send(JSON.stringify({ kind: "lines", lines: ["hi"] }));
+      ws.send(JSON.stringify({ kind: "exited", code: 0 }));
+      ws.close();
+    });
+  });
+  listening = server;
+  await new Promise<void>((done) => server.listen(0, "127.0.0.1", () => done()));
+  const port = (server.address() as AddressInfo).port;
+  const { sessions } = host(port);
+  const heard: SessionRunMessage[] = [];
+  const closed = new Promise<void>((done) =>
+    sessions.onRun((runId, message) => {
+      expect(runId).toBe("r1");
+      heard.push(message);
+      if (message.kind === "exited") done();
+    }),
+  );
+  expect(await sessions.startRun({ session_id: "a", command: "echo hi" })).toEqual({ ok: true, value: { run_id: "r1" } });
+  await closed;
+  expect(heard.map((one) => one.kind)).toEqual(["opened", "lines", "exited"]);
+  expect(heard[2]).toEqual({ kind: "exited", code: 0 });
+  expect(sent.map((one) => `${one.method} ${one.path}`)).toEqual(["POST /sessions/run/start", "UPGRADE /sessions/run/r1/observe"]);
+  expect(await sessions.startRun({ session_id: "ended", command: "ls" })).toMatchObject({ ok: false, outcome: { ok: false, why: "refused" } });
+  expect(await host(null).sessions.startRun({ session_id: "a", command: "ls" })).toEqual({ ok: false, outcome: { ok: false, why: "not_connected" } });
+  sockets.close();
+});
+
+it("holds the twenty threads opened last, and reads one let go again when it is reopened", async () => {
+  const sent: Sent[] = [];
+  const ids = Array.from({ length: THREADS_HELD + 1 }, (_, at) => `s${at}`);
+  const port = await fleet(sent, ids.map((id) => record(id)), Object.fromEntries(ids.map((id) => [id, [said(`${id}r`, id)]])));
+  const { sessions, last } = host(port);
+  await sessions.again(port);
+  for (const id of ids) await sessions.watch(id);
+  const held = last("sessionThreads") as Record<string, SessionRow[]>;
+  expect(Object.keys(held)).toEqual(ids.slice(1));
+  // A thread still held is drawn from here, and a row for the one let go is dropped.
+  const reads = sent.filter((one) => one.path.startsWith("/sessions/one")).length;
+  await sessions.watch("s5");
+  expect(sent.filter((one) => one.path.startsWith("/sessions/one")).length).toBe(reads);
+  sessions.row({ session_id: "s0", row: said("late", "after it went") });
+  expect(Object.keys(last("sessionThreads") as object)).toEqual(ids.slice(1));
+  await sessions.watch("s0");
+  expect(sent.filter((one) => one.path.startsWith("/sessions/one")).length).toBe(reads + 1);
+  expect(Object.keys(last("sessionThreads") as object)).toHaveLength(THREADS_HELD);
 });

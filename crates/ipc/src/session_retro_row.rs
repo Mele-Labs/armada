@@ -1,5 +1,5 @@
 //! The `retro` row of a hosted Session's thread: a retro being written, drawn as it goes.
-//! Since 23.77. `docs/concepts/retro.md`, *A Session's retro*.
+//! Since 23.78. `docs/concepts/retro.md`, *A Session's retro*.
 //!
 //! **A progress report and no record.** The kept retro is `get_session_retro`'s, and the row
 //! only says how far its writing has got, so losing every frame of it changes nothing that is

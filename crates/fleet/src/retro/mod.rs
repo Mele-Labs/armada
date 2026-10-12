@@ -99,6 +99,15 @@ pub(crate) fn kept_via(store: &mut store::Store, job: &JobId, seq: i64, via: Opt
     }
 }
 
+/// Keep that the request being answered, if it came from the phone, created
+/// this Job. Creation is no move, so it has no `seq` for [`kept_via`].
+/// **One that will not keep fails nothing**: the Job exists.
+pub(crate) fn kept_created_via(store: &mut store::Store, job: &JobId) {
+    if api::via().is_some_and(|via| via.domain() == Via::Phone) {
+        let _ = store.record_created_from_phone(job);
+    }
+}
+
 /// Whether a retro is being written. **One at a time**: each is a model call,
 /// and a Fleet that comes back to a dozen ended Jobs writes them in turn.
 #[derive(Clone, Default)]

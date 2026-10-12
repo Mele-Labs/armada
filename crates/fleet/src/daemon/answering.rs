@@ -332,6 +332,7 @@ where
             None => Job::create_top_level(new, origin, at.clone()),
         };
         store.insert_job(&job, &at).map_err(Adrift::Writing)?;
+        crate::retro::kept_created_via(&mut store, job.id());
         crate::approved::continuing_from(&mut store, job.id(), continuing.as_deref())?;
         self.learn_the_name(&job);
         self.manifest_snapshotted(&mut store, &job).await;
@@ -557,6 +558,11 @@ where
     /// This task waits for the Job's kept Drone, not one beside it.
     pub(crate) fn left_for_kept(&self, job: &JobId, task: core_model::TaskId) {
         self.held_drones().leave_for_kept(job, task);
+    }
+
+    /// Whether this is the first vanish of a Drone on this task.
+    pub(crate) fn first_vanish_of(&self, job: &JobId, task: core_model::TaskId) -> bool {
+        self.held_drones().first_vanish(job, task)
     }
 
     /// Whether this task waits for the Job's kept Drone.

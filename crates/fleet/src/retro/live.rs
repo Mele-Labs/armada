@@ -1,4 +1,4 @@
-//! A Session's retro, drawn in its thread while it is written. Since 23.77.
+//! A Session's retro, drawn in its thread while it is written. Since 23.78.
 //! `docs/concepts/retro.md`, *A Session's retro*.
 //!
 //! **A progress report and no record.** The `retro` row says which stage the writing is in, how

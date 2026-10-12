@@ -4,7 +4,7 @@ transport = "HTTP"
 agent_access = "Helm only"
 description = "Agree with one retro item by starting a Session on its repository and sending it the item as its first message"
 notes = """
-Since 23.76. `POST /lessons/:lesson_id/session`, no body. `agree_lesson`'s sibling: the same item ids (a Job's or a Session's), the same routing and the same refusals, and a Session where that one proposes a Job. Answers `LessonSessionStarted`: `lesson`, `session_id`, `brief` and `send_failed?`.
+Since 23.77. `POST /lessons/:lesson_id/session`, no body. `agree_lesson`'s sibling: the same item ids (a Job's or a Session's), the same routing and the same refusals, and a Session where that one proposes a Job. Answers `LessonSessionStarted`: `lesson`, `session_id`, `brief` and `send_failed?`.
 
 **Where the Session starts.** `manifest`: the repository the item's own Job, or its own Session, worked in. `armada`: Armada's own repository, the Manifest named `armada`, and where this Fleet does not serve it the answer is a 422 `fleet.lesson_armada_not_served` and the item stays open. `kit`: refused as a 422 `fleet.lesson_session_nothing_to_work_on`, since Kit is no repository; use `agree_lesson`. An item that names no place is a 422 `fleet.lesson_names_no_place`, an id that names no item a 404 `fleet.no_such_lesson`, and a Session item whose Session was started in no repository a 422 `fleet.lesson_session_names_no_repository`.
 

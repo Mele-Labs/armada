@@ -1,11 +1,12 @@
 import { useLayoutEffect, useRef } from "react";
 import type { ReactNode, Ref } from "react";
-import { AppWindow, Box, ChevronRight, GitBranch, KeyRound, Layers, SquareTerminal, Wrench } from "lucide-react";
+import { AppWindow, Box, ChevronRight, GitBranch, KeyRound, Layers, Smartphone, SquareTerminal, Wrench } from "lucide-react";
 
 import { AttachmentChip } from "../../primitives/AttachmentChip/AttachmentChip";
 import { Button } from "../../primitives/Button/Button";
 import { Card } from "../../primitives/Card/Card";
-import { Prose } from "../../primitives/Prose/Prose";
+import { Prose, ProseRunner } from "../../primitives/Prose/Prose";
+import type { CodeRunner } from "../../primitives/Prose/Prose";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { SessionMark } from "../SessionFrame/SessionFrame";
 import { StepActivityMark, type StepActivity } from "../StepActivityMark/StepActivityMark";
@@ -40,8 +41,8 @@ export type SessionThreadRow =
       tags?: readonly { kind: "session" | "job" | "pull_request" | "branch"; id: string; title: string }[];
     }
   | { id: string; at: string; kind: "message"; from: "session"; sender: { id: string; title: string }; text: string }
-  /** A tool call, mono. */
-  | { id: string; at: string; kind: "tool"; text: string }
+  /** A tool call, mono. `fromPhone` is an ask the person answered on their phone: a glyph beside it. */
+  | { id: string; at: string; kind: "tool"; text: string; fromPhone?: true }
   /** A command the person ran in the terminal, as typed, mono. */
   | { id: string; at: string; kind: "command"; text: string }
   /** The summary the CLI wrote where it compacted the conversation. Not the person's words: a quiet row that opens to its text. */
@@ -111,6 +112,11 @@ export type SessionThreadProps = {
   sessionId?: string;
   /** The turn is running: a live mark sits at the end, on the last tool group's row if that is the last row. */
   working?: boolean;
+  /**
+   * Runs a shell block's command where the Session works, from the Run on the block. The person's
+   * own act, so nothing is sent to the agent. Absent, a block draws without Run.
+   */
+  runner?: CodeRunner;
 };
 
 const TAG_KIND = { session: "Session", job: "Job", pull_request: "Pull request", branch: "Branch" } as const;
@@ -273,7 +279,7 @@ function namesOf(rows: readonly { text: string }[]): string[] {
  * **Calls that ran one after another are one row, closed.** It names the tools it holds and draws no
  * count; pressing it shows each call. A lone call is a group of one.
  */
-function Calls({ rows, working }: { rows: readonly { id: string; text: string }[]; working?: boolean }) {
+function Calls({ rows, working }: { rows: readonly { id: string; text: string; fromPhone?: true }[]; working?: boolean }) {
   const names = namesOf(rows);
   return (
     <li className="armada-session-fold armada-session-fold--calls">
@@ -287,6 +293,13 @@ function Calls({ rows, working }: { rows: readonly { id: string; text: string }[
           {rows.map((one) => (
             <li key={one.id} className="armada-session-command">
               <code className="armada-session-command__text">{one.text}</code>
+              {one.fromPhone === true ? (
+                <Tooltip label="From phone">
+                  <span className="armada-session-command__door">
+                    <Smartphone size={12} strokeWidth={2} aria-hidden />
+                  </span>
+                </Tooltip>
+              ) : null}
             </li>
           ))}
         </ol>
@@ -402,7 +415,18 @@ function Row({
         <span className="armada-helm-thread__who">{row.from === "you" ? "You" : "Agent"}</span>
         <span className="armada-helm-thread__at">{row.at}</span>
       </div>
-      <div className="armada-helm-thread__message">{placed.parts === null ? <Prose text={row.text} /> : <p className="armada-session-said">{placed.parts}</p>}</div>
+      <div className="armada-helm-thread__message">
+        {placed.parts !== null ? (
+          <p className="armada-session-said">{placed.parts}</p>
+        ) : row.from === "you" ? (
+          // Run is on what the agent wrote, not on what the person did.
+          <ProseRunner.Provider value={null}>
+            <Prose text={row.text} />
+          </ProseRunner.Provider>
+        ) : (
+          <Prose text={row.text} />
+        )}
+      </div>
       <Sent row={row} tags={placed.loose} />
     </li>
   );
@@ -411,7 +435,7 @@ function Row({
 /** How far from the end still counts as being at it, so a rounding or a half row does not unpin. */
 const NEAR_END = 24;
 
-export function SessionThread({ rows, asked, askRef, onAnswer, onOpenSession, onOpenWindow, onOpenCheck, onOpenRetro, sessionId, working }: SessionThreadProps) {
+export function SessionThread({ rows, asked, askRef, onAnswer, onOpenSession, onOpenWindow, onOpenCheck, onOpenRetro, sessionId, working, runner }: SessionThreadProps) {
   const scroller = useRef<HTMLDivElement>(null);
   const pinned = useRef(true);
   // **Opens at the newest row, with no animation, and stays there while the person is at the end.**
@@ -437,6 +461,7 @@ export function SessionThread({ rows, asked, askRef, onAnswer, onOpenSession, on
           pinned.current = one.scrollHeight - one.scrollTop - one.clientHeight <= NEAR_END;
         }}
       >
+        <ProseRunner.Provider value={runner ?? null}>
         <ol className="armada-helm-thread__rows">
           {items.map((item, at) =>
             item.kind === "calls" ? (
@@ -451,6 +476,7 @@ export function SessionThread({ rows, asked, askRef, onAnswer, onOpenSession, on
             </li>
           ) : null}
         </ol>
+        </ProseRunner.Provider>
       </div>
       {asked === undefined ? null : (
         <Card flat ref={askRef} className="armada-session-thread__ask" role="article" aria-label="Waiting on you">

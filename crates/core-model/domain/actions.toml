@@ -559,6 +559,18 @@ destructive = false
 confirms = false
 notes = "Opens the whole of what the owner dispatched the Job with, on a call whose request is longer than its clamp. `e` is redispatch on a list; a call is not a list, and the card says it beside its own button."
 
+[actions.call_open_walk]
+kind = "Action"
+tier = "Contextual"
+verb = "Open walk"
+icon = ""
+icon_absent = "undecided"
+shortcut = "v"
+scope = "call"
+destructive = false
+confirms = false
+notes = "Opens the walk a Session is waiting on the owner's approval of, from the call in front, where `o` opens the Session. Only a call whose waiting item acts on a walk offers it. Opening the walk does not clear the call; Approve still does. `w` is `call_recall` and stays so, and `v` is Observe on a Job detail, a different scope. Added 9 Oct 2026 on the owner's *\"Where there is a walk waiting for my approval, the card should give me the option to open the walk, not just the session.\"*"
+
 [actions.call_best]
 kind = "Action"
 tier = "Contextual"
@@ -569,7 +581,7 @@ shortcut = "b"
 scope = "call"
 destructive = false
 confirms = false
-notes = "A standing answer, after the numbered ones, on a question an agent asked and could answer itself: a Plan question, a Drone's or a Judge's, a Session's ask. It tells the agent to weigh the options and choose the best solution itself; on a Session's permission, to weigh the command and decide whether to run it. **Never on a call Fleet raises about a state** — a failing pull request, main red, a failed Check, a stuck Drone. Needs a Fleet command: an answer to the ask carrying `mode: "best"`. Settled with the owner on 9 Oct 2026."
+notes = "A standing answer, after the numbered ones, on a question an agent asked and could answer itself: a Plan question, a Drone's or a Judge's, a Session's permission or a Session's question with options. **Never on a Session's plain line**, which is an errand for the owner (a command to run, a pull request to approve, a page to open): that gets its own act and a text box. It tells the agent to weigh the options and choose the best solution itself; on a Session's permission, to weigh the command and decide whether to run it. **Never on a call Fleet raises about a state** — a failing pull request, main red, a failed Check, a stuck Drone. Needs a Fleet command: an answer to the ask carrying `mode: "best"`. Settled with the owner on 9 Oct 2026."
 
 [actions.call_quick]
 kind = "Action"

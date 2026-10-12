@@ -862,6 +862,23 @@ pub trait Queries: Send + Sync + 'static {
         async { Vec::new() }
     }
 
+    /// Every Job's branch, id and handle, which names the Jobs on a merge line.
+    /// **The default reads the whole list**; a daemon that can answer without
+    /// summarising each Job should, since this is asked every few seconds.
+    fn job_branches(&self) -> impl Future<Output = Vec<(String, ipc::JobId, String)>> + Send {
+        async {
+            self.list_jobs(None)
+                .await
+                .map(|list| {
+                    list.jobs
+                        .into_iter()
+                        .filter_map(|job| Some((job.branch?, job.id, job.handle)))
+                        .collect()
+                })
+                .unwrap_or_default()
+        }
+    }
+
     /// The Checks each served repository's Manifest declares, by root: what a
     /// branch queued on its merge line will be gated on. **Empty by default.**
     fn land_checks(&self) -> impl Future<Output = Vec<(String, Vec<String>)>> + Send {

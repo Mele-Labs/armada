@@ -288,7 +288,13 @@ export function rowsOfThread(sessionId: string, rows: readonly WireRow[], pictur
         break;
       case "ask":
         if (row.state !== "waiting") {
-          out.push({ id: row.id, at, kind: "tool", text: `${askOf(row.ask).command}: ${SETTLED[row.state] ?? row.state}` });
+          out.push({
+            id: row.id,
+            at,
+            kind: "tool",
+            text: `${askOf(row.ask).command}: ${SETTLED[row.state] ?? row.state}`,
+            ...(row.via === "phone" ? { fromPhone: true as const } : {}),
+          });
         }
         break;
     }

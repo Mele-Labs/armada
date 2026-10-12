@@ -115,6 +115,8 @@ pub struct Fleet<H, V, W> {
     helm: crate::helm::Conversations,
     /// The sessions Fleet hosts for Bridge. See [`crate::session_host`].
     sessions: crate::session_host::Hosts,
+    /// Shell blocks run from a Session's thread. Never written down — `crate::session_running`.
+    session_runs: crate::session_running::SessionRuns,
     /// Every scout running, and the host that starts one. Outside `slots`:
     /// a scout takes no place under the concurrency cap. See [`crate::scout`].
     scouts: crate::scout::Scouts,
@@ -150,6 +152,8 @@ pub struct Fleet<H, V, W> {
     /// board every time, so a stamp that outlived the process would only make
     /// the first sweep after a restart come later than it should.
     swept: Mutex<Option<core_model::Timestamp>>,
+    /// The last `GET /worktrees`, served from memory. See [`crate::worktrees_kept`].
+    kept: crate::worktrees_kept::Kept,
     /// Where the pull-request rotation stands, and when it last ran. **Never
     /// written down**, for `polled`'s reason: a cursor that outlived the
     /// process would name a position in a list that has since changed, and the

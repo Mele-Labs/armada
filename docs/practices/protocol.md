@@ -3363,7 +3363,7 @@ Bridge's half is in `packages/protocol/src/hosted-sessions.ts`, written by hand 
 
 **`repair` is ignored**, as for a Skill: a file with `brief:` and `repair: true` loads with it off.
 
-## Protocol 23.77: a Session's retro in its thread
+## Protocol 23.78: a Session's retro in its thread
 
 `docs/concepts/retro.md`, *A Session's retro*. **Additive only**: one thread row, no operation, state or error.
 
@@ -3374,9 +3374,9 @@ Bridge's half is in `packages/protocol/src/hosted-sessions.ts`, written by hand 
 
 **A press that is refused, and one answered with the last retro, adds no row.** A row a restart left going is returned by `get_session` as `failed` with `why` "Fleet restarted while it was written". Replacements are at most four a second; a stage change and the last state are always sent.
 
-**Skew.** A Bridge before 23.77 reads a `retro` row as a row kind it does not know and draws nothing for it, or draws it badly; it still reads the retro from `write_session_retro`. A Fleet before it sends no such row. Bridge's half is `packages/protocol/src/hosted-sessions.ts`, written by hand.
+**Skew.** A Bridge before 23.78 reads a `retro` row as a row kind it does not know and draws nothing for it, or draws it badly; it still reads the retro from `write_session_retro`. A Fleet before it sends no such row. Bridge's half is `packages/protocol/src/hosted-sessions.ts`, written by hand.
 
-## Protocol 23.76: Start Session on a retro item
+## Protocol 23.77: Start Session on a retro item
 
 `docs/concepts/retro.md`, *Agree and disagree*. **Additive only**: one operation, `Helm only` like `agree_lesson`, and one optional field on two types.
 
@@ -3389,7 +3389,23 @@ Bridge's half is in `packages/protocol/src/hosted-sessions.ts`, written by hand 
 
 **One press makes one Session and one message.** The write that moves the item off `open` is the claim. An item already agreed with a Session answers 200 with it.
 
-**Skew.** A Fleet before 23.76 has no route and answers 404, and never sends `session_proposed`, which Bridge reads as absent. A Bridge before it never calls the route and ignores the field. Bridge's half is `packages/protocol/src/retro-session.ts`, written by hand.
+**Skew.** A Fleet before 23.77 has no route and answers 404, and never sends `session_proposed`, which Bridge reads as absent. A Bridge before it never calls the route and ignores the field. Bridge's half is `packages/protocol/src/retro-session.ts`, written by hand.
+
+## Protocol 23.76: a shell block run from a Session's thread
+
+`docs/concepts/session.md`. **Additive only**: three operations, all `agent_access: No`, and their types. No type that exists changes.
+
+| Where | Carries | Notes |
+| --- | --- | --- |
+| `start_session_run` (`POST /sessions/run/start`) | `StartSessionRun`: `session_id`, `command`. Answers 202 `SessionRunUnderway`: `run_id` | Runs `$SHELL -lc <command>` (`/bin/zsh` where `SHELL` is unset or empty) in its own process group, in the worktree of the slot the Session holds, else the Session's directory. Output and errors are one stream. 422 `fleet.session_run_refused` for a blank command, an unknown Session, an ended one, or a directory the command cannot start in |
+| `stop_session_run` (`POST /sessions/run/stop`) | `StopSessionRun`: `run_id`. Answers 200 `SessionRunUnderway` | SIGTERM to the group, SIGKILL after 3 seconds. 422 on a run not in flight |
+| `observe_session_run` (`GET /sessions/run/:run_id/observe`, WebSocket) | `SessionRunMessage`, tagged by `kind`: `opened` (`protocol_id`, `run_id`), `lines` (`lines[]`), `missed` (`dropped`), `exited` (`code`: integer, or `null` where the run was stopped or signalled) | `exited` is sent once, last, then the socket closes. 422 on a run Fleet does not hold |
+
+**Nothing is written down.** A run's last 2000 lines are held in memory while it lives and for 90 seconds after it exits, so an observer that opens late replays them and then `exited`. After that the run is unknown.
+
+**The event stream.** None of this rides `/events`. Each observer has a bounded broadcast of 256 messages and is told `missed` with how many it lost, so a slow viewer does not slow the run and does not believe a gap is whole; on `missed` it should reopen the socket, which replays the held tail. This is the bounded-with-a-count shape the open WebSocket risk asks for, one subject over.
+
+**Skew.** A Fleet before 23.76 has neither route and answers 404, so a Bridge that offers the block has nothing to call. A Bridge before it never asks. Bridge's half is `packages/protocol/src/sessions.ts`, written by hand like the rest.
 
 ## Protocol 23.75: a Session's Checks
 
@@ -3535,6 +3551,18 @@ Bridge's half is `packages/protocol/src/settings.ts`, written by hand like the r
 | `autopilot.changed` (event) | `Autopilot` | On each act, each pick, a cap reached, and a pass that finds the figures moved. Whole, so a reconnecting Bridge replaces what it holds |
 
 **A Job a sure pick starts is an ordinary `job.created` and `job.state_changed`**, its last move by `fleet` rather than `human`: no new kind says a Job skipped the gate, since the origin on its row does.
+
+## Autopilot's follow-ups
+
+`#2105`. **Additive only**: one operation, one answer type, three fields. Bridge's half is `packages/protocol/src/autopilot.ts`, `judged.ts` and `detail.ts`, written by hand.
+
+| Where | Carries | Notes |
+| --- | --- | --- |
+| `propose_autopilot` | answers `AutopilotProposal` | The `AutopilotSettings` fields flattened in, and `quoted`: per setting, keyed as the settings are, the words of the sentence it was read from. A client that read the answer as `AutopilotSettings` still does |
+| `update_autopilot` (`POST /autopilots/:repository/settings`) | `AutopilotSettings` | Answers `Autopilot` in the state it was in: it never resumes one. 409 `fleet.autopilot_stopped`, 422 `fleet.autopilot_unsettable` |
+| `resume_autopilot` | unchanged | 409 `fleet.autopilot_capped` while any cap is reached, naming it. A reached cap now **pauses** with `capped_by` set, where it ended the run; Resume clears `capped_by` |
+| `StepDetail.sent_back` | `JudgesSentBack`: `times`, `of` | How many times the Judges' agreed refusal sent this pass of the step back to its Drone, of `AGREED_RETRIES`. Absent where none did |
+| `Judged.risky` | a string | What this member said makes the refused work risky, which is what brings an agreed refusal to a person. Absent where it said only that the work needs redoing, or was not asked |
 
 ## Open questions
 

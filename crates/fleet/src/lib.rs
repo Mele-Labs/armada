@@ -329,6 +329,7 @@ pub mod session;
 /// The session ledger: what a harness says of an agent session. `docs/concepts/session.md`.
 pub mod session_host;
 mod session_checking;
+mod session_running;
 mod sessioning;
 mod settling;
 /// Running the repository's own harness, and keeping what it produced.
@@ -361,6 +362,7 @@ pub mod sub_dispatch;
 mod summarising;
 mod superseding;
 pub use orphans::keep_ending_orphans;
+pub use worktrees_kept::keep_worktrees_warm;
 /// settings.json: the file, its watch's re-read, its save, and the move of the
 /// store's saved rows into it. `docs/concepts/machine.md`, *settings.json*.
 pub mod settings;
@@ -391,6 +393,9 @@ pub mod tuning;
 pub mod turning;
 /// The one vigil whose subject is a Job with no Drone to watch.
 mod unattended;
+/// Why a Drone's process ended on its own, in the Job's log, and the one
+/// replacement a task's Drone gets for it.
+mod vanished;
 /// What the forge says about a pull request nobody has merged yet, read on the
 /// sweep `noticing` already runs.
 mod under_review;
@@ -403,6 +408,7 @@ pub mod watch;
 /// An Epic's wave: proposed, released by one press, and the members a parent
 /// that finishes on their merges waits for. Spike 022, slice 6.
 pub mod waving;
+mod worktrees_kept;
 pub mod widening;
 /// The redactions the `Queries` and `Commands` impls call by hand. Split out to
 /// keep those files, rather than their helpers, the thing that grows.

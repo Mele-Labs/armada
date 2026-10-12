@@ -68,6 +68,7 @@ export function Log({
           key={row.id}
           at={row.at}
           actor={row.actor}
+          {...(row.fromPhone === true ? { fromPhone: true } : {})}
           message={messageOf(row)}
           mono={row.mono}
           {...(row.called === undefined

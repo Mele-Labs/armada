@@ -1,6 +1,6 @@
 //! A Session's retro drawn in its thread while it is written: the stages in order, the items as
 //! they settle, a refused press adding no row, a failed call, a row a restart left, and the
-//! throttle. Since 23.77. `docs/concepts/retro.md`, *A Session's retro*.
+//! throttle. Since 23.78. `docs/concepts/retro.md`, *A Session's retro*.
 
 use std::sync::{Arc, Mutex};
 use std::time::Duration;

@@ -73,6 +73,9 @@ pub struct Drones {
     /// Tasks a Drone beside the kept one did not hand in, which the kept
     /// Drone takes rather than another beside it.
     kept_only: std::collections::BTreeSet<(JobId, TaskId)>,
+    /// Tasks whose Drone has vanished once and been replaced. Held in memory:
+    /// a Fleet that restarts gives each task its one replacement again.
+    vanished: std::collections::BTreeSet<(JobId, TaskId)>,
 }
 
 impl Drones {
@@ -114,6 +117,12 @@ impl Drones {
     /// This task waits for the Job's kept Drone.
     pub fn leave_for_kept(&mut self, job: &JobId, task: TaskId) {
         self.kept_only.insert((job.clone(), task));
+    }
+
+    /// Whether this is the first time a Drone on this task has vanished. True
+    /// once per task: the second is not replaced.
+    pub fn first_vanish(&mut self, job: &JobId, task: TaskId) -> bool {
+        self.vanished.insert((job.clone(), task))
     }
 
     /// Whether this task waits for the Job's kept Drone.

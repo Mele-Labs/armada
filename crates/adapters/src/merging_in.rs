@@ -9,6 +9,7 @@
 
 use std::path::Path;
 use std::process::Output;
+use std::time::Duration;
 
 use adapter_traits::{NotDelivered, Worktree};
 use git2::{Oid, Repository};
@@ -112,12 +113,41 @@ pub(crate) fn merged_in(
     }
 }
 
+/// How long a git call that finds another process holding a lock waits for it,
+/// and how often it looks: ten tries, 300ms apart. **Bounded**, because a lock
+/// a crashed git left behind never goes, and that is a person's to clear.
+const LOCK_TRIES: usize = 10;
+const LOCK_WAIT: Duration = Duration::from_millis(300);
+
+/// [`git`] for a call that takes a lock, asked again while another process
+/// holds it. **Only the lock is waited out**: any other refusal is the answer.
+///
+/// An agent's own `git status` or `git commit` in the slot, or an editor's
+/// refresh, holds `index.lock` for a moment, and a turn that failed on it
+/// escalated a Job whose work was intact. The lock is gone seconds later.
+fn git_past_a_lock(worktree: &Worktree, args: &[&str]) -> Result<Output, NotDelivered> {
+    let mut run = git(worktree, args)?;
+    for _ in 1..LOCK_TRIES {
+        if run.status.success() || !held_by_a_lock(&run) {
+            break;
+        }
+        std::thread::sleep(LOCK_WAIT);
+        run = git(worktree, args)?;
+    }
+    Ok(run)
+}
+
+/// Whether git refused for a lock another process holds.
+fn held_by_a_lock(run: &Output) -> bool {
+    said(run).contains(".lock': File exists")
+}
+
 /// `git merge`, as Fleet. `--no-autostash` because this module does its own,
 /// tagged, and a person's `merge.autoStash` would take the shared list's top.
 fn merge(worktree: &Worktree, onto: &str) -> Result<Output, NotDelivered> {
     let name = format!("user.name={}", WHO.0);
     let email = format!("user.email={}", WHO.1);
-    git(
+    git_past_a_lock(
         worktree,
         &[
             "-c",
@@ -201,7 +231,9 @@ fn stash_tag(worktree: &Worktree) -> String {
 /// Set aside whatever this worktree holds uncommitted. `None` where it held
 /// nothing, and then no entry is made.
 fn set_aside(worktree: &Worktree) -> Result<Option<String>, NotDelivered> {
-    let status = git(worktree, &["status", "--porcelain"])?;
+    // Read without refreshing the index: that takes `index.lock`, and a read
+    // that fails on another process's lock is not a worktree in a bad state.
+    let status = git(worktree, &["--no-optional-locks", "status", "--porcelain"])?;
     if !status.status.success() {
         return Err(NotDelivered::of(
             "reading the worktree's own state",
@@ -212,7 +244,7 @@ fn set_aside(worktree: &Worktree) -> Result<Option<String>, NotDelivered> {
         return Ok(None);
     }
     let tag = stash_tag(worktree);
-    let run = git(worktree, &["stash", "push", "-u", "-m", &tag])?;
+    let run = git_past_a_lock(worktree, &["stash", "push", "-u", "-m", &tag])?;
     if !run.status.success() {
         return Err(NotDelivered::of(
             "setting the branch's own change aside",
@@ -234,7 +266,7 @@ fn restored(worktree: &Worktree, stashed: Option<&str>) -> Result<Restored, NotD
     let Some(sha) = stashed else {
         return Ok(Restored::NothingToRestore);
     };
-    let run = git(worktree, &["stash", "apply", sha])?;
+    let run = git_past_a_lock(worktree, &["stash", "apply", sha])?;
     if !run.status.success() {
         let files = unmerged_files(worktree);
         if files.is_empty() {
