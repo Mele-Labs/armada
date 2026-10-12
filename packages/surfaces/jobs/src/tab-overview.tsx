@@ -781,10 +781,15 @@ export function OverviewTab(props: OverviewTabProps) {
     onSaid,
     onAnswerCommander: (key, option) => props.draft?.commander?.answer(job.id, key, option),
   });
-  const nowHeld = leadAsk === undefined ? nowRead : { ...(nowRead ?? {}), asks: [leadAsk, ...(nowRead?.asks ?? [])] };
+  // **Awaiting review, the review is the screen** (owner, 11 Oct 2026): the work is what is waiting, so
+  // the canvas is not the top of the page. Its card spans the board under the Commander; the canvas and
+  // the rest of Now keep their row below it. Any other status keeps the ask in Now's column.
+  const wideAsk = leadAsk !== undefined && job.status === "awaiting_review" ? leadAsk : undefined;
+  const nowHeld = leadAsk === undefined || wideAsk !== undefined ? nowRead : { ...(nowRead ?? {}), asks: [leadAsk, ...(nowRead?.asks ?? [])] };
   const inside = (
     <OverviewBoard
       {...(nowHeld === undefined ? {} : { now: nowHeld })}
+      {...(wideAsk === undefined ? {} : { wide: wideAsk })}
       {...(props.draft?.commander?.views[job.id] === undefined
         ? {}
         : {

@@ -2794,6 +2794,11 @@
   min-width: 0;
 }
 
+/* An ask that takes the board's whole width, under the Commander: flush with it, and a card like the rest. */
+.armada-overview-board__wide {
+  min-width: 0;
+}
+
 /* What sits beside the canvas. */
 .armada-overview-board__side {
   display: flex;

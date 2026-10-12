@@ -14,6 +14,7 @@
 
 import {
   Button,
+  AskCard,
   CommanderPanel,
   DestinationCard,
   FigureList,
@@ -31,7 +32,7 @@ import {
   Tooltip,
   WorkflowCanvas,
 } from "@armada/components";
-import type { CommanderPanelProps, Figure, NowAsker, NowPanelProps, NowRemark, NowSketchShow, NowSketchView, PlanGroupState, WorkflowCanvasEdge, WorkflowCanvasNode } from "@armada/components";
+import type { CommanderPanelProps, Figure, NowSlotAsk, NowAsker, NowPanelProps, NowRemark, NowSketchShow, NowSketchView, PlanGroupState, WorkflowCanvasEdge, WorkflowCanvasNode } from "@armada/components";
 import type { FromStudio } from "@armada/protocol";
 import { PanelRightOpen } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
@@ -129,6 +130,11 @@ export type OverviewBoardProps = {
    * draws none**, as every Job has none until Fleet serves one (the decision of 11 Oct 2026).
    */
   commander?: CommanderPanelProps;
+  /**
+   * An ask that takes the board's width under the Commander, over the canvas and the Now panel: the
+   * review, while the Job awaits it. Drawn in the same card the Now panel draws its asks in.
+   */
+  wide?: NowSlotAsk;
 };
 
 export function OverviewBoard({
@@ -149,6 +155,7 @@ export function OverviewBoard({
   onOpenTab,
   now,
   commander,
+  wide,
 }: OverviewBoardProps) {
   const [hiddenByHand, hide] = useNowHidden();
   // **The panel cannot be put away while it holds an ask**: the asks the lead held are drawn there now,
@@ -367,6 +374,13 @@ export function OverviewBoard({
       {/* **The Commander leads across the whole board, where the lead was**, over the canvas it
           steers and the Now panel beside it. */}
       {commander === undefined ? null : <CommanderPanel {...commander} />}
+      {wide === undefined ? null : (
+        <div className="armada-overview-board__wide" role="group" aria-label="Asks you">
+          <AskCard flow icon={wide.icon} kind={wide.band} title={wide.title} {...(wide.age === undefined ? {} : { age: wide.age })}>
+            {wide.children}
+          </AskCard>
+        </div>
+      )}
       {now === undefined ? (
         main
       ) : (
