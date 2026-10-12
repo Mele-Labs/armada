@@ -392,6 +392,9 @@ pub mod tuning;
 pub mod turning;
 /// The one vigil whose subject is a Job with no Drone to watch.
 mod unattended;
+/// Why a Drone's process ended on its own, in the Job's log, and the one
+/// replacement a task's Drone gets for it.
+mod vanished;
 /// What the forge says about a pull request nobody has merged yet, read on the
 /// sweep `noticing` already runs.
 mod under_review;
