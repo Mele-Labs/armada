@@ -1077,6 +1077,40 @@ function SessionView({ session, goes, onOpen, held, board, lines }: { session: S
 }
 
 /**
+ * A Session's own message box, as `SessionMini` draws it. `onSend` takes the words where the host sends
+ * them itself (a call card answers its waiting item with them); with none, the message goes to the Session.
+ */
+export function SessionBox({ session, onOpen, onSend }: { session: Session; onOpen: (id: string) => void; onSend?: (text: string) => void }) {
+  const draft = useSessionsDraft();
+  if (draft === undefined || session.dead !== undefined) return null;
+  const mode: SessionMode = session.mode ?? (session.terminal === true ? "ask" : "auto");
+  return (
+    <SessionComposer
+      modeLocked={session.terminal === true}
+      modeHidden={session.terminal === true && session.mode === undefined}
+      working={session.turn.state === "working"}
+      mode={mode}
+      onMode={(next) => draft.tune(session.id, { model: session.model ?? null, effort: session.effort ?? null, mode: next })}
+      model={session.model ?? null}
+      effort={session.effort ?? null}
+      models={draft.models}
+      efforts={draft.efforts}
+      onTune={(tuning) => draft.tune(session.id, { ...tuning, mode })}
+      commands={session.terminal === true ? (session.commands ?? []) : draft.commands}
+      compact
+      taggable={[]}
+      tags={session.pendingTags ?? []}
+      draftKey={session.id}
+      onTags={(tags) => draft.setTags(session.id, tags)}
+      drawn={[]}
+      onDraw={() => onOpen(session.id)}
+      onRemoveDrawn={() => undefined}
+      onSend={(sent) => (onSend === undefined ? draft.send(session.id, { text: sent.text, files: sent.files, sketches: [], tags: sent.tags as readonly SessionTag[] }) : onSend(sent.text))}
+    />
+  );
+}
+
+/**
  * A Session in miniature, for the Dashboard's pane and a walk window's panel: its thread, what it is
  * held on, and the box to answer it, as its own page draws them. No ledger, no frame; Open goes to the
  * whole Session. `fill`: the thread takes the height it is given rather than the pane's cap.
@@ -1089,7 +1123,6 @@ export function SessionMini({ sessionId, onOpen, fill = false }: { sessionId: st
   const thread = useBackfilled(session === undefined ? NO_ROWS : threadRowsOf(session), sessionId);
   useEffect(() => watch?.(sessionId), [watch, sessionId]);
   if (draft === undefined || session === undefined) return null;
-  const mode: SessionMode = session.mode ?? (session.terminal === true ? "ask" : "auto");
   return (
     <div className="armada-session-mini" data-fill={fill ? "" : undefined}>
       <div className="armada-session-mini__thread">
@@ -1113,29 +1146,7 @@ export function SessionMini({ sessionId, onOpen, fill = false }: { sessionId: st
           onOpenSession={onOpen}
         />
       </div>
-      {session.dead !== undefined ? null : (
-        <SessionComposer
-          modeLocked={session.terminal === true}
-          modeHidden={session.terminal === true && session.mode === undefined}
-          working={session.turn.state === "working"}
-          mode={mode}
-          onMode={(next) => draft.tune(session.id, { model: session.model ?? null, effort: session.effort ?? null, mode: next })}
-          model={session.model ?? null}
-          effort={session.effort ?? null}
-          models={draft.models}
-          efforts={draft.efforts}
-          onTune={(tuning) => draft.tune(session.id, { ...tuning, mode })}
-          commands={session.terminal === true ? (session.commands ?? []) : draft.commands}
-          compact
-          taggable={[]}
-          tags={session.pendingTags ?? []}
-          onTags={(tags) => draft.setTags(session.id, tags)}
-          drawn={[]}
-          onDraw={() => onOpen(session.id)}
-          onRemoveDrawn={() => undefined}
-          onSend={(sent) => draft.send(session.id, { text: sent.text, files: sent.files, sketches: [], tags: sent.tags as readonly SessionTag[] })}
-        />
-      )}
+      <SessionBox session={session} onOpen={onOpen} />
     </div>
   );
 }

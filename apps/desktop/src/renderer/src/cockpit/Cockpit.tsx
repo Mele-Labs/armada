@@ -372,6 +372,7 @@ export function Cockpit({
       const digit = pressedDigit("call_pick", event);
       if (digit !== null) return claim(), card.pickNumber(digit);
       if (card.pickKey(event)) return claim();
+      if (isPressed("call_reply", event) && card.change !== undefined) return claim(), card.change();
       if (isPressed("call_reply", event)) {
         const field = document.querySelector<HTMLTextAreaElement>(".armada-callcard__reply textarea");
         return field === null ? undefined : (claim(), field.focus());

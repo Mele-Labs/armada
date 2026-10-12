@@ -442,18 +442,18 @@ function waitingItem({ session, item }: WaitingCall, hosts: Hosts): Item {
   };
 }
 
-/** One thing Sleep decided for the owner, as a call: he keeps it or changes it. */
+/** One thing Sleep decided for the owner, as a call: he agrees, changes it, or opens where it was decided. */
 function sleepItem(one: MorningDecided): Item {
   return {
     key: `sleep:${one.id}`,
     icon: Moon,
-    kind: "Sleep",
+    kind: "Decided while you slept",
     title: one.who,
     fact: one.asked,
     hue: "ask",
     where: "",
     body: [],
-    context: [one.chose, ...(one.corrected === undefined ? [] : [`Changed to ${one.corrected}`])],
+    context: [one.corrected ?? one.chose],
     contextHead: "Chose",
     sleep: one,
     acts: () => null,

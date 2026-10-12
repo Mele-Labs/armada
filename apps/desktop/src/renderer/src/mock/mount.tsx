@@ -27,7 +27,7 @@ import { mockLayout, NO_LAYOUT_MODS } from "./layout";
 import { PhoneSourceProvider } from "@armada/settings";
 import { mockPhone } from "./phone";
 import { SleepSourceProvider } from "../sleep";
-import { mockSleep, OVERNIGHT } from "./sleep";
+import { mockSleep, overnight } from "./sleep";
 import { mockThemes } from "./themes";
 import type { Scenario } from "./scenario";
 
@@ -100,7 +100,7 @@ export function mountApp(
   const api = shared ?? fakeBridge(chosen, options);
   // A window starts on Dark with the mods a machine starts with; a second window on the same main shares them.
   if (shared === undefined) mockThemes.reset();
-  mockSleep.reset(chosen.name === "sleep-cockpit" ? OVERNIGHT : undefined);
+  mockSleep.reset(chosen.name === "sleep-cockpit" ? overnight(chosen.state.jobs[0]?.id) : undefined);
   if (shared === undefined) mockLayout.reset();
   mockPhone.reset(chosen.name === "phone/gateway-down" ? "not_running" : chosen.name === "phone/tailscale" ? "tailscale" : "paired");
   window.armada = api;

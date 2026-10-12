@@ -30,9 +30,9 @@ import type { Hosts, Item } from "../Dashboard";
 /**
  * `key` is a standing answer's own key; the others are picked by their number. `says` is what it tells the agent.
  * `once` marks an act, which runs on one press, its click or its number: an option is picked and then sent,
- * because a reply can go with it.
+ * because a reply can go with it, which `run` takes as `words`.
  */
-export type Answer = { id: string; label: string; run: () => void; key?: string; act?: string; says?: string; description?: string; recommended?: boolean; once?: boolean };
+export type Answer = { id: string; label: string; run: (words?: string) => void; key?: string; act?: string; says?: string; description?: string; recommended?: boolean; once?: boolean };
 
 /** The picker an Attach opens: who a pull request can be attached to. */
 export type Attaching = { candidates: readonly Owner[]; choose: (owner: Owner) => void; close: () => void };
@@ -95,6 +95,8 @@ function opener(item: Item, hosts: Hosts, state: BridgeState): (() => void) | un
   if (item.job !== undefined) return () => hosts.onOpen(item.job!.id);
   const slept = item.sleep?.sessionId;
   if (slept !== undefined) return () => hosts.onOpenSession(slept);
+  const sleptJob = item.sleep?.jobId;
+  if (sleptJob !== undefined) return () => hosts.onOpen(sleptJob);
   const session = sessionIdOf(item.key);
   if (session !== undefined) return () => hosts.onOpenSession(session);
   const pull = pullOf(item, state);
@@ -223,7 +225,7 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
     ...sessions.filter((one) => one.dead === undefined).map((one): Owner => ({ kind: "session", id: one.id, title: one.title ?? one.id })),
   ];
 
-  // A Sleep decision is marked done, or changed in words; either way it is reviewed and the call leaves.
+  // A Sleep decision is agreed with, or changed in words; either way it is reviewed and the call leaves.
   const slept = useSleepSource();
   const sleep = item.sleep;
   const reviewed = (id: string) => slept?.review(id);
@@ -243,23 +245,18 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
     }
   };
 
-  const answer = (label: string, run: () => void, extra: Partial<Answer> = {}): Answer => ({ id: label, label, run, ...extra });
+  const answer = (label: string, run: (words?: string) => void, extra: Partial<Answer> = {}): Answer => ({ id: label, label, run, ...extra });
   const oneTap = (label: string, run: () => void): Answer => answer(label, run, { once: true });
   const actsOf = (): Answer[] => {
-    if (sleep !== undefined) {
-      const there = sleep.sessionId;
-      return [
-        oneTap("Done", () => (reviewed(sleep.id), finish())),
-        ...(there === undefined ? [] : [oneTap("Open the Session", () => hosts.onOpenSession(there))]),
-      ];
-    }
+    // Agreeing is the whole answer; where it was decided opens from the card's own Open.
+    if (sleep !== undefined) return [oneTap("Agree", () => (reviewed(sleep.id), finish()))];
     if (waiting !== undefined) {
       const given = waiting.item;
       // A walk needs no choice: approving is what Fleet does with an answer that names none.
       if (given.source === "walk") return [oneTap("Approve", () => sendWaiting("Approve", {}))];
       if (given.options !== undefined && given.options.length > 0) {
         return given.options.map((option, at) =>
-          answer(plainLabel(option.label), () => sendWaiting(plainLabel(option.label), { choice: at }), {
+          answer(plainLabel(option.label), (words) => sendWaiting(plainLabel(option.label), { choice: at, ...(words === undefined || words === "" ? {} : { text: words }) }), {
             ...("description" in option && typeof option.description === "string" ? { description: option.description } : {}),
             ...(RECOMMENDED.test(option.label) ? { recommended: true } : {}),
           }),

@@ -471,6 +471,18 @@ span.armada-view__dot { cursor: default; }
 .armada-callcard__acts { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
 .armada-callcard__acts > :last-child { margin-left: auto; }
 
+/* A card made only of acts: the decision on the left, the quiet ghosts on the right, one row that wraps as a pair. */
+.armada-callcard__acts[data-split] { justify-content: space-between; row-gap: var(--space-2); }
+.armada-callcard__acts[data-split] > :last-child { margin-left: 0; }
+.armada-callcard__decide,
+.armada-callcard__quiet { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+.armada-callcard__quiet { margin-left: auto; gap: var(--space-1); }
+.armada-callcard__decide .armada-kbd,
+.armada-callcard__quiet .armada-kbd { margin-left: var(--space-2); }
+
+/* A Session's own box under the acts, as the Session draws it. */
+.armada-callcard__composer { display: flex; flex-direction: column; min-height: 0; }
+
 .armada-callcard__acts .armada-kbd,
 .armada-callcard__asked .armada-kbd { margin-left: var(--space-2); }
 
