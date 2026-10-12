@@ -204,8 +204,11 @@ export function CallCard({
   const risk = useJudgesRisk(item.job, item.hue === "ask" && item.decisions === undefined);
   const Icon = item.icon;
   const lone = answer.answers.length === 0;
-  const numbered = answer.answers.filter((one) => one.key === undefined);
+  // An act is a button that does it; an option is a radio, picked and then sent, because a reply can go with it.
+  const acts = answer.answers.filter((one) => one.once === true);
+  const numbered = answer.answers.filter((one) => one.key === undefined && one.once !== true);
   const standing = answer.answers.filter((one) => one.key !== undefined);
+  const actsOnly = acts.length > 0 && numbered.length === 0 && standing.length === 0;
 
   // What is active now, in one line: its kind's mark and its own words.
   const active = nowing?.running?.[0];
@@ -294,7 +297,7 @@ export function CallCard({
           )}
         </p>
         {answer.attaching === undefined ? null : <AttachPicker attaching={answer.attaching} />}
-        {lone || answer.attaching !== undefined ? null : (
+        {numbered.length === 0 && standing.length === 0 || answer.attaching !== undefined ? null : (
           <div role="radiogroup" aria-label={answer.ask} className="armada-callcard__choices">
             <div className="armada-callcard__answers">
               {numbered.map((one, index) => (
@@ -312,10 +315,24 @@ export function CallCard({
         )}
         {answer.reply === undefined ? null : <Reply label={item.sleep === undefined ? "Type something" : "Change"} text={text} change={change} send={sendWords} pending={answer.pending === "reply"} held={held} />}
         <div className="armada-callcard__acts">
-          <Button variant="primary" disabled={!canSend} onClick={send}>
-            {lone && !words ? OPENS(item) : "Send"}
-            <Kbd>↵</Kbd>
-          </Button>
+          {answer.attaching !== undefined
+            ? null
+            : acts.map((one) => {
+                const at = answer.answers.indexOf(one);
+                const first = actsOnly && answer.picked === at;
+                return (
+                  <Button key={one.id} variant={first ? "primary" : "secondary"} pending={answer.pending === one.id} disabled={held && answer.pending !== one.id} onClick={one.run}>
+                    {one.label}
+                    <Kbd>{first ? "↵" : String(at + 1)}</Kbd>
+                  </Button>
+                );
+              })}
+          {actsOnly && !words ? null : (
+            <Button variant="primary" disabled={!canSend} onClick={send}>
+              {lone && !words ? OPENS(item) : "Send"}
+              <Kbd>↵</Kbd>
+            </Button>
+          )}
           {answer.openWalk === undefined ? null : (
             <Button variant="ghost" disabled={held} onClick={answer.openWalk}>
               {actionOf("call_open_walk").verb}

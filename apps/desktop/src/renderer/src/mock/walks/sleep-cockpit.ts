@@ -1,7 +1,7 @@
 // Sleep mode, reviewed from the Cockpit. Sleep is still on when the owner comes back, and the moon says
 // so. The first key or press in the window turns it off. What Sleep decided is a call in the deck: Done,
-// or Open the Session it was decided in, or a correction in words, or Dismiss; the card leaves each
-// time. Over `sleep-cockpit`; the night itself is the mock's (`mock/sleep.ts`).
+// or Open the Session it was decided in, each one press, or a correction in words, or Dismiss; the card
+// leaves each time. Over `sleep-cockpit`; the night itself is the mock's (`mock/sleep.ts`).
 
 import { button, inside, region, role, text, walk } from "../walk";
 
@@ -17,12 +17,13 @@ const sleepCockpit = walk("sleep-cockpit", [
   { key: "l", on: cockpit, say: "The first key in the window turns Sleep off, and puts the blocked Job at the back" },
   { look: lunch, say: "A decision Sleep made, as a call: who, what was asked, what it chose" },
   { look: inside(lunch, text("Large")), say: "What Sleep picked" },
-  { look: inside(lunch, role("radio", /Done/)), say: "Done is first and already picked, so Enter finishes it" },
-  { look: inside(lunch, role("radio", /Open the Session/)), say: "Open the Session goes to where it was decided" },
+  { look: inside(lunch, button(/^Done/)), say: "Done is a button, and Enter presses it" },
+  { look: inside(lunch, button(/^Open the Session/)), say: "Open the Session goes to where it was decided" },
   { look: inside(lunch, button(/Dismiss/)), say: "Dismiss marks it reviewed for good" },
-  { key: "Enter", on: cockpit, say: "Enter is Done, and the card leaves" },
+  { press: inside(lunch, button(/^Done/)), say: "One press on Done, and the card leaves" },
   { look: branch, say: "The next decision" },
-  { type: "feat\n", into: inside(branch, role("textbox", "Change")), say: "Changing it: the words go to the agent, and the card leaves" },
+  { type: "feat", into: inside(branch, role("textbox", "Change")), say: "Words in the box bring Send, which is only for them" },
+  { press: inside(branch, button(/^Send/)), say: "Sent: the words go to the agent, and the card leaves" },
   { look: job, say: "A decision made in a Job has no Session to open" },
   { press: inside(job, button(/Dismiss/)), say: "Dismissed: reviewed, and it never comes back" },
 ]);
@@ -30,8 +31,7 @@ const sleepCockpit = walk("sleep-cockpit", [
 const opening = walk("sleep-cockpit", [
   { key: "l", on: cockpit, say: "Any key turns Sleep off" },
   { look: lunch, say: "A decision made in a Session" },
-  { press: inside(lunch, role("radio", /Open the Session/)), say: "Open the Session picked" },
-  { key: "Enter", on: cockpit, say: "Enter opens the Session the decision was made in" },
+  { press: inside(lunch, button(/^Open the Session/)), say: "One press on Open the Session goes to where it was decided" },
   { look: inside(region("Thread"), text("Which size?")), say: "The Session, on the question Sleep answered" },
 ]);
 

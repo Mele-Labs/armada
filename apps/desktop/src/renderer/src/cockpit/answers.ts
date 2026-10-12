@@ -27,8 +27,12 @@ import { asksAnAgent } from "./standing";
 import { sessionIdOf } from "./waiting";
 import type { Hosts, Item } from "../Dashboard";
 
-/** `key` is a standing answer's own key; the others are picked by their number. `says` is what it tells the agent. */
-export type Answer = { id: string; label: string; run: () => void; key?: string; act?: string; says?: string; description?: string; recommended?: boolean };
+/**
+ * `key` is a standing answer's own key; the others are picked by their number. `says` is what it tells the agent.
+ * `once` marks an act, which runs on one press, its click or its number: an option is picked and then sent,
+ * because a reply can go with it.
+ */
+export type Answer = { id: string; label: string; run: () => void; key?: string; act?: string; says?: string; description?: string; recommended?: boolean; once?: boolean };
 
 /** The picker an Attach opens: who a pull request can be attached to. */
 export type Attaching = { candidates: readonly Owner[]; choose: (owner: Owner) => void; close: () => void };
@@ -240,18 +244,19 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
   };
 
   const answer = (label: string, run: () => void, extra: Partial<Answer> = {}): Answer => ({ id: label, label, run, ...extra });
+  const oneTap = (label: string, run: () => void): Answer => answer(label, run, { once: true });
   const actsOf = (): Answer[] => {
     if (sleep !== undefined) {
       const there = sleep.sessionId;
       return [
-        answer("Done", () => (reviewed(sleep.id), finish())),
-        ...(there === undefined ? [] : [answer("Open the Session", () => hosts.onOpenSession(there))]),
+        oneTap("Done", () => (reviewed(sleep.id), finish())),
+        ...(there === undefined ? [] : [oneTap("Open the Session", () => hosts.onOpenSession(there))]),
       ];
     }
     if (waiting !== undefined) {
       const given = waiting.item;
       // A walk needs no choice: approving is what Fleet does with an answer that names none.
-      if (given.source === "walk") return [answer("Approve", () => sendWaiting("Approve", {}))];
+      if (given.source === "walk") return [oneTap("Approve", () => sendWaiting("Approve", {}))];
       if (given.options !== undefined && given.options.length > 0) {
         return given.options.map((option, at) =>
           answer(plainLabel(option.label), () => sendWaiting(plainLabel(option.label), { choice: at }), {
@@ -264,15 +269,15 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
       const act = given.act;
       if (act?.kind === "run") {
         // A slash command is the session's own: it is told, as a reply. Anything else he runs himself.
-        if (act.target.startsWith("/")) return [answer(`Run ${act.target}`, () => sendWaiting(`Run ${act.target}`, { text: act.target }))];
-        return [answer(`Copy ${act.target}`, () => copy(act.target))];
+        if (act.target.startsWith("/")) return [oneTap(`Run ${act.target}`, () => sendWaiting(`Run ${act.target}`, { text: act.target }))];
+        return [oneTap(`Copy ${act.target}`, () => copy(act.target))];
       }
       if (act?.kind === "approve_pr") {
         const number = act.target.replace(/^#/, "");
         const address = pullAddress(Number(number));
-        return [answer(`Open #${number}`, () => (address === undefined ? hosts.onOpenSession(waiting.sessionId) : hosts.onOpenLink(address)))];
+        return [oneTap(`Open #${number}`, () => (address === undefined ? hosts.onOpenSession(waiting.sessionId) : hosts.onOpenLink(address)))];
       }
-      if (act?.kind === "walk") return [answer("Open the page", () => (draft?.openWindow === undefined ? hosts.onOpenLink(act.target) : draft.openWindow(waiting.sessionId, act.target)))];
+      if (act?.kind === "walk") return [oneTap("Open the page", () => (draft?.openWindow === undefined ? hosts.onOpenLink(act.target) : draft.openWindow(waiting.sessionId, act.target)))];
       return [];
     }
     // Somebody is already on it: go and see that they are addressing it, or nudge them. No new Drone.
@@ -280,17 +285,17 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
       if (owner !== undefined) {
         const noun = owner.kind === "session" ? "Session" : "Job";
         return [
-          answer(`Open the ${noun}`, () => (owner.kind === "session" ? hosts.onOpenSession(owner.id) : hosts.onOpen(owner.id))),
-          answer("Poke", () => poke(owner)),
+          oneTap(`Open the ${noun}`, () => (owner.kind === "session" ? hosts.onOpenSession(owner.id) : hosts.onOpen(owner.id))),
+          oneTap("Poke", () => poke(owner)),
         ];
       }
       const drone = item.key.startsWith("main:")
-        ? answer("Hand to a Job", () => (hosts.onFix?.({ root: item.key.slice("main:".length) }), finish()))
-        : answer("Send a Drone", () => (hosts.onPropose?.(`The checks on pull request #${pull.number} failed. Read the failure, say what you would change, and push only once I agree.`), finish()));
-      return [drone, answer("Attach", () => setAttaching(true))];
+        ? oneTap("Hand to a Job", () => (hosts.onFix?.({ root: item.key.slice("main:".length) }), finish()))
+        : oneTap("Send a Drone", () => (hosts.onPropose?.(`The checks on pull request #${pull.number} failed. Read the failure, say what you would change, and push only once I agree.`), finish()));
+      return [drone, oneTap("Attach", () => setAttaching(true))];
     }
-    if (item.kind === "Check failed") return [answer("Retry", finish)];
-    if (item.kind === "Drone stuck") return [answer("Restart the step", finish), answer("Fresh Drone", finish)];
+    if (item.kind === "Check failed") return [oneTap("Retry", finish)];
+    if (item.kind === "Drone stuck") return [oneTap("Restart the step", finish), oneTap("Fresh Drone", finish)];
     return [];
   };
 
@@ -306,11 +311,17 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
   const standing = asksAnAgent(item) ? standingOf(waiting === undefined ? () => finish() : (mode) => sendWaiting(mode, { mode }), permission) : [];
   const answers = [...numbered, ...standing];
 
-  // One answer is the answer: Enter sends it without a number first. A Sleep decision starts on Done.
-  const chosen = picked ?? (answers.length === 1 || sleep !== undefined ? 0 : undefined);
+  // One answer is the answer: Enter sends it without a number first. Where every answer is an act, Enter runs the first.
+  const chosen = picked ?? (answers.length === 1 || (answers.length > 0 && answers.every((one) => one.once === true)) ? 0 : undefined);
   const held = pending !== undefined;
   const pick = (index: number) => !held && answers[index] !== undefined && setPicked(index);
-  const pickNumber = (digit: number) => digit <= numbered.length && pick(digit - 1);
+  // An act runs on its number; an option is picked, and sent after.
+  const pickNumber = (digit: number) => {
+    if (digit > numbered.length || held) return;
+    const one = answers[digit - 1];
+    if (one?.once === true) one.run();
+    else pick(digit - 1);
+  };
   const pickKey = (press: Press) => {
     const index = answers.findIndex((one) => one.act !== undefined && isPressed(one.act, press));
     if (index < 0) return false;
