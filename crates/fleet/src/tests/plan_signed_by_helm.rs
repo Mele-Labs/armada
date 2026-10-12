@@ -1,5 +1,8 @@
 //! A plan act a Helm session makes at the agent door, signed as Helm's. `#2168`.
 //!
+//! This was written first, against the route as it stood, and failed on
+//! `left: Human, right: Helm`.
+//!
 //! **Through the real router**, so the mark the door leaves is what Fleet reads:
 //! a Helm session's `add_task` used to come out of the same route as Bridge's
 //! and was kept as the owner's.
@@ -132,4 +135,51 @@ async fn a_task_a_helm_session_adds_is_signed_as_helms() {
     }
     let published = published.expect("the add was told");
     assert_eq!(published.actor.domain(), core_model::Actor::Helm);
+
+    let history = fleet
+        .store()
+        .lock()
+        .await
+        .plan_history(&job)
+        .expect("the history");
+    assert_eq!(
+        history.last().expect("the add").by,
+        core_model::PlanAuthor::Helm
+    );
+    let plan = fleet.plan_of(&job).await.expect("reads").expect("a plan");
+    assert_eq!(
+        ipc::WorkPlan::from(&plan).tasks[2].by,
+        Some(ipc::TaskBy::Helm),
+        "the new task wears Helm's hand on the wire"
+    );
+}
+
+/// The same door, a task dropped.
+#[tokio::test]
+async fn a_task_a_helm_session_drops_is_signed_as_helms() {
+    let home = TempDir::new();
+    let (fleet, app) = served(&home);
+    let job = a_plan_of_two(&fleet).await;
+
+    let answered = from_helm(
+        &app,
+        "drop_task",
+        &format!(
+            r#"{{"job_id":"{}","body":{{"task":"T2","reason":"covered by T1"}}}}"#,
+            job.as_str()
+        ),
+    )
+    .await;
+    assert!(answered.contains("\"isError\":false"), "{answered}");
+
+    let history = fleet
+        .store()
+        .lock()
+        .await
+        .plan_history(&job)
+        .expect("the history");
+    assert_eq!(
+        history.last().expect("the drop").by,
+        core_model::PlanAuthor::Helm
+    );
 }
