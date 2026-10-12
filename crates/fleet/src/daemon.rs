@@ -152,6 +152,8 @@ pub struct Fleet<H, V, W> {
     /// board every time, so a stamp that outlived the process would only make
     /// the first sweep after a restart come later than it should.
     swept: Mutex<Option<core_model::Timestamp>>,
+    /// The last `GET /worktrees`, served from memory. See [`crate::worktrees_kept`].
+    kept: crate::worktrees_kept::Kept,
     /// Where the pull-request rotation stands, and when it last ran. **Never
     /// written down**, for `polled`'s reason: a cursor that outlived the
     /// process would name a position in a list that has since changed, and the

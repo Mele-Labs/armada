@@ -424,6 +424,7 @@ where
             ),
             shipped,
             swept: Mutex::new(None),
+            kept: crate::worktrees_kept::Kept::default(),
             sweeping: Mutex::new(Sweep::default()),
             issue_sweeping: Mutex::new(crate::issue_noticing::IssueSweep::default()),
             cut_from: crate::approved::CutFrom::default(),

@@ -13,7 +13,8 @@ import { dotsOf, type Dot } from "./horizon";
 /** Who is in a bay, or why nobody is. */
 export type Holder =
   | { kind: "job"; id: string; title: string; item: Item | undefined }
-  | { kind: "session"; title: string; session: Session | undefined; item: Item | undefined }
+  /** `by` is the process the pool names, worded, where no Session in Armada is the one in the bay. */
+  | { kind: "session"; title: string; session: Session | undefined; item: Item | undefined; by: string | undefined }
   | { kind: "free" }
   | { kind: "closed" }
   /** Unmade, busy, not a checkout, or stranded: what the pool says, in its words. */
@@ -145,8 +146,13 @@ function holderOf(slot: WorktreeSlot, jobs: readonly JobSummary[], sessions: rea
       return { kind: "job", id, title, item: tileOf(items, id) };
     }
     case "session": {
+      // A Session not yet named, or a terminal Armada does not know, is called by the branch it is on:
+      // a process path or a Session id says nothing of the work.
       const session = sessionIn(slot, sessions);
-      return { kind: "session", title: session?.title ?? slot.held.holder, session, item: session === undefined ? undefined : tileOf(items, `session:${session.id}`) };
+      const pid = /\(pid (\d+)\)/.exec(slot.held.holder)?.[1];
+      const by = session !== undefined ? undefined : pid === undefined ? slot.held.holder : `A terminal, pid ${pid}`;
+      const title = session?.title ?? slot.branch ?? session?.address ?? by ?? slot.held.holder;
+      return { kind: "session", title, session, item: session === undefined ? undefined : tileOf(items, `session:${session.id}`), by };
     }
     case "stranded":
       return { kind: "other", said: `Stranded: ${slot.held.why}` };
