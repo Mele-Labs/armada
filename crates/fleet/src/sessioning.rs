@@ -307,6 +307,7 @@ where
         let kept = store.session(&id).map_err(fault)?;
         let mut changed = kept.is_none();
         let mut ended = false;
+        let mut parking: Option<(String, u32)> = None;
         let mut session = kept.unwrap_or_else(|| KeptSession {
             id: id.clone(),
             harness: report.harness.clone(),
@@ -440,7 +441,18 @@ where
                 changed |= session.state != store::SessionState::Ended;
                 session.state = store::SessionState::Ended;
                 session.ended_at = Some(now.clone());
-                session.end_reason = Some(reason);
+                // Ended from Bridge, it reads as a hosted close does, and its slot is parked.
+                if self.hosts().terminals().was_ended_from_bridge(&id) {
+                    session.end_reason = Some(String::from("closed"));
+                    parking = store
+                        .attachments_of(&holder)
+                        .map_err(fault)?
+                        .into_iter()
+                        .find(|one| one.kind == "slot" && one.state == AttachmentState::Standing)
+                        .and_then(|one| Some((one.manifest_id, one.target.parse().ok()?)));
+                } else {
+                    session.end_reason = Some(reason);
+                }
                 store.give_back(&holder, None, &now).map_err(fault)?;
             }
         }
@@ -449,6 +461,9 @@ where
         store.keep_session(&session).map_err(fault)?;
         let record = self.ledger_row(&store, &session)?;
         drop(store);
+        if let Some((manifest, slot)) = parking {
+            self.park_once_gone(&session.id, &manifest, slot);
+        }
         if ended {
             // Its terminal prompt went with it, so Bridge must not offer the card.
             self.terminal_ask_closed(&session.id, ipc::SessionAskState::Unanswered).await;

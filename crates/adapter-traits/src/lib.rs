@@ -393,6 +393,17 @@ pub trait Vcs {
         session_id: &str,
     ) -> Result<SlotParked, SlotParkRefused>;
 
+    /// Commit everything in a slot a terminal session stood in to its branch
+    /// and give it back, **only once the process that leased it has ended**:
+    /// a holder still running is [`SlotParkRefused::HeldByAnother`], so a
+    /// caller waiting for the end asks again. The WIP commit names the session.
+    fn park_ended_session_slot(
+        &self,
+        pool: &SlotPool,
+        slot: u32,
+        session_id: &str,
+    ) -> Result<SlotParked, SlotParkRefused>;
+
     /// Commit everything in a slot held by an agent session to its branch and
     /// give the slot back, as [`park_slot`](Vcs::park_slot) does for a Job.
     /// **`holder` is who the person was shown**, as the pool names it

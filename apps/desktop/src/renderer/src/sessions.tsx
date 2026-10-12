@@ -818,7 +818,7 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
                     </Tooltip>
                   )}
                   {retro.press === undefined ? null : <RetroPress writing={retro.writing.has(session.id)} onPress={() => retro.press?.(session)} />}
-                  {draft.close === undefined || session.terminal === true || session.dead !== undefined ? null : (
+                  {draft.close === undefined || session.dead !== undefined ? null : (
                     <Tooltip label="End this Session and park its slot">
                       <Button variant="ghost" size="sm" onClick={() => draft.close?.(session.id)}>
                         Close

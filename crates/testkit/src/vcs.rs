@@ -1087,6 +1087,15 @@ impl Vcs for FakeVcs {
         self.noted(self.slots.park(pool, slot, session_id))
     }
 
+    fn park_ended_session_slot(
+        &self,
+        pool: &SlotPool,
+        slot: u32,
+        session_id: &str,
+    ) -> Result<adapter_traits::SlotParked, adapter_traits::SlotParkRefused> {
+        self.noted(self.slots.park_left(pool, slot, session_id))
+    }
+
     fn release_session_slot(
         &self,
         pool: &SlotPool,

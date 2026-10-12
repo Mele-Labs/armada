@@ -12,7 +12,7 @@ type Posted = { url: string; body: any }
 
 function world(
   on: On,
-  options: { running?: () => boolean; slowReports?: boolean; heldGate?: Promise<void>; held?: string[]; heldCommands?: { command: string; args: string }[]; model?: () => string; onCommand?: () => void; transcript?: string; env?: Record<string, string>; pullRequest?: string; polls?: (string | Promise<string> | Error)[]; asks?: string } = {},
+  options: { running?: () => boolean; slowReports?: boolean; heldGate?: Promise<void>; held?: string[]; heldCommands?: { command: string; args: string }[]; heldEnd?: boolean; model?: () => string; onCommand?: () => void; transcript?: string; env?: Record<string, string>; pullRequest?: string; polls?: (string | Promise<string> | Error)[]; asks?: string } = {},
 ) {
   const running = options.running ?? (() => true)
   const posts: Posted[] = []
@@ -21,6 +21,8 @@ function world(
   const asked: unknown[] = []
   const questions: any[] = []
   const ran: { command: string; args?: string }[] = []
+  // What reached the engine, submits and commands alike, in the order they did.
+  const order: string[] = []
   const clock = mock.clock(on, { now: 1_000_000 })
   mock.env(on, { HOME: '/home/user', ...options.env })
   on('fs.read', (_$, e) => {
@@ -36,7 +38,10 @@ function world(
       asked.push(JSON.parse(e.init?.body ?? '{}'))
       const messages = options.held?.splice(0) ?? []
       const commands = options.heldCommands?.splice(0) ?? []
-      const answer = { value: { status: 200, ok: true, headers: {}, text: JSON.stringify({ messages, commands }) } }
+      // Handed over once, as Fleet does.
+      const end = options.heldEnd === true ? true : undefined
+      options.heldEnd = false
+      const answer = { value: { status: 200, ok: true, headers: {}, text: JSON.stringify({ messages, commands, end }) } }
       // Held open as Fleet holds an ask with nothing to hand over, until the test lets it go.
       return options.heldGate === undefined ? answer : options.heldGate.then(() => answer)
     }
@@ -71,6 +76,7 @@ function world(
   on('command.list', () => ({ value: [{ name: 'review', description: 'Review the pull request', source: 'builtin' }] }))
   on('command.run', (_$, e) => {
     ran.push({ command: e.command, args: e.args })
+    order.push(`run /${e.command}`)
     options.onCommand?.()
     return { value: {} }
   })
@@ -80,12 +86,13 @@ function world(
   on('session.end', (_$, e) => ({ sessionId: e.sessionId }))
   on('prompt.submit', (_$, e) => {
     submitted.push({ text: e.text, asUser: e.origin?.asUser })
+    order.push(`submit ${e.text}`)
     return { text: e.text }
   })
   on('turn.complete', () => ({ text: '' }))
   on('prompt.context', (_$, e) => ({ blocks: e.blocks }))
   on('classic.SessionStart', () => ({}))
-  return { posts, attempts, clock, submitted, asked, ran, questions }
+  return { posts, attempts, clock, submitted, asked, ran, questions, order }
 }
 
 const facts = (posts: Posted[]) => posts.map(one => one.body.fact)
@@ -379,6 +386,18 @@ test('what the terminal runs on is told once with the commands it lists', async 
     commands: [{ name: 'review', says: 'Review the pull request' }],
     mod_version: MOD_VERSION,
   })
+})
+
+test('End session pressed in Bridge runs /exit once, after the messages held with it', async ($, on) => {
+  const { clock, order, ran } = world(on, { held: ['one last thing'], heldEnd: true })
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await clock.advance(2000)
+  await clock.settle()
+
+  expect(order).toEqual(['submit one last thing', 'run /exit'])
+  await clock.advance(4000)
+  await clock.settle()
+  expect(ran.filter(one => one.command === 'exit')).toHaveLength(1)
 })
 
 test('a model chosen in Bridge is run as a command, and the new one is told', async ($, on) => {

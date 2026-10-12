@@ -387,6 +387,51 @@ fn a_session_held_slot_is_released_with_its_files_committed_for_the_holder_shown
     ));
 }
 
+/// A slot a terminal session stood in is parked for it **only once the process
+/// that leased it has ended**: while it runs the park is refused and nothing is
+/// committed, and after it the files go to the slot's branch.
+#[test]
+fn a_slot_left_by_an_ended_process_is_parked_and_not_while_it_runs() {
+    let repo = a_repository();
+    let pool = Pool::at(repo.root(), 1, "main", Vec::new());
+    let mut claude = std::process::Command::new("sleep")
+        .arg("30")
+        .spawn()
+        .expect("sleep on PATH");
+    let holder = Holder::of(claude.id()).expect("the child is running");
+    let path = match pool.try_lease("fleet/by-terminal", &holder, 0, &no_seed) {
+        Ok(Leased::Took(lease)) => lease.path().to_path_buf(),
+        other => panic!("no slot: {other:?}"),
+    };
+    std::fs::write(path.join("half.txt"), "half a thought\n").expect("a file");
+    let wire = slots(&repo, 1);
+
+    let running = GitVcs
+        .park_ended_session_slot(&wire, 1, "S1")
+        .expect_err("its process still runs");
+    assert!(matches!(
+        running,
+        adapter_traits::SlotParkRefused::HeldByAnother(_)
+    ));
+    assert!(!repo
+        .git(&["ls-tree", "--name-only", "fleet/by-terminal"])
+        .contains("half.txt"));
+
+    claude.kill().expect("killed");
+    claude.wait().expect("reaped");
+    let parked = GitVcs
+        .park_ended_session_slot(&wire, 1, "S1")
+        .expect("its process ended");
+    assert_eq!(parked.branch, "fleet/by-terminal");
+    assert_eq!(parked.files, vec!["half.txt"]);
+    assert!(matches!(pool.state(1), SlotState::Free));
+    assert_eq!(
+        repo.git(&["show", "fleet/by-terminal:half.txt"]).trim(),
+        "half a thought"
+    );
+    assert!(repo.git(&["log", "-1", "--format=%s", "fleet/by-terminal"]).contains("session S1"));
+}
+
 /// A repair's branch goes once its fix is placed or the repair failed, and
 /// only after the slot that wrote it has been given back.
 #[test]

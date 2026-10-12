@@ -175,7 +175,7 @@ async function askHeld($: Dollar): Promise<boolean> {
     $.clock.sleep(HELD_FETCH_MS).then(() => undefined),
   ])
   if (asked === undefined || !asked.ok) return false
-  const held = JSON.parse(asked.text) as { messages?: unknown; commands?: unknown }
+  const held = JSON.parse(asked.text) as { messages?: unknown; commands?: unknown; end?: unknown }
   // A command is run as typed: the engine refuses a slash command submitted as text.
   const commands = Array.isArray(held.commands) ? held.commands : []
   for (const one of commands as { command?: unknown; args?: unknown }[]) {
@@ -194,10 +194,19 @@ async function askHeld($: Dollar): Promise<boolean> {
       .then(() => undefined)
       .catch(() => undefined)
   }
+  // End session pressed in Bridge: `/exit`, as the person would type it, behind the messages above.
+  // It waits for the session to be idle, so a message submitted just before has its turn first.
+  const end = held.end === true
+  if (end) {
+    submitting = submitting
+      .then(() => $.command.run({ command: 'exit' }))
+      .then(() => undefined)
+      .catch(() => undefined)
+  }
   // A Fleet that answers at once with nothing (one from before the wait, or a session it has not
   // heard of yet) is asked no faster than the tick used to.
   const took = (await $.clock.now()) - began
-  if (commands.length === 0 && messages.length === 0 && took < ASK_EVERY_MS) {
+  if (commands.length === 0 && messages.length === 0 && !end && took < ASK_EVERY_MS) {
     await $.clock.sleep(ASK_EVERY_MS - took)
   }
   return true

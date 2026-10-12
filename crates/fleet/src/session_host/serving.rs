@@ -255,6 +255,9 @@ where
 
     async fn close_session(&self, closed: CloseSession) -> Result<SessionRecord, Refusal> {
         let id = closed.session_id.as_str().to_string();
+        if let Some(session) = self.terminal_session(&id).await? {
+            return self.end_terminal(&session).await;
+        }
         let (session, hosting) = self.session_and_hosting(&id).await?;
         if session.state == store::SessionState::Ended {
             return self.published_hosted(&id).await;
