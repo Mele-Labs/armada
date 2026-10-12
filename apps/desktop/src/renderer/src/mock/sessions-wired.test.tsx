@@ -86,6 +86,34 @@ test("Sessions wired: a send Fleet refuses is a toast that stays, and nothing is
   await expect.element(toast("Not reachable: run /reload-plugins in that session")).toBeVisible();
 });
 
+test("Sessions wired: a terminal Session offers End session, and it ends once its terminal does", async () => {
+  const fleet = new FakeSessionsFleet([terminal(ID, { title: "Release notes script" })]);
+  mount(served(fleet));
+  await onSessions();
+  await userEvent.click(sessions().getByRole("button", { name: "Release notes script" }));
+  const panel = page.getByRole("region", { name: /^Session / });
+  await userEvent.click(panel.getByRole("button", { name: /^End session/ }));
+  await expect.poll(() => fleet.calls.closed).toEqual([ID]);
+  // Held for its mod: the Session stays live, and offers no Fork, until the terminal says it ended.
+  await expect.element(panel.getByRole("button", { name: "Fork" })).not.toBeInTheDocument();
+  fleet.changed(terminal(ID, { title: "Release notes script", state: "ended" }));
+  await expect.element(panel.getByRole("button", { name: "Fork" })).toBeVisible();
+  await expect.element(panel.getByRole("button", { name: /^End session/ })).not.toBeInTheDocument();
+});
+
+test("Sessions wired: End session on a terminal Fleet cannot reach is said, and nothing ends", async () => {
+  const fleet = new FakeSessionsFleet([terminal(ID, { title: "Docs pass" })]);
+  mount(served(fleet));
+  await onSessions();
+  await userEvent.click(sessions().getByRole("button", { name: "Docs pass" }));
+  fleet.refusesClose = { code: "fleet.terminal_session_unreachable", message: "that session is not listening." };
+  const panel = page.getByRole("region", { name: /^Session / });
+  await userEvent.click(panel.getByRole("button", { name: /^End session/ }));
+  await expect.element(toast("Not reachable: run /reload-plugins in that session")).toBeVisible();
+  expect(fleet.calls.closed).toEqual([]);
+  await expect.element(panel.getByRole("button", { name: /^End session/ })).toBeVisible();
+});
+
 test("Sessions wired: rows stream into an open thread, and the first write is the ledger's slot beside its branch", async () => {
   const fleet = new FakeSessionsFleet([hosted(ID, { title: "Fix the flaky store test" })]);
   mount(served(fleet));

@@ -27,7 +27,7 @@ use super::thread_cache::ThreadCache;
 use crate::daemon::Fleet;
 
 /// A send to a session whose mod has not asked lately. A 409.
-const TERMINAL_UNREACHABLE: &str = "fleet.terminal_session_unreachable";
+pub(super) const TERMINAL_UNREACHABLE: &str = "fleet.terminal_session_unreachable";
 
 /// How long after its mod last asked a session still counts as listening. A
 /// mod holding an ask open is listening throughout, and this covers the moment
@@ -47,6 +47,8 @@ struct Listening {
     holding: usize,
     held: Vec<String>,
     commands: Vec<HeldCommand>,
+    /// A person pressed End session: handed over once, after the messages.
+    end: bool,
     /// Rung when something is held, for the ask waiting on it.
     rung: Arc<tokio::sync::Notify>,
 }
@@ -58,6 +60,7 @@ impl Listening {
             holding: 0,
             held: Vec::new(),
             commands: Vec::new(),
+            end: false,
             rung: Arc::default(),
         }
     }
@@ -71,6 +74,7 @@ impl Listening {
         MessagesHeld {
             messages: std::mem::take(&mut self.held),
             commands: std::mem::take(&mut self.commands),
+            end: std::mem::take(&mut self.end),
         }
     }
 }
@@ -98,6 +102,10 @@ pub struct Terminals {
     listening: Mutex<HashMap<String, Listening>>,
     watched: Mutex<HashSet<String>>,
     tuned: Mutex<HashMap<String, TerminalFacts>>,
+    /// Sessions a person ended from Bridge whose terminal has not ended yet.
+    /// Memory only: a Fleet that restarts meanwhile ends the row as the
+    /// terminal reports it and parks nothing.
+    ending: Mutex<HashSet<String>>,
     /// When each standing question was last polled for, by call. Memory only: a
     /// Fleet that restarts gives every mod a fresh lapse to poll again in.
     polled: Mutex<HashMap<String, Instant>>,
@@ -140,7 +148,7 @@ impl Terminals {
             tokio::pin!(notified);
             notified.as_mut().enable();
             let held = self.asked(session);
-            if !held.messages.is_empty() || !held.commands.is_empty() {
+            if !held.messages.is_empty() || !held.commands.is_empty() || held.end {
                 return held;
             }
             if tokio::time::timeout_at(until, notified).await.is_err() {
@@ -175,17 +183,42 @@ impl Terminals {
             .remove(call);
     }
 
-    /// Keep a command for the mod, or say nobody is listening.
-    fn hold_command(&self, session: &str, command: HeldCommand, listening_for: Duration) -> bool {
+    /// Put something by for the mod and ring the ask waiting on it, or say nobody is listening.
+    fn held_for_mod(&self, session: &str, listening_for: Duration, put: impl FnOnce(&mut Listening)) -> bool {
         let mut table = self.listening.lock().expect("held across no panic");
         match table.get_mut(session) {
             Some(one) if one.listening_within(listening_for) => {
-                one.commands.push(command);
+                put(one);
                 one.rung.notify_waiters();
                 true
             }
             _ => false,
         }
+    }
+
+    /// Keep a command for the mod, or say nobody is listening.
+    fn hold_command(&self, session: &str, command: HeldCommand, listening_for: Duration) -> bool {
+        self.held_for_mod(session, listening_for, |one| one.commands.push(command))
+    }
+
+    /// Hold the end for the mod, or say nobody is listening. True where it was held.
+    pub(super) fn hold_end(&self, session: &str, listening_for: Duration) -> bool {
+        let held = self.held_for_mod(session, listening_for, |one| one.end = true);
+        if held {
+            self.ending
+                .lock()
+                .expect("held across no panic")
+                .insert(session.to_string());
+        }
+        held
+    }
+
+    /// Whether a person ended this session from Bridge, forgotten as it is read.
+    pub(crate) fn was_ended_from_bridge(&self, session: &str) -> bool {
+        self.ending
+            .lock()
+            .expect("held across no panic")
+            .remove(session)
     }
 
     /// Whether the session's mod is holding an ask, or has asked within [`LISTENING_FOR`].
@@ -223,15 +256,7 @@ impl Terminals {
 
     /// Keep `text` for the mod, or say nobody is listening.
     pub(super) fn hold(&self, session: &str, text: String, listening_for: Duration) -> bool {
-        let mut table = self.listening.lock().expect("held across no panic");
-        match table.get_mut(session) {
-            Some(one) if one.listening_within(listening_for) => {
-                one.held.push(text);
-                one.rung.notify_waiters();
-                true
-            }
-            _ => false,
-        }
+        self.held_for_mod(session, listening_for, |one| one.held.push(text))
     }
 
     fn begin_watching(&self, session: &str) -> bool {

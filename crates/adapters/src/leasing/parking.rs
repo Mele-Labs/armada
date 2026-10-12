@@ -40,6 +40,22 @@ impl Pool {
         self.park_named(number, holder, &holder.said())
     }
 
+    /// [`park_named`](Pool::park_named) for a slot whose holder is a process
+    /// that has ended, the one it was leased by, so nothing can still be
+    /// writing into it. **A holder still running is refused**, never taken:
+    /// it is somebody else's, or the same process not yet gone.
+    pub fn park_left(&self, number: usize, whose: &str) -> Result<Parked, ParkRefused> {
+        let Some(record) = Record::read(&self.record_path(number)) else {
+            return Err(ParkRefused::NotLeased(self.path_of(number)));
+        };
+        match &record.holder {
+            holder @ Holder::Process { .. } if !holder.alive() => {
+                self.park_named(number, holder, whose)
+            }
+            holder => Err(ParkRefused::HeldByAnother(holder.said())),
+        }
+    }
+
     /// [`park`](SlotPool::park), with the WIP commit naming `whose` work it
     /// is where the holder's own name would say the wrong thing: a Session
     /// holds its slot as a `Holder::Job` of its own id.

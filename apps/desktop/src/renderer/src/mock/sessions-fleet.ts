@@ -127,6 +127,8 @@ export class FakeSessionsFleet {
   refuses: { code: string; message: string } | undefined;
   /** Set to have the next message refused, the way Fleet refuses one: the error says why and nothing is sent. */
   refusesSend: { code: string; message: string } | undefined;
+  /** Set to have the next End session refused, the way Fleet refuses one: nothing ends and nothing is parked. */
+  refusesClose: { code: string; message: string } | undefined;
   /** Set to have the next retro refused the way Fleet refuses one: the error says why and nothing is written. */
   refusesRetro: { code: string; message: string } | undefined;
   /** How long a retro takes to write, so a walk can see it being written. */
@@ -282,7 +284,14 @@ export class FakeSessionsFleet {
             return { ok: true as const };
           },
           closeSession: async (sessionId) => {
+            if (this.refusesClose !== undefined) {
+              const error = this.refusesClose;
+              this.refusesClose = undefined;
+              return { ok: false, outcome: { ok: false, why: "refused", error } as never };
+            }
             this.calls.closed.push(sessionId);
+            // A terminal's end is held for its mod: the row ends when the terminal says it did (`changed`).
+            if (this.records.find((one) => one.id === sessionId)?.origin === "terminal") return this.change(sessionId, (one) => one);
             return this.change(sessionId, (one) => ({ ...one, state: "ended" }));
           },
           watchSession: async (sessionId) => {
