@@ -13,7 +13,7 @@
 
 import { StrictMode, useEffect, useRef, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { Button, CaptureBar, variationLetter, type CaptureBarApproval } from "@armada/components";
+import { Button, CaptureBar, variationLetter, type CaptureBarApproval, type CaptureBarReadiness } from "@armada/components";
 
 /** What a press inside the page picked, as a walk note describes it. */
 export type Picked = { element: string; selector: string; location: string; variation?: Taken };
@@ -38,9 +38,17 @@ export type WalkWindowOptions = {
   onApprove?: (address: string, variation?: Taken) => Promise<{ ok: true } | { ok: false; said: string }>;
   /** The takes shown, the first on screen. **Absent: the one page at `url`.** */
   variations?: readonly Variation[];
+  /** Ready or still changing, as the opener says when it opens it. `markWalkWindow` moves it after. */
+  readiness?: CaptureBarReadiness;
 };
 
 let held: { root: Root; host: HTMLElement } | null = null;
+let mark: ((readiness: CaptureBarReadiness) => void) | null = null;
+
+/** The opener says the page is ready, or that it is changing it again. Nothing where no window is open. */
+export function markWalkWindow(readiness: CaptureBarReadiness): void {
+  mark?.(readiness);
+}
 
 /** The mock itself on another scenario: the one address a browser page can serve as a page to show. */
 export function mockPage(): string {
@@ -104,7 +112,14 @@ if (typeof window !== "undefined") {
   );
 }
 
-function WalkWindow({ run, url: first, host, job, into = "Job", title, onOpenOwner, onNote, onApprove, variations }: { run: string; url: string; host: HTMLElement } & WalkWindowOptions) {
+function WalkWindow({ run, url: first, host, job, into = "Job", title, onOpenOwner, onNote, onApprove, variations, readiness: opened }: { run: string; url: string; host: HTMLElement } & WalkWindowOptions) {
+  const [readiness, setReadiness] = useState(opened);
+  useEffect(() => {
+    mark = setReadiness;
+    return () => {
+      mark = null;
+    };
+  }, []);
   const testing = (import.meta as { env?: { MODE?: string } }).env?.MODE === "test";
   const frame = useRef<HTMLIFrameElement>(null);
   const [armed, setArmed] = useState(false);
@@ -242,6 +257,7 @@ function WalkWindow({ run, url: first, host, job, into = "Job", title, onOpenOwn
             })}
         {...(approval?.at !== at ? {} : { approval: approval.state })}
         {...(variations === undefined ? {} : { variations: { names: variations.map((one) => one.name), at, onPick: setAt } })}
+        {...(readiness === undefined ? {} : { readiness })}
       />
       {picked === null ? null : (
         <form

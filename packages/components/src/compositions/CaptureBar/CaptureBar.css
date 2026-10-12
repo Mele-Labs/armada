@@ -48,6 +48,24 @@
   font-size: var(--text-2xs);
 }
 
+/* Ready or still changing, in the frame as well as the mark: the bar takes the Job rows' status hue,
+   lit while it waits on the person, as a Session row that waits on him is. */
+.armada-capture-bar[data-readiness="ready"] { --hue: var(--status-awaiting-review); }
+.armada-capture-bar[data-readiness="working"] { --hue: var(--status-running); }
+
+.armada-capture-bar[data-readiness] {
+  border-bottom: calc(2 * var(--border-width)) solid var(--hue);
+}
+
+.armada-capture-bar[data-readiness="ready"] .armada-capture-bar__row:first-child {
+  background: color-mix(in srgb, var(--hue) 12%, var(--bg-sunken));
+}
+
+.armada-capture-bar[data-readiness] .armada-session-mark {
+  flex: none;
+  color: var(--hue);
+}
+
 /* The takes of one change, a row under the bar's own: the one on screen is filled. Each scrolls
    into reach rather than wrapping, so the row keeps the bar's height. */
 .armada-capture-bar__takes {

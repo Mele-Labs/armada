@@ -2,6 +2,7 @@ import { Check } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
 import { KbdChord } from "../../primitives/Kbd/Kbd";
+import { SessionMark } from "../SessionFrame/SessionFrame";
 
 /**
  * The bar Bridge owns above another repository's running web app —
@@ -94,6 +95,20 @@ export type CaptureBarProps = {
    * press swaps the page, and Approve and every note name the one on screen. **Absent: one page.**
    */
   variations?: CaptureBarVariations;
+  /**
+   * Whether the page is ready to walk, as the Session or the Job that opened it says: `ready` it is
+   * done and waiting on the person, `working` it is still changing it. Drawn as the Session mark at
+   * the bar's start and as the bar's own hue. **Absent: nobody has said.**
+   */
+  readiness?: CaptureBarReadiness;
+};
+
+export type CaptureBarReadiness = "ready" | "working";
+
+/** Each readiness as the Session mark draws it, and what its tooltip says. */
+const READINESS: Record<CaptureBarReadiness, { mark: "waiting" | "working"; said: string }> = {
+  ready: { mark: "waiting", said: "Ready to walk" },
+  working: { mark: "working", said: "Still changing" },
 };
 
 /** Each take's name in the order shown, which is on screen, and the press that swaps it. */
@@ -113,7 +128,7 @@ export function hasASecondRow(
 }
 
 export function CaptureBar(props: CaptureBarProps) {
-  const { run, address, studio, job, session, serving, armed, framesRefused, refused, binding, approval, question, panel, variations } = props;
+  const { run, address, studio, job, session, serving, armed, framesRefused, refused, binding, approval, question, panel, variations, readiness } = props;
   const taking = variations === undefined ? "" : ` ${variationLetter(variations.at)}`;
   const owner = job ?? session;
   const landsOn = studio !== null ? `Notes land on ${studio}` : owner !== undefined ? `Notes go to ${owner}` : null;
@@ -134,8 +149,9 @@ export function CaptureBar(props: CaptureBarProps) {
       landsOn
     );
   return (
-    <div className="armada-capture-bar" data-armed={armed ? "" : undefined}>
+    <div className="armada-capture-bar" data-armed={armed ? "" : undefined} data-readiness={readiness}>
       <div className="armada-capture-bar__row">
+        {readiness === undefined ? null : <SessionMark state={READINESS[readiness].mark} said={READINESS[readiness].said} />}
         {run === undefined ? null : (
           <span className="armada-capture-bar__run" title="This window shows a server, not Armada">
             {run}
@@ -166,13 +182,18 @@ export function CaptureBar(props: CaptureBarProps) {
             variant="secondary"
             ground="sunken"
             size="sm"
-            disabled={approval?.state === "approved"}
+            // While the opener is still changing the page there is nothing settled to approve.
+            disabled={approval?.state === "approved" || readiness === "working"}
             pending={approval?.state === "pending"}
             {...(approval?.state === "refused" ? { answer: "refused" as const, title: approval.said } : {})}
             onClick={props.onApprove}
           >
-            <Check size={12} strokeWidth={2} aria-hidden />
-            {approval?.state === "approved" ? `Approved${taking}` : `Approve${taking}`}
+            {readiness === "working" ? null : <Check size={12} strokeWidth={2} aria-hidden />}
+            {readiness === "working"
+              ? "Not ready"
+              : approval?.state === "approved"
+                ? `Approved${taking}`
+                : `Approve${taking}`}
           </Button>
         )}
         {panel === undefined ? null : (

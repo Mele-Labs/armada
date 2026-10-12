@@ -6,7 +6,7 @@
 // Session would do next, applied when a walk's `later` step lets time pass or,
 // for the first, when the person sends a message.
 
-import { closeWalkWindow, mockPage, openWalkWindow, type Variation } from "@armada/jobs/fake";
+import { closeWalkWindow, markWalkWindow, mockPage, openWalkWindow, type Variation } from "@armada/jobs/fake";
 import { askToOpenSession } from "../../open-session";
 import type { Session, SessionTag, SessionAttachment, SessionCommand, SessionRow, SessionSketch, SessionsDraft } from "@armada/screens/src/draft/sessions";
 
@@ -238,6 +238,8 @@ export function sessionsStore(
         return { ok: true };
       },
       ...(id === VARIER ? { variations: takes() } : {}),
+      // Shown is said to be ready: a Session shows a page when it is done with it.
+      readiness: "ready",
     });
   };
   /** The Session shows a page: its window opens by itself, and the ledger and the thread keep it. */
@@ -532,10 +534,17 @@ export function sessionsStore(
           if (had === 0) {
             addTo(id, [tool(`show_window ${SHOWN}`), said("The findings are in a window.")]);
             showWindow(id, mockPage(), SHOWN);
+            finishOf(id, "14:40");
           } else {
+            // Asked to change what the window shows, the Session says so on the window, and again when it is done.
             addTo(id, [said("Noted. I will change that.")]);
+            markWalkWindow("working");
+            after(2400, () => {
+              addTo(id, [tool("Edit report/clock.tsx"), said("Changed. The window is ready again.")]);
+              markWalkWindow("ready");
+              finishOf(id, "14:41");
+            });
           }
-          finishOf(id, "14:40");
         });
       } else if (id === VARIER) {
         const had = asked.get(id) ?? 0;
