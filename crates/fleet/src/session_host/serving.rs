@@ -849,6 +849,10 @@ where
         if let Some(url) = approved {
             self.walk_ended(&id, &url).await;
         }
+        // The person spoke, so the agent's word that nothing was left no longer stands.
+        if self.done_cleared(&id).await {
+            return self.published_hosted(&id).await;
+        }
         Ok(record)
     }
 

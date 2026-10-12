@@ -25,6 +25,10 @@ pub(crate) async fn start_session<D: HostedSessions>(
     }
 }
 
+/// The most a message may weigh. Its pictures and files ride inside it as base64, and one
+/// Retina screenshot is past axum's 2 MB default on its own.
+pub(crate) const MOST_A_MESSAGE_MAY_BE: usize = 64 * 1024 * 1024;
+
 /// **202**: the message is taken and the reply is not here yet.
 pub(crate) async fn send_session_message<D: HostedSessions>(
     State(served): State<Served<D>>,

@@ -472,8 +472,9 @@ export function sessionsStore(
       if (sent.text.trim() === "" && sent.files.length + sent.sketches.length + sent.tags.length === 0) return;
       const taggedJobs = sent.tags.filter((t): t is SessionTag & { job: NonNullable<SessionTag["job"]> } => t.kind === "job" && t.job !== undefined);
       edit(id, (one) => {
-        const { pendingTags, ...rest } = one;
+        const { pendingTags, done, ...rest } = one;
         void pendingTags;
+        void done;
         const looking = taggedJobs
           .filter((t) => !one.attachments.some((a) => a.kind === "job" && a.id === t.id))
           .map((t): SessionAttachment => ({ kind: "job", id: t.id, number: t.job.number, title: t.title.replace(/^\d+ /, ""), state: t.job.state, branch: t.job.branch, slot: t.job.slot, looking: true }));
@@ -542,6 +543,7 @@ export function sessionsStore(
       }
     },
     rename: (id, title) => edit(id, (one) => ({ ...one, title })),
+    close: (id) => edit(id, (one) => ({ ...one, dead: "ended" as const })),
     tune: (id, tuning) =>
       edit(id, (one) => {
         const { model, effort, ...rest } = one;
@@ -587,7 +589,10 @@ export function sessionsStore(
         void asked;
         return { ...rest, waitingFor: (one.waitingFor ?? []).filter((it) => it.id !== itemId) };
       });
-      addTo(id, [said(`Going with ${chosen ?? "my own call"}.`)]);
+      // An agent's own item reaches it as Fleet words it: the item quoted, then the answer.
+      const sent: SessionRow[] =
+        item.source === "agent" ? [row((rid, stamp) => ({ id: rid, at: stamp, kind: "message", from: { kind: "you" }, text: `Re: ${item.text}\n${chosen ?? ""}` }))] : [];
+      addTo(id, [...sent, said(`Going with ${chosen ?? "my own call"}.`)]);
     },
     // A fake terminal: the command is typed there and nothing comes back to the thread.
     command: () => undefined,

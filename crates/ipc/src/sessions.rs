@@ -405,6 +405,14 @@ pub struct SetWaitingFor {
     pub session_id: Option<SessionId>,
 }
 
+/// `all_done`: the agent says it has nothing left to work on and it is safe to end the session.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AllDone {
+    /// Which session. **Read only where the connection places no hosted session**, as `SetWaitingFor`'s.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<SessionId>,
+}
+
 /// How the agent is told to settle an item itself.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -492,6 +500,10 @@ pub struct SessionRecord {
     /// agent's first. Empty for an ended session.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub waiting_for: Vec<WaitingItem>,
+    /// When the agent said, through `all_done`, that it has nothing left to work on. Cleared by the
+    /// person's next message, by a non-empty `waiting_for`, and by a hosted turn starting again.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub done_since: Option<Instant>,
 }
 
 /// `list_sessions`: the most recently seen first.

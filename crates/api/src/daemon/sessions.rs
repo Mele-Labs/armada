@@ -112,6 +112,14 @@ pub trait Sessions: Send + Sync + 'static {
         set: ipc::SetWaitingFor,
     ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
 
+    /// `all_done` — the agent says it has nothing left to work on. `caller` places a hosted session as
+    /// `waiting_for`'s does. Answers with the row. [`Refusal::Unacceptable`] for a call that places no session.
+    fn all_done(
+        &self,
+        caller: Option<crate::Caller>,
+        done: ipc::AllDone,
+    ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
+
     /// `list_sessions` — the most recently seen first. `manifest_id` absent is
     /// every session on the machine, `text` finds one by title, branch, pull
     /// request, Job or slot, and `state` absent is both.

@@ -18,6 +18,13 @@ function steps(narrow: boolean): Step[] {
     { type: "Pin it to the first of March", into: inside(ledger, role("textbox", /^Reply to Which date/)), say: "A line typed" },
     { press: inside(ledger, button("Send")), say: "Sent" },
     { look: region("Thread"), say: "It reaches the Session as his answer, and the item leaves the list" },
+    ...(narrow
+      ? []
+      : [
+          ...row("Open Name the helper eventually, or settle?", "An answer item with no choices opens the same box"),
+          { type: "Call it settle", into: inside(ledger, role("textbox", /^Reply to Name the helper/)), say: "A line typed" },
+          { press: inside(ledger, button("Send")), say: "Sent, and it leaves the list" },
+        ]),
   ];
 }
 
