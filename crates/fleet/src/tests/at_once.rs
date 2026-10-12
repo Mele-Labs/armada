@@ -278,7 +278,7 @@ async fn one_drone_is_stopped_or_told_and_the_other_goes_on() {
 
     let said = crate::resume::Redirection::saying("Bound it at the last row").expect("words");
     fleet
-        .redirect_one_drone(&job, &extra, &said, api::Redirector::Person)
+        .redirect_one_drone(&job, &extra, &said, api::Steerer::Person)
         .await
         .expect("one Drone beside the kept one is told");
 
@@ -302,7 +302,7 @@ async fn one_drone_is_stopped_or_told_and_the_other_goes_on() {
     for refused in [
         fleet.kill_one_drone(&job, &extra).await.map(|_| ()),
         fleet
-            .redirect_one_drone(&job, &extra, &said, api::Redirector::Person)
+            .redirect_one_drone(&job, &extra, &said, api::Steerer::Person)
             .await
             .map(|_| ()),
     ] {

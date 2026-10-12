@@ -80,13 +80,18 @@ pub(crate) mod lines {
 /// Who a move is signed by, and the door it came through.
 ///
 /// **A person's act that came through any door but Bridge or their phone is Helm's**: an
-/// agent made the request, and Fleet cannot see the person behind it. A move
-/// with no request behind it keeps the signer it was given and no door.
+/// agent made the request, and Fleet cannot see the person behind it. The
+/// Commander's door is the exception, and it is the Commander's: it is the one
+/// agent that is placed, so the act is signed as its own and never as Helm's.
+/// A move with no request behind it keeps the signer it was given and no door.
 pub(crate) fn signed(by: Actor) -> (Actor, Option<Via>) {
     let via = api::via().map(|via| via.domain());
     match (by, via) {
+        (Actor::Human | Actor::Commander, Some(Via::Commander)) => {
+            (Actor::Commander, Some(Via::Commander))
+        }
         (Actor::Human, Some(via)) if !via.is_a_person() => (Actor::Helm, Some(via)),
-        (Actor::Human | Actor::Helm, via) => (by, via),
+        (Actor::Human | Actor::Helm | Actor::Commander, via) => (by, via),
         (by, _) => (by, None),
     }
 }
@@ -132,5 +137,20 @@ mod signed_tests {
         assert_eq!(signed_through(Via::Bridge).await, (Actor::Human, Some(Via::Bridge)));
         assert_eq!(signed_through(Via::Http).await, (Actor::Helm, Some(Via::Http)));
         assert_eq!(signed(Actor::Human), (Actor::Human, None));
+    }
+
+    #[tokio::test]
+    async fn a_persons_move_through_the_commanders_door_is_signed_by_the_commander() {
+        let commander = (Actor::Commander, Some(Via::Commander));
+        assert_eq!(signed_through(Via::Commander).await, commander);
+        let door = Some(ipc::Via::from_wire("commander").expect("a door"));
+        for given in [Actor::Human, Actor::Commander] {
+            assert_eq!(api::carrying(door, async { signed(given) }).await, commander);
+        }
+    }
+
+    #[tokio::test]
+    async fn the_commander_keeps_its_name_where_no_door_is_named() {
+        assert_eq!(signed(Actor::Commander), (Actor::Commander, None));
     }
 }
