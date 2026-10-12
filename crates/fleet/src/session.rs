@@ -24,7 +24,9 @@
 use std::future::Future;
 use std::io;
 use std::num::NonZeroU32;
+use std::process::ExitStatus;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::OnceLock;
 
 use serde::Serialize;
 use tokio::io::AsyncWriteExt;
@@ -387,6 +389,11 @@ pub struct DroneSession {
     /// `child` lock**, which is what orders it, so the accesses below are
     /// relaxed rather than carrying an ordering the mutex already gives.
     reaped: AtomicBool,
+    /// How the process ended, from the `wait` that collected it. **Kept
+    /// because the collecting is the only moment the operating system says**:
+    /// a Drone that died with no terminating event is otherwise a Drone nobody
+    /// can say anything about. Set once, under the `child` lock.
+    ended_as: OnceLock<ExitStatus>,
 }
 
 impl DroneSession {
@@ -398,6 +405,7 @@ impl DroneSession {
             input: Mutex::new(input),
             child: Mutex::new(child),
             reaped: AtomicBool::new(false),
+            ended_as: OnceLock::new(),
         }
     }
 
@@ -438,14 +446,23 @@ impl DroneSession {
                 end_the_group(group);
             }
         }
-        let ended = child.try_wait()?.is_some();
-        if ended {
+        let ended = child.try_wait()?;
+        if let Some(status) = ended {
             // Collecting it hands the pid back to the operating system, so from
             // here the group it named is no longer this Drone's to signal. See
             // [`DroneSession::group`].
             self.reaped.store(true, Ordering::Relaxed);
+            let _ = self.ended_as.set(status);
         }
-        Ok(ended)
+        Ok(ended.is_some())
+    }
+
+    /// How the process ended, once [`exited`](DroneSession::exited) or
+    /// [`terminate`](LiveSession::terminate) has collected it. A signal or an
+    /// exit code, which is the one thing that tells a Drone killed from
+    /// outside from one that stopped by itself.
+    pub(crate) fn how_it_ended(&self) -> Option<ExitStatus> {
+        self.ended_as.get().copied()
     }
 
     /// The process group to signal, while it is still certainly this Drone's.
@@ -562,6 +579,9 @@ impl LiveSession for DroneSession {
         child.start_kill()?;
         let ended = child.wait().await;
         self.reaped.store(true, Ordering::Relaxed);
+        if let Ok(status) = &ended {
+            let _ = self.ended_as.set(*status);
+        }
         ended.map(|_| ())
     }
 }

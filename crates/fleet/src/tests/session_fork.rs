@@ -175,6 +175,7 @@ async fn a_session_whose_mod_is_still_asking_is_not_forked() {
     Arc::clone(&rig.fleet)
         .take_held_messages(TakeHeld {
             session_id: OLD.into(),
+            wait_ms: None,
         })
         .await
         .expect("the mod asks");
@@ -226,6 +227,7 @@ async fn a_terminal_record_says_whether_its_mod_is_asking() {
     Arc::clone(&rig.fleet)
         .take_held_messages(TakeHeld {
             session_id: OLD.into(),
+            wait_ms: None,
         })
         .await
         .expect("the mod asks");

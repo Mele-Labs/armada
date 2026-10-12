@@ -29,7 +29,7 @@ import type { HeldCommand } from "./drone-held";
 import { askNodeId, withAsk } from "./held-card";
 import { frozenBeneath } from "@armada/screens/src/frozen";
 import { plural } from "./plan-canvas";
-import { activityOf, stateOf, took } from "./run";
+import { activityOf, sentBackOf, stateOf, took } from "./run";
 import { trackOf } from "./step-phase";
 
 // Where the groups were made and are worked is the groups' own fact, and lives
@@ -122,6 +122,7 @@ function lineOf(
   const where = needed ? undefined : activity === "running" ? (drones > 0 ? plural(drones, "Drone") : undefined) : said;
   const parts = [lasted, where];
   if (step.attempts.length > 1) parts.push(`attempt ${step.attempts.length}`);
+  parts.push(sentBackOf(step));
   const line = parts.filter((part) => part !== undefined).join(" · ");
   return line === "" ? undefined : line;
 }

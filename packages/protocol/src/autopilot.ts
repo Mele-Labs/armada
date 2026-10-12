@@ -6,7 +6,10 @@
 /** Whether it picks. `stopped` is the end: a new start replaces it. */
 export type AutopilotState = "running" | "paused" | "stopped";
 
-/** The cap that stopped it picking. */
+/**
+ * The cap that paused it. It stays named until a person's Resume, which Fleet refuses (409
+ * `fleet.autopilot_capped`, naming the cap) while any cap is still reached. #2105.
+ */
 export type AutopilotCap = "until" | "spend" | "jobs";
 
 /** What became of one pick. `withdrawn`: its Job had not started when Autopilot was stopped. */
@@ -41,6 +44,7 @@ export type Autopilot = {
   state: AutopilotState;
   started_at: string;
   ended_at?: string;
+  /** Where a cap rather than a person paused it. Cleared by Resume. */
   capped_by?: AutopilotCap;
   spent_micros: number;
   jobs_started: number;
@@ -58,7 +62,8 @@ export type ProposeAutopilot = { sentence: string; local_now?: string };
 
 /**
  * What one sentence was read as, for the person to confirm or change, and the body of
- * `POST /autopilots/:repository`. **Nothing starts from a proposal**: the start takes what they confirmed.
+ * `POST /autopilots/:repository` and of `POST /autopilots/:repository/settings`, which changes a
+ * running or paused one in its state. **Nothing starts from a proposal**: the start takes what they confirmed.
  */
 export type AutopilotSettings = {
   instruction: string;
@@ -67,3 +72,22 @@ export type AutopilotSettings = {
   spend_cap_micros?: number;
   job_cap?: number;
 };
+
+/**
+ * Per setting, the person's own words it was read from, keyed as `AutopilotSettings` keys them.
+ * Absent where the sentence said nothing about it, and where the reader quoted words the sentence
+ * does not hold. #2105.
+ */
+export type AutopilotQuoted = {
+  instruction?: string;
+  at_once?: string;
+  until?: string;
+  spend_cap_micros?: string;
+  job_cap?: string;
+};
+
+/**
+ * `POST /autopilots/:repository/proposal`'s answer: the settings, flattened in, and the words each
+ * was read from. A start sends back the settings alone. #2105.
+ */
+export type AutopilotProposal = AutopilotSettings & { quoted: AutopilotQuoted };

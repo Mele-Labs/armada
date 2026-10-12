@@ -29,6 +29,15 @@ export function stateOf(step: StepDetail): string {
 }
 
 /**
+ * Where the Judges sent this step's work back to its Drone on a refusal they agreed on: which time of
+ * the times they may before a person hears it. A retry's place, not a tally (#2105).
+ */
+export function sentBackOf(step: StepDetail): string | undefined {
+  const back = step.sent_back;
+  return back === undefined || back.times < 1 ? undefined : `Sent back by the Judges · ${back.times} of ${back.of}`;
+}
+
+/**
  * How long the step took, or nothing. The rules are `rail.ts`'s and are
  * restated rather than shared because the two files draw different components
  * from the same record: a running step measures to `now`, an unstarted one

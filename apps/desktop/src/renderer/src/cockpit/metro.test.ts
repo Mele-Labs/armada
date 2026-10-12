@@ -64,7 +64,7 @@ describe("the metro lines", () => {
   test("a free or closed bay draws no line, but is counted in the strip", () => {
     const metro = metroOf(read([bay(1, job("a")), bay(2, { kind: "free" }), bay(3, { kind: "closed" })]), NOW);
     expect(metro.harbours[0]!.lines).toHaveLength(1);
-    expect(metro.bays).toMatchObject({ held: 1, free: 1, closed: 1, strip: ["held", "free", "closed"] });
+    expect(metro.bays).toMatchObject({ held: 1, free: 1, closed: 1, strip: ["held", "free", "closed"], names: ["Bay 01: Job a", "Bay 02: free", "Bay 03: closed"] });
   });
 
   test("work waiting for a bay is a line at Waiting, told which free bay it goes to", () => {
@@ -79,6 +79,14 @@ describe("the metro lines", () => {
     expect(line.stops[2]?.card.acts).toEqual([{ kind: "job", id: "a", label: "Open Job" }]);
     expect(line.stops[3]?.card.acts).toEqual([{ kind: "link", url: "https://git.example/pull/1", label: "Open #1" }]);
     expect(line.stops[1]?.card.rows).toContainEqual(["Held", "41m"]);
+  });
+
+  test("a line's title opens its Job, or its Session, and nothing for a terminal Armada does not know", () => {
+    const known = { kind: "session", title: "fix/x", session: { id: "s1" }, item: undefined, by: undefined } as unknown as Bay["holder"];
+    const stranger = { kind: "session", title: "fix/y", session: undefined, item: undefined, by: "A terminal, pid 9" } as unknown as Bay["holder"];
+    const lines = metroOf(read([bay(1, job("a")), bay(2, known), bay(3, stranger)]), NOW).harbours[0]!.lines;
+    expect(lines.map((line) => line.open)).toEqual([{ kind: "job", id: "a", label: "Open Job" }, { kind: "session", id: "s1", label: "Open Session" }, undefined]);
+    expect(lines[2]!.stops[1]?.card.rows).toContainEqual(["Held by", "A terminal, pid 9"]);
   });
 
   test("main is the last station, and the keys step down the lines in the order they are drawn", () => {

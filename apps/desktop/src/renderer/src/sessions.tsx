@@ -72,6 +72,7 @@ import type { HeldWorktrees, JobSummary } from "@armada/protocol";
 import { SURFACE, useAtFloor, useNarrow } from "@armada/shell";
 
 import { proposeRequest } from "./dispatch";
+import { useBackfilled } from "./backfilled";
 import { ARTIFACT_SAID, cardOf, factsOf, type Known } from "./session-cards";
 import { useSessions, useSessionsDraft, useSessionsSaid } from "./sessions-draft";
 
@@ -382,6 +383,18 @@ const readingOf = (session: Session, open: Reading | undefined): SessionAttachme
 /** How often a running subagent's transcript is read again. */
 const SUBAGENT_EVERY_MS = 1500;
 
+/** How many subagent threads are kept past the sheet that read them. */
+const SUBAGENTS_KEPT = 20;
+
+/** The last thread read for each subagent, so a sheet opened again draws it while the next read is out. */
+const subagentsRead = new Map<string, Subagent>();
+
+const keepSubagent = (key: string, thread: Subagent): void => {
+  subagentsRead.delete(key);
+  subagentsRead.set(key, thread);
+  for (const old of [...subagentsRead.keys()].slice(0, -SUBAGENTS_KEPT)) subagentsRead.delete(old);
+};
+
 /**
  * A subagent's own thread, drawn as the Session's is. Read again while it runs; the report it ends
  * on is the last message of the thread, and stands alone only where the thread could not be read.
@@ -395,17 +408,21 @@ function SubagentThread({
   one: Extract<SessionAttachment, { kind: "subagent" }>;
   read: SessionsDraft["subagent"];
 }) {
-  const [thread, setThread] = useState<Subagent | undefined>(undefined);
+  const key = `${sessionId}/${one.id}`;
+  const [thread, setThread] = useState<Subagent | undefined>(() => subagentsRead.get(key));
   const running = one.state === "running";
   useEffect(() => {
-    setThread(undefined);
+    setThread(subagentsRead.get(key));
     if (read === undefined) return;
     let live = true;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const look = async () => {
       const got = await read(sessionId, one.id);
       if (!live) return;
-      if (got !== undefined) setThread(got);
+      if (got !== undefined) {
+        keepSubagent(key, got);
+        setThread(got);
+      }
       if (running && got?.finished !== true) timer = setTimeout(() => void look(), SUBAGENT_EVERY_MS);
     };
     void look();
@@ -413,8 +430,8 @@ function SubagentThread({
       live = false;
       if (timer !== undefined) clearTimeout(timer);
     };
-  }, [read, sessionId, one.id, running]);
-  const rows = thread === undefined ? [] : threadRowsFrom(thread.rows);
+  }, [read, sessionId, one.id, key, running]);
+  const rows = useBackfilled(thread === undefined ? NO_ROWS : threadRowsFrom(thread.rows), key);
   const report = one.report ?? thread?.report;
   if (rows.length === 0) return report === undefined ? null : <Prose text={report} />;
   return (
@@ -716,6 +733,7 @@ function useMinimized(): [boolean, (minimized: boolean) => void] {
 
 const NO_SKETCHES: DrawnSketch[] = [];
 const NO_JOBS: JobSummary[] = [];
+const NO_ROWS: SessionThreadRow[] = [];
 
 function SessionView({ session, goes, onOpen, held, board }: { session: Session; goes: LedgerGoes; onOpen: (id: string) => void; held: HeldReads; board: readonly JobSummary[] }) {
   const draft = useSessionsDraft();
@@ -732,6 +750,7 @@ function SessionView({ session, goes, onOpen, held, board }: { session: Session;
   const retro = useRetroPress();
   const { onWant } = held;
   const { id } = session;
+  const thread = useBackfilled(threadRowsOf(session), id);
   const watch = draft?.watch;
   const refresh = draft?.refresh;
   // A real Fleet reads a thread when it is opened and follows it from there.
@@ -850,7 +869,7 @@ function SessionView({ session, goes, onOpen, held, board }: { session: Session;
           )}
           <SessionThread
             sessionId={session.id}
-            rows={threadRowsOf(session)}
+            rows={thread}
             askRef={askCard}
             onOpenWindow={(url) => draft.openWindow?.(id, url)}
             onOpenCheck={(run) => goes.onOpenCheck(session.id, run)}
@@ -944,6 +963,7 @@ export function SessionMini({ sessionId, onOpen, fill = false }: { sessionId: st
   const sessions = useSessions();
   const session = sessions.find((one) => one.id === sessionId);
   const watch = draft?.watch;
+  const thread = useBackfilled(session === undefined ? NO_ROWS : threadRowsOf(session), sessionId);
   useEffect(() => watch?.(sessionId), [watch, sessionId]);
   if (draft === undefined || session === undefined) return null;
   const mode: SessionMode = session.mode ?? (session.terminal === true ? "ask" : "auto");
@@ -952,7 +972,7 @@ export function SessionMini({ sessionId, onOpen, fill = false }: { sessionId: st
       <div className="armada-session-mini__thread">
         <SessionThread
           sessionId={session.id}
-          rows={threadRowsOf(session)}
+          rows={thread}
           {...(session.asked === undefined
             ? {}
             : {

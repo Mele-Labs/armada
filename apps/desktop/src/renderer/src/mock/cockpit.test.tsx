@@ -216,12 +216,20 @@ test("Bays is a filter of its own: each piece of work in a bay, and each waiting
   await userEvent.keyboard("{Escape}");
   await expect.poll(() => document.querySelector(".armada-metro__card")).toBeNull();
 
-  // A line's title selects its work, which steps and acts as the grid's tiles do.
-  await line(/^Bay 06: Pin the clock in the store tests$/).click();
-  await expect.element(line(/^Bay 06: Pin the clock in the store tests$/)).toHaveAttribute("aria-pressed", "true");
+  // A hovered card stays while the pointer crosses to it, so its acts can be pressed without pinning it.
+  await stop(/^Debounce the Job Board's resize handler: Merge queue/).hover();
+  const hovered = page.getByRole("dialog", { name: "1st in the merge queue" });
+  await hovered.hover();
+  await expect.element(hovered.getByRole("button", { name: "Open #1890" })).toBeVisible();
+  await expect.poll(() => hovered.element().hasAttribute("data-pinned")).toBe(false);
+
+  // Keys step down the lines and act as on the grid's tiles; a line's title opens its work.
+  await userEvent.keyboard("j");
   await userEvent.keyboard("x");
   await expect.element(page.getByRole("dialog")).toBeVisible();
   await userEvent.keyboard("{Escape}");
+  await line(/^Bay 06: Pin the clock in the store tests$/).click();
+  await expect.poll(() => page.getByRole("tab", { name: "Bays" }).query()).toBeNull();
 });
 
 test("the call deck comes forward over the map too", async () => {

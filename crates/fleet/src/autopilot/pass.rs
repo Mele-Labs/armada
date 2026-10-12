@@ -104,18 +104,13 @@ where
         let said = |why: Adrift| why.to_string();
         let manifest_id = ipc::ManifestId::carried(kept.manifest_id.clone());
         let mut gathered = self.autopilot_gathered(kept).await.map_err(said)?;
+        // **Paused, not stopped**: the owner's 12 Oct 2026. Raising the cap lets Resume through.
         if let Some(cap) = gathered.caps().first_reached(&self.now(), &gathered.spent) {
-            let now = self.now();
             let run = gathered.kept.run_id.clone();
             self.store()
                 .lock()
                 .await
-                .move_autopilot(
-                    &run,
-                    State::Stopped.as_stored(),
-                    Some(now.as_str()),
-                    Some(cap.as_stored()),
-                )
+                .move_autopilot(&run, State::Paused.as_stored(), None, Some(cap.as_stored()))
                 .map_err(|why| format!("{why:?}"))?;
             self.autopilot_told(&manifest_id).await;
             return Ok(0);
@@ -211,6 +206,7 @@ where
             budget: proposing.budget,
             model: proposing.model,
             environment: proposing.environment,
+            prompts: self.prompts(),
         })
     }
 

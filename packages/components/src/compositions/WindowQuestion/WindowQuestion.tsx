@@ -50,10 +50,16 @@ const place = (box: CaptureBox): CSSProperties =>
     "--question-h": `${box.height}px`,
   }) as CSSProperties;
 
-/** Under the place where there is room below it, and over it where there is not: Studio capture's rule. */
-function cardAt(box: CaptureBox, height: number): { style: CSSProperties; side: "below" | "above" } {
-  const below = box.y + box.height < height * 0.6;
-  return { style: place({ ...box, y: below ? box.y + box.height : box.y }), side: below ? "below" : "above" };
+/**
+ * Under the place where there is room below it, over it where there is room above, and at the top
+ * of the page where it is too tall for either: a card over a place that starts near the top was
+ * drawn off the window.
+ */
+function cardAt(box: CaptureBox, height: number): { style: CSSProperties; side: "below" | "above" | "top" } {
+  const room = height * 0.4;
+  if (height - (box.y + box.height) >= room) return { style: place({ ...box, y: box.y + box.height }), side: "below" };
+  if (box.y >= room) return { style: place(box), side: "above" };
+  return { style: {}, side: "top" };
 }
 
 export function WindowQuestion(props: WindowQuestionProps) {

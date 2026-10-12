@@ -1,7 +1,10 @@
 //! Autopilot, as the fake answers it: none on any repository, so each act on one is refused, and
 //! a sentence read as itself. What Fleet keeps and picks is `fleet::autopilot`'s.
 
-use ipc::{Autopilot, AutopilotList, AutopilotSettings, ManifestId, ProposeAutopilot, WireError};
+use ipc::{
+    Autopilot, AutopilotList, AutopilotProposal, AutopilotSettings, ManifestId, ProposeAutopilot,
+    WireError,
+};
 
 use super::FakeDaemon;
 use crate::tests::shapes::run_id;
@@ -20,13 +23,16 @@ impl Autopilots for FakeDaemon {
         &self,
         _manifest_id: ManifestId,
         propose: ProposeAutopilot,
-    ) -> Result<AutopilotSettings, Refusal> {
-        Ok(AutopilotSettings {
-            instruction: propose.sentence,
-            at_once: 1,
-            until: None,
-            spend_cap_micros: None,
-            job_cap: None,
+    ) -> Result<AutopilotProposal, Refusal> {
+        Ok(AutopilotProposal {
+            settings: AutopilotSettings {
+                instruction: propose.sentence,
+                at_once: 1,
+                until: None,
+                spend_cap_micros: None,
+                job_cap: None,
+            },
+            quoted: Default::default(),
         })
     }
 
@@ -43,6 +49,14 @@ impl Autopilots for FakeDaemon {
     }
 
     async fn resume_autopilot(&self, _manifest_id: ManifestId) -> Result<Autopilot, Refusal> {
+        Err(none_here())
+    }
+
+    async fn update_autopilot(
+        &self,
+        _manifest_id: ManifestId,
+        _settings: AutopilotSettings,
+    ) -> Result<Autopilot, Refusal> {
         Err(none_here())
     }
 

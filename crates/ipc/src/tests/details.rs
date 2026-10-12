@@ -77,9 +77,8 @@ fn an_ungated_step_says_so_and_an_unanswerable_one_carries_no_key() {
     );
 }
 
-/// **The fallback is deliberate, and a blank is not a state.** A step Fleet
-/// cannot name reads as its id, so nothing downstream has to decide what an
-/// empty label draws as.
+/// **The fallback is deliberate, and a blank is not a state.** A step Fleet cannot name reads as
+/// its id, so nothing downstream has to decide what an empty label draws as.
 #[test]
 fn a_step_with_no_label_reads_as_its_id() {
     let detail = detail_of(
@@ -203,6 +202,7 @@ fn a_judge_refusal_crosses_with_the_three_lines_it_cited() {
                         size: 41_204,
                         model: "haiku".to_string(),
                     }),
+                    risky: Some("every other caller reads one row too many".to_string()),
                 },
                 Judged {
                     attempt: 1,
@@ -215,6 +215,7 @@ fn a_judge_refusal_crosses_with_the_three_lines_it_cited() {
                     brief_path: None,
                     cited: None,
                     given: None,
+                    risky: None,
                 },
             ],
             flagged: Vec::new(),
@@ -272,11 +273,10 @@ fn a_step_the_judge_was_never_asked_about_carries_an_empty_list() {
 
 /// **A note with nowhere to go crosses, and stops crossing when it goes.**
 ///
-/// The whole of `#212`: between a person asking for changes at a gate and the
-/// next Drone opening with their words, the Job is `queued` and the wire said
-/// nothing that a Job nobody typed anything into does not also say. The field is
-/// read off the record rather than handed in, so the two readings below are the
-/// record's own two states and cannot drift from them.
+/// The whole of `#212`: between a person asking for changes at a gate and the next Drone opening
+/// with their words, the Job is `queued` and the wire said nothing that a Job nobody typed anything
+/// into does not also say. The field is read off the record rather than handed in, so the two
+/// readings below are the record's own two states and cannot drift from them.
 #[test]
 fn a_note_waiting_for_the_next_drone_crosses_until_it_is_delivered() {
     let waiting = job()

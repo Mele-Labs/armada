@@ -11,6 +11,7 @@
 
 mod acts;
 pub mod bounds;
+mod editing;
 mod pass;
 pub mod picking;
 pub mod sentence;
@@ -21,20 +22,23 @@ use std::sync::Arc;
 use adapter_traits::{Environment, Model, ModelClient};
 
 use crate::judging::JudgeBudget;
+use crate::prompts::Prompts;
 
-pub use bounds::{room, Cap, Caps, Settings, Spent, Standing, State, Unsettable};
+pub use bounds::{room, Cap, Caps, NotResumed, Settings, Spent, Standing, State, Unsettable};
 pub use pass::keep_autopiloting;
 pub use picking::{candidates, picked, read_pick, Candidate, NotPicked, Pick, SetAside, SurePick};
-pub use sentence::{read_settings, settings_from, NotRead, ProposedSettings};
+pub use sentence::{read_settings, settings_from, NotRead, ProposedSettings, Quoted};
 
 /// Everything one call needs in order to ask: the Job proposer's client, budget, model and
-/// environment. **Its prompt is not here**: each call writes its own question.
+/// environment, and the prompts in force when the call was put together. **Each call fills its
+/// own**: `prompts.autopilotSentence` for the reader and `prompts.autopilotPicker` for the picker.
 #[derive(Clone)]
 pub struct Asking {
     pub client: Arc<dyn ModelClient + Send + Sync>,
     pub budget: JudgeBudget,
     pub model: Model,
     pub environment: Environment,
+    pub prompts: Prompts,
 }
 
 /// What a pass remembers between intervals, and nothing a restart needs. Held on

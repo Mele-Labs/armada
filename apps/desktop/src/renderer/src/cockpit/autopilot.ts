@@ -1,9 +1,9 @@
 // What the Cockpit draws of one repository's Autopilot, read off Fleet's record: the caps used of their
-// limit, how a cap ended it, what Stop does to this run's picks, what it is choosing from next, and the
+// limit, which cap paused it, what Stop does to this run's picks, what it is choosing from next, and the
 // start form's fields both ways. Pure, so the words and the arithmetic are checked without a window.
-// #2092, `docs/concepts/autopilot.md`.
+// #2092, #2105, `docs/concepts/autopilot.md`.
 
-import type { Autopilot, AutopilotPick, AutopilotSettings, IssueList, JobSummary } from "@armada/protocol";
+import type { Autopilot, AutopilotPick, AutopilotQuoted, AutopilotSettings, IssueList, JobSummary } from "@armada/protocol";
 import type { AutopilotCap, AutopilotFields, AutopilotReading } from "@armada/components";
 
 const two = (n: number) => String(n).padStart(2, "0");
@@ -53,18 +53,11 @@ export function capsOf(autopilot: Autopilot, now: number): AutopilotCap[] {
   ];
 }
 
-/** How a cap ended it, which the bar says. A person's own Stop needs no saying. */
-export function endedOf(autopilot: Autopilot): string | undefined {
-  if (autopilot.state !== "stopped" || autopilot.capped_by === undefined) return undefined;
-  const finish = "The Jobs it started carry on to the end.";
-  switch (autopilot.capped_by) {
-    case "spend":
-      return `Stopped at its spend cap of ${dollars(autopilot.spend_cap_micros ?? autopilot.spent_micros)}. ${finish}`;
-    case "jobs":
-      return `Stopped after starting ${autopilot.job_cap ?? autopilot.jobs_started} Jobs, its cap. ${finish}`;
-    case "until":
-      return `Stopped at ${autopilot.until === undefined ? "the time it was given" : clockOf(autopilot.until)}, the time it was given. ${finish}`;
-  }
+/** Which cap paused it, as the bar's state names it: `Job cap reached`. A person's own Pause needs no naming. */
+export function cappedOf(autopilot: Autopilot): string | undefined {
+  if (autopilot.state !== "paused" || autopilot.capped_by === undefined) return undefined;
+  const reached: Record<NonNullable<Autopilot["capped_by"]>, string> = { jobs: "Job cap reached", spend: "spend cap reached", until: "time to stop passed" };
+  return reached[autopilot.capped_by];
 }
 
 /** #1, #2 and #3. */
@@ -123,15 +116,22 @@ export const setAsideOf = (autopilot: Autopilot): AutopilotPick[] => autopilot.p
 /** Whether it is picking, or could pick again on Resume. */
 export const isOn = (autopilot: Autopilot | undefined): autopilot is Autopilot => autopilot !== undefined && autopilot.state !== "stopped";
 
-/** Fleet's reading of a sentence, as the start form's fields. A setting the sentence left out is blank. */
-export function readingOf(settings: AutopilotSettings): AutopilotReading {
-  const fields: AutopilotFields = {
+/** Settings as the start form's fields, which Edit caps opens on too. A cap not set is blank. */
+export function fieldsOf(settings: AutopilotSettings): AutopilotFields {
+  return {
     atOnce: String(settings.at_once),
     until: settings.until === undefined ? "" : clockOf(settings.until),
     spend: settings.spend_cap_micros === undefined ? "" : dollars(settings.spend_cap_micros).slice(1),
     jobs: settings.job_cap === undefined ? "" : String(settings.job_cap),
   };
-  return { fields, said: { atOnce: true, until: fields.until !== "", spend: fields.spend !== "", jobs: fields.jobs !== "" } };
+}
+
+/** Fleet's reading of a sentence: the fields, and the words each was read from, keyed as the fields are. */
+export function readingOf(proposal: AutopilotSettings & { quoted?: AutopilotQuoted }): AutopilotReading {
+  const { at_once, until, spend_cap_micros, job_cap } = proposal.quoted ?? {};
+  const quoted = { atOnce: at_once, until, spend: spend_cap_micros, jobs: job_cap };
+  const said = Object.fromEntries(Object.entries(quoted).filter(([, words]) => words !== undefined && words.trim() !== ""));
+  return { fields: fieldsOf(proposal), quoted: said };
 }
 
 const whole = (text: string) => (/^\d+$/.test(text.trim()) ? Number(text.trim()) : NaN);
