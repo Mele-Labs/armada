@@ -666,7 +666,8 @@ function entriesOf(
   scrollToAsk: () => void,
   known: Known,
 ): LedgerEntry[] {
-  const waiting = (session.waitingFor ?? []).map((one): LedgerEntry => {
+  // An ended Session waits on nobody: its ledger is what it made, to be read.
+  const waiting = (session.dead === "ended" ? [] : (session.waitingFor ?? [])).map((one): LedgerEntry => {
     // An `answer` with no choices and no question in the thread has nowhere to go, so it takes words as no act does.
     const act = one.act?.kind === "answer" && one.options === undefined && session.asked === undefined ? undefined : one.act;
     return {
@@ -738,6 +739,7 @@ function entriesOf(
             </>
           ),
           mark: { glyph: one.state === "merged" ? "passed" : one.checks.state, said: one.state === "merged" ? "Merged" : checksSaid(one.checks) },
+          pr: { merged: one.state === "merged", checks: one.checks.state === "failed" ? "failed" : one.checks.state === "pending" ? "running" : "passed", checksSaid: checksSaid(one.checks) },
           ...(one.state === "merged" ? { finished: true } : {}),
           onOpen: () => read({ kind: "pull_request", number: one.number }),
         };
@@ -895,6 +897,14 @@ function SessionView({ session, goes, onOpen, held, board, lines }: { session: S
       : () => askCard.current?.scrollIntoView({ block: "center", behavior: "smooth" }),
     { board, slots: held.held.state === "read" ? (held.held.held.slots ?? []) : [] },
   );
+  // What the done callout lists: every pull request, merged first then open, else the pages, files and Docs made. Pictures looked at and windows shown were not made.
+  const prRows = entries.filter((one) => one.kind === "pull_request").sort((a, b) => Number(b.pr?.merged === true) - Number(a.pr?.merged === true));
+  const made = prRows.length > 0 ? prRows : entries.filter((one) => one.kind === "artifact" && (one.artifact === "page" || one.artifact === "file" || one.artifact === "doc"));
+  const doneShown = !(session.done === undefined || session.done.since === kept || session.turn.state !== "idle" || session.asked !== undefined || session.dead !== undefined || draft.close === undefined);
+  // Until the done callout shows, what waits on the person sits at the foot of the thread and not in the ledger, less a question or permission its own card already shows.
+  const carded = new Set((session.waitingFor ?? []).filter((one) => one.source === "ask_card" || one.source === "permission").map((one) => `waiting${one.id}`));
+  const needs = doneShown ? [] : entries.filter((one) => one.kind === "waiting" && !carded.has(one.key));
+  const ledger = doneShown ? entries : entries.filter((one) => one.kind !== "waiting");
   return (
     <>
       <SessionFrame
@@ -952,7 +962,7 @@ function SessionView({ session, goes, onOpen, held, board, lines }: { session: S
                       </Button>
                     </Tooltip>
                   </div>
-                  <SessionLedger entries={entries} />
+                  <SessionLedger entries={ledger} />
                 </>
               ),
             })}
@@ -972,11 +982,13 @@ function SessionView({ session, goes, onOpen, held, board, lines }: { session: S
             onOpenWindow={(url) => draft.openWindow?.(id, url)}
             onOpenCheck={(run) => goes.onOpenCheck(session.id, run)}
             working={session.turn.state === "working"}
-            {...(session.done === undefined || session.done.since === kept || session.turn.state !== "idle" || session.asked !== undefined || session.dead !== undefined || draft.close === undefined
+            waiting={needs}
+            {...(!doneShown
               ? {}
               : {
                   done: {
                     onEnd: () => draft.close?.(session.id),
+                    made,
                     onKeep: () => {
                       setKept(session.done?.since);
                       centre.current?.querySelector<HTMLElement>('[role="textbox"][aria-label="Message"]')?.focus();
@@ -1039,7 +1051,7 @@ function SessionView({ session, goes, onOpen, held, board, lines }: { session: S
       </SessionFrame>
       {narrow ? (
         <Sheet kind="session-ledger" open={ledgerOpen} floating floor={floor} title="Attachments" closeLabel="Close" closeBinding="Esc" onClose={() => setLedgerOpen(false)}>
-          <SessionLedger entries={entries} folded />
+          <SessionLedger entries={ledger} folded />
         </Sheet>
       ) : null}
       <ReadingSheet
