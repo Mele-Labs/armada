@@ -348,9 +348,10 @@ where
             let store = self.store().lock().await;
             self.ledger_row(&store, &session)?
         };
+        let rows = self.rows_of(id.as_str()).await?;
         Ok(SessionThread {
             session: record,
-            rows: self.rows_of(id.as_str()).await?,
+            rows: self.retro_rows_settled(id.as_str(), rows).await,
         })
     }
 

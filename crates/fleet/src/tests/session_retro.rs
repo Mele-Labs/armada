@@ -36,7 +36,7 @@ impl Processes for Stand {
     }
 }
 
-const TWO_ITEMS: &str = r#"{"items":[
+pub(super) const TWO_ITEMS: &str = r#"{"items":[
   {"who":"owner","lands_in":"kit","title":"Walks opened in the browser","what":"The agent ran open on a walk.","fix":"Tell the agent to use show_window.","evidence":["correction:1"]},
   {"who":"agent","lands_in":"kit","title":"A reset waited a long time","what":"The agent sat on an ask.","fix":"Tell the owner when an ask has waited.","evidence":["correction:1","correction:9"]},
   {"who":"agent","lands_in":"kit","title":"Cites nothing real","what":"It cites a row that is not there.","fix":"Drop it.","evidence":["correction:9"]}
