@@ -97,11 +97,12 @@ is allowed only as that light, and never where a person reads a state.
    declared rather than inferred. Read the file rather than a list; this
    rule used to enumerate the cases and went stale twice. Anything the
    file does not declare stays neutral. See Below Job level under Tokens.
-   **Outside status and accent, three hue families exist.** `--helm` marks
-   Helm's own chrome and nothing else. The three **tool families** in
+   **Outside status and accent, these hue families exist.** `--helm` marks
+   Helm's own chrome and nothing else. `--you` marks the owner's own
+   messages in a Session thread and nothing else. The **tool families** in
    `tokens/tools.css` say what a Drone's call does, and they are a
    separate file because they alias no status and must never carry one —
-   see Tool families under Tokens. The four **node kinds** in
+   see Tool families under Tokens. The **node kinds** in
    `tokens/kinds.css` say what a node on the approval canvas is, on that
    canvas alone, for the same reason in a file of their own — see Node
    kinds under Tokens. Depth's light and glass never take a
@@ -273,6 +274,23 @@ read as Helm at a glance and not as another panel. **Indigo sits between
 `--accent` and `--status-rejected`**, so it appears on Helm's own chrome only,
 never on or beside a Job row. `--helm` reads 6.09:1 on `--bg-glass` and 4.82:1
 on its own chip.
+
+### You
+
+```
+--you        #8CD369   the message band's fill
+                       light: #356B19
+--you-edge   55%       the message card's border
+```
+
+The owner's own messages in a Session thread need to read as his at a glance,
+apart from the agent's row, another Session's band and the lease. **Chartreuse
+sits at hue 100**, clear of the diff green at 144, `--status-completed-success`
+at 148 and `--kind-delivery`, a muted tint on the approval canvas alone, at 82.
+No status, tool family or node kind is near it, so it never appears on or
+beside a Job row. His acts, Approved and Answered, stay the inverse neutral
+and do not take it. `--fg-inverse` on `--you` as the band's text reads 10.26:1
+in dark and 6.42:1 in light.
 
 ### Status — derived from the state machine
 

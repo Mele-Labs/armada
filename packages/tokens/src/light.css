@@ -65,6 +65,9 @@
   /* Helm */
   --helm: #4048D0;
 
+  /* You. --fg-inverse reads 6.42:1 on it as a band. */
+  --you: #356B19;
+
   /* Tool families, on --bg-sunken and --bg-hover */
   --tool-look: #3B5AAE;
   --tool-change: #9F346D;

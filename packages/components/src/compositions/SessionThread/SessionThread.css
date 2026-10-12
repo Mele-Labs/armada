@@ -511,12 +511,12 @@
   overflow-wrap: anywhere;
 }
 
-/* The person's own message and acts, in the inverse neutral: the opposite of
-   the page, so neither reads as the agent's, another Session's or the lease. */
+/* The person's own message under a band in --you, and their acts as a line in
+   the inverse neutral: neither reads as the agent's, another Session's or the lease. */
 .armada-session-you {
   display: flex;
   flex-direction: column;
-  border: var(--border-width) solid var(--fg-default);
+  border: var(--border-width) solid var(--you-edge);
   border-radius: var(--radius-md);
   background: var(--bg-raised);
   overflow: hidden;
@@ -527,7 +527,7 @@
   align-items: center;
   gap: var(--space-2);
   padding: var(--space-1) var(--space-3);
-  background: var(--fg-default);
+  background: var(--you);
   color: var(--fg-inverse);
 }
 

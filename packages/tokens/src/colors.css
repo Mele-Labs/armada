@@ -54,6 +54,13 @@
   --helm-edge: color-mix(in srgb, var(--helm) 38%, transparent);  /* the dock's top edge, Send's border */
   --helm-faint: color-mix(in srgb, var(--helm) 6%, transparent);  /* the canvas's pool, and the dock's wash */
 
+  /* You. The owner's own messages in a Session thread, and nothing else.
+     Chartreuse, hue 100, which no status, kind or tool family sits near: the
+     nearest are the diff green at 144 and --kind-delivery at 82, a muted tint
+     on the approval canvas alone. --fg-inverse reads 10.26:1 on it as a band. */
+  --you: #8CD369;
+  --you-edge: color-mix(in srgb, var(--you) 55%, transparent); /* the message card's border */
+
   /* Diff */
   --diff-add-bg: #14301F;
   --diff-add-fg: #6FD196;
