@@ -852,6 +852,7 @@ where
             let seq = store.record_transition(&moved).map_err(Adrift::Writing)?;
             crate::retro::kept_via(&mut store, moved.job.id(), seq, via);
         }
+        self.worktrees_memory().changed();
         if moved.job.status().is_terminal() {
             self.kept_footprint(&moved.job).await;
             // **After teardown, never on a timer.** `docs/concepts/fleet.md`,

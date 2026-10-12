@@ -16,6 +16,8 @@ notes = """
 
 **`slots` is the worktree pool beside them**, since 23.16: one row per slot of each served repository, read the way `armada worktree --status` reads it, with the Job or the session holding it, its branch, since when, whether every `setup.seed.paths` entry is on disk in it, and how many commits the base has that it does not. A slot held by a piloted Job is in it as held by that Job; a held slot offers no reclaim. Since 23.17 each slot says whether a person `closed` it, and `change_slot_pool` is the act on the pool.
 
+**Served from memory.** The answer is the last one Fleet read, not a read made for the request: a read is git over every checkout and slot, about a hundred subprocesses. A request that finds it changed or more than five seconds old is answered with it anyway and Fleet reads again behind it; a request after two minutes with nobody asking is answered by a read. So a list can be a few seconds behind. An act that changes a slot (`change_slot_pool`, `rescue_slot`, `reclaim_worktree`) returns after the list has been read again, so the read that follows it shows it. No event says the list changed, which is why Bridge reads it again on a timer. `crates/fleet/src/worktrees_kept.rs`.
+
 It is not scoped to a Job. What is held is read across every Job at once, which is the reading a per-Job field cannot give: the question is which of these to give back, and that is asked of the set.
 
 `agent_access` is `Yes` for `list_reports`'s reason — reading what is held decides nothing, and `reclaim_worktree` beside it is `No`.

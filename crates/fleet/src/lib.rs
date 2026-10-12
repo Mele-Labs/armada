@@ -361,6 +361,7 @@ pub mod sub_dispatch;
 mod summarising;
 mod superseding;
 pub use orphans::keep_ending_orphans;
+pub use worktrees_kept::keep_worktrees_warm;
 /// settings.json: the file, its watch's re-read, its save, and the move of the
 /// store's saved rows into it. `docs/concepts/machine.md`, *settings.json*.
 pub mod settings;
@@ -403,6 +404,7 @@ pub mod watch;
 /// An Epic's wave: proposed, released by one press, and the members a parent
 /// that finishes on their merges waits for. Spike 022, slice 6.
 pub mod waving;
+mod worktrees_kept;
 pub mod widening;
 /// The redactions the `Queries` and `Commands` impls call by hand. Split out to
 /// keep those files, rather than their helpers, the thing that grows.
