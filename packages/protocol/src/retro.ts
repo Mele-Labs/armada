@@ -44,7 +44,7 @@ export type RetroItem = {
   /** Where the item stands, as on `Lesson`. Absent on an item kept before it was written. */
   state?: LessonState;
   job_proposed?: string;
-  /** The Session `start_lesson_session` started for it. At most one of this and `job_proposed`. Since 23.76. */
+  /** The Session `start_lesson_session` started for it. At most one of this and `job_proposed`. Since 23.77. */
   session_proposed?: string;
   who: Whose;
   title?: string;
@@ -227,7 +227,7 @@ export type Lesson = {
   lands_in?: LandsIn;
   state: LessonState;
   job_proposed?: string;
-  /** As on `RetroItem`. Since 23.76. */
+  /** As on `RetroItem`. Since 23.77. */
   session_proposed?: string;
   /** Present on an item of a Session's retro, whose `job_id` then holds the Session's id. */
   session?: RetroSession;

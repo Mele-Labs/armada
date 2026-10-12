@@ -12,6 +12,7 @@ use adapter_traits::{Environment, Model, OpenIssue};
 use config::ResolvedWorkflow;
 use core_model::{JobStatus, Timestamp, WorkflowId};
 use fleet::autopilot::{Asking, Standing};
+use fleet::prompts::Prompts;
 use fleet::JudgeBudget;
 use testkit::{FakeJudge, FakeTracker};
 
@@ -26,10 +27,15 @@ pub const NOW: &str = "2026-10-12T03:00:00Z";
 /// What the sentence is read as.
 pub const READ_AS: &str =
     "instruction: work through the open issues that don't need design decisions\n\
+                           instruction_from: work through the open issues that don't need design decisions\n\
                            at_once: 2\n\
+                           at_once_from: no more than two at a time\n\
                            until: 2026-10-12T07:00:00-04:00\n\
+                           until_from: until 7am\n\
                            spend: 30\n\
-                           jobs: none";
+                           spend_from: $30 max\n\
+                           jobs: none\n\
+                           jobs_from: none";
 
 pub fn now() -> Timestamp {
     Timestamp::from_rfc3339(NOW)
@@ -43,6 +49,7 @@ pub fn asking(replies: &[&str]) -> (Asking, Arc<FakeJudge>) {
         budget: JudgeBudget::of(Duration::from_secs(20)),
         model: Model::named("the-cheap-model").expect("a model name"),
         environment: Environment::nothing(),
+        prompts: Prompts::shipped(),
     };
     (asking, model)
 }

@@ -559,6 +559,11 @@ where
         self.held_drones().leave_for_kept(job, task);
     }
 
+    /// Whether this is the first vanish of a Drone on this task.
+    pub(crate) fn first_vanish_of(&self, job: &JobId, task: core_model::TaskId) -> bool {
+        self.held_drones().first_vanish(job, task)
+    }
+
     /// Whether this task waits for the Job's kept Drone.
     pub(crate) fn left_for_the_kept(&self, job: &JobId, task: core_model::TaskId) -> bool {
         self.held_drones().left_for_kept(job, task)

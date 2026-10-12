@@ -1,5 +1,5 @@
 // Starting a Session on a retro item, mirrored by hand from
-// `crates/ipc/src/retro_session.rs`. Since 23.76.
+// `crates/ipc/src/retro_session.rs`. Since 23.77.
 // `docs/concepts/retro.md`, *Agree and disagree*.
 
 import type { Lesson } from "./retro";

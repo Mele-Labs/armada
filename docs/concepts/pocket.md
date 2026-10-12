@@ -12,7 +12,7 @@ Work stops while you are away from the Mac. The phone buzzes once with the Job's
 
 ```
 Phone (PWA) ──https──▶ tailscale serve ──▶ Phone Gateway 127.0.0.1:8443 ──▶ Fleet 127.0.0.1
-                                                │                           (unchanged)
+                                                │
                                                 └──▶ Web Push (Apple / Google) ──▶ Phone
 Bridge (Settings → Phone) ──loopback /admin/*──▶ Phone Gateway
 ```
@@ -21,7 +21,7 @@ Bridge (Settings → Phone) ──loopback /admin/*──▶ Phone Gateway
 |---|---|---|
 | Phone app | `apps/pocket`, built to its `dist` folder | Shows what needs the owner, signs each call, receives pushes |
 | Phone Gateway | `crates/pocket`, run by `armada pocket` | Serves the app, checks signatures, trims what it reads from Fleet, sends pushes |
-| Fleet | unchanged | Listens on loopback, takes no auth, refuses any request carrying `Origin`. The Gateway calls it with none |
+| Fleet | `crates/api`, `crates/fleet` | Listens on loopback, takes no auth, refuses any request carrying `Origin`. The Gateway calls it with none, and with `x-armada-caller: phone`, so a phone act is recorded with the `phone` door ([Retro](retro.md)) |
 
 Setup is in [Set up the phone app](../journeys/set-up-the-phone-app.md).
 
@@ -48,7 +48,7 @@ Setup is in [Set up the phone app](../journeys/set-up-the-phone-app.md).
 | Step name and position, the current Checks and whether each passed | A brief or an environment value |
 | The Judge's answer as `pass` or `veto`, the pull request, the times | Any path on the Mac |
 
-Which Jobs count as needing the owner follows Bridge's Needs you tab, in `needs_you` in the same file.
+Which Jobs count as needing the owner follows the Cockpit's Your move filter, in `needs_you` in the same file.
 
 ## Sessions and dispatch
 

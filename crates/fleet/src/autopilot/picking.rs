@@ -10,15 +10,18 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 
 use adapter_traits::{Ask, OpenIssue};
+use config::settings::PROMPT_AUTOPILOT_PICKER;
 use config::ResolvedWorkflow;
 use core_model::WorkflowId;
 
 use super::sentence::line;
 use super::Asking;
 use crate::judging::{said, CallFailed};
+use crate::prompts::Prompts;
 
-/// The question, with `{instruction}`, `{issues}` and `{workflows}` to fill.
-const QUESTION: &str = "\
+/// The question, with `{instruction}`, `{issues}` and `{workflows}` to fill. As it ships:
+/// `prompts.autopilotPicker` is the setting that overrides it.
+pub(crate) const QUESTION: &str = "\
 You choose the next issue a repository works on by itself, while the person who owns it is \
 away. Answer only the block at the end.
 
@@ -136,8 +139,9 @@ impl fmt::Display for NotPicked {
     }
 }
 
-/// The question one pick is put as.
+/// The question one pick is put as, in the words of `prompts.autopilotPicker`.
 pub fn pick_question(
+    prompts: &Prompts,
     instruction: &str,
     offered: &[Candidate],
     workflows: &BTreeMap<WorkflowId, ResolvedWorkflow>,
@@ -165,10 +169,14 @@ pub fn pick_question(
         let steps: Vec<&str> = workflow.steps().iter().map(|step| step.label()).collect();
         held.push_str(&format!("    {}\n", steps.join(" -> ")));
     }
-    QUESTION
-        .replace("{instruction}", instruction.trim())
-        .replace("{issues}", &issues)
-        .replace("{workflows}", &held)
+    prompts.fill(
+        PROMPT_AUTOPILOT_PICKER,
+        &[
+            ("instruction", instruction.trim()),
+            ("issues", &issues),
+            ("workflows", &held),
+        ],
+    )
 }
 
 /// Ask once, and read the answer against what was offered.
@@ -178,7 +186,7 @@ pub async fn picked(
     workflows: &BTreeMap<WorkflowId, ResolvedWorkflow>,
     asking: &Asking,
 ) -> Result<Pick, NotPicked> {
-    let question = pick_question(instruction, offered, workflows);
+    let question = pick_question(&asking.prompts, instruction, offered, workflows);
     let ask = Ask::put(asking.model.clone(), &question, asking.environment.clone())
         .map_err(|_| NotPicked::Call(CallFailed::NothingToAsk))?;
     let answer = said(asking.client.as_ref(), &ask, asking.budget)

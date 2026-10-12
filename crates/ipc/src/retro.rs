@@ -102,7 +102,7 @@ pub struct RetroItem {
     /// The Job proposed for it, as on [`Lesson`]. Since 23.27.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub job_proposed: Option<JobId>,
-    /// The Session started for it. At most one with `job_proposed`. Since 23.76.
+    /// The Session started for it. At most one with `job_proposed`. Since 23.77.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub session_proposed: Option<String>,
     /// What Accept would change in Kit, as on [`Lesson`]. Since 23.35.
@@ -272,7 +272,7 @@ pub struct Lesson {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub job_proposed: Option<JobId>,
     /// The Session `start_lesson_session` started for it, state `agreed`. At
-    /// most one with `job_proposed`. Since 23.76.
+    /// most one with `job_proposed`. Since 23.77.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub session_proposed: Option<String>,
     /// Present on an item of a Session's retro, whose `job_id` then holds the

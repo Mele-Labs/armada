@@ -1,4 +1,4 @@
-//! What `start_lesson_session` answers. Since 23.76.
+//! What `start_lesson_session` answers. Since 23.77.
 //! `docs/concepts/retro.md`, *Start Session*.
 
 use serde::{Deserialize, Serialize};
