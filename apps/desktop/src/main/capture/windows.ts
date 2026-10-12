@@ -9,6 +9,7 @@ import type { BridgeState } from "../../shared/bridge";
 import type { CaptureOpened, SessionRecord, WindowTake } from "@armada/protocol";
 import { addressOf, cleanTitle } from "@armada/screens/src/sessions-wire";
 import { isPinned, pinned, webOrigin } from "./address";
+import { jobReadiness, sessionReadiness } from "./readiness";
 import type { PanelSubject } from "./layout";
 import { CaptureWindow, type CaptureBoard, type LandsOn, type PanelKept, type WalkSizes, type WindowQuestion } from "./window";
 
@@ -73,7 +74,9 @@ export class CaptureWindows {
     }
     const pin = pinned(state, serverId, url);
     if (!isPinned(pin)) return pin;
-    this.open.set(serverId, new CaptureWindow(pin, landsOn, this.board, sizes(), this.kept(landsOn)));
+    const opened = new CaptureWindow(pin, landsOn, this.board, sizes(), this.kept(landsOn));
+    opened.setReadiness("job" in landsOn ? jobReadiness(job?.status) : undefined);
+    this.open.set(serverId, opened);
     return { ok: true };
   }
 
@@ -105,6 +108,7 @@ export class CaptureWindows {
     const landsOn = { session: { id: sessionId, title: cleanTitle(record?.title) ?? addressOf(sessionId) } };
     const window = new CaptureWindow(pin, landsOn, this.board, sizes(), this.kept(landsOn), takes);
     this.open.set(key, window);
+    window.setReadiness(sessionReadiness(record, url));
     // A window opened by a press on a waiting question shows it as one opened by its arrival does.
     if (this.sessions !== null) window.question(questionOf(this.sessions.find((one) => one.id === sessionId), window.origins));
     return { ok: true };
@@ -145,8 +149,13 @@ export class CaptureWindows {
         continue;
       }
       // A Session's page is no Run, so nothing Fleet publishes about servers ends it.
-      if (serverId.startsWith(SESSION_KEY)) continue;
+      if (serverId.startsWith(SESSION_KEY)) {
+        window.setReadiness(sessionReadiness(this.sessions?.find((one) => one.id === serverId.slice(SESSION_KEY.length)), window.address));
+        continue;
+      }
       const server = state.servers.servers.find((one) => one.id === serverId);
+      const owner = window.owner;
+      if (owner?.kind === "job") window.setReadiness(jobReadiness(state.jobs.find((one) => one.id === owner.id)?.status));
       if (server === undefined || server.phase === "exited") window.ended();
     }
     this.ask();

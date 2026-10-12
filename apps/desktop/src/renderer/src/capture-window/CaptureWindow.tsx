@@ -252,6 +252,7 @@ export function CaptureWindow({ api }: { api: CaptureWindowApi }) {
           // A Studio's window has nobody to tell; a Job's or a Session's has its owner.
           {...(state.studio === null && (state.job !== undefined || state.session !== undefined) ? { onApprove: () => void approve() } : {})}
           {...(approval === undefined || approval.at !== (state.variations?.at ?? 0) ? {} : { approval: approval.state })}
+          {...(state.readiness === undefined ? {} : { readiness: state.readiness })}
           {...(state.variations === undefined ? {} : { variations: { names: state.variations.names, at: state.variations.at, onPick: (at: number) => void api.pick(at) } })}
           {...(ask === undefined || ask.shown ? {} : { question: ask.question, onShowQuestion: () => void api.showAsk(true) })}
           {...(panel === undefined ? {} : { panel: { kind: panel.kind, open: panel.open, onToggle: (open: boolean) => void api.panel(open) } })}

@@ -247,6 +247,7 @@ export type SessionFact =
     }
   | { kind: "measured"; usage: SessionUsage }
   | { kind: "turn_completed" }
+  | { kind: "wrote" }
   | { kind: "ended"; reason: string };
 
 export type SessionReport = {

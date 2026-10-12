@@ -162,6 +162,8 @@ pub enum SessionFact {
         mod_version: Option<String>,
     },
     TurnCompleted,
+    /// The session itself wrote a file, not a subagent: the windows it showed are being changed.
+    Wrote,
     Ended {
         reason: String,
     },

@@ -832,6 +832,7 @@ where
     ) -> Result<SessionRecord, Refusal> {
         let id = sent.session_id.as_str().to_string();
         let approved = super::walking::approved_address(&sent.text).map(str::to_string);
+        let noted = super::readiness::note_address(&sent.text).map(str::to_string);
         let record = if let Some(session) = terminal {
             let addressed = self.addressed(&sent.mentions).await?;
             let kept = self.keep_uploads(&id, &sent.attachments)?;
@@ -844,6 +845,9 @@ where
         };
         if let Some(url) = approved {
             self.walk_ended(&id, &url).await;
+        }
+        if noted.is_some() {
+            self.window_noted(&id).await;
         }
         // The person spoke, so the agent's word that nothing was left no longer stands.
         if self.done_cleared(&id).await {

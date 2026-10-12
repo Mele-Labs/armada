@@ -454,6 +454,11 @@ where
             SessionFact::TurnCompleted => {
                 session.last_turn_at = Some(now.clone());
                 changed = true;
+                // Whatever it was changing for the person is done for now.
+                crate::session_host::readiness::windows_set(&mut store, &holder, &now, false).map_err(fault)?;
+            }
+            SessionFact::Wrote => {
+                changed |= crate::session_host::readiness::windows_set(&mut store, &holder, &now, true).map_err(fault)?;
             }
             // Fleet ends a session it hosts, by `close_session`: the harness in
             // it going away is a process ending, and the next message resumes.

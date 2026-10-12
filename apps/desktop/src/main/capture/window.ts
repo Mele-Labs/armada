@@ -20,6 +20,7 @@ import type {
   CaptureHeld,
   CaptureRefusedWhat,
   CaptureWheel,
+  CaptureReadiness,
   CaptureWindowState,
 } from "../../shared/capture-window";
 import { CHANNELS } from "../../shared/bridge";
@@ -97,6 +98,7 @@ export class CaptureWindow {
   /** The takes the Session declared, the first the one opened on. Empty: one page. */
   private readonly takes: readonly WindowTake[];
   private at = 0;
+  private readiness: CaptureReadiness | undefined = undefined;
   private readonly landsOn: LandsOn;
   private readonly sizes: WalkSizes;
   /** The Session or the Job beside the page, and the view it is drawn in. `null`: a Studio's window. */
@@ -221,6 +223,13 @@ export class CaptureWindow {
     void this.page.webContents.loadURL(take.url);
   }
 
+  /** What the Session or the Job says of the page: ready, or still being changed. The bar draws it and Approve waits on it. */
+  setReadiness(readiness: CaptureReadiness | undefined): void {
+    if (readiness === this.readiness) return;
+    this.readiness = readiness;
+    this.tell();
+  }
+
   /** The take on screen as a note and an Approve name it, or `undefined` where the window shows one page. */
   private taken(): Take | undefined {
     const take = this.takes[this.at];
@@ -296,6 +305,7 @@ export class CaptureWindow {
       ...("session" in this.landsOn ? { session: this.landsOn.session } : {}),
       ...(this.subject === null ? {} : { panel: { kind: this.subject.kind, open: this.panelOpen } }),
       ...(this.takes.length === 0 ? {} : { variations: { names: this.takes.map((one) => one.name), at: this.at } }),
+      ...(this.readiness === undefined ? {} : { readiness: this.readiness }),
       serving: this.serving,
       armed: this.armed,
       framesRefused: this.framesRefused,

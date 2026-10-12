@@ -7,7 +7,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use api::{HostedSessions, Next, Sessions};
-use ipc::{Event, RunOrNot, SessionId, SessionRow, ShowWindow, WindowClosed, WindowTake};
+use ipc::{Event, RunOrNot, SessionFact, SessionId, SessionReport, SessionRow, ShowWindow, WindowClosed, WindowTake};
 
 use super::session_host::{rig_placing, Rig};
 
@@ -185,4 +185,35 @@ async fn a_question_may_be_about_a_take_on_another_origin_than_the_first() {
         _ => None,
     });
     assert_eq!(window.as_deref(), Some(ONE), "the window it is asked in is the one the Session showed");
+}
+
+#[tokio::test]
+async fn a_window_is_working_from_the_sessions_own_write_or_a_note_and_ready_when_it_shows_again_or_its_turn_ends() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    let working = || async {
+        let kept = Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap().session.attachments;
+        let window = kept.iter().find(|one| one.detail.get("form").map(String::as_str) == Some("window")).expect("shown");
+        window.detail.get("working").map(String::as_str) == Some("true")
+    };
+    let told = |fact| async {
+        let report = SessionReport { harness: adapters::HOSTED_HARNESS.into(), session_id: id.clone(), fact };
+        rig.fleet.report_session(report).await.expect("kept");
+    };
+    show(&rig, &id, ONE).await;
+    assert!(!working().await, "showing a page says it is ready");
+
+    told(SessionFact::Wrote).await;
+    assert!(working().await, "the session wrote a file: it is changing the page");
+    told(SessionFact::TurnCompleted).await;
+    assert!(!working().await, "its turn ended");
+
+    told(SessionFact::Wrote).await;
+    show(&rig, &id, ONE).await;
+    assert!(!working().await, "it showed the page again mid-turn");
+
+    rig.send(&id, "Too slow\nOn header, top, at http://localhost:5173/one").await;
+    assert!(working().await, "a note taken in the window: it will change the page");
+    rig.send(&id, "Looks fine").await;
+    assert!(working().await, "a message that is no note changes nothing");
 }

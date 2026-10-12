@@ -286,6 +286,13 @@ this window, and that is another security review. `#1294`.
 > its place, since the full address holds the origin the window is pinned to. The OS title
 > follows the same rule.
 
+> **Rule.** The bar says whether the page is ready: the Session mark at its
+> start and the bar's hue, and Approve reads Not ready, disabled, while the page
+> is still changing. Main reads it off the Session's record or the Job's status
+> and pushes it; nothing is asked of the page.
+> Why: the owner approving a page its Session is still editing approves a page
+> that is about to change under him.
+
 > **Rule.** A window a Job or a Session opened offers Approve. On a Job it is
 > the act JobDetail's Approve sends; on a Session it is a message from the
 > person, `Approved: <address>`, which wakes it. Nothing closes. **Of several
