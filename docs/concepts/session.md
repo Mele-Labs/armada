@@ -387,6 +387,16 @@ Bridge reads every live session from `list_sessions` once per connection and kee
 
 A terminal Session's thread is its transcript and carries no `check` row; its runs are on the Checks page. A run whose `armada check` process is killed stays `running` until its Session ends, when Fleet ends it as failed with "the Session ended" as its log.
 
+## A Session's retro in its thread
+
+**A retro being written is a `retro` row on a hosted Session's thread** (23.77). Fleet adds it when it accepts a press, replaces it by id as the writing goes (`stage`, `stage_since`, `characters`, the `items` that have settled) and leaves it when the retro is kept (`retro`, the number `get_session_retro` takes) or has failed (`why`). `docs/concepts/retro.md`, *A Session's retro*, has the stages.
+
+| Where it shows | What |
+|---|---|
+| A hosted Session's thread | One `retro` row per retro, in the order the presses came. It is a progress report: it holds no retro, and `has_news` and the retro's own record never read it |
+| `get_session` | The row as it last stood. One left going by a Fleet that has restarted is returned and kept as `failed`, "Fleet restarted while it was written" |
+| A terminal Session | No row. Its thread is its transcript |
+
 ## A terminal session's thread
 
 Open a session a person runs in a terminal and Bridge draws its conversation and a message box. `get_session` reads the transcript file the agent CLI keeps for it (`adapters::terminal_thread`, found by session id under the person's home) and answers rows in the shape a hosted thread has: what the person typed, what the agent said, and one line per tool call. Fleet then watches the file for as long as the session is live and publishes each new line as `session.row`, so the thread follows the terminal. A row's id is the transcript line's own, so a line read twice replaces itself.
