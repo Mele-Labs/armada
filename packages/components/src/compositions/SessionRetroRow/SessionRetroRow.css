@@ -53,7 +53,7 @@
   font-variant-numeric: tabular-nums;
 }
 
-.armada-session-retro__open {
+.armada-session-retro__head .armada-session-retro__open {
   margin-inline-start: auto;
 }
 

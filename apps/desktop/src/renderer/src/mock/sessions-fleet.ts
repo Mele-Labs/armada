@@ -19,12 +19,17 @@ import type {
   SendSessionMessage,
   SessionRecord,
   SessionRow,
+  PartialRetroItem,
   RenameSession,
   SessionSubagent,
   TuneSession,
 } from "@armada/protocol";
 
+import { withThreadRow } from "@armada/screens/src/retro-row";
+
 import type { SessionActed } from "../../../shared/api/sessions";
+import { retroFrames } from "./session-retro-script";
+import { onTimePassing } from "./time-passes";
 import type { Scenario } from "./moment";
 import type { FleetHandle } from "./moment";
 
@@ -129,10 +134,22 @@ export class FakeSessionsFleet {
   refusesSend: { code: string; message: string } | undefined;
   /** Set to have the next retro refused the way Fleet refuses one: the error says why and nothing is written. */
   refusesRetro: { code: string; message: string } | undefined;
-  /** How long a retro takes to write, so a walk can see it being written. */
-  retroTakes = 1500;
-  /** Hears a retro being written, to put it where the Retros page reads from. */
-  onRetro: ((sessionId: string, title: string | undefined) => void) | undefined;
+  /** How long each frame of a retro's writing takes, so a person can see the row move. */
+  retroStepMs = 400;
+  /** Set to hold a retro at each frame a walk stops on until time passes (a walk's `later`), the others following at once. */
+  retroHeld = false;
+  /** The items the model writes into a Session's retro, as they settle. None: the stages go by and the retro is kept. */
+  retroItems: readonly PartialRetroItem[] = [];
+  /** Hears a retro being written, to put it where the Retros page reads from. Answers the number it was kept under. */
+  onRetro: ((sessionId: string, title: string | undefined) => number | void) | undefined;
+  /** The Sessions a retro is being written for, which Fleet refuses a second press on. */
+  /** Set to have a press answered with the Session's last retro and no row, as Fleet does where nothing is new since it. */
+  retroNothingNew = false;
+  private readonly writingRetro = new Set<string>();
+  /** The `retro` rows of Sessions whose thread no window holds, which `get_session` brings when one is opened. */
+  private readonly keptRetro: Record<string, SessionRow[]> = {};
+  private retroRowed = 0;
+  private releaseRetro: (() => void) | undefined;
   /** Set to have the next act on a pull request refused, the way Fleet refuses one: the error says why and nothing changes. */
   refusesPress: { code: string; message: string } | undefined;
   /** Each subagent's thread as its transcript stands, by subagent id. A test changes it to let one run on. */
@@ -153,6 +170,9 @@ export class FakeSessionsFleet {
       state: { ...base.state, sessions: { state: "read", sessions: this.records }, sessionThreads: {} },
       behaves: (fleet) => {
         this.fleet = fleet;
+        // A walk's `later` lets a held retro go on to its next stop. **After the window's fake has registered its own**
+        // (it clears the hook of a scenario with no `later`, right after this returns), and the latest wins.
+        if (this.retroHeld) queueMicrotask(() => onTimePassing(() => this.releaseRetro?.()));
         return {
           startSession: async () => {
             this.calls.started += 1;
@@ -277,8 +297,16 @@ export class FakeSessionsFleet {
           retroSession: async (sessionId: string) => {
             this.calls.retroed.push(sessionId);
             if (this.refusesRetro !== undefined) return { ok: false as const, why: "refused", error: this.refusesRetro } as never;
-            await new Promise((done) => setTimeout(done, this.retroTakes));
-            this.onRetro?.(sessionId, this.records.find((one) => one.id === sessionId)?.title);
+            // **Fleet refuses a second press while one is being written**, and the first goes on.
+            if (this.writingRetro.has(sessionId)) {
+              return { ok: false as const, why: "refused", error: { code: "fleet.session_retro_being_written", message: `a retro of session ${sessionId} is being written` } } as never;
+            }
+            this.writingRetro.add(sessionId);
+            try {
+              await this.writeRetro(sessionId);
+            } finally {
+              this.writingRetro.delete(sessionId);
+            }
             return { ok: true as const };
           },
           closeSession: async (sessionId) => {
@@ -287,7 +315,7 @@ export class FakeSessionsFleet {
           },
           watchSession: async (sessionId) => {
             this.calls.watched.push(sessionId);
-            this.threads = { ...this.threads, [sessionId]: this.threads[sessionId] ?? [] };
+            this.threads = { ...this.threads, [sessionId]: this.threads[sessionId] ?? this.keptRetro[sessionId] ?? [] };
             this.publishThreads();
           },
           readSessionSubagent: async (_sessionId, subagentId) => {
@@ -383,12 +411,58 @@ export class FakeSessionsFleet {
     this.set(this.records.some((one) => one.id === record.id) ? this.records.map((one) => (one.id === record.id ? record : one)) : [record, ...this.records]);
   }
 
-  /** `session.row`: one row, appended or replaced by its id, where the thread is held. */
+  /**
+   * A retro written the way Fleet writes it. **A hosted Session's row is appended on the press and
+   * replaced as it goes** (`session.row`); a terminal Session's has none, since its thread is a
+   * transcript. The press answers when the retro is kept.
+   */
+  private async writeRetro(sessionId: string): Promise<void> {
+    const record = this.records.find((one) => one.id === sessionId);
+    const id = `retro-${(this.retroRowed += 1)}`;
+    const at = new Date().toISOString();
+    if (record?.hosted === undefined || this.retroNothingNew) {
+      await new Promise((done) => setTimeout(done, this.retroStepMs * 4));
+      this.onRetro?.(sessionId, record?.title);
+      return;
+    }
+    const frames = retroFrames(this.retroItems, 0);
+    let since = at;
+    let stage: string | undefined;
+    for (const [index, frame] of frames.entries()) {
+      // **The number is the Retros page's to say**, and it is kept before the row says it is written.
+      if (frame.row.stage === "written") {
+        const kept = this.onRetro?.(sessionId, record.title);
+        frame.row.retro = typeof kept === "number" ? kept : 1;
+      }
+      if (frame.row.stage !== stage) {
+        stage = frame.row.stage;
+        since = new Date().toISOString();
+      }
+      this.row(sessionId, { kind: "retro", id, at, stage_since: since, ...frame.row });
+      if (index < frames.length - 1) await this.beat(frame.pause);
+    }
+  }
+
+  /** Time between frames: a walk holds on a marked frame until it says time passes. */
+  private async beat(pause: boolean): Promise<void> {
+    if (this.retroHeld && pause) {
+      await new Promise<void>((done) => {
+        this.releaseRetro = done;
+      });
+      return;
+    }
+    await new Promise((done) => setTimeout(done, this.retroStepMs));
+  }
+
+  /** `session.row`: one row, appended or replaced by its id, where the thread is held. A retro frame older than the one held is dropped, as main drops it. */
   row(sessionId: string, row: SessionRow): void {
     const held = this.threads[sessionId];
-    // Not opened: main holds no thread for it and drops the row.
-    if (held === undefined) return;
-    this.threads = { ...this.threads, [sessionId]: held.some((one) => one.id === row.id) ? held.map((one) => (one.id === row.id ? row : one)) : [...held, row] };
+    // Not opened: main holds no thread for it and drops the row. Fleet keeps a retro's, so opening the thread later brings it.
+    if (held === undefined) {
+      if (row.kind === "retro") this.keptRetro[sessionId] = withThreadRow(this.keptRetro[sessionId] ?? [], row);
+      return;
+    }
+    this.threads = { ...this.threads, [sessionId]: withThreadRow(held, row) };
     this.publishThreads();
   }
 

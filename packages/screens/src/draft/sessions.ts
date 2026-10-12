@@ -9,7 +9,7 @@
 // and from then on accumulates what it touches.
 
 import type { WaitingItem } from "@armada/protocol";
-import type { SessionRetroRowData } from "@armada/components";
+import type { RetroRowDrawn } from "../retro-row";
 
 /** What a Session has attached, by kind. A Session holds several of each. */
 export type SessionAttachment =
@@ -153,7 +153,7 @@ export type SessionRow =
   /** The Session showed a page in a window: where in the thread it did, and the address to open again. */
   | { id: string; at: string; kind: "window"; title: string; url: string }
   /** A retro being written for the Session, then the one that was: the latest frame of one press's row. */
-  | SessionRetroRowData;
+  | RetroRowDrawn;
 
 /** A turn running, or none. A message from another Session starts one, so `working` has no author. */
 export type SessionTurn = { state: "idle" } | { state: "working"; wokenBy?: { id: string; title: string } };

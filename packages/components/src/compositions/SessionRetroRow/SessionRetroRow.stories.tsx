@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, fn, userEvent } from "storybook/test";
+import { expect, fn, userEvent, waitFor } from "storybook/test";
 
 import { SessionRetroRow, elapsedWords, type RetroRowItem, type SessionRetroRowData } from "./SessionRetroRow";
 
@@ -122,5 +122,14 @@ export const ElapsedReadsInTheUnitAbove: Story = {
   play: async ({ canvas }) => {
     await expect(canvas.getByRole("timer")).toHaveTextContent(elapsedWords(65_000));
     await expect(canvas.getByRole("timer")).toHaveTextContent("1m 05s");
+  },
+};
+
+/** Without a fixed clock the time counts on by itself, once a second, while Fleet is still at the stage. */
+export const ElapsedKeepsCounting: Story = {
+  args: { row: { ...base, stage: "reading_record", stageSince: Date.now() }, now: undefined },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("timer")).toHaveTextContent("0s");
+    await waitFor(() => expect(canvas.getByRole("timer")).not.toHaveTextContent(/^0s$/), { timeout: 3000 });
   },
 };
