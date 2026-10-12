@@ -11,8 +11,7 @@
 //! | Settings nothing could run under are refused at start | That a Job starts from a sure pick, at `queued` and unasked, with the issue as its source. `fleet`'s `tests::autopilot` drives that through a Fleet, since a Job here would need a store |
 //! | The picker is offered only issues nothing holds, and a pick it is unsure of is set aside with its reason | That the pass takes the next issue straight after one it set aside. The same tests |
 //! | A Job waiting on a person does not count against at once | That a Job ran, landed or waits at review. That is every other milestone's claim, and an Autopilot Job is an ordinary one |
-//! | The first cap reached is named, and each stops only the next pick | |
-//! | A reached cap pauses, and Resume waits until a person raises it | That the pass pauses it and a raised cap picks again. `tests::autopilot` again |
+//! | The first cap reached is named and pauses it, each stops only the next pick, and Resume waits until a person raises it | That the pass pauses it and a raised cap picks again. `tests::autopilot` again |
 //! | Pause stops picking and Stop withdraws only what never started | That a withdrawn Job is killed. `tests::autopilot` again |
 
 // Shared with the other milestones' tests, and none of them uses all of it.
