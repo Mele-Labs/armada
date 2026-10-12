@@ -44,7 +44,7 @@ export const AutoMergeUnderway: Story = {
   args: { state: "open", checks: "pending", pending: "auto_merge" },
   play: async ({ canvas }) => {
     await expect(canvas.getByRole("button", { name: "Enable auto-merge" })).toHaveAttribute("aria-busy", "true");
-    await expect(canvas.getByRole("button", { name: "Review", exact: true })).toBeDisabled();
+    await expect(canvas.getByRole("button", { name: "Review" })).toBeDisabled();
   },
 };
 
