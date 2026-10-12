@@ -22,7 +22,12 @@ test("mock hold: Rerun passes the Command and lets the hold go: the firing is pa
 test("mock hold: Skip records the firing skipped by the owner and lets the hold go", async () => {
   mount("real/job-2-trigger-hold-skipped");
   await onScreen();
-  await page.getByRole("button", { name: "Skip" }).first().click();
+  // Pressed at the button itself, not by pointer: the canvas fits again as the Job's panels take their
+  // columns, and a pointer press lands on whatever stands over the button while it moves. Under a 12x
+  // CPU slowdown the press was taken by the Now panel's header and a Pull request node, not the button.
+  const skip = page.getByRole("button", { name: "Skip" }).first();
+  await expect.element(skip).toBeEnabled();
+  (skip.element() as HTMLElement).click();
   await expect.element(page.getByRole("img", { name: /deploy_qa. was skipped by the owner/ }).first()).toBeVisible();
   await expect.element(page.getByRole("img", { name: "Alert" })).not.toBeInTheDocument();
 });
