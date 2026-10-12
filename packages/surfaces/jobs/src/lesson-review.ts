@@ -46,3 +46,17 @@ export function resolved(review: LessonReview, lessons: readonly Lesson[]): { qu
 export function reasonOf(reason: string): string {
   return reason.trim().toLowerCase() === "not ranked" ? "The review did not rank this one." : reason;
 }
+
+/**
+ * How long ago the review was made, for `Reviewed 12 minutes ago`. **Whole units, rounded down**, so
+ * a review a minute and a half old reads as one minute. Under a minute is `just now`.
+ */
+export function ageWords(ms: number): string {
+  const minutes = Math.floor(Math.max(0, ms) / 60_000);
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes} ${minutes === 1 ? "minute" : "minutes"} ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} ${hours === 1 ? "hour" : "hours"} ago`;
+  const days = Math.floor(hours / 24);
+  return `${days} ${days === 1 ? "day" : "days"} ago`;
+}

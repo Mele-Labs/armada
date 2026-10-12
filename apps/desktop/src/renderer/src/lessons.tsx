@@ -4,7 +4,7 @@
 
 import { useState } from "react";
 
-import { Lessons } from "@armada/jobs";
+import { createReviewHold, Lessons } from "@armada/jobs";
 import { Boundary, useAtFloor } from "@armada/shell";
 
 import type { BridgeState } from "../../shared/bridge";
@@ -12,6 +12,12 @@ import { agreeLesson, askLesson, disagreeLesson, readLessons, readRetro, reviewL
 import { takeRetroAsked } from "./open-retro";
 import { openSessionWithDraft } from "./open-session";
 import { useLessonsSource, useLessonsTab } from "./remembered-views";
+
+/**
+ * The guided review's held state for this window, per repository pick: made once, outside the
+ * surface, because the surface unmounts whenever the rail goes elsewhere. Gone with the window.
+ */
+const reviewHold = createReviewHold();
 
 export function LessonsSurface({
   repository,
@@ -51,6 +57,7 @@ export function LessonsSurface({
         onTab={setTab}
         source={source}
         onSource={setSource}
+        hold={reviewHold}
         {...(asked === undefined ? {} : { opening: asked })}
       />
     </Boundary>

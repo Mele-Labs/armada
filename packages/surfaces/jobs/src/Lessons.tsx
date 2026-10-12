@@ -8,7 +8,7 @@
 // Kit. Disagree discards it. A row's Job
 // label opens that Job's retro.
 
-import { useState } from "react";
+import { useRef, useState, useSyncExternalStore } from "react";
 
 import { Alert, Button, LessonList, RetroSheet, Tabs, type LessonRow } from "@armada/components";
 
@@ -39,6 +39,7 @@ import {
 } from "./retro";
 import type { RetroSubject } from "@armada/protocol";
 import { LessonsReview, type AskLesson, type ReviewLessons } from "./LessonsReview";
+import { createReviewHold, type ReviewHold } from "./review-hold";
 
 /** Open and Accepted, the two lists an item can be on. */
 const VIEWS = [
@@ -83,6 +84,12 @@ export type LessonsProps = {
   /** Whose retros are listed, Sessions' or Jobs', on the same terms as `tab`. */
   source?: LessonsSource;
   onSource?: (source: LessonsSource) => void;
+  /**
+   * What the review keeps while the window is open, so leaving the page and coming back resumes at
+   * the same card and asks the model nothing (`review-hold.ts`). **The host's**, made once for the
+   * window; absent, and the page keeps its own for as long as it is mounted.
+   */
+  hold?: ReviewHold;
   /** A retro to open over the list as the page opens: the one a Session's Retro press asked for. */
   opening?: { id: string; label: string };
 };
@@ -103,8 +110,13 @@ export function Lessons({
   onTab,
   source,
   onSource,
+  hold,
   opening,
 }: LessonsProps) {
+  const own = useRef<ReviewHold | undefined>(undefined);
+  const reviews = hold ?? (own.current ??= createReviewHold());
+  // Review or the list is remembered with the review, the way the tab is remembered for the viewer.
+  const reviewing = useSyncExternalStore(reviews.subscribe, reviews.reviewing);
   const [held, setHeld] = useState<LessonsTab>("all");
   const [view, setView] = useState<LessonsView>("open");
   const [heldSource, setHeldSource] = useState<LessonsSource>("all");
@@ -112,7 +124,6 @@ export function Lessons({
   const showingSource = source ?? heldSource;
   // Keyed by the pick and the list, so another of either is another read.
   // Leaving the review reads the list again: it answered items the list's own read still holds.
-  const [reviewing, setReviewing] = useState(false);
   const [reads, setReads] = useState(0);
   const read = useReadOnFocus(() => onReadLessons(view), `${repository ?? ""}:${view}:${reads}`);
   // A Session's Retro press opens the newest of that Session's retros: `n` absent.
@@ -127,7 +138,7 @@ export function Lessons({
   const cited = new Map((read?.ok === true ? read.lessons : []).map((lesson) => [lesson.id, lesson.evidence]));
   const subjects = new Map((read?.ok === true ? read.lessons : []).map((lesson) => [lesson.id, retroSubjectOf(lesson)]));
   const leaveReview = () => {
-    setReviewing(false);
+    reviews.setReviewing(false);
     setReads((was) => was + 1);
   };
   const rows = underTab(read?.ok === true ? lessonRowsOf(underSource(read.lessons, showingSource)) : [], showing).flatMap((row) => {
@@ -189,6 +200,8 @@ export function Lessons({
             lessons={read?.ok === true ? read.lessons : undefined}
             onReview={onReviewLessons}
             onAsk={onAskLesson}
+            hold={reviews}
+            holdKey={repository ?? ""}
             onReadRetro={onReadRetro}
             onAgreeLesson={onAgreeLesson}
             onDisagreeLesson={onDisagreeLesson}
@@ -228,7 +241,7 @@ export function Lessons({
                 onClick={() => {
                   // The review is of the open items, so the list it resolves them from is the open one.
                   setView("open");
-                  setReviewing(true);
+                  reviews.setReviewing(true);
                 }}
               >
                 Review
