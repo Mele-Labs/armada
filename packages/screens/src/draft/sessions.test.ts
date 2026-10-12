@@ -66,4 +66,11 @@ describe("who owns a chip", () => {
   test("a chip nobody holds has no owner", () => {
     expect(ownerOf(all, { kind: "job", id: "44" })).toBeUndefined();
   });
+  // An ended Session keeps the pull requests it made on its ledger, but holds nothing.
+  test("an ended Session owns nothing, though its ledger still names the pull request", () => {
+    const ended: Session = { ...notes, id: "s4", dead: "ended" };
+    expect(ownerOf([ended], { kind: "pull_request", number: 1847 })).toBeUndefined();
+    expect(ownerOf([ended, notes], { kind: "pull_request", number: 1847 })?.id).toBe("s3");
+    expect(ended.attachments).toContainEqual(expect.objectContaining({ kind: "pull_request", number: 1847 }));
+  });
 });
