@@ -13,7 +13,7 @@ import { AskAnswer, AskAnswers, AskActs, AskCard, AskChoices, AskQuestion, Butto
 import type { BridgeState } from "../../../shared/bridge";
 import { age, type Hosts, type Item } from "../Dashboard";
 import { useSessions } from "../sessions-draft";
-import { threadRowsOf } from "../sessions";
+import { threadRowsOf } from "../session-thread-rows";
 import { useAnswering, type Answer, type Answering } from "./answers";
 import { useJudgesRisk } from "./judges-risk";
 import { sessionIdOf } from "./waiting";

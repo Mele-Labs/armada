@@ -232,6 +232,41 @@ async fn a_plain_call_to_propose_job_is_recorded_as_a_persons() {
     );
 }
 
+/// **A raise is a person's when Bridge made it, and the body cannot say
+/// otherwise.** `#2165`: the same route a Helm call reaches, with no door
+/// extension on it, and a body claiming to be Helm.
+#[tokio::test]
+async fn a_plain_raise_is_a_persons_whatever_its_body_claims() {
+    let events = Broadcaster::new();
+    let daemon = std::sync::Arc::new(FakeDaemon::new(events.clone()));
+    running(&daemon, "01RUNNING");
+    let app = router(Served::sharing(
+        std::sync::Arc::clone(&daemon),
+        run_id(),
+        events,
+    ));
+
+    call(
+        &app,
+        "POST",
+        "/jobs/01RUNNING/raise_cost_cap",
+        r#"{"cost_cap_micros":9000000,"raised_by":"helm"}"#,
+    )
+    .await;
+    call(
+        &app,
+        "POST",
+        "/jobs/01RUNNING/raise_turn_cap",
+        r#"{"turn_cap":500,"raised_by":"helm"}"#,
+    )
+    .await;
+
+    assert_eq!(
+        *daemon.raised_by.lock().expect("not poisoned"),
+        vec![ipc::RaisedBy::Person, ipc::RaisedBy::Person]
+    );
+}
+
 /// **A step's gates cross before any of them acts, over HTTP and whole.**
 ///
 /// This is the JSON a rail is drawn from, and until it carried these two keys

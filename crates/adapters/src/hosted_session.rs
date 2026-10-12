@@ -48,6 +48,8 @@ pub struct HostedLaunch {
     resuming: bool,
     /// The session whose conversation this one begins as a copy of.
     fork_of: Option<String>,
+    /// The transcript line a fork's copy ends at, included. Since 23.79.
+    fork_at: Option<String>,
     name: String,
     model: Option<Model>,
     effort: Option<String>,
@@ -106,6 +108,7 @@ impl HostedLaunch {
             session: session.to_string(),
             resuming,
             fork_of: None,
+            fork_at: None,
             name: name.to_string(),
             model,
             effort: effort.map(str::to_string),
@@ -129,6 +132,19 @@ impl HostedLaunch {
             });
         }
         self.fork_of = Some(old.to_string());
+        Ok(self)
+    }
+
+    /// End the copy at the transcript line `uuid` of the session forked from,
+    /// included. Hidden in the CLI's help; `docs/spikes/030-*`. Read only
+    /// where the launch forks.
+    pub fn cut_at(mut self, uuid: &str) -> Result<HostedLaunch, HostedRefused> {
+        if !portable(uuid) {
+            return Err(HostedRefused::SessionNotPortable {
+                given: uuid.to_string(),
+            });
+        }
+        self.fork_at = Some(uuid.to_string());
         Ok(self)
     }
 }
@@ -240,6 +256,10 @@ impl HeadlessAgent {
                 args.push("--fork-session".into());
                 args.push("--session-id".into());
                 args.push(hosted.session.clone());
+                if let Some(at) = &hosted.fork_at {
+                    args.push("--resume-session-at".into());
+                    args.push(at.clone());
+                }
             }
             (_, resuming) => {
                 args.push(if resuming { "--resume" } else { "--session-id" }.into());
