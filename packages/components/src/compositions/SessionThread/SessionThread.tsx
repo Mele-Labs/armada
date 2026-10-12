@@ -1,6 +1,6 @@
 import { useLayoutEffect, useMemo, useRef } from "react";
 import type { ReactNode, Ref } from "react";
-import { AppWindow, Box, Check, ChevronRight, GitBranch, KeyRound, Layers, Server, Smartphone, SquareTerminal, Wrench } from "lucide-react";
+import { AppWindow, Box, Check, ChevronRight, GitBranch, GitPullRequest, KeyRound, Layers, Server, Smartphone, SquareTerminal, Wrench } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { AttachmentChip } from "../../primitives/AttachmentChip/AttachmentChip";
@@ -10,6 +10,7 @@ import { Prose, ProseCommand, ProseRunner } from "../../primitives/Prose/Prose";
 import type { CodeRunner } from "../../primitives/Prose/Prose";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { SessionMark } from "../SessionFrame/SessionFrame";
+import { ARTIFACT, type LedgerEntry } from "../SessionLedger/SessionLedger";
 import { StepActivityMark, type StepActivity } from "../StepActivityMark/StepActivityMark";
 import { InlineTag } from "../SessionComposer/InlineTag";
 import { SessionRetroRow, type SessionRetroRowData } from "../SessionRetroRow/SessionRetroRow";
@@ -103,8 +104,11 @@ export type SessionThreadProps = {
    */
   asked?: { command: string; offers?: readonly AskOffer[]; questions?: readonly AskedQuestion[] };
   onAnswer: (answer?: string, answers?: QuestionAnswer[]) => void;
-  /** The agent says it has nothing left: a callout ends the thread, with the two ways on. Absent draws none. */
-  done?: { onEnd: () => void; onKeep: () => void };
+  /**
+   * The agent says it has nothing left: a callout ends the thread, with the two ways on. Absent draws none.
+   * `made` are ledger entries (pull requests, or artifacts), listed under the band as presses; none draws no body.
+   */
+  done?: { onEnd: () => void; onKeep: () => void; made?: readonly LedgerEntry[] };
   /** The ask's card, so a host can scroll to it. */
   askRef?: Ref<HTMLDivElement>;
   /** Opens the Session a message came from. */
@@ -573,6 +577,29 @@ export function SessionThread({ rows, asked, askRef, onAnswer, done, onOpenSessi
             </Tooltip>
             <span className="armada-session-done__label">Nothing left to do</span>
           </div>
+          {done.made === undefined || done.made.length === 0 ? null : (
+            <ul className="armada-session-done__made" aria-label={done.made[0]!.kind === "pull_request" ? "Pull requests" : "Artifacts"}>
+              {done.made.map((row) => {
+                const form = row.artifact === undefined ? undefined : ARTIFACT[row.artifact];
+                return (
+                  <li key={row.key} className="armada-session-ledger__row" aria-label={row.name}>
+                    <button type="button" className="armada-session-ledger__open" aria-label={`Open ${row.name}`} onClick={row.onOpen}>
+                      {form === undefined ? (
+                        <GitPullRequest size={12} strokeWidth={2} aria-hidden />
+                      ) : (
+                        <Tooltip label={form.said}>
+                          <span className="armada-session-mark" role="img" aria-label={form.said}>
+                            <form.Glyph size={12} strokeWidth={2} aria-hidden />
+                          </span>
+                        </Tooltip>
+                      )}
+                      <span className="armada-session-ledger__text">{row.text}</span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
           <div className="armada-session-done__acts">
             <Button size="sm" variant="secondary" onClick={done.onEnd}>
               End session

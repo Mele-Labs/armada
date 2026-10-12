@@ -688,7 +688,8 @@ function entriesOf(
   scrollToAsk: () => void,
   known: Known,
 ): LedgerEntry[] {
-  const waiting = (session.waitingFor ?? []).map((one): LedgerEntry => {
+  // An ended Session waits on nobody: its ledger is what it made, to be read.
+  const waiting = (session.dead === "ended" ? [] : (session.waitingFor ?? [])).map((one): LedgerEntry => {
     // An `answer` with no choices and no question in the thread has nowhere to go, so it takes words as no act does.
     const act = one.act?.kind === "answer" && one.options === undefined && session.asked === undefined ? undefined : one.act;
     return {
@@ -913,6 +914,9 @@ function SessionView({ session, goes, onOpen, held, board, lines }: { session: S
       : () => askCard.current?.scrollIntoView({ block: "center", behavior: "smooth" }),
     { board, slots: held.held.state === "read" ? (held.held.held.slots ?? []) : [] },
   );
+  // What the done callout lists: the merged pull requests, else the pages, files and Docs made. Pictures looked at and windows shown were not made.
+  const merged = entries.filter((one) => one.kind === "pull_request" && one.finished === true);
+  const made = merged.length > 0 ? merged : entries.filter((one) => one.kind === "artifact" && (one.artifact === "page" || one.artifact === "file" || one.artifact === "doc"));
   return (
     <>
       <SessionFrame
@@ -994,6 +998,7 @@ function SessionView({ session, goes, onOpen, held, board, lines }: { session: S
               : {
                   done: {
                     onEnd: () => draft.close?.(session.id),
+                    made,
                     onKeep: () => {
                       setKept(session.done?.since);
                       centre.current?.querySelector<HTMLElement>('[role="textbox"][aria-label="Message"]')?.focus();

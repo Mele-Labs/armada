@@ -102,7 +102,8 @@ const SECTIONS: { kind: LedgerKind; label: string; Glyph: LucideIcon }[] = [
   { kind: "fork", label: "Forks", Glyph: MoveRight },
 ];
 
-const ARTIFACT: Record<ArtifactForm, { Glyph: LucideIcon; said: string }> = {
+/** Also the glyphs of the rows a Session's done callout lists, so a page reads the same there as here. */
+export const ARTIFACT: Record<ArtifactForm, { Glyph: LucideIcon; said: string }> = {
   page: { Glyph: Globe, said: "Published page" },
   file: { Glyph: Files, said: "File written" },
   image: { Glyph: Image, said: "Looked at" },
