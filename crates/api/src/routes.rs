@@ -268,7 +268,11 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         )
         .route(
             "/sessions/message",
-            post(crate::hosted_sessions::send_session_message::<D>),
+            post(crate::hosted_sessions::send_session_message::<D>).layer(
+                axum::extract::DefaultBodyLimit::max(
+                    crate::hosted_sessions::MOST_A_MESSAGE_MAY_BE,
+                ),
+            ),
         )
         .route(
             "/sessions/ask/answer",

@@ -19,6 +19,7 @@ mod fake;
 mod following;
 mod helm_kills;
 mod helm_pauses;
+mod hosted_sessions;
 mod journal;
 mod building;
 mod limits;

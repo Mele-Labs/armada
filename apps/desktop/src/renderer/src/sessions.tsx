@@ -1025,8 +1025,13 @@ function SessionView({ session, goes, onOpen, held, board, lines }: { session: S
               onDraw={() => setPadOpen(true)}
               onRemoveDrawn={(id) => setDrawn((was) => was.filter((one) => one.id !== id))}
               onSend={(sent) => {
-                draft.send(session.id, { text: sent.text, files: sent.files, sketches: drawn, tags: sent.tags as readonly SessionTag[] });
+                const sketches = drawn;
+                const done = draft.send(session.id, { text: sent.text, files: sent.files, sketches, tags: sent.tags as readonly SessionTag[] });
                 setDrawn(NO_SKETCHES);
+                return done?.then((went) => {
+                  if (!went) setDrawn((now) => (now.length === 0 ? sketches : now));
+                  return went;
+                });
               }}
             />
           )}
