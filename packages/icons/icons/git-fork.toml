@@ -1,0 +1,7 @@
+[icons.git-fork]
+  means = "One line splitting into two"
+  group = "Session"
+  size = "16px"
+  status = "Specified"
+  reserved = "Fork a Session: the bar over selected words in a message, and any act that forks a Session's conversation. The ledger's Forks rows keep `move-right`."
+  notes = "Chosen by the owner on 12 Oct 2026 for the fork-from-selection bar."
