@@ -1,14 +1,18 @@
-import { Box, GitBranch, GitPullRequest, SquareTerminal } from "lucide-react";
+import { Box, GitBranch, GitPullRequest, SquareTerminal, Ticket } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
-/** What `@` tags: another Session, a Job, a pull request or a branch. */
-export type ComposerTag = { kind: "session" | "job" | "pull_request" | "branch"; id: string; title: string };
+/**
+ * What `@` tags: another Session, a Job, a pull request or a branch. **`#` tags an issue or a pull
+ * request by its number**; its `id` is the number and its `title` leads with it, `#214 The title`.
+ */
+export type ComposerTag = { kind: "session" | "job" | "pull_request" | "branch" | "issue"; id: string; title: string };
 
 export const TAG_GLYPH: Record<ComposerTag["kind"], LucideIcon> = {
   session: SquareTerminal,
   job: Box,
   pull_request: GitPullRequest,
   branch: GitBranch,
+  issue: Ticket,
 };
 
 /**

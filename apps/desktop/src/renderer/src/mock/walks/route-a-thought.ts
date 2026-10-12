@@ -16,7 +16,7 @@ const routeAThought = walk("route-a-thought", [
 
   // (a) A thought with a match: the Session doing the Sessions page.
   { type: "I wish that the sessions page would move sessions into a new status that says they are just waiting for work to land", into: box, say: "A thought, typed like any other message" },
-  { key: "Meta+Enter", on: box, say: "Sent with ⌘↵. Helm reads it before it answers" },
+  { key: "Enter", on: box, say: "Sent with ↵. Helm reads it before it answers" },
   { look: inside(helm, role("status", "Finding where this goes")), say: "Helm is finding where it belongs" },
   { look: card("Send to"), say: "A running Session fits. Send is ↵, No is N, Ask Helm is H" },
   { hover: inside(card("Send to"), role("img", "Session")), say: "The kind, named on hover" },
@@ -25,7 +25,7 @@ const routeAThought = walk("route-a-thought", [
 
   // (b) A thought nothing running is about: start something new.
   { type: "the merge line page should group PRs by repository", into: box, say: "A thought about the merge line, which nothing running is about" },
-  { key: "Meta+Enter", on: box, say: "Sent" },
+  { key: "Enter", on: box, say: "Sent" },
   { look: card("Start new"), say: "No match, so the choice is a new Session (S) or a new Job (J). Esc dismisses it" },
   { key: "s", on: box, say: "Press S" },
   { look: panel(tab("Session")), say: "The Dispatch panel opens holding the words, with Session picked" },
@@ -34,7 +34,7 @@ const routeAThought = walk("route-a-thought", [
 
   // (c) A thought with a match, declined: No, then a Job.
   { type: "retries should back off longer after the third failed charge", into: box, say: "A thought a running Job in billing is about" },
-  { key: "Meta+Enter", on: box, say: "Sent" },
+  { key: "Enter", on: box, say: "Sent" },
   { look: card("Send to"), say: "The match is in another repository, and the card names it" },
   { key: "n", on: box, say: "Press N" },
   { look: card("Start new"), say: "No asks for a new Session or Job instead" },
@@ -44,9 +44,9 @@ const routeAThought = walk("route-a-thought", [
 
   // (d) Two thoughts back to back: the second waits behind the first, and shows once the first is answered.
   { type: "retries should back off longer after the third failed charge", into: box, say: "A thought a running Job in billing is about" },
-  { key: "Meta+Enter", on: box, say: "Sent" },
+  { key: "Enter", on: box, say: "Sent" },
   { type: "the merge line page should group PRs by repository", into: box, say: "A second thought, typed while the first is still being read" },
-  { key: "Meta+Enter", on: box, say: "Sent. It is read as well, and waits its turn" },
+  { key: "Enter", on: box, say: "Sent. It is read as well, and waits its turn" },
   { look: card("Send to"), say: "The first card shows first, in the order typed" },
   { key: "Escape", on: box, say: "Esc puts the first away" },
   { look: card("Start new"), say: "The second card shows now" },
@@ -54,7 +54,7 @@ const routeAThought = walk("route-a-thought", [
 
   // (e) A question: Helm answers, and no card is drawn.
   { type: "why did Job 12 fail?", into: box, say: "A question for Helm" },
-  { key: "Meta+Enter", on: box, say: "Sent" },
+  { key: "Enter", on: box, say: "Sent" },
   { look: inside(helm, text("Job 12 stopped on step 4 of 6")), say: "Helm's reply, as for any ask. No card" },
 ]);
 

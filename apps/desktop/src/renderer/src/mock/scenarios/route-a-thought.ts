@@ -48,11 +48,14 @@ const now = () => new Date().toISOString();
 /** An attachment of another repository's: `held` writes armada's. */
 const of = (manifest: string, attachment: ReturnType<typeof held>) => ({ ...attachment, manifest_id: manifest });
 
+/** What `/` offers in a message box: the agent's own skills and commands, as its init line names them. */
+const COMMANDS = ["review", "simplify", "security-review", "init", "compact", "clear", "model"];
+
 const records = () => [
   hosted("01LISTVIEWSAAAAAAAAAAAAAAA", {
     title: "Sessions list views",
     last_turn_at: now(),
-    hosted: { turn: { state: "working" }, mode: "auto", running: true },
+    hosted: { turn: { state: "working" }, mode: "auto", running: true, commands: COMMANDS },
     attachments: [
       held("slot", "3"),
       held("branch", "sessions/list-views", { slot: "3" }),

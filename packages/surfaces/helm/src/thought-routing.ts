@@ -4,7 +4,7 @@
 
 import type { ThoughtTarget as ThoughtOnTheWire } from "@armada/protocol";
 import type { RepositorySummary } from "@armada/protocol";
-import type { ThoughtTarget } from "@armada/components";
+import type { ComposerFile, ComposerTag, ThoughtTarget } from "@armada/components";
 
 /**
  * The Session or Job a thought may go to. `id` is what the acts below take, and `manifestId` the
@@ -15,15 +15,23 @@ export type RouteTarget = ThoughtTarget & { id: string; manifestId?: string };
 /** What Helm made of the words: a question for itself, or a thought for other work, with the best match if any. */
 export type ThoughtReading = { kind: "question" } | { kind: "thought"; match?: RouteTarget };
 
+/** What went with the words: pictures and files, sketches, and the issues, pull requests and Sessions tagged in them. */
+export type ThoughtCarry = {
+  files: readonly ComposerFile[];
+  tags: readonly ComposerTag[];
+  sketches: readonly { id: string; title: string }[];
+};
+
 export type ThoughtRouting = {
   /** Fleet's reading of the words. **A read that failed is a question**, so the words are never lost. */
   read: (text: string) => Promise<ThoughtReading>;
   /**
    * Delivers the words: a Session gets a message, a Job a redirect to its Drone. Resolves to whether
    * they arrived. A refusal is already said, in Fleet's words, and no row is recorded for it; one
-   * that arrived is recorded, and the thread then carries it as a row of its own.
+   * that arrived is recorded, and the thread then carries it as a row of its own. **A Session gets
+   * what went with the words; a Job's Drone is redirected with the words alone.**
    */
-  send: (target: RouteTarget, text: string) => Promise<boolean>;
+  send: (target: RouteTarget, text: string, carry?: ThoughtCarry) => Promise<boolean>;
   /** Opens the Session or Job. */
   open: (target: RouteTarget) => void;
   /** Opens the Dispatch panel holding the words, with this kind picked. */

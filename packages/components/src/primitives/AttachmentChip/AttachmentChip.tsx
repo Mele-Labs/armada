@@ -44,6 +44,11 @@ export type AttachmentChipProps = {
    * of the three it is, and `screenshot.png · file` spends a column on nothing.
    */
   kind?: AttachmentKind;
+  /**
+   * A picture's own address, drawn as a thumbnail before the name. **Only for a picture waiting in a
+   * message box**, where the name alone does not say which of two screenshots is which. Absent draws none.
+   */
+  preview?: string;
   /** Omitted renders a read-only chip — nothing to take back. */
   onRemove?: () => void;
 };
@@ -58,10 +63,11 @@ const KIND: Record<AttachmentKind, string | null> = {
   node: "Studio node",
 };
 
-export function AttachmentChip({ filename, from, kind = "file", onRemove }: AttachmentChipProps) {
+export function AttachmentChip({ filename, from, kind = "file", preview, onRemove }: AttachmentChipProps) {
   const said = KIND[kind];
   return (
     <span className="armada-attachment-chip">
+      {preview === undefined ? null : <img className="armada-attachment-chip__preview" src={preview} alt="" />}
       {from === undefined ? null : (
         <span className="armada-attachment-chip__from">{from}</span>
       )}

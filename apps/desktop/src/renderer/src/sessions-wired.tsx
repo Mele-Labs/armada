@@ -44,7 +44,8 @@ type Sketch = Extract<SessionAttachment, { kind: "sketch" }>;
 type Inputs = Pick<BridgeState, "sessions" | "sessionThreads" | "jobs" | "holds">;
 
 const wireTagOf = (tag: SessionTag): WireTag => ({
-  kind: tag.kind,
+  // `issue` is not a kind Fleet's `TagKind` has yet; the mock's Fleet takes it as sent.
+  kind: tag.kind as WireTag["kind"],
   id: tag.id,
   title: tag.title,
   ...(tag.job === undefined || tag.job.slot === undefined ? {} : { job: { number: tag.job.number, branch: tag.job.branch, slot: tag.job.slot, state: tag.job.state } }),

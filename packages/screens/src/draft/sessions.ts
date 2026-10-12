@@ -180,6 +180,8 @@ export type Session = {
   blank?: boolean;
   /** Absent until the first turn has named it; a blank Session is known by its id alone. */
   title?: string;
+  /** The repository it works in, by Manifest id: what `#` reads issues and pull requests of. */
+  manifestId?: string;
   attachments: readonly SessionAttachment[];
   rows: readonly SessionRow[];
   turn: SessionTurn;
@@ -203,12 +205,12 @@ export type Session = {
 };
 
 /**
- * Something a message tags with `@`, so the agent knows what is meant: another
- * Session, a Job, a pull request or a branch. A Job carries what the ledger
+ * Something a message tags with `@`, or an issue or pull request with `#`, so the agent knows what
+ * is meant: another Session, a Job, a pull request, a branch or an issue. A Job carries what the ledger
  * needs to hold it as one the Session is looking at.
  */
 export type SessionTag = {
-  kind: "session" | "job" | "pull_request" | "branch";
+  kind: "session" | "job" | "pull_request" | "branch" | "issue";
   id: string;
   title: string;
   /** `slot` is absent where the Job's own slot is not known to the window: Fleet holds it on the Job. */

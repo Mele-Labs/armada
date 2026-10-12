@@ -1,9 +1,7 @@
-import { useState } from "react";
 import type { ReactElement, ReactNode } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, screen, userEvent, within } from "storybook/test";
 
-import { ShortcutRevealProvider } from "../../shortcut-reveal";
 import { HelmComposer, type HelmRepositoryOption } from "./HelmComposer";
 
 const repositories: HelmRepositoryOption[] = [
@@ -53,7 +51,7 @@ function InTheDock({ children }: { children: ReactNode }): ReactElement {
 const meta: Meta<typeof HelmComposer> = {
   title: "Compositions/Helm composer",
   component: HelmComposer,
-  args: { value: "", onChange: fn(), onSend: fn(), location: "Job Board" },
+  args: { onSend: fn(), location: "Job Board" },
   render: (args) => (
     <InTheDock>
       <HelmComposer {...args} />
@@ -280,7 +278,7 @@ export const NothingToAskYet: Story = {
     // place the state can be said, and it says it.
     await expect(canvas.queryByRole("button", { name: /^Point Helm at a/ })).not.toBeInTheDocument();
     await expect(canvas.getByText("No repository to ask yet")).toBeInTheDocument();
-    await expect(canvas.getByRole("textbox")).toBeDisabled();
+    await expect(canvas.getByRole("textbox")).toHaveAttribute("aria-disabled", "true");
     const send = canvas.getByRole("button", { name: "Send" });
     await expect(send).toBeDisabled();
     await userEvent.click(send, { pointerEventsCheck: 0 });
@@ -352,162 +350,6 @@ export const FooterNamesAJobsDetail: Story = {
   },
   play: async ({ canvas }) => {
     await expect(canvas.getByText("Job 16's detail (in context)")).toBeInTheDocument();
-  },
-};
-
-function Typed({ onSend = fn() }: { onSend?: () => void }): ReactElement {
-  const [value, setValue] = useState("");
-  return (
-    <InTheDock>
-      <HelmComposer
-        current={repositories[0]!.id}
-        repositories={[repositories[0]!]}
-        location="Job Board"
-        value={value}
-        onChange={setValue}
-        onSend={onSend}
-      />
-    </InTheDock>
-  );
-}
-
-/**
- * Where Send is drawn and where a typed line may go — neither of which a
- * rendering can state. The field's text band is its content box: everything
- * inside the border and the padding, which is exactly the room a line of
- * typing can occupy.
- */
-function drawn(canvasElement: HTMLElement) {
-  const canvas = within(canvasElement);
-  const field = canvas.getByRole("textbox");
-  const frame = field.getBoundingClientRect();
-  const send = canvas.getByRole("button", { name: "Send" }).getBoundingClientRect();
-  const style = getComputedStyle(field);
-  const row = Number.parseFloat(style.lineHeight);
-  const top = frame.top + Number.parseFloat(style.borderTopWidth) + Number.parseFloat(style.paddingTop);
-  const bottom =
-    frame.bottom - Number.parseFloat(style.borderBottomWidth) - Number.parseFloat(style.paddingBottom);
-  return { frame, send, row, text: { top, bottom, height: bottom - top } };
-}
-
-/**
- * Send is inside the field here too, and the dock's narrow width is the stated
- * cost of one treatment: the button's box is within the field's on all four
- * edges, the band a typed line may occupy ends above it rather than under it,
- * and the field is more than one row tall before anything is asked.
- */
-export const SendSitsInsideTheField: Story = {
-  render: () => <Typed />,
-  play: async ({ canvasElement }) => {
-    const rest = drawn(canvasElement);
-    await expect(rest.text.height).toBeGreaterThan(rest.row * 1.5);
-
-    await userEvent.type(
-      within(canvasElement).getByRole("textbox"),
-      "Why did job 12 stall?{Enter}It was running an hour ago",
-    );
-    const { frame, send, text } = drawn(canvasElement);
-    await expect(send.left).toBeGreaterThanOrEqual(frame.left);
-    await expect(send.right).toBeLessThanOrEqual(frame.right);
-    await expect(send.top).toBeGreaterThanOrEqual(frame.top);
-    await expect(send.bottom).toBeLessThanOrEqual(frame.bottom);
-    await expect(text.bottom).toBeLessThanOrEqual(send.top);
-  },
-};
-
-/**
- * `⌘Enter` asks, and plain `Enter` writes a second line — the drone message
- * box's contract, honoured here off the same registry row.
- */
-export const CmdEnterSends: Story = {
-  render: (args) => <Typed onSend={args.onSend} />,
-  // The play's own `userEvent`, not the imported one: a hold that spans two
-  // calls needs the instance that remembers `⌘` is down between them.
-  play: async ({ args, canvas, userEvent }) => {
-    const field = canvas.getByRole("textbox");
-    await userEvent.type(field, "Why did job 12 stall?");
-
-    await userEvent.keyboard("{Enter}");
-    await expect(args.onSend).not.toHaveBeenCalled();
-    await expect(field).toHaveValue("Why did job 12 stall?\n");
-
-    await userEvent.keyboard("{Meta>}{Enter}{/Meta}");
-    await expect(args.onSend).toHaveBeenCalledTimes(1);
-  },
-};
-
-/**
- * Held `⌘` puts `⌘Enter` on Helm's own Send, and releasing takes it away. The
- * tint and the wording are untouched, and the keycap is `aria-hidden`, so the
- * button is still named `Send`.
- */
-export const RevealedOnHold: Story = {
-  render: (args) => (
-    <ShortcutRevealProvider>
-      <Typed onSend={args.onSend} />
-    </ShortcutRevealProvider>
-  ),
-  play: async ({ canvas, userEvent }) => {
-    const badge = () =>
-      canvas.queryByText((_, el) => el?.tagName === "KBD" && el.textContent === "⌘Enter");
-    await userEvent.type(canvas.getByRole("textbox"), "Why did job 12 stall?");
-    await expect(badge()).not.toBeInTheDocument();
-
-    await userEvent.keyboard("{Meta>}");
-    await expect(badge()).toBeVisible();
-    await expect(canvas.getByRole("button", { name: "Send" })).toBeInTheDocument();
-
-    await userEvent.keyboard("{/Meta}");
-    await expect(badge()).not.toBeInTheDocument();
-  },
-};
-
-/** Blank never sends — the button stays off until there is something to say. */
-export const BlankDoesNotSend: Story = {
-  render: (args) => <Typed onSend={args.onSend} />,
-  play: async ({ args, canvasElement }) => {
-    const canvas = within(canvasElement);
-    const send = canvas.getByRole("button", { name: "Send" });
-    await expect(send).toBeDisabled();
-    await userEvent.type(canvas.getByRole("textbox"), "   ");
-    await expect(send).toBeDisabled();
-    await userEvent.click(send, { pointerEventsCheck: 0 });
-    await expect(args.onSend).not.toHaveBeenCalled();
-    await userEvent.keyboard("{Meta>}{Enter}{/Meta}");
-    await expect(args.onSend).not.toHaveBeenCalled();
-    await userEvent.type(canvas.getByRole("textbox"), "Why did job 12 stall?");
-    await expect(canvas.getByRole("button", { name: "Send" })).toBeEnabled();
-  },
-};
-
-function GrowingDock(): ReactElement {
-  const [value, setValue] = useState("");
-  return (
-    <div
-      className="armada-glass"
-      style={{ width: "var(--w-dock)", height: "calc(var(--space-12) * 8)", display: "flex", flexDirection: "column", justifyContent: "flex-end", boxSizing: "border-box", padding: "var(--space-4)" }}
-    >
-      <HelmComposer current={repositories[0]!.id} repositories={[repositories[0]!]} location="Job Board" value={value} onChange={setValue} onSend={fn()} />
-    </div>
-  );
-}
-
-/** The ask box grows with what is typed, stops at half the height of the dock it sits in, and scrolls past that. */
-export const GrowsToHalf: Story = {
-  render: () => <GrowingDock />,
-  play: async ({ canvasElement }) => {
-    const field = within(canvasElement).getByRole("textbox");
-    const panel = canvasElement.querySelector("form")!.parentElement!;
-    const rest = field.getBoundingClientRect().height;
-    await userEvent.type(field, "one{Enter}two{Enter}three{Enter}four{Enter}five");
-    const grown = field.getBoundingClientRect().height;
-    await expect(grown).toBeGreaterThan(rest);
-    await expect(grown).toBeLessThan(panel.clientHeight / 2);
-    await userEvent.type(field, "{Enter}m".repeat(14));
-    await expect(field.getBoundingClientRect().height).toBeLessThanOrEqual(panel.clientHeight / 2 + 1);
-    await expect(field.scrollHeight).toBeGreaterThan(field.clientHeight);
-    await userEvent.clear(field);
-    await expect(field.getBoundingClientRect().height).toBeCloseTo(rest, 0);
   },
 };
 

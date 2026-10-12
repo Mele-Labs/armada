@@ -336,6 +336,7 @@ export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] 
     id: record.id,
     address: addressOf(record.id),
     ...(title === undefined ? {} : { title }),
+    ...(record.manifest_id === undefined ? {} : { manifestId: record.manifest_id }),
     ...(hosted === undefined ? { terminal: true as const } : {}),
     ...(dead === undefined ? {} : { dead }),
     // A thread nobody opened has no rows to say the session was ever spoken in: the title and a finished turn say it.

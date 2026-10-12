@@ -5,7 +5,8 @@
 
 import type { RepositorySummary } from "@armada/protocol";
 import { routeTargetOf, wireTargetOf } from "@armada/helm";
-import type { RouteTarget, ThoughtReading, ThoughtRouting } from "@armada/helm";
+import type { RouteTarget, ThoughtCarry, ThoughtReading, ThoughtRouting } from "@armada/helm";
+import type { DrawnSketch, SessionTag } from "@armada/screens/src/draft/sessions";
 import { refusalWords } from "@armada/screens/src/refusal-words";
 
 import type { BridgeState } from "../../shared/bridge";
@@ -19,10 +20,12 @@ type Host = {
   dispatching: Dispatching;
   openSession: (id: string) => void;
   openJob: (jobId: string) => void;
+  /** Sketches drawn in Helm's box, by id: a thought sent to a Session carries them. */
+  sketchesOf: (ids: readonly string[]) => DrawnSketch[];
 };
 
 /** The dock's routing: Fleet's reading, and the acts the words may go through. */
-export function useThoughtRouting({ state, repositories, dispatching, openSession, openJob }: Host): ThoughtRouting {
+export function useThoughtRouting({ state, repositories, dispatching, openSession, openJob, sketchesOf }: Host): ThoughtRouting {
   const draft = useSessionsDraft();
   // The conversation the dock shows, whose thread keeps the row for words sent on.
   const manifestId = state.helm.state === "none" ? undefined : state.helm.manifestId;
@@ -46,14 +49,19 @@ export function useThoughtRouting({ state, repositories, dispatching, openSessio
       const { target } = read.reading;
       return target === undefined ? { kind: "thought" } : { kind: "thought", match: routeTargetOf(target, repositories) };
     },
-    send: async (target, text) => {
+    send: async (target, text, carry?: ThoughtCarry) => {
       if (target.kind === "session") {
         if (draft === undefined) {
           askToTell(`Not sent to "${target.title}": Sessions are not served`);
           return false;
         }
-        // The composer's own send: a refusal is already a toast, in Fleet's words.
-        const arrived = await draft.send(target.id, { text, files: [], sketches: [], tags: [] });
+        // The composer's own send, with what went with the words: a refusal is already a toast, in Fleet's words.
+        const arrived = await draft.send(target.id, {
+          text,
+          files: carry?.files ?? [],
+          sketches: sketchesOf(carry?.sketches.map((one) => one.id) ?? []),
+          tags: (carry?.tags ?? []) as readonly SessionTag[],
+        });
         if (arrived === false) return false;
       } else {
         const outcome = await window.armada.redirectDrone(target.id, text);

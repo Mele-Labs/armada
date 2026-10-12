@@ -80,6 +80,7 @@ import { proposeRequest } from "./dispatch";
 import { useBackfilled } from "./backfilled";
 import { OPEN_SESSION_ATTRIBUTE } from "./open-session";
 import { ARTIFACT_SAID, cardOf, factsOf, type Known } from "./session-cards";
+import { useNumbered } from "./numbered";
 import { useSessions, useSessionsDraft, useSessionsSaid } from "./sessions-draft";
 
 /** The surfaces the rail and the palette leave off: Sessions, until something serves them. */
@@ -612,7 +613,7 @@ function ReadingSheet({
 const BLANK: Drawing = { shapes: [], joins: [], strokes: [], pictures: [] };
 
 /** The pad Dispatch draws on, in a sheet over the Session: what is drawn goes with the next message. */
-function SketchSheet({ open, onClose, onAttach }: { open: boolean; onClose: () => void; onAttach: (sketch: DrawnSketch) => void }) {
+export function SketchSheet({ open, onClose, onAttach }: { open: boolean; onClose: () => void; onAttach: (sketch: DrawnSketch) => void }) {
   const floor = useAtFloor();
   const [drawing, setDrawing] = useState<Drawing>(BLANK);
   const attach = () => {
@@ -825,6 +826,7 @@ const NO_ROWS: SessionThreadRow[] = [];
 function SessionView({ session, goes, onOpen, held, board, lines }: { session: Session; goes: LedgerGoes; onOpen: (id: string) => void; held: HeldReads; board: readonly JobSummary[]; lines: MergeLines | null }) {
   const draft = useSessionsDraft();
   const sessions = useSessions();
+  const numbered = useNumbered(session.manifestId);
   const floor = useAtFloor();
   const [reading, setReading] = useState<Reading | undefined>();
   const [slotOpen, setSlotOpen] = useState<number | undefined>();
@@ -1017,6 +1019,7 @@ function SessionView({ session, goes, onOpen, held, board, lines }: { session: S
                 ...sessions.filter((one) => one.id !== session.id && one.dead === undefined && one.title !== undefined).map((one): SessionTag => ({ kind: "session", id: one.id, title: one.title! })),
                 ...draft.taggable(),
               ]}
+              {...(numbered === undefined ? {} : { numbered })}
               tags={session.pendingTags ?? []}
               draftKey={session.id}
               focusFor={focusFor}
@@ -1089,6 +1092,7 @@ export function SessionMini({ sessionId, onOpen, fill = false }: { sessionId: st
   const draft = useSessionsDraft();
   const sessions = useSessions();
   const session = sessions.find((one) => one.id === sessionId);
+  const numbered = useNumbered(session?.manifestId);
   const watch = draft?.watch;
   const thread = useBackfilled(session === undefined ? NO_ROWS : threadRowsOf(session), sessionId);
   useEffect(() => watch?.(sessionId), [watch, sessionId]);
@@ -1132,6 +1136,7 @@ export function SessionMini({ sessionId, onOpen, fill = false }: { sessionId: st
           commands={session.terminal === true ? (session.commands ?? []) : draft.commands}
           compact
           taggable={[]}
+          {...(numbered === undefined ? {} : { numbered })}
           tags={session.pendingTags ?? []}
           onTags={(tags) => draft.setTags(session.id, tags)}
           drawn={[]}

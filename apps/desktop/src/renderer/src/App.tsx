@@ -46,6 +46,7 @@ import { PaletteMount } from "./PaletteMount";
 import { FLEET_DOWN } from "./palette";
 import { Overview } from "./Overview"; import { ONE_BAR, useOneBar } from "./one-bar";
 import { DispatchingProvider, useDispatch } from "./dispatch-panel/dispatching";
+import { useHelmBox } from "./helm-box";
 import { useThoughtRouting } from "./thought-routing";
 import { TitleDispatchedStrip, TitleDispatchPanel } from "./dispatch-panel/entries";
 import { CaptureLayer, type CaptureAim } from "./capture/Layer";
@@ -425,7 +426,8 @@ export function App({ draft }: AppProps = {}) {
   // unambiguously what is in front of you.
   const onWhat = reading ?? state.jobs.find((job) => job.id === cursor);
   const live = state.connection.state === "connected"; const dispatching = useDispatch({ state, repositories, proposeFrom: commands.proposeFrom, openSession, openJob: (jobId) => (goTo(SURFACE.overview), setOpenJob(jobId)), openAutopilot: (root) => (state.repository !== root && pickRepository(root), goTo(SURFACE.overview)), said: setTelling }); // One draft for the Cockpit's bar and the panel grown from the title bar.
-  const routing = useThoughtRouting({ state, repositories, dispatching, openSession, openJob: (jobId) => (goTo(SURFACE.overview), setOpenJob(jobId)) });
+  const helmBox = useHelmBox(state.helm.state === "none" ? undefined : state.helm.manifestId);
+  const routing = useThoughtRouting({ state, repositories, dispatching, openSession, openJob: (jobId) => (goTo(SURFACE.overview), setOpenJob(jobId)), sketchesOf: helmBox.sketchesOf });
   const oneBar = useOneBar({ palette, live, compose: (words) => (setSeed(words), setComposing(true)), dispatching }); // `n`, ⌘N and ⌘K: the title bar's one bar.
   const firstContact = firstContactOf(state.settings); // Whether a guide opens itself, once Fleet has answered.
   // Which failure is on screen, and which one `Copy debug info` would copy.
@@ -616,9 +618,11 @@ export function App({ draft }: AppProps = {}) {
           questions={questions}
           asking={asks.length}
           helm={
+            <>
             <HelmDock
               asks={asks}
               routing={routing}
+              {...(helmBox.box === undefined ? {} : { box: helmBox.box })}
               helm={state.helm}
               repositories={repositories}
               jobs={state.jobs}
@@ -645,6 +649,8 @@ export function App({ draft }: AppProps = {}) {
               onSaid={setTelling}
               onApprove={commands.approve}
             />
+            {helmBox.pad}
+            </>
           }
           // The dock's head carries this, beside Close — the owner's note of
           // 18 Sep 2026. It ends the conversation the whole dock is showing, so

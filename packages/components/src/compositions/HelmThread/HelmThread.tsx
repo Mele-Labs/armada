@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
 import { Button } from "../../primitives/Button/Button";
 import { Prose } from "../../primitives/Prose/Prose";
+import type { ComposerTag } from "../SessionComposer/InlineTag";
+import { placeTagsIn, SentWith } from "../SessionThread/SessionThread";
 import { THOUGHT_KIND } from "../ThoughtCard/ThoughtCard";
 import type { ThoughtTarget } from "../ThoughtCard/ThoughtCard";
 
@@ -61,6 +63,10 @@ export type HelmThreadRow = {
   cards?: HelmApprovalCard[];
   /** Where these words went instead of to Helm: the Session or Job, pressed to open it. */
   sent?: { target: ThoughtTarget; onOpen: () => void };
+  /** What the person sent with the words: pictures and files, sketches, and the issues, pull requests and Sessions tagged in them. */
+  files?: readonly { id: string; name: string; src?: string }[];
+  sketches?: readonly { id: string; title: string }[];
+  tags?: readonly ComposerTag[];
 };
 
 function ApprovalCard({ jobHandle, workflow, stepCount, state, onApprove, onDismiss }: HelmApprovalCard) {
@@ -144,14 +150,19 @@ export function HelmThread({
         )
       ) : (
         <ol className="armada-helm-thread__rows">
-          {rows.map((row) => (
+          {rows.map((row) => {
+            const placed = row.tags === undefined || row.tags.length === 0 || typeof row.message !== "string" ? undefined : placeTagsIn(row.message, row.tags);
+            const loose = placed === undefined ? (row.tags ?? []) : placed.loose;
+            return (
             <li className="armada-helm-thread__row" key={row.id} data-actor={row.actor}>
               <div className="armada-helm-thread__head">
                 <span className="armada-helm-thread__who">{row.actor === "you" ? "You" : "Helm"}</span>
                 <span className="armada-helm-thread__at">{row.at}</span>
               </div>
               <div className="armada-helm-thread__message" data-mono={row.mono || undefined}>
-                {typeof row.message === "string"
+                {placed?.parts != null ? (
+                  <p className="armada-session-said">{placed.parts}</p>
+                ) : typeof row.message === "string"
                   ? row.mono
                     ? row.message
                     : <Prose text={row.message} />
@@ -160,10 +171,12 @@ export function HelmThread({
               {row.cards === undefined
                 ? null
                 : row.cards.map((card) => <ApprovalCard key={card.id} {...card} />)}
+              <SentWith row={row} tags={loose} />
               {row.sent === undefined ? null : <SentTo {...row.sent} />}
               {row.meta === undefined ? null : <p className="armada-helm-thread__meta">{row.meta}</p>}
             </li>
-          ))}
+            );
+          })}
         </ol>
       )}
       {!replying ? null : (

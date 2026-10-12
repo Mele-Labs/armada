@@ -1446,11 +1446,12 @@ Esc      close an overlay, or return to the list from a detail route
 
 **`⌘Enter` is the one Global binding that needs a focused field**, and it is
 in this tier because it is modified rather than because it fires from
-nowhere. Plain `Enter` in a message box is a new line — a redirect to a drone
-and an ask to Helm are both prose — so the key that sends has to carry a
-modifier, and a single-key binding would be suppressed inside a field anyway
-by the rule below. It is drawn on the Send button only while `⌘` is held, per
-`kbd` below.
+nowhere. Plain `Enter` in the drone message box is a new line — a redirect to a
+drone is prose — so the key that sends there has to carry a modifier, and a
+single-key binding would be suppressed inside a field anyway by the rule below.
+It is drawn on that Send button only while `⌘` is held, per `kbd` below.
+**Helm's box and a Session's are one box**: `Enter` sends and `⇧Enter` breaks
+the line, and `⌘Enter` sends there too.
 
 **`⌘[ ⌘]` are the one Global pair a focused field keeps.** In a field they are
 outdent and indent, which is what a person typing meant, so the press passes

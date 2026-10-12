@@ -41,7 +41,7 @@ export type SessionThreadRow =
       /** What was sent with it. Pictures are drawn; other files are chips. */
       files?: readonly { id: string; name: string; src?: string }[];
       sketches?: readonly { id: string; title: string }[];
-      tags?: readonly { kind: "session" | "job" | "pull_request" | "branch"; id: string; title: string }[];
+      tags?: readonly ComposerTag[];
     }
   | { id: string; at: string; kind: "message"; from: "session"; sender: { id: string; title: string }; text: string }
   /** A tool call, mono. `fromPhone` is an ask the person answered on their phone: a glyph beside it. */
@@ -142,7 +142,7 @@ export type SessionThreadProps = {
   onForkAt?: (pick: ForkPick) => void;
 };
 
-const TAG_KIND = { session: "Session", job: "Job", pull_request: "Pull request", branch: "Branch" } as const;
+const TAG_KIND = { session: "Session", job: "Job", pull_request: "Pull request", branch: "Branch", issue: "Issue" } as const;
 
 /**
  * A sent message's words with each tag drawn as the chip it was written as, at its `@title`. `parts`
@@ -167,7 +167,7 @@ function placeTags(text: string, tags: readonly ComposerTag[]): { parts: ReactNo
   return { parts, loose };
 }
 
-function Sent({ row, tags }: { row: Extract<SessionThreadRow, { from: "you" | "agent" }>; tags: readonly ComposerTag[] }) {
+function Sent({ row, tags }: { row: { files?: readonly { id: string; name: string; src?: string }[]; sketches?: readonly { id: string; title: string }[] }; tags: readonly ComposerTag[] }) {
   const files = row.files ?? [];
   const sketches = row.sketches ?? [];
   if (files.length + sketches.length + tags.length === 0) return null;
@@ -189,6 +189,9 @@ function Sent({ row, tags }: { row: Extract<SessionThreadRow, { from: "you" | "a
     </div>
   );
 }
+
+/** Helm's thread draws a sent message the way a Session's does. */
+export { Sent as SentWith, placeTags as placeTagsIn };
 
 /** What Fleet knew when a Job's Drone stopped, as the structured fields the handoff bundle has. A field with nothing to say is left out. */
 function Handoff({ row }: { row: Extract<SessionThreadRow, { kind: "handoff" }> }) {
