@@ -1,6 +1,6 @@
 import { useLayoutEffect, useMemo, useRef } from "react";
 import type { ReactNode, Ref } from "react";
-import { AppWindow, Box, ChevronRight, GitBranch, KeyRound, Layers, Server, Smartphone, SquareTerminal, Wrench } from "lucide-react";
+import { AppWindow, Box, Check, ChevronRight, GitBranch, KeyRound, Layers, Reply, Server, Smartphone, SquareTerminal, Wrench } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { AttachmentChip } from "../../primitives/AttachmentChip/AttachmentChip";
@@ -322,6 +322,44 @@ function Calls({ rows, working }: { rows: readonly { id: string; text: string; f
   );
 }
 
+/**
+ * What the person did, as Fleet sends it to the agent in their name: `Approved: <address>` from a
+ * walk's Approve, and `Re: <item>` over the answer from a waiting item. Anything else is their words.
+ */
+type Act = { kind: "approved"; target: string; shown: string } | { kind: "answered"; target: string; said: string };
+
+function actOf(text: string): Act | null {
+  const approved = /^Approved: (\S+)$/.exec(text);
+  if (approved?.[1] !== undefined) {
+    const walk = /[?&]walk=[^&#\s]*/.exec(approved[1]);
+    return { kind: "approved", target: approved[1], shown: walk === null ? approved[1] : `?${walk[0].slice(1)}` };
+  }
+  const answered = /^Re: ([^\n]+)\n?([\s\S]*)$/.exec(text);
+  if (answered?.[1] !== undefined) return { kind: "answered", target: answered[1], said: (answered[2] ?? "").trim() };
+  return null;
+}
+
+/** The person's act: one filled line in the inverse neutral, what it was and on what. */
+function Did({ act, at }: { act: Act; at: string }) {
+  const approved = act.kind === "approved";
+  const Glyph = approved ? Check : Reply;
+  const word = approved ? "Approved" : "Answered";
+  const chip = (
+    <span className="armada-session-did__chip" role="img" aria-label={`${word}: ${act.target}`}>
+      <Glyph size={12} strokeWidth={2} aria-hidden />
+      <span className="armada-session-did__target">{approved ? act.shown : act.target}</span>
+    </span>
+  );
+  return (
+    <li className="armada-session-did" role="region" aria-label={`You ${word.toLowerCase()}`}>
+      <span className="armada-session-did__eyebrow">{word}</span>
+      {approved && act.shown !== act.target ? <Tooltip label={act.target}>{chip}</Tooltip> : chip}
+      {act.kind === "answered" && act.said !== "" ? <span className="armada-session-did__said">{act.said}</span> : null}
+      <span className="armada-session-did__at">{at}</span>
+    </li>
+  );
+}
+
 function Row({
   row,
   onOpenSession,
@@ -451,26 +489,41 @@ function Row({
       </li>
     );
   }
+  if (row.from === "you") {
+    const act = actOf(row.text);
+    if (act !== null) return <Did act={act} at={row.at} />;
+    const placed = placeTags(row.text, row.tags ?? []);
+    return (
+      <li className="armada-session-you" role="region" aria-label="Your message">
+        <div className="armada-session-you__band">
+          <span className="armada-session-you__who">You</span>
+          <span className="armada-session-you__at">{row.at}</span>
+        </div>
+        <div className="armada-session-you__body">
+          {placed.parts !== null ? (
+            <p className="armada-session-said">{placed.parts}</p>
+          ) : (
+            // Run is on what the agent wrote, not on what the person did.
+            <ProseRunner.Provider value={null}>
+              <ProseCommand.Provider value={null}>
+                <Prose text={row.text} />
+              </ProseCommand.Provider>
+            </ProseRunner.Provider>
+          )}
+          <Sent row={row} tags={placed.loose} />
+        </div>
+      </li>
+    );
+  }
   const placed = placeTags(row.text, row.tags ?? []);
   return (
-    <li className="armada-helm-thread__row" data-actor={row.from === "you" ? "you" : "helm"} data-from={row.from}>
+    <li className="armada-helm-thread__row" data-actor="helm" data-from={row.from}>
       <div className="armada-helm-thread__head">
-        <span className="armada-helm-thread__who">{row.from === "you" ? "You" : agentName}</span>
+        <span className="armada-helm-thread__who">{agentName}</span>
         <span className="armada-helm-thread__at">{row.at}</span>
       </div>
       <div className="armada-helm-thread__message">
-        {placed.parts !== null ? (
-          <p className="armada-session-said">{placed.parts}</p>
-        ) : row.from === "you" ? (
-          // Run is on what the agent wrote, not on what the person did.
-          <ProseRunner.Provider value={null}>
-            <ProseCommand.Provider value={null}>
-              <Prose text={row.text} />
-            </ProseCommand.Provider>
-          </ProseRunner.Provider>
-        ) : (
-          <Prose text={row.text} />
-        )}
+        {placed.parts !== null ? <p className="armada-session-said">{placed.parts}</p> : <Prose text={row.text} />}
       </div>
       <Sent row={row} tags={placed.loose} />
     </li>
