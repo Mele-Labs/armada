@@ -16,6 +16,7 @@
 mod allowing;
 mod asked_runs;
 pub(crate) mod attempt;
+mod board_memo;
 mod breakages;
 mod carrying_on;
 mod check_runs;

@@ -42,7 +42,7 @@ mod detail;
 use crate::adrift::Adrift;
 use crate::daemon::Fleet;
 use crate::wire::{
-    manifest_summary, recorded, redacted, reported, submitted, workflow_summary, worktree_held,
+    manifest_summary, recorded, redacted, reported, submitted, workflow_summary,
 };
 
 impl<H, V, W> Queries for Fleet<H, V, W>
@@ -909,6 +909,21 @@ where
         Fleet::merge_hubs(self).await
     }
 
+    /// The Jobs as loaded, without the per-Job reads a summary makes.
+    async fn job_branches(&self) -> Vec<(String, JobId, String)> {
+        let Ok((loaded, _)) = self.every_job().await else {
+            return Vec::new();
+        };
+        loaded
+            .jobs
+            .iter()
+            .filter_map(|job| {
+                let branch = job.branch()?;
+                Some((branch.as_str().to_string(), JobId::from(job.id()), job.handle()))
+            })
+            .collect()
+    }
+
     async fn land_checks(&self) -> Vec<(String, Vec<String>)> {
         Fleet::land_checks(self)
     }
@@ -942,37 +957,14 @@ where
         Ok(self.models().clone())
     }
 
-    /// Every worktree Fleet is holding disk for, and the test each one failed.
-    ///
-    /// **`Fleet::worktrees_held` is the derivation and this only redacts it.**
-    /// The five tests are written once, in `crate::holding`, and the sweep and
-    /// `armada clean` already read that same answer; a filter here that decided
-    /// for itself what is safe would be the third opinion the sharing exists to
-    /// prevent.
-    ///
-    /// **The one thing dropped is a piloted Job's checkout**, and it is dropped
-    /// through `Holding::offerable` rather than by matching a status here —
-    /// `#367`, and the predicate belongs beside the tests it reads.
+    /// Every worktree Fleet is holding disk for, and the test each one failed,
+    /// and every slot of each pool. From memory where `crate::worktrees_kept`
+    /// holds a true list; the derivation is `worktrees_live`.
     async fn list_worktrees(
         &self,
         manifest_id: Option<ManifestId>,
     ) -> Result<WorktreesHeld, Refusal> {
-        // **One read of the Jobs for both halves, and the halves side by
-        // side**: each is git over every checkout, and neither waits on the other.
-        let (loaded, _) = self.every_job().await.map_err(|why| self.refusal(why))?;
-        let jobs = std::sync::Arc::new(loaded.jobs);
-        let (holding, slots) = tokio::join!(
-            Fleet::held_among(self, std::sync::Arc::clone(&jobs)),
-            Fleet::pool_slots_among(self, &jobs),
-        );
-        let held = WorktreesHeld {
-            worktrees: holding
-                .iter()
-                .filter(|one| one.offerable())
-                .map(worktree_held)
-                .collect(),
-            slots: slots.iter().map(crate::wire::worktree_slot).collect(),
-        };
+        let held = self.worktrees_answer().await?;
         self.worktrees_within(held, manifest_id)
     }
 

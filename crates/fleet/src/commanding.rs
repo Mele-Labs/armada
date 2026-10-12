@@ -729,7 +729,9 @@ where
         self: Arc<Self>,
         job_id: JobId,
     ) -> Result<WorktreeReclaimed, Refusal> {
-        Fleet::reclaim_answered(self, job_id).await
+        let reclaimed = Fleet::reclaim_answered(Arc::clone(&self), job_id).await?;
+        self.worktrees_changed().await;
+        Ok(reclaimed)
     }
 
     /// The pool reshaped on this machine — `crate::leasing`.
@@ -738,7 +740,9 @@ where
         change: ipc::ChangeSlotPool,
         manifest_id: Option<ipc::ManifestId>,
     ) -> Result<ipc::SlotPoolChanged, Refusal> {
-        Fleet::change_slot_pool(self, change, manifest_id.as_ref())
+        let changed = Fleet::change_slot_pool(self, change, manifest_id.as_ref())?;
+        self.worktrees_changed().await;
+        Ok(changed)
     }
 
     /// A stranded slot read, scrapped or stashed — `crate::rescuing`.
@@ -747,7 +751,9 @@ where
         asked: ipc::RescueSlot,
         manifest_id: Option<ipc::ManifestId>,
     ) -> Result<ipc::SlotRescued, Refusal> {
-        Fleet::rescue_slot(self, asked, manifest_id.as_ref()).await
+        let rescued = Fleet::rescue_slot(Arc::clone(&self), asked, manifest_id.as_ref()).await?;
+        self.worktrees_changed().await;
+        Ok(rescued)
     }
 
     async fn delete_branch(

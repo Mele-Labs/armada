@@ -677,6 +677,9 @@ where
     pub(crate) fn reclaiming(&self) -> Reclaiming {
         self.tuned(|dials| dials.reclaiming)
     }
+    pub(crate) fn worktrees_memory(&self) -> &crate::worktrees_kept::Kept {
+        &self.kept
+    }
     pub(crate) fn swept(&self) -> &Mutex<Option<core_model::Timestamp>> {
         &self.swept
     }
