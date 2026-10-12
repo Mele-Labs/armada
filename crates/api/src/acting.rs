@@ -21,6 +21,7 @@ use ipc::Via;
 
 use crate::door::{DoorCalled, HelmCalled};
 use crate::mcp::Caller;
+use crate::placed::CommanderCalled;
 
 /// The header Bridge sends on every request, with [`BRIDGE`] as its value.
 pub const CALLER_HEADER: &str = "x-armada-caller";
@@ -82,7 +83,9 @@ pub(crate) async fn named_the_door(request: Request, next: Next) -> Response {
 }
 
 fn door_of(request: &Request) -> Via {
-    let spelled = if request.extensions().get::<HelmCalled>().is_some() {
+    let spelled = if request.extensions().get::<CommanderCalled>().is_some() {
+        "commander"
+    } else if request.extensions().get::<HelmCalled>().is_some() {
         "helm"
     } else if request.extensions().get::<DoorCalled>().is_some() {
         "door"
@@ -101,7 +104,7 @@ fn door_of(request: &Request) -> Via {
     } else {
         "http"
     };
-    // Total: these spellings are the domain's own, and none is `commander`: no
-    // request is placed as a Commander's by what it carries.
+    // Total: these spellings are the domain's own. `commander` is placed by the
+    // extension the door sets for a connection it placed, never by a header.
     Via::from_wire(spelled).unwrap_or_else(|| unreachable!("`{spelled}` is a door"))
 }

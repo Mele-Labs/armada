@@ -512,7 +512,7 @@ impl Commands for FakeDaemon {
         job_id: JobId,
         drone_id: ipc::DroneId,
         _instruction: ipc::Redirection,
-        _by: crate::Redirector,
+        _by: crate::Steerer,
     ) -> Result<JobSummary, Refusal> {
         self.fake_one_drone(job_id, drone_id, false).await
     }
@@ -567,7 +567,7 @@ impl Commands for FakeDaemon {
         self: std::sync::Arc<Self>,
         job_id: JobId,
         _instruction: ipc::Redirection,
-        by: crate::Redirector,
+        by: crate::Steerer,
     ) -> Result<JobSummary, Refusal> {
         self.fake_redirect_drone(job_id, _instruction, by).await
     }

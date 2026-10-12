@@ -60,7 +60,7 @@ async fn a_redirect_does_not_unfreeze_a_step_under_a_job_nobody_escalated() {
         .unwrap();
 
     let after = fleet
-        .redirect(&job, &advice(), api::Redirector::Person)
+        .redirect(&job, &advice(), api::Steerer::Person)
         .await
         .unwrap();
 
@@ -94,7 +94,7 @@ async fn a_redirect_into_a_healthy_drone_does_not_put_the_step_clock_back() {
         "the step has run long enough for the reading to mean something: {before:?}"
     );
     fleet
-        .redirect(&job, &advice(), api::Redirector::Person)
+        .redirect(&job, &advice(), api::Steerer::Person)
         .await
         .unwrap();
 
@@ -116,7 +116,7 @@ async fn a_redirect_onto_a_stopped_step_starts_the_step_clock_again() {
 
     let before = running_for(&fleet).await;
     fleet
-        .redirect(&job, &advice(), api::Redirector::Person)
+        .redirect(&job, &advice(), api::Steerer::Person)
         .await
         .unwrap();
 
@@ -138,7 +138,7 @@ async fn a_redirect_from_the_phone_keeps_the_phone_against_the_move() {
     let phone = ipc::Via::from_wire("phone");
     api::carrying(phone, async {
         fleet
-            .redirect(&job, &advice(), api::Redirector::Person)
+            .redirect(&job, &advice(), api::Steerer::Person)
             .await
             .unwrap()
     })
