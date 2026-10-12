@@ -500,6 +500,10 @@ pub struct MessagesHeld {
     /// Commands to run as if typed, in order with the messages' own turns.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub commands: Vec<HeldCommand>,
+    /// End the session: a person pressed End session in Bridge. The mod runs
+    /// it after this answer's messages, as `/exit`. Left out when not asked.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub end: bool,
 }
 
 /// A slash command a person chose in Bridge for a terminal session: `model` or
