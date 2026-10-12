@@ -26,6 +26,7 @@
 
 mod admitting;
 mod authoring;
+mod commander;
 mod commands;
 mod conversing;
 mod hosted_sessions;
@@ -42,7 +43,8 @@ mod settings;
 mod studios;
 mod tools;
 
-pub use admitting::{offerable, Admitting, HelmReach, Redirector};
+pub use admitting::{offerable, Admitting, HelmReach, Redirector, Steerer};
+pub use commander::{CommanderReach, ALLOWED as COMMANDER_ALLOWED};
 pub use authoring::Authoring;
 pub use commands::Commands;
 pub use conversing::Conversations;
