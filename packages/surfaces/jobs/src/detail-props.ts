@@ -68,7 +68,7 @@ import type { OpenArtifact, OpenPullRequest } from "@armada/screens/src/opening"
 import type { FollowCheckOutput, ReadCheckOutput } from "./outputs";
 import type { ManifestChecksProps } from "./ManifestChecks";
 import type { ReadBrief } from "./pulse-brief";
-import type { AnswerLesson, ReadRetro } from "./retro";
+import type { AnswerLesson, ReadRetro, StartLessonSession } from "./retro";
 import type { AddTask, DropTask, PlanEditAnswer } from "@armada/screens/src/plan-edits";
 import type { RunSheetSlice } from "@armada/screens/src/rehearsal";
 import type { OpenStudioFrom } from "@armada/screens/src/open-studio";
@@ -351,6 +351,9 @@ export type JobDetailProps = {
   /** Agree and disagree with an item on that sheet. `retro.ts`. */
   onAgreeLesson: AnswerLesson;
   onDisagreeLesson: AnswerLesson;
+  /** Start Session on an item of that sheet, and how the host opens the Session it started. Both or neither. */
+  onStartSession?: StartLessonSession;
+  onOpenSession?: (sessionId: string) => void;
   /**
    * Read one frame a step's harness produced. **`onReadCheckOutput`'s shape one
    * record over** — the bytes come from the process that can reach Fleet, and

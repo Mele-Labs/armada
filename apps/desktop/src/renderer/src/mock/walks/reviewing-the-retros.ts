@@ -2,7 +2,9 @@
 // Review beside the tabs reads the open items together and draws them one at a
 // time, with the model's reason, a thread to ask about the card, and Skip and
 // Back. The mock Fleet orders the items as listed and folds two with the same
-// headline. `retro.test.tsx` holds the claims.
+// headline. The review is kept while the window is open: leaving Retros for Kit and
+// coming back finds the same card and its thread, and Review again asks on purpose.
+// `retro.test.tsx` holds the claims.
 
 import { button, region, role, text, walk } from "../walk";
 
@@ -22,5 +24,14 @@ export const reviewingTheRetros = walk("retro/lessons", [
   { press: button("Back", { exact: true }), say: "Back to the first" },
   { look: text("Which Jobs did this cost?"), say: "Its thread is still there" },
   { look: region("Review"), say: "The review, whole" },
+  { press: button("Skip", { exact: true }), say: "On to the second card again" },
+  { press: button("Kit", { exact: true }), say: "Leave Retros in the middle of the review" },
+  { press: button("Retros", { exact: true }), say: "And come back" },
+  { look: text(/^2 of \d+$/), say: "The same card, with no Review pressed and no wait" },
+  { look: text(/^Reviewed .* ago$|^Reviewed just now$/), say: "How old the review is" },
+  { press: button("Back", { exact: true }), say: "Back to the first" },
+  { look: text("Which Jobs did this cost?"), say: "Its thread came back too" },
+  { press: button("Review again", { exact: true }), say: "Review again asks the model on purpose" },
+  { look: text(/^1 of \d+$/), say: "From the first card, the old thread gone" },
   { press: button("Back to the list"), say: "And back to the list" },
 ]);

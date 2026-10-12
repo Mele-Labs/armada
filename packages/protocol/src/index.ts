@@ -38,6 +38,7 @@ export * from "./helm-thread";
 export * from "./history";
 export * from "./retro";
 export * from "./retro-review";
+export * from "./retro-session";
 export * from "./holding";
 export * from "./journal";
 export * from "./judged";

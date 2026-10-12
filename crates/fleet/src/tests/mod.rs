@@ -218,6 +218,7 @@ mod session_keeper;
 mod session_piloting;
 mod session_question;
 mod session_retro;
+mod lesson_session;
 mod retro_review;
 mod session_waiting;
 mod sleeping;

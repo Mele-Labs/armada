@@ -23,8 +23,8 @@ export type ReviewThreadProps = {
 };
 
 /**
- * Questions about one card and Fleet's answers, oldest first. **Nothing is
- * kept past the review**: Fleet stores no thread, so Bridge carries it.
+ * Questions about one card and Fleet's answers, oldest first. **Fleet stores no
+ * thread**, so Bridge carries it, for as long as the window is open.
  */
 export function ReviewThread({ turns, draft, onDraft, onSend, pending = false, failure }: ReviewThreadProps) {
   return (
@@ -201,6 +201,29 @@ export function LessonReviewEnd({ title, skipped = 0, onAgain, onBack, onList }:
         </Button>
       </div>
     </section>
+  );
+}
+
+export type ReviewHeldProps = {
+  /** How long ago the review was made, worded: `12 minutes ago`. */
+  age: string;
+  /** Ask the model again. The held place, threads and answers are thrown away. */
+  onAgain: () => void;
+};
+
+/**
+ * What a review left standing says of itself: how old it is, and the one way to make it again. **A
+ * returned-to review is not made again by itself**, so the age is what tells a person whether the
+ * order is still worth trusting.
+ */
+export function ReviewHeld({ age, onAgain }: ReviewHeldProps) {
+  return (
+    <div className="armada-review__held">
+      <p className="armada-review__aged">Reviewed {age}</p>
+      <Button variant="ghost" size="sm" onClick={onAgain}>
+        Review again
+      </Button>
+    </div>
   );
 }
 

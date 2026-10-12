@@ -409,6 +409,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(crate::retros::agree_lesson::<D>),
         )
         .route(
+            "/lessons/:lesson_id/session",
+            post(crate::retros::start_lesson_session::<D>),
+        )
+        .route(
             "/lessons/:lesson_id/disagree",
             post(crate::retros::disagree_lesson::<D>),
         )

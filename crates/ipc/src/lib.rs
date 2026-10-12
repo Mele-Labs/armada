@@ -181,6 +181,7 @@ mod retro;
 /// A guided review of the open retro items, and a question about one. Since
 /// 23.74.
 mod retro_review;
+mod retro_session;
 /// What Scan found in a repository nobody set up for Armada. **Evidence,
 /// never a proposal** — every finding carries the file it came from.
 mod scan;
@@ -416,6 +417,7 @@ pub use retro::{
     RetroAnswered, RetroChange, RetroChangeAnswered, RetroItem, RetroRecord, RetroSession,
     RetroState, RetroWritten,
 };
+pub use retro_session::LessonSessionStarted;
 pub use retro_review::{
     AskLessonAnswer, AskRole, AskTurn, LessonAsk, LessonReview, ReviewEntry, ReviewLessons, SetAside,
 };
