@@ -10,6 +10,7 @@ import {
   Alert,
   Button,
   ChipOwnership,
+  MergeLinePlace,
   ForkedFrom,
   OpenInSession,
   PilotAct,
@@ -68,7 +69,8 @@ import {
   withoutShapes,
 } from "@armada/screens/src/draft/sketch";
 import type { Drawing } from "@armada/screens/src/draft/sketch";
-import type { HeldWorktrees } from "@armada/protocol";
+import type { HeldWorktrees, MergeLines } from "@armada/protocol";
+import { placeOf } from "@armada/screens";
 import { SURFACE, useAtFloor, useNarrow } from "@armada/shell";
 
 import { proposeRequest } from "./dispatch";
@@ -451,6 +453,7 @@ function ReadingSheet({
   readSubagent,
   one,
   draft,
+  lines,
   onClose,
   onOpenLink,
   onAct,
@@ -459,6 +462,8 @@ function ReadingSheet({
   readSubagent: SessionsDraft["subagent"];
   one: SessionAttachment | undefined;
   draft: SessionsDraft | undefined;
+  /** What Fleet serves of the merge lines, for the place a pull request holds in one. */
+  lines: MergeLines | null;
   onClose: () => void;
   onOpenLink: (address: string) => void;
   onAct: (number: number, act: PullRequestAct) => Promise<boolean>;
@@ -487,6 +492,7 @@ function ReadingSheet({
             : one.kind === "artifact"
               ? one.title
               : "";
+  const place = one?.kind === "pull_request" ? placeOf(lines, one) : undefined;
   const artifact = one?.kind === "artifact" ? one : undefined;
   const Glyph = artifact === undefined ? undefined : ARTIFACT_GLYPH[artifact.form];
   return (
@@ -528,6 +534,7 @@ function ReadingSheet({
               <span key={fact}>{fact}</span>
             ))}
           </PullRequestCard>
+          {place === undefined ? null : <MergeLinePlace rows={place} onOpenPullRequest={onOpenLink} />}
           <Refused />
           <PullRequestActs
             state={one.state}
@@ -753,7 +760,7 @@ function useMinimized(): [boolean, (minimized: boolean) => void] {
 const NO_SKETCHES: DrawnSketch[] = [];
 const NO_ROWS: SessionThreadRow[] = [];
 
-function SessionView({ session, goes, onOpen, held }: { session: Session; goes: LedgerGoes; onOpen: (id: string) => void; held: HeldReads }) {
+function SessionView({ session, goes, onOpen, held, lines }: { session: Session; goes: LedgerGoes; onOpen: (id: string) => void; held: HeldReads; lines: MergeLines | null }) {
   const draft = useSessionsDraft();
   const sessions = useSessions();
   const floor = useAtFloor();
@@ -947,6 +954,7 @@ function SessionView({ session, goes, onOpen, held }: { session: Session; goes: 
         readSubagent={draft.subagent}
         one={readingOf(session, reading)}
         draft={draft}
+        lines={lines}
         onClose={() => setReading(undefined)}
         onOpenLink={goes.onOpenLink}
         onAct={(number, act) => {
@@ -1051,7 +1059,7 @@ export function listed(sessions: readonly Session[]): string[] {
 const typing = (target: EventTarget | null): boolean =>
   target instanceof HTMLElement && (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName));
 
-export function SessionsSurface({ openId, onOpen, goes, held }: { openId: string | null; onOpen: (id: string) => void; goes: LedgerGoes; held: HeldReads }) {
+export function SessionsSurface({ openId, onOpen, goes, held, lines = null }: { openId: string | null; onOpen: (id: string) => void; goes: LedgerGoes; held: HeldReads; lines?: MergeLines | null }) {
   const sessions = useSessions();
   const open = sessions.find((one) => one.id === openId);
   // j goes to the next Session down the list and k to the one above, opening each. Local to this page.
@@ -1072,7 +1080,7 @@ export function SessionsSurface({ openId, onOpen, goes, held }: { openId: string
   }, [sessions, openId, onOpen]);
   return (
     <div className="armada-screen__overview">
-      {open === undefined ? <SessionsListing onOpen={onOpen} /> : <SessionView session={open} goes={goes} onOpen={onOpen} held={held} />}
+      {open === undefined ? <SessionsListing onOpen={onOpen} /> : <SessionView session={open} goes={goes} onOpen={onOpen} held={held} lines={lines} />}
     </div>
   );
 }

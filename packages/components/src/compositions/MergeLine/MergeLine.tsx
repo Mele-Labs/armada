@@ -747,6 +747,93 @@ function Pull({
   );
 }
 
+/**
+ * One pull request in a line, for a place that draws a single line on its own (a Session's pull
+ * request panel). `mark` is the line's own state: the merge queue's, or `armada land`'s.
+ */
+export type PlaceRow = {
+  place: number;
+  /** The pull request's title, or the branch where the line holds nothing more. */
+  title: string;
+  number?: number;
+  url?: string;
+  mark: { line: "queue"; state: NonNullable<HubPull["queue"]>["state"] } | { line: "land"; state: MergeLineState };
+  /** The pull request the place is drawn for. */
+  current?: true;
+};
+
+/**
+ * The line a pull request is in, as compact rows in place order: place, mark, then number and
+ * title opening the pull request. **No count**: the rows are the answer. The row the panel is for
+ * is `aria-current` and takes the selected fill the merge line's focused tile does.
+ */
+export function MergeLinePlace({ rows, onOpenPullRequest }: { rows: readonly PlaceRow[]; onOpenPullRequest: (url: string) => void }) {
+  const queue = rows[0]?.mark.line !== "land";
+  return (
+    <ol className="armada-merge-line__queue" aria-label={queue ? "Merge queue" : "Merge line"}>
+      {rows.map((row) => {
+        const reading = row.mark.line === "queue" ? QUEUE[row.mark.state] : undefined;
+        const landed = row.mark.line === "land" ? LAND_STATE[row.mark.state] : undefined;
+        const glyph = reading?.reading ?? landed;
+        const Icon = glyph?.icon ?? null;
+        const said = reading?.says ?? landed?.verb ?? undefined;
+        const pulsing = reading?.pulsing ?? (row.mark.line === "land" && LIVE.has(row.mark.state));
+        const lit = row.mark.line === "queue" ? row.mark.state === "unmergeable" : LIT.has(row.mark.state);
+        const name = (
+          <>
+            {row.number === undefined ? null : <span className="armada-merge-line__queue-number mono">#{row.number}</span>}
+            <span>{row.title}</span>
+          </>
+        );
+        return (
+          <li
+            key={`${row.number ?? row.title}`}
+            className="armada-merge-line__row"
+            aria-label={said === undefined ? row.title : `${row.title}, ${said}`}
+            aria-current={row.current === true ? "true" : undefined}
+            data-lit={lit || undefined}
+            style={hueOf(glyph?.statusToken)}
+          >
+            <Tooltip label={queue ? "Place in the merge queue" : "Order to merge in"} asChild>
+              <span className="armada-merge-line__place mono">{row.place}</span>
+            </Tooltip>
+            {said === undefined ? (
+              <span className="armada-merge-line__mark" />
+            ) : (
+              <Tooltip label={said} asChild>
+                <span
+                  className="armada-merge-line__mark"
+                  data-pulsing={pulsing || undefined}
+                  data-state={row.mark.line === "land" ? row.mark.state : reading?.pulsing ? "gating" : undefined}
+                  style={glyph?.statusToken ? { color: `var(${glyph.statusToken})` } : undefined}
+                  role="img"
+                  aria-label={said}
+                >
+                  {Icon === null ? null : <Icon size={MARK} strokeWidth={STROKE} aria-hidden />}
+                </span>
+              </Tooltip>
+            )}
+            {row.url === undefined ? (
+              <span className="armada-merge-line__queue-title">{name}</span>
+            ) : (
+              <a
+                className="armada-merge-line__queue-title"
+                href={row.url}
+                onClick={(event) => {
+                  event.preventDefault();
+                  onOpenPullRequest(row.url!);
+                }}
+              >
+                {name}
+              </a>
+            )}
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
 /** A waiting branch's reason as a registry glyph and the tooltip that names it. */
 const WHY: Record<MergeLineWaiting, { Glyph: LucideIcon; says: string }> = {
   member: { Glyph: GitBranch, says: "Left out of this turn: clashes with another branch in it" },
