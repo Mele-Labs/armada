@@ -119,6 +119,13 @@ them.
 admission until a number moves, so a ceiling that took a restart to change would
 reach every Job except the one that needs it.
 
+**Who raised it is Fleet's reading of the connection, and it sets how far.** A
+person may raise a Job's cap to any figure. Helm may raise it to twice what the
+workflow's caps allow and a Job's Commander to three times, for turns and for
+cost alike. The multiple is of the cap the Job would inherit and not of the one
+in force, so repeated raises land on the same figure. The request body names
+no raiser, and one that tried to would be ignored.
+
 **It is per Job, and two numbers rather than one.** A Drone belongs to a
 workflow step, so a four-step Job is four Drones; a per-Drone ceiling on that
 Job is four times the number anybody thought they set, and the Job is what a
