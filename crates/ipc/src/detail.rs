@@ -388,6 +388,16 @@ pub struct JobDetail {
     /// [`JobDetail::of`]. `job.addition_changed` moves one without a read.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub additions: Vec<crate::added_steps::AddedStep>,
+    /// What is wrong with this Job right now, each kind once: a breakage, a
+    /// write-scope overlap, the latest failed ruling, a Drone gone quiet.
+    /// Empty is none. Filled after [`JobDetail::of`]. A Job's Now draws it.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub issues: Vec<crate::JobIssue>,
+    /// What this Job is waiting on while nothing of it runs: a resource,
+    /// another Job, a step in transition. Empty is a Job that is working, or
+    /// one that waits on a person. Filled after [`JobDetail::of`].
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub waiting: Vec<crate::JobWaiting>,
 }
 
 /// The Studio a Job came off: what to call it, and where on it to land.
@@ -821,6 +831,8 @@ impl JobDetail {
             walk_notes: Vec::new(),
             triggers: Vec::new(),
             additions: Vec::new(),
+            issues: Vec::new(),
+            waiting: Vec::new(),
         }
     }
 }

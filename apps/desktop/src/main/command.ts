@@ -28,7 +28,7 @@ import type {
   StagedAttachment,
 } from "@armada/protocol";
 import type { ApproveDispatch, FixMain, Branches, BranchesRead, ChangeSlotPool, RescueSlot, SetLandingTarget, SlotPoolChanged, SlotRescued, ToProposer } from "@armada/protocol";
-import type { ApproveWave, CapRaise, ChosenAnswer, EditJob, EditTask, FileReport, MovePlan, JobSummary, Overruled, Redirection, Redispatched, RestartRequested, TurnRaise } from "@armada/protocol";
+import type { AnswerMode, ApproveWave, CapRaise, CheckNamed, ChosenAnswer, EditJob, EditTask, FileReport, MovePlan, JobSummary, Overruled, Redirection, Redispatched, RestartRequested, TurnRaise } from "@armada/protocol";
 import type {
   AnswerCommand,
   AnswerHelmCall,
@@ -659,10 +659,18 @@ export class JobCommands {
   async answerQuestion(
     jobId: string,
     questionId: string,
-    chose: string,
+    chose: string | undefined,
+    mode?: AnswerMode,
   ): Promise<Outcome> {
-    if (chose.trim() === "") return { ok: false, why: "empty_instruction" };
-    const body: ChosenAnswer = { question_id: questionId, chose };
+    // A mode alone is an answer; a label that is blank is not, with or without one.
+    if (chose === undefined ? mode === undefined : chose.trim() === "") {
+      return { ok: false, why: "empty_instruction" };
+    }
+    const body: ChosenAnswer = {
+      question_id: questionId,
+      ...(chose === undefined ? {} : { chose }),
+      ...(mode === undefined ? {} : { mode }),
+    };
     return this.act(jobId, this.answering, "already_answering", (port) =>
       ask(port, "POST", route(jobId, "answer_question"), body),
     );
@@ -686,6 +694,7 @@ export class JobCommands {
     note?: string,
     rule?: string,
     scope?: AlwaysAllowScope,
+    mode?: AnswerMode,
   ): Promise<Outcome> {
     // Nothing rather than an empty string. A bare refusal is the body every
     // fleet before 11.5 took, and `{"note":""}` is a person's words nobody
@@ -701,6 +710,7 @@ export class JobCommands {
       // Only always_allow reads it, and only the Kit choice sends one: absent
       // is the repository, which is what every Fleet before 23.35 kept it in.
       ...(scope === undefined ? {} : { scope }),
+      ...(mode === undefined ? {} : { mode }),
     };
     return this.act(jobId, this.answering, "already_answering", (port) =>
       ask(port, "POST", route(jobId, "answer_command"), body),
@@ -768,8 +778,14 @@ export class JobCommands {
    * this step, or disagree and stand the criterion down for the repository.
    * One press is the whole answer — `note` is never required.
    */
-  async answerJudge(jobId: string, askedAt: string, answer: JudgeAnswer, note?: string): Promise<Outcome> {
-    const body: JudgeAnswered = { answer, asked_at: askedAt, note };
+  async answerJudge(
+    jobId: string,
+    askedAt: string,
+    answer: JudgeAnswer,
+    note?: string,
+    mode?: AnswerMode,
+  ): Promise<Outcome> {
+    const body: JudgeAnswered = { answer, asked_at: askedAt, note, ...(mode === undefined ? {} : { mode }) };
     return this.act(jobId, this.answering, "already_answering", (port) =>
       ask(port, "POST", route(jobId, "answer_judge"), body),
     );
@@ -932,6 +948,35 @@ export class JobCommands {
   async rerunChecks(jobId: string): Promise<Outcome> {
     return this.act(jobId, this.rerunningChecks, "already_rerunning_checks", (port) =>
       ask(port, "POST", route(jobId, "rerun_checks"), undefined, CHECKS_MS),
+    );
+  }
+
+  /**
+   * Run one Check of the running gate again. **Under `rerunningChecks`, the set
+   * `rerunChecks` uses**: that one answers a stopped step and these answer a
+   * running gate, so a Job never has both out and they need no set apart. The
+   * route answers when the Check is restarted rather than when it ends, so the
+   * default wait holds.
+   */
+  async retryCheck(jobId: string, check: string): Promise<Outcome> {
+    const body: CheckNamed = { check };
+    return this.act(jobId, this.rerunningChecks, "already_rerunning_checks", (port) =>
+      ask(port, "POST", route(jobId, "retry_check"), body),
+    );
+  }
+
+  /** End one Check of the running gate, recorded as skipped. `retryCheck`'s set and wait. */
+  async skipCheck(jobId: string, check: string): Promise<Outcome> {
+    const body: CheckNamed = { check };
+    return this.act(jobId, this.rerunningChecks, "already_rerunning_checks", (port) =>
+      ask(port, "POST", route(jobId, "skip_check"), body),
+    );
+  }
+
+  /** End every Check of the running gate that has not finished. No body. */
+  async skipChecks(jobId: string): Promise<Outcome> {
+    return this.act(jobId, this.rerunningChecks, "already_rerunning_checks", (port) =>
+      ask(port, "POST", route(jobId, "skip_checks")),
     );
   }
 

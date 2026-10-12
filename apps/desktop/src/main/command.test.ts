@@ -486,3 +486,59 @@ it("answers no paths at all where there is nowhere to ask", async () => {
 
   expect(found).toEqual([]);
 });
+
+/**
+ * The running gate's Check acts. **The name rides in the body of one and
+ * nothing rides with the other**: `skip_checks` is every unfinished Check.
+ */
+it("sends the Check a person named to retry_check and skip_check, and nothing to skip_checks", async () => {
+  const asked: Asked[] = [];
+  const commands = new JobCommands(boardOn(await fleetRecording(asked)));
+
+  await commands.retryCheck(A_JOB.id, "lint");
+  await commands.skipCheck(A_JOB.id, "unit");
+  await commands.skipChecks(A_JOB.id);
+
+  expect(asked.map((one) => one.path)).toEqual([
+    `/jobs/${A_JOB.id}/retry_check`,
+    `/jobs/${A_JOB.id}/skip_check`,
+    `/jobs/${A_JOB.id}/skip_checks`,
+  ]);
+  expect(JSON.parse(asked[0]?.body ?? "null")).toEqual({ check: "lint" });
+  expect(JSON.parse(asked[1]?.body ?? "null")).toEqual({ check: "unit" });
+  expect(asked[2]?.body).toBe("");
+});
+
+/** A mode alone is an answer, so no `chose` key crosses; with a label both do. */
+it("sends a question's mode without a label, and beside one", async () => {
+  const asked: Asked[] = [];
+  const commands = new JobCommands(boardOn(await fleetRecording(asked)));
+
+  await commands.answerQuestion(A_JOB.id, "q1", undefined, "quick");
+  await commands.answerQuestion(A_JOB.id, "q2", "Keep it", "best");
+  const bare = await commands.answerQuestion(A_JOB.id, "q3", undefined);
+  const blank = await commands.answerQuestion(A_JOB.id, "q4", "  ", "best");
+
+  expect(asked[0]?.path).toBe(`/jobs/${A_JOB.id}/answer_question`);
+  expect(JSON.parse(asked[0]?.body ?? "null")).toEqual({ question_id: "q1", mode: "quick" });
+  expect(JSON.parse(asked[1]?.body ?? "null")).toEqual({ question_id: "q2", chose: "Keep it", mode: "best" });
+  expect(bare).toEqual({ ok: false, why: "empty_instruction" });
+  expect(blank).toEqual({ ok: false, why: "empty_instruction" });
+  expect(asked).toHaveLength(2);
+});
+
+/** The command ask and the judge question carry the mode beside their answer. */
+it("sends a mode beside a command's answer and a judge's", async () => {
+  const asked: Asked[] = [];
+  const commands = new JobCommands(boardOn(await fleetRecording(asked)));
+
+  await commands.answerCommand(A_JOB.id, "call_1", "allow_for_job", undefined, undefined, undefined, "quick");
+  await commands.answerJudge(A_JOB.id, "2026-10-09T10:00:00Z", "agree", undefined, "best");
+
+  expect(JSON.parse(asked[0]?.body ?? "null")).toEqual({ call: "call_1", answer: "allow_for_job", mode: "quick" });
+  expect(JSON.parse(asked[1]?.body ?? "null")).toEqual({
+    answer: "agree",
+    asked_at: "2026-10-09T10:00:00Z",
+    mode: "best",
+  });
+});

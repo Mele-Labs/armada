@@ -13,6 +13,7 @@ import type { ApproveDispatch, FixMain } from "@armada/protocol";
 import type {
   Artifact,
   AlwaysAllowScope,
+  AnswerMode,
   CommandAnswer,
   HelmCallAnswer,
   JudgeAnswer,
@@ -653,8 +654,10 @@ void app.whenReady().then(() => {
   // The two acts that resume a step without redispatching. Which applies is
   // decided by whether the Job still holds a Drone; Fleet is the authority
   // and refuses the wrong one rather than Bridge picking silently.
-  ipcMain.handle(CHANNELS.answerQuestion, (_event, jobId: string, questionId: string, chose: string) =>
-    connection?.commands.answerQuestion(jobId, questionId, chose),
+  ipcMain.handle(
+    CHANNELS.answerQuestion,
+    (_event, jobId: string, questionId: string, chose: string | undefined, mode?: AnswerMode) =>
+      connection?.commands.answerQuestion(jobId, questionId, chose, mode),
   );
   // A command the drone was not given, answered where it waits or where it was
   // refused. The note rides with a reject, and the rule with an always-allow —
@@ -669,7 +672,8 @@ void app.whenReady().then(() => {
       note?: string,
       rule?: string,
       scope?: AlwaysAllowScope,
-    ) => connection?.commands.answerCommand(jobId, call, answer, note, rule, scope),
+      mode?: AnswerMode,
+    ) => connection?.commands.answerCommand(jobId, call, answer, note, rule, scope, mode),
   );
   // One call helm was held on, answered in the dock. No job id: the session is
   // waiting inside its own tool call, and nothing on the board moves. #1389.
@@ -691,8 +695,8 @@ void app.whenReady().then(() => {
   // disagree always.
   ipcMain.handle(
     CHANNELS.answerJudge,
-    (_event, jobId: string, askedAt: string, answer: JudgeAnswer, note?: string) =>
-      connection?.commands.answerJudge(jobId, askedAt, answer, note),
+    (_event, jobId: string, askedAt: string, answer: JudgeAnswer, note?: string, mode?: AnswerMode) =>
+      connection?.commands.answerJudge(jobId, askedAt, answer, note, mode),
   );
   // How the job meets the next such refusal. Moves nothing on the job.
   ipcMain.handle(CHANNELS.setWhenRefused, (_event, jobId: string, whenRefused: WhenRefused) =>
@@ -744,6 +748,15 @@ void app.whenReady().then(() => {
   ipcMain.handle(CHANNELS.rerunChecks, (_event, jobId: string) =>
     connection?.commands.rerunChecks(jobId),
   );
+  // The running gate's own Checks, one at a time or every unfinished one. Their
+  // own channels: `rerunChecks` answers a step that has stopped.
+  ipcMain.handle(CHANNELS.retryCheck, (_event, jobId: string, check: string) =>
+    connection?.commands.retryCheck(jobId, check),
+  );
+  ipcMain.handle(CHANNELS.skipCheck, (_event, jobId: string, check: string) =>
+    connection?.commands.skipCheck(jobId, check),
+  );
+  ipcMain.handle(CHANNELS.skipChecks, (_event, jobId: string) => connection?.commands.skipChecks(jobId));
   ipcMain.handle(CHANNELS.showAgain, (_event, jobId: string, spec?: string) =>
     connection?.commands.showAgain(jobId, spec),
   );
@@ -827,6 +840,9 @@ void app.whenReady().then(() => {
   // What the open Job holds on this machine. Opened with the Job and re-read
   // on every event naming it — its own channel because it is its own operation
   // and because it walks a process table, which a Job's detail does not.
+  // The Cockpit and the Dashboard, drawing a Now for every active Job without
+  // opening one. `false` when they leave; nothing is read while none is asking.
+  ipcMain.handle(CHANNELS.followActive, (_event, want: boolean) => connection?.followActive(want === true));
   ipcMain.handle(CHANNELS.readResources, (_event, jobId: string | null) =>
     connection?.readResources(jobId),
   );

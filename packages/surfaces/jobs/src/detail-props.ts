@@ -257,6 +257,13 @@ export type JobDetailProps = {
    */
   onRerunChecks: (jobId: string) => void;
   /**
+   * The Now panel's quick acts on the gate that is running: run one Check again, end it as
+   * skipped, or skip every one not finished. **Absent says what it would do**, as the mock does.
+   */
+  onRetryCheck?: (jobId: string, check: string) => void;
+  onSkipCheck?: (jobId: string, check: string) => void;
+  onSkipChecks?: (jobId: string) => void;
+  /**
    * Ask the Job to show its work again. **Nothing on the screen reads it**:
    * the step's Shown chapter drew its control, and went with the story.
    */

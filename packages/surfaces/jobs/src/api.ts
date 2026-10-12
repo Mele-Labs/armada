@@ -41,6 +41,8 @@ import type {
   Footprint,
   Handed,
   Crewed,
+  Active,
+  AnswerMode,
   Holds,
   History,
   FollowedLog,
@@ -205,11 +207,17 @@ export type JobsApi = {
    * The job comes back unchanged: it was `running` while it waited and is
    * `running` now. Fleet refuses 409 where nothing is waiting, where the id
    * names a question already answered, and where the label was not offered.
+   *
+   * **A `mode` leaves the deciding to the Drone** and is an answer on its own,
+   * so `chose` is then `undefined`: `best` tells it to think it through,
+   * `quick` to take the reasonable path and keep moving. With a label too, the
+   * label is the answer and the mode rides with it.
    */
   answerQuestion: (
     jobId: string,
     questionId: string,
-    chose: string,
+    chose: string | undefined,
+    mode?: AnswerMode,
   ) => Promise<Outcome>;
   /**
    * Allow or reject a command the job's drone reached for and was not given,
@@ -225,6 +233,9 @@ export type JobsApi = {
    * candidates — a name outside them is a 409 too. **`scope` is read by an
    * `always_allow` alone** and is `kit` for Always allow on this machine, which
    * is sent with a rule; absent is the repository.
+   *
+   * **`mode` rides beside the answer** and tells the Drone how to carry on:
+   * `answerQuestion`'s two.
    */
   answerCommand: (
     jobId: string,
@@ -233,6 +244,7 @@ export type JobsApi = {
     note?: string,
     rule?: string,
     scope?: AlwaysAllowScope,
+    mode?: AnswerMode,
   ) => Promise<Outcome>;
   /**
    * What one command does, in a cheap model's words, for the person deciding
@@ -252,9 +264,15 @@ export type JobsApi = {
   /**
    * Answer the question a judge refusal opened. One press is the whole
    * answer; `note` is never required. Fleet refuses 409 where the job is not
-   * holding a question open.
+   * holding a question open. `mode` rides beside the answer, `answerCommand`'s.
    */
-  answerJudge: (jobId: string, askedAt: string, answer: JudgeAnswer, note?: string) => Promise<Outcome>;
+  answerJudge: (
+    jobId: string,
+    askedAt: string,
+    answer: JudgeAnswer,
+    note?: string,
+    mode?: AnswerMode,
+  ) => Promise<Outcome>;
   /**
    * Change how one job meets a judge criterion that refuses. **Live**: the
    * next criterion that refuses reads it, and no drone is respawned.
@@ -334,6 +352,20 @@ export type JobsApi = {
    * themselves, not a store read.
    */
   rerunChecks: (jobId: string) => Promise<Outcome>;
+  /**
+   * Run one Check of a step's running gate again, and only that one; the ruling
+   * waits for it. `check` is `CheckUnderway.name`. **Refused 409 where no gate is
+   * running Checks for the Job**, and where it has no Check of that name — which
+   * is what separates this from `rerunChecks`, a stopped step's.
+   */
+  retryCheck: (jobId: string, check: string) => Promise<Outcome>;
+  /**
+   * End one Check of the running gate, recorded as skipped: it advances the step
+   * and is not a pass. Refused 409 as `retryCheck` is.
+   */
+  skipCheck: (jobId: string, check: string) => Promise<Outcome>;
+  /** `skipCheck` for every Check of the gate that has not finished. Checks that finished keep their outcome. */
+  skipChecks: (jobId: string) => Promise<Outcome>;
   /**
    * Ask a Job to show its work: Fleet reruns a spec a Drone named, in the Job's
    * worktree, and keeps what it captured as a set of its own beside the step's
@@ -449,6 +481,13 @@ export type JobsApi = {
    * naming the Job, and this walks a process table and a directory.
    */
   readResources: (jobId: string | null) => Promise<void>;
+  /**
+   * Hold the Job and its Drones for every active Job in `BridgeState.active`, or
+   * `false` to drop them. **For the surfaces that draw a Now without opening a
+   * Job** — the Cockpit and the Dashboard. Nothing is read for a window that
+   * does not ask, and the answer is published rather than returned.
+   */
+  followActive: (want: boolean) => Promise<void>;
   /**
    * Keep the reading above live while Pulse is drawing it, or `null` to stop.
    *
@@ -800,6 +839,16 @@ export type JobsState = {
    */
   jobDrones: Crewed;
   /**
+   * The Job whole and its Drones for every Job that has begun and not ended,
+   * by Job id — what the Cockpit and the Dashboard draw a Now from.
+   *
+   * **Beside `watched` and `jobDrones`, never in place of them**: those are the
+   * open Job's and stay so. A Job is here from the first event after it begins,
+   * re-read on the events that re-read the open one, kept through a failed
+   * re-read, and dropped when it ends.
+   */
+  active: Active;
+  /**
    * What Fleet found when somebody pressed for a look — and only then.
    *
    * **Not read on opening a Job.** It is a thing a person did, it costs a
@@ -843,6 +892,7 @@ export const JOBS_NOTHING_YET: JobsState = {
   remarks: { state: "none" },
   resources: { state: "none" },
   jobDrones: { state: "none" },
+  active: {},
   examination: { state: "none" },
   runSheet: { state: "none" },
   runFollowed: { state: "none" },
@@ -889,6 +939,9 @@ export const JOBS_CHANNELS = {
   overrideVerdict: "bridge:override-verdict",
   rerunGate: "bridge:rerun-gate",
   rerunChecks: "bridge:rerun-checks",
+  retryCheck: "bridge:retry-check",
+  skipCheck: "bridge:skip-check",
+  skipChecks: "bridge:skip-checks",
   showAgain: "bridge:show-again",
   raiseCostCap: "bridge:raise-cost-cap",
   raiseTurnCap: "bridge:raise-turn-cap",
@@ -901,6 +954,7 @@ export const JOBS_CHANNELS = {
   readHistory: "bridge:read-history",
   readEvidence: "bridge:read-evidence",
   readResources: "bridge:read-resources",
+  followActive: "bridge:follow-active",
   watchPulse: "bridge:watch-pulse",
   watchRunSheet: "bridge:watch-run-sheet",
   observeRun: "bridge:observe-run",

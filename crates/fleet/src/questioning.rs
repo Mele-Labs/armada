@@ -27,8 +27,10 @@ use core_model::{
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use ipc::mcp::{AskQuestion, AskedOption};
+use ipc::AnswerMode;
 
 use crate::adrift::Adrift;
+use crate::answer_mode::mode_line;
 use crate::daemon::Fleet;
 use crate::session::{LiveSession, Occasion};
 use crate::working::Working;
@@ -132,15 +134,38 @@ impl Question {
 pub struct Answer(String);
 
 impl Answer {
-    pub(crate) fn to(question: &str, chose: &AskedOption) -> Answer {
-        Answer(format!(
-            "You asked: {question}\n\n\
-             The answer is: {}\n\
-             Which you said means: {}\n\n\
-             Carry on from here. This question is answered and closed — do not \
-             ask it again.",
-            chose.label, chose.consequence
-        ))
+    /// **The label wins where both are named**: the mode's line rides with it,
+    /// after the consequence. A mode alone leaves the choice to the Drone.
+    pub(crate) fn to(
+        question: &str,
+        chose: Option<&AskedOption>,
+        mode: Option<AnswerMode>,
+    ) -> Answer {
+        let deciding = mode.map(|mode| format!("{}\n\n", mode_line(mode)));
+        let deciding = deciding.as_deref().unwrap_or_default();
+        Answer(match chose {
+            Some(chose) => format!(
+                "You asked: {question}\n\n\
+                 The answer is: {}\n\
+                 Which you said means: {}\n\n\
+                 {deciding}\
+                 Carry on from here. This question is answered and closed — do not \
+                 ask it again.",
+                chose.label, chose.consequence
+            ),
+            None => format!(
+                "You asked: {question}\n\n\
+                 {deciding}\
+                 Carry on from here. This question is answered and closed — do not \
+                 ask it again."
+            ),
+        })
+    }
+
+    /// The mode's line alone, for a person's answer to something that is not a
+    /// question the Drone asked: a command it is held on.
+    pub(crate) fn deciding(mode: AnswerMode) -> Answer {
+        Answer(mode_line(mode).to_string())
     }
 
     pub fn text(&self) -> &str {
@@ -204,6 +229,8 @@ pub enum NotAnswered {
     /// label matching the newer question by chance would dispatch work nobody
     /// chose.
     Superseded { job: JobId },
+    /// Neither a label nor a mode: there is nothing to tell the Drone.
+    NothingChosen { job: JobId },
     /// The label is not one the Drone offered.
     NotOffered { chose: String, offered: Vec<String> },
     /// The answer would not go down the pipe.
@@ -221,6 +248,11 @@ impl core::fmt::Display for NotAnswered {
                 out,
                 "the question being answered on job {} is not the one \
                  outstanding. Read the job again and answer the one it names",
+                job.as_str()
+            ),
+            NotAnswered::NothingChosen { job } => write!(
+                out,
+                "the answer on job {} names neither one of the drone's answers nor a mode",
                 job.as_str()
             ),
             NotAnswered::NotOffered { chose, offered } => write!(
@@ -246,8 +278,8 @@ impl std::error::Error for NotAnswered {}
 pub struct Told {
     pub job: JobId,
     pub step: StepId,
-    /// The label the person picked.
-    pub chose: String,
+    /// The label the person picked. Absent where they left it to the Drone.
+    pub chose: Option<String>,
 }
 
 impl<H, V, W> Fleet<H, V, W>
@@ -334,16 +366,19 @@ where
         &self,
         job_id: &JobId,
         question_id: &str,
-        chose: &str,
+        chose: Option<&str>,
+        mode: Option<AnswerMode>,
     ) -> Result<Told, NotAnswered> {
         // Whichever of the Job's live Drones asked it: slice 5.
         let mut answered = Err(NotAnswered::NothingIsAsking {
             job: job_id.clone(),
         });
         for drone in self.each_live(job_id).await {
-            answered =
-                crate::crew::as_caller(drone, self.answer_question_of(job_id, question_id, chose))
-                    .await;
+            answered = crate::crew::as_caller(
+                drone,
+                self.answer_question_of(job_id, question_id, chose, mode),
+            )
+            .await;
             if !matches!(answered, Err(NotAnswered::NothingIsAsking { .. })) {
                 break;
             }
@@ -355,7 +390,8 @@ where
         &self,
         job_id: &JobId,
         question_id: &str,
-        chose: &str,
+        chose: Option<&str>,
+        mode: Option<AnswerMode>,
     ) -> Result<Told, NotAnswered> {
         let Some(slot) = self.slot_of(job_id).await else {
             return Err(NotAnswered::NothingIsAsking {
@@ -378,15 +414,21 @@ where
                 job: job_id.clone(),
             });
         }
-        let Some(chosen) = asked.offering(chose) else {
-            return Err(NotAnswered::NotOffered {
+        let chosen = match chose {
+            Some(chose) => Some(asked.offering(chose).ok_or_else(|| NotAnswered::NotOffered {
                 chose: chose.to_string(),
                 offered: asked.labels().iter().map(|held| held.to_string()).collect(),
-            });
+            })?),
+            None if mode.is_none() => {
+                return Err(NotAnswered::NothingChosen {
+                    job: job_id.clone(),
+                })
+            }
+            None => None,
         };
         let step = asked.step().clone();
-        let told = Answer::to(asked.question(), chosen);
-        let label = chosen.label.clone();
+        let told = Answer::to(asked.question(), chosen, mode);
+        let label = chosen.map(|chosen| chosen.label.clone());
         // **The write before the clear.** A session that will not take the
         // answer leaves the question outstanding, so a person can try again
         // rather than being told the question is gone and the Drone never heard
@@ -411,7 +453,7 @@ where
             at_work.waiting(now.clone());
         }
         drop(working);
-        self.noted_answered(job_id, &step, question_id, &label);
+        self.noted_answered(job_id, &step, question_id, label.as_deref(), mode);
         self.events().publish(ipc::Event::JobAsking(ipc::JobAsking {
             job_id: ipc::JobId::from(job_id),
             step_id: ipc::StepId::from(&step),
@@ -484,7 +526,14 @@ where
     /// Write the answer into the Job's own log. **Where a person's decision is
     /// recorded, beside the verdicts** — readable afterwards by somebody working
     /// out why a Job was split the way it was.
-    fn noted_answered(&self, job: &JobId, step: &StepId, question_id: &str, chose: &str) {
+    fn noted_answered(
+        &self,
+        job: &JobId,
+        step: &StepId,
+        question_id: &str,
+        chose: Option<&str>,
+        mode: Option<AnswerMode>,
+    ) {
         let envelope = Envelope::new(
             self.now(),
             Level::Info,
@@ -495,9 +544,18 @@ where
         .in_job(job.as_ulid().clone())
         .at_step(step.as_str())
         .with_field("question_id", FieldValue::Str(question_id.to_string()))
-        .with_field("chose", FieldValue::Str(chose.to_string()))
+        .with_field("chose", FieldValue::Str(chose.unwrap_or_default().to_string()))
+        .with_field("mode", FieldValue::Str(mode.map_or("", mode_name).to_string()))
         .with_field("actor", FieldValue::Str(Actor::Human.as_wire().to_string()));
         self.noted_in_the_log(job, &envelope);
+    }
+}
+
+/// The mode as the log spells it, the wire's own word.
+pub(crate) fn mode_name(mode: AnswerMode) -> &'static str {
+    match mode {
+        AnswerMode::Best => "best",
+        AnswerMode::Quick => "quick",
     }
 }
 

@@ -19,10 +19,11 @@ use api::{HostedSessions, Refusal};
 use ipc::{
     AnswerSessionAsk, AnswerWaiting, DismissWaiting, HelmCallAnswer, HelmCallInFlight, Instant, QuestionAnswer,
     SendSessionMessage, SessionRecord, SessionRow, SessionVoice, SetWaitingFor, WaitingAct,
-    WaitingActKind, WaitingItem, WaitingMode, WaitingOption, WaitingSource, WireError,
+    WaitingActKind, WaitingItem, WaitingOption, WaitingSource, WireError,
 };
 use store::{KeptSession, KeptWaiting, Store};
 
+use crate::answer_mode::{mode_line, of_waiting};
 use crate::daemon::Fleet;
 
 const SESSION_WAITING_UNNAMED: &str = "fleet.session_waiting_unnamed";
@@ -34,14 +35,6 @@ pub(crate) struct Window {
     pub url: String,
     pub title: String,
     pub since: String,
-}
-
-/// The line that tells the agent to settle an item itself.
-pub(crate) fn mode_line(mode: WaitingMode) -> &'static str {
-    match mode {
-        WaitingMode::Best => "Decide this yourself. Think it through and go with the best option.",
-        WaitingMode::Quick => "Decide this yourself. Take the reasonable path and keep moving.",
-    }
 }
 
 fn offer_label(offer: &HelmCallAnswer) -> &'static str {
@@ -345,7 +338,7 @@ where
             ),
             None => None,
         };
-        let line = said.mode.map(mode_line);
+        let line = said.mode.map(|mode| mode_line(of_waiting(mode)));
         let message = |body: String| SendSessionMessage {
             session_id: said.session_id.clone(),
             text: body,

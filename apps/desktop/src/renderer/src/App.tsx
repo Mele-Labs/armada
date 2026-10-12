@@ -819,6 +819,9 @@ export function App({ draft }: AppProps = {}) {
                   onRaiseTurnCap={(jobId, turns) => void commands.raiseTurns(jobId, turns)}
                   onRerun={(jobId) => void commands.rerun(jobId)}
                   onRerunChecks={(jobId) => void commands.rerunChecks(jobId)}
+                  onRetryCheck={(jobId, check) => void commands.retryCheck(jobId, check)}
+                  onSkipCheck={(jobId, check) => void commands.skipCheck(jobId, check)}
+                  onSkipChecks={(jobId) => void commands.skipChecks(jobId)}
                   onReport={commands.report}
                   onAddTask={commands.addTask}
                   onDropTask={commands.dropTask}

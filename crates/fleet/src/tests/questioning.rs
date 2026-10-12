@@ -33,6 +33,7 @@ use core_model::{
     Actor, EscalationTrigger, JobId, JobStatus, StepId, StepState, Target, Timestamp,
 };
 use ipc::mcp::{AskQuestion, AskedOption};
+use ipc::AnswerMode;
 use testkit::{FakeHarness, FakeJudge, FakeVcs, FakeWorkProduct, Sketch};
 
 use crate::clock::Clock;
@@ -300,7 +301,7 @@ async fn the_board_row_says_the_drone_is_waiting_and_stops_saying_it() {
     );
 
     fleet
-        .answer_question(&job, asked.id().as_str(), "Fold it in")
+        .answer_question(&job, asked.id().as_str(), Some("Fold it in"), None)
         .await
         .unwrap();
     let after = Queries::list_jobs(&fleet, None).await.expect("a board");
@@ -364,11 +365,11 @@ async fn an_answer_reaches_the_drone_and_closes_the_question() {
     let asked = fleet.ask_question(&job, a_question()).await.unwrap();
 
     let told = fleet
-        .answer_question(&job, asked.id().as_str(), "Fold it in")
+        .answer_question(&job, asked.id().as_str(), Some("Fold it in"), None)
         .await
         .expect("a label the Drone offered");
 
-    assert_eq!(told.chose, "Fold it in");
+    assert_eq!(told.chose.as_deref(), Some("Fold it in"));
     assert!(
         !is_waiting(&fleet, &job).await,
         "answered once — the question is gone, not marked"
@@ -391,7 +392,7 @@ async fn a_label_that_was_not_offered_is_refused() {
     let asked = fleet.ask_question(&job, a_question()).await.unwrap();
 
     let refused = fleet
-        .answer_question(&job, asked.id().as_str(), "do whatever you think best")
+        .answer_question(&job, asked.id().as_str(), Some("do whatever you think best"), None)
         .await
         .expect_err("that is not one of the answers");
     assert!(matches!(refused, NotAnswered::NotOffered { .. }));
@@ -412,14 +413,14 @@ async fn an_answer_to_a_question_that_is_not_the_one_outstanding_is_refused() {
     let job = started(&fleet, &home).await;
     let first = fleet.ask_question(&job, a_question()).await.unwrap();
     fleet
-        .answer_question(&job, first.id().as_str(), "Fold it in")
+        .answer_question(&job, first.id().as_str(), Some("Fold it in"), None)
         .await
         .unwrap();
     let second = fleet.ask_question(&job, a_question()).await.unwrap();
     assert_ne!(first.id().as_str(), second.id().as_str());
 
     let refused = fleet
-        .answer_question(&job, first.id().as_str(), "Fold it in")
+        .answer_question(&job, first.id().as_str(), Some("Fold it in"), None)
         .await
         .expect_err("that question has been answered");
     assert!(matches!(refused, NotAnswered::Superseded { .. }));
@@ -437,7 +438,7 @@ async fn a_job_with_nothing_outstanding_takes_no_answer() {
     let job = started(&fleet, &home).await;
 
     let refused = fleet
-        .answer_question(&job, "01WHATEVER", "Fold it in")
+        .answer_question(&job, "01WHATEVER", Some("Fold it in"), None)
         .await
         .expect_err("nothing asked");
     assert!(matches!(refused, NotAnswered::NothingIsAsking { .. }));
@@ -511,4 +512,113 @@ async fn a_waiting_drone_is_never_read_as_thrashing() {
         JobStatus::Running,
         "and nothing escalated it as `thrashing`"
     );
+}
+
+/// A Drone that keeps every line it is told in a file, so a test can read what
+/// reached it. The turn is one JSON line, so the wording is whole on it.
+fn a_drone_that_keeps_what_it_is_told(kept: &std::path::Path) -> FakeHarness {
+    FakeHarness::running(
+        "/bin/sh",
+        &[
+            "-c",
+            &format!(
+                "echo BUSY; while IFS= read -r line; do printf '%s\\n' \"$line\" >> '{}'; echo ANSWERED; done",
+                kept.display()
+            ),
+        ],
+    )
+    .reading("BUSY", called())
+    .reading("ANSWERED", called())
+}
+
+/// What reached the Drone, once it holds `needle`: the opening brief arrives first.
+async fn was_told(kept: &std::path::Path, needle: &str) -> String {
+    for _ in 0..200 {
+        if let Ok(told) = std::fs::read_to_string(kept) {
+            if told.contains(needle) {
+                return told;
+            }
+        }
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+    panic!("`{needle}` never reached the Drone");
+}
+
+/// **A mode alone is an answer.** `best` and `quick` name no option: the Drone
+/// is told to settle it itself, in Fleet's words, and the question clears.
+#[tokio::test]
+async fn a_mode_alone_tells_the_drone_to_decide_and_clears_the_question() {
+    let home = TempDir::new();
+    let kept = home.path().join("told.txt");
+    let fleet = a_fleet_with(&home, a_drone_that_keeps_what_it_is_told(&kept));
+    let job = started(&fleet, &home).await;
+    let asked = fleet.ask_question(&job, a_question()).await.unwrap();
+
+    let told = fleet
+        .answer_question(&job, asked.id().as_str(), None, Some(AnswerMode::Quick))
+        .await
+        .expect("a mode is an answer");
+
+    assert_eq!(told.chose, None);
+    let reached = was_told(&kept, "Take the reasonable path").await;
+    assert!(
+        reached.contains("Decide this yourself. Take the reasonable path and keep moving."),
+        "{reached}"
+    );
+    assert!(
+        !reached.contains("Think it through"),
+        "only the line for the mode sent: {reached}"
+    );
+    assert!(!is_waiting(&fleet, &job).await, "answered, so the question is gone");
+}
+
+/// **With both, the label is the answer and the line rides with it.**
+#[tokio::test]
+async fn a_label_and_a_mode_together_send_the_label_with_the_line() {
+    let home = TempDir::new();
+    let kept = home.path().join("told.txt");
+    let fleet = a_fleet_with(&home, a_drone_that_keeps_what_it_is_told(&kept));
+    let job = started(&fleet, &home).await;
+    let asked = fleet.ask_question(&job, a_question()).await.unwrap();
+
+    let told = fleet
+        .answer_question(&job, asked.id().as_str(), Some("Fold it in"), Some(AnswerMode::Best))
+        .await
+        .expect("a label the Drone offered");
+
+    assert_eq!(told.chose.as_deref(), Some("Fold it in"));
+    let reached = was_told(&kept, "Think it through").await;
+    assert!(reached.contains("The answer is: Fold it in"), "{reached}");
+    assert!(
+        reached.contains("Decide this yourself. Think it through and go with the best option."),
+        "{reached}"
+    );
+}
+
+/// A stale id is refused whatever else the answer carries, and so is an answer
+/// that names neither a label nor a mode. The question stands in both.
+#[tokio::test]
+async fn a_stale_id_or_an_empty_answer_is_refused_and_the_question_stands() {
+    let home = TempDir::new();
+    let fleet = a_fleet_with(&home, a_drone_that_listens());
+    let job = started(&fleet, &home).await;
+    let first = fleet.ask_question(&job, a_question()).await.unwrap();
+    fleet
+        .answer_question(&job, first.id().as_str(), None, Some(AnswerMode::Quick))
+        .await
+        .unwrap();
+    let second = fleet.ask_question(&job, a_question()).await.unwrap();
+
+    let stale = fleet
+        .answer_question(&job, first.id().as_str(), None, Some(AnswerMode::Best))
+        .await
+        .expect_err("that question has been answered");
+    assert!(matches!(stale, NotAnswered::Superseded { .. }));
+
+    let empty = fleet
+        .answer_question(&job, second.id().as_str(), None, None)
+        .await
+        .expect_err("there is nothing to tell the Drone");
+    assert!(matches!(empty, NotAnswered::NothingChosen { .. }));
+    assert!(is_waiting(&fleet, &job).await, "and the one outstanding is untouched");
 }

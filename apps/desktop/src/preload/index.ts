@@ -76,6 +76,7 @@ import type {
 } from "@armada/screens/src/setup-reads";
 import type {
   AlwaysAllowScope,
+  AnswerMode,
   CommandAnswer,
   HelmCallAnswer,
   JudgeAnswer,
@@ -223,9 +224,10 @@ const api: BridgeApi = {
   answerQuestion: (
     jobId: string,
     questionId: string,
-    chose: string,
+    chose: string | undefined,
+    mode?: AnswerMode,
   ): Promise<Outcome> =>
-    ipcRenderer.invoke(CHANNELS.answerQuestion, jobId, questionId, chose),
+    ipcRenderer.invoke(CHANNELS.answerQuestion, jobId, questionId, chose, mode),
   // The answer is one of the three Fleet offered for this call. The note is a
   // person's own words, read only on a reject, and `undefined` crosses as
   // `undefined` — a bare refusal sends no prose at all. The rule is one of
@@ -237,8 +239,9 @@ const api: BridgeApi = {
     note?: string,
     rule?: string,
     scope?: AlwaysAllowScope,
+    mode?: AnswerMode,
   ): Promise<Outcome> =>
-    ipcRenderer.invoke(CHANNELS.answerCommand, jobId, call, answer, note, rule, scope),
+    ipcRenderer.invoke(CHANNELS.answerCommand, jobId, call, answer, note, rule, scope, mode),
   // One held helm call. The note is a person's own words, read only on a
   // refusal; `undefined` crosses as `undefined`.
   answerHelmCall: (call: string, answer: HelmCallAnswer, note?: string): Promise<Outcome> =>
@@ -249,8 +252,13 @@ const api: BridgeApi = {
     ipcRenderer.invoke(CHANNELS.explainCommand, jobId, callId),
   setWhenBlocked: (jobId: string, whenBlocked: WhenBlocked): Promise<Outcome> =>
     ipcRenderer.invoke(CHANNELS.setWhenBlocked, jobId, whenBlocked),
-  answerJudge: (jobId: string, askedAt: string, answer: JudgeAnswer, note?: string): Promise<Outcome> =>
-    ipcRenderer.invoke(CHANNELS.answerJudge, jobId, askedAt, answer, note),
+  answerJudge: (
+    jobId: string,
+    askedAt: string,
+    answer: JudgeAnswer,
+    note?: string,
+    mode?: AnswerMode,
+  ): Promise<Outcome> => ipcRenderer.invoke(CHANNELS.answerJudge, jobId, askedAt, answer, note, mode),
   setWhenRefused: (jobId: string, whenRefused: WhenRefused): Promise<Outcome> =>
     ipcRenderer.invoke(CHANNELS.setWhenRefused, jobId, whenRefused),
   // The other two settings on one job. `null` crosses as `null`, which is the
@@ -287,6 +295,15 @@ const api: BridgeApi = {
   // Run a stopped step's Checks again. Its own entry beside `rerunGate`'s, for
   // the trigger the two partition on — `#1105`.
   rerunChecks: (jobId: string): Promise<Outcome> => ipcRenderer.invoke(CHANNELS.rerunChecks, jobId),
+
+  // One Check of the gate that is running, run again or ended as skipped, and
+  // every unfinished one skipped. Beside `rerunChecks`, which answers a step
+  // that has stopped.
+  retryCheck: (jobId: string, check: string): Promise<Outcome> =>
+    ipcRenderer.invoke(CHANNELS.retryCheck, jobId, check),
+  skipCheck: (jobId: string, check: string): Promise<Outcome> =>
+    ipcRenderer.invoke(CHANNELS.skipCheck, jobId, check),
+  skipChecks: (jobId: string): Promise<Outcome> => ipcRenderer.invoke(CHANNELS.skipChecks, jobId),
 
   // Ask a Job to show its work. Its own entry because it moves nothing on the
   // Job: what comes back is a set of frames, or why there is none. `spec` names
@@ -372,6 +389,7 @@ const api: BridgeApi = {
   // What the open Job holds on this machine. Read-only, and its own entry
   // because it is its own operation: `watchJob` is re-read on every event
   // naming the Job and this walks a process table and a directory.
+  followActive: (want: boolean): Promise<void> => ipcRenderer.invoke(CHANNELS.followActive, want),
   readResources: (jobId: string | null): Promise<void> =>
     ipcRenderer.invoke(CHANNELS.readResources, jobId),
 

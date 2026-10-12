@@ -37,7 +37,7 @@ import { heldByAFlag } from "./gaming";
 import { GamingHeld } from "./gaming-held";
 import { StepActs } from "./StepActs";
 import type { NowView } from "./draft/now";
-import { nowPanelOf } from "./now-panel";
+import { nowPanelOf, type NowActed } from "./now-panel";
 import { OverviewBoard } from "./OverviewBoard";
 import { walkAct } from "./walked";
 import type { DetailTab } from "./detail-tabs";
@@ -683,6 +683,19 @@ export function OverviewTab(props: OverviewTabProps) {
   const fixJob = lead.fix?.job;
   const openJob = props.onOpenJob;
   const openFix = fixJob === undefined || openJob === undefined ? undefined : () => openJob(fixJob);
+  // The Now panel's quick acts. A redirect is the person's words, so it opens the Drone, whose
+  // panel holds the dialog; a step retried asks the same confirmation its own button does.
+  const { onRetryCheck, onSkipCheck, onSkipChecks } = props;
+  const onNowAct =
+    onRetryCheck === undefined || onSkipCheck === undefined || onSkipChecks === undefined
+      ? undefined
+      : ({ glyph, check, drone }: NowActed) => {
+          if (glyph === "skip_all") onSkipChecks(job.id);
+          else if (glyph === "retry_step") props.onAct("restart_step", job.id);
+          else if (glyph === "redirect") {
+            if (drone !== undefined) props.onOpenDrone?.(drone);
+          } else if (check !== undefined) (glyph === "retry" ? onRetryCheck : onSkipCheck)(job.id, check);
+        };
   const leadAct =
     lead.act === undefined || waiting !== undefined ? undefined : lead.approves === true ? (
       props.headerActs
@@ -791,7 +804,7 @@ export function OverviewTab(props: OverviewTabProps) {
             }),
       }}
       waiting={waiting}
-      now={nowPanelOf(props.nowView, { onOpenDrone: props.onOpenDrone, onOpenCheckLog: props.onOpenCheckLog, onOpenJob: openJob, onSaid })}
+      now={nowPanelOf(props.nowView, { onOpenDrone: props.onOpenDrone, onOpenCheckLog: props.onOpenCheckLog, onOpenJob: openJob, onAct: onNowAct, onSaid })}
       // **What the approval approves, only while the lead offers it.** The
       // owner approved Job 1 on 1 Oct 2026 without seeing what counted as
       // done or how its steps gate, and the Judge refused the plan for it.

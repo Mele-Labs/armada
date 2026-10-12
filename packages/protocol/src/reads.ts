@@ -350,6 +350,23 @@ export type Holds = JobRead<{ resources: JobResources }>;
 export type Crewed = JobRead<{ drones: JobDrones }>;
 
 /**
+ * What main holds for one Job that has begun and not ended: the Job whole and
+ * every Drone it has had, as `get_job` and `list_job_drones` last answered.
+ * Either is absent until its first read lands.
+ */
+export type ActiveJob = { detail?: JobDetail; drones?: JobDrones };
+
+/**
+ * `ActiveJob` for every active Job, by Job id.
+ *
+ * **The open Job's reads in `Watched` and `Crewed` are not these** and are not
+ * disturbed by them: a Job is here from the moment it begins, a surface draws
+ * its Now from the pair, and a failed re-read keeps the last good one, as they
+ * do. A Job that ends is dropped.
+ */
+export type Active = Record<string, ActiveJob>;
+
+/**
  * `POST /jobs/:job_id/examine`, and what it found.
  *
  * **Not a `JobRead`.** Nothing polls it: it is a thing a person pressed, and it

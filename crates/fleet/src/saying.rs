@@ -404,7 +404,9 @@ impl fmt::Display for Adrift {
             ),
             // `questioning::NotAnswered`'s sentence, whole: a second wording
             // here would be a second authority for one refusal.
-            Adrift::NotAnswerable { because, .. } => out.write_str(because),
+            Adrift::NotAnswerable { because, .. } | Adrift::NoCheckToAct { because, .. } => {
+                out.write_str(because)
+            }
             Adrift::NotUnderReview { job, status } => write!(
                 out,
                 "{} is {} and is not standing at a human gate. Approve, request changes and \
@@ -866,6 +868,7 @@ impl Adrift {
             | Adrift::DroneNotLive { job, .. }
             | Adrift::NotTheJobsProcess { job, .. }
             | Adrift::NotAnswerable { job, .. }
+            | Adrift::NoCheckToAct { job, .. }
             | Adrift::NotUnderReview { job, .. }
             | Adrift::NoDroneToTell { job }
             | Adrift::NoteAlreadyWaiting { job, .. }
@@ -1022,6 +1025,7 @@ impl Error for Adrift {
             | Adrift::NotTheJobsProcess { .. }
             // And an answer that does not apply, which is the same shape.
             | Adrift::NotAnswerable { .. }
+            | Adrift::NoCheckToAct { .. }
             // The two review refusals join them: a Job that is not at a gate
             // has nothing underneath saying why, only the state it is in.
             | Adrift::NotUnderReview { .. }

@@ -17,15 +17,16 @@ use core_model::{
     Reach, StepId, WhenBlocked,
 };
 use ipc::mcp::PermissionAsked;
-use ipc::CommandAnswer;
+use ipc::{AnswerMode, CommandAnswer};
 use tokio::sync::oneshot;
 
 use crate::adrift::Adrift;
+use crate::answer_mode::mode_line;
 use crate::daemon::Fleet;
 use crate::permitting::{
     always_allow_rules, first, Answered, First, Permitted, Refusing, Waiting, Withheld,
 };
-use crate::resume::Steer;
+use crate::resume::{Redirection, Steer};
 use crate::session::{LiveSession, Occasion};
 
 /// What a person may answer about a command a Drone is waiting on. **All
@@ -664,6 +665,7 @@ where
         job_id: &JobId,
         call: &str,
         answered: Answered,
+        mode: Option<AnswerMode>,
     ) -> Result<(), NotPermitted> {
         // Cloned rather than handed back out of the first call: the two paths
         // are tried in order and only one of them consumes it, and a signature
@@ -671,20 +673,23 @@ where
         // a value smuggled through it.
         // Whichever of the Job's live Drones is waiting on it: slice 5.
         for drone in self.each_live(job_id).await {
-            let waiting = self.answer_waiting(job_id, call, answered.clone());
+            let waiting = self.answer_waiting(job_id, call, answered.clone(), mode);
             if crate::crew::as_caller(drone, waiting).await? {
                 return Ok(());
             }
         }
-        self.answer_refused(job_id, call, answered).await
+        self.answer_refused(job_id, call, answered, mode).await
     }
 
-    /// `true` where the call was waiting and is answered.
+    /// `true` where the call was waiting and is answered. **A mode goes as a
+    /// turn of its own**, after the answer: an allow is the held call returning
+    /// and has no words to carry it.
     async fn answer_waiting(
         &self,
         job_id: &JobId,
         call: &str,
         answered: Answered,
+        mode: Option<AnswerMode>,
     ) -> Result<bool, NotPermitted> {
         let said_as = said_of(&answered);
         let Some(slot) = self.slot_of(job_id).await else {
@@ -726,6 +731,18 @@ where
                 })?;
             at_work.waiting(self.now());
         }
+        if let Some(mode) = mode {
+            let deciding = crate::questioning::Answer::deciding(mode);
+            at_work.instructed(Occasion::Answer, deciding.text());
+            at_work
+                .session()
+                .answer(&deciding)
+                .await
+                .map_err(|cause| NotPermitted::NotDelivered {
+                    cause: cause.to_string(),
+                })?;
+            at_work.waiting(self.now());
+        }
         at_work.permission_settled();
         drop(working);
         self.noted_permission(
@@ -745,6 +762,7 @@ where
         job_id: &JobId,
         call: &str,
         answered: Answered,
+        mode: Option<AnswerMode>,
     ) -> Result<(), NotPermitted> {
         let answer = answered.answer();
         let said_as = said_of(&answered);
@@ -769,13 +787,19 @@ where
         }
         let step = crate::stuck::stopped_step(&job).cloned();
         let delivered = if self.drone_speakable(job_id).await {
-            self.steer(job_id, Steer::Permission(&permitted(&command, &answered)))
+            let told = permitted(&command, &answered);
+            let told = match mode {
+                Some(mode) => told.deciding(mode),
+                None => told,
+            };
+            self.steer(job_id, Steer::Permission(&told))
                 .await
                 .map(|_| ())
         } else {
             // Reject is never offered here, so this is an allow: the next
-            // Drone carries it, and is told nothing about it.
-            self.restart_step(job_id, None).await.map(|_| ())
+            // Drone carries it, and is told nothing about it but the mode.
+            let deciding = mode.and_then(|mode| Redirection::saying(mode_line(mode)));
+            self.restart_step(job_id, deciding.as_ref()).await.map(|_| ())
         };
         delivered.map_err(|why| NotPermitted::NotDelivered {
             cause: why.to_string(),

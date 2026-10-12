@@ -22,6 +22,7 @@
 // a field moves, and every closed set is left as `string`.
 
 import type { AddedStep } from "./added-steps";
+import type { JobIssue, JobWaiting } from "./issues";
 import type { JobTrigger } from "./triggers";
 import type { WalkNote } from "./walk-notes";
 import type { JobConfidence } from "./confidence";
@@ -72,6 +73,13 @@ export type JobDetail = {
   triggers?: JobTrigger[];
   /** The steps added to this Job, beside its frozen workflow and never in it. Since 23.68. */
   additions?: AddedStep[];
+  /**
+   * What is wrong with this Job now, each kind once. Pointers: the breakage, overlap and verdict
+   * are read where they already live. Absent is none.
+   */
+  issues?: JobIssue[];
+  /** What it waits on while nothing of it runs. Absent is a Job that is working, or waits on a person. */
+  waiting?: JobWaiting[];
   /** Where the frozen workflow came from, off the Job's record. Absent from an older Fleet. */
   workflow_source?: string;
   /** The Job's plan whole. Absent is a Job no plan was recorded for. Since 13.21. */

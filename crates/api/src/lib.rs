@@ -68,6 +68,8 @@ mod needs;
 mod observing;
 /// A message or a stop addressed to one Drone of a Job. #1666.
 mod one_drone;
+/// A person's skip or retry on the Checks a gate is running.
+mod check_acts;
 mod piloting;
 /// A person's Bridge preferences, read and saved. `limiting`'s shape one
 /// table over.
