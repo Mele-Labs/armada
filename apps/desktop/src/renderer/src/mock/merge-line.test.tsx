@@ -2,13 +2,17 @@
 // neither the rail row nor Overview's panel may draw. Where it serves one, the panel draws even
 // with nobody in line, and on All each repository with a line has its own, named.
 
-import { expect, test } from "vitest";
+import { afterEach, expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import { scenarioNamed, type Scenario } from "./scenario";
+import { scrollerOf } from "./scrolled";
 import { mount, onScreen, unmountAfterEach } from "./testing";
 
 unmountAfterEach();
+afterEach(async () => {
+  await page.viewport(1440, 900);
+});
 
 const row = () =>
   page.getByRole("navigation", { name: "Work" }).getByRole("button", { name: "Merge line", exact: true });
@@ -158,6 +162,9 @@ test("Tab enters the tiles once and leaves without visiting another", async () =
   await row().click();
   const armada = panel("Merge line, armada");
   armada.getByRole("button", { name: "Collapse Merge line, armada" }).element().focus();
+  // Main's light at the horizon's end is the panel's one stop before its tiles.
+  await userEvent.keyboard("{Tab}");
+  await expect.element(armada.getByRole("img", { name: "main: not read yet" })).toHaveFocus();
   await userEvent.keyboard("{Tab}");
   await expect.element(armada.getByRole("listitem", { name: /^docs\/wire-lock-signed,/ })).toHaveFocus();
   const visited = new Set<string>([tileFocused()!]);
@@ -184,4 +191,46 @@ test("bare arrows move across the board: right to what left the line, left and d
   await expect.element(armada.getByRole("listitem", { name: /^docs\/wire-lock-signed,/ })).toHaveFocus();
   await userEvent.keyboard("{ArrowDown}");
   await expect.element(armada.getByRole("listitem", { name: /^worktree-agent-aef3c24792026e2c3,/ })).toHaveFocus();
+});
+
+// On its own page the band and the horizon stay put and only the tiles scroll: the one panel of a
+// picked repository scrolls its glass, and on All the page scrolls, each band holding at its top.
+const topOf = (element: Element) => Math.round(element.getBoundingClientRect().top);
+
+test("on a picked repository, the band and the horizon stay in view while the glass scrolls", async () => {
+  await page.viewport(1200, 600);
+  mount("merge-line");
+  await onScreen();
+  await page.getByRole("button", { name: "All repositories" }).click();
+  await page.getByRole("menuitem", { name: "armada", exact: true }).click();
+  await row().click();
+
+  const line = panel("Merge line");
+  const heading = line.getByRole("heading", { name: "Merge line" }).element();
+  const light = line.getByRole("img", { name: "main: not read yet" }).element();
+  const tile = line.getByRole("listitem", { name: /^docs\/wire-lock-signed,/ }).element();
+  const before = { heading: topOf(heading), light: topOf(light), tile: topOf(tile) };
+  scrollerOf(tile)!.scrollTop = 400;
+  await expect.poll(() => topOf(tile)).toBeLessThan(before.tile - 200);
+  expect(topOf(heading)).toBe(before.heading);
+  expect(topOf(light)).toBe(before.light);
+  expect(before.heading).toBeGreaterThanOrEqual(0);
+});
+
+test("on All, a panel's band and horizon hold at the top of the page while its tiles pass under", async () => {
+  await page.viewport(1200, 600);
+  mount("merge-line");
+  await onScreen();
+  await row().click();
+
+  const armada = panel("Merge line, armada");
+  const heading = armada.getByRole("heading", { name: /^Merge line/ }).element();
+  const light = armada.getByRole("img", { name: "main: not read yet" }).element();
+  const tile = armada.getByRole("listitem", { name: /^docs\/wire-lock-signed,/ }).element();
+  const before = { heading: topOf(heading), light: topOf(light), tile: topOf(tile) };
+  scrollerOf(heading)!.scrollTop = 300;
+  await expect.poll(() => topOf(tile)).toBeLessThan(before.tile - 200);
+  // Within the panel's own top border, which scrolls away once the band holds.
+  expect(Math.abs(topOf(heading) - before.heading)).toBeLessThanOrEqual(1);
+  expect(Math.abs(topOf(light) - before.light)).toBeLessThanOrEqual(1);
 });
