@@ -221,3 +221,33 @@ fn leasing_an_existing_branch_nothing_has_is_refused() {
         other => panic!("a branch nothing has was leased: {other:?}"),
     }
 }
+
+#[test]
+fn a_branch_with_no_work_of_its_own_is_brought_up_to_the_base_it_is_leased_at() {
+    let repo = a_repository();
+    repo.git(&["branch", "stale"]);
+    repo.commit_one("later.rs", "main moved", "the base moves on");
+    repo.git(&["push", "-q", "origin", "main"]);
+
+    let lease = lease(&pool(&repo, 1), "stale");
+
+    assert!(!lease.cut_from_base());
+    assert_eq!(git(lease.path(), &["branch", "--show-current"]), "stale");
+    assert_eq!(git(lease.path(), &["rev-parse", "HEAD"]), repo.head_str());
+    assert_eq!(repo.git(&["rev-parse", "stale"]), repo.head_str());
+}
+
+#[test]
+fn the_base_is_fetched_before_a_branch_with_no_work_is_brought_up_to_it() {
+    let repo = a_repository();
+    repo.git(&["branch", "stale"]);
+    let behind = repo.head_str();
+    repo.commit_one("later.rs", "main moved", "the base moves on");
+    repo.git(&["push", "-q", "origin", "main"]);
+    let landed = repo.head_str();
+    repo.git(&["update-ref", "refs/remotes/origin/main", &behind]);
+
+    let lease = lease(&pool(&repo, 1), "stale");
+
+    assert_eq!(git(lease.path(), &["rev-parse", "HEAD"]), landed);
+}

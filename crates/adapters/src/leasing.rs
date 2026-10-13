@@ -258,13 +258,11 @@ impl Pool {
         since: u64,
         seed: Seed<'_>,
     ) -> Result<Leased, LeaseRefused> {
-        // A branch that exists is leased at its tip whatever was asked, and
-        // nothing is cut from the base, so there is no base to fetch.
+        // A branch that exists is leased at its tip whatever was asked. The
+        // base is fetched for it too: a branch with no work of its own is
+        // brought up to it, so the agent never has to.
         let onto = self.resolved(onto, branch)?;
-        let unfetched = match onto {
-            Onto::New => self.fetched().err(),
-            Onto::Existing | Onto::Remote => None,
-        };
+        let unfetched = self.fetched().err();
         let from = self.base_ref();
         // Git lets one checkout have a branch, so it can only go to the slot
         // that has it, and only if that slot may be taken: one whose holder
@@ -631,6 +629,14 @@ impl Pool {
             ),
         }
         .map_err(LeaseRefused::Vcs)?;
+        // A branch whose tip the base already holds has no commit to lose by
+        // moving forward, so it starts at the base rather than where it was
+        // cut. One with work of its own stays exactly where it is.
+        if !matches!(onto, Onto::New)
+            && git_ok(&path, &["merge-base", "--is-ancestor", "HEAD", from])
+        {
+            git(&path, &["merge", "--ff-only", "--quiet", from]).map_err(LeaseRefused::Vcs)?;
+        }
         let mut clean = vec!["clean", "-fdx", "--quiet"];
         for kept in &self.keep {
             clean.extend(["-e", kept.as_str()]);
