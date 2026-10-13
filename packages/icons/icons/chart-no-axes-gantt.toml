@@ -1,0 +1,7 @@
+[icons.chart-no-axes-gantt]
+  means = "Horizontal bars of different lengths, offset along a shared row — what happened and when"
+  group = "View"
+  size = "16px"
+  status = "Proposed"
+  reserved = "The Timeline view of the Dashboard panel only, beside the Grid view's `layout-grid`. Never a workflow's steps, which are `workflow`, never a Job's graph, which is `waypoints`, and never a progress bar."
+  notes = "Proposed 12 Oct 2026 for the walk `fleetTimelineFeed`, replacing the Map view's `orbit` on the owner's word that a timeline, a row for each event Fleet produced, would show him more than a map of stars. For the owner to rule on; a View glyph is his to mint."

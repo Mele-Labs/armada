@@ -59,6 +59,7 @@ export type SliceName =
   | "sleep"
   | "planUsage"
   | "clashes"
+  | "timeline"
   | "issues"
   | "autopilot";
 

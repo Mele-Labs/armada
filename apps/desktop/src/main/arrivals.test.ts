@@ -96,6 +96,7 @@ function fakeHost(
     rehearsal: {} as unknown as RehearsalConnection,
     sleep: { changed: () => {} },
     planUsage: { changed: () => {} },
+    timeline: { appended: () => {} },
     issues: { autopilotChanged: autopilots, autopilotsAgain: async () => {} },
     overviewAgain: async () => {},
     questions,
@@ -403,5 +404,20 @@ describe("a card the Job's Commander put to the owner", () => {
     const { host, state } = fakeHost([job({ asking: true })], [{ kind: "drone", job_id: JOB_ID, asking: ASKING }]);
     applyArrival(host, event(), FLEET);
     expect(state().jobs[0]?.asking).toBe(true);
+  });
+});
+
+describe("an entry on the Cockpit's timeline, off `timeline.appended`", () => {
+  it("is told to the windows whole, and moves nothing on the Board", () => {
+    const { host, state } = fakeHost([job()]);
+    const appended = vi.fn();
+    const entry = { id: 7, at: "2026-10-13T10:00:00Z", kind: "job.started", subject: { kind: "job", id: JOB_ID }, tone: "run", says: "Started", live: true };
+    applyArrival(
+      { ...host, timeline: { appended } },
+      JSON.stringify({ message: "event", cursor: 9, event: { kind: "timeline.appended", event: entry } }),
+      FLEET,
+    );
+    expect(appended).toHaveBeenCalledWith(entry);
+    expect(state().jobs).toEqual([job()]);
   });
 });

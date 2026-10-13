@@ -37,6 +37,7 @@ export function mount(scenario: string | Scenario, options?: FakeOptions): Mount
   // So is the Dashboard's filter and its grid or map: a test that flipped either must not leak.
   localStorage.removeItem("armada.bridge.dashboard-tab");
   localStorage.removeItem("armada.bridge.cockpit-view");
+  localStorage.removeItem("armada.bridge.cockpit-timeline-take");
   const host = document.createElement("div");
   host.id = "root";
   document.body.append(host);

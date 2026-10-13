@@ -1,12 +1,12 @@
 // The Dashboard as one panel. Its top bar filters Your move, Active and Done, and reads them as a grid
-// of tiles or a map of stars; a call that needs the owner comes forward on Your move over either with the context to answer it, and is answered from the
+// of tiles or a timeline of what Fleet did; a call that needs the owner comes forward on Your move over either with the context to answer it, and is answered from the
 // keyboard, the calls behind it stacked like a deck. Over `dashboard-cockpit`.
 
 import { button, inside, region, role, tab, text, walk } from "../walk";
 
 const cockpit = region("Dashboard");
 const glass = role("listbox", "Tiles");
-const map = role("listbox", "Map");
+const timeline = region("Timeline");
 const behind = (kind: RegExp) => button(kind);
 const call = (kind: RegExp) => region(kind);
 
@@ -20,13 +20,12 @@ const dashboardCockpit = walk("dashboard-cockpit", [
   { hover: inside(glass, role("img", "Drone working")), say: "A glyph names its state on hover" },
   { key: "j", on: cockpit, say: "j and k move along the glass, the arrows too" },
   { look: inside(glass, button("Open")), say: "The one under the cursor carries its keys: Enter opens, x kills" },
-  { key: "m", on: cockpit, say: "m flips the grid into a map: a star each, clustered by repository, joined by what connects them" },
-  { look: map, say: "The same filter, as stars. A parent to its child, a Job to what it waits on, a Session to its Job, branches to main" },
-  { hover: inside(map, role("option", /Cache the manifest/)), say: "A star names its state on hover; the one that needs him burns brightest" },
+  { key: "m", on: cockpit, say: "m flips the grid into the timeline: what Fleet did, a row for each event" },
+  { look: timeline, say: "The same filter, as a timeline. This Fleet has served no events, so it is empty" },
   { later: cockpit, say: "Time passes: a Drone reaches a question" },
-  { look: inside(tab("Your move"), role("img", "Needs you")), say: "The map shows no deck: Your move carries a dot while a call waits" },
+  { look: inside(tab("Your move"), role("img", "Needs you")), say: "The timeline shows no deck: Your move carries a dot while a call waits" },
   { press: tab("Your move"), say: "Your move" },
-  { look: call(/^Plan question/), say: "It comes forward over the map there: the Job, what he asked for, who asked and where, what is active, then the question" },
+  { look: call(/^Plan question/), say: "It comes forward over the timeline there: the Job, what he asked for, who asked and where, what is active, then the question" },
   { key: "e", on: cockpit, say: "e opens the whole request" },
   { look: inside(call(/^Plan question/), button(/Less/)), say: "The request, in full" },
   { key: "2", on: cockpit, say: "A number picks an answer" },
@@ -50,7 +49,7 @@ const dashboardCockpit = walk("dashboard-cockpit", [
   { key: "w", on: cockpit, say: "w brings it forward" },
   { look: call(/^Check failed/), say: "Back in front" },
   { key: "Escape", on: cockpit, say: "Esc puts it off again" },
-  { look: map, say: "Nothing in front: the map, with the call still waiting at the bottom edge" },
+  { look: timeline, say: "Nothing in front: the timeline, with the call still waiting at the bottom edge" },
   { key: "m", on: cockpit, say: "m flips back to the grid" },
   { look: glass, say: "The grid" },
   { key: "?", on: cockpit, say: "? lists every key" },

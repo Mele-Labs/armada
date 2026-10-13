@@ -36,12 +36,12 @@ test("Machine holds Kit, Settings and Guides, in that order, with Mods between K
   expect(rowsOf("Machine")).toEqual(["Kit", "Mods", "Settings", "Guides", "Workflows"]);
 });
 
-test("Work holds the jobs-and-studios rows, Cockpit first", async () => {
+test("Work holds the jobs-and-studios rows, Cockpit first and Jobs under it", async () => {
   mount("every-state");
   await onScreen();
 
   // Exactly the owner's list. The Job Board row went with the page.
-  expect(rowsOf("Work")).toEqual(["Cockpit", "Studios", "Worktree Slots", "Retros", "Checks"]);
+  expect(rowsOf("Work")).toEqual(["Cockpit", "Jobs", "Studios", "Worktree Slots", "Retros", "Checks"]);
 });
 
 test("Manifest has left the rail, and the control beside the picker still opens it", async () => {
