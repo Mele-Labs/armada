@@ -155,8 +155,10 @@ export function RunOutput({ run }: { run: CodeRun }) {
   );
 }
 
-export function RunnableBlock({ command, runner, children }: { command: string; runner: CodeRunner; children: ReactNode }) {
-  const run = useCodeRun(runner);
+/** `run` is a run held elsewhere, which a call card's own key drives too; left out, the block holds its own. */
+export function RunnableBlock({ command, runner, run: held, children }: { command: string; runner?: CodeRunner; run?: CodeRun; children: ReactNode }) {
+  const own = useCodeRun(runner);
+  const run = held ?? own;
   const { phase } = run;
   const running = phase.state === "running";
 

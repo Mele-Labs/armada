@@ -202,6 +202,8 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
           }, PASSED_FOR);
         });
   const ran = useCodeRun(runner);
+  // Nothing starts it again while it runs or has passed and the card is about to go, from the block's play control or the key.
+  const guarded: CodeRun = { ...ran, start: (command) => (ran.phase.state === "running" || (ran.phase.state === "ended" && ran.phase.code === 0) ? undefined : ran.start(command)) };
   // From the press until it ends badly the command holds the card; one that passed holds it until the card has gone.
   const running = ran.phase.state === "running" || (ran.phase.state === "ended" && ran.phase.code === 0);
   const pull = pullOf(item, state);
@@ -337,7 +339,7 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
         if (act.target.startsWith("/")) return [oneTap("Run", () => sendWaiting("Run", { text: act.target }))];
         const ended = ran.phase.state === "ended" && ran.phase.code !== 0;
         return [
-          ...(runner === undefined ? [] : [answer("Run", () => ran.start(act.target), { once: true, ...(ended ? { label: "Run again" } : {}) })]),
+          ...(runner === undefined ? [] : [answer("Run", () => guarded.start(act.target), { once: true, ...(ended ? { label: "Run again" } : {}) })]),
           oneTap("Copy", () => copy(act.target)),
         ];
       }
@@ -436,7 +438,7 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
       : {}),
     ...(replies ? { reply: (text: string, accepted?: () => void) => sendWaiting("reply", { text }, accepted) } : {}),
     ...(attaching ? { attaching: { candidates, choose: attach, close: () => setAttaching(false) } } : {}),
-    ...(waiting?.item.act?.kind === "run" && runner !== undefined && !waiting.item.act.target.startsWith("/") ? { run: ran } : {}),
+    ...(waiting?.item.act?.kind === "run" && runner !== undefined && !waiting.item.act.target.startsWith("/") ? { run: guarded } : {}),
     pending: shown,
     // A Sleep decision is dismissed by reviewing it on Fleet, so it never comes back.
     dismiss: () => (sleep === undefined ? wait("dismiss", () => dismissItem(item), dismissed) : (reviewed(sleep.id), dismissed())),

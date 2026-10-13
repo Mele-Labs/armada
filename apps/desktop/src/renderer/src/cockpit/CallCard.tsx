@@ -8,7 +8,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState, type MutableRefObject, type ReactNode } from "react";
 import { Bot, Box, ChevronDown, ChevronUp, Cpu, Scale, ShieldCheck, SquareTerminal, Waypoints, Workflow, type LucideIcon } from "lucide-react";
-import { AskAnswer, AskAnswers, AskCard, AskChoices, AskQuestion, Button, Kbd, RunOutput, SessionThread, Tooltip, actionOf, keyFor, type NowPanelProps } from "@armada/components";
+import { AskAnswer, AskAnswers, AskCard, AskChoices, AskQuestion, Button, Kbd, RunnableBlock, SessionThread, Tooltip, actionOf, keyFor, type NowPanelProps } from "@armada/components";
 
 import type { BridgeState } from "../../../shared/bridge";
 import { age, type Hosts, type Item } from "../Dashboard";
@@ -419,14 +419,23 @@ export function CallCard({
         </AskQuestion>
         )}
         {answer.target === undefined ? null : (
-          <Tooltip label={answer.target}>
-            <code className="armada-callcard__target">{answer.target}</code>
-          </Tooltip>
-        )}
-        {answer.run === undefined || answer.run.phase.state === "idle" ? null : (
-          <div className="armada-callcard__run">
-            <RunOutput run={answer.run} />
-          </div>
+          (() => {
+            const target = (
+              <Tooltip label={answer.target}>
+                <code className="armada-callcard__target">{answer.target}</code>
+              </Tooltip>
+            );
+            // A command he can run is the Session thread's own runnable block, driven by the rail's Run key too.
+            return answer.run === undefined ? (
+              target
+            ) : (
+              <div className="armada-callcard__run">
+                <RunnableBlock command={answer.target} run={answer.run}>
+                  {target}
+                </RunnableBlock>
+              </div>
+            );
+          })()
         )}
         {sleep === undefined || item.context === undefined ? null : (
           <section aria-label={item.contextHead ?? "Chose"}>
