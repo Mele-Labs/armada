@@ -761,6 +761,23 @@ impl Delivery for FakeVcs {
         self.ready_asked(pull_request)
     }
 
+    fn pull_request_page(
+        &self,
+        _in_repo: &str,
+        pull_request: &str,
+    ) -> Option<adapter_traits::PullRequestPageFacts> {
+        self.page_read(pull_request)
+    }
+
+    fn write_pull_request(
+        &self,
+        _in_repo: &str,
+        pull_request: &str,
+        write: &adapter_traits::PullRequestWrite,
+    ) -> Result<(), String> {
+        self.write_asked(pull_request, write)
+    }
+
     fn merge(&self, _in_repo: &str, pull_request: &str) -> Result<Merged, NotMerged> {
         // Recorded before the answer, because the forge is reached either way:
         // a refused merge is a call that happened and a test asserting nothing

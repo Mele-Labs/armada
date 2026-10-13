@@ -419,7 +419,10 @@ pub use proposing::{
     StopProposal,
 };
 pub use pull_requests::{
-    ForgeChecks, PullRequestStanding, PullRequestState, ReviewDispatched, ReviewPullRequest,
+    ForgeChecks, PullRequestCheckRow, PullRequestCheckState, PullRequestCommit, PullRequestEntry,
+    PullRequestFile, PullRequestFileStatus, PullRequestMergeable, PullRequestPage,
+    PullRequestReviewState, PullRequestStanding, PullRequestState, PullRequestVerdict,
+    PullRequestWriteKind, ReviewDispatched, ReviewPullRequest, WritePullRequest,
 };
 pub use raising::{CapRaise, RaisedBy, TurnRaise};
 pub use read_in::{
