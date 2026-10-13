@@ -371,3 +371,28 @@ async fn a_dismissed_agent_item_is_gone_and_stays_gone_when_the_agent_says_it_ag
     let restated = rig.fleet.waiting_for(None, set(&id, &[("a", "Run the tests"), ("b", "Look")])).await.unwrap();
     assert_eq!(ids(&restated), ["b"]);
 }
+
+#[tokio::test]
+async fn an_answered_agent_item_leaves_the_list_at_once_and_stays_gone_when_restated() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    rig.fleet.waiting_for(None, set(&id, &[("a", "Run the tests"), ("b", "Look")])).await.unwrap();
+    let mut said = answer(&id, "a");
+    said.choice = Some(0);
+    let after = Arc::clone(&rig.fleet).answer_waiting(said).await.unwrap();
+    assert_eq!(ids(&after), ["b"], "the answered item is off the record the answer returns");
+    let sent: Vec<String> = rig
+        .rows(&id)
+        .await
+        .into_iter()
+        .filter_map(|row| match row {
+            SessionRow::Message { from: SessionVoice::You, text, .. } => Some(text),
+            _ => None,
+        })
+        .collect();
+    let last = sent.last().unwrap();
+    assert!(last.starts_with("Re: Run the tests\nYes\n"), "{last}");
+    assert!(last.ends_with("Fleet took this off your waiting list."), "{last}");
+    let restated = rig.fleet.waiting_for(None, set(&id, &[("a", "Run the tests"), ("b", "Look")])).await.unwrap();
+    assert_eq!(ids(&restated), ["b"]);
+}
