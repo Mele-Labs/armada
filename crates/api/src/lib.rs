@@ -81,6 +81,7 @@ mod placed;
 mod preferring;
 /// Pulse's kills: one process of a Job, and every one.
 mod processes;
+mod pull_request_panel;
 mod pull_requests;
 mod queries;
 mod reconciling;
@@ -127,7 +128,7 @@ pub use conversing::{
 pub use daemon::{
     offerable, offerable_to_a_commander, Admitting, Authoring, Commands, Conversations, Daemon, FramePart, FrameSpan,
     Autopilots, CommanderReach, HelmReach, HostedSessions, Issues, Mods, Needs, PermissionAnswer, Piloting,
-    PullRequests, Queries, Redirector, Refusal, Rehearsing, Retros, Sessions, Settings, Steerer,
+    PullRequestPanel, PullRequests, Queries, Redirector, Refusal, Rehearsing, Retros, Sessions, Settings, Steerer,
     StoredFile, Studios, Tools, COMMANDER_ALLOWED,
 };
 pub use door::{door_within, offered, Scope, DOOR_PATH};

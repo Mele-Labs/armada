@@ -3,13 +3,13 @@
 //! `fleet::pull_requesting`'s, against a scripted one.
 
 use ipc::{
-    ForgeChecks, ManifestId, PullRequestStanding, PullRequestState, ReviewDispatched,
-    ReviewPullRequest,
+    ForgeChecks, ManifestId, PullRequestMergeable, PullRequestPage, PullRequestReviewState,
+    PullRequestStanding, PullRequestState, ReviewDispatched, ReviewPullRequest, WritePullRequest,
 };
 
 use super::FakeDaemon;
 use crate::daemon::Redirector;
-use crate::{PullRequests, Refusal};
+use crate::{PullRequestPanel, PullRequests, Refusal};
 
 fn open(manifest_id: ManifestId, number: u64) -> PullRequestState {
     PullRequestState {
@@ -76,5 +76,42 @@ impl PullRequests for FakeDaemon {
             address: review.pull_request,
             session_id: review.session_id,
         })
+    }
+}
+
+fn page(manifest_id: ManifestId, number: u64) -> PullRequestPage {
+    PullRequestPage {
+        manifest_id,
+        number,
+        base: "main".into(),
+        author: None,
+        created_at: None,
+        additions: 0,
+        deletions: 0,
+        mergeable: PullRequestMergeable::Unknown,
+        review: PullRequestReviewState::None,
+        approvals: 0,
+        conversation: Vec::new(),
+        checks: Vec::new(),
+        files: Vec::new(),
+        commits: Vec::new(),
+    }
+}
+
+impl PullRequestPanel for FakeDaemon {
+    async fn get_pull_request_detail(
+        &self,
+        manifest_id: ManifestId,
+        number: u64,
+    ) -> Result<PullRequestPage, Refusal> {
+        Ok(page(manifest_id, number))
+    }
+
+    async fn write_pull_request(
+        &self,
+        manifest_id: ManifestId,
+        write: WritePullRequest,
+    ) -> Result<PullRequestPage, Refusal> {
+        Ok(page(manifest_id, write.pull_request))
     }
 }

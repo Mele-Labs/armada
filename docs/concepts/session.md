@@ -382,6 +382,8 @@ A pull request a session holds is a `pr` row, and a person can act on it without
 | `merge_pull_request_by_number` | Merges it | While the checks are running or failed, a draft, a closed one, and the forge's own refusals |
 | `enable_auto_merge` | Asks the forge to merge when the checks pass | Once they have passed or failed, a draft, a closed one |
 | `review_pull_request` | Drafts a Code Review Job against it, by number or address | A name that is neither, a Session the ledger never heard of |
+| `get_pull_request_detail` | Reads the page the panel draws: base, author, mergeability, review state, the conversation, the forge's checks with their run time, files and commits | Where the forge would not answer |
+| `write_pull_request` | Comments, approves or requests changes, then reads the page again | A comment or a request with no body, a Session the ledger never heard of, and the forge's own refusals |
 
 ```
  a person presses       Fleet                                  the forge

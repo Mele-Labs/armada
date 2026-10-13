@@ -259,6 +259,9 @@ fn door(operation: &str, asking: &AskingToRun) -> Option<Because> {
         "merge_pull_request_by_number",
         "ready_pull_request",
         "enable_auto_merge",
+        // A comment, an approval or a request for changes is read by everyone
+        // watching the repository.
+        "write_pull_request",
         "redispatch_job",
         "dispatch_studio_draft",
         "request_changes",
