@@ -125,6 +125,9 @@ fn the_three_classes_still_ask() {
         Some(Because::WritesOffMachine)
     );
     assert_eq!(bash("gh issue create"), Some(Because::WritesOffMachine));
+    assert_eq!(bash("gh issue edit 12 --body-file b.md"), Some(Because::WritesOffMachine));
+    assert_eq!(bash("gh pr edit 12 --title t"), Some(Because::WritesOffMachine));
+    assert_eq!(bash("gh issue close 12"), Some(Because::Destructive));
     assert_eq!(bash("eval \"$X\""), Some(Because::Unreadable));
 }
 
