@@ -79,4 +79,4 @@ function build(): Scenario {
   };
 }
 
-export const planDownshift: Scenario = build();
+export const sessionPlanDownshift: Scenario = build();
