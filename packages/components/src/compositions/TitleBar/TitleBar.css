@@ -200,6 +200,21 @@
   --tone: var(--status-completed-failed);
 }
 
+/* A bell after the track while an offer waits on the owner: amber, the "needs you" hue, whatever the fill's tone. */
+.armada-title-bar__usage-attention {
+  display: inline-flex;
+  align-items: center;
+  color: var(--status-awaiting-review);
+}
+
+/* The card's acts, as the Bays view's metro card draws its own. */
+.armada-title-bar__usage-acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin-top: var(--space-2);
+}
+
 .armada-title-bar__usage-card {
   position: absolute;
   z-index: var(--z-tooltip);
