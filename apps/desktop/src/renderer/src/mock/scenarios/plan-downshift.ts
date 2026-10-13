@@ -67,8 +67,8 @@ function build(): Scenario {
         saveSettings: async (changes) => {
           const held = handle.state().settings;
           if (held !== null) handle.publish({ settings: savedInto(held, changes) });
-          const chosen = changes["models.default"];
-          const { holds } = handle.state();
+          const { holds, settings } = handle.state();
+          const chosen = "models.default" in changes ? settings?.settings.find((one) => one.key === "models.default")?.value : undefined;
           if (holds.models !== null && typeof chosen === "string") handle.publish({ holds: { ...holds, models: { ...holds.models, default: chosen } } });
           return { ok: true };
         },
