@@ -9,6 +9,7 @@ import type { Session } from "@armada/screens/src/draft/sessions";
 
 import type { Item } from "../Dashboard";
 import { dotsOf, type Dot } from "./horizon";
+import { workOwner, type Owner } from "./owner";
 
 /** Who is in a bay, or why nobody is. */
 export type Holder =
@@ -34,6 +35,9 @@ export type Bay = {
   dot: Dot | undefined;
 };
 
+/** Whose work a pull request is, and the tile that owner already has on the glass, for its live state. */
+export type PullHolder = Owner & { item: Item | undefined };
+
 /** One repository's bays and its line, top of the line farthest from main. */
 export type Harbour = {
   manifest: string;
@@ -41,6 +45,8 @@ export type Harbour = {
   name: string;
   bays: readonly Bay[];
   line: readonly Dot[];
+  /** Whose each pull request is, by the dot's key; absent for a person's. */
+  holders?: ReadonlyMap<string, PullHolder>;
   main: "green" | "red" | undefined;
 };
 
@@ -97,7 +103,14 @@ export function baysOf({
   const seen = new Set<string>();
   const harbours = manifests.map((manifest): Harbour => {
     const view = views.find((one) => manifestOf(one.root) === manifest);
-    const line = view === undefined ? [] : [...dotsOf(view, lines, views, live)].reverse();
+    const holders = new Map<string, PullHolder>();
+    const line = (view === undefined ? [] : [...dotsOf(view, lines, views, live)].reverse()).map((dot): Dot => {
+      if (!dot.key.startsWith("pull:")) return dot;
+      const owner = workOwner(views, jobs, sessions, Number(dot.key.slice(5)), dot.card.branch);
+      if (owner === undefined) return dot;
+      holders.set(dot.key, { ...owner, item: tileOf(items, owner.kind === "job" ? owner.id : `session:${owner.id}`) });
+      return { ...dot, card: { ...dot.card, owner } };
+    });
     const bays = slots
       .filter((one) => one.manifest_id === manifest)
       .sort((a, b) => a.slot - b.slot)
@@ -122,7 +135,7 @@ export function baysOf({
           dot: slot.branch === undefined ? undefined : line.find((one) => one.card.branch === slot.branch),
         };
       });
-    return { manifest, name: nameOf(manifest), bays, line, main: view?.hub?.main?.state };
+    return { manifest, name: nameOf(manifest), bays, line, holders, main: view?.hub?.main?.state };
   });
   const over = new Set(ended.map(ownerOf));
   const unbayed = items.filter(

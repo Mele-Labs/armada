@@ -167,7 +167,7 @@ const quiet = { state: "idle" } as const;
 const said = (id: string, text: string) => [{ id, at: "14:00:00", kind: "message", from: { kind: "agent" }, text } as const];
 
 /** Two at work, one that will ask for a command, two idle beside them. */
-const SESSIONS: Session[] = [
+export const SESSIONS: Session[] = [
   { id: "s9", title: "Flaky store test", turn: { state: "working" }, lastTurn: "14:02", lastTurnAt: ago(2), rows: [
       { id: "s9-u", at: "13:58:00", kind: "message", from: { kind: "you" }, text: "The store test is flaky on CI. Find out why and fix it, then push the branch when it is green." },
       { id: "s9-t", at: "13:59:10", kind: "tool", text: "Read crates/store/tests/store_test.rs" },

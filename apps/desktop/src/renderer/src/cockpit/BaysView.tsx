@@ -3,12 +3,12 @@
 // A stop opens its card on hover or focus and keeps it open when pressed; a line's title selects its
 // work as the grid and the map do. What moves is what is still working: nothing here does.
 
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import { Plane } from "lucide-react";
-import { Button, StopCard } from "@armada/components";
+import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { LoaderCircle, Plane } from "lucide-react";
+import { Button, StopCard, Tooltip } from "@armada/components";
 
 import type { BaysRead } from "./bays";
-import { MAIN, STATIONS, metroOf, type Act, type Card, type Line, type Metro, type Tone } from "./metro";
+import { MAIN, STATIONS, metroOf, type Act, type Card, type Line, type LineHolder, type Metro, type Tone } from "./metro";
 
 const TONE: Record<Tone, string> = {
   run: "var(--status-running)",
@@ -50,6 +50,33 @@ function AutopilotKey() {
 /** What an Autopilot that is on adds: its marks on the lines, and its sidings under them (`AutopilotSidings.tsx`). */
 export type BaysAutopilot = { mark: (metro: Metro) => Metro; sidings: ReactNode };
 
+/** Whose work the pull requests under it are: the Job or Session, its live state as its tile draws it, and a press opens it. */
+function Holder({ holder, onOpen }: { holder: LineHolder; onOpen: (act: Act) => void }) {
+  const alive = holder.item?.live === true && holder.item.settling !== true;
+  const spins = holder.item?.mark === undefined && alive;
+  const State = holder.item === undefined ? undefined : (holder.item.mark ?? (spins ? LoaderCircle : holder.item.icon));
+  const said = holder.item === undefined ? undefined : (holder.item.state ?? holder.item.kind);
+  return (
+    <li className="armada-metro__row" data-holder data-wants={holder.tone === "ask" ? "you" : undefined} style={{ ["--line" as string]: TONE[holder.tone] } as CSSProperties}>
+      <button type="button" className="armada-metro__who" aria-label={`${holder.kind === "job" ? "Job" : "Session"}: ${holder.title}`} data-opens="" onClick={() => onOpen(holder.open)}>
+        <span className="armada-metro__bay">
+          {State === undefined || said === undefined ? null : (
+            <Tooltip label={said}>
+              <span role="img" aria-label={said} className="armada-metro__state" data-spin={spins || undefined} data-live={(!spins && alive) || undefined}>
+                <State size={14} aria-hidden="true" />
+              </span>
+            </Tooltip>
+          )}
+        </span>
+        <span className="armada-metro__mark" data-session={holder.kind === "session" || undefined} />
+        <Tooltip label={holder.open.label}>
+          <span className="armada-metro__title">{holder.title}</span>
+        </Tooltip>
+      </button>
+    </li>
+  );
+}
+
 function Row({ line, selected, onSelect, onOpen, onCard, onLeave, nextUp = false }: {
   line: Line;
   selected: boolean;
@@ -60,21 +87,33 @@ function Row({ line, selected, onSelect, onOpen, onCard, onLeave, nextUp = false
   nextUp?: boolean;
 }) {
   return (
-    <li className="armada-metro__row" data-wants={line.wants} data-selected={selected || undefined} style={{ ["--line" as string]: TONE[line.tone] } as CSSProperties}>
+    <li className="armada-metro__row" data-wants={line.wants} data-owned={line.holder === undefined ? undefined : ""} data-selected={selected || undefined} style={{ ["--line" as string]: TONE[line.tone] } as CSSProperties}>
       <button type="button" className="armada-metro__who" aria-label={line.from !== undefined ? `Pull request: ${line.title}` : line.bay === undefined ? `Waiting: ${line.title}` : `Bay ${two(line.bay)}: ${line.title}`} aria-pressed={selected}
-        title={line.open === undefined ? "A terminal outside Armada holds this bay: nothing to open" : line.open.label}
+        title={line.pull !== undefined ? undefined : line.open === undefined ? "A terminal outside Armada holds this bay: nothing to open" : line.open.label}
         data-opens={line.open === undefined ? undefined : ""}
         onClick={() => {
           onSelect();
           if (line.open !== undefined) onOpen(line.open);
         }}
       >
-        <span className="armada-metro__bay">{line.bay === undefined ? "—" : two(line.bay)}</span>
-        <span className="armada-metro__mark" data-session={line.session || undefined} />
+        <span className="armada-metro__bay" data-pull={line.pull === undefined ? undefined : ""}>{line.pull !== undefined ? `#${line.pull.number}` : line.bay === undefined ? "—" : two(line.bay)}</span>
+        {line.pull === undefined ? (
+          <span className="armada-metro__mark" data-session={line.session || undefined} />
+        ) : (
+          <Tooltip label={line.pull.ci}>
+            <span className="armada-metro__mark" role="img" aria-label={line.pull.ci} />
+          </Tooltip>
+        )}
         {line.autopilot === true ? <Plane className="armada-metro__autopilot" size={12} aria-label="Picked by Autopilot" /> : null}
-        <span className="armada-metro__title" title={line.title}>
-          {line.title}
-        </span>
+        {line.pull === undefined || line.open === undefined ? (
+          <span className="armada-metro__title" title={line.title}>
+            {line.title}
+          </span>
+        ) : (
+          <Tooltip label={`Open ${line.pull.said}`}>
+            <span className="armada-metro__title">{line.title}</span>
+          </Tooltip>
+        )}
       </button>
       {!nextUp ? null : (
         <span className="armada-metro__station" data-next-up data-state={line.nextUp === undefined ? "ahead" : "now"}>
@@ -228,9 +267,15 @@ export function Bays({ read, reading, now, selected, onSelect, onOpenJob, onOpen
           harbour.outside.length === 0 ? null : (
             <ol key={`${harbour.manifest}:outside`} className="armada-metro__block" aria-label={named ? `${harbour.name} pull requests outside a bay` : "Pull requests outside a bay"}>
               <li className="armada-metro__part">{named ? `${harbour.name}: pull requests outside a bay` : "Pull requests outside a bay"}</li>
-              {harbour.outside.map((line) => (
-                <Row key={line.key} line={line} nextUp={nextUp} selected={false} onSelect={() => undefined} onOpen={act} onCard={onCard} onLeave={leave} />
-              ))}
+              {harbour.outside.map((line, at) => {
+                const before = harbour.outside[at - 1]?.holder;
+                return (
+                  <Fragment key={line.key}>
+                    {line.holder === undefined || (before?.kind === line.holder.kind && before.id === line.holder.id) ? null : <Holder holder={line.holder} onOpen={act} />}
+                    <Row line={line} nextUp={nextUp} selected={false} onSelect={() => undefined} onOpen={act} onCard={onCard} onLeave={leave} />
+                  </Fragment>
+                );
+              })}
             </ol>
           ),
         )}

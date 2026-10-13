@@ -5,7 +5,7 @@
 // piece of work stands and what its stops say are checked without drawing a line.
 
 import type { Item } from "../Dashboard";
-import type { Bay, BaysRead } from "./bays";
+import type { Bay, BaysRead, PullHolder } from "./bays";
 import type { Dot } from "./horizon";
 
 export const STATIONS = ["Waiting", "In a bay", "Building", "Pull request", "Merge queue", "main"] as const;
@@ -18,6 +18,12 @@ export type Tone = "run" | "ask" | "bad" | "ok" | "idle" | "esc";
 export type Act = { kind: "job"; id: string; label: string } | { kind: "session"; id: string; label: string } | { kind: "link"; url: string; label: string };
 
 export type Card = { tone: Tone; pill: string; title: string; rows: readonly (readonly [string, string, boolean?])[]; acts: readonly Act[] };
+
+/** Whose work a pull request outside a bay is: pressing it opens that Job or Session, and its tile says what it is doing now. */
+export type LineHolder = { kind: "job" | "session"; id: string; title: string; item: Item | undefined; tone: Tone; open: Act };
+
+/** A pull request's own line: its number, what the forge calls it, and where its checks or the queue stand. */
+export type LinePull = { number: number; said: string; ci: string };
 
 export type Stop = { tone: Tone; card: Card; glyph?: string; progress?: number };
 
@@ -43,11 +49,15 @@ export type Line = {
   autopilot?: boolean;
   /** Its stop at Next up, where Autopilot picked it and its Job has not started. */
   nextUp?: Stop;
+  /** A pull request outside a bay: set on its line. */
+  pull?: LinePull;
+  /** Whose work that pull request is. Absent for one nobody in Armada owns. */
+  holder?: LineHolder;
 };
 
 export type Metro = {
   /** One block of lines per repository with bays, furthest along first. */
-  /** `outside` is the pull requests on the repository's merge line that no bay holds: opened by hand, or from another machine. */
+  /** `outside` is the pull requests on the repository's merge line that no bay holds: opened by hand, or from another machine. Each carries its owner's `holder` where a Job or Session owns it, and those of one owner are together. */
   harbours: readonly { manifest: string; name: string; lines: readonly Line[]; outside: readonly Line[] }[];
   waiting: readonly Line[];
   /** Autopilot's picks not started, at Next up before Waiting: only while an Autopilot is on. */
@@ -122,9 +132,10 @@ function pullStops(dot: Dot): [Stop, Stop | undefined] {
 }
 
 /** A pull request no bay holds: it joins the lines at Pull request, and its title opens it on the forge. */
-function lineOfPull(dot: Dot): Line {
+function lineOfPull(dot: Dot, owner: PullHolder | undefined): Line {
   const [pull, queue] = pullStops(dot);
   const tone = PULL[dot.state];
+  const number = Number(dot.key.slice(5));
   return {
     key: dot.key,
     item: undefined,
@@ -138,7 +149,40 @@ function lineOfPull(dot: Dot): Line {
     stops: [undefined, undefined, undefined, pull, queue, undefined],
     open: linkOf(dot)[0],
     wants: dot.state === "failing" ? "fixing" : undefined,
+    pull: { number, said: dot.card.title === undefined ? `#${number}` : `#${number} ${dot.card.title}`, ci: dot.card.says },
+    ...(owner === undefined
+      ? {}
+      : {
+          holder: {
+            kind: owner.kind,
+            id: owner.id,
+            title: owner.title,
+            item: owner.item,
+            tone: owner.item === undefined ? "idle" : HUE[owner.item.hue],
+            open: { kind: owner.kind, id: owner.id, label: owner.kind === "job" ? "Open Job" : "Open Session" },
+          },
+        }),
   };
+}
+
+/** The group a line sits in: its owner's, or none. */
+const groupOf = (line: Line) => (line.holder === undefined ? "" : `${line.holder.kind}:${line.holder.id}`);
+
+/**
+ * Pull requests outside a bay, together under whoever owns them (the line draws the owner once, above its
+ * pull requests), the owners furthest along first and the ones nobody owns last.
+ */
+function sortedOutside(lines: readonly Line[]): Line[] {
+  const furthest = new Map<string, number>();
+  lines.forEach((line) => furthest.set(groupOf(line), Math.max(furthest.get(groupOf(line)) ?? 0, line.reach)));
+  return [...lines].sort(
+    (a, b) =>
+      Number(groupOf(a) === "") - Number(groupOf(b) === "") ||
+      furthest.get(groupOf(b))! - furthest.get(groupOf(a))! ||
+      groupOf(a).localeCompare(groupOf(b)) ||
+      b.reach - a.reach ||
+      placeOf(a) - placeOf(b),
+  );
 }
 
 function lineOfBay(bay: Bay, now: number): Line | undefined {
@@ -230,10 +274,9 @@ export function metroOf(read: BaysRead, now: number): Metro {
         return line === undefined ? [] : [line];
       })
       .sort((a, b) => b.reach - a.reach || (a.bay ?? 0) - (b.bay ?? 0)),
-    outside: harbour.line
-      .filter((dot) => dot.key.startsWith("pull:") && !harbour.bays.some((bay) => bay.dot?.key === dot.key))
-      .map(lineOfPull)
-      .sort((a, b) => b.reach - a.reach || placeOf(a) - placeOf(b)),
+    outside: sortedOutside(
+      harbour.line.filter((dot) => dot.key.startsWith("pull:") && !harbour.bays.some((bay) => bay.dot?.key === dot.key)).map((dot) => lineOfPull(dot, harbour.holders?.get(dot.key))),
+    ),
   }));
   const free = (manifest: string | undefined) => read.harbours.find((one) => one.manifest === manifest)?.bays.find((bay) => bay.holder.kind === "free");
   const waiting = read.waiting.map((item) => lineOfWaiting(item, free(item.job?.owner_manifest_id)));

@@ -384,6 +384,14 @@ span.armada-view__dot { cursor: default; }
 .armada-metro__who[data-opens]:hover .armada-metro__title { text-decoration: underline; text-underline-offset: calc(var(--border-width) * 3); }
 .armada-metro__who:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-ring-offset); border-radius: var(--radius-sm); }
 .armada-metro__bay { flex: none; width: 2.5ch; color: var(--fg-subtle); font-family: var(--font-mono); font-size: var(--text-2xs); }
+/* A pull request outside a bay: its number where a bay's sits, under whoever owns it. */
+.armada-metro__bay[data-pull] { width: 6ch; }
+.armada-metro__row[data-owned] .armada-metro__who { padding-left: var(--space-4); }
+.armada-metro__row[data-holder] .armada-metro__bay { display: inline-flex; align-items: center; }
+.armada-metro__state { display: inline-flex; color: var(--line); }
+.armada-metro__state[data-spin] svg { animation: armada-dashboard-spin 1.2s linear infinite; }
+.armada-metro__state[data-live] svg { animation: armada-tile-live 1.6s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .armada-metro__state[data-spin] svg, .armada-metro__state[data-live] svg { animation: none; } }
 .armada-metro__mark { flex: none; width: var(--space-2); height: var(--space-2); border-radius: 50%; background: var(--line); box-shadow: 0 0 0 calc(var(--space-1) * 0.75) color-mix(in srgb, var(--line) 20%, transparent); }
 .armada-metro__mark[data-session] { border-radius: var(--radius-sm); transform: rotate(45deg); }
 .armada-metro__title { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
