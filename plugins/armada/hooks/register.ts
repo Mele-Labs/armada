@@ -248,9 +248,9 @@ async function branchOf($: Dollar, cwd: string): Promise<string | undefined> {
   return ran.exitCode === 0 && name !== '' && name !== 'HEAD' ? name : undefined
 }
 
-async function pullRequestOn($: Dollar, id: string, one: Known): Promise<void> {
+async function pullRequestOn($: Dollar, id: string, one: Known, cwd: string): Promise<void> {
   const ran = await $.process.run(['gh', 'pr', 'view', '--json', 'number,url,state,title,headRefName,isDraft'], {
-    cwd: one.cwd,
+    cwd,
     timeoutMs: 10_000,
   })
   if (ran.exitCode !== 0) return
@@ -278,12 +278,17 @@ async function pullRequestOn($: Dollar, id: string, one: Known): Promise<void> {
   if (view.state === 'CLOSED') settle($, id, 'pr', number, 'given_back')
 }
 
-/** Where the branch is now, and the pull request on it. */
+/**
+ * Where the branch is now, and the pull request on it. **Read from where the session is now**, not
+ * from the directory last reported: a session that left a slot, or a slot another session leased
+ * since, would otherwise be credited with the branch checked out there. Fleet checks it too.
+ */
 async function look($: Dollar, id: string): Promise<void> {
   try {
     const one = known.get(id)
     if (one === undefined) return
-    const branch = await branchOf($, one.cwd)
+    const cwd = await $.session.cwd()
+    const branch = await branchOf($, cwd)
     if (branch === one.branch) return
     if (one.branch !== undefined && branch === undefined) {
       settle($, id, 'branch', one.branch, 'given_back')
@@ -291,7 +296,7 @@ async function look($: Dollar, id: string): Promise<void> {
     one.branch = branch
     if (branch === undefined) return
     say($, id, { kind: 'attached', attachment: { kind: 'branch', target: branch } })
-    await pullRequestOn($, id, one).catch(() => undefined)
+    await pullRequestOn($, id, one, cwd).catch(() => undefined)
   } catch {
     // A directory with no repository, or no `git`: nothing to report.
   }
