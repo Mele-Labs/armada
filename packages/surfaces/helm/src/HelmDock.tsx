@@ -106,9 +106,8 @@ export type HelmDockProps = {
     thread: ReactNode;
     /** The slot, branch, pull requests and subagents Helm holds, under the dock's head. Absent draws none. */
     holds?: ReactNode;
-    /** A turn is running: the box offers Stop. */
+    /** A turn is running. */
     working: boolean;
-    onStop?: () => void;
   };
 };
 
@@ -379,7 +378,6 @@ export function HelmDock({
         onOpenRecord={current === undefined ? undefined : openRecord}
         {...(box === undefined ? {} : { box })}
         onSend={send}
-        {...(hosted === undefined ? {} : { working: hosted.working, ...(hosted.onStop === undefined ? {} : { onStop: hosted.onStop }) })}
         disabled={!live || current === undefined}
       />
       <HelmRecord

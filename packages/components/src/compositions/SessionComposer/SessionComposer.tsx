@@ -1,6 +1,6 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import type { ClipboardEvent, DragEvent, FormEvent, KeyboardEvent, ReactNode } from "react";
-import { Cpu, Paperclip, PencilRuler, Send, Shield, Square, Zap } from "lucide-react";
+import { Cpu, Paperclip, PencilRuler, Send, Shield, Zap } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { useKept, writeKept } from "../../keep";
@@ -85,8 +85,6 @@ const MODES: { id: ComposerMode; label: string; says: string }[] = [
 export type SessionComposerProps = {
   /** A turn is running. Send stays on: a message sent now is the agent's next input. */
   working: boolean;
-  /** Ends the turn that is running: a Stop sits beside Send while `working`. Absent, none is drawn. */
-  onStop?: () => void;
   /** Absent with `onMode` draws no permission mode: Helm keeps its own rule. */
   mode?: ComposerMode;
   onMode?: (mode: ComposerMode) => void;
@@ -212,8 +210,6 @@ function numberedItems(numbered: ComposerNumbered | undefined, query: string, lo
 }
 
 export function SessionComposer({
-  working,
-  onStop,
   mode = "auto",
   onMode,
   model,
@@ -588,13 +584,6 @@ export function SessionComposer({
           </>
         )}
         {bare || (compact && held) ? null : chips}
-        {working && onStop !== undefined ? (
-          <Tooltip label="Stop">
-            <Button type="button" variant="ghost" size="sm" aria-label="Stop" onClick={onStop}>
-              <Square size={16} strokeWidth={2} aria-hidden />
-            </Button>
-          </Tooltip>
-        ) : null}
         {slim ? <Tooltip label="Send">{sendButton}</Tooltip> : sendButton}
       </div>
     </form>

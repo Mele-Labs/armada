@@ -1,10 +1,10 @@
 // Helm is a hosted Session pinned to the dock, one per repository. Its thread is drawn as a Session's
-// is: tool calls fold into groups, the working mark closes a turn that is running, and the box offers
-// Stop while it does. Once Helm writes it holds a slot and a branch, and a pull request it opens, as
-// chips under the dock's head; a subagent it runs opens in a sheet, and a question it asks is answered
-// in the thread. A thought for other work keeps its card and its "Sent to" row. The Sessions list shows
-// Helm's Session with Helm's mark, and opening it opens the dock. Over `helm-is-a-session`; each
-// `later` is the turn's next step.
+// is: tool calls fold into groups, the working mark closes a turn that is running, and Stop sits beside
+// it. Once Helm writes it holds a slot and a branch, and a pull request it opens, as chips under the
+// dock's head; a subagent it runs opens in a sheet, and a question it asks is answered in the thread.
+// A thought for other work keeps its card and its "Sent to" row. The Sessions list shows Helm's Session
+// with Helm's mark, and opening it opens the dock. Over `helm-is-a-session`; each `later` is the turn's
+// next step.
 
 import { button, inside, region, role, text, walk } from "../walk";
 
@@ -25,20 +25,20 @@ const helmIsASession = walk("helm-is-a-session", [
   { key: "Enter", on: box, say: "↵ sends it" },
   { look: inside(thread, text("Read, Grep")), say: "Helm reads: the calls fold into one row" },
   { look: inside(thread, role("img", "Working")), say: "The working mark sits on the last row" },
-  { hover: inside(helm, button("Stop")), say: "Stop, in the box, while Helm works" },
+  { hover: inside(thread, button("Stop")), say: "Stop, beside the working mark, as a Session's is" },
 
-  { later: inside(helm, button("Stop")), say: "Helm writes" },
+  { later: inside(thread, button("Stop")), say: "Helm writes" },
   { look: inside(thread, region("Leased on first write")), say: "The first write leases a slot and cuts a branch, in the thread where it happened" },
   { look: inside(held, button("Open Worktree slot 8")), say: "Both are chips under the dock's head" },
   { hover: inside(held, button("Open Branch helm/pin-ledger-clock")), say: "Named on hover" },
 
-  { later: inside(helm, button("Stop")), say: "Helm runs a subagent" },
+  { later: inside(thread, button("Stop")), say: "Helm runs a subagent" },
   { press: inside(held, button(/^Open Subagent Find the other clock callers/)), say: "Its chip opens its thread" },
   { look: inside(subagent, region("Thread")), say: "The subagent's own thread, drawn as a Session's is" },
   { look: inside(subagent, text("Grep Clock::now crates")), say: "What it has called so far" },
   { press: inside(subagent, button(/^Close/)), say: "Back to Helm" },
 
-  { later: inside(helm, button("Stop")), say: "The subagent reports, and Helm asks" },
+  { later: inside(thread, button("Stop")), say: "The subagent reports, and Helm asks" },
   { look: inside(ask, text("Which clock should the ledger test read?")), say: "The question is in the thread, with its options" },
   { press: inside(ask, role("radio", "Pinned instant")), say: "An option" },
   { press: inside(ask, button("Answer")), say: "Answered" },

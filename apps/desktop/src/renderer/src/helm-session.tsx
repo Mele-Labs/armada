@@ -83,7 +83,6 @@ export function useHelmHosted({ manifestId, goes, held, board, lines, settings, 
   const questions = session.asked?.questions;
   const hosted: NonNullable<HelmDockProps["hosted"]> = {
     working: session.turn.state === "working",
-    ...(draft.stop === undefined ? {} : { onStop: () => draft.stop?.(session.id) }),
     holds: <HelmHolds entries={entries} />,
     thread: (
       <SessionThread
@@ -91,6 +90,7 @@ export function useHelmHosted({ manifestId, goes, held, board, lines, settings, 
         rows={thread}
         agentName="Helm"
         working={session.turn.state === "working"}
+        {...(draft.stop === undefined ? {} : { onStop: () => draft.stop?.(session.id) })}
         onOpenWindow={(url) => draft.openWindow?.(session.id, url)}
         onOpenCheck={(run) => goes.onOpenCheck(session.id, run)}
         onOpenSent={(target) => (target.kind === "session" ? openSession(target.id) : openJob(target.id))}

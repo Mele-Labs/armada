@@ -467,6 +467,7 @@
 .armada-session-thread__working {
   display: flex;
   align-items: center;
+  gap: var(--space-1);
   padding: var(--space-1) 0;
   color: var(--fg-muted);
 }

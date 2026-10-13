@@ -1,7 +1,7 @@
 // Helm is a hosted Session pinned to the dock, one per repository. The dock is open on armada with
 // what an earlier conversation left in it. A request starts a turn: tool calls fold into groups, the
 // agent takes a slot and a branch, runs a subagent, asks a question, and opens a pull request. The
-// box offers Stop while it works. A thought for other work still gets its card and its "Sent to" row,
+// working mark has a Stop beside it. A thought for other work still gets its card and its "Sent to" row,
 // and the Sessions list shows Helm's Session with Helm's mark. The same three repositories as
 // `route-a-thought`. The walk `helm-is-a-session` plays it; each `later` is the turn's next step.
 
@@ -102,7 +102,7 @@ function build(): Scenario {
   return {
     ...s210RouteAThought,
     name: "helm-is-a-session",
-    says: "Helm hosted as a Session: its thread drawn as a Session's, Stop while it works, the slot, branch and pull request it holds, and its row in the Sessions list",
+    says: "Helm hosted as a Session: its thread drawn as a Session's, Stop beside the working mark, the slot, branch and pull request it holds, and its row in the Sessions list",
     state: { ...board, mergeLines: { lines: [LINE] } },
     held: held(),
     behaves: (handle) => ({
