@@ -30,6 +30,7 @@ mod forget;
 mod gaming;
 mod gate_manifests;
 mod commander_cards;
+mod commander_repairs;
 mod commander_model;
 mod commander_spend;
 mod commander_wakes;

@@ -31,11 +31,11 @@ use crate::tests::restarting::stopped;
 use crate::tests::tmp::TempDir;
 use crate::tests::tools::submitted_by_the_one;
 
-const IMPLEMENT: &str = "implement";
+pub(super) const IMPLEMENT: &str = "implement";
 
 /// A repair Drone runs `repair` and ends its turn when `ends`; a step's Drone
 /// waits. A repair that does not print the line is a Drone that died.
-fn harness(repair: &str, ends: bool) -> FakeHarness {
+pub(super) fn harness(repair: &str, ends: bool) -> FakeHarness {
     let end = if ends { "; echo turn-ended" } else { "" };
     FakeHarness::running(
         "/bin/sh",
@@ -58,7 +58,7 @@ fn harness(repair: &str, ends: bool) -> FakeHarness {
 
 /// One step gated on `diff_nonempty` and nothing else, so the only thing that
 /// can fail it is the baseline.
-fn gated() -> config::ResolvedWorkflow {
+pub(super) fn gated() -> config::ResolvedWorkflow {
     testkit::resolved(&[Sketch {
         id: IMPLEMENT,
         label: "Implement",
@@ -70,7 +70,7 @@ fn gated() -> config::ResolvedWorkflow {
     }])
 }
 
-fn a_fleet(home: &TempDir, host: &Arc<Scripted>, harness: FakeHarness) -> Arc<Hosted> {
+pub(super) fn a_fleet(home: &TempDir, host: &Arc<Scripted>, harness: FakeHarness) -> Arc<Hosted> {
     let mut fitted = fitted_with(home, FakeWorkProduct::inherited(&[]), harness);
     fitted.starting().workflows = one(gated());
     fitted.judge = Arc::new(FakeJudge::that_fails("no model is asked about a repair"));
@@ -79,7 +79,7 @@ fn a_fleet(home: &TempDir, host: &Arc<Scripted>, harness: FakeHarness) -> Arc<Ho
 
 /// Until the ended Drone's slot is empty, ending it again where the first kill
 /// missed: a signal sent before the process group exists is lost.
-async fn until_reaped(fleet: &Hosted) {
+pub(super) async fn until_reaped(fleet: &Hosted) {
     for turn in 0..4000 {
         fleet.turn().await.expect("a turn");
         let slot = fleet.the_only_slot().await;
@@ -97,14 +97,14 @@ async fn until_reaped(fleet: &Hosted) {
 }
 
 /// A Job whose step stopped and whose Drone is gone: where a repair is offered.
-async fn escalated(fleet: &Arc<Hosted>, home: &TempDir) -> JobId {
+pub(super) async fn escalated(fleet: &Arc<Hosted>, home: &TempDir) -> JobId {
     let job = stopped(fleet, home).await;
     the_drone_it_holds_is_gone(fleet).await;
     until_reaped(fleet).await;
     job
 }
 
-async fn worktree_of(fleet: &Hosted, job: &JobId) -> PathBuf {
+pub(super) async fn worktree_of(fleet: &Hosted, job: &JobId) -> PathBuf {
     let record = fleet.load(job).await.expect("the Job reads");
     let worktree = fleet
         .worktree_of(&record)
@@ -113,7 +113,7 @@ async fn worktree_of(fleet: &Hosted, job: &JobId) -> PathBuf {
     PathBuf::from(worktree.path())
 }
 
-async fn send(
+pub(super) async fn send(
     fleet: &Arc<Hosted>,
     job: &JobId,
     broke: Breakage,
@@ -123,7 +123,7 @@ async fn send(
         .await
 }
 
-async fn until<F, Fut>(what: &str, mut ready: F)
+pub(super) async fn until<F, Fut>(what: &str, mut ready: F)
 where
     F: FnMut() -> Fut,
     Fut: Future<Output = bool>,
@@ -138,7 +138,7 @@ where
 }
 
 /// The repair Drone has handed in and the stopped step has been put back.
-async fn until_restarted(fleet: &Arc<Hosted>, job: &JobId) {
+pub(super) async fn until_restarted(fleet: &Arc<Hosted>, job: &JobId) {
     until("the step was restarted", || async {
         fleet.load(job).await.expect("reads").status() != JobStatus::Escalated
     })
@@ -146,7 +146,7 @@ async fn until_restarted(fleet: &Arc<Hosted>, job: &JobId) {
 }
 
 /// The Drones that were told `REPAIR THE JOB`, as they were configured.
-fn repairs(fleet: &Hosted) -> Vec<adapter_traits::DroneSpawnConfig> {
+pub(super) fn repairs(fleet: &Hosted) -> Vec<adapter_traits::DroneSpawnConfig> {
     fleet
         .harness()
         .configured()
@@ -155,7 +155,7 @@ fn repairs(fleet: &Hosted) -> Vec<adapter_traits::DroneSpawnConfig> {
         .collect()
 }
 
-async fn the_card_out(fleet: &Arc<Hosted>, job: &JobId) -> Option<ipc::CommanderCard> {
+pub(super) async fn the_card_out(fleet: &Arc<Hosted>, job: &JobId) -> Option<ipc::CommanderCard> {
     use api::Queries;
     fleet
         .get_job(ipc::JobId::from(job))
@@ -164,7 +164,7 @@ async fn the_card_out(fleet: &Arc<Hosted>, job: &JobId) -> Option<ipc::Commander
         .commander_card
 }
 
-async fn log_of(home: &TempDir, fleet: &Hosted, job: &JobId) -> String {
+pub(super) async fn log_of(home: &TempDir, fleet: &Hosted, job: &JobId) -> String {
     let record = fleet.load(job).await.expect("the Job");
     std::fs::read_to_string(crate::transcript::log_of(
         &home.path().to_string_lossy(),

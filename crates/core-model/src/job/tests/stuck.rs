@@ -827,3 +827,106 @@ fn no_worktree_over_a_worktree_on_disk_offers_the_restart() {
     let stuck = Stuck::of(&job, Some(&reason), gone, Refusals::none(), None).expect("escalated");
     assert_eq!(stuck.recourse(), [Recourse::Redispatch]);
 }
+
+/// A Job that failed in preparation: running, no step entered, then escalated.
+fn broke_before_a_step(trigger: EscalationTrigger) -> Job {
+    drive(
+        &created(),
+        &[Target::Queued, Target::Running, Target::Escalated(trigger)],
+    )
+}
+
+fn classified_as(job: &Job, trigger: EscalationTrigger, standing: Standing) -> Stuck {
+    let reason = TransitionReason::Escalation(trigger);
+    Stuck::of(job, Some(&reason), standing, Refusals::none(), None).expect("escalated")
+}
+
+/// **Only a preparation that failed is a repair's, and only while there is
+/// something to repair in.** The Drone is gone and the worktree stands.
+#[test]
+fn a_job_whose_preparation_failed_before_any_step_is_one_a_repair_answers() {
+    let trigger = EscalationTrigger::NotPrepared;
+    let job = broke_before_a_step(trigger);
+
+    let stuck = classified_as(&job, trigger, drone_gone());
+    assert!(stuck.unprepared());
+    assert_eq!(
+        stuck.recourse(),
+        [Recourse::Redispatch],
+        "and a person is offered what he always was: nothing new"
+    );
+
+    let no_worktree = Standing {
+        worktree_on_disk: false,
+        ..drone_gone()
+    };
+    assert!(!classified_as(&job, trigger, no_worktree).unprepared(), "a redispatch");
+    assert!(!classified_as(&job, trigger, drone_unheard()).unprepared(), "a Drone is on it");
+    let rechecking = Standing {
+        checks_rerunning: true,
+        ..drone_gone()
+    };
+    assert!(!classified_as(&job, trigger, rechecking).unprepared(), "the worktree is being read");
+}
+
+/// **The kinds that are the Manifest's or the machine's are not.** Asserted over
+/// every Job-level trigger but the one, so a new one is refused until it is
+/// chosen.
+#[test]
+fn no_other_early_failure_is_one_a_repair_answers() {
+    let mut asked = Vec::new();
+    for trigger in EscalationTrigger::ALL
+        .iter()
+        .copied()
+        .filter(|trigger| trigger.level() == TriggerLevel::Job)
+        .filter(|trigger| *trigger != EscalationTrigger::NotPrepared)
+    {
+        let Ok(moved) = created()
+            .transition(Target::Queued, Actor::Fleet, at("2026-08-26T09:01:00.000Z"))
+            .and_then(|moved| {
+                moved
+                    .job
+                    .transition(Target::Running, Actor::Fleet, at("2026-08-26T09:01:30.000Z"))
+            })
+            .and_then(|moved| {
+                moved.job.transition(
+                    Target::Escalated(trigger),
+                    Actor::Fleet,
+                    at("2026-08-26T09:02:00.000Z"),
+                )
+            })
+        else {
+            continue;
+        };
+        let stuck = classified_as(&moved.job, trigger, drone_gone());
+        assert!(!stuck.unprepared(), "`{}`", trigger.as_wire());
+        asked.push(trigger);
+    }
+    for named in [
+        EscalationTrigger::NotConfigurable,
+        EscalationTrigger::WouldNotStart,
+        EscalationTrigger::ResourceExhausted,
+    ] {
+        assert!(asked.contains(&named), "`{}` was never asked", named.as_wire());
+    }
+}
+
+/// A `not_prepared` over a step that has begun is not the shape the trigger
+/// describes, so it is not read as one.
+#[test]
+fn a_not_prepared_job_with_a_step_begun_is_not_unprepared() {
+    let working = drive(&created(), &[Target::Queued, Target::Running])
+        .transition_step(
+            &StepId::new("repro"),
+            StepTarget::Running,
+            Actor::Fleet,
+            at("2026-08-26T09:02:00.000Z"),
+        )
+        .expect("not_started -> running")
+        .job;
+    let job = drive(&working, &[Target::Escalated(EscalationTrigger::NotPrepared)]);
+
+    let stuck = classified_as(&job, EscalationTrigger::NotPrepared, drone_gone());
+
+    assert!(!stuck.unprepared());
+}
