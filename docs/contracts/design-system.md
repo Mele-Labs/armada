@@ -1511,7 +1511,7 @@ S              add a sketch         (open studio only)
 Z              add a zone           (open studio only)
 R              run                  (open studio only)
 [ ]            previous and next filter   (dashboard only)
-m              switch between grid and map   (dashboard only)
+m              switch between grid and timeline   (dashboard only)
 ?              show the keys   (dashboard only)
 w              bring a waiting call back   (dashboard only)
 1–9            pick an answer   (call only)
@@ -1530,7 +1530,7 @@ takes the digits, `Enter`, `l`, `d`, `e`, `b` and `g` while it is up and gives t
 back when it goes; `l` and `Esc` both put it at the back of the stack, and
 `b` and `g` stand only on a question an agent asked and could answer itself,
 never on a call Fleet raises about a state. The panel's `[ ]` and `⌥1–3`
-move between its filters, `m` flips grid and map, `w` brings a waiting call
+move between its filters, `m` flips grid and timeline, `w` brings a waiting call
 back and `?` lists them all. None is a palette row yet: each is read from the panel's own sheet.
 
 **This is the map, not a pattern.** It was settled by drawing the Job

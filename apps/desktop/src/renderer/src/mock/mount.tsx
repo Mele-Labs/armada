@@ -14,6 +14,7 @@ import "../styles/index.css";
 import type { BridgeApi } from "../../../shared/api";
 import { App } from "../App";
 import { DraftedFrom } from "../drafted";
+import { FleetEventsFrom } from "../cockpit/fleet-events";
 import { SessionsFrom } from "../sessions-draft";
 import { WiredSessions } from "../sessions-wired";
 import { skipsMods } from "../theme-loader";
@@ -123,9 +124,11 @@ export function mountApp(
               <MockFleetBuild scenario={chosen.name}>
                 <PhoneSourceProvider value={mockPhone}>
                   <SleepSourceProvider value={mockSleep}>
-                    <SessionsHere held={heldSessions(api)}>
-                      <Drafted draft={liveDraft(api) ?? HELD(chosen.draft)} />
-                    </SessionsHere>
+                    <FleetEventsFrom events={chosen.draft?.events}>
+                      <SessionsHere held={heldSessions(api)}>
+                        <Drafted draft={liveDraft(api) ?? HELD(chosen.draft)} />
+                      </SessionsHere>
+                    </FleetEventsFrom>
                   </SleepSourceProvider>
                 </PhoneSourceProvider>
               </MockFleetBuild>

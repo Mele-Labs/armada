@@ -23,7 +23,7 @@
 // person presses and gets nothing from, which is worse than one that is
 // absent.
 
-import { ChevronLeft, CornerUpRight, Eye, FileDiff, Link, MessageSquare, Orbit, PanelLeftClose, Plus, Power, RotateCw, Shapes, Stamp, StickyNote, Terminal, VectorSquare, X, Zap } from "lucide-react";
+import { ChartNoAxesGantt, ChevronLeft, CornerUpRight, Eye, FileDiff, Link, MessageSquare, PanelLeftClose, Plus, Power, RotateCw, Shapes, Stamp, StickyNote, Terminal, VectorSquare, X, Zap } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 /** Whether the row is an act or a movement of the cursor. */
@@ -718,8 +718,8 @@ export const ACTIONS: readonly Action[] = [
     id: "dashboard_view",
     kind: "Action",
     tier: "Contextual",
-    verb: "Switch between grid and map",
-    icon: Orbit,
+    verb: "Switch between grid and timeline",
+    icon: ChartNoAxesGantt,
     iconAbsent: null,
     shortcut: "m",
     scope: "dashboard",

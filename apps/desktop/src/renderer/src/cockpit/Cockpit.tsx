@@ -5,7 +5,7 @@
 // dismisses it for good.
 
 import { useContext, useEffect, useMemo, useRef, useState } from "react";
-import { Box, CircleDashed, GitMerge, LayoutGrid, Orbit, SquareTerminal } from "lucide-react";
+import { Box, ChartNoAxesGantt, CircleDashed, GitMerge, LayoutGrid, SquareTerminal } from "lucide-react";
 import { Button, Kbd, Tabs, Tooltip, actionOf, isPressed, keyFor, pressedDigit, pressedSlot } from "@armada/components";
 import type { RepositorySummary } from "@armada/protocol";
 import type { Session } from "@armada/screens/src/draft/sessions";
@@ -27,7 +27,7 @@ import { CallCard, type CardKeys } from "./CallCard";
 import { Bays } from "./BaysView"; import { useAutopilotLane } from "./AutopilotLane";
 import { baysOf } from "./bays";
 import { metroOf, orderOf } from "./metro";
-import { FleetMap } from "./FleetMap";
+import { Timeline } from "./Timeline";
 import { useLayout } from "@armada/shell";
 import { tabKeys, useFilters } from "./keys";
 import { dotsOf, type Dot } from "./horizon";
@@ -261,7 +261,7 @@ export function Cockpit({
     return [...calls, ...running.filter((one) => !one.key.startsWith("line:") && !owned.has(one.owner ?? one.key)), ...unknown];
   }, [filter, state, picked, calls, running, over, bays, now, autopilot.asides]);
   const [view, setView] = useCockpitView();
-  const [field, setField] = useState({ width: 900, height: 560 });
+  const [field] = useState({ width: 900, height: 560 });
   const sky = useMemo(
     () =>
       skyOf(
@@ -429,7 +429,7 @@ export function Cockpit({
         ? undefined
         : nowPanelOf(nowsHeld?.[current.job.id], { onOpenJob: hosts.onOpen, onSaid: () => {} });
   // Bays draws the picked one's acts in its own bay, and keeps the glass for the ship.
-  const pane = filter !== "command-central" && filter !== "bays" && current !== undefined;
+  const pane = filter !== "command-central" && filter !== "bays" && view !== "map" && current !== undefined;
   const filters = useFilters(filter);
   const mergeLine = useLayout("dashboard.panels").shown.some((one) => one.id === "merge-line");
 
@@ -454,9 +454,9 @@ export function Cockpit({
                     <LayoutGrid size={16} aria-hidden="true" />
                   </Button>
                 </Tooltip>
-                <Tooltip label="Map">
-                  <Button variant="ghost" size="sm" iconOnly aria-label="Map" aria-pressed={view === "map"} onClick={() => setView("map")}>
-                    <Orbit size={16} aria-hidden="true" />
+                <Tooltip label="Timeline">
+                  <Button variant="ghost" size="sm" iconOnly aria-label="Timeline" aria-pressed={view === "map"} onClick={() => setView("map")}>
+                    <ChartNoAxesGantt size={16} aria-hidden="true" />
                   </Button>
                 </Tooltip>
                 <Tooltip label={actionOf("dashboard_view").verb}>
@@ -482,15 +482,7 @@ export function Cockpit({
                 <Bays autopilot={autopilot.bays} read={bays} reading={state.held.state !== "read" && state.held.state !== "failed"} now={now} selected={selected === undefined ? undefined : current?.key} onSelect={setSelected} onOpenJob={hosts.onOpen} onOpenSession={hosts.onOpenSession} onOpenLink={hosts.onOpenLink} />
               </div>
             ) : view === "map" ? (
-              <div className="armada-view__map" data-recessed={front === undefined || leaving !== undefined ? undefined : ""}>
-                <FleetMap sky={sky} field={field} onField={setField} selected={current?.key} onSelect={setSelected} />
-                {current === undefined ? null : (
-                  <div className="armada-view__picked">
-                    <span>{current.title}</span>
-                    <TileActs item={current} hosts={hosts} />
-                  </div>
-                )}
-              </div>
+              <Timeline now={now} filter={filter} recessed={front !== undefined && leaving === undefined} onOpenJob={hosts.onOpen} onOpenSession={hosts.onOpenSession} onOpenLink={hosts.onOpenLink} />
             ) : (
               <ul ref={grid} className="armada-tiles armada-view__grid" role="listbox" aria-label="Tiles" tabIndex={0} data-recessed={front === undefined || leaving !== undefined ? undefined : ""}>
                 {instruments.map((one) => (

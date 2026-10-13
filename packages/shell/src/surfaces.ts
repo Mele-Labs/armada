@@ -19,6 +19,7 @@
 import { useEffect, useRef } from "react";
 import {
   BookOpen,
+  Box,
   Briefcase,
   FileCog,
   Rewind,
@@ -82,6 +83,8 @@ const RAIL = [
   "sessions",
   // The fifteenth, on the same terms: no digit moves and it takes none.
   "mods",
+  // The sixteenth, on the same terms: no digit moves and it takes none. It sits second in the Work panel.
+  "jobs",
 ] as const;
 
 type SurfaceId = (typeof RAIL)[number];
@@ -102,6 +105,7 @@ export const SURFACE = {
   checks: "checks",
   sessions: "sessions",
   mods: "mods",
+  jobs: "jobs",
 } as const satisfies Record<string, SurfaceId>;
 
 /**
@@ -142,6 +146,17 @@ export const SURFACES: readonly PaletteSurface[] = [
     // No alias, for the same reason Manifest carries none: this is the first
     // surface built at this name, so there is no earlier word to keep.
     icon: LayoutDashboard,
+  },
+  {
+    id: SURFACE.jobs,
+    label: "Jobs",
+    // Past the ninth, so no key; reached by the rail and by name.
+    get shortcut() {
+      return digitOf(SURFACE.jobs);
+    },
+    aliases: ["job"],
+    // `box` is the registry's Job, at 12px on a chip; the rail draws it at 16px. For the owner to rule on.
+    icon: Box,
   },
   {
     id: SURFACE.studios,
@@ -297,7 +312,7 @@ export const RAIL_PANELS = [
   {
     id: "work",
     label: "Work",
-    surfaces: [SURFACE.overview, SURFACE.studios, SURFACE.worktrees, SURFACE.mergeLine, SURFACE.lessons, SURFACE.checks, SURFACE.sessions],
+    surfaces: [SURFACE.overview, SURFACE.jobs, SURFACE.studios, SURFACE.worktrees, SURFACE.mergeLine, SURFACE.lessons, SURFACE.checks, SURFACE.sessions],
   },
   { id: "machine", label: "Machine", surfaces: [SURFACE.kit, SURFACE.mods, SURFACE.settings, SURFACE.guides, SURFACE.workflows] },
 ] as const satisfies readonly { id: string; label: string; surfaces: readonly SurfaceId[] }[];
