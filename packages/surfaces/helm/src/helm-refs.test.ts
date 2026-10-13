@@ -20,9 +20,9 @@ const WORLD: RefWorld = {
     { id: "01J9ZM1P3Q8T5V2X4Y6Z0A1B2D" },
   ],
   numbered: [
-    { kind: "pull_request", number: "219", title: "#219 Pin the Bridge store clock" },
-    { kind: "issue", number: "214", title: "#214 Sessions list drops a quiet Session" },
-    { kind: "pull_request", number: "207", title: "#207 Stop the Drone count drifting" },
+    { kind: "pull_request", number: "2219", title: "#2219 Pin the Bridge store clock" },
+    { kind: "issue", number: "2214", title: "#2214 Sessions list drops a quiet Session" },
+    { kind: "pull_request", number: "2207", title: "#2207 Stop the Drone count drifting" },
   ],
 };
 
@@ -30,19 +30,19 @@ const words = (text: string) => scanRefs(text, WORLD).map((one) => [text.slice(o
 
 describe("a number", () => {
   it("links a pull request and an issue the repository holds, and leaves any other number as text", () => {
-    expect(words("#219 fixes #214, and #999 is nothing")).toEqual([
-      ["#219", "pull_request", "219"],
-      ["#214", "issue", "214"],
+    expect(words("#2219 fixes #2214, and #9999 is nothing")).toEqual([
+      ["#2219", "pull_request", "2219"],
+      ["#2214", "issue", "2214"],
     ]);
   });
 
   it("carries the title without the number it leads with", () => {
-    const [one] = scanRefs("see #219", WORLD);
-    expect(one?.ref).toEqual({ kind: "pull_request", id: "219", title: "Pin the Bridge store clock" });
+    const [one] = scanRefs("see #2219", WORLD);
+    expect(one?.ref).toEqual({ kind: "pull_request", id: "2219", title: "Pin the Bridge store clock" });
   });
 
   it("is not read inside an address, a word or another reference", () => {
-    expect(words("https://forge.invalid/pull/219 and abc#219 and &#219; and ##219")).toEqual([]);
+    expect(words("https://forge.invalid/pull/2219 and abc#2219 and &#2219; and ##2219")).toEqual([]);
   });
 });
 
@@ -92,24 +92,24 @@ const LINE: MergeLine = {
   landed: [row("fix/landed", 302)],
   sent_back: [row("fix/sent-back", 303)],
   hub: {
-    pull_requests: [{ number: 219, title: "Pin the Bridge store clock", branch: "fix/store-clock", url: "https://forge.invalid/pull/219" }],
-    merged: [{ number: 207, title: "Stop the Drone count drifting", branch: "fix/drone-count", url: "https://forge.invalid/pull/207", merged_at: "2026-10-11T10:00:00Z" }],
+    pull_requests: [{ number: 2219, title: "Pin the Bridge store clock", branch: "fix/store-clock", url: "https://forge.invalid/pull/2219" }],
+    merged: [{ number: 2207, title: "Stop the Drone count drifting", branch: "fix/drone-count", url: "https://forge.invalid/pull/2207", merged_at: "2026-10-11T10:00:00Z" }],
   },
 };
 
 describe("where a pull request opens on the merge line", () => {
   it("is its branch, from an open pull request, a merged one, or a row of the line", () => {
-    expect(branchOfPullRequest(LINE, "219")).toBe("fix/store-clock");
-    expect(branchOfPullRequest(LINE, "207")).toBe("fix/drone-count");
+    expect(branchOfPullRequest(LINE, "2219")).toBe("fix/store-clock");
+    expect(branchOfPullRequest(LINE, "2207")).toBe("fix/drone-count");
     expect(branchOfPullRequest(LINE, "301")).toBe("fix/queued");
     expect(branchOfPullRequest(LINE, "302")).toBe("fix/landed");
     expect(branchOfPullRequest(LINE, "303")).toBe("fix/sent-back");
   });
 
   it("is nothing where the line has no row for it, so the line opens with nothing marked", () => {
-    expect(branchOfPullRequest(LINE, "190")).toBeUndefined();
-    expect(branchOfPullRequest({ ...LINE, hub: undefined }, "219")).toBeUndefined();
-    expect(branchOfPullRequest({ root: "/repos/armada", line: [], off: [], landed: [], sent_back: [] }, "219")).toBeUndefined();
-    expect(branchOfPullRequest(undefined, "219")).toBeUndefined();
+    expect(branchOfPullRequest(LINE, "2190")).toBeUndefined();
+    expect(branchOfPullRequest({ ...LINE, hub: undefined }, "2219")).toBeUndefined();
+    expect(branchOfPullRequest({ root: "/repos/armada", line: [], off: [], landed: [], sent_back: [] }, "2219")).toBeUndefined();
+    expect(branchOfPullRequest(undefined, "2219")).toBeUndefined();
   });
 });

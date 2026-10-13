@@ -186,7 +186,7 @@ describe("Helm's socket", () => {
 });
 
 const SHOT: SessionUpload = { name: "Screenshot.png", media_type: "image/png", data: "iVBORw0KGgo=" };
-const ISSUE: SessionTag = { kind: "issue", id: "214", title: "#214 Sessions list drops a quiet Session", url: "https://forge.invalid/issues/214" };
+const ISSUE: SessionTag = { kind: "issue", id: "2214", title: "#2214 Sessions list drops a quiet Session", url: "https://forge.invalid/issues/2214" };
 
 describe("Helm's message box", () => {
   it("sends what an ask carried beside its words, and leaves the fields out when it carried none", async () => {

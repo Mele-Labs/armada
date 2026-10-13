@@ -12,22 +12,22 @@ import { s210RouteAThought } from "./route-a-thought";
 
 /** Helm's reply, in the facts of the two pull requests the walk tags and nothing past them. */
 const REPLY = [
-  "#219 moves the Bridge store onto one clock, and #207 stopped the Drone count drifting. Neither touches the Sessions page.",
-  "Sessions list views holds #216, and Job 12 stopped on a gate.",
+  "#2219 moves the Bridge store onto one clock, and #2207 stopped the Drone count drifting. Neither touches the Sessions page.",
+  "Sessions list views holds #2216, and Job 12 stopped on a gate.",
 ].join("\n\n");
 
 const FORGE = "https://forge.invalid/pull/";
 const pull = (number: number, title: string, branch: string) => ({ number, title, branch, url: `${FORGE}${number}`, ci: "passed" });
 
-/** armada's merge line: three pull requests open, and #207 landed. Where a pull request named in Helm's thread opens. */
+/** armada's merge line: three pull requests open, and #2207 landed. Where a pull request named in Helm's thread opens. */
 const LINE: MergeLine = {
   root: repository().root,
   line: [],
   off: [],
-  landed: [{ branch: "fix/drone-count", pull_request: { number: 207, url: `${FORGE}207`, settled: "merged" }, state: "landed", merge_commit: "9c1d0b7e4a2f6d83b50c9e71a4f2d6b8c3e5a107" }],
+  landed: [{ branch: "fix/drone-count", pull_request: { number: 2207, url: `${FORGE}2207`, settled: "merged" }, state: "landed", merge_commit: "9c1d0b7e4a2f6d83b50c9e71a4f2d6b8c3e5a107" }],
   sent_back: [],
   hub: {
-    pull_requests: [pull(219, "Pin the Bridge store clock", "fix/store-clock"), pull(216, "Fold the two notification routes into one", "notify/one-route"), pull(203, "Sessions page: Active, Quiet and Ended views", "sessions/list-views")],
+    pull_requests: [pull(2219, "Pin the Bridge store clock", "fix/store-clock"), pull(2216, "Fold the two notification routes into one", "notify/one-route"), pull(203, "Sessions page: Active, Quiet and Ended views", "sessions/list-views")],
   },
 };
 

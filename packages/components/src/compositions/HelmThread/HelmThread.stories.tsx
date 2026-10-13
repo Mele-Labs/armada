@@ -233,17 +233,17 @@ export const SentWithTags: Story = {
     rows: [
       {
         ...asked,
-        message: "see @#214 Sessions list drops a quiet Session and @#207 Stop the Drone count drifting",
+        message: "see @#2214 Sessions list drops a quiet Session and @#2207 Stop the Drone count drifting",
         tags: [
-          { kind: "issue", id: "214", title: "#214 Sessions list drops a quiet Session", url: "https://forge.invalid/issues/214" },
-          { kind: "pull_request", id: "207", title: "#207 Stop the Drone count drifting", url: "https://forge.invalid/pull/207" },
+          { kind: "issue", id: "2214", title: "#2214 Sessions list drops a quiet Session", url: "https://forge.invalid/issues/2214" },
+          { kind: "pull_request", id: "2207", title: "#2207 Stop the Drone count drifting", url: "https://forge.invalid/pull/2207" },
         ],
       },
     ],
   },
   play: async ({ canvas }) => {
-    await expect(canvas.getByText("#214 Sessions list drops a quiet Session")).toBeInTheDocument();
-    await expect(canvas.getByText("#207 Stop the Drone count drifting")).toBeInTheDocument();
+    await expect(canvas.getByText("#2214 Sessions list drops a quiet Session")).toBeInTheDocument();
+    await expect(canvas.getByText("#2207 Stop the Drone count drifting")).toBeInTheDocument();
   },
 };
 

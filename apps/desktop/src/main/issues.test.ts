@@ -52,20 +52,20 @@ describe("an issue by number", () => {
 
 describe("a pull request by number", () => {
   it("is read by the repository's Manifest with no Session, open, merged or closed", async () => {
-    const pull = { manifest_id: MANIFEST, number: 207, state: "merged", auto_merge: false, checks: { state: "passed" }, title: "Stop the Drone count drifting", branch: "fix/drone-count", address: "https://forge.invalid/pull/207" };
+    const pull = { manifest_id: MANIFEST, number: 2207, state: "merged", auto_merge: false, checks: { state: "passed" }, title: "Stop the Drone count drifting", branch: "fix/drone-count", address: "https://forge.invalid/pull/2207" };
     const fleet = await serving(200, pull);
-    const read = await new IssuesHost(() => fleet.port).pullRequest(MANIFEST, 207);
+    const read = await new IssuesHost(() => fleet.port).pullRequest(MANIFEST, 2207);
     expect(read).toEqual({ ok: true, value: pull });
-    expect(fleet.asked).toEqual([`GET /pull_requests/${MANIFEST}/207`]);
+    expect(fleet.asked).toEqual([`GET /pull_requests/${MANIFEST}/2207`]);
   });
 
   it("is refused in Fleet's words where the forge cannot be read", async () => {
     const fleet = await serving(500, { code: "fleet.pull_request_unreadable", message: "The forge did not answer", run_id: "r", fields: {}, chain: [] });
-    const read = await new IssuesHost(() => fleet.port).pullRequest(MANIFEST, 207);
+    const read = await new IssuesHost(() => fleet.port).pullRequest(MANIFEST, 2207);
     expect(read).toMatchObject({ ok: false, outcome: { ok: false, why: "refused", error: { code: "fleet.pull_request_unreadable" } } });
   });
 
   it("is not asked where Fleet is not connected", async () => {
-    expect(await new IssuesHost(() => null).pullRequest(MANIFEST, 207)).toEqual({ ok: false, outcome: { ok: false, why: "not_connected" } });
+    expect(await new IssuesHost(() => null).pullRequest(MANIFEST, 2207)).toEqual({ ok: false, outcome: { ok: false, why: "not_connected" } });
   });
 });

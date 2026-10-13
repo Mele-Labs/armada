@@ -11,8 +11,8 @@ import { helmRowsOf } from "./helm-thread";
 /** What Fleet's JSON decodes to, typed as the mirror says. */
 const decoded = <T>(json: string): T => JSON.parse(json) as T;
 
-const ISSUE: SessionTag = { kind: "issue", id: "214", title: "#214 Sessions list drops a quiet Session", url: "https://forge.invalid/issues/214" };
-const PULL: SessionTag = { kind: "pull_request", id: "219", title: "#219 Pin the Bridge store clock", url: "https://forge.invalid/pull/219" };
+const ISSUE: SessionTag = { kind: "issue", id: "2214", title: "#2214 Sessions list drops a quiet Session", url: "https://forge.invalid/issues/2214" };
+const PULL: SessionTag = { kind: "pull_request", id: "2219", title: "#2219 Pin the Bridge store clock", url: "https://forge.invalid/pull/2219" };
 const FILE = { id: "file-1", name: "Screenshot.png", media_type: "image/png" };
 
 const OPENED = { message: "opened", protocol_id: "0000000000000000", manifest_id: "01M1", replying: false, skipped: 0 } as const;
@@ -31,7 +31,7 @@ describe("ask_helm", () => {
     };
     expect(decoded<AskHelm>(JSON.stringify(body))).toEqual(body);
     expect(JSON.stringify(body)).toContain('"kind":"issue"');
-    expect(JSON.stringify(body)).toContain('"url":"https://forge.invalid/issues/214"');
+    expect(JSON.stringify(body)).toContain('"url":"https://forge.invalid/issues/2214"');
   });
 });
 

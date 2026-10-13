@@ -30,7 +30,7 @@ const line = (root: string, pulls: HubPullRequest[]): MergeLine => ({ root, line
 
 const state = (lines: MergeLine[] | null) => ({ holds: { repositories: REPOSITORIES }, mergeLines: lines === null ? null : { lines } }) as never;
 
-const PULLS = [pull(219, "Pin the Bridge store clock", "fix/store-clock"), pull(216, "Fold the two notification routes", "notify/one-route")];
+const PULLS = [pull(2219, "Pin the Bridge store clock", "fix/store-clock"), pull(2216, "Fold the two notification routes", "notify/one-route")];
 const SHOP_PULLS = [pull(418, "Round cart totals once", "fix/cart-rounding")];
 
 /** A Fleet that answers by repository, counting each ask. */
@@ -65,7 +65,7 @@ const landed = () => new Promise((done) => setTimeout(done, 0));
 
 describe("the open ones", () => {
   it("are the repository's open issues and the merge line's open pull requests, tagged as `#` tags them", async () => {
-    const held = store({ issues: { [ARMADA]: [issue(214, "Sessions list drops a quiet Session"), issue(212, "Helm answers about the wrong repository")] } });
+    const held = store({ issues: { [ARMADA]: [issue(2214, "Sessions list drops a quiet Session"), issue(2212, "Helm answers about the wrong repository")] } });
     held.numbered.take(state([line("/repos/armada", PULLS), line("/repos/shop", SHOP_PULLS)]));
 
     // The merge line is held already; the issues are asked for the first time here.
@@ -73,17 +73,17 @@ describe("the open ones", () => {
     await landed();
     const hits = held.source.open(ARMADA);
     expect(hits.map((one) => [one.tag.kind, one.tag.id, one.tag.title])).toEqual([
-      ["issue", "214", "#214 Sessions list drops a quiet Session"],
-      ["issue", "212", "#212 Helm answers about the wrong repository"],
-      ["pull_request", "219", "#219 Pin the Bridge store clock"],
-      ["pull_request", "216", "#216 Fold the two notification routes"],
+      ["issue", "2214", "#2214 Sessions list drops a quiet Session"],
+      ["issue", "2212", "#2212 Helm answers about the wrong repository"],
+      ["pull_request", "2219", "#2219 Pin the Bridge store clock"],
+      ["pull_request", "2216", "#2216 Fold the two notification routes"],
     ]);
     // The forge's address goes with each, for the wire.
     expect(hits.map((one) => one.tag.url)).toEqual([
-      "https://forge.invalid/issues/214",
-      "https://forge.invalid/issues/212",
-      "https://forge.invalid/pull/219",
-      "https://forge.invalid/pull/216",
+      "https://forge.invalid/issues/2214",
+      "https://forge.invalid/issues/2212",
+      "https://forge.invalid/pull/2219",
+      "https://forge.invalid/pull/2216",
     ]);
     expect(hits.every((one) => one.standing === undefined)).toBe(true);
   });
@@ -102,14 +102,14 @@ describe("the open ones", () => {
   it("are the pull requests alone before the issues arrive, and none where nothing names the repository", () => {
     const held = store();
     held.numbered.take(state([line("/repos/armada", PULLS)]));
-    expect(held.source.open(ARMADA).map((one) => one.tag.id)).toEqual(["219", "216"]);
+    expect(held.source.open(ARMADA).map((one) => one.tag.id)).toEqual(["2219", "2216"]);
     expect(held.source.open("01M2NOTSERVED")).toEqual([]);
     expect(held.source.open(undefined)).toEqual([]);
   });
 
   it("read the issues once, until they are stale, and again when `#` asks after that", async () => {
     let now = 0;
-    const held = store({ issues: { [ARMADA]: [issue(214, "Sessions list drops a quiet Session")] } }, () => now);
+    const held = store({ issues: { [ARMADA]: [issue(2214, "Sessions list drops a quiet Session")] } }, () => now);
     held.source.open(ARMADA);
     held.source.open(ARMADA);
     await landed();
@@ -123,7 +123,7 @@ describe("the open ones", () => {
   });
 
   it("say so when the issues arrive and when a repository's pull requests change, and keep the same list otherwise", async () => {
-    const held = store({ issues: { [ARMADA]: [issue(214, "Sessions list drops a quiet Session")] } });
+    const held = store({ issues: { [ARMADA]: [issue(2214, "Sessions list drops a quiet Session")] } });
     held.numbered.take(state([line("/repos/armada", PULLS)]));
     const told = vi.fn();
     held.source.subscribe!(told);
@@ -142,19 +142,19 @@ describe("the open ones", () => {
 
     held.numbered.take(state([line("/repos/armada", [PULLS[0]!]), line("/repos/shop", SHOP_PULLS)]));
     expect(told).toHaveBeenCalledTimes(2);
-    expect(held.source.open(ARMADA).map((one) => one.tag.id)).toEqual(["214", "219"]);
+    expect(held.source.open(ARMADA).map((one) => one.tag.id)).toEqual(["2214", "2219"]);
   });
 
   it("keep what was read when a later read fails", async () => {
     let now = 0;
-    const held = store({ issues: { [ARMADA]: [issue(214, "Sessions list drops a quiet Session")] } }, () => now);
+    const held = store({ issues: { [ARMADA]: [issue(2214, "Sessions list drops a quiet Session")] } }, () => now);
     held.source.open(ARMADA);
     await landed();
     held.listIssues.mockResolvedValueOnce({ ok: false, outcome: { ok: false, why: "not_connected" } } as never);
     now = STALE_MS + 1;
     held.source.open(ARMADA);
     await landed();
-    expect(held.source.open(ARMADA).map((one) => one.tag.id)).toEqual(["214"]);
+    expect(held.source.open(ARMADA).map((one) => one.tag.id)).toEqual(["2214"]);
   });
 });
 
@@ -171,13 +171,13 @@ const done = (number: number, title: string, state: PullRequestState["state"]): 
 
 describe("a number that is not open", () => {
   it("is a pull request first, whatever its standing, and says where it stands", async () => {
-    const held = store({ pulls: { [`${ARMADA}#207`]: done(207, "Stop the Drone count drifting", "merged"), [`${ARMADA}#190`]: done(190, "Drop the retired lock watchdog", "closed"), [`${ARMADA}#220`]: done(220, "Mind the gap", "draft") } });
+    const held = store({ pulls: { [`${ARMADA}#2207`]: done(2207, "Stop the Drone count drifting", "merged"), [`${ARMADA}#2190`]: done(2190, "Drop the retired lock watchdog", "closed"), [`${ARMADA}#220`]: done(220, "Mind the gap", "draft") } });
 
-    expect(await held.source.find(ARMADA, 207)).toEqual({
-      tag: { kind: "pull_request", id: "207", title: "#207 Stop the Drone count drifting", url: "https://forge.invalid/pull/207" },
+    expect(await held.source.find(ARMADA, 2207)).toEqual({
+      tag: { kind: "pull_request", id: "2207", title: "#2207 Stop the Drone count drifting", url: "https://forge.invalid/pull/2207" },
       standing: "Merged",
     });
-    expect(await held.source.find(ARMADA, 190)).toMatchObject({ tag: { kind: "pull_request", id: "190" }, standing: "Closed" });
+    expect(await held.source.find(ARMADA, 2190)).toMatchObject({ tag: { kind: "pull_request", id: "2190" }, standing: "Closed" });
     // A draft is open, so it carries no standing.
     const draft = await held.source.find(ARMADA, 220);
     expect(draft?.tag).toMatchObject({ kind: "pull_request", id: "220" });

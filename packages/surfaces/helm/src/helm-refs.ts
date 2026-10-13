@@ -40,7 +40,7 @@ export function branchOfPullRequest(line: MergeLine | undefined, number: string)
   );
 }
 
-/** The title without the `#214 ` a tag's title leads with. */
+/** The title without the `#2214 ` a tag's title leads with. */
 const bare = (title: string): string => title.replace(/^#\d+\s*/, "");
 
 /** Spans of `text` that name something, longest first where two overlap. */

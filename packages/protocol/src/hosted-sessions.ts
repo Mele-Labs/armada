@@ -45,7 +45,7 @@ export type SessionTag = {
   kind: TagKind;
   /** A session's id, a Job's id, a pull request's or an issue's number, or a branch's name. */
   id: string;
-  /** An issue's or a pull request's reads `#214 The title`. */
+  /** An issue's or a pull request's reads `#2214 The title`. */
   title: string;
   /** The forge's address for an issue or a pull request. Absent for any other kind. */
   url?: string;

@@ -37,7 +37,7 @@ test("words, a picture, a sketch and an issue go to Helm as one ask, and the row
   await userEvent.click(pad.getByRole("button", { name: "Attach sketch" }));
 
   await userEvent.click(box());
-  await userEvent.keyboard("see #214");
+  await userEvent.keyboard("see #2214");
   await userEvent.click(helm().getByRole("option", { name: /Sessions list drops a quiet Session/ }));
   await userEvent.keyboard("is it this?{Enter}");
 
@@ -52,7 +52,7 @@ test("words, a picture, a sketch and an issue go to Helm as one ask, and the row
   expect(carry?.attachments?.[1]).toMatchObject({ name: "pin the clock.png", media_type: "image/png" });
   expect(atob(carry!.attachments![1]!.data).startsWith("\x89PNG")).toBe(true);
   // An issue goes with its kind, its number and the forge's address.
-  expect(carry?.mentions).toEqual([{ kind: "issue", id: "214", title: "#214 Sessions list drops a quiet Session on reload", url: "https://forge.invalid/issues/214" }]);
+  expect(carry?.mentions).toEqual([{ kind: "issue", id: "2214", title: "#2214 Sessions list drops a quiet Session on reload", url: "https://forge.invalid/issues/2214" }]);
 
   // The row is Fleet's: the picture is read back from it, the sketch is drawn as the sketch this window drew, and the tag is a link.
   const thumbnail = helm().getByRole("img", { name: /shot\.png/ });
@@ -60,7 +60,7 @@ test("words, a picture, a sketch and an issue go to Helm as one ask, and the row
   expect((thumbnail.element() as HTMLImageElement).src.startsWith("blob:")).toBe(true);
   await expect.element(helm().getByText("pin the clock")).toBeVisible();
   expect(helm().getByText("pin the clock.png").query()).toBeNull();
-  await expect.element(helm().getByRole("link", { name: /#214 Sessions list drops a quiet Session/ })).toBeVisible();
+  await expect.element(helm().getByRole("link", { name: /#2214 Sessions list drops a quiet Session/ })).toBeVisible();
   // The box was given back empty and nothing waits in it.
   await expect.element(box()).toHaveTextContent("");
   expect(helm().getByRole("group", { name: "Attached" }).query()?.children.length ?? 0).toBe(0);

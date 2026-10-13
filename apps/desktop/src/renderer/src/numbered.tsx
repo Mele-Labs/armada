@@ -4,7 +4,7 @@
 // **Two sources fill it.** The app's own mount reads a real Fleet (`numbered-fleet.tsx`): `list_issues`,
 // the merge line's `hub.pull_requests`, and `get_pull_request` then `get_issue` for a number that is not
 // open. A mock scenario holds the same shapes (`mock/numbered.ts`). The hit helpers below are the one
-// mapping: an issue and a pull request are tagged as `#214 The title`, with the forge's address.
+// mapping: an issue and a pull request are tagged as `#2214 The title`, with the forge's address.
 
 import { createContext, useContext, useMemo, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";

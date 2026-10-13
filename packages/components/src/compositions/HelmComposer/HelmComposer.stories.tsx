@@ -371,12 +371,12 @@ const FULL: Partial<HelmBox> = {
   ],
   numbered: {
     open: [
-      { tag: { kind: "issue", id: "214", title: "#214 Sessions list drops a quiet Session", url: "https://forge.invalid/issues/214" } },
-      { tag: { kind: "pull_request", id: "219", title: "#219 Pin the Bridge store clock", url: "https://forge.invalid/pull/219" } },
+      { tag: { kind: "issue", id: "2214", title: "#2214 Sessions list drops a quiet Session", url: "https://forge.invalid/issues/2214" } },
+      { tag: { kind: "pull_request", id: "2219", title: "#2219 Pin the Bridge store clock", url: "https://forge.invalid/pull/2219" } },
     ],
     find: async (number) =>
-      number === 207
-        ? { tag: { kind: "pull_request", id: "207", title: "#207 Stop the Drone count drifting", url: "https://forge.invalid/pull/207" }, standing: "Merged" }
+      number === 2207
+        ? { tag: { kind: "pull_request", id: "2207", title: "#2207 Stop the Drone count drifting", url: "https://forge.invalid/pull/2207" }, standing: "Merged" }
         : undefined,
   },
   drawn: [],
@@ -492,15 +492,15 @@ export const HashTagsAnIssueWithItsAddress: Story = {
   args: BOXED,
   play: async ({ args, canvas, userEvent }) => {
     const field = canvas.getByRole("textbox", { name: "Ask Helm" });
-    await userEvent.type(field, "see #21");
+    await userEvent.type(field, "see #22");
     const list = await canvas.findByRole("listbox", { name: "Tag an issue or pull request" });
     await expect(within(list).getAllByRole("option")).toHaveLength(2);
     await userEvent.click(within(list).getByRole("option", { name: /Sessions list drops a quiet Session/ }));
     await userEvent.type(field, "is it this?{Enter}");
     await expect(args.onSend).toHaveBeenCalledWith({
-      text: "see @#214 Sessions list drops a quiet Session is it this?",
+      text: "see @#2214 Sessions list drops a quiet Session is it this?",
       files: [],
-      tags: [{ kind: "issue", id: "214", title: "#214 Sessions list drops a quiet Session", url: "https://forge.invalid/issues/214" }],
+      tags: [{ kind: "issue", id: "2214", title: "#2214 Sessions list drops a quiet Session", url: "https://forge.invalid/issues/2214" }],
     });
   },
 };
@@ -509,12 +509,12 @@ export const HashTagsAnIssueWithItsAddress: Story = {
 export const HashLooksANumberUp: Story = {
   args: BOXED,
   play: async ({ args, canvas, userEvent }) => {
-    await userEvent.type(canvas.getByRole("textbox", { name: "Ask Helm" }), "#207");
+    await userEvent.type(canvas.getByRole("textbox", { name: "Ask Helm" }), "#2207");
     const merged = await canvas.findByRole("option", { name: /Stop the Drone count drifting/ });
     await expect(merged).toHaveTextContent("Merged");
     await userEvent.click(merged);
     await userEvent.keyboard("{Enter}");
-    await expect(args.onSend).toHaveBeenCalledWith(expect.objectContaining({ tags: [expect.objectContaining({ kind: "pull_request", id: "207", url: "https://forge.invalid/pull/207" })] }));
+    await expect(args.onSend).toHaveBeenCalledWith(expect.objectContaining({ tags: [expect.objectContaining({ kind: "pull_request", id: "2207", url: "https://forge.invalid/pull/2207" })] }));
   },
 };
 

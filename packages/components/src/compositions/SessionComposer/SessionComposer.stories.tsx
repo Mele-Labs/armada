@@ -277,8 +277,8 @@ export const GrowsToHalf: Story = {
 
 const NUMBERED = {
   open: [
-    { tag: { kind: "issue" as const, id: "214", title: "#214 Sessions list drops a quiet Session", url: "https://forge.invalid/issues/214" } },
-    { tag: { kind: "pull_request" as const, id: "219", title: "#219 Pin the Bridge store clock", url: "https://forge.invalid/pull/219" } },
+    { tag: { kind: "issue" as const, id: "2214", title: "#2214 Sessions list drops a quiet Session", url: "https://forge.invalid/issues/2214" } },
+    { tag: { kind: "pull_request" as const, id: "2219", title: "#2219 Pin the Bridge store clock", url: "https://forge.invalid/pull/2219" } },
   ],
   find: async (number: number) =>
     number === 61
@@ -294,17 +294,17 @@ export const Hash: Story = {
   args: { numbered: NUMBERED },
   play: async ({ canvas, args }) => {
     const field = canvas.getByRole("textbox", { name: "Message" });
-    await userEvent.type(field, "is #21");
+    await userEvent.type(field, "is #22");
     const list = await canvas.findByRole("listbox", { name: "Tag an issue or pull request" });
     await expect(within(list).getAllByRole("option")).toHaveLength(2);
     // The highest number is offered first.
     await userEvent.keyboard("{Enter}");
-    await expect(field.querySelector("[data-tag-kind]")).toHaveAttribute("data-tag-url", "https://forge.invalid/pull/219");
+    await expect(field.querySelector("[data-tag-kind]")).toHaveAttribute("data-tag-url", "https://forge.invalid/pull/2219");
     await userEvent.keyboard("{Enter}");
     await expect(args.onSend).toHaveBeenCalledWith({
-      text: "is @#219 Pin the Bridge store clock",
+      text: "is @#2219 Pin the Bridge store clock",
       files: [],
-      tags: [{ kind: "pull_request", id: "219", title: "#219 Pin the Bridge store clock", url: "https://forge.invalid/pull/219" }],
+      tags: [{ kind: "pull_request", id: "2219", title: "#2219 Pin the Bridge store clock", url: "https://forge.invalid/pull/2219" }],
     });
   },
 };
@@ -325,7 +325,7 @@ export const HashLooksANumberUp: Story = {
 /** With nothing behind `#`, it is only a character. */
 export const HashWithNothingBehindIt: Story = {
   play: async ({ canvas }) => {
-    await userEvent.type(canvas.getByRole("textbox", { name: "Message" }), "see #214");
+    await userEvent.type(canvas.getByRole("textbox", { name: "Message" }), "see #2214");
     await expect(canvas.queryByRole("listbox")).toBeNull();
   },
 };

@@ -33,7 +33,7 @@ const done = (manifest: string, number: number, title: string, state: PullReques
   auto_merge: false,
   checks: { state: "passed" },
   title,
-  branch: number === 207 ? "fix/drone-count" : `merged/${number}`,
+  branch: number === 2207 ? "fix/drone-count" : `merged/${number}`,
   address: `https://forge.invalid/pull/${number}`,
 });
 
@@ -42,17 +42,17 @@ type Repository = { issues: TrackedIssue[]; pulls: HubPullRequest[]; looked: Pul
 const REPOSITORIES: Record<string, Repository> = {
   armada: {
     issues: [
-      issue(214, "Sessions list drops a quiet Session on reload"),
-      issue(212, "Helm answers about the wrong repository after a switch"),
+      issue(2214, "Sessions list drops a quiet Session on reload"),
+      issue(2212, "Helm answers about the wrong repository after a switch"),
       issue(198, "Walk window keeps the old page after Back"),
       issue(87, "Retro items repeat across Jobs"),
     ],
     pulls: [
-      pull(219, "Pin the Bridge store clock", "fix/store-clock"),
-      pull(216, "Fold the two notification routes into one", "notify/one-route"),
+      pull(2219, "Pin the Bridge store clock", "fix/store-clock"),
+      pull(2216, "Fold the two notification routes into one", "notify/one-route"),
       pull(203, "Sessions page: Active, Quiet and Ended views", "sessions/list-views"),
     ],
-    looked: [done("armada", 207, "Stop the Drone count drifting", "merged"), done("armada", 190, "Drop the retired lock watchdog", "closed")],
+    looked: [done("armada", 2207, "Stop the Drone count drifting", "merged"), done("armada", 2190, "Drop the retired lock watchdog", "closed")],
     closed: [issue(61, "Doctor reports a stale pid as running")],
   },
   storefront: {

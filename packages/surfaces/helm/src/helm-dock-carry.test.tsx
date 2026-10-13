@@ -16,7 +16,7 @@ import type { ThoughtCarry, ThoughtRouting } from "./thought-routing";
 afterEach(unmount);
 
 const CONTEXT: HelmContext = { screen: "board" };
-const TAG = { kind: "issue", id: "214", title: "#214 Sessions list drops a quiet Session", url: "https://forge.invalid/issues/214" } as const;
+const TAG = { kind: "issue", id: "2214", title: "#2214 Sessions list drops a quiet Session", url: "https://forge.invalid/issues/2214" } as const;
 const PIXEL = "data:image/gif;base64,R0lGODlhAQABAIAAAAUEBAAAACwAAAAAAQABAAACAkQBADs=";
 
 const box = () => page.getByRole("textbox", { name: "Ask Helm" });
@@ -139,7 +139,7 @@ const ROW: HelmThreadItem = {
   kind: "asked",
   id: "0",
   ts: "2026-10-12T10:00:00.000Z",
-  text: "see @#214 Sessions list drops a quiet Session",
+  text: "see @#2214 Sessions list drops a quiet Session",
   files: [
     { id: "f1", name: "Screenshot.png", media_type: "image/png" },
     { id: "f2", name: "pin the clock.png", media_type: "image/png" },
@@ -157,7 +157,7 @@ test("a sent row draws what Fleet kept of it: a picture once it is read, a sketc
   await expect.element(page.getByText("pin the clock", { exact: true })).toBeVisible();
   expect(page.getByText("pin the clock.png").query()).toBeNull();
   await expect.element(page.getByText("clock.log")).toBeVisible();
-  await expect.element(page.getByText("#214 Sessions list drops a quiet Session")).toBeVisible();
+  await expect.element(page.getByText("#2214 Sessions list drops a quiet Session")).toBeVisible();
   // Only a picture is read, and a text file never is.
   expect(picture).not.toHaveBeenCalledWith("f3");
 });
@@ -193,7 +193,7 @@ test("words sent on to a Session are drawn with what went with them, from the ro
   await expect.element(page.getByRole("button", { name: "Sent to Session Sessions list views" })).toBeVisible();
   await expect.element(page.getByRole("img", { name: /Screenshot\.png/ })).toBeVisible();
   await expect.element(page.getByText("pin the clock", { exact: true })).toBeVisible();
-  await expect.element(page.getByText("#214 Sessions list drops a quiet Session")).toBeVisible();
+  await expect.element(page.getByText("#2214 Sessions list drops a quiet Session")).toBeVisible();
 });
 
 test("a sent row with no files or tags draws none", async () => {
