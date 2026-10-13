@@ -235,6 +235,8 @@ export type Session = {
   pendingTags?: readonly SessionTag[];
   /** The model and effort the next turn runs on. Absent is Auto. */
   model?: string;
+  /** The model Fleet heard the running process resolve, as its full id (`vendor-opus-5-5`). Absent until it has said. */
+  resolvedModel?: string;
   effort?: string;
   /** The permission mode. **A Session runs in auto**, so absent is auto. */
   mode?: SessionMode;

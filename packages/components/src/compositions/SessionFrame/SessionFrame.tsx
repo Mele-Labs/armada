@@ -101,11 +101,8 @@ export type SessionFrameProps = {
   modOutOfDate?: boolean;
   /** The context window's fill, drawn beside `actions`. Absent draws nothing. */
   context?: ContextFill;
-  /**
-   * Draws the model the Session runs on, always named. The value is the model picked; `undefined` draws the default.
-   * Omit the key to draw none.
-   */
-  model?: { picked: string | undefined };
+  /** The model the Session runs on: the full id its process resolved, or the alias picked. Absent draws nothing. */
+  model?: string;
   /** Big or old: a quiet mark beside the context figure, offering a fresh Session or a fork. Absent draws nothing. */
   fresh?: FreshStart;
   /** Beside the state mark, at the head's trailing edge: the ledger's button where it has folded. */
@@ -173,7 +170,7 @@ export function SessionFrame({ state, said, id, address, title, onRename, modOut
         <span className="armada-session-frame__id">{address ?? id}</span>
         <SessionTitle {...(title === undefined ? {} : { title })} {...(onRename === undefined ? {} : { onRename })} />
         {actions}
-        {model === undefined ? null : <ModelChip model={model.picked} />}
+        {model === undefined ? null : <ModelChip model={model} />}
         {context === undefined ? null : <ContextFigure fill={context} />}
         {fresh === undefined ? null : <FreshNudge fresh={fresh} />}
         {modOutOfDate && state !== "quiet" ? <ModMark /> : null}

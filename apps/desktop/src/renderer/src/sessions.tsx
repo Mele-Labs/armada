@@ -50,6 +50,7 @@ import type {
 } from "@armada/components";
 import { sessionOf } from "@armada/jobs";
 import { askToOpenRetro } from "./open-retro";
+import { handoffOf } from "./session-handoff";
 import { readRetro } from "./commands";
 import { ArtifactBody, ARTIFACT_GLYPH, isAddress } from "./session-artifact";
 import { isUnsentItem, linkEntry, unsentEntry, useStartedBy } from "./session-started";
@@ -138,12 +139,12 @@ function opening(started: string | Promise<string | undefined>, onOpen: (id: str
 const FRESH_TOKENS = 300_000;
 const FRESH_HOURS = 24;
 
-/** A new Session that opens on a short handoff from this one, under the same title. */
-async function startFreshFrom(draft: SessionsDraft, session: Session): Promise<string | undefined> {
+/** A new Session under the same title, whose first message is the handoff `text`. */
+async function startFreshFrom(draft: SessionsDraft, session: Session, text: string): Promise<string | undefined> {
   const fresh = await draft.start();
   if (fresh === undefined) return undefined;
   if (session.title !== undefined) draft.rename?.(fresh, session.title);
-  void draft.send(fresh, { text: `Handoff from ${session.title ?? session.address ?? session.id}`, files: [], sketches: [], tags: [] });
+  void draft.send(fresh, { text, files: [], sketches: [], tags: [] });
   return fresh;
 }
 
@@ -768,6 +769,8 @@ function SessionView({ session, goes, onOpen, held, board, lines, settings }: { 
   const [ledgerOpen, setLedgerOpen] = useState(false);
   // The Session a fork from a selection opened, whose message box takes focus when it shows.
   const [focusFor, setFocusFor] = useState<string | undefined>();
+  // The old Session is writing the handoff a fresh one opens on.
+  const [handing, setHanding] = useState(false);
   const askCard = useRef<HTMLDivElement>(null);
   const centre = useRef<HTMLDivElement>(null);
   // Keep going hides the callout for the `done` it answered; a later `done` is a new one.
@@ -822,7 +825,14 @@ function SessionView({ session, goes, onOpen, held, board, lines, settings }: { 
       ? {
           tokens,
           hours,
-          onFresh: () => opening(startFreshFrom(draft, session), onOpen),
+          busy: handing,
+          onFresh: () => {
+            setHanding(true);
+            void handoffOf(draft, session)
+              .then((text) => startFreshFrom(draft, session, text))
+              .then((id) => id !== undefined && onOpen(id))
+              .finally(() => setHanding(false));
+          },
           ...(draft.forkAt === undefined || lastRow === undefined ? {} : { onFork: () => opening(draft.forkAt!(session.id, lastRow.id), onOpen) }),
         }
       : undefined;
@@ -868,7 +878,7 @@ function SessionView({ session, goes, onOpen, held, board, lines, settings }: { 
         {...(session.title === undefined ? {} : { title: session.title })}
         {...(draft.rename === undefined ? {} : { onRename: (title: string) => draft.rename?.(session.id, title) })}
         {...(session.modOutOfDate === true ? { modOutOfDate: true } : {})}
-        {...(session.terminal === true && session.model === undefined ? {} : { model: { picked: session.model } })}
+        {...(session.resolvedModel === undefined && session.model === undefined ? {} : { model: session.resolvedModel ?? session.model })}
         {...(fresh === undefined ? {} : { fresh })}
         {...(session.context === undefined ? {} : { context: { ...session.context, ...(session.contextBreakdown === undefined ? {} : { breakdown: session.contextBreakdown }) } })}
         {...{

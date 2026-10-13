@@ -167,6 +167,8 @@ export class FakeSessionsFleet {
   onSend: ((send: SendSessionMessage) => void) | undefined;
   /** A Session this Fleet starts or forks says it began now, where the fixtures' fixed instant would age it by days. */
   startsNow = false;
+  /** A row for a thread nobody has opened is kept for when it is, as Fleet keeps every thread, and not dropped as main drops it. */
+  keepsRows = false;
   private minted = 0;
   private rowed = 0;
 
@@ -542,7 +544,7 @@ export class FakeSessionsFleet {
     const held = this.threads[sessionId];
     // Not opened: main holds no thread for it and drops the row. Fleet keeps a retro's, so opening the thread later brings it.
     if (held === undefined) {
-      if (row.kind === "retro") this.keptRetro[sessionId] = withThreadRow(this.keptRetro[sessionId] ?? [], row);
+      if (row.kind === "retro" || this.keepsRows) this.keptRetro[sessionId] = withThreadRow(this.keptRetro[sessionId] ?? [], row);
       return;
     }
     this.threads = { ...this.threads, [sessionId]: withThreadRow(held, row) };

@@ -141,6 +141,17 @@ button.armada-session-frame__fresh:focus-visible {
   outline-offset: var(--focus-ring-offset);
 }
 
+/* The old Session is writing the handoff: the mark breathes as the running mark does. */
+button.armada-session-frame__fresh[data-busy] svg {
+  animation: armada-badge-pulse var(--duration-pulse) var(--ease) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  button.armada-session-frame__fresh[data-busy] svg {
+    animation: none;
+  }
+}
+
 .armada-session-frame__fresh-card {
   position: absolute;
   z-index: var(--z-tooltip);

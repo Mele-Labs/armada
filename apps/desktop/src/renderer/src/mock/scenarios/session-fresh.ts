@@ -7,6 +7,7 @@ import { job, repository } from "@armada/screens/src/fixtures/build/base";
 
 import { onBoard } from "../moment";
 import type { Scenario } from "../moment";
+import { HANDOFF_ASK } from "../../session-handoff";
 import { FakeSessionsFleet, hosted } from "../sessions-fleet";
 
 const ARMADA: RepositorySummary = { ...repository(), manifest: { ...repository().manifest!, id: "armada" } };
@@ -16,21 +17,35 @@ const SMALL = "01FRESH1AAAAAAAAAAAAAAAAAA";
 const OLD = "01FRESH2AAAAAAAAAAAAAAAAAA";
 const BIG = "01FRESH3AAAAAAAAAAAAAAAAAA";
 
+const HANDOFF = "Goal: cart totals match the invoice to the cent. The sum is taken before rounding in totals.rs, and the test for it passes. Branch fix/cart-totals, pull request 412 open. Next: the same rounding in the refund path.";
+
 /** This long ago, as the record's `started_at`. */
 const ago = (hours: number): string => new Date(Date.now() - hours * 3_600_000).toISOString();
 const now = () => new Date().toISOString();
 const used = (context_tokens: number) => ({ context_tokens, context_window: 1_000_000 });
 
 const records = () => [
-  hosted(SMALL, { title: "Release notes script", started_at: ago(2), last_turn_at: now(), usage: used(53_840) }),
+  hosted(SMALL, {
+    title: "Release notes script",
+    started_at: ago(2),
+    last_turn_at: now(),
+    usage: used(53_840),
+    hosted: { turn: { state: "idle" }, mode: "auto", running: true, resolved_model: "vendor-opus-5-5" },
+  }),
   hosted(OLD, {
     title: "Invoice PDF layout",
     started_at: ago(52),
     last_turn_at: now(),
     usage: used(88_000),
-    hosted: { turn: { state: "idle" }, mode: "auto", running: false, model: "sonnet" },
+    hosted: { turn: { state: "idle" }, mode: "auto", running: true, model: "sonnet", resolved_model: "vendor-sonnet-5-5" },
   }),
-  hosted(BIG, { title: "Cart totals rounding", started_at: ago(3), last_turn_at: now(), usage: used(612_000) }),
+  hosted(BIG, {
+    title: "Cart totals rounding",
+    started_at: ago(3),
+    last_turn_at: now(),
+    usage: used(612_000),
+    hosted: { turn: { state: "idle" }, mode: "auto", running: true, resolved_model: "vendor-opus-5-5" },
+  }),
 ];
 
 const threads = (): Record<string, SessionRow[]> => ({
@@ -49,6 +64,14 @@ const threads = (): Record<string, SessionRow[]> => ({
 function fleet(): FakeSessionsFleet {
   const made = new FakeSessionsFleet(records(), threads());
   made.startsNow = true;
+  made.keepsRows = true;
+  // The old Session writes its own handoff when asked for one.
+  made.onSend = (send) => {
+    if (send.text !== HANDOFF_ASK) return;
+    void made.agentTurn(send.session_id, [
+      { kind: "message", id: "h1", at: AT, from: { kind: "agent" }, text: HANDOFF },
+    ]);
+  };
   return made;
 }
 
