@@ -2,6 +2,8 @@
 // are in every state the picker draws (already set up, ready to write, no checks proposed, nothing
 // here could be read), over a Fleet that also hosts Sessions. The walk `setup-with-a-session` plays it.
 
+import { MANIFEST_ID, repository } from "@armada/screens/src/fixtures/build/base";
+
 import type { Scenario } from "../moment";
 import { FakeSessionsFleet } from "../sessions-fleet";
 import { SHEET_READ, settingUp } from "../setup-fake";
@@ -16,7 +18,10 @@ function build(): Scenario {
     // Setup's Fleet and a Sessions one of its own for each window, so a walk told twice starts with none.
     behaves: (handle) => {
       const setup = setting.behaves!(handle);
-      const own = new FakeSessionsFleet().scenario(setting).behaves!(handle);
+      // Started on the repository being set up, so it is listed under the pick as Fleet lists it.
+      const fleet = new FakeSessionsFleet();
+      fleet.startsIn = { manifest_id: MANIFEST_ID, cwd: repository().root };
+      const own = fleet.scenario(setting).behaves!(handle);
       return {
         ...setup,
         ...own,

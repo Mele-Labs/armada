@@ -177,6 +177,9 @@ export class FakeSessionsFleet {
     this.threads = threads;
   }
 
+  /** What a Session this Fleet starts is placed by, as Fleet places one by the repository it was started in. */
+  startsIn: Partial<SessionRecord> = {};
+
   private began(): Partial<SessionRecord> {
     return this.startsNow ? { started_at: new Date().toISOString() } : {};
   }
@@ -195,7 +198,7 @@ export class FakeSessionsFleet {
         return {
           startSession: async () => {
             this.calls.started += 1;
-            const record = hosted(`01SESSION${String((this.minted += 1)).padStart(8, "0")}ABCDEFGH`, this.began());
+            const record = hosted(`01SESSION${String((this.minted += 1)).padStart(8, "0")}ABCDEFGH`, { ...this.began(), ...this.startsIn });
             this.set([record, ...this.records]);
             return { ok: true, value: record };
           },
