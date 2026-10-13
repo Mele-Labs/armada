@@ -8,10 +8,11 @@ export function threadRowsOf(session: Session): SessionThreadRow[] {
   return threadRowsFrom(session.rows);
 }
 
-/** The rows up to and including the one with this id; all of them where it names none. */
+/** The rows up to and including the one with this id; all of them with no id. **An id no row has gives none**: a cut that cannot be found must not show what came after it. */
 export function upTo<T extends { id: string }>(rows: readonly T[], at: string | undefined): readonly T[] {
-  const end = at === undefined ? -1 : rows.findIndex((one) => one.id === at);
-  return end < 0 ? rows : rows.slice(0, end + 1);
+  if (at === undefined) return rows;
+  const end = rows.findIndex((one) => one.id === at);
+  return end < 0 ? [] : rows.slice(0, end + 1);
 }
 
 export function threadRowsFrom(rows: Session["rows"]): SessionThreadRow[] {

@@ -165,6 +165,48 @@ async fn a_shell_line_that_names_the_main_checkout_is_held_like_a_write() {
     }
 }
 
+/// A `cd` moves every relative write after it, so a line that works in a slot another session
+/// holds, or in the main checkout, is held though no path in it is written to by name.
+#[tokio::test]
+async fn a_cd_into_a_slot_somebody_else_holds_holds_what_runs_after_it() {
+    let peers = Placing::nothing();
+    let (rig, id) = in_its_slot(&peers).await;
+    let main = rig.root.clone();
+    let own = adapter_traits::slot_path(&main, 1);
+    let parent = std::os::unix::process::parent_id();
+    let theirs = lease(&rig, 5, parent, &started(parent));
+    let line = |command: String| {
+        let rig = &rig;
+        let id = &id;
+        async move {
+            let encoded = ipc::encode(&Quoted { command: &command }).expect("a line");
+            rig.gate(id, "Bash", &encoded).await
+        }
+    };
+    for held in [
+        format!("cd {theirs} && git add -A"),
+        format!("cd {theirs} && cargo build"),
+        format!("(cd {theirs}; touch f)"),
+        String::from("cd .armada/slots/slot-5 && touch f"),
+        format!("cd {theirs}; cd {theirs}/src && git commit -m x"),
+        format!("cd {main} && git checkout main"),
+    ] {
+        let answer = line(held.clone()).await;
+        assert!(denied(&answer), "{held} should be held");
+    }
+    assert!(reason(&line(format!("cd {theirs} && touch f")).await).contains("not leased by this session"));
+    for fine in [
+        format!("cd {theirs} && git status"),
+        format!("cd {theirs} && ls src | wc -l"),
+        format!("cd {own} && cargo build"),
+        format!("cd {main} && armada worktree lease x"),
+        format!("cd {theirs}; cd {own} && touch f"),
+        String::from("cd /tmp && touch f"),
+    ] {
+        assert!(!denied(&line(fine.clone()).await), "{fine} should run");
+    }
+}
+
 #[derive(serde::Serialize)]
 struct Quoted<'a> {
     command: &'a str,
