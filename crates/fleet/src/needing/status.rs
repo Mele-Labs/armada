@@ -74,7 +74,7 @@ where
                 .filter_map(|open| {
                     let commit = open.pull.head.clone()?;
                     let branch = open.pull.branch.as_written();
-                    let holder = holder_of_branch(&store, &manifest, branch).ok()?;
+                    let holder = holder_of_branch(&store, &manifest, served.root(), branch).ok()?;
                     let waits = behind(&all, &holder);
                     let (state, said) = match waits.is_empty() {
                         true => (

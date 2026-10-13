@@ -242,6 +242,88 @@ fn a_shell_line_is_a_read_only_where_every_part_of_it_is_and_nothing_redirects()
 }
 
 #[test]
+fn a_redirect_to_nowhere_and_a_quoted_separator_do_not_make_a_line_a_write() {
+    for read in [
+        r#"armada worktree --status 2>&1 | grep -E "slot-1 |07541e89""#,
+        "git log 2>&1 | head",
+        "gh pr view 2250 --json state 2>/dev/null",
+        r#"grep -E "a|b" file"#,
+        r#"echo "x; y""#,
+        "armada worktree --status 2>&1",
+        "cd /tmp && git -C /x log >/dev/null 2>&1",
+        "git status &>/dev/null",
+        "git log 1>&2",
+        "git log >&2 | head",
+        r#"echo 'a & b' \; pwd"#,
+    ] {
+        assert!(reads_only(read), "{read}");
+    }
+    for write in [
+        "echo hi > file",
+        "echo hi >> file",
+        "git log > out.txt",
+        "cat a 2>&1 > out",
+        "git log >/dev/null2",
+        "git log 2>/dev/nullx",
+        r#"echo "2>&1""#,
+        r#"echo "$(rm -rf x)""#,
+        "grep \"a\" f | tee out",
+        "grep \"a f",
+        "echo 'a f",
+        "armada worktree release /x",
+        "git commit -m \"x\"",
+        "gh pr create",
+        "sed -i s/a/b/ f",
+        "git log 2>&1 | rm x",
+        "git log \"a|b\" ; rm x",
+    ] {
+        assert!(!reads_only(write), "{write}");
+    }
+}
+
+#[test]
+fn a_line_that_only_looks_elsewhere_or_asks_the_forge_is_still_a_read() {
+    for read in [
+        "cd /repo/.armada/slots/slot-3 && git log --oneline | head",
+        "git -C /repo/.armada/slots/slot-3 status",
+        "git --no-pager -C /repo log -5",
+        "git merge-base origin/main HEAD",
+        "git remote -v",
+        "git rev-parse --abbrev-ref HEAD",
+        "gh issue view 2239",
+        "gh issue list --state open",
+        "gh pr checks 2234",
+        "gh run list --limit 3",
+        "gh api repos/Mele-Labs/armada/pulls/2234",
+        "gh api -X GET repos/Mele-Labs/armada/pulls --jq '.[].number'",
+        "gh api --paginate repos/Mele-Labs/armada/issues",
+    ] {
+        assert!(reads_only(read), "{read}");
+    }
+    for write in [
+        "git commit -m x",
+        "git push origin topic",
+        "git -C /repo commit -m x",
+        "git -C /repo push",
+        "git -C",
+        "git remote add origin x",
+        "git merge topic",
+        "cd /repo && git commit -m x",
+        "cd /repo && sed -i s/a/b/ file",
+        "sed -i s/a/b/ file",
+        "cd /repo && echo x > file",
+        "gh pr create --fill",
+        "gh pr merge 12",
+        "gh api -X POST repos/o/r/issues",
+        "gh api --method=DELETE repos/o/r/issues/1",
+        "gh api repos/o/r/issues -f title=x",
+        "gh api graphql --input query.json",
+    ] {
+        assert!(!reads_only(write), "{write}");
+    }
+}
+
+#[test]
 fn who_a_message_went_to_and_what_it_said_is_read_off_the_detail_beside_the_line_that_wrote_it() {
     assert_eq!(
         sent_message("SendMessage", "to s-7b1f3c52: please review"),

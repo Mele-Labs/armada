@@ -189,6 +189,20 @@ fn a_retro_is_written_on_a_roster_model_stronger_than_the_judges() {
     );
 }
 
+/// The default steps down to a roster model that is not the strongest, as
+/// `plan-downshift-model` decided on 13 Oct 2026.
+#[test]
+fn the_default_steps_down_to_a_roster_model_below_the_strongest() {
+    assert_eq!(HeadlessAgent::downshift_model(), "sonnet");
+    let roster = HeadlessAgent::models();
+    let at = |model| roster.iter().position(|named| *named == model);
+    assert!(at(HeadlessAgent::downshift_model()).is_some(), "a member of the roster");
+    assert!(
+        at(HeadlessAgent::downshift_model()) > at(HeadlessAgent::commander_model()),
+        "the roster runs strongest first"
+    );
+}
+
 /// A Commander runs on the strongest tier, as `commander-model` decided on
 /// 12 Oct 2026: a member of the roster, and its first.
 #[test]

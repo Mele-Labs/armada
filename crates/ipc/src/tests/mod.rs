@@ -72,6 +72,7 @@ mod review_argument;
 mod reviewing;
 mod servers;
 mod session_starts;
+mod session_summaries;
 /// A Studio's graph, and the relation no proposal may name.
 mod studio;
 mod studio_sketch;

@@ -307,18 +307,145 @@ pub fn reads_only(line: &str) -> bool {
     if line.is_empty() {
         return true;
     }
-    // A redirect, a substitution or a chain that this reading cannot follow.
-    if line.contains('>') || line.contains('`') || line.contains("$(") {
+    let Some(segments) = segments(line) else {
+        return false;
+    };
+    segments
+        .iter()
+        .map(|segment| segment.trim())
+        .filter(|segment| !segment.is_empty())
+        // A redirect, a substitution or a chain that this reading cannot follow; a quoted one
+        // counts too, since a quote is no proof the shell leaves it alone.
+        .all(|segment| !segment.contains(['>', '`']) && !segment.contains("$(") && reads(segment))
+}
+
+/// Redirects that write nothing: to the null device, or one descriptor onto another.
+const HARMLESS_REDIRECTS: &[&str] = &[
+    "2>>/dev/null",
+    "&>/dev/null",
+    "2>/dev/null",
+    "1>/dev/null",
+    ">/dev/null",
+    "2>&1",
+    "1>&2",
+    ">&2",
+    ">&1",
+];
+
+/// The length of a harmless redirect that `rest` opens as a word of its own.
+fn harmless_redirect(rest: &str) -> Option<usize> {
+    HARMLESS_REDIRECTS.iter().find_map(|form| {
+        let after = rest.strip_prefix(form)?;
+        after
+            .chars()
+            .next()
+            .is_none_or(|next| next.is_whitespace() || matches!(next, '|' | ';' | '&' | ')'))
+            .then_some(form.len())
+    })
+}
+
+/// The line cut at `|`, `;`, `&` and newline outside quotes, with the harmless redirects
+/// taken out. `None` for a quote left open, which this cannot say the end of.
+fn segments(line: &str) -> Option<Vec<String>> {
+    let mut segments = vec![String::new()];
+    let mut quote: Option<char> = None;
+    let mut word_start = true;
+    let mut skip_to = 0;
+    let mut chars = line.char_indices();
+    while let Some((at, c)) = chars.next() {
+        if at < skip_to {
+            continue;
+        }
+        let current = segments.last_mut()?;
+        if c == '\\' && quote != Some('\'') {
+            current.push(c);
+            current.extend(chars.next().map(|(_, escaped)| escaped));
+            word_start = false;
+            continue;
+        }
+        match quote {
+            Some(open) => {
+                current.push(c);
+                if c == open {
+                    quote = None;
+                }
+            }
+            None => {
+                if word_start {
+                    if let Some(len) = harmless_redirect(&line[at..]) {
+                        skip_to = at + len;
+                        continue;
+                    }
+                }
+                match c {
+                    '|' | ';' | '&' | '\n' => {
+                        segments.push(String::new());
+                        word_start = true;
+                        continue;
+                    }
+                    '"' | '\'' => quote = Some(c),
+                    _ => {}
+                }
+                current.push(c);
+                word_start = c.is_whitespace();
+                continue;
+            }
+        }
+        word_start = false;
+    }
+    quote.is_none().then_some(segments)
+}
+
+/// A `git` segment with the options that only say where to look taken off, so `git -C <path>
+/// log` is read as `git log`. A path with a blank in it is left whole and reads as a write.
+fn plain_git(segment: &str) -> std::borrow::Cow<'_, str> {
+    let mut words = segment.split_whitespace().peekable();
+    if words.next() != Some("git") {
+        return segment.into();
+    }
+    while let Some(&word) = words.peek() {
+        match word {
+            "--no-pager" => {
+                words.next();
+            }
+            "-C" => {
+                words.next();
+                if words.next().is_none() {
+                    return segment.into();
+                }
+            }
+            _ => break,
+        }
+    }
+    std::iter::once("git").chain(words).collect::<Vec<_>>().join(" ").into()
+}
+
+/// Whether a `gh api` call only reads: no body, and a method of GET where one is named.
+fn api_reads(segment: &str) -> bool {
+    let words: Vec<&str> = segment.split_whitespace().collect();
+    if words.iter().any(|word| {
+        matches!(*word, "-f" | "-F" | "--field" | "--raw-field" | "--input")
+            || word.starts_with("--field=")
+            || word.starts_with("--raw-field=")
+            || word.starts_with("--input=")
+    }) {
         return false;
     }
-    line.split(['|', ';', '&', '\n'])
-        .map(str::trim)
-        .filter(|segment| !segment.is_empty())
-        .all(reads)
+    words.iter().enumerate().all(|(at, word)| match *word {
+        "-X" | "--method" => words.get(at + 1).is_some_and(|method| method.eq_ignore_ascii_case("GET")),
+        other => other
+            .strip_prefix("--method=")
+            .or_else(|| other.strip_prefix("-X"))
+            .is_none_or(|method| method.eq_ignore_ascii_case("GET")),
+    })
 }
 
 /// One segment of a line.
 fn reads(segment: &str) -> bool {
+    let segment = &*plain_git(segment);
+    if segment.starts_with("gh api ") {
+        return api_reads(segment);
+    }
     let named = |read: &&str| {
         segment == *read
             || segment
@@ -343,6 +470,9 @@ fn reads(segment: &str) -> bool {
 }
 
 const READS: &[&str] = &[
+    "cd",
+    "pushd",
+    "popd",
     "ls",
     "cat",
     "head",
@@ -378,6 +508,8 @@ const READS: &[&str] = &[
     "git blame",
     "git describe",
     "git fetch",
+    "git merge-base",
+    "git remote -v",
     "gh pr view",
     "gh pr list",
     "gh pr diff",

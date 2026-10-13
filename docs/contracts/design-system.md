@@ -886,6 +886,8 @@ refused notification is a silent one. A packaged Bridge carries both tones in
 its bundle; a development Bridge runs Electron's own, so it installs them into
 `~/Library/Sounds`, which macOS searches for the same names.
 
+**The default model's step down takes the Waiting tone.** The weekly limit's offer, and its restore after the window resets, are decisions that will keep, so they sound as a Job waiting for review does and never as work that stopped. They go no further than an OS notification.
+
 **One notification, one tone.** A batch that holds a stopped Job plays
 Blocked, because the most urgent Job in it decides. Nothing else makes a
 sound: a Job that lands, a Check that passes and a press are silent, which
@@ -1518,7 +1520,7 @@ S              add a sketch         (open studio only)
 Z              add a zone           (open studio only)
 R              run                  (open studio only)
 [ ]            previous and next filter   (dashboard only)
-m              switch between grid and map   (dashboard only)
+m              switch between grid and timeline   (dashboard only)
 ?              show the keys   (dashboard only)
 w              bring a waiting call back   (dashboard only)
 1–9            pick an answer   (call only)
@@ -1538,7 +1540,7 @@ back when it goes; `l` and `Esc` both put it at the back of the stack, and
 `b` and `g` stand only on a question an agent asked and could answer itself,
 never on a call Fleet raises about a state. On a Job's question they answer with
 `mode` `best` or `quick`, which Fleet turns into the instruction the Drone is told. The panel's `[ ]` and `⌥1–3`
-move between its filters, `m` flips grid and map, `w` brings a waiting call
+move between its filters, `m` flips grid and timeline, `w` brings a waiting call
 back and `?` lists them all. None is a palette row yet: each is read from the panel's own sheet.
 
 **This is the map, not a pattern.** It was settled by drawing the Job

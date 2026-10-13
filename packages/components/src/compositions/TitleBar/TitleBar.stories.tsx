@@ -336,6 +336,31 @@ export const PlanUsageLevels: Story = {
   },
 };
 
+/** A limit with an offer standing: the bell on the meter, a fact under the reset, and the owner's two acts in the card. */
+export const PlanUsageOffer: Story = {
+  args: {
+    repositoryPicker: picker,
+    onSearch: () => {},
+    fleet: { state: "running", label: "Running" },
+    planUsage: [
+      { kind: "five_hour", percentUsed: 34, resetsAt: inTwoHours() },
+      {
+        kind: "seven_day",
+        percentUsed: 83,
+        resetsAt: inTwoHours(),
+        offer: {
+          attention: "Default to sonnet offered",
+          facts: [["Default model", "opus"]],
+          acts: [
+            { label: "Default to sonnet", onPress: () => {}, primary: true, stays: true },
+            { label: "Choose…", onPress: () => {} },
+          ],
+        },
+      },
+    ],
+  },
+};
+
 /** No reading, or only a window the row does not draw: nothing is drawn. */
 export const PlanUsageAbsent: Story = {
   args: {

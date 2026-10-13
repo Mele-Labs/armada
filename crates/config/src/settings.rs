@@ -47,6 +47,8 @@ pub enum Section {
     Harness,
     Model,
     Effort,
+    /// What the account's plan windows do to the models.
+    Plan,
     /// A prompt, under the sub-heading of its family.
     Prompt(PromptSection),
     Features,
@@ -87,7 +89,7 @@ impl Section {
     /// The group this section is a sub-heading of.
     pub fn group(self) -> Group {
         match self {
-            Section::Harness | Section::Model | Section::Effort => Group::Agents,
+            Section::Harness | Section::Model | Section::Effort | Section::Plan => Group::Agents,
             Section::Prompt(_) => Group::Prompts,
             Section::Limits | Section::Timeouts | Section::Retention => Group::Fleet,
             Section::Features => Group::Features,
@@ -105,6 +107,7 @@ impl Section {
             Section::Harness => "Harness",
             Section::Model => "Model",
             Section::Effort => "Effort",
+            Section::Plan => "Plan",
             Section::Prompt(section) => section.title(),
             Section::Features => "Features",
             Section::Editor => "Editor",
@@ -198,7 +201,7 @@ pub struct Entry {
 
 /// Every setting, in the order Bridge draws them: group by group.
 pub fn entries() -> impl Iterator<Item = &'static Entry> {
-    [machine::HARNESS, models::MODEL, models::EFFORT]
+    [machine::HARNESS, models::MODEL, models::EFFORT, models::PLAN]
         .into_iter()
         .flatten()
         .chain(prompt_entries())

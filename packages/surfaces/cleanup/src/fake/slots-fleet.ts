@@ -21,6 +21,9 @@ export { slotsHeld };
  */
 const WRITTEN_SINCE_READ: Record<number, string> = { 5: "notes.md" };
 
+/** Hosted Sessions mid-turn, which Fleet will not release the slot of: the walk's refusal on a hosted bay. */
+export const WORKING_SESSIONS: ReadonlySet<string> = new Set(["s9", "s-pr-panel"]);
+
 const refusedAs = (code: string, message: string): Outcome => ({
   ok: false,
   why: "refused",
@@ -58,9 +61,13 @@ export function reshaped(
     return answer(pool.map((one) => (one === target ? { ...one, closed } : one)));
   }
   if (change.act === "release") {
-    if (target.held.state !== "session" || target.held.holder !== change.holder) {
-      const now = target.held.state === "session" ? target.held.holder : "someone else";
+    const holder = target.held.state === "session" ? target.held.holder : target.held.state === "hosted_session" ? target.held.session_id : undefined;
+    if (holder === undefined || holder !== change.holder) {
+      const now = holder ?? "someone else";
       return { held, outcome: refusedAs("fleet.slot_holder_changed", `it is held by ${now} now, not by the holder that was shown`) };
+    }
+    if (target.held.state === "hosted_session" && WORKING_SESSIONS.has(target.held.session_id)) {
+      return { held, outcome: refusedAs("fleet.slot_session_working", `${target.held.session_title ?? target.held.session_id} is working`) };
     }
     const files = target.stranded?.uncommitted ?? [];
     const { stranded: _s, branch: _b, since: _since, ...rest } = target;

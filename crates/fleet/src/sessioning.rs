@@ -21,6 +21,7 @@ use store::{AttachmentState, Holder, KeptAttachment, KeptSession, SessionSearch,
 use crate::adrift::Adrift;
 use crate::session_host::waiting::{waiting_reads, WaitingReads};
 use crate::daemon::Fleet;
+use crate::slot_holders::{pool_backs, stand_in_slot};
 
 /// What a session's row reads from the store, taken under the lock.
 pub(crate) struct LedgerReads {
@@ -279,56 +280,6 @@ where
             self.writes().wrote(&who, &manifest, inside, &self.now());
         }
     }
-
-    /// Take the slot `placed` names for `holder`, or give back the one it was in
-    /// where it stands in none. `true` where the ledger changed.
-    fn stand_in_slot(
-        store: &mut Store,
-        holder: &Holder,
-        placed: &Placed,
-        roots: &[(String, String)],
-        now: &str,
-    ) -> Result<bool, store::WriteError> {
-        let (Some(manifest), Some(slot)) = (&placed.manifest, placed.slot) else {
-            return store.give_back(holder, Some("slot"), now);
-        };
-        let mut changed = store.attach(
-            &KeptAttachment {
-                holder: holder.clone(),
-                kind: "slot".into(),
-                manifest_id: manifest.clone(),
-                target: slot.to_string(),
-                state: AttachmentState::Standing,
-                detail: Default::default(),
-                since: now.into(),
-                changed_at: now.into(),
-            },
-            true,
-        )?;
-        // The slot's lease names the branch worked in it, which is the branch a
-        // pull request from it is found by.
-        let branch = roots
-            .iter()
-            .find(|(id, _)| id == manifest)
-            .map(|(_, root)| adapter_traits::slot_path(root.trim_end_matches('/'), slot))
-            .and_then(|at| adapters::leasing::branch_of(std::path::Path::new(&at)));
-        if let Some(branch) = branch {
-            changed |= store.attach(
-                &KeptAttachment {
-                    holder: holder.clone(),
-                    kind: "branch".into(),
-                    manifest_id: manifest.clone(),
-                    target: branch,
-                    state: AttachmentState::Standing,
-                    detail: Default::default(),
-                    since: now.into(),
-                    changed_at: now.into(),
-                },
-                true,
-            )?;
-        }
-        Ok(changed)
-    }
 }
 
 impl<H, V, W> Sessions for Fleet<H, V, W>
@@ -401,7 +352,7 @@ where
                 if let Some(title) = title.filter(|_| session.title.is_none()) {
                     session.title = Some(title);
                 }
-                Self::stand_in_slot(&mut store, &holder, &place, &roots, &now).map_err(fault)?;
+                stand_in_slot(&mut store, &holder, &place, &roots, &now).map_err(fault)?;
                 changed = true;
             }
             SessionFact::Moved { cwd } => {
@@ -409,7 +360,7 @@ where
                     let place = placed(&cwd, &roots);
                     session.cwd = cwd;
                     session.manifest_id = place.manifest.clone();
-                    Self::stand_in_slot(&mut store, &holder, &place, &roots, &now).map_err(fault)?;
+                    stand_in_slot(&mut store, &holder, &place, &roots, &now).map_err(fault)?;
                     changed = true;
                 }
             }
@@ -424,21 +375,26 @@ where
                 if attachment.kind.trim().is_empty() || attachment.target.trim().is_empty() {
                     return Err(self.ledger_unnamed("a kind and a target on an attachment"));
                 }
-                changed |= store
-                    .attach(
-                        &KeptAttachment {
-                            holder: holder.clone(),
-                            kind: attachment.kind.clone(),
-                            manifest_id: manifest_of(&session),
-                            target: attachment.target,
-                            state: AttachmentState::Standing,
-                            detail: attachment.detail,
-                            since: now.clone(),
-                            changed_at: now.clone(),
-                        },
-                        ONE_AT_A_TIME.contains(&attachment.kind.as_str()),
-                    )
-                    .map_err(fault)?;
+                // A branch or pull request read from a slot the lease is another's is theirs.
+                let backed = !matches!(attachment.kind.as_str(), "branch" | "pr")
+                    || pool_backs(&store, &session, &roots);
+                if backed {
+                    changed |= store
+                        .attach(
+                            &KeptAttachment {
+                                holder: holder.clone(),
+                                kind: attachment.kind.clone(),
+                                manifest_id: manifest_of(&session),
+                                target: attachment.target,
+                                state: AttachmentState::Standing,
+                                detail: attachment.detail,
+                                since: now.clone(),
+                                changed_at: now.clone(),
+                            },
+                            ONE_AT_A_TIME.contains(&attachment.kind.as_str()),
+                        )
+                        .map_err(fault)?;
+                }
             }
             SessionFact::Settled { attachment, state } => {
                 changed |= store
@@ -549,7 +505,8 @@ where
             self.publish(ipc::Event::SessionChanged(record.clone()));
         }
         if let Some(usage) = plan_moved {
-            self.publish(ipc::Event::PlanUsageChanged(usage));
+            self.publish(ipc::Event::PlanUsageChanged(usage.clone()));
+            self.downshift_read(&usage).await;
         }
         Ok(record)
     }

@@ -235,6 +235,8 @@ export type Session = {
   pendingTags?: readonly SessionTag[];
   /** The model and effort the next turn runs on. Absent is Auto. */
   model?: string;
+  /** The model Fleet heard the running process resolve, as its full id (`vendor-opus-5-5`). Absent until it has said. */
+  resolvedModel?: string;
   effort?: string;
   /** The permission mode. **A Session runs in auto**, so absent is auto. */
   mode?: SessionMode;
@@ -414,6 +416,8 @@ export type SessionsDraft = {
   reviews?: "fleet";
   /** The models and efforts a Session may be set to, as Dispatch offers them. */
   models: readonly string[];
+  /** The model a Session follows while it names none, as Fleet's model list holds it. */
+  defaultModel?: string;
   efforts: readonly string[];
   /** The skills and commands `/` offers. */
   commands: readonly SessionCommand[];

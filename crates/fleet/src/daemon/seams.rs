@@ -434,10 +434,18 @@ where
     pub(crate) fn stop_proposal(&self, proposal: &ipc::ProposalId) -> bool {
         self.proposals.stop(proposal)
     }
-    /// The models a Job may name. Read at creation and served by
-    /// `list_models`; nothing else consults it.
+    /// The roster a Job may name and the harnesses, as Fleet started. Its `default` is the one at
+    /// start: [`default_model`](Fleet::default_model) is the one in force.
     pub(crate) fn models(&self) -> &ipc::ModelChoices {
         &self.models
+    }
+    pub(crate) fn downshift(&self) -> &crate::model_downshifting::Holding {
+        &self.downshift
+    }
+    /// The model a proposal or a session that names none is given. **Read when it is asked**:
+    /// `models.default` is live, so the plan's step down reaches the next Job and the next process.
+    pub(crate) fn default_model(&self) -> String {
+        self.machine_settings().now().get(config::settings::MODELS_DEFAULT)
     }
     /// What a request's own link resolves to. Read by `crate::proposal`
     /// before a request becomes a Job's `facts`.

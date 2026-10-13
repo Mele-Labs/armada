@@ -140,6 +140,7 @@ fn only_a_stranded_a_kept_or_a_dirty_session_slot_shows_work() {
         closed: false,
         kept: kept.map(str::to_string),
         completed: false,
+        last_session: None,
         work: None,
     };
     let job = || SlotHeld::Job(String::from("01J"));

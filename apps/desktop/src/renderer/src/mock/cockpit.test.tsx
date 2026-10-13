@@ -1,6 +1,6 @@
 // The Dashboard's one panel, through `App` on the `dashboard-cockpit` mock Fleet: its filters and the
 // keys that step them, the call that comes forward over it and the deck behind, the standing
-// answers, the grid and the map offering the same acts, and the Bays filter's metro lines.
+// answers, the grid and the timeline, and the Bays filter's metro lines.
 
 import { beforeEach, expect, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
@@ -165,7 +165,7 @@ test("the standing answers b and g are on an agent's question, and not on a call
   await expect.element(radio(/Just get it done/)).toHaveAttribute("aria-checked", "true");
 });
 
-test("the grid and the map offer the same acts: a press picks, x asks to kill, Enter opens, and the choice is kept", async () => {
+test("the grid offers its acts, and m turns it into the timeline, a choice that is kept", async () => {
   await dashboard();
   await page.getByRole("tab", { name: "Active" }).click();
   const star = () => page.getByRole("option", { name: /^Debounce the Job Board/ });
@@ -179,18 +179,14 @@ test("the grid and the map offer the same acts: a press picks, x asks to kill, E
   await userEvent.keyboard("{Escape}");
   await expect.poll(() => page.getByRole("dialog").query()).toBeNull();
 
-  // The map: the same star, the same acts.
+  // The timeline takes its place, and the choice is kept.
   await userEvent.keyboard("m");
-  await expect.element(page.getByRole("listbox", { name: "Map" })).toBeVisible();
+  await expect.element(page.getByRole("region", { name: "Timeline" })).toBeVisible();
+  expect(page.getByRole("listbox", { name: "Tiles" }).query()).toBeNull();
   expect(localStorage.getItem(VIEW)).toBe("map");
-  await star().click();
-  await expect.element(star()).toHaveAttribute("aria-selected", "true");
-  await userEvent.keyboard("x");
-  await expect.element(page.getByRole("dialog")).toBeVisible();
-  await userEvent.keyboard("{Escape}");
-  await expect.poll(() => page.getByRole("dialog").query()).toBeNull();
-  await userEvent.keyboard("{Enter}");
-  await expect.poll(() => page.getByRole("tab", { name: "Active" }).query()).toBeNull();
+  await userEvent.keyboard("m");
+  await expect.element(page.getByRole("listbox", { name: "Tiles" })).toBeVisible();
+  expect(localStorage.getItem(VIEW)).toBe("grid");
 });
 
 test("Bays is a filter of its own: each piece of work in a bay, and each waiting for one, a line through the same stations to main", async () => {
@@ -240,11 +236,29 @@ test("Bays is a filter of its own: each piece of work in a bay, and each waiting
   await expect.poll(() => page.getByRole("tab", { name: "Bays" }).query()).toBeNull();
 });
 
-test("the call deck is not drawn over the map, and the Your move tab says a call waits", async () => {
+test("a bay a hosted Session holds is released from its line: the idle one frees, the one mid-turn is refused and opens", async () => {
+  await dashboard();
+  await page.getByRole("tab", { name: "Bays" }).click();
+  await selected("Bays");
+  const confirm = (slot: string) => page.getByRole("group", { name: `Release ${slot}`, exact: true });
+
+  await page.getByRole("button", { name: "Release bay 14" }).click();
+  await expect.element(confirm("slot-14").getByText("Held by Theme token audit, on branch fix/theme-token-audit")).toBeVisible();
+  await confirm("slot-14").getByRole("button", { name: "Release", exact: true }).click();
+  await expect.poll(() => page.getByRole("button", { name: "Release bay 14" }).query()).toBeNull();
+  expect(page.getByRole("button", { name: /^Bay 14:/ }).query()).toBeNull();
+
+  await page.getByRole("button", { name: "Release bay 03" }).click();
+  await confirm("slot-3").getByRole("button", { name: "Release", exact: true }).click();
+  await expect.element(page.getByRole("alert")).toHaveTextContent("Slot not released: Flaky store test is working");
+  await expect.element(page.getByRole("button", { name: "Open Session" })).toBeVisible();
+});
+
+test("the call deck is not drawn over the timeline, and the Your move tab says a call waits", async () => {
   await dashboard();
   await page.getByRole("tab", { name: "Active" }).click();
   await userEvent.keyboard("m");
-  await expect.element(page.getByRole("listbox", { name: "Map" })).toBeVisible();
+  await expect.element(page.getByRole("region", { name: "Timeline" })).toBeVisible();
   timePasses();
   await expect.element(page.getByRole("tab", { name: "Your move" }).getByRole("img", { name: "Needs you" })).toBeVisible();
   expect(call(/^Plan question/).query()).toBeNull();

@@ -966,9 +966,9 @@ where
         })
     }
 
-    /// What a Job may be spawned as, resolved once by the composition root.
+    /// What a Job may be spawned as: the roster the composition root resolved, and the default now.
     async fn list_models(&self) -> Result<ModelChoices, Refusal> {
-        Ok(self.models().clone())
+        Ok(ModelChoices { default: self.default_model(), ..self.models().clone() })
     }
 
     /// Every worktree Fleet is holding disk for, and the test each one failed,

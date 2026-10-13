@@ -100,8 +100,16 @@ where
         if !worktree.is_dir() {
             return None;
         }
+        // **The pool says whose slot it is**: a row left over from a slot the Session gave up
+        // would otherwise set it against whoever works there now, and against itself.
+        let stand = {
+            let store = self.store().lock().await;
+            crate::slot_holders::stand_of(&store, &slot.manifest_id, served.root(), &held, id)?
+        };
         if let Some(branch) = standing("branch") {
-            if !adapters::needs::branch_exists(Path::new(served.root()), &branch.target) {
+            if !adapters::needs::branch_exists(Path::new(served.root()), &branch.target)
+                || !stand.on(&branch.target)
+            {
                 return None;
             }
         }

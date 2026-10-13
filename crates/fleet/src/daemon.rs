@@ -104,6 +104,8 @@ pub struct Fleet<H, V, W> {
     tracking: crate::tracking::Tracking,
     ci_configuration: Arc<dyn CiConfiguration + Send + Sync>,
     models: ipc::ModelChoices,
+    /// The default model's step down, never held but for what the store keeps. See [`crate::model_downshifting`].
+    downshift: crate::model_downshifting::Holding,
     events: api::Broadcaster,
     /// Every Job somebody could be watching. **Minted here, not a fitting** —
     /// nothing outside this crate holds one, because a viewer reaches it

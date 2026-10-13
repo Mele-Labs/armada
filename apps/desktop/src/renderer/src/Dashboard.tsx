@@ -33,7 +33,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { Button, Radio, RadioGroup, limitHeldSaid } from "@armada/components";
-import type { FixMain, JobSummary, RepositorySummary, WaitingItem } from "@armada/protocol";
+import type { FixMain, JobSummary, Outcome, RepositorySummary, WaitingItem } from "@armada/protocol";
 import type { AboutFiles, AboutLink, CallAskView, CallIssueView, CallView } from "@armada/jobs/draft/calls";
 import type { AskedOf, NowView } from "@armada/jobs/draft/now";
 import type { NowActed } from "@armada/jobs";
@@ -182,6 +182,8 @@ export type Hosts = {
   onNowAct?: ((jobId: string, acted: NowActed) => void) | undefined;
   /** A pick on a Job's Commander card, by the card's id and the option's. `commander-acts.ts`. */
   onAnswerCard?: ((jobId: string, card: string, option: string) => Promise<JobAnswered>) | undefined;
+  /** Releases a slot an agent session holds, for the holder the confirm showed: a terminal's process, or a hosted Session's id. */
+  onReleaseSlot?: ((manifestId: string, slot: number, holder: string) => Promise<Outcome>) | undefined;
   /** Asks Fleet for the worktree pool while the bays are drawn, and lets go after. */
   onWantHeld?: ((want: boolean) => void) | undefined;
   /** Where the cursor is, for Helm's footer: the Job picked, or null. */

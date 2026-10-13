@@ -203,6 +203,7 @@ mod servers;
 mod session_checks;
 mod session_retro_row;
 mod session_starts;
+mod session_summary;
 mod sessions;
 mod setup;
 /// What a step's harness produced, as a client is told about it.
@@ -216,6 +217,8 @@ mod commander_repair;
 mod sleep;
 /// How much of the plan's windows is used.
 mod plan_usage;
+/// The default model stepping down while the weekly window runs out.
+mod model_downshift;
 /// What fills a session's context window.
 mod context_breakdown;
 /// What crossed the stream since a cursor, counted rather than carried.
@@ -345,8 +348,8 @@ pub use helm_debug::{HelmDebugInfo, HelmDebugLine, HelmDebugSaid, HelmDebugText}
 pub use history::{DroneMoved, JobHistory, Movement, Recorded, StatusMoved, StepMoved};
 pub use holding::{
     ChangeSlotPool, CommitHome, HeldReason, RescueAct, RescueSlot, SlotAct, SlotCommit,
-    SlotFinding, SlotFindingState, SlotHolding, SlotPoolChanged, SlotReleased, SlotRescued,
-    SlotStranded, SlotVerdict, WorktreeHeld, WorktreeSlot, WorktreesHeld,
+    SlotFinding, SlotFindingState, SlotHolderKind, SlotHolding, SlotLastHolder, SlotPoolChanged,
+    SlotReleased, SlotRescued, SlotStranded, SlotVerdict, WorktreeHeld, WorktreeSlot, WorktreesHeld,
 };
 pub use hosted_sessions::{
     AnswerSessionAsk, CloseSession, ForkFrom, GateAnswer, GateHold, HandoffPlan, HandoffStep,
@@ -482,6 +485,7 @@ pub use session_checks::{
 };
 pub use session_retro_row::{PartialRetroItem, RetroStage};
 pub use session_starts::{ForkThisSession, SessionHeld, SessionLink, StartAnotherSession};
+pub use session_summary::{HeldPullRequest, SessionSummaries, SessionSummary, SessionView, TurnState};
 pub use sessions::{
     AnswerWaiting, Attachment, AttachmentNamed, AttachmentReport, AttachmentState, DismissWaiting,
     ClaimPullRequest, Holder, HolderKind, Owners, Ownership, PullRequestClaimed, RenameSession,
@@ -495,6 +499,7 @@ pub use autopilot::{
     AutopilotQuoted, AutopilotSettings, AutopilotState, ProposeAutopilot,
 };
 pub use context_breakdown::{ContextBreakdown, ContextCategory, ContextKind, ContextMcpTool, ContextMemoryFile};
+pub use model_downshift::{ModelDownshift, ModelDownshiftState};
 pub use plan_usage::{PlanUsage, PlanWindow};
 pub use sleep::{OverrideSleep, ReviewSleep, SetSleep, SleepBlocked, SleepDecided, SleepLanded, SleepState, SleepWalk};
 pub use setup::{

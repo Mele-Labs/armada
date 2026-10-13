@@ -4,7 +4,7 @@ transport = "HTTP"
 agent_access = "Yes"
 description = "Ask the person about a place on the page your walk window shows: Bridge takes them there, highlights it and shows the question with its options. Body: question, options (label, optional description), url, selector, optional text. Returns at once; end your turn and the answer comes as a message"
 notes = """
-`POST /sessions/window/ask`, body `AskInWindow`: `question`, `options` (each `label` and an optional `description`; the person may always answer in words of their own instead), `url`, `selector` (a CSS selector for the element), an optional `text` the element shows, which picks one where the selector finds several, and an optional `session_id`. Answered with the `SessionRecord`.
+`POST /sessions/window/ask`, body `AskInWindow`: `question`, `options` (each `label` and an optional `description`; the person may always answer in words of their own instead), `url`, `selector` (a CSS selector for the element), an optional `text` the element shows, which picks one where the selector finds several, and an optional `session_id`. Answered with the `SessionRecord`; **through the agent's door, a receipt** of `session_id` and `asked`, the question's `window_ask:<row id>`, because the row grows with every attachment and an agent keeps each answer.
 
 **Only about the walk.** The `url` must be `http` or `https` and on the origin of a window the session showed with `show_window`, or of any of its `variations`; anything else is refused with 422 and the reason, which points at `waiting_for` — a question that is not about the walk waits there. A blank question or selector is refused too.
 

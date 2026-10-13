@@ -1,6 +1,6 @@
 // A Session holding three pull requests, one in each state its panel draws: third of seven in the
 // merge queue, every check passed, and checks failed. The walks `pullRequestPanel` and
-// `pullRequestPanelNarrow` play it; the page each serves for the tabs is `session-pr-pages.ts`.
+// `pullRequestPanelNarrow` play it; the page each serves for the tabs is `../session-pr-pages.ts`.
 
 import type { MergeLine } from "@armada/protocol";
 import { repository } from "@armada/screens/src/fixtures/build/base";
@@ -9,7 +9,7 @@ import type { SessionAttachment } from "@armada/screens/src/draft/sessions";
 import type { Scenario } from "../moment";
 import { others } from "../sessions/script";
 import { s200Sessions } from "./sessions";
-import { withPullRequestPages } from "./session-pr-pages";
+import { withPullRequestPages } from "../session-pr-pages";
 
 const PULL = "https://github.com/mele-labs/armada/pull/";
 

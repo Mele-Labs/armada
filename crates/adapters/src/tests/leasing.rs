@@ -441,3 +441,19 @@ fn a_new_slot_is_seeded_from_a_warm_base() {
     );
     assert_eq!(lease.seeded_from(), Some(commit.as_str()));
 }
+
+#[test]
+fn a_lease_says_which_agent_session_took_it_and_the_checked_out_branch_is_read_off_the_slot() {
+    let repo = a_repository();
+    let named = pool(&repo, 2).leased_for(Some(String::from("session-a")));
+    let path = take(&named, "topic", &here());
+    assert_eq!(crate::leasing::session_of(&path).as_deref(), Some("session-a"));
+    assert_eq!(crate::leasing::checked_out(&path).as_deref(), Some("topic"));
+    git(&path, &["switch", "-q", "-c", "elsewhere"]);
+    assert_eq!(crate::leasing::checked_out(&path).as_deref(), Some("elsewhere"));
+    named.release(&path).expect("released");
+    assert_eq!(crate::leasing::session_of(&path), None);
+
+    let by_hand = take(&pool(&repo, 2), "by-hand", &here());
+    assert_eq!(crate::leasing::session_of(&by_hand), None);
+}

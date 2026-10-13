@@ -42,6 +42,7 @@ const SCHEMA_SECTIONS: readonly SettingsSection[] = [
   { id: "harness", label: "Harness", palette: "Harness", schema: true, settings: [["Harness", "agent", "program", "binary", "path"]] },
   { id: "model", label: "Model", palette: "Models", schema: true, settings: [["Models", "model", "roster", "opus", "sonnet", "haiku"]] },
   { id: "effort", label: "Effort", palette: "Effort", schema: true, settings: [["Effort", "reasoning", "low", "medium", "high"]] },
+  { id: "plan", label: "Plan", palette: "Plan step down", schema: true, settings: [["Plan", "weekly", "limit", "downshift", "lower default", "step down", "percent"]] },
   { id: "prompts", label: "Prompts", palette: "Drone prompts", schema: true, settings: [["Prompts", "brief", "baseline", "instructions"]] },
   { id: "features", label: "Features", palette: "Features", schema: true, settings: [["Features", "switch", "helm", "draft pull requests"]] },
   { id: "editor", label: "Editor", palette: "Editor", schema: true, settings: [["Editor", "open", "code", "vscode", "visual"]] },
@@ -103,7 +104,7 @@ export type SettingsGroup = { id: string; label: string; sections: readonly Sett
  * wins; this places the panes, and every section before Fleet has answered.
  */
 const SHIPPED_GROUPS: readonly { id: string; label: string; sections: readonly string[] }[] = [
-  { id: "agents", label: "Agents", sections: ["harness", "model", "effort"] },
+  { id: "agents", label: "Agents", sections: ["harness", "model", "effort", "plan"] },
   { id: "prompts", label: "Prompts", sections: ["prompts"] },
   { id: "fleet", label: "Fleet", sections: ["limits", "timeouts", "retention"] },
   { id: "features", label: "Features", sections: ["features"] },

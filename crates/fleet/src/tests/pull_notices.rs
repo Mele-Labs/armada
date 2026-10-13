@@ -22,6 +22,7 @@ use super::reviewing::at_the_gate;
 use super::session_host::{Shared, StandIn};
 use crate::daemon::Fleet;
 use crate::tests::daemon::a_fleet_gated_on_a_person;
+use crate::tests::slot_leases::{leased, released, By};
 use crate::tests::tmp::TempDir;
 
 type Hosted = Fleet<FakeHarness, FakeVcs, FakeWorkProduct>;
@@ -828,13 +829,7 @@ async fn a_pull_request_settled_too_soon_is_stood_back_up_while_it_is_open() {
 async fn a_pull_request_from_the_branch_a_sessions_slot_is_leased_on_is_attached_to_it() {
     let rig = a_rig_holding(None);
     let root = rig.fleet.repositories().first().unwrap().root().to_string();
-    let slot = adapter_traits::slot_path(&root, 3);
-    std::fs::create_dir_all(&slot).unwrap();
-    std::fs::write(
-        format!("{slot}.lease"),
-        "branch docs/approve\nholder job somebody\nsince 1\n",
-    )
-    .unwrap();
+    let slot = leased(&root, 3, "docs/approve", By::Nobody);
     rig.fleet
         .report_session(SessionReport {
             harness: "a_harness".into(),
@@ -989,4 +984,123 @@ async fn a_claim_naming_both_a_session_and_a_job_is_refused() {
 
     assert!(refused.is_err());
     assert!(rig.standing_holders_of_pull(41).await.is_empty());
+}
+
+impl Rig {
+    fn root(&self) -> String {
+        self.fleet.repositories().first().unwrap().root().to_string()
+    }
+
+    /// A terminal Session reporting from `cwd`: its start, then the pull request it read there.
+    async fn reports_from(&self, id: &str, cwd: &str, pull: Option<&str>) {
+        let fact = |fact| SessionReport {
+            harness: adapters::HOSTED_HARNESS.into(),
+            session_id: SessionId::carried(id),
+            fact,
+        };
+        self.fleet
+            .report_session(fact(SessionFact::Started {
+                cwd: cwd.into(),
+                title: None,
+                origin: SessionOrigin::Terminal,
+                mod_version: None,
+            }))
+            .await
+            .unwrap();
+        for (kind, target) in [("branch", "armada/9"), ("pr", pull.unwrap_or(""))] {
+            if target.is_empty() {
+                continue;
+            }
+            self.fleet
+                .report_session(fact(SessionFact::Attached {
+                    attachment: ipc::AttachmentReport {
+                        kind: kind.into(),
+                        target: target.into(),
+                        detail: Default::default(),
+                    },
+                }))
+                .await
+                .unwrap();
+        }
+    }
+
+    async fn standing_of(&self, id: &str, kind: &str) -> Vec<(String, AttachmentState)> {
+        self.fleet
+            .store()
+            .lock()
+            .await
+            .attachments_of(&Holder::session(id))
+            .unwrap()
+            .into_iter()
+            .filter(|one| one.kind == kind)
+            .map(|one| (one.target, one.state))
+            .collect()
+    }
+}
+
+/// #2239. Session A leased slot 13 and took pull request 9, and released it; Session B leased it
+/// and worked the same branch. A's directory still reads slot 13, so what it reports from there is
+/// not credited, and the notice goes to B alone.
+#[tokio::test]
+async fn a_notice_goes_to_the_session_the_pool_says_works_the_branch_and_not_to_one_that_left_it() {
+    let rig = a_rig();
+    let root = rig.root();
+    let slot = leased(&root, 13, "armada/9", By::Session("sess-a"));
+    rig.reports_from("sess-a", &slot, Some("9")).await;
+
+    released(&root, 13);
+    leased(&root, 13, "armada/9", By::Session("sess-b"));
+    rig.reports_from("sess-b", &slot, Some("9")).await;
+    // A reads the branch and pull request again from where its directory still is.
+    rig.reports_from("sess-a", &format!("{slot}/crates"), Some("9")).await;
+
+    let mut conflicting = pull(9, vec![]);
+    conflicting.conflicting = true;
+    rig.fleet.vcs().main_ci.watched_are(Some(vec![conflicting]));
+    rig.the_mod_asks("sess-a").await;
+    rig.the_mod_asks("sess-b").await;
+    rig.reads().await;
+
+    assert!(rig.told("session:sess-b", 9, "conflicts").await, "B works the branch");
+    assert!(!rig.told("session:sess-a", 9, "conflicts").await, "A left it");
+    assert_eq!(
+        rig.standing_of("sess-a", "slot").await,
+        vec![("13".to_string(), AttachmentState::GivenBack)],
+        "the sweep settled what the release left"
+    );
+    assert_eq!(rig.standing_of("sess-a", "pr").await, vec![("9".to_string(), AttachmentState::Standing)]);
+}
+
+/// The Session that opened a pull request is still told once nobody works its branch: the pool
+/// confirms no one, so the oldest `pr` row stands, as `docs/concepts/fleet.md` has it.
+#[tokio::test]
+async fn a_pull_request_nobody_works_is_told_to_the_session_whose_row_is_oldest() {
+    let rig = a_rig();
+    let root = rig.root();
+    let slot = leased(&root, 13, "armada/9", By::Session("sess-a"));
+    rig.reports_from("sess-a", &slot, Some("9")).await;
+    rig.a_terminal_session_on("sess-later", 9).await;
+    released(&root, 13);
+
+    let mut conflicting = pull(9, vec![]);
+    conflicting.conflicting = true;
+    rig.fleet.vcs().main_ci.watched_are(Some(vec![conflicting]));
+    rig.the_mod_asks("sess-a").await;
+    rig.the_mod_asks("sess-later").await;
+    rig.reads().await;
+
+    assert!(rig.told("session:sess-a", 9, "conflicts").await);
+    assert!(!rig.told("session:sess-later", 9, "conflicts").await);
+}
+
+#[tokio::test]
+async fn a_branch_that_was_only_given_back_is_nobodys_to_attach_a_pull_request_to() {
+    let rig = a_rig_holding(None);
+    rig.a_session_that_worked("s-gone", "armada/12", AttachmentState::GivenBack)
+        .await;
+    rig.fleet.vcs().main_ci.watched_are(Some(vec![pull(12, vec![])]));
+
+    rig.reads().await;
+
+    assert_eq!(rig.holders_of_pull(12).await, Vec::<String>::new());
 }

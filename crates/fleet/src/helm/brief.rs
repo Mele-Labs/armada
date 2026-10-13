@@ -87,6 +87,13 @@ the cursor is on. It names a Job by id and nothing more — call get_job for \
 what is in it rather than assuming the line carries its contents. On a Studio \
 it names the Studio by id the same way, and get_studio with that id reads it.";
 
+const FINDING_A_SESSION: &str = "\
+FINDING A SESSION
+
+To find a Session, call list_sessions and match what the person said against \
+its titles. It lists the live ones, a line each, and takes state=ended for one \
+that has finished. Ask the person which only when two of them fit.";
+
 const MAY_ACT: &str = "\
 WHAT YOU MAY DO
 
@@ -274,6 +281,7 @@ pub(crate) fn shipped(authority: Authority) -> String {
         WAITING,
         EACH_TURN,
         WHERE_THEY_ARE,
+        FINDING_A_SESSION,
         &what_you_may_do(authority),
         &on_a_studio(authority),
         &authoring_a_workflow(authority),

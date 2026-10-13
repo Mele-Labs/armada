@@ -204,6 +204,8 @@ pub mod manifest_proposal;
 mod mending;
 pub mod merge_lines;
 mod merging;
+mod model_downshift;
+mod model_downshifting;
 /// Mods: folders on this machine that change how Bridge looks.
 pub mod mods;
 pub mod mint;
@@ -323,6 +325,7 @@ pub mod repositories;
 mod rerun_settles;
 mod rerunning;
 mod rescuing;
+mod stranding;
 /// What one Job holds on this machine — its processes, what they are burning,
 /// and the disk its worktree has taken. **Read on demand, never on the turn.**
 pub mod resources;
@@ -356,6 +359,7 @@ pub mod session_host;
 mod session_checking;
 mod session_running;
 mod sessioning;
+mod slot_holders;
 mod settling;
 /// Running the repository's own harness, and keeping what it produced.
 pub mod showing;

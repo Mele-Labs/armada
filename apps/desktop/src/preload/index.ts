@@ -30,12 +30,14 @@ import type {
 } from "@armada/protocol";
 import type { FileReport } from "@armada/protocol";
 import type { ModChecked } from "@armada/protocol";
-import type { PlanUsage, SleepState } from "@armada/protocol";
+import type { ModelDownshiftState, PlanUsage, SleepState, TimelineAsk, TimelineEvent } from "@armada/protocol";
 import type { AnswerSessionAsk, AnswerWaiting, ClaimPullRequest, DismissWaiting, PilotOutcome, PullRequestClaimed, PullRequestPage, PullRequestState, RenameSession, ReviewDispatched, SendSessionMessage, SessionRunMessage, SessionRunUnderway, SessionSubagent, TuneSession } from "@armada/protocol";
 import type { ArtifactRead, PageBounds } from "@armada/screens/src/draft/sessions";
 import type { PilotExit, PullRequestPress, PullRequestWrite, SessionActed } from "../shared/api/sessions";
 import type { SleepActed } from "../shared/api/sleep";
 import type { PlanUsageRead } from "../shared/api/plan-usage";
+import type { ModelDownshiftRead } from "../shared/api/model-downshift";
+import type { FleetTimelineRead } from "../shared/api/timeline";
 import type { WriteClashesRead } from "../shared/api/clashes";
 import type { IssueNumberRead, IssuesRead, PullRequestNumberRead } from "../shared/api/issues";
 import type { HelmCarry, HelmTuned } from "../shared/api/helm";
@@ -673,6 +675,26 @@ const api: BridgeApi = {
     ipcRenderer.on(CHANNELS.planUsageChanged, handler);
     return () => {
       ipcRenderer.removeListener(CHANNELS.planUsageChanged, handler);
+    };
+  },
+  getModelDownshift: (): Promise<ModelDownshiftRead> => ipcRenderer.invoke(CHANNELS.getModelDownshift),
+  acceptDownshift: (): Promise<ModelDownshiftRead> => ipcRenderer.invoke(CHANNELS.acceptDownshift),
+  restoreDownshift: (): Promise<ModelDownshiftRead> => ipcRenderer.invoke(CHANNELS.restoreDownshift),
+  keepDownshift: (): Promise<ModelDownshiftRead> => ipcRenderer.invoke(CHANNELS.keepDownshift),
+  settleDownshift: (): Promise<ModelDownshiftRead> => ipcRenderer.invoke(CHANNELS.settleDownshift),
+  onModelDownshiftChanged: (onChanged: (state: ModelDownshiftState) => void): (() => void) => {
+    const handler = (_event: unknown, state: ModelDownshiftState): void => onChanged(state);
+    ipcRenderer.on(CHANNELS.modelDownshiftChanged, handler);
+    return () => {
+      ipcRenderer.removeListener(CHANNELS.modelDownshiftChanged, handler);
+    };
+  },
+  getFleetTimeline: (window?: TimelineAsk): Promise<FleetTimelineRead> => ipcRenderer.invoke(CHANNELS.getFleetTimeline, window),
+  onTimelineAppended: (onAppended: (event: TimelineEvent) => void): (() => void) => {
+    const handler = (_event: unknown, event: TimelineEvent): void => onAppended(event);
+    ipcRenderer.on(CHANNELS.timelineAppended, handler);
+    return () => {
+      ipcRenderer.removeListener(CHANNELS.timelineAppended, handler);
     };
   },
   getWriteClashes: (): Promise<WriteClashesRead> => ipcRenderer.invoke(CHANNELS.getWriteClashes),

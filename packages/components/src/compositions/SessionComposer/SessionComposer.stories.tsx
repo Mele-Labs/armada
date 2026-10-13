@@ -182,6 +182,11 @@ export const DrawnSketch: Story = {
   },
 };
 
+/** No model chosen: the box follows Fleet's default, and says which. */
+export const FollowsTheDefault: Story = {
+  args: { defaultModel: "opus" },
+};
+
 /** A session in a terminal holds its permission mode: it is shown and cannot be set. */
 export const ModeLocked: Story = {
   args: { modeLocked: true, mode: "plan" },

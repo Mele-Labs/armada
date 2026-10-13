@@ -195,6 +195,7 @@ fn an_answer_over_the_cap_is_cut_and_names_the_route_that_serves_it_whole() {
             media_type: "application/json".to_string(),
             body: vec![b'x'; MOST_A_TOOL_MAY_ANSWER + 4_096],
             whole_at: "/jobs/12/diff".to_string(),
+            narrowed_by: &[],
         },
     })
     .expect("an answer encodes");
@@ -207,6 +208,31 @@ fn an_answer_over_the_cap_is_cut_and_names_the_route_that_serves_it_whole() {
     assert_eq!(back["result"]["isError"], json!(false));
 }
 
+/// **A cut that names a route and no way to ask for less sends an agent to pull in the same
+/// answer whole.** The note carries the tool's own parameters, `list_sessions`' among them.
+#[test]
+fn a_cut_answer_says_which_parameters_ask_for_less() {
+    let said = |narrowed_by: &'static [&'static str]| {
+        let written = answer(Answered::Served {
+            id: id(),
+            answer: Answer {
+                status: 200,
+                media_type: "application/json".to_string(),
+                body: vec![b'x'; MOST_A_TOOL_MAY_ANSWER + 1],
+                whole_at: "/sessions?state=live&view=summary".to_string(),
+                narrowed_by,
+            },
+        })
+        .expect("an answer encodes");
+        let back: Value = serde_json::from_str(&written).expect("valid JSON");
+        back["result"]["content"][0]["text"].as_str().expect("text content").to_string()
+    };
+    let named = said(&["q", "state"]);
+    assert!(named.contains("call this tool again with `q` or `state` set"), "{}", &named[named.len() - 300..]);
+    let none = said(&[]);
+    assert!(none.contains("Ask a narrower question if you can"), "{}", &none[none.len() - 300..]);
+}
+
 #[test]
 fn an_answer_under_the_cap_is_untouched() {
     let written = answer(Answered::Served {
@@ -216,6 +242,7 @@ fn an_answer_under_the_cap_is_untouched() {
             media_type: "application/json".to_string(),
             body: br#"{"jobs":[]}"#.to_vec(),
             whole_at: "/jobs".to_string(),
+            narrowed_by: &[],
         },
     })
     .expect("an answer encodes");
@@ -237,6 +264,7 @@ fn a_refusal_from_the_surface_is_a_tool_error_and_keeps_its_words() {
             media_type: "application/json".to_string(),
             body: br#"{"code":"fleet.no_such_job"}"#.to_vec(),
             whole_at: "/jobs/99".to_string(),
+            narrowed_by: &[],
         },
     })
     .expect("an answer encodes");
@@ -259,6 +287,7 @@ fn a_frame_is_answered_as_an_image_and_a_large_one_as_its_route() {
             media_type: "image/png".to_string(),
             body: vec![0x89, 0x50, 0x4E],
             whole_at: "/jobs/12/frames/1/home.png".to_string(),
+            narrowed_by: &[],
         },
     })
     .expect("an image encodes");
@@ -274,6 +303,7 @@ fn a_frame_is_answered_as_an_image_and_a_large_one_as_its_route() {
             media_type: "image/png".to_string(),
             body: vec![0; MOST_A_TOOL_MAY_ANSWER + 1],
             whole_at: "/jobs/12/frames/1/home.png".to_string(),
+            narrowed_by: &[],
         },
     })
     .expect("a refusal encodes");

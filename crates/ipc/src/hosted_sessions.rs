@@ -221,6 +221,12 @@ pub struct HostedFacts {
     pub asked: Option<HelmCallInFlight>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub model: Option<String>,
+    /// The model the CLI resolved for the running process, as its `init` line names it:
+    /// `vendor-opus-5-5` where `model` is `opus` or absent. **Absent until the process has
+    /// started, and again once it is replaced**, which is not the same as `model` being
+    /// absent: a session with no pick still runs on something. Since 23.85.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub resolved_model: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub effort: Option<String>,
     pub mode: SessionMode,

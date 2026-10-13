@@ -222,6 +222,26 @@ where
         Ok(self.hosts().plan_usage())
     }
 
+    async fn get_model_downshift(&self) -> Result<ipc::ModelDownshiftState, Refusal> {
+        self.model_downshift_state().await
+    }
+
+    async fn accept_downshift(&self) -> Result<ipc::ModelDownshiftState, Refusal> {
+        self.downshift_accepted().await
+    }
+
+    async fn restore_downshift(&self) -> Result<ipc::ModelDownshiftState, Refusal> {
+        self.downshift_restored().await
+    }
+
+    async fn keep_downshift(&self) -> Result<ipc::ModelDownshiftState, Refusal> {
+        self.downshift_kept().await
+    }
+
+    async fn settle_downshift(&self) -> Result<ipc::ModelDownshiftState, Refusal> {
+        self.downshift_settled().await
+    }
+
     async fn get_sleep(&self) -> Result<ipc::SleepState, Refusal> {
         self.sleep_state().await
     }
@@ -845,6 +865,7 @@ where
             turn: state.turn.clone(),
             asked: state.asked.clone(),
             model: hosting.model,
+            resolved_model: state.resolved_model.clone(),
             effort: hosting.effort,
             mode: mode_of(&hosting.mode),
             running: state.process.is_some(),
@@ -879,6 +900,7 @@ where
             process.end();
         }
         state.generation += 1;
+        state.resolved_model = None;
         state.queued = 0;
         state.unstarted.clear();
     }
@@ -965,7 +987,8 @@ where
                         None => None,
                     },
                     name: address_of(id),
-                    model: hosting.model.clone(),
+                    // None chosen is the default at the time the process starts, not when it was made.
+                    model: hosting.model.clone().or_else(|| Some(self.default_model())),
                     effort: hosting.effort.clone(),
                     mode: mode_of(&hosting.mode),
                     readable: vec![self.uploads_of(id).to_string_lossy().into_owned()],

@@ -73,6 +73,62 @@ pub fn branch_of(path: &Path) -> Option<String> {
     Record::read(Path::new(&record)).map(|record| record.branch)
 }
 
+/// The agent session the record beside the slot at `path` says holds the lease, or held it last:
+/// written when the lease was taken from an agent's command, or by [`note_session`]. `None` where
+/// neither did, which is a lease by hand and one written before either existed. **A holder that is
+/// gone still has one**, so a reader that asks who holds the slot asks the holder first.
+pub fn session_of(path: &Path) -> Option<String> {
+    let mut record = path.as_os_str().to_owned();
+    record.push(".lease");
+    Record::read(Path::new(&record)).and_then(|record| record.session)
+}
+
+/// The branch checked out in the worktree at `path`, read off its `HEAD`; `None` for a detached
+/// head and for a path that is no worktree. The lease's own branch is where the slot was cut, not
+/// where it stands now.
+pub fn checked_out(path: &Path) -> Option<String> {
+    let dot_git = path.join(".git");
+    let git_dir = match std::fs::read_to_string(&dot_git) {
+        Ok(said) => {
+            let target = said.trim().strip_prefix("gitdir: ")?;
+            path.join(target)
+        }
+        Err(_) => dot_git,
+    };
+    let head = std::fs::read_to_string(git_dir.join("HEAD")).ok()?;
+    head.trim().strip_prefix("ref: refs/heads/").map(str::to_string)
+}
+
+/// Write on the record beside the slot at `path` that `session`'s process tree
+/// holds it. Only a live process holder is written on: a Job's record already
+/// names the Session it was leased for. Nothing, where the record already says
+/// so, which is every call but the first.
+pub fn note_session(path: &Path, session: &str) -> Result<(), String> {
+    let mut record_path = path.as_os_str().to_owned();
+    record_path.push(".lease");
+    let record_path = PathBuf::from(record_path);
+    let wanted = |record: &Record| {
+        matches!(record.holder, Holder::Process { .. })
+            && record.holder.alive()
+            && record.session.as_deref() != Some(session)
+    };
+    if !Record::read(&record_path).is_some_and(|record| wanted(&record)) {
+        return Ok(());
+    }
+    let lock = OpenOptions::new()
+        .append(true)
+        .open(&record_path)
+        .map_err(|why| format!("{}: {why}", record_path.display()))?;
+    lock.lock().map_err(|why| why.to_string())?;
+    match Record::read(&record_path) {
+        Some(mut record) if wanted(&record) => {
+            record.session = Some(session.to_string());
+            record.write(&record_path)
+        }
+        _ => Ok(()),
+    }
+}
+
 /// One repository's pool.
 #[derive(Clone, Debug)]
 pub struct Pool {
@@ -82,6 +138,8 @@ pub struct Pool {
     keep: Vec<String>,
     seeds: Vec<String>,
     trim: Trim,
+    /// The agent session each lease taken through this pool is written as taken by.
+    session: Option<String>,
 }
 
 impl Pool {
@@ -102,7 +160,15 @@ impl Pool {
             keep,
             seeds,
             trim: Trim::SHIPPED,
+            session: None,
         }
+    }
+
+    /// This pool, writing each lease it takes as taken for the agent session `session`. A lease
+    /// held by a process says nothing of which agent that is, and this is how Fleet reads it.
+    pub fn leased_for(mut self, session: Option<String>) -> Pool {
+        self.session = session.filter(|id| !id.trim().is_empty());
+        self
     }
 
     /// This pool, trimming a released slot's `target/` as `trim` says.
@@ -473,6 +539,7 @@ impl Pool {
             since,
             kept,
             completed,
+            ..
         }) = record.as_ref().filter(|record| record.holder.alive())
         {
             let held = SlotState::Held {
@@ -574,6 +641,9 @@ impl Pool {
             holder: holder.clone(),
             since,
             kept: None,
+            // The new holder's own, where the lease was asked for from an agent's command; the
+            // last one's is gone with the old record, and `note_session` fills in the rest.
+            session: self.session.clone().filter(|_| matches!(holder, Holder::Process { .. })),
             completed: false,
         }
         .write(&self.record_path(number))

@@ -1,6 +1,6 @@
 //! The watch on settings.json: a file that is not there yet is watched all the
 //! same, its first save and a rename over it are each noticed once, and a
-//! dropped watch is quiet.
+//! dropped watch is quiet. And the defaults only the composition root can supply.
 
 use std::time::Duration;
 
@@ -42,4 +42,11 @@ async fn a_file_made_after_the_watch_and_a_rename_over_it_are_each_noticed_once(
         tokio::time::timeout(QUICK_SETTLE * 4, changes.recv()).await.map_or(true, |got| got.is_none()),
         "a dropped watch says nothing"
     );
+}
+
+/// A key whose default only this process knows ships as nothing if the composition root forgets it,
+/// and a model of nothing is a step down that is never offered.
+#[test]
+fn the_composition_root_supplies_every_default_it_alone_can_know() {
+    assert_eq!(crate::settings::supplied().missing(), Vec::<&str>::new());
 }
