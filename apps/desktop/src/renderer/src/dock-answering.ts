@@ -2,11 +2,11 @@
 // already sends to; this is the wiring, apart from `App.tsx` for the reason `commands.ts` is.
 
 import { useCallback, useMemo, useRef, useState } from "react";
-import type { CommandAnswer, HelmCallAnswer, JudgeAnswer, Outcome } from "@armada/protocol";
+import type { CommandAnswer, HelmCallAnswer, JudgeAnswer, JobSummary, Outcome } from "@armada/protocol";
 import type { DockActs, Outstanding } from "@armada/screens";
-import { choiceNamed, outstandingId, refusalWords, ruleForKit } from "@armada/screens";
+import { choiceNamed, dockCardsOf, outstandingId, refusalWords, ruleForKit } from "@armada/screens";
 
-import type { useCommands } from "./commands";
+import { pointHelm, type useCommands } from "./commands";
 
 /**
  * `onAnswer` sends by kind and keeps the last refusal a card's own answer drew, by the card's own
@@ -40,6 +40,26 @@ export function useDockAnswering(commands: ReturnType<typeof useCommands>): Dock
       refusalFor: (question: Outstanding) => refusals[outstandingId(question)],
     }),
     [onAnswer, refusals, commands.acting, commands.answeringHelm],
+  );
+}
+
+/**
+ * The dock's cards. "Discuss with Helm" points it at the card's own repository, and the picker never
+ * moves for it. `questions` is the dock's own block; `asks` is Helm's, drawn at the end of its thread
+ * where the reply they stopped is — #1519.
+ */
+export function useDockCards(
+  questions: Parameters<typeof dockCardsOf>[0],
+  jobs: readonly JobSummary[],
+  repositories: Parameters<typeof dockCardsOf>[2],
+  now: number,
+  commands: ReturnType<typeof useCommands>,
+) {
+  const answering = useDockAnswering(commands);
+  const onDiscuss = useCallback((_question: Outstanding, job: JobSummary) => pointHelm(job.owner_manifest_id), []);
+  return useMemo(
+    () => dockCardsOf(questions, jobs, repositories, now, { ...answering, onDiscuss }),
+    [questions, jobs, repositories, now, answering, onDiscuss],
   );
 }
 

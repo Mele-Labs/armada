@@ -468,6 +468,7 @@ fn a_plan_is_worked_one_task_at_a_time_each_by_a_drone_of_its_own() {
         at_rest_since: None,
         turns: None,
         cost_micros: None,
+        activity: None,
     };
     let body = ipc::encode(&row).expect("a Drone row encodes");
     let back: ipc::JobDrone = ipc::decode("a Drone row", body.as_bytes()).expect("and decodes");
@@ -844,6 +845,7 @@ fn each_task_runs_on_the_model_its_tier_or_its_person_picked_and_its_drone_says_
         at_rest_since: None,
         turns: None,
         cost_micros: None,
+        activity: None,
     };
     let body = ipc::encode(&row).expect("a Drone row encodes");
     let back: ipc::JobDrone = ipc::decode("a Drone row", body.as_bytes()).expect("and decodes");

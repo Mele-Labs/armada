@@ -52,7 +52,17 @@ export type JudgeAnswered = {
   answer: JudgeAnswer;
   asked_at?: string;
   note?: string;
+  /** How the drone is told to carry on, beside the answer. */
+  mode?: AnswerMode;
 };
+
+/**
+ * An answer that leaves the deciding to the drone, and how it is told to:
+ * `best` is "decide for yourself: think it through", `quick` is "take the
+ * reasonable path and keep moving". Fleet words both, so only the name crosses.
+ * Sent by the Cockpit's `b` and `g` keys on a question.
+ */
+export type AnswerMode = "best" | "quick";
 
 /**
  * How a job meets a judge criterion that refuses. Since protocol 11.3. Beside

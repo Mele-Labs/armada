@@ -279,7 +279,8 @@ fn autopilots_prompts_and_the_answered_block_ship_as_they_were_and_take_a_saved_
             consequence: "every caller changes".to_string(),
         }],
         answer: Some(GivenAnswer {
-            label: "Rename it".to_string(),
+            label: Some("Rename it".to_string()),
+            deciding: None,
             at: now.clone(),
         }),
         decisions: Vec::new(),

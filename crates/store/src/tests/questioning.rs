@@ -78,7 +78,8 @@ fn a_question_survives_a_reopen_asked_and_answered_and_clears_on_delivery() {
     assert!(read.waiting_on_an_answer());
 
     let answered = read.question_answered(GivenAnswer {
-        label: String::from("Rename it"),
+        label: Some(String::from("Rename it")),
+        deciding: None,
         at: at("2026-10-11T08:30:00.000Z"),
     });
     store

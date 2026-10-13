@@ -274,7 +274,7 @@ async fn ask_me_holds_the_call_rather_than_refusing_it() {
     let (answer, answered) = tokio::join!(fleet.permission(&job, &asking), async {
         until_waiting(&fleet, &job).await;
         fleet
-            .answer_command(&job, "c1", Answered::of(CommandAnswer::Reject, None))
+            .answer_command(&job, "c1", Answered::of(CommandAnswer::Reject, None), None)
             .await
     });
 
@@ -308,7 +308,7 @@ async fn ask_me_holds_the_call_until_a_person_allows_it() {
             "allow for this job, always, reject"
         );
         fleet
-            .answer_command(&job, "c1", Answered::of(CommandAnswer::AllowForJob, None))
+            .answer_command(&job, "c1", Answered::of(CommandAnswer::AllowForJob, None), None)
             .await
     });
 
@@ -441,7 +441,7 @@ async fn a_rejected_command_is_refused_and_the_fold_sees_it() {
     let (answer, answered) = tokio::join!(fleet.permission(&job, &asking), async {
         until_waiting(&fleet, &job).await;
         fleet
-            .answer_command(&job, "c1", Answered::of(CommandAnswer::Reject, None))
+            .answer_command(&job, "c1", Answered::of(CommandAnswer::Reject, None), None)
             .await
     });
 
@@ -481,7 +481,7 @@ async fn the_board_says_a_job_waits_on_a_command() {
             .iter()
             .any(|row| row.id.as_str() == job.as_str() && row.asking);
         fleet
-            .answer_command(&job, "c1", Answered::of(CommandAnswer::AllowForJob, None))
+            .answer_command(&job, "c1", Answered::of(CommandAnswer::AllowForJob, None), None)
             .await
             .unwrap();
         waiting
@@ -511,11 +511,11 @@ async fn an_answer_naming_another_call_is_refused_and_the_question_stands() {
     let (answer, wrong) = tokio::join!(fleet.permission(&job, &asking), async {
         until_waiting(&fleet, &job).await;
         let wrong = fleet
-            .answer_command(&job, "c9", Answered::of(CommandAnswer::AllowForJob, None))
+            .answer_command(&job, "c9", Answered::of(CommandAnswer::AllowForJob, None), None)
             .await;
         assert!(fleet.command_awaited(&job).await.is_some(), "still waiting");
         fleet
-            .answer_command(&job, "c1", Answered::of(CommandAnswer::AllowForJob, None))
+            .answer_command(&job, "c1", Answered::of(CommandAnswer::AllowForJob, None), None)
             .await
             .unwrap();
         wrong
@@ -567,7 +567,7 @@ async fn a_second_command_waits_behind_the_first() {
             .permission(&job, &asked("Bash", "cargo publish", "c2"))
             .await;
         fleet
-            .answer_command(&job, "c1", Answered::of(CommandAnswer::AllowForJob, None))
+            .answer_command(&job, "c1", Answered::of(CommandAnswer::AllowForJob, None), None)
             .await
             .unwrap();
         second
@@ -660,7 +660,7 @@ async fn a_later_answer_reaches_the_drone_as_a_turn() {
     );
 
     fleet
-        .answer_command(&job, "c1", Answered::of(CommandAnswer::AllowForJob, None))
+        .answer_command(&job, "c1", Answered::of(CommandAnswer::AllowForJob, None), None)
         .await
         .expect("the question is still on the slot, late as the answer is");
 
@@ -702,7 +702,7 @@ async fn an_answer_inside_the_hold_goes_down_the_call_only() {
     let (answer, answered) = tokio::join!(fleet.permission(&job, &asking), async {
         until_waiting(&fleet, &job).await;
         fleet
-            .answer_command(&job, "c1", Answered::of(CommandAnswer::AllowForJob, None))
+            .answer_command(&job, "c1", Answered::of(CommandAnswer::AllowForJob, None), None)
             .await
     });
 
@@ -741,7 +741,7 @@ async fn an_answer_at_the_end_of_the_hold_is_delivered_once() {
             until_waiting(&fleet, &job).await;
             tokio::time::sleep(fired_at).await;
             fleet
-                .answer_command(&job, "c1", Answered::of(CommandAnswer::AllowForJob, None))
+                .answer_command(&job, "c1", Answered::of(CommandAnswer::AllowForJob, None), None)
                 .await
         });
 
@@ -871,7 +871,7 @@ async fn a_late_answer_after_the_escalation_is_honored() {
         a_job_escalated_over_an_unanswered_ask(&home, Duration::from_secs(1800)).await;
 
     fleet
-        .answer_command(&job, "c1", Answered::of(CommandAnswer::AllowForJob, None))
+        .answer_command(&job, "c1", Answered::of(CommandAnswer::AllowForJob, None), None)
         .await
         .expect("a late allow is recorded, not silently dropped");
 
@@ -895,7 +895,7 @@ async fn a_late_reject_is_withheld_with_no_drone_to_tell() {
         a_job_escalated_over_an_unanswered_ask(&home, Duration::from_secs(1800)).await;
 
     let rejected = fleet
-        .answer_command(&job, "c1", Answered::of(CommandAnswer::Reject, None))
+        .answer_command(&job, "c1", Answered::of(CommandAnswer::Reject, None), None)
         .await;
     assert!(
         matches!(
@@ -953,7 +953,7 @@ async fn always_allow_leaves_the_tip_and_the_drones_edit_untouched() {
     let (answer, answered) = tokio::join!(fleet.permission(&job, &asking), async {
         until_waiting(&fleet, &job).await;
         fleet
-            .answer_command(&job, "c1", Answered::of(CommandAnswer::AlwaysAllow, None))
+            .answer_command(&job, "c1", Answered::of(CommandAnswer::AlwaysAllow, None), None)
             .await
     });
 

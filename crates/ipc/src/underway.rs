@@ -52,6 +52,14 @@ pub struct ChecksUnderway {
     pub checks: Vec<CheckUnderway>,
 }
 
+/// The request half of `retry_check` and `skip_check`: which Check of the
+/// running gate.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CheckNamed {
+    /// [`CheckUnderway::name`]. A name the gate is not running is a 409.
+    pub check: String,
+}
+
 /// One declared Check, as the gate has it right now.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CheckUnderway {
