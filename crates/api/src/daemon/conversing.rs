@@ -11,7 +11,8 @@ use std::future::Future;
 use std::sync::Arc;
 
 use ipc::{
-    AnswerHelmCall, AskCommander, AskHelm, AskingToRun, CommanderConversation, EventsSince,
+    AnswerCommanderCard, AnswerHelmCall, AskCommander, AskHelm, AskTheOwner, AskingToRun,
+    CommanderCard, CommanderCardAnswered, CommanderConversation, EventsSince,
     HelmCallsWaiting, HelmConversation, HelmDebugInfo, ManifestId, ReadThought, RunOrNot,
     TellSession, ThoughtReading, ThoughtSent, ThoughtTarget,
 };
@@ -50,6 +51,29 @@ pub trait Conversations: Send + Sync + 'static {
         job: Resolved,
         asked: AskCommander,
     ) -> impl Future<Output = Result<CommanderConversation, Refusal>> + Send;
+
+    /// `ask_the_owner` — put a card to the owner for a Job's Commander. **The
+    /// card is kept and the call answers at once**: it waits until he answers,
+    /// however long, and is not a held call. #2166.
+    ///
+    /// [`Refusal::IllegalMove`] where the Job already has a card out, naming
+    /// its question, or where the Job has ended.
+    fn ask_the_owner(
+        self: Arc<Self>,
+        job: Resolved,
+        asked: AskTheOwner,
+    ) -> impl Future<Output = Result<CommanderCard, Refusal>> + Send;
+
+    /// `answer_commander_card` — the owner's pick, recorded and handed to the
+    /// Commander as the reason it is woken for. #2166.
+    ///
+    /// [`Refusal::IllegalMove`] where the card is not the one out, or did not
+    /// offer the option.
+    fn answer_commander_card(
+        self: Arc<Self>,
+        job: Resolved,
+        answered: AnswerCommanderCard,
+    ) -> impl Future<Output = Result<CommanderCardAnswered, Refusal>> + Send;
 
     /// `ask_helm` — take a message and answer at once. **The reply is the
     /// socket's**, so this returns before a session has started, and a message

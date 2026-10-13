@@ -140,6 +140,17 @@ const ROUTES: &[Route] = &[
         method: "POST",
         path: "/jobs/:job_id/commander/ask",
     },
+    // A card to the owner and his pick, the Commander's question that outlives a turn. #2166.
+    Route {
+        operation: "ask_the_owner",
+        method: "POST",
+        path: "/jobs/:job_id/commander/card",
+    },
+    Route {
+        operation: "answer_commander_card",
+        method: "POST",
+        path: "/jobs/:job_id/commander/card/answer",
+    },
     // The session as one record, `#1367`. Beside the conversation it reports
     // on, not under `/debug`: there is no such surface, and the subject is the
     // conversation.
@@ -1101,6 +1112,11 @@ const ROUTES: &[Route] = &[
         operation: "set_review_model",
         method: "POST",
         path: "/jobs/:job_id/set_review_model",
+    },
+    Route {
+        operation: "set_commander_model",
+        method: "POST",
+        path: "/jobs/:job_id/set_commander_model",
     },
     Route {
         operation: "set_tiers",

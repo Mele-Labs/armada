@@ -9,8 +9,9 @@
 //! to the file and stays unreachable. [`DRAFTING`] is the `Drafts only` rows,
 //! offered to a Helm session alone for drafting a Job; [`HELM_ONLY`] is the
 //! `Helm only` rows, offered to a Helm session alone for everything else a
-//! person may ask it to do (`#1150`). Neither reaches a plain agent door
-//! session or a Drone.
+//! person may ask it to do (`#1150`); [`COMMANDER_ONLY`] is the `Commander only`
+//! rows, offered to a Job's Commander alone (`#2166`). None of the three reaches
+//! a plain agent door session or a Drone.
 //!
 //! The Drone's endpoint is [`crate::mcp`] and is a different seam: its peer is
 //! a process Fleet spawned, and its eight tools are in no inventory.
@@ -471,6 +472,7 @@ fn tool(shape: &Shape) -> Value {
         .iter()
         .chain(DRAFTING.iter())
         .chain(HELM_ONLY.iter())
+        .chain(COMMANDER_ONLY.iter())
         .find(|row| row.operation == shape.operation)
         .map(|row| row.description)
         .unwrap_or_default();

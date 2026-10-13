@@ -33,9 +33,10 @@ pub const ALLOWED: &[&str] = &[
     "add_task",
     "drop_task",
     "move_plan",
-    // Not here until their issues land, each adding its own line:
+    // The one way it reaches the owner: a card that outlives the turn.
+    "ask_the_owner",
+    // Not here until its issue lands, adding its own line:
     //   the repair Drone onto the Job's branch   `#2170`
-    //   the one card to the owner                `#2166`, with its card
 ];
 
 /// Whether a Commander may call one operation the door offers.
@@ -64,7 +65,7 @@ pub struct CommanderReach {
 impl CommanderReach {
     pub fn of_the_allowlist(job: ipc::JobId) -> CommanderReach {
         CommanderReach {
-            may: super::offerable()
+            may: super::offerable_to_a_commander()
                 .filter(|row| may(row))
                 .map(|row| row.operation)
                 .collect(),

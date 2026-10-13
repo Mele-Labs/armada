@@ -245,7 +245,7 @@ where
     ) -> Result<(), String> {
         let record = self.load(job).await.map_err(|why| why.to_string())?;
         let directory = self.commander_directory(&record)?;
-        let model = self.tuned(|dials| dials.commander_model.clone());
+        let model = self.commander_model_for(job).await;
         let prompts = self.prompts();
         let named = format!("{} \"{}\"", record.handle(), record.title().as_str());
         self.turn_carried(

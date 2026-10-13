@@ -47,6 +47,9 @@ mod breakages;
 /// The tree a Job's Checks last passed on, for `merge_by: push`.
 mod check_runs;
 mod checked;
+/// A question a Job's Commander has put to the owner, and the model chosen for it.
+mod commander_cards;
+mod commander_model;
 mod columns;
 /// Drones beside the kept one, and each task's edit calls. Spike 022, slice 5.
 mod crew;
@@ -211,6 +214,8 @@ pub use asked_runs::{AskedRun, AskedRunBegun, AskedState};
 pub use asking::OpenJudgeQuestion;
 pub use attempt::Attempted;
 pub use check_runs::{CheckOutcome, CheckRun};
+pub use commander_cards::{CardAnswered, CardRaised, CardRaiser, NewCard, StoredCard};
+pub use commander_model::CommanderChoice;
 pub use crew::{ExtraEnded, TaskEdit};
 pub use delivery::{Currency, Delivery, Unsettled};
 pub use devices::{Device, PushSubscription};

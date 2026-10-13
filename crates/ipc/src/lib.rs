@@ -208,6 +208,7 @@ mod showing;
 /// Autopilot: a repository working its own backlog. #2092.
 mod autopilot;
 mod commander;
+mod commander_card;
 /// Sleep mode: the switch and the night it keeps.
 mod sleep;
 /// What crossed the stream since a cursor, counted rather than carried.
@@ -270,7 +271,8 @@ pub use checks::{CheckOutput, CheckRun, DeclaredCheck, DeclaredJudge};
 pub use codec::{decode, encode, Undecodable, Unencodable};
 pub use commanding::{
     AllowedCommandRow, AlwaysAllowScope, AnswerCommand, CommandAnswer, CommandInFlight, Reach,
-    RemoveAllowedCommand, RemoveRepositoryAllowedCommand, RepositoryAllowedCommands, SetModel,
+    RemoveAllowedCommand, RemoveRepositoryAllowedCommand, RepositoryAllowedCommands, SetCommanderModel,
+    SetModel,
     SetWhenBlocked, WhenBlocked,
 };
 pub use configured::ManifestConfig;
@@ -305,6 +307,10 @@ pub use event::{
 pub use explaining::CommandExplained;
 pub use files::FilesFound;
 pub use health::{FleetHealth, HelmActionAuthority, Probe, Unprobed};
+pub use commander_card::{
+    AnswerCommanderCard, AskTheOwner, CardBy, CardId, CardOption, CardOptions, CardText,
+    CommanderCard, CommanderCardAnswered, CommanderCardChanged, Unusable as CardUnusable,
+};
 pub use commander::{
     AskCommander, CommanderChanged, CommanderConversation, CommanderMessage, CommanderOpened,
     CommanderState, CommanderWoke,

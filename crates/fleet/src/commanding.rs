@@ -1104,6 +1104,33 @@ where
         self.summarised(&job).await
     }
 
+    /// The model and effort this Job's Commander runs on, chosen or cleared. #2166.
+    async fn set_commander_model(
+        self: Arc<Self>,
+        job_id: JobId,
+        choice: ipc::SetCommanderModel,
+    ) -> Result<JobSummary, Refusal> {
+        let job = budgeted_for(self.command_budget(), job_id.clone(), {
+            let fleet = Arc::clone(&self);
+            async move {
+                let id = job_id.to_domain();
+                let job = fleet.load(&id).await?;
+                Fleet::set_commander_model(
+                    &fleet,
+                    &id,
+                    choice.model.as_deref(),
+                    choice.effort.as_deref(),
+                )
+                .await
+                .map_err(|why| why.about(&id))?;
+                Ok(job)
+            }
+        })
+        .await
+        .map_err(|why| self.refusal(why))?;
+        self.summarised(&job).await
+    }
+
     /// Which model each tier of this Job's tasks runs on. `task_edits` has it.
     async fn set_tiers(
         self: Arc<Self>,

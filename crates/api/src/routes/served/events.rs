@@ -179,6 +179,12 @@ pub(super) const ROUTES: &[Route] = &[
         method: "GET",
         path: "/events",
     },
+    // A Job's card to the owner went out, or was answered. #2166.
+    Route {
+        operation: "commander.card",
+        method: "GET",
+        path: "/events",
+    },
     // One row of a hosted session's thread, appended or replaced.
     Route {
         operation: "session.row",

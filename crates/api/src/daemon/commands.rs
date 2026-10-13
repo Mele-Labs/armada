@@ -883,6 +883,16 @@ pub trait Commands: Send + Sync + 'static {
         choice: ipc::SetModel,
     ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
 
+    /// `set_commander_model` — the model and effort this Job's Commander runs
+    /// on, chosen by a person, each half cleared with `null`. #2166. **Read by
+    /// the next turn.** [`Refusal::IllegalMove`] on a model this Fleet does not
+    /// offer or an effort the setting does not spell.
+    fn set_commander_model(
+        self: std::sync::Arc<Self>,
+        job_id: JobId,
+        choice: ipc::SetCommanderModel,
+    ) -> impl Future<Output = Result<JobSummary, Refusal>> + Send;
+
     /// `set_tiers` — which model each tier of this Job's tasks runs on, the
     /// whole map replaced. Spike 022, slice 3. **Read by the next spawn.**
     ///

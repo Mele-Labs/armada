@@ -18,7 +18,7 @@ use tower::ServiceExt;
 use crate::tests::fake::{running, FakeDaemon};
 use crate::tests::shapes::run_id;
 use crate::{
-    offerable, router, Broadcaster, CommanderReach, Served, Steerer, COMMANDER_ALLOWED, DOOR_PATH,
+    offerable, offerable_to_a_commander, router, Broadcaster, CommanderReach, Served, Steerer, COMMANDER_ALLOWED, DOOR_PATH,
     SERVED,
 };
 
@@ -76,6 +76,7 @@ const EDITS_CHECKS_MANIFEST_OR_SETTINGS: &[&str] = &[
     "set_tiers",
     "set_model",
     "set_review_model",
+    "set_commander_model",
     "remove_allowed_command",
     "remove_kit_allowed_command",
     "remove_repository_allowed_command",
@@ -181,7 +182,7 @@ fn ledger() -> impl Iterator<Item = &'static str> {
 /// the failure names it.
 #[test]
 fn every_operation_the_door_offers_is_tagged() {
-    let untagged: Vec<&str> = offerable()
+    let untagged: Vec<&str> = offerable_to_a_commander()
         .filter(|row| row.kind != "query")
         .map(|row| row.operation)
         .filter(|operation| {
@@ -198,7 +199,7 @@ fn every_operation_the_door_offers_is_tagged() {
 
 #[test]
 fn the_allowlist_and_the_ledger_name_only_what_the_door_offers_and_never_the_same_twice() {
-    let offered: Vec<&str> = offerable().map(|row| row.operation).collect();
+    let offered: Vec<&str> = offerable_to_a_commander().map(|row| row.operation).collect();
     let mut seen: Vec<&str> = Vec::new();
     for operation in COMMANDER_ALLOWED.iter().copied().chain(ledger()) {
         assert!(
@@ -209,7 +210,7 @@ fn the_allowlist_and_the_ledger_name_only_what_the_door_offers_and_never_the_sam
         seen.push(operation);
     }
     for operation in COMMANDER_ALLOWED {
-        let row = offerable()
+        let row = offerable_to_a_commander()
             .find(|row| row.operation == *operation)
             .expect("offered");
         assert_eq!(
@@ -222,7 +223,7 @@ fn the_allowlist_and_the_ledger_name_only_what_the_door_offers_and_never_the_sam
 #[test]
 fn a_commander_may_call_every_query_and_every_allowed_act_and_nothing_else() {
     let reach = CommanderReach::of_the_allowlist(ipc::JobId::carried("01JOB"));
-    for row in offerable() {
+    for row in offerable_to_a_commander() {
         let allowed = row.kind == "query" || COMMANDER_ALLOWED.contains(&row.operation);
         assert_eq!(reach.may(row.operation), allowed, "{}", row.operation);
     }
@@ -334,7 +335,7 @@ fn listed(body: &str) -> Vec<String> {
 async fn a_commander_is_listed_its_allowlist_and_every_query_and_anyone_else_is_not() {
     let app = shared(&commander_holding_one());
     let mut commander = listed(&from(&app, COMMANDER, &[], LISTING).await);
-    let mut expected: Vec<String> = offerable()
+    let mut expected: Vec<String> = offerable_to_a_commander()
         .filter(|row| row.kind == "query" || COMMANDER_ALLOWED.contains(&row.operation))
         .map(|row| row.operation.to_string())
         .collect();

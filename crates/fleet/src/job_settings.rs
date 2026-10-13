@@ -6,13 +6,14 @@
 //! changes a status or a step, each is read at the next spawn or permission
 //! question, and each change is a line in the Job's log.
 
-use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
+use adapter_traits::{AgentHarness, Delivery, Model, Vcs, WorkProduct};
 use core_model::{
     AllowedCommand, Component, Envelope, FieldValue, JobId, Level, ModelName, TierModels,
 };
 
 use crate::daemon::Fleet;
 use crate::permitting::NotPermitted;
+use crate::tuning::effort_of;
 
 impl<H, V, W> Fleet<H, V, W>
 where
@@ -112,6 +113,84 @@ where
             }
         }
         Ok(())
+    }
+
+    /// Choose the model and the effort this Job's Commander runs on, each half
+    /// cleared with `None`. #2166. **Read by the next turn**, and a turn running
+    /// now keeps what it started with.
+    ///
+    /// Refused on a model `list_models` does not offer, as `set_model` is, and
+    /// on an effort the setting does not spell. **Both are checked before
+    /// either is kept.**
+    pub async fn set_commander_model(
+        &self,
+        job: &JobId,
+        model: Option<&str>,
+        effort: Option<&str>,
+    ) -> Result<(), NotPermitted> {
+        if let Some(named) = model {
+            self.offered(named)?;
+        }
+        if let Some(word) = effort {
+            if !config::settings::EFFORTS.contains(&word) {
+                return Err(NotPermitted::NotChanged {
+                    cause: format!(
+                        "`{word}` is not an effort. The efforts are {}",
+                        config::settings::EFFORTS.join(", ")
+                    ),
+                });
+            }
+        }
+        self.store()
+            .lock()
+            .await
+            .set_commander_choice(
+                job,
+                &store::CommanderChoice {
+                    model: model.map(str::to_string),
+                    effort: effort.map(str::to_string),
+                },
+            )
+            .map_err(|cause| NotPermitted::NotChanged {
+                cause: cause.to_string(),
+            })?;
+        self.noted_setting(
+            job,
+            "a person chose the model and effort this job's Commander runs on",
+            &[
+                ("model", model.unwrap_or("the machine's").to_string()),
+                ("effort", effort.unwrap_or("the machine's").to_string()),
+            ],
+        )
+        .await;
+        Ok(())
+    }
+
+    /// What a person chose for this Job's Commander, for `get_job` and the next
+    /// turn. **Nothing chosen where the store will not say**: the machine's
+    /// `models.commander` and `effort.commander` then apply.
+    pub async fn commander_choice_of(&self, job: &JobId) -> store::CommanderChoice {
+        self.store()
+            .lock()
+            .await
+            .commander_choice(job)
+            .unwrap_or_default()
+    }
+
+    /// The model a turn of this Job's Commander runs on: **the Job's own over
+    /// the machine's, each half on its own**, so a Job that names a model and
+    /// no effort takes the machine's effort. An effort the Job chose as
+    /// `harness default` is a choice, and the harness's own wins over the
+    /// machine's.
+    pub(crate) async fn commander_model_for(&self, job: &JobId) -> Model {
+        let machine = self.tuned(|dials| dials.commander_model.clone());
+        let chosen = self.commander_choice_of(job).await;
+        let effort = match chosen.effort.as_deref() {
+            Some(word) => effort_of(word),
+            None => machine.effort(),
+        };
+        Model::named_at(chosen.model.as_deref().unwrap_or(machine.as_str()), effort)
+            .unwrap_or(machine)
     }
 
     /// Refused where `list_models` does not offer `named`, `set_model`'s rule,

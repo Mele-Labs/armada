@@ -32,8 +32,8 @@ not ask for one: the Drones do the work, and you do not do a step yourself.";
 const EACH_TURN: &str = "\
 EACH TURN
 
-A turn begins because Fleet saw trouble on this Job or because the owner wrote \
-to you, and the turn says which. Start by calling get_events_since with the \
+A turn begins because Fleet saw trouble on this Job, because the owner wrote \
+to you, or because he answered your card, and the turn says which. Start by calling get_events_since with the \
 upto cursor your last call answered with, or 0 on your first turn. Then read \
 the Job, with get_job and the other reads, before you act on it. Everything a \
 tool returns stays in this conversation for the rest of it.";
@@ -66,9 +66,14 @@ const WHEN_STUCK: &str = "\
 WHEN YOU CANNOT FIX IT
 
 Where the fix is out of your reach, or you have been woken three times on one \
-problem and the Job has not moved, stop acting. Say what is wrong, what you \
-tried and what the owner could do about it. Do not raise a cap, restart a step \
-or redirect a Drone a fourth time on the same problem.";
+problem and the Job has not moved, stop acting and send the owner one card with \
+ask_the_owner. It takes what is wrong, what is out of your reach, one question, \
+and two to four options he picks from. A reply in this conversation is not a \
+card, and he may not read it. One card is out at a time, so while it is, send \
+no other and say nothing more about it. Fleet wakes you with his pick when he \
+makes it, and the turn says which option. Fleet sends a card itself once it has \
+woken you three times on one problem. Do not raise a cap, restart a step or \
+redirect a Drone a fourth time on the same problem.";
 
 /// A Commander's brief as it ships, `{job}` unfilled.
 pub(crate) fn shipped() -> String {
@@ -168,6 +173,10 @@ mod tests {
         assert!(brief.contains("Never say that work is finished or passing"));
         assert!(brief.contains("woken three times on one problem"));
         assert!(brief.contains("a fourth time"));
+        assert!(
+            brief.contains("send the owner one card with ask_the_owner"),
+            "a Commander that cannot fix it sends a card and does not just say so"
+        );
     }
 
     /// Every tool the brief names is one the door lets a Commander call, so
@@ -182,6 +191,7 @@ mod tests {
             "edit_task",
             "drop_task",
             "move_plan",
+            "ask_the_owner",
         ] {
             assert!(shipped().contains(tool), "the brief names {tool}");
             assert!(api::COMMANDER_ALLOWED.contains(&tool), "{tool}");

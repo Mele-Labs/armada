@@ -123,7 +123,7 @@ pub use conversing::{
     HelmFeed, HelmSeen, HelmWatch, ObservedCommander, ObservedHelm, Spoken, HELM_BACKLOG,
 };
 pub use daemon::{
-    offerable, Admitting, Authoring, Commands, Conversations, Daemon, FramePart, FrameSpan,
+    offerable, offerable_to_a_commander, Admitting, Authoring, Commands, Conversations, Daemon, FramePart, FrameSpan,
     Autopilots, CommanderReach, HelmReach, HostedSessions, Issues, Mods, Needs, PermissionAnswer, Piloting,
     PullRequests, Queries, Redirector, Refusal, Rehearsing, Retros, Sessions, Settings, Steerer,
     StoredFile, Studios, Tools, COMMANDER_ALLOWED,

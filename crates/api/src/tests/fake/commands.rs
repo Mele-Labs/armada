@@ -685,6 +685,13 @@ impl Commands for FakeDaemon {
     ) -> Result<JobSummary, Refusal> {
         self.unmoved(&job_id)
     }
+    async fn set_commander_model(
+        self: std::sync::Arc<Self>,
+        job_id: JobId,
+        _choice: ipc::SetCommanderModel,
+    ) -> Result<JobSummary, Refusal> {
+        self.unmoved(&job_id)
+    }
     async fn set_tiers(
         self: std::sync::Arc<Self>,
         job_id: JobId,
