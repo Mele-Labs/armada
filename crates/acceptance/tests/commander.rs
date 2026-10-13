@@ -14,7 +14,6 @@
 //! | Step of the claim | Carried by |
 //! |---|---|
 //! | One card goes to him, and answering it wakes the Commander | #2166, the second part |
-//! | A Drone with nothing handed in, or a red group, wakes it; three wakes on one problem stop it | #2167 |
 //! | The owner sees in the thread and on each task's mark that it acted, and answers a card | #2169 |
 //! | A repair Drone goes onto the Job's own branch | #2170 |
 
@@ -28,8 +27,12 @@
 //! `tests::commander_conversation` and `tests::commander_door`: the owner's
 //! message is a row and a turn, one sent mid-turn waits, wakes during a turn are
 //! one turn, a raise lands as the Commander's inside three times, and a call
-//! naming another Job is refused. A Fleet cannot be assembled from here without
-//! the fixture that crate keeps private, and its thread is a file.
+//! naming another Job is refused. **The wakes, `#2167`, are its
+//! `tests::commanding_wakes`**: each of the six troubles wakes the Commander
+//! once, with its row, and not on the next tick or after a restart; a fourth
+//! wake on one problem with the Job unmoved is not made. A Fleet cannot be
+//! assembled from here without the fixture that crate keeps private, and its
+//! thread is a file.
 
 // Shared with the other milestones' tests, and none of them uses all of it.
 #[allow(dead_code)]

@@ -105,6 +105,7 @@ mod helm_telling;
 mod helm_deciding;
 mod commander_card;
 mod commander_conversation;
+mod commanding_wakes;
 mod commander_door;
 mod helm_door;
 mod helm_permission;

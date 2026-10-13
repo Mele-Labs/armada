@@ -9,7 +9,7 @@
 //!
 //! | Seam | Here | Filled by |
 //! |---|---|---|
-//! | A reason to wake it | [`Fleet::wake_commander`] | `#2167`, which decides when |
+//! | A reason to wake it | [`Fleet::wake_commander`] | `crate::commanding_wakes` (`#2167`), which decides when |
 //! | A card that outlives a turn | none yet | `#2166`, second part |
 //! | A repair Drone | none | `#2170` |
 
@@ -36,7 +36,7 @@ const NO_WORKTREE: &str = "fleet.commander_no_worktree";
 /// Why a Commander could not be woken. **The caller escalates as it did before
 /// there was a Commander**, and the line naming why is already in the Job's log.
 #[derive(Clone, Debug, PartialEq, Eq)]
-#[allow(dead_code)] // `#2167` calls the seam; only this crate's tests do until it lands.
+#[allow(dead_code)] // Its reason is read by tests; production reads the Job's log line.
 pub(crate) struct CannotWake {
     pub(crate) why: String,
 }
@@ -100,14 +100,13 @@ where
         })
     }
 
-    /// **The seam `#2167` calls**: wake this Job's Commander for a reason Fleet
+    /// **The seam `crate::commanding_wakes` calls**: wake this Job's Commander for a reason Fleet
     /// can say in a line. A wake that arrives while a turn is running joins the
     /// queue, and the next turn takes every one waiting as one.
     ///
     /// `Err` where the Commander cannot start (the Job has no worktree), after
     /// a line in the Job's log naming why. The caller then escalates the Job as
     /// it does today.
-    #[allow(dead_code)] // `CannotWake`'s reason.
     pub(crate) async fn wake_commander(
         self: Arc<Self>,
         job: &JobId,
@@ -129,7 +128,6 @@ where
     }
 
     /// The line in the Job's log that names why its Commander could not start.
-    #[allow(dead_code)] // `CannotWake`'s reason.
     async fn unable_to_wake(&self, job: &JobId, woken_for: &str, reason: String) -> CannotWake {
         self.noted_setting(
             job,

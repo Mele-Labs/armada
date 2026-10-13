@@ -213,6 +213,7 @@ impl Forgotten {
                 &mut self.retros
             }
             "job_walk_notes" => &mut self.walk_notes,
+            "job_commander_wakes" => &mut self.retros,
             "merge_line_entries" => &mut self.merge_line_entries,
             "job_step_baselines" => &mut self.step_baselines,
             "job_frozen_triggers" | "job_triggers" | "job_additions" => &mut self.triggers,

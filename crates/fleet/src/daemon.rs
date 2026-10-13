@@ -181,6 +181,9 @@ pub struct Fleet<H, V, W> {
     /// by root. Never written down, for `proving`'s reason — `crate::fixing`.
     fixing_on_main: Mutex<std::collections::BTreeSet<String>>,
     heals: std::sync::Mutex<crate::healing::Heals>,
+    /// What a turn is to wake a Commander for that happened outside it.
+    /// Never written down — `crate::commanding_wakes`.
+    stirred: std::sync::Mutex<crate::commanding_wakes::Stirred>,
     /// Failed Triggers waiting for a repair Drone. Never written down, for
     /// `heals`' reason — `crate::trigger_repair`.
     trigger_repairs: std::sync::Mutex<crate::trigger_repair::Queue>,

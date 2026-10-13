@@ -4,7 +4,7 @@
 //! shared turn, the thread, the stored session and the spend. What a session
 //! says is the script's; what is asserted is what Fleet does with it.
 //!
-//! The wake is `#2167`'s; `wake_commander` is the seam, called here as it will be.
+//! The wake is `#2167`'s (`tests::commanding_wakes`); `wake_commander` is the seam.
 
 use std::future::Future;
 use std::pin::Pin;

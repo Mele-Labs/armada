@@ -83,6 +83,8 @@ pub mod clock;
 /// `serving` holds the read half of. Three traits, three impl blocks, three
 /// files, and no delegating signature between them.
 pub mod commanding;
+/// When a Job's Commander is woken: six troubles, each once, and the loop bound.
+mod commanding_wakes;
 mod configured;
 /// Whether a gate's red is the work's or the machine's, before it is ruled on.
 mod confirming;

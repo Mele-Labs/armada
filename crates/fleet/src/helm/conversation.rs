@@ -155,9 +155,8 @@ impl Conversations {
 pub enum Input {
     /// The owner's words.
     Owner(String),
-    /// Fleet saw something on the Job, said in a line. **Sent by `#2167`**, which
-    /// decides what is worth a wake; until then only the seam's tests send it.
-    #[allow(dead_code)]
+    /// Fleet saw something on the Job, said in a line. **Sent by
+    /// `crate::commanding_wakes`**, which decides what is worth a wake.
     Wake(String),
 }
 

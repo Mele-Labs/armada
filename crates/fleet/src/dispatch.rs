@@ -828,10 +828,18 @@ where
     /// [`crate::retro::signed`] — and the door is kept against the row.
     pub(crate) async fn move_job(&self, job: &Job, to: Target, by: Actor) -> Result<Job, Adrift> {
         let (by, via) = crate::retro::signed(by);
+        let escalated_to = match &to {
+            Target::Escalated(trigger) => Some(trigger.clone()),
+            _ => None,
+        };
         let moved = job
             .transition(to, by, self.now())
             .map_err(Adrift::IllegalMove)?;
-        self.record(moved, via).await
+        let recorded = self.record(moved, via).await?;
+        if let Some(trigger) = escalated_to {
+            self.stirred_by_escalation(recorded.id(), &trigger);
+        }
+        Ok(recorded)
     }
 
     /// The Job move a ruling implies, where it implies one.

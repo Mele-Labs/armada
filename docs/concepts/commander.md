@@ -28,9 +28,26 @@
 
 **One at a time, and nothing interrupts one.** Everything that wants a turn goes on one queue: the owner's words (`ask_commander`) and Fleet's wakes. A turn takes everything waiting as one, so ten wakes in a row are one turn. The owner's words are on the thread the moment he sends them, and answered by the next turn.
 
-**A wake is a reason in a line.** `Fleet::wake_commander` is the seam `#2167` calls, and it decides when to call it: a Drone ending with nothing handed in, a group red with its retries spent, a cap nearly spent. Where the Commander cannot start (the Job has no worktree), it writes a line to the Job's log naming why and returns `Err`, and the caller escalates as it did before there was a Commander. A turn that starts and does not come back leaves `unanswered` on the thread and the same line in the log.
+**A wake is a reason in a line.** `Fleet::wake_commander` is the seam, and `crates/fleet/src/commanding_wakes.rs` decides when to call it, from the typed values a turn leaves. Where the Commander cannot start (the Job has no worktree), it writes a line to the Job's log naming why and returns `Err`, and the Job stays with the owner as it did before there was a Commander. A turn that starts and does not come back leaves `unanswered` on the thread and the same line in the log.
 
-**The loop bound is the brief's, counted elsewhere.** Three wakes on one problem without the Job moving means stop and say so. The brief states the rule; counting wakes is `#2167`'s.
+## When it wakes
+
+Every Job has a Commander, and it wakes only on trouble. Each trouble is read from a typed value, never a log string, and its reason is the thread's `woke` row.
+
+| Trouble | Read from | The `woke` row |
+|---|---|---|
+| A Drone ended with nothing handed in | `Worked::after` as `Aftermath::JobMoves` to `silent`, `stalled`, `blocked_by_policy` or `interrupted`; `Worked::quiet` as `Vigil::AtRest` or `Vigil::Escalated` | The Drone on step *s* ended with nothing handed in: stalled |
+| A group red with its retries spent | `Worked::ruled` as `GroupEnd::Failed` | Step *s* failed its Checks with its retries spent |
+| A Judge refusal | `Worked::ruled` as `Ruling::Refused` or `Ruling::Questioned` | The Judge refused step *s* |
+| Work past the plan | `Worked::drifting`; `Worked::wandering` once the Drone has not answered the instruction to report | The Drone on step *s* is working outside the plan |
+| A broken worktree or environment | `Turned::broken`: a Job moved onto `no_worktree`, `not_configurable`, `would_not_start`, `resource_exhausted` or `not_prepared` | No Drone could run: the worktree was unusable |
+| A cap nearly spent | `Turned::spent`: a Job a Drone's spend was just written for, against `Allowance::nearly_spent_by` at 80% of the cost cap or of the turn cap | The cost cap is nearly spent: $4.25 of $5.00 |
+
+The last two have no turn to sit on, because an environment failure happens while a Job is admitted and spend is written when a Drone ends. Each leaves a note in memory (`Stirred`) that the next turn carries.
+
+**Once each.** A wake is recorded in `job_commander_wakes` before it is made, keyed by trouble, step and the step's attempt. A Job-level trouble has no step, and its attempt is how many times the Job has escalated; a cap has none either, and its attempt is the cap in force, so a raised cap is a new fact. The 250 ms tick and a Fleet restart both find the row and wake nothing. A crash between the row and the wake loses that wake and never repeats it.
+
+**The loop bound.** The same trouble on the same step, woken for three times while the Job stands exactly as it did at the last wake, is a loop, and the fourth wake is not made. The Job's log says so in one warning line. The Job stands as it did when its status, any step's state, or the number of tasks in any state is the same as at the last wake; a Job that restarted a step and met the same trouble again has not moved, and one that handed in a task has. The Job stays with the owner, where it already is for every trouble but drift and a cap, and those two show on the Job's own surfaces. The card that asks him arrives with the second part of `#2166`.
 
 ## On the wire
 
@@ -38,4 +55,4 @@
 
 ## What is owed
 
-**A card that outlives a turn** is owed with the second part of `#2166`: a pending question in `commander_cards`, modelled on a Drone's question and never a held tool call, counted as the Job waiting on the owner. Until it lands, a Commander that cannot fix something says so in its reply.
+**A card that outlives a turn** is owed with the second part of `#2166`: a pending question in `commander_cards`, modelled on a Drone's question and never a held tool call, counted as the Job waiting on the owner. Until it lands, a Commander that cannot fix something says so in its reply, and the loop bound writes its log line and wakes nothing more. Neither does the wake for a problem repeat while a card for it is out, and that waits for the card too.

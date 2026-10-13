@@ -67,6 +67,7 @@ mod gate_manifests;
 mod groups;
 /// The session each Helm conversation resumes, one row per conversation.
 mod commander;
+mod commander_wakes;
 mod helm_sessions;
 /// What a session Fleet hosts keeps beside its ledger row, and its thread.
 mod hosted_sessions;
@@ -216,6 +217,7 @@ pub use attempt::Attempted;
 pub use check_runs::{CheckOutcome, CheckRun};
 pub use commander_cards::{CardAnswered, CardRaised, CardRaiser, NewCard, StoredCard};
 pub use commander_model::CommanderChoice;
+pub use commander_wakes::{CommanderProblem, CommanderWake};
 pub use crew::{ExtraEnded, TaskEdit};
 pub use delivery::{Currency, Delivery, Unsettled};
 pub use devices::{Device, PushSubscription};

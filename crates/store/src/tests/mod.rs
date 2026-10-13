@@ -32,6 +32,7 @@ mod gate_manifests;
 mod commander_cards;
 mod commander_model;
 mod commander_spend;
+mod commander_wakes;
 mod helm_sessions;
 mod iteration;
 mod kit;
