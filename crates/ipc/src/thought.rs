@@ -1,15 +1,18 @@
 //! Helm reading a thought for where it belongs, and recording where it went.
 //! `docs/concepts/helm.md`, *Routing a thought*.
 //!
-//! **Two operations, both Bridge's.** `read_thought` takes the words a person typed into Helm's
-//! box and answers whether they are a question for Helm or a thought for other running work, and
-//! which. `record_thought_sent` is said after Bridge delivered the words to that work: Fleet
+//! **Three operations, the first two Bridge's.** `read_thought` takes the words a person typed into
+//! Helm's box and answers whether they are a question for Helm or a thought for other running
+//! work, and which. `record_thought_sent` is said after Bridge delivered the words to that work: Fleet
 //! keeps a row in Helm's thread and publishes `helm.thought_routed`. Neither sends anything to a
-//! Session, a Job or Helm's own session: delivery is the acts that already exist.
+//! Session, a Job or Helm's own session: delivery is the acts that already exist. `tell_session` is
+//! Helm's own delivery to a live Session, for the words that reach Helm as a request, and it
+//! keeps the same row and the same event itself.
 
 use serde::{Deserialize, Serialize};
 
 use crate::ids::{Instant, ManifestId};
+use crate::sessions::SessionId;
 
 /// `read_thought` (`POST /helm/read_thought`).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -61,6 +64,17 @@ pub enum ThoughtReading {
 pub struct ThoughtSent {
     pub text: String,
     pub target: ThoughtTarget,
+}
+
+/// `tell_session` (`POST /helm/tell_session?manifest_id=`), a `Helm only` act: words a person asked
+/// Helm to pass to a live Session. Fleet sends them as Bridge's own send does, so a terminal
+/// Session that is not listening is refused in the same words, and on success keeps the same
+/// `sent` row and `helm.thought_routed` as `record_thought_sent`. Answers the [`ThoughtTarget`]
+/// the words went to.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TellSession {
+    pub session_id: SessionId,
+    pub text: String,
 }
 
 /// A thread row: these words went to a Session or a Job and never to Helm's session. A message on

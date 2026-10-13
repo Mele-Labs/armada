@@ -13,7 +13,7 @@ use std::sync::Arc;
 use ipc::{
     AnswerHelmCall, AskCommander, AskHelm, AskingToRun, CommanderConversation, EventsSince,
     HelmCallsWaiting, HelmConversation, HelmDebugInfo, ManifestId, ReadThought, RunOrNot,
-    ThoughtReading, ThoughtSent,
+    TellSession, ThoughtReading, ThoughtSent, ThoughtTarget,
 };
 
 use crate::conversing::{ObservedCommander, ObservedHelm};
@@ -102,6 +102,16 @@ pub trait Conversations: Send + Sync + 'static {
         sent: ThoughtSent,
         manifest_id: Option<ManifestId>,
     ) -> impl Future<Output = Result<HelmConversation, Refusal>> + Send;
+
+    /// `tell_session` — Helm passes words to a live Session. **Sent as `send_session_message`
+    /// sends**, so a refusal is that send's, and on success the same row and `helm.thought_routed`
+    /// as [`record_thought_sent`](Conversations::record_thought_sent) are kept. Answers where the
+    /// words went. A refused send records nothing.
+    fn tell_session(
+        self: Arc<Self>,
+        tell: TellSession,
+        manifest_id: Option<ManifestId>,
+    ) -> impl Future<Output = Result<ThoughtTarget, Refusal>> + Send;
 
     /// `ask_the_person` — put one call to the person and **do not return until
     /// they have answered or the hold has run out**. `#1389`.

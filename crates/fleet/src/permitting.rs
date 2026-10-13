@@ -629,6 +629,12 @@ impl Permitted {
         })
     }
 
+    /// The same answer, with the line that tells the Drone to settle the rest
+    /// itself.
+    pub(crate) fn deciding(self, mode: ipc::AnswerMode) -> Permitted {
+        Permitted(format!("{}\n\n{}", self.0, crate::answer_mode::mode_line(mode)))
+    }
+
     pub fn text(&self) -> &str {
         &self.0
     }

@@ -592,7 +592,7 @@ export function sessionsStore(
       // An agent's own item reaches it as Fleet words it: the item quoted, then the answer.
       const sent: SessionRow[] =
         item.source === "agent" ? [row((rid, stamp) => ({ id: rid, at: stamp, kind: "message", from: { kind: "you" }, text: `Re: ${item.text}\n${chosen ?? ""}` }))] : [];
-      addTo(id, [...sent, said(`Going with ${chosen ?? "my own call"}.`)]);
+      addTo(id, [...sent, said(item.act?.kind === "run" ? "It ran clean." : `Going with ${chosen ?? "my own call"}.`)]);
     },
     // A fake terminal: the command is typed there and nothing comes back to the thread.
     command: () => undefined,

@@ -40,7 +40,7 @@ use crate::commands::{
 };
 use crate::conversing::{
     answer_helm_call, ask_helm, ask_the_person, get_helm_debug_info, list_helm_calls, observe_helm,
-    read_thought, record_thought_sent, start_helm_fresh,
+    read_thought, record_thought_sent, start_helm_fresh, tell_session,
 };
 use crate::daemon::Daemon;
 use crate::editing::{get_manifest_file, save_manifest_file};
@@ -567,6 +567,18 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             "/jobs/:job_id/drones/:drone_id/redirect",
             post(crate::one_drone::redirect_one_drone::<D>),
         )
+        .route(
+            "/jobs/:job_id/retry_check",
+            post(crate::check_acts::retry_check::<D>),
+        )
+        .route(
+            "/jobs/:job_id/skip_check",
+            post(crate::check_acts::skip_check::<D>),
+        )
+        .route(
+            "/jobs/:job_id/skip_checks",
+            post(crate::check_acts::skip_checks::<D>),
+        )
         .route("/jobs/:job_id/forget_job", post(forget_job::<D>))
         .route(
             "/jobs/:job_id/reclaim_worktree",
@@ -648,6 +660,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/helm/start_fresh", post(start_helm_fresh::<D>))
         .route("/helm/read_thought", post(read_thought::<D>))
         .route("/helm/thought_sent", post(record_thought_sent::<D>))
+        .route("/helm/tell_session", post(tell_session::<D>))
         .route("/helm/permission", post(ask_the_person::<D>))
         .route("/helm/calls", get(list_helm_calls::<D>))
         .route("/helm/calls/answer", post(answer_helm_call::<D>))

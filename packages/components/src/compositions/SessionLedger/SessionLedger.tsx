@@ -6,6 +6,7 @@ import { forgetKept } from "../../keep";
 import { Button } from "../../primitives/Button/Button";
 import { Textarea } from "../../primitives/Textarea/Textarea";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
+import { RunnableBlock, type CodeRunner } from "../../primitives/Prose/RunnableBlock";
 
 /**
  * What a Session has accumulated, a section per kind and a row per thing.
@@ -102,6 +103,8 @@ export type LedgerEntry = {
    * `act` the row's press opens a reply box in place of doing something, and its glyph is Reply.
    */
   onReply?: (text: string) => void;
+  /** A `waiting` row whose act is `run`, where the Session can run it: the row is the command's block with Run, as in the thread. */
+  run?: { command: string; runner: CodeRunner };
   /** What the reply box's draft is about (the Session and the item), so it survives closing the box and leaving the panel. */
   replyKeep?: string;
   onOpen: () => void;
@@ -297,6 +300,22 @@ export function LedgerRows({ kind, Glyph, rows }: { kind: LedgerKind; Glyph: Luc
   return (
     <ul className="armada-session-ledger__rows">
       {rows.map((row) => {
+        if (kind === "waiting" && row.act === "run" && row.run !== undefined) {
+          const block = (
+            <div>
+              <RunnableBlock command={row.run.command} runner={row.run.runner}>
+                <pre className="armada-prose__block">
+                  <code>{row.run.command}</code>
+                </pre>
+              </RunnableBlock>
+            </div>
+          );
+          return (
+            <li key={row.key} className="armada-session-ledger__run" aria-label={row.name}>
+              {row.card === undefined ? block : <Tooltip label={<LedgerPreview card={row.card} />} card beside asChild>{block}</Tooltip>}
+            </li>
+          );
+        }
         const Mark = row.mark === undefined ? undefined : MARK[row.mark.glyph];
         const replies = kind === "waiting" && row.act === undefined && row.onReply !== undefined;
         const waiting = kind === "waiting" ? waitingMark(row) : undefined;

@@ -482,6 +482,21 @@ where
                 .await
                 .map_err(|why| self.refusal(why))?,
         );
+        // Last, because it reads what is above: the breakages, the overlaps and
+        // the steps' rulings, with the asks that excuse a quiet Drone.
+        let stuck_drone = self
+            .stuck_drone_of(
+                &job,
+                detail.asking.is_some() || detail.command_waiting.is_some(),
+            )
+            .await
+            .map_err(|why| self.refusal(why))?;
+        detail.issues = crate::job_issues::issues_of(&detail, stuck_drone);
+        let awaited = self
+            .jobs_waited_on(&job, &detail)
+            .await
+            .map_err(|why| self.refusal(why))?;
+        detail.waiting = crate::job_waiting::waiting_of(&detail, awaited);
         Ok(detail)
     }
 }
