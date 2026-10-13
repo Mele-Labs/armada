@@ -1,0 +1,326 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../../packages/tokens/tokens.css">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100vh; }
+  body {
+    font-family: var(--font-sans); font-size: var(--text-sm); line-height: var(--leading-sm);
+    color: var(--fg-default); background: var(--bg-base); overflow: hidden;
+    background-image: radial-gradient(900px 600px at 0% 0%, var(--accent-faint), transparent 70%),
+                      radial-gradient(700px 500px at 100% 100%, var(--helm-faint), transparent 70%);
+  }
+  svg.i { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+  .mono { font-family: var(--font-mono); }
+  .muted { color: var(--fg-muted); } .subtle { color: var(--fg-subtle); }
+
+  /* backdrop: a session behind the panel */
+  .app { position: absolute; inset: 0; height: 100vh; display: grid; grid-template-columns: 240px 1fr; filter: saturate(.8); }
+  .rail { border-right: 1px solid var(--border-subtle); padding: 16px; display: flex; flex-direction: column; gap: 6px; }
+  .rail .row { height: 30px; border-radius: 5px; background: var(--bg-raised); opacity: .5; }
+  .rail .row.sel { background: var(--accent-muted); opacity: 1; }
+  .thread { padding: 28px 48px; display: flex; flex-direction: column; gap: 14px; max-width: 760px; }
+  .bubble { background: var(--bg-raised); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 12px 14px; color: var(--fg-muted); }
+  .bubble b { color: var(--fg-default); font-weight: 500; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; padding: 2px 8px; border-radius: 5px; border: 1px solid var(--accent); color: var(--accent); background: var(--accent-muted); font-size: var(--text-xs); }
+  .scrim { position: absolute; inset: 0; height: 100vh; background: rgb(5 8 12 / .45); }
+
+  /* the panel */
+  .stage { position: absolute; top: 16px; right: 16px; bottom: 16px; display: flex; gap: 0; align-items: flex-start; }
+  .glass { background: linear-gradient(var(--bg-glass), var(--bg-glass-end)); border: 1px solid var(--border-glass);
+           box-shadow: inset 0 1px 0 var(--border-highlight), 0 24px 60px rgb(0 0 0 / .45); backdrop-filter: blur(24px); border-radius: 12px; }
+  .panel { width: 640px; height: 100%; display: flex; flex-direction: column; overflow: hidden; position: relative; z-index: 2; }
+
+  .head { padding: 14px 16px 0 20px; }
+  .eyebrow { display: flex; align-items: center; gap: 8px; color: var(--fg-muted); font-size: var(--text-xs); }
+  .eyebrow .sp { flex: 1; }
+  .iconbtn { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 5px; color: var(--fg-muted); }
+  .iconbtn:hover { background: var(--bg-hover); }
+  h1 { font-size: var(--text-lg); line-height: var(--leading-lg); font-weight: 600; margin: 6px 0 6px; }
+  h1 .num { font-family: var(--font-mono); font-weight: 400; color: var(--fg-subtle); margin-right: 8px; }
+  .meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; font-size: var(--text-xs); color: var(--fg-muted); }
+  .pill { display: inline-flex; align-items: center; gap: 6px; padding: 1px 9px 1px 7px; border-radius: 999px; font-size: var(--text-xs); font-weight: 500; }
+  .pill.open { color: var(--status-completed-success); background: var(--status-completed-success-bg); }
+  .pill.queue { color: var(--status-running); background: var(--status-running-bg); }
+  .pill.fail { color: var(--status-completed-failed); background: var(--status-completed-failed-bg); }
+  .branch { font-family: var(--font-mono); font-size: 12.5px; padding: 0 6px; border-radius: 3px; background: var(--bg-sunken); color: var(--fg-muted); }
+  .plus { color: var(--status-completed-success); font-family: var(--font-mono); } .minus { color: var(--status-completed-failed); font-family: var(--font-mono); }
+
+  /* hero status */
+  .hero { margin: 14px 16px 0; border-radius: 10px; background: var(--bg-sunken); border: 1px solid var(--border-subtle); padding: 14px 16px; display: grid; grid-template-columns: 44px 1fr auto; gap: 14px; align-items: center; }
+  .ring { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; }
+  .ring svg.i { width: 22px; height: 22px; }
+  .hero .what { font-size: var(--text-base); font-weight: 600; }
+  .hero .why { color: var(--fg-muted); font-size: var(--text-xs); }
+  .hero .big { font-family: var(--font-mono); font-size: var(--text-2xl); line-height: 1; font-weight: 500; text-align: right; }
+  .hero .big small { display: block; font-size: var(--text-2xs); color: var(--fg-subtle); font-family: var(--font-sans); margin-top: 6px; }
+  .track { grid-column: 1 / -1; display: flex; gap: 4px; margin-top: 2px; }
+  .track span { flex: 1; height: 6px; border-radius: 3px; background: var(--border-default); }
+  .track span.done { background: var(--status-completed-success); }
+  .track span.run { background: var(--status-running); }
+  .track span.me { background: var(--accent); box-shadow: 0 0 0 2px var(--accent-muted); }
+  .facts { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 4px; }
+  .fact { display: flex; align-items: center; gap: 7px; font-size: var(--text-xs); color: var(--fg-muted); padding: 6px 8px; border-radius: 6px; background: var(--bg-raised); border: 1px solid var(--border-subtle); white-space: nowrap; }
+  .fact b { color: var(--fg-default); font-weight: 500; }
+  .ok { color: var(--status-completed-success); } .bad { color: var(--status-completed-failed); } .run { color: var(--status-running); } .warn { color: var(--status-awaiting-review); } .helm { color: var(--helm); }
+
+  /* acts */
+  .acts { display: flex; gap: 8px; padding: 12px 16px; align-items: center; }
+  .btn { display: inline-flex; align-items: center; gap: 7px; height: 32px; padding: 0 12px; border-radius: 6px; font: inherit; font-size: var(--text-sm); font-weight: 500; border: 1px solid var(--border-default); background: var(--bg-raised); color: var(--fg-default); cursor: pointer; white-space: nowrap; }
+  .btn.primary { background: var(--status-completed-success); border-color: transparent; color: #08130D; }
+  .btn.accent { background: var(--accent); border-color: transparent; color: var(--fg-inverse); }
+  .btn.helm { background: var(--helm-muted); border-color: var(--helm-edge); color: var(--helm); }
+  .btn.ghost { background: transparent; border-color: transparent; color: var(--fg-muted); }
+  .btn.dis { opacity: .5; }
+  .split { display: inline-flex; }
+  .split .btn:first-child { border-radius: 6px 0 0 6px; }
+  .split .btn:last-child { border-radius: 0 6px 6px 0; padding: 0 8px; border-left: 1px solid rgb(0 0 0 / .25); }
+  .acts .sp { flex: 1; }
+  kbd { font-family: var(--font-mono); font-size: 11px; padding: 0 5px; border-radius: 3px; border: 1px solid currentColor; opacity: .55; }
+
+  /* tabs */
+  .tabs { display: flex; gap: 2px; padding: 0 16px; border-bottom: 1px solid var(--border-subtle); }
+  .tab { padding: 8px 10px; color: var(--fg-muted); font-size: var(--text-sm); border-bottom: 2px solid transparent; margin-bottom: -1px; display: flex; gap: 6px; align-items: center; }
+  .tab.on { color: var(--fg-default); border-color: var(--accent); font-weight: 500; }
+  .count { font-family: var(--font-mono); font-size: 11.5px; padding: 0 6px; border-radius: 9px; background: var(--bg-hover); color: var(--fg-muted); }
+
+  .body { flex: 1; overflow: hidden; padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; }
+  .ev { display: grid; grid-template-columns: 28px 1fr; gap: 10px; }
+  .av { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 600; }
+  .av.you { background: color-mix(in srgb, var(--you, #E9B949) 22%, transparent); color: var(--you, #E9B949); }
+  .av.arm { background: var(--helm-muted); color: var(--helm); }
+  .av.bot { background: var(--bg-hover); color: var(--fg-muted); }
+  .card { border: 1px solid var(--border-subtle); border-radius: 8px; background: var(--bg-raised); }
+  .card .ch { padding: 7px 12px; border-bottom: 1px solid var(--border-subtle); font-size: var(--text-xs); color: var(--fg-muted); display: flex; gap: 8px; align-items: center; }
+  .card .ch b { color: var(--fg-default); font-weight: 500; }
+  .card .cb { padding: 10px 12px; color: var(--fg-default); }
+  .card .cb p { margin: 0 0 6px; } .card .cb p:last-child { margin: 0; }
+  .line { display: flex; align-items: center; gap: 8px; font-size: var(--text-xs); color: var(--fg-muted); padding-left: 38px; }
+  .verdict { display: inline-flex; gap: 6px; align-items: center; padding: 0 8px; border-radius: 3px; font-size: 12px; font-weight: 500; }
+
+  .composer { margin: 0 16px 16px; border: 1px solid var(--border-default); border-radius: 10px; background: var(--bg-sunken); }
+  .composer .ta { padding: 10px 12px; color: var(--fg-subtle); min-height: 56px; }
+  .composer .bar { display: flex; align-items: center; gap: 8px; padding: 6px 8px 8px 12px; }
+  .composer .bar .sp { flex: 1; }
+  .seg { display: inline-flex; border: 1px solid var(--border-default); border-radius: 6px; overflow: hidden; font-size: var(--text-xs); }
+  .seg span { padding: 3px 9px; color: var(--fg-muted); } .seg span.on { background: var(--bg-hover); color: var(--fg-default); }
+
+  /* auxiliary cards — separate glass, docked to the panel's leading edge */
+  .aux { width: 300px; display: flex; flex-direction: column; gap: 12px; margin-top: 70px; margin-right: -1px; position: relative; z-index: 1; }
+  .auxc { border-radius: 12px 0 0 12px; border-right: none; padding: 12px 14px 14px; position: relative; }
+  .auxc::after { /* the tab joining it to the panel */
+    content: ""; position: absolute; right: -1px; top: 14px; bottom: 14px; width: 3px; border-radius: 2px 0 0 2px; background: var(--aux-edge, var(--border-strong)); }
+  .auxh { display: flex; align-items: center; gap: 8px; font-size: var(--text-xs); color: var(--fg-muted); margin-bottom: 10px; }
+  .auxh b { color: var(--fg-default); font-weight: 600; font-size: var(--text-sm); }
+  .auxh .sp { flex: 1; }
+  .q { display: grid; grid-template-columns: 22px 1fr auto; gap: 8px; align-items: center; padding: 5px 8px; border-radius: 6px; font-size: var(--text-xs); }
+  .q .pos { font-family: var(--font-mono); color: var(--fg-subtle); text-align: right; }
+  .q .t { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--fg-muted); }
+  .q .t .mono { color: var(--fg-subtle); margin-right: 6px; }
+  .q.me { background: var(--accent-muted); outline: 1px solid color-mix(in srgb, var(--accent) 50%, transparent); }
+  .q.me .t, .q.me .pos { color: var(--fg-default); }
+  .q.after { opacity: .55; }
+  .chk { display: grid; grid-template-columns: 16px 1fr auto; gap: 8px; align-items: center; padding: 4px 0; font-size: var(--text-xs); color: var(--fg-muted); }
+  .chk .d { font-family: var(--font-mono); color: var(--fg-subtle); }
+  .auxfoot { display: flex; gap: 8px; margin-top: 10px; }
+  .auxfoot .btn { height: 28px; font-size: var(--text-xs); padding: 0 10px; }
+  .score { display: flex; gap: 10px; align-items: baseline; }
+  .score .n { font-family: var(--font-mono); font-size: var(--text-xl); }
+  .bars { display: grid; gap: 6px; margin-top: 8px; }
+  .bars div { display: grid; grid-template-columns: 90px 1fr 26px; gap: 8px; align-items: center; font-size: 12px; color: var(--fg-muted); }
+  .bars i { height: 5px; border-radius: 3px; background: var(--border-default); position: relative; overflow: hidden; }
+  .bars i::after { content: ""; position: absolute; inset: 0 auto 0 0; width: var(--w); background: var(--helm); }
+
+  /* settings */
+  .settings { position: absolute; inset: 0; display: grid; grid-template-columns: 240px 1fr; }
+  .settings .main { padding: 40px 56px; max-width: 880px; }
+  .settings h2 { font-size: var(--text-xl); margin: 0 0 4px; font-weight: 600; }
+  .settings h3 { font-size: var(--text-xs); text-transform: uppercase; letter-spacing: .06em; color: var(--fg-subtle); margin: 28px 0 8px; font-weight: 500; }
+  .setrow { display: grid; grid-template-columns: 1fr auto; gap: 24px; align-items: center; padding: 16px 18px; border-radius: 10px; }
+  .setrow + .setrow { margin-top: 8px; }
+  .setrow .l b { display: block; font-weight: 500; }
+  .setrow .l span { color: var(--fg-muted); font-size: var(--text-xs); }
+  .radiocards { display: flex; gap: 10px; }
+  .rc { width: 190px; border: 1px solid var(--border-default); border-radius: 8px; padding: 10px; background: var(--bg-sunken); }
+  .rc.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+  .rc .pv { height: 64px; border-radius: 5px; background: var(--bg-raised); border: 1px solid var(--border-subtle); position: relative; margin-bottom: 8px; overflow: hidden; }
+  .rc .pv .p { position: absolute; top: 6px; right: 6px; bottom: 6px; width: 46%; border-radius: 4px; background: var(--bg-overlay); border: 1px solid var(--border-default); }
+  .rc .pv .a { position: absolute; top: 14px; right: calc(46% + 6px); width: 20%; height: 22px; border-radius: 4px 0 0 4px; background: var(--bg-overlay); border: 1px solid var(--border-default); border-right: none; }
+  .rc .pv .w { position: absolute; inset: 6px; border-radius: 4px; background: var(--bg-overlay); border: 1px solid var(--border-default); }
+  .rc .pv .w::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 10px; border-bottom: 1px solid var(--border-default); }
+  .rc .t { display: flex; align-items: center; gap: 8px; font-weight: 500; font-size: var(--text-sm); }
+  .rc .d { font-size: 12px; color: var(--fg-subtle); margin-top: 2px; }
+  .dot { width: 14px; height: 14px; border-radius: 50%; border: 1px solid var(--border-strong); display: grid; place-items: center; }
+  .rc.on .dot { border-color: var(--accent); } .rc.on .dot::after { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
+  .where { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 6px; font-size: 12px; color: var(--fg-subtle); }
+  .where span { padding: 1px 7px; border-radius: 3px; background: var(--bg-raised); border: 1px solid var(--border-subtle); color: var(--fg-muted); }
+  .hint { display: flex; gap: 8px; align-items: center; font-size: var(--text-xs); color: var(--fg-subtle); margin-top: 12px; }
+</style>
+</head>
+<body>
+<svg style="display:none">
+  <symbol id="pr" viewBox="0 0 24 24"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M13 6h3a2 2 0 0 1 2 2v7"/><line x1="6" x2="6" y1="9" y2="21"/></symbol>
+  <symbol id="merge" viewBox="0 0 24 24"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M6 21V9a9 9 0 0 0 9 9"/></symbol>
+  <symbol id="ext" viewBox="0 0 24 24"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></symbol>
+  <symbol id="x" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
+  <symbol id="check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></symbol>
+  <symbol id="cx" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></symbol>
+  <symbol id="load" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></symbol>
+  <symbol id="list" viewBox="0 0 24 24"><path d="M3 12h.01"/><path d="M3 18h.01"/><path d="M3 6h.01"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M8 6h13"/></symbol>
+  <symbol id="shield" viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></symbol>
+  <symbol id="msg" viewBox="0 0 24 24"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></symbol>
+  <symbol id="chev" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+  <symbol id="more" viewBox="0 0 24 24"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></symbol>
+  <symbol id="user" viewBox="0 0 24 24"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></symbol>
+  <symbol id="git" viewBox="0 0 24 24"><line x1="6" x2="6" y1="3" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></symbol>
+  <symbol id="wrench" viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></symbol>
+  <symbol id="clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></symbol>
+  <symbol id="pin" viewBox="0 0 24 24"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></symbol>
+</svg>
+
+<div id="root"></div>
+
+<script>
+const I = (id, cls = "") => `<svg class="i ${cls}"><use href="#${id}"/></svg>`;
+const state = location.hash.slice(1) || "queue";
+
+const backdrop = `
+<div class="app">
+  <div class="rail">${'<div class="row"></div>'.repeat(3)}<div class="row sel"></div>${'<div class="row"></div>'.repeat(8)}</div>
+  <div class="thread">
+    <div class="bubble"><b>You</b> — Make PR links open the same way everywhere, and give the panel real actions.</div>
+    <div class="bubble"><b>Session</b> — Opened a pull request for the change. <span class="chip">${I("pr")} #2209 Open pull requests in Armada</span></div>
+    <div class="bubble"><b>Session</b> — Checks are running. I'll keep an eye on the merge queue.</div>
+  </div>
+</div><div class="scrim"></div>`;
+
+const STATES = {
+  queue: {
+    pill: `<span class="pill queue">${I("list")} In merge queue</span>`,
+    hero: `
+      <div class="ring" style="background:var(--status-running-bg);color:var(--status-running)">${I("list")}</div>
+      <div><div class="what">3rd in the merge queue</div><div class="why">2 ahead · merges in about 18 min if their checks pass</div></div>
+      <div class="big">3<span class="subtle" style="font-size:var(--text-lg)">/7</span><small>position</small></div>
+      <div class="track"><span class="run"></span><span class="run"></span><span class="me"></span><span></span><span></span><span></span><span></span></div>`,
+    facts: [[I("check","ok"),"<b>21/21</b> checks"],[I("user","ok"),"<b>1</b> approval"],[I("git","ok"),"No conflicts"],[I("shield","helm"),"Armada <b>passed</b>"]],
+    acts: `<button class="btn">${I("x")} Leave queue</button>
+           <button class="btn helm">${I("shield")} Armada review <kbd>R</kbd></button>
+           <button class="btn ghost">${I("msg")} Comment <kbd>C</kbd></button>`,
+    aux: () => `
+      <div class="glass auxc" style="--aux-edge:var(--status-running)">
+        <div class="auxh">${I("list","run")}<b>Merge queue</b><span class="sp"></span>main · 7</div>
+        ${[["1","#2201","Commander repair onto the Job's branch","run","Merging"],["2","#2204","Keep the dispatch bar under Helm","run","Checks 14/21"],["3","#2209","Open pull requests in Armada","me","You"],["4","#2211","Settings: per-repo merge method","after",""],["5","#2212","Tidy the verdict sheet","after",""],["6","#2215","Wire Cockpit holds","after",""],["7","#2216","Spike 031 notes","after",""]]
+          .map(([p,n,t,c,s]) => `<div class="q ${c==='me'?'me':c==='after'?'after':''}"><span class="pos">${p}</span><span class="t"><span class="mono">${n}</span>${t}</span><span class="${c==='run'?'run':'subtle'}" style="font-size:12px">${c==='run'?I("load","run")+' ':''}${s}</span></div>`).join("")}
+        <div class="auxfoot"><span class="hint" style="margin:0">${I("clock")} ETA ~18 min · avg 6 min per merge</span></div>
+      </div>
+      <div class="glass auxc" style="--aux-edge:var(--helm)">
+        <div class="auxh">${I("shield","helm")}<b>Armada review</b><span class="sp"></span>12 min ago</div>
+        <div class="score"><span class="n helm">Passed</span><span class="muted" style="font-size:12px">0 blocking · 2 notes</span></div>
+        <div class="bars">
+          <div>Correctness<i style="--w:92%"></i><span class="mono">ok</span></div>
+          <div>Tests<i style="--w:80%"></i><span class="mono">ok</span></div>
+          <div>Contracts<i style="--w:100%"></i><span class="mono">ok</span></div>
+        </div>
+        <div class="auxfoot"><button class="btn">Open verdict</button><button class="btn ghost">Re-run</button></div>
+      </div>`
+  },
+  ready: {
+    pill: `<span class="pill open">${I("pr")} Open</span>`,
+    hero: `
+      <div class="ring" style="background:var(--status-completed-success-bg);color:var(--status-completed-success)">${I("merge")}</div>
+      <div><div class="what">Ready to merge</div><div class="why">Every check passed · approved · up to date with main</div></div>
+      <div class="big ok" style="font-size:var(--text-xl)">${I("check","ok").replace('class="i','style="width:28px;height:28px" class="i')}</div>`,
+    facts: [[I("check","ok"),"<b>21/21</b> checks"],[I("user","ok"),"<b>1</b> approval"],[I("git","ok"),"No conflicts"],[I("shield","helm"),"Armada <b>passed</b>"]],
+    acts: `<span class="split"><button class="btn primary">${I("merge")} Squash and merge</button><button class="btn primary">${I("chev")}</button></span>
+           <button class="btn helm">${I("shield")} Armada review <kbd>R</kbd></button>
+           <button class="btn ghost">${I("msg")} Comment <kbd>C</kbd></button>`,
+    aux: () => `
+      <div class="glass auxc" style="--aux-edge:var(--status-completed-success)">
+        <div class="auxh">${I("check","ok")}<b>Checks</b><span class="sp"></span>21 passed</div>
+        ${[["build","2m 11s"],["test · rust","4m 02s"],["test · bridge","3m 40s"],["verify-foundations","58s"],["lint","31s"],["Claude Approvals","—"]].map(([n,d]) => `<div class="chk">${I("check","ok")}<span>${n}</span><span class="d">${d}</span></div>`).join("")}
+        <div class="subtle" style="padding:4px 0 0 24px;font-size:12px">+ 15 more passed</div>
+      </div>
+      <div class="glass auxc" style="--aux-edge:var(--border-strong)">
+        <div class="auxh">${I("list")}<b>Merge queue</b><span class="sp"></span>main · 2</div>
+        <div class="muted" style="font-size:var(--text-xs)">Merging joins the queue at <b style="color:var(--fg-default)">3rd</b>. ETA ~14 min.</div>
+      </div>`
+  },
+  failed: {
+    pill: `<span class="pill open">${I("pr")} Open</span>`,
+    hero: `
+      <div class="ring" style="background:var(--status-completed-failed-bg);color:var(--status-completed-failed)">${I("cx")}</div>
+      <div><div class="what">2 checks failed</div><div class="why">test · bridge, verify-foundations · can't merge until they pass</div></div>
+      <div class="big bad">19<span class="subtle" style="font-size:var(--text-lg)">/21</span><small>passed</small></div>`,
+    facts: [[I("cx","bad"),"<b>2</b> failing"],[I("user","warn"),"Review <b>needed</b>"],[I("git","ok"),"No conflicts"],[I("shield","subtle"),"Not reviewed"]],
+    acts: `<button class="btn accent">${I("wrench")} Fix with Armada</button>
+           <button class="btn helm">${I("shield")} Armada review <kbd>R</kbd></button>
+           <button class="btn ghost">${I("msg")} Comment <kbd>C</kbd></button>`,
+    aux: () => `
+      <div class="glass auxc" style="--aux-edge:var(--status-completed-failed)">
+        <div class="auxh">${I("cx","bad")}<b>Failing checks</b><span class="sp"></span>2 of 21</div>
+        <div class="chk">${I("cx","bad")}<span style="color:var(--fg-default)">test · bridge</span><span class="d">3m 12s</span></div>
+        <div class="mono" style="font-size:11.5px;background:var(--bg-sunken);border-radius:6px;padding:8px;color:var(--fg-muted);margin:2px 0 8px;line-height:1.5">FAIL PullRequestSheet.test.tsx<br><span class="bad">✗ draws queue position</span><br>&nbsp;&nbsp;expected "3rd" got "—"</div>
+        <div class="chk">${I("cx","bad")}<span style="color:var(--fg-default)">verify-foundations</span><span class="d">58s</span></div>
+        <div class="mono" style="font-size:11.5px;background:var(--bg-sunken);border-radius:6px;padding:8px;color:var(--fg-muted);margin:2px 0 0;line-height:1.5">docs/INDEX.md: 1 unlisted doc</div>
+        <div class="auxfoot"><button class="btn">Open logs</button><button class="btn ghost">Re-run failed</button></div>
+      </div>`
+  }
+};
+
+function panel(s) {
+  const S = STATES[s];
+  return `
+  <div class="stage">
+    <div class="aux">${S.aux()}</div>
+    <div class="glass panel">
+      <div class="head">
+        <div class="eyebrow">${I("pr")} Pull request · <span class="mono">mele-labs/armada</span><span class="sp"></span>
+          <span class="iconbtn" title="Pin">${I("pin")}</span><span class="iconbtn" title="Open in browser">${I("ext")}</span><span class="iconbtn" title="Close">${I("x")}</span></div>
+        <h1><span class="num">#2209</span>Open pull requests in Armada, with a panel to act on them</h1>
+        <div class="meta">${S.pill}<span class="branch">claude/pr-panel-redesign</span>→<span class="branch">main</span>
+          <span>· nick · 2h ago</span><span>· <span class="plus">+412</span> <span class="minus">−88</span> · 9 files</span></div>
+      </div>
+      <div class="hero">${S.hero}<div class="facts">${S.facts.map(([i,t]) => `<div class="fact">${i}<span>${t}</span></div>`).join("")}</div></div>
+      <div class="acts">${S.acts}<span class="sp"></span><span class="iconbtn">${I("more")}</span></div>
+      <div class="tabs"><span class="tab on">Conversation <span class="count">5</span></span><span class="tab">Checks <span class="count">21</span></span><span class="tab">Files <span class="count">9</span></span><span class="tab">Commits <span class="count">4</span></span></div>
+      <div class="body">
+        <div class="ev"><div class="av you">N</div><div class="card"><div class="ch"><b>nick</b> opened · 2h ago</div><div class="cb">
+          <p>Pull request links open the same way everywhere, behind a setting: in Armada or in the browser.</p>
+          <p class="muted">Replaces PullRequestCard in the Session reading sheet with a full panel and auxiliary cards.</p></div></div></div>
+        <div class="ev"><div class="av arm">${I("shield")}</div><div class="card"><div class="ch"><b>Armada review</b> <span class="verdict" style="background:var(--helm-muted);color:var(--helm)">Passed</span> · 12 min ago</div><div class="cb">
+          <p>No blocking findings. 2 notes: the queue ETA should hide when the forge does not serve it; <span class="mono" style="font-size:12.5px">openPullRequest</span> has one caller left on <span class="mono" style="font-size:12.5px">shell.openExternal</span>.</p></div></div></div>
+        <div class="line">${I("check","ok")} <b style="color:var(--fg-default);font-weight:500">reviewer</b> approved · 40 min ago</div>
+        <div class="line">${I("list","run")} Added to the merge queue · 8 min ago</div>
+      </div>
+      <div class="composer"><div class="ta">Leave a comment on GitHub…  <span class="subtle">Markdown, @ to mention</span></div>
+        <div class="bar"><span class="seg"><span class="on">Comment</span><span>Approve</span><span>Request changes</span></span><span class="sp"></span><button class="btn accent" style="height:28px;font-size:var(--text-xs)">Comment <kbd style="border-color:currentColor">⌘↵</kbd></button></div></div>
+    </div>
+  </div>`;
+}
+
+function settings() {
+  return `
+  <div class="settings">
+    <div class="rail" style="border-right:1px solid var(--border-subtle)">${'<div class="row"></div>'.repeat(2)}<div class="row sel"></div>${'<div class="row"></div>'.repeat(6)}</div>
+    <div class="main">
+      <h2>Links</h2><div class="muted">Where Armada opens the things it points at.</div>
+      <h3>Pull requests</h3>
+      <div class="glass setrow">
+        <div class="l"><b>Open pull requests in</b><span>Every pull request link in Bridge — Sessions, Jobs, the Cockpit, verdicts, the merge line.</span>
+          <div class="where"><span>Session ledger</span><span>Job heading</span><span>Overview</span><span>Verdict</span><span>Land board</span><span>Merge line</span><span>Walk panel</span><span>Cockpit cards</span></div></div>
+        <div class="radiocards">
+          <div class="rc on"><div class="pv"><div class="a"></div><div class="p"></div></div><div class="t"><span class="dot"></span>Armada</div><div class="d">The pull request panel</div></div>
+          <div class="rc"><div class="pv"><div class="w"></div></div><div class="t"><span class="dot"></span>Browser</div><div class="d">Your default browser</div></div>
+        </div>
+      </div>
+      <div class="hint">${I("ext")} Either way, <kbd>⌘</kbd>-click opens the other one, and the panel always has an <b style="color:var(--fg-muted);font-weight:500">Open in browser</b> button.</div>
+    </div>
+  </div>`;
+}
+
+document.getElementById("root").innerHTML = state === "settings" ? settings() : backdrop + panel(state);
+</script>
+</body>
+</html>
