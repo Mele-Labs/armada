@@ -59,7 +59,9 @@ build of `armada` failing, is red, never an empty plan.
 **A change under `.github/` hits the Checks that exercise every job shape in the workflow:** every root Check, and `apps/desktop` and `apps/desktop/unit`, which reach the macOS shards, the unit job and the matrix. `.github/**` is in each root `when` and in those two manifests' `depends_on`. The other workspaces would repeat the matrix job.
 
 `test` and `build` run `armada check <name> --changed`, so the Manifest's own
-`narrow` applies. Every other Check runs whole. A workspace Check runs as `armada check <key>`, whole, in its directory.
+`narrow` applies: `run-check` sets `ARMADA_SOLE_TENANT=1`, which keeps the reading
+of every crate the paths name, where an agent's terminal gets only the tests the
+change touched. Every other Check runs whole. A workspace Check runs as `armada check <key>`, whole, in its directory.
 
 ## What `ci`, `needs` and `desktop_test` are
 

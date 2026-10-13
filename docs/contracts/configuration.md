@@ -455,7 +455,9 @@ over as there were Jobs at one. Nothing in a Manifest could say otherwise.
 | `width` | no | How many concurrent workers this Check may start. Absent is the machine's own number; a declared one may only lower it |
 
 `${width}` in a Check's `run`, in its `narrow.run` and in its `one_test.run` is
-replaced with that number before the command is split. A command without one is
+replaced with that number before the command is split. **Write it for the compile
+as well as the tests** (`--build-jobs ${width}`, or cargo's `--jobs ${width}`):
+a runner's own worker flag does not bound the build that precedes it. A command without one is
 returned unchanged. The same number reaches the Check's environment as
 `ARMADA_CHECK_WIDTH`, for a `run` that reaches its runner through a script and
 so has nowhere to write the substitution.
@@ -463,7 +465,7 @@ so has nowhere to write the substitution.
 ```yaml
 checks:
   test:
-    run: cargo nextest run --workspace --test-threads ${width}
+    run: cargo nextest run --workspace --build-jobs ${width} --test-threads ${width}
   screens_test:
     run: pnpm -C packages/screens test -- --maxWorkers=${width}
     width: 2
@@ -513,9 +515,22 @@ The block, and its one key:
 checks:
   test:
     run: cargo nextest run --workspace --exclude acceptance
+    narrow:
+      run: cargo nextest run
+      each: "-p {}"
+      under: crates
+      except:
+        - acceptance
     one_test:
-      run: cargo nextest run --workspace --exclude acceptance -E test(/(^|::){}(::|$)/)
+      run: cargo nextest run -E test(/(^|::){}(::|$)/)
 ```
+
+**Where the Check also declares `narrow` with `under`, `one_test` compiles only
+the members that declare the test.** The members are those under `under` whose
+source has `fn <name>` or `mod <name>`, less `except`, spelled by `each` after
+the command; the command therefore must not select the whole workspace itself.
+A name no member declares is refused. A Check with no `under` runs its
+`one_test` as written.
 
 Rules that follow:
 

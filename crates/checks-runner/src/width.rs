@@ -69,6 +69,11 @@ impl CheckWidth {
         )
     }
 
+    /// Whether this process is told it has the machine to itself: a CI runner.
+    pub fn is_sole_tenant() -> bool {
+        std::env::var(SOLE_TENANT_ENV).is_ok_and(|set| set == "1")
+    }
+
     /// `for_machine`, unless `sole_tenant` is `1`: nobody shares a CI runner,
     /// so the Check gets every core.
     pub fn for_tenancy(
