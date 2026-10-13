@@ -305,8 +305,8 @@ pub use helm::{
     HelmUnanswered,
 };
 pub use thought::{
-    HelmSent, HelmThoughtRouted, ReadThought, ThoughtKind, ThoughtReading, ThoughtSent,
-    ThoughtTarget,
+    HelmSent, HelmThoughtRouted, ReadThought, TellSession, ThoughtKind, ThoughtReading,
+    ThoughtSent, ThoughtTarget,
 };
 pub use helm_call::{
     AnswerHelmCall, AskedChoice, AskedQuestion, AskingToRun, HelmAskingToRun, HelmCallAnswer,
