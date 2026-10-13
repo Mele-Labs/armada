@@ -311,6 +311,7 @@ where
         let mut changed = kept.is_none();
         let mut ended = false;
         let mut parking: Option<(String, u32)> = None;
+        let mut plan_moved: Option<ipc::PlanUsage> = None;
         let mut session = kept.unwrap_or_else(|| KeptSession {
             id: id.clone(),
             harness: report.harness.clone(),
@@ -403,7 +404,8 @@ where
                     )
                     .map_err(fault)?;
             }
-            SessionFact::Measured { usage } => {
+            SessionFact::Measured { usage, plan } => {
+                plan_moved = self.hosts().plan_read(plan, &now);
                 let figures = store::SessionFigures {
                     context_tokens: usage.context_tokens.or(session.figures.context_tokens),
                     context_window: usage.context_window.or(session.figures.context_window),
@@ -474,6 +476,9 @@ where
         }
         if changed {
             self.publish(ipc::Event::SessionChanged(record.clone()));
+        }
+        if let Some(usage) = plan_moved {
+            self.publish(ipc::Event::PlanUsageChanged(usage));
         }
         Ok(record)
     }

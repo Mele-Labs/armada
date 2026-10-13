@@ -8,7 +8,43 @@ const TITLE_MOST = 80
  * repository's. **Bump it with `version` in `.claude-plugin/plugin.json`**: the mod cannot read that
  * file while it runs, and a Fleet test (`terminal_session.rs`) holds the two equal.
  */
-export const MOD_VERSION = '0.3.11'
+export const MOD_VERSION = '0.3.12'
+
+/** A plan window as the engine reports it (`SessionRateLimit`). */
+export type RateLimit = { kind: string; percentUsed: number; resetsAt?: string }
+
+/** A plan window as Fleet takes it: whole percent, and the reset as an ISO instant Fleet can read. */
+export type PlanWindow = { kind: string; percent_used: number; resets_at?: string }
+
+function isoOf(text: string | undefined): string | undefined {
+  if (text === undefined) return undefined
+  const at = new Date(text)
+  return Number.isNaN(at.getTime()) ? undefined : at.toISOString()
+}
+
+/** The windows in Fleet's spelling. Empty off a subscription, and a window with no usable reset keeps its percent. */
+export function planOf(limits: RateLimit[]): PlanWindow[] {
+  return limits.map(one => {
+    const resets = isoOf(one.resetsAt)
+    return { kind: one.kind, percent_used: Math.round(one.percentUsed), ...(resets === undefined ? {} : { resets_at: resets }) }
+  })
+}
+
+/** Near enough to full that a turn failing on the limit was this window's doing. */
+const NEARLY_FULL = 99
+
+/**
+ * When the limit a turn just hit opens again: the latest reset among the windows at or near full, so
+ * a weekly window spent beside a five-hour one is waited out. Nothing where no full window says when.
+ */
+export function spentUntil(limits: RateLimit[]): string | undefined {
+  const resets = limits
+    .filter(one => one.percentUsed >= NEARLY_FULL)
+    .map(one => isoOf(one.resetsAt))
+    .filter((one): one is string => one !== undefined)
+    .sort()
+  return resets.at(-1)
+}
 
 /** The `answers` map a question's answered input carries, keyed by question text. */
 export function answersIn(input: unknown): Record<string, string> {

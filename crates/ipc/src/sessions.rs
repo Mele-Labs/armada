@@ -144,6 +144,10 @@ pub enum SessionFact {
     },
     Measured {
         usage: SessionUsage,
+        /// The account's plan windows as this session last read them; empty off a subscription. The
+        /// windows are the account's, so Fleet keeps the newest from any session (`PlanUsage`).
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        plan: Vec<crate::plan_usage::PlanWindow>,
     },
     /// What the terminal runs on: its model, its effort, its permission mode
     /// and the commands it lists. **A field left out is unchanged**, and an

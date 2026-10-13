@@ -70,6 +70,7 @@ export * from "./autopilot";
 export * from "./servers";
 export * from "./hosted-sessions";
 export * from "./sessions";
+export * from "./plan-usage";
 export * from "./sleep";
 export * from "./remarks";
 export * from "./report";

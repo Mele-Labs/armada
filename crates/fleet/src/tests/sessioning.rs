@@ -278,6 +278,7 @@ async fn usage_keeps_what_was_reported_and_a_later_report_adds_to_it() {
                     context_window: Some(200_000),
                     cost_micros: None,
                 },
+                plan: Vec::new(),
             },
         ))
         .await
@@ -291,6 +292,7 @@ async fn usage_keeps_what_was_reported_and_a_later_report_adds_to_it() {
                     context_window: None,
                     cost_micros: Some(2_000_000),
                 },
+                plan: Vec::new(),
             },
         ))
         .await
@@ -614,4 +616,69 @@ async fn an_address_that_is_not_http_or_a_call_with_no_session_shows_nothing() {
         };
         assert!(fleet.show_window(None, show).await.is_err(), "{url} {session:?}");
     }
+}
+
+fn window(kind: &str, percent_used: u32, resets_at: &str) -> ipc::PlanWindow {
+    ipc::PlanWindow {
+        kind: kind.into(),
+        percent_used,
+        resets_at: Some(ipc::Instant::carried(resets_at)),
+    }
+}
+
+fn measured_plan(plan: Vec<ipc::PlanWindow>) -> SessionFact {
+    SessionFact::Measured {
+        usage: SessionUsage::default(),
+        plan,
+    }
+}
+
+async fn next_plan(watching: &mut Subscription) -> ipc::PlanUsage {
+    tokio::time::timeout(Duration::from_secs(5), async {
+        loop {
+            match watching.next().await {
+                Some(Next::Send(delivered)) => {
+                    if let Event::PlanUsageChanged(usage) = delivered.event {
+                        return usage;
+                    }
+                }
+                other => panic!("the stream ended or dropped: {other:?}"),
+            }
+        }
+    })
+    .await
+    .expect("a plan_usage.changed arrives")
+}
+
+/// The windows are the account's: the newest reading of any session stands, a repeat says nothing
+/// and a session off a subscription takes nothing away.
+#[tokio::test]
+async fn the_plan_reading_is_the_machines_and_the_newest_session_wins() {
+    use api::HostedSessions;
+    let home = TempDir::new();
+    let fleet = a_fleet(&home, FakeWorkProduct::changed(&[]));
+    for id in ["s1", "s2"] {
+        fleet.report_session(report(id, started("/nowhere"))).await.unwrap();
+    }
+    assert!(fleet.get_plan_usage().await.unwrap().windows.is_empty());
+
+    let mut watching = fleet.events().subscribe();
+    let first = vec![
+        window("five_hour", 41, "2026-10-12T22:40:00.000Z"),
+        window("seven_day", 12, "2026-10-17T09:00:00.000Z"),
+    ];
+    fleet.report_session(report("s1", measured_plan(first.clone()))).await.unwrap();
+    let heard = next_plan(&mut watching).await;
+    assert_eq!(heard.windows, first);
+    assert!(heard.read_at.is_some());
+
+    // The same reading again, and an empty one, move nothing.
+    fleet.report_session(report("s2", measured_plan(first.clone()))).await.unwrap();
+    fleet.report_session(report("s2", measured_plan(Vec::new()))).await.unwrap();
+    assert_eq!(fleet.get_plan_usage().await.unwrap().windows, first);
+
+    let later = vec![window("five_hour", 43, "2026-10-12T22:40:00.000Z")];
+    fleet.report_session(report("s2", measured_plan(later.clone()))).await.unwrap();
+    assert_eq!(next_plan(&mut watching).await.windows, later, "nothing was published between");
+    assert_eq!(fleet.get_plan_usage().await.unwrap().windows, later);
 }

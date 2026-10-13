@@ -20,6 +20,7 @@ import type { ProposalInFlight } from "./proposing";
 import type { CheckoutRunRecord, RunRecord } from "./rehearsal";
 import type { ServerState } from "./servers";
 import type { SessionRowChanged } from "./hosted-sessions";
+import type { PlanUsage } from "./plan-usage";
 import type { SleepState } from "./sleep";
 import type { Autopilot } from "./autopilot";
 import type { SessionRecord } from "./sessions";
@@ -112,7 +113,9 @@ export type Event =
   /** Sleep mode after any change to it, whole. */
   | ({ kind: "sleep.changed" } & SleepState)
   /** A repository's Autopilot after any change to it, whole. #2092. */
-  | ({ kind: "autopilot.changed" } & Autopilot);
+  | ({ kind: "autopilot.changed" } & Autopilot)
+  /** The plan's windows after a session read them moving, whole. */
+  | ({ kind: "plan_usage.changed" } & PlanUsage);
 
 /**
  * A Job exists that did not before, carrying the row whole.

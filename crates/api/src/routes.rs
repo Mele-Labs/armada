@@ -237,6 +237,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             "/sessions/window/closed",
             post(crate::sessions::window_closed::<D>),
         )
+        .route("/plan_usage", get(crate::hosted_sessions::get_plan_usage::<D>))
         .route("/sleep", get(crate::hosted_sessions::get_sleep::<D>).post(crate::hosted_sessions::set_sleep::<D>))
         .route("/sleep/override", post(crate::hosted_sessions::override_sleep::<D>))
         .route("/sleep/review", post(crate::hosted_sessions::review_sleep::<D>))

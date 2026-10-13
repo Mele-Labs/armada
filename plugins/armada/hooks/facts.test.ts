@@ -11,8 +11,10 @@ import {
   mayMoveBranch,
   needAct,
   micros,
+  planOf,
   pullRequestsIn,
   senderOf,
+  spentUntil,
   customTitleIn,
   titleOf,
   transcriptPath,
@@ -180,4 +182,33 @@ test('a Claude Docs document made or edited is an artifact, and reading one is n
   expect(artifactOf('mcp__claude_ai_Claude_Docs__read', edited, 'ok', false)).toBeUndefined()
   expect(artifactOf('mcp__claude_ai_Claude_Docs__guide', {}, 'ok', false)).toBeUndefined()
   expect(artifactOf('mcp__claude_ai_Claude_Docs__create', {}, 'no link', false)).toBeUndefined()
+})
+
+test('a plan window is told in whole percent with its reset as an ISO instant', () => {
+  expect(
+    planOf([
+      { kind: 'five_hour', percentUsed: 41.6, resetsAt: '2026-10-12T22:40:00Z' },
+      { kind: 'seven_day', percentUsed: 7 },
+      { kind: 'spend_limit', percentUsed: 12, resetsAt: 'tomorrow-ish' },
+    ]),
+  ).toEqual([
+    { kind: 'five_hour', percent_used: 42, resets_at: '2026-10-12T22:40:00.000Z' },
+    { kind: 'seven_day', percent_used: 7 },
+    { kind: 'spend_limit', percent_used: 12 },
+  ])
+  expect(planOf([])).toEqual([])
+})
+
+test('a spent limit opens again at the latest reset among the windows at or near full', () => {
+  const five = { kind: 'five_hour', percentUsed: 100, resetsAt: '2026-10-12T22:40:00Z' }
+  const week = { kind: 'seven_day', percentUsed: 99.4, resetsAt: '2026-10-15T09:00:00Z' }
+  expect(spentUntil([five])).toBe('2026-10-12T22:40:00.000Z')
+  expect(spentUntil([five, week])).toBe('2026-10-15T09:00:00.000Z')
+  expect(spentUntil([five, { ...week, percentUsed: 60 }])).toBe('2026-10-12T22:40:00.000Z')
+})
+
+test('nothing is said of a limit no window shows full, or whose reset is unknown', () => {
+  expect(spentUntil([{ kind: 'five_hour', percentUsed: 80, resetsAt: '2026-10-12T22:40:00Z' }])).toBeUndefined()
+  expect(spentUntil([{ kind: 'five_hour', percentUsed: 100 }])).toBeUndefined()
+  expect(spentUntil([])).toBeUndefined()
 })

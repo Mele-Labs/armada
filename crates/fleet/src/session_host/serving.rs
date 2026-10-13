@@ -205,6 +205,10 @@ where
         self.dismiss_waited(dismiss).await
     }
 
+    async fn get_plan_usage(&self) -> Result<ipc::PlanUsage, Refusal> {
+        Ok(self.hosts().plan_usage())
+    }
+
     async fn get_sleep(&self) -> Result<ipc::SleepState, Refusal> {
         self.sleep_state().await
     }

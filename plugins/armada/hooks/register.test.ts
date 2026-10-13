@@ -90,6 +90,7 @@ function world(
     return { text: e.text }
   })
   on('turn.complete', () => ({ text: '' }))
+  on('session.measure', (_$, e) => ({ changed: e.changed }))
   on('prompt.context', (_$, e) => ({ blocks: e.blocks }))
   on('classic.SessionStart', () => ({}))
   return { posts, attempts, clock, submitted, asked, ran, questions, order }
@@ -685,4 +686,34 @@ test('a Drone does not put its question to Bridge', async ($, on) => {
   await clock.settle()
 
   expect(questions).toEqual([])
+})
+
+test('a measurement carries the plan windows, and a window that moved is not held back by the throttle', async ($, on) => {
+  const { posts, clock } = world(on)
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  const five = { kind: 'five_hour', percentUsed: 41.4, resetsAt: '2026-10-12T22:40:00Z' }
+  const context = { tokens: 1000, window: 200_000 }
+  await $.session.measure({ context, rateLimits: [five], changed: ['context', 'rateLimits'] })
+  // Inside the ten seconds, and only the context moved: held back.
+  await $.session.measure({ context: { ...context, tokens: 2000 }, rateLimits: [five], changed: ['context'] })
+  // Inside the ten seconds, and the window moved: told.
+  await $.session.measure({ context, rateLimits: [{ ...five, percentUsed: 42 }], changed: ['rateLimits'] })
+  await clock.settle()
+
+  const measured = facts(posts).filter(fact => fact.kind === 'measured')
+  expect(measured.map(fact => fact.plan)).toEqual([
+    [{ kind: 'five_hour', percent_used: 41, resets_at: '2026-10-12T22:40:00.000Z' }],
+    [{ kind: 'five_hour', percent_used: 42, resets_at: '2026-10-12T22:40:00.000Z' }],
+  ])
+})
+
+test('a measurement off a subscription names no plan', async ($, on) => {
+  const { posts, clock } = world(on)
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await $.session.measure({ context: { tokens: 1000, window: 200_000 }, rateLimits: [], changed: ['context'] })
+  await clock.settle()
+
+  const measured = facts(posts).find(fact => fact.kind === 'measured')
+  expect(measured).toBeDefined()
+  expect('plan' in measured).toBe(false)
 })

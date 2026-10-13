@@ -6,6 +6,7 @@
 
 import type { HelmCallInFlight } from "./helm-calls";
 import type { HostedFacts, SessionMode } from "./hosted-sessions";
+import type { PlanWindow } from "./plan-usage";
 
 /** What started a session. */
 export type SessionOrigin = "terminal" | "bridge";
@@ -236,7 +237,7 @@ export type SessionFact =
       attachment: { kind: string; target: string };
       state: AttachmentState;
     }
-  | { kind: "measured"; usage: SessionUsage }
+  | { kind: "measured"; usage: SessionUsage; plan?: PlanWindow[] }
   | { kind: "turn_completed" }
   | { kind: "ended"; reason: string };
 

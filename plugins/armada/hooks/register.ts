@@ -25,6 +25,8 @@ import {
   mayMoveBranch,
   needAct,
   micros,
+  planOf,
+  spentUntil,
   pagesOpenedIn,
   pullRequestsIn,
   senderOf,
@@ -35,6 +37,7 @@ import {
   MOD_VERSION,
   transcriptPath,
 } from './facts'
+import type { RateLimit } from './facts'
 import type { Asked, Door, Fact, Report } from './fleet'
 
 const HARNESS = 'claude_code'
@@ -558,13 +561,22 @@ async function messaged($: Dollar, direction: 'sent' | 'received', who: string):
   say($, id, { kind: 'attached', attachment: { kind: 'message', target, detail } })
 }
 
-async function measured($: Dollar, tokens?: number, window?: number, usd?: number): Promise<void> {
+async function measured(
+  $: Dollar,
+  tokens?: number,
+  window?: number,
+  usd?: number,
+  limits: RateLimit[] = [],
+  moved = false,
+): Promise<void> {
   const at = await $.clock.now()
-  if (at - measuredAt < MEASURE_EVERY_MS) return
+  // A window that moved is the one reading nothing else reports, so it is not left behind by the throttle.
+  if (!moved && at - measuredAt < MEASURE_EVERY_MS) return
   measuredAt = at
   const [id] = await current($)
   const usage = { context_tokens: tokens, context_window: window, cost_micros: micros(usd) }
-  say($, id, { kind: 'measured', usage })
+  const plan = planOf(limits)
+  say($, id, plan.length === 0 ? { kind: 'measured', usage } : { kind: 'measured', usage, plan })
 }
 
 async function titled($: Dollar, prompt: string): Promise<void> {
@@ -735,7 +747,8 @@ export const register: Register = on => {
 
   on('session.measure', async ($, e, next) => {
     const out = await next(e)
-    void measured($, e.context.tokens, e.context.window, e.cost?.usd).catch(() => undefined)
+    const moved = e.changed.includes('rateLimits')
+    void measured($, e.context.tokens, e.context.window, e.cost?.usd, e.rateLimits, moved).catch(() => undefined)
     return out
   })
 

@@ -35,6 +35,7 @@ use crate::rehearsal::{CheckoutRunRecord, RunRecord};
 use crate::repositories::RepositoryList;
 use crate::servers::ServerState;
 use crate::settings::SettingsList;
+use crate::plan_usage::PlanUsage;
 use crate::sleep::SleepState;
 use crate::autopilot::Autopilot;
 use crate::sessions::SessionRecord;
@@ -216,6 +217,9 @@ pub enum Event {
     SleepChanged(SleepState),
     #[serde(rename = "autopilot.changed")]
     AutopilotChanged(Autopilot),
+    // The plan's windows after a session read them moving, whole. `docs/concepts/machine.md`.
+    #[serde(rename = "plan_usage.changed")]
+    PlanUsageChanged(PlanUsage),
 }
 
 impl Event {
