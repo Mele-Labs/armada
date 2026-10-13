@@ -105,7 +105,7 @@ function OneLine({
   onOpenCheck: (branch: string, check: string) => void;
 }) {
   const [open, setOpen] = usePanelOpen(`merge-line:${view.root}`);
-  const holds = focus !== undefined && [...view.line, ...view.landed, ...view.sentBack].some((one) => one.branch === focus);
+  const holds = focus !== undefined && [...view.line, ...view.landed, ...view.sentBack, ...(view.hub?.pulls ?? [])].some((one) => one.branch === focus);
   useEffect(() => {
     // Only when the ask arrives: `setOpen` is not stable, and a fold the person closes stays closed.
     if (holds) setOpen(true);

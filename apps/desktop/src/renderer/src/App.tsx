@@ -47,6 +47,7 @@ import { FLEET_DOWN } from "./palette";
 import { Overview } from "./Overview"; import { ONE_BAR, useOneBar } from "./one-bar";
 import { DispatchingProvider, useDispatch } from "./dispatch-panel/dispatching";
 import { useHelmBox } from "./helm-box";
+import { useHelmRefs } from "./helm-refs";
 import { useThoughtRouting } from "./thought-routing";
 import { TitleDispatchedStrip, TitleDispatchPanel } from "./dispatch-panel/entries";
 import { CaptureLayer, type CaptureAim } from "./capture/Layer";
@@ -427,6 +428,14 @@ export function App({ draft }: AppProps = {}) {
   const onWhat = reading ?? state.jobs.find((job) => job.id === cursor);
   const live = state.connection.state === "connected"; const dispatching = useDispatch({ state, repositories, proposeFrom: commands.proposeFrom, openSession, openJob: (jobId) => (goTo(SURFACE.overview), setOpenJob(jobId)), openAutopilot: (root) => (state.repository !== root && pickRepository(root), goTo(SURFACE.overview)), said: setTelling }); // One draft for the Cockpit's bar and the panel grown from the title bar.
   const helmBox = useHelmBox(state.helm.state === "none" ? undefined : state.helm.manifestId);
+  const helmRefs = useHelmRefs({
+    state,
+    repositories,
+    openSession,
+    openJob: (jobId) => (goTo(SURFACE.overview), setOpenJob(jobId)),
+    openPullRequest: (branch) => (goTo(SURFACE.mergeLine), asked.setMergeFocus(branch)),
+    openIssues: (root) => (root !== undefined && state.repository !== root && pickRepository(root), setComposing(true)),
+  });
   const routing = useThoughtRouting({ state, repositories, dispatching, openSession, openJob: (jobId) => (goTo(SURFACE.overview), setOpenJob(jobId)), sketchesOf: helmBox.sketchesOf });
   const oneBar = useOneBar({ palette, live, compose: (words) => (setSeed(words), setComposing(true)), dispatching }); // `n`, ⌘N and ⌘K: the title bar's one bar.
   const firstContact = firstContactOf(state.settings); // Whether a guide opens itself, once Fleet has answered.
@@ -623,6 +632,7 @@ export function App({ draft }: AppProps = {}) {
               asks={asks}
               routing={routing}
               {...(helmBox.box === undefined ? {} : { box: helmBox.box })}
+              refs={helmRefs}
               helm={state.helm}
               repositories={repositories}
               jobs={state.jobs}

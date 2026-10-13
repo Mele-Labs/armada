@@ -7,7 +7,7 @@
 // conversation is drawn in it.
 
 import { useRef, useState, type KeyboardEvent } from "react";
-import { copyHelmRecord, DockQuestions, HelmComposer, HelmRecord, HelmThread, ThoughtCard } from "@armada/components";
+import { copyHelmRecord, DockQuestions, HelmComposer, HelmRecord, HelmThread, ProseRefs, ThoughtCard } from "@armada/components";
 import { useRecentRepositories } from "@armada/shell";
 import type {
   DockQuestion,
@@ -16,6 +16,7 @@ import type {
   HelmBox,
   HelmComposerChip,
   HelmThreadRow,
+  ProseReferences,
   SentFromComposer,
 } from "@armada/components";
 import type {
@@ -74,6 +75,11 @@ export type HelmDockProps = {
    * waiting. Built by the window from the Sessions it holds. Absent, the box offers only what is typed.
    */
   box?: Partial<HelmBox>;
+  /**
+   * What the thread's words name that Bridge can open: pull requests, issues, Jobs and Sessions, in
+   * Helm's replies and in the person's own rows. Absent, the thread is plain text.
+   */
+  refs?: ProseReferences;
 };
 
 /**
@@ -111,6 +117,7 @@ export function HelmDock({
   asks = [],
   routing,
   box,
+  refs,
 }: HelmDockProps) {
   // What each message went with, for the thread's row to draw: Fleet's row for an ask carries words alone.
   const [carried, setCarried] = useState<{ text: string; carry: ThoughtCarry }[]>([]);
@@ -278,7 +285,9 @@ export function HelmDock({
 
   return (
     <div className="armada-helm-dock" onKeyDownCapture={keyed}>
-      <HelmThread rows={rows} replying={replying} notice={notice} />
+      <ProseRefs.Provider value={refs ?? null}>
+        <HelmThread rows={rows} replying={replying} notice={notice} />
+      </ProseRefs.Provider>
       {/* Between the thread and the message box: the reply is held open above
           it and the person is typing below it, so the ask is in the one place
           neither of them has to be left to find it — #1519. The same

@@ -148,7 +148,7 @@ const TAG_KIND = { session: "Session", job: "Job", pull_request: "Pull request",
  * A sent message's words with each tag drawn as the chip it was written as, at its `@title`. `parts`
  * is `null` where no tag is found in the words, and `loose` holds the tags that were not.
  */
-function placeTags(text: string, tags: readonly ComposerTag[]): { parts: ReactNode[] | null; loose: readonly ComposerTag[] } {
+function placeTags(text: string, tags: readonly ComposerTag[], open?: (tag: ComposerTag) => void): { parts: ReactNode[] | null; loose: readonly ComposerTag[] } {
   const parts: ReactNode[] = [];
   const loose: ComposerTag[] = [];
   let from = 0;
@@ -159,7 +159,7 @@ function placeTags(text: string, tags: readonly ComposerTag[]): { parts: ReactNo
       continue;
     }
     if (at > from) parts.push(text.slice(from, at));
-    parts.push(<InlineTag key={`${from}${tag.kind}${tag.id}`} tag={tag} />);
+    parts.push(<InlineTag key={`${from}${tag.kind}${tag.id}`} tag={tag} {...(open === undefined ? {} : { onOpen: () => open(tag) })} />);
     from = at + tag.title.length + 1;
   }
   if (parts.length === 0) return { parts: null, loose };

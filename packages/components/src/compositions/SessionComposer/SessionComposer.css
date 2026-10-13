@@ -237,3 +237,18 @@
 .armada-mention[data-numbered] .armada-session-composer__says {
   font-family: var(--font-sans);
 }
+
+/* A tag in the thread that opens what it names takes the link's own colour. */
+a.armada-inline-tag--link {
+  color: var(--accent);
+  text-decoration: none;
+  user-select: auto;
+}
+
+a.armada-inline-tag--link:hover {
+  color: var(--accent-hover);
+}
+
+a.armada-inline-tag--link > svg {
+  color: inherit;
+}

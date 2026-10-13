@@ -5,8 +5,11 @@ import type { IssueList } from "@armada/protocol";
 
 import type { IssuesApi } from "../../../../shared/api/issues";
 import type { Slice } from "../fake-context";
+import { REPOSITORY_ISSUES } from "../numbered";
 
 function listed(manifestId: string): IssueList {
+  const own = REPOSITORY_ISSUES[manifestId];
+  if (own !== undefined) return { manifest_id: manifestId, fetched_at: "2026-10-11T12:00:00Z", issues: own };
   return {
     manifest_id: manifestId,
     fetched_at: "2026-10-11T12:00:00Z",

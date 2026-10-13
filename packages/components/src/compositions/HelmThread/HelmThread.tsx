@@ -1,6 +1,6 @@
-import type { ReactNode } from "react";
+import { useContext, type ReactNode } from "react";
 import { Button } from "../../primitives/Button/Button";
-import { Prose } from "../../primitives/Prose/Prose";
+import { Prose, ProseRefs } from "../../primitives/Prose/Prose";
 import type { ComposerTag } from "../SessionComposer/InlineTag";
 import { placeTagsIn, SentWith } from "../SessionThread/SessionThread";
 import { THOUGHT_KIND } from "../ThoughtCard/ThoughtCard";
@@ -135,6 +135,12 @@ export function HelmThread({
   emptyNote,
   notice,
 }: HelmThreadProps) {
+  const refs = useContext(ProseRefs);
+  // A chip in a row of the person's is a link where the host can open what it names.
+  const openTag = (tag: ComposerTag): void => {
+    if (tag.kind === "branch" || refs === null) return;
+    refs.open({ kind: tag.kind, id: tag.id, title: tag.title.replace(/^#\d+\s*/, "") });
+  };
   return (
     <div className="armada-helm-thread">
       {notice === undefined ? null : (
@@ -151,7 +157,7 @@ export function HelmThread({
       ) : (
         <ol className="armada-helm-thread__rows">
           {rows.map((row) => {
-            const placed = row.tags === undefined || row.tags.length === 0 || typeof row.message !== "string" ? undefined : placeTagsIn(row.message, row.tags);
+            const placed = row.tags === undefined || row.tags.length === 0 || typeof row.message !== "string" ? undefined : placeTagsIn(row.message, row.tags, refs === null ? undefined : openTag);
             const loose = placed === undefined ? (row.tags ?? []) : placed.loose;
             return (
             <li className="armada-helm-thread__row" key={row.id} data-actor={row.actor}>

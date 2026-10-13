@@ -33,7 +33,7 @@ const done = (manifest: string, number: number, title: string, state: PullReques
   auto_merge: false,
   checks: { state: "passed" },
   title,
-  branch: `merged/${number}`,
+  branch: number === 207 ? "fix/drone-count" : `merged/${number}`,
   address: `https://forge.invalid/pull/${number}`,
 });
 
@@ -73,6 +73,9 @@ const REPOSITORIES: Record<string, Repository> = {
     closed: [],
   },
 };
+
+/** The open issues of the repositories whose own lists differ from the generic four, for the composer's Open issues card. */
+export const REPOSITORY_ISSUES: Record<string, TrackedIssue[]> = { armada: REPOSITORIES["armada"]!.issues, billing: REPOSITORIES["billing"]!.issues };
 
 const of = (manifestId: string | undefined): Repository => REPOSITORIES[manifestId ?? "armada"] ?? REPOSITORIES["armada"]!;
 

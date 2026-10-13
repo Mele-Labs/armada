@@ -1,6 +1,8 @@
 import { Box, GitBranch, GitPullRequest, SquareTerminal, Ticket } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
+import { Tooltip } from "../../primitives/Tooltip/Tooltip";
+
 /**
  * What `@` tags: another Session, a Job, a pull request or a branch. **`#` tags an issue or a pull
  * request by its number**; its `id` is the number and its `title` leads with it, `#214 The title`.
@@ -18,9 +20,27 @@ export const TAG_GLYPH: Record<ComposerTag["kind"], LucideIcon> = {
 /**
  * A tag drawn in the line it was written in: its kind's glyph and its title, in one unit. In the
  * message box it is atomic, so Backspace takes it whole; in the thread it is the same unit, read-only.
+ * **With `onOpen` it is a link** to where Bridge shows what it names, with its kind and title on hover.
  */
-export function InlineTag({ tag, atomic = false }: { tag: ComposerTag; atomic?: boolean }) {
+export function InlineTag({ tag, atomic = false, onOpen }: { tag: ComposerTag; atomic?: boolean; onOpen?: () => void }) {
   const Glyph = TAG_GLYPH[tag.kind];
+  if (onOpen !== undefined) {
+    return (
+      <Tooltip label={`${TAG_KIND_SAID[tag.kind]} · ${tag.title.replace(/^#\d+\s*/, "")}`} asChild>
+        <a
+          className="armada-inline-tag armada-inline-tag--link"
+          href={`#${tag.kind}`}
+          onClick={(event) => {
+            event.preventDefault();
+            onOpen();
+          }}
+        >
+          <Glyph size={12} strokeWidth={2} aria-hidden />
+          {tag.title}
+        </a>
+      </Tooltip>
+    );
+  }
   return (
     <span
       className="armada-inline-tag"
@@ -31,3 +51,5 @@ export function InlineTag({ tag, atomic = false }: { tag: ComposerTag; atomic?: 
     </span>
   );
 }
+
+const TAG_KIND_SAID: Record<ComposerTag["kind"], string> = { session: "Session", job: "Job", pull_request: "Pull request", branch: "Branch", issue: "Issue" };
