@@ -148,6 +148,28 @@ export const YourWordsAndActs: Story = {
   },
 };
 
+const LONG_ITEM = "Conflict detection: what happens on a real clash, and does Bridge show it";
+const LONG_SAID = "Yes bridge shows it. Also we need to account for when agents sessions are done that the index gets cleaned up. I would assume main getting updated also impacts this";
+
+/**
+ * A long item and a long answer share a row. The item truncates to one line beside the eyebrow and
+ * the time, and the answer wraps at full width on a line of its own under them.
+ */
+export const LongAnswer: Story = {
+  args: { rows: [{ id: "l1", at: "10:02:11", kind: "message", from: "you", text: `Re: ${LONG_ITEM}\n${LONG_SAID}` }] },
+  play: async ({ canvas }) => {
+    const answered = canvas.getByRole("region", { name: "You answered" });
+    const chip = within(answered).getByRole("img", { name: `Answered: ${LONG_ITEM}` });
+    const said = within(answered).getByText(LONG_SAID);
+    await expect(said).toBeVisible();
+    await expect(said.getBoundingClientRect().top).toBeGreaterThanOrEqual(chip.getBoundingClientRect().bottom);
+    // One line: the chip is no taller than twice its own line height.
+    await expect(chip.getBoundingClientRect().height).toBeLessThan(parseFloat(getComputedStyle(chip).lineHeight) * 2);
+    // The answer runs the width of the row, not a narrow column.
+    await expect(said.getBoundingClientRect().width).toBeGreaterThan(answered.getBoundingClientRect().width / 2);
+  },
+};
+
 const LONG: SessionThreadRow[] = Array.from({ length: 40 }, (_, at): SessionThreadRow => ({ id: `m${at}`, at: "14:03:07", kind: "message", from: at % 2 === 0 ? "you" : "agent", text: `Message ${at + 1}` }));
 
 /** A long thread opens at its newest message, and a row that arrives keeps it there. */
