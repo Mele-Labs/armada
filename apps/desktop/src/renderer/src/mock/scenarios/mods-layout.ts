@@ -40,7 +40,7 @@ const base = holding("mods-layout", "Settings → Layout, the Mods surface, and 
 
 function build(): Scenario {
   const board: Scenario = { ...base, state: { ...base.state, repository: repository().root, mergeLines: { lines: [mergeLine()] } } };
-  const sessions = () => new FakeSessionsFleet([hosted(SESSION, { title: "A layout", attachments: [held("slot", "3")] })]);
+  const sessions = () => new FakeSessionsFleet([hosted(SESSION, { title: "A layout", manifest_id: repository().manifest!.id, attachments: [held("slot", "3")] })]);
   return {
     ...sessions().scenario(board),
     name: "mods-layout",
@@ -68,7 +68,7 @@ function build(): Scenario {
           });
           writeTidy(first ? TIDY_DASHBOARD : TIDY_JOB);
           // The turn is over, so the next request can be sent.
-          fake.changed(hosted(SESSION, { title: "A layout", attachments: [held("slot", "3")] }));
+          fake.changed(hosted(SESSION, { title: "A layout", manifest_id: repository().manifest!.id, attachments: [held("slot", "3")] }));
           return sent;
         },
       };
