@@ -5,10 +5,13 @@ use axum::body::Bytes;
 use axum::extract::{Query, State};
 use axum::http::StatusCode;
 use axum::response::Response;
+use axum::Extension;
 use serde::Deserialize;
 
 use crate::answers::{answer, refused, undecodable};
 use crate::daemon::Sessions;
+use crate::door::DoorCalled;
+use crate::receipts::Receipt;
 use crate::served::Served;
 
 /// What a harness tells Fleet. 200: the row is kept when this answers.
@@ -90,11 +93,12 @@ pub(crate) async fn observe_session_run<D: Sessions>(
     }
 }
 
-/// A session shows the person a page. 200 with the row; 422 for an address that is not `http` or
+/// A session shows the person a page. 200 with the row, or with a [`Receipt`] through the agent's door; 422 for an address that is not `http` or
 /// `https`, or a call that places no session. **The session is placed by the connection** where the
 /// call arrived through the agent's door.
 pub(crate) async fn show_window<D: Sessions>(
     State(served): State<Served<D>>,
+    door: Option<Extension<DoorCalled>>,
     body: Bytes,
 ) -> Response {
     let show: ipc::ShowWindow = match ipc::decode("a window to show", &body) {
@@ -103,18 +107,22 @@ pub(crate) async fn show_window<D: Sessions>(
     };
     match served
         .daemon()
-        .show_window(crate::acting::asking(), show)
+        .show_window(crate::acting::asking(), show.clone())
         .await
     {
+        Ok(record) if door.is_some() => {
+            answer(StatusCode::OK, &Receipt::window(&record, &show), served.run_id())
+        }
         Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }
 
-/// A session asks the person about a place on its walk. 200 with the row; 422 for an address on no
+/// A session asks the person about a place on its walk. 200 with the row, or a [`Receipt`] through the door; 422 for an address on no
 /// window the session showed, a blank question or selector, or a call that places no session.
 pub(crate) async fn ask_in_window<D: Sessions>(
     State(served): State<Served<D>>,
+    door: Option<Extension<DoorCalled>>,
     body: Bytes,
 ) -> Response {
     let ask: ipc::AskInWindow = match ipc::decode("a question to ask in the window", &body) {
@@ -123,9 +131,12 @@ pub(crate) async fn ask_in_window<D: Sessions>(
     };
     match served
         .daemon()
-        .ask_in_window(crate::acting::asking(), ask)
+        .ask_in_window(crate::acting::asking(), ask.clone())
         .await
     {
+        Ok(record) if door.is_some() => {
+            answer(StatusCode::OK, &Receipt::asked(&record, &ask), served.run_id())
+        }
         Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
         Err(refusal) => refused(refusal),
     }
@@ -146,10 +157,11 @@ pub(crate) async fn window_closed<D: Sessions>(
     }
 }
 
-/// The agent sets what it is waiting on the person for. 200 with the row; 422 for a call that
+/// The agent sets what it is waiting on the person for. 200 with the row, or a [`Receipt`] through the door; 422 for a call that
 /// places no session. **The session is placed by the connection**, as `show_window`'s is.
 pub(crate) async fn waiting_for<D: Sessions>(
     State(served): State<Served<D>>,
+    door: Option<Extension<DoorCalled>>,
     body: Bytes,
 ) -> Response {
     let set: ipc::SetWaitingFor = match ipc::decode("what a session waits on", &body) {
@@ -161,19 +173,29 @@ pub(crate) async fn waiting_for<D: Sessions>(
         .waiting_for(crate::acting::asking(), set)
         .await
     {
+        Ok(record) if door.is_some() => {
+            answer(StatusCode::OK, &Receipt::waiting_for(&record), served.run_id())
+        }
         Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }
 
-/// The agent says it has nothing left to work on. 200 with the row; 422 for a call that places no
+/// The agent says it has nothing left to work on. 200 with the row, or a [`Receipt`] through the door; 422 for a call that places no
 /// session. **The session is placed by the connection**, as `waiting_for`'s is.
-pub(crate) async fn all_done<D: Sessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
+pub(crate) async fn all_done<D: Sessions>(
+    State(served): State<Served<D>>,
+    door: Option<Extension<DoorCalled>>,
+    body: Bytes,
+) -> Response {
     let done: ipc::AllDone = match ipc::decode("that a session is done", &body) {
         Ok(done) => done,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
     match served.daemon().all_done(crate::acting::asking(), done).await {
+        Ok(record) if door.is_some() => {
+            answer(StatusCode::OK, &Receipt::done(&record), served.run_id())
+        }
         Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
         Err(refusal) => refused(refusal),
     }

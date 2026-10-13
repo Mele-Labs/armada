@@ -165,12 +165,20 @@ export class FakeSessionsFleet {
   subagents: Record<string, SessionSubagent> = {};
   /** Hears each message the person sends, to script what the agent does with it. */
   onSend: ((send: SendSessionMessage) => void) | undefined;
+  /** A Session this Fleet starts or forks says it began now, where the fixtures' fixed instant would age it by days. */
+  startsNow = false;
+  /** A row for a thread nobody has opened is kept for when it is, as Fleet keeps every thread, and not dropped as main drops it. */
+  keepsRows = false;
   private minted = 0;
   private rowed = 0;
 
   constructor(records: SessionRecord[] = [], threads: Record<string, SessionRow[]> = {}) {
     this.records = records;
     this.threads = threads;
+  }
+
+  private began(): Partial<SessionRecord> {
+    return this.startsNow ? { started_at: new Date().toISOString() } : {};
   }
 
   /** `base`, with Sessions served: what main publishes once Fleet has answered `list_sessions`, and the capabilities over them. */
@@ -187,7 +195,7 @@ export class FakeSessionsFleet {
         return {
           startSession: async () => {
             this.calls.started += 1;
-            const record = hosted(`01SESSION${String((this.minted += 1)).padStart(8, "0")}ABCDEFGH`);
+            const record = hosted(`01SESSION${String((this.minted += 1)).padStart(8, "0")}ABCDEFGH`, this.began());
             this.set([record, ...this.records]);
             return { ok: true, value: record };
           },
@@ -318,7 +326,7 @@ export class FakeSessionsFleet {
               return { ok: false, outcome: { ok: false, why: "refused", error: { code: "fleet.session_fork_live", message: `session ${sessionId} is still running, and only an ended one is forked` } } as never };
             }
             const id = `01FORK${String((this.minted += 1)).padStart(8, "0")}ABCDEFGHIJ`;
-            const record = hosted(id, { ...(old.title === undefined ? {} : { title: old.title }), attachments: [held("forked_from", sessionId, {}, "spent")] });
+            const record = hosted(id, { ...this.began(), ...(old.title === undefined ? {} : { title: old.title }), attachments: [held("forked_from", sessionId, {}, "spent")] });
             this.set([record, ...this.records.map((one) => (one.id === sessionId ? { ...one, attachments: [...one.attachments, held("forked_to", id, {}, "spent")] } : one))]);
             return { ok: true, value: record };
           },
@@ -328,7 +336,7 @@ export class FakeSessionsFleet {
             if (old === undefined) return { ok: false, outcome: { ok: false, why: "not_connected" } };
             // **Live or not**: the Session it came from is left as it was, and keeps taking messages.
             const id = `01FORK${String((this.minted += 1)).padStart(8, "0")}ABCDEFGHIJ`;
-            const record = hosted(id, { ...(old.title === undefined ? {} : { title: old.title }), attachments: [held("forked_from", sessionId, { at }, "spent")] });
+            const record = hosted(id, { ...this.began(), ...(old.title === undefined ? {} : { title: old.title }), attachments: [held("forked_from", sessionId, { at }, "spent")] });
             this.set([record, ...this.records.map((one) => (one.id === sessionId ? { ...one, attachments: [...one.attachments, held("forked_to", id, {}, "spent")] } : one))]);
             return { ok: true, value: record };
           },
@@ -536,7 +544,7 @@ export class FakeSessionsFleet {
     const held = this.threads[sessionId];
     // Not opened: main holds no thread for it and drops the row. Fleet keeps a retro's, so opening the thread later brings it.
     if (held === undefined) {
-      if (row.kind === "retro") this.keptRetro[sessionId] = withThreadRow(this.keptRetro[sessionId] ?? [], row);
+      if (row.kind === "retro" || this.keepsRows) this.keptRetro[sessionId] = withThreadRow(this.keptRetro[sessionId] ?? [], row);
       return;
     }
     this.threads = { ...this.threads, [sessionId]: withThreadRow(held, row) };

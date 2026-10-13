@@ -27,6 +27,7 @@ mod helm_pauses;
 mod helm_box;
 mod helm_tells;
 mod hosted_sessions;
+mod door_receipts;
 mod journal;
 mod building;
 mod limits;

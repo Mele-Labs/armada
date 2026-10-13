@@ -84,6 +84,7 @@ mod processes;
 mod pull_request_panel;
 mod pull_requests;
 mod queries;
+mod receipts;
 mod reconciling;
 /// The `:job_id` a route carries, resolved before a handler can reach it.
 mod reference;

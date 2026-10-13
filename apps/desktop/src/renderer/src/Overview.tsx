@@ -56,6 +56,7 @@ export function Overview({
   bring,
   onBrought,
   onWantHeld,
+  onReleaseSlot,
 }: {
   /** A call an alert asked for, handed to the cockpit once it is mounted. */
   bring?: { key: string; at: number } | null;
@@ -108,6 +109,7 @@ export function Overview({
   onAnswerCard?: Hosts["onAnswerCard"];
   /** Asks Fleet for the worktree pool while the Cockpit's bays are drawn. */
   onWantHeld?: (want: boolean) => void;
+  onReleaseSlot?: Hosts["onReleaseSlot"];
 }) {
   const guarded = { bridge: state.bridge, onCopied };
 
@@ -229,6 +231,7 @@ export function Overview({
             onPausing={onPausing}
             onCursor={onCursor}
             onWantHeld={onWantHeld}
+            onReleaseSlot={onReleaseSlot}
           />
         )}
         <KeySheet open={keys.sheet} onClose={keys.closeSheet} />

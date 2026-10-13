@@ -45,6 +45,9 @@ pub(crate) const SLOT_HOLDER_CHANGED: &str = "fleet.slot_holder_changed";
 pub(crate) const SLOT_HOLDER_UNNAMED: &str = "fleet.slot_holder_unnamed";
 /// A release whose uncommitted files git could not commit to a branch. A 409.
 pub(crate) const SLOT_NOT_PARKABLE: &str = "fleet.slot_not_parkable";
+/// A release of a hosted session's slot while its turn runs: the park ends every process in
+/// the slot, its agent's too. A 409.
+pub(crate) const SLOT_SESSION_WORKING: &str = "fleet.slot_session_working";
 /// The pool's one slot, removed.
 const SLOT_LAST: &str = "fleet.slot_last";
 /// git refused, and this is what it said. A 500.

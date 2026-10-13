@@ -147,7 +147,7 @@ where
 
     async fn hear(self: &Arc<Self>, id: &str, runtime: &Arc<Runtime>, event: DroneEvent) {
         match event {
-            DroneEvent::Started { .. } => {
+            DroneEvent::Started { model, .. } => {
                 // A turn begun again is work the agent had said was over.
                 self.done_cleared(id).await;
                 self.limit_cleared(id).await;
@@ -155,6 +155,7 @@ where
                 {
                     let mut state = runtime.state();
                     state.turn_began = Some(began);
+                    state.resolved_model = (!model.is_empty()).then_some(model);
                     state.last_active = std::time::Instant::now();
                     if state.queued > 0 {
                         state.queued -= 1;

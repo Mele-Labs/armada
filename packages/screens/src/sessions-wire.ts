@@ -382,6 +382,7 @@ export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] 
     ...(asked === undefined ? {} : { asked: askOf(asked) }),
     pendingTags: beside.pending,
     ...(model === undefined ? {} : { model }),
+    ...(hosted?.resolved_model === undefined ? {} : { resolvedModel: hosted.resolved_model }),
     ...(effort === undefined ? {} : { effort }),
     ...(mode === undefined ? {} : { mode }),
     ...(terminal?.commands === undefined ? {} : { commands: terminal.commands }),

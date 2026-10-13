@@ -3118,8 +3118,11 @@ what was committed.
 | `released` | `SlotPoolChanged` | `{ "branch", "saved"? }`, `saved` as above | Every act but `release` |
 | `fleet.slot_holder_changed`, `fleet.slot_not_parkable` | 409 | The slot has another holder now, or git would not commit to a branch | |
 | `fleet.slot_holder_unnamed` | 422 | A release naming no holder | |
+| `fleet.slot_session_working` | 409 | A release of a bay a hosted Session holds, while its turn runs. `holder` is the Session's id, as `HostedSession` shows it. Not a new field or act | |
 
 A release hands a slot an agent session holds back by the same park, and only for the holder named, so a slot re-leased since is refused. The session's process is not touched.
+
+A bay a hosted Session holds is released the same way with the Session's id as `holder`, and is refused with `fleet.slot_session_working` while its turn runs, since the park ends every process in the slot.
 
 `reclaim_worktree` no longer refuses a slot for uncommitted files. It commits them to the Job's
 branch, never pushes, and frees the slot; a Job's own worktree outside the pool is committed the same
@@ -3540,6 +3543,16 @@ Bridge's half is in `packages/protocol/src/hosted-sessions.ts`, written by hand 
 **The answer of a review is held to the open items.** An id the model invented is dropped. An id that leads an entry is kept once, so it is taken out of every `merged_ids` and out of `set_aside`. An item set aside needs a `why`. **An open item the model named nowhere is appended to `entries` with the reason `not ranked`**, so nothing a person has not answered goes missing from the queue. Bridge keeps the conversation, because Fleet holds no thread.
 
 **Skew.** A Fleet before 23.74 has neither route and answers 404, so a Bridge that offers the review has nothing to call and shows the plain list. A Bridge before it never calls them. Bridge's half is `packages/protocol/src/retro-review.ts`, written by hand like the rest.
+
+## Protocol 23.85: the model a hosted Session resolved
+
+`docs/concepts/session.md`, *Which model, and a fresh start*. **Additive only**: one optional field on `HostedFacts`. No operation, event or error is new.
+
+| Where | Carries | Notes |
+| --- | --- | --- |
+| `HostedFacts.resolved_model?` (`session.changed`, `list_sessions`, `get_session`) | The model the CLI resolved for the running process, as its stream's `init` line names it: `claude-opus-5-5` | Absent until the first `init` of a process, and again once the process is let go (a stop, a tune, a quiet spell). **Not `model`**, which is the alias a person picked and is absent when none was: a session with no pick still runs on something. Left out when empty, never sent as `null` |
+
+**Skew.** A Fleet before 23.85 sends none, so a Bridge names the picked alias and draws no chip where none was picked. Bridge's half is `packages/protocol/src/hosted-sessions.ts`, written by hand like the rest, and `resolvedModel` on the Session the window draws (`packages/screens/src/sessions-wire.ts`).
 
 ## Protocol 23.83: a pull request's page and the writes on it
 

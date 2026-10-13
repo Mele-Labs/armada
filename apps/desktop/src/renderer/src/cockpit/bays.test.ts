@@ -73,6 +73,15 @@ describe("the bays", () => {
     expect(unnamed).toMatchObject({ kind: "session", title: "fix/blank", by: undefined });
   });
 
+  test("a bay an agent session holds, hosted or in a terminal, carries its slot for Release, and a Job's does not", () => {
+    const { harbours } = read([
+      slot(1, { state: "hosted_session", session_id: "s1", session_title: "Hosted" }, { branch: "a" }),
+      slot(2, { state: "session", holder: "agent (pid 2)" }, { branch: "b" }),
+      slot(3, { state: "job", job_id: "j1", job_title: "Job one" }, { branch: "feat/a" }),
+    ]);
+    expect(harbours[0]!.bays.map((bay) => bay.release?.slot)).toEqual([1, 2, undefined]);
+  });
+
   test("a bay a hosted Session holds under its own id draws that Session's title, never the id", () => {
     const id = "5a21fab8-f110-4b34-b646-ff5d322e7e0f";
     const s = session(id, [], { title: "Debug Bridge on Merge line" });

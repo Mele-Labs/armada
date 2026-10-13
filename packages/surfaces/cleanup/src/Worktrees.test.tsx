@@ -21,6 +21,7 @@ import type {
   WorktreeSlot,
 } from "@armada/protocol";
 
+import { ChipOwnership } from "@armada/components";
 import { mount, unmount } from "@armada/screens/src/mounted";
 import { Worktrees } from "./Worktrees";
 import type { WorktreesProps } from "./Worktrees";
@@ -672,4 +673,56 @@ test("a refused Release is said as a slot not released", async () => {
   await userEvent.click(panel.getByRole("button", { name: "Release" }));
   await userEvent.click(confirmOf("Release", "slot-2").getByRole("button", { name: "Release" }));
   await expect.element(panel.getByRole("alert")).toHaveTextContent("Slot not released");
+});
+
+/** A hosted Session holds its slot under its own id: the id is the holder sent, and the confirm names the Session. */
+test("Release on a hosted Session's slot sends its id as the holder", async () => {
+  const sentChanges: unknown[] = [];
+  opened([], {}, [slot(3, { held: { state: "hosted_session", session_id: "s-audit", session_title: "Theme token audit" }, branch: "fleet/audit" })], {
+    onChangeSlotPool: (_manifest, change) => {
+      sentChanges.push(change);
+      return Promise.resolve({ ok: true, slotChanged: { manifest_id: "m", slot: 3, released: { branch: "fleet/audit" } } });
+    },
+  });
+
+  const panel = await open("slot-3");
+  await userEvent.click(panel.getByRole("button", { name: "Release" }));
+  const confirm = confirmOf("Release", "slot-3");
+  await expect.element(confirm.getByText("Held by Theme token audit, on branch fleet/audit")).toBeInTheDocument();
+  await userEvent.click(confirm.getByRole("button", { name: "Release" }));
+  expect(sentChanges).toEqual([{ act: "release", slot: 3, holder: "s-audit" }]);
+});
+
+/** A Session mid-turn is not released: the refusal is Fleet's bare fact, and the Session opens from beside it. */
+test("a Release refused because the Session is working offers to open it", async () => {
+  const opens: string[] = [];
+  const working: Outcome = {
+    ok: false,
+    why: "refused",
+    error: { code: "fleet.slot_session_working", message: "Pull Request Panel Design is working", run_id: "r", fields: {}, chain: [] },
+  };
+  const slots = [slot(3, { held: { state: "hosted_session", session_id: "s-panel", session_title: "Pull Request Panel Design" }, branch: "fleet/panel" })];
+  mount(
+    <ChipOwnership.Provider value={{ ownerOf: () => undefined, open: (id) => opens.push(id) }}>
+      <Worktrees
+        onWant={WANT}
+        held={{ state: "read", held: { worktrees: [], slots } }}
+        onChangeSlotPool={() => Promise.resolve(working)}
+        onReclaim={() => Promise.resolve({ ok: true })}
+        onDeleteBranch={() => Promise.resolve({ ok: true })}
+        onForget={() => Promise.resolve({ ok: true })}
+        now={NOW}
+        onClose={() => {}}
+        onCopied={() => {}}
+        onOpenJob={() => {}}
+      />
+    </ChipOwnership.Provider>,
+  );
+
+  const panel = await open("slot-3");
+  await userEvent.click(panel.getByRole("button", { name: "Release" }));
+  await userEvent.click(confirmOf("Release", "slot-3").getByRole("button", { name: "Release" }));
+  await expect.element(panel.getByRole("alert")).toHaveTextContent("Slot not released: Pull Request Panel Design is working");
+  await userEvent.click(panel.getByRole("button", { name: "Open Session" }));
+  expect(opens).toEqual(["s-panel"]);
 });

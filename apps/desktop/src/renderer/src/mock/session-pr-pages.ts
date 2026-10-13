@@ -5,7 +5,7 @@
 import type { PullRequestCheckRow, PullRequestCommit, PullRequestEntry, PullRequestFile, PullRequestPage } from "@armada/protocol";
 import type { PullRequestPageRead } from "@armada/screens/src/draft/sessions";
 
-import type { SessionsStore } from "../sessions/script";
+import type { SessionsStore } from "./sessions/script";
 
 const PULL = "https://github.com/mele-labs/armada/pull/";
 const minutesAgo = (minutes: number): string => new Date(Date.now() - minutes * 60_000).toISOString();
