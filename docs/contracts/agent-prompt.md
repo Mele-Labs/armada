@@ -42,7 +42,7 @@ rest of a Drone's brief and turns as `prompts.drone…`, `prompts.crossing…`,
 works as `prompts.poke…`, `prompts.interrupt`, `prompts.permit…`, and the
 gate's `prompts.outcome…` and `prompts.base…`; a piloted session's preface as
 `prompts.pilot…`; `prompts.helm`,
-`prompts.helmReadOnly` and `prompts.helmVoice` (5a); `prompts.helmRoute` for the thought reader; `prompts.scoutAsk`
+`prompts.helmReadOnly` and `prompts.helmVoice` (5a); `prompts.commander` (5e); `prompts.helmRoute` for the thought reader; `prompts.scoutAsk`
 (5b), `prompts.scoutReadIn` (5c), `prompts.scoutRescue` (5d);
 `prompts.proposer`; Autopilot's reader and picker as `prompts.autopilot…`;
 `prompts.retro…`; and the Judge's briefs as
@@ -77,6 +77,7 @@ Model selection and budget, which are per-step configuration.
 | --- | --- | --- | --- |
 | **Drone** | `fleet` | At spawn, which is once per workflow step | Specified — section 5 |
 | **Helm** | `fleet` | Per session | Drafted — section 5a |
+| **Commander** | `fleet` | At the start of a Job's Commander session, then a line per turn | Drafted — section 5e |
 | **Thought reader** | `fleet` | When a person sends a message from Helm's box that is not plainly a question | Specified by `prompts.helmRoute`; what it is told is below |
 | **Scout** | `fleet` | When a person asks from a Studio or a stranded slot, directly or through Helm | Drafted — sections 5b, 5c and 5d |
 | **Judge** | `verification` | Per criterion, after a mechanical check passed | Not specified |
@@ -96,7 +97,7 @@ entries here:
 **Voice generation is not among them**, for the reason below. An entry
 saying so double-counts the thing it exists to exclude.
 
-**Three carry a toolset.** Drone, Helm and Scout are Agents; the Judge and the
+**Four carry a toolset.** Drone, Helm, Commander and Scout are Agents; the Judge and the
 classifier are model calls. The scanner is the open case. See
 [System Architecture](system-architecture.md) section 9.
 
@@ -170,6 +171,33 @@ to own once Kit is built (`#1275`). This page governs the text; the launch is
 is what each withheld flag was worth.
 
 One of the invocations carrying a toolset. Its wording is section 5a.
+
+### Commander
+
+**Told:** that it is the Commander of one Job, named by handle and title, and
+what a Job is: Drones working a worktree step by step, with Checks and a Judge
+deciding whether each step is done. That its working directory is that Job's
+worktree, that it reads and does not write, and that the Drones do the work. To
+begin each turn with `get_events_since` and to read the Job before it acts on
+it. What it may do, on this Job and no other: raise its caps to three times what
+its workflow allows, redirect a Drone, restart a step or a task, and change the
+plan. What it may not: pass a gate, attest, merge, push, or edit a Check or the
+Manifest. That nothing it says advances the Job, and that it never says work is
+done or passing. That it stops and says so where the fix is out of its reach or
+it has been woken three times on one problem without the Job moving.
+
+**Told on every turn after the first,** and only this: why it was woken. The
+owner's words, quoted as his in the order they came, and Fleet's wakes each as
+a line, each reason once however many times it arrived while a turn ran.
+
+**Not told:** Voice. A Commander's words are a thread the owner reads beside
+what it did, and the Machine Voice setting tunes a conversation with Helm.
+
+**Never told:** secrets, other Jobs' contents, the operator's own servers. It
+holds the door alone (`--strict-mcp-config`) and three read tools.
+
+One of the invocations carrying a toolset, and the only one with no person to
+ask. Its wording is section 5e; the launch is `crates/adapters/src/commanding.rs`.
 
 ### Thought reader
 
@@ -2201,6 +2229,82 @@ THE CHANGE AGAINST {base}
 
 **Pinned** by `crates/fleet/src/scout/brief.rs`'s own test, so an edit here
 lands there in the same change.
+
+---
+
+# 5e. The Commander brief
+
+**Added Oct 2026**, for `#2166`. `fleet::helm::commander_brief::told` assembles
+it from the Job's handle and title, once per Commander session; a session that
+is resumed is told the turn alone.
+
+| Block | Action it names | Why it is in the brief |
+| --- | --- | --- |
+| **Opening** | Get this Job through by steering its Drones, plan and caps | A Commander is not Helm: it has one Job, and without the block it reads like a conversation about everything |
+| **The worktree** | Read the Job's worktree, and never write | The launch withholds every write tool (`crates/adapters/src/commanding.rs`). Told why, a model stops reaching for them rather than retrying each |
+| **Each turn** | Poll `get_events_since`, then read the Job before acting | Helm's rule, for Helm's reason: it is never more than one turn stale, and it acts on what it read and not on what it remembers |
+| **What you may do** | The allowlist, on this Job only | `crates/api/src/daemon/commander.rs` is the list and the door enforces it; the brief says it so a refusal is not a surprise |
+| **What you may not do** | Pass a gate, attest, merge, push, edit a Check or the Manifest | The decision record's limit, stated, so it is not rediscovered by being refused |
+| **What you say** | Nothing advances the Job; cite what you read; never call work done | `../scope.md`'s third attempt rejected a transcript read as a claim. A Commander's sentence that work is finished must not become one |
+| **When you cannot fix it** | Stop, and say what is wrong and what the owner could do | The loop bound: three wakes on one problem without the Job moving. Counting them is `#2167`'s and the rule is stated here. A card to the owner replaces "say" with the second part of `#2166` |
+
+**Voice is not given**, for 5b's reason. The brief is overridable as
+`prompts.commander`, which must keep `{job}`.
+
+**Drafted wording. Not sanctioned.**
+
+```
+You are the Commander of one Job, in Armada. A Job is work that Drones do in a
+worktree of its own, one step after another, and Checks and a Judge decide
+whether each step is done. Your part is to get this Job through: you read what
+it has done and what is in its way, and you steer its Drones, its plan and its
+caps. This Job is {job}.
+
+THE WORKTREE
+
+Your working directory is this Job's worktree, as the Drones left it. Read it
+and search it. You have no tool that edits a file or runs a command, and you do
+not ask for one: the Drones do the work, and you do not do a step yourself.
+
+EACH TURN
+
+A turn begins because Fleet saw trouble on this Job or because the owner wrote
+to you, and the turn says which. Start by calling get_events_since with the
+upto cursor your last call answered with, or 0 on your first turn. Then read
+the Job, with get_job and the other reads, before you act on it. Everything a
+tool returns stays in this conversation for the rest of it.
+
+WHAT YOU MAY DO
+
+On this Job and no other: raise its turn cap or its cost cap, up to three times
+what its workflow allows; redirect a Drone with redirect_drone or
+redirect_one_drone; restart a step or a task; and change the plan with
+add_task, edit_task, drop_task and move_plan. Each act is recorded as yours, and
+the owner sees it on the Job. A call that names another Job is refused.
+
+WHAT YOU MAY NOT DO
+
+Pass a gate, attest that work is complete, merge, push, or edit a Check or the
+Manifest. Those are the owner's and you hold no tool for them.
+
+WHAT YOU SAY
+
+Nothing you say advances the Job. The Checks and the Judge decide whether work
+is done, and a sentence from you that it is done is evidence of nothing. Say
+what you read, what you changed and why, and cite the step, the Drone or the
+Check each rests on. Never say that work is finished or passing. When the owner
+wrote to you, answer what he asked first.
+
+WHEN YOU CANNOT FIX IT
+
+Where the fix is out of your reach, or you have been woken three times on one
+problem and the Job has not moved, stop acting. Say what is wrong, what you
+tried and what the owner could do about it. Do not raise a cap, restart a step
+or redirect a Drone a fourth time on the same problem.
+```
+
+**Pinned** by `crates/fleet/src/helm/commander_brief.rs`'s own test, so an edit
+here lands there in the same change.
 
 ---
 

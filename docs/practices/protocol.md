@@ -578,6 +578,35 @@ what a slow viewer lost.
 
 **It is deliberately not `/events`**, for the second socket's reason.
 
+## The Commander socket: one Job's conversation
+
+`GET /jobs/:job_id/commander/observe` is the Helm socket's shape with a Job for
+its subject, and the same relay in `crates/api/src/conversing.rs`. It opens with
+the thread so far, then carries every message after it. `POST
+/jobs/:job_id/commander/ask` takes the owner's words and answers 202 at once,
+because the turn is the socket's. `crates/ipc/src/commander.rs` has the types and
+`packages/protocol/src/commander.ts` is Bridge's half, written by hand.
+
+**Who reads it.** Bridge's Job panel (`#2169`). `agent_access` is `No` on both: a
+Commander's words are the owner's to write, and a session must not drive or read
+another.
+
+| What happened | What the viewer is told |
+| --- | --- |
+| The owner wrote | `asked`, at once, even while a turn is being written |
+| Fleet started a turn | `woke` for each reason, once, then the session's own `row`s ending in `ended` with what the turn cost |
+| The stored session was gone | `fresh` / `session_not_found`, then the rows of the new session |
+| A turn did not come back | `unanswered`, with why |
+| The Job has no worktree | **409 on `ask_commander`**, and the socket opens on an empty thread |
+
+**`commander.changed` is on `/events`** and says whether the Commander is at
+work, `idle` or `working`, for the Job's card to draw without opening the
+socket. It is published when the first queued input starts the turns and when
+the last one ends.
+
+**Nothing on it advances a Job.** A `row` is what the session said, read as what
+it said.
+
 ## Changes before IDs
 
 The sections headed `Protocol N.M` below were written when the wire carried a

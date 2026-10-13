@@ -129,6 +129,17 @@ const ROUTES: &[Route] = &[
         method: "POST",
         path: "/helm/ask",
     },
+    // One Job's Commander, a conversation on Helm's host keyed by the Job. #2166.
+    Route {
+        operation: "observe_commander",
+        method: "GET",
+        path: "/jobs/:job_id/commander/observe",
+    },
+    Route {
+        operation: "ask_commander",
+        method: "POST",
+        path: "/jobs/:job_id/commander/ask",
+    },
     // The session as one record, `#1367`. Beside the conversation it reports
     // on, not under `/debug`: there is no such surface, and the subject is the
     // conversation.

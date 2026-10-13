@@ -67,6 +67,7 @@ async fn why(script: &str, budget: Duration) -> String {
                 directory: home_dir,
                 turn: "why did 77 stop".to_string(),
                 resuming: None,
+                seat: crate::helm::Seat::Helm,
             },
             &Deaf,
         )
