@@ -10,6 +10,7 @@
 // Flow places by number and a `var()` cannot reach it.
 
 import type { WorkflowStepCardProps } from "@armada/components";
+import TOKENS from "@armada/tokens/tokens.json";
 
 /** A card's token width: `--w-workflow-node` and `--w-workflow-task-node`. */
 const WIDTH = { step: 260, task: 196 } as const;
@@ -49,9 +50,15 @@ function token(name: string, fallback: string): string {
   return value === "" ? fallback : value;
 }
 
+/** A token's shipped value, for where no stylesheet is loaded to read it off. */
+function shipped(name: string): string {
+  return TOKENS.tokens.find((one) => one.name === name)?.value ?? "";
+}
+
 /** A function that gives the width of a string as a card's name draws it. */
 function rulerFor(identifier: boolean): (text: string) => number {
-  const size = Number.parseFloat(token(identifier ? "--text-xs" : "--text-sm", identifier ? "14px" : "15px"));
+  const sizeToken = identifier ? "--text-xs" : "--text-sm";
+  const size = Number.parseFloat(token(sizeToken, shipped(sizeToken)));
   const rule = ruler();
   if (rule !== null) {
     const family = token(identifier ? "--font-mono" : "--font-sans", identifier ? "monospace" : "sans-serif");

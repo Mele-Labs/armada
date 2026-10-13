@@ -57,6 +57,7 @@ mod standing;
 mod terminal_follow;
 mod terminal_thread;
 mod transcript;
+mod transcript_acts;
 mod trigger_files;
 mod under_review;
 mod work_product;

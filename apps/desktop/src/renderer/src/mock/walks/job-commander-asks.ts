@@ -18,7 +18,7 @@ const w = walk("job-commander-asks", [
   { press: inside(card, role("radio", "Skip desktop_test on Group 3")), say: "The owner picks" },
   { press: inside(card, button("Answer")), say: "Answer" },
   { look: inside(commander, text("The owner answered your card")), say: "His answer wakes it" },
-  { look: inside(commander, text("Task restarted")), say: "It restarts what it may" },
+  { look: inside(commander, text("T9 restarted")), say: "It restarts what it may" },
   { look: inside(now, role("img", "Commander")), say: "The card is gone and the Drone on the task is marked" },
 ]);
 
