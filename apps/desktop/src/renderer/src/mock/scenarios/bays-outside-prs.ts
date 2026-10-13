@@ -11,7 +11,8 @@ import { review } from "@armada/jobs/fixtures/build/index";
 import { asRow } from "../holding";
 import type { Scenario } from "../moment";
 import { sessionsStore } from "../sessions/script";
-import { SESSIONS, s206DashboardCockpit } from "./dashboard-cockpit";
+import { COCKPIT_SESSIONS as SESSIONS } from "../cockpit-sessions";
+import { s206DashboardCockpit } from "./dashboard-cockpit";
 
 const OWNER = repository().manifest!.id;
 const FORGE = "https://git.example/armada/pull/";
