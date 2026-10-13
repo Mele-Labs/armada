@@ -165,7 +165,9 @@ send of. `settings.session-quiet-timeout` is how long a process may sit idle.
 A write tool, or a shell line that is not a read, is refused until the session
 holds a slot; after it, a file tool naming a path in the main checkout is
 refused with the slot's path. A shell line is read by its words, so one Fleet
-does not recognise as a read leases first.
+does not recognise as a read leases first. `|`, `;` and `&` inside quotes do not cut
+a line, and a redirect to `/dev/null` or onto another descriptor (`2>&1`) writes nothing;
+any other `>`, a `$(` or a backtick, or a quote left open is a write.
 [Spike 24](../spikes/024-how-does-a-session-move-into-a-slot-at-its-first-write.md).
 
 **A full pool queues the session rather than telling it to try again.** Every

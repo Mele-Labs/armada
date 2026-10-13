@@ -270,6 +270,46 @@ fn a_shell_line_is_a_read_only_where_every_part_of_it_is_and_nothing_redirects()
 }
 
 #[test]
+fn a_redirect_to_nowhere_and_a_quoted_separator_do_not_make_a_line_a_write() {
+    for read in [
+        r#"armada worktree --status 2>&1 | grep -E "slot-1 |07541e89""#,
+        "git log 2>&1 | head",
+        "gh pr view 2250 --json state 2>/dev/null",
+        r#"grep -E "a|b" file"#,
+        r#"echo "x; y""#,
+        "armada worktree --status 2>&1",
+        "cd /tmp && git -C /x log >/dev/null 2>&1",
+        "git status &>/dev/null",
+        "git log 1>&2",
+        "git log >&2 | head",
+        r#"echo 'a & b' \; pwd"#,
+    ] {
+        assert!(reads_only(read), "{read}");
+    }
+    for write in [
+        "echo hi > file",
+        "echo hi >> file",
+        "git log > out.txt",
+        "cat a 2>&1 > out",
+        "git log >/dev/null2",
+        "git log 2>/dev/nullx",
+        r#"echo "2>&1""#,
+        r#"echo "$(rm -rf x)""#,
+        "grep \"a\" f | tee out",
+        "grep \"a f",
+        "echo 'a f",
+        "armada worktree release /x",
+        "git commit -m \"x\"",
+        "gh pr create",
+        "sed -i s/a/b/ f",
+        "git log 2>&1 | rm x",
+        "git log \"a|b\" ; rm x",
+    ] {
+        assert!(!reads_only(write), "{write}");
+    }
+}
+
+#[test]
 fn a_line_that_only_looks_elsewhere_or_asks_the_forge_is_still_a_read() {
     for read in [
         "cd /repo/.armada/slots/slot-3 && git log --oneline | head",

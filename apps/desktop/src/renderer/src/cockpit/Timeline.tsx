@@ -1,10 +1,10 @@
 // The Cockpit's other face: what Fleet did, newest first, one row per event, each naming what it happened
 // to. Three takes of it share one set of marks, Lanes first and his last pick kept: a feed of every
-// event, a lane for each Job, Session and pull request with its events along the last hour,
+// event, a lane for each Job, Session and pull request with its events along the last two hours,
 // and the lanes beside the feed. The filter above narrows it as it narrows the grid. What it draws is Fleet's
 // timeline (`fleet-events.tsx`). Nothing here moves but a subject that is working.
 
-import { useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import { useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { BellRing, Box, CircleCheck, CircleDashed, CircleX, Clock, GitMerge, GitPullRequest, LoaderCircle, SquareTerminal } from "lucide-react";
 import { Button, Tabs, Tooltip } from "@armada/components";
 import type { DashboardTab } from "@armada/overview";
@@ -44,7 +44,7 @@ function useTake(): [Take, (take: Take) => void] {
 
 const TAKES = [
   { id: "feed", label: "Feed", hint: "One row for each event, newest first" },
-  { id: "lanes", label: "Lanes", hint: "A row for each Job, Session and pull request, its events along the last hour" },
+  { id: "lanes", label: "Lanes", hint: "A row for each Job, Session and pull request, its events along the last two hours" },
   { id: "split", label: "Split", hint: "Each subject, and its events beside it" },
 ];
 
@@ -64,8 +64,9 @@ const LEGEND: readonly (readonly [EventTone, string])[] = [
   ["idle", "waiting"],
 ];
 
-/** How far back the lanes reach. */
-const MINUTES = 60;
+/** How far back the lanes reach, and how much of it the glass shows at once: the rest is a scroll to the left. */
+const MINUTES = 120;
+const SHOWN = 60;
 const WINDOW = MINUTES * 60_000;
 
 const KIND: Record<Subject["kind"], string> = { job: "Job", session: "Session", pull_request: "Pull request", main: "Main" };
@@ -180,7 +181,7 @@ function Feed({ lanes, now, open }: { lanes: readonly Lane[]; now: number; open:
   );
 }
 
-const AXIS = [MINUTES, (MINUTES * 2) / 3, MINUTES / 3, 0];
+const AXIS = [120, 100, 80, 60, 40, 20, 0];
 
 /** A lane's events along the window, the line between them solid while the subject was working and dashed while it was not. */
 function Track({ lane, now, open }: { lane: Lane; now: number; open: Open }) {
@@ -340,6 +341,11 @@ export function Timeline({
     [wire, jobs, sessions],
   );
   const lanes = useMemo(() => lanesFor(lanesOf(events, now), filter), [events, now, filter]);
+  // Lanes open at now, the right-hand end; the older hour is a scroll back.
+  const body = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    if (take === "lanes" && body.current !== null) body.current.scrollLeft = body.current.scrollWidth;
+  }, [take]);
   const open: Open = (subject) => {
     if (subject.kind === "job") onOpenJob(subject.id);
     else if (subject.kind === "session") onOpenSession(subject.id);
@@ -359,7 +365,7 @@ export function Timeline({
             ))}
           </span>
         </header>
-        <div className="armada-tl__body" key={take}>
+        <div className="armada-tl__body" key={take} ref={body} style={{ ["--span" as string]: MINUTES / SHOWN } as CSSProperties}>
           {take === "feed" ? <Feed lanes={lanes} now={now} open={open} /> : take === "lanes" ? <Lanes lanes={lanes} now={now} open={open} /> : <Split lanes={lanes} now={now} open={open} />}
         </div>
       </section>
