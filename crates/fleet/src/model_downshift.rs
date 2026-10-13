@@ -1,6 +1,6 @@
-//! The default model's step down as the weekly plan window runs out: the states, and what a reading
+//! The Session model's step down as the weekly plan window runs out: the states, and what a reading
 //! of the window does to them. `docs/concepts/machine.md`, *Quota*. [`crate::model_downshifting`] is
-//! Fleet's side, which reads settings, writes `models.default` and publishes.
+//! Fleet's side, which reads settings, writes `models.session` and publishes.
 //!
 //! **Nothing here reads a clock or a file**, so the whole machine is tested by feeding it readings.
 
@@ -12,7 +12,7 @@ use store::KeptDownshift;
 pub(crate) enum Phase {
     Offered { percent: u32, was: String, to: String },
     /// `until` is the reset of the window it was accepted in; `restore_to` is what settings.json held
-    /// for `models.default`, `None` being not saved, so restoring removes the key.
+    /// for `models.session`, `None` being not saved, so restoring removes the key.
     Shifted { was: String, to: String, until: String, restore_to: Option<String> },
     Reset { was: String, to: String, restore_to: Option<String> },
 }
@@ -35,9 +35,9 @@ pub(crate) struct Weekly<'a> {
 pub(crate) struct Terms<'a> {
     pub(crate) line: u32,
     pub(crate) to: &'a str,
-    /// `models.default` as it stands.
+    /// `models.session` as it stands.
     pub(crate) current: &'a str,
-    /// An environment variable names the default, so writing the setting would change nothing.
+    /// An environment variable names the Session model, so writing the setting would change nothing.
     pub(crate) pinned: bool,
 }
 
@@ -79,7 +79,7 @@ impl Downshift {
         true
     }
 
-    /// `models.default` was changed by somebody. **True where that ends the state**: while offered,
+    /// `models.session` was changed by somebody. **True where that ends the state**: while offered,
     /// any value but the one it was offered over; while shifted or reset, any value but `to`.
     pub(crate) fn edited_to(&mut self, current: &str) -> bool {
         let unchanged = match &self.phase {
