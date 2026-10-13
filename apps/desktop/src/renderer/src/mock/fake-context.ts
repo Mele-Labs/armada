@@ -60,6 +60,7 @@ export type SliceName =
   | "planUsage"
   | "modelDownshift"
   | "clashes"
+  | "timeline"
   | "issues"
   | "autopilot";
 

@@ -189,12 +189,13 @@ import type { PilotExit, PullRequestPress, PullRequestWrite, SessionActed, Sessi
 import type { SleepActed } from "./api/sleep";
 import type { PlanUsageRead } from "./api/plan-usage";
 import type { ModelDownshiftRead } from "./api/model-downshift";
+import type { FleetTimelineRead } from "./api/timeline";
 import type { WriteClashesRead } from "./api/clashes";
 import type { IssueNumberRead, IssuesRead, PullRequestNumberRead } from "./api/issues";
 import type { HelmCarry, HelmTuned } from "./api/helm";
 import type { RequestRepositoryRead } from "./api/jobs";
 import { AUTOPILOT_CHANNELS, type AutopilotApi } from "./api/autopilot";
-import type { ModelDownshiftState, PlanUsage, SleepState } from "@armada/protocol";
+import type { ModelDownshiftState, PlanUsage, SleepState, TimelineAsk, TimelineEvent } from "@armada/protocol";
 import type { BridgeApi } from "./api";
 import { CHANNELS, NOTHING_YET } from "./bridge";
 import type { BridgeState, HistoryStep, Summons } from "./bridge";
@@ -495,6 +496,8 @@ type OldBridgeApi = {
     getSleep: () => Promise<SleepActed>;
     getPlanUsage: () => Promise<PlanUsageRead>;
     getWriteClashes: () => Promise<WriteClashesRead>;
+    getFleetTimeline: (ask?: TimelineAsk) => Promise<FleetTimelineRead>;
+    onTimelineAppended: (onAppended: (event: TimelineEvent) => void) => () => void;
     onPlanUsageChanged: (onChanged: (usage: PlanUsage) => void) => () => void;
     getModelDownshift: () => Promise<ModelDownshiftRead>;
     acceptDownshift: () => Promise<ModelDownshiftRead>;
@@ -825,6 +828,8 @@ const OLD_CHANNELS = {
     getSleep: "bridge:get-sleep",
     getPlanUsage: "bridge:get-plan-usage",
     getWriteClashes: "bridge:get-write-clashes",
+    getFleetTimeline: "bridge:get-fleet-timeline",
+    timelineAppended: "bridge:timeline-appended",
     planUsageChanged: "bridge:plan-usage-changed",
     getModelDownshift: "bridge:get-model-downshift",
     acceptDownshift: "bridge:accept-downshift",

@@ -35,6 +35,7 @@ import { publishSettings, readSettings } from "./settings";
 import type { SleepHost } from "./sleep";
 import type { PlanUsageHost } from "./plan-usage";
 import type { ModelDownshiftHost } from "./model-downshift";
+import type { TimelineHost } from "./timeline";
 import type { StudioReads } from "./studios";
 
 /** What the arrival switch reaches on `FleetConnection`, and nothing more. */
@@ -67,6 +68,8 @@ export interface ArrivalHost {
   readonly planUsage: Pick<PlanUsageHost, "changed">;
   /** The default model's step down, told when Fleet moves it and read once per connection — `model-downshift.ts`. */
   readonly modelDownshift: Pick<ModelDownshiftHost, "changed" | "seed">;
+  /** What happened across the Fleet, told each entry as it is kept — `timeline.ts`. */
+  readonly timeline: Pick<TimelineHost, "appended">;
   /** Every repository's Autopilot, told to the windows — `issues.ts`. #2092. */
   readonly issues: Pick<IssuesHost, "autopilotChanged" | "autopilotsAgain">;
   /** The build Fleet runs on, read now and every minute — `fleet-build.ts`. */
@@ -556,6 +559,12 @@ export function applyArrival(host: ArrivalHost, text: string, fleet: BridgeState
     host.publish({ connection });
     const { kind: _kind, ...state } = event;
     host.modelDownshift.changed(state);
+    return;
+  }
+  if (event.kind === "timeline.appended") {
+    // Above the tail for `sleep.changed`'s reason: no Job to find, and the entry travels whole.
+    host.publish({ connection });
+    host.timeline.appended(event.event);
     return;
   }
   if (event.kind === "autopilot.changed") {

@@ -17,6 +17,8 @@ import { WiredSessions } from "./sessions-wired";
 import { SleepSourceProvider } from "./sleep";
 import { createFleetSleep } from "./fleet-sleep";
 import { createFleetPlanUsage } from "./fleet-plan-usage";
+import { createFleetTimeline } from "./fleet-timeline";
+import { FleetEventsOver } from "./cockpit/fleet-events";
 import { PlanUsageSourceProvider } from "./plan-usage";
 import { createFleetDownshift } from "./fleet-downshift";
 import { DownshiftSourceProvider } from "./downshift";
@@ -55,6 +57,7 @@ const SLEEP = createFleetSleep(window.armada);
 const PLAN_USAGE = createFleetPlanUsage(window.armada);
 /** The default model's offered step down on the weekly meter, over Fleet. */
 const DOWNSHIFT = createFleetDownshift(window.armada);
+const TIMELINE = createFleetTimeline(window.armada);
 /** The mark on a row whose changes would conflict with another agent's, over Fleet. */
 const CLASHES = createFleetClashes(window.armada);
 
@@ -86,7 +89,9 @@ function Root() {
                     <DownshiftSourceProvider value={DOWNSHIFT}>
                       <WiredSessions>
                         <ClashesFromFleet source={CLASHES}>
-                          <App />
+                          <FleetEventsOver source={TIMELINE}>
+                            <App />
+                          </FleetEventsOver>
                         </ClashesFromFleet>
                       </WiredSessions>
                     </DownshiftSourceProvider>

@@ -97,6 +97,7 @@ function fakeHost(
     sleep: { changed: () => {} },
     planUsage: { changed: () => {} },
     modelDownshift: { changed: () => {}, seed: async () => {} },
+    timeline: { appended: () => {} },
     issues: { autopilotChanged: autopilots, autopilotsAgain: async () => {} },
     overviewAgain: async () => {},
     questions,
@@ -429,5 +430,20 @@ describe("the default model's step down, carried whole by its event", () => {
       FLEET,
     );
     expect(changed).toHaveBeenCalledWith({});
+  });
+});
+
+describe("an entry on the Cockpit's timeline, off `timeline.appended`", () => {
+  it("is told to the windows whole, and moves nothing on the Board", () => {
+    const { host, state } = fakeHost([job()]);
+    const appended = vi.fn();
+    const entry = { id: 7, at: "2026-10-13T10:00:00Z", kind: "job.started", subject: { kind: "job", id: JOB_ID }, tone: "run", says: "Started", live: true };
+    applyArrival(
+      { ...host, timeline: { appended } },
+      JSON.stringify({ message: "event", cursor: 9, event: { kind: "timeline.appended", event: entry } }),
+      FLEET,
+    );
+    expect(appended).toHaveBeenCalledWith(entry);
+    expect(state().jobs).toEqual([job()]);
   });
 });

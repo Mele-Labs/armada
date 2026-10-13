@@ -15,6 +15,7 @@ import type { BridgeApi } from "../../../shared/api";
 import { App } from "../App";
 import { ClashesFrom } from "../clashes";
 import { DraftedFrom } from "../drafted";
+import { FleetEventsFrom } from "../cockpit/fleet-events";
 import { NumberedFrom } from "../numbered";
 import { SessionsFrom } from "../sessions-draft";
 import { WiredSessions } from "../sessions-wired";
@@ -136,11 +137,13 @@ export function mountApp(
                     <NumberedFrom held={mockNumbered}>
                       <PlanUsageSourceProvider value={planUsage}>
                         <DownshiftSourceProvider value={downshift}>
-                          <SessionsHere held={heldSessions(api)}>
-                            <ClashesFrom clashes={chosen.draft?.clashes}>
-                              <Drafted draft={liveDraft(api) ?? HELD(chosen.draft)} />
-                            </ClashesFrom>
-                          </SessionsHere>
+                          <FleetEventsFrom events={chosen.draft?.events}>
+                            <SessionsHere held={heldSessions(api)}>
+                              <ClashesFrom clashes={chosen.draft?.clashes}>
+                                <Drafted draft={liveDraft(api) ?? HELD(chosen.draft)} />
+                              </ClashesFrom>
+                            </SessionsHere>
+                          </FleetEventsFrom>
                         </DownshiftSourceProvider>
                       </PlanUsageSourceProvider>
                     </NumberedFrom>
