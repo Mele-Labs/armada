@@ -1,6 +1,6 @@
 // A Session's waiting line on the Cockpit's call card, through `App` on the `session-errands` mock
 // Fleet. What the card offers follows the item's act: a slash command is sent to the Session, a shell
-// command is copied, a pull request opens, a plain line is a text box, and only a question with
+// command is copied, a restart is the Fleet panel's button, a pull request opens, a plain line is a text box, and only a question with
 // options carries the standing answers. Send takes what was typed over a picked answer.
 
 import { beforeEach, expect, test, vi } from "vitest";
@@ -52,14 +52,27 @@ test("a run act with a shell command is Copy <command>, and pressing it copies a
   const app = await open();
   const answer = vi.spyOn(app.api, "answerWaiting");
   const write = vi.spyOn(navigator.clipboard, "writeText").mockResolvedValue(undefined);
-  await reach("Restart onto the preview");
-  await expect.element(radio(/Copy scripts\/preview --restart --adopt/)).toBeVisible();
+  await reach("Install the preview's packages");
+  await expect.element(radio(/Copy pnpm -C .armada\/preview install/)).toBeVisible();
   noStanding();
   await send().click();
   await expect.poll(() => write.mock.calls.length).toBe(1);
-  expect(write).toHaveBeenLastCalledWith("scripts/preview --restart --adopt");
+  expect(write).toHaveBeenLastCalledWith("pnpm -C .armada/preview install");
   expect(answer).not.toHaveBeenCalled();
-  await expect.element(radio(/Copy scripts\/preview --restart --adopt/)).toBeVisible();
+  await expect.element(radio(/Copy pnpm -C .armada\/preview install/)).toBeVisible();
+});
+
+test("a run act with the preview restart is Refresh preview, and pressing it switches the build and settles the item", async () => {
+  const app = await open();
+  const answer = vi.spyOn(app.api, "answerWaiting");
+  const change = vi.spyOn(app.api, "changeFleetBuild");
+  await reach("Restart onto the preview");
+  await expect.element(radio(/Refresh preview/)).toBeVisible();
+  noStanding();
+  await send().click();
+  await expect.poll(() => answer.mock.calls.length).toBe(1);
+  expect(change).toHaveBeenLastCalledWith("preview", true);
+  expect(answer).toHaveBeenLastCalledWith({ session_id: "s20", item_id: "e-restart", text: "Ran: exit 0" });
 });
 
 test("an approve_pr act is Open #N, and pressing it opens the pull request's address", async () => {

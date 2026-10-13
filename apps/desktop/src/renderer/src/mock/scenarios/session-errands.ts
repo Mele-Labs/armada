@@ -1,6 +1,6 @@
-// A Session that waits on the owner for five things, one card each in the Cockpit: a slash command
-// for the Session itself, a command he runs, a pull request to approve, a plain line, and a real
-// question with options. Only the question carries the standing answers. The walk `session-errands`
+// A Session that waits on the owner for six things, one card each in the Cockpit: a slash command
+// for the Session itself, a command he runs, a restart, a pull request to approve, a plain line, and a
+// real question with options. Only the question carries the standing answers. The walk `session-errands`
 // plays it.
 
 import { featureRunning } from "@armada/jobs/fake";
@@ -32,7 +32,8 @@ const SESSION: Session = {
   ],
   waitingFor: [
     { id: "e-slash", text: "/land 2109 2118 2119 — speed fixes already running in your Fleet", since: ago(9), source: "agent", act: { kind: "run", target: "/land 2109 2118 2119" } },
-    { id: "e-shell", text: "Restart onto the preview", since: ago(8), source: "agent", act: { kind: "run", target: "scripts/preview --restart --adopt" } },
+    { id: "e-shell", text: "Install the preview's packages", since: ago(8), source: "agent", act: { kind: "run", target: "pnpm -C .armada/preview install" } },
+    { id: "e-restart", text: "Restart onto the preview", since: ago(8), source: "agent", act: { kind: "run", target: "scripts/preview --restart --adopt" } },
     { id: "e-pull", text: "Approve #2118", since: ago(7), source: "agent", act: { kind: "approve_pr", target: "2118" } },
     { id: "e-plain", text: "Which branch should the migration rebase onto", since: ago(6), source: "agent" },
     {
@@ -47,7 +48,7 @@ const SESSION: Session = {
 };
 
 function build(): Scenario {
-  const base = holding("session-errands", "The Cockpit with one Session waiting on a slash command, a shell command, a pull request, a plain line and a question", [running]);
+  const base = holding("session-errands", "The Cockpit with one Session waiting on a slash command, a shell command, a restart, a pull request, a plain line and a question", [running]);
   const none = { id: "x", number: 0, title: "", branch: "", slot: 0 };
   return {
     ...base,
