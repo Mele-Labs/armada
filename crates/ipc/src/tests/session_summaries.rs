@@ -92,6 +92,7 @@ fn a_hosted_sessions_turn_is_working_or_idle() {
         turn,
         asked: None,
         model: None,
+        resolved_model: None,
         effort: None,
         mode: SessionMode::Auto,
         running: true,
