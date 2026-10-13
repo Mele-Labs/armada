@@ -206,8 +206,8 @@ export type Session = {
   title?: string;
   attachments: readonly SessionAttachment[];
   /**
-   * Where its work has been, from its ledger's given-back rows: `attachmentsOfRecord` drops those today, and
-   * the wire's `started_at` and each attachment's `since` and `changed_at` say all of it. Mock only until folded.
+   * Where its work has been, from the record's `started_at` and each attachment's `since` and `changed_at`,
+   * given-back rows included, which `attachments` leaves out (`trailOfRecord`).
    */
   trail?: SessionTrail;
   rows: readonly SessionRow[];

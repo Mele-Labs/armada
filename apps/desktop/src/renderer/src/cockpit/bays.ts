@@ -36,26 +36,45 @@ export type Bay = {
 };
 
 /**
- * What happened to the work before its pull request, each as an ISO instant: it asked for a bay, held one
- * (`slot` where the record names it), and its pull request was opened. A Job's record names no bay and no
- * release, so those are absent there.
+ * What happened to the work before its pull request, each as an ISO instant: it asked for a bay, held one or
+ * more (`slot` where the record names it), and its pull request was opened. A Job that was in no bay the
+ * record names has none but its start.
  */
-export type WorkTrail = { began?: string; bay?: { slot?: number; from: string; until?: string }; opened?: string };
+export type WorkTrail = { began?: string; bays?: readonly BayStay[]; opened?: string };
+
+/** One stay in a bay: when it was taken and, once given back, when. */
+export type BayStay = { slot?: number; from: string; until?: string };
 
 /** Whose work a pull request is, and the tile that owner already has on the glass, for its live state. */
 export type PullHolder = Owner & { item: Item | undefined; trail: WorkTrail | undefined };
+
+/**
+ * A Job's bay stays, `bays: [{slot, since, until}]` on its row where the wire carries them; none read is
+ * `undefined`, so a Fleet without the field falls back to when the Job started.
+ */
+function staysOf(job: JobSummary): BayStay[] | undefined {
+  const wire = (job as JobSummary & { bays?: unknown }).bays;
+  if (!Array.isArray(wire)) return undefined;
+  const stays = wire.flatMap((one: unknown): BayStay[] => {
+    const stay = one as { slot?: unknown; since?: unknown; until?: unknown } | null;
+    if (typeof stay?.since !== "string") return [];
+    return [{ ...(typeof stay.slot === "number" ? { slot: stay.slot } : {}), from: stay.since, ...(typeof stay.until === "string" ? { until: stay.until } : {}) }];
+  });
+  return stays.length === 0 ? undefined : stays;
+}
 
 /** The journey a Session's ledger or a Job's record keeps of the work behind pull request `number`. */
 function trailOf(owner: Owner, jobs: readonly JobSummary[], sessions: readonly Session[], number: number): WorkTrail | undefined {
   if (owner.kind === "job") {
     const job = jobs.find((one) => one.id === owner.id);
-    return job === undefined ? undefined : { began: job.created_at, ...(job.started_at === undefined ? {} : { bay: { from: job.started_at } }) };
+    if (job === undefined) return undefined;
+    const stays = staysOf(job) ?? (job.started_at === undefined ? undefined : [{ from: job.started_at }]);
+    return { began: job.created_at, ...(stays === undefined ? {} : { bays: stays }) };
   }
   const trail = sessions.find((one) => one.id === owner.id)?.trail;
   if (trail === undefined) return undefined;
-  const bay = trail.bays?.at(-1);
   const opened = trail.opened?.[number];
-  return { began: trail.started, ...(bay === undefined ? {} : { bay }), ...(opened === undefined ? {} : { opened }) };
+  return { began: trail.started, ...(trail.bays === undefined || trail.bays.length === 0 ? {} : { bays: trail.bays }), ...(opened === undefined ? {} : { opened }) };
 }
 
 /** One repository's bays and its line, top of the line farthest from main. */
