@@ -419,7 +419,7 @@ export function CallCard({
         </AskQuestion>
         )}
         {answer.target === undefined ? null : (
-          <Tooltip label={answer.target} asChild>
+          <Tooltip label={answer.target}>
             <code className="armada-callcard__target">{answer.target}</code>
           </Tooltip>
         )}

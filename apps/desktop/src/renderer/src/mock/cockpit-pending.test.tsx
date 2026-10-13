@@ -120,9 +120,9 @@ test("an answered call does not come back while Fleet still carries it, and the 
 test("a dismissed call loops while Fleet takes it, and does not come back while Fleet still carries it", async () => {
   await motion();
   await asking();
-  const from = Date.now();
-  // The cover lifts on the first press and the second dismisses.
+  // The cover lifts on the first press and the second dismisses, so the clock starts at the second.
   await userEvent.keyboard("d");
+  const from = Date.now();
   await userEvent.keyboard("d");
   await expect.element(key(/Dismiss/)).toHaveAttribute("aria-busy", "true");
   await expect.element(radio(/The real one, stopped/)).toBeDisabled();
