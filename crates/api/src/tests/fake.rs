@@ -50,6 +50,8 @@ use crate::{Broadcaster, Feed, Refusal, Turns};
 pub struct FakeDaemon {
     /// Every Job held, which the fake's own acts move.
     pub jobs: Mutex<Vec<JobSummary>>,
+    /// The row every Session act answers with where a test sets one, in place of a thin echo.
+    pub session_row: Mutex<Option<ipc::SessionRecord>>,
     unreadable: Mutex<Vec<UnreadableJob>>,
     events: Broadcaster,
     /// The per-Job transcript channels, so a test can watch one Job while a
@@ -160,6 +162,7 @@ impl FakeDaemon {
     pub fn new(events: Broadcaster) -> FakeDaemon {
         FakeDaemon {
             jobs: Mutex::new(Vec::new()),
+            session_row: Mutex::new(None),
             unreadable: Mutex::new(Vec::new()),
             events,
             turns: Turns::new(),
