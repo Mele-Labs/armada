@@ -57,11 +57,15 @@ pub(super) fn place_of(path: &str, root: &str) -> Place {
 
 /// The absolute paths a shell line obviously writes: a redirect's target, the
 /// arguments of a command whose job is to write, `sed -i`'s files, and the
-/// directory `git -C` writes in. `cwd` is where the call started. **Not a shell parser**: a path
-/// built from a variable, a relative path (bar `armada worktree release`'s) and anything inside a
-/// script it runs are not seen.
+/// directory `git` is pointed at (`-C`, `--work-tree`, `--git-dir`) for anything that is not a
+/// read. `cwd` is where the call started, and a path that climbs with a `..` is read against it.
+/// **Not a shell parser**: a path built from a variable, a relative path with no `..` (bar
+/// `armada worktree release`'s) and anything inside a script it runs are not seen. **A line that
+/// runs an interpreter is read for every slot path in its text**, since what the interpreter
+/// writes cannot be read from the line.
 pub(super) fn written_by(line: &str, cwd: &str) -> Vec<String> {
     let mut found = Vec::new();
+    let mut interpreted = false;
     for segment in line
         .replace("&&", ";")
         .replace("||", ";")
@@ -71,18 +75,19 @@ pub(super) fn written_by(line: &str, cwd: &str) -> Vec<String> {
             .split_whitespace()
             .map(|word| word.trim_matches(|c| c == '\'' || c == '"').to_string())
             .collect();
-        redirects(&words, &mut found);
+        redirects(&words, cwd, &mut found);
         let mut rest = words
             .iter()
             .skip_while(|word| word.contains('=') || *word == "env" || *word == "command");
         let Some(program) = rest.next() else { continue };
         let program = program.rsplit('/').next().unwrap_or(program);
+        interpreted |= interprets(program);
         let arguments: Vec<&String> = rest.collect();
         let absolute = |found: &mut Vec<String>, from: &[&String]| {
             found.extend(
                 from.iter()
-                    .filter(|word| word.starts_with('/'))
-                    .map(|word| word.to_string()),
+                    .filter(|word| !word.starts_with('-'))
+                    .filter_map(|word| resolved(word, cwd)),
             )
         };
         match program {
@@ -96,22 +101,80 @@ pub(super) fn written_by(line: &str, cwd: &str) -> Vec<String> {
                 absolute(&mut found, &arguments)
             }
             "armada" => found.extend(released_by(&arguments, cwd)),
-            "git" => {
-                let at = arguments.iter().position(|word| word.as_str() == "-C");
-                if let Some(path) = at.and_then(|at| arguments.get(at + 1)) {
-                    let subcommand = arguments
-                        .iter()
-                        .skip(at.unwrap_or(0) + 2)
-                        .find(|word| !word.starts_with('-'));
-                    if !subcommand.is_some_and(|word| GIT_READS.contains(&word.as_str())) {
-                        found.push(path.to_string());
-                    }
-                }
-            }
+            "git" => found.extend(git_writes_in(&arguments, cwd)),
             _ => {}
         }
     }
+    if interpreted {
+        found.extend(slot_paths_in(line));
+    }
     found
+}
+
+/// `path` as an absolute path: itself, or, where it begins with a `..`, read against `cwd`.
+fn resolved(path: &str, cwd: &str) -> Option<String> {
+    match path {
+        absolute if absolute.starts_with('/') => Some(absolute.to_string()),
+        climbing if cwd.starts_with('/') && (climbing == ".." || climbing.starts_with("../")) => {
+            Some(normalised(&format!("{}/{climbing}", cwd.trim_end_matches('/'))))
+        }
+        _ => None,
+    }
+}
+
+/// Programs that run code written in the line or in a file it names.
+fn interprets(program: &str) -> bool {
+    const OTHERS: &[&str] = &[
+        "node", "nodejs", "deno", "bun", "ruby", "perl", "php", "lua", "osascript", "Rscript",
+        "sh", "bash", "zsh", "dash",
+    ];
+    program.starts_with("python") || OTHERS.contains(&program)
+}
+
+/// Every path in `text` that is in a slot, wherever it sits: in a quote, a call, an argument.
+fn slot_paths_in(text: &str) -> Vec<String> {
+    text.split(|c: char| !(c.is_ascii_alphanumeric() || "/._-+@:~".contains(c)))
+        .filter(|piece| piece.starts_with('/') && piece.contains("/.armada/slots/"))
+        .map(str::to_string)
+        .collect()
+}
+
+/// The directories a `git` is pointed at with `-C`, `--work-tree` or `--git-dir`, where its
+/// subcommand is not a read. Read against `cwd` when they climb.
+fn git_writes_in(arguments: &[&String], cwd: &str) -> Vec<String> {
+    const TAKES_A_VALUE: &[&str] = &["-C", "-c", "--work-tree", "--git-dir", "--namespace"];
+    let mut pointed = Vec::new();
+    let mut subcommand = None;
+    let mut words = arguments.iter().map(|word| word.as_str());
+    while let Some(word) = words.next() {
+        if TAKES_A_VALUE.contains(&word) {
+            let value = words.next();
+            if matches!(word, "-C" | "--work-tree" | "--git-dir") {
+                pointed.extend(value);
+            }
+        } else if let Some(value) = word
+            .strip_prefix("--work-tree=")
+            .or_else(|| word.strip_prefix("--git-dir="))
+        {
+            pointed.push(value);
+        } else if !word.starts_with('-') {
+            subcommand = Some(word);
+            break;
+        }
+    }
+    if subcommand.is_some_and(|word| GIT_READS.contains(&word)) {
+        return Vec::new();
+    }
+    pointed
+        .into_iter()
+        .filter_map(|path| match path.starts_with('/') {
+            true => Some(path.to_string()),
+            false if cwd.starts_with('/') => {
+                Some(normalised(&format!("{}/{path}", cwd.trim_end_matches('/'))))
+            }
+            false => None,
+        })
+        .collect()
 }
 
 /// The slot `armada worktree release <path>` gives back, the path read against `cwd`. **Giving a
@@ -171,6 +234,29 @@ pub(super) fn worked_in(line: &str, cwd: &str) -> Vec<String> {
     found
 }
 
+/// The directory a call started in, where a line runs something that is not a read before it
+/// `cd`s anywhere. **A working directory persists between a session's calls**, so a session that
+/// went into a slot once is standing in it at every call after, with no path in the line to read.
+pub(super) fn run_from(line: &str, cwd: &str) -> Option<String> {
+    if !cwd.starts_with('/') {
+        return None;
+    }
+    for segment in line
+        .replace("&&", ";")
+        .replace("||", ";")
+        .split([';', '|', '\n'])
+    {
+        let segment = segment.trim().trim_start_matches(['(', '{']).trim();
+        if matches!(segment.split_whitespace().next(), Some("cd" | "pushd")) {
+            return None;
+        }
+        if !adapters::reads_only(segment) {
+            return Some(normalised(cwd));
+        }
+    }
+    None
+}
+
 const GIT_READS: &[&str] = &[
     "status",
     "log",
@@ -191,7 +277,7 @@ const GIT_READS: &[&str] = &[
 ];
 
 /// `>file`, `>> file`, `2>file`, `&>file`, and a `>` standing alone.
-fn redirects(words: &[String], found: &mut Vec<String>) {
+fn redirects(words: &[String], cwd: &str, found: &mut Vec<String>) {
     for (at, word) in words.iter().enumerate() {
         let Some(arrow) = word.find('>') else {
             continue;
@@ -204,8 +290,8 @@ fn redirects(words: &[String], found: &mut Vec<String>) {
         } else {
             after
         };
-        if target.starts_with('/') && !target.starts_with("/dev/") {
-            found.push(target.to_string());
+        if !target.starts_with("/dev/") {
+            found.extend(resolved(target, cwd));
         }
     }
 }

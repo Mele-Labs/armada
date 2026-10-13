@@ -146,6 +146,7 @@ async fn a_removed_test_opens_its_section_and_names_the_test() {
             pull_request_title: None,
             pull_request_comments: None,
             merged_at: None,
+            pull_request_opened_at: None,
         },
     );
     detail.confidence = Some(ipc::JobConfidence::of(&accepted.recorded()));

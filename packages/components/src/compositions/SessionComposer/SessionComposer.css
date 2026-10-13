@@ -64,6 +64,22 @@
   border-top: var(--border-width) solid var(--border-subtle);
 }
 
+/* Bare: the field and its Send on one row, for words that go to something other than a turn. */
+.armada-session-composer[data-bare] {
+  flex-direction: row;
+  align-items: flex-end;
+}
+
+.armada-session-composer[data-bare] .armada-session-composer__field {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.armada-session-composer[data-bare] .armada-session-composer__bar {
+  border-top: none;
+  padding: var(--space-2);
+}
+
 .armada-session-composer__bar .armada-select-field {
   flex: none;
 }
@@ -195,4 +211,60 @@
 .armada-inline-tag > svg {
   flex: none;
   color: var(--fg-muted);
+}
+
+/* A `#` row's glyph is named on hover, and that bubble hangs below the row: the list is short enough
+   (six rows) to need no scroll, so it does not clip. */
+.armada-mention[data-numbered],
+.armada-mention[data-numbered] .armada-mention__row {
+  overflow: visible;
+}
+
+.armada-session-composer__offer[data-numbered] .armada-session-composer__glyph {
+  display: inline-flex;
+}
+
+/* Where a number that is not open stands: after the title, which gives way first. */
+.armada-session-composer__standing {
+  flex: none;
+  margin-inline-start: var(--space-3);
+  color: var(--fg-subtle);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+
+/* Below the breakpoint what waits to be sent is a row of its own, over the bar: the bar has no room
+   left for a strip, and a chip squeezed to nothing says nothing. */
+.armada-session-composer__held {
+  display: flex;
+  padding: var(--space-1) var(--space-2);
+  border-top: var(--border-width) solid var(--border-subtle);
+}
+
+/* Where there is no room above the box. */
+.armada-session-composer__offer[data-below] {
+  top: 100%;
+  bottom: auto;
+  margin-top: var(--space-1);
+  margin-bottom: 0;
+}
+
+/* A title is prose and the number is the code: the title gets the room a dock's width has. */
+.armada-mention[data-numbered] .armada-session-composer__says {
+  font-family: var(--font-sans);
+}
+
+/* A tag in the thread that opens what it names takes the link's own colour. */
+a.armada-inline-tag--link {
+  color: var(--accent);
+  text-decoration: none;
+  user-select: auto;
+}
+
+a.armada-inline-tag--link:hover {
+  color: var(--accent-hover);
+}
+
+a.armada-inline-tag--link > svg {
+  color: inherit;
 }

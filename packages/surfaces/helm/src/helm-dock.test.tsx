@@ -33,7 +33,7 @@ function talking(replying: boolean): Scenario {
     says: replying ? "Helm is writing a reply" : "Helm is pointed at a repository and idle",
     state: {
       ...connected([], [workflow()], [repository()]),
-      helm: { state: "open", manifestId: MANIFEST_ID, replying, skipped: 0, missed: 0, items: [] },
+      helm: { state: "open", manifestId: MANIFEST_ID, replying, skipped: 0, missed: 0, items: [], facts: {} },
     },
     reads: {},
     behaves: () => ({}),

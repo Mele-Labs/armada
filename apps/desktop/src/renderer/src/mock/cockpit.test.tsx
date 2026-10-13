@@ -30,6 +30,8 @@ const call = (kind: RegExp) => page.getByRole("region", { name: kind });
 const behind = (kind: RegExp) => page.getByRole("button", { name: kind });
 const selected = (name: string) => expect.element(page.getByRole("tab", { name })).toHaveAttribute("aria-selected", "true");
 const radio = (name: RegExp) => page.getByRole("radio", { name });
+/** An act runs on one press, so it is a button on the rail, and an option is a radio. */
+const act = (name: RegExp) => page.getByRole("button", { name });
 
 test("Your move with nothing waiting is empty and says nothing, and the dispatch bar above it is the one line", async () => {
   localStorage.removeItem(FILTER);
@@ -108,12 +110,15 @@ test("n opens the title bar's one bar from the panel, ready for the work", async
   await expect.element(page.getByRole("combobox")).toHaveAttribute("placeholder", "Describe the work, or paste a link to a ticket.");
 });
 
-test("a call comes forward over the panel whatever the filter, the next steps up, and one put off goes to the back until w", async () => {
+test("a call comes forward on Your move alone, the next steps up, and one put off goes to the back until w", async () => {
   await dashboard();
   timePasses();
   await expect.element(call(/^Plan question/)).toBeVisible();
-  // Over the panel on every filter: it is what needs the owner.
+  // The deck is drawn on Your move and nowhere else: another filter shows its own tiles, and Your move carries a dot.
   await page.getByRole("tab", { name: "Done" }).click();
+  await expect.element(call(/^Plan question/)).not.toBeInTheDocument();
+  await expect.element(page.getByRole("tab", { name: "Your move" }).getByRole("img", { name: "Needs you" })).toBeVisible();
+  await page.getByRole("tab", { name: "Your move" }).click();
   await expect.element(call(/^Plan question/)).toBeVisible();
 
   timePasses();
@@ -125,9 +130,8 @@ test("a call comes forward over the panel whatever the filter, the next steps up
   await expect.element(behind(/^Plan question/)).toBeVisible();
   expect(behind(/^Plan question/).element().hasAttribute("data-deferred")).toBe(true);
 
-  // Answer the second; the one put off stays at the edge with nothing in front, and w brings it back.
+  // Answer the second, which is an act and runs on its number; the one put off stays at the edge with nothing in front, and w brings it back.
   await userEvent.keyboard("1");
-  await userEvent.keyboard("{Enter}");
   await expect.element(call(/^Check failed/)).not.toBeInTheDocument();
   await expect.element(behind(/^Plan question/)).toBeVisible();
   await userEvent.keyboard("w");
@@ -149,7 +153,7 @@ test("the standing answers b and g are on an agent's question, and not on a call
 
   // A failed Check: Fleet raised it, so it keeps its own act and nothing more.
   await expect.element(call(/^Check failed/)).toBeVisible();
-  await expect.element(radio(/Retry/)).toBeVisible();
+  await expect.element(act(/Retry/)).toBeVisible();
   expect(radio(/Make the best decision/).query()).toBeNull();
   expect(radio(/Just get it done/).query()).toBeNull();
 
@@ -236,13 +240,14 @@ test("Bays is a filter of its own: each piece of work in a bay, and each waiting
   await expect.poll(() => page.getByRole("tab", { name: "Bays" }).query()).toBeNull();
 });
 
-test("the call deck comes forward over the map too", async () => {
+test("the call deck is not drawn over the map, and the Your move tab says a call waits", async () => {
   await dashboard();
   await page.getByRole("tab", { name: "Active" }).click();
   await userEvent.keyboard("m");
   await expect.element(page.getByRole("listbox", { name: "Map" })).toBeVisible();
   timePasses();
-  await expect.element(call(/^Plan question/)).toBeVisible();
+  await expect.element(page.getByRole("tab", { name: "Your move" }).getByRole("img", { name: "Needs you" })).toBeVisible();
+  expect(call(/^Plan question/).query()).toBeNull();
 });
 
 /** Put calls off until the one named is in front: the stack comes round to it. */
@@ -264,26 +269,25 @@ test("a pull request that a Session or a Job already owns sends him to the owner
 
   // Opened by a Job: that Job is the one to open.
   await reach(/^Pull request: #1819/);
-  await expect.element(radio(/Open the Job/)).toBeVisible();
-  expect(radio(/Send a Drone/).query()).toBeNull();
+  await expect.element(act(/Open the Job/)).toBeVisible();
+  expect(act(/Send a Drone/).query()).toBeNull();
 
   // Held by a Session: named, with the Session to open, and no Drone.
   await reach(/^Pull request: #1822/);
   await expect.element(page.getByRole("group", { name: "Owner" })).toHaveTextContent("Session · Armada Pocket");
-  await expect.element(radio(/Open the Session/)).toBeVisible();
-  await expect.element(radio(/Poke/)).toBeVisible();
-  expect(radio(/Send a Drone/).query()).toBeNull();
+  await expect.element(act(/Open the Session/)).toBeVisible();
+  await expect.element(act(/Poke/)).toBeVisible();
+  expect(act(/Send a Drone/).query()).toBeNull();
 
   // A person's, with nobody on it: a Drone stays, and so does a way to attach it to who is on it.
   await reach(/^Pull request: #1823/);
-  await expect.element(radio(/Send a Drone/)).toBeVisible();
-  await expect.element(radio(/Attach/)).toBeVisible();
+  await expect.element(act(/Send a Drone/)).toBeVisible();
+  await expect.element(act(/Attach/)).toBeVisible();
   expect(page.getByRole("group", { name: "Owner" }).query()).toBeNull();
 
   // Attach lists the live Jobs and Sessions, each with its glyph, a filter narrows them, and Enter
-  // claims the pull request for the one picked through Fleet: the card is owned.
+  // claims the pull request for the one picked through Fleet: the card is owned. Attach is an act: its number opens the list.
   await userEvent.keyboard("2");
-  await userEvent.keyboard("{Enter}");
   const listed = page.getByRole("listbox", { name: "Jobs and Sessions" });
   await expect.element(listed).toBeVisible();
   await expect.element(listed.getByRole("img", { name: "Job" }).first()).toBeVisible();
@@ -292,8 +296,8 @@ test("a pull request that a Session or a Job already owns sends him to the owner
   await userEvent.keyboard("{Enter}");
   expect(claim).toHaveBeenCalledWith({ number: 1823, session_id: "s10" });
   await expect.element(page.getByRole("group", { name: "Owner" })).toHaveTextContent(/Session · Migration notes/);
-  await expect.element(radio(/Open the Session/)).toBeVisible();
-  expect(radio(/Send a Drone/).query()).toBeNull();
+  await expect.element(act(/Open the Session/)).toBeVisible();
+  expect(act(/Send a Drone/).query()).toBeNull();
 });
 
 test("Attach to a Job claims the pull request with its job_id, and the card is the Job's", async () => {
@@ -304,14 +308,13 @@ test("Attach to a Job claims the pull request with its job_id, and the card is t
   await userEvent.keyboard("{Escape}");
   await reach(/^Pull request: #1823/);
   await userEvent.keyboard("2");
-  await userEvent.keyboard("{Enter}");
   await userEvent.type(page.getByRole("textbox", { name: "Attach to" }), "Split the writer");
   await expect.element(page.getByRole("listbox", { name: "Jobs and Sessions" }).getByRole("option")).toHaveLength(1);
   await userEvent.keyboard("{Enter}");
   expect(claim).toHaveBeenCalledWith({ number: 1823, job_id: "01M2C1TJ8G0073EVERYSTATE00" });
   await expect.element(page.getByRole("group", { name: "Owner" })).toHaveTextContent(/Job · Split the writer from the clock/);
-  await expect.element(radio(/Open the Job/)).toBeVisible();
-  expect(radio(/Send a Drone/).query()).toBeNull();
+  await expect.element(act(/Open the Job/)).toBeVisible();
+  expect(act(/Send a Drone/).query()).toBeNull();
 });
 
 test("main's red goes to the Job that broke it: 1 opens it, 2 pokes it", async () => {
@@ -320,13 +323,27 @@ test("main's red goes to the Job that broke it: 1 opens it, 2 pokes it", async (
   await onScreen();
   await userEvent.keyboard("{Escape}");
   await reach(/^Main/);
-  await expect.element(radio(/Open the Job/)).toBeVisible();
-  expect(radio(/Hand to a Job/).query()).toBeNull();
-  await expect.element(radio(/Poke/)).toBeVisible();
+  await expect.element(act(/Open the Job/)).toBeVisible();
+  expect(act(/Hand to a Job/).query()).toBeNull();
+  await expect.element(act(/Poke/)).toBeVisible();
   await userEvent.keyboard("1");
-  await userEvent.keyboard("{Enter}");
   // The Job opens: the Dashboard's filters are no longer drawn.
   await expect.poll(() => page.getByRole("tab", { name: "Your move" }).query()).toBeNull();
+});
+
+test("a poke on main's red says main is red and what failed, never that a pull request's checks did", async () => {
+  localStorage.removeItem(FILTER);
+  const app = mount("dashboard-needs-you");
+  const redirect = vi.spyOn(app.api, "redirectDrone");
+  await onScreen();
+  await userEvent.keyboard("{Escape}");
+  await reach(/^Main/);
+  await userEvent.keyboard("2");
+  await expect.poll(() => redirect.mock.calls.length).toBe(1);
+  const said = String(redirect.mock.calls[0]![1]);
+  expect(said).toMatch(/^main is red/);
+  expect(said).toContain("fixes main");
+  expect(said).not.toContain("checks failed");
 });
 
 test("a Session's own question shows its options and their lines, never Allow or Deny, and takes a reply in words", async () => {
@@ -344,9 +361,10 @@ test("a Session's own question shows its options and their lines, never Allow or
   await expect.element(radio(/Drop it/)).toBeVisible();
   for (const name of [/Allow/, /Deny/, /Refuse/]) expect(radio(name).query()).toBeNull();
   // Type something is a reply on the card, and it lands in the Session: the call is answered.
+  // The call ends in the Session's own box, which t reaches.
   await userEvent.keyboard("t");
-  await expect.element(page.getByRole("textbox", { name: "Type something" })).toHaveFocus();
-  await userEvent.type(page.getByRole("textbox", { name: "Type something" }), "File it, and fix it on Friday");
+  await expect.element(page.getByRole("textbox", { name: "Message" })).toHaveFocus();
+  await userEvent.type(page.getByRole("textbox", { name: "Message" }), "File it, and fix it on Friday");
   await userEvent.keyboard("{Enter}");
   await expect.element(page.getByRole("region", { name: /^Session question/ })).not.toBeInTheDocument();
 });
@@ -357,7 +375,7 @@ test("a permission is the only Session call that offers Allow once and Refuse, a
   await onScreen();
   await userEvent.keyboard("{Escape}");
   await reach(/^Session walk/);
-  await expect.element(radio(/Approve/)).toBeVisible();
+  await expect.element(act(/Approve/)).toBeVisible();
   await reach(/^Session: Flaky/);
   await expect.element(radio(/Allow once/)).toBeVisible();
   await expect.element(radio(/Refuse/)).toBeVisible();
@@ -371,14 +389,16 @@ test("a walk waiting on approval offers Open walk on v, which opens its page and
   const window = page.getByRole("dialog", { name: "Bridge's window on Docs for the pairing screen" });
 
   await reach(/^Session question/);
-  expect(call(/^Session question/).getByRole("button", { name: /Open walk/ }).query()).toBeNull();
+  // The acts are on the rail beside the card, so they are found in the window and not in the card.
+  expect(page.getByRole("button", { name: /Open walk/ }).query()).toBeNull();
   await userEvent.keyboard("v");
   expect(window.query()).toBeNull();
 
   await reach(/^Session walk/);
-  const open = call(/^Session walk/).getByRole("button", { name: "Open walk v" });
+  const open = page.getByRole("button", { name: /Open walk/ });
   await expect.element(open).toBeVisible();
-  await expect.element(call(/^Session walk/).getByRole("button", { name: /Open Session/ })).toBeVisible();
+  await expect.element(open).toHaveTextContent("v");
+  await expect.element(page.getByRole("button", { name: /Open Session/ })).toBeVisible();
   await userEvent.keyboard("v");
   await expect.element(window).toHaveTextContent(/git\.example/);
   await userEvent.click(page.getByRole("button", { name: "Close window" }));
@@ -450,7 +470,6 @@ test("a pull request Fleet will not hand over stays unowned, and the toast names
   await userEvent.keyboard("{Escape}");
   await reach(/^Pull request: #1823/);
   await userEvent.keyboard("2");
-  await userEvent.keyboard("{Enter}");
   await userEvent.type(page.getByRole("textbox", { name: "Attach to" }), "Migration notes");
   await userEvent.keyboard("{Enter}");
   await expect.element(page.getByText("pull request #1823 is held by session Release script").first()).toBeVisible();
@@ -474,7 +493,10 @@ test("a dismissed call stays gone across a remount, and the same pull request fa
   await onScreen();
   await userEvent.keyboard("{Escape}");
   await reach(/^Pull request: #1823/);
-  await expect.element(page.getByRole("button", { name: /^Dismiss/ })).toHaveTextContent("d");
+  await expect.element(page.getByRole("button", { name: /Dismiss/ })).toHaveTextContent("d");
+  // Dismiss is for good, so it is under a cover: the first press lifts it and the second does it.
+  await userEvent.keyboard("d");
+  await expect.element(page.getByRole("region", { name: /^Pull request: #1823/ })).toBeVisible();
   await userEvent.keyboard("d");
   await expect.element(page.getByRole("region", { name: /^Pull request: #1823/ })).not.toBeInTheDocument();
   expect(JSON.parse(localStorage.getItem("armada.bridge.dismissed-calls") ?? "[]")).toEqual([expect.stringContaining("pull:1823")]);
@@ -508,6 +530,7 @@ test("d on a Session's call dismisses that item on Fleet and the card goes", asy
   await onScreen();
   await userEvent.keyboard("{Escape}");
   await reach(/^Session walk/);
+  await userEvent.keyboard("d");
   await userEvent.keyboard("d");
   await expect.element(page.getByRole("region", { name: /^Session walk/ })).not.toBeInTheDocument();
   expect(dismiss).toHaveBeenCalledWith({ session_id: "s15", item_id: "walk:https://git.example/pairing" });

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { Attachment, JobSummary, SessionRecord, SessionRow } from "@armada/protocol";
 import { job } from "./fixtures/build/base";
-import { ENDED_LISTED_DAYS, attachmentsOfRecord, cleanTitle, jobStateOf, numberOf, rowsOfThread, sessionOfRecord, sessionsOfRecords } from "./sessions-wire";
+import { ENDED_LISTED_DAYS, attachmentsOfRecord, cleanTitle, jobStateOf, numberOf, rowsOfThread, sessionOfRecord, sessionsOfRecords, trailOfRecord } from "./sessions-wire";
 import type { Beside } from "./sessions-wire";
 import { ownerOf, sessionsMatching } from "./draft/sessions";
 
@@ -297,6 +297,45 @@ describe("a stored title", () => {
     expect(cleanTitle('<agent-message from="a45d14071172cd311">')).toBeUndefined();
     expect(sessionOfRecord(record("a", { title: "<agent-message from=\"x\">" }), undefined, beside()).title).toBeUndefined();
     expect(sessionOfRecord(record("a", { title: "<agent-message from=\"x\">Fix it" }), undefined, beside()).title).toBe("Fix it");
+  });
+});
+
+describe("a session's trail", () => {
+  const at = (row: Attachment, since: string, changed = since): Attachment => ({ ...row, since, changed_at: changed });
+
+  it("is when it started and nothing else where it held no slot and opened no pull request", () => {
+    expect(trailOfRecord(record("a", { started_at: "2026-10-13T08:00:00Z" }))).toEqual({ started: "2026-10-13T08:00:00Z" });
+    expect(sessionOfRecord(record("a"), undefined, beside()).trail).toEqual({ started: AT });
+  });
+
+  it("keeps each slot it held, a given-back one with when it let go, which the ledger leaves out", () => {
+    const wire = record("a", {
+      started_at: "2026-10-13T08:00:00Z",
+      attachments: [
+        at(held("slot", "5"), "2026-10-13T09:30:00Z"),
+        at(held("slot", "2", {}, "given_back"), "2026-10-13T08:20:00Z", "2026-10-13T09:00:00Z"),
+      ],
+    });
+    expect(trailOfRecord(wire)).toEqual({
+      started: "2026-10-13T08:00:00Z",
+      bays: [
+        { slot: 2, from: "2026-10-13T08:20:00Z", until: "2026-10-13T09:00:00Z" },
+        { slot: 5, from: "2026-10-13T09:30:00Z" },
+      ],
+    });
+    expect(attachmentsOfRecord(wire, beside())).toEqual([{ kind: "slot", slot: 5 }]);
+  });
+
+  it("keeps when each pull request was recorded, by number, one let go too", () => {
+    const wire = record("a", {
+      attachments: [at(held("pr", "1847", { title: "T" }, "spent"), "2026-10-13T10:00:00Z"), at(held("pr", "1850", {}, "given_back"), "2026-10-13T10:05:00Z"), held("branch", "fix/x")],
+    });
+    expect(trailOfRecord(wire).opened).toEqual({ 1847: "2026-10-13T10:00:00Z", 1850: "2026-10-13T10:05:00Z" });
+  });
+
+  it("stays on a session that ended", () => {
+    const ended = record("a", { state: "ended", attachments: [at(held("slot", "2", {}, "given_back"), "2026-10-13T08:20:00Z", "2026-10-13T09:00:00Z")] });
+    expect(sessionOfRecord(ended, undefined, beside()).trail?.bays).toEqual([{ slot: 2, from: "2026-10-13T08:20:00Z", until: "2026-10-13T09:00:00Z" }]);
   });
 });
 

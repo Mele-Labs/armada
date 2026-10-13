@@ -138,6 +138,10 @@ pub(crate) struct Sweep {
     pub(crate) main_last: Option<Timestamp>,
     /// When pull requests were last read to tell their owners, `crate::pull_notices`.
     pub(crate) pulls_told_last: Option<Timestamp>,
+    /// When the build on file was last read to tell sessions, and the commit this process has
+    /// told every session of. `crate::build_notices`.
+    pub(crate) builds_told_last: Option<Timestamp>,
+    pub(crate) build_told: Option<String>,
     pub(crate) main_next: usize,
     /// The commits whose merging pull request was asked about, as `repository@commit`.
     pub(crate) culprit_asked: std::collections::BTreeSet<String>,

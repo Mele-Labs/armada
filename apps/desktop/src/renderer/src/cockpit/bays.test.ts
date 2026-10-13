@@ -73,6 +73,38 @@ describe("the bays", () => {
     expect(unnamed).toMatchObject({ kind: "session", title: "fix/blank", by: undefined });
   });
 
+  test("a bay a hosted Session holds under its own id draws that Session's title, never the id", () => {
+    const id = "5a21fab8-f110-4b34-b646-ff5d322e7e0f";
+    const s = session(id, [], { title: "Debug Bridge on Merge line" });
+    const { harbours } = read([slot(1, { state: "hosted_session", session_id: id, session_title: "Served title" }, { branch: "armada/session-5a21fab8" })], [s], [tile(`session:${id}`, { owner: `session:${id}`, session: true })]);
+    const holder = harbours[0]!.bays[0]!.holder;
+    expect(holder).toMatchObject({ kind: "session", title: "Debug Bridge on Merge line", by: undefined });
+    expect(holder.kind === "session" ? holder.session?.id : undefined).toBe(id);
+    expect(holder.kind === "session" ? holder.item?.key : undefined).toBe(`session:${id}`);
+  });
+
+  test("a Session Bridge has not listed is drawn by the title Fleet served, else by its branch, and never by its id", () => {
+    const id = "5a21fab8-f110-4b34-b646-ff5d322e7e0f";
+    const { harbours } = read([
+      slot(1, { state: "hosted_session", session_id: id, session_title: "Debug Bridge on Merge line" }, { branch: "armada/session-5a21fab8" }),
+      slot(2, { state: "hosted_session", session_id: id }, { branch: "armada/session-5a21fab8" }),
+      slot(3, { state: "hosted_session", session_id: id }),
+    ]);
+    expect(harbours[0]!.bays.map((bay) => (bay.holder.kind === "session" ? bay.holder.title : undefined))).toEqual(["Debug Bridge on Merge line", "armada/session-5a21fab8", "A Session"]);
+  });
+
+  test("a bay a hosted Session's subagent holds by a pid shows the Session it started from, not the pid", () => {
+    const id = "5a21fab8-f110-4b34-b646-ff5d322e7e0f";
+    const s = session(id, [{ kind: "branch", name: "armada/session-5a21fab8", slot: 8 }], { title: "Debug Bridge on Merge line" });
+    const { harbours } = read([slot(10, { state: "session", holder: "node (pid 2838)", session_id: id, session_title: "Debug Bridge on Merge line" }, { branch: "fleet/main-red-session-culprit" })], [s]);
+    expect(harbours[0]!.bays[0]!.holder).toMatchObject({ kind: "session", title: "Debug Bridge on Merge line", by: undefined });
+  });
+
+  test("a Session a pid names that Bridge has not listed is drawn by Fleet's title, with no terminal line", () => {
+    const { harbours } = read([slot(10, { state: "session", holder: "node (pid 2838)", session_id: "gone", session_title: "Debug Bridge on Merge line" }, { branch: "fleet/x" })]);
+    expect(harbours[0]!.bays[0]!.holder).toMatchObject({ kind: "session", title: "Debug Bridge on Merge line", session: undefined, by: undefined });
+  });
+
   test("a Session working on a bay's Job rides with it, and is not listed as without a bay", () => {
     const s = session("s2", [{ kind: "job", id: "j1", number: 1, title: "Job one", state: "running", branch: "feat/a" }]);
     const { harbours, waiting } = read([slot(1, { state: "job", job_id: "j1" }, { branch: "feat/a" })], [s], [tile("j1"), tile("session:s2", { owner: "session:s2", session: true })]);
@@ -89,5 +121,54 @@ describe("the bays", () => {
   test("a closed bay with nobody in it reads closed, not free", () => {
     const { harbours } = read([slot(4, { state: "free" }, { closed: true })]);
     expect(harbours[0]!.bays[0]!.holder.kind).toBe("closed");
+  });
+});
+
+describe("the trail behind a pull request", () => {
+  const withRow = (row: Record<string, unknown>): MergeLines => {
+    const one = lines.lines[0]!;
+    return { lines: [{ ...one, hub: { pull_requests: [{ number: 1, title: "First", branch: "feat/a", url: "u/1", ci: "passed", ...row }] } }] } as unknown as MergeLines;
+  };
+  const trailOf = (jobs: unknown[], sessions: Session[] = [], wire: MergeLines = lines) => {
+    const read = baysOf({ slots: [slot(1, { state: "free" })], jobs: jobs as JobSummary[], sessions, items: [], ended: [], views: mergeLineViews(wire, null, [], []), lines: wire, manifestOf: () => "armada", nameOf: (manifest) => manifest });
+    return read.harbours[0]!.holders?.get("pull:1");
+  };
+  const owned = { id: "j1", title: "Job one", branch: "feat/a", created_at: "2026-10-13T08:00:00Z", started_at: "2026-10-13T08:10:00Z" };
+
+  test("a Job's trail is the stays its row names, each with the bay and when it was given back", () => {
+    const bays = [{ slot: 2, since: "2026-10-13T08:10:00Z", until: "2026-10-13T09:00:00Z" }, { slot: 5, since: "2026-10-13T09:10:00Z" }];
+    expect(trailOf([{ ...owned, bays }])?.trail).toEqual({
+      began: "2026-10-13T08:00:00Z",
+      bays: [{ slot: 2, from: "2026-10-13T08:10:00Z", until: "2026-10-13T09:00:00Z" }, { slot: 5, from: "2026-10-13T09:10:00Z" }],
+    });
+  });
+
+  test("a Job whose row names no stays was in a bay from when it started", () => {
+    expect(trailOf([owned])?.trail).toEqual({ began: "2026-10-13T08:00:00Z", bays: [{ from: "2026-10-13T08:10:00Z" }] });
+    expect(trailOf([{ ...owned, started_at: undefined }])?.trail).toEqual({ began: "2026-10-13T08:00:00Z" });
+  });
+
+  test("a Session's trail is the one its record folded, with when this pull request was opened", () => {
+    const trail = { started: "2026-10-13T07:00:00Z", bays: [{ slot: 4, from: "2026-10-13T07:05:00Z", until: "2026-10-13T07:50:00Z" }], opened: { 1: "2026-10-13T07:40:00Z", 2: "2026-10-13T07:45:00Z" } };
+    const s = session("s1", [{ kind: "pull_request", number: 1, branch: "feat/a" }], { trail });
+    expect(trailOf([], [s])?.trail).toEqual({ began: "2026-10-13T07:00:00Z", bays: trail.bays, opened: "2026-10-13T07:40:00Z" });
+  });
+
+  test("the forge's opened time, review, draft and conflict reach the pull request's dot", () => {
+    const wire = withRow({ opened_at: "2026-10-13T07:40:00Z", review: "changes_requested", draft: true, mergeable: "conflicting" });
+    const read = baysOf({ slots: [slot(1, { state: "free" })], jobs: [], sessions: [], items: [], ended: [], views: mergeLineViews(wire, null, [], []), lines: wire, manifestOf: () => "armada", nameOf: (manifest) => manifest });
+    expect(read.harbours[0]!.line[0]!.card).toMatchObject({ opened: "2026-10-13T07:40:00Z", review: "changes", draft: true, conflicts: true });
+  });
+
+  test("a row that says none of it leaves the dot's card without the keys, and a forge still computing is no conflict", () => {
+    const plain = baysOf({ slots: [slot(1, { state: "free" })], jobs: [], sessions: [], items: [], ended: [], views: mergeLineViews(lines, null, [], []), lines, manifestOf: () => "armada", nameOf: (manifest) => manifest });
+    const card = plain.harbours[0]!.line[0]!.card;
+    for (const key of ["opened", "review", "draft", "conflicts"]) expect(card).not.toHaveProperty(key);
+    const wire = withRow({ mergeable: "unknown", review: "review_required" });
+    const read = baysOf({ slots: [slot(1, { state: "free" })], jobs: [], sessions: [], items: [], ended: [], views: mergeLineViews(wire, null, [], []), lines: wire, manifestOf: () => "armada", nameOf: (manifest) => manifest });
+    expect(read.harbours[0]!.line[0]!.card).toMatchObject({ review: "required" });
+    expect(read.harbours[0]!.line[0]!.card).not.toHaveProperty("conflicts");
+    const none = withRow({ review: "none" });
+    expect(baysOf({ slots: [slot(1, { state: "free" })], jobs: [], sessions: [], items: [], ended: [], views: mergeLineViews(none, null, [], []), lines: none, manifestOf: () => "armada", nameOf: (manifest) => manifest }).harbours[0]!.line[0]!.card).not.toHaveProperty("review");
   });
 });

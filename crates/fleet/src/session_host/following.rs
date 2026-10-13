@@ -6,7 +6,7 @@
 
 use std::sync::Arc;
 
-use adapter_traits::{AgentHarness, Delivery, SlotHeld, Vcs, WorkProduct};
+use adapter_traits::{AgentHarness, Delivery, SlotHeld, SlotParkRefused, Vcs, WorkProduct};
 use adapters::leasing::Holder;
 use ipc::SessionRow;
 use store::{AttachmentState, Holder as Keeper, KeptAttachment, KeptHosting};
@@ -49,6 +49,28 @@ pub(crate) fn keeper_in(listing: &str, socket: &str) -> Option<u32> {
     })
 }
 
+/// A Session as a pool slot's holder names it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct SlotSession {
+    pub(crate) id: String,
+    pub(crate) title: Option<String>,
+}
+
+/// The pid in a holder as the pool says it: `zsh (pid 4120)`.
+pub(crate) fn pid_in(said: &str) -> Option<u32> {
+    said.rsplit_once("(pid ")?.1.strip_suffix(')')?.parse().ok()
+}
+
+/// `ps -axo pid=,command=`, for [`keeper_in`]. Blocking, and empty where `ps`
+/// cannot run.
+pub(crate) fn process_listing() -> String {
+    std::process::Command::new("ps")
+        .args(["-axo", "pid=,command="])
+        .output()
+        .map(|listing| String::from_utf8_lossy(&listing.stdout).into_owned())
+        .unwrap_or_default()
+}
+
 impl<H, V, W> Fleet<H, V, W>
 where
     H: AgentHarness + Send + Sync + 'static,
@@ -83,6 +105,37 @@ where
         )
     }
 
+    /// The hosted Session whose agent is `pid`, or started it, in a `ps`
+    /// listing. **A subagent's or a tool's lease is the Session's own work**,
+    /// so a bay held by one names the Session it began from. `None` for a
+    /// process no hosted Session started, and for one that has gone.
+    pub(crate) fn session_holding_pid(&self, pid: u32, listing: &str) -> Option<String> {
+        let mut ids: Vec<String> = self.hosts().all().into_iter().map(|(id, _)| id).collect();
+        ids.sort();
+        ids.into_iter().find(|id| {
+            let roots = match self.hosts().of(id).state().process.as_ref().and_then(|one| one.pid()) {
+                Some(agent) => vec![agent],
+                None => {
+                    let socket = std::path::Path::new(&self.host().keepers_dir)
+                        .join(format!("{id}.sock"));
+                    keeper_in(listing, &socket.to_string_lossy())
+                        .into_iter()
+                        .collect()
+                }
+            };
+            started_within(&roots, pid, self.peers().as_ref())
+        })
+    }
+
+    /// The Session the ledger holds under `id`, with its title.
+    pub(crate) async fn session_in_ledger(&self, id: &str) -> Option<SlotSession> {
+        let kept = self.store().lock().await.session(id).ok()??;
+        Some(SlotSession {
+            id: kept.id,
+            title: kept.title,
+        })
+    }
+
     pub(super) fn held_by_the_tree(&self, id: &str, path: &str) -> Standing {
         let roots = self.tree_roots(id);
         let holder = adapters::leasing::holder_of(std::path::Path::new(path));
@@ -91,29 +144,123 @@ where
         })
     }
 
+    /// Every directory this session may write in: the one it runs in, and every other slot the
+    /// pool holds for it or for something it started. **A subagent's `armada worktree lease` is
+    /// the session's**: it holds the slot under the session's id, or under a process the
+    /// session's tree holds, so a slot the ledger has never recorded for the session is still
+    /// its own.
+    pub(super) fn held_directories(
+        &self,
+        id: &str,
+        served: &Served,
+        hosting: &KeptHosting,
+    ) -> Vec<String> {
+        let root = served.root().trim_end_matches('/').to_string();
+        let mut held = vec![Self::directory_of(served, hosting)];
+        for slot in 1..=crate::leasing::pool_of(served).slots() {
+            let at = adapter_traits::slot_path(&root, slot);
+            if hosting.lease_slot != Some(slot) && self.held_by_the_tree(id, &at) == Standing::Ours {
+                held.push(at);
+            }
+        }
+        held
+    }
+
     /// Park every slot an ending session holds: the one the ledger records,
     /// and any other `armada worktree lease` took for it (a subagent's), which
     /// the pool holds under the session's id and would otherwise hold for
-    /// good. Committed to its own branch, pushed nowhere; one the pool
-    /// refuses stays held and says why, as a Job's does.
-    pub(super) async fn park_every_slot_of(&self, id: &str, served: &Served, own: Option<u32>) {
+    /// good. Committed to the branch each is on, pushed nowhere, with what
+    /// still runs in it ended first (`Vcs::park_hosted_slot`).
+    ///
+    /// **Returns the slots the pool still holds for the session**, with why.
+    /// The caller leaves those slots' ledger rows standing: a row given back over a held slot is how one gets stranded.
+    pub(super) async fn park_every_slot_of(
+        &self,
+        id: &str,
+        served: &Served,
+        own: Option<u32>,
+    ) -> Vec<(u32, SlotParkRefused)> {
+        let pool = crate::leasing::pool_of(served);
+        let root = served.root().to_string();
+        let session = id.to_string();
+        let slots = {
+            let (vcs, pool, session) = (Arc::clone(self.vcs()), pool.clone(), session.clone());
+            tokio::task::spawn_blocking(move || {
+                let mut slots: Vec<u32> = own.into_iter().collect();
+                for reading in vcs.slot_pool(&pool) {
+                    if matches!(&reading.held, SlotHeld::Job(holder) if *holder == session)
+                        && !slots.contains(&reading.slot)
+                    {
+                        slots.push(reading.slot);
+                    }
+                }
+                slots
+            })
+            .await
+            .unwrap_or_default()
+        };
+        for slot in &slots {
+            self.stopped_servers_in(&adapter_traits::slot_path(&root, *slot)).await;
+        }
+        let vcs = Arc::clone(self.vcs());
+        let refused = tokio::task::spawn_blocking(move || {
+            slots
+                .into_iter()
+                .filter_map(|slot| match vcs.park_hosted_slot(&pool, slot, &session) {
+                    Ok(_) => None,
+                    Err(why) if why.holds_still() => Some((slot, why)),
+                    // Not its slot any more: released by the agent or taken by another.
+                    Err(_) => None,
+                })
+                .collect::<Vec<_>>()
+        })
+        .await
+        .unwrap_or_default();
+        refused
+    }
+
+    /// Slots the pool holds under the id of a session whose row says it ended:
+    /// closed before this fix parked them, or refused then. Each is parked as a
+    /// close parks it, and its ledger rows given back once the pool lets go.
+    /// Run where the pool is reconciled, so nothing needs a timer.
+    pub(crate) async fn freed_from_ended_sessions(&self, served: &Served) {
         let pool = crate::leasing::pool_of(served);
         let vcs = Arc::clone(self.vcs());
-        let session = id.to_string();
-        let _ = tokio::task::spawn_blocking(move || {
-            let mut slots: Vec<u32> = own.into_iter().collect();
-            for reading in vcs.slot_pool(&pool) {
-                if matches!(&reading.held, SlotHeld::Job(holder) if *holder == session)
-                    && !slots.contains(&reading.slot)
-                {
-                    slots.push(reading.slot);
-                }
+        let held: Vec<(u32, String)> = {
+            let pool = pool.clone();
+            tokio::task::spawn_blocking(move || {
+                vcs.slot_pool(&pool)
+                    .into_iter()
+                    .filter_map(|reading| match reading.held {
+                        SlotHeld::Job(holder) => Some((reading.slot, holder)),
+                        _ => None,
+                    })
+                    .collect()
+            })
+            .await
+            .unwrap_or_default()
+        };
+        let mut seen = std::collections::BTreeSet::new();
+        for (_, id) in held {
+            if !seen.insert(id.clone()) {
+                continue;
             }
-            for slot in slots {
-                let _ = vcs.park_hosted_slot(&pool, slot, &session);
+            let ended = matches!(
+                self.store().lock().await.session(&id),
+                Ok(Some(kept)) if kept.state == store::SessionState::Ended
+            );
+            if !ended {
+                continue;
             }
-        })
-        .await;
+            if !self.park_every_slot_of(&id, served, None).await.is_empty() {
+                continue;
+            }
+            let now = self.now().as_str().to_string();
+            let mut store = self.store().lock().await;
+            for kind in ["slot", "branch"] {
+                let _ = store.give_back(&Keeper::session(&id), Some(kind), &now);
+            }
+        }
     }
 
     /// Make the ledger's slot for `id` agree with the pool. A slot the pool no

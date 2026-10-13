@@ -315,6 +315,23 @@ impl Delivery for GitVcs {
         crate::pull_request_facts::mark_ready(in_repo, pull_request)
     }
 
+    fn pull_request_page(
+        &self,
+        in_repo: &str,
+        pull_request: &str,
+    ) -> Option<adapter_traits::PullRequestPageFacts> {
+        crate::pull_request_detail::read(in_repo, pull_request)
+    }
+
+    fn write_pull_request(
+        &self,
+        in_repo: &str,
+        pull_request: &str,
+        write: &adapter_traits::PullRequestWrite,
+    ) -> Result<(), String> {
+        crate::pull_request_writes::write(in_repo, pull_request, write)
+    }
+
     fn merge_by_push(
         &self,
         in_repo: &str,

@@ -350,6 +350,8 @@ fn the_owners_words_and_a_turns_rows_cross_as_a_thread() {
     let asked = ipc::CommanderMessage::Asked(ipc::HelmAsked {
         ts: ipc::Instant::carried("2026-10-12T09:00:00.000Z"),
         text: "why did step one stop".to_string(),
+        files: Vec::new(),
+        tags: Vec::new(),
     });
     let woke = ipc::CommanderMessage::Woke(ipc::CommanderWoke {
         ts: ipc::Instant::carried("2026-10-12T09:00:01.000Z"),

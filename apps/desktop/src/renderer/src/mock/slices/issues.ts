@@ -5,8 +5,12 @@ import type { IssueList } from "@armada/protocol";
 
 import type { IssuesApi } from "../../../../shared/api/issues";
 import type { Slice } from "../fake-context";
+import { unanswered } from "../moment";
+import { REPOSITORY_ISSUES } from "../numbered";
 
 function listed(manifestId: string): IssueList {
+  const own = REPOSITORY_ISSUES[manifestId];
+  if (own !== undefined) return { manifest_id: manifestId, fetched_at: "2026-10-11T12:00:00Z", issues: own };
   return {
     manifest_id: manifestId,
     fetched_at: "2026-10-11T12:00:00Z",
@@ -60,5 +64,8 @@ export const issues: Slice<IssuesApi, Record<string, never>> = {
   state: {},
   api: () => ({
     listIssues: async (manifestId) => ({ ok: true, value: listed(manifestId) }),
+    // `#` reads these through `mock/numbered.ts` here; a Fleet is what answers them.
+    getIssue: async () => ({ ok: false, outcome: unanswered("/issues") }),
+    getPullRequest: async () => ({ ok: false, outcome: unanswered("/pull_requests") }),
   }),
 };

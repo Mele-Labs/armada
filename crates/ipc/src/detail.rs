@@ -1024,6 +1024,11 @@ pub struct JobDelivery {
     /// beside a `merged`** is a merge Fleet noticed before 23.13.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub merged_at: Option<Instant>,
+    /// When Fleet opened the pull request, **kept after it settles**, where the
+    /// hub's `opened_at` goes with it. Absent is one opened before Fleet kept
+    /// it, or by a person.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pull_request_opened_at: Option<Instant>,
 }
 
 /// What Fleet's rotation last read live off an open pull request.

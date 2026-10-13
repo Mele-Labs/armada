@@ -15,6 +15,7 @@ import type { BridgeApi } from "../../../shared/api";
 import { App } from "../App";
 import { ClashesFrom } from "../clashes";
 import { DraftedFrom } from "../drafted";
+import { NumberedFrom } from "../numbered";
 import { SessionsFrom } from "../sessions-draft";
 import { WiredSessions } from "../sessions-wired";
 import { skipsMods } from "../theme-loader";
@@ -25,10 +26,11 @@ import { MockFleetBuild } from "./fleet-build";
 import type { FakeOptions, LiveDraft } from "./fake";
 import { scenarioNamed } from "./scenario";
 import { mockLayout, NO_LAYOUT_MODS } from "./layout";
+import { mockNumbered } from "./numbered";
 import { PhoneSourceProvider } from "@armada/settings";
 import { mockPhone } from "./phone";
 import { SleepSourceProvider } from "../sleep";
-import { mockSleep } from "./sleep";
+import { mockSleep, overnight } from "./sleep";
 import { PlanUsageSourceProvider } from "../plan-usage";
 import { createFleetPlanUsage } from "../fleet-plan-usage";
 import { mockThemes } from "./themes";
@@ -103,7 +105,7 @@ export function mountApp(
   const api = shared ?? fakeBridge(chosen, options);
   // A window starts on Dark with the mods a machine starts with; a second window on the same main shares them.
   if (shared === undefined) mockThemes.reset();
-  mockSleep.reset();
+  mockSleep.reset(chosen.name === "sleep-cockpit" ? overnight(chosen.state.jobs[0]?.id) : undefined);
   if (shared === undefined) mockLayout.reset();
   mockPhone.reset(chosen.name === "phone/gateway-down" ? "not_running" : chosen.name === "phone/tailscale" ? "tailscale" : "paired");
   window.armada = api;
@@ -127,13 +129,15 @@ export function mountApp(
               <MockFleetBuild scenario={chosen.name}>
                 <PhoneSourceProvider value={mockPhone}>
                   <SleepSourceProvider value={mockSleep}>
-                    <PlanUsageSourceProvider value={planUsage}>
-                      <SessionsHere held={heldSessions(api)}>
-                        <ClashesFrom clashes={chosen.draft?.clashes}>
-                          <Drafted draft={liveDraft(api) ?? HELD(chosen.draft)} />
-                        </ClashesFrom>
-                      </SessionsHere>
-                    </PlanUsageSourceProvider>
+                    <NumberedFrom held={mockNumbered}>
+                      <PlanUsageSourceProvider value={planUsage}>
+                        <SessionsHere held={heldSessions(api)}>
+                          <ClashesFrom clashes={chosen.draft?.clashes}>
+                            <Drafted draft={liveDraft(api) ?? HELD(chosen.draft)} />
+                          </ClashesFrom>
+                        </SessionsHere>
+                      </PlanUsageSourceProvider>
+                    </NumberedFrom>
                   </SleepSourceProvider>
                 </PhoneSourceProvider>
               </MockFleetBuild>

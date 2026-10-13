@@ -1,0 +1,229 @@
+//! What the forge shows on one pull request's page.
+//!
+//! One `pr view`, reduced by `--jq` to a tagged `@tsv` record per line, read as
+//! `crate::under_review` reads its own: no document is parsed here, and a line
+//! with a tag this build has no word for is dropped.
+//!
+//! The forge's words (`MERGEABLE`, `TIMED_OUT`, `RENAMED`) stop here. A word
+//! Armada has no name for reads as the cautious answer.
+
+use std::collections::BTreeSet;
+
+use adapter_traits::{
+    CheckRow, CheckStanding, CommitLine, FileChange, Mergeability, Omitted, PageFile,
+    PullRequestPageFacts, ReviewSaid, ReviewStanding, Said,
+};
+
+use crate::delivery::asked_lines;
+use crate::under_review::as_written;
+
+/// The most files one read keeps, from the first.
+pub(crate) const MOST_FILES: usize = 300;
+/// The most commits one read keeps, from the first.
+pub(crate) const MOST_COMMITS: usize = 250;
+/// The most things said one read keeps, the latest: a thread is read from its end.
+pub(crate) const MOST_SAID: usize = 200;
+
+const FIELDS: &str = "baseRefName,author,createdAt,additions,deletions,mergeable,reviewDecision,\
+                      latestReviews,comments,reviews,statusCheckRollup,files,commits";
+
+/// `// ""` on every field, so a `null` cannot stop jq mid-stream. Seconds are
+/// worked out here because jq reads the timestamps; `try` makes one it cannot
+/// read no figure. A draft review (`PENDING`) is its author's alone, and a
+/// review with no body and no verdict says nothing.
+const REDUCTION: &str = "\
+    ([\"head\", (.baseRefName // \"\"), (.author.login // \"\"), (.createdAt // \"\"), \
+      (.additions // 0), (.deletions // 0), (.mergeable // \"\"), (.reviewDecision // \"\")]), \
+    (.latestReviews // [] | .[] | select(.state == \"APPROVED\") | \
+        [\"approver\", (.author.login // \"\")]), \
+    (.comments // [] | .[] | \
+        [\"comment\", (.author.login // \"\"), (.createdAt // \"\"), (.body // \"\")]), \
+    (.reviews // [] | .[] | select(.state != \"PENDING\") | \
+        select((.body // \"\") != \"\" or .state == \"APPROVED\" or .state == \"CHANGES_REQUESTED\") | \
+        [\"review\", (.author.login // \"\"), (.submittedAt // \"\"), (.state // \"\"), (.body // \"\")]), \
+    (.statusCheckRollup // [] | .[] | \
+        [\"check\", (.name // .context // \"\"), (.status // \"\"), (.conclusion // .state // \"\"), \
+         (if .status == \"COMPLETED\" and .startedAt and .completedAt \
+          then (try ((.completedAt | fromdate) - (.startedAt | fromdate)) catch \"\") \
+          else \"\" end), \
+         (.detailsUrl // .targetUrl // \"\")]), \
+    (.files // [] | .[] | \
+        [\"file\", (.path // \"\"), (.additions // 0), (.deletions // 0), (.changeType // \"\")]), \
+    (.commits // [] | .[] | \
+        [\"commit\", (.oid // \"\"), (.messageHeadline // \"\"), (.authors[0].login // \"\"), \
+         (.committedDate // .authoredDate // \"\")]) \
+    | @tsv";
+
+/// Ask the forge. `None` is its silence: no tool, nobody signed in, no such
+/// pull request, or an answer with no head record.
+pub(crate) fn read(in_repo: &str, pull_request: &str) -> Option<PullRequestPageFacts> {
+    folded(&asked_lines(in_repo, pull_request, FIELDS, REDUCTION)?)
+}
+
+/// The records the reduction printed, as one value. Split from [`read`] so a
+/// test hands it what jq prints and needs no forge.
+pub(crate) fn folded(lines: &[String]) -> Option<PullRequestPageFacts> {
+    let mut head: Option<Head> = None;
+    let mut approvers = BTreeSet::new();
+    let mut said: Vec<Said> = Vec::new();
+    let mut checks = Vec::new();
+    let mut files = Vec::new();
+    let mut commits = Vec::new();
+    for line in lines {
+        let mut field = line.split('\t').map(as_written);
+        let tag = field.next().unwrap_or_default();
+        let mut next = || field.next().unwrap_or_default();
+        match tag.as_str() {
+            "head" => {
+                head = Some(Head {
+                    base: next(),
+                    author: next(),
+                    created_at: next(),
+                    additions: number(&next()),
+                    deletions: number(&next()),
+                    mergeable: mergeability(&next()),
+                    review: review_standing(&next()),
+                });
+            }
+            "approver" => {
+                approvers.insert(next());
+            }
+            "comment" => said.push(Said::Comment {
+                author: next(),
+                at: next(),
+                body: next(),
+            }),
+            "review" => {
+                let (author, at, state, body) = (next(), next(), next(), next());
+                said.push(Said::Review {
+                    author,
+                    at,
+                    verdict: review_said(&state),
+                    body,
+                });
+            }
+            "check" => {
+                let (name, status, conclusion, seconds, address) =
+                    (next(), next(), next(), next(), next());
+                checks.push(CheckRow {
+                    standing: check_standing(&status, &conclusion),
+                    seconds: seconds
+                        .parse::<i64>()
+                        .ok()
+                        .and_then(|it| u64::try_from(it).ok()),
+                    address: (!address.is_empty()).then_some(address),
+                    name,
+                });
+            }
+            "file" => {
+                let (path, additions, deletions, change) = (next(), next(), next(), next());
+                files.push(PageFile {
+                    path,
+                    additions: number(&additions),
+                    deletions: number(&deletions),
+                    change: file_change(&change),
+                });
+            }
+            "commit" => {
+                let (oid, headline, author, at) = (next(), next(), next(), next());
+                commits.push(CommitLine {
+                    sha: oid.chars().take(7).collect(),
+                    headline,
+                    author: (!author.is_empty()).then_some(author),
+                    at: (!at.is_empty()).then_some(at),
+                });
+            }
+            _ => {}
+        }
+    }
+    let head = head.filter(|head| !head.base.is_empty())?;
+    // Comments and reviews arrive as two lists; the sort is stable.
+    said.sort_by(|a, b| a.at().cmp(b.at()));
+    let omitted = Omitted {
+        conversation: said.len().saturating_sub(MOST_SAID),
+        files: files.len().saturating_sub(MOST_FILES),
+        commits: commits.len().saturating_sub(MOST_COMMITS),
+    };
+    said.drain(..omitted.conversation);
+    files.truncate(MOST_FILES);
+    commits.truncate(MOST_COMMITS);
+    Some(PullRequestPageFacts {
+        base: head.base,
+        author: (!head.author.is_empty()).then_some(head.author),
+        created_at: (!head.created_at.is_empty()).then_some(head.created_at),
+        additions: head.additions,
+        deletions: head.deletions,
+        mergeable: head.mergeable,
+        review: head.review,
+        approvals: approvers.len() as u64,
+        conversation: said,
+        checks,
+        files,
+        commits,
+        omitted,
+    })
+}
+
+struct Head {
+    base: String,
+    author: String,
+    created_at: String,
+    additions: u64,
+    deletions: u64,
+    mergeable: Mergeability,
+    review: ReviewStanding,
+}
+
+fn number(said: &str) -> u64 {
+    said.trim().parse().unwrap_or(0)
+}
+
+fn mergeability(said: &str) -> Mergeability {
+    match said {
+        "MERGEABLE" => Mergeability::Mergeable,
+        "CONFLICTING" => Mergeability::Conflicting,
+        _ => Mergeability::Unknown,
+    }
+}
+
+fn review_standing(said: &str) -> ReviewStanding {
+    match said {
+        "APPROVED" => ReviewStanding::Approved,
+        "CHANGES_REQUESTED" => ReviewStanding::ChangesRequested,
+        "REVIEW_REQUIRED" => ReviewStanding::Required,
+        _ => ReviewStanding::None,
+    }
+}
+
+fn review_said(state: &str) -> ReviewSaid {
+    match state {
+        "APPROVED" => ReviewSaid::Approved,
+        "CHANGES_REQUESTED" => ReviewSaid::ChangesRequested,
+        _ => ReviewSaid::Commented,
+    }
+}
+
+/// A check run has `status` and, once over, `conclusion`; a status context has
+/// only `state`, which the reduction puts in the conclusion's place. A finished
+/// check with a conclusion nobody named did not pass.
+fn check_standing(status: &str, conclusion: &str) -> CheckStanding {
+    match conclusion {
+        "SUCCESS" => CheckStanding::Passed,
+        "NEUTRAL" | "SKIPPED" => CheckStanding::Skipped,
+        "FAILURE" | "ERROR" | "TIMED_OUT" | "CANCELLED" | "ACTION_REQUIRED"
+        | "STARTUP_FAILURE" | "STALE" => CheckStanding::Failed,
+        "" | "PENDING" | "EXPECTED" => CheckStanding::Running,
+        _ if status == "COMPLETED" => CheckStanding::Failed,
+        _ => CheckStanding::Running,
+    }
+}
+
+/// `COPIED` and `CHANGED` read as modified: the page has no fifth word.
+fn file_change(said: &str) -> FileChange {
+    match said {
+        "ADDED" => FileChange::Added,
+        "DELETED" => FileChange::Removed,
+        "RENAMED" => FileChange::Renamed,
+        _ => FileChange::Modified,
+    }
+}

@@ -318,6 +318,25 @@ pub struct JobSummary {
     /// and a Board draws no mark. Since 23.68.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub alert: Option<crate::JobAlert>,
+    /// Each bay the Job has held, oldest first, with when it took it and when it
+    /// gave it back. Filled by Fleet off the store, like
+    /// [`tasks`](JobSummary::tasks). **Empty is a Job that never held one, or
+    /// one from before Fleet kept them**, and is left out of the row.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub bays: Vec<JobBay>,
+}
+
+/// One stretch of a Job in one bay of its repository's pool.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct JobBay {
+    /// The slot's number, as `armada worktree --status` numbers it.
+    pub slot: u32,
+    /// When the Job took it.
+    pub since: Instant,
+    /// When it gave it back. **Absent is it still holds the bay**, which a
+    /// completed Job does until a person clears it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub until: Option<Instant>,
 }
 
 /// A Job's pause marker, as a row carries it.
@@ -416,6 +435,7 @@ impl JobSummary {
             fixes_main: None,
             piloted: None,
             alert: None,
+            bays: Vec::new(),
         }
     }
 }

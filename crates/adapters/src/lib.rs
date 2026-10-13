@@ -80,8 +80,10 @@ mod merging_the_base_in;
 pub mod needs;
 /// The step onto a base, used by `merge_by: push`.
 pub mod onto_base;
+mod pull_request_detail;
 mod pull_request_diff;
 mod pull_request_facts;
+mod pull_request_writes;
 mod pull_watch;
 /// What a Link's address names, and the call that fetches it. `#1293`.
 mod reading_in;
@@ -106,7 +108,7 @@ mod worktree;
 #[cfg(test)]
 mod tests;
 
-pub use build_standing::{fetch_branch, fetch_main, position_against_main};
+pub use build_standing::{branch_in_build, fetch_branch, fetch_main, position_against_main, BranchInBuild};
 pub use ci_workflows::ActionsWorkflows;
 pub use concurrently::concurrently;
 pub use commanding::{denied_to_a_commander, Commanding};

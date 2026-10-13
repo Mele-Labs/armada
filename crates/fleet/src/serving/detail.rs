@@ -203,6 +203,7 @@ where
                     pull_request_title: kept.title,
                     pull_request_comments: kept.comments,
                     merged_at: merged_at.as_ref().map(ipc::Instant::from),
+                    pull_request_opened_at: kept.opened_at.map(ipc::Instant::carried),
                 })
             }
         };
@@ -365,7 +366,11 @@ where
         // The pilot is on this row too: a Job a person attested is told apart
         // from one that passed by `piloted.exit`, and the detail's header draws
         // from this row, not the Board's.
-        detail.job.piloted = self.piloted_on_row(&*self.store().lock().await, &job);
+        {
+            let store = self.store().lock().await;
+            detail.job.piloted = self.piloted_on_row(&store, &job);
+            detail.job.bays = crate::summarising::bays_on_row(&store, &job);
+        }
         let runs = self
             .group_runs_of(job.id())
             .await

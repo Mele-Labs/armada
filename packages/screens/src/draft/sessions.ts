@@ -12,6 +12,16 @@ import type { ContextBreakdown } from "@armada/components/src/context-breakdown"
 import type { WaitingItem } from "@armada/protocol";
 import type { RetroRowDrawn } from "../retro-row";
 
+/** When a Session's work happened, each as an ISO instant. `until` is a slot given back. */
+export type SessionTrail = {
+  /** `SessionRecord.started_at`. */
+  started: string;
+  /** The slots it held, oldest first: a `slot` attachment's `since` and, once given back, `changed_at`. */
+  bays?: readonly { slot: number; from: string; until?: string }[];
+  /** When each pull request was recorded, by number: a `pr` attachment's `since`. */
+  opened?: Readonly<Record<number, string>>;
+};
+
 /** What a Session has attached, by kind. A Session holds several of each. */
 export type SessionAttachment =
   /** A worktree slot the Session holds: leased on its first write, never at birth. */
@@ -122,6 +132,8 @@ export type SessionRow =
       id: string;
       at: string;
       kind: "message";
+      /** The instant `at` is the clock of, where the wire gave one. A mock's carries none. */
+      instant?: string;
       from: SessionVoice;
       text: string;
       /** What the person sent with it. */
@@ -194,7 +206,14 @@ export type Session = {
   contextBreakdown?: ContextBreakdown;
   /** Absent until the first turn has named it; a blank Session is known by its id alone. */
   title?: string;
+  /** The repository it works in, by Manifest id: what `#` reads issues and pull requests of. */
+  manifestId?: string;
   attachments: readonly SessionAttachment[];
+  /**
+   * Where its work has been, from the record's `started_at` and each attachment's `since` and `changed_at`,
+   * given-back rows included, which `attachments` leaves out (`trailOfRecord`).
+   */
+  trail?: SessionTrail;
   rows: readonly SessionRow[];
   turn: SessionTurn;
   /** When the last turn ended, already worded. Absent on a Session that has not had one. */
@@ -222,14 +241,16 @@ export type Session = {
 };
 
 /**
- * Something a message tags with `@`, so the agent knows what is meant: another
- * Session, a Job, a pull request or a branch. A Job carries what the ledger
+ * Something a message tags with `@`, or an issue or pull request with `#`, so the agent knows what
+ * is meant: another Session, a Job, a pull request, a branch or an issue. A Job carries what the ledger
  * needs to hold it as one the Session is looking at.
  */
 export type SessionTag = {
-  kind: "session" | "job" | "pull_request" | "branch";
+  kind: "session" | "job" | "pull_request" | "branch" | "issue";
   id: string;
   title: string;
+  /** The forge's address of an issue or a pull request. */
+  url?: string;
   /** `slot` is absent where the Job's own slot is not known to the window: Fleet holds it on the Job. */
   job?: { number: number; branch: string; slot?: number; state: SessionJobState };
 };

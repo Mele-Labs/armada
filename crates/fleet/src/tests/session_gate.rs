@@ -15,7 +15,7 @@ use crate::tests::peer::Placing;
 
 /// A lease record naming `pid` as its holder, as `armada worktree lease` writes
 /// it: the pid and its start time together.
-fn lease(rig: &Rig, slot: u32, pid: u32, started: &str) -> String {
+pub(super) fn lease(rig: &Rig, slot: u32, pid: u32, started: &str) -> String {
     let at = adapter_traits::slot_path(&rig.root, slot);
     let directory = std::path::Path::new(&at);
     let _ = std::fs::create_dir_all(directory);
@@ -27,7 +27,7 @@ fn lease(rig: &Rig, slot: u32, pid: u32, started: &str) -> String {
     at
 }
 
-fn started(pid: u32) -> String {
+pub(super) fn started(pid: u32) -> String {
     let said = Command::new("ps")
         .args(["-o", "lstart=", "-p", &pid.to_string()])
         .output()
@@ -35,7 +35,7 @@ fn started(pid: u32) -> String {
     String::from_utf8_lossy(&said.stdout).trim().to_string()
 }
 
-async fn in_its_slot(peers: &Arc<Placing>) -> (Rig, ipc::SessionId) {
+pub(super) async fn in_its_slot(peers: &Arc<Placing>) -> (Rig, ipc::SessionId) {
     let rig = rig_placing(Some(Arc::clone(peers)));
     let id = rig.start().await;
     rig.send(&id, "change a file").await;
@@ -210,11 +210,11 @@ async fn a_cd_into_a_slot_somebody_else_holds_holds_what_runs_after_it() {
 }
 
 #[derive(serde::Serialize)]
-struct Quoted<'a> {
-    command: &'a str,
+pub(super) struct Quoted<'a> {
+    pub(super) command: &'a str,
 }
 
-async fn standing(rig: &Rig, id: &ipc::SessionId, kind: &str) -> Vec<String> {
+pub(super) async fn standing(rig: &Rig, id: &ipc::SessionId, kind: &str) -> Vec<String> {
     rig.fleet
         .store()
         .lock()
@@ -298,7 +298,7 @@ async fn a_slot_is_read_through_the_keeper_when_fleet_holds_no_pid_for_the_agent
 
 /// What the pool holds for a session, written as `armada worktree lease` writes it from a hosted
 /// session's process: under the session's id, and not under any process.
-fn leased_for(rig: &Rig, slot: u32, id: &ipc::SessionId) -> String {
+pub(super) fn leased_for(rig: &Rig, slot: u32, id: &ipc::SessionId) -> String {
     let at = adapter_traits::slot_path(&rig.root, slot);
     let _ = std::fs::create_dir_all(&at);
     std::fs::write(

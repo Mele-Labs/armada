@@ -138,6 +138,19 @@ export type HubPull = {
   job?: HubJob;
   /** Where the merge queue holds it. Absent where it is not in the queue: the `ci` mark stands. */
   queue?: { state: "waiting_for_ci" | "in_queue" | "queued" | "awaiting_checks" | "mergeable" | "unmergeable"; position?: number };
+  /** The login that opened it. Absent where the forge named none. */
+  author?: string;
+  /** When it was opened and last moved, RFC 3339. Absent from a Fleet before the pull request carried them. */
+  openedAt?: string;
+  updatedAt?: string;
+  /** Absent is ready. */
+  draft?: true;
+  /** `unknown` is the forge still computing, not a conflict. Absent where the listing named none. */
+  mergeable?: "clean" | "conflicting" | "unknown";
+  /** `none` is a pull request no review rule applies to. Absent where the listing carried none. */
+  review?: "approved" | "changes_requested" | "review_required" | "none";
+  additions?: number;
+  deletions?: number;
 };
 
 /** What the hub adds to the line: main's state, every open pull request, and the Jobs work can go back to. */
@@ -317,7 +330,7 @@ export function MergeLine(props: MergeLineProps) {
                     <h3 className="armada-merge-line__subheading">Open pull requests</h3>
                     <ul className="armada-merge-line__list" aria-label="Open pull requests">
                       {hub.pulls.map((pull) => (
-                        <Pull key={pull.number} pull={pull} fixing={hub.main?.state === "red" ? hub.main.taken : undefined} onOpenPullRequest={onOpenPullRequest} {...(onOpenJob === undefined ? {} : { onOpenJob })} />
+                        <Pull key={pull.number} pull={pull} fixing={hub.main?.state === "red" ? hub.main.taken : undefined} onOpenPullRequest={onOpenPullRequest} {...(focus === undefined ? {} : { focus })} {...(onOpenJob === undefined ? {} : { onOpenJob })} />
                       ))}
                     </ul>
                   </>
@@ -772,13 +785,21 @@ function Pull({
   fixing,
   onOpenPullRequest,
   onOpenJob,
+  focus,
 }: {
   pull: HubPull;
+  /** A branch another surface asked for, as an `Entry` takes it. */
+  focus?: string;
   /** The Job working on main's red, named on a pull request that waits for it. */
   fixing: HubJob | undefined;
   onOpenPullRequest: (url: string) => void;
   onOpenJob?: (jobId: string) => void;
 }) {
+  const row = useRef<HTMLLIElement>(null);
+  const focused = focus === pull.branch;
+  useEffect(() => {
+    if (focused) row.current?.scrollIntoView?.({ block: "center" });
+  }, [focused]);
   const queued = pull.queue === undefined ? undefined : QUEUE[pull.queue.state];
   const mark = queued ?? (pull.ci === undefined ? undefined : CI[pull.ci]);
   const Icon = mark?.reading?.icon ?? null;
@@ -789,7 +810,9 @@ function Pull({
   const position = pull.queue?.position;
   return (
     <li
+      ref={row}
       className="armada-merge-line__row"
+      aria-current={focused ? "true" : undefined}
       aria-label={said === undefined ? pull.branch : `${pull.branch}, ${said}`}
       tabIndex={0}
       data-merge-item=""

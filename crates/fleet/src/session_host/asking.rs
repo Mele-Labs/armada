@@ -99,18 +99,20 @@ where
             || match mode {
                 SessionMode::Ask | SessionMode::AcceptEdits => true,
                 SessionMode::Auto | SessionMode::Plan => {
-                    match because_in_a_session(&asking, &Self::directory_of(&served, &hosting)) {
+                    let held = self.held_directories(id, &served, &hosting);
+                    let held: Vec<&str> = held.iter().map(String::as_str).collect();
+                    match because_in_a_session(&asking, &held) {
                         Some(Because::ReachesOutside) => {
                             return Ok(RunOrNot::Deny {
                                 message: String::from(
-                                    "Refused: that reaches into the owner's own files outside your slot. Work inside your slot, /tmp, or a path under Armada's own folders.",
+                                    "Refused: that reaches into the owner's own files outside your slots. Work inside a slot you hold, /tmp, or a path under Armada's own folders.",
                                 ),
                             });
                         }
                         Some(Because::Destructive) => {
                             return Ok(RunOrNot::Deny {
                                 message: String::from(
-                                    "Refused: that removes or overwrites something outside your slot and /tmp. Do it inside your slot, or say in your reply what you need and why.",
+                                    "Refused: that removes or overwrites something outside the slots you hold and /tmp. Do it inside a slot you hold, or say in your reply what you need and why.",
                                 ),
                             });
                         }

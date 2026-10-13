@@ -256,6 +256,13 @@ fn pull(number: u64, ci: Option<HubPullCi>, queue: Option<HubQueue>) -> HubPullR
         ci,
         job: None,
         queue,
+        opened_at: None,
+        updated_at: None,
+        draft: false,
+        mergeable: None,
+        review: None,
+        additions: None,
+        deletions: None,
     }
 }
 

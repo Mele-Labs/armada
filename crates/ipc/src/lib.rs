@@ -324,9 +324,9 @@ pub use commander::{
     CommanderState, CommanderWoke,
 };
 pub use helm::{
-    AskHelm, Blank, Freshness, HelmAsked, HelmChangedCheckout, HelmClosed, HelmContext,
-    HelmConversation, HelmFresh, HelmMessage, HelmOpened, HelmScreen, HelmSilence, HelmText,
-    HelmUnanswered,
+    AskHelm, Blank, Freshness, HelmAsked, HelmBoxFacts, HelmChangedCheckout, HelmClosed,
+    HelmContext, HelmConversation, HelmFresh, HelmMessage, HelmOpened, HelmScreen, HelmSilence,
+    HelmText, HelmUnanswered, TuneHelm,
 };
 pub use thought::{
     HelmSent, HelmThoughtRouted, ReadThought, TellSession, ThoughtKind, ThoughtReading,
@@ -359,9 +359,9 @@ pub use ids::{
     CriterionId, DroneId, Instant, JobId, ManifestId, ProposalId, QuestionId, StepId, StudioEdgeId,
     StudioId, StudioNodeId, WorkflowId,
 };
-pub use issues::{IssueList, TrackedIssue};
+pub use issues::{IssueList, IssueRead, IssueState, TrackedIssue};
 pub use job::{
-    AttachmentRef, DependencyEdge, JobForgotten, JobList, JobRequest, JobSummary, Paused,
+    AttachmentRef, DependencyEdge, JobBay, JobForgotten, JobList, JobRequest, JobSummary, Paused,
     ProposeJob, ProposedCriterion, ProposedPlan, Redirection, Redispatched, RestartRequested,
     Subject, UnreadableJob,
 };
@@ -390,8 +390,8 @@ pub use manifest_proposal::{
     ProposedSetup, Provenance, StatedCaps, WriteManifestProposal,
 };
 pub use merge_hub::{
-    FixMain, FixesMain, FixesMainState, HubJob, HubMerged, HubPullCi, HubPullRequest, HubQueue, HubSession,
-    HubQueueState, MainChecking, MainCiState, MainFailedJob, MainMerge, MainRun, MainRunState,
+    FixMain, FixesMain, FixesMainState, HubJob, HubMergeable, HubMerged, HubPullCi, HubPullRequest, HubQueue, HubSession,
+    HubQueueState, HubReview, MainChecking, MainCiState, MainFailedJob, MainMerge, MainRun, MainRunState,
     MainStanding, MergeLineHub,
 };
 pub use merge_line::{
@@ -419,7 +419,10 @@ pub use proposing::{
     StopProposal,
 };
 pub use pull_requests::{
-    ForgeChecks, PullRequestStanding, PullRequestState, ReviewDispatched, ReviewPullRequest,
+    ForgeChecks, PullRequestCheckRow, PullRequestCheckState, PullRequestCommit, PullRequestEntry,
+    PullRequestFile, PullRequestFileStatus, PullRequestMergeable, PullRequestPage,
+    PullRequestReviewState, PullRequestStanding, PullRequestState, PullRequestVerdict,
+    PullRequestWriteKind, ReviewDispatched, ReviewPullRequest, WritePullRequest,
 };
 pub use raising::{CapRaise, RaisedBy, TurnRaise};
 pub use read_in::{

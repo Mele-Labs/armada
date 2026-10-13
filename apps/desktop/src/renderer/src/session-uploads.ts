@@ -3,8 +3,17 @@
 // is what a model can look at. Where the window has no canvas to draw on, the sketch goes as the
 // words in its boxes and the joins between them, so a sketch is never silently dropped.
 
-import type { SessionUpload } from "@armada/protocol";
-import type { DrawnSketch, SentFile, SessionSketch } from "@armada/screens/src/draft/sessions";
+import type { SessionTag as WireTag, SessionUpload } from "@armada/protocol";
+import type { DrawnSketch, SentFile, SessionSketch, SessionTag } from "@armada/screens/src/draft/sessions";
+
+/** A tag as the wire has it: an issue or a pull request carries the forge's address, a Job what the ledger needs of it. */
+export const wireTagOf = (tag: SessionTag): WireTag => ({
+  kind: tag.kind,
+  id: tag.id,
+  title: tag.title,
+  ...(tag.url === undefined ? {} : { url: tag.url }),
+  ...(tag.job === undefined || tag.job.slot === undefined ? {} : { job: { number: tag.job.number, branch: tag.job.branch, slot: tag.job.slot, state: tag.job.state } }),
+});
 
 /** Base64 of bytes, in slices so a large picture does not overflow the argument list. */
 export function base64Of(bytes: Uint8Array): string {

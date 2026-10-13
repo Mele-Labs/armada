@@ -179,7 +179,7 @@ export function talking<S extends PublishedCore & HelmState, A extends HelmApi>(
     says: "Helm pointed at a repository, with a reply given and one that never came",
     state: {
       ...connected(nothingYet, [JOB.job], JOB.workflows, [repository()]),
-      helm: { state: "open", manifestId: MANIFEST_ID, replying: false, skipped: 0, missed: 0, items: CONVERSATION },
+      helm: { state: "open", manifestId: MANIFEST_ID, replying: false, skipped: 0, missed: 0, items: CONVERSATION, facts: {} },
     },
     reads: { [JOB.job.id]: JOB },
     // `A` is the app's whole API, so the one member this answers is narrowed to it by hand.

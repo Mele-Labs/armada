@@ -172,6 +172,7 @@ const NOTE = "# Store clock\n\nThe store reads the clock once per write.\n\n- Pi
 const RUN_OUTPUT: readonly (readonly [string, readonly string[]])[] = [
   ["typecheck", ["> @armada/desktop typecheck", "> tsc --noEmit -p tsconfig.web.json", "Found 0 errors."]],
   ["vitest", ["RUN  v3.2.4 packages/components", "✓ Prose.test.tsx (14)", "✗ SessionThread.test.tsx (1)", "AssertionError: expected 3 to equal 4", "Tests  1 failed | 41 passed"]],
+  ["lsof", ["Stopping the server on 5788", "pid 41822 ended", "Port 5788 is free"]],
   ["tail -f", ["build.log: compiling", "build.log: 212 modules"]],
 ];
 const RUN_DEFAULT = ["done"];

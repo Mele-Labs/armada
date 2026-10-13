@@ -284,6 +284,21 @@ pub enum SlotHolding {
     /// A process outside Fleet, as `ps` names it: `zsh (pid 4120)`.
     Session {
         holder: String,
+        /// The Session Fleet hosts whose agent, or something it started, this
+        /// process is: a subagent's bay names the Session it began from.
+        /// Absent for a terminal Fleet does not host.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        session_id: Option<String>,
+        /// That Session's title, where it has one.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        session_title: Option<String>,
+    },
+    /// A Session Fleet hosts, holding the slot under its own id. Not a Job,
+    /// and nothing a Job's acts apply to.
+    HostedSession {
+        session_id: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        session_title: Option<String>,
     },
     /// Its holder is gone and it still holds work.
     Stranded {
