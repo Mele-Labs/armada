@@ -151,7 +151,7 @@ pub(super) async fn working(fleet: &Hosted, home: &TempDir, title: &str) -> JobI
     job.id().clone()
 }
 
-async fn resolved(fleet: &Hosted, job: &JobId) -> api::Resolved {
+pub(super) async fn resolved(fleet: &Hosted, job: &JobId) -> api::Resolved {
     let record = fleet.load(job).await.expect("the Job reads");
     api::Resolved::of(ipc::JobId::from(job), record.handle())
 }

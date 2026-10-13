@@ -149,6 +149,9 @@ export type JobSummary = {
    * other. It comes from the working slot, so it is false on every summary
    * built where no slot was in hand, which is every event publish — correct
    * rather than a gap, since `job.asking` says a question exists.
+   *
+   * **A card the job's Commander has out to the owner reads here too** (#2166): it waits on a
+   * person as a Drone's question does, and the detail's `commander_card` carries it.
    */
   asking?: boolean;
   /**

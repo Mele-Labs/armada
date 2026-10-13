@@ -17,7 +17,7 @@ use axum::extract::{Query, State};
 use axum::http::StatusCode;
 use axum::response::Response;
 use ipc::{
-    AskCommander, AskHelm, AskingToRun, CommanderMessage, CommanderOpened, HelmMessage,
+    AnswerCommanderCard, AskCommander, AskHelm, AskTheOwner, AskingToRun, CommanderMessage, CommanderOpened, HelmMessage,
     HelmOpened, ManifestId, Missed, ProtocolId, ReadThought, TellSession, ThoughtSent,
 };
 use tokio::sync::broadcast;
@@ -399,6 +399,49 @@ pub(crate) async fn observe_commander<D: Conversations>(
 ) -> Response {
     match served.daemon().observe_commander(job).await {
         Ok(observed) => upgrade.on_upgrade(move |socket| relay_commander(socket, observed)),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// A Commander puts a card to the owner. **Only a Commander can**: the door
+/// places one by its connection, and a call that is not from one is refused,
+/// so the card is never a person's or Helm's to write. 200 with the card as it
+/// stands; he answers it at his own pace.
+pub(crate) async fn ask_the_owner<D: Conversations>(
+    State(served): State<Served<D>>,
+    job: crate::reference::Resolved,
+    commander: Option<axum::Extension<crate::placed::CommanderCalled>>,
+    body: Bytes,
+) -> Response {
+    if commander.is_none() {
+        return refused(crate::Refusal::IllegalMove(ipc::WireError::raised(
+            "api.only_a_commander_asks_the_owner",
+            "only a Job's Commander puts a card to the owner",
+            served.run_id().clone(),
+        )));
+    }
+    let asked: AskTheOwner = match ipc::decode("a card to the owner", &body) {
+        Ok(asked) => asked,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().ask_the_owner(job, asked).await {
+        Ok(card) => answer(StatusCode::OK, &card, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// The owner's pick on a Job's Commander's card, which wakes the Commander.
+pub(crate) async fn answer_commander_card<D: Conversations>(
+    State(served): State<Served<D>>,
+    job: crate::reference::Resolved,
+    body: Bytes,
+) -> Response {
+    let picked: AnswerCommanderCard = match ipc::decode("an answer to a card", &body) {
+        Ok(picked) => picked,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().answer_commander_card(job, picked).await {
+        Ok(answered) => answer(StatusCode::OK, &answered, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }

@@ -24,7 +24,7 @@ import type { PlanUsage } from "./plan-usage";
 import type { SleepState } from "./sleep";
 import type { TimelineAppended } from "./timeline";
 import type { Autopilot } from "./autopilot";
-import type { CommanderChanged } from "./commander";
+import type { CommanderCardChanged, CommanderChanged } from "./commander";
 import type { SessionRecord } from "./sessions";
 import type { RepositoryList } from "./setup";
 import type { Studio, StudioDeleted, StudioHelmActed } from "./studio";
@@ -120,6 +120,8 @@ export type Event =
   | ({ kind: "plan_usage.changed" } & PlanUsage)
   /** A Job's Commander started or finished a turn. #2166. */
   | ({ kind: "commander.changed" } & CommanderChanged)
+  /** A Job's card to the owner went out, or the one out was answered. #2166. */
+  | ({ kind: "commander.card" } & CommanderCardChanged)
   /** Fleet kept one entry for the timeline; a client holding a window appends it. Since 23.82. */
   | ({ kind: "timeline.appended" } & TimelineAppended);
 

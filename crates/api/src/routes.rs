@@ -631,6 +631,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(crate::commands::set_review_model::<D>),
         )
         .route(
+            "/jobs/:job_id/set_commander_model",
+            post(crate::commands::set_commander_model::<D>),
+        )
+        .route(
             "/jobs/:job_id/set_tiers",
             post(crate::commands::set_tiers::<D>),
         )
@@ -667,6 +671,14 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route(
             "/jobs/:job_id/commander/ask",
             post(crate::conversing::ask_commander::<D>),
+        )
+        .route(
+            "/jobs/:job_id/commander/card",
+            post(crate::conversing::ask_the_owner::<D>),
+        )
+        .route(
+            "/jobs/:job_id/commander/card/answer",
+            post(crate::conversing::answer_commander_card::<D>),
         )
         .route("/helm/debug", get(get_helm_debug_info::<D>))
         .route("/helm/start_fresh", post(start_helm_fresh::<D>))

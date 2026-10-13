@@ -1111,6 +1111,15 @@ where
         self.summarised(&job).await
     }
 
+    /// The model and effort this Job's Commander runs on. `job_settings` has it. #2166.
+    async fn set_commander_model(
+        self: Arc<Self>,
+        job_id: JobId,
+        choice: ipc::SetCommanderModel,
+    ) -> Result<JobSummary, Refusal> {
+        self.commander_model_chosen(job_id, choice).await
+    }
+
     /// Which model each tier of this Job's tasks runs on. `task_edits` has it.
     async fn set_tiers(
         self: Arc<Self>,

@@ -999,6 +999,23 @@ pub(crate) async fn set_review_model<D: Commands>(
     }
 }
 
+/// Choose the model and effort this Job's Commander runs on, or clear either.
+/// **The Job comes back unchanged**: the next turn reads it. #2166.
+pub(crate) async fn set_commander_model<D: Commands>(
+    State(served): State<Served<D>>,
+    job: Resolved,
+    body: Bytes,
+) -> Response {
+    let choice: ipc::SetCommanderModel = match ipc::decode("a Commander model choice", &body) {
+        Ok(choice) => choice,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().set_commander_model(job.id(), choice).await {
+        Ok(job) => answer(StatusCode::OK, &job, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// Set which model each tier of this Job's tasks runs on, the whole map at
 /// once. **The Job comes back unchanged**: the next spawn reads it. Spike 022,
 /// slice 3.

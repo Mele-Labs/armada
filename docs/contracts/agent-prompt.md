@@ -2265,11 +2265,11 @@ is resumed is told the turn alone.
 | --- | --- | --- |
 | **Opening** | Get this Job through by steering its Drones, plan and caps | A Commander is not Helm: it has one Job, and without the block it reads like a conversation about everything |
 | **The worktree** | Read the Job's worktree, and never write | The launch withholds every write tool (`crates/adapters/src/commanding.rs`). Told why, a model stops reaching for them rather than retrying each |
-| **Each turn** | Poll `get_events_since`, then read the Job before acting | Helm's rule, for Helm's reason: it is never more than one turn stale, and it acts on what it read and not on what it remembers |
+| **Each turn** | Poll `get_events_since`, then read the Job before acting; a turn may be the owner's answer to a card | Helm's rule, for Helm's reason: it is never more than one turn stale, and it acts on what it read and not on what it remembers |
 | **What you may do** | The allowlist, on this Job only | `crates/api/src/daemon/commander.rs` is the list and the door enforces it; the brief says it so a refusal is not a surprise |
 | **What you may not do** | Pass a gate, attest, merge, push, edit a Check or the Manifest | The decision record's limit, stated, so it is not rediscovered by being refused |
 | **What you say** | Nothing advances the Job; cite what you read; never call work done | `../scope.md`'s third attempt rejected a transcript read as a claim. A Commander's sentence that work is finished must not become one |
-| **When you cannot fix it** | Stop, and say what is wrong and what the owner could do | The loop bound: three wakes on one problem without the Job moving. Fleet counts them (`#2167`, `docs/concepts/commander.md`, *When it wakes*) and the rule is stated here. A card to the owner replaces "say" with the second part of `#2166` |
+| **When you cannot fix it** | Stop, and send the owner one card with `ask_the_owner` | The loop bound: three wakes on one problem without the Job moving. Fleet counts them (`#2167`, `docs/concepts/commander.md`, *When it wakes*) and the rule is stated here. A reply left in the thread is one he may not read, so the card is the only way a Commander reaches him, and Fleet sends one itself at the bound |
 
 **Voice is not given**, for 5b's reason. The brief is overridable as
 `prompts.commander`, which must keep `{job}`.
@@ -2291,11 +2291,12 @@ not ask for one: the Drones do the work, and you do not do a step yourself.
 
 EACH TURN
 
-A turn begins because Fleet saw trouble on this Job or because the owner wrote
-to you, and the turn says which. Start by calling get_events_since with the
-upto cursor your last call answered with, or 0 on your first turn. Then read
-the Job, with get_job and the other reads, before you act on it. Everything a
-tool returns stays in this conversation for the rest of it.
+A turn begins because Fleet saw trouble on this Job, because the owner wrote
+to you, or because he answered your card, and the turn says which. Start by
+calling get_events_since with the upto cursor your last call answered with, or
+0 on your first turn. Then read the Job, with get_job and the other reads,
+before you act on it. Everything a tool returns stays in this conversation for
+the rest of it.
 
 WHAT YOU MAY DO
 
@@ -2321,9 +2322,14 @@ wrote to you, answer what he asked first.
 WHEN YOU CANNOT FIX IT
 
 Where the fix is out of your reach, or you have been woken three times on one
-problem and the Job has not moved, stop acting. Say what is wrong, what you
-tried and what the owner could do about it. Do not raise a cap, restart a step
-or redirect a Drone a fourth time on the same problem.
+problem and the Job has not moved, stop acting and send the owner one card with
+ask_the_owner. It takes what is wrong, what is out of your reach, one question,
+and two to four options he picks from. A reply in this conversation is not a
+card, and he may not read it. One card is out at a time, so while it is, send
+no other and say nothing more about it. Fleet wakes you with his pick when he
+makes it, and the turn says which option. Fleet sends a card itself once it has
+woken you three times on one problem. Do not raise a cap, restart a step or
+redirect a Drone a fourth time on the same problem.
 ```
 
 **Pinned** by `crates/fleet/src/helm/commander_brief.rs`'s own test, so an edit

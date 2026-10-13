@@ -25,7 +25,7 @@ use ipc::door::{self, Answer, Answered, Asked, Reachable, Shape};
 use ipc::ManifestId;
 use tower::ServiceExt;
 
-use crate::daemon::{offerable, Admitting, Queries};
+use crate::daemon::{offerable_to_a_commander, Admitting, Queries};
 use crate::placed::Placed;
 use crate::routes::SERVED;
 use crate::scoped::InManifest;
@@ -225,7 +225,7 @@ async fn called<D: Queries + Admitting>(
     // than answered as a tool that does not exist.
     let shapes = match placed.is_narrowed() {
         false => offered(),
-        true => shaped(offerable()),
+        true => shaped(offerable_to_a_commander()),
     };
     let answered = match door::read(&body, &shapes) {
         Asked::Nothing => return StatusCode::ACCEPTED.into_response(),

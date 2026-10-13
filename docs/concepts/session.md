@@ -576,6 +576,7 @@ While it is on, a pass over every live session's waiting items (`crates/fleet/sr
 | A Job that escalates on a stall, silence, loop, failed gate, unanswered ask, or a refused hatch, scope or evidence, with a title that is not destructive | Told to decide for itself, once, with the owner's own act: a redirect to its Drone, or a restart of the step with the same words where the Drone is gone. Recorded under decided. |
 | A Job that escalates because its Drone or run ended, was not heard, would not start, was not prepared, or its gate or proposer gave no answer, with a title that is not destructive | Its step restarted once, with no words (an undecided gate is run again instead). Recorded under decided; one with no stopped step to restart is recorded under blocked with the reason; if it escalates again the same night it stays as it is. |
 | Any other escalation, or a destructive title | Recorded under blocked. |
+| A card a Job's Commander has out to the owner (`commander.md`, *The card*), whether it went out before the night or during it | Never answered, and the Commander is not woken to answer it. Recorded under blocked, once, as *Commander asks, waiting on you*. |
 
 **The review is cards in the Cockpit's call deck**, not a panel of its own: each decided row is a call. Enter keeps it (`review_sleep`), and typing a change sends it to the agent (`override_sleep`). Either marks the row reviewed, and `get_sleep` leaves a reviewed row out of `decided`. Blocked and walk rows are already calls: escalated Jobs and waiting items.
 

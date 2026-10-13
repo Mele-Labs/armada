@@ -10,7 +10,7 @@
 //! | Seam | Here | Filled by |
 //! |---|---|---|
 //! | A reason to wake it | [`Fleet::wake_commander`] | `crate::commanding_wakes` (`#2167`), which decides when |
-//! | A card that outlives a turn | none yet | `#2166`, second part |
+//! | A card that outlives a turn | `Fleet::commander_card_raised` | `commander_card.rs` (`#2166`) |
 //! | A repair Drone | none | `#2170` |
 
 use std::sync::{Arc, Mutex};
@@ -243,7 +243,7 @@ where
     ) -> Result<(), String> {
         let record = self.load(job).await.map_err(|why| why.to_string())?;
         let directory = self.commander_directory(&record)?;
-        let model = self.tuned(|dials| dials.commander_model.clone());
+        let model = self.commander_model_for(job).await;
         let prompts = self.prompts();
         let named = format!("{} \"{}\"", record.handle(), record.title().as_str());
         self.turn_carried(

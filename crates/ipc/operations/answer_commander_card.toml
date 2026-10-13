@@ -1,0 +1,14 @@
+[operations.answer_commander_card]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "The owner picks one of the options on a Job's Commander's card, which wakes the Commander with his pick"
+notes = """
+The other half of `ask_the_owner`, as `answer_question` is of a Drone's. The body is the card's id and the option's id, and carries no prose. #2166.
+
+**It records the pick and wakes the Commander with it.** The wake is `Fleet::wake_commander` with the answer as its reason, in a line the thread shows as a `woke` row: the question, and the label he picked. The answer is kept before the wake is made, so a Commander that cannot start leaves the card answered and the Job's log naming why; the answer says `woke: false`.
+
+**The id is what makes a stale answer a refusal**: a card that is not the one out (answered already, or a newer one has replaced it) is a 409, and so is an option the card never offered. Nothing is kept on either.
+
+`agent_access` is `No`, `ask_commander`'s reason and with more force: the pick is the owner's, and a Commander that could answer its own card would have asked nobody.
+"""

@@ -48,6 +48,22 @@ where
         self.commander_observed(job).await
     }
 
+    async fn ask_the_owner(
+        self: Arc<Self>,
+        job: api::Resolved,
+        asked: ipc::AskTheOwner,
+    ) -> Result<ipc::CommanderCard, Refusal> {
+        self.commander_card_raised(job, asked).await
+    }
+
+    async fn answer_commander_card(
+        self: Arc<Self>,
+        job: api::Resolved,
+        answered: ipc::AnswerCommanderCard,
+    ) -> Result<ipc::CommanderCardAnswered, Refusal> {
+        self.commander_card_answered(job, answered).await
+    }
+
     async fn ask_commander(
         self: Arc<Self>,
         job: api::Resolved,

@@ -224,6 +224,9 @@ pub enum Event {
     // A Job's Commander started or finished a turn. `#2166`.
     #[serde(rename = "commander.changed")]
     CommanderChanged(crate::commander::CommanderChanged),
+    // A Job's card to the owner went out, or the one out was answered. `#2166`.
+    #[serde(rename = "commander.card")]
+    CommanderCard(crate::commander_card::CommanderCardChanged),
     // One entry Fleet just kept for the timeline. Since 23.82.
     #[serde(rename = "timeline.appended")]
     TimelineAppended(TimelineAppended),

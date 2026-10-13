@@ -10,6 +10,7 @@ mod asking;
 mod brief;
 pub(crate) mod commander_brief;
 mod commander;
+mod commander_card;
 mod conversation;
 mod deciding;
 mod hosting;

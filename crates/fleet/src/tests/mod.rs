@@ -103,6 +103,7 @@ mod helm_conversation;
 mod helm_routing;
 mod helm_telling;
 mod helm_deciding;
+mod commander_card;
 mod commander_conversation;
 mod commanding_wakes;
 mod commander_door;

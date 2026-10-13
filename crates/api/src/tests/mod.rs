@@ -12,6 +12,7 @@
 /// Who the listener answers at all: a page in a browser, and everything that
 /// is not one.
 mod callers;
+mod commander_card;
 mod commander_reach;
 mod commander_scope;
 mod conversing;

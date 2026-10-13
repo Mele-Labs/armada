@@ -69,6 +69,45 @@ impl Conversations for FakeDaemon {
         })
     }
 
+    async fn ask_the_owner(
+        self: Arc<Self>,
+        job: crate::reference::Resolved,
+        asked: ipc::AskTheOwner,
+    ) -> Result<ipc::CommanderCard, Refusal> {
+        Ok(ipc::CommanderCard {
+            card_id: ipc::CardId::carried("01CARD"),
+            job_id: job.id(),
+            by: ipc::CardBy::Commander,
+            raised_at: Instant::carried("2026-10-13T09:00:00.000Z"),
+            text: asked.text.as_str().to_string(),
+            reach: asked.reach.as_str().to_string(),
+            question: asked.question.as_str().to_string(),
+            options: asked
+                .options
+                .labels()
+                .iter()
+                .enumerate()
+                .map(|(at, label)| ipc::CardOption {
+                    id: (at + 1).to_string(),
+                    label: label.clone(),
+                })
+                .collect(),
+        })
+    }
+
+    async fn answer_commander_card(
+        self: Arc<Self>,
+        job: crate::reference::Resolved,
+        answered: ipc::AnswerCommanderCard,
+    ) -> Result<ipc::CommanderCardAnswered, Refusal> {
+        Ok(ipc::CommanderCardAnswered {
+            job_id: job.id(),
+            card_id: answered.card_id,
+            option_id: answered.option_id,
+            woke: true,
+        })
+    }
+
     async fn ask_commander(
         self: Arc<Self>,
         job: crate::reference::Resolved,
