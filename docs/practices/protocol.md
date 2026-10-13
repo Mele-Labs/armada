@@ -946,7 +946,7 @@ cannot work.
 
 ## Protocol 13.44: Helm puts an approval card in front of the person
 
-`ask_person_to_approve`, additive: a new command, `POST /jobs/:job_id/ask_person_to_approve`, answering `AskedApproval { job_id, handle }`. `agent_access = "Drafts only"`, the door offers it to a Helm session alone (#1041). It writes nothing — `Resolved` already turns a Job id that names nothing into the ordinary 404, and past that the route hands the id and handle back untouched. `approve_dispatch` stays `agent_access = "No"` for every agent; this only names which Job a card is for, and the person's own press on it is still what releases the Job. **Since Helm became a Session the dock draws no such card**: the call is a tool line in the Helm Session's thread, and the Job's own approval gate is where the person presses.
+`ask_person_to_approve`, additive: a new command, `POST /jobs/:job_id/ask_person_to_approve`, answering `AskedApproval { job_id, handle }`. `agent_access = "Drafts only"`, the door offers it to a Helm session alone (#1041). It writes nothing — `Resolved` already turns a Job id that names nothing into the ordinary 404, and past that the route hands the id and handle back untouched. `approve_dispatch` stays `agent_access = "No"` for every agent; this only names which Job a card is for, and the person's own press on it is still what releases the Job. **Since Helm became a Session the card is drawn from the call's tool row** in the Helm Session's thread (`ask_person_to_approve <job id>`, the tool name prefixed by the server), and nothing new crosses the wire: the Job's facts and whether its gate still waits are the Board's, and the press is `approve_dispatch`.
 
 ## Protocol 13.45: a Drone's own run of the Checks, shown as it runs
 

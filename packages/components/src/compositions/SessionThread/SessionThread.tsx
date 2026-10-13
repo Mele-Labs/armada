@@ -9,6 +9,8 @@ import { Card } from "../../primitives/Card/Card";
 import { Prose, ProseCommand, ProseRefs, ProseRunner } from "../../primitives/Prose/Prose";
 import type { CodeRunner } from "../../primitives/Prose/Prose";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
+import { ApprovalCard } from "../HelmThread/ApprovalCard";
+import type { HelmApprovalCard } from "../HelmThread/ApprovalCard";
 import { SentTo } from "../HelmThread/SentTo";
 import type { ThoughtTarget } from "../ThoughtCard/ThoughtCard";
 import { SessionMark } from "../SessionFrame/SessionFrame";
@@ -60,6 +62,8 @@ export type SessionThreadRow =
       sketches?: readonly { id: string; title: string }[];
       tags?: readonly ComposerTag[];
     }
+  /** Helm's `ask_person_to_approve` call, drawn as the card that asks for the press on that Job's gate. */
+  | { id: string; at: string; kind: "approval"; card: HelmApprovalCard }
   /** A tool call, mono. `fromPhone` is an ask the person answered on their phone: a glyph beside it. */
   | { id: string; at: string; kind: "tool"; text: string; fromPhone?: true }
   /** Fleet woke the agent, and why: a quiet row where the turn it started begins. */
@@ -543,6 +547,13 @@ function Row({
           <AppWindow size={12} strokeWidth={2} aria-hidden />
           {row.title}
         </button>
+      </li>
+    );
+  }
+  if (row.kind === "approval") {
+    return (
+      <li role="region" aria-label="Approval asked for">
+        <ApprovalCard {...row.card} />
       </li>
     );
   }

@@ -442,6 +442,8 @@ export function App({ draft }: AppProps = {}) {
     goes: { onOpenJob: setOpenJob, onGoTo: goTo, onOpenLink: openProseLink, onOpenCheck: (sessionId, run) => asked.setCheckFocus(sessionCheckId(sessionId, run)) },
     held: { held: state.held, onWant: readHeld },
     board: state.jobs,
+    workflows: state.holds.workflows,
+    onApprove: commands.approve,
     lines: state.mergeLines,
     settings: state.settings,
     openSession,

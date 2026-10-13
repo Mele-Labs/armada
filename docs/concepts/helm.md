@@ -113,7 +113,7 @@ Helm may call any command it is offered, and the machine's authority setting dec
 
 **Permission is the Session's Auto gate.** A call runs unless it reaches into your own files outside the slots the Session holds, or removes or overwrites something outside them and `/tmp`; those are refused with the reason, which the agent reads. A question the agent asks is put to you as a card, as a Session's is. **A push runs**: Auto does not classify it, so `git push` and `gh pr merge` are not stopped here. The three classes Helm used to ask about (destructive, pushes to a shared space, writes off this machine) and their card are gone for the dock, and so is the 5-minute silence that refused. A Commander still has no person to ask and keeps its own launch.
 
-**The acts that stay a person's are the door's, not the gate's.** `ask_person_to_approve` asks for a person's press and decides nothing. The dock draws it as a tool line in the thread, not as a card; the press itself is on the Job's approval gate. Raising a cap is bounded by connection, below.
+**The acts that stay a person's are the door's, not the gate's.** `ask_person_to_approve` asks for a person's press and decides nothing. The dock draws the call as a card in the thread, built from the tool row and the Board: the Job's handle, its workflow and steps, Approve and Not now. Approve is the press on the Job's approval gate, and the card reads from the Board that it was answered, here or on the Job. The look is the walk `helm-approve-card`. Raising a cap is bounded by connection, below.
 
 | Rung | Action | Helm directly? |
 | --- | --- | --- |
