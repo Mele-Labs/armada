@@ -54,15 +54,6 @@
   overflow-wrap: anywhere;
 }
 
-/* Take B: no box. The prose stands in the panel's own column behind a rule in the status hue. */
-.armada-pr-panel__description[data-take="prose"] {
-  padding: 0 0 0 var(--space-3);
-  border: 0;
-  border-inline-start: calc(var(--border-width) * 3) solid var(--hue);
-  border-radius: 0;
-  background: transparent;
-}
-
 .armada-pr-panel__open {
   margin-inline-start: auto;
 }

@@ -52,8 +52,6 @@ export type PullRequestPanelProps = {
   onClose: () => void;
   /** What its author wrote of it, as Markdown. Absent or blank draws nothing. */
   body?: string;
-  /** How the description is drawn while two takes are walked: a plate, or bare prose under a rule. */
-  descriptionTake?: "plate" | "prose";
   /** What Fleet refused, or anything else the host holds for the body. */
   children?: ReactNode;
 };
@@ -85,7 +83,6 @@ export function PullRequestPanel({
   onOpenLink,
   onClose,
   body,
-  descriptionTake = "plate",
   children,
 }: PullRequestPanelProps) {
   const pill = PILL[state === "merged" ? "merged" : queued ? "queued" : state];
@@ -129,14 +126,12 @@ export function PullRequestPanel({
         {floor ? <div className="armada-pr-plates">{plates}</div> : null}
         {children}
         {description === "" ? null : (
-          <section className="armada-pr-plate armada-pr-panel__description" data-take={descriptionTake} data-tone={tone} aria-label="Description">
-            {descriptionTake === "plate" ? (
-              <Tooltip label="Description">
-                <span className="armada-pr-plate__eyebrow" role="img" aria-label="Description">
-                  <FileText size={16} strokeWidth={2} aria-hidden />
-                </span>
-              </Tooltip>
-            ) : null}
+          <section className="armada-pr-plate armada-pr-panel__description" data-tone={tone} aria-label="Description">
+            <Tooltip label="Description">
+              <span className="armada-pr-plate__eyebrow" role="img" aria-label="Description">
+                <FileText size={16} strokeWidth={2} aria-hidden />
+              </span>
+            </Tooltip>
             <Prose text={description} />
           </section>
         )}

@@ -85,7 +85,6 @@ export function SessionPullRequest({
       address={one.address}
       {...(repository === undefined ? {} : { repository })}
       {...(description === "" ? {} : { body: description })}
-      descriptionTake={new URLSearchParams(window.location.search).get("take") === "prose" ? "prose" : "plate"}
       state={one.state}
       checks={one.checks.state === "failed" ? { state: "failed", failing: failingOf(one) } : { state: one.checks.state }}
       auto={one.auto}
