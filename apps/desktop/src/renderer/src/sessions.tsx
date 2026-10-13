@@ -56,6 +56,7 @@ import { readRetro } from "./commands";
 import { ArtifactBody, ARTIFACT_GLYPH, isAddress } from "./session-artifact";
 import { isUnsentItem, linkEntry, unsentEntry, useStartedBy } from "./session-started";
 import { forkAtPick, threadRowsFrom, threadRowsOf, upTo } from "./session-thread-rows";
+import { useMinimized } from "./session-ledger-minimized";
 import { helmOfferedOf } from "@armada/screens/src/copy";
 import { attachmentsOf, isBlank, ownerOf, sessionsMatching } from "@armada/screens/src/draft/sessions";
 import type { ChipRef, DrawnSketch, PullRequestAct, Session, SessionAnswer, SessionAttachment, SessionMode, SessionsDraft, SessionTag, SubagentThread as Subagent } from "@armada/screens/src/draft/sessions";
@@ -799,28 +800,6 @@ function entriesOf(
 export type HeldReads = { held: HeldWorktrees; onWant: (want: boolean) => void };
 
 /** One Session open: its conversation in the middle and what it holds at the side, one panel. */
-/** Whether the ledger is hidden beside the thread, kept for the window. A viewer's convenience, so a blocked store only forgets it. */
-function useMinimized(): [boolean, (minimized: boolean) => void] {
-  const [minimized, set] = useState(() => {
-    try {
-      return localStorage.getItem("armada.session-ledger.minimized") === "1";
-    } catch {
-      return false;
-    }
-  });
-  return [
-    minimized,
-    (next) => {
-      set(next);
-      try {
-        localStorage.setItem("armada.session-ledger.minimized", next ? "1" : "0");
-      } catch {
-        // Not kept: the ledger is as it was left until the window closes.
-      }
-    },
-  ];
-}
-
 const NO_SKETCHES: DrawnSketch[] = [];
 const NO_JOBS: JobSummary[] = [];
 const NO_ROWS: SessionThreadRow[] = [];
