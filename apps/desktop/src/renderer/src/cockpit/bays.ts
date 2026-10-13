@@ -53,13 +53,7 @@ export type PullHolder = Owner & { item: Item | undefined; trail: WorkTrail | un
  * `undefined`, so a Fleet without the field falls back to when the Job started.
  */
 function staysOf(job: JobSummary): BayStay[] | undefined {
-  const wire = (job as JobSummary & { bays?: unknown }).bays;
-  if (!Array.isArray(wire)) return undefined;
-  const stays = wire.flatMap((one: unknown): BayStay[] => {
-    const stay = one as { slot?: unknown; since?: unknown; until?: unknown } | null;
-    if (typeof stay?.since !== "string") return [];
-    return [{ ...(typeof stay.slot === "number" ? { slot: stay.slot } : {}), from: stay.since, ...(typeof stay.until === "string" ? { until: stay.until } : {}) }];
-  });
+  const stays = (job.bays ?? []).map((stay): BayStay => ({ slot: stay.slot, from: stay.since, ...(stay.until === undefined ? {} : { until: stay.until }) }));
   return stays.length === 0 ? undefined : stays;
 }
 

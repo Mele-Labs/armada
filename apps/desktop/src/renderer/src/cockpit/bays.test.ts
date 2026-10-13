@@ -145,7 +145,6 @@ describe("the trail behind a pull request", () => {
 
   test("a Job whose row names no stays was in a bay from when it started", () => {
     expect(trailOf([owned])?.trail).toEqual({ began: "2026-10-13T08:00:00Z", bays: [{ from: "2026-10-13T08:10:00Z" }] });
-    expect(trailOf([{ ...owned, bays: [{ slot: 1 }, "x", null] }])?.trail?.bays).toEqual([{ from: "2026-10-13T08:10:00Z" }]);
     expect(trailOf([{ ...owned, started_at: undefined }])?.trail).toEqual({ began: "2026-10-13T08:00:00Z" });
   });
 
