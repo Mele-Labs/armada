@@ -3,6 +3,7 @@ import { Clock, ExternalLink, GitMerge, GitPullRequest } from "lucide-react";
 
 import { Badge } from "../../primitives/Badge/Badge";
 import { Button } from "../../primitives/Button/Button";
+import { Prose } from "../../primitives/Prose/Prose";
 import { Sheet } from "../../primitives/Sheet/Sheet";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import type { PlaceRow } from "../MergeLine/MergeLine";
@@ -17,7 +18,7 @@ import { PullRequestPlates, type PullRequestChecks } from "./PullRequestPlates";
  *
  * **Drawn only from what Fleet serves** (`PullRequestState`, the merge line): no tabs, comment box,
  * approvals, conflicts, estimates, authors or per-check timings, and an absent fact leaves its slot
- * empty. At the window floor the plates are the panel's own first rows, since nothing is left
+ * empty. The description is the last thing in the body, drawn as Markdown. At the window floor the plates are the panel's own first rows, since nothing is left
  * beside it.
  */
 export type PullRequestPanelProps = {
@@ -49,6 +50,8 @@ export type PullRequestPanelProps = {
   sentBack?: boolean;
   onOpenLink: (address: string) => void;
   onClose: () => void;
+  /** What its author wrote of it, as Markdown. Absent or blank draws nothing. */
+  body?: string;
   /** What Fleet refused, or anything else the host holds for the body. */
   children?: ReactNode;
 };
@@ -79,10 +82,12 @@ export function PullRequestPanel({
   sentBack = false,
   onOpenLink,
   onClose,
+  body,
   children,
 }: PullRequestPanelProps) {
   const pill = PILL[state === "merged" ? "merged" : queued ? "queued" : state];
   const plates = <PullRequestPlates state={state} checks={checks} auto={auto} queued={queued} {...(place === undefined ? {} : { place })} onOpenPullRequest={onOpenLink} />;
+  const description = body?.trim() ?? "";
   const sendBack = onSendBack !== undefined && checks.state === "failed" && state !== "merged";
   return (
     <Sheet
@@ -127,6 +132,11 @@ export function PullRequestPanel({
         </div>
         {floor ? <div className="armada-pr-plates">{plates}</div> : null}
         {children}
+        {description === "" ? null : (
+          <div className="armada-pr-panel__description">
+            <Prose text={description} />
+          </div>
+        )}
       </div>
     </Sheet>
   );

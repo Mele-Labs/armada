@@ -24,6 +24,8 @@ export type SessionAttachment =
       title: string;
       branch: string;
       address: string;
+      /** What its author wrote of it, as Markdown. Absent where there is none. */
+      body?: string;
       checks: SessionChecks;
       /** A draft is not ready for review; a merged one has landed. */
       state: SessionPullRequestState;

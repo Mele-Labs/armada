@@ -60,9 +60,17 @@ const holder = () => {
     ...one,
     attachments: [
       ...one.attachments.filter((it) => it.kind !== "pull_request"),
-      attached(2209, "Open pull requests in Armada", "claude/pr-panel-redesign", { queued: true }),
-      attached(2210, "Show the merge line in a Session", "feat/session-merge-line", {}),
-      attached(2213, "Read write clashes from Fleet", "feat/write-clash-read", { checks: { state: "failed", failing: "test · bridge, verify-foundations" } }),
+      attached(2209, "Open pull requests in Armada", "claude/pr-panel-redesign", {
+        queued: true,
+        body: "Pull request links open the same way everywhere, behind a setting: in Armada or in the browser.\n\nReplaces the card in the Session reading sheet with a full panel.",
+      }),
+      attached(2210, "Show the merge line in a Session", "feat/session-merge-line", {
+        body: "Shows where a Session's pull request stands in the merge line.\n\n- reads `placeOf` from the merge lines Fleet serves\n- draws nothing when the pull request is not in one",
+      }),
+      attached(2213, "Read write clashes from Fleet", "feat/write-clash-read", {
+        body: "Two Sessions writing the same file now say so before either merges.\n\nThe clash is read from `git merge-tree`, not guessed from the paths.",
+        checks: { state: "failed", failing: "test · bridge, verify-foundations" },
+      }),
     ],
   };
 };

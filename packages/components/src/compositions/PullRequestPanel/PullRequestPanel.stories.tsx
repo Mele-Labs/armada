@@ -55,6 +55,13 @@ export const InTheMergeQueue: Story = {
 /** Every check passed: the Merge act and the status plate alone. */
 export const ReadyToMerge: Story = {};
 
+/** The description its author wrote, drawn as Markdown at the end of the body. */
+export const WithADescription: Story = {
+  args: {
+    body: "Pull request links open the same way everywhere, behind a setting: in Armada or in the browser.\n\n- `links.openPullRequestsIn` picks which\n- Open in browser stays on the panel",
+  },
+};
+
 /** The forge's checks failed: the failing plate names them, and Send back tells the Session. */
 export const ChecksFailed: Story = {
   args: { checks: { state: "failed", failing: ["test · bridge", "verify-foundations"] }, onSendBack: fn() },

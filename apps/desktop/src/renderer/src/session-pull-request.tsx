@@ -20,6 +20,9 @@ export const repositoryOf = (address: string): string | undefined => {
   }
 };
 
+/** A description without the HTML comments a forge's template leaves for its author: Prose would draw them as characters. */
+const promptsOut = (body: string | undefined): string => (body ?? "").replace(/<!-{2}[\s\S]*?-{2}>/g, "").trim();
+
 /** The failing checks' names: Fleet serves them as one string, joined with a comma and a space. */
 const failingOf = (one: PullRequest): string[] => (one.checks.state === "failed" ? one.checks.failing.split(", ").filter((name) => name !== "") : []);
 
@@ -73,6 +76,7 @@ export function SessionPullRequest({
 }) {
   const place = placeOf(lines, one);
   const repository = repositoryOf(one.address);
+  const description = promptsOut(one.body);
   return (
     <PullRequestPanel
       number={one.number}
@@ -80,6 +84,7 @@ export function SessionPullRequest({
       branch={one.branch}
       address={one.address}
       {...(repository === undefined ? {} : { repository })}
+      {...(description === "" ? {} : { body: description })}
       state={one.state}
       checks={one.checks.state === "failed" ? { state: "failed", failing: failingOf(one) } : { state: one.checks.state }}
       auto={one.auto}
