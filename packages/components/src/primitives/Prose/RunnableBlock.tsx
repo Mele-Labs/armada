@@ -82,21 +82,27 @@ const stripPrompts = (body: string) =>
     .map((line) => line.replace(/^\$ ?/, ""))
     .join("\n");
 
-type Phase = { state: "idle" } | { state: "running" } | { state: "ended"; code: number | null };
+export type CodePhase = { state: "idle" } | { state: "running" } | { state: "ended"; code: number | null };
 
-export function RunnableBlock({ command, runner, children }: { command: string; runner: CodeRunner; children: ReactNode }) {
-  const [phase, setPhase] = useState<Phase>({ state: "idle" });
+/** One run's state: what it has printed and how it stands. `RunnableBlock` and a card that runs a command from its own key both draw it. */
+export type CodeRun = {
+  phase: CodePhase;
+  out: string;
+  open: boolean;
+  setOpen: (open: boolean) => void;
+  /** Starts the command, stopping one already going. */
+  start: (command: string) => void;
+  stop: () => void;
+};
+
+export function useCodeRun(runner: CodeRunner | null | undefined): CodeRun {
+  const [phase, setPhase] = useState<CodePhase>({ state: "idle" });
   const [out, setOut] = useState("");
   const [open, setOpen] = useState(true);
   const handle = useRef<{ stop: () => void } | null>(null);
-  const log = useRef<HTMLPreElement>(null);
   useEffect(() => () => handle.current?.stop(), []);
-  useEffect(() => {
-    const one = log.current;
-    if (one !== null) one.scrollTop = one.scrollHeight;
-  }, [out]);
-
-  const run = () => {
+  const start = (command: string) => {
+    if (runner === null || runner === undefined) return;
     handle.current?.stop();
     setOut("");
     setOpen(true);
@@ -106,6 +112,52 @@ export function RunnableBlock({ command, runner, children }: { command: string; 
       else setPhase({ state: "ended", code: event.code });
     });
   };
+  return { phase, out, open, setOpen, start, stop: () => handle.current?.stop() };
+}
+
+/** The panel under a run: its mark (running, or the exit code), a fold, and the output scrolled to its end. */
+export function RunOutput({ run }: { run: CodeRun }) {
+  const { phase, out, open, setOpen } = run;
+  const log = useRef<HTMLPreElement>(null);
+  useEffect(() => {
+    const one = log.current;
+    if (one !== null) one.scrollTop = one.scrollHeight;
+  }, [out]);
+  if (phase.state === "idle") return null;
+  return (
+    <div className="armada-prose__run-panel" role="group" aria-label="Run">
+      <div className="armada-prose__run-head">
+        {phase.state === "running" ? (
+          <Tooltip label="Running">
+            <span className="armada-prose__run-mark" data-result="running" role="img" aria-label="Running">
+              <SquareTerminal size={16} strokeWidth={2} aria-hidden />
+            </span>
+          </Tooltip>
+        ) : (
+          <Tooltip label={phase.code === null ? "Stopped" : `Exit ${phase.code}`}>
+            <span className="armada-prose__run-mark" data-result={phase.code === 0 ? "passed" : "failed"} role="img" aria-label={phase.code === 0 ? "Passed" : "Failed"}>
+              {phase.code === 0 ? <CircleCheck size={16} strokeWidth={2} aria-hidden /> : <CircleX size={16} strokeWidth={2} aria-hidden />}
+            </span>
+          </Tooltip>
+        )}
+        <Tooltip label={open ? "Collapse output" : "Show output"}>
+          <Button variant="ghost" size="sm" iconOnly aria-label={open ? "Collapse output" : "Show output"} aria-expanded={open} onClick={() => setOpen(!open)}>
+            <ChevronDown size={16} strokeWidth={2} aria-hidden className="armada-prose__run-chevron" data-open={open ? "" : undefined} />
+          </Button>
+        </Tooltip>
+      </div>
+      {open ? (
+        <pre ref={log} className="armada-prose__run-out" role="log" aria-label="Output" tabIndex={0}>
+          {out}
+        </pre>
+      ) : null}
+    </div>
+  );
+}
+
+export function RunnableBlock({ command, runner, children }: { command: string; runner: CodeRunner; children: ReactNode }) {
+  const run = useCodeRun(runner);
+  const { phase } = run;
   const running = phase.state === "running";
 
   return (
@@ -115,54 +167,26 @@ export function RunnableBlock({ command, runner, children }: { command: string; 
         <span className="armada-prose__run-acts">
           {running ? (
             <Tooltip label="Stop">
-              <Button variant="ghost" size="sm" iconOnly aria-label="Stop" onClick={() => handle.current?.stop()}>
+              <Button variant="ghost" size="sm" iconOnly aria-label="Stop" onClick={run.stop}>
                 <Square size={16} strokeWidth={2} aria-hidden />
               </Button>
             </Tooltip>
           ) : phase.state === "idle" ? (
             <Tooltip label="Run">
-              <Button variant="ghost" size="sm" iconOnly aria-label="Run" onClick={run}>
+              <Button variant="ghost" size="sm" iconOnly aria-label="Run" onClick={() => run.start(command)}>
                 <Play size={16} strokeWidth={2} aria-hidden />
               </Button>
             </Tooltip>
           ) : (
             <Tooltip label="Run again">
-              <Button variant="ghost" size="sm" iconOnly aria-label="Run again" onClick={run}>
+              <Button variant="ghost" size="sm" iconOnly aria-label="Run again" onClick={() => run.start(command)}>
                 <RotateCcw size={16} strokeWidth={2} aria-hidden />
               </Button>
             </Tooltip>
           )}
         </span>
       </div>
-      {phase.state === "idle" ? null : (
-        <div className="armada-prose__run-panel" role="group" aria-label="Run">
-          <div className="armada-prose__run-head">
-            {phase.state === "running" ? (
-              <Tooltip label="Running">
-                <span className="armada-prose__run-mark" data-result="running" role="img" aria-label="Running">
-                  <SquareTerminal size={16} strokeWidth={2} aria-hidden />
-                </span>
-              </Tooltip>
-            ) : (
-              <Tooltip label={phase.code === null ? "Stopped" : `Exit ${phase.code}`}>
-                <span className="armada-prose__run-mark" data-result={phase.code === 0 ? "passed" : "failed"} role="img" aria-label={phase.code === 0 ? "Passed" : "Failed"}>
-                  {phase.code === 0 ? <CircleCheck size={16} strokeWidth={2} aria-hidden /> : <CircleX size={16} strokeWidth={2} aria-hidden />}
-                </span>
-              </Tooltip>
-            )}
-            <Tooltip label={open ? "Collapse output" : "Show output"}>
-              <Button variant="ghost" size="sm" iconOnly aria-label={open ? "Collapse output" : "Show output"} aria-expanded={open} onClick={() => setOpen(!open)}>
-                <ChevronDown size={16} strokeWidth={2} aria-hidden className="armada-prose__run-chevron" data-open={open ? "" : undefined} />
-              </Button>
-            </Tooltip>
-          </div>
-          {open ? (
-            <pre ref={log} className="armada-prose__run-out" role="log" aria-label="Output" tabIndex={0}>
-              {out}
-            </pre>
-          ) : null}
-        </div>
-      )}
+      <RunOutput run={run} />
     </div>
   );
 }

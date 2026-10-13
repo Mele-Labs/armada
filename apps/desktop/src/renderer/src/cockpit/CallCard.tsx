@@ -8,7 +8,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState, type MutableRefObject, type ReactNode } from "react";
 import { Bot, Box, ChevronDown, ChevronUp, Cpu, Scale, ShieldCheck, SquareTerminal, Waypoints, Workflow, type LucideIcon } from "lucide-react";
-import { AskAnswer, AskAnswers, AskCard, AskChoices, AskQuestion, Button, Kbd, SessionThread, Tooltip, actionOf, keyFor, type NowPanelProps } from "@armada/components";
+import { AskAnswer, AskAnswers, AskCard, AskChoices, AskQuestion, Button, Kbd, RunOutput, SessionThread, Tooltip, actionOf, keyFor, type NowPanelProps } from "@armada/components";
 
 import type { BridgeState } from "../../../shared/bridge";
 import { age, type Hosts, type Item } from "../Dashboard";
@@ -353,7 +353,7 @@ export function CallCard({
   const card = (
     <AskCard icon={Icon} kind={item.kind} where={item.where} age={age(item.at, now)} title={item.title} hue={item.hue} leaving={leaving} from={from}>
         {session !== undefined ? (
-          <div className="armada-callcard__thread">
+          <div className="armada-callcard__thread" data-ran={answer.run !== undefined && answer.run.phase.state !== "idle" ? "" : undefined}>
             <SessionThread sessionId={session.id} rows={threadRowsOf(session)} onAnswer={() => {}} onOpenSession={hosts.onOpenSession} />
           </div>
         ) : (
@@ -422,6 +422,11 @@ export function CallCard({
           <Tooltip label={answer.target}>
             <code className="armada-callcard__target">{answer.target}</code>
           </Tooltip>
+        )}
+        {answer.run === undefined || answer.run.phase.state === "idle" ? null : (
+          <div className="armada-callcard__run">
+            <RunOutput run={answer.run} />
+          </div>
         )}
         {sleep === undefined || item.context === undefined ? null : (
           <section aria-label={item.contextHead ?? "Chose"}>

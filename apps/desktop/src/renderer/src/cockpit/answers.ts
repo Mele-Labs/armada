@@ -10,13 +10,14 @@
 // of the card is held, and a second press is not a second send.
 
 import { useEffect, useRef, useState } from "react";
-import { actionOf, isPressed, keyFor, type Press } from "@armada/components";
+import { actionOf, isPressed, keyFor, useCodeRun, type CodeRun, type Press } from "@armada/components";
 import type { AnswerWaiting } from "@armada/protocol";
 import { isTerminal, titleOf } from "@armada/screens";
 import { refusalWords } from "@armada/screens/src/refusal-words";
 
 import type { BridgeState } from "../../../shared/bridge";
 import { viewsOf } from "../merge-line";
+import { runnerOf } from "../session-runner";
 import { useSessions, useSessionsDraft } from "../sessions-draft";
 import { useSleepSource } from "../sleep";
 import { attachPr } from "./claims";
@@ -35,6 +36,11 @@ import type { Hosts, Item } from "../Dashboard";
  * because a reply can go with it, which `run` takes as `words`.
  */
 export type Answer = { id: string; label: string; run: (words?: string) => void; key?: string; act?: string; says?: string; description?: string; recommended?: boolean; once?: boolean };
+
+/** How long a command that passed stays on its card, with its output and exit, before the card goes. */
+const PASSED_FOR = 1400;
+/** After the card begins to leave, how long before the item is settled and the agent told, so the card's exit is not cut short. */
+const LEAVES = 300;
 
 /** The picker an Attach opens: who a pull request can be attached to. */
 export type Attaching = { candidates: readonly Owner[]; choose: (owner: Owner) => void; close: () => void };
@@ -69,6 +75,8 @@ export type Answering = {
   reply?: (text: string, accepted?: () => void) => void;
   /** The picker, while an Attach has it open. */
   attaching?: Attaching;
+  /** The run of a command the card runs from its own key, where it can: its output and how it ended, drawn under the command. */
+  run?: CodeRun;
   /** The control pressed and waiting on Fleet: an answer's id, `reply` or `dismiss`. Nothing else on the card acts meanwhile. */
   pending: string | undefined;
   /** Dismisses the call for good: on Fleet where a Session holds it, here where Fleet raised it. */
@@ -180,6 +188,22 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
   const sessions = useSessions();
   const draft = useSessionsDraft();
   const views = viewsOf(state);
+
+  // A command a Session waits on is run here, where the Session works, by the path its ledger runs it by.
+  // A clean exit stays on the card for a beat, then the card goes and the item is settled and the agent told.
+  const home = sessions.find((one) => one.id === item.waiting?.sessionId);
+  const runner =
+    draft === undefined || home === undefined
+      ? undefined
+      : runnerOf(draft, home, (settle) => {
+          window.setTimeout(() => {
+            finish();
+            window.setTimeout(settle, LEAVES);
+          }, PASSED_FOR);
+        });
+  const ran = useCodeRun(runner);
+  // From the press until it ends badly the command holds the card; one that passed holds it until the card has gone.
+  const running = ran.phase.state === "running" || (ran.phase.state === "ended" && ran.phase.code === 0);
   const pull = pullOf(item, state);
   const owner = item.key.startsWith("pull:")
     ? pullOwner(views, sessions, pull?.number ?? 0)
@@ -311,7 +335,11 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
         // A slash command is the session's own: it is told, as a reply. Anything else he runs himself.
         // The key says the verb; the command itself is on the card, whole and in its own case.
         if (act.target.startsWith("/")) return [oneTap("Run", () => sendWaiting("Run", { text: act.target }))];
-        return [oneTap("Copy", () => copy(act.target))];
+        const ended = ran.phase.state === "ended" && ran.phase.code !== 0;
+        return [
+          ...(runner === undefined ? [] : [answer("Run", () => ran.start(act.target), { once: true, ...(ended ? { label: "Run again" } : {}) })]),
+          oneTap("Copy", () => copy(act.target)),
+        ];
       }
       if (act?.kind === "approve_pr") {
         const number = act.target.replace(/^#/, "");
@@ -353,7 +381,8 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
 
   // One answer is the answer: Enter sends it without a number first. Where every answer is an act, Enter runs the first.
   const chosen = picked ?? (answers.length === 1 || (answers.length > 0 && answers.every((one) => one.once === true)) ? 0 : undefined);
-  const held = pending !== undefined;
+  const shown = pending ?? (running ? "Run" : undefined);
+  const held = shown !== undefined;
   const pick = (index: number) => !held && answers[index] !== undefined && setPicked(index);
   // An act runs on its number; an option is picked, and sent after.
   const pickNumber = (digit: number) => {
@@ -407,7 +436,8 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
       : {}),
     ...(replies ? { reply: (text: string, accepted?: () => void) => sendWaiting("reply", { text }, accepted) } : {}),
     ...(attaching ? { attaching: { candidates, choose: attach, close: () => setAttaching(false) } } : {}),
-    pending,
+    ...(waiting?.item.act?.kind === "run" && runner !== undefined && !waiting.item.act.target.startsWith("/") ? { run: ran } : {}),
+    pending: shown,
     // A Sleep decision is dismissed by reviewing it on Fleet, so it never comes back.
     dismiss: () => (sleep === undefined ? wait("dismiss", () => dismissItem(item), dismissed) : (reviewed(sleep.id), dismissed())),
   };

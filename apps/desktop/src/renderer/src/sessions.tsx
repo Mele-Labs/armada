@@ -83,6 +83,8 @@ import { useBackfilled } from "./backfilled";
 import { OPEN_SESSION_ATTRIBUTE } from "./open-session";
 import { ARTIFACT_SAID, cardOf, factsOf, type Known } from "./session-cards";
 import { useSessions, useSessionsDraft, useSessionsSaid } from "./sessions-draft";
+import { runnerOf } from "./session-runner";
+import { useViewing } from "./cockpit/viewed";
 
 /** The surfaces the rail and the palette leave off: Sessions, until something serves them. */
 export function sessionsHidden(served: boolean): readonly string[] {
@@ -596,19 +598,6 @@ function SketchSheet({ open, onClose, onAttach }: { open: boolean; onClose: () =
 }
 
 type Runner = NonNullable<LedgerEntry["run"]>["runner"];
-
-/** Runs a command where the Session works. A clean exit settles the item that asked for that command, and the agent is told. */
-function runnerOf(draft: SessionsDraft, session: Session): Runner | undefined {
-  const run = draft.run;
-  if (run === undefined) return undefined;
-  return (command, on) =>
-    run(session.id, command, (event) => {
-      on(event);
-      if (event.kind !== "end" || event.code !== 0) return;
-      const asked = (session.waitingFor ?? []).find((one) => one.act?.kind === "run" && one.act.target.trim() === command.trim());
-      if (asked !== undefined) draft.answerWaiting?.(session.id, asked.id, { text: "Ran: exit 0" });
-    });
-}
 
 function entriesOf(
   session: Session,
@@ -1136,6 +1125,7 @@ export function SessionsSurface({
 }) {
   const sessions = useSessions();
   const open = sessions.find((one) => one.id === openId);
+  useViewing(open?.id);
   // j goes to the next Session down the list and k to the one above, opening each. Local to this page.
   useEffect(() => {
     const press = (event: KeyboardEvent) => {
