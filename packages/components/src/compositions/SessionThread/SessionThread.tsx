@@ -57,8 +57,8 @@ export type SessionThreadRow =
   /** The summary the CLI wrote where it compacted the conversation. Not the person's words: a quiet row that opens to its text. */
   | { id: string; at: string; kind: "compaction"; text: string }
   | { id: string; at: string; kind: "lease"; slot: number; branch: string }
-  /** An `armada check` the agent ran: its key and where it stands. A press opens that run on the Checks page. */
-  | { id: string; at: string; kind: "check"; name: string; run: number; state: CheckRunState }
+  /** An `armada check` the agent ran: its key and where it stands. A press opens that run on the Checks page. `target` is what the run was narrowed to; absent, it ran whole. */
+  | { id: string; at: string; kind: "check"; name: string; run: number; state: CheckRunState; target?: string }
   /** The Session showed a page in a window: a quiet row, a press that opens the window again. */
   | { id: string; at: string; kind: "window"; title: string; url: string }
   /** This Session's agent started a Session, or forked itself into one: a press that opens it. */
@@ -292,14 +292,26 @@ function Handoff({ row }: { row: Extract<SessionThreadRow, { kind: "handoff" }> 
   );
 }
 
-/** What the thread draws: a row, or the tool calls that ran one after another, folded into one. */
-type Item = { kind: "row"; row: Exclude<SessionThreadRow, { kind: "tool" }> } | { kind: "calls"; id: string; rows: readonly Extract<SessionThreadRow, { kind: "tool" }>[] };
+type CheckRow = Extract<SessionThreadRow, { kind: "check" }>;
+
+/**
+ * What the thread draws: a row, the tool calls that ran one after another folded into one, or the
+ * runs of one Check that sat side by side folded into one. A Check run beside another Check, or
+ * after a tool call, starts a fold of its own.
+ */
+type Item =
+  | { kind: "row"; row: Exclude<SessionThreadRow, { kind: "tool" | "check" }> }
+  | { kind: "calls"; id: string; rows: readonly Extract<SessionThreadRow, { kind: "tool" }>[] }
+  | { kind: "checks"; id: string; rows: readonly CheckRow[] };
 
 function itemsOf(rows: readonly SessionThreadRow[]): Item[] {
   const items: Item[] = [];
   for (const row of rows) {
     const last = items[items.length - 1];
-    if (row.kind !== "tool") items.push({ kind: "row", row });
+    if (row.kind === "check") {
+      if (last?.kind === "checks" && last.rows[0]?.name === row.name) last.rows = [...last.rows, row];
+      else items.push({ kind: "checks", id: row.id, rows: [row] });
+    } else if (row.kind !== "tool") items.push({ kind: "row", row });
     else if (last?.kind === "calls") last.rows = [...last.rows, row];
     else items.push({ kind: "calls", id: row.id, rows: [row] });
   }
@@ -338,6 +350,74 @@ function Calls({ rows, working }: { rows: readonly { id: string; text: string; f
               ) : null}
             </li>
           ))}
+        </ol>
+      </details>
+    </li>
+  );
+}
+
+function CheckMark({ row }: { row: CheckRow }) {
+  return <StepActivityMark activity={CHECK_MARK[row.state]} label={row.state} says={row.state} pulsing={row.state === "running"} />;
+}
+
+const checkSaid = (row: CheckRow) => `Check ${row.name}${row.target === undefined ? "" : ` ${row.target}`}, ${row.state}`;
+
+/**
+ * **Runs of one Check that sat side by side are one row, closed.** It shows the latest run's mark and the
+ * Check's name, and draws no count; opened, each run is a line with what it was narrowed to. A lone run
+ * is a group of one, drawn as a press with its target beside the name.
+ */
+function CheckRuns({ rows, onOpenCheck }: { rows: readonly CheckRow[]; onOpenCheck?: (run: number) => void }) {
+  const latest = rows[rows.length - 1]!;
+  if (rows.length === 1) {
+    const inner = (
+      <>
+        <CheckMark row={latest} />
+        <span className="mono">{latest.name}</span>
+        {latest.target === undefined ? null : <code className="armada-session-fold__target">{latest.target}</code>}
+      </>
+    );
+    return (
+      <li className="armada-session-fold">
+        {onOpenCheck === undefined ? (
+          <span className="armada-session-fold__head">{inner}</span>
+        ) : (
+          <button type="button" className="armada-session-fold__head armada-session-fold__head--press" aria-label={checkSaid(latest)} onClick={() => onOpenCheck(latest.run)}>
+            {inner}
+          </button>
+        )}
+      </li>
+    );
+  }
+  return (
+    <li className="armada-session-fold armada-session-fold--checks">
+      <details>
+        <summary className="armada-session-fold__head" aria-label={`Check ${latest.name}, latest ${latest.state}`}>
+          <ChevronRight size={12} strokeWidth={2} aria-hidden className="armada-session-fold__chevron" />
+          <CheckMark row={latest} />
+          <span className="mono">{latest.name}</span>
+        </summary>
+        <ol className="armada-session-fold__calls">
+          {rows.map((one) => {
+            const inner = (
+              <>
+                <CheckMark row={one} />
+                {one.target === undefined ? null : <code className="armada-session-fold__target">{one.target}</code>}
+                <span className="armada-session-fold__at">{one.at}</span>
+              </>
+            );
+            return (
+              <li key={one.id}>
+                {onOpenCheck === undefined ? (
+                  <span className="armada-session-fold__head">{inner}</span>
+                ) : (
+                  <button type="button" className="armada-session-fold__head armada-session-fold__head--press" aria-label={checkSaid(one)} onClick={() => onOpenCheck(one.run)}>
+                    {inner}
+                  </button>
+                )}
+              </li>
+            );
+          })}
         </ol>
       </details>
     </li>
@@ -390,16 +470,14 @@ function Row({
   row,
   onOpenSession,
   onOpenWindow,
-  onOpenCheck,
   agentName = "Agent",
   onOpenRetro,
   forkable,
 }: {
-  row: Exclude<SessionThreadRow, { kind: "tool" }>;
+  row: Exclude<SessionThreadRow, { kind: "tool" | "check" }>;
   forkable: boolean;
   onOpenSession: (id: string) => void;
   onOpenWindow?: (url: string) => void;
-  onOpenCheck?: (run: number) => void;
   agentName?: string;
   onOpenRetro?: (retro: number) => void;
 }) {
@@ -428,24 +506,6 @@ function Row({
         </Tooltip>
         <code className="armada-session-act__text">{row.text}</code>
         <span className="armada-session-act__at">{row.at}</span>
-      </li>
-    );
-  }
-  if (row.kind === "check") {
-    const mark = <StepActivityMark activity={CHECK_MARK[row.state]} label={row.state} says={row.state} pulsing={row.state === "running"} />;
-    return (
-      <li className="armada-session-fold">
-        {onOpenCheck === undefined ? (
-          <span className="armada-session-fold__head">
-            {mark}
-            <span className="mono">{row.name}</span>
-          </span>
-        ) : (
-          <button type="button" className="armada-session-fold__head armada-session-fold__head--press" aria-label={`Check ${row.name}, ${row.state}`} onClick={() => onOpenCheck(row.run)}>
-            {mark}
-            <span className="mono">{row.name}</span>
-          </button>
-        )}
       </li>
     );
   }
@@ -597,8 +657,10 @@ export function SessionThread({ rows, asked, askRef, onAnswer, done, waiting, on
           {items.map((item, at) =>
             item.kind === "calls" ? (
               <Calls key={item.id} rows={item.rows} working={working === true && at === items.length - 1} />
+            ) : item.kind === "checks" ? (
+              <CheckRuns key={item.id} rows={item.rows} {...(onOpenCheck === undefined ? {} : { onOpenCheck })} />
             ) : (
-              <Row key={item.row.id} row={item.row} onOpenSession={onOpenSession} onOpenWindow={onOpenWindow} onOpenCheck={onOpenCheck} onOpenRetro={onOpenRetro} forkable={onForkAt !== undefined} {...(agentName === undefined ? {} : { agentName })} />
+              <Row key={item.row.id} row={item.row} onOpenSession={onOpenSession} onOpenWindow={onOpenWindow} onOpenRetro={onOpenRetro} forkable={onForkAt !== undefined} {...(agentName === undefined ? {} : { agentName })} />
             ),
           )}
           {working === true && !endsInCalls ? (

@@ -434,7 +434,7 @@ Bridge reads every live session from `list_sessions` once per connection and kee
 
 | Where it shows | What |
 |---|---|
-| A hosted Session's thread | One `check` row per run: the Check's key, its run id and `running`, `passed` or `failed`. The row is replaced by id as the run ends, and the Session is published whole each time |
+| A hosted Session's thread | One `check` row per run: the Check's key, its run id, `running`, `passed` or `failed`, and what it was narrowed to (`target`: the test filter, or `--changed` and the packages the change reached; absent where it ran whole). The row is replaced by id as the run ends, and the Session is published whole each time |
 | The Checks page | A row with the `session` requester (`session_id`, `slot`), no Job, drawn with the slot's owner chip. Pressing the thread row opens the run's log over the Session |
 | The log | `get_session_check_output`, `GET /sessions/checks/:run/output`, answered as `get_check_output` answers a Job's. Kept up to 256 KiB, the newest end when cut |
 
