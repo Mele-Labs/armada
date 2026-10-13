@@ -150,6 +150,8 @@ const NAMES_ITS_SCOPE: &[&str] = &[
     "undo_checkout_run",
     "start_checkout_verify",
     "list_lessons",
+    // The thread that keeps where the words went is the session's own repository's.
+    "tell_session",
 ];
 
 /// Set on every call the door makes, so a `:job_id` resolves inside the
