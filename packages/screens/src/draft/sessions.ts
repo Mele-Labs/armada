@@ -60,7 +60,11 @@ export type SessionAttachment =
   | { kind: "artifact"; form: SessionArtifactForm; id: string; title: string }
   /** The Session this one was forked to, and the one it was forked from. `id` is the other Session's. */
   | { kind: "forked_to"; id: string }
-  | { kind: "forked_from"; id: string };
+  /** `at` is the id of the message the fork was cut at: the copy ends there. Absent is the whole conversation. */
+  | { kind: "forked_from"; id: string; at?: string }
+  /** A Session this one's agent started when asked, and the Session whose agent started this one. `id` is the other Session's. */
+  | { kind: "started_to"; id: string }
+  | { kind: "started_by"; id: string };
 
 /** A `window` is a page the Session showed in a window of Bridge's own; `id` is its address. */
 export type SessionArtifactForm = "page" | "file" | "image" | "doc" | "window";
@@ -192,6 +196,11 @@ export type Session = {
   waitingFor?: readonly WaitingItem[];
   /** The agent says it has nothing left to work on, since when. `SessionRecord.done_since`. A message from the person clears it. */
   done?: { since: string };
+  /**
+   * The first message its starting Session's agent wrote, which has not been sent. Nothing runs until the person sends it.
+   * Absent once it is sent, or on a Session nobody's agent started.
+   */
+  unsent?: string;
   /** Tags chosen and not yet sent: they wait in the message box as chips. */
   pendingTags?: readonly SessionTag[];
   /** The model and effort the next turn runs on. Absent is Auto. */
