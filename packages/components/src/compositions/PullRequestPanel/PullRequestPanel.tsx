@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Clock, ExternalLink, GitMerge, GitPullRequest } from "lucide-react";
+import { Clock, ExternalLink, FileText, GitMerge, GitPullRequest } from "lucide-react";
 
 import { Badge } from "../../primitives/Badge/Badge";
 import { Button } from "../../primitives/Button/Button";
@@ -52,6 +52,8 @@ export type PullRequestPanelProps = {
   onClose: () => void;
   /** What its author wrote of it, as Markdown. Absent or blank draws nothing. */
   body?: string;
+  /** How the description is drawn while two takes are walked: a plate, or bare prose under a rule. */
+  descriptionTake?: "plate" | "prose";
   /** What Fleet refused, or anything else the host holds for the body. */
   children?: ReactNode;
 };
@@ -83,11 +85,13 @@ export function PullRequestPanel({
   onOpenLink,
   onClose,
   body,
+  descriptionTake = "plate",
   children,
 }: PullRequestPanelProps) {
   const pill = PILL[state === "merged" ? "merged" : queued ? "queued" : state];
   const plates = <PullRequestPlates state={state} checks={checks} auto={auto} queued={queued} {...(place === undefined ? {} : { place })} onOpenPullRequest={onOpenLink} {...(onSendBack === undefined ? {} : { onSendBack })} sentBack={sentBack} />;
   const description = body?.trim() ?? "";
+  const tone = state === "merged" ? "success" : queued ? "running" : checks.state === "failed" ? "failed" : checks.state === "passed" ? "success" : "neutral";
   return (
     <Sheet
       kind="pull-request"
@@ -125,9 +129,16 @@ export function PullRequestPanel({
         {floor ? <div className="armada-pr-plates">{plates}</div> : null}
         {children}
         {description === "" ? null : (
-          <div className="armada-pr-panel__description">
+          <section className="armada-pr-plate armada-pr-panel__description" data-take={descriptionTake} data-tone={tone} aria-label="Description">
+            {descriptionTake === "plate" ? (
+              <Tooltip label="Description">
+                <span className="armada-pr-plate__eyebrow" role="img" aria-label="Description">
+                  <FileText size={16} strokeWidth={2} aria-hidden />
+                </span>
+              </Tooltip>
+            ) : null}
             <Prose text={description} />
-          </div>
+          </section>
         )}
       </div>
     </Sheet>

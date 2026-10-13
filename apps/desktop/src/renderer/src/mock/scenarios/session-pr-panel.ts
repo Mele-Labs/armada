@@ -62,7 +62,7 @@ const holder = () => {
       ...one.attachments.filter((it) => it.kind !== "pull_request"),
       attached(2209, "Open pull requests in Armada", "claude/pr-panel-redesign", {
         queued: true,
-        body: "Pull request links open the same way everywhere, behind a setting: in Armada or in the browser.\n\nReplaces the card in the Session reading sheet with a full panel.",
+        body: "## What changes\n\nPull request links open the same way everywhere, behind a setting: in **Armada** or in the **browser**.\n\n- `links.openPullRequestsIn` picks which\n- the Session reading sheet draws a full panel, not a card\n\n### Not in this change\n\n1. Comments and reviews\n2. The Files and Commits tabs\n\nSee [the design note](https://example.com/pr-panel) for the plates.",
       }),
       attached(2210, "Show the merge line in a Session", "feat/session-merge-line", {
         body: "Shows where a Session's pull request stands in the merge line.\n\n- reads `placeOf` from the merge lines Fleet serves\n- draws nothing when the pull request is not in one",
