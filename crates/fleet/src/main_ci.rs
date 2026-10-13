@@ -282,6 +282,7 @@ where
         let changed = self.notice_main().await?;
         self.main_acted_on(&changed).await;
         self.pulls_told_when_due().await;
+        self.builds_told_when_due().await;
         Ok(())
     }
 

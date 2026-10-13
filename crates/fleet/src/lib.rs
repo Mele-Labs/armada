@@ -61,6 +61,8 @@ pub mod basing;
 mod boot_restart;
 mod boundary;
 pub mod briefing;
+/// Telling sessions the build Fleet and Bridge now run, once per build.
+mod build_notices;
 /// The build Fleet runs on and the detached restart onto another. `scripts/restart-build`.
 mod building;
 /// Racing a plain command's work against [`budget::CommandBudget`],
