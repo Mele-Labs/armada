@@ -11,6 +11,7 @@ import { describe, expect, it } from "vitest";
 import { TASK_STATE } from "@armada/components";
 
 import { ARC_MOMENTS, everyTaskState } from "./fixtures/build/arc";
+import { heightBeyond, nameLines } from "./card-height";
 import { groupNodeId, planGraphOf, taskNodeId, taskOfNodeId } from "./plan-canvas";
 
 /** The arc moment by name, with the plan it opens. */
@@ -75,6 +76,51 @@ describe("a group is a root, and its tasks hang off it", () => {
     expect(graph.opensOn).toEqual([groups.map((group) => groupNodeId(group.id))]);
     for (const choice of graph.opensOn) {
       expect(choice.some((id) => id.startsWith("task:"))).toBe(false);
+    }
+  });
+});
+
+describe("a task's pitch follows the lines its title takes", () => {
+  const SHORT = "Fix the parser";
+  const LONG = "Rewrite the store's retry policy so that a stalled write is not repeated for ever";
+
+  /** The plan with its first task retitled, so only that title differs between two plans. */
+  function titled(title: string) {
+    const [first, ...rest] = arc("groupFailed");
+    if (first === undefined || first.tasks.length < 2) throw new Error("the moment needs a group of two tasks");
+    const [head, ...tasks] = first.tasks;
+    return [{ ...first, tasks: [{ ...head!, title }, ...tasks] }, ...rest];
+  }
+
+  /** The retitled task's node and the node of the task under it. */
+  function pair(title: string) {
+    const groups = titled(title);
+    const graph = planGraphOf({ groups });
+    const [one, two] = groups[0]!.tasks;
+    const at = (id: string) => graph.nodes.find((node) => node.id === taskNodeId(id))!;
+    return { first: at(one!.id), next: at(two!.id) };
+  }
+
+  it("starts the next card lower when the title above it wraps onto more lines", () => {
+    const short = pair(SHORT);
+    const long = pair(LONG);
+    expect(short.first.position.y).toBe(long.first.position.y);
+    expect(long.next.position.y).toBeGreaterThan(short.next.position.y);
+  });
+
+  it("passes on exactly the height the extra lines add", () => {
+    const short = pair(SHORT);
+    const long = pair(LONG);
+    const extra = heightBeyond(long.first.card, 2) - heightBeyond(short.first.card, 2);
+    expect(extra).toBeGreaterThan(0);
+    expect(long.next.position.y - long.first.position.y).toBe(short.next.position.y - short.first.position.y + extra);
+  });
+
+  it("never starts a card inside the one above, however long the title", () => {
+    for (const title of [SHORT, LONG, LONG.repeat(3)]) {
+      const { first, next } = pair(title);
+      // A card is at least its lines of name tall, and the next one starts below them.
+      expect(next.position.y - first.position.y).toBeGreaterThanOrEqual(nameLines(first.card) * 22);
     }
   });
 });

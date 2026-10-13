@@ -279,3 +279,69 @@ export const NotAControl: Story = {
     await expect(canvas.getByRole("group", { name: "Summarise, not started" })).toBeVisible();
   },
 };
+
+/**
+ * Held to hold what was agreed (owner, 13 Oct 2026, `job-commander-woken`): a long name is drawn
+ * whole. It wraps onto the lines it needs and the card grows, with no ellipsis and no line clamp.
+ *
+ * **A `play`, because a still cannot tell a clamped name from a wrapped one** — the clamp it
+ * replaced looked right on a title of two lines and cut every longer one.
+ */
+async function drawnWhole(name: HTMLElement, title: string) {
+  const style = getComputedStyle(name);
+  await expect(name).toHaveTextContent(title);
+  await expect(name.textContent).not.toMatch(/[…]|\.\.\.$/);
+  await expect(style.textOverflow).not.toBe("ellipsis");
+  await expect(style.getPropertyValue("-webkit-line-clamp")).toMatch(/^(none|)$/);
+  await expect(style.overflow).toBe("visible");
+  await expect(style.whiteSpace).toBe("normal");
+  // Several lines tall, and none of it past the box: nothing is cut off.
+  await expect(name.getBoundingClientRect().height).toBeGreaterThan(parseFloat(style.lineHeight) * 2.5);
+  await expect(name.scrollHeight).toBeLessThanOrEqual(name.clientHeight + 1);
+}
+
+const LONG_TITLE = "Rewrite the store's retry policy so that a stalled write is not repeated for ever";
+
+/** A task whose title is longer than two lines: the card is as tall as the words make it. */
+export const LongTaskTitle: Story = {
+  args: {
+    kind: "task",
+    name: LONG_TITLE,
+    activity: "not_started",
+    said: "not started",
+    facts: [{ value: "T5" }, { value: "2 files" }],
+  },
+  play: async ({ canvas }) => {
+    await drawnWhole(canvas.getByText(LONG_TITLE), LONG_TITLE);
+  },
+};
+
+/** A step's label wraps the same way. */
+export const LongStepLabel: Story = {
+  args: {
+    kind: "step",
+    name: "Implement the retry policy, then check it against the flaky store test before review",
+    activity: "not_started",
+    said: "not started",
+    ordinal: 3,
+  },
+  play: async ({ canvas, args }) => {
+    await drawnWhole(canvas.getByText(args.name!), args.name!);
+  },
+};
+
+/** A word wider than the card breaks inside itself rather than running out of it. */
+export const LongUnbrokenTitle: Story = {
+  args: {
+    kind: "task",
+    name: "crates/store/src/retry/backoff_policy_with_jitter.rs",
+    activity: "not_started",
+    said: "not started",
+    facts: [{ value: "T6" }],
+  },
+  play: async ({ canvas, args }) => {
+    const name = canvas.getByText(args.name!);
+    await expect(name.scrollWidth).toBeLessThanOrEqual(name.clientWidth + 1);
+    await expect(name.getBoundingClientRect().height).toBeGreaterThan(parseFloat(getComputedStyle(name).lineHeight) * 1.5);
+  },
+};
