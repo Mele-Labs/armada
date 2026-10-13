@@ -1,9 +1,11 @@
 // Debug Bridge, from the palette or ⇧⌘D, with the annotation layer off: one press shoots the
-// window, keeps it as a whole-window note with Bridge's state, starts a Session with all of it, and
-// opens that Session.
+// window, keeps it as a whole-window note with Bridge's state, starts a Session, leaves all of it
+// as a draft in that Session's message box, and opens it. Nothing is sent: the first turn is the
+// owner's Enter.
 
 import { StrictMode } from "react";
 import { createRoot, type Root } from "react-dom/client";
+import { forgetAllKept, readKept } from "@armada/components";
 import { afterEach, expect, test, vi } from "vitest";
 import { page } from "vitest/browser";
 
@@ -65,6 +67,7 @@ afterEach(() => {
   }
   mounted = [];
   document.querySelectorAll("[data-noted]").forEach((one) => one.remove());
+  forgetAllKept();
   sessionStorage.removeItem("armada.annotate.on");
 });
 
@@ -95,7 +98,7 @@ function onJob(): void {
   document.body.append(rail, detail);
 }
 
-test("the palette's Debug Bridge shoots the window and opens a Session holding the picture and the state", async () => {
+test("the palette's Debug Bridge opens a Session holding the picture and the state as a draft, and sends nothing", async () => {
   const { sink, notes, capture } = capturing();
   const { fleet, sent } = fleetWith();
   onJob();
@@ -105,14 +108,23 @@ test("the palette's Debug Bridge shoots the window and opens a Session holding t
   await vi.waitFor(() => expect(openSession).toHaveBeenCalledWith("01DEBUGSESSION00"));
   expect(capture).toHaveBeenCalledWith({ x: 0, y: 0, width: window.innerWidth, height: window.innerHeight });
   expect(fleet.startSession).toHaveBeenCalledWith("Debug Bridge on Overview", "/repo");
-  expect(sent).toHaveLength(1);
-  expect(sent[0]!.text).toContain("Work out what is going on in Bridge");
-  expect(sent[0]!.text).toContain(`- Job open: 12-the-drone-count-is-wrong "The Drone count is wrong" (${JOB}) — status running`);
-  expect(sent[0]!.text).toContain("- Doctor: ");
-  expect(sent[0]!.attachments?.map((one) => one.name)).toEqual([expect.stringMatching(/^annotation-.*\.png$/)]);
+  // No message: Fleet starts no turn until the owner sends the draft.
+  expect(sent).toHaveLength(0);
+  expect(fleet.sendSessionMessage).not.toHaveBeenCalled();
+
+  const draft = readKept<{ text: string; tags: unknown[]; files: { name: string; file?: File }[] }>("session:01DEBUGSESSION00");
+  expect(draft?.text).toContain("Work out what is going on in Bridge");
+  expect(draft?.text).toContain(`- Job open: 12-the-drone-count-is-wrong "The Drone count is wrong" (${JOB}) — status running`);
+  expect(draft?.text).toContain("- Doctor: ");
+  // A blank line under the state, where his context goes.
+  expect(draft?.text.endsWith("\n\n")).toBe(true);
+  expect(draft?.files.map((one) => one.name)).toEqual([expect.stringMatching(/^annotation-.*\.png$/)]);
+  expect(draft?.files[0]?.file?.type).toBe("image/png");
 
   const [note] = [...notes.values()];
-  expect(note).toMatchObject({ scope: "window", openJobId: JOB, screenshot: `${note?.id}.png`, sent: { sessionId: "01DEBUGSESSION00" } });
+  expect(note).toMatchObject({ scope: "window", openJobId: JOB, screenshot: `${note?.id}.png` });
+  // Nothing was sent, so the note says so.
+  expect(note?.sent).toBeUndefined();
   // Nothing of the layer was drawn: it stayed off.
   expect(page.getByRole("status").query()).toBeNull();
 });
@@ -126,6 +138,7 @@ test("⇧⌘D does the same from anywhere, and a second press while the first is
   press();
   await vi.waitFor(() => expect(openSession).toHaveBeenCalledTimes(1));
   expect(fleet.startSession).toHaveBeenCalledTimes(1);
+  expect(fleet.sendSessionMessage).not.toHaveBeenCalled();
 });
 
 test("a Session Fleet refuses is told, and the note is kept unsent for /annotations", async () => {
@@ -135,6 +148,7 @@ test("a Session Fleet refuses is told, and the note is kept unsent for /annotati
   askToDebugBridge();
   await vi.waitFor(() => expect(tell).toHaveBeenCalledWith(expect.stringMatching(/^Session not started: /)));
   expect(openSession).not.toHaveBeenCalled();
+  expect(readKept("session:01DEBUGSESSION00")).toBeUndefined();
   const [note] = [...notes.values()];
   expect(note?.scope).toBe("window");
   expect(note?.sent).toBeUndefined();

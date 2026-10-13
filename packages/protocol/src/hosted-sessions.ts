@@ -118,6 +118,9 @@ export type RunSessionCommand = { session_id: string; command: string };
 /** `POST /sessions/close`. A terminal session is ended by its mod, and the row ends when the terminal says so. */
 export type CloseSession = { session_id: string };
 
+/** `POST /sessions/stop`: ends the turn that is running. The session stays live and its next message resumes it. Since 23.84. */
+export type StopSession = { session_id: string };
+
 /** A turn running, or none. A message from another session starts one, so `working` may have no author. */
 export type SessionTurn =
   | { state: "idle" }
