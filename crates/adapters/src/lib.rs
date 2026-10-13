@@ -42,6 +42,7 @@ mod base;
 mod basing;
 mod build_standing;
 mod ci_workflows;
+pub mod clash;
 mod cloning;
 mod commit;
 mod concurrently;

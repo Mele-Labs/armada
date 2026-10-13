@@ -45,7 +45,7 @@ pub(crate) fn asks_a_person() -> String {
 /// **A list to recognise a write by, not to refuse one.** Helm edits the
 /// checkout when asked, so `fleet::helm` reads this to publish an event rather
 /// than to stop the call.
-pub const CHANGES_THE_CHECKOUT: &[&str] = &["Edit", "Write", "NotebookEdit"];
+pub const CHANGES_THE_CHECKOUT: &[&str] = &["Edit", "MultiEdit", "Write", "NotebookEdit"];
 
 /// Whether a tool call changed the checkout the conversation is open in.
 ///

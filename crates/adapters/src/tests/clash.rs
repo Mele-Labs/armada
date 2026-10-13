@@ -1,0 +1,94 @@
+//! Whether two worktrees' changes conflict, against real git: the verdict is `git merge-tree`'s.
+
+use std::path::PathBuf;
+
+use super::repo::TempRepo;
+use crate::clash::{against, between, changed_on, landed_in, Verdict};
+
+fn lines() -> String {
+    (1..=20).map(|n| format!("line {n}\n")).collect()
+}
+
+/// A repository with `f.txt` and `g.txt` committed, and two worktrees cut from it.
+fn two_worktrees() -> (TempRepo, PathBuf, PathBuf) {
+    let repo = TempRepo::with_a_commit();
+    repo.commit_one("f.txt", &lines(), "add f");
+    repo.commit_one("g.txt", "g\n", "add g");
+    let (one, two) = (
+        repo.root().join(".armada/slots/slot-1"),
+        repo.root().join(".armada/slots/slot-2"),
+    );
+    for (path, branch) in [(&one, "one"), (&two, "two")] {
+        repo.git(&["worktree", "add", "-q", &path.to_string_lossy(), "-b", branch]);
+    }
+    (repo, one, two)
+}
+
+fn edit(worktree: &PathBuf, file: &str, line: usize, to: &str) {
+    let path = worktree.join(file);
+    let mut text: Vec<String> = std::fs::read_to_string(&path)
+        .expect("the file")
+        .lines()
+        .map(str::to_string)
+        .collect();
+    text[line - 1] = to.to_string();
+    std::fs::write(path, text.join("\n") + "\n").expect("written");
+}
+
+#[test]
+fn one_file_changed_in_two_places_far_apart_is_clean() {
+    let (_repo, one, two) = two_worktrees();
+    edit(&one, "f.txt", 1, "one's first");
+    edit(&two, "f.txt", 20, "two's last");
+    assert_eq!(between(&one, &two), Ok(Verdict::Clean));
+}
+
+#[test]
+fn the_same_line_changed_twice_is_a_conflict_naming_the_file() {
+    let (_repo, one, two) = two_worktrees();
+    edit(&one, "f.txt", 5, "one");
+    edit(&two, "f.txt", 5, "two");
+    edit(&two, "g.txt", 1, "only two touches this");
+    assert_eq!(between(&one, &two), Ok(Verdict::Conflict(vec!["f.txt".into()])));
+}
+
+#[test]
+fn a_file_neither_committed_nor_staged_is_in_the_comparison() {
+    let (_repo, one, two) = two_worktrees();
+    std::fs::write(one.join("new.txt"), "one\n").expect("written");
+    std::fs::write(two.join("new.txt"), "two\n").expect("written");
+    assert_eq!(between(&one, &two), Ok(Verdict::Conflict(vec!["new.txt".into()])));
+}
+
+#[test]
+fn reading_a_worktree_leaves_its_index_as_it_was() {
+    let (repo, one, two) = two_worktrees();
+    edit(&one, "f.txt", 5, "one");
+    edit(&two, "f.txt", 5, "two");
+    let before = repo.git(&["-C", &one.to_string_lossy(), "status", "--porcelain"]);
+    let _ = between(&one, &two);
+    assert_eq!(repo.git(&["-C", &one.to_string_lossy(), "status", "--porcelain"]), before);
+    // The helper trims the line, so an unstaged change reads `M f.txt` and a staged one `M  f.txt`.
+    assert_eq!(before, "M f.txt", "the change is still unstaged");
+}
+
+#[test]
+fn a_base_that_changed_the_same_line_conflicts_and_says_where_it_landed() {
+    let (repo, one, _two) = two_worktrees();
+    edit(&one, "f.txt", 5, "one");
+    repo.commit_one("f.txt", &lines().replace("line 5\n", "main's five\n"), "Merge pull request #7");
+    let tip = repo.head_str();
+    assert_eq!(against(&one, &tip), Ok(Verdict::Conflict(vec!["f.txt".into()])));
+    assert_eq!(changed_on(&one, &tip), Ok(vec!["f.txt".into()]));
+    assert!(landed_in(&one, &tip, "f.txt").is_some_and(|said| said.ends_with("Merge pull request #7")));
+}
+
+#[test]
+fn a_base_that_changed_another_file_is_clean() {
+    let (repo, one, _two) = two_worktrees();
+    edit(&one, "f.txt", 5, "one");
+    repo.commit_one("g.txt", "g, changed\n", "change g");
+    let tip = repo.head_str();
+    assert_eq!(against(&one, &tip), Ok(Verdict::Clean));
+    assert_eq!(changed_on(&one, &tip), Ok(vec!["g.txt".into()]));
+}

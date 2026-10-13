@@ -29,7 +29,7 @@ enum Touch {
 fn touch(gate: &SessionGate) -> Touch {
     let text = |key: &str| gate.tool_input.get(key).and_then(|said| said.as_str());
     match gate.tool_name.as_str() {
-        "Write" | "Edit" | "NotebookEdit" => match text("file_path").or(text("notebook_path")) {
+        "Write" | "Edit" | "MultiEdit" | "NotebookEdit" => match text("file_path").or(text("notebook_path")) {
             Some(path) => Touch::File(path.to_string()),
             None => Touch::Nothing,
         },
