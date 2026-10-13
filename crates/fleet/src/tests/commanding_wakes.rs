@@ -598,6 +598,125 @@ async fn a_job_that_moved_between_wakes_starts_the_count_again() {
     assert!(!log_of(&home, &fleet, &job).await.contains("woken three times"));
 }
 
+/// The same loop as the test above, to the fourth cap level: the Job at work,
+/// each raise a new fact, the spend near the new cap.
+async fn loop_to_the_bound(fleet: &Arc<Hosted>, job: &JobId, levels: &[u64]) {
+    for cap in levels {
+        raise_to(fleet, job, *cap).await;
+        spend(fleet, job, 4_400_000, 20).await;
+        let turned = fleet.turn().await.expect("a turn");
+        fleet.woken(&turned).await;
+        settled(fleet, job).await;
+    }
+}
+
+const FOUR_LEVELS: [u64; 4] = [5_000_000, 5_100_000, 5_200_000, 5_300_000];
+
+async fn the_card_out(fleet: &Arc<Hosted>, job: &JobId) -> Option<ipc::CommanderCard> {
+    use api::Queries;
+    fleet
+        .get_job(ipc::JobId::from(job))
+        .await
+        .expect("the Job reads")
+        .commander_card
+}
+
+/// **At the bound a card goes to the owner, and the Job keeps running.** The
+/// fourth wake is not made and the Job is not escalated: a Job whose cap is
+/// nearly spent is working, and the owner is told, not asked to take it over.
+#[tokio::test]
+async fn the_bound_puts_a_card_to_the_owner_and_leaves_a_running_job_running() {
+    let home = TempDir::new();
+    let host = Scripted::answering();
+    let fleet = fleet(&home, &host, Fitted::FiveDollars);
+    let job = working(&fleet, &home, "bound the reader").await;
+    let status = fleet.load(&job).await.unwrap().status();
+
+    loop_to_the_bound(&fleet, &job, &FOUR_LEVELS[..3]).await;
+    assert!(the_card_out(&fleet, &job).await.is_none(), "three wakes is not yet a loop");
+    loop_to_the_bound(&fleet, &job, &FOUR_LEVELS[3..]).await;
+
+    let card = the_card_out(&fleet, &job).await.expect("the fourth fact raised a card");
+    assert_eq!(card.by, ipc::CardBy::Fleet, "Fleet put it out, at the bound");
+    assert_eq!(card.text, "The cost cap is nearly spent: $4.40 of $5.30");
+    assert_eq!(card.reach, "Woken 3 times for this, and the Job has not moved");
+    assert_eq!(
+        card.options.iter().map(|one| one.label.as_str()).collect::<Vec<_>>(),
+        ["Try again", "Leave it"]
+    );
+    assert_eq!(host.carried().len(), 3, "and no fourth wake");
+    assert_eq!(
+        fleet.load(&job).await.unwrap().status(),
+        status,
+        "the card is raised; the Job is not escalated"
+    );
+    use api::Queries;
+    assert!(
+        fleet.get_job(ipc::JobId::from(&job)).await.unwrap().job.asking,
+        "and it counts as waiting on the owner"
+    );
+}
+
+/// **Beside an escalation**, where the Job was already stopped.
+#[tokio::test]
+async fn the_bound_beside_an_escalated_job_leaves_the_escalation_and_adds_the_card() {
+    let home = TempDir::new();
+    let host = Scripted::answering();
+    let fleet = fleet(&home, &host, Fitted::FiveDollars);
+    let job = working(&fleet, &home, "bound the reader").await;
+    let record = fleet.load(&job).await.unwrap();
+    fleet
+        .move_job(&record, Target::Escalated(EscalationTrigger::Stalled), Actor::Fleet)
+        .await
+        .expect("escalated");
+
+    loop_to_the_bound(&fleet, &job, &FOUR_LEVELS).await;
+
+    assert!(the_card_out(&fleet, &job).await.is_some());
+    assert_eq!(fleet.load(&job).await.unwrap().status(), JobStatus::Escalated);
+}
+
+/// **One card at a time, and his answer wakes the Commander past the bound.**
+/// The bound stops Fleet's wakes; it does not stop him from sending it back in.
+#[tokio::test]
+async fn a_card_out_is_not_joined_by_another_and_his_answer_wakes_past_the_bound() {
+    let home = TempDir::new();
+    let host = Scripted::answering();
+    let fleet = fleet(&home, &host, Fitted::FiveDollars);
+    let job = working(&fleet, &home, "bound the reader").await;
+    loop_to_the_bound(&fleet, &job, &FOUR_LEVELS).await;
+    let card = the_card_out(&fleet, &job).await.expect("a card");
+
+    loop_to_the_bound(&fleet, &job, &[5_400_000]).await;
+    assert_eq!(the_card_out(&fleet, &job).await, Some(card.clone()), "the same card, not a second");
+
+    let answered = api::Conversations::answer_commander_card(
+        Arc::clone(&fleet),
+        crate::tests::commander_conversation::resolved(&fleet, &job).await,
+        ipc::AnswerCommanderCard {
+            card_id: card.card_id.clone(),
+            option_id: "1".to_string(),
+        },
+    )
+    .await
+    .expect("his pick");
+    assert!(answered.woke);
+    settled(&fleet, &job).await;
+    assert_eq!(host.carried().len(), 4, "three wakes, then his answer");
+    assert!(
+        woke_rows(&said(&fleet, &job).await)
+            .last()
+            .is_some_and(|row| row.contains("Should the Commander try again?\": Try again")),
+        "{:?}",
+        woke_rows(&said(&fleet, &job).await)
+    );
+    assert!(the_card_out(&fleet, &job).await.is_none());
+
+    loop_to_the_bound(&fleet, &job, &[5_500_000]).await;
+    let again = the_card_out(&fleet, &job).await.expect("it is still looping, so he is asked again");
+    assert_ne!(again.card_id, card.card_id);
+}
+
 async fn raise_to(fleet: &Arc<Hosted>, job: &JobId, micros: u64) {
     if micros > Micros::dollars(5).count() {
         fleet

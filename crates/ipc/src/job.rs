@@ -223,7 +223,9 @@ pub struct JobSummary {
     /// one fact written twice.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub waits_on: Vec<JobId>,
-    /// Whether this Job's Drone is waiting on an answer from a person.
+    /// Whether this Job's Drone is waiting on an answer from a person, **or its
+    /// Commander has a card out to the owner** (`JobDetail::commander_card`,
+    /// `#2166`). Either way it is the Job waiting on him.
     ///
     /// # A flag, and deliberately not the question
     ///

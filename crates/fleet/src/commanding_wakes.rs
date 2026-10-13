@@ -343,7 +343,9 @@ where
         match noted {
             Ok(CommanderWake::Already) => {}
             Ok(CommanderWake::New { run }) if run > WAKES_PER_PROBLEM => {
-                self.noted_not_woken(job, &trouble.words(&step_named), run);
+                let words = trouble.words(&step_named);
+                self.noted_not_woken(job, &words, run);
+                self.card_at_the_bound(&record, &words, WAKES_PER_PROBLEM).await;
             }
             Ok(CommanderWake::New { .. }) => {
                 // A Commander that cannot start has said why in the Job's log,
@@ -401,9 +403,8 @@ where
             .map_err(|why| why.to_string())
     }
 
-    /// The loop bound. The Job stays with the owner, where it already is for
-    /// every trouble but drift and a cap; the card that asks him is `#2166`'s
-    /// second part.
+    /// The loop bound. Nothing wakes the Commander again, and the log says so
+    /// here; `card_at_the_bound` puts the card to the owner.
     fn noted_not_woken(&self, job: &JobId, problem: &str, run: u32) {
         let envelope = Envelope::new(
             self.now(),

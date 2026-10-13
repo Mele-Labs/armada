@@ -188,6 +188,37 @@ where
         }
     }
 
+    /// Where the loop bound stopped Fleet waking the Commander for `problem`:
+    /// **the card that goes to the owner in its place.** It moves nothing, so a
+    /// Job still running keeps running and an escalated one stays escalated
+    /// with the card beside it. A card already out, or a Job that is over, is
+    /// left as it is.
+    pub(crate) async fn card_at_the_bound(&self, record: &Job, problem: &str, wakes: u32) {
+        let reach = format!("Woken {wakes} times for this, and the Job has not moved");
+        let options = [String::from("Try again"), String::from("Leave it")];
+        let put = self
+            .card_put_out(
+                record,
+                CardRaiser::Fleet,
+                problem,
+                &reach,
+                "Should the Commander try again?",
+                &options,
+            )
+            .await;
+        match put {
+            Ok(_) | Err(Refusal::IllegalMove(_)) => {}
+            Err(other) => {
+                self.noted_setting(
+                    record.id(),
+                    "the card for a Commander stopped at its loop bound was not put out",
+                    &[("why", other.error().message.clone())],
+                )
+                .await
+            }
+        }
+    }
+
     /// `answer_commander_card`: his pick, kept, and the Commander woken with it.
     pub(super) async fn commander_card_answered(
         self: Arc<Self>,

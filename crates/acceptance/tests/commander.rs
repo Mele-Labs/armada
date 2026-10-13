@@ -13,7 +13,6 @@
 //!
 //! | Step of the claim | Carried by |
 //! |---|---|
-//! | One card goes to him, and answering it wakes the Commander | #2166, the second part |
 //! | The owner sees in the thread and on each task's mark that it acted, and answers a card | #2169 |
 //! | A repair Drone goes onto the Job's own branch | #2170 |
 
@@ -30,9 +29,14 @@
 //! naming another Job is refused. **The wakes, `#2167`, are its
 //! `tests::commanding_wakes`**: each of the six troubles wakes the Commander
 //! once, with its row, and not on the next tick or after a restart; a fourth
-//! wake on one problem with the Job unmoved is not made. A Fleet cannot be
-//! assembled from here without the fixture that crate keeps private, and its
-//! thread is a file.
+//! wake on one problem with the Job unmoved is not made. **The card, `#2166`'s
+//! second part, is its `tests::commander_card` and the bound's cases in
+//! `tests::commanding_wakes`**: one card goes to him and outlives a Fleet
+//! restart, it counts as the Job waiting on him without moving the Job, the
+//! night records it as blocked, his answer wakes the Commander, and at the loop
+//! bound a card goes out and a running Job keeps running. What crosses the wire
+//! is asserted here. A Fleet cannot be assembled from here without the fixture
+//! that crate keeps private, and its thread is a file.
 
 // Shared with the other milestones' tests, and none of them uses all of it.
 #[allow(dead_code)]
@@ -40,7 +44,7 @@ mod bench;
 
 use adapter_traits::{Environment, McpConfig, Model};
 use adapters::{denied_to_a_commander, door_tools, Commanding, HeadlessAgent};
-use api::{offerable, CommanderReach, COMMANDER_ALLOWED};
+use api::{offerable, offerable_to_a_commander, CommanderReach, COMMANDER_ALLOWED};
 use core_model::{Actor, Attempt, JobStatus, PlanAuthor, StepId, Via};
 use testkit::FakeWorkProduct;
 
@@ -156,10 +160,10 @@ const NEVER_THE_COMMANDERS: &[&str] = &[
 ];
 
 #[test]
-fn a_commander_is_offered_every_read_and_ten_acts_and_nothing_that_passes_a_gate() {
+fn a_commander_is_offered_every_read_and_eleven_acts_and_nothing_that_passes_a_gate() {
     let reach = CommanderReach::of_the_allowlist(ipc::JobId::carried("01JOB14"));
 
-    let mut granted: Vec<&str> = offerable()
+    let mut granted: Vec<&str> = offerable_to_a_commander()
         .filter(|row| row.kind == "command" && reach.may(row.operation))
         .map(|row| row.operation)
         .collect();
@@ -175,6 +179,8 @@ fn a_commander_is_offered_every_read_and_ten_acts_and_nothing_that_passes_a_gate
         "add_task",
         "drop_task",
         "move_plan",
+        // The one way it reaches the owner: a card that outlives its turn.
+        "ask_the_owner",
     ];
     settled.sort_unstable();
     assert_eq!(granted, settled, "the acts a Commander may take, and no more");
@@ -183,6 +189,14 @@ fn a_commander_is_offered_every_read_and_ten_acts_and_nothing_that_passes_a_gate
     for row in offerable().filter(|row| row.kind == "query") {
         assert!(reach.may(row.operation), "every read is its: {}", row.operation);
     }
+    assert!(
+        !offerable().any(|row| row.operation == "ask_the_owner"),
+        "the card is offered to a Commander and to no other caller, Helm included"
+    );
+    assert!(
+        !offerable_to_a_commander().any(|row| row.operation == "answer_commander_card"),
+        "and his pick is offered to no agent"
+    );
     for operation in NEVER_THE_COMMANDERS {
         assert!(
             offerable().any(|row| row.operation == *operation),
@@ -349,4 +363,97 @@ fn the_owners_words_and_a_turns_rows_cross_as_a_thread() {
     })
     .expect("encodes");
     assert_eq!(changed, r#"{"job_id":"01JOB14","state":"working"}"#);
+}
+
+/// #2166. The card is a closed set he picks from: a line with something in it,
+/// two to four labels that differ, and an answer that names an option and
+/// carries no prose.
+#[test]
+fn a_card_crosses_the_wire_as_a_closed_set_and_a_crowded_or_blank_one_does_not_decode() {
+    let card = br#"{"text":"Group 3 is red on desktop_test","reach":"A Check is the owner's to skip","question":"Skip it?","options":["Skip desktop_test","Leave it"]}"#;
+    let asked: ipc::AskTheOwner = ipc::decode("a card", card).expect("decodes");
+    assert_eq!(asked.options.labels(), ["Skip desktop_test", "Leave it"]);
+
+    for refused in [
+        br#"{"text":"a","reach":"b","question":"c","options":["only"]}"#.as_slice(),
+        br#"{"text":"a","reach":"b","question":"c","options":["same","same"]}"#.as_slice(),
+        br#"{"text":"a","reach":"b","question":"c","options":["1","2","3","4","5"]}"#.as_slice(),
+        br#"{"text":"a","reach":"b","question":"c","options":["x",""]}"#.as_slice(),
+        br#"{"text":"  ","reach":"b","question":"c","options":["x","y"]}"#.as_slice(),
+        br#"{"reach":"b","question":"c","options":["x","y"]}"#.as_slice(),
+    ] {
+        assert!(
+            ipc::decode::<ipc::AskTheOwner>("a card", refused).is_err(),
+            "{}",
+            String::from_utf8_lossy(refused)
+        );
+    }
+
+    let out = ipc::CommanderCard {
+        card_id: ipc::CardId::carried("01CARD"),
+        job_id: ipc::JobId::carried("01JOB14"),
+        by: ipc::CardBy::Fleet,
+        raised_at: ipc::Instant::carried("2026-10-13T09:00:00.000Z"),
+        text: asked.text.as_str().to_string(),
+        reach: asked.reach.as_str().to_string(),
+        question: asked.question.as_str().to_string(),
+        options: asked
+            .options
+            .labels()
+            .iter()
+            .enumerate()
+            .map(|(at, label)| ipc::CardOption {
+                id: (at + 1).to_string(),
+                label: label.clone(),
+            })
+            .collect(),
+    };
+    let going = ipc::encode(&ipc::Event::CommanderCard(ipc::CommanderCardChanged {
+        job_id: ipc::JobId::carried("01JOB14"),
+        card: Some(out),
+    }))
+    .expect("encodes");
+    assert!(going.contains(r#""kind":"commander.card""#), "{going}");
+    assert!(going.contains(r#""by":"fleet""#), "{going}");
+    assert!(going.contains(r#""options":[{"id":"1","label":"Skip desktop_test"},{"id":"2","label":"Leave it"}]"#), "{going}");
+
+    let answered = ipc::encode(&ipc::Event::CommanderCard(ipc::CommanderCardChanged {
+        job_id: ipc::JobId::carried("01JOB14"),
+        card: None,
+    }))
+    .expect("encodes");
+    assert_eq!(
+        answered,
+        r#"{"kind":"commander.card","job_id":"01JOB14"}"#,
+        "the second message says the card is gone by carrying none, as job.asking does"
+    );
+
+    let pick = ipc::encode(&ipc::AnswerCommanderCard {
+        card_id: ipc::CardId::carried("01CARD"),
+        option_id: "2".to_string(),
+    })
+    .expect("encodes");
+    assert_eq!(pick, r#"{"card_id":"01CARD","option_id":"2"}"#, "an id and an id, no prose");
+}
+
+/// #2166. A Job's own Commander model is chosen with both halves stated, so a
+/// client that dropped one cannot clear it by accident.
+#[test]
+fn a_job_names_its_commanders_model_and_effort_with_both_keys_present() {
+    let both: ipc::SetCommanderModel =
+        ipc::decode("a choice", br#"{"model":"a-model","effort":"low"}"#).expect("decodes");
+    assert_eq!(
+        (both.model.as_deref(), both.effort.as_deref()),
+        (Some("a-model"), Some("low"))
+    );
+    let cleared: ipc::SetCommanderModel =
+        ipc::decode("a choice", br#"{"model":null,"effort":null}"#).expect("decodes");
+    assert_eq!((cleared.model, cleared.effort), (None, None));
+    for dropped in [br#"{"model":"a-model"}"#.as_slice(), br#"{"effort":"low"}"#.as_slice()] {
+        assert!(
+            ipc::decode::<ipc::SetCommanderModel>("a choice", dropped).is_err(),
+            "{}",
+            String::from_utf8_lossy(dropped)
+        );
+    }
 }
