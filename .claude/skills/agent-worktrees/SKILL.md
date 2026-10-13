@@ -34,7 +34,12 @@ another branch. Confirmed 6 Oct 2026: after a cmux crash a session ran
 session had been given, and put a merge commit on that session's branch (undone
 with `git reset --keep`). After any restart run `git -C <slot> branch
 --show-current` before another git command there, and re-attach a branch with
-`armada worktree lease --existing <branch>`. A lease started from a subshell
+`armada worktree lease <branch>`: a branch that exists, here or on `origin`, is
+checked out at its own tip and never reset to the base (it was, until 13 Oct
+2026, when a pushed branch in a slot whose holder was gone came back as main's
+tip; only the push saved its commits). `--existing` is the same but refuses a
+name nothing has instead of cutting it. A slot whose holder is gone and which
+holds uncommitted files is refused rather than taken back, so commit there first. A lease started from a subshell
 (`( ... &)`) fails with "the process this was run from could not be read"; run
 it in the foreground or as the shell tool's own background task.
 **A lease taken in one tool call could read free when the call ended**, because
@@ -46,6 +51,12 @@ landing on its branch. The holder is now the first process above the command
 that is not a shell, so the agent's session holds it. A lease taken by an
 older binary still has the old holder: commit before a call ends, because a
 branch with its commits is safe whoever has the slot.
+**A session Bridge hosts holds its leases by its session id, not a process**
+(`ARMADA_SESSION`, 13 Oct 2026): Fleet ends and resumes its process when it moves
+the session into a slot, and a lease held for that process read `holder is gone`,
+so another session was given a slot the first was standing in. Such a lease
+shows as `job <session id>` in `--status`, is never taken back, and is parked
+when the session closes.
 
 **The owner sizes the pool, not the dispatcher.** He adds, removes and closes
 slots from Cleanup, and that machine's pool stands in for `setup.worktrees`. A

@@ -12,7 +12,7 @@
 
 import { BaseWindow, screen, shell, type WebContentsView } from "electron";
 
-import type { Outcome, StagedFrame, StudioCapture, WindowPlace } from "@armada/protocol";
+import type { Outcome, StagedFrame, StudioCapture, WindowPlace, WindowTake } from "@armada/protocol";
 import type {
   CaptureAimed,
   CaptureAnswer,
@@ -20,15 +20,19 @@ import type {
   CaptureHeld,
   CaptureRefusedWhat,
   CaptureWheel,
+  CaptureReadiness,
+  CaptureWalk,
   CaptureWindowState,
 } from "../../shared/capture-window";
 import { CHANNELS } from "../../shared/bridge";
-import { isPinned, offerable, onOrigin, shown, type Pinned } from "./address";
+import { isPinned, offerable, onOrigin, shown, webOrigin, type Pinned } from "./address";
 import { aimed, bounded, chainOf, rectOf } from "./bounds";
 import { panelFor, walkLayout, type LandsOn, type PanelSubject } from "./layout";
 import { followedBy } from "./follow";
+import type { Take } from "./session-note";
 import { askSource } from "./layer";
 import { locateSource } from "./locate";
+import { actSource, hostSource, readSource, readWalk, sameWalk, type WalkAct } from "./walk";
 import { barView, pageView, panelView } from "./views";
 
 export type { LandsOn } from "./layout";
@@ -39,13 +43,15 @@ export type CaptureBoard = {
   /** A note kept on the Job whose server this window walks — protocol 23.18. */
   walkNote: (jobId: string, said: string, capture: StudioCapture, frame: StagedFrame | null) => Promise<Outcome>;
   /** A note taken on a page a Session showed: a message from the person, which wakes the Session. */
-  sessionNote: (sessionId: string, said: string, capture: StudioCapture, address: string) => Promise<Outcome>;
+  sessionNote: (sessionId: string, said: string, capture: StudioCapture, address: string, take?: Take) => Promise<Outcome>;
   /** Approve on the bar, for a Job: the act JobDetail's own Approve sends. */
   walkApproved: (jobId: string) => Promise<Outcome>;
-  /** Approve on the bar, for a Session: a message from the person naming the address, which wakes it. */
-  sessionApproved: (sessionId: string, address: string) => Promise<Outcome>;
+  /** Approve on the bar, for a Session: a message from the person naming the address, and the take on screen, which wakes it. */
+  sessionApproved: (sessionId: string, address: string, take?: Take) => Promise<Outcome>;
   /** The Session's question, answered from the bar: `answer_waiting` on its item, which wakes it. */
   answerAsk: (sessionId: string, itemId: string, answer: CaptureAnswer) => Promise<Outcome>;
+  /** The Session windows open changed: one opened, or one closed. Optional, for a board that draws none. */
+  windowsChanged?: () => void;
   /** A Session's window closed, whoever closed it: its walk is over, so the Session may ask again. */
   sessionClosed: (sessionId: string, address: string) => void;
   stage: (png: Buffer, width: number, height: number) => Promise<StagedFrame | null>;
@@ -78,6 +84,13 @@ export type WindowQuestion = {
   place: WindowPlace;
 };
 
+/** How often a walk in the page is read, and how often it is looked for after a load, and for how many looks. */
+const WALK_READ_MS = 250;
+const WALK_FIND_MS = 100;
+const WALK_FIND_TRIES = 50;
+/** The longest one read or act waits on the page before the next is allowed. */
+const WALK_ASK_MS = 1000;
+
 /** How the window is sized, in CSS pixels, from tokens: the bar's row, the panel, and the page's floor beside it. */
 export type WalkSizes = { bar: number; panel: number; floor: number };
 
@@ -89,7 +102,14 @@ export class CaptureWindow {
   private readonly page: WebContentsView;
   private readonly bar: WebContentsView;
   private readonly board: CaptureBoard;
-  private readonly pin: Pinned;
+  /** What the page is pinned to: **the take on screen's**, which moves only to another the Session declared. */
+  private pin: Pinned;
+  /** The address the window was opened on, which a Session knows it by whichever take is on screen. */
+  private readonly opened: string;
+  /** The takes the Session declared, the first the one opened on. Empty: one page. */
+  private readonly takes: readonly WindowTake[];
+  private at = 0;
+  private readiness: CaptureReadiness | undefined = undefined;
   private readonly landsOn: LandsOn;
   private readonly sizes: WalkSizes;
   /** The Session or the Job beside the page, and the view it is drawn in. `null`: a Studio's window. */
@@ -115,9 +135,19 @@ export class CaptureWindow {
   private relocating: ReturnType<typeof setTimeout> | null = null;
   /** Questions answered from this bar, so a publish from before the answer cannot raise one again. */
   private readonly settled = new Set<string>();
+  /** The walk the page is playing, as last read and bounded here. `null`: the page is not a walk. */
+  private walk: CaptureWalk | null = null;
+  private walkTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Whether this document has been told to leave its card to the bar. */
+  private walkHosted = false;
+  private walkReading = false;
+  /** Which load's looking is current, so an answer that lands after another load began is let go. */
+  private walkRound = 0;
 
-  constructor(pin: Pinned, landsOn: LandsOn, board: CaptureBoard, sizes: WalkSizes, kept: PanelKept | null) {
+  constructor(pin: Pinned, landsOn: LandsOn, board: CaptureBoard, sizes: WalkSizes, kept: PanelKept | null, takes: readonly WindowTake[] = []) {
     this.pin = pin;
+    this.opened = pin.url;
+    this.takes = takes;
     this.landsOn = landsOn;
     this.board = board;
     this.sizes = sizes;
@@ -154,7 +184,11 @@ export class CaptureWindow {
     this.window.on("blur", () => this.board.focused(pin.run, false));
     this.window.on("closed", () => {
       this.board.focused(pin.run, false);
-      if ("session" in landsOn) this.board.sessionClosed(landsOn.session.id, pin.url);
+      if ("session" in landsOn) {
+        this.board.sessionClosed(landsOn.session.id, this.opened);
+        this.board.windowsChanged?.();
+      }
+      this.stopWatchingWalk();
       // A view's document outlives a closed `BaseWindow` unless it is closed with it.
       for (const view of [this.page, this.bar, this.panel]) if (view !== null && !view.webContents.isDestroyed()) view.webContents.close();
     });
@@ -177,9 +211,52 @@ export class CaptureWindow {
     return !this.window.isDestroyed();
   }
 
-  /** The address the window was opened on. */
+  /** The address the window was opened on, whichever take is on screen. */
   get address(): string {
-    return this.pin.url;
+    return this.opened;
+  }
+
+  /** The origins a question about a place may be on: the page on screen's, and every take's. */
+  get origins(): string[] {
+    return [this.pin.origin, ...this.takes.flatMap((one) => webOrigin(one.url) ?? [])];
+  }
+
+  /** Whether this window shows exactly these takes, so a Session that shows them again is raising it. */
+  showing(takes: readonly WindowTake[]): boolean {
+    return takes.length === this.takes.length && takes.every((one, at) => one.url === this.takes[at]?.url && one.name === this.takes[at]?.name);
+  }
+
+  /**
+   * Swap the page to another take the Session declared. **The bar names an index and main reads the
+   * address off what the Session sent**, so the origin the page is pinned to moves only to one the
+   * Session chose. What was pointed at on the page left is dropped.
+   */
+  pick(at: number): void {
+    const take = this.takes[at];
+    const origin = take === undefined ? null : webOrigin(take.url);
+    if (take === undefined || origin === null || at === this.at || !this.serving || this.page.webContents.isDestroyed()) return;
+    this.at = at;
+    this.pin = { ...this.pin, origin, url: take.url };
+    this.armed = false;
+    this.holding = null;
+    this.refusedAddress = undefined;
+    this.framesRefused = 0;
+    this.window.setTitle(titled(this.pin));
+    this.tell();
+    void this.page.webContents.loadURL(take.url);
+  }
+
+  /** What the Session or the Job says of the page: ready, or still being changed. The bar draws it and Approve waits on it. */
+  setReadiness(readiness: CaptureReadiness | undefined): void {
+    if (readiness === this.readiness) return;
+    this.readiness = readiness;
+    this.tell();
+  }
+
+  /** The take on screen as a note and an Approve name it, or `undefined` where the window shows one page. */
+  private taken(): Take | undefined {
+    const take = this.takes[this.at];
+    return take === undefined ? undefined : { letter: String.fromCharCode(65 + this.at), name: take.name };
   }
 
   get runId(): string {
@@ -250,6 +327,9 @@ export class CaptureWindow {
       ...("job" in this.landsOn ? { job: this.landsOn.job } : {}),
       ...("session" in this.landsOn ? { session: this.landsOn.session } : {}),
       ...(this.subject === null ? {} : { panel: { kind: this.subject.kind, open: this.panelOpen } }),
+      ...(this.takes.length === 0 ? {} : { variations: { names: this.takes.map((one) => one.name), at: this.at } }),
+      ...(this.readiness === undefined ? {} : { readiness: this.readiness }),
+      ...(this.walk === null ? {} : { walk: this.walk }),
       serving: this.serving,
       armed: this.armed,
       framesRefused: this.framesRefused,
@@ -283,6 +363,10 @@ export class CaptureWindow {
       return;
     }
     if (this.asked?.id === question.id || this.settled.has(question.id)) return;
+    // A place on another take's origin takes the window to that take first.
+    const placed = webOrigin(question.place.url);
+    const there = onOrigin(this.pin.origin, question.place.url) ? -1 : this.takes.findIndex((one) => webOrigin(one.url) === placed);
+    if (there >= 0) this.pick(there);
     this.asked = question;
     this.askShown = true;
     this.askBox = undefined;
@@ -366,7 +450,7 @@ export class CaptureWindow {
       "studio" in this.landsOn
         ? await this.board.capture(this.landsOn.studio.id, said, capture, frame)
         : "session" in this.landsOn
-          ? await this.board.sessionNote(this.landsOn.session.id, said, capture, this.pin.url)
+          ? await this.board.sessionNote(this.landsOn.session.id, said, capture, this.pin.url, this.taken())
           : await this.board.walkNote(this.landsOn.job.id, said, capture, frame);
     if (outcome.ok) {
       this.holding = null;
@@ -382,7 +466,7 @@ export class CaptureWindow {
    */
   async approve(): Promise<Outcome> {
     if ("job" in this.landsOn) return this.board.walkApproved(this.landsOn.job.id);
-    if ("session" in this.landsOn) return this.board.sessionApproved(this.landsOn.session.id, this.pin.url);
+    if ("session" in this.landsOn) return this.board.sessionApproved(this.landsOn.session.id, this.pin.url, this.taken());
     return { ok: false, why: "no_owner" };
   }
 
@@ -502,7 +586,8 @@ export class CaptureWindow {
     const { width, height } = this.window.getContentBounds();
     const folded = this.asked !== null && !this.askShown;
     const said = !this.serving || this.refusedAddress !== undefined || this.framesRefused > 0 || folded;
-    const strip = this.sizes.bar * (said ? 2 : 1);
+    // The takes and the walk are rows of their own, under the bar's, and the second row follows them.
+    const strip = this.sizes.bar * (1 + (this.takes.length === 0 ? 0 : 1) + (this.walk === null ? 0 : 1) + (said ? 1 : 0));
     const shown = this.panel !== null && this.panelOpen;
     const at = walkLayout({ width, height, strip, covered: this.covered(), panel: shown ? this.sizes.panel : 0 }, this.sizes.floor);
     this.page.setBounds(at.page);
@@ -568,6 +653,94 @@ export class CaptureWindow {
     // A page the question moved to, or one that moved under it: its place is looked for again.
     contents.on("did-finish-load", () => void this.locate());
     contents.on("did-navigate-in-page", () => void this.locate());
+    // A walk mounts a moment after its page loads, and Back loads the page again.
+    // `dom-ready` is the new document's, so it is told to leave its card again; the walk itself mounts after it.
+    contents.on("dom-ready", () => this.findWalk());
+    contents.on("did-finish-load", () => this.findWalk());
+  }
+
+  /**
+   * Look for a walk in the page: **main asks, the page never tells**. Each look is one script that
+   * returns a string, as a capture's does, so the page keeps no listener of Bridge's and holds no way
+   * to speak first. Looked for after every load for a few seconds; once found it is read on a beat for
+   * as long as it answers. The row stays through a reload, so Back does not flicker the layout.
+   */
+  private findWalk(): void {
+    this.stopWatchingWalk();
+    this.walkHosted = false;
+    const round = this.walkRound;
+    let missed = 0;
+    const look = async (): Promise<void> => {
+      if (!this.open) return;
+      const found = await this.readWalk();
+      // A later load has started its own looking.
+      if (!this.open || round !== this.walkRound) return;
+      if (found) missed = 0;
+      else if ((missed += 1) > WALK_FIND_TRIES) {
+        this.setWalk(null);
+        return;
+      }
+      this.walkTimer = setTimeout(() => void look(), found ? WALK_READ_MS : WALK_FIND_MS);
+    };
+    void look();
+  }
+
+  private stopWatchingWalk(): void {
+    this.walkRound += 1;
+    if (this.walkTimer !== null) clearTimeout(this.walkTimer);
+    this.walkTimer = null;
+  }
+
+  /** One script in the page, or `null` where there is no page to ask. A page that never answers is let go of. */
+  private async inPage(source: string): Promise<unknown> {
+    const contents = this.page.webContents;
+    if (contents.isDestroyed() || !this.serving || !onOrigin(this.pin.origin, contents.getURL())) return null;
+    let giveUp: ReturnType<typeof setTimeout> | undefined;
+    try {
+      return await Promise.race([
+        contents.executeJavaScript(source, false),
+        new Promise<null>((resolve) => (giveUp = setTimeout(() => resolve(null), WALK_ASK_MS))),
+      ]);
+    } catch {
+      return null;
+    } finally {
+      clearTimeout(giveUp);
+    }
+  }
+
+  /** Read the walk once and tell the bar if it moved. Whether the page has a walk. */
+  private async readWalk(): Promise<boolean> {
+    if (this.walkReading) return this.walk !== null;
+    this.walkReading = true;
+    try {
+      const walk = readWalk(await this.inPage(readSource()));
+      if (walk !== null && !this.walkHosted) {
+        this.walkHosted = true;
+        await this.inPage(hostSource());
+      }
+      if (walk !== null) this.setWalk(walk);
+      return walk !== null;
+    } finally {
+      this.walkReading = false;
+    }
+  }
+
+  private setWalk(walk: CaptureWalk | null): void {
+    if (sameWalk(this.walk, walk)) return;
+    this.walk = walk;
+    this.tell();
+  }
+
+  /**
+   * One of the walk's five acts, called in the page. **The bar names the act and nothing else**: the
+   * source is fixed text per act, and it is refused where the page has no walk.
+   */
+  async walkAct(act: WalkAct): Promise<void> {
+    if (this.walk === null) return;
+    await this.inPage(actSource(act));
+    // The bar is told what the act did without waiting for the next beat.
+    if (!this.open) return;
+    setTimeout(() => void this.readWalk(), 50);
   }
 }
 

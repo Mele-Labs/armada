@@ -282,8 +282,69 @@ export const SleepModeToggle: Story = {
   play: async ({ args, canvas, userEvent }) => {
     const moon = canvas.getByRole("button", { name: "Sleep mode" });
     await expect(moon).toHaveAttribute("aria-pressed", "false");
-    await expect(moon).toHaveAttribute("title", "Sleep mode");
+    await expect(moon).toHaveAttribute("title", "Sleep mode off");
     await userEvent.click(moon);
     await expect(args.sleep?.onToggle).toHaveBeenCalledTimes(1);
+  },
+};
+
+const inTwoHours = () => new Date(Date.now() + (2 * 60 + 14) * 60_000 + 30_000).toISOString();
+
+/**
+ * The plan's limits as two fill meters beside Sleep. Hover or focus opens a card, a press keeps it open, and
+ * Esc closes it. Each is named for what it is and how full it is.
+ */
+export const PlanUsage: Story = {
+  args: {
+    repositoryPicker: picker,
+    onSearch: () => {},
+    fleet: { state: "running", label: "Running" },
+    planUsage: [
+      { kind: "five_hour", percentUsed: 34, resetsAt: inTwoHours() },
+      { kind: "seven_day", percentUsed: 61 },
+    ],
+  },
+  play: async ({ canvas, userEvent }) => {
+    const five = canvas.getByRole("button", { name: "5-hour limit 34%" });
+    await expect(canvas.getByRole("button", { name: "Weekly limit 61%" })).toBeVisible();
+    await expect(canvas.queryByRole("dialog")).not.toBeInTheDocument();
+
+    await userEvent.hover(five);
+    const card = canvas.getByRole("dialog", { name: "5-hour limit" });
+    await expect(card).toHaveTextContent("34% used");
+    await expect(card).toHaveTextContent("Resets in");
+    await expect(card).toHaveTextContent("2h 14m");
+
+    await userEvent.click(five);
+    await userEvent.unhover(five);
+    await expect(canvas.getByRole("dialog", { name: "5-hour limit" })).toBeVisible();
+    await userEvent.keyboard("{Escape}");
+    await expect(canvas.queryByRole("dialog")).not.toBeInTheDocument();
+  },
+};
+
+/** Warning from 80% and danger from 95%, by the figure as it is drawn. */
+export const PlanUsageLevels: Story = {
+  args: {
+    repositoryPicker: picker,
+    onSearch: () => {},
+    fleet: { state: "running", label: "Running" },
+    planUsage: [
+      { kind: "five_hour", percentUsed: 86, resetsAt: inTwoHours() },
+      { kind: "seven_day", percentUsed: 97 },
+    ],
+  },
+};
+
+/** No reading, or only a window the row does not draw: nothing is drawn. */
+export const PlanUsageAbsent: Story = {
+  args: {
+    repositoryPicker: picker,
+    onSearch: () => {},
+    fleet: { state: "running", label: "Running" },
+    planUsage: [{ kind: "spend_limit", percentUsed: 12 }],
+  },
+  play: async ({ canvas }) => {
+    await expect(canvas.queryByRole("button", { name: /limit/ })).not.toBeInTheDocument();
   },
 };

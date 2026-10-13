@@ -33,8 +33,10 @@ import type {
 
 import type { BridgeApi } from "../../shared/api";
 import type { BridgeState } from "../../shared/bridge";
+import { buildChangeOf, type BuildChange } from "./build-change";
 import { uploadOfFile, uploadOfSketch } from "./session-uploads";
 import { SessionsFrom } from "./sessions-draft";
+import { markViewed } from "./cockpit/viewed";
 
 const NONE: readonly never[] = [];
 const HELD_WITHIN_MS = 3000;
@@ -178,6 +180,7 @@ export class WiredStore {
       this.tell(done.outcome);
       return false;
     }
+    markViewed(id);
     // The wire holds a sketch only as the picture it went as, so the ledger keeps what was drawn here.
     if (sent.sketches.length > 0) {
       this.sketches.set(id, [...(this.sketches.get(id) ?? NONE), ...sent.sketches.map((one): Sketch => ({ kind: "sketch", id: one.id, title: one.title, by: "you", drawing: one.drawing }))]);
@@ -270,6 +273,8 @@ export class WiredStore {
    * as one line; a stop ends it with `null`, which is how Fleet reports a stopped process group.
    */
   private running(id: string, command: string, on: (event: { kind: "out"; text: string } | { kind: "end"; code: number | null }) => void): { stop: () => void } {
+    const change = buildChangeOf(command);
+    if (change !== undefined) return this.switching(change, on);
     let runId: string | null = null;
     let over = false;
     const held: { runId: string; message: SessionRunMessage }[] = [];
@@ -304,6 +309,15 @@ export class WiredStore {
         void this.api.stopSessionRun(runId);
       },
     };
+  }
+
+  /** A restart onto main or the preview, pressed as the Fleet panel presses it; where it stands is the panel's to show. */
+  private switching(change: BuildChange, on: (event: { kind: "out"; text: string } | { kind: "end"; code: number | null }) => void): { stop: () => void } {
+    void this.api.changeFleetBuild(change.build, change.adopt).then((done) => {
+      on({ kind: "out", text: `${done.ok ? change.label : refusalWords(done)}\n` });
+      on({ kind: "end", code: done.ok ? 0 : 1 });
+    });
+    return { stop: () => undefined };
   }
 
   private build(): SessionsDraft {

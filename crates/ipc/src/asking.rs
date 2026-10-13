@@ -84,6 +84,22 @@ pub struct JudgeAnswered {
     /// finding.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub note: Option<String>,
+    /// How the Drone is told to carry on, beside the answer.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mode: Option<AnswerMode>,
+}
+
+/// An answer that leaves the deciding to the Drone, and how it is told to.
+///
+/// **A mode is an instruction and not a label.** `best` is "decide for
+/// yourself: think it through" and `quick` is "take the reasonable path and
+/// keep moving"; Fleet words both, so Bridge sends the name alone. Used by the
+/// Cockpit's `b` and `g` keys on a question.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AnswerMode {
+    Best,
+    Quick,
 }
 
 /// How this Job meets a Judge criterion that refuses. Beside

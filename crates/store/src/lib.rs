@@ -44,9 +44,14 @@ mod attempt;
 mod auto_merge_asked;
 /// A test broken on main, and the Job drafted to fix it. #999.
 mod breakages;
+/// What Fleet told a session about the build it now runs, so it is told once.
+mod build_notice;
 /// The tree a Job's Checks last passed on, for `merge_by: push`.
 mod check_runs;
 mod checked;
+/// A question a Job's Commander has put to the owner, and the model chosen for it.
+mod commander_cards;
+mod commander_model;
 mod columns;
 /// Drones beside the kept one, and each task's edit calls. Spike 022, slice 5.
 mod crew;
@@ -63,15 +68,21 @@ mod gaming;
 mod gate_manifests;
 mod groups;
 /// The session each Helm conversation resumes, one row per conversation.
+mod commander;
+mod commander_repairs;
+mod commander_wakes;
 mod helm_sessions;
 /// What a session Fleet hosts keeps beside its ledger row, and its thread.
 mod hosted_sessions;
 mod session_checks;
 mod issue_writeback;
+mod session_limit;
 mod session_waiting;
 mod sleep_night;
 /// A repository's Autopilot and what it picked. #2092.
 mod autopilot;
+/// Which bay a Job held, and when it took and gave it back.
+mod job_bays;
 /// Where a verdict's own question was kept, and the column that points at it.
 mod judged;
 /// Kit's MCP servers, and each Manifest's word over one. `#1275`.
@@ -186,6 +197,8 @@ mod studio;
 mod task_drones;
 /// How long each of a repository's Checks has taken.
 mod timings;
+/// What Fleet saw happen, for the Cockpit's timeline.
+mod timeline;
 /// What a person said while walking a Job's served mock. Since V102.
 mod walk_notes;
 /// An Epic's waves: the pass on a member, when its pull request merged, and
@@ -210,6 +223,10 @@ pub use asked_runs::{AskedRun, AskedRunBegun, AskedState};
 pub use asking::OpenJudgeQuestion;
 pub use attempt::Attempted;
 pub use check_runs::{CheckOutcome, CheckRun};
+pub use commander_cards::{CardAnswered, CardRaised, CardRaiser, NewCard, StoredCard};
+pub use commander_model::CommanderChoice;
+pub use commander_repairs::RepairOut;
+pub use commander_wakes::{CommanderProblem, CommanderWake};
 pub use crew::{ExtraEnded, TaskEdit};
 pub use delivery::{Currency, Delivery, Unsettled};
 pub use devices::{Device, PushSubscription};
@@ -223,6 +240,7 @@ pub use hosted_sessions::{KeptHosting, KeptTerminalAsk};
 pub use session_waiting::KeptWaiting;
 pub use session_checks::KeptSessionCheck;
 pub use issue_writeback::{WriteBackOwed, WrittenBack};
+pub use job_bays::KeptBay;
 pub use sleep_night::{SleepRow, SleepSwitch};
 pub use autopilot::{KeptAutopilot, KeptPick};
 pub use limits::SavedLimits;
@@ -257,5 +275,6 @@ pub use slot_rescues::{KeptRescue, RescueState, RescueVerdict};
 pub use spend::{DroneSpend, PastSpend, Spend};
 pub use studio::{DispatchedFrom, JobOnStudio, StudioError, Unreadable, UnreadableContent};
 pub use task_drones::{TaskDrone, TaskHandIn};
+pub use timeline::{KeptTimeline, TimelineEntry, TimelineWindow};
 pub use walk_notes::{KeptWalkNote, WalkNoteRemoved, WalkServed};
 pub use work_plan::{PlanHand, PlanNotKept};

@@ -190,10 +190,16 @@ pub struct ChosenAnswer {
     /// Which question is being answered. A window that has been open across an
     /// answered question names an id Fleet no longer holds, and is told so.
     pub question_id: QuestionId,
-    /// The [`AskedOption::label`] chosen, verbatim. **Absent when the question
-    /// is an interview**, which is answered by `decisions`.
+    /// The [`AskedOption::label`] chosen, verbatim. **Absent when the answer is
+    /// a [`mode`](ChosenAnswer::mode) alone**, which leaves the choice to the
+    /// Drone, and when the question is an interview, which is answered by
+    /// `decisions`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub chose: Option<String>,
+    /// Leave the choice to the Drone, and how hard to think about it. Where a
+    /// label is named too, the label is the answer and the mode rides with it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mode: Option<crate::AnswerMode>,
     /// The pick for each decision of an interview. **Every decision, once each,
     /// and no `chose`**; a question with no decisions is answered by `chose`
     /// and sends none of these. Fleet refuses the other mixes by name.

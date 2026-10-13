@@ -282,16 +282,18 @@ fn a_dead_holders_clean_slot_with_its_commit_on_its_branch_is_taken_back() {
 }
 
 #[test]
-fn a_branch_holding_unlanded_work_is_not_reset_by_a_lease() {
+fn a_branch_holding_unlanded_work_is_leased_at_its_tip_not_reset() {
     let repo = a_repository();
     repo.git(&["branch", "kept"]);
     repo.git(&["checkout", "-q", "kept"]);
     repo.commit_one("kept.rs", "work", "work nobody pushed");
+    let tip = repo.head_str();
     repo.git(&["checkout", "-q", "main"]);
 
-    assert!(pool(&repo, 1)
-        .try_lease("kept", &here(), 0, &no_seed)
-        .is_err());
+    let slot = take(&pool(&repo, 1), "kept", &here());
+
+    assert_eq!(git(&slot, &["rev-parse", "HEAD"]), tip);
+    assert_eq!(repo.git(&["rev-parse", "kept"]), tip);
 }
 
 /// The shell between a command and its caller ends with the command; the
@@ -360,6 +362,57 @@ fn the_caller_is_a_running_process_that_is_not_this_one() {
     assert!(caller.alive());
     assert_ne!(caller.pid(), Some(std::process::id()));
     assert!(!gone().alive());
+}
+
+/// `armada worktree lease` as a hosted session runs it: waiting, and told who it is.
+fn lease_for(pool: &Pool, branch: &str, session: &str) -> PathBuf {
+    let holder = Holder::lessee(Some(session)).expect("a hosted session names itself");
+    pool.lease(branch, &holder, 0, &no_seed, |_| {})
+        .expect("a slot")
+        .path()
+        .to_path_buf()
+}
+
+#[test]
+fn a_hosted_sessions_lease_is_held_for_the_session_and_not_for_its_process() {
+    assert_eq!(Holder::lessee(Some("s-1")), Some(Holder::job("s-1")));
+    assert!(
+        matches!(Holder::lessee(Some("")), Some(Holder::Process { .. })),
+        "an empty id is no session"
+    );
+    assert!(matches!(Holder::lessee(None), Some(Holder::Process { .. })));
+
+    let repo = a_repository();
+    let pool = pool(&repo, 1);
+    let slot = lease_for(&pool, "kept", "s-1");
+
+    // Nothing here is a process that could end, so Fleet restarting the session's
+    // agent leaves it as it is: another caller finds the slot held, never gone.
+    match pool.status().pop().expect("a slot").state {
+        SlotState::Held { holder, .. } => assert_eq!(holder, Holder::job("s-1")),
+        other => panic!("the session's slot reads as {other:?}"),
+    }
+    assert!(matches!(
+        pool.try_lease("theirs", &here(), 0, &no_seed),
+        Ok(Leased::Full(_))
+    ));
+    assert_eq!(git(&slot, &["branch", "--show-current"]), "kept");
+}
+
+#[test]
+fn a_hosted_session_can_lease_a_second_slot_beside_its_own_but_fleet_asking_again_is_handed_one() {
+    let repo = a_repository();
+    let pool = pool(&repo, 3);
+    let own = lease_for(&pool, "own", "s-1");
+    let subagents = lease_for(&pool, "subagents", "s-1");
+
+    assert_ne!(own, subagents);
+    assert_eq!(git(&subagents, &["branch", "--show-current"]), "subagents");
+
+    // A Job asking again is handed what it holds, unreset: that is Fleet's call, not the CLI's.
+    let again = take(&pool, "ignored", &Holder::job("s-1"));
+    assert!(again == own || again == subagents);
+    assert_eq!(pool.status().iter().filter(|slot| matches!(slot.state, SlotState::Held { .. })).count(), 2);
 }
 
 #[test]

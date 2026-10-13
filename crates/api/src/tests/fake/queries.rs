@@ -848,6 +848,13 @@ impl Queries for FakeDaemon {
         Ok(shapes::request_repository(&words))
     }
 
+    async fn get_fleet_timeline(
+        &self,
+        ask: ipc::TimelineAsk,
+    ) -> Result<ipc::FleetTimeline, Refusal> {
+        Ok(shapes::fleet_timeline(&ask))
+    }
+
     async fn get_merge_lines(&self) -> Result<ipc::MergeLines, Refusal> {
         Ok(ipc::MergeLines::default())
     }

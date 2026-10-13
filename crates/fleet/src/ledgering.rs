@@ -45,22 +45,42 @@ where
         }
     }
 
-    async fn job_took(&self, job: &Job, kind: &'static str, target: String) {
+    /// Whether the ledger changed: a row that stood already is not a new taking.
+    async fn job_took(&self, job: &Job, kind: &'static str, target: String) -> bool {
         let row = self.job_row(job, kind, target);
         let wrote = self.store().lock().await.attach(&row, true);
-        if let Err(why) = wrote {
-            self.said_about_the_ledger(
-                job.id(),
-                Level::Warn,
-                "what the Job holds could not be written to the ledger",
-                Some(&why.to_string()),
-            );
+        match wrote {
+            Ok(changed) => changed,
+            Err(why) => {
+                self.said_about_the_ledger(
+                    job.id(),
+                    Level::Warn,
+                    "what the Job holds could not be written to the ledger",
+                    Some(&why.to_string()),
+                );
+                false
+            }
         }
     }
 
-    /// The Job holds `slot`, and the one it held before is given back.
+    /// The Job holds `slot`, and the one it held before is given back. **Entered on the timeline
+    /// only when the ledger changed**, so a Fleet restart that reads the same slots again says
+    /// nothing.
     pub(crate) async fn job_holds_slot(&self, job: &Job, slot: u32) {
-        self.job_took(job, SLOT, slot.to_string()).await;
+        if self.job_took(job, SLOT, slot.to_string()).await {
+            self.job_slot(job, slot, true);
+        }
+        // Whether or not the ledger changed: the stint is idempotent, and a row
+        // that stood before the history existed is seeded by its migration.
+        let now = self.now().as_str().to_string();
+        if let Err(why) = self.store().lock().await.bay_taken(job.id(), slot, &now) {
+            self.said_about_the_ledger(
+                job.id(),
+                Level::Warn,
+                "the Job took a slot and its bay history could not be told",
+                Some(&why.to_string()),
+            );
+        }
     }
 
     /// The Job's work is on its branch.
@@ -73,6 +93,7 @@ where
 
     /// The pool took the Job's slot back, or parked its work and freed it.
     pub(crate) async fn job_gave_back_slot(&self, job: &Job) {
+        self.hosts().slot_freed();
         let holder = Holder::job(job.id().as_str());
         let now = self.now().as_str().to_string();
         let gave = self
@@ -80,13 +101,28 @@ where
             .lock()
             .await
             .give_back(&holder, Some(SLOT), &now);
-        if let Err(why) = gave {
+        // The bay history closes whether or not the ledger had a row to give back.
+        if let Err(why) = self.store().lock().await.bay_given_back(job.id(), &now) {
             self.said_about_the_ledger(
+                job.id(),
+                Level::Warn,
+                "the Job's slot was given back and its bay history could not be told",
+                Some(&why.to_string()),
+            );
+        }
+        match gave {
+            Ok(true) => {
+                if let Some(slot) = job.worktree_slot() {
+                    self.job_slot(job, slot, false);
+                }
+            }
+            Ok(false) => {}
+            Err(why) => self.said_about_the_ledger(
                 job.id(),
                 Level::Warn,
                 "the Job's slot was given back and the ledger could not be told",
                 Some(&why.to_string()),
-            );
+            ),
         }
     }
 

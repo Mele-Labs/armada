@@ -29,6 +29,7 @@ use crate::daemon::Fleet;
 // which is the one place they meet.
 use crate::overruling::Overruling;
 use crate::reporting::Filed;
+use crate::timeline::{command_answer_says, judge_answer_says, question_answer_says};
 use crate::resume::Redirection as Instruction;
 use crate::wire::reported;
 
@@ -650,6 +651,36 @@ where
         self.summarised(&job).await
     }
 
+    /// A person's hand on a running gate: `crate::check_acts`.
+    async fn retry_check(
+        self: Arc<Self>,
+        job_id: JobId,
+        named: ipc::CheckNamed,
+    ) -> Result<JobSummary, Refusal> {
+        let job = Fleet::retry_check(&self, &job_id.to_domain(), &named.check)
+            .await
+            .map_err(|why| self.refusal(why))?;
+        self.summarised(&job).await
+    }
+
+    async fn skip_check(
+        self: Arc<Self>,
+        job_id: JobId,
+        named: ipc::CheckNamed,
+    ) -> Result<JobSummary, Refusal> {
+        let job = Fleet::skip_check(&self, &job_id.to_domain(), &named.check)
+            .await
+            .map_err(|why| self.refusal(why))?;
+        self.summarised(&job).await
+    }
+
+    async fn skip_checks(self: Arc<Self>, job_id: JobId) -> Result<JobSummary, Refusal> {
+        let job = Fleet::skip_checks(&self, &job_id.to_domain())
+            .await
+            .map_err(|why| self.refusal(why))?;
+        self.summarised(&job).await
+    }
+
     /// Words to one Drone of the Job, by id: `crate::one_drone`.
     async fn redirect_one_drone(
         self: Arc<Self>,
@@ -822,6 +853,7 @@ where
         self: Arc<Self>,
         job_id: JobId,
         note: Option<ipc::RestartRequested>,
+        by: api::Steerer,
     ) -> Result<JobSummary, Refusal> {
         let said = match &note {
             Some(note) => Some(
@@ -831,7 +863,19 @@ where
         };
         let job = budgeted_for(self.command_budget(), job_id.clone(), {
             let fleet = Arc::clone(&self);
-            async move { Fleet::restart_step(&fleet, &job_id.to_domain(), said.as_ref()).await }
+            async move {
+                // Signed as the caller the transport placed, `restart_task`'s
+                // mapping: a person's, Helm's or a Commander's.
+                let (signed, _) = crate::work_plan::signed(by);
+                Fleet::restart_step_by(
+                    &fleet,
+                    &job_id.to_domain(),
+                    said.as_ref(),
+                    crate::resume::Ending::Unheard,
+                    signed,
+                )
+                .await
+            }
         })
         .await
         .map_err(|why| self.refusal(why))?;
@@ -876,19 +920,27 @@ where
         job_id: JobId,
         answer: ipc::ChosenAnswer,
     ) -> Result<JobSummary, Refusal> {
+        let (asked_of, says) = (job_id.clone(), question_answer_says(&answer));
         let job = budgeted_for(self.command_budget(), job_id.clone(), {
             let fleet = Arc::clone(&self);
             async move {
                 let id = job_id.to_domain();
                 let question = answer.question_id.as_str();
-                // A label answers a single question and picks answer an
-                // interview. Anything else goes the interview's way, where
+                // A label or a mode answers a single question and picks answer
+                // an interview. Anything else goes the interview's way, where
                 // the missing picks are refused by name.
-                match (answer.chose.as_deref(), answer.decisions.is_empty()) {
-                    (Some(chose), true) => {
-                        Fleet::answer_question(&fleet, &id, question, chose).await
-                    }
-                    _ => Fleet::answer_decisions(&fleet, &id, question, &answer.decisions).await,
+                if answer.decisions.is_empty() && (answer.chose.is_some() || answer.mode.is_some())
+                {
+                    Fleet::answer_question(
+                        &fleet,
+                        &id,
+                        question,
+                        answer.chose.as_deref(),
+                        answer.mode,
+                    )
+                    .await
+                } else {
+                    Fleet::answer_decisions(&fleet, &id, question, &answer.decisions).await
                 }
                 .map_err(|why| why.about(&id))?;
                 fleet.load(&id).await
@@ -896,6 +948,7 @@ where
         })
         .await
         .map_err(|why| self.refusal(why))?;
+        self.job_answered(&asked_of, says);
         self.summarised(&job).await
     }
 
@@ -920,11 +973,12 @@ where
             answer.rule.as_deref(),
         )
         .kept_in(answer.scope);
+        let (asked_of, says) = (job_id.clone(), command_answer_says(answer.answer));
         let job = budgeted_for(self.command_budget(), job_id.clone(), {
             let fleet = Arc::clone(&self);
             async move {
                 let id = job_id.to_domain();
-                Fleet::answer_command(&fleet, &id, &answer.call, answered)
+                Fleet::answer_command(&fleet, &id, &answer.call, answered, answer.mode)
                     .await
                     .map_err(|why| why.about(&id))?;
                 fleet.load(&id).await
@@ -932,6 +986,7 @@ where
         })
         .await
         .map_err(|why| self.refusal(why))?;
+        self.job_answered(&asked_of, says);
         self.summarised(&job).await
     }
 
@@ -966,6 +1021,7 @@ where
         job_id: JobId,
         answered: ipc::JudgeAnswered,
     ) -> Result<JobSummary, Refusal> {
+        let (asked_of, says) = (job_id.clone(), judge_answer_says(answered.answer));
         let job = budgeted_for(self.command_budget(), job_id.clone(), {
             let fleet = Arc::clone(&self);
             async move {
@@ -976,12 +1032,14 @@ where
                     answered.answer,
                     answered.asked_at,
                     answered.note,
+                    answered.mode,
                 )
                 .await
             }
         })
         .await
         .map_err(|why| self.refusal(why))?;
+        self.job_answered(&asked_of, says);
         self.summarised(&job).await
     }
 
@@ -1051,6 +1109,15 @@ where
         .await
         .map_err(|why| self.refusal(why))?;
         self.summarised(&job).await
+    }
+
+    /// The model and effort this Job's Commander runs on. `job_settings` has it. #2166.
+    async fn set_commander_model(
+        self: Arc<Self>,
+        job_id: JobId,
+        choice: ipc::SetCommanderModel,
+    ) -> Result<JobSummary, Refusal> {
+        self.commander_model_chosen(job_id, choice).await
     }
 
     /// Which model each tier of this Job's tasks runs on. `task_edits` has it.

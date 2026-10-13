@@ -136,6 +136,9 @@ pub struct Fleet<H, V, W> {
     /// filled from the boot read and from every insert, so nothing outside this
     /// crate could hand one over already true. See [`mod@crate::naming`].
     names: Arc<Names>,
+    /// Everything that happened, entered as it did, for the Cockpit's timeline. Minted here: it
+    /// holds the queue the writer reads. See [`mod@crate::timeline`].
+    timeline: crate::timeline::Timeline,
     machine: Arc<dyn Machine>,
     /// The headroom in force: shipped, or what a person saved. A `std` lock
     /// for `drones`' reason — never held across an `.await`. See
@@ -170,6 +173,10 @@ pub struct Fleet<H, V, W> {
     /// its Drone was last told. Never written down, for `sweeping`'s reason —
     /// `crate::peers`.
     peering: Mutex<crate::peers::Peering>,
+    /// Which files each live Job and Session has written, and the clashes found between them.
+    /// Never written down, for `sweeping`'s reason; an `Arc` because a Drone's tap holds it —
+    /// `crate::clashing`.
+    writes: Arc<crate::clashing::Writes>,
     /// Which commit is being proved and what came back. Never written down, for
     /// `sweeping`'s reason; an `Arc` because the run is spawned — `crate::proving`.
     proving: Arc<Mutex<crate::proving::Proving>>,
@@ -177,6 +184,11 @@ pub struct Fleet<H, V, W> {
     /// by root. Never written down, for `proving`'s reason — `crate::fixing`.
     fixing_on_main: Mutex<std::collections::BTreeSet<String>>,
     heals: std::sync::Mutex<crate::healing::Heals>,
+    /// The Jobs a Commander's repair Drone is on. Never written down — `crate::job_repair`.
+    repairing: crate::repair_hold::Underway,
+    /// What a turn is to wake a Commander for that happened outside it.
+    /// Never written down — `crate::commanding_wakes`.
+    stirred: std::sync::Mutex<crate::commanding_wakes::Stirred>,
     /// Failed Triggers waiting for a repair Drone. Never written down, for
     /// `heals`' reason — `crate::trigger_repair`.
     trigger_repairs: std::sync::Mutex<crate::trigger_repair::Queue>,

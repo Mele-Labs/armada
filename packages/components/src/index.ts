@@ -449,11 +449,14 @@ export * from "./compositions/CommanderPanel/CommanderPanel";
 export * from "./compositions/AskCard/AskCard";
 export * from "./compositions/SessionRetroRow/SessionRetroRow";
 export * from "./compositions/ForkedFrom/ForkedFrom";
+export * from "./compositions/StartedBy/StartedBy";
 export * from "./compositions/ForkFromSelection/ForkFromSelection";
 export * from "./compositions/SessionLedger/SessionLedger";
 export * from "./compositions/SessionList/SessionList";
 export * from "./compositions/SessionComposer/SessionComposer";
 export * from "./compositions/PullRequestActs/PullRequestActs";
+export * from "./compositions/PullRequestPanel/PullRequestPanel";
+export type { PullRequestChecks } from "./compositions/PullRequestPanel/PullRequestPlates";
 export * from "./compositions/Pilot/Pilot";
 export * from "./compositions/ModRow/ModRow";
 export * from "./compositions/LayoutRow/LayoutRow";
@@ -467,3 +470,6 @@ export * from "./compositions/WalkPanel/WalkPanel";
 export * from "./compositions/AutopilotBar/AutopilotBar";
 // A thought typed into Helm, on its way to running work: the match, the choice to start new.
 export * from "./compositions/ThoughtCard/ThoughtCard";
+// A write clash on a row, and the line it becomes in an open Job or Session.
+export * from "./compositions/ClashMark/ClashMark";
+export * from "./compositions/StopCard/StopCard";

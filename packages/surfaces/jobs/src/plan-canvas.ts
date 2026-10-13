@@ -26,6 +26,7 @@ import { SHELL_UNSEEN } from "./plan-board";
 import { awaitingSaid } from "./tab-plan-read";
 import type { TaskState, TaskView } from "./draft/task";
 import type { HeldCommand } from "./drone-held";
+import { heightBeyond } from "./card-height";
 import { askNodeId, withAsk } from "./held-card";
 
 /**
@@ -228,7 +229,9 @@ export function planGraphOf({
         card: task.id === openTask ? { ...card, selected: true } : card,
       });
       // The held task's card draws a row more, so what is under it moves down.
-      under += TASK_APART + (card.line === undefined ? 0 : LINE_EXTRA) + (isHeld ? NEED_ROW : 0);
+      // `TASK_APART` is a card whose title takes two lines, and a title takes the
+      // lines it needs, so the pitch follows the card's real height.
+      under += TASK_APART + heightBeyond(card, 2) + (card.line === undefined ? 0 : LINE_EXTRA) + (isHeld ? NEED_ROW : 0);
       edges.push({
         id: `${groupId}>${taskNodeId(task.id)}`,
         source: groupId,

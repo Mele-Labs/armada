@@ -164,6 +164,9 @@ pub struct AnswerCommand {
     /// 23.35.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub scope: Option<AlwaysAllowScope>,
+    /// How the Drone is told to carry on, beside the answer.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mode: Option<crate::AnswerMode>,
 }
 
 /// Where an [`CommandAnswer::AlwaysAllow`] is kept.
@@ -282,6 +285,22 @@ pub struct SetModel {
     /// `None`. A name it does not offer is a 409.
     #[serde(deserialize_with = "stated")]
     pub model: Option<String>,
+}
+
+/// The request half of `set_commander_model`: the model and the effort one
+/// Job's Commander runs on, over the machine's. **Both keys must be present**,
+/// `SetModel`'s rule: a Bridge that dropped one would otherwise throw away a
+/// person's choice and answer 200.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SetCommanderModel {
+    /// A name [`ModelChoices::models`](crate::ModelChoices::models) offers, or
+    /// `None` to leave the model to the machine. A name it does not offer is a 409.
+    #[serde(deserialize_with = "stated")]
+    pub model: Option<String>,
+    /// An effort the setting spells (`harness default`, `low`, `medium`,
+    /// `high`), or `None` to leave it to the machine.
+    #[serde(deserialize_with = "stated")]
+    pub effort: Option<String>,
 }
 
 /// The request half of `remove_allowed_command`. **This Job's own row only**:

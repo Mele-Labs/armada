@@ -64,7 +64,11 @@ async fn main() -> ExitCode {
             };
             let asked = match (&test, &paths) {
                 (Some(test), _) => Asked::OneTest(test),
-                (None, Some(paths)) => Asked::Changed(paths),
+                (None, Some(paths)) => armada::reaching::asked_changed(
+                    paths,
+                    checks_runner::Priority::from_env(),
+                    checks_runner::CheckWidth::is_sole_tenant(),
+                ),
                 (None, None) => Asked::Whole,
             };
             declared_by_the_manifest(Registry::Checks, &name, asked, "check").await
@@ -160,9 +164,13 @@ async fn declared_by_the_manifest(
         }
     };
     let slots = declared::machine_slots();
+    let filter = match asked {
+        Asked::OneTest(test) => Some(test),
+        _ => None,
+    };
     // A Session's agent running a Check in its slot: Fleet is told at both ends. Only a Check.
     let told = match registry {
-        Registry::Checks => armada::session_checks::begin(&root, name),
+        Registry::Checks => armada::session_checks::begin(&root, name, filter),
         Registry::Commands => None,
     };
     let began = std::time::Instant::now();

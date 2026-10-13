@@ -20,6 +20,11 @@ fn item(id: &str, text: &str, options: &[&str], since: &str) -> KeptWaiting {
     }
 }
 
+async fn waiting_ids(rig: &Rig, id: &ipc::SessionId) -> Vec<String> {
+    let read = Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap();
+    read.session.waiting_for.into_iter().map(|one| one.id).collect()
+}
+
 async fn keep(rig: &Rig, id: &ipc::SessionId, items: &[KeptWaiting]) {
     rig.fleet.store().lock().await.replace_waiting_for(id.as_str(), items).unwrap();
 }
@@ -48,20 +53,33 @@ async fn said(rig: &Rig, id: &ipc::SessionId) -> Vec<String> {
 }
 
 #[tokio::test]
-async fn an_ask_older_than_the_grace_is_answered_with_best_and_recorded() {
+async fn a_question_with_options_but_no_recommendation_is_left_waiting() {
     let rig = rig_placing(None);
     let id = rig.start().await;
     on(&rig).await;
+    let before = said(&rig, &id).await.len();
     keep(&rig, &id, &[item("a", "Which clock?", &["Fake", "Frozen"], OLD)]).await;
     pass(&rig).await;
     let state = night(&rig).await;
-    assert_eq!(state.decided.len(), 1);
-    assert_eq!(state.decided[0].asked, "Which clock?");
-    assert_eq!(state.decided[0].chose, "", "best leaves the choice to the agent");
-    let sent = said(&rig, &id).await;
-    assert!(sent.last().unwrap().contains("Think it through and go with the best option"), "{sent:?}");
+    assert!(state.decided.is_empty() && state.blocked.is_empty(), "{state:?}");
+    assert_eq!(said(&rig, &id).await.len(), before, "nothing was said to the agent");
+    assert_eq!(waiting_ids(&rig, &id).await, ["a"], "still on the session's list");
+}
+
+#[tokio::test]
+async fn an_errand_with_an_act_and_no_options_is_left_waiting() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    on(&rig).await;
+    let before = said(&rig, &id).await.len();
+    let mut errand = item("a", "Merge once ci is green", &[], OLD);
+    errand.act = Some(("run".into(), "gh pr merge 2152 --auto".into()));
+    keep(&rig, &id, &[errand]).await;
     pass(&rig).await;
-    assert_eq!(night(&rig).await.decided.len(), 1, "an item is decided once");
+    let state = night(&rig).await;
+    assert!(state.decided.is_empty() && state.blocked.is_empty(), "{state:?}");
+    assert_eq!(said(&rig, &id).await.len(), before);
+    assert_eq!(waiting_ids(&rig, &id).await, ["a"]);
 }
 
 #[tokio::test]
@@ -73,6 +91,7 @@ async fn a_recommended_option_is_picked_and_recorded_as_chosen() {
     pass(&rig).await;
     let state = night(&rig).await;
     assert_eq!(state.decided[0].chose, "Frozen (Recommended)");
+    assert_eq!(state.decided[0].session_id, Some(id.clone()), "the row names the session it answered");
     assert!(said(&rig, &id).await.last().unwrap().starts_with("Re: Which clock?\nFrozen (Recommended)"));
 }
 
@@ -132,11 +151,11 @@ async fn within_the_grace_nothing_happens_and_a_walk_is_recorded() {
     let id = rig.start().await;
     on(&rig).await;
     let fresh = rig.fleet.now().as_str().to_string();
-    keep(&rig, &id, &[item("a", "Which clock?", &["Fake"], &fresh)]).await;
+    keep(&rig, &id, &[item("a", "Which clock?", &["Fake (Recommended)"], &fresh)]).await;
     pass(&rig).await;
     assert!(night(&rig).await.decided.is_empty(), "the agent has two minutes to carry on");
     rig.fleet
-        .show_window(None, ShowWindow { url: "http://localhost:5173/".into(), title: Some("Findings".into()), session_id: Some(id.clone()) })
+        .show_window(None, ShowWindow { url: "http://localhost:5173/".into(), title: Some("Findings".into()), session_id: Some(id.clone()), variations: Vec::new() })
         .await
         .unwrap();
     pass(&rig).await;
@@ -151,7 +170,7 @@ async fn off_means_no_more_decisions_and_on_clears_the_last_night() {
     let rig = rig_placing(None);
     let id = rig.start().await;
     pass(&rig).await;
-    keep(&rig, &id, &[item("a", "Which clock?", &[], OLD)]).await;
+    keep(&rig, &id, &[item("a", "Which clock?", &["Fake (Recommended)"], OLD)]).await;
     pass(&rig).await;
     assert!(night(&rig).await.decided.is_empty(), "off by default");
     on(&rig).await;
@@ -160,7 +179,7 @@ async fn off_means_no_more_decisions_and_on_clears_the_last_night() {
     let off = Arc::clone(&rig.fleet).set_sleep(SetSleep { on: false }).await.unwrap();
     assert!(!off.on);
     assert_eq!(off.decided.len(), 1, "the review reads the night after it ends");
-    keep(&rig, &id, &[item("b", "Which port?", &[], OLD)]).await;
+    keep(&rig, &id, &[item("b", "Which port?", &["80 (Recommended)"], OLD)]).await;
     pass(&rig).await;
     assert_eq!(night(&rig).await.decided.len(), 1, "no more decisions");
     let again = on(&rig).await;
@@ -172,7 +191,7 @@ async fn an_override_sends_the_session_the_correction_and_marks_the_row() {
     let rig = rig_placing(None);
     let id = rig.start().await;
     on(&rig).await;
-    keep(&rig, &id, &[item("a", "Which clock?", &["Fake"], OLD)]).await;
+    keep(&rig, &id, &[item("a", "Which clock?", &["Fake (Recommended)"], OLD)]).await;
     pass(&rig).await;
     let row = night(&rig).await.decided[0].id.clone();
     let blank = Arc::clone(&rig.fleet).override_sleep(OverrideSleep { id: row.clone(), text: "  ".into() }).await;
@@ -195,7 +214,7 @@ async fn a_kept_decision_leaves_decided_and_a_ghost_is_refused() {
     let rig = rig_placing(None);
     let id = rig.start().await;
     on(&rig).await;
-    keep(&rig, &id, &[item("a", "Which clock?", &["Fake"], OLD)]).await;
+    keep(&rig, &id, &[item("a", "Which clock?", &["Fake (Recommended)"], OLD)]).await;
     pass(&rig).await;
     let row = night(&rig).await.decided[0].id.clone();
     let ghost = Arc::clone(&rig.fleet).review_sleep(ReviewSleep { id: "nope".into() }).await;
@@ -221,47 +240,4 @@ fn what_counts_as_destructive_reads_the_text_and_the_options() {
     assert!(crate::sleeping::destructive(&one("rm the cache?", &[])));
     assert!(!crate::sleeping::destructive(&one("Which size?", &["Large", "Small"])));
     assert!(!crate::sleeping::destructive(&one("Name the form field", &[])));
-}
-
-#[tokio::test]
-async fn chose_fills_from_the_first_line_of_the_agents_next_message() {
-    let rig = rig_placing(None);
-    let id = rig.start().await;
-    on(&rig).await;
-    keep(&rig, &id, &[item("a", "Which clock?", &["Fake", "Frozen"], OLD)]).await;
-    pass(&rig).await;
-    assert_eq!(night(&rig).await.decided[0].chose, "", "nothing has been said yet");
-    rig.stand_in.init(0);
-    rig.stand_in.finishes(0, &format!("\n  Going with the frozen clock.\nIt keeps the test steady. {}", "x".repeat(200)));
-    eventually(|| async {
-        rig.rows(&id).await.iter().any(|row| matches!(row, SessionRow::Message { from: SessionVoice::Agent, .. }))
-    })
-    .await;
-    pass(&rig).await;
-    assert_eq!(night(&rig).await.decided[0].chose, "Going with the frozen clock.");
-}
-
-#[tokio::test]
-async fn a_long_first_line_is_cut() {
-    let rows = vec![
-        SessionRow::Message {
-            id: "1".into(),
-            at: ipc::Instant::from(&core_model::Timestamp::from_rfc3339(OLD)),
-            from: SessionVoice::You,
-            text: "Re: x\nDecide this yourself. Think it through and go with the best option.".into(),
-            files: Vec::new(),
-            tags: Vec::new(),
-        },
-        SessionRow::Message {
-            id: "2".into(),
-            at: ipc::Instant::from(&core_model::Timestamp::from_rfc3339(OLD)),
-            from: SessionVoice::Agent,
-            text: "y".repeat(300),
-            files: Vec::new(),
-            tags: Vec::new(),
-        },
-    ];
-    let chose = crate::sleeping::next_words(&rows).unwrap();
-    assert_eq!(chose.chars().count(), 121);
-    assert!(chose.ends_with('…'));
 }

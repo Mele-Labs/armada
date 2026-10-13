@@ -4,10 +4,11 @@
 
 import { describe, expect, it } from "vitest";
 
-import type { CheckUnderway, JobDetail, JobDrones, JudgeInFlight, Turn } from "@armada/protocol";
-import { sampleDetail, sampleJob, sampleStep } from "@armada/screens/src/draft/sample";
+import type { CheckUnderway, CommanderCard, JobDetail, JobDrones, JudgeInFlight, Turn } from "@armada/protocol";
+import { sampleDetail, samplePlan, sampleJob, sampleStep, sampleTask } from "@armada/screens/src/draft/sample";
 
 import { droneViewsOf } from "./draft/drone";
+import { callViewOf } from "./now-calls";
 import { nowViewOf } from "./now-real";
 import { nowPanelOf } from "./now-panel";
 
@@ -182,7 +183,7 @@ describe("the Now panel on a real Job: the Judge", () => {
     const { whole, drones } = onImplement({
       judge_question: { step_id: "implement", criterion_id: "C2", question: "Is the retry cap in scope?", expected: "e", produced: "p", consequence: "c", asked_at: "2026-10-09T09:40:00Z" },
     });
-    expect(nowViewOf({ whole, drones })?.asks).toEqual([{ key: "judge:implement:C2", kind: "judge", name: "Judge on Implement", text: "Is the retry cap in scope?" }]);
+    expect(nowViewOf({ whole, drones })?.asks).toEqual([{ key: "judge:implement:C2", kind: "judge", name: "Judge on Implement", text: "Is the retry cap in scope?", asked: { kind: "judge", at: "2026-10-09T09:40:00Z" } }]);
   });
 });
 
@@ -201,7 +202,7 @@ describe("the Now panel on a real Job: what a Drone asks", () => {
   it("names the one Drone working that step, and opens it", () => {
     const { whole, drones } = onImplement({ asking: question });
     expect(nowViewOf({ whole, drones })?.asks).toEqual([
-      { key: "ask:Q1", kind: "drone", name: "Implement Drone", text: "Which clock does the fixture pin?", target: DRONE },
+      { key: "ask:Q1", kind: "drone", name: "Implement Drone", text: "Which clock does the fixture pin?", asked: { kind: "question", id: "Q1" }, target: DRONE },
     ]);
   });
 
@@ -226,7 +227,7 @@ describe("the Now panel on a real Job: what a Drone asks", () => {
       },
     });
     expect(nowViewOf({ whole, drones })?.asks).toEqual([
-      { key: "command:toolu_1", kind: "drone", name: "Implement Drone", text: "Bash pnpm add -D reselect", target: DRONE },
+      { key: "command:toolu_1", kind: "drone", name: "Implement Drone", text: "Bash pnpm add -D reselect", asked: { kind: "command" }, target: DRONE },
     ]);
   });
 });
@@ -261,5 +262,69 @@ describe("the Now panel on a real Job: what the Job waits on, only where the row
 
   it("states nothing on a Job that is queued for no reason Fleet gives", () => {
     expect(nowViewOf(queued({}))).toEqual({});
+  });
+});
+
+describe("the Now panel on a real Job: the Commander", () => {
+  const CARD: CommanderCard = {
+    card_id: "01CARD",
+    job_id: "01M130Y1380016YK5S0JXBXDQ5",
+    by: "commander",
+    raised_at: "2026-10-13T10:00:00Z",
+    text: "desktop_test is red on main as well",
+    reach: "A Check is skipped or edited by you",
+    question: "What should Group 3 do?",
+    options: [
+      { id: "1", label: "Skip desktop_test" },
+      { id: "2", label: "Leave it" },
+    ],
+  };
+
+  it("asks the card it put out, with the card's id and each option's", () => {
+    const { whole, drones } = onImplement({ commander_card: CARD });
+    expect(nowViewOf({ whole, drones })?.asks).toEqual([
+      { key: "card:01CARD", kind: "commander", card: "01CARD", text: CARD.text, reach: CARD.reach, question: CARD.question, options: CARD.options },
+    ]);
+  });
+
+  it("asks nothing where no card is out", () => {
+    const { whole, drones } = onImplement();
+    expect(nowViewOf({ whole, drones })?.asks).toBeUndefined();
+  });
+
+  it("is the same call card in the Cockpit: the card's words as its context, the question as its decision", () => {
+    const { whole, drones } = onImplement({ commander_card: CARD });
+    expect(callViewOf(nowViewOf({ whole, drones }))?.asks).toEqual([
+      { key: "card:01CARD", kind: "commander", card: "01CARD", context: [CARD.text, CARD.reach], decisions: [{ id: "01CARD", question: CARD.question, options: CARD.options }] },
+    ]);
+  });
+
+  it("answers to the card's id and the option's, with no prose, through the panel's host", () => {
+    const { whole, drones } = onImplement({ commander_card: CARD });
+    const answered: [string, string][] = [];
+    const panel = nowPanelOf(nowViewOf({ whole, drones }), { onSaid: () => undefined, onAnswerCommander: (card, option) => void answered.push([card, option]) });
+    const ask = panel?.asks?.[0];
+    expect(ask?.kind).toBe("commander");
+    if (ask?.kind === "commander") void ask.onAnswer("2");
+    expect(answered).toEqual([["01CARD", "2"]]);
+  });
+
+  it("marks the Drone on a task the Commander last changed, and no other", () => {
+    const two: JobDrones = {
+      ...LISTED,
+      drones: [
+        { ...LISTED.drones[1]!, task: "T1" },
+        { drone_id: OTHER, step_id: "implement", task: "T2", state: "running", since: "2026-10-09T09:11:00Z" },
+      ],
+    };
+    const { whole, drones } = onImplement(
+      { work_plan: samplePlan([sampleTask({ id: "T1", by: { who: "commander" } }), sampleTask({ id: "T2", by: { who: "person" } })]) },
+      {},
+      two,
+    );
+    expect(nowViewOf({ whole, drones })?.running?.map((one) => [one.name, one.by])).toEqual([
+      ["Implement Drone on T1", { who: "commander" }],
+      ["Implement Drone on T2", undefined],
+    ]);
   });
 });

@@ -506,3 +506,7 @@ mod slots;
 mod at_the_gate;
 /// At what priority a Check runs, read back from `ps`. `src/tests/priority.rs`.
 mod priority;
+
+/// Running only the members a name is in and the tests a change touched.
+/// `src/tests/touching.rs`.
+mod touching;

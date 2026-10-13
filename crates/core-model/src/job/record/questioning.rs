@@ -25,10 +25,13 @@ pub struct OfferedAnswer {
     pub consequence: String,
 }
 
-/// The label a person picked, and when.
+/// What a person answered, and when. A label, a line leaving the choice to the Drone, or both.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct GivenAnswer {
-    pub label: String,
+    /// The offered answer picked. Absent where they left it to the Drone.
+    pub label: Option<String>,
+    /// The instruction that tells the Drone to settle it itself, for a best or quick.
+    pub deciding: Option<String>,
     pub at: Timestamp,
 }
 
@@ -111,7 +114,8 @@ impl DroneQuestion {
     pub fn chosen(&self) -> Option<&OfferedAnswer> {
         self.answer
             .as_ref()
-            .and_then(|given| self.offering(&given.label))
+            .and_then(|given| given.label.as_deref())
+            .and_then(|label| self.offering(label))
     }
 }
 
@@ -145,7 +149,8 @@ impl Job {
                     .map(|(_, label)| label.clone());
             }
             question.answer = Some(GivenAnswer {
-                label: String::new(),
+                label: None,
+                deciding: None,
                 at,
             });
         }

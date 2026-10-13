@@ -60,6 +60,9 @@ pub struct PullRequestState {
     pub branch: String,
     /// Where it is on the forge.
     pub address: String,
+    /// Its description, as Markdown. Absent where the author wrote none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub body: Option<String>,
 }
 
 /// What `review_pull_request` is asked. `POST /pull_requests/:repository/review`.

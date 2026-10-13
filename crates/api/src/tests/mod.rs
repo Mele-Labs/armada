@@ -12,7 +12,10 @@
 /// Who the listener answers at all: a page in a browser, and everything that
 /// is not one.
 mod callers;
+mod commander_card;
 mod commander_reach;
+mod commander_repair;
+mod commander_scope;
 mod conversing;
 mod door;
 mod door_scope;
@@ -20,6 +23,7 @@ mod fake;
 mod following;
 mod helm_kills;
 mod helm_pauses;
+mod helm_tells;
 mod hosted_sessions;
 mod journal;
 mod building;

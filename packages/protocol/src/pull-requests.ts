@@ -28,6 +28,8 @@ export type PullRequestState = {
   branch: string;
   /** Where it is on the forge. */
   address: string;
+  /** Its description, as Markdown. Absent where the author wrote none. */
+  body?: string;
 };
 
 /** What `review_pull_request` is asked. `POST /pull_request_reviews/:repository`. */

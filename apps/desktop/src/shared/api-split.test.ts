@@ -28,6 +28,9 @@ import type {
   HoldAct,
   ClearOutcome,
   AlwaysAllowScope,
+  AnswerMode,
+  Active,
+  CommanderThread,
   CommandAnswer,
   HelmCallAnswer,
   CommandExplainedRead,
@@ -184,10 +187,12 @@ import type {
 import type { AnswerSessionAsk, AnswerWaiting, ClaimPullRequest, DismissWaiting, PilotOutcome, PullRequestClaimed, PullRequestState, RenameSession, ReviewDispatched, SendSessionMessage, SessionRow, SessionRunMessage, SessionRunUnderway, SessionSubagent, TuneSession } from "@armada/protocol";
 import type { PilotExit, PullRequestPress, SessionActed, SessionsRead } from "./api/sessions";
 import type { SleepActed } from "./api/sleep";
+import type { PlanUsageRead } from "./api/plan-usage";
+import type { WriteClashesRead } from "./api/clashes";
 import type { IssuesRead } from "./api/issues";
 import type { RequestRepositoryRead } from "./api/jobs";
 import { AUTOPILOT_CHANNELS, type AutopilotApi } from "./api/autopilot";
-import type { SleepState } from "@armada/protocol";
+import type { PlanUsage, SleepState } from "@armada/protocol";
 import type { BridgeApi } from "./api";
 import { CHANNELS, NOTHING_YET } from "./bridge";
 import type { BridgeState, HistoryStep, Summons } from "./bridge";
@@ -217,6 +222,7 @@ type OldBridgeState = {
     watched: Watched;
     observed: Observed;
     journalled: Journalled;
+    commander: CommanderThread;
     followed: FollowedLog;
     footprint: Footprint;
     handed: Handed;
@@ -227,6 +233,7 @@ type OldBridgeState = {
     reports: Reports;
     resources: Holds;
     jobDrones: Crewed;
+    active: Active;
     examination: Examination;
     held: HeldWorktrees;
     runSheet: RunSheetRead;
@@ -283,12 +290,14 @@ type OldBridgeApi = {
     deleteBranch: (jobId: string, tip: string) => Promise<Outcome>;
     forgetJob: (jobId: string) => Promise<Outcome>;
     redirectDrone: (jobId: string, instruction: string, droneId?: string) => Promise<Outcome>;
-    answerQuestion: (jobId: string, questionId: string, chose: string) => Promise<Outcome>;
-    answerCommand: (jobId: string, call: string, answer: CommandAnswer, note?: string, rule?: string, scope?: AlwaysAllowScope) => Promise<Outcome>;
+    answerQuestion: (jobId: string, questionId: string, chose: string | undefined, mode?: AnswerMode) => Promise<Outcome>;
+    answerCommand: (jobId: string, call: string, answer: CommandAnswer, note?: string, rule?: string, scope?: AlwaysAllowScope, mode?: AnswerMode) => Promise<Outcome>;
+    askCommander: (jobId: string, text: string) => Promise<Outcome>;
+    answerCommanderCard: (jobId: string, cardId: string, optionId: string) => Promise<Outcome>;
     answerHelmCall: (call: string, answer: HelmCallAnswer, note?: string) => Promise<Outcome>;
     explainCommand: (jobId: string, callId: string) => Promise<CommandExplainedRead>;
     setWhenBlocked: (jobId: string, whenBlocked: WhenBlocked) => Promise<Outcome>;
-    answerJudge: (jobId: string, askedAt: string, answer: JudgeAnswer, note?: string) => Promise<Outcome>;
+    answerJudge: (jobId: string, askedAt: string, answer: JudgeAnswer, note?: string, mode?: AnswerMode) => Promise<Outcome>;
     setWhenRefused: (jobId: string, whenRefused: WhenRefused) => Promise<Outcome>;
     setModel: (jobId: string, model: string | null) => Promise<Outcome>;
     setReviewModel: (jobId: string, model: string | null) => Promise<Outcome>;
@@ -297,6 +306,9 @@ type OldBridgeApi = {
     overrideVerdict: (jobId: string, reason: string) => Promise<Outcome>;
     rerunGate: (jobId: string) => Promise<Outcome>;
     rerunChecks: (jobId: string) => Promise<Outcome>;
+    retryCheck: (jobId: string, check: string) => Promise<Outcome>;
+    skipCheck: (jobId: string, check: string) => Promise<Outcome>;
+    skipChecks: (jobId: string) => Promise<Outcome>;
     showAgain: (jobId: string, spec?: string) => Promise<Outcome>;
     raiseCostCap: (jobId: string, costCapMicros: number) => Promise<Outcome>;
     raiseTurnCap: (jobId: string, turnCap: number) => Promise<Outcome>;
@@ -316,6 +328,7 @@ type OldBridgeApi = {
     followLandCheck: (at: LandCheckAt | null) => Promise<void>;
     readHistory: (jobId: string | null) => Promise<void>;
     readResources: (jobId: string | null) => Promise<void>;
+    followActive: (want: boolean) => Promise<void>;
     watchPulse: (jobId: string | null) => Promise<void>;
     watchRunSheet: (jobId: string | null) => Promise<void>;
     observeRun: (jobId: string | null, runId: string | null) => Promise<void>;
@@ -429,8 +442,13 @@ type OldBridgeApi = {
         scroll: (wheel: CaptureWheel) => void;
         showAsk: (on: boolean) => Promise<void>;
         answerAsk: (answer: CaptureAnswer) => Promise<Outcome>;
+        pick: (at: number) => Promise<void>;
         panel: (open: boolean) => Promise<void>;
         openOwner: () => Promise<void>;
+        walkNext: () => Promise<void>;
+        walkBack: () => Promise<void>;
+        walkAutoplay: (on: boolean) => Promise<void>;
+        walkReplay: () => Promise<void>;
     };
     walkPanel: {
         openInBridge: () => Promise<void>;
@@ -471,6 +489,9 @@ type OldBridgeApi = {
     claimPullRequest: (claim: ClaimPullRequest) => Promise<SessionActed<PullRequestClaimed>>;
     dismissWaiting: (dismiss: DismissWaiting) => Promise<SessionActed>;
     getSleep: () => Promise<SleepActed>;
+    getPlanUsage: () => Promise<PlanUsageRead>;
+    getWriteClashes: () => Promise<WriteClashesRead>;
+    onPlanUsageChanged: (onChanged: (usage: PlanUsage) => void) => () => void;
     listIssues: (manifestId: string, refresh: boolean) => Promise<IssuesRead>;
     setSleep: (on: boolean) => Promise<SleepActed>;
     overrideSleep: (id: string, text: string) => Promise<SleepActed>;
@@ -488,6 +509,8 @@ type OldBridgeApi = {
     readSessionSubagent: (sessionId: string, subagentId: string) => Promise<SessionActed<SessionSubagent>>;
     openSessionFile: (sessionId: string, path: string) => Promise<Followed>;
     openSessionWindow: (sessionId: string, url: string) => Promise<Outcome>;
+    getSessionWindows: () => Promise<readonly string[]>;
+    onSessionWindows: (onChanged: (addresses: readonly string[]) => void) => () => void;
     readSessionArtifact: (sessionId: string, path: string) => Promise<ArtifactRead>;
     showSessionPage: (sessionId: string, address: string, bounds: PageBounds) => Promise<Followed>;
     moveSessionPage: (bounds: PageBounds) => Promise<void>;
@@ -521,6 +544,7 @@ const OLD_NOTHING_YET: OldBridgeState = {
     watched: { state: "none" },
     observed: { state: "none" },
     journalled: { state: "none" },
+    commander: { state: "none" },
     followed: { state: "none" },
     footprint: { state: "none" },
     handed: { state: "none" },
@@ -531,6 +555,7 @@ const OLD_NOTHING_YET: OldBridgeState = {
     reports: { state: "none" },
     resources: { state: "none" },
     jobDrones: { state: "none" },
+    active: {},
     examination: { state: "none" },
     held: { state: "none" },
     runSheet: { state: "none" },
@@ -587,6 +612,8 @@ const OLD_CHANNELS = {
     redirectDrone: "bridge:redirect-drone",
     answerQuestion: "bridge:answer-question",
     answerCommand: "bridge:answer-command",
+    askCommander: "bridge:ask-commander",
+    answerCommanderCard: "bridge:answer-commander-card",
     answerHelmCall: "bridge:answer-helm-call",
     explainCommand: "bridge:explain-command",
     setWhenBlocked: "bridge:set-when-blocked",
@@ -599,6 +626,9 @@ const OLD_CHANNELS = {
     overrideVerdict: "bridge:override-verdict",
     rerunGate: "bridge:rerun-gate",
     rerunChecks: "bridge:rerun-checks",
+    retryCheck: "bridge:retry-check",
+    skipCheck: "bridge:skip-check",
+    skipChecks: "bridge:skip-checks",
     showAgain: "bridge:show-again",
     raiseCostCap: "bridge:raise-cost-cap",
     raiseTurnCap: "bridge:raise-turn-cap",
@@ -619,6 +649,7 @@ const OLD_CHANNELS = {
     readHistory: "bridge:read-history",
     readEvidence: "bridge:read-evidence",
     readResources: "bridge:read-resources",
+    followActive: "bridge:follow-active",
     watchPulse: "bridge:watch-pulse",
     watchRunSheet: "bridge:watch-run-sheet",
     observeRun: "bridge:observe-run",
@@ -755,8 +786,13 @@ const OLD_CHANNELS = {
     captureWindowScroll: "bridge:capture-window-scroll",
     captureWindowShowAsk: "bridge:capture-window-show-ask",
     captureWindowAnswerAsk: "bridge:capture-window-answer-ask",
+    captureWindowPick: "bridge:capture-window-pick",
     captureWindowPanel: "bridge:capture-window-panel",
     captureWindowOpenOwner: "bridge:capture-window-open-owner",
+    captureWindowWalkNext: "bridge:capture-window-walk-next",
+    captureWindowWalkBack: "bridge:capture-window-walk-back",
+    captureWindowWalkAutoplay: "bridge:capture-window-walk-autoplay",
+    captureWindowWalkReplay: "bridge:capture-window-walk-replay",
     walkPanelOpenInBridge: "bridge:walk-panel-open-in-bridge",
     tap: "bridge:tap",
     startSession: "bridge:start-session",
@@ -770,6 +806,9 @@ const OLD_CHANNELS = {
     claimPullRequest: "bridge:claim-pull-request",
     dismissWaiting: "bridge:dismiss-waiting",
     getSleep: "bridge:get-sleep",
+    getPlanUsage: "bridge:get-plan-usage",
+    getWriteClashes: "bridge:get-write-clashes",
+    planUsageChanged: "bridge:plan-usage-changed",
     listIssues: "bridge:list-issues",
     setSleep: "bridge:set-sleep",
     overrideSleep: "bridge:override-sleep",
@@ -785,6 +824,8 @@ const OLD_CHANNELS = {
     readSessionSubagent: "bridge:read-session-subagent",
     openSessionFile: "bridge:open-session-file",
     openSessionWindow: "bridge:open-session-window",
+    getSessionWindows: "bridge:get-session-windows",
+    sessionWindowsChanged: "bridge:session-windows-changed",
     readSessionArtifact: "bridge:read-session-artifact",
     showSessionPage: "bridge:show-session-page",
     moveSessionPage: "bridge:move-session-page",

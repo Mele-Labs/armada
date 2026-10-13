@@ -149,6 +149,9 @@ export type JobSummary = {
    * other. It comes from the working slot, so it is false on every summary
    * built where no slot was in hand, which is every event publish — correct
    * rather than a gap, since `job.asking` says a question exists.
+   *
+   * **A card the job's Commander has out to the owner reads here too** (#2166): it waits on a
+   * person as a Drone's question does, and the detail's `commander_card` carries it.
    */
   asking?: boolean;
   /**
@@ -225,6 +228,18 @@ export type JobSummary = {
    * waits on the owner's choice, or one failed after its repair tries. Absent is none. Since 23.68.
    */
   alert?: JobAlert;
+  /** Each bay the job has held, oldest first. Absent is none, or a job from before Fleet kept them. */
+  bays?: JobBay[];
+};
+
+/** One stretch of a job in one bay of its repository's pool. `crates/ipc/src/job.rs`. */
+export type JobBay = {
+  /** The slot's number, as `armada worktree --status` numbers it. */
+  slot: number;
+  /** When the job took it, RFC 3339. */
+  since: string;
+  /** When it gave it back. Absent is it still holds the bay, which a completed job does until a person clears it. */
+  until?: string;
 };
 
 /** A job's pause marker. `crates/ipc/src/job.rs`. Since protocol 23.39. */
@@ -234,6 +249,11 @@ export type Paused = {
   at: string;
   /** A resume found every slot held, and the job waits for the first to free. */
   resuming: boolean;
+  /**
+   * The plan's limit stopped this job's Drone and it starts again at this instant, when the limit
+   * has reset. Absent on any other pause.
+   */
+  until?: string;
 };
 
 /** One Check a step declares. `crates/ipc/src/checks.rs`. */

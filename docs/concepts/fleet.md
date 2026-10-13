@@ -130,7 +130,7 @@ Both turn one thing into several Jobs, and the difference between them is the ap
 
 **Disk earns its place from a measured failure**, not from symmetry with memory: a volume filled during a parallel agent run and agents died at zero bytes free holding uncommitted work, with no warning of any kind. It is also the one held against an absolute floor rather than a share, because what a Job costs in disk — a worktree plus a build — is a number of gigabytes rather than a fraction of whatever volume it landed on, which is why it is a settings row of its own rather than sharing the memory threshold.
 
-**Quota is not a third.** The agent's rate-limit event carries a window and a status and no quantity, so there is no number to hold a Job back against. See the spike on what a Job costs.
+**Quota is not a third.** The agent's rate-limit event carries a window and a status and no quantity, so there is no number to hold a Job back against. See the spike on what a Job costs. A run the limit already refused is held until the reset, which is not a gate: *Held for the plan's limit* in [Job](job.md).
 
 **A machine that cannot be read admits.** A failed reading holds nothing back: a Fleet that queues every Job for ever because a command did not answer is a Fleet that looks dead, and the concurrency cap is still the cap.
 
@@ -204,7 +204,7 @@ This sentence used to say the opposite, and the overlap warning below was writte
 
 **Overlap is not ordered; a declared need is.** The warning is deliberately not a lease. Why: `write_targets` is a declaration and a Drone's worktree is a whole-repo checkout, so a hold over declared paths would serialise the Jobs that declared honestly and miss the one that wrote somewhere it never named — which is the collision nobody saw coming.
 
-**It compares what two Jobs claimed, and a claim is not a write.** The Job that never names a path and writes there anyway produces nothing here, and cannot: that is the same whole-repo checkout the paragraph above turns on. The check that reads a real diff is the per-step drift check, and it measures one step against its own plan.
+**It compares what two Jobs claimed, and a claim is not a write.** The Job that never names a path and writes there anyway produces nothing here, and cannot: that is the same whole-repo checkout the paragraph above turns on. What two agents actually wrote is *Write clashes*, below. The per-step drift check reads a real diff too, and it measures one step against its own plan.
 
 **A Job's claim has two possible authors, and the warning says which.** `write_targets` is what the requester stated before anything ran, and it is null on every Job the proposer drafted. A step's declared plan is what the Drone working it said, having read the code, and it is what a running Job actually has. Both are compared; each named path says which author it came from on each side. The latest run of a step replaces its earlier runs, because calling the scope tool again is how a Drone corrects its plan. Neither list is authoritative over the other; [Change a Job's scope](../journeys/change-a-jobs-scope.md) holds what each is for.
 
@@ -213,6 +213,38 @@ This sentence used to say the opposite, and the overlap warning below was writte
 **Every unfinished Job, not only the running ones.** The pair is one fact and it has to read the same from either side; naming only the running peers would have made two Jobs' detail views disagree about whether there is a collision. The other Job's status travels with the warning, so a person can see which of the two is already writing.
 
 The remedy needs no new state: `depends_on` already sequences Jobs and already parks the waiting one at `blocked_by_dependency`. **Taking it is not built** — there is no operation that writes an edge onto a Job that already exists, and this page says above that a Job's edges are written once, at creation. That write-once property is what lets DAG scheduling above skip a topological sort, so an operation that breaks it is not a small one; `#231` is where that is settled. What a person has today is the two gate answers they already had.
+
+### Write clashes
+
+**Decided by the owner, 12 Oct 2026.** Two agents in one repository learn they collide from what they wrote, with no declaration needed. Nobody is paused, held or refused, and a declared need stays as it is.
+
+| Whose writes | Where Fleet sees them |
+|---|---|
+| A Job's Drone | Its edit calls on the stream: `Edit`, `MultiEdit`, `Write`, `NotebookEdit` |
+| A hosted Session | The write gate (`POST /sessions/gate`), for a call it lets through inside its own slot |
+| A terminal Session | The `armada` mod's `touched` fact: the path from the session's directory, never the content |
+
+```
+ write ─▶ table: path ─▶ holders             (memory, per repository)
+           2+ holders on a path
+              │  wait 30s, once per pair; a later write by either asks again
+              ▼
+ git: tree of each worktree as it stands, tree of their merge base,
+      `git merge-tree`        clean ─▶ nothing is said
+                              conflict ─▶ the files, to both
+```
+
+**Git decides, not the path.** Each holder's worktree is read as a whole tree through a scratch index, so its own index is never written and a shell write no hook saw is in it. A file both edited in places that merge clean says nothing. Where git will not answer, the last reading stands and the Job's log says why.
+
+**What each side is told.** The files that conflict, who the other is, and how to reach it. A Drone hears it in its next peer turn (`docs/contracts/agent-prompt.md`, *The peer turn*) and reaches a Job with `leave_note` on its handle and a Session with `leave_note` on `s-` and the first eight characters of its id. A Session hears it as a message from Fleet (`docs/concepts/session.md`, *What Fleet tells a Session*) and reaches a Job with `redirect_drone` and a Session with `SendMessage`. **Told once per set of files**: a changed set is told again, a cleared one is never said.
+
+**Main moving.** Where Fleet reads the base's head and it has moved, every standing pair is asked again, since a holder may have merged main in or the other may have landed. Each live holder whose files main changed since their merge base is set against main's new tip, and a conflict is told to that holder only, with the commit on main that changed the file.
+
+**A holder leaves the table with its clashes** where its needs are given back: a Job reaching a terminal status, a Session ending. Any check also drops a holder whose worktree, branch or Job is gone, or a terminal Session unheard for six hours. A Job has no way to reach a Session except a clash it is in: `leave_note` to a Session is refused where Fleet found none, and otherwise arrives as a message naming the Job.
+
+**Memory only.** A restart forgets the table and the next writes rebuild it. Rebuilding from kept edit calls would cover task Drones alone, so it was not done. `list_write_clashes` reads the standing clashes per repository, or per Job or Session.
+
+**Bridge marks both rows from that read.** One `swords` mark on a Job's and a Session's row wherever they are drawn (the Dashboard and Cockpit tiles, the Cockpit map and bays, the Sessions list, the Job rows), and a line in the open Job or Session naming the other holder and the files. Its tooltip is `Conflicts with` the other holder and the paths; a press opens that holder, and a clash against `main` is a picture with nothing to open. The read is poll-only, since Fleet publishes no event for a clash. Bridge asks once per served repository when Fleet connects, again 35 seconds after the board last changed (just past the 30 seconds Fleet waits before it asks git), and again every 35 seconds while a clash stands so that a cleared one goes. A Fleet that answers 404 has none to report and is marked as having none. `apps/desktop/src/renderer/src/fleet-clashes.ts`.
 
 ### Declared needs
 
@@ -409,6 +441,22 @@ Fleet asks about **one** pull request per sweep and rotates, because the turn in
 
 **An owner is the Session whose `pr` row holds the pull request's number, else the Session holding its branch, and every Job whose pull request or branch it is.** If both own it, both are told. `docs/concepts/session.md`, *What Fleet tells a Session*, and `docs/concepts/job.md`, *When its pull request fails*, say what each receives.
 
+### Telling sessions the build they now run
+
+**One person restarts Fleet and Bridge, from one session, and every other session that asked for the same restart still thinks it is waiting.** Fleet reads the build on file once an interval and, when it is a commit this process has not settled, tells the sessions that care. The commit is `restart-commit`, which `scripts/restart` writes after the new Fleet answers, so it is read on the sweep and never at boot. Nothing is said while `restart-build.status` says `running`.
+
+| A live session in a served repository | Told |
+|---|---|
+| Holds a branch | The build, and for each branch whether it is in it |
+| Waits on the person to run `scripts/preview --restart` or `scripts/restart --main` | The build, as the answer to that wait, so it wakes once |
+| Neither | Nothing |
+
+**The command is read as Bridge reads it**: either script by any path, its own flag, and `--adopt` in any order. Anything else, `--dry-run` included, is a shell run and not a restart. A wait for the other build than the one now running is told and left standing. A second wait for the same build is answered `Restarted: preview at 1234567`.
+
+**A branch is in the build, not in it, or in it up to a commit.** Counted from the branch's own commits past `origin/main`, so a newer main merged into it is not counted as its own: all of them in the build, none, or some, naming the newest the build holds and how many since it are not. `main` and a branch with nothing of its own are not mentioned.
+
+**Each notice is told once per build, and a restart does not repeat it.** The store keeps (build commit, session). A session that cannot be told now is asked again at the next reading and nothing is kept for it, and its wait stands until it is.
+
 ### Restarting Fleet
 
 **Restarting Fleet is a `launchctl` call from Bridge, not an API command.** `restart_fleet` cannot be served by the process being restarted. Bridge already owns bootstrapping the launchd job, so it owns restarting it, and the operation is a `child_process` call rather than a protocol operation. It is the Restart Fleet button on the notice that says Fleet and Bridge do not match: `kickstart -k` restarts the job onto whatever `armada` is installed, working Drones are adopted at boot, and a Fleet whose pid launchd does not hold is refused rather than doubled.
@@ -484,10 +532,10 @@ worktrees a repository leases* — until a person changes the pool on this machi
 
 | Act | What happens |
 |---|---|
-| Lease | Fetches the base, takes the first free slot, points it at a new branch cut from the base with no upstream, and removes everything untracked except `target`, `node_modules`, `.gitnexus` and whatever `setup.seed.paths` names. A slot made for the first time is cloned from the warm seed, as a Job's worktree is |
+| Lease | Takes the first free slot and points it at the branch. **A branch that exists here, or on `origin`, is checked out at its own tip and never moved**; a name nothing has is cut from the freshly fetched base with no upstream. Removes everything untracked except `target`, `node_modules`, `.gitnexus` and whatever `setup.seed.paths` names. A slot made for the first time is cloned from the warm seed, as a Job's worktree is |
 | Release | `armada worktree release` is refused while the tree has anything uncommitted, or HEAD has commits the lease's branch, the remote and the base all lack. A commit on the branch is enough and a push is optional: HEAD is detached where it stands, the branch keeps its commits, and the build stays |
 | Park | Commits everything uncommitted, untracked files included and ignored ones not, to the slot's branch under a `WIP:` message, then releases. Never pushes. A clean slot is only released. Refused on a checkout on no branch, on the base, on a branch the lease does not name, and while a take or release is under way. It answers with the commit and the paths it took |
-| Lease an existing branch | Puts a slot on a branch that exists, at its tip, so work parked there continues. Waits while every slot is held, as Lease does. Refused for a branch that does not exist and for one another checkout already has, naming where. `armada worktree lease --existing <branch>` |
+| Lease an existing branch | Puts a slot on a branch that exists, at its tip, so work parked there continues. Waits while every slot is held, as Lease does. Refused for a branch that does not exist here or on `origin`, and for one another checkout already has, naming where. A slot whose holder is gone and which is clean is taken back for its own branch; one holding uncommitted files is not. `armada worktree lease --existing <branch>` |
 | Status | Every slot, its branch, who holds it and for how long. Bridge's Cleanup draws the same reading as one tile per slot, with whether every `setup.seed.paths` entry is on disk in it (warm) and how many commits the base has that it does not |
 | Clean | `armada clean` names each slot a Job holds and leaves it, branch and all. `--force` releases a completed or kept Job's slot under the same refusals as Release, and also refuses commits on neither the remote nor the base, since it then deletes the branch; a Job that has not ended keeps its slot |
 | Add | One more slot, numbered lowest-unused and not made until a lease makes it |
@@ -502,17 +550,22 @@ and start time.** The command that leases exits at once, so a lock held open
 could not be the holder; the `flock` on `slot-<n>.lease` only makes one take or
 release at a time. The holder is the first process above the command that is not a shell
 — an agent's session, or the terminal a person typed in — so a subshell or a
-pipeline between the two does not become the holder.
+pipeline between the two does not become the holder. **A session Fleet hosts is
+the exception**: Fleet ends and resumes its process when it moves slots, so
+`armada worktree lease` there holds as a Job of the session's id, read from
+`ARMADA_SESSION`, and is given back when the session closes.
 
 > **Rule.** A slot whose holder is gone is taken back only when its tree is
 > clean and every commit on it is on its branch, the remote or the base. Otherwise it stays held, and a lease
 > waiting for a slot names it.
 > Why: a slot is reused, and reuse must never be what throws work away.
 
-> **Rule.** A lease refuses a branch that already exists with commits on
-> neither the remote nor the base.
-> Why: a lease cuts its branch fresh from the base, and resetting one that
-> holds work would orphan it.
+> **Rule.** A lease never moves a branch that exists, here or on `origin`: it
+> checks the branch out at its own tip, and only a name nothing has is cut
+> from the base.
+> Why: resetting a branch to the base orphans its commits, and on 13 Oct 2026
+> a lease did exactly that to a pushed branch in a slot whose holder was
+> gone. It survived only because it was pushed.
 
 **A person's changes to the pool are this machine's, and outlive Fleet.** Add,
 remove, close and open write `.armada/slots/pool` beside the slots' own

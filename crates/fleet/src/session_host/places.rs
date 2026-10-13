@@ -57,9 +57,10 @@ pub(super) fn place_of(path: &str, root: &str) -> Place {
 
 /// The absolute paths a shell line obviously writes: a redirect's target, the
 /// arguments of a command whose job is to write, `sed -i`'s files, and the
-/// directory `git -C` writes in. **Not a shell parser**: a path built from a
-/// variable, a relative path and anything inside a script it runs are not seen.
-pub(super) fn written_by(line: &str) -> Vec<String> {
+/// directory `git -C` writes in. `cwd` is where the call started. **Not a shell parser**: a path
+/// built from a variable, a relative path (bar `armada worktree release`'s) and anything inside a
+/// script it runs are not seen.
+pub(super) fn written_by(line: &str, cwd: &str) -> Vec<String> {
     let mut found = Vec::new();
     for segment in line
         .replace("&&", ";")
@@ -94,6 +95,7 @@ pub(super) fn written_by(line: &str) -> Vec<String> {
             {
                 absolute(&mut found, &arguments)
             }
+            "armada" => found.extend(released_by(&arguments, cwd)),
             "git" => {
                 let at = arguments.iter().position(|word| word.as_str() == "-C");
                 if let Some(path) = at.and_then(|at| arguments.get(at + 1)) {
@@ -107,6 +109,63 @@ pub(super) fn written_by(line: &str) -> Vec<String> {
                 }
             }
             _ => {}
+        }
+    }
+    found
+}
+
+/// The slot `armada worktree release <path>` gives back, the path read against `cwd`. **Giving a
+/// slot back writes it**, and it is whichever slot that is, not the caller's own. One that names
+/// no path gives back the directory it runs in, which [`worked_in`] reads.
+fn released_by(arguments: &[&String], cwd: &str) -> Option<String> {
+    let mut words = arguments.iter().map(|word| word.as_str()).filter(|word| !word.starts_with('-'));
+    if words.next() != Some("worktree") || words.next() != Some("release") {
+        return None;
+    }
+    match words.next()? {
+        path if path.starts_with('/') => Some(path.to_string()),
+        path if cwd.starts_with('/') => Some(format!("{}/{path}", cwd.trim_end_matches('/'))),
+        _ => None,
+    }
+}
+
+/// The absolute directories a shell line `cd`s or `pushd`s into and then runs something that is
+/// not a read in, where `cwd` is the directory the call started in. **A `cd` moves every relative
+/// write after it**, which no path in the line names. A target built from a variable, a `~` or a
+/// substitution is not followed, and neither is a subshell's end. A bare `armada worktree
+/// release` with no `cd` before it gives back `cwd`.
+pub(super) fn worked_in(line: &str, cwd: &str) -> Vec<String> {
+    let mut found: Vec<String> = Vec::new();
+    let mut here: Option<String> = None;
+    for segment in line
+        .replace("&&", ";")
+        .replace("||", ";")
+        .split([';', '|', '\n'])
+    {
+        let segment = segment.trim().trim_start_matches(['(', '{']).trim();
+        let words: Vec<&str> = segment
+            .split_whitespace()
+            .map(|word| word.trim_matches(|c| c == '\'' || c == '"'))
+            .collect();
+        if matches!(words.first().copied(), Some("cd" | "pushd")) {
+            let target = words.iter().skip(1).find(|word| !word.starts_with('-'));
+            here = match target {
+                Some(word) if word.contains(['$', '`', '~']) => None,
+                Some(word) if word.starts_with('/') => Some(normalised(word)),
+                Some(word) if cwd.starts_with('/') => {
+                    Some(normalised(&format!("{}/{word}", cwd.trim_end_matches('/'))))
+                }
+                _ => None,
+            };
+        } else if let Some(directory) = &here {
+            if !adapters::reads_only(segment) && !found.contains(directory) {
+                found.push(directory.clone());
+            }
+        } else if words.starts_with(&["armada", "worktree", "release"]) && words.len() == 3 {
+            // Giving back the directory the call started in.
+            if cwd.starts_with('/') && !found.iter().any(|one| one == cwd) {
+                found.push(normalised(cwd));
+            }
         }
     }
     found

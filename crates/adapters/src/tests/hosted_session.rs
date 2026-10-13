@@ -79,10 +79,11 @@ fn the_next_process_resumes_by_the_same_id() {
 }
 
 const OLD: &str = "2c9e41d8-5b73-4f06-a1d2-8e7c0b3f9a64";
+const NOTE: &str = "This session is a fork of an older one.";
 
 #[test]
 fn a_fork_starts_from_the_old_conversation_under_its_own_id() {
-    let args = rendered(&launching(false, SessionMode::Auto).forking(OLD).expect("portable"));
+    let args = rendered(&launching(false, SessionMode::Auto).forking(OLD, NOTE).expect("portable"));
     assert_eq!(value_after(&args, "--resume").as_deref(), Some(OLD));
     assert!(args.iter().any(|arg| arg == "--fork-session"));
     assert_eq!(value_after(&args, "--session-id").as_deref(), Some(ID));
@@ -90,17 +91,38 @@ fn a_fork_starts_from_the_old_conversation_under_its_own_id() {
 
 #[test]
 fn a_fork_that_has_run_resumes_itself_and_not_the_one_it_came_from() {
-    let args = rendered(&launching(true, SessionMode::Auto).forking(OLD).expect("portable"));
+    let args = rendered(&launching(true, SessionMode::Auto).forking(OLD, NOTE).expect("portable"));
     assert_eq!(value_after(&args, "--resume").as_deref(), Some(ID));
     assert!(!args.iter().any(|arg| arg == "--fork-session"));
     assert!(!args.iter().any(|arg| arg == "--session-id"));
+}
+
+#[test]
+fn every_process_of_a_fork_is_told_it_is_one() {
+    for resuming in [false, true] {
+        let args = rendered(&launching(resuming, SessionMode::Auto).forking(OLD, NOTE).expect("portable"));
+        assert_eq!(value_after(&args, "--append-system-prompt").as_deref(), Some(NOTE), "resuming: {resuming}");
+    }
+}
+
+#[test]
+fn a_session_that_is_not_a_fork_is_told_nothing() {
+    let args = rendered(&launching(false, SessionMode::Auto));
+    assert!(!args.iter().any(|arg| arg == "--append-system-prompt"));
+}
+
+#[test]
+fn a_fork_with_no_note_is_refused_before_it_starts() {
+    for note in ["", "  \n"] {
+        assert_eq!(launching(false, SessionMode::Auto).forking(OLD, note), Err(HostedRefused::ForkNotTold));
+    }
 }
 
 const LINE: &str = "7d0a52c4-91be-4f3a-8c26-0b5e1f47a9d3";
 
 #[test]
 fn a_fork_at_a_message_ends_the_copy_at_that_line() {
-    let launch = launching(false, SessionMode::Auto).forking(OLD).expect("portable").cut_at(LINE).expect("portable");
+    let launch = launching(false, SessionMode::Auto).forking(OLD, NOTE).expect("portable").cut_at(LINE).expect("portable");
     let args = rendered(&launch);
     assert_eq!(value_after(&args, "--resume-session-at").as_deref(), Some(LINE));
     assert_eq!(value_after(&args, "--resume").as_deref(), Some(OLD));
@@ -109,18 +131,18 @@ fn a_fork_at_a_message_ends_the_copy_at_that_line() {
 
 #[test]
 fn a_fork_that_has_run_is_not_cut_again() {
-    let launch = launching(true, SessionMode::Auto).forking(OLD).expect("portable").cut_at(LINE).expect("portable");
+    let launch = launching(true, SessionMode::Auto).forking(OLD, NOTE).expect("portable").cut_at(LINE).expect("portable");
     assert!(!rendered(&launch).iter().any(|arg| arg == "--resume-session-at"));
 }
 
 #[test]
 fn a_cut_that_would_be_read_as_a_flag_is_refused() {
-    assert!(launching(false, SessionMode::Auto).forking(OLD).expect("portable").cut_at("--dangerous").is_err());
+    assert!(launching(false, SessionMode::Auto).forking(OLD, NOTE).expect("portable").cut_at("--dangerous").is_err());
 }
 
 #[test]
 fn a_fork_of_something_that_would_be_read_as_a_flag_is_refused() {
-    assert!(launching(false, SessionMode::Auto).forking("--dangerous").is_err());
+    assert!(launching(false, SessionMode::Auto).forking("--dangerous", NOTE).is_err());
 }
 
 #[test]
@@ -132,7 +154,7 @@ fn another_sessions_message_is_accepted_and_the_first_write_is_held_by_a_hook() 
         "{settings}"
     );
     assert!(
-        settings.contains(r#""matcher":"Write|Edit|NotebookEdit|Bash""#),
+        settings.contains(r#""matcher":"Write|Edit|MultiEdit|NotebookEdit|Bash""#),
         "{settings}"
     );
     assert!(
@@ -198,6 +220,7 @@ fn a_shell_line_is_a_read_only_where_every_part_of_it_is_and_nothing_redirects()
         "git branch --show-current",
         "gh pr view 12",
         "armada need --status",
+        "armada worktree --status",
     ] {
         assert!(reads_only(read), "{read}");
     }
@@ -211,6 +234,8 @@ fn a_shell_line_is_a_read_only_where_every_part_of_it_is_and_nothing_redirects()
         "cat $(touch x)",
         "find . -delete",
         "npm install",
+        "armada worktree release /repo/.armada/slots/slot-5",
+        "armada worktree --status && armada worktree release",
     ] {
         assert!(!reads_only(write), "{write}");
     }

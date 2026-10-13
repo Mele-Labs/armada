@@ -12,6 +12,8 @@
 // them, so a union is the second copy of each and not a third. Bridge matches
 // on both to choose which controls to draw, and sends both back.
 
+import type { AnswerMode } from "./asking";
+
 /**
  * What a job does when its drone reaches for a command it was not given.
  * Since protocol 10.7.
@@ -131,6 +133,8 @@ export type AnswerCommand = {
    * 23.35.
    */
   scope?: AlwaysAllowScope;
+  /** How the Drone is told to carry on, beside the answer. */
+  mode?: AnswerMode;
 };
 
 /** Where an Always allow is kept. Since protocol 23.35. */
@@ -192,6 +196,17 @@ export type RepositoryAllowedCommands = {
  */
 export type SetModel = {
   model: string | null;
+};
+
+/**
+ * The body of `set_commander_model`: the model and effort one Job's Commander runs on, over the
+ * machine's `models.commander` and `effort.commander`. #2166. **Both keys are sent**, `SetModel`'s
+ * reason: `null` clears that half, and a body missing either is refused.
+ */
+export type SetCommanderModel = {
+  model: string | null;
+  /** `harness default`, `low`, `medium` or `high`. */
+  effort: string | null;
 };
 
 /**

@@ -217,6 +217,7 @@ async fn agreeing_queues_the_step_again_with_the_finding_waiting() {
             JudgeAnswer::Agree,
             Some(asked_at),
             Some("check the empty log too".to_string()),
+            None,
         )
         .await
         .expect("agreeing takes the restart road");
@@ -259,7 +260,7 @@ async fn disagreeing_once_advances_and_queues() {
     let (fleet, job_id, asked_at) = asking_a_question(&home).await;
 
     let answered = fleet
-        .answer_judge(&job_id, JudgeAnswer::DisagreeOnce, Some(asked_at), None)
+        .answer_judge(&job_id, JudgeAnswer::DisagreeOnce, Some(asked_at), None, None)
         .await
         .expect("disagreeing walks an edge that was already legal");
 
@@ -280,7 +281,7 @@ async fn disagreeing_always_advances_and_queues() {
     let (fleet, job_id, asked_at) = asking_a_question(&home).await;
 
     let answered = fleet
-        .answer_judge(&job_id, JudgeAnswer::DisagreeAlways, Some(asked_at), None)
+        .answer_judge(&job_id, JudgeAnswer::DisagreeAlways, Some(asked_at), None, None)
         .await
         .expect("disagreeing walks an edge that was already legal");
 
@@ -303,7 +304,7 @@ async fn answering_a_stale_question_is_refused() {
     let stale = ipc::Instant::carried(format!("{}-stale", asked_at.as_str()));
 
     let refused = fleet
-        .answer_judge(&job_id, JudgeAnswer::Agree, Some(stale), None)
+        .answer_judge(&job_id, JudgeAnswer::Agree, Some(stale), None, None)
         .await
         .expect_err("a mismatched asked_at is refused, not applied");
 
@@ -325,7 +326,7 @@ async fn answering_with_no_asked_at_trusts_whatever_is_open() {
     let (fleet, job_id, _asked_at) = asking_a_question(&home).await;
 
     let answered = fleet
-        .answer_judge(&job_id, JudgeAnswer::Agree, None, None)
+        .answer_judge(&job_id, JudgeAnswer::Agree, None, None, None)
         .await
         .expect("an absent asked_at answers the question genuinely open");
 

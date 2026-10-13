@@ -25,6 +25,7 @@ fn supplied() -> Supplied {
         .words(s::MODELS_PROPOSER, "small")
         .words(s::MODELS_RETRO, "middle")
         .words(s::MODELS_SECOND_OPINION, "middle")
+        .words(s::MODELS_COMMANDER, "big")
         .harnesses(&["the-cli"])
 }
 
@@ -186,13 +187,16 @@ fn every_handle_names_an_entry_of_its_kind() {
         s::MODELS_PROPOSER,
         s::MODELS_RETRO,
         s::MODELS_SECOND_OPINION,
+        s::MODELS_COMMANDER,
         s::EFFORT_DEFAULT,
         s::EFFORT_JUDGE,
         s::EFFORT_PROPOSER,
         s::EFFORT_HELM,
+        s::EFFORT_COMMANDER,
         s::EDITOR_COMMAND,
         s::TERMINAL_APP,
         s::TERMINAL_COMMAND,
+        s::OPEN_PULL_REQUESTS_IN,
         s::THEME,
     ] {
         assert!(
@@ -214,7 +218,7 @@ fn every_handle_names_an_entry_of_its_kind() {
             key.name()
         );
     }
-    let handles = 21 + 15 + 4 + 15 + 2 + 2 + s::prompt_keys().count();
+    let handles = 21 + 15 + 4 + 18 + 2 + 2 + s::prompt_keys().count();
     assert_eq!(
         entries().count(),
         handles,

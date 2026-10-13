@@ -25,7 +25,7 @@
 # Fields:
 #   kind        - query | command | event
 #   transport   - HTTP | WebSocket
-#   agent_access - Yes | No | Bridge only | Drafts only | Helm only. What an
+#   agent_access - Yes | No | Bridge only | Drafts only | Helm only | Commander only. What an
 #                 agent may reach directly — Helm inside Bridge, or any agent
 #                 working on the machine, on one shared set. `Helm only` is a
 #                 command Helm may call when a person asks it to in
@@ -33,7 +33,8 @@
 #                 tier. On a query it is a read offered to a Helm session
 #                 alone — the checkout's runs, which only Helm can start.
 #                 `Drafts only` is the narrower set offered a Helm
-#                 session alone for drafting a Job. What stays `No` for Helm
+#                 session alone for drafting a Job. `Commander only` is
+#                 offered to a Job's Commander alone, and not to Helm. What stays `No` for Helm
 #                 too is named, not implied — `fleet::helm::reach::RESERVED`
 #   description - what the operation returns or does, in one line
 #   unbuilt     - an event declared here and not yet sent, naming the issue

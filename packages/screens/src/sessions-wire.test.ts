@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { Attachment, JobSummary, SessionRecord, SessionRow } from "@armada/protocol";
 import { job } from "./fixtures/build/base";
-import { ENDED_LISTED_DAYS, attachmentsOfRecord, cleanTitle, jobStateOf, numberOf, rowsOfThread, sessionOfRecord, sessionsOfRecords } from "./sessions-wire";
+import { ENDED_LISTED_DAYS, attachmentsOfRecord, cleanTitle, jobStateOf, numberOf, rowsOfThread, sessionOfRecord, sessionsOfRecords, trailOfRecord } from "./sessions-wire";
 import type { Beside } from "./sessions-wire";
 import { ownerOf, sessionsMatching } from "./draft/sessions";
 
@@ -300,6 +300,45 @@ describe("a stored title", () => {
   });
 });
 
+describe("a session's trail", () => {
+  const at = (row: Attachment, since: string, changed = since): Attachment => ({ ...row, since, changed_at: changed });
+
+  it("is when it started and nothing else where it held no slot and opened no pull request", () => {
+    expect(trailOfRecord(record("a", { started_at: "2026-10-13T08:00:00Z" }))).toEqual({ started: "2026-10-13T08:00:00Z" });
+    expect(sessionOfRecord(record("a"), undefined, beside()).trail).toEqual({ started: AT });
+  });
+
+  it("keeps each slot it held, a given-back one with when it let go, which the ledger leaves out", () => {
+    const wire = record("a", {
+      started_at: "2026-10-13T08:00:00Z",
+      attachments: [
+        at(held("slot", "5"), "2026-10-13T09:30:00Z"),
+        at(held("slot", "2", {}, "given_back"), "2026-10-13T08:20:00Z", "2026-10-13T09:00:00Z"),
+      ],
+    });
+    expect(trailOfRecord(wire)).toEqual({
+      started: "2026-10-13T08:00:00Z",
+      bays: [
+        { slot: 2, from: "2026-10-13T08:20:00Z", until: "2026-10-13T09:00:00Z" },
+        { slot: 5, from: "2026-10-13T09:30:00Z" },
+      ],
+    });
+    expect(attachmentsOfRecord(wire, beside())).toEqual([{ kind: "slot", slot: 5 }]);
+  });
+
+  it("keeps when each pull request was recorded, by number, one let go too", () => {
+    const wire = record("a", {
+      attachments: [at(held("pr", "1847", { title: "T" }, "spent"), "2026-10-13T10:00:00Z"), at(held("pr", "1850", {}, "given_back"), "2026-10-13T10:05:00Z"), held("branch", "fix/x")],
+    });
+    expect(trailOfRecord(wire).opened).toEqual({ 1847: "2026-10-13T10:00:00Z", 1850: "2026-10-13T10:05:00Z" });
+  });
+
+  it("stays on a session that ended", () => {
+    const ended = record("a", { state: "ended", attachments: [at(held("slot", "2", {}, "given_back"), "2026-10-13T08:20:00Z", "2026-10-13T09:00:00Z")] });
+    expect(sessionOfRecord(ended, undefined, beside()).trail?.bays).toEqual([{ slot: 2, from: "2026-10-13T08:20:00Z", until: "2026-10-13T09:00:00Z" }]);
+  });
+});
+
 describe("a session", () => {
   it("carries its turn, ask, tuning and address", () => {
     const session = sessionOfRecord(
@@ -476,5 +515,61 @@ describe("what a session waits on", () => {
   it("carries none for a session with an empty list or one that ended", () => {
     expect(sessionOfRecord(record("a"), undefined, beside()).waitingFor).toBeUndefined();
     expect(sessionOfRecord(record("a", { state: "ended", waiting_for: items }), undefined, beside()).waitingFor).toBeUndefined();
+  });
+});
+
+describe("the plan's limit and the context window", () => {
+  const breakdown = {
+    categories: [
+      { name: "Messages", tokens: 23_600, kind: "used" as const },
+      { name: "Free space", tokens: 913_000, kind: "free" as const },
+    ],
+    memory_files: [{ path: "NOTES.md", tokens: 2_100 }],
+    mcp_tools: [{ name: "list_jobs", server: "armada-fleet", tokens: 2_600 }],
+    total_tokens: 53_840,
+    max_tokens: 1_000_000,
+    autocompact_threshold: 967_000,
+  };
+
+  it("reads held_until as the reset a held session resumes at, and nothing for one that ended", () => {
+    expect(sessionOfRecord(record("a", { held_until: "2026-10-12T22:40:00Z" }), undefined, beside()).limitedUntil).toBe("2026-10-12T22:40:00Z");
+    expect(sessionOfRecord(record("a"), undefined, beside()).limitedUntil).toBeUndefined();
+    expect(sessionOfRecord(record("a", { state: "ended", held_until: "2026-10-12T22:40:00Z" }), undefined, beside()).limitedUntil).toBeUndefined();
+  });
+
+  it("reads context_breakdown in the camelCase the view-model draws, and nothing without one", () => {
+    expect(sessionOfRecord(record("a", { context_breakdown: breakdown }), undefined, beside()).contextBreakdown).toEqual({
+      categories: breakdown.categories,
+      memoryFiles: breakdown.memory_files,
+      mcpTools: breakdown.mcp_tools,
+      totalTokens: 53_840,
+      maxTokens: 1_000_000,
+      autocompactThreshold: 967_000,
+    });
+    expect(sessionOfRecord(record("a"), undefined, beside()).contextBreakdown).toBeUndefined();
+  });
+});
+
+describe("a session its agent was started by another to hold", () => {
+  const unsent = (state: Attachment["state"]) => held("unsent", "Port the clock", {}, state);
+
+  it("carries the first message held unsent, and none once it is spent or the session ended", () => {
+    expect(sessionOfRecord(record("n", { attachments: [unsent("standing")] }), undefined, beside()).unsent).toBe("Port the clock");
+    expect(sessionOfRecord(record("n", { attachments: [unsent("spent")] }), undefined, beside()).unsent).toBeUndefined();
+    expect(sessionOfRecord(record("n", { state: "ended", attachments: [unsent("standing")] }), undefined, beside()).unsent).toBeUndefined();
+    expect(sessionOfRecord(record("n"), undefined, beside()).unsent).toBeUndefined();
+  });
+
+  it("keeps the unsent message off the ledger and links the two sessions both ways, even after one ended", () => {
+    const made = record("n", { attachments: [held("started_by", "old", {}, "spent"), unsent("standing")] });
+    expect(sessionOfRecord(made, undefined, beside()).attachments).toEqual([{ kind: "started_by", id: "old" }]);
+    const maker = record("old", { attachments: [held("started_to", "n", {}, "spent")] });
+    expect(sessionOfRecord(maker, undefined, beside()).attachments).toEqual([{ kind: "started_to", id: "n" }]);
+    expect(sessionOfRecord({ ...maker, state: "ended" }, undefined, beside()).attachments).toEqual([{ kind: "started_to", id: "n" }]);
+  });
+
+  it("keeps the Session the agent started as a row in its thread", () => {
+    const row: SessionRow = { kind: "started", id: "st1", at: AT, session: { id: "n", title: "Port the clock" }, fork: true };
+    expect(rowsOfThread("old", [row], () => undefined)).toMatchObject([{ id: "st1", kind: "started", session: { id: "n", title: "Port the clock" }, fork: true }]);
   });
 });

@@ -364,6 +364,9 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
                     eprintln!("a turn did not complete: {why}");
                 });
             println!("turning every {}ms", turn_interval.as_millis());
+            // What happens to Jobs, Sessions, pull requests and slots, kept with its instant
+            // for the Cockpit's timeline. Before anything can start one.
+            fleet::timeline::keep_timeline(Arc::clone(&fleet));
             // Main and the open pull requests, on the merge notice's interval but not
             // behind a turn, which waits on every Job's Checks.
             fleet::main_ci::keep_reading_main(
@@ -385,10 +388,16 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
             fleet::merge_lines::keep_reading(
                 Arc::clone(&fleet),
                 events.clone(),
+                fleet.timeline().clone(),
                 fleet::merge_lines::EVERY,
             );
             // `GET /worktrees` kept in memory and read again behind its requests.
             fleet::keep_worktrees_warm(Arc::clone(&fleet));
+            // A hosted session refused a slot for a full pool, leased one when one frees.
+            fleet::session_host::queueing::keep_granting_slots(
+                Arc::clone(&fleet),
+                fleet::session_host::queueing::EVERY,
+            );
             // The mods folder, rescanned so a mod a session wrote reaches Bridge.
             fleet::mods::keep_reading(Arc::clone(&fleet), fleet::mods::EVERY);
             // Stale build output, trimmed in every checkout of each served repository.
@@ -629,6 +638,7 @@ fn assemble(
         model_at(shipped.get(keys::MODELS_SECOND_OPINION), shipped.get(keys::EFFORT_JUDGE))?;
     let proposer_model = model_at(shipped.get(keys::MODELS_PROPOSER), shipped.get(keys::EFFORT_PROPOSER))?;
     let retro_model = model_at(shipped.get(keys::MODELS_RETRO), String::new())?;
+    let commander_model = model_at(shipped.get(keys::MODELS_COMMANDER), shipped.get(keys::EFFORT_COMMANDER))?;
     let fleet = Fleet::assembled(Fittings {
         store,
         harness: agent,
@@ -726,6 +736,7 @@ fn assemble(
         judge_model,
         proposer_model,
         retro_model,
+        commander_model,
         second_opinion_model,
         // The one link shape resolved before dispatch. See
         // `adapters::IssueLookup` for why it is the only one.

@@ -40,7 +40,7 @@ use crate::commands::{
 };
 use crate::conversing::{
     answer_helm_call, ask_helm, ask_the_person, get_helm_debug_info, list_helm_calls, observe_helm,
-    read_thought, record_thought_sent, start_helm_fresh,
+    read_thought, record_thought_sent, start_helm_fresh, tell_session,
 };
 use crate::daemon::Daemon;
 use crate::editing::{get_manifest_file, save_manifest_file};
@@ -69,6 +69,7 @@ use crate::repositories::{
 };
 use crate::repository_allow::{get_repository_allowed_commands, remove_repository_allowed_command};
 use crate::served::Served;
+use crate::timeline::get_fleet_timeline;
 use crate::servers::{list_servers, observe_server, start_server, stop_server};
 use crate::sockets::{events, job_log, observe_check_output, observe_job, observe_land_check};
 use crate::studios::{
@@ -181,6 +182,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             "/needs",
             get(crate::needs::list_needs::<D>).post(crate::needs::act_on_need::<D>),
         )
+        .route("/clashes", get(crate::needs::list_write_clashes::<D>))
         .route(
             "/pull_requests/:repository/:number",
             get(crate::pull_requests::get_pull_request::<D>),
@@ -237,6 +239,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             "/sessions/window/closed",
             post(crate::sessions::window_closed::<D>),
         )
+        .route("/plan_usage", get(crate::hosted_sessions::get_plan_usage::<D>))
         .route("/sleep", get(crate::hosted_sessions::get_sleep::<D>).post(crate::hosted_sessions::set_sleep::<D>))
         .route("/sleep/override", post(crate::hosted_sessions::override_sleep::<D>))
         .route("/sleep/review", post(crate::hosted_sessions::review_sleep::<D>))
@@ -261,6 +264,14 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route(
             "/sessions/claim_pull_request",
             post(crate::sessions::claim_pull_request::<D>),
+        )
+        .route(
+            "/sessions/start_another",
+            post(crate::sessions::start_another_session::<D>),
+        )
+        .route(
+            "/sessions/fork_this",
+            post(crate::sessions::fork_this_session::<D>),
         )
         .route(
             "/sessions/start",
@@ -324,6 +335,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/repositories/add", post(add_repository::<D>))
         .route("/repositories/clone", post(clone_repository::<D>))
         .route("/merge_lines", get(get_merge_lines::<D>))
+        .route("/timeline", get(get_fleet_timeline::<D>))
         .route("/merge_lines/checks/observe", get(observe_land_check::<D>))
         .route("/merge_lines/fix", post(fix_main::<D>))
         .route("/models", get(list_models::<D>))
@@ -567,6 +579,18 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             "/jobs/:job_id/drones/:drone_id/redirect",
             post(crate::one_drone::redirect_one_drone::<D>),
         )
+        .route(
+            "/jobs/:job_id/retry_check",
+            post(crate::check_acts::retry_check::<D>),
+        )
+        .route(
+            "/jobs/:job_id/skip_check",
+            post(crate::check_acts::skip_check::<D>),
+        )
+        .route(
+            "/jobs/:job_id/skip_checks",
+            post(crate::check_acts::skip_checks::<D>),
+        )
         .route("/jobs/:job_id/forget_job", post(forget_job::<D>))
         .route(
             "/jobs/:job_id/reclaim_worktree",
@@ -607,6 +631,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(crate::commands::set_review_model::<D>),
         )
         .route(
+            "/jobs/:job_id/set_commander_model",
+            post(crate::commands::set_commander_model::<D>),
+        )
+        .route(
             "/jobs/:job_id/set_tiers",
             post(crate::commands::set_tiers::<D>),
         )
@@ -636,10 +664,31 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         )
         .route("/helm/observe", get(observe_helm::<D>))
         .route("/helm/ask", post(ask_helm::<D>))
+        .route(
+            "/jobs/:job_id/commander/observe",
+            get(crate::conversing::observe_commander::<D>),
+        )
+        .route(
+            "/jobs/:job_id/commander/ask",
+            post(crate::conversing::ask_commander::<D>),
+        )
+        .route(
+            "/jobs/:job_id/commander/card",
+            post(crate::conversing::ask_the_owner::<D>),
+        )
+        .route(
+            "/jobs/:job_id/commander/repair",
+            post(crate::conversing::send_repair_drone::<D>),
+        )
+        .route(
+            "/jobs/:job_id/commander/card/answer",
+            post(crate::conversing::answer_commander_card::<D>),
+        )
         .route("/helm/debug", get(get_helm_debug_info::<D>))
         .route("/helm/start_fresh", post(start_helm_fresh::<D>))
         .route("/helm/read_thought", post(read_thought::<D>))
         .route("/helm/thought_sent", post(record_thought_sent::<D>))
+        .route("/helm/tell_session", post(tell_session::<D>))
         .route("/helm/permission", post(ask_the_person::<D>))
         .route("/helm/calls", get(list_helm_calls::<D>))
         .route("/helm/calls/answer", post(answer_helm_call::<D>))

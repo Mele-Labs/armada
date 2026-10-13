@@ -60,7 +60,7 @@ fn the_agents_items_come_first_and_fleets_own_follow_with_stable_ids() {
         title: "Findings".into(),
         since: "2026-10-09T00:02:00Z".into(),
     }];
-    let items = merged(vec![kept("a1", "run", "cargo test")], Some(&asked), &windows, &[], false);
+    let items = merged(vec![kept("a1", "run", "cargo test")], Some(&asked), &windows, &[], &[], false);
     let ids: Vec<_> = items.iter().map(|one| one.id.as_str()).collect();
     assert_eq!(ids, ["a1", "ask:c1", "walk:http://localhost:5173/"]);
     assert_eq!(items[0].source, WaitingSource::Agent);
@@ -68,7 +68,7 @@ fn the_agents_items_come_first_and_fleets_own_follow_with_stable_ids() {
     assert_eq!(items[1].options.len(), 2, "one single-choice question has numbered choices");
     assert_eq!(items[2].source, WaitingSource::Walk);
 
-    let permission = merged(Vec::new(), Some(&card("c2", None)), &[], &[], false);
+    let permission = merged(Vec::new(), Some(&card("c2", None)), &[], &[], &[], false);
     assert_eq!(permission[0].id, "perm:c2");
     assert_eq!(permission[0].source, WaitingSource::Permission);
     assert_eq!(permission[0].text, "Bash rm -rf build");
@@ -83,11 +83,31 @@ fn where_an_agent_item_names_fleets_target_fleets_stands_and_an_ended_session_ho
         Some(&asked),
         &[],
         &[],
+        &[],
         false,
     );
     let ids: Vec<_> = items.iter().map(|one| one.id.as_str()).collect();
     assert_eq!(ids, ["other", "ask:c1"], "the agent's duplicate of the open card is left off");
-    assert!(merged(vec![kept("a", "run", "x")], Some(&asked), &[], &[], true).is_empty());
+    assert!(merged(vec![kept("a", "run", "x")], Some(&asked), &[], &[], &[], true).is_empty());
+}
+
+#[test]
+fn an_agent_walk_item_for_a_page_already_shown_is_dropped_and_one_for_another_page_stays() {
+    let items = merged(
+        vec![
+            kept("mine", "walk", "http://localhost:5173/one"),
+            kept("slashed", "walk", "http://localhost:5173/two/"),
+            kept("other", "walk", "http://localhost:5173/three"),
+            kept("run", "run", "http://localhost:5173/one"),
+        ],
+        None,
+        &[],
+        &["http://localhost:5173/one/", "http://localhost:5173/two"],
+        &[],
+        false,
+    );
+    let ids: Vec<_> = items.iter().map(|one| one.id.as_str()).collect();
+    assert_eq!(ids, ["other", "run"], "the window is the one record of a page it showed");
 }
 
 fn set(id: &ipc::SessionId, items: &[(&str, &str)]) -> SetWaitingFor {
@@ -236,7 +256,7 @@ async fn an_open_walk_window_waits_until_it_is_approved_and_an_agent_item_become
     let url = "http://localhost:5173/";
     let shown = rig
         .fleet
-        .show_window(None, ShowWindow { url: url.into(), title: Some("Findings".into()), session_id: Some(id.clone()) })
+        .show_window(None, ShowWindow { url: url.into(), title: Some("Findings".into()), session_id: Some(id.clone()), variations: Vec::new() })
         .await
         .unwrap();
     assert!(!shown.waiting_for.is_empty(), "{:?}", shown.attachments);
@@ -277,9 +297,54 @@ async fn an_open_walk_window_waits_until_it_is_approved_and_an_agent_item_become
     assert!(matches!(missing, Err(api::Refusal::IllegalMove(_))), "an item nothing holds");
 }
 
+#[tokio::test]
+async fn a_pick_with_words_tells_the_agent_both() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    rig.fleet.waiting_for(None, set(&id, &[("a1", "Run the tests")])).await.unwrap();
+    let mut said = answer(&id, "a1");
+    said.choice = Some(0);
+    said.text = Some("  but only the store ones  ".into());
+    Arc::clone(&rig.fleet).answer_waiting(said).await.unwrap();
+    let last = rig
+        .rows(&id)
+        .await
+        .into_iter()
+        .filter_map(|row| match row {
+            SessionRow::Message { from: SessionVoice::You, text, .. } => Some(text),
+            _ => None,
+        })
+        .last()
+        .unwrap();
+    assert_eq!(last, "Re: Run the tests\nYes\nbut only the store ones\nFleet took this off your waiting list.");
+}
+
+#[tokio::test]
+async fn the_agents_walk_item_for_a_shown_page_never_adds_a_second_call_even_once_approved() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    let url = "http://localhost:5173/one";
+    show(&rig, &id, url).await;
+    let mut agent = set(&id, &[("again", "Look at the page")]);
+    agent.items[0].act = Some(WaitingAct { kind: WaitingActKind::Walk, target: format!("{url}/") });
+    agent.items.push(WaitingInput {
+        id: "unshown".into(),
+        text: "Look at the other page".into(),
+        act: Some(WaitingAct { kind: WaitingActKind::Walk, target: "http://localhost:5173/never".into() }),
+        options: Vec::new(),
+    });
+    rig.fleet.waiting_for(None, agent).await.unwrap();
+    let record = Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap().session;
+    assert_eq!(ids(&record), ["unshown", &format!("walk:{url}")], "{:?}", ids(&record));
+
+    Arc::clone(&rig.fleet).answer_waiting(answer(&id, &format!("walk:{url}"))).await.unwrap();
+    let record = Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap().session;
+    assert_eq!(ids(&record), ["unshown"], "the approved page does not come back as the agent's item");
+}
+
 async fn show(rig: &Rig, id: &ipc::SessionId, url: &str) -> ipc::SessionRecord {
     rig.fleet
-        .show_window(None, ShowWindow { url: url.into(), title: Some(url.into()), session_id: Some(id.clone()) })
+        .show_window(None, ShowWindow { url: url.into(), title: Some(url.into()), session_id: Some(id.clone()), variations: Vec::new() })
         .await
         .unwrap()
 }
@@ -368,6 +433,31 @@ async fn a_dismissed_agent_item_is_gone_and_stays_gone_when_the_agent_says_it_ag
         .await
         .unwrap();
     assert_eq!(ids(&after), ["b"]);
+    let restated = rig.fleet.waiting_for(None, set(&id, &[("a", "Run the tests"), ("b", "Look")])).await.unwrap();
+    assert_eq!(ids(&restated), ["b"]);
+}
+
+#[tokio::test]
+async fn an_answered_agent_item_leaves_the_list_at_once_and_stays_gone_when_restated() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    rig.fleet.waiting_for(None, set(&id, &[("a", "Run the tests"), ("b", "Look")])).await.unwrap();
+    let mut said = answer(&id, "a");
+    said.choice = Some(0);
+    let after = Arc::clone(&rig.fleet).answer_waiting(said).await.unwrap();
+    assert_eq!(ids(&after), ["b"], "the answered item is off the record the answer returns");
+    let sent: Vec<String> = rig
+        .rows(&id)
+        .await
+        .into_iter()
+        .filter_map(|row| match row {
+            SessionRow::Message { from: SessionVoice::You, text, .. } => Some(text),
+            _ => None,
+        })
+        .collect();
+    let last = sent.last().unwrap();
+    assert!(last.starts_with("Re: Run the tests\nYes\n"), "{last}");
+    assert!(last.ends_with("Fleet took this off your waiting list."), "{last}");
     let restated = rig.fleet.waiting_for(None, set(&id, &[("a", "Run the tests"), ("b", "Look")])).await.unwrap();
     assert_eq!(ids(&restated), ["b"]);
 }

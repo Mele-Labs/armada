@@ -86,6 +86,10 @@ export function fakeBridge(scenario: Scenario, options: FakeOptions = {}): Bridg
   };
   const sessions = scenario.draft?.sessions?.(board);
   const commanding = scenario.draft?.commanding?.(fleet);
+  if (commanding !== undefined) {
+    fake.askCommander = async (jobId, text) => commanding.ask(jobId, text);
+    fake.answerCommanderCard = async (jobId, card, option) => commanding.answer(jobId, card, option);
+  }
   onTimePassing(
     scenario.later === undefined && sessions === undefined && commanding === undefined
       ? undefined

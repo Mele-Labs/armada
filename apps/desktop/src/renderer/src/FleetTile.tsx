@@ -1,15 +1,16 @@
 // One Job or Session as a tile: the state icon at the top left naming what is active, the kind as a
 // small glyph at the right, the title wrapping to two lines, and a bottom strip of the Job's step
 // pips or a Session's activity, with the age. The state is in the frame: a tile that needs the owner
-// is lit. A Session never draws pips, and a Job draws them only from two steps. A Job whose workflow
+// is lit. A write clash is the mark beside the kind. A Session never draws pips, and a Job draws them only from two steps. A Job whose workflow
 // is still being settled holds the pips' place with the blinking caret, and no step stands in for it.
 // Props are plain so any grid can lay tiles out.
 
 import { useEffect, useRef, type ReactNode } from "react";
 import { LoaderCircle, SquareTerminal, Workflow } from "lucide-react";
-import { SettlingMark, Tooltip } from "@armada/components";
+import { ClashMark, SettlingMark, Tooltip } from "@armada/components";
 
 import { age, type Item } from "./Dashboard";
+import { sessionIdOf } from "./cockpit/waiting";
 
 export function FleetTile({
   item,
@@ -56,13 +57,16 @@ export function FleetTile({
             <State size={20} aria-hidden="true" />
           </span>
         </Tooltip>
-        {kind === undefined ? null : (
-          <Tooltip label={kind.said}>
-            <span className="armada-tile__kind">
-              <kind.Glyph size={14} aria-hidden="true" />
-            </span>
-          </Tooltip>
-        )}
+        <span className="armada-tile__flags">
+          {item.job !== undefined ? <ClashMark kind="job" id={item.job.id} /> : item.session === true ? <ClashMark kind="session" id={sessionIdOf(item.key)} /> : null}
+          {kind === undefined ? null : (
+            <Tooltip label={kind.said}>
+              <span className="armada-tile__kind">
+                <kind.Glyph size={14} aria-hidden="true" />
+              </span>
+            </Tooltip>
+          )}
+        </span>
       </div>
       <span className="armada-tile__title">{item.title}</span>
       <div className="armada-tile__foot">

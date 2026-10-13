@@ -6,8 +6,9 @@
 // Job read off the Board — so the pairing and the reading happen here, once, where a test can hold
 // them. Nothing here reads a transcript: a row is drawn as it arrived and nothing is inferred from it.
 
-import type { Attachment, HelmCallInFlight, JobSummary, SessionRecord, SessionRow as WireRow, SessionTag as WireTag } from "@armada/protocol";
+import type { Attachment, ContextBreakdown as WireContextBreakdown, HelmCallInFlight, JobSummary, SessionRecord, SessionRow as WireRow, SessionTag as WireTag } from "@armada/protocol";
 
+import type { ContextBreakdown } from "@armada/components/src/context-breakdown";
 import { clock } from "./duration";
 import { retroRowOf } from "./retro-row";
 import type {
@@ -19,6 +20,7 @@ import type {
   SessionPullRequestState,
   SessionRow,
   SessionTag,
+  SessionTrail,
 } from "./draft/sessions";
 
 /** What the window holds beside a record, which Fleet does not carry. */
@@ -102,6 +104,7 @@ function pullRequestOf(one: Attachment): SessionAttachment | undefined {
     title: detail["title"] ?? "",
     branch: detail["branch"] ?? "",
     address: detail["address"] ?? "",
+    ...(detail["body"] === undefined || detail["body"] === "" ? {} : { body: detail["body"] }),
     checks: checksOf(detail),
     state: standingOf(detail, one.state === "spent"),
     auto: detail["auto_merge"] === "true",
@@ -165,6 +168,10 @@ export function attachmentsOfRecord(record: SessionRecord, beside: Pick<Beside, 
             : { kind: "forked_from", id: one.target, ...(detail["at"] === undefined ? {} : { at: detail["at"] }) },
         );
         break;
+      case "started_to":
+      case "started_by":
+        out.push({ kind: one.kind, id: one.target });
+        break;
       case "subagent":
         out.push({
           kind: "subagent",
@@ -185,6 +192,20 @@ export function attachmentsOfRecord(record: SessionRecord, beside: Pick<Beside, 
     }
   }
   return [...out, ...beside.sketches];
+}
+
+/**
+ * Where the work has been, off the same rows the ledger reads but keeping the ones it drops: a slot no longer
+ * standing is a stay that ended (`changed_at`), and a pull request let go was still opened at its `since`. Nothing here
+ * changes what `attachmentsOfRecord` draws.
+ */
+export function trailOfRecord(record: SessionRecord): SessionTrail {
+  const bays = record.attachments
+    .filter((one) => one.kind === "slot")
+    .map((one) => ({ slot: Number(one.target), from: one.since, ...(one.state === "standing" ? {} : { until: one.changed_at }) }))
+    .sort((a, b) => Date.parse(a.from) - Date.parse(b.from));
+  const opened = Object.fromEntries(record.attachments.filter((one) => one.kind === "pr" && !Number.isNaN(Number(one.target))).map((one) => [Number(one.target), one.since]));
+  return { started: record.started_at, ...(bays.length === 0 ? {} : { bays }), ...(Object.keys(opened).length === 0 ? {} : { opened }) };
 }
 
 const tagOf = (tag: WireTag): SessionTag => ({
@@ -229,6 +250,7 @@ export function rowsOfThread(sessionId: string, rows: readonly WireRow[], pictur
         out.push({
           id: row.id,
           at,
+          instant: row.at,
           kind: "message",
           from: row.from,
           text: row.text,
@@ -256,10 +278,13 @@ export function rowsOfThread(sessionId: string, rows: readonly WireRow[], pictur
         out.push({ id: row.id, at, kind: "lease", slot: row.slot, branch: row.branch });
         break;
       case "check":
-        out.push({ id: row.id, at, kind: "check", name: row.name, run: row.run, state: row.state });
+        out.push({ id: row.id, at, kind: "check", name: row.name, run: row.run, state: row.state, ...(row.target === undefined ? {} : { target: row.target }) });
         break;
       case "window":
         out.push({ id: row.id, at, kind: "window", title: row.title, url: row.url });
+        break;
+      case "started":
+        out.push({ id: row.id, at, kind: "started", session: row.session, fork: row.fork });
         break;
       case "retro":
         out.push(retroRowOf(row, at));
@@ -327,8 +352,12 @@ export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] 
   const mode = hosted?.mode ?? terminal?.mode;
   const asked = hosted?.asked ?? terminal?.asked;
   const ended = record.state === "ended";
-  // A session that ended holds nothing, so it owns nothing: what it keeps is the link to its forks and what it made, to be read.
-  const attachments = attachmentsOfRecord(record, beside).filter((one) => !ended || one.kind === "forked_to" || one.kind === "forked_from" || one.kind === "pull_request" || one.kind === "artifact");
+  // A session that ended holds nothing, so it owns nothing: what it keeps is the link to its forks and starts, and what it made, to be read.
+  const attachments = attachmentsOfRecord(record, beside).filter(
+    (one) => !ended || one.kind === "forked_to" || one.kind === "forked_from" || one.kind === "started_to" || one.kind === "started_by" || one.kind === "pull_request" || one.kind === "artifact",
+  );
+  // The first message an agent wrote for a Session it started, held by Fleet until the person sends it.
+  const unsent = ended ? undefined : record.attachments.find((one) => one.kind === "unsent" && one.state === "standing")?.target;
   const dead = ended ? ("ended" as const) : hosted === undefined && terminal?.listening !== true ? ("quiet" as const) : undefined;
   const title = cleanTitle(record.title);
   const thread = rows === undefined ? [] : rowsOfThread(record.id, rows, beside.picture);
@@ -341,6 +370,7 @@ export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] 
     // A thread nobody opened has no rows to say the session was ever spoken in: the title and a finished turn say it.
     blank: attachments.length === 0 && title === undefined && record.last_turn_at === undefined && thread.length === 0,
     attachments,
+    trail: trailOfRecord(record),
     rows: thread,
     turn:
       hosted?.turn.state === "working"
@@ -354,8 +384,26 @@ export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] 
     ...(mode === undefined ? {} : { mode }),
     ...(terminal?.commands === undefined ? {} : { commands: terminal.commands }),
     ...(record.mod_out_of_date === true ? { modOutOfDate: true as const } : {}),
+    ...(record.held_until === undefined || ended ? {} : { limitedUntil: record.held_until }),
+    ...(record.context_breakdown === undefined ? {} : { contextBreakdown: contextBreakdownOf(record.context_breakdown) }),
+    ...(record.usage.context_tokens === undefined || record.usage.context_window === undefined
+      ? {}
+      : { context: { tokens: record.usage.context_tokens, window: record.usage.context_window } }),
+    ...(unsent === undefined ? {} : { unsent }),
     ...(ended || (record.waiting_for?.length ?? 0) === 0 ? {} : { waitingFor: record.waiting_for }),
     ...(ended || record.done_since === undefined ? {} : { done: { since: record.done_since } }),
+  };
+}
+
+/** What fills a window, in the camelCase the view-model draws. */
+function contextBreakdownOf(wire: WireContextBreakdown): ContextBreakdown {
+  return {
+    categories: wire.categories,
+    memoryFiles: wire.memory_files,
+    mcpTools: wire.mcp_tools,
+    totalTokens: wire.total_tokens,
+    maxTokens: wire.max_tokens,
+    ...(wire.autocompact_threshold === undefined ? {} : { autocompactThreshold: wire.autocompact_threshold }),
   };
 }
 

@@ -294,6 +294,24 @@ fn a_subagent_name_cannot_leave_its_directory() {
     assert!(crate::terminal_thread::find_subagent(&root, "abc-123", "nope").is_none());
 }
 
+/// A session moved into a slot has its transcript in two project folders, and its subagents
+/// only beside the slot's: they are found there whichever folder lists first.
+#[test]
+fn a_moved_sessions_subagent_is_found_beside_the_slots_copy() {
+    let (home, file) = written(&[]);
+    let projects = file.parent().and_then(|dir| dir.parent()).expect("the projects folder");
+    for folder in ["-a-first", "-z-last"] {
+        std::fs::create_dir_all(projects.join(folder)).unwrap();
+        std::fs::write(projects.join(folder).join("abc-123.jsonl"), "\n").unwrap();
+    }
+    let dir = projects.join("-z-last/abc-123/subagents");
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("agent-x1.jsonl"), "\n").unwrap();
+    let root = home.root().to_string_lossy().to_string();
+    let found = crate::terminal_thread::find_subagent(&root, "abc-123", "x1").expect("its file");
+    assert_eq!(found, dir.join("agent-x1.jsonl"));
+}
+
 /// A background subagent ends on its hand-back, never on `end_turn`, and the report is what it
 /// handed back. Work after a hand-back (a resumed subagent) makes it running again.
 #[test]

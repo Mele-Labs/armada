@@ -201,6 +201,51 @@ pub struct HubPullRequest {
     /// in the queue and has no auto-merge waiting on its checks.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub queue: Option<HubQueue>,
+    /// When the forge says it was opened. Absent from an older Fleet, and where
+    /// the forge named none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub opened_at: Option<Instant>,
+    /// When anything last happened on it, the forge's reading. Absent as `opened_at` is.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub updated_at: Option<Instant>,
+    /// Still a draft. Absent is ready, and what an older Fleet always sends.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub draft: bool,
+    /// Whether the forge can merge it as it stands. Absent where the listing
+    /// named none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mergeable: Option<HubMergeable>,
+    /// The forge's review decision. Absent where the listing carried none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub review: Option<HubReview>,
+    /// Lines added and removed, as the forge counts them. Each absent where it did not.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub additions: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub deletions: Option<u32>,
+}
+
+/// Whether the forge can merge a pull request as it stands.
+///
+/// **Strict**: Bridge picks a mark from it. `unknown` is the forge still
+/// computing, as it does for a while after a push, and is not a conflict.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum HubMergeable {
+    Clean,
+    Conflicting,
+    Unknown,
+}
+
+/// The forge's review decision on a pull request. **Strict**: Bridge picks a
+/// mark from it. `none` is a pull request no review rule applies to.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum HubReview {
+    Approved,
+    ChangesRequested,
+    ReviewRequired,
+    None,
 }
 
 /// One pull request's place in the merge queue. Since 23.70.

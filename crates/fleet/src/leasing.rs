@@ -21,6 +21,7 @@ use ipc::{ChangeSlotPool, ManifestId, SlotAct, SlotPoolChanged, WireError};
 use crate::adrift::Adrift;
 use crate::daemon::Fleet;
 use crate::repositories::Served;
+use crate::session_host::following::{pid_in, process_listing, SlotSession};
 
 /// The base a Manifest that names none is leased from, as `armada worktree`
 /// leases it.
@@ -103,6 +104,9 @@ pub(crate) struct PoolSlot {
     pub(crate) base: String,
     pub(crate) reading: SlotReading,
     pub(crate) job_title: Option<String>,
+    /// The hosted Session that holds it, itself or through a process it
+    /// started, where one does.
+    pub(crate) session: Option<SlotSession>,
     /// Where the Job holding it is, where the store still has the Job.
     pub(crate) job_status: Option<JobStatus>,
     /// What it holds, where it is stranded.
@@ -228,6 +232,7 @@ where
     pub(crate) async fn pool_slots_among(&self, jobs: &[Job]) -> Vec<PoolSlot> {
         let job_of = |id: &str| jobs.iter().find(|job| job.id().as_str() == id);
         let mut kept = self.store().lock().await.rescues().unwrap_or_default();
+        let mut listing: Option<String> = None;
         let mut slots = Vec::new();
         for served in self.repositories().served() {
             let manifest = served.manifest().id().as_str().to_string();
@@ -238,6 +243,31 @@ where
                     // A repair's slot is held under its own id and shown under its Job.
                     SlotHeld::Job(id) => job_of(id)
                         .or_else(|| crate::repair_recovery::job_of_holder(id).and_then(job_of)),
+                    _ => None,
+                };
+                let session = match &reading.held {
+                    // A Session's lease is written as a Job of its own id.
+                    SlotHeld::Job(id) if job.is_none() => self.session_in_ledger(id).await,
+                    SlotHeld::Session(said) => match pid_in(said) {
+                        Some(pid) => {
+                            if listing.is_none() {
+                                listing = Some(
+                                    tokio::task::spawn_blocking(process_listing)
+                                        .await
+                                        .unwrap_or_default(),
+                                );
+                            }
+                            match self.session_holding_pid(pid, listing.as_deref().unwrap_or("")) {
+                                Some(id) => Some(
+                                    self.session_in_ledger(&id)
+                                        .await
+                                        .unwrap_or(SlotSession { id, title: None }),
+                                ),
+                                None => None,
+                            }
+                        }
+                        None => None,
+                    },
                     _ => None,
                 };
                 let job_title = job.map(|job| job.title().as_str().to_string());
@@ -257,6 +287,7 @@ where
                     base: pool.base().to_string(),
                     reading,
                     job_title,
+                    session,
                     job_status,
                     stranded,
                     rescue,
@@ -287,7 +318,11 @@ where
         let served = self.served_named(manifest_id)?;
         let raised = |code: &str, said: String| WireError::raised(code, said, self.run_id());
         if asked.act == SlotAct::Release {
-            return self.session_released(&served, &asked);
+            let released = self.session_released(&served, &asked);
+            if released.is_ok() {
+                self.hosts().slot_freed();
+            }
+            return released;
         }
         let change = match (asked.act, asked.slot) {
             (SlotAct::Add, _) => SlotChange::Add,
@@ -335,6 +370,8 @@ where
                 }
                 SlotRefused::Vcs(said) => Refusal::Fault(raised(SLOT_UNCHANGED, said)),
             })?;
+        // A slot added or reopened is one a waiting session can take.
+        self.hosts().slot_freed();
         Ok(SlotPoolChanged {
             manifest_id: ManifestId::from(served.manifest().id()),
             slot,

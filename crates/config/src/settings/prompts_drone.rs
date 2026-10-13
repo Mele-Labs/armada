@@ -102,6 +102,9 @@ pub const PROMPT_PEERS_CLAIMED: Words = Words("prompts.peersClaimed");
 pub const PROMPT_PEERS_LANDED: Words = Words("prompts.peersLanded");
 pub const PROMPT_PEERS_NOTE: Words = Words("prompts.peersNote");
 pub const PROMPT_PEERS_AHEAD_ON: Words = Words("prompts.peersAheadOn");
+pub const PROMPT_PEERS_CLASHING: Words = Words("prompts.peersClashing");
+pub const PROMPT_PEERS_CLASH: Words = Words("prompts.peersClash");
+pub const PROMPT_PEERS_CLASH_MAIN: Words = Words("prompts.peersClashMain");
 pub const PROMPT_PEERS_LANDED_LATER: Words = Words("prompts.peersLandedLater");
 pub const PROMPT_PEERS_LANDED_NOW: Words = Words("prompts.peersLandedNow");
 pub const PROMPT_PEERS_NEXT_NUMBER: Words = Words("prompts.peersNextNumber");
@@ -239,6 +242,9 @@ pub(super) const DRONE: &[Entry] = &[
     prompt(PromptSection::OtherJobs, PROMPT_PEERS_LANDED, "A Job landed", "{title}, {handle} and {paths} are filled by Fleet.", &["title", "handle", "paths"]),
     prompt(PromptSection::OtherJobs, PROMPT_PEERS_NOTE, "A note from a Job", "The line a note from another Job follows. {title} and {handle} name it.", &["title", "handle"]),
     prompt(PromptSection::OtherJobs, PROMPT_PEERS_AHEAD_ON, "Ahead on a path", "{path} is the path and {ahead} the needs ahead.", &["path", "ahead"]),
+    prompt(PromptSection::OtherJobs, PROMPT_PEERS_CLASHING, "Changes that conflict", "What a Drone is told where git says its changes and another's would conflict.", &[]),
+    prompt(PromptSection::OtherJobs, PROMPT_PEERS_CLASH, "A conflict with another agent", "{paths} are the files, {who} the other Job or Session and {to} what to address a note to.", &["paths", "who", "to"]),
+    prompt(PromptSection::OtherJobs, PROMPT_PEERS_CLASH_MAIN, "A conflict with the base", "{paths} are the files, {base} the base branch and {landed} what changed them there.", &["paths", "base", "landed"]),
     prompt(PromptSection::OtherJobs, PROMPT_PEERS_LANDED_LATER, "What landed, later", "Where what landed reaches a live Drone.", &[]),
     prompt(PromptSection::OtherJobs, PROMPT_PEERS_LANDED_NOW, "What landed, now", "Where what landed reaches a new Drone.", &[]),
     prompt(PromptSection::OtherJobs, PROMPT_PEERS_NEXT_NUMBER, "The next number", "What a Drone is told about shared numbering, and leave_note.", &[]),

@@ -62,8 +62,9 @@ const MODES: { id: ComposerMode; label: string; says: string }[] = [
 export type SessionComposerProps = {
   /** A turn is running. Send stays on: a message sent now is the agent's next input. */
   working: boolean;
-  mode: ComposerMode;
-  onMode: (mode: ComposerMode) => void;
+  /** Absent with `onMode` draws no permission mode. */
+  mode?: ComposerMode;
+  onMode?: (mode: ComposerMode) => void;
   model: string | null;
   effort: string | null;
   models: readonly string[];
@@ -92,12 +93,23 @@ export type SessionComposerProps = {
   modeLocked?: boolean;
   /** A terminal's mode is not drawn until its mod has reported one. */
   modeHidden?: boolean;
+  /** The box and its Send alone on one row: `textOnly`, with no mode and no chips, for words that go to something other than a turn. */
+  bare?: boolean;
   /**
    * What the message is about, the Session's id. Its text, its tags and its files are kept under it, so leaving
    * the Session and coming back, or reloading Bridge, finds them (the text; a file's bytes do not
    * survive a reload). Cleared by a send. Without it nothing is kept.
    */
   draftKey?: string;
+  /** The box's accessible name. */
+  label?: string;
+  /** Send's weight. A view that has a Primary of its own keeps this one quieter. */
+  send?: "primary" | "secondary";
+  /**
+   * Words and tags only: no model, effort, file or sketch, which this box's reader cannot take. A
+   * pasted or dropped file is ignored. A Job's Commander reads text.
+   */
+  textOnly?: boolean;
   /** The `draftKey` whose box takes focus, with the caret after what it holds, when it shows: a fork opens on its quote. */
   focusFor?: string;
 };
@@ -137,7 +149,7 @@ function tokenAt(text: string, caret: number): { trigger: "/" | "@"; query: stri
 }
 
 export function SessionComposer({
-  mode,
+  mode = "auto",
   onMode,
   model,
   effort,
@@ -155,6 +167,10 @@ export function SessionComposer({
   onSend,
   modeLocked = false,
   modeHidden = false,
+  bare = false,
+  label = "Message",
+  send: sendWeight = "primary",
+  textOnly: textOnlyAsked = false,
   draftKey,
   focusFor,
 }: SessionComposerProps) {
@@ -166,6 +182,8 @@ export function SessionComposer({
     },
   });
   const { text, files } = draft;
+  // A bare box is a text-only one, drawn on a single row.
+  const textOnly = textOnlyAsked || bare;
   const setFiles = (next: (was: ComposerFile[]) => ComposerFile[]) => setDraft((was) => ({ ...was, files: next(was.files) }));
   const editor = useRef<HTMLDivElement>(null);
   const [head, setHead] = useState("");
@@ -318,13 +336,14 @@ export function SessionComposer({
 
   const onPaste = (event: ClipboardEvent) => {
     event.preventDefault();
-    const pasted = [...event.clipboardData.files];
+    const pasted = textOnly ? [] : [...event.clipboardData.files];
     if (pasted.length > 0) add(pasted);
     else document.execCommand("insertText", false, event.clipboardData.getData("text/plain"));
   };
 
   const onDrop = (event: DragEvent) => {
     event.preventDefault();
+    if (textOnly) return;
     add([...event.dataTransfer.files]);
   };
 
@@ -349,7 +368,7 @@ export function SessionComposer({
 
   const said = MODES.find((one) => one.id === mode)!.says;
   return (
-    <form className="armada-session-composer" onSubmit={submit} onDragOver={(event) => event.preventDefault()} onDrop={onDrop}>
+    <form className="armada-session-composer" data-bare={bare || undefined} onSubmit={submit} onDragOver={(event) => event.preventDefault()} onDrop={onDrop}>
       {!open ? null : (
         <div className="armada-mention armada-session-composer__offer" id={listId} role="listbox" aria-label={token?.trigger === "/" ? "Skills and commands" : "Tag a Session, Job, pull request or branch"}>
           {token?.trigger === "/"
@@ -374,7 +393,7 @@ export function SessionComposer({
         <div
           ref={editor}
           role="textbox"
-          aria-label="Message"
+          aria-label={label}
           aria-multiline
           aria-controls={open ? listId : undefined}
           contentEditable
@@ -386,7 +405,7 @@ export function SessionComposer({
         />
       </div>
       <div className="armada-session-composer__bar">
-        {modeHidden ? null : (
+        {modeHidden || bare || onMode === undefined ? null : (
           <Pick Glyph={Shield} compact={compact} label={modeLocked ? `${said} The terminal holds it.` : said}>
             <Select aria-label="Permission mode" disabled={modeLocked} value={mode} onChange={(event) => onMode(event.target.value as ComposerMode)}>
               {MODES.map((one) => (
@@ -397,56 +416,62 @@ export function SessionComposer({
             </Select>
           </Pick>
         )}
-        <Pick Glyph={Cpu} compact={compact} label="The model the next turn runs on">
-          <Select aria-label="Model" value={model ?? ""} onChange={(event) => onTune({ model: event.target.value === "" ? null : event.target.value, effort })}>
-            <option value="">{compact ? "Auto" : "Model"}</option>
-            {models.map((one) => (
-              <option key={one} value={one}>
-                {one}
-              </option>
+        {textOnly ? null : (
+          <>
+            <Pick Glyph={Cpu} compact={compact} label="The model the next turn runs on">
+              <Select aria-label="Model" value={model ?? ""} onChange={(event) => onTune({ model: event.target.value === "" ? null : event.target.value, effort })}>
+                <option value="">{compact ? "Auto" : "Model"}</option>
+                {models.map((one) => (
+                  <option key={one} value={one}>
+                    {one}
+                  </option>
+                ))}
+              </Select>
+            </Pick>
+            <Pick Glyph={Zap} compact={compact} label="The effort the next turn takes">
+              <Select aria-label="Effort" value={effort ?? ""} onChange={(event) => onTune({ model, effort: event.target.value === "" ? null : event.target.value })}>
+                <option value="">{compact ? "Auto" : "Effort"}</option>
+                {efforts.map((one) => (
+                  <option key={one} value={one}>
+                    {one}
+                  </option>
+                ))}
+              </Select>
+            </Pick>
+            <input
+              ref={picker}
+              type="file"
+              multiple
+              hidden
+              aria-label="Files to attach"
+              onChange={(event) => {
+                add([...(event.target.files ?? [])]);
+                event.target.value = "";
+              }}
+            />
+            <Tooltip label="Attach a file or a picture">
+              <Button type="button" variant="ghost" size="sm" aria-label="Attach file" onClick={() => picker.current?.click()}>
+                <Paperclip size={16} strokeWidth={2} aria-hidden />
+              </Button>
+            </Tooltip>
+            <Tooltip label="Draw a sketch to send with the message">
+              <Button type="button" variant="ghost" size="sm" aria-label="Draw sketch" onClick={onDraw}>
+                <PencilRuler size={16} strokeWidth={2} aria-hidden />
+              </Button>
+            </Tooltip>
+          </>
+        )}
+        {bare ? null : (
+          <div className="armada-session-composer__chips" role="group" aria-label="Attached">
+            {files.map((one) => (
+              <AttachmentChip key={one.id} filename={one.name} onRemove={() => setFiles((was) => was.filter((f) => f.id !== one.id))} />
             ))}
-          </Select>
-        </Pick>
-        <Pick Glyph={Zap} compact={compact} label="The effort the next turn takes">
-          <Select aria-label="Effort" value={effort ?? ""} onChange={(event) => onTune({ model, effort: event.target.value === "" ? null : event.target.value })}>
-            <option value="">{compact ? "Auto" : "Effort"}</option>
-            {efforts.map((one) => (
-              <option key={one} value={one}>
-                {one}
-              </option>
+            {drawn.map((one) => (
+              <AttachmentChip key={one.id} filename={one.title} from="Sketch" onRemove={() => onRemoveDrawn(one.id)} />
             ))}
-          </Select>
-        </Pick>
-        <input
-          ref={picker}
-          type="file"
-          multiple
-          hidden
-          aria-label="Files to attach"
-          onChange={(event) => {
-            add([...(event.target.files ?? [])]);
-            event.target.value = "";
-          }}
-        />
-        <Tooltip label="Attach a file or a picture">
-          <Button type="button" variant="ghost" size="sm" aria-label="Attach file" onClick={() => picker.current?.click()}>
-            <Paperclip size={16} strokeWidth={2} aria-hidden />
-          </Button>
-        </Tooltip>
-        <Tooltip label="Draw a sketch to send with the message">
-          <Button type="button" variant="ghost" size="sm" aria-label="Draw sketch" onClick={onDraw}>
-            <PencilRuler size={16} strokeWidth={2} aria-hidden />
-          </Button>
-        </Tooltip>
-        <div className="armada-session-composer__chips" role="group" aria-label="Attached">
-          {files.map((one) => (
-            <AttachmentChip key={one.id} filename={one.name} onRemove={() => setFiles((was) => was.filter((f) => f.id !== one.id))} />
-          ))}
-          {drawn.map((one) => (
-            <AttachmentChip key={one.id} filename={one.title} from="Sketch" onRemove={() => onRemoveDrawn(one.id)} />
-          ))}
-        </div>
-        <Button type="submit" variant="primary" size="sm" disabled={text.trim() === "" && !held}>
+          </div>
+        )}
+        <Button type="submit" variant={sendWeight} size="sm" disabled={text.trim() === "" && !held}>
           <Send size={12} strokeWidth={2} aria-hidden />
           Send
         </Button>

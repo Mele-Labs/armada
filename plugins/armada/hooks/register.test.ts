@@ -12,12 +12,13 @@ type Posted = { url: string; body: any }
 
 function world(
   on: On,
-  options: { running?: () => boolean; slowReports?: boolean; heldGate?: Promise<void>; held?: string[]; heldCommands?: { command: string; args: string }[]; heldEnd?: boolean; model?: () => string; onCommand?: () => void; transcript?: string; env?: Record<string, string>; pullRequest?: string; polls?: (string | Promise<string> | Error)[]; asks?: string } = {},
+  options: { running?: () => boolean; slowReports?: boolean; heldGate?: Promise<void>; held?: string[]; heldCommands?: { command: string; args: string }[]; heldEnd?: boolean; model?: () => string; onCommand?: () => void; transcript?: string; env?: Record<string, string>; pullRequest?: string; polls?: (string | Promise<string> | Error)[]; asks?: string; limits?: { kind: string; percentUsed: number; resetsAt?: string }[]; breakdown?: unknown } = {},
 ) {
   const running = options.running ?? (() => true)
   const posts: Posted[] = []
   const attempts = { fetches: 0, reads: 0, reports: 0 }
   const submitted: { text: string; asUser?: boolean }[] = []
+  const usages: unknown[] = []
   const asked: unknown[] = []
   const questions: any[] = []
   const ran: { command: string; args?: string }[] = []
@@ -90,9 +91,21 @@ function world(
     return { text: e.text }
   })
   on('turn.complete', () => ({ text: '' }))
+  on('session.measure', (_$, e) => ({ changed: e.changed }))
+  on('classic.StopFailure', () => ({}))
+  on('session.usage', (_$, e) => {
+    usages.push(e.breakdown)
+    return {
+      value: {
+        startedAt: 0,
+        context: { window: 200_000, ...(e.breakdown === undefined ? {} : { breakdown: options.breakdown }) },
+        rateLimits: options.limits ?? [],
+      },
+    }
+  })
   on('prompt.context', (_$, e) => ({ blocks: e.blocks }))
   on('classic.SessionStart', () => ({}))
-  return { posts, attempts, clock, submitted, asked, ran, questions, order }
+  return { posts, attempts, clock, submitted, asked, ran, questions, order, usages }
 }
 
 const facts = (posts: Posted[]) => posts.map(one => one.body.fact)
@@ -155,6 +168,16 @@ test('a pull request read off the branch carries its title, branch and address',
       detail: { url: URL, address: URL, state: 'draft', title: 'Pin the store clock', branch: 'fix/store-clock' },
     },
   })
+})
+
+test('a subagent that stops is settled as spent', async ($, on) => {
+  const { posts, clock } = world(on)
+  on('classic.SubagentStop', () => ({}))
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await $.classic.SubagentStop({ stop_hook_active: false, agent_id: 'a1b2', agent_transcript_path: '/t.jsonl', agent_type: 'Explore' })
+  await clock.settle()
+
+  expect(facts(posts)).toContainEqual({ kind: 'settled', attachment: { kind: 'subagent', target: 'a1b2' }, state: 'spent' })
 })
 
 test('a message is reported as who it went to, and its text never leaves', async ($, on) => {
@@ -484,6 +507,26 @@ test('a page, a new document and a Docs document are told as artifacts, and a co
   ])
 })
 
+test('a file written is told as its path from the session directory, and never its content', async ($, on) => {
+  const { posts, clock } = world(on)
+  on('tool.call', () => ({ result: {}, text: 'ok' }))
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await clock.settle()
+  const before = posts.length
+
+  await $.tool.call({ tool: 'Edit', file_path: '/repos/armada/src/a.rs', old_string: 'secret', new_string: 'more' })
+  await $.tool.call({ tool: 'MultiEdit', file_path: '/repos/armada/src/b.rs', edits: [] })
+  await $.tool.call({ tool: 'Write', file_path: '/etc/hosts', content: 'x' })
+  await clock.settle()
+
+  const touched = facts(posts.slice(before)).filter(fact => fact.kind === 'touched')
+  expect(touched).toEqual([
+    { kind: 'touched', paths: ['src/a.rs'] },
+    { kind: 'touched', paths: ['src/b.rs'] },
+  ])
+  expect(JSON.stringify(posts)).not.toContain('secret')
+})
+
 test('the model is told its Armada session id, and a Drone is not', async ($, on) => {
   world(on)
   const out = await $.prompt.context({ blocks: [] })
@@ -491,6 +534,8 @@ test('the model is told its Armada session id, and a Drone is not', async ($, on
   expect(out.blocks[0].text).toContain('S1')
   expect(out.blocks[0].text).toContain('waiting_for')
   expect(out.blocks[0].text).toContain('do not ask with AskUserQuestion')
+  expect(out.blocks[0].text).toContain('already waits on him by itself, so never put it in waiting_for')
+  expect(out.blocks[0].text).not.toContain('a page to look at')
   expect(out.blocks[0].text).toContain('call all_done')
 })
 
@@ -545,6 +590,21 @@ test('an open of web pages is shown through Fleet and denied, not run', async ($
     { url: 'http://localhost:5191/?walk=a', session_id: 'S1' },
     { url: 'https://example.com/b', session_id: 'S1' },
   ])
+})
+
+test('a file the session itself writes is told, and one a subagent writes is not', async ($, on) => {
+  const { posts, clock } = world(on)
+  on('tool.call', () => ({ result: {}, text: 'ok' }))
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await clock.settle()
+  const before = posts.length
+
+  await $.tool.call({ tool: 'Edit', file_path: '/repos/armada/src/clock.ts', old_string: 'a', new_string: 'b' })
+  await $.tool.call({ tool: 'Edit', file_path: '/repos/armada/src/clock.ts', old_string: 'b', new_string: 'c', agentId: 'sub1' })
+  await $.tool.call({ tool: 'NotebookEdit', notebook_path: '/repos/armada/n.ipynb', new_source: 'x' })
+  await clock.settle()
+
+  expect(kinds(posts.slice(before)).filter(kind => kind === 'wrote')).toHaveLength(2)
 })
 
 test('opening a file or a folder runs as usual', async ($, on) => {
@@ -685,4 +745,131 @@ test('a Drone does not put its question to Bridge', async ($, on) => {
   await clock.settle()
 
   expect(questions).toEqual([])
+})
+
+test('a measurement carries the plan windows, and a window that moved is not held back by the throttle', async ($, on) => {
+  const { posts, clock } = world(on)
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  const five = { kind: 'five_hour', percentUsed: 41.4, resetsAt: '2026-10-12T22:40:00Z' }
+  const context = { tokens: 1000, window: 200_000 }
+  await $.session.measure({ context, rateLimits: [five], changed: ['context', 'rateLimits'] })
+  // Inside the ten seconds, and only the context moved: held back.
+  await $.session.measure({ context: { ...context, tokens: 2000 }, rateLimits: [five], changed: ['context'] })
+  // Inside the ten seconds, and the window moved: told.
+  await $.session.measure({ context, rateLimits: [{ ...five, percentUsed: 42 }], changed: ['rateLimits'] })
+  await clock.settle()
+
+  const measured = facts(posts).filter(fact => fact.kind === 'measured')
+  expect(measured.map(fact => fact.plan)).toEqual([
+    [{ kind: 'five_hour', percent_used: 41, resets_at: '2026-10-12T22:40:00.000Z' }],
+    [{ kind: 'five_hour', percent_used: 42, resets_at: '2026-10-12T22:40:00.000Z' }],
+  ])
+})
+
+test('a measurement off a subscription names no plan', async ($, on) => {
+  const { posts, clock } = world(on)
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await $.session.measure({ context: { tokens: 1000, window: 200_000 }, rateLimits: [], changed: ['context'] })
+  await clock.settle()
+
+  const measured = facts(posts).find(fact => fact.kind === 'measured')
+  expect(measured).toBeDefined()
+  expect('plan' in measured).toBe(false)
+})
+
+test('a turn that failed on the plan limit tells Fleet when the full window opens, and is not a finished turn', async ($, on) => {
+  const { posts, clock } = world(on, {
+    limits: [
+      { kind: 'five_hour', percentUsed: 100, resetsAt: '2026-10-12T22:40:00Z' },
+      { kind: 'seven_day', percentUsed: 30, resetsAt: '2026-10-17T09:00:00Z' },
+    ],
+  })
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await $.turn.complete({ answer: '', durationMs: 1, isAborted: false, turnId: 't1', reason: 'error' })
+  await $.classic.StopFailure({ error: 'rate_limit' })
+  await clock.settle()
+
+  expect(facts(posts)).toContainEqual({ kind: 'limited', resets_at: '2026-10-12T22:40:00.000Z' })
+  expect(kinds(posts)).not.toContain('turn_completed')
+})
+
+test('a failure that is not the plan limit, or a limit no window shows full, is not told', async ($, on) => {
+  const { posts, clock } = world(on, { limits: [{ kind: 'five_hour', percentUsed: 60, resetsAt: '2026-10-12T22:40:00Z' }] })
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await $.classic.StopFailure({ error: 'overloaded' })
+  await $.classic.StopFailure({ error: 'rate_limit' })
+  await clock.settle()
+
+  expect(kinds(posts)).not.toContain('limited')
+})
+
+test('a Drone that fails on the plan limit tells Fleet nothing', async ($, on) => {
+  const { posts, clock } = world(on, {
+    env: { ARMADA_DRONE: '1' },
+    limits: [{ kind: 'five_hour', percentUsed: 100, resetsAt: '2026-10-12T22:40:00Z' }],
+  })
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await $.classic.StopFailure({ error: 'rate_limit' })
+  await clock.settle()
+
+  expect(posts).toEqual([])
+})
+
+test('what fills the context window is told as names, paths and counts, ten tools at most, and only as the context moves', async ($, on) => {
+  const tools = Array.from({ length: 12 }, (_, at) => ({
+    name: `mcp__srv__tool${at}`,
+    serverName: 'srv',
+    tokens: 100 + at,
+    isLoaded: true,
+  }))
+  const breakdown = {
+    categories: [
+      { name: 'System prompt', tokens: 3000, color: 'promptBorder', isDeferred: false, kind: 'used' },
+      { name: 'Free space', tokens: 150_000, color: 'inactive', isDeferred: false, kind: 'free' },
+    ],
+    totalTokens: 50_000,
+    maxTokens: 200_000,
+    rawMaxTokens: 200_000,
+    gridRows: [[{ color: 'x', isFilled: true, categoryName: 'Messages', tokens: 9, percentage: 1, squareFullness: 1 }]],
+    memoryFiles: [{ path: '/repo/CLAUDE.md', type: 'Project', tokens: 800 }],
+    mcpTools: tools,
+    skills: { totalTokens: 5, skills: [{ name: 'a secret skill', source: 'plugin', tokens: 5 }] },
+    autoCompactThreshold: 160_000,
+    isAutoCompactEnabled: true,
+    apiUsage: null,
+  }
+  const { posts, usages, clock } = world(on, { breakdown })
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await $.session.measure({ context: { tokens: 1000, window: 200_000 }, rateLimits: [], changed: ['context'] })
+  // Only the cost moved, inside the throttle: nothing is asked of the engine or told.
+  await $.session.measure({ context: { tokens: 1000, window: 200_000 }, rateLimits: [], changed: ['cost'] })
+  await clock.settle()
+
+  expect(usages).toEqual(['summary'])
+  const told = facts(posts).find(fact => fact.kind === 'measured').context_breakdown
+  expect(told).toEqual({
+    categories: [
+      { name: 'System prompt', tokens: 3000, kind: 'used' },
+      { name: 'Free space', tokens: 150_000, kind: 'free' },
+    ],
+    memory_files: [{ path: '/repo/CLAUDE.md', tokens: 800 }],
+    mcp_tools: tools
+      .slice(2)
+      .reverse()
+      .map(one => ({ name: one.name, server: 'srv', tokens: one.tokens })),
+    total_tokens: 50_000,
+    max_tokens: 200_000,
+    autocompact_threshold: 160_000,
+  })
+  expect(JSON.stringify(posts)).not.toContain('secret')
+})
+
+test('a measurement whose context did not move asks the engine for no breakdown', async ($, on) => {
+  const { posts, usages, clock } = world(on)
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await $.session.measure({ context: { tokens: 1000, window: 200_000 }, rateLimits: [], changed: ['cost'] })
+  await clock.settle()
+
+  expect(usages).toEqual([])
+  expect('context_breakdown' in facts(posts).find(fact => fact.kind === 'measured')).toBe(false)
 })

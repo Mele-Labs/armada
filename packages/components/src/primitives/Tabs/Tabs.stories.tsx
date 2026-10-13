@@ -96,3 +96,25 @@ export const WithAHint: Story = {
     );
   },
 };
+
+/**
+ * **A tab where something needs the person carries a dot, and never a figure.**
+ * The dot is an image named by what it says, so it is read once, and the tab's
+ * own name is unchanged.
+ */
+export const WithAnAlert: Story = {
+  args: {
+    defaultValue: "active",
+    items: [
+      { id: "move", label: "Your move", alert: "Needs you" },
+      { id: "active", label: "Active" },
+      { id: "done", label: "Done" },
+    ],
+  },
+  play: async ({ canvas }) => {
+    const move = canvas.getByRole("tab", { name: /Your move/ });
+    await expect(move.querySelector('[role="img"]')).toHaveAccessibleName("Needs you");
+    await expect(move.textContent).not.toMatch(/\d/);
+    await expect(canvas.getByRole("tab", { name: "Active" }).querySelector('[role="img"]')).toBeNull();
+  },
+};

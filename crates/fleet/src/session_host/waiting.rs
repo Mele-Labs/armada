@@ -9,6 +9,11 @@
 //! ones, and a window stops waiting once it is approved or the person has sent the session a
 //! message after it opened. A window closed without either still waits: that is his call.
 //!
+//! **An agent item that points at a page the session showed is dropped.** The window is the one
+//! record of that page, whether it still waits or not, so the agent's `walk` item for the same
+//! address (compared without a trailing slash) is never a second call, and does not return once
+//! the window is approved.
+//!
 //! **A question asked in the walk window waits until answered**, read off its row as `window_ask:<row>`.
 //!
 //! **A dismissed id never comes back.** `dismiss_waiting` keeps the id; a derived item with it is
@@ -21,16 +26,21 @@ use api::{HostedSessions, Refusal};
 use ipc::{
     AllDone, AnswerSessionAsk, AnswerWaiting, DismissWaiting, HelmCallAnswer, HelmCallInFlight, Instant,
     QuestionAnswer, SendSessionMessage, SessionRecord, SessionRow, SessionVoice, SetWaitingFor,
-    WaitingAct, WaitingActKind, WaitingItem, WaitingMode, WaitingOption, WaitingSource, WireError,
+    WaitingAct, WaitingActKind, WaitingItem, WaitingOption, WaitingSource, WireError,
 };
 use store::{KeptSession, KeptWaiting, Store};
 
+use crate::answer_mode::{mode_line, of_waiting};
 use crate::daemon::Fleet;
 use crate::session_host::asking_in_window::WINDOW_ASK_PREFIX;
+use crate::session_host::UNSENT_ITEM;
 
 const SESSION_WAITING_UNNAMED: &str = "fleet.session_waiting_unnamed";
 const SESSION_WAITING_EMPTY: &str = "fleet.session_waiting_empty";
 const SESSION_WAITING_UNHELD: &str = "fleet.session_waiting_unheld";
+
+/// The last line of a message answering an agent item: it need not say the item again.
+const TAKEN_OFF: &str = "Fleet took this off your waiting list.";
 
 /// A walk window a session showed, as the merge reads it.
 pub(crate) struct Window {
@@ -60,14 +70,6 @@ pub(crate) fn waiting_reads(
     })
 }
 
-/// The line that tells the agent to settle an item itself.
-pub(crate) fn mode_line(mode: WaitingMode) -> &'static str {
-    match mode {
-        WaitingMode::Best => "Decide this yourself. Think it through and go with the best option.",
-        WaitingMode::Quick => "Decide this yourself. Take the reasonable path and keep moving.",
-    }
-}
-
 fn offer_label(offer: &HelmCallAnswer) -> &'static str {
     match offer {
         HelmCallAnswer::AllowOnce => "Allow once",
@@ -82,6 +84,7 @@ fn act_kind_text(kind: WaitingActKind) -> &'static str {
         WaitingActKind::Answer => "answer",
         WaitingActKind::ApprovePr => "approve_pr",
         WaitingActKind::Run => "run",
+        WaitingActKind::Message => "message",
     }
 }
 
@@ -91,6 +94,7 @@ fn act_kind_of(text: &str) -> Option<WaitingActKind> {
         "answer" => Some(WaitingActKind::Answer),
         "approve_pr" => Some(WaitingActKind::ApprovePr),
         "run" => Some(WaitingActKind::Run),
+        "message" => Some(WaitingActKind::Message),
         _ => None,
     }
 }
@@ -144,12 +148,19 @@ fn card_item(asked: &HelmCallInFlight) -> WaitingItem {
     }
 }
 
+/// Two addresses of one page: equal once a trailing slash is let go.
+fn same_page(a: &str, b: &str) -> bool {
+    a.trim_end_matches('/') == b.trim_end_matches('/')
+}
+
 /// The agent's items, then Fleet's: the open card, then each walk window. **Where an agent item
-/// names the same act and target as one of Fleet's, Fleet's stands** and the agent's is left off.
+/// names the same act and target as one of Fleet's, Fleet's stands** and the agent's is left off,
+/// and so is a `walk` item for any address in `shown`, the pages this session has shown in a window.
 pub(crate) fn merged(
     kept: Vec<KeptWaiting>,
     asked: Option<&HelmCallInFlight>,
     windows: &[Window],
+    shown: &[&str],
     dismissed: &[String],
     ended: bool,
 ) -> Vec<WaitingItem> {
@@ -177,6 +188,8 @@ pub(crate) fn merged(
         .into_iter()
         .filter(|one| {
             !dismissed.contains(&one.item_id)
+                && !matches!(&one.act, Some((kind, target))
+                    if kind == "walk" && shown.iter().any(|url| same_page(url, target)))
                 && !derived
                     .iter()
                     .any(|fleet| fleet.id == one.item_id || same(fleet, &one.act))
@@ -239,12 +252,20 @@ where
                     from: SessionVoice::You,
                     text,
                     ..
-                } => text
-                    .strip_prefix("Approved: ")
-                    .map(|url| url.trim().to_string()),
+                } => crate::session_host::walking::approved_address(text).map(str::to_string),
                 _ => None,
             })
             .collect();
+        // An Approve of any take approves the window: the takes are on the row that showed it.
+        let approves = |target: &str| {
+            approved.iter().any(|url| url == target)
+                || rows.iter().rev().any(|row| match row {
+                    SessionRow::Window { url, variations, .. } if url == target => {
+                        variations.iter().any(|take| approved.contains(&take.url))
+                    }
+                    _ => false,
+                })
+        };
         let spoke = rows.iter().filter_map(|row| match row {
             SessionRow::Message {
                 from: SessionVoice::You,
@@ -263,7 +284,7 @@ where
             })
             .max_by(|a, b| a.since.cmp(&b.since));
         let windows: Vec<Window> = newest
-            .filter(|one| !approved.contains(&one.target))
+            .filter(|one| !approves(&one.target))
             .filter(|one| last_spoke.map_or(true, |at| at <= &one.since))
             .map(|one| Window {
                 url: one.target.clone(),
@@ -276,9 +297,37 @@ where
             })
             .into_iter()
             .collect();
+        let shown: Vec<&str> = attachments
+            .iter()
+            .filter(|one| {
+                one.kind == "artifact" && one.detail.get("form").map(String::as_str) == Some("window")
+            })
+            .map(|one| one.target.as_str())
+            .collect();
         let ended = session.state == store::SessionState::Ended;
-        let mut items = merged(kept, asked.as_ref(), &windows, &dismissed, ended);
+        let mut items = merged(kept, asked.as_ref(), &windows, &shown, &dismissed, ended);
         if !ended {
+            // The first message another Session's agent wrote for the person, until he sends it.
+            let id = format!("{UNSENT_ITEM}{}", session.id);
+            if !dismissed.contains(&id) {
+                items.extend(
+                    attachments
+                        .iter()
+                        .filter(|one| one.kind == "unsent" && one.state == ipc::AttachmentState::Standing)
+                        .map(|one| WaitingItem {
+                            id: id.clone(),
+                            text: String::from("First message"),
+                            since: one.since.clone(),
+                            source: WaitingSource::FirstMessage,
+                            act: Some(WaitingAct {
+                                kind: WaitingActKind::Message,
+                                target: session.id.clone(),
+                            }),
+                            options: Vec::new(),
+                            place: None,
+                        }),
+                );
+            }
             items.extend(rows.into_iter().filter_map(|row| match row {
                 SessionRow::WindowAsk {
                     id,
@@ -471,14 +520,29 @@ where
             ),
             None => None,
         };
-        let line = said.mode.map(mode_line);
+        let line = said.mode.map(|mode| mode_line(of_waiting(mode)));
+        // A pick with words says both: the words go with the pick, never in place of it.
+        let both = match (picked.as_deref(), words) {
+            (Some(pick), Some(words)) => Some(format!("{pick}\n{words}")),
+            (Some(one), None) | (None, Some(one)) => Some(one.to_string()),
+            (None, None) => None,
+        };
         let message = |body: String| SendSessionMessage {
             session_id: said.session_id.clone(),
             text: body,
             attachments: Vec::new(),
             mentions: Vec::new(),
         };
-        match item.source {
+        // The card routes answer through `answer_session_ask`, which enters its own; the rest are
+        // a message to the agent, entered here once it is sent.
+        let (source, fleet) = (item.source, Arc::clone(&self));
+        let says = match (picked.as_deref().or(words), said.mode) {
+            (Some(chosen), _) => format!("Answered: {chosen}"),
+            (None, Some(ipc::WaitingMode::Best)) => "Answered: think it through".to_string(),
+            (None, Some(ipc::WaitingMode::Quick)) => "Answered: keep moving".to_string(),
+            (None, None) => "Approved".to_string(),
+        };
+        let settled = match item.source {
             WaitingSource::AskCard | WaitingSource::Permission => {
                 let asked = self.hosts().of(&id).state().asked.clone().ok_or_else(|| {
                     self.hosted_refusal(SESSION_WAITING_UNHELD, "no card is open")
@@ -489,7 +553,7 @@ where
                             session_id: said.session_id.clone(),
                             call: asked.call.clone(),
                             answer: HelmCallAnswer::AllowOnce,
-                            note: None,
+                            note: picked.as_ref().and(words).map(str::to_string),
                             answers: vec![QuestionAnswer {
                                 question: first.question.clone(),
                                 chosen: vec![chosen.to_string()],
@@ -516,16 +580,12 @@ where
                 let body = if words.is_none() && line.is_none() {
                     format!("Approved: {target}")
                 } else {
-                    reply(&item.text, picked.as_deref().or(words), line)
+                    reply(&item.text, both.as_deref(), line)
                 };
                 self.send_known(terminal.then_some(session), message(body)).await
             }
             WaitingSource::WindowAsk => {
-                let answer = [picked.as_deref(), words, line]
-                    .into_iter()
-                    .flatten()
-                    .collect::<Vec<_>>()
-                    .join("\n");
+                let answer = [both.as_deref(), line].into_iter().flatten().collect::<Vec<_>>().join("\n");
                 if let Some(row) = item.id.strip_prefix(WINDOW_ASK_PREFIX) {
                     self.window_ask_answered(&id, row, answer.clone()).await;
                 }
@@ -533,10 +593,25 @@ where
                 self.send_known(terminal.then_some(session), message(body)).await
             }
             WaitingSource::Agent => {
-                let body = reply(&item.text, picked.as_deref().or(words), line);
-                self.send_known(terminal.then_some(session), message(body)).await
+                let mut body = reply(&item.text, both.as_deref(), line);
+                body.push('\n');
+                body.push_str(TAKEN_OFF);
+                Arc::clone(&self).send_known(terminal.then_some(session), message(body)).await?;
+                // Delivered, so the item goes now: a failed send above leaves it standing.
+                self.drop_answered(&id, &item.id).await
             }
+            WaitingSource::FirstMessage => Err(self.hosted_refusal(
+                SESSION_WAITING_EMPTY,
+                "the first message is settled by sending it, from the Session's message box",
+            )),
+        };
+        if let (Ok(record), false) = (
+            &settled,
+            matches!(source, WaitingSource::AskCard | WaitingSource::Permission),
+        ) {
+            fleet.session_answered(record, says);
         }
+        settled
     }
 
     /// `dismiss_waiting`: drop one item for good. Nothing is sent to the agent.
@@ -570,6 +645,24 @@ where
             }
             store
                 .dismiss_waiting(&id, &dismiss.item_id)
+                .map_err(|why| self.ledger_fault(why))?;
+            self.ledger_row(&store, &session)?
+        };
+        self.publish(ipc::Event::SessionChanged(record.clone()));
+        Ok(record)
+    }
+
+    /// Take an answered agent item off the list for good and tell Bridge, as `dismiss_waited` does.
+    /// It does not refuse an item the agent has since restated away: the answer was delivered.
+    async fn drop_answered(&self, id: &str, item_id: &str) -> Result<SessionRecord, Refusal> {
+        let record = {
+            let mut store = self.store().lock().await;
+            let session = store
+                .session(id)
+                .map_err(|why| self.ledger_fault(why))?
+                .ok_or_else(|| self.hosted_refusal(SESSION_WAITING_UNNAMED, "a session Fleet knows"))?;
+            store
+                .dismiss_waiting(id, item_id)
                 .map_err(|why| self.ledger_fault(why))?;
             self.ledger_row(&store, &session)?
         };

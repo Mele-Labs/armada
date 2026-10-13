@@ -17,7 +17,7 @@ use core_model::{
 use ipc::{Event, JobStateChanged, JobStepAdvanced, JobSummary};
 
 use super::plan::{called, received_event, PLAN};
-use super::{Bench, Run};
+use super::{a_root_cause_note, Bench, Run};
 
 /// A Job dispatched and then stopped by Fleet, which its Commander then ran
 /// again: **three signers on four moves** — a person approved it, Fleet ran it
@@ -31,6 +31,36 @@ pub fn stopped_by_fleet_and_resumed_by_the_commander(bench: &Bench) -> Run {
         Actor::Fleet,
     );
     bench.moved(&mut run, core_model::Target::Running, Actor::Commander);
+    run
+}
+
+/// A Job whose `fix` step stopped with its Drone gone and the Job held over
+/// it: where a Commander's repair is sent from. The first step passed.
+pub async fn stopped_on_the_fix(bench: &Bench) -> Run {
+    let mut run = bench.created("clear the conflict");
+    bench.approved_and_dispatched(&mut run);
+    let first = bench.step(0);
+    let ruling = bench.gate(&run, &first, &a_root_cause_note()).await;
+    bench.settled(&mut run, &first, &ruling);
+    let stopped = StepLevelTrigger::of(EscalationTrigger::NoReport)
+        .expect("a step-level trigger in the registry");
+    bench.step_moved(&mut run, &bench.step(1), StepTarget::Stopped(stopped));
+    bench.moved(
+        &mut run,
+        core_model::Target::Escalated(EscalationTrigger::NoReport),
+        Actor::Fleet,
+    );
+    run
+}
+
+/// A Job whose preparation failed before its first step: approved, admitted and
+/// escalated `not_prepared`, with no step entered. Where a repair is sent from
+/// when nothing had begun.
+pub fn failed_in_preparation(bench: &Bench, trigger: EscalationTrigger) -> Run {
+    let mut run = bench.created("make the worktree workable");
+    bench.moved(&mut run, core_model::Target::Queued, Actor::Human);
+    bench.moved(&mut run, core_model::Target::Running, Actor::Fleet);
+    bench.moved(&mut run, core_model::Target::Escalated(trigger), Actor::Fleet);
     run
 }
 

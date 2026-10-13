@@ -215,6 +215,35 @@ its last step, and `budget-turn-cap-per-job` carries the Job that showed the
 difference. Both keys are counted rather than positive, so `0` reads as a
 ceiling of nothing at either.
 
+## A Commander's model: a Machine setting with a Job over it
+
+Added 12 October 2026 (`#2166`). `models.commander` and `effort.commander` are
+Machine settings in settings.json, **live**, and the Commander reads them at the
+start of each turn, so a changed model reaches the next turn of a Job already
+running. The default model is the strongest on the roster and the default
+effort is the harness's own. Their rows are `commander-model` in
+`crates/config/settings.toml`.
+
+**A Job's own model wins over the Machine's, and absent defers.** The tier below
+is a record and not a file, `jobs.cost_cap_micros`'s shape one section up: a
+nullable value on the Job, where null means *use the Machine's* and is not a
+value of its own. Effort follows the same pattern, and **each half defers on its
+own**: a Job that names a model and no effort takes the Machine's effort. Both
+are columns on the Job (`commander_model_override`, `commander_effort_override`),
+chosen with `set_commander_model` and read back on `JobDetail`. The model must be
+one `list_models` offers, as `set_model` requires, and the effort one of the
+words the setting spells. `harness default` is a choice, so a Job may take the
+harness's own effort over a Machine that names one. Like `set_review_model` it is
+Helm's to call on request and not the Commander's: an agent does not choose its
+own model. It is read at the start of the next turn, and a turn running when it
+was chosen keeps the model it started with.
+
+**It is not an `armada.yml` key.** A Commander is not a step's Drone and a
+repository has no standing to choose what reads its Jobs; the two tiers that
+exist are the person's, on this machine and on this Job.
+
+---
+
 ## How much of the tree a Check reads
 
 Added 8 September 2026, with `checks.<name>.narrow` and `#504`. A Drone that
@@ -433,7 +462,9 @@ over as there were Jobs at one. Nothing in a Manifest could say otherwise.
 | `width` | no | How many concurrent workers this Check may start. Absent is the machine's own number; a declared one may only lower it |
 
 `${width}` in a Check's `run`, in its `narrow.run` and in its `one_test.run` is
-replaced with that number before the command is split. A command without one is
+replaced with that number before the command is split. **Write it for the compile
+as well as the tests** (`--build-jobs ${width}`, or cargo's `--jobs ${width}`):
+a runner's own worker flag does not bound the build that precedes it. A command without one is
 returned unchanged. The same number reaches the Check's environment as
 `ARMADA_CHECK_WIDTH`, for a `run` that reaches its runner through a script and
 so has nowhere to write the substitution.
@@ -441,7 +472,7 @@ so has nowhere to write the substitution.
 ```yaml
 checks:
   test:
-    run: cargo nextest run --workspace --test-threads ${width}
+    run: cargo nextest run --workspace --build-jobs ${width} --test-threads ${width}
   screens_test:
     run: pnpm -C packages/screens test -- --maxWorkers=${width}
     width: 2
@@ -491,9 +522,22 @@ The block, and its one key:
 checks:
   test:
     run: cargo nextest run --workspace --exclude acceptance
+    narrow:
+      run: cargo nextest run
+      each: "-p {}"
+      under: crates
+      except:
+        - acceptance
     one_test:
-      run: cargo nextest run --workspace --exclude acceptance -E test(/(^|::){}(::|$)/)
+      run: cargo nextest run -E test(/(^|::){}(::|$)/)
 ```
+
+**Where the Check also declares `narrow` with `under`, `one_test` compiles only
+the members that declare the test.** The members are those under `under` whose
+source has `fn <name>` or `mod <name>`, less `except`, spelled by `each` after
+the command; the command therefore must not select the whole workspace itself.
+A name no member declares is refused. A Check with no `under` runs its
+`one_test` as written.
 
 Rules that follow:
 

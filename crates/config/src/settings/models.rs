@@ -10,11 +10,13 @@ pub const MODELS_JUDGE: Words = Words("models.judge");
 pub const MODELS_PROPOSER: Words = Words("models.proposer");
 pub const MODELS_RETRO: Words = Words("models.retro");
 pub const MODELS_SECOND_OPINION: Words = Words("models.secondOpinion");
+pub const MODELS_COMMANDER: Words = Words("models.commander");
 
 pub const EFFORT_DEFAULT: Words = Words("effort.default");
 pub const EFFORT_JUDGE: Words = Words("effort.judge");
 pub const EFFORT_PROPOSER: Words = Words("effort.proposer");
 pub const EFFORT_HELM: Words = Words("effort.helm");
+pub const EFFORT_COMMANDER: Words = Words("effort.commander");
 
 /// Passing no effort at all, which is the harness picking — every call before
 /// these settings existed.
@@ -97,6 +99,19 @@ pub(super) const MODEL: &[Entry] = &[
         row: None,
         env: None,
     },
+    // The strongest on the roster: a Commander reads a whole Job and acts on it
+    // with nobody watching. A Job may name its own, which wins.
+    Entry {
+        key: MODELS_COMMANDER.0,
+        section: Section::Model,
+        title: "Commander model",
+        description: "The model a Job's Commander runs on when the Job names none.",
+        kind: Kind::Choice(Options::Models),
+        shipped: Shipped::Supplied,
+        applies: Applies::Live,
+        row: Some("commander-model"),
+        env: Some("ARMADA_COMMANDER_MODEL"),
+    },
 ];
 
 pub(super) const EFFORT: &[Entry] = &[
@@ -142,6 +157,17 @@ pub(super) const EFFORT: &[Entry] = &[
         kind: Kind::Choice(Options::Fixed(EFFORTS)),
         shipped: Shipped::Text(HARNESS_DEFAULT_EFFORT),
         applies: Applies::AtRestart,
+        row: None,
+        env: None,
+    },
+    Entry {
+        key: EFFORT_COMMANDER.0,
+        section: Section::Effort,
+        title: "Commander effort",
+        description: "How hard a Job's Commander thinks when it is woken.",
+        kind: Kind::Choice(Options::Fixed(EFFORTS)),
+        shipped: Shipped::Text(HARNESS_DEFAULT_EFFORT),
+        applies: Applies::Live,
         row: None,
         env: None,
     },

@@ -30,11 +30,13 @@ import type {
 } from "@armada/protocol";
 import type { FileReport } from "@armada/protocol";
 import type { ModChecked } from "@armada/protocol";
-import type { SleepState } from "@armada/protocol";
+import type { PlanUsage, SleepState } from "@armada/protocol";
 import type { AnswerSessionAsk, AnswerWaiting, ClaimPullRequest, DismissWaiting, PilotOutcome, PullRequestClaimed, PullRequestState, RenameSession, ReviewDispatched, SendSessionMessage, SessionRunMessage, SessionRunUnderway, SessionSubagent, TuneSession } from "@armada/protocol";
 import type { ArtifactRead, PageBounds } from "@armada/screens/src/draft/sessions";
 import type { PilotExit, PullRequestPress, SessionActed } from "../shared/api/sessions";
 import type { SleepActed } from "../shared/api/sleep";
+import type { PlanUsageRead } from "../shared/api/plan-usage";
+import type { WriteClashesRead } from "../shared/api/clashes";
 import type { IssuesRead } from "../shared/api/issues";
 import type { HelmContext, HelmDebugRead, ThoughtRead, ThoughtTarget } from "@armada/protocol";
 import type { StudioCapture, StudioNodeByHand, StudioPosition, StudioPromotion } from "@armada/protocol";
@@ -81,6 +83,7 @@ import type {
 } from "@armada/screens/src/setup-reads";
 import type {
   AlwaysAllowScope,
+  AnswerMode,
   CommandAnswer,
   HelmCallAnswer,
   JudgeAnswer,
@@ -229,9 +232,10 @@ const api: BridgeApi = {
   answerQuestion: (
     jobId: string,
     questionId: string,
-    chose: string,
+    chose: string | undefined,
+    mode?: AnswerMode,
   ): Promise<Outcome> =>
-    ipcRenderer.invoke(CHANNELS.answerQuestion, jobId, questionId, chose),
+    ipcRenderer.invoke(CHANNELS.answerQuestion, jobId, questionId, chose, mode),
   // The answer is one of the three Fleet offered for this call. The note is a
   // person's own words, read only on a reject, and `undefined` crosses as
   // `undefined` — a bare refusal sends no prose at all. The rule is one of
@@ -243,8 +247,14 @@ const api: BridgeApi = {
     note?: string,
     rule?: string,
     scope?: AlwaysAllowScope,
+    mode?: AnswerMode,
   ): Promise<Outcome> =>
-    ipcRenderer.invoke(CHANNELS.answerCommand, jobId, call, answer, note, rule, scope),
+    ipcRenderer.invoke(CHANNELS.answerCommand, jobId, call, answer, note, rule, scope, mode),
+  // The owner's words to a Job's Commander, and his pick on its card: a card's id and an option's id.
+  askCommander: (jobId: string, text: string): Promise<Outcome> =>
+    ipcRenderer.invoke(CHANNELS.askCommander, jobId, text),
+  answerCommanderCard: (jobId: string, cardId: string, optionId: string): Promise<Outcome> =>
+    ipcRenderer.invoke(CHANNELS.answerCommanderCard, jobId, cardId, optionId),
   // One held helm call. The note is a person's own words, read only on a
   // refusal; `undefined` crosses as `undefined`.
   answerHelmCall: (call: string, answer: HelmCallAnswer, note?: string): Promise<Outcome> =>
@@ -255,8 +265,13 @@ const api: BridgeApi = {
     ipcRenderer.invoke(CHANNELS.explainCommand, jobId, callId),
   setWhenBlocked: (jobId: string, whenBlocked: WhenBlocked): Promise<Outcome> =>
     ipcRenderer.invoke(CHANNELS.setWhenBlocked, jobId, whenBlocked),
-  answerJudge: (jobId: string, askedAt: string, answer: JudgeAnswer, note?: string): Promise<Outcome> =>
-    ipcRenderer.invoke(CHANNELS.answerJudge, jobId, askedAt, answer, note),
+  answerJudge: (
+    jobId: string,
+    askedAt: string,
+    answer: JudgeAnswer,
+    note?: string,
+    mode?: AnswerMode,
+  ): Promise<Outcome> => ipcRenderer.invoke(CHANNELS.answerJudge, jobId, askedAt, answer, note, mode),
   setWhenRefused: (jobId: string, whenRefused: WhenRefused): Promise<Outcome> =>
     ipcRenderer.invoke(CHANNELS.setWhenRefused, jobId, whenRefused),
   // The other two settings on one job. `null` crosses as `null`, which is the
@@ -293,6 +308,15 @@ const api: BridgeApi = {
   // Run a stopped step's Checks again. Its own entry beside `rerunGate`'s, for
   // the trigger the two partition on — `#1105`.
   rerunChecks: (jobId: string): Promise<Outcome> => ipcRenderer.invoke(CHANNELS.rerunChecks, jobId),
+
+  // One Check of the gate that is running, run again or ended as skipped, and
+  // every unfinished one skipped. Beside `rerunChecks`, which answers a step
+  // that has stopped.
+  retryCheck: (jobId: string, check: string): Promise<Outcome> =>
+    ipcRenderer.invoke(CHANNELS.retryCheck, jobId, check),
+  skipCheck: (jobId: string, check: string): Promise<Outcome> =>
+    ipcRenderer.invoke(CHANNELS.skipCheck, jobId, check),
+  skipChecks: (jobId: string): Promise<Outcome> => ipcRenderer.invoke(CHANNELS.skipChecks, jobId),
 
   // Ask a Job to show its work. Its own entry because it moves nothing on the
   // Job: what comes back is a set of frames, or why there is none. `spec` names
@@ -380,6 +404,7 @@ const api: BridgeApi = {
   // What the open Job holds on this machine. Read-only, and its own entry
   // because it is its own operation: `watchJob` is re-read on every event
   // naming the Job and this walks a process table and a directory.
+  followActive: (want: boolean): Promise<void> => ipcRenderer.invoke(CHANNELS.followActive, want),
   readResources: (jobId: string | null): Promise<void> =>
     ipcRenderer.invoke(CHANNELS.readResources, jobId),
 
@@ -638,6 +663,15 @@ const api: BridgeApi = {
   // A repository's open issues, by its Manifest (#91), and the Autopilot that works them (#2092).
   listIssues: (manifestId: string, refresh: boolean): Promise<IssuesRead> => ipcRenderer.invoke(CHANNELS.listIssues, manifestId, refresh),
   ...autopilotPreload,
+  getPlanUsage: (): Promise<PlanUsageRead> => ipcRenderer.invoke(CHANNELS.getPlanUsage),
+  onPlanUsageChanged: (onChanged: (usage: PlanUsage) => void): (() => void) => {
+    const handler = (_event: unknown, usage: PlanUsage): void => onChanged(usage);
+    ipcRenderer.on(CHANNELS.planUsageChanged, handler);
+    return () => {
+      ipcRenderer.removeListener(CHANNELS.planUsageChanged, handler);
+    };
+  },
+  getWriteClashes: (): Promise<WriteClashesRead> => ipcRenderer.invoke(CHANNELS.getWriteClashes),
   setSleep: (on: boolean): Promise<SleepActed> => ipcRenderer.invoke(CHANNELS.setSleep, on),
   overrideSleep: (id: string, text: string): Promise<SleepActed> => ipcRenderer.invoke(CHANNELS.overrideSleep, id, text),
   reviewSleep: (id: string): Promise<SleepActed> => ipcRenderer.invoke(CHANNELS.reviewSleep, id),
@@ -675,6 +709,15 @@ const api: BridgeApi = {
     ipcRenderer.invoke(CHANNELS.openSessionFile, sessionId, path),
   openSessionWindow: (sessionId: string, url: string): Promise<Outcome> =>
     ipcRenderer.invoke(CHANNELS.openSessionWindow, sessionId, url),
+  getSessionWindows: (): Promise<readonly string[]> => ipcRenderer.invoke(CHANNELS.getSessionWindows),
+  onSessionWindows: (onChanged: (addresses: readonly string[]) => void): (() => void) => {
+    const handler = (_event: unknown, addresses: unknown): void =>
+      onChanged(Array.isArray(addresses) ? addresses.filter((one): one is string => typeof one === "string") : []);
+    ipcRenderer.on(CHANNELS.sessionWindowsChanged, handler);
+    return () => {
+      ipcRenderer.removeListener(CHANNELS.sessionWindowsChanged, handler);
+    };
+  },
   readSessionArtifact: (sessionId: string, path: string): Promise<ArtifactRead> =>
     ipcRenderer.invoke(CHANNELS.readSessionArtifact, sessionId, path),
   showSessionPage: (sessionId: string, address: string, bounds: PageBounds): Promise<Followed> =>
@@ -768,9 +811,17 @@ const api: BridgeApi = {
   // one — and the page below the bar holds no preload and reaches none of it.
   captureWindow: {
     read: (onChanged: (state: CaptureWindowState) => void): (() => void) => {
-      const handler = (_event: unknown, state: CaptureWindowState): void => onChanged(state);
+      // Main pushes on `did-finish-load`, which can land before this listener does, so the state is
+      // also asked for and drawn unless a push has already said something newer.
+      let pushed = false;
+      const handler = (_event: unknown, state: CaptureWindowState): void => {
+        pushed = true;
+        onChanged(state);
+      };
       ipcRenderer.on(CHANNELS.captureWindowChanged, handler);
-      void ipcRenderer.invoke(CHANNELS.captureWindowRead);
+      void ipcRenderer.invoke(CHANNELS.captureWindowRead).then((state: CaptureWindowState | null) => {
+        if (state !== null && !pushed) onChanged(state);
+      });
       return () => ipcRenderer.removeListener(CHANNELS.captureWindowChanged, handler);
     },
     arm: (on: boolean): Promise<CaptureWindowState | null> => ipcRenderer.invoke(CHANNELS.captureWindowArm, on),
@@ -784,8 +835,13 @@ const api: BridgeApi = {
     scroll: (wheel: CaptureWheel): void => ipcRenderer.send(CHANNELS.captureWindowScroll, wheel),
     showAsk: (on: boolean): Promise<void> => ipcRenderer.invoke(CHANNELS.captureWindowShowAsk, on),
     answerAsk: (answer: CaptureAnswer): Promise<Outcome> => ipcRenderer.invoke(CHANNELS.captureWindowAnswerAsk, answer),
+    pick: (at: number): Promise<void> => ipcRenderer.invoke(CHANNELS.captureWindowPick, at),
     panel: (open: boolean): Promise<void> => ipcRenderer.invoke(CHANNELS.captureWindowPanel, open),
     openOwner: (): Promise<void> => ipcRenderer.invoke(CHANNELS.captureWindowOpenOwner),
+    walkNext: (): Promise<void> => ipcRenderer.invoke(CHANNELS.captureWindowWalkNext),
+    walkBack: (): Promise<void> => ipcRenderer.invoke(CHANNELS.captureWindowWalkBack),
+    walkAutoplay: (on: boolean): Promise<void> => ipcRenderer.invoke(CHANNELS.captureWindowWalkAutoplay, on),
+    walkReplay: (): Promise<void> => ipcRenderer.invoke(CHANNELS.captureWindowWalkReplay),
   },
   // The panel beside a walk window's page — `capture-window.md`, *The panel beside the page*. The call
   // names nothing: main answers for the panel the call came from, and refuses any other document.

@@ -14,6 +14,7 @@ import type { ApproveDispatch, FixMain } from "@armada/protocol";
 import type {
   Artifact,
   AlwaysAllowScope,
+  AnswerMode,
   CommandAnswer,
   HelmCallAnswer,
   JudgeAnswer,
@@ -24,7 +25,7 @@ import type {
 } from "@armada/protocol";
 import { ANNOTATE_FLAG } from "../shared/annotations";
 import { handleAnnotations } from "./annotations";
-import { sessionNoteText } from "./capture/session-note";
+import { approvedText, sessionNoteText } from "./capture/session-note";
 import { CaptureWindows } from "./capture/windows";
 import { follow } from "./capture/follow";
 import { coalesce } from "./coalesce";
@@ -47,6 +48,8 @@ import { handleRehearsal } from "./rehearsal-channels";
 import { handleRepositories } from "./repository-channels";
 import { handleSessions } from "./session-channels";
 import { handleSleep } from "./sleep-channels";
+import { handlePlanUsage } from "./plan-usage-channels";
+import { handleClashes } from "./clashes-channels";
 import { handleIssues } from "./issue-channels";
 import { SessionPages } from "./session-page";
 import { handleStudios } from "./studio-channels";
@@ -159,13 +162,13 @@ const captureWindows = new CaptureWindows({
   walkNote: async (jobId, said, capture, frame) =>
     (await connection?.commands.captureWalkNote(jobId, { said, capture, ...(frame === null ? {} : { frame }) })) ??
     UNSENT,
-  sessionNote: async (sessionId, said, capture, address) => {
-    const sent = await connection?.sessions.send({ session_id: sessionId, text: sessionNoteText(said, capture, address) });
+  sessionNote: async (sessionId, said, capture, address, take) => {
+    const sent = await connection?.sessions.send({ session_id: sessionId, text: sessionNoteText(said, capture, address, take) });
     return sent === undefined ? UNSENT : sent.ok ? { ok: true } : sent.outcome;
   },
   walkApproved: async (jobId) => (await connection?.commands.approveReview(jobId)) ?? UNSENT,
-  sessionApproved: async (sessionId, address) => {
-    const sent = await connection?.sessions.send({ session_id: sessionId, text: `Approved: ${address}` });
+  sessionApproved: async (sessionId, address, take) => {
+    const sent = await connection?.sessions.send({ session_id: sessionId, text: approvedText(address, take) });
     return sent === undefined ? UNSENT : sent.ok ? { ok: true } : sent.outcome;
   },
   // The Session's question in its window settles as the item it is under Waiting on you.
@@ -175,6 +178,13 @@ const captureWindows = new CaptureWindows({
   },
   sessionClosed: (sessionId, address) => {
     void connection?.sessions.windowClosed({ session_id: sessionId, url: address });
+  },
+  // The Cockpit holds back a walk's call while its window is open, so it hears when one opens or closes.
+  windowsChanged: () => {
+    const open = captureWindows.sessionAddresses();
+    for (const window of BrowserWindow.getAllWindows()) {
+      if (!window.isDestroyed()) window.webContents.send(CHANNELS.sessionWindowsChanged, open);
+    }
   },
   stage: stagePng,
   focused: (serverId, on) => {
@@ -492,7 +502,7 @@ void app.whenReady().then(() => {
     now: () => Date.now(),
   });
   // A Session showed a page: its window opens by itself, and opens again where it is already open.
-  connection.sessions.onWindow((sessionId, title, url) => void captureWindows.openForSession(sessionId, title, url));
+  connection.sessions.onWindow((sessionId, title, url, takes) => void captureWindows.openForSession(sessionId, title, url, takes));
   // A Session asked about a place on its walk: the window comes forward and goes there.
   connection.sessions.onAsked((sessionId, title, window, place) => void captureWindows.askedFor(sessionId, title, window, place));
   // Sleep mode or a repository's Autopilot changed in Fleet: every window gets the night, or it, whole.
@@ -502,6 +512,7 @@ void app.whenReady().then(() => {
   // What a shell block run from a Session prints, to every window: only the one that started it holds the id.
   connection.sessions.onRun((runId, message) => everyWindow(CHANNELS.sessionRunMessage, runId, message));
   connection.sleep.onChanged((state) => everyWindow(CHANNELS.sleepChanged, state));
+  connection.planUsage.onChanged((usage) => everyWindow(CHANNELS.planUsageChanged, usage));
   connection.issues.onAutopilotChanged((autopilot) => everyWindow(CHANNELS.autopilotChanged, autopilot));
   handleTaps({ ipc: ipcMain, app });
   if (!app.isPackaged) installSounds(join(app.getAppPath(), "sounds"), join(app.getPath("home"), "Library", "Sounds"));
@@ -680,8 +691,17 @@ void app.whenReady().then(() => {
   // The two acts that resume a step without redispatching. Which applies is
   // decided by whether the Job still holds a Drone; Fleet is the authority
   // and refuses the wrong one rather than Bridge picking silently.
-  ipcMain.handle(CHANNELS.answerQuestion, (_event, jobId: string, questionId: string, chose: string) =>
-    connection?.commands.answerQuestion(jobId, questionId, chose),
+  ipcMain.handle(
+    CHANNELS.answerQuestion,
+    (_event, jobId: string, questionId: string, chose: string | undefined, mode?: AnswerMode) =>
+      connection?.commands.answerQuestion(jobId, questionId, chose, mode),
+  );
+  // The owner's words to a Job's Commander, and his pick on its card.
+  ipcMain.handle(CHANNELS.askCommander, (_event, jobId: string, text: string) =>
+    connection?.askCommander(jobId, text),
+  );
+  ipcMain.handle(CHANNELS.answerCommanderCard, (_event, jobId: string, cardId: string, optionId: string) =>
+    connection?.commands.answerCommanderCard(jobId, cardId, optionId),
   );
   // A command the drone was not given, answered where it waits or where it was
   // refused. The note rides with a reject, and the rule with an always-allow —
@@ -696,7 +716,8 @@ void app.whenReady().then(() => {
       note?: string,
       rule?: string,
       scope?: AlwaysAllowScope,
-    ) => connection?.commands.answerCommand(jobId, call, answer, note, rule, scope),
+      mode?: AnswerMode,
+    ) => connection?.commands.answerCommand(jobId, call, answer, note, rule, scope, mode),
   );
   // One call helm was held on, answered in the dock. No job id: the session is
   // waiting inside its own tool call, and nothing on the board moves. #1389.
@@ -718,8 +739,8 @@ void app.whenReady().then(() => {
   // disagree always.
   ipcMain.handle(
     CHANNELS.answerJudge,
-    (_event, jobId: string, askedAt: string, answer: JudgeAnswer, note?: string) =>
-      connection?.commands.answerJudge(jobId, askedAt, answer, note),
+    (_event, jobId: string, askedAt: string, answer: JudgeAnswer, note?: string, mode?: AnswerMode) =>
+      connection?.commands.answerJudge(jobId, askedAt, answer, note, mode),
   );
   // How the job meets the next such refusal. Moves nothing on the job.
   ipcMain.handle(CHANNELS.setWhenRefused, (_event, jobId: string, whenRefused: WhenRefused) =>
@@ -775,6 +796,15 @@ void app.whenReady().then(() => {
   ipcMain.handle(CHANNELS.rerunChecks, (_event, jobId: string) =>
     connection?.commands.rerunChecks(jobId),
   );
+  // The running gate's own Checks, one at a time or every unfinished one. Their
+  // own channels: `rerunChecks` answers a step that has stopped.
+  ipcMain.handle(CHANNELS.retryCheck, (_event, jobId: string, check: string) =>
+    connection?.commands.retryCheck(jobId, check),
+  );
+  ipcMain.handle(CHANNELS.skipCheck, (_event, jobId: string, check: string) =>
+    connection?.commands.skipCheck(jobId, check),
+  );
+  ipcMain.handle(CHANNELS.skipChecks, (_event, jobId: string) => connection?.commands.skipChecks(jobId));
   ipcMain.handle(CHANNELS.showAgain, (_event, jobId: string, spec?: string) =>
     connection?.commands.showAgain(jobId, spec),
   );
@@ -859,6 +889,9 @@ void app.whenReady().then(() => {
   // What the open Job holds on this machine. Opened with the Job and re-read
   // on every event naming it — its own channel because it is its own operation
   // and because it walks a process table, which a Job's detail does not.
+  // The Cockpit and the Dashboard, drawing a Now for every active Job without
+  // opening one. `false` when they leave; nothing is read while none is asking.
+  ipcMain.handle(CHANNELS.followActive, (_event, want: boolean) => connection?.followActive(want === true));
   ipcMain.handle(CHANNELS.readResources, (_event, jobId: string | null) =>
     connection?.readResources(jobId),
   );
@@ -972,6 +1005,9 @@ void app.whenReady().then(() => {
   );
   handleSessions({ ipc: ipcMain, connection: () => connection, windowIdOf, pages: new SessionPages() });
   handleSleep({ ipc: ipcMain, connection: () => connection });
+  ipcMain.handle(CHANNELS.getSessionWindows, () => captureWindows.sessionAddresses());
+  handlePlanUsage({ ipc: ipcMain, connection: () => connection });
+  handleClashes({ ipc: ipcMain, connection: () => connection });
   handleIssues({ ipc: ipcMain, connection: () => connection });
   handleStudios({ ipc: ipcMain, connection: () => connection, published: () => published, captureWindows, summon });
   // The four decisions on the work, and they stay four channels. Merging lands

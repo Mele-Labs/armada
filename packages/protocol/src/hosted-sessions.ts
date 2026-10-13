@@ -9,7 +9,7 @@
 import type { HelmCallAnswer, HelmCallInFlight, QuestionAnswer } from "./helm-calls";
 import type { DroneNarrative, PilotOutcome } from "./piloting";
 import type { LandsIn, Whose } from "./retro";
-import type { SessionRecord, WaitingOption, WindowPlace } from "./sessions";
+import type { SessionRecord, WaitingOption, WindowPlace, WindowTake } from "./sessions";
 
 /** The permission mode a session runs in. `auto` is the default. */
 export type SessionMode = "ask" | "auto" | "accept_edits" | "plan";
@@ -197,8 +197,11 @@ export type SessionRow =
   | { kind: "compaction"; id: string; at: string; text: string }
   /** The first write: the slot leased and the branch cut. */
   | { kind: "lease"; id: string; at: string; slot: number; branch: string }
-  /** An `armada check` the agent ran in its slot, replaced by id as it ends. `run` is the id `GET /sessions/checks/:run/output` reads. Since 23.75. */
-  | { kind: "check"; id: string; at: string; name: string; run: number; state: "running" | "passed" | "failed" }
+  /**
+   * An `armada check` the agent ran in its slot, replaced by id as it ends. `run` is the id `GET /sessions/checks/:run/output` reads. Since 23.75.
+   * `target` is what the run was narrowed to, the filter it was given or the crates `--changed` narrowed to; absent, it ran whole.
+   */
+  | { kind: "check"; id: string; at: string; name: string; run: number; state: "running" | "passed" | "failed"; target?: string }
   /**
    * A Session's retro being written, replaced by id as it goes and kept when done. `items` settle while
    * the model writes (`stage` `writing`) and are empty otherwise; `retro` is the kept retro's number for
@@ -220,9 +223,15 @@ export type SessionRow =
     }
   /**
    * The session showed the person a page in a window. `ended_at` is when the walk ended, by an
-   * approval or the window closing; absent while it is open.
+   * approval or the window closing; absent while it is open. `variations` are the takes it shows
+   * when it shows several, `url` the first's; absent for one page.
    */
-  | { kind: "window"; id: string; at: string; title: string; url: string; ended_at?: string }
+  | { kind: "window"; id: string; at: string; title: string; url: string; variations?: WindowTake[]; ended_at?: string }
+  /**
+   * This session's agent started a session, or forked its own conversation into one, when the person
+   * asked it to. Written in the starting session's thread; `session` is the new one.
+   */
+  | { kind: "started"; id: string; at: string; session: { id: string; title: string }; fork: boolean }
   /**
    * A question the session asked in its walk window, `ask_in_window`. `window` is the address it was
    * asked in. **Replaced by id once answered**, with `answer` set to what the person chose and said.

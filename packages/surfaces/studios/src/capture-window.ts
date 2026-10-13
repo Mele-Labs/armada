@@ -61,7 +61,30 @@ export type CaptureWindowState = {
   refused?: CaptureRefusal;
   /** A question the Session that opened this window asked about a place on its page. Absent: none open. */
   ask?: CaptureAsk;
+  /** The takes of one change the Session showed, in the order the bar draws them, and the one on screen. Absent: one page. */
+  variations?: { names: string[]; at: number };
+  /** Whether the page is ready to walk, as its Session or Job says. Absent: nobody has said. */
+  readiness?: CaptureReadiness;
+  /** The walk the page is playing. Absent: the page is not a walk. **Main bounds it; the page said it.** */
+  walk?: CaptureWalk;
 };
+
+/** Where a walk on the page stands. `at` counts from 1, up to `of`. Text only: the bar draws it as words. */
+export type CaptureWalk = {
+  name: string;
+  at: number;
+  of: number;
+  /** The step's caption. */
+  said: string;
+  autoplay: boolean;
+  /** The step's target is ringed, so Next has something to act on. */
+  ready: boolean;
+  /** Past the last step. */
+  done: boolean;
+};
+
+/** `ready`: done and waiting on the person. `working`: still being changed. */
+export type CaptureReadiness = "ready" | "working";
 
 /**
  * A question a Session asked in its walk window — `ask_in_window`, `docs/concepts/session.md`. **The

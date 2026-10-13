@@ -1,0 +1,10 @@
+[operations."commander.card"]
+kind = "event"
+transport = "WebSocket"
+agent_access = "Bridge only"
+description = "A Job's Commander put a card out to the owner, or the one out was answered"
+notes = """
+Carries `CommanderCardChanged`, `{job_id, card?}`. #2166. `job.asking`'s shape: two messages per card and never a third. The one going out carries the card whole, and the one coming back carries none. A surface subtracts for itself, so a card that waits four hours costs this channel two messages. Published when `ask_the_owner` writes a card, when the loop bound does, and when `answer_commander_card` records a pick.
+
+It is a fact about the Job and never a row of the Commander's thread. A Job that never has a card publishes nothing. The Job's own row reads `asking` for as long as the card is out, which is what puts it in Your move without a client reading this.
+"""

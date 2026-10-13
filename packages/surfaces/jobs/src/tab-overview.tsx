@@ -37,8 +37,9 @@ import { heldByAFlag } from "./gaming";
 import { GamingHeld } from "./gaming-held";
 import { StepActs } from "./StepActs";
 import type { NowView } from "./draft/now";
-import { nowPanelOf } from "./now-panel";
-import { commanderThreadOf } from "./commander-rows";
+import { nowPanelOf, type NowActed } from "./now-panel";
+import { commanderViewOf } from "./commander-rows";
+import { BEFORE_THE_RUN } from "./now-real";
 import { LEAD_SLOTS, leadAskOf } from "./lead-ask";
 import type { LeadSlot } from "./lead-ask";
 import { OverviewBoard } from "./OverviewBoard";
@@ -680,6 +681,19 @@ export function OverviewTab(props: OverviewTabProps) {
   const fixJob = lead.fix?.job;
   const openJob = props.onOpenJob;
   const openFix = fixJob === undefined || openJob === undefined ? undefined : () => openJob(fixJob);
+  // The Now panel's quick acts. A redirect is the person's words, so it opens the Drone, whose
+  // panel holds the dialog; a step retried asks the same confirmation its own button does.
+  const { onRetryCheck, onSkipCheck, onSkipChecks } = props;
+  const onNowAct =
+    onRetryCheck === undefined || onSkipCheck === undefined || onSkipChecks === undefined
+      ? undefined
+      : ({ glyph, check, drone }: NowActed) => {
+          if (glyph === "skip_all") onSkipChecks(job.id);
+          else if (glyph === "retry_step") props.onAct("restart_step", job.id);
+          else if (glyph === "redirect") {
+            if (drone !== undefined) props.onOpenDrone?.(drone);
+          } else if (check !== undefined) (glyph === "retry" ? onRetryCheck : onSkipCheck)(job.id, check);
+        };
   const leadAct =
     lead.act === undefined || waiting !== undefined ? undefined : lead.approves === true ? (
       props.headerActs
@@ -774,12 +788,15 @@ export function OverviewTab(props: OverviewTabProps) {
     // The quiet line stood in while the read was out; any other lead is the Board row's to say at once (owner, 1 Oct 2026).
     reading: lead.quiet === true && stillReading(watched, job.id),
   });
+  // Every Job has a Commander; the panel is drawn once its thread is this Job's, and not before the Job has run.
+  const commander = BEFORE_THE_RUN.has(job.status) ? undefined : commanderViewOf(props.commander, job.id, whole);
   const nowRead = nowPanelOf(props.nowView, {
     onOpenDrone: props.onOpenDrone,
     onOpenCheckLog: props.onOpenCheckLog,
     onOpenJob: openJob,
+    onAct: onNowAct,
     onSaid,
-    onAnswerCommander: (key, option) => props.draft?.commander?.answer(job.id, key, option),
+    onAnswerCommander: (card, option) => props.onAnswerCommander?.(job.id, card, option),
   });
   // **Awaiting review, the review is the screen** (owner, 11 Oct 2026): the work is what is waiting, so
   // the canvas is not the top of the page. Its card spans the board under the Commander; the canvas and
@@ -790,14 +807,15 @@ export function OverviewTab(props: OverviewTabProps) {
     <OverviewBoard
       {...(nowHeld === undefined ? {} : { now: nowHeld })}
       {...(wideAsk === undefined ? {} : { wide: wideAsk })}
-      {...(props.draft?.commander?.views[job.id] === undefined
+      {...(commander === undefined
         ? {}
         : {
             commander: {
               jobId: job.id,
-              state: props.draft.commander.views[job.id]!.state,
-              rows: commanderThreadOf(props.draft.commander.views[job.id]!.rows),
-              onSend: (text: string) => props.draft?.commander?.send(job.id, text),
+              ...commander,
+              // `@` offers the Board's other Jobs, written into the message by their handle.
+              taggable: (props.board ?? []).filter((one) => one.id !== job.id).map((one) => ({ kind: "job" as const, id: one.id, title: one.handle })),
+              onSend: (text: string) => void props.onAskCommander?.(job.id, text),
             },
           })}
       // **What the approval approves, only while the lead offers it.** The

@@ -223,7 +223,9 @@ pub struct JobSummary {
     /// one fact written twice.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub waits_on: Vec<JobId>,
-    /// Whether this Job's Drone is waiting on an answer from a person.
+    /// Whether this Job's Drone is waiting on an answer from a person, **or its
+    /// Commander has a card out to the owner** (`JobDetail::commander_card`,
+    /// `#2166`). Either way it is the Job waiting on him.
     ///
     /// # A flag, and deliberately not the question
     ///
@@ -316,6 +318,25 @@ pub struct JobSummary {
     /// and a Board draws no mark. Since 23.68.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub alert: Option<crate::JobAlert>,
+    /// Each bay the Job has held, oldest first, with when it took it and when it
+    /// gave it back. Filled by Fleet off the store, like
+    /// [`tasks`](JobSummary::tasks). **Empty is a Job that never held one, or
+    /// one from before Fleet kept them**, and is left out of the row.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub bays: Vec<JobBay>,
+}
+
+/// One stretch of a Job in one bay of its repository's pool.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct JobBay {
+    /// The slot's number, as `armada worktree --status` numbers it.
+    pub slot: u32,
+    /// When the Job took it.
+    pub since: Instant,
+    /// When it gave it back. **Absent is it still holds the bay**, which a
+    /// completed Job does until a person clears it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub until: Option<Instant>,
 }
 
 /// A Job's pause marker, as a row carries it.
@@ -327,6 +348,10 @@ pub struct Paused {
     pub at: Instant,
     /// A resume found every slot held, and the Job waits for the first to free.
     pub resuming: bool,
+    /// The plan's limit stopped this Job's Drone, and it starts again at this
+    /// instant, when the limit has reset. Absent on any other pause.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub until: Option<Instant>,
 }
 
 impl JobSummary {
@@ -404,11 +429,13 @@ impl JobSummary {
                 by: pause.by.as_str().to_string(),
                 at: Instant::from(&pause.at),
                 resuming: pause.resuming,
+                until: pause.until.as_ref().map(Instant::from),
             }),
             // Filled by the caller that holds a store, for `tasks`' reason.
             fixes_main: None,
             piloted: None,
             alert: None,
+            bays: Vec::new(),
         }
     }
 }

@@ -12,7 +12,7 @@
 //! the answer arrives as a [`HelmReach`] the daemon decided row by row, and the
 //! door only enforces it.
 
-use ipc::door::{Reachable, DRAFTING, HELM_ONLY, REACHABLE};
+use ipc::door::{Reachable, COMMANDER_ONLY, DRAFTING, HELM_ONLY, REACHABLE};
 
 use super::CommanderReach;
 use crate::mcp::Caller;
@@ -129,6 +129,12 @@ impl From<Redirector> for Steerer {
             Redirector::Helm => Steerer::Helm,
         }
     }
+}
+
+/// Every row a Job's Commander could be offered: [`offerable`]'s, and the
+/// `Commander only` rows no other caller is, Helm included (`#2166`).
+pub fn offerable_to_a_commander() -> impl Iterator<Item = &'static Reachable> {
+    offerable().chain(COMMANDER_ONLY.iter())
 }
 
 /// Every row a Helm session could be offered before its daemon decides: what

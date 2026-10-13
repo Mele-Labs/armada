@@ -8,7 +8,8 @@
 // `AskUserQuestion` Bridge answers first; every other answers with what `next` returned and lets its report go unawaited, so
 // Fleet being down costs the session nothing (`fleet.ts`). **No message text and no prompt leaves, apart from the first
 // line of the first prompt as a title, and a question put to Bridge.** A message is reported as who it went to
-// or came from, and how many.
+// or came from, and how many. A file a session wrote is reported as its path from the session's directory,
+// and never its content. What fills the context window is reported as names, paths and counts, never contents.
 //
 // The helpers are top-level because the engine follows `$` only into a function
 // declared at the top of a file, and refuses the module otherwise.
@@ -18,6 +19,7 @@ import type { Engine, Register } from 'claude-code'
 import {
   answersIn,
   artifactOf,
+  touchedOf,
   customTitleIn,
   ghAct,
   isDispatch,
@@ -25,6 +27,9 @@ import {
   mayMoveBranch,
   needAct,
   micros,
+  breakdownOf,
+  planOf,
+  spentUntil,
   pagesOpenedIn,
   pullRequestsIn,
   senderOf,
@@ -35,6 +40,7 @@ import {
   MOD_VERSION,
   transcriptPath,
 } from './facts'
+import type { RateLimit } from './facts'
 import type { Asked, Door, Fact, Report } from './fleet'
 
 const HARNESS = 'claude_code'
@@ -399,7 +405,7 @@ async function settledInTerminal($: Door, id: string, answered: boolean): Promis
 const ASK_IN_WINDOW = "To ask the owner about something on a page you showed him, call ask_in_window with the question, its options, the page's url and a CSS selector for the place, passing session_id, then end your turn.";
 
 function idNote(id: string): string {
-  return `Your Armada session id is ${id}. Pass it as session_id to the armada show_window tool. To show the owner a web page (a walk, a mock, a dev server), call show_window. Never run \`open\`. Keep the armada waiting_for tool current: whenever you need the owner for something (a decision, a page to look at, a pull request to approve, a command only he can run), put it in the list with one short line each and call waiting_for with the whole list, passing session_id. Give each item an act, so pressing it does something: {"kind":"run","target":"<the command>"} copies a command, {"kind":"walk","target":"<url>"} opens a page, {"kind":"approve_pr","target":"#<number>"} opens a pull request, and {"kind":"answer","target":""} with options for a decision. Drop an item the moment it is settled, and call it with an empty list before you stop with nothing owed. Do not wait to be asked what is outstanding. When everything you were asked is done, nothing is owed and none of your background work is still running, clear waiting_for and then call all_done, passing session_id, so Bridge offers to end the session; do not call it while anything is still running or owed. While the owner is walking a page you showed, do not ask with AskUserQuestion: an open question holds back his notes and his Approve until he answers it, so Armada refuses it. Put the question in waiting_for and end your turn instead. ${ASK_IN_WINDOW}`
+  return `Your Armada session id is ${id}. Pass it as session_id to the armada show_window tool. To show the owner a web page (a walk, a mock, a dev server), call show_window; to offer several takes of one change, pass variations, a list of {name, url}. Call show_window again when the page is ready to walk mid-turn: Armada marks the window as still changing while you edit files. Never run \`open\`. Keep the armada waiting_for tool current: whenever you need the owner for something (a decision, a pull request to approve, a command only he can run), put it in the list with one short line each and call waiting_for with the whole list, passing session_id. Give each item an act, so pressing it does something: {"kind":"run","target":"<the command>"} copies a command, {"kind":"walk","target":"<url>"} opens a page that was not shown in a window, {"kind":"approve_pr","target":"#<number>"} opens a pull request, and {"kind":"answer","target":""} with options for a decision. A page you showed with show_window already waits on him by itself, so never put it in waiting_for. Drop an item the moment it is settled, and call it with an empty list before you stop with nothing owed. Do not wait to be asked what is outstanding. When everything you were asked is done, nothing is owed and none of your background work is still running, clear waiting_for and then call all_done, passing session_id, so Bridge offers to end the session; do not call it while anything is still running or owed. While the owner is walking a page you showed, do not ask with AskUserQuestion: an open question holds back his notes and his Approve until he answers it, so Armada refuses it. Put the question in waiting_for and end your turn instead. ${ASK_IN_WINDOW}`
 }
 
 async function begin($: Dollar, id: string, cwd?: string): Promise<void> {
@@ -549,6 +555,12 @@ async function made(
   say($, id, { kind: 'attached', attachment: { kind: 'artifact', target: artifact.target, detail } })
 }
 
+async function wrote($: Dollar, input: Record<string, unknown>): Promise<void> {
+  const [id, one] = await current($)
+  const path = touchedOf(one.cwd, input)
+  if (path !== undefined) say($, id, { kind: 'touched', paths: [path] })
+}
+
 async function messaged($: Dollar, direction: 'sent' | 'received', who: string): Promise<void> {
   const [id, one] = await current($)
   const target = `${direction === 'sent' ? 'to' : 'from'}:${who}`
@@ -558,13 +570,46 @@ async function messaged($: Dollar, direction: 'sent' | 'received', who: string):
   say($, id, { kind: 'attached', attachment: { kind: 'message', target, detail } })
 }
 
-async function measured($: Dollar, tokens?: number, window?: number, usd?: number): Promise<void> {
+async function measured(
+  $: Dollar,
+  tokens?: number,
+  window?: number,
+  usd?: number,
+  limits: RateLimit[] = [],
+  changed: string[] = [],
+): Promise<void> {
   const at = await $.clock.now()
-  if (at - measuredAt < MEASURE_EVERY_MS) return
+  const held = at - measuredAt < MEASURE_EVERY_MS
+  // A window that moved is the one reading nothing else reports, so it is not left behind by the throttle.
+  if (held && !changed.includes('rateLimits')) return
   measuredAt = at
   const [id] = await current($)
   const usage = { context_tokens: tokens, context_window: window, cost_micros: micros(usd) }
-  say($, id, { kind: 'measured', usage })
+  const plan = planOf(limits)
+  const fact: Extract<Fact, { kind: 'measured' }> = { kind: 'measured', usage }
+  if (plan.length > 0) fact.plan = plan
+  // `summary` estimates locally; `full` would call the token-count API for every tool and file.
+  if (!held && changed.includes('context')) fact.context_breakdown = await breakdown($)
+  say($, id, fact)
+}
+
+async function breakdown($: Dollar) {
+  try {
+    const found = (await $.session.usage({ breakdown: 'summary' })).context.breakdown
+    return found === undefined ? undefined : breakdownOf(found)
+  } catch {
+    return undefined
+  }
+}
+
+/**
+ * A turn ended on the plan's limit. Fleet is told when the window that is full opens again, and
+ * wakes the session with `Continue` then; no window at or near full leaves nothing to wake it at.
+ */
+async function limited($: Dollar): Promise<void> {
+  const [id] = await current($)
+  const resets = spentUntil((await $.session.usage()).rateLimits)
+  if (resets !== undefined) say($, id, { kind: 'limited', resets_at: resets })
 }
 
 async function titled($: Dollar, prompt: string): Promise<void> {
@@ -711,12 +756,47 @@ export const register: Register = on => {
     })
   }
 
+  // Which files this session writes, for Fleet's check of who else writes them. A path, never content.
+  for (const tool of ['Write', 'Edit', 'MultiEdit', 'NotebookEdit']) {
+    on('tool.call', { tool }, async ($, e, next) => {
+      const ran = await next(e)
+      if (ran.deny === undefined && ran.isError !== true) {
+        void wrote($, e as Record<string, unknown>).catch(() => undefined)
+      }
+      return ran
+    })
+  }
+
+  // The session's own write, not a subagent's, says it is changing what a window shows: Fleet marks
+  // the windows it showed as still changing until its turn ends or it shows the page again.
+  for (const tool of ['Edit', 'Write', 'NotebookEdit']) {
+    on('tool.call', { tool }, async ($, e, next) => {
+      const ran = await next(e)
+      if (e.agentId === undefined && ran.deny === undefined && ran.isError !== true) {
+        void current($)
+          .then(([id]) => say($, id, { kind: 'wrote' }))
+          .catch(() => undefined)
+      }
+      return ran
+    })
+  }
+
   on('agent.spawn', async ($, e, next) => {
     const out = await next(e)
     if (out.deny === undefined) {
       const target = out.agentId ?? e.tool_use_id
       void spawned($, target, e.subagentType, e.description).catch(() => undefined)
     }
+    return out
+  })
+
+  // Its own transcript can end on a line that says it is still working (13 Oct 2026), so the
+  // engine's word that it stopped is what settles it.
+  on('classic.SubagentStop', async ($, e, next) => {
+    const out = await next(e)
+    void current($)
+      .then(([id]) => settle($, id, 'subagent', e.agent_id, 'spent'))
+      .catch(() => undefined)
     return out
   })
 
@@ -735,7 +815,9 @@ export const register: Register = on => {
 
   on('session.measure', async ($, e, next) => {
     const out = await next(e)
-    void measured($, e.context.tokens, e.context.window, e.cost?.usd).catch(() => undefined)
+    void measured($, e.context.tokens, e.context.window, e.cost?.usd, e.rateLimits, e.changed).catch(
+      () => undefined,
+    )
     return out
   })
 
@@ -752,9 +834,17 @@ export const register: Register = on => {
     return out
   })
 
+  // A turn that died on an API error finished nothing, and Fleet reads a finished turn as the end
+  // of a hold for the limit, so the failed one is not told.
+  on('classic.StopFailure', async ($, e, next) => {
+    const out = await next(e)
+    if (e.error === 'rate_limit' && !(await $.env.get('ARMADA_DRONE'))) void limited($).catch(() => undefined)
+    return out
+  })
+
   on('turn.complete', async ($, e, next) => {
     const out = await next(e)
-    if (e.agentId === undefined) {
+    if (e.agentId === undefined && e.reason !== 'error') {
       void current($)
         .then(([id]) => say($, id, { kind: 'turn_completed' }))
         .catch(() => undefined)

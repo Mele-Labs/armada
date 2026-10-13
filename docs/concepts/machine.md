@@ -126,6 +126,11 @@ cost alike. The multiple is of the cap the Job would inherit and not of the one
 in force, so repeated raises land on the same figure. The request body names
 no raiser, and one that tried to would be ignored.
 
+**A Commander's spend is the Job's cost and never its cap's.** What a Commander
+turn costs is recorded against the Job and shown beside the Drones' figure; the
+cap is compared with the Drones' alone, so the agent that raises a cap cannot
+spend it. [Commander](commander.md).
+
 **It is per Job, and two numbers rather than one.** A Drone belongs to a
 workflow step, so a four-step Job is four Drones; a per-Drone ceiling on that
 Job is four times the number anybody thought they set, and the Job is what a
@@ -175,6 +180,16 @@ what will actually stop a fleet — dollars stop nothing, because nothing is
 billed per token. So the fleet meets its real limit as a hard failure with no
 approach warning: Jobs running normally, then work dying mid-flight. That shape
 is expected rather than designed against.
+
+**Two things reach Armada now, and neither is a gate.** The `armada` mod in a
+session reports the plan's windows (`five_hour`, `seven_day`) with the percent used
+and when each resets, and Fleet serves the newest reading as `get_plan_usage` for
+Bridge to draw. And a run the API already refused is held rather than failed: a
+Drone stopped by a `rejected` window parks its Job until the reset
+(`job.md`, *Held for the plan's limit*), and a session that hit the limit is woken
+with `Continue` then (`session.md`, *A session that hit the plan's limit*). Dispatch
+still does not wait on any percentage: no floor is held against the figure, and a
+Drone started into a spent window is held when it is refused.
 
 ## Init
 

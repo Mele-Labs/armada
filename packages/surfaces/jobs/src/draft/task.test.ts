@@ -146,3 +146,15 @@ describe("a Job's tasks, in plan order", () => {
     expect(taskViewsOf(detail).map((task) => task.id)).toEqual(["T1", "T2", "T3"]);
   });
 });
+
+describe("whose hand is on a task", () => {
+  it("draws the Commander's, which is the wire's `by`", () => {
+    expect(taskViewOf(sampleDetail(), sampleTask({ by: { who: "commander" } })).by).toEqual({ who: "commander" });
+  });
+
+  it("draws neither a person's nor Helm's, and none where nobody touched it", () => {
+    expect("by" in taskViewOf(sampleDetail(), sampleTask({ by: { who: "person" } }))).toBe(false);
+    expect("by" in taskViewOf(sampleDetail(), sampleTask({ by: { who: "helm" } }))).toBe(false);
+    expect("by" in taskViewOf(sampleDetail(), sampleTask())).toBe(false);
+  });
+});

@@ -144,6 +144,13 @@ pub enum SessionFact {
     },
     Measured {
         usage: SessionUsage,
+        /// The account's plan windows as this session last read them; empty off a subscription. The
+        /// windows are the account's, so Fleet keeps the newest from any session (`PlanUsage`).
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        plan: Vec<crate::plan_usage::PlanWindow>,
+        /// What fills the context window, estimated by the mod. Fleet keeps the latest.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        context_breakdown: Option<crate::context_breakdown::ContextBreakdown>,
     },
     /// What the terminal runs on: its model, its effort, its permission mode
     /// and the commands it lists. **A field left out is unchanged**, and an
@@ -162,6 +169,18 @@ pub enum SessionFact {
         mod_version: Option<String>,
     },
     TurnCompleted,
+    /// A turn ended on the plan's limit, which resets at `resets_at`. Fleet holds the session
+    /// and wakes it then (`SessionRecord::held_until`).
+    Limited {
+        resets_at: Instant,
+    },
+    /// Files the session wrote, relative to its `cwd`. **Paths only**, and only those under it.
+    /// Fleet reads them for write clashes (`docs/concepts/fleet.md`, *Write clashes*). Since 23.81.
+    Touched {
+        paths: Vec<String>,
+    },
+    /// The session itself wrote a file, not a subagent: the windows it showed are being changed.
+    Wrote,
     Ended {
         reason: String,
     },
@@ -276,6 +295,27 @@ pub struct ShowWindow {
     /// hosted session is the one whose process holds the call, whatever this says.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub session_id: Option<SessionId>,
+    /// Several takes of one change, each a page of its own, which the window swaps between. **When
+    /// present, `url` is the first take's.** Each is `http` or `https` as `url` is.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub variations: Vec<WindowTake>,
+}
+
+/// One take of a change the session shows in its window.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WindowTake {
+    /// What the bar calls it, beside its letter.
+    pub name: String,
+    /// `http` or `https`; anything else refuses the whole call.
+    pub url: String,
+}
+
+impl WindowTake {
+    /// The takes as the window's artifact on the ledger keeps them, one string in its `detail`,
+    /// which holds strings only. Bridge reads it back to reopen the window with its takes.
+    pub fn as_detail(takes: &[WindowTake]) -> String {
+        serde_json::to_string(takes).unwrap_or_default()
+    }
 }
 
 /// `window_closed`: the person closed the window a session showed. Bridge tells it; nothing is
@@ -299,6 +339,8 @@ pub enum WaitingActKind {
     ApprovePr,
     /// Show a command; `target` is the command.
     Run,
+    /// Send the Session a message: go to its box. `target` is the Session's id. Since 23.80.
+    Message,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -363,13 +405,16 @@ pub enum WaitingSource {
     Permission,
     /// Fleet: a question the session asked in its walk window, `ask_in_window`, is unanswered.
     WindowAsk,
+    /// Fleet: another Session's agent started this one and its first message has not been sent.
+    /// The item has no reply, since sending that message is the answer. Since 23.80.
+    FirstMessage,
 }
 
 /// One thing a session is waiting on the person for.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WaitingItem {
     /// Stable across updates: the agent's own, or `ask:<call>`, `walk:<url>`, `perm:<call>`,
-    /// `window_ask:<row>`.
+    /// `window_ask:<row>`, `unsent:<session>`.
     pub id: String,
     pub text: String,
     /// When it began to wait.
@@ -504,6 +549,15 @@ pub struct SessionRecord {
     /// person's next message, by a non-empty `waiting_for`, and by a hosted turn starting again.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub done_since: Option<Instant>,
+    /// The plan's limit stopped this session, and Fleet wakes it with `Continue` a minute after this
+    /// instant, when the limit has reset. Cleared by a turn, a message from the person, the wake
+    /// and the session ending. Absent on a session that is not held.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub held_until: Option<Instant>,
+    /// What fills the session's context window, as `/context` shows it, from the latest report. Absent
+    /// until a mod reports one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub context_breakdown: Option<crate::context_breakdown::ContextBreakdown>,
 }
 
 /// `list_sessions`: the most recently seen first.

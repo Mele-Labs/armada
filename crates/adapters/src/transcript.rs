@@ -27,6 +27,8 @@
 use adapter_traits::{CallDetail, DroneEvent, Speaker};
 use serde::Deserialize;
 
+use crate::acted::{self, Arguments, Body, Said};
+
 /// How much of an unreadable line is carried back.
 ///
 /// Enough to recognise, not enough to be a second copy of the stream in a log.
@@ -92,6 +94,7 @@ pub fn read(line: &str) -> Vec<DroneEvent> {
         Line::RateLimit(event) => vec![DroneEvent::QuotaMoved {
             window: event.rate_limit_info.rate_limit_type,
             status: event.rate_limit_info.status,
+            resets_at: event.rate_limit_info.resets_at,
         }],
         Line::Unnamed => vec![DroneEvent::Unrecognised {
             kind: kind_of(trimmed),
@@ -173,7 +176,7 @@ fn blocks(message: MessageLine, by: Speaker) -> Vec<DroneEvent> {
         .into_iter()
         .filter_map(|block| match block {
             Block::ToolUse { id, name, input } => Some(DroneEvent::Called {
-                detail: detail(&input),
+                detail: detail(&name, &input),
                 tool: name,
                 call: id,
             }),
@@ -224,7 +227,18 @@ fn blocks(message: MessageLine, by: Speaker) -> Vec<DroneEvent> {
 /// **What is deliberately not kept is content.** `Write`'s `content` arrives
 /// as [`LinesIn`], a count taken as it is decoded, so the largest argument in
 /// the stream has nowhere to be held.
-fn detail(input: &ToolInput) -> CallDetail {
+fn detail(name: &str, input: &ToolInput) -> CallDetail {
+    // A Commander's act is named by its figure, before any key the generic
+    // reading below would take from the same call (`job_id`, say).
+    let operation = name.rsplit("__").next().unwrap_or(name);
+    let call = Arguments {
+        task_id: input.task_id.as_ref(),
+        drone_id: input.drone_id.as_ref(),
+        body: input.body.as_ref(),
+    };
+    if let Some(figure) = acted::figure(operation, &call) {
+        return CallDetail::of(&figure);
+    }
     if let Some(file_path) = &input.file_path {
         let path = under_home(file_path);
         return match edited(input) {
@@ -567,6 +581,12 @@ struct ToolInput {
     /// a viewer folds by it; the argument was already on the wire for the
     /// rest, unread until now.
     job_id: Option<String>,
+    /// `restart_task` and `edit_task`: the task, a segment of their path.
+    task_id: Option<Said>,
+    /// `redirect_one_drone`: the Drone, a segment of its path.
+    drone_id: Option<Said>,
+    /// A door call's own fields. Only what [`acted::figure`] reads is kept.
+    body: Option<Body>,
 }
 
 /// How many lines a string argument had, counted by the decoder.
@@ -612,6 +632,8 @@ struct RateLimitInfo {
     status: String,
     #[serde(rename = "rateLimitType", default)]
     rate_limit_type: String,
+    #[serde(rename = "resetsAt", default)]
+    resets_at: Option<i64>,
 }
 
 /// Who a `SendMessage` call went to and what it said, out of the detail
