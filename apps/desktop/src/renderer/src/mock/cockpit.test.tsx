@@ -331,6 +331,21 @@ test("main's red goes to the Job that broke it: 1 opens it, 2 pokes it", async (
   await expect.poll(() => page.getByRole("tab", { name: "Your move" }).query()).toBeNull();
 });
 
+test("a poke on main's red says main is red and what failed, never that a pull request's checks did", async () => {
+  localStorage.removeItem(FILTER);
+  const app = mount("dashboard-needs-you");
+  const redirect = vi.spyOn(app.api, "redirectDrone");
+  await onScreen();
+  await userEvent.keyboard("{Escape}");
+  await reach(/^Main/);
+  await userEvent.keyboard("2");
+  await expect.poll(() => redirect.mock.calls.length).toBe(1);
+  const said = String(redirect.mock.calls[0]![1]);
+  expect(said).toMatch(/^main is red/);
+  expect(said).toContain("fixes main");
+  expect(said).not.toContain("checks failed");
+});
+
 test("a Session's own question shows its options and their lines, never Allow or Deny, and takes a reply in words", async () => {
   localStorage.removeItem(FILTER);
   mount("dashboard-needs-you");
