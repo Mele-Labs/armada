@@ -562,9 +562,11 @@ the exception**: Fleet ends and resumes its process when it moves slots, so
 > waiting for a slot names it.
 > Why: a slot is reused, and reuse must never be what throws work away.
 
-> **Rule.** A lease never moves a branch that exists, here or on `origin`: it
-> checks the branch out at its own tip, and only a name nothing has is cut
-> from the base.
+> **Rule.** A lease never moves a branch that exists, here or on `origin`,
+> away from its work: it checks the branch out at its own tip, and only a name
+> nothing has is cut from the base. **The one move is forward**: the lease
+> fetches the base first, and a branch whose tip the base already holds is
+> fast-forwarded to it, so an agent never has to update a slot it was leased.
 > Why: resetting a branch to the base orphans its commits, and on 13 Oct 2026
 > a lease did exactly that to a pushed branch in a slot whose holder was
 > gone. It survived only because it was pushed.
