@@ -282,6 +282,45 @@
   text-align: start;
 }
 
+/* Who held a stranded slot last: its title leads, and the marks of what Fleet did trail it. */
+.armada-bay__holder {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.armada-bay__holder > .armada-bay__job,
+.armada-bay__who {
+  min-width: 0;
+}
+
+.armada-bay__holder > :nth-child(2) {
+  margin-left: auto;
+}
+
+.armada-bay__who {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--fg-muted);
+}
+
+.armada-bay__who > svg {
+  flex: none;
+}
+
+.armada-bay__who > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.armada-bay__holder .armada-finding__mark {
+  flex: none;
+  color: var(--fg-muted);
+}
+
 .armada-bay__job > span {
   overflow: hidden;
   text-overflow: ellipsis;

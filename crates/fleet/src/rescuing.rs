@@ -1,12 +1,12 @@
-//! A stranded slot rescued: a Scout reads it on a person's press, its Finding
-//! is kept against the slot, and a person then scraps it, stashes it or picks
-//! it up.
+//! A stranded slot rescued: a Scout reads it, its Finding is kept against the
+//! slot, and a person then scraps it, stashes it or picks it up.
 //! `docs/concepts/fleet.md`, *Rescuing a stranded slot*.
 //!
 //! **A Scout reads and Fleet acts.** The Scout has no tool that writes; the
 //! scrap and the stash are `Vcs::rescue_slot`, run on the press that asks, and
 //! a pick up is a stash followed by a proposal.
-//! **Nothing starts on its own**: `rescue_slot` is the only door.
+//! **`rescue_slot` is the only door**, a person's press or `stranding`'s own
+//! call for a slot whose holder is gone; only the press can scrap, stash or pick up.
 
 use std::sync::Arc;
 

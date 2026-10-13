@@ -1,10 +1,11 @@
-import { Anchor, Box, ScanSearch, DoorClosedLocked, DoorOpen, Flame, FolderX, Ghost, KeyRound, LoaderCircle, Snowflake, SquareDashed } from "lucide-react";
+import { Anchor, Box, ScanSearch, DoorClosedLocked, DoorOpen, Flame, FolderX, Ghost, KeyRound, LoaderCircle, Mail, Snowflake, SquareDashed, SquareTerminal, Unplug } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { useContext } from "react";
 import type { WorktreeHeld, WorktreeSlot } from "@armada/protocol";
 import { reclaimable } from "@armada/protocol";
 
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
-import { OwnerChip } from "../OwnerChip/OwnerChip";
+import { ChipOwnership, OwnerChip } from "../OwnerChip/OwnerChip";
 import { PausedMark } from "../PausedMark/PausedMark";
 import { Mark } from "./SlotFinding";
 import { holdsSaid } from "./TileHolds";
@@ -115,6 +116,53 @@ function Holder({ row, onOpenJob }: { row: TileRow; onOpenJob: (jobId: string) =
   return null;
 }
 
+/** A time of day as the limit mark says it: `10:42 AM`, in local time. */
+const clock = (instant: string) => new Date(instant).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+
+/**
+ * Who held a stranded slot last, under its branch: the mark of what it was and
+ * its title, a link where it can still be opened, then what Fleet did about it.
+ * A Job opens from its record, which outlives it; a Session only while it is open.
+ */
+function LastHolder({ slot, onOpenJob }: { slot: WorktreeSlot; onOpenJob: (jobId: string) => void }) {
+  const ownership = useContext(ChipOwnership);
+  const who = slot.stranded?.last_holder;
+  if (who === undefined) return null;
+  const job = who.kind === "job";
+  const kind = job ? "Job" : "Session";
+  const Glyph = job ? Box : SquareTerminal;
+  const opens = job ? () => onOpenJob(who.id) : who.open && ownership !== null ? () => ownership.open(who.id) : undefined;
+  return (
+    <div className="armada-bay__holder">
+      {who.title === undefined ? (
+        <Mark said={kind}>
+          <Glyph size={12} strokeWidth={2} aria-hidden />
+        </Mark>
+      ) : opens === undefined ? (
+        <span className="armada-bay__who">
+          <Glyph size={12} strokeWidth={2} aria-hidden />
+          <span>{who.title}</span>
+        </span>
+      ) : (
+        <button type="button" className="armada-bay__job" onClick={opens}>
+          <Glyph size={12} strokeWidth={2} aria-hidden />
+          <span>{who.title}</span>
+        </button>
+      )}
+      {slot.stranded?.told === undefined ? null : (
+        <Mark said={`Told ${clock(slot.stranded.told)}`}>
+          <Mail size={12} strokeWidth={2} aria-hidden />
+        </Mark>
+      )}
+      {who.open ? null : (
+        <Mark said={job ? "Job ended" : "Session closed"}>
+          <Unplug size={12} strokeWidth={2} aria-hidden />
+        </Mark>
+      )}
+    </div>
+  );
+}
+
 /** The closed mark, beside a held bay's own state. */
 function ClosedMark() {
   return (
@@ -222,7 +270,13 @@ export function PoolTile({
             <span className="armada-bay__branch">{slot?.branch ?? held?.branch}</span>
           </OwnerChip>
         )}
+        {slot === undefined ? null : <LastHolder slot={slot} onOpenJob={onOpenJob} />}
         <div className="armada-bay__foot">
+          {slot?.rescue?.state === "answered" ? (
+            <Mark said="Finding ready">
+              <ScanSearch size={12} strokeWidth={2} aria-hidden />
+            </Mark>
+          ) : null}
           {slot?.rescue?.state === "reading" ? (
             <Mark said="Reading">
               <ScanSearch className="armada-finding__reading" size={12} strokeWidth={2} aria-hidden />

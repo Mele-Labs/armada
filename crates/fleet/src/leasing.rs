@@ -113,6 +113,10 @@ pub(crate) struct PoolSlot {
     pub(crate) stranded: Option<adapter_traits::StrandedWork>,
     /// What a rescue Scout read of it, where one has.
     pub(crate) rescue: Option<store::KeptRescue>,
+    /// Who held it last, where it shows work and the record or the lease names one.
+    pub(crate) last_holder: Option<ipc::SlotLastHolder>,
+    /// When Fleet told that holder to commit, push and release, as an instant.
+    pub(crate) told: Option<String>,
 }
 
 /// A Job's worktree, as the lookup finds it.
@@ -231,7 +235,13 @@ where
     /// so a caller asking for more than the pool reads the store once.
     pub(crate) async fn pool_slots_among(&self, jobs: &[Job]) -> Vec<PoolSlot> {
         let job_of = |id: &str| jobs.iter().find(|job| job.id().as_str() == id);
-        let mut kept = self.store().lock().await.rescues().unwrap_or_default();
+        let (mut kept, strandings) = {
+            let store = self.store().lock().await;
+            (
+                store.rescues().unwrap_or_default(),
+                store.strandings().unwrap_or_default(),
+            )
+        };
         let mut listing: Option<String> = None;
         let mut slots = Vec::new();
         for served in self.repositories().served() {
@@ -258,11 +268,18 @@ where
                                 );
                             }
                             match self.session_holding_pid(pid, listing.as_deref().unwrap_or("")) {
-                                Some(id) => Some(
-                                    self.session_in_ledger(&id)
-                                        .await
-                                        .unwrap_or(SlotSession { id, title: None }),
-                                ),
+                                Some(id) => {
+                                    // Once its process is gone the holder cannot say whose it was.
+                                    let _ = adapters::leasing::note_session(
+                                        std::path::Path::new(&reading.path),
+                                        &id,
+                                    );
+                                    Some(
+                                        self.session_in_ledger(&id)
+                                            .await
+                                            .unwrap_or(SlotSession { id, title: None }),
+                                    )
+                                }
                                 None => None,
                             }
                         }
@@ -272,6 +289,27 @@ where
                 };
                 let job_title = job.map(|job| job.title().as_str().to_string());
                 let job_status = job.map(|job| job.status());
+                let last_holder = match (&stranded, &reading.held) {
+                    (Some(_), SlotHeld::Job(_)) => match (job, &session) {
+                        (Some(job), _) => Some(crate::stranding::job_holder(job)),
+                        (None, Some(held)) => Some(self.session_holder(&held.id).await),
+                        (None, None) => None,
+                    },
+                    (Some(_), SlotHeld::Stranded(_)) => match &reading.last_session {
+                        Some(id) => Some(self.session_holder(id).await),
+                        None => None,
+                    },
+                    _ => None,
+                };
+                let (branch, since) = crate::stranding::key_of(&reading);
+                let told = strandings
+                    .iter()
+                    .find(|one| {
+                        one.manifest_id == manifest
+                            && one.slot == reading.slot
+                            && one.is_of(&branch, &since)
+                    })
+                    .and_then(|one| one.told_at.clone());
                 // **A Finding is of the commit it read.** One whose slot has
                 // moved on, or is no longer stranded, is not shown.
                 let at = kept.iter().position(|one| {
@@ -291,6 +329,8 @@ where
                     job_status,
                     stranded,
                     rescue,
+                    last_holder,
+                    told,
                 });
             }
         }
