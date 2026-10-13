@@ -120,7 +120,8 @@ fn a_drone_the_limit_stops(stays: bool) -> FakeHarness {
     let script = if stays {
         "echo CALLED; echo LIMIT; echo ENDED; sleep 30"
     } else {
-        "echo CALLED; echo LIMIT; echo ENDED"
+        // Read first, so it leaves after it was told, never before (`planted.rs`, `DiedBeforeItWasTold`).
+        "IFS= read -r _; echo CALLED; echo LIMIT; echo ENDED"
     };
     FakeHarness::running("/bin/sh", &["-c", script])
         .reading("CALLED", vec![called()])
