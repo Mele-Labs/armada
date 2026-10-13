@@ -493,6 +493,12 @@ where
             None => None,
         };
         let line = said.mode.map(mode_line);
+        // A pick with words says both: the words go with the pick, never in place of it.
+        let both = match (picked.as_deref(), words) {
+            (Some(pick), Some(words)) => Some(format!("{pick}\n{words}")),
+            (Some(one), None) | (None, Some(one)) => Some(one.to_string()),
+            (None, None) => None,
+        };
         let message = |body: String| SendSessionMessage {
             session_id: said.session_id.clone(),
             text: body,
@@ -510,7 +516,7 @@ where
                             session_id: said.session_id.clone(),
                             call: asked.call.clone(),
                             answer: HelmCallAnswer::AllowOnce,
-                            note: None,
+                            note: picked.as_ref().and(words).map(str::to_string),
                             answers: vec![QuestionAnswer {
                                 question: first.question.clone(),
                                 chosen: vec![chosen.to_string()],
@@ -537,16 +543,12 @@ where
                 let body = if words.is_none() && line.is_none() {
                     format!("Approved: {target}")
                 } else {
-                    reply(&item.text, picked.as_deref().or(words), line)
+                    reply(&item.text, both.as_deref(), line)
                 };
                 self.send_known(terminal.then_some(session), message(body)).await
             }
             WaitingSource::WindowAsk => {
-                let answer = [picked.as_deref(), words, line]
-                    .into_iter()
-                    .flatten()
-                    .collect::<Vec<_>>()
-                    .join("\n");
+                let answer = [both.as_deref(), line].into_iter().flatten().collect::<Vec<_>>().join("\n");
                 if let Some(row) = item.id.strip_prefix(WINDOW_ASK_PREFIX) {
                     self.window_ask_answered(&id, row, answer.clone()).await;
                 }
@@ -554,7 +556,7 @@ where
                 self.send_known(terminal.then_some(session), message(body)).await
             }
             WaitingSource::Agent => {
-                let body = reply(&item.text, picked.as_deref().or(words), line);
+                let body = reply(&item.text, both.as_deref(), line);
                 self.send_known(terminal.then_some(session), message(body)).await
             }
         }

@@ -298,6 +298,28 @@ async fn an_open_walk_window_waits_until_it_is_approved_and_an_agent_item_become
 }
 
 #[tokio::test]
+async fn a_pick_with_words_tells_the_agent_both() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    rig.fleet.waiting_for(None, set(&id, &[("a1", "Run the tests")])).await.unwrap();
+    let mut said = answer(&id, "a1");
+    said.choice = Some(0);
+    said.text = Some("  but only the store ones  ".into());
+    Arc::clone(&rig.fleet).answer_waiting(said).await.unwrap();
+    let last = rig
+        .rows(&id)
+        .await
+        .into_iter()
+        .filter_map(|row| match row {
+            SessionRow::Message { from: SessionVoice::You, text, .. } => Some(text),
+            _ => None,
+        })
+        .last()
+        .unwrap();
+    assert_eq!(last, "Re: Run the tests\nYes\nbut only the store ones");
+}
+
+#[tokio::test]
 async fn the_agents_walk_item_for_a_shown_page_never_adds_a_second_call_even_once_approved() {
     let rig = rig_placing(None);
     let id = rig.start().await;
