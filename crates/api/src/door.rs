@@ -57,6 +57,15 @@ const QUERIES: &[(&str, &[&str])] = &[
     ("validate_mod", &["name"]),
 ];
 
+/// The query parameters `operation`'s route reads, none where it reads none.
+fn queried(operation: &str) -> &'static [&'static str] {
+    QUERIES
+        .iter()
+        .find(|(one, _)| *one == operation)
+        .map(|(_, names)| *names)
+        .unwrap_or(&[])
+}
+
 /// Every tool this door offers: the inventory's `agent_access` column, joined
 /// to the route table.
 ///
@@ -85,11 +94,7 @@ fn shaped<'a>(rows: impl Iterator<Item = &'a Reachable>) -> Vec<Shape> {
             operation: row.operation,
             method: route.map(|route| route.method).unwrap_or("GET"),
             path: route.map(|route| route.path).unwrap_or(""),
-            query: QUERIES
-                .iter()
-                .find(|(operation, _)| *operation == row.operation)
-                .map(|(_, names)| *names)
-                .unwrap_or(&[]),
+            query: queried(row.operation),
         }
     })
     .collect()
@@ -314,7 +319,7 @@ impl<D: Queries> Doorway<D> {
         if let Some(why) = self.elsewhere(call, scope).await {
             return refused_here(call, &why);
         }
-        let path = scoped_path(call, scope);
+        let path = as_an_agent_reads(call, scoped_path(call, scope));
         let request = Request::builder()
             .method(call.method)
             .uri(&path)
@@ -356,6 +361,7 @@ impl<D: Queries> Doorway<D> {
             media_type,
             body,
             whole_at: path,
+            narrowed_by: queried(call.operation),
         }
     }
 }
@@ -429,6 +435,7 @@ fn refused_here(call: &door::Call, why: &str) -> Answer {
         media_type: "text/plain".to_string(),
         body: why.as_bytes().to_vec(),
         whole_at: call.path.clone(),
+        narrowed_by: &[],
     }
 }
 
@@ -448,6 +455,25 @@ fn scoped_path(call: &door::Call, scope: &Scope) -> String {
     format!("{path}?{}", pairs.join("&"))
 }
 
+/// `list_sessions` answers an agent a line a Session and only the live ones: whole, the ledger
+/// is 696 KB against this door's 64 KiB. The view is forced and is not among [`QUERIES`], so an
+/// agent cannot ask for the wide one; the state is a default it can set to `ended`.
+fn as_an_agent_reads(call: &door::Call, path: String) -> String {
+    if call.operation != "list_sessions" {
+        return path;
+    }
+    let (route, query) = path.split_once('?').unwrap_or((&path, ""));
+    let mut pairs: Vec<&str> = query
+        .split('&')
+        .filter(|pair| !pair.is_empty() && !pair.starts_with("view="))
+        .collect();
+    if !pairs.iter().any(|pair| pair.starts_with("state=")) {
+        pairs.push("state=live");
+    }
+    pairs.push("view=summary");
+    format!("{route}?{}", pairs.join("&"))
+}
+
 /// The most a surface answer may weigh before the door stops reading it.
 ///
 /// **Far above the cap the answer is cut to**, so what an agent is told is
@@ -463,6 +489,7 @@ fn unanswerable(call: &door::Call, why: &str) -> Answer {
         media_type: "text/plain".to_string(),
         body: format!("{why}: {} {}", call.method, call.path).into_bytes(),
         whole_at: call.path.clone(),
+        narrowed_by: &[],
     }
 }
 

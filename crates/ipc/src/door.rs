@@ -152,6 +152,10 @@ pub struct Answer {
     /// The route that serves this whole, named in a capped answer so an agent
     /// has somewhere to go for the rest.
     pub whole_at: String,
+    /// The query parameters the tool takes, which an agent can set to be
+    /// answered less. Named in a capped answer, because a route it is told to
+    /// fetch whole is a route it would pull in whole.
+    pub narrowed_by: &'static [&'static str],
 }
 
 /// What the door sends back.
@@ -488,7 +492,7 @@ fn tool(shape: &Shape) -> Value {
     for name in shape.query {
         properties.insert(
             (*name).to_string(),
-            json!({ "type": "string", "description": describe(name) }),
+            json!({ "type": "string", "description": describe_in(shape.operation, name) }),
         );
     }
     if shape.operation == ASKS_A_PERSON {
@@ -531,6 +535,20 @@ fn tool(shape: &Shape) -> Value {
             "additionalProperties": false,
         },
     })
+}
+
+/// What one argument names on one tool, where that tool means something other than the
+/// other routes that take the same name.
+fn describe_in(operation: &str, name: &str) -> String {
+    match (operation, name) {
+        ("list_sessions", "q") => String::from(
+            "Finds a Session by its title, a branch, a pull request number, a Job id or a slot",
+        ),
+        ("list_sessions", "state") => String::from(
+            "`live` (the default) or `ended`. Ended Sessions are never listed unless asked for",
+        ),
+        _ => describe(name),
+    }
 }
 
 /// What one argument names. The three that appear on more than one route are
@@ -599,14 +617,29 @@ fn served(answer: &Answer) -> Value {
     said_as(
         &format!(
             "{}\n\n[cut at {cut} of {} bytes. The whole answer is at `GET {}` on this Fleet's \
-             HTTP surface, on loopback. Ask a narrower question if you can — everything you \
-             pull in stays in this session.]",
+             HTTP surface, on loopback. {} Everything you pull in stays in this session.]",
             &whole[..cut],
             whole.len(),
-            answer.whole_at
+            answer.whole_at,
+            asking_for_less(answer.narrowed_by),
         ),
         failed,
     )
+}
+
+/// How to be answered less: the parameters this tool takes, or the plain advice where it takes none.
+fn asking_for_less(narrowed_by: &[&str]) -> String {
+    match narrowed_by {
+        [] => String::from("Ask a narrower question if you can."),
+        names => format!(
+            "To be answered less, call this tool again with {} set.",
+            names
+                .iter()
+                .map(|name| format!("`{name}`"))
+                .collect::<Vec<_>>()
+                .join(" or ")
+        ),
+    }
 }
 
 fn result(id: CallId, result: Value) -> Value {

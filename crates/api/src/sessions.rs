@@ -201,7 +201,7 @@ pub(crate) async fn all_done<D: Sessions>(
     }
 }
 
-/// `?manifest_id=`, `?q=` and `?state=` on `list_sessions`.
+/// `?manifest_id=`, `?q=`, `?state=` and `?view=` on `list_sessions`.
 #[derive(Deserialize)]
 pub(crate) struct Listing {
     #[serde(default)]
@@ -210,6 +210,9 @@ pub(crate) struct Listing {
     q: Option<String>,
     #[serde(default)]
     state: Option<ipc::SessionState>,
+    /// Absent is the whole record, which Bridge and Pocket read.
+    #[serde(default)]
+    view: ipc::SessionView,
 }
 
 pub(crate) async fn list_sessions<D: Sessions>(
@@ -222,7 +225,14 @@ pub(crate) async fn list_sessions<D: Sessions>(
         .list_sessions(manifest, listing.q, listing.state)
         .await
     {
-        Ok(sessions) => answer(StatusCode::OK, &sessions, served.run_id()),
+        Ok(sessions) => match listing.view {
+            ipc::SessionView::Full => answer(StatusCode::OK, &sessions, served.run_id()),
+            ipc::SessionView::Summary => answer(
+                StatusCode::OK,
+                &ipc::SessionSummaries::of(&sessions),
+                served.run_id(),
+            ),
+        },
         Err(refusal) => refused(refusal),
     }
 }

@@ -203,6 +203,7 @@ mod servers;
 mod session_checks;
 mod session_retro_row;
 mod session_starts;
+mod session_summary;
 mod sessions;
 mod setup;
 /// What a step's harness produced, as a client is told about it.
@@ -482,6 +483,7 @@ pub use session_checks::{
 };
 pub use session_retro_row::{PartialRetroItem, RetroStage};
 pub use session_starts::{ForkThisSession, SessionHeld, SessionLink, StartAnotherSession};
+pub use session_summary::{HeldPullRequest, SessionSummaries, SessionSummary, SessionView, TurnState};
 pub use sessions::{
     AnswerWaiting, Attachment, AttachmentNamed, AttachmentReport, AttachmentState, DismissWaiting,
     ClaimPullRequest, Holder, HolderKind, Owners, Ownership, PullRequestClaimed, RenameSession,
