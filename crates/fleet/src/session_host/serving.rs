@@ -9,10 +9,9 @@ use std::time::Duration;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{HostedSessions, Refusal, Sessions, StoredFile};
-use base64::Engine as _;
 use ipc::{
     AnswerHelmCall, AnswerSessionAsk, CloseSession, GateAnswer, HostedFacts, ManifestId,
-    RunSessionCommand, SendSessionMessage, SentFile, SessionGate, SessionId, SessionMode, SessionRecord, SessionRow,
+    RunSessionCommand, SendSessionMessage, SessionGate, SessionId, SessionMode, SessionRecord, SessionRow,
     SessionSubagent, SessionThread, SessionTurn, SessionVoice, StartSession, TuneSession,
     WireError,
 };
@@ -20,7 +19,8 @@ use store::{AttachmentState, Holder, KeptAttachment, KeptHosting, KeptSession};
 
 use super::address_of;
 use super::process::{Heard, Start};
-use super::rows::{mention_line, new_id, safe_name, UserLine};
+use super::rows::{mention_line, new_id, UserLine};
+use super::uploads::ATTACHMENT_REFUSED;
 use crate::daemon::Fleet;
 use crate::helm::NotAnswerable;
 use crate::repositories::Served;
@@ -33,8 +33,6 @@ const SESSION_CLOSED: &str = "fleet.session_closed";
 pub(super) const SESSION_COMMAND_REFUSED: &str = "fleet.session_command_refused";
 /// A message with neither words nor a file. A 422.
 pub(super) const MESSAGE_EMPTY: &str = "fleet.session_message_empty";
-/// An attachment that would not decode, or is too large. A 422.
-const ATTACHMENT_REFUSED: &str = "fleet.session_attachment_refused";
 /// A reattached session the keeper called busy, and that then says nothing for
 /// this long, missed its turn's end: it goes to Idle.
 const REATTACH_QUIET: Duration = Duration::from_secs(120);
@@ -49,9 +47,6 @@ const SESSION_ANSWER_INCOMPLETE: &str = "fleet.session_answer_incomplete";
 /// How Fleet signs a word it sends a session: a named voice beside the sessions that write to
 /// one, so no new kind of row reaches Bridge.
 pub(crate) const FLEET_NAME: &str = "Fleet";
-
-/// The most one attachment may be, decoded.
-const MOST_AN_ATTACHMENT: usize = 25 * 1024 * 1024;
 
 pub(crate) fn mode_text(mode: SessionMode) -> &'static str {
     match mode {
@@ -424,25 +419,7 @@ where
             .ok_or_else(|| {
                 self.hosted_refusal(ATTACHMENT_REFUSED, "nothing was sent under that id")
             })?;
-        let at = std::fs::read_dir(self.uploads_of(id.as_str()))
-            .ok()
-            .and_then(|entries| {
-                entries.flatten().find(|entry| {
-                    entry
-                        .file_name()
-                        .to_string_lossy()
-                        .starts_with(&format!("{file}-"))
-                })
-            })
-            .ok_or_else(|| {
-                self.hosted_refusal(ATTACHMENT_REFUSED, "that file is no longer kept")
-            })?;
-        let bytes = std::fs::read(at.path())
-            .map_err(|why| self.hosted_fault(ATTACHMENT_REFUSED, &why.to_string()))?;
-        Ok(StoredFile {
-            media_type: sent.media_type,
-            bytes,
-        })
+        self.stored_file(&self.uploads_of(id.as_str()), &file, sent.media_type)
     }
 
     async fn take_held_messages(&self, ask: ipc::TakeHeld) -> Result<ipc::MessagesHeld, Refusal> {
@@ -475,18 +452,6 @@ where
     async fn gate_session_call(&self, gate: SessionGate) -> Result<GateAnswer, Refusal> {
         Ok(self.gated(gate).await)
     }
-}
-
-/// What a message carried, as it was kept.
-pub(crate) struct Kept {
-    pub files: Vec<SentFile>,
-    /// `(media type, base64)` for each picture.
-    pub pictures: Vec<(String, String)>,
-    /// Where each file that is not a picture is kept.
-    pub paths: Vec<String>,
-    /// Where each picture is kept, for a session that is told paths and not
-    /// pictures.
-    pub picture_paths: Vec<String>,
 }
 
 impl<H, V, W> Fleet<H, V, W>
@@ -577,69 +542,6 @@ where
         })
     }
 
-    pub(crate) fn uploads_of(&self, id: &str) -> std::path::PathBuf {
-        std::path::Path::new(&self.host().attachments_dir)
-            .join("sessions")
-            .join(id)
-    }
-
-    /// Store what a message carried, outside every worktree.
-    pub(crate) fn keep_uploads(
-        &self,
-        id: &str,
-        uploads: &[ipc::SessionUpload],
-    ) -> Result<Kept, Refusal> {
-        let mut kept = Kept {
-            files: Vec::new(),
-            pictures: Vec::new(),
-            paths: Vec::new(),
-            picture_paths: Vec::new(),
-        };
-        if uploads.is_empty() {
-            return Ok(kept);
-        }
-        let directory = self.uploads_of(id);
-        std::fs::create_dir_all(&directory)
-            .map_err(|why| self.hosted_fault(ATTACHMENT_REFUSED, &why.to_string()))?;
-        for upload in uploads {
-            let bytes = base64::engine::general_purpose::STANDARD
-                .decode(upload.data.as_bytes())
-                .map_err(|why| {
-                    self.hosted_refusal(
-                        ATTACHMENT_REFUSED,
-                        &format!("`{}` is not base64: {why}", upload.name),
-                    )
-                })?;
-            if bytes.len() > MOST_AN_ATTACHMENT {
-                return Err(self.hosted_refusal(
-                    ATTACHMENT_REFUSED,
-                    &format!(
-                        "`{}` is larger than {} MB",
-                        upload.name,
-                        MOST_AN_ATTACHMENT >> 20
-                    ),
-                ));
-            }
-            let file = format!("f{}", self.row_id(id).replace('-', ""));
-            let path = directory.join(format!("{file}-{}", safe_name(&upload.name)));
-            std::fs::write(&path, &bytes)
-                .map_err(|why| self.hosted_fault(ATTACHMENT_REFUSED, &why.to_string()))?;
-            if upload.media_type.starts_with("image/") {
-                kept.pictures
-                    .push((upload.media_type.clone(), upload.data.clone()));
-                kept.picture_paths.push(path.to_string_lossy().into_owned());
-            } else {
-                kept.paths.push(path.to_string_lossy().into_owned());
-            }
-            kept.files.push(SentFile {
-                id: file,
-                name: upload.name.clone(),
-                media_type: upload.media_type.clone(),
-            });
-        }
-        Ok(kept)
-    }
-
     /// Fleet's own word to a session, started as a turn that wakes it. **Drawn as Fleet's** in a
     /// hosted thread, and held for the mod to submit in a terminal one, whose thread Fleet cannot
     /// write to. `Ok(false)` where there is nobody to tell: the session ended, or a terminal one
@@ -696,7 +598,7 @@ where
                 "a message needs words or something sent with it",
             ));
         }
-        let kept = self.keep_uploads(&id, &sent.attachments)?;
+        let kept = self.keep_uploads(&self.uploads_of(&id), &id, &sent.attachments)?;
         let addressed = self.addressed(&sent.mentions).await?;
         let now = self.instant();
         self.row_put(
@@ -843,7 +745,7 @@ where
         let noted = super::readiness::note_address(&sent.text).map(str::to_string);
         let record = if let Some(session) = terminal {
             let addressed = self.addressed(&sent.mentions).await?;
-            let kept = self.keep_uploads(&id, &sent.attachments)?;
+            let kept = self.keep_uploads(&self.uploads_of(&id), &id, &sent.attachments)?;
             let mut paths = kept.paths;
             paths.extend(kept.picture_paths);
             self.send_to_terminal(&session, sent, addressed, paths)

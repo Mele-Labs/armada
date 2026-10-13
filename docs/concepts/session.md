@@ -504,6 +504,20 @@ Bridge reads every live session from `list_sessions` once per connection and kee
 | A session held for the plan's limit | `held_until` draws `battery-low` in place of the live state mark, on its list row, its Cockpit tile and its header, with the tooltip `Limit reached · resumes 6:40 PM`. Nothing animates. A Job Fleet holds the same way carries it as `paused.until` and draws the same mark beside its status, in place of the pause mark |
 | An ask from the phone | A hosted session's held ask is answered through Pocket, with the same `answer_session_ask`. A terminal session shows there as waiting, and while Fleet holds its question the phone answers it the same way; after the hold it is answered in its terminal. [Pocket](pocket.md) |
 
+## What a message names
+
+A message to a hosted Session can name things with `@` and `#`, sent as `mentions` and kept on its `message` row as `tags`. **Fleet writes the line that tells the agent** (`The person named: ...`), ahead of the words, and the thread keeps the words as typed.
+
+| Tag `kind` | `id` | The agent is told |
+|---|---|---|
+| `session` | The Session's id | Its title, and its address to write to with `SendMessage` where Fleet hosts it |
+| `job` | The Job's id | Its number, title, branch, slot and state, where the tag knows them |
+| `pull_request` | The number | `pull request #219 "title"`, and its address where the tag has one |
+| `issue` | The number | `issue #214 "title"` and its address. A tag's title begins with `#` and the number, and the line drops that so the number is said once |
+| `branch` | The name | The branch |
+
+**`#` at the start of a word offers the repository's open issues and open pull requests**, matched on the number, and reads one number that is neither (a merged pull request, a closed issue) when it is typed whole. The repository is the Session's own. Helm's box offers the same, for the repository its conversation answers for (`helm.md`, *The message box*). `url` on a tag is optional and only the two forge kinds carry it.
+
 ## A Session's Checks
 
 **An `armada check` run in a slot a Session holds is the Session's run.** The CLI keeps no record of its own, so it tells Fleet when the run begins and when it ends with the log (`report_session_check`, `POST /sessions/checks`, 23.75). Fleet places the Session by the slot the directory is in, never by what the call says. A directory no Session holds is a person's own run and is not recorded, and neither is a Fleet that is not running.

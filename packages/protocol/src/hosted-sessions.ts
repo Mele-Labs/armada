@@ -38,14 +38,17 @@ export type StartSession = {
   fork?: { session_id: string; at?: string };
 };
 
-export type TagKind = "session" | "job" | "pull_request" | "branch";
+export type TagKind = "session" | "job" | "pull_request" | "branch" | "issue";
 
 /** What a message names with `@`. Fleet writes the line that tells the agent. */
 export type SessionTag = {
   kind: TagKind;
-  /** A session's id, a Job's id, a pull request's number or a branch's name. */
+  /** A session's id, a Job's id, a pull request's or an issue's number, or a branch's name. */
   id: string;
+  /** An issue's or a pull request's reads `#2214 The title`. */
   title: string;
+  /** The forge's address for an issue or a pull request. Absent for any other kind. */
+  url?: string;
   job?: { number: number; branch: string; slot: number; state: string };
 };
 

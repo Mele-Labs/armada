@@ -85,7 +85,7 @@ pub use pull_request_detail::{
 };
 pub use pull_watch::{PullQueue, WatchedCheck, WatchedPull, WatchedPulls};
 pub use secret::Secret;
-pub use tracker::{NotTracked, OpenIssue, Tracker};
+pub use tracker::{NotTracked, OpenIssue, ReadIssue, Tracker};
 pub use setup::{
     HarnessSetup, Inventory, KindRead, SetupFiles, SetupItem, SetupKind, Unreadable, WhatWasRead,
 };

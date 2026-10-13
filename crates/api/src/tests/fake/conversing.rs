@@ -6,13 +6,13 @@
 use std::sync::Arc;
 
 use ipc::{
-    AskHelm, HelmAsked, HelmClosed, HelmConversation, HelmMessage, HelmSent, HelmSilence, Instant,
-    ManifestId, ReadThought, TellSession, ThoughtKind, ThoughtReading, ThoughtSent, ThoughtTarget,
+    AskHelm, HelmAsked, HelmBoxFacts, HelmClosed, HelmConversation, HelmMessage, HelmSent, HelmSilence, Instant,
+    ManifestId, ReadThought, TellSession, ThoughtKind, ThoughtReading, ThoughtSent, ThoughtTarget, TuneHelm,
 };
 
 use super::FakeDaemon;
 use crate::tests::shapes::run_id;
-use crate::{Conversations, ObservedHelm, Refusal};
+use crate::{Conversations, ObservedHelm, Refusal, StoredFile};
 
 /// The one Manifest the fake serves.
 pub const SERVED_MANIFEST: &str = "armada";
@@ -53,6 +53,7 @@ impl Conversations for FakeDaemon {
             live: self.helm.watch(),
             history: self.helm_thread.lock().expect("not poisoned").clone(),
             skipped: 0,
+            facts: self.helm_facts.lock().expect("not poisoned").clone(),
         })
     }
 
@@ -133,6 +134,8 @@ impl Conversations for FakeDaemon {
         self.commander.offer(ipc::CommanderMessage::Asked(HelmAsked {
             ts: Instant::carried("2026-10-12T09:00:00.000Z"),
             text: String::from(asked.text),
+            files: Vec::new(),
+            tags: Vec::new(),
         }));
         Ok(ipc::CommanderConversation {
             job_id: job.id(),
@@ -147,15 +150,61 @@ impl Conversations for FakeDaemon {
         manifest_id: Option<ManifestId>,
     ) -> Result<HelmConversation, Refusal> {
         let manifest_id = self.serving(manifest_id)?;
+        if asked.text.trim().is_empty() && asked.attachments.is_empty() && asked.mentions.is_empty() {
+            return Err(Refusal::Unacceptable(ipc::WireError::raised(
+                "fleet.helm_message_empty",
+                "A message to Helm needs words or something sent with it",
+                run_id(),
+            )));
+        }
         self.helm.offer(HelmMessage::Asked(HelmAsked {
             ts: Instant::carried("2026-09-13T09:00:00.000Z"),
-            text: String::from(asked.text),
+            text: asked.text,
+            files: Vec::new(),
+            tags: asked.mentions,
         }));
         Ok(HelmConversation {
             manifest_id,
             replying: true,
             resumes: false,
         })
+    }
+
+    /// Keeps the choice and offers it, as Fleet does. Which efforts are acceptable is Fleet's.
+    async fn tune_helm(
+        &self,
+        tuned: TuneHelm,
+        manifest_id: Option<ManifestId>,
+    ) -> Result<HelmBoxFacts, Refusal> {
+        self.serving(manifest_id)?;
+        let facts = HelmBoxFacts {
+            model: tuned.model,
+            effort: tuned.effort,
+            commands: Vec::new(),
+        };
+        *self.helm_facts.lock().expect("not poisoned") = facts.clone();
+        self.helm.offer(HelmMessage::Facts(facts.clone()));
+        Ok(facts)
+    }
+
+    /// One file, `f1`, which was sent as a picture. Any other id is none.
+    async fn get_helm_file(
+        &self,
+        manifest_id: Option<ManifestId>,
+        file: String,
+    ) -> Result<StoredFile, Refusal> {
+        self.serving(manifest_id)?;
+        match file.as_str() {
+            "f1" => Ok(StoredFile {
+                media_type: String::from("image/png"),
+                bytes: vec![0x89, b'P', b'N', b'G'],
+            }),
+            _ => Err(Refusal::Unacceptable(ipc::WireError::raised(
+                "fleet.session_attachment_refused",
+                "nothing was sent under that id",
+                run_id(),
+            ))),
+        }
     }
 
     /// **A question, unless the words ask to be routed**: then a thought for the one Session the
@@ -185,6 +234,8 @@ impl Conversations for FakeDaemon {
             ts: Instant::carried("2026-09-13T09:00:00.000Z"),
             text: sent.text,
             target: sent.target,
+            files: Vec::new(),
+            tags: sent.mentions,
         }));
         Ok(HelmConversation {
             manifest_id,
@@ -213,6 +264,8 @@ impl Conversations for FakeDaemon {
             ts: Instant::carried("2026-09-13T09:00:00.000Z"),
             text: tell.text,
             target: target.clone(),
+            files: Vec::new(),
+            tags: Vec::new(),
         }));
         Ok(target)
     }
