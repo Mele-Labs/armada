@@ -18,7 +18,6 @@ import {
   PilotExits,
   RetroPress,
   Tooltip,
-  Prose,
   PullRequestActs,
   PullRequestCard,
   Sheet,
@@ -54,10 +53,11 @@ import { sessionOf } from "@armada/jobs";
 import { askToOpenRetro } from "./open-retro";
 import { readRetro } from "./commands";
 import { ArtifactBody, ARTIFACT_GLYPH, isAddress } from "./session-artifact";
-import { forkAtPick, threadRowsFrom, threadRowsOf, upTo } from "./session-thread-rows";
+import { forkAtPick, threadRowsOf, upTo } from "./session-thread-rows";
+import { SubagentThread } from "./session-subagent";
 import { helmOfferedOf } from "@armada/screens/src/copy";
 import { attachmentsOf, isBlank, ownerOf, sessionsMatching } from "@armada/screens/src/draft/sessions";
-import type { ChipRef, DrawnSketch, PullRequestAct, Session, SessionAnswer, SessionAttachment, SessionMode, SessionsDraft, SessionTag, SubagentThread as Subagent } from "@armada/screens/src/draft/sessions";
+import type { ChipRef, DrawnSketch, PullRequestAct, Session, SessionAnswer, SessionAttachment, SessionMode, SessionsDraft, SessionTag } from "@armada/screens/src/draft/sessions";
 import {
   isDrawn,
   nextPictureId,
@@ -438,67 +438,6 @@ const readingOf = (session: Session, open: Reading | undefined): SessionAttachme
           ? one.kind === "pull_request" && one.number === open.number
           : one.kind === open.kind && "id" in one && one.id === open.id,
       );
-
-/** How often a running subagent's transcript is read again. */
-const SUBAGENT_EVERY_MS = 1500;
-
-/** How many subagent threads are kept past the sheet that read them. */
-const SUBAGENTS_KEPT = 20;
-
-/** The last thread read for each subagent, so a sheet opened again draws it while the next read is out. */
-const subagentsRead = new Map<string, Subagent>();
-
-const keepSubagent = (key: string, thread: Subagent): void => {
-  subagentsRead.delete(key);
-  subagentsRead.set(key, thread);
-  for (const old of [...subagentsRead.keys()].slice(0, -SUBAGENTS_KEPT)) subagentsRead.delete(old);
-};
-
-/**
- * A subagent's own thread, drawn as the Session's is. Read again while it runs; the report it ends
- * on is the last message of the thread, and stands alone only where the thread could not be read.
- */
-function SubagentThread({
-  sessionId,
-  one,
-  read,
-}: {
-  sessionId: string;
-  one: Extract<SessionAttachment, { kind: "subagent" }>;
-  read: SessionsDraft["subagent"];
-}) {
-  const key = `${sessionId}/${one.id}`;
-  const [thread, setThread] = useState<Subagent | undefined>(() => subagentsRead.get(key));
-  const running = one.state === "running";
-  useEffect(() => {
-    setThread(subagentsRead.get(key));
-    if (read === undefined) return;
-    let live = true;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const look = async () => {
-      const got = await read(sessionId, one.id);
-      if (!live) return;
-      if (got !== undefined) {
-        keepSubagent(key, got);
-        setThread(got);
-      }
-      if (running && got?.finished !== true) timer = setTimeout(() => void look(), SUBAGENT_EVERY_MS);
-    };
-    void look();
-    return () => {
-      live = false;
-      if (timer !== undefined) clearTimeout(timer);
-    };
-  }, [read, sessionId, one.id, key, running]);
-  const rows = useBackfilled(thread === undefined ? NO_ROWS : threadRowsFrom(thread.rows), key);
-  const report = one.report ?? thread?.report;
-  if (rows.length === 0) return report === undefined ? null : <Prose text={report} />;
-  return (
-    <div className="armada-session-reading" data-thread>
-      <SessionThread sessionId={`${sessionId}/${one.id}`} rows={rows} onAnswer={() => undefined} onOpenSession={() => undefined} />
-    </div>
-  );
-}
 
 function ReadingSheet({
   sessionId,

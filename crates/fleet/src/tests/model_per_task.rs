@@ -144,6 +144,7 @@ async fn each_tasks_drone_runs_on_its_resolved_model_and_its_row_says_which() {
         (&job).into(),
         "T2".to_string(),
         edit(&format!(r#"{{"model":"{OFFERED}"}}"#)),
+        api::Steerer::Person,
     )
     .await
     .expect("an open task takes an edit before the gate");
@@ -207,6 +208,7 @@ async fn an_edit_is_refused_on_a_model_not_offered_a_working_task_and_an_empty_b
             (&job).into(),
             task.to_string(),
             edit(body),
+            api::Steerer::Person,
         )
     };
     let refused = send("T1", r#"{"title":"Again","model":"a-model-nobody-offers"}"#)

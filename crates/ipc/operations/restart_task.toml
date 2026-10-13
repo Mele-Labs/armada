@@ -12,5 +12,7 @@ notes = """
 
 **The task reopens, then `restart_step`'s own act runs**, so every refusal that act has is this one's too, and a refusal puts the task back to failed as it was. The Drone spawned is put on that task alone; the group's gate waits for it to hand in again and then runs over the whole group. A person's restart does not reset the group's retry budget, as `restart_step` does not reset a step's.
 
+**Signed as the caller the daemon placed** (`#2168`): the reopening is kept under that caller's hand and the restart's move is signed as that caller, `human`, `helm` or `commander`, never as the body says. The refusals are the same for all three.
+
 `agent_access` is `Helm only`, `restart_step`'s own reason.
 """
