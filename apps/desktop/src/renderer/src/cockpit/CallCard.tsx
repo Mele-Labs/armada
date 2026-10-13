@@ -215,7 +215,8 @@ export function CallCard({
     canSend,
     send,
     ...(long ? { expand: () => setWhole((was) => !was) } : {}),
-    ...(sleep === undefined && !jobBoxed ? {} : { change: openChange }),
+    // t reaches the Session's own box too, which is always there.
+    ...(sleep === undefined && !jobBoxed && !composed ? {} : { change: openChange }),
     // A key cannot dismiss for good by itself: the cover lifts first.
     dismiss: cover.press,
   };
@@ -416,6 +417,11 @@ export function CallCard({
             </span>
           )}
         </AskQuestion>
+        )}
+        {answer.target === undefined ? null : (
+          <Tooltip label={answer.target} asChild>
+            <code className="armada-callcard__target">{answer.target}</code>
+          </Tooltip>
         )}
         {sleep === undefined || item.context === undefined ? null : (
           <section aria-label={item.contextHead ?? "Chose"}>

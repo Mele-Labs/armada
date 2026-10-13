@@ -41,7 +41,8 @@ export function Keycap({
       </Button>
     </span>
   );
-  return says === undefined ? cap : <Tooltip label={says} asChild>{cap}</Tooltip>;
+  // The cap clips a long label to two lines, so the whole of it is on hover.
+  return <Tooltip label={says ?? label} asChild>{cap}</Tooltip>;
 }
 
 /**

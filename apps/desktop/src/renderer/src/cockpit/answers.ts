@@ -41,6 +41,8 @@ export type Attaching = { candidates: readonly Owner[]; choose: (owner: Owner) =
 export type Answering = {
   /** The question asked now: a Plan decision's, or the call's own fact. */
   ask: string;
+  /** What an errand's act names, a command or a page: drawn whole on the card, not on the key. */
+  target?: string;
   answers: readonly Answer[];
   /** Which answer is picked, where one is. A lone answer starts picked. */
   picked: number | undefined;
@@ -299,8 +301,9 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
       const act = given.act;
       if (act?.kind === "run") {
         // A slash command is the session's own: it is told, as a reply. Anything else he runs himself.
-        if (act.target.startsWith("/")) return [oneTap(`Run ${act.target}`, () => sendWaiting(`Run ${act.target}`, { text: act.target }))];
-        return [oneTap(`Copy ${act.target}`, () => copy(act.target))];
+        // The key says the verb; the command itself is on the card, whole and in its own case.
+        if (act.target.startsWith("/")) return [oneTap("Run", () => sendWaiting("Run", { text: act.target }))];
+        return [oneTap("Copy", () => copy(act.target))];
       }
       if (act?.kind === "approve_pr") {
         const number = act.target.replace(/^#/, "");
@@ -369,6 +372,7 @@ export function useAnswering(item: Item, hosts: Hosts, state: BridgeState, finis
 
   return {
     ask: decision?.question ?? item.fact,
+    ...(waiting?.item.act?.kind === "run" || waiting?.item.act?.kind === "walk" ? { target: waiting.item.act.target } : {}),
     answers,
     picked: chosen,
     pick,

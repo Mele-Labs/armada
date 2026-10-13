@@ -513,7 +513,10 @@ button.armada-metro__stop:hover, button.armada-metro__stop:focus-visible { outli
 }
 .armada-keycap > .armada-button[data-variant]:active:not(:disabled) { transform: translateY(calc(var(--border-width) * 3)); border-bottom-width: calc(var(--border-width) * 2); }
 .armada-keycap .armada-kbd { flex: none; min-width: var(--space-6); height: var(--space-6); margin: 0; font-size: var(--text-sm); }
-.armada-keycap__verb { min-width: 0; text-align: left; }
+.armada-keycap__verb { min-width: 0; text-align: left; overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+
+/* What an errand's act names, one line in its own case: selectable, and whole on hover where it is cut. */
+.armada-callcard__target { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; user-select: text; padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); background: var(--bg-sunken); font-family: var(--font-mono); font-size: var(--text-xs); line-height: var(--leading-xs); color: var(--fg-default); }
 
 /* The cover: down it is a dashed outline of the key; lifted, the key shows in the failed hue. */
 .armada-keycap[data-cover] > .armada-button[data-variant] { border-style: dashed; background: transparent; color: var(--fg-muted); }
