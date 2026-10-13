@@ -559,7 +559,8 @@ button.armada-metro__stop:hover, button.armada-metro__stop:focus-visible { outli
 
 /* With consoles, the row under the card is only for the glass too narrow to hold them. */
 .armada-callcard__acts[data-consoled] { display: none; }
-/* armada-allow-off-contract: a container condition cannot read a custom property, same as @media. It reads the glass, not the window, so it is not --layout-breakpoint by name. */
+/* armada-allow-off-contract: a container condition cannot read a custom property, same as @media. It reads the glass, not the window.
+   docs/contracts/design-system.md */
 @container scrim (max-width: 1100px) {
   .armada-stack[data-consoled] { display: block; width: min(100%, calc(var(--space-12) * 14)); }
   .armada-console--right { display: none; }
