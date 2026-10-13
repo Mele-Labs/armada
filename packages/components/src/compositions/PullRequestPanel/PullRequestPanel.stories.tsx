@@ -62,7 +62,7 @@ export const WithADescription: Story = {
   },
 };
 
-/** The forge's checks failed: the failing plate names them, and Send back tells the Session. */
+/** The forge's checks failed: the failing plate names them, and Notify Session tells the Session. */
 export const ChecksFailed: Story = {
   args: { checks: { state: "failed", failing: ["test · bridge", "verify-foundations"] }, onSendBack: fn() },
 };

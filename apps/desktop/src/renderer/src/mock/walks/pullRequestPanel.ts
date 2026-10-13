@@ -31,8 +31,8 @@ function steps(narrow: boolean): Step[] {
     { press: close(ready), say: "Back to the Session" },
     ...row("Open Pull request #2213", "The third failed its checks"),
     { look: region("Failing checks"), say: "A plate names the checks that failed" },
-    { press: inside(failed, button("Send back to Session")), say: "The Session is told which failed" },
-    { look: inside(failed, button("Sent back")), say: "It is asked once for these checks" },
+    { press: inside(region("Failing checks"), button("Notify Session")), say: "The Session is told which failed" },
+    { look: inside(region("Failing checks"), button("Notified")), say: "It is asked once for these checks" },
     { press: close(failed), say: "Back to the Session" },
   ];
 }

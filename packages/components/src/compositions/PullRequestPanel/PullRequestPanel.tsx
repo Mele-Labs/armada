@@ -86,9 +86,8 @@ export function PullRequestPanel({
   children,
 }: PullRequestPanelProps) {
   const pill = PILL[state === "merged" ? "merged" : queued ? "queued" : state];
-  const plates = <PullRequestPlates state={state} checks={checks} auto={auto} queued={queued} {...(place === undefined ? {} : { place })} onOpenPullRequest={onOpenLink} />;
+  const plates = <PullRequestPlates state={state} checks={checks} auto={auto} queued={queued} {...(place === undefined ? {} : { place })} onOpenPullRequest={onOpenLink} {...(onSendBack === undefined ? {} : { onSendBack })} sentBack={sentBack} />;
   const description = body?.trim() ?? "";
-  const sendBack = onSendBack !== undefined && checks.state === "failed" && state !== "merged";
   return (
     <Sheet
       kind="pull-request"
@@ -114,13 +113,6 @@ export function PullRequestPanel({
           </Tooltip>
         </div>
         <div className="armada-pr-panel__acts" role="group" aria-label="Acts">
-          {sendBack ? (
-            <Tooltip label="Tells the Session which checks failed">
-              <Button size="sm" variant="primary" disabled={sentBack} onClick={onSendBack}>
-                {sentBack ? "Sent back" : "Send back to Session"}
-              </Button>
-            </Tooltip>
-          ) : null}
           <PullRequestActs state={state} checks={checks.state} auto={auto} queued={queued} {...(pending === undefined ? {} : { pending })} reviewed={reviewed} onAct={onAct} />
           <span className="armada-pr-panel__open">
             <Tooltip label="Open in browser">

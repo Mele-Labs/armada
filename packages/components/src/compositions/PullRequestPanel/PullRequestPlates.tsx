@@ -2,6 +2,7 @@ import type { LucideIcon } from "lucide-react";
 import { CircleCheck, CircleX, GitMerge, GitPullRequest, LoaderCircle } from "lucide-react";
 
 import { LAND_STATE } from "../../generated/vocabulary";
+import { Button } from "../../primitives/Button/Button";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { MergeLinePlace, type PlaceRow } from "../MergeLine/MergeLine";
 
@@ -20,6 +21,10 @@ export type PullRequestPlatesProps = {
   /** The merge line the pull request is in, its own row marked current. */
   place?: readonly PlaceRow[];
   onOpenPullRequest: (address: string) => void;
+  /** Tells the Session that holds it which checks failed. Absent draws no act. */
+  onSendBack?: () => void;
+  /** The Session has been told, for these failing checks. */
+  sentBack?: boolean;
 };
 
 type Tone = "running" | "success" | "failed" | "neutral";
@@ -49,7 +54,7 @@ function standing(props: PullRequestPlatesProps, at: number | undefined): { what
 }
 
 export function PullRequestPlates(props: PullRequestPlatesProps) {
-  const { checks, auto, state, place, onOpenPullRequest } = props;
+  const { checks, auto, state, place, onOpenPullRequest, onSendBack, sentBack = false } = props;
   const at = place?.find((row) => row.current === true)?.place;
   const { what, Glyph, tone } = standing(props, at);
   const mark = CHECKS[checks.state];
@@ -105,6 +110,13 @@ export function PullRequestPlates(props: PullRequestPlatesProps) {
               </li>
             ))}
           </ul>
+          {onSendBack === undefined ? null : (
+            <Tooltip label="Tells the Session which checks failed">
+              <Button size="sm" variant="primary" disabled={sentBack} onClick={onSendBack}>
+                {sentBack ? "Notified" : "Notify Session"}
+              </Button>
+            </Tooltip>
+          )}
         </section>
       )}
     </>
