@@ -854,7 +854,10 @@ where
             self.walk_ended(&id, &url).await;
         }
         // The person spoke, so the agent's word that nothing was left no longer stands.
-        if self.done_cleared(&id).await {
+        let done = self.done_cleared(&id).await;
+        // And the person has taken the session back from the limit: Fleet does not wake it as well.
+        let limited = self.limit_cleared(&id).await;
+        if done || limited {
             return self.published_hosted(&id).await;
         }
         Ok(record)

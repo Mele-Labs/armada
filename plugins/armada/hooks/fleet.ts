@@ -51,4 +51,5 @@ export type Fact =
       mod_version?: string
     }
   | { kind: 'turn_completed' }
+  | { kind: 'limited'; resets_at: string }
   | { kind: 'ended'; reason: string }

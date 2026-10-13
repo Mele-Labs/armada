@@ -148,6 +148,7 @@ mod overlap;
 mod overruling;
 mod parked_at_the_end;
 mod limit_hold;
+mod session_limit;
 mod pausing;
 mod paying;
 mod peer;

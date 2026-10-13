@@ -150,6 +150,7 @@ where
             DroneEvent::Started { .. } => {
                 // A turn begun again is work the agent had said was over.
                 self.done_cleared(id).await;
+                self.limit_cleared(id).await;
                 {
                     let mut state = runtime.state();
                     state.last_active = std::time::Instant::now();

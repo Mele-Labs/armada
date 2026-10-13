@@ -27,6 +27,8 @@ pub(crate) struct LedgerReads {
     held: Vec<KeptAttachment>,
     hosting: Option<store::KeptHosting>,
     waiting: WaitingReads,
+    /// When the limit the session hit resets, while it is held for one.
+    limited: Option<String>,
 }
 
 /// A report that names nothing it can be kept against. A 422.
@@ -155,6 +157,7 @@ where
                 None
             },
             waiting: waiting_reads(store, session).map_err(fault)?,
+            limited: store.session_limit(&session.id).map_err(fault)?,
         })
     }
 
@@ -202,6 +205,7 @@ where
             .map(|hosting| self.hosted_facts_of(&session.id, hosting));
         if session.state == store::SessionState::Live {
             record.done_since = reads.waiting.done.as_deref().map(wire_instant);
+            record.held_until = reads.limited.as_deref().map(wire_instant);
         }
         record.waiting_for = self.waiting_from(reads.waiting, session, &record.attachments);
         record
@@ -436,7 +440,14 @@ where
             }
             SessionFact::TurnCompleted => {
                 session.last_turn_at = Some(now.clone());
+                // A turn taken since the limit was hit: the wake is not owed.
+                store.clear_session_limit(&id).map_err(fault)?;
                 changed = true;
+            }
+            SessionFact::Limited { resets_at } => {
+                changed |= store
+                    .keep_session_limit(&id, resets_at.as_str())
+                    .map_err(fault)?;
             }
             // Fleet ends a session it hosts, by `close_session`: the harness in
             // it going away is a process ending, and the next message resumes.
@@ -458,6 +469,7 @@ where
                         .and_then(|one| Some((one.manifest_id, one.target.parse().ok()?)));
                 }
                 session.end_reason = Some(if asked { String::from("closed") } else { reason });
+                store.clear_session_limit(&id).map_err(fault)?;
                 store.give_back(&holder, None, &now).map_err(fault)?;
             }
         }
@@ -842,5 +854,6 @@ fn session_wire(session: &KeptSession, held: &[KeptAttachment]) -> SessionRecord
         mod_out_of_date: false,
         waiting_for: Vec::new(),
         done_since: None,
+        held_until: None,
     }
 }

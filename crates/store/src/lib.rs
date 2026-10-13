@@ -68,6 +68,7 @@ mod helm_sessions;
 mod hosted_sessions;
 mod session_checks;
 mod issue_writeback;
+mod session_limit;
 mod session_waiting;
 mod sleep_night;
 /// A repository's Autopilot and what it picked. #2092.

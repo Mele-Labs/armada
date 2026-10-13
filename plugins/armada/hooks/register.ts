@@ -579,6 +579,16 @@ async function measured(
   say($, id, plan.length === 0 ? { kind: 'measured', usage } : { kind: 'measured', usage, plan })
 }
 
+/**
+ * A turn ended on the plan's limit. Fleet is told when the window that is full opens again, and
+ * wakes the session with `Continue` then; no window at or near full leaves nothing to wake it at.
+ */
+async function limited($: Dollar): Promise<void> {
+  const [id] = await current($)
+  const resets = spentUntil((await $.session.usage()).rateLimits)
+  if (resets !== undefined) say($, id, { kind: 'limited', resets_at: resets })
+}
+
 async function titled($: Dollar, prompt: string): Promise<void> {
   const [id, one] = await current($)
   const title = one.title === undefined ? titleOf(prompt) : undefined
@@ -765,9 +775,17 @@ export const register: Register = on => {
     return out
   })
 
+  // A turn that died on an API error finished nothing, and Fleet reads a finished turn as the end
+  // of a hold for the limit, so the failed one is not told.
+  on('classic.StopFailure', async ($, e, next) => {
+    const out = await next(e)
+    if (e.error === 'rate_limit' && !(await $.env.get('ARMADA_DRONE'))) void limited($).catch(() => undefined)
+    return out
+  })
+
   on('turn.complete', async ($, e, next) => {
     const out = await next(e)
-    if (e.agentId === undefined) {
+    if (e.agentId === undefined && e.reason !== 'error') {
       void current($)
         .then(([id]) => say($, id, { kind: 'turn_completed' }))
         .catch(() => undefined)

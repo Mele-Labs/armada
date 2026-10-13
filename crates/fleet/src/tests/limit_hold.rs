@@ -168,8 +168,8 @@ async fn a_held_job_is_parked_not_failed(stays: bool) {
     assert_eq!(pause.by, core_model::PausedBy::Fleet);
     assert_eq!(
         pause.until.as_ref().map(Timestamp::as_str),
-        Some("2026-09-02T05:01:00.000Z"),
-        "the reset and a minute more"
+        Some("2026-09-02T05:00:00.000Z"),
+        "the reset itself, which admission waits a minute past"
     );
     assert_eq!(record.worktree_slot(), None, "the slot is given back");
     let step = record.step(&StepId::new("implement")).expect("the step");

@@ -214,6 +214,7 @@ pub mod overruling;
 /// Evidence a restart found still waiting for the gate, ruled on at boot. #796.
 mod pausing;
 mod limit_hold;
+mod session_limit;
 pub mod peer;
 /// What a working Drone is told about other Jobs writing where it writes. #998.
 pub mod peers;

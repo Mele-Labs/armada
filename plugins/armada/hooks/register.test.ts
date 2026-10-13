@@ -12,7 +12,7 @@ type Posted = { url: string; body: any }
 
 function world(
   on: On,
-  options: { running?: () => boolean; slowReports?: boolean; heldGate?: Promise<void>; held?: string[]; heldCommands?: { command: string; args: string }[]; heldEnd?: boolean; model?: () => string; onCommand?: () => void; transcript?: string; env?: Record<string, string>; pullRequest?: string; polls?: (string | Promise<string> | Error)[]; asks?: string } = {},
+  options: { running?: () => boolean; slowReports?: boolean; heldGate?: Promise<void>; held?: string[]; heldCommands?: { command: string; args: string }[]; heldEnd?: boolean; model?: () => string; onCommand?: () => void; transcript?: string; env?: Record<string, string>; pullRequest?: string; polls?: (string | Promise<string> | Error)[]; asks?: string; limits?: { kind: string; percentUsed: number; resetsAt?: string }[] } = {},
 ) {
   const running = options.running ?? (() => true)
   const posts: Posted[] = []
@@ -91,6 +91,10 @@ function world(
   })
   on('turn.complete', () => ({ text: '' }))
   on('session.measure', (_$, e) => ({ changed: e.changed }))
+  on('classic.StopFailure', () => ({}))
+  on('session.usage', () => ({
+    value: { startedAt: 0, context: { window: 200_000 }, rateLimits: options.limits ?? [] },
+  }))
   on('prompt.context', (_$, e) => ({ blocks: e.blocks }))
   on('classic.SessionStart', () => ({}))
   return { posts, attempts, clock, submitted, asked, ran, questions, order }
@@ -716,4 +720,42 @@ test('a measurement off a subscription names no plan', async ($, on) => {
   const measured = facts(posts).find(fact => fact.kind === 'measured')
   expect(measured).toBeDefined()
   expect('plan' in measured).toBe(false)
+})
+
+test('a turn that failed on the plan limit tells Fleet when the full window opens, and is not a finished turn', async ($, on) => {
+  const { posts, clock } = world(on, {
+    limits: [
+      { kind: 'five_hour', percentUsed: 100, resetsAt: '2026-10-12T22:40:00Z' },
+      { kind: 'seven_day', percentUsed: 30, resetsAt: '2026-10-17T09:00:00Z' },
+    ],
+  })
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await $.turn.complete({ answer: '', durationMs: 1, isAborted: false, turnId: 't1', reason: 'error' })
+  await $.classic.StopFailure({ error: 'rate_limit' })
+  await clock.settle()
+
+  expect(facts(posts)).toContainEqual({ kind: 'limited', resets_at: '2026-10-12T22:40:00.000Z' })
+  expect(kinds(posts)).not.toContain('turn_completed')
+})
+
+test('a failure that is not the plan limit, or a limit no window shows full, is not told', async ($, on) => {
+  const { posts, clock } = world(on, { limits: [{ kind: 'five_hour', percentUsed: 60, resetsAt: '2026-10-12T22:40:00Z' }] })
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await $.classic.StopFailure({ error: 'overloaded' })
+  await $.classic.StopFailure({ error: 'rate_limit' })
+  await clock.settle()
+
+  expect(kinds(posts)).not.toContain('limited')
+})
+
+test('a Drone that fails on the plan limit tells Fleet nothing', async ($, on) => {
+  const { posts, clock } = world(on, {
+    env: { ARMADA_DRONE: '1' },
+    limits: [{ kind: 'five_hour', percentUsed: 100, resetsAt: '2026-10-12T22:40:00Z' }],
+  })
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await $.classic.StopFailure({ error: 'rate_limit' })
+  await clock.settle()
+
+  expect(posts).toEqual([])
 })

@@ -18,14 +18,15 @@ use crate::leasing::pool_of;
 use crate::working::{StoodDown, Working};
 
 /// How long past the reset a held Job waits, so the window is surely open when its Drone starts.
-const MARGIN_SECS: i64 = 60;
+const MARGIN_MILLIS: i64 = 60_000;
 
 const SAID: &str =
     "the plan's limit stopped the Drone; the Job waits for it to reset and its slot is given back";
 
-/// The instant a Job held for a limit resetting at `reset` (unix seconds) may start again.
-pub(crate) fn resumes_at(reset: i64) -> Timestamp {
-    Timestamp::from_rfc3339(rfc3339_utc((reset + MARGIN_SECS) * 1000))
+/// The instant a limit resetting at `reset` (unix seconds) opens. The marker holds this, so Bridge
+/// draws the reset itself; admission waits [`MARGIN_MILLIS`] past it.
+pub(crate) fn reset_at(reset: i64) -> Timestamp {
+    Timestamp::from_rfc3339(rfc3339_utc(reset * 1000))
 }
 
 impl<H, V, W> Fleet<H, V, W>
@@ -57,7 +58,7 @@ where
             job,
             JobStatus::Running,
             PausedBy::Fleet,
-            Some(resumes_at(reset)),
+            Some(reset_at(reset)),
             slot,
             &pool,
             SAID,
@@ -118,6 +119,6 @@ where
         ) else {
             return false;
         };
-        now < until
+        now < until + MARGIN_MILLIS
     }
 }

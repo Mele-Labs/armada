@@ -83,6 +83,12 @@ export type SessionRecord = {
    * or has been given work since: the person's message, a non-empty `waiting_for`, a hosted turn starting.
    */
   done_since?: string;
+  /**
+   * The plan's limit stopped this session, and Fleet wakes it with `Continue` a minute after this
+   * instant, when the limit has reset. Absent when it is not held: a turn, a message from the person,
+   * the wake and the session ending all let it go.
+   */
+  held_until?: string;
 };
 
 /** What a press on a waiting item does. `target` is an address, a call, a pull request number or a command. */
@@ -239,6 +245,8 @@ export type SessionFact =
     }
   | { kind: "measured"; usage: SessionUsage; plan?: PlanWindow[] }
   | { kind: "turn_completed" }
+  /** A turn ended on the plan's limit, which resets at `resets_at`. Fleet wakes the session then. */
+  | { kind: "limited"; resets_at: string }
   | { kind: "ended"; reason: string };
 
 export type SessionReport = {

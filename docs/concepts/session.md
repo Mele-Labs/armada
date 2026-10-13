@@ -41,9 +41,10 @@ The harness sends Fleet facts in Armada's own shape and nothing past the adapter
 | `moved` | `cwd` | Re-resolves; a slot the session left is given back |
 | `attached` | `attachment`: `kind`, `target`, `detail?` | Takes it; `branch` and `slot` replace the one held |
 | `settled` | `attachment`: `kind`, `target`, `state` | Moves it to `spent` or `given_back` |
-| `measured` | `usage`: `context_tokens?`, `context_window?`, `cost_micros?` | Keeps what was reported |
+| `measured` | `usage`: `context_tokens?`, `context_window?`, `cost_micros?`; `plan?`: the plan's windows | Keeps what was reported. The windows are the account's, so Fleet keeps the newest from any session as `get_plan_usage` (`machine.md`, *Quota*) and keeps nothing of them on the session |
 | `tuned` | `model?`, `effort?`, `mode?`, `commands?`, `mod_version?` | Held in memory as the terminal's `terminal` facts: model, effort, mode and the commands it lists |
-| `turn_completed` | nothing | Stamps the last turn |
+| `turn_completed` | nothing | Stamps the last turn, and lets go a hold for the plan's limit. The mod does not tell a turn that died on an API error |
+| `limited` | `resets_at` | Holds the session until the plan's limit resets (*A session that hit the plan's limit*) |
 | `ended` | `reason` | Ends it and gives back everything it still holds. A terminal's slot is parked unless the reason is `clear` or `resume` (*Ending a terminal session*) |
 
 **No instant is reported**: Fleet stamps each fact on arrival. **A repeated fact publishes nothing**, so a harness may report on every turn.
@@ -294,6 +295,22 @@ Capture and Approve keep working while the card is open. The card folds into the
 **A session says what it is waiting on the person for with `waiting_for`**, a tool on the agent's door that replaces the whole list each call (`items`: `id`, `text`, an optional `act` of `walk`, `answer`, `approve_pr` or `run` with a `target`, optional `options`); an empty list clears it. Fleet keeps the agent's items in `session_waiting`, stamps `since` and keeps it for an unchanged `id`, and **adds its own on every read** into `SessionRecord.waiting_for`: `ask:<call>` for an open question, `perm:<call>` for an open permission, `walk:<url>` for a window the session showed that no `Approved: <url>` message has followed, `window_ask:<row>` for a question asked in the window and not yet answered (*Asking in the window*). Where an agent item names the same act and target as one of Fleet's, Fleet's stands. An ended session holds nothing. Bridge shows the list as the ledger's first section, **Waiting on you**, each row a press that does its act, and puts a Session with items under Needs you with a bell-ring mark whose tooltip lists them. **`answer_waiting`** (`session_id`, `item_id`, and a `choice` index into the item's `options`, `text`, or `mode` of `best` or `quick`) settles one: a card item goes through `answer_session_ask`, a walk item sends the approval as the person's message, an agent item becomes a message to the session. `best` tells the agent to decide for itself and think it through, `quick` to take the reasonable path and keep moving. **`dismiss_waiting`** (`session_id`, `item_id`) drops an item for good: the id is kept in `session_waiting_dismissed`, a derived item with it never comes back, an agent item with it is removed and left off if the agent states it again, and nothing is sent to the agent. A nothing-held id is refused as for `answer_waiting`. **Only the newest walk window of a session waits**, and it stops waiting once the person has sent the session a message after it opened; closing the window does not settle it. The mod's first-message note tells the agent to keep the list current and to give each item an act. An agent item with none, or with `answer` and no `options` while no question is open in the thread, gets a Reply glyph, and its press opens a box under the row whose text goes to `answer_waiting` as `text`.
 
 **A session says it has nothing left to work on with `all_done`** (`session_id` only; the hosted session holding the connection wins, as for `waiting_for`). Fleet stamps `SessionRecord.done_since`, keeps it in `session_done`, and publishes `SessionChanged`; a second call keeps the first instant, and an ended session is refused. It is a statement and ends nothing: Bridge draws a callout at the foot of the thread, **End session** (the ordinary close) or **Keep going** (local to Bridge, it hides that `done_since` only). `done_since` stops standing when the person sends the session a message (`send_session_message` or an `answer_waiting` that becomes one), when the agent calls `waiting_for` with a non-empty list, and when a hosted session's turn starts again. A terminal session has no turn-start signal, so for one only the first two apply. The mod's first-message note tells the agent to clear `waiting_for`, then call `all_done` only when nothing is owed and none of its background work is running.
+
+## A session that hit the plan's limit
+
+**A session the plan's limit stopped is woken when the limit resets, and nobody has to poke it.** A turn that ends on `error: rate_limit` is reported by the mod as `limited`, with the instant the full window opens again: the latest reset among the windows at or near full, so a weekly window spent beside a five-hour one is waited out. A limit no window shows full leaves nothing to wait for, and is not reported. Fleet keeps the instant in `session_limit`, one row a session, and serves it as `SessionRecord.held_until` for Bridge to draw as an hourglass reading "resumes 6:40 PM".
+
+A minute after `held_until`, a tick of the notice loop sends the session `Continue` through `told_by_fleet`, the word Fleet already has for its own messages, and lets the hold go. The row is persisted, so a Fleet that restarts meanwhile still wakes it.
+
+| Session | The wake |
+|---|---|
+| Hosted | A turn on its process, started again if it was ended for being quiet. The thread draws `Continue` as Fleet's |
+| Terminal | Held for its mod as `Fleet: Continue` and submitted when the mod next asks. A mod that is not asking is tried again each tick, and given up on 30 minutes past the wake |
+| Ended | Nothing is sent, and the hold goes |
+
+**A session that took a turn in the meantime is not woken.** The hold goes with a finished turn, with a message from the person, with a hosted turn starting and with the session ending. The turn the limit ended is not a finished one: the mod does not report a turn that died on an API error as `turn_completed`.
+
+**The mod keeps no timer of its own.** A terminal session is woken by Fleet through the path it already asks on; a mod timer would wake it again after a Fleet restart that had already done so.
 
 ## What Fleet tells a Session
 
