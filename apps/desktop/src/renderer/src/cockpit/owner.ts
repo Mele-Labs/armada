@@ -75,13 +75,19 @@ export function failedAt(views: readonly Seen[], key: string): number | undefine
 }
 
 /**
- * Whether the owner is already on the failure, so the call is not raised. A Job is on it while it runs. A
+ * Whether the owner is already on the failure, so the call is not raised. A Job is on it while it runs, or once
+ * it was told (a redirect to its Drone, or a step restarted: `last_told_at`) after the failure arose. A
  * Session is on it while its turn works, or once anything was said to it (the owner's words, a Poke, another
- * Session's) after the failure arose; a Session that went idle with nothing sent since is not, and the call
- * comes back. With no time for the failure, only a turn at work counts. `runningJobs` is the Jobs at work.
+ * Session's) after the failure arose; one that went idle with nothing sent since is not, and the call comes
+ * back. With no time for the failure, only work in progress counts. `runningJobs` is the Jobs at work; `told`
+ * is each Job's `last_told_at`, by id.
  */
-export function isOnIt(owner: Owner, sessions: readonly Session[], runningJobs: ReadonlySet<string>, since: number | undefined): boolean {
-  if (owner.kind === "job") return runningJobs.has(owner.id);
+export function isOnIt(owner: Owner, sessions: readonly Session[], runningJobs: ReadonlySet<string>, told: ReadonlyMap<string, string>, since: number | undefined): boolean {
+  if (owner.kind === "job") {
+    if (runningJobs.has(owner.id)) return true;
+    const at = Date.parse(told.get(owner.id) ?? "");
+    return since !== undefined && !Number.isNaN(at) && at > since;
+  }
   const session = sessions.find((one) => one.id === owner.id);
   if (session === undefined || session.dead !== undefined) return false;
   if (session.turn.state === "working") return true;

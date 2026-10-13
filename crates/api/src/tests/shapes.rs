@@ -193,6 +193,7 @@ pub fn job_at(id: &str, spelling: &str) -> JobSummary {
         piloted: None,
         alert: None,
         bays: Vec::new(),
+        last_told_at: None,
     }
 }
 

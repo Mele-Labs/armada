@@ -636,11 +636,12 @@ export function useItems(
     // A failing pull request or red main whose owner is already on it is not a call; one that is, shows its owner.
     const views = viewsOf(state);
     const working = new Set((read.sections.find((one) => one.id === "running")?.jobs ?? []).map((job) => job.id));
+    const told = new Map(state.jobs.flatMap((job) => (job.last_told_at === undefined ? [] : [[job.id, job.last_told_at] as const])));
     items.push(
       ...lineItems(state, tab, hosts, nowViews !== undefined && !Object.values(nowViews).some((view) => view.served === true)).flatMap((item): Item[] => {
         const owner = ownerOfCall(views, sessions, item.key);
         if (owner === undefined) return [item];
-        return isOnIt(owner, sessions, working, failedAt(views, item.key)) ? [] : [{ ...item, ownedBy: owner }];
+        return isOnIt(owner, sessions, working, told, failedAt(views, item.key)) ? [] : [{ ...item, ownedBy: owner }];
       }),
     );
     // A Job's pips come from its workflow and its icon from the first thing active on it.

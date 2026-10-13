@@ -118,6 +118,7 @@ where
             started_at,
             ended_at,
         );
+        summary.last_told_at = self.told_at(job.id()).as_ref().map(ipc::Instant::from);
         summary.frozen_by = queued.frozen_by.iter().map(ipc::ManifestId::from).collect();
         summary.tasks = self
             .task_counts(job.id())
