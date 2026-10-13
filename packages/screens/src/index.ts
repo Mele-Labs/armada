@@ -52,3 +52,4 @@ export * from "./locate-reads";
 export type * from "./overview-reads";
 export * from "./pausing";
 export * from "./limit-held";
+export * from "./context-breakdown";

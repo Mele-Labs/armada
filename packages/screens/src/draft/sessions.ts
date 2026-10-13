@@ -8,6 +8,7 @@
 // no slot and no branch, leases a worktree slot on the agent's first write,
 // and from then on accumulates what it touches.
 
+import type { ContextBreakdown } from "@armada/components";
 import type { WaitingItem } from "@armada/protocol";
 import type { RetroRowDrawn } from "../retro-row";
 
@@ -182,6 +183,8 @@ export type Session = {
   limitedUntil?: string;
   /** How full its context window is, as last reported. Absent until it has reported one. */
   context?: { tokens: number; window: number };
+  /** What fills that window, as the harness reports it. Absent where it has not. */
+  contextBreakdown?: ContextBreakdown;
   /** Absent until the first turn has named it; a blank Session is known by its id alone. */
   title?: string;
   attachments: readonly SessionAttachment[];

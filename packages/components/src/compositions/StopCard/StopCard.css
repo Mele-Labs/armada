@@ -22,3 +22,4 @@
 .armada-stop-card__facts dt { color: var(--fg-subtle); }
 .armada-stop-card__facts dd { margin: 0; color: var(--fg-default); overflow-wrap: anywhere; }
 .armada-stop-card__facts dd[data-mono] { font-family: var(--font-mono); }
+.armada-stop-card__heading { margin-top: var(--space-2); color: var(--fg-subtle); font-size: var(--text-2xs); line-height: var(--leading-2xs); }

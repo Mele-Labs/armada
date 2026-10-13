@@ -22,6 +22,7 @@ import { refusalWords } from "@armada/screens/src/refusal-words";
 import { askToTell, NOT_REACHABLE } from "./tell";
 import { rowsOfThread, sessionsOfRecords } from "@armada/screens/src/sessions-wire";
 import { limitHeld } from "@armada/screens/src/limit-held";
+import { contextBreakdowns } from "@armada/screens/src/context-breakdown";
 import type { Beside } from "@armada/screens/src/sessions-wire";
 import type {
   Session,
@@ -39,10 +40,11 @@ import { SessionsFrom } from "./sessions-draft";
 
 const NONE: readonly never[] = [];
 
-/** A Session held for the plan limit carries when it resumes. Nothing sets one outside the mock yet. */
+/** A Session held for the plan limit carries when it resumes, and one that has reported it carries what fills its window. Nothing sets either outside the mock yet. */
 const heldForLimit = (session: Session): Session => {
   const limitedUntil = limitHeld.until(session.id);
-  return limitedUntil === undefined ? session : { ...session, limitedUntil };
+  const contextBreakdown = contextBreakdowns.of(session.id);
+  return limitedUntil === undefined && contextBreakdown === undefined ? session : { ...session, ...(limitedUntil === undefined ? {} : { limitedUntil }), ...(contextBreakdown === undefined ? {} : { contextBreakdown }) };
 };
 const HELD_WITHIN_MS = 3000;
 

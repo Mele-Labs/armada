@@ -54,23 +54,85 @@
   font-weight: var(--weight-medium);
 }
 
-/* The context window's fill: a bare mono figure, weighted, coloured by how full. No gauge. */
+/* The context window's fill: live tokens and the percent, mono and weighted, coloured by how full. No gauge.
+   With a breakdown it is a button and opens a `StopCard`, hung under it with right edges aligned. */
 .armada-session-frame__context {
   flex: none;
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   line-height: var(--leading-xs);
   font-weight: var(--weight-medium);
-  color: var(--fg-muted);
+  color: var(--tone, var(--fg-muted));
 }
 
+button.armada-session-frame__context {
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+
+button.armada-session-frame__context:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.armada-session-frame__context-host,
+.armada-session-frame__context[data-level] {
+  --tone: var(--fg-muted);
+}
+
+.armada-session-frame__context-host {
+  position: relative;
+  display: flex;
+}
+
+.armada-session-frame__context-host[data-level="warning"],
 .armada-session-frame__context[data-level="warning"] {
-  color: var(--status-awaiting-review);
+  --tone: var(--status-awaiting-review);
 }
 
+.armada-session-frame__context-host[data-level="danger"],
 .armada-session-frame__context[data-level="danger"] {
-  color: var(--status-completed-failed);
+  --tone: var(--status-completed-failed);
 }
+
+.armada-session-frame__context-card {
+  position: absolute;
+  z-index: var(--z-tooltip);
+  top: 100%;
+  inset-inline-end: 0;
+}
+
+/* One term column for the categories and both lists, so the figures stand in a line. */
+.armada-session-frame__context-card .armada-stop-card__facts {
+  grid-template-columns: calc(var(--space-12) * 3) minmax(0, 1fr);
+}
+
+/* The window as one row. The categories in it step down from the card's tone; the room left is a well and
+   the autocompact buffer is the edge's own shade. */
+.armada-context-bar {
+  display: flex;
+  gap: var(--border-width);
+  height: var(--space-1);
+  margin-block: var(--space-1);
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+}
+
+.armada-context-bar > i {
+  flex-basis: 0;
+  min-width: var(--border-width);
+  background: var(--tone);
+}
+
+.armada-context-bar > i:nth-child(2) { background: color-mix(in srgb, var(--tone) 80%, transparent); }
+.armada-context-bar > i:nth-child(3) { background: color-mix(in srgb, var(--tone) 65%, transparent); }
+.armada-context-bar > i:nth-child(4) { background: color-mix(in srgb, var(--tone) 50%, transparent); }
+.armada-context-bar > i:nth-child(5) { background: color-mix(in srgb, var(--tone) 40%, transparent); }
+.armada-context-bar > i:nth-child(6) { background: color-mix(in srgb, var(--tone) 30%, transparent); }
+.armada-context-bar > i[data-kind="free"] { background: var(--bg-sunken); }
+.armada-context-bar > i[data-kind="buffer"] { background: var(--border-default); }
 
 /* A title that can be renamed is a button that looks like the text it holds. */
 button.armada-session-frame__title {

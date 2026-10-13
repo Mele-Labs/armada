@@ -7,7 +7,7 @@ import { Button } from "../../primitives/Button/Button";
 import { Card } from "../../primitives/Card/Card";
 import { Input } from "../../primitives/Input/Input";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
-import { usageLevel } from "../../usage";
+import { ContextFigure, type ContextFill } from "./ContextFigure";
 
 /**
  * A Session open, in the glass panel a Job's detail and Overview's panels are
@@ -68,27 +68,7 @@ export function ModMark({ size = 16 }: { size?: 12 | 16 }) {
   );
 }
 
-/** How full the Session's context window is, as it last reported. */
-export type ContextFill = { tokens: number; window: number };
-
-/** 53840 as "53.8k", 1000000 as "1M". */
-function tokensSaid(n: number): string {
-  const short = (value: number, unit: string) => `${Number(value.toFixed(1))}${unit}`;
-  return n >= 1_000_000 ? short(n / 1_000_000, "M") : n >= 1_000 ? short(n / 1_000, "k") : String(n);
-}
-
-/** The fill as a bare figure, coloured by how full. Nothing is drawn without a window to fill. */
-function ContextFigure({ fill }: { fill: ContextFill }) {
-  if (fill.window <= 0) return null;
-  const percent = Math.round((fill.tokens / fill.window) * 100);
-  return (
-    <Tooltip label={`Context · ${tokensSaid(fill.tokens)} of ${tokensSaid(fill.window)} tokens`}>
-      <span className="armada-session-frame__context" role="img" aria-label={`Context ${percent}%`} data-level={usageLevel(percent)}>
-        {percent}%
-      </span>
-    </Tooltip>
-  );
-}
+export type { ContextBreakdown, ContextFill } from "./ContextFigure";
 
 export type SessionFrameProps = {
   state: SessionState;

@@ -1,5 +1,5 @@
 import { Check, Menu, MessageSquare, Moon, Plus, Search, type LucideIcon } from "lucide-react";
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useState, type CSSProperties, type ReactNode } from "react";
 import { ArmadaLockupHorizontal, ArmadaMark } from "@armada/brand";
 import { FLEET_DOT_TONE, FleetStarting, fleetSaid, type FleetState } from "../FleetPanel/FleetPanel";
 import { Button } from "../../primitives/Button/Button";
@@ -8,7 +8,7 @@ import { Input } from "../../primitives/Input/Input";
 import { keyFor } from "../../actions";
 import { Kbd, KbdCmd } from "../../primitives/Kbd/Kbd";
 import { Popover } from "../../primitives/Popover/Popover";
-import { StopCard } from "../StopCard/StopCard";
+import { StopCard, useCardOpen } from "../StopCard/StopCard";
 import { useShortcutReveal } from "../../shortcut-reveal";
 import { usageLevel } from "../../usage";
 
@@ -53,50 +53,20 @@ function countdown(ms: number): string {
  * Esc or a press outside closes it**, as a metro stop's card does in the Bays view. No acts.
  */
 function LimitMeter({ one, limit }: { one: PlanUsage; limit: { short: string; name: string } }) {
-  const [hovered, setHovered] = useState(false);
-  const [pinned, setPinned] = useState(false);
-  const here = useRef<HTMLSpanElement>(null);
-  const open = hovered || pinned;
-  useEffect(() => {
-    if (!open) return;
-    const close = () => {
-      setPinned(false);
-      setHovered(false);
-    };
-    const outside = (event: PointerEvent) => {
-      if (here.current !== null && !here.current.contains(event.target as Node)) close();
-    };
-    const escape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") close();
-    };
-    document.addEventListener("pointerdown", outside);
-    document.addEventListener("keydown", escape);
-    return () => {
-      document.removeEventListener("pointerdown", outside);
-      document.removeEventListener("keydown", escape);
-    };
-  }, [open]);
+  const { open, pinned, toggle, bind } = useCardOpen();
   const percent = Math.round(one.percentUsed);
   const level = usageLevel(percent);
   const at = one.resetsAt === undefined ? undefined : new Date(one.resetsAt);
   const resets = at !== undefined && !Number.isNaN(at.getTime()) ? at : undefined;
   return (
-    <span
-      ref={here}
-      className="armada-title-bar__usage-limit"
-      data-level={level}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      onFocus={() => setHovered(true)}
-      onBlur={() => setHovered(false)}
-    >
+    <span className="armada-title-bar__usage-limit" data-level={level} {...bind}>
       <button
         type="button"
         className="armada-title-bar__usage-meter"
         aria-label={`${limit.name} ${percent}%`}
         aria-expanded={open}
         style={{ "--fill": `${Math.min(100, Math.max(0, percent))}%` } as CSSProperties}
-        onClick={() => setPinned((on) => !on)}
+        onClick={toggle}
       >
         <span className="armada-title-bar__usage-label">{limit.short}</span>
         <span className="armada-title-bar__usage-track" />
