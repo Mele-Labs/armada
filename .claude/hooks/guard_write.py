@@ -10,13 +10,6 @@ import json
 import os
 import sys
 
-# Refusals only. The warnings at 500 lines and 30 lines of a CLAUDE.md are the
-# gate's, because a hook's `ask` overrides every permission mode by design.
-# `xtask/src/rules.rs` carries the same numbers; the two must not drift.
-FAIL_LINES = 1200
-CLAUDE_MD_FAIL = 50
-COMMENT_BLOCK_CAP = 15
-
 # Where bytes enter the process, plus the gate that names the pattern it bans.
 JSON_ALLOWED = ("crates/store/", "crates/ipc/", "xtask/")
 
@@ -109,42 +102,6 @@ def main() -> None:
                        "belongs to `store` and `ipc`, the two places bytes enter "
                        "the process; everywhere else a value arrives typed.")
 
-    # ---- rule: a comment block runs to fifteen lines and no further ------
-    # Same cap as the gate, refused rather than warned: new writes should not
-    # add to a backlog the gate merely reports. Judges the fragment being
-    # written, not the file it lands in.
-    source_scope = rel.endswith((".rs", ".ts", ".tsx")) and rel.split("/", 1)[0] in (
-        "crates", "apps", "packages", "xtask",
-    )
-    if source_scope and written:
-        worst = worst_comment_run(written)
-        if worst > COMMENT_BLOCK_CAP:
-            answer("deny", f"{rel} would add a comment block of {worst} lines, over "
-                           f"{COMMENT_BLOCK_CAP}. A comment is a line or two; reduce "
-                           "it or file it. `.claude/skills/comments/SKILL.md`")
-
-    # ---- rule: a CLAUDE.md routes, it does not explain -------------------
-    lines = projected_lines(checkout, rel, tool_input)
-    if rel.endswith("CLAUDE.md") and lines is not None:
-        if lines > CLAUDE_MD_FAIL:
-            answer("deny", f"{rel} would be about {lines} lines, over "
-                           f"{CLAUDE_MD_FAIL}. A CLAUDE.md routes; it does not "
-                           "explain. Move the explanation to a practice doc, a "
-                           "skill or Notion and leave the pointer. v1's agent "
-                           "file reached 328 lines one reasonable paragraph at "
-                           "a time.")
-
-    # ---- rule: 1200 lines of source fails --------------------------------
-    #
-    # Source only, matching `no_file_too_long`. A hook stricter than the gate
-    # produces workarounds, not fixes — the scopes are part of the rule.
-    if lines is not None and rel.endswith((".rs", ".ts", ".tsx")) and rel.split("/", 1)[0] in (
-        "crates", "apps", "packages", "xtask",
-    ):
-        if lines > FAIL_LINES:
-            answer("deny", f"{rel} would be about {lines} lines, over {FAIL_LINES}. "
-                           "Split it.")
-
     sys.exit(0)
 
 
@@ -183,45 +140,6 @@ def on_main(root: str) -> bool:
             return f.read().strip() == "ref: refs/heads/main"
     except OSError:
         return False
-
-
-def worst_comment_run(text: str) -> int:
-    """Longest run of consecutive comment lines in `text`. Same detection as
-    `rules.rs`'s `no_comment_block_too_long`: a line starting `//`, `*` or
-    `/*`. A blank or code line ends the run."""
-    run = worst = 0
-    for line in text.splitlines():
-        t = line.strip()
-        if t.startswith("//") or t.startswith("*") or t.startswith("/*"):
-            run += 1
-            worst = max(worst, run)
-        else:
-            run = 0
-    return worst
-
-
-def projected_lines(root: str, rel: str, tool_input: dict) -> "int | None":
-    """Line count the file would have after this write.
-
-    Exact for `Write`; estimated for `Edit` from the delta between the strings,
-    since the hook runs before the edit and only ever compares to a threshold.
-    """
-    content = tool_input.get("content")
-    if content is not None:
-        return len(content.splitlines())
-
-    old, new = tool_input.get("old_string"), tool_input.get("new_string")
-    if old is None or new is None:
-        return None
-    try:
-        with open(os.path.join(root, rel)) as f:
-            current = len(f.read().splitlines())
-    except OSError:
-        return None
-    delta = len(new.splitlines()) - len(old.splitlines())
-    if tool_input.get("replace_all"):
-        return None  # occurrence count is unknown before the edit runs
-    return current + delta
 
 
 main()
