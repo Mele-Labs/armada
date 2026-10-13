@@ -32,6 +32,7 @@ import {
 } from "@armada/components";
 import type {
   ChipOwnershipValue,
+  FreshStart,
   OpenInSessionValue,
   PilotValue,
   LedgerEntry,
@@ -49,6 +50,7 @@ import type {
 } from "@armada/components";
 import { sessionOf } from "@armada/jobs";
 import { askToOpenRetro } from "./open-retro";
+import { handoffOf } from "./session-handoff";
 import { readRetro } from "./commands";
 import { ArtifactBody, ARTIFACT_GLYPH, isAddress } from "./session-artifact";
 import { isUnsentItem, linkEntry, unsentEntry, useStartedBy } from "./session-started";
@@ -131,6 +133,19 @@ function summaryOf(session: Session): OwnerSummary {
 function opening(started: string | Promise<string | undefined>, onOpen: (id: string) => void): void {
   if (typeof started === "string") onOpen(started);
   else void started.then((id) => id !== undefined && onOpen(id));
+}
+
+/** A Session this large, or this old, is offered a fresh start. */
+const FRESH_TOKENS = 300_000;
+const FRESH_HOURS = 24;
+
+/** A new Session under the same title, whose first message is the handoff `text`. */
+async function startFreshFrom(draft: SessionsDraft, session: Session, text: string): Promise<string | undefined> {
+  const fresh = await draft.start();
+  if (fresh === undefined) return undefined;
+  if (session.title !== undefined) draft.rename?.(fresh, session.title);
+  void draft.send(fresh, { text, files: [], sketches: [], tags: [] });
+  return fresh;
 }
 
 /** Who owns each chip, for every chip in the window, and where a Job that went wrong can be talked through. */
@@ -388,7 +403,7 @@ function useOpenRetro(session: Session): (retro: number) => void {
 }
 
 /** Every Session, searchable, with the act that starts one. On Overview and on the rail surface alike. */
-export function SessionsListing({ onOpen }: { onOpen: (id: string) => void }) {
+export function SessionsListing({ onOpen, startIn }: { onOpen: (id: string) => void; startIn?: readonly { root: string; name: string }[] }) {
   const draft = useSessionsDraft();
   const sessions = useSessions();
   const [query, setQuery] = useState("");
@@ -419,7 +434,7 @@ export function SessionsListing({ onOpen }: { onOpen: (id: string) => void }) {
   return (
     <>
       <Refused />
-      <SessionList groups={groups} query={query} onQuery={setQuery} views={VIEWS} view={view} onView={(next) => setView(next as ViewId)} onOpen={onOpen} onStart={() => opening(draft.start(), onOpen)} {...(retro.press === undefined ? {} : { onRetro: (id: string) => retro.press?.(sessions.find((one) => one.id === id) ?? { id }) })} />
+      <SessionList groups={groups} query={query} onQuery={setQuery} views={VIEWS} view={view} onView={(next) => setView(next as ViewId)} onOpen={onOpen} onStart={(root) => opening(draft.start(undefined, root), onOpen)} {...(startIn === undefined ? {} : { startIn })} {...(retro.press === undefined ? {} : { onRetro: (id: string) => retro.press?.(sessions.find((one) => one.id === id) ?? { id }) })} />
     </>
   );
 }
@@ -754,6 +769,8 @@ function SessionView({ session, goes, onOpen, held, board, lines, settings }: { 
   const [ledgerOpen, setLedgerOpen] = useState(false);
   // The Session a fork from a selection opened, whose message box takes focus when it shows.
   const [focusFor, setFocusFor] = useState<string | undefined>();
+  // The old Session is writing the handoff a fresh one opens on.
+  const [handing, setHanding] = useState(false);
   const askCard = useRef<HTMLDivElement>(null);
   const centre = useRef<HTMLDivElement>(null);
   // Keep going hides the callout for the `done` it answered; a later `done` is a new one.
@@ -800,6 +817,25 @@ function SessionView({ session, goes, onOpen, held, board, lines, settings }: { 
     open(...args);
   };
   const runner = runnerOf(draft, session);
+  const hours = session.trail === undefined ? 0 : Math.floor((Date.now() - Date.parse(session.trail.started)) / 3_600_000);
+  const tokens = session.context?.tokens ?? 0;
+  const lastRow = thread[thread.length - 1];
+  const fresh: FreshStart | undefined =
+    session.dead === undefined && (tokens > FRESH_TOKENS || hours >= FRESH_HOURS)
+      ? {
+          tokens,
+          hours,
+          busy: handing,
+          onFresh: () => {
+            setHanding(true);
+            void handoffOf(draft, session)
+              .then((text) => startFreshFrom(draft, session, text))
+              .then((id) => id !== undefined && onOpen(id))
+              .finally(() => setHanding(false));
+          },
+          ...(draft.forkAt === undefined || lastRow === undefined ? {} : { onFork: () => opening(draft.forkAt!(session.id, lastRow.id), onOpen) }),
+        }
+      : undefined;
   // `links.openPullRequestsIn` decides where every pull request of the Session opens: Armada's panel, or the forge in the browser.
   const read = (one: Reading) => {
     const address = one.kind === "pull_request" ? attachmentsOf(session, "pull_request").find((pr) => pr.number === one.number)?.address : undefined;
@@ -842,6 +878,8 @@ function SessionView({ session, goes, onOpen, held, board, lines, settings }: { 
         {...(session.title === undefined ? {} : { title: session.title })}
         {...(draft.rename === undefined ? {} : { onRename: (title: string) => draft.rename?.(session.id, title) })}
         {...(session.modOutOfDate === true ? { modOutOfDate: true } : {})}
+        {...(session.resolvedModel === undefined && session.model === undefined ? {} : { model: session.resolvedModel ?? session.model })}
+        {...(fresh === undefined ? {} : { fresh })}
         {...(session.context === undefined ? {} : { context: { ...session.context, ...(session.contextBreakdown === undefined ? {} : { breakdown: session.contextBreakdown }) } })}
         {...{
               actions: (
@@ -1121,6 +1159,7 @@ export function SessionsSurface({
   board = NO_JOBS,
   lines = null,
   settings = null,
+  startIn,
 }: {
   openId: string | null;
   onOpen: (id: string) => void;
@@ -1130,6 +1169,8 @@ export function SessionsSurface({
   board?: readonly JobSummary[];
   lines?: MergeLines | null;
   settings?: SettingsList | null;
+  /** Where New Session may start, on All: it asks which. */
+  startIn?: readonly { root: string; name: string }[];
 }) {
   const sessions = useSessions();
   const open = sessions.find((one) => one.id === openId);
@@ -1152,7 +1193,7 @@ export function SessionsSurface({
   }, [sessions, openId, onOpen]);
   return (
     <div className="armada-screen__overview" {...(open === undefined ? {} : { [OPEN_SESSION_ATTRIBUTE]: open.id })}>
-      {open === undefined ? <SessionsListing onOpen={onOpen} /> : <SessionView session={open} goes={goes} onOpen={onOpen} held={held} board={board} lines={lines} settings={settings} />}
+      {open === undefined ? <SessionsListing onOpen={onOpen} {...(startIn === undefined ? {} : { startIn })} /> : <SessionView session={open} goes={goes} onOpen={onOpen} held={held} board={board} lines={lines} settings={settings} />}
     </div>
   );
 }

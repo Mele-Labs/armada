@@ -325,6 +325,7 @@ pub mod repositories;
 mod rerun_settles;
 mod rerunning;
 mod rescuing;
+mod stranding;
 /// What one Job holds on this machine — its processes, what they are burning,
 /// and the disk its worktree has taken. **Read on demand, never on the turn.**
 pub mod resources;

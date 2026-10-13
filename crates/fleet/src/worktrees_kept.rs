@@ -307,7 +307,9 @@ where
             let now = Instant::now();
             if fleet.worktrees_memory().due(now, fleet.vcs().changes()) {
                 // Whatever it came to, `due` decides whether to try again.
-                let _ = fleet.read_worktrees(now).await;
+                if let Ok(held) = fleet.read_worktrees(now).await {
+                    fleet.strandings_attended(&held).await;
+                }
             }
             if fleet.worktrees_memory().watched(Instant::now()) {
                 tokio::select! {

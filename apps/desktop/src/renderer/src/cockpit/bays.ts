@@ -3,6 +3,7 @@
 // matched by branch against the horizon's own dots so the two cannot disagree, and the Jobs queued for a
 // bay. Pure, so which bay holds what is checked without drawing a line.
 
+import { releasable } from "@armada/protocol";
 import type { JobSummary, MergeLines, WorktreeSlot } from "@armada/protocol";
 import type { MergeLineView } from "@armada/screens";
 import type { Session } from "@armada/screens/src/draft/sessions";
@@ -29,6 +30,8 @@ export type Bay = {
   behind: number | undefined;
   since: string | undefined;
   holder: Holder;
+  /** The pool's reading of the bay where an agent session holds it: what Release is confirmed and sent from. */
+  release?: WorktreeSlot;
   /** Sessions working on the Job in the bay, each with its tile where it has one. */
   riders: readonly { session: Session; item: Item | undefined }[];
   /** The bay's branch on the line, where it has a pull request or a landing there. */
@@ -165,6 +168,7 @@ export function baysOf({
           behind: slot.behind,
           since: slot.since,
           holder,
+          ...(releasable(slot) ? { release: slot } : {}),
           riders,
           dot: slot.branch === undefined ? undefined : line.find((one) => one.card.branch === slot.branch),
         };

@@ -35,6 +35,8 @@ struct Slot {
     removed: bool,
     /// Its holder is gone and it holds this, and the diff a Scout is handed.
     stranded: Option<(StrandedWork, String)>,
+    /// The Session whose process tree held it before its holder went.
+    last_session: Option<String>,
 }
 
 impl Slot {
@@ -343,6 +345,7 @@ impl FakeSlots {
                             .and(slot.stranded.as_ref())
                             .map(|(work, _)| format!("{} uncommitted", work.uncommitted.len())),
                         completed: false,
+                        last_session: slot.last_session.clone(),
                         work: None,
                     }
                 })
@@ -427,6 +430,22 @@ impl FakeSlots {
                 stranded: Some((work, diff.to_string())),
                 ..Slot::default()
             };
+        });
+    }
+
+    /// [`strand`](FakeSlots::strand), the process that held it having been a
+    /// Session's.
+    pub(super) fn strand_after(
+        &self,
+        root: &str,
+        slot: u32,
+        session: &str,
+        work: StrandedWork,
+        diff: &str,
+    ) {
+        self.strand(root, slot, work, diff);
+        self.at(root, slot, |slots| {
+            slots[slot as usize - 1].last_session = Some(session.to_string());
         });
     }
 
@@ -603,6 +622,19 @@ impl FakeVcs {
     /// its change against the base.
     pub fn strand_slot(&self, root: &str, slot: u32, work: StrandedWork, diff: &str) {
         self.slots.strand(root, slot, work, diff);
+    }
+
+    /// [`strand_slot`](FakeVcs::strand_slot), the process that held it having
+    /// been `session`'s.
+    pub fn strand_slot_after(
+        &self,
+        root: &str,
+        slot: u32,
+        session: &str,
+        work: StrandedWork,
+        diff: &str,
+    ) {
+        self.slots.strand_after(root, slot, session, work, diff);
     }
 
     /// Leave slot `slot` at `root` held by `job`, which ended and could not

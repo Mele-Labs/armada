@@ -27,6 +27,7 @@ pub(crate) use pilot_words::{
 mod places;
 mod process;
 pub mod queueing;
+pub(crate) mod releasing;
 mod rows;
 pub(crate) use rows::{mention_line, UserLine};
 mod serving;
@@ -240,6 +241,9 @@ pub(crate) struct State {
     pub generation: u64,
     /// What this session's own process said it has. Empty until it starts.
     pub commands: Vec<String>,
+    /// The model the process's `init` line said the CLI resolved. Absent until it
+    /// starts, and again once the process is let go. Since 23.85.
+    pub resolved_model: Option<String>,
     /// The lines written whose turn has not started, kept so a process that
     /// is gone before it took them is replaced and they are sent again.
     pub unstarted: Vec<String>,
@@ -278,6 +282,7 @@ impl State {
             directory: String::new(),
             generation: 0,
             commands: Vec::new(),
+            resolved_model: None,
             unstarted: Vec::new(),
             retried: false,
             reattached_busy: false,

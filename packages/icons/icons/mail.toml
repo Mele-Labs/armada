@@ -1,0 +1,7 @@
+[icons.mail]
+  means = "A sealed envelope - a message sent"
+  group = "Worktree slot"
+  size = "12px"
+  status = "Proposed"
+  reserved = "Fleet telling the last holder of a stranded worktree slot to commit, push and release. Never an alert, which is `bell`, and never a reply, which is `reply`."
+  notes = "Proposed 13 Oct 2026 for the last holder on a stranded bay. Fleet tells the holder once and does not tell it again, so the mark is the fact that it was told; the tooltip carries when, as Told 10:42. Refused: `send`, which is Dispatch, `bell-ring`, which is something calling for the owner, and `megaphone`, which is escalated's."

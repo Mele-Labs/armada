@@ -5,7 +5,7 @@
 
 import type { JobSummary, Outcome, WorktreeHeld, WorktreesHeld } from "@armada/protocol";
 
-import { slotsHeld } from "@armada/screens/src/fixtures/slots";
+import { slot as bay, slotsHeld } from "@armada/screens/src/fixtures/slots";
 
 const ROOT = "/Users/user/armada/.armada/worktrees";
 const WIP_COMMIT = "d41f8a6c20be";
@@ -25,7 +25,7 @@ export type GridJobs = {
 export function gridHeld(jobs: GridJobs, now: number): WorktreesHeld {
   const ago = (minutes: number) => new Date(now - minutes * 60_000).toISOString();
   const base = slotsHeld(jobs.finished, now);
-  const slots = (base.slots ?? []).map((one) => {
+  const mapped = (base.slots ?? []).map((one) => {
     if (one.slot === 3) return { ...one, closed: true };
     // An agent session whose checkout holds files nobody committed, and a clean one.
     if (one.slot === 2) {
@@ -55,6 +55,24 @@ export function gridHeld(jobs: GridJobs, now: number): WorktreesHeld {
       behind: 1,
     };
   });
+  // Two hosted Sessions in a bay each: one between turns, which Release frees, and one mid-turn, which Fleet refuses.
+  const slots = [
+    ...mapped,
+    bay(9, {
+      held: { state: "hosted_session", session_id: "s-theme-audit", session_title: "Theme token audit" },
+      branch: "fleet/theme-token-audit",
+      since: ago(18),
+      warm: true,
+      behind: 1,
+    }),
+    bay(10, {
+      held: { state: "hosted_session", session_id: "s-pr-panel", session_title: "Pull Request Panel Design" },
+      branch: "fleet/pull-request-panel",
+      since: ago(7),
+      warm: true,
+      behind: 0,
+    }),
+  ];
   const at = (slot: number) => slots.find((one) => one.slot === slot)!.path;
   const row = (job: JobSummary, rest: Partial<WorktreeHeld>): WorktreeHeld => ({
     job_id: job.id,

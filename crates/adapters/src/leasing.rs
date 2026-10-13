@@ -73,6 +73,36 @@ pub fn branch_of(path: &Path) -> Option<String> {
     Record::read(Path::new(&record)).map(|record| record.branch)
 }
 
+/// Write on the record beside the slot at `path` that `session`'s process tree
+/// holds it. Only a live process holder is written on: a Job's record already
+/// names the Session it was leased for. Nothing, where the record already says
+/// so, which is every call but the first.
+pub fn note_session(path: &Path, session: &str) -> Result<(), String> {
+    let mut record_path = path.as_os_str().to_owned();
+    record_path.push(".lease");
+    let record_path = PathBuf::from(record_path);
+    let wanted = |record: &Record| {
+        matches!(record.holder, Holder::Process { .. })
+            && record.holder.alive()
+            && record.session.as_deref() != Some(session)
+    };
+    if !Record::read(&record_path).is_some_and(|record| wanted(&record)) {
+        return Ok(());
+    }
+    let lock = OpenOptions::new()
+        .append(true)
+        .open(&record_path)
+        .map_err(|why| format!("{}: {why}", record_path.display()))?;
+    lock.lock().map_err(|why| why.to_string())?;
+    match Record::read(&record_path) {
+        Some(mut record) if wanted(&record) => {
+            record.session = Some(session.to_string());
+            record.write(&record_path)
+        }
+        _ => Ok(()),
+    }
+}
+
 /// One repository's pool.
 #[derive(Clone, Debug)]
 pub struct Pool {
@@ -473,6 +503,7 @@ impl Pool {
             since,
             kept,
             completed,
+            ..
         }) = record.as_ref().filter(|record| record.holder.alive())
         {
             let held = SlotState::Held {
@@ -574,6 +605,7 @@ impl Pool {
             holder: holder.clone(),
             since,
             kept: None,
+            session: None,
             completed: false,
         }
         .write(&self.record_path(number))

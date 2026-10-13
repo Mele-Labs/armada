@@ -189,6 +189,8 @@ mod slot;
 /// The Finding a rescue Scout brought back from a stranded slot. Since V106;
 /// its verdict and items since V107.
 mod slot_rescues;
+/// What Fleet did about a stranded slot on its own: told its holder, started a Scout.
+mod slot_strandings;
 /// What a Job's Drones have cost it: one row per Drone, summed per Job.
 mod spend;
 /// What a step's worktree held when it began, kept so a restart measures the
@@ -276,6 +278,7 @@ pub use session_ledger::{
 pub use showing::KeptFrame;
 pub use shown_again::{ShownAgain, SpecNamed};
 pub use slot_rescues::{KeptRescue, RescueState, RescueVerdict};
+pub use slot_strandings::KeptStranding;
 pub use spend::{DroneSpend, PastSpend, Spend};
 pub use studio::{DispatchedFrom, JobOnStudio, StudioError, Unreadable, UnreadableContent};
 pub use task_drones::{TaskDrone, TaskHandIn};
