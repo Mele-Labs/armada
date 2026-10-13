@@ -3265,6 +3265,7 @@ Additive. `hub.main.checking` (`MainChecking {commit, pull_request?}`, newest fi
 | `answer_session_ask` (`POST /sessions/ask/answer`) | `AnswerSessionAsk`: `session_id`, the ask's `call`, an `answer` it offered, a `note` | 409 where nothing is waiting under that call |
 | `tune_session` (`POST /sessions/tune`) | `TuneSession`: `model`, `effort`, `mode` | A model or effort left out is the machine's own |
 | `close_session` (`POST /sessions/close`) | `CloseSession` | Parks the slot, ends the row |
+| `stop_session` (`POST /sessions/stop`) | `StopSession` | Ends the turn that is running, keeps the row live and the slot held. Since 23.84 |
 | `get_session` (`GET /sessions/one?session_id=`) | `SessionThread`: the record and its `rows` | |
 | `get_session_subagent` (`GET /sessions/subagent?session_id=&subagent_id=`) | `SessionSubagent`: the subagent's own `rows`, `finished`, and its `report` once it has | Read again while it runs; 422 where the session has no such subagent transcript |
 | `get_session_file` (`GET /sessions/file?session_id=&file=`) | The bytes, under the media type they were sent as | `file` is a `SentFile.id` |
@@ -3582,6 +3583,16 @@ Bridge's half is in `packages/protocol/src/hosted-sessions.ts`, written by hand 
 
 **Skew.** A Fleet before 23.80 has neither route, so the tools are not offered to an agent, and sends no `started` row, `first_message` item or `unsent` attachment. A Bridge before it meets `first_message` and `message` as values it does not know. Bridge's half is `packages/protocol/src/sessions.ts` and `hosted-sessions.ts`, written by hand like the rest. **The event stream is unchanged**: one more `session.row` and `session.changed` per call, on the same sink.
 
+## Protocol 23.84: a Session's running turn stopped
+
+`docs/concepts/session.md`, *Stopping a turn*. **Additive only**: one operation and one type, `StopSession`, which carries a `session_id`.
+
+| Where | Carries | Notes |
+| --- | --- | --- |
+| `stop_session` (`POST /sessions/stop`) | `StopSession`: `session_id` | Answers the `SessionRecord` with `hosted.turn` `idle`. The process is ended as after a quiet spell and the next message resumes it; a question it was held on is withdrawn; the slot is kept as it stands, nothing parked or committed. An ended session answers its row. 422 `fleet.session_command_refused` for a terminal session, whose process Fleet does not host |
+
+**Skew.** A Fleet before 23.84 has no route and answers 404, so a Bridge that draws Stop shows the refusal. A Bridge before it never calls it. Bridge's half is `packages/protocol/src/hosted-sessions.ts`, written by hand like the rest; the part that offers the act is `stopSession` on the preload.
+
 ## Protocol 23.79: a Session forked at a message
 
 `docs/concepts/session.md`, *A fork at a message*. **Additive only**: one optional field on `ForkFrom`, one 422 and one key in an existing detail. No new operation.
@@ -3850,6 +3861,18 @@ its row changes.
 
 **The event wraps the entry under `event`.** The stream tags its events with `kind`, and an entry has a
 `kind` of its own; spread into one message they produced a duplicate key, which a test caught.
+
+## When a Job's Drone was last told
+
+`JobSummary.last_told_at`, optional and additive: when a person, Helm or a Commander last sent the Job's Drone
+words (`redirect_drone`, or the answer to a command it was refused) or restarted a step (`restart_step`).
+Bridge reads it to decide that a failing pull request or red main the Job owns has somebody on it again, so
+the Cockpit raises no call for it.
+
+**Held in memory and lost on a Fleet restart**, as `releasing::Spared` is: a redirect into a healthy Drone
+writes nothing to the log, so there was no record to read it from, and a surface treats the field as "told
+since X", never as a history. A restart Fleet makes of its own after a boot does not set it. It rides the
+rows Fleet already serves and adds no event, so it reaches a Board with the next summary of the Job.
 
 ## Open questions
 

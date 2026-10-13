@@ -11,6 +11,7 @@ import type {
   Outcome,
   PilotOutcome,
   PullRequestClaimed,
+  PullRequestPage,
   PullRequestState,
   RenameSession,
   ReviewDispatched,
@@ -21,6 +22,7 @@ import type {
   SessionRunUnderway,
   SessionSubagent,
   TuneSession,
+  WritePullRequest,
 } from "@armada/protocol";
 import type { ArtifactRead, PageBounds } from "@armada/screens/src/draft/sessions";
 
@@ -32,6 +34,9 @@ export type PilotExit = "submit" | "attest" | "supersede";
 
 /** What a person can do to a pull request a Session holds, without leaving Bridge. */
 export type PullRequestPress = "read" | "ready" | "merge" | "auto_merge" | "review";
+
+/** What the comment box writes to a pull request a Session holds: the act, and its Markdown. The pull request is named apart. */
+export type PullRequestWrite = Pick<WritePullRequest, "kind" | "body">;
 
 export type SessionsApi = {
   /**
@@ -83,6 +88,8 @@ export type SessionsApi = {
   retroSession: (sessionId: string) => Promise<Outcome>;
   /** Ends the process, parks the slot and ends the row. */
   closeSession: (sessionId: string) => Promise<SessionActed>;
+  /** Ends the turn that is running. The Session rests, its row stays live, and its next message resumes it. */
+  stopSession: (sessionId: string) => Promise<SessionActed>;
   /**
    * Hold a session's thread: read once, then followed by `session.row`. Held threads are kept for the
    * window's life, so reopening one draws at once.
@@ -116,6 +123,10 @@ export type SessionsApi = {
     number: number,
     press: PullRequestPress,
   ) => Promise<SessionActed<PullRequestState | ReviewDispatched>>;
+  /** What the panel's tabs and facts draw, read from the forge when the panel opens. Main names the repository from the Session. */
+  readPullRequestPage: (sessionId: string, number: number) => Promise<SessionActed<PullRequestPage>>;
+  /** A comment, an approval or a request for changes on a pull request a Session holds. Answers the page read again after it. */
+  writePullRequest: (sessionId: string, number: number, write: PullRequestWrite) => Promise<SessionActed<PullRequestPage>>;
   /** Runs a shell block from a Session's thread. Answers with the run's id, or Fleet's refusal; its output arrives on `onSessionRunMessage`. */
   startSessionRun: (sessionId: string, command: string) => Promise<SessionActed<SessionRunUnderway>>;
   /** Ends a run's process group. */
@@ -158,6 +169,7 @@ export const SESSIONS_CHANNELS = {
   renameSession: "bridge:rename-session",
   retroSession: "bridge:retro-session",
   closeSession: "bridge:close-session",
+  stopSession: "bridge:stop-session",
   watchSession: "bridge:watch-session",
   readSessionFile: "bridge:read-session-file",
   readSessionSubagent: "bridge:read-session-subagent",
@@ -172,6 +184,8 @@ export const SESSIONS_CHANNELS = {
   hideSessionPage: "bridge:hide-session-page",
   sessionPageEscape: "bridge:session-page-escape",
   pressPullRequest: "bridge:press-pull-request",
+  readPullRequestPage: "bridge:read-pull-request-page",
+  writePullRequest: "bridge:write-pull-request",
   startSessionRun: "bridge:start-session-run",
   stopSessionRun: "bridge:stop-session-run",
   sessionRunMessage: "bridge:session-run-message",

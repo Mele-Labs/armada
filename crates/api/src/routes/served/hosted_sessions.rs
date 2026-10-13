@@ -52,6 +52,11 @@ pub(super) const ROUTES: &[Route] = &[
         path: "/sessions/close",
     },
     Route {
+        operation: "stop_session",
+        method: "POST",
+        path: "/sessions/stop",
+    },
+    Route {
         operation: "get_session",
         method: "GET",
         path: "/sessions/one",

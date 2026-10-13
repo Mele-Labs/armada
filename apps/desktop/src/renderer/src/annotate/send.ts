@@ -15,7 +15,7 @@ export type Proposer = Pick<BridgeApi, "stageAttachment" | "proposeFromRequest">
 export type SendAnswer = { ok: true; sent: Sent } | { ok: false; saying: string };
 
 /** What Fleet's refusal says: its coded copy, else the message it sent, else that it refused. */
-function refusal(outcome: Outcome): string {
+export function refusal(outcome: Outcome): string {
   const coded = said(outcome);
   if (coded !== "") return coded;
   return !outcome.ok && outcome.why === "refused" && outcome.error.message.trim() !== "" ? outcome.error.message.trim() : "Fleet refused it";
@@ -25,7 +25,7 @@ function refusal(outcome: Outcome): string {
  * The note's picture: the one kept as it was saved, else one taken now where its element is on
  * this screen, else none. Only a note saved before pictures were kept, or whose file is gone, falls back.
  */
-async function pictureOf(note: Annotation, box: Box | null, sink: Sink): Promise<ArrayBuffer | null> {
+export async function pictureOf(note: Annotation, box: Box | null, sink: Sink): Promise<ArrayBuffer | null> {
   if (note.screenshot !== undefined) {
     const kept = await sink.shot(note.id).catch(() => null);
     if (kept !== null) return kept;

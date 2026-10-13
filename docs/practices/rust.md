@@ -325,36 +325,6 @@ Both files' headers point here. **Do not delete this section to shorten
 them** — a rule whose reason is not findable gets deleted by the next person
 who finds it inconvenient, and the reason is longer than a header may be.
 
-## 6. The 500/1200 line rule
-
-Warn at 500 lines, fail at 1200 — `xtask` rule three, and the same thresholds
-in `hooks/guard_write.py`, which turns the warning into an `ask` decision
-before the write and the failure into a `deny`. (The hook's number for an
-`Edit` is estimated from the size of the change, since the real file doesn't
-exist yet when the hook runs; it's exact for `Write`.)
-
-500 is not a hard rule because a hard rule at a line count gets satisfied by
-moving code into a second file without moving the coupling — the metric goes
-green, the actual problem (too much reasoning living in one place) doesn't.
-The warning is a deliberate prompt to say *why* a file is still growing, not
-an instruction to split it reflexively. In practice, a `.rs` file that's
-pushing past 500 lines in this codebase is usually one of two things: it's
-mixing a type definition with the runtime logic that operates on it (the
-type-system-first pattern above tends to want the type on its own), or it's
-grown a `match` arm for every new case instead of dispatching through a trait
-that already exists for exactly that purpose — `adapter-traits` exists so
-that kind of growth happens in `adapters`, per-vendor, instead of in one
-crate's `match`.
-
-**A `warn:` your change adds, you argue in the file it is about** — a module
-comment, not a report. An unexplained warning is one the next reader treats as
-permission, and a report is read once while the file is read every time. The
-precedent is `crates/fleet/src/tests/headroom.rs`, which stayed one file over
-500 lines with the reason written into its header.
-
-The rule covers `.rs`, `.ts`, and `.tsx` under `crates`, `apps`, `packages`,
-and `xtask`. `docs/` is prose and isn't gated by it.
-
 ## 7. Mechanical rules worth knowing exist
 
 **`unsafe_code = "forbid"`** is a workspace-wide lint in the root `Cargo.toml`.

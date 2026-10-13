@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { mainOwner, pullOwner, workOwner } from "./owner";
+import { failedAt, isOnIt, mainOwner, pullOwner, workOwner, type Owner } from "./owner";
 
 type Views = Parameters<typeof pullOwner>[0];
 type Sessions = Parameters<typeof pullOwner>[1];
@@ -87,5 +87,73 @@ describe("whose work a pull request is", () => {
     const blank = { id: "s5", attachments: [holds(7)], rows: [] } as unknown as Sessions[number];
     expect(workOwner(seen, [], [blank], 7, "feat/seven")).toEqual({ kind: "session", id: "s5", title: "s5" });
     expect(workOwner(seen, jobs, [session("s1", "S", [holds(8, "other")])], 7, "chore/by-hand")).toBeUndefined();
+  });
+});
+
+describe("whether the owner is already on the failure", () => {
+  const FAILED = Date.parse("2026-10-13T13:00:00Z");
+  const before = "2026-10-13T12:50:00Z";
+  const after = "2026-10-13T13:05:00Z";
+  const owns: Owner = { kind: "session", id: "s1", title: "Pin the clock" };
+  const message = (from: "you" | "agent" | "session", instant: string) => ({ kind: "message", from: { kind: from }, at: "00:00:00", instant });
+  const held = (turn: "working" | "idle", rows: unknown[] = [], extra: object = {}) =>
+    [{ id: "s1", title: "Pin the clock", turn: { state: turn }, rows, attachments: [], ...extra }] as unknown as Sessions;
+  const nobody = new Set<string>();
+  const untold = new Map<string, string>();
+
+  test("a Session at work is on it, whatever was said", () => {
+    expect(isOnIt(owns, held("working"), nobody, untold, FAILED)).toBe(true);
+    expect(isOnIt(owns, held("working"), nobody, untold, undefined)).toBe(true);
+  });
+
+  test("an idle Session sent anything after the failure is on it, from the owner or from another Session", () => {
+    expect(isOnIt(owns, held("idle", [message("you", after)]), nobody, untold, FAILED)).toBe(true);
+    expect(isOnIt(owns, held("idle", [message("session", after)]), nobody, untold, FAILED)).toBe(true);
+  });
+
+  test("what the agent said itself, or was sent before the failure, does not count", () => {
+    expect(isOnIt(owns, held("idle", [message("agent", after)]), nobody, untold, FAILED)).toBe(false);
+    expect(isOnIt(owns, held("idle", [message("you", before)]), nobody, untold, FAILED)).toBe(false);
+  });
+
+  test("an idle Session with nothing sent is not on it, and with no failure time nothing but work counts", () => {
+    expect(isOnIt(owns, held("idle"), nobody, untold, FAILED)).toBe(false);
+    expect(isOnIt(owns, held("idle", [message("you", after)]), nobody, untold, undefined)).toBe(false);
+  });
+
+  test("a Session that ended, or that is not there, is not on it", () => {
+    expect(isOnIt(owns, held("working", [], { dead: "ended" }), nobody, untold, FAILED)).toBe(false);
+    expect(isOnIt(owns, [], nobody, untold, FAILED)).toBe(false);
+  });
+
+  const job: Owner = { kind: "job", id: "j1", title: "Name the zone" };
+
+  test("a Job is on it while it runs", () => {
+    expect(isOnIt(job, [], new Set(["j1"]), untold, FAILED)).toBe(true);
+    expect(isOnIt(job, [], new Set(["j1"]), untold, undefined)).toBe(true);
+  });
+
+  test("a Job told after the failure is on it, one told before is not, and none told is not", () => {
+    expect(isOnIt(job, [], nobody, new Map([["j1", after]]), FAILED)).toBe(true);
+    expect(isOnIt(job, [], nobody, new Map([["j1", before]]), FAILED)).toBe(false);
+    expect(isOnIt(job, [], nobody, untold, FAILED)).toBe(false);
+    expect(isOnIt(job, [], nobody, new Map([["j2", after]]), FAILED)).toBe(false);
+  });
+
+  test("a Job's telling counts only against a failure time", () => {
+    expect(isOnIt(job, [], nobody, new Map([["j1", after]]), undefined)).toBe(false);
+  });
+
+  test("main red is dated by `since`, so a Session sent anything after it first read red is on it", () => {
+    const red = views([], { state: "red", red: { check: "desktop_test", since: "2026-10-13T13:00:00Z" } });
+    const since = failedAt(red, "main:/armada");
+    expect(since).toBe(FAILED);
+    expect(isOnIt(owns, held("idle", [message("you", after)]), nobody, untold, since)).toBe(true);
+    expect(isOnIt(owns, held("idle", [message("you", before)]), nobody, untold, since)).toBe(false);
+  });
+
+  test("a pull request is dated by its updated_at, and main without `since` has no date", () => {
+    expect(failedAt(views([{ number: 7, updatedAt: "2026-10-13T13:00:00Z" }]), "pull:7")).toBe(FAILED);
+    expect(failedAt(views([], { state: "red", red: { check: "x" } }), "main:/armada")).toBeUndefined();
   });
 });

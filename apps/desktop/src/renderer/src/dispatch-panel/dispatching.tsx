@@ -4,7 +4,7 @@
 // either (Esc, a press outside) loses nothing. A Job, a Session and an Autopilot are the kinds:
 //
 //   Job        needs a repository: read from the words by Fleet, else asked inline. Sends `proposeFrom`.
-//   Session    the repository is optional and nothing is asked. Starts and opens the Session.
+//   Session    needs a repository, as a Job does (the owner, 13 Oct 2026). Starts and opens the Session.
 //   Autopilot  needs a repository, as a Job does. The act reads the words as settings, shown in the
 //              panel's body for the person to edit; the act again starts it. Nothing leaves the panel.
 //
@@ -213,11 +213,11 @@ export function useDispatch({ state, repositories, proposeFrom, openSession, ope
     });
   }
 
-  function startSession() {
+  function startSession(at: string) {
     if (draft === undefined) return;
     const text = words.trim();
     setSending(true);
-    void Promise.resolve(draft.start()).then((id) => {
+    void Promise.resolve(draft.start(undefined, at)).then((id) => {
       if (id === undefined) return setSending(false);
       draft.send(id, { text, files: [], sketches: [], tags: [] });
       clearAll();
@@ -255,16 +255,16 @@ export function useDispatch({ state, repositories, proposeFrom, openSession, ope
     });
   }
 
-  /** A Job and an Autopilot build nothing without a repository: a reading still out is waited for, and none found asks. */
+  /** Nothing starts without a repository: a reading still out is waited for, and none found asks. */
   function act() {
     if (words.trim() === "") return;
-    if (kind === "session") return startSession();
     if (root === undefined) return found.state === "detecting" ? setWaiting(true) : setAsking("send");
     proceed(root);
   }
 
   function proceed(at: string) {
-    if (kind === "job") sendJob(at);
+    if (kind === "session") startSession(at);
+    else if (kind === "job") sendJob(at);
     else if (read === undefined) readAutopilot(at);
     else startAutopilot(at);
   }
@@ -333,6 +333,7 @@ export function useDispatch({ state, repositories, proposeFrom, openSession, ope
     onAsking: (next) => setAsking(next ? "chip" : false),
     onPick: (at) => {
       if (asking === "send" && kind === "job") return sendJob(at);
+      if (asking === "send" && kind === "session") return (setAsking(false), startSession(at));
       pick(at);
       if (asking === "send") (setAsking(false), readAutopilot(at));
       else setAsking(false);

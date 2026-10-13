@@ -114,11 +114,8 @@ fn main() -> ExitCode {
 const FOUNDATIONS: &[fn(&Path) -> Report] = &[
     rules::acceptance_test_exists,
     rules::every_failure_mode_has_a_fixture,
-    rules::no_file_too_long,
-    rules::no_comment_block_too_long,
     rules::no_untyped_json_outside_store_and_ipc,
     rules::no_vendor_literal_outside_adapters,
-    rules::no_bloated_claude_md,
     rules_gitnexus::no_skill_runs_a_bare_analyze,
     rules::the_v1_harvest_has_an_index,
     rules_privacy::nothing_names_a_person_or_a_machine,

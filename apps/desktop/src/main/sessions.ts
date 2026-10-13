@@ -22,6 +22,7 @@ import type {
   FrameRead,
   Outcome,
   PullRequestClaimed,
+  PullRequestPage,
   PullRequestState,
   RenameSession,
   RunSessionCommand,
@@ -45,7 +46,7 @@ import type {
 import type { BridgeState } from "../shared/bridge";
 import type { ArtifactRead } from "@armada/screens/src/draft/sessions";
 import { withThreadRow } from "@armada/screens/src/retro-row";
-import type { PullRequestPress, SessionActed } from "../shared/api/sessions";
+import type { PullRequestPress, PullRequestWrite, SessionActed } from "../shared/api/sessions";
 import { openSessionFile, readSessionArtifact, takesOfWindow, titleOfWindow } from "./session-file";
 import { ask, MODEL_CALL_MS, sessionFileOf } from "./request";
 import { HOST } from "./runtime-file";
@@ -321,6 +322,10 @@ export class SessionsHost {
     return await this.start({ manifest_id: manifestId, fork: at === undefined ? { session_id: sessionId } : { session_id: sessionId, at } });
   }
 
+  async stop(sessionId: string): Promise<SessionActed> {
+    return await this.act("POST", "/sessions/stop", { session_id: sessionId });
+  }
+
   async end(sessionId: string): Promise<SessionActed> {
     return await this.act("POST", "/sessions/close", { session_id: sessionId });
   }
@@ -386,6 +391,35 @@ export class SessionsHost {
     return answer.ok === true
       ? { ok: true, value: answer.body as PullRequestState | ReviewDispatched }
       : { ok: false, outcome: answer.outcome };
+  }
+
+  /**
+   * What the panel's tabs draw, read from the forge by Fleet. **The repository is the session's own**,
+   * as `press` names it.
+   */
+  async pullRequestPage(sessionId: string, number: number): Promise<SessionActed<PullRequestPage>> {
+    return await this.onPage(sessionId, (port, repository) => ask(port, "GET", `/pull_request_details/${repository}/${number}`));
+  }
+
+  /** A comment, an approval or a request for changes. Fleet answers the page read again after it; a refusal carries the forge's words. */
+  async writePullRequest(sessionId: string, number: number, write: PullRequestWrite): Promise<SessionActed<PullRequestPage>> {
+    return await this.onPage(sessionId, (port, repository) =>
+      ask(port, "POST", `/pull_request_writes/${repository}`, {
+        pull_request: number,
+        kind: write.kind,
+        ...(write.body === undefined ? {} : { body: write.body }),
+        session_id: sessionId,
+      }),
+    );
+  }
+
+  private async onPage(sessionId: string, go: (port: number, repository: string) => ReturnType<typeof ask>): Promise<SessionActed<PullRequestPage>> {
+    const port = this.port();
+    if (port === null) return { ok: false, outcome: NOT_CONNECTED };
+    const manifestId = this.sessions?.find((one) => one.id === sessionId)?.manifest_id;
+    if (manifestId === undefined) return { ok: false, outcome: { ok: false, why: "no_manifest" } };
+    const answer = await go(port, encodeURIComponent(manifestId));
+    return answer.ok === true ? { ok: true, value: answer.body as PullRequestPage } : { ok: false, outcome: answer.outcome };
   }
 
   /** The window is going: nothing is read for it any more. */

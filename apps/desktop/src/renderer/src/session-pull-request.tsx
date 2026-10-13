@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 import { PullRequestPanel } from "@armada/components";
 import type { PullRequestActsProps } from "@armada/components";
 import { placeOf } from "@armada/screens";
+import { usePullRequestPage } from "./session-pull-request-page";
 import type { MergeLines } from "@armada/protocol";
 import type { PullRequestAct, SessionAttachment, SessionsDraft } from "@armada/screens/src/draft/sessions";
 
@@ -48,19 +49,14 @@ export function useSendBack(sessionId: string, send: SessionsDraft["send"] | und
   return { sentBack: (one: PullRequest) => sent.has(keyOf(sessionId, one)), sendBack };
 }
 
-export function SessionPullRequest({
-  one,
-  lines,
-  floor,
-  pending,
-  reviewed,
-  sentBack,
-  onAct,
-  onSendBack,
-  onOpenLink,
-  onClose,
-  children,
-}: {
+/** The panel, remounted for each pull request so one's page and draft never show on another. */
+export function SessionPullRequest(props: PanelProps) {
+  return <SessionPullRequestPanel key={`${props.sessionId}#${props.one.number}`} {...props} />;
+}
+
+type PanelProps = {
+  sessionId: string;
+  draft: SessionsDraft | undefined;
   one: PullRequest;
   /** What Fleet serves of the merge lines, for the place the pull request holds in one. */
   lines: MergeLines | null;
@@ -73,10 +69,27 @@ export function SessionPullRequest({
   onOpenLink: (address: string) => void;
   onClose: () => void;
   children?: ReactNode;
-}) {
+};
+
+function SessionPullRequestPanel({
+  sessionId,
+  draft,
+  one,
+  lines,
+  floor,
+  pending,
+  reviewed,
+  sentBack,
+  onAct,
+  onSendBack,
+  onOpenLink,
+  onClose,
+  children,
+}: PanelProps) {
   const place = placeOf(lines, one);
   const repository = repositoryOf(one.address);
   const description = promptsOut(one.body);
+  const { page, pageSaid, composer } = usePullRequestPage(sessionId, one.number, draft);
   return (
     <PullRequestPanel
       number={one.number}
@@ -85,6 +98,9 @@ export function SessionPullRequest({
       address={one.address}
       {...(repository === undefined ? {} : { repository })}
       {...(description === "" ? {} : { body: description })}
+      {...(page === undefined ? {} : { page })}
+      {...(pageSaid === undefined ? {} : { pageSaid })}
+      {...(composer === undefined ? {} : { composer })}
       state={one.state}
       checks={one.checks.state === "failed" ? { state: "failed", failing: failingOf(one) } : { state: one.checks.state }}
       auto={one.auto}
