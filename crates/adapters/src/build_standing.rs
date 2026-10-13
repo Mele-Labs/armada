@@ -39,6 +39,11 @@ pub fn fetch_main(root: &str, within: Duration) -> Result<(), String> {
     fetch_within(root, &["fetch", "--quiet", "origin", "main"], within)
 }
 
+/// `git fetch origin <branch>` in `root`, for a commit of the base that is not here yet.
+pub fn fetch_branch(root: &str, branch: &str, within: Duration) -> Result<(), String> {
+    fetch_within(root, &["fetch", "--quiet", "origin", branch], within)
+}
+
 /// Run `git` with these arguments (a fetch) in `root`, stopped if it is still
 /// running after `within`. Errors with git's own sentence. **No prompt.**
 pub(crate) fn fetch_within(root: &str, args: &[&str], within: Duration) -> Result<(), String> {

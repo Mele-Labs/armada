@@ -4,6 +4,12 @@
 use super::Route;
 
 pub(super) const ROUTES: &[Route] = &[
+    // The plan's windows, from the newest reading of any session.
+    Route {
+        operation: "get_plan_usage",
+        method: "GET",
+        path: "/plan_usage",
+    },
     // Sleep mode: the switch, the night it keeps, and a correction of one decision.
     Route {
         operation: "get_sleep",
@@ -24,6 +30,12 @@ pub(super) const ROUTES: &[Route] = &[
         operation: "review_sleep",
         method: "POST",
         path: "/sleep/review",
+    },
+    // What happened across the Fleet, windowed by instant: three optional bounds, so a query string.
+    Route {
+        operation: "get_fleet_timeline",
+        method: "GET",
+        path: "/timeline",
     },
     // Which served repository a request's words are about: typed text, so a
     // query string for `search_files`' reason, and under `/repositories`

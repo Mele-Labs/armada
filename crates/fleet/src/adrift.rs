@@ -547,6 +547,9 @@ pub enum Adrift {
     /// the same worktree throws away the context that makes a redirect cost
     /// nothing.
     DroneStillThere { job: JobId },
+    /// A repair Drone is already on the Job's branch, sent by its Commander. A
+    /// second, or a restart over it, would put two writers in one worktree.
+    RepairUnderway { job: JobId },
     /// A restart was asked for on a Job whose worktree is no longer on disk.
     ///
     /// **Nothing is spawned.** The earlier steps' work lived in that directory,

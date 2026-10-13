@@ -319,6 +319,7 @@ Rules that follow:
 - **A runner narrows a Check that declares no `narrow`**, from the `run_changed` of its shipped description. `{dir}` is the Check's runner `dir`, and a workspace Check that declares none gets its own manifest's directory, `.`. Where a root Check declares none and the template names `{dir}`, the Check runs whole.
 - **A Drone's narrowed run gates nothing.** The Drone asks for it mid-step, the gate takes its own reading regardless, and the report says in its own words that a narrowed pass is the smaller claim. `after_merge` drops `narrow` for the reason it drops `when`.
 - **The step gate narrows the merge line's way.** Only through `under`, over every crate the step's own change reaches and every crate depending on one, and whole on any covered path it cannot name — unless the Manifest declares it `outside`, a path `narrow.run` already reads, which adds nothing and runs `narrow.run` alone where nothing else changed (owner, 4 Oct 2026, after Job 3); a verbatim `narrow` never narrows there. The ruling carries the command it narrowed to, and a red run again alone runs that command. Decided 4 Oct 2026 after Job 3, whose gate ran every Check whole until then. [Merge line](../capabilities/merge-line.md), *What a narrowed Check runs*.
+- **`armada check <name> --changed` reads the change two ways, by who asks.** CI (`ARMADA_SOLE_TENANT=1`) and the merge line (`ARMADA_CHECK_PRIORITY=normal`) get the reading above: every member the paths name. Anyone else, which is an agent or a person at the default priority on a machine others share, gets **the tests the change touched** and nothing wider: a Check that declares both `one_test` and a `narrow` with `under` runs its `one_test` with the module paths of the test files among the changed ones (`crates/checks-runner/src/tests/slots.rs` is `tests::slots`), the inline `mod tests` of a changed source file, and the `#[test]` functions of a changed `tests/*.rs`, in the members they are in and no others, each spelled as `narrow.each` spells it. No dependents, no `narrow.run` and so no `xtask`. **A change that touches no test module runs nothing, says so and passes**, rather than falling back to the whole Check, and a file that only declares `#[cfg(test)] mod tests;` (`lib.rs`) is not a test. A Check without `one_test` or `under` has no such reading and is narrowed as above. Whole members and their dependents stay with CI and the gate. Decided 12 Oct 2026, with the machine at load 30 from three sessions' runs: one new test file had run 1,256 of one crate's 2,888 tests.
 - **A Check that narrows to nothing the change touched is skipped, not passed.** The third answer, the same one a `when` skip records.
 - **`except` restates an exclusion the whole run already makes.** Dropping `--workspace` so `-p` means something drops `--exclude` with it, and a narrowed `test` that pulled `acceptance` back in would show a Drone a bar the gate deliberately does not apply — the one case where a narrowed run is misleading rather than merely smaller.
 - **It is frozen with the workflow**, beside the Check's command.
@@ -386,6 +387,7 @@ Rules that follow:
 - **Do not widen a timeout to compensate.** A bounded suite that no longer fits its budget is a budget to raise deliberately and say so.
 - **It is frozen with the workflow**, beside the Check's command, and `after_merge` keeps it for `places`' reason: the machine is no wider for the merge having happened.
 - **A single-tenant machine takes every core.** `ARMADA_SOLE_TENANT=1` makes the number the machine's core count, uncapped, for a CI runner that nothing else shares. A declared `width` still lowers it. Half the cores is for a person's machine, where Jobs and sessions share the CPU.
+- **A compile is capped by the same number.** Every Check that compiles Rust spells it: `--build-jobs ${width}` for nextest and `--jobs ${width}` for cargo. Without it cargo builds at one job per core in each worktree, each with a target of its own, and the width bounded only the tests: three sessions compiling at once were 54 rustc jobs on 18 cores (12 Oct 2026). On a sole-tenant machine `${width}` is every core, so CI keeps all of them.
 - **The terminal resolves it too.** `armada check` substitutes the same way, so a Check a person runs is the Check a Drone is measured by. It reads the shipped Jobs bound rather than a saved one, and where those differ the gate is the authority.
 
 ### How many Checks run at once
@@ -456,8 +458,14 @@ Rules that follow:
 checks:
   test:
     run: cargo nextest run --workspace --exclude acceptance
+    narrow:
+      run: cargo nextest run
+      each: "-p {}"
+      under: crates
+      except:
+        - acceptance
     one_test:
-      run: cargo nextest run --workspace --exclude acceptance -E test(/(^|::){}(::|$)/)
+      run: cargo nextest run -E test(/(^|::){}(::|$)/)
 ```
 
 Decided 13 Sep 2026 for #999, after several running Jobs each fixed the same flaky test inside their own change. A Drone that says a test is broken on main is asking a question: Fleet runs just that test there, drafts the fix only where it fails there too, and claims the test for that fix so a second report drafts nothing.
@@ -466,6 +474,7 @@ Rules that follow:
 
 - **Absent means a report cannot be confirmed.** A Check with no `one_test` gives Fleet no way to run one test, so a Drone naming a test under it is refused and nothing is drafted, and a red at the gate is ruled on as it stands.
 - **`{}` is the test's name, and a command without it is refused at load**, the way every template with nowhere to substitute is.
+- **A Check that declares `narrow.under` compiles only the members that declare the test.** `armada check`, Fleet's `draft_fix` and its confirming run read `fn <name>` or `mod <name>` in each member's source and append every one that does as `narrow.each` spells it, so `armada check test a_test` is `-p fleet` for a fleet test and no longer builds every test binary in the workspace. That is why this `run` has no `--workspace`: cargo reads it beside `-p` as the whole workspace. `narrow.except` bars `acceptance` here as it does there. **A name no member declares is refused, saying so, rather than run against all of them**; at Fleet it reads as a name that matched nothing on main. The match is over source text, so a member may be compiled for a mention of the name and never missed for the want of one. Decided 12 Oct 2026.
 - **The name is the Drone's.** `{}` takes it regex-escaped and always as one argument, whatever quotes it holds, so it cannot write its way out; a blank name runs nothing.
 - **The run gates nothing.** A test that fails on main drafts a Job that waits for a person, and the Drone's own step is still decided by its Checks.
 - **A person runs one the same way**, with `armada check <name> <test>`. A name the runner matched nothing on exits 1 rather than reading as a pass, and a name that matched several says how many ran.

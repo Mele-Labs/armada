@@ -1,6 +1,8 @@
 // What a session's own words and tool results say about what it holds. Pure, so
 // each reading is a test and not a session.
 
+import type { SessionContextBreakdown } from 'claude-code'
+
 const TITLE_MOST = 80
 
 /**
@@ -8,7 +10,74 @@ const TITLE_MOST = 80
  * repository's. **Bump it with `version` in `.claude-plugin/plugin.json`**: the mod cannot read that
  * file while it runs, and a Fleet test (`terminal_session.rs`) holds the two equal.
  */
-export const MOD_VERSION = '0.3.12'
+export const MOD_VERSION = '0.3.15'
+
+/** What fills the context window, trimmed for Fleet (`ContextBreakdown`, `crates/ipc/src/context_breakdown.rs`). */
+export type ContextBreakdown = {
+  categories: { name: string; tokens: number; kind: 'used' | 'free' | 'buffer' | 'deferred' }[]
+  memory_files: { path: string; tokens: number }[]
+  mcp_tools: { name: string; server: string; tokens: number }[]
+  total_tokens: number
+  max_tokens: number
+  autocompact_threshold?: number
+}
+
+const MOST_MCP_TOOLS = 10
+
+/**
+ * The breakdown as Fleet keeps it. **Names, paths and counts only**: the grid, the skill and agent
+ * listings and every other field are left behind, and the MCP tools are the ten that weigh most.
+ */
+export function breakdownOf(breakdown: SessionContextBreakdown): ContextBreakdown {
+  const trimmed: ContextBreakdown = {
+    categories: breakdown.categories.map(one => ({ name: one.name, tokens: one.tokens, kind: one.kind })),
+    memory_files: breakdown.memoryFiles.map(one => ({ path: one.path, tokens: one.tokens })),
+    mcp_tools: [...breakdown.mcpTools]
+      .sort((a, b) => b.tokens - a.tokens)
+      .slice(0, MOST_MCP_TOOLS)
+      .map(one => ({ name: one.name, server: one.serverName, tokens: one.tokens })),
+    total_tokens: breakdown.totalTokens,
+    max_tokens: breakdown.maxTokens,
+  }
+  if (breakdown.autoCompactThreshold !== undefined) trimmed.autocompact_threshold = breakdown.autoCompactThreshold
+  return trimmed
+}
+
+/** A plan window as the engine reports it (`SessionRateLimit`). */
+export type RateLimit = { kind: string; percentUsed: number; resetsAt?: string }
+
+/** A plan window as Fleet takes it: whole percent, and the reset as an ISO instant Fleet can read. */
+export type PlanWindow = { kind: string; percent_used: number; resets_at?: string }
+
+function isoOf(text: string | undefined): string | undefined {
+  if (text === undefined) return undefined
+  const at = new Date(text)
+  return Number.isNaN(at.getTime()) ? undefined : at.toISOString()
+}
+
+/** The windows in Fleet's spelling. Empty off a subscription, and a window with no usable reset keeps its percent. */
+export function planOf(limits: RateLimit[]): PlanWindow[] {
+  return limits.map(one => {
+    const resets = isoOf(one.resetsAt)
+    return { kind: one.kind, percent_used: Math.round(one.percentUsed), ...(resets === undefined ? {} : { resets_at: resets }) }
+  })
+}
+
+/** Near enough to full that a turn failing on the limit was this window's doing. */
+const NEARLY_FULL = 99
+
+/**
+ * When the limit a turn just hit opens again: the latest reset among the windows at or near full, so
+ * a weekly window spent beside a five-hour one is waited out. Nothing where no full window says when.
+ */
+export function spentUntil(limits: RateLimit[]): string | undefined {
+  const resets = limits
+    .filter(one => one.percentUsed >= NEARLY_FULL)
+    .map(one => isoOf(one.resetsAt))
+    .filter((one): one is string => one !== undefined)
+    .sort()
+  return resets.at(-1)
+}
 
 /** The `answers` map a question's answered input carries, keyed by question text. */
 export function answersIn(input: unknown): Record<string, string> {
@@ -227,6 +296,21 @@ export function artifactOf(
     return { form: 'doc', target, title: typeof name === 'string' ? name : undefined }
   }
   return undefined
+}
+
+/**
+ * The file a write tool changed, named from the session's directory, for Fleet's check of who else
+ * writes it. **A path and nothing else**: never the content, and nothing outside the directory.
+ * `cwd` is where the session stands; an absolute path under it is made relative, and a path that
+ * climbs out of it, or lies elsewhere, is not told.
+ */
+export function touchedOf(cwd: string, input: Record<string, unknown>): string | undefined {
+  const named = input.file_path ?? input.notebook_path
+  if (typeof named !== 'string' || named === '') return undefined
+  const root = cwd.replace(/\/+$/, '')
+  const relative = named.startsWith('/') ? (named.startsWith(`${root}/`) ? named.slice(root.length + 1) : undefined) : named
+  if (relative === undefined || relative === '' || relative.split('/').includes('..')) return undefined
+  return relative.replace(/^\.\//, '')
 }
 
 const MODELS = ['haiku', 'sonnet', 'opus']

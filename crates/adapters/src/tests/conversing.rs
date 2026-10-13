@@ -130,7 +130,7 @@ fn a_drones_launch_is_untouched_by_what_a_conversation_resolves() {
 /// one: nothing in the stream says whether a shell line wrote a file.
 #[test]
 fn the_tools_that_change_a_checkout_are_named_and_bash_is_not_among_them() {
-    for tool in ["Edit", "Write", "NotebookEdit"] {
+    for tool in ["Edit", "MultiEdit", "Write", "NotebookEdit"] {
         assert!(wrote_the_checkout(tool), "{tool} changes the checkout");
     }
     for tool in ["Bash", "Read", "Grep", "Glob", "WebFetch"] {

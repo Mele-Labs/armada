@@ -5,7 +5,7 @@
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { Plane } from "lucide-react";
-import { Button } from "@armada/components";
+import { Button, ClashMark, StopCard } from "@armada/components";
 
 import type { BaysRead } from "./bays";
 import { MAIN, STATIONS, metroOf, type Act, type Card, type Line, type Metro, type Tone } from "./metro";
@@ -61,6 +61,7 @@ function Row({ line, selected, onSelect, onOpen, onCard, onLeave, nextUp = false
 }) {
   return (
     <li className="armada-metro__row" data-wants={line.wants} data-selected={selected || undefined} style={{ ["--line" as string]: TONE[line.tone] } as CSSProperties}>
+      <span className="armada-metro__cell">
       <button type="button" className="armada-metro__who" aria-label={line.from !== undefined ? `Pull request: ${line.title}` : line.bay === undefined ? `Waiting: ${line.title}` : `Bay ${two(line.bay)}: ${line.title}`} aria-pressed={selected}
         title={line.open === undefined ? "A terminal outside Armada holds this bay: nothing to open" : line.open.label}
         data-opens={line.open === undefined ? undefined : ""}
@@ -76,6 +77,8 @@ function Row({ line, selected, onSelect, onOpen, onCard, onLeave, nextUp = false
           {line.title}
         </span>
       </button>
+      {line.open?.kind === "job" || line.open?.kind === "session" ? <ClashMark kind={line.open.kind} id={line.open.id} /> : null}
+      </span>
       {!nextUp ? null : (
         <span className="armada-metro__station" data-next-up data-state={line.nextUp === undefined ? "ahead" : "now"}>
           {line.nextUp === undefined ? (
@@ -273,7 +276,7 @@ export function Bays({ read, reading, now, selected, onSelect, onOpenJob, onOpen
         </span>
       </footer>
       {open === undefined ? null : (
-        <div
+        <StopCard
           ref={card}
           className="armada-metro__card"
           role="dialog"
@@ -282,22 +285,11 @@ export function Bays({ read, reading, now, selected, onSelect, onOpenJob, onOpen
           onMouseEnter={hold}
           onMouseLeave={leave}
           style={{ ["--tone" as string]: TONE[open.card.tone], left: open.left, ...(above ? { bottom: (host.current?.clientHeight ?? 0) - open.top + 40 } : { top: open.top }) } as CSSProperties}
+          pill={open.card.pill}
+          where={open.station}
+          title={open.card.title}
+          rows={open.card.rows}
         >
-          <span className="armada-metro__card-head">
-            <span className="armada-metro__pill">{open.card.pill}</span>
-            <span className="armada-metro__where">{open.station}</span>
-          </span>
-          <span className="armada-metro__card-title">{open.card.title}</span>
-          {open.card.rows.length === 0 ? null : (
-            <dl className="armada-metro__facts">
-              {open.card.rows.map(([term, value, mono]) => (
-                <div key={term}>
-                  <dt>{term}</dt>
-                  <dd data-mono={mono || undefined}>{value}</dd>
-                </div>
-              ))}
-            </dl>
-          )}
           {open.card.acts.length === 0 ? null : (
             <span className="armada-metro__acts">
               {open.card.acts.map((one) => (
@@ -308,7 +300,7 @@ export function Bays({ read, reading, now, selected, onSelect, onOpenJob, onOpen
             </span>
           )}
           {open.pinned ? null : <span className="armada-metro__hint">Click the stop to keep this open</span>}
-        </div>
+        </StopCard>
       )}
     </div>
   );

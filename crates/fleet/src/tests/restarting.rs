@@ -566,6 +566,7 @@ async fn a_blank_note_is_refused_and_an_absent_one_restarts() {
         Some(ipc::RestartRequested {
             note: String::from("   "),
         }),
+        api::Steerer::Person,
     )
     .await
     .expect_err("a note with nothing in it");
@@ -576,9 +577,51 @@ async fn a_blank_note_is_refused_and_an_absent_one_restarts() {
         "a refused note restarted the step anyway"
     );
 
-    api::Commands::restart_step(std::sync::Arc::clone(&fleet), ipc::JobId::from(&job), None)
+    api::Commands::restart_step(
+        std::sync::Arc::clone(&fleet),
+        ipc::JobId::from(&job),
+        None,
+        api::Steerer::Person,
+    )
         .await
         .expect("no note at all is the act it always was");
+}
+
+/// **A restart is signed as whoever asked for it**, as a plan act is: the
+/// caller the transport placed, so a Commander's restart reads as the
+/// Commander's in the Job's log and a person's as a person's. `#2166`.
+#[tokio::test]
+async fn a_restart_is_signed_as_the_caller_who_asked_for_it() {
+    for (by, signed) in [
+        (api::Steerer::Person, "human"),
+        (api::Steerer::Helm, "helm"),
+        (api::Steerer::Commander, "commander"),
+    ] {
+        let home = TempDir::new();
+        let fleet = Arc::new(a_fleet_with(&home, a_drone_that_leaves(), FakeVcs::new()));
+        let job = stopped(&fleet, &home).await;
+        until_reaped(&fleet).await;
+        let mut watching = fleet.events().subscribe();
+
+        api::Commands::restart_step(Arc::clone(&fleet), ipc::JobId::from(&job), None, by)
+            .await
+            .expect("the step restarts");
+
+        let mut signers = Vec::new();
+        while let Ok(Some(api::Next::Send(delivered))) =
+            tokio::time::timeout(Duration::from_millis(30), api::Subscription::next(&mut watching))
+                .await
+        {
+            if let ipc::Event::JobStateChanged(changed) = delivered.event {
+                signers.push(changed.actor.as_wire().to_string());
+            }
+        }
+        assert_eq!(
+            signers.last().map(String::as_str),
+            Some(signed),
+            "{by:?} asked, and the move out of `escalated` is signed: {signers:?}"
+        );
+    }
 }
 
 /// The person's words, as the act takes them.

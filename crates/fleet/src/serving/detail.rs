@@ -256,6 +256,12 @@ where
             turn_cap: allowance.turns(),
             ran_ms: spent.ran_ms,
             drones: spent.drones,
+            commander_cost_micros: self
+                .store()
+                .lock()
+                .await
+                .commander_cost_for(job.id())
+                .map_err(|why| self.refusal(Adrift::Reading(why)))?,
         });
         // Before `step_facts`, which consumes the Check runs: the
         // classification reads them to answer whether an override is available,
@@ -328,6 +334,13 @@ where
             .collect();
         detail.model_override = self.model_override_of(job.id()).await;
         detail.review_model_override = self.review_model_override_of(job.id()).await;
+        let chosen = self.commander_choice_of(job.id()).await;
+        detail.commander_model_override = chosen.model;
+        detail.commander_effort_override = chosen.effort;
+        // `asking` on the row is the Drone's question, and a card the Commander
+        // put out counts too: `summarised` says the same.
+        detail.commander_card = self.card_out_of(&job).await;
+        detail.job.asking |= detail.commander_card.is_some();
         detail.tiers = ipc::TierModels::from(&self.tiers_of(job.id()).await);
         self.approval_served(&job, &mut detail).await;
         self.sent_back_served(&job, &mut detail).await;

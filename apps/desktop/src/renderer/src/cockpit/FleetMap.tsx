@@ -5,8 +5,11 @@
 // nothing pulses. Mock only, as the Dashboard is.
 
 import { useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
+import { Swords } from "lucide-react";
+import { clashSaid, useClashesOf, useOpenClash } from "@armada/components";
 
 import type { Item } from "../Dashboard";
+import { sessionIdOf } from "./waiting";
 import type { Field, Link, Sky } from "./map-layout";
 
 const LINE_SAID: Record<Link["kind"], string> = { dispatched: "Dispatched", waits: "Waits on", works: "Holds", line: "On the merge line" };
@@ -17,6 +20,39 @@ function burn(item: Item): { r: number; halo: number; alpha: number } {
   if (item.hue === "running") return { r: 6, halo: 15, alpha: 0.95 };
   if (item.hue === "queued") return { r: 4.5, halo: 0, alpha: 0.75 };
   return { r: 5, halo: 10, alpha: 0.65 };
+}
+
+/** A write clash on a star: the mark beside it, which says what it conflicts with and opens the other holder. */
+function StarClash({ item, x, y, tell, clear }: { item: Item; x: number; y: number; tell: (said: string) => (event: { currentTarget: SVGGElement }) => void; clear: () => void }) {
+  const clashes = useClashesOf(item.job !== undefined ? "job" : "session", item.job?.id ?? sessionIdOf(item.key));
+  const open = useOpenClash();
+  return (
+    <>
+      {clashes.map((clash, at) => {
+        const said = clashSaid(clash);
+        return (
+          <g
+            key={`${clash.with.kind}:${clash.with.id}`}
+            className="armada-star__clash"
+            role={clash.with.kind === "main" ? "img" : "button"}
+            aria-label={said}
+            tabIndex={clash.with.kind === "main" ? undefined : 0}
+            data-opens={clash.with.kind === "main" ? undefined : ""}
+            transform={`translate(${x + 10 + at * 18} ${y - 22})`}
+            onMouseEnter={tell(said)}
+            onMouseLeave={clear}
+            onClick={(event) => {
+              event.stopPropagation();
+              if (clash.with.kind !== "main") open(clash.with);
+            }}
+          >
+            <circle cx={7} cy={7} r={9} />
+            <Swords x={1} y={1} width={12} height={12} strokeWidth={2} aria-hidden="true" />
+          </g>
+        );
+      })}
+    </>
+  );
 }
 
 const short = (title: string) => (title.length > 18 ? `${title.slice(0, 17)}…` : title);
@@ -128,6 +164,11 @@ export function FleetMap({
               ) : (
                 <circle className="armada-star__core" cx={star.x} cy={star.y} r={lit.r} opacity={lit.alpha} />
               )}
+              {item.job === undefined && !session ? null : <StarClash item={item} x={star.x} y={star.y} tell={(said) => (event) => {
+                const box = event.currentTarget.getBoundingClientRect();
+                const base = host.current?.getBoundingClientRect();
+                if (base !== undefined) setTip({ said, title: item.title, left: box.x - base.x + box.width / 2, top: box.y - base.y });
+              }} clear={() => setTip(undefined)} />}
               {on ? <circle className="armada-star__ring" cx={star.x} cy={star.y} r={lit.r + 8} /> : null}
               <text className="armada-star__label" x={star.x} y={star.y + lit.r + 16} textAnchor="middle">
                 {short(item.title)}

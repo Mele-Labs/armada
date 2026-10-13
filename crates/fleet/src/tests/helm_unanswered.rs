@@ -71,6 +71,7 @@ async fn why(script: &str, budget: Duration) -> String {
                 model: None,
                 effort: None,
                 readable: None,
+                seat: crate::helm::Seat::Helm,
             },
             &Deaf,
         )

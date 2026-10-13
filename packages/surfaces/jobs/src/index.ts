@@ -60,5 +60,5 @@ export { nowPanelOf, type NowActed } from "./now-panel";
 // to draw the same Job the same way — `docs/practices/capture-window.md`, *The panel beside the page*.
 export { detailOf } from "./mine";
 export { verdictSlotOf, type VerdictSlotOfArgs } from "./verdict-answered";
-export { nowViewOf } from "./now-real";
+export { commanderAskOf, nowViewOf } from "./now-real";
 export { callViewOf } from "./now-calls";

@@ -11,6 +11,8 @@
 //! for as long as a viewer holds it, and `closed` is sent only when a person
 //! starts fresh and the thread it was showing is gone.
 
+use core::fmt;
+
 use serde::{Deserialize, Serialize};
 
 use crate::event::Missed;
@@ -86,6 +88,49 @@ pub enum HelmScreen {
     /// The Workflow creator: the definitions Fleet holds, one open for editing. Since 23.34.
     Workflows,
     JobDetail,
+}
+
+/// A message with something in it. **Blank does not decode**, so an empty
+/// message is the transport's 400 and never a session started for nothing.
+/// `AskCommander` carries one; `AskHelm` does not, because its message may be
+/// only a file or a tag.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(try_from = "String", into = "String")]
+pub struct HelmText(String);
+
+impl HelmText {
+    /// `None` where the text is blank.
+    pub fn said(text: &str) -> Option<HelmText> {
+        (!text.trim().is_empty()).then(|| HelmText(text.to_string()))
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+/// A message that was only whitespace.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Blank;
+
+impl fmt::Display for Blank {
+    fn fmt(&self, out: &mut fmt::Formatter<'_>) -> fmt::Result {
+        out.write_str("a message to Helm has nothing in it")
+    }
+}
+
+impl TryFrom<String> for HelmText {
+    type Error = Blank;
+
+    fn try_from(text: String) -> Result<HelmText, Blank> {
+        HelmText::said(&text).ok_or(Blank)
+    }
+}
+
+impl From<HelmText> for String {
+    fn from(text: HelmText) -> String {
+        text.0
+    }
 }
 
 /// `POST /helm/tune` — what Helm's next reply runs on. An absent model or effort is the

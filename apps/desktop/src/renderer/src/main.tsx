@@ -16,6 +16,10 @@ import { WiredNumbered } from "./numbered-fleet";
 import { WiredSessions } from "./sessions-wired";
 import { SleepSourceProvider } from "./sleep";
 import { createFleetSleep } from "./fleet-sleep";
+import { createFleetPlanUsage } from "./fleet-plan-usage";
+import { PlanUsageSourceProvider } from "./plan-usage";
+import { createFleetClashes } from "./fleet-clashes";
+import { ClashesFromFleet } from "./clashes";
 import { CATALOGUE } from "./catalogue";
 import { Themed } from "./theme";
 import { createFleetThemes } from "./fleet-themes";
@@ -45,6 +49,10 @@ wireFleetKeymap(window.armada);
 const PHONE = createPhoneGatewaySource((request) => window.armada.phone(request));
 /** The moon in the title row and the night's decisions as Cockpit calls, over Fleet. */
 const SLEEP = createFleetSleep(window.armada);
+/** The plan's windows in the title row, over Fleet. */
+const PLAN_USAGE = createFleetPlanUsage(window.armada);
+/** The mark on a row whose changes would conflict with another agent's, over Fleet. */
+const CLASHES = createFleetClashes(window.armada);
 
 /**
  * Who Bridge is, read once. The only state above the boundary, and the least
@@ -70,9 +78,13 @@ function Root() {
             <PhoneSourceProvider value={PHONE}>
               <SleepSourceProvider value={SLEEP}>
                 <WiredNumbered>
-                  <WiredSessions>
-                    <App />
-                  </WiredSessions>
+                  <PlanUsageSourceProvider value={PLAN_USAGE}>
+                    <WiredSessions>
+                      <ClashesFromFleet source={CLASHES}>
+                        <App />
+                      </ClashesFromFleet>
+                    </WiredSessions>
+                  </PlanUsageSourceProvider>
                 </WiredNumbered>
               </SleepSourceProvider>
             </PhoneSourceProvider>

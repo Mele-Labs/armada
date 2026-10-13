@@ -17,7 +17,7 @@ use std::sync::Mutex;
 use std::time::Duration;
 
 use adapter_traits::{AgentHarness, DroneEvent, Launch, McpConfig, Model};
-use adapters::{ConversationRefused, Conversing, HeadlessAgent};
+use adapters::{Commanding, ConversationRefused, Conversing, HeadlessAgent};
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 
 use crate::daemon::Host;
@@ -28,10 +28,33 @@ use crate::session_host::UserLine;
 
 use super::unanswered;
 
+/// Whose conversation a message is in, and so which launch carries it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Seat {
+    /// A repository's Helm: opened in the owner's checkout, the owner answering
+    /// what its settings do not cover.
+    Helm,
+    /// A Job's Commander: opened in the Job's worktree with its write tools cut
+    /// at launch, because there is no owner to ask. `#2166`.
+    Commander(Commander),
+}
+
+/// What a Commander's launch is told that Helm's is not.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Commander {
+    /// The Job it steers, as the record holds the id. **What places its
+    /// connection**: the door narrows its acts to this Job.
+    pub job: String,
+    /// The model it runs on, and how hard it thinks. Fleet resolves them (the
+    /// Machine's setting, the Job's own over it) and the host does not choose.
+    pub model: Model,
+}
+
 /// One message, as a host is asked to carry it.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Carry {
-    /// The repository's root. The session opens here, which scopes its door.
+    /// Where the session opens, which scopes its door: the repository's root
+    /// for Helm, the Job's worktree for a Commander.
     pub directory: String,
     /// The turn whole: the brief and the message on a new session, the message
     /// alone on a resumed one.
@@ -46,6 +69,7 @@ pub struct Carry {
     pub effort: Option<String>,
     /// Where this conversation's uploads are kept, for the session to read without being asked.
     pub readable: Option<String>,
+    pub seat: Seat,
 }
 
 /// What came of carrying a message.
@@ -89,19 +113,32 @@ pub trait Hosting: Send + Sync + 'static {
     /// started inside this process's tree. A host running no process of Fleet's
     /// answers none, and the door treats its sessions as any other agent.
     fn running(&self) -> Vec<u32>;
+
+    /// The process each Commander turn is being answered in right now, by pid
+    /// and the Job it steers. **What places a Commander at the door**, as
+    /// [`running`](Hosting::running) places Helm: its relay is started inside
+    /// one of these. A host that starts no process answers none.
+    fn running_commanders(&self) -> Vec<(u32, String)> {
+        Vec::new()
+    }
 }
 
 /// A session's pid, listed while its process runs and taken off however the
 /// reply ends.
 struct Listed<'a> {
-    running: &'a Mutex<Vec<u32>>,
+    running: &'a Mutex<Vec<(u32, Option<String>)>>,
     pid: Option<u32>,
 }
 
 impl<'a> Listed<'a> {
-    fn while_running(running: &'a Mutex<Vec<u32>>, pid: Option<u32>) -> Listed<'a> {
+    /// `job` is the Job a Commander turn steers, and `None` for Helm's.
+    fn while_running(
+        running: &'a Mutex<Vec<(u32, Option<String>)>>,
+        pid: Option<u32>,
+        job: Option<String>,
+    ) -> Listed<'a> {
         if let (Some(pid), Ok(mut listed)) = (pid, running.lock()) {
-            listed.push(pid);
+            listed.push((pid, job));
         }
         Listed { running, pid }
     }
@@ -110,7 +147,7 @@ impl<'a> Listed<'a> {
 impl Drop for Listed<'_> {
     fn drop(&mut self) {
         if let (Some(pid), Ok(mut listed)) = (self.pid, self.running.lock()) {
-            listed.retain(|held| *held != pid);
+            listed.retain(|(held, _)| *held != pid);
         }
     }
 }
@@ -151,7 +188,7 @@ pub struct ProcessHost {
     /// How hard the model thinks. `None` passes no effort, the harness's own.
     effort: Option<adapter_traits::Effort>,
     /// Every session process started and not yet ended. See [`Hosting::running`].
-    running: Mutex<Vec<u32>>,
+    running: Mutex<Vec<(u32, Option<String>)>>,
 }
 
 impl ProcessHost {
@@ -216,13 +253,6 @@ impl ProcessHost {
         let failed = |why: String| Carried::Failed {
             why: unanswered::no_session_started(why),
         };
-        // A choice a person made for this conversation, else the host's own.
-        let effort = match carry.effort.as_deref() {
-            Some(chosen) => crate::tuning::effort_of(chosen).or(self.effort),
-            None => self.effort,
-        };
-        let model = Model::named_at(carry.model.as_deref().unwrap_or(&self.model), effort)
-            .map_err(|why| failed(why.said()))?;
         let door = McpConfig::only_these(&self.door.to_string_lossy())
             .map_err(|why| failed(why.said()))?;
         let paths = HostPaths {
@@ -231,6 +261,28 @@ impl ProcessHost {
             user: &self.user,
         };
         let env = environment(paths, &[]).map_err(|why| failed(why.said()))?;
+        if let Seat::Commander(commander) = &carry.seat {
+            let mut commanding =
+                Commanding::in_worktree(&carry.directory, commander.model.clone(), door, env)
+                    .map_err(|why| failed(why.to_string()))?;
+            if let Some(session) = &carry.resuming {
+                commanding = commanding.resuming(session).map_err(|why| match why {
+                    ConversationRefused::SessionNotPortable { .. } => Carried::NoSuchSession,
+                    other => failed(other.to_string()),
+                })?;
+            }
+            return self
+                .agent
+                .render_commander(&commanding)
+                .map_err(|why| failed(why.to_string()));
+        }
+        // A choice a person made for this conversation, else the host's own.
+        let effort = match carry.effort.as_deref() {
+            Some(chosen) => crate::tuning::effort_of(chosen).or(self.effort),
+            None => self.effort,
+        };
+        let model = Model::named_at(carry.model.as_deref().unwrap_or(&self.model), effort)
+            .map_err(|why| failed(why.said()))?;
         let mut conversing = Conversing::in_repository(&carry.directory, model, door, env)
             .map_err(|why| failed(why.to_string()))?;
         if let Some(uploads) = &carry.readable {
@@ -268,7 +320,11 @@ impl ProcessHost {
             Err(why) => return failed(unanswered::would_not_start(launch.program(), why)),
         };
         let pid = child.id();
-        let _listed = Listed::while_running(&self.running, pid);
+        let steering = match &carry.seat {
+            Seat::Helm => None,
+            Seat::Commander(commander) => Some(commander.job.clone()),
+        };
+        let _listed = Listed::while_running(&self.running, pid, steering);
         let (Some(mut input), Some(output), Some(mut complaints)) =
             (child.stdin.take(), child.stdout.take(), child.stderr.take())
         else {
@@ -359,7 +415,25 @@ impl Hosting for ProcessHost {
     fn running(&self) -> Vec<u32> {
         self.running
             .lock()
-            .map(|listed| listed.clone())
+            .map(|listed| {
+                listed
+                    .iter()
+                    .filter(|(_, job)| job.is_none())
+                    .map(|(pid, _)| *pid)
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+
+    fn running_commanders(&self) -> Vec<(u32, String)> {
+        self.running
+            .lock()
+            .map(|listed| {
+                listed
+                    .iter()
+                    .filter_map(|(pid, job)| Some((*pid, job.clone()?)))
+                    .collect()
+            })
             .unwrap_or_default()
     }
 }
@@ -392,6 +466,7 @@ mod tests {
             model: None,
             effort: None,
             readable: None,
+            seat: Seat::Helm,
         }
     }
 

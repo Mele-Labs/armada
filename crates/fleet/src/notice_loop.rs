@@ -72,7 +72,11 @@ where
                     eprintln!("sleep mode did not pass over the sessions: {why:?}");
                 }
             }
+            // Sessions the plan's limit stopped, woken once it has reset.
+            fleet.limits_lifted().await;
             let (merge, issue) = fleet.read_landings().await;
+            // Who wrote the same file as whom, once the wait after a write is over.
+            fleet.clashes_checked().await;
             // What is owed on the issues Jobs came from, every interval. #91.
             let written = fleet.write_back_when_due().await.map(|_| ());
             for why in [merge, issue, written].into_iter().filter_map(Result::err) {

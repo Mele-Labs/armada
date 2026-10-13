@@ -8,7 +8,7 @@
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use adapters::leasing::{Full, Holder, Lease, LeaseRefused, Pool, Slot, SlotState, Unshaped};
+use adapters::leasing::{Full, Holder, Lease, Pool, Slot, SlotState, Unshaped};
 use config::Manifest;
 use fleet::{CopyOnWrite, NotCloned, TheVolume};
 
@@ -65,15 +65,10 @@ pub fn lease(within: &Path, branch: &str, existing: bool) -> u8 {
     };
     match leased {
         Ok(lease) => {
-            said(&lease, branch, existing);
+            said(&lease, branch);
             println!("{}", lease.path().display());
             0
         }
-        Err(LeaseRefused::BranchHoldsWork { branch, commits }) => refused(&format!(
-            "{branch} already exists with {commits} commits on neither the remote nor the base. \
-             A lease cuts its branch fresh from the base, so it will not reset this one: \
-             land or push it, or lease a new name"
-        )),
         Err(other) => refused(&other.said()),
     }
 }
@@ -196,7 +191,7 @@ fn waiting(full: &Full, count: usize) {
     }
 }
 
-fn said(lease: &Lease, branch: &str, existing: bool) {
+fn said(lease: &Lease, branch: &str) {
     if let Some(why) = lease.unfetched() {
         eprintln!("the base was not fetched, so {branch} is cut from what was last fetched: {why}");
     }
@@ -213,9 +208,9 @@ fn said(lease: &Lease, branch: &str, existing: bool) {
             commit.get(..10).unwrap_or(commit)
         );
     }
-    match existing {
-        true => eprintln!("slot-{} is on {branch}, at its tip", lease.slot()),
-        false => eprintln!("slot-{} is on {branch}, cut from the base", lease.slot()),
+    match lease.cut_from_base() {
+        false => eprintln!("slot-{} is on {branch}, at its tip", lease.slot()),
+        true => eprintln!("slot-{} is on {branch}, cut from the base", lease.slot()),
     }
 }
 

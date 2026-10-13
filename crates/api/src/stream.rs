@@ -27,7 +27,7 @@
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::fmt;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 use std::time::Duration;
 
 use ipc::{Cursor, Delivered, Event, EventTally, EventsSince};
@@ -248,7 +248,12 @@ pub struct Broadcaster {
     /// `tokio` one**: every hold is a push or a walk of at most [`TALLIED`]
     /// pairs, with no await inside, and `publish` is not async.
     tallies: Arc<Mutex<Tallies>>,
+    /// Who is told each event as it is published, in the publisher's own call.
+    taps: Arc<RwLock<Vec<Tap>>>,
 }
+
+/// What a tap is: a function of the event, called where it is published.
+type Tap = Arc<dyn Fn(&Event) + Send + Sync>;
 
 impl Broadcaster {
     /// A stream with the default backlog.
@@ -266,6 +271,20 @@ impl Broadcaster {
             tallies: Arc::new(Mutex::new(Tallies {
                 seen: VecDeque::new(),
             })),
+            taps: Arc::new(RwLock::new(Vec::new())),
+        }
+    }
+
+    /// Have `tap` called with every event published from now on, by whoever
+    /// publishes it and before the event is sent.
+    ///
+    /// **For what must not miss one**, which a [`Subscription`] cannot promise:
+    /// it drops the oldest when it falls behind. The call runs inside
+    /// `publish`, so it must not block or publish; a tap that has work to do
+    /// hands the event to a task of its own.
+    pub fn tap(&self, tap: impl Fn(&Event) + Send + Sync + 'static) {
+        if let Ok(mut taps) = self.taps.write() {
+            taps.push(Arc::new(tap));
         }
     }
 
@@ -281,6 +300,11 @@ impl Broadcaster {
         // told about.
         if let Ok(mut tallies) = self.tallies.lock() {
             tallies.note(cursor.position(), event.kind(), event.about());
+        }
+        if let Ok(taps) = self.taps.read() {
+            for tap in taps.iter() {
+                tap(&event);
+            }
         }
         let _ = self.outbound.send(Delivered { cursor, event });
         cursor
@@ -373,6 +397,7 @@ impl Clone for Broadcaster {
             next: Arc::clone(&self.next),
             outbound: self.outbound.clone(),
             tallies: Arc::clone(&self.tallies),
+            taps: Arc::clone(&self.taps),
         }
     }
 }

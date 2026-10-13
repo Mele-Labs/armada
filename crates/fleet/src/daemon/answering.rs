@@ -158,6 +158,8 @@ where
         // Once, the clone's needs into the ledger, and every live Job's own
         // branch and slot beside them. `crate::needing`, `crate::ledgering`.
         self.needs_converted(served, &jobs).await;
+        // A repair the last Fleet sent holds its Job until it is dealt with.
+        self.repairs_left_out(&jobs).await;
         let rekeyed = crate::transcript::rekeyed(served.records_root(), &jobs).await;
         reconciled.rekeyed.logs += rekeyed.logs;
         reconciled.rekeyed.transcripts += rekeyed.transcripts;
@@ -549,6 +551,13 @@ where
             &self.helm.host().running(),
             self.peers.as_ref(),
         )
+    }
+
+    /// Whether this process, one a Commander host is running, holds this call's
+    /// connection. **`helm_holds`' question about one pid**, because a
+    /// Commander's reach is the Job of the process that holds it. `#2166`.
+    pub(crate) fn commander_holds(&self, caller: &api::Caller, pid: u32) -> bool {
+        held_within(caller, self.host.port, &[pid], self.peers.as_ref())
     }
 
     /// A Drone started on this Job, as this process.

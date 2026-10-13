@@ -8,7 +8,8 @@
 // `AskUserQuestion` Bridge answers first; every other answers with what `next` returned and lets its report go unawaited, so
 // Fleet being down costs the session nothing (`fleet.ts`). **No message text and no prompt leaves, apart from the first
 // line of the first prompt as a title, and a question put to Bridge.** A message is reported as who it went to
-// or came from, and how many.
+// or came from, and how many. A file a session wrote is reported as its path from the session's directory,
+// and never its content. What fills the context window is reported as names, paths and counts, never contents.
 //
 // The helpers are top-level because the engine follows `$` only into a function
 // declared at the top of a file, and refuses the module otherwise.
@@ -18,6 +19,7 @@ import type { Engine, Register } from 'claude-code'
 import {
   answersIn,
   artifactOf,
+  touchedOf,
   customTitleIn,
   ghAct,
   isDispatch,
@@ -25,6 +27,9 @@ import {
   mayMoveBranch,
   needAct,
   micros,
+  breakdownOf,
+  planOf,
+  spentUntil,
   pagesOpenedIn,
   pullRequestsIn,
   senderOf,
@@ -35,6 +40,7 @@ import {
   MOD_VERSION,
   transcriptPath,
 } from './facts'
+import type { RateLimit } from './facts'
 import type { Asked, Door, Fact, Report } from './fleet'
 
 const HARNESS = 'claude_code'
@@ -549,6 +555,12 @@ async function made(
   say($, id, { kind: 'attached', attachment: { kind: 'artifact', target: artifact.target, detail } })
 }
 
+async function wrote($: Dollar, input: Record<string, unknown>): Promise<void> {
+  const [id, one] = await current($)
+  const path = touchedOf(one.cwd, input)
+  if (path !== undefined) say($, id, { kind: 'touched', paths: [path] })
+}
+
 async function messaged($: Dollar, direction: 'sent' | 'received', who: string): Promise<void> {
   const [id, one] = await current($)
   const target = `${direction === 'sent' ? 'to' : 'from'}:${who}`
@@ -558,13 +570,46 @@ async function messaged($: Dollar, direction: 'sent' | 'received', who: string):
   say($, id, { kind: 'attached', attachment: { kind: 'message', target, detail } })
 }
 
-async function measured($: Dollar, tokens?: number, window?: number, usd?: number): Promise<void> {
+async function measured(
+  $: Dollar,
+  tokens?: number,
+  window?: number,
+  usd?: number,
+  limits: RateLimit[] = [],
+  changed: string[] = [],
+): Promise<void> {
   const at = await $.clock.now()
-  if (at - measuredAt < MEASURE_EVERY_MS) return
+  const held = at - measuredAt < MEASURE_EVERY_MS
+  // A window that moved is the one reading nothing else reports, so it is not left behind by the throttle.
+  if (held && !changed.includes('rateLimits')) return
   measuredAt = at
   const [id] = await current($)
   const usage = { context_tokens: tokens, context_window: window, cost_micros: micros(usd) }
-  say($, id, { kind: 'measured', usage })
+  const plan = planOf(limits)
+  const fact: Extract<Fact, { kind: 'measured' }> = { kind: 'measured', usage }
+  if (plan.length > 0) fact.plan = plan
+  // `summary` estimates locally; `full` would call the token-count API for every tool and file.
+  if (!held && changed.includes('context')) fact.context_breakdown = await breakdown($)
+  say($, id, fact)
+}
+
+async function breakdown($: Dollar) {
+  try {
+    const found = (await $.session.usage({ breakdown: 'summary' })).context.breakdown
+    return found === undefined ? undefined : breakdownOf(found)
+  } catch {
+    return undefined
+  }
+}
+
+/**
+ * A turn ended on the plan's limit. Fleet is told when the window that is full opens again, and
+ * wakes the session with `Continue` then; no window at or near full leaves nothing to wake it at.
+ */
+async function limited($: Dollar): Promise<void> {
+  const [id] = await current($)
+  const resets = spentUntil((await $.session.usage()).rateLimits)
+  if (resets !== undefined) say($, id, { kind: 'limited', resets_at: resets })
 }
 
 async function titled($: Dollar, prompt: string): Promise<void> {
@@ -711,6 +756,17 @@ export const register: Register = on => {
     })
   }
 
+  // Which files this session writes, for Fleet's check of who else writes them. A path, never content.
+  for (const tool of ['Write', 'Edit', 'MultiEdit', 'NotebookEdit']) {
+    on('tool.call', { tool }, async ($, e, next) => {
+      const ran = await next(e)
+      if (ran.deny === undefined && ran.isError !== true) {
+        void wrote($, e as Record<string, unknown>).catch(() => undefined)
+      }
+      return ran
+    })
+  }
+
   // The session's own write, not a subagent's, says it is changing what a window shows: Fleet marks
   // the windows it showed as still changing until its turn ends or it shows the page again.
   for (const tool of ['Edit', 'Write', 'NotebookEdit']) {
@@ -734,6 +790,16 @@ export const register: Register = on => {
     return out
   })
 
+  // Its own transcript can end on a line that says it is still working (13 Oct 2026), so the
+  // engine's word that it stopped is what settles it.
+  on('classic.SubagentStop', async ($, e, next) => {
+    const out = await next(e)
+    void current($)
+      .then(([id]) => settle($, id, 'subagent', e.agent_id, 'spent'))
+      .catch(() => undefined)
+    return out
+  })
+
   on('session.send', async ($, e, next) => {
     const out = await next(e)
     if (out.isDelivered) void messaged($, 'sent', e.to).catch(() => undefined)
@@ -749,7 +815,9 @@ export const register: Register = on => {
 
   on('session.measure', async ($, e, next) => {
     const out = await next(e)
-    void measured($, e.context.tokens, e.context.window, e.cost?.usd).catch(() => undefined)
+    void measured($, e.context.tokens, e.context.window, e.cost?.usd, e.rateLimits, e.changed).catch(
+      () => undefined,
+    )
     return out
   })
 
@@ -766,9 +834,17 @@ export const register: Register = on => {
     return out
   })
 
+  // A turn that died on an API error finished nothing, and Fleet reads a finished turn as the end
+  // of a hold for the limit, so the failed one is not told.
+  on('classic.StopFailure', async ($, e, next) => {
+    const out = await next(e)
+    if (e.error === 'rate_limit' && !(await $.env.get('ARMADA_DRONE'))) void limited($).catch(() => undefined)
+    return out
+  })
+
   on('turn.complete', async ($, e, next) => {
     const out = await next(e)
-    if (e.agentId === undefined) {
+    if (e.agentId === undefined && e.reason !== 'error') {
       void current($)
         .then(([id]) => say($, id, { kind: 'turn_completed' }))
         .catch(() => undefined)

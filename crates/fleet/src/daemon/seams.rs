@@ -56,6 +56,11 @@ where
     pub(crate) fn names(&self) -> &Arc<crate::naming::Names> {
         &self.names
     }
+    /// What happened, for the timeline. Public so the composition root hands it to the loops that
+    /// see things Fleet does not publish.
+    pub fn timeline(&self) -> &crate::timeline::Timeline {
+        &self.timeline
+    }
     pub(crate) fn store(&self) -> &crate::store_lock::StoreLock {
         &self.store
     }
@@ -215,6 +220,12 @@ where
     }
     pub(crate) fn heals(&self) -> &std::sync::Mutex<crate::healing::Heals> {
         &self.heals
+    }
+    pub(crate) fn repairing(&self) -> &crate::repair_hold::Underway {
+        &self.repairing
+    }
+    pub(crate) fn stirrings(&self) -> &std::sync::Mutex<crate::commanding_wakes::Stirred> {
+        &self.stirred
     }
     pub(crate) fn owner_runs(
         &self,
@@ -694,6 +705,9 @@ where
     }
     pub(crate) fn peering(&self) -> &Mutex<crate::peers::Peering> {
         &self.peering
+    }
+    pub(crate) fn writes(&self) -> &Arc<crate::clashing::Writes> {
+        &self.writes
     }
     pub(crate) fn polled(&self) -> &Mutex<Option<Polled>> {
         &self.polled

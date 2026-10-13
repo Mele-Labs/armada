@@ -57,6 +57,8 @@ export type SliceName =
   | "jobs"
   | "sessions"
   | "sleep"
+  | "planUsage"
+  | "clashes"
   | "issues"
   | "autopilot";
 

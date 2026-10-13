@@ -98,13 +98,17 @@ pub async fn execute(
     let run_in = root.join(manifest.dir());
     let root = run_in.as_path();
     // A change was named, as against an empty one, which runs the Check whole.
-    let named = matches!(asked, Asked::Changed(changed) if !changed.is_empty());
+    let named = matches!(asked, Asked::Changed(changed) | Asked::Touched(changed) if !changed.is_empty());
     // A workspace's Check reads the paths its manifest owns, relative to it.
     let owned;
     let asked = match asked {
         Asked::Changed(changed) => {
             owned = manifests.owned(manifest, changed);
             Asked::Changed(&owned)
+        }
+        Asked::Touched(changed) => {
+            owned = manifests.owned(manifest, changed);
+            Asked::Touched(&owned)
         }
         other => other,
     };
@@ -125,25 +129,50 @@ pub async fn execute(
     let command = match (test, manifest.check(name)) {
         (None, _) => command,
         (Some(test), check) => check
-            .and_then(config::Check::one_test)
-            .and_then(|one| checks_runner::one_test(one, test))
+            .and_then(|check| Some((check, check.one_test()?)))
             .ok_or_else(|| NotDeclared::NoOneTest {
                 name: name.to_string(),
                 test: test.to_string(),
                 path: manifest.path().to_path_buf(),
+            })
+            .and_then(|(check, one)| {
+                checks_runner::one_test_in(root, one, check.narrow(), test).map_err(
+                    |refused| match refused {
+                        checks_runner::OneTestRefused::Blank => NotDeclared::NoOneTest {
+                            name: name.to_string(),
+                            test: test.to_string(),
+                            path: manifest.path().to_path_buf(),
+                        },
+                        checks_runner::OneTestRefused::NoMember { under, excepted } => {
+                            NotDeclared::NoMemberHolds {
+                                name: name.to_string(),
+                                test: test.to_string(),
+                                under,
+                                excepted,
+                            }
+                        }
+                    },
+                )
             })?,
     };
     let (command, narrowed) = match (asked, manifest.check(name)) {
         // **A change that reaches none of the Check runs nothing.** Otherwise the
         // empty set it narrows over reads as no change at all, and a TypeScript
         // change ran the root's whole Rust suite.
-        (Asked::Changed(changed), Some(check)) if named && !check.covers(changed) => {
+        (Asked::Changed(changed) | Asked::Touched(changed), Some(check))
+            if named && !check.covers(changed) =>
+        {
             return Ok(crate::reaching::ran_nothing(key))
         }
-        (Asked::Changed(changed), Some(check)) => match crate::reaching::reached(check, changed) {
-            (_, Reached::Nothing) => return Ok(crate::reaching::ran_nothing(key)),
-            (narrowed, reached) => (narrowed.unwrap_or(command), Some(reached)),
-        },
+        (Asked::Changed(changed) | Asked::Touched(changed), Some(check)) => {
+            let touched = matches!(asked, Asked::Touched(_));
+            match crate::reaching::reading(root, check, changed, touched) {
+                (_, nothing @ (Reached::Nothing | Reached::NoTests)) => {
+                    return Ok(crate::reaching::ran_nothing_because(key, nothing))
+                }
+                (narrowed, reached) => (narrowed.unwrap_or(command), Some(reached)),
+            }
+        }
         _ => (command, None),
     };
     // **`${width}` resolves here too, and to the same number a gate reaches.**
@@ -158,6 +187,12 @@ pub async fn execute(
     let width = CheckWidth::read(usize::try_from(jobs).unwrap_or(1))
         .narrowed_to(manifest.check(name).and_then(config::Check::width));
     let command = resolve_width(&command, width);
+    let target = match (test, &narrowed, manifest.check(name)) {
+        (Some(test), _, _) => Some(test.to_string()),
+        (None, Some(Reached::To(to)), Some(check)) => crate::reaching::target_of(check, to),
+        (None, Some(Reached::Touched(said)), _) => Some(said.clone()),
+        _ => None,
+    };
 
     // **A Check's prerequisites run here too**, for this module's own reason: a
     // Check a person runs is the Check a Drone is measured by. Skipping one
@@ -213,6 +248,7 @@ pub async fn execute(
             required,
             attempt: blocked,
             narrowed,
+            target,
         });
     }
 
@@ -225,6 +261,7 @@ pub async fn execute(
         required,
         attempt,
         narrowed,
+        target,
     })
 }
 
@@ -338,6 +375,9 @@ pub struct Ran {
     pub attempt: Attempt,
     /// What a changed set came to. `None` where none was asked.
     pub narrowed: Option<Reached>,
+    /// What a Session's thread row says the run was narrowed to: the filter verbatim, or
+    /// `--changed ` and what the change reached. `None` where it ran whole.
+    pub target: Option<String>,
 }
 
 impl Ran {
@@ -429,6 +469,15 @@ pub enum NotDeclared {
         test: String,
         path: PathBuf,
     },
+    /// A test was named and no member of the workspace declares it, so there is
+    /// nothing to compile: the run is refused rather than widened to every
+    /// member.
+    NoMemberHolds {
+        name: String,
+        test: String,
+        under: String,
+        excepted: Vec<String>,
+    },
     /// Nothing declares it, and this is what is declared.
     NoSuchName {
         name: String,
@@ -483,6 +532,27 @@ impl fmt::Display for NotDeclared {
                 "`{name}` in {} has no `one_test` that can run `{test}` — `armada check {name}` runs it whole",
                 path.display()
             ),
+            NotDeclared::NoMemberHolds {
+                name,
+                test,
+                under,
+                excepted,
+            } => {
+                write!(
+                    out,
+                    "nothing under `{under}` declares a function or module called `{test}`, so \
+                     `{name}` has nothing to compile and ran nothing"
+                )?;
+                match excepted.is_empty() {
+                    true => Ok(()),
+                    false => write!(
+                        out,
+                        " — {} does, and `{name}` leaves {} to its own Check",
+                        excepted.join(", "),
+                        if excepted.len() == 1 { "it" } else { "them" }
+                    ),
+                }
+            }
             NotDeclared::NoSuchName {
                 name,
                 asked,

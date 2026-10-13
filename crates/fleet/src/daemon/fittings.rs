@@ -291,6 +291,10 @@ pub struct Fittings<H, V, W> {
     /// per ended Job, read by a person, and raised for neither of the others'
     /// reasons.
     pub retro_model: Model,
+    /// What a Job's Commander runs on when the Job names none. **Its own dial**:
+    /// it reads a whole Job and acts on it, and is raised for neither of the
+    /// others' reasons.
+    pub commander_model: Model,
     /// What a request's own link resolves to, before it becomes a Job's
     /// `facts`. **A pointer rather than a type parameter**, for `judge`'s
     /// reason: rendering cannot fail, so nothing about it needs to be generic.
@@ -357,6 +361,7 @@ where
         let shipped_tuning = fittings.shipped_tuning();
         let tuning = shipped_tuning.overlaid_by(&settings_now);
         let turns = api::Turns::new();
+        let timeline = crate::timeline::Timeline::new(Arc::clone(&fittings.clock));
         Fleet {
             store: crate::store_lock::StoreLock::new(fittings.store),
             harness: Arc::new(fittings.harness),
@@ -412,6 +417,7 @@ where
             delivered: Mutex::new(BTreeMap::new()),
             slots: Mutex::new(Slots::bounded_by(in_force.concurrency, turns)),
             names: Arc::new(crate::naming::Names::new()),
+            timeline,
             machine: fittings.machine,
             copy_on_write: fittings.copy_on_write,
             seeds: Arc::new(std::sync::Mutex::new(crate::seeding::Seeds::default())),
@@ -429,9 +435,12 @@ where
             issue_sweeping: Mutex::new(crate::issue_noticing::IssueSweep::default()),
             cut_from: crate::approved::CutFrom::default(),
             peering: Mutex::new(crate::peers::Peering::default()),
+            writes: Arc::default(),
             proving: Arc::new(Mutex::new(crate::proving::Proving::default())),
             fixing_on_main: Mutex::new(std::collections::BTreeSet::new()),
             heals: std::sync::Mutex::default(),
+            repairing: crate::repair_hold::Underway::default(),
+            stirred: std::sync::Mutex::default(),
             trigger_repairs: std::sync::Mutex::default(),
             owner_runs: std::sync::Mutex::default(),
             pressing: crate::showing_again::Pressing::default(),

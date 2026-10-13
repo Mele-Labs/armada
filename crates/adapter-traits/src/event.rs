@@ -211,8 +211,14 @@ pub enum DroneEvent {
         /// The harness's own wording for why. Carried, never matched on.
         because: String,
     },
-    /// The quota window moved. Read for dispatch gating, not for this Job.
-    QuotaMoved { window: String, status: String },
+    /// The quota window moved. Not read for admission. A `rejected` one that ends
+    /// the run holds the Job until `resets_at` (`fleet::limit_hold`).
+    QuotaMoved {
+        window: String,
+        status: String,
+        /// When the window opens again, in unix seconds. Absent from a line that carries none.
+        resets_at: Option<i64>,
+    },
     /// A turn finished. **Not a verdict and not an exit** — see this module for
     /// the first, and this variant for the second.
     ///

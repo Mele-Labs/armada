@@ -27,6 +27,10 @@ pub(crate) struct LedgerReads {
     held: Vec<KeptAttachment>,
     hosting: Option<store::KeptHosting>,
     waiting: WaitingReads,
+    /// When the limit the session hit resets, while it is held for one.
+    limited: Option<String>,
+    /// The breakdown of the context window, as the wire spells it.
+    context: Option<String>,
 }
 
 /// A report that names nothing it can be kept against. A 422.
@@ -174,6 +178,8 @@ where
                 None
             },
             waiting: waiting_reads(store, session).map_err(fault)?,
+            limited: store.session_limit(&session.id).map_err(fault)?,
+            context: store.session_context(&session.id).map_err(fault)?,
         })
     }
 
@@ -221,7 +227,12 @@ where
             .map(|hosting| self.hosted_facts_of(&session.id, hosting));
         if session.state == store::SessionState::Live {
             record.done_since = reads.waiting.done.as_deref().map(wire_instant);
+            record.held_until = reads.limited.as_deref().map(wire_instant);
         }
+        record.context_breakdown = reads
+            .context
+            .as_deref()
+            .and_then(|kept| ipc::decode("a context breakdown", kept.as_bytes()).ok());
         record.waiting_for = self.waiting_from(reads.waiting, session, &record.attachments);
         record
     }
@@ -249,6 +260,24 @@ where
             return false;
         };
         mod_is_older(session.mod_version.as_deref(), &current)
+    }
+
+    /// A terminal Session wrote these files, named from its directory. **Only in a pool slot**, the
+    /// one place Fleet can tell whose tree a file is in.
+    fn session_wrote(&self, session: &KeptSession, roots: &[(String, String)], paths: &[String]) {
+        let place = placed(&session.cwd, roots);
+        let (Some(manifest), Some(slot)) = (place.manifest, place.slot) else {
+            return;
+        };
+        let Some((_, root)) = roots.iter().find(|(id, _)| *id == manifest) else {
+            return;
+        };
+        let worktree = adapter_traits::slot_path(root.trim_end_matches('/'), slot);
+        let inside = crate::clashing::inside_worktree(&worktree, &session.cwd, paths);
+        if !inside.is_empty() {
+            let who = crate::clashing::Who::Session(session.id.clone());
+            self.writes().wrote(&who, &manifest, inside, &self.now());
+        }
     }
 
     /// Take the slot `placed` names for `holder`, or give back the one it was in
@@ -330,6 +359,7 @@ where
         let mut changed = kept.is_none();
         let mut ended = false;
         let mut parking: Option<(String, u32)> = None;
+        let mut plan_moved: Option<ipc::PlanUsage> = None;
         let mut session = kept.unwrap_or_else(|| KeptSession {
             id: id.clone(),
             harness: report.harness.clone(),
@@ -422,7 +452,13 @@ where
                     )
                     .map_err(fault)?;
             }
-            SessionFact::Measured { usage } => {
+            SessionFact::Measured { usage, plan, context_breakdown } => {
+                plan_moved = self.hosts().plan_read(plan, &now);
+                if let Some(breakdown) = context_breakdown {
+                    if let Ok(kept) = ipc::encode(&breakdown) {
+                        changed |= store.keep_session_context(&id, &kept).map_err(fault)?;
+                    }
+                }
                 let figures = store::SessionFigures {
                     context_tokens: usage.context_tokens.or(session.figures.context_tokens),
                     context_window: usage.context_window.or(session.figures.context_window),
@@ -453,12 +489,23 @@ where
             }
             SessionFact::TurnCompleted => {
                 session.last_turn_at = Some(now.clone());
+                // A turn taken since the limit was hit: the wake is not owed.
+                store.clear_session_limit(&id).map_err(fault)?;
                 changed = true;
                 // Whatever it was changing for the person is done for now.
                 crate::session_host::readiness::windows_set(&mut store, &holder, &now, false).map_err(fault)?;
             }
             SessionFact::Wrote => {
                 changed |= crate::session_host::readiness::windows_set(&mut store, &holder, &now, true).map_err(fault)?;
+            }
+            SessionFact::Limited { resets_at } => {
+                changed |= store
+                    .keep_session_limit(&id, resets_at.as_str())
+                    .map_err(fault)?;
+            }
+            // For the check of who else writes these files; nothing on the ledger changes.
+            SessionFact::Touched { paths } => {
+                self.session_wrote(&session, &roots, &paths);
             }
             // Fleet ends a session it hosts, by `close_session`: the harness in
             // it going away is a process ending, and the next message resumes.
@@ -480,6 +527,7 @@ where
                         .and_then(|one| Some((one.manifest_id, one.target.parse().ok()?)));
                 }
                 session.end_reason = Some(if asked { String::from("closed") } else { reason });
+                store.clear_session_limit(&id).map_err(fault)?;
                 store.give_back(&holder, None, &now).map_err(fault)?;
             }
         }
@@ -495,9 +543,13 @@ where
             // Its terminal prompt went with it, so Bridge must not offer the card.
             self.terminal_ask_closed(&session.id, ipc::SessionAskState::Unanswered).await;
             self.session_checks_ended(&session.id).await;
+            self.writes().left(&crate::clashing::Who::Session(session.id.clone()));
         }
         if changed {
             self.publish(ipc::Event::SessionChanged(record.clone()));
+        }
+        if let Some(usage) = plan_moved {
+            self.publish(ipc::Event::PlanUsageChanged(usage));
         }
         Ok(record)
     }
@@ -881,5 +933,7 @@ fn session_wire(session: &KeptSession, held: &[KeptAttachment]) -> SessionRecord
         mod_out_of_date: false,
         waiting_for: Vec::new(),
         done_since: None,
+        held_until: None,
+        context_breakdown: None,
     }
 }

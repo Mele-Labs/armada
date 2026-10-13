@@ -42,6 +42,7 @@ pub(crate) fn read_pause(row: &Row<'_>, job: Job) -> Result<Job, RowError> {
         by,
         at: Timestamp::from_rfc3339(at),
         resuming: resuming != 0,
+        until: maybe(row, "pause_until")?.map(Timestamp::from_rfc3339),
     }))
 }
 
@@ -55,7 +56,7 @@ impl Store {
             .conn
             .execute(
                 "UPDATE jobs SET worktree_slot = ?2, pause_by = ?3, pause_at = ?4,
-                        pause_resuming = ?5
+                        pause_resuming = ?5, pause_until = ?6
                  WHERE job_id = ?1",
                 (
                     job.id().as_str(),
@@ -63,6 +64,7 @@ impl Store {
                     pause.map(|pause| pause.by.as_str()),
                     pause.map(|pause| pause.at.as_str().to_string()),
                     pause.is_some_and(|pause| pause.resuming),
+                    pause.and_then(|pause| pause.until.as_ref().map(|until| until.as_str().to_string())),
                 ),
             )
             .map_err(fault("recording a job's pause"))

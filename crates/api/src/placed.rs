@@ -12,8 +12,10 @@ use crate::mcp::Caller;
 
 /// Set on a call the door makes for a Commander it placed, and by nothing
 /// else. **An extension, never a header**: bytes on the wire cannot carry one.
-#[derive(Clone, Copy, Debug)]
-pub(crate) struct CommanderCalled;
+/// It holds the Job the Commander was started for, which is what
+/// [`Resolved`](crate::reference::Resolved) narrows every act to.
+#[derive(Clone, Debug)]
+pub(crate) struct CommanderCalled(pub(crate) ipc::JobId);
 
 /// The caller behind one door call.
 #[derive(Debug)]
@@ -65,8 +67,10 @@ impl Placed {
             Placed::Helm(reach) if !reach.is_a_hosted_session() => {
                 request.extensions_mut().insert(HelmCalled);
             }
-            Placed::Commander(_) => {
-                request.extensions_mut().insert(CommanderCalled);
+            Placed::Commander(reach) => {
+                request
+                    .extensions_mut()
+                    .insert(CommanderCalled(reach.job().clone()));
             }
             Placed::Helm(_) | Placed::Anyone => {}
         }

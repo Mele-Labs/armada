@@ -17,7 +17,7 @@ import { OverviewLists, dashboardTabOf, overviewPanelId, type DashboardTab } fro
 import { Boundary, useLayout } from "@armada/shell";
 
 import type { BridgeState } from "../../shared/bridge";
-import { Nows } from "./Dashboard";
+import { Nows, type Hosts } from "./Dashboard";
 import { CommandCentral } from "./CommandCentral";
 import { KeySheet, useDashboardKeys } from "./cockpit/keys";
 import { proposeRequest } from "./dispatch";
@@ -52,6 +52,7 @@ export function Overview({
   nows,
   onTell,
   onNowAct,
+  onAnswerCard,
   bring,
   onBrought,
   onWantHeld,
@@ -103,6 +104,8 @@ export function Overview({
   onTell?: (sentence: string) => void;
   /** A quick act pressed on a Job's Now panel, by Job id. */
   onNowAct?: (jobId: string, acted: NowActed) => void;
+  /** A pick on a Job's Commander card, by the card's id and the option's. */
+  onAnswerCard?: Hosts["onAnswerCard"];
   /** Asks Fleet for the worktree pool while the Cockpit's bays are drawn. */
   onWantHeld?: (want: boolean) => void;
 }) {
@@ -214,6 +217,7 @@ export function Overview({
             onBrought={onBrought}
             onTell={onTell}
             onNowAct={onNowAct}
+            onAnswerCard={onAnswerCard}
             onOpen={onOpen}
             onOpenSession={onOpenSession}
             onOpenLink={onOpenLink}

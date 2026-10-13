@@ -79,7 +79,7 @@ where
         if let Some(slot) = self.slot_of(job_id).await {
             let mut working = slot.lock().await;
             if working.as_ref().is_some_and(|at_work| at_work.is(job_id)) {
-                let ending = Ending::of(
+                let ending = Ending::folded(
                     &working
                         .as_ref()
                         .expect("the slot was just read as full")
@@ -106,7 +106,7 @@ where
                     Aftermath::AlreadyStopped => {
                         self.stopped_by_hand(&job).await?;
                     }
-                    Aftermath::TheGateDecides => {}
+                    Aftermath::TheGateDecides | Aftermath::HeldUntil { .. } => {}
                 }
             }
         }

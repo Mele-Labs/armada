@@ -26,6 +26,7 @@ import { stepTheGroupsWereMadeAt, stepThatWorksTheGroups, type GroupState, type 
 import { checksOf, isRunning } from "./gates";
 import { ordered } from "@armada/screens/src/facts";
 import type { HeldCommand } from "./drone-held";
+import { heightBeyond } from "./card-height";
 import { askNodeId, withAsk } from "./held-card";
 import { frozenBeneath } from "@armada/screens/src/frozen";
 import { plural } from "./plan-canvas";
@@ -60,7 +61,8 @@ const ROW = 28;
 function apartAfter(card: WorkflowStepCardProps): number {
   const rows =
     (card.needs?.length ?? 0) + Number(card.line !== undefined || card.bar !== undefined) + Number(card.gate !== undefined);
-  return STEP_APART + (rows - 1) * ROW + (card.track === undefined ? 0 : TRACK);
+  // `STEP_APART` is a card whose label takes one line; a long label wraps onto more.
+  return STEP_APART + (rows - 1) * ROW + (card.track === undefined ? 0 : TRACK) + heightBeyond(card, 1);
 }
 
 /**

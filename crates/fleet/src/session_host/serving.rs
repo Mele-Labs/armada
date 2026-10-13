@@ -160,6 +160,7 @@ where
         if !held {
             return Err(self.ask_not_waiting());
         }
+        let said_answer = said.answer;
         let answer = AnswerHelmCall {
             call: said.call,
             answer: said.answer,
@@ -183,7 +184,9 @@ where
             self.terminal_ask_answered(&id, &waiting, &crate::helm::Said::of(&answer))
                 .await?;
         }
-        self.published_hosted(&id).await
+        let record = self.published_hosted(&id).await?;
+        self.session_answered(&record, crate::timeline::card_answer_says(said_answer));
+        Ok(record)
     }
 
     async fn answer_waiting(
@@ -198,6 +201,10 @@ where
         dismiss: ipc::DismissWaiting,
     ) -> Result<SessionRecord, Refusal> {
         self.dismiss_waited(dismiss).await
+    }
+
+    async fn get_plan_usage(&self) -> Result<ipc::PlanUsage, Refusal> {
+        Ok(self.hosts().plan_usage())
     }
 
     async fn get_sleep(&self) -> Result<ipc::SleepState, Refusal> {
@@ -295,6 +302,9 @@ where
                 .vcs()
                 .park_hosted_slot(&crate::leasing::pool_of(&served), slot, &id);
         }
+        // Out of the line if it was in it, and its slot, if it had one, is the next one's.
+        self.hosts().slot_queue().leave(&id);
+        self.hosts().slot_freed();
         let now = self.now().as_str().to_string();
         {
             let mut store = self.store().lock().await;
@@ -311,6 +321,7 @@ where
                 .map_err(|why| self.ledger_fault(why))?;
         }
         self.session_checks_ended(&id).await;
+        self.writes().left(&crate::clashing::Who::Session(id.clone()));
         self.published_hosted(&id).await
     }
 
@@ -754,7 +765,10 @@ where
             self.window_noted(&id).await;
         }
         // The person spoke, so the agent's word that nothing was left no longer stands.
-        if self.done_cleared(&id).await {
+        let done = self.done_cleared(&id).await;
+        // And the person has taken the session back from the limit: Fleet does not wake it as well.
+        let limited = self.limit_cleared(&id).await;
+        if done || limited {
             return self.published_hosted(&id).await;
         }
         Ok(record)
@@ -876,6 +890,10 @@ where
                     // (s-c271bfe5, 8 Oct 2026). Started fresh under the same id instead.
                     resuming: hosting.ran && self.has_a_conversation(id).await,
                     forking: hosting.fork_of.clone(),
+                    fork_note: match &hosting.fork_of {
+                        Some(old) => self.fork_note_of(id, old).await,
+                        None => None,
+                    },
                     fork_cut: match hosting.fork_of {
                         Some(_) => self.fork_cut_of(id).await,
                         None => None,

@@ -141,13 +141,13 @@ import {
 } from "./commands";
 import { useAddedBinding, useAlerts } from "./added-steps";
 import { useDrafted } from "./drafted";
-import { useNowActs } from "./now-acts";
+import { useNowActs } from "./now-acts"; import { useCommanderActs } from "./commander-acts";
 import { hiddenSurfaces, MergeLineSurface } from "./merge-line";
 import { LessonsSurface } from "./lessons";
-import { useSleepMode } from "./sleep";
+import { useTitleRow } from "./title-row";
 import { ChecksSurface, useAsked } from "./checks-surface";
 import { SessionsOwnership, SessionsSurface, sessionsHidden } from "./sessions"; import { useSessionsDraft } from "./sessions-draft";
-import { useOpenSessionAsked } from "./open-session"; import { useOpenRetroAsked } from "./open-retro";
+import { useOpenSessionAsked } from "./open-session"; import { useOpenRetroAsked } from "./open-retro"; import { useOpenHolderAsked } from "./open-holder";
 import { useTellAsked } from "./tell";
 import { openingOf, useHistory, useJobTab } from "./history"; import { showingOf } from "./showing"; import { WorkflowCreatorSurface, workflowsWarned } from "./workflow-creator";
 import { useWhereOpen } from "./where-open";
@@ -274,7 +274,7 @@ export function App({ draft }: AppProps = {}) {
   // reports it up (#1075), so the palette can title its context block with the
   // job its acts would act on. Two cursors would drift.
   const palette = useCommandPalette();
-  const slept = useSleepMode();
+  const titleRow = useTitleRow();
   const [cursor, setCursor] = useState<string | null>(null);
   // The Job chipped above Helm's message box — #1075. Opening a Job's detail
   // chips it and points Helm at its repository; leaving the Job or its own ×
@@ -435,7 +435,7 @@ export function App({ draft }: AppProps = {}) {
   // Which failure is on screen, and which one `Copy debug info` would copy.
   // The order between them, and the reason there is one, are `failing.ts`.
   const { raised, lower, tell } = useRaised(commands.outcome);
-  useTellAsked(tell); // The annotation layer's send that failed.
+  useTellAsked(tell); const commandering = useCommanderActs(tell); // The annotation layer's send that failed; the owner's words to a Commander and his pick on its card.
   const { statement, fleet, failing } = failingIn({
     connection: state.connection,
     bridge: state.bridge,
@@ -472,7 +472,7 @@ export function App({ draft }: AppProps = {}) {
     goTo(SURFACE.sessions);
     setSessionOpen(id);
   }
-  useOpenSessionAsked(openSession); useOpenRetroAsked(() => goTo(SURFACE.lessons)); // The annotation layer's Start session; a Session's Retro press.
+  useOpenSessionAsked(openSession); useOpenHolderAsked({ job: (jobId) => (goTo(SURFACE.overview), setOpenJob(jobId)), session: openSession }); useOpenRetroAsked(() => goTo(SURFACE.lessons)); // The annotation layer's Start session; a Session's Retro press.
 
   function goTo(surfaceId: string): void {
     setOpenJob(null);
@@ -605,7 +605,7 @@ export function App({ draft }: AppProps = {}) {
           onOpenManifest={() => goTo(SURFACE.manifest)}
           onCompose={() => setComposing(true)}
           onSearch={palette.onOpen}
-          {...(slept.sleep === undefined ? {} : { sleep: slept.sleep })}
+          {...titleRow}
           questions={questions}
           asking={asks.length}
           helm={
@@ -762,7 +762,7 @@ export function App({ draft }: AppProps = {}) {
                   }
                   answered={commands.answeredOn(reading.id)}
                   observed={state.observed}
-                  journalled={state.journalled}
+                  journalled={state.journalled} commander={state.commander}
                   followed={state.followed}
                   onFollowCheckOutput={followCheckOutput}
                   resources={state.resources}
@@ -821,7 +821,7 @@ export function App({ draft }: AppProps = {}) {
                   onRaiseTurnCap={(jobId, turns) => void commands.raiseTurns(jobId, turns)}
                   onRerun={(jobId) => void commands.rerun(jobId)}
                   onRerunChecks={(jobId) => void commands.rerunChecks(jobId)}
-                  {...nowing.checkActs}
+                  {...nowing.checkActs} {...commandering.job}
                   onReport={commands.report}
                   onAddTask={commands.addTask}
                   onDropTask={commands.dropTask}
@@ -1090,7 +1090,7 @@ export function App({ draft }: AppProps = {}) {
                   onOpenLink={openProseLink} onFix={(fix) => void commands.fixMain(fix)}
                   onOpenSession={openSession}
                   onWantHeld={readHeld}
-                  nowViews={nowing.feed.calls} nows={nowing.feed.nows} onTell={tell} onNowAct={nowing.onNowAct}
+                  nowViews={nowing.feed.calls} nows={nowing.feed.nows} onTell={tell} onNowAct={nowing.onNowAct} onAnswerCard={commandering.onAnswerCard}
                 />
 
                 {/* Never merged into the lists as a placeholder: a surface that

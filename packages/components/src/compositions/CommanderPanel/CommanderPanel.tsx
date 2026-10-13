@@ -1,11 +1,9 @@
-import { useState } from "react";
-import type { FormEvent, KeyboardEvent } from "react";
 import { Compass, PanelRightClose } from "lucide-react";
 
 import { Button } from "../../primitives/Button/Button";
-import { Textarea } from "../../primitives/Textarea/Textarea";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
-import { SendKbd, sendsOn } from "../../send-message";
+import { SessionComposer } from "../SessionComposer/SessionComposer";
+import type { ComposerTag } from "../SessionComposer/SessionComposer";
 import { SessionMark } from "../SessionFrame/SessionFrame";
 import type { SessionState } from "../SessionFrame/SessionFrame";
 import { SessionThread } from "../SessionThread/SessionThread";
@@ -21,6 +19,10 @@ import type { SessionThreadRow } from "../SessionThread/SessionThread";
  * reads and what it did on its own are rows of the thread; the owner's words are rows of it too, so
  * asking and reading the answer is one loop.
  *
+ * **The box is the Sessions box** (`SessionComposer`), text only: ↵ sends and ⇧↵ breaks the line, `@`
+ * writes a tag into the message, and what is typed is kept per Job until it is sent. It offers
+ * no model, effort, permission mode, file or sketch, which the Commander cannot take.
+ *
  * **No empty sentence.** A Commander that has done nothing draws the band and the box.
  */
 export type CommanderState = "idle" | "working" | "waiting";
@@ -32,6 +34,8 @@ export type CommanderPanelProps = {
   rows: readonly SessionThreadRow[];
   /** What the owner typed, sent as the Commander's next input. */
   onSend: (text: string) => void;
+  /** What `@` offers. Absent, the box offers none. */
+  taggable?: readonly ComposerTag[];
   /** The head's hide button. Absent draws none. */
   onHide?: () => void;
 };
@@ -43,24 +47,9 @@ const STATE: Record<CommanderState, { mark: SessionState; said: string }> = {
 };
 
 const NOBODY = () => undefined;
+const NONE: readonly never[] = [];
 
-export function CommanderPanel({ jobId, state, rows, onSend, onHide }: CommanderPanelProps) {
-  const [text, setText] = useState("");
-  const blank = text.trim() === "";
-  const send = () => {
-    if (blank) return;
-    onSend(text.trim());
-    setText("");
-  };
-  const submit = (event: FormEvent) => {
-    event.preventDefault();
-    send();
-  };
-  const keyed = (event: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (!sendsOn(event)) return;
-    event.preventDefault();
-    send();
-  };
+export function CommanderPanel({ jobId, state, rows, onSend, taggable = NONE, onHide }: CommanderPanelProps) {
   const { mark, said } = STATE[state];
   return (
     <section className="armada-commander" role="region" aria-label="Commander" data-state={state}>
@@ -86,23 +75,27 @@ export function CommanderPanel({ jobId, state, rows, onSend, onHide }: Commander
           onOpenSession={NOBODY}
         />
       </div>
-      <form className="armada-commander__composer" onSubmit={submit}>
-        <div className="armada-commander__field">
-          <Textarea
-            aria-label="Tell the Commander"
-            rows={2}
-            grow
-            keep={`commander:${jobId}`}
-            value={text}
-            onChange={(event) => setText(event.target.value)}
-            onKeyDown={keyed}
-          />
-          <Button type="submit" variant="secondary" ground="card" size="sm" disabled={blank}>
-            Send
-            <SendKbd available={!blank} />
-          </Button>
-        </div>
-      </form>
+      <SessionComposer
+        // A message to the Commander queues for its next turn, so Send stays on while one runs.
+        working={state === "working"}
+        textOnly
+        label="Tell the Commander"
+        send="secondary"
+        model={null}
+        effort={null}
+        models={NONE}
+        efforts={NONE}
+        onTune={NOBODY}
+        commands={NONE}
+        taggable={taggable}
+        tags={NONE}
+        onTags={NOBODY}
+        drawn={NONE}
+        onDraw={NOBODY}
+        onRemoveDrawn={NOBODY}
+        draftKey={`commander:${jobId}`}
+        onSend={(sent) => onSend(sent.text)}
+      />
     </section>
   );
 }

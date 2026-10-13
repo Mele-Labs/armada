@@ -34,6 +34,9 @@ const SESSION_WAITING_UNNAMED: &str = "fleet.session_waiting_unnamed";
 const SESSION_WAITING_EMPTY: &str = "fleet.session_waiting_empty";
 const SESSION_WAITING_UNHELD: &str = "fleet.session_waiting_unheld";
 
+/// The last line of a message answering an agent item: it need not say the item again.
+const TAKEN_OFF: &str = "Fleet took this off your waiting list.";
+
 /// A walk window a session showed, as the merge reads it.
 pub(crate) struct Window {
     pub url: String,
@@ -503,7 +506,16 @@ where
             attachments: Vec::new(),
             mentions: Vec::new(),
         };
-        match item.source {
+        // The card routes answer through `answer_session_ask`, which enters its own; the rest are
+        // a message to the agent, entered here once it is sent.
+        let (source, fleet) = (item.source, Arc::clone(&self));
+        let says = match (picked.as_deref().or(words), said.mode) {
+            (Some(chosen), _) => format!("Answered: {chosen}"),
+            (None, Some(ipc::WaitingMode::Best)) => "Answered: think it through".to_string(),
+            (None, Some(ipc::WaitingMode::Quick)) => "Answered: keep moving".to_string(),
+            (None, None) => "Approved".to_string(),
+        };
+        let settled = match item.source {
             WaitingSource::AskCard | WaitingSource::Permission => {
                 let asked = self.hosts().of(&id).state().asked.clone().ok_or_else(|| {
                     self.hosted_refusal(SESSION_WAITING_UNHELD, "no card is open")
@@ -558,14 +570,25 @@ where
                 self.send_known(terminal.then_some(session), message(body)).await
             }
             WaitingSource::Agent => {
-                let body = reply(&item.text, picked.as_deref().or(words), line);
-                self.send_known(terminal.then_some(session), message(body)).await
+                let mut body = reply(&item.text, picked.as_deref().or(words), line);
+                body.push('\n');
+                body.push_str(TAKEN_OFF);
+                Arc::clone(&self).send_known(terminal.then_some(session), message(body)).await?;
+                // Delivered, so the item goes now: a failed send above leaves it standing.
+                self.drop_answered(&id, &item.id).await
             }
             WaitingSource::FirstMessage => Err(self.hosted_refusal(
                 SESSION_WAITING_EMPTY,
                 "the first message is settled by sending it, from the Session's message box",
             )),
+        };
+        if let (Ok(record), false) = (
+            &settled,
+            matches!(source, WaitingSource::AskCard | WaitingSource::Permission),
+        ) {
+            fleet.session_answered(record, says);
         }
+        settled
     }
 
     /// `dismiss_waiting`: drop one item for good. Nothing is sent to the agent.
@@ -599,6 +622,24 @@ where
             }
             store
                 .dismiss_waiting(&id, &dismiss.item_id)
+                .map_err(|why| self.ledger_fault(why))?;
+            self.ledger_row(&store, &session)?
+        };
+        self.publish(ipc::Event::SessionChanged(record.clone()));
+        Ok(record)
+    }
+
+    /// Take an answered agent item off the list for good and tell Bridge, as `dismiss_waited` does.
+    /// It does not refuse an item the agent has since restated away: the answer was delivered.
+    async fn drop_answered(&self, id: &str, item_id: &str) -> Result<SessionRecord, Refusal> {
+        let record = {
+            let mut store = self.store().lock().await;
+            let session = store
+                .session(id)
+                .map_err(|why| self.ledger_fault(why))?
+                .ok_or_else(|| self.hosted_refusal(SESSION_WAITING_UNNAMED, "a session Fleet knows"))?;
+            store
+                .dismiss_waiting(id, item_id)
                 .map_err(|why| self.ledger_fault(why))?;
             self.ledger_row(&store, &session)?
         };

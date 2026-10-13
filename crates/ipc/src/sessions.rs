@@ -144,6 +144,13 @@ pub enum SessionFact {
     },
     Measured {
         usage: SessionUsage,
+        /// The account's plan windows as this session last read them; empty off a subscription. The
+        /// windows are the account's, so Fleet keeps the newest from any session (`PlanUsage`).
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        plan: Vec<crate::plan_usage::PlanWindow>,
+        /// What fills the context window, estimated by the mod. Fleet keeps the latest.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        context_breakdown: Option<crate::context_breakdown::ContextBreakdown>,
     },
     /// What the terminal runs on: its model, its effort, its permission mode
     /// and the commands it lists. **A field left out is unchanged**, and an
@@ -162,6 +169,16 @@ pub enum SessionFact {
         mod_version: Option<String>,
     },
     TurnCompleted,
+    /// A turn ended on the plan's limit, which resets at `resets_at`. Fleet holds the session
+    /// and wakes it then (`SessionRecord::held_until`).
+    Limited {
+        resets_at: Instant,
+    },
+    /// Files the session wrote, relative to its `cwd`. **Paths only**, and only those under it.
+    /// Fleet reads them for write clashes (`docs/concepts/fleet.md`, *Write clashes*). Since 23.81.
+    Touched {
+        paths: Vec<String>,
+    },
     /// The session itself wrote a file, not a subagent: the windows it showed are being changed.
     Wrote,
     Ended {
@@ -532,6 +549,15 @@ pub struct SessionRecord {
     /// person's next message, by a non-empty `waiting_for`, and by a hosted turn starting again.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub done_since: Option<Instant>,
+    /// The plan's limit stopped this session, and Fleet wakes it with `Continue` a minute after this
+    /// instant, when the limit has reset. Cleared by a turn, a message from the person, the wake
+    /// and the session ending. Absent on a session that is not held.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub held_until: Option<Instant>,
+    /// What fills the session's context window, as `/context` shows it, from the latest report. Absent
+    /// until a mod reports one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub context_breakdown: Option<crate::context_breakdown::ContextBreakdown>,
 }
 
 /// `list_sessions`: the most recently seen first.

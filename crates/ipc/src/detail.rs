@@ -255,6 +255,19 @@ pub struct JobDetail {
     /// no choice. `set_review_model` moves it, like `set_model` moves `model_override`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub review_model_override: Option<String>,
+    /// The model a person chose for this Job's Commander, over `models.commander`.
+    /// Absent is no choice. `set_commander_model` moves it. #2166.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub commander_model_override: Option<String>,
+    /// The effort a person chose for this Job's Commander, over `effort.commander`,
+    /// spelled as the setting spells it. Absent is no choice. #2166.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub commander_effort_override: Option<String>,
+    /// The card this Job's Commander has out to the owner, which outlives the
+    /// turn that raised it. **While it is out [`JobSummary::asking`] is `true`**,
+    /// and the Job sits in Your move. Absent is none out. #2166.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub commander_card: Option<crate::CommanderCard>,
     /// Which model each tier of this Job's tasks runs on. **Since 23.6.** Left
     /// out where the map names no tier, which is Armada picking for every
     /// tier. `set_tiers` moves it. Filled after [`JobDetail::of`], like
@@ -807,6 +820,9 @@ impl JobDetail {
             repository_allowed_commands: Vec::new(),
             model_override: None,
             review_model_override: None,
+            commander_model_override: None,
+            commander_effort_override: None,
+            commander_card: None,
             tiers: crate::TierModels::default(),
             // The four below are settings beside the record, filled after
             // this by `fleet::serving`, as `tiers` is.
@@ -1169,4 +1185,11 @@ pub struct JobSpend {
     /// zero**: it is a Job nothing has run for yet, and a surface that folded
     /// the two would say a Job was free when nobody had tried it.
     pub drones: u64,
+    /// What the Job's Commander has cost, **beside `cost_micros` and never in
+    /// it**. It is the Job's cost, and a surface that draws the total adds the
+    /// two; it is not counted against `cost_cap_micros`, which is compared with
+    /// the Drones' figure alone, so the agent that raises a cap cannot spend it.
+    /// Absent on a row written before a Commander existed: nought.
+    #[serde(default)]
+    pub commander_cost_micros: u64,
 }
