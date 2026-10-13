@@ -7,6 +7,11 @@ import type { AskedOf } from "./now";
 export type CallKindView = "drone" | "check" | "judge";
 
 export type CallAskView =
+  /**
+   * What the Job's Commander cannot do itself, as the one card it puts to the owner. The decisions are
+   * the card's question and answers, `onAnswer` hands the owner's pick to the Commander. Mock only.
+   */
+  | { key: string; kind: "commander"; context?: readonly string[]; decisions: readonly { id: string; question: string; options: readonly { id: string; label: string }[] }[]; onAnswer: (option: string) => void }
   | { key: string; kind: "plan"; context?: readonly string[]; decisions: readonly { id: string; question: string; options: readonly { id: string; label: string }[] }[] }
   | { key: string; kind: "judge" | "drone"; name: string; text: string; context?: readonly string[]; target?: string; asked?: AskedOf };
 

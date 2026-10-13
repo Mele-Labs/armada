@@ -122,10 +122,19 @@ pub struct FakeDaemon {
     /// `crate::asking` said it: the port, `None` where there was no peer.
     pub run_asked_on: Mutex<Vec<Option<u16>>>,
     /// Who each redirect that reached this daemon was recorded against.
-    pub redirected_by: Mutex<Vec<crate::Redirector>>,
+    pub redirected_by: Mutex<Vec<crate::Steerer>>,
+    /// Who each add, drop, edit, move and task restart that reached this
+    /// daemon was signed as. `#2168`.
+    pub plan_changed_by: Mutex<Vec<crate::Steerer>>,
+    /// The door each redirect arrived through, as `crate::via` said it.
+    pub redirected_via: Mutex<Vec<Option<ipc::Via>>>,
+    /// The port a planted Commander calls from. `#2164`.
+    pub commander_on: Mutex<Option<u16>>,
     /// Who each proposal that reached this daemon was recorded against.
     /// `#943`.
     pub proposed_by: Mutex<Vec<crate::Redirector>>,
+    /// Who each cap raise that reached this daemon was placed as. `#2165`.
+    pub raised_by: Mutex<Vec<ipc::RaisedBy>>,
     /// Every Studio held, starting with [`THE_STUDIO`]. `#1285`.
     pub studios: Mutex<Vec<ipc::Studio>>,
     /// Who each Studio act that says who acted — add a node, propose an edge,
@@ -172,7 +181,11 @@ impl FakeDaemon {
             helm_on: Mutex::new(None),
             run_asked_on: Mutex::new(Vec::new()),
             redirected_by: Mutex::new(Vec::new()),
+            plan_changed_by: Mutex::new(Vec::new()),
+            redirected_via: Mutex::new(Vec::new()),
+            commander_on: Mutex::new(None),
             proposed_by: Mutex::new(Vec::new()),
+            raised_by: Mutex::new(Vec::new()),
             studios: Mutex::new(vec![studios::the_studio()]),
             added_by: Mutex::new(Vec::new()),
             checkout_runs_named: Mutex::new(Vec::new()),

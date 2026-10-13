@@ -364,7 +364,7 @@ pub use manifest_proposal::{
     ProposedSetup, Provenance, StatedCaps, WriteManifestProposal,
 };
 pub use merge_hub::{
-    FixMain, FixesMain, FixesMainState, HubJob, HubMerged, HubPullCi, HubPullRequest, HubQueue,
+    FixMain, FixesMain, FixesMainState, HubJob, HubMerged, HubPullCi, HubPullRequest, HubQueue, HubSession,
     HubQueueState, MainChecking, MainCiState, MainFailedJob, MainMerge, MainRun, MainRunState,
     MainStanding, MergeLineHub,
 };
@@ -455,7 +455,7 @@ pub use sessions::{
     AnswerWaiting, Attachment, AttachmentNamed, AttachmentReport, AttachmentState, DismissWaiting,
     ClaimPullRequest, Holder, HolderKind, Owners, Ownership, PullRequestClaimed, RenameSession,
     SessionFact, SessionId, SessionList, SessionOrigin, SessionRecord, SessionReport, SessionState,
-    SessionRunMessage, SessionRunUnderway, StartSessionRun, StopSessionRun, SessionUsage, SetWaitingFor, ShowWindow, AskInWindow, WindowPlace, TerminalCommand, TerminalFacts, WaitingAct,
+    SessionRunMessage, SessionRunUnderway, StartSessionRun, StopSessionRun, SessionUsage, SetWaitingFor, AllDone, ShowWindow, AskInWindow, WindowPlace, TerminalCommand, TerminalFacts, WaitingAct,
     WaitingActKind, WaitingInput, WaitingItem, WaitingMode, WaitingOption, WaitingSource,
     WindowClosed,
 };
@@ -518,5 +518,5 @@ pub use work::{
 };
 pub use work_plan::{
     AddTask, ChangedBy, DropTask, EditTask, JobPlanChanged, MovePlan, PlanGroup, PlanGroupRun,
-    PlanTask, RestartTask, SetTiers, TaskCounts, TierModels, WorkPlan, WorkingWindow,
+    PlanTask, RestartTask, SetTiers, TaskBy, TaskCounts, TierModels, WorkPlan, WorkingWindow,
 };

@@ -535,3 +535,64 @@ fn an_edit_that_changes_nothing_or_blanks_the_title_is_not_one() {
     );
     assert!(crate::TaskEdit::new(None, Some(""), None, None, None).is_some());
 }
+
+#[test]
+fn a_task_wears_the_hand_that_last_changed_it_and_a_step_never_takes_it_off() {
+    let edited = |id: &str, by: PlanAuthor| {
+        entry(
+            PlanChange::Edited {
+                task: TaskId::read(id).expect("an id"),
+                edit: crate::TaskEdit::new(Some("again"), None, None, None, None).expect("an edit"),
+            },
+            by,
+        )
+    };
+    let plan = WorkPlan::fold(&[
+        recorded(&["one", "two", "three"]),
+        edited("T1", PlanAuthor::Person),
+        edited("T1", PlanAuthor::Helm),
+        edited("T2", PlanAuthor::Commander),
+        updated("T2", TaskUpdate::Working),
+    ])
+    .expect("a history that replays")
+    .expect("a plan");
+    let hand = |id: &str| plan.task(TaskId::read(id).expect("an id")).and_then(|t| t.by().cloned());
+
+    assert_eq!(hand("T1"), Some(PlanAuthor::Helm), "the later hand wins");
+    assert_eq!(
+        hand("T2"),
+        Some(PlanAuthor::Commander),
+        "a step marking it working leaves the Commander's hand"
+    );
+    assert_eq!(hand("T3"), None, "only a step has written it");
+}
+
+#[test]
+fn a_task_added_or_moved_by_a_caller_wears_that_caller() {
+    for by in [PlanAuthor::Person, PlanAuthor::Helm, PlanAuthor::Commander] {
+        let plan = WorkPlan::fold(&[
+            recorded(&["one", "two"]),
+            entry(
+                PlanChange::Added {
+                    task: NewTask::new("three", "", &[], "").expect("a title"),
+                    after: None,
+                },
+                by.clone(),
+            ),
+            entry(
+                PlanChange::MovedTask {
+                    task: TaskId::read("T1").expect("an id"),
+                    group: crate::GroupId::FIRST,
+                    after: TaskId::read("T3"),
+                },
+                by.clone(),
+            ),
+        ])
+        .expect("a history that replays")
+        .expect("a plan");
+        let hand = |id: &str| plan.task(TaskId::read(id).expect("an id")).and_then(|t| t.by().cloned());
+        assert_eq!(hand("T3"), Some(by.clone()));
+        assert_eq!(hand("T1"), Some(by.clone()));
+        assert_eq!(hand("T2"), None);
+    }
+}

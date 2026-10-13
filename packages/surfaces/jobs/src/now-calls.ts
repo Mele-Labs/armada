@@ -7,7 +7,7 @@ import type { NowView } from "./draft/now";
 export function callViewOf(now: NowView | undefined): CallView | undefined {
   if (now === undefined) return undefined;
   const asks = (now.asks ?? []).flatMap((ask): CallAskView[] =>
-    ask.kind === "plan"
+    ask.kind === "plan" || ask.kind === "commander"
       ? []
       : [{ key: ask.key, kind: ask.kind, name: ask.name, text: ask.text, ...(ask.target === undefined ? {} : { target: ask.target }), ...(ask.asked === undefined ? {} : { asked: ask.asked }) }],
   );

@@ -181,6 +181,8 @@ pub const THEME: &[(&str, Slot)] = &[
     ),
     ("--helm", Slot::Named("color", "helm")),
     ("--helm-", Slot::NsFull("color")),
+    ("--you", Slot::Named("color", "you")),
+    ("--you-", Slot::NsFull("color")),
     // An instrument's marks, aliased in status.css below Job level.
     ("--instrument-", Slot::NsFull("color")),
     // A caution notice — an alias of --status-awaiting-review, not a new

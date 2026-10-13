@@ -159,7 +159,11 @@ export function attachmentsOfRecord(record: SessionRecord, beside: Pick<Beside, 
         break;
       case "forked_to":
       case "forked_from":
-        out.push(one.kind === "forked_to" ? { kind: "forked_to", id: one.target } : { kind: "forked_from", id: one.target });
+        out.push(
+          one.kind === "forked_to"
+            ? { kind: "forked_to", id: one.target }
+            : { kind: "forked_from", id: one.target, ...(detail["at"] === undefined ? {} : { at: detail["at"] }) },
+        );
         break;
       case "subagent":
         out.push({
@@ -323,8 +327,8 @@ export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] 
   const mode = hosted?.mode ?? terminal?.mode;
   const asked = hosted?.asked ?? terminal?.asked;
   const ended = record.state === "ended";
-  // A session that ended holds nothing, so it owns nothing: what it keeps is the link to its forks.
-  const attachments = attachmentsOfRecord(record, beside).filter((one) => !ended || one.kind === "forked_to" || one.kind === "forked_from");
+  // A session that ended holds nothing, so it owns nothing: what it keeps is the link to its forks and what it made, to be read.
+  const attachments = attachmentsOfRecord(record, beside).filter((one) => !ended || one.kind === "forked_to" || one.kind === "forked_from" || one.kind === "pull_request" || one.kind === "artifact");
   const dead = ended ? ("ended" as const) : hosted === undefined && terminal?.listening !== true ? ("quiet" as const) : undefined;
   const title = cleanTitle(record.title);
   const thread = rows === undefined ? [] : rowsOfThread(record.id, rows, beside.picture);
@@ -351,6 +355,7 @@ export function sessionOfRecord(record: SessionRecord, rows: readonly WireRow[] 
     ...(terminal?.commands === undefined ? {} : { commands: terminal.commands }),
     ...(record.mod_out_of_date === true ? { modOutOfDate: true as const } : {}),
     ...(ended || (record.waiting_for?.length ?? 0) === 0 ? {} : { waitingFor: record.waiting_for }),
+    ...(ended || record.done_since === undefined ? {} : { done: { since: record.done_since } }),
   };
 }
 

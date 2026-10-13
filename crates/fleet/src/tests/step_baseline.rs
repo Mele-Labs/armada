@@ -168,9 +168,15 @@ async fn evidence_submitted_before_a_restart_is_ruled_on_against_the_step_start(
 
     let work = FakeWorkProduct::inherited(&[]);
     work.wrote(&a_fix());
-    let second = a_fleet_over(&home, work, a_drone_that_stays());
+    let second = Arc::new(a_fleet_over(&home, work, a_drone_that_stays()));
     let reconciled = second.reconcile().await.expect("the boot read");
-    assert_eq!(reconciled.recovered_evidence, vec![job.clone()]);
+    let ruled = second
+        .rule_on_pending_evidence(&reconciled.awaiting_evidence)
+        .await
+        .expect("the rows are held")
+        .await
+        .expect("the task");
+    assert_eq!(ruled.recovered_evidence, vec![job.clone()]);
 
     let carried = second.load(&job).await.expect("the Job");
     assert_eq!(

@@ -111,17 +111,18 @@ where
     /// there is: `drone.md` gives the mid-step path a session and nothing
     /// written down, and the note written down is `request_changes`.
     ///
-    /// `by` is who is recorded as having moved the Job: a person, or a Helm
-    /// session the agent door placed (`#941`).
+    /// `by` is who is recorded as having moved the Job: a person, a Helm
+    /// session the agent door placed (`#941`), or the Job's Commander (`#2164`).
     pub async fn redirect(
         &self,
         job_id: &JobId,
         instruction: &Redirection,
-        by: api::Redirector,
+        by: api::Steerer,
     ) -> Result<Job, Adrift> {
         let by = match by {
-            api::Redirector::Person => Actor::Human,
-            api::Redirector::Helm => Actor::Helm,
+            api::Steerer::Person => Actor::Human,
+            api::Steerer::Helm => Actor::Helm,
+            api::Steerer::Commander => Actor::Commander,
         };
         self.steer(job_id, Steer::Words(instruction, by)).await
     }

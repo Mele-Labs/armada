@@ -23,6 +23,7 @@ const waiting: Session = {
   waitingFor: [
     { id: "p1", text: "Which date should the clock pin to?", since: minutesAgo(3), source: "agent" },
     { id: "p2", text: "Keep the old fixture or drop it?", since: minutesAgo(2), source: "agent" },
+    { id: "p3", text: "Name the helper eventually, or settle?", since: minutesAgo(1), source: "agent", act: { kind: "answer", target: "" } },
   ],
 };
 

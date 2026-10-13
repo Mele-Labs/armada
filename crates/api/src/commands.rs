@@ -17,13 +17,14 @@ use axum::response::Response;
 use axum::Extension;
 use ipc::{
     AddTask, AnswerCommand, AskedApproval, CapRaise, ChangesRequested, ChosenAnswer, DropTask,
-    FileReport, JobRequest, JudgeAnswered, Overruled, ProposeJob, Redirection, RemarksTakenUp,
-    RestartRequested, SetWhenBlocked, SetWhenRefused, StopProposal, TurnRaise,
+    FileReport, JobRequest, JudgeAnswered, Overruled, ProposeJob, RaisedBy, Redirection,
+    RemarksTakenUp, RestartRequested, SetWhenBlocked, SetWhenRefused, StopProposal, TurnRaise,
 };
 
 use crate::answers::{answer, refused, undecodable};
 use crate::daemon::{Commands, Queries, Redirector};
 use crate::door::HelmCalled;
+use crate::placed::{steered_by, CommanderCalled};
 use crate::reference::Resolved;
 use crate::scoped::InManifest;
 use crate::served::Served;
@@ -432,6 +433,16 @@ pub(crate) async fn show_again<D: Commands>(
     }
 }
 
+/// Who a raise is placed as, from the marks the door left on the request.
+/// **The body is never asked** (`#2165`): `raised_by` used to ride in it, and a
+/// Helm call that sent `person` met no ceiling.
+fn raised_by(helm: Option<Extension<HelmCalled>>) -> RaisedBy {
+    match helm {
+        Some(_) => RaisedBy::Helm,
+        None => RaisedBy::Person,
+    }
+}
+
 /// Give this Job a higher cost ceiling than the tier above it allows. **The
 /// Job comes back exactly where it was** — the raise moves a number and nothing
 /// else, and the field a caller reads it for is `queued_reason`: `over_budget`
@@ -439,17 +450,22 @@ pub(crate) async fn show_again<D: Commands>(
 ///
 /// 409 on a terminal Job, where nothing is left to spend. 422 on a figure at or
 /// under the cap in force — the act only ever raises — and 422 again where the
-/// surface asked past its own ceiling, which a person never meets.
+/// caller asked past its own ceiling, which a person never meets.
 pub(crate) async fn raise_cost_cap<D: Commands>(
     State(served): State<Served<D>>,
     job: Resolved,
+    helm: Option<Extension<HelmCalled>>,
     body: Bytes,
 ) -> Response {
     let raise: CapRaise = match ipc::decode("a cost cap", &body) {
         Ok(raise) => raise,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
-    match served.shared().raise_cost_cap(job.id(), raise).await {
+    match served
+        .shared()
+        .raise_cost_cap(job.id(), raise, raised_by(helm))
+        .await
+    {
         Ok(job) => answer(StatusCode::OK, &job, served.run_id()),
         Err(refusal) => refused(refusal),
     }
@@ -465,13 +481,18 @@ pub(crate) async fn raise_cost_cap<D: Commands>(
 pub(crate) async fn raise_turn_cap<D: Commands>(
     State(served): State<Served<D>>,
     job: Resolved,
+    helm: Option<Extension<HelmCalled>>,
     body: Bytes,
 ) -> Response {
     let raise: TurnRaise = match ipc::decode("a turn cap", &body) {
         Ok(raise) => raise,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
-    match served.shared().raise_turn_cap(job.id(), raise).await {
+    match served
+        .shared()
+        .raise_turn_cap(job.id(), raise, raised_by(helm))
+        .await
+    {
         Ok(job) => answer(StatusCode::OK, &job, served.run_id()),
         Err(refusal) => refused(refusal),
     }
@@ -687,18 +708,26 @@ pub(crate) async fn redispatch_job<D: Commands>(
     }
 }
 
-/// A person adds a task to the Job's plan. **The plan it leaves comes back**,
+/// A task is added to the Job's plan. **Signed as the caller the door placed**
+/// (`#2168`, and the four plan acts below): a person's unless the call is Helm's
+/// or a Commander's, and never as the body says. **The plan it leaves comes back**,
 /// so the Plan region redraws without a second read. `#897`.
 pub(crate) async fn add_task<D: Commands>(
     State(served): State<Served<D>>,
     job: Resolved,
+    helm: Option<Extension<HelmCalled>>,
+    commander: Option<Extension<CommanderCalled>>,
     body: Bytes,
 ) -> Response {
     let add: AddTask = match ipc::decode("a task to add", &body) {
         Ok(add) => add,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
-    match served.shared().add_task(job.id(), add).await {
+    match served
+        .shared()
+        .add_task(job.id(), add, steered_by(helm, commander))
+        .await
+    {
         Ok(plan) => answer(StatusCode::OK, &plan, served.run_id()),
         Err(refusal) => refused(refusal),
     }
@@ -709,13 +738,19 @@ pub(crate) async fn add_task<D: Commands>(
 pub(crate) async fn drop_task<D: Commands>(
     State(served): State<Served<D>>,
     job: Resolved,
+    helm: Option<Extension<HelmCalled>>,
+    commander: Option<Extension<CommanderCalled>>,
     body: Bytes,
 ) -> Response {
     let drop: DropTask = match ipc::decode("a task to drop", &body) {
         Ok(drop) => drop,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
-    match served.shared().drop_task(job.id(), drop).await {
+    match served
+        .shared()
+        .drop_task(job.id(), drop, steered_by(helm, commander))
+        .await
+    {
         Ok(plan) => answer(StatusCode::OK, &plan, served.run_id()),
         Err(refusal) => refused(refusal),
     }
@@ -734,6 +769,8 @@ pub(crate) async fn restart_task<D: Commands>(
     State(served): State<Served<D>>,
     job: Resolved,
     Path(NamedTask { task_id }): Path<NamedTask>,
+    helm: Option<Extension<HelmCalled>>,
+    commander: Option<Extension<CommanderCalled>>,
     body: Bytes,
 ) -> Response {
     let restart: ipc::RestartTask = if body.is_empty() {
@@ -746,7 +783,7 @@ pub(crate) async fn restart_task<D: Commands>(
     };
     match served
         .shared()
-        .restart_task(job.id(), task_id, restart)
+        .restart_task(job.id(), task_id, restart, steered_by(helm, commander))
         .await
     {
         Ok(job) => answer(StatusCode::OK, &job, served.run_id()),
@@ -759,13 +796,19 @@ pub(crate) async fn restart_task<D: Commands>(
 pub(crate) async fn move_plan<D: Commands>(
     State(served): State<Served<D>>,
     job: Resolved,
+    helm: Option<Extension<HelmCalled>>,
+    commander: Option<Extension<CommanderCalled>>,
     body: Bytes,
 ) -> Response {
     let moving: ipc::MovePlan = match ipc::decode("a plan move", &body) {
         Ok(moving) => moving,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
-    match served.shared().move_plan(job.id(), moving).await {
+    match served
+        .shared()
+        .move_plan(job.id(), moving, steered_by(helm, commander))
+        .await
+    {
         Ok(plan) => answer(StatusCode::OK, &plan, served.run_id()),
         Err(refusal) => refused(refusal),
     }
@@ -779,13 +822,19 @@ pub(crate) async fn edit_task<D: Commands>(
     State(served): State<Served<D>>,
     job: Resolved,
     Path(NamedTask { task_id }): Path<NamedTask>,
+    helm: Option<Extension<HelmCalled>>,
+    commander: Option<Extension<CommanderCalled>>,
     body: Bytes,
 ) -> Response {
     let edit: ipc::EditTask = match ipc::decode("a task edit", &body) {
         Ok(edit) => edit,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
-    match served.shared().edit_task(job.id(), task_id, edit).await {
+    match served
+        .shared()
+        .edit_task(job.id(), task_id, edit, steered_by(helm, commander))
+        .await
+    {
         Ok(plan) => answer(StatusCode::OK, &plan, served.run_id()),
         Err(refusal) => refused(refusal),
     }
@@ -800,16 +849,14 @@ pub(crate) async fn redirect_drone<D: Commands>(
     State(served): State<Served<D>>,
     job: Resolved,
     helm: Option<Extension<HelmCalled>>,
+    commander: Option<Extension<CommanderCalled>>,
     body: Bytes,
 ) -> Response {
     let instruction: Redirection = match ipc::decode("a redirect", &body) {
         Ok(instruction) => instruction,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
-    let by = match helm {
-        Some(_) => Redirector::Helm,
-        None => Redirector::Person,
-    };
+    let by = steered_by(helm, commander);
     match served
         .shared()
         .redirect_drone(job.id(), instruction, by)

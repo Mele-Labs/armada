@@ -276,6 +276,17 @@ impl PlanChanged {
     }
 }
 
+/// How the caller the transport placed signs what it does to a plan: the actor
+/// the event names, and the hand the record keeps. **One mapping for every plan
+/// act**, so a person, Helm and the Commander cannot come out as one another.
+pub(crate) fn signed(by: api::Steerer) -> (Actor, PlanHand<'static>) {
+    match by {
+        api::Steerer::Person => (Actor::Human, PlanHand::Person),
+        api::Steerer::Helm => (Actor::Helm, PlanHand::Helm),
+        api::Steerer::Commander => (Actor::Commander, PlanHand::Commander),
+    }
+}
+
 /// Why the store would not keep a person's change, once the plan itself would
 /// have taken it. Not the person's to fix.
 pub(crate) fn plan_not_kept(job: &JobId, why: PlanNotKept) -> Adrift {
@@ -377,16 +388,18 @@ where
         Ok(plan)
     }
 
-    /// A person adds a task to the Job's plan, from Bridge. `#897`.
+    /// A person, Helm or the Commander adds a task to the Job's plan. `#897`.
+    /// **`by` is the transport's word, never the body's**, and signs the add.
     ///
     /// **Refused by name**: an empty title, or an `after` naming nothing the
     /// plan holds — both `Adrift::Unnameable`, `redirect_drone`'s reuse of it
     /// for a value that cannot work — or `Adrift::PlanRefused` where the Job
     /// has no plan at all.
-    pub(crate) async fn add_task_by_person(
+    pub(crate) async fn add_task_by(
         self: Arc<Self>,
         job_id: ipc::JobId,
         add: ipc::AddTask,
+        by: api::Steerer,
     ) -> Result<ipc::WorkPlan, Refusal> {
         let scope: Vec<&str> = add.scope.iter().map(String::as_str).collect();
         let task = NewTask::new(&add.title, &add.note, &scope, &add.expects)
@@ -398,25 +411,26 @@ where
         let plan = budgeted_for(self.command_budget(), job_id.clone(), {
             let fleet = Arc::clone(&self);
             let job = job_id.to_domain();
-            async move { fleet.added_by_person(&job, task, after).await }
+            async move { fleet.added_by(&job, task, after, by).await }
         })
         .await
         .map_err(|why| self.refusal(why))?;
         Ok((&plan).into())
     }
 
-    /// A person drops a task from the Job's plan, with a reason, from Bridge.
-    /// `#897`.
+    /// A person, Helm or the Commander drops a task from the Job's plan, with a
+    /// reason. `#897`.
     ///
     /// **Refused by name**: an empty reason, or a task the plan does not
     /// hold — both `Adrift::Unnameable` — a Job with no plan at all
     /// (`Adrift::PlanRefused`), or a task already `done` or already
     /// `dropped` (`Adrift::TaskAlreadySettled`) — a person's drop is not
     /// repeating a decision already made.
-    pub(crate) async fn drop_task_by_person(
+    pub(crate) async fn drop_task_by(
         self: Arc<Self>,
         job_id: ipc::JobId,
         body: ipc::DropTask,
+        by: api::Steerer,
     ) -> Result<ipc::WorkPlan, Refusal> {
         let task =
             TaskId::read(body.task.trim()).ok_or_else(|| self.refusal(Adrift::Unnameable))?;
@@ -425,19 +439,21 @@ where
         let plan = budgeted_for(self.command_budget(), job_id.clone(), {
             let fleet = Arc::clone(&self);
             let job = job_id.to_domain();
-            async move { fleet.dropped_by_person(&job, task, reason).await }
+            async move { fleet.dropped_by(&job, task, reason, by).await }
         })
         .await
         .map_err(|why| self.refusal(why))?;
         Ok((&plan).into())
     }
 
-    async fn added_by_person(
+    async fn added_by(
         &self,
         job: &JobId,
         task: NewTask,
         after: Option<TaskId>,
+        by: api::Steerer,
     ) -> Result<WorkPlan, Adrift> {
+        let (actor, hand) = signed(by);
         let at = self.now();
         let change = PlanChange::Added {
             task: task.clone(),
@@ -446,7 +462,7 @@ where
         let plan = {
             let mut store = self.store().lock().await;
             store
-                .change_plan(job, &change, PlanHand::Person, &at)
+                .change_plan(job, &change, hand, &at)
                 .map_err(|why| plan_not_kept(job, why))?
         };
         let id = plan
@@ -455,18 +471,20 @@ where
             .map(PlanTask::id)
             .max()
             .expect("the task just added is in the plan it leaves");
-        self.told_plan_changed(job, &change, &plan, &at);
+        self.told_plan_changed(job, &change, &plan, actor, &at);
         self.deliver_plan_change(job, &PlanChanged::added(&self.prompts(), id, &task))
             .await;
         Ok(plan)
     }
 
-    async fn dropped_by_person(
+    async fn dropped_by(
         &self,
         job: &JobId,
         task: TaskId,
         reason: DropReason,
+        by: api::Steerer,
     ) -> Result<WorkPlan, Adrift> {
+        let (actor, hand) = signed(by);
         let at = self.now();
         let change = PlanChange::Updated {
             task,
@@ -491,7 +509,7 @@ where
                 }
             }
             store
-                .change_plan(job, &change, PlanHand::Person, &at)
+                .change_plan(job, &change, hand, &at)
                 .map_err(|why| plan_not_kept(job, why))?
         };
         let title = plan
@@ -499,7 +517,7 @@ where
             .map(PlanTask::title)
             .unwrap_or_default()
             .to_string();
-        self.told_plan_changed(job, &change, &plan, &at);
+        self.told_plan_changed(job, &change, &plan, actor, &at);
         self.deliver_plan_change(
             job,
             &PlanChanged::dropped(&self.prompts(), task, &title, reason.as_str()),
@@ -508,10 +526,17 @@ where
         Ok(plan)
     }
 
-    /// Publish `job.plan_changed`, actor `Human` — a person's act, never
-    /// Fleet's own.
-    fn told_plan_changed(&self, job: &JobId, change: &PlanChange, plan: &WorkPlan, at: &Timestamp) {
-        let changed = ipc::JobPlanChanged::changed(job, change, plan, Actor::Human, at);
+    /// Publish `job.plan_changed` under `actor`, who made the change. **There
+    /// is no default**: a site that does not say who acted does not compile.
+    pub(crate) fn told_plan_changed(
+        &self,
+        job: &JobId,
+        change: &PlanChange,
+        plan: &WorkPlan,
+        actor: Actor,
+        at: &Timestamp,
+    ) {
+        let changed = ipc::JobPlanChanged::changed(job, change, plan, actor, at);
         self.publish(ipc::Event::JobPlanChanged(changed));
     }
 

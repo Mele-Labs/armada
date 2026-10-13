@@ -3,7 +3,7 @@ import type { ClipboardEvent, DragEvent, FormEvent, KeyboardEvent, ReactNode } f
 import { Cpu, Paperclip, PencilRuler, Send, Shield, Zap } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
-import { useKept } from "../../keep";
+import { useKept, writeKept } from "../../keep";
 import { AttachmentChip } from "../../primitives/AttachmentChip/AttachmentChip";
 import { Button } from "../../primitives/Button/Button";
 import { Select } from "../../primitives/Select/Select";
@@ -86,7 +86,8 @@ export type SessionComposerProps = {
   /** Opens the pad. */
   onDraw: () => void;
   onRemoveDrawn: (id: string) => void;
-  onSend: (sent: SentFromComposer) => void;
+  /** Resolving to `false` says the message did not go, and the box is given it back. */
+  onSend: (sent: SentFromComposer) => void | Promise<boolean>;
   /** The permission mode is shown and not set: a session in a terminal holds it, and nothing outside can switch it. */
   modeLocked?: boolean;
   /** A terminal's mode is not drawn until its mod has reported one. */
@@ -97,11 +98,23 @@ export type SessionComposerProps = {
    * survive a reload). Cleared by a send. Without it nothing is kept.
    */
   draftKey?: string;
+  /** The `draftKey` whose box takes focus, with the caret after what it holds, when it shows: a fork opens on its quote. */
+  focusFor?: string;
 };
 
 /** The message: its text holds a CHIP where each tag stands, and `tags` lists them in order. */
 type Draft = { text: string; tags: ComposerTag[]; files: ComposerFile[] };
 const BLANK: Draft = { text: "", tags: [], files: [] };
+
+/**
+ * Puts `text` in the box kept for a Session, as though it had been typed there and not sent.
+ * **A line break that ends the box is only where the last line stops**, and typing there takes it
+ * away, so one more is written: a quote and a blank line stay two lines apart under the ask.
+ */
+export function seedDraft(draftKey: string, text: string): void {
+  const seeded = text.endsWith("\n") ? `${text}\n` : text;
+  writeKept<Draft>(`session:${draftKey}`, { text: seeded, tags: [], files: [] }, { text: seeded, tags: [] });
+}
 
 /** The commands a `/` query keeps: names that start with it first, then names that hold it. */
 function matching<T extends { name: string }>(commands: readonly T[], query: string): T[] {
@@ -143,6 +156,7 @@ export function SessionComposer({
   modeLocked = false,
   modeHidden = false,
   draftKey,
+  focusFor,
 }: SessionComposerProps) {
   const [draft, setDraft, forget] = useKept<Draft>(draftKey === undefined ? undefined : `session:${draftKey}`, BLANK, {
     stored: (one) => ({ text: one.text, tags: one.tags }),
@@ -184,6 +198,14 @@ export function SessionComposer({
     writeDom(box, draft.text, draft.tags);
     if (document.activeElement === box) caretToEnd(box);
   }, [draft.text, draft.tags]);
+
+  // After the draw above, so the caret lands behind what the box was just given.
+  useEffect(() => {
+    const box = editor.current;
+    if (box === null || focusFor === undefined || focusFor !== draftKey) return;
+    box.focus();
+    caretToEnd(box);
+  }, [focusFor, draftKey]);
 
   // The box takes the most of half the panel it sits in, then scrolls.
   useLayoutEffect(() => {
@@ -310,9 +332,14 @@ export function SessionComposer({
 
   const send = () => {
     if (text.trim() === "" && !held) return;
-    onSend({ text: sentText(text, draft.tags).trim(), files, tags: draft.tags });
+    const sent = draft;
+    const done = onSend({ text: sentText(text, draft.tags).trim(), files, tags: draft.tags });
     forget();
     setHead("");
+    // A refused message comes back, unless something new has been typed since.
+    void done?.then((went) => {
+      if (!went) setDraft((now) => (now.text === "" && now.tags.length === 0 && now.files.length === 0 ? sent : now));
+    });
   };
 
   const submit = (event: FormEvent) => {

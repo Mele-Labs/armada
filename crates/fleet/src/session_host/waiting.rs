@@ -19,7 +19,7 @@ use std::sync::Arc;
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{HostedSessions, Refusal};
 use ipc::{
-    AnswerSessionAsk, AnswerWaiting, DismissWaiting, HelmCallAnswer, HelmCallInFlight, Instant,
+    AllDone, AnswerSessionAsk, AnswerWaiting, DismissWaiting, HelmCallAnswer, HelmCallInFlight, Instant,
     QuestionAnswer, SendSessionMessage, SessionRecord, SessionRow, SessionVoice, SetWaitingFor,
     WaitingAct, WaitingActKind, WaitingItem, WaitingOption, WaitingSource, WireError,
 };
@@ -45,6 +45,8 @@ pub(crate) struct WaitingReads {
     kept: Vec<KeptWaiting>,
     rows: Vec<String>,
     dismissed: Vec<String>,
+    /// When the agent said it was done, if that still stands.
+    pub(crate) done: Option<String>,
 }
 
 pub(crate) fn waiting_reads(
@@ -55,6 +57,7 @@ pub(crate) fn waiting_reads(
         kept: store.waiting_for(&session.id)?,
         rows: store.session_rows(&session.id)?,
         dismissed: store.dismissed_waiting(&session.id)?,
+        done: store.done_since(&session.id)?,
     })
 }
 
@@ -216,7 +219,7 @@ where
         session: &KeptSession,
         attachments: &[ipc::Attachment],
     ) -> Vec<WaitingItem> {
-        let WaitingReads { kept, rows, dismissed } = reads;
+        let WaitingReads { kept, rows, dismissed, .. } = reads;
         let asked = self.hosts().of(&session.id).state().asked.clone();
         let rows: Vec<SessionRow> = rows
             .iter()
@@ -305,16 +308,7 @@ where
         caller: Option<api::Caller>,
         set: SetWaitingFor,
     ) -> Result<SessionRecord, Refusal> {
-        let id = caller
-            .and_then(|caller| self.session_holding(&caller))
-            .or_else(|| {
-                set.session_id
-                    .map(|named| named.as_str().trim().to_string())
-            })
-            .filter(|id| !id.is_empty())
-            .ok_or_else(|| {
-                self.hosted_refusal(SESSION_WAITING_UNNAMED, "a session to set it for")
-            })?;
+        let id = self.waiting_session(caller, set.session_id.as_ref())?;
         let mut seen = std::collections::HashSet::new();
         for item in &set.items {
             if item.id.trim().is_empty() || item.text.trim().is_empty() {
@@ -360,10 +354,58 @@ where
             store
                 .replace_waiting_for(&id, &items)
                 .map_err(|why| self.ledger_fault(why))?;
+            // Something is owed again, so nothing is left to work on.
+            if !items.is_empty() {
+                store.clear_done(&id).map_err(|why| self.ledger_fault(why))?;
+            }
             self.ledger_row(&store, &session)?
         };
         self.publish(ipc::Event::SessionChanged(record.clone()));
         Ok(record)
+    }
+
+    /// The session a call is about: the hosted one holding the connection, else the named one.
+    fn waiting_session(
+        &self,
+        caller: Option<api::Caller>,
+        named: Option<&ipc::SessionId>,
+    ) -> Result<String, Refusal> {
+        caller
+            .and_then(|caller| self.session_holding(&caller))
+            .or_else(|| named.map(|named| named.as_str().trim().to_string()))
+            .filter(|id| !id.is_empty())
+            .ok_or_else(|| self.hosted_refusal(SESSION_WAITING_UNNAMED, "a session to set it for"))
+    }
+
+    /// `all_done`: the agent has nothing left to work on. A second call keeps the first instant.
+    pub(crate) async fn say_done(
+        &self,
+        caller: Option<api::Caller>,
+        done: AllDone,
+    ) -> Result<SessionRecord, Refusal> {
+        let id = self.waiting_session(caller, done.session_id.as_ref())?;
+        let now = self.clock().now().as_str().to_string();
+        let record = {
+            let mut store = self.store().lock().await;
+            let session = store
+                .session(&id)
+                .map_err(|why| self.ledger_fault(why))?
+                .ok_or_else(|| self.hosted_refusal(SESSION_WAITING_UNNAMED, "a session Fleet knows"))?;
+            if session.state == store::SessionState::Ended {
+                return Err(self.closed(&id));
+            }
+            store
+                .keep_done(&id, &now)
+                .map_err(|why| self.ledger_fault(why))?;
+            self.ledger_row(&store, &session)?
+        };
+        self.publish(ipc::Event::SessionChanged(record.clone()));
+        Ok(record)
+    }
+
+    /// The agent's word that it was done no longer stands. Whether it had stood.
+    pub(crate) async fn done_cleared(&self, id: &str) -> bool {
+        self.store().lock().await.clear_done(id).unwrap_or(false)
     }
 
     /// `answer_waiting`: route the answer by where the item came from.

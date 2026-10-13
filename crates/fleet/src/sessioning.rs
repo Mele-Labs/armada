@@ -200,6 +200,9 @@ where
         record.hosted = reads
             .hosting
             .map(|hosting| self.hosted_facts_of(&session.id, hosting));
+        if session.state == store::SessionState::Live {
+            record.done_since = reads.waiting.done.as_deref().map(wire_instant);
+        }
         record.waiting_for = self.waiting_from(reads.waiting, session, &record.attachments);
         record
     }
@@ -588,6 +591,14 @@ where
         self.set_waiting(caller, set).await
     }
 
+    async fn all_done(
+        &self,
+        caller: Option<api::Caller>,
+        done: ipc::AllDone,
+    ) -> Result<SessionRecord, Refusal> {
+        self.say_done(caller, done).await
+    }
+
     async fn start_session_run(
         &self,
         start: ipc::StartSessionRun,
@@ -825,5 +836,6 @@ fn session_wire(session: &KeptSession, held: &[KeptAttachment]) -> SessionRecord
         terminal: None,
         mod_out_of_date: false,
         waiting_for: Vec::new(),
+        done_since: None,
     }
 }

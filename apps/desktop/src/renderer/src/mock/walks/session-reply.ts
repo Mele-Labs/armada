@@ -1,27 +1,30 @@
-// A waiting item the agent gave no act: its glyph is Reply, a press opens a box under the row, a line
+// A waiting item the agent gave no act, in the Needs you band: its glyph is Reply, a press opens a box under the row, a line
 // typed and sent settles it and the item leaves the list. Over the `session-reply` scenario. Told
 // twice: wide, and below the breakpoint.
 
 import { button, inside, region, role, walk } from "../walk";
 import type { Step } from "../walk";
-import { NARROW, kit, toSessions } from "../sessions/walk-kit";
+import { NARROW, toSessions } from "../sessions/walk-kit";
 
-function steps(narrow: boolean): Step[] {
-  const { ledger, opened, row } = kit(narrow);
+function steps(): Step[] {
   const sessions = region("Sessions");
   const mine = inside(sessions, button(/Pin the store clock/));
-  const waiting = inside(ledger, region("Waiting on you"));
+  const needs = region("Needs you");
   return [
     { press: mine, say: "Opened" },
-    ...opened([{ hover: inside(waiting, role("img", "Reply", { exact: true })), say: "A reply glyph on an item with no act, and on hover its name" }]),
-    ...row("Open Which date should the clock pin to?", "A press opens a box under the row"),
-    { type: "Pin it to the first of March", into: inside(ledger, role("textbox", /^Reply to Which date/)), say: "A line typed" },
-    { press: inside(ledger, button("Send")), say: "Sent" },
+    { press: inside(needs, button(/^Needs you/)), say: "Needs you, opened at the foot of the thread" },
+    { hover: inside(needs, role("img", "Reply", { exact: true })), say: "A reply glyph on an item with no act, and on hover its name" },
+    { press: inside(needs, button("Open Which date should the clock pin to?")), say: "A press opens a box under the row" },
+    { type: "Pin it to the first of March", into: inside(needs, role("textbox", /^Reply to Which date/)), say: "A line typed" },
+    { press: inside(needs, button("Send")), say: "Sent" },
     { look: region("Thread"), say: "It reaches the Session as his answer, and the item leaves the list" },
+    { press: inside(needs, button("Open Name the helper eventually, or settle?")), say: "An answer item with no choices opens the same box" },
+    { type: "Call it settle", into: inside(needs, role("textbox", /^Reply to Name the helper/)), say: "A line typed" },
+    { press: inside(needs, button("Send")), say: "Sent, and it leaves the list" },
   ];
 }
 
-const wide = walk("session-reply", [toSessions, ...steps(false)]);
-const narrow = walk("session-reply", [toSessions, ...steps(true)], NARROW);
+const wide = walk("session-reply", [toSessions, ...steps()]);
+const narrow = walk("session-reply", [toSessions, ...steps()], NARROW);
 
 export { wide as "session-reply", narrow as "session-reply-narrow" };

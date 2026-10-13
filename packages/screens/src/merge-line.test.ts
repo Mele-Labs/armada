@@ -9,7 +9,8 @@ import { GitMerge } from "lucide-react";
 import { describe, expect, test } from "vitest";
 
 import served from "./fixtures/build/merge-lines.served.json";
-import { mergeLineViews } from "./merge-line";
+import type { Session } from "./draft/sessions";
+import { mergeLineViews, recentSessionsOf } from "./merge-line";
 
 const SERVED = served as MergeLines;
 const PULL = "https://git.example/armada-dev/armada/pull/";
@@ -299,6 +300,25 @@ describe("the hub Fleet serves beside the line", () => {
     expect(hub?.main).toEqual({ state: "red", red: { check: "test-all", unmapped: true } });
   });
 
+  test("a red a Session merged names the Session, by its branch where it has no title", () => {
+    const red = (session: { id: string; title?: string }) =>
+      hubOf({
+        main: {
+          state: "red",
+          commit: COMMIT,
+          read_at: "x",
+          failed: [{ name: "ci" }],
+          merge: { number: 2175, branch: "armada/session-c279e883", session },
+        },
+      })?.main;
+    const merge = (session: { id: string; title?: string }) => {
+      const main = red(session);
+      return main?.state === "red" ? main.red.merge : undefined;
+    };
+    expect(merge({ id: "c279", title: "Session Messages Fail to Send" })?.session).toEqual({ id: "c279", title: "Session Messages Fail to Send" });
+    expect(merge({ id: "c279" })?.session).toEqual({ id: "c279", title: "armada/session-c279e883" });
+  });
+
   test("a main still running, one nothing ran on, and one not read draw no mark", () => {
     for (const state of ["running", "nothing_ran"]) {
       expect(hubOf({ main: { state, commit: COMMIT, read_at: "x" } })).toEqual({ pulls: [], recent: [] });
@@ -390,3 +410,27 @@ describe("the hub Fleet serves beside the line", () => {
     expect(view?.hub?.recent.map((one) => one.id)).toEqual(["01D", "01B", "01C"]);
   });
 });
+
+describe("the Sessions main's red can go back to", () => {
+  const session = (id: string, title: string | undefined, lastTurnAt: string, extra: Partial<Session> = {}): Session =>
+    ({ id, ...(title === undefined ? {} : { title }), turn: { state: "idle" }, rows: [], attachments: [{ kind: "branch", name: `armada/${id}`, slot: 1 }], lastTurnAt, ...extra }) as Session;
+  const held = [
+    session("a", "Older", "2026-10-12T09:00:00Z"),
+    session("b", "Newer", "2026-10-12T10:00:00Z"),
+    session("c", undefined, "2026-10-12T11:00:00Z"),
+    session("d", "Closed", "2026-10-12T12:00:00Z", { dead: "ended" }),
+  ];
+
+  test("are the named, living ones in the registry, newest first, with their branch", () => {
+    expect(recentSessionsOf(held)).toEqual([
+      { id: "b", title: "Newer", branch: "armada/b" },
+      { id: "a", title: "Older", branch: "armada/a" },
+    ]);
+  });
+
+  test("hold the Session that merged first, though the registry does not", () => {
+    expect(recentSessionsOf(held, { id: "gone", title: "Given back" }).map((one) => one.id)).toEqual(["gone", "b", "a"]);
+    expect(recentSessionsOf(held, { id: "a", title: "Older" }).map((one) => one.id)).toEqual(["b", "a"]);
+  });
+});
+

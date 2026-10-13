@@ -38,6 +38,8 @@ export type Step =
   | { type: string; into: Target; say: string }
   /** A key pressed on a target as the keyboard sends one: "n", "Tab", or "Meta+n" for a chord. */
   | { key: string; on: Target; say: string }
+  /** These words, inside the target, selected as a pointer drag would leave them. */
+  | { select: string; in: Target; say: string }
   /** A screenshot pasted into a field, as a browser hands one over: a paste event carrying a PNG. */
   | { paste: Target; say: string }
   /** Picked up by its middle and put down `by` this far away, in screen pixels — a node on a canvas. */
@@ -95,6 +97,7 @@ export function targetOf(step: Step): Target {
   if ("key" in step) return step.on;
   if ("later" in step) return step.later;
   if ("paste" in step) return step.paste;
+  if ("select" in step) return step.in;
   return "press" in step ? step.press : "look" in step ? step.look : "drag" in step ? step.drag : step.into;
 }
 
@@ -104,6 +107,7 @@ function verb(step: Step): string {
   if ("key" in step) return "press a key on";
   if ("later" in step) return "look at";
   if ("paste" in step) return "paste into";
+  if ("select" in step) return "select words in";
   return "press" in step ? "press" : "look" in step ? "look at" : "drag" in step ? "drag" : "type into";
 }
 
@@ -357,6 +361,21 @@ function pasteScreenshot(element: HTMLElement): void {
   }, "image/png");
 }
 
+/** `words` selected where they stand in `element`'s text, as the page hears a selection change. */
+function selectWords(element: HTMLElement, words: string): void {
+  const nodes = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+  for (let node = nodes.nextNode(); node !== null; node = nodes.nextNode()) {
+    const at = (node as Text).data.indexOf(words);
+    if (at < 0) continue;
+    const range = document.createRange();
+    range.setStart(node, at);
+    range.setEnd(node, at + words.length);
+    window.getSelection()?.removeAllRanges();
+    window.getSelection()?.addRange(range);
+    return;
+  }
+}
+
 /** A key as the keyboard sends it: `Alt+1` is the 1 key with Alt down, `Meta+n` a chord, and a key on its own is itself. */
 function pressKey(element: HTMLElement, spec: string): void {
   const parts = spec.split("+");
@@ -381,6 +400,7 @@ export function act(step: Step, element: HTMLElement): void {
     // A beat later, so the field has drawn what was typed before the key reaches it.
     if (step.type.endsWith("\n")) window.setTimeout(() => element.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true })), 50);
   } else if ("paste" in step) pasteScreenshot(element);
+  else if ("select" in step) selectWords(element, step.select);
 }
 
 /** Every step, in order, on the app already mounted. Throws on the first one whose target never came. */

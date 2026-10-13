@@ -77,6 +77,25 @@ fn a_phone_act_is_kept_and_read_back_as_the_phone() {
     );
 }
 
+/// A Commander's act is kept beside the other doors and read back with them.
+#[test]
+fn a_commander_act_is_kept_and_read_back_as_the_commanders() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    let job = on_its_first_run(&mut store, "01RETROCOMMANDER");
+    let moved = job
+        .transition(Target::Killed, Actor::Commander, at("2026-08-26T10:05:00.000Z"))
+        .expect("a kill");
+    let seq = store.record_transition(&moved).expect("recorded");
+
+    store.record_via(job.id(), seq, Via::Commander).expect("kept");
+
+    assert_eq!(
+        store.vias_for(job.id()).expect("read back"),
+        vec![(seq, Via::Commander)]
+    );
+}
+
 /// A Job dispatched from the phone is kept as that, and one that was not is not.
 #[test]
 fn a_job_dispatched_from_the_phone_is_kept_as_that() {

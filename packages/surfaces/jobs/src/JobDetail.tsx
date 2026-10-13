@@ -523,7 +523,7 @@ function OneJob(props: JobDetailProps) {
                       whole={whole}
                       edits={held.frozen ?? proposalEditsOfWhole(whole, props.machineCap ?? null)}
                       lit={nowHidden ? undefined : litSteps(nowView)}
-                      life={lifeOf(whole, waveReadingOf(whole, props.draft, props.board ?? []), stepLinesOf(whole, drones))}
+                      life={lifeOf(whole, waveReadingOf(whole, props.draft, props.board ?? []), stepLinesOf(whole, drones), Date.now(), props.draft?.commander?.views[job.id]?.marks)}
                       {...(props.added === undefined ? {} : { added: props.added })}
                       {...(props.onOpenStudio === undefined ? {} : { onOpenStudio: props.onOpenStudio })}
                       {...(props.onChooseTriggerFix === undefined ? {} : { onChooseTriggerFix: props.onChooseTriggerFix })}

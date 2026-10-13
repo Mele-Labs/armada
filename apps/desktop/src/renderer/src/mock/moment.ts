@@ -10,6 +10,8 @@ import type { ArcDraft } from "@armada/jobs/fixtures/build/arc";
 import type { JobSummary, RepositorySummary, WorkflowSummary } from "@armada/protocol";
 
 import type { Session } from "@armada/screens/src/draft/sessions";
+import type { CommanderStore } from "./commander-fleet";
+import type { Fleet } from "./fake-context";
 import type { BoardControl, SessionsStore } from "./sessions/script";
 
 import type { BridgeApi } from "../../../shared/api";
@@ -24,7 +26,11 @@ export { unanswered };
  * **Sessions are built per window** (a factory), because a Session's turns are time in this window.
  */
 /** `more` is Sessions open beside the usual ones, for a scenario that wants others. */
-export type MockDraft = ArcDraft & { sessions?: (board: BoardControl, more?: readonly Session[]) => SessionsStore };
+export type MockDraft = ArcDraft & {
+  sessions?: (board: BoardControl, more?: readonly Session[]) => SessionsStore;
+  /** A Job's Commander, built per window over its Fleet: its thread, and what it changes on the Job. */
+  commanding?: (fleet: Fleet) => CommanderStore;
+};
 
 export type Scenario = ScenarioOf<BridgeState, BridgeApi, MockDraft>;
 

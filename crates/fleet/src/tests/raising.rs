@@ -85,19 +85,11 @@ async fn spend(fleet: &Fixture, job: &core_model::JobId, drone: &str, cost: u64)
         .expect("the spend is written");
 }
 
-/// A person's raise, in dollars.
-fn person(dollars: u64) -> CapRaise {
+/// A raise to this many dollars. **It names no raiser**: who is asking is the
+/// transport's word and is passed beside it, never carried in it.
+fn dollars(dollars: u64) -> CapRaise {
     CapRaise {
         cost_cap_micros: Micros::dollars(dollars).count(),
-        raised_by: RaisedBy::Person,
-    }
-}
-
-/// Helm's raise, in dollars.
-fn helm(dollars: u64) -> CapRaise {
-    CapRaise {
-        cost_cap_micros: Micros::dollars(dollars).count(),
-        raised_by: RaisedBy::Helm,
     }
 }
 
@@ -127,7 +119,7 @@ async fn raising_the_cap_starts_a_job_the_budget_was_holding() {
     );
 
     fleet
-        .raise_cost_cap(&held, &person(20))
+        .raise_cost_cap(&held, &dollars(20), RaisedBy::Person)
         .await
         .expect("a person gives this Job more");
     fleet.turn().await.expect("the loop turns again");
@@ -154,7 +146,7 @@ async fn a_cap_that_does_not_raise_is_refused_and_names_the_one_in_force() {
     let job = approved(&fleet, &home, "a change at exactly the cap").await;
 
     let refused = fleet
-        .raise_cost_cap(&job, &person(5))
+        .raise_cost_cap(&job, &dollars(5), RaisedBy::Person)
         .await
         .expect_err("the shipped cap is five dollars, so five raises nothing");
 
@@ -175,7 +167,7 @@ async fn helm_may_double_the_inherited_cap_and_no_more() {
     let job = approved(&fleet, &home, "a change Helm is watching").await;
 
     let refused = fleet
-        .raise_cost_cap(&job, &helm(11))
+        .raise_cost_cap(&job, &dollars(11), RaisedBy::Helm)
         .await
         .expect_err("twice five dollars is ten, and eleven is past it");
     let said = refused.to_string();
@@ -185,7 +177,7 @@ async fn helm_may_double_the_inherited_cap_and_no_more() {
     );
 
     fleet
-        .raise_cost_cap(&job, &helm(10))
+        .raise_cost_cap(&job, &dollars(10), RaisedBy::Helm)
         .await
         .expect("exactly the ceiling is the ceiling reached, not passed");
 }
@@ -200,12 +192,12 @@ async fn a_second_helm_raise_reaches_no_further_than_the_first() {
     let fleet = capped(&home);
     let job = approved(&fleet, &home, "a change Helm asks about twice").await;
     fleet
-        .raise_cost_cap(&job, &helm(10))
+        .raise_cost_cap(&job, &dollars(10), RaisedBy::Helm)
         .await
         .expect("the first raise takes the Job to the ceiling");
 
     let refused = fleet
-        .raise_cost_cap(&job, &helm(12))
+        .raise_cost_cap(&job, &dollars(12), RaisedBy::Helm)
         .await
         .expect_err("the ceiling is still ten, not twenty");
 
@@ -214,6 +206,74 @@ async fn a_second_helm_raise_reaches_no_further_than_the_first() {
         said.contains("$10.00"),
         "doubling a cap Helm itself set is what this refuses: {said}"
     );
+}
+
+/// **The Commander reaches three times what the Job would inherit.** `#2165`:
+/// wider than Helm's two because a Commander steers one Job it was placed on,
+/// and still a multiple of the tier, so the bound is a figure and not a habit.
+#[tokio::test]
+async fn the_commander_may_triple_the_inherited_cap_and_no_more() {
+    let home = TempDir::new();
+    let fleet = capped(&home);
+    let job = approved(&fleet, &home, "a change its Commander is steering").await;
+
+    let refused = fleet
+        .raise_cost_cap(&job, &dollars(16), RaisedBy::Commander)
+        .await
+        .expect_err("three times five dollars is fifteen, and sixteen is past it");
+    assert!(
+        refused.to_string().contains("$15.00"),
+        "the refusal names the ceiling: {refused}"
+    );
+
+    fleet
+        .raise_cost_cap(&job, &dollars(15), RaisedBy::Commander)
+        .await
+        .expect("exactly the ceiling is the ceiling reached, not passed");
+}
+
+/// **Three raises do not compound.** The ceiling is a multiple of what the Job
+/// would inherit and never of the cap in force, so a Commander that has reached
+/// fifteen dollars is still held at fifteen.
+#[tokio::test]
+async fn a_second_commander_raise_reaches_no_further_than_the_first() {
+    let home = TempDir::new();
+    let fleet = capped(&home);
+    let job = approved(&fleet, &home, "a change its Commander asks about twice").await;
+    fleet
+        .raise_cost_cap(&job, &dollars(15), RaisedBy::Commander)
+        .await
+        .expect("the first raise takes the Job to the ceiling");
+
+    let refused = fleet
+        .raise_cost_cap(&job, &dollars(45), RaisedBy::Commander)
+        .await
+        .expect_err("the ceiling is still fifteen, not forty-five");
+
+    assert!(refused.to_string().contains("$15.00"), "{refused}");
+}
+
+/// **Each raiser has the ceiling its own multiple makes**, on one Job and one
+/// figure: the same eleven dollars is past Helm's ten, inside the Commander's
+/// fifteen, and nothing to a person.
+#[tokio::test]
+async fn one_figure_meets_a_different_ceiling_for_each_raiser() {
+    let home = TempDir::new();
+    let fleet = capped(&home);
+    let job = approved(&fleet, &home, "a change three raisers ask about").await;
+
+    assert!(fleet
+        .raise_cost_cap(&job, &dollars(11), RaisedBy::Helm)
+        .await
+        .is_err());
+    assert!(fleet
+        .raise_cost_cap(&job, &dollars(11), RaisedBy::Commander)
+        .await
+        .is_ok());
+    assert!(fleet
+        .raise_cost_cap(&job, &dollars(500), RaisedBy::Person)
+        .await
+        .is_ok());
 }
 
 /// **A person is not bounded**, which is the other half of the same rule: the
@@ -226,7 +286,7 @@ async fn a_person_may_raise_past_what_helm_may_reach() {
     let job = approved(&fleet, &home, "a change worth finishing").await;
 
     let raised = fleet
-        .raise_cost_cap(&job, &person(500))
+        .raise_cost_cap(&job, &dollars(500), RaisedBy::Person)
         .await
         .expect("a hundred times the machine's cap, and nobody may refuse it");
 
@@ -248,7 +308,7 @@ async fn a_terminal_job_cannot_be_given_more() {
     fleet.kill_job(&job).await.expect("the Job is over");
 
     let refused = fleet
-        .raise_cost_cap(&job, &person(20))
+        .raise_cost_cap(&job, &dollars(20), RaisedBy::Person)
         .await
         .expect_err("a killed Job has nothing left to spend");
 
@@ -268,7 +328,7 @@ async fn a_raised_cap_survives_a_reload() {
     let fleet = capped(&home);
     let job = approved(&fleet, &home, "a change that outlives this Fleet").await;
     fleet
-        .raise_cost_cap(&job, &person(20))
+        .raise_cost_cap(&job, &dollars(20), RaisedBy::Person)
         .await
         .expect("a person gives this Job more");
 

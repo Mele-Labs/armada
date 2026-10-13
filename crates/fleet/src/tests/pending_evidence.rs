@@ -1,6 +1,8 @@
 //! Evidence a Drone submitted survives a restart before the gate ever ran
 //! on it. #796.
 
+use std::sync::Arc;
+
 use core_model::{JobStatus, StepId, StepState};
 use testkit::FakeWorkProduct;
 
@@ -44,10 +46,17 @@ async fn evidence_submitted_before_a_restart_is_ruled_on_after_it() {
     submitted_by_the_one(&fleet, note_evidence()).await.unwrap();
     drop(fleet);
 
-    let second = a_fleet(&home, FakeWorkProduct::changed(&["src/log.rs"]));
+    let second = Arc::new(a_fleet(&home, FakeWorkProduct::changed(&["src/log.rs"])));
     let reconciled = second.reconcile().await.expect("the boot read");
+    assert_eq!(reconciled.awaiting_evidence, vec![job_id.clone()]);
+    let ruled = second
+        .rule_on_pending_evidence(&reconciled.awaiting_evidence)
+        .await
+        .expect("the rows are held")
+        .await
+        .expect("the task");
     assert_eq!(
-        reconciled.recovered_evidence,
+        ruled.recovered_evidence,
         vec![job_id.clone()],
         "the row the restart found was ruled on"
     );

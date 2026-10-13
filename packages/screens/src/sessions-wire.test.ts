@@ -417,6 +417,26 @@ describe("a session nothing can be said to", () => {
     expect(sessionOfRecord({ ...asTerminal, state: "ended", terminal: { listening: true } }, undefined, beside()).dead).toBe("ended");
   });
 
+  it("keeps what an ended session made, its pull requests and artifacts and the link to its forks, and drops its slot and branch", () => {
+    const ended = record("old", {
+      state: "ended",
+      attachments: [
+        held("slot", "3"),
+        held("branch", "fix/x"),
+        held("pr", "1847", { state: "merged", title: "Pin the clock", checks: "passed" }, "spent"),
+        held("pr", "1850", { title: "Open one", checks: "pending" }),
+        held("artifact", "https://example.com/a", { form: "page", title: "Findings" }, "spent"),
+        held("forked_to", "new", {}, "spent"),
+      ],
+    });
+    expect(sessionOfRecord(ended, undefined, beside()).attachments).toEqual([
+      expect.objectContaining({ kind: "pull_request", number: 1847, state: "merged", checks: { state: "passed" } }),
+      expect.objectContaining({ kind: "pull_request", number: 1850, state: "open", checks: { state: "pending" } }),
+      { kind: "artifact", form: "page", id: "https://example.com/a", title: "Findings" },
+      { kind: "forked_to", id: "new" },
+    ]);
+  });
+
   it("keeps the link to its forks and nothing else it held", () => {
     const ended = record("old", {
       state: "ended",
@@ -425,6 +445,20 @@ describe("a session nothing can be said to", () => {
     expect(sessionOfRecord(ended, undefined, beside()).attachments).toEqual([{ kind: "forked_to", id: "new" }]);
     const fork = record("new", { attachments: [held("forked_from", "old", {}, "spent")] });
     expect(sessionOfRecord(fork, undefined, beside()).attachments).toEqual([{ kind: "forked_from", id: "old" }]);
+    // A fork at a message carries the row it was taken at, which cuts the old rows shown; `cut` is Fleet's.
+    const at = record("new", { attachments: [held("forked_from", "old", { at: "m2", cut: "7d0a52c4" }, "spent")] });
+    expect(sessionOfRecord(at, undefined, beside()).attachments).toEqual([{ kind: "forked_from", id: "old", at: "m2" }]);
+  });
+});
+
+describe("when the agent said it was done", () => {
+  it("carries done_since onto the session as done", () => {
+    expect(sessionOfRecord(record("a", { done_since: AT }), undefined, beside()).done).toEqual({ since: AT });
+  });
+
+  it("carries none for a session that has not said it, or one that ended", () => {
+    expect(sessionOfRecord(record("a"), undefined, beside()).done).toBeUndefined();
+    expect(sessionOfRecord(record("a", { state: "ended", done_since: AT }), undefined, beside()).done).toBeUndefined();
   });
 });
 

@@ -209,7 +209,7 @@ impl Forgotten {
                 &mut self.approval
             }
             "job_retros" | "job_retro_items" | "job_drone_notes" | "job_event_via"
-            | "job_event_phone" | "job_created_phone" => {
+            | "job_event_phone" | "job_created_phone" | "job_event_commander" => {
                 &mut self.retros
             }
             "job_walk_notes" => &mut self.walk_notes,

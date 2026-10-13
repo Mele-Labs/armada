@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useState } from "react";
 import { expect, fn, userEvent, within } from "storybook/test";
+import { ArrowUpToLine, Split } from "lucide-react";
 
 import { SessionThread, type SessionThreadRow } from "./SessionThread";
 
@@ -96,17 +97,54 @@ export const ShownWindowRow: Story = {
   },
 };
 
-/** Every message is left aligned, yours too, and sits on the panel with no fill of its own. */
-export const MessagesAreLeftAlignedWithNoFill: Story = {
+/** The agent's messages are left aligned and sit on the panel with no fill of their own. */
+export const AgentMessagesAreLeftAlignedWithNoFill: Story = {
   args: { rows: WORKED },
   play: async ({ canvas }) => {
-    for (const text of ["Fix the flaky store test.", "The test reads the wall clock."]) {
-      const message = canvas.getByText(text).closest(".armada-helm-thread__message") as HTMLElement;
-      const row = message.closest("li") as HTMLElement;
-      await expect(getComputedStyle(row).textAlign).not.toBe("right");
-      await expect(getComputedStyle(row).alignItems).not.toBe("flex-end");
-      await expect(getComputedStyle(message).backgroundColor).toBe("rgba(0, 0, 0, 0)");
-    }
+    const message = canvas.getByText("The test reads the wall clock.").closest(".armada-helm-thread__message") as HTMLElement;
+    const row = message.closest("li") as HTMLElement;
+    await expect(getComputedStyle(row).textAlign).not.toBe("right");
+    await expect(getComputedStyle(row).alignItems).not.toBe("flex-end");
+    await expect(getComputedStyle(message).backgroundColor).toBe("rgba(0, 0, 0, 0)");
+  },
+};
+
+const YOURS: SessionThreadRow[] = [
+  { id: "y1", at: "09:55:40", kind: "message", from: "agent", text: "The clock is pinned in the store tests." },
+  { id: "y2", at: "09:56:12", kind: "message", from: "you", text: "Keep the pin in the test module." },
+  { id: "y3", at: "09:57:23", kind: "message", from: "you", text: "Approved: http://localhost:5188/?walk=session-reply" },
+  { id: "y4", at: "09:57:51", kind: "message", from: "you", text: "Re: Which date should the clock pin to?\nPin it to the first of March" },
+];
+
+/**
+ * What the person said and did are not the agent's row. A message is a card under a band with their
+ * name; an Approve and an answer are one line each, the target as a chip, and the raw text is gone.
+ */
+export const YourWordsAndActs: Story = {
+  args: { rows: YOURS },
+  play: async ({ canvas }) => {
+    const message = canvas.getByRole("region", { name: "Your message" });
+    await expect(within(message).getByText("You")).toBeVisible();
+    await expect(within(message).getByText("Keep the pin in the test module.")).toBeVisible();
+
+    const approved = canvas.getByRole("region", { name: "You approved" });
+    await expect(within(approved).getByText("Approved")).toBeVisible();
+    await expect(within(approved).getByText("?walk=session-reply")).toBeVisible();
+    // The chip shows the short form and names the whole address.
+    await expect(within(approved).getByRole("img", { name: "Approved: http://localhost:5188/?walk=session-reply" })).toBeVisible();
+
+    const answered = canvas.getByRole("region", { name: "You answered" });
+    await expect(within(answered).getByText("Answered")).toBeVisible();
+    await expect(within(answered).getByText("Which date should the clock pin to?")).toBeVisible();
+    await expect(within(answered).getByText("Pin it to the first of March")).toBeVisible();
+
+    await expect(canvas.queryByText(/^Approved: /)).toBeNull();
+    await expect(canvas.queryByText(/^Re: /)).toBeNull();
+
+    // The agent's row stays a plain row, named for the agent, in no region of its own.
+    const agent = canvas.getByText("The clock is pinned in the store tests.").closest("li") as HTMLElement;
+    await expect(agent).not.toHaveAttribute("role");
+    await expect(within(agent).getByText("Agent")).toBeVisible();
   },
 };
 
@@ -297,6 +335,38 @@ export const ChecksTheAgentRan: Story = {
     await expect(canvas.getByRole("button", { name: "Check components_test, failed" })).toBeInTheDocument();
     await userEvent.click(canvas.getByRole("button", { name: "Check app_smoke, running" }));
     await expect(args.onOpenCheck).toHaveBeenCalledWith(31);
+  },
+};
+
+const COMMANDED: SessionThreadRow[] = [
+  { id: "m1", at: "14:20:02", kind: "woke", why: "Check store failed" },
+  { id: "m2", at: "14:20:05", kind: "tool", text: "Read crates/store/tests/flaky.rs" },
+  { id: "m3", at: "14:20:12", kind: "act", icon: ArrowUpToLine, said: "Raised cap", text: "Turn cap 40 \u2192 60" },
+  { id: "m4", at: "14:20:13", kind: "act", icon: Split, said: "Split task", text: "T4 split into T4a, T4b" },
+  { id: "m5", at: "14:20:15", kind: "message", from: "agent", text: "The Drone ran out of turns." },
+];
+
+/** Fleet's wake is a quiet row naming why, and each thing the agent did on its own is a row marked by which act it was. */
+export const WakeAndActRows: Story = {
+  args: { rows: COMMANDED, agentName: "Commander" },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("img", { name: "Fleet woke it" })).toBeVisible();
+    await expect(canvas.getByText("Check store failed")).toBeVisible();
+    await expect(canvas.getByRole("img", { name: "Raised cap" })).toBeVisible();
+    await expect(canvas.getByText("Turn cap 40 \u2192 60")).toBeVisible();
+    await expect(canvas.getByRole("img", { name: "Split task" })).toBeVisible();
+    // A wake and an act are not the person's or the agent's words: no message head is drawn for them.
+    await expect(canvas.getAllByText("Commander")).toHaveLength(1);
+    await expect(canvas.queryByText("You")).toBeNull();
+  },
+};
+
+/** The agent's own rows carry the name the host gives, and read `Agent` where it gives none. */
+export const AgentNamedByTheHost: Story = {
+  args: { rows: [{ id: "n1", at: "14:20:15", kind: "message", from: "agent", text: "Done." }], agentName: "Commander" },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByText("Commander")).toBeVisible();
+    await expect(canvas.queryByText("Agent")).toBeNull();
   },
 };
 

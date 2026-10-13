@@ -148,21 +148,25 @@ test("Record, unread: rows stand in; a read Fleet refused is still told in words
   expect(text()).not.toContain("Fleet has not answered for this job");
 });
 
-/** Every stand-in on Overview that is not inside one of its cards: the lead's. */
+/** Every stand-in on Overview that is not inside one of its cards: what the lead's sentence stood in with. */
 const leadStandIns = () =>
   panel("Overview")
     .getByRole("status")
     .elements()
     .filter((one) => one.closest("section") === null);
 
-test("Overview, unread: the lead stands in rather than saying nothing needs you", async () => {
+// The lead is gone from Overview (owner, 11 Oct 2026), and its stand-in with it: while the read is out
+// no ask is guessed at, so the Now panel draws no card and nothing says that nothing needs him.
+test("Overview, unread: no sentence stands in, and no ask is guessed at", async () => {
   const fleet = await openedReading();
-  await expect.poll(() => leadStandIns().length).toBe(1);
-  expect(text()).not.toContain("Nothing needs you");
-  // The read lands, and the lead names the step the Job is on.
-  fleet.answer(running());
-  await expect.element(panel("Overview").getByRole("heading", { level: 2, name: /^Fix/ })).toBeVisible();
   expect(leadStandIns()).toHaveLength(0);
+  expect(panel("Overview").getByRole("group", { name: "Asks you" }).elements()).toHaveLength(0);
+  expect(text()).not.toContain("Nothing needs you");
+  // The read lands, and a Job running well still asks nothing.
+  fleet.answer(running());
+  await expect.element(page.getByRole("region", { name: "This Job's run" })).toBeVisible();
+  expect(leadStandIns()).toHaveLength(0);
+  expect(panel("Overview").getByRole("group", { name: "Asks you" }).elements()).toHaveLength(0);
 });
 
 test("Overview, unread: a lead the Board row already proves is said at once", async () => {
