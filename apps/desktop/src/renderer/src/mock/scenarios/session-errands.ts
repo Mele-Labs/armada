@@ -33,7 +33,7 @@ const SESSION: Session = {
   waitingFor: [
     { id: "e-slash", text: "/land 2109 2118 2119 — speed fixes already running in your Fleet", since: ago(9), source: "agent", act: { kind: "run", target: "/land 2109 2118 2119" } },
     { id: "e-shell", text: "Install the preview's packages", since: ago(8), source: "agent", act: { kind: "run", target: "pnpm -C .armada/preview install" } },
-    { id: "e-restart", text: "Restart onto the preview", since: ago(8), source: "agent", act: { kind: "run", target: "scripts/preview --restart --adopt" } },
+    { id: "e-restart", text: "Restart onto the preview", since: ago(7.5), source: "agent", act: { kind: "run", target: "scripts/preview --restart --adopt" } },
     { id: "e-pull", text: "Approve #2118", since: ago(7), source: "agent", act: { kind: "approve_pr", target: "2118" } },
     { id: "e-plain", text: "Which branch should the migration rebase onto", since: ago(6), source: "agent" },
     {
