@@ -3540,6 +3540,17 @@ Bridge's half is in `packages/protocol/src/hosted-sessions.ts`, written by hand 
 
 **Skew.** A Fleet before 23.74 has neither route and answers 404, so a Bridge that offers the review has nothing to call and shows the plain list. A Bridge before it never calls them. Bridge's half is `packages/protocol/src/retro-review.ts`, written by hand like the rest.
 
+## Protocol 23.83: a pull request's page and the writes on it
+
+`docs/concepts/session.md`, *Acts on a pull request*. **Additive only**: two operations and the DTOs of `ipc::pull_requests` that go with them. The type is `PullRequestPage` and not `PullRequestDetail`, which a Job's live pull request snapshot already is.
+
+| Where | Carries | Notes |
+| --- | --- | --- |
+| `get_pull_request_detail` (`GET /pull_request_details/:repository/:number`) | `PullRequestPage`: `base`, `author?`, `created_at?`, `additions`, `deletions`, `mergeable`, `review`, `approvals`, and `conversation[]`, `checks[]`, `files[]`, `commits[]` | One forge read. Comments and reviews merge in time order. Capped at the first 300 files, the first 250 commits and the latest 200 things said, with the count left out kept in the reader and not yet shown anywhere. `agent_access` `Yes` |
+| `write_pull_request` (`POST /pull_request_writes/:repository`) | `WritePullRequest`: `pull_request`, `kind` (`comment`, `approve` or `request_changes`), `body?`, `session_id?` | Answers `PullRequestPage`, read again after the write, and every Session's `pr` row follows the forge. A comment or a request for changes with no body is a 422 `fleet.pull_request_write_blank`; a `session_id` the ledger does not know is a 422 `fleet.session_unknown`; the forge's refusal is a 409 `fleet.pull_request_write_refused`. `Helm only`, and Helm asks first (`pushes to shared`) |
+
+**Skew.** A Fleet before 23.83 answers 404 to both, so a Bridge that opens the panel draws its tabs empty and cannot write.
+
 ## Protocol 23.81: write clashes between agents
 
 `docs/concepts/fleet.md`, *Write clashes*. **Additive only**: one operation, one fact a terminal reports, and one new reach for `leave_note`.
@@ -3760,6 +3771,29 @@ A Drone can ask several decisions in one ask, and a person answers them all at o
 **`tell_session` is Helm's own delivery, and the one operation here Bridge never calls.** `POST /helm/tell_session?manifest_id=`, body `TellSession`: `session_id`, `text`. `agent_access` is `Helm only`, so the door offers it to a Helm session alone and a Drone's endpoint never lists it. It answers 200 with the `ThoughtTarget` the words went to. Fleet sends through `send_session_message`'s path, so a refusal is that send's, and only a send that was taken appends the `sent` row and publishes `helm.thought_routed`. The door names the Manifest the session stands in as `manifest_id` (`NAMES_ITS_SCOPE`), which picks the thread. No type that exists changes, and `packages/protocol` has no mirror of `TellSession` because nothing in Bridge sends it.
 
 **Skew.** A refusal on an ID mismatch means no peer meets this change half built. A Fleet without the routes would answer 404 to a Bridge that has them, and Bridge treats a read that fails as `question`, so the words still reach Helm.
+
+## Helm's message box: files, tags, model and effort, the `/` list
+
+`docs/concepts/helm.md`, *The message box*, and `docs/concepts/session.md`, *What a message names*. **Additive only**: three operations, all `agent_access` `No` and Bridge's, one `TagKind`, and optional fields on existing DTOs. Two required fields are new, `HelmOpened.facts` and the `facts` message, which a Bridge from before them cannot read; the ID refuses that pairing, so nothing meets it half built. Bridge's half is `packages/protocol/src/helm.ts`, `helm-thread.ts`, `hosted-sessions.ts` and `issues.ts`, written by hand.
+
+| Where | Carries | Notes |
+| --- | --- | --- |
+| `AskHelm` (`ask_helm`) | `attachments[]` of `SessionUpload`, `mentions[]` of `SessionTag`, beside `text` and `context` | `text` is a plain string, no longer a type that refuses blank (`AskCommander` keeps `HelmText`), and may be blank when something is carried; blank words with nothing carried are 422 `fleet.helm_message_empty`. Uploads are kept as a Session's are, in a directory of the conversation's own, and the refusals are the same |
+| `ThoughtSent` (`record_thought_sent`), `HelmSent` (`sent` message) | `ThoughtSent` gains `attachments[]` and `mentions[]`; `HelmSent` gains `files[]` of `SentFile` and `tags[]` of `SessionTag` | A thought routed to a Session keeps what went with it on its `sent` row, so the chips survive a restart. Fleet keeps the uploads in Helm's own directory as an ask's, and `get_helm_file` serves a `sent` row's files too. `tell_session` records words only, so both lists are empty |
+| `HelmAsked` (`asked` message) | `files[]` of `SentFile`, `tags[]` of `SessionTag` | A row of the thread's file, so a reloaded Bridge draws what each message carried |
+| `get_helm_file` (`GET /helm/file?manifest_id=&file=`) | The bytes of a `SentFile.id` from an `asked` row, under the media type they were sent as | `get_session_file`'s shape and refusals |
+| `tune_helm` (`POST /helm/tune?manifest_id=`) | `TuneHelm`: `model?`, `effort?`. Answers `HelmBoxFacts` | Absent or blank is the machine's own. 422 `fleet.unacceptable_effort` for anything but `low`, `medium` or `high`. Kept per conversation in the store, passed at the launch of every message, kept through Start fresh |
+| `HelmBoxFacts` | `model?`, `effort?`, `commands[]` | `commands` are the agent's own `init` names, else the last any Session read |
+| `HelmOpened.facts` | `HelmBoxFacts`, always present | What a viewer starts from |
+| `observe_helm` message `facts` | `HelmBoxFacts` | **Live only**: never in the backfill and never written to the thread's file. Sent when the tuning or Helm's own commands change; a change in the Sessions' list is read at the next `opened` |
+| `TagKind::Issue`, `SessionTag.url?` | `issue`; the forge address of an issue or pull request tag | Fleet writes `issue #214 "title" (address)` for the agent, and a leading `#N ` in a title is dropped from the line |
+| `get_issue` (`GET /issues/:repository/:number`) | Answers `IssueRead`: `number`, `title`, `url`, `state` (`open` or `closed`) | 404 `fleet.no_such_issue`, and a pull request's number is not an issue; 500 `fleet.issues_unreadable`; 422 for a repository Fleet does not serve |
+
+**Start fresh deletes the conversation's uploads**, with the thread that named them. The turn a words-only ask writes is unchanged; an ask with a picture is written as a block list, as a Session's is.
+
+**The event stream.** `facts` rides the conversation's own bounded, drop-oldest channel with its `missed` count, and costs a viewer nothing it cannot recover: the next `opened` carries the current facts. It adds no queue to `/events`, so it leaves the unmeasured sink risk where it was. Files are not on a stream at all.
+
+**Skew.** None to meet: a refused ID mismatch means no peer sees this half built. A file's bytes are read once by a picture's thumbnail and held by the window.
 
 ## The plan's windows, and what the limit holds
 

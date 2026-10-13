@@ -14,12 +14,37 @@ import type { Missed } from "./events";
 import type { Saw, Voice } from "./turn";
 import type { ProtocolId } from "./connection";
 import type { HelmSent } from "./thought";
+import type { SentFile, SessionTag, SessionUpload } from "./hosted-sessions";
 
-/** `POST /helm/ask` — what a person says to Helm. Blank is refused before this is sent. */
+/**
+ * `POST /helm/ask` — what a person says to Helm. **The text may be blank when `attachments` or `mentions`
+ * carries something**; a message with none of the three is not sent.
+ */
 export type AskHelm = {
   text: string;
   /** Where the person is in Bridge, sent with every ask. `#1075`. */
   context?: HelmContext;
+  /** Files and pictures the message carried. Left out when there are none. */
+  attachments?: SessionUpload[];
+  /** What the message names with `@` and `#`. Left out when there are none. */
+  mentions?: SessionTag[];
+};
+
+/** `POST /helm/tune?manifest_id=`: the model and effort Helm's next reply uses. Absent is Auto. 422 `fleet.unacceptable_effort`. */
+export type TuneHelm = {
+  model?: string;
+  effort?: string;
+};
+
+/**
+ * What Helm's message box offers and holds for one conversation: the model and effort it uses, and the
+ * names its `/` lists. Absent is Auto, and no commands. `tune_helm` answers it, and `observe_helm` carries it.
+ */
+export type HelmBoxFacts = {
+  model?: string;
+  effort?: string;
+  /** Command names, no sentence. */
+  commands?: string[];
 };
 
 /**
@@ -81,6 +106,8 @@ export type HelmMessage =
   | ({ message: "unanswered" } & HelmUnanswered)
   /** These words went to a Session or a Job and never to Helm's session. Since a thought was routed: `thought.ts`. */
   | ({ message: "sent" } & HelmSent)
+  /** The box's facts changed. **Live only**: never part of the thread's items or its backfill, and it replaces the held facts. */
+  | ({ message: "facts" } & HelmBoxFacts)
   | ({ message: "missed" } & Missed)
   | ({ message: "closed" } & HelmClosed);
 
@@ -92,12 +119,18 @@ export type HelmOpened = {
   replying: boolean;
   /** Older messages the thread left out, because the backfill is bounded. */
   skipped: number;
+  /** What the message box offers and holds. */
+  facts: HelmBoxFacts;
 };
 
-/** What a person said, as Fleet took it. */
+/** What a person said, as Fleet took it, and what it carried. */
 export type HelmAsked = {
   ts: string;
   text: string;
+  /** Files and pictures it carried, kept by Fleet. `get_helm_file` serves them. */
+  files?: SentFile[];
+  /** What it named with `@` and `#`. */
+  tags?: SessionTag[];
 };
 
 /** The stored session could not be resumed, so this reply starts a new one. */

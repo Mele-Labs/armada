@@ -86,3 +86,150 @@ pub struct ReviewDispatched {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub session_id: Option<SessionId>,
 }
+
+/// Where the forge says a merge would stand against the base branch.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PullRequestMergeable {
+    Mergeable,
+    Conflicting,
+    Unknown,
+}
+
+/// What the reviews have come to. `Required` is a review the base branch asks
+/// for and none has given.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PullRequestReviewState {
+    Approved,
+    ChangesRequested,
+    Required,
+    None,
+}
+
+/// What a review said.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PullRequestVerdict {
+    Approved,
+    ChangesRequested,
+    Commented,
+}
+
+/// One thing said on the pull request, in the order it was said.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum PullRequestEntry {
+    Comment {
+        author: String,
+        at: String,
+        body: String,
+    },
+    Review {
+        author: String,
+        at: String,
+        verdict: PullRequestVerdict,
+        body: String,
+    },
+}
+
+/// How one of the forge's checks stands.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PullRequestCheckState {
+    Passed,
+    Failed,
+    Running,
+    Skipped,
+}
+
+/// One of the forge's checks, with how long it ran where the forge said.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PullRequestCheckRow {
+    pub name: String,
+    pub state: PullRequestCheckState,
+    /// Seconds it ran. Absent while it runs, and where the forge did not say.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub seconds: Option<u64>,
+    /// Where the forge keeps its log.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub address: Option<String>,
+}
+
+/// How a file changed.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PullRequestFileStatus {
+    Added,
+    Modified,
+    Removed,
+    Renamed,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PullRequestFile {
+    pub path: String,
+    pub additions: u64,
+    pub deletions: u64,
+    pub status: PullRequestFileStatus,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PullRequestCommit {
+    /// The first seven characters.
+    pub sha: String,
+    pub headline: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub author: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub at: Option<String>,
+}
+
+/// `get_pull_request_detail`: everything the panel's tabs and facts draw that
+/// [`PullRequestState`] does not hold. Read when the panel opens, not carried
+/// on `session.changed`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PullRequestPage {
+    pub manifest_id: ManifestId,
+    pub number: u64,
+    /// The branch it merges into.
+    pub base: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub author: Option<String>,
+    /// RFC 3339.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub created_at: Option<String>,
+    pub additions: u64,
+    pub deletions: u64,
+    pub mergeable: PullRequestMergeable,
+    pub review: PullRequestReviewState,
+    /// Reviews that approved, counted once per reviewer's latest.
+    pub approvals: u64,
+    pub conversation: Vec<PullRequestEntry>,
+    pub checks: Vec<PullRequestCheckRow>,
+    pub files: Vec<PullRequestFile>,
+    pub commits: Vec<PullRequestCommit>,
+}
+
+/// What the panel's comment box writes. `POST /pull_request_writes/:repository`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PullRequestWriteKind {
+    Comment,
+    Approve,
+    RequestChanges,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WritePullRequest {
+    /// The pull request's number.
+    pub pull_request: u64,
+    pub kind: PullRequestWriteKind,
+    /// Markdown. Required for `comment` and `request_changes`; optional for
+    /// `approve`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub body: Option<String>,
+    /// The Session the press came from. **Absent records no Session.**
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<SessionId>,
+}

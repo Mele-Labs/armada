@@ -14,12 +14,14 @@ import WebSocket from "ws";
 
 import type {
   AskHelm,
+  FrameRead,
+  HelmBoxFacts,
   HelmContext,
   HelmDebugInfo,
   HelmDebugRead,
   HelmMessage,
   HelmThread,
-  HelmThreadItem,
+  HeldHelmThread,
   Outcome,
   ReadThought,
   RepositorySummary,
@@ -27,12 +29,14 @@ import type {
   ThoughtReading,
   ThoughtSent,
   ThoughtTarget,
+  TuneHelm,
 } from "@armada/protocol";
 import { helmArrived, NO_HELM_ITEMS } from "@armada/protocol";
-import { ask, MODEL_CALL_MS } from "./request";
+import type { HelmCarry, HelmTuned } from "../shared/api/helm";
+import { ask, helmFileOf, MODEL_CALL_MS } from "./request";
 import { HOST } from "./runtime-file";
 
-type Held = { replying: boolean; skipped: number; missed: number; items: HelmThreadItem[] };
+type Held = HeldHelmThread;
 
 /** One repository's Helm conversation, read and written over one socket and two requests. */
 export class HelmSocket {
@@ -160,9 +164,18 @@ export class HelmSocket {
   }
 
   /** `POST /helm/ask`. Answers at once; the reply is always the socket's. */
-  async askHelm(manifestId: string, text: string, context?: HelmContext): Promise<Outcome> {
+  async askHelm(manifestId: string, text: string, context?: HelmContext, carry?: HelmCarry): Promise<Outcome> {
     if (this.port === null) return { ok: false, why: "not_connected" };
-    const body: AskHelm = context === undefined ? { text } : { text, context };
+    const attachments = carry?.attachments ?? [];
+    const mentions = carry?.mentions ?? [];
+    // Words may be blank when the message carries something; with neither it is not sent.
+    if (text.trim() === "" && attachments.length === 0 && mentions.length === 0) return { ok: false, why: "empty_brief" };
+    const body: AskHelm = {
+      text,
+      ...(context === undefined ? {} : { context }),
+      ...(attachments.length === 0 ? {} : { attachments }),
+      ...(mentions.length === 0 ? {} : { mentions }),
+    };
     const answer = await ask(
       this.port,
       "POST",
@@ -170,6 +183,26 @@ export class HelmSocket {
       body,
     );
     return answer.ok === true ? { ok: true } : answer.outcome;
+  }
+
+  /**
+   * `POST /helm/tune` — the model and effort the conversation uses. Absent is Auto. **Answered to
+   * the caller as well as published**: Fleet's `facts` message on the socket replaces what is held.
+   */
+  async tune(manifestId: string, model: string | null, effort: string | null): Promise<HelmTuned> {
+    if (this.port === null) return { ok: false, outcome: { ok: false, why: "not_connected" } };
+    const body: TuneHelm = {
+      ...(model === null ? {} : { model }),
+      ...(effort === null ? {} : { effort }),
+    };
+    const answer = await ask(this.port, "POST", `/helm/tune?manifest_id=${encodeURIComponent(manifestId)}`, body);
+    return answer.ok === true ? { ok: true, facts: answer.body as HelmBoxFacts } : { ok: false, outcome: answer.outcome };
+  }
+
+  /** `GET /helm/file` — a picture or file one of the conversation's messages carried. */
+  async file(manifestId: string, file: string): Promise<FrameRead> {
+    if (this.port === null) return { ok: false, outcome: { ok: false, why: "not_connected" } };
+    return await helmFileOf(this.port, manifestId, file);
   }
 
   /**
@@ -207,9 +240,16 @@ export class HelmSocket {
   }
 
   /** `POST /helm/thought_sent`. Said after the words were delivered; the row arrives on the socket. */
-  async recordThoughtSent(manifestId: string, text: string, target: ThoughtTarget): Promise<Outcome> {
+  async recordThoughtSent(manifestId: string, text: string, target: ThoughtTarget, carry?: HelmCarry): Promise<Outcome> {
     if (this.port === null) return { ok: false, why: "not_connected" };
-    const body: ThoughtSent = { text, target };
+    const attachments = carry?.attachments ?? [];
+    const mentions = carry?.mentions ?? [];
+    const body: ThoughtSent = {
+      text,
+      target,
+      ...(attachments.length === 0 ? {} : { attachments }),
+      ...(mentions.length === 0 ? {} : { mentions }),
+    };
     const answer = await ask(
       this.port,
       "POST",
@@ -295,12 +335,24 @@ export class HelmConnection {
     this.socket.open(port, this.targetManifestId());
   }
 
-  async askHelm(text: string, context?: HelmContext): Promise<Outcome> {
+  async askHelm(text: string, context?: HelmContext, carry?: HelmCarry): Promise<Outcome> {
     const manifestId = this.targetManifestId();
     if (manifestId === null) return { ok: false, why: "not_connected" };
-    const outcome = await this.socket.askHelm(manifestId, text, context);
+    const outcome = await this.socket.askHelm(manifestId, text, context, carry);
     if (outcome.ok) this.lastTalked = manifestId;
     return outcome;
+  }
+
+  /** The model and effort for a conversation: `manifestId`'s, or the one Helm points at. */
+  async tuneHelm(manifestId: string | undefined, model: string | null, effort: string | null): Promise<HelmTuned> {
+    const target = manifestId ?? this.targetManifestId();
+    if (target === null) return { ok: false, outcome: { ok: false, why: "not_connected" } };
+    return await this.socket.tune(target, model, effort);
+  }
+
+  /** A file one of `manifestId`'s messages carried. */
+  async readHelmFile(manifestId: string, file: string): Promise<FrameRead> {
+    return await this.socket.file(manifestId, file);
   }
 
   async startFresh(): Promise<Outcome> {
@@ -315,8 +367,8 @@ export class HelmConnection {
   }
 
   /** The words reached a Session or a Job: Fleet keeps a row for them in `manifestId`'s thread. */
-  async recordThoughtSent(manifestId: string, text: string, target: ThoughtTarget): Promise<Outcome> {
-    return await this.socket.recordThoughtSent(manifestId, text, target);
+  async recordThoughtSent(manifestId: string, text: string, target: ThoughtTarget, carry?: HelmCarry): Promise<Outcome> {
+    return await this.socket.recordThoughtSent(manifestId, text, target, carry);
   }
 
   /** The record for whichever repository Helm answers for right now. */

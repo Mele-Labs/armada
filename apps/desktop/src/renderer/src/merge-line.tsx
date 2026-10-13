@@ -122,7 +122,7 @@ function OneLine({
   const sessions = useSessions();
   const culprit = view.hub?.main?.state === "red" ? view.hub.main.red.merge?.session : undefined;
   const hub = useMemo(() => (view.hub === undefined ? undefined : { ...view.hub, recentSessions: recentSessionsOf(sessions, culprit) }), [view.hub, sessions, culprit]);
-  const holds = focus !== undefined && [...view.line, ...view.landed, ...view.sentBack].some((one) => one.branch === focus);
+  const holds = focus !== undefined && [...view.line, ...view.landed, ...view.sentBack, ...(view.hub?.pulls ?? [])].some((one) => one.branch === focus);
   useEffect(() => {
     // Only when the ask arrives: `setOpen` is not stable, and a fold the person closes stays closed.
     if (holds) setOpen(true);

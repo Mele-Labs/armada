@@ -279,3 +279,58 @@ export const GrowsToHalf: Story = {
     await expect(field.getBoundingClientRect().height).toBeCloseTo(rest, 0);
   },
 };
+
+const NUMBERED = {
+  open: [
+    { tag: { kind: "issue" as const, id: "2214", title: "#2214 Sessions list drops a quiet Session", url: "https://forge.invalid/issues/2214" } },
+    { tag: { kind: "pull_request" as const, id: "2219", title: "#2219 Pin the Bridge store clock", url: "https://forge.invalid/pull/2219" } },
+  ],
+  find: async (number: number) =>
+    number === 61
+      ? { tag: { kind: "issue" as const, id: "61", title: "#61 Doctor reports a stale pid as running", url: "https://forge.invalid/issues/61" }, standing: "Closed" }
+      : undefined,
+};
+
+/**
+ * `#` at the start of a word offers the repository's open issues and pull requests by number, prefix-matched. A
+ * chosen one is written in as a unit and sent with its kind and the forge's address.
+ */
+export const Hash: Story = {
+  args: { numbered: NUMBERED },
+  play: async ({ canvas, args }) => {
+    const field = canvas.getByRole("textbox", { name: "Message" });
+    await userEvent.type(field, "is #22");
+    const list = await canvas.findByRole("listbox", { name: "Tag an issue or pull request" });
+    await expect(within(list).getAllByRole("option")).toHaveLength(2);
+    // The highest number is offered first.
+    await userEvent.keyboard("{Enter}");
+    await expect(field.querySelector("[data-tag-kind]")).toHaveAttribute("data-tag-url", "https://forge.invalid/pull/2219");
+    await userEvent.keyboard("{Enter}");
+    await expect(args.onSend).toHaveBeenCalledWith({
+      text: "is @#2219 Pin the Bridge store clock",
+      files: [],
+      tags: [{ kind: "pull_request", id: "2219", title: "#2219 Pin the Bridge store clock", url: "https://forge.invalid/pull/2219" }],
+    });
+  },
+};
+
+/** A number that is not among the open ones is looked up once it rests, offered with where it stands, and still tags. */
+export const HashLooksANumberUp: Story = {
+  args: { numbered: NUMBERED },
+  play: async ({ canvas, args }) => {
+    await userEvent.type(canvas.getByRole("textbox", { name: "Message" }), "#61");
+    const closed = await canvas.findByRole("option", { name: /Doctor reports a stale pid/ });
+    await expect(closed).toHaveTextContent("Closed");
+    await userEvent.click(closed);
+    await userEvent.keyboard("{Enter}");
+    await expect(args.onSend).toHaveBeenCalledWith(expect.objectContaining({ tags: [expect.objectContaining({ kind: "issue", id: "61", url: "https://forge.invalid/issues/61" })] }));
+  },
+};
+
+/** With nothing behind `#`, it is only a character. */
+export const HashWithNothingBehindIt: Story = {
+  play: async ({ canvas }) => {
+    await userEvent.type(canvas.getByRole("textbox", { name: "Message" }), "see #2214");
+    await expect(canvas.queryByRole("listbox")).toBeNull();
+  },
+};

@@ -395,6 +395,14 @@ where
         self.servers().forget(&holder);
     }
 
+    /// Stop the servers held for the checkout at `path`, and wait for each: a
+    /// slot about to be given back has no one left to serve. **By where they
+    /// run**, which is the only record there is of a server in a slot: a
+    /// server's `StartedBy` says a person or a Drone, never a session.
+    pub(crate) async fn stopped_servers_in(&self, path: &str) {
+        stopped_in(self.servers().clone(), path).await;
+    }
+
     /// Stop every server Fleet holds, a Job's or the main checkout's. **Called
     /// once, as Fleet stops, before the main checkout's span is released** —
     /// `pub` for `released_checkout_ports`' reason: the composition root
@@ -465,6 +473,14 @@ where
         }
         refusal(raised)
     }
+}
+
+/// [`Fleet::stopped_servers_in`], for a task that holds the book and not Fleet.
+pub(crate) async fn stopped_in(servers: Servers, path: &str) {
+    let path = std::fs::canonicalize(path)
+        .map(|real| real.to_string_lossy().into_owned())
+        .unwrap_or_else(|_| path.to_string());
+    stopped_and_waited(servers.held_by(Some(&Holder::Checkout(path)))).await;
 }
 
 /// Signal every one, then wait for every one: the stops overlap rather than

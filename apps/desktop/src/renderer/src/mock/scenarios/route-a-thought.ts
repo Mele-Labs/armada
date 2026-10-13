@@ -6,16 +6,18 @@
 // plays it. The reading is the mock's own (`mock/thought-reading.ts`), and the words sent on are
 // kept in Helm's thread as Fleet keeps them.
 
-import type { HelmThreadItem, RepositorySummary } from "@armada/protocol";
+import type { RepositorySummary } from "@armada/protocol";
 import { repository } from "@armada/screens/src/fixtures/build/base";
 import { escalatedGateFailure } from "@armada/screens/src/fixtures/build/escalated";
 import { featureRunning } from "@armada/jobs/fake";
 import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
 
 import { asRow, holding } from "../holding";
-import type { FleetHandle, Scenario } from "../moment";
+import { unanswered } from "../moment";
+import type { Scenario } from "../moment";
 import { FakeSessionsFleet, held, hosted, pullRequest } from "../sessions-fleet";
 import { readAfterPause } from "../thought-reading";
+import { appended, carriedBy, COMMANDS, HELM_FACTS, KEPT_FILES } from "../helm-carry";
 
 const ARMADA: RepositorySummary = { ...repository(), manifest: { ...repository().manifest!, id: "armada" } };
 
@@ -48,11 +50,15 @@ const now = () => new Date().toISOString();
 /** An attachment of another repository's: `held` writes armada's. */
 const of = (manifest: string, attachment: ReturnType<typeof held>) => ({ ...attachment, manifest_id: manifest });
 
+
+
+
+
 const records = () => [
   hosted("01LISTVIEWSAAAAAAAAAAAAAAA", {
     title: "Sessions list views",
     last_turn_at: now(),
-    hosted: { turn: { state: "working" }, mode: "auto", running: true },
+    hosted: { turn: { state: "working" }, mode: "auto", running: true, commands: COMMANDS },
     attachments: [
       held("slot", "3"),
       held("branch", "sessions/list-views", { slot: "3" }),
@@ -97,25 +103,6 @@ const REPLY = [
   "Produced — exit 101 — 3 of 2034 tests failed",
 ].join("\n\n");
 
-/** Items added to Helm's thread, after the ones it holds: each takes the next id. */
-function appended(
-  handle: FleetHandle,
-  manifestId: string,
-  ...items: ((id: string) => HelmThreadItem)[]
-): void {
-  const held = handle.state().helm;
-  const was = held.state === "open" ? held.items : [];
-  handle.publish({
-    helm: {
-      state: "open",
-      manifestId,
-      replying: false,
-      skipped: 0,
-      missed: 0,
-      items: [...was, ...items.map((item, at) => item(String(was.length + at)))],
-    },
-  });
-}
 
 function build(): Scenario {
   const base = holding(
@@ -128,7 +115,7 @@ function build(): Scenario {
     state: {
       ...base.state,
       holds: { ...base.state.holds, repositories: SERVED, manifests: SERVED.flatMap((one) => (one.manifest === undefined ? [] : [one.manifest])) },
-      helm: { state: "open", manifestId: "armada", replying: false, skipped: 0, missed: 0, items: [] },
+      helm: { state: "open", manifestId: "armada", replying: false, skipped: 0, missed: 0, items: [], facts: HELM_FACTS },
     },
   };
   const fleet = new FakeSessionsFleet(records(), {});
@@ -143,17 +130,22 @@ function build(): Scenario {
         return readAfterPause(text, { sessions: state.sessions.state === "read" ? state.sessions.sessions : [], jobs: state.jobs });
       },
       // Fleet keeps the row for words sent on, after the fact, in the thread that was asked about.
-      recordThoughtSent: async (manifestId, text, target) => {
-        appended(handle, manifestId, (id) => ({ kind: "sent", id, ts: now(), text, target }));
+      recordThoughtSent: async (manifestId, text, target, carry) => {
+        appended(handle, manifestId, (id) => ({ kind: "sent", id, ts: now(), text, target, ...carriedBy(manifestId, carry) }));
         return { ok: true };
       },
+      // A picture a message carried, read back for the thread's thumbnail.
+      readHelmFile: async (manifestId, file) => {
+        const kept = KEPT_FILES.get(`${manifestId}\n${file}`);
+        return kept === undefined ? { ok: false, outcome: unanswered("/helm/file") } : { ok: true, ...kept };
+      },
       // Helm's reply is Fleet's to write; the mock gives the one answer the walk asks for.
-      askHelm: async (text) => {
+      askHelm: async (text, _context, carry) => {
         const at = now();
         appended(
           handle,
           "armada",
-          (id) => ({ kind: "asked", id, ts: at, text }),
+          (id) => ({ kind: "asked", id, ts: at, text, ...carriedBy("armada", carry) }),
           (id) => ({ kind: "row", id, turn: { ts: at, seq: Number(id), by: "drone", saw: { event: "said", text: REPLY } } }),
           (id) => ({ kind: "row", id, turn: { ts: at, seq: Number(id), by: "drone", saw: { event: "ended", turns: 2, cost_micros: 14_200, refusals: 0 } } }),
         );

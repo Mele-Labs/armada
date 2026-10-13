@@ -34,6 +34,7 @@ mod issues;
 mod mods;
 mod needs;
 mod piloting;
+mod pull_request_panel;
 mod pull_requests;
 mod queries;
 mod rehearsing;
@@ -53,6 +54,7 @@ pub use issues::{Autopilots, Issues};
 pub use mods::Mods;
 pub use needs::Needs;
 pub use piloting::Piloting;
+pub use pull_request_panel::PullRequestPanel;
 pub use pull_requests::PullRequests;
 pub use queries::{FramePart, FrameSpan, Queries};
 pub use rehearsing::Rehearsing;
@@ -112,6 +114,7 @@ pub trait Daemon:
     + HostedSessions
     + Needs
     + PullRequests
+    + PullRequestPanel
     + Issues
     + Autopilots
     + Piloting
@@ -134,6 +137,7 @@ impl<
             + HostedSessions
             + Needs
             + PullRequests
+            + PullRequestPanel
             + Issues
             + Autopilots
             + Piloting

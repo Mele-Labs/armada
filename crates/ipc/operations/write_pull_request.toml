@@ -1,0 +1,14 @@
+[operations.write_pull_request]
+kind = "command"
+transport = "HTTP"
+agent_access = "Helm only"
+description = "A person comments on a pull request, approves it or asks for changes"
+notes = """
+`POST /pull_request_writes/:repository`, body `WritePullRequest`: `pull_request` a number, `kind` one of `comment`, `approve` and `request_changes`, `body` Markdown, and `session_id` where a Session pressed it. Since 23.83. Answers `PullRequestPage`, read again after the write. **A write to a shared place**: everyone watching the repository reads it, so Helm asks first (`pushes to shared`).
+
+`body` is required for `comment` and `request_changes` and optional for `approve`. It travels to the forge on standard input and never in an argument.
+
+Every Session's `pr` row for this pull request takes the fresh read, as `get_pull_request` does.
+
+A 422 `fleet.pull_request_write_blank` for a comment or a request for changes with no body, a 422 `fleet.session_unknown` for a `session_id` the ledger has not heard of, a 409 `fleet.pull_request_write_refused` carrying the forge's own sentence where it would not take the write, and a 500 `fleet.pull_request_unreadable` where the forge took it and would not answer after.
+"""

@@ -11,6 +11,7 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::hosted_sessions::{SentFile, SessionTag, SessionUpload};
 use crate::ids::{Instant, ManifestId};
 use crate::sessions::SessionId;
 
@@ -64,6 +65,13 @@ pub enum ThoughtReading {
 pub struct ThoughtSent {
     pub text: String,
     pub target: ThoughtTarget,
+    /// What was sent to the Session with the words. Fleet keeps it in Helm's own directory, as an
+    /// ask's, so the row can draw it after a restart.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub attachments: Vec<SessionUpload>,
+    /// The Sessions, Jobs, pull requests, issues and branches the words named.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub mentions: Vec<SessionTag>,
 }
 
 /// `tell_session` (`POST /helm/tell_session?manifest_id=`), a `Helm only` act: words a person asked
@@ -84,6 +92,11 @@ pub struct HelmSent {
     pub ts: Instant,
     pub text: String,
     pub target: ThoughtTarget,
+    /// The files and pictures that went with the words, read back with `get_helm_file`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub files: Vec<SentFile>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub tags: Vec<SessionTag>,
 }
 
 /// `helm.thought_routed`: Helm's reading sent a person's words to running work. **Helm's act as

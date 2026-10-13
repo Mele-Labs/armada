@@ -209,6 +209,18 @@ pub enum SlotParkRefused {
 }
 
 impl SlotParkRefused {
+    /// Whether the slot is still held for the one that asked to park it. A slot
+    /// nobody holds, or somebody else does by now, is no longer that caller's to
+    /// give back, so there is nothing left to answer for.
+    pub fn holds_still(&self) -> bool {
+        !matches!(
+            self,
+            SlotParkRefused::HeldByAnother(_)
+                | SlotParkRefused::HolderChanged(_)
+                | SlotParkRefused::NotLeased
+        )
+    }
+
     /// One sentence, for a person.
     pub fn said(&self) -> String {
         match self {

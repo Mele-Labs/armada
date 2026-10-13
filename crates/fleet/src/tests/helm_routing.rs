@@ -313,6 +313,8 @@ async fn words_delivered_are_a_row_in_the_thread_and_an_event_and_never_asked_of
     let body = ipc::encode(&ThoughtSent {
         text: "say which ones wait on a merge".into(),
         target: target.clone(),
+        attachments: Vec::new(),
+        mentions: Vec::new(),
     })
     .expect("plain data");
 
@@ -358,6 +360,8 @@ async fn the_row_is_still_there_after_a_restart() {
                     manifest_id: None,
                     slot: None,
                 },
+                attachments: Vec::new(),
+                mentions: Vec::new(),
             },
             None,
         )

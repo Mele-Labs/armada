@@ -10,14 +10,15 @@
 use std::sync::Arc;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
-use api::{Conversations as Surface, ObservedHelm, Refusal};
+use api::{Conversations as Surface, ObservedHelm, Refusal, StoredFile};
 use ipc::{
-    AnswerHelmCall, AskHelm, AskingToRun, EventsSince, Freshness, HelmAsked, HelmCallsWaiting,
-    HelmContext, HelmConversation, HelmDebugInfo, HelmFresh, HelmMessage, HelmScreen,
-    HelmUnanswered, Instant, ManifestId, ReadThought, RunOrNot, TellSession, ThoughtReading,
-    ThoughtSent, ThoughtTarget, WireError,
+    AnswerHelmCall, AskHelm, AskingToRun, EventsSince, Freshness, HelmAsked, HelmBoxFacts,
+    HelmCallsWaiting, HelmConversation, HelmDebugInfo, HelmFresh, HelmMessage, HelmUnanswered,
+    Instant, ManifestId, ReadThought, RunOrNot, TellSession, ThoughtReading, ThoughtSent,
+    ThoughtTarget, TuneHelm, WireError,
 };
 
+use super::composing::Message;
 use super::conversation::{Conversation, ConversationKey};
 use super::hosting::{Carried, Carry, Heard, Seat};
 use super::rows::Rows;
@@ -87,12 +88,16 @@ where
         let (served, key) = self.helm_of(manifest_id.as_ref())?;
         let conversation = self.helm().open(&key, served.records_root());
         let (live, history, skipped) = conversation.thread.watched();
+        // Read after the subscription opens, so a change between the two reaches this viewer as
+        // `facts` and is not lost.
+        let facts = self.helm_facts(&key, &conversation).await?;
         Ok(ObservedHelm {
             manifest_id: on_the_wire(&served),
             replying: conversation.replying(),
             live,
             history,
             skipped,
+            facts,
         })
     }
 
@@ -103,6 +108,7 @@ where
     ) -> Result<HelmConversation, Refusal> {
         let (served, key) = self.helm_of(manifest_id.as_ref())?;
         let conversation = self.helm().open(&key, served.records_root());
+        let message = self.helm_message(&key, asked).await?;
         let resumes = self
             .store()
             .lock()
@@ -116,14 +122,27 @@ where
             resumes,
         };
         conversation.taken();
-        let context = asked.context;
         let fleet = Arc::clone(&self);
         tokio::spawn(async move {
-            fleet
-                .reply(served, key, conversation, String::from(asked.text), context)
-                .await;
+            fleet.reply(served, key, conversation, message).await;
         });
         Ok(answered)
+    }
+
+    async fn tune_helm(
+        &self,
+        tuned: TuneHelm,
+        manifest_id: Option<ManifestId>,
+    ) -> Result<HelmBoxFacts, Refusal> {
+        self.helm_tuned(tuned, manifest_id).await
+    }
+
+    async fn get_helm_file(
+        &self,
+        manifest_id: Option<ManifestId>,
+        file: String,
+    ) -> Result<StoredFile, Refusal> {
+        self.helm_file(manifest_id, file).await
     }
 
     /// **Taken at a moment, and never a second `observe_helm`.** Everything
@@ -248,6 +267,8 @@ where
             .forget_helm_session(key.as_str())
             .map_err(|why| self.helm_fault(why))?;
         conversation.thread.clear();
+        // What its messages carried goes with them; the thread no longer names any of it.
+        let _ = std::fs::remove_dir_all(key.uploads_in(&self.host().attachments_dir));
         Ok(HelmConversation {
             manifest_id: on_the_wire(&served),
             replying: false,
@@ -300,14 +321,15 @@ where
         served: Served,
         key: ConversationKey,
         conversation: Arc<Conversation>,
-        text: String,
-        context: Option<HelmContext>,
+        message: Message,
     ) {
         let _turn = conversation.turn.lock().await;
         self.swept_stale_helm_sessions().await;
         conversation.thread.say(HelmMessage::Asked(HelmAsked {
             ts: Instant::from(&self.now()),
-            text: text.clone(),
+            text: message.text.clone(),
+            files: message.files.clone(),
+            tags: message.tags.clone(),
         }));
         let heard = Rows {
             conversation: Arc::clone(&conversation),
@@ -317,7 +339,7 @@ where
             events: self.events().clone(),
         };
         if let Err(why) = self
-            .replied(&served, &key, &text, context.as_ref(), &heard)
+            .replied(&served, &key, &message, &heard)
             .await
         {
             conversation
@@ -334,10 +356,19 @@ where
         &self,
         served: &Served,
         key: &ConversationKey,
-        text: &str,
-        context: Option<&HelmContext>,
+        message: &Message,
         heard: &Rows,
     ) -> Result<(), String> {
+        let (model, effort) = self.helm_tuning(key, &heard.conversation).await?;
+        let uploads = key.uploads_in(&self.host().attachments_dir);
+        let readable = uploads
+            .is_dir()
+            .then(|| uploads.to_string_lossy().into_owned());
+        let tuning = Tuning {
+            model,
+            effort,
+            readable,
+        };
         let prompts = self.prompts();
         let authority = self.helm_authority();
         self.turn_carried(
@@ -349,7 +380,7 @@ where
                     because: Freshness::SessionNotFound,
                 }))
             },
-            |resuming| carrying(served, text, context, resuming, &prompts, authority),
+            |resuming| carrying(served, message, resuming, &prompts, authority, &tuning),
         )
         .await
     }
@@ -400,26 +431,29 @@ where
     }
 }
 
+/// What a reply runs on beyond the message: a person's choice, and where uploads are read.
+struct Tuning {
+    model: Option<String>,
+    effort: Option<String>,
+    readable: Option<String>,
+}
+
 /// A message as its session is told it: after Helm's brief on a new session,
 /// alone on one that already heard the brief — and, on every turn, `where`'s
 /// line ahead of what the person typed. `#1075`.
 fn carrying(
     served: &Served,
-    text: &str,
-    context: Option<&HelmContext>,
+    message: &Message,
     resuming: Option<String>,
     prompts: &Prompts,
     authority: Authority,
+    tuning: &Tuning,
 ) -> Carry {
-    let said = context.map(where_they_are);
-    let with_where = match &said {
-        Some(said) => format!("{said}\n\n{text}"),
-        None => text.to_string(),
-    };
+    let told = message.told();
     let turn = match resuming {
-        Some(_) => with_where,
+        Some(_) => told,
         None => format!(
-            "{}\n\n{with_where}",
+            "{}\n\n{told}",
             worded(prompts, authority, served.manifest(), None).as_str()
         ),
     };
@@ -427,51 +461,14 @@ fn carrying(
         directory: served.root().to_string(),
         turn,
         resuming,
+        pictures: message.pictures.clone(),
+        model: tuning.model.clone(),
+        effort: tuning.effort.clone(),
+        readable: tuning.readable.clone(),
         seat: Seat::Helm,
     }
 }
 
-/// One line naming where the person is, ahead of what they typed — never
-/// stored, and never a Job's contents. Helm's brief says to read a named Job
-/// through its own tools rather than trust this for more than its name.
-fn where_they_are(context: &HelmContext) -> String {
-    let mut said = format!("The person is on {}", screen_phrase(context.screen));
-    match &context.picked {
-        Some(picked) => said.push_str(&format!(", picked on {}", picked.as_str())),
-        None => said.push_str(", picked on All repositories"),
-    }
-    if let Some(chip) = &context.chip {
-        said.push_str(&format!(
-            ". Job {} is chipped to Helm's message box",
-            chip.as_str()
-        ));
-    }
-    if let Some(cursor) = &context.cursor {
-        said.push_str(&format!(". The cursor is on Job {}", cursor.as_str()));
-    }
-    if let Some(studio) = &context.studio {
-        said.push_str(&format!(". Studio {} is open", studio.as_str()));
-        if let Some(node) = &context.node {
-            said.push_str(&format!(", with node {} selected", node.as_str()));
-        }
-    }
-    said.push('.');
-    said
-}
-
-fn screen_phrase(screen: HelmScreen) -> &'static str {
-    match screen {
-        HelmScreen::Overview => "Overview",
-        HelmScreen::Board => "the Job Board",
-        HelmScreen::Manifest => "the Manifest",
-        HelmScreen::Cleanup => "Cleanup",
-        HelmScreen::Studio => "Studios",
-        HelmScreen::Kit => "Kit",
-        HelmScreen::Settings => "Settings",
-        HelmScreen::Workflows => "Workflows",
-        HelmScreen::JobDetail => "a Job's detail",
-    }
-}
 
 pub(super) fn on_the_wire(served: &Served) -> ManifestId {
     ManifestId::carried(served.manifest().id().as_str())

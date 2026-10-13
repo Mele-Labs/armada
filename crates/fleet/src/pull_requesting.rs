@@ -40,7 +40,7 @@ use crate::refusing::{
 /// The forge would not say what the pull request is: no tool, nobody signed in,
 /// no such number, or a state this build has no word for. A 500, because
 /// asking again is reasonable.
-const UNREADABLE: &str = "fleet.pull_request_unreadable";
+pub(crate) const UNREADABLE: &str = "fleet.pull_request_unreadable";
 /// Something that is neither a number nor a pull request's address. A 422.
 const UNNAMED: &str = "fleet.pull_request_unnamed";
 /// A draft cannot be merged, or have auto-merge asked of it. A 409.
@@ -52,7 +52,7 @@ const READY_REFUSED: &str = "fleet.ready_refused";
 /// The forge would not turn auto-merge on, in its own sentence. A 409.
 const AUTO_MERGE_REFUSED: &str = "fleet.auto_merge_refused";
 /// A review pressed from a Session the ledger has never heard of. A 422.
-const SESSION_UNKNOWN: &str = "fleet.session_unknown";
+pub(crate) const SESSION_UNKNOWN: &str = "fleet.session_unknown";
 
 /// The workflow a review runs on, named here and never left to the proposer.
 const CODE_REVIEW: &str = "code_review";
@@ -145,14 +145,14 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    fn pr_refusal(&self, code: &'static str, message: impl Into<String>) -> WireError {
+    pub(crate) fn pr_refusal(&self, code: &'static str, message: impl Into<String>) -> WireError {
         WireError::raised(code, message, self.run_id())
     }
 
     /// The pull request as the forge shows it, or the forge's silence. **Two
     /// asks, and either one silent is silent**: a state with no checks would
     /// let a merge be pressed on a guess.
-    fn pull_request_read(
+    pub(crate) fn pull_request_read(
         &self,
         manifest_id: &ManifestId,
         root: &str,
@@ -207,7 +207,7 @@ where
     /// **Held, never raised**: the forge has already answered and the person
     /// asked about the pull request, not about the ledger, so a row that would
     /// not write is no reason to refuse an answer.
-    async fn ledger_follows(&self, state: &PullRequestState) {
+    pub(crate) async fn ledger_follows(&self, state: &PullRequestState) {
         let target = state.number.to_string();
         let detail = detail_of(state);
         let over = match state.state {

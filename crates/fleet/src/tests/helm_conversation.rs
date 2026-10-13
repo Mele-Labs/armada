@@ -19,7 +19,7 @@ use std::time::Duration;
 use adapters::HeadlessAgent;
 use api::{Conversations, HelmSeen, HelmWatch, Next, Refusal, Subscription};
 use ipc::{
-    AskHelm, Freshness, HelmContext, HelmMessage, HelmScreen, HelmSilence, HelmText, JobId, Saw,
+    AskHelm, Freshness, HelmContext, HelmMessage, HelmScreen, HelmSilence, JobId, Saw,
     StudioId, StudioNodeId,
 };
 use testkit::{FakeHarness, FakeVcs, FakeWorkProduct};
@@ -112,7 +112,9 @@ fn hosted(home: &TempDir) -> Arc<Hosted> {
 
 fn asking(text: &str) -> AskHelm {
     AskHelm {
-        text: HelmText::said(text).expect("not blank"),
+        text: text.to_string(),
+        attachments: Vec::new(),
+        mentions: Vec::new(),
         context: None,
     }
 }
@@ -275,7 +277,9 @@ async fn the_context_reaches_the_session_and_not_the_thread() {
     Arc::clone(&fleet)
         .ask_helm(
             AskHelm {
-                text: HelmText::said("what is this stuck on?").expect("not blank"),
+                text: "what is this stuck on?".to_string(),
+                attachments: Vec::new(),
+                mentions: Vec::new(),
                 context: Some(context),
             },
             None,
@@ -316,7 +320,9 @@ async fn a_studio_and_its_selected_node_reach_the_session() {
     Arc::clone(&fleet)
         .ask_helm(
             AskHelm {
-                text: HelmText::said("what does this note connect to?").expect("not blank"),
+                text: "what does this note connect to?".to_string(),
+                attachments: Vec::new(),
+                mentions: Vec::new(),
                 context: Some(context),
             },
             None,
