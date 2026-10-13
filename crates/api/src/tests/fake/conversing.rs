@@ -297,7 +297,7 @@ fn helm_record(manifest_id: &ManifestId) -> SessionRecord {
     let at = Instant::carried("2026-10-13T09:00:00.000Z");
     SessionRecord {
         id: ipc::SessionId::carried("01HELMSESSION00000000000001"),
-        harness: String::from("claude_code"),
+        harness: String::from("a-harness"),
         origin: ipc::SessionOrigin::Bridge,
         manifest_id: Some(manifest_id.clone()),
         cwd: String::from("/repos/armada"),
