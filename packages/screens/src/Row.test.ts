@@ -5,7 +5,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { JobSummary } from "@armada/protocol";
-import { elapsedOf } from "./Row";
+import { elapsedOf, hasMarks } from "./Row";
 
 const NOW = Date.parse("2026-09-13T09:05:00Z");
 
@@ -79,5 +79,12 @@ describe("elapsedOf", () => {
         NOW,
       ),
     ).toBe("1m 00s");
+  });
+});
+
+describe("hasMarks", () => {
+  it("marks a Job the plan's limit holds, which carries the reset on its pause", () => {
+    expect(hasMarks(job({ paused: { by: "fleet", at: "2026-10-12T20:00:00Z", resuming: false, until: "2026-10-12T22:40:00Z" } }), NOW)).toBe(true);
+    expect(hasMarks(job(), NOW)).toBe(false);
   });
 });

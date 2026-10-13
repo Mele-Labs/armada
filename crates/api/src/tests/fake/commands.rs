@@ -40,6 +40,7 @@ impl FakeDaemon {
             by: String::from("person"),
             at: ipc::Instant::carried("2026-10-06T09:00:00.000Z"),
             resuming: false,
+            until: None,
         });
         Ok(job.clone())
     }

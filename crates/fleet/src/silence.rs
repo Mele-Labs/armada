@@ -280,6 +280,9 @@ pub enum Vigil {
     /// another, first; this one does not, because what it was waiting on was
     /// never the Drone's to say. `#801`.
     EndedUnanswered,
+    /// The Drone's run ended on the plan's limit, so the Job was parked until it resets.
+    /// **Not an escalation**: nothing went wrong with the work. `crate::limit_hold`.
+    HeldForLimit,
 }
 
 impl<H, V, W> Fleet<H, V, W>
@@ -540,9 +543,27 @@ where
                 said,
             }));
         }
-        let Aftermath::JobMoves(target) =
-            aftermath(record.status(), &Ending::of(&heard), self.left(&job))
-        else {
+        let mut after = aftermath(record.status(), &Ending::of(&heard), self.left(&job));
+        // The plan's limit stopped the run: park the Job until it resets. Where the pool will not
+        // take the slot back it escalates as any ending does. `crate::limit_hold`.
+        if let Aftermath::HeldUntil { until } = after {
+            let quiet = working
+                .as_mut()
+                .map(|at_work| at_work.quiet_for(&self.now()))
+                .unwrap_or_default();
+            if let Some(reaped) = self.drone_held_for_limit(until, working).await? {
+                let said = Vigil::HeldForLimit;
+                self.noted_quiet(&job, &step, quiet, &said, Some(&reaped), &transcript::refused_in(&heard));
+                return Ok(Some(Quiet {
+                    job,
+                    step,
+                    after: quiet,
+                    said,
+                }));
+            }
+            after = aftermath(record.status(), &Ending::folded(&heard), self.left(&job));
+        }
+        let Aftermath::JobMoves(target) = after else {
             return Ok(None);
         };
         // **Taken before the reap**, like the clock below it: afterwards the
@@ -678,6 +699,10 @@ where
                 Level::Warn,
                 "a permission ask went unanswered past its own limit, and the Drone was ended",
             ),
+            Vigil::HeldForLimit => (
+                Level::Info,
+                "the plan's limit ended the Drone's run, and the Job is held until it resets",
+            ),
         };
         let mut envelope = Envelope::new(
             self.now(),
@@ -699,7 +724,7 @@ where
                 // **Zero, and it is the interesting number.** What this line
                 // says is that the escalation was reached without spending the
                 // ladder at all.
-                Vigil::AtRest { .. } | Vigil::EndedUnanswered => 0,
+                Vigil::AtRest { .. } | Vigil::EndedUnanswered | Vigil::HeldForLimit => 0,
             })),
         );
         // **The trigger the escalation was actually raised under.** It was
@@ -748,7 +773,10 @@ fn escalated_as(said: &Vigil) -> Option<EscalationTrigger> {
     match said {
         Vigil::Escalated { found, .. } | Vigil::AtRest { found } => Some(found.clone()),
         Vigil::EndedUnanswered => Some(EscalationTrigger::AskUnanswered),
-        Vigil::Poked { .. } | Vigil::NotPoked { .. } | Vigil::PokedAtRest { .. } => None,
+        Vigil::Poked { .. }
+        | Vigil::NotPoked { .. }
+        | Vigil::PokedAtRest { .. }
+        | Vigil::HeldForLimit => None,
     }
 }
 

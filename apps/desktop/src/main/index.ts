@@ -48,6 +48,7 @@ import { handleRehearsal } from "./rehearsal-channels";
 import { handleRepositories } from "./repository-channels";
 import { handleSessions } from "./session-channels";
 import { handleSleep } from "./sleep-channels";
+import { handlePlanUsage } from "./plan-usage-channels";
 import { handleIssues } from "./issue-channels";
 import { SessionPages } from "./session-page";
 import { handleStudios } from "./studio-channels";
@@ -503,6 +504,7 @@ void app.whenReady().then(() => {
   // What a shell block run from a Session prints, to every window: only the one that started it holds the id.
   connection.sessions.onRun((runId, message) => everyWindow(CHANNELS.sessionRunMessage, runId, message));
   connection.sleep.onChanged((state) => everyWindow(CHANNELS.sleepChanged, state));
+  connection.planUsage.onChanged((usage) => everyWindow(CHANNELS.planUsageChanged, usage));
   connection.issues.onAutopilotChanged((autopilot) => everyWindow(CHANNELS.autopilotChanged, autopilot));
   handleTaps({ ipc: ipcMain, app });
   if (!app.isPackaged) installSounds(join(app.getAppPath(), "sounds"), join(app.getPath("home"), "Library", "Sounds"));
@@ -988,6 +990,7 @@ void app.whenReady().then(() => {
   );
   handleSessions({ ipc: ipcMain, connection: () => connection, windowIdOf, pages: new SessionPages() });
   handleSleep({ ipc: ipcMain, connection: () => connection });
+  handlePlanUsage({ ipc: ipcMain, connection: () => connection });
   handleIssues({ ipc: ipcMain, connection: () => connection });
   handleStudios({ ipc: ipcMain, connection: () => connection, published: () => published, captureWindows, summon });
   // The four decisions on the work, and they stay four channels. Merging lands

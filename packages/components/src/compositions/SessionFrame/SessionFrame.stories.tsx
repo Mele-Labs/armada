@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, fn } from "storybook/test";
+import { expect, fn, within } from "storybook/test";
 
 import { SessionFrame } from "./SessionFrame";
 
@@ -70,5 +70,69 @@ export const Untitled: Story = {
     await userEvent.click(canvas.getByRole("button", { name: "Rename" }));
     await userEvent.type(canvas.getByRole("textbox", { name: "Session name" }), "Fresh name{Enter}");
     await expect(args.onRename).toHaveBeenCalledWith("Fresh name");
+  },
+};
+
+/** Held until the plan's limit resets: one mark in place of the live one, saying when it resumes. */
+export const Limited: Story = {
+  args: { state: "limited", said: "Limit reached · resumes 6:40 PM", title: "Invoice PDF layout" },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("img", { name: "Limit reached · resumes 6:40 PM" })).toBeInTheDocument();
+  },
+};
+
+const breakdown = {
+  categories: [
+    { name: "System prompt", tokens: 3_100, kind: "used" as const },
+    { name: "Messages", tokens: 50_740, kind: "used" as const },
+    { name: "Free space", tokens: 913_160, kind: "free" as const },
+    { name: "Autocompact buffer", tokens: 33_000, kind: "buffer" as const },
+  ],
+  memoryFiles: [
+    { path: "NOTES.md", tokens: 2_100 },
+    { path: "apps/NOTES.md", tokens: 700 },
+  ],
+  mcpTools: [
+    { name: "list_jobs", server: "armada-fleet", tokens: 2_600 },
+    { name: "get_job", server: "armada-fleet", tokens: 2_400 },
+    { name: "query", server: "gitnexus", tokens: 1_500 },
+  ],
+  totalTokens: 53_840,
+  maxTokens: 1_000_000,
+};
+
+/** The live tokens and the percent of the window. With a breakdown it opens a card of what fills it, and a press keeps it open. */
+export const ContextBreakdown: Story = {
+  args: { state: "idle", said: "Idle", title: "Release notes script", context: { tokens: 53_840, window: 1_000_000, breakdown } },
+  play: async ({ canvas, userEvent }) => {
+    const figure = canvas.getByRole("button", { name: "Context 5%" });
+    await expect(figure).toHaveTextContent("53.8k · 5%");
+    await expect(canvas.queryByRole("dialog")).not.toBeInTheDocument();
+
+    await userEvent.hover(figure);
+    const card = canvas.getByRole("dialog", { name: "Context" });
+    await expect(card).toHaveTextContent("5% used");
+    await expect(card).toHaveTextContent("53.8k / 1M");
+    await expect(within(card).getByText("System prompt")).toBeVisible();
+    await expect(within(card).getByText("913k")).toBeVisible();
+    // The heaviest servers, their tools summed.
+    await expect(within(card).getByText("armada-fleet")).toBeVisible();
+    await expect(within(card).getByText("5.0k")).toBeVisible();
+    await expect(within(card).getByText("apps/NOTES.md")).toBeVisible();
+
+    await userEvent.click(figure);
+    await userEvent.unhover(figure);
+    await expect(canvas.getByRole("dialog", { name: "Context" })).toBeVisible();
+    await userEvent.keyboard("{Escape}");
+    await expect(canvas.queryByRole("dialog")).not.toBeInTheDocument();
+  },
+};
+
+/** Without a breakdown the figure is a figure and not a button, and says its tokens on hover. */
+export const ContextWithoutBreakdown: Story = {
+  args: { state: "idle", said: "Idle", title: "Release notes script", context: { tokens: 142_000, window: 200_000 } },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("img", { name: "Context 71%" })).toHaveTextContent("142k · 71%");
+    await expect(canvas.queryByRole("button", { name: /^Context/ })).not.toBeInTheDocument();
   },
 };

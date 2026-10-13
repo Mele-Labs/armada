@@ -186,10 +186,11 @@ import type {
 import type { AnswerSessionAsk, AnswerWaiting, ClaimPullRequest, DismissWaiting, PilotOutcome, PullRequestClaimed, PullRequestState, RenameSession, ReviewDispatched, SendSessionMessage, SessionRow, SessionRunMessage, SessionRunUnderway, SessionSubagent, TuneSession } from "@armada/protocol";
 import type { PilotExit, PullRequestPress, SessionActed, SessionsRead } from "./api/sessions";
 import type { SleepActed } from "./api/sleep";
+import type { PlanUsageRead } from "./api/plan-usage";
 import type { IssuesRead } from "./api/issues";
 import type { RequestRepositoryRead } from "./api/jobs";
 import { AUTOPILOT_CHANNELS, type AutopilotApi } from "./api/autopilot";
-import type { SleepState } from "@armada/protocol";
+import type { PlanUsage, SleepState } from "@armada/protocol";
 import type { BridgeApi } from "./api";
 import { CHANNELS, NOTHING_YET } from "./bridge";
 import type { BridgeState, HistoryStep, Summons } from "./bridge";
@@ -483,6 +484,8 @@ type OldBridgeApi = {
     claimPullRequest: (claim: ClaimPullRequest) => Promise<SessionActed<PullRequestClaimed>>;
     dismissWaiting: (dismiss: DismissWaiting) => Promise<SessionActed>;
     getSleep: () => Promise<SleepActed>;
+    getPlanUsage: () => Promise<PlanUsageRead>;
+    onPlanUsageChanged: (onChanged: (usage: PlanUsage) => void) => () => void;
     listIssues: (manifestId: string, refresh: boolean) => Promise<IssuesRead>;
     setSleep: (on: boolean) => Promise<SleepActed>;
     overrideSleep: (id: string, text: string) => Promise<SleepActed>;
@@ -792,6 +795,8 @@ const OLD_CHANNELS = {
     claimPullRequest: "bridge:claim-pull-request",
     dismissWaiting: "bridge:dismiss-waiting",
     getSleep: "bridge:get-sleep",
+    getPlanUsage: "bridge:get-plan-usage",
+    planUsageChanged: "bridge:plan-usage-changed",
     listIssues: "bridge:list-issues",
     setSleep: "bridge:set-sleep",
     overrideSleep: "bridge:override-sleep",

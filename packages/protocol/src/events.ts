@@ -20,6 +20,7 @@ import type { ProposalInFlight } from "./proposing";
 import type { CheckoutRunRecord, RunRecord } from "./rehearsal";
 import type { ServerState } from "./servers";
 import type { SessionRowChanged } from "./hosted-sessions";
+import type { PlanUsage } from "./plan-usage";
 import type { SleepState } from "./sleep";
 import type { TimelineAppended } from "./timeline";
 import type { Autopilot } from "./autopilot";
@@ -115,6 +116,8 @@ export type Event =
   | ({ kind: "sleep.changed" } & SleepState)
   /** A repository's Autopilot after any change to it, whole. #2092. */
   | ({ kind: "autopilot.changed" } & Autopilot)
+  /** The plan's windows after a session read them moving, whole. */
+  | ({ kind: "plan_usage.changed" } & PlanUsage)
   /** A Job's Commander started or finished a turn. #2166. */
   | ({ kind: "commander.changed" } & CommanderChanged)
   /** Fleet kept one entry for the timeline; a client holding a window appends it. Since 23.82. */

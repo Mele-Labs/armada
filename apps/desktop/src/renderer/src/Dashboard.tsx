@@ -5,6 +5,7 @@
 
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import {
+  BatteryLow,
   Bot,
   Box,
   Check,
@@ -31,7 +32,7 @@ import {
   Workflow,
   type LucideIcon,
 } from "lucide-react";
-import { Button, Radio, RadioGroup, Textarea } from "@armada/components";
+import { Button, Radio, RadioGroup, Textarea, limitHeldSaid } from "@armada/components";
 import type { FixMain, JobSummary, RepositorySummary, WaitingItem } from "@armada/protocol";
 import type { AboutFiles, AboutLink, CallAskView, CallView } from "@armada/jobs/draft/calls";
 import type { AskedOf, NowView } from "@armada/jobs/draft/now";
@@ -398,20 +399,21 @@ function sessionItem(session: Session, hosts: Hosts): Item {
   const ended = session.dead === "ended";
   const working = session.turn.state === "working";
   const waiting = session.asked !== undefined && !ended && !working;
+  const limited = ended ? undefined : session.limitedUntil;
   return {
     key: `session:${session.id}`,
     owner: `session:${session.id}`,
     icon: SquareTerminal,
     kind: "Session",
     session: true,
-    mark: ended ? Unplug : waiting ? Eye : working ? CircleDot : Check,
-    state: waiting ? "Waiting on a command" : ended ? "Ended" : working ? "Working" : "Idle",
+    mark: ended ? Unplug : limited !== undefined ? BatteryLow : waiting ? Eye : working ? CircleDot : Check,
+    state: limited !== undefined ? limitHeldSaid(limited) : waiting ? "Waiting on a command" : ended ? "Ended" : working ? "Working" : "Idle",
     spark: sparkOf(session),
     title: session.title ?? session.address ?? session.id,
-    fact: waiting ? session.asked!.command : ended ? "ended" : working ? "working" : "idle",
+    fact: limited !== undefined ? "held" : waiting ? session.asked!.command : ended ? "ended" : working ? "working" : "idle",
     at: session.lastTurnAt,
-    hue: waiting ? "ask" : ended ? "ok" : working ? "running" : "queued",
-    live: working,
+    hue: waiting ? "ask" : ended ? "ok" : working && limited === undefined ? "running" : "queued",
+    live: working && limited === undefined,
     where: session.address ?? "",
     body: waiting ? [["Asks to run", session.asked!.command]] : [],
     ...(last !== undefined && last.kind === "message" ? { said: [last.text] } : {}),
@@ -643,7 +645,8 @@ export function useItems(
       const active = tab === "done" ? undefined : activeOf(nows?.[job.id]);
       // The workflow is the proposer's to settle: until it lands there is nothing to draw pips from.
       const settling = job.status === "proposing" && job.workflow_id === "";
-      return { ...item, ...(steps.length === 0 ? {} : { steps, stepAt: at }), ...(settling ? { settling: true as const } : {}), ...(active === undefined ? {} : { ...active, live: true }) };
+      const limited = job.paused?.until;
+      return { ...item, ...(steps.length === 0 ? {} : { steps, stepAt: at }), ...(settling ? { settling: true as const } : {}), ...(active === undefined ? {} : { ...active, live: true }), ...(limited === undefined ? {} : { mark: BatteryLow, state: limitHeldSaid(limited), live: false }) };
     });
     return drawn.filter((item) => !answered.has(item.key));
   }, [tab, state, picked, nowViews, nows, sessions, slept, answered, dismissed]);
