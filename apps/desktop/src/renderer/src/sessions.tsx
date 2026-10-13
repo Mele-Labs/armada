@@ -72,7 +72,8 @@ import {
   withoutShapes,
 } from "@armada/screens/src/draft/sketch";
 import type { Drawing } from "@armada/screens/src/draft/sketch";
-import type { HeldWorktrees, JobSummary, MergeLines } from "@armada/protocol";
+import type { HeldWorktrees, JobSummary, MergeLines, SettingsList } from "@armada/protocol";
+import { pullRequestPlaceOf } from "./pull-request-place";
 import { SURFACE, useAtFloor, useNarrow } from "@armada/shell";
 
 import { proposeRequest } from "./dispatch";
@@ -748,7 +749,7 @@ const NO_SKETCHES: DrawnSketch[] = [];
 const NO_JOBS: JobSummary[] = [];
 const NO_ROWS: SessionThreadRow[] = [];
 
-function SessionView({ session, goes, onOpen, held, board, lines }: { session: Session; goes: LedgerGoes; onOpen: (id: string) => void; held: HeldReads; board: readonly JobSummary[]; lines: MergeLines | null }) {
+function SessionView({ session, goes, onOpen, held, board, lines, settings }: { session: Session; goes: LedgerGoes; onOpen: (id: string) => void; held: HeldReads; board: readonly JobSummary[]; lines: MergeLines | null; settings: SettingsList | null }) {
   const draft = useSessionsDraft();
   const sessions = useSessions();
   const floor = useAtFloor();
@@ -806,10 +807,16 @@ function SessionView({ session, goes, onOpen, held, board, lines }: { session: S
     open(...args);
   };
   const runner = runnerOf(draft, session);
+  // `links.openPullRequestsIn` decides where every pull request of the Session opens: Armada's panel, or the forge in the browser.
+  const read = (one: Reading) => {
+    const address = one.kind === "pull_request" ? attachmentsOf(session, "pull_request").find((pr) => pr.number === one.number)?.address : undefined;
+    if (address !== undefined && pullRequestPlaceOf(settings) === "browser") goes.onOpenLink(address);
+    else setReading(one);
+  };
   const entries = entriesOf(
     session,
     narrow ? { ...goes, onOpenJob: fold(goes.onOpenJob), onGoTo: fold(goes.onGoTo) } : goes,
-    narrow ? fold(setReading) : setReading,
+    narrow ? fold(read) : read,
     narrow ? fold(setSlotOpen) : setSlotOpen,
     sessions,
     narrow ? fold(onOpen) : onOpen,
@@ -1103,6 +1110,7 @@ export function SessionsSurface({
   held,
   board = NO_JOBS,
   lines = null,
+  settings = null,
 }: {
   openId: string | null;
   onOpen: (id: string) => void;
@@ -1111,6 +1119,7 @@ export function SessionsSurface({
   /** The Board's Jobs, for what a Job row's card says beyond the Session's own record of it. */
   board?: readonly JobSummary[];
   lines?: MergeLines | null;
+  settings?: SettingsList | null;
 }) {
   const sessions = useSessions();
   const open = sessions.find((one) => one.id === openId);
@@ -1132,7 +1141,7 @@ export function SessionsSurface({
   }, [sessions, openId, onOpen]);
   return (
     <div className="armada-screen__overview" {...(open === undefined ? {} : { [OPEN_SESSION_ATTRIBUTE]: open.id })}>
-      {open === undefined ? <SessionsListing onOpen={onOpen} /> : <SessionView session={open} goes={goes} onOpen={onOpen} held={held} board={board} lines={lines} />}
+      {open === undefined ? <SessionsListing onOpen={onOpen} /> : <SessionView session={open} goes={goes} onOpen={onOpen} held={held} board={board} lines={lines} settings={settings} />}
     </div>
   );
 }
