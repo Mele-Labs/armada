@@ -4,6 +4,7 @@
 // The spans are `Prose`'s to turn into links (`ProseRefs`); this is the finding.
 
 import type { ProseReference } from "@armada/components";
+import type { MergeLine } from "@armada/protocol";
 
 /** What there is to find. `numbered` is the conversation's repository: its open issues and pull requests, and any number already looked up. */
 export type RefWorld = {
@@ -22,8 +23,22 @@ function* whole(text: string, needle: string): Generator<[number, number]> {
   for (const found of text.matchAll(new RegExp(`(?<![\\w-])${escaped(needle)}(?![\\w-])`, "g"))) yield [found.index, found.index + needle.length];
 }
 
-/** The number a Job's handle leads with: `12-drone-count` is Job 12. */
-const numberOf = (handle: string): string | undefined => /^(\d+)-/.exec(handle)?.[1];
+/** The number a Job's handle leads with: `12-drone-count` is Job 12, and a handle that is only its number is too. */
+const numberOf = (handle: string): string | undefined => /^(\d+)(?:-|$)/.exec(handle)?.[1];
+
+/**
+ * The branch a pull request is on, read off the repository's merge line: the open ones Fleet read off the forge,
+ * the newest merged, and the rows of the line itself. **Nothing where the line has no row for it**, and the Merge
+ * line then opens with nothing marked.
+ */
+export function branchOfPullRequest(line: MergeLine | undefined, number: string): string | undefined {
+  const at = Number(number);
+  return (
+    line?.hub?.pull_requests?.find((one) => one.number === at)?.branch ??
+    line?.hub?.merged?.find((one) => one.number === at)?.branch ??
+    [...(line?.line ?? []), ...(line?.landed ?? []), ...(line?.sent_back ?? [])].find((one) => one.pull_request?.number === at)?.branch
+  );
+}
 
 /** The title without the `#214 ` a tag's title leads with. */
 const bare = (title: string): string => title.replace(/^#\d+\s*/, "");
@@ -39,7 +54,8 @@ export function scanRefs(text: string, world: RefWorld): RefSpan[] {
     const ref: ProseReference = { kind: "job", id: job.id, title: job.title };
     const number = numberOf(job.handle);
     if (number !== undefined) for (const one of text.matchAll(new RegExp(`\\bJob ${number}\\b`, "gi"))) found.push({ from: one.index, to: one.index + one[0].length, ref });
-    for (const needle of [job.handle, job.id]) for (const [from, to] of whole(text, needle)) found.push({ from, to, ref });
+    // A handle that is only its number is `Job N` above: bare, it would link every "13" in a sentence.
+    for (const needle of [...(/^\d+$/.test(job.handle) ? [] : [job.handle]), job.id]) for (const [from, to] of whole(text, needle)) found.push({ from, to, ref });
   }
   for (const session of world.sessions) {
     const ref: ProseReference = { kind: "session", id: session.id, title: session.title ?? session.id };

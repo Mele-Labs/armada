@@ -26,10 +26,12 @@ pub(crate) use pilot_words::{
 mod places;
 mod process;
 mod rows;
+pub(crate) use rows::{mention_line, UserLine};
 mod serving;
 mod thread_cache;
 pub(crate) use serving::NO_SUCH_SESSION;
 mod terminal;
+pub(crate) mod uploads;
 pub(crate) mod waiting;
 pub(crate) mod walking;
 

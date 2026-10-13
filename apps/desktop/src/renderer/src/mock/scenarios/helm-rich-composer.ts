@@ -3,11 +3,11 @@
 // pictures and sketches, `/`, `@` and `#`, and what it sent shows in the thread. Over the walk
 // `helm-rich-composer`. The issues and pull requests `#` offers are `mock/numbered.ts`.
 
-import type { HelmThreadItem, MergeLine } from "@armada/protocol";
+import type { MergeLine } from "@armada/protocol";
 import { repository } from "@armada/screens/src/fixtures/build/base";
 
 import type { Scenario } from "../moment";
-import { s210RouteAThought } from "./route-a-thought";
+import { appended, carriedBy, s210RouteAThought } from "./route-a-thought";
 
 /** Helm's reply, in the facts of the two pull requests the walk tags and nothing past them. */
 const REPLY = [
@@ -39,26 +39,16 @@ export const s211HelmRichComposer: Scenario = {
   state: { ...s210RouteAThought.state, mergeLines: { lines: [LINE] } },
   behaves: (handle) => ({
     ...s210RouteAThought.behaves!(handle),
-    askHelm: async (text) => {
+    // What the message carried is kept on its row, as Fleet keeps it, and Helm's reply follows.
+    askHelm: async (text, _context, carry) => {
       const at = now();
-      const held = handle.state().helm;
-      const was: HelmThreadItem[] = held.state === "open" ? held.items : [];
-      const item = (saw: HelmThreadItem): HelmThreadItem => saw;
-      handle.publish({
-        helm: {
-          state: "open",
-          manifestId: "armada",
-          replying: false,
-          skipped: 0,
-          missed: 0,
-          items: [
-            ...was,
-            item({ kind: "asked", id: String(was.length), ts: at, text }),
-            item({ kind: "row", id: String(was.length + 1), turn: { ts: at, seq: was.length + 1, by: "drone", saw: { event: "said", text: REPLY } } }),
-            item({ kind: "row", id: String(was.length + 2), turn: { ts: at, seq: was.length + 2, by: "drone", saw: { event: "ended", turns: 1, cost_micros: 6_100, refusals: 0 } } }),
-          ],
-        },
-      });
+      appended(
+        handle,
+        "armada",
+        (id) => ({ kind: "asked", id, ts: at, text, ...carriedBy("armada", carry) }),
+        (id) => ({ kind: "row", id, turn: { ts: at, seq: Number(id), by: "drone", saw: { event: "said", text: REPLY } } }),
+        (id) => ({ kind: "row", id, turn: { ts: at, seq: Number(id), by: "drone", saw: { event: "ended", turns: 1, cost_micros: 6_100, refusals: 0 } } }),
+      );
       return { ok: true };
     },
   }),

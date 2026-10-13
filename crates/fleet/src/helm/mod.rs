@@ -8,8 +8,10 @@
 mod admitting;
 mod asking;
 mod brief;
+mod composing;
 mod conversation;
 mod deciding;
+mod facts;
 mod hosting;
 mod permitting;
 mod reach;

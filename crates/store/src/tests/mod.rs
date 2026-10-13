@@ -30,6 +30,7 @@ mod forget;
 mod gaming;
 mod gate_manifests;
 mod helm_sessions;
+mod helm_tuning;
 mod iteration;
 mod kit;
 mod lessons;

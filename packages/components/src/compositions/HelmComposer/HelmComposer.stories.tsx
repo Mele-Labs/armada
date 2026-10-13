@@ -2,7 +2,7 @@ import type { ReactElement, ReactNode } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, screen, userEvent, within } from "storybook/test";
 
-import { HelmComposer, type HelmRepositoryOption } from "./HelmComposer";
+import { HelmComposer, type HelmBox, type HelmRepositoryOption } from "./HelmComposer";
 
 const repositories: HelmRepositoryOption[] = [
   { id: "01M2ARMADA", label: "armada" },
@@ -350,6 +350,186 @@ export const FooterNamesAJobsDetail: Story = {
   },
   play: async ({ canvas }) => {
     await expect(canvas.getByText("Job 16's detail (in context)")).toBeInTheDocument();
+  },
+};
+
+/** The box as a window builds it: what `/`, `@` and `#` offer, and the model and effort a conversation holds. */
+const FULL: Partial<HelmBox> = {
+  model: null,
+  effort: null,
+  models: ["haiku", "sonnet", "opus"],
+  efforts: ["low", "medium", "high"],
+  onTune: fn(),
+  // Fleet names the commands and has no sentence for each, so none is drawn.
+  commands: [
+    { name: "review", says: "" },
+    { name: "simplify", says: "" },
+  ],
+  taggable: [
+    { kind: "session", id: "s2", title: "Release notes script" },
+    { kind: "pull_request", id: "1843", title: "#1843 Pin the store clock" },
+  ],
+  numbered: {
+    open: [
+      { tag: { kind: "issue", id: "214", title: "#214 Sessions list drops a quiet Session", url: "https://forge.invalid/issues/214" } },
+      { tag: { kind: "pull_request", id: "219", title: "#219 Pin the Bridge store clock", url: "https://forge.invalid/pull/219" } },
+    ],
+    find: async (number) =>
+      number === 207
+        ? { tag: { kind: "pull_request", id: "207", title: "#207 Stop the Drone count drifting", url: "https://forge.invalid/pull/207" }, standing: "Merged" }
+        : undefined,
+  },
+  drawn: [],
+  onDraw: fn(),
+  onRemoveDrawn: fn(),
+};
+
+const BOXED: Story["args"] = { current: repositories[0]!.id, repositories: [repositories[0]!], box: FULL };
+
+/** The dock's box, which sends on Enter and breaks the line on Shift+Enter, as a Session's does. */
+export const EnterSends: Story = {
+  args: BOXED,
+  play: async ({ args, canvas, userEvent }) => {
+    const field = canvas.getByRole("textbox", { name: "Ask Helm" });
+    await userEvent.type(field, "Why did job 12 stall?{Shift>}{Enter}{/Shift}It ran an hour ago");
+    await expect(args.onSend).not.toHaveBeenCalled();
+    await userEvent.keyboard("{Enter}");
+    await expect(args.onSend).toHaveBeenCalledWith({ text: "Why did job 12 stall?\nIt ran an hour ago", files: [], tags: [] });
+    await expect(args.onSend).toHaveBeenCalledTimes(1);
+    await expect(field).toHaveTextContent("");
+  },
+};
+
+/** Blank never sends: Send stays off until there is something to say, and Enter on a blank box does nothing. */
+export const BlankDoesNotSend: Story = {
+  args: BOXED,
+  play: async ({ args, canvas, userEvent }) => {
+    const send = canvas.getByRole("button", { name: "Send" });
+    await expect(send).toBeDisabled();
+    await userEvent.type(canvas.getByRole("textbox", { name: "Ask Helm" }), "   {Enter}");
+    await expect(send).toBeDisabled();
+    await expect(args.onSend).not.toHaveBeenCalled();
+    await userEvent.type(canvas.getByRole("textbox", { name: "Ask Helm" }), "Why did job 12 stall?");
+    await expect(canvas.getByRole("button", { name: "Send" })).toBeEnabled();
+  },
+};
+
+/**
+ * Send is a glyph named for what it does, inside the box's own row, since the dock has no width for the word.
+ * It stays inside the box's edges however much is typed.
+ */
+export const SendIsAGlyphInsideTheBox: Story = {
+  args: BOXED,
+  play: async ({ canvas, userEvent }) => {
+    const send = () => canvas.getByRole("button", { name: "Send" });
+    await expect(send()).toHaveTextContent("");
+    await userEvent.type(canvas.getByRole("textbox", { name: "Ask Helm" }), "one{Shift>}{Enter}{/Shift}two{Shift>}{Enter}{/Shift}three");
+    const form = send().closest("form")!.getBoundingClientRect();
+    const at = send().getBoundingClientRect();
+    await expect(at.left).toBeGreaterThanOrEqual(form.left);
+    await expect(at.right).toBeLessThanOrEqual(form.right);
+    await expect(at.top).toBeGreaterThanOrEqual(form.top);
+    await expect(at.bottom).toBeLessThanOrEqual(form.bottom);
+  },
+};
+
+function GrowingDock(args: Story["args"]): ReactElement {
+  return (
+    <div
+      className="armada-glass"
+      style={{ width: "var(--w-dock)", height: "calc(var(--space-12) * 8)", display: "flex", flexDirection: "column", justifyContent: "flex-end", boxSizing: "border-box", padding: "var(--space-4)", overflowY: "auto" }}
+    >
+      <HelmComposer {...args} onSend={fn()} />
+    </div>
+  );
+}
+
+/** The ask box grows with what is typed, stops at half the height of the dock it sits in, and scrolls past that. */
+export const GrowsToHalf: Story = {
+  args: BOXED,
+  render: (args) => <GrowingDock {...args} />,
+  play: async ({ canvas, canvasElement, userEvent }) => {
+    const field = canvas.getByRole("textbox", { name: "Ask Helm" });
+    const dock = canvasElement.querySelector(".armada-glass")!;
+    const rest = field.getBoundingClientRect().height;
+    await userEvent.type(field, "one{Shift>}{Enter}{/Shift}two{Shift>}{Enter}{/Shift}three{Shift>}{Enter}{/Shift}four");
+    const grown = field.getBoundingClientRect().height;
+    await expect(grown).toBeGreaterThan(rest);
+    await expect(grown).toBeLessThan(dock.clientHeight / 2);
+    await userEvent.type(field, "{Shift>}{Enter}{/Shift}m".repeat(14));
+    await expect(field.getBoundingClientRect().height).toBeLessThanOrEqual(dock.clientHeight / 2 + 1);
+    await expect(field.scrollHeight).toBeGreaterThan(field.clientHeight);
+  },
+};
+
+/** `/` lists the commands the host names, by name, and choosing one writes it in. No permission mode is offered beside the model and effort. */
+export const SlashListsTheNames: Story = {
+  args: BOXED,
+  play: async ({ canvas, userEvent }) => {
+    const field = canvas.getByRole("textbox", { name: "Ask Helm" });
+    await userEvent.type(field, "/sim");
+    await userEvent.click(await canvas.findByRole("option", { name: /\/simplify/ }));
+    await expect(field).toHaveTextContent("/simplify");
+    await expect(canvas.queryByRole("combobox", { name: "Permission mode" })).not.toBeInTheDocument();
+  },
+};
+
+/** The model and effort are the conversation's, each with Auto, and a pick is handed up whole. */
+export const ModelAndEffortAreTuned: Story = {
+  args: { ...BOXED, box: { ...FULL, model: "sonnet" } },
+  play: async ({ args, canvas, userEvent }) => {
+    await expect(canvas.getByRole("combobox", { name: "Model" })).toHaveValue("sonnet");
+    await userEvent.selectOptions(canvas.getByRole("combobox", { name: "Effort" }), "high");
+    await expect(args.box!.onTune).toHaveBeenCalledWith({ model: "sonnet", effort: "high" });
+  },
+};
+
+/**
+ * `#` offers the repository's open issues and pull requests by number, and a chosen one is sent with its kind and
+ * the forge's address, which the line in the box does not show.
+ */
+export const HashTagsAnIssueWithItsAddress: Story = {
+  args: BOXED,
+  play: async ({ args, canvas, userEvent }) => {
+    const field = canvas.getByRole("textbox", { name: "Ask Helm" });
+    await userEvent.type(field, "see #21");
+    const list = await canvas.findByRole("listbox", { name: "Tag an issue or pull request" });
+    await expect(within(list).getAllByRole("option")).toHaveLength(2);
+    await userEvent.click(within(list).getByRole("option", { name: /Sessions list drops a quiet Session/ }));
+    await userEvent.type(field, "is it this?{Enter}");
+    await expect(args.onSend).toHaveBeenCalledWith({
+      text: "see @#214 Sessions list drops a quiet Session is it this?",
+      files: [],
+      tags: [{ kind: "issue", id: "214", title: "#214 Sessions list drops a quiet Session", url: "https://forge.invalid/issues/214" }],
+    });
+  },
+};
+
+/** A number that is not open is looked up once it rests, offered with where it stands, and still tags. */
+export const HashLooksANumberUp: Story = {
+  args: BOXED,
+  play: async ({ args, canvas, userEvent }) => {
+    await userEvent.type(canvas.getByRole("textbox", { name: "Ask Helm" }), "#207");
+    const merged = await canvas.findByRole("option", { name: /Stop the Drone count drifting/ });
+    await expect(merged).toHaveTextContent("Merged");
+    await userEvent.click(merged);
+    await userEvent.keyboard("{Enter}");
+    await expect(args.onSend).toHaveBeenCalledWith(expect.objectContaining({ tags: [expect.objectContaining({ kind: "pull_request", id: "207", url: "https://forge.invalid/pull/207" })] }));
+  },
+};
+
+/** A picture alone is a message: with no words and a file waiting, Send is on and the words go blank. */
+export const AFileAloneSends: Story = {
+  args: BOXED,
+  play: async ({ args, canvas, userEvent }) => {
+    const clipboard = new DataTransfer();
+    clipboard.items.add(new File(["png"], "Screenshot.png", { type: "image/png" }));
+    canvas.getByRole("textbox", { name: "Ask Helm" }).dispatchEvent(new ClipboardEvent("paste", { clipboardData: clipboard, bubbles: true, cancelable: true }));
+    // In the narrow box what waits moves to a row of its own above the bar, so it is found by its name.
+    await expect(await canvas.findByText("Screenshot.png")).toBeInTheDocument();
+    await expect(canvas.getByRole("button", { name: "Send" })).toBeEnabled();
+    await userEvent.click(canvas.getByRole("button", { name: "Send" }));
+    await expect(args.onSend).toHaveBeenCalledWith({ text: "", files: [expect.objectContaining({ name: "Screenshot.png" })], tags: [] });
   },
 };
 

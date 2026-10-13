@@ -191,6 +191,7 @@ const tagOf = (tag: WireTag): SessionTag => ({
   kind: tag.kind,
   id: tag.id,
   title: tag.title,
+  ...(tag.url === undefined ? {} : { url: tag.url }),
   ...(tag.job === undefined ? {} : { job: { ...tag.job, state: jobStateOf(tag.job.state) } }),
 });
 

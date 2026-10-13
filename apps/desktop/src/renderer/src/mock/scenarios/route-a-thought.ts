@@ -6,13 +6,14 @@
 // plays it. The reading is the mock's own (`mock/thought-reading.ts`), and the words sent on are
 // kept in Helm's thread as Fleet keeps them.
 
-import type { HelmThreadItem, RepositorySummary } from "@armada/protocol";
+import type { HelmBoxFacts, HelmThreadItem, RepositorySummary, SessionTag, SessionUpload } from "@armada/protocol";
 import { repository } from "@armada/screens/src/fixtures/build/base";
 import { escalatedGateFailure } from "@armada/screens/src/fixtures/build/escalated";
 import { featureRunning } from "@armada/jobs/fake";
 import type { JobFixture } from "@armada/screens/src/fixtures/fixture";
 
 import { asRow, holding } from "../holding";
+import { unanswered } from "../moment";
 import type { FleetHandle, Scenario } from "../moment";
 import { FakeSessionsFleet, held, hosted, pullRequest } from "../sessions-fleet";
 import { readAfterPause } from "../thought-reading";
@@ -50,6 +51,25 @@ const of = (manifest: string, attachment: ReturnType<typeof held>) => ({ ...atta
 
 /** What `/` offers in a message box: the agent's own skills and commands, as its init line names them. */
 const COMMANDS = ["review", "simplify", "security-review", "init", "compact", "clear", "model"];
+
+/** What Helm's box offers in this scenario: no model or effort picked, and the same commands a Session lists. */
+export const HELM_FACTS: HelmBoxFacts = { commands: COMMANDS };
+
+/** The files Helm's messages carried, by conversation and id, as Fleet keeps them for `get_helm_file`. */
+export const KEPT_FILES = new Map<string, { bytes: Uint8Array; type: string }>();
+let fileCounter = 0;
+
+/** What an ask carried, as the `asked` row of the thread keeps it: each upload kept, and the tags as sent. */
+export function carriedBy(manifestId: string, carry: { attachments?: SessionUpload[]; mentions?: SessionTag[] } | undefined): Pick<Extract<HelmThreadItem, { kind: "asked" }>, "files" | "tags"> {
+  const files = (carry?.attachments ?? []).map((upload) => {
+    fileCounter += 1;
+    const id = `file-${fileCounter}`;
+    KEPT_FILES.set(`${manifestId}\n${id}`, { bytes: Uint8Array.from(atob(upload.data), (one) => one.charCodeAt(0)), type: upload.media_type });
+    return { id, name: upload.name, media_type: upload.media_type };
+  });
+  const tags = carry?.mentions ?? [];
+  return { ...(files.length === 0 ? {} : { files }), ...(tags.length === 0 ? {} : { tags }) };
+}
 
 const records = () => [
   hosted("01LISTVIEWSAAAAAAAAAAAAAAA", {
@@ -101,7 +121,7 @@ const REPLY = [
 ].join("\n\n");
 
 /** Items added to Helm's thread, after the ones it holds: each takes the next id. */
-function appended(
+export function appended(
   handle: FleetHandle,
   manifestId: string,
   ...items: ((id: string) => HelmThreadItem)[]
@@ -116,6 +136,7 @@ function appended(
       skipped: 0,
       missed: 0,
       items: [...was, ...items.map((item, at) => item(String(was.length + at)))],
+      facts: held.state === "open" ? held.facts : HELM_FACTS,
     },
   });
 }
@@ -131,7 +152,7 @@ function build(): Scenario {
     state: {
       ...base.state,
       holds: { ...base.state.holds, repositories: SERVED, manifests: SERVED.flatMap((one) => (one.manifest === undefined ? [] : [one.manifest])) },
-      helm: { state: "open", manifestId: "armada", replying: false, skipped: 0, missed: 0, items: [] },
+      helm: { state: "open", manifestId: "armada", replying: false, skipped: 0, missed: 0, items: [], facts: HELM_FACTS },
     },
   };
   const fleet = new FakeSessionsFleet(records(), {});
@@ -150,13 +171,18 @@ function build(): Scenario {
         appended(handle, manifestId, (id) => ({ kind: "sent", id, ts: now(), text, target }));
         return { ok: true };
       },
+      // A picture a message carried, read back for the thread's thumbnail.
+      readHelmFile: async (manifestId, file) => {
+        const kept = KEPT_FILES.get(`${manifestId}\n${file}`);
+        return kept === undefined ? { ok: false, outcome: unanswered("/helm/file") } : { ok: true, ...kept };
+      },
       // Helm's reply is Fleet's to write; the mock gives the one answer the walk asks for.
-      askHelm: async (text) => {
+      askHelm: async (text, _context, carry) => {
         const at = now();
         appended(
           handle,
           "armada",
-          (id) => ({ kind: "asked", id, ts: at, text }),
+          (id) => ({ kind: "asked", id, ts: at, text, ...carriedBy("armada", carry) }),
           (id) => ({ kind: "row", id, turn: { ts: at, seq: Number(id), by: "drone", saw: { event: "said", text: REPLY } } }),
           (id) => ({ kind: "row", id, turn: { ts: at, seq: Number(id), by: "drone", saw: { event: "ended", turns: 2, cost_micros: 14_200, refusals: 0 } } }),
         );

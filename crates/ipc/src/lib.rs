@@ -300,9 +300,9 @@ pub use explaining::CommandExplained;
 pub use files::FilesFound;
 pub use health::{FleetHealth, HelmActionAuthority, Probe, Unprobed};
 pub use helm::{
-    AskHelm, Blank, Freshness, HelmAsked, HelmChangedCheckout, HelmClosed, HelmContext,
-    HelmConversation, HelmFresh, HelmMessage, HelmOpened, HelmScreen, HelmSilence, HelmText,
-    HelmUnanswered,
+    AskHelm, Freshness, HelmAsked, HelmBoxFacts, HelmChangedCheckout, HelmClosed, HelmContext,
+    HelmConversation, HelmFresh, HelmMessage, HelmOpened, HelmScreen, HelmSilence, HelmUnanswered,
+    TuneHelm,
 };
 pub use thought::{
     HelmSent, HelmThoughtRouted, ReadThought, TellSession, ThoughtKind, ThoughtReading,
@@ -331,7 +331,7 @@ pub use ids::{
     CriterionId, DroneId, Instant, JobId, ManifestId, ProposalId, QuestionId, StepId, StudioEdgeId,
     StudioId, StudioNodeId, WorkflowId,
 };
-pub use issues::{IssueList, TrackedIssue};
+pub use issues::{IssueList, IssueRead, IssueState, TrackedIssue};
 pub use job::{
     AttachmentRef, DependencyEdge, JobForgotten, JobList, JobRequest, JobSummary, Paused,
     ProposeJob, ProposedCriterion, ProposedPlan, Redirection, Redispatched, RestartRequested,

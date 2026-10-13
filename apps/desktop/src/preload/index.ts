@@ -35,7 +35,8 @@ import type { AnswerSessionAsk, AnswerWaiting, ClaimPullRequest, DismissWaiting,
 import type { ArtifactRead, PageBounds } from "@armada/screens/src/draft/sessions";
 import type { PilotExit, PullRequestPress, SessionActed } from "../shared/api/sessions";
 import type { SleepActed } from "../shared/api/sleep";
-import type { IssuesRead } from "../shared/api/issues";
+import type { IssueNumberRead, IssuesRead, PullRequestNumberRead } from "../shared/api/issues";
+import type { HelmCarry, HelmTuned } from "../shared/api/helm";
 import type { HelmContext, HelmDebugRead, ThoughtRead, ThoughtTarget } from "@armada/protocol";
 import type { StudioCapture, StudioNodeByHand, StudioPosition, StudioPromotion } from "@armada/protocol";
 import type { StudioAnswer } from "@armada/screens/src/studio-reads";
@@ -637,6 +638,9 @@ const api: BridgeApi = {
   getSleep: (): Promise<SleepActed> => ipcRenderer.invoke(CHANNELS.getSleep),
   // A repository's open issues, by its Manifest (#91), and the Autopilot that works them (#2092).
   listIssues: (manifestId: string, refresh: boolean): Promise<IssuesRead> => ipcRenderer.invoke(CHANNELS.listIssues, manifestId, refresh),
+  getIssue: (manifestId: string, number: number): Promise<IssueNumberRead> => ipcRenderer.invoke(CHANNELS.getIssue, manifestId, number),
+  getPullRequest: (manifestId: string, number: number): Promise<PullRequestNumberRead> =>
+    ipcRenderer.invoke(CHANNELS.getPullRequest, manifestId, number),
   ...autopilotPreload,
   setSleep: (on: boolean): Promise<SleepActed> => ipcRenderer.invoke(CHANNELS.setSleep, on),
   overrideSleep: (id: string, text: string): Promise<SleepActed> => ipcRenderer.invoke(CHANNELS.overrideSleep, id, text),
@@ -898,8 +902,12 @@ const api: BridgeApi = {
     };
   },
 
-  askHelm: (text: string, context?: HelmContext): Promise<Outcome> =>
-    ipcRenderer.invoke(CHANNELS.askHelm, text, context),
+  askHelm: (text: string, context?: HelmContext, carry?: HelmCarry): Promise<Outcome> =>
+    ipcRenderer.invoke(CHANNELS.askHelm, text, context, carry),
+  tuneHelm: (manifestId: string | undefined, model: string | null, effort: string | null): Promise<HelmTuned> =>
+    ipcRenderer.invoke(CHANNELS.tuneHelm, manifestId, model, effort),
+  readHelmFile: (manifestId: string, file: string): Promise<FrameRead> =>
+    ipcRenderer.invoke(CHANNELS.readHelmFile, manifestId, file),
   helmDebugInfo: (): Promise<HelmDebugRead> => ipcRenderer.invoke(CHANNELS.helmDebugInfo),
   readThought: (text: string): Promise<ThoughtRead> => ipcRenderer.invoke(CHANNELS.readThought, text),
   recordThoughtSent: (manifestId: string, text: string, target: ThoughtTarget): Promise<Outcome> =>

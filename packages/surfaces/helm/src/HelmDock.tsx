@@ -25,6 +25,8 @@ import type {
   HelmDebugRead,
   JobSummary,
   RepositorySummary,
+  SentFile,
+  SessionTag,
   WorkflowSummary,
 } from "@armada/protocol";
 import { helmRowsOf, type HelmApprovalAsk, type HelmFoldedRow } from "./helm-thread";
@@ -32,6 +34,14 @@ import type { HelmState } from "./api";
 import { locationOf, type StudioNamed } from "./helm-context";
 import { recentManifestIds } from "./recent-manifests";
 import { routeTargetOf, type RouteTarget, type ThoughtCarry, type ThoughtReading, type ThoughtRouting } from "./thought-routing";
+
+/** What a window knows of the files its messages carried, which Fleet keeps and a row names by id. */
+export type HelmKept = {
+  /** A picture's address, once the window has read it. The first ask starts the read, and the dock is drawn again when it lands. */
+  picture: (fileId: string) => string | undefined;
+  /** The sketch a sent file was drawn from, where this window drew it. A file from before a reload is a picture. */
+  sketch: (fileName: string) => { id: string; title: string } | undefined;
+};
 
 export type HelmDockProps = {
   helm: HelmState["helm"];
@@ -43,7 +53,13 @@ export type HelmDockProps = {
   /** The open Job's chip, while it stands — `App.tsx`'s own state. #1075. */
   chip?: HelmComposerChip;
   onRemoveChip?: () => void;
-  onAsk: (text: string, context: HelmContext) => void;
+  /**
+   * Words for Helm. `carry` is what went with them and is left out when nothing did; **the words may be
+   * blank when it is given**. The window turns it into what the wire takes.
+   */
+  onAsk: (text: string, context: HelmContext, carry?: ThoughtCarry) => void;
+  /** How a sent row draws the files it carried. Absent, a picture is a name and not a thumbnail. */
+  kept?: HelmKept;
   /** Where the person is, assembled by `App.tsx`. Sent with every ask, unchanged here. #1075. */
   context: HelmContext;
   /** The open Studio and its selected node, by name, for the footer. #1287. */
@@ -107,6 +123,7 @@ export function HelmDock({
   chip,
   onRemoveChip,
   onAsk,
+  kept,
   context,
   studio,
   onSwitch,
@@ -119,7 +136,7 @@ export function HelmDock({
   box,
   refs,
 }: HelmDockProps) {
-  // What each message went with, for the thread's row to draw: Fleet's row for an ask carries words alone.
+  // What a thought sent on to a Session went with: Fleet's row for it carries the words and the target alone.
   const [carried, setCarried] = useState<{ text: string; carry: ThoughtCarry }[]>([]);
   const [thoughts, setThoughts] = useState<Thought[]>([]);
   // The thought in front is the oldest one still held; the rest wait their turn behind it.
@@ -146,7 +163,9 @@ export function HelmDock({
   }
   const folded = helm.state === "open" || helm.state === "failed" ? helmRowsOf(helm.items) : [];
   const rows: HelmThreadRow[] = withCarry(
-    folded.map((row) => withCards(row, jobs, workflows, pressed, onApprove, setPressed, repositories, routing)),
+    folded.map(({ files, tags, ...row }) =>
+      withKept(withCards(row, jobs, workflows, pressed, onApprove, setPressed, repositories, routing), files, tags, kept),
+    ),
     carried,
   );
   const replying = helmReplying(helm);
@@ -185,6 +204,13 @@ export function HelmDock({
     );
   }
 
+  /** Words for Helm, with what went with them when something did. */
+  function ask(text: string, carry: ThoughtCarry): void {
+    const goes = onlyIfCarried(carry);
+    if (goes === undefined) onAsk(text, context);
+    else onAsk(text, context, goes);
+  }
+
   function send(sent: SentFromComposer): void {
     const text = sent.text.trim();
     const carry: ThoughtCarry = { files: sent.files, tags: sent.tags, sketches: box?.drawn ?? [] };
@@ -192,8 +218,8 @@ export function HelmDock({
     if (text === "" && !goesWith) return;
     // Sketches went with this message and do not wait for the next.
     carry.sketches.forEach((one) => box?.onRemoveDrawn?.(one.id));
-    if (goesWith) setCarried((was) => [...was, { text, carry }]);
-    if (routing === undefined) return onAsk(text, context);
+    // Blank words are not read for where they belong: what they carry goes to Helm.
+    if (routing === undefined || text === "") return ask(text, carry);
     const id = (counted.current += 1);
     held.current.add(id);
     setThoughts((was) => [...was, { id, text, carry, stage: "routing" }]);
@@ -207,7 +233,7 @@ export function HelmDock({
         // **A question never waits behind a card.** It goes to Helm as soon as it is read.
         if (reading.kind === "question") {
           leave(id);
-          onAsk(text, context);
+          ask(text, carry);
         } else {
           change(id, reading.match === undefined ? { id, text, carry, stage: "new" } : { id, text, carry, stage: "match", match: reading.match });
         }
@@ -227,7 +253,7 @@ export function HelmDock({
   /** The words go to Helm as an ordinary message, since the guess at where they belong can be wrong. */
   function askHelm(one: Thought): void {
     leave(one.id);
-    onAsk(one.text, context);
+    ask(one.text, one.carry);
   }
 
   /**
@@ -243,6 +269,7 @@ export function HelmDock({
       .catch(() => false)
       .then((delivered) => {
         delivering.current = false;
+        if (delivered && onlyIfCarried(one.carry) !== undefined) setCarried((was) => [...was, { text: one.text, carry: one.carry }]);
         if (delivered && held.current.has(one.id)) leave(one.id);
       });
   }
@@ -352,16 +379,47 @@ function filled(dock: HTMLElement): boolean {
   return (dock.querySelector('[role="textbox"]')?.textContent ?? "") !== "";
 }
 
+/** What went with a message, or nothing where it went with none. */
+function onlyIfCarried(carry: ThoughtCarry): ThoughtCarry | undefined {
+  return carry.files.length + carry.tags.length + carry.sketches.length === 0 ? undefined : carry;
+}
+
 /**
- * The rows of the messages that went with something, drawn with it. **Matched on the words, newest
- * first**: each entry belongs to the latest row of yours that says them and has none yet.
+ * What a message carried, as its row draws it, from the files and tags Fleet kept on it. **A file this
+ * window drew as a sketch is drawn as the sketch**; any other picture is a thumbnail once it is read.
+ */
+function withKept(
+  row: HelmThreadRow,
+  files: readonly SentFile[] | undefined,
+  tags: readonly SessionTag[] | undefined,
+  kept: HelmKept | undefined,
+): HelmThreadRow {
+  if (files === undefined && tags === undefined) return row;
+  const drawn = (files ?? []).map((file) => ({ file, sketch: kept?.sketch(file.name) }));
+  const sketches = drawn.flatMap((one) => (one.sketch === undefined ? [] : [one.sketch]));
+  const plain = drawn.flatMap((one) => {
+    if (one.sketch !== undefined) return [];
+    const src = one.file.media_type.startsWith("image/") ? kept?.picture(one.file.id) : undefined;
+    return [{ id: one.file.id, name: one.file.name, ...(src === undefined ? {} : { src }) }];
+  });
+  return {
+    ...row,
+    ...(plain.length === 0 ? {} : { files: plain }),
+    ...(sketches.length === 0 ? {} : { sketches }),
+    ...(tags === undefined ? {} : { tags }),
+  };
+}
+
+/**
+ * The rows of the thoughts sent on to a Session, drawn with what went with them. **Matched on the words,
+ * newest first**: each entry belongs to the latest row of that kind that says them and has none yet.
  */
 function withCarry(rows: HelmThreadRow[], carried: readonly { text: string; carry: ThoughtCarry }[]): HelmThreadRow[] {
   if (carried.length === 0) return rows;
   const given = new Map<string, ThoughtCarry>();
   for (let at = carried.length - 1; at >= 0; at -= 1) {
     const one = carried[at]!;
-    const row = [...rows].reverse().find((it) => it.actor === "you" && it.message === one.text && !given.has(it.id));
+    const row = [...rows].reverse().find((it) => it.sent !== undefined && it.message === one.text && !given.has(it.id));
     if (row !== undefined) given.set(row.id, one.carry);
   }
   return rows.map((row) => {
@@ -402,7 +460,7 @@ function whyRecord(read: Extract<HelmDebugRead, { ok: false }>): string {
  * call said. `#1041`.
  */
 function withCards(
-  row: HelmFoldedRow,
+  row: Omit<HelmFoldedRow, "files" | "tags">,
   jobs: readonly JobSummary[],
   workflows: readonly WorkflowSummary[],
   pressed: Record<string, Pressed>,

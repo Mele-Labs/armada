@@ -80,7 +80,6 @@ import {
   resolveFolder,
   addRepository,
   cloneRepository,
-  askHelm,
   helmDebugInfo,
   startHelmFresh,
   pointHelm,
@@ -427,7 +426,7 @@ export function App({ draft }: AppProps = {}) {
   // unambiguously what is in front of you.
   const onWhat = reading ?? state.jobs.find((job) => job.id === cursor);
   const live = state.connection.state === "connected"; const dispatching = useDispatch({ state, repositories, proposeFrom: commands.proposeFrom, openSession, openJob: (jobId) => (goTo(SURFACE.overview), setOpenJob(jobId)), openAutopilot: (root) => (state.repository !== root && pickRepository(root), goTo(SURFACE.overview)), said: setTelling }); // One draft for the Cockpit's bar and the panel grown from the title bar.
-  const helmBox = useHelmBox(state.helm.state === "none" ? undefined : state.helm.manifestId);
+  const helmBox = useHelmBox(state.helm);
   const helmRefs = useHelmRefs({
     state,
     repositories,
@@ -640,7 +639,8 @@ export function App({ draft }: AppProps = {}) {
               live={live}
               chip={chippedJob === undefined ? undefined : { jobHandle: jobNumber(chippedJob), title: chippedJob.title }}
               onRemoveChip={() => setChip(dismissed)}
-              onAsk={(text, context) => void askHelm(text, context)}
+              onAsk={(text, context, carry) => void helmBox.ask(text, context, carry)}
+              kept={helmBox.kept}
               context={helmContext}
               studio={
                 shownStudio === null

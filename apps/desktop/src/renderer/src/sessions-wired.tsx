@@ -16,7 +16,7 @@ import { useEffect, useMemo, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 
 import { EFFORTS } from "@armada/jobs/draft/tuning";
-import type { SessionRunMessage, SessionTag as WireTag } from "@armada/protocol";
+import type { SessionRunMessage } from "@armada/protocol";
 import type { SessionCommand } from "@armada/screens/src/draft/sessions";
 import { refusalWords } from "@armada/screens/src/refusal-words";
 import { askToTell, NOT_REACHABLE } from "./tell";
@@ -33,7 +33,7 @@ import type {
 
 import type { BridgeApi } from "../../shared/api";
 import type { BridgeState } from "../../shared/bridge";
-import { uploadOfFile, uploadOfSketch } from "./session-uploads";
+import { uploadOfFile, uploadOfSketch, wireTagOf } from "./session-uploads";
 import { SessionsFrom } from "./sessions-draft";
 
 const NONE: readonly never[] = [];
@@ -42,14 +42,6 @@ const HELD_WITHIN_MS = 3000;
 type Sketch = Extract<SessionAttachment, { kind: "sketch" }>;
 
 type Inputs = Pick<BridgeState, "sessions" | "sessionThreads" | "jobs" | "holds">;
-
-const wireTagOf = (tag: SessionTag): WireTag => ({
-  // `issue` is not a kind Fleet's `TagKind` has yet; the mock's Fleet takes it as sent.
-  kind: tag.kind as WireTag["kind"],
-  id: tag.id,
-  title: tag.title,
-  ...(tag.job === undefined || tag.job.slot === undefined ? {} : { job: { number: tag.job.number, branch: tag.job.branch, slot: tag.job.slot, state: tag.job.state } }),
-});
 
 /** The store behind one window's Sessions. Exported for a test that holds it without a window. */
 export class WiredStore {

@@ -67,6 +67,10 @@ async fn why(script: &str, budget: Duration) -> String {
                 directory: home_dir,
                 turn: "why did 77 stop".to_string(),
                 resuming: None,
+                pictures: Vec::new(),
+                model: None,
+                effort: None,
+                readable: None,
             },
             &Deaf,
         )

@@ -1,6 +1,6 @@
 //! A Helm conversation's routes, over the same in-memory pipe the other
 //! sockets use: the thread and then what is said after, on one connection; a
-//! blank message refused by the transport; a fresh start closing the socket
+//! message with nothing in it refused as the daemon refuses it; a fresh start closing the socket
 //! saying why; a repository nobody serves refused before the upgrade; and the
 //! record served whole.
 
@@ -71,6 +71,8 @@ async fn one_connection_carries_the_thread_and_then_what_is_asked() {
     *daemon.helm_thread.lock().expect("not poisoned") = vec![HelmMessage::Asked(HelmAsked {
         ts: Instant::carried("2026-09-13T08:00:00.000Z"),
         text: "asked before".to_string(),
+        files: Vec::new(),
+        tags: Vec::new(),
     })];
     let mut socket = connected(app.clone(), "/helm/observe", 8192).await;
 
@@ -97,11 +99,22 @@ async fn one_connection_carries_the_thread_and_then_what_is_asked() {
     assert_eq!(asked.text, "why did it stall?");
 }
 
+/// A blank text decodes now, so refusing a message with nothing in it is the daemon's: a 422, and a
+/// message that carries a file or a tag is taken.
 #[tokio::test]
-async fn a_blank_message_is_refused_by_the_transport() {
+async fn a_message_with_nothing_in_it_is_the_daemons_to_refuse() {
     let (_daemon, app) = wired();
-    let (status, _) = posted(&app, "/helm/ask", r#"{"text":"   "}"#).await;
-    assert_eq!(status, StatusCode::BAD_REQUEST);
+    let (status, body) = posted(&app, "/helm/ask", r#"{"text":"   "}"#).await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert!(String::from_utf8_lossy(&body).contains("fleet.helm_message_empty"));
+
+    let (status, _) = posted(
+        &app,
+        "/helm/ask",
+        r#"{"text":"","attachments":[{"name":"a.txt","media_type":"text/plain","data":"aGk="}]}"#,
+    )
+    .await;
+    assert_eq!(status, StatusCode::ACCEPTED);
 }
 
 #[tokio::test]

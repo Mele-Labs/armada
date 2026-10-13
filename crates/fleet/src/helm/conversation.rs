@@ -31,11 +31,14 @@ impl ConversationKey {
         &self.0
     }
 
-    /// Where its thread is kept. A character a file name should not carry is
-    /// written as `_`, so no key can name a path outside the directory.
-    pub(crate) fn thread_in(&self, records_root: &str) -> PathBuf {
-        let name: String = self
-            .0
+    /// Where what its messages carried is kept, under `attachments_dir`, named as the thread's
+    /// file is so that no key can name a path outside it.
+    pub(crate) fn uploads_in(&self, attachments_dir: &str) -> PathBuf {
+        Path::new(attachments_dir).join("helm").join(self.safe_name())
+    }
+
+    fn safe_name(&self) -> String {
+        self.0
             .chars()
             .map(
                 |c| match c.is_ascii_alphanumeric() || c == '-' || c == '_' {
@@ -43,7 +46,13 @@ impl ConversationKey {
                     false => '_',
                 },
             )
-            .collect();
+            .collect()
+    }
+
+    /// Where its thread is kept. A character a file name should not carry is
+    /// written as `_`, so no key can name a path outside the directory.
+    pub(crate) fn thread_in(&self, records_root: &str) -> PathBuf {
+        let name = self.safe_name();
         Path::new(records_root)
             .join("helm")
             .join(format!("{name}.jsonl"))
@@ -96,6 +105,8 @@ impl Conversations {
                 waiting: AtomicUsize::new(0),
                 thread: Thread::opened(key.thread_in(records_root)),
                 polled: Mutex::new(None),
+                commands: Mutex::new(Vec::new()),
+                tuned: Mutex::new((None, None)),
             })
         });
         Arc::clone(conversation)
@@ -114,6 +125,12 @@ pub(crate) struct Conversation {
     /// memory for this run of Fleet** — the record says so rather than
     /// claiming the session never polled. `#1367`.
     polled: Mutex<Option<EventsSince>>,
+    /// The commands Helm's own session last said it has. **In memory**: empty until it has
+    /// spoken in this run of Fleet, and `/` offers the Sessions' list meanwhile.
+    commands: Mutex<Vec<String>>,
+    /// The model and effort chosen for this conversation as last read or set, so what a
+    /// listener publishes does not need the store. The store is the record.
+    tuned: Mutex<(Option<String>, Option<String>)>,
 }
 
 impl Conversation {
@@ -135,6 +152,38 @@ impl Conversation {
 
     pub(crate) fn last_poll(&self) -> Option<EventsSince> {
         self.held_poll().clone()
+    }
+
+    /// What Helm's session said it has. `true` where that is a change.
+    pub(crate) fn heard_commands(&self, names: Vec<String>) -> bool {
+        let mut held = self
+            .commands
+            .lock()
+            .expect("the commands are not held across a panic");
+        let changed = *held != names;
+        *held = names;
+        changed
+    }
+
+    pub(crate) fn commands(&self) -> Vec<String> {
+        self.commands
+            .lock()
+            .expect("the commands are not held across a panic")
+            .clone()
+    }
+
+    pub(crate) fn tuned_to(&self, model: Option<String>, effort: Option<String>) {
+        *self
+            .tuned
+            .lock()
+            .expect("the tuning is not held across a panic") = (model, effort);
+    }
+
+    pub(crate) fn tuning(&self) -> (Option<String>, Option<String>) {
+        self.tuned
+            .lock()
+            .expect("the tuning is not held across a panic")
+            .clone()
     }
 
     fn held_poll(&self) -> std::sync::MutexGuard<'_, Option<EventsSince>> {

@@ -11,13 +11,13 @@ use std::future::Future;
 use std::sync::Arc;
 
 use ipc::{
-    AnswerHelmCall, AskHelm, AskingToRun, EventsSince, HelmCallsWaiting, HelmConversation,
-    HelmDebugInfo, ManifestId, ReadThought, RunOrNot, TellSession, ThoughtReading, ThoughtSent,
-    ThoughtTarget,
+    AnswerHelmCall, AskHelm, AskingToRun, EventsSince, HelmBoxFacts, HelmCallsWaiting,
+    HelmConversation, HelmDebugInfo, ManifestId, ReadThought, RunOrNot, TellSession,
+    ThoughtReading, ThoughtSent, ThoughtTarget, TuneHelm,
 };
 
 use crate::conversing::ObservedHelm;
-use crate::daemon::Refusal;
+use crate::daemon::{Refusal, StoredFile};
 
 /// Everything a client does with a Helm conversation.
 pub trait Conversations: Send + Sync + 'static {
@@ -40,6 +40,21 @@ pub trait Conversations: Send + Sync + 'static {
         asked: AskHelm,
         manifest_id: Option<ManifestId>,
     ) -> impl Future<Output = Result<HelmConversation, Refusal>> + Send;
+
+    /// `tune_helm` — set the model and effort the next reply runs on, and tell every watcher.
+    /// [`Refusal::Unacceptable`] for an effort that is not `low`, `medium` or `high`.
+    fn tune_helm(
+        &self,
+        tuned: TuneHelm,
+        manifest_id: Option<ManifestId>,
+    ) -> impl Future<Output = Result<HelmBoxFacts, Refusal>> + Send;
+
+    /// `get_helm_file` — what a message to Helm carried, by its `SentFile.id`.
+    fn get_helm_file(
+        &self,
+        manifest_id: Option<ManifestId>,
+        file: String,
+    ) -> impl Future<Output = Result<StoredFile, Refusal>> + Send;
 
     /// `get_helm_debug_info` — the session as one quotable record, taken at
     /// this moment. `#1367`. [`Refusal::Unacceptable`] where Fleet serves no

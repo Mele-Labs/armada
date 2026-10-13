@@ -213,6 +213,8 @@ export type SessionTag = {
   kind: "session" | "job" | "pull_request" | "branch" | "issue";
   id: string;
   title: string;
+  /** The forge's address of an issue or a pull request. */
+  url?: string;
   /** `slot` is absent where the Job's own slot is not known to the window: Fleet holds it on the Job. */
   job?: { number: number; branch: string; slot?: number; state: SessionJobState };
 };

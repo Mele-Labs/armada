@@ -64,6 +64,8 @@ mod gate_manifests;
 mod groups;
 /// The session each Helm conversation resumes, one row per conversation.
 mod helm_sessions;
+/// The model and effort a person chose for a Helm conversation.
+mod helm_tuning;
 /// What a session Fleet hosts keeps beside its ledger row, and its thread.
 mod hosted_sessions;
 mod session_checks;

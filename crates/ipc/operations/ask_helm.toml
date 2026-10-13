@@ -6,7 +6,9 @@ description = "Say something to one repository's Helm, answered at once while th
 notes = """
 **202, and the reply is not in the answer.** Fleet takes the message and answers with whether the next message resumes a session; the reply is written on `observe_helm`. A message sent while a reply is being written waits its turn rather than being refused.
 
-**Resume, not keep-alive.** One process per message, exiting once it has answered; the next message resumes the stored session by id, after an idle exit, a Fleet restart or a reboot. A session the agent no longer has is forgotten and started again, and the thread is told so with `fresh`. A blank message does not decode.
+**Resume, not keep-alive.** One process per message, exiting once it has answered; the next message resumes the stored session by id, after an idle exit, a Fleet restart or a reboot. A session the agent no longer has is forgotten and started again, and the thread is told so with `fresh`. 
+
+**What a message may carry.** `text` may be blank where `attachments` (`SessionUpload`: `name`, `media_type`, base64 `data`) or `mentions` (`SessionTag`, `@` and `#`) carry it; a message with none of the three is refused with a 422 `fleet.helm_message_empty`. A picture reaches Helm as a picture and any other file as an `Attached file:` path it can read; the tags become one line ahead of the words, and the thread's `asked` row keeps the words as typed with `files` and `tags`. Uploads are refused as a Session's are, 422 `fleet.session_attachment_refused`. A file is read back with `get_helm_file`.
 
 `agent_access` is `No`: a session must not drive another session.
 """

@@ -184,7 +184,8 @@ import type {
 import type { AnswerSessionAsk, AnswerWaiting, ClaimPullRequest, DismissWaiting, PilotOutcome, PullRequestClaimed, PullRequestState, RenameSession, ReviewDispatched, SendSessionMessage, SessionRow, SessionRunMessage, SessionRunUnderway, SessionSubagent, TuneSession } from "@armada/protocol";
 import type { PilotExit, PullRequestPress, SessionActed, SessionsRead } from "./api/sessions";
 import type { SleepActed } from "./api/sleep";
-import type { IssuesRead } from "./api/issues";
+import type { IssueNumberRead, IssuesRead, PullRequestNumberRead } from "./api/issues";
+import type { HelmCarry, HelmTuned } from "./api/helm";
 import type { RequestRepositoryRead } from "./api/jobs";
 import { AUTOPILOT_CHANNELS, type AutopilotApi } from "./api/autopilot";
 import type { SleepState } from "@armada/protocol";
@@ -455,7 +456,9 @@ type OldBridgeApi = {
     openRemarkLink: (jobId: string, remarkId: string) => Promise<Followed>;
     onSummoned: (onGo: (to: Summons) => void) => () => void;
     onHistory: (onStep: (step: HistoryStep) => void) => () => void;
-    askHelm: (text: string, context?: HelmContext) => Promise<Outcome>;
+    askHelm: (text: string, context?: HelmContext, carry?: HelmCarry) => Promise<Outcome>;
+    tuneHelm: (manifestId: string | undefined, model: string | null, effort: string | null) => Promise<HelmTuned>;
+    readHelmFile: (manifestId: string, file: string) => Promise<FrameRead>;
     helmDebugInfo: () => Promise<HelmDebugRead>;
     readThought: (text: string) => Promise<ThoughtRead>;
     recordThoughtSent: (manifestId: string, text: string, target: ThoughtTarget) => Promise<Outcome>;
@@ -472,6 +475,8 @@ type OldBridgeApi = {
     dismissWaiting: (dismiss: DismissWaiting) => Promise<SessionActed>;
     getSleep: () => Promise<SleepActed>;
     listIssues: (manifestId: string, refresh: boolean) => Promise<IssuesRead>;
+    getIssue: (manifestId: string, number: number) => Promise<IssueNumberRead>;
+    getPullRequest: (manifestId: string, number: number) => Promise<PullRequestNumberRead>;
     setSleep: (on: boolean) => Promise<SleepActed>;
     overrideSleep: (id: string, text: string) => Promise<SleepActed>;
     reviewSleep: (id: string) => Promise<SleepActed>;
@@ -719,6 +724,8 @@ const OLD_CHANNELS = {
     history: "bridge:history",
     readComposing: "bridge:read-composing",
     askHelm: "bridge:ask-helm",
+    tuneHelm: "bridge:tune-helm",
+    readHelmFile: "bridge:read-helm-file",
     helmDebugInfo: "bridge:helm-debug-info",
     readThought: "bridge:read-thought",
     recordThoughtSent: "bridge:record-thought-sent",
@@ -771,6 +778,8 @@ const OLD_CHANNELS = {
     dismissWaiting: "bridge:dismiss-waiting",
     getSleep: "bridge:get-sleep",
     listIssues: "bridge:list-issues",
+    getIssue: "bridge:get-issue",
+    getPullRequest: "bridge:get-pull-request",
     setSleep: "bridge:set-sleep",
     overrideSleep: "bridge:override-sleep",
     reviewSleep: "bridge:review-sleep",

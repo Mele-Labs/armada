@@ -7,7 +7,7 @@
 // `by` on the wire is read for nothing here and every reply row draws as
 // `helm`.
 
-import type { HelmThreadItem, ThoughtTarget } from "@armada/protocol";
+import type { HelmThreadItem, SentFile, SessionTag, ThoughtTarget } from "@armada/protocol";
 import type { HelmThreadRow } from "@armada/components";
 import { clock } from "@armada/screens/src/duration";
 import { money } from "@armada/screens/src/facts";
@@ -39,8 +39,15 @@ export type HelmApprovalAsk = { id: string; jobId: string };
 /**
  * `helmRowsOf`'s own row shape: `HelmThreadRow` with `cards` — which only a caller holding `BridgeState.jobs` can resolve — replaced by the bare asks it would resolve into,
  * and `sent`, whose repository's name and whose opening are the dock's, replaced by the wire's target.
+ * `files` and `tags` are the wire's too: a picture's address is the window's to read, so the dock draws them.
  */
-export type HelmFoldedRow = Omit<HelmThreadRow, "cards" | "sent"> & { asks?: HelmApprovalAsk[]; sent?: ThoughtTarget };
+export type HelmFoldedRow = Omit<HelmThreadRow, "cards" | "sent" | "files" | "tags"> & {
+  asks?: HelmApprovalAsk[];
+  sent?: ThoughtTarget;
+  /** What the person's message carried, kept by Fleet. */
+  files?: SentFile[];
+  tags?: SessionTag[];
+};
 
 /**
  * Every item, folded to rows — or nothing, for what a chat has no use for.
@@ -77,7 +84,14 @@ export function helmRowsOf(items: readonly HelmThreadItem[]): HelmFoldedRow[] {
   for (const item of items) {
     if (item.kind === "asked") {
       flush();
-      rows.push({ id: item.id, at: clock(item.ts), actor: "you", message: item.text });
+      rows.push({
+        id: item.id,
+        at: clock(item.ts),
+        actor: "you",
+        message: item.text,
+        ...(item.files === undefined || item.files.length === 0 ? {} : { files: item.files }),
+        ...(item.tags === undefined || item.tags.length === 0 ? {} : { tags: item.tags }),
+      });
       continue;
     }
     if (item.kind === "sent") {

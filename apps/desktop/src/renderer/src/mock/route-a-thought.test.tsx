@@ -21,10 +21,10 @@ const REFUSAL: Outcome = {
   error: { code: "fleet.redirect_refused", message: SAID, run_id: "mock", fields: {}, chain: [] },
 };
 
-/** Type a message in Helm's box and send it with ⌘↵, as the walk does. */
+/** Type a message in Helm's box and send it with ↵, as the walk does. */
 async function say(words: string): Promise<void> {
   await box().fill(words);
-  await userEvent.keyboard("{Meta>}{Enter}{/Meta}");
+  await userEvent.keyboard("{Enter}");
 }
 
 /** The mock's own reading, replaced by this one so the test does not wait on the pause or on its scoring. */

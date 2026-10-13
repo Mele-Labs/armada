@@ -39,4 +39,10 @@ pub(super) const ROUTES: &[Route] = &[
         method: "GET",
         path: "/issues/:repository",
     },
+    // One issue by number, closed ones included, for a # that names one the list does not hold.
+    Route {
+        operation: "get_issue",
+        method: "GET",
+        path: "/issues/:repository/:number",
+    },
 ];

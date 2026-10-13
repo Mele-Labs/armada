@@ -20,7 +20,7 @@ use axum::body::Body;
 use axum::http::Request;
 use axum::Router;
 use http_body_util::BodyExt;
-use ipc::{AskHelm, CreateStudio, HelmText, RunId};
+use ipc::{AskHelm, CreateStudio, RunId};
 use testkit::{FakeHarness, FakeVcs, FakeWorkProduct};
 use tower::ServiceExt;
 
@@ -277,7 +277,9 @@ impl Held {
     /// Ask, and wait for every answer the stand-in was given.
     async fn asked(&mut self, text: &str) -> Vec<String> {
         let ask = AskHelm {
-            text: HelmText::said(text).expect("not blank"),
+            text: text.to_string(),
+            attachments: Vec::new(),
+            mentions: Vec::new(),
             context: None,
         };
         Arc::clone(&self.fleet)

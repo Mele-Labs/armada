@@ -11,11 +11,10 @@
 //! for as long as a viewer holds it, and `closed` is sent only when a person
 //! starts fresh and the thread it was showing is gone.
 
-use core::fmt;
-
 use serde::{Deserialize, Serialize};
 
 use crate::event::Missed;
+use crate::hosted_sessions::{SentFile, SessionTag, SessionUpload};
 use crate::ids::{Instant, JobId, ManifestId, StudioId, StudioNodeId};
 use crate::protocol_id::ProtocolId;
 use crate::turn::Shown;
@@ -23,7 +22,15 @@ use crate::turn::Shown;
 /// `POST /helm/ask` — what a person says to Helm.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AskHelm {
-    pub text: HelmText,
+    /// What the person typed. **May be blank** where `attachments` or `mentions` carry the
+    /// message; Fleet refuses one with none of the three.
+    pub text: String,
+    /// Pictures and files sent with the message, as a Session's send carries them.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub attachments: Vec<SessionUpload>,
+    /// What `@` and `#` named. Fleet writes the line that tells Helm; the thread keeps the words.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub mentions: Vec<SessionTag>,
     /// Where the person is in Bridge. **Optional**, so a Bridge built before
     /// `#1075` still asks — Fleet hands a session this line only where one
     /// arrived. `crates/fleet/src/helm/serving.rs` reads it; the thread's
@@ -81,45 +88,29 @@ pub enum HelmScreen {
     JobDetail,
 }
 
-/// A message with something in it. **Blank does not decode**, so an empty
-/// message is the transport's 400 and never a session started for nothing.
+/// `POST /helm/tune` — what Helm's next reply runs on. An absent model or effort is the
+/// machine's own, and a blank string counts as absent.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(try_from = "String", into = "String")]
-pub struct HelmText(String);
-
-impl HelmText {
-    /// `None` where the text is blank.
-    pub fn said(text: &str) -> Option<HelmText> {
-        (!text.trim().is_empty()).then(|| HelmText(text.to_string()))
-    }
-
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
+pub struct TuneHelm {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model: Option<String>,
+    /// `low`, `medium` or `high`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub effort: Option<String>,
 }
 
-/// A message that was only whitespace.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Blank;
-
-impl fmt::Display for Blank {
-    fn fmt(&self, out: &mut fmt::Formatter<'_>) -> fmt::Result {
-        out.write_str("a message to Helm has nothing in it")
-    }
-}
-
-impl TryFrom<String> for HelmText {
-    type Error = Blank;
-
-    fn try_from(text: String) -> Result<HelmText, Blank> {
-        HelmText::said(&text).ok_or(Blank)
-    }
-}
-
-impl From<HelmText> for String {
-    fn from(text: HelmText) -> String {
-        text.0
-    }
+/// What Helm's message box offers and runs on. Sent whole on `opened` and again as `facts`
+/// whenever it changes; **never kept in the thread**, so a replay carries none.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HelmBoxFacts {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub effort: Option<String>,
+    /// The commands the agent said it has, for `/` to offer: Helm's own once it has spoken,
+    /// otherwise the last any Session read.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub commands: Vec<String>,
 }
 
 /// What `ask_helm` and `start_helm_fresh` answer with. **Not the reply**, which
@@ -152,6 +143,9 @@ pub enum HelmMessage {
     /// These words went to a Session or a Job and never to Helm's session. Since a thought was
     /// routed: `crate::thought`.
     Sent(crate::thought::HelmSent),
+    /// What the message box offers and runs on, now. **Live only**: offered to whoever is
+    /// watching, never held in the backfill and never written to the thread's file.
+    Facts(HelmBoxFacts),
     /// This viewer fell behind and lost messages.
     Missed(Missed),
     /// Nothing more on this connection, and why.
@@ -166,12 +160,20 @@ pub struct HelmOpened {
     pub replying: bool,
     /// Older messages the thread left out, because the backfill is bounded.
     pub skipped: u64,
+    /// What the message box offers and runs on as this opened. Always present, and `{}` when
+    /// there is nothing to say.
+    pub facts: HelmBoxFacts,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct HelmAsked {
     pub ts: Instant,
     pub text: String,
+    /// What the message carried, kept by Fleet and read with `get_helm_file`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub files: Vec<SentFile>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub tags: Vec<SessionTag>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

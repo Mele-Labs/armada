@@ -7,7 +7,13 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
  * What `@` tags: another Session, a Job, a pull request or a branch. **`#` tags an issue or a pull
  * request by its number**; its `id` is the number and its `title` leads with it, `#214 The title`.
  */
-export type ComposerTag = { kind: "session" | "job" | "pull_request" | "branch" | "issue"; id: string; title: string };
+export type ComposerTag = {
+  kind: "session" | "job" | "pull_request" | "branch" | "issue";
+  id: string;
+  title: string;
+  /** The forge's address of an issue or a pull request, sent with it. */
+  url?: string;
+};
 
 export const TAG_GLYPH: Record<ComposerTag["kind"], LucideIcon> = {
   session: SquareTerminal,
@@ -44,7 +50,7 @@ export function InlineTag({ tag, atomic = false, onOpen }: { tag: ComposerTag; a
   return (
     <span
       className="armada-inline-tag"
-      {...(atomic ? { contentEditable: false, "data-tag-kind": tag.kind, "data-tag-id": tag.id, "data-tag-title": tag.title } : {})}
+      {...(atomic ? { contentEditable: false, "data-tag-kind": tag.kind, "data-tag-id": tag.id, "data-tag-title": tag.title, ...(tag.url === undefined ? {} : { "data-tag-url": tag.url }) } : {})}
     >
       <Glyph size={12} strokeWidth={2} aria-hidden />
       {tag.title}

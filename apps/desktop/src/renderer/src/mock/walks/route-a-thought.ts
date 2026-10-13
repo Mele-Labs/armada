@@ -55,7 +55,8 @@ const routeAThought = walk("route-a-thought", [
   // (e) A question: Helm answers, and no card is drawn.
   { type: "why did Job 12 fail?", into: box, say: "A question for Helm" },
   { key: "Enter", on: box, say: "Sent" },
-  { look: inside(helm, text("Job 12 stopped on step 4 of 6")), say: "Helm's reply, as for any ask. No card" },
+  // "Job 12" is a link to the Job, so the reply's sentence is read from the words after it.
+  { look: inside(helm, text("stopped on step 4 of 6")), say: "Helm's reply, as for any ask. No card" },
 ]);
 
 export { routeAThought as "route-a-thought" };

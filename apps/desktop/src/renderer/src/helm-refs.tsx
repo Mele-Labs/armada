@@ -9,7 +9,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import type { NumberedHit, ProseReference, ProseReferences } from "@armada/components";
-import { scanRefs } from "@armada/helm";
+import { branchOfPullRequest, scanRefs } from "@armada/helm";
 import type { RefWorld } from "@armada/helm";
 import type { RepositorySummary } from "@armada/protocol";
 
@@ -63,20 +63,12 @@ export function useHelmRefs({ state, repositories, openSession, openJob, openPul
       numbered: known.flatMap((one) => (one.tag.kind === "issue" || one.tag.kind === "pull_request" ? [{ kind: one.tag.kind, number: one.tag.id, title: one.tag.title }] : [])),
     };
     const line = state.mergeLines?.lines.find((one) => one.root === root);
-    const branchOf = (number: string): string | undefined => {
-      const at = Number(number);
-      return (
-        line?.hub?.pull_requests?.find((one) => one.number === at)?.branch ??
-        line?.hub?.merged?.find((one) => one.number === at)?.branch ??
-        [...line?.line ?? [], ...line?.landed ?? [], ...line?.sent_back ?? []].find((one) => one.pull_request?.number === at)?.branch
-      );
-    };
     return {
       scan: (text) => scanRefs(text, world),
       open: (ref: ProseReference) => {
         if (ref.kind === "session") openSession(ref.id);
         else if (ref.kind === "job") openJob(ref.id);
-        else if (ref.kind === "pull_request") openPullRequest(branchOf(ref.id));
+        else if (ref.kind === "pull_request") openPullRequest(branchOfPullRequest(line, ref.id));
         else openIssues(root);
       },
     };
