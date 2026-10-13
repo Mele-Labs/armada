@@ -3,9 +3,11 @@
 //! lines; the slot-taking itself stays there and is shared, this adds only
 //! what an existing branch is checked for.
 //!
-//! **A lease never moves a branch.** Whatever the caller asked for, a branch
-//! that exists here or on `origin` is checked out as it stands, and only a
-//! name nothing has is cut from the base.
+//! **A lease never moves a branch away from its work.** Whatever the caller
+//! asked for, a branch that exists here or on `origin` is checked out as it
+//! stands, and only a name nothing has is cut from the base. The one move is
+//! forward: a branch whose tip the base already holds has no commit to lose,
+//! so it is fast-forwarded to the freshly fetched base.
 
 use std::path::PathBuf;
 use std::time::Duration;
