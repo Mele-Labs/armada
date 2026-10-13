@@ -253,6 +253,20 @@ test("Sessions wired: Open in a Session on a stopped Job starts one with the Job
   expect(fleet.calls.sent[0]?.mentions).toMatchObject([{ kind: "job", id: "01JOBSTOPPED", title: "The retry loop" }]);
 });
 
+test("Sessions wired: Open in a Session on All starts in the Job's own repository, so nothing asks", async () => {
+  const fleet = new FakeSessionsFleet();
+  const stopped = job("escalated", { id: "01JOBSTOPPED", handle: "52-the-retry-loop", title: "The retry loop", branch: "fix/retry-loop", owner_manifest_id: "armada" });
+  mount(fleet.scenario(onBoard([stopped], { repositories: [ARMADA] })));
+  await onScreen();
+  await putOffEveryCall();
+  await userEvent.click(page.getByRole("tab", { name: "Active" }));
+  await userEvent.click(page.getByRole("option", { name: /^The retry loop/ }));
+  await userEvent.click(page.getByRole("button", { name: "More for The retry loop" }));
+  await userEvent.click(page.getByRole("menuitem", { name: "Open in a Session" }));
+  await expect.element(page.getByRole("textbox", { name: "Message" })).toBeVisible();
+  expect(fleet.calls.startedIn).toEqual([ARMADA.root]);
+});
+
 test("Sessions wired: a chip on Cleanup's tile names the session that holds its branch, across repositories, and the card opens it", async () => {
   const fleet = new FakeSessionsFleet([
     hosted(ID, { title: "Fix the flaky store test", attachments: [held("slot", "3"), held("branch", "fix/flaky-store"), pullRequest(1843)] }),

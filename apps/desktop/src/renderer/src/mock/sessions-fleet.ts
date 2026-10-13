@@ -98,6 +98,8 @@ export const pullRequest = (number: number, detail: Partial<Record<string, strin
 
 export type Calls = {
   started: number;
+  /** The repository root each start named, in order; absent where the window named none. */
+  startedIn: (string | undefined)[];
   piloted: { jobId: string; outcome: string }[];
   exited: { jobId: string; exit: string; note?: string }[];
   sent: SendSessionMessage[];
@@ -129,7 +131,7 @@ export class FakeSessionsFleet {
   pageEscape(): void {
     this.escape.forEach((on) => on());
   }
-  readonly calls: Calls = { started: 0, piloted: [], exited: [], sent: [], answered: [], waited: [], claimed: [], dismissed: [], tuned: [], renamed: [], closed: [], stopped: [], forked: [], forkedAt: [], retroed: [], pressed: [], watched: [], pages: [], pagesHidden: 0 };
+  readonly calls: Calls = { started: 0, startedIn: [], piloted: [], exited: [], sent: [], answered: [], waited: [], claimed: [], dismissed: [], tuned: [], renamed: [], closed: [], stopped: [], forked: [], forkedAt: [], retroed: [], pressed: [], watched: [], pages: [], pagesHidden: 0 };
   private records: SessionRecord[];
   private threads: Record<string, SessionRow[]>;
   private fleet: FleetHandle | undefined;
@@ -193,8 +195,9 @@ export class FakeSessionsFleet {
         // (it clears the hook of a scenario with no `later`, right after this returns), and the latest wins.
         if (this.retroHeld) queueMicrotask(() => onTimePassing(() => this.releaseRetro?.()));
         return {
-          startSession: async () => {
+          startSession: async (_title, root) => {
             this.calls.started += 1;
+            this.calls.startedIn.push(root);
             const record = hosted(`01SESSION${String((this.minted += 1)).padStart(8, "0")}ABCDEFGH`, this.began());
             this.set([record, ...this.records]);
             return { ok: true, value: record };
