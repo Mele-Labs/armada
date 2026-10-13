@@ -47,6 +47,8 @@ pub struct Forgotten {
     pub step_checks: usize,
     /// Files handed to the Job at proposal time.
     pub attachments: usize,
+    /// Each stint the Job held a bay.
+    pub bays: usize,
     /// What the Judge answered, one row per criterion per run of a step.
     pub step_judgments: usize,
     /// What the gaming check flagged, one row per pattern per run of a step.
@@ -167,6 +169,7 @@ impl Forgotten {
             "job_manifests" => &mut self.manifests,
             "job_step_checks" => &mut self.step_checks,
             "job_attachments" => &mut self.attachments,
+            "job_bays" => &mut self.bays,
             "job_step_judgments" => &mut self.step_judgments,
             "job_step_gaming_flags" => &mut self.step_gaming_flags,
             "job_step_evidence" => &mut self.step_evidence,
