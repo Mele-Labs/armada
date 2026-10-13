@@ -567,6 +567,21 @@ test('an open of web pages is shown through Fleet and denied, not run', async ($
   ])
 })
 
+test('a file the session itself writes is told, and one a subagent writes is not', async ($, on) => {
+  const { posts, clock } = world(on)
+  on('tool.call', () => ({ result: {}, text: 'ok' }))
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await clock.settle()
+  const before = posts.length
+
+  await $.tool.call({ tool: 'Edit', file_path: '/repos/armada/src/clock.ts', old_string: 'a', new_string: 'b' })
+  await $.tool.call({ tool: 'Edit', file_path: '/repos/armada/src/clock.ts', old_string: 'b', new_string: 'c', agentId: 'sub1' })
+  await $.tool.call({ tool: 'NotebookEdit', notebook_path: '/repos/armada/n.ipynb', new_source: 'x' })
+  await clock.settle()
+
+  expect(kinds(posts.slice(before)).filter(kind => kind === 'wrote')).toHaveLength(2)
+})
+
 test('opening a file or a folder runs as usual', async ($, on) => {
   const { posts, clock } = world(on)
   let ranIt = 0

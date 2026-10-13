@@ -283,3 +283,108 @@ fn a_transcript_rests_at_its_last_end_until_a_run_starts_again() {
     assert_eq!(held.spent, Some((13, 211_931)));
     assert_eq!(held.at_rest_since, Some(ipc::Instant::carried("03:45:35")));
 }
+
+/// The window a Job's Now draws beside a Drone: the latest call as its line and
+/// the last three, oldest first, as its tail. Prose and a blank call are not
+/// lines, and a Drone that has made none carries nothing.
+#[test]
+fn a_drones_activity_is_its_latest_call_and_the_three_before_it_ends() {
+    use crate::drones_had::so_far;
+    use ipc::{Saw, TranscriptRow, Voice};
+    let row = |saw: Saw| TranscriptRow {
+        ts: ipc::Instant::carried("03:45:05"),
+        step: None,
+        by: Voice::Drone,
+        drone_id: None,
+        saw,
+    };
+    let called = |tool: &str, detail: &str| {
+        row(Saw::Called {
+            tool: String::from(tool),
+            call: String::from("a-call"),
+            detail: String::from(detail),
+            truncated: false,
+            detail_length: None,
+            whole: None,
+        })
+    };
+
+    assert_eq!(so_far([]).activity, None, "nothing said, nothing carried");
+    let talked = so_far([
+        row(Saw::Said {
+            text: String::from("Looking at it."),
+        }),
+        called("", ""),
+    ]);
+    assert_eq!(talked.activity, None, "prose and a blank call are no line");
+
+    let three = so_far([
+        called("Read", "src/a.rs"),
+        called("Grep", "fn main"),
+        called("Edit", "src/a.rs"),
+    ]);
+    let activity = three.activity.expect("it made three calls");
+    assert_eq!(activity.line, "Edit src/a.rs");
+    assert_eq!(activity.tail, ["Read src/a.rs", "Grep fn main", "Edit src/a.rs"]);
+
+    let five = so_far([
+        called("Read", "src/a.rs"),
+        called("Grep", "fn main"),
+        called("Edit", "src/a.rs"),
+        called("Bash", "ls"),
+        called("Task", ""),
+    ]);
+    let activity = five.activity.expect("it made five calls");
+    assert_eq!(activity.line, "Task", "a call with no detail is the tool alone");
+    assert_eq!(activity.tail, ["Edit src/a.rs", "Bash ls", "Task"]);
+}
+
+/// The same window off a real transcript file, through `list_job_drones`: a
+/// running Drone that made three calls says the last as its line.
+#[tokio::test]
+async fn a_running_drone_lists_the_calls_its_transcript_holds() {
+    use adapter_traits::{CallDetail, DroneEvent};
+    let home = TempDir::new();
+    let call = |tool: &str, detail: &str| DroneEvent::Called {
+        tool: String::from(tool),
+        call: format!("{tool}-call"),
+        detail: CallDetail::of(detail),
+    };
+    let fleet = Fleet::assembled(crate::tests::daemon::fitted_with(
+        &home,
+        FakeWorkProduct::changed(&["src/log.rs"]),
+        testkit::FakeHarness::running(
+            "/bin/sh",
+            &["-c", "echo BUSY; while IFS= read -r line; do :; done"],
+        )
+        .reading(
+            "BUSY",
+            vec![
+                call("Read", "src/a.rs"),
+                call("Grep", "fn main"),
+                call("Edit", "src/a.rs"),
+            ],
+        ),
+    ));
+    let job = approved(&fleet, &home, "a Job whose Drone is calling tools").await;
+
+    let drones = tokio::time::timeout(Duration::from_secs(5), async {
+        loop {
+            let drones = listed(&fleet, &job).await;
+            if drones.first().is_some_and(|drone| {
+                drone
+                    .activity
+                    .as_ref()
+                    .is_some_and(|activity| activity.tail.len() == 3)
+            }) {
+                return drones;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .expect("its calls reached its transcript");
+    let activity = drones[0].activity.as_ref().expect("it has called");
+    assert_eq!(activity.line, "Edit src/a.rs");
+    assert_eq!(activity.tail, ["Read src/a.rs", "Grep fn main", "Edit src/a.rs"]);
+}

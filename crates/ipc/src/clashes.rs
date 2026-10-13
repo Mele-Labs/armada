@@ -1,5 +1,5 @@
 //! Where two agents' changes in one repository would conflict, or where main's would conflict with
-//! one's. `docs/concepts/fleet.md`, *Write clashes*. Since protocol 23.80.
+//! one's. `docs/concepts/fleet.md`, *Write clashes*. Since protocol 23.81.
 //!
 //! **A reading, never a hold.** A clash is Fleet's own check of two whole trees against their merge
 //! base, so it names files that really conflict and none that were only edited by both.

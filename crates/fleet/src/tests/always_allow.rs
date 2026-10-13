@@ -55,6 +55,7 @@ async fn always_allow_keeps_the_chosen_rule_and_not_the_whole_command() {
                 &job,
                 "c1",
                 Answered::naming(CommandAnswer::AlwaysAllow, None, Some("gh issue view")),
+                None,
             )
             .await
     });
@@ -114,10 +115,11 @@ async fn a_rule_the_command_does_not_offer_is_refused_and_the_call_still_waits()
                     None,
                     Some("gh issue view --frobnicate"),
                 ),
+                None,
             )
             .await;
         let good = fleet
-            .answer_command(&job, "c1", Answered::of(CommandAnswer::Reject, None))
+            .answer_command(&job, "c1", Answered::of(CommandAnswer::Reject, None), None)
             .await;
         (bad, good)
     });
@@ -165,6 +167,7 @@ async fn a_later_command_the_rule_covers_runs_without_asking() {
                 &job,
                 "c1",
                 Answered::naming(CommandAnswer::AlwaysAllow, None, Some("gh issue view")),
+                None,
             )
             .await
     });
@@ -210,6 +213,7 @@ async fn a_new_job_on_the_same_manifest_runs_the_rule_without_asking() {
                 &first,
                 "c1",
                 Answered::naming(CommandAnswer::AlwaysAllow, None, Some("gh issue view")),
+                None,
             )
             .await
     });
@@ -251,6 +255,7 @@ async fn removing_the_allow_makes_the_next_question_ask_again() {
                 &job,
                 "c1",
                 Answered::naming(CommandAnswer::AlwaysAllow, None, Some("gh issue view")),
+                None,
             )
             .await
     });
@@ -268,7 +273,7 @@ async fn removing_the_allow_makes_the_next_question_ask_again() {
     let (answer, answered) = tokio::join!(fleet.permission(&job, &asking), async {
         until_waiting(&fleet, &job).await;
         fleet
-            .answer_command(&job, "c2", Answered::of(CommandAnswer::Reject, None))
+            .answer_command(&job, "c2", Answered::of(CommandAnswer::Reject, None), None)
             .await
     });
     answered.expect("the call is waiting again, and reject is one of its offers");

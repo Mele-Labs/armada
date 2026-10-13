@@ -1,5 +1,5 @@
 // Where two agents' changes in one repository would conflict. `crates/ipc/src/clashes.rs`,
-// `docs/concepts/fleet.md`, *Write clashes*. Since protocol 23.80.
+// `docs/concepts/fleet.md`, *Write clashes*. Since protocol 23.81.
 //
 // The header rules in `protocol.ts` hold here.
 

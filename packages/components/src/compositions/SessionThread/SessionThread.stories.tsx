@@ -97,17 +97,76 @@ export const ShownWindowRow: Story = {
   },
 };
 
-/** Every message is left aligned, yours too, and sits on the panel with no fill of its own. */
-export const MessagesAreLeftAlignedWithNoFill: Story = {
+/** The agent's messages are left aligned and sit on the panel with no fill of their own. */
+export const AgentMessagesAreLeftAlignedWithNoFill: Story = {
   args: { rows: WORKED },
   play: async ({ canvas }) => {
-    for (const text of ["Fix the flaky store test.", "The test reads the wall clock."]) {
-      const message = canvas.getByText(text).closest(".armada-helm-thread__message") as HTMLElement;
-      const row = message.closest("li") as HTMLElement;
-      await expect(getComputedStyle(row).textAlign).not.toBe("right");
-      await expect(getComputedStyle(row).alignItems).not.toBe("flex-end");
-      await expect(getComputedStyle(message).backgroundColor).toBe("rgba(0, 0, 0, 0)");
-    }
+    const message = canvas.getByText("The test reads the wall clock.").closest(".armada-helm-thread__message") as HTMLElement;
+    const row = message.closest("li") as HTMLElement;
+    await expect(getComputedStyle(row).textAlign).not.toBe("right");
+    await expect(getComputedStyle(row).alignItems).not.toBe("flex-end");
+    await expect(getComputedStyle(message).backgroundColor).toBe("rgba(0, 0, 0, 0)");
+  },
+};
+
+const YOURS: SessionThreadRow[] = [
+  { id: "y1", at: "09:55:40", kind: "message", from: "agent", text: "The clock is pinned in the store tests." },
+  { id: "y2", at: "09:56:12", kind: "message", from: "you", text: "Keep the pin in the test module." },
+  { id: "y3", at: "09:57:23", kind: "message", from: "you", text: "Approved: http://localhost:5188/?walk=session-reply" },
+  { id: "y4", at: "09:57:51", kind: "message", from: "you", text: "Re: Which date should the clock pin to?\nPin it to the first of March" },
+];
+
+/**
+ * What the person said and did are not the agent's row. A message is a card under a band with their
+ * name; an Approve and an answer are one line each, the target as a chip, and the raw text is gone.
+ */
+export const YourWordsAndActs: Story = {
+  args: { rows: YOURS },
+  play: async ({ canvas }) => {
+    const message = canvas.getByRole("region", { name: "Your message" });
+    await expect(within(message).getByText("You")).toBeVisible();
+    await expect(within(message).getByText("Keep the pin in the test module.")).toBeVisible();
+
+    const approved = canvas.getByRole("region", { name: "You approved" });
+    await expect(within(approved).getByText("Approved")).toBeVisible();
+    await expect(within(approved).getByText("?walk=session-reply")).toBeVisible();
+    // The chip shows the short form and names the whole address.
+    await expect(within(approved).getByRole("img", { name: "Approved: http://localhost:5188/?walk=session-reply" })).toBeVisible();
+
+    const answered = canvas.getByRole("region", { name: "You answered" });
+    await expect(within(answered).getByText("Answered")).toBeVisible();
+    await expect(within(answered).getByText("Which date should the clock pin to?")).toBeVisible();
+    await expect(within(answered).getByText("Pin it to the first of March")).toBeVisible();
+
+    await expect(canvas.queryByText(/^Approved: /)).toBeNull();
+    await expect(canvas.queryByText(/^Re: /)).toBeNull();
+
+    // The agent's row stays a plain row, named for the agent, in no region of its own.
+    const agent = canvas.getByText("The clock is pinned in the store tests.").closest("li") as HTMLElement;
+    await expect(agent).not.toHaveAttribute("role");
+    await expect(within(agent).getByText("Agent")).toBeVisible();
+  },
+};
+
+const LONG_ITEM = "Conflict detection: what happens on a real clash, and does Bridge show it";
+const LONG_SAID = "Yes bridge shows it. Also we need to account for when agents sessions are done that the index gets cleaned up. I would assume main getting updated also impacts this";
+
+/**
+ * A long item and a long answer share a row. The item truncates to one line beside the eyebrow and
+ * the time, and the answer wraps at full width on a line of its own under them.
+ */
+export const LongAnswer: Story = {
+  args: { rows: [{ id: "l1", at: "10:02:11", kind: "message", from: "you", text: `Re: ${LONG_ITEM}\n${LONG_SAID}` }] },
+  play: async ({ canvas }) => {
+    const answered = canvas.getByRole("region", { name: "You answered" });
+    const chip = within(answered).getByRole("img", { name: `Answered: ${LONG_ITEM}` });
+    const said = within(answered).getByText(LONG_SAID);
+    await expect(said).toBeVisible();
+    await expect(said.getBoundingClientRect().top).toBeGreaterThanOrEqual(chip.getBoundingClientRect().bottom);
+    // One line: the chip is no taller than twice its own line height.
+    await expect(chip.getBoundingClientRect().height).toBeLessThan(parseFloat(getComputedStyle(chip).lineHeight) * 2);
+    // The answer runs the width of the row, not a narrow column.
+    await expect(said.getBoundingClientRect().width).toBeGreaterThan(answered.getBoundingClientRect().width / 2);
   },
 };
 
@@ -347,5 +406,21 @@ export const RetroInTheThread: Story = {
     await expect(canvas.getAllByRole("region", { name: "Retro" })).toHaveLength(2);
     await userEvent.click(canvas.getByRole("button", { name: "Open retro" }));
     await expect(args.onOpenRetro).toHaveBeenCalledWith(2);
+  },
+};
+
+/** A Session this one's agent started, or forked itself into, is a press in the thread that opens it. */
+export const StartedSessionOpens: Story = {
+  args: {
+    rows: [
+      { id: "s1", at: "14:06:00", kind: "started", session: { id: "new-1", title: "Port the clock" }, fork: false },
+      { id: "s2", at: "14:07:00", kind: "started", session: { id: "new-2", title: "Try the other store" }, fork: true },
+    ],
+  },
+  play: async ({ canvas, args }) => {
+    await userEvent.click(canvas.getByRole("button", { name: "Port the clock" }));
+    await expect(args.onOpenSession).toHaveBeenLastCalledWith("new-1");
+    await userEvent.click(canvas.getByRole("button", { name: "Try the other store" }));
+    await expect(args.onOpenSession).toHaveBeenLastCalledWith("new-2");
   },
 };

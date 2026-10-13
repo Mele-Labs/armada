@@ -44,6 +44,8 @@ pub(crate) const JOB_ELSEWHERE: &str = "fleet.job_in_another_repository";
 const ILLEGAL_MOVE: &str = "fleet.illegal_move";
 /// A message or a stop named a Drone that is not live. #1666.
 const DRONE_NOT_LIVE: &str = "fleet.drone_not_live";
+/// A skip or a retry on a Check the gate is not running. A 409.
+const NO_CHECK_TO_ACT: &str = "fleet.no_check_to_act";
 const FAULT: &str = "fleet.fault";
 /// A Job whose repository this Fleet does not serve. A 422.
 const NOT_SERVED: &str = "fleet.repository_not_served";
@@ -431,6 +433,10 @@ where
                 WireError::raised(DRONE_NOT_LIVE, said, self.run_id())
                     .about_job(ipc::JobId::from(job))
                     .with_field("drone_id", ipc::WireValue::Str(drone.as_str().to_string())),
+            ),
+            Adrift::NoCheckToAct { job, .. } => Refusal::IllegalMove(
+                WireError::raised(NO_CHECK_TO_ACT, said, self.run_id())
+                    .about_job(ipc::JobId::from(job)),
             ),
             Adrift::NotResumable { job, .. }
             | Adrift::NoStepStopped { job }

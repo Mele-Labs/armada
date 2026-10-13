@@ -1,11 +1,12 @@
 import { useState, type ReactNode } from "react";
-import { AppWindow, BellRing, Box, CircleCheck, CircleX, GitMerge, GitPullRequestArrow, LoaderCircle, MessageSquare, Check, CircleDot, Files, Globe, Hand, Image, Megaphone, MoveRight, NotebookText, Reply, Search, Terminal, GitBranch, GitPullRequest, KeyRound, Presentation, PencilRuler, ShieldCheck, ShieldEllipsis, ShieldX, Split } from "lucide-react";
+import { AppWindow, BellRing, Box, CircleCheck, CircleX, GitMerge, GitPullRequestArrow, LoaderCircle, CornerUpRight, SquarePen, MessageSquare, Check, CircleDot, Files, Globe, Hand, Image, Megaphone, MoveRight, NotebookText, Reply, Search, Terminal, GitBranch, GitPullRequest, KeyRound, Presentation, PencilRuler, ShieldCheck, ShieldEllipsis, ShieldX, Split } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { forgetKept } from "../../keep";
 import { Button } from "../../primitives/Button/Button";
 import { Textarea } from "../../primitives/Textarea/Textarea";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
+import { RunnableBlock, type CodeRunner } from "../../primitives/Prose/RunnableBlock";
 
 /**
  * What a Session has accumulated, a section per kind and a row per thing.
@@ -20,7 +21,7 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
  * first asked for every section dim and then took it back: once some filled,
  * the empty ones only took room).
  */
-export type LedgerKind = "waiting" | "slot" | "branch" | "pull_request" | "job" | "studio" | "sketch" | "subagent" | "artifact" | "fork";
+export type LedgerKind = "waiting" | "slot" | "branch" | "pull_request" | "job" | "studio" | "sketch" | "subagent" | "artifact" | "fork" | "start";
 
 /** What an artifact is: a page published, a file written outside the code, a picture looked at, a Doc, or a page shown in a window. */
 export type ArtifactForm = "page" | "file" | "image" | "doc" | "window";
@@ -102,18 +103,22 @@ export type LedgerEntry = {
    * `act` the row's press opens a reply box in place of doing something, and its glyph is Reply.
    */
   onReply?: (text: string) => void;
+  /** A `waiting` row whose act is `run`, where the Session can run it: the row is the command's block with Run, as in the thread. */
+  run?: { command: string; runner: CodeRunner };
   /** What the reply box's draft is about (the Session and the item), so it survives closing the box and leaving the panel. */
   replyKeep?: string;
   onOpen: () => void;
 };
 
-export type WaitingActKind = "walk" | "answer" | "approve_pr" | "run";
+/** `message` is an item that waits on the person sending the message in the box. */
+export type WaitingActKind = "walk" | "answer" | "approve_pr" | "run" | "message";
 
 const WAITING_ACT: Record<WaitingActKind | "none", { Glyph: LucideIcon; said: string }> = {
   walk: { Glyph: AppWindow, said: "Opens the walk" },
   answer: { Glyph: MessageSquare, said: "Goes to the question" },
   approve_pr: { Glyph: GitPullRequestArrow, said: "Opens the pull request" },
   run: { Glyph: Terminal, said: "Copies the command" },
+  message: { Glyph: SquarePen, said: "Goes to the message" },
   none: { Glyph: BellRing, said: "Waiting on you" },
 };
 
@@ -130,6 +135,7 @@ const SECTIONS: { kind: LedgerKind; label: string; Glyph: LucideIcon }[] = [
   { kind: "subagent", label: "Subagents", Glyph: Split },
   { kind: "artifact", label: "Artifacts", Glyph: Files },
   { kind: "fork", label: "Forks", Glyph: MoveRight },
+  { kind: "start", label: "Started", Glyph: CornerUpRight },
 ];
 
 /** Also the glyphs of the rows a Session's done callout lists, so a page reads the same there as here. */
@@ -297,6 +303,22 @@ export function LedgerRows({ kind, Glyph, rows }: { kind: LedgerKind; Glyph: Luc
   return (
     <ul className="armada-session-ledger__rows">
       {rows.map((row) => {
+        if (kind === "waiting" && row.act === "run" && row.run !== undefined) {
+          const block = (
+            <div>
+              <RunnableBlock command={row.run.command} runner={row.run.runner}>
+                <pre className="armada-prose__block">
+                  <code>{row.run.command}</code>
+                </pre>
+              </RunnableBlock>
+            </div>
+          );
+          return (
+            <li key={row.key} className="armada-session-ledger__run" aria-label={row.name}>
+              {row.card === undefined ? block : <Tooltip label={<LedgerPreview card={row.card} />} card beside asChild>{block}</Tooltip>}
+            </li>
+          );
+        }
         const Mark = row.mark === undefined ? undefined : MARK[row.mark.glyph];
         const replies = kind === "waiting" && row.act === undefined && row.onReply !== undefined;
         const waiting = kind === "waiting" ? waitingMark(row) : undefined;

@@ -417,6 +417,26 @@ describe("a session nothing can be said to", () => {
     expect(sessionOfRecord({ ...asTerminal, state: "ended", terminal: { listening: true } }, undefined, beside()).dead).toBe("ended");
   });
 
+  it("keeps what an ended session made, its pull requests and artifacts and the link to its forks, and drops its slot and branch", () => {
+    const ended = record("old", {
+      state: "ended",
+      attachments: [
+        held("slot", "3"),
+        held("branch", "fix/x"),
+        held("pr", "1847", { state: "merged", title: "Pin the clock", checks: "passed" }, "spent"),
+        held("pr", "1850", { title: "Open one", checks: "pending" }),
+        held("artifact", "https://example.com/a", { form: "page", title: "Findings" }, "spent"),
+        held("forked_to", "new", {}, "spent"),
+      ],
+    });
+    expect(sessionOfRecord(ended, undefined, beside()).attachments).toEqual([
+      expect.objectContaining({ kind: "pull_request", number: 1847, state: "merged", checks: { state: "passed" } }),
+      expect.objectContaining({ kind: "pull_request", number: 1850, state: "open", checks: { state: "pending" } }),
+      { kind: "artifact", form: "page", id: "https://example.com/a", title: "Findings" },
+      { kind: "forked_to", id: "new" },
+    ]);
+  });
+
   it("keeps the link to its forks and nothing else it held", () => {
     const ended = record("old", {
       state: "ended",
@@ -456,5 +476,29 @@ describe("what a session waits on", () => {
   it("carries none for a session with an empty list or one that ended", () => {
     expect(sessionOfRecord(record("a"), undefined, beside()).waitingFor).toBeUndefined();
     expect(sessionOfRecord(record("a", { state: "ended", waiting_for: items }), undefined, beside()).waitingFor).toBeUndefined();
+  });
+});
+
+describe("a session its agent was started by another to hold", () => {
+  const unsent = (state: Attachment["state"]) => held("unsent", "Port the clock", {}, state);
+
+  it("carries the first message held unsent, and none once it is spent or the session ended", () => {
+    expect(sessionOfRecord(record("n", { attachments: [unsent("standing")] }), undefined, beside()).unsent).toBe("Port the clock");
+    expect(sessionOfRecord(record("n", { attachments: [unsent("spent")] }), undefined, beside()).unsent).toBeUndefined();
+    expect(sessionOfRecord(record("n", { state: "ended", attachments: [unsent("standing")] }), undefined, beside()).unsent).toBeUndefined();
+    expect(sessionOfRecord(record("n"), undefined, beside()).unsent).toBeUndefined();
+  });
+
+  it("keeps the unsent message off the ledger and links the two sessions both ways, even after one ended", () => {
+    const made = record("n", { attachments: [held("started_by", "old", {}, "spent"), unsent("standing")] });
+    expect(sessionOfRecord(made, undefined, beside()).attachments).toEqual([{ kind: "started_by", id: "old" }]);
+    const maker = record("old", { attachments: [held("started_to", "n", {}, "spent")] });
+    expect(sessionOfRecord(maker, undefined, beside()).attachments).toEqual([{ kind: "started_to", id: "n" }]);
+    expect(sessionOfRecord({ ...maker, state: "ended" }, undefined, beside()).attachments).toEqual([{ kind: "started_to", id: "n" }]);
+  });
+
+  it("keeps the Session the agent started as a row in its thread", () => {
+    const row: SessionRow = { kind: "started", id: "st1", at: AT, session: { id: "n", title: "Port the clock" }, fork: true };
+    expect(rowsOfThread("old", [row], () => undefined)).toMatchObject([{ id: "st1", kind: "started", session: { id: "n", title: "Port the clock" }, fork: true }]);
   });
 });

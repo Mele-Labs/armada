@@ -416,6 +416,16 @@ export function useCommands(sending: Sending) {
   }
 
   /**
+   * Send main's red to a Session as a message, through the call the Sessions surface sends with. **A
+   * refusal goes to the pipeline every command failure uses**; an accepted one says nothing, since the
+   * Session's ledger shows the message.
+   */
+  async function sendToSession(sessionId: string, text: string): Promise<void> {
+    const answer = await window.armada.sendSessionMessage({ session_id: sessionId, text });
+    if (!answer.ok) setOutcome(answer.outcome);
+  }
+
+  /**
    * Stop the proposal that is out. **Kills the call rather than stopping the
    * wait** — see `JobCommands.stopProposal`.
    *
@@ -836,6 +846,19 @@ export function useCommands(sending: Sending) {
   }
 
   /**
+   * The Now panel's quick acts on the gate that is running. **A refusal goes to the pipeline every
+   * command failure uses**, the host's toast: Fleet refuses where no gate is running or the Check
+   * is not one it runs. An accepted one says nothing, since the row moves a beat later.
+   */
+  async function onTheGate(work: Promise<Outcome>): Promise<void> {
+    const answer = await work;
+    if (!answer.ok) setOutcome(answer);
+  }
+  const retryCheck = (jobId: string, check: string) => onTheGate(window.armada.retryCheck(jobId, check));
+  const skipCheck = (jobId: string, check: string) => onTheGate(window.armada.skipCheck(jobId, check));
+  const skipChecks = (jobId: string) => onTheGate(window.armada.skipChecks(jobId));
+
+  /**
    * Give one job a higher cost ceiling. **Not through `act`**, for `redirect`'s
    * reason: the dialog that collected the figure was the confirmation. It moves
    * no part of the job — what it changes is that the next dispatch is not
@@ -1059,6 +1082,7 @@ export function useCommands(sending: Sending) {
       lastAnswer?.jobId === jobId ? lastAnswer.answered : undefined,
     takeUpRemarks,
     fixMain,
+    sendToSession,
     ...triggers,
     dismissFinding,
     rerunFailedChecks,
@@ -1092,6 +1116,9 @@ export function useCommands(sending: Sending) {
     overrule,
     rerun,
     rerunChecks,
+    retryCheck,
+    skipCheck,
+    skipChecks,
     rerunningChecks,
     raiseCap,
     raiseTurns,

@@ -32,6 +32,9 @@ const RULES_ON_THE_WORK: &[&str] = &[
     "rerun_gate",
     "rerun_failed_checks",
     "rerun_checks",
+    "retry_check",
+    "skip_check",
+    "skip_checks",
     "set_when_blocked",
     "set_when_refused",
     "submit_for_verification",
@@ -140,6 +143,9 @@ const ANSWERS_FOR_OR_REACHES_THE_PERSON: &[&str] = &[
     "ask_in_window",
     "waiting_for",
     "all_done",
+    "tell_session",
+    "start_another_session",
+    "fork_this_session",
 ];
 
 /// The person's own checkout, runs, servers and mods.

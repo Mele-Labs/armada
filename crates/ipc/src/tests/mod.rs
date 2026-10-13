@@ -36,6 +36,8 @@ mod events;
 mod fixtures;
 mod gates;
 mod helm;
+/// A Job's Now: a Drone's activity, issues, waiting, answer modes, Check acts.
+mod issues;
 mod thought;
 /// A Job's timeline, in the three shapes a row can be.
 mod history;
@@ -68,6 +70,7 @@ mod requester;
 mod review_argument;
 mod reviewing;
 mod servers;
+mod session_starts;
 /// A Studio's graph, and the relation no proposal may name.
 mod studio;
 mod studio_sketch;

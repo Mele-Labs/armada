@@ -1,0 +1,18 @@
+/* One quiet row above the thread of a Session another Session's agent started. */
+
+.armada-started-by {
+  flex: none;
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--bg-raised);
+  color: var(--fg-muted);
+  font-size: var(--text-xs);
+  text-align: start;
+  cursor: pointer;
+}
+
+.armada-started-by:hover {
+  color: var(--fg-default);
+}

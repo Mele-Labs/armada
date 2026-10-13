@@ -2,13 +2,13 @@
 // dialog, Send back carries the Job chosen, and the Jobs offered are the Board's rows at their
 // review or over, the pull request's own Job first.
 
-import type { FixMain } from "@armada/protocol";
+import type { FixMain, SendSessionMessage } from "@armada/protocol";
 import { repository } from "@armada/screens/src/fixtures/build/base";
 import { expect, test } from "vitest";
 import { page } from "vitest/browser";
 
 import { DEBOUNCE } from "./main-red-hub";
-import { mainRed } from "./main-red-hub";
+import { mainRed, sessionRed } from "./main-red-hub";
 import { scenarioNamed, type Scenario } from "./scenario";
 import { mount, onScreen, unmountAfterEach } from "./testing";
 
@@ -55,8 +55,8 @@ test("Send back lists the Board's Jobs at their review or over, and sends the on
   // The merge line has its own page; the Dashboard reads main's red as one of its calls.
   await page.getByRole("button", { name: "Merge line", exact: true }).click();
 
-  await band().getByRole("button", { name: "Send back to a Job" }).click();
-  const dialog = page.getByRole("dialog", { name: "Send the work back to a Job" });
+  await band().getByRole("button", { name: "Send back", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Send the work back" });
   await expect.element(dialog.getByRole("radio", { name: /Debounce the Job Board/ })).toBeVisible();
   // A Job still running is not one the work can go back to.
   expect(dialog.getByRole("radio", { name: /Store a pause marker/ }).query()).toBeNull();
@@ -64,4 +64,36 @@ test("Send back lists the Board's Jobs at their review or over, and sends the on
   await dialog.getByRole("button", { name: "Send back", exact: true }).click();
 
   expect(sent).toEqual([{ root: repository().root, job: DEBOUNCE.job.id }]);
+});
+
+test("Send back to a Session posts its message to /sessions/message, not fix_main", async () => {
+  const fixed: FixMain[] = [];
+  const messages: SendSessionMessage[] = [];
+  const { later } = sessionRed(repository().root);
+  const base = scenarioNamed("main-red-session")!;
+  mount({
+    ...base,
+    state: { ...base.state, ...later[0]! },
+    later: [],
+    behaves: () => ({
+      fixMain: async (fix) => {
+        fixed.push(fix);
+        return { ok: true };
+      },
+      sendSessionMessage: async (send) => {
+        messages.push(send);
+        return { ok: true, value: {} as never };
+      },
+    }),
+  });
+  await onScreen();
+  await page.getByRole("button", { name: "Merge line", exact: true }).click();
+
+  await band().getByRole("button", { name: "Send back", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Send the work back" });
+  await dialog.getByRole("textbox", { name: "Message" }).fill("screens_test fails on main after #1830.");
+  await dialog.getByRole("button", { name: "Send back", exact: true }).click();
+
+  expect(messages).toEqual([{ session_id: "session-c279e883", text: "screens_test fails on main after #1830." }]);
+  expect(fixed).toEqual([]);
 });

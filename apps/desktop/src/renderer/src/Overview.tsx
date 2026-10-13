@@ -9,6 +9,7 @@
 
 import { useEffect, useState } from "react";
 import type { FixMain, RepositorySummary } from "@armada/protocol";
+import type { NowActed } from "@armada/jobs";
 import type { CallView } from "@armada/jobs/draft/calls";
 import type { NowView } from "@armada/jobs/draft/now";
 import type { BoardSection, PauseAct } from "@armada/screens";
@@ -50,6 +51,7 @@ export function Overview({
   nowViews,
   nows,
   onTell,
+  onNowAct,
   bring,
   onBrought,
   onWantHeld,
@@ -93,12 +95,14 @@ export function Overview({
   onOpenSession: (sessionId: string) => void;
   /** Hands main's red to a Job, from the merge line's band. */
   onFix?: (fix: FixMain) => void;
-  /** What each Job asks and has gone wrong in, by Job id. Mock only: Fleet serves none, and then only Jobs flagged as asking are listed. */
+  /** What each Job asks and has gone wrong in, by Job id: the draft's, else what Fleet serves for the active Jobs. */
   nowViews?: Readonly<Record<string, CallView>>;
-  /** What each Job is doing now, by Job id: the Running tab's pane and its tiles' icons. Mock only. */
+  /** What each Job is doing now, by Job id: the Running tab's pane and its tiles' icons. The draft's, else what Fleet serves. */
   nows?: Readonly<Record<string, NowView>>;
   /** Says a sentence as a toast: a refusal the panel has to name. */
   onTell?: (sentence: string) => void;
+  /** A quick act pressed on a Job's Now panel, by Job id. */
+  onNowAct?: (jobId: string, acted: NowActed) => void;
   /** Asks Fleet for the worktree pool while the Cockpit's bays are drawn. */
   onWantHeld?: (want: boolean) => void;
 }) {
@@ -209,6 +213,7 @@ export function Overview({
             bring={bring}
             onBrought={onBrought}
             onTell={onTell}
+            onNowAct={onNowAct}
             onOpen={onOpen}
             onOpenSession={onOpenSession}
             onOpenLink={onOpenLink}

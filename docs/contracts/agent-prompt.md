@@ -1709,6 +1709,13 @@ session, and a list that long in a system prompt is noise nobody reads.
 multiple. A number here would be a second copy, and the refusal already names
 the ceiling.
 
+**Passing words to a Session is named once, for the ask that has no other door.**
+`tell_session` reads `Helm only`, so the rule above already grants it; the line
+is there because words that reach Helm as "send this to the Walk Variations
+session" had nothing in the brief saying Helm could deliver them, and the
+owner's first such ask arrived nowhere. It is not an unasked call: it waits for
+the person's words like every other act.
+
 **Drafting Jobs is folded into the same rule.** The door offers a Helm session
 every `Yes` row, the `Drafts only` rows — `propose_job` and
 `propose_from_request` — and the `Helm only` rows besides (`#941`, `#1150`),
@@ -1852,6 +1859,14 @@ never receives, so the block names the reads that say how it ended.
 │ How far you may raise a cap is bounded, and a
 │ raise past the bound is refused, naming the most
 │ you may ask for.
+│
+│ When a person asks you to pass words to a running
+│ Session, call tell_session with its id, which
+│ list_sessions gives, and the words. It sends them
+│ as the person's own message would and the thread
+│ shows where they went. A refusal, such as a
+│ terminal Session that is not listening, comes back
+│ in its result: say so.
 └────────────────────────────────────────────────
 ┌─ ON A STUDIO ──────────────────────────────────
 │ A Studio is this repository's graph of what a

@@ -42,7 +42,7 @@ it("shows the oldest open question on the window's own origin, and nothing else"
       item("window_ask:q1", "http://localhost:5173/findings"),
       item("window_ask:q2", "http://localhost:5173/later"),
     ]),
-    "http://localhost:5173",
+    ["http://localhost:5173"],
   );
   expect(shown).toEqual({
     id: "window_ask:q1",
@@ -50,7 +50,7 @@ it("shows the oldest open question on the window's own origin, and nothing else"
     options: [{ label: "Beside", description: "One line" }],
     place: { url: "http://localhost:5173/findings", selector: "main > h1" },
   });
-  expect(questionOf(record([]), "http://localhost:5173")).toBeNull();
-  expect(questionOf(undefined, "http://localhost:5173")).toBeNull();
-  expect(questionOf(record([item("window_ask:q1", "http://localhost:5173/")]), null)).toBeNull();
+  expect(questionOf(record([]), ["http://localhost:5173"])).toBeNull();
+  expect(questionOf(undefined, ["http://localhost:5173"])).toBeNull();
+  expect(questionOf(record([item("window_ask:q1", "http://localhost:5173/")]), [])).toBeNull();
 });

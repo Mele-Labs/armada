@@ -201,8 +201,12 @@ where
                         }));
                 let kept = before.as_ref().and_then(|it| it.merge.clone());
                 let culprit = candidates[first].0.clone();
+                // A kept merge that names nobody is asked once more per process, so a red read
+                // before Sessions were named gets its Session when Fleet restarts.
+                let named = |it: &MainMerge| it.job.is_some() || it.session.is_some();
                 let merge = match continues || (same_commit && kept.is_some()) {
-                    true => kept,
+                    true if kept.as_ref().is_some_and(named) => kept,
+                    true => self.the_merge(&served, &culprit).await.or(kept),
                     false => self.the_merge(&served, &culprit).await,
                 };
                 let newer = newer_running(at);
@@ -369,7 +373,7 @@ where
     }
 
     /// The pull request that merged `head`, and the Job of ours that opened
-    /// it. **Asked once a commit, for as long as this process lives**: a direct
+    /// it, or else the Session that held it. **Asked once a commit, for as long as this process lives**: a direct
     /// push names none, and asking again would not change that.
     async fn the_merge(&self, served: &Served, head: &str) -> Option<MainMerge> {
         let key = format!("{}@{head}", served.root());
@@ -380,15 +384,22 @@ where
         let pull = self
             .forge_asked(served.root(), move |vcs, root| vcs.merged_by(root, &commit))
             .await?;
-        let job = {
+        let branch = pull.branch.as_ref().map(|branch| branch.as_written());
+        let (job, session) = {
             let store = self.store().lock().await;
-            self.job_of_pull(&store, served, pull.number)
+            let job = self.job_of_pull(&store, served, pull.number);
+            let session = match job {
+                Some(_) => None,
+                None => self.session_of_pull(&store, served, pull.number, branch),
+            };
+            (job, session)
         };
         Some(MainMerge {
             number: pull.number,
             url: pull.url.map(|url| url.as_written().to_string()),
             branch: pull.branch.map(|branch| branch.as_written().to_string()),
             job,
+            session,
         })
     }
 }
