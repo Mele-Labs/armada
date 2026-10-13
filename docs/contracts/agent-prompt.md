@@ -475,7 +475,7 @@ which is an assembled prompt and therefore governed here.
 | Turn | Fires when | Wording |
 | --- | --- | --- |
 | **The plan change turn** | A person's `add_task` or `drop_task` reaches a Job with a working Drone | Drafted, not sanctioned |
-| **The peer turn** | Another Job in the same repository first claims, or lands a change to, a path this Job claims, or declared a need on a file before this Job did. Rides the next opening brief where no Drone is live | Drafted, not sanctioned |
+| **The peer turn** | Another Job in the same repository first claims, or lands a change to, a path this Job claims, or declared a need on a file before this Job did, or Fleet found that what this Job wrote conflicts with another agent's or with the base. Rides the next opening brief where no Drone is live | Drafted, not sanctioned |
 | **The poke** | Liveness nudge, bounded by `poke_limit` | Drafted, not sanctioned |
 | **The clarification reprompt** | Evidence arrived but was insufficient | Drafted, not sanctioned |
 | **The force-interrupt directive** | A thrashing verdict | Drafted, not sanctioned |
@@ -670,6 +670,8 @@ answer: take the value after theirs, then call `declare_scope` again with `took`
 on the need. Where no Drone is live it rides the next opening brief.
 `docs/concepts/fleet.md`, *Declared needs*.
 
+**A conflict Fleet found is news too.** It is read from what was written, not from what was declared: git says merging this Job's changes with another Job's, a Session's or the base's would conflict (`docs/concepts/fleet.md`, *Write clashes*). The item names the files, the other side, and how to reach it. A Job is reached with `leave_note` on its handle and a Session with `leave_note` on its address, `s-` and the first eight characters of its id. For the base it names the commit that changed the file and says to merge it in. The sentences about shared files and shared numbering are left out of a turn that carries only conflicts. It is spaced like the rest, and told once per set of files.
+
 **Overlap informs and never holds.** Nothing on the dispatch path reads it, for
 the reason `docs/concepts/fleet.md`, Write-scope overlap, gives. A need is the
 part that holds, at the merge and nowhere earlier.
@@ -721,6 +723,27 @@ more". `fleet::PeersChanged` is the one constructor. Its own `Occasion`,
 │
 │ - Ahead of you on `crates/store/src/migrations.rs`:
 │   14-renumber-migrations: a new migration, took V95.
+│
+│ Carry on with the part you were given.
+└────────────────────────────────────────────────
+
+┌─ OTHER JOBS WRITING WHERE YOU ARE ─────────────
+│ Merging the changes below would conflict.
+│ Nothing is stopped, and nobody waits on you.
+│
+│ - `crates/store/src/write.rs` conflict with
+│   "fix the writer" (12-fix-the-writer), which
+│   changed them too. To agree who changes what,
+│   call `leave_note` with `12-fix-the-writer`.
+│ - `crates/store/src/read.rs` conflict with
+│   Session s-1a2b3c4d ("read path", branch
+│   sessions/read-path), which changed them too. To
+│   agree who changes what, call `leave_note` with
+│   `s-1a2b3c4d`.
+│ - `crates/store/src/migrations.rs` now conflict
+│   with main, which changed it in 4f9c2e1 Merge
+│   pull request #2190 from Mele-Labs/x. Merge it
+│   into your branch and resolve the conflict.
 │
 │ Carry on with the part you were given.
 └────────────────────────────────────────────────

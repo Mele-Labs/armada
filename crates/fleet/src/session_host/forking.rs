@@ -6,6 +6,10 @@
 //! and no branch of the old one's, and takes a slot on its first write like any
 //! other start. What it takes from the old one is the conversation, which the
 //! agent copies when its first process starts, and the title.
+//!
+//! **The agent is told so, too.** The copy carries the old session's subagents, background
+//! tasks and slots in its words, and the CLI replays their notifications into it, so the fork
+//! would take them for its own. Every process of a fork has [`fork_note`] in its system prompt.
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
@@ -28,6 +32,28 @@ const AT: &str = "at";
 /// On `forked_from`'s detail: the transcript line that row is, which the first process is told.
 const CUT: &str = "cut";
 
+/// What a fork's agent is told it is: bare facts, and what to do with the old session's work.
+/// `old_title` is the title the old session had, `ended` whether it had ended when this was read.
+pub(crate) fn fork_note(old_title: Option<&str>, old: &str, when: &str, ended: bool) -> String {
+    let title = old_title
+        .map(|title| title.split_whitespace().collect::<Vec<_>>().join(" "))
+        .filter(|title| !title.is_empty())
+        .map(|title| format!("\"{title}\" "))
+        .unwrap_or_default();
+    let state = if ended { "has ended" } else { "is live and keeps working" };
+    format!(
+        "This session is a fork. It was forked from {title}({old}) at {when}, and that session \
+         {state}. Your conversation up to the fork is a copy of its, and nothing it started is \
+         yours: its subagents, background tasks and shells, slots, branches, worktrees, \
+         windows, pull requests and peer sessions stay its own, whatever your copy of the \
+         conversation says about them. A task-notification about its background work \
+         (finished, failed, stopped, \"didn't finish before the previous session ended\") \
+         belongs to it: do not act on it, relaunch that work, or report it to the owner as \
+         yours. Do not write in its slots. Your own work starts with your first write, in a \
+         slot leased for you."
+    )
+}
+
 impl<H, V, W> Fleet<H, V, W>
 where
     H: AgentHarness + Send + Sync + 'static,
@@ -46,6 +72,28 @@ where
         held.into_iter()
             .find(|one| one.kind == FORKED_FROM)
             .and_then(|one| one.detail.get(CUT).cloned())
+    }
+
+    /// What every process of fork `id` is told it is, of the session `old` it came from. Read at
+    /// each start, so whether the old session is live is as of then.
+    pub(crate) async fn fork_note_of(&self, id: &str, old: &str) -> Option<String> {
+        let store = self.store().lock().await;
+        let when = store
+            .attachments_of(&Holder::session(id))
+            .ok()?
+            .into_iter()
+            .find(|one| one.kind == FORKED_FROM)
+            .map(|one| one.since)?;
+        // An old session the ledger has forgotten is one that has ended.
+        let old_session = store.session(old).ok().flatten();
+        Some(fork_note(
+            old_session.as_ref().and_then(|one| one.title.as_deref()),
+            old,
+            &when,
+            old_session
+                .as_ref()
+                .is_none_or(|one| one.state == store::SessionState::Ended),
+        ))
     }
 
     pub(crate) async fn start_forked(

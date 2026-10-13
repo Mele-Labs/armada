@@ -181,6 +181,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             "/needs",
             get(crate::needs::list_needs::<D>).post(crate::needs::act_on_need::<D>),
         )
+        .route("/clashes", get(crate::needs::list_write_clashes::<D>))
         .route(
             "/pull_requests/:repository/:number",
             get(crate::pull_requests::get_pull_request::<D>),
@@ -261,6 +262,14 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route(
             "/sessions/claim_pull_request",
             post(crate::sessions::claim_pull_request::<D>),
+        )
+        .route(
+            "/sessions/start_another",
+            post(crate::sessions::start_another_session::<D>),
+        )
+        .route(
+            "/sessions/fork_this",
+            post(crate::sessions::fork_this_session::<D>),
         )
         .route(
             "/sessions/start",

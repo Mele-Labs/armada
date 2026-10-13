@@ -70,4 +70,21 @@ pub(super) const ROUTES: &[Route] = &[
         method: "POST",
         path: "/sessions/held",
     },
+    // Where two of the agents on a repository write the same lines. `docs/concepts/fleet.md`,
+    // *Write clashes*.
+    Route {
+        operation: "list_write_clashes",
+        method: "GET",
+        path: "/clashes",
+    },
+    Route {
+        operation: "start_another_session",
+        method: "POST",
+        path: "/sessions/start_another",
+    },
+    Route {
+        operation: "fork_this_session",
+        method: "POST",
+        path: "/sessions/fork_this",
+    },
 ];

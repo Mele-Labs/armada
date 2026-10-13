@@ -43,7 +43,8 @@ The harness sends Fleet facts in Armada's own shape and nothing past the adapter
 | `settled` | `attachment`: `kind`, `target`, `state` | Moves it to `spent` or `given_back` |
 | `measured` | `usage`: `context_tokens?`, `context_window?`, `cost_micros?` | Keeps what was reported |
 | `tuned` | `model?`, `effort?`, `mode?`, `commands?`, `mod_version?` | Held in memory as the terminal's `terminal` facts: model, effort, mode and the commands it lists |
-| `turn_completed` | nothing | Stamps the last turn |
+| `turn_completed` | nothing | Stamps the last turn, and marks every window the session showed ready |
+| `wrote` | nothing | The session itself wrote a file (the mod, never for a subagent): marks every window it showed as still changing |
 | `ended` | `reason` | Ends it and gives back everything it still holds. A terminal's slot is parked unless the reason is `clear` or `resume` (*Ending a terminal session*) |
 
 **No instant is reported**: Fleet stamps each fact on arrival. **A repeated fact publishes nothing**, so a harness may report on every turn.
@@ -72,6 +73,8 @@ A holder is `{ kind: session | job, id }` and points at neither table, so a Job 
 | `message` | `to:<who>` or `from:<who>`, with a count in `detail` | |
 | `studio` | the Studio's id | not reported by anything yet |
 | `forked_to`, `forked_from` | the other session's id | `spent` when written, so the old session ending does not give the link back |
+| `started_to`, `started_by` | the other session's id | `spent` when written, as a fork's links are. The caller holds `started_to` and the Session its agent started holds `started_by` |
+| `unsent` | the words of the first message another session's agent wrote | `standing` until the person's next send, which spends it; ending the session gives it back |
 | `artifact` | a page's or document's address, or a file's absolute path; `detail.form` is `page`, `file`, `image`, `doc` or `window`, `detail.title` its name | nothing: it stays on the ledger after the session ends |
 
 **An artifact is something a person would open, and a code edit is never one.** Edits are Branches and Pull requests. Five forms:
@@ -159,11 +162,14 @@ is placed. A shell line is also held when it **obviously names a path in the
 main checkout or in a slot the session does not hold**: a redirect (`>`, `>>`,
 `2>`), `tee`, `cp`, `mv`, `install`, `ln`, `rsync`, `touch`, `mkdir`, `rm`,
 `chmod`, `truncate`, `dd`, `sed -i` and `perl -i` with an absolute path
-argument, and `git -C <path>` with any subcommand that is not a read. **Not
-covered**: a relative path (the session's directory is the slot, so it lands
-there), a path built from a variable or a substitution, a `cd` into the
-checkout and then a relative write, and anything a script or a build writes by
-itself. [Spike 29](../spikes/029-why-a-sessions-auto-asked-and-how-a-question-is-answered.md).
+argument, and `git -C <path>` with any subcommand that is not a read. **A `cd`
+or `pushd` moves what follows it**: a line that goes into the main checkout or
+a slot the session does not hold, by an absolute path or one relative to where
+the call started, and then runs anything that is not a read, is held. `cd
+<slot> && git status` is a read and runs. **Not covered**: a relative path
+with no `cd` (the session's directory is the slot, so it lands there), a path
+or a `cd` target built from a variable or a substitution, and anything a script
+or a build writes by itself. [Spike 29](../spikes/029-why-a-sessions-auto-asked-and-how-a-question-is-answered.md).
 
 **In `auto` a session never waits on the person** (the owner, 8 Oct 2026).
 Inside its slot and `/tmp` it runs, rewrites its own branch, pushes and reaches
@@ -261,14 +267,14 @@ an agent whose hooks name a Fleet port that changed.
 
 ## Showing a window
 
-**A session shows the person a web page with `show_window`** (`url`, optional `title`), a tool on the agent's door, and Bridge opens it in a capture window by itself. Any `http` or `https` address; any other scheme is refused with its reason. Fleet places a hosted session by its connection, as for its asks, so the call names no session; a terminal session names its own id, which the mod puts in the model's first-message context. It writes one `window` artifact on the ledger however often the address is shown, and a quiet `window` row on the thread each time, which is what makes Bridge open (or raise) the window. Pressing the ledger row or the thread row opens it again, only for an address the ledger shows as a window. **A note taken in the window goes to the session as a message from the person**, with the element it pointed at, and wakes it. The window is pinned to the origin it opened on, as a server's is. **The window draws the session beside the page**, its thread and the box to answer it, so the walk is read and answered without going back to Bridge's window. `docs/practices/capture-window.md`, *The panel beside the page*.
+**A session shows the person a web page with `show_window`** (`url`, optional `title`, optional `variations`), a tool on the agent's door, and Bridge opens it in a capture window by itself. Any `http` or `https` address; any other scheme is refused with its reason. Fleet places a hosted session by its connection, as for its asks, so the call names no session; a terminal session names its own id, which the mod puts in the model's first-message context. It writes one `window` artifact on the ledger however often the address is shown, and a quiet `window` row on the thread each time, which is what makes Bridge open (or raise) the window. Pressing the ledger row or the thread row opens it again, only for an address the ledger shows as a window. **A note taken in the window goes to the session as a message from the person**, with the element it pointed at, and wakes it. The window is pinned to the origin it opened on, as a server's is. **`variations`, a list of `{name, url}`, offers several takes of one change in the one window**, `url` the first's and each held to the same `http`/`https` rule. The bar draws a letter and name per take, a press swaps the page, and the pin moves to the origin of the take chosen and to no address the session did not send. A note names the take it was taken on (`On B, Needs you first: …`), Approve names the one on screen (`Approved B, Needs you first: <url>`) and is per take, and the window row and the ledger's `window` artifact keep the takes so a reopened window brings them back. **The bar says whether the page is ready to walk**, a Session mark at its start (*Ready to walk*, or *Still changing*) and the bar's hue, and Approve reads *Not ready* while it changes. **It is detected, not declared:** `show_window` says ready, the mod's report of a file the session itself wrote (`wrote`; a subagent's does not count) or a note from the window marks every window the session showed as working (`detail.working` on its artifact), and showing the page again or the end of the turn (`turn_completed`) marks it ready. A Job's window reads the Job: ready while it waits on the person, working while it runs. **The window draws the session beside the page**, its thread and the box to answer it, so the walk is read and answered without going back to Bridge's window. `docs/practices/capture-window.md`, *The panel beside the page*.
 
 **A question asked while the person walks a page is refused, not held.** A message starts a turn only once the current one ends, and an open `AskUserQuestion` keeps it open, so every note and the Approve would queue behind the question until he answered it. [Spike 27](../spikes/027-how-does-fleet-deliver-text-to-a-live-terminal-session.md).
 
 | | |
 |---|---|
 | A walk opens | At `show_window`: the newest `window` row on the thread |
-| A walk ends | The person approves the page (`Approved: <url>`), Bridge says its window closed (`window_closed`), or a newer `show_window` replaces it. The row gets `ended_at` and is published again |
+| A walk ends | The person approves the page (`Approved: <url>`, or of several takes `Approved B, Needs you first: <url>`), Bridge says its window closed (`window_closed`), or a newer `show_window` replaces it. The row gets `ended_at` and is published again |
 | A note in the window | Ends nothing, though it settles the `walk:` waiting item |
 | A question meanwhile | Refused with a reason the agent reads: put it under `waiting_for` and end the turn, or, for a question about the page, ask it in the window with `ask_in_window` (*Asking in the window*). A hosted session's is refused at its permission door; a terminal session's at `ask_from_terminal`, which the mod asks before the terminal's own prompt opens |
 
@@ -280,7 +286,7 @@ The mod's first-message note and `show_window`'s description tell the agent the 
 
 | | |
 |---|---|
-| What it may ask about | An address on the origin of a window the session showed, whether or not its walk is still open: a closed window is opened again. Anything else is refused with a reason that names `waiting_for`, where a question about something else waits |
+| What it may ask about | An address on the origin of a window the session showed, or of any of its takes (the window swaps to that take), whether or not its walk is still open: a closed window is opened again. Anything else is refused with a reason that names `waiting_for`, where a question about something else waits |
 | What the call does | Keeps a `window_ask` row on the thread and answers at once. **It does not wait**: the session ends its turn, and the answer arrives as a message from the person |
 | What Bridge does | Brings the session's walk window forward, opening it if it is closed, moves the page to the address, scrolls the place into view, outlines it, and draws the question on a card of the window's own bar. `docs/practices/capture-window.md` |
 | How it waits | `window_ask:<row>` under Waiting on you, with its options and its `place`. Its act is a walk of the window it was asked in, so a press there opens the window with the card |
@@ -291,7 +297,7 @@ Capture and Approve keep working while the card is open. The card folds into the
 
 ## Waiting on the person
 
-**A session says what it is waiting on the person for with `waiting_for`**, a tool on the agent's door that replaces the whole list each call (`items`: `id`, `text`, an optional `act` of `walk`, `answer`, `approve_pr` or `run` with a `target`, optional `options`); an empty list clears it. Fleet keeps the agent's items in `session_waiting`, stamps `since` and keeps it for an unchanged `id`, and **adds its own on every read** into `SessionRecord.waiting_for`: `ask:<call>` for an open question, `perm:<call>` for an open permission, `walk:<url>` for a window the session showed that no `Approved: <url>` message has followed, `window_ask:<row>` for a question asked in the window and not yet answered (*Asking in the window*). Where an agent item names the same act and target as one of Fleet's, Fleet's stands. An ended session holds nothing. **Bridge shows the list at the foot of the thread**, over the composer, as a **Needs you** band folded to one glyph an item, named on hover; a press opens it to the rows, each a press that does its act. The owner, 12 Oct 2026: "when the session is not completed, the 'needs you' items in the right panel move to a panel in the thread like this that is locked to the bottom. Maybe it's collapsed by default?" A question or permission is left out of the band, since its own card shows it. Once the agent says it is done, the done callout takes that place and the items go back to the ledger's first section, **Waiting on you**. Bridge puts a Session with items under Needs you with a bell-ring mark whose tooltip lists them. **`answer_waiting`** (`session_id`, `item_id`, and a `choice` index into the item's `options`, `text`, or `mode` of `best` or `quick`) settles one: a card item goes through `answer_session_ask`, a walk item sends the approval as the person's message, an agent item becomes a message to the session. `best` tells the agent to decide for itself and think it through, `quick` to take the reasonable path and keep moving. **`dismiss_waiting`** (`session_id`, `item_id`) drops an item for good: the id is kept in `session_waiting_dismissed`, a derived item with it never comes back, an agent item with it is removed and left off if the agent states it again, and nothing is sent to the agent. A nothing-held id is refused as for `answer_waiting`. **Only the newest walk window of a session waits**, and it stops waiting once the person has sent the session a message after it opened; closing the window does not settle it. The mod's first-message note tells the agent to keep the list current and to give each item an act. An agent item with none, or with `answer` and no `options` while no question is open in the thread, gets a Reply glyph, and its press opens a box under the row whose text goes to `answer_waiting` as `text`.
+**A session says what it is waiting on the person for with `waiting_for`**, a tool on the agent's door that replaces the whole list each call (`items`: `id`, `text`, an optional `act` of `walk`, `answer`, `approve_pr` or `run` with a `target`, optional `options`); an empty list clears it. Fleet keeps the agent's items in `session_waiting`, stamps `since` and keeps it for an unchanged `id`, and **adds its own on every read** into `SessionRecord.waiting_for`: `ask:<call>` for an open question, `perm:<call>` for an open permission, `walk:<url>` for a window the session showed that no `Approved: <url>` message (of any of its takes) has followed, `window_ask:<row>` for a question asked in the window and not yet answered (*Asking in the window*). Where an agent item names the same act and target as one of Fleet's, Fleet's stands. An ended session holds nothing. **Bridge shows the list at the foot of the thread**, over the composer, as a **Needs you** band folded to one glyph an item, named on hover; a press opens it to the rows, each a press that does its act. The owner, 12 Oct 2026: "when the session is not completed, the 'needs you' items in the right panel move to a panel in the thread like this that is locked to the bottom. Maybe it's collapsed by default?" A question or permission is left out of the band, since its own card shows it. Once the agent says it is done, the done callout takes that place and the items go back to the ledger's first section, **Waiting on you**. Bridge puts a Session with items under Needs you with a bell-ring mark whose tooltip lists them. **`answer_waiting`** (`session_id`, `item_id`, and a `choice` index into the item's `options`, `text`, or `mode` of `best` or `quick`) settles one: a card item goes through `answer_session_ask`, a walk item sends the approval as the person's message, an agent item becomes a message to the session. `best` tells the agent to decide for itself and think it through, `quick` to take the reasonable path and keep moving. **`dismiss_waiting`** (`session_id`, `item_id`) drops an item for good: the id is kept in `session_waiting_dismissed`, a derived item with it never comes back, an agent item with it is removed and left off if the agent states it again, and nothing is sent to the agent. A nothing-held id is refused as for `answer_waiting`. **Only the newest walk window of a session waits**, and it stops waiting once the person has sent the session a message after it opened; closing the window does not settle it. The mod's first-message note tells the agent to keep the list current and to give each item an act. An agent item with none, or with `answer` and no `options` while no question is open in the thread, gets a Reply glyph, and its press opens a box under the row whose text goes to `answer_waiting` as `text`.
 
 **A session says it has nothing left to work on with `all_done`** (`session_id` only; the hosted session holding the connection wins, as for `waiting_for`). Fleet stamps `SessionRecord.done_since`, keeps it in `session_done`, and publishes `SessionChanged`; a second call keeps the first instant, and an ended session is refused. It is a statement and ends nothing: Bridge draws a callout at the foot of the thread, **End session** (the ordinary close) or **Keep going** (local to Bridge, it hides that `done_since` only). `done_since` stops standing when the person sends the session a message (`send_session_message` or an `answer_waiting` that becomes one), when the agent calls `waiting_for` with a non-empty list, and when a hosted session's turn starts again. A terminal session has no turn-start signal, so for one only the first two apply. The mod's first-message note tells the agent to clear `waiting_for`, then call `all_done` only when nothing is owed and none of its background work is running.
 
@@ -304,6 +310,16 @@ Capture and Approve keep working while the card is open. The card folds into the
 | Hosted | The message is a turn: it wakes the Session and starts its process if it was ended for being quiet. The thread draws it as a message from **Fleet**, the voice another Session's message has, named `Fleet`, so it is never the person's |
 | Terminal | Fleet cannot push into one. The message is held for its mod, prefixed `Fleet:`, and handed over when the mod next asks. A mod that is not asking leaves it unsent and Fleet tries again at the next reading |
 | Ended | Nothing is sent |
+
+**A Session is told when what it wrote would conflict.** When Fleet finds that the files a Session wrote conflict with another Job's or Session's, or with the base after it moved, it sends that Session one message: the files, who the other is and how to reach it. The Session is not paused and the message is sent once per set of files. `docs/concepts/fleet.md`, *Write clashes*.
+
+| The other is | The message names |
+|---|---|
+| A Job | Its handle and title, and says to send its Drone a message with `redirect_drone` and the Job's id |
+| A Session | Its address, `s-` and the first eight characters of its id, and its branch, and says to use `SendMessage` to that address |
+| The base | The commit on it that changed the first file, and says to merge it into the branch |
+
+A terminal Session reports the files it wrote through the mod's `touched` fact, as paths from its directory. A Job's Drone can answer a Session with `leave_note` on the Session's address, which arrives as a message naming that Job.
 
 ## Acts on a pull request
 
@@ -356,6 +372,7 @@ A session that is **ended or dead** offers Fork, in place of its message box. `s
 | The fork | Its own id, ledger and slot. It takes the old title unless one is given, starts in the repository's main checkout, and leases a slot at its first write like any other session. It holds none of the old session's slot, branch or pull requests |
 | First process | Resumes the old id as a fork under the new one, so the conversation is copied and the new id is Fleet's. Once it has run, the session resumes by its own id |
 | Ledger | A `forked_from` row on the fork and a `forked_to` row on the old session, both `spent` |
+| Told | **Every process of a fork has a note in its system prompt** (`--append-system-prompt`): forked from <title> (<id>) at <time>, that session is live or has ended, and nothing it started is the fork's. Its subagents, background tasks and shells, slots, branches, windows, pull requests and peer sessions stay its own, and a task-notification about its background work is not acted on, relaunched or reported. A fork launch cannot be built without the note (`HostedLaunch::forking` takes it) |
 
 > **Rule.** The whole of a session is forked only once it is ended or dead. A live one is forked at a message, below.
 > Why: a copy of the whole of a conversation still being written is two sessions racing to the same next message, and a session that can still be spoken to needs no copy.
@@ -373,9 +390,31 @@ A session that is **ended or dead** offers Fork, in place of its message box. `s
 
 The agent side is spike 30. A cut at a message the agent is part way through a tool call on is repaired by the CLI.
 
+**Why a note, and not a cleaner copy.** The CLI copies the conversation, and the conversation says the old session launched subagents, shells and a slot; the CLI then replays a notification for each of them that had not finished ("didn't finish before the previous session ended", "failed", "stopped") into the fork. Stripping the notifications from a copy of the transcript would leave the launches that caused them in the words the fork reads, and the copy would be a file Fleet writes into the CLI's own folder in a format Fleet does not own. The fork is told instead, in the one place it cannot read past. Found 13 Oct 2026: a fork of a live session relaunched the old session's builder into the old session's slot, and showed the owner the old session's windows as its own.
+
 **Bridge** keeps every session that ended in the last seven days (by when it was last seen) beside the live ones, under an Ended heading (a terminal session that has not ended but whose mod is not asking is Quiet, its own heading above it, and still offers Fork), and finds an older one by search, and draws a dead session without a message box and with Fork in its head. It owns nothing: its slots, branches and pull requests are not offered to a chip, and it is not offered to `@`. A press on Fork asks Fleet, and Bridge opens the new session once it holds it. The ledger draws a Forks section only where a session has a row for it.
 
 **A terminal that comes back is live again.** The mod asking again flips `listening`, which Fleet publishes as `session.changed` while a window has the thread open. Fork on a session whose terminal woke between the press and Fleet is refused as live. After a Fleet restart every terminal session reads dead until its mod's next ask, about two seconds.
+
+## A Session an agent started
+
+A Session's agent may start a Session, or fork its own conversation into one, through two tools on its door (23.80). The owner approved it on 12 Oct 2026 on the condition that **the new Session waits for him**.
+
+| | |
+|---|---|
+| `start_another_session` | `manifest_id`, `title`, `message`. A new Session in any repository Fleet serves |
+| `fork_this_session` | `title`, `message`, optional `at`. A copy of the caller's own conversation, to the row `at` or to its latest message of its own that the transcript holds. Allowed while the caller is live, since it is a fork at a message |
+| The caller | Placed by the connection of its hosted process, as `show_window` places it. **No call names a Session**, so an agent cannot fork another's conversation, and a call from no hosted Session is refused 422 `fleet.agent_start_unplaced` |
+| Not offered | Tune, close, send and every other hosted-session command stay `agent_access` No |
+
+> **Rule.** An agent's Session is created and listed at once, and nothing runs until the owner sends its first message.
+> Why: a Session that started itself is a model spending tokens in a repository nobody chose to open. Holding the message makes the start a proposal he reads and may edit.
+
+**The first message is kept as an `unsent` attachment** on the new Session, and read back on every read as a waiting item: id `unsent:<session id>`, text *First message*, source `first_message`, act `message` on the Session. It has its own source and act so the Dashboard and the Cockpit draw no reply box for it and a press opens the Session. Bridge puts the words in the new Session's message box once, where the box is empty. His ordinary send (`send_session_message`) sends what the box holds, starts the first turn, and spends the attachment and so the item; editing first is the same call. `answer_waiting` refuses the item, since sending is the answer. Ending the Session discards both. While sleep is on, the item is left on the list and not decided for him.
+
+**Both ledgers record it.** A start writes `started_by` on the new Session and `started_to` on the caller; a fork writes the `forked_from` and `forked_to` of *A forked session*, with `at` and `cut`. The caller's thread gets a `started` row naming the Session and whether it is a fork, which Bridge draws as the press that opens it. The new Session's thread opens under a line naming the Session whose agent started it.
+
+**Nothing bounds how many an agent starts.** Each waits for him, so none spends anything, but a loop would fill the list. A limit waits for one being seen.
 
 ## In Bridge
 
@@ -401,7 +440,7 @@ Bridge reads every live session from `list_sessions` once per connection and kee
 
 | Where it shows | What |
 |---|---|
-| A hosted Session's thread | One `check` row per run: the Check's key, its run id and `running`, `passed` or `failed`. The row is replaced by id as the run ends, and the Session is published whole each time |
+| A hosted Session's thread | One `check` row per run: the Check's key, its run id, `running`, `passed` or `failed`, and what it was narrowed to (`target`: the test filter, or `--changed` and the packages the change reached; absent where it ran whole). The row is replaced by id as the run ends, and the Session is published whole each time |
 | The Checks page | A row with the `session` requester (`session_id`, `slot`), no Job, drawn with the slot's owner chip. Pressing the thread row opens the run's log over the Session |
 | The log | `get_session_check_output`, `GET /sessions/checks/:run/output`, answered as `get_check_output` answers a Job's. Kept up to 256 KiB, the newest end when cut |
 

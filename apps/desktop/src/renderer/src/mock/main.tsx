@@ -29,11 +29,14 @@ if (script !== undefined) {
   meetEveryGuide();
 }
 
+// `?step=<n>` starts a walk on step n, the steps before it run straight through: what Back does.
+const startStep = (of: number) => Math.min(Math.max(Number(query.get("step") ?? 1) || 1, 1), of) - 1;
+
 const root = document.getElementById("root");
 const picker = document.getElementById("picker");
 if (root !== null && picker !== null) {
   mountApp(scenario, root);
-  if (walking !== null && script !== undefined) mountWalk(walking, script, query.has("autoplay"), picker);
+  if (walking !== null && script !== undefined) mountWalk(walking, script, query.has("autoplay"), picker, startStep(script.steps.length));
   else if (walking !== null) mountNoWalk(walking, picker);
   else if (!framing) mountPicker(scenario.name, picker);
   // A walk page keeps the picker, on a host of its own: the walk's card holds `#picker`, and one

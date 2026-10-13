@@ -85,13 +85,15 @@ export type SessionRecord = {
 };
 
 /** What a press on a waiting item does. `target` is an address, a call, a pull request number or a command. */
-export type WaitingAct = { kind: "walk" | "answer" | "approve_pr" | "run"; target: string };
+export type WaitingAct = { kind: "walk" | "answer" | "approve_pr" | "run" | "message"; target: string };
 
 /**
  * Who put an item on the list: the agent, or Fleet from an open card, a permission, an unapproved walk
- * window, or a question the session asked in its walk window (`ask_in_window`).
+ * window, a question the session asked in its walk window (`ask_in_window`), or `first_message`: another
+ * Session's agent started this one and the person has not sent its first message. A `first_message` item
+ * has no reply and its `act` is a `message` on the Session, so a press opens it.
  */
-export type WaitingSource = "agent" | "ask_card" | "walk" | "permission" | "window_ask";
+export type WaitingSource = "agent" | "ask_card" | "walk" | "permission" | "window_ask" | "first_message";
 
 /** One choice of an item or a question, with what choosing it means where the asker said. */
 export type WaitingOption = { label: string; description?: string };
@@ -117,7 +119,7 @@ export type AskInWindow = {
 
 /**
  * One thing a session waits on the person for. `id` is stable across updates: the agent's own, or
- * `ask:<call>`, `perm:<call>`, `walk:<url>`, `window_ask:<row>` where Fleet derived it. `options` is
+ * `ask:<call>`, `perm:<call>`, `walk:<url>`, `window_ask:<row>`, `unsent:<session>` where Fleet derived it. `options` is
  * present only on an item that has choices, and `answer_waiting`'s `choice` indexes it. `place` is
  * present only on a `window_ask` item, whose `act` is a walk of the window it was asked in.
  */
@@ -145,6 +147,22 @@ export type AnswerWaiting = {
 };
 
 /**
+ * `POST /sessions/start_another`, the agent's: a new Session in `manifest_id`'s repository. Its `message` is
+ * held unsent and nothing runs until the person sends it. The caller is placed by its connection.
+ */
+export type StartAnotherSession = { manifest_id: string; title: string; message: string };
+
+/**
+ * `POST /sessions/fork_this`, the agent's: a new Session that starts as a copy of the caller's own
+ * conversation, ending at the row `at` (included) or, absent, at its latest message of its own that the
+ * transcript holds. `message` is held unsent as `StartAnotherSession`'s is.
+ */
+export type ForkThisSession = { title: string; message: string; at?: string };
+
+/** What both answer: the Session exists and is listed, and no process has started. */
+export type SessionHeld = { session_id: string; title: string; fork: boolean };
+
+/**
  * `POST /sessions/claim_pull_request`: the caller takes an open pull request no live Session or Job holds.
  * `session_id` or `job_id` names the claimant where the connection places none, which is Bridge's case:
  * exactly one of the two. Fleet refuses
@@ -160,6 +178,15 @@ export type PullRequestClaimed = { number: number; branch: string; url: string; 
  * it (`ask:`, `perm:`, `walk:`) or the agent stated it, and nothing is sent to the agent.
  */
 export type DismissWaiting = { session_id: string; item_id: string };
+
+/** One take of a change a session shows in its window. `url` is `http` or `https`. */
+export type WindowTake = { name: string; url: string };
+
+/**
+ * `POST /sessions/window`, the agent's: a page to show. `variations` offers several takes of one
+ * change in the one window, each a page of its own, and `url` is the first's. Absent: one page.
+ */
+export type ShowWindow = { url: string; title?: string; session_id?: string; variations?: WindowTake[] };
 
 /**
  * `POST /sessions/window/closed`: the person closed the window a session showed, by its `url` as
@@ -238,6 +265,9 @@ export type SessionFact =
     }
   | { kind: "measured"; usage: SessionUsage }
   | { kind: "turn_completed" }
+  /** Files written, relative to the session's `cwd`. Since 23.81. */
+  | { kind: "touched"; paths: string[] }
+  | { kind: "wrote" }
   | { kind: "ended"; reason: string };
 
 export type SessionReport = {
@@ -255,6 +285,8 @@ export type SessionCheckCall = {
   act: "start" | "end";
   cwd: string;
   name: string;
+  /** What the run was narrowed to: the test filter, or `--changed ` and the packages reached. `end` may tell it when `start` could not. */
+  target?: string;
   run?: number;
   outcome?: "passed" | "failed";
   took_ms?: number;

@@ -49,4 +49,6 @@ export type Fact =
       mod_version?: string
     }
   | { kind: 'turn_completed' }
+  | { kind: 'touched'; paths: string[] }
+  | { kind: 'wrote' }
   | { kind: 'ended'; reason: string }

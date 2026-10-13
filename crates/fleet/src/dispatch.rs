@@ -896,6 +896,8 @@ where
             // Its needs are spent where it landed and given back where it was
             // dropped, so nothing waits behind a Job that is over. #1059.
             self.needs_ended(&moved.job).await;
+            // And so are the clashes it was in: the other side has nothing left to talk out.
+            self.writes().left(&crate::clashing::Who::Job(moved.job.id().clone()));
         }
         self.publish(ipc::Event::JobStateChanged((&moved.event).into()));
         Ok(moved.job)

@@ -84,6 +84,9 @@ where
         else {
             return Ok(Vec::new());
         };
+        // Whoever has written files in this repository is set against main's new tip on the next
+        // pass of `clashes_checked`.
+        self.writes().main_seen(served.manifest().id().as_str(), &head);
         let candidates = self.notice_merged_runs(&served, &head).await;
         let before = self
             .store()

@@ -50,6 +50,25 @@ fn shows_a_page(url: &str) -> bool {
     !name.is_empty() && !url.contains(char::is_whitespace)
 }
 
+/// The takes a call named, trimmed, or why they cannot be shown. **Each address is held to the one
+/// `url` is**, and a call that names takes shows the first: `url` must be that same page.
+fn takes_shown(url: &str, named: Vec<ipc::WindowTake>) -> Result<Vec<ipc::WindowTake>, &'static str> {
+    let takes: Vec<_> = named
+        .into_iter()
+        .map(|one| ipc::WindowTake { name: one.name.trim().to_string(), url: one.url.trim().to_string() })
+        .collect();
+    if takes.iter().any(|one| one.name.is_empty()) {
+        return Err("a name on every variation");
+    }
+    if takes.iter().any(|one| !shows_a_page(&one.url)) {
+        return Err("an `http` or `https` address on every variation");
+    }
+    if takes.first().is_some_and(|first| first.url != url) {
+        return Err("`url` to be the first variation's address");
+    }
+    Ok(takes)
+}
+
 /// The two kinds a session holds one of at a time. Every other kind is kept as
 /// the open word it arrived as.
 const ONE_AT_A_TIME: [&str; 2] = ["branch", "slot"];
@@ -230,6 +249,24 @@ where
             return false;
         };
         mod_is_older(session.mod_version.as_deref(), &current)
+    }
+
+    /// A terminal Session wrote these files, named from its directory. **Only in a pool slot**, the
+    /// one place Fleet can tell whose tree a file is in.
+    fn session_wrote(&self, session: &KeptSession, roots: &[(String, String)], paths: &[String]) {
+        let place = placed(&session.cwd, roots);
+        let (Some(manifest), Some(slot)) = (place.manifest, place.slot) else {
+            return;
+        };
+        let Some((_, root)) = roots.iter().find(|(id, _)| *id == manifest) else {
+            return;
+        };
+        let worktree = adapter_traits::slot_path(root.trim_end_matches('/'), slot);
+        let inside = crate::clashing::inside_worktree(&worktree, &session.cwd, paths);
+        if !inside.is_empty() {
+            let who = crate::clashing::Who::Session(session.id.clone());
+            self.writes().wrote(&who, &manifest, inside, &self.now());
+        }
     }
 
     /// Take the slot `placed` names for `holder`, or give back the one it was in
@@ -435,6 +472,15 @@ where
             SessionFact::TurnCompleted => {
                 session.last_turn_at = Some(now.clone());
                 changed = true;
+                // Whatever it was changing for the person is done for now.
+                crate::session_host::readiness::windows_set(&mut store, &holder, &now, false).map_err(fault)?;
+            }
+            SessionFact::Wrote => {
+                changed |= crate::session_host::readiness::windows_set(&mut store, &holder, &now, true).map_err(fault)?;
+            }
+            // For the check of who else writes these files; nothing on the ledger changes.
+            SessionFact::Touched { paths } => {
+                self.session_wrote(&session, &roots, &paths);
             }
             // Fleet ends a session it hosts, by `close_session`: the harness in
             // it going away is a process ending, and the next message resumes.
@@ -471,11 +517,28 @@ where
             // Its terminal prompt went with it, so Bridge must not offer the card.
             self.terminal_ask_closed(&session.id, ipc::SessionAskState::Unanswered).await;
             self.session_checks_ended(&session.id).await;
+            self.writes().left(&crate::clashing::Who::Session(session.id.clone()));
         }
         if changed {
             self.publish(ipc::Event::SessionChanged(record.clone()));
         }
         Ok(record)
+    }
+
+    async fn start_another_session(
+        &self,
+        caller: Option<api::Caller>,
+        start: ipc::StartAnotherSession,
+    ) -> Result<ipc::SessionHeld, Refusal> {
+        self.another_session_started(caller, start).await
+    }
+
+    async fn fork_this_session(
+        &self,
+        caller: Option<api::Caller>,
+        fork: ipc::ForkThisSession,
+    ) -> Result<ipc::SessionHeld, Refusal> {
+        self.this_session_forked(caller, fork).await
     }
 
     async fn claim_pull_request(
@@ -506,6 +569,7 @@ where
         if !shows_a_page(&url) {
             return Err(self.ledger_unnamed("an `http` or `https` address to show"));
         }
+        let variations = takes_shown(&url, show.variations).map_err(|what| self.ledger_unnamed(what))?;
         let hosted = caller.and_then(|caller| self.session_holding(&caller));
         let id = hosted
             .or_else(|| show.session_id.map(|named| named.as_str().trim().to_string()))
@@ -538,7 +602,9 @@ where
                             ("form".to_string(), "window".to_string()),
                             ("title".to_string(), title.clone()),
                         ]
-                        .into(),
+                        .into_iter()
+                        .chain((!variations.is_empty()).then(|| ("variations".to_string(), ipc::WindowTake::as_detail(&variations))))
+                        .collect(),
                     },
                 },
             })
@@ -550,6 +616,7 @@ where
                 at: self.instant(),
                 title,
                 url,
+                variations,
                 ended_at: None,
             },
         )

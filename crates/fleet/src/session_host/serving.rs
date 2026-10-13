@@ -316,6 +316,7 @@ where
                 .map_err(|why| self.ledger_fault(why))?;
         }
         self.session_checks_ended(&id).await;
+        self.writes().left(&crate::clashing::Who::Session(id.clone()));
         self.published_hosted(&id).await
     }
 
@@ -708,6 +709,8 @@ where
         if from == SessionVoice::You {
             self.noted_on_the_ledger(&session, &sent.mentions, &text)
                 .await?;
+            // What the box held may be the first message another Session's agent wrote for him.
+            self.first_message_sent(&id).await;
         }
 
         let mut turn = String::new();
@@ -831,11 +834,8 @@ where
         sent: SendSessionMessage,
     ) -> Result<SessionRecord, Refusal> {
         let id = sent.session_id.as_str().to_string();
-        let approved = sent
-            .text
-            .trim()
-            .strip_prefix(super::walking::APPROVED)
-            .map(|url| url.trim().to_string());
+        let approved = super::walking::approved_address(&sent.text).map(str::to_string);
+        let noted = super::readiness::note_address(&sent.text).map(str::to_string);
         let record = if let Some(session) = terminal {
             let addressed = self.addressed(&sent.mentions).await?;
             let kept = self.keep_uploads(&id, &sent.attachments)?;
@@ -848,6 +848,9 @@ where
         };
         if let Some(url) = approved {
             self.walk_ended(&id, &url).await;
+        }
+        if noted.is_some() {
+            self.window_noted(&id).await;
         }
         // The person spoke, so the agent's word that nothing was left no longer stands.
         if self.done_cleared(&id).await {
@@ -972,6 +975,10 @@ where
                     // (s-c271bfe5, 8 Oct 2026). Started fresh under the same id instead.
                     resuming: hosting.ran && self.has_a_conversation(id).await,
                     forking: hosting.fork_of.clone(),
+                    fork_note: match &hosting.fork_of {
+                        Some(old) => self.fork_note_of(id, old).await,
+                        None => None,
+                    },
                     fork_cut: match hosting.fork_of {
                         Some(_) => self.fork_cut_of(id).await,
                         None => None,

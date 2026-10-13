@@ -136,6 +136,8 @@ pub mod layout;
 pub mod key_bindings;
 /// Mods: a directory on this machine that changes how Bridge looks.
 mod mods;
+/// Where two agents' changes in one repository conflict. `docs/concepts/fleet.md`, *Write clashes*.
+mod clashes;
 /// `armada need`: a checkout says what it needs on a path, and Fleet answers from
 /// the session ledger. `docs/capabilities/needs.md`.
 mod needs;
@@ -198,6 +200,7 @@ mod servers;
 /// answers. `docs/concepts/session.md`.
 mod session_checks;
 mod session_retro_row;
+mod session_starts;
 mod sessions;
 mod setup;
 /// What a step's harness produced, as a client is told about it.
@@ -381,6 +384,7 @@ pub use mods::{
     ModChecked, ModKind, ModList, ModPromoted, ModScaffolded, ModSummary, PromoteMod, ScaffoldMod,
     SetModEnabled,
 };
+pub use clashes::{ClashHolder, ClashSide, WriteClash, WriteClashes};
 pub use needs::{NeedAct, NeedAnswer, NeedCall, NeedLine, NeedList};
 pub use job_issues::{JobIssue, JobWaiting};
 pub use overlap::{ScopeOverlap, SharedPath};
@@ -456,11 +460,12 @@ pub use session_checks::{
     SessionCheckAct, SessionCheckAnswer, SessionCheckCall, SessionCheckState,
 };
 pub use session_retro_row::{PartialRetroItem, RetroStage};
+pub use session_starts::{ForkThisSession, SessionHeld, SessionLink, StartAnotherSession};
 pub use sessions::{
     AnswerWaiting, Attachment, AttachmentNamed, AttachmentReport, AttachmentState, DismissWaiting,
     ClaimPullRequest, Holder, HolderKind, Owners, Ownership, PullRequestClaimed, RenameSession,
     SessionFact, SessionId, SessionList, SessionOrigin, SessionRecord, SessionReport, SessionState,
-    SessionRunMessage, SessionRunUnderway, StartSessionRun, StopSessionRun, SessionUsage, SetWaitingFor, AllDone, ShowWindow, AskInWindow, WindowPlace, TerminalCommand, TerminalFacts, WaitingAct,
+    SessionRunMessage, SessionRunUnderway, StartSessionRun, StopSessionRun, SessionUsage, SetWaitingFor, AllDone, ShowWindow, WindowTake, AskInWindow, WindowPlace, TerminalCommand, TerminalFacts, WaitingAct,
     WaitingActKind, WaitingInput, WaitingItem, WaitingMode, WaitingOption, WaitingSource,
     WindowClosed,
 };

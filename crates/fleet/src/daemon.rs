@@ -170,6 +170,10 @@ pub struct Fleet<H, V, W> {
     /// its Drone was last told. Never written down, for `sweeping`'s reason —
     /// `crate::peers`.
     peering: Mutex<crate::peers::Peering>,
+    /// Which files each live Job and Session has written, and the clashes found between them.
+    /// Never written down, for `sweeping`'s reason; an `Arc` because a Drone's tap holds it —
+    /// `crate::clashing`.
+    writes: Arc<crate::clashing::Writes>,
     /// Which commit is being proved and what came back. Never written down, for
     /// `sweeping`'s reason; an `Arc` because the run is spawned — `crate::proving`.
     proving: Arc<Mutex<crate::proving::Proving>>,

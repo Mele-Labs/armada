@@ -3142,7 +3142,7 @@ Additive. `fix_main` (`POST /merge_lines/fix`, body `FixMain {root, job?, brief?
 
 | Operation | Carries | Notes |
 | --- | --- | --- |
-| `report_session` (`POST /sessions/report`) | `SessionReport`: `harness`, `session_id` and one `fact`: `started`, `titled`, `moved`, `attached`, `settled`, `measured`, `tuned` (since 23.53), `turn_completed` or `ended` | Answers the whole `SessionRecord`. `agent_access` `No`: a harness reports, never the agent inside it |
+| `report_session` (`POST /sessions/report`) | `SessionReport`: `harness`, `session_id` and one `fact`: `started`, `titled`, `moved`, `attached`, `settled`, `measured`, `tuned` (since 23.53), `turn_completed`, `wrote` or `ended` | Answers the whole `SessionRecord`. `agent_access` `No`: a harness reports, never the agent inside it |
 | `list_sessions` (`GET /sessions?manifest_id=&q=&state=`) | `SessionList` | `q` finds a session by title, branch, pull request number, Job id or slot |
 | `who_owns` (`GET /sessions/owner?kind=&target=&manifest_id=`) | `Owners`: every holder, standing ones first | `kind` is `branch`, `pr`, `job` or `slot` |
 | `session.changed` (event) | `SessionRecord`, whole | Published on a fact that changed something; a repeat publishes nothing |
@@ -3456,7 +3456,7 @@ Bridge's half is in `packages/protocol/src/hosted-sessions.ts`, written by hand 
 | `report_session_check` (`POST /sessions/checks`) | `SessionCheckCall`: `act` (`start` or `end`), `cwd`, `name`; on `end` also `run`, `outcome`, `took_ms`, `log`. Answers `SessionCheckAnswer`: `run?` | `armada check` is the caller. No `run` where no Session holds the slot |
 | `get_session_check_output` (`GET /sessions/checks/:run/output`) | Answers `CheckOutput` | Keyed by run id, since a Session's run has no Job |
 | `Requester` kind `session` | `session_id`, `slot` | |
-| `SessionRow` kind `check` | `name`, `run`, `state` | Replaced by id as the run ends |
+| `SessionRow` kind `check` | `name`, `run`, `state`, `target?` | Replaced by id as the run ends. `target` is what the run was narrowed to, absent where it ran whole; optional on `SessionCheckCall` too, where a `--changed` run tells it on `end` |
 | `ManifestCheckRow.job_id`, `job_handle`, `job_title`, `step` | Now optional | Absent on a Session's run, which carries `session_id` and its run id in `asked_run_id` |
 
 **Skew.** A Bridge before 23.75 reads a row with no `job_id` as a Job row with a missing id, so it draws that row badly; it never asks for the new routes. A Fleet before it sends neither the rows nor the thread row.
@@ -3473,6 +3473,37 @@ Bridge's half is in `packages/protocol/src/hosted-sessions.ts`, written by hand 
 **The answer of a review is held to the open items.** An id the model invented is dropped. An id that leads an entry is kept once, so it is taken out of every `merged_ids` and out of `set_aside`. An item set aside needs a `why`. **An open item the model named nowhere is appended to `entries` with the reason `not ranked`**, so nothing a person has not answered goes missing from the queue. Bridge keeps the conversation, because Fleet holds no thread.
 
 **Skew.** A Fleet before 23.74 has neither route and answers 404, so a Bridge that offers the review has nothing to call and shows the plain list. A Bridge before it never calls them. Bridge's half is `packages/protocol/src/retro-review.ts`, written by hand like the rest.
+
+## Protocol 23.81: write clashes between agents
+
+`docs/concepts/fleet.md`, *Write clashes*. **Additive only**: one operation, one fact a terminal reports, and one new reach for `leave_note`.
+
+| Where | Carries | Notes |
+| --- | --- | --- |
+| `list_write_clashes` (`GET /clashes?manifest_id=&holder=`) | `WriteClashes`: `clashes[]` of `WriteClash`: `one`, `other`, `paths[]`, `since` | `one` and `other` are `ClashHolder`: `kind` (`job`, `session` or `main`), `id`, `label`. `other` is `main` for a holder against the base, with the base's name as `id`. `holder` is a Job's or a Session's id and keeps the clashes it is in. In memory in Fleet: a restart answers none until the holders write again. `Bridge only` |
+| `SessionFact` `touched` (`POST /sessions/report`) | `paths[]`, relative to the session's `cwd` | Sent by the `armada` mod from 0.3.13 for each write tool call. Paths only; one that climbs out of the directory is dropped. Fleet reads it for a Session standing in a pool slot and ignores it elsewhere |
+| `leave_note` (a Drone's tool) | `to` may be a Session's address, `s-` and the first eight characters of its id | Refused where Fleet has found no clash between that Session and the Job, and once per two minutes per Session |
+
+**Skew.** A Fleet before 23.81 answers 404 to the read, so a Bridge that marks rows has nothing to draw. It also rejects a `touched` report as an unknown fact, and the mod drops it and goes on. A mod before 0.3.13 reports no writes, so its Session is never a holder in a clash. Bridge's half is `packages/protocol/src/clashes.ts` and `sessions.ts`, written by hand like the rest.
+
+## Protocol 23.80: a Session an agent started
+
+`docs/concepts/session.md`, *A Session an agent started*. **Additive**: two operations on the agent's door, one thread row, two enum values and two attachment kinds. No existing field changes.
+
+| Where | Carries | Notes |
+| --- | --- | --- |
+| `start_another_session` (`POST /sessions/start_another`) | `StartAnotherSession`: `manifest_id`, `title`, `message`. Answers `SessionHeld`: `session_id`, `title`, `fork` | `agent_access` Yes. The Session is created and listed at once with **no process and no turn**. 422 `fleet.agent_start_unplaced` where the connection places no hosted Session, 422 `fleet.agent_start_empty` for a blank `title` or `message` |
+| `fork_this_session` (`POST /sessions/fork_this`) | `ForkThisSession`: `title`, `message`, `at?`. Answers `SessionHeld` with `fork` true | `agent_access` Yes. **Of the caller's own conversation only**: the caller is placed by its connection and no id is read. `at` is a thread row id as `fork.at` is; left out, Fleet takes the caller's latest message of its own that the transcript holds. 422 `fleet.fork_point_unwritten` as for `fork.at`; nothing is written |
+| `SessionRow.started` (`session.row`, `get_session`) | `id`, `at`, `session` (`SessionLink`: `id`, `title`), `fork` | Written in the **caller's** thread. Bridge draws it as the press that opens `session` |
+| `Attachment.kind` `unsent` | `target` is the first message's words, `standing` until the person's ordinary send, then `spent` | On the new Session. Bridge reads it as the text to put in the box once. Ending the Session gives it back. Kinds are open text, so no type changes |
+| `Attachment.kind` `started_by`, `started_to` | `target` is the other Session's id, `spent` | A start's links. A fork keeps the `forked_from` and `forked_to` it already had |
+| `WaitingSource` | `first_message` | Fleet's. Id `unsent:<session id>`, text `First message`, no options |
+| `WaitingActKind` | `message` | `target` is the Session's id; a press opens it. An agent may also state it in `waiting_for` |
+| `answer_waiting` | | Refused 422 `fleet.session_waiting_empty` for a `first_message` item: sending the first message is the answer |
+
+**`send_session_message` is the one call that sends it.** What the box holds is sent, so an edit before the send changes nothing on the wire. It starts the first turn and settles the attachment and the item together.
+
+**Skew.** A Fleet before 23.80 has neither route, so the tools are not offered to an agent, and sends no `started` row, `first_message` item or `unsent` attachment. A Bridge before it meets `first_message` and `message` as values it does not know. Bridge's half is `packages/protocol/src/sessions.ts` and `hosted-sessions.ts`, written by hand like the rest. **The event stream is unchanged**: one more `session.row` and `session.changed` per call, on the same sink.
 
 ## Protocol 23.79: a Session forked at a message
 
